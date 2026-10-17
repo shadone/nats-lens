@@ -47,12 +47,12 @@ const base: Finding = {
   transitionsLastHour: 1,
 };
 
-function show() {
+function show(query = "") {
   renderApp(
     <Routes>
       <Route path="/findings/:id" element={<FindingDetail />} />
     </Routes>,
-    "/findings/stream-020%3AA%2Fs",
+    "/findings/stream-020%3AA%2Fs" + query,
   );
 }
 
@@ -284,21 +284,64 @@ describe("around the start", () => {
     expect((listEvents.mock.calls[1][0] as { entity?: unknown }).entity).toMatchObject({ key: "APP/order-jobs/resize-worker", consumer: "resize-worker" });
   });
 
-  it("says how many it shows of how many, and opens the same window in Events", async () => {
+  it("says how many it shows of how many, and opens the same window in Events, in both scopes", async () => {
     const began = Date.UTC(2026, 9, 17, 9, 0);
-    m.getFinding.mockResolvedValue({ finding: { ...base, conditionSince: began }, transitions: [] });
+    m.getFinding.mockResolvedValue({ finding: { ...base, conditionSince: began, entity: consumerEntity }, transitions: [] });
     listEvents.mockResolvedValue(
       create(ListEventsResponseSchema, {
         events: [create(EventSchema, { id: "7", time: timestampFromMs(began + 30_000), source: EventSource.NATS, kind: "server.shutdown", type: "SERVER.SHUTDOWN", summary: "nats-1 shut down" })],
         totalCount: 34,
       }),
     );
-    show();
-    const line = await screen.findByText(/Showing 1 of 34/);
-    const link = within(line).getByRole("link", { name: "Open in Events" });
-    const url = new URL(link.getAttribute("href")!, "http://x");
+    show("?system=example-prod");
+    const href = async () => {
+      const line = await screen.findByText(/Showing 1 of 34/);
+      return new URL(within(line).getByRole("link", { name: "Open in Events" }).getAttribute("href")!, "http://x");
+    };
+    let url = await href();
     expect(url.pathname).toBe("/events");
     expect(url.searchParams.get("from")).toBe("2026-10-17T08:50:00Z");
     expect(url.searchParams.get("to")).toBe("2026-10-17T09:10:00Z");
+    expect(url.searchParams.get("system")).toBe("example-prod");
+    expect(url.searchParams.has("consumer")).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "This entity" }));
+    await vi.waitFor(() => expect(listEvents).toHaveBeenCalledTimes(2));
+    url = await href();
+    expect(url.searchParams.get("system")).toBe("example-prod");
+    expect(url.searchParams.get("consumer")).toBe("APP/order-jobs/resize-worker");
+    expect(url.searchParams.get("from")).toBe("2026-10-17T08:50:00Z");
+  });
+
+  it("gives the count only when it shows fewer than there are", async () => {
+    const began = Date.UTC(2026, 9, 17, 9, 0);
+    m.getFinding.mockResolvedValue({ finding: { ...base, conditionSince: began }, transitions: [] });
+    listEvents.mockResolvedValue(
+      create(ListEventsResponseSchema, {
+        events: [create(EventSchema, { id: "7", time: timestampFromMs(began + 30_000), source: EventSource.NATS, kind: "server.shutdown", type: "SERVER.SHUTDOWN", summary: "nats-1 shut down" })],
+        totalCount: 1,
+      }),
+    );
+    show();
+    expect(await screen.findByRole("link", { name: "Open in Events" })).toBeInTheDocument();
+    expect(screen.queryByText(/Showing/)).toBeNull();
+  });
+
+  it("offers no entity scope for an entity Events cannot filter by", async () => {
+    const account: Entity = { ...blank, kind: "account", key: "APP", account: "APP", name: "APP" };
+    m.getFinding.mockResolvedValue({ finding: { ...base, conditionSince: Date.now() - 3_600_000, entity: account }, transitions: [] });
+    show();
+    await vi.waitFor(() => expect(listEvents).toHaveBeenCalled());
+    expect(await screen.findByText(/10 minutes either side/)).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Around the start scope" })).toBeNull();
+  });
+
+  it("narrows a client finding by its client name", async () => {
+    m.getFinding.mockResolvedValue({ finding: { ...base, conditionSince: Date.now() - 3_600_000, entity: clientEntity }, transitions: [] });
+    show();
+    fireEvent.click(await screen.findByRole("button", { name: "This entity" }));
+    await vi.waitFor(() => expect(listEvents).toHaveBeenCalledTimes(2));
+    const req = listEvents.mock.calls[1][0] as { entity?: unknown; clientName?: string };
+    expect(req.clientName).toBe("catalog-api");
+    expect(req.entity).toBeUndefined();
   });
 });

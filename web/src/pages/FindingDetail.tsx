@@ -147,7 +147,7 @@ function Around({ f, end, historyStart }: { f: Finding; end: number; historyStar
       title="Around the start"
       aside={beforeHistory ? undefined : `10 minutes either side of ${isoMinute(t)} UTC.`}
       right={
-        !beforeHistory && f.entity ? (
+        !beforeHistory && f.entity && eventsLink(f.entity) ? (
           <div className="grp" role="group" aria-label="Around the start scope">
             <button type="button" className={`chip${entityOnly ? "" : " on"}`} aria-pressed={!entityOnly} onClick={() => setEntityOnly(false)}>
               Whole system
@@ -176,7 +176,8 @@ function Around({ f, end, historyStart }: { f: Finding; end: number; historyStar
                   ))}
                   <p className="pager">
                     <span>
-                      Showing {d.items.length} of {d.totalCount} · <RLink to={link}>Open in Events</RLink>
+                      {d.items.length < d.totalCount && `Showing ${d.items.length} of ${d.totalCount} · `}
+                      <RLink to={link}>Open in Events</RLink>
                     </span>
                   </p>
                 </div>
