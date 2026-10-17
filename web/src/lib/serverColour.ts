@@ -43,12 +43,14 @@ function edgeBins(edges: number[], fmt: (v: number) => string): Bin[] {
   }));
 }
 
-function numeric(value: (s: ServerRow) => number | undefined, edges: number[], fmt: (v: number) => string): ColourScale {
+/** `shown` turns a value into the one the tooltip shows, so "60%" bins as 60. */
+function numeric(value: (s: ServerRow) => number | undefined, edges: number[], fmt: (v: number) => string, shown: (v: number) => number = (v) => v): ColourScale {
   const bins = edgeBins(edges, fmt);
   return {
     bins,
     binOf: (s) => {
-      const v = value(s);
+      const raw = value(s);
+      const v = raw === undefined ? undefined : shown(raw);
       if (v === undefined) return undefined;
       const i = edges.findIndex((e) => v < e);
       return bins[i === -1 ? edges.length : i];
@@ -66,7 +68,9 @@ function numeric(value: (s: ServerRow) => number | undefined, edges: number[], f
  * edges that round together merge.
  */
 function relative(servers: ServerRow[], value: (s: ServerRow) => number | undefined, fmt: (v: number) => string, whole = false): ColourScale {
-  const vals = servers.map(value).filter((v): v is number => v !== undefined);
+  // A server that did not answer keeps its last numbers, which must not
+  // stretch the scale of the servers that did.
+  const vals = servers.filter((s) => s.present).map(value).filter((v): v is number => v !== undefined);
   const min = vals.length ? Math.min(...vals) : 0;
   const max = vals.length ? Math.max(...vals) : 0;
   const q = (max - min || (whole ? 4 : max || 4)) / 4;
@@ -77,9 +81,9 @@ function relative(servers: ServerRow[], value: (s: ServerRow) => number | undefi
 export function colourScale(by: ColourBy, servers: ServerRow[]): ColourScale {
   switch (by) {
     case "cpu":
-      return numeric((s) => s.cpuPercent, PCT_EDGES, pct);
+      return numeric((s) => s.cpuPercent, PCT_EDGES, pct, Math.round);
     case "store":
-      return numeric(storePct, PCT_EDGES, pct);
+      return numeric(storePct, PCT_EDGES, pct, Math.round);
     case "memory":
       return relative(servers, (s) => s.memBytes, fmtBytes);
     case "connections":
@@ -87,13 +91,38 @@ export function colourScale(by: ColourBy, servers: ServerRow[]): ColourScale {
     case "leaders":
       return relative(servers, leaders, (v) => fmtInt(v), true);
     case "version": {
-      const versions = versionCounts(servers);
-      const bins = versions.map((v, i) => ({ cls: `ver-${Math.min(i, 3)}`, label: v.version }));
+      const groups = versionGroups(servers);
+      const bins = groups.map((g) => ({ cls: g.cls, label: g.label }));
       return {
         bins,
-        binOf: (s) => bins.find((b) => b.label === s.version),
+        binOf: (s) => {
+          const g = groups.find((x) => x.versions.includes(s.version));
+          return g && bins.find((b) => b.cls === g.cls);
+        },
         valueText: (s) => s.version || "–",
       };
     }
   }
+}
+
+/** The most versions that get a colour of their own when there are more than four. */
+const OWN_VERSION_COLOURS = 3;
+
+export interface VersionGroup {
+  cls: string;
+  label: string;
+  versions: string[];
+  count: number;
+}
+
+/**
+ * Versions by servers running them, most first, each with its colour; with
+ * more than four versions, the fourth onwards share "other versions".
+ */
+export function versionGroups(servers: ServerRow[]): VersionGroup[] {
+  const counts = versionCounts(servers);
+  if (counts.length <= OWN_VERSION_COLOURS + 1) return counts.map((c, i) => ({ cls: `ver-${i}`, label: c.version, versions: [c.version], count: c.count }));
+  const own = counts.slice(0, OWN_VERSION_COLOURS).map((c, i) => ({ cls: `ver-${i}`, label: c.version, versions: [c.version], count: c.count }));
+  const rest = counts.slice(OWN_VERSION_COLOURS);
+  return [...own, { cls: `ver-${OWN_VERSION_COLOURS}`, label: "other versions", versions: rest.map((c) => c.version), count: rest.reduce((a, c) => a + c.count, 0) }];
 }

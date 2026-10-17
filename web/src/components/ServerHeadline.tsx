@@ -3,7 +3,8 @@
 import type { ServerList, ServerRow } from "../api/servers";
 import { useBandSeries } from "../api/servers";
 import { fmtInt, hm } from "../lib/format";
-import { byName, median, storePct, STORE_ATTENTION_PCT, versionCounts } from "../lib/servers";
+import { versionGroups } from "../lib/serverColour";
+import { byName, median, storePct, STORE_ATTENTION_PCT } from "../lib/servers";
 import type { RangeSpec } from "../lib/timeRange";
 import { useReportStale } from "./StaleContext";
 
@@ -50,22 +51,23 @@ function Answering({ list }: { list: ServerList }) {
 }
 
 function Versions({ servers }: { servers: ServerRow[] }) {
-  const counts = versionCounts(servers);
+  const groups = versionGroups(servers);
+  const inUse = groups.reduce((a, g) => a + g.versions.length, 0);
   return (
     <div className="card dp">
       <span className="lbl">Versions</span>
       <div className="dp-v">
-        <b>{counts.length || "–"}</b> <em>in use</em>
+        <b>{inUse || "–"}</b> <em>in use</em>
       </div>
       <div className="dp-split" aria-hidden="true">
-        {counts.map((c, i) => (
-          <span key={c.version} className={`ver-${Math.min(i, 3)}`} style={{ flex: c.count }} />
+        {groups.map((g) => (
+          <span key={g.cls} className={g.cls} style={{ flex: g.count }} />
         ))}
       </div>
       <ul className="dp-n dp-legend">
-        {counts.map((c, i) => (
-          <li key={c.version}>
-            <span className={`sq ver-${Math.min(i, 3)}`} aria-hidden="true" /> <span className="mono">{c.version}</span> {c.count}
+        {groups.map((g) => (
+          <li key={g.cls}>
+            <span className={`sq ${g.cls}`} aria-hidden="true" /> {g.versions.length === 1 ? <span className="mono">{g.label}</span> : g.label} {g.count}
           </li>
         ))}
       </ul>
