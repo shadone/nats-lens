@@ -276,9 +276,9 @@ The status timeline takes its findings from the transitions in the range and the
 
 ### Paging and limits
 
-Findings and connections page by offset; events page by time and ID and mutes by ID (newest first), so new events and mutes do not shift the pages. A connection page token keeps the epoch of the first page; once that epoch is swept, the token is refused with failed_precondition. A token is only valid with the same filters.
+Findings and connections page by offset; events page by time and ID and mutes by ID (newest first), so new events and mutes do not shift the pages. Folded events page by the time and ID of each row's newest event, and the token keeps the highest event ID of the first page: later pages leave out newer events, so a row that gains an event cannot cross the page boundary. A connection page token keeps the epoch of the first page; once that epoch is swept, the token is refused with failed_precondition. A token is only valid with the same filters.
 
-A request or response message is at most 1 MiB; each call has 30 seconds in the provider; filter lists hold at most 10 states, severities or sources and 50 kinds; the timeline holds at most 2000 buckets, counting a partial last one. The HTTP server has read, header and idle timeouts, a write timeout of the call timeout plus 15 seconds, and a 64 KiB header limit. A panic in a call becomes an internal error and is logged with its stack.
+A request or response message is at most 1 MiB; each call has 30 seconds in the provider; filter lists hold at most 10 states, severities or sources and 50 kinds; the timeline holds at most 2000 buckets, counting a partial last one. An events histogram holds at most 120 buckets. The HTTP server has read, header and idle timeouts, a write timeout of the call timeout plus 15 seconds, and a 64 KiB header limit. A panic in a call becomes an internal error and is logged with its stack.
 
 ### Mutes
 
@@ -413,6 +413,12 @@ Proposed, not yet confirmed by the owner.
 | A system summary reads only collected data: counts from the range's newest epoch, unset without one; status no data without an epoch; strip of 48 buckets by default (at most 500), the worst cell of every check's timeline row | API |
 | Without a runtime status, the collection state comes from the newest close or not-connected event of the collector's own connection after the newest epoch and reconnect; the error began at the oldest such event; the runtime status, when set, replaces it | API |
 | The demo serves three systems, `example-prod` (default), `example-global` and `example-staging`; demo systems that collect report the state demo; `example-global`'s cluster name is its meta leader's, `eu` | Demo |
+| Routine events: the kinds `client.churn`, `consumer.ack_sampled`, `api.audit`, `account.connections`, and `client.connect`/`client.disconnect` of a tooling client; tooling as the client checks judge it, in the newest epoch that started at or before the event (no epoch, or no stored decision, counts loopback as tooling) | API |
+| Folding: events with the same source, kind, server, account, stream, consumer, client name and reason fold while each is at most 10 minutes after the previous one of the same key, whatever comes between; a Kubernetes row adds its stored count; routine events fold too when shown | API |
+| `ListEventsRequest.include_facets` (12) asks for the facets and `total_unfiltered`, so that a request without the new flags is answered as before; `Event.routine` is set only on requests with a new flag, and a routine event loses its severity | API |
+| Facet values: the source as its `EventSource` name, the server as its name; events without a server are not in the server facet; `total_count` still counts events, not folded rows | API |
+| Histogram: warning counts severities warning and critical; routine comes first; buckets are the range divided by the count, rounded up to a whole second, so the last may be partial and there may be fewer than asked; routine events are counted even when hidden | API |
+| The demo counts a client as tooling by the `natslens-` name prefix or a loopback address; `example-prod`'s reconnect filler is `client.churn` summaries | Demo |
 
 ## Out of scope for the first release
 
