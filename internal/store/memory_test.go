@@ -18,3 +18,20 @@ func TestSetMemoryLimit(t *testing.T) {
 		t.Fatalf("memory_limit = %q", got)
 	}
 }
+
+func TestSetThreads(t *testing.T) {
+	s := openMem(t)
+	if err := s.SetThreads(context.Background(), 3); err != nil {
+		t.Fatal(err)
+	}
+	var got int64
+	if err := s.DB().QueryRow(`SELECT current_setting('threads')`).Scan(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got != 3 {
+		t.Fatalf("threads = %d", got)
+	}
+	if err := s.SetThreads(context.Background(), 0); err == nil {
+		t.Fatal("threads 0 accepted")
+	}
+}

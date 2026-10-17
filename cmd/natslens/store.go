@@ -26,10 +26,6 @@ const rebuildSuffix = ".rebuild"
 // window, the database is first rebuilt from the archive into a separate
 // file that replaces it only once the rebuild succeeded.
 func openStore(ctx context.Context, cfg config.Config, log *slog.Logger) (*store.Store, *archive.Archiver, error) {
-	if within(cfg.ResolvedArchiveDir(), cfg.DataDir) {
-		log.Warn("archive_dir is inside data_dir: losing the data volume loses the archive too",
-			"archive_dir", cfg.ResolvedArchiveDir(), "data_dir", cfg.DataDir)
-	}
 	dest := archive.LocalDir{Dir: cfg.ResolvedArchiveDir()}
 	dbPath := filepath.Join(cfg.DataDir, store.FileName)
 	empty, err := isEmpty(ctx, dbPath)

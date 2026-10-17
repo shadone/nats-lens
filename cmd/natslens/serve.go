@@ -86,9 +86,3 @@ func runDemo(ctx context.Context, args []string) error {
 	wait()
 	return nil
 }
-
-// singleSystem serves p as the one system "default", until the
-// configuration lists systems.
-func singleSystem(p api.Provider) api.Systems {
-	return api.One(api.DefaultSystemID, api.DefaultSystemID, p)
-}

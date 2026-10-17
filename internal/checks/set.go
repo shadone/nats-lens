@@ -44,8 +44,6 @@ type Set struct {
 	tooling         []string
 	includeTooling  bool
 	loopbackTooling bool
-	// loopbackWarned is set once the loopback guard was logged.
-	loopbackWarned bool
 	// remediationExtended counts the checks checks.remediation_file added to.
 	remediationExtended int
 }

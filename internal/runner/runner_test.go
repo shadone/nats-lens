@@ -114,13 +114,22 @@ func TestOnceRunsChecks(t *testing.T) {
 func TestOnceCallsStored(t *testing.T) {
 	r := newRunner(t)
 	var got []int64
-	r.Stored = func(epoch int64) { got = append(got, epoch) }
+	var at time.Time
+	r.Stored = func(epoch int64, startedAt time.Time) { got, at = append(got, epoch), startedAt }
+	before := time.Now()
 	epoch, err := r.Once(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(got) != 1 || got[0] != epoch {
 		t.Fatalf("stored called with %v, want [%d]", got, epoch)
+	}
+	var stored time.Time
+	if err := r.Store.DB().QueryRow(`SELECT started_at FROM epochs WHERE epoch = ?`, epoch).Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if at.Before(before) || !at.Equal(stored) {
+		t.Fatalf("stored called with start %v, want the epoch's started_at %v", at, stored)
 	}
 }
 
