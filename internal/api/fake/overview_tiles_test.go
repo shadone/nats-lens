@@ -169,3 +169,18 @@ func TestFakePlacementLeaderFirst(t *testing.T) {
 	}
 	t.Fatal("no order-archive")
 }
+
+// A count of one takes the singular suffix: "1 bucket", never "1 buckets".
+func TestTileSuffixesAgreeWithTheCount(t *testing.T) {
+	for _, sys := range []string{"example-prod", "example-global", "example-staging"} {
+		for id, tile := range overviewTiles(t, sys) {
+			suf := tile.GetValueSuffix()
+			if tile.Value == nil || suf == "" || suf[0] == '/' || suf[:2] == "of" {
+				continue
+			}
+			if one, plural := tile.GetValue() == 1, suf[len(suf)-1] == 's'; one == plural {
+				t.Errorf("%s tile %s: %v %q", sys, id, tile.GetValue(), suf)
+			}
+		}
+	}
+}

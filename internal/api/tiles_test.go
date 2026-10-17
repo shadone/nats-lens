@@ -42,3 +42,25 @@ func TestStorageSubtitleUnset(t *testing.T) {
 		t.Fatalf("subtitle = %q, want \"all replicas\"", got)
 	}
 }
+
+func TestCountSuffix(t *testing.T) {
+	f := func(v float64) *float64 { return &v }
+	for _, c := range []struct {
+		v    *float64
+		word string
+		want string
+	}{
+		{f(1), "bucket", "bucket"},
+		{f(2), "bucket", "buckets"},
+		{f(0), "bucket", "buckets"},
+		{f(1), "durable", "durable"},
+		{f(12), "durable", "durables"},
+		{f(1), "conn", "conn"},
+		{f(182), "conn", "conns"},
+		{nil, "bucket", "buckets"},
+	} {
+		if got := CountSuffix(c.v, c.word); got != c.want {
+			t.Errorf("CountSuffix(%v, %q) = %q, want %q", c.v, c.word, got, c.want)
+		}
+	}
+}

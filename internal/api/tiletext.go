@@ -107,3 +107,12 @@ func StorageSubtitle(used, limit, perDay *float64) string {
 	}
 	return strings.Join(parts, " · ")
 }
+
+// CountSuffix is a tile's value suffix for a count: the word for one, the
+// word with an s otherwise, also without a value.
+func CountSuffix(v *float64, word string) string {
+	if v != nil && *v == 1 {
+		return word
+	}
+	return word + "s"
+}
