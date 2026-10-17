@@ -32,9 +32,40 @@ describe("MetricBox", () => {
 
   it("shows no data, never 0, and no dot without a value", () => {
     const { container } = render(<MetricBox {...base} series={undefined} />);
-    expect(screen.getByText("no data")).toBeInTheDocument();
+    expect(screen.getByText("no data for the window")).toBeInTheDocument();
     expect(screen.queryByText("0%")).toBeNull();
     expect(container.querySelector(".mb-dot")).toBeNull();
+  });
+
+  it("never says steady without a series, even with a value", () => {
+    const { container } = render(<MetricBox {...base} series={undefined} value={7} />);
+    expect(screen.queryByText(/steady/)).toBeNull();
+    expect(container.querySelector(".mb-range")).toBeNull();
+    expect(screen.getByText("no data for the window")).toBeInTheDocument();
+  });
+
+  it("shows the error, not a no-data note, when the series failed", () => {
+    render(<MetricBox {...base} series={undefined} error="unavailable: down" />);
+    expect(screen.getByText("Could not load: unavailable: down")).toBeInTheDocument();
+    expect(screen.queryByText("no data for the window")).toBeNull();
+  });
+
+  it("draws the window's track without a dot when there is no current value", () => {
+    const { container } = render(<MetricBox {...base} series={series([2, 9, 4])} value={null} />);
+    expect(container.querySelector(".mb-range")).not.toBeNull();
+    expect(container.querySelector(".mb-dot")).toBeNull();
+    expect(screen.getByText("2%")).toBeInTheDocument();
+    expect(screen.getByText("9%")).toBeInTheDocument();
+    expect(screen.getByText("no current value")).toBeInTheDocument();
+    expect(screen.queryByText(/^no data/)).toBeNull();
+  });
+
+  it("keeps the window's own edges for a value outside them and clamps the dot", () => {
+    const { container } = render(<MetricBox {...base} series={series([2, 9, 4])} value={15} />);
+    expect(screen.getByText("2%")).toBeInTheDocument();
+    expect(screen.getByText("9%")).toBeInTheDocument();
+    expect((container.querySelector(".mb-dot") as HTMLElement).style.left).toBe("100%");
+    expect(screen.getByRole("img", { name: /current 15%, above the window max, min 2%, max 9%/ })).toBeInTheDocument();
   });
 
   it("shows a state word only when the state is not ok", () => {
