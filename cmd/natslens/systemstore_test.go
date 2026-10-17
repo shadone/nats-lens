@@ -296,3 +296,24 @@ func testConfigNoArchive(dir string) config.Config {
 	cfg.ArchiveDir = ""
 	return cfg
 }
+
+// A stop signal while the stores open is a clean exit, logged at info.
+func TestStopDuringStartIsClean(t *testing.T) {
+	cfg := listConfig(t, t.TempDir(), "shop-prod", "shop-staging")
+	cfg.Listen = ""
+	defer func(old func(*systemRuntime, context.Context, int) error) { openRuntime = old }(openRuntime)
+	ctx, cancel := context.WithCancel(context.Background())
+	openRuntime = func(rt *systemRuntime, ctx context.Context, threads int) error {
+		cancel() // the signal arrives during a rebuild
+		<-ctx.Done()
+		return ctx.Err()
+	}
+	var buf bytes.Buffer
+	err := runConfig(ctx, "run", cfg, "", slog.New(slog.NewJSONHandler(&buf, nil)), nil)
+	if err != nil {
+		t.Fatalf("err = %v, want a clean exit", err)
+	}
+	if !strings.Contains(buf.String(), `"level":"INFO","msg":"stopped before the start completed"`) {
+		t.Fatalf("no info line:\n%s", buf.String())
+	}
+}
