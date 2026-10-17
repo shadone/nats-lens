@@ -453,8 +453,10 @@ Proposed, not yet confirmed by the owner.
 | The demo counts a client as tooling by the `natslens-` name prefix or a loopback address; the reconnect fillers of `example-prod` and `example-global` are `client.churn` summaries | Demo |
 | A bucket is a stream named `KV_<bucket>` or `OBJ_<bucket>`; the inventory's missing buckets are listed with `present` unset, their finding, and no numbers or settings, not even the inventory's expected ones | API |
 | Bucket placement comes from each server's report and the leader's replica list: offline, then missing, then disagrees for a server the leader does not list, then behind for one it lists as not current (whatever configuration it still holds), then disagrees for a configuration other than the leader's, else in sync; two servers claiming the lead in one epoch: the first by name leads; without a leader the state is unspecified unless configurations differ | API |
-| An object store's chunks are its stream's messages, metadata messages included | API |
-| KV Stores and Object Stores sort on the client, with the column in `?sort=` (`-` for descending); a value not observed sorts last in either direction; a missing bucket is not linked | UI |
+| An object store's chunks (`chunks` in the API, "Messages" on the page) are its stream's messages, metadata messages included | API |
+| A KV bucket's watchers count the consumers in the JSZ detail of its stream; without any there, a reported zero is zero and any other count is unset, as for `ListAccounts` | API |
+| KV Stores and Object Stores sort on the client, with the column in `?sort=` (`-` for descending); a parameter that names no column keeps the server's order; a value not observed sorts last in either direction; a missing bucket is not linked | UI |
+| A table that scrolls inside its card shows a shadow at each cut edge (`scroll-cue`), on the bucket pages for now | UI |
 | Placement is drawn as one 12 px square per replica with a mark per state (filled for leader and in sync, half filled for behind, bars for disagrees, a cross for offline, dashed for missing, an outline for unknown); the legend shows only the states that occur | UI |
 | The demo's `example-global` has an R1 KV bucket whose only replica was on the down `nats-us-4`, missing with a warning `stream-011`; `example-prod` gains three buckets and two object stores, which raises its stream count to 13 | Demo |
 

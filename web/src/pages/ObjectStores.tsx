@@ -13,13 +13,13 @@ import { useAccountScope } from "../lib/useSystem";
 import { useTimeRange } from "../lib/useTimeRange";
 import { accountLabeller } from "../lib/view";
 
-const CHUNKS_NOTE = "messages: the chunks and one metadata message per object";
+const MESSAGES_NOTE = "chunks plus one metadata message per object";
 
 const SORT: Record<string, (b: ObjectBucket) => SortValue> = {
   status: statusOrder,
   bucket: (b) => b.bucket,
   replicas: (b) => b.replicas,
-  chunks: (b) => b.chunks,
+  messages: (b) => b.chunks,
   ttl: (b) => b.ttlMs,
   bytes: (b) => b.bytes,
   growth: (b) => b.bytesPerDay,
@@ -40,14 +40,15 @@ export function ObjectStores() {
       <QueryView q={q} what="object stores">
         {(all) => {
           if (all.length === 0) return <Empty>No object stores in the newest epoch of this range.</Empty>;
-          const value = sort && SORT[sort.key];
-          const rows = value ? sortRows(all, value, sort.dir) : all;
+          // Own keys only: ?sort=__proto__ must not reach the prototype.
+          const value = sort && Object.hasOwn(SORT, sort.key) ? SORT[sort.key] : undefined;
+          const rows = value && sort ? sortRows(all, value, sort.dir) : all;
           const label = accountLabeller(all.map((b) => b.entity));
           const th = { sort, onSort: by };
           const inventory = all.some((b) => b.expected);
           return (
             <section className="sec">
-              <div className="card table-wrap">
+              <div className="card table-wrap scroll-cue">
                 <table className="tbl">
                   <thead>
                     <tr>
@@ -55,7 +56,7 @@ export function ObjectStores() {
                       <SortTh id="bucket" label="Bucket" first="asc" {...th} />
                       <SortTh id="replicas" label="R" num {...th} />
                       <th scope="col">Placement</th>
-                      <SortTh id="chunks" label="Chunks" num title={CHUNKS_NOTE} marker="*" {...th} />
+                      <SortTh id="messages" label="Messages" num title={MESSAGES_NOTE} marker="*" {...th} />
                       <SortTh id="bytes" label="Bytes" num {...th} />
                       <SortTh id="growth" label="Per day" num {...th} />
                       <SortTh id="ttl" label="TTL" num {...th} />
@@ -71,7 +72,7 @@ export function ObjectStores() {
                         </td>
                         <BucketName b={b} label={label} />
                         <td className="num"><Num v={b.replicas} /></td>
-                        <td><PlacementSquares placement={b.placement} /></td>
+                        <td className="pl-cell"><PlacementSquares placement={b.placement} /></td>
                         <td className="num"><Num v={b.chunks} /></td>
                         <BytesOf b={b} />
                         <td className="num"><Num v={b.bytesPerDay} fmt={fmtGrowth} /></td>
@@ -83,7 +84,7 @@ export function ObjectStores() {
                   </tbody>
                 </table>
                 <div className="st-foot">
-                  <span>* Chunks counts {CHUNKS_NOTE}.</span>
+                  <span>* Messages: {MESSAGES_NOTE}.</span>
                   <PlacementLegend states={placementStates(all)} />
                 </div>
               </div>
