@@ -5,7 +5,7 @@ entity: consumer
 category: agreement
 severity: info
 severity_rule: >-
-  warning when the replicas' delivered or acknowledged positions differ as well, in this epoch and the previous one
+  warning when the replicas' delivered or acknowledged positions differ as well, in this collection and the previous one
 kind: operational
 thresholds:
   - name: position_tolerance
@@ -29,9 +29,9 @@ description: >-
   positions agree (a replica at most position_tolerance messages, or position_tolerance_ratio of the leader's
   position if that is more, behind the leader, and at most position_ahead_tolerance, or position_ahead_tolerance_ratio
   of the leader's position if that is more, ahead of it, current or not), a replica was rebuilt at another time (a server restore or a peer replaced) and holds the same
-  state as the others. When the positions differ as well, in two epochs in a row, the consumer may have been
+  state as the others. When the positions differ as well, in two collections in a row, the consumer may have been
   deleted and created again with one replica keeping the old one. A replica behind by more than the tolerance in
-  two epochs warns even while it catches up, but only here, where the creation times differ. Servers that restarted
+  two collections warns even while it catches up, but only here, where the creation times differ. Servers that restarted
   within restart_window are left out.
 remediation: >-
   The detail names the servers on each creation time and whether their positions agree. While the positions

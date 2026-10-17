@@ -333,7 +333,7 @@ func TestBudget(t *testing.T) {
 		switch {
 		case strings.Contains(r.Error, "no result within"):
 			timedOut++
-		case strings.Contains(r.Error, "used up their 300ms"):
+		case strings.Contains(r.Error, "checks of this collection used up their 300ms"):
 			skipped++
 		case r.Code == CheckFailedCode:
 			if len(r.Rows) != 1 {

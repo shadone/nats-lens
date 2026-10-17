@@ -143,13 +143,13 @@ Configuration comes from defaults, then an optional YAML file (`-config`), then 
 
 | Key                   | Flag             | Default                 | Description                                              |
 | --------------------- | ---------------- | ----------------------- | -------------------------------------------------------- |
-| `interval`            | `-interval`      | `30s`                   | Time between epochs.                                     |
+| `interval`            | `-interval`      | `30s`                   | Time between collections.                                |
 | `timeout`             | `-timeout`       | `3s`                    | Collect window for one request; under a third of `interval`. |
 | `data_dir`            | `-data-dir`      | `./data`                | Directory for `natslens.duckdb`.                         |
 | `retention`           | `-retention`     | `14d`                   | Epochs older than this are deleted.                      |
 | `server_forget_after` | `-server-forget-after` | `1h`              | How long a server that stopped answering is expected; must be positive. |
-| `connz_limit`         | `-connz-limit`   | `4096`                  | Most connections stored per server per epoch.           |
-| `shutdown_grace`      | `-shutdown-grace` | `5s`                   | How long an epoch write may continue after a stop signal; positive and at most `interval`, since a write never runs longer than one interval. |
+| `connz_limit`         | `-connz-limit`   | `4096`                  | Most connections stored per server per collection.      |
+| `shutdown_grace`      | `-shutdown-grace` | `5s`                   | How long a collection's write may continue after a stop signal; positive and at most `interval`, since a write never runs longer than one interval. |
 | `log_level`           | `-log-level`     | `info`                  | `debug`, `info`, `warn` or `error`.                      |
 | `system_id`           |                  | `default`               | Id of the one system a file without `systems` describes: lowercase letters, digits and `-`, at most 63, starting with a letter or digit. Used in URLs, the API and metric labels. |
 | `systems`             |                  |                         | Several NATS systems in one natslens; see [Several systems](#several-systems). |

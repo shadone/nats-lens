@@ -10,13 +10,13 @@ thresholds:
   - name: min_epochs
     default: "2"
     unit: count
-    description: Consecutive epochs the servers must disagree before the finding fires.
+    description: Consecutive collections the servers must disagree before the finding fires.
 description: >-
   The servers that hold the stream disagree on which servers are its replicas (each server's own name plus the
-  peers it lists) in each of the last min_epochs epochs. A restarting, recovering (JetStream not ready, catching up)
+  peers it lists) in each of the last min_epochs collections. A restarting, recovering (JetStream not ready, catching up)
   or leaderless server's view is left out while the healthy servers form a majority of the replicas, and whenever
   it is a strict subset of the majority's view: such a server lists its peers as it finds them. It is quiet while
-  stream-001 fires for the stream: a lost quorum shows as differing views too. During a peer move a difference lasts a few epochs; a lasting one
+  stream-001 fires for the stream: a lost quorum shows as differing views too. During a peer move a difference lasts a few collections; a lasting one
   means a replica follows a group the others have left.
 remediation: >-
   Compare `nats stream info <stream>` on each server in the detail. If a server lists a peer the others removed,
