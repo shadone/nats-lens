@@ -1,6 +1,7 @@
 // Replica placement: one square per replica, leader first, and a legend
 // that draws the same square for each state it names.
 import type { Placement, PlacementStateName } from "../api/adapt-placement";
+import { Dash } from "./common";
 
 export const PLACEMENT_LABEL: Record<PlacementStateName, string> = {
   leader: "leader",
@@ -64,7 +65,7 @@ export function placementText(ps: Placement[]): string {
 }
 
 export function PlacementSquares({ placement }: { placement: Placement[] }) {
-  if (placement.length === 0) return null;
+  if (placement.length === 0) return <Dash />;
   return (
     <span className="pl" role="img" aria-label={placementText(placement)} title={placementText(placement)}>
       {placement.map((p, i) => (

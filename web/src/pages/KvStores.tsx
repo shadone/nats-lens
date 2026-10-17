@@ -14,6 +14,7 @@ import { useTimeRange } from "../lib/useTimeRange";
 import { accountLabeller } from "../lib/view";
 
 const KEYS_NOTE = "subjects, including deleted keys";
+const WATCHERS_NOTE = "consumers on the bucket's stream";
 
 const SORT: Record<string, (b: KvBucket) => SortValue> = {
   status: statusOrder,
@@ -42,15 +43,16 @@ export function KvStores() {
       <QueryView q={q} what="KV stores">
         {(all) => {
           if (all.length === 0) return <Empty>No KV buckets in the newest epoch of this range.</Empty>;
-          const value = sort && SORT[sort.key];
-          const rows = value ? sortRows(all, value, sort.dir) : all;
+          // Own keys only: ?sort=__proto__ must not reach the prototype.
+          const value = sort && Object.hasOwn(SORT, sort.key) ? SORT[sort.key] : undefined;
+          const rows = value && sort ? sortRows(all, value, sort.dir) : all;
           const label = accountLabeller(all.map((b) => b.entity));
           const th = { sort, onSort: by };
           // Without an inventory no bucket is expected, and saying so on every row says nothing.
           const inventory = all.some((b) => b.expected);
           return (
             <section className="sec">
-              <div className="card table-wrap">
+              <div className="card table-wrap scroll-cue">
                 <table className="tbl">
                   <thead>
                     <tr>
@@ -63,7 +65,7 @@ export function KvStores() {
                       <SortTh id="ttl" label="TTL" num {...th} />
                       <SortTh id="bytes" label="Bytes" num {...th} />
                       <SortTh id="growth" label="Per day" num {...th} />
-                      <SortTh id="watchers" label="Watchers" num {...th} />
+                      <SortTh id="watchers" label="Watchers" num title={WATCHERS_NOTE} {...th} />
                       <th scope="col">Storage</th>
                       <th scope="col">Notes</th>
                     </tr>
@@ -76,7 +78,7 @@ export function KvStores() {
                         </td>
                         <BucketName b={b} label={label} />
                         <td className="num"><Num v={b.replicas} /></td>
-                        <td><PlacementSquares placement={b.placement} /></td>
+                        <td className="pl-cell"><PlacementSquares placement={b.placement} /></td>
                         <td className="num"><Num v={b.keys} /></td>
                         <td className="num"><Num v={b.history} /></td>
                         <td className="num"><Ttl ms={b.ttlMs} /></td>

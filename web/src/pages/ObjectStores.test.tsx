@@ -13,6 +13,14 @@ vi.mock("../api/client", () => ({ lens: { listObjectStores: vi.fn() } }));
 const ref = (bucket: string) => ({ type: EntityType.STREAM, key: `APP/OBJ_${bucket}`, name: `OBJ_${bucket}`, account: "APP", stream: `OBJ_${bucket}` });
 
 describe("Object stores", () => {
+  it("ignores a sort parameter that names no column", async () => {
+    vi.mocked(lens.listObjectStores).mockResolvedValue(
+      create(ListObjectStoresResponseSchema, { objectStores: [create(ObjectStoreSchema, { entity: ref("a"), bucket: "a", present: true, status: Status.OK })] }),
+    );
+    renderApp(<ObjectStores />, "/object-stores?sort=__proto__");
+    expect(await screen.findByRole("link", { name: "a" })).toBeInTheDocument();
+  });
+
   it("links a bucket to its stream, marks it sealed, and shows a dash for a missing one", async () => {
     vi.mocked(lens.listObjectStores).mockResolvedValue(
       create(ListObjectStoresResponseSchema, {
@@ -38,5 +46,8 @@ describe("Object stores", () => {
     expect(within(gone).getByText("missing")).toBeInTheDocument();
     expect(vi.mocked(lens.listObjectStores)).toHaveBeenCalledWith(expect.objectContaining({ account: "APP" }), expect.anything());
     expect(within(screen.getByRole("list", { name: "Placement legend" })).getByText("offline")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /^Messages/ })).toHaveAttribute("title", "chunks plus one metadata message per object");
+    expect(screen.queryByRole("columnheader", { name: /chunks/i })).toBeNull();
+    expect(within(row).getByText("5,870")).toBeInTheDocument();
   });
 });

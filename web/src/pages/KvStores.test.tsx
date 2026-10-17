@@ -75,6 +75,9 @@ describe("KV stores", () => {
     renderApp(<KvStores />, "/kv-stores?system=example-prod&range=6h");
     const link = await screen.findByRole("link", { name: "customer-config" });
     expect(link).toHaveAttribute("href", "/streams/APP/KV_customer-config?range=6h&system=example-prod");
+    // At a narrow width the table scrolls in its card, with a shadow at the cut edge.
+    expect(link.closest(".table-wrap")).toHaveClass("scroll-cue");
+    expect(link.closest("tr")!.querySelector(".pl")!.closest("td")).toHaveClass("pl-cell");
     expect(screen.queryByRole("link", { name: "label-templates" })).toBeNull();
     const row = screen.getByText("label-templates").closest("tr")!;
     expect(within(row).getByText("missing")).toBeInTheDocument();
@@ -84,6 +87,18 @@ describe("KV stores", () => {
     // The keys column says what it counts.
     expect(screen.getByRole("columnheader", { name: /keys/i })).toHaveAttribute("title", "subjects, including deleted keys");
     expect(screen.getByText(/subjects, including deleted keys/, { selector: "p, span, div" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /watchers/i })).toHaveAttribute("title", "consumers on the bucket's stream");
+    // A bucket without placement shows a dash in that cell, not an empty one.
+    expect(within(row).getAllByRole("cell")[3]).toHaveTextContent("not observed");
+  });
+
+  it("ignores a sort parameter that names no column", async () => {
+    for (const sort of ["__proto__", "constructor", "-toString", "hasOwnProperty"]) {
+      const { unmount } = renderApp(<KvStores />, `/kv-stores?sort=${sort}`);
+      expect(await screen.findByText("customer-config")).toBeInTheDocument();
+      expect(rowNames()[0]).toContain("label-templates");
+      unmount();
+    }
   });
 
   it("sends the page's system and account scope", async () => {

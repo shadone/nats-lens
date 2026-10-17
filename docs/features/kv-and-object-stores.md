@@ -6,7 +6,7 @@
 
 ## What it does
 
-KV Stores and Object Stores are pages of their own, which name and describe buckets in their own terms (bucket, keys, history, TTL, watchers, chunks) instead of as the streams `KV_<bucket>` and `OBJ_<bucket>` behind them. They answer: which buckets exist, how big they are and how fast they grow, where their replicas are, what bounds them, and whether a bucket the inventory expects is gone.
+KV Stores and Object Stores are pages of their own, which name and describe buckets in their own terms (bucket, keys, history, TTL, watchers) instead of as the streams `KV_<bucket>` and `OBJ_<bucket>` behind them. They answer: which buckets exist, how big they are and how fast they grow, where their replicas are, what bounds them, and whether a bucket the inventory expects is gone.
 
 ## Behavior and rules
 
@@ -14,13 +14,14 @@ KV Stores and Object Stores are pages of their own, which name and describe buck
 - **The leader's view.** Numbers come from the bucket stream's leader in the newest collection of the range (the largest value when no server leads), and the configuration from the leader's report.
 - **KV Stores.** For each bucket: its status, name, account and description, replicas, placement, keys, history per key, TTL, bytes (with the byte limit beneath when there is one), growth per day, watchers, storage (with `s2` when compressed), and notes: missing, "per-key TTL" when the bucket allows per-key TTLs, the mirrored stream, "not in inventory" when an inventory exists and does not list it, and the codes of its firing findings.
 - **Keys count deleted keys.** Keys is the stream's subject count, which counts a deleted or purged key until its marker is gone. The column's tooltip and the table's footnote say so.
-- **Watchers.** The consumers on the bucket's stream, which for a KV bucket are its watchers, ordered consumers included.
-- **Object Stores.** For each store: its status, name, account and description, replicas, placement, chunks, bytes with the byte limit, growth per day, TTL, storage, and notes: missing, sealed, "not in inventory", and finding codes. Chunks is the stream's message count: the objects' chunks plus one metadata message per object; the column's tooltip and footnote say so.
-- **Placement.** One square per replica, the leader first and then the followers by server name: leader, in sync, behind (listed by the leader as not current, even while it still holds an older configuration), disagrees (current but with a configuration other than the leader's, or not listed by the leader), offline (the leader lists it as offline) and missing (the leader lists it and the server reports nothing). Without a leader a square's state is unknown. A legend under the table draws the mark of each state that occurs.
+- **Watchers.** The consumers on the bucket's stream, which for a KV bucket are its watchers, ordered consumers included; the column's tooltip says so. When the servers count consumers on the stream that their consumer detail does not include, watchers shows a dash.
+- **Object Stores.** For each store: its status, name, account and description, replicas, placement, messages, bytes with the byte limit, growth per day, TTL, storage, and notes: missing, sealed, "not in inventory", and finding codes. Messages is the stream's message count: the objects' chunks plus one metadata message per object; the column's tooltip and footnote say so.
+- **Placement.** One square per replica, the leader first and then the followers by server name: leader, in sync, behind (listed by the leader as not current, even while it still holds an older configuration), disagrees (current but with a configuration other than the leader's, or not listed by the leader), offline (the leader lists it as offline) and missing (the leader lists it and the server reports nothing). Without a leader a square's state is unknown; a bucket without any replica reported shows a dash. A legend under the table draws the mark of each state that occurs.
 - **Missing buckets.** A bucket the inventory lists (kinds `kv` and `object_store`) that no server reports is shown with "missing", its finding (usually `stream-011`), and a dash for every number. It is not linked, as there is no stream to open.
 - **The same checks.** A bucket's status and findings are the stream checks' findings for its stream.
 - **Worst first, sortable.** Rows come worst first, then by account and name. The status, the name and every numeric column sort on a click, and a second click reverses; the sort is kept in the URL (`?sort=bytes`, `?sort=-bytes`). A value that was not observed sorts last either way.
 - **A dash, never 0.** A number nats-lens did not observe shows as "–".
+- **Narrow screens.** The table scrolls sideways inside its card, with a shadow at each edge where it is cut; the placement squares stay on one line.
 - **Account scope.** Both pages apply the account scope chosen in the header.
 - **Links.** A present bucket's name opens the stream page of `KV_<bucket>` or `OBJ_<bucket>`.
 
