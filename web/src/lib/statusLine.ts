@@ -1,7 +1,7 @@
 // The Overview's one-line status: how the system serves, from the worst
 // unmuted finding and, in a live range, how fresh the newest epoch is.
 import type { Freshness, Level, SeverityLevel, Tally } from "../api/model";
-import { sinceText } from "./format";
+import { dayMonHm, hm } from "./format";
 
 export interface StatusLine {
   level: Level;
@@ -19,7 +19,9 @@ export function staleData(f: Freshness, now: number): boolean {
 export function statusLine(t: Tally, f: Freshness | undefined, live: boolean, now: number): StatusLine {
   const badges = (["critical", "warning", "info"] as const).filter((l) => t[l] > 0).map((l) => ({ level: l, count: t[l] }));
   if (live && f && !f.collecting) {
-    const text = f.notCollectingSince !== undefined ? `Not collecting ${sinceText(f.notCollectingSince, now)}` : "Not collecting";
+    // The header already says since when; this line names the last data.
+    const at = f.epochAt;
+    const text = at !== undefined ? `Not collecting · last data ${now - at < 86_400_000 ? hm(at) : dayMonHm(at)}` : "Not collecting";
     return { level: "nodata", text, badges };
   }
   if (!f || f.epochAt === undefined) return { level: "nodata", text: "No data yet", badges };
