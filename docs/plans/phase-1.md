@@ -33,7 +33,7 @@ Every task updates the README sections and `docs/features/` docs it changes, and
 | T7 | merged |
 | T8 | merged |
 | T9 | not started |
-| T10 | not started |
+| T10 | merged |
 | T11 | merged |
 | T12 | not started |
 | T13 | not started |
