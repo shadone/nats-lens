@@ -35,7 +35,7 @@ func (s scen) streamSummary(sp streamSpec, cur []*v1.Finding, r *v1.TimeRange) *
 	st, codes := worstStatus(cur, e)
 	out := &v1.StreamSummary{
 		Entity: e, Replicas: ptr(int32(len(s.sc.peers(sp)))), Messages: ptr(sp.msgs), Bytes: ptr(int64(sp.bytes)), Consumers: ptr(int32(len(sp.consumers) + sp.ephemeral)),
-		BytesPerDay: ptr(sp.perDay), Status: st, FindingCodes: codes, Leader: s.leader(sp),
+		BytesPerDay: ptr(sp.perDay), Status: st, FindingCodes: codes, Leader: s.leader(sp), Placement: s.placement(sp),
 		Bytes_7D: s.series("stream.bytes", e, &v1.TimeRange{Start: ts(r.GetEnd().AsTime().Add(-7 * 24 * time.Hour)), End: r.GetEnd()}, 28),
 	}
 	if len(sp.expected) > 0 {
@@ -114,7 +114,7 @@ func (p *Provider) GetStream(_ context.Context, req *v1.GetStreamRequest) (*v1.G
 			res.Findings = append(res.Findings, f)
 		}
 	}
-	res.Consumers = s.consumers(sp, cur, true)
+	res.Consumers = s.withRates(s.consumers(sp, cur, true), req.GetRange())
 	return res, nil
 }
 
@@ -168,6 +168,7 @@ func (p *Provider) ListConsumers(_ context.Context, req *v1.ListConsumersRequest
 		res.Consumers = append(res.Consumers, s.consumers(sp, cur, req.GetIncludeEphemeral())...)
 	}
 	sortByStatus(res.Consumers, (*v1.ConsumerSummary).GetStatus, func(x *v1.ConsumerSummary) string { return x.GetEntity().GetKey() })
+	res.Consumers = sortedConsumers(s.withRates(res.Consumers, req.GetRange()), req)
 	return res, nil
 }
 
@@ -189,6 +190,7 @@ func (p *Provider) GetConsumer(_ context.Context, req *v1.GetConsumerRequest) (*
 	if c == nil {
 		return nil, fmt.Errorf("consumer %s/%s/%s: %w", req.GetAccount(), req.GetStream(), req.GetConsumer(), api.ErrNotFound)
 	}
+	s.withRates([]*v1.ConsumerSummary{c}, req.GetRange())
 	res := &v1.GetConsumerResponse{Consumer: c, Config: cfg([][2]string{
 		{"durable_name", req.GetConsumer()}, {"ack_policy", "explicit"}, {"ack_wait", "60s"}, {"max_deliver", "5"}, {"max_ack_pending", "1000"},
 	})}
