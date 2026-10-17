@@ -94,7 +94,7 @@ export function LimitsCard({ info }: { info: ServerInfo }) {
             {opt(l.writeDeadlineMs, fmtDuration)}
           </Row>
           <Row label="Ping" differs={d.has("ping_interval") || d.has("max_pings_out")}>
-            every {opt(l.pingIntervalMs, fmtDuration)} · {opt(l.maxPingsOut, (v) => fmtInt(v))} missed
+            every {opt(l.pingIntervalMs, fmtDuration)} · closes after {opt(l.maxPingsOut, (v) => fmtInt(v))} unanswered pings
           </Row>
           <Row label="JetStream" differs={d.has("js_max_storage") || d.has("js_max_memory")}>
             file {opt(l.jsMaxStorage, fmtBytes)} · memory {opt(l.jsMaxMemory, fmtBytes)}

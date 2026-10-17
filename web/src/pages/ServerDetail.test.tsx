@@ -68,6 +68,19 @@ describe("ServerDetail on example-global", () => {
     expect(payload).toHaveTextContent("differs from most servers");
     expect(within(limits).getByText("Max pending").nextElementSibling).not.toHaveClass("differs");
     expect(within(limits).getByText("1 setting differs from most servers.")).toBeInTheDocument();
+    expect(within(limits).getByText("Ping").nextElementSibling).toHaveTextContent("every 2m · closes after 2 unanswered pings");
+  });
+
+  it("shows a dash for unreported pings and connection limit, never 0", async () => {
+    const r = ap3();
+    r.limits!.maxPingsOut = undefined;
+    r.limits!.maxConnections = undefined;
+    show(r, "nats-ap-3");
+    const limits = await screen.findByRole("region", { name: "Limits and settings" });
+    expect(within(limits).getByText("Ping").nextElementSibling).toHaveTextContent(/every 2m · closes after – (not observed )?unanswered pings/);
+    const conns = within(limits).getAllByText("Connections").find((e) => e.tagName === "DT")!;
+    expect(conns.nextElementSibling).toHaveTextContent(/^–/);
+    expect(screen.queryByText("limit 0")).toBeNull();
   });
 
   it("shows where it runs, recent events and the endpoints that answered", async () => {
@@ -109,5 +122,8 @@ describe("ServerDetail, failing cases", () => {
     await waitFor(() => expect(cpu.querySelector(".mb-v b")).toHaveTextContent("–"));
     expect(cpu).not.toHaveTextContent("5%");
     expect(cpu.querySelector(".mb-dot")).toBeNull();
+    expect(cpu.querySelector(".mb-range")).not.toBeNull();
+    expect(cpu).toHaveTextContent("no current value");
+    expect(cpu).not.toHaveTextContent("no data");
   });
 });
