@@ -34,6 +34,9 @@ type Handler struct {
 	// MetricsTimeout bounds each system's part of a /metrics scrape; zero
 	// means DefaultMetricsTimeout.
 	MetricsTimeout time.Duration
+	// SummaryTimeout bounds each system's summary in ListSystems; zero
+	// means DefaultSummaryTimeout.
+	SummaryTimeout time.Duration
 }
 
 var _ natslensv1connect.LensServiceHandler = (*Handler)(nil)
