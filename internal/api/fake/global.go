@@ -131,6 +131,12 @@ func globalScenario() *scenario {
 			{name: "KV_feature-flags", msgs: 412, bytes: 210 * kib, perDay: 2 * kib, ephemeral: 22, peers: peers("us-0", "us-5", "us-8")},
 			{name: "OBJ_product-images", msgs: 120400, bytes: 9.6 * gib, perDay: 80 * mib, peers: peers("ap-0", "ap-3", "ap-5")},
 		},
+		buckets: []bucketSpec{
+			{stream: "KV_session-cache", description: "Checkout sessions", storage: "memory", maxBytes: 512 * mib, allowMsgTTL: true, keys: 41870},
+			{stream: "KV_feature-flags", description: "Feature flags per region", history: 10, keys: 38},
+			{stream: "KV_label-templates", missing: true},
+			{stream: "OBJ_product-images", description: "Product photos", maxBytes: 64 * gib, compression: "s2"},
+		},
 		clients: []string{
 			"api-gateway", "order-service", "checkout-service", "inventory-service", "shipping-service",
 			"search-api", "notification-worker", "label-printer",
