@@ -1,0 +1,26 @@
+{
+  "subject": "$JS.EVENT.ADVISORY.API",
+  "account": "APP",
+  "payload": {
+    "type": "io.nats.jetstream.advisory.v1.api_audit",
+    "id": "vU6Vlp5USz2jEIwIlxrebm",
+    "timestamp": "2026-10-17T00:10:32.353725Z",
+    "server": "nats-2",
+    "client": {
+      "start": "2026-10-17T02:10:29.792752+02:00",
+      "host": "127.0.0.1",
+      "id": 22,
+      "acc": "APP",
+      "user": "app",
+      "lang": "go",
+      "ver": "1.54.0",
+      "rtt": 105000,
+      "server": "nats-0",
+      "cluster": "lens-test",
+      "kind": "Client",
+      "client_type": "nats"
+    },
+    "subject": "$JS.API.STREAM.INFO.order-jobs",
+    "response": "{\"type\":\"io.nats.jetstream.api.v1.stream_info_response\",\"total\":0,\"offset\":0,\"limit\":0,\"config\":{\"name\":\"order-jobs\",\"description\":\"jobs\",\"subjects\":[\"orders.\\u003e\"],\"retention\":\"limits\",\"max_consumers\":-1,\"max_msgs\":-1,\"max_bytes\":-1,\"max_age\":0,\"max_msgs_per_subject\":-1,\"max_msg_size\":-1,\"discard\":\"old\",\"storage\":\"file\",\"num_replicas\":3,\"duplicate_window\":120000000000,\"compression\":\"none\",\"allow_direct\":false,\"mirror_direct\":false,\"sealed\":false,\"deny_delete\":false,\"deny_purge\":false,\"allow_rollup_hdrs\":false,\"consumer_limits\":{},\"allow_msg_ttl\":false,\"metadata\":{\"_nats.level\":\"5\",\"_nats.req.level\":\"0\",\"_nats.ver\":\"2.15.0\"}},\"created\":\"2026-10-17T00:10:29.799315Z\",\"state\":{\"messages\":4,\"bytes\":256,\"first_seq\":1,\"first_ts\":\"2026-10-17T00:10:30.032115Z\",\"last_seq\":4,\"last_ts\":\"2026-10-17T00:10:30.043369Z\",\"num_subjects\":1,\"consumer_count\":1},\"cluster\":{\"name\":\"lens-test\",\"raft_group\":\"S-R3F-6C1Lj9gi\",\"leader\":\"nats-2\",\"leader_since\":\"2026-10-17T00:10:29.910797Z\",\"system_account\":true,\"traffic_account\":\"SYS\",\"replicas\":[{\"name\":\"nats-0\",\"current\":true,\"active\":442837167,\"peer\":\"S1Nunr6R\"},{\"name\":\"nats-1\",\"current\":true,\"active\":442862917,\"peer\":\"yrzKKRBu\"}]},\"ts\":\"2026-10-17T00:10:32.353655Z\"}"
+  }
+}

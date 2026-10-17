@@ -1,0 +1,32 @@
+{
+  "subject": "$JS.EVENT.ADVISORY.STREAM.LEADER_ELECTED.order-jobs",
+  "payload": {
+    "type": "io.nats.jetstream.advisory.v1.stream_leader_elected",
+    "id": "vU6Vlp5USz2jEIwIlxrdHo",
+    "timestamp": "2026-10-17T00:10:29.9108Z",
+    "account": "APP",
+    "stream": "order-jobs",
+    "leader": "nats-2",
+    "replicas": [
+      {
+        "name": "nats-0",
+        "current": false,
+        "active": 0,
+        "lag": 1,
+        "peer": "S1Nunr6R"
+      },
+      {
+        "name": "nats-2",
+        "current": true,
+        "active": 18553208,
+        "peer": "cnrtt3eg"
+      },
+      {
+        "name": "nats-1",
+        "current": true,
+        "active": 113667,
+        "peer": "yrzKKRBu"
+      }
+    ]
+  }
+}

@@ -1,0 +1,32 @@
+# natslens trusts the IAP header it is handed, so only the load balancer and
+# the metrics scraper should reach it. Assumptions, to check per cluster:
+# the Service is exposed by a global external Gateway (gke-l7-global-
+# external-managed), whose proxies and health checks come from Google's
+# front-end ranges 35.191.0.0/16 and 130.211.0.0/22 (a regional or
+# internal Gateway comes from the proxy-only subnet instead); and
+# /metrics is scraped by GKE Managed Service for Prometheus, whose
+# collectors run in gke-gmp-system. kubelet probes come from the node and
+# are not affected (Dataplane V2).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: natslens
+  namespace: nats-lens
+spec:
+  podSelector:
+    matchLabels:
+      app: natslens
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: 35.191.0.0/16
+        - ipBlock:
+            cidr: 130.211.0.0/22
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: gke-gmp-system
+      ports:
+        - protocol: TCP
+          port: 8080

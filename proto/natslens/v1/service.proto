@@ -1,0 +1,114 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "natslens/v1/consumers.proto";
+import "natslens/v1/events.proto";
+import "natslens/v1/findings.proto";
+import "natslens/v1/info.proto";
+import "natslens/v1/overview.proto";
+import "natslens/v1/servers.proto";
+import "natslens/v1/streams.proto";
+import "natslens/v1/timeline.proto";
+import "natslens/v1/timeseries.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// What nats-lens recorded about one NATS system: servers, JetStream assets,
+// connections, events, findings and their history.
+//
+// Every call reads the tool's own database. MuteFinding and UnmuteFinding
+// are the only writes, and they write only to that database.
+service LensService {
+  // Identity mode, version, cluster, collect interval and retention of this
+  // instance.
+  rpc GetLensInfo(GetLensInfoRequest) returns (GetLensInfoResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Cluster, freshness, finding tally, the worst finding and number tiles.
+  rpc GetOverview(GetOverviewRequest) returns (GetOverviewResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Findings matching filters, worst first.
+  rpc ListFindings(ListFindingsRequest) returns (ListFindingsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // One finding with its transitions.
+  rpc GetFinding(GetFindingRequest) returns (GetFindingResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Mutes a check, or a check for one entity, until an expiry.
+  rpc MuteFinding(MuteFindingRequest) returns (MuteFindingResponse);
+
+  // Lifts a mute before its expiry.
+  rpc UnmuteFinding(UnmuteFindingRequest) returns (UnmuteFindingResponse);
+
+  // Mutes, active or all.
+  rpc ListMutes(ListMutesRequest) returns (ListMutesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Worst state per check per time bucket, with event lanes.
+  rpc GetStatusTimeline(GetStatusTimelineRequest) returns (GetStatusTimelineResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Events matching filters, newest first.
+  rpc ListEvents(ListEventsRequest) returns (ListEventsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // One event with its payload.
+  rpc GetEvent(GetEventRequest) returns (GetEventResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Streams with size, growth and status.
+  rpc ListStreams(ListStreamsRequest) returns (ListStreamsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // One stream with configuration, per-server views and disagreements.
+  rpc GetStream(GetStreamRequest) returns (GetStreamResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Consumers with backlog and status.
+  rpc ListConsumers(ListConsumersRequest) returns (ListConsumersResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // One consumer with configuration, per-server views and disagreements.
+  rpc GetConsumer(GetConsumerRequest) returns (GetConsumerResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Servers by name with version, uptime and role.
+  rpc ListServers(ListServersRequest) returns (ListServersResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // One server with endpoint outcomes and process lifetimes.
+  rpc GetServer(GetServerRequest) returns (GetServerResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Client connections of the newest epoch in a range.
+  rpc ListConnections(ListConnectionsRequest) returns (ListConnectionsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // The metrics GetTimeSeries serves.
+  rpc ListMetrics(ListMetricsRequest) returns (ListMetricsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // One metric of one entity over a range, downsampled.
+  rpc GetTimeSeries(GetTimeSeriesRequest) returns (GetTimeSeriesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}

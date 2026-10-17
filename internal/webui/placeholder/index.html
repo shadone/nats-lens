@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nats-lens</title>
+<style>
+:root{color-scheme:light dark;--bg:#f3f4f1;--text:#16201c;--muted:#5f6964}
+@media (prefers-color-scheme: dark){:root{--bg:#0b0f14;--text:#e3e8ed;--muted:#8b96a2}}
+body{margin:0;padding:40px 16px;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,sans-serif}
+main{max-width:640px;margin:0 auto}
+code{font-family:ui-monospace,Menlo,monospace}
+p{color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+<h1>nats-lens</h1>
+<p>This binary was built without the web UI. Build it with <code>make build</code>, which runs <code>make web</code> first. The API is served under <code>/api/</code> as the Connect service <code>natslens.v1.LensService</code>; health is at <code>/healthz</code>.</p>
+</main>
+</body>
+</html>

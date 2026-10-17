@@ -1,0 +1,15 @@
+{
+  "subject": "$JS.EVENT.METRIC.CONSUMER.ACK.order-jobs.resize-worker",
+  "account": "APP",
+  "payload": {
+    "type": "io.nats.jetstream.metric.v1.consumer_ack",
+    "id": "vU6Vlp5USz2jEIwIlxrdt4",
+    "timestamp": "2026-10-17T00:10:30.044426Z",
+    "stream": "order-jobs",
+    "consumer": "resize-worker",
+    "consumer_seq": 1,
+    "stream_seq": 1,
+    "ack_time": 384000,
+    "deliveries": 1
+  }
+}

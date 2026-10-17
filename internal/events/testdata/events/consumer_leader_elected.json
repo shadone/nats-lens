@@ -1,0 +1,33 @@
+{
+  "subject": "$JS.EVENT.ADVISORY.CONSUMER.LEADER_ELECTED.order-jobs.resize-worker",
+  "account": "APP",
+  "payload": {
+    "type": "io.nats.jetstream.advisory.v1.consumer_leader_elected",
+    "id": "vU6Vlp5USz2jEIwIlxrdeA",
+    "timestamp": "2026-10-17T00:10:30.030996Z",
+    "stream": "order-jobs",
+    "consumer": "resize-worker",
+    "leader": "nats-0",
+    "replicas": [
+      {
+        "name": "nats-2",
+        "current": true,
+        "active": 33375,
+        "peer": "cnrtt3eg"
+      },
+      {
+        "name": "nats-1",
+        "current": false,
+        "active": 0,
+        "lag": 1,
+        "peer": "yrzKKRBu"
+      },
+      {
+        "name": "nats-0",
+        "current": true,
+        "active": 21159917,
+        "peer": "S1Nunr6R"
+      }
+    ]
+  }
+}

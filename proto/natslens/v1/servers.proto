@@ -1,0 +1,283 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "natslens/v1/common.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// Role of a server in the JetStream meta group.
+enum ServerRole {
+  // Not set.
+  SERVER_ROLE_UNSPECIFIED = 0;
+  // The server leads the JetStream meta group.
+  SERVER_ROLE_META_LEADER = 1;
+  // The server is a member of the meta group and does not lead it.
+  SERVER_ROLE_FOLLOWER = 2;
+  // The server runs without JetStream.
+  SERVER_ROLE_NO_JETSTREAM = 3;
+}
+
+// One server as of the end of the range.
+message ServerSummary {
+  // Server name, stable across restarts.
+  string name = 1;
+
+  // Server ID of the newest process; changes on every restart.
+  string server_id = 2;
+
+  // nats-server version.
+  string version = 3;
+
+  // Cluster name.
+  string cluster = 4;
+
+  // When the server process started.
+  google.protobuf.Timestamp start_time = 5;
+
+  // Time from start_time to the newest epoch the server answered in.
+  google.protobuf.Duration uptime = 6;
+
+  // Role in the JetStream meta group, from the server's own view.
+  ServerRole role = 7;
+
+  // Whether the server answered in the newest epoch of the range.
+  bool present = 8;
+
+  // HEALTHZ status: ok, unavailable or na; empty when not reported.
+  string healthz = 9;
+
+  // First HEALTHZ error, when the status is not ok.
+  string healthz_error = 10;
+
+  // Start times of the processes that began inside the range, oldest first.
+  repeated google.protobuf.Timestamp restarts = 11;
+
+  // Client connections now; unset when not reported.
+  optional int64 connections = 12;
+
+  // JetStream file storage in use, bytes; unset when not reported.
+  optional int64 js_storage_bytes = 13;
+
+  // JetStream file storage limit, bytes; unset when not reported.
+  optional int64 js_max_storage_bytes = 14;
+
+  // Resident memory, bytes; unset when not reported.
+  optional int64 mem_bytes = 15;
+
+  // CPU use, percent of one core; unset when not reported.
+  optional double cpu_percent = 16;
+
+  // Worst status of the findings for the server. Until checks exist:
+  // critical when the server did not answer in the newest epoch or its
+  // HEALTHZ is not ok, ok when it is, no data without HEALTHZ.
+  Status status = 17;
+}
+
+// Outcome of one monitoring request to a server.
+message EndpointOutcome {
+  // Monitoring endpoint, for example JSZ.
+  string endpoint = 1;
+
+  // ok, error or missing.
+  string state = 2;
+
+  // Error text when the state is error.
+  string error = 3;
+}
+
+// One process lifetime of a server.
+message ServerProcess {
+  // Server ID of the process.
+  string server_id = 1;
+
+  // When the process started.
+  google.protobuf.Timestamp start_time = 2;
+
+  // When the process first answered.
+  google.protobuf.Timestamp first_seen = 3;
+
+  // When the process last answered.
+  google.protobuf.Timestamp last_seen = 4;
+}
+
+// Request for the servers.
+message ListServersRequest {
+  // Range to report on. Unset means the last 24 hours up to now.
+  TimeRange range = 1;
+}
+
+// Servers by name.
+message ListServersResponse {
+  // Servers seen in the range.
+  repeated ServerSummary servers = 1;
+
+  // Server names expected in the newest epoch.
+  repeated string expected = 2;
+
+  // Expected server names that did not answer in the newest epoch.
+  repeated string missing = 3;
+}
+
+// Request for one server.
+message GetServerRequest {
+  // Server name.
+  string name = 1;
+
+  // Range to report on. Unset means the last 24 hours up to now.
+  TimeRange range = 2;
+}
+
+// One server in detail.
+message GetServerResponse {
+  // The server.
+  ServerSummary server = 1;
+
+  // Outcome of every request to the server in the newest epoch.
+  repeated EndpointOutcome endpoints = 2;
+
+  // Process lifetimes seen in the range, oldest first.
+  repeated ServerProcess processes = 3;
+
+  // Subscriptions now; unset when not reported.
+  optional int64 subscriptions = 4;
+
+  // Slow consumer count since the process started; unset when not
+  // reported.
+  optional int64 slow_consumers = 5;
+
+  // Route connections now; unset when not reported.
+  optional int32 routes = 6;
+
+  // Streams with a replica on the server; unset when not reported.
+  optional int32 js_streams = 7;
+
+  // Consumers with a replica on the server; unset when not reported.
+  optional int32 js_consumers = 8;
+
+  // Meta leader name in the server's own view.
+  string meta_leader = 9;
+
+  // Configuration digest; differs between servers with different
+  // configuration.
+  string config_digest = 10;
+}
+
+// One client connection.
+message Connection {
+  // Connection key: server name and connection ID, joined by a slash.
+  string key = 20;
+
+  // Server holding the connection.
+  string server = 1;
+
+  // Connection ID on that server.
+  int64 cid = 2;
+
+  // Connection name the client set.
+  string name = 3;
+
+  // Client library language, for example go or nats.js.
+  string lang = 4;
+
+  // Client library version.
+  string version = 5;
+
+  // Account.
+  string account = 6;
+
+  // Authorized user.
+  string user = 7;
+
+  // Client IP address.
+  string ip = 8;
+
+  // Client port; unset when not reported.
+  optional int32 port = 9;
+
+  // When the connection was made.
+  google.protobuf.Timestamp start_time = 10;
+
+  // When the connection was last active.
+  google.protobuf.Timestamp last_activity = 11;
+
+  // Round trip time.
+  google.protobuf.Duration rtt = 12;
+
+  // Bytes waiting to be written to the client; unset when not reported.
+  optional int64 pending_bytes = 13;
+
+  // Messages received from the client; unset when not reported.
+  optional int64 in_msgs = 14;
+
+  // Messages sent to the client; unset when not reported.
+  optional int64 out_msgs = 15;
+
+  // Bytes received from the client; unset when not reported.
+  optional int64 in_bytes = 16;
+
+  // Bytes sent to the client; unset when not reported.
+  optional int64 out_bytes = 17;
+
+  // Times the client was stalled by a full outbound buffer; unset when not
+  // reported.
+  optional int64 stalls = 18;
+
+  // Subscriptions; unset when not reported.
+  optional int64 subscriptions = 19;
+
+  // Readable name of the account, when known.
+  string account_name = 21;
+
+  // The connection is tooling, not an application client: one of nats-lens's
+  // own connections, or a client connected from a loopback address (a
+  // port-forwarded CLI).
+  bool tooling = 22;
+}
+
+// Request for the client connections of the newest epoch in a range.
+message ListConnectionsRequest {
+  // Range whose newest epoch is read. Unset means now.
+  TimeRange range = 1;
+
+  // Only connections on this server.
+  string server = 2;
+
+  // Only connections in this account.
+  string account = 3;
+
+  // Only connections whose name contains this text.
+  string name_contains = 4;
+
+  // Largest number of connections to return. Zero means 100; at most 1000.
+  int32 page_size = 5;
+
+  // Token from a previous response, to read the next page with the same
+  // filters. The token keeps the epoch of the first page.
+  string page_token = 6;
+
+  // Also list tooling connections (see Connection.tooling); they are left
+  // out otherwise and counted in tooling_hidden.
+  bool include_tooling = 7;
+}
+
+// Connections, ordered by server and connection ID.
+message ListConnectionsResponse {
+  // The connections of this page.
+  repeated Connection connections = 1;
+
+  // Token for the next page; empty on the last page.
+  string next_page_token = 2;
+
+  // Number of connections that match the filters, across pages.
+  int32 total_count = 3;
+
+  // Epoch the connections come from.
+  int64 epoch = 4;
+
+  // Tooling connections that match the other filters and were left out
+  // because include_tooling is false.
+  int32 tooling_hidden = 5;
+}

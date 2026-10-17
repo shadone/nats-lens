@@ -1,0 +1,249 @@
+package storeprov
+
+import (
+	"bufio"
+	"cmp"
+	"context"
+	"database/sql"
+	"fmt"
+	"io"
+	"slices"
+	"sort"
+	"strings"
+	"time"
+
+	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"github.com/shadone/nats-lens/internal/store"
+)
+
+// MaxFindingSeries caps the unmuted per-entity series of one check in
+// /metrics, keeping the worst and then by entity key; muted findings are
+// always exported, and nats_lens_findings_by_check counts every entity.
+const MaxFindingSeries = 50
+
+// promLabel escapes a label value for the Prometheus text format.
+func promLabel(s string) string {
+	return strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`).Replace(s)
+}
+
+// metricsWriter writes the text exposition format, one family at a time.
+type metricsWriter struct {
+	w *bufio.Writer
+}
+
+func (m metricsWriter) family(name, typ, help string) {
+	fmt.Fprintf(m.w, "# HELP %s %s\n# TYPE %s %s\n", name, help, name, typ)
+}
+
+func (m metricsWriter) sample(name string, value float64, labels ...string) {
+	m.w.WriteString(name)
+	if len(labels) > 0 {
+		m.w.WriteByte('{')
+		for i := 0; i+1 < len(labels); i += 2 {
+			if i > 0 {
+				m.w.WriteByte(',')
+			}
+			fmt.Fprintf(m.w, `%s="%s"`, labels[i], promLabel(labels[i+1]))
+		}
+		m.w.WriteByte('}')
+	}
+	fmt.Fprintf(m.w, " %g\n", value)
+}
+
+// severityValue is a finding's severity as a number: 1 info, 2 warning,
+// 3 critical.
+func severityValue(s v1.Severity) float64 {
+	switch s {
+	case v1.Severity_SEVERITY_CRITICAL:
+		return 3
+	case v1.Severity_SEVERITY_WARNING:
+		return 2
+	}
+	return 1
+}
+
+// WriteMetrics writes the Prometheus metrics: every firing finding with
+// its mute, severity and flapping as separate series of one identity
+// (code, entity type, entity key), so that a change of severity or a mute
+// does not start a new series; per-check counts; counts by severity; and
+// the health of the collector and the checks.
+func (p *Provider) WriteMetrics(ctx context.Context, out io.Writer) error {
+	now := p.Now()
+	fs, err := p.St.Findings(ctx, now, store.FindingQuery{FiringOnly: true})
+	if err != nil {
+		return err
+	}
+	protos, err := p.findingProtos(ctx, fs)
+	if err != nil {
+		return err
+	}
+	// The cap keeps the worst entities, then by entity key, so the set of
+	// series is stable from scrape to scrape whatever fired first.
+	slices.SortStableFunc(protos, func(a, b *v1.Finding) int {
+		return cmp.Or(cmp.Compare(a.GetCheckCode(), b.GetCheckCode()),
+			cmp.Compare(severityValue(b.GetSeverity()), severityValue(a.GetSeverity())),
+			cmp.Compare(a.GetEntity().GetKey(), b.GetEntity().GetKey()))
+	})
+	m := metricsWriter{w: bufio.NewWriter(out)}
+
+	type series struct {
+		labels   []string
+		muted    bool
+		severity float64
+		flapping bool
+	}
+	var shown []series
+	perCode := map[string]int{}
+	omitted := map[string]int{}
+	unmuted := map[string]int{}
+	maxSev := map[string]float64{}
+	muted := 0
+	bySeverity := map[string]int{"critical": 0, "warning": 0, "info": 0}
+	for _, f := range protos {
+		code, sev := f.GetCheckCode(), severityValue(f.GetSeverity())
+		if f.GetMute() != nil {
+			muted++
+		} else {
+			bySeverity[strings.ToLower(strings.TrimPrefix(f.GetSeverity().String(), "SEVERITY_"))]++
+			unmuted[code]++
+			maxSev[code] = max(maxSev[code], sev)
+		}
+		// Muted findings are always exported and do not count against the
+		// cap: the alerting rules need them to stop matching.
+		if f.GetMute() == nil {
+			if perCode[code] >= MaxFindingSeries {
+				omitted[code]++
+				continue
+			}
+			perCode[code]++
+		}
+		shown = append(shown, series{
+			labels:   []string{"code", code, "entity_type", entityTypeName(f.GetEntity().GetType()), "entity_key", f.GetEntity().GetKey()},
+			muted:    f.GetMute() != nil,
+			severity: sev,
+			flapping: f.GetState() == v1.FindingState_FINDING_STATE_FLAPPING,
+		})
+	}
+	m.family("nats_lens_finding", "gauge", "1 for each firing finding, muted or not; at most "+fmt.Sprint(MaxFindingSeries)+" unmuted entities per check, the worst then by key.")
+	for _, s := range shown {
+		m.sample("nats_lens_finding", 1, append(s.labels, "muted", fmt.Sprint(s.muted))...)
+	}
+	m.family("nats_lens_finding_severity", "gauge", "Severity of each firing finding: 1 info, 2 warning, 3 critical.")
+	for _, s := range shown {
+		m.sample("nats_lens_finding_severity", s.severity, s.labels...)
+	}
+	m.family("nats_lens_finding_flapping", "gauge", "1 for a firing finding that flaps, 0 otherwise.")
+	for _, s := range shown {
+		v := 0.0
+		if s.flapping {
+			v = 1
+		}
+		m.sample("nats_lens_finding_flapping", v, s.labels...)
+	}
+	codes := make([]string, 0, len(unmuted))
+	for c := range unmuted {
+		codes = append(codes, c)
+	}
+	sort.Strings(codes)
+	m.family("nats_lens_findings_by_check", "gauge", "Firing, unmuted findings per check, every entity counted.")
+	for _, c := range codes {
+		m.sample("nats_lens_findings_by_check", float64(unmuted[c]), "code", c)
+	}
+	m.family("nats_lens_findings_by_check_max_severity", "gauge", "Highest severity among a check's firing, unmuted findings: 1 info, 2 warning, 3 critical.")
+	for _, c := range codes {
+		m.sample("nats_lens_findings_by_check_max_severity", maxSev[c], "code", c)
+	}
+	m.family("nats_lens_finding_series_omitted", "gauge", "Firing findings of a check left out of the per-finding series by its cap.")
+	omittedCodes := make([]string, 0, len(omitted))
+	for c := range omitted {
+		omittedCodes = append(omittedCodes, c)
+	}
+	sort.Strings(omittedCodes)
+	for _, c := range omittedCodes {
+		m.sample("nats_lens_finding_series_omitted", float64(omitted[c]), "code", c)
+	}
+	m.family("nats_lens_findings_total", "gauge", "Firing, unmuted findings by severity.")
+	for _, sev := range []string{"critical", "warning", "info"} {
+		m.sample("nats_lens_findings_total", float64(bySeverity[sev]), "severity", sev)
+	}
+	m.family("nats_lens_findings_muted", "gauge", "Firing findings an active mute covers.")
+	m.sample("nats_lens_findings_muted", float64(muted))
+
+	if err := p.writeHealth(ctx, m, now); err != nil {
+		return err
+	}
+	return m.w.Flush()
+}
+
+// writeHealth writes the collector's and the checks' health.
+func (p *Provider) writeHealth(ctx context.Context, m metricsWriter, now time.Time) error {
+	hourAgo := now.Add(-time.Hour)
+	var last sql.NullTime
+	var partial sql.NullBool
+	var lastEpoch sql.NullInt64
+	err := p.db().QueryRowContext(ctx, `SELECT epoch, started_at, partial FROM epochs ORDER BY epoch DESC LIMIT 1`).Scan(&lastEpoch, &last, &partial)
+	if err != nil && !isNoRows(err) {
+		return err
+	}
+	m.family("nats_lens_last_epoch_age_seconds", "gauge", "Seconds since the newest stored epoch started; absent before the first epoch.")
+	if last.Valid {
+		m.sample("nats_lens_last_epoch_age_seconds", now.Sub(last.Time.UTC()).Seconds())
+	}
+	m.family("nats_lens_last_epoch_partial", "gauge", "1 when the newest epoch is partial: a server or an endpoint did not answer.")
+	if partial.Valid {
+		v := 0.0
+		if partial.Bool {
+			v = 1
+		}
+		m.sample("nats_lens_last_epoch_partial", v)
+	}
+	var partials, epochs, dropped, runErrors int64
+	if err := p.db().QueryRowContext(ctx, `SELECT count(*) FILTER (WHERE partial), count(*) FROM epochs WHERE started_at >= ?`, hourAgo).
+		Scan(&partials, &epochs); err != nil {
+		return err
+	}
+	m.family("nats_lens_epochs_last_hour", "gauge", "Epochs stored in the last hour.")
+	m.sample("nats_lens_epochs_last_hour", float64(epochs))
+	m.family("nats_lens_partial_epochs_last_hour", "gauge", "Partial epochs stored in the last hour.")
+	m.sample("nats_lens_partial_epochs_last_hour", float64(partials))
+	if err := p.db().QueryRowContext(ctx, `SELECT coalesce(sum(coalesce(TRY_CAST(json_extract_string(raw, '$.dropped') AS BIGINT), 1)), 0)
+FROM events WHERE kind = 'collector.messages_dropped' AND received_at >= ?`, hourAgo).Scan(&dropped); err != nil {
+		return err
+	}
+	m.family("nats_lens_event_messages_dropped_last_hour", "gauge", "Event messages the collector dropped in the last hour.")
+	m.sample("nats_lens_event_messages_dropped_last_hour", float64(dropped))
+	if err := p.db().QueryRowContext(ctx, `SELECT count(*) FROM check_runs r JOIN epochs e USING (epoch)
+WHERE r.status = 'error' AND e.started_at >= ?`, hourAgo).Scan(&runErrors); err != nil {
+		return err
+	}
+	// Epochs whose checks have not been stored: the newest interval is left
+	// out, as its checks may still be running.
+	var frozen int64
+	if err := p.db().QueryRowContext(ctx, `SELECT count(*) FROM epochs e WHERE e.started_at >= ? AND e.started_at < ?
+AND NOT EXISTS (SELECT 1 FROM check_runs r WHERE r.epoch = e.epoch)`, hourAgo, now.Add(-max(p.Interval, time.Second))).Scan(&frozen); err != nil {
+		return err
+	}
+	m.family("nats_lens_epochs_without_check_runs_last_hour", "gauge", "Epochs of the last hour, the newest interval left out, for which no check ran.")
+	m.sample("nats_lens_epochs_without_check_runs_last_hour", float64(frozen))
+	m.family("nats_lens_check_run_errors_last_hour", "gauge", "Check runs that failed in the last hour.")
+	m.sample("nats_lens_check_run_errors_last_hour", float64(runErrors))
+	m.family("nats_lens_check_failing", "gauge", "1 for a check whose run in the newest epoch failed.")
+	if lastEpoch.Valid {
+		rows, err := p.db().QueryContext(ctx, `SELECT check_code FROM check_runs WHERE epoch = ? AND status = 'error' ORDER BY check_code`, lastEpoch.Int64)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var code string
+			if err := rows.Scan(&code); err != nil {
+				return err
+			}
+			m.sample("nats_lens_check_failing", 1, "code", code)
+		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
+	}
+	return nil
+}

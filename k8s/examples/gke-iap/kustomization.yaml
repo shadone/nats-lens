@@ -1,0 +1,56 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# natslens on GKE behind IAP, on an existing Gateway. NATS is the Helm
+# chart's StatefulSet in namespace nats. Create the two credentials Secrets
+# as in k8s/examples/basic (or sync them from Secret Manager), replace the
+# placeholders (the image digest here, iap_audience in natslens.yaml, the
+# Gateway and host in httproute.yaml), and grant
+# roles/iap.httpsResourceAccessor to the people who use it.
+resources:
+  - ../../base
+  - httproute.yaml
+
+components:
+  - ../../components/gke-iap
+
+images:
+  - name: natslens
+    newName: registry.example.com/nats-lens/natslens
+    # Set the digest of the pushed image, or let CI set a tag with
+    # `kustomize edit set image natslens=<newName>:<tag>`. The placeholder
+    # ends in a space: kustomize renders it, but the API server rejects an
+    # image with trailing whitespace, so nothing is applied until it is set.
+    digest: "sha256:REPLACE_WITH_IMAGE_DIGEST "
+
+configMapGenerator:
+  - name: natslens-config
+    namespace: nats-lens
+    files:
+      - natslens.yaml
+
+patches:
+  # Production sizes: the base is sized for a laptop cluster.
+  - target:
+      kind: Deployment
+      name: natslens
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests: {cpu: 500m, memory: 2Gi, ephemeral-storage: 1Gi}
+          limits: {cpu: 500m, memory: 2Gi, ephemeral-storage: 1Gi}
+  # A volume for 90 days of archive. The annotation keeps Argo CD from ever
+  # deleting or pruning it, also when the Application or the object is
+  # removed, as it holds the history; drop it without Argo CD.
+  - target:
+      kind: PersistentVolumeClaim
+      name: natslens-data
+    patch: |-
+      - op: replace
+        path: /spec/resources/requests/storage
+        value: 20Gi
+      - op: add
+        path: /metadata/annotations
+        value:
+          argocd.argoproj.io/sync-options: Delete=false,Prune=false

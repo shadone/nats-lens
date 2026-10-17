@@ -1,0 +1,27 @@
+{
+  "subject": "$JS.EVENT.ADVISORY.API",
+  "account": "APP",
+  "payload": {
+    "type": "io.nats.jetstream.advisory.v1.api_audit",
+    "id": "vU6Vlp5USz2jEIwIlxreQb",
+    "timestamp": "2026-10-17T00:10:31.852839Z",
+    "server": "nats-0",
+    "client": {
+      "start": "2026-10-17T02:10:29.792752+02:00",
+      "host": "127.0.0.1",
+      "id": 22,
+      "acc": "APP",
+      "user": "app",
+      "lang": "go",
+      "ver": "1.54.0",
+      "rtt": 214792,
+      "server": "nats-0",
+      "cluster": "lens-test",
+      "kind": "Client",
+      "client_type": "nats"
+    },
+    "subject": "$JS.API.CONSUMER.LEADER.STEPDOWN.order-jobs.resize-worker",
+    "request": "{\"placement\":{\"preferred\":\"nats-2\"}}",
+    "response": "{\"type\":\"io.nats.jetstream.api.v1.consumer_leader_stepdown_response\",\"success\":true}"
+  }
+}

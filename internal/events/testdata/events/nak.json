@@ -1,0 +1,14 @@
+{
+  "subject": "$JS.EVENT.ADVISORY.CONSUMER.MSG_NAKED.order-jobs.resize-worker",
+  "account": "APP",
+  "payload": {
+    "type": "io.nats.jetstream.advisory.v1.nak",
+    "id": "vU6Vlp5USz2jEIwIlxrdwn",
+    "timestamp": "2026-10-17T00:10:30.044461Z",
+    "stream": "order-jobs",
+    "consumer": "resize-worker",
+    "consumer_seq": 2,
+    "stream_seq": 2,
+    "deliveries": 1
+  }
+}

@@ -1,0 +1,726 @@
+{
+  "server": {
+    "name": "nats-1",
+    "host": "0.0.0.0",
+    "id": "NFAKESERVER1ID",
+    "cluster": "example-dev",
+    "ver": "2.15.0",
+    "jetstream": true,
+    "flags": 1,
+    "seq": 7,
+    "time": "2026-01-16T23:17:46.790380303Z"
+  },
+  "data": {
+    "memory": 0,
+    "storage": 251230130,
+    "reserved_memory": 0,
+    "reserved_storage": 18253611008,
+    "accounts": 1,
+    "ha_assets": 34,
+    "api": {
+      "level": 3,
+      "total": 62349,
+      "errors": 17638
+    },
+    "server_id": "NFAKESERVER1ID",
+    "now": "2026-01-16T23:17:46.790380303Z",
+    "config": {
+      "max_memory": 2147483648,
+      "max_storage": 53687091200,
+      "store_dir": "/data/jetstream",
+      "sync_interval": 120000000000,
+      "compress_ok": true,
+      "strict": true
+    },
+    "limits": {},
+    "streams": 21,
+    "consumers": 18,
+    "messages": 613214,
+    "bytes": 251230130,
+    "meta_cluster": {
+      "name": "example-dev",
+      "leader": "nats-1",
+      "peer": "yrzKKRBu",
+      "replicas": [
+        {
+          "name": "nats-0",
+          "current": true,
+          "active": 290399964,
+          "peer": "S1Nunr6R"
+        },
+        {
+          "name": "nats-2",
+          "current": true,
+          "active": 290405999,
+          "peer": "cnrtt3eg"
+        }
+      ],
+      "cluster_size": 3,
+      "pending": 0,
+      "snapshot": {
+        "pending_entries": 0,
+        "pending_size": 0,
+        "last_time": "2026-01-16T23:16:13.702502728Z",
+        "last_duration": 880756
+      }
+    },
+    "account_details": [
+      {
+        "name": "APP",
+        "id": "AFAKEAPPACCOUNT",
+        "memory": 2140,
+        "storage": 753690390,
+        "reserved_memory": 0,
+        "reserved_storage": 0,
+        "accounts": 0,
+        "ha_assets": 0,
+        "api": {
+          "level": 0,
+          "total": 88041,
+          "errors": 18606
+        },
+        "stream_detail": [
+          {
+            "name": "test-stream",
+            "created": "2025-12-11T09:07:44.410463286Z",
+            "cluster": {
+              "name": "example-dev",
+              "leader": "nats-1"
+            },
+            "config": {
+              "name": "test-stream",
+              "subjects": [
+                "test.>"
+              ],
+              "retention": "limits",
+              "max_consumers": -1,
+              "max_msgs": -1,
+              "max_bytes": -1,
+              "max_age": 86400000000000,
+              "max_msgs_per_subject": -1,
+              "max_msg_size": -1,
+              "discard": "old",
+              "storage": "file",
+              "num_replicas": 1,
+              "duplicate_window": 120000000000,
+              "compression": "none",
+              "allow_direct": false,
+              "mirror_direct": false,
+              "sealed": false,
+              "deny_delete": false,
+              "deny_purge": false,
+              "allow_rollup_hdrs": false,
+              "consumer_limits": {},
+              "allow_msg_ttl": false,
+              "metadata": {
+                "_nats.req.level": "0"
+              }
+            },
+            "state": {
+              "messages": 0,
+              "bytes": 0,
+              "first_seq": 0,
+              "first_ts": "0001-01-01T00:00:00Z",
+              "last_seq": 0,
+              "last_ts": "0001-01-01T00:00:00Z",
+              "consumer_count": 1
+            },
+            "consumer_detail": [
+              {
+                "stream_name": "test-stream",
+                "name": "test-worker",
+                "created": "2025-12-11T09:10:53.387616572Z",
+                "config": {
+                  "durable_name": "test-worker",
+                  "name": "test-worker",
+                  "deliver_policy": "all",
+                  "ack_policy": "explicit",
+                  "ack_wait": 30000000000,
+                  "max_deliver": 5,
+                  "filter_subject": "test.events",
+                  "replay_policy": "instant",
+                  "max_waiting": 512,
+                  "max_ack_pending": 1000,
+                  "num_replicas": 0,
+                  "metadata": {
+                    "_nats.req.level": "0"
+                  },
+                  "pause_until": "0001-01-01T00:00:00Z"
+                },
+                "delivered": {
+                  "consumer_seq": 0,
+                  "stream_seq": 0
+                },
+                "ack_floor": {
+                  "consumer_seq": 0,
+                  "stream_seq": 0
+                },
+                "num_ack_pending": 0,
+                "num_redelivered": 0,
+                "num_waiting": 0,
+                "num_pending": 0,
+                "cluster": {
+                  "name": "example-dev",
+                  "leader": "nats-1"
+                },
+                "ts": "2026-01-16T23:17:46.790512832Z"
+              }
+            ]
+          },
+          {
+            "name": "KV_stock-levels",
+            "created": "2025-10-14T13:35:17.668244275Z",
+            "cluster": {
+              "name": "example-dev",
+              "raft_group": "S-R3F-strm0001",
+              "leader": "nats-0",
+              "system_account": true,
+              "traffic_account": "AFAKESYSTEMACCOUNT",
+              "replicas": [
+                {
+                  "name": "nats-0",
+                  "current": true,
+                  "active": 612219703,
+                  "peer": "S1Nunr6R"
+                },
+                {
+                  "name": "nats-2",
+                  "current": false,
+                  "active": 0,
+                  "peer": "cnrtt3eg"
+                }
+              ]
+            },
+            "config": {
+              "name": "KV_stock-levels",
+              "description": "Stock level per product (product_id -> shop.catalog.v1.StockLevelData)",
+              "subjects": [
+                "$KV.stock-levels.>"
+              ],
+              "retention": "limits",
+              "max_consumers": -1,
+              "max_msgs": -1,
+              "max_bytes": -1,
+              "max_age": 0,
+              "max_msgs_per_subject": 1,
+              "max_msg_size": -1,
+              "discard": "new",
+              "storage": "file",
+              "num_replicas": 3,
+              "duplicate_window": 120000000000,
+              "compression": "none",
+              "allow_direct": true,
+              "mirror_direct": false,
+              "sealed": false,
+              "deny_delete": true,
+              "deny_purge": false,
+              "allow_rollup_hdrs": true,
+              "consumer_limits": {},
+              "allow_msg_ttl": false,
+              "metadata": {
+                "_nats.req.level": "0"
+              }
+            },
+            "state": {
+              "messages": 6,
+              "bytes": 853,
+              "first_seq": 2,
+              "first_ts": "2025-10-30T07:58:21.703042466Z",
+              "last_seq": 34,
+              "last_ts": "2025-12-19T09:58:40.795251364Z",
+              "num_subjects": 6,
+              "num_deleted": 27,
+              "consumer_count": 1
+            },
+            "consumer_detail": [
+              {
+                "stream_name": "KV_stock-levels",
+                "name": "oc_EXAMPLEordered0000BB_1",
+                "created": "2026-01-16T21:46:02.501589686Z",
+                "config": {
+                  "name": "oc_EXAMPLEordered0000BB_1",
+                  "deliver_policy": "last_per_subject",
+                  "ack_policy": "none",
+                  "max_deliver": 1,
+                  "filter_subject": "$KV.stock-levels.>",
+                  "replay_policy": "instant",
+                  "flow_control": true,
+                  "deliver_subject": "_INBOX.EXAMPLEordered0000F1.1",
+                  "idle_heartbeat": 30000000000,
+                  "inactive_threshold": 300000000000,
+                  "num_replicas": 1,
+                  "metadata": {
+                    "_nats.req.level": "0"
+                  }
+                },
+                "delivered": {
+                  "consumer_seq": 6,
+                  "stream_seq": 34,
+                  "last_active": "2026-01-16T21:46:02.511479039Z"
+                },
+                "ack_floor": {
+                  "consumer_seq": 6,
+                  "stream_seq": 34
+                },
+                "num_ack_pending": 0,
+                "num_redelivered": 0,
+                "num_waiting": 0,
+                "num_pending": 0,
+                "cluster": {
+                  "name": "example-dev",
+                  "leader": "nats-1"
+                },
+                "push_bound": true,
+                "ts": "2026-01-16T23:17:46.790651885Z"
+              }
+            ]
+          },
+          {
+            "name": "order-archive",
+            "created": "2025-02-11T10:13:53.85614136Z",
+            "cluster": {
+              "name": "example-dev",
+              "raft_group": "S-R3F-strm0004",
+              "leader": "nats-1",
+              "leader_since": "2026-01-15T09:14:22.147740906Z",
+              "system_account": true,
+              "traffic_account": "AFAKESYSTEMACCOUNT",
+              "replicas": [
+                {
+                  "name": "nats-0",
+                  "current": true,
+                  "active": 642960995,
+                  "peer": "S1Nunr6R"
+                },
+                {
+                  "name": "nats-2",
+                  "current": true,
+                  "active": 643063636,
+                  "peer": "cnrtt3eg"
+                }
+              ]
+            },
+            "config": {
+              "name": "order-archive",
+              "description": "Permanent archive of all order messages",
+              "retention": "limits",
+              "max_consumers": -1,
+              "max_msgs": -1,
+              "max_bytes": -1,
+              "max_age": 0,
+              "max_msgs_per_subject": -1,
+              "max_msg_size": -1,
+              "discard": "old",
+              "storage": "file",
+              "num_replicas": 3,
+              "mirror": {
+                "name": "order-jobs"
+              },
+              "compression": "none",
+              "allow_direct": true,
+              "mirror_direct": true,
+              "sealed": false,
+              "deny_delete": true,
+              "deny_purge": true,
+              "allow_rollup_hdrs": false,
+              "consumer_limits": {},
+              "allow_msg_ttl": false,
+              "metadata": {
+                "_nats.req.level": "0"
+              }
+            },
+            "state": {
+              "messages": 206569,
+              "bytes": 119614739,
+              "first_seq": 1,
+              "first_ts": "2025-02-11T10:14:05.771722984Z",
+              "last_seq": 206569,
+              "last_ts": "2026-01-16T22:28:54.623775466Z",
+              "num_subjects": 135,
+              "consumer_count": 2
+            },
+            "consumer_detail": [
+              {
+                "stream_name": "order-archive",
+                "name": "analytics-aggregator",
+                "created": "2026-01-15T15:34:56.176951571Z",
+                "config": {
+                  "durable_name": "analytics-aggregator",
+                  "name": "analytics-aggregator",
+                  "description": "Aggregates order analytics from order-archive stream",
+                  "deliver_policy": "by_start_time",
+                  "opt_start_time": "2026-01-15T09:00:00Z",
+                  "ack_policy": "explicit",
+                  "ack_wait": 60000000000,
+                  "max_deliver": 100,
+                  "filter_subject": "orders.*.*.*.completed",
+                  "replay_policy": "instant",
+                  "max_waiting": 512,
+                  "max_ack_pending": 8000,
+                  "num_replicas": 0,
+                  "metadata": {
+                    "_nats.req.level": "0"
+                  },
+                  "pause_until": "0001-01-01T00:00:00Z"
+                },
+                "delivered": {
+                  "consumer_seq": 1163,
+                  "stream_seq": 206569,
+                  "last_active": "2026-01-16T22:28:59.336577307Z"
+                },
+                "ack_floor": {
+                  "consumer_seq": 1163,
+                  "stream_seq": 206569,
+                  "last_active": "2026-01-16T22:28:59.35709878Z"
+                },
+                "num_ack_pending": 0,
+                "num_redelivered": 0,
+                "num_waiting": 0,
+                "num_pending": 0,
+                "cluster": {
+                  "name": "example-dev",
+                  "raft_group": "C-R3F-cons0003",
+                  "leader": "nats-0",
+                  "system_account": true,
+                  "traffic_account": "AFAKESYSTEMACCOUNT",
+                  "replicas": [
+                    {
+                      "name": "nats-0",
+                      "current": true,
+                      "active": 984170010,
+                      "peer": "S1Nunr6R"
+                    },
+                    {
+                      "name": "nats-2",
+                      "current": false,
+                      "active": 0,
+                      "peer": "cnrtt3eg"
+                    }
+                  ]
+                },
+                "ts": "2026-01-16T23:17:46.790672763Z"
+              }
+            ],
+            "mirror": {
+              "name": "order-jobs",
+              "lag": 0,
+              "active": 140939945
+            }
+          },
+          {
+            "name": "catalog-changes",
+            "created": "2025-10-13T12:26:32.261225951Z",
+            "cluster": {
+              "name": "example-dev",
+              "raft_group": "S-R3F-strm0003",
+              "leader": "nats-1",
+              "leader_since": "2026-01-15T09:14:22.144928129Z",
+              "system_account": true,
+              "traffic_account": "AFAKESYSTEMACCOUNT",
+              "replicas": [
+                {
+                  "name": "nats-0",
+                  "current": true,
+                  "active": 650433779,
+                  "peer": "S1Nunr6R"
+                },
+                {
+                  "name": "nats-2",
+                  "current": true,
+                  "active": 650604289,
+                  "peer": "cnrtt3eg"
+                }
+              ]
+            },
+            "config": {
+              "name": "catalog-changes",
+              "description": "Catalog change events — shop.catalog.v1.CatalogChangeEvent (transport, not archive)",
+              "subjects": [
+                "catalog.changes.>"
+              ],
+              "retention": "limits",
+              "max_consumers": -1,
+              "max_msgs": -1,
+              "max_bytes": -1,
+              "max_age": 2592000000000000,
+              "max_msgs_per_subject": -1,
+              "max_msg_size": -1,
+              "discard": "old",
+              "storage": "file",
+              "num_replicas": 3,
+              "duplicate_window": 120000000000,
+              "compression": "none",
+              "allow_direct": true,
+              "mirror_direct": false,
+              "sealed": false,
+              "deny_delete": true,
+              "deny_purge": true,
+              "allow_rollup_hdrs": false,
+              "consumer_limits": {},
+              "allow_msg_ttl": false,
+              "metadata": {
+                "_nats.req.level": "0"
+              }
+            },
+            "state": {
+              "messages": 18733,
+              "bytes": 7006673,
+              "first_seq": 14813,
+              "first_ts": "2025-12-18T09:12:21.140902074Z",
+              "last_seq": 33545,
+              "last_ts": "2026-01-16T21:45:57.105649685Z",
+              "num_subjects": 11961,
+              "consumer_count": 1
+            },
+            "consumer_detail": [
+              {
+                "stream_name": "catalog-changes",
+                "name": "catalog-writer",
+                "created": "2025-10-29T12:50:10.795773282Z",
+                "config": {
+                  "durable_name": "catalog-writer",
+                  "name": "catalog-writer",
+                  "deliver_policy": "all",
+                  "ack_policy": "explicit",
+                  "ack_wait": 30000000000,
+                  "max_deliver": -1,
+                  "filter_subject": "catalog.changes.>",
+                  "replay_policy": "instant",
+                  "max_waiting": 512,
+                  "max_ack_pending": 1000,
+                  "num_replicas": 0,
+                  "metadata": {
+                    "_nats.req.level": "0"
+                  }
+                },
+                "delivered": {
+                  "consumer_seq": 33545,
+                  "stream_seq": 33545,
+                  "last_active": "2026-01-16T21:50:24.15061118Z"
+                },
+                "ack_floor": {
+                  "consumer_seq": 33545,
+                  "stream_seq": 33545,
+                  "last_active": "2026-01-16T21:50:32.937733039Z"
+                },
+                "num_ack_pending": 0,
+                "num_redelivered": 0,
+                "num_waiting": 0,
+                "num_pending": 0,
+                "cluster": {
+                  "name": "example-dev",
+                  "raft_group": "C-R3F-cons0001",
+                  "leader": "nats-1",
+                  "leader_since": "2026-01-15T09:50:01.210663494Z",
+                  "system_account": true,
+                  "traffic_account": "AFAKESYSTEMACCOUNT",
+                  "replicas": [
+                    {
+                      "name": "nats-0",
+                      "current": true,
+                      "active": 579950883,
+                      "peer": "S1Nunr6R"
+                    },
+                    {
+                      "name": "nats-2",
+                      "current": true,
+                      "active": 580043579,
+                      "peer": "cnrtt3eg"
+                    }
+                  ]
+                },
+                "ts": "2026-01-16T23:17:46.790693502Z"
+              }
+            ]
+          },
+          {
+            "name": "order-jobs",
+            "created": "2025-02-11T10:13:46.001985673Z",
+            "cluster": {
+              "name": "example-dev",
+              "raft_group": "S-R3F-strm0002",
+              "leader": "nats-1",
+              "leader_since": "2026-01-15T09:50:01.52223052Z",
+              "system_account": true,
+              "traffic_account": "AFAKESYSTEMACCOUNT",
+              "replicas": [
+                {
+                  "name": "nats-0",
+                  "current": true,
+                  "active": 268610560,
+                  "peer": "S1Nunr6R"
+                },
+                {
+                  "name": "nats-2",
+                  "current": true,
+                  "active": 268614132,
+                  "peer": "cnrtt3eg"
+                }
+              ]
+            },
+            "config": {
+              "name": "order-jobs",
+              "description": "All order jobs",
+              "subjects": [
+                "orders.*.*.*.*"
+              ],
+              "retention": "limits",
+              "max_consumers": -1,
+              "max_msgs": 1000000,
+              "max_bytes": -1,
+              "max_age": 604800000000000,
+              "max_msgs_per_subject": -1,
+              "max_msg_size": -1,
+              "discard": "old",
+              "storage": "file",
+              "num_replicas": 3,
+              "duplicate_window": 120000000000,
+              "compression": "none",
+              "allow_direct": true,
+              "mirror_direct": false,
+              "sealed": false,
+              "deny_delete": false,
+              "deny_purge": false,
+              "allow_rollup_hdrs": false,
+              "consumer_limits": {},
+              "allow_msg_ttl": false,
+              "metadata": {
+                "_nats.req.level": "0"
+              }
+            },
+            "state": {
+              "messages": 5434,
+              "bytes": 3601545,
+              "first_seq": 201136,
+              "first_ts": "2026-01-10T19:59:17.238213252Z",
+              "last_seq": 206569,
+              "last_ts": "2026-01-16T22:28:54.623775466Z",
+              "num_subjects": 36,
+              "consumer_count": 6
+            },
+            "consumer_detail": [
+              {
+                "stream_name": "order-jobs",
+                "name": "resize-worker",
+                "created": "2025-12-18T04:52:42.381326505Z",
+                "config": {
+                  "durable_name": "resize-worker",
+                  "name": "resize-worker",
+                  "description": "Reads newly created resize jobs",
+                  "deliver_policy": "all",
+                  "ack_policy": "explicit",
+                  "ack_wait": 60000000000,
+                  "max_deliver": 3,
+                  "filter_subject": "orders.*.*.resize.created",
+                  "replay_policy": "instant",
+                  "max_waiting": 512,
+                  "max_ack_pending": 20,
+                  "num_replicas": 0,
+                  "metadata": {
+                    "_nats.req.level": "0"
+                  }
+                },
+                "delivered": {
+                  "consumer_seq": 44447,
+                  "stream_seq": 206569,
+                  "last_active": "2026-01-16T22:28:52.645222807Z"
+                },
+                "ack_floor": {
+                  "consumer_seq": 44447,
+                  "stream_seq": 206558,
+                  "last_active": "2026-01-16T22:28:54.136952483Z"
+                },
+                "num_ack_pending": 0,
+                "num_redelivered": 0,
+                "num_waiting": 2,
+                "num_pending": 0,
+                "cluster": {
+                  "name": "example-dev",
+                  "raft_group": "C-R3F-cons0004",
+                  "leader": "nats-1",
+                  "leader_since": "2026-01-15T09:50:01.212498235Z",
+                  "system_account": true,
+                  "traffic_account": "AFAKESYSTEMACCOUNT",
+                  "replicas": [
+                    {
+                      "name": "nats-0",
+                      "current": true,
+                      "active": 577862150,
+                      "peer": "S1Nunr6R"
+                    },
+                    {
+                      "name": "nats-2",
+                      "current": true,
+                      "active": 577742112,
+                      "peer": "cnrtt3eg"
+                    }
+                  ]
+                },
+                "ts": "2026-01-16T23:17:46.790819892Z"
+              },
+              {
+                "stream_name": "order-jobs",
+                "name": "index-worker",
+                "created": "2025-12-18T04:52:42.383553352Z",
+                "config": {
+                  "durable_name": "index-worker",
+                  "name": "index-worker",
+                  "description": "Reads newly created index jobs",
+                  "deliver_policy": "all",
+                  "ack_policy": "explicit",
+                  "ack_wait": 60000000000,
+                  "max_deliver": 3,
+                  "filter_subject": "orders.*.*.index.created",
+                  "replay_policy": "instant",
+                  "max_waiting": 512,
+                  "max_ack_pending": 20,
+                  "num_replicas": 0,
+                  "metadata": {
+                    "_nats.req.level": "0"
+                  }
+                },
+                "delivered": {
+                  "consumer_seq": 26020,
+                  "stream_seq": 206569,
+                  "last_active": "2026-01-16T17:40:24.484317316Z"
+                },
+                "ack_floor": {
+                  "consumer_seq": 26020,
+                  "stream_seq": 206438,
+                  "last_active": "2026-01-16T17:40:24.748599274Z"
+                },
+                "num_ack_pending": 0,
+                "num_redelivered": 0,
+                "num_waiting": 0,
+                "num_pending": 0,
+                "cluster": {
+                  "name": "example-dev",
+                  "raft_group": "C-R3F-cons0002",
+                  "leader": "nats-0",
+                  "system_account": true,
+                  "traffic_account": "AFAKESYSTEMACCOUNT",
+                  "replicas": [
+                    {
+                      "name": "nats-0",
+                      "current": true,
+                      "active": 1522620151,
+                      "peer": "S1Nunr6R"
+                    },
+                    {
+                      "name": "nats-2",
+                      "current": false,
+                      "active": 0,
+                      "peer": "cnrtt3eg"
+                    }
+                  ]
+                },
+                "ts": "2026-01-16T23:17:46.790849758Z"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "total": 1
+  }
+}

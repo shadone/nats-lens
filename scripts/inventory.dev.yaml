@@ -1,0 +1,45 @@
+# Inventory of what scripts/load.sh creates on the local dev cluster, for
+# make run-dev. `make churn` deletes index-worker, waits two collect
+# intervals, in which consumer-010 fires naming the load-churn connection,
+# and recreates it, which resolves the finding.
+accounts:
+  - name: APP
+    streams:
+      - name: order-jobs
+        replicas: 3
+        retention: limits
+        max_age: 72h
+        consumers:
+          - name: resize-worker
+            max_deliver: 3
+            max_ack_pending: 20
+            ack_wait: 60s
+            filter: orders.*.*.resize.created
+          - name: index-worker
+            max_deliver: 3
+            max_ack_pending: 20
+            ack_wait: 60s
+            filter: orders.*.*.index.created
+          - name: order-processed
+      - name: order-archive
+        replicas: 3
+        consumers:
+          - name: analytics-aggregator
+      - name: catalog-changes
+        replicas: 3
+        consumers:
+          - name: catalog-writer
+      - name: order-callbacks
+        replicas: 3
+        retention: workqueue
+        consumers:
+          - name: callback-delivery
+            max_deliver: 5
+    kv:
+      - name: stock-levels
+        replicas: 3
+        history: 1
+      - name: worker-presence
+        replicas: 1
+        history: 1
+        ttl: 1m

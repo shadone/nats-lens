@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# natslens in namespace nats-lens, watching a NATS cluster in namespace nats
+# (the RBAC and the pod anti-affinity name it). The overlay adds the
+# configuration (a ConfigMap natslens-config with natslens.yaml), the
+# image, and the two credentials Secrets the Deployment mounts:
+# natslens-nats-system (key system.creds) and natslens-nats-app (key
+# app.creds). See k8s/examples/.
+resources:
+  - namespace.yaml
+  - serviceaccount.yaml
+  - rbac.yaml
+  - pvc.yaml
+  - deployment.yaml
+  - service.yaml
+
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/name: natslens
+      app.kubernetes.io/managed-by: kustomize

@@ -1,0 +1,160 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "google/protobuf/timestamp.proto";
+import "natslens/v1/common.proto";
+import "natslens/v1/consumers.proto";
+import "natslens/v1/findings.proto";
+import "natslens/v1/timeseries.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// One stream as of the newest epoch of the range.
+message StreamSummary {
+  // The stream.
+  EntityRef entity = 1;
+
+  // Configured replicas; unset when no configuration was reported.
+  optional int32 replicas = 2;
+
+  // Messages stored, from the leader's view (the largest when no server
+  // leads); unset when not reported.
+  optional int64 messages = 3;
+
+  // Bytes stored, from the leader's view (the largest when no server
+  // leads); unset when not reported.
+  optional int64 bytes = 4;
+
+  // Consumers present; unset for a stream no server reports.
+  optional int32 consumers = 5;
+
+  // Consumers the inventory expects; unset without an inventory.
+  optional int32 consumers_expected = 6;
+
+  // Growth of bytes over the range, scaled to one day; unset when the range
+  // holds one observation or none.
+  optional double bytes_per_day = 7;
+
+  // Bytes over the 7 days before the range's end, in 28 buckets.
+  Series bytes_7d = 8;
+
+  // Worst status of the findings for the stream and its consumers.
+  Status status = 9;
+
+  // Codes of the findings that set the status, worst first; a muted one
+  // ends in " muted".
+  repeated string finding_codes = 10;
+
+  // Whether the servers that hold the stream disagree on its configuration
+  // or creation time.
+  bool servers_disagree = 11;
+
+  // Server name of the leader.
+  string leader = 12;
+}
+
+// One server's view of a stream.
+message StreamServerView {
+  // Server name.
+  string server = 1;
+
+  // Whether this server leads the stream.
+  bool is_leader = 2;
+
+  // Whether the leader reports this replica as current.
+  bool current = 3;
+
+  // Whether the leader reports this replica as offline.
+  bool offline = 4;
+
+  // Raft entries this replica is behind, as the leader reports; unset for
+  // the leader and when no leader reports it.
+  optional int64 lag = 5;
+
+  // Messages this server stores; unset when not reported.
+  optional int64 messages = 6;
+
+  // Bytes this server stores; unset when not reported.
+  optional int64 bytes = 7;
+
+  // First sequence this server holds; unset when not reported.
+  optional int64 first_seq = 8;
+
+  // Last sequence this server holds; unset when not reported.
+  optional int64 last_seq = 9;
+
+  // Creation time this server reports.
+  google.protobuf.Timestamp created = 10;
+
+  // Hash of the configuration this server reports.
+  string config_hash = 11;
+}
+
+// Totals across the streams of a list.
+message StreamTotals {
+  // Bytes stored across the streams, leader views only.
+  int64 bytes = 1;
+
+  // Durable consumers.
+  int32 durable_consumers = 2;
+
+  // Ephemeral and ordered consumers.
+  int32 ephemeral_consumers = 3;
+}
+
+// Request for the streams.
+message ListStreamsRequest {
+  // Range whose newest epoch is read; growth covers the whole range. Unset
+  // means the last 24 hours up to now.
+  TimeRange range = 1;
+
+  // Only streams of this account.
+  string account = 2;
+
+  // Whether to include KV buckets (KV_*) and object stores (OBJ_*).
+  bool include_kv = 3;
+}
+
+// Streams, worst status first, then by name.
+message ListStreamsResponse {
+  // The streams.
+  repeated StreamSummary streams = 1;
+
+  // Totals across the listed streams.
+  StreamTotals totals = 2;
+}
+
+// Request for one stream.
+message GetStreamRequest {
+  // Account.
+  string account = 1;
+
+  // Stream name.
+  string stream = 2;
+
+  // Range whose newest epoch is read. Unset means the last 24 hours up to
+  // now.
+  TimeRange range = 3;
+}
+
+// One stream in detail.
+message GetStreamResponse {
+  // The stream.
+  StreamSummary stream = 1;
+
+  // Configuration from the leader's view.
+  repeated ConfigValue config = 2;
+
+  // Each server's view.
+  repeated StreamServerView servers = 3;
+
+  // Settings the servers disagree on.
+  repeated Disagreement disagreements = 4;
+
+  // The stream's consumers.
+  repeated ConsumerSummary consumers = 5;
+
+  // Current findings for the stream and its consumers, worst first.
+  repeated Finding findings = 6;
+}

@@ -1,0 +1,6 @@
+# natslens runs in a namespace of its own, apart from the NATS namespace it
+# watches: its RBAC reaches into that namespace read-only.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nats-lens

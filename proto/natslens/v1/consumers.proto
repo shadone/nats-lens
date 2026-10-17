@@ -1,0 +1,151 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "google/protobuf/timestamp.proto";
+import "natslens/v1/common.proto";
+import "natslens/v1/findings.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// One consumer as of the newest epoch of the range.
+message ConsumerSummary {
+  // The consumer.
+  EntityRef entity = 1;
+
+  // Whether the consumer is durable.
+  bool durable = 2;
+
+  // Configured replicas; unset when no configuration was reported.
+  optional int32 replicas = 3;
+
+  // Messages not yet delivered, from the leader's view; unset without a
+  // leader, because followers report zero.
+  optional int64 num_pending = 4;
+
+  // Messages delivered and not yet acknowledged, from the leader's view
+  // (the largest when no server leads); unset when the consumer was not
+  // observed.
+  optional int64 num_ack_pending = 5;
+
+  // Messages delivered more than once, from the leader's view (the largest
+  // when no server leads); unset when the consumer was not observed.
+  optional int64 num_redelivered = 6;
+
+  // Pull requests waiting, from the leader's view; unset without a leader,
+  // because followers report zero.
+  optional int64 num_waiting = 7;
+
+  // Server name of the leader.
+  string leader = 8;
+
+  // When the consumer last delivered a message.
+  google.protobuf.Timestamp last_delivered = 9;
+
+  // Whether the consumer is paused.
+  bool paused = 10;
+
+  // Worst status of the findings for the consumer.
+  Status status = 11;
+
+  // Codes of the findings that set the status, worst first; a muted one
+  // ends in " muted".
+  repeated string finding_codes = 12;
+
+  // Whether the servers that hold the consumer disagree on its
+  // configuration or creation time.
+  bool servers_disagree = 13;
+
+  // Whether the consumer exists now; false for an expected consumer that is
+  // missing, or one deleted inside the range.
+  bool present = 14;
+}
+
+// One server's view of a consumer.
+message ConsumerServerView {
+  // Server name.
+  string server = 1;
+
+  // Whether this server leads the consumer.
+  bool is_leader = 2;
+
+  // Whether the leader reports this replica as current.
+  bool current = 3;
+
+  // Whether the leader reports this replica as offline.
+  bool offline = 4;
+
+  // Raft entries this replica is behind, as the leader reports; unset for
+  // the leader and when no leader reports it.
+  optional int64 lag = 5;
+
+  // Last delivered stream sequence this server reports; unset when not
+  // reported.
+  optional int64 delivered_stream_seq = 6;
+
+  // Acknowledgement floor stream sequence this server reports; unset when
+  // not reported.
+  optional int64 ack_floor_stream_seq = 7;
+
+  // Creation time this server reports.
+  google.protobuf.Timestamp created = 8;
+
+  // Hash of the configuration this server reports.
+  string config_hash = 9;
+}
+
+// Request for consumers.
+message ListConsumersRequest {
+  // Range whose newest epoch is read. Unset means the last 24 hours up to
+  // now.
+  TimeRange range = 1;
+
+  // Only consumers of this account.
+  string account = 2;
+
+  // Only consumers of this stream.
+  string stream = 3;
+
+  // Whether to include ephemeral and ordered consumers.
+  bool include_ephemeral = 4;
+}
+
+// Consumers, worst status first, then by stream and name.
+message ListConsumersResponse {
+  // The consumers.
+  repeated ConsumerSummary consumers = 1;
+}
+
+// Request for one consumer.
+message GetConsumerRequest {
+  // Account.
+  string account = 1;
+
+  // Stream name.
+  string stream = 2;
+
+  // Consumer name.
+  string consumer = 3;
+
+  // Range whose newest epoch is read. Unset means the last 24 hours up to
+  // now.
+  TimeRange range = 4;
+}
+
+// One consumer in detail.
+message GetConsumerResponse {
+  // The consumer.
+  ConsumerSummary consumer = 1;
+
+  // Configuration from the leader's view.
+  repeated ConfigValue config = 2;
+
+  // Each server's view.
+  repeated ConsumerServerView servers = 3;
+
+  // Settings the servers disagree on.
+  repeated Disagreement disagreements = 4;
+
+  // Current findings for the consumer, worst first.
+  repeated Finding findings = 5;
+}

@@ -1,0 +1,141 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "google/protobuf/timestamp.proto";
+import "natslens/v1/common.proto";
+import "natslens/v1/findings.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// Where an event came from.
+enum EventSource {
+  // Not set.
+  EVENT_SOURCE_UNSPECIFIED = 0;
+  // A NATS system event or JetStream advisory.
+  EVENT_SOURCE_NATS = 1;
+  // A Kubernetes event or pod phase change.
+  EVENT_SOURCE_KUBERNETES = 2;
+  // A finding transition written by the checks.
+  EVENT_SOURCE_FINDING = 3;
+  // The collector itself: a capture gap, a lost or restored connection.
+  EVENT_SOURCE_COLLECTOR = 4;
+}
+
+// One event.
+message Event {
+  // Event ID, unique in the database.
+  string id = 1;
+
+  // When it happened: the payload's own time when it has one.
+  google.protobuf.Timestamp time = 2;
+
+  // When the collector received it.
+  google.protobuf.Timestamp received_at = 3;
+
+  // Where it came from.
+  EventSource source = 4;
+
+  // Normalized kind, for example consumer.deleted.
+  string kind = 5;
+
+  // Name to show, for example CONSUMER.DELETED.
+  string type = 6;
+
+  // Severity for colouring; unset for routine events.
+  Severity severity = 7;
+
+  // One line describing the event.
+  string summary = 8;
+
+  // Server the event names, when it names one.
+  string server = 9;
+
+  // Account the event concerns.
+  string account = 10;
+
+  // Stream the event concerns.
+  string stream = 11;
+
+  // Consumer the event concerns.
+  string consumer = 12;
+
+  // Connection name of the client that caused the event.
+  string client_name = 13;
+
+  // Address of the client that caused the event.
+  string client_host = 14;
+
+  // Disconnect, termination or other reason, when given.
+  string reason = 15;
+
+  // For a finding event: the finding and the transition.
+  FindingTransition transition = 16;
+
+  // For a finding event: the finding as it is now.
+  Finding finding = 17;
+
+  // Findings this event most likely caused, for example the missing
+  // durable a consumer.deleted raised.
+  repeated Finding raised = 18;
+
+  // The payload as JSON, user JWTs removed; empty in event lists.
+  string raw = 19;
+
+  // Readable name of the account, when known.
+  string account_name = 20;
+}
+
+// Request for events.
+message ListEventsRequest {
+  // Range to read. Unset means the last 24 hours up to now.
+  TimeRange range = 1;
+
+  // Sources to include. Empty means all; at most 10.
+  repeated EventSource sources = 2;
+
+  // Kinds to include, for example consumer.deleted. Empty means all; at
+  // most 50.
+  repeated string kinds = 3;
+
+  // Only events that concern this entity.
+  //
+  // A stream matches its consumers' events too, a server the events it
+  // reported, a connection the events of that client connection on that
+  // server. A system entity matches every event.
+  EntityRef entity = 4;
+
+  // Only events whose client connection name equals this.
+  string client_name = 5;
+
+  // Largest number of events to return. Zero means 100; at most 1000.
+  int32 page_size = 6;
+
+  // Token from a previous response, to read older events with the same
+  // filters.
+  string page_token = 7;
+}
+
+// Events, newest first.
+message ListEventsResponse {
+  // The events of this page.
+  repeated Event events = 1;
+
+  // Token for the next, older page; empty on the last page.
+  string next_page_token = 2;
+
+  // Number of events that match the filters, across pages.
+  int32 total_count = 3;
+}
+
+// Request for one event.
+message GetEventRequest {
+  // Event ID.
+  string id = 1;
+}
+
+// One event with its payload.
+message GetEventResponse {
+  // The event, with raw set.
+  Event event = 1;
+}

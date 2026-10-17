@@ -1,0 +1,55 @@
+// Consumers: backlog and status per consumer, worst first.
+import { useSearchParams } from "react-router";
+import { useConsumers, useStreams } from "../api/queries";
+import { Empty, QueryView } from "../components/common";
+import { ConsumersTable } from "../components/EntityParts";
+import { usePageTitle } from "../lib/usePageTitle";
+import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
+import { accountLabeller } from "../lib/view";
+
+export function Consumers() {
+  usePageTitle("Consumers");
+  const [params, setParams] = useSearchParams();
+  const { spec } = useTimeRange();
+  const { end } = useResolvedRange(spec);
+  const eph = params.get("ephemeral") === "1";
+  const stream = params.get("stream") ?? "";
+  const [account = "", streamName = ""] = stream ? stream.split("/") : [];
+  const streams = useStreams(spec).data?.streams ?? [];
+  const streamLabel = accountLabeller(streams.map((s) => s.entity));
+  const q = useConsumers(spec, { account, stream: streamName, includeEphemeral: eph });
+  const set = (k: string, v: string) =>
+    setParams((p) => {
+      const n = new URLSearchParams(p);
+      if (v) n.set(k, v);
+      else n.delete(k);
+      return n;
+    });
+  return (
+    <>
+      <div className="page-h">
+        <h1>Consumers</h1>
+        <span className="aside">Backlog from the leader's view in the newest epoch of the range. A dash means the value was not observed.</span>
+      </div>
+      <div className="filters">
+        <label className="grp">
+          <span className="lbl">Stream</span>
+          <select value={stream} onChange={(e) => set("stream", e.target.value)}>
+            <option value="">All streams</option>
+            {streams.map((s) => (
+              <option key={s.entity.key} value={`${s.entity.account}/${s.entity.stream}`}>
+                {`${s.entity.stream} (${streamLabel(s.entity.account, s.entity.accountName)})`}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="check">
+          <input type="checkbox" checked={eph} onChange={(e) => set("ephemeral", e.target.checked ? "1" : "")} /> Include ephemeral and ordered
+        </label>
+      </div>
+      <QueryView q={q} what="consumers">
+        {(cs) => (cs.length ? <ConsumersTable consumers={cs} end={end} /> : <Empty>No consumers match in the newest epoch of this range.</Empty>)}
+      </QueryView>
+    </>
+  );
+}

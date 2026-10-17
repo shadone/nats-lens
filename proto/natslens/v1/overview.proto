@@ -1,0 +1,132 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "natslens/v1/common.proto";
+import "natslens/v1/findings.proto";
+import "natslens/v1/servers.proto";
+import "natslens/v1/timeseries.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// How current the stored data is.
+message Freshness {
+  // Number of the newest stored epoch; zero when none is stored.
+  int64 epoch = 1;
+
+  // When the newest epoch started.
+  google.protobuf.Timestamp epoch_at = 2;
+
+  // Time from the newest epoch's start to the moment of the response.
+  google.protobuf.Duration age = 3;
+
+  // Whether the newest epoch is partial: a server or an endpoint did not
+  // answer.
+  bool partial = 4;
+
+  // Whether a collector is writing to the database this API reads.
+  bool live = 5;
+
+  // Time between epochs the collector uses.
+  google.protobuf.Duration interval = 6;
+}
+
+// One number of the cluster with its history over the range.
+//
+// A tile shows one or two values; the second, when set, shares the label
+// (for example messages per second in and out).
+message Tile {
+  // Stable tile ID, for example connections.
+  string id = 1;
+
+  // Label to show, for example "Connections".
+  string label = 2;
+
+  // Current value; unset when it was not observed.
+  optional double value = 3;
+
+  // Unit of value and of the primary series.
+  Unit unit = 4;
+
+  // Text after the value, for example "/ 3" or "durable".
+  string value_suffix = 5;
+
+  // Second current value, when the tile shows two.
+  optional double value2 = 6;
+
+  // Text after the second value, for example "ephemeral".
+  string value2_suffix = 7;
+
+  // One line under the value, for example "v2.12.2 on all".
+  string subtitle = 8;
+
+  // Worst status of the findings that concern the tile's number; no data
+  // when no check covers it.
+  Status status = 9;
+
+  // History of the value over the range, with its smallest and largest
+  // value.
+  Series series = 10;
+
+  // History of the second value, when the tile shows two.
+  Series series2 = 11;
+
+  // Upper limit of the value, when one exists (for example the JetStream
+  // storage limit).
+  optional double limit = 12;
+}
+
+// A span of time with a known cause, for example a node upgrade.
+message TimeWindow {
+  // Start of the span.
+  google.protobuf.Timestamp start = 1;
+
+  // End of the span.
+  google.protobuf.Timestamp end = 2;
+
+  // Short label, for example "GKE node upgrade".
+  string label = 3;
+
+  // One line of detail, for example "3 drains, 3 pod restarts".
+  string detail = 4;
+}
+
+// Request for the system summary.
+message GetOverviewRequest {
+  // Range for tiles, tallies and windows. Unset means the last 24 hours up
+  // to now.
+  TimeRange range = 1;
+
+  // Largest number of points per tile series. Zero means 96.
+  int32 max_points = 2;
+}
+
+// Summary of the system over a range: cluster, freshness, servers, finding
+// counts, the worst finding, number tiles and time windows.
+message GetOverviewResponse {
+  // Cluster name the servers report.
+  string cluster = 1;
+
+  // The range the response covers, with end set.
+  TimeRange range = 2;
+
+  // How current the data is.
+  Freshness freshness = 3;
+
+  // Servers seen in the range, by name.
+  repeated ServerSummary servers = 4;
+
+  // Counts of findings.
+  FindingTally tally = 5;
+
+  // The worst unmuted firing finding; unset when none fires.
+  Finding worst_finding = 6;
+
+  // Number tiles, the most general first.
+  repeated Tile tiles = 7;
+
+  // Spans to shade, oldest first.
+  repeated TimeWindow windows = 8;
+}

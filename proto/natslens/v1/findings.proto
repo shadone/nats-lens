@@ -1,0 +1,302 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "google/protobuf/timestamp.proto";
+import "natslens/v1/common.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// State of a finding.
+enum FindingState {
+  // Not set.
+  FINDING_STATE_UNSPECIFIED = 0;
+  // The check fails for the entity; the last transition raised it.
+  FINDING_STATE_FIRING = 1;
+  // The check still fails, and its severity changed in the last transition.
+  FINDING_STATE_CHANGED = 2;
+  // The check fired and resolved more than three times in the last hour.
+  FINDING_STATE_FLAPPING = 3;
+  // The check passes again for the entity.
+  FINDING_STATE_RESOLVED = 4;
+}
+
+// A check's numeric result for the entity.
+message FindingValue {
+  // What the value measures, for example "consumer present on assigned peers".
+  string name = 1;
+
+  // Value formatted for display, for example "0 / 3".
+  string display = 2;
+
+  // Value as a number, when the check returns one.
+  optional double number = 3;
+
+  // How the value is computed, for example "per epoch, compared with
+  // inventory/prod.yaml".
+  string basis = 4;
+}
+
+// An operator's decision to keep a finding out of the alerting set.
+//
+// A muted finding still records transitions; it is kept apart from the
+// unmuted ones and never alerts. Every mute has an expiry.
+message Mute {
+  // Mute ID.
+  string id = 1;
+
+  // Check code the mute applies to, for example stream-031.
+  string check_code = 2;
+
+  // Entity the mute applies to; unset when the mute covers every entity of
+  // the check.
+  EntityRef entity = 3;
+
+  // Why the finding is muted.
+  string reason = 4;
+
+  // Who muted it: the email of the verified IAP user when the server is
+  // configured for IAP, otherwise the name the request gave.
+  string muted_by = 5;
+
+  // When the mute was created.
+  google.protobuf.Timestamp created_at = 6;
+
+  // When the mute stops applying.
+  google.protobuf.Timestamp expires_at = 7;
+
+  // When the mute was lifted before its expiry; unset while it applies or
+  // after it expired on its own.
+  google.protobuf.Timestamp unmuted_at = 8;
+
+  // Who lifted the mute.
+  string unmuted_by = 9;
+}
+
+// One failing check for one entity.
+message Finding {
+  // Finding ID: the check code and the entity key, joined by a colon.
+  string id = 1;
+
+  // Check code, for example consumer-006.
+  string check_code = 2;
+
+  // Check name, for example "Expected durable missing".
+  string check_name = 3;
+
+  // Current severity.
+  Severity severity = 4;
+
+  // Current state.
+  FindingState state = 5;
+
+  // Entity the check fails for.
+  EntityRef entity = 6;
+
+  // When the finding last started firing.
+  google.protobuf.Timestamp since = 7;
+
+  // When the last transition happened.
+  google.protobuf.Timestamp transitioned_at = 8;
+
+  // When the finding resolved; unset while it fires.
+  google.protobuf.Timestamp resolved_at = 9;
+
+  // One or two sentences on what fails, with the numbers.
+  string detail = 10;
+
+  // The check's numeric result, when it has one.
+  FindingValue value = 11;
+
+  // What an operator does about it, as text that may contain commands in
+  // backticks.
+  string remediation = 12;
+
+  // Configuration settings that bear on the finding.
+  repeated ConfigValue related_config = 13;
+
+  // Where related_config comes from, for example "inventory" or "nats-0".
+  string related_config_source = 14;
+
+  // The event within the finding's window that most likely caused it.
+  EventRef cause = 15;
+
+  // The mute that applies; unset when the finding is not muted.
+  Mute mute = 16;
+
+  // Transitions in the last hour; above three the state is flapping.
+  int32 transitions_last_hour = 17;
+
+  // When the condition began, where the check knows it (a creation time, a
+  // process start); unset otherwise. since is when nats-lens first saw it.
+  google.protobuf.Timestamp condition_since = 18;
+}
+
+// One change of a finding's state.
+message FindingTransition {
+  // Finding ID.
+  string finding_id = 1;
+
+  // When the transition happened.
+  google.protobuf.Timestamp time = 2;
+
+  // State after the transition.
+  FindingState state = 3;
+
+  // Severity after the transition.
+  Severity severity = 4;
+
+  // Detail text the check returned at the transition.
+  string detail = 5;
+}
+
+// Counts of findings by severity and state.
+message FindingTally {
+  // Unmuted findings that fire now with critical severity.
+  int32 critical = 1;
+
+  // Unmuted findings that fire now with warning severity.
+  int32 warning = 2;
+
+  // Unmuted findings that fire now with info severity.
+  int32 info = 3;
+
+  // Findings that fire now and are muted.
+  int32 muted = 4;
+
+  // Findings that fire now and are flapping, muted or not.
+  int32 flapping = 5;
+
+  // Findings that resolved in the 24 hours before the range's end.
+  int32 resolved_24h = 6;
+}
+
+// Request for findings.
+message ListFindingsRequest {
+  // Range the findings must overlap. Unset means the last 24 hours.
+  TimeRange range = 1;
+
+  // States to include. Empty means every state except resolved; at most 10.
+  repeated FindingState states = 2;
+
+  // Severities to include. Empty means all; at most 10.
+  repeated Severity severities = 3;
+
+  // Whether to include muted findings.
+  bool include_muted = 4;
+
+  // Only findings of this check.
+  string check_code = 5;
+
+  // Only findings for this entity; its type and key are compared, and a
+  // stream also matches the findings of its consumers.
+  EntityRef entity = 6;
+
+  // Largest number of findings to return. Zero means 100; at most 500.
+  int32 page_size = 7;
+
+  // Token from a previous response, to read the next page with the same
+  // filters.
+  string page_token = 8;
+}
+
+// Findings, worst first: unmuted before muted, then by severity, then the
+// longest firing first.
+message ListFindingsResponse {
+  // The findings of this page.
+  repeated Finding findings = 1;
+
+  // Token for the next page; empty on the last page.
+  string next_page_token = 2;
+
+  // Number of findings that match the filters, across pages.
+  int32 total_count = 3;
+}
+
+// Request for one finding.
+message GetFindingRequest {
+  // Finding ID.
+  string id = 1;
+}
+
+// One finding with its history.
+message GetFindingResponse {
+  // The finding.
+  Finding finding = 1;
+
+  // Transitions of the finding, newest first, at most 100.
+  repeated FindingTransition transitions = 2;
+}
+
+// Request to mute a check, or a check for one entity.
+message MuteFindingRequest {
+  // Check code to mute, in the form <entity>-<three digits>, for example
+  // stream-031.
+  string check_code = 1;
+
+  // Entity to mute the check for; unset mutes the check for every entity.
+  //
+  // The type is server, account, stream, consumer, connection, client or
+  // system; the key has at most 256 characters.
+  EntityRef entity = 2;
+
+  // Why. Required; at most 1000 characters.
+  string reason = 3;
+
+  // When the mute stops applying, truncated to whole seconds. Required; at
+  // least one minute and at most 90 days ahead.
+  google.protobuf.Timestamp expires_at = 4;
+
+  // Who mutes it, at most 256 characters. Required when the server is not
+  // configured for IAP; ignored when it is, and the verified IAP user is
+  // recorded instead.
+  string muted_by = 5;
+}
+
+// The created mute.
+message MuteFindingResponse {
+  // The mute.
+  Mute mute = 1;
+}
+
+// Request to lift a mute before its expiry.
+message UnmuteFindingRequest {
+  // Mute ID.
+  string mute_id = 1;
+
+  // Who lifts it, at most 256 characters. Required when the server is not
+  // configured for IAP; ignored when it is, and the verified IAP user is
+  // recorded instead.
+  string unmuted_by = 2;
+}
+
+// The lifted mute.
+message UnmuteFindingResponse {
+  // The mute with unmuted_at set.
+  Mute mute = 1;
+}
+
+// Request for mutes.
+message ListMutesRequest {
+  // Whether to include mutes that expired or were lifted.
+  bool include_inactive = 1;
+
+  // Largest number of mutes to return. Zero means 100; at most 500.
+  int32 page_size = 2;
+
+  // Token from a previous response, to read the next page with the same
+  // filters.
+  string page_token = 3;
+}
+
+// Mutes, newest first.
+message ListMutesResponse {
+  // The mutes of this page.
+  repeated Mute mutes = 1;
+
+  // Token for the next page; empty on the last page.
+  string next_page_token = 2;
+
+  // Number of mutes that match the filters, across pages.
+  int32 total_count = 3;
+}

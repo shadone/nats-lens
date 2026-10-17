@@ -1,0 +1,18 @@
+# Managed Service for Prometheus scrapes /metrics: the findings and the
+# collector's health, for alert rules (Cloud Monitoring PromQL or other). GMP's
+# collectors run in gke-gmp-system, which the NetworkPolicy admits, and
+# scrape by the pod's address, which /metrics accepts on a non-loopback
+# listener.
+apiVersion: monitoring.googleapis.com/v1
+kind: PodMonitoring
+metadata:
+  name: natslens
+  namespace: nats-lens
+spec:
+  selector:
+    matchLabels:
+      app: natslens
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s

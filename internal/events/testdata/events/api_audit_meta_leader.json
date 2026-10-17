@@ -1,0 +1,12 @@
+{
+  "subject": "$JS.EVENT.ADVISORY.API",
+  "payload": {
+    "type": "io.nats.jetstream.advisory.v1.api_audit",
+    "id": "vU6Vlp5USz2jEIwIlxrejE",
+    "timestamp": "2026-10-17T00:10:32.354084Z",
+    "server": "nats-2",
+    "client": {},
+    "subject": "$JS.API.META.LEADER.STEPDOWN",
+    "response": "{\"type\":\"io.nats.jetstream.api.v1.meta_leader_stepdown_response\",\"success\":true}"
+  }
+}

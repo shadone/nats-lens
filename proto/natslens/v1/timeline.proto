@@ -1,0 +1,122 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "natslens/v1/common.proto";
+import "natslens/v1/events.proto";
+import "natslens/v1/overview.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// One check's states over the range.
+message TimelineRow {
+  // Stable row key: the check code, followed by a colon and the entity key
+  // when the row is for one entity.
+  string key = 7;
+
+  // Check code.
+  string check_code = 1;
+
+  // Check name.
+  string check_name = 2;
+
+  // The check's configured severity.
+  Severity severity = 3;
+
+  // Entity the row is for; unset when the row covers every entity of the
+  // check.
+  EntityRef entity = 4;
+
+  // Worst status per bucket, oldest first, one per bucket.
+  repeated Status cells = 5;
+
+  // Status at the end of the range.
+  Status now = 6;
+}
+
+// One event placed on an event lane of the timeline.
+message LaneEvent {
+  // Stable ID of the lane item: the stored event's ID when there is one,
+  // otherwise an ID derived from the source, kind and time.
+  string id = 8;
+
+  // When it happened.
+  google.protobuf.Timestamp time = 1;
+
+  // Where it came from.
+  EventSource source = 2;
+
+  // Normalized kind, for example node.drained, pod.killing,
+  // deployment.rolled_out, stream.quorum_lost.
+  string kind = 3;
+
+  // Short label for a crowded lane, for example "nats-0 Killing".
+  string short_label = 4;
+
+  // Full label, for example "pod nats-0 Killing".
+  string label = 5;
+
+  // Severity for colouring; unset for routine events.
+  Severity severity = 6;
+
+  // ID of the stored event; empty when the lane item is not a stored
+  // event.
+  string event_id = 7;
+}
+
+// Request for the status timeline.
+message GetStatusTimelineRequest {
+  // Range to cover. Unset means the last 24 hours up to now.
+  TimeRange range = 1;
+
+  // Width of one bucket. Unset means 15 minutes; at least one second, and
+  // the range may hold at most 2000 buckets, the last one counted even when
+  // partial.
+  google.protobuf.Duration bucket = 2;
+
+  // Only rows for this entity; unset gives one row per check for the whole
+  // system.
+  EntityRef entity = 3;
+
+  // Whether to include checks that were OK in every bucket.
+  bool include_ok = 4;
+}
+
+// Per check, per bucket, the worst state, and the events to draw with it.
+message GetStatusTimelineResponse {
+  // Start of the first bucket.
+  google.protobuf.Timestamp start = 1;
+
+  // Width of one bucket.
+  google.protobuf.Duration bucket = 2;
+
+  // Number of buckets; every row has this many cells.
+  int32 bucket_count = 3;
+
+  // Rows: those not OK now first, then by severity and code.
+  repeated TimelineRow rows = 4;
+
+  // Kubernetes events in the range, oldest first: at most the newest 1000.
+  repeated LaneEvent kubernetes = 5;
+
+  // NATS advisories and finding transitions in the range worth drawing,
+  // oldest first: at most the newest 1000 NATS events and the newest 1000
+  // finding transitions.
+  repeated LaneEvent nats = 6;
+
+  // Spans to shade, oldest first.
+  repeated TimeWindow windows = 7;
+
+  // Whether the range held more NATS events for the lane than the 1000 in
+  // nats.
+  bool nats_truncated = 8;
+
+  // Whether the range held more finding transitions than the 1000 in nats.
+  bool finding_truncated = 9;
+
+  // Whether the range held more Kubernetes events than the 1000 in
+  // kubernetes.
+  bool kubernetes_truncated = 10;
+}

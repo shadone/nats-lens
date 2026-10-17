@@ -1,0 +1,32 @@
+{
+  "subject": "$JS.EVENT.ADVISORY.DOMAIN.LEADER_ELECTED",
+  "payload": {
+    "type": "io.nats.jetstream.advisory.v1.domain_leader_elected",
+    "id": "vU6Vlp5USz2jEIwIlxreqg",
+    "timestamp": "2026-10-17T00:10:32.438455Z",
+    "leader": "yrzKKRBu",
+    "replicas": [
+      {
+        "name": "nats-2",
+        "current": true,
+        "offline": true,
+        "active": 78958,
+        "peer": "cnrtt3eg"
+      },
+      {
+        "name": "nats-1",
+        "current": true,
+        "active": 57324625,
+        "peer": "yrzKKRBu"
+      },
+      {
+        "name": "nats-0",
+        "current": false,
+        "active": 0,
+        "lag": 9,
+        "peer": "S1Nunr6R"
+      }
+    ],
+    "cluster": "lens-test"
+  }
+}

@@ -1,0 +1,124 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "natslens/v1/common.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// Unit of a metric value.
+enum Unit {
+  // Not set.
+  UNIT_UNSPECIFIED = 0;
+  // A plain count.
+  UNIT_COUNT = 1;
+  // Bytes.
+  UNIT_BYTES = 2;
+  // Events or messages per second.
+  UNIT_PER_SECOND = 3;
+  // Percent, 0 to 100.
+  UNIT_PERCENT = 4;
+  // Seconds.
+  UNIT_SECONDS = 5;
+  // Bytes per day.
+  UNIT_BYTES_PER_DAY = 6;
+  // Bytes per second.
+  UNIT_BYTES_PER_SECOND = 7;
+}
+
+// One value of a series.
+message Point {
+  // Start of the time bucket the value covers.
+  google.protobuf.Timestamp time = 1;
+
+  // Value for the bucket.
+  //
+  // Gauges are averaged over the bucket; rates are averaged per second;
+  // event counts are summed.
+  double value = 2;
+}
+
+// Values of one metric for one entity over a time range.
+message Series {
+  // Metric ID, for example cluster.connections.
+  string metric = 1;
+
+  // Entity the values are for.
+  EntityRef entity = 2;
+
+  // Unit of every value.
+  Unit unit = 3;
+
+  // Width of one bucket.
+  google.protobuf.Duration step = 4;
+
+  // Values, oldest first.
+  //
+  // A bucket without data has no point, so a gap in time is a gap in the
+  // data.
+  repeated Point points = 5;
+
+  // Smallest value of the points; unset when there are no points.
+  optional double min = 6;
+
+  // Largest value of the points; unset when there are no points.
+  optional double max = 7;
+}
+
+// Request for one metric of one entity.
+message GetTimeSeriesRequest {
+  // Metric ID, one of those ListMetrics returns.
+  //
+  // An ID is <scope>.<measure>: the scope cluster takes no entity, and the
+  // scopes server, stream and consumer take an entity of that type.
+  string metric = 1;
+
+  // Entity the metric is read for, of the type the metric's scope names.
+  // Unset for a cluster metric.
+  EntityRef entity = 2;
+
+  // Time range to read; at most 400 days.
+  TimeRange range = 3;
+
+  // Number of buckets the range is divided into.
+  //
+  // The step is the range divided by this number, rounded up to whole
+  // seconds, and never shorter than one collection interval. Buckets are
+  // aligned to whole multiples of the step since the Unix epoch, so when the
+  // range does not start on a bucket boundary the first bucket begins
+  // before it, holds only the range's part, and the series can have one
+  // point more than this number. Zero means 200; at most 2000.
+  int32 max_points = 4;
+}
+
+// One metric of one entity.
+message GetTimeSeriesResponse {
+  // The values.
+  Series series = 1;
+}
+
+// One metric GetTimeSeries serves.
+message MetricInfo {
+  // Metric ID, for example cluster.connections.
+  string id = 1;
+
+  // Entity type the metric is read for.
+  EntityType entity_type = 2;
+
+  // Unit of the values.
+  Unit unit = 3;
+
+  // What the metric measures and how a bucket combines values.
+  string description = 4;
+}
+
+// Request for the metrics GetTimeSeries serves.
+message ListMetricsRequest {}
+
+// The metrics, ordered by ID.
+message ListMetricsResponse {
+  // The metrics.
+  repeated MetricInfo metrics = 1;
+}

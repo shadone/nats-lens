@@ -1,0 +1,107 @@
+# natslens configuration. Every key is optional; flags override the file.
+interval: 30s            # time between epochs
+timeout: 3s              # collect window: how long one request waits for replies
+data_dir: ./data         # holds natslens.duckdb
+retention: 14d           # epochs older than this are deleted
+server_forget_after: 1h  # how long a silent server is still expected
+connz_limit: 4096        # most connections stored per server per epoch
+shutdown_grace: 5s       # how long an epoch write may continue after a stop signal
+log_level: info          # debug, info, warn, error
+
+nats:
+  url: nats://127.0.0.1:4222
+  name: natslens
+  # Either a credentials file ...
+  # creds: /etc/natslens/sys.creds
+  # ... or a user, with the password here or in NATSLENS_NATS_PASSWORD.
+  # user: sys
+  # password: ""
+  tls:
+    # ca: /etc/natslens/ca.pem
+    # cert: /etc/natslens/client.pem
+    # key: /etc/natslens/client-key.pem
+
+# Hourly Parquet archive; empty means data_dir/archive. Put it on another
+# volume than data_dir.
+# archive_dir: /var/lib/natslens-archive
+archive_provisional_every: 5m   # how often the open hour is archived; 0 disables
+# Archived hours older than this are deleted after an export; 0 keeps every
+# hour. At least retention.
+archive_retention: 90d
+
+# Address of the API and UI in `natslens run`; empty disables them. The
+# tool has no authentication, so keep it on localhost unless IAP or a
+# similar proxy is in front.
+listen: 127.0.0.1:8080
+# Host header values the API accepts; empty means localhost, 127.0.0.1 and
+# ::1 when listen is a loopback address, and any host otherwise.
+# allowed_hosts: [lens.internal.example.com]
+# Behind IAP: the backend service's audience. Mutes then need the signed
+# IAP header and record its user; without it, the request names the user.
+# iap_audience: /projects/123456789/global/backendServices/987654321
+# Listening beyond loopback without iap_audience is refused unless this is
+# set: anyone who reaches the API could then mute findings.
+# allow_unauthenticated: false
+
+events:
+  enabled: true          # capture events in `natslens run`
+  api_audit: false       # also store every JetStream API audit (one per API call)
+  account_connections: false  # also store per-account connection counts (every server, every 30s)
+  flush_interval: 1s     # longest an event waits before it is written (at most 5m)
+  batch_size: 500        # buffered events that trigger a write
+  churn:
+    collapse: true       # store self-closed short connections as one client.churn event per name and window
+    pair_within: 10s     # a connect closed by the client within this is collapsed with its disconnect
+    window: 1m           # span of one client.churn event
+
+# JetStream accounts whose advisories are captured, each with its own
+# connection. url defaults to nats.url and tls.ca to nats.tls.ca. A password
+# not set here is read from NATSLENS_ACCOUNT_<NAME>_PASSWORD.
+accounts: []
+#  - name: APP
+#    creds: /etc/natslens/app.creds
+#  - name: OTHER
+#    url: nats://nats.example:4222
+#    user: other
+
+# Expected streams, consumers and buckets for the inventory checks; see
+# inventory.example.yaml. Without it the inventory checks find nothing.
+# inventory_file: /etc/natslens/inventory.yaml
+
+# Checks run after every epoch. `natslens checks list` shows every check
+# with its thresholds and their current values.
+checks:
+  timeout: 5s            # longest one check's query may run; at most interval
+  restart_window: 10m    # how long a restarted server counts as restarting; checks leave its own reports out
+  include_tooling: false # count nats-lens's own and loopback (port-forwarded CLI) connections in the client checks
+  loopback_is_tooling: true # clients from 127.0.0.1 or ::1 are tooling, unless they are most connections of an epoch
+  disabled: []           # check codes that do not run; their findings resolve
+  thresholds: {}         # check code -> threshold name -> value in its unit
+  # Your own advice per check, shown after its remediation: a YAML mapping of
+  # check code to plain text, with `backticks` around code. Read at start only:
+  # restart to apply a change (in Kubernetes, a changed ConfigMap needs a
+  # rollout). An unknown code stops the start.
+  # remediation_file: /etc/natslens/remediation.yaml
+#  thresholds:
+#    consumer-006: {max_idle: 10m}
+#    server-007: {warn_ratio: 0.8, crit_ratio: 0.95}
+#    consumer-002: {lookback: 1h}
+
+# Kubernetes watcher in `natslens run`: Events, NATS pods and nodes, read
+# only, stored as events with source k8s. Needs events.enabled.
+kubernetes:
+  enabled: false
+  # kubeconfig: ~/.kube/config   # outside a cluster; empty uses the pod's service account
+  # context: ""                  # kubeconfig context; empty uses its current one
+  namespaces: []                 # Events and NATS pods; empty means the namespace natslens runs in
+  nats_selector: app.kubernetes.io/name=nats,app.kubernetes.io/component=nats
+  server_name: "{pod}"           # NATS server name of a pod; {pod} and {namespace} are replaced
+  node_events_namespace: default # where the API server files node Events
+  nodes: true                    # watch nodes; needs a ClusterRole that may read them
+  pool_nodes: false              # also keep every node of a pool that held a NATS node (not on Autopilot)
+  gap_after: 30s                 # a watch failing this long is recorded
+  # client_pods: '^batch-job-'  # pods that are NATS clients besides service@pod connection names
+
+# Memory DuckDB may use (KiB, MiB, GiB or TiB); unset means 60% of the
+# container's cgroup memory limit, or 1 GiB when there is none.
+# duckdb_memory_limit: 1GiB

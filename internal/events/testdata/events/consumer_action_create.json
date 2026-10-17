@@ -1,0 +1,12 @@
+{
+  "subject": "$JS.EVENT.ADVISORY.CONSUMER.CREATED.order-jobs.resize-worker",
+  "account": "APP",
+  "payload": {
+    "type": "io.nats.jetstream.advisory.v1.consumer_action",
+    "id": "vU6Vlp5USz2jEIwIlxrdlc",
+    "timestamp": "2026-10-17T00:10:30.03136Z",
+    "stream": "order-jobs",
+    "consumer": "resize-worker",
+    "action": "create"
+  }
+}
