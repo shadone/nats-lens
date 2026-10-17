@@ -18,7 +18,7 @@ const (
 	srcFinding = v1.EventSource_EVENT_SOURCE_FINDING
 )
 
-// Event counts and IDs of the scenario. IDs grow with time; the newest
+// Event counts and IDs of example-prod. IDs grow with time; the newest
 // event has ID eventCount.
 const (
 	eventCount        = 214
@@ -26,10 +26,23 @@ const (
 	idConsumerDeleted = "207" // eventCount - 7
 )
 
-// events are every event of the scenario, newest first, with IDs set.
+// events are every event of the scenario, newest first, with IDs set:
+// the newest has the highest.
 func (p *Provider) events(s scen) []*v1.Event {
+	out := s.sc.events(s, p.findings(s))
+	for i, e := range out {
+		e.Id = strconv.Itoa(len(out) - i)
+		if e.GetReceivedAt() == nil {
+			e.ReceivedAt = ts(e.GetTime().AsTime().Add(40 * time.Millisecond))
+		}
+	}
+	return out
+}
+
+// prodEvents are example-prod's events, newest first.
+func prodEvents(s scen, fs []*v1.Finding) []*v1.Event {
 	byCode := map[string]*v1.Finding{}
-	for _, f := range p.findings(s) {
+	for _, f := range fs {
 		byCode[f.GetCheckCode()] = f
 	}
 	tr := func(code string, st v1.FindingState, at time.Time) *v1.FindingTransition {
@@ -87,15 +100,9 @@ func (p *Provider) events(s scen) []*v1.Event {
 		host := fmt.Sprintf("10.20.2.%d", 10+k%40)
 		out = append(out, &v1.Event{
 			Time: ts(s.at(9, 10, 0).Add(-time.Duration(k) * 330 * time.Second)), Source: srcNATS, Kind: kind, Type: typ,
-			Server: serverSpecs[k%3].name, Account: Account, ClientName: "catalog-api", ClientHost: host,
+			Server: s.sc.servers[k%3].name, Account: Account, ClientName: "catalog-api", ClientHost: host,
 			Summary: "catalog-api " + kind[len("client."):] + " from " + host,
 		})
-	}
-	for i, e := range out {
-		e.Id = strconv.Itoa(len(out) - i)
-		if e.GetReceivedAt() == nil {
-			e.ReceivedAt = ts(e.GetTime().AsTime().Add(40 * time.Millisecond))
-		}
 	}
 	return out
 }

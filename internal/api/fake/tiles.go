@@ -32,9 +32,9 @@ func spanLabel(r *v1.TimeRange) string {
 	return "in range"
 }
 
-// tiles are the six numbers of the overview.
-func (s scen) tiles(r *v1.TimeRange, maxPoints int32) []*v1.Tile {
-	sys := systemRef()
+// prodTiles are example-prod's six numbers of the overview.
+func prodTiles(s scen, r *v1.TimeRange, maxPoints int32) []*v1.Tile {
+	sys := s.sc.systemRef()
 	ser := func(metric string) *v1.Series { return s.series(metric, sys, r, maxPoints) }
 	up, conns, slow := ser("cluster.servers_up"), ser("cluster.connections"), ser("cluster.slow_consumers")
 	storage, in, out, durable := ser("cluster.js_storage_bytes"), ser("cluster.in_msgs_rate"), ser("cluster.out_msgs_rate"), ser("cluster.durable_consumers")

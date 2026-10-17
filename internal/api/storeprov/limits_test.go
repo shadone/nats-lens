@@ -74,6 +74,13 @@ func TestEmptyStore(t *testing.T) {
 		"ListEvents":  func() error { _, e := c.ListEvents(ctx, connect.NewRequest(&v1.ListEventsRequest{})); return e },
 		"ListMutes":   func() error { _, e := c.ListMutes(ctx, connect.NewRequest(&v1.ListMutesRequest{})); return e },
 		"ListMetrics": func() error { _, e := c.ListMetrics(ctx, connect.NewRequest(&v1.ListMetricsRequest{})); return e },
+		"ListSystems": func() error {
+			res, e := c.ListSystems(ctx, connect.NewRequest(&v1.ListSystemsRequest{}))
+			if e == nil && res.Msg.GetSystems()[0].GetError() != "" {
+				e = errors.New(res.Msg.GetSystems()[0].GetError())
+			}
+			return e
+		},
 		"GetStatusTimeline": func() error {
 			_, e := c.GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{}))
 			return e
