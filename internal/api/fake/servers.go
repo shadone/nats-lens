@@ -30,6 +30,17 @@ type serverSpec struct {
 	// down is when the server stopped answering, in the fixed frame; zero
 	// while it answers.
 	down time.Time
+	// tags are the server's configured tags.
+	tags []string
+	// node is the Kubernetes node of the server's pod; empty means one
+	// named after the server. podPending is a pod no node has room for.
+	node       string
+	podPending bool
+	// maxPayload is the server's max_payload; zero means 1 MiB.
+	maxPayload int64
+	// slow are the fixed-frame times of the slow consumer disconnects on
+	// the server; nil on every server shares the scenario's among them.
+	slow []time.Time
 }
 
 // started is when the server's process started in the scenario.
@@ -58,8 +69,11 @@ func (s scen) server(sp serverSpec, r *v1.TimeRange, cur []*v1.Finding) *v1.Serv
 		Uptime: dur(seen.Sub(start).Truncate(time.Second)), Role: v1.ServerRole_SERVER_ROLE_FOLLOWER,
 		Present: true, Healthz: "ok", Connections: ptr(sp.conns),
 		JsStorageBytes: ptr(sp.store), JsMaxStorageBytes: ptr(sp.maxStore), MemBytes: ptr(sp.mem), CpuPercent: ptr(sp.cpu),
-		Status: v1.Status_STATUS_OK,
+		Status: v1.Status_STATUS_OK, Tags: sp.tags,
+		SlowConsumersInRange: ptr(s.slowCount(sp, r.GetStart().AsTime(), r.GetEnd().AsTime())),
 	}
+	streams, consumers := s.leads(sp)
+	out.StreamLeaders, out.ConsumerLeaders = ptr(streams), ptr(consumers)
 	if sp.name == s.sc.metaLeader {
 		out.Role = v1.ServerRole_SERVER_ROLE_META_LEADER
 	}
@@ -113,13 +127,9 @@ func (p *Provider) GetServer(_ context.Context, req *v1.GetServerRequest) (*v1.G
 	if !sp.answering() {
 		lastSeen, state = sp.down.Add(s.shift), "missing"
 	}
-	var consumers int32
-	for _, st := range p.sc.streams {
-		consumers += int32(len(st.consumers) + st.ephemeral)
-	}
 	res := &v1.GetServerResponse{
-		Server: s.server(sp, req.GetRange(), current(p.findings(s), req.GetRange())), Subscriptions: ptr(int64(1840)), Routes: ptr(int32(2 * p.sc.clusterSize(sp.cluster))),
-		JsStreams: ptr(int32(len(p.sc.streams))), JsConsumers: ptr(consumers), MetaLeader: p.sc.metaLeader, ConfigDigest: "sha256:7f3a91c2",
+		Server:        s.server(sp, req.GetRange(), current(p.findings(s), req.GetRange())),
+		Subscriptions: ptr(int64(1840)), MetaLeader: p.sc.metaLeader, ConfigDigest: "sha256:7f3a91c2",
 		Processes: []*v1.ServerProcess{
 			{ServerId: sp.oldID, StartTime: ts(s.on(2, 8, 12)), FirstSeen: ts(s.on(3, 0, 0)), LastSeen: ts(start.Add(-2 * time.Minute))},
 			{ServerId: sp.id, StartTime: ts(start), FirstSeen: ts(start.Add(30 * time.Second)), LastSeen: ts(lastSeen)},
@@ -128,6 +138,7 @@ func (p *Provider) GetServer(_ context.Context, req *v1.GetServerRequest) (*v1.G
 	for _, e := range endpoints {
 		res.Endpoints = append(res.Endpoints, &v1.EndpointOutcome{Endpoint: e, State: state})
 	}
+	s.detail(sp, res)
 	return res, nil
 }
 
