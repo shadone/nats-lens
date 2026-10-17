@@ -64,15 +64,15 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 - **Fires when:** any setting differs between the servers' current configurations (subjects, retention, limits, replicas, placement and the others), a missing value included. The creation time is `stream-008`'s.
 - **Severity:** warning.
 - **Thresholds:** none.
-- **Left out:** restarting servers, until they have caught up.
+- **Left out:** servers that restarted within `checks.restart_window` (10 minutes by default).
 
 ### `stream-008` Stream creation time differs across servers
 
 - **Problem:** the servers report different creation times for the stream. When the contents agree, a replica was rebuilt at another time and holds the same messages. When they differ too, one replica may hold a stream that was deleted and created again under the same name.
-- **Fires when:** the creation times differ. The contents agree when a replica's last sequence and message count are at most `position_tolerance` (or `position_tolerance_ratio` of the leader's value, if that is more) behind the leader, at most `position_ahead_tolerance` (or `position_ahead_tolerance_ratio`, if that is more) ahead of it, and its first sequence is within `position_tolerance`. Every replica is compared with the leader, whether it is current or not.
+- **Fires when:** the creation times differ. The contents agree when a replica's last sequence and message count are at most `position_tolerance` (or `position_tolerance_ratio` of the leader's value, if that is more) behind the leader, at most `position_ahead_tolerance` (or `position_ahead_tolerance_ratio`, if that is more) ahead of it, and its first sequence is within `position_tolerance` (or `position_tolerance_ratio` of the leader's first sequence, if that is more). Every replica is compared with the leader, whether it is current or not.
 - **Severity:** info. Warning when the contents differ as well, in this collection and the previous one. A replica behind by more than the tolerance in two collections warns even while it catches up, but only here, where the creation times differ.
 - **Thresholds:** `position_tolerance` 100, `position_tolerance_ratio` 0.01, `position_ahead_tolerance` 10, `position_ahead_tolerance_ratio` 0.001.
-- **Left out:** restarting servers, until they have caught up.
+- **Left out:** servers that restarted within `checks.restart_window` (10 minutes by default).
 
 ### `stream-009` Stream peer set differs across servers
 
@@ -94,7 +94,7 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 
 - **Problem:** a stream, KV bucket or object store that the inventory lists is reported by no server.
 - **Fires when:** no server reports the asset in this collection. When the events hold its `stream.deleted` advisory, the detail names the time and the client that deleted it.
-- **Severity:** critical. While a server that held it when it was last reported (any server, if it never was) is not ready, the asset may still be there: info when that server is restarting or announced its shutdown, warning when it did not answer or has JetStream disabled. A delete event since its last report makes it critical in any case.
+- **Severity:** critical. While a server that held it when it was last reported (any server, if it never was) is not ready, the asset may still be there: info when that server is restarting or announced its shutdown, warning when it did not answer or has JetStream disabled. A delete event since its last report makes it critical in any case, and so do ready holders that lack it once they are a quorum of its holders; while they are fewer, the not-ready rule above applies.
 - **Thresholds:** none; it reads `inventory_file`.
 - **Left out:** assets not in the inventory (see `stream-014`).
 
@@ -125,7 +125,7 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 ## Behavior and rules
 
 - **Leader's view first.** Checks of contents and growth (`stream-002` to `stream-006`, `stream-012`) read the leader's report, because followers report at slightly different moments.
-- **Agreement checks compare every server.** `stream-007` to `stream-010` and `stream-014` compare what each server reports, and leave out restarting servers while they catch up.
+- **Agreement checks compare every server.** `stream-007`, `stream-008` and `stream-010` leave out servers that restarted within `restart_window`; `stream-009` leaves out an unhealthy server's view under the conditions in its section; `stream-014` counts a restarting holder as one that may still hold the asset.
 - **Missing assets are weighed against their holders.** `stream-011` and `stream-014` look at the servers that held the asset when it was last reported, so a server that is away does not make an asset read as deleted.
 - **KV buckets and object stores count as streams.** Their findings name the stream `KV_<bucket>` or `OBJ_<bucket>`, and `stream-005` names them "KV bucket" or "Object store" in the detail.
 
@@ -135,7 +135,7 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 
 - **Given** an R3 stream `order-jobs` whose servers `nats-0` and `nats-1` are down
 - **When** nats-lens collects twice in a row
-- **Then** `stream-001` fires as critical for `APP/order-jobs`, with the replicas online
+- **Then** `stream-001` fires as critical for `APP/order-jobs`, and its detail lists each reporting server's view of the leader
 - **And** it resolves once a leader with a quorum is back
 
 ### A replica was rebuilt

@@ -17,7 +17,7 @@ The inventory is an optional YAML file that lists, per account, the streams, dur
 - **The checks it feeds.** `stream-011` (expected stream or bucket missing), `stream-012` (stream configuration differs from the inventory), `consumer-010` (expected consumer missing) and `consumer-011` (consumer configuration differs from the inventory).
 - **The exemptions it grants.** A stream the inventory declares with `max_age: 0` and `max_bytes: -1`, both given, is unbounded on purpose, and `stream-005` does not report it. A listed KV bucket that allows per-key TTLs is also left out of `stream-005`. Listed streams and durables are left out of `stream-014` and `consumer-013`, because `stream-011` and `consumer-010` report them.
 - **Who deleted it.** When the events hold the delete advisory of a missing asset, the finding names the time and the client that deleted it.
-- **A server that is away is not a delete.** While a server that held the asset is restarting or not answering, a missing asset is info or a warning instead of critical, unless a delete event was captured.
+- **A server that is away is not a delete.** While a server that held the asset is restarting or not answering, a missing asset is info or a warning instead of critical while the ready servers that lack it are fewer than a quorum of its holders, unless a delete event was captured.
 - **Present and expected in the UI.** For a stream the inventory names, the stream lists show its consumers as present out of expected (for example `4/5`). A consumer the inventory expects that no server reports is listed as missing, with no numbers.
 - **Not archived.** The inventory is not part of the hourly archive; nats-lens reads the file again at every start.
 
