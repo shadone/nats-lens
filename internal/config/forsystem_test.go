@@ -1,8 +1,10 @@
 package config
 
 import (
+	"flag"
 	"reflect"
 	"testing"
+	"time"
 )
 
 // The view of a system resolves back to the same system: every per-system
@@ -55,5 +57,22 @@ func TestForSystemOfLegacyConfig(t *testing.T) {
 		view.DuckDBMemoryLimit() != cfg.DuckDBMemoryLimit() || !reflect.DeepEqual(view.NATS, cfg.NATS) ||
 		view.SystemID != "shop-prod" {
 		t.Errorf("view %+v differs from the configuration %+v", view, cfg)
+	}
+}
+
+// ParseWith parses the caller's own flags with the configuration's.
+func TestParseWithExtraFlags(t *testing.T) {
+	var only string
+	cfg, err := ParseWith("natslens once", []string{"-system", "shop-prod", "-interval", "40s"}, func(fs *flag.FlagSet) {
+		fs.StringVar(&only, "system", "", "")
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if only != "shop-prod" || cfg.Interval.D() != 40*time.Second {
+		t.Fatalf("system %q interval %s", only, cfg.Interval)
+	}
+	if _, err := Parse("natslens run", []string{"-system", "shop-prod"}); err == nil {
+		t.Fatal("Parse accepted a flag it does not define")
 	}
 }
