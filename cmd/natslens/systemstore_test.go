@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -52,7 +53,7 @@ func TestOpenSystemsMarksDataDirs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	closeSystems(rts)
+	closeSystems(rts, time.Time{})
 	for _, s := range cfg.ResolvedSystems() {
 		if got := readMarker(t, s.DataDir); got != s.ID {
 			t.Errorf("%s marked %q", s.DataDir, got)
@@ -63,7 +64,7 @@ func TestOpenSystemsMarksDataDirs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	closeSystems(rts)
+	closeSystems(rts, time.Time{})
 }
 
 // A data directory marked for another system refuses the start before a
@@ -111,7 +112,7 @@ func TestLegacyConfigOpensDatabaseInPlace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer closeSystems(rts)
+	defer closeSystems(rts, time.Time{})
 	if len(rts) != 1 || rts[0].sys.ID != config.DefaultSystemID {
 		t.Fatalf("runtimes %+v", rts)
 	}
@@ -183,11 +184,76 @@ func TestMarkerWrittenBeforeTheDatabase(t *testing.T) {
 	sys := cfg.ResolvedSystems()[0]
 	rt := newSystemRuntime(cfg, sys, quietLog())
 	if err := rt.open(ctx, 0); err == nil {
-		closeSystems([]*systemRuntime{rt})
+		closeSystems([]*systemRuntime{rt}, time.Time{})
 		t.Fatal("open with 0 threads succeeded")
 	}
-	closeSystems([]*systemRuntime{rt})
+	closeSystems([]*systemRuntime{rt}, time.Time{})
 	if got := readMarker(t, sys.DataDir); got != "shop-prod" {
 		t.Fatalf("marker %q after a failed open", got)
+	}
+}
+
+// The stores close in parallel and closeSystems returns by the deadline
+// even when a close takes longer.
+func TestCloseSystemsInParallelByDeadline(t *testing.T) {
+	ctx := context.Background()
+	cfg := listConfig(t, t.TempDir(), "shop-prod", "shop-staging", "shop-edge")
+	slow := func(st *store.Store) error {
+		time.Sleep(400 * time.Millisecond)
+		return st.Close()
+	}
+	defer func(old func(*store.Store) error) { closeStore = old }(closeStore)
+	closeStore = slow
+
+	rts, err := openSystems(ctx, cfg, cfg.ResolvedSystems(), quietLog())
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	closeSystems(rts, time.Now().Add(5*time.Second))
+	if took := time.Since(start); took > time.Second {
+		t.Errorf("three 400 ms closes took %v: not in parallel", took)
+	}
+
+	closeStore = func(st *store.Store) error {
+		time.Sleep(2 * time.Second)
+		return st.Close()
+	}
+	rts, err = openSystems(ctx, cfg, cfg.ResolvedSystems(), quietLog())
+	if err != nil {
+		t.Fatal(err)
+	}
+	start = time.Now()
+	closeSystems(rts, time.Now().Add(200*time.Millisecond))
+	if took := time.Since(start); took > time.Second {
+		t.Errorf("closeSystems took %v past a 200 ms deadline", took)
+	}
+	time.Sleep(2 * time.Second) // let the abandoned closes finish before the temp dir goes
+}
+
+// A system refused at once stops the others' opens instead of waiting for
+// them, for example for a long rebuild.
+func TestOpenSystemsStopsAtTheFirstFailure(t *testing.T) {
+	cfg := listConfig(t, t.TempDir(), "shop-prod", "shop-staging")
+	defer func(old func(*systemRuntime, context.Context, int) error) { openRuntime = old }(openRuntime)
+	openRuntime = func(rt *systemRuntime, ctx context.Context, threads int) error {
+		if rt.sys.ID == "shop-prod" {
+			return errors.New("refused")
+		}
+		<-ctx.Done() // a rebuild that only ends when cancelled
+		return ctx.Err()
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, err := openSystems(context.Background(), cfg, cfg.ResolvedSystems(), quietLog())
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err == nil || !strings.Contains(err.Error(), "refused") {
+			t.Fatalf("err = %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("openSystems waited for the other system after a refusal")
 	}
 }

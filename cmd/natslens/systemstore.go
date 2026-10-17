@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/shadone/nats-lens/internal/config"
 	"github.com/shadone/nats-lens/internal/store"
@@ -89,20 +90,39 @@ func threadsPerStore(procs, n int) int {
 
 // openSystems opens every system's store in parallel, each with its own
 // rebuild, and loads its inventory. A store that fails to open fails the
-// start: the others are closed again and the errors are returned.
+// start: the first failure cancels the other opens, so that a refusal
+// does not wait for another system's long rebuild, the stores already open
+// are closed again, and the failures other than the cancellations are
+// returned.
 func openSystems(ctx context.Context, cfg config.Config, systems []config.System, log *slog.Logger) ([]*systemRuntime, error) {
 	threads := threadsPerStore(runtimeProcs(), len(systems))
+	octx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	rts := make([]*systemRuntime, len(systems))
 	errs := make([]error, len(systems))
 	var wg sync.WaitGroup
 	for i, sys := range systems {
 		rt := newSystemRuntime(cfg, sys, log)
 		rts[i] = rt
-		wg.Go(func() { errs[i] = rt.open(ctx, threads) })
+		wg.Go(func() {
+			if errs[i] = openRuntime(rt, octx, threads); errs[i] != nil {
+				cancel()
+			}
+		})
 	}
 	wg.Wait()
-	if err := errors.Join(errs...); err != nil {
-		closeSystems(rts)
+	var failed []error
+	for _, err := range errs {
+		if err != nil && (ctx.Err() != nil || !errors.Is(err, context.Canceled)) {
+			failed = append(failed, err)
+		}
+	}
+	if len(failed) == 0 && octx.Err() != nil && ctx.Err() == nil {
+		// Every failure was a cancellation; report them rather than none.
+		failed = errs
+	}
+	if err := errors.Join(failed...); err != nil {
+		closeSystems(rts, time.Time{})
 		return nil, err
 	}
 	return rts, nil
@@ -133,14 +153,42 @@ func (rt *systemRuntime) open(ctx context.Context, threads int) error {
 	return nil
 }
 
-// closeSystems closes every store that is open.
-func closeSystems(rts []*systemRuntime) {
+// openRuntime opens one system; a variable so that tests can slow it.
+var openRuntime = (*systemRuntime).open
+
+// closeStore closes one store; a variable so that tests can slow it.
+var closeStore = (*store.Store).Close
+
+// closeSystems closes every open store, all at once, and waits for them
+// until by; a zero by waits for every close. A close still running at by
+// is abandoned: the process is about to exit, and the next start replays
+// the database's write-ahead log.
+func closeSystems(rts []*systemRuntime, by time.Time) {
+	var wg sync.WaitGroup
 	for _, rt := range rts {
-		if rt != nil && rt.st != nil {
-			if err := rt.st.Close(); err != nil {
-				rt.log.Error("database not closed cleanly", "err", err)
+		if rt == nil || rt.st == nil {
+			continue
+		}
+		st, log := rt.st, rt.log
+		rt.st = nil
+		wg.Go(func() {
+			if err := closeStore(st); err != nil {
+				log.Error("database not closed cleanly", "err", err)
 			}
-			rt.st = nil
+		})
+	}
+	done := make(chan struct{})
+	go func() { wg.Wait(); close(done) }()
+	if by.IsZero() {
+		<-done
+		return
+	}
+	if !waitUntil(done, by) {
+		for _, rt := range rts {
+			if rt != nil {
+				rt.log.Warn("database still closing at the shutdown deadline; abandoned")
+				break
+			}
 		}
 	}
 }
