@@ -2,6 +2,7 @@ package storeprov_test
 
 import (
 	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -150,5 +151,42 @@ func TestBucketPlacementPadsToReplicas(t *testing.T) {
 	want := []string{"nats-0=PLACEMENT_STATE_LEADER", "nats-1=PLACEMENT_STATE_IN_SYNC", "=PLACEMENT_STATE_MISSING"}
 	if got := states(kvs[0].GetPlacement()); !slices.Equal(got, want) {
 		t.Fatalf("placement = %v, want %v", got, want)
+	}
+}
+
+// Two servers claim the lead; nats-0 wins by name, so only its replica
+// list counts: it reports nats-1 behind while nats-2's stale list says
+// current. Whichever list the store holds first, nats-1 is BEHIND, and
+// nats-2, which the winner does not list, DISAGREES.
+func TestPlacementUsesTheChosenLeadersList(t *testing.T) {
+	type list struct {
+		lead    string
+		current bool
+		lag     int64
+	}
+	winner, loser := list{"S0", false, 9}, list{"S2", true, 0}
+	for _, order := range [][]list{{winner, loser}, {loser, winner}} {
+		st := emptyStore(t)
+		r := rows{t, st}
+		ids := []string{"S0", "S1", "S2"}
+		for i, id := range ids {
+			r.server(id, "nats-"+strconv.Itoa(i))
+		}
+		r.epoch(1, t0, ids...)
+		r.add("streams", map[string]any{"account": "APP", "stream": "order-jobs", "first_epoch": 1, "last_epoch": 1})
+		for _, id := range ids {
+			r.add("stream_stats", map[string]any{"epoch": 1, "server_id": id, "account": "APP", "stream": "order-jobs",
+				"is_leader": id != "S1", "messages": 10, "bytes": 100})
+			r.add("stream_config", map[string]any{"server_id": id, "account": "APP", "stream": "order-jobs",
+				"first_epoch": 1, "last_epoch": 1, "config_hash": "h", "replicas": 3})
+		}
+		for _, l := range order {
+			r.add("stream_replicas", map[string]any{"epoch": 1, "server_id": l.lead, "account": "APP", "stream": "order-jobs",
+				"peer_name": "nats-1", "current": l.current, "offline": false, "lag": l.lag})
+		}
+		want := []string{"nats-0=PLACEMENT_STATE_LEADER", "nats-1=PLACEMENT_STATE_BEHIND", "nats-2=PLACEMENT_STATE_DISAGREES"}
+		if got := states(streamPlacementOf(t, st)); !slices.Equal(got, want) {
+			t.Errorf("lists in order %v: placement = %v, want %v", order, got, want)
+		}
 	}
 }

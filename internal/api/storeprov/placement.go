@@ -11,7 +11,9 @@ import (
 )
 
 // replicaReport is what epoch's rows say of one replica of a stream: the
-// server's own report, and the leader's view of it.
+// server's own report, and the leader's view of it. The store reader
+// keeps every claimant's view in byLeader; placementOf reads the chosen
+// leader's into listed, current, offline and lag.
 type replicaReport struct {
 	reports, leader bool
 	hash            string
@@ -19,6 +21,25 @@ type replicaReport struct {
 	current         sql.NullBool
 	offline         sql.NullBool
 	lag             sql.NullInt64
+	byLeader        map[string]claimantView
+}
+
+// claimantView is one leader claimant's entry for a replica.
+type claimantView struct {
+	current, offline sql.NullBool
+	lag              sql.NullInt64
+}
+
+// withLeader is the report as the chosen leader sees it, when the report
+// holds each claimant's view; a copy, the input is left alone.
+func (r *replicaReport) withLeader(leader string) *replicaReport {
+	if r.byLeader == nil {
+		return r
+	}
+	c := *r
+	v, ok := r.byLeader[leader]
+	c.listed, c.current, c.offline, c.lag = ok, v.current, v.offline, v.lag
+	return &c
 }
 
 // streamReplicas reads, for every stream of the epoch (optionally one
@@ -33,7 +54,7 @@ func (p *Provider) streamReplicas(ctx context.Context, epoch int64, account, str
 			out[key] = map[string]*replicaReport{}
 		}
 		if out[key][server] == nil {
-			out[key][server] = &replicaReport{}
+			out[key][server] = &replicaReport{byLeader: map[string]claimantView{}}
 		}
 		return out[key][server]
 	}
@@ -60,10 +81,13 @@ WHERE x.epoch = ? AND (? = '' OR x.account = ?) AND (? = '' OR x.stream = ?) AND
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	// Every leader claimant's list is kept apart; placementOf uses the
+	// chosen leader's only.
 	lead, err := p.db().QueryContext(ctx, `
-SELECT rp.account, rp.stream, rp.peer_name, rp.current, rp.offline, rp.lag FROM stream_replicas rp
+SELECT rp.account, rp.stream, ls.server_name, rp.peer_name, rp.current, rp.offline, rp.lag FROM stream_replicas rp
 JOIN stream_stats l ON l.epoch = rp.epoch AND l.server_id = rp.server_id AND l.account = rp.account
   AND l.stream = rp.stream AND l.is_leader
+JOIN servers ls ON ls.server_id = rp.server_id
 WHERE rp.epoch = ? AND (? = '' OR rp.account = ?) AND (? = '' OR rp.stream = ?) AND starts_with(rp.stream, ?)`,
 		epoch, account, account, stream, stream, prefix)
 	if err != nil {
@@ -71,14 +95,12 @@ WHERE rp.epoch = ? AND (? = '' OR rp.account = ?) AND (? = '' OR rp.stream = ?) 
 	}
 	defer lead.Close()
 	for lead.Next() {
-		var acc, st, peer string
-		var current, offline sql.NullBool
-		var lag sql.NullInt64
-		if err := lead.Scan(&acc, &st, &peer, &current, &offline, &lag); err != nil {
+		var acc, st, leader, peer string
+		var v claimantView
+		if err := lead.Scan(&acc, &st, &leader, &peer, &v.current, &v.offline, &v.lag); err != nil {
 			return nil, err
 		}
-		r := get(acc, st, peer)
-		r.listed, r.current, r.offline, r.lag = true, current, offline, lag
+		get(acc, st, peer).byLeader[leader] = v
 	}
 	return out, lead.Err()
 }
@@ -125,7 +147,7 @@ func placementOf(reps map[string]*replicaReport, replicas int32) []*v1.ReplicaPl
 	for _, name := range names {
 		st := v1.PlacementState_PLACEMENT_STATE_LEADER
 		if name != leader {
-			st = replicaState(reps[name], leader != "", reps[leader].hashOr(), len(hashes) > 1)
+			st = replicaState(reps[name].withLeader(leader), leader != "", reps[leader].hashOr(), len(hashes) > 1)
 		}
 		out = append(out, &v1.ReplicaPlacement{Server: name, State: st})
 	}
