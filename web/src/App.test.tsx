@@ -141,8 +141,8 @@ describe("sidebar", () => {
   it("shows the built pages in their groups and hides the planned ones", async () => {
     renderApp(<App />, "/streams?system=example-global");
     const links = within(nav()).getAllByRole("link").map((a) => a.textContent?.replace(/\d+$/, ""));
-    expect(links).toEqual(["Fleet", "Overview", "Findings", "Connections", "Streams", "Consumers", "Servers", "Events"]);
-    for (const planned of ["Subjects", "Micro services", "Applications", "KV Stores", "Object Stores", "Placement", "Capacity", "Topology", "Accounts", "Users & auth"]) {
+    expect(links).toEqual(["Fleet", "Overview", "Findings", "Connections", "Streams", "Consumers", "KV Stores", "Object Stores", "Servers", "Events"]);
+    for (const planned of ["Subjects", "Micro services", "Applications", "Placement", "Capacity", "Topology", "Accounts", "Users & auth"]) {
       expect(within(nav()).queryByText(planned)).toBeNull();
     }
     expect(within(nav()).getByText("Messaging").parentElement).toHaveTextContent("Connections");
@@ -154,7 +154,7 @@ describe("sidebar", () => {
     for (const a of within(nav()).getAllByRole("link")) {
       const p = params(a.getAttribute("href"));
       const name = a.textContent?.replace(/\d+$/, "");
-      const scoped = name === "Consumers" || name === "Connections" ? "APP" : null;
+      const scoped = ["Consumers", "Connections", "KV Stores", "Object Stores"].includes(name ?? "") ? "APP" : null;
       expect([name, p.get("system"), p.get("range"), p.get("account")]).toEqual([name, "example-global", "6h", scoped]);
     }
   });
@@ -359,7 +359,7 @@ describe("header", () => {
   });
 
   it("shows the account scope only on pages that apply it", async () => {
-    for (const [path, shown] of [["/consumers", true], ["/connections", true], ["/servers", false], ["/streams", false], ["/", false], ["/consumers/APP/order-jobs/resize-worker", false]] as const) {
+    for (const [path, shown] of [["/consumers", true], ["/connections", true], ["/kv-stores", true], ["/object-stores", true], ["/servers", false], ["/streams", false], ["/", false], ["/consumers/APP/order-jobs/resize-worker", false]] as const) {
       const { unmount } = renderApp(<App />, `${path}?system=example-prod`);
       expect([path, screen.queryByRole("button", { name: /accounts|^Account:/ }) !== null]).toEqual([path, shown]);
       unmount();
