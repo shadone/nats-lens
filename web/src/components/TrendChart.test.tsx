@@ -72,6 +72,20 @@ describe("TrendChart", () => {
     expect(mark!.getAttribute("y1")).not.toBe(mark!.getAttribute("y2"));
   });
 
+  it("keeps a lone band point visible when its low equals its high", () => {
+    const { container } = render(
+      <TrendChart
+        title="CPU"
+        start={START}
+        end={END}
+        stepMs={900_000}
+        layers={[{ kind: "band", label: "lowest to highest server", style: { tone: "accent" }, points: [{ time: START + 2 * 900_000, low: 5, high: 5 }] }]}
+      />,
+    );
+    const mark = container.querySelector("svg.tc-svg line.tc-band-pt")!;
+    expect(Math.abs(Number(mark.getAttribute("y1")) - Number(mark.getAttribute("y2")))).toBeGreaterThanOrEqual(3);
+  });
+
   it("shows a dash and no data when nothing was observed", () => {
     render(<TrendChart title="Servers" start={START} end={END} layers={[{ kind: "line", label: "answering", style: { tone: "accent" }, points: [] }]} />);
     expect(screen.getByRole("img", { name: /^Servers/ })).toHaveAccessibleName(/Servers, no data/);
