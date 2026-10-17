@@ -1,0 +1,28 @@
+/* Metric box: title with (i), value top right, line chart, range track. */
+.mbox{padding:13px 14px 12px;display:flex;flex-direction:column;min-width:0}
+.mb-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.mb-h .lbl{display:inline-flex;align-items:center;gap:6px;min-width:0;flex:0 1 auto}
+.mb-h .infotip{flex:none}
+.mb-v{flex:none}
+.mb-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.mb-v{display:inline-flex;align-items:baseline;gap:6px;white-space:nowrap;margin-left:auto}
+.mb-v b{font:500 16px var(--mono)}
+.mb-word{font-style:normal;font-size:11.5px;font-weight:600}
+.mbox.st-critical .mb-v b,.mbox.st-critical .mb-word{color:var(--sev-critical)}
+.mbox.st-warning .mb-v b,.mbox.st-warning .mb-word{color:var(--sev-warning)}
+.mbox.st-info .mb-v b,.mbox.st-info .mb-word{color:var(--sev-info)}
+.mbox svg.spark{width:100%;height:44px;margin-top:8px;display:block}
+.mb-range{margin-top:9px}
+.mb-track{position:relative;height:4px;background:var(--track);border-radius:2px}
+.mb-dot{position:absolute;top:-5px;width:10px;height:10px;margin-left:-7px;border-radius:50%;background:var(--accent);border:2px solid var(--surface)}
+.mb-dot.st-critical{background:var(--sev-critical)}
+.mb-dot.st-warning{background:var(--cell-warning)}
+.mb-dot.st-info{background:var(--sev-info)}
+.mb-ends{display:flex;justify-content:space-between;font:11px var(--mono);color:var(--text-muted);margin-top:5px}
+.mb-track-note{margin-top:9px;font:11px var(--mono);color:var(--text-muted)}
+.mb-note{margin-top:4px;font-size:11.5px;color:var(--text-muted)}
+.infotip{position:relative;display:inline-flex}
+.infotip-b{width:15px;height:15px;padding:0;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font:italic 600 10px/13px var(--sans);text-transform:none;letter-spacing:0;cursor:help}
+.infotip-b:hover,.infotip-b:focus-visible{border-color:var(--accent);color:var(--accent-text)}
+.infotip-t{position:absolute;z-index:20;top:20px;left:-8px;width:max-content;max-width:260px;padding:8px 10px;border-radius:6px;background:var(--strong-bg);color:var(--on-strong);font:400 12px/1.4 var(--sans);text-transform:none;letter-spacing:0;white-space:normal;box-shadow:0 4px 14px var(--shadow)}
+.mb-stale{align-self:flex-start;margin-top:4px;font:11px var(--mono);color:var(--sev-warning);cursor:help}

@@ -46,9 +46,12 @@ export function Sparkline({ points, points2, status, windows, start, end, label,
   const all = points.concat(points2 ?? []).map((p) => p.value);
   let mn = Math.min(...all);
   let mx = Math.max(...all);
+  // A series that stays at 0 is a bare line on the baseline, with no fill.
+  const flatZero = mx === 0 && mn === 0;
   if (mx === mn) {
+    // A series that stays at 0 lies on the baseline; another constant sits mid-height.
     mx = mn + 1;
-    mn = mn - 1;
+    if (mn !== 0) mn = mn - 1;
   }
   const p = sparkPoints(points, start, end, mn, mx);
   const first = p[0].split(",")[0];
@@ -62,7 +65,7 @@ export function Sparkline({ points, points2, status, windows, start, end, label,
         const x1 = Math.min(W, ((w.end - start) / span) * W);
         return x1 > x0 ? <rect key={w.start} x={x0.toFixed(1)} y="0" width={(x1 - x0).toFixed(1)} height={H} style={{ fill: "var(--upgrade-fill)" }} /> : null;
       })}
-      <polygon points={`${first},${H} ${p.join(" ")} ${last},${H}`} style={{ fill: col, fillOpacity: 0.1 }} />
+      {!flatZero && <polygon points={`${first},${H} ${p.join(" ")} ${last},${H}`} style={{ fill: col, fillOpacity: 0.1 }} />}
       {points2 && points2.length > 0 && (
         <polyline
           points={sparkPoints(points2, start, end, mn, mx).join(" ")}
