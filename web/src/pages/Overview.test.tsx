@@ -27,7 +27,7 @@ const END = Date.parse("2026-10-17T14:30:00Z");
 const quiet: OverviewModel = {
   cluster: "example-prod",
   range: { start: END - 86_400_000, end: END },
-  freshness: { epoch: "9", epochAt: Date.now() - 5_000, ageMs: 5_000, partial: false, live: true, intervalMs: 30_000 },
+  freshness: { epoch: "9", epochAt: Date.now() - 5_000, ageMs: 5_000, partial: false, live: true, intervalMs: 30_000, collecting: true },
   servers: [],
   tally: { critical: 0, warning: 0, info: 0, muted: 0, flapping: 0, resolved24h: 0 },
   tiles: [],

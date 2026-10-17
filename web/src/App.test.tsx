@@ -71,7 +71,7 @@ beforeEach(() => {
   l.listKeyValueStores.mockResolvedValue({ keyValueStores: [] } as never);
   l.listObjectStores.mockResolvedValue({ objectStores: [] } as never);
   m.getLensInfo.mockResolvedValue({ identityMode: "request", version: "dev", cluster: "c", collectIntervalMs: 30_000, retentionMs: 0, live: true, demo: true });
-  m.getHeaderStatus.mockResolvedValue({ cluster: "c", freshness: { epoch: "1", epochAt: Date.now(), partial: false, live: true, intervalMs: 30_000 }, servers: [], tally });
+  m.getHeaderStatus.mockResolvedValue({ cluster: "c", freshness: { epoch: "1", epochAt: Date.now(), partial: false, live: true, intervalMs: 30_000, collecting: true }, servers: [], tally });
   m.listServers.mockResolvedValue({ servers: [], expected: [], missing: [] });
   m.listStreams.mockResolvedValue({ streams: [], totals: { bytes: 0, durableConsumers: 0, ephemeralConsumers: 0 } } as never);
   m.listConsumers.mockResolvedValue([{ entity: entity("order-jobs", "resize-worker"), durable: true, findingCodes: [], disagreements: [], status: "ok" }] as never);

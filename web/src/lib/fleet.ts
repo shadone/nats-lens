@@ -24,7 +24,7 @@ export const CARD_STATE_LABEL: Record<CardState, string> = {
 };
 
 export function notCollecting(s: SystemSummary): boolean {
-  return s.collection === "not connected" || s.collection === "connection closed" || s.collectionError !== "";
+  return s.collection === "not connected" || s.collection === "connection closed" || s.collectionError !== "" || s.freshness?.collecting === false;
 }
 
 export function cardState(s: SystemSummary): CardState {
@@ -60,8 +60,10 @@ export function headline(s: SystemSummary, now: number): Headline {
     case "unavailable":
       return { text: s.error, more: 0 };
     case "notcollecting": {
-      const what = s.collectionError || (s.collection === "connection closed" ? "Connection closed" : "Not connected");
-      return { text: s.collectionErrorSince !== undefined ? `${what} since ${since(s.collectionErrorSince, now)}` : what, more: 0 };
+      const what =
+        s.collectionError || (s.collection === "connection closed" ? "Connection closed" : s.collection === "not connected" ? "Not connected" : "Not collecting");
+      const at = s.collectionErrorSince ?? s.freshness?.notCollectingSince;
+      return { text: at !== undefined ? `${what} since ${since(at, now)}` : what, more: 0 };
     }
     case "nodata":
       return { text: "No collection in this range", more: 0 };
