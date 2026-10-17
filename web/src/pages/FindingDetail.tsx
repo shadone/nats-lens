@@ -1,55 +1,86 @@
-// One finding: what fails, remediation, related configuration, the cause,
-// its mute, the entity's timeline and the finding's transitions.
+// One finding: its headline, when the condition began and when nats-lens
+// first saw it, each server's copy of its stream or consumer, what to do,
+// what happened around its start, the entity's timeline, the finding's
+// transitions and its mute.
 import { useState } from "react";
 import { useParams } from "react-router";
-import type { Finding } from "../api/model";
+import { AROUND_MS, useEventsAround } from "../api/events";
+import { useOtherFindings } from "../api/finding";
+import type { Entity, Finding } from "../api/model";
 import { useFinding, useLensInfo, useTimeline } from "../api/queries";
 import { Empty, KV, QueryView, RLink, Remediation, Section } from "../components/common";
+import { EventRow } from "../components/EventRow";
+import { FindingEvidence } from "../components/FindingEvidence";
 import { EntityLine } from "../components/FindingParts";
 import { MuteDialog, UnmuteDialog } from "../components/MuteDialog";
 import { Sev, StateTag } from "../components/Severity";
 import { StatusTimeline } from "../components/StatusTimeline";
 import { fmtDuration, isoMinute, isoSecond } from "../lib/format";
+import type { RangeSpec } from "../lib/timeRange";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
-import { eventPath, findingTag } from "../lib/view";
+import { entityName, entityPath, eventPath, findingTag, serverPath, streamPath } from "../lib/view";
 
-/** A firing finding first seen within a minute after the oldest stored
- * epoch: the condition may be older than nats-lens's history. */
+/**
+ * A firing finding whose condition was already true when nats-lens
+ * started: its condition began before the oldest stored epoch, or it was
+ * first seen within a minute after it.
+ */
 export function atHistoryStart(f: Finding, historyStart: number | undefined): boolean {
   if (historyStart === undefined || f.since === undefined || f.state === "resolved") return false;
+  if (f.conditionSince !== undefined && f.conditionSince < historyStart) return true;
   return f.since >= historyStart && f.since - historyStart < 60_000;
 }
 
-function Head({ f, start, end, onMute, onUnmute }: { f: Finding; start: number; end: number; onMute: () => void; onUnmute: () => void }) {
+/** "Condition since X · first seen by nats-lens Y", and how many others share it. */
+function When({ f, spec, historyStart }: { f: Finding; spec: RangeSpec; historyStart?: number }) {
+  const others = useOtherFindings(spec, f).data ?? 0;
+  const seen = <span className="mono">{f.since !== undefined ? `${isoMinute(f.since)} UTC` : "–"}</span>;
+  return (
+    <p className="fd-when">
+      {f.conditionSince !== undefined ? (
+        <>
+          Condition since <span className="mono">{isoMinute(f.conditionSince)} UTC</span> · first seen by nats-lens {seen}
+        </>
+      ) : (
+        <>First seen by nats-lens {seen}</>
+      )}
+      {atHistoryStart(f, historyStart) && ", already true when nats-lens started"}
+      {others > 0 && (
+        <>
+          {" · "}
+          <RLink to={`/findings?check=${encodeURIComponent(f.checkCode)}`}>
+            {others} other {others === 1 ? "entity has" : "entities have"} this finding
+          </RLink>
+        </>
+      )}
+    </p>
+  );
+}
+
+function Head({ f, spec, start, end, onMute, onUnmute }: { f: Finding; spec: RangeSpec; start: number; end: number; onMute: () => void; onUnmute: () => void }) {
   const since = f.since ?? end;
   const historyStart = useLensInfo().data?.historyStart;
+  // The finding's own words when it has them, quoted as sent.
+  const headline = f.detail || f.checkName;
   return (
     <div className={`card worst finding-h ${f.mute ? "info" : f.severity}`}>
       <div className="k">
         <Sev level={f.mute ? "muted" : f.severity} />
         <span className="code">{f.checkCode}</span>
+        {headline !== f.checkName && <span className="lbl">{f.checkName}</span>}
         <StateTag tag={findingTag(f, start)} />
       </div>
-      <h1>{f.checkName}</h1>
+      <h1>{headline}</h1>
       <div className="ent">
         <EntityLine e={f.entity} />
       </div>
-      <p>{f.detail}</p>
+      <When f={f} spec={spec} historyStart={historyStart} />
       <div className="meta">
         <div>
-          <span className="lbl">First seen by nats-lens</span>
-          <span className="v">
-            {isoMinute(since)} UTC · {fmtDuration((f.resolvedAt ?? end) - since)}
-            {atHistoryStart(f, historyStart) && ", first seen when nats-lens history begins"}
-          </span>
+          <span className="lbl">{f.resolvedAt !== undefined ? "Fired for" : "Firing for"}</span>
+          <span className="v">{f.since !== undefined ? fmtDuration((f.resolvedAt ?? end) - since) : "–"}</span>
         </div>
-        {f.conditionSince !== undefined && (
-          <div>
-            <span className="lbl">Condition since</span>
-            <span className="v">{isoMinute(f.conditionSince)} UTC</span>
-          </div>
-        )}
         {f.resolvedAt !== undefined && (
           <div>
             <span className="lbl">Resolved</span>
@@ -92,6 +123,88 @@ function Head({ f, start, end, onMute, onUnmute }: { f: Finding; start: number; 
   );
 }
 
+/** What happened within 10 minutes of the condition's start, or of the first sighting. */
+function Around({ f, end, historyStart }: { f: Finding; end: number; historyStart?: number }) {
+  const t = f.conditionSince ?? f.since;
+  const beforeHistory = t !== undefined && historyStart !== undefined && t + AROUND_MS < historyStart;
+  const q = useEventsAround(beforeHistory ? undefined : t);
+  const [open, setOpen] = useState<string | undefined>();
+  if (t === undefined) return null;
+  return (
+    <Section title="Around the start" aside={`10 minutes either side of ${isoMinute(t)} UTC.`} className="fd-around">
+      {beforeHistory ? (
+        <p className="muted-note">nats-lens has no history before {isoMinute(historyStart!)} UTC, so it cannot say what happened then.</p>
+      ) : (
+        <QueryView q={q} what="the events around the start">
+          {(d) => (
+            <>
+              {historyStart !== undefined && t - AROUND_MS < historyStart && <p className="muted-note">nats-lens has no history before {isoMinute(historyStart)} UTC.</p>}
+              {d.items.length === 0 ? (
+                <Empty>No events worth reading in these 20 minutes.</Empty>
+              ) : (
+                <div className="card evlist">
+                  {d.items.map((e) => (
+                    <EventRow key={e.id} e={e} end={end} open={open === e.id} onToggle={() => setOpen((o) => (o === e.id ? undefined : e.id))} compact />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </QueryView>
+      )}
+    </Section>
+  );
+}
+
+/** The events page filtered to the entity, when it can be. */
+function eventsLink(e: Entity): string | undefined {
+  switch (e.kind) {
+    case "stream":
+      return `/events?stream=${encodeURIComponent(`${e.account}/${e.stream}`)}`;
+    case "consumer":
+      return `/events?consumer=${encodeURIComponent(`${e.account}/${e.stream}/${e.consumer}`)}`;
+    case "server":
+      return `/events?server=${encodeURIComponent(e.server || e.key)}`;
+    case "client":
+      return `/events?client=${encodeURIComponent(e.key)}`;
+    default:
+      return undefined;
+  }
+}
+
+function Related({ e }: { e: Entity | undefined }) {
+  if (!e) return null;
+  const own = entityPath(e);
+  const events = eventsLink(e);
+  return (
+    <section className="card box-card" aria-label="Related">
+      <span className="lbl">Related</span>
+      <ul>
+        {own && (
+          <li>
+            <RLink to={own}>{entityName(e)}</RLink> {e.kind}
+          </li>
+        )}
+        {e.kind === "consumer" && (
+          <li>
+            <RLink to={streamPath(e.account, e.stream)}>{e.stream}</RLink> stream
+          </li>
+        )}
+        {e.server && e.kind !== "server" && (
+          <li>
+            <RLink to={serverPath(e.server)}>{e.server}</RLink> server
+          </li>
+        )}
+        {events && (
+          <li>
+            <RLink to={events}>Events for this {e.kind}</RLink>
+          </li>
+        )}
+      </ul>
+    </section>
+  );
+}
+
 export function FindingDetail() {
   const id = useParams().id ?? "";
   usePageTitle(id);
@@ -100,6 +213,7 @@ export function FindingDetail() {
   const q = useFinding(spec, id);
   const f = q.data?.finding;
   const tl = useTimeline(spec, f?.entity);
+  const historyStart = useLensInfo().data?.historyStart;
   const [muting, setMuting] = useState(false);
   const [lifting, setLifting] = useState(false);
   return (
@@ -107,7 +221,15 @@ export function FindingDetail() {
       <nav className="crumbs" aria-label="Breadcrumb">
         <RLink to="/findings">Findings</RLink>
         <span aria-hidden="true">/</span>
-        <span className="mono">{id}</span>
+        {f ? (
+          <>
+            <RLink to={`/findings?check=${encodeURIComponent(f.checkCode)}`}>{f.checkName}</RLink>
+            <span aria-hidden="true">/</span>
+            <span className="mono">{entityName(f.entity) || "system"}</span>
+          </>
+        ) : (
+          <span className="mono">{id}</span>
+        )}
       </nav>
       <QueryView q={q} what="the finding">
         {(d) =>
@@ -116,7 +238,7 @@ export function FindingDetail() {
           ) : (
             <>
               <section className="sec">
-                <Head f={d.finding} start={start} end={end} onMute={() => setMuting(true)} onUnmute={() => setLifting(true)} />
+                <Head f={d.finding} spec={spec} start={start} end={end} onMute={() => setMuting(true)} onUnmute={() => setLifting(true)} />
               </section>
               {d.finding.mute && (
                 <section className="sec card box-card">
@@ -127,17 +249,26 @@ export function FindingDetail() {
                   </p>
                 </section>
               )}
-              <section className="sec grid2 ex">
-                <div className="box">
-                  <span className="lbl">Remediation</span>
-                  {d.finding.remediation ? <Remediation text={d.finding.remediation} /> : <p className="muted-note">The check gives no remediation.</p>}
+              <div className="sec fd-cols">
+                <div className="fd-main">
+                  <FindingEvidence spec={spec} entity={d.finding.entity} />
+                  <section className="grid2 ex" aria-label="What to do">
+                    <div className="box">
+                      <span className="lbl">Remediation</span>
+                      {d.finding.remediation ? <Remediation text={d.finding.remediation} /> : <p className="muted-note">The check gives no remediation.</p>}
+                    </div>
+                    <div className="box cfg">
+                      <span className="lbl">Related settings{d.finding.relatedConfigSource ? `, from ${d.finding.relatedConfigSource}` : ""}</span>
+                      {d.finding.relatedConfig.length ? <KV items={d.finding.relatedConfig} /> : <p className="muted-note">None.</p>}
+                      {d.finding.value?.basis && <small>Metric basis: {d.finding.value.basis}.</small>}
+                    </div>
+                  </section>
+                  <Around f={d.finding} end={end} historyStart={historyStart} />
                 </div>
-                <div className="box cfg">
-                  <span className="lbl">Related config{d.finding.relatedConfigSource ? `, from ${d.finding.relatedConfigSource}` : ""}</span>
-                  {d.finding.relatedConfig.length ? <KV items={d.finding.relatedConfig} /> : <p className="muted-note">None.</p>}
-                  {d.finding.value?.basis && <small>Metric basis: {d.finding.value.basis}.</small>}
-                </div>
-              </section>
+                <aside className="fd-side">
+                  <Related e={d.finding.entity} />
+                </aside>
+              </div>
               <Section title="Status timeline" aside="Every check for this entity over the range.">
                 <div className="card tl">
                   <QueryView q={tl} what="the timeline">
