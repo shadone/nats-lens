@@ -82,6 +82,9 @@ message GetStatusTimelineRequest {
 
   // Whether to include checks that were OK in every bucket.
   bool include_ok = 4;
+
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 5;
 }
 
 // Per check, per bucket, the worst state, and the events to draw with it.

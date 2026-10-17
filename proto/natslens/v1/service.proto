@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package natslens.v1;
 
+import "natslens/v1/buckets.proto";
 import "natslens/v1/consumers.proto";
 import "natslens/v1/events.proto";
 import "natslens/v1/findings.proto";
@@ -9,13 +10,18 @@ import "natslens/v1/info.proto";
 import "natslens/v1/overview.proto";
 import "natslens/v1/servers.proto";
 import "natslens/v1/streams.proto";
+import "natslens/v1/systems.proto";
 import "natslens/v1/timeline.proto";
 import "natslens/v1/timeseries.proto";
 
 option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
 
-// What nats-lens recorded about one NATS system: servers, JetStream assets,
-// connections, events, findings and their history.
+// What nats-lens recorded about the NATS systems it observes: servers,
+// JetStream assets, connections, events, findings and their history.
+//
+// Every call except ListSystems and ListMetrics reads one system, named by
+// the request's system field; an empty one reads the default system, the
+// first configured. An unknown system is invalid_argument.
 //
 // Every call reads the tool's own database. MuteFinding and UnmuteFinding
 // are the only writes, and they write only to that database.
@@ -99,6 +105,26 @@ service LensService {
 
   // Client connections of the newest epoch in a range.
   rpc ListConnections(ListConnectionsRequest) returns (ListConnectionsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // The systems nats-lens observes, in configuration order.
+  rpc ListSystems(ListSystemsRequest) returns (ListSystemsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Accounts of a system with their connection, stream and consumer counts.
+  rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Key-value stores of a system.
+  rpc ListKeyValueStores(ListKeyValueStoresRequest) returns (ListKeyValueStoresResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Object stores of a system.
+  rpc ListObjectStores(ListObjectStoresRequest) returns (ListObjectStoresResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 

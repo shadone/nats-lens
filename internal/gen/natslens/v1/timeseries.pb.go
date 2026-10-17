@@ -278,7 +278,9 @@ type GetTimeSeriesRequest struct {
 	// range does not start on a bucket boundary the first bucket begins
 	// before it, holds only the range's part, and the series can have one
 	// point more than this number. Zero means 200; at most 2000.
-	MaxPoints     int32 `protobuf:"varint,4,opt,name=max_points,json=maxPoints,proto3" json:"max_points,omitempty"`
+	MaxPoints int32 `protobuf:"varint,4,opt,name=max_points,json=maxPoints,proto3" json:"max_points,omitempty"`
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System        string `protobuf:"bytes,5,opt,name=system,proto3" json:"system,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -339,6 +341,13 @@ func (x *GetTimeSeriesRequest) GetMaxPoints() int32 {
 		return x.MaxPoints
 	}
 	return 0
+}
+
+func (x *GetTimeSeriesRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
 }
 
 // One metric of one entity.
@@ -560,13 +569,14 @@ const file_natslens_v1_timeseries_proto_rawDesc = "" +
 	"\x03min\x18\x06 \x01(\x01H\x00R\x03min\x88\x01\x01\x12\x15\n" +
 	"\x03max\x18\a \x01(\x01H\x01R\x03max\x88\x01\x01B\x06\n" +
 	"\x04_minB\x06\n" +
-	"\x04_max\"\xab\x01\n" +
+	"\x04_max\"\xc3\x01\n" +
 	"\x14GetTimeSeriesRequest\x12\x16\n" +
 	"\x06metric\x18\x01 \x01(\tR\x06metric\x12.\n" +
 	"\x06entity\x18\x02 \x01(\v2\x16.natslens.v1.EntityRefR\x06entity\x12,\n" +
 	"\x05range\x18\x03 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x1d\n" +
 	"\n" +
-	"max_points\x18\x04 \x01(\x05R\tmaxPoints\"D\n" +
+	"max_points\x18\x04 \x01(\x05R\tmaxPoints\x12\x16\n" +
+	"\x06system\x18\x05 \x01(\tR\x06system\"D\n" +
 	"\x15GetTimeSeriesResponse\x12+\n" +
 	"\x06series\x18\x01 \x01(\v2\x13.natslens.v1.SeriesR\x06series\"\x9f\x01\n" +
 	"\n" +

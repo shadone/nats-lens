@@ -107,6 +107,9 @@ message ServerProcess {
 message ListServersRequest {
   // Range to report on. Unset means the last 24 hours up to now.
   TimeRange range = 1;
+
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 2;
 }
 
 // Servers by name.
@@ -128,6 +131,9 @@ message GetServerRequest {
 
   // Range to report on. Unset means the last 24 hours up to now.
   TimeRange range = 2;
+
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 3;
 }
 
 // One server in detail.
@@ -261,6 +267,9 @@ message ListConnectionsRequest {
   // Also list tooling connections (see Connection.tooling); they are left
   // out otherwise and counted in tooling_hidden.
   bool include_tooling = 7;
+
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 8;
 }
 
 // Connections, ordered by server and connection ID.

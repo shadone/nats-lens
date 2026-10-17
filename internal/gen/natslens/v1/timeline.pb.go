@@ -250,7 +250,9 @@ type GetStatusTimelineRequest struct {
 	// system.
 	Entity *EntityRef `protobuf:"bytes,3,opt,name=entity,proto3" json:"entity,omitempty"`
 	// Whether to include checks that were OK in every bucket.
-	IncludeOk     bool `protobuf:"varint,4,opt,name=include_ok,json=includeOk,proto3" json:"include_ok,omitempty"`
+	IncludeOk bool `protobuf:"varint,4,opt,name=include_ok,json=includeOk,proto3" json:"include_ok,omitempty"`
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System        string `protobuf:"bytes,5,opt,name=system,proto3" json:"system,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -311,6 +313,13 @@ func (x *GetStatusTimelineRequest) GetIncludeOk() bool {
 		return x.IncludeOk
 	}
 	return false
+}
+
+func (x *GetStatusTimelineRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
 }
 
 // Per check, per bucket, the worst state, and the events to draw with it.
@@ -468,13 +477,14 @@ const file_natslens_v1_timeline_proto_rawDesc = "" +
 	"shortLabel\x12\x14\n" +
 	"\x05label\x18\x05 \x01(\tR\x05label\x121\n" +
 	"\bseverity\x18\x06 \x01(\x0e2\x15.natslens.v1.SeverityR\bseverity\x12\x19\n" +
-	"\bevent_id\x18\a \x01(\tR\aeventId\"\xca\x01\n" +
+	"\bevent_id\x18\a \x01(\tR\aeventId\"\xe2\x01\n" +
 	"\x18GetStatusTimelineRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x121\n" +
 	"\x06bucket\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\x06bucket\x12.\n" +
 	"\x06entity\x18\x03 \x01(\v2\x16.natslens.v1.EntityRefR\x06entity\x12\x1d\n" +
 	"\n" +
-	"include_ok\x18\x04 \x01(\bR\tincludeOk\"\xef\x03\n" +
+	"include_ok\x18\x04 \x01(\bR\tincludeOk\x12\x16\n" +
+	"\x06system\x18\x05 \x01(\tR\x06system\"\xef\x03\n" +
 	"\x19GetStatusTimelineResponse\x120\n" +
 	"\x05start\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x05start\x121\n" +
 	"\x06bucket\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\x06bucket\x12!\n" +
