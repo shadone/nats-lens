@@ -7,7 +7,7 @@ import (
 
 // readiness answers /readyz: ready once the store is open (any rebuild
 // finished) and the API serves. It does not follow collection: a stopped
-// collector shows as "not collecting" in the UI and through
+// collector shows in the API's Freshness.collecting and through
 // nats_lens_last_epoch_age_seconds, and the UI must stay reachable then.
 type readiness struct {
 	now   func() time.Time

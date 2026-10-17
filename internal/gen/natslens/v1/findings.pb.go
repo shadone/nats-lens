@@ -165,7 +165,7 @@ type Mute struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Mute ID.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Check code the mute applies to, for example stream-031.
+	// Check code the mute applies to, for example stream-006.
 	CheckCode string `protobuf:"bytes,2,opt,name=check_code,json=checkCode,proto3" json:"check_code,omitempty"`
 	// Entity the mute applies to; unset when the mute covers every entity of
 	// the check.
@@ -954,7 +954,7 @@ func (x *GetFindingResponse) GetTransitions() []*FindingTransition {
 type MuteFindingRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Check code to mute, in the form <entity>-<three digits>, for example
-	// stream-031.
+	// stream-006.
 	CheckCode string `protobuf:"bytes,1,opt,name=check_code,json=checkCode,proto3" json:"check_code,omitempty"`
 	// Entity to mute the check for; unset mutes the check for every entity.
 	//

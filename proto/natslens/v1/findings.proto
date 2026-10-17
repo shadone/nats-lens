@@ -45,7 +45,7 @@ message Mute {
   // Mute ID.
   string id = 1;
 
-  // Check code the mute applies to, for example stream-031.
+  // Check code the mute applies to, for example stream-006.
   string check_code = 2;
 
   // Entity the mute applies to; unset when the mute covers every entity of
@@ -237,7 +237,7 @@ message GetFindingResponse {
 // Request to mute a check, or a check for one entity.
 message MuteFindingRequest {
   // Check code to mute, in the form <entity>-<three digits>, for example
-  // stream-031.
+  // stream-006.
   string check_code = 1;
 
   // Entity to mute the check for; unset mutes the check for every entity.

@@ -31,7 +31,7 @@ func TestListEventsPagesNewestFirst(t *testing.T) {
 	}
 	deleted := must(c.ListEvents(ctx, connect.NewRequest(&v1.ListEventsRequest{Kinds: []string{"consumer.deleted"}}))).GetEvents()
 	del := deleted[0]
-	if del.GetKind() != "consumer.deleted" || len(del.GetRaised()) != 1 || del.GetRaised()[0].GetCheckCode() != "consumer-006" {
+	if del.GetKind() != "consumer.deleted" || len(del.GetRaised()) != 1 || del.GetRaised()[0].GetCheckCode() != "consumer-010" {
 		t.Fatalf("consumer.deleted = %v", del)
 	}
 	seen := map[string]bool{}
@@ -98,7 +98,7 @@ func TestStreamsAndConsumers(t *testing.T) {
 			muted = s
 		}
 	}
-	if muted.GetStatus() != v1.Status_STATUS_MUTED || muted.GetFindingCodes()[0] != "stream-031 muted" {
+	if muted.GetStatus() != v1.Status_STATUS_MUTED || muted.GetFindingCodes()[0] != "stream-006 muted" {
 		t.Fatalf("audit-archive = %v", muted)
 	}
 	if n := len(must(c.ListStreams(ctx, connect.NewRequest(&v1.ListStreamsRequest{IncludeKv: true}))).GetStreams()); n != 13 {

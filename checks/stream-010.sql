@@ -8,8 +8,8 @@ severity_rule: critical when the stream is missing on more than half of its assi
 kind: operational
 description: >-
   The stream leader lists a server as a replica, that server answered JSZ in this epoch, and it does not report the
-  stream. The replica is assigned but absent: the server lost or never created it. Restarting servers are left
-  out until they have caught up.
+  stream. The replica is assigned but absent: the server lost or never created it. Servers that restarted within
+  restart_window are left out.
 remediation: >-
   Look at the server's log for errors creating or recovering the stream, and at its healthz (server-002 names the
   stream when the server knows it is missing). If the replica does not appear within a few minutes after a restart,

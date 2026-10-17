@@ -23,8 +23,8 @@ thresholds:
     default: "0.8"
     unit: ratio
     description: >-
-      A firing finding resolves only once the connections accepted fall below this share of both thresholds, so
-      churn that hovers at the threshold does not flap.
+      A firing finding keeps firing while the connections accepted stay at or above this share of both thresholds,
+      and resolves once they fall below this share of either, so churn that hovers at the threshold does not flap.
 description: >-
   The server accepted many new connections within the lookback compared with the connections it holds, in each of
   the last min_epochs epochs: clients are reconnecting over and over, or something opens a connection per request.

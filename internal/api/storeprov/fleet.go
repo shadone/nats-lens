@@ -107,14 +107,20 @@ var collectorFailures = map[string]v1.CollectionState{
 	"collector.connection_closed": v1.CollectionState_COLLECTION_STATE_CONNECTION_CLOSED,
 }
 
-// collection sets the collection state from the stored events of the
-// collector's own connection, which outlive a restart of nats-lens: the
-// newest failure after both the newest epoch and the newest reconnect
-// gives the state and the error, and the oldest such failure the time it
-// began. Without such a failure a live collector is collecting once an
-// epoch is stored and starting before; without a collector in this
-// process the state is unknown.
-func (p *Provider) collection(ctx context.Context, res *v1.SystemSummary) error {
+// collectorFailure is the newest stored failure of the collector's own
+// connection after both the newest epoch and the newest reconnect: its
+// state and error, and the time of the oldest such failure, when the
+// failure began. since is zero when there is none.
+type collectorFailure struct {
+	state  v1.CollectionState
+	reason string
+	since  time.Time
+}
+
+// failure reads the collector's failure from the stored events of its own
+// connection, which outlive a restart of nats-lens.
+func (p *Provider) failure(ctx context.Context) (collectorFailure, error) {
+	var out collectorFailure
 	rows, err := p.db().QueryContext(ctx, `
 WITH since AS (
   SELECT greatest(
@@ -127,26 +133,35 @@ WHERE e.kind IN ('collector.not_connected', 'collector.connection_closed')
   AND (since.t IS NULL OR e.time > since.t)
 ORDER BY e.time, e.id`)
 	if err != nil {
-		return fmt.Errorf("collection state: %w", err)
+		return out, fmt.Errorf("collection state: %w", err)
 	}
 	defer rows.Close()
-	var first time.Time
 	for rows.Next() {
 		var kind, reason string
 		var at time.Time
 		if err := rows.Scan(&kind, &reason, &at); err != nil {
-			return err
+			return out, err
 		}
-		if first.IsZero() {
-			first = at.UTC()
+		if out.since.IsZero() {
+			out.since = at.UTC()
 		}
-		res.Collection, res.CollectionError = collectorFailures[kind], reason
+		out.state, out.reason = collectorFailures[kind], reason
 	}
-	if err := rows.Err(); err != nil {
+	return out, rows.Err()
+}
+
+// collection sets the collection state from the collector's stored
+// failure: its state and error, since the time it began. Without a
+// failure a live collector is collecting once an epoch is stored and
+// starting before; without a collector in this process the state is
+// unknown.
+func (p *Provider) collection(ctx context.Context, res *v1.SystemSummary) error {
+	f, err := p.failure(ctx)
+	if err != nil {
 		return err
 	}
-	if !first.IsZero() {
-		res.CollectionErrorSince = ts(first)
+	if !f.since.IsZero() {
+		res.Collection, res.CollectionError, res.CollectionErrorSince = f.state, f.reason, ts(f.since)
 		return nil
 	}
 	if !p.Live {

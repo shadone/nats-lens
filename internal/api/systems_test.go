@@ -579,3 +579,47 @@ func TestListSystemsCancelIsNotLogged(t *testing.T) {
 		t.Errorf("a cancel was logged:\n%s", log.String())
 	}
 }
+
+// The runtime's collection status says in the freshness of the overview
+// and of the summary whether the system collects, and since when not.
+func TestFreshnessFollowsTheCollectionStatus(t *testing.T) {
+	systems, _, _ := twoSystems()
+	since := time.Date(2026, 10, 17, 11, 30, 0, 0, time.UTC)
+	state := api.CollectionNotConnected
+	systems[1].Status = func() api.CollectionStatus {
+		return api.CollectionStatus{State: state, LastError: "nats: no servers available for connection", Since: since}
+	}
+	h := &api.Handler{Systems: systems}
+	_, c := apitest.ServeHandler(t, h)
+	overview := func(system string) *v1.Freshness {
+		res, err := c.GetOverview(context.Background(), connect.NewRequest(&v1.GetOverviewRequest{System: system}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res.Msg.GetFreshness()
+	}
+	// The demo's system without a runtime status keeps its own: collecting.
+	if f := overview("a"); !f.GetCollecting() || f.GetNotCollectingSince() != nil {
+		t.Errorf("a = %v", f)
+	}
+	if f := overview("b"); f.GetCollecting() || !f.GetNotCollectingSince().AsTime().Equal(since) {
+		t.Errorf("b not connected = %v", f)
+	}
+	m, _ := listSystems(t, h, &v1.ListSystemsRequest{})
+	if f := m.GetSystems()[1].GetFreshness(); f.GetCollecting() || !f.GetNotCollectingSince().AsTime().Equal(since) {
+		t.Errorf("b summary = %v", f)
+	}
+	state = api.CollectionConnectionClosed
+	if f := overview("b"); f.GetCollecting() {
+		t.Errorf("b closed = %v", f)
+	}
+	for _, state = range []api.CollectionState{api.CollectionCollecting, api.CollectionStarting} {
+		if f := overview("b"); !f.GetCollecting() || f.GetNotCollectingSince() != nil {
+			t.Errorf("b %s = %v", state, f)
+		}
+		m, _ = listSystems(t, h, &v1.ListSystemsRequest{})
+		if f := m.GetSystems()[1].GetFreshness(); !f.GetCollecting() || f.GetNotCollectingSince() != nil {
+			t.Errorf("b %s summary = %v", state, f)
+		}
+	}
+}

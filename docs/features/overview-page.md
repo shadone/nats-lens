@@ -73,7 +73,7 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 - **Surfaces:** `api`
 - **Given** `natslens run` serves its API on 127.0.0.1:8080
 - **When** I post `{}` to `/api/natslens.v1.LensService/GetOverview`
-- **Then** I receive the cluster name, freshness, servers, the tally, the worst finding, the tiles with their series, and the windows to shade
+- **Then** I receive the cluster name, freshness (with whether the collector collects), servers, the tally, the worst finding, the tiles with their series, and the windows to shade
 
 ## Planned
 

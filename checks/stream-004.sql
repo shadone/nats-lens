@@ -17,7 +17,9 @@ thresholds:
   - name: crit_ratio
     default: "0.95"
     unit: ratio
-    description: Share at which a discard-new stream is critical.
+    description: >-
+      Share at which the stream is critical: a discard-new stream, or a work-queue or interest stream with discard
+      old. A limits stream with discard old stays info.
 description: >-
   The stream holds more than warn_ratio of its max_msgs or max_bytes, as its leader reports it.
 remediation: >-

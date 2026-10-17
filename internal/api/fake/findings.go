@@ -40,55 +40,71 @@ func resolvedFinding(code, name string, sev v1.Severity, e *v1.EntityRef, since,
 }
 
 // prodFindings is every finding of example-prod, before mutes are applied.
+// Each one is a real check, with the detail its query writes.
 func prodFindings(s scen) []*v1.Finding {
-	c006 := finding("consumer-006", "Expected durable missing", critical, firing,
+	c010 := finding("consumer-010", "Expected consumer missing", critical, firing,
 		consumerRef("order-archive", "analytics-aggregator"), s.at(9, 31, 7), s.at(9, 31, 7),
-		"Listed in inventory/prod.yaml, absent on nats-0, nats-1 and nats-2. Deleted 09:31:07 by analytics-worker@10.20.0.12.")
-	c006.Value = &v1.FindingValue{Name: "consumer present on assigned peers", Display: "0 / 3", Number: ptr(0.0),
-		Basis: "per epoch, compared with inventory/prod.yaml"}
-	c006.Remediation = "Recreate the durable from the inventory definition (`nats consumer add order-archive --config inventory/prod/analytics-aggregator.json`). " +
+		"Consumer analytics-aggregator on order-archive is in the inventory and no server reports it; "+
+			"last reported by nats-0, nats-1, nats-2 at 2026-10-17 09:30:58 UTC. "+
+			"Deleted 2026-10-17 09:31:07 UTC by analytics-worker (10.20.0.12).")
+	c010.Remediation = "Recreate the durable from the inventory definition (`nats consumer add order-archive --config inventory/prod/analytics-aggregator.json`). " +
 		"Then stop the worker from deleting it: analytics-worker calls `consumers.delete()` in its SIGTERM drain path, so every pod restart removes the shared durable."
-	c006.RelatedConfig = cfg([][2]string{
-		{"durable_name", "analytics-aggregator"}, {"ack_policy", "explicit"}, {"max_ack_pending", "8000"},
-		{"ack_wait", "60s"}, {"max_deliver", "5"}, {"filter_subject", "orders.archive.>"},
+	c010.RelatedConfig = cfg([][2]string{
+		{"durable_name", "analytics-aggregator"}, {"ack_wait", "1m"}, {"max_deliver", "5"},
+		{"max_ack_pending", "8000"}, {"filter_subjects", "orders.archive.>"}, {"replicas", "3"},
 	}, "max_ack_pending", "ack_wait")
-	c006.RelatedConfigSource = "inventory"
-	c006.Cause = &v1.EventRef{Id: idConsumerDeleted, Time: ts(s.at(9, 31, 7)), Kind: "consumer.deleted",
+	c010.RelatedConfigSource = "inventory"
+	c010.Cause = &v1.EventRef{Id: idConsumerDeleted, Time: ts(s.at(9, 31, 7)), Kind: "consumer.deleted",
 		Summary: "analytics-aggregator on order-archive by analytics-worker@10.20.0.12"}
 
-	c012 := finding("consumer-012", "Creation time differs across servers", warning, firing,
+	c009 := finding("consumer-009", "Consumer creation time differs across servers", warning, firing,
 		consumerRef("order-jobs", "resize-worker"), s.at(9, 45, 0), s.at(9, 45, 0),
-		"nats-0 2026-08-12T10:02:11Z; nats-1, nats-2 2026-10-17T09:38:44Z. Recreated during the nats-1 restart.")
-	c012.Remediation = "Compare the consumer on each server (`nats consumer info order-jobs resize-worker --server nats-0`). " +
+		"nats-0 2026-08-12T10:02:11Z; nats-1, nats-2 2026-10-17T09:38:44Z. Delivered and acknowledged positions differ: "+
+			"nats-0 delivered 40112 ack floor 40096, nats-1 delivered 48207 ack floor 48190, nats-2 delivered 48207 ack floor 48188.")
+	c009.Value = &v1.FindingValue{Name: "distinct creation times", Display: "2", Number: ptr(2.0), Basis: "creation times the servers report"}
+	c009.Remediation = "Compare the consumer on each server (`nats consumer info order-jobs resize-worker --server nats-0`). " +
 		"If nats-0 holds the old copy, step the consumer leader down so the replicas resynchronise."
 
-	s020 := finding("stream-020", "Backlog growing", warning, flapping,
+	c002 := finding("consumer-002", "Consumer backlog growing", warning, flapping,
 		consumerRef("media-windows", "media-chunk-pool"), s.at(11, 0, 0), s.at(14, 12, 0),
-		"Fill 42 msg/s, drain 31 msg/s over 1h. 18,420 pending, up 9,600 since 11:00.")
-	s020.Value = &v1.FindingValue{Name: "fill minus drain", Display: "+11 msg/s", Number: ptr(11.0), Basis: "1h window, leader view"}
-	s020.TransitionsLastHour = 4
-	s020.Remediation = "Add workers to the media-chunk-pool pull consumer or lower the producer rate; the backlog grows since the 11:02 media-worker rollout."
+		"Fill 37.4 msg/s, drain 31.6 msg/s over 00:30:00. 18420 pending, up 10440 since 14:00 UTC.")
+	c002.Value = &v1.FindingValue{Name: "backlog growth, messages per second", Display: "5.8", Number: ptr(5.8),
+		Basis: "growth of num_pending over the lookback"}
+	c002.TransitionsLastHour = 4
+	c002.Remediation = "Add workers to the media-chunk-pool pull consumer or lower the producer rate; the backlog grows since the 11:02 media-worker rollout."
 
-	s025 := finding("stream-025", "Stream without limits", info, firing, streamRef("order-archive"),
-		s.on(14, 14, 30), s.on(14, 14, 30), "max_bytes -1, max_msgs -1, max_age 0. Grows 96 MiB/day; full in 4.1 years at this rate.")
-	s025.RelatedConfig = cfg([][2]string{{"max_bytes", "-1"}, {"max_msgs", "-1"}, {"max_age", "0"}}, "max_bytes")
-	s025.RelatedConfigSource = "nats-0"
+	s005 := finding("stream-005", "Stream without any limit", info, firing, streamRef("order-archive"),
+		s.on(14, 14, 30), s.on(14, 14, 30), "max_msgs -1, max_bytes -1, max_age 0: nothing bounds the stream.")
+	s005.RelatedConfig = cfg([][2]string{{"max_msgs", "-1"}, {"max_bytes", "-1"}, {"max_age", "0"},
+		{"max_msgs_per_subject", "-1"}, {"allow_msg_ttl", "false"}}, "max_bytes")
+	s005.RelatedConfigSource = "nats-0"
 
-	s031 := finding("stream-031", "Days until full below 60", warning, firing, streamRef("audit-archive"),
-		s.on(15, 8, 0), s.on(15, 8, 0), "41 days at 18 MiB/day against max_bytes 1.8 GiB.")
+	s006 := finding("stream-006", "Stream reaches its byte limit soon", warning, firing, streamRef("audit-archive"),
+		s.on(15, 8, 0), s.on(15, 8, 0),
+		"Grows 18.0 MiB per day over the last 6h: reaches max_bytes 1.3 GiB in 13.1 days (1.1 GiB now); discard new.")
+	s006.Value = &v1.FindingValue{Name: "days until the byte limit", Display: "13.1", Number: ptr(13.1),
+		Basis: "days until max_bytes at the current growth"}
+	s006.RelatedConfig = cfg([][2]string{{"max_bytes", "1395864371"}, {"discard", "new"}}, "max_bytes")
 
-	out := []*v1.Finding{c006, c012, s020, s025, s031,
-		resolvedFinding("consumer-008", "Consumer quorum lost", critical,
+	healthz := func(server, stream string, since, end time.Time) *v1.Finding {
+		return resolvedFinding("server-002", "Healthz not ok", critical, serverRef(server), since, end,
+			server+" healthz unavailable (503): JetStream stream 'APP > "+stream+"' is not current (+2 more).")
+	}
+	out := []*v1.Finding{c010, c009, c002, s005, s006,
+		resolvedFinding("consumer-001", "Consumer quorum lost", critical,
 			consumerRef("order-jobs", "job-cache-projector"), s.at(9, 15, 0), s.at(9, 45, 0),
-			"job-cache-projector back to 3 of 3 peers after 30m."),
-		resolvedFinding("server-002", "Healthz failing", critical, serverRef("nats-0"), s.at(9, 16, 2), s.at(9, 18, 40), "nats-0 healthz unavailable while restarting."),
-		resolvedFinding("server-002", "Healthz failing", critical, serverRef("nats-1"), s.at(9, 29, 5), s.at(9, 31, 40), "nats-1 healthz unavailable while restarting."),
-		resolvedFinding("server-002", "Healthz failing", critical, serverRef("nats-2"), s.at(9, 41, 10), s.at(9, 44, 50), "nats-2 healthz unavailable while restarting."),
-		resolvedFinding("stream-007", "Stream quorum lost", critical, streamRef("media-windows"), s.at(9, 16, 30), s.at(9, 35, 0), "1 of 3 peers."),
-		resolvedFinding("stream-007", "Stream quorum lost", critical, streamRef("order-jobs"), s.at(9, 41, 30), s.at(9, 44, 30), "1 of 3 peers."),
-		resolvedFinding("server-006", "Meta leader changed", warning, s.sc.systemRef(), s.at(9, 16, 10), s.at(9, 31, 0), "Meta leader moved nats-0 to nats-1 to nats-0."),
-		resolvedFinding("stream-013", "Replica lagging", warning, streamRef("order-archive"), s.at(9, 16, 40), s.at(10, 5, 0), "nats-1 replica 12,400 entries behind."),
-		resolvedFinding("client-003", "Slow consumer events", warning, clientRef("media-worker"), s.at(9, 15, 30), s.at(9, 45, 0), "6 slow consumer disconnects in 30m."),
+			"Leader nats-0 sees 1 of 3 replicas online; quorum needs 2, for 60 epochs."),
+		healthz("nats-0", "media-windows", s.at(9, 16, 2), s.at(9, 18, 40)),
+		healthz("nats-1", "order-jobs", s.at(9, 29, 5), s.at(9, 31, 40)),
+		healthz("nats-2", "order-jobs", s.at(9, 41, 10), s.at(9, 44, 50)),
+		resolvedFinding("stream-001", "Stream quorum lost", critical, streamRef("media-windows"), s.at(9, 16, 30), s.at(9, 35, 0),
+			"Leader nats-1 sees 1 of 3 replicas online; quorum needs 2, for 37 epochs."),
+		resolvedFinding("stream-001", "Stream quorum lost", critical, streamRef("order-jobs"), s.at(9, 41, 30), s.at(9, 44, 30),
+			"Leader nats-0 sees 1 of 3 replicas online; quorum needs 2, for 6 epochs."),
+		resolvedFinding("stream-003", "Stream replica lagging", warning, streamRef("order-archive"), s.at(9, 16, 40), s.at(10, 5, 0),
+			"Leader nats-0 reports nats-1 12400 operations behind."),
+		resolvedFinding("client-003", "Slow consumer disconnects", warning, clientRef("media-worker"), s.at(9, 15, 30), s.at(9, 45, 0),
+			"6 slow consumer disconnects in the last 30m (nats-0, nats-2), the last at 09:44:12 UTC: Slow Consumer (Write Deadline)."),
 	}
 	return out
 }

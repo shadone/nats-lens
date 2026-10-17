@@ -147,3 +147,28 @@ func TestKubernetesLaneClientPodFailures(t *testing.T) {
 		t.Fatalf("lane %v, want the client pod's backoff and the pattern's OOM kill", got)
 	}
 }
+
+// A stored upgrade on nodes with GKE's node pool label is a GKE node
+// upgrade; one without the label is a node upgrade.
+func TestKubernetesUpgradeWindowNamesThePlatform(t *testing.T) {
+	st := fixtureStore(t)
+	k := func(at time.Duration, kind, server, raw string) events.Event {
+		return events.Event{Time: t0.Add(at), ReceivedAt: t0.Add(at), Source: events.SourceK8s, Kind: kind,
+			ServerName: server, Summary: kind, Raw: json.RawMessage(raw)}
+	}
+	evs := []events.Event{
+		k(-50*time.Minute, "k8s.node.upgrade", "", `{"node":"node-a","kubelet_version":"v1.33.5"}`),
+		k(-49*time.Minute, "k8s.pod.killing", "nats-0", `{"uid":"e1","count":1}`),
+		k(-20*time.Minute, "k8s.node.upgrade", "", `{"node":"gke-pool-1-7f3a","pool":"pool-1","kubelet_version":"v1.33.5"}`),
+		k(-19*time.Minute, "k8s.pod.killing", "nats-1", `{"uid":"e2","count":1}`),
+	}
+	if err := st.WriteEvents(ctx, evs); err != nil {
+		t.Fatal(err)
+	}
+	_, c := serve(t, st)
+	tl := must(c.GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{Range: hour(), Bucket: durationpb.New(15 * time.Minute)})))
+	ws := tl.GetWindows()
+	if len(ws) != 2 || ws[0].GetLabel() != "Node upgrade" || ws[1].GetLabel() != "GKE node upgrade" {
+		t.Fatalf("windows %v", ws)
+	}
+}

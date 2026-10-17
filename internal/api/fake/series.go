@@ -182,8 +182,9 @@ func consumerSample(metric string, e *v1.EntityRef, c time.Time) (float64, bool)
 	return 0, true
 }
 
-// series draws a metric over the range: averages of samples for gauges and
-// rates, sums of events for cluster.slow_consumers and the event metrics.
+// series draws a metric over the range: the last sample of each bucket for
+// counts, averages of samples for other gauges and rates, sums of events
+// for cluster.slow_consumers and the event metrics.
 func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints int32) *v1.Series {
 	if _, ok := bandOf[metric]; ok {
 		return s.bandSeries(metric, e, r, maxPoints)
@@ -219,6 +220,14 @@ func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints 
 				}
 			}
 			n = 1
+		} else if out.Unit == v1.Unit_UNIT_COUNT {
+			// A count takes the bucket's last sample, as the store's
+			// arg_max does, so it stays whole.
+			for x := t; x.Before(stop); x = x.Add(sampleEvery) {
+				if v, ok := s.sc.value(metric, e, s.clock(x)); ok {
+					sum, n = v, 1
+				}
+			}
 		} else {
 			for x := t; x.Before(stop); x = x.Add(sampleEvery) {
 				if v, ok := s.sc.value(metric, e, s.clock(x)); ok {

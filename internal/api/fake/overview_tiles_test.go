@@ -43,7 +43,7 @@ func TestProdTiles(t *testing.T) {
 	if m := tiles["meta_leader"]; m.GetValueText() != "nats-0" || m.GetSubtitle() != "2 leader changes in range" {
 		t.Errorf("meta leader = %q, %q", m.GetValueText(), m.GetSubtitle())
 	}
-	status := map[string]v1.Status{"servers": v1.Status_STATUS_OK, "streams": v1.Status_STATUS_WARNING,
+	status := map[string]v1.Status{"servers": v1.Status_STATUS_OK, "streams": v1.Status_STATUS_INFO,
 		"consumers": v1.Status_STATUS_CRITICAL, "accounts": v1.Status_STATUS_NO_DATA}
 	for id, st := range status {
 		if got := tiles[id].GetStatus(); got != st {
@@ -66,7 +66,7 @@ func TestGlobalTiles(t *testing.T) {
 		t.Errorf("meta leader = %q, %v changes", m.GetValueText(), m.GetValue())
 	}
 	status := map[string]v1.Status{"servers": v1.Status_STATUS_WARNING, "streams": v1.Status_STATUS_WARNING,
-		"clients": v1.Status_STATUS_WARNING, "consumers": v1.Status_STATUS_WARNING, "storage": v1.Status_STATUS_INFO,
+		"clients": v1.Status_STATUS_WARNING, "consumers": v1.Status_STATUS_WARNING, "storage": v1.Status_STATUS_WARNING,
 		"kv": v1.Status_STATUS_WARNING, "object_stores": v1.Status_STATUS_OK}
 	for id, st := range status {
 		if got := tiles[id].GetStatus(); got != st {

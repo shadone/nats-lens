@@ -76,7 +76,7 @@ export type Mute = Message<"natslens.v1.Mute"> & {
   id: string;
 
   /**
-   * Check code the mute applies to, for example stream-031.
+   * Check code the mute applies to, for example stream-006.
    *
    * @generated from field: string check_code = 2;
    */
@@ -568,7 +568,7 @@ export const GetFindingResponseSchema: GenMessage<GetFindingResponse> = /*@__PUR
 export type MuteFindingRequest = Message<"natslens.v1.MuteFindingRequest"> & {
   /**
    * Check code to mute, in the form <entity>-<three digits>, for example
-   * stream-031.
+   * stream-006.
    *
    * @generated from field: string check_code = 1;
    */

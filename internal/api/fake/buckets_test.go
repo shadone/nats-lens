@@ -103,10 +103,10 @@ func TestFakeMissingBucketFindingMatchesTheCheck(t *testing.T) {
 	}
 }
 
-// A timeline row of stream-011 carries the check's own name.
+// example-global's timeline row of stream-011 carries the check's own name.
 func TestFakeTimelineNamesStream011(t *testing.T) {
-	c := client(t)
-	rows := must(c.GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{}))).GetRows()
+	c := demo(t)
+	rows := must(c.GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{System: fake.GlobalSystem}))).GetRows()
 	seen := false
 	for _, r := range rows {
 		if r.GetCheckCode() == "stream-011" {

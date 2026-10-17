@@ -37,7 +37,7 @@ func TestDemoListsThreeSystems(t *testing.T) {
 
 	if prod.GetServers() != 3 || prod.GetServersAnswering() != 3 || prod.GetClusters() != 1 || prod.GetStreams() != 13 || prod.GetConnections() != 182 ||
 		prod.GetCollection() != v1.CollectionState_COLLECTION_STATE_DEMO || prod.GetStatus() != v1.Status_STATUS_CRITICAL ||
-		prod.GetWorstFinding().GetCheckCode() != "consumer-006" {
+		prod.GetWorstFinding().GetCheckCode() != "consumer-010" {
 		t.Errorf("prod = %v", prod)
 	}
 	if global.GetServers() != 24 || global.GetServersAnswering() != 23 || global.GetClusters() != 3 ||
@@ -176,5 +176,30 @@ func TestDemoLiveSystems(t *testing.T) {
 	}
 	if s := res.GetSystems()[2]; time.Since(s.GetCollectionErrorSince().AsTime()) < 3*time.Hour-time.Minute {
 		t.Errorf("staging error since %v", s.GetCollectionErrorSince())
+	}
+}
+
+// example-staging's freshness says it does not collect, since its
+// connection closed; the others collect.
+func TestDemoFreshnessSaysWhetherItCollects(t *testing.T) {
+	c := demo(t)
+	stop := fake.FixedNow.Add(-3 * time.Hour)
+	for _, sys := range []string{fake.Cluster, fake.GlobalSystem, fake.StagingSystem} {
+		f := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{System: sys}))).GetFreshness()
+		if sys == fake.StagingSystem {
+			if f.GetCollecting() || !f.GetNotCollectingSince().AsTime().Equal(stop) {
+				t.Errorf("%s = %v", sys, f)
+			}
+			continue
+		}
+		if !f.GetCollecting() || f.GetNotCollectingSince() != nil {
+			t.Errorf("%s = %v", sys, f)
+		}
+	}
+	res := must(c.ListSystems(ctx, connect.NewRequest(&v1.ListSystemsRequest{})))
+	for _, s := range res.GetSystems() {
+		if f := s.GetFreshness(); f.GetCollecting() != (s.GetSystem().GetId() != fake.StagingSystem) {
+			t.Errorf("%s summary = %v", s.GetSystem().GetId(), f)
+		}
 	}
 }
