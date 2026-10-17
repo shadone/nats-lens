@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
@@ -133,6 +134,19 @@ func (p *Provider) GetStatusTimeline(ctx context.Context, req *v1.GetStatusTimel
 	if res.Windows, err = p.k8sWindows(ctx, req.GetRange()); err != nil {
 		return nil, err
 	}
+	if res.Rows, err = p.timelineRows(ctx, req.GetRange(), bucket, req.GetEntity(), req.GetIncludeOk()); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// timelineRows are the rows of the status timeline, worst first: one per
+// check, or with an entity one per finding of the entity and, with
+// includeOK, one for every check of its type. Without includeOK a row that
+// never failed is left out.
+func (p *Provider) timelineRows(ctx context.Context, r *v1.TimeRange, bucket time.Duration, entity *v1.EntityRef, includeOK bool) ([]*v1.TimelineRow, error) {
+	start, end := span(r)
+	n := api.BucketCount(end.Sub(start), bucket)
 	now := p.Now()
 	us := bucket.Microseconds()
 	hitArgs := []any{start, end, start, start, end, end, start, now, now}
@@ -164,7 +178,6 @@ FROM runs r JOIN newest n USING (check_code) GROUP BY ALL`, append(hitArgs, star
 	}
 
 	// Firing findings per row and bucket.
-	entity := req.GetEntity()
 	perEntity := entity.GetType() != v1.EntityType_ENTITY_TYPE_UNSPECIFIED && entity.GetType() != v1.EntityType_ENTITY_TYPE_SYSTEM
 	group := `check_code, '', ''`
 	if perEntity {
@@ -207,7 +220,7 @@ FROM hits GROUP BY ALL`, append(hitArgs, start, us)...)
 			keys = append(keys, k)
 			withRow[k.code] = true
 		}
-		if req.GetIncludeOk() {
+		if includeOK {
 			for code := range runs {
 				if c, ok := p.lookup(code); ok && entityTypeOf(c.Entity) == entity.GetType() && !withRow[code] {
 					keys = append(keys, rowKey{code: code, entityType: c.Entity, entityKey: entity.GetKey()})
@@ -219,17 +232,18 @@ FROM hits GROUP BY ALL`, append(hitArgs, start, us)...)
 			keys = append(keys, rowKey{code: code})
 		}
 	}
+	var out []*v1.TimelineRow
 	for _, k := range keys {
 		row := p.timelineRow(k, perEntity, runs[k.code], hits[k], n)
-		if req.GetIncludeOk() || failed(row.GetCells()) {
-			res.Rows = append(res.Rows, row)
+		if includeOK || failed(row.GetCells()) {
+			out = append(out, row)
 		}
 	}
-	slices.SortFunc(res.Rows, func(a, b *v1.TimelineRow) int {
+	slices.SortFunc(out, func(a, b *v1.TimelineRow) int {
 		return cmp.Or(cmp.Compare(statusRank(a.GetNow()), statusRank(b.GetNow())),
 			cmp.Compare(severityRank(a.GetSeverity()), severityRank(b.GetSeverity())), cmp.Compare(a.GetKey(), b.GetKey()))
 	})
-	return res, nil
+	return out, nil
 }
 
 // timelineRow builds one row from its check's runs and its findings per
