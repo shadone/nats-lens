@@ -1,6 +1,6 @@
 // Top bar of every page: the page's name, the account scope on the pages
-// that apply it, search, the time range with freshness, and the theme. At phone width a menu button
-// opens the sidebar as a drawer.
+// that apply it, search, the time range with freshness, and the theme. At
+// phone width a menu button opens the sidebar as a drawer.
 import { useLocation } from "react-router";
 import { useShellStatus } from "../api/queries";
 import { navFor } from "../nav";
