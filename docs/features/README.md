@@ -70,7 +70,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [System checks](system-checks.md) | `ui`, `cli` | shipped |
 | [Inventory](inventory.md) | `ui`, `cli` | shipped |
 | [Navigation, time range and theme](navigation.md) | `ui` | shipped |
-| [Overview page](overview-page.md) | `ui`, `api` | shipped — tile descriptions and the meta leader's name are in the API, the boxes that show them are planned |
+| [Overview page](overview-page.md) | `ui`, `api` | shipped — tile links, cause evidence, a shared hover and more lanes are planned |
 | [Servers](servers.md) | `ui`, `api` | shipped |
 | [Streams](streams.md) | `ui`, `api` | shipped — replica placement is in the API only |
 | [Consumers](consumers.md) | `ui`, `api` | shipped — delivery rate and busiest-first order are in the API only |
@@ -122,7 +122,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 
 **Web UI**
 - [x] Sidebar, system switcher, header with account scope and search, the global time range and the theme menu (navigation.md)
-- [x] Overview: worst finding, nine tiles with descriptions, status timeline, events, streams and servers (overview-page.md)
+- [x] Overview: status line, nine metric boxes with descriptions, cause cards and muted findings, trends, timeline lanes with the status timeline, busiest consumers, streams with placement (overview-page.md)
 - [x] Servers for 20 or more servers: data points, charts across servers, a map of every server, a grouped list; server pages with metric boxes, placement, limits and recent events (servers.md)
 - [x] Streams list and stream detail; replica placement in the API only (streams.md)
 - [x] Consumers list and consumer detail; delivery rate and busiest-first order in the API only (consumers.md)
