@@ -87,7 +87,7 @@ func (p *Provider) ListStreams(_ context.Context, req *v1.ListStreamsRequest) (*
 		res.Totals.EphemeralConsumers = watchers // the KV watchers exist whether or not their bucket is listed
 	}
 	sortByStatus(res.Streams, (*v1.StreamSummary).GetStatus, func(x *v1.StreamSummary) string { return x.GetEntity().GetName() })
-	return res, nil
+	return api.LimitStreams(res, req.GetLimit()), nil
 }
 
 func (sc *scenario) findStream(account, name string) (streamSpec, error) {

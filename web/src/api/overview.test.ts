@@ -38,9 +38,11 @@ describe("overview requests", () => {
     expect(vi.mocked(lens.listConsumers).mock.calls[0][0]).toMatchObject({ system: "example-global", account: "APP", sort: ConsumerSort.DELIVERED_RATE, limit: 6 });
   });
 
-  it("listStreams carries the system and the account", async () => {
-    await listStreamPlacement("example-global", live, "APP");
-    expect(vi.mocked(lens.listStreams).mock.calls[0][0]).toMatchObject({ system: "example-global", account: "APP" });
+  it("listStreams carries the system, the account and the limit, and reads the count of all streams", async () => {
+    vi.mocked(lens.listStreams).mockResolvedValueOnce({ streams: [], totals: undefined, totalCount: 18 } as never);
+    const r = await listStreamPlacement("example-global", live, "APP");
+    expect(vi.mocked(lens.listStreams).mock.calls[0][0]).toMatchObject({ system: "example-global", account: "APP", limit: 10 });
+    expect(r.count).toBe(18);
   });
 
   it("an empty system is left out, so the server reads its default", async () => {

@@ -122,15 +122,22 @@ message ListStreamsRequest {
 
   // System ID, as ListSystems returns it. Empty means the default system.
   string system = 4;
+
+  // Largest number of streams to return, after the worst-first order.
+  // Zero or a negative number means all.
+  int32 limit = 5;
 }
 
 // Streams, worst status first, then by name.
 message ListStreamsResponse {
-  // The streams.
+  // The streams, at most the request's limit.
   repeated StreamSummary streams = 1;
 
-  // Totals across the listed streams.
+  // Totals across the streams that match, also those past the limit.
   StreamTotals totals = 2;
+
+  // Number of streams that match, also those past the limit.
+  int32 total_count = 3;
 }
 
 // Request for one stream.
