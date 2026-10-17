@@ -313,11 +313,20 @@ func (c Config) LogValue() slog.Value {
 }
 
 // redactURL hides a password embedded in a URL list ("nats://u:p@host").
+// A part that does not parse as a URL with user information but holds an
+// "@" has everything between "://" (or its start) and its last "@"
+// replaced, user included.
 func redactURL(s string) string {
 	parts := strings.Split(s, ",")
 	for i, p := range parts {
 		if u, err := url.Parse(strings.TrimSpace(p)); err == nil && u.User != nil {
 			parts[i] = u.Redacted()
+		} else if at := strings.LastIndex(p, "@"); at >= 0 {
+			start := 0
+			if j := strings.Index(p[:at], "://"); j >= 0 {
+				start = j + len("://")
+			}
+			parts[i] = p[:start] + "xxxxx" + p[at:]
 		}
 	}
 	return strings.Join(parts, ",")
