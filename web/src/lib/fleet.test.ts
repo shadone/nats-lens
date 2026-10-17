@@ -89,7 +89,7 @@ describe("headline", () => {
 });
 
 describe("freshnessText", () => {
-  const fresh = (ageMs: number, live = true) => ({ epoch: "9", epochAt: NOW - ageMs, partial: false, live, intervalMs: 30_000 });
+  const fresh = (ageMs: number, live = true) => ({ epoch: "9", epochAt: NOW - ageMs, partial: false, live, intervalMs: 30_000, collecting: true });
 
   it("says live with the age of the newest epoch", () => {
     expect(freshnessText(sys("a", { freshness: fresh(6_000) }), true, NOW)).toBe("live · 6s");
@@ -119,5 +119,16 @@ describe("fleetBadge", () => {
   it("has no badge when every system is OK, or before the summaries arrive", () => {
     expect(fleetBadge([sys("a"), sys("b", { status: "muted" })])).toBeUndefined();
     expect(fleetBadge(undefined)).toBeUndefined();
+  });
+});
+
+describe("the freshness's collecting flag", () => {
+  const stopped = { epoch: "9", epochAt: NOW - 3 * 3_600_000, partial: false, live: true, intervalMs: 30_000, collecting: false, notCollectingSince: Date.parse("2026-10-17T14:00:00Z") };
+
+  it("makes a card not collecting, since the time the freshness gives", () => {
+    const s = sys("a", { freshness: stopped });
+    expect(cardState(s)).toBe("notcollecting");
+    expect(headline(s, NOW).text).toBe("Not collecting since 14:00 UTC");
+    expect(freshnessText(s, true, NOW)).toBe("last data 3h ago");
   });
 });

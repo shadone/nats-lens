@@ -200,7 +200,7 @@ Every task updates the README sections and `docs/features/` docs it changes, and
 
 ### Clean-up (UI)
 
-- **Header "not collecting":** when `Freshness.collecting` is false (from `GetOverview`), the header's freshness reads "not collecting since HH:MM", the time from `Freshness.not_collecting_since`, and no longer says "no data" or "stale" for that case. The API side is merged with the backend clean-up; README, `docs/design.md` and `docs/features/navigation.md` (Planned) describe the header as planned until then.
+- **Header "not collecting":** done.
 
 ## Decisions (proposed, not yet confirmed)
 

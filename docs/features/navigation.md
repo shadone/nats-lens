@@ -25,7 +25,7 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 - **One global time range.** Every page reads the same range. Live presets are 1h, 6h, 24h (the default) and 7d; the range button shows the chosen one as, for example, "Last 24h". A live range moves with the clock. A custom range has a start and an end in UTC, at most 30 days long, starting no later than now. The header shows the range's span in UTC.
 - **Live and fixed.** The freshness button pauses a live range at its current span, and turns a fixed range back into the closest live preset.
 - **Shareable links.** The range is in the address as `?range=1h|6h|7d` for live (the default 24 hours leaves the parameter out; `?range=24h` is also read), or `?from=…&to=…` (UTC, such as `2026-01-05T09:00:00Z`) for fixed. A link with a range that cannot be used shows the last 24 hours instead, says why in a notice, and offers "Remove it from the link".
-- **Freshness.** The header asks for the last two collect intervals only, whatever range the page shows. It says "live" with the age of the newest collection; "no data" when no collection started in the last two collect intervals, as when NATS is unreachable; "stale" only while a shown collection is older than three intervals and the next refresh has not landed; "fixed" for a fixed range; and "offline" when the status call to nats-lens fails. Its tooltip names the newest collection and whether it was partial.
+- **Freshness.** The header asks for the last two collect intervals only, whatever range the page shows. It says "live" with the age of the newest collection; "not collecting since 11:30" while the collector's connection to NATS is not connected or closed (the date too when that began a day or more ago), or "not collecting" with the age when no collector writes to the database; "no data" only when no collection exists and the collector collects; "stale" only while the system collects, a shown collection is older than three intervals and the next refresh has not landed; "fixed" for a fixed range; and "offline" when the status call to nats-lens fails. Its tooltip names the newest collection and whether it was partial. While the collector does not collect, the header reads the newest collection before the stop, so the system switcher keeps its number of servers.
 - **What a list shows.** Lists of servers, streams, consumers and connections show the newest collection inside the range. Charts and growth cover the whole range.
 - **Theme.** One button shows the current theme's icon and a chevron. It opens a menu with Light, Dark and System, each with its icon, and a check on the current one. The choice is kept in the browser; System follows the operating system.
 - **Keyboard.** Every menu opens with a click, Enter or the down arrow; the arrow keys move, Enter picks, and Escape closes it and returns to its button. In the system menu the arrow keys also reach "All systems", which opens Fleet.
@@ -73,9 +73,10 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 
 ### See that collection stopped
 
-- **Given** NATS has been unreachable for five minutes with a 30-second interval
-- **When** I look at the header
-- **Then** it says "no data"
+- **Given** NATS has been unreachable since 11:30 with a 30-second interval
+- **When** I look at the header at 11:35
+- **Then** it says "not collecting since 11:30"
+- **And** the system switcher still says "3 servers", from the newest collection before 11:30
 
 ### Switch to the dark theme
 
@@ -94,7 +95,6 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 - **More pages in the sidebar.** Subjects, Micro services and Applications under Messaging; KV Stores, Object Stores, Placement and Capacity under JetStream; Topology, Accounts and Users and auth under Cluster. Each appears once its page is built.
 - **The account scope on more lists.** Streams, findings and events limited to the scoped account, each offering the scope once it applies it; system-wide tiles and charts stay system-wide and say "all accounts".
 - **A command bar.** Findings, events and prefixes such as `stream:` in the search ([command-bar.md](command-bar.md)).
-- **"Not collecting" in the header.** The API's freshness says whether the collector collects; the header is to read "not collecting since HH:MM" then, in place of "no data" and "stale".
 
 ## Not supported / out of scope
 

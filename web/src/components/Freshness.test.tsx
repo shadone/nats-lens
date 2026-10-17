@@ -5,7 +5,7 @@ import type { Freshness as FreshnessModel } from "../api/model";
 import { Freshness } from "./RangePicker";
 
 const live = { kind: "live", preset: "24h" } as const;
-const fresh = (ageMs: number, liveCollector = true): FreshnessModel => ({ epoch: "9", epochAt: Date.now() - ageMs, partial: false, live: liveCollector, intervalMs: 30_000 });
+const fresh = (ageMs: number, liveCollector = true): FreshnessModel => ({ epoch: "9", epochAt: Date.now() - ageMs, partial: false, live: liveCollector, intervalMs: 30_000, collecting: true });
 
 describe("Freshness", () => {
   it("says live with the age of the newest epoch", () => {
@@ -32,5 +32,28 @@ describe("Freshness", () => {
     expect(screen.getByText("fixed")).toBeInTheDocument();
     rerender(<Freshness spec={{ kind: "fixed", from: 0, to: 1 }} freshness={fresh(4_000)} error={new Error("x")} />);
     expect(screen.getByText("offline")).toHaveClass("offline");
+  });
+});
+
+describe("Freshness when the collector stopped", () => {
+  const since = Date.parse("2026-10-17T11:30:00Z");
+  const stopped = (f: Partial<FreshnessModel>): FreshnessModel => ({ ...fresh(3 * 3_600_000), collecting: false, notCollectingSince: since, ...f });
+
+  it("says not collecting since the time it stopped, in place of stale", () => {
+    render(<Freshness spec={live} freshness={stopped({})} />);
+    const el = screen.getByText(/not collecting/);
+    expect(el).toHaveTextContent(/^not collecting since 11:30$/);
+    expect(el).toHaveClass("stale");
+    expect(screen.queryByText(/stale|no data/)).toBeNull();
+  });
+
+  it("says not collecting, not no data, when the range holds no collection", () => {
+    render(<Freshness spec={live} freshness={stopped({ epoch: "0", epochAt: undefined })} />);
+    expect(screen.getByText(/not collecting/)).toHaveTextContent(/^not collecting since 11:30$/);
+  });
+
+  it("says no data only when no collection exists and the collector collects", () => {
+    render(<Freshness spec={live} freshness={{ ...fresh(0), epoch: "0", epochAt: undefined }} />);
+    expect(screen.getByText("no data")).toBeInTheDocument();
   });
 });
