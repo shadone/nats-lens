@@ -3,17 +3,20 @@ package api_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/api/apitest"
@@ -621,5 +624,64 @@ func TestFreshnessFollowsTheCollectionStatus(t *testing.T) {
 		if f := m.GetSystems()[1].GetFreshness(); !f.GetCollecting() || f.GetNotCollectingSince() != nil {
 			t.Errorf("b %s summary = %v", state, f)
 		}
+	}
+}
+
+// slowSummary counts its summaries and takes a while over each.
+type slowSummary struct {
+	renamed
+	summaries *atomic.Int32
+	delay     time.Duration
+}
+
+func (s slowSummary) SystemSummary(ctx context.Context, req *v1.ListSystemsRequest) (*v1.SystemSummary, error) {
+	s.summaries.Add(1)
+	time.Sleep(s.delay)
+	return s.renamed.SystemSummary(ctx, req)
+}
+
+// Concurrent calls for the same range share one summary per system: each
+// gets the real data, and the provider is asked once. A live range asked
+// a moment later, and the unset range of the same span, are the same range.
+func TestListSystemsCoalescesConcurrentCalls(t *testing.T) {
+	systems, a, _ := twoSystems()
+	n := &atomic.Int32{}
+	systems[0].Provider = slowSummary{a, n, 150 * time.Millisecond}
+	h := &api.Handler{Systems: systems, SummaryTimeout: 2 * time.Second}
+	reqs := []*v1.ListSystemsRequest{
+		{},
+		{Range: &v1.TimeRange{Start: timestamppb.New(a.Now().Add(-24 * time.Hour))}, StripBuckets: 48},
+		{Range: &v1.TimeRange{Start: timestamppb.New(a.Now().Add(-24*time.Hour + 20*time.Millisecond))}},
+	}
+	errs := make([]string, len(reqs))
+	var wg sync.WaitGroup
+	for i, req := range reqs {
+		wg.Go(func() {
+			res, err := h.ListSystems(context.Background(), connect.NewRequest(req))
+			if err != nil {
+				errs[i] = err.Error()
+				return
+			}
+			s := res.Msg.GetSystems()[0]
+			if s.GetError() != "" || s.GetServers() != 3 || s.GetSystem().GetId() != "a" {
+				errs[i] = fmt.Sprintf("card %v", s)
+			}
+		})
+	}
+	wg.Wait()
+	for i, e := range errs {
+		if e != "" {
+			t.Errorf("call %d: %s", i, e)
+		}
+	}
+	if got := n.Load(); got != 1 {
+		t.Errorf("the provider was asked %d times, want 1", got)
+	}
+	// Another range is its own summary.
+	if _, err := h.ListSystems(context.Background(), connect.NewRequest(&v1.ListSystemsRequest{StripBuckets: 24})); err != nil {
+		t.Fatal(err)
+	}
+	if got := n.Load(); got != 2 {
+		t.Errorf("after another range: %d summaries, want 2", got)
 	}
 }
