@@ -5,6 +5,7 @@ import (
 	"hash/fnv"
 	"time"
 
+	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -87,14 +88,14 @@ func (sc *scenario) limits(sp serverSpec) *v1.ServerLimits {
 	}
 }
 
-// limitsDiffer names sp's limits that differ from the majority's; in the
-// demo only max_payload varies.
+// limitsDiffer names sp's limits that differ from the plurality's, by the
+// store provider's rule; in the demo only max_payload varies.
 func (sc *scenario) limitsDiffer(sp serverSpec) []string {
-	counts := map[int64]int{}
-	for _, x := range sc.servers {
-		counts[payloadOf(x)]++
+	values := make([]*int64, len(sc.servers))
+	for i, x := range sc.servers {
+		values[i] = ptr(payloadOf(x))
 	}
-	if counts[payloadOf(sp)]*2 < len(sc.servers) {
+	if api.OffPlurality(ptr(payloadOf(sp)), values) {
 		return []string{"max_payload"}
 	}
 	return nil
