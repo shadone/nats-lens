@@ -47,8 +47,9 @@ export function Sparkline({ points, points2, status, windows, start, end, label,
   let mn = Math.min(...all);
   let mx = Math.max(...all);
   if (mx === mn) {
+    // A series that stays at 0 lies on the baseline; another constant sits mid-height.
     mx = mn + 1;
-    mn = mn - 1;
+    if (mn !== 0) mn = mn - 1;
   }
   const p = sparkPoints(points, start, end, mn, mx);
   const first = p[0].split(",")[0];
