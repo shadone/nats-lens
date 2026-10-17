@@ -1,24 +1,24 @@
-// Events: every event in the range, newest first, filtered by source, kind,
-// entity and client, paged by time. ?id= opens one event on top.
+// Events: the events of the range, newest first. It opens on what is
+// worth reading (routine events hidden, repeats folded), with a histogram,
+// counts per source and server, and new events held behind a pill. ?id=
+// opens one event on top.
 import { useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
-import type { Entity, EventSourceName } from "../api/model";
-import { useEvent, useEvents } from "../api/queries";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEventFeed, useNewEvents, type EventFeed, type FeedFilter } from "../api/events";
+import type { Entity } from "../api/model";
+import { useEvent } from "../api/queries";
 import { Empty, ErrorBox, QueryView } from "../components/common";
-import { Pager, usePager } from "../components/EntityParts";
+import { usePager } from "../components/EntityParts";
+import { EventFacets, SOURCES } from "../components/EventFacets";
+import { EventHistogram } from "../components/EventHistogram";
 import { EventRow } from "../components/EventRow";
+import { fmtInt } from "../lib/format";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useSystem } from "../lib/useSystem";
 import { rangeKey } from "../lib/timeRange";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
 import { entityKeyLabel, withAccountName } from "../lib/view";
-
-const SOURCES: { id: string; label: string; source: EventSourceName }[] = [
-  { id: "nats", label: "NATS", source: "nats" },
-  { id: "kubernetes", label: "Kubernetes", source: "kubernetes" },
-  { id: "findings", label: "Findings", source: "finding" },
-  { id: "collector", label: "Collector", source: "collector" },
-];
 
 const empty = { account: "", stream: "", consumer: "", server: "", name: "" };
 
@@ -53,9 +53,52 @@ function OneEvent({ id, end }: { id: string; end: number }) {
   );
 }
 
+/** "Hidden as routine: 482 events · <group> ×448 · …", with Show them. */
+function RoutineLine({ feed, onShow }: { feed: EventFeed; onShow: () => void }) {
+  if (feed.routineHidden <= 0) return null;
+  return (
+    <section className="ev-routine" aria-label="Hidden as routine">
+      <span>
+        Hidden as routine: <b className="mono">{fmtInt(feed.routineHidden)}</b> events
+        {feed.routineGroups.map((g) => (
+          <span key={`${g.kind}|${g.clientName}`}>
+            {" · "}
+            <span>{g.label}</span> <span className="mono">×{fmtInt(g.count)}</span>
+          </span>
+        ))}
+      </span>
+      <button type="button" className="linkish" onClick={onShow}>
+        Show them
+      </button>
+    </section>
+  );
+}
+
+function FeedPager({ page, feed, folded, onNext, onPrev }: { page: number; feed: EventFeed; folded: boolean; onNext: () => void; onPrev: () => void }) {
+  return (
+    <nav className="pager" aria-label="Pagination">
+      <span>
+        {folded
+          ? `${fmtInt(feed.totalCount)} events, repeats folded · page ${page}`
+          : `${fmtInt(feed.items.length)} shown of ${fmtInt(feed.totalCount)} events · page ${page}`}
+      </span>
+      <span className="btns">
+        <button type="button" className="btn" onClick={onPrev} disabled={page <= 1}>
+          Newer
+        </button>
+        <button type="button" className="btn" onClick={onNext} disabled={!feed.nextPageToken}>
+          Older
+        </button>
+      </span>
+    </nav>
+  );
+}
+
 export function Events() {
   usePageTitle("Events");
   const [params, setParams] = useSearchParams();
+  const sys = useSystem();
+  const qc = useQueryClient();
   const { spec } = useTimeRange();
   const { end } = useResolvedRange(spec);
   const srcIds = (params.get("src") ?? "").split(",").filter(Boolean);
@@ -63,9 +106,12 @@ export function Events() {
   const kinds = (params.get("kind") ?? "").split(",").map((k) => k.trim()).filter(Boolean);
   const fromParams = entityFromParams(params);
   const client = params.get("client") ?? "";
+  const worthReading = params.get("show") !== "all";
   const id = params.get("id") ?? undefined;
-  const pager = usePager([useSystem(), sources.join(), kinds.join(), fromParams?.key, client, rangeKey(spec)].join("|"));
-  const q = useEvents(spec, { sources, kinds, entity: fromParams, clientName: client, pageSize: 50, pageToken: pager.token });
+  const pager = usePager([sys, sources.join(), kinds.join(), fromParams?.key, client, worthReading, rangeKey(spec)].join("|"));
+  const filter: FeedFilter = { sources, kinds, entity: fromParams, clientName: client, worthReading, pageSize: 50, pageToken: pager.token };
+  const q = useEventFeed(spec, filter);
+  const fresh = useNewEvents(spec, filter, q.data && !q.isPlaceholderData ? q.data : undefined);
   // The URL holds the account ID; the loaded events name it.
   const entity = fromParams && withAccountName(fromParams, q.data?.items ?? []);
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -83,6 +129,13 @@ export function Events() {
     const next = srcIds.includes(sid) ? srcIds.filter((x) => x !== sid) : [...srcIds, sid];
     setParam("src", next.join(","));
   };
+  const setServer = (name: string) =>
+    setParams((p) => {
+      const n = new URLSearchParams(p);
+      ["stream", "consumer", "server"].forEach((k) => n.delete(k));
+      if (name) n.set("server", name);
+      return n;
+    });
   const applyText = (e: FormEvent) => {
     e.preventDefault();
     setParams((p) => {
@@ -101,6 +154,7 @@ export function Events() {
       else n.add(eid);
       return n;
     });
+  const showNew = () => qc.invalidateQueries({ queryKey: ["eventFeed", sys] });
 
   return (
     <>
@@ -109,18 +163,21 @@ export function Events() {
         <span className="aside">NATS advisories, Kubernetes events, finding transitions and the collector's own records, newest first.</span>
       </div>
       {id && <OneEvent id={id} end={end} />}
+      {q.data && <EventHistogram buckets={q.data.histogram} start={q.data.start} end={q.data.end} live={spec.kind === "live"} routineHidden={worthReading} />}
+      {q.data && (
+        <EventFacets
+          feed={q.data}
+          worthReading={worthReading}
+          setWorthReading={(on) => setParam("show", on ? "" : "all")}
+          srcIds={srcIds}
+          toggleSource={toggleSource}
+          clearSources={() => setParam("src", "")}
+          server={fromParams?.kind === "server" ? fromParams.server : ""}
+          setServer={setServer}
+          showServers={!fromParams || fromParams.kind === "server"}
+        />
+      )}
       <div className="filters">
-        <div className="grp" role="group" aria-label="Sources">
-          <span className="lbl">Source</span>
-          <button type="button" className={`chip${srcIds.length === 0 ? " on" : ""}`} aria-pressed={srcIds.length === 0} onClick={() => setParam("src", "")}>
-            All
-          </button>
-          {SOURCES.map((s) => (
-            <button key={s.id} type="button" className={`chip${srcIds.includes(s.id) ? " on" : ""}`} aria-pressed={srcIds.includes(s.id)} onClick={() => toggleSource(s.id)}>
-              {s.label}
-            </button>
-          ))}
-        </div>
         <form className="grp wide" onSubmit={applyText} role="search" aria-label="Filter events">
           <input type="search" aria-label="Kinds, comma separated" placeholder="kinds, e.g. consumer.deleted" value={kindText} onChange={(e) => setKindText(e.target.value)} />
           <input type="search" aria-label="Client connection name" placeholder="client name" value={clientText} onChange={(e) => setClientText(e.target.value)} />
@@ -128,34 +185,33 @@ export function Events() {
             Filter
           </button>
         </form>
-        {entity && (
+        {entity && entity.kind !== "server" && (
           <span className="grp">
             <span className="lbl">{entity.kind}</span>
             <span className="mono" title={entity.key}>{entityKeyLabel(entity)}</span>
-            <button type="button" className="chip" onClick={() => setParams((p) => { const n = new URLSearchParams(p); ["stream", "consumer", "server"].forEach((k) => n.delete(k)); return n; })}>
+            <button type="button" className="chip" onClick={() => setServer("")}>
               Clear
             </button>
           </span>
         )}
       </div>
+      {q.data && worthReading && <RoutineLine feed={q.data} onShow={() => setParam("show", "all")} />}
       <QueryView q={q} what="events">
         {(page) => (
           <div className="card evlist">
+            {fresh > 0 && (
+              <div className="ev-new">
+                <button type="button" className="btn p" onClick={showNew}>
+                  {fmtInt(fresh)} new
+                </button>
+              </div>
+            )}
             {page.items.length === 0 ? (
               <Empty>No events match in this range.</Empty>
             ) : (
               page.items.map((e) => <EventRow key={e.id} e={e} end={end} open={open.has(e.id)} onToggle={() => toggle(e.id)} />)
             )}
-            <Pager
-              page={pager.page}
-              next={page.nextPageToken}
-              onNext={() => pager.next(page.nextPageToken)}
-              onPrev={pager.prev}
-              total={page.totalCount}
-              shown={page.items.length}
-              newer="Newer"
-              older="Older"
-            />
+            <FeedPager page={pager.page} feed={page} folded={worthReading} onNext={() => pager.next(page.nextPageToken)} onPrev={pager.prev} />
           </div>
         )}
       </QueryView>
