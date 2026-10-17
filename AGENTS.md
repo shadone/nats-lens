@@ -30,7 +30,7 @@ nats-lens observes a NATS deployment: a Go collector takes snapshots and capture
 - Migrations in `internal/store/migrations/` are append-only: never edit one that has been applied anywhere; the `migrations` table holds each file's checksum and natslens refuses to start on a mismatch. A new NOT NULL column on an archived table needs a default.
 - Proto changes take new field numbers; never reuse or renumber one. Run `make proto` and commit the generated code.
 - Every check has a test in `internal/checks` with one entity that fails and one that does not.
-- Every user-facing change updates `docs/features/` (the capability doc and both README sections) once that directory exists, and the README until then.
+- Every user-facing change updates `docs/features/`: the capability doc and both sections of `docs/features/README.md` (the capabilities table and the coverage map). Then run the feature-docs skill's audit, `python3 <skill>/scripts/audit_feature_docs.py docs/features/ --map-refs require`; its `bad-status` warnings on `Status: planned` docs are expected, every other finding is fixed.
 
 ## Agent work
 
