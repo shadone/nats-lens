@@ -1,5 +1,6 @@
 // Servers of one system: requests, view models and hooks for the Servers
 // page and a server's own page. Every hook keys on the page's system.
+import type { Duration } from "@bufbuild/protobuf/wkt";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { EntityType } from "../gen/natslens/v1/common_pb";
 import type { GetServerResponse, ListServersResponse, ServerSummary } from "../gen/natslens/v1/servers_pb";
@@ -8,8 +9,9 @@ import { LIVE_REFRESH_MS, rangeKey, type RangeSpec } from "../lib/timeRange";
 import { useSystem } from "../lib/useSystem";
 import { dur, entity, ms, optN, series } from "./adapt-common";
 import { server, serverDetail } from "./adapt-entities";
+import { event } from "./adapt-findings";
 import { lens } from "./client";
-import type { Point, Server, ServerDetail, Series } from "./model";
+import type { LensEvent, Point, Server, ServerDetail, Series } from "./model";
 import { rangeInit, systemInit } from "./requests";
 
 /** A server with what the Servers page adds to the shared view model. Numbers not observed are unset. */
@@ -75,6 +77,11 @@ export interface BandSeries extends Series {
   topPoints: Point[];
 }
 
+/** A duration in milliseconds with its fraction, which route round trips need: 0.47 ms, not 0. */
+function preciseMs(d: Duration | undefined): number | undefined {
+  return d ? Number(d.seconds) * 1000 + d.nanos / 1e6 : undefined;
+}
+
 export function serverRow(s: ServerSummary): ServerRow {
   return {
     ...server(s),
@@ -95,7 +102,7 @@ export function serverInfo(r: GetServerResponse): ServerInfo {
   return {
     ...serverDetail(r),
     server: r.server ? serverRow(r.server) : undefined,
-    routeViews: r.routeViews.map((v) => ({ remoteName: v.remoteName, rttMs: dur(v.rtt), pendingBytes: optN(v.pendingBytes) })),
+    routeViews: r.routeViews.map((v) => ({ remoteName: v.remoteName, rttMs: preciseMs(v.rtt), pendingBytes: optN(v.pendingBytes) })),
     gateways: r.gateways,
     leafnodes: r.leafnodes,
     limits: l && {
@@ -140,6 +147,27 @@ export async function getBandSeries(sys: string, spec: RangeSpec, metric: string
   return bandSeries(r.series);
 }
 
+/** A recent event row: repeats folded into one, with how many it stands for. */
+export interface RecentEvent extends LensEvent {
+  repeats: number;
+}
+
+/** The newest events about a server, routine ones hidden and repeats folded. */
+export async function listServerEvents(sys: string, spec: RangeSpec, name: string, pageSize: number, signal?: AbortSignal): Promise<RecentEvent[]> {
+  const r = await lens.listEvents(
+    {
+      ...systemInit(sys),
+      range: rangeInit(spec),
+      entity: { type: EntityType.SERVER, key: name, name, server: name },
+      pageSize,
+      hideRoutine: true,
+      foldRepeats: true,
+    },
+    { signal },
+  );
+  return r.events.map((e) => ({ ...event(e), repeats: e.repeats }));
+}
+
 function refetch(spec: RangeSpec) {
   return spec.kind === "live" ? LIVE_REFRESH_MS : false;
 }
@@ -168,6 +196,16 @@ export function useBandSeries(spec: RangeSpec, metric: string, serverName?: stri
   return useQuery({
     queryKey: ["bandSeries", sys, rangeKey(spec), metric, serverName ?? "", maxPoints],
     queryFn: ({ signal }) => getBandSeries(sys, spec, metric, serverName, maxPoints, signal),
+    refetchInterval: refetch(spec),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useServerEvents(spec: RangeSpec, name: string, pageSize = 6) {
+  const sys = useSystem();
+  return useQuery({
+    queryKey: ["serverEvents", sys, rangeKey(spec), name, pageSize],
+    queryFn: ({ signal }) => listServerEvents(sys, spec, name, pageSize, signal),
     refetchInterval: refetch(spec),
     placeholderData: keepPreviousData,
   });

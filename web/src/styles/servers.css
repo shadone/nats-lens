@@ -139,3 +139,4 @@
 @media (max-width:420px){
   .dp-row,.sd-tiles{grid-template-columns:minmax(0,1fr)}
 }
+.sd-ep .bad{color:var(--sev-critical)}

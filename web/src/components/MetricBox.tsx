@@ -15,8 +15,8 @@ export interface MetricBoxProps {
   series?: Series;
   /** A second series drawn dashed, for example messages out beside in. */
   series2?: Series;
-  /** The current value; the newest point when not given. */
-  value?: number;
+  /** The current value; the newest point when not given; null when there is none now. */
+  value?: number | null;
   /** Replaces the formatted value at the top right, for example "61 / 63 /s". */
   valueText?: string;
   fmt: (v: number) => string;
@@ -97,7 +97,7 @@ export function RangeTrack({ title, min, max, value, fmt, status, period }: { ti
 export function MetricBox(p: MetricBoxProps) {
   const status = p.status ?? "ok";
   const pts = p.series?.points ?? [];
-  const value = p.value ?? (pts.length ? pts[pts.length - 1].value : undefined);
+  const value = p.value === null ? undefined : (p.value ?? (pts.length ? pts[pts.length - 1].value : undefined));
   // The window's min and max always take in the current value, which may
   // come from outside the series.
   const min = p.series?.min === undefined ? value : value === undefined ? p.series.min : Math.min(p.series.min, value);
