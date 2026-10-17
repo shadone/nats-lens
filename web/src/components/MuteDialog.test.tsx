@@ -1,6 +1,7 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Finding } from "../api/model";
 import * as requests from "../api/requests";
@@ -205,5 +206,52 @@ describe("dialogs while a request is pending", () => {
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
     fireEvent(document.querySelector("dialog")!, new Event("cancel", { cancelable: true }));
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe("the system a mute goes to", () => {
+  let go: (to: string) => void = () => {};
+  function Nav() {
+    go = useNavigate();
+    return null;
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+    muteFinding.mockReset();
+    vi.mocked(requests.unmuteFinding).mockReset();
+    getLensInfo.mockResolvedValue(info("iap"));
+  });
+
+  it("is the system of the page when the dialog opened, also after the URL changed", async () => {
+    muteFinding.mockResolvedValue(undefined);
+    renderApp(
+      <>
+        <Nav />
+        <MuteDialog finding={finding} onClose={() => {}} />
+      </>,
+      "/findings?system=sys-a",
+    );
+    await userEvent.type(screen.getByLabelText("Reason"), "noise");
+    act(() => go("/findings?system=sys-b"));
+    await userEvent.click(screen.getByRole("button", { name: "Mute" }));
+    await waitFor(() => expect(muteFinding).toHaveBeenCalled());
+    expect(muteFinding.mock.calls[0][0]).toBe("sys-a");
+  });
+
+  it("lifts a mute on the system of the page when the dialog opened", async () => {
+    vi.mocked(requests.unmuteFinding).mockResolvedValue(undefined);
+    const m = { id: "m1", checkCode: "stream-031", reason: "r", mutedBy: "denis", unmutedBy: "" } as never;
+    renderApp(
+      <>
+        <Nav />
+        <UnmuteDialog mute={m} onClose={() => {}} />
+      </>,
+      "/findings?system=sys-a",
+    );
+    act(() => go("/findings?system=sys-b"));
+    await userEvent.click(screen.getByRole("button", { name: "Lift mute" }));
+    await waitFor(() => expect(requests.unmuteFinding).toHaveBeenCalled());
+    expect(vi.mocked(requests.unmuteFinding).mock.calls[0][0]).toBe("sys-a");
   });
 });

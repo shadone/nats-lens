@@ -136,19 +136,19 @@ describe("mutations and the system", () => {
     return null;
   }
 
-  it("mutes and unmutes on the page's system", async () => {
+  it("mutes and unmutes on the system it is given", async () => {
     const qc = new QueryClient();
     let m: Parameters<Parameters<typeof Mutations>[0]["onReady"]>[0] | undefined;
     render(
       <QueryClientProvider client={qc}>
-        <MemoryRouter initialEntries={["/findings?system=sys-c"]}>
+        <MemoryRouter initialEntries={["/findings?system=sys-other"]}>
           <Mutations onReady={(x) => (m = x)} />
         </MemoryRouter>
       </QueryClientProvider>,
     );
     await act(async () => {
-      await m!.mute.mutateAsync({ checkCode: "stream-025", reason: "r", expiresAt: Date.now() + 3_600_000, mutedBy: "op" });
-      await m!.unmute.mutateAsync({ muteId: "m1", unmutedBy: "op" });
+      await m!.mute.mutateAsync({ system: "sys-c", checkCode: "stream-025", reason: "r", expiresAt: Date.now() + 3_600_000, mutedBy: "op" });
+      await m!.unmute.mutateAsync({ system: "sys-c", muteId: "m1", unmutedBy: "op" });
     });
     expect(vi.mocked(lens.muteFinding).mock.calls[0][0]).toMatchObject({ system: "sys-c" });
     expect(vi.mocked(lens.unmuteFinding).mock.calls[0][0]).toMatchObject({ system: "sys-c" });
