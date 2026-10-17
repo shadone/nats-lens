@@ -195,7 +195,7 @@ func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints 
 	if s.dataEnd().Before(end) {
 		end = s.dataEnd()
 	}
-	start := r.GetStart().AsTime()
+	start := latest(r.GetStart().AsTime(), s.dataStart())
 	for b := api.BucketStart(start, step); b.Before(end); b = b.Add(step) {
 		t := b
 		if t.Before(start) {

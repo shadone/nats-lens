@@ -8,17 +8,25 @@ import (
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
-// example-staging is a three-server cluster whose collector stopped
-// collecting three hours ago: NATS closed its connection after repeated
-// authorization errors when the credentials were rotated. Its data ends
-// then; nothing newer is stored.
+// example-staging is a three-server cluster that nats-lens began watching
+// nine hours ago, and whose collector stopped collecting three hours ago:
+// NATS closed its connection after repeated authorization errors when the
+// credentials were rotated. Its history is younger than the default range,
+// and its data ends at the close; nothing newer is stored.
 
-// stagingStale is how long before now the data ends.
-const stagingStale = 3 * time.Hour
+// stagingStale is how long before now the data ends; stagingHistory how
+// long before now the history begins.
+const (
+	stagingStale   = 3 * time.Hour
+	stagingHistory = 9 * time.Hour
+)
 
-// stagingStop is when the collector's connection closed, in the fixed
-// frame.
-var stagingStop = FixedNow.Add(-stagingStale)
+// stagingStop is when the collector's connection closed, and stagingStart
+// when its first epoch was stored, in the fixed frame.
+var (
+	stagingStop  = FixedNow.Add(-stagingStale)
+	stagingStart = FixedNow.Add(-stagingHistory)
+)
 
 // stagingScenario is example-staging.
 func stagingScenario() *scenario {
@@ -42,6 +50,7 @@ func stagingScenario() *scenario {
 		metaLeader:      "nats-1",
 		epoch:           911,
 		stale:           stagingStale,
+		history:         stagingHistory,
 		collection:      v1.CollectionState_COLLECTION_STATE_CONNECTION_CLOSED,
 		collectionError: "nats: authorization violation",
 		errorSince:      stagingStop,
@@ -54,7 +63,10 @@ func stagingScenario() *scenario {
 }
 
 func stagingFindings(s scen) []*v1.Finding {
-	f := finding("stream-005", "Stream without any limit", info, firing, streamRef("catalog-changes"), s.on(12, 9, 0), s.on(12, 9, 0),
+	// The stream had no limit before nats-lens watched it: first seen at
+	// the start of the history.
+	at := stagingStart.Add(s.shift)
+	f := finding("stream-005", "Stream without any limit", info, firing, streamRef("catalog-changes"), at, at,
 		"max_msgs -1, max_bytes -1, max_age 0: nothing bounds the stream.")
 	f.RelatedConfig = cfg([][2]string{{"max_msgs", "-1"}, {"max_bytes", "-1"}, {"max_age", "0"},
 		{"max_msgs_per_subject", "-1"}, {"allow_msg_ttl", "false"}}, "max_bytes")
@@ -73,7 +85,8 @@ func stagingEvents(s scen, _ []*v1.Finding) []*v1.Event {
 		collector(stop, "collector.connection_closed", "nats: authorization violation", "collector connection collector closed: "),
 		collector(stop.Add(-2*time.Second), "collector.disconnected", "nats: authorization violation", "collector connection collector lost server nats-1: "),
 	}
-	for k := range 60 {
+	// Routine reconnects every 17 minutes, from the start of the history.
+	for k := range int((stagingStop.Sub(stagingStart) - time.Minute) / (17 * time.Minute)) {
 		kind, typ := "client.connect", "CLIENT.CONNECT"
 		if k%2 == 0 {
 			kind, typ = "client.disconnect", "CLIENT.DISCONNECT"
@@ -90,7 +103,7 @@ func stagingEvents(s scen, _ []*v1.Finding) []*v1.Event {
 func stagingRows(*scenario) []rowSpec {
 	return []rowSpec{
 		{"stream-005", "Stream without any limit", info, []*v1.EntityRef{streamRef("catalog-changes")},
-			[]span{{time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC), stagingStop}}},
+			[]span{{stagingStart, stagingStop}}},
 	}
 }
 
