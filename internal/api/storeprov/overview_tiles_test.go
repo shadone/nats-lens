@@ -2,10 +2,13 @@ package storeprov_test
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
@@ -69,5 +72,29 @@ func TestClientsTileCountsApps(t *testing.T) {
 	}
 	if !strings.HasPrefix(c.GetSubtitle(), "3 apps · ") || !strings.HasSuffix(c.GetSubtitle(), " slow") {
 		t.Errorf("subtitle = %q, want 3 apps and the slow consumer events", c.GetSubtitle())
+	}
+}
+
+// The meta leader tile needs more than half of the expected servers to
+// name the leader, as cluster.meta_leader_changes does: one server of
+// three naming it is not enough, though no other server names another.
+func TestMetaLeaderTileNeedsAMajority(t *testing.T) {
+	for name, votes := range map[string][]string{"": {"nats-1", "", ""}, "nats-1": {"nats-1", "nats-1", ""}} {
+		st := emptyStore(t)
+		r := rows{t, st}
+		ids := []string{"S0", "S1", "S2"}
+		for i, id := range ids {
+			r.server(id, "nats-"+strconv.Itoa(i))
+		}
+		r.epoch(1, t0, ids...)
+		for i, id := range ids {
+			r.add("server_stats", map[string]any{"epoch": 1, "server_id": id, "meta_leader": votes[i]})
+		}
+		c := serveSeries(t, st, t0.Add(30*time.Second))
+		o := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{
+			Range: &v1.TimeRange{Start: timestamppb.New(t0.Add(-time.Hour)), End: timestamppb.New(t0.Add(30 * time.Second))}})))
+		if got := tileByID(o.GetTiles(), "meta_leader").GetValueText(); got != name {
+			t.Errorf("votes %v: value_text = %q, want %q", votes, got, name)
+		}
 	}
 }

@@ -40,7 +40,7 @@ var TileLabels = map[string]string{
 var TileDescriptions = map[string]string{
 	TileServers: "NATS servers that answered in the newest epoch, out of the servers the system expects; " +
 		"the subtitle gives their versions and the shortest uptime.",
-	TileMetaLeader: "The server that leads the JetStream meta group, as more than half of the servers that name a leader " +
+	TileMetaLeader: "The server that leads the JetStream meta group, as more than half of the expected servers " +
 		"report it in the newest epoch; the number and the chart count leader changes in the range.",
 	TileStreams: "Streams any server reports in the newest epoch, without the KV and object store streams; " +
 		"replicated means more than one replica, lagging that the leader reports a replica behind.",
