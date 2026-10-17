@@ -81,7 +81,7 @@ func (p *Provider) ListConsumers(ctx context.Context, req *v1.ListConsumersReque
 			res.Consumers = append(res.Consumers, c)
 		}
 	}
-	res.Consumers = sortConsumers(res.Consumers, req.GetSort(), req.GetLimit())
+	res.Consumers = api.SortConsumers(res.Consumers, req.GetSort(), req.GetLimit())
 	return res, nil
 }
 

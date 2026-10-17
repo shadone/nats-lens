@@ -108,6 +108,37 @@ func (r TileRule) Concerns(f *v1.Finding) bool {
 	return false
 }
 
+// ServersSubtitle names the versions and the shortest uptime of the
+// servers that answered.
+func ServersSubtitle(servers []*v1.ServerSummary) string {
+	versions := map[string]bool{}
+	var up time.Duration
+	seen := false
+	for _, s := range servers {
+		if s.GetVersion() != "" {
+			versions[s.GetVersion()] = true
+		}
+		if s.GetPresent() && s.GetUptime() != nil {
+			if d := s.GetUptime().AsDuration(); !seen || d < up {
+				up, seen = d, true
+			}
+		}
+	}
+	var parts []string
+	switch {
+	case len(versions) == 1:
+		for v := range versions {
+			parts = append(parts, "v"+v+" on all")
+		}
+	case len(versions) > 1:
+		parts = append(parts, fmt.Sprintf("%d versions", len(versions)))
+	}
+	if seen {
+		parts = append(parts, FmtUptime(up))
+	}
+	return strings.Join(parts, " · ")
+}
+
 // FmtBytes writes a byte count in binary units, for example "17 MiB" or
 // "1.2 GiB".
 func FmtBytes(b float64) string {
