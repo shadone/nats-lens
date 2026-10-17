@@ -466,6 +466,14 @@ Proposed, not yet confirmed by the owner.
 | A table that scrolls inside its card shows a shadow at each cut edge (`scroll-cue`), on the bucket pages for now | UI |
 | Placement is drawn as one 12 px square per replica with a mark per state (filled for leader and in sync, half filled for behind, bars for disagrees, a cross for offline, dashed for missing, an outline for unknown); the legend shows only the states that occur | UI |
 | The demo's `example-global` has an R1 KV bucket whose only replica was on the down `nats-us-4`, missing with a warning `stream-011`; `example-prod` gains three buckets and two object stores, which raises its stream count to 13 | Demo |
+| Servers: a server needs attention when it did not answer, a finding fires on it (muted not counted), healthz is not ok, its version is not the majority's (a tie has no majority) or its store is at 60% of its limit or more; "Needs attention" is the default view; problems first: not answering, critical, warning, info, other reasons, then by name; the cluster with the worst server first | UI |
+| Servers list: six rows per cluster under "All" (twenty in a flat list) before "Show N more"; one cluster gives a flat list; the filter matches name, version and tags, within the chosen view | UI |
+| Server map: CPU and store used in fixed bins (10, 30, 60%); memory, connections and leaders in quarters of the spread between the smallest and largest server, counts with whole edges; version one colour per version, most common first; a server that did not answer is dashed and unfilled, an unreported value unfilled | UI |
+| Servers data points: answering counts the servers seen or expected; the store is each server's use of its own limit, median and range across servers; slow consumers sum `slow_consumers_in_range` and name the server with the most | UI |
+| Charts across servers are drawn with their own component (`FleetChart`), not by extending `SeriesChart`; their value is the newest bucket's | UI |
+| `MetricBox`: the range track's min and max are the series' and take in the current value; "steady at N all window" when they are equal; "no data" and no dot without a current value; `value={null}` means no current value even when the series has points | UI |
+| Server metric boxes: CPU at 60% of a core or more is "high", connections at 80% of `max_connections` or more "near limit", slow consumers in the range mark the box; a server that did not answer shows no current value | UI |
+| A server page's recent events are its newest six with routine events hidden and repeats folded | UI |
 
 ## Out of scope for the first release
 

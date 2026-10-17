@@ -71,7 +71,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Inventory](inventory.md) | `ui`, `cli` | shipped |
 | [Navigation, time range and theme](navigation.md) | `ui` | shipped |
 | [Overview page](overview-page.md) | `ui`, `api` | shipped |
-| [Servers](servers.md) | `ui`, `api` | shipped — leaders, tags, limits, routes and pod placement are in the API only |
+| [Servers](servers.md) | `ui`, `api` | shipped |
 | [Streams](streams.md) | `ui`, `api` | shipped |
 | [Consumers](consumers.md) | `ui`, `api` | shipped |
 | [Connections](connections.md) | `ui`, `api` | shipped |
@@ -123,7 +123,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 **Web UI**
 - [x] Sidebar, system switcher, header with account scope and search, the global time range and the theme menu (navigation.md)
 - [x] Overview: worst finding, tiles, status timeline, events, streams and servers (overview-page.md)
-- [x] Servers list and server detail; leaders, limits, routes and pod placement in the API only (servers.md)
+- [x] Servers for 20 or more servers: data points, charts across servers, a map of every server, a grouped list; server pages with metric boxes, placement, limits and recent events (servers.md)
 - [x] Streams list and stream detail (streams.md)
 - [x] Consumers list and consumer detail (consumers.md)
 - [x] Client connections of the newest collection (connections.md)
