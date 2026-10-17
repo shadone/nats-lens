@@ -23,9 +23,9 @@ The Servers page lists every NATS server seen in the time range, by its stable n
 
 ### Find the server that restarted
 
-- **Given** `nats-1` restarted at 09:01 UTC within the range
+- **Given** `nats-1` restarted at 04:12 UTC within the range
 - **When** I open the Servers page
-- **Then** the row of `nats-1` lists 09:01 under "Restarts in range" and a shorter uptime than the others
+- **Then** the row of `nats-1` lists 04:12 under "Restarts in range" and a shorter uptime than the others
 
 ### See why a server's data is incomplete
 
