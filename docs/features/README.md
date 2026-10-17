@@ -89,7 +89,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Subjects](subjects.md) | `ui`, `api` | planned |
 | [Topology](topology.md) | `ui`, `api` | planned |
 | [Accounts and auth](accounts-and-auth.md) | `ui`, `api` | planned |
-| [KV and object stores](kv-and-object-stores.md) | `ui`, `api` | planned |
+| [KV and object stores](kv-and-object-stores.md) | `ui`, `api` | shipped |
 | [Micro services](micro-services.md) | `ui`, `api` | planned |
 | [Command bar](command-bar.md) | `ui` | partial — search by name is shipped; findings, events and prefixes are planned |
 | [On call on the phone](mobile.md) | `ui` | planned |
@@ -137,7 +137,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [ ] Subject patterns, from data the servers expose (subjects.md)
 - [ ] Routes, gateways and leaf nodes (topology.md)
 - [ ] Accounts, users, failed logins and expiring credentials (accounts-and-auth.md)
-- [ ] KV buckets and object stores as their own pages (kv-and-object-stores.md)
+- [x] KV buckets and object stores as their own pages, with placement and missing buckets (kv-and-object-stores.md)
 - [ ] Services built on the NATS micro framework (micro-services.md)
 - [~] Search and jump to anything from one box — findings, events and prefixes are planned (command-bar.md)
 - [ ] A finding on the phone, for the person on call (mobile.md)
