@@ -26,6 +26,9 @@ func Serve(t *testing.T, p api.Provider, opts ...connect.ClientOption) (*httptes
 // is set to the test output.
 func ServeHandler(t *testing.T, h *api.Handler, opts ...connect.ClientOption) (*httptest.Server, natslensv1connect.LensServiceClient) {
 	t.Helper()
+	if err := h.Systems.Validate(); err != nil {
+		t.Fatal(err)
+	}
 	if h.Log == nil {
 		h.Log = slog.New(slog.NewTextHandler(t.Output(), nil))
 	}

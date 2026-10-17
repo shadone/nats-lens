@@ -2,11 +2,15 @@ package api_test
 
 import (
 	"context"
+	"errors"
 	"io"
+	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 
@@ -14,6 +18,7 @@ import (
 	"github.com/shadone/nats-lens/internal/api/apitest"
 	"github.com/shadone/nats-lens/internal/api/fake"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"github.com/shadone/nats-lens/internal/webui"
 )
 
 // renamed is the fake scenario under another cluster name; it counts the
@@ -22,6 +27,9 @@ type renamed struct {
 	*fake.Provider
 	cluster string
 	calls   *atomic.Int32
+	// metrics is "fail" to fail WriteMetrics after a partial write, "hang"
+	// to block it until its context ends.
+	metrics string
 }
 
 func newRenamed(cluster string) renamed {
@@ -47,12 +55,19 @@ func (r renamed) Info(ctx context.Context) (*v1.GetLensInfoResponse, error) {
 }
 
 // WriteMetrics writes two families, the second with a label.
-func (r renamed) WriteMetrics(_ context.Context, m *api.Exposition) error {
+func (r renamed) WriteMetrics(ctx context.Context, m *api.Exposition) error {
 	r.calls.Add(1)
 	m.Family("nats_lens_test_up", "gauge", "Test family without labels.")
 	m.Sample("nats_lens_test_up", 1)
 	m.Family("nats_lens_test_by_code", "gauge", "Test family with a label.")
 	m.Sample("nats_lens_test_by_code", 2, "code", r.cluster+"-001")
+	switch r.metrics {
+	case "fail":
+		return errors.New("metrics broke")
+	case "hang":
+		<-ctx.Done()
+		return ctx.Err()
+	}
 	return nil
 }
 
@@ -188,7 +203,11 @@ func TestMetricsBySystem(t *testing.T) {
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("/metrics: %d\n%s", res.StatusCode, body)
 	}
-	want := `# HELP nats_lens_test_up Test family without labels.
+	want := `# HELP nats_lens_system_scrape_success 1 when the system's metrics were read for this scrape, 0 when they failed.
+# TYPE nats_lens_system_scrape_success gauge
+nats_lens_system_scrape_success{system="a"} 1
+nats_lens_system_scrape_success{system="b"} 1
+# HELP nats_lens_test_up Test family without labels.
 # TYPE nats_lens_test_up gauge
 nats_lens_test_up{system="a"} 1
 nats_lens_test_up{system="b"} 1
@@ -199,5 +218,118 @@ nats_lens_test_by_code{system="b",code="cluster-b-001"} 2
 `
 	if body != want {
 		t.Errorf("/metrics =\n%s\nwant\n%s", body, want)
+	}
+}
+
+func scrapeMetrics(t *testing.T, url string) (int, string) {
+	t.Helper()
+	res, err := http.Get(url + "/metrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	b, _ := io.ReadAll(res.Body)
+	return res.StatusCode, string(b)
+}
+
+// A failing system leaves none of its samples, and the others are served.
+func TestMetricsWithAFailingSystem(t *testing.T) {
+	systems, _, b := twoSystems()
+	b.metrics = "fail"
+	systems[1].Provider = b
+	srv, _ := apitest.ServeHandler(t, &api.Handler{Systems: systems})
+	code, body := scrapeMetrics(t, srv.URL)
+	if code != http.StatusOK {
+		t.Fatalf("/metrics: %d\n%s", code, body)
+	}
+	for _, want := range []string{
+		`nats_lens_system_scrape_success{system="a"} 1`,
+		`nats_lens_system_scrape_success{system="b"} 0`,
+		`nats_lens_test_up{system="a"} 1`,
+		`nats_lens_test_by_code{system="a",code="cluster-a-001"} 2`,
+	} {
+		if !strings.Contains(body, want+"\n") {
+			t.Errorf("missing %q in\n%s", want, body)
+		}
+	}
+	if strings.Contains(body, `nats_lens_test_up{system="b"}`) || strings.Contains(body, "cluster-b-001") {
+		t.Errorf("partial samples of the failed system:\n%s", body)
+	}
+}
+
+// Only when every system fails is the scrape a 500.
+func TestMetricsWhenEverySystemFails(t *testing.T) {
+	systems, a, b := twoSystems()
+	a.metrics, b.metrics = "fail", "fail"
+	systems[0].Provider, systems[1].Provider = a, b
+	srv, _ := apitest.ServeHandler(t, &api.Handler{Systems: systems})
+	if code, body := scrapeMetrics(t, srv.URL); code != http.StatusInternalServerError {
+		t.Fatalf("/metrics: %d\n%s", code, body)
+	}
+}
+
+// A hung system uses up its own timeout, not the others'.
+func TestMetricsWithAHungSystem(t *testing.T) {
+	defer api.SetMetricsTimeout(200 * time.Millisecond)()
+	systems, a, _ := twoSystems()
+	a.metrics = "hang"
+	systems[0].Provider = a
+	srv, _ := apitest.ServeHandler(t, &api.Handler{Systems: systems})
+	start := time.Now()
+	code, body := scrapeMetrics(t, srv.URL)
+	if code != http.StatusOK || !strings.Contains(body, `nats_lens_test_up{system="b"} 1`+"\n") ||
+		!strings.Contains(body, `nats_lens_system_scrape_success{system="a"} 0`+"\n") {
+		t.Fatalf("/metrics: %d\n%s", code, body)
+	}
+	if d := time.Since(start); d > 2*time.Second {
+		t.Errorf("the scrape took %v", d)
+	}
+}
+
+func TestEmptySystemIDIsRefused(t *testing.T) {
+	if _, err := api.NewExposition(""); err == nil {
+		t.Error("NewExposition(\"\") gave no error")
+	}
+	if err := (api.Systems{{Ref: &v1.SystemRef{Id: ""}, Provider: fake.New(false)}}).Validate(); err == nil {
+		t.Error("a system without an ID passed Validate")
+	}
+	systems, _, _ := twoSystems()
+	if err := systems.Validate(); err != nil {
+		t.Errorf("two systems: %v", err)
+	}
+	dup := append(api.Systems{}, systems[0], systems[0])
+	if err := dup.Validate(); err == nil {
+		t.Error("a duplicate ID passed Validate")
+	}
+}
+
+// A registry entry without an ID that reaches the handler anyway writes
+// no unlabelled samples.
+func TestMetricsNeverWithoutSystemLabel(t *testing.T) {
+	systems, _, _ := twoSystems()
+	systems[1].Ref = &v1.SystemRef{}
+	srv := httptest.NewServer(api.NewMux(&api.Handler{Systems: systems, Log: slog.New(slog.DiscardHandler)}, webui.FS()))
+	defer srv.Close()
+	_, body := scrapeMetrics(t, srv.URL)
+	for line := range strings.SplitSeq(body, "\n") {
+		if line != "" && !strings.HasPrefix(line, "#") && !strings.Contains(line, `{system="`) {
+			t.Errorf("sample without a system label: %q", line)
+		}
+	}
+}
+
+func TestHelpIsEscaped(t *testing.T) {
+	m, err := api.NewExposition("a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Family("x", "gauge", "back\\slash and\nnewline")
+	m.Sample("x", 1)
+	var sb strings.Builder
+	if _, err := m.WriteTo(&sb); err != nil {
+		t.Fatal(err)
+	}
+	if want := "# HELP x back\\\\slash and\\nnewline\n"; !strings.Contains(sb.String(), want) {
+		t.Errorf("HELP not escaped:\n%s", sb.String())
 	}
 }

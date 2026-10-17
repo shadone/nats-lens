@@ -29,6 +29,9 @@ type apiOptions struct {
 // command at start. The returned wait blocks until the server stopped and every
 // call returned, so the caller may then close the store.
 func startAPI(ctx context.Context, o apiOptions, systems api.Systems, log *slog.Logger) (wait func(), err error) {
+	if err := systems.Validate(); err != nil {
+		return nil, err
+	}
 	ln, err := net.Listen("tcp", o.listen)
 	if err != nil {
 		return nil, fmt.Errorf("listen %s: %w", o.listen, err)

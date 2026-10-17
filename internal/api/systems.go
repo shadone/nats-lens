@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -120,4 +121,26 @@ func (h *Handler) ListSystems(ctx context.Context, req *connect.Request[v1.ListS
 		res.Systems = append(res.Systems, sum)
 	}
 	return connect.NewResponse(res), nil
+}
+
+// Validate checks the registry: at least one system, each with a
+// provider and a non-empty ID, and no ID twice.
+func (s Systems) Validate() error {
+	if len(s) == 0 {
+		return errors.New("no system is configured")
+	}
+	seen := map[string]bool{}
+	for i, sys := range s {
+		id := sys.Ref.GetId()
+		switch {
+		case id == "":
+			return fmt.Errorf("system %d has no ID", i+1)
+		case seen[id]:
+			return fmt.Errorf("system %q is listed twice", id)
+		case sys.Provider == nil:
+			return fmt.Errorf("system %q has no provider", id)
+		}
+		seen[id] = true
+	}
+	return nil
 }

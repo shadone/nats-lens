@@ -40,6 +40,10 @@ const (
 	maxHeaderBytes    = 64 << 10
 )
 
+// metricsTimeout bounds the time one system may spend writing its
+// metrics; a variable so that tests can shorten it.
+var metricsTimeout = QueryTimeout
+
 // shutdownTimeout is how long a shutdown waits for calls to finish before
 // it closes their connections; a variable so that tests can shorten it.
 var shutdownTimeout = 5 * time.Second
@@ -89,30 +93,68 @@ func metricsWriters(systems Systems) bool {
 	return false
 }
 
-// metricsHandler collects the metrics of every system that writes them,
-// each sample labelled with its system, and writes them into a buffer
-// first, so that a failed read answers 500 instead of a cut exposition.
+// metricsHandler reads the metrics of every system that writes them, in
+// parallel, each within metricsTimeout and into an exposition of its own,
+// and merges a system's samples only when it succeeded, so that a failure
+// halfway leaves no partial families. nats_lens_system_scrape_success
+// says which systems were read. The answer is 200 while any system
+// succeeds and 500 when all fail.
 func metricsHandler(h *Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), QueryTimeout)
-		defer cancel()
-		m := NewExposition()
+		type result struct {
+			id  string
+			exp *Exposition
+			err error
+		}
+		var writers []System
 		for _, s := range h.Systems {
-			mw, ok := s.Provider.(MetricsWriter)
-			if !ok {
-				continue
-			}
-			m.SetSystem(s.Ref.GetId())
-			if err := mw.WriteMetrics(ctx, m); err != nil {
-				if h.Log != nil {
-					h.Log.Error("metrics failed", "system", s.Ref.GetId(), "err", err)
-				}
-				http.Error(w, "metrics unavailable; see the server log", http.StatusInternalServerError)
-				return
+			if _, ok := s.Provider.(MetricsWriter); ok {
+				writers = append(writers, s)
 			}
 		}
+		results := make([]result, len(writers))
+		var wg sync.WaitGroup
+		for i, s := range writers {
+			wg.Go(func() {
+				id := s.Ref.GetId()
+				ctx, cancel := context.WithTimeout(r.Context(), metricsTimeout)
+				defer cancel()
+				exp, err := NewExposition(id)
+				if err == nil {
+					err = writeMetrics(ctx, s.Provider.(MetricsWriter), exp)
+				}
+				results[i] = result{id: id, exp: exp, err: err}
+			})
+		}
+		wg.Wait()
+		var out families
+		out.declare("nats_lens_system_scrape_success", "gauge", "1 when the system's metrics were read for this scrape, 0 when they failed.")
+		var merged []*families
+		ok := 0
+		for _, res := range results {
+			v := 0.0
+			if res.err == nil {
+				v = 1
+				ok++
+				merged = append(merged, &res.exp.fams)
+			} else if h.Log != nil {
+				h.Log.Error("metrics failed", "system", res.id, "err", res.err)
+			}
+			if res.id != "" {
+				status, _ := NewExposition(res.id)
+				status.Sample("nats_lens_system_scrape_success", v)
+				out.merge(&status.fams)
+			}
+		}
+		if len(writers) > 0 && ok == 0 {
+			http.Error(w, "metrics unavailable; see the server log", http.StatusInternalServerError)
+			return
+		}
+		for _, m := range merged {
+			out.merge(m)
+		}
 		var buf bytes.Buffer
-		if _, err := m.WriteTo(&buf); err != nil {
+		if _, err := out.writeTo(&buf); err != nil {
 			if h.Log != nil {
 				h.Log.Error("metrics failed", "err", err)
 			}
@@ -121,6 +163,24 @@ func metricsHandler(h *Handler) http.HandlerFunc {
 		}
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 		_, _ = w.Write(buf.Bytes())
+	}
+}
+
+// writeMetrics runs one system's WriteMetrics, returning when ctx ends
+// even if the provider does not, so that a hung system cannot hold the
+// scrape past its timeout.
+func writeMetrics(ctx context.Context, mw MetricsWriter, exp *Exposition) error {
+	done := make(chan error, 1)
+	scratch, _ := NewExposition(exp.system)
+	go func() { done <- mw.WriteMetrics(ctx, scratch) }()
+	select {
+	case err := <-done:
+		if err == nil {
+			exp.fams = scratch.fams
+		}
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 
