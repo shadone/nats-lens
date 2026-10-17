@@ -112,7 +112,6 @@
 @media (max-width:760px){
   .trends{grid-template-columns:minmax(0,1fr)}
   .sl-grid{grid-template-columns:96px minmax(0,1fr)}
-  .sl-ticks span:nth-child(even):not(.edge-r){display:none}
   .cg-list li{grid-template-columns:minmax(0,1fr) auto}
   .cg-list .cg-d{grid-column:1 / -1;grid-row:2}
   .status-line h2{font-size:19px}

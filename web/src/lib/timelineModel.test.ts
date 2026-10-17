@@ -12,6 +12,18 @@ describe("axisTicks", () => {
     expect(ticks[ticks.length - 1]).toMatchObject({ frac: 1, edge: true });
   });
 
+  it("keeps labels apart and clear of now on a narrow track", () => {
+    const start = Date.parse("2026-10-16T19:37:00Z");
+    const ticks = axisTicks(start, start + 96 * Q, true, 220);
+    const xs = ticks.map((t) => t.frac * 220);
+    for (let i = 1; i < ticks.length - 1; i++) expect(xs[i] - xs[i - 1]).toBeGreaterThanOrEqual(44);
+    // "now" ends at the right edge; the label before it ends well before "now" starts.
+    const beforeNow = xs[xs.length - 2];
+    expect(beforeNow + 17).toBeLessThanOrEqual(220 - 20 - 6);
+    expect(ticks[ticks.length - 1].label).toBe("now");
+    expect(ticks.length).toBeGreaterThanOrEqual(3);
+  });
+
   it("ends a fixed range with its end time", () => {
     const ticks = axisTicks(T, T + 3_600_000, false);
     expect(ticks[ticks.length - 1].label).toBe("15:30");
