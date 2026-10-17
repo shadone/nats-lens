@@ -16,6 +16,7 @@ describe("a series that stays at 0", () => {
     const { container } = render(<Sparkline points={zeros} status="ok" windows={[]} start={0} end={2000} label="Slow consumers" />);
     const svg = container.querySelector("svg")!;
     expect(new Set(ys(svg, "polyline"))).toEqual(new Set([37]));
+    expect(svg.querySelector("polygon")).toBeNull();
   });
 
   it("is a flat line on the baseline in a chart across servers, with no filled band", () => {
