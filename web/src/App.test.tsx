@@ -42,7 +42,6 @@ vi.mock("./api/requests", async (orig) => {
     listConsumers: vi.fn(),
     getConsumer: pending(),
     listServers: vi.fn(),
-    getServer: pending(),
     listConnections: pending(),
     getSeries: pending(),
     listMutes: pending(),

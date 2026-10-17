@@ -104,10 +104,6 @@ export function isoSecond(ms: number): string {
   return `${isoMinute(ms)}:${pad(new Date(ms).getUTCSeconds())}`;
 }
 
-export function sameUtcDay(a: number, b: number): boolean {
-  return new Date(a).toISOString().slice(0, 10) === new Date(b).toISOString().slice(0, 10);
-}
-
 const DAY = 86_400_000;
 
 /** A time within a day before ref as 09:31, an older one as 14 Oct. */
