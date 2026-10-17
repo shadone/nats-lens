@@ -49,7 +49,6 @@ func stagingScenario() *scenario {
 		findings:        stagingFindings,
 		events:          stagingEvents,
 		rows:            stagingRows,
-		tiles:           stagingTiles,
 		sample:          stagingSample,
 	}
 }
@@ -137,25 +136,4 @@ func stagingSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (f
 		return math.Round((0.4+noise(metric+e.GetKey(), c)*0.3)*10) / 10, true
 	}
 	return 0, false
-}
-
-// stagingTiles are the overview's numbers as of the last data.
-func stagingTiles(s scen, r *v1.TimeRange, maxPoints int32) []*v1.Tile {
-	sys := s.sc.systemRef()
-	ser := func(metric string) *v1.Series { return s.series(metric, sys, r, maxPoints) }
-	up, conns, slow := ser("cluster.servers_up"), ser("cluster.connections"), ser("cluster.slow_consumers")
-	storage, in, out, durable := ser("cluster.js_storage_bytes"), ser("cluster.in_msgs_rate"), ser("cluster.out_msgs_rate"), ser("cluster.durable_consumers")
-	return []*v1.Tile{
-		{Id: "servers", Label: "Servers", Value: last(up), Unit: v1.Unit_UNIT_COUNT, ValueSuffix: "/ 3",
-			Subtitle: "v" + Version + " on all", Status: v1.Status_STATUS_NO_DATA, Series: up},
-		{Id: "connections", Label: "Connections", Value: last(conns), Unit: v1.Unit_UNIT_COUNT, Status: v1.Status_STATUS_NO_DATA, Series: conns},
-		{Id: "slow_consumers", Label: "Slow consumer events", Value: ptr(sum(slow)), Unit: v1.Unit_UNIT_COUNT, ValueSuffix: spanLabel(r),
-			Status: v1.Status_STATUS_NO_DATA, Series: slow},
-		{Id: "js_storage", Label: "JetStream storage", Value: last(storage), Unit: v1.Unit_UNIT_BYTES, ValueSuffix: "of 60 GiB",
-			Status: v1.Status_STATUS_NO_DATA, Series: storage, Limit: ptr(60.0 * gib)},
-		{Id: "msgs_rate", Label: "Messages / s", Value: last(in), Unit: v1.Unit_UNIT_PER_SECOND, ValueSuffix: "in",
-			Value2: last(out), Value2Suffix: "out", Status: v1.Status_STATUS_NO_DATA, Series: in, Series2: out},
-		{Id: "consumers", Label: "Consumers", Value: last(durable), Unit: v1.Unit_UNIT_COUNT, ValueSuffix: "durable",
-			Value2: ptr(3.0), Value2Suffix: "ephemeral", Status: v1.Status_STATUS_NO_DATA, Series: durable},
-	}
 }

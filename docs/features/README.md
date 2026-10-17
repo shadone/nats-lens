@@ -70,10 +70,10 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [System checks](system-checks.md) | `ui`, `cli` | shipped |
 | [Inventory](inventory.md) | `ui`, `cli` | shipped |
 | [Navigation, time range and theme](navigation.md) | `ui` | shipped |
-| [Overview page](overview-page.md) | `ui`, `api` | shipped |
+| [Overview page](overview-page.md) | `ui`, `api` | shipped — tile descriptions and the meta leader's name are in the API, the boxes that show them are planned |
 | [Servers](servers.md) | `ui`, `api` | shipped — leaders, tags, limits, routes and pod placement are in the API only |
-| [Streams](streams.md) | `ui`, `api` | shipped |
-| [Consumers](consumers.md) | `ui`, `api` | shipped |
+| [Streams](streams.md) | `ui`, `api` | shipped — replica placement is in the API only |
+| [Consumers](consumers.md) | `ui`, `api` | shipped — delivery rate and busiest-first order are in the API only |
 | [Connections](connections.md) | `ui`, `api` | shipped |
 | [Events](events.md) | `ui`, `api` | shipped |
 | [Triage and mutes](triage-and-mutes.md) | `ui`, `api` | shipped |
@@ -122,10 +122,10 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 
 **Web UI**
 - [x] Sidebar, system switcher, header with account scope and search, the global time range and the theme menu (navigation.md)
-- [x] Overview: worst finding, tiles, status timeline, events, streams and servers (overview-page.md)
+- [x] Overview: worst finding, nine tiles with descriptions, status timeline, events, streams and servers (overview-page.md)
 - [x] Servers list and server detail; leaders, limits, routes and pod placement in the API only (servers.md)
-- [x] Streams list and stream detail (streams.md)
-- [x] Consumers list and consumer detail (consumers.md)
+- [x] Streams list and stream detail; replica placement in the API only (streams.md)
+- [x] Consumers list and consumer detail; delivery rate and busiest-first order in the API only (consumers.md)
 - [x] Client connections of the newest collection (connections.md)
 - [x] Every event, filtered by source, kind, entity and client (events.md)
 - [~] Routine events hidden, repeats folded, facets and a histogram: in the API, not yet on the page (events.md)

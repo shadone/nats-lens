@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -252,14 +253,7 @@ func describeWindow(evs []k8sEvent) *v1.TimeWindow {
 		label = "Node removed by the autoscaler"
 	}
 	return &v1.TimeWindow{Start: ts(evs[0].at), End: ts(evs[len(evs)-1].at), Label: label,
-		Detail: fmt.Sprintf("%s, %s", plural(len(drained), "drain"), plural(len(stopped), "pod restart"))}
-}
-
-func plural(n int, word string) string {
-	if n == 1 {
-		return "1 " + word
-	}
-	return strconv.Itoa(n) + " " + word + "s"
+		Detail: fmt.Sprintf("%s, %s", api.Plural(len(drained), "drain"), api.Plural(len(stopped), "pod restart"))}
 }
 
 // touchesNATS reports whether a window holds a drain or a NATS pod event:

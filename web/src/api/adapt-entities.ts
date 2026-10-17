@@ -79,6 +79,8 @@ function tile(t: PTile): Tile {
     series: series(t.series),
     series2: series(t.series2),
     limit: optN(t.limit),
+    description: t.description || undefined,
+    valueText: t.valueText || undefined,
   };
 }
 

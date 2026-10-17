@@ -18,6 +18,7 @@ The Streams page lists the JetStream streams of the newest collection in the tim
 - **The stream page.** Stat cards show messages, bytes with growth per day, consumers (present out of expected) and the leader. Charts show messages and bytes over the range, and bytes over 7 days.
 - **Servers disagree.** When the servers report different configuration hashes or creation times, a "Servers disagree" table shows each server's configuration hash and creation time.
 - **Per server.** For each server that holds the stream: its replica role (leader, current, behind or offline), its lag, messages, bytes, first and last sequence, creation time and configuration hash. This is where a replica rebuilt at another time, or a replica that drifted, shows.
+- **Placement in the API.** `ListStreams` and `GetStream` give each stream a `placement`: one entry per replica, the leader first and the rest by server name. In order: the leader is `LEADER` (the first by name when two claim it); a replica the leader lists as offline is `OFFLINE`; one the leader lists that reports nothing itself is `MISSING`; one that reports but that the leader does not list is `DISAGREES`; one the leader reports not current is `BEHIND`, even with an older configuration; one with a configuration hash other than the leader's is `DISAGREES`; one the leader reports current is `IN_SYNC`. Without a leader's report a replica's state is unset, or `DISAGREES` when the servers hold different configurations. Each configured replica beyond the servers named is `MISSING`, with no server. KV buckets and object stores use the same rule. The page does not draw the squares yet.
 - **Configuration.** The stream's configuration as its leader reports it.
 - **Consumers and events.** The stream's consumers with their backlog, and its newest 15 events, with a link to all of them.
 
@@ -40,6 +41,13 @@ The Streams page lists the JetStream streams of the newest collection in the tim
 - **Given** the account `APP` has the KV bucket `customer-info`
 - **When** I tick "Include KV and object stores"
 - **Then** `KV_customer-info` appears in the list
+
+### See a lagging replica in the placement
+
+- **Surfaces:** `api`
+- **Given** `order-jobs` has 3 replicas, led by `nats-0`, and its leader reports `nats-2` as not current
+- **When** I call `ListStreams`
+- **Then** the placement of `order-jobs` reads `nats-0` leader, `nats-1` in sync, `nats-2` behind
 
 ### Read a stream from the API
 
