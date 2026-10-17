@@ -81,19 +81,25 @@ func (l serverLimits) proto() *v1.ServerLimits {
 }
 
 // allServerLimits reads the limits of every server seen in the range, by
-// name: the newest process's row at the newest epoch it answered in, up to
-// the range's newest epoch.
+// name: each limit's newest reported value in the range, up to the range's
+// newest epoch. An epoch whose VARZ or JSZ failed leaves its limits NULL
+// and does not hide the value reported before it.
 func (p *Provider) allServerLimits(ctx context.Context, r *v1.TimeRange, e epochInfo) (map[string]serverLimits, error) {
 	start, end := span(r)
 	rows, err := p.db().QueryContext(ctx, `
-WITH procs AS (
-  SELECT server_name, server_id, row_number() OVER (PARTITION BY server_name ORDER BY last_epoch DESC) AS rn
-  FROM servers WHERE last_seen_at >= ? AND first_seen_at < ?)
-SELECT p.server_name, l.max_payload, l.max_pending, l.write_deadline_ns, l.ping_interval_ns, l.max_pings_out,
-  l.js_max_storage, l.js_max_memory, l.max_connections
-FROM procs p JOIN server_stats l ON l.server_id = p.server_id AND l.epoch <= ?
-WHERE p.rn = 1
-QUALIFY row_number() OVER (PARTITION BY p.server_name ORDER BY l.epoch DESC) = 1`, start, end, e.epoch)
+WITH names AS (SELECT DISTINCT server_name FROM servers WHERE last_seen_at >= ? AND first_seen_at < ?)
+SELECT s.server_name,
+  arg_max(l.max_payload, l.epoch) FILTER (WHERE l.max_payload IS NOT NULL),
+  arg_max(l.max_pending, l.epoch) FILTER (WHERE l.max_pending IS NOT NULL),
+  arg_max(l.write_deadline_ns, l.epoch) FILTER (WHERE l.write_deadline_ns IS NOT NULL),
+  arg_max(l.ping_interval_ns, l.epoch) FILTER (WHERE l.ping_interval_ns IS NOT NULL),
+  arg_max(l.max_pings_out, l.epoch) FILTER (WHERE l.max_pings_out IS NOT NULL),
+  arg_max(l.js_max_storage, l.epoch) FILTER (WHERE l.js_max_storage IS NOT NULL),
+  arg_max(l.js_max_memory, l.epoch) FILTER (WHERE l.js_max_memory IS NOT NULL),
+  arg_max(l.max_connections, l.epoch) FILTER (WHERE l.max_connections IS NOT NULL)
+FROM server_stats l JOIN servers s USING (server_id) JOIN epochs ep ON ep.epoch = l.epoch
+WHERE s.server_name IN (SELECT server_name FROM names) AND ep.started_at >= ? AND l.epoch <= ?
+GROUP BY s.server_name`, start, end, start, e.epoch)
 	if err != nil {
 		return nil, fmt.Errorf("server limits: %w", err)
 	}
