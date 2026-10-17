@@ -238,7 +238,7 @@ Connect service `natslens.v1.LensService`, protobuf in `proto/natslens/v1/`, ser
 - `GetStatusTimeline`: per check, per time bucket, the worst state for an entity or for the whole system.
 - `ListMetrics` (the metric IDs `GetTimeSeries` serves, with entity type, unit and description) and `GetTimeSeries`: one metric for one entity over a range, downsampled to at most N points.
 - `MuteFinding`, `UnmuteFinding`, `ListMutes`. The mute calls are the only writes, and they write only to the tool's own database.
-- `ListSystems`: the systems in configuration order and the default one; `ListAccounts`: a system's accounts in the range's newest epoch, with connections (the sum of each server's STATZ share) and streams and consumers (counted from the JSZ detail; without detail a reported zero is zero and any other count unset, as the servers count each replica). `ListKeyValueStores` and `ListObjectStores` are declared and return empty lists for now.
+- `ListSystems`: the systems in configuration order and the default one; `ListAccounts`: a system's accounts in the range's newest epoch (in a range without an epoch, the accounts seen up to its end, every count unset), with connections (the sum of each server's STATZ share) and streams and consumers (counted from the JSZ detail; without detail a reported zero is zero and any other count unset, as the servers count each replica). `ListKeyValueStores` and `ListObjectStores` are declared and return empty lists for now.
 
 Every request except `ListSystems` and `ListMetrics` names its system in `system`. The handler resolves it before anything else: empty is the default system, the first configured; an unknown ID is invalid_argument naming the known IDs, and no provider is called. Each system has its own provider, which never reads the field. `GetLensInfo` returns the system's ID and name.
 
@@ -380,7 +380,7 @@ Proposed, not yet confirmed by the owner.
 | Read RPCs take a `TimeRange`; past ranges rebuilt from transitions; status never defaults to OK and unobserved numbers are unset | API |
 | `/metrics` series identity and 50-entity cap; `/metrics` exempt from the host allowlist off loopback | API |
 | An empty `system` reads the first configured system; an unknown one is invalid_argument naming the known IDs; a system whose metrics fail is left out of the scrape and reported by `nats_lens_system_scrape_success`; `run` serves system `default` and the demo `example-prod` until the configuration lists systems | API |
-| `ListAccounts` lists the accounts of the range's newest epoch; streams and consumers from the JSZ detail, a reported zero kept, other counts without detail unset | API |
+| `ListAccounts` lists the accounts of the range's newest epoch, or without one the accounts seen up to its end with every count unset; streams and consumers from the JSZ detail, a reported zero kept, other counts without detail unset | API |
 | `/readyz` is true once the store is open and the API serves, independent of collection; the start probe allows ten minutes for a rebuild | API |
 | Alerting through the deployment's Prometheus rules or Cloud Monitoring PromQL policies on the `/metrics` data | API |
 | Kubernetes: `events.k8s.io` only, one origin per kind, derived drains, `pool_nodes` off; upgrade windows derived when read | Kubernetes |

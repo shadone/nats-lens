@@ -56,7 +56,25 @@ func TestListAccounts(t *testing.T) {
 		t.Errorf("accounts of the first epoch = %v", res.GetAccounts())
 	}
 
-	// A range without an epoch lists no accounts.
+	// A range without an epoch after the first falls back to the accounts
+	// seen up to its end, every count unset.
+	gap := &v1.TimeRange{Start: timestamppb.New(t0.Add(70 * time.Second)), End: timestamppb.New(t0.Add(80 * time.Second))}
+	res = must(c.ListAccounts(ctx, connect.NewRequest(&v1.ListAccountsRequest{Range: gap})))
+	var gapIDs []string
+	for _, a := range res.GetAccounts() {
+		gapIDs = append(gapIDs, a.GetAccount())
+		if a.Connections != nil || a.Streams != nil || a.Consumers != nil {
+			t.Errorf("counts in a range without an epoch: %v", a)
+		}
+	}
+	if want := []string{account, "OLD", "SYS"}; !slices.Equal(gapIDs, want) {
+		t.Errorf("accounts without an epoch = %v, want %v", gapIDs, want)
+	}
+	if a := res.GetAccounts()[2]; !a.GetIsSystem() {
+		t.Errorf("SYS = %v", a)
+	}
+
+	// A range before the first epoch lists no accounts.
 	past := &v1.TimeRange{Start: timestamppb.New(t0.Add(-2 * time.Hour)), End: timestamppb.New(t0.Add(-time.Hour))}
 	if res := must(c.ListAccounts(ctx, connect.NewRequest(&v1.ListAccountsRequest{Range: past}))); len(res.GetAccounts()) != 0 {
 		t.Errorf("accounts before the first epoch = %v", res.GetAccounts())
