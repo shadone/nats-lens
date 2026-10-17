@@ -71,7 +71,7 @@ export function Sidebar({ collapsed, onCollapse, drawerOpen, onCloseDrawer }: Pr
     if (drawerOpen) close.current?.focus();
   }, [drawerOpen]);
   return (
-    <aside className={`side${collapsed ? " collapsed" : ""}${drawerOpen ? " open" : ""}`} id="sidebar">
+    <aside className={`side${collapsed ? " collapsed" : ""}${drawerOpen ? " open" : ""}`} id="sidebar" aria-label="Navigation">
       <div className="side-top">
         <NavLink to={withGlobal("/", global)} className="brand" aria-label="nats-lens overview">
           <svg viewBox="0 0 22 22" aria-hidden="true">
