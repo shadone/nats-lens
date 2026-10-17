@@ -194,6 +194,12 @@ func TestOverviewAndStatusesFromTheChecks(t *testing.T) {
 	if rec.GetStatus() != v1.Status_STATUS_INFO || rec.ConsumersExpected != nil || other.GetStatus() != v1.Status_STATUS_OK {
 		t.Fatalf("catalog-changes %v, order-archive %v", rec, other)
 	}
+	// Limit 1 gives the worst stream alone, with the count of all.
+	one := must(c.ListStreams(ctx, connect.NewRequest(&v1.ListStreamsRequest{Range: hour(), Limit: 1})))
+	if len(one.GetStreams()) != 1 || one.GetStreams()[0].GetEntity().GetName() != "order-jobs" || one.GetStreams()[0].GetStatus() != v1.Status_STATUS_WARNING ||
+		one.GetTotalCount() != int32(len(streams)) || len(streams) < 3 {
+		t.Fatalf("limit 1: %v, total count %d of %d", one.GetStreams(), one.GetTotalCount(), len(streams))
+	}
 	// A limit keeps the worst first; the count and the totals still cover every stream.
 	all := must(c.ListStreams(ctx, connect.NewRequest(&v1.ListStreamsRequest{Range: hour()})))
 	top := must(c.ListStreams(ctx, connect.NewRequest(&v1.ListStreamsRequest{Range: hour(), Limit: 2})))
