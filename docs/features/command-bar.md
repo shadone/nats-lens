@@ -6,7 +6,7 @@
 
 ## What it does
 
-The search box in the header, focused with Ctrl+K (Cmd+K on a Mac), finds servers, streams, consumers, KV stores, object stores and accounts of the current system by part of their name and opens the one you pick ([navigation.md](navigation.md)). Planned: a command bar that searches everything nats-lens knows, findings, events and applications too, with grouped results and prefixes.
+The search box in the header, focused with Cmd+K on a Mac or Ctrl+K elsewhere, finds servers, streams, consumers, KV stores, object stores and accounts of the current system by part of their name and opens the one you pick ([navigation.md](navigation.md)). Planned: a command bar that searches everything nats-lens knows, findings, events and applications too, with grouped results and prefixes.
 
 ## Behavior and rules
 
@@ -21,7 +21,7 @@ The search box in the header, focused with Ctrl+K (Cmd+K on a Mac), finds server
 ### Jump to a consumer
 
 - **Given** the UI is open on any page
-- **When** I press Ctrl+K, type `resize`, and press Enter on `resize-worker`
+- **When** I press Cmd+K (Ctrl+K off a Mac), type `resize`, and press Enter on `resize-worker`
 - **Then** the consumer's page opens
 
 ### Find recent events of a server (planned)
