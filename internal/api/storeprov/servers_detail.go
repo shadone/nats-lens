@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -110,8 +111,7 @@ QUALIFY row_number() OVER (PARTITION BY p.server_name ORDER BY l.epoch DESC) = 1
 }
 
 // limitsDiffer names the limits of server name whose value differs from
-// the majority's: the value most servers that report the limit have. A
-// tie for the most common value has no majority, and marks nothing.
+// the plurality of the servers that report the limit (api.OffPlurality).
 func limitsDiffer(all map[string]serverLimits, name string) []string {
 	own, ok := all[name]
 	if !ok {
@@ -119,25 +119,11 @@ func limitsDiffer(all map[string]serverLimits, name string) []string {
 	}
 	var out []string
 	for i, f := range own.fields() {
-		if f.v == nil {
-			continue
-		}
-		counts := map[int64]int{}
+		values := make([]*int64, 0, len(all))
 		for _, l := range all {
-			if v := l.fields()[i].v; v != nil {
-				counts[*v]++
-			}
+			values = append(values, l.fields()[i].v)
 		}
-		best, bestN, tie := int64(0), 0, false
-		for v, n := range counts {
-			switch {
-			case n > bestN:
-				best, bestN, tie = v, n, false
-			case n == bestN:
-				tie = true
-			}
-		}
-		if !tie && *f.v != best {
+		if api.OffPlurality(f.v, values) {
 			out = append(out, f.name)
 		}
 	}

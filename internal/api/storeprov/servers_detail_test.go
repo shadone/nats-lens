@@ -16,12 +16,29 @@ import (
 	"github.com/shadone/nats-lens/internal/store"
 )
 
+// detailOpts varies detailStore: epochs (default 2), the endpoints a
+// server leaves out in an epoch, and Kubernetes events added after the
+// watcher's usual ones.
+type detailOpts struct {
+	epochs int
+	skip   func(epoch int, server string, e collect.Endpoint) bool
+	extra  []events.Event
+}
+
 // detailStore holds two epochs of three servers, nats-0 to nats-2, with
 // the VARZ limits, routes, gateways and JetStream leaders. nats-2 runs
 // with an 8 MiB max_payload, the others with 1 MiB. k8s adds the
 // watcher's events for nats-0's pod.
 func detailStore(t *testing.T, k8s bool) *store.Store {
 	t.Helper()
+	return detailStoreWith(t, k8s, detailOpts{})
+}
+
+func detailStoreWith(t *testing.T, k8s bool, o detailOpts) *store.Store {
+	t.Helper()
+	if o.epochs == 0 {
+		o.epochs = 2
+	}
 	ctx := context.Background()
 	st, err := store.OpenPath(ctx, "")
 	if err != nil {
@@ -29,8 +46,8 @@ func detailStore(t *testing.T, k8s bool) *store.Store {
 	}
 	t.Cleanup(func() { _ = st.Close() })
 	loaded := t0.Add(-2 * time.Hour)
-	for i := range 2 {
-		start := t0.Add(time.Duration(i+1) * 30 * time.Second)
+	for i := range o.epochs {
+		start := t0.Add(time.Duration(i+3-o.epochs) * 30 * time.Second)
 		snap := collect.NewSnapshot(start)
 		for n, name := range []string{"nats-0", "nats-1", "nats-2"} {
 			id := "NDETAIL" + name
@@ -46,6 +63,9 @@ func detailStore(t *testing.T, k8s bool) *store.Store {
 				return b
 			}
 			apply := func(e collect.Endpoint, b []byte) {
+				if o.skip != nil && o.skip(i, name, e) {
+					return
+				}
 				if err := snap.Apply(e, b); err != nil {
 					t.Fatal(err)
 				}
@@ -78,11 +98,8 @@ func detailStore(t *testing.T, k8s bool) *store.Store {
 	if !k8s {
 		return st
 	}
-	pod := func(at time.Time, kind, node string) events.Event {
-		raw, _ := json.Marshal(map[string]any{"namespace": "nats", "pod": "nats-0", "uid": "u1", "node": node, "phase": "Running"})
-		return events.Event{Time: at, ReceivedAt: at, Source: events.SourceK8s, Kind: kind, ServerName: "nats-0", Summary: kind, Raw: raw}
-	}
-	if err := st.WriteEvents(ctx, []events.Event{
+	pod := func(at time.Time, kind, node string) events.Event { return podEvent(at, "nats", kind, node) }
+	if err := st.WriteEvents(ctx, append([]events.Event{
 		pod(t0.Add(-3*time.Hour), "k8s.pod.scheduled", "node-old"),
 		pod(t0.Add(-3*time.Hour), "k8s.pod.restarted", "node-old"),
 		pod(t0.Add(-20*time.Minute), "k8s.pod.scheduled", "node-b"),
@@ -91,10 +108,16 @@ func detailStore(t *testing.T, k8s bool) *store.Store {
 		// A node event names no pod.
 		{Time: t0.Add(-time.Minute), ReceivedAt: t0, Source: events.SourceK8s, Kind: "k8s.node.cordoned", ServerName: "nats-0",
 			Summary: "cordoned", Raw: json.RawMessage(`{"node":"node-b"}`)},
-	}); err != nil {
+	}, o.extra...)); err != nil {
 		t.Fatal(err)
 	}
 	return st
+}
+
+// podEvent is a watcher event of nats-0's pod in namespace ns.
+func podEvent(at time.Time, ns, kind, node string) events.Event {
+	raw, _ := json.Marshal(map[string]any{"namespace": ns, "pod": "nats-0", "uid": "u1", "node": node, "phase": "Running"})
+	return events.Event{Time: at, ReceivedAt: at, Source: events.SourceK8s, Kind: kind, ServerName: "nats-0", Summary: kind, Raw: raw}
 }
 
 func getServer(t *testing.T, st *store.Store, name string) *v1.GetServerResponse {
