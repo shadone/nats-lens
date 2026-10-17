@@ -187,37 +187,44 @@ SELECT CASE WHEN EXISTS (SELECT 1 FROM epoch_endpoints WHERE server_id = ? AND e
 		serverID, at.Int64, serverID, at.Int64).Scan(&res.Gateways)
 }
 
-// kubernetesPlacement reads where the server's pod runs from the newest
-// Kubernetes event that names its pod, up to the range's end. It is nil
-// when no such event is stored, as when the watcher is off.
+// kubernetesPlacement reads where the server's pod runs. The pod is the
+// one the newest Kubernetes event naming the server names, up to the
+// range's end; it is nil when no such event is stored, as when the watcher
+// is off. Everything else is read from that pod's events only, matched by
+// namespace and name, so a pod of the same name in another watched
+// namespace does not count: the node from its newest event with a node,
+// unless the pod was deleted after it.
 func (p *Provider) kubernetesPlacement(ctx context.Context, name string, r *v1.TimeRange) (*v1.KubernetesPlacement, error) {
 	start, end := span(r)
-	var pod, ns, node, kind sql.NullString
+	var pod, ns sql.NullString
 	err := p.db().QueryRowContext(ctx, `
-SELECT json_extract_string(raw, '$.pod'), json_extract_string(raw, '$.namespace'), json_extract_string(raw, '$.node'), kind
+SELECT json_extract_string(raw, '$.pod'), json_extract_string(raw, '$.namespace')
 FROM events
 WHERE source = 'k8s' AND server_name = ? AND time < ? AND json_extract_string(raw, '$.pod') IS NOT NULL
-ORDER BY time DESC, id DESC LIMIT 1`, name, end).Scan(&pod, &ns, &node, &kind)
+ORDER BY time DESC, id DESC LIMIT 1`, name, end).Scan(&pod, &ns)
 	if isNoRows(err) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("kubernetes placement: %w", err)
 	}
-	k := &v1.KubernetesPlacement{Pod: nstr(pod), Namespace: nstr(ns), Node: nstr(node)}
-	if kind.String == "k8s.pod.deleted" {
-		// The pod is gone and runs on no node.
-		k.Node = ""
-	}
+	k := &v1.KubernetesPlacement{Pod: nstr(pod), Namespace: nstr(ns)}
+	var node sql.NullString
 	var scheduled sql.NullTime
 	err = p.db().QueryRowContext(ctx, `
-SELECT max(time) FILTER (WHERE kind = 'k8s.pod.scheduled' AND json_extract_string(raw, '$.pod') = ?
-    AND json_extract_string(raw, '$.namespace') IS NOT DISTINCT FROM ?),
-  count(*) FILTER (WHERE kind = 'k8s.pod.restarted' AND time >= ?)
-FROM events WHERE source = 'k8s' AND server_name = ? AND time < ?`, k.Pod, ns, start, name, end).Scan(&scheduled, &k.RestartsInRange)
+WITH pod AS (
+  SELECT time, id, kind, json_extract_string(raw, '$.node') AS node FROM events
+  WHERE source = 'k8s' AND time < ? AND json_extract_string(raw, '$.pod') = ?
+    AND json_extract_string(raw, '$.namespace') IS NOT DISTINCT FROM ?)
+SELECT
+  (SELECT CASE WHEN kind = 'k8s.pod.deleted' THEN NULL ELSE node END FROM pod
+   WHERE kind = 'k8s.pod.deleted' OR coalesce(node, '') <> '' ORDER BY time DESC, id DESC LIMIT 1),
+  (SELECT max(time) FROM pod WHERE kind = 'k8s.pod.scheduled'),
+  (SELECT count(*) FROM pod WHERE kind = 'k8s.pod.restarted' AND time >= ?)`, end, k.Pod, ns, start).
+		Scan(&node, &scheduled, &k.RestartsInRange)
 	if err != nil {
 		return nil, fmt.Errorf("kubernetes placement: %w", err)
 	}
-	k.ScheduledAt = ts(ntime(scheduled))
+	k.Node, k.ScheduledAt = nstr(node), ts(ntime(scheduled))
 	return k, nil
 }
