@@ -28,13 +28,13 @@ The Servers page shows a system's servers at a glance, built for 20 servers or m
   - A filter matches the name, the version or a tag.
   - Columns: server, state, role, version, uptime, CPU, memory, connections, leaders (stream and consumer leaders on the server), store with a bar and its percentage, and tags. A server that did not answer shows "–" for the numbers of the newest collection, its leaders included.
 - **The server page.**
-  - The header names the cluster in the breadcrumb, and the role, version, uptime and start time in one line, or "did not answer in the newest epoch".
+  - The header names the cluster in the breadcrumb, and the role, version, uptime and start time in one line, or "did not answer in the newest collection".
   - **Metric boxes** for CPU, memory, connections, messages (in as the value and line, out dashed with its current rate in the note) and slow consumers. Each has a title with an (i) button describing the metric, the current value at the top right, a line chart over the range, and a track with the window's lowest value on the left, its highest on the right and a dot at the current value. The ends are the window's own lowest and highest values; a current value outside them puts the dot at the nearer end. When the value did not change the track reads "steady at N all window"; without a series there is no track and the box reads "no data for the window"; without a current value the track has no dot and reads "no current value". A configured limit, such as the connection limit, is in the note under the track. Health colours the value and the dot, with a word only when it is not ok: CPU at 60% of a core or more is "high", connections at 80% of the limit or more are "near limit", and slow consumers in the range mark the box. A server that did not answer shows no current value, only its history.
   - **Where it runs:** the pod and namespace with its restarts in the range, the node (or "not scheduled"), when the pod was scheduled, and the zone from an `az:` tag. Hidden when nats-lens does not watch Kubernetes.
   - **Routes:** the route count with the slowest route's remote server and round trip, bytes waiting on routes when there are any, gateways, leaf nodes and the meta leader in the server's view.
   - **Limits and settings:** maximum payload, maximum pending, write deadline, ping interval with the unanswered pings after which a connection closes, JetStream file and memory limits, the connection limit, and the tags. A setting whose value differs from the value most servers have is marked "differs from most servers", and a line counts them. The time the configuration was loaded closes the card.
   - **Recent events:** the server's newest six events, routine ones hidden and repeats folded ("×4"), each linked to the event, with a link to all of the server's events.
-  - **Endpoints answered:** "13/13 monitoring endpoints answered in the newest epoch", naming up to four that did not, or counting them by state when more failed.
+  - **Endpoints answered:** "13/13 monitoring endpoints answered in the newest collection", naming up to four that did not, or counting them by state when more failed.
   - **Findings** that fire now for the server, worst first, and **Processes**: each process lifetime in the range with its server ID, start time, and when nats-lens first and last saw it answer.
 - **Spread across servers in the API.** `GetTimeSeries` serves `cluster.cpu_percent` and `cluster.mem_bytes` as bands. Each point's value is the median server, averaged over the bucket, and `low` and `high` are the lowest and highest server in any collection of the bucket, so a short spike stays visible. The series' `min` and `max` are the lowest `low` and highest `high`. `top` names the busiest server, the one with the highest mean over the range, and `top_points` holds its own averaged series in the same buckets, which lies inside the band. A server that did not report the number is left out. `server.slow_consumers` is a server's slow consumer increase, per process, so a restart is not a negative count; the first collection after a restart, and the first after a gap in collection of more than three intervals, count nothing. A cluster metric with an entity is refused as `invalid_argument`.
 - **Server data in the API.** Each server in `ListServers` has its stream and consumer leaders, its slow consumers inside the range (counted per process) and its configured tags. `GetServer` adds:
@@ -58,7 +58,7 @@ The Servers page shows a system's servers at a glance, built for 20 servers or m
 
 - **Given** a server that did not answer JSZ in the newest collection
 - **When** I open its page
-- **Then** it reads "12/13 monitoring endpoints answered in the newest epoch; not: JSZ missing"
+- **Then** it reads "12/13 monitoring endpoints answered in the newest collection; not: JSZ missing"
 
 ### Read a server's history of processes
 

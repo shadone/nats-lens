@@ -127,7 +127,7 @@ func TestStreamQuorumAndReplicas(t *testing.T) {
 	f.fires("stream-001", 1)
 	f.fires("stream-001", 2)
 	r := f.fires("stream-001", 4, "APP/jobs")
-	want(t, r["APP/jobs"], "critical", "No leader that the reporting servers agree on (nats-0: none), for 2 epochs")
+	want(t, r["APP/jobs"], "critical", "No leader that the reporting servers agree on (nats-0: none), for 2 collections")
 	f.fires("stream-002", 1)
 	r = f.fires("stream-002", 2, "APP/jobs")
 	want(t, r["APP/jobs"], "warning", "Leader nats-0 reports 1 replica offline: nats-2")
@@ -422,7 +422,7 @@ func TestStreamQuorumNeedsTwoEpochs(t *testing.T) {
 	f.r3(3, "jobs", "", "nats-1", "nats-2")
 	f.fires("stream-001", 2)
 	r := f.fires("stream-001", 3, "APP/jobs")
-	want(t, r["APP/jobs"], "critical", "No leader", "for 2 epochs")
+	want(t, r["APP/jobs"], "critical", "No leader", "for 2 collections")
 }
 
 // A restarted server that sees only itself is not a disagreement.

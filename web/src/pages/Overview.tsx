@@ -110,7 +110,7 @@ export function Overview() {
       <StaleBanner q={q} />
       <StatusLine tally={o.tally} freshness={o.freshness} live={spec.kind === "live"} now={Date.now()} />
       <section className="sec" aria-label="Health">
-        {o.tiles.length ? <OverviewTiles tiles={o.tiles} windows={o.windows} start={start} end={end} /> : <Empty>No epoch stored in this range yet.</Empty>}
+        {o.tiles.length ? <OverviewTiles tiles={o.tiles} windows={o.windows} start={start} end={end} /> : <Empty>No collection stored in this range yet.</Empty>}
       </section>
       <Causes onMute={setMuting} />
       <section className="sec">

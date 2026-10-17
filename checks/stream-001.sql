@@ -86,7 +86,7 @@ lost AS (
 )
 SELECT
     account || '/' || stream AS entity_key,
-    arg_max(why, epoch) || ', for ' || count(*) || ' epochs.' AS detail,
+    arg_max(why, epoch) || ', for ' || count(*) || ' collections.' AS detail,
     arg_max(leader_online, epoch) AS value
 FROM lost
 WHERE why IS NOT NULL
