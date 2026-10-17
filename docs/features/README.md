@@ -80,8 +80,8 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Metrics and alerting](metrics-and-alerting.md) | `api` | shipped |
 | [Running nats-lens](running-nats-lens.md) | `api`, `cli` | shipped |
 | [SQL access](sql-access.md) | `cli` | shipped |
-| [Demo mode](demo-mode.md) | `ui`, `cli` | shipped |
-| [Multiple systems and the Fleet view](multiple-systems.md) | `ui`, `api`, `cli` | planned |
+| [Demo mode](demo-mode.md) | `ui`, `api`, `cli` | shipped |
+| [Multiple systems and the Fleet view](multiple-systems.md) | `ui`, `api`, `cli` | partial — the API's system summaries; collecting several systems and the Fleet page are planned |
 | [Placement](placement.md) | `ui`, `api` | planned |
 | [Replay](replay.md) | `ui`, `api` | planned |
 | [Applications](applications.md) | `ui`, `api` | planned |
@@ -108,7 +108,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] NATS advisories and system events, short-lived connections folded into `client.churn` (event-capture.md)
 - [x] Kubernetes pod, node and client-pod events on the same clock (kubernetes-context.md)
 - [x] Retention, the hourly Parquet archive, and the rebuild from it (history-and-archive.md)
-- [ ] Several NATS systems in one nats-lens, with a Fleet view (multiple-systems.md)
+- [~] Several NATS systems in one nats-lens, with a Fleet view — only the API's system summaries so far (multiple-systems.md)
 
 **Checks**
 - [~] Findings, severities, restarts, thresholds, remediation file and mutes — accepting with a review date is planned (checks.md)
@@ -146,4 +146,4 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Findings and collector health at `/metrics` for Prometheus alerting (metrics-and-alerting.md)
 - [x] `run`, `once`, configuration, health and readiness, the Kubernetes manifests (running-nats-lens.md)
 - [x] Read-only SQL on a stopped database with `natslens sql` (sql-access.md)
-- [x] A fixed scenario without NATS with `natslens demo` (demo-mode.md)
+- [x] Three fixed systems without NATS with `natslens demo` (demo-mode.md)
