@@ -19,8 +19,8 @@
 .cg-d{color:var(--text-2);margin:5px 0 0;overflow-wrap:anywhere}
 .cg-btns{display:flex;gap:8px;flex-wrap:wrap}
 .cg.one{display:flex;flex-wrap:wrap;align-items:center;gap:6px 24px}
-.cg-main{flex:999 1 420px;min-width:0}
-.cg-side{flex:1 1 240px;min-width:0;font-size:12.5px}
+.cg-main{flex:999 1 460px;min-width:0}
+.cg-side{flex:1 1 200px;min-width:0;font-size:12.5px}
 .cg-side p{margin:1px 0}
 .cg.one .cg-btns{flex:none;margin-left:auto}
 .cg-list{list-style:none;margin:10px 0 0;padding:0}

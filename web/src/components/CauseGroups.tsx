@@ -103,7 +103,7 @@ function findingLabel(f: Finding): string {
   return `${f.checkCode} on ${entityName(f.entity) || "system"}`;
 }
 
-/** One finding: the code row with the name, the detail, the entity and cause beside, the buttons. */
+/** One finding: the code row with the name, the detail and cause, the entity beside, the buttons. */
 function SingleCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void }) {
   const f = g.findings[0];
   const label = findingLabel(f);
@@ -116,12 +116,12 @@ function SingleCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void
           <h3>{f.checkName}</h3>
         </div>
         <p className="cg-d">{f.detail}</p>
+        {g.cause && <CauseLine cause={g.cause} />}
       </div>
       <div className="cg-side">
         <p className="cg-ent">
           <EntityLine e={f.entity} />
         </p>
-        {g.cause && <CauseLine cause={g.cause} />}
       </div>
       <span className="cg-btns">
         <RLink to={findingPath(f.id)} className="btn p" aria-label={`Open ${label}`}>
