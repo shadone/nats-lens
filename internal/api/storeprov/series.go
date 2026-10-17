@@ -84,9 +84,14 @@ var metricQueries = map[string]metricSQL{
 	"cluster.in_bytes_rate":    {query: rate("in_bytes", "")},
 	"cluster.out_bytes_rate":   {query: rate("out_bytes", "")},
 	// The slow consumer counter's increase per epoch: a sum, not a rate.
+	// A restarted process's first epoch has no increase, nor has the first
+	// epoch after a collection gap of more than three intervals, so the
+	// sum agrees with the servers' server.slow_consumers.
 	"cluster.slow_consumers": {sum: true, query: `
 SELECT t, sum(d) AS v FROM (
-  SELECT e.epoch, e.started_at AS t, ss.slow_consumers - lag(ss.slow_consumers) OVER w AS d
+  SELECT e.epoch, e.started_at AS t,
+    CASE WHEN date_diff('millisecond', lag(e.started_at) OVER w, e.started_at) <= ` + maxGapToken + ` THEN
+      ss.slow_consumers - lag(ss.slow_consumers) OVER w END AS d
   FROM server_stats ss JOIN epochs e USING (epoch)
   WHERE e.started_at >= ? AND e.started_at < ?
   WINDOW w AS (PARTITION BY ss.server_id ORDER BY e.epoch))
@@ -102,14 +107,17 @@ GROUP BY e.epoch, e.started_at`},
 	"cluster.kv_buckets":    {query: streamCount(`starts_with(ss.stream, 'KV_')`)},
 	"cluster.object_stores": {query: streamCount(`starts_with(ss.stream, 'OBJ_')`)},
 	// Accounts with a connection or a stream on any server, the system
-	// account left out. The connections come from ACCSTATZ and the
-	// streams from JSZ, so both must have answered on every server.
+	// account left out. The connections come from ACCSTATZ, which every
+	// server must have answered; the streams come from JSZ and count only
+	// when every server answered that too, so a system without JetStream
+	// still counts accounts by their connections.
 	"cluster.accounts": {query: `
-SELECT e.started_at AS t,
-  count(DISTINCT a.account) FILTER (WHERE (a.conns > 0 OR a.js_streams > 0) AND NOT coalesce(ac.is_system, false)) AS v
-FROM epochs e LEFT JOIN account_stats a ON a.epoch = e.epoch LEFT JOIN accounts ac ON ac.account = a.account
-WHERE e.started_at >= ? AND e.started_at < ? AND ` + answeredAll("JSZ") + ` AND ` + answeredAll("ACCSTATZ") + `
-GROUP BY e.epoch, e.started_at`},
+SELECT t, count(DISTINCT account) FILTER (WHERE (conns > 0 OR (js_streams > 0 AND jsz)) AND NOT coalesce(is_system, false)) AS v
+FROM (
+  SELECT e.epoch, e.started_at AS t, a.account, a.conns, a.js_streams, ac.is_system, ` + answeredAll("JSZ") + ` AS jsz
+  FROM epochs e LEFT JOIN account_stats a ON a.epoch = e.epoch LEFT JOIN accounts ac ON ac.account = a.account
+  WHERE e.started_at >= ? AND e.started_at < ? AND ` + answeredAll("ACCSTATZ") + `)
+GROUP BY epoch, t`},
 	// The meta leader is the one more than half of the servers that name
 	// a leader report; a tie or no leader leaves the epoch without one,
 	// which is no change. A change from the last epoch that had a leader
