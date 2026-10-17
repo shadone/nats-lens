@@ -15,7 +15,7 @@ nats-lens does not send alerts itself. Instead, `natslens run` serves its findin
 - **Counts that ignore the cap.** `nats_lens_findings_by_check` and `nats_lens_findings_by_check_max_severity` give the firing, unmuted findings of each check and their highest severity; `nats_lens_findings_total` counts them by severity; `nats_lens_findings_muted` counts the muted ones.
 - **nats-lens's own health.** `nats_lens_last_epoch_age_seconds` (the age of the newest collection; absent before the first), `nats_lens_last_epoch_partial`, the collections and partial collections of the last hour, the collections of the last hour for which no check ran, the event messages dropped in the last hour, the check runs that failed in the last hour, and `nats_lens_check_failing` per check.
 - **Who may scrape.** On a loopback listener, `/metrics` follows the same Host allowlist as the API. On any other listener it is exempt from the allowlist, because Prometheus scrapes by the pod's address. The endpoint names streams, consumers, servers and clients, so such a listener must not be reachable from outside the cluster.
-- **Example rules.** The project README gives rules for a critical finding, a warning finding, a collector that stopped collecting, checks that stopped running, and a failing check, both as Prometheus rules and as a Cloud Monitoring alert policy.
+- **Example rules.** The project README gives five Prometheus rules (a critical finding, a warning finding, a collector that stopped collecting, checks that stopped running, and a failing check) and one Cloud Monitoring alert policy, for the critical finding; it says the other rules translate the same way.
 
 ## Scenarios
 
@@ -34,7 +34,7 @@ nats-lens does not send alerts itself. Instead, `natslens run` serves its findin
 ### Notice that nats-lens stopped collecting
 
 - **Given** the README's `NatsLensNotCollecting` rule
-- **When** nats-lens stores no collection for more than three minutes, or its metrics vanish
+- **When** nats-lens has stored no collection for more than three minutes, or its metrics are absent, and that lasts five minutes
 - **Then** the alert fires, saying that findings are stale
 
 ## Not supported / out of scope
