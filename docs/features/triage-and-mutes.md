@@ -6,7 +6,7 @@
 
 ## What it does
 
-The Findings page lists the findings of the time range, filtered by severity, state and check, and below them the mutes with who set them, why and until when. A finding's own page explains it: what fails in the check's own words, since when the condition holds and since when nats-lens has seen it, how many other entities share it, each server's copy of a stream or consumer, what to do, the related settings with their values, what happened around its start, every check of the same entity on a status timeline, and the finding's transitions. From the Overview's worst finding or a finding's page, an operator can mute a finding with a reason and an end; from a finding's page or the Findings page's mutes list, an operator can lift a mute early.
+The Findings page lists the findings of the time range, filtered by severity, state and check, and below them the mutes with who set them, why and until when. A finding's own page explains it: what fails in the check's own words, since when the condition holds and since when nats-lens has seen it, how many other entities share it, each server's copy of a stream or consumer, what to do, the related settings with their values, what happened around its start, every check of the same entity on a status timeline, and the finding's transitions. From a cause card on the Overview or a finding's page, an operator can mute a finding with a reason and an end; from a finding's page or the Findings page's mutes list, an operator can lift a mute early.
 
 ## Behavior and rules
 

@@ -110,4 +110,19 @@ describe("MetricBox", () => {
     render(<MetricBox {...base} series={series([1, 2])} />);
     expect(screen.queryByText("refresh failed")).toBeNull();
   });
+
+  it("draws no range track when track is off, but keeps the chart and the note", () => {
+    const { container } = render(<MetricBox {...base} title="Meta leader" valueText="nats-1" track={false} series={series([0, 1, 0])} note="1 leader change in range" />);
+    expect(container.querySelector(".mb-range")).toBeNull();
+    expect(container.querySelector(".mb-dot")).toBeNull();
+    expect(container.querySelector("svg.spark")).not.toBeNull();
+    expect(screen.getByText("1 leader change in range")).toBeInTheDocument();
+    expect(screen.getByText("nats-1")).toBeInTheDocument();
+  });
+
+  it("does not say there is no data for the window when track is off", () => {
+    render(<MetricBox {...base} valueText="nats-1" track={false} />);
+    expect(screen.queryByText("no data for the window")).toBeNull();
+    expect(screen.queryByText(/steady/)).toBeNull();
+  });
 });
