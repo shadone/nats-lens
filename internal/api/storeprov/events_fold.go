@@ -22,8 +22,10 @@ func richRequest(req *v1.ListEventsRequest) bool {
 	return req.GetHideRoutine() || req.GetFoldRepeats() || req.GetHistogramBuckets() > 0 || req.GetIncludeFacets()
 }
 
-// foldKey are the columns whose values a folded row shares.
-const foldKey = `source, kind, server_name, account, stream, consumer, client_name, reason`
+// foldKey are the columns whose values a folded row shares. subject is
+// what the stored columns do not name: a finding event's finding, a
+// Kubernetes event's object.
+const foldKey = `source, kind, server_name, account, stream, consumer, client_name, reason, subject`
 
 // listEventsRich answers a request with routine events, folding, facets
 // or a histogram.
@@ -115,7 +117,9 @@ func (p *Provider) plainRows(ctx context.Context, req *v1.ListEventsRequest, cur
 func (p *Provider) foldedRows(ctx context.Context, req *v1.ListEventsRequest, cur api.Cursor, upto int64, res *v1.ListEventsResponse) error {
 	base, args := p.richEvents(req, upto)
 	q := base + `, k AS (
-  SELECT id, time, ` + foldKey + `,
+  SELECT id, time, source, kind, server_name, account, stream, consumer, client_name, reason,
+    CASE WHEN source = 'finding' THEN json_extract_string(raw, '$.finding_id')
+      WHEN source = 'k8s' THEN json_extract_string(raw, '$.object.name') END AS subject,
     CASE WHEN source = 'k8s' THEN coalesce(TRY_CAST(json_extract_string(raw, '$.count') AS BIGINT), 1) ELSE 1 END AS n
   FROM b WHERE NOT routine OR NOT ?),
 g AS (

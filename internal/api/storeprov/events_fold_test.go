@@ -364,3 +364,78 @@ func TestHistogram(t *testing.T) {
 		}
 	}
 }
+
+// Transitions of two findings on one entity are two rows: folding them
+// would show only the newest finding's severity.
+func TestFindingsFoldByFinding(t *testing.T) {
+	st := emptyStore(t)
+	finding := func(at time.Duration, id, sev string) events.Event {
+		e := ev(at, store.SourceFinding, "finding.firing")
+		e.Account, e.Stream = "APP", "orders"
+		e.Raw = json.RawMessage(fmt.Sprintf(`{"finding_id":%q,"severity":%q,"detail":"d"}`, id, sev))
+		return e
+	}
+	write(t, st, finding(0, "stream-001:APP/orders", "critical"), finding(time.Minute, "stream-009:APP/orders", "warning"),
+		finding(2*time.Minute, "stream-009:APP/orders", "warning"))
+	c := serveTooling(t, st)
+	res := must(c.ListEvents(ctx, connect.NewRequest(&v1.ListEventsRequest{Range: wide(), FoldRepeats: true})))
+	if len(res.GetEvents()) != 2 || res.GetEvents()[0].GetRepeats() != 2 || res.GetEvents()[1].GetSeverity() != v1.Severity_SEVERITY_CRITICAL {
+		t.Fatalf("rows %v", res.GetEvents())
+	}
+}
+
+// An API audit record is routine only when the call succeeded and
+// changed nothing.
+func TestAuditRoutine(t *testing.T) {
+	st := emptyStore(t)
+	audit := func(at time.Duration, subject, reason string) events.Event {
+		e := ev(at, events.SourceJetStream, "api.audit")
+		e.ClientName, e.Reason, e.Summary = "ops", reason, subject+" by ops"
+		e.Raw = json.RawMessage(fmt.Sprintf(`{"subject":%q}`, subject))
+		return e
+	}
+	write(t, st,
+		audit(0, "$JS.API.STREAM.DELETE.orders", ""),
+		audit(time.Second, "$JS.API.STREAM.INFO.orders", "stream not found"),
+		audit(2*time.Second, "$JS.API.CONSUMER.DURABLE.CREATE.orders.worker", ""),
+		audit(3*time.Second, "$JS.API.STREAM.MSG.DELETE.orders", ""),
+		audit(4*time.Second, "$JS.API.STREAM.INFO.orders", ""),
+		audit(5*time.Second, "$JS.API.STREAM.MSG.GET.orders", ""),
+		audit(6*time.Second, "$JS.API.CONSUMER.INFO.orders.worker", ""),
+	)
+	c := serveTooling(t, st)
+	res := must(c.ListEvents(ctx, connect.NewRequest(&v1.ListEventsRequest{Range: wide(), HideRoutine: true})))
+	var shown []string
+	for _, e := range res.GetEvents() {
+		shown = append(shown, e.GetSummary())
+	}
+	want := "[$JS.API.STREAM.MSG.DELETE.orders by ops $JS.API.CONSUMER.DURABLE.CREATE.orders.worker by ops " +
+		"$JS.API.STREAM.INFO.orders by ops $JS.API.STREAM.DELETE.orders by ops]"
+	if fmt.Sprint(shown) != want || res.GetRoutineHidden() != 3 {
+		t.Fatalf("shown %v, hidden %d", shown, res.GetRoutineHidden())
+	}
+}
+
+// Kubernetes events of different objects are separate rows; repeats of
+// one object fold.
+func TestKubernetesFoldByObject(t *testing.T) {
+	st := emptyStore(t)
+	pod := func(at time.Duration, name string) events.Event {
+		e := scheduling(at)
+		e.Raw = json.RawMessage(fmt.Sprintf(`{"object":{"kind":"Pod","name":%q}}`, name))
+		return e
+	}
+	var evs []events.Event
+	for i := range 5 {
+		evs = append(evs, pod(time.Duration(i)*time.Second, fmt.Sprintf("worker-%d", i)))
+	}
+	for i := range 3 {
+		evs = append(evs, pod(time.Minute+time.Duration(i)*time.Minute, "stuck"))
+	}
+	write(t, st, evs...)
+	c := serveTooling(t, st)
+	res := must(c.ListEvents(ctx, connect.NewRequest(&v1.ListEventsRequest{Range: wide(), FoldRepeats: true})))
+	if len(res.GetEvents()) != 6 || res.GetEvents()[0].GetRepeats() != 3 {
+		t.Fatalf("rows %v", res.GetEvents())
+	}
+}
