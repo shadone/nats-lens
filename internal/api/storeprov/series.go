@@ -102,29 +102,42 @@ GROUP BY e.epoch, e.started_at`},
 	"cluster.kv_buckets":    {query: streamCount(`starts_with(ss.stream, 'KV_')`)},
 	"cluster.object_stores": {query: streamCount(`starts_with(ss.stream, 'OBJ_')`)},
 	// Accounts with a connection or a stream on any server, the system
-	// account left out; an epoch without an answered ACCSTATZ or JSZ did
-	// not observe them.
+	// account left out. The connections come from ACCSTATZ and the
+	// streams from JSZ, so both must have answered on every server.
 	"cluster.accounts": {query: `
 SELECT e.started_at AS t,
   count(DISTINCT a.account) FILTER (WHERE (a.conns > 0 OR a.js_streams > 0) AND NOT coalesce(ac.is_system, false)) AS v
 FROM epochs e LEFT JOIN account_stats a ON a.epoch = e.epoch LEFT JOIN accounts ac ON ac.account = a.account
-WHERE e.started_at >= ? AND e.started_at < ? AND EXISTS (SELECT 1 FROM epoch_endpoints x
-  WHERE x.epoch = e.epoch AND x.endpoint IN ('ACCSTATZ', 'JSZ') AND x.state = 'ok')
+WHERE e.started_at >= ? AND e.started_at < ? AND ` + answeredAll("JSZ") + ` AND ` + answeredAll("ACCSTATZ") + `
 GROUP BY e.epoch, e.started_at`},
-	// The meta leader most servers report; a change from the last epoch
-	// that had one counts once. An epoch without a leader is no change.
+	// The meta leader is the one more than half of the servers that name
+	// a leader report; a tie or no leader leaves the epoch without one,
+	// which is no change. A change from the last epoch that had a leader
+	// counts once. The lookback of series() reaches about two intervals
+	// before the range, so a change at the range's first epoch counts
+	// only when an epoch with a leader lies within that lookback.
 	"cluster.meta_leader_changes": {sum: true, query: `
-SELECT t, CASE WHEN l <> lag(l IGNORE NULLS) OVER (ORDER BY epoch) THEN 1 ELSE 0 END AS v FROM (
-  SELECT e.epoch, e.started_at AS t, mode(nullif(ss.meta_leader, '')) AS l
-  FROM server_stats ss JOIN epochs e USING (epoch)
-  WHERE e.started_at >= ? AND e.started_at < ?
-  GROUP BY e.epoch, e.started_at)`},
+WITH ep AS (
+  SELECT DISTINCT e.epoch, e.started_at AS t FROM server_stats ss JOIN epochs e USING (epoch)
+  WHERE e.started_at >= ? AND e.started_at < ?),
+votes AS (
+  SELECT ss.epoch, ss.meta_leader AS l, count(*) AS n FROM server_stats ss JOIN ep USING (epoch)
+  WHERE coalesce(ss.meta_leader, '') <> '' GROUP BY ss.epoch, ss.meta_leader),
+lead AS (SELECT epoch, l FROM votes QUALIFY 2 * n > sum(n) OVER (PARTITION BY epoch))
+SELECT t, CASE WHEN l <> lag(l IGNORE NULLS) OVER (ORDER BY epoch) THEN 1 ELSE 0 END AS v
+FROM ep LEFT JOIN lead USING (epoch)`},
 	"cluster.assets_replicated": {query: assetCount("r > 1")},
 	"cluster.assets_single":     {query: assetCount("r = 1")},
-	// The slow consumer counter's increase per epoch and process.
+	// The slow consumer counter's increase per epoch and process. As in
+	// cluster.slow_consumers, a restarted process's first epoch has no
+	// increase, so slow consumers before its first report are not
+	// counted; nor is an increase across a collection gap of more than
+	// three intervals credited to one epoch.
 	"server.slow_consumers": {sum: true, query: `
 SELECT t, sum(d) AS v FROM (
-  SELECT e.epoch, e.started_at AS t, ss.slow_consumers - lag(ss.slow_consumers) OVER w AS d
+  SELECT e.epoch, e.started_at AS t,
+    CASE WHEN date_diff('millisecond', lag(e.started_at) OVER w, e.started_at) <= ` + maxGapToken + ` THEN
+      ss.slow_consumers - lag(ss.slow_consumers) OVER w END AS d
   FROM server_stats ss JOIN epochs e USING (epoch) JOIN servers s USING (server_id)
   WHERE e.started_at >= ? AND e.started_at < ? ` + byServer + `
   WINDOW w AS (PARTITION BY ss.server_id ORDER BY e.epoch))
@@ -152,25 +165,33 @@ WHERE r >= 0`},
 	"consumer.num_pending":     {query: leaderView("consumer_stats", "num_pending", byConsumer)},
 	"consumer.num_ack_pending": {query: leaderView("consumer_stats", "num_ack_pending", byConsumer)},
 	"consumer.num_redelivered": {query: leaderView("consumer_stats", "num_redelivered", byConsumer)},
-	// The leader's delivered consumer sequence as a per-second increase;
-	// an epoch without a leader row has no value, a lower sequence (a
-	// recreated consumer) and the first epoch after a collection gap no
-	// rate.
+	// The leader's delivered consumer sequence as a per-second increase,
+	// per leading server and creation time: a leader move or a recreated
+	// consumer starts a new run whose first epoch has no rate, as servers
+	// and incarnations count apart. An epoch without a leader row has no
+	// value, and the first epoch after a collection gap no rate.
 	"consumer.delivered_rate": {query: `
 SELECT t, r AS v FROM (
   SELECT t, CASE WHEN date_diff('millisecond', lag(t) OVER w, t) <= ` + maxGapToken + ` THEN
       (v - lag(v) OVER w) * 1000.0 / nullif(date_diff('millisecond', lag(t) OVER w, t), 0) END AS r FROM (
-    SELECT e.started_at AS t, max(x.delivered_consumer_seq) AS v
+    SELECT e.started_at AS t, x.server_id, x.created, x.delivered_consumer_seq AS v
     FROM consumer_stats x JOIN epochs e USING (epoch)
     WHERE e.started_at >= ? AND e.started_at < ? ` + byConsumer + ` AND x.is_leader
-    GROUP BY e.epoch, e.started_at)
-  WINDOW w AS (ORDER BY t))
+    QUALIFY row_number() OVER (PARTITION BY e.epoch ORDER BY x.delivered_consumer_seq DESC, x.server_id) = 1)
+  WINDOW w AS (PARTITION BY server_id, created ORDER BY t))
 WHERE r >= 0`},
 }
 
-// jszObserved keeps the epochs in which at least one server answered JSZ:
-// the others did not observe JetStream, so a count there is unset, not 0.
-const jszObserved = `EXISTS (SELECT 1 FROM epoch_endpoints x WHERE x.epoch = e.epoch AND x.endpoint = 'JSZ' AND x.state = 'ok')`
+// answeredAll keeps the epochs e in which every server that answered at
+// all answered the endpoint: with one reply missing a count would dip, so
+// such an epoch has no point, as does one where no server answered.
+func answeredAll(endpoint string) string {
+	return fmt.Sprintf(`e.observed_servers > 0 AND e.observed_servers <= (SELECT count(DISTINCT x.server_id) FROM epoch_endpoints x
+  WHERE x.epoch = e.epoch AND x.endpoint = '%s' AND x.state = 'ok')`, endpoint)
+}
+
+// jszObserved keeps the epochs whose JSZ replies are complete.
+var jszObserved = answeredAll("JSZ")
 
 // streamCount counts the streams any server reported per epoch whose row
 // ss matches the filter.

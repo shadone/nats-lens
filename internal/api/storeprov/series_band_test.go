@@ -125,7 +125,8 @@ func TestCPUBandAndBusiestServer(t *testing.T) {
 	if got := values(&v1.Series{Points: s.GetTopPoints()}); !slices.Equal(got, []float64{40, 40, 40}) {
 		t.Errorf("top points = %v", got)
 	}
-	if s.GetMin() != 5 || s.GetMax() != 5 || s.GetUnit() != v1.Unit_UNIT_PERCENT {
+	// A band's min and max are its edges', not the medians'.
+	if s.GetMin() != 2 || s.GetMax() != 40 || s.GetUnit() != v1.Unit_UNIT_PERCENT {
 		t.Errorf("min/max/unit = %v/%v/%v", s.GetMin(), s.GetMax(), s.GetUnit())
 	}
 
@@ -358,5 +359,165 @@ func TestEveryMetricHasAQuery(t *testing.T) {
 		if _, err := c.GetTimeSeries(ctx, connect.NewRequest(&v1.GetTimeSeriesRequest{Metric: m.GetId(), Entity: e, Range: hour()})); err != nil {
 			t.Errorf("%s: %v", m.GetId(), err)
 		}
+	}
+}
+
+// A bucket's band edges are the extremes of its epochs: one spike epoch
+// keeps its high edge, while the value averages the medians.
+func TestBandEdgesKeepASpike(t *testing.T) {
+	st := emptyStore(t)
+	r := rows{t, st}
+	ids := []string{"S0", "S1", "S2"}
+	for i, id := range ids {
+		r.server(id, fmt.Sprintf("nats-%d", i))
+	}
+	// 23:18:00 to 23:19:00, one 120-second bucket aligned to the epoch.
+	for e := int64(1); e <= 3; e++ {
+		r.epoch(e, t0.Add(time.Duration(e+1)*30*time.Second), ids...)
+		cpu := []float64{2, 5, 40}
+		if e == 2 {
+			cpu[2] = 90
+		}
+		for i, id := range ids {
+			r.add("server_stats", map[string]any{"epoch": e, "server_id": id, "cpu_percent": cpu[i]})
+		}
+	}
+	c := serveSeries(t, st, t0.Add(180*time.Second))
+	s := must(c.GetTimeSeries(ctx, connect.NewRequest(&v1.GetTimeSeriesRequest{Metric: "cluster.cpu_percent", MaxPoints: 1,
+		Range: &v1.TimeRange{Start: timestamppb.New(t0.Add(60 * time.Second)), End: timestamppb.New(t0.Add(180 * time.Second))}}))).GetSeries()
+	if len(s.GetPoints()) != 1 {
+		t.Fatalf("points = %v, want one bucket", s.GetPoints())
+	}
+	if p := s.GetPoints()[0]; p.GetValue() != 5 || p.GetLow() != 2 || p.GetHigh() != 90 {
+		t.Errorf("bucket = %v, want 5 within 2..90", p)
+	}
+	if s.GetMin() != 2 || s.GetMax() != 90 {
+		t.Errorf("min/max = %v/%v, want the edges 2/90", s.GetMin(), s.GetMax())
+	}
+}
+
+// When one of three answering servers misses JSZ or ACCSTATZ, the counts
+// have no point for the epoch rather than a dip.
+func TestCountsNeedEveryServersReply(t *testing.T) {
+	st := emptyStore(t)
+	r := rows{t, st}
+	ids := []string{"S0", "S1", "S2"}
+	for i, id := range ids {
+		r.server(id, fmt.Sprintf("nats-%d", i))
+	}
+	r.add("accounts", map[string]any{"account": "APP", "is_system": false, "first_epoch": 1, "last_epoch": 3})
+	r.epoch(1, t0.Add(30*time.Second), ids...)
+	for _, e := range []int64{2, 3} {
+		at := t0.Add(time.Duration(e) * 30 * time.Second)
+		if _, err := st.DB().Exec(`INSERT INTO epochs VALUES (?, ?, ?, 0, 3, 3, [], [], [], 1, true, [], NULL)`, e, at, at); err != nil {
+			t.Fatal(err)
+		}
+		for _, id := range ids {
+			jsz, acc := "ok", "ok"
+			if id == "S2" && e == 2 {
+				jsz = "missing"
+			}
+			if id == "S2" && e == 3 {
+				acc = "missing"
+			}
+			r.add("epoch_endpoints", map[string]any{"epoch": e, "server_id": id, "endpoint": "JSZ", "state": jsz})
+			r.add("epoch_endpoints", map[string]any{"epoch": e, "server_id": id, "endpoint": "ACCSTATZ", "state": acc})
+		}
+	}
+	for e := int64(1); e <= 3; e++ {
+		for _, id := range ids {
+			r.add("stream_stats", map[string]any{"epoch": e, "server_id": id, "account": "APP", "stream": "order-jobs", "is_leader": id == "S0"})
+			r.add("stream_config", map[string]any{"server_id": id, "account": "APP", "stream": "order-jobs", "first_epoch": e, "last_epoch": e,
+				"config_hash": "h", "replicas": 3})
+			r.add("account_stats", map[string]any{"epoch": e, "server_id": id, "account": "APP", "conns": 1, "js_streams": 1})
+		}
+	}
+	c := serveSeries(t, st, t0.Add(120*time.Second))
+	rng := &v1.TimeRange{Start: timestamppb.New(t0)}
+	for metric, want := range map[string][]float64{
+		"cluster.streams":           {1, 1}, // epochs 1 and 3: JSZ from all
+		"cluster.assets_replicated": {1, 1},
+		"cluster.accounts":          {1}, // epoch 1 only: 2 lacks JSZ, 3 ACCSTATZ
+	} {
+		if got := values(seriesOf(t, c, metric, nil, rng)); !slices.Equal(got, want) {
+			t.Errorf("%s = %v, want %v", metric, got, want)
+		}
+	}
+}
+
+// Two servers that disagree on the meta leader name none, so a tie is no
+// change, and the leader after it is compared with the one before.
+func TestMetaLeaderTieIsNoChange(t *testing.T) {
+	st := emptyStore(t)
+	r := rows{t, st}
+	ids := []string{"S0", "S1"}
+	r.server("S0", "nats-0")
+	r.server("S1", "nats-1")
+	leaders := [][2]string{{"nats-0", "nats-0"}, {"nats-0", "nats-1"}, {"nats-0", "nats-1"}, {"nats-0", "nats-1"},
+		{"nats-0", "nats-0"}, {"nats-1", "nats-0"}, {"nats-1", "nats-1"}}
+	for i, ls := range leaders {
+		e := int64(i + 1)
+		r.epoch(e, t0.Add(time.Duration(e)*30*time.Second), ids...)
+		for j, id := range ids {
+			r.add("server_stats", map[string]any{"epoch": e, "server_id": id, "meta_leader": ls[j]})
+		}
+	}
+	c := serveSeries(t, st, t0.Add(9*30*time.Second))
+	got := values(seriesOf(t, c, "cluster.meta_leader_changes", nil, &v1.TimeRange{Start: timestamppb.New(t0)}))
+	if !slices.Equal(got, []float64{0, 0, 0, 0, 0, 0, 1}) {
+		t.Fatalf("leader changes = %v, want one change, at epoch 7", got)
+	}
+}
+
+// The delivered rate starts again when the leader moves to a server whose
+// sequence differs, and when the consumer is recreated.
+func TestDeliveredRateRestartsOnLeaderMoveAndRecreate(t *testing.T) {
+	type row struct {
+		server  string
+		created time.Time
+		seq     int64
+	}
+	old, recreated := t0.Add(-time.Hour), t0.Add(70*time.Second)
+	for name, epochs := range map[string][]row{
+		"leader moves ahead": {{"S0", old, 100}, {"S0", old, 130}, {"S1", old, 600}, {"S1", old, 630}},
+		"recreated past":     {{"S0", old, 100}, {"S0", old, 130}, {"S0", recreated, 5000}, {"S0", recreated, 5030}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			st := emptyStore(t)
+			r := rows{t, st}
+			r.server("S0", "nats-0")
+			r.server("S1", "nats-1")
+			r.add("consumers", map[string]any{"account": "APP", "stream": "order-jobs", "consumer": "resize-worker", "first_epoch": 1, "last_epoch": 4})
+			for i, x := range epochs {
+				e := int64(i + 1)
+				r.epoch(e, t0.Add(time.Duration(e)*30*time.Second), "S0", "S1")
+				r.add("consumer_stats", map[string]any{"epoch": e, "server_id": x.server, "account": "APP", "stream": "order-jobs",
+					"consumer": "resize-worker", "is_leader": true, "created": x.created, "delivered_consumer_seq": x.seq})
+			}
+			c := serveSeries(t, st, t0.Add(150*time.Second))
+			e := &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_CONSUMER, Key: "APP/order-jobs/resize-worker"}
+			if got := values(seriesOf(t, c, "consumer.delivered_rate", e, &v1.TimeRange{Start: timestamppb.New(t0)})); !slices.Equal(got, []float64{1, 1}) {
+				t.Fatalf("delivered rate = %v, want [1 1] with none at the change", got)
+			}
+		})
+	}
+}
+
+// No slow consumer increase is credited across a gap of more than three
+// intervals.
+func TestServerSlowConsumersSkipGaps(t *testing.T) {
+	st := emptyStore(t)
+	r := rows{t, st}
+	r.server("S0", "nats-0")
+	at := []time.Duration{30 * time.Second, 60 * time.Second, 60*time.Second + 5*time.Minute, 90*time.Second + 5*time.Minute}
+	for i, slow := range []int64{3, 5, 9, 10} {
+		e := int64(i + 1)
+		r.epoch(e, t0.Add(at[i]), "S0")
+		r.add("server_stats", map[string]any{"epoch": e, "server_id": "S0", "slow_consumers": slow})
+	}
+	c := serveSeries(t, st, t0.Add(at[3]+30*time.Second))
+	got := values(seriesOf(t, c, "server.slow_consumers", serverRef("nats-0"), &v1.TimeRange{Start: timestamppb.New(t0)}))
+	if !slices.Equal(got, []float64{2, 1}) {
+		t.Fatalf("slow consumers = %v, want [2 1] with nothing across the gap", got)
 	}
 }
