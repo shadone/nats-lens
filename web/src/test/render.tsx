@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { MemoryRouter, useLocation, useNavigationType } from "react-router";
+import { GlobalQueryProvider } from "../lib/useGlobalQuery";
 
 function LocationProbe() {
   const l = useLocation();
@@ -21,8 +22,10 @@ export function renderApp(ui: ReactElement, route = "/") {
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={[route]}>
-        {ui}
-        <LocationProbe />
+        <GlobalQueryProvider>
+          {ui}
+          <LocationProbe />
+        </GlobalQueryProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );

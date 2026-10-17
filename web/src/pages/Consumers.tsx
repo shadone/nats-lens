@@ -4,6 +4,7 @@ import { useConsumers, useStreams } from "../api/queries";
 import { Empty, QueryView } from "../components/common";
 import { ConsumersTable } from "../components/EntityParts";
 import { usePageTitle } from "../lib/usePageTitle";
+import { useAccountScope } from "../lib/useSystem";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
 import { accountLabeller } from "../lib/view";
 
@@ -14,7 +15,9 @@ export function Consumers() {
   const { end } = useResolvedRange(spec);
   const eph = params.get("ephemeral") === "1";
   const stream = params.get("stream") ?? "";
-  const [account = "", streamName = ""] = stream ? stream.split("/") : [];
+  const [scope] = useAccountScope();
+  // A chosen stream names its own account; without one the account scope applies.
+  const [account = "", streamName = ""] = stream ? stream.split("/") : [scope];
   const streams = useStreams(spec).data?.streams ?? [];
   const streamLabel = accountLabeller(streams.map((s) => s.entity));
   const q = useConsumers(spec, { account, stream: streamName, includeEphemeral: eph });

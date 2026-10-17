@@ -4,7 +4,6 @@ import {
   parseRange,
   rangeProblem,
   pauseRange,
-  rangeQuery,
   resolveRange,
   resumeLive,
   writeRange,
@@ -55,7 +54,7 @@ describe("writeRange", () => {
   it("round-trips a fixed range at second precision", () => {
     const spec = { kind: "fixed" as const, from: NOW - 3_600_000, to: NOW };
     expect(parseRange(writeRange(p(""), spec), NOW)).toEqual(spec);
-    expect(rangeQuery(spec)).toBe("?from=2026-10-17T13%3A30%3A00Z&to=2026-10-17T14%3A30%3A00Z");
+    expect(writeRange(p(""), spec).toString()).toBe("from=2026-10-17T13%3A30%3A00Z&to=2026-10-17T14%3A30%3A00Z");
   });
 });
 

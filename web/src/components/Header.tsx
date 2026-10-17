@@ -1,60 +1,39 @@
-// Sticky top bar: brand, cluster, servers, time range, theme, and tabs.
-import { NavLink } from "react-router";
-import { useHeaderStatus, useLensInfo } from "../api/queries";
-import { useTimeRange } from "../lib/useTimeRange";
+// Top bar of every page: the page's name, the account scope on the pages
+// that apply it, search, the time range with freshness, and the theme. At
+// phone width a menu button opens the sidebar as a drawer.
+import { useLocation } from "react-router";
+import { useShellStatus } from "../api/queries";
+import { navFor } from "../nav";
+import { AccountScope } from "./AccountScope";
 import { RangeNotice, RangePicker } from "./RangePicker";
-import { ThemeSwitch } from "./ThemeSwitch";
+import { SearchJump } from "./SearchJump";
+import { ThemeMenu } from "./ThemeMenu";
 
-const TABS: [string, string][] = [
-  ["/", "Overview"],
-  ["/servers", "Servers"],
-  ["/streams", "Streams"],
-  ["/consumers", "Consumers"],
-  ["/connections", "Connections"],
-  ["/events", "Events"],
-  ["/findings", "Findings"],
-];
+interface Props {
+  menuOpen?: boolean;
+  onMenu?: () => void;
+}
 
-export function Header() {
-  const { spec, query } = useTimeRange();
-  const info = useLensInfo().data;
-  const status = useHeaderStatus(info?.collectIntervalMs ?? 30_000);
-  const o = status.data;
-  const cluster = o?.cluster || info?.cluster;
+export function Header({ menuOpen = false, onMenu }: Props) {
+  const { pathname } = useLocation();
+  const page = navFor(pathname);
+  const status = useShellStatus();
   return (
     <header className="top">
-      <div className="wrap">
-        <div className="bar">
-          <NavLink to={`/${query}`} className="brand" aria-label="nats-lens overview">
-            <i aria-hidden="true" />
-            nats-lens
-          </NavLink>
-          <div className="crumb">
-            <span className="lbl">Cluster</span>
-            <b>{cluster || "–"}</b>
-            {info?.demo && <span className="demo-tag">demo</span>}
-          </div>
-          {/* The chips show the servers now, whatever range the page shows. */}
-          <div className={`srv${status.error ? " stale" : ""}`} aria-label={spec.kind === "fixed" ? "Servers now" : "Servers"}>
-            {spec.kind === "fixed" && o && <em className="now-lbl">now</em>}
-            {o?.servers.map((s) => (
-              <span key={s.name} className={s.present ? undefined : "down"} title={s.present ? `${s.name} answered` : `${s.name} did not answer`}>
-                {s.name} {s.version}
-              </span>
-            ))}
-          </div>
-          <RangePicker freshness={o?.freshness} error={status.error ?? undefined} />
-          <ThemeSwitch />
-        </div>
-        <RangeNotice />
-        <nav className="tabs" aria-label="Pages">
-          {TABS.map(([to, label]) => (
-            <NavLink key={to} to={`${to}${query}`} end={to === "/"} className={({ isActive }) => (isActive ? "on" : undefined)}>
-              {label}
-            </NavLink>
-          ))}
-        </nav>
+      <div className="bar">
+        <button type="button" className="menu-btn" aria-label="Menu" aria-expanded={menuOpen} aria-controls="sidebar" onClick={onMenu}>
+          <svg viewBox="0 0 18 18" aria-hidden="true">
+            <path d="M3 5h12M3 9h12M3 13h12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+        </button>
+        {page && <span className="page-title">{page.label}</span>}
+        {page?.accountScope && pathname === page.path && <AccountScope />}
+        <span className="bar-gap" />
+        <SearchJump />
+        <RangePicker freshness={status.data?.freshness} error={status.error ?? undefined} />
+        <ThemeMenu />
       </div>
+      <RangeNotice />
     </header>
   );
 }

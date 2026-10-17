@@ -81,12 +81,6 @@ export function writeRange(params: URLSearchParams, spec: RangeSpec): URLSearchP
   return out;
 }
 
-/** Only the range parameters, for links between pages: "?range=6h" or "". */
-export function rangeQuery(spec: RangeSpec): string {
-  const q = writeRange(new URLSearchParams(), spec).toString();
-  return q ? `?${q}` : "";
-}
-
 export function resolveRange(spec: RangeSpec, now: number): { start: number; end: number } {
   if (spec.kind === "fixed") return { start: spec.from, end: spec.to };
   return { start: now - presetMs(spec.preset), end: now };

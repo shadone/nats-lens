@@ -1,8 +1,9 @@
 // The global time range from the URL, with setters that keep other
-// parameters, and a clock for live ranges.
+// parameters, and a clock for live ranges. Links take the range from
+// useGlobalQuery, with the system and the account.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
-import { parseRange, rangeProblem, rangeQuery, resolveRange, writeRange, type RangeSpec } from "./timeRange";
+import { parseRange, rangeProblem, resolveRange, writeRange, type RangeSpec } from "./timeRange";
 
 export function useTimeRange() {
   const [params, setParams] = useSearchParams();
@@ -30,7 +31,7 @@ export function useTimeRange() {
       ),
     [setParams],
   );
-  return { spec, setSpec, clearRange, problem, query: rangeQuery(spec) };
+  return { spec, setSpec, clearRange, problem };
 }
 
 /** Now, ticking every interval while enabled. */

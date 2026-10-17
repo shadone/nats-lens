@@ -5,6 +5,7 @@ import { identityNeed, rememberName, rememberedName, type IdentityNeed } from ".
 import type { Finding, Mute } from "../api/model";
 import { useLensInfo, useMuteFinding, useUnmuteFinding } from "../api/queries";
 import { isoMinute } from "../lib/format";
+import { useSystem } from "../lib/useSystem";
 import { EXPIRY_PRESETS, MAX_REASON, expiryOf, hasErrors, validateMute, type MuteErrors, type MuteForm } from "../lib/muteForm";
 import { entityName } from "../lib/view";
 import { errorText } from "./common";
@@ -58,6 +59,8 @@ function MuteBody({ finding, need, onClose, onBusy }: { finding: Finding; need: 
   const [form, setForm] = useState<MuteForm>({ reason: "", expiry: "24h", customExpiry: "", name: rememberedName() });
   const [errors, setErrors] = useState<MuteErrors>({});
   const mute = useMuteFinding();
+  // The system of the page when the dialog opened; the body mounts on open.
+  const [system] = useState(useSystem());
   useBusy(mute.isPending, onBusy);
   const set = (k: keyof MuteForm) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -70,6 +73,7 @@ function MuteBody({ finding, need, onClose, onBusy }: { finding: Finding; need: 
     if (askName) rememberName(form.name.trim());
     mute.mutate(
       {
+        system,
         checkCode: finding.checkCode,
         entity: scope === "entity" ? finding.entity : undefined,
         reason: form.reason.trim(),
@@ -153,12 +157,13 @@ function UnmuteBody({ mute, need, onClose, onBusy }: { mute: Mute; need: Identit
   const [name, setName] = useState(rememberedName());
   const [err, setErr] = useState("");
   const unmute = useUnmuteFinding();
+  const [system] = useState(useSystem());
   useBusy(unmute.isPending, onBusy);
   const submit = (ev: FormEvent) => {
     ev.preventDefault();
     if (askName && !name.trim()) return setErr("Enter your name; it is recorded with the change.");
     if (askName) rememberName(name.trim());
-    unmute.mutate({ muteId: mute.id, unmutedBy: askName ? name.trim() : "" }, { onSuccess: onClose });
+    unmute.mutate({ system, muteId: mute.id, unmutedBy: askName ? name.trim() : "" }, { onSuccess: onClose });
   };
   return (
     <form onSubmit={submit} noValidate>
