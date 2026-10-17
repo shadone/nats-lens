@@ -24,33 +24,31 @@ func on16(h, m int) time.Time { return time.Date(2026, 10, 16, h, m, 0, 0, time.
 
 // prodRows are the checks of the reference timeline; open spans end at
 // FixedNow and run on in live mode.
-func prodRows(sc *scenario) []rowSpec {
+func prodRows(*scenario) []rowSpec {
 	f := fixed
 	servers := []*v1.EntityRef{serverRef("nats-0"), serverRef("nats-1"), serverRef("nats-2")}
 	return []rowSpec{
-		{"server-002", "Healthz failing", critical, servers,
+		{"server-002", "Healthz not ok", critical, servers,
 			[]span{{f(9, 16, 2), f(9, 18, 40)}, {f(9, 29, 5), f(9, 31, 40)}, {f(9, 41, 10), f(9, 44, 50)}}},
-		{"server-018", "Server restarted", info, servers,
+		{"server-004", "Server restarted", info, servers,
 			[]span{{f(9, 18, 0), f(9, 19, 0)}, {f(9, 31, 0), f(9, 32, 0)}, {f(9, 44, 0), f(9, 45, 0)}}},
-		{"server-006", "Meta leader changed", warning, []*v1.EntityRef{sc.systemRef()},
-			[]span{{f(9, 16, 10), f(9, 17, 0)}, {f(9, 30, 11), f(9, 31, 0)}}},
-		{"stream-007", "Stream quorum lost", critical, []*v1.EntityRef{streamRef("media-windows"), streamRef("order-jobs")},
+		{"stream-001", "Stream quorum lost", critical, []*v1.EntityRef{streamRef("media-windows"), streamRef("order-jobs")},
 			[]span{{f(9, 16, 30), f(9, 35, 0)}, {f(9, 41, 30), f(9, 44, 30)}}},
-		{"consumer-008", "Consumer quorum lost", critical, []*v1.EntityRef{consumerRef("order-jobs", "job-cache-projector")},
+		{"consumer-001", "Consumer quorum lost", critical, []*v1.EntityRef{consumerRef("order-jobs", "job-cache-projector")},
 			[]span{{f(9, 15, 0), f(9, 45, 0)}}},
-		{"stream-011", "Expected stream or bucket missing", info, []*v1.EntityRef{streamRef("order-jobs"), streamRef("media-windows")},
+		{"stream-002", "Stream replica offline", info, []*v1.EntityRef{streamRef("order-jobs"), streamRef("media-windows")},
 			[]span{{f(9, 15, 0), f(9, 50, 0)}}},
-		{"stream-013", "Replica lagging", warning, []*v1.EntityRef{streamRef("order-archive")},
+		{"stream-003", "Stream replica lagging", warning, []*v1.EntityRef{streamRef("order-archive")},
 			[]span{{f(9, 16, 40), f(10, 5, 0)}}},
-		{"consumer-006", "Expected durable missing", critical, []*v1.EntityRef{consumerRef("order-archive", "analytics-aggregator")},
+		{"consumer-010", "Expected consumer missing", critical, []*v1.EntityRef{consumerRef("order-archive", "analytics-aggregator")},
 			[]span{{f(9, 31, 7), open}}},
-		{"consumer-012", "Creation time differs across servers", warning, []*v1.EntityRef{consumerRef("order-jobs", "resize-worker")},
+		{"consumer-009", "Consumer creation time differs across servers", warning, []*v1.EntityRef{consumerRef("order-jobs", "resize-worker")},
 			[]span{{f(9, 45, 0), open}}},
-		{"stream-020", "Backlog growing", warning, []*v1.EntityRef{consumerRef("media-windows", "media-chunk-pool")},
+		{"consumer-002", "Consumer backlog growing", warning, []*v1.EntityRef{consumerRef("media-windows", "media-chunk-pool")},
 			[]span{{on16(19, 0), on16(19, 30)}, {f(7, 30, 0), f(7, 45, 0)}, {f(8, 15, 0), f(8, 30, 0)}, {f(11, 0, 0), open}}},
-		{"client-003", "Slow consumer events", warning, []*v1.EntityRef{clientRef("media-worker")},
+		{"client-003", "Slow consumer disconnects", warning, []*v1.EntityRef{clientRef("media-worker")},
 			[]span{{on16(22, 15), on16(22, 30)}, {f(9, 15, 0), f(9, 45, 0)}}},
-		{"stream-025", "Stream without limits", info, []*v1.EntityRef{streamRef("order-archive")},
+		{"stream-005", "Stream without any limit", info, []*v1.EntityRef{streamRef("order-archive")},
 			[]span{{time.Date(2026, 10, 14, 14, 30, 0, 0, time.UTC), open}}},
 	}
 }

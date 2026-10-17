@@ -65,7 +65,7 @@ The Findings page lists the findings of the time range, filtered by severity, st
 ### See which server's copy is odd
 
 - **Surfaces:** `ui`
-- **Given** `consumer-012` fires for `resize-worker` on `order-jobs`, whose copy on `nats-0` was created two months before the copies on `nats-1` and `nats-2`
+- **Given** `consumer-009` fires for `resize-worker` on `order-jobs`, whose copy on `nats-0` was created two months before the copies on `nats-1` and `nats-2`
 - **When** I open the finding
 - **Then** "Server copies" lists the three servers, marks the `nats-0` creation time with "−65d", and shows the delivered and ack floor positions of each
 

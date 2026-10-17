@@ -51,11 +51,11 @@ func TestOverviewReproducesTheReferenceScenario(t *testing.T) {
 		t.Fatalf("range = %v", o.GetRange())
 	}
 	tl := o.GetTally()
-	if tl.GetCritical() != 1 || tl.GetWarning() != 2 || tl.GetInfo() != 1 || tl.GetMuted() != 1 || tl.GetFlapping() != 1 || tl.GetResolved_24H() != 9 {
+	if tl.GetCritical() != 1 || tl.GetWarning() != 2 || tl.GetInfo() != 1 || tl.GetMuted() != 1 || tl.GetFlapping() != 1 || tl.GetResolved_24H() != 8 {
 		t.Fatalf("tally = %v", tl)
 	}
 	w := o.GetWorstFinding()
-	if w.GetCheckCode() != "consumer-006" || w.GetCause().GetKind() != "consumer.deleted" || w.GetRemediation() == "" || len(w.GetRelatedConfig()) != 6 {
+	if w.GetCheckCode() != "consumer-010" || w.GetCause().GetKind() != "consumer.deleted" || w.GetRemediation() == "" || len(w.GetRelatedConfig()) != 6 {
 		t.Fatalf("worst = %v", w)
 	}
 	if got := o.GetServers()[0]; got.GetRole() != v1.ServerRole_SERVER_ROLE_META_LEADER || got.GetUptime().AsDuration() != 5*time.Hour+11*time.Minute+56*time.Second {
@@ -80,7 +80,7 @@ func TestListFindingsFiltersAndPages(t *testing.T) {
 	list := func(req *v1.ListFindingsRequest) *v1.ListFindingsResponse {
 		return must(c.ListFindings(ctx, connect.NewRequest(req)))
 	}
-	if got := list(&v1.ListFindingsRequest{}); got.GetTotalCount() != 4 || got.GetFindings()[0].GetCheckCode() != "consumer-006" {
+	if got := list(&v1.ListFindingsRequest{}); got.GetTotalCount() != 4 || got.GetFindings()[0].GetCheckCode() != "consumer-010" {
 		t.Fatalf("default: %d, first %s", got.GetTotalCount(), got.GetFindings()[0].GetCheckCode())
 	}
 	all := list(&v1.ListFindingsRequest{IncludeMuted: true})
@@ -88,7 +88,7 @@ func TestListFindingsFiltersAndPages(t *testing.T) {
 		t.Fatalf("with muted: %v", all.GetFindings())
 	}
 	res := list(&v1.ListFindingsRequest{States: []v1.FindingState{v1.FindingState_FINDING_STATE_RESOLVED}})
-	if res.GetTotalCount() != 9 {
+	if res.GetTotalCount() != 8 {
 		t.Fatalf("resolved = %d", res.GetTotalCount())
 	}
 	arch := list(&v1.ListFindingsRequest{Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/order-archive"}})
@@ -117,9 +117,9 @@ func TestListFindingsFiltersAndPages(t *testing.T) {
 
 func TestGetFinding(t *testing.T) {
 	c := client(t)
-	f := must(c.GetFinding(ctx, connect.NewRequest(&v1.GetFindingRequest{Id: "stream-020:APP/media-windows/media-chunk-pool"})))
+	f := must(c.GetFinding(ctx, connect.NewRequest(&v1.GetFindingRequest{Id: "consumer-002:APP/media-windows/media-chunk-pool"})))
 	if f.GetFinding().GetState() != v1.FindingState_FINDING_STATE_FLAPPING || len(f.GetTransitions()) != 9 {
-		t.Fatalf("stream-020: %v, %d transitions", f.GetFinding().GetState(), len(f.GetTransitions()))
+		t.Fatalf("consumer-002: %v, %d transitions", f.GetFinding().GetState(), len(f.GetTransitions()))
 	}
 	_, err := c.GetFinding(ctx, connect.NewRequest(&v1.GetFindingRequest{Id: "nope"}))
 	if codeOf(err) != connect.CodeNotFound {
@@ -130,7 +130,7 @@ func TestGetFinding(t *testing.T) {
 func TestMuteRoundTrip(t *testing.T) {
 	c := client(t)
 	e := &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_CONSUMER, Key: "APP/order-jobs/resize-worker"}
-	req := connect.NewRequest(&v1.MuteFindingRequest{CheckCode: "consumer-012", Entity: e, Reason: "expected during the resync",
+	req := connect.NewRequest(&v1.MuteFindingRequest{CheckCode: "consumer-009", Entity: e, Reason: "expected during the resync",
 		ExpiresAt: timestamppb.New(fake.FixedNow.Add(time.Hour)), MutedBy: "op"})
 	// Without IAP configured the unsigned IAP headers are ignored.
 	req.Header().Set("X-Goog-Authenticated-User-Email", "accounts.google.com:ceo@example.com")
@@ -173,11 +173,11 @@ func TestMuteRoundTrip(t *testing.T) {
 
 func TestStatusTimeline(t *testing.T) {
 	tl := must(client(t).GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{})))
-	if tl.GetBucketCount() != 96 || len(tl.GetRows()) != 12 {
+	if tl.GetBucketCount() != 96 || len(tl.GetRows()) != 11 {
 		t.Fatalf("%d buckets, %d rows", tl.GetBucketCount(), len(tl.GetRows()))
 	}
 	first := tl.GetRows()[0]
-	if first.GetCheckCode() != "consumer-006" || first.GetNow() != v1.Status_STATUS_CRITICAL || len(first.GetCells()) != 96 {
+	if first.GetCheckCode() != "consumer-010" || first.GetNow() != v1.Status_STATUS_CRITICAL || len(first.GetCells()) != 96 {
 		t.Fatalf("first row %v", first)
 	}
 	if got := tl.GetRows()[4].GetNow(); got != v1.Status_STATUS_OK {
@@ -219,7 +219,7 @@ func TestMutePagesKeepTheirPlace(t *testing.T) {
 	}
 	mute("stream-002")
 	second := must(c.ListMutes(ctx, connect.NewRequest(&v1.ListMutesRequest{PageSize: 1, PageToken: first.GetNextPageToken()})))
-	if len(second.GetMutes()) != 1 || second.GetMutes()[0].GetCheckCode() != "stream-031" || second.GetNextPageToken() != "" {
+	if len(second.GetMutes()) != 1 || second.GetMutes()[0].GetCheckCode() != "stream-006" || second.GetNextPageToken() != "" {
 		t.Fatalf("second page = %v", second)
 	}
 }

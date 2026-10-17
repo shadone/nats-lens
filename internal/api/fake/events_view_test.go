@@ -62,8 +62,8 @@ func TestProdEventMix(t *testing.T) {
 	}
 	checkHistogram(t, res)
 	checkFacets(t, c, "", res)
-	// The cause of consumer-006 is the stored consumer.deleted.
-	w := must(c.GetFinding(ctx, connect.NewRequest(&v1.GetFindingRequest{Id: "consumer-006:APP/order-archive/analytics-aggregator"}))).GetFinding()
+	// The cause of consumer-010 is the stored consumer.deleted.
+	w := must(c.GetFinding(ctx, connect.NewRequest(&v1.GetFindingRequest{Id: "consumer-010:APP/order-archive/analytics-aggregator"}))).GetFinding()
 	cause := must(c.GetEvent(ctx, connect.NewRequest(&v1.GetEventRequest{Id: w.GetCause().GetId()}))).GetEvent()
 	if cause.GetKind() != "consumer.deleted" {
 		t.Fatalf("cause %s is %v", w.GetCause().GetId(), cause)

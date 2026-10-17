@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,6 +27,18 @@ type streamSpec struct {
 	// behind is a follower the leader reports not current, lag entries back.
 	behind string
 	lag    int64
+	// maxBytes and discard are the stream's byte limit and discard
+	// policy; zero means no limit and "" discard old.
+	maxBytes int64
+	discard  string
+}
+
+// maxBytesText is max_bytes as the server reports it: -1 without a limit.
+func (sp streamSpec) maxBytesText() string {
+	if sp.maxBytes <= 0 {
+		return "-1"
+	}
+	return strconv.FormatInt(sp.maxBytes, 10)
 }
 
 func isKV(name string) bool { return strings.HasPrefix(name, "KV_") || strings.HasPrefix(name, "OBJ_") }
@@ -98,7 +111,8 @@ func (p *Provider) GetStream(_ context.Context, req *v1.GetStreamRequest) (*v1.G
 		Stream: s.streamSummary(sp, cur, req.GetRange()),
 		Config: cfg([][2]string{
 			{"subjects", strings.ReplaceAll(sp.name, "-", ".") + ".>"}, {"retention", "limits"}, {"storage", "file"},
-			{"replicas", fmt.Sprint(len(peers))}, {"max_bytes", "-1"}, {"max_msgs", "-1"}, {"max_age", "0"}, {"discard", "old"},
+			{"replicas", fmt.Sprint(len(peers))}, {"max_bytes", sp.maxBytesText()}, {"max_msgs", "-1"}, {"max_age", "0"},
+			{"discard", cmp.Or(sp.discard, "old")},
 		}),
 	}
 	for i, name := range peers {

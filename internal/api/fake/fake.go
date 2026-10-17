@@ -1,8 +1,9 @@
 // Package fake serves fixed scenarios through the api.Provider interface,
 // for the demo command and for tests. New serves example-prod: a
 // three-server cluster on 2026-10-17 at 14:30 UTC, five hours after a GKE
-// node upgrade (09:14-09:50) restarted all three NATS servers; it is the
-// data of the reference mockup (docs/ui-reference/reference.html). Demo
+// node upgrade (09:14-09:50) restarted all three NATS servers; it tells the
+// story of the reference mockup (docs/ui-reference/reference.html), with
+// the real checks' codes, names and details. Demo
 // adds example-global, 24 servers in three clusters joined by gateways,
 // and example-staging, whose collector stopped three hours ago.
 //
