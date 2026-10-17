@@ -182,19 +182,19 @@ func TestListAccountsFake(t *testing.T) {
 		t.Fatalf("accounts = %v", accs)
 	}
 	if a := accs[0]; a.GetAccount() != fake.Account || a.GetIsSystem() || a.Connections == nil || a.GetConnections() != 182 ||
-		a.GetStreams() != 9 || a.GetConsumers() != 54 {
+		a.GetStreams() != 13 || a.GetConsumers() != 54 {
 		t.Errorf("account = %v", a)
 	}
 }
 
-func TestBucketListsAreEmpty(t *testing.T) {
+func TestBucketListsReachTheProvider(t *testing.T) {
 	_, c := apitest.Serve(t, fake.New(false))
 	kv, err := c.ListKeyValueStores(context.Background(), connect.NewRequest(&v1.ListKeyValueStoresRequest{}))
-	if err != nil || len(kv.Msg.GetKeyValueStores()) != 0 {
+	if err != nil || len(kv.Msg.GetKeyValueStores()) != 3 {
 		t.Errorf("key-value stores = %v, %v", kv, err)
 	}
 	obj, err := c.ListObjectStores(context.Background(), connect.NewRequest(&v1.ListObjectStoresRequest{}))
-	if err != nil || len(obj.Msg.GetObjectStores()) != 0 {
+	if err != nil || len(obj.Msg.GetObjectStores()) != 2 {
 		t.Errorf("object stores = %v, %v", obj, err)
 	}
 }
