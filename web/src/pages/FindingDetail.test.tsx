@@ -82,11 +82,31 @@ describe("FindingDetail", () => {
     expect(m.getFinding).toHaveBeenCalledTimes(2);
   });
 
-  it("heads the page with the finding's own words", async () => {
-    m.getFinding.mockResolvedValue({ finding: { ...base, detail: "order-jobs grew 40% in 1h" }, transitions: [] });
+  it("heads the page with the check and the entity, and quotes the detail under it", async () => {
+    m.getFinding.mockResolvedValue({ finding: { ...base, detail: "nats-0 2026-08-12T10:02:11Z; order-jobs grew" }, transitions: [] });
     show();
-    expect(await screen.findByRole("heading", { level: 1, name: "order-jobs grew 40% in 1h" })).toBeInTheDocument();
-    expect(screen.getAllByText("Backlog growing").length).toBeGreaterThan(0);
+    const h = await screen.findByRole("heading", { level: 1 });
+    expect(h).toHaveTextContent(/^Backlog growing: order-jobs$/);
+    expect(within(h).getByText("order-jobs")).toHaveClass("mono");
+    expect(screen.getByText("nats-0 2026-08-12T10:02:11Z; order-jobs grew").tagName).toBe("P");
+    expect(screen.queryByText("Backlog growing", { selector: ".k *" })).toBeNull();
+    expect(screen.getByText("Firing for (since first seen)")).toBeInTheDocument();
+  });
+
+  it("polls only the finding and its timeline in live mode", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    m.getFinding.mockResolvedValue({ finding: { ...base, checkCode: "consumer-009", entity: consumerEntity }, transitions: [] });
+    show();
+    expect(await screen.findByRole("table", { name: "Server copies" }).catch(() => screen.findByText(/No server reports/))).toBeInTheDocument();
+    await vi.waitFor(() => expect(listEvents).toHaveBeenCalled());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(65_000);
+    });
+    expect(m.getFinding.mock.calls.length).toBeGreaterThanOrEqual(3);
+    expect(m.getTimeline.mock.calls.length).toBeGreaterThanOrEqual(3);
+    expect(m.getConsumer).toHaveBeenCalledTimes(1);
+    expect(m.listFindings).toHaveBeenCalledTimes(1);
+    expect(listEvents).toHaveBeenCalledTimes(1);
   });
 });
 

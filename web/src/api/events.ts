@@ -200,7 +200,7 @@ export function useEventsAround(t: number | undefined) {
     queryKey: ["eventsAround", sys, t],
     queryFn: ({ signal }) => listEventsBetween(sys, t! - AROUND_MS, t! + AROUND_MS, signal),
     enabled: t !== undefined,
-    // A window that ends in the past does not change.
-    staleTime: t !== undefined && t + AROUND_MS < Date.now() ? Infinity : LIVE_REFRESH_MS,
+    // Loaded once: only the finding and its timeline follow a live range.
+    staleTime: Infinity,
   });
 }
