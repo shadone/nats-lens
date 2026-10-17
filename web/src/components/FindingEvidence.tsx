@@ -9,7 +9,7 @@ import type { RangeSpec } from "../lib/timeRange";
 import { serverPath } from "../lib/view";
 import { Num, QueryView, RLink, Section } from "./common";
 
-/** A copy created this much after the first one is marked. */
+/** A copy created this much before or after the others is marked. */
 const LATE_MS = 3_600_000;
 
 type Copy = StreamServerView | ConsumerServerView;
@@ -35,6 +35,20 @@ function role(c: Copy): string {
   return c.current ? "follower" : "follower, behind";
 }
 
+/**
+ * The creation time most copies share: the one with the most copies
+ * created within LATE_MS of it, the earliest on a tie.
+ */
+export function commonCreated(times: number[]): number | undefined {
+  let best: number | undefined;
+  let n = 0;
+  for (const t of [...times].sort((a, b) => a - b)) {
+    const near = times.filter((u) => Math.abs(u - t) <= LATE_MS).length;
+    if (near > n) [best, n] = [t, near];
+  }
+  return best;
+}
+
 /** The configuration most copies share; "" when none reports one. */
 export function majorityHash(copies: Copy[]): string {
   const counts = new Map<string, number>();
@@ -53,7 +67,7 @@ export function CopiesTable({ kind, copies }: { kind: "stream" | "consumer"; cop
   const cols = kind === "stream" ? STREAM_COLS : CONSUMER_COLS;
   const leader = copies.find((c) => c.isLeader);
   const created = copies.map((c) => c.created).filter((t): t is number => t !== undefined);
-  const first = created.length ? Math.min(...created) : undefined;
+  const common = commonCreated(created);
   const hash = majorityHash(copies);
   return (
     <div className="card table-wrap scroll-cue">
@@ -74,7 +88,7 @@ export function CopiesTable({ kind, copies }: { kind: "stream" | "consumer"; cop
         </thead>
         <tbody>
           {copies.map((c) => {
-            const late = c.created !== undefined && first !== undefined && c.created - first > LATE_MS;
+            const late = c.created !== undefined && common !== undefined && Math.abs(c.created - common) > LATE_MS;
             const posOdd = cols.map((col) => !!leader && leader !== c && col.value(c) !== undefined && col.value(leader) !== undefined && col.value(c) !== col.value(leader));
             const cfgOdd = !!hash && !!c.configHash && c.configHash !== hash;
             const odd = late || cfgOdd || posOdd.some(Boolean);
@@ -86,7 +100,7 @@ export function CopiesTable({ kind, copies }: { kind: "stream" | "consumer"; cop
                 <td>{role(c)}</td>
                 <Cell odd={late} className="mono">
                   {c.created === undefined ? <Num v={undefined} /> : `${isoMinute(c.created)} UTC`}
-                  {late && <small>+{fmtDuration(c.created! - first!)}</small>}
+                  {late && <small>{c.created! > common! ? "+" : "−"}{fmtDuration(Math.abs(c.created! - common!))}</small>}
                 </Cell>
                 {cols.map((col, i) => (
                   <Cell key={col.head} odd={posOdd[i]}>
