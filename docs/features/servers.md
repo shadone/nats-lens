@@ -19,11 +19,11 @@ The Servers page lists every NATS server seen in the time range, by its stable n
 - **Processes.** Each process lifetime in the range: server ID, start time, and when nats-lens first and last saw it answer.
 - **Findings and events.** The findings that fire now for the server, worst first, and its newest 15 events, with a link to all of them.
 - **More in the API (API only).** The API returns these, and the pages do not show them yet. Each server in the list has its stream and consumer leaders, its slow consumers inside the range and its configured tags. Slow consumers are counted per process: a restart starts a new count. The server detail has:
-  - each route with the remote server, round trip time and pending bytes;
+  - each route with the remote server, round trip time and pending bytes, from the newest collection in which ROUTEZ answered;
   - the gateways connected (remote clusters, unset when GATEWAYZ did not answer) and the leaf node connections;
-  - the limits: maximum payload, maximum pending, write deadline, ping interval and unanswered pings, JetStream file and memory limits, and the connection limit;
-  - the limits whose value differs from the value most servers have. A tie for the most common value marks nothing;
-  - where the server runs in Kubernetes: the pod, namespace, node, when the pod was scheduled and its container restarts in the range, from the newest Kubernetes event that names the server's pod. Without such an event, as when nats-lens does not watch Kubernetes, the placement is unset. A pod whose last event is its deletion has no node;
+  - the limits: maximum payload, maximum pending, write deadline, ping interval and unanswered pings, JetStream file and memory limits, and the connection limit. Each is the newest value the server reported in the range, so a collection that missed VARZ or JSZ does not hide it;
+  - the limits whose value differs from the value most servers have. A tie for the most common value marks nothing, and a server that did not report a limit is neither marked nor counted for it;
+  - where the server runs in Kubernetes: the pod, namespace, node, when the pod was scheduled and its container restarts in the range, The pod is the one the newest Kubernetes event for the server names. The node comes from that pod's newest event with a node; after the pod's deletion it is empty until the pod is scheduled again. Events of a pod of the same name in another watched namespace do not count. Without any such event, as when nats-lens does not watch Kubernetes, the placement is unset;
   - when the configuration was loaded or last reloaded.
 - **Unreported is unset.** A limit a server did not report, such as every VARZ limit stored before nats-lens recorded them, is unset, never 0.
 
