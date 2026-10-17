@@ -74,6 +74,80 @@ message ServerSummary {
   // critical when the server did not answer in the newest epoch or its
   // HEALTHZ is not ok, ok when it is, no data without HEALTHZ.
   Status status = 17;
+
+  // Streams whose replica on the server leads; unset when not reported.
+  optional int32 stream_leaders = 18;
+
+  // Consumers whose replica on the server leads; unset when not reported.
+  optional int32 consumer_leaders = 19;
+
+  // Slow consumers counted by the server's processes inside the range;
+  // unset when no epoch in the range reported the count.
+  optional int64 slow_consumers_in_range = 20;
+
+  // Tags from the server's configuration, for example az:eu-1a.
+  repeated string tags = 21;
+}
+
+// One route connection of a server.
+message RouteView {
+  // Name of the server at the other end.
+  string remote_name = 1;
+
+  // Round trip time; unset when not reported.
+  google.protobuf.Duration rtt = 2;
+
+  // Bytes waiting to be written to the route; unset when not reported.
+  optional int64 pending_bytes = 3;
+}
+
+// Limits and settings of a server.
+message ServerLimits {
+  // Largest message payload accepted, bytes; unset when not reported.
+  optional int64 max_payload = 1;
+
+  // Unsent data a connection may hold before it is closed as a slow
+  // consumer, bytes; unset when not reported.
+  optional int64 max_pending = 2;
+
+  // Time a write to a client may take before the connection is closed as
+  // a slow consumer; unset when not reported.
+  google.protobuf.Duration write_deadline = 3;
+
+  // Interval between PINGs on an idle connection; unset when not
+  // reported.
+  google.protobuf.Duration ping_interval = 4;
+
+  // Unanswered PINGs after which a connection is closed as stale; unset
+  // when not reported.
+  optional int32 max_pings_out = 5;
+
+  // JetStream file storage limit, bytes; unset when not reported.
+  optional int64 js_max_storage = 6;
+
+  // JetStream memory storage limit, bytes; unset when not reported.
+  optional int64 js_max_memory = 7;
+
+  // Client connection limit; unset when not reported.
+  optional int32 max_connections = 8;
+}
+
+// Where a server runs in Kubernetes, as the watcher last recorded it.
+message KubernetesPlacement {
+  // Pod name.
+  string pod = 1;
+
+  // Pod namespace.
+  string namespace = 2;
+
+  // Node the pod runs on; empty while the pod is not scheduled.
+  string node = 3;
+
+  // When the pod was scheduled on the node; unset when not recorded.
+  google.protobuf.Timestamp scheduled_at = 4;
+
+  // Container restarts of the pod recorded inside the range.
+  int32 restarts_in_range = 5;
 }
 
 // Outcome of one monitoring request to a server.
@@ -169,6 +243,30 @@ message GetServerResponse {
   // Configuration digest; differs between servers with different
   // configuration.
   string config_digest = 10;
+
+  // Route connections now, one per route.
+  repeated RouteView route_views = 11;
+
+  // Gateways, by remote cluster name, connected now; unset when not
+  // reported.
+  optional int32 gateways = 12;
+
+  // Leaf node connections now; unset when not reported.
+  optional int32 leafnodes = 13;
+
+  // Limits and settings now; unset when the server reported none.
+  ServerLimits limits = 14;
+
+  // Names of the limits fields whose value differs from the value most
+  // servers in the newest epoch have, for example max_payload.
+  repeated string limits_differ = 15;
+
+  // Where the server runs in Kubernetes; unset when nats-lens did not
+  // record the server's pod.
+  KubernetesPlacement kubernetes = 16;
+
+  // When the configuration was loaded or last reloaded.
+  google.protobuf.Timestamp config_loaded_at = 17;
 }
 
 // One client connection.

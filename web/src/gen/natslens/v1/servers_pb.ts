@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/servers.proto.
  */
 export const file_natslens_v1_servers: GenFile = /*@__PURE__*/
-  fileDesc("ChluYXRzbGVucy92MS9zZXJ2ZXJzLnByb3RvEgtuYXRzbGVucy52MSLKBAoNU2VydmVyU3VtbWFyeRIMCgRuYW1lGAEgASgJEhEKCXNlcnZlcl9pZBgCIAEoCRIPCgd2ZXJzaW9uGAMgASgJEg8KB2NsdXN0ZXIYBCABKAkSLgoKc3RhcnRfdGltZRgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKQoGdXB0aW1lGAYgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEiUKBHJvbGUYByABKA4yFy5uYXRzbGVucy52MS5TZXJ2ZXJSb2xlEg8KB3ByZXNlbnQYCCABKAgSDwoHaGVhbHRoehgJIAEoCRIVCg1oZWFsdGh6X2Vycm9yGAogASgJEiwKCHJlc3RhcnRzGAsgAygLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIYCgtjb25uZWN0aW9ucxgMIAEoA0gAiAEBEh0KEGpzX3N0b3JhZ2VfYnl0ZXMYDSABKANIAYgBARIhChRqc19tYXhfc3RvcmFnZV9ieXRlcxgOIAEoA0gCiAEBEhYKCW1lbV9ieXRlcxgPIAEoA0gDiAEBEhgKC2NwdV9wZXJjZW50GBAgASgBSASIAQESIwoGc3RhdHVzGBEgASgOMhMubmF0c2xlbnMudjEuU3RhdHVzQg4KDF9jb25uZWN0aW9uc0ITChFfanNfc3RvcmFnZV9ieXRlc0IXChVfanNfbWF4X3N0b3JhZ2VfYnl0ZXNCDAoKX21lbV9ieXRlc0IOCgxfY3B1X3BlcmNlbnQiQQoPRW5kcG9pbnRPdXRjb21lEhAKCGVuZHBvaW50GAEgASgJEg0KBXN0YXRlGAIgASgJEg0KBWVycm9yGAMgASgJIrEBCg1TZXJ2ZXJQcm9jZXNzEhEKCXNlcnZlcl9pZBgBIAEoCRIuCgpzdGFydF90aW1lGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgpmaXJzdF9zZWVuGAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBItCglsYXN0X3NlZW4YBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIksKEkxpc3RTZXJ2ZXJzUmVxdWVzdBIlCgVyYW5nZRgBIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRIOCgZzeXN0ZW0YAiABKAkiZQoTTGlzdFNlcnZlcnNSZXNwb25zZRIrCgdzZXJ2ZXJzGAEgAygLMhoubmF0c2xlbnMudjEuU2VydmVyU3VtbWFyeRIQCghleHBlY3RlZBgCIAMoCRIPCgdtaXNzaW5nGAMgAygJIlcKEEdldFNlcnZlclJlcXVlc3QSDAoEbmFtZRgBIAEoCRIlCgVyYW5nZRgCIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRIOCgZzeXN0ZW0YAyABKAkinQMKEUdldFNlcnZlclJlc3BvbnNlEioKBnNlcnZlchgBIAEoCzIaLm5hdHNsZW5zLnYxLlNlcnZlclN1bW1hcnkSLwoJZW5kcG9pbnRzGAIgAygLMhwubmF0c2xlbnMudjEuRW5kcG9pbnRPdXRjb21lEi0KCXByb2Nlc3NlcxgDIAMoCzIaLm5hdHNsZW5zLnYxLlNlcnZlclByb2Nlc3MSGgoNc3Vic2NyaXB0aW9ucxgEIAEoA0gAiAEBEhsKDnNsb3dfY29uc3VtZXJzGAUgASgDSAGIAQESEwoGcm91dGVzGAYgASgFSAKIAQESFwoKanNfc3RyZWFtcxgHIAEoBUgDiAEBEhkKDGpzX2NvbnN1bWVycxgIIAEoBUgEiAEBEhMKC21ldGFfbGVhZGVyGAkgASgJEhUKDWNvbmZpZ19kaWdlc3QYCiABKAlCEAoOX3N1YnNjcmlwdGlvbnNCEQoPX3Nsb3dfY29uc3VtZXJzQgkKB19yb3V0ZXNCDQoLX2pzX3N0cmVhbXNCDwoNX2pzX2NvbnN1bWVycyLoBAoKQ29ubmVjdGlvbhILCgNrZXkYFCABKAkSDgoGc2VydmVyGAEgASgJEgsKA2NpZBgCIAEoAxIMCgRuYW1lGAMgASgJEgwKBGxhbmcYBCABKAkSDwoHdmVyc2lvbhgFIAEoCRIPCgdhY2NvdW50GAYgASgJEgwKBHVzZXIYByABKAkSCgoCaXAYCCABKAkSEQoEcG9ydBgJIAEoBUgAiAEBEi4KCnN0YXJ0X3RpbWUYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjEKDWxhc3RfYWN0aXZpdHkYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiYKA3J0dBgMIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIaCg1wZW5kaW5nX2J5dGVzGA0gASgDSAGIAQESFAoHaW5fbXNncxgOIAEoA0gCiAEBEhUKCG91dF9tc2dzGA8gASgDSAOIAQESFQoIaW5fYnl0ZXMYECABKANIBIgBARIWCglvdXRfYnl0ZXMYESABKANIBYgBARITCgZzdGFsbHMYEiABKANIBogBARIaCg1zdWJzY3JpcHRpb25zGBMgASgDSAeIAQESFAoMYWNjb3VudF9uYW1lGBUgASgJEg8KB3Rvb2xpbmcYFiABKAhCBwoFX3BvcnRCEAoOX3BlbmRpbmdfYnl0ZXNCCgoIX2luX21zZ3NCCwoJX291dF9tc2dzQgsKCV9pbl9ieXRlc0IMCgpfb3V0X2J5dGVzQgkKB19zdGFsbHNCEAoOX3N1YnNjcmlwdGlvbnMixwEKFkxpc3RDb25uZWN0aW9uc1JlcXVlc3QSJQoFcmFuZ2UYASABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2USDgoGc2VydmVyGAIgASgJEg8KB2FjY291bnQYAyABKAkSFQoNbmFtZV9jb250YWlucxgEIAEoCRIRCglwYWdlX3NpemUYBSABKAUSEgoKcGFnZV90b2tlbhgGIAEoCRIXCg9pbmNsdWRlX3Rvb2xpbmcYByABKAgSDgoGc3lzdGVtGAggASgJIpwBChdMaXN0Q29ubmVjdGlvbnNSZXNwb25zZRIsCgtjb25uZWN0aW9ucxgBIAMoCzIXLm5hdHNsZW5zLnYxLkNvbm5lY3Rpb24SFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJEhMKC3RvdGFsX2NvdW50GAMgASgFEg0KBWVwb2NoGAQgASgDEhYKDnRvb2xpbmdfaGlkZGVuGAUgASgFKn4KClNlcnZlclJvbGUSGwoXU0VSVkVSX1JPTEVfVU5TUEVDSUZJRUQQABIbChdTRVJWRVJfUk9MRV9NRVRBX0xFQURFUhABEhgKFFNFUlZFUl9ST0xFX0ZPTExPV0VSEAISHAoYU0VSVkVSX1JPTEVfTk9fSkVUU1RSRUFNEANCQlpAZ2l0aHViLmNvbS9zaGFkb25lL25hdHMtbGVucy9pbnRlcm5hbC9nZW4vbmF0c2xlbnMvdjE7bmF0c2xlbnN2MWIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common]);
+  fileDesc("ChluYXRzbGVucy92MS9zZXJ2ZXJzLnByb3RvEgtuYXRzbGVucy52MSL+BQoNU2VydmVyU3VtbWFyeRIMCgRuYW1lGAEgASgJEhEKCXNlcnZlcl9pZBgCIAEoCRIPCgd2ZXJzaW9uGAMgASgJEg8KB2NsdXN0ZXIYBCABKAkSLgoKc3RhcnRfdGltZRgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKQoGdXB0aW1lGAYgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEiUKBHJvbGUYByABKA4yFy5uYXRzbGVucy52MS5TZXJ2ZXJSb2xlEg8KB3ByZXNlbnQYCCABKAgSDwoHaGVhbHRoehgJIAEoCRIVCg1oZWFsdGh6X2Vycm9yGAogASgJEiwKCHJlc3RhcnRzGAsgAygLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIYCgtjb25uZWN0aW9ucxgMIAEoA0gAiAEBEh0KEGpzX3N0b3JhZ2VfYnl0ZXMYDSABKANIAYgBARIhChRqc19tYXhfc3RvcmFnZV9ieXRlcxgOIAEoA0gCiAEBEhYKCW1lbV9ieXRlcxgPIAEoA0gDiAEBEhgKC2NwdV9wZXJjZW50GBAgASgBSASIAQESIwoGc3RhdHVzGBEgASgOMhMubmF0c2xlbnMudjEuU3RhdHVzEhsKDnN0cmVhbV9sZWFkZXJzGBIgASgFSAWIAQESHQoQY29uc3VtZXJfbGVhZGVycxgTIAEoBUgGiAEBEiQKF3Nsb3dfY29uc3VtZXJzX2luX3JhbmdlGBQgASgDSAeIAQESDAoEdGFncxgVIAMoCUIOCgxfY29ubmVjdGlvbnNCEwoRX2pzX3N0b3JhZ2VfYnl0ZXNCFwoVX2pzX21heF9zdG9yYWdlX2J5dGVzQgwKCl9tZW1fYnl0ZXNCDgoMX2NwdV9wZXJjZW50QhEKD19zdHJlYW1fbGVhZGVyc0ITChFfY29uc3VtZXJfbGVhZGVyc0IaChhfc2xvd19jb25zdW1lcnNfaW5fcmFuZ2UidgoJUm91dGVWaWV3EhMKC3JlbW90ZV9uYW1lGAEgASgJEiYKA3J0dBgCIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIaCg1wZW5kaW5nX2J5dGVzGAMgASgDSACIAQFCEAoOX3BlbmRpbmdfYnl0ZXMihQMKDFNlcnZlckxpbWl0cxIYCgttYXhfcGF5bG9hZBgBIAEoA0gAiAEBEhgKC21heF9wZW5kaW5nGAIgASgDSAGIAQESMQoOd3JpdGVfZGVhZGxpbmUYAyABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SMAoNcGluZ19pbnRlcnZhbBgEIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIaCg1tYXhfcGluZ3Nfb3V0GAUgASgFSAKIAQESGwoOanNfbWF4X3N0b3JhZ2UYBiABKANIA4gBARIaCg1qc19tYXhfbWVtb3J5GAcgASgDSASIAQESHAoPbWF4X2Nvbm5lY3Rpb25zGAggASgFSAWIAQFCDgoMX21heF9wYXlsb2FkQg4KDF9tYXhfcGVuZGluZ0IQCg5fbWF4X3BpbmdzX291dEIRCg9fanNfbWF4X3N0b3JhZ2VCEAoOX2pzX21heF9tZW1vcnlCEgoQX21heF9jb25uZWN0aW9ucyKQAQoTS3ViZXJuZXRlc1BsYWNlbWVudBILCgNwb2QYASABKAkSEQoJbmFtZXNwYWNlGAIgASgJEgwKBG5vZGUYAyABKAkSMAoMc2NoZWR1bGVkX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIZChFyZXN0YXJ0c19pbl9yYW5nZRgFIAEoBSJBCg9FbmRwb2ludE91dGNvbWUSEAoIZW5kcG9pbnQYASABKAkSDQoFc3RhdGUYAiABKAkSDQoFZXJyb3IYAyABKAkisQEKDVNlcnZlclByb2Nlc3MSEQoJc2VydmVyX2lkGAEgASgJEi4KCnN0YXJ0X3RpbWUYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCmZpcnN0X3NlZW4YAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi0KCWxhc3Rfc2VlbhgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiSwoSTGlzdFNlcnZlcnNSZXF1ZXN0EiUKBXJhbmdlGAEgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEg4KBnN5c3RlbRgCIAEoCSJlChNMaXN0U2VydmVyc1Jlc3BvbnNlEisKB3NlcnZlcnMYASADKAsyGi5uYXRzbGVucy52MS5TZXJ2ZXJTdW1tYXJ5EhAKCGV4cGVjdGVkGAIgAygJEg8KB21pc3NpbmcYAyADKAkiVwoQR2V0U2VydmVyUmVxdWVzdBIMCgRuYW1lGAEgASgJEiUKBXJhbmdlGAIgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEg4KBnN5c3RlbRgDIAEoCSLCBQoRR2V0U2VydmVyUmVzcG9uc2USKgoGc2VydmVyGAEgASgLMhoubmF0c2xlbnMudjEuU2VydmVyU3VtbWFyeRIvCgllbmRwb2ludHMYAiADKAsyHC5uYXRzbGVucy52MS5FbmRwb2ludE91dGNvbWUSLQoJcHJvY2Vzc2VzGAMgAygLMhoubmF0c2xlbnMudjEuU2VydmVyUHJvY2VzcxIaCg1zdWJzY3JpcHRpb25zGAQgASgDSACIAQESGwoOc2xvd19jb25zdW1lcnMYBSABKANIAYgBARITCgZyb3V0ZXMYBiABKAVIAogBARIXCgpqc19zdHJlYW1zGAcgASgFSAOIAQESGQoManNfY29uc3VtZXJzGAggASgFSASIAQESEwoLbWV0YV9sZWFkZXIYCSABKAkSFQoNY29uZmlnX2RpZ2VzdBgKIAEoCRIrCgtyb3V0ZV92aWV3cxgLIAMoCzIWLm5hdHNsZW5zLnYxLlJvdXRlVmlldxIVCghnYXRld2F5cxgMIAEoBUgFiAEBEhYKCWxlYWZub2RlcxgNIAEoBUgGiAEBEikKBmxpbWl0cxgOIAEoCzIZLm5hdHNsZW5zLnYxLlNlcnZlckxpbWl0cxIVCg1saW1pdHNfZGlmZmVyGA8gAygJEjQKCmt1YmVybmV0ZXMYECABKAsyIC5uYXRzbGVucy52MS5LdWJlcm5ldGVzUGxhY2VtZW50EjQKEGNvbmZpZ19sb2FkZWRfYXQYESABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wQhAKDl9zdWJzY3JpcHRpb25zQhEKD19zbG93X2NvbnN1bWVyc0IJCgdfcm91dGVzQg0KC19qc19zdHJlYW1zQg8KDV9qc19jb25zdW1lcnNCCwoJX2dhdGV3YXlzQgwKCl9sZWFmbm9kZXMi6AQKCkNvbm5lY3Rpb24SCwoDa2V5GBQgASgJEg4KBnNlcnZlchgBIAEoCRILCgNjaWQYAiABKAMSDAoEbmFtZRgDIAEoCRIMCgRsYW5nGAQgASgJEg8KB3ZlcnNpb24YBSABKAkSDwoHYWNjb3VudBgGIAEoCRIMCgR1c2VyGAcgASgJEgoKAmlwGAggASgJEhEKBHBvcnQYCSABKAVIAIgBARIuCgpzdGFydF90aW1lGAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIxCg1sYXN0X2FjdGl2aXR5GAsgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBImCgNydHQYDCABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SGgoNcGVuZGluZ19ieXRlcxgNIAEoA0gBiAEBEhQKB2luX21zZ3MYDiABKANIAogBARIVCghvdXRfbXNncxgPIAEoA0gDiAEBEhUKCGluX2J5dGVzGBAgASgDSASIAQESFgoJb3V0X2J5dGVzGBEgASgDSAWIAQESEwoGc3RhbGxzGBIgASgDSAaIAQESGgoNc3Vic2NyaXB0aW9ucxgTIAEoA0gHiAEBEhQKDGFjY291bnRfbmFtZRgVIAEoCRIPCgd0b29saW5nGBYgASgIQgcKBV9wb3J0QhAKDl9wZW5kaW5nX2J5dGVzQgoKCF9pbl9tc2dzQgsKCV9vdXRfbXNnc0ILCglfaW5fYnl0ZXNCDAoKX291dF9ieXRlc0IJCgdfc3RhbGxzQhAKDl9zdWJzY3JpcHRpb25zIscBChZMaXN0Q29ubmVjdGlvbnNSZXF1ZXN0EiUKBXJhbmdlGAEgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEg4KBnNlcnZlchgCIAEoCRIPCgdhY2NvdW50GAMgASgJEhUKDW5hbWVfY29udGFpbnMYBCABKAkSEQoJcGFnZV9zaXplGAUgASgFEhIKCnBhZ2VfdG9rZW4YBiABKAkSFwoPaW5jbHVkZV90b29saW5nGAcgASgIEg4KBnN5c3RlbRgIIAEoCSKcAQoXTGlzdENvbm5lY3Rpb25zUmVzcG9uc2USLAoLY29ubmVjdGlvbnMYASADKAsyFy5uYXRzbGVucy52MS5Db25uZWN0aW9uEhcKD25leHRfcGFnZV90b2tlbhgCIAEoCRITCgt0b3RhbF9jb3VudBgDIAEoBRINCgVlcG9jaBgEIAEoAxIWCg50b29saW5nX2hpZGRlbhgFIAEoBSp+CgpTZXJ2ZXJSb2xlEhsKF1NFUlZFUl9ST0xFX1VOU1BFQ0lGSUVEEAASGwoXU0VSVkVSX1JPTEVfTUVUQV9MRUFERVIQARIYChRTRVJWRVJfUk9MRV9GT0xMT1dFUhACEhwKGFNFUlZFUl9ST0xFX05PX0pFVFNUUkVBTRADQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common]);
 
 /**
  * One server as of the end of the range.
@@ -142,6 +142,35 @@ export type ServerSummary = Message<"natslens.v1.ServerSummary"> & {
    * @generated from field: natslens.v1.Status status = 17;
    */
   status: Status;
+
+  /**
+   * Streams whose replica on the server leads; unset when not reported.
+   *
+   * @generated from field: optional int32 stream_leaders = 18;
+   */
+  streamLeaders?: number | undefined;
+
+  /**
+   * Consumers whose replica on the server leads; unset when not reported.
+   *
+   * @generated from field: optional int32 consumer_leaders = 19;
+   */
+  consumerLeaders?: number | undefined;
+
+  /**
+   * Slow consumers counted by the server's processes inside the range;
+   * unset when no epoch in the range reported the count.
+   *
+   * @generated from field: optional int64 slow_consumers_in_range = 20;
+   */
+  slowConsumersInRange?: bigint | undefined;
+
+  /**
+   * Tags from the server's configuration, for example az:eu-1a.
+   *
+   * @generated from field: repeated string tags = 21;
+   */
+  tags: string[];
 };
 
 /**
@@ -150,6 +179,164 @@ export type ServerSummary = Message<"natslens.v1.ServerSummary"> & {
  */
 export const ServerSummarySchema: GenMessage<ServerSummary> = /*@__PURE__*/
   messageDesc(file_natslens_v1_servers, 0);
+
+/**
+ * One route connection of a server.
+ *
+ * @generated from message natslens.v1.RouteView
+ */
+export type RouteView = Message<"natslens.v1.RouteView"> & {
+  /**
+   * Name of the server at the other end.
+   *
+   * @generated from field: string remote_name = 1;
+   */
+  remoteName: string;
+
+  /**
+   * Round trip time; unset when not reported.
+   *
+   * @generated from field: google.protobuf.Duration rtt = 2;
+   */
+  rtt?: Duration | undefined;
+
+  /**
+   * Bytes waiting to be written to the route; unset when not reported.
+   *
+   * @generated from field: optional int64 pending_bytes = 3;
+   */
+  pendingBytes?: bigint | undefined;
+};
+
+/**
+ * Describes the message natslens.v1.RouteView.
+ * Use `create(RouteViewSchema)` to create a new message.
+ */
+export const RouteViewSchema: GenMessage<RouteView> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_servers, 1);
+
+/**
+ * Limits and settings of a server.
+ *
+ * @generated from message natslens.v1.ServerLimits
+ */
+export type ServerLimits = Message<"natslens.v1.ServerLimits"> & {
+  /**
+   * Largest message payload accepted, bytes; unset when not reported.
+   *
+   * @generated from field: optional int64 max_payload = 1;
+   */
+  maxPayload?: bigint | undefined;
+
+  /**
+   * Unsent data a connection may hold before it is closed as a slow
+   * consumer, bytes; unset when not reported.
+   *
+   * @generated from field: optional int64 max_pending = 2;
+   */
+  maxPending?: bigint | undefined;
+
+  /**
+   * Time a write to a client may take before the connection is closed as
+   * a slow consumer; unset when not reported.
+   *
+   * @generated from field: google.protobuf.Duration write_deadline = 3;
+   */
+  writeDeadline?: Duration | undefined;
+
+  /**
+   * Interval between PINGs on an idle connection; unset when not
+   * reported.
+   *
+   * @generated from field: google.protobuf.Duration ping_interval = 4;
+   */
+  pingInterval?: Duration | undefined;
+
+  /**
+   * Unanswered PINGs after which a connection is closed as stale; unset
+   * when not reported.
+   *
+   * @generated from field: optional int32 max_pings_out = 5;
+   */
+  maxPingsOut?: number | undefined;
+
+  /**
+   * JetStream file storage limit, bytes; unset when not reported.
+   *
+   * @generated from field: optional int64 js_max_storage = 6;
+   */
+  jsMaxStorage?: bigint | undefined;
+
+  /**
+   * JetStream memory storage limit, bytes; unset when not reported.
+   *
+   * @generated from field: optional int64 js_max_memory = 7;
+   */
+  jsMaxMemory?: bigint | undefined;
+
+  /**
+   * Client connection limit; unset when not reported.
+   *
+   * @generated from field: optional int32 max_connections = 8;
+   */
+  maxConnections?: number | undefined;
+};
+
+/**
+ * Describes the message natslens.v1.ServerLimits.
+ * Use `create(ServerLimitsSchema)` to create a new message.
+ */
+export const ServerLimitsSchema: GenMessage<ServerLimits> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_servers, 2);
+
+/**
+ * Where a server runs in Kubernetes, as the watcher last recorded it.
+ *
+ * @generated from message natslens.v1.KubernetesPlacement
+ */
+export type KubernetesPlacement = Message<"natslens.v1.KubernetesPlacement"> & {
+  /**
+   * Pod name.
+   *
+   * @generated from field: string pod = 1;
+   */
+  pod: string;
+
+  /**
+   * Pod namespace.
+   *
+   * @generated from field: string namespace = 2;
+   */
+  namespace: string;
+
+  /**
+   * Node the pod runs on; empty while the pod is not scheduled.
+   *
+   * @generated from field: string node = 3;
+   */
+  node: string;
+
+  /**
+   * When the pod was scheduled on the node; unset when not recorded.
+   *
+   * @generated from field: google.protobuf.Timestamp scheduled_at = 4;
+   */
+  scheduledAt?: Timestamp | undefined;
+
+  /**
+   * Container restarts of the pod recorded inside the range.
+   *
+   * @generated from field: int32 restarts_in_range = 5;
+   */
+  restartsInRange: number;
+};
+
+/**
+ * Describes the message natslens.v1.KubernetesPlacement.
+ * Use `create(KubernetesPlacementSchema)` to create a new message.
+ */
+export const KubernetesPlacementSchema: GenMessage<KubernetesPlacement> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_servers, 3);
 
 /**
  * Outcome of one monitoring request to a server.
@@ -184,7 +371,7 @@ export type EndpointOutcome = Message<"natslens.v1.EndpointOutcome"> & {
  * Use `create(EndpointOutcomeSchema)` to create a new message.
  */
 export const EndpointOutcomeSchema: GenMessage<EndpointOutcome> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_servers, 1);
+  messageDesc(file_natslens_v1_servers, 4);
 
 /**
  * One process lifetime of a server.
@@ -226,7 +413,7 @@ export type ServerProcess = Message<"natslens.v1.ServerProcess"> & {
  * Use `create(ServerProcessSchema)` to create a new message.
  */
 export const ServerProcessSchema: GenMessage<ServerProcess> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_servers, 2);
+  messageDesc(file_natslens_v1_servers, 5);
 
 /**
  * Request for the servers.
@@ -254,7 +441,7 @@ export type ListServersRequest = Message<"natslens.v1.ListServersRequest"> & {
  * Use `create(ListServersRequestSchema)` to create a new message.
  */
 export const ListServersRequestSchema: GenMessage<ListServersRequest> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_servers, 3);
+  messageDesc(file_natslens_v1_servers, 6);
 
 /**
  * Servers by name.
@@ -289,7 +476,7 @@ export type ListServersResponse = Message<"natslens.v1.ListServersResponse"> & {
  * Use `create(ListServersResponseSchema)` to create a new message.
  */
 export const ListServersResponseSchema: GenMessage<ListServersResponse> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_servers, 4);
+  messageDesc(file_natslens_v1_servers, 7);
 
 /**
  * Request for one server.
@@ -324,7 +511,7 @@ export type GetServerRequest = Message<"natslens.v1.GetServerRequest"> & {
  * Use `create(GetServerRequestSchema)` to create a new message.
  */
 export const GetServerRequestSchema: GenMessage<GetServerRequest> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_servers, 5);
+  messageDesc(file_natslens_v1_servers, 8);
 
 /**
  * One server in detail.
@@ -403,6 +590,58 @@ export type GetServerResponse = Message<"natslens.v1.GetServerResponse"> & {
    * @generated from field: string config_digest = 10;
    */
   configDigest: string;
+
+  /**
+   * Route connections now, one per route.
+   *
+   * @generated from field: repeated natslens.v1.RouteView route_views = 11;
+   */
+  routeViews: RouteView[];
+
+  /**
+   * Gateways, by remote cluster name, connected now; unset when not
+   * reported.
+   *
+   * @generated from field: optional int32 gateways = 12;
+   */
+  gateways?: number | undefined;
+
+  /**
+   * Leaf node connections now; unset when not reported.
+   *
+   * @generated from field: optional int32 leafnodes = 13;
+   */
+  leafnodes?: number | undefined;
+
+  /**
+   * Limits and settings now; unset when the server reported none.
+   *
+   * @generated from field: natslens.v1.ServerLimits limits = 14;
+   */
+  limits?: ServerLimits | undefined;
+
+  /**
+   * Names of the limits fields whose value differs from the value most
+   * servers in the newest epoch have, for example max_payload.
+   *
+   * @generated from field: repeated string limits_differ = 15;
+   */
+  limitsDiffer: string[];
+
+  /**
+   * Where the server runs in Kubernetes; unset when nats-lens did not
+   * record the server's pod.
+   *
+   * @generated from field: natslens.v1.KubernetesPlacement kubernetes = 16;
+   */
+  kubernetes?: KubernetesPlacement | undefined;
+
+  /**
+   * When the configuration was loaded or last reloaded.
+   *
+   * @generated from field: google.protobuf.Timestamp config_loaded_at = 17;
+   */
+  configLoadedAt?: Timestamp | undefined;
 };
 
 /**
@@ -410,7 +649,7 @@ export type GetServerResponse = Message<"natslens.v1.GetServerResponse"> & {
  * Use `create(GetServerResponseSchema)` to create a new message.
  */
 export const GetServerResponseSchema: GenMessage<GetServerResponse> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_servers, 6);
+  messageDesc(file_natslens_v1_servers, 9);
 
 /**
  * One client connection.
@@ -581,7 +820,7 @@ export type Connection = Message<"natslens.v1.Connection"> & {
  * Use `create(ConnectionSchema)` to create a new message.
  */
 export const ConnectionSchema: GenMessage<Connection> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_servers, 7);
+  messageDesc(file_natslens_v1_servers, 10);
 
 /**
  * Request for the client connections of the newest epoch in a range.
@@ -653,7 +892,7 @@ export type ListConnectionsRequest = Message<"natslens.v1.ListConnectionsRequest
  * Use `create(ListConnectionsRequestSchema)` to create a new message.
  */
 export const ListConnectionsRequestSchema: GenMessage<ListConnectionsRequest> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_servers, 8);
+  messageDesc(file_natslens_v1_servers, 11);
 
 /**
  * Connections, ordered by server and connection ID.
@@ -703,7 +942,7 @@ export type ListConnectionsResponse = Message<"natslens.v1.ListConnectionsRespon
  * Use `create(ListConnectionsResponseSchema)` to create a new message.
  */
 export const ListConnectionsResponseSchema: GenMessage<ListConnectionsResponse> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_servers, 9);
+  messageDesc(file_natslens_v1_servers, 12);
 
 /**
  * Role of a server in the JetStream meta group.
