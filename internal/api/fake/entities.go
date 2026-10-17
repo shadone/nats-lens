@@ -10,7 +10,7 @@ import (
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
-// Cluster is the scenario's cluster name.
+// Cluster is example-prod's cluster name, which is also its system ID.
 const Cluster = "example-prod"
 
 // Account is the JetStream account of every stream in the scenario.
@@ -41,10 +41,6 @@ func consumerRef(stream, consumer string) *v1.EntityRef {
 
 func serverRef(name string) *v1.EntityRef {
 	return &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SERVER, Key: name, Name: name, Server: name}
-}
-
-func systemRef() *v1.EntityRef {
-	return &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SYSTEM, Name: Cluster}
 }
 
 func clientRef(name string) *v1.EntityRef {
