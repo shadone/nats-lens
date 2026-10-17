@@ -44,7 +44,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | server | One `nats-server` process, known by its stable server name. A restart gives the server a new server ID but keeps its name. |
 | cluster | The servers joined by routes under one cluster name. The UI header shows the cluster name. |
 | account | A NATS account, as the servers report it (the account ID in operator mode), shown with its readable name when nats-lens knows it. |
-| epoch | One snapshot of the whole system: every server's monitoring reports, taken once per collect interval and stored in one transaction. The UI and these docs call it a **collection** where the user sees it ("the newest collection in the range"); the database, the API and the configuration call it an epoch. |
+| epoch | One snapshot of the whole system: every server's monitoring reports, taken once per collect interval and stored in one transaction. These docs call it a **collection** in prose; the UI, the database, the API and the configuration call it an epoch (for example "the newest epoch of the range"). |
 | asset | A JetStream object a server holds: a stream, a consumer, a KV bucket or an object store. A KV bucket is the stream `KV_<bucket>` and an object store the stream `OBJ_<bucket>`. |
 | check | One rule that nats-lens evaluates after every epoch, with a code such as `stream-001`, a severity and thresholds. |
 | finding | One check failing for one entity (a server, stream, consumer, client or the whole system). A finding fires, can change severity, and resolves. |

@@ -13,7 +13,7 @@ The Events page lists every event in the time range, newest first: NATS advisori
 - **Four sources.** NATS, Kubernetes, Findings and Collector. With none chosen ("All"), every source is shown; several can be chosen at once.
 - **Filters.** Kinds as a comma-separated list (for example `consumer.deleted, stream.deleted`), and a client connection name. Links from a server, stream or consumer page add that entity as a filter, which "Clear" removes. A stream or consumer filter also matches events that carry the account's readable name instead of its ID.
 - **Newest first, by time.** The list shows 50 events per page; "Newer" and "Older" move through the pages by time, so events that arrive while I read do not shift them.
-- **One row per event.** A row shows the time, the source, a badge for finding events (NEW, CHANGED, FLAPPING, RESOLVED), the event's type or kind, and its summary.
+- **One row per event.** A row shows the time, the source, a badge for finding events (NEW, CHANGED, RESOLVED; the demo also shows FLAPPING), the event's type or kind, and its summary.
 - **Open an event.** Opening a row shows the findings it raised (each with severity, code, name, value, remediation and related settings), its fields (kind, server, account, stream, consumer, client, client host, reason, time and receive time), "Raw payload" with the stored JSON, and "Link to this event".
 - **One event on top.** A link with `?id=` shows that event, opened, above the list.
 - **Linked entities.** Server, stream and consumer names in an event link to their pages, and a client name links to its connections.
