@@ -1,10 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { Tile } from "../api/model";
-import { TileCard } from "../components/Tiles";
+import { OverviewTiles } from "../components/OverviewTiles";
 import { fmtBytes, fmtCount } from "../lib/format";
 import { MiniLine } from "./MiniLine";
-import { LimitBar, RangeBar } from "./RangeBar";
 import { SeriesChart } from "./SeriesChart";
 import { Sparkline } from "./Sparkline";
 
@@ -43,16 +42,6 @@ describe("chart accessible names", () => {
     expect(screen.getByRole("img", { name: "jobs bytes, current 5, last 7 days" })).toBeInTheDocument();
   });
 
-  it("RangeBar names the metric, current value, min, max and range", () => {
-    render(<RangeBar min={10} max={1204} current={1204} fmt={fmtCount} label="Messages pending" period={period} />);
-    expect(screen.getByRole("img", { name: `Messages pending, current 1,204, min 10, max 1,204, ${period}` })).toBeInTheDocument();
-  });
-
-  it("LimitBar names the metric and current value", () => {
-    render(<LimitBar max={512} current={256} limit={1024} limitText="1 KiB" label="Storage" currentText="256 B" />);
-    expect(screen.getByRole("img", { name: "Storage, current 256 B, 25.0% of 1 KiB used" })).toBeInTheDocument();
-  });
-
   it("a tile's sparkline carries the tile's value and unit", () => {
     const t: Tile = {
       id: "storage",
@@ -65,7 +54,7 @@ describe("chart accessible names", () => {
       status: "ok",
       series: { metric: "m", unit: "bytes", stepMs: 1, points: pts, min: 900, max: 5 * 1024 ** 3 },
     };
-    render(<TileCard t={t} windows={[]} start={start} end={end} />);
+    render(<OverviewTiles tiles={[t]} windows={[]} start={start} end={end} />);
     expect(screen.getByRole("img", { name: `Stored, current 5 GiB, ${period}` })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /^Stored, current 5 GiB, min .*, max 5 GiB, 16 Oct/ })).toBeInTheDocument();
   });
