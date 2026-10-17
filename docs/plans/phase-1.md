@@ -29,7 +29,7 @@ Every task updates the README sections and `docs/features/` docs it changes, and
 | T3 | merged |
 | T4 | merged |
 | T5 | merged |
-| T6 | not started |
+| T6 | merged |
 | T7 | merged |
 | T8 | merged |
 | T9 | not started |
