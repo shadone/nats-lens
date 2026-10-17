@@ -34,7 +34,7 @@ After every collection, nats-lens runs its checks against what it just stored. E
 - **Surfaces:** `ui`
 - **Given** a stream with three replicas, two of them on servers that are down
 - **When** nats-lens collects twice in a row and sees no quorum
-- **Then** `stream-001` "Stream quorum lost" fires as critical for that stream, with the replicas that are online
+- **Then** `stream-001` "Stream quorum lost" fires as critical for that stream, and its detail lists each reporting server's view of the leader
 - **When** the servers come back and the stream has a leader again
 - **Then** the finding resolves, and its transitions show when it fired and when it resolved
 

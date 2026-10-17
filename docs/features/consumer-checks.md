@@ -72,7 +72,7 @@ The consumer checks judge each JetStream consumer: whether it keeps quorum, whet
 - **Fires when:** any setting differs between the servers' current configurations (ack policy, `ack_wait`, `max_deliver`, filters, `max_ack_pending` and the others), a missing value included. The creation time is `consumer-009`'s.
 - **Severity:** warning.
 - **Thresholds:** none.
-- **Left out:** restarting servers, until they have caught up.
+- **Left out:** servers that restarted within `checks.restart_window` (10 minutes by default).
 
 ### `consumer-009` Consumer creation time differs across servers
 
@@ -80,13 +80,13 @@ The consumer checks judge each JetStream consumer: whether it keeps quorum, whet
 - **Fires when:** the creation times differ. The positions agree when a replica is at most `position_tolerance` (or `position_tolerance_ratio` of the leader's position, if that is more) behind the leader and at most `position_ahead_tolerance` (or `position_ahead_tolerance_ratio`, if that is more) ahead of it, current or not.
 - **Severity:** info. Warning when the positions differ as well, in this collection and the previous one. A replica behind by more than the tolerance in two collections warns even while it catches up, but only here, where the creation times differ.
 - **Thresholds:** `position_tolerance` 100, `position_tolerance_ratio` 0.01, `position_ahead_tolerance` 10, `position_ahead_tolerance_ratio` 0.001.
-- **Left out:** restarting servers, until they have caught up.
+- **Left out:** servers that restarted within `checks.restart_window` (10 minutes by default).
 
 ### `consumer-010` Expected consumer missing
 
 - **Problem:** a durable consumer that the inventory lists is reported by no server.
 - **Fires when:** no server reports the consumer in this collection. When the events hold its `consumer.deleted` advisory, or the `stream.deleted` advisory of its stream, the detail names the time and the client that deleted it.
-- **Severity:** critical. While a server that held it when it was last reported (any server, if it never was) is not ready, the consumer may still be there: info when that server is restarting or announced its shutdown, warning when it did not answer or has JetStream disabled. A delete event since its last report makes it critical in any case.
+- **Severity:** critical. While a server that held it when it was last reported (any server, if it never was) is not ready, the consumer may still be there: info when that server is restarting or announced its shutdown, warning when it did not answer or has JetStream disabled. A delete event since its last report makes it critical in any case, and so do ready holders that lack it once they are a quorum of those that held it; while they are fewer, the not-ready rule above applies.
 - **Thresholds:** none; it reads `inventory_file`.
 - **Left out:** consumers not in the inventory (see `consumer-013`). The remediation warns against restarting the owning service first, because a service that recreates a durable with `deliver_policy: all` replays the stream.
 

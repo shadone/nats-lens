@@ -93,7 +93,7 @@ The server checks judge each NATS server on its own: whether it answers, whether
 ### `server-011` Connection churn
 
 - **Problem:** clients reconnect over and over, or something opens a connection per request.
-- **Fires when:** within the lookback, the server accepted at least `min_new` new connections and at least `churn_ratio` times the connections it holds, in each of the last `min_epochs` collections. A firing finding resolves only once the count falls below `resolve_ratio` of both thresholds, so churn that hovers at the threshold does not flap. The detail names the three clients that connected most, from the `client.connect` and `client.churn` events.
+- **Fires when:** within the lookback, the server accepted at least `min_new` new connections and at least `churn_ratio` times the connections it holds, in each of the last `min_epochs` collections. A firing finding stays firing while the count is at or above `resolve_ratio` of both thresholds, and resolves once it falls below either, so churn that hovers at the threshold does not flap. The detail names the three clients that connected most, from the `client.connect` and `client.churn` events.
 - **Severity:** warning.
 - **Thresholds:** lookback 10m, `min_new` 50, `churn_ratio` 0.5, `min_epochs` 2, `resolve_ratio` 0.8.
 - **Left out:** tooling connections, from the client list in the detail only. The count itself comes from the server's connection counter and includes them.
@@ -135,7 +135,7 @@ The server checks judge each NATS server on its own: whether it answers, whether
 - **Keyed by server name.** A server finding belongs to the server's name, so a restart does not start a new finding.
 - **Counters are read per process.** The checks that count growth of a server counter (`server-009`, `server-010`, `server-011`, `server-014`, `server-015`) compare values of the same server process, because a restart resets the counters.
 - **Planned restarts are quiet.** `server-001` is info for an announced stop, `server-003` is a warning while a server restarts, and `server-002` leaves out a restarting server's catch-up errors.
-- **The remediation names the next step.** Each check's remediation points at the related check, such as `client-003` for the clients behind `server-009`.
+- **The remediation names the next step.** Where another check covers the cause or the clients, the remediation points at it, such as `client-003` for the clients behind `server-009`.
 
 ## Scenarios
 
@@ -155,13 +155,14 @@ The server checks judge each NATS server on its own: whether it answers, whether
 
 - **Given** a server that restarts four times within an hour with the same version and configuration
 - **When** nats-lens collects
-- **Then** `server-004` is critical, and its detail counts the restarts without an upgrade or configuration change
+- **Then** `server-004` is critical, and its detail reads like "restarted at … with version … unchanged; 4 restarts in the last 1h"
+- **And** the detail counts the restarts without an upgrade or configuration change separately only when some restarts came with one
 
 ### A disk fills
 
 - **Given** a server whose file store grew steadily over the last six hours
 - **When** the forecast says it is full in two days
-- **Then** `server-014` "JetStream store full soon" is critical, with the growth per day and the date it fills in the detail
+- **Then** `server-014` "JetStream store full soon" is critical, with the growth per day and the time left ("full in 2 days", or in hours when under a day) in the detail
 
 ### Tune the store warning
 
