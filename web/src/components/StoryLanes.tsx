@@ -18,6 +18,11 @@ interface Props {
   live: boolean;
 }
 
+/** "2 checks fired": the checks with any cell other than ok or no data, info included. */
+function firedNote(n: number): string {
+  return `${n} ${n === 1 ? "check" : "checks"} fired`;
+}
+
 function pct(v: number): string {
   return `${(Math.min(1, Math.max(0, v)) * 100).toFixed(3)}%`;
 }
@@ -91,7 +96,7 @@ export function StoryLanes({ tl, end, live }: Props) {
     {
       id: "findings",
       name: "Findings",
-      note: tl.rows.length ? `${new Set(tl.rows.filter((r) => r.cells.some((c) => c !== "ok" && c !== "nodata")).map((r) => r.checkCode)).size} checks not ok` : "no check ran",
+      note: tl.rows.length ? firedNote(new Set(tl.rows.filter((r) => r.cells.some((c) => c !== "ok" && c !== "nodata")).map((r) => r.checkCode)).size) : "no check ran",
       label: `Findings: ${runs.length ? runsText(runs) : "ok throughout"}`,
       marks: (
         <>
