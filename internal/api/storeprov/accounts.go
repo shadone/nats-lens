@@ -13,10 +13,15 @@ import (
 // Streams and consumers are counted from the JSZ detail; without detail,
 // a JSZ count of zero is zero and any other count is unknown, since the
 // servers count each replica.
+// A range without an epoch lists the accounts seen up to its end, every
+// count unset, so that an account picker is not empty.
 func (p *Provider) ListAccounts(ctx context.Context, req *v1.ListAccountsRequest) (*v1.ListAccountsResponse, error) {
 	e, ok, err := p.latestEpoch(ctx, req.GetRange())
-	if err != nil || !ok {
-		return &v1.ListAccountsResponse{}, err
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return p.accountsSeen(ctx, req.GetRange())
 	}
 	rows, err := p.db().QueryContext(ctx, `
 WITH st AS (
@@ -68,4 +73,31 @@ func jsCount(detail, reported sql.NullInt64) *int32 {
 		return ptr(int32(0))
 	}
 	return nil
+}
+
+// accountsSeen lists the accounts some epoch before the range's end
+// reported, without counts.
+func (p *Provider) accountsSeen(ctx context.Context, r *v1.TimeRange) (*v1.ListAccountsResponse, error) {
+	_, end := span(r)
+	rows, err := p.db().QueryContext(ctx, `
+SELECT account, account_name, is_system FROM accounts
+WHERE first_epoch <= (SELECT max(epoch) FROM epochs WHERE started_at < ?)
+ORDER BY account`, end)
+	if err != nil {
+		return nil, fmt.Errorf("accounts seen: %w", err)
+	}
+	defer rows.Close()
+	res := &v1.ListAccountsResponse{}
+	for rows.Next() {
+		var a v1.Account
+		var name sql.NullString
+		if err := rows.Scan(&a.Account, &name, &a.IsSystem); err != nil {
+			return nil, err
+		}
+		if name.String != a.Account {
+			a.AccountName = name.String
+		}
+		res.Accounts = append(res.Accounts, &a)
+	}
+	return res, rows.Err()
 }

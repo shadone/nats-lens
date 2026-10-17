@@ -209,7 +209,8 @@ export type ListAccountsRequest = Message<"natslens.v1.ListAccountsRequest"> & {
 
   /**
    * Range whose newest epoch is read. Unset means the last 24 hours up to
-   * now.
+   * now. A range without an epoch lists the accounts seen up to its
+   * end, with every count unset.
    *
    * @generated from field: natslens.v1.TimeRange range = 2;
    */
