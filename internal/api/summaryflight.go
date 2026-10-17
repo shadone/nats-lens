@@ -28,9 +28,11 @@ type summaryFlight struct {
 	// the run's context ended.
 	ready chan struct{}
 	res   summaryResult
-	// waiters counts the calls waiting on the run; guarded by
+	// waiters counts the calls waiting on the run, and dead is set once
+	// the last of them left and the run was cancelled; both guarded by
 	// summaryFlights.mu.
 	waiters int
+	dead    bool
 }
 
 // summaryFlights are the summary runs whose provider has not returned,
@@ -50,6 +52,9 @@ func (fs *summaryFlights) join(id, key string, timeout time.Duration, start func
 	for _, f := range fs.m[id] {
 		if time.Since(f.started) >= timeout {
 			return nil
+		}
+		if f.dead {
+			continue
 		}
 		select {
 		case <-f.ready:
@@ -79,6 +84,7 @@ func (fs *summaryFlights) leave(f *summaryFlight) {
 	defer fs.mu.Unlock()
 	f.waiters--
 	if f.waiters == 0 {
+		f.dead = true
 		f.cancel()
 	}
 }

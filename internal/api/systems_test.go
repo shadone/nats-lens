@@ -685,3 +685,49 @@ func TestListSystemsCoalescesConcurrentCalls(t *testing.T) {
 		t.Errorf("after another range: %d summaries, want 2", got)
 	}
 }
+
+// firstHangs blocks its first summary until the context ends, and answers
+// every later one.
+type firstHangs struct {
+	renamed
+	calls   *atomic.Int32
+	entered chan struct{}
+}
+
+func (f firstHangs) SystemSummary(ctx context.Context, req *v1.ListSystemsRequest) (*v1.SystemSummary, error) {
+	if f.calls.Add(1) == 1 {
+		close(f.entered)
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	return f.renamed.SystemSummary(ctx, req)
+}
+
+// A caller that arrives just after the last waiter of a run went away
+// starts its own run instead of joining the cancelled one. One processor
+// makes the next caller run before the cancelled run's result is set.
+func TestListSystemsDoesNotJoinACancelledRun(t *testing.T) {
+	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(1))
+	for i := range 1000 {
+		systems, a, _ := twoSystems()
+		p := firstHangs{renamed: a, calls: &atomic.Int32{}, entered: make(chan struct{})}
+		systems[0].Provider = p
+		h := &api.Handler{Systems: systems, SummaryTimeout: 2 * time.Second, Log: slog.New(slog.DiscardHandler)}
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			_, _ = h.ListSystems(ctx, connect.NewRequest(&v1.ListSystemsRequest{}))
+		}()
+		<-p.entered
+		cancel()
+		<-done
+		res, err := h.ListSystems(context.Background(), connect.NewRequest(&v1.ListSystemsRequest{}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if s := res.Msg.GetSystems()[0]; s.GetError() != "" || s.GetServers() != 3 {
+			t.Fatalf("iteration %d: the caller after a cancel got %q", i, s.GetError())
+		}
+	}
+}
