@@ -25,12 +25,13 @@ latest AS (
   FROM server_stats ss WHERE ss.epoch <= ? AND ss.server_id IN (SELECT server_id FROM procs WHERE rn = 1)),
 -- The slow consumer counter's increase per process inside the range, as
 -- the cluster.slow_consumers series counts it; a restart starts a new count.
+-- Rows without the counter are left out, so they do not break the difference.
 slow AS (
   SELECT s.server_name, coalesce(sum(d) FILTER (WHERE d >= 0), 0) AS inc, count(sc) AS n FROM (
     SELECT ss.server_id, ss.slow_consumers AS sc,
       ss.slow_consumers - lag(ss.slow_consumers) OVER (PARTITION BY ss.server_id ORDER BY ss.epoch) AS d
     FROM server_stats ss JOIN epochs e USING (epoch)
-    WHERE e.started_at >= ? AND e.started_at < ? AND ss.epoch <= ?) x
+    WHERE e.started_at >= ? AND e.started_at < ? AND ss.epoch <= ? AND ss.slow_consumers IS NOT NULL) x
   JOIN servers s USING (server_id) WHERE (? = '' OR s.server_name = ?) GROUP BY s.server_name)
 SELECT p.server_name, p.server_id, coalesce(l.version, p.version), p.cluster, coalesce(l.start_time, p.start_time),
   l.epoch = ?, l.js_enabled, l.meta_leader, h.status, h.error,
