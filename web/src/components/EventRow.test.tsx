@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { LensEvent } from "../api/model";
 import { eventPath } from "../lib/view";
 import { renderApp } from "../test/render";
-import { EventRow } from "./EventRow";
+import { EventRow, repeatText } from "./EventRow";
 
 const awkward = "nats:A/s?x=1&range=7d #2";
 
@@ -40,5 +40,21 @@ describe("event links", () => {
     expect(url.pathname).toBe("/events");
     expect(url.searchParams.get("id")).toBe(awkward);
     expect(url.searchParams.get("range")).toBe("6h");
+  });
+});
+
+describe("repeat text", () => {
+  const t = Date.UTC(2026, 9, 17, 9, 0);
+  it("says nothing for one event", () => {
+    expect(repeatText(1, t - 60_000, t)).toBeUndefined();
+    expect(repeatText(undefined, undefined, t)).toBeUndefined();
+  });
+  it("gives the count and the span", () => {
+    expect(repeatText(5, t - 6 * 60_000, t)).toBe("×5 in 6 min");
+    expect(repeatText(3, t - 40_000, t)).toBe("×3 in 40 s");
+    expect(repeatText(9, t - 2 * 3_600_000, t)).toBe("×9 in 2h");
+  });
+  it("gives the count alone when the events share one time", () => {
+    expect(repeatText(4, t, t)).toBe("×4");
   });
 });

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { Finding, LensEvent } from "../api/model";
 import { useEvent } from "../api/queries";
-import { eventWhen, isoSecond } from "../lib/format";
+import { eventWhen, fmtDuration, isoSecond } from "../lib/format";
 import { AccountName } from "./AccountName";
 import { SOURCE_CLASS, SOURCE_PILL, consumerPath, eventPath, findingPath, findingTag, serverPath, streamPath } from "../lib/view";
 import { ErrorBox, KV, RLink, Remediation } from "./common";
@@ -51,7 +51,7 @@ function RaisedFinding({ f, label }: { f: Finding; label: string }) {
   );
 }
 
-function Fields({ e }: { e: LensEvent }) {
+function Fields({ e }: { e: LensEvent & { repeats?: number; firstTime?: number } }) {
   const rows: [string, React.ReactNode][] = [];
   if (e.kind) rows.push(["kind", e.kind]);
   if (e.server) rows.push(["server", <RLink to={serverPath(e.server)}>{e.server}</RLink>]);
@@ -62,6 +62,8 @@ function Fields({ e }: { e: LensEvent }) {
   if (e.clientName) rows.push(["client", <RLink to={`/connections?name=${encodeURIComponent(e.clientName)}`}>{e.clientName}</RLink>]);
   if (e.clientHost) rows.push(["client host", e.clientHost]);
   if (e.reason) rows.push(["reason", e.reason]);
+  if ((e.repeats ?? 1) > 1) rows.push(["repeats", String(e.repeats)]);
+  if ((e.repeats ?? 1) > 1 && e.firstTime !== undefined) rows.push(["first", `${isoSecond(e.firstTime)} UTC`]);
   if (e.time !== undefined) rows.push(["time", `${isoSecond(e.time)} UTC`]);
   if (e.receivedAt !== undefined) rows.push(["received", `${isoSecond(e.receivedAt)} UTC`]);
   return (
@@ -92,12 +94,24 @@ function Raw({ id }: { id: string }) {
   return <pre className="raw" tabIndex={0} aria-label="Raw payload">{text || "(empty)"}</pre>;
 }
 
-export function EventRow({ e, end, open, onToggle, compact }: { e: LensEvent; end: number; open: boolean; onToggle: () => void; compact?: boolean }) {
+/** "×5 in 6 min" for a folded row, "×5" when its events share one time;
+ * nothing for a single event. */
+export function repeatText(repeats: number | undefined, firstTime: number | undefined, time: number | undefined): string | undefined {
+  if (!repeats || repeats < 2) return undefined;
+  const span = firstTime !== undefined && time !== undefined ? time - firstTime : 0;
+  if (span < 1000) return `×${repeats}`;
+  const s = Math.round(span / 1000);
+  const within = s < 60 ? `${s} s` : s < 3600 ? `${Math.round(s / 60)} min` : fmtDuration(span);
+  return `×${repeats} in ${within}`;
+}
+
+export function EventRow({ e, end, open, onToggle, compact }: { e: LensEvent & { repeats?: number; firstTime?: number }; end: number; open: boolean; onToggle: () => void; compact?: boolean }) {
   const [raw, setRaw] = useState(false);
   const badge = eventBadge(e);
   const sev = e.severity;
   const raised = e.raised.length ? e.raised : e.finding ? [e.finding] : [];
   const detailId = `ev-${e.id}`;
+  const rep = repeatText(e.repeats, e.firstTime, e.time);
   return (
     <div className={`ev${open ? " open" : ""}${open && sev ? ` sev-${sev}` : ""}`}>
       <span className="t">{e.time !== undefined ? eventWhen(e.time, end) : "–"}</span>
@@ -107,6 +121,7 @@ export function EventRow({ e, end, open, onToggle, compact }: { e: LensEvent; en
           {badge && <span className={`badge ${badge} ${sev ?? ""}`}>{badge}</span>}
           <span className={`ty${sev === "critical" && e.source === "nats" ? " critical" : ""}`}>{e.type || e.kind}</span>
           <span className="tx">{e.summary}</span>
+          {rep && <span className="rep mono">{rep}</span>}
         </button>
       </div>
       {open && (
