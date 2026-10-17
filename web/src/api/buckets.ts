@@ -8,7 +8,7 @@ import { dur, entityOrEmpty, level, optN } from "./adapt-common";
 import { placement, type Placement } from "./adapt-placement";
 import { lens } from "./client";
 import type { Entity, Level } from "./model";
-import { LIVE_REFRESH_MS } from "./queries";
+import { LIVE_REFRESH_MS } from "../lib/timeRange";
 import { rangeInit, systemInit } from "./requests";
 
 /** What KV buckets and object stores share. Numbers not observed are unset. */
