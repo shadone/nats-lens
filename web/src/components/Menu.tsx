@@ -13,6 +13,13 @@ export interface MenuChoice {
   onSelect: () => void;
 }
 
+/** A command after the choices, such as opening another page. */
+export interface MenuAction {
+  key: string;
+  label: ReactNode;
+  onSelect: () => void;
+}
+
 interface Props {
   /** Accessible name of the button. */
   label: string;
@@ -24,11 +31,10 @@ interface Props {
   children: ReactNode;
   choices: MenuChoice[];
   align?: "left" | "right";
-  /** Rendered under the choices, such as a link to another page. */
-  footer?: ReactNode;
+  actions?: MenuAction[];
 }
 
-export function Menu({ label, menuLabel, title, className, children, choices, align = "right", footer }: Props) {
+export function Menu({ label, menuLabel, title, className, children, choices, align = "right", actions = [] }: Props) {
   const [open, setOpen] = useState(false);
   const id = useId();
   const wrap = useRef<HTMLDivElement>(null);
@@ -59,7 +65,9 @@ export function Menu({ label, menuLabel, title, className, children, choices, al
       all[(i + all.length) % all.length]?.focus();
     };
     if (e.key === "Escape") {
+      // Handled here: an open drawer around the menu stays open.
       e.preventDefault();
+      e.stopPropagation();
       close();
     } else if (e.key === "ArrowDown") go(at + 1);
     else if (e.key === "ArrowUp") go(at - 1);
@@ -112,7 +120,22 @@ export function Menu({ label, menuLabel, title, className, children, choices, al
               </span>
             </button>
           ))}
-          {footer && <div className="menu-foot">{footer}</div>}
+          {actions.length > 0 && <div className="menu-sep" role="separator" />}
+          {actions.map((a) => (
+            <button
+              key={a.key}
+              type="button"
+              role="menuitem"
+              tabIndex={-1}
+              className="menu-act"
+              onClick={() => {
+                a.onSelect();
+                close();
+              }}
+            >
+              <span className="ml">{a.label}</span>
+            </button>
+          ))}
         </div>
       )}
     </div>
