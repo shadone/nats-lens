@@ -11,7 +11,7 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 ## Behavior and rules
 
 - **The sidebar.** It shows the nats-lens mark (a link to the Overview), the system switcher, and the pages in groups: Fleet, Overview and Findings at the top; Messaging with Connections; JetStream with Streams and Consumers; Cluster with Servers and Events. A detail page marks the page it belongs to, so a stream's page marks Streams. Pages that are not built yet are not listed.
-- **Badges.** Findings carries the number of unmuted firing findings. The badge has the shape of the worst of them: filled for critical, outlined for warning, dashed for info, and a screen reader hears "Findings, 3 firing, worst critical". Without a firing finding there is no badge. Fleet carries the number of systems that are not OK (critical, warning, info, not collecting, summary unavailable or no data), shaped by the worst, and a screen reader hears "Fleet, 2 not OK, worst critical"; it counts over the last 24 hours whatever range the page shows. With every system OK there is no badge.
+- **Badges.** Findings carries the number of unmuted firing findings. The badge has the shape of the worst of them: filled for critical, outlined for warning, dashed for info, and a screen reader hears "Findings, 3 firing, worst critical". Without a firing finding there is no badge. Fleet carries the number of systems that are not OK (critical, warning, not collecting, summary unavailable or no data), shaped by the worst; a system whose only findings are info is OK and not counted, and a screen reader hears "Fleet, 2 not OK, worst critical"; it counts over the last 24 hours whatever range the page shows. With every system OK there is no badge.
 - **Collapse.** "Collapse" at the foot of the sidebar shrinks it to a rail of icons, with the badges on the icons; the choice is kept in the browser. The rail shows the system as its initials, with the name as a tooltip, and they open the same system menu.
 - **The system switcher.** It names the system, with its environment, the number of servers ("3 servers", or "2 of 3 servers" while some do not answer) and "demo" in demo mode. With several systems it opens a menu of them; picking one opens the same list page on that system (from a stream's page, Streams), keeping the range and leaving the account scope. "All systems" opens Fleet. With one system it is no menu.
 - **Fleet.** With more than one system, opening nats-lens without a system in the address lands on Fleet, a card per system that opens its Overview ([multiple-systems.md](multiple-systems.md)). With one system it lands on the Overview.
@@ -63,6 +63,12 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 - **Given** two warnings and one info fire, and none is muted
 - **When** I look at the sidebar
 - **Then** Findings has an outlined badge with 3
+
+### A system with only info findings leaves Fleet unbadged
+
+- **Given** two systems, one OK and one whose only firing finding is info
+- **When** I look at the sidebar
+- **Then** Fleet has no badge, and Findings still counts the info finding
 
 ### A link carries a broken range
 
