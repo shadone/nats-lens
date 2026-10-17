@@ -126,7 +126,8 @@ func (p *Provider) Info(context.Context) (*v1.GetLensInfoResponse, error) {
 
 // freshness describes the newest epoch inside the range.
 func (s scen) freshness(r *v1.TimeRange) *v1.Freshness {
-	f := &v1.Freshness{Live: true, Interval: dur(30 * time.Second)}
+	// A system that stopped collecting has no collector writing to it.
+	f := &v1.Freshness{Live: s.sc.stale == 0, Interval: dur(30 * time.Second)}
 	// A range that does not hold the newest epoch reports no epoch.
 	if at := s.lastEpoch(); inRange(at, r) {
 		f.Epoch, f.EpochAt, f.Age, f.Partial = s.sc.epoch, ts(at), dur(s.now.Sub(at)), s.sc.partial
