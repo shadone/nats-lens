@@ -155,7 +155,7 @@ export function Findings() {
           <input type="checkbox" checked={muted} onChange={(e) => set("muted", e.target.checked ? "" : "0")} /> Include muted
         </label>
         <form className="grp" onSubmit={applyCheck} role="search" aria-label="Filter by check">
-          <input type="search" placeholder="check code, e.g. stream-020" aria-label="Check code" value={checkText} onChange={(e) => setCheckText(e.target.value)} />
+          <input type="search" placeholder="check code, e.g. stream-004" aria-label="Check code" value={checkText} onChange={(e) => setCheckText(e.target.value)} />
           <button type="submit" className="btn">
             Filter
           </button>

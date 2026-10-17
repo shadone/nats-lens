@@ -11,8 +11,8 @@ const tl: Timeline = {
   bucketMs: Q,
   bucketCount: 4,
   rows: [
-    { key: "consumer-006", checkCode: "consumer-006", checkName: "Expected durable missing", severity: "critical", cells: ["ok", "ok", "critical", "critical"], now: "critical" },
-    { key: "server-002", checkCode: "server-002", checkName: "Healthz failing", severity: "critical", cells: ["ok", "warning", "ok", "nodata"], now: "nodata" },
+    { key: "consumer-010", checkCode: "consumer-010", checkName: "Expected consumer missing", severity: "critical", cells: ["ok", "ok", "critical", "critical"], now: "critical" },
+    { key: "server-002", checkCode: "server-002", checkName: "Healthz not ok", severity: "critical", cells: ["ok", "warning", "ok", "nodata"], now: "nodata" },
   ],
   kubernetes: [],
   nats: [],
@@ -23,7 +23,7 @@ const tl: Timeline = {
 describe("StatusTimeline", () => {
   it("draws one cell per bucket, coloured by level and titled with its time", () => {
     const { container } = render(<StatusTimeline tl={tl} end={START + 4 * Q} live asTable={false} />);
-    const svg = screen.getByRole("img", { name: /^consumer-006:/ });
+    const svg = screen.getByRole("img", { name: /^consumer-010:/ });
     const rects = svg.querySelectorAll("rect");
     expect(rects).toHaveLength(4);
     expect([...rects].map((r) => r.getAttribute("data-level"))).toEqual(["ok", "ok", "critical", "critical"]);
@@ -34,7 +34,7 @@ describe("StatusTimeline", () => {
 
   it("describes each row's runs in its label", () => {
     render(<StatusTimeline tl={tl} end={START + 4 * Q} live asTable={false} />);
-    expect(screen.getByRole("img", { name: "consumer-006: critical 09:30–10:00" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "consumer-010: critical 09:30–10:00" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "server-002: warning 09:15–09:30, no data 09:45–10:00" })).toBeInTheDocument();
   });
 

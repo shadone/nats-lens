@@ -25,7 +25,7 @@ describe("system pass-through", () => {
     window.history.replaceState(null, "", "/servers?system=example-prod");
     await listServers("example-staging", live);
     await getLensInfo("example-staging");
-    await muteFinding("example-staging", { checkCode: "stream-025", reason: "r", expiresAt: Date.now() + 3_600_000, mutedBy: "op" });
+    await muteFinding("example-staging", { checkCode: "stream-005", reason: "r", expiresAt: Date.now() + 3_600_000, mutedBy: "op" });
     await unmuteFinding("example-staging", "m1", "op");
     expect(vi.mocked(lens.listServers).mock.calls[0][0]).toMatchObject({ system: "example-staging" });
     expect(vi.mocked(lens.getLensInfo).mock.calls[0][0]).toMatchObject({ system: "example-staging" });

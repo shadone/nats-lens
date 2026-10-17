@@ -147,7 +147,7 @@ describe("mutations and the system", () => {
       </QueryClientProvider>,
     );
     await act(async () => {
-      await m!.mute.mutateAsync({ system: "sys-c", checkCode: "stream-025", reason: "r", expiresAt: Date.now() + 3_600_000, mutedBy: "op" });
+      await m!.mute.mutateAsync({ system: "sys-c", checkCode: "stream-005", reason: "r", expiresAt: Date.now() + 3_600_000, mutedBy: "op" });
       await m!.unmute.mutateAsync({ system: "sys-c", muteId: "m1", unmutedBy: "op" });
     });
     expect(vi.mocked(lens.muteFinding).mock.calls[0][0]).toMatchObject({ system: "sys-c" });
