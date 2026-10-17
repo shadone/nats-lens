@@ -43,7 +43,7 @@ export type Point = Message<"natslens.v1.Point"> & {
   /**
    * Lowest value across servers, for a band metric; unset otherwise.
    *
-   * Each epoch's lowest server value, averaged over the bucket.
+   * The lowest server value of any epoch in the bucket.
    *
    * @generated from field: optional double low = 3;
    */
@@ -52,7 +52,7 @@ export type Point = Message<"natslens.v1.Point"> & {
   /**
    * Highest value across servers, for a band metric; unset otherwise.
    *
-   * Each epoch's highest server value, averaged over the bucket.
+   * The highest server value of any epoch in the bucket.
    *
    * @generated from field: optional double high = 4;
    */
@@ -113,12 +113,16 @@ export type Series = Message<"natslens.v1.Series"> & {
   /**
    * Smallest value of the points; unset when there are no points.
    *
+   * For a band metric, the smallest low of the points.
+   *
    * @generated from field: optional double min = 6;
    */
   min?: number | undefined;
 
   /**
    * Largest value of the points; unset when there are no points.
+   *
+   * For a band metric, the largest high of the points.
    *
    * @generated from field: optional double max = 7;
    */
@@ -134,6 +138,8 @@ export type Series = Message<"natslens.v1.Series"> & {
 
   /**
    * Values of the busiest server, in the same buckets as points.
+   *
+   * Each is the server's mean over the bucket, so it lies inside the band.
    *
    * @generated from field: repeated natslens.v1.Point top_points = 9;
    */

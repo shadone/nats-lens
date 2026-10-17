@@ -146,7 +146,7 @@ Every task updates the README sections and `docs/features/` docs it changes, and
 ### T9. Overview backend: tiles, placement, busiest consumers (M)
 
 - **Proto:** `Tile`: `string description = 13`, `string value_text = 14`. `StreamSummary`: `repeated ReplicaPlacement placement = 13`. `ConsumerSummary`: `optional double delivered_per_second = 15`. `ListConsumersRequest`: `ConsumerSort sort = 6` (`{UNSPECIFIED (name), DELIVERED_RATE}`), `int32 limit = 7`. Check numbers against the files.
-- **Tiles:** servers (N / expected; versions, uptime), meta_leader (`value_text` = majority `server_stats.meta_leader`; series `cluster.meta_leader_changes`), streams (count; R3; lagging from `stream_replicas`), kv (count; R1), object_stores, consumers (durables; firing consumer-002), accounts, clients (`cluster.connections`; distinct apps before "@"; slow), storage (`cluster.js_storage_bytes`; limit = sum of `js_max_storage`; growth by the existing Theil-Sen rule). Window min/max are `Series.min`/`max`.
+- **Tiles:** servers (N / expected; versions, uptime), meta_leader (`value_text` = majority `server_stats.meta_leader`; series `cluster.meta_leader_changes`), streams (count; R3; lagging from `stream_replicas`), kv (count; R1), object_stores, consumers (durables; firing consumer-002), accounts, clients (`cluster.connections`; distinct apps before "@"; slow), storage (`cluster.js_storage_bytes`; limit = sum of `js_max_storage`; growth by the existing Theil-Sen rule). Window min/max are `Series.min`/`max`. For a band series (`cluster.cpu_percent`, `cluster.mem_bytes`) these are the lowest `low` and highest `high`, not the medians' (T6).
 - **Placement:** one square per replica: LEADER (`stream_stats.is_leader`), IN_SYNC / BEHIND / OFFLINE (the leader's `stream_replicas`), DISAGREES (differing `config_hash`), MISSING (a peer that does not report).
 - **Delivered rate:** the leader's `delivered_consumer_seq` increase over the 15 minutes before the range's end.
 - **Files:** `overview.proto`, `streams.proto`, `consumers.proto`, `internal/api/storeprov/overview.go`, `streams.go`, `consumers.go`, `internal/api/fake/tiles.go`, `jetstream.go`.
@@ -170,7 +170,7 @@ Every task updates the README sections and `docs/features/` docs it changes, and
 
 - **Result:**
   - Status line "Serving normally" plus a count badge, following the worst unmuted severity and freshness ("Not collecting" when stale).
-  - `MetricBox`: title with an (i) tooltip from `description`; the value top right, coloured by status; a line chart; a range track with min left, max right and a dot at the current value; the limit in the note; a state word only when not OK; "steady at N all window" when min equals max.
+  - `MetricBox`: title with an (i) tooltip from `description`; the value top right, coloured by status; a line chart; a range track with min left, max right and a dot at the current value (for a band series `Series.min`/`max` are the band's edges, T6); the limit in the note; a state word only when not OK; "steady at N all window" when min equals max.
   - Grouped-cause cards built client-side from `ListFindings` (by `cause.id`, else check code plus parent entity), with entities, open and mute; a strip of muted findings with their reasons.
   - Trends: servers, connections, slow consumers, msgs/s and bytes/s in and out (out dashed), CPU and memory as band + median + busiest, assets R3/R1 stacked.
   - Story lanes: Kubernetes, findings, events from `GetStatusTimeline`.

@@ -109,11 +109,11 @@ type Point struct {
 	Value float64 `protobuf:"fixed64,2,opt,name=value,proto3" json:"value,omitempty"`
 	// Lowest value across servers, for a band metric; unset otherwise.
 	//
-	// Each epoch's lowest server value, averaged over the bucket.
+	// The lowest server value of any epoch in the bucket.
 	Low *float64 `protobuf:"fixed64,3,opt,name=low,proto3,oneof" json:"low,omitempty"`
 	// Highest value across servers, for a band metric; unset otherwise.
 	//
-	// Each epoch's highest server value, averaged over the bucket.
+	// The highest server value of any epoch in the bucket.
 	High          *float64 `protobuf:"fixed64,4,opt,name=high,proto3,oneof" json:"high,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -194,13 +194,19 @@ type Series struct {
 	// data.
 	Points []*Point `protobuf:"bytes,5,rep,name=points,proto3" json:"points,omitempty"`
 	// Smallest value of the points; unset when there are no points.
+	//
+	// For a band metric, the smallest low of the points.
 	Min *float64 `protobuf:"fixed64,6,opt,name=min,proto3,oneof" json:"min,omitempty"`
 	// Largest value of the points; unset when there are no points.
+	//
+	// For a band metric, the largest high of the points.
 	Max *float64 `protobuf:"fixed64,7,opt,name=max,proto3,oneof" json:"max,omitempty"`
 	// Busiest server of a band metric: the highest mean over the range.
 	// Unset for other metrics and when no server reported.
 	Top *EntityRef `protobuf:"bytes,8,opt,name=top,proto3" json:"top,omitempty"`
 	// Values of the busiest server, in the same buckets as points.
+	//
+	// Each is the server's mean over the bucket, so it lies inside the band.
 	TopPoints     []*Point `protobuf:"bytes,9,rep,name=top_points,json=topPoints,proto3" json:"top_points,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
