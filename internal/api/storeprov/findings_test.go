@@ -166,9 +166,11 @@ func TestOverviewAndStatusesFromTheChecks(t *testing.T) {
 		t.Fatalf("tally = %v", tl)
 	}
 	for _, tile := range o.GetTiles() {
-		want := v1.Status_STATUS_OK
-		if tile.GetId() == "consumers" {
-			want = v1.Status_STATUS_WARNING
+		// The info finding is on a plain stream; no check covers accounts.
+		want := map[string]v1.Status{"consumers": v1.Status_STATUS_WARNING, "streams": v1.Status_STATUS_INFO,
+			"accounts": v1.Status_STATUS_NO_DATA}[tile.GetId()]
+		if want == v1.Status_STATUS_UNSPECIFIED {
+			want = v1.Status_STATUS_OK
 		}
 		if tile.Value != nil && tile.GetStatus() != want {
 			t.Errorf("tile %s status %v, want %v", tile.GetId(), tile.GetStatus(), want)

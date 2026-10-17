@@ -68,22 +68,21 @@ func TestOverviewFromSnapshots(t *testing.T) {
 	for _, tile := range o.GetTiles() {
 		tiles[tile.GetId()] = tile
 	}
-	if got := tiles["servers"]; got.GetValue() != 2 || got.GetValueSuffix() != "/ 3" || got.GetSubtitle() != "v2.15.0 on all" {
+	if got := tiles["servers"]; got.GetValue() != 2 || got.GetValueSuffix() != "/ 3" || got.GetSubtitle() != "v2.15.0 on all · up 0 min" {
 		t.Fatalf("servers tile %v", got)
 	}
-	if got := tiles["connections"].GetValue(); got != 4 {
-		t.Fatalf("connections = %v", got)
+	if got := tiles["clients"].GetValue(); got != 4 {
+		t.Fatalf("clients = %v", got)
 	}
-	// Each server's in_msgs grows by 300 per 30 s epoch (10/s); nats-1's
-	// restart before the third epoch must not count as a negative rate.
-	if got := tiles["msgs_rate"].GetValue(); got != 10 {
-		t.Fatalf("in rate at the third epoch = %v, want 10 (nats-0 only)", got)
+	if got := tiles["clients"].GetSubtitle(); got != "2 apps · 3 slow" {
+		t.Fatalf("clients subtitle = %q, want 2 apps and 3 slow consumer events (nats-0 0, 1, 2 and the old nats-1 0, 1; the new process starts a new count)", got)
 	}
-	if got := tiles["slow_consumers"].GetValue(); got != 3 {
-		t.Fatalf("slow consumers = %v, want 3 (nats-0 0, 1, 2 and the old nats-1 0, 1; the new process starts a new count)", got)
+	if got := tiles["consumers"]; got.GetValue() != 5 || got.Value2 != nil || got.GetSubtitle() != "0 behind" {
+		t.Fatalf("consumers tile = %v", got)
 	}
-	if got := tiles["consumers"]; got.GetValue() != 5 || got.GetValue2() != 1 {
-		t.Fatalf("consumers tile = %v durable, %v ephemeral", got.GetValue(), got.GetValue2())
+	// Growth needs six hours of data; the fixture holds a minute.
+	if got := tiles["storage"]; got.GetLimit() != 100<<30 || got.GetValueSuffix() != "of 100 GiB" || got.GetSubtitle() != "0.5% used" {
+		t.Fatalf("storage tile = %v", got)
 	}
 }
 
