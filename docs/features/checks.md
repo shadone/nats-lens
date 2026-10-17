@@ -10,7 +10,7 @@ After every collection, nats-lens runs its checks against what it just stored. E
 
 ## Behavior and rules
 
-- **One finding per check and entity.** A finding has a check code (for example `stream-001`), an entity, a severity, a one-line detail and, where the check measures something, a value with its name, such as "replicas online". Client findings are keyed by connection name, so a finding survives reconnects.
+- **One finding per check and entity.** A finding has a check code (for example `stream-001`), an entity, a severity, a one-line detail and, where the check measures something, a value with its name, such as "replicas online". Client findings are keyed by connection name (for `client-001`, the part of the name before "@"), so a finding survives reconnects.
 - **Three severities.** `critical` means messages are at risk now, for example quorum is lost or a durable consumer disappeared. `warning` means something will break or is degrading. `info` means something worth knowing, such as a restart, a version difference or a stream without limits. A check has a default severity, and many checks raise or lower it by rule; for example, server store usage is a warning from 75% and critical from 90%.
 - **Findings start, change and resolve by themselves.** A newly failing entity starts a finding as **firing**. A severity change is recorded as **changed**. When the check no longer reports the entity, the finding is **resolved**. Every step is kept as a transition with the time of its collection, and every transition is also an event.
 - **Flapping is called out.** A finding that resolved more than three times in the hour before a collection is marked **flapping**, so it is not mistaken for a series of separate incidents.

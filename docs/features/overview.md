@@ -21,7 +21,7 @@ NATS on its own is a black box to most of the people who run it. The servers ans
 ## Behavior and rules
 
 - **One process does everything.** `natslens run` collects, captures events, runs the checks, archives the history, and serves the API and the UI. It needs a user of the system account and, for stream and consumer advisories, a user per JetStream account.
-- **Read-only towards NATS.** nats-lens only subscribes and sends monitoring requests. It never publishes to an application subject, never restarts a server and never edits a stream. The only writes it makes are to its own database: mutes.
+- **Read-only towards NATS.** nats-lens only subscribes and sends monitoring requests. It never publishes to an application subject, never restarts a server and never edits a stream. The only changes a user can make are mutes, and they go to nats-lens's own database.
 - **Every server's own view is kept.** nats-lens never merges the servers into one answer. A single-replica asset appears only on its host, and when servers disagree about an asset, the disagreement is visible and can be a finding.
 - **Silence is never read as health.** A server that does not answer, a collection that misses a reply, or a period when nats-lens itself was not running is recorded as such and shown.
 - **The nouns.** These are the product's words, each with one meaning (see the table of terms in [README.md](README.md)):
