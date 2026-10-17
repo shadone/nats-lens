@@ -163,6 +163,8 @@ export function useEventFeed(spec: RangeSpec, f: FeedFilter) {
   return useQuery({
     queryKey: ["eventFeed", sys, rangeKey(spec), feedKey(f)],
     queryFn: ({ signal }) => listEventFeed(sys, spec, f, signal),
+    // Never stale: going back to page 1 shows it as read, not refetched.
+    staleTime: Infinity,
     refetchOnWindowFocus: false,
     placeholderData: keepPreviousData,
   });

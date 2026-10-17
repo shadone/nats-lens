@@ -74,14 +74,11 @@ function RoutineLine({ feed, onShow }: { feed: EventFeed; onShow: () => void }) 
   );
 }
 
-function FeedPager({ page, feed, folded, onNext, onPrev }: { page: number; feed: EventFeed; folded: boolean; onNext: () => void; onPrev: () => void }) {
+/** The counts are on the toggle above; the pager names only the page. */
+function FeedPager({ page, feed, onNext, onPrev }: { page: number; feed: EventFeed; onNext: () => void; onPrev: () => void }) {
   return (
     <nav className="pager" aria-label="Pagination">
-      <span>
-        {folded
-          ? `${fmtInt(feed.totalCount)} events, repeats folded · page ${page}`
-          : `${fmtInt(feed.items.length)} shown of ${fmtInt(feed.totalCount)} events · page ${page}`}
-      </span>
+      <span>page {page}</span>
       <span className="btns">
         <button type="button" className="btn" onClick={onPrev} disabled={page <= 1}>
           Newer
@@ -163,7 +160,7 @@ export function Events() {
         <span className="aside">NATS advisories, Kubernetes events, finding transitions and the collector's own records, newest first.</span>
       </div>
       {id && <OneEvent id={id} end={end} />}
-      {q.data && <EventHistogram buckets={q.data.histogram} start={q.data.start} end={q.data.end} live={spec.kind === "live"} routineHidden={worthReading} />}
+      {q.data && <EventHistogram buckets={q.data.histogram} start={q.data.start} end={q.data.end} live={spec.kind === "live"} worthReading={worthReading} />}
       {q.data && (
         <EventFacets
           feed={q.data}
@@ -196,22 +193,23 @@ export function Events() {
         )}
       </div>
       {q.data && worthReading && <RoutineLine feed={q.data} onShow={() => setParam("show", "all")} />}
+      {/* Mounted always, so a screen reader hears the pill when it appears. */}
+      <div className="ev-new" role="status" aria-live="polite">
+        {fresh > 0 && (
+          <button type="button" className="btn p" onClick={showNew} aria-label={`${fmtInt(fresh)} new events, show`}>
+            {fmtInt(fresh)} new
+          </button>
+        )}
+      </div>
       <QueryView q={q} what="events">
         {(page) => (
           <div className="card evlist">
-            {fresh > 0 && (
-              <div className="ev-new">
-                <button type="button" className="btn p" onClick={showNew}>
-                  {fmtInt(fresh)} new
-                </button>
-              </div>
-            )}
             {page.items.length === 0 ? (
               <Empty>No events match in this range.</Empty>
             ) : (
               page.items.map((e) => <EventRow key={e.id} e={e} end={end} open={open.has(e.id)} onToggle={() => toggle(e.id)} />)
             )}
-            <FeedPager page={pager.page} feed={page} folded={worthReading} onNext={() => pager.next(page.nextPageToken)} onPrev={pager.prev} />
+            <FeedPager page={pager.page} feed={page} onNext={() => pager.next(page.nextPageToken)} onPrev={pager.prev} />
           </div>
         )}
       </QueryView>

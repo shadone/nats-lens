@@ -114,6 +114,37 @@ describe("Events", () => {
     expect(within(sources).getByRole("button", { name: "Findings 0" })).toBeInTheDocument();
   });
 
+  it("keeps an empty live region for the pill before there is anything new", async () => {
+    listEvents.mockResolvedValue(response());
+    const { container } = renderApp(<Events />, "/events");
+    expect(await screen.findByText("resize-worker on order-jobs")).toBeInTheDocument();
+    const region = container.querySelector('.ev-new[role="status"]');
+    expect(region).toHaveAttribute("aria-live", "polite");
+    expect(region).toBeEmptyDOMElement();
+  });
+
+  it("says only the page in the pager", async () => {
+    listEvents.mockResolvedValue(response());
+    renderApp(<Events />, "/events");
+    const pager = await screen.findByRole("navigation", { name: "Pagination" });
+    expect(within(pager).getByText("page 1")).toBeInTheDocument();
+    expect(pager).not.toHaveTextContent(/events/);
+  });
+
+  it("keeps the first page when going back to it", async () => {
+    listEvents.mockResolvedValue(response({ nextPageToken: "p2" }));
+    renderApp(<Events />, "/events");
+    fireEvent.click(await screen.findByRole("button", { name: "Older" }));
+    await vi.waitFor(() => expect(lastRequest().pageToken).toBe("p2"));
+    const feedCalls = () => listEvents.mock.calls.filter((c) => (c[0] as { includeFacets?: boolean }).includeFacets).length;
+    const before = feedCalls();
+    fireEvent.click(await screen.findByRole("button", { name: "Newer" }));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(feedCalls()).toBe(before);
+  });
+
   it("holds new events behind a pill until it is pressed", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     listEvents.mockResolvedValue(response());
@@ -125,7 +156,8 @@ describe("Events", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(31_000);
     });
-    const pill = await screen.findByRole("button", { name: "3 new" });
+    const pill = await screen.findByRole("button", { name: "3 new events, show" });
+    expect(pill.closest('[role="status"]')).toHaveAttribute("aria-live", "polite");
     // The probe asks for one event from the shown page's start.
     const probe = lastRequest();
     expect(probe).toMatchObject({ pageSize: 1, hideRoutine: true });
@@ -139,6 +171,7 @@ describe("Events", () => {
     renderApp(<Events />, "/events");
     const legend = await screen.findByRole("list", { name: "Histogram legend" });
     for (const k of ["warning", "notable", "routine"]) expect(legend.querySelector(`svg rect.hb-${k}`)).not.toBeNull();
+    expect(legend).not.toHaveTextContent("hidden");
     const chart = screen.getByRole("img", { name: /Events over the range/ });
     expect(chart.querySelectorAll("rect.hb-warning").length).toBeGreaterThan(0);
   });
