@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"slices"
+	"strings"
 
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
@@ -22,7 +23,9 @@ type replicaReport struct {
 
 // streamReplicas reads, for every stream of the epoch (optionally one
 // account or stream), each replica's report keyed by server name.
-func (p *Provider) streamReplicas(ctx context.Context, epoch int64, account, stream string) (map[string]map[string]*replicaReport, error) {
+// prefix keeps only the streams whose name starts with it (all when
+// empty).
+func (p *Provider) streamReplicas(ctx context.Context, epoch int64, account, stream, prefix string) (map[string]map[string]*replicaReport, error) {
 	out := map[string]map[string]*replicaReport{}
 	get := func(acc, st, server string) *replicaReport {
 		key := acc + "/" + st
@@ -39,7 +42,8 @@ SELECT x.account, x.stream, s.server_name, coalesce(x.is_leader, false), coalesc
 FROM stream_stats x JOIN servers s USING (server_id)
 LEFT JOIN stream_config sc ON sc.server_id = x.server_id AND sc.account = x.account AND sc.stream = x.stream
   AND x.epoch BETWEEN sc.first_epoch AND sc.last_epoch
-WHERE x.epoch = ? AND (? = '' OR x.account = ?) AND (? = '' OR x.stream = ?)`, epoch, account, account, stream, stream)
+WHERE x.epoch = ? AND (? = '' OR x.account = ?) AND (? = '' OR x.stream = ?) AND starts_with(x.stream, ?)`,
+		epoch, account, account, stream, stream, prefix)
 	if err != nil {
 		return nil, fmt.Errorf("stream replicas: %w", err)
 	}
@@ -60,7 +64,8 @@ WHERE x.epoch = ? AND (? = '' OR x.account = ?) AND (? = '' OR x.stream = ?)`, e
 SELECT rp.account, rp.stream, rp.peer_name, rp.current, rp.offline, rp.lag FROM stream_replicas rp
 JOIN stream_stats l ON l.epoch = rp.epoch AND l.server_id = rp.server_id AND l.account = rp.account
   AND l.stream = rp.stream AND l.is_leader
-WHERE rp.epoch = ? AND (? = '' OR rp.account = ?) AND (? = '' OR rp.stream = ?)`, epoch, account, account, stream, stream)
+WHERE rp.epoch = ? AND (? = '' OR rp.account = ?) AND (? = '' OR rp.stream = ?) AND starts_with(rp.stream, ?)`,
+		epoch, account, account, stream, stream, prefix)
 	if err != nil {
 		return nil, fmt.Errorf("stream replicas: %w", err)
 	}
@@ -78,26 +83,51 @@ WHERE rp.epoch = ? AND (? = '' OR rp.account = ?) AND (? = '' OR rp.stream = ?)`
 	return out, lead.Err()
 }
 
-// placementOf turns a stream's replica reports into one square per
-// replica, by server name. The leader is LEADER. A follower whose config
-// hash differs from the leader's DISAGREES. Otherwise the leader's view
-// decides: OFFLINE, IN_SYNC when current, BEHIND when not; a replica the
-// leader lists that reports nothing itself is MISSING. Without a leader's
-// view a replica's state is unset. Configured replicas beyond the named
-// ones are MISSING with no server.
+// placementOf turns a stream's replica reports, KV and object store
+// streams' too, into one square per replica: the leader first, the rest by
+// server name, then MISSING squares without a server up to the configured
+// replicas. Its rule, in order:
+//  1. One LEADER, the first by name of the servers that claim the lead;
+//     the other claimants are followers.
+//  2. Without a leader: UNSPECIFIED, or DISAGREES when the reporting
+//     servers' non-empty config hashes differ.
+//  3. Listed by the leader as offline: OFFLINE.
+//  4. Reports nothing itself: MISSING.
+//  5. Not listed by the leader: DISAGREES.
+//  6. Not current, or a lag with current unknown: BEHIND, whatever its
+//     config hash, as a follower catching up still has the old one.
+//  7. Config hash differs from the leader's (both non-empty): DISAGREES.
+//  8. Current: IN_SYNC.
+//  9. Otherwise UNSPECIFIED.
 func placementOf(reps map[string]*replicaReport, replicas int32) []*v1.ReplicaPlacement {
-	leaderHash, hasLeader := "", false
+	leader := ""
+	hashes := map[string]bool{}
 	names := make([]string, 0, len(reps))
 	for name, r := range reps {
-		names = append(names, name)
-		if r.leader && (!hasLeader || r.hash < leaderHash) {
-			leaderHash, hasLeader = r.hash, true
+		if r.leader && (leader == "" || name < leader) {
+			leader = name
 		}
+		if r.reports && r.hash != "" {
+			hashes[r.hash] = true
+		}
+		names = append(names, name)
 	}
-	slices.Sort(names)
+	slices.SortFunc(names, func(a, b string) int {
+		if (a == leader) != (b == leader) {
+			if a == leader {
+				return -1
+			}
+			return 1
+		}
+		return strings.Compare(a, b)
+	})
 	out := make([]*v1.ReplicaPlacement, 0, max(len(names), int(replicas)))
 	for _, name := range names {
-		out = append(out, &v1.ReplicaPlacement{Server: name, State: replicaState(reps[name], hasLeader, leaderHash)})
+		st := v1.PlacementState_PLACEMENT_STATE_LEADER
+		if name != leader {
+			st = replicaState(reps[name], leader != "", reps[leader].hashOr(), len(hashes) > 1)
+		}
+		out = append(out, &v1.ReplicaPlacement{Server: name, State: st})
 	}
 	for range int(replicas) - len(names) {
 		out = append(out, &v1.ReplicaPlacement{State: v1.PlacementState_PLACEMENT_STATE_MISSING})
@@ -105,22 +135,33 @@ func placementOf(reps map[string]*replicaReport, replicas int32) []*v1.ReplicaPl
 	return out
 }
 
-func replicaState(r *replicaReport, hasLeader bool, leaderHash string) v1.PlacementState {
+// hashOr is the report's config hash; empty for a nil report.
+func (r *replicaReport) hashOr() string {
+	if r == nil {
+		return ""
+	}
+	return r.hash
+}
+
+// replicaState is a follower's state by placementOf's rule.
+func replicaState(r *replicaReport, hasLeader bool, leaderHash string, hashesDiffer bool) v1.PlacementState {
 	switch {
-	case r.leader:
-		return v1.PlacementState_PLACEMENT_STATE_LEADER
-	case r.reports && hasLeader && r.hash != "" && leaderHash != "" && r.hash != leaderHash:
+	case !hasLeader && r.reports && r.hash != "" && hashesDiffer:
 		return v1.PlacementState_PLACEMENT_STATE_DISAGREES
-	case !r.listed:
+	case !hasLeader:
 		return v1.PlacementState_PLACEMENT_STATE_UNSPECIFIED
-	case r.offline.Bool:
+	case r.listed && r.offline.Valid && r.offline.Bool:
 		return v1.PlacementState_PLACEMENT_STATE_OFFLINE
 	case !r.reports:
 		return v1.PlacementState_PLACEMENT_STATE_MISSING
+	case !r.listed:
+		return v1.PlacementState_PLACEMENT_STATE_DISAGREES
+	case (r.current.Valid && !r.current.Bool) || (!r.current.Valid && r.lag.Valid && r.lag.Int64 > 0):
+		return v1.PlacementState_PLACEMENT_STATE_BEHIND
+	case r.hash != "" && leaderHash != "" && r.hash != leaderHash:
+		return v1.PlacementState_PLACEMENT_STATE_DISAGREES
 	case r.current.Valid && r.current.Bool:
 		return v1.PlacementState_PLACEMENT_STATE_IN_SYNC
-	case r.current.Valid || r.lag.Int64 > 0:
-		return v1.PlacementState_PLACEMENT_STATE_BEHIND
 	}
 	return v1.PlacementState_PLACEMENT_STATE_UNSPECIFIED
 }
