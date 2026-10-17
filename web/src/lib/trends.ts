@@ -63,3 +63,16 @@ export function inOutText(vin: number | undefined, vout: number | undefined, uni
   const one = (v: number | undefined) => (v === undefined ? "–" : fmtValue(v, unit));
   return `${one(vin)} / ${one(vout)}`;
 }
+
+/**
+ * A band chart's texts: the median now for the header, which stays one
+ * line, and the busiest server with its value now for the legend.
+ */
+export function bandText(s: TrendSeries | undefined): { now?: string; busiest?: string } {
+  const median = lastValue(s?.points);
+  const top = lastValue(s?.topPoints);
+  return {
+    now: median === undefined || !s ? undefined : `${fmtValue(median, s.unit)} median`,
+    busiest: s?.top ? `busiest: ${s.top}${top === undefined ? "" : `, ${fmtValue(top, s.unit)}`}` : undefined,
+  };
+}

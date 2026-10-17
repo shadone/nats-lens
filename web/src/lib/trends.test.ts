@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bandEdges, inOutText, minMaxText, stack, total } from "./trends";
+import { bandEdges, bandText, inOutText, minMaxText, stack, total } from "./trends";
 
 describe("stack", () => {
   it("puts the upper series on top of the lower one, only where both have a point", () => {
@@ -43,5 +43,16 @@ describe("inOutText", () => {
     expect(inOutText(900, 2 * 1048576, "bytes_per_second")).toBe("900 B/s / 2 MiB/s");
     expect(inOutText(undefined, 3910, "per_second")).toBe("– / 3,910/s");
     expect(inOutText(undefined, undefined, "per_second")).toBeUndefined();
+  });
+});
+
+describe("bandText", () => {
+  it("heads with the median alone and names the busiest server with its value in the legend", () => {
+    const s = { metric: "cluster.mem_bytes", unit: "bytes" as const, stepMs: 1, top: "nats-1", points: [{ time: 0, value: 400 * 1048576 }], topPoints: [{ time: 0, value: 409 * 1048576 }] };
+    expect(bandText(s)).toEqual({ now: "400 MiB median", busiest: "busiest: nats-1, 409 MiB" });
+  });
+
+  it("has no text without points or a busiest server", () => {
+    expect(bandText(undefined)).toEqual({ now: undefined, busiest: undefined });
   });
 });

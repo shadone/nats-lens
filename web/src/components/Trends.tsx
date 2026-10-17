@@ -5,7 +5,7 @@
 import type { Point, Unit } from "../api/model";
 import { useTrend, type TrendSeries } from "../api/overview";
 import { bucketLabel, type RangeSpec } from "../lib/timeRange";
-import { bandEdges, inOutText, lastValue, minMaxText, stack, total } from "../lib/trends";
+import { bandEdges, bandText, inOutText, lastValue, minMaxText, stack, total } from "../lib/trends";
 import { fmtValue } from "../lib/units";
 import { errorText } from "./common";
 import { useReportStale } from "./StaleContext";
@@ -98,17 +98,16 @@ function Band({ f, metric, title }: { f: Frame; metric: string; title: string })
   useReportStale(q);
   const s = q.data;
   const unit = s?.unit ?? "count";
-  const median = fmt(lastValue(s?.points), unit);
-  const busiest = fmt(lastValue(s?.topPoints), unit);
+  const text = bandText(s);
   const layers: Layer[] = [
     { kind: "band", label: "lowest to highest server", style: { tone: "accent" }, points: bandEdges(s) },
     { kind: "line", label: "median", style: { tone: "accent" }, points: pts(s) },
   ];
-  if (s?.top) layers.push({ kind: "line", label: `busiest: ${s.top}`, style: { tone: "info", dash: true }, points: s.topPoints });
+  if (text.busiest) layers.push({ kind: "line", label: text.busiest, style: { tone: "info", dash: true }, points: s!.topPoints });
   return (
     <TrendChart
       title={title}
-      now={median === undefined ? undefined : `${median} median${busiest !== undefined && s?.top ? `, ${busiest} busiest` : ""}`}
+      now={text.now}
       summary={minMaxText(s, unit)}
       start={f.start}
       end={f.end}
