@@ -1,18 +1,40 @@
 // A metric box: a title with an (i) description, the current value top
 // right, a line chart, and a range track with the window's min on the left,
-// its max on the right and a dot at the current value. Health colours the
-// value and the dot, with a word only when it is not ok. A configured limit
+// its max on the right and a dot at the current value. A warning or
+// critical status colours the value and the dot and shows a word; info only
+// tints the dot. A configured limit
 // belongs in the note, not on the track.
 //
 // The track's ends are the series' own min and max, never widened to take
 // in the current value: a value outside them puts the dot at the nearer end
 // and the accessible name says it is above the window max or below its min.
 // Without a series there is no track; "steady at N all window" needs a
-// series whose min equals its max.
+// series whose min equals its max. A series that begins more than a bucket
+// and a half after the window's start says "since HH:MM UTC" in place of
+// the window, as the history is younger than the range.
 import { useId, useState, type ReactNode } from "react";
 import type { Level, Series, Window } from "../api/model";
 import { rangeText } from "../charts/chartLabel";
 import { Sparkline } from "../charts/Sparkline";
+import { dayMonHm, hm } from "../lib/format";
+import { isTrouble } from "../lib/view";
+
+const DAY = 86_400_000;
+
+/**
+ * When the series begins, when that is more than a bucket and a half
+ * after the window's start; undefined when it covers the window.
+ */
+export function seriesSince(series: Series | undefined, start: number): number | undefined {
+  const first = series?.points[0]?.time;
+  if (first === undefined || !series?.stepMs) return undefined;
+  return first - start > 1.5 * series.stepMs ? first : undefined;
+}
+
+/** "since 14:30 UTC", with the date when it is a day or more before the end. */
+export function sinceText(since: number, end: number): string {
+  return `since ${end - since < DAY ? hm(since) : dayMonHm(since)} UTC`;
+}
 
 export interface MetricBoxProps {
   title: string;
@@ -79,8 +101,14 @@ export function InfoTip({ label, text }: { label: string; text: string }) {
   );
 }
 
+/** The dot's tint: info too, quietly. */
 function stateClass(status: Level): string {
   return status === "critical" || status === "warning" || status === "info" ? ` st-${status}` : "";
+}
+
+/** The box's class: only trouble colours the value and shows a word. */
+function alertClass(status: Level): string {
+  return isTrouble(status) ? ` st-${status}` : "";
 }
 
 /**
@@ -88,20 +116,43 @@ function stateClass(status: Level): string {
  * clamped to the ends. Nothing without both edges; "steady" when they are
  * equal; no dot without a current value.
  */
-export function RangeTrack({ title, min, max, value, fmt, status, period, noCurrent = false }: { title: string; min?: number; max?: number; value?: number; fmt: (v: number) => string; status: Level; period: string; noCurrent?: boolean }) {
+export function RangeTrack({
+  title,
+  min,
+  max,
+  value,
+  fmt,
+  status,
+  period,
+  since,
+  noCurrent = false,
+}: {
+  title: string;
+  min?: number;
+  max?: number;
+  value?: number;
+  fmt: (v: number) => string;
+  status: Level;
+  period: string;
+  /** "since 14:30 UTC" when the series begins after the window does. */
+  since?: string;
+  noCurrent?: boolean;
+}) {
   if (min === undefined || max === undefined) return null;
   if (min === max) {
     // Without a current value a steady window says so, so a server that
     // stopped never reads as quietly steady.
-    return <div className="mb-track-note">{noCurrent ? `steady at ${fmt(min)} in the window · no current value` : `steady at ${fmt(min)} all window`}</div>;
+    const over = since ?? (noCurrent ? "in the window" : "all window");
+    return <div className="mb-track-note">{noCurrent ? `steady at ${fmt(min)} ${over} · no current value` : `steady at ${fmt(min)} ${over}`}</div>;
   }
   const frac = value === undefined ? undefined : Math.min(1, Math.max(0, (value - min) / (max - min)));
   const where = value === undefined ? "no current value" : `current ${fmt(value)}${value > max ? ", above the window max" : value < min ? ", below the window min" : ""}`;
   return (
-    <div className="mb-range" role="img" aria-label={`${title}, ${where}, min ${fmt(min)}, max ${fmt(max)}, ${period}`}>
+    <div className="mb-range" role="img" aria-label={`${title}, ${where}, min ${fmt(min)}, max ${fmt(max)}, ${since ?? period}`}>
       <div className="mb-track">{frac !== undefined && <span className={`mb-dot${stateClass(status)}`} style={{ left: `${+(frac * 100).toFixed(1)}%` }} />}</div>
       <div className="mb-ends" aria-hidden="true">
         <span>{fmt(min)}</span>
+        {since && <span className="mb-since">{since}</span>}
         <span>{fmt(max)}</span>
       </div>
     </div>
@@ -117,9 +168,11 @@ export function MetricBox(p: MetricBoxProps) {
   const min = hasWindow ? p.series!.min : undefined;
   const max = hasWindow ? p.series!.max : undefined;
   const shown = p.loading ? "…" : (p.valueText ?? (value === undefined ? "–" : p.fmt(value)));
-  const alert = stateClass(status);
+  const alert = alertClass(status);
   const word = alert ? (p.stateWord ?? status) : undefined;
   const period = rangeText(p.start, p.end);
+  const first = seriesSince(p.series, p.start);
+  const since = first === undefined ? undefined : sinceText(first, p.end);
   return (
     <div className={`card mbox${alert}`}>
       <div className="mb-h">
@@ -151,7 +204,7 @@ export function MetricBox(p: MetricBoxProps) {
           current={p.valueText ?? (value === undefined ? undefined : p.fmt(value))}
         />
       )}
-      {track && <RangeTrack title={p.title} min={min} max={max} value={value} fmt={p.fmt} status={status} period={period} noCurrent={p.value === null} />}
+      {track && <RangeTrack title={p.title} min={min} max={max} value={value} fmt={p.fmt} status={status} period={period} since={since} noCurrent={p.value === null} />}
       {track && !hasWindow && !p.error && !p.loading && <div className="mb-track-note">no data for the window</div>}
       {track && hasWindow && p.value === null && min !== max && <div className="mb-track-note">no current value</div>}
       {p.note && <div className="mb-note">{p.note}</div>}

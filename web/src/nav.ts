@@ -15,8 +15,6 @@ export interface NavItem {
   icon: string;
   /** Not built yet: hidden from the sidebar. */
   planned?: boolean;
-  /** A stand-in page that a later page replaces. */
-  placeholder?: boolean;
   badge?: BadgeSource;
   /** Reads no system: the page shows every system. */
   crossSystem?: boolean;

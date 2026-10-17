@@ -3,6 +3,7 @@ import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { lens } from "../api/client";
+import { Status } from "../gen/natslens/v1/common_pb";
 import { ListServersResponseSchema, type ListServersResponse } from "../gen/natslens/v1/servers_pb";
 import { GetTimeSeriesResponseSchema } from "../gen/natslens/v1/timeseries_pb";
 import { exampleGlobalCpu, exampleGlobalServers } from "../test/fixtures/exampleGlobal";
@@ -69,6 +70,20 @@ describe("Servers on example-global", () => {
     await userEvent.click(within(list()).getByRole("button", { name: "Show 3 more in eu" }));
     await userEvent.click(within(list()).getByRole("button", { name: "Show 3 more in us" }));
     expect(within(list()).getAllByRole("link")).toHaveLength(24);
+  });
+
+  it("shows an info finding in the State column without counting it as a reason", async () => {
+    const r = global();
+    const eu0 = r.servers.find((s) => s.name === "nats-eu-0")!;
+    eu0.status = Status.INFO;
+    serve(r);
+    renderApp(<Servers />, "/servers");
+    await screen.findByRole("region", { name: "Server list" });
+    expect(within(list()).queryByRole("link", { name: "nats-eu-0" })).toBeNull();
+    await showAll();
+    const row = within(list()).getByRole("link", { name: "nats-eu-0" }).closest("tr")!;
+    expect(row).toHaveTextContent("ok · info finding");
+    expect(row).not.toHaveClass("row-warn");
   });
 
   it("filters by name, version or tag", async () => {

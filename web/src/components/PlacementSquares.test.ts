@@ -4,8 +4,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const read = (f: string) => readFileSync(new URL(f, import.meta.url), "utf8");
-const tokens = read("./tokens.css");
-const placement = read("./placement.css");
+const tokens = read("../styles/tokens.css");
+const placement = read("../styles/placement.css");
 
 /** The token values of one block: the light :root, or the explicit dark theme. */
 function block(selector: string): Record<string, string> {

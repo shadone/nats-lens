@@ -51,8 +51,6 @@ input[type="checkbox"],input[type="radio"]{accent-color:var(--accent)}
 .raw-row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 .raw{margin:0;max-height:360px;overflow:auto;font:11.5px/1.5 var(--mono);background:var(--surface-sunk);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);white-space:pre-wrap;overflow-wrap:anywhere}
 .kv .kv-pair{display:contents}
-.sv-r .bad{color:var(--sev-critical);display:flex;align-items:center;gap:6px}
-.sv-r .bad:before{content:"";width:6px;height:6px;border-radius:2px;background:var(--sev-critical)}
 .legend .chip{padding:4px 8px;font-size:11px}
 
 /* loading, empty and error */

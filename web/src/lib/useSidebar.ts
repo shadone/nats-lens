@@ -1,6 +1,6 @@
 // Sidebar state: collapsed to a rail (kept in this browser) and the drawer
-// at phone width (open until the page changes or Escape is pressed, which
-// gives focus back to the menu button).
+// at phone width (open until the page changes, which gives focus to the
+// new page, or Escape is pressed, which gives it back to the menu button).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router";
 
@@ -57,12 +57,20 @@ export function useSidebar() {
     return () => document.removeEventListener("keydown", onKey);
   }, [drawerOpen]);
 
-  // However the drawer closes (Escape, its close button, a link, a tap
-  // beside it), focus goes back to the menu button that opened it.
+  // When the drawer closes on the same page (Escape, its close button, a
+  // tap beside it), focus goes back to the menu button that opened it.
+  // When it closes because a link opened another page, focus goes to the
+  // page, which was still inert when the route change tried to focus it.
   const wasOpen = useRef(false);
+  const openedOn = useRef(pathname);
   useEffect(() => {
-    if (wasOpen.current && !drawerOpen) document.querySelector<HTMLElement>('[aria-controls="sidebar"]')?.focus();
+    if (drawerOpen) openedOn.current = pathname;
+    else if (wasOpen.current) {
+      const target = pathname !== openedOn.current ? "#main" : '[aria-controls="sidebar"]';
+      document.querySelector<HTMLElement>(target)?.focus({ preventScroll: true });
+    }
     wasOpen.current = drawerOpen;
+    // Only an open or a close of the drawer moves focus.
   }, [drawerOpen]);
 
   /** The drawer is open and shown: only then is the page behind it inert. */

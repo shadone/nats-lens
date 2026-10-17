@@ -23,7 +23,7 @@ The Servers page shows a system's servers at a glance, built for 20 servers or m
 - **The list.**
   - Grouped by cluster, each group headed by its cluster's summary (servers, how many answer, median CPU, connections, median store). With one cluster the list is flat; a filter that leaves one of several clusters keeps its heading.
   - Problems first: a server that did not answer, then by the severity of its findings, then the other reasons below, then the rest, each by name; the group with the worst server comes first.
-  - "Needs attention" is shown by default. A server needs attention when it did not answer, a finding fires on it (a muted one does not count), its healthz is not ok, its version is not the one most servers run, or its store is at 60% of its limit or more. The State column names each reason ("did not answer · warning finding", "version 2.12.2", "store 71%").
+  - "Needs attention" is shown by default. A server needs attention when it did not answer, a warning or critical finding fires on it (info and muted ones do not count), its healthz is not ok, its version is not the one most servers run, or its store is at 60% of its limit or more. The State column names each reason ("did not answer · warning finding", "version 2.12.2", "store 71%"). An info finding is shown there too, as a notice after the reasons ("ok · info finding"), and a server with only an info finding is listed after the servers with a reason.
   - "All" shows every server, six per cluster (twenty in a flat list) with "Show N more".
   - A filter matches the name, the version or a tag.
   - Columns: server, state, role, version, uptime, CPU, memory, connections, leaders (stream and consumer leaders on the server), store with a bar and its percentage, and tags. A server that did not answer shows "–" for the numbers of the newest collection, its leaders included.
@@ -99,6 +99,12 @@ The Servers page shows a system's servers at a glance, built for 20 servers or m
 - **Given** the demo system `example-global`: 24 servers in clusters `eu`, `us` and `ap`; `nats-us-4` stopped answering, `nats-us-3` has a warning finding, `nats-ap-2`'s store is 71% full, and `nats-ap-4` and `nats-ap-5` run an older version
 - **When** I open the Servers page
 - **Then** "Needs attention 5" is selected and lists those five servers under their clusters, `nats-us-4` first in `us`, with the reasons in the State column; "All 24" lists every server
+
+### An info finding is a notice, not a reason
+
+- **Given** `nats-eu-0` has an info finding and nothing else is wrong with it
+- **When** I open the Servers page
+- **Then** it is not under "Needs attention", and under "All" its State column reads "ok · info finding"
 
 ### Colour the map by store
 

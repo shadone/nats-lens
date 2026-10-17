@@ -306,9 +306,9 @@ export function FindingDetail() {
                   </section>
                   <Around f={d.finding} end={end} historyStart={historyStart} />
                 </div>
-                <aside className="fd-side">
+                <div className="fd-side">
                   <Related e={d.finding.entity} />
-                </aside>
+                </div>
               </div>
               <Section title="Status timeline" aside="Every check for this entity over the range.">
                 <div className="card tl">

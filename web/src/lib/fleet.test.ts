@@ -44,6 +44,10 @@ describe("cardState", () => {
     expect(cardState(sys("a", { error: "deadline exceeded", status: "nodata" }))).toBe("unavailable");
   });
 
+  it("reads a system with only info findings as ok", () => {
+    expect(cardState(sys("a", { status: "info", tally: { critical: 0, warning: 0, info: 2, muted: 0, flapping: 0, resolved24h: 0 } }))).toBe("ok");
+  });
+
   it("follows the status otherwise; the demo counts as collecting", () => {
     expect(cardState(sys("a", { status: "warning", collection: "demo" }))).toBe("warning");
     expect(cardState(sys("a", { status: "nodata", collection: "starting" }))).toBe("nodata");
@@ -51,16 +55,19 @@ describe("cardState", () => {
 });
 
 describe("worstFirst", () => {
-  it("orders critical, warning, info, not collecting, then ok, keeping configuration order in a tie", () => {
+  it("orders critical, warning, not collecting, unavailable, no data, muted, then ok with info inside ok, keeping configuration order in a tie", () => {
     const list = [
       sys("ok-1"),
       sys("closed", { collection: "connection closed", status: "info" }),
       sys("info", { status: "info" }),
+      sys("muted", { status: "muted" }),
       sys("ok-2"),
+      sys("nodata", { status: "nodata" }),
+      sys("gone", { error: "deadline exceeded" }),
       sys("warn", { status: "warning" }),
       sys("crit", { status: "critical" }),
     ];
-    expect(worstFirst(list).map((s) => s.id)).toEqual(["crit", "warn", "info", "closed", "ok-1", "ok-2"]);
+    expect(worstFirst(list).map((s) => s.id)).toEqual(["crit", "warn", "closed", "gone", "nodata", "muted", "ok-1", "info", "ok-2"]);
   });
 
   it("does not reorder the list it is given", () => {
@@ -71,6 +78,13 @@ describe("worstFirst", () => {
 });
 
 describe("headline", () => {
+  it("names the info finding of an ok system, as a notice", () => {
+    const tally = { critical: 0, warning: 0, info: 2, muted: 0, flapping: 0, resolved24h: 0 };
+    const h = headline(sys("a", { status: "info", tally, worst: finding("Stream without any limit", "catalog-changes") }), NOW);
+    expect(h).toEqual({ text: "Stream without any limit: catalog-changes", more: 1 });
+    expect(headline(sys("a"), NOW).text).toBe("No findings firing");
+  });
+
   it("names the worst finding and its entity", () => {
     expect(headline(sys("a", { status: "critical", worst: finding("Expected consumer missing", "analytics-aggregator") }), NOW).text).toBe(
       "Expected consumer missing: analytics-aggregator",
@@ -114,6 +128,11 @@ describe("fleetBadge", () => {
 
   it("names a worst state that is not a severity in words", () => {
     expect(fleetBadge([sys("c", { collection: "connection closed" })])).toEqual({ count: 1, level: "nodata", what: "not OK", worst: "not collecting" });
+  });
+
+  it("does not count info findings, and counts no data", () => {
+    expect(fleetBadge([sys("a", { status: "info" })])).toBeUndefined();
+    expect(fleetBadge([sys("a", { status: "info" }), sys("b", { status: "nodata" })])).toEqual({ count: 1, level: "nodata", what: "not OK", worst: "no data" });
   });
 
   it("has no badge when every system is OK, or before the summaries arrive", () => {

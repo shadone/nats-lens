@@ -18,13 +18,14 @@ One nats-lens watches several NATS systems at once, for example production, stag
 - **One system down stops only its own collection.** A system whose NATS cannot be reached, whose credentials are rejected, or whose setup fails after the start (for example a kubeconfig that does not parse) skips its own collections and is tried again; the other systems, the API and readiness go on. Its status says why, with the error.
 - **Collection status per system.** nats-lens knows for each system whether it is starting, collecting, not connected, or closed for good after rejected credentials, the newest connection error, and when its newest collection started. `ListSystems` reports it in each system's summary.
 - **Every API call is per system.** Each call names its system; an empty name reads the first configured system, and an unknown one fails with the list of known ids. The web UI keeps the system in the address, so a shared link opens the same system.
-- **Fleet summaries in the API.** `ListSystems` returns one summary per system from data already collected, so the Fleet view never waits for NATS: the collection state (collecting, not connected, connection closed) with its error and since when, the newest epoch's age, the numbers of servers expected and answering, clusters, streams and connections, the worst finding and the tally, and a strip of the worst status per bucket of the range. A system that fails or takes longer than 5 seconds gets an error on its own card; the others still return. After a restart of nats-lens, a system that is not collecting is still reported from the collector's stored connection events.
+- **Fleet summaries in the API.** `ListSystems` returns one summary per system from data already collected, so the Fleet view never waits for NATS: the collection state (collecting, not connected, connection closed) with its error and since when, the newest epoch's age, the numbers of servers expected and answering, clusters, streams and connections, the worst finding and the tally, and a strip of the worst status per bucket of the range. A system that fails or takes longer than 5 seconds gets an error on its own card; the others still return. Calls for the same range and strip that arrive while a summary runs share it, so the parallel calls of one page load all get the same data; a summary that runs past its 5 seconds is not started again until it returns, no system has more than two summaries running at once, and calls refused for either reason get the error at once. After a restart of nats-lens, a system that is not collecting is still reported from the collector's stored connection events.
 - **A switcher.** The sidebar's switcher at the top moves between systems; a cluster switcher inside a supercluster is planned.
-- **The Fleet page, worst first.** One card per system: critical, warning, info, not collecting, then OK; systems in the same state keep their configuration order. A system that is not collecting, by its collection state or by its freshness, is "not collecting" whatever its stored findings say.
+- **Info findings are notices.** Critical, warning, not collecting and summary unavailable are trouble. A system whose only firing findings are info is OK: its card says "ok", carries the number of info findings beside the state ("1 info"), and names the worst of them as its headline.
+- **The Fleet page, worst first.** One card per system: critical, warning, not collecting, summary unavailable, no data, muted, then OK, with the systems that have info findings among the OK ones; systems in the same state keep their configuration order. A system that is not collecting, by its collection state or by its freshness, is "not collecting" whatever its stored findings say.
 - **A Fleet card.** The name and environment; the state as a shape and a word; a headline with the worst finding and how many more fire, or the collection error and since when; the servers answering of expected (in red when fewer answer), clusters, streams and connections, with a dash for a number not observed; a strip of 48 cells, the worst status of each part of the range, with a legend above the cards that draws each kind of cell; and the freshness: "live · 6s" while collections arrive, "last data 3h ago" once they stop, the newest collection's time in a fixed range. A system that is not collecting shows its counts dimmed under "At last data, 3h ago", since they are from its newest epoch. Clicking a card opens that system's Overview with the range kept.
 - **A summary that failed** says "summary unavailable" with the error, and its card still opens the system.
 - **Fleet follows the header's range.** In a live range it asks again every 30 seconds, never while the previous call is still pending.
-- **The Fleet badge.** The sidebar's Fleet entry carries the number of systems that are not OK, shaped by the worst ([navigation.md](navigation.md)).
+- **The Fleet badge.** The sidebar's Fleet entry carries the number of systems in trouble or without data, shaped by the worst; a system with only info findings is not counted ([navigation.md](navigation.md)).
 - **Metrics name the system.** The `/metrics` series carry the system they belong to, so one alert rule covers every system.
 - **Commands per system.** `natslens once -system ID` collects one system; `natslens sql` and `natslens checks run` take `-config FILE -system ID` to read one system's database.
 
@@ -65,12 +66,26 @@ One nats-lens watches several NATS systems at once, for example production, stag
 - **When** I open the Fleet page
 - **Then** production comes first with the finding as its headline, and staging says that its credentials are rejected and when its last data arrived
 
+### A system with only info findings
+
+- **Surfaces:** `ui`
+- **Given** the edge system has one info finding and nothing else fires
+- **When** I open the Fleet page
+- **Then** its card says "ok" with "1 info" beside it and the finding as its headline, it is listed among the OK systems, and the Fleet badge does not count it
+
 ### A summary that cannot be read
 
 - **Surfaces:** `ui`
 - **Given** one system's summary fails with a timeout
 - **When** I open the Fleet page
 - **Then** its card says "summary unavailable" with the error, the other cards are complete, and clicking it opens that system's Overview
+
+### Parallel calls share one summary
+
+- **Surfaces:** `api`
+- **Given** three calls to `ListSystems` for the last 24 hours arrive together
+- **When** a system's summary takes two seconds
+- **Then** every call gets that system's summary, and its database is read once
 
 ### A slow system does not hold up the Fleet
 
