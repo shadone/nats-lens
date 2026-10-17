@@ -72,6 +72,17 @@ const (
 	// LensServiceListConnectionsProcedure is the fully-qualified name of the LensService's
 	// ListConnections RPC.
 	LensServiceListConnectionsProcedure = "/natslens.v1.LensService/ListConnections"
+	// LensServiceListSystemsProcedure is the fully-qualified name of the LensService's ListSystems RPC.
+	LensServiceListSystemsProcedure = "/natslens.v1.LensService/ListSystems"
+	// LensServiceListAccountsProcedure is the fully-qualified name of the LensService's ListAccounts
+	// RPC.
+	LensServiceListAccountsProcedure = "/natslens.v1.LensService/ListAccounts"
+	// LensServiceListKeyValueStoresProcedure is the fully-qualified name of the LensService's
+	// ListKeyValueStores RPC.
+	LensServiceListKeyValueStoresProcedure = "/natslens.v1.LensService/ListKeyValueStores"
+	// LensServiceListObjectStoresProcedure is the fully-qualified name of the LensService's
+	// ListObjectStores RPC.
+	LensServiceListObjectStoresProcedure = "/natslens.v1.LensService/ListObjectStores"
 	// LensServiceListMetricsProcedure is the fully-qualified name of the LensService's ListMetrics RPC.
 	LensServiceListMetricsProcedure = "/natslens.v1.LensService/ListMetrics"
 	// LensServiceGetTimeSeriesProcedure is the fully-qualified name of the LensService's GetTimeSeries
@@ -116,6 +127,14 @@ type LensServiceClient interface {
 	GetServer(context.Context, *connect.Request[v1.GetServerRequest]) (*connect.Response[v1.GetServerResponse], error)
 	// Client connections of the newest epoch in a range.
 	ListConnections(context.Context, *connect.Request[v1.ListConnectionsRequest]) (*connect.Response[v1.ListConnectionsResponse], error)
+	// The systems nats-lens observes, in configuration order.
+	ListSystems(context.Context, *connect.Request[v1.ListSystemsRequest]) (*connect.Response[v1.ListSystemsResponse], error)
+	// Accounts of a system with their connection, stream and consumer counts.
+	ListAccounts(context.Context, *connect.Request[v1.ListAccountsRequest]) (*connect.Response[v1.ListAccountsResponse], error)
+	// Key-value stores of a system.
+	ListKeyValueStores(context.Context, *connect.Request[v1.ListKeyValueStoresRequest]) (*connect.Response[v1.ListKeyValueStoresResponse], error)
+	// Object stores of a system.
+	ListObjectStores(context.Context, *connect.Request[v1.ListObjectStoresRequest]) (*connect.Response[v1.ListObjectStoresResponse], error)
 	// The metrics GetTimeSeries serves.
 	ListMetrics(context.Context, *connect.Request[v1.ListMetricsRequest]) (*connect.Response[v1.ListMetricsResponse], error)
 	// One metric of one entity over a range, downsampled.
@@ -250,6 +269,34 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		listSystems: connect.NewClient[v1.ListSystemsRequest, v1.ListSystemsResponse](
+			httpClient,
+			baseURL+LensServiceListSystemsProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("ListSystems")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		listAccounts: connect.NewClient[v1.ListAccountsRequest, v1.ListAccountsResponse](
+			httpClient,
+			baseURL+LensServiceListAccountsProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("ListAccounts")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		listKeyValueStores: connect.NewClient[v1.ListKeyValueStoresRequest, v1.ListKeyValueStoresResponse](
+			httpClient,
+			baseURL+LensServiceListKeyValueStoresProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("ListKeyValueStores")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		listObjectStores: connect.NewClient[v1.ListObjectStoresRequest, v1.ListObjectStoresResponse](
+			httpClient,
+			baseURL+LensServiceListObjectStoresProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("ListObjectStores")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		listMetrics: connect.NewClient[v1.ListMetricsRequest, v1.ListMetricsResponse](
 			httpClient,
 			baseURL+LensServiceListMetricsProcedure,
@@ -269,25 +316,29 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 
 // lensServiceClient implements LensServiceClient.
 type lensServiceClient struct {
-	getLensInfo       *connect.Client[v1.GetLensInfoRequest, v1.GetLensInfoResponse]
-	getOverview       *connect.Client[v1.GetOverviewRequest, v1.GetOverviewResponse]
-	listFindings      *connect.Client[v1.ListFindingsRequest, v1.ListFindingsResponse]
-	getFinding        *connect.Client[v1.GetFindingRequest, v1.GetFindingResponse]
-	muteFinding       *connect.Client[v1.MuteFindingRequest, v1.MuteFindingResponse]
-	unmuteFinding     *connect.Client[v1.UnmuteFindingRequest, v1.UnmuteFindingResponse]
-	listMutes         *connect.Client[v1.ListMutesRequest, v1.ListMutesResponse]
-	getStatusTimeline *connect.Client[v1.GetStatusTimelineRequest, v1.GetStatusTimelineResponse]
-	listEvents        *connect.Client[v1.ListEventsRequest, v1.ListEventsResponse]
-	getEvent          *connect.Client[v1.GetEventRequest, v1.GetEventResponse]
-	listStreams       *connect.Client[v1.ListStreamsRequest, v1.ListStreamsResponse]
-	getStream         *connect.Client[v1.GetStreamRequest, v1.GetStreamResponse]
-	listConsumers     *connect.Client[v1.ListConsumersRequest, v1.ListConsumersResponse]
-	getConsumer       *connect.Client[v1.GetConsumerRequest, v1.GetConsumerResponse]
-	listServers       *connect.Client[v1.ListServersRequest, v1.ListServersResponse]
-	getServer         *connect.Client[v1.GetServerRequest, v1.GetServerResponse]
-	listConnections   *connect.Client[v1.ListConnectionsRequest, v1.ListConnectionsResponse]
-	listMetrics       *connect.Client[v1.ListMetricsRequest, v1.ListMetricsResponse]
-	getTimeSeries     *connect.Client[v1.GetTimeSeriesRequest, v1.GetTimeSeriesResponse]
+	getLensInfo        *connect.Client[v1.GetLensInfoRequest, v1.GetLensInfoResponse]
+	getOverview        *connect.Client[v1.GetOverviewRequest, v1.GetOverviewResponse]
+	listFindings       *connect.Client[v1.ListFindingsRequest, v1.ListFindingsResponse]
+	getFinding         *connect.Client[v1.GetFindingRequest, v1.GetFindingResponse]
+	muteFinding        *connect.Client[v1.MuteFindingRequest, v1.MuteFindingResponse]
+	unmuteFinding      *connect.Client[v1.UnmuteFindingRequest, v1.UnmuteFindingResponse]
+	listMutes          *connect.Client[v1.ListMutesRequest, v1.ListMutesResponse]
+	getStatusTimeline  *connect.Client[v1.GetStatusTimelineRequest, v1.GetStatusTimelineResponse]
+	listEvents         *connect.Client[v1.ListEventsRequest, v1.ListEventsResponse]
+	getEvent           *connect.Client[v1.GetEventRequest, v1.GetEventResponse]
+	listStreams        *connect.Client[v1.ListStreamsRequest, v1.ListStreamsResponse]
+	getStream          *connect.Client[v1.GetStreamRequest, v1.GetStreamResponse]
+	listConsumers      *connect.Client[v1.ListConsumersRequest, v1.ListConsumersResponse]
+	getConsumer        *connect.Client[v1.GetConsumerRequest, v1.GetConsumerResponse]
+	listServers        *connect.Client[v1.ListServersRequest, v1.ListServersResponse]
+	getServer          *connect.Client[v1.GetServerRequest, v1.GetServerResponse]
+	listConnections    *connect.Client[v1.ListConnectionsRequest, v1.ListConnectionsResponse]
+	listSystems        *connect.Client[v1.ListSystemsRequest, v1.ListSystemsResponse]
+	listAccounts       *connect.Client[v1.ListAccountsRequest, v1.ListAccountsResponse]
+	listKeyValueStores *connect.Client[v1.ListKeyValueStoresRequest, v1.ListKeyValueStoresResponse]
+	listObjectStores   *connect.Client[v1.ListObjectStoresRequest, v1.ListObjectStoresResponse]
+	listMetrics        *connect.Client[v1.ListMetricsRequest, v1.ListMetricsResponse]
+	getTimeSeries      *connect.Client[v1.GetTimeSeriesRequest, v1.GetTimeSeriesResponse]
 }
 
 // GetLensInfo calls natslens.v1.LensService.GetLensInfo.
@@ -375,6 +426,26 @@ func (c *lensServiceClient) ListConnections(ctx context.Context, req *connect.Re
 	return c.listConnections.CallUnary(ctx, req)
 }
 
+// ListSystems calls natslens.v1.LensService.ListSystems.
+func (c *lensServiceClient) ListSystems(ctx context.Context, req *connect.Request[v1.ListSystemsRequest]) (*connect.Response[v1.ListSystemsResponse], error) {
+	return c.listSystems.CallUnary(ctx, req)
+}
+
+// ListAccounts calls natslens.v1.LensService.ListAccounts.
+func (c *lensServiceClient) ListAccounts(ctx context.Context, req *connect.Request[v1.ListAccountsRequest]) (*connect.Response[v1.ListAccountsResponse], error) {
+	return c.listAccounts.CallUnary(ctx, req)
+}
+
+// ListKeyValueStores calls natslens.v1.LensService.ListKeyValueStores.
+func (c *lensServiceClient) ListKeyValueStores(ctx context.Context, req *connect.Request[v1.ListKeyValueStoresRequest]) (*connect.Response[v1.ListKeyValueStoresResponse], error) {
+	return c.listKeyValueStores.CallUnary(ctx, req)
+}
+
+// ListObjectStores calls natslens.v1.LensService.ListObjectStores.
+func (c *lensServiceClient) ListObjectStores(ctx context.Context, req *connect.Request[v1.ListObjectStoresRequest]) (*connect.Response[v1.ListObjectStoresResponse], error) {
+	return c.listObjectStores.CallUnary(ctx, req)
+}
+
 // ListMetrics calls natslens.v1.LensService.ListMetrics.
 func (c *lensServiceClient) ListMetrics(ctx context.Context, req *connect.Request[v1.ListMetricsRequest]) (*connect.Response[v1.ListMetricsResponse], error) {
 	return c.listMetrics.CallUnary(ctx, req)
@@ -422,6 +493,14 @@ type LensServiceHandler interface {
 	GetServer(context.Context, *connect.Request[v1.GetServerRequest]) (*connect.Response[v1.GetServerResponse], error)
 	// Client connections of the newest epoch in a range.
 	ListConnections(context.Context, *connect.Request[v1.ListConnectionsRequest]) (*connect.Response[v1.ListConnectionsResponse], error)
+	// The systems nats-lens observes, in configuration order.
+	ListSystems(context.Context, *connect.Request[v1.ListSystemsRequest]) (*connect.Response[v1.ListSystemsResponse], error)
+	// Accounts of a system with their connection, stream and consumer counts.
+	ListAccounts(context.Context, *connect.Request[v1.ListAccountsRequest]) (*connect.Response[v1.ListAccountsResponse], error)
+	// Key-value stores of a system.
+	ListKeyValueStores(context.Context, *connect.Request[v1.ListKeyValueStoresRequest]) (*connect.Response[v1.ListKeyValueStoresResponse], error)
+	// Object stores of a system.
+	ListObjectStores(context.Context, *connect.Request[v1.ListObjectStoresRequest]) (*connect.Response[v1.ListObjectStoresResponse], error)
 	// The metrics GetTimeSeries serves.
 	ListMetrics(context.Context, *connect.Request[v1.ListMetricsRequest]) (*connect.Response[v1.ListMetricsResponse], error)
 	// One metric of one entity over a range, downsampled.
@@ -552,6 +631,34 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	lensServiceListSystemsHandler := connect.NewUnaryHandler(
+		LensServiceListSystemsProcedure,
+		svc.ListSystems,
+		connect.WithSchema(lensServiceMethods.ByName("ListSystems")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceListAccountsHandler := connect.NewUnaryHandler(
+		LensServiceListAccountsProcedure,
+		svc.ListAccounts,
+		connect.WithSchema(lensServiceMethods.ByName("ListAccounts")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceListKeyValueStoresHandler := connect.NewUnaryHandler(
+		LensServiceListKeyValueStoresProcedure,
+		svc.ListKeyValueStores,
+		connect.WithSchema(lensServiceMethods.ByName("ListKeyValueStores")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceListObjectStoresHandler := connect.NewUnaryHandler(
+		LensServiceListObjectStoresProcedure,
+		svc.ListObjectStores,
+		connect.WithSchema(lensServiceMethods.ByName("ListObjectStores")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	lensServiceListMetricsHandler := connect.NewUnaryHandler(
 		LensServiceListMetricsProcedure,
 		svc.ListMetrics,
@@ -602,6 +709,14 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceGetServerHandler.ServeHTTP(w, r)
 		case LensServiceListConnectionsProcedure:
 			lensServiceListConnectionsHandler.ServeHTTP(w, r)
+		case LensServiceListSystemsProcedure:
+			lensServiceListSystemsHandler.ServeHTTP(w, r)
+		case LensServiceListAccountsProcedure:
+			lensServiceListAccountsHandler.ServeHTTP(w, r)
+		case LensServiceListKeyValueStoresProcedure:
+			lensServiceListKeyValueStoresHandler.ServeHTTP(w, r)
+		case LensServiceListObjectStoresProcedure:
+			lensServiceListObjectStoresHandler.ServeHTTP(w, r)
 		case LensServiceListMetricsProcedure:
 			lensServiceListMetricsHandler.ServeHTTP(w, r)
 		case LensServiceGetTimeSeriesProcedure:
@@ -681,6 +796,22 @@ func (UnimplementedLensServiceHandler) GetServer(context.Context, *connect.Reque
 
 func (UnimplementedLensServiceHandler) ListConnections(context.Context, *connect.Request[v1.ListConnectionsRequest]) (*connect.Response[v1.ListConnectionsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListConnections is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) ListSystems(context.Context, *connect.Request[v1.ListSystemsRequest]) (*connect.Response[v1.ListSystemsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListSystems is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) ListAccounts(context.Context, *connect.Request[v1.ListAccountsRequest]) (*connect.Response[v1.ListAccountsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListAccounts is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) ListKeyValueStores(context.Context, *connect.Request[v1.ListKeyValueStoresRequest]) (*connect.Response[v1.ListKeyValueStoresResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListKeyValueStores is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) ListObjectStores(context.Context, *connect.Request[v1.ListObjectStoresRequest]) (*connect.Response[v1.ListObjectStoresResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListObjectStores is not implemented"))
 }
 
 func (UnimplementedLensServiceHandler) ListMetrics(context.Context, *connect.Request[v1.ListMetricsRequest]) (*connect.Response[v1.ListMetricsResponse], error) {

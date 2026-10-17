@@ -79,7 +79,9 @@ func (IdentityMode) EnumDescriptor() ([]byte, []int) {
 
 // Request for facts about this nats-lens instance.
 type GetLensInfoRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System        string `protobuf:"bytes,1,opt,name=system,proto3" json:"system,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -114,6 +116,13 @@ func (*GetLensInfoRequest) Descriptor() ([]byte, []int) {
 	return file_natslens_v1_info_proto_rawDescGZIP(), []int{0}
 }
 
+func (x *GetLensInfoRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
+}
+
 // Facts about this nats-lens instance and the system it observes.
 type GetLensInfoResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -134,7 +143,11 @@ type GetLensInfoResponse struct {
 	Demo bool `protobuf:"varint,7,opt,name=demo,proto3" json:"demo,omitempty"`
 	// Start of the oldest stored epoch: the collector's history begins here.
 	// Unset before the first epoch.
-	HistoryStart  *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=history_start,json=historyStart,proto3" json:"history_start,omitempty"`
+	HistoryStart *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=history_start,json=historyStart,proto3" json:"history_start,omitempty"`
+	// ID of the system these facts are about.
+	System string `protobuf:"bytes,9,opt,name=system,proto3" json:"system,omitempty"`
+	// Display name of that system.
+	SystemName    string `protobuf:"bytes,10,opt,name=system_name,json=systemName,proto3" json:"system_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -225,12 +238,27 @@ func (x *GetLensInfoResponse) GetHistoryStart() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *GetLensInfoResponse) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
+}
+
+func (x *GetLensInfoResponse) GetSystemName() string {
+	if x != nil {
+		return x.SystemName
+	}
+	return ""
+}
+
 var File_natslens_v1_info_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_info_proto_rawDesc = "" +
 	"\n" +
-	"\x16natslens/v1/info.proto\x12\vnatslens.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x14\n" +
-	"\x12GetLensInfoRequest\"\xf1\x02\n" +
+	"\x16natslens/v1/info.proto\x12\vnatslens.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\",\n" +
+	"\x12GetLensInfoRequest\x12\x16\n" +
+	"\x06system\x18\x01 \x01(\tR\x06system\"\xaa\x03\n" +
 	"\x13GetLensInfoResponse\x12>\n" +
 	"\ridentity_mode\x18\x01 \x01(\x0e2\x19.natslens.v1.IdentityModeR\fidentityMode\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x18\n" +
@@ -239,7 +267,11 @@ const file_natslens_v1_info_proto_rawDesc = "" +
 	"\tretention\x18\x05 \x01(\v2\x19.google.protobuf.DurationR\tretention\x12\x12\n" +
 	"\x04live\x18\x06 \x01(\bR\x04live\x12\x12\n" +
 	"\x04demo\x18\a \x01(\bR\x04demo\x12?\n" +
-	"\rhistory_start\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\fhistoryStart*_\n" +
+	"\rhistory_start\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\fhistoryStart\x12\x16\n" +
+	"\x06system\x18\t \x01(\tR\x06system\x12\x1f\n" +
+	"\vsystem_name\x18\n" +
+	" \x01(\tR\n" +
+	"systemName*_\n" +
 	"\fIdentityMode\x12\x1d\n" +
 	"\x19IDENTITY_MODE_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11IDENTITY_MODE_IAP\x10\x01\x12\x19\n" +

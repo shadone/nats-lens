@@ -675,7 +675,9 @@ type ListFindingsRequest struct {
 	PageSize int32 `protobuf:"varint,7,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	// Token from a previous response, to read the next page with the same
 	// filters.
-	PageToken     string `protobuf:"bytes,8,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	PageToken string `protobuf:"bytes,8,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System        string `protobuf:"bytes,9,opt,name=system,proto3" json:"system,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -766,6 +768,13 @@ func (x *ListFindingsRequest) GetPageToken() string {
 	return ""
 }
 
+func (x *ListFindingsRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
+}
+
 // Findings, worst first: unmuted before muted, then by severity, then the
 // longest firing first.
 type ListFindingsResponse struct {
@@ -835,7 +844,9 @@ func (x *ListFindingsResponse) GetTotalCount() int32 {
 type GetFindingRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Finding ID.
-	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System        string `protobuf:"bytes,2,opt,name=system,proto3" json:"system,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -873,6 +884,13 @@ func (*GetFindingRequest) Descriptor() ([]byte, []int) {
 func (x *GetFindingRequest) GetId() string {
 	if x != nil {
 		return x.Id
+	}
+	return ""
+}
+
+func (x *GetFindingRequest) GetSystem() string {
+	if x != nil {
+		return x.System
 	}
 	return ""
 }
@@ -951,7 +969,9 @@ type MuteFindingRequest struct {
 	// Who mutes it, at most 256 characters. Required when the server is not
 	// configured for IAP; ignored when it is, and the verified IAP user is
 	// recorded instead.
-	MutedBy       string `protobuf:"bytes,5,opt,name=muted_by,json=mutedBy,proto3" json:"muted_by,omitempty"`
+	MutedBy string `protobuf:"bytes,5,opt,name=muted_by,json=mutedBy,proto3" json:"muted_by,omitempty"`
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System        string `protobuf:"bytes,6,opt,name=system,proto3" json:"system,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1021,6 +1041,13 @@ func (x *MuteFindingRequest) GetMutedBy() string {
 	return ""
 }
 
+func (x *MuteFindingRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
+}
+
 // The created mute.
 type MuteFindingResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1075,7 +1102,9 @@ type UnmuteFindingRequest struct {
 	// Who lifts it, at most 256 characters. Required when the server is not
 	// configured for IAP; ignored when it is, and the verified IAP user is
 	// recorded instead.
-	UnmutedBy     string `protobuf:"bytes,2,opt,name=unmuted_by,json=unmutedBy,proto3" json:"unmuted_by,omitempty"`
+	UnmutedBy string `protobuf:"bytes,2,opt,name=unmuted_by,json=unmutedBy,proto3" json:"unmuted_by,omitempty"`
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System        string `protobuf:"bytes,3,opt,name=system,proto3" json:"system,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1120,6 +1149,13 @@ func (x *UnmuteFindingRequest) GetMuteId() string {
 func (x *UnmuteFindingRequest) GetUnmutedBy() string {
 	if x != nil {
 		return x.UnmutedBy
+	}
+	return ""
+}
+
+func (x *UnmuteFindingRequest) GetSystem() string {
+	if x != nil {
+		return x.System
 	}
 	return ""
 }
@@ -1179,7 +1215,9 @@ type ListMutesRequest struct {
 	PageSize int32 `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	// Token from a previous response, to read the next page with the same
 	// filters.
-	PageToken     string `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	PageToken string `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System        string `protobuf:"bytes,4,opt,name=system,proto3" json:"system,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1231,6 +1269,13 @@ func (x *ListMutesRequest) GetPageSize() int32 {
 func (x *ListMutesRequest) GetPageToken() string {
 	if x != nil {
 		return x.PageToken
+	}
+	return ""
+}
+
+func (x *ListMutesRequest) GetSystem() string {
+	if x != nil {
+		return x.System
 	}
 	return ""
 }
@@ -1361,7 +1406,7 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\x04info\x18\x03 \x01(\x05R\x04info\x12\x14\n" +
 	"\x05muted\x18\x04 \x01(\x05R\x05muted\x12\x1a\n" +
 	"\bflapping\x18\x05 \x01(\x05R\bflapping\x12!\n" +
-	"\fresolved_24h\x18\x06 \x01(\x05R\vresolved24h\"\xdd\x02\n" +
+	"\fresolved_24h\x18\x06 \x01(\x05R\vresolved24h\"\xf5\x02\n" +
 	"\x13ListFindingsRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x121\n" +
 	"\x06states\x18\x02 \x03(\x0e2\x19.natslens.v1.FindingStateR\x06states\x125\n" +
@@ -1374,17 +1419,19 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\x06entity\x18\x06 \x01(\v2\x16.natslens.v1.EntityRefR\x06entity\x12\x1b\n" +
 	"\tpage_size\x18\a \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\b \x01(\tR\tpageToken\"\x91\x01\n" +
+	"page_token\x18\b \x01(\tR\tpageToken\x12\x16\n" +
+	"\x06system\x18\t \x01(\tR\x06system\"\x91\x01\n" +
 	"\x14ListFindingsResponse\x120\n" +
 	"\bfindings\x18\x01 \x03(\v2\x14.natslens.v1.FindingR\bfindings\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x05R\n" +
-	"totalCount\"#\n" +
+	"totalCount\";\n" +
 	"\x11GetFindingRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\x86\x01\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
+	"\x06system\x18\x02 \x01(\tR\x06system\"\x86\x01\n" +
 	"\x12GetFindingResponse\x12.\n" +
 	"\afinding\x18\x01 \x01(\v2\x14.natslens.v1.FindingR\afinding\x12@\n" +
-	"\vtransitions\x18\x02 \x03(\v2\x1e.natslens.v1.FindingTransitionR\vtransitions\"\xd1\x01\n" +
+	"\vtransitions\x18\x02 \x03(\v2\x1e.natslens.v1.FindingTransitionR\vtransitions\"\xe9\x01\n" +
 	"\x12MuteFindingRequest\x12\x1d\n" +
 	"\n" +
 	"check_code\x18\x01 \x01(\tR\tcheckCode\x12.\n" +
@@ -1392,20 +1439,23 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\x06reason\x18\x03 \x01(\tR\x06reason\x129\n" +
 	"\n" +
 	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x19\n" +
-	"\bmuted_by\x18\x05 \x01(\tR\amutedBy\"<\n" +
+	"\bmuted_by\x18\x05 \x01(\tR\amutedBy\x12\x16\n" +
+	"\x06system\x18\x06 \x01(\tR\x06system\"<\n" +
 	"\x13MuteFindingResponse\x12%\n" +
-	"\x04mute\x18\x01 \x01(\v2\x11.natslens.v1.MuteR\x04mute\"N\n" +
+	"\x04mute\x18\x01 \x01(\v2\x11.natslens.v1.MuteR\x04mute\"f\n" +
 	"\x14UnmuteFindingRequest\x12\x17\n" +
 	"\amute_id\x18\x01 \x01(\tR\x06muteId\x12\x1d\n" +
 	"\n" +
-	"unmuted_by\x18\x02 \x01(\tR\tunmutedBy\">\n" +
+	"unmuted_by\x18\x02 \x01(\tR\tunmutedBy\x12\x16\n" +
+	"\x06system\x18\x03 \x01(\tR\x06system\">\n" +
 	"\x15UnmuteFindingResponse\x12%\n" +
-	"\x04mute\x18\x01 \x01(\v2\x11.natslens.v1.MuteR\x04mute\"y\n" +
+	"\x04mute\x18\x01 \x01(\v2\x11.natslens.v1.MuteR\x04mute\"\x91\x01\n" +
 	"\x10ListMutesRequest\x12)\n" +
 	"\x10include_inactive\x18\x01 \x01(\bR\x0fincludeInactive\x12\x1b\n" +
 	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\x03 \x01(\tR\tpageToken\"\x85\x01\n" +
+	"page_token\x18\x03 \x01(\tR\tpageToken\x12\x16\n" +
+	"\x06system\x18\x04 \x01(\tR\x06system\"\x85\x01\n" +
 	"\x11ListMutesResponse\x12'\n" +
 	"\x05mutes\x18\x01 \x03(\v2\x11.natslens.v1.MuteR\x05mutes\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +

@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "natslens/v1/common.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// Request for the key-value stores of a system.
+message ListKeyValueStoresRequest {
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 1;
+
+  // Range whose newest epoch is read. Unset means the last 24 hours up to
+  // now.
+  TimeRange range = 2;
+
+  // Only stores of this account.
+  string account = 3;
+}
+
+// One key-value store: a JetStream stream named KV_<bucket>.
+message KeyValueStore {
+  // The stream that holds the store.
+  EntityRef entity = 1;
+
+  // Bucket name, without the KV_ prefix.
+  string bucket = 2;
+}
+
+// Key-value stores, ordered by account and bucket.
+message ListKeyValueStoresResponse {
+  // The stores.
+  repeated KeyValueStore key_value_stores = 1;
+}
+
+// Request for the object stores of a system.
+message ListObjectStoresRequest {
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 1;
+
+  // Range whose newest epoch is read. Unset means the last 24 hours up to
+  // now.
+  TimeRange range = 2;
+
+  // Only stores of this account.
+  string account = 3;
+}
+
+// One object store: a JetStream stream named OBJ_<bucket>.
+message ObjectStore {
+  // The stream that holds the store.
+  EntityRef entity = 1;
+
+  // Bucket name, without the OBJ_ prefix.
+  string bucket = 2;
+}
+
+// Object stores, ordered by account and bucket.
+message ListObjectStoresResponse {
+  // The stores.
+  repeated ObjectStore object_stores = 1;
+}

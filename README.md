@@ -44,7 +44,7 @@ To capture the stream and consumer advisories of a JetStream account as well, an
 - Kubernetes (optional, `kubernetes.enabled`): a read-only watcher records the Events of the NATS namespace, the NATS server pods (scheduled, ready, not ready, restarted, evicted, terminating, deleted) and the nodes they run on (cordoned, drained, ready, not ready, upgraded, deleted) as events with source `k8s`, each pod event named by its NATS server. The timeline draws them in its Kubernetes lane and shades node drains and upgrades as windows. See [Kubernetes](#kubernetes).
 - Storage: an embedded DuckDB file, one transaction per epoch, events written in batches (every second or 500 events), versioned migrations, and a retention sweep (14 days by default) for epochs and events.
 - Archive: every table's rows for an hour go to `archive_dir/<table>/date=YYYY-MM-DD/hour=HH.<export>.parquet`, listed by a manifest in `archive_dir/manifests/` that is written last. Every export of an hour writes new file names, and files of earlier exports of that hour are removed after the new manifest once they are 10 minutes old, so a crash never mixes two exports. The archive directory expects one natslens writing to it at a time; two that overlap for a while (during a rollout) leave unused files behind but never break a rebuild. The open hour is written provisionally every 5 minutes and finally once closed; an hour whose rows change later is written again, and missed hours are caught up after downtime. The `mutes` table is written whole with every hour, the newest hour is written again when a mute is created or lifted, and a rebuild keeps each mute's newest copy (the lifted one once it was lifted). `archive_dir/state.json` holds the highest epoch, event and mute numbers. When the database file is missing or empty on start and the archive has complete hours inside the retention window, the database is rebuilt from them. natslens checkpoints the database after applying migrations, so that a crash right after start leaves a file DuckDB can open. A database whose write-ahead log DuckDB cannot replay is never deleted: on start the log and the file are renamed to `<name>.corrupt-<UTC time>`, the database is rebuilt from the archive, an error is logged, and a `collector.database_recovered` event names the kept files. After a successful export, at most once an hour, whole hours that ended more than `archive_retention` ago (90 days by default; 0 keeps every hour) are removed, data files first and the manifest last.
-- API: `natslens run` serves the Connect service `natslens.v1.LensService` under `/api/` (Connect, gRPC and gRPC-Web, HTTP/2 without TLS for gRPC), `/healthz` (the process serves), `/readyz` (the store is open, any rebuild finished, and the API serves), and the web UI at `/`. It has no authentication of its own and binds to localhost by default; deploy it behind IAP and set `iap_audience`, so that mutes record the verified IAP user. Every response carries a Content-Security-Policy (the page's own files only, the inline theme script by its hash, no framing), `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`. The protobuf is in [proto/natslens/v1/](proto/natslens/v1/); generated Go code is in `internal/gen`, TypeScript for connect-es in `web/src/gen`. The API serves the findings with their transitions, the status timeline, events and mutes.
+- API: `natslens run` serves the Connect service `natslens.v1.LensService` under `/api/` (Connect, gRPC and gRPC-Web, HTTP/2 without TLS for gRPC), `/healthz` (the process serves), `/readyz` (the store is open, any rebuild finished, and the API serves), and the web UI at `/`. It has no authentication of its own and binds to localhost by default; deploy it behind IAP and set `iap_audience`, so that mutes record the verified IAP user. Every response carries a Content-Security-Policy (the page's own files only, the inline theme script by its hash, no framing), `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`. The protobuf is in [proto/natslens/v1/](proto/natslens/v1/); generated Go code is in `internal/gen`, TypeScript for connect-es in `web/src/gen`. The API serves the findings with their transitions, the status timeline, events and mutes. Every request except `ListSystems` and `ListMetrics` takes a `system`, the ID of the system to read; empty reads the default system, the first configured, and an unknown ID is `invalid_argument` naming the known ones. `ListSystems` lists the systems in configuration order, `ListAccounts` a system's accounts with their connections, streams and consumers. `ListKeyValueStores` and `ListObjectStores` exist and return empty lists for now. Until the configuration lists systems, `natslens run` serves one system with the ID `default` and `natslens demo` one with the ID `example-prod`. The web UI passes a `?system=` of its URL on to every call.
 - Checks: after every stored epoch, natslens runs the checks in [checks/](checks/), one SQL file per check, and keeps the result as findings: one per check and failing entity, with its transitions (firing, changed severity, resolved) and whether it flaps (more than three firing-and-resolving cycles in an hour). See [Checks](#checks).
 - Inventory: an optional file lists the streams, durable consumers, KV buckets and object stores each account should have, with the settings that matter; the inventory checks report what is missing or set otherwise, and name the client that deleted it when the delete advisory was captured.
 - Demo: `natslens demo` serves the API with a fixed scenario (the reference mockup's cluster after a GKE node upgrade) without NATS or a database.
@@ -165,6 +165,7 @@ Configuration comes from defaults, then an optional YAML file (`-config`), then 
 | `listen`              | `-listen`        | `127.0.0.1:8080`        | Address of the API and UI in `natslens run`; empty disables them. |
 | `allowed_hosts`       | `-allowed-host`  | loopback names on a loopback `listen`, else any | Host header values the API accepts; the flag takes a comma-separated list. |
 | `iap_audience`        | `-iap-audience`  |                         | Behind IAP: the backend service's audience. Mutes then need the verified IAP assertion and record its user. |
+| `metrics_timeout`     |                  | `8s`                    | How long each system may take to write its part of a `/metrics` scrape; must be lower than the Prometheus `scrape_timeout` (10 seconds by default). |
 | `allow_unauthenticated` |              | `false`                 | Serve the API beyond loopback without `iap_audience`; natslens refuses that otherwise. |
 | `duckdb_memory_limit` |                  | 60% of the cgroup limit, else 1 GiB | Memory DuckDB may use, with a KiB, MiB, GiB or TiB suffix. |
 | `events.enabled`      |                  | `true`                  | Capture events in `natslens run`.                        |
@@ -431,7 +432,9 @@ To add a check, write its file, then a test in `internal/checks` that builds the
 
 `natslens run` serves Prometheus metrics at `/metrics` on the API listener, so that the findings reach the alerting system. On a loopback listener the Host allowlist applies to `/metrics` as to the API. On any other listener `/metrics` is exempt from it, because Prometheus scrapes by the pod's address: the endpoint is read only but names streams, consumers, servers and clients, so such a listener must not be reachable from outside the cluster.
 
-Every firing finding has three series with one identity, `code`, `entity_type` and `entity_key`, so that a change of severity does not start a new series. A mute does start a new `nats_lens_finding` series, because `muted` is its label; `nats_lens_finding_severity` and `nats_lens_finding_flapping` keep their identity:
+Every sample carries a `system` label, the ID of the system it describes (`default` until the configuration lists systems), and each family's `# HELP` and `# TYPE` appear once with the samples of every system below them. Each system is read on its own, in parallel and within `metrics_timeout` (8 seconds by default; keep it below the Prometheus `scrape_timeout`, usually 10 seconds, or Prometheus gives up on the whole target), and never twice at once: a scrape that finds the system's previous read still running counts it as failed at once. A system that fails, times out or panics leaves none of its series in the scrape, and the scrape still answers 200 for the others. Only when every system fails does `/metrics` answer 500, so with a single system a failure is a 500 and no `nats_lens_system_scrape_success 0` line appears. The label is new: a series scraped before it is a different series to Prometheus, so a dashboard or rule that joins series must add `system` to its `on(...)` and `by(...)` lists, and a series history starts again at the upgrade.
+
+Every firing finding has three series with one identity, `system`, `code`, `entity_type` and `entity_key`, so that a change of severity does not start a new series. A mute does start a new `nats_lens_finding` series, because `muted` is its label; `nats_lens_finding_severity` and `nats_lens_finding_flapping` keep their identity:
 
 | Metric | Labels | Meaning |
 | ------ | ------ | ------- |
@@ -450,6 +453,7 @@ Every firing finding has three series with one identity, `code`, `entity_type` a
 | `nats_lens_event_messages_dropped_last_hour` | | Event messages the collector dropped in the last hour |
 | `nats_lens_check_run_errors_last_hour` | | Check runs that failed in the last hour |
 | `nats_lens_check_failing` | `code` | 1 for a check whose newest run failed |
+| `nats_lens_system_scrape_success` | | 1 when the system's metrics were read for this scrape, 0 when reading them failed, took longer than `metrics_timeout` or found the previous read still running; then the system's other series are absent from that scrape |
 
 On GKE, Cloud Monitoring alert policies can evaluate PromQL conditions over the data Managed Service for Prometheus (GMP) collects; the `PodMonitoring` in `k8s/components/gke-iap` scrapes `/metrics`. GMP adds the target labels `project_id`, `location`, `cluster`, `namespace`, `job` and `instance` to every series, so a query can select one deployment with `{cluster="...", namespace="nats-lens"}`. A metric that has a label of one of those names keeps it as `exported_<name>` (`exported_namespace` for a `namespace` label); the natslens metrics have none, so `namespace` is the pod's. An alert policy in Terraform or OpenTofu (one condition shown; the rules below translate the same way):
 
@@ -463,7 +467,7 @@ resource "google_monitoring_alert_policy" "nats_lens_critical_finding" {
   conditions {
     display_name = "A critical, unmuted nats-lens finding"
     condition_prometheus_query_language {
-      query               = "nats_lens_finding_severity{namespace=\"nats-lens\"} >= 3 unless on(code, entity_type, entity_key) nats_lens_finding{namespace=\"nats-lens\", muted=\"true\"}"
+      query               = "nats_lens_finding_severity{namespace=\"nats-lens\"} >= 3 unless on(system, code, entity_type, entity_key) nats_lens_finding{namespace=\"nats-lens\", muted=\"true\"}"
       duration            = "120s"
       evaluation_interval = "60s"
     }
@@ -486,14 +490,14 @@ groups:
   - name: nats-lens
     rules:
       - alert: NatsLensCriticalFinding
-        expr: nats_lens_finding_severity >= 3 unless on(code, entity_type, entity_key) nats_lens_finding{muted="true"}
+        expr: nats_lens_finding_severity >= 3 unless on(system, code, entity_type, entity_key) nats_lens_finding{muted="true"}
         for: 2m
         labels: {severity: critical}
         annotations:
-          summary: "nats-lens {{ $labels.code }} on {{ $labels.entity_key }}"
+          summary: "nats-lens {{ $labels.code }} on {{ $labels.entity_key }} in {{ $labels.system }}"
           description: "Open /findings in nats-lens; mute it there if it is expected."
       - alert: NatsLensWarningFinding
-        expr: nats_lens_finding_severity == 2 unless on(code, entity_type, entity_key) nats_lens_finding{muted="true"}
+        expr: nats_lens_finding_severity == 2 unless on(system, code, entity_type, entity_key) nats_lens_finding{muted="true"}
         for: 15m
         labels: {severity: warning}
       - alert: NatsLensNotCollecting
@@ -507,11 +511,17 @@ groups:
         for: 5m
         labels: {severity: critical}
         annotations:
-          summary: "nats-lens stores epochs but runs no checks; findings are stale"
+          summary: "nats-lens stores epochs of {{ $labels.system }} but runs no checks; findings are stale"
       - alert: NatsLensCheckFailing
         expr: nats_lens_check_failing == 1
         for: 10m
         labels: {severity: warning}
+      - alert: NatsLensSystemMetricsFailing
+        expr: nats_lens_system_scrape_success == 0
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: "nats-lens cannot read its data of {{ $labels.system }}; its findings are missing from /metrics"
 ```
 
 A mute in the UI makes the finding rules stop matching, so the alert closes; the finding's series stay, marked `muted="true"`. Beyond 50 entities of one check, alert on `nats_lens_findings_by_check_max_severity` instead.

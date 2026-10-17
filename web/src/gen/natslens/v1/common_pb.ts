@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/common.proto.
  */
 export const file_natslens_v1_common: GenFile = /*@__PURE__*/
-  fileDesc("ChhuYXRzbGVucy92MS9jb21tb24ucHJvdG8SC25hdHNsZW5zLnYxIqYBCglFbnRpdHlSZWYSJQoEdHlwZRgBIAEoDjIXLm5hdHNsZW5zLnYxLkVudGl0eVR5cGUSCwoDa2V5GAIgASgJEgwKBG5hbWUYAyABKAkSDwoHYWNjb3VudBgEIAEoCRIOCgZzdHJlYW0YBSABKAkSEAoIY29uc3VtZXIYBiABKAkSDgoGc2VydmVyGAcgASgJEhQKDGFjY291bnRfbmFtZRgIIAEoCSJfCglUaW1lUmFuZ2USKQoFc3RhcnQYASABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEicKA2VuZBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiPAoLQ29uZmlnVmFsdWUSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJEhEKCWhpZ2hsaWdodBgDIAEoCCIsCgtTZXJ2ZXJWYWx1ZRIOCgZzZXJ2ZXIYASABKAkSDQoFdmFsdWUYAiABKAkiRwoMRGlzYWdyZWVtZW50Eg0KBWZpZWxkGAEgASgJEigKBnZhbHVlcxgCIAMoCzIYLm5hdHNsZW5zLnYxLlNlcnZlclZhbHVlIl8KCEV2ZW50UmVmEgoKAmlkGAEgASgJEigKBHRpbWUYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEgwKBGtpbmQYAyABKAkSDwoHc3VtbWFyeRgEIAEoCSpkCghTZXZlcml0eRIYChRTRVZFUklUWV9VTlNQRUNJRklFRBAAEhEKDVNFVkVSSVRZX0lORk8QARIUChBTRVZFUklUWV9XQVJOSU5HEAISFQoRU0VWRVJJVFlfQ1JJVElDQUwQAyqPAQoGU3RhdHVzEhYKElNUQVRVU19VTlNQRUNJRklFRBAAEhIKDlNUQVRVU19OT19EQVRBEAESDQoJU1RBVFVTX09LEAISDwoLU1RBVFVTX0lORk8QAxISCg5TVEFUVVNfV0FSTklORxAEEhMKD1NUQVRVU19DUklUSUNBTBAFEhAKDFNUQVRVU19NVVRFRBAGKtgBCgpFbnRpdHlUeXBlEhsKF0VOVElUWV9UWVBFX1VOU1BFQ0lGSUVEEAASFgoSRU5USVRZX1RZUEVfU1lTVEVNEAESFgoSRU5USVRZX1RZUEVfU0VSVkVSEAISFwoTRU5USVRZX1RZUEVfQUNDT1VOVBADEhYKEkVOVElUWV9UWVBFX1NUUkVBTRAEEhgKFEVOVElUWV9UWVBFX0NPTlNVTUVSEAUSGgoWRU5USVRZX1RZUEVfQ09OTkVDVElPThAGEhYKEkVOVElUWV9UWVBFX0NMSUVOVBAHQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
+  fileDesc("ChhuYXRzbGVucy92MS9jb21tb24ucHJvdG8SC25hdHNsZW5zLnYxIqYBCglFbnRpdHlSZWYSJQoEdHlwZRgBIAEoDjIXLm5hdHNsZW5zLnYxLkVudGl0eVR5cGUSCwoDa2V5GAIgASgJEgwKBG5hbWUYAyABKAkSDwoHYWNjb3VudBgEIAEoCRIOCgZzdHJlYW0YBSABKAkSEAoIY29uc3VtZXIYBiABKAkSDgoGc2VydmVyGAcgASgJEhQKDGFjY291bnRfbmFtZRgIIAEoCSJfCglUaW1lUmFuZ2USKQoFc3RhcnQYASABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEicKA2VuZBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiPAoLQ29uZmlnVmFsdWUSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJEhEKCWhpZ2hsaWdodBgDIAEoCCIsCgtTZXJ2ZXJWYWx1ZRIOCgZzZXJ2ZXIYASABKAkSDQoFdmFsdWUYAiABKAkiRwoMRGlzYWdyZWVtZW50Eg0KBWZpZWxkGAEgASgJEigKBnZhbHVlcxgCIAMoCzIYLm5hdHNsZW5zLnYxLlNlcnZlclZhbHVlIl8KCEV2ZW50UmVmEgoKAmlkGAEgASgJEigKBHRpbWUYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEgwKBGtpbmQYAyABKAkSDwoHc3VtbWFyeRgEIAEoCSJOChBSZXBsaWNhUGxhY2VtZW50Eg4KBnNlcnZlchgBIAEoCRIqCgVzdGF0ZRgCIAEoDjIbLm5hdHNsZW5zLnYxLlBsYWNlbWVudFN0YXRlKmQKCFNldmVyaXR5EhgKFFNFVkVSSVRZX1VOU1BFQ0lGSUVEEAASEQoNU0VWRVJJVFlfSU5GTxABEhQKEFNFVkVSSVRZX1dBUk5JTkcQAhIVChFTRVZFUklUWV9DUklUSUNBTBADKo8BCgZTdGF0dXMSFgoSU1RBVFVTX1VOU1BFQ0lGSUVEEAASEgoOU1RBVFVTX05PX0RBVEEQARINCglTVEFUVVNfT0sQAhIPCgtTVEFUVVNfSU5GTxADEhIKDlNUQVRVU19XQVJOSU5HEAQSEwoPU1RBVFVTX0NSSVRJQ0FMEAUSEAoMU1RBVFVTX01VVEVEEAYq2AEKCkVudGl0eVR5cGUSGwoXRU5USVRZX1RZUEVfVU5TUEVDSUZJRUQQABIWChJFTlRJVFlfVFlQRV9TWVNURU0QARIWChJFTlRJVFlfVFlQRV9TRVJWRVIQAhIXChNFTlRJVFlfVFlQRV9BQ0NPVU5UEAMSFgoSRU5USVRZX1RZUEVfU1RSRUFNEAQSGAoURU5USVRZX1RZUEVfQ09OU1VNRVIQBRIaChZFTlRJVFlfVFlQRV9DT05ORUNUSU9OEAYSFgoSRU5USVRZX1RZUEVfQ0xJRU5UEAcq3wEKDlBsYWNlbWVudFN0YXRlEh8KG1BMQUNFTUVOVF9TVEFURV9VTlNQRUNJRklFRBAAEhoKFlBMQUNFTUVOVF9TVEFURV9MRUFERVIQARIbChdQTEFDRU1FTlRfU1RBVEVfSU5fU1lOQxACEhoKFlBMQUNFTUVOVF9TVEFURV9CRUhJTkQQAxIdChlQTEFDRU1FTlRfU1RBVEVfRElTQUdSRUVTEAQSGwoXUExBQ0VNRU5UX1NUQVRFX01JU1NJTkcQBRIbChdQTEFDRU1FTlRfU1RBVEVfT0ZGTElORRAGQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
 
 /**
  * Reference to one entity.
@@ -259,6 +259,34 @@ export const EventRefSchema: GenMessage<EventRef> = /*@__PURE__*/
   messageDesc(file_natslens_v1_common, 5);
 
 /**
+ * One replica of a stream or bucket and its state.
+ *
+ * @generated from message natslens.v1.ReplicaPlacement
+ */
+export type ReplicaPlacement = Message<"natslens.v1.ReplicaPlacement"> & {
+  /**
+   * Server that holds the replica.
+   *
+   * @generated from field: string server = 1;
+   */
+  server: string;
+
+  /**
+   * State of the replica.
+   *
+   * @generated from field: natslens.v1.PlacementState state = 2;
+   */
+  state: PlacementState;
+};
+
+/**
+ * Describes the message natslens.v1.ReplicaPlacement.
+ * Use `create(ReplicaPlacementSchema)` to create a new message.
+ */
+export const ReplicaPlacementSchema: GenMessage<ReplicaPlacement> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_common, 6);
+
+/**
  * Severity of a check and of the findings it raises.
  *
  * @generated from enum natslens.v1.Severity
@@ -432,4 +460,66 @@ export enum EntityType {
  */
 export const EntityTypeSchema: GenEnum<EntityType> = /*@__PURE__*/
   enumDesc(file_natslens_v1_common, 2);
+
+/**
+ * State of one replica of a stream or bucket, from the servers' views.
+ *
+ * @generated from enum natslens.v1.PlacementState
+ */
+export enum PlacementState {
+  /**
+   * Not set.
+   *
+   * @generated from enum value: PLACEMENT_STATE_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * The replica is the leader.
+   *
+   * @generated from enum value: PLACEMENT_STATE_LEADER = 1;
+   */
+  LEADER = 1,
+
+  /**
+   * The replica is current with the leader.
+   *
+   * @generated from enum value: PLACEMENT_STATE_IN_SYNC = 2;
+   */
+  IN_SYNC = 2,
+
+  /**
+   * The replica lags behind the leader.
+   *
+   * @generated from enum value: PLACEMENT_STATE_BEHIND = 3;
+   */
+  BEHIND = 3,
+
+  /**
+   * The replica's view disagrees with the leader's.
+   *
+   * @generated from enum value: PLACEMENT_STATE_DISAGREES = 4;
+   */
+  DISAGREES = 4,
+
+  /**
+   * The replica is expected but no server reports it.
+   *
+   * @generated from enum value: PLACEMENT_STATE_MISSING = 5;
+   */
+  MISSING = 5,
+
+  /**
+   * The server that holds the replica is offline.
+   *
+   * @generated from enum value: PLACEMENT_STATE_OFFLINE = 6;
+   */
+  OFFLINE = 6,
+}
+
+/**
+ * Describes the enum natslens.v1.PlacementState.
+ */
+export const PlacementStateSchema: GenEnum<PlacementState> = /*@__PURE__*/
+  enumDesc(file_natslens_v1_common, 3);
 

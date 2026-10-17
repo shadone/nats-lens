@@ -96,10 +96,11 @@ func run(ctx context.Context, args []string) error {
 	// up to 5 seconds from then, and is waited for before the store closes.
 	if cmd == "run" && cfg.Listen != "" {
 		actx, stopAPI := context.WithCancel(ctx)
-		wait, err := startAPI(actx, apiOptions{listen: cfg.Listen, allowedHosts: cfg.AllowedHosts, iapAudience: cfg.IAPAudience, ready: ready.ready},
-			&storeprov.Provider{St: st, Interval: cfg.Interval.D(), Retention: cfg.Retention.D(), Live: true, Checks: set,
+		wait, err := startAPI(actx, apiOptions{listen: cfg.Listen, allowedHosts: cfg.AllowedHosts, iapAudience: cfg.IAPAudience, ready: ready.ready,
+			metricsTimeout: cfg.MetricsTimeout.D()},
+			singleSystem(&storeprov.Provider{St: st, Interval: cfg.Interval.D(), Retention: cfg.Retention.D(), Live: true, Checks: set,
 				ToolingNames: cfg.ToolingNames(), LoopbackNotTooling: !cfg.Checks.LoopbackTooling(),
-				ClientPods: cfg.Kubernetes.ClientPodsPattern()}, log)
+				ClientPods: cfg.Kubernetes.ClientPodsPattern()}), log)
 		if err != nil {
 			stopAPI()
 			return err

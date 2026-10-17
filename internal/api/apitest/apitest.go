@@ -14,18 +14,21 @@ import (
 	"github.com/shadone/nats-lens/internal/webui"
 )
 
-// Serve serves p on a test server and returns the server and a client that
-// speaks the given options' protocol (Connect when none is given). The
-// handler logs to the test output.
+// Serve serves p as the one system "default" on a test server and returns
+// the server and a client that speaks the given options' protocol (Connect
+// when none is given). The handler logs to the test output.
 func Serve(t *testing.T, p api.Provider, opts ...connect.ClientOption) (*httptest.Server, natslensv1connect.LensServiceClient) {
 	t.Helper()
-	return ServeHandler(t, &api.Handler{P: p}, opts...)
+	return ServeHandler(t, &api.Handler{Systems: api.One(api.DefaultSystemID, api.DefaultSystemID, p)}, opts...)
 }
 
 // ServeHandler is Serve with a handler configured by the caller; a nil Log
 // is set to the test output.
 func ServeHandler(t *testing.T, h *api.Handler, opts ...connect.ClientOption) (*httptest.Server, natslensv1connect.LensServiceClient) {
 	t.Helper()
+	if err := h.Systems.Validate(); err != nil {
+		t.Fatal(err)
+	}
 	if h.Log == nil {
 		h.Log = slog.New(slog.NewTextHandler(t.Output(), nil))
 	}

@@ -224,7 +224,7 @@ func TestGRPCWebAndGRPC(t *testing.T) {
 	sctx, stop := context.WithCancel(ctx)
 	done := make(chan error, 1)
 	go func() {
-		done <- api.ServeListener(sctx, ln, api.NewMux(&api.Handler{P: fake.New(false)}, webui.FS()), slog.New(slog.DiscardHandler))
+		done <- api.ServeListener(sctx, ln, api.NewMux(&api.Handler{Systems: api.One(fake.Cluster, fake.Cluster, fake.New(false))}, webui.FS()), slog.New(slog.DiscardHandler))
 	}()
 	var protocols http.Protocols
 	protocols.SetUnencryptedHTTP2(true)

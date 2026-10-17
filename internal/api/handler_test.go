@@ -48,7 +48,7 @@ func TestMutesWithIAP(t *testing.T) {
 			"iat": fake.FixedNow.Add(-time.Minute).Unix(), "exp": fake.FixedNow.Add(9 * time.Minute).Unix()}
 	}
 	v := &iap.Verifier{Audience: aud, Keys: signer, Now: func() time.Time { return fake.FixedNow }}
-	_, c := apitest.ServeHandler(t, &api.Handler{P: fake.New(false), IAP: v})
+	_, c := apitest.ServeHandler(t, &api.Handler{Systems: api.One(api.DefaultSystemID, api.DefaultSystemID, fake.New(false)), IAP: v})
 	ctx := context.Background()
 
 	res, err := c.MuteFinding(ctx, muteReq(signer.Sign("ES256", claims("op@example.com"))))
@@ -97,7 +97,7 @@ func (panicky) ListServers(context.Context, *v1.ListServersRequest) (*v1.ListSer
 
 func TestPanicBecomesInternal(t *testing.T) {
 	var logs syncBuffer
-	_, c := apitest.ServeHandler(t, &api.Handler{P: panicky{fake.New(false)}, Log: slog.New(slog.NewTextHandler(&logs, nil))})
+	_, c := apitest.ServeHandler(t, &api.Handler{Systems: api.One(api.DefaultSystemID, api.DefaultSystemID, panicky{fake.New(false)}), Log: slog.New(slog.NewTextHandler(&logs, nil))})
 	_, err := c.ListServers(context.Background(), connect.NewRequest(&v1.ListServersRequest{}))
 	if codeOf(err) != connect.CodeInternal {
 		t.Fatalf("panic: %v", err)
@@ -143,7 +143,7 @@ func (s *syncBuffer) String() string {
 }
 
 func TestLensInfo(t *testing.T) {
-	_, c := apitest.ServeHandler(t, &api.Handler{P: fake.New(false), Version: "v1.2.3"})
+	_, c := apitest.ServeHandler(t, &api.Handler{Systems: api.One(api.DefaultSystemID, api.DefaultSystemID, fake.New(false)), Version: "v1.2.3"})
 	info, err := c.GetLensInfo(context.Background(), connect.NewRequest(&v1.GetLensInfoRequest{}))
 	if err != nil {
 		t.Fatal(err)
@@ -154,7 +154,7 @@ func TestLensInfo(t *testing.T) {
 		t.Fatalf("info without IAP = %v", m)
 	}
 	v := &iap.Verifier{Audience: aud, Keys: iaptest.New("k1")}
-	_, c = apitest.ServeHandler(t, &api.Handler{P: fake.New(false), IAP: v})
+	_, c = apitest.ServeHandler(t, &api.Handler{Systems: api.One(api.DefaultSystemID, api.DefaultSystemID, fake.New(false)), IAP: v})
 	// Reading the info needs no assertion, so the UI can ask before a mute.
 	info, err = c.GetLensInfo(context.Background(), connect.NewRequest(&v1.GetLensInfoRequest{}))
 	if err != nil || info.Msg.GetIdentityMode() != v1.IdentityMode_IDENTITY_MODE_IAP {
