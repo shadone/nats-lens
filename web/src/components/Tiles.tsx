@@ -13,7 +13,8 @@ function rangeFmt(t: Tile) {
 }
 
 export function TileCard({ t, windows, start, end }: { t: Tile; windows: Window[]; start: number; end: number }) {
-  const [v, u] = tileValue(t.value, t.unit);
+  // A tile whose value is a name (the meta leader) shows the name.
+  const [v, u] = t.valueText ? [t.valueText, ""] : tileValue(t.value, t.unit);
   const [v2, u2] = tileValue(t.value2, t.unit);
   const dual = t.value2 !== undefined || t.value2Suffix !== "";
   const alert = t.status === "critical" || t.status === "warning" || t.status === "info";
@@ -25,7 +26,7 @@ export function TileCard({ t, windows, start, end }: { t: Tile; windows: Window[
   const current = t.value === undefined ? undefined : join(v, u, t.valueSuffix) + (t.value2 !== undefined ? `, ${join(v2, u2, t.value2Suffix)}` : "");
   return (
     <div className={`card tile${dual ? " dual" : ""}${alert ? ` st-${t.status}` : ""}`}>
-      <span className="lbl">
+      <span className="lbl" title={t.description}>
         {t.label}
         {alert && <Glyph level={t.status} title={t.status} />}
       </span>
