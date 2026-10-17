@@ -85,15 +85,14 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
       />
       <MetricBox
         title="Messages"
-        description="Messages the server received (in, solid) and sent (out, dashed) per second; averaged per bucket. The track is for in."
+        description="Messages the server received (in, solid line) and sent (out, dashed line) per second; averaged per bucket. The value and the track are for in; the note gives out."
         series={msgIn.series}
         series2={msgOut.series}
         loading={msgIn.loading}
         error={msgIn.error}
         value={inNow}
-        valueText={inNow === null ? undefined : `${fmtCount(inNow)} / ${outNow === null ? "–" : fmtCount(outNow)} /s`}
         fmt={rate}
-        note={downNote ?? (msgOut.series?.min !== undefined && msgOut.series.max !== undefined ? `out ${rate(msgOut.series.min)} to ${rate(msgOut.series.max)}` : undefined)}
+        note={downNote ?? (outNow !== null ? `out ${rate(outNow)}, dashed` : undefined)}
         start={start}
         end={end}
       />
