@@ -20,6 +20,8 @@ export interface NavItem {
   badge?: BadgeSource;
   /** Reads no system: the page shows every system. */
   crossSystem?: boolean;
+  /** The list page applies the account scope, so the header offers it. */
+  accountScope?: boolean;
 }
 
 export const NAV: NavItem[] = [
@@ -29,9 +31,9 @@ export const NAV: NavItem[] = [
   { path: "/subjects", label: "Subjects", group: "Messaging", icon: "M3 5h12 M3 9h8 M3 13h5 M13 11l3 2-3 2", planned: true },
   { path: "/micro-services", label: "Micro services", group: "Messaging", icon: "M3 3h5v5H3Z M10 10h5v5h-5Z M8 5.5h4.5V10", planned: true },
   { path: "/applications", label: "Applications", group: "Messaging", icon: "M5 5a2 2 0 1 0 0 .1 M13 5a2 2 0 1 0 0 .1 M9 13a2 2 0 1 0 0 .1 M6 6.5l2 5 M12 6.5l-2 5", planned: true },
-  { path: "/connections", label: "Connections", group: "Messaging", icon: "M2 9h4 M12 9h4 M6 6h6v6H6Z" },
+  { path: "/connections", label: "Connections", group: "Messaging", icon: "M2 9h4 M12 9h4 M6 6h6v6H6Z", accountScope: true },
   { path: "/streams", label: "Streams", group: "JetStream", icon: "M2 6c3-3 5 3 8 0s4-1 6 0 M2 12c3-3 5 3 8 0s4-1 6 0" },
-  { path: "/consumers", label: "Consumers", group: "JetStream", icon: "M3 9h8 M8 5l4 4-4 4 M14 4v10" },
+  { path: "/consumers", label: "Consumers", group: "JetStream", icon: "M3 9h8 M8 5l4 4-4 4 M14 4v10", accountScope: true },
   { path: "/kv-stores", label: "KV Stores", group: "JetStream", icon: "M4 4h4v4H4Z M10 5h5 M4 10h4v4H4Z M10 11h5", planned: true },
   { path: "/object-stores", label: "Object Stores", group: "JetStream", icon: "M3 6 9 3l6 3v7l-6 3-6-3Z M3 6l6 3 6-3 M9 9v7", planned: true },
   { path: "/placement", label: "Placement", group: "JetStream", icon: "M3 3h5v5H3Z M10 3h5v5h-5Z M3 10h5v5H3Z M10 10h5v5h-5Z", planned: true },

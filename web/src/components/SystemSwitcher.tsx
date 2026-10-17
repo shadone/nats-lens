@@ -19,7 +19,15 @@ function serverLine(servers: { present: boolean }[] | undefined): { text: string
   return up === servers.length ? { text: `${up} ${noun}`, down: false } : { text: `${up} of ${servers.length} ${noun}`, down: true };
 }
 
-export function SystemSwitcher() {
+/** "EP" for example-prod, "PR" for Production: the rail's mark of a system. */
+export function systemInitials(name: string): string {
+  const parts = name.split(/[\s_.-]+/).filter(Boolean);
+  const s = parts.length > 1 ? parts[0][0] + parts[1][0] : (parts[0] ?? "").slice(0, 2);
+  return s.toUpperCase();
+}
+
+/** The system's switcher; compact in the collapsed rail, where it shows the initials. */
+export function SystemSwitcher({ compact = false }: { compact?: boolean }) {
   const { id, info, systems } = useCurrentSystem();
   const demo = useLensInfo().data?.demo;
   const servers = serverLine(useShellStatus().data?.servers);
@@ -31,7 +39,11 @@ export function SystemSwitcher() {
   const page = navFor(pathname);
   const base = page && !page.crossSystem ? page.path : "/";
 
-  const body = (
+  const body = compact ? (
+    <span className="sw-initials" aria-hidden="true">
+      {systemInitials(name)}
+    </span>
+  ) : (
     <>
       <span className="sw-text">
         <span className="sw-name">{name}</span>
@@ -46,7 +58,7 @@ export function SystemSwitcher() {
 
   if (!systems || systems.systems.length <= 1) {
     return (
-      <div className="switcher single" aria-label={`System: ${name}`}>
+      <div className={`switcher single${compact ? " compact" : ""}`} role="group" aria-label={`System: ${name}`} title={compact ? name : undefined}>
         {body}
       </div>
     );
@@ -55,7 +67,8 @@ export function SystemSwitcher() {
     <Menu
       label={`System: ${name}. Switch system`}
       menuLabel="Systems"
-      className="switcher"
+      title={compact ? name : undefined}
+      className={`switcher${compact ? " compact" : ""}`}
       align="left"
       choices={systems.systems.map((s) => ({
         key: s.id,
@@ -67,7 +80,7 @@ export function SystemSwitcher() {
       actions={[{ key: "fleet", label: "All systems", onSelect: () => navigate(withGlobal("/fleet", global)) }]}
     >
       {body}
-      <Chevron />
+      {!compact && <Chevron />}
     </Menu>
   );
 }

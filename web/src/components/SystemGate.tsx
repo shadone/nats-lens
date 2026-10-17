@@ -17,7 +17,7 @@ function SystemNotFound({ id }: { id: string }) {
     <div className="page-h">
       <h1>System not found</h1>
       <span className="aside">
-        This nats-lens observes no system <code className="mono">{id}</code>. <RLink to="/fleet">Fleet</RLink> lists the systems it does.
+        No system <code className="mono">{id}</code>. See <RLink to="/fleet">Fleet</RLink>.
       </span>
     </div>
   );
