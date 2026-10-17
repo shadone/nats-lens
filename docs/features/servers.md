@@ -18,6 +18,14 @@ The Servers page lists every NATS server seen in the time range, by its stable n
 - **Monitoring endpoints.** The outcome of every request to the server in the newest collection: `ok`, `error` (with the error as a tooltip) or `missing`.
 - **Processes.** Each process lifetime in the range: server ID, start time, and when nats-lens first and last saw it answer.
 - **Findings and events.** The findings that fire now for the server, worst first, and its newest 15 events, with a link to all of them.
+- **More in the API (API only).** The API returns these, and the pages do not show them yet. Each server in the list has its stream and consumer leaders, its slow consumers inside the range and its configured tags. Slow consumers are counted per process: a restart starts a new count. The server detail has:
+  - each route with the remote server, round trip time and pending bytes;
+  - the gateways connected (remote clusters, unset when GATEWAYZ did not answer) and the leaf node connections;
+  - the limits: maximum payload, maximum pending, write deadline, ping interval and unanswered pings, JetStream file and memory limits, and the connection limit;
+  - the limits whose value differs from the value most servers have. A tie for the most common value marks nothing;
+  - where the server runs in Kubernetes: the pod, namespace, node, when the pod was scheduled and its container restarts in the range, from the newest Kubernetes event that names the server's pod. Without such an event, as when nats-lens does not watch Kubernetes, the placement is unset. A pod whose last event is its deletion has no node;
+  - when the configuration was loaded or last reloaded.
+- **Unreported is unset.** A limit a server did not report, such as every VARZ limit stored before nats-lens recorded them, is unset, never 0.
 
 ## Scenarios
 
@@ -39,6 +47,20 @@ The Servers page lists every NATS server seen in the time range, by its stable n
 - **When** I open its page
 - **Then** "Processes" lists three server IDs with their start times and when each first and last answered
 
+### Spot a server configured apart from the others (API only)
+
+- **Surfaces:** `api`
+- **Given** three servers, one with `max_payload` 8 MiB and two with 1 MiB
+- **When** I call `GetServer` for the 8 MiB server
+- **Then** `limits_differ` holds `max_payload`, and for the other two it is empty
+
+### Read where a server runs without the Kubernetes watcher (API only)
+
+- **Surfaces:** `api`
+- **Given** nats-lens does not watch Kubernetes
+- **When** I call `GetServer`
+- **Then** `kubernetes` is unset, not a placement with empty names
+
 ### Read the same from the API
 
 - **Surfaces:** `api`
@@ -48,15 +70,16 @@ The Servers page lists every NATS server seen in the time range, by its stable n
 
 ## Planned
 
-- **Servers page for 20 or more servers.** A summary row: servers answering (with how many are slow or down), versions in use, restarts in the last 24 hours, the JetStream store's median use with its range and the fullest server, and slow consumers in 24 hours with the server most of them came from.
+- **Servers page for 20 or more servers.** A summary row: servers answering (with how many are down), versions in use, restarts in the last 24 hours, the JetStream store's median use with its range and the fullest server, and slow consumers in 24 hours with the server most of them came from.
 - **Charts across servers.** CPU, memory, total connections and total messages in and out over the range, each drawn as a band from the minimum to the maximum server with the median and the busiest server.
 - **A map of every server.** One square per server, grouped by cluster, coloured by CPU, memory, connections, store used, leaders or version, with down servers outlined and the meta leader marked. Hovering a square names the server and value; a click opens it.
-- **A list grouped by cluster.** Filter by name, zone, version or tag; show "Needs attention" or all; group by cluster, zone or nothing; problems first, then by name. Columns: state, role, version, uptime, CPU, memory, connections, leaders (stream and consumer leaders on the server), store and zone. A cluster opens by itself when one of its servers needs attention; with one cluster the list is flat. Each cluster row sums its servers.
-- **Server page additions.** Tiles with each metric's range over the period. "Where it runs": the pod, node and zone from the Kubernetes watcher, hidden when nats-lens does not watch Kubernetes. Routes with the slowest route's round trip, and gateways. "Limits and settings" (maximum payload, maximum pending, write deadline, JetStream limits, ping interval), with settings that differ between servers marked. Recent events in plain words, and how many monitoring endpoints answered.
+- **A list grouped by cluster.** Filter by name, version or tag; show "Needs attention" or all; group by cluster or nothing; problems first, then by name. Columns: state, role, version, uptime, CPU, memory, connections, leaders (stream and consumer leaders on the server), store and tags. A cluster opens by itself when one of its servers needs attention; with one cluster the list is flat. Each cluster row sums its servers.
+- **Server page additions.** Tiles with each metric's range over the period. "Where it runs": the pod and node from the Kubernetes watcher, hidden when nats-lens does not watch Kubernetes. Routes with the slowest route's round trip, and gateways. "Limits and settings" (maximum payload, maximum pending, write deadline, JetStream limits, ping interval), with settings that differ between servers marked. Recent events in plain words, and how many monitoring endpoints answered.
 
 ## Not supported / out of scope
 
 - **No server actions.** nats-lens does not restart, reload or put a server in lame duck mode.
 - **No server log.** nats-lens does not read server logs.
 - **No per-server thresholds.**
-- **No zones yet.** The zone of a server is planned with the Kubernetes data above; today the list has no zone column.
+- **No zones.** nats-lens does not record a server's zone. Server tags, such as `az:eu-1a`, are returned instead (API only for now).
+- **No "slow to answer" state.** nats-lens stores whether each monitoring request succeeded, not how long the reply took.
