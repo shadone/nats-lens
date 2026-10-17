@@ -42,13 +42,18 @@ func TestEngineToolingNamesAreTheEngines(t *testing.T) {
 		t.Fatal(err)
 	}
 	set.SetToolingNames([]string{"natslens-shop-staging"})
+	// client-001 keys a connection by its service, the name before "@".
+	only := func(rows map[string]store.FindingRow, name string) bool {
+		_, ok := rows[name]
+		return ok && len(rows) == 1
+	}
 	prod := &Engine{Set: set, ToolingNames: []string{"natslens-shop-prod"}}
-	if got := clientRows(t, prod, f, 100); len(got) != 1 {
+	if got := clientRows(t, prod, f, 100); !only(got, "natslens-shop-staging") {
 		t.Errorf("prod engine: %s, want only the staging connection", rowsText(got))
 	}
 	shared := &Engine{Set: set}
-	if got := clientRows(t, shared, f, 100); len(got) != 1 {
-		t.Errorf("engine without names: %s, want the Set's names left out", rowsText(got))
+	if got := clientRows(t, shared, f, 100); !only(got, "natslens-shop-prod") {
+		t.Errorf("engine without names: %s, want only the prod connection", rowsText(got))
 	}
 }
 
