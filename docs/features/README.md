@@ -149,4 +149,4 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Findings and collector health at `/metrics` for Prometheus alerting (metrics-and-alerting.md)
 - [x] `run`, `once` for every system or one, configuration, health and readiness, the Kubernetes manifests (running-nats-lens.md)
 - [x] Read-only SQL on a stopped database with `natslens sql`, one system at a time (sql-access.md)
-- [x] Three fixed systems without NATS with `natslens demo` (demo-mode.md)
+- [x] Three fixed systems without NATS with `natslens demo`, whose findings are the real checks (demo-mode.md)

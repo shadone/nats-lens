@@ -12,28 +12,30 @@ import (
 // applied.
 func globalFindings(s scen) []*v1.Finding {
 	us4 := finding("server-001", "Server not reporting", warning, firing, serverRef("nats-us-4"), s.at(9, 12, 35), s.at(9, 12, 35),
-		"nats-us-4 has not answered since 09:12:05. Its pod is Pending: no node of pool-us has room after the upgrade.")
-	us4.Value = &v1.FindingValue{Name: "servers answering", Display: "23 / 24", Number: ptr(23.0), Basis: "per epoch, against the expected servers"}
-	us4.Remediation = "Check why the pod does not schedule (`kubectl describe pod nats-us-4`). " +
+		"nats-us-4 answered no monitoring request; 1 of 24 expected servers missing; last answered 2026-10-17 09:12:05 UTC.")
+	us4.Value = &v1.FindingValue{Name: "minutes since last answer", Display: "317.9", Number: ptr(317.9), Basis: "time since the server last answered"}
+	us4.Remediation = "Its pod is Pending: no node of pool-us has room after the upgrade. Check why the pod does not schedule (`kubectl describe pod nats-us-4`). " +
 		"The streams with a replica on it run on two of three until it returns."
 
-	replica := func(stream string) *v1.Finding {
+	replica := func(stream, leader string) *v1.Finding {
 		f := finding("stream-002", "Stream replica offline", warning, firing, streamRef(stream), s.at(9, 13, 0), s.at(9, 13, 0),
-			fmt.Sprintf("The %s replica on nats-us-4 is offline; 2 of 3 replicas are current.", stream))
+			fmt.Sprintf("Leader %s reports 1 replica offline: nats-us-4 (last seen 19075s ago).", leader))
+		f.Value = &v1.FindingValue{Name: "replicas offline", Display: "1", Number: ptr(1.0), Basis: "replicas the leader reports offline"}
 		f.RelatedConfig = cfg([][2]string{{"replicas", "3"}, {"placement.cluster", "us"}}, "replicas")
 		f.RelatedConfigSource = "nats-us-3"
 		return f
 	}
 
 	slow := finding("server-009", "Slow consumers", warning, firing, serverRef("nats-us-3"), s.at(13, 41, 0), s.at(13, 41, 0),
-		"9 slow consumer disconnects in 15 minutes, all label-printer.")
-	slow.Value = &v1.FindingValue{Name: "slow consumer disconnects", Display: "9 in 15m", Number: ptr(9.0), Basis: "15 minute window"}
+		"nats-us-3: 2 slow consumers in the last 15m (2 clients, 0 routes, gateways or leaf nodes).")
+	slow.Value = &v1.FindingValue{Name: "slow consumers", Display: "2", Number: ptr(2.0), Basis: "growth of the slow consumer counter within the lookback"}
 	slow.Remediation = "label-printer reads slower than shipping-updates delivers to it on nats-us-3. " +
 		"Raise its pending limits or add workers; the backlog on its consumer grows meanwhile."
 
 	backlog := finding("consumer-002", "Consumer backlog growing", warning, firing, consumerRef("shipping-updates", "label-printer"),
-		s.at(13, 40, 0), s.at(13, 40, 0), "Fill 38 msg/s, drain 21 msg/s over 1h. 6,210 pending.")
-	backlog.Value = &v1.FindingValue{Name: "fill minus drain", Display: "+17 msg/s", Number: ptr(17.0), Basis: "1h window, leader view"}
+		s.at(13, 40, 0), s.at(13, 40, 0), "Fill 24.5 msg/s, drain 21.4 msg/s over 00:30:00. 6210 pending, up 5580 since 14:00 UTC.")
+	backlog.Value = &v1.FindingValue{Name: "backlog growth, messages per second", Display: "3.1", Number: ptr(3.1),
+		Basis: "growth of num_pending over the lookback"}
 
 	// An R1 bucket whose only replica was on nats-us-4.
 	labels := finding("stream-011", "Expected stream or bucket missing", warning, firing, streamRef("KV_label-templates"),
@@ -44,25 +46,27 @@ func globalFindings(s scen) []*v1.Finding {
 	labels.Remediation = "Bring nats-us-4 back: its pod is Pending, and the bucket's only replica is on it. " +
 		"Then give the bucket more than one replica, so that one server cannot take it away."
 
-	full := finding("server-014", "JetStream store full soon", info, firing, serverRef("nats-ap-2"), s.on(15, 6, 0), s.on(15, 6, 0),
-		"71% of 100 GiB in use, growing 1.1 GiB/day: full in 26 days.")
+	full := finding("server-014", "JetStream store full soon", warning, firing, serverRef("nats-ap-2"), s.at(12, 6, 0), s.at(12, 6, 0),
+		"nats-ap-2 file store grows 2.1 GiB per day over the last 6h: full in 13.8 days (71.0 GiB of 100.0 GiB).")
+	full.Value = &v1.FindingValue{Name: "days until full", Display: "13.8", Number: ptr(13.8),
+		Basis: "days until the JetStream store is full at the current growth"}
 
 	version := func(server string) *v1.Finding {
 		return finding("server-005", "Version differs from the majority", info, firing, serverRef(server), s.on(14, 10, 0), s.on(14, 10, 0),
-			server+" runs "+globalOlder+"; 22 servers run "+globalVersion+".")
+			server+" runs "+globalOlder+"; 22 of 24 servers run "+globalVersion+".")
 	}
 
 	restarted := func(server string, h, m, sec int) *v1.Finding {
 		at := s.at(h, m, sec)
 		return resolvedFinding("server-004", "Server restarted", info, serverRef(server), at, at.Add(10*time.Minute),
-			server+" restarted during the pool-us upgrade.")
+			fmt.Sprintf("%s restarted at %02d:%02d:%02d UTC with version %s unchanged; 1 restart in the last 1h.", server, h, m, sec, globalVersion))
 	}
 
-	return []*v1.Finding{us4, replica("shipping-updates"), replica("price-changes"), labels, slow, backlog, full,
+	return []*v1.Finding{us4, replica("shipping-updates", "nats-us-5"), replica("price-changes", "nats-us-2"), labels, slow, backlog, full,
 		version("nats-ap-4"), version("nats-ap-5"),
 		restarted("nats-us-1", 8, 46, 10), restarted("nats-us-2", 8, 58, 30), restarted("nats-us-3", 9, 6, 40),
 		resolvedFinding("stream-001", "Stream quorum lost", critical, streamRef("inventory-changes"), s.at(8, 58, 40), s.at(9, 1, 0),
-			"1 of 3 peers while nats-us-1 and nats-us-2 restarted."),
+			"Leader nats-us-0 sees 1 of 3 replicas online; quorum needs 2, for 4 epochs."),
 	}
 }
 
@@ -111,9 +115,9 @@ func globalEvents(s scen, fs []*v1.Finding) []*v1.Event {
 			Summary: "label-printer disconnected: Slow Consumer (Write Deadline)"})
 	}
 	out = append(out,
-		findingEvent("server-009:nats-us-3", firing, s.at(13, 41, 0), "finding.firing", "nats-us-3: 9 slow consumer disconnects in 15 minutes"),
+		findingEvent("server-009:nats-us-3", firing, s.at(13, 41, 0), "finding.firing", "nats-us-3: 4 slow consumers in the last 15m"),
 		findingEvent("consumer-002:"+Account+"/shipping-updates/label-printer", firing, s.at(13, 40, 0), "finding.firing",
-			"label-printer on shipping-updates: fill 38/s, drain 21/s"),
+			"label-printer on shipping-updates: fill 24.5/s, drain 21.4/s"),
 	)
 	out = append(out,
 		k8s(s.at(9, 20, 30), "k8s.node.upgrade", "NodePoolUpgrade", "", "pool-us upgrade stopped: 3 of 4 nodes on 1.33.4-gke.1245"),
@@ -164,6 +168,8 @@ func globalRows(*scenario) []rowSpec {
 		{"server-001", "Server not reporting", warning, []*v1.EntityRef{us(4)}, []span{{f(9, 12, 35), open}}},
 		{"stream-002", "Stream replica offline", warning, []*v1.EntityRef{streamRef("shipping-updates"), streamRef("price-changes")},
 			[]span{{f(9, 13, 0), open}}},
+		{"stream-011", "Expected stream or bucket missing", warning, []*v1.EntityRef{streamRef("KV_label-templates")},
+			[]span{{f(9, 12, 40), open}}},
 		{"server-009", "Slow consumers", warning, []*v1.EntityRef{us(3)},
 			[]span{{on16(23, 10), on16(23, 25)}, {f(11, 5, 0), f(11, 20, 0)}, {f(13, 41, 0), open}}},
 		{"consumer-002", "Consumer backlog growing", warning, []*v1.EntityRef{consumerRef("shipping-updates", "label-printer")},
@@ -171,7 +177,7 @@ func globalRows(*scenario) []rowSpec {
 		{"stream-001", "Stream quorum lost", critical, []*v1.EntityRef{streamRef("inventory-changes")}, []span{{f(8, 58, 40), f(9, 1, 0)}}},
 		{"server-004", "Server restarted", info, []*v1.EntityRef{us(1), us(2), us(3)},
 			[]span{{f(8, 46, 10), f(8, 56, 10)}, {f(8, 58, 30), f(9, 8, 30)}, {f(9, 6, 40), f(9, 16, 40)}}},
-		{"server-014", "JetStream store full soon", info, []*v1.EntityRef{serverRef("nats-ap-2")}, []span{{day(15, 6, 0), open}}},
+		{"server-014", "JetStream store full soon", warning, []*v1.EntityRef{serverRef("nats-ap-2")}, []span{{f(12, 6, 0), open}}},
 		{"server-005", "Version differs from the majority", info, []*v1.EntityRef{serverRef("nats-ap-4"), serverRef("nats-ap-5")},
 			[]span{{day(14, 10, 0), open}}},
 	}
