@@ -5,7 +5,7 @@
 import type { Point, Unit } from "../api/model";
 import { useTrend, type TrendSeries } from "../api/overview";
 import { bucketLabel, type RangeSpec } from "../lib/timeRange";
-import { bandEdges, lastValue, minMaxText, stack, total } from "../lib/trends";
+import { bandEdges, inOutText, lastValue, minMaxText, stack, total } from "../lib/trends";
 import { fmtValue } from "../lib/units";
 import { errorText } from "./common";
 import { useReportStale } from "./StaleContext";
@@ -75,13 +75,11 @@ function InOut({ f, title, inMetric, outMetric }: { f: Frame; title: string; inM
   useReportStale(qi);
   useReportStale(qo);
   const unit = qi.data?.unit ?? qo.data?.unit ?? "per_second";
-  const vi = fmt(lastValue(qi.data?.points), unit);
-  const vo = fmt(lastValue(qo.data?.points), unit);
   const max = Math.max(qi.data?.max ?? -Infinity, qo.data?.max ?? -Infinity);
   return (
     <TrendChart
       title={title}
-      now={vi === undefined && vo === undefined ? undefined : `${vi ?? "–"} in, ${vo ?? "–"} out`}
+      now={inOutText(lastValue(qi.data?.points), lastValue(qo.data?.points), unit)}
       summary={Number.isFinite(max) ? `max ${fmtValue(max, unit)}` : undefined}
       start={f.start}
       end={f.end}

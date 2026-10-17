@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bandEdges, minMaxText, stack, total } from "./trends";
+import { bandEdges, inOutText, minMaxText, stack, total } from "./trends";
 
 describe("stack", () => {
   it("puts the upper series on top of the lower one, only where both have a point", () => {
@@ -30,5 +30,18 @@ describe("total", () => {
   it("is undefined without points, never 0", () => {
     expect(total([])).toBeUndefined();
     expect(total([{ time: 0, value: 0 }, { time: 1, value: 2 }])).toBe(2);
+  });
+});
+
+describe("inOutText", () => {
+  it("writes the unit once, so the header stays on one line", () => {
+    expect(inOutText(1.45 * 1048576, 4.59 * 1048576, "bytes_per_second")).toBe("1.45 / 4.59 MiB/s");
+    expect(inOutText(1240, 3910, "per_second")).toBe("1,240 / 3,910/s");
+  });
+
+  it("keeps each unit when the two differ, and a dash for a value not observed", () => {
+    expect(inOutText(900, 2 * 1048576, "bytes_per_second")).toBe("900 B/s / 2 MiB/s");
+    expect(inOutText(undefined, 3910, "per_second")).toBe("– / 3,910/s");
+    expect(inOutText(undefined, undefined, "per_second")).toBeUndefined();
   });
 });
