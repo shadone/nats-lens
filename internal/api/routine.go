@@ -1,13 +1,35 @@
 package api
 
 import (
+	"regexp"
 	"strings"
 	"time"
 )
 
 // RoutineKinds are the event kinds that are routine whoever caused them:
-// client churn, sampled acks, API audit and account connection counts.
-var RoutineKinds = []string{"client.churn", "consumer.ack_sampled", "api.audit", "account.connections"}
+// client churn, sampled acks and account connection counts.
+var RoutineKinds = []string{"client.churn", "consumer.ack_sampled", "account.connections"}
+
+// AuditKind is the kind of a JetStream API audit record. A record is
+// routine when the call succeeded (no reason) and its subject matches
+// no MutatingAuditPattern.
+const AuditKind = "api.audit"
+
+// MutatingAuditPattern matches the JetStream API subjects of calls that
+// change something: $JS.API.<verb>... as nats-server names them, for
+// example $JS.API.STREAM.DELETE.<stream> or
+// $JS.API.CONSUMER.DURABLE.CREATE.<stream>.<consumer>. RE2 syntax, for
+// Go and DuckDB alike.
+const MutatingAuditPattern = `(^|\.)API\.(STREAM\.(CREATE|UPDATE|DELETE|PURGE|MSG\.DELETE|SNAPSHOT|RESTORE|PEER\.REMOVE|LEADER\.STEPDOWN)` +
+	`|CONSUMER\.(CREATE|DURABLE\.CREATE|DELETE|PAUSE|UNPIN|LEADER\.STEPDOWN)|META\.LEADER\.STEPDOWN|SERVER\.REMOVE|ACCOUNT\.PURGE)(\.|$)`
+
+var mutatingAudit = regexp.MustCompile(MutatingAuditPattern)
+
+// RoutineAudit reports whether an API audit record with this subject and
+// reason is routine: a successful call that changes nothing.
+func RoutineAudit(subject, reason string) bool {
+	return reason == "" && !mutatingAudit.MatchString(subject)
+}
 
 // ToolingKinds are the event kinds that are routine when a tooling client
 // caused them, judged as the client checks judge a connection.
