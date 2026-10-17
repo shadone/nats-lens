@@ -101,6 +101,9 @@ message GetOverviewRequest {
 
   // Largest number of points per tile series. Zero means 96.
   int32 max_points = 2;
+
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 3;
 }
 
 // Summary of the system over a range: cluster, freshness, servers, finding

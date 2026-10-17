@@ -291,3 +291,19 @@ func (h *Handler) GetTimeSeries(ctx context.Context, req *connect.Request[v1.Get
 		return normalizeTimeSeries(m, h.P.Now())
 	}, h.P.GetTimeSeries)
 }
+
+func (h *Handler) ListSystems(context.Context, *connect.Request[v1.ListSystemsRequest]) (*connect.Response[v1.ListSystemsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+}
+
+func (h *Handler) ListAccounts(context.Context, *connect.Request[v1.ListAccountsRequest]) (*connect.Response[v1.ListAccountsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+}
+
+func (h *Handler) ListKeyValueStores(context.Context, *connect.Request[v1.ListKeyValueStoresRequest]) (*connect.Response[v1.ListKeyValueStoresResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+}
+
+func (h *Handler) ListObjectStores(context.Context, *connect.Request[v1.ListObjectStoresRequest]) (*connect.Response[v1.ListObjectStoresResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+}

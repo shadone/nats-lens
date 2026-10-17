@@ -152,3 +152,30 @@ message EventRef {
   // One line describing the event.
   string summary = 4;
 }
+
+// State of one replica of a stream or bucket, from the servers' views.
+enum PlacementState {
+  // Not set.
+  PLACEMENT_STATE_UNSPECIFIED = 0;
+  // The replica is the leader.
+  PLACEMENT_STATE_LEADER = 1;
+  // The replica is current with the leader.
+  PLACEMENT_STATE_IN_SYNC = 2;
+  // The replica lags behind the leader.
+  PLACEMENT_STATE_BEHIND = 3;
+  // The replica's view disagrees with the leader's.
+  PLACEMENT_STATE_DISAGREES = 4;
+  // The replica is expected but no server reports it.
+  PLACEMENT_STATE_MISSING = 5;
+  // The server that holds the replica is offline.
+  PLACEMENT_STATE_OFFLINE = 6;
+}
+
+// One replica of a stream or bucket and its state.
+message ReplicaPlacement {
+  // Server that holds the replica.
+  string server = 1;
+
+  // State of the replica.
+  PlacementState state = 2;
+}

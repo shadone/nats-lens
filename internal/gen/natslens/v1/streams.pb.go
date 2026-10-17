@@ -382,7 +382,9 @@ type ListStreamsRequest struct {
 	// Only streams of this account.
 	Account string `protobuf:"bytes,2,opt,name=account,proto3" json:"account,omitempty"`
 	// Whether to include KV buckets (KV_*) and object stores (OBJ_*).
-	IncludeKv     bool `protobuf:"varint,3,opt,name=include_kv,json=includeKv,proto3" json:"include_kv,omitempty"`
+	IncludeKv bool `protobuf:"varint,3,opt,name=include_kv,json=includeKv,proto3" json:"include_kv,omitempty"`
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System        string `protobuf:"bytes,4,opt,name=system,proto3" json:"system,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -436,6 +438,13 @@ func (x *ListStreamsRequest) GetIncludeKv() bool {
 		return x.IncludeKv
 	}
 	return false
+}
+
+func (x *ListStreamsRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
 }
 
 // Streams, worst status first, then by name.
@@ -502,7 +511,9 @@ type GetStreamRequest struct {
 	Stream string `protobuf:"bytes,2,opt,name=stream,proto3" json:"stream,omitempty"`
 	// Range whose newest epoch is read. Unset means the last 24 hours up to
 	// now.
-	Range         *TimeRange `protobuf:"bytes,3,opt,name=range,proto3" json:"range,omitempty"`
+	Range *TimeRange `protobuf:"bytes,3,opt,name=range,proto3" json:"range,omitempty"`
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System        string `protobuf:"bytes,4,opt,name=system,proto3" json:"system,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -556,6 +567,13 @@ func (x *GetStreamRequest) GetRange() *TimeRange {
 		return x.Range
 	}
 	return nil
+}
+
+func (x *GetStreamRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
 }
 
 // One stream in detail.
@@ -698,19 +716,21 @@ const file_natslens_v1_streams_proto_rawDesc = "" +
 	"\fStreamTotals\x12\x14\n" +
 	"\x05bytes\x18\x01 \x01(\x03R\x05bytes\x12+\n" +
 	"\x11durable_consumers\x18\x02 \x01(\x05R\x10durableConsumers\x12/\n" +
-	"\x13ephemeral_consumers\x18\x03 \x01(\x05R\x12ephemeralConsumers\"{\n" +
+	"\x13ephemeral_consumers\x18\x03 \x01(\x05R\x12ephemeralConsumers\"\x93\x01\n" +
 	"\x12ListStreamsRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x18\n" +
 	"\aaccount\x18\x02 \x01(\tR\aaccount\x12\x1d\n" +
 	"\n" +
-	"include_kv\x18\x03 \x01(\bR\tincludeKv\"~\n" +
+	"include_kv\x18\x03 \x01(\bR\tincludeKv\x12\x16\n" +
+	"\x06system\x18\x04 \x01(\tR\x06system\"~\n" +
 	"\x13ListStreamsResponse\x124\n" +
 	"\astreams\x18\x01 \x03(\v2\x1a.natslens.v1.StreamSummaryR\astreams\x121\n" +
-	"\x06totals\x18\x02 \x01(\v2\x19.natslens.v1.StreamTotalsR\x06totals\"r\n" +
+	"\x06totals\x18\x02 \x01(\v2\x19.natslens.v1.StreamTotalsR\x06totals\"\x8a\x01\n" +
 	"\x10GetStreamRequest\x12\x18\n" +
 	"\aaccount\x18\x01 \x01(\tR\aaccount\x12\x16\n" +
 	"\x06stream\x18\x02 \x01(\tR\x06stream\x12,\n" +
-	"\x05range\x18\x03 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\"\xe1\x02\n" +
+	"\x05range\x18\x03 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x16\n" +
+	"\x06system\x18\x04 \x01(\tR\x06system\"\xe1\x02\n" +
 	"\x11GetStreamResponse\x122\n" +
 	"\x06stream\x18\x01 \x01(\v2\x1a.natslens.v1.StreamSummaryR\x06stream\x120\n" +
 	"\x06config\x18\x02 \x03(\v2\x18.natslens.v1.ConfigValueR\x06config\x127\n" +

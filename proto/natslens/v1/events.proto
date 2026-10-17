@@ -114,6 +114,9 @@ message ListEventsRequest {
   // Token from a previous response, to read older events with the same
   // filters.
   string page_token = 7;
+
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 8;
 }
 
 // Events, newest first.
@@ -132,6 +135,9 @@ message ListEventsResponse {
 message GetEventRequest {
   // Event ID.
   string id = 1;
+
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 2;
 }
 
 // One event with its payload.

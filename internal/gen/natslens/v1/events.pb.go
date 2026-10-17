@@ -323,7 +323,9 @@ type ListEventsRequest struct {
 	PageSize int32 `protobuf:"varint,6,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	// Token from a previous response, to read older events with the same
 	// filters.
-	PageToken     string `protobuf:"bytes,7,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	PageToken string `protobuf:"bytes,7,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System        string `protobuf:"bytes,8,opt,name=system,proto3" json:"system,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -407,6 +409,13 @@ func (x *ListEventsRequest) GetPageToken() string {
 	return ""
 }
 
+func (x *ListEventsRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
+}
+
 // Events, newest first.
 type ListEventsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -475,7 +484,9 @@ func (x *ListEventsResponse) GetTotalCount() int32 {
 type GetEventRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Event ID.
-	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System        string `protobuf:"bytes,2,opt,name=system,proto3" json:"system,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -513,6 +524,13 @@ func (*GetEventRequest) Descriptor() ([]byte, []int) {
 func (x *GetEventRequest) GetId() string {
 	if x != nil {
 		return x.Id
+	}
+	return ""
+}
+
+func (x *GetEventRequest) GetSystem() string {
+	if x != nil {
+		return x.System
 	}
 	return ""
 }
@@ -594,7 +612,7 @@ const file_natslens_v1_events_proto_rawDesc = "" +
 	"\afinding\x18\x11 \x01(\v2\x14.natslens.v1.FindingR\afinding\x12,\n" +
 	"\x06raised\x18\x12 \x03(\v2\x14.natslens.v1.FindingR\x06raised\x12\x10\n" +
 	"\x03raw\x18\x13 \x01(\tR\x03raw\x12!\n" +
-	"\faccount_name\x18\x14 \x01(\tR\vaccountName\"\x98\x02\n" +
+	"\faccount_name\x18\x14 \x01(\tR\vaccountName\"\xb0\x02\n" +
 	"\x11ListEventsRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x122\n" +
 	"\asources\x18\x02 \x03(\x0e2\x18.natslens.v1.EventSourceR\asources\x12\x14\n" +
@@ -604,14 +622,16 @@ const file_natslens_v1_events_proto_rawDesc = "" +
 	"clientName\x12\x1b\n" +
 	"\tpage_size\x18\x06 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\a \x01(\tR\tpageToken\"\x89\x01\n" +
+	"page_token\x18\a \x01(\tR\tpageToken\x12\x16\n" +
+	"\x06system\x18\b \x01(\tR\x06system\"\x89\x01\n" +
 	"\x12ListEventsResponse\x12*\n" +
 	"\x06events\x18\x01 \x03(\v2\x12.natslens.v1.EventR\x06events\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x05R\n" +
-	"totalCount\"!\n" +
+	"totalCount\"9\n" +
 	"\x0fGetEventRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"<\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
+	"\x06system\x18\x02 \x01(\tR\x06system\"<\n" +
 	"\x10GetEventResponse\x12(\n" +
 	"\x05event\x18\x01 \x01(\v2\x12.natslens.v1.EventR\x05event*\x95\x01\n" +
 	"\vEventSource\x12\x1c\n" +

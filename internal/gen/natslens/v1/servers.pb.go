@@ -413,7 +413,9 @@ func (x *ServerProcess) GetLastSeen() *timestamppb.Timestamp {
 type ListServersRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Range to report on. Unset means the last 24 hours up to now.
-	Range         *TimeRange `protobuf:"bytes,1,opt,name=range,proto3" json:"range,omitempty"`
+	Range *TimeRange `protobuf:"bytes,1,opt,name=range,proto3" json:"range,omitempty"`
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System        string `protobuf:"bytes,2,opt,name=system,proto3" json:"system,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -453,6 +455,13 @@ func (x *ListServersRequest) GetRange() *TimeRange {
 		return x.Range
 	}
 	return nil
+}
+
+func (x *ListServersRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
 }
 
 // Servers by name.
@@ -525,7 +534,9 @@ type GetServerRequest struct {
 	// Server name.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Range to report on. Unset means the last 24 hours up to now.
-	Range         *TimeRange `protobuf:"bytes,2,opt,name=range,proto3" json:"range,omitempty"`
+	Range *TimeRange `protobuf:"bytes,2,opt,name=range,proto3" json:"range,omitempty"`
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System        string `protobuf:"bytes,3,opt,name=system,proto3" json:"system,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -572,6 +583,13 @@ func (x *GetServerRequest) GetRange() *TimeRange {
 		return x.Range
 	}
 	return nil
+}
+
+func (x *GetServerRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
 }
 
 // One server in detail.
@@ -960,8 +978,10 @@ type ListConnectionsRequest struct {
 	// Also list tooling connections (see Connection.tooling); they are left
 	// out otherwise and counted in tooling_hidden.
 	IncludeTooling bool `protobuf:"varint,7,opt,name=include_tooling,json=includeTooling,proto3" json:"include_tooling,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System        string `protobuf:"bytes,8,opt,name=system,proto3" json:"system,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListConnectionsRequest) Reset() {
@@ -1041,6 +1061,13 @@ func (x *ListConnectionsRequest) GetIncludeTooling() bool {
 		return x.IncludeTooling
 	}
 	return false
+}
+
+func (x *ListConnectionsRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
 }
 
 // Connections, ordered by server and connection ID.
@@ -1168,16 +1195,18 @@ const file_natslens_v1_servers_proto_rawDesc = "" +
 	"start_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\tstartTime\x129\n" +
 	"\n" +
 	"first_seen\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tfirstSeen\x127\n" +
-	"\tlast_seen\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\blastSeen\"B\n" +
+	"\tlast_seen\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\blastSeen\"Z\n" +
 	"\x12ListServersRequest\x12,\n" +
-	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\"\x81\x01\n" +
+	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x16\n" +
+	"\x06system\x18\x02 \x01(\tR\x06system\"\x81\x01\n" +
 	"\x13ListServersResponse\x124\n" +
 	"\aservers\x18\x01 \x03(\v2\x1a.natslens.v1.ServerSummaryR\aservers\x12\x1a\n" +
 	"\bexpected\x18\x02 \x03(\tR\bexpected\x12\x18\n" +
-	"\amissing\x18\x03 \x03(\tR\amissing\"T\n" +
+	"\amissing\x18\x03 \x03(\tR\amissing\"l\n" +
 	"\x10GetServerRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12,\n" +
-	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\"\x93\x04\n" +
+	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x16\n" +
+	"\x06system\x18\x03 \x01(\tR\x06system\"\x93\x04\n" +
 	"\x11GetServerResponse\x122\n" +
 	"\x06server\x18\x01 \x01(\v2\x1a.natslens.v1.ServerSummaryR\x06server\x12:\n" +
 	"\tendpoints\x18\x02 \x03(\v2\x1c.natslens.v1.EndpointOutcomeR\tendpoints\x128\n" +
@@ -1232,7 +1261,7 @@ const file_natslens_v1_servers_proto_rawDesc = "" +
 	"\n" +
 	"_out_bytesB\t\n" +
 	"\a_stallsB\x10\n" +
-	"\x0e_subscriptions\"\x82\x02\n" +
+	"\x0e_subscriptions\"\x9a\x02\n" +
 	"\x16ListConnectionsRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x16\n" +
 	"\x06server\x18\x02 \x01(\tR\x06server\x12\x18\n" +
@@ -1241,7 +1270,8 @@ const file_natslens_v1_servers_proto_rawDesc = "" +
 	"\tpage_size\x18\x05 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
 	"page_token\x18\x06 \x01(\tR\tpageToken\x12'\n" +
-	"\x0finclude_tooling\x18\a \x01(\bR\x0eincludeTooling\"\xda\x01\n" +
+	"\x0finclude_tooling\x18\a \x01(\bR\x0eincludeTooling\x12\x16\n" +
+	"\x06system\x18\b \x01(\tR\x06system\"\xda\x01\n" +
 	"\x17ListConnectionsResponse\x129\n" +
 	"\vconnections\x18\x01 \x03(\v2\x17.natslens.v1.ConnectionR\vconnections\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +

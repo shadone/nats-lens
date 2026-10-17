@@ -19,7 +19,10 @@ enum IdentityMode {
 }
 
 // Request for facts about this nats-lens instance.
-message GetLensInfoRequest {}
+message GetLensInfoRequest {
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 1;
+}
 
 // Facts about this nats-lens instance and the system it observes.
 message GetLensInfoResponse {
@@ -48,4 +51,10 @@ message GetLensInfoResponse {
   // Start of the oldest stored epoch: the collector's history begins here.
   // Unset before the first epoch.
   google.protobuf.Timestamp history_start = 8;
+
+  // ID of the system these facts are about.
+  string system = 9;
+
+  // Display name of that system.
+  string system_name = 10;
 }
