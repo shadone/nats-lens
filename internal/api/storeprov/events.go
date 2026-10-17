@@ -248,6 +248,9 @@ func (p *Provider) ListEvents(ctx context.Context, req *v1.ListEventsRequest) (*
 	if err != nil {
 		return nil, err
 	}
+	if richRequest(req) {
+		return p.listEventsRich(ctx, req, cur)
+	}
 	where, args := eventFilter(req)
 	res := &v1.ListEventsResponse{}
 	if err := p.db().QueryRowContext(ctx, `SELECT count(*) FROM events e WHERE `+where, args...).Scan(&res.TotalCount); err != nil {
