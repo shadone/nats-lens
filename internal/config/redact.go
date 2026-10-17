@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -41,6 +42,10 @@ func (n NATS) GoString() string {
 	return strings.Replace(fmt.Sprintf("%#v", n.redacted()), "config.natsFields", "config.NATS", 1)
 }
 
+// MarshalJSON writes the connection with its password and any password in
+// the URL hidden.
+func (n NATS) MarshalJSON() ([]byte, error) { return json.Marshal(n.redacted()) }
+
 // LogValue logs the connection without its password.
 func (n NATS) LogValue() slog.Value {
 	return slog.GroupValue(
@@ -62,6 +67,10 @@ func (a Account) String() string { return fmt.Sprintf("%+v", a.redacted()) }
 func (a Account) GoString() string {
 	return strings.Replace(fmt.Sprintf("%#v", a.redacted()), "config.accountFields", "config.Account", 1)
 }
+
+// MarshalJSON writes the account with its password and any password in
+// the URL hidden.
+func (a Account) MarshalJSON() ([]byte, error) { return json.Marshal(a.redacted()) }
 
 // LogValue logs the account without its password.
 func (a Account) LogValue() slog.Value {

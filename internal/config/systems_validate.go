@@ -3,8 +3,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
-	"strings"
 )
 
 // perSystemKeys are the top-level keys that describe one system; a
@@ -52,7 +50,7 @@ func (c Config) validateSystems() []error {
 		if c.SystemID != "" && !systemID.MatchString(c.SystemID) {
 			errs = append(errs, fmt.Errorf("system_id %q must match %s", c.SystemID, systemID))
 		}
-		return append(errs, validatePasswordEnvs(accountPasswordEnvs("", c.Accounts, AccountPasswordEnv))...)
+		return errs
 	}
 	var errs []error
 	if c.SystemID != "" {
@@ -73,9 +71,7 @@ func (c Config) validateSystems() []error {
 	for i, s := range resolved {
 		errs = append(errs, prefixErrors(fmt.Sprintf("systems[%d]", i), s.validate(c.Events))...)
 	}
-	valid := validIDs(c.Systems)
-	errs = append(errs, validateSystemDirs(resolved, valid)...)
-	return append(errs, validateSystemPasswordEnvs(c.Systems, valid)...)
+	return append(errs, validateSystemDirs(resolved, validIDs(c.Systems))...)
 }
 
 func (s System) validate(events Events) []error {
@@ -112,98 +108,32 @@ func validIDs(systems []SystemConfig) []bool {
 	return out
 }
 
-// validateSystemDirs refuses two systems whose directories overlap: an
-// archive equal to or inside another system's archive or data directory, a
-// data directory inside another system's archive, or two equal data
-// directories. An archive is listed recursively, so a nested one would be
-// read and pruned by both systems. A data directory inside another one is
-// allowed: each holds only its own files.
-func validateSystemDirs(systems []System, valid []bool) []error {
-	type dirs struct{ who, data, archive string }
-	var ds []dirs
-	for i, s := range systems {
-		if valid[i] {
-			ds = append(ds, dirs{fmt.Sprintf("systems[%d] (%s)", i, s.ID), realDir(s.DataDir), realDir(s.ArchiveDir)})
-		}
-	}
-	var errs []error
-	for i := range ds {
-		for j := i + 1; j < len(ds); j++ {
-			if msg := dirClash(ds[i].data, ds[i].archive, ds[j].data, ds[j].archive); msg != "" {
-				errs = append(errs, fmt.Errorf("%s and %s: %s", ds[i].who, ds[j].who, msg))
-			}
-		}
-	}
-	return errs
-}
-
-// dirClash describes how the directories of two systems a and b overlap,
-// or returns "" when they do not.
-func dirClash(aData, aArchive, bData, bArchive string) string {
-	switch {
-	case aData == bData:
-		return fmt.Sprintf("both use the same directory %s as data directory", aData)
-	case aArchive == bArchive:
-		return fmt.Sprintf("both use the same directory %s as archive directory", aArchive)
-	case within(aArchive, bArchive) || within(bArchive, aArchive):
-		return fmt.Sprintf("one archive directory is inside the other: %s and %s", aArchive, bArchive)
-	case within(aArchive, bData):
-		return fmt.Sprintf("the first's archive directory %s is inside the second's data directory %s", aArchive, bData)
-	case within(bArchive, aData):
-		return fmt.Sprintf("the second's archive directory %s is inside the first's data directory %s", bArchive, aData)
-	case within(aData, bArchive):
-		return fmt.Sprintf("the first's data directory %s is inside the second's archive directory %s", aData, bArchive)
-	case within(bData, aArchive):
-		return fmt.Sprintf("the second's data directory %s is inside the first's archive directory %s", bData, aArchive)
-	}
-	return ""
-}
-
-// within reports whether dir is parent or inside it.
-func within(dir, parent string) bool {
-	if dir == parent {
-		return true
-	}
-	if !strings.HasSuffix(parent, string(filepath.Separator)) {
-		parent += string(filepath.Separator)
-	}
-	return strings.HasPrefix(dir, parent)
-}
-
-// realDir returns dir as an absolute path with the symbolic links of its
-// longest existing prefix resolved, so that two names of one directory
-// compare equal before either exists in full.
-func realDir(dir string) string {
-	abs, err := filepath.Abs(dir)
-	if err != nil {
-		return filepath.Clean(dir)
-	}
-	p, rest := abs, ""
-	for {
-		if r, err := filepath.EvalSymlinks(p); err == nil {
-			return filepath.Join(r, rest)
-		}
-		parent := filepath.Dir(p)
-		if parent == p {
-			return abs
-		}
-		rest = filepath.Join(filepath.Base(p), rest)
-		p = parent
-	}
-}
-
 // passwordEnv is an environment variable a connection reads its password
 // from, and the connection that reads it.
 type passwordEnv struct{ name, who string }
 
-// accountPasswordEnvs lists the variables the accounts with a user read;
-// an account whose name repeats an earlier one is left out, as that is
-// already reported.
+// readsPasswordEnv reports whether a connection takes its password from
+// the environment: it has a user and the file gives no password.
+func readsPasswordEnv(user, password string) bool { return user != "" && password == "" }
+
+// passwordEnvErrors refuses two connections that would read their password
+// from the same environment variable. It runs before the variables are
+// read, as only then does an empty password show that one is read.
+func (c Config) passwordEnvErrors() []error {
+	if len(c.Systems) == 0 {
+		return validatePasswordEnvs(accountPasswordEnvs("", c.Accounts, AccountPasswordEnv))
+	}
+	return validateSystemPasswordEnvs(c.Systems, validIDs(c.Systems))
+}
+
+// accountPasswordEnvs lists the variables the accounts read their
+// password from; an account whose name repeats an earlier one is left
+// out, as that is already reported.
 func accountPasswordEnvs(prefix string, accs []Account, env func(string) string) []passwordEnv {
 	var out []passwordEnv
 	seen := map[string]bool{}
 	for _, a := range accs {
-		if a.User == "" || seen[a.Name] {
+		if !readsPasswordEnv(a.User, a.Password) || seen[a.Name] {
 			continue
 		}
 		seen[a.Name] = true
@@ -221,7 +151,7 @@ func validateSystemPasswordEnvs(systems []SystemConfig, valid []bool) []error {
 			continue
 		}
 		who := fmt.Sprintf("systems[%d] (%s) ", i, s.ID)
-		if s.NATS.User != "" {
+		if readsPasswordEnv(s.NATS.User, s.NATS.Password) {
 			envs = append(envs, passwordEnv{SystemPasswordEnv(s.ID), who + "nats"})
 		}
 		envs = append(envs, accountPasswordEnvs(who, s.Accounts, func(name string) string {
@@ -236,7 +166,7 @@ func validatePasswordEnvs(envs []passwordEnv) []error {
 	first := map[string]string{}
 	for _, e := range envs {
 		if prev, ok := first[e.name]; ok {
-			errs = append(errs, fmt.Errorf("%s and %s both read their password from %s: rename one", prev, e.who, e.name))
+			errs = append(errs, fmt.Errorf("%s and %s both read their password from %s: give the accounts (or systems) names that differ in letters or digits, or set password in the file", prev, e.who, e.name))
 			continue
 		}
 		first[e.name] = e.who

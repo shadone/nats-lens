@@ -60,7 +60,9 @@ type SystemConfig struct {
 	ArchiveDir string `yaml:"archive_dir"`
 	// DuckDBMemory bounds the memory of the system's DuckDB; zero means an
 	// equal share of what the systems' own limits leave of the top-level
-	// budget, at least MinSystemMemoryLimit.
+	// budget, at least MinSystemMemoryLimit. The systems' total exceeds
+	// the budget when their own limits do, or when the floor applies;
+	// natslens warns then.
 	DuckDBMemory ByteSize `yaml:"duckdb_memory_limit"`
 }
 
@@ -145,8 +147,27 @@ func (c Config) memoryShare() int64 {
 	return max(MinSystemMemoryLimit, max(0, c.DuckDBMemoryLimit()-sum)/unset)
 }
 
+// memoryWarning says when the listed systems' resolved DuckDB limits add
+// up to more than the budget: because their own limits do, or because of
+// the MinSystemMemoryLimit floor of the systems without one.
+func (c Config) memoryWarning() string {
+	budget := c.DuckDBMemoryLimit()
+	var total int64
+	for _, s := range c.ResolvedSystems() {
+		total += s.DuckDBMemoryLimit
+	}
+	if total <= budget {
+		return ""
+	}
+	if own, _ := c.explicitMemory(); own > budget {
+		return fmt.Sprintf("the systems' own duckdb_memory_limit values add up to %d bytes, more than the budget of %d bytes", own, budget)
+	}
+	return fmt.Sprintf("the systems' duckdb_memory_limit values add up to %d bytes, more than the budget of %d bytes, "+
+		"because each system without its own limit gets at least the floor of %d bytes", total, budget, MinSystemMemoryLimit)
+}
+
 // Warnings lists what is accepted but probably not meant: listed systems'
-// own DuckDB limits above the budget, and password variables of a
+// DuckDB limits above the budget, and password variables of a
 // single-system file set while systems are used, which are then ignored.
 // Values of variables are never included.
 func (c Config) Warnings() []string {
@@ -154,8 +175,8 @@ func (c Config) Warnings() []string {
 		return nil
 	}
 	var out []string
-	if sum, _ := c.explicitMemory(); sum > c.DuckDBMemoryLimit() {
-		out = append(out, fmt.Sprintf("the systems' own duckdb_memory_limit values add up to %d bytes, more than the budget of %d bytes", sum, c.DuckDBMemoryLimit()))
+	if w := c.memoryWarning(); w != "" {
+		out = append(out, w)
 	}
 	var legacy []string
 	for _, kv := range os.Environ() {

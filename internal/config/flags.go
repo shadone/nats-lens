@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -65,12 +66,13 @@ func Parse(name string, args []string) (Config, error) {
 		return Config{}, err
 	}
 	cfg = applyFlags(cfg, f, set)
+	envErrs := cfg.passwordEnvErrors()
 	if cfg.NATS.Password == "" && cfg.NATS.User != "" {
 		cfg.NATS.Password = os.Getenv(PasswordEnv)
 	}
 	cfg.Accounts = fillAccountPasswords(cfg.Accounts)
 	cfg.Systems = fillSystemPasswords(cfg.Systems)
-	if err := cfg.Validate(); err != nil {
+	if err := errors.Join(append(envErrs, cfg.Validate())...); err != nil {
 		return cfg, err
 	}
 	// The logger is built from the configuration, so these go to the
