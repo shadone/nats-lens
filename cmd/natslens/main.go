@@ -109,7 +109,7 @@ func runConfig(ctx context.Context, cmd string, cfg config.Config, only string, 
 
 	// Before any system starts, every system is checked; any problem
 	// refuses the start, naming every broken system.
-	if err := checkSystems(systems); err != nil {
+	if err := checkSystems(systems, cmd == "run" && cfg.Events.Enabled); err != nil {
 		return err
 	}
 	// Every store is open, and any rebuild finished, before the API
