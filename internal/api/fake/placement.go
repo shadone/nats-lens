@@ -27,8 +27,8 @@ func (s scen) placement(sp streamSpec) []*v1.ReplicaPlacement {
 }
 
 // streamCounts counts a scenario's streams of one kind (plain, KV_ or
-// OBJ_ by prefix) by replicas and with a lagging replica.
-func (s scen) streamCounts(prefix string) (replicated, single, lagging int) {
+// OBJ_ by prefix): all, by replicas, and with a lagging replica.
+func (s scen) streamCounts(prefix string) (total, replicated, single, lagging int) {
 	for _, sp := range s.sc.streams {
 		kind := ""
 		for _, p := range []string{"KV_", "OBJ_"} {
@@ -39,6 +39,7 @@ func (s scen) streamCounts(prefix string) (replicated, single, lagging int) {
 		if kind != prefix {
 			continue
 		}
+		total++
 		switch n := len(s.sc.peers(sp)); {
 		case n > 1:
 			replicated++
@@ -51,5 +52,5 @@ func (s scen) streamCounts(prefix string) (replicated, single, lagging int) {
 			lagging++
 		}
 	}
-	return replicated, single, lagging
+	return total, replicated, single, lagging
 }

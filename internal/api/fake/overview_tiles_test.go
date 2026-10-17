@@ -76,7 +76,7 @@ func TestGlobalTiles(t *testing.T) {
 	if got := tiles["consumers"].GetSubtitle(); got != "1 behind" {
 		t.Errorf("consumers subtitle = %q, want 1 behind", got)
 	}
-	if got := tiles["streams"].GetSubtitle(); got != "11 replicated · 0 lagging" {
+	if got := tiles["streams"].GetSubtitle(); got != "11 of 11 replicated · 0 lagging" {
 		t.Errorf("streams subtitle = %q", got)
 	}
 }
