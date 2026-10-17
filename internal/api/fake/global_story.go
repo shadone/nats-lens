@@ -144,6 +144,7 @@ func globalEvents(s scen, fs []*v1.Finding) []*v1.Event {
 			Summary: "search-api " + kind[len("client."):] + " from " + host,
 		})
 	}
+	out = append(out, globalRoutineEvents(s)...)
 	slices.SortStableFunc(out, func(a, b *v1.Event) int { return b.GetTime().AsTime().Compare(a.GetTime().AsTime()) })
 	return out
 }
