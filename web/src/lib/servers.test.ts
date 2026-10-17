@@ -4,7 +4,7 @@ import { serverList, type ServerRow } from "../api/servers";
 import { ListServersResponseSchema } from "../gen/natslens/v1/servers_pb";
 import { exampleGlobalServers } from "../test/fixtures/exampleGlobal";
 import { colourScale } from "./serverColour";
-import { attentionReasons, groupByCluster, majorityVersion, median, needsAttention, sortProblemsFirst, storePct } from "./servers";
+import { attentionReasons, groupByCluster, isFlat, majorityVersion, median, needsAttention, sortProblemsFirst, storePct } from "./servers";
 
 const list = serverList(fromJson(ListServersResponseSchema, exampleGlobalServers));
 const byName = (n: string) => list.servers.find((s) => s.name === n)!;
@@ -49,11 +49,11 @@ describe("example-global servers", () => {
 });
 
 describe("one cluster", () => {
-  it("gives a single group without a name", () => {
+  it("is flat, and its one group keeps the cluster's name", () => {
     const one = list.servers.filter((s) => s.cluster === "eu");
-    const groups = groupByCluster(one);
-    expect(groups).toHaveLength(1);
-    expect(groups[0].cluster).toBe("");
+    expect(isFlat(one)).toBe(true);
+    expect(isFlat(list.servers)).toBe(false);
+    expect(groupByCluster(one).map((g) => g.cluster)).toEqual(["eu"]);
   });
 });
 

@@ -4,7 +4,7 @@
 import { Fragment, useState } from "react";
 import type { ServerRow } from "../api/servers";
 import { fmtBytes, fmtCount, fmtDuration, fmtInt } from "../lib/format";
-import { attentionReasons, groupByCluster, leaders, matchesText, median, storePct, STORE_ATTENTION_PCT } from "../lib/servers";
+import { attentionReasons, groupByCluster, isFlat, leaders, matchesText, median, storePct, STORE_ATTENTION_PCT } from "../lib/servers";
 import { serverPath } from "../lib/view";
 import { Dash, Num, RLink } from "./common";
 
@@ -71,8 +71,8 @@ function Row({ s, majority }: { s: ServerRow; majority?: string }) {
       <td className="num">{s.present ? <Num v={s.cpuPercent} fmt={(v) => `${fmtCount(v)}%`} /> : <Dash />}</td>
       <td className="num">{s.present ? <Num v={s.memBytes} fmt={fmtBytes} /> : <Dash />}</td>
       <td className="num">{s.present ? <Num v={s.connections} /> : <Dash />}</td>
-      <td className="num" title={lead !== undefined ? `${s.streamLeaders ?? "–"} stream, ${s.consumerLeaders ?? "–"} consumer` : undefined}>
-        <Num v={lead} />
+      <td className="num" title={s.present && lead !== undefined ? `${s.streamLeaders ?? "–"} stream, ${s.consumerLeaders ?? "–"} consumer` : undefined}>
+        {s.present ? <Num v={lead} /> : <Dash />}
       </td>
       {s.present ? <StoreCell s={s} /> : <td><Dash /></td>}
       <td className="mono tags">{s.tags.join(", ") || <Dash />}</td>
@@ -87,7 +87,7 @@ export function ServerList({ servers, majority }: { servers: ServerRow[]; majori
   const attention = servers.filter((s) => attentionReasons(s, majority).length > 0);
   const pool = (show === "attention" ? attention : servers).filter((s) => matchesText(s, text));
   const all = groupByCluster(servers, majority);
-  const flat = all.length <= 1;
+  const flat = isFlat(servers);
   const groups = groupByCluster(pool, majority);
   const limit = show === "all" ? (flat ? PER_FLAT : PER_GROUP) : Infinity;
   return (
@@ -126,7 +126,7 @@ export function ServerList({ servers, majority }: { servers: ServerRow[]; majori
             </thead>
             <tbody>
               {groups.map((g) => {
-                const key = g.cluster || "-";
+                const key = `cluster:${g.cluster}`;
                 const open = opened.has(key);
                 const rows = open ? g.rows : g.rows.slice(0, limit);
                 const more = g.rows.length - rows.length;
@@ -136,7 +136,7 @@ export function ServerList({ servers, majority }: { servers: ServerRow[]; majori
                     {!flat && (
                       <tr className="grp">
                         <th scope="rowgroup" colSpan={COLS}>
-                          <span className="grp-name">{g.cluster || "no cluster"}</span>
+                          <span className="grp-name">{g.cluster || "no cluster name"}</span>
                           <span className="grp-sum">{clusterSummary(whole)}</span>
                         </th>
                       </tr>
