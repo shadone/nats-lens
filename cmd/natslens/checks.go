@@ -21,13 +21,13 @@ import (
 	"github.com/shadone/nats-lens/internal/store"
 )
 
-// loadChecks reads the check files with the configured overrides.
+// loadChecks reads the check files with the configured overrides. Every
+// system shares the result; each engine sets its system's tooling names.
 func loadChecks(cfg config.Config) (*checks.Set, error) {
 	set, err := checks.Load(cfg.Checks)
 	if err != nil {
 		return nil, fmt.Errorf("checks: %w", err)
 	}
-	set.SetToolingNames(cfg.ToolingNames())
 	if cfg.Checks.RemediationFile != "" {
 		slog.Info("remediation file loaded", "file", cfg.Checks.RemediationFile, "checks_extended", set.RemediationExtended())
 	}
@@ -55,13 +55,12 @@ func loadInventory(ctx context.Context, cfg config.Config, st *store.Store, log 
 
 // runChecksCmd serves natslens checks list and natslens checks run.
 func runChecksCmd(ctx context.Context, args []string, out io.Writer) error {
-	const usage = "usage: natslens checks list [-config FILE] | natslens checks run [-config FILE] [-data-dir DIR] [-epoch N]"
+	const usage = "usage: natslens checks list [-config FILE] | natslens checks run [-config FILE] [-system ID] [-data-dir DIR] [-epoch N]"
 	if len(args) == 0 {
 		return errors.New(usage)
 	}
 	fs := flag.NewFlagSet("natslens checks "+args[0], flag.ContinueOnError)
-	path := fs.String("config", "", "configuration file whose checks section applies")
-	dataDir := fs.String("data-dir", "", "directory holding "+store.FileName+" (default: data_dir of the configuration)")
+	db := oneDatabaseFlags(fs)
 	epoch := fs.Int64("epoch", 0, "epoch to check (default: the newest)")
 	if err := fs.Parse(args[1:]); err != nil {
 		return err
@@ -69,26 +68,30 @@ func runChecksCmd(ctx context.Context, args []string, out io.Writer) error {
 	if fs.NArg() > 0 {
 		return errors.New(usage)
 	}
-	cfg := config.Default()
-	if *path != "" {
-		var err error
-		if cfg, err = config.LoadFile(*path, cfg); err != nil {
-			return err
-		}
-	}
-	set, err := loadChecks(cfg)
-	if err != nil {
-		return err
-	}
 	switch args[0] {
 	case "list":
+		cfg := config.Default()
+		if *db.path != "" {
+			var err error
+			if cfg, err = config.LoadFile(*db.path, cfg); err != nil {
+				return err
+			}
+		}
+		set, err := loadChecks(cfg)
+		if err != nil {
+			return err
+		}
 		return listChecks(set, out)
 	case "run":
-		dir := cfg.DataDir
-		if *dataDir != "" {
-			dir = *dataDir
+		cfg, sys, dir, err := db.resolve()
+		if err != nil {
+			return err
 		}
-		return runChecksOnce(ctx, set, filepath.Join(dir, store.FileName), *epoch, out)
+		set, err := loadChecks(cfg)
+		if err != nil {
+			return err
+		}
+		return runChecksOnce(ctx, set, sys.ToolingNames(), filepath.Join(dir, store.FileName), *epoch, out)
 	}
 	return errors.New(usage)
 }
@@ -133,7 +136,8 @@ func orDash(s string) string {
 
 // runChecksOnce evaluates every check for one epoch of a database no
 // collector holds, read-only, and prints what fails. It stores nothing.
-func runChecksOnce(ctx context.Context, set *checks.Set, path string, epoch int64, out io.Writer) error {
+// tooling are the nats-lens connection names of the database's system.
+func runChecksOnce(ctx context.Context, set *checks.Set, tooling []string, path string, epoch int64, out io.Writer) error {
 	if _, err := os.Stat(path); err != nil {
 		return err
 	}
@@ -156,7 +160,7 @@ func runChecksOnce(ctx context.Context, set *checks.Set, path string, epoch int6
 			return errors.New("the database holds no epoch")
 		}
 	}
-	runs, err := (&checks.Engine{Set: set, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}).Evaluate(ctx, db, epoch)
+	runs, err := (&checks.Engine{Set: set, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), ToolingNames: tooling}).Evaluate(ctx, db, epoch)
 	if err != nil {
 		return err
 	}
