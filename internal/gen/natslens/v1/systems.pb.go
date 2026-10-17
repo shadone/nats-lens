@@ -352,8 +352,9 @@ type ListAccountsRequest struct {
 	// System ID, as ListSystems returns it. Empty means the default system.
 	System string `protobuf:"bytes,1,opt,name=system,proto3" json:"system,omitempty"`
 	// Range whose newest epoch is read. Unset means the last 24 hours up to
-	// now. A range without an epoch lists the accounts seen up to its
-	// end, with every count unset.
+	// now. A range without an epoch lists every account seen up to its
+	// end, including accounts retired long before it, with every count
+	// unset.
 	Range         *TimeRange `protobuf:"bytes,2,opt,name=range,proto3" json:"range,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
