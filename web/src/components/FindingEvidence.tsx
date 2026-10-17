@@ -29,6 +29,10 @@ const CONSUMER_COLS: Column[] = [
   { head: "Ack floor", value: (c) => (c as ConsumerServerView).ackFloorStreamSeq },
 ];
 
+function columns(kind: "stream" | "consumer"): Column[] {
+  return kind === "stream" ? STREAM_COLS : CONSUMER_COLS;
+}
+
 function role(c: Copy): string {
   if (c.offline) return "offline";
   if (c.isLeader) return "leader";
@@ -36,27 +40,67 @@ function role(c: Copy): string {
 }
 
 /**
- * The creation time most copies share: the one with the most copies
- * created within LATE_MS of it, the earliest on a tie.
+ * The value more than half of values agree with, by same(a, b); unset
+ * when no value has such a majority, so a split marks nothing.
  */
-export function commonCreated(times: number[]): number | undefined {
-  let best: number | undefined;
-  let n = 0;
-  for (const t of [...times].sort((a, b) => a - b)) {
-    const near = times.filter((u) => Math.abs(u - t) <= LATE_MS).length;
-    if (near > n) [best, n] = [t, near];
+function majority<T>(values: T[], same: (a: T, b: T) => boolean): T | undefined {
+  for (const v of values) {
+    if (values.filter((u) => same(u, v)).length * 2 > values.length) return v;
   }
-  return best;
+  return undefined;
 }
 
-/** The configuration most copies share; "" when none reports one. */
-export function majorityHash(copies: Copy[]): string {
-  const counts = new Map<string, number>();
-  for (const c of copies) if (c.configHash) counts.set(c.configHash, (counts.get(c.configHash) ?? 0) + 1);
-  let best = "";
-  let n = 0;
-  for (const [h, k] of counts) if (k > n) [best, n] = [h, k];
-  return best;
+/** The creation time more than half the copies were created within LATE_MS of. */
+export function commonCreated(times: number[]): number | undefined {
+  return majority(times, (a, b) => Math.abs(a - b) <= LATE_MS);
+}
+
+/** Positions that differ by at most max(100, 1%) are the same, as in the checks. */
+export function samePosition(a: number, b: number): boolean {
+  return Math.abs(a - b) <= Math.max(100, 0.01 * Math.max(Math.abs(a), Math.abs(b)));
+}
+
+/** The position more than half the values agree with. */
+export function commonPosition(values: number[]): number | undefined {
+  return majority(values, samePosition);
+}
+
+/** The configuration more than half the reporting copies share. */
+export function commonHash(copies: Copy[]): string | undefined {
+  return majority(
+    copies.map((c) => c.configHash).filter(Boolean),
+    (a, b) => a === b,
+  );
+}
+
+/** What each copy is compared with; an offline copy never sets a position. */
+function references(kind: "stream" | "consumer", copies: Copy[]) {
+  const created = copies.map((c) => c.created).filter((t): t is number => t !== undefined);
+  const live = copies.filter((c) => !c.offline);
+  const positions = columns(kind).map((col) => {
+    const values = live.map(col.value).filter((v): v is number => v !== undefined);
+    return { n: values.length, ref: commonPosition(values) };
+  });
+  const hashes = copies.filter((c) => c.configHash).length;
+  return { created: { n: created.length, ref: commonCreated(created) }, positions, hash: { n: hashes, ref: commonHash(copies) } };
+}
+
+/** Whether a value that two or more copies report has no majority. */
+export function copiesDisagree(kind: "stream" | "consumer", copies: Copy[]): boolean {
+  const r = references(kind, copies);
+  return [r.created, r.hash, ...r.positions].some((x) => x.n >= 2 && x.ref === undefined);
+}
+
+function Odd() {
+  return (
+    <>
+      <span className="odd-mark" aria-hidden="true">
+        {" "}
+        ◆
+      </span>
+      <span className="sr-only"> differs from most copies</span>
+    </>
+  );
 }
 
 function Cell({ odd, children, className = "num" }: { odd: boolean; children: ReactNode; className?: string }) {
@@ -64,11 +108,10 @@ function Cell({ odd, children, className = "num" }: { odd: boolean; children: Re
 }
 
 export function CopiesTable({ kind, copies }: { kind: "stream" | "consumer"; copies: Copy[] }) {
-  const cols = kind === "stream" ? STREAM_COLS : CONSUMER_COLS;
-  const leader = copies.find((c) => c.isLeader);
-  const created = copies.map((c) => c.created).filter((t): t is number => t !== undefined);
-  const common = commonCreated(created);
-  const hash = majorityHash(copies);
+  const cols = columns(kind);
+  const ref = references(kind, copies);
+  const common = ref.created.ref;
+  const hash = ref.hash.ref;
   return (
     <div className="card table-wrap scroll-cue">
       <table className="tbl" aria-label="Server copies">
@@ -89,14 +132,18 @@ export function CopiesTable({ kind, copies }: { kind: "stream" | "consumer"; cop
         <tbody>
           {copies.map((c) => {
             const late = c.created !== undefined && common !== undefined && Math.abs(c.created - common) > LATE_MS;
-            const posOdd = cols.map((col) => !!leader && leader !== c && col.value(c) !== undefined && col.value(leader) !== undefined && col.value(c) !== col.value(leader));
-            const cfgOdd = !!hash && !!c.configHash && c.configHash !== hash;
+            const posOdd = cols.map((col, i) => {
+              const v = col.value(c);
+              const r = ref.positions[i].ref;
+              return v !== undefined && r !== undefined && !samePosition(v, r);
+            });
+            const cfgOdd = hash !== undefined && !!c.configHash && c.configHash !== hash;
             const odd = late || cfgOdd || posOdd.some(Boolean);
             return (
               <tr key={c.server} className={odd ? "odd" : undefined}>
-                <td className="mono">
+                <th scope="row" className="mono">
                   <RLink to={serverPath(c.server)}>{c.server}</RLink>
-                </td>
+                </th>
                 <td>{role(c)}</td>
                 <Cell odd={late} className="mono">
                   {c.created === undefined ? <Num v={undefined} /> : `${isoMinute(c.created)} UTC`}
@@ -105,13 +152,14 @@ export function CopiesTable({ kind, copies }: { kind: "stream" | "consumer"; cop
                 {cols.map((col, i) => (
                   <Cell key={col.head} odd={posOdd[i]}>
                     <Num v={col.value(c)} fmt={fmtInt} />
+                    {posOdd[i] && <Odd />}
                   </Cell>
                 ))}
                 <td className="num">
                   <Num v={c.lag} />
                 </td>
-                <Cell odd={cfgOdd} className={cfgOdd ? "" : "ok"}>
-                  {!c.configHash ? <Num v={undefined} /> : cfgOdd ? "differs" : "same"}
+                <Cell odd={cfgOdd} className={cfgOdd ? "" : hash !== undefined ? "ok" : ""}>
+                  {!c.configHash ? <Num v={undefined} /> : cfgOdd ? "differs" : hash !== undefined ? "same" : <span className="mono">{c.configHash.slice(0, 8)}</span>}
                 </Cell>
               </tr>
             );
@@ -127,7 +175,7 @@ export function FindingEvidence({ spec, entity }: { spec: RangeSpec; entity: Ent
   const q = useCopies(spec, entity);
   if (!hasCopies(entity)) return null;
   return (
-    <Section title="Server copies" aside={`Each server's copy of the ${entity.kind}.`}>
+    <Section title="Server copies" aside={`Each server's copy of the ${entity.kind}${q.data && copiesDisagree(q.data.kind, q.data.servers) ? " · copies disagree" : "."}`}>
       <QueryView q={q} what={`the ${entity.kind}'s copies`}>
         {(d) => (d.servers.length ? <CopiesTable kind={d.kind} copies={d.servers} /> : <p className="muted-note">No server reports this {entity.kind}.</p>)}
       </QueryView>
