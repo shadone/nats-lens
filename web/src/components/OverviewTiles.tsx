@@ -37,10 +37,10 @@ export function OverviewTiles({ tiles, windows, start, end }: { tiles: Tile[]; w
           description={t.description ?? ""}
           series={t.series}
           series2={t.series2}
-          // A name tile (the meta leader) has its count of changes as value;
-          // its track follows the newest point of the changes series.
           value={t.valueText ? undefined : (t.value ?? null)}
           valueText={tileText(t)}
+          // A name has no min and max: the chart shows its changes, without a track.
+          track={!t.valueText}
           fmt={(v) => fmtValue(v, t.unit)}
           status={t.status}
           note={tileNote(t) || undefined}

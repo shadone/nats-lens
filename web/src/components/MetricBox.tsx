@@ -36,6 +36,11 @@ export interface MetricBoxProps {
   loading?: boolean;
   /** Why the series could not be loaded. */
   error?: string;
+  /**
+   * Whether to draw the range track; true by default. Off for a box whose
+   * value is a name, such as the meta leader, which no min and max describe.
+   */
+  track?: boolean;
 }
 
 /** An (i) button that shows a description on hover, focus or click. */
@@ -105,6 +110,7 @@ export function RangeTrack({ title, min, max, value, fmt, status, period, noCurr
 
 export function MetricBox(p: MetricBoxProps) {
   const status = p.status ?? "ok";
+  const track = p.track ?? true;
   const pts = p.series?.points ?? [];
   const value = p.value === null ? undefined : (p.value ?? (pts.length ? pts[pts.length - 1].value : undefined));
   const hasWindow = pts.length > 0 && p.series?.min !== undefined && p.series?.max !== undefined;
@@ -145,9 +151,9 @@ export function MetricBox(p: MetricBoxProps) {
           current={value === undefined ? undefined : p.fmt(value)}
         />
       )}
-      <RangeTrack title={p.title} min={min} max={max} value={value} fmt={p.fmt} status={status} period={period} noCurrent={p.value === null} />
-      {!hasWindow && !p.error && !p.loading && <div className="mb-track-note">no data for the window</div>}
-      {hasWindow && p.value === null && min !== max && <div className="mb-track-note">no current value</div>}
+      {track && <RangeTrack title={p.title} min={min} max={max} value={value} fmt={p.fmt} status={status} period={period} noCurrent={p.value === null} />}
+      {track && !hasWindow && !p.error && !p.loading && <div className="mb-track-note">no data for the window</div>}
+      {track && hasWindow && p.value === null && min !== max && <div className="mb-track-note">no current value</div>}
       {p.note && <div className="mb-note">{p.note}</div>}
     </div>
   );

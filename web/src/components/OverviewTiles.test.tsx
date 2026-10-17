@@ -52,6 +52,7 @@ describe("OverviewTiles", () => {
       />,
     );
     expect(screen.getByText("nats-1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "About Meta leader" }).closest(".mbox")!.querySelector(".mb-range, .mb-track-note")).toBeNull();
     expect(screen.getByText("768 MiB")).toBeInTheDocument();
     expect(screen.getByText("all replicas · 0.5% used · limit 150 GiB")).toBeInTheDocument();
   });
