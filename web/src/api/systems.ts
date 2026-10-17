@@ -1,9 +1,15 @@
-// The systems nats-lens observes and the accounts of one system.
-import { useQuery } from "@tanstack/react-query";
-import { rangeKey, type RangeSpec } from "../lib/timeRange";
+// The systems nats-lens observes, their Fleet summaries, and the accounts
+// of one system.
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { DEFAULT_PRESET, LIVE_REFRESH_MS, rangeKey, type RangeSpec } from "../lib/timeRange";
 import { useSystem } from "../lib/useSystem";
+import { systemSummary } from "./adapt-systems";
 import { lens } from "./client";
+import type { SystemSummary } from "./model";
 import { rangeInit, systemInit } from "./requests";
+
+/** Cells in each system's status strip. */
+export const STRIP_CELLS = 48;
 
 export interface SystemInfo {
   id: string;
@@ -73,4 +79,29 @@ export function useAccounts(spec: RangeSpec) {
     enabled: known === true,
     staleTime: 60_000,
   });
+}
+
+export async function listSystemSummaries(spec: RangeSpec, signal?: AbortSignal): Promise<SystemSummary[]> {
+  const r = await lens.listSystems({ range: rangeInit(spec), stripBuckets: STRIP_CELLS }, { signal });
+  return r.systems.map(systemSummary);
+}
+
+/**
+ * Every system's summary over the range, in configuration order. A live
+ * range is asked again on the live interval; a call still pending is
+ * awaited, never started a second time.
+ */
+export function useSystemSummaries(spec: RangeSpec) {
+  return useQuery({
+    queryKey: ["systemSummaries", rangeKey(spec)],
+    queryFn: ({ signal }) => listSystemSummaries(spec, signal),
+    refetchInterval: spec.kind === "live" ? LIVE_REFRESH_MS : false,
+    refetchIntervalInBackground: false,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** The summaries of the default live range, whatever the page shows: the sidebar's Fleet badge. */
+export function useLiveSystemSummaries() {
+  return useSystemSummaries({ kind: "live", preset: DEFAULT_PRESET });
 }

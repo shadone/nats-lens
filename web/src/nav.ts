@@ -25,7 +25,7 @@ export interface NavItem {
 }
 
 export const NAV: NavItem[] = [
-  { path: "/fleet", label: "Fleet", group: "", icon: "M3 3h5v5H3Z M10 3h5v5h-5Z M3 10h5v5H3Z M12.5 10v5 M10 12.5h5", badge: "fleet", placeholder: true, crossSystem: true },
+  { path: "/fleet", label: "Fleet", group: "", icon: "M3 3h5v5H3Z M10 3h5v5h-5Z M3 10h5v5H3Z M12.5 10v5 M10 12.5h5", badge: "fleet", crossSystem: true },
   { path: "/", label: "Overview", group: "", icon: "M3 9 9 3l6 6M5 7.5V15h8V7.5" },
   { path: "/findings", label: "Findings", group: "", icon: "M9 3 16 15H2Z M9 8v3 M9 13v.5", badge: "findings" },
   { path: "/subjects", label: "Subjects", group: "Messaging", icon: "M3 5h12 M3 9h8 M3 13h5 M13 11l3 2-3 2", planned: true },
@@ -34,8 +34,8 @@ export const NAV: NavItem[] = [
   { path: "/connections", label: "Connections", group: "Messaging", icon: "M2 9h4 M12 9h4 M6 6h6v6H6Z", accountScope: true },
   { path: "/streams", label: "Streams", group: "JetStream", icon: "M2 6c3-3 5 3 8 0s4-1 6 0 M2 12c3-3 5 3 8 0s4-1 6 0" },
   { path: "/consumers", label: "Consumers", group: "JetStream", icon: "M3 9h8 M8 5l4 4-4 4 M14 4v10", accountScope: true },
-  { path: "/kv-stores", label: "KV Stores", group: "JetStream", icon: "M4 4h4v4H4Z M10 5h5 M4 10h4v4H4Z M10 11h5", planned: true },
-  { path: "/object-stores", label: "Object Stores", group: "JetStream", icon: "M3 6 9 3l6 3v7l-6 3-6-3Z M3 6l6 3 6-3 M9 9v7", planned: true },
+  { path: "/kv-stores", label: "KV Stores", group: "JetStream", icon: "M4 4h4v4H4Z M10 5h5 M4 10h4v4H4Z M10 11h5", accountScope: true },
+  { path: "/object-stores", label: "Object Stores", group: "JetStream", icon: "M3 6 9 3l6 3v7l-6 3-6-3Z M3 6l6 3 6-3 M9 9v7", accountScope: true },
   { path: "/placement", label: "Placement", group: "JetStream", icon: "M3 3h5v5H3Z M10 3h5v5h-5Z M3 10h5v5H3Z M10 10h5v5h-5Z", planned: true },
   { path: "/capacity", label: "Capacity", group: "JetStream", icon: "M3 15V9 M7 15V6 M11 15V10 M15 15V3", planned: true },
   { path: "/servers", label: "Servers", group: "Cluster", icon: "M3 3h12v5H3Z M3 10h12v5H3Z M6 5.5h.5 M6 12.5h.5" },

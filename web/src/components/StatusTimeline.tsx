@@ -20,6 +20,17 @@ export const CELL_FILL: Record<Level, string> = {
   nodata: "var(--surface-sunk)",
 };
 
+/**
+ * A cell's style. A no-data cell is also outlined in a dashed muted
+ * stroke, so it reaches 3:1 against the card in both themes. An ok cell
+ * stays faint on purpose: it is the background state, and the cells that
+ * are not ok must stand out against it; its level is in the cell's title
+ * and the row's accessible name.
+ */
+export function cellStyle(lv: Level) {
+  return lv === "nodata" ? { fill: CELL_FILL[lv], stroke: "var(--text-muted)", strokeWidth: 1, strokeDasharray: "2 1.5" } : { fill: CELL_FILL[lv] };
+}
+
 const CW = 960;
 
 export function Cells({ row, start, bucketMs }: { row: TimelineRow; start: number; bucketMs: number }) {
@@ -28,7 +39,7 @@ export function Cells({ row, start, bucketMs }: { row: TimelineRow; start: numbe
   return (
     <svg className="cells" viewBox={`0 0 ${CW} 16`} preserveAspectRatio="none" role="img" aria-label={`${row.checkCode}: ${runs}`}>
       {row.cells.map((lv, i) => (
-        <rect key={i} x={(i * cw + 0.6).toFixed(2)} y="0" width={Math.max(0.5, cw - 1.6).toFixed(2)} height="16" rx="1.5" style={{ fill: CELL_FILL[lv] }} data-level={lv}>
+        <rect key={i} x={(i * cw + 0.6).toFixed(2)} y="0" width={Math.max(0.5, cw - 1.6).toFixed(2)} height="16" rx="1.5" style={cellStyle(lv)} vectorEffect="non-scaling-stroke" data-level={lv}>
           <title>{`${hm(start + i * bucketMs)} ${LEVEL_LABEL[lv].toLowerCase()}`}</title>
         </rect>
       ))}

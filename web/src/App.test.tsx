@@ -1,11 +1,14 @@
 // The shell: sidebar, system switcher, header, and links that keep the
 // range, system and account.
+import { create, type MessageInitShape } from "@bufbuild/protobuf";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { useNavigate } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
+import { Status } from "./gen/natslens/v1/common_pb";
+import { CollectionState, ListSystemsResponseSchema } from "./gen/natslens/v1/systems_pb";
 import { lens } from "./api/client";
 import * as requests from "./api/requests";
 import { RLink } from "./components/common";
@@ -53,8 +56,8 @@ const ONE = { systems: [ref("default", "default")], defaultSystem: "default" };
 const tally = { critical: 0, warning: 2, info: 1, muted: 0, flapping: 0, resolved24h: 0 };
 const entity = (stream: string, consumer = "") => ({ kind: "stream" as const, key: "", name: consumer || stream, account: "APP", stream, consumer, server: "" });
 
-function setSystems(r: unknown) {
-  l.listSystems.mockResolvedValue(r as never);
+function setSystems(r: MessageInitShape<typeof ListSystemsResponseSchema>) {
+  l.listSystems.mockResolvedValue(create(ListSystemsResponseSchema, r) as never);
 }
 
 beforeEach(() => {
@@ -141,8 +144,8 @@ describe("sidebar", () => {
   it("shows the built pages in their groups and hides the planned ones", async () => {
     renderApp(<App />, "/streams?system=example-global");
     const links = within(nav()).getAllByRole("link").map((a) => a.textContent?.replace(/\d+$/, ""));
-    expect(links).toEqual(["Fleet", "Overview", "Findings", "Connections", "Streams", "Consumers", "Servers", "Events"]);
-    for (const planned of ["Subjects", "Micro services", "Applications", "KV Stores", "Object Stores", "Placement", "Capacity", "Topology", "Accounts", "Users & auth"]) {
+    expect(links).toEqual(["Fleet", "Overview", "Findings", "Connections", "Streams", "Consumers", "KV Stores", "Object Stores", "Servers", "Events"]);
+    for (const planned of ["Subjects", "Micro services", "Applications", "Placement", "Capacity", "Topology", "Accounts", "Users & auth"]) {
       expect(within(nav()).queryByText(planned)).toBeNull();
     }
     expect(within(nav()).getByText("Messaging").parentElement).toHaveTextContent("Connections");
@@ -154,7 +157,7 @@ describe("sidebar", () => {
     for (const a of within(nav()).getAllByRole("link")) {
       const p = params(a.getAttribute("href"));
       const name = a.textContent?.replace(/\d+$/, "");
-      const scoped = name === "Consumers" || name === "Connections" ? "APP" : null;
+      const scoped = ["Consumers", "Connections", "KV Stores", "Object Stores"].includes(name ?? "") ? "APP" : null;
       expect([name, p.get("system"), p.get("range"), p.get("account")]).toEqual([name, "example-global", "6h", scoped]);
     }
   });
@@ -169,6 +172,41 @@ describe("sidebar", () => {
     const link = await within(nav()).findByRole("link", { name: /Findings/ });
     await waitFor(() => expect(link).toHaveAccessibleName("Findings, 3 firing, worst warning"));
     expect(link.querySelector(".nb")).toHaveClass("warning");
+  });
+
+  it("badges Fleet with the systems that are not OK, shaped by the worst", async () => {
+    setSystems({
+      systems: [
+        { ...ref("example-prod", "Production"), status: Status.CRITICAL },
+        { ...ref("example-global", "Global"), status: Status.OK },
+        { ...ref("example-staging", "Staging"), status: Status.INFO, collection: CollectionState.CONNECTION_CLOSED },
+      ],
+      defaultSystem: "example-prod",
+    });
+    renderApp(<App />, "/servers?system=example-prod");
+    const link = await within(nav()).findByRole("link", { name: /Fleet/ });
+    await waitFor(() => expect(link).toHaveAccessibleName("Fleet, 2 not OK, worst critical"));
+    expect(link.querySelector(".nb")).toHaveClass("critical");
+  });
+
+  it("has no Fleet badge when every system is OK", async () => {
+    setSystems({ systems: [{ ...ref("example-prod", "Production"), status: Status.OK }, { ...ref("example-global", "Global"), status: Status.MUTED }], defaultSystem: "example-prod" });
+    renderApp(<App />, "/servers?system=example-prod");
+    await waitFor(() => expect(l.listSystems).toHaveBeenCalledWith(expect.objectContaining({ stripBuckets: 48 }), expect.anything()));
+    await screen.findByText("Production");
+    expect(within(nav()).getByRole("link", { name: "Fleet" }).querySelector(".nb")).toBeNull();
+  });
+
+  it("reads the Fleet badge over the last 24 hours, whatever range the page shows", async () => {
+    renderApp(<App />, "/fleet?range=7d");
+    await screen.findAllByText("Production");
+    const hours = () =>
+      l.listSystems.mock.calls
+        .map((c) => c[0] as { stripBuckets?: number; range?: { start?: { seconds: bigint } } })
+        .filter((r) => r.stripBuckets)
+        .map((r) => Math.round((Date.now() / 1000 - Number(r.range!.start!.seconds)) / 3600))
+        .sort((a, b) => a - b);
+    await waitFor(() => expect(hours()).toEqual([24, 168]));
   });
 
   it("collapses to a rail and remembers it", async () => {
@@ -359,7 +397,7 @@ describe("header", () => {
   });
 
   it("shows the account scope only on pages that apply it", async () => {
-    for (const [path, shown] of [["/consumers", true], ["/connections", true], ["/servers", false], ["/streams", false], ["/", false], ["/consumers/APP/order-jobs/resize-worker", false]] as const) {
+    for (const [path, shown] of [["/consumers", true], ["/connections", true], ["/kv-stores", true], ["/object-stores", true], ["/servers", false], ["/streams", false], ["/", false], ["/consumers/APP/order-jobs/resize-worker", false]] as const) {
       const { unmount } = renderApp(<App />, `${path}?system=example-prod`);
       expect([path, screen.queryByRole("button", { name: /accounts|^Account:/ }) !== null]).toEqual([path, shown]);
       unmount();

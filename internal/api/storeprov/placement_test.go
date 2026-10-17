@@ -64,7 +64,7 @@ func placementStore(t *testing.T, replicas int32, reps []replicaRow) *store.Stor
 	return st
 }
 
-func placementOf(t *testing.T, st *store.Store) []*v1.ReplicaPlacement {
+func streamPlacementOf(t *testing.T, st *store.Store) []*v1.ReplicaPlacement {
 	t.Helper()
 	c := serveSeries(t, st, t0.Add(30*time.Second))
 	r := &v1.TimeRange{Start: timestamppb.New(t0.Add(-time.Hour)), End: timestamppb.New(t0.Add(30 * time.Second))}
@@ -92,7 +92,7 @@ func TestPlacementLaggingFollower(t *testing.T) {
 		{id: "S2", name: "nats-2", reports: true, hash: "h", lag: 5000},
 	})
 	want := []string{"nats-0=PLACEMENT_STATE_LEADER", "nats-1=PLACEMENT_STATE_IN_SYNC", "nats-2=PLACEMENT_STATE_BEHIND"}
-	if got := states(placementOf(t, st)); !slices.Equal(got, want) {
+	if got := states(streamPlacementOf(t, st)); !slices.Equal(got, want) {
 		t.Fatalf("placement = %v, want %v", got, want)
 	}
 }
@@ -110,7 +110,7 @@ func TestPlacementDisagreesOfflineMissing(t *testing.T) {
 	})
 	want := []string{"nats-0=PLACEMENT_STATE_LEADER", "nats-1=PLACEMENT_STATE_DISAGREES", "nats-2=PLACEMENT_STATE_OFFLINE",
 		"nats-3=PLACEMENT_STATE_MISSING", "=PLACEMENT_STATE_MISSING"}
-	if got := states(placementOf(t, st)); !slices.Equal(got, want) {
+	if got := states(streamPlacementOf(t, st)); !slices.Equal(got, want) {
 		t.Fatalf("placement = %v, want %v", got, want)
 	}
 }
@@ -123,7 +123,7 @@ func TestPlacementWithoutLeaderIsUnspecified(t *testing.T) {
 		{id: "S1", name: "nats-1", reports: true, hash: "h"},
 	})
 	want := []string{"nats-0=PLACEMENT_STATE_UNSPECIFIED", "nats-1=PLACEMENT_STATE_UNSPECIFIED"}
-	if got := states(placementOf(t, st)); !slices.Equal(got, want) {
+	if got := states(streamPlacementOf(t, st)); !slices.Equal(got, want) {
 		t.Fatalf("placement = %v, want %v", got, want)
 	}
 }

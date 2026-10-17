@@ -81,7 +81,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Running nats-lens](running-nats-lens.md) | `api`, `cli` | shipped |
 | [SQL access](sql-access.md) | `cli` | shipped |
 | [Demo mode](demo-mode.md) | `ui`, `api`, `cli` | shipped |
-| [Multiple systems and the Fleet view](multiple-systems.md) | `ui`, `api`, `cli` | partial — the Fleet page is planned |
+| [Multiple systems and the Fleet view](multiple-systems.md) | `ui`, `api`, `cli` | partial — a cluster switcher inside a supercluster is planned |
 | [Placement](placement.md) | `ui`, `api` | planned |
 | [Replay](replay.md) | `ui`, `api` | planned |
 | [Applications](applications.md) | `ui`, `api` | planned |
@@ -89,7 +89,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Subjects](subjects.md) | `ui`, `api` | planned |
 | [Topology](topology.md) | `ui`, `api` | planned |
 | [Accounts and auth](accounts-and-auth.md) | `ui`, `api` | planned |
-| [KV and object stores](kv-and-object-stores.md) | `ui`, `api` | planned |
+| [KV and object stores](kv-and-object-stores.md) | `ui`, `api` | shipped |
 | [Micro services](micro-services.md) | `ui`, `api` | planned |
 | [Command bar](command-bar.md) | `ui` | partial — search by name is shipped; findings, events and prefixes are planned |
 | [On call on the phone](mobile.md) | `ui` | planned |
@@ -108,7 +108,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] NATS advisories and system events, short-lived connections folded into `client.churn` (event-capture.md)
 - [x] Kubernetes pod, node and client-pod events on the same clock (kubernetes-context.md)
 - [x] Retention, the hourly Parquet archive, and the rebuild from it (history-and-archive.md)
-- [~] Several NATS systems in one nats-lens, with a system switcher and Fleet summaries in the API — the Fleet page is planned (multiple-systems.md)
+- [~] Several NATS systems in one nats-lens, with a system switcher, the Fleet page and its badge — a cluster switcher inside a supercluster is planned (multiple-systems.md)
 
 **Checks**
 - [~] Findings, severities, restarts, thresholds, remediation file and mutes — accepting with a review date is planned (checks.md)
@@ -137,7 +137,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [ ] Subject patterns, from data the servers expose (subjects.md)
 - [ ] Routes, gateways and leaf nodes (topology.md)
 - [ ] Accounts, users, failed logins and expiring credentials (accounts-and-auth.md)
-- [ ] KV buckets and object stores as their own pages (kv-and-object-stores.md)
+- [x] KV buckets and object stores as their own pages, with placement and missing buckets (kv-and-object-stores.md)
 - [ ] Services built on the NATS micro framework (micro-services.md)
 - [~] Search and jump to anything from one box — findings, events and prefixes are planned (command-bar.md)
 - [ ] A finding on the phone, for the person on call (mobile.md)

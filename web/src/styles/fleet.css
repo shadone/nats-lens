@@ -1,0 +1,47 @@
+/* Fleet: a card per system with its state, headline, counts and strip. */
+.fleet-grid{list-style:none;margin:14px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,440px),1fr));gap:14px}
+.fc{padding:0;border-left:4px solid var(--fc-edge);min-width:0}
+.fc.critical{--fc-edge:var(--sev-critical)}
+.fc.warning{--fc-edge:var(--cell-warning)}
+.fc.info{--fc-edge:var(--sev-info)}
+.fc.notcollecting,.fc.unavailable,.fc.nodata{--fc-edge:var(--text-faint)}
+.fc.muted{--fc-edge:var(--sev-muted)}
+.fc.ok{--fc-edge:var(--accent)}
+.fc-link{display:block;padding:16px 18px 14px;color:var(--text);text-decoration:none;border-radius:inherit}
+.fc-link:hover .fc-name{text-decoration:underline}
+.fc-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.fc-h{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap}
+.fc-name{margin:0;font:600 16px/1.25 var(--mono);overflow-wrap:anywhere;min-width:0}
+.fc-env{font-size:11.5px;line-height:1.5;padding:0 8px;border-radius:999px;border:1px solid var(--border);color:var(--text-2)}
+.fc-state{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font:12px var(--mono);color:var(--text-muted);white-space:nowrap}
+.fc-state .hi{display:block;width:13px;height:13px}
+.fc-state.critical{color:var(--sev-critical)}
+.fc-state.warning{color:var(--sev-warning)}
+.fc-state.info{color:var(--sev-info)}
+.fc-state.ok{color:var(--accent-text)}
+.fc-head{margin:8px 0 0;font-weight:600;font-size:13.5px;line-height:1.4;overflow-wrap:anywhere}
+.fc.critical .fc-head{color:var(--sev-critical)}
+.fc.warning .fc-head{color:var(--sev-warning)}
+.fc.notcollecting .fc-head,.fc.unavailable .fc-head,.fc.nodata .fc-head,.fc.ok .fc-head,.fc.muted .fc-head{color:var(--text-2);font-weight:500}
+.fc-more{font-weight:400;color:var(--text-muted)}
+.fc-counts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
+.fc-n b{font:600 18px/1.2 var(--mono)}
+.fc-n small{font:12px var(--mono);color:var(--text-muted)}
+.fc-n.bad b{color:var(--sev-critical)}
+.fc-n .k{display:block;font-size:12px;color:var(--text-muted)}
+.fc-strip{display:block;width:100%;height:14px;margin-top:14px}
+.fc-foot{display:flex;justify-content:space-between;gap:12px;margin-top:4px;font:11px var(--mono);color:var(--text-muted)}
+.fleet-key{margin-left:auto;display:flex;gap:6px 10px;align-items:center;flex-wrap:wrap;color:var(--text-muted);font-size:11.5px}
+.fleet-key ul{list-style:none;margin:0;padding:0;display:flex;gap:4px 12px;flex-wrap:wrap}
+.fleet-key li{display:inline-flex;align-items:center;gap:5px}
+.fleet-key svg{width:8px;height:12px;display:block}
+@media (max-width:560px){
+  .fc-counts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .fc-link{padding:14px 14px 12px}
+  .fleet-key{margin-left:0}
+}
+/* A system that is not collecting: its counts are those of its last data, never read as live. */
+.fc-cap{margin:12px 0 -8px;font-size:11.5px;color:var(--text-muted)}
+.fc-counts.stale .fc-n b{color:var(--text-muted);font-weight:500}
+/* The previous range's cards while the next range loads. */
+.fleet-grid[aria-busy="true"]{opacity:.6}

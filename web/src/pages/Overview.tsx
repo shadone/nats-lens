@@ -75,7 +75,7 @@ function TimelineCard({ end }: { end: number }) {
               .filter((l) => l === "ok" || l === "info" || l === "warning" || l === "critical" || used.has(l))
               .map((l) => (
                 <span key={l}>
-                  <i style={{ background: CELL_FILL[l] }} />
+                  <i style={l === "nodata" ? { background: CELL_FILL[l], border: "1px dashed var(--text-muted)", boxSizing: "border-box" } : { background: CELL_FILL[l] }} />
                   {l === "nodata" ? "no data" : l}
                 </span>
               ))}

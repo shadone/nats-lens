@@ -1,0 +1,20 @@
+/* A table wider than its card scrolls inside it; a shadow marks each edge
+   where the table is cut. The covers move with the content ("local") and
+   hide the shadows ("scroll") at the ends. */
+:root{--scroll-shadow:rgba(20,40,30,.2)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--scroll-shadow:rgba(0,0,0,.6)}}
+:root[data-theme="dark"]{--scroll-shadow:rgba(0,0,0,.6)}
+.card.table-wrap.scroll-cue{
+  background:
+    linear-gradient(to right,var(--surface) 40%,transparent) left center / 28px 100% no-repeat local,
+    linear-gradient(to left,var(--surface) 40%,transparent) right center / 28px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%,var(--scroll-shadow),transparent) left center / 12px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%,var(--scroll-shadow),transparent) right center / 12px 100% no-repeat scroll,
+    var(--surface);
+}
+.tbl td.pl-cell{white-space:nowrap;min-width:60px}
+/* At a phone width a bucket's description wraps, so the placement column
+   fits on the first screen. */
+@media (max-width:760px){
+  .scroll-cue .tbl td.mono small{white-space:normal;max-width:150px}
+}
