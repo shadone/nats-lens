@@ -2,7 +2,11 @@ syntax = "proto3";
 
 package natslens.v1;
 
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
 import "natslens/v1/common.proto";
+import "natslens/v1/findings.proto";
+import "natslens/v1/overview.proto";
 
 option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
 
@@ -24,14 +28,90 @@ message ListSystemsRequest {
   // Range the summaries cover. Unset means the last 24 hours up to now.
   TimeRange range = 1;
 
-  // Number of buckets in each summary's status strip.
+  // Number of buckets in each summary's status strip, at most 500. Zero
+  // means 48.
   int32 strip_buckets = 2;
 }
 
+// What a system's collector is doing.
+enum CollectionState {
+  // Not known: the system has no collector status and no stored
+  // connection event that says otherwise.
+  COLLECTION_STATE_UNSPECIFIED = 0;
+  // The collector has started and has not yet written an epoch.
+  COLLECTION_STATE_STARTING = 1;
+  // The collector writes epochs.
+  COLLECTION_STATE_COLLECTING = 2;
+  // The collector's connection has no server.
+  COLLECTION_STATE_NOT_CONNECTED = 3;
+  // NATS closed the collector's connection, for example after repeated
+  // authorization errors; the collector dials again.
+  COLLECTION_STATE_CONNECTION_CLOSED = 4;
+  // The data is the demo scenario; nothing is collected.
+  COLLECTION_STATE_DEMO = 5;
+}
+
 // Summary of one system.
+//
+// Every number comes from data already collected: the newest epoch in the
+// range for the counts, the findings as the range's end sees them. A count
+// is unset when the range holds no epoch.
 message SystemSummary {
   // The system.
   SystemRef system = 1;
+
+  // What the system's collector is doing now.
+  CollectionState collection = 2;
+
+  // Newest error of the collector's connection while it is not collecting;
+  // empty while it collects.
+  string collection_error = 3;
+
+  // When the collection error began.
+  google.protobuf.Timestamp collection_error_since = 4;
+
+  // Newest epoch in the range and its age.
+  Freshness freshness = 5;
+
+  // Worst status of the findings that fire at the range's end; no data
+  // when the range holds no epoch.
+  Status status = 6;
+
+  // Worst unmuted finding that fires at the range's end.
+  Finding worst_finding = 7;
+
+  // Findings by severity, as the overview counts them.
+  FindingTally tally = 8;
+
+  // Servers expected to answer in the newest epoch.
+  optional int32 servers = 9;
+
+  // Servers that answered in the newest epoch.
+  optional int32 servers_answering = 10;
+
+  // Distinct cluster names of the servers of the newest epoch; zero for
+  // servers without a cluster.
+  optional int32 clusters = 11;
+
+  // Streams in the newest epoch.
+  optional int32 streams = 12;
+
+  // Client connections across servers in the newest epoch.
+  optional int64 connections = 13;
+
+  // Worst status per bucket over the range, oldest first: the worst cell
+  // of the status timeline's rows in each bucket.
+  repeated Status strip = 14;
+
+  // Start of the strip's first bucket.
+  google.protobuf.Timestamp strip_start = 15;
+
+  // Width of each strip bucket.
+  google.protobuf.Duration strip_bucket = 16;
+
+  // Why the summary could not be read, for example a timeout; the other
+  // fields are then unset. Empty when the summary was read.
+  string error = 17;
 }
 
 // The systems, in configuration order.
