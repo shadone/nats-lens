@@ -1,3 +1,13 @@
+// The fake applies the store's event rules to scenario events, which carry
+// no payload. Where it differs from the store:
+//   - tooling is a client name with the natslens- prefix, not the
+//     configured tooling names;
+//   - a loopback client counts as tooling in every epoch: the scenarios
+//     store no loopback decisions;
+//   - a Kubernetes event counts 1: there is no stored count;
+//   - an API audit record's subject is its summary up to " by ", and a
+//     Kubernetes event's object is the second word of its summary.
+
 package fake
 
 import (
@@ -13,15 +23,40 @@ import (
 )
 
 // routineEvent applies the routine rule to a scenario event: a routine
-// kind, or a connect or disconnect of a tooling client. The scenarios
-// stand in for the configured tooling names with the natslens- prefix; a
-// loopback client counts as tooling in every epoch.
+// kind, an API audit record of a successful call that changes nothing, or
+// a connect or disconnect of a tooling client.
 func routineEvent(e *v1.Event) bool {
-	if slices.Contains(api.RoutineKinds, e.GetKind()) {
+	switch {
+	case slices.Contains(api.RoutineKinds, e.GetKind()):
 		return true
+	case e.GetKind() == api.AuditKind:
+		subject, _, _ := strings.Cut(e.GetSummary(), " by ")
+		return api.RoutineAudit(subject, e.GetReason())
 	}
 	return slices.Contains(api.ToolingKinds, e.GetKind()) &&
 		(strings.HasPrefix(e.GetClientName(), "natslens-") || e.GetClientHost() == "127.0.0.1" || e.GetClientHost() == "::1")
+}
+
+// markRoutine sets the routine flag; a routine event is not coloured.
+func markRoutine(e *v1.Event) {
+	e.Routine = routineEvent(e)
+	if e.Routine {
+		e.Severity = v1.Severity_SEVERITY_UNSPECIFIED
+	}
+}
+
+// subject is what a folded row shares beyond the event's fields: a
+// finding event's finding, a Kubernetes event's object.
+func subject(e *v1.Event) string {
+	switch e.GetSource() {
+	case srcFinding:
+		return e.GetTransition().GetFindingId()
+	case srcK8s:
+		if w := strings.Fields(e.GetSummary()); len(w) > 1 {
+			return strings.TrimSuffix(w[1], ":")
+		}
+	}
+	return ""
 }
 
 // richRequest reports whether a request asks for routine events, folding,
@@ -48,7 +83,7 @@ func (p *Provider) listEventsRich(req *v1.ListEventsRequest, cur api.Cursor) *v1
 	res := &v1.ListEventsResponse{}
 	var shown []*v1.Event
 	for _, e := range all {
-		e.Routine = routineEvent(e)
+		markRoutine(e)
 		if !keepEvent(e, req) {
 			continue
 		}
@@ -93,8 +128,8 @@ func (p *Provider) listEventsRich(req *v1.ListEventsRequest, cur api.Cursor) *v1
 
 // foldKey is what the events of one folded row share.
 type foldKey struct {
-	source                                                  v1.EventSource
-	kind, server, account, stream, consumer, client, reason string
+	source                                                           v1.EventSource
+	kind, server, account, stream, consumer, client, reason, subject string
 }
 
 // fold turns newest-first events into rows: each run of events with the
@@ -108,7 +143,7 @@ func fold(evs []*v1.Event) []*v1.Event {
 	open := map[foldKey]*run{}
 	var runs []*run
 	for _, e := range slices.Backward(evs) {
-		k := foldKey{e.GetSource(), e.GetKind(), e.GetServer(), e.GetAccount(), e.GetStream(), e.GetConsumer(), e.GetClientName(), e.GetReason()}
+		k := foldKey{e.GetSource(), e.GetKind(), e.GetServer(), e.GetAccount(), e.GetStream(), e.GetConsumer(), e.GetClientName(), e.GetReason(), subject(e)}
 		r := open[k]
 		if r == nil || e.GetTime().AsTime().Sub(r.newest.GetTime().AsTime()) > api.FoldGap {
 			r = &run{oldest: e}
