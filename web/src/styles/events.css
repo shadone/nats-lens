@@ -19,16 +19,15 @@
 .ev .rep{margin-left:8px;font-size:11.5px;color:var(--text-muted);white-space:nowrap}
 
 /* Finding detail */
-.fd-title{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-top:8px}
-.fd-title h1{margin:0;font-size:22px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
 .fd-when{margin:8px 0 0;color:var(--text-2);font-size:13px}
 .fd-when .mono{font-family:var(--mono);font-size:12.5px}
 .fd-cols{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
 .fd-main{flex:999 1 560px;min-width:0;display:grid;gap:14px}
 .fd-side{flex:1 1 280px;min-width:0;display:grid;gap:14px}
+.fd-main > *,.fd-side > *{min-width:0}
 .fd-side ul{list-style:none;margin:0;padding:0;display:grid;gap:8px;font-size:12.5px}
 .fd-side .muted-note{margin:0}
 .tbl tr.odd td{background:var(--sev-warning-bg)}
-.tbl td.odd,.tbl .odd-v{color:var(--sev-warning);font-weight:600}
-.tbl .odd-v small{display:inline;font-weight:400;margin-left:4px;color:inherit}
+.tbl td.odd{color:var(--sev-warning);font-weight:600}
+.tbl td.odd small{font-weight:400;color:inherit}
 .fd-around .evlist{margin-top:0}
