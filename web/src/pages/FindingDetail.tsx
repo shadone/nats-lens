@@ -61,24 +61,31 @@ function When({ f, spec, historyStart }: { f: Finding; spec: RangeSpec; historyS
 function Head({ f, spec, start, end, onMute, onUnmute }: { f: Finding; spec: RangeSpec; start: number; end: number; onMute: () => void; onUnmute: () => void }) {
   const since = f.since ?? end;
   const historyStart = useLensInfo().data?.historyStart;
-  // The finding's own words when it has them, quoted as sent.
-  const headline = f.detail || f.checkName;
+  const name = entityName(f.entity);
   return (
     <div className={`card worst finding-h ${f.mute ? "info" : f.severity}`}>
       <div className="k">
         <Sev level={f.mute ? "muted" : f.severity} />
         <span className="code">{f.checkCode}</span>
-        {headline !== f.checkName && <span className="lbl">{f.checkName}</span>}
         <StateTag tag={findingTag(f, start)} />
       </div>
-      <h1>{headline}</h1>
+      <h1>
+        {f.checkName}
+        {name && (
+          <>
+            : <span className="mono">{name}</span>
+          </>
+        )}
+      </h1>
       <div className="ent">
         <EntityLine e={f.entity} />
       </div>
+      {/* The check's own words, quoted as the API sends them. */}
+      {f.detail && <p className="fd-detail">{f.detail}</p>}
       <When f={f} spec={spec} historyStart={historyStart} />
       <div className="meta">
         <div>
-          <span className="lbl">{f.resolvedAt !== undefined ? "Fired for" : "Firing for"}</span>
+          <span className="lbl">{f.resolvedAt !== undefined ? "Fired for (since first seen)" : "Firing for (since first seen)"}</span>
           <span className="v">{f.since !== undefined ? fmtDuration((f.resolvedAt ?? end) - since) : "–"}</span>
         </div>
         {f.resolvedAt !== undefined && (
