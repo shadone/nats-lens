@@ -2,6 +2,7 @@
 // series, and the band layers of a band metric.
 import type { Point, Unit } from "../api/model";
 import type { TrendSeries } from "../api/overview";
+import { fmtCount, splitBytes } from "./format";
 import { fmtValue } from "./units";
 
 export interface EdgePoint {
@@ -44,4 +45,21 @@ export function minMaxText(s: { min?: number; max?: number } | undefined, unit: 
 /** Sum of the points' values; undefined without points. */
 export function total(pts: Point[] | undefined): number | undefined {
   return pts && pts.length ? pts.reduce((a, p) => a + p.value, 0) : undefined;
+}
+
+/**
+ * In and out in one short text with the unit written once:
+ * "1.45 / 4.59 MiB/s", "1,240 / 3,910/s"; each keeps its unit when the two
+ * differ; undefined when neither was observed.
+ */
+export function inOutText(vin: number | undefined, vout: number | undefined, unit: Unit): string | undefined {
+  if (vin === undefined && vout === undefined) return undefined;
+  if (unit === "bytes_per_second" && vin !== undefined && vout !== undefined) {
+    const [a, ua] = splitBytes(vin);
+    const [b, ub] = splitBytes(vout);
+    if (ua === ub) return `${a} / ${b} ${ua}/s`;
+  }
+  if (unit === "per_second") return `${vin === undefined ? "–" : fmtCount(vin)} / ${vout === undefined ? "–" : fmtCount(vout)}/s`;
+  const one = (v: number | undefined) => (v === undefined ? "–" : fmtValue(v, unit));
+  return `${one(vin)} / ${one(vout)}`;
 }
