@@ -7,6 +7,9 @@ server_forget_after: 1h  # how long a silent server is still expected
 connz_limit: 4096        # most connections stored per server per epoch
 shutdown_grace: 5s       # how long an epoch write may continue after a stop signal
 log_level: info          # debug, info, warn, error
+# Id of the one system this file describes, used in URLs, the API and
+# metric labels; ^[a-z0-9][a-z0-9-]{0,62}$. Not used with systems below.
+# system_id: default
 
 nats:
   url: nats://127.0.0.1:4222
@@ -105,3 +108,37 @@ kubernetes:
 # Memory DuckDB may use (KiB, MiB, GiB or TiB); unset means 60% of the
 # container's cgroup memory limit, or 1 GiB when there is none.
 # duckdb_memory_limit: 1GiB
+
+# Several NATS systems in one natslens. With systems, the top-level nats,
+# accounts, inventory_file, kubernetes and system_id keys (and the -nats-*
+# and -inventory-file flags) are refused: each system sets its own.
+# data_dir and archive_dir become the roots of the systems' directories,
+# retention and archive_retention their defaults, and duckdb_memory_limit
+# the budget they share. Every other key applies to all systems.
+# A system password not set here is read from
+# NATSLENS_SYSTEM_<ID>_NATS_PASSWORD, an account password from
+# NATSLENS_SYSTEM_<ID>_ACCOUNT_<NAME>_PASSWORD (id and name upper-cased,
+# other characters replaced by _).
+# systems:
+#   - id: prod                    # ^[a-z0-9][a-z0-9-]{0,62}$; used in URLs, the API, metric labels, directory names
+#     name: Production            # display name; default: the id
+#     environment: production     # free text shown with the system
+#     nats:                       # name defaults to natslens-<id>
+#       url: nats://nats.prod.example:4222
+#       creds: /etc/natslens/prod-sys.creds
+#     accounts:
+#       - name: APP
+#         creds: /etc/natslens/prod-app.creds
+#     inventory_file: /etc/natslens/prod-inventory.yaml
+#     kubernetes:
+#       enabled: true
+#       namespaces: [nats]
+#     retention: 14d              # default: the top-level retention
+#     archive_retention: 90d      # default: the top-level archive_retention
+#     # data_dir: ""              # default: <data_dir>/<id>
+#     # archive_dir: ""           # default: <archive_dir>/<id>, or <system data dir>/archive
+#     # duckdb_memory_limit: ""   # default: an equal share of what the own limits leave of the budget, at least 256MiB
+#   - id: staging
+#     nats:
+#       url: nats://nats.staging.example:4222
+#       user: sys                 # password from NATSLENS_SYSTEM_STAGING_NATS_PASSWORD

@@ -346,6 +346,10 @@ Proposed, not yet confirmed by the owner.
 
 | Decision | Section |
 | --- | --- |
+| `systems` in the file; a file without it is one system `system_id` (default `default`) in `data_dir` unchanged; per-system: NATS, accounts, inventory, Kubernetes, retention, archive retention, directories, memory | Configuration |
+| In a list: retention and archive retention default to the top-level values; top-level per-system keys and flags refused; overlapping archive and data directories and shared password variables refused | Configuration |
+| A listed system's `nats.name` defaults to `natslens-<id>`, so connections can be told apart; a file without `systems` keeps `natslens` | Configuration |
+| A listed system without its own `duckdb_memory_limit` gets an equal share of what the own limits leave of the budget, at least 256 MiB; a total above the budget (own limits, or the floor) is a warning, not an error | Configuration |
 | Expected servers by name within `server_forget_after` (1h), plus route and meta peers; RAFTZ per account, so an epoch takes at most three windows and `timeout` is under a third of `interval` | Collection |
 | Follower `num_pending`, `num_waiting`, `push_bound` stored as NULL; the `consumer_leader_stats` view holds the leader's row | Collection |
 | The system connection also subscribes to `$JS.EVENT.ADVISORY.>`; cluster advisories received twice are stored once | Events |

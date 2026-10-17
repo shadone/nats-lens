@@ -1,8 +1,10 @@
 package config
 
 import (
+	"errors"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 )
@@ -60,12 +62,25 @@ func Parse(name string, args []string) (Config, error) {
 	if set["allowed-host"] {
 		f.AllowedHosts = SplitList(*allowed)
 	}
+	if err := refusePerSystemFlags(cfg, set); err != nil {
+		return Config{}, err
+	}
 	cfg = applyFlags(cfg, f, set)
+	envErrs := cfg.passwordEnvErrors()
 	if cfg.NATS.Password == "" && cfg.NATS.User != "" {
 		cfg.NATS.Password = os.Getenv(PasswordEnv)
 	}
 	cfg.Accounts = fillAccountPasswords(cfg.Accounts)
-	return cfg, cfg.Validate()
+	cfg.Systems = fillSystemPasswords(cfg.Systems)
+	if err := errors.Join(append(envErrs, cfg.Validate())...); err != nil {
+		return cfg, err
+	}
+	// The logger is built from the configuration, so these go to the
+	// default logger.
+	for _, w := range cfg.Warnings() {
+		slog.Warn(w)
+	}
+	return cfg, nil
 }
 
 func applyFlags(cfg, f Config, set map[string]bool) Config {
