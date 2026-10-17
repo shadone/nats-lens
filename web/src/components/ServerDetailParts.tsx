@@ -160,7 +160,7 @@ export function EndpointsAnswered({ info }: { info: ServerInfo }) {
         {ok}/{info.endpoints.length}
       </span>{" "}
       monitoring endpoints answered in the newest epoch
-      {failed.length > 0 && (
+      {failed.length > 0 && failed.length <= 4 && (
         <>
           ; not:{" "}
           {failed.map((e, i) => (
@@ -169,6 +169,14 @@ export function EndpointsAnswered({ info }: { info: ServerInfo }) {
               {e.endpoint} {e.state}
             </span>
           ))}
+        </>
+      )}
+      {failed.length > 4 && (
+        <>
+          ;{" "}
+          <span className="bad" title={failed.map((e) => `${e.endpoint} ${e.state}${e.error ? `: ${e.error}` : ""}`).join("\n")}>
+            {[...new Set(failed.map((e) => e.state))].map((st) => `${failed.filter((e) => e.state === st).length} ${st}`).join(", ")}
+          </span>
         </>
       )}
       .
