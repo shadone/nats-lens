@@ -28,7 +28,21 @@ These come from real incidents on JetStream clusters in Kubernetes and are the a
 | Alerting | Findings exported at `/metrics`; alert rules in the deployment's Prometheus or Cloud Monitoring | The deployment has an alerting system already; the tool delivers no alerts itself |
 | Deployment | One replica on GKE with `Recreate` and a PVC, preferring a node without a NATS server pod | DuckDB has one writer |
 
-One process, `natslens run`, collects, captures events, runs the checks, archives, and serves the API and the UI, because DuckDB lets one process hold the database file.
+One process, `natslens run`, collects, captures events, runs the checks, archives, and serves the API and the UI, because DuckDB lets one process hold a database file. It does so for every configured system, each with a database of its own.
+
+## Multiple systems
+
+A system is one NATS deployment with its own system account. The configuration lists systems (`systems`), or describes one (a file without `systems`, which is one system with the id `system_id`, default `default`, in `data_dir` unchanged). `Config.ResolvedSystems()` is the one path to per-system settings; `Config.ForSystem` gives each system the configuration a single-system file would, so the code that runs one system knows nothing of the others.
+
+- **What a system owns.** Its database and archive, its collector with its own connection and server tracker, its event capture and connections, its Kubernetes watcher (own kubeconfig and context), its check engine and its archive export. Log lines carry `system`. Systems share the process, the API, the check definitions (`checks.Set`) and the global settings: interval, timeout, events tuning, checks, listen, IAP, `connz_limit`, `shutdown_grace`.
+- **Start.** The stores open in parallel, each with its own WAL recovery and rebuild, before the API serves. A store that fails to open fails the start, and the stores already open are closed again. Each data directory gets `system.json` with the system's id on first open; a directory marked for another id refuses the start, and a directory without the file (a single-system nats-lens's) is adopted. A database in the top-level `data_dir` that no listed system uses is warned about.
+- **Isolation.** A system whose NATS is unreachable, or whose connection nats.go closed for good, skips only its own epochs; the others, the API and readiness go on. A system that fails to start for another reason (its events or Kubernetes setup) stops the process, as with one system.
+- **Collection status.** Each system reports `CollectionStatus` (`starting`, `collecting`, `not_connected`, `connection_closed`, the newest connection error, when the state began, the start of the newest stored epoch) through `api.Systems`. The collector connection's handlers feed it, chained after the capture's; a connection closed for good stays `connection_closed` while it is dialled again, until it connects.
+- **Checks.** One `checks.Set` serves every system; each engine leaves out its own system's nats-lens connections (`System.ToolingNames()`, `natslens-<id>` by default in a list) and logs the loopback guard once for its system. A union of every system's names would also have hidden another system's connection names in a system, and the provider's tooling flag on connections is per system too.
+- **Resources.** DuckDB `memory_limit` is the system's own `duckdb_memory_limit` or its share of the budget; `threads` is `max(2, GOMAXPROCS / number of systems)` per database, so that N databases do not each plan for every core.
+- **Shutdown.** One deadline, `shutdown_grace + events.flush_interval` from the signal, for all systems; they stop in parallel, each in the order of [Shutdown](#shutdown) and with its own last `state.json`; the stores close after the API's shutdown returned.
+- **Commands for one database.** `natslens once` collects every system or the one `-system` names; `natslens sql` and `natslens checks run` read the database of `-system` from `-config`, required when the file lists several systems, or `-data-dir`.
+- **Kubernetes.** Two systems in one Kubernetes cluster each run a watcher, so node changes are recorded in both databases.
 
 ## Collection
 
@@ -107,7 +121,7 @@ So the stop timeout must exceed `shutdown_grace + events.flush_interval + 2s` or
 
 ### Database
 
-The DuckDB file `natslens.duckdb` lives in `data_dir`. Tables follow one pattern:
+The DuckDB file `natslens.duckdb` lives in the system's data directory (`data_dir` for a file without `systems`, `<data_dir>/<id>` by default in a list). Tables follow one pattern:
 
 - identity tables hold one row per thing with the first and last epoch it was seen: `servers`, `accounts`, `streams`, `consumers`, `raft_groups`;
 - configuration tables hold one row per server per run of consecutive epochs with the same configuration (`first_epoch`, `last_epoch`, `config_hash`): `stream_config`, `consumer_config`. `config_hash` covers the configuration only; a new creation time also starts a new run, so a recreated asset counts as changed while replicas built at different times show the same hash, and the disagreement views list a creation time apart from the configuration (proposed, not yet confirmed). The first epoch after upgrading to this rule starts new configuration rows for every asset, because the old hashes included `created`; a server that misses that epoch keeps its old hash and shows "config differs" until it answers again. A run ends when the server reports nothing for the asset in an epoch, so it never covers an epoch without a report. Agreement checks read only the rows current at the epoch (`first_epoch <= E AND last_epoch >= E`);
@@ -284,7 +298,7 @@ A mute covers a check (`^[a-z]+-\d{3}$`), or a check for one entity of a known t
 
 ### Health and metrics
 
-`/healthz` answers while the process serves; it is the liveness probe and the load balancer's health check. `/readyz` answers ok once the store is open and the API serves; the API starts after the database is open, so a pod that rebuilds its database gets no traffic, and the start probe allows ten minutes for that. Readiness does not follow collection: with one replica a not-ready pod leaves the load balancer, and the UI would vanish exactly when NATS is down. A stopped collector shows "not collecting" in the UI header and through `nats_lens_last_epoch_age_seconds` and its alert rule (proposed, not yet confirmed). The collector's own connection is dialled again when nats.go closes it for good, with the event connections' backoff (proposed, not yet confirmed).
+`/healthz` answers while the process serves; it is the liveness probe and the load balancer's health check. `/readyz` answers ok once every system's store is open and the API serves; the API starts after the database is open, so a pod that rebuilds its database gets no traffic, and the start probe allows ten minutes for that. Readiness does not follow collection: with one replica a not-ready pod leaves the load balancer, and the UI would vanish exactly when NATS is down. A stopped collector shows "not collecting" in the UI header and through `nats_lens_last_epoch_age_seconds` and its alert rule (proposed, not yet confirmed). The collector's own connection is dialled again when nats.go closes it for good, with the event connections' backoff (proposed, not yet confirmed).
 
 `/metrics` on the API listener exports each firing finding as three series of one identity (`system`, `code`, `entity_type`, `entity_key`): `nats_lens_finding` with a `muted` label, `nats_lens_finding_severity` (1 to 3) and `nats_lens_finding_flapping`, so that a change of severity does not start a new series. A mute does start a new `nats_lens_finding` series, as `muted` is its label; the `_severity`, `_flapping` and `_by_check` families keep their identity. The three series are capped at 50 unmuted entities per check (the worst, then by entity key, so the set is stable); muted findings are always exported and do not count against the cap. Beside them: per-check counts and highest severity without severity labels, counts by severity and of muted findings, and the health of the collector and the checks, including epochs without check runs. Every sample carries `system` as its first label; the handler collects the samples of every system by family and writes each family's HELP and TYPE once. Each system is read in parallel into an exposition of its own, within `metrics_timeout` (8 seconds, below the usual 10-second Prometheus `scrape_timeout`) and never twice at once, a panic counting as a failure, and merged only when it succeeded, so a failure halfway leaves no partial families; `nats_lens_system_scrape_success` says per system whether it was read, and the scrape answers 500 only when every system failed. An empty system ID is refused when the registry is built and when an exposition is made, so no sample goes without the label. A mute makes alert rules on the finding series stop matching.
 
@@ -352,6 +366,13 @@ Proposed, not yet confirmed by the owner.
 | `systems` in the file; a file without it is one system `system_id` (default `default`) in `data_dir` unchanged; per-system: NATS, accounts, inventory, Kubernetes, retention, archive retention, directories, memory | Configuration |
 | In a list: retention and archive retention default to the top-level values; top-level per-system keys and flags refused; overlapping archive and data directories and shared password variables refused | Configuration |
 | A listed system's `nats.name` defaults to `natslens-<id>`, so connections can be told apart; a file without `systems` keeps `natslens` | Configuration |
+| One process runs every system: per system a store, archive, collector, capture, Kubernetes watcher and check engine; one shared `checks.Set`, with each engine leaving out its own system's tooling names | Multiple systems |
+| A store that fails to open fails the start; a system whose NATS is down affects neither the others nor readiness; any other start failure of a system stops the process | Multiple systems |
+| Each data directory carries `system.json` with its id; another id refuses the start, a directory without one is adopted | Multiple systems |
+| DuckDB `threads` is `max(2, GOMAXPROCS / number of systems)` per database, also with one system | Multiple systems |
+| One shutdown deadline for all systems, which stop in parallel | Multiple systems |
+| `sql` and `checks run` require `-system` when the file lists several systems, rather than reading the first | Multiple systems |
+| Warnings of the configuration go out through a JSON default logger set in `main`, not again through the configured logger | Multiple systems |
 | A listed system without its own `duckdb_memory_limit` gets an equal share of what the own limits leave of the budget, at least 256 MiB; a total above the budget (own limits, or the floor) is a warning, not an error | Configuration |
 | Expected servers by name within `server_forget_after` (1h), plus route and meta peers; RAFTZ per account, so an epoch takes at most three windows and `timeout` is under a third of `interval` | Collection |
 | Follower `num_pending`, `num_waiting`, `push_bound` stored as NULL; the `consumer_leader_stats` view holds the leader's row | Collection |
@@ -379,9 +400,9 @@ Proposed, not yet confirmed by the owner.
 | `server-011` hysteresis (2 epochs to fire, below 0.8x to resolve); `client-001` by service over 2 epochs; `stream-005` follows the inventory and per-key TTLs | Checks |
 | Read RPCs take a `TimeRange`; past ranges rebuilt from transitions; status never defaults to OK and unobserved numbers are unset | API |
 | `/metrics` series identity and 50-entity cap; `/metrics` exempt from the host allowlist off loopback | API |
-| An empty `system` reads the first configured system; an unknown one is invalid_argument naming the known IDs; a system whose metrics fail is left out of the scrape and reported by `nats_lens_system_scrape_success`; `run` serves system `default` and the demo `example-prod` until the configuration lists systems | API |
+| An empty `system` reads the first configured system; an unknown one is invalid_argument naming the known IDs; a system whose metrics fail is left out of the scrape and reported by `nats_lens_system_scrape_success`; `run` serves the configured systems and the demo `example-prod` | API |
 | `ListAccounts` lists the accounts of the range's newest epoch, or without one the accounts seen up to its end with every count unset; streams and consumers from the JSZ detail, a reported zero kept, other counts without detail unset | API |
-| `/readyz` is true once the store is open and the API serves, independent of collection; the start probe allows ten minutes for a rebuild | API |
+| `/readyz` is true once every system's store is open and the API serves, independent of collection; the start probe allows ten minutes for a rebuild | API |
 | Alerting through the deployment's Prometheus rules or Cloud Monitoring PromQL policies on the `/metrics` data | API |
 | Kubernetes: `events.k8s.io` only, one origin per kind, derived drains, `pool_nodes` off; upgrade windows derived when read | Kubernetes |
 | One row per Kubernetes Event UID, updated in place and moved to its latest receive hour | Kubernetes |
@@ -397,7 +418,7 @@ Proposed, not yet confirmed by the owner.
 
 ## Out of scope for the first release
 
-High availability, write actions towards NATS, alert delivery (findings are exposed as Prometheus metrics), multi-system support in one process, a bucket archive destination.
+High availability, write actions towards NATS, alert delivery (findings are exposed as Prometheus metrics), a bucket archive destination.
 
 ## Local development
 
