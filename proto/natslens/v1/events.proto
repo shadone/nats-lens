@@ -84,6 +84,22 @@ message Event {
 
   // Readable name of the account, when known.
   string account_name = 20;
+
+  // With fold_repeats: how many events this row stands for, at least 1.
+  // A Kubernetes event counts the occurrences Kubernetes reported for it.
+  // Zero without fold_repeats.
+  int32 repeats = 21;
+
+  // With fold_repeats: when the oldest event of the row happened; the
+  // row's time is the newest. Unset without fold_repeats.
+  google.protobuf.Timestamp first_time = 22;
+
+  // Whether the event is routine: client churn, sampled acks, account
+  // connection counts, an API audit record of a successful call that
+  // changes nothing, or a connect or disconnect of a tooling client. Set
+  // only when the request asks for hide_routine, fold_repeats,
+  // histogram_buckets or include_facets.
+  bool routine = 23;
 }
 
 // Request for events.
@@ -117,6 +133,66 @@ message ListEventsRequest {
 
   // System ID, as ListSystems returns it. Empty means the default system.
   string system = 8;
+
+  // Leave out routine events; routine_hidden counts them and
+  // routine_groups says what they were.
+  bool hide_routine = 9;
+
+  // Fold repeats: events with the same source, kind, server, account,
+  // stream, consumer, client name and reason (and finding, for a finding
+  // event; object, for a Kubernetes event), each at most 10 minutes
+  // after the previous one, become one row that shows the newest, with
+  // repeats and first_time set. Pages then hold rows, not events.
+  bool fold_repeats = 10;
+
+  // Number of histogram buckets over the range: 0 for none, at most 120.
+  int32 histogram_buckets = 11;
+
+  // Return the facets and total_unfiltered.
+  bool include_facets = 12;
+}
+
+// The count of events with one value of a dimension.
+message EventFacet {
+  // The dimension: "source" or "server".
+  string dimension = 1;
+
+  // The value: an EventSource name such as EVENT_SOURCE_NATS, or a
+  // server name.
+  string value = 2;
+
+  // Number of events with this value.
+  int32 count = 3;
+}
+
+// Routine events of one kind and client.
+message RoutineGroup {
+  // Text to show, for example "catalog-api short connections".
+  string label = 1;
+
+  // The events' kind.
+  string kind = 2;
+
+  // The events' client connection name; empty for none.
+  string client_name = 3;
+
+  // Number of events.
+  int32 count = 4;
+}
+
+// Event counts of one histogram bucket.
+message EventBucket {
+  // Start of the bucket; it ends where the next one starts.
+  google.protobuf.Timestamp start = 1;
+
+  // Events of warning or critical severity that are not routine.
+  int32 warning = 2;
+
+  // Other events that are not routine.
+  int32 notable = 3;
+
+  // Routine events.
+  int32 routine = 4;
 }
 
 // Events, newest first.
@@ -127,8 +203,31 @@ message ListEventsResponse {
   // Token for the next, older page; empty on the last page.
   string next_page_token = 2;
 
-  // Number of events that match the filters, across pages.
+  // Number of events that match the filters, across pages. With
+  // fold_repeats it still counts events, not rows.
   int32 total_count = 3;
+
+  // With hide_routine: number of routine events the filters matched and
+  // left out.
+  int32 routine_hidden = 4;
+
+  // With include_facets: event counts per source and per server. Each
+  // dimension counts the events that match every filter except its own:
+  // the sources for "source", a server entity for "server". Largest
+  // count first.
+  repeated EventFacet facets = 5;
+
+  // With hide_routine: the routine events left out, by kind and client,
+  // largest first, at most 10.
+  repeated RoutineGroup routine_groups = 6;
+
+  // With histogram_buckets: event counts per bucket of the range, oldest
+  // first, from every filter except hide_routine.
+  repeated EventBucket histogram = 7;
+
+  // With include_facets: number of events in the range, with no other
+  // filter.
+  int32 total_unfiltered = 8;
 }
 
 // Request for one event.

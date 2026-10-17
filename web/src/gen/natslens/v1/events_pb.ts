@@ -16,7 +16,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/events.proto.
  */
 export const file_natslens_v1_events: GenFile = /*@__PURE__*/
-  fileDesc("ChhuYXRzbGVucy92MS9ldmVudHMucHJvdG8SC25hdHNsZW5zLnYxIo8ECgVFdmVudBIKCgJpZBgBIAEoCRIoCgR0aW1lGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIvCgtyZWNlaXZlZF9hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKAoGc291cmNlGAQgASgOMhgubmF0c2xlbnMudjEuRXZlbnRTb3VyY2USDAoEa2luZBgFIAEoCRIMCgR0eXBlGAYgASgJEicKCHNldmVyaXR5GAcgASgOMhUubmF0c2xlbnMudjEuU2V2ZXJpdHkSDwoHc3VtbWFyeRgIIAEoCRIOCgZzZXJ2ZXIYCSABKAkSDwoHYWNjb3VudBgKIAEoCRIOCgZzdHJlYW0YCyABKAkSEAoIY29uc3VtZXIYDCABKAkSEwoLY2xpZW50X25hbWUYDSABKAkSEwoLY2xpZW50X2hvc3QYDiABKAkSDgoGcmVhc29uGA8gASgJEjIKCnRyYW5zaXRpb24YECABKAsyHi5uYXRzbGVucy52MS5GaW5kaW5nVHJhbnNpdGlvbhIlCgdmaW5kaW5nGBEgASgLMhQubmF0c2xlbnMudjEuRmluZGluZxIkCgZyYWlzZWQYEiADKAsyFC5uYXRzbGVucy52MS5GaW5kaW5nEgsKA3JhdxgTIAEoCRIUCgxhY2NvdW50X25hbWUYFCABKAki6AEKEUxpc3RFdmVudHNSZXF1ZXN0EiUKBXJhbmdlGAEgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEikKB3NvdXJjZXMYAiADKA4yGC5uYXRzbGVucy52MS5FdmVudFNvdXJjZRINCgVraW5kcxgDIAMoCRImCgZlbnRpdHkYBCABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSEwoLY2xpZW50X25hbWUYBSABKAkSEQoJcGFnZV9zaXplGAYgASgFEhIKCnBhZ2VfdG9rZW4YByABKAkSDgoGc3lzdGVtGAggASgJImYKEkxpc3RFdmVudHNSZXNwb25zZRIiCgZldmVudHMYASADKAsyEi5uYXRzbGVucy52MS5FdmVudBIXCg9uZXh0X3BhZ2VfdG9rZW4YAiABKAkSEwoLdG90YWxfY291bnQYAyABKAUiLQoPR2V0RXZlbnRSZXF1ZXN0EgoKAmlkGAEgASgJEg4KBnN5c3RlbRgCIAEoCSI1ChBHZXRFdmVudFJlc3BvbnNlEiEKBWV2ZW50GAEgASgLMhIubmF0c2xlbnMudjEuRXZlbnQqlQEKC0V2ZW50U291cmNlEhwKGEVWRU5UX1NPVVJDRV9VTlNQRUNJRklFRBAAEhUKEUVWRU5UX1NPVVJDRV9OQVRTEAESGwoXRVZFTlRfU09VUkNFX0tVQkVSTkVURVMQAhIYChRFVkVOVF9TT1VSQ0VfRklORElORxADEhoKFkVWRU5UX1NPVVJDRV9DT0xMRUNUT1IQBEJCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_findings]);
+  fileDesc("ChhuYXRzbGVucy92MS9ldmVudHMucHJvdG8SC25hdHNsZW5zLnYxIuEECgVFdmVudBIKCgJpZBgBIAEoCRIoCgR0aW1lGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIvCgtyZWNlaXZlZF9hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKAoGc291cmNlGAQgASgOMhgubmF0c2xlbnMudjEuRXZlbnRTb3VyY2USDAoEa2luZBgFIAEoCRIMCgR0eXBlGAYgASgJEicKCHNldmVyaXR5GAcgASgOMhUubmF0c2xlbnMudjEuU2V2ZXJpdHkSDwoHc3VtbWFyeRgIIAEoCRIOCgZzZXJ2ZXIYCSABKAkSDwoHYWNjb3VudBgKIAEoCRIOCgZzdHJlYW0YCyABKAkSEAoIY29uc3VtZXIYDCABKAkSEwoLY2xpZW50X25hbWUYDSABKAkSEwoLY2xpZW50X2hvc3QYDiABKAkSDgoGcmVhc29uGA8gASgJEjIKCnRyYW5zaXRpb24YECABKAsyHi5uYXRzbGVucy52MS5GaW5kaW5nVHJhbnNpdGlvbhIlCgdmaW5kaW5nGBEgASgLMhQubmF0c2xlbnMudjEuRmluZGluZxIkCgZyYWlzZWQYEiADKAsyFC5uYXRzbGVucy52MS5GaW5kaW5nEgsKA3JhdxgTIAEoCRIUCgxhY2NvdW50X25hbWUYFCABKAkSDwoHcmVwZWF0cxgVIAEoBRIuCgpmaXJzdF90aW1lGBYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgdyb3V0aW5lGBcgASgIIscCChFMaXN0RXZlbnRzUmVxdWVzdBIlCgVyYW5nZRgBIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRIpCgdzb3VyY2VzGAIgAygOMhgubmF0c2xlbnMudjEuRXZlbnRTb3VyY2USDQoFa2luZHMYAyADKAkSJgoGZW50aXR5GAQgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEhMKC2NsaWVudF9uYW1lGAUgASgJEhEKCXBhZ2Vfc2l6ZRgGIAEoBRISCgpwYWdlX3Rva2VuGAcgASgJEg4KBnN5c3RlbRgIIAEoCRIUCgxoaWRlX3JvdXRpbmUYCSABKAgSFAoMZm9sZF9yZXBlYXRzGAogASgIEhkKEWhpc3RvZ3JhbV9idWNrZXRzGAsgASgFEhYKDmluY2x1ZGVfZmFjZXRzGAwgASgIIj0KCkV2ZW50RmFjZXQSEQoJZGltZW5zaW9uGAEgASgJEg0KBXZhbHVlGAIgASgJEg0KBWNvdW50GAMgASgFIk8KDFJvdXRpbmVHcm91cBINCgVsYWJlbBgBIAEoCRIMCgRraW5kGAIgASgJEhMKC2NsaWVudF9uYW1lGAMgASgJEg0KBWNvdW50GAQgASgFImsKC0V2ZW50QnVja2V0EikKBXN0YXJ0GAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgd3YXJuaW5nGAIgASgFEg8KB25vdGFibGUYAyABKAUSDwoHcm91dGluZRgEIAEoBSKhAgoSTGlzdEV2ZW50c1Jlc3BvbnNlEiIKBmV2ZW50cxgBIAMoCzISLm5hdHNsZW5zLnYxLkV2ZW50EhcKD25leHRfcGFnZV90b2tlbhgCIAEoCRITCgt0b3RhbF9jb3VudBgDIAEoBRIWCg5yb3V0aW5lX2hpZGRlbhgEIAEoBRInCgZmYWNldHMYBSADKAsyFy5uYXRzbGVucy52MS5FdmVudEZhY2V0EjEKDnJvdXRpbmVfZ3JvdXBzGAYgAygLMhkubmF0c2xlbnMudjEuUm91dGluZUdyb3VwEisKCWhpc3RvZ3JhbRgHIAMoCzIYLm5hdHNsZW5zLnYxLkV2ZW50QnVja2V0EhgKEHRvdGFsX3VuZmlsdGVyZWQYCCABKAUiLQoPR2V0RXZlbnRSZXF1ZXN0EgoKAmlkGAEgASgJEg4KBnN5c3RlbRgCIAEoCSI1ChBHZXRFdmVudFJlc3BvbnNlEiEKBWV2ZW50GAEgASgLMhIubmF0c2xlbnMudjEuRXZlbnQqlQEKC0V2ZW50U291cmNlEhwKGEVWRU5UX1NPVVJDRV9VTlNQRUNJRklFRBAAEhUKEUVWRU5UX1NPVVJDRV9OQVRTEAESGwoXRVZFTlRfU09VUkNFX0tVQkVSTkVURVMQAhIYChRFVkVOVF9TT1VSQ0VfRklORElORxADEhoKFkVWRU5UX1NPVVJDRV9DT0xMRUNUT1IQBEJCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_findings]);
 
 /**
  * One event.
@@ -164,6 +164,34 @@ export type Event = Message<"natslens.v1.Event"> & {
    * @generated from field: string account_name = 20;
    */
   accountName: string;
+
+  /**
+   * With fold_repeats: how many events this row stands for, at least 1.
+   * A Kubernetes event counts the occurrences Kubernetes reported for it.
+   * Zero without fold_repeats.
+   *
+   * @generated from field: int32 repeats = 21;
+   */
+  repeats: number;
+
+  /**
+   * With fold_repeats: when the oldest event of the row happened; the
+   * row's time is the newest. Unset without fold_repeats.
+   *
+   * @generated from field: google.protobuf.Timestamp first_time = 22;
+   */
+  firstTime?: Timestamp | undefined;
+
+  /**
+   * Whether the event is routine: client churn, sampled acks, account
+   * connection counts, an API audit record of a successful call that
+   * changes nothing, or a connect or disconnect of a tooling client. Set
+   * only when the request asks for hide_routine, fold_repeats,
+   * histogram_buckets or include_facets.
+   *
+   * @generated from field: bool routine = 23;
+   */
+  routine: boolean;
 };
 
 /**
@@ -240,6 +268,39 @@ export type ListEventsRequest = Message<"natslens.v1.ListEventsRequest"> & {
    * @generated from field: string system = 8;
    */
   system: string;
+
+  /**
+   * Leave out routine events; routine_hidden counts them and
+   * routine_groups says what they were.
+   *
+   * @generated from field: bool hide_routine = 9;
+   */
+  hideRoutine: boolean;
+
+  /**
+   * Fold repeats: events with the same source, kind, server, account,
+   * stream, consumer, client name and reason (and finding, for a finding
+   * event; object, for a Kubernetes event), each at most 10 minutes
+   * after the previous one, become one row that shows the newest, with
+   * repeats and first_time set. Pages then hold rows, not events.
+   *
+   * @generated from field: bool fold_repeats = 10;
+   */
+  foldRepeats: boolean;
+
+  /**
+   * Number of histogram buckets over the range: 0 for none, at most 120.
+   *
+   * @generated from field: int32 histogram_buckets = 11;
+   */
+  histogramBuckets: number;
+
+  /**
+   * Return the facets and total_unfiltered.
+   *
+   * @generated from field: bool include_facets = 12;
+   */
+  includeFacets: boolean;
 };
 
 /**
@@ -248,6 +309,126 @@ export type ListEventsRequest = Message<"natslens.v1.ListEventsRequest"> & {
  */
 export const ListEventsRequestSchema: GenMessage<ListEventsRequest> = /*@__PURE__*/
   messageDesc(file_natslens_v1_events, 1);
+
+/**
+ * The count of events with one value of a dimension.
+ *
+ * @generated from message natslens.v1.EventFacet
+ */
+export type EventFacet = Message<"natslens.v1.EventFacet"> & {
+  /**
+   * The dimension: "source" or "server".
+   *
+   * @generated from field: string dimension = 1;
+   */
+  dimension: string;
+
+  /**
+   * The value: an EventSource name such as EVENT_SOURCE_NATS, or a
+   * server name.
+   *
+   * @generated from field: string value = 2;
+   */
+  value: string;
+
+  /**
+   * Number of events with this value.
+   *
+   * @generated from field: int32 count = 3;
+   */
+  count: number;
+};
+
+/**
+ * Describes the message natslens.v1.EventFacet.
+ * Use `create(EventFacetSchema)` to create a new message.
+ */
+export const EventFacetSchema: GenMessage<EventFacet> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_events, 2);
+
+/**
+ * Routine events of one kind and client.
+ *
+ * @generated from message natslens.v1.RoutineGroup
+ */
+export type RoutineGroup = Message<"natslens.v1.RoutineGroup"> & {
+  /**
+   * Text to show, for example "catalog-api short connections".
+   *
+   * @generated from field: string label = 1;
+   */
+  label: string;
+
+  /**
+   * The events' kind.
+   *
+   * @generated from field: string kind = 2;
+   */
+  kind: string;
+
+  /**
+   * The events' client connection name; empty for none.
+   *
+   * @generated from field: string client_name = 3;
+   */
+  clientName: string;
+
+  /**
+   * Number of events.
+   *
+   * @generated from field: int32 count = 4;
+   */
+  count: number;
+};
+
+/**
+ * Describes the message natslens.v1.RoutineGroup.
+ * Use `create(RoutineGroupSchema)` to create a new message.
+ */
+export const RoutineGroupSchema: GenMessage<RoutineGroup> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_events, 3);
+
+/**
+ * Event counts of one histogram bucket.
+ *
+ * @generated from message natslens.v1.EventBucket
+ */
+export type EventBucket = Message<"natslens.v1.EventBucket"> & {
+  /**
+   * Start of the bucket; it ends where the next one starts.
+   *
+   * @generated from field: google.protobuf.Timestamp start = 1;
+   */
+  start?: Timestamp | undefined;
+
+  /**
+   * Events of warning or critical severity that are not routine.
+   *
+   * @generated from field: int32 warning = 2;
+   */
+  warning: number;
+
+  /**
+   * Other events that are not routine.
+   *
+   * @generated from field: int32 notable = 3;
+   */
+  notable: number;
+
+  /**
+   * Routine events.
+   *
+   * @generated from field: int32 routine = 4;
+   */
+  routine: number;
+};
+
+/**
+ * Describes the message natslens.v1.EventBucket.
+ * Use `create(EventBucketSchema)` to create a new message.
+ */
+export const EventBucketSchema: GenMessage<EventBucket> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_events, 4);
 
 /**
  * Events, newest first.
@@ -270,11 +451,54 @@ export type ListEventsResponse = Message<"natslens.v1.ListEventsResponse"> & {
   nextPageToken: string;
 
   /**
-   * Number of events that match the filters, across pages.
+   * Number of events that match the filters, across pages. With
+   * fold_repeats it still counts events, not rows.
    *
    * @generated from field: int32 total_count = 3;
    */
   totalCount: number;
+
+  /**
+   * With hide_routine: number of routine events the filters matched and
+   * left out.
+   *
+   * @generated from field: int32 routine_hidden = 4;
+   */
+  routineHidden: number;
+
+  /**
+   * With include_facets: event counts per source and per server. Each
+   * dimension counts the events that match every filter except its own:
+   * the sources for "source", a server entity for "server". Largest
+   * count first.
+   *
+   * @generated from field: repeated natslens.v1.EventFacet facets = 5;
+   */
+  facets: EventFacet[];
+
+  /**
+   * With hide_routine: the routine events left out, by kind and client,
+   * largest first, at most 10.
+   *
+   * @generated from field: repeated natslens.v1.RoutineGroup routine_groups = 6;
+   */
+  routineGroups: RoutineGroup[];
+
+  /**
+   * With histogram_buckets: event counts per bucket of the range, oldest
+   * first, from every filter except hide_routine.
+   *
+   * @generated from field: repeated natslens.v1.EventBucket histogram = 7;
+   */
+  histogram: EventBucket[];
+
+  /**
+   * With include_facets: number of events in the range, with no other
+   * filter.
+   *
+   * @generated from field: int32 total_unfiltered = 8;
+   */
+  totalUnfiltered: number;
 };
 
 /**
@@ -282,7 +506,7 @@ export type ListEventsResponse = Message<"natslens.v1.ListEventsResponse"> & {
  * Use `create(ListEventsResponseSchema)` to create a new message.
  */
 export const ListEventsResponseSchema: GenMessage<ListEventsResponse> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_events, 2);
+  messageDesc(file_natslens_v1_events, 5);
 
 /**
  * Request for one event.
@@ -310,7 +534,7 @@ export type GetEventRequest = Message<"natslens.v1.GetEventRequest"> & {
  * Use `create(GetEventRequestSchema)` to create a new message.
  */
 export const GetEventRequestSchema: GenMessage<GetEventRequest> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_events, 3);
+  messageDesc(file_natslens_v1_events, 6);
 
 /**
  * One event with its payload.
@@ -331,7 +555,7 @@ export type GetEventResponse = Message<"natslens.v1.GetEventResponse"> & {
  * Use `create(GetEventResponseSchema)` to create a new message.
  */
 export const GetEventResponseSchema: GenMessage<GetEventResponse> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_events, 4);
+  messageDesc(file_natslens_v1_events, 7);
 
 /**
  * Where an event came from.
