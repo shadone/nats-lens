@@ -102,6 +102,8 @@ function Store({ servers }: { servers: ServerRow[] }) {
   const lo = withPct.length ? Math.min(...withPct.map((x) => x.p)) : undefined;
   const top = withPct.length ? withPct.reduce((a, b) => (b.p > a.p ? b : a)) : undefined;
   const r = (v: number) => Math.round(v);
+  // At least 1% wide, and never past the track's end.
+  const bandLeft = lo === undefined ? 0 : Math.min(99, r(lo));
   return (
     <div className="card dp">
       <span className="lbl">JetStream store</span>
@@ -111,8 +113,8 @@ function Store({ servers }: { servers: ServerRow[] }) {
       {med !== undefined && lo !== undefined && top && (
         <>
           <div className="dp-store" role="img" aria-label={`Store used: median ${r(med)}%, lowest ${r(lo)}%, highest ${r(top.p)}%`}>
-            <span className="band" style={{ left: `${r(lo)}%`, width: `${Math.max(1, r(top.p) - r(lo))}%` }} />
-            <span className="med" style={{ left: `${r(med)}%` }} />
+            <span className="band" style={{ left: `${bandLeft}%`, width: `${Math.max(1, Math.min(100, r(top.p)) - bandLeft)}%` }} />
+            <span className="med" style={{ left: `${Math.min(100, r(med))}%` }} />
           </div>
           <div className="dp-n">
             range {r(lo)} to {r(top.p)}% · fullest <span className={top.p >= STORE_ATTENTION_PCT ? "warn mono" : "mono"}>{top.s.name}</span>

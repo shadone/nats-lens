@@ -116,7 +116,7 @@ export function MetricBox(p: MetricBoxProps) {
     <div className={`card mbox${alert}`}>
       <div className="mb-h">
         <span className="lbl">
-          {p.title}
+          <span className="mb-t">{p.title}</span>
           <InfoTip label={p.title} text={p.description} />
         </span>
         <span className="mb-v">

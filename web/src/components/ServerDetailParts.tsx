@@ -57,7 +57,10 @@ export function Routes({ info }: { info: ServerInfo }) {
           {info.routeViews.length ? fmtInt(info.routeViews.length) : info.routes !== undefined ? fmtInt(info.routes) : <Dash />}
           {slowest && (
             <>
-              , slowest to <RLink to={serverPath(slowest.remoteName)}>{slowest.remoteName}</RLink> {fmtShortDuration(slowest.rttMs!)}
+              , slowest to{" "}
+              <span className="nowrap">
+                <RLink to={serverPath(slowest.remoteName)}>{slowest.remoteName}</RLink> {fmtShortDuration(slowest.rttMs!)}
+              </span>
             </>
           )}
         </Row>

@@ -135,6 +135,22 @@ describe("Servers, failing cases", () => {
     expect(groupHeads().map((h) => h.querySelector(".grp-name")?.textContent)).toEqual(["ap"]);
   });
 
+  it("keeps the store band inside its track when every store is full", async () => {
+    const r = global();
+    for (const s of r.servers) s.jsStorageBytes = s.jsMaxStorageBytes;
+    serve(r);
+    renderApp(<Servers />, "/servers");
+    const track = await screen.findByRole("img", { name: /^Store used: median 100%/ });
+    const band = track.querySelector(".band") as HTMLElement;
+    expect(parseFloat(band.style.left) + parseFloat(band.style.width)).toBeLessThanOrEqual(100);
+  });
+
+  it("names the CPU chart's median and max on one short line", async () => {
+    serve(global());
+    renderApp(<Servers />, "/servers");
+    expect(await screen.findByRole("img", { name: /^CPU, current [\d.]+%, max [\d.]+%,/ })).toBeInTheDocument();
+  });
+
   it("shows a dash for a down server's leaders", async () => {
     serve(global());
     renderApp(<Servers />, "/servers");
