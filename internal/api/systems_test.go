@@ -731,3 +731,50 @@ func TestListSystemsDoesNotJoinACancelledRun(t *testing.T) {
 		}
 	}
 }
+
+// ignoresCtx counts its summaries and holds each until release closes,
+// whatever its context says.
+type ignoresCtx struct {
+	renamed
+	calls *atomic.Int32
+}
+
+func (p ignoresCtx) SystemSummary(context.Context, *v1.ListSystemsRequest) (*v1.SystemSummary, error) {
+	p.calls.Add(1)
+	<-p.release
+	return &v1.SystemSummary{}, nil
+}
+
+// At most two runs per system whose provider has not returned: with a
+// provider that ignores its context, callers that give up, or ask for
+// other ranges, start no third one and get the timeout card at once.
+func TestListSystemsCapsRunsPerSystem(t *testing.T) {
+	systems, a, _ := twoSystems()
+	a.release = make(chan struct{})
+	defer close(a.release)
+	p := ignoresCtx{renamed: a, calls: &atomic.Int32{}}
+	systems[0].Provider = p
+	h := &api.Handler{Systems: systems, SummaryTimeout: 5 * time.Second}
+	ask := func(req *v1.ListSystemsRequest) (*v1.SystemSummary, time.Duration) {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+		defer cancel()
+		start := time.Now()
+		res, err := h.ListSystems(ctx, connect.NewRequest(req))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res.Msg.GetSystems()[0], time.Since(start)
+	}
+	// The same range again after a cancel, then other ranges.
+	reqs := []*v1.ListSystemsRequest{{}, {}, {StripBuckets: 24}, {StripBuckets: 12}, {StripBuckets: 6}}
+	for i, req := range reqs {
+		s, took := ask(req)
+		if i >= 2 && (!strings.Contains(s.GetError(), "longer than") || took > 20*time.Millisecond) {
+			t.Errorf("call %d: %q after %v; want the timeout card at once", i, s.GetError(), took)
+		}
+	}
+	time.Sleep(20 * time.Millisecond)
+	if n := p.calls.Load(); n != 2 {
+		t.Errorf("the provider was asked %d times, want 2", n)
+	}
+}
