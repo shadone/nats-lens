@@ -3,7 +3,6 @@
 // a stacked area) and bars. The y axis starts at zero. A gap in the data
 // of more than two steps breaks the line, since a bucket without data has
 // no point. The legend draws each layer's own mark.
-import type { ReactNode } from "react";
 import type { Point } from "../api/model";
 import { chartName, rangeText } from "../charts/chartLabel";
 import { dayMonHm } from "../lib/format";
@@ -14,9 +13,9 @@ const W = 300;
 const H = 70;
 
 export type Layer =
-  | { kind: "line"; label: string; style: MarkStyle; points: Point[]; /** Left out of the legend. */ unlisted?: boolean }
-  | { kind: "band"; label: string; style: MarkStyle; points: EdgePoint[]; unlisted?: boolean }
-  | { kind: "bars"; label: string; style: MarkStyle; points: Point[]; unlisted?: boolean };
+  | { kind: "line"; label: string; style: MarkStyle; points: Point[] }
+  | { kind: "band"; label: string; style: MarkStyle; points: EdgePoint[] }
+  | { kind: "bars"; label: string; style: MarkStyle; points: Point[] };
 
 interface Props {
   title: string;
@@ -31,8 +30,6 @@ interface Props {
   layers: Layer[];
   loading?: boolean;
   error?: string;
-  /** Shown under the chart, before the legend. */
-  note?: ReactNode;
 }
 
 /** Runs of points without a gap of more than two steps between neighbours. */
@@ -50,7 +47,7 @@ function values(l: Layer): number[] {
   return l.kind === "band" ? l.points.flatMap((p) => [p.low, p.high]) : l.points.map((p) => p.value);
 }
 
-export function TrendChart({ title, now, summary, start, end, stepMs = 0, layers, loading, error, note }: Props) {
+export function TrendChart({ title, now, summary, start, end, stepMs = 0, layers, loading, error }: Props) {
   const all = layers.flatMap(values);
   const empty = all.length === 0;
   const lo = empty ? 0 : Math.min(0, ...all);
@@ -60,7 +57,7 @@ export function TrendChart({ title, now, summary, start, end, stepMs = 0, layers
   const x = (t: number) => (((t - start) / span) * W).toFixed(1);
   const y = (v: number) => (H - 2 - ((v - lo) / (hi - lo)) * (H - 8)).toFixed(1);
   const barW = Math.max(1, stepMs > 0 ? (stepMs / span) * W * 0.7 : 2);
-  const legend: LegendItem[] = layers.filter((l) => !l.unlisted).map((l) => ({ label: l.label, kind: l.kind, style: l.style }));
+  const legend: LegendItem[] = layers.map((l) => ({ label: l.label, kind: l.kind, style: l.style }));
   const shown = loading && empty ? "…" : (now ?? "–");
   return (
     <div className="card tc">
@@ -76,6 +73,12 @@ export function TrendChart({ title, now, summary, start, end, stepMs = 0, layers
           {layers.map((l, li) => {
             if (l.kind === "band") {
               return segments(l.points, stepMs).map((run, ri) => {
+                // One point between two gaps has no width to fill: a thin
+                // vertical mark from low to high stands for it.
+                if (run.length === 1) {
+                  const p = run[0];
+                  return <line key={`${li}-${ri}`} x1={x(p.time)} x2={x(p.time)} y1={y(p.low)} y2={y(p.high)} className={`tc-band-pt tk-${l.style.tone}`} vectorEffect="non-scaling-stroke" />;
+                }
                 const top = run.map((p) => `${x(p.time)},${y(p.high)}`);
                 const bottom = [...run].reverse().map((p) => `${x(p.time)},${y(p.low)}`);
                 return (
@@ -107,7 +110,6 @@ export function TrendChart({ title, now, summary, start, end, stepMs = 0, layers
         <span>{dayMonHm(start)}</span>
         <span>{dayMonHm(end)}</span>
       </div>
-      {note}
       <div className="tc-lg">
         <Legend items={legend} label={`${title} legend`} />
         {summary && <span className="tc-sum mono">{summary}</span>}
