@@ -3,6 +3,12 @@
 // its max on the right and a dot at the current value. Health colours the
 // value and the dot, with a word only when it is not ok. A configured limit
 // belongs in the note, not on the track.
+//
+// The track's ends are the series' own min and max, never widened to take
+// in the current value: a value outside them puts the dot at the nearer end
+// and the accessible name says it is above the window max or below its min.
+// Without a series there is no track; "steady at N all window" needs a
+// series whose min equals its max.
 import { useId, useState, type ReactNode } from "react";
 import type { Level, Series, Window } from "../api/model";
 import { rangeText } from "../charts/chartLabel";
@@ -72,20 +78,21 @@ function stateClass(status: Level): string {
   return status === "critical" || status === "warning" || status === "info" ? ` st-${status}` : "";
 }
 
-/** The range track: min left, max right, a dot at the value; steady or no data in words. */
+/**
+ * The range track: the window's min left, its max right, a dot at the value
+ * clamped to the ends. Nothing without both edges; "steady" when they are
+ * equal; no dot without a current value.
+ */
 export function RangeTrack({ title, min, max, value, fmt, status, period }: { title: string; min?: number; max?: number; value?: number; fmt: (v: number) => string; status: Level; period: string }) {
-  if (value === undefined || min === undefined || max === undefined) {
-    return <div className="mb-track-note">no data</div>;
-  }
+  if (min === undefined || max === undefined) return null;
   if (min === max) {
     return <div className="mb-track-note">steady at {fmt(min)} all window</div>;
   }
-  const frac = Math.min(1, Math.max(0, (value - min) / (max - min)));
+  const frac = value === undefined ? undefined : Math.min(1, Math.max(0, (value - min) / (max - min)));
+  const where = value === undefined ? "no current value" : `current ${fmt(value)}${value > max ? ", above the window max" : value < min ? ", below the window min" : ""}`;
   return (
-    <div className="mb-range" role="img" aria-label={`${title}, current ${fmt(value)}, min ${fmt(min)}, max ${fmt(max)}, ${period}`}>
-      <div className="mb-track">
-        <span className={`mb-dot${stateClass(status)}`} style={{ left: `${+(frac * 100).toFixed(1)}%` }} />
-      </div>
+    <div className="mb-range" role="img" aria-label={`${title}, ${where}, min ${fmt(min)}, max ${fmt(max)}, ${period}`}>
+      <div className="mb-track">{frac !== undefined && <span className={`mb-dot${stateClass(status)}`} style={{ left: `${+(frac * 100).toFixed(1)}%` }} />}</div>
       <div className="mb-ends" aria-hidden="true">
         <span>{fmt(min)}</span>
         <span>{fmt(max)}</span>
@@ -98,10 +105,9 @@ export function MetricBox(p: MetricBoxProps) {
   const status = p.status ?? "ok";
   const pts = p.series?.points ?? [];
   const value = p.value === null ? undefined : (p.value ?? (pts.length ? pts[pts.length - 1].value : undefined));
-  // The window's min and max always take in the current value, which may
-  // come from outside the series.
-  const min = p.series?.min === undefined ? value : value === undefined ? p.series.min : Math.min(p.series.min, value);
-  const max = p.series?.max === undefined ? value : value === undefined ? p.series.max : Math.max(p.series.max, value);
+  const hasWindow = pts.length > 0 && p.series?.min !== undefined && p.series?.max !== undefined;
+  const min = hasWindow ? p.series!.min : undefined;
+  const max = hasWindow ? p.series!.max : undefined;
   const shown = p.loading ? "…" : (p.valueText ?? (value === undefined ? "–" : p.fmt(value)));
   const alert = stateClass(status);
   const word = alert ? (p.stateWord ?? status) : undefined;
@@ -133,6 +139,8 @@ export function MetricBox(p: MetricBoxProps) {
         />
       )}
       <RangeTrack title={p.title} min={min} max={max} value={value} fmt={p.fmt} status={status} period={period} />
+      {!hasWindow && !p.error && !p.loading && <div className="mb-track-note">no data for the window</div>}
+      {hasWindow && p.value === null && min !== max && <div className="mb-track-note">no current value</div>}
       {p.note && <div className="mb-note">{p.note}</div>}
     </div>
   );
