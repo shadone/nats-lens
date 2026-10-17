@@ -12,8 +12,7 @@ import { consumer, stream } from "./adapt-entities";
 import { placement, type Placement } from "./adapt-placement";
 import { lens } from "./client";
 import type { ConsumerSummary, Entity, Point, Series, StreamSummary, StreamTotals } from "./model";
-import { listFindings, rangeInit, systemInit } from "./requests";
-import { EntityType } from "../gen/natslens/v1/common_pb";
+import { entityInit, listFindings, rangeInit, systemInit } from "./requests";
 
 /** A point of a band metric: the median as value, the lowest and highest server as low and high. */
 export interface BandPoint extends Point {
@@ -54,16 +53,12 @@ function refetch(spec: RangeSpec) {
   return spec.kind === "live" ? LIVE_REFRESH_MS : false;
 }
 
-function entityInit(e: Entity) {
-  return { type: EntityType.CONSUMER, key: e.key, name: e.name, account: e.account, stream: e.stream, consumer: e.consumer, server: e.server };
-}
-
 /** Points per trend chart and per sparkline. */
 export const TREND_POINTS = 96;
 
 export async function getTrend(sys: string, spec: RangeSpec, metric: string, e: Entity | undefined, signal?: AbortSignal) {
   const r = await lens.getTimeSeries(
-    { ...systemInit(sys), metric, entity: e ? entityInit(e) : undefined, range: rangeInit(spec), maxPoints: TREND_POINTS },
+    { ...systemInit(sys), metric, entity: entityInit(e), range: rangeInit(spec), maxPoints: TREND_POINTS },
     { signal },
   );
   return trendSeries(r.series);
