@@ -40,19 +40,25 @@ function role(c: Copy): string {
 }
 
 /**
- * The value more than half of values agree with, by same(a, b); unset
- * when no value has such a majority, so a split marks nothing.
+ * The value with the most matches by same(a, b), the smallest on a tie,
+ * so the result does not depend on server order; unset unless it matches
+ * more than half of values, so a split marks nothing.
  */
-function majority<T>(values: T[], same: (a: T, b: T) => boolean): T | undefined {
+function majority<T>(values: T[], same: (a: T, b: T) => boolean, less: (a: T, b: T) => boolean): T | undefined {
+  let best: T | undefined;
+  let n = 0;
   for (const v of values) {
-    if (values.filter((u) => same(u, v)).length * 2 > values.length) return v;
+    const k = values.filter((u) => same(u, v)).length;
+    if (k > n || (k === n && best !== undefined && less(v, best))) [best, n] = [v, k];
   }
-  return undefined;
+  return n * 2 > values.length ? best : undefined;
 }
+
+const lessNum = (a: number, b: number) => a < b;
 
 /** The creation time more than half the copies were created within LATE_MS of. */
 export function commonCreated(times: number[]): number | undefined {
-  return majority(times, (a, b) => Math.abs(a - b) <= LATE_MS);
+  return majority(times, (a, b) => Math.abs(a - b) <= LATE_MS, lessNum);
 }
 
 /** Positions that differ by at most max(100, 1%) are the same, as in the checks. */
@@ -62,7 +68,7 @@ export function samePosition(a: number, b: number): boolean {
 
 /** The position more than half the values agree with. */
 export function commonPosition(values: number[]): number | undefined {
-  return majority(values, samePosition);
+  return majority(values, samePosition, lessNum);
 }
 
 /** The configuration more than half the reporting copies share. */
@@ -70,6 +76,7 @@ export function commonHash(copies: Copy[]): string | undefined {
   return majority(
     copies.map((c) => c.configHash).filter(Boolean),
     (a, b) => a === b,
+    (a, b) => a < b,
   );
 }
 
@@ -135,7 +142,8 @@ export function CopiesTable({ kind, copies }: { kind: "stream" | "consumer"; cop
             const posOdd = cols.map((col, i) => {
               const v = col.value(c);
               const r = ref.positions[i].ref;
-              return v !== undefined && r !== undefined && !samePosition(v, r);
+              // An offline copy's positions are stale; its role says so.
+              return !c.offline && v !== undefined && r !== undefined && !samePosition(v, r);
             });
             const cfgOdd = hash !== undefined && !!c.configHash && c.configHash !== hash;
             const odd = late || cfgOdd || posOdd.some(Boolean);
