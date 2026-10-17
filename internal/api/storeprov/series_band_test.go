@@ -437,7 +437,8 @@ func TestCountsNeedEveryServersReply(t *testing.T) {
 	for metric, want := range map[string][]float64{
 		"cluster.streams":           {1, 1}, // epochs 1 and 3: JSZ from all
 		"cluster.assets_replicated": {1, 1},
-		"cluster.accounts":          {1}, // epoch 1 only: 2 lacks JSZ, 3 ACCSTATZ
+		// Epochs 1 and 2: 3 lacks ACCSTATZ; 2 lacks JSZ, but APP has connections.
+		"cluster.accounts": {1, 1},
 	} {
 		if got := values(seriesOf(t, c, metric, nil, rng)); !slices.Equal(got, want) {
 			t.Errorf("%s = %v, want %v", metric, got, want)
@@ -517,6 +518,50 @@ func TestServerSlowConsumersSkipGaps(t *testing.T) {
 	}
 	c := serveSeries(t, st, t0.Add(at[3]+30*time.Second))
 	got := values(seriesOf(t, c, "server.slow_consumers", serverRef("nats-0"), &v1.TimeRange{Start: timestamppb.New(t0)}))
+	if !slices.Equal(got, []float64{2, 1}) {
+		t.Fatalf("slow consumers = %v, want [2 1] with nothing across the gap", got)
+	}
+}
+
+// Without JetStream, JSZ fails everywhere; accounts still count by their
+// connections from ACCSTATZ, and a stream count from JSZ is not used.
+func TestAccountsWithoutJetStream(t *testing.T) {
+	st := emptyStore(t)
+	r := rows{t, st}
+	r.server("S0", "nats-0")
+	r.server("S1", "nats-1")
+	at := t0.Add(30 * time.Second)
+	if _, err := st.DB().Exec(`INSERT INTO epochs VALUES (1, ?, ?, 0, 2, 2, [], [], [], 2, true, [], NULL)`, at, at); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"S0", "S1"} {
+		r.add("epoch_endpoints", map[string]any{"epoch": 1, "server_id": id, "endpoint": "JSZ", "state": "error"})
+		r.add("epoch_endpoints", map[string]any{"epoch": 1, "server_id": id, "endpoint": "ACCSTATZ", "state": "ok"})
+	}
+	for acc, x := range map[string][2]int{"APP": {2, 0}, "ORDERS": {0, 1}} {
+		r.add("accounts", map[string]any{"account": acc, "is_system": false, "first_epoch": 1, "last_epoch": 1})
+		r.add("account_stats", map[string]any{"epoch": 1, "server_id": "S0", "account": acc, "conns": x[0], "js_streams": x[1]})
+	}
+	c := serveSeries(t, st, t0.Add(60*time.Second))
+	if got := values(seriesOf(t, c, "cluster.accounts", nil, &v1.TimeRange{Start: timestamppb.New(t0)})); !slices.Equal(got, []float64{1}) {
+		t.Fatalf("accounts = %v, want [1]: APP by its connections, ORDERS's stream count unconfirmed", got)
+	}
+}
+
+// The cluster's slow consumer increase is not credited across a gap of
+// more than three intervals, as for one server.
+func TestClusterSlowConsumersSkipGaps(t *testing.T) {
+	st := emptyStore(t)
+	r := rows{t, st}
+	r.server("S0", "nats-0")
+	at := []time.Duration{30 * time.Second, 60 * time.Second, 60*time.Second + 5*time.Minute, 90*time.Second + 5*time.Minute}
+	for i, slow := range []int64{3, 5, 9, 10} {
+		e := int64(i + 1)
+		r.epoch(e, t0.Add(at[i]), "S0")
+		r.add("server_stats", map[string]any{"epoch": e, "server_id": "S0", "slow_consumers": slow})
+	}
+	c := serveSeries(t, st, t0.Add(at[3]+30*time.Second))
+	got := values(seriesOf(t, c, "cluster.slow_consumers", nil, &v1.TimeRange{Start: timestamppb.New(t0)}))
 	if !slices.Equal(got, []float64{2, 1}) {
 		t.Fatalf("slow consumers = %v, want [2 1] with nothing across the gap", got)
 	}
