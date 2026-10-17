@@ -8,9 +8,9 @@ import { renderApp } from "../test/render";
 import { MuteDialog } from "./MuteDialog";
 
 const finding: Finding = {
-  id: "stream-031:APP/audit-archive",
-  checkCode: "stream-031",
-  checkName: "Days until full below 60",
+  id: "stream-006:APP/audit-archive",
+  checkCode: "stream-006",
+  checkName: "Stream reaches its byte limit soon",
   severity: "warning",
   state: "firing",
   entity: { kind: "stream", key: "APP/audit-archive", name: "audit-archive", account: "APP", stream: "audit-archive", consumer: "", server: "" },

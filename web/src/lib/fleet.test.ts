@@ -22,7 +22,7 @@ function sys(id: string, over: Partial<SystemSummary> = {}): SystemSummary {
 const finding = (checkName: string, name: string): Finding =>
   ({
     id: "1",
-    checkCode: "consumer-006",
+    checkCode: "consumer-010",
     checkName,
     severity: "critical",
     state: "firing",
@@ -72,8 +72,8 @@ describe("worstFirst", () => {
 
 describe("headline", () => {
   it("names the worst finding and its entity", () => {
-    expect(headline(sys("a", { status: "critical", worst: finding("Expected durable missing", "analytics-aggregator") }), NOW).text).toBe(
-      "Expected durable missing: analytics-aggregator",
+    expect(headline(sys("a", { status: "critical", worst: finding("Expected consumer missing", "analytics-aggregator") }), NOW).text).toBe(
+      "Expected consumer missing: analytics-aggregator",
     );
   });
 

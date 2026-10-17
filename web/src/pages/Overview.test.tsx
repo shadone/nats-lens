@@ -44,7 +44,7 @@ function finding(id: string, e: Entity, extra: Partial<Finding> = {}): Finding {
   return {
     id,
     checkCode: "consumer-009",
-    checkName: "Creation time differs",
+    checkName: "Consumer creation time differs across servers",
     severity: "info",
     state: "firing",
     entity: e,
@@ -91,7 +91,7 @@ describe("Overview cause cards", () => {
     const fs = ["resize-worker", "thumb-worker", "job-cache-projector", "audit-writer"].map((n) => finding(`c9:${n}`, consumerEnt(n)));
     mock({ ...quiet, tally: { ...quiet.tally, info: 4 } }, fs);
     renderApp(<Overview />);
-    const card = await screen.findByRole("article", { name: "Creation time differs: 4 findings" });
+    const card = await screen.findByRole("article", { name: "Consumer creation time differs across servers: 4 findings" });
     expect(within(card).getByText(/consumer-009\s*× 4/)).toBeInTheDocument();
     expect(within(card).getByText("order-jobs")).toBeInTheDocument();
     expect(within(card).getAllByRole("listitem")).toHaveLength(4);
