@@ -31,3 +31,14 @@ func TestEveryTileIsDescribed(t *testing.T) {
 		}
 	}
 }
+
+// Storage that no server reported has no line, as the other tiles'.
+func TestStorageSubtitleUnset(t *testing.T) {
+	if got := StorageSubtitle(nil, nil, nil); got != "" {
+		t.Fatalf("subtitle = %q, want empty", got)
+	}
+	used := float64(1 << 30)
+	if got := StorageSubtitle(&used, nil, nil); got != "all replicas" {
+		t.Fatalf("subtitle = %q, want \"all replicas\"", got)
+	}
+}
