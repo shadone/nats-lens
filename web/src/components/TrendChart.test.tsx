@@ -55,6 +55,23 @@ describe("TrendChart", () => {
     expect(container.querySelector("svg.tc-svg polygon.tc-fill")).not.toBeNull();
   });
 
+  it("draws a band point between two gaps as a thin vertical mark", () => {
+    const { container } = render(
+      <TrendChart
+        title="CPU"
+        start={START}
+        end={END}
+        stepMs={900_000}
+        layers={[{ kind: "band", label: "lowest to highest server", style: { tone: "accent" }, points: [{ time: START + 2 * 900_000, low: 1, high: 5 }] }]}
+      />,
+    );
+    expect(container.querySelector("svg.tc-svg polygon")).toBeNull();
+    const mark = container.querySelector("svg.tc-svg line.tc-band-pt");
+    expect(mark).not.toBeNull();
+    expect(mark!.getAttribute("x1")).toBe(mark!.getAttribute("x2"));
+    expect(mark!.getAttribute("y1")).not.toBe(mark!.getAttribute("y2"));
+  });
+
   it("shows a dash and no data when nothing was observed", () => {
     render(<TrendChart title="Servers" start={START} end={END} layers={[{ kind: "line", label: "answering", style: { tone: "accent" }, points: [] }]} />);
     expect(screen.getByRole("img", { name: /^Servers/ })).toHaveAccessibleName(/Servers, no data/);
