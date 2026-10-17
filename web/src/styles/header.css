@@ -34,8 +34,9 @@
 .menu .mn{color:var(--text-muted);font-size:11.5px;white-space:nowrap}
 .menu .mc{width:12px;flex:none;text-align:center;color:var(--accent-text);font-weight:600}
 .menu .ti{width:14px;height:14px;flex:none}
-.menu-foot{border-top:1px solid var(--border-soft);margin-top:4px;padding:8px 10px 4px;font-size:12.5px}
-.menu-foot a{color:var(--accent-text)}
+.menu-sep{border-top:1px solid var(--border-soft);margin:4px 0}
+.menu [role="menuitem"]{display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;border:0;border-radius:7px;background:none;text-align:left;cursor:pointer;color:var(--accent-text);font-size:13px}
+.menu [role="menuitem"]:hover{background:var(--surface-2)}
 .chev{width:10px;height:10px;flex:none}
 
 /* theme: one button, the current theme's icon and a chevron */

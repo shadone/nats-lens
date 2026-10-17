@@ -4,10 +4,10 @@
 import { useLocation, useNavigate } from "react-router";
 import { useLensInfo, useShellStatus } from "../api/queries";
 import { useCurrentSystem } from "../api/systems";
-import { globalQuery } from "../lib/globalQuery";
+import { globalQuery, withGlobal } from "../lib/globalQuery";
+import { useGlobalQuery } from "../lib/useGlobalQuery";
 import { useTimeRange } from "../lib/useTimeRange";
 import { navFor } from "../nav";
-import { RLink } from "./common";
 import { Menu } from "./Menu";
 import { Chevron } from "./ThemeMenu";
 
@@ -26,6 +26,7 @@ export function SystemSwitcher() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { spec } = useTimeRange();
+  const global = useGlobalQuery();
   const name = info?.name || id || "nats-lens";
   const page = navFor(pathname);
   const base = page && !page.crossSystem ? page.path : "/";
@@ -63,7 +64,7 @@ export function SystemSwitcher() {
         checked: s.id === id,
         onSelect: () => navigate(`${base}${globalQuery(spec, s.id, "")}`),
       }))}
-      footer={<RLink to="/fleet">All systems</RLink>}
+      actions={[{ key: "fleet", label: "All systems", onSelect: () => navigate(withGlobal("/fleet", global)) }]}
     >
       {body}
       <Chevron />
