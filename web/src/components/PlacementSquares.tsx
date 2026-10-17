@@ -21,7 +21,8 @@ function Mark({ state }: { state: PlacementStateName }) {
     case "leader":
       return <rect x="0" y="0" width="12" height="12" rx="3" className="pl-leader" />;
     case "in_sync":
-      return <rect x="0" y="0" width="12" height="12" rx="3" className="pl-sync" />;
+      // Inset so that the whole edge stays inside the box.
+      return <rect x=".75" y=".75" width="10.5" height="10.5" rx="2.5" className="pl-sync" />;
     case "behind":
       // Half full: the replica has part of the leader's data.
       return (
