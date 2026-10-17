@@ -346,6 +346,8 @@ Proposed, not yet confirmed by the owner.
 
 | Decision | Section |
 | --- | --- |
+| `systems` in the file; a file without it is one system `system_id` (default `default`) in `data_dir` unchanged; per-system: NATS, accounts, inventory, Kubernetes, retention, archive retention, directories, memory | Configuration |
+| In a list: retention and archive retention default to the top-level values, `nats.name` to `natslens`, memory to the top-level budget divided by the number of systems; top-level per-system keys and flags refused | Configuration |
 | Expected servers by name within `server_forget_after` (1h), plus route and meta peers; RAFTZ per account, so an epoch takes at most three windows and `timeout` is under a third of `interval` | Collection |
 | Follower `num_pending`, `num_waiting`, `push_bound` stored as NULL; the `consumer_leader_stats` view holds the leader's row | Collection |
 | The system connection also subscribes to `$JS.EVENT.ADVISORY.>`; cluster advisories received twice are stored once | Events |
