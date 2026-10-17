@@ -128,6 +128,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Consumers list and consumer detail (consumers.md)
 - [x] Client connections of the newest collection (connections.md)
 - [x] Every event, filtered by source, kind, entity and client (events.md)
+- [~] Routine events hidden, repeats folded, facets and a histogram: in the API, not yet on the page (events.md)
 - [x] Findings, finding detail, mutes (triage-and-mutes.md)
 - [ ] Every asset on every server in one matrix (placement.md)
 - [ ] What changed between two moments (replay.md)

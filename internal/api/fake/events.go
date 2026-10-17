@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
@@ -21,9 +22,13 @@ const (
 // Event counts and IDs of example-prod. IDs grow with time; the newest
 // event has ID eventCount.
 const (
-	eventCount        = 214
-	fillerCount       = eventCount - 15
-	idConsumerDeleted = "207" // eventCount - 7
+	fillerCount    = 199
+	prodChurnCount = 360
+	// eventCount is the 15 events of the upgrade story, the filler, the
+	// routine events (360 churn, 72 sampled acks, 48 account counts, 6 API
+	// audit, 6 collector reconnects, 34 CLI) and the 8 of the pending pod.
+	eventCount        = 15 + fillerCount + prodChurnCount + 72 + 48 + 6 + 6 + 34 + 8
+	idConsumerDeleted = "591"
 )
 
 // events are every event of the scenario, newest first, with IDs set:
@@ -91,18 +96,86 @@ func prodEvents(s scen, fs []*v1.Finding) []*v1.Event {
 		{Time: ts(s.at(9, 14, 48)), Source: srcK8s, Kind: "k8s.node.drained", Type: "NodeDrain",
 			Summary: "node gke-example-pool-1-7f3a cordoned and drained"},
 	}
-	// Routine reconnects of one client fill the hours before the upgrade.
+	// Short connections of one client fill the hours before the upgrade,
+	// one churn summary per minute in which it reconnected.
 	for k := range fillerCount {
-		kind, typ := "client.connect", "CLIENT.CONNECT"
-		if k%2 == 0 {
-			kind, typ = "client.disconnect", "CLIENT.DISCONNECT"
-		}
 		host := fmt.Sprintf("10.20.2.%d", 10+k%40)
 		out = append(out, &v1.Event{
-			Time: ts(s.at(9, 10, 0).Add(-time.Duration(k) * 330 * time.Second)), Source: srcNATS, Kind: kind, Type: typ,
-			Server: s.sc.servers[k%3].name, Account: Account, ClientName: "catalog-api", ClientHost: host,
-			Summary: "catalog-api " + kind[len("client."):] + " from " + host,
+			Time: ts(s.at(9, 10, 0).Add(-time.Duration(k) * 330 * time.Second)), Source: srcNATS, Kind: "client.churn", Type: "CLIENT.CHURN",
+			Server: s.sc.servers[k%3].name, Account: Account, ClientName: "catalog-api", ClientHost: host, Reason: "Client Closed",
+			Summary: fmt.Sprintf("catalog-api connected and disconnected %d times in 1 min (each closed by the client within 10 s)", 6+k%5),
 		})
+	}
+	out = append(out, prodRoutine(s)...)
+	out = append(out, prodPending(s)...)
+	slices.SortStableFunc(out, func(a, b *v1.Event) int { return b.GetTime().AsTime().Compare(a.GetTime().AsTime()) })
+	return out
+}
+
+// prodRoutine are example-prod's routine events over the last day: a
+// poller's short connections, sampled acks, account connection counts,
+// API audit records, the collector's own reconnects during the upgrade
+// and a CLI through a port-forward.
+func prodRoutine(s scen) []*v1.Event {
+	var out []*v1.Event
+	add := func(e *v1.Event) { out = append(out, e) }
+	end := s.at(14, 28, 0)
+	for k := range prodChurnCount {
+		sv := s.sc.servers[k%3].name
+		add(&v1.Event{Time: ts(end.Add(-time.Duration(k) * 4 * time.Minute)), Source: srcNATS, Kind: "client.churn", Type: "CLIENT.CHURN",
+			Server: sv, Account: Account, ClientName: "stock-poller", ClientHost: "10.20.4.31", Reason: "Client Closed",
+			Summary: fmt.Sprintf("stock-poller connected and disconnected %d times in 1 min (each closed by the client within 10 s)", 9+k%4)})
+	}
+	for k := range 72 {
+		add(&v1.Event{Time: ts(end.Add(-time.Duration(k)*20*time.Minute - 50*time.Second)), Source: srcNATS, Kind: "consumer.ack_sampled",
+			Type: "CONSUMER.ACK_SAMPLED", Server: s.sc.servers[k%3].name, Account: Account, Stream: "order-jobs", Consumer: "resize-worker",
+			Summary: fmt.Sprintf("resize-worker on order-jobs acked after %d ms (1 delivery)", 40+k%7*13)})
+	}
+	for k := range 48 {
+		add(&v1.Event{Time: ts(end.Add(-time.Duration(k)*30*time.Minute - 25*time.Second)), Source: srcNATS, Kind: "account.connections",
+			Type: "ACCOUNT.CONNECTIONS", Server: s.sc.servers[k%3].name, Account: Account,
+			Summary: fmt.Sprintf("account APP: %d connections, %d leaf nodes", 176+k%9, 0)})
+	}
+	for k := range 6 {
+		add(&v1.Event{Time: ts(s.at(9, 38, 44).Add(time.Duration(k) * 3 * time.Second)), Source: srcNATS, Kind: "api.audit", Type: "API.AUDIT",
+			Server: "nats-1", Account: Account, Stream: "order-jobs", ClientName: "order-service", ClientHost: "10.20.1.7",
+			Summary: "$JS.API.CONSUMER.INFO.order-jobs.resize-worker by order-service@10.20.1.7"})
+	}
+	// The collector's own connection moves when a server restarts.
+	for _, at := range []time.Time{s.at(9, 16, 3), s.at(9, 29, 6), s.at(9, 41, 11)} {
+		for i, kind := range []string{"client.disconnect", "client.connect"} {
+			add(&v1.Event{Time: ts(at.Add(time.Duration(i) * 2 * time.Second)), Source: srcNATS, Kind: kind, Type: strings.ToUpper(kind),
+				Server: "nats-0", Account: "SYS", ClientName: "natslens-" + Cluster, ClientHost: "10.20.0.40",
+				Summary: "natslens-" + Cluster + " " + strings.TrimPrefix(kind, "client.") + " from 10.20.0.40"})
+		}
+	}
+	// Someone checks the cluster with the CLI through a port-forward.
+	for k := range 17 {
+		at := s.at(9, 52, 0).Add(time.Duration(k) * 3 * time.Minute)
+		for i, kind := range []string{"client.connect", "client.disconnect"} {
+			add(&v1.Event{Time: ts(at.Add(time.Duration(i) * 4 * time.Second)), Source: srcNATS, Kind: kind, Type: strings.ToUpper(kind),
+				Server: "nats-0", Account: "SYS", ClientName: "NATS CLI Version 0.2.2", ClientHost: "127.0.0.1",
+				Summary: "NATS CLI Version 0.2.2 " + strings.TrimPrefix(kind, "client.") + " from 127.0.0.1"})
+		}
+	}
+	return out
+}
+
+// prodPending is a resize-worker pod that cannot be scheduled for six
+// minutes after the media-worker rollout took the room, then fails its
+// readiness probe three times.
+func prodPending(s scen) []*v1.Event {
+	const pod = "pod shop/resize-worker-6c9d4-x2k4l"
+	var out []*v1.Event
+	for _, at := range []time.Time{s.at(11, 12, 5), s.at(11, 13, 20), s.at(11, 14, 40), s.at(11, 16, 10), s.at(11, 18, 0)} {
+		out = append(out, &v1.Event{Time: ts(at), Source: srcK8s, Kind: "k8s.pod.failed_scheduling", Type: "FailedScheduling",
+			Severity: warning, Reason: "FailedScheduling",
+			Summary: pod + " FailedScheduling: 0/6 nodes are available: 6 Insufficient cpu"})
+	}
+	for _, at := range []time.Time{s.at(11, 21, 2), s.at(11, 21, 32), s.at(11, 22, 2)} {
+		out = append(out, &v1.Event{Time: ts(at), Source: srcK8s, Kind: "k8s.pod.not_ready", Type: "Unhealthy",
+			Severity: warning, Reason: "Unhealthy",
+			Summary: pod + " Unhealthy: Readiness probe failed: HTTP probe failed with statuscode: 503"})
 	}
 	return out
 }
@@ -143,6 +216,9 @@ func (p *Provider) ListEvents(_ context.Context, req *v1.ListEventsRequest) (*v1
 	cur, err := api.DecodeCursor(req.GetPageToken())
 	if err != nil {
 		return nil, err
+	}
+	if richRequest(req) {
+		return p.listEventsRich(req, cur), nil
 	}
 	res := &v1.ListEventsResponse{}
 	for _, e := range p.events(p.scen()) {
