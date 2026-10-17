@@ -51,9 +51,10 @@ export function cellRuns(cells: Level[], start: number, bucketMs: number): CellR
   return runs;
 }
 
-export function runsText(runs: CellRun[]): string {
+/** The runs as text; fmt writes the times (hm by default, a date too for longer spans). */
+export function runsText(runs: CellRun[], fmt: (ms: number) => string = hm): string {
   if (!runs.length) return "ok throughout";
-  return runs.map((r) => `${r.level === "nodata" ? "no data" : r.level} ${hm(r.from)}–${hm(r.to)}`).join(", ");
+  return runs.map((r) => `${r.level === "nodata" ? "no data" : r.level} ${fmt(r.from)}–${fmt(r.to)}`).join(", ");
 }
 
 /** The window the zoom strip shows: the newest one. */

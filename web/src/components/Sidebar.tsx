@@ -4,6 +4,8 @@
 import { useEffect, useRef } from "react";
 import { NavLink } from "react-router";
 import { useShellStatus } from "../api/queries";
+import { useLiveSystemSummaries } from "../api/systems";
+import { fleetBadge } from "../lib/fleet";
 import { withGlobal } from "../lib/globalQuery";
 import { useGlobalQuery } from "../lib/useGlobalQuery";
 import type { Level, Tally } from "../api/model";
@@ -15,6 +17,8 @@ export interface Badge {
   level: Level;
   /** Said after the count: "3 firing". */
   what: string;
+  /** The worst state in words, when it is not the level's own name. */
+  worst?: string;
 }
 
 /** Unmuted firing findings, at the level of the worst. */
@@ -26,13 +30,11 @@ export function findingsBadge(t: Tally | undefined): Badge | undefined {
   return { count, level, what: "firing" };
 }
 
-/**
- * Each badge source's count. Fleet counts systems that are not OK once
- * ListSystems returns each system's status; until then it has no badge.
- */
+/** Each badge source's count: Fleet over the default live range, Findings on the page's system. */
 function useBadges(): Partial<Record<BadgeSource, Badge>> {
   const tally = useShellStatus().data?.tally;
-  return { findings: findingsBadge(tally) };
+  const systems = useLiveSystemSummaries().data;
+  return { fleet: fleetBadge(systems), findings: findingsBadge(tally) };
 }
 
 function groups(items: NavItem[]): [NavGroup, NavItem[]][] {
@@ -94,7 +96,7 @@ export function Sidebar({ collapsed, onCollapse, drawerOpen, onCloseDrawer }: Pr
                 const b = i.badge ? badges[i.badge] : undefined;
                 return (
                   <li key={i.path}>
-                    <NavLink to={withGlobal(i.path, global)} end={i.path === "/"} title={collapsed ? i.label : undefined} aria-label={b ? `${i.label}, ${b.count} ${b.what}, worst ${b.level}` : undefined} className={({ isActive }) => (isActive ? "on" : undefined)}>
+                    <NavLink to={withGlobal(i.path, global)} end={i.path === "/"} title={collapsed ? i.label : undefined} aria-label={b ? `${i.label}, ${b.count} ${b.what}, worst ${b.worst ?? b.level}` : undefined} className={({ isActive }) => (isActive ? "on" : undefined)}>
                       <Icon d={i.icon} />
                       <span className="side-txt">{i.label}</span>
                       {b && (
