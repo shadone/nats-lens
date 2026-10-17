@@ -13,3 +13,8 @@
     var(--surface);
 }
 .tbl td.pl-cell{white-space:nowrap;min-width:60px}
+/* At a phone width a bucket's description wraps, so the placement column
+   fits on the first screen. */
+@media (max-width:760px){
+  .scroll-cue .tbl td.mono small{white-space:normal;max-width:150px}
+}

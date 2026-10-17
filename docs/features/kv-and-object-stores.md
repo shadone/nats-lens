@@ -21,7 +21,7 @@ KV Stores and Object Stores are pages of their own, which name and describe buck
 - **The same checks.** A bucket's status and findings are the stream checks' findings for its stream.
 - **Worst first, sortable.** Rows come worst first, then by account and name. The status, the name and every numeric column sort on a click, and a second click reverses; the sort is kept in the URL (`?sort=bytes`, `?sort=-bytes`). A value that was not observed sorts last either way.
 - **A dash, never 0.** A number nats-lens did not observe shows as "–".
-- **Narrow screens.** The table scrolls sideways inside its card, with a shadow at each edge where it is cut; the placement squares stay on one line.
+- **Narrow screens.** The table scrolls sideways inside its card, with a shadow at each edge where it is cut; descriptions wrap and the placement squares stay on one line, so placement shows without scrolling.
 - **Account scope.** Both pages apply the account scope chosen in the header.
 - **Links.** A present bucket's name opens the stream page of `KV_<bucket>` or `OBJ_<bucket>`.
 
