@@ -1,3 +1,4 @@
+@import "./cockpit.css";
 /* Worst finding, tally, finding rows and tiles, from the reference. */
 /* findings */
 .find{display:grid;grid-template-columns:minmax(0,1fr) 248px;gap:14px;margin-top:22px}
