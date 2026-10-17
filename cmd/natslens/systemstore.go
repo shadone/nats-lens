@@ -133,6 +133,12 @@ func (rt *systemRuntime) open(ctx context.Context, threads int) error {
 	if err := checkMarker(rt.sys); err != nil {
 		return err
 	}
+	// The default archive directory is inside the data directory by
+	// design; only a directory set there on purpose is warned about.
+	if rt.archiveDirSet && within(rt.sys.ArchiveDir, rt.sys.DataDir) {
+		rt.log.Warn("archive_dir is inside data_dir: losing the data volume loses the archive too",
+			"archive_dir", rt.sys.ArchiveDir, "data_dir", rt.sys.DataDir)
+	}
 	// The marker goes first: a database without one would be adopted by
 	// the next start under any id.
 	if err := writeMarker(rt.sys); err != nil {

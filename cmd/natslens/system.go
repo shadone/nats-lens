@@ -33,16 +33,36 @@ type systemRuntime struct {
 	sys config.System
 	// cfg is the configuration as a single-system file would give it for
 	// sys; everything that runs one system reads it.
-	cfg    config.Config
-	log    *slog.Logger
-	status *collectionStatus
+	cfg config.Config
+	// archiveDirSet is whether the file sets the system's archive
+	// directory, rather than leaving it at its default inside the data
+	// directory.
+	archiveDirSet bool
+	log           *slog.Logger
+	status        *collectionStatus
 
 	st   *store.Store
 	arch *archive.Archiver
 }
 
 func newSystemRuntime(cfg config.Config, sys config.System, log *slog.Logger) *systemRuntime {
-	return &systemRuntime{sys: sys, cfg: cfg.ForSystem(sys), log: log.With("system", sys.ID), status: newCollectionStatus(nil)}
+	return &systemRuntime{sys: sys, cfg: cfg.ForSystem(sys), archiveDirSet: archiveDirSet(cfg, sys.ID),
+		log: log.With("system", sys.ID), status: newCollectionStatus(nil)}
+}
+
+// archiveDirSet reports whether cfg sets the archive directory of the
+// system with the id: the top-level archive_dir (the root in a list) or
+// the system's own. Read before ForSystem fills in the default.
+func archiveDirSet(cfg config.Config, id string) bool {
+	if cfg.ArchiveDir != "" {
+		return true
+	}
+	for _, s := range cfg.Systems {
+		if s.ID == id {
+			return s.ArchiveDir != ""
+		}
+	}
+	return false
 }
 
 // provider reads the system's store for the API.
