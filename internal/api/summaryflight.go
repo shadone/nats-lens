@@ -35,6 +35,11 @@ type summaryFlight struct {
 	dead    bool
 }
 
+// maxSummaryRuns is the most summary runs per system whose provider has
+// not returned; a provider that ignores its context holds no more
+// goroutines than that.
+const maxSummaryRuns = 2
+
 // summaryFlights are the summary runs whose provider has not returned,
 // by system ID.
 type summaryFlights struct {
@@ -44,7 +49,8 @@ type summaryFlights struct {
 
 // join returns the run of the system for the key, starting one when none
 // runs; it returns nil when a run of the system has outlived the timeout,
-// and then nothing is started. A new run calls start.
+// or when maxSummaryRuns runs of the system have not returned, and then
+// nothing is started. A new run calls start.
 func (fs *summaryFlights) join(id, key string, timeout time.Duration, start func(*summaryFlight)) *summaryFlight {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
@@ -67,6 +73,9 @@ func (fs *summaryFlights) join(id, key string, timeout time.Duration, start func
 	if same != nil {
 		same.waiters++
 		return same
+	}
+	if len(fs.m[id]) >= maxSummaryRuns {
+		return nil
 	}
 	f := &summaryFlight{key: key, started: time.Now(), ready: make(chan struct{}), waiters: 1}
 	if fs.m == nil {
