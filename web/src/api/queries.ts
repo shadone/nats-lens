@@ -63,17 +63,19 @@ function useInvalidateAll() {
   return () => qc.invalidateQueries();
 }
 
+/**
+ * A mute names its system in the call, the one the dialog captured when it
+ * opened, so a URL that changes meanwhile cannot send it elsewhere.
+ */
 export function useMuteFinding() {
-  const sys = useSystem();
   const invalidate = useInvalidateAll();
-  return useMutation({ mutationFn: (m: api.MuteInput) => api.muteFinding(sys, m), onSuccess: invalidate });
+  return useMutation({ mutationFn: (m: api.MuteInput & { system: string }) => api.muteFinding(m.system, m), onSuccess: invalidate });
 }
 
 export function useUnmuteFinding() {
-  const sys = useSystem();
   const invalidate = useInvalidateAll();
   return useMutation({
-    mutationFn: (v: { muteId: string; unmutedBy: string }) => api.unmuteFinding(sys, v.muteId, v.unmutedBy),
+    mutationFn: (v: { system: string; muteId: string; unmutedBy: string }) => api.unmuteFinding(v.system, v.muteId, v.unmutedBy),
     onSuccess: invalidate,
   });
 }
