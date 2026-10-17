@@ -175,7 +175,7 @@ Configuration comes from defaults, then an optional YAML file (`-config`), then 
 | `events.account_connections` |           | `false`                 | Also store the connection count every server sends for every account every 30 seconds. |
 | `events.flush_interval` |                | `1s`                    | Longest time an event waits before it is written; at most `5m`. |
 | `events.batch_size`   |                  | `500`                   | Buffered events that trigger a write.                    |
-| `events.churn.collapse` |                | `true`                  | A connect whose disconnect, with reason "Client Closed", follows within `pair_within` is not stored; one `client.churn` event per client name, account and `window` counts such pairs. A disconnect for any other reason is always stored, with its connect. |
+| `events.churn.collapse` |                | `true`                  | A connect whose disconnect, with reason "Client Closed", follows within `pair_within` is not stored; one `client.churn` event per client name, client host, account and `window` counts such pairs. A disconnect for any other reason is always stored, with its connect. |
 | `events.churn.pair_within` |             | `10s`                   | How long a connect waits for its disconnect; a connect not closed by then is stored. At most `window`. |
 | `events.churn.window` |                  | `1m`                    | Span of one `client.churn` event. |
 | `accounts`            |                  |                         | JetStream accounts whose advisories are captured; see below. |
