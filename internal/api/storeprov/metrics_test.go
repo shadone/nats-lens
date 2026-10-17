@@ -93,7 +93,7 @@ func TestMetricsEscapeLabels(t *testing.T) {
 	})
 	p := &storeprov.Provider{St: st, Interval: 30 * time.Second, Checks: set, Clock: func() time.Time { return t0.Add(2 * time.Minute) }}
 	body := writeMetrics(t, p)
-	if want := `nats_lens_finding{code="client-001",entity_type="client",entity_key="a\"b\\c\nd",muted="false"} 1` + "\n"; !strings.Contains(body, want) {
+	if want := `nats_lens_finding{system="default",code="client-001",entity_type="client",entity_key="a\"b\\c\nd",muted="false"} 1` + "\n"; !strings.Contains(body, want) {
 		t.Fatalf("missing %q in\n%s", want, body)
 	}
 }
@@ -137,7 +137,7 @@ func TestMetricsCapEntitySeries(t *testing.T) {
 func TestMetricsCountEpochsWithoutCheckRuns(t *testing.T) {
 	p := &storeprov.Provider{St: fixtureStore(t), Interval: 30 * time.Second, Clock: func() time.Time { return now }}
 	body := writeMetrics(t, p)
-	if !strings.Contains(body, "nats_lens_epochs_without_check_runs_last_hour 2\n") {
+	if !strings.Contains(body, `nats_lens_epochs_without_check_runs_last_hour{system="default"} 2`+"\n") {
 		t.Fatalf("metrics:\n%s", body)
 	}
 }
@@ -173,20 +173,23 @@ func TestMetricsCapIsStableAndLeavesMuted(t *testing.T) {
 	p := &storeprov.Provider{St: st, Interval: 30 * time.Second, Checks: set, Clock: func() time.Time { return t0.Add(130 * time.Second) }}
 	body := writeMetrics(t, p)
 	has := func(key string) bool {
-		return strings.Contains(body, `nats_lens_finding_severity{code="client-001",entity_type="client",entity_key="`+key+`"}`)
+		return strings.Contains(body, `nats_lens_finding_severity{system="default",code="client-001",entity_type="client",entity_key="`+key+`"}`)
 	}
 	if !has("a29") || !has("m04") || has("z29") || !has("m00") {
 		t.Errorf("a29 %v, m04 %v, z29 %v, muted m00 %v", has("a29"), has("m04"), has("z29"), has("m00"))
 	}
-	if !strings.Contains(body, `nats_lens_finding_series_omitted{code="client-001"} 14`+"\n") {
+	if !strings.Contains(body, `nats_lens_finding_series_omitted{system="default",code="client-001"} 14`+"\n") {
 		t.Errorf("omitted: %s", body)
 	}
 }
 
-// writeMetrics is the provider's exposition without a system label.
+// writeMetrics is the provider's exposition as system default.
 func writeMetrics(t *testing.T, p *storeprov.Provider) string {
 	t.Helper()
-	m := api.NewExposition()
+	m, err := api.NewExposition(api.DefaultSystemID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := p.WriteMetrics(ctx, m); err != nil {
 		t.Fatal(err)
 	}

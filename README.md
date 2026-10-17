@@ -431,7 +431,7 @@ To add a check, write its file, then a test in `internal/checks` that builds the
 
 `natslens run` serves Prometheus metrics at `/metrics` on the API listener, so that the findings reach the alerting system. On a loopback listener the Host allowlist applies to `/metrics` as to the API. On any other listener `/metrics` is exempt from it, because Prometheus scrapes by the pod's address: the endpoint is read only but names streams, consumers, servers and clients, so such a listener must not be reachable from outside the cluster.
 
-Every sample carries a `system` label, the ID of the system it describes (`default` until the configuration lists systems), and each family's `# HELP` and `# TYPE` appear once with the samples of every system below them. The label is new: a series scraped before it is a different series to Prometheus, so a dashboard or rule that joins series must add `system` to its `on(...)` and `by(...)` lists, and a series history starts again at the upgrade.
+Every sample carries a `system` label, the ID of the system it describes (`default` until the configuration lists systems), and each family's `# HELP` and `# TYPE` appear once with the samples of every system below them. Each system is read on its own, in parallel and within 30 seconds; a system that fails leaves none of its series in the scrape, and the scrape still answers 200 for the others. Only when every system fails does `/metrics` answer 500. The label is new: a series scraped before it is a different series to Prometheus, so a dashboard or rule that joins series must add `system` to its `on(...)` and `by(...)` lists, and a series history starts again at the upgrade.
 
 Every firing finding has three series with one identity, `system`, `code`, `entity_type` and `entity_key`, so that a change of severity does not start a new series. A mute does start a new `nats_lens_finding` series, because `muted` is its label; `nats_lens_finding_severity` and `nats_lens_finding_flapping` keep their identity:
 
@@ -452,6 +452,7 @@ Every firing finding has three series with one identity, `system`, `code`, `enti
 | `nats_lens_event_messages_dropped_last_hour` | | Event messages the collector dropped in the last hour |
 | `nats_lens_check_run_errors_last_hour` | | Check runs that failed in the last hour |
 | `nats_lens_check_failing` | `code` | 1 for a check whose newest run failed |
+| `nats_lens_system_scrape_success` | | 1 when the system's metrics were read for this scrape, 0 when reading them failed or took longer than 30 seconds; then the system's other series are absent from that scrape |
 
 On GKE, Cloud Monitoring alert policies can evaluate PromQL conditions over the data Managed Service for Prometheus (GMP) collects; the `PodMonitoring` in `k8s/components/gke-iap` scrapes `/metrics`. GMP adds the target labels `project_id`, `location`, `cluster`, `namespace`, `job` and `instance` to every series, so a query can select one deployment with `{cluster="...", namespace="nats-lens"}`. A metric that has a label of one of those names keeps it as `exported_<name>` (`exported_namespace` for a `namespace` label); the natslens metrics have none, so `namespace` is the pod's. An alert policy in Terraform or OpenTofu (one condition shown; the rules below translate the same way):
 
@@ -514,6 +515,12 @@ groups:
         expr: nats_lens_check_failing == 1
         for: 10m
         labels: {severity: warning}
+      - alert: NatsLensSystemMetricsFailing
+        expr: nats_lens_system_scrape_success == 0
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: "nats-lens cannot read its data of {{ $labels.system }}; its findings are missing from /metrics"
 ```
 
 A mute in the UI makes the finding rules stop matching, so the alert closes; the finding's series stay, marked `muted="true"`. Beyond 50 entities of one check, alert on `nats_lens_findings_by_check_max_severity` instead.
