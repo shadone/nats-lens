@@ -40,9 +40,9 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 
 | Term | Meaning |
 |---|---|
-| system | One NATS deployment with its own system account: a single server, a cluster, or a supercluster joined by gateways. One nats-lens watches one system today. |
+| system | One NATS deployment with its own system account: a single server, a cluster, or a supercluster joined by gateways. One nats-lens watches one system today; the UI names it in `?system=`. |
 | server | One `nats-server` process, known by its stable server name. A restart gives the server a new server ID but keeps its name. |
-| cluster | The servers joined by routes under one cluster name. The UI header shows the cluster name. |
+| cluster | The servers joined by routes under one cluster name. |
 | account | A NATS account, as the servers report it (the account ID in operator mode), shown with its readable name when nats-lens knows it. |
 | epoch | One snapshot of the whole system: every server's monitoring reports, taken once per collect interval and stored in one transaction. These docs call it a **collection** in prose; the UI, the database, the API and the configuration call it an epoch (for example "the newest epoch of the range"). |
 | asset | A JetStream object a server holds: a stream, a consumer, a KV bucket or an object store. A KV bucket is the stream `KV_<bucket>` and an object store the stream `OBJ_<bucket>`. |
@@ -91,7 +91,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Accounts and auth](accounts-and-auth.md) | `ui`, `api` | planned |
 | [KV and object stores](kv-and-object-stores.md) | `ui`, `api` | planned |
 | [Micro services](micro-services.md) | `ui`, `api` | planned |
-| [Command bar](command-bar.md) | `ui` | planned |
+| [Command bar](command-bar.md) | `ui` | partial — search by name is shipped; findings, events and prefixes are planned |
 | [On call on the phone](mobile.md) | `ui` | planned |
 | [Data history](data-history.md) | `ui`, `api` | planned |
 | [Notifications](notifications.md) | `api`, `cli` | planned |
@@ -121,7 +121,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [ ] Findings sent to a channel such as a webhook (notifications.md)
 
 **Web UI**
-- [x] Header, page tabs, the global time range and the theme switch (navigation.md)
+- [x] Sidebar, system switcher, header with account scope and search, the global time range and the theme menu (navigation.md)
 - [x] Overview: worst finding, tiles, status timeline, events, streams and servers (overview-page.md)
 - [x] Servers list and server detail (servers.md)
 - [x] Streams list and stream detail (streams.md)
@@ -138,7 +138,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [ ] Accounts, users, failed logins and expiring credentials (accounts-and-auth.md)
 - [ ] KV buckets and object stores as their own pages (kv-and-object-stores.md)
 - [ ] Services built on the NATS micro framework (micro-services.md)
-- [ ] Search and jump to anything from one box (command-bar.md)
+- [~] Search and jump to anything from one box — findings, events and prefixes are planned (command-bar.md)
 - [ ] A finding on the phone, for the person on call (mobile.md)
 - [ ] What history exists and where it has gaps (data-history.md)
 
