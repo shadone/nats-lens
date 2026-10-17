@@ -1,16 +1,31 @@
 package api
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+)
+
+// Strip and summary limits of ListSystems.
+const (
+	// DefaultStripBuckets is the number of strip buckets when a request
+	// sets none.
+	DefaultStripBuckets = 48
+	// MaxStripBuckets is the most strip buckets a request may ask for.
+	MaxStripBuckets = 500
+	// DefaultSummaryTimeout bounds each system's summary.
+	DefaultSummaryTimeout = 5 * time.Second
 )
 
 // DefaultSystemID is the ID of the one system of a configuration that
@@ -95,8 +110,11 @@ func (s Systems) Resolve(id string) (System, error) {
 }
 
 // ListSystems lists the systems in order with a summary from each
-// provider. A provider whose summary fails is listed by its reference
-// alone.
+// provider. The providers run in parallel, each within SummaryTimeout; a
+// provider that fails, panics or runs out of time is listed with its
+// reference and an error, and the others are not held up. A system's
+// collection status, when the runtime reports one, replaces the
+// collection state the provider read from stored events.
 func (h *Handler) ListSystems(ctx context.Context, req *connect.Request[v1.ListSystemsRequest]) (*connect.Response[v1.ListSystemsResponse], error) {
 	d, ok := h.Systems.Default()
 	if !ok {
@@ -106,21 +124,129 @@ func (h *Handler) ListSystems(ctx context.Context, req *connect.Request[v1.ListS
 	if err := withRange(d.Provider, &m.Range); err != nil {
 		return nil, h.codeOf("ListSystems", err)
 	}
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeout)
-	defer cancel()
-	res := &v1.ListSystemsResponse{Range: m.GetRange(), DefaultSystem: d.Ref.GetId()}
-	for _, sys := range h.Systems {
-		sum, err := sys.Provider.SystemSummary(ctx, m)
-		if err != nil || sum == nil {
-			if err != nil && h.Log != nil {
-				h.Log.Warn("system summary failed", "system", sys.Ref.GetId(), "err", err)
-			}
-			sum = &v1.SystemSummary{}
-		}
-		sum.System = proto.CloneOf(sys.Ref)
-		res.Systems = append(res.Systems, sum)
+	switch n := m.GetStripBuckets(); {
+	case n == 0:
+		m.StripBuckets = DefaultStripBuckets
+	case n < 0 || n > MaxStripBuckets:
+		return nil, h.codeOf("ListSystems", invalid("strip_buckets must be between 1 and %d", MaxStripBuckets))
 	}
+	timeout := cmp.Or(h.SummaryTimeout, DefaultSummaryTimeout)
+	res := &v1.ListSystemsResponse{Range: m.GetRange(), DefaultSystem: d.Ref.GetId(), Systems: make([]*v1.SystemSummary, len(h.Systems))}
+	var wg sync.WaitGroup
+	for i, sys := range h.Systems {
+		wg.Go(func() {
+			// Each provider reads its own copy of the request.
+			sum := h.summary(ctx, sys, proto.CloneOf(m), timeout)
+			sum.System = proto.CloneOf(sys.Ref)
+			res.Systems[i] = sum
+		})
+	}
+	wg.Wait()
 	return connect.NewResponse(res), nil
+}
+
+// summary reads one system's summary within the timeout, with the
+// runtime's collection status applied. The provider runs in its own
+// goroutine, so that one that ignores its context does not hold up the
+// response; its result is then dropped. One summary per system runs at a
+// time: while the previous one still runs, the call gets the timeout card
+// at once and starts nothing.
+func (h *Handler) summary(ctx context.Context, sys System, req *v1.ListSystemsRequest, timeout time.Duration) *v1.SystemSummary {
+	tooLong := &v1.SystemSummary{Error: fmt.Sprintf("the summary took longer than %s", timeout)}
+	v, _ := h.summaryRunning.LoadOrStore(sys.Ref.GetId(), new(atomic.Bool))
+	running := v.(*atomic.Bool)
+	if !running.CompareAndSwap(false, true) {
+		return tooLong
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	type result struct {
+		sum *v1.SystemSummary
+		err error
+		// status is the runtime's collection status, when there is one.
+		status *CollectionStatus
+	}
+	done := make(chan result, 1)
+	go func() {
+		defer running.Store(false)
+		defer func() {
+			if r := recover(); r != nil {
+				done <- result{err: fmt.Errorf("panic: %v", r)}
+			}
+		}()
+		var r result
+		if sys.Status != nil {
+			st := sys.Status()
+			r.status = &st
+		}
+		r.sum, r.err = sys.Provider.SystemSummary(ctx, req)
+		done <- r
+	}()
+	var r result
+	select {
+	case r = <-done:
+	case <-ctx.Done():
+		r.err = ctx.Err()
+	}
+	sum := h.summaryCard(sys, r.sum, r.err, tooLong)
+	if r.status != nil && !errors.Is(r.err, context.Canceled) {
+		withCollectionStatus(sum, *r.status)
+	}
+	return sum
+}
+
+// summaryCard is the card for a provider's result.
+func (h *Handler) summaryCard(sys System, sum *v1.SystemSummary, err error, tooLong *v1.SystemSummary) *v1.SystemSummary {
+	switch {
+	case errors.Is(err, context.Canceled):
+		// The caller went away; nothing failed.
+		return &v1.SystemSummary{Error: "the request was canceled"}
+	case errors.Is(err, context.DeadlineExceeded):
+		h.warnSummary(sys, err)
+		return tooLong
+	case err != nil:
+		h.warnSummary(sys, err)
+		return &v1.SystemSummary{Error: "the summary could not be read; see the server log"}
+	case sum == nil:
+		return &v1.SystemSummary{}
+	}
+	return sum
+}
+
+func (h *Handler) warnSummary(sys System, err error) {
+	if h.Log != nil {
+		h.Log.Warn("system summary failed", "system", sys.Ref.GetId(), "err", err)
+	}
+}
+
+// collectionStates maps the runtime's states to the API's.
+var collectionStates = map[CollectionState]v1.CollectionState{
+	CollectionStarting:         v1.CollectionState_COLLECTION_STATE_STARTING,
+	CollectionCollecting:       v1.CollectionState_COLLECTION_STATE_COLLECTING,
+	CollectionNotConnected:     v1.CollectionState_COLLECTION_STATE_NOT_CONNECTED,
+	CollectionConnectionClosed: v1.CollectionState_COLLECTION_STATE_CONNECTION_CLOSED,
+}
+
+// withCollectionStatus sets the summary's collection fields from the
+// runtime's status. The error and its time are kept only while the
+// collector is not collecting.
+func withCollectionStatus(sum *v1.SystemSummary, st CollectionStatus) {
+	sum.Collection = collectionStates[st.State]
+	sum.CollectionError, sum.CollectionErrorSince = "", nil
+	if st.State == CollectionNotConnected || st.State == CollectionConnectionClosed {
+		sum.CollectionError = st.LastError
+		if !st.Since.IsZero() {
+			sum.CollectionErrorSince = timestamppb.New(st.Since)
+		}
+	}
+}
+
+// StripBucket is the width of one strip bucket: the range divided by the
+// number of buckets, rounded up to whole seconds.
+func StripBucket(r *v1.TimeRange, buckets int32) time.Duration {
+	span := r.GetEnd().AsTime().Sub(r.GetStart().AsTime())
+	b := time.Duration(ceilDiv(span, time.Duration(max(buckets, 1))))
+	return max(time.Duration(ceilDiv(b, time.Second))*time.Second, time.Second)
 }
 
 // Validate checks the registry: at least one system, each with a

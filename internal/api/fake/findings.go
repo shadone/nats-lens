@@ -39,8 +39,8 @@ func resolvedFinding(code, name string, sev v1.Severity, e *v1.EntityRef, since,
 	return f
 }
 
-// allFindings is every finding of the scenario, before mutes are applied.
-func (s scen) allFindings() []*v1.Finding {
+// prodFindings is every finding of example-prod, before mutes are applied.
+func prodFindings(s scen) []*v1.Finding {
 	c006 := finding("consumer-006", "Expected durable missing", critical, firing,
 		consumerRef("order-archive", "analytics-aggregator"), s.at(9, 31, 7), s.at(9, 31, 7),
 		"Listed in inventory/prod.yaml, absent on nats-0, nats-1 and nats-2. Deleted 09:31:07 by analytics-worker@10.20.0.12.")
@@ -86,7 +86,7 @@ func (s scen) allFindings() []*v1.Finding {
 		resolvedFinding("server-002", "Healthz failing", critical, serverRef("nats-2"), s.at(9, 41, 10), s.at(9, 44, 50), "nats-2 healthz unavailable while restarting."),
 		resolvedFinding("stream-007", "Stream quorum lost", critical, streamRef("media-windows"), s.at(9, 16, 30), s.at(9, 35, 0), "1 of 3 peers."),
 		resolvedFinding("stream-007", "Stream quorum lost", critical, streamRef("order-jobs"), s.at(9, 41, 30), s.at(9, 44, 30), "1 of 3 peers."),
-		resolvedFinding("server-006", "Meta leader changed", warning, systemRef(), s.at(9, 16, 10), s.at(9, 31, 0), "Meta leader moved nats-0 to nats-1 to nats-0."),
+		resolvedFinding("server-006", "Meta leader changed", warning, s.sc.systemRef(), s.at(9, 16, 10), s.at(9, 31, 0), "Meta leader moved nats-0 to nats-1 to nats-0."),
 		resolvedFinding("stream-013", "Replica lagging", warning, streamRef("order-archive"), s.at(9, 16, 40), s.at(10, 5, 0), "nats-1 replica 12,400 entries behind."),
 		resolvedFinding("client-003", "Slow consumer events", warning, clientRef("media-worker"), s.at(9, 15, 30), s.at(9, 45, 0), "6 slow consumer disconnects in 30m."),
 	}
@@ -96,7 +96,7 @@ func (s scen) allFindings() []*v1.Finding {
 // findings is every finding with the active mutes applied, worst first:
 // unmuted before muted, then by severity, then the longest firing first.
 func (p *Provider) findings(s scen) []*v1.Finding {
-	all := s.allFindings()
+	all := s.sc.findings(s)
 	p.mu.Lock()
 	for _, f := range all {
 		if f.GetState() == resolved {

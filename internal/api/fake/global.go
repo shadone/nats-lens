@@ -1,0 +1,163 @@
+package fake
+
+import (
+	"fmt"
+	"time"
+
+	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+)
+
+// example-global is 24 servers in three clusters, eu, us and ap, joined by
+// gateways. A GKE node upgrade of the us pool (08:40-09:20) restarted
+// nats-us-1 to nats-us-3; nats-us-4 was stopped at 09:12 and its pod has
+// stayed Pending since, so two streams run on two of three replicas. In
+// ap, nats-ap-2's store is 71% full, and nats-ap-4 and nats-ap-5 still run
+// the older version. Since 13:38 label-printer has been dropped as a slow
+// consumer on nats-us-3.
+
+// Versions of example-global: the majority's and the older one.
+const (
+	globalVersion = "2.12.4"
+	globalOlder   = "2.12.2"
+)
+
+// globalDown is when nats-us-4 stopped answering, in the fixed frame.
+var globalDown = fixed(9, 12, 5)
+
+// globalServer builds one server: up since 2026-10-11 unless restarted
+// on 2026-10-17 at h:m:s.
+func globalServer(cluster string, i int, conns int64, cpu float64, storePct float64) serverSpec {
+	name := fmt.Sprintf("nats-%s-%d", cluster, i)
+	sp := serverSpec{
+		name: name, id: fmt.Sprintf("N%sFAKE%dGLOBAL", cluster, i), oldID: fmt.Sprintf("N%sFAKE%dOLDGLOBAL", cluster, i),
+		day: 11, h: 6, m: 10 + i, s: 0, conns: conns, cluster: cluster, version: globalVersion,
+		maxStore: 100 * gib, store: int64(storePct / 100 * 100 * gib), mem: int64(100+7*i) * mib, cpu: cpu,
+	}
+	if cluster == "ap" && i >= 4 {
+		sp.version = globalOlder
+	}
+	return sp
+}
+
+func globalServers() []serverSpec {
+	var out []serverSpec
+	eu := []struct {
+		conns int64
+		cpu   float64
+		store float64
+	}{{61, 3, 35}, {64, 4, 37}, {61, 5, 36}, {61, 22, 41}, {61, 3, 33}, {61, 6, 36}, {61, 4, 38}, {61, 2, 29}, {61, 5, 39}}
+	for i, x := range eu {
+		out = append(out, globalServer("eu", i, x.conns, x.cpu, x.store))
+	}
+	us := []struct {
+		conns int64
+		cpu   float64
+		store float64
+	}{{52, 6, 31}, {50, 4, 30}, {50, 8, 33}, {50, 34, 32}, {49, 5, 28}, {50, 5, 31}, {50, 3, 27}, {50, 7, 34}, {50, 4, 29}}
+	for i, x := range us {
+		sp := globalServer("us", i, x.conns, x.cpu, x.store)
+		switch i {
+		case 1:
+			sp.day, sp.h, sp.m, sp.s = 0, 8, 46, 10
+		case 2:
+			sp.day, sp.h, sp.m, sp.s = 0, 8, 58, 30
+		case 3:
+			sp.day, sp.h, sp.m, sp.s = 0, 9, 6, 40
+		case 4:
+			sp.down = globalDown
+		}
+		out = append(out, sp)
+	}
+	ap := []struct {
+		conns int64
+		cpu   float64
+		store float64
+	}{{33, 9, 48}, {31, 12, 52}, {31, 71, 71}, {31, 8, 50}, {31, 11, 53}, {31, 7, 47}}
+	for i, x := range ap {
+		out = append(out, globalServer("ap", i, x.conns, x.cpu, x.store))
+	}
+	return out
+}
+
+// globalScenario is example-global.
+func globalScenario() *scenario {
+	peers := func(names ...string) []string {
+		out := make([]string, len(names))
+		for i, n := range names {
+			out[i] = "nats-" + n
+		}
+		return out
+	}
+	return &scenario{
+		// The cluster a server reports, as the store provider names a
+		// system: the meta leader's.
+		cluster: "eu",
+		servers: globalServers(),
+		streams: []streamSpec{
+			{name: "order-jobs", msgs: 182044, bytes: 230 * mib, perDay: 9 * mib, consumers: []string{"resize-worker", "index-worker"}, peers: peers("eu-0", "eu-1", "eu-2")},
+			{name: "order-events", msgs: 9204411, bytes: 11.2 * gib, perDay: 310 * mib,
+				consumers: []string{"order-projector", "email-sender", "analytics-aggregator"}, peers: peers("eu-3", "eu-4", "eu-5")},
+			{name: "payment-events", msgs: 2210980, bytes: 2.6 * gib, perDay: 74 * mib, consumers: []string{"ledger-writer", "fraud-scorer"}, peers: peers("eu-1", "eu-6", "eu-7")},
+			{name: "cart-events", msgs: 4120330, bytes: 1.9 * gib, perDay: 120 * mib, consumers: []string{"cart-abandon-notifier"}, peers: peers("eu-2", "eu-5", "eu-8")},
+			{name: "inventory-changes", msgs: 1880220, bytes: 1.4 * gib, perDay: 40 * mib, consumers: []string{"stock-projector", "reorder-planner"}, peers: peers("us-0", "us-1", "us-2")},
+			{name: "shipping-updates", msgs: 640118, bytes: 820 * mib, perDay: 22 * mib, consumers: []string{"label-printer", "tracking-notifier"}, peers: peers("us-3", "us-4", "us-5")},
+			{name: "catalog-changes", msgs: 512880, bytes: 610 * mib, perDay: 8 * mib, consumers: []string{"catalog-applier", "catalog-search-indexer"}, peers: peers("us-6", "us-7", "us-8")},
+			{name: "price-changes", msgs: 96410, bytes: 140 * mib, perDay: 3 * mib, consumers: []string{"price-cache-invalidator"}, peers: peers("us-2", "us-4", "us-7")},
+			{name: "search-index", msgs: 3301200, bytes: 4.8 * gib, perDay: 160 * mib, consumers: []string{"search-indexer"}, peers: peers("ap-0", "ap-1", "ap-2")},
+			{name: "customer-notifications", msgs: 1402200, bytes: 1.1 * gib, perDay: 36 * mib, consumers: []string{"push-sender", "sms-sender"}, peers: peers("ap-2", "ap-3", "ap-4")},
+			{name: "order-archive", msgs: 61200400, bytes: 52.4 * gib, perDay: 1.1 * gib, consumers: []string{"archive-exporter"}, peers: peers("ap-2", "ap-5", "ap-1")},
+			{name: "KV_session-cache", msgs: 48210, bytes: 38 * mib, perDay: 1 * mib, ephemeral: 64, peers: peers("eu-0", "eu-3", "eu-6")},
+			{name: "KV_feature-flags", msgs: 412, bytes: 210 * kib, perDay: 2 * kib, ephemeral: 22, peers: peers("us-0", "us-5", "us-8")},
+			{name: "OBJ_product-images", msgs: 120400, bytes: 9.6 * gib, perDay: 80 * mib, peers: peers("ap-0", "ap-3", "ap-5")},
+		},
+		clients: []string{
+			"api-gateway", "order-service", "checkout-service", "inventory-service", "shipping-service",
+			"search-api", "notification-worker", "label-printer",
+		},
+		metaLeader:    "nats-eu-1",
+		epoch:         18406,
+		partial:       true,
+		collection:    v1.CollectionState_COLLECTION_STATE_DEMO,
+		routineClient: "search-api",
+		findings:      globalFindings,
+		events:        globalEvents,
+		rows:          globalRows,
+		windows:       globalWindows,
+		k8sLanes:      globalK8sLanes,
+		tiles:         globalTiles,
+		sample:        globalSample,
+		slowEvents:    globalSlowEvents(),
+		mutes:         func() []*storedMute { return []*storedMute{globalSeedMute()} },
+		consumer:      globalConsumer,
+	}
+}
+
+// globalUpgrade is the us node pool upgrade, in the fixed frame.
+var globalUpgrade = [2]time.Time{fixed(8, 40, 0), fixed(9, 20, 30)}
+
+func globalWindows(s scen, r *v1.TimeRange) []*v1.TimeWindow {
+	a, b := globalUpgrade[0].Add(s.shift), globalUpgrade[1].Add(s.shift)
+	if !overlaps(a, b, r) {
+		return nil
+	}
+	return []*v1.TimeWindow{{Start: ts(a), End: ts(b), Label: "GKE node upgrade, pool-us",
+		Detail: "4 drains, 3 pod restarts; nats-us-4 Pending"}}
+}
+
+// globalConsumer gives label-printer the backlog behind the slow consumer
+// finding.
+func globalConsumer(_ scen, c *v1.ConsumerSummary) {
+	if c.GetEntity().GetConsumer() == "label-printer" && c.GetPresent() {
+		c.NumPending, c.NumAckPending, c.NumRedelivered = ptr(int64(6210)), ptr(int64(1000)), ptr(int64(212))
+	}
+}
+
+func globalSeedMute() *storedMute {
+	s := scen{now: FixedNow}
+	return &storedMute{relative: true, m: &v1.Mute{
+		Id: "1", CheckCode: "server-005",
+		Reason:    "The ap pool moves to 2.12.4 in next week's maintenance window.",
+		MutedBy:   "ops",
+		CreatedAt: ts(s.on(14, 11, 0)), ExpiresAt: ts(s.on(28, 0, 0)),
+	}}
+}

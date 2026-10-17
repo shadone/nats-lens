@@ -1,12 +1,12 @@
 # Multiple systems and the Fleet view
 
 - **Surfaces:** `ui`, `api`, `cli`
-- **Status:** planned
+- **Status:** partial — the API's system summaries; collecting several systems and the Fleet page are planned
 - **Related:** [overview.md](overview.md), [monitoring-snapshots.md](monitoring-snapshots.md), [history-and-archive.md](history-and-archive.md), [navigation.md](navigation.md), [servers.md](servers.md), [topology.md](topology.md)
 
 ## What it does
 
-Planned, for the current build phase; nothing here is built yet. One nats-lens will watch several NATS systems at once, for example production, staging and an edge deployment of leaf nodes. Each system keeps its own credentials, its own collector and its own database, so one system's trouble or size never affects another's history. A Fleet view lists every system on one page, worst first, and a switcher moves between them. All scenarios below describe intended behaviour.
+Planned, for the current build phase; of this, only the API's system summaries are built. One nats-lens will watch several NATS systems at once, for example production, staging and an edge deployment of leaf nodes. Each system keeps its own credentials, its own collector and its own database, so one system's trouble or size never affects another's history. A Fleet view lists every system on one page, worst first, and a switcher moves between them. All scenarios below describe intended behaviour.
 
 ## Behavior and rules
 
@@ -14,6 +14,7 @@ Planned, for the current build phase; nothing here is built yet. One nats-lens w
 - **One database per system.** Each system's collections, events, findings and mutes go to a database and an archive of their own. Losing or rebuilding one system's database touches no other.
 - **Own credentials, own collector.** Each system has its own NATS URL, system account user, account connections and collect interval. One system that cannot be reached stops only its own collection.
 - **The Fleet view.** One card per system, worst first: its name and environment label, its state (critical, warning, info, ok, or not collecting), a headline with its worst finding (or why it is not collecting, such as rejected credentials and when data was last received), the numbers of servers, clusters, streams and connections, its freshness, and a strip of its worst finding per half hour over the last 24 hours.
+- **Fleet summaries in the API (built).** `ListSystems` returns one summary per system from data already collected, so the Fleet view never waits for NATS: the collection state (collecting, not connected, connection closed) with its error and since when, the newest epoch's age, the numbers of servers expected and answering, clusters, streams and connections, the worst finding and the tally, and a strip of the worst status per bucket of the range. A system that fails or takes longer than 5 seconds gets an error on its own card; the others still return. After a restart of nats-lens, a system that is not collecting is still reported from the collector's stored connection events.
 - **A switcher.** The sidebar's switcher at the top moves between systems. Inside a supercluster a second switcher limits the pages to one cluster.
 - **Every page is per system.** The Overview, the lists and the findings show the chosen system; links carry the system, so a shared link opens the same system.
 - **Metrics name the system.** The `/metrics` series carry the system they belong to, so one alert rule covers every system.
@@ -33,6 +34,13 @@ Planned, for the current build phase; nothing here is built yet. One nats-lens w
 - **Given** production has a critical stream finding and staging is not collecting because its credentials were rejected
 - **When** I open the Fleet view
 - **Then** production comes first with the finding as its headline, and staging says that its credentials are rejected and when its last data arrived
+
+### A slow system does not hold up the Fleet
+
+- **Surfaces:** `api`
+- **Given** three systems, one of whose databases does not answer within 5 seconds
+- **When** I call `ListSystems`
+- **Then** that system's summary carries an error, and the other two summaries are complete
 
 ### One system is unreachable
 

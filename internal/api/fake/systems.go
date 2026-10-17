@@ -3,26 +3,72 @@ package fake
 import (
 	"context"
 
+	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
-// SystemSummary is empty: the handler adds the system reference.
-func (p *Provider) SystemSummary(context.Context, *v1.ListSystemsRequest) (*v1.SystemSummary, error) {
-	return &v1.SystemSummary{}, nil
+// SystemSummary summarizes the scenario as storeprov does from collected
+// data: the newest epoch's counts, the findings at the range's end, the
+// strip from the timeline's rows, and the scenario's collection state. The
+// handler adds the system reference.
+func (p *Provider) SystemSummary(_ context.Context, req *v1.ListSystemsRequest) (*v1.SystemSummary, error) {
+	s := p.scen()
+	r := req.GetRange()
+	all := p.findings(s)
+	cur := current(all, r)
+	res := &v1.SystemSummary{
+		Collection: p.sc.collection, CollectionError: p.sc.collectionError,
+		Freshness: s.freshness(r), Status: v1.Status_STATUS_NO_DATA, WorstFinding: worstUnmuted(cur), Tally: tally(all, r),
+	}
+	if !p.sc.errorSince.IsZero() {
+		res.CollectionErrorSince = ts(p.sc.errorSince.Add(s.shift))
+	}
+	if res.GetFreshness().GetEpoch() != 0 {
+		res.Status, _ = worstStatus(cur, nil)
+		var answering, conns int64
+		clusters := map[string]bool{}
+		for _, sp := range p.sc.servers {
+			if sp.answering() {
+				answering++
+				conns += sp.conns
+			}
+			if sp.cluster != "" {
+				clusters[sp.cluster] = true
+			}
+		}
+		res.Servers, res.ServersAnswering = ptr(int32(len(p.sc.servers))), ptr(int32(answering))
+		res.Clusters, res.Streams, res.Connections = ptr(int32(len(clusters))), ptr(int32(len(p.sc.streams))), ptr(conns)
+	}
+	bucket := api.StripBucket(r, req.GetStripBuckets())
+	start, end := r.GetStart().AsTime(), r.GetEnd().AsTime()
+	res.StripStart, res.StripBucket = r.GetStart(), dur(bucket)
+	res.Strip = make([]v1.Status, api.BucketCount(end.Sub(start), bucket))
+	rows := s.timelineRows(r, bucket, nil, true)
+	for i := range res.Strip {
+		res.Strip[i] = v1.Status_STATUS_NO_DATA
+		for _, row := range rows {
+			if c := row.GetCells()[i]; statusRank(c) < statusRank(res.Strip[i]) {
+				res.Strip[i] = c
+			}
+		}
+	}
+	return res, nil
 }
 
 // ListAccounts returns the scenario's one account with its connections,
 // streams and consumers.
 func (p *Provider) ListAccounts(context.Context, *v1.ListAccountsRequest) (*v1.ListAccountsResponse, error) {
 	var conns int32
-	for _, sp := range serverSpecs {
-		conns += int32(sp.conns)
+	for _, sp := range p.sc.servers {
+		if sp.answering() {
+			conns += int32(sp.conns)
+		}
 	}
 	var consumers int32
-	for _, sp := range streamSpecs {
+	for _, sp := range p.sc.streams {
 		consumers += int32(len(sp.consumers) + sp.ephemeral)
 	}
 	return &v1.ListAccountsResponse{Accounts: []*v1.Account{{
-		Account: Account, Connections: ptr(conns), Streams: ptr(int32(len(streamSpecs))), Consumers: ptr(consumers),
+		Account: Account, Connections: ptr(conns), Streams: ptr(int32(len(p.sc.streams))), Consumers: ptr(consumers),
 	}}}, nil
 }

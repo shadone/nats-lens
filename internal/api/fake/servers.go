@@ -10,58 +10,92 @@ import (
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
-// Version is the nats-server version every server runs.
+// Version is the nats-server version every server of example-prod runs.
 const Version = "2.12.2"
 
 type serverSpec struct {
 	name    string
 	id      string
 	oldID   string
-	h, m, s int // restart time on 2026-10-17
+	h, m, s int // start time on 2026-10-17, or on day of October 2026
+	day     int
 	conns   int64
-	leader  bool
+	cluster string
+	version string
+	// store and maxStore are the JetStream file store in use and its
+	// limit, mem the resident memory, cpu the percent of one core.
+	store, maxStore int64
+	mem             int64
+	cpu             float64
+	// down is when the server stopped answering, in the fixed frame; zero
+	// while it answers.
+	down time.Time
 }
 
-var serverSpecs = []serverSpec{
-	{"nats-0", "NDQ4ZFAKE0SERVER0", "NB71FAKE0OLDPROCESS", 9, 18, 0, 61, true},
-	{"nats-1", "NC2XFAKE1SERVER1", "NA09FAKE1OLDPROCESS", 9, 31, 2, 60, false},
-	{"nats-2", "NE5KFAKE2SERVER2", "NF33FAKE2OLDPROCESS", 9, 44, 21, 61, false},
+// started is when the server's process started in the scenario.
+func (s scen) started(sp serverSpec) time.Time {
+	if sp.day == 0 {
+		return s.at(sp.h, sp.m, sp.s)
+	}
+	return time.Date(2026, 10, sp.day, sp.h, sp.m, sp.s, 0, time.UTC).Add(s.shift)
 }
 
-func (s scen) server(sp serverSpec, r *v1.TimeRange) *v1.ServerSummary {
-	start := s.at(sp.h, sp.m, sp.s)
-	// Uptime as of the newest epoch inside the range.
+// answering reports whether the server answers at the scenario's present.
+func (sp serverSpec) answering() bool { return sp.down.IsZero() }
+
+// server summarizes one server; cur are the findings firing at the range's
+// end.
+func (s scen) server(sp serverSpec, r *v1.TimeRange, cur []*v1.Finding) *v1.ServerSummary {
+	start := s.started(sp)
+	// Uptime as of the newest epoch inside the range, or the last one the
+	// server answered in.
 	seen := earliest(s.lastEpoch(), r.GetEnd().AsTime())
+	if !sp.answering() {
+		seen = earliest(sp.down.Add(s.shift), seen)
+	}
 	out := &v1.ServerSummary{
-		Name: sp.name, ServerId: sp.id, Version: Version, Cluster: Cluster, StartTime: ts(start),
+		Name: sp.name, ServerId: sp.id, Version: sp.version, Cluster: sp.cluster, StartTime: ts(start),
 		Uptime: dur(seen.Sub(start).Truncate(time.Second)), Role: v1.ServerRole_SERVER_ROLE_FOLLOWER,
 		Present: true, Healthz: "ok", Connections: ptr(sp.conns),
-		JsStorageBytes: ptr(int64(1980 * mib)), JsMaxStorageBytes: ptr(int64(50 * gib)), MemBytes: ptr(int64(412 * mib)), CpuPercent: ptr(7.5),
+		JsStorageBytes: ptr(sp.store), JsMaxStorageBytes: ptr(sp.maxStore), MemBytes: ptr(sp.mem), CpuPercent: ptr(sp.cpu),
 		Status: v1.Status_STATUS_OK,
 	}
-	if sp.leader {
+	if sp.name == s.sc.metaLeader {
 		out.Role = v1.ServerRole_SERVER_ROLE_META_LEADER
 	}
 	if inRange(start, r) {
 		out.Restarts = append(out.Restarts, ts(start))
 	}
+	if !sp.answering() {
+		// A server that stopped answering keeps the numbers of its last
+		// answer, without a health reply.
+		out.Present, out.Healthz = false, ""
+	}
+	out.Status, _ = worstStatus(cur, serverRef(sp.name))
 	return out
 }
 
-func (s scen) servers(r *v1.TimeRange) []*v1.ServerSummary {
-	out := make([]*v1.ServerSummary, len(serverSpecs))
-	for i, sp := range serverSpecs {
-		out[i] = s.server(sp, r)
+func (s scen) servers(r *v1.TimeRange, all []*v1.Finding) []*v1.ServerSummary {
+	cur := current(all, r)
+	out := make([]*v1.ServerSummary, len(s.sc.servers))
+	for i, sp := range s.sc.servers {
+		out[i] = s.server(sp, r, cur)
 	}
 	return out
 }
 
-// ListServers returns the three servers.
+// ListServers returns every server, the expected names and the servers
+// that did not answer.
 func (p *Provider) ListServers(_ context.Context, req *v1.ListServersRequest) (*v1.ListServersResponse, error) {
-	return &v1.ListServersResponse{
-		Servers:  p.scen().servers(req.GetRange()),
-		Expected: []string{"nats-0", "nats-1", "nats-2"},
-	}, nil
+	s := p.scen()
+	res := &v1.ListServersResponse{Servers: s.servers(req.GetRange(), p.findings(s))}
+	for _, sp := range p.sc.servers {
+		res.Expected = append(res.Expected, sp.name)
+		if !sp.answering() {
+			res.Missing = append(res.Missing, sp.name)
+		}
+	}
+	return res, nil
 }
 
 var endpoints = []string{"STATSZ", "VARZ", "CONNZ", "ROUTEZ", "GATEWAYZ", "LEAFZ", "ACCOUNTZ", "ACCSTATZ", "JSZ", "HEALTHZ", "RAFTZ", "RAFTZ:APP", "IPQUEUESZ"}
@@ -69,41 +103,47 @@ var endpoints = []string{"STATSZ", "VARZ", "CONNZ", "ROUTEZ", "GATEWAYZ", "LEAFZ
 // GetServer returns one server with its endpoints and both processes.
 func (p *Provider) GetServer(_ context.Context, req *v1.GetServerRequest) (*v1.GetServerResponse, error) {
 	s := p.scen()
-	for _, sp := range serverSpecs {
-		if sp.name != req.GetName() {
-			continue
-		}
-		start := s.at(sp.h, sp.m, sp.s)
-		res := &v1.GetServerResponse{
-			Server: s.server(sp, req.GetRange()), Subscriptions: ptr(int64(1840)), Routes: ptr(int32(2 * 3)),
-			JsStreams: ptr(int32(9)), JsConsumers: ptr(int32(54)), MetaLeader: "nats-0", ConfigDigest: "sha256:7f3a91c2",
-			Processes: []*v1.ServerProcess{
-				{ServerId: sp.oldID, StartTime: ts(s.on(2, 8, 12)), FirstSeen: ts(s.on(3, 0, 0)), LastSeen: ts(start.Add(-2 * time.Minute))},
-				{ServerId: sp.id, StartTime: ts(start), FirstSeen: ts(start.Add(30 * time.Second)), LastSeen: ts(s.now.Add(-4 * time.Second))},
-			},
-		}
-		for _, e := range endpoints {
-			res.Endpoints = append(res.Endpoints, &v1.EndpointOutcome{Endpoint: e, State: "ok"})
-		}
-		return res, nil
+	sp, ok := p.sc.server(req.GetName())
+	if !ok {
+		return nil, fmt.Errorf("server %q: %w", req.GetName(), api.ErrNotFound)
 	}
-	return nil, fmt.Errorf("server %q: %w", req.GetName(), api.ErrNotFound)
+	start := s.started(sp)
+	lastSeen := s.now.Add(-4 * time.Second)
+	state := "ok"
+	if !sp.answering() {
+		lastSeen, state = sp.down.Add(s.shift), "missing"
+	}
+	var consumers int32
+	for _, st := range p.sc.streams {
+		consumers += int32(len(st.consumers) + st.ephemeral)
+	}
+	res := &v1.GetServerResponse{
+		Server: s.server(sp, req.GetRange(), current(p.findings(s), req.GetRange())), Subscriptions: ptr(int64(1840)), Routes: ptr(int32(2 * p.sc.clusterSize(sp.cluster))),
+		JsStreams: ptr(int32(len(p.sc.streams))), JsConsumers: ptr(consumers), MetaLeader: p.sc.metaLeader, ConfigDigest: "sha256:7f3a91c2",
+		Processes: []*v1.ServerProcess{
+			{ServerId: sp.oldID, StartTime: ts(s.on(2, 8, 12)), FirstSeen: ts(s.on(3, 0, 0)), LastSeen: ts(start.Add(-2 * time.Minute))},
+			{ServerId: sp.id, StartTime: ts(start), FirstSeen: ts(start.Add(30 * time.Second)), LastSeen: ts(lastSeen)},
+		},
+	}
+	for _, e := range endpoints {
+		res.Endpoints = append(res.Endpoints, &v1.EndpointOutcome{Endpoint: e, State: state})
+	}
+	return res, nil
 }
 
-var clientNames = []string{
-	"media-worker", "order-service", "analytics-worker", "ledger-service", "api-gateway",
-	"catalog-api", "callback-dispatcher", "video-transcoder",
-}
-
-// connections builds the 182 connections of the scenario's newest epoch.
+// connections builds the connections of the scenario's newest epoch: each
+// answering server's count, named in turn after the scenario's clients.
 func (s scen) connections() []*v1.Connection {
 	var out []*v1.Connection
-	for _, sp := range serverSpecs {
-		start := s.at(sp.h, sp.m, sp.s)
+	for _, sp := range s.sc.servers {
+		if !sp.answering() {
+			continue
+		}
+		start := s.started(sp)
 		for i := range sp.conns {
-			name := clientNames[int(i)%len(clientNames)]
+			name := s.sc.clients[int(i)%len(s.sc.clients)]
 			lang := "nats.js"
-			if name == "media-worker" || name == "video-transcoder" {
+			if name == "media-worker" || name == "video-transcoder" || name == "label-printer" {
 				lang = "go"
 			}
 			out = append(out, &v1.Connection{
@@ -132,5 +172,5 @@ func (p *Provider) ListConnections(_ context.Context, req *v1.ListConnectionsReq
 	if err != nil {
 		return nil, err
 	}
-	return &v1.ListConnectionsResponse{Connections: page, NextPageToken: next, TotalCount: int32(len(out)), Epoch: 1734}, nil
+	return &v1.ListConnectionsResponse{Connections: page, NextPageToken: next, TotalCount: int32(len(out)), Epoch: p.sc.epoch}, nil
 }

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -391,5 +392,190 @@ func TestMetricsPanicFailsTheSystem(t *testing.T) {
 	if code != http.StatusOK || !strings.Contains(body, `nats_lens_system_scrape_success{system="a"} 0`+"\n") ||
 		!strings.Contains(body, `nats_lens_test_up{system="b"} 1`+"\n") {
 		t.Fatalf("/metrics: %d\n%s", code, body)
+	}
+}
+
+// summaryOf wraps a provider with a SystemSummary that blocks until its
+// context ends ("hang"), blocks without looking at it ("ignore"), panics
+// ("panic") or fails ("fail").
+type summaryOf struct {
+	renamed
+	mode string
+}
+
+func (s summaryOf) SystemSummary(ctx context.Context, req *v1.ListSystemsRequest) (*v1.SystemSummary, error) {
+	switch s.mode {
+	case "hang":
+		<-ctx.Done()
+		return nil, ctx.Err()
+	case "ignore":
+		<-s.release
+		return &v1.SystemSummary{}, nil
+	case "panic":
+		panic("summary exploded")
+	case "fail":
+		return nil, errors.New("database is gone")
+	}
+	return s.renamed.SystemSummary(ctx, req)
+}
+
+func listSystems(t *testing.T, h *api.Handler, req *v1.ListSystemsRequest) (*v1.ListSystemsResponse, time.Duration) {
+	t.Helper()
+	_, c := apitest.ServeHandler(t, h)
+	start := time.Now()
+	res, err := c.ListSystems(context.Background(), connect.NewRequest(req))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return res.Msg, time.Since(start)
+}
+
+// A system whose summary blocks past the timeout gets an error on its own
+// card; the others still return, and the systems are read in parallel.
+func TestListSystemsTimeoutStaysOnItsCard(t *testing.T) {
+	for _, mode := range []string{"hang", "ignore"} {
+		t.Run(mode, func(t *testing.T) {
+			systems, a, b := twoSystems()
+			a.release = make(chan struct{})
+			defer close(a.release)
+			third := newRenamed("cluster-c")
+			third.release = a.release
+			systems[0].Provider = summaryOf{a, mode}
+			systems = append(systems, api.System{Ref: &v1.SystemRef{Id: "c"}, Provider: summaryOf{third, mode}})
+			_ = b
+			m, took := listSystems(t, &api.Handler{Systems: systems, SummaryTimeout: 200 * time.Millisecond}, &v1.ListSystemsRequest{})
+			if len(m.GetSystems()) != 3 {
+				t.Fatalf("systems = %v", m.GetSystems())
+			}
+			for i, want := range []bool{true, false, true} {
+				s := m.GetSystems()[i]
+				if got := s.GetError() != ""; got != want {
+					t.Errorf("system %s: error %q", s.GetSystem().GetId(), s.GetError())
+				}
+			}
+			if s := m.GetSystems()[1]; s.GetTally() == nil || s.GetServers() != 3 {
+				t.Errorf("the healthy system lost its summary: %v", s)
+			}
+			if took > 380*time.Millisecond {
+				t.Errorf("ListSystems took %v; two blocked systems should time out together", took)
+			}
+		})
+	}
+}
+
+func TestListSystemsPanicAndFailureStayOnTheirCards(t *testing.T) {
+	systems, a, b := twoSystems()
+	systems[0].Provider = summaryOf{a, "panic"}
+	systems = append(systems, api.System{Ref: &v1.SystemRef{Id: "c"}, Provider: summaryOf{newRenamed("c"), "fail"}})
+	_ = b
+	m, _ := listSystems(t, &api.Handler{Systems: systems, Log: slog.New(slog.DiscardHandler)}, &v1.ListSystemsRequest{})
+	got := m.GetSystems()
+	if got[0].GetError() == "" || got[1].GetError() != "" || got[2].GetError() == "" {
+		t.Fatalf("errors = %q, %q, %q", got[0].GetError(), got[1].GetError(), got[2].GetError())
+	}
+	if strings.Contains(got[2].GetError(), "database is gone") || strings.Contains(got[0].GetError(), "exploded") {
+		t.Errorf("a provider's error text reached the client: %q, %q", got[0].GetError(), got[2].GetError())
+	}
+	if got[0].GetSystem().GetId() != "a" || got[2].GetSystem().GetId() != "c" {
+		t.Errorf("a failed card lost its reference: %v, %v", got[0].GetSystem(), got[2].GetSystem())
+	}
+}
+
+// The runtime's collection status replaces what the provider read from
+// stored events.
+func TestListSystemsUsesTheCollectionStatus(t *testing.T) {
+	systems, _, _ := twoSystems()
+	since := time.Date(2026, 10, 17, 11, 30, 0, 0, time.UTC)
+	systems[1].Status = func() api.CollectionStatus {
+		return api.CollectionStatus{State: api.CollectionConnectionClosed, LastError: "nats: authorization violation", Since: since}
+	}
+	m, _ := listSystems(t, &api.Handler{Systems: systems}, &v1.ListSystemsRequest{})
+	a, b := m.GetSystems()[0], m.GetSystems()[1]
+	if a.GetCollection() != v1.CollectionState_COLLECTION_STATE_DEMO {
+		t.Errorf("a without a status: %v", a.GetCollection())
+	}
+	if b.GetCollection() != v1.CollectionState_COLLECTION_STATE_CONNECTION_CLOSED ||
+		b.GetCollectionError() != "nats: authorization violation" || !b.GetCollectionErrorSince().AsTime().Equal(since) {
+		t.Errorf("b = %v %q %v", b.GetCollection(), b.GetCollectionError(), b.GetCollectionErrorSince())
+	}
+	systems[1].Status = func() api.CollectionStatus { return api.CollectionStatus{State: api.CollectionCollecting} }
+	m, _ = listSystems(t, &api.Handler{Systems: systems}, &v1.ListSystemsRequest{})
+	if b := m.GetSystems()[1]; b.GetCollection() != v1.CollectionState_COLLECTION_STATE_COLLECTING || b.GetCollectionError() != "" || b.GetCollectionErrorSince() != nil {
+		t.Errorf("b collecting = %v %q %v", b.GetCollection(), b.GetCollectionError(), b.GetCollectionErrorSince())
+	}
+}
+
+func TestListSystemsStripBuckets(t *testing.T) {
+	systems, _, _ := twoSystems()
+	_, c := apitest.ServeHandler(t, &api.Handler{Systems: systems})
+	for _, n := range []int32{-1, 501} {
+		_, err := c.ListSystems(context.Background(), connect.NewRequest(&v1.ListSystemsRequest{StripBuckets: n}))
+		if codeOf(err) != connect.CodeInvalidArgument {
+			t.Errorf("strip_buckets %d: %v", n, err)
+		}
+	}
+	m, _ := listSystems(t, &api.Handler{Systems: systems}, &v1.ListSystemsRequest{})
+	if n := len(m.GetSystems()[0].GetStrip()); n != 48 {
+		t.Errorf("default strip has %d buckets", n)
+	}
+	m, _ = listSystems(t, &api.Handler{Systems: systems}, &v1.ListSystemsRequest{StripBuckets: 24})
+	if s := m.GetSystems()[0]; len(s.GetStrip()) != 24 || s.GetStripBucket().AsDuration() != time.Hour {
+		t.Errorf("24 buckets: %d of %v", len(s.GetStrip()), s.GetStripBucket())
+	}
+}
+
+// A provider that ignores its context holds at most one goroutine per
+// system: while its previous summary still runs, a call gets the timeout
+// card at once.
+func TestListSystemsStartsOneSummaryPerSystem(t *testing.T) {
+	systems, a, _ := twoSystems()
+	a.release = make(chan struct{})
+	defer close(a.release)
+	systems[0].Provider = summaryOf{a, "ignore"}
+	h := &api.Handler{Systems: systems, SummaryTimeout: 20 * time.Millisecond}
+	before := runtime.NumGoroutine()
+	for i := range 30 {
+		res, err := h.ListSystems(context.Background(), connect.NewRequest(&v1.ListSystemsRequest{}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if s := res.Msg.GetSystems()[0]; s.GetError() == "" {
+			t.Fatalf("call %d: no error on the blocked system", i)
+		}
+	}
+	time.Sleep(50 * time.Millisecond)
+	if n := runtime.NumGoroutine() - before; n > 3 {
+		t.Errorf("%d goroutines more after 30 calls", n)
+	}
+}
+
+// A collection status that panics fails its own card only.
+func TestListSystemsStatusPanicStaysOnItsCard(t *testing.T) {
+	systems, _, _ := twoSystems()
+	systems[1].Status = func() api.CollectionStatus { panic("status exploded") }
+	h := &api.Handler{Systems: systems, Log: slog.New(slog.DiscardHandler)}
+	res, err := h.ListSystems(context.Background(), connect.NewRequest(&v1.ListSystemsRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := res.Msg.GetSystems(); got[0].GetError() != "" || got[1].GetError() == "" {
+		t.Errorf("errors %q, %q", got[0].GetError(), got[1].GetError())
+	}
+}
+
+// A caller that goes away is not a failed summary.
+func TestListSystemsCancelIsNotLogged(t *testing.T) {
+	systems, a, _ := twoSystems()
+	systems[0].Provider = summaryOf{a, "hang"}
+	var log strings.Builder
+	h := &api.Handler{Systems: systems, Log: slog.New(slog.NewTextHandler(&log, nil))}
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	go func() { time.Sleep(20 * time.Millisecond); cancel() }()
+	if _, err := h.ListSystems(ctx, connect.NewRequest(&v1.ListSystemsRequest{})); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(log.String(), "summary failed") {
+		t.Errorf("a cancel was logged:\n%s", log.String())
 	}
 }
