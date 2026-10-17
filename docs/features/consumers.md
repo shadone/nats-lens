@@ -17,6 +17,8 @@ The Consumers page lists the JetStream consumers of the newest collection in the
 - **Missing consumers are listed.** A consumer the inventory expects that no server reports appears in the list as "missing", with no numbers. Its page says "Missing. The consumer does not exist now: it is expected by the inventory, or it was deleted inside the range."
 - **The consumer page.** The header names the stream, durable or ephemeral, the replicas, and "paused" or "servers disagree" when they apply. Stat cards show pending, ack pending, redelivered, waiting pulls, the leader and the last delivery. Charts show pending, ack pending and redelivered over the range.
 - **Servers disagree and per server.** As on the stream page: a table of each server's configuration hash and creation time when they differ, and for each server its replica role, lag, delivered and ack floor sequences, creation time and configuration hash.
+- **Delivery rate in the API.** Each consumer carries `delivered_per_second`: the increase of its leader's delivered sequence per second over the 15 minutes before the range's end. The rate counts within one leading server and one creation time, so a leader move or a recreated consumer starts it over. Without two leader reports in those 15 minutes the rate is unset, never zero. The page does not show it yet.
+- **Busiest first, in the API.** `ListConsumers` with `sort` set to `CONSUMER_SORT_DELIVERED_RATE` puts the highest delivery rate first and the consumers without a rate last; `limit` keeps only the first ones. The default order stays worst first.
 - **Configuration and events.** The configuration as the leader reports it, or, for a missing consumer, the configuration the inventory expects; and the newest 15 events of the consumer.
 
 ## Scenarios
@@ -46,6 +48,14 @@ The Consumers page lists the JetStream consumers of the newest collection in the
 - **Given** `natslens run` serves its API
 - **When** I call `ListConsumers` with a stream, or `GetConsumer` with the account, stream and consumer
 - **Then** I receive the consumers with their leader's numbers, or the one consumer with each server's view and its configuration
+
+### Find the busiest consumers
+
+- **Surfaces:** `api`
+- **Given** consumers that deliver between 1 and 8 messages per second, and one that only a follower reports
+- **When** I call `ListConsumers` with `sort` `CONSUMER_SORT_DELIVERED_RATE` and `limit` 6
+- **Then** I receive the six fastest consumers, fastest first, each with its `delivered_per_second`
+- **And** without the limit, the consumer only a follower reports comes last, with no rate
 
 ## Planned
 

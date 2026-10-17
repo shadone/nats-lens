@@ -76,6 +76,14 @@ message Tile {
   // Upper limit of the value, when one exists (for example the JetStream
   // storage limit).
   optional double limit = 12;
+
+  // One plain sentence for the tile's tooltip: what the number is and how
+  // it is measured.
+  string description = 13;
+
+  // Current value as text, for a tile whose value is a name, for example
+  // the meta leader's server name; empty otherwise.
+  string value_text = 14;
 }
 
 // A span of time with a known cause, for example a node upgrade.

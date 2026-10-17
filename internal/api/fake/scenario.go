@@ -46,7 +46,6 @@ type scenario struct {
 	windows func(s scen, r *v1.TimeRange) []*v1.TimeWindow
 	// k8sLanes draws the Kubernetes lane through lane.
 	k8sLanes func(s scen, lane func(at time.Time, kind, short, label string))
-	tiles    func(s scen, r *v1.TimeRange, maxPoints int32) []*v1.Tile
 	// sample is a metric's value at fixed-frame time c; ok is false where
 	// there is no data.
 	sample func(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (float64, bool)

@@ -98,23 +98,6 @@ func (p *Provider) bucketViews(r *v1.TimeRange, account, prefix string) []bucket
 	return out
 }
 
-// placement is the leader, then the followers: in sync, or offline on a
-// server that does not answer.
-func (s scen) placement(sp streamSpec) []*v1.ReplicaPlacement {
-	var out []*v1.ReplicaPlacement
-	for i, name := range s.sc.peers(sp) {
-		st := v1.PlacementState_PLACEMENT_STATE_IN_SYNC
-		if i == 0 {
-			st = v1.PlacementState_PLACEMENT_STATE_LEADER
-		}
-		if sv, _ := s.sc.server(name); !sv.answering() {
-			st = v1.PlacementState_PLACEMENT_STATE_OFFLINE
-		}
-		out = append(out, &v1.ReplicaPlacement{Server: name, State: st})
-	}
-	return out
-}
-
 func (b bucketSpec) storageOr() string {
 	if b.storage == "" {
 		return "file"

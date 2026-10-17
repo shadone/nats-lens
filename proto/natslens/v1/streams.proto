@@ -52,6 +52,11 @@ message StreamSummary {
 
   // Server name of the leader.
   string leader = 12;
+
+  // One entry per replica, by server name, with the state the leader
+  // reports; a configured replica that no server names comes last, with
+  // no server.
+  repeated ReplicaPlacement placement = 13;
 }
 
 // One server's view of a stream.

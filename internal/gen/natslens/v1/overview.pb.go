@@ -147,7 +147,13 @@ type Tile struct {
 	Series2 *Series `protobuf:"bytes,11,opt,name=series2,proto3" json:"series2,omitempty"`
 	// Upper limit of the value, when one exists (for example the JetStream
 	// storage limit).
-	Limit         *float64 `protobuf:"fixed64,12,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
+	Limit *float64 `protobuf:"fixed64,12,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
+	// One plain sentence for the tile's tooltip: what the number is and how
+	// it is measured.
+	Description string `protobuf:"bytes,13,opt,name=description,proto3" json:"description,omitempty"`
+	// Current value as text, for a tile whose value is a name, for example
+	// the meta leader's server name; empty otherwise.
+	ValueText     string `protobuf:"bytes,14,opt,name=value_text,json=valueText,proto3" json:"value_text,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -264,6 +270,20 @@ func (x *Tile) GetLimit() float64 {
 		return *x.Limit
 	}
 	return 0
+}
+
+func (x *Tile) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *Tile) GetValueText() string {
+	if x != nil {
+		return x.ValueText
+	}
+	return ""
 }
 
 // A span of time with a known cause, for example a node upgrade.
@@ -525,7 +545,7 @@ const file_natslens_v1_overview_proto_rawDesc = "" +
 	"\x03age\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\x03age\x12\x18\n" +
 	"\apartial\x18\x04 \x01(\bR\apartial\x12\x12\n" +
 	"\x04live\x18\x05 \x01(\bR\x04live\x125\n" +
-	"\binterval\x18\x06 \x01(\v2\x19.google.protobuf.DurationR\binterval\"\xb2\x03\n" +
+	"\binterval\x18\x06 \x01(\v2\x19.google.protobuf.DurationR\binterval\"\xf3\x03\n" +
 	"\x04Tile\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12\x19\n" +
@@ -539,7 +559,10 @@ const file_natslens_v1_overview_proto_rawDesc = "" +
 	"\x06series\x18\n" +
 	" \x01(\v2\x13.natslens.v1.SeriesR\x06series\x12-\n" +
 	"\aseries2\x18\v \x01(\v2\x13.natslens.v1.SeriesR\aseries2\x12\x19\n" +
-	"\x05limit\x18\f \x01(\x01H\x02R\x05limit\x88\x01\x01B\b\n" +
+	"\x05limit\x18\f \x01(\x01H\x02R\x05limit\x88\x01\x01\x12 \n" +
+	"\vdescription\x18\r \x01(\tR\vdescription\x12\x1d\n" +
+	"\n" +
+	"value_text\x18\x0e \x01(\tR\tvalueTextB\b\n" +
 	"\x06_valueB\t\n" +
 	"\a_value2B\b\n" +
 	"\x06_limit\"\x9a\x01\n" +

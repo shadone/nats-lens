@@ -61,10 +61,10 @@ func TestOverviewReproducesTheReferenceScenario(t *testing.T) {
 	if got := o.GetServers()[0]; got.GetRole() != v1.ServerRole_SERVER_ROLE_META_LEADER || got.GetUptime().AsDuration() != 5*time.Hour+11*time.Minute+56*time.Second {
 		t.Fatalf("nats-0 = %v", got)
 	}
-	if len(o.GetTiles()) != 6 || len(o.GetWindows()) != 1 || !o.GetWindows()[0].GetStart().AsTime().Equal(at(9, 14, 0)) {
+	if len(o.GetTiles()) != 9 || len(o.GetWindows()) != 1 || !o.GetWindows()[0].GetStart().AsTime().Equal(at(9, 14, 0)) {
 		t.Fatalf("%d tiles, windows %v", len(o.GetTiles()), o.GetWindows())
 	}
-	want := map[string]float64{"servers": 3, "connections": 182, "slow_consumers": 7, "msgs_rate": 1240, "consumers": 13}
+	want := map[string]float64{"servers": 3, "clients": 182, "meta_leader": 2, "consumers": 13}
 	for _, tile := range o.GetTiles() {
 		if v, ok := want[tile.GetId()]; ok && tile.GetValue() != v {
 			t.Errorf("tile %s = %v, want %v", tile.GetId(), tile.GetValue(), v)
