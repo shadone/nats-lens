@@ -19,8 +19,3 @@
   .chart-f span:nth-child(2){grid-column:1 / -1;grid-row:2}
   .chart-f span:last-child{text-align:right}
 }
-/* The tabs wrap onto a second line instead of scrolling with a hidden bar. */
-@media (max-width:760px){
-  .tabs{flex-wrap:wrap;gap:0 16px;overflow-x:visible}
-  .tabs a{padding:8px 0 9px}
-}

@@ -13,8 +13,8 @@ import { HealthIcon } from "./Severity";
 
 /**
  * Paging over page tokens: a stack of the tokens seen. A token is valid only
- * with the filters it came from, so a new key starts again at page one
- * within the same render.
+ * with the system and filters it came from, so the key holds them all, and
+ * a new key starts again at page one within the same render.
  */
 export function usePager(key: string) {
   const [st, setSt] = useState({ key, stack: [""] });
@@ -41,7 +41,7 @@ export function Pager({ page, next, onNext, onPrev, total, shown, newer = "Previ
   older?: string;
 }) {
   return (
-    <nav className="pager" aria-label="Pages">
+    <nav className="pager" aria-label="Pagination">
       <span>
         {fmtInt(shown)} shown of {fmtInt(total)} · page {page}
       </span>

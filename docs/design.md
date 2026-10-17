@@ -296,7 +296,9 @@ Alerting is not part of the tool. A Prometheus scrapes `/metrics` (on GKE, Manag
 
 ## UI
 
-React, Vite, TypeScript, TanStack Query and the generated Connect client. Pages: Overview, Servers, Streams, Consumers, Connections, Events, Findings, and a detail page per entity. One global time range with live mode, read from the URL (`?range=` live or `?from=&to=` fixed), so links are shareable. Pages read view models from `web/src/api`, the only code that touches the generated client.
+React, Vite, TypeScript, TanStack Query and the generated Connect client. A left sidebar lists the pages in groups: Fleet, Overview and Findings at the top; Messaging (Connections); JetStream (Streams, Consumers); Cluster (Servers, Events); and a detail page per entity. `web/src/nav.ts` is the list of sidebar pages: each has a group, a path, a label, an icon, a badge source, and `planned` for a page not built yet, which stays hidden. Each feature keeps its query hooks in `web/src/api/<feature>.ts`. The header names the page and holds the account scope, a search, the time range and the theme menu.
+
+Three parameters of the URL are global: the time range (`?range=` live or `?from=&to=` fixed), the system (`?system=`) and the account scope (`?account=`). Every link between pages carries them (`useGlobalQuery`, worked out once per URL change by `GlobalQueryProvider`), so a link opens the same view for the next person; a parameter the link sets itself wins. The account goes only to pages that apply it (`accountScope` in `nav.ts`) and their detail pages, never to another system. Every request takes the system from `useSystem()` and every query key holds it as its second element, so two systems never share a cache entry. A page without `?system=` reads the default system; with several systems its links name the default system. A `?system=` that names no configured system shows "System not found" with a link to Fleet, and the UI makes no call for it. Pages read view models from `web/src/api`, the only code that touches the generated client.
 
 The UI handler serves files from the embedded UI; a GET for a path that names no file and whose last element has no dot gets `index.html`, and a missing asset is a 404.
 
@@ -394,6 +396,17 @@ Proposed, not yet confirmed by the owner.
 | CSP with hashes of the inline script and style, nosniff and no-referrer on every response; JWTs removed from `raw` at any depth | Security |
 | `iap_audience` required beyond loopback unless `allow_unauthenticated`; IAP key caching rules | Security |
 | `.npmrc` cooldown of 7 days; `make vuln` runs govulncheck by hand, no CI job | Security |
+| Planned pages stay in `nav.ts`, hidden; KV Stores and Object Stores stay hidden until their pages exist | UI |
+| With more than one system, `/` without `?system=` lands on Fleet; with one, on the Overview | UI |
+| Links carry `?system=` and the range, and `?account=` only to pages that apply it and their detail pages; a link's own parameter wins; a link to another system drops the account; with several systems a page without `?system=` links to the default system by name | UI |
+| An unknown `?system=` shows "System not found", the shell makes no call for it, and the sidebar's links leave it out | UI |
+| Switching system opens the list page of the current section on the other system, with the range kept and the account dropped | UI |
+| The header has no server chips; the switcher shows the number of servers answering | UI |
+| The Fleet badge stays empty until `ListSystems` returns each system's status | UI |
+| Search loads the servers, streams, consumers, KV stores, object stores and accounts of the current system on first focus; an account result opens Connections scoped to it; the shortcut is Cmd+K on macOS (Ctrl+K kills the line there) and Ctrl+K elsewhere, never taken from another text field | UI |
+| The account scope applies to Consumers (without a chosen stream) and Connections, and the header offers it only there (`accountScope` in `nav.ts`); other pages follow as they add the parameter | UI |
+| The page content is keyed by path and system, so nothing of one system shows under another; mutes take the system the dialog opened on | UI |
+| The collapsed sidebar is remembered in the browser and keeps the system as its initials; at phone width the sidebar is a drawer with the page behind it inert | UI |
 
 ## Out of scope for the first release
 

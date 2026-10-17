@@ -24,13 +24,11 @@ import type {
 type RangeInit = MessageInitShape<typeof TimeRangeSchema>;
 
 /**
- * The system the page shows: the ?system= of its URL, passed through as
- * given. Without it the request names no system and the server reads its
- * default one.
+ * The system a request reads, as useSystem() gives it. An empty one names
+ * no system, and the server reads its default one.
  */
-function system(): { system?: string } {
-  const id = new URLSearchParams(window.location.search).get("system");
-  return id ? { system: id } : {};
+export function systemInit(sys: string): { system?: string } {
+  return sys ? { system: sys } : {};
 }
 
 /** A live range leaves the end unset, so the server reads up to its now. */
@@ -52,8 +50,8 @@ function entityInit(e: Entity | undefined) {
   };
 }
 
-export async function getOverview(spec: RangeSpec, signal?: AbortSignal) {
-  return overview(await lens.getOverview({ ...system(), range: rangeInit(spec), maxPoints: 96 }, { signal }));
+export async function getOverview(sys: string, spec: RangeSpec, signal?: AbortSignal) {
+  return overview(await lens.getOverview({ ...systemInit(sys), range: rangeInit(spec), maxPoints: 96 }, { signal }));
 }
 
 export interface FindingFilter {
@@ -66,10 +64,10 @@ export interface FindingFilter {
   pageToken?: string;
 }
 
-export async function listFindings(spec: RangeSpec, f: FindingFilter, signal?: AbortSignal): Promise<Page<Finding>> {
+export async function listFindings(sys: string, spec: RangeSpec, f: FindingFilter, signal?: AbortSignal): Promise<Page<Finding>> {
   const r = await lens.listFindings(
     {
-      ...system(),
+      ...systemInit(sys),
       range: rangeInit(spec),
       states: (f.states ?? []).map(findingStateEnum),
       severities: (f.severities ?? []).map(severityEnum),
@@ -84,13 +82,13 @@ export async function listFindings(spec: RangeSpec, f: FindingFilter, signal?: A
   return { items: r.findings.map(finding), nextPageToken: r.nextPageToken, totalCount: r.totalCount };
 }
 
-export async function getFinding(id: string, signal?: AbortSignal) {
-  const r = await lens.getFinding({ ...system(), id }, { signal });
+export async function getFinding(sys: string, id: string, signal?: AbortSignal) {
+  const r = await lens.getFinding({ ...systemInit(sys), id }, { signal });
   return { finding: r.finding ? finding(r.finding) : undefined, transitions: r.transitions.map(transition) };
 }
 
-export async function listMutes(includeInactive: boolean, pageToken: string, signal?: AbortSignal): Promise<Page<Mute>> {
-  const r = await lens.listMutes({ ...system(), includeInactive, pageSize: 50, pageToken }, { signal });
+export async function listMutes(sys: string, includeInactive: boolean, pageToken: string, signal?: AbortSignal): Promise<Page<Mute>> {
+  const r = await lens.listMutes({ ...systemInit(sys), includeInactive, pageSize: 50, pageToken }, { signal });
   return { items: r.mutes.map((m) => mute(m)!), nextPageToken: r.nextPageToken, totalCount: r.totalCount };
 }
 
@@ -102,9 +100,9 @@ export interface MuteInput {
   mutedBy: string;
 }
 
-export async function muteFinding(m: MuteInput) {
+export async function muteFinding(sys: string, m: MuteInput) {
   const r = await lens.muteFinding({
-    ...system(),
+    ...systemInit(sys),
     checkCode: m.checkCode,
     entity: entityInit(m.entity),
     reason: m.reason,
@@ -114,15 +112,15 @@ export async function muteFinding(m: MuteInput) {
   return mute(r.mute);
 }
 
-export async function unmuteFinding(muteId: string, unmutedBy: string) {
-  const r = await lens.unmuteFinding({ ...system(), muteId, unmutedBy });
+export async function unmuteFinding(sys: string, muteId: string, unmutedBy: string) {
+  const r = await lens.unmuteFinding({ ...systemInit(sys), muteId, unmutedBy });
   return mute(r.mute);
 }
 
-export async function getTimeline(spec: RangeSpec, entity: Entity | undefined, signal?: AbortSignal) {
+export async function getTimeline(sys: string, spec: RangeSpec, entity: Entity | undefined, signal?: AbortSignal) {
   const { start, end } = resolveRange(spec, Date.now());
   const r = await lens.getStatusTimeline(
-    { ...system(), range: rangeInit(spec), bucket: durationFromMs(bucketFor(end - start)), entity: entityInit(entity) },
+    { ...systemInit(sys), range: rangeInit(spec), bucket: durationFromMs(bucketFor(end - start)), entity: entityInit(entity) },
     { signal },
   );
   return timeline(r);
@@ -137,10 +135,10 @@ export interface EventFilter {
   pageToken?: string;
 }
 
-export async function listEvents(spec: RangeSpec, f: EventFilter, signal?: AbortSignal): Promise<Page<LensEvent>> {
+export async function listEvents(sys: string, spec: RangeSpec, f: EventFilter, signal?: AbortSignal): Promise<Page<LensEvent>> {
   const r = await lens.listEvents(
     {
-      ...system(),
+      ...systemInit(sys),
       range: rangeInit(spec),
       sources: (f.sources ?? []).map(sourceEnum),
       kinds: f.kinds ?? [],
@@ -154,13 +152,13 @@ export async function listEvents(spec: RangeSpec, f: EventFilter, signal?: Abort
   return { items: r.events.map(event), nextPageToken: r.nextPageToken, totalCount: r.totalCount };
 }
 
-export async function getEvent(id: string, signal?: AbortSignal) {
-  const r = await lens.getEvent({ ...system(), id }, { signal });
+export async function getEvent(sys: string, id: string, signal?: AbortSignal) {
+  const r = await lens.getEvent({ ...systemInit(sys), id }, { signal });
   return r.event ? event(r.event) : undefined;
 }
 
-export async function listStreams(spec: RangeSpec, includeKv: boolean, signal?: AbortSignal) {
-  const r = await lens.listStreams({ ...system(), range: rangeInit(spec), includeKv }, { signal });
+export async function listStreams(sys: string, spec: RangeSpec, includeKv: boolean, signal?: AbortSignal) {
+  const r = await lens.listStreams({ ...systemInit(sys), range: rangeInit(spec), includeKv }, { signal });
   return {
     streams: r.streams.map(stream),
     totals: {
@@ -171,35 +169,36 @@ export async function listStreams(spec: RangeSpec, includeKv: boolean, signal?: 
   };
 }
 
-export async function getStream(spec: RangeSpec, account: string, name: string, signal?: AbortSignal) {
-  return streamDetail(await lens.getStream({ ...system(), account, stream: name, range: rangeInit(spec) }, { signal }));
+export async function getStream(sys: string, spec: RangeSpec, account: string, name: string, signal?: AbortSignal) {
+  return streamDetail(await lens.getStream({ ...systemInit(sys), account, stream: name, range: rangeInit(spec) }, { signal }));
 }
 
 export async function listConsumers(
+  sys: string,
   spec: RangeSpec,
   f: { account?: string; stream?: string; includeEphemeral?: boolean },
   signal?: AbortSignal,
 ) {
   const r = await lens.listConsumers(
-    { ...system(), range: rangeInit(spec), account: f.account ?? "", stream: f.stream ?? "", includeEphemeral: f.includeEphemeral ?? false },
+    { ...systemInit(sys), range: rangeInit(spec), account: f.account ?? "", stream: f.stream ?? "", includeEphemeral: f.includeEphemeral ?? false },
     { signal },
   );
   return r.consumers.map(consumer);
 }
 
-export async function getConsumer(spec: RangeSpec, account: string, streamName: string, name: string, signal?: AbortSignal) {
+export async function getConsumer(sys: string, spec: RangeSpec, account: string, streamName: string, name: string, signal?: AbortSignal) {
   return consumerDetail(
-    await lens.getConsumer({ ...system(), account, stream: streamName, consumer: name, range: rangeInit(spec) }, { signal }),
+    await lens.getConsumer({ ...systemInit(sys), account, stream: streamName, consumer: name, range: rangeInit(spec) }, { signal }),
   );
 }
 
-export async function listServers(spec: RangeSpec, signal?: AbortSignal) {
-  const r = await lens.listServers({ ...system(), range: rangeInit(spec) }, { signal });
+export async function listServers(sys: string, spec: RangeSpec, signal?: AbortSignal) {
+  const r = await lens.listServers({ ...systemInit(sys), range: rangeInit(spec) }, { signal });
   return { servers: r.servers.map(server), expected: r.expected, missing: r.missing };
 }
 
-export async function getServer(spec: RangeSpec, name: string, signal?: AbortSignal) {
-  return serverDetail(await lens.getServer({ ...system(), name, range: rangeInit(spec) }, { signal }));
+export async function getServer(sys: string, spec: RangeSpec, name: string, signal?: AbortSignal) {
+  return serverDetail(await lens.getServer({ ...systemInit(sys), name, range: rangeInit(spec) }, { signal }));
 }
 
 export interface ConnectionFilter {
@@ -211,10 +210,10 @@ export interface ConnectionFilter {
   pageToken?: string;
 }
 
-export async function listConnections(spec: RangeSpec, f: ConnectionFilter, signal?: AbortSignal): Promise<ConnectionPage> {
+export async function listConnections(sys: string, spec: RangeSpec, f: ConnectionFilter, signal?: AbortSignal): Promise<ConnectionPage> {
   const r = await lens.listConnections(
     {
-      ...system(),
+      ...systemInit(sys),
       range: rangeInit(spec),
       server: f.server ?? "",
       account: f.account ?? "",
@@ -234,23 +233,23 @@ export async function listConnections(spec: RangeSpec, f: ConnectionFilter, sign
   };
 }
 
-export async function getSeries(spec: RangeSpec, metric: string, entity: Entity | undefined, maxPoints: number, signal?: AbortSignal) {
-  const r = await lens.getTimeSeries({ ...system(), metric, entity: entityInit(entity), range: rangeInit(spec), maxPoints }, { signal });
+export async function getSeries(sys: string, spec: RangeSpec, metric: string, entity: Entity | undefined, maxPoints: number, signal?: AbortSignal) {
+  const r = await lens.getTimeSeries({ ...systemInit(sys), metric, entity: entityInit(entity), range: rangeInit(spec), maxPoints }, { signal });
   return series(r.series);
 }
 
-
-export async function getLensInfo(signal?: AbortSignal) {
-  return lensInfo(await lens.getLensInfo({ ...system() }, { signal }));
+export async function getLensInfo(sys: string, signal?: AbortSignal) {
+  return lensInfo(await lens.getLensInfo({ ...systemInit(sys) }, { signal }));
 }
 
 /**
- * What the header needs on every page: freshness and the servers now. It
+ * What the shell needs on every page: freshness, the servers now and the
+ * findings tally. It
  * reads GetOverview over the last two collect intervals with one point per
  * tile, which keeps the call small; the API has no lighter call that names
  * the newest epoch's time.
  */
-export async function getHeaderStatus(intervalMs: number, signal?: AbortSignal) {
-  const o = overview(await lens.getOverview({ ...system(), range: { start: timestampFromMs(Date.now() - 2 * intervalMs) }, maxPoints: 1 }, { signal }));
-  return { cluster: o.cluster, freshness: o.freshness, servers: o.servers };
+export async function getHeaderStatus(sys: string, intervalMs: number, signal?: AbortSignal) {
+  const o = overview(await lens.getOverview({ ...systemInit(sys), range: { start: timestampFromMs(Date.now() - 2 * intervalMs) }, maxPoints: 1 }, { signal }));
+  return { cluster: o.cluster, freshness: o.freshness, servers: o.servers, tally: o.tally };
 }

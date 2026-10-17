@@ -10,6 +10,7 @@ import "@fontsource/ibm-plex-mono/latin-500.css";
 import "@fontsource/ibm-plex-mono/latin-600.css";
 import "./styles/index.css";
 import { App } from "./App";
+import { GlobalQueryProvider } from "./lib/useGlobalQuery";
 import { shouldRetry } from "./api/errors";
 import { clearLegacyIdentityFlag } from "./api/identity";
 
@@ -26,7 +27,9 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <App />
+        <GlobalQueryProvider>
+          <App />
+        </GlobalQueryProvider>
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,

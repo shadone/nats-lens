@@ -1,6 +1,7 @@
 @import "./tokens.css";
 @import "./base.css";
 @import "./header.css";
+@import "./sidebar.css";
 @import "./overview.css";
 @import "./timeline.css";
 @import "./lower.css";
