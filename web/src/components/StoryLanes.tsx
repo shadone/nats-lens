@@ -153,7 +153,7 @@ export function StoryLanes({ tl, end, live }: Props) {
       {checks && (
         <div className="sl-checks tl">
           {tl.rows.length === 0 && tl.kubernetes.length === 0 ? (
-            <p className="muted-note">No check has reported in this range. The timeline fills in once checks run after each epoch.</p>
+            <p className="muted-note">No check has reported in this range. The timeline fills in once checks run after each collection.</p>
           ) : (
             <StatusTimeline tl={tl} end={end} live={live} asTable={asTable} />
           )}

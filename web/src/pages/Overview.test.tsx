@@ -71,7 +71,7 @@ describe("Overview without findings", () => {
     renderApp(<Overview />);
     expect(await screen.findByRole("heading", { name: "Serving normally" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Findings now" })).toBeNull();
-    expect(screen.getByText(/No epoch stored in this range yet/)).toBeInTheDocument();
+    expect(screen.getByText(/No collection stored in this range yet/)).toBeInTheDocument();
     expect(await screen.findByText(/No consumer in the newest collection/)).toBeInTheDocument();
     expect(await screen.findByText(/No streams in the newest collection/)).toBeInTheDocument();
     expect(await screen.findByRole("img", { name: /^Findings: ok throughout/ })).toBeInTheDocument();

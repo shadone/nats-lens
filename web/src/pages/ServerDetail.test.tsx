@@ -117,7 +117,7 @@ describe("ServerDetail, failing cases", () => {
   it("shows a dash, never a stale value, for a server that did not answer", async () => {
     show(fromJson(GetServerResponseSchema, exampleGlobalUs4), "nats-us-4");
     const h = await screen.findByRole("heading", { name: "nats-us-4" });
-    expect(h.parentElement).toHaveTextContent(/did not answer in the newest epoch$/);
+    expect(h.parentElement).toHaveTextContent(/did not answer in the newest collection$/);
     const cpu = screen.getByRole("button", { name: "About CPU" }).closest(".mbox")!;
     await waitFor(() => expect(cpu.querySelector(".mb-v b")).toHaveTextContent("–"));
     expect(cpu).not.toHaveTextContent("5%");

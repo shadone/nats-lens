@@ -38,20 +38,20 @@ var TileLabels = map[string]string{
 // TileDescriptions are the tiles' tooltips: what the number is and how it
 // is measured.
 var TileDescriptions = map[string]string{
-	TileServers: "NATS servers that answered in the newest epoch, out of the servers the system expects; " +
+	TileServers: "NATS servers that answered in the newest collection, out of the servers the system expects; " +
 		"the subtitle gives their versions and the shortest uptime.",
 	TileMetaLeader: "The server that leads the JetStream meta group, as more than half of the expected servers " +
-		"report it in the newest epoch; the number and the chart count leader changes in the range.",
-	TileStreams: "Streams any server reports in the newest epoch, without the KV and object store streams; " +
+		"report it in the newest collection; the number and the chart count leader changes in the range.",
+	TileStreams: "Streams any server reports in the newest collection, without the KV and object store streams; " +
 		"replicated means more than one replica, lagging that the leader reports a replica behind.",
-	TileKV: "KV buckets, the streams named KV_<bucket>, that any server reports in the newest epoch; " +
+	TileKV: "KV buckets, the streams named KV_<bucket>, that any server reports in the newest collection; " +
 		"R1 counts the buckets kept on one server only.",
-	TileObjectStores: "Object stores, the streams named OBJ_<bucket>, that any server reports in the newest epoch; " +
+	TileObjectStores: "Object stores, the streams named OBJ_<bucket>, that any server reports in the newest collection; " +
 		"lagging means the leader reports a replica behind.",
-	TileConsumers: "Durable consumers any server reports in the newest epoch; " +
+	TileConsumers: "Durable consumers any server reports in the newest collection; " +
 		"behind counts the consumers whose backlog keeps growing (check consumer-002).",
 	TileAccounts: "Accounts other than the system account that have a client connection or a stream, " +
-		"from the servers' account statistics in the newest epoch.",
+		"from the servers' account statistics in the newest collection.",
 	TileClients: "Client connections across all servers as the servers count them, nats-lens's own included; " +
 		"apps counts the distinct connection names up to an \"@\", slow the slow consumer events in the range.",
 	TileStorage: "JetStream file storage in use across all servers, every replica counted; the limit is the sum of " +

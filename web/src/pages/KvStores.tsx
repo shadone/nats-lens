@@ -38,11 +38,11 @@ export function KvStores() {
     <>
       <div className="page-h">
         <h1>KV Stores</h1>
-        <span className="aside">KV buckets as the leader reports them in the newest epoch of the range. A dash means the value was not observed.</span>
+        <span className="aside">KV buckets as the leader reports them in the newest collection of the range. A dash means the value was not observed.</span>
       </div>
       <QueryView q={q} what="KV stores">
         {(all) => {
-          if (all.length === 0) return <Empty>No KV buckets in the newest epoch of this range.</Empty>;
+          if (all.length === 0) return <Empty>No KV buckets in the newest collection of this range.</Empty>;
           // Own keys only: ?sort=__proto__ must not reach the prototype.
           const value = sort && Object.hasOwn(SORT, sort.key) ? SORT[sort.key] : undefined;
           const rows = value && sort ? sortRows(all, value, sort.dir) : all;

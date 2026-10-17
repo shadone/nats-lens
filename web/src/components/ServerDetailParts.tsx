@@ -156,13 +156,13 @@ export function RecentEvents({ name, spec, end }: { name: string; spec: RangeSpe
 export function EndpointsAnswered({ info }: { info: ServerInfo }) {
   const ok = info.endpoints.filter((e) => e.state === "ok").length;
   const failed = info.endpoints.filter((e) => e.state !== "ok");
-  if (!info.endpoints.length) return <p className="sd-ep muted-note">No monitoring request recorded in the newest epoch.</p>;
+  if (!info.endpoints.length) return <p className="sd-ep muted-note">No monitoring request recorded in the newest collection.</p>;
   return (
     <p className="sd-ep">
       <span className="mono">
         {ok}/{info.endpoints.length}
       </span>{" "}
-      monitoring endpoints answered in the newest epoch
+      monitoring endpoints answered in the newest collection
       {failed.length > 0 && failed.length <= 4 && (
         <>
           ; not:{" "}

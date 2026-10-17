@@ -38,7 +38,7 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
   // A server that did not answer has no current value: its last numbers are
   // history, shown on the chart, not now.
   const down = !s.present;
-  const downNote = down ? "did not answer in the newest epoch" : undefined;
+  const downNote = down ? "did not answer in the newest collection" : undefined;
   const cpuNow = down ? null : (s.cpuPercent ?? null);
   const connNow = down ? null : (s.connections ?? null);
   const limit = info.limits?.maxConnections;
@@ -98,7 +98,7 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
       />
       <MetricBox
         title="Slow consumers"
-        description="Clients the server dropped as slow consumers: the increase of its counter per bucket, per process. A restart's first epoch adds nothing."
+        description="Clients the server dropped as slow consumers: the increase of its counter per bucket, per process. A restart's first collection adds nothing."
         {...slow}
         value={slowNow}
         fmt={(v) => fmtInt(v)}

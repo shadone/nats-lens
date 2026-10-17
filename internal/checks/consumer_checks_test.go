@@ -37,7 +37,7 @@ func TestConsumerQuorumLost(t *testing.T) {
 	f.fires("consumer-001", 1)
 	f.fires("consumer-001", 2)
 	r := f.fires("consumer-001", 3, jobsKey)
-	want(t, r[jobsKey], "critical", "No leader that the reporting servers agree on (nats-0: none), for 2 epochs")
+	want(t, r[jobsKey], "critical", "No leader that the reporting servers agree on (nats-0: none), for 2 collections")
 }
 
 func TestConsumerBacklogGrowing(t *testing.T) {
