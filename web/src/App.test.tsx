@@ -288,7 +288,7 @@ describe("sidebar", () => {
     }
   });
 
-  it("gives focus back to the menu button however the drawer closes", async () => {
+  it("gives focus back to the menu button however the drawer closes without a page change", async () => {
     renderApp(<App />, "/servers?system=example-prod");
     const menu = screen.getByRole("button", { name: "Menu" });
     const side = () => screen.getByRole("complementary");
@@ -300,10 +300,21 @@ describe("sidebar", () => {
     await userEvent.click(document.querySelector(".side-backdrop")!);
     expect(side()).not.toHaveClass("open");
     expect(menu).toHaveFocus();
-    await userEvent.click(menu);
-    await userEvent.click(within(nav()).getByRole("link", { name: "Events" }));
-    expect(side()).not.toHaveClass("open");
-    expect(menu).toHaveFocus();
+  });
+
+  it("moves focus to the new page when a link in the phone drawer opens it", async () => {
+    const orig = window.matchMedia;
+    window.matchMedia = vi.fn(() => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} })) as never;
+    try {
+      renderApp(<App />, "/servers?system=example-prod");
+      await userEvent.click(screen.getByRole("button", { name: "Menu" }));
+      await userEvent.click(within(nav()).getByRole("link", { name: "Events" }));
+      expect(screen.getByRole("complementary")).not.toHaveClass("open");
+      expect(screen.getByRole("main").parentElement).not.toHaveAttribute("inert");
+      expect(screen.getByRole("main")).toHaveFocus();
+    } finally {
+      window.matchMedia = orig;
+    }
   });
 
   it("closes only the system menu on Escape inside it, not the drawer", async () => {
