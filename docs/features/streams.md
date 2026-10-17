@@ -18,6 +18,7 @@ The Streams page lists the JetStream streams of the newest collection in the tim
 - **The stream page.** Stat cards show messages, bytes with growth per day, consumers (present out of expected) and the leader. Charts show messages and bytes over the range, and bytes over 7 days.
 - **Servers disagree.** When the servers report different configuration hashes or creation times, a "Servers disagree" table shows each server's configuration hash and creation time.
 - **Per server.** For each server that holds the stream: its replica role (leader, current, behind or offline), its lag, messages, bytes, first and last sequence, creation time and configuration hash. This is where a replica rebuilt at another time, or a replica that drifted, shows.
+- **Placement in the API.** `ListStreams` and `GetStream` give each stream a `placement`: one entry per replica, by server name, with its state. The leader is `LEADER`. A follower whose configuration hash differs from the leader's is `DISAGREES`. Otherwise the leader's view decides: `OFFLINE`, `IN_SYNC` when it reports the replica current, `BEHIND` when it does not. A server the leader lists that reports nothing itself is `MISSING`, and so is each configured replica beyond the servers named, with no server. Without a leader's report a replica's state is unset. The page does not draw the squares yet.
 - **Configuration.** The stream's configuration as its leader reports it.
 - **Consumers and events.** The stream's consumers with their backlog, and its newest 15 events, with a link to all of them.
 
@@ -40,6 +41,13 @@ The Streams page lists the JetStream streams of the newest collection in the tim
 - **Given** the account `APP` has the KV bucket `customer-info`
 - **When** I tick "Include KV and object stores"
 - **Then** `KV_customer-info` appears in the list
+
+### See a lagging replica in the placement
+
+- **Surfaces:** `api`
+- **Given** `order-jobs` has 3 replicas, led by `nats-0`, and its leader reports `nats-2` as not current
+- **When** I call `ListStreams`
+- **Then** the placement of `order-jobs` reads `nats-0` leader, `nats-1` in sync, `nats-2` behind
 
 ### Read a stream from the API
 
