@@ -11,6 +11,8 @@ import { Legend, fillClass, strokeClass, type LegendItem, type MarkStyle } from 
 
 const W = 300;
 const H = 70;
+/** The shortest mark a lone band point gets, in view box units. */
+const MIN_MARK = 3;
 
 export type Layer =
   | { kind: "line"; label: string; style: MarkStyle; points: Point[] }
@@ -74,10 +76,15 @@ export function TrendChart({ title, now, summary, start, end, stepMs = 0, layers
             if (l.kind === "band") {
               return segments(l.points, stepMs).map((run, ri) => {
                 // One point between two gaps has no width to fill: a thin
-                // vertical mark from low to high stands for it.
+                // vertical mark from low to high stands for it, at least
+                // MIN_MARK tall so that low equal to high still shows.
                 if (run.length === 1) {
                   const p = run[0];
-                  return <line key={`${li}-${ri}`} x1={x(p.time)} x2={x(p.time)} y1={y(p.low)} y2={y(p.high)} className={`tc-band-pt tk-${l.style.tone}`} vectorEffect="non-scaling-stroke" />;
+                  const mid = (Number(y(p.low)) + Number(y(p.high))) / 2;
+                  const half = Math.max(MIN_MARK / 2, (Number(y(p.low)) - Number(y(p.high))) / 2);
+                  return (
+                    <line key={`${li}-${ri}`} x1={x(p.time)} x2={x(p.time)} y1={(mid + half).toFixed(1)} y2={(mid - half).toFixed(1)} className={`tc-band-pt tk-${l.style.tone}`} vectorEffect="non-scaling-stroke" />
+                  );
                 }
                 const top = run.map((p) => `${x(p.time)},${y(p.high)}`);
                 const bottom = [...run].reverse().map((p) => `${x(p.time)},${y(p.low)}`);

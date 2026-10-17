@@ -120,6 +120,13 @@ describe("MetricBox", () => {
     expect(screen.getByText("nats-1")).toBeInTheDocument();
   });
 
+  it("names the chart of a box whose value is a name by that name, never by the series' last count", () => {
+    render(<MetricBox {...base} title="Meta leader" valueText="nats-1" track={false} series={series([0, 0, 1])} />);
+    const chart = screen.getByRole("img", { name: /^Meta leader, / });
+    expect(chart).toHaveAccessibleName(/^Meta leader, current nats-1, /);
+    expect(chart.getAttribute("aria-label")).not.toMatch(/current 1\b/);
+  });
+
   it("does not say there is no data for the window when track is off", () => {
     render(<MetricBox {...base} valueText="nats-1" track={false} />);
     expect(screen.queryByText("no data for the window")).toBeNull();

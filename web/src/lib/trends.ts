@@ -58,6 +58,8 @@ export function inOutText(vin: number | undefined, vout: number | undefined, uni
     const [a, ua] = splitBytes(vin);
     const [b, ub] = splitBytes(vout);
     if (ua === ub) return `${a} / ${b} ${ua}/s`;
+    // Two units side by side need the words to say which is which.
+    return `in ${a} ${ua}/s · out ${b} ${ub}/s`;
   }
   if (unit === "per_second") return `${vin === undefined ? "–" : fmtCount(vin)} / ${vout === undefined ? "–" : fmtCount(vout)}/s`;
   const one = (v: number | undefined) => (v === undefined ? "–" : fmtValue(v, unit));

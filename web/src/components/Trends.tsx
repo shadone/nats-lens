@@ -103,7 +103,7 @@ function Band({ f, metric, title }: { f: Frame; metric: string; title: string })
     { kind: "band", label: "lowest to highest server", style: { tone: "accent" }, points: bandEdges(s) },
     { kind: "line", label: "median", style: { tone: "accent" }, points: pts(s) },
   ];
-  if (text.busiest) layers.push({ kind: "line", label: text.busiest, style: { tone: "info", dash: true }, points: s!.topPoints });
+  if (text.busiest && s) layers.push({ kind: "line", label: text.busiest, style: { tone: "info", dash: true }, points: s.topPoints });
   return (
     <TrendChart
       title={title}
