@@ -85,6 +85,8 @@ func streamKind(prefix string) func(*v1.EntityRef) bool {
 var TileRules = map[string]TileRule{
 	TileServers: {Codes: []string{"server-001", "server-002", "server-003", "server-004", "server-005", "server-006", "system-"},
 		Types: []string{"server", "system"}},
+	// A meta leader finding (system-002, system-003) colours both the
+	// servers tile, through "system-", and the meta leader tile.
 	TileMetaLeader:   {Codes: []string{"system-002", "system-003"}, Types: []string{"system"}},
 	TileStreams:      {Codes: []string{"stream-"}, Types: []string{"stream"}, Entity: streamKind("")},
 	TileKV:           {Codes: []string{"stream-"}, Types: []string{"stream"}, Entity: streamKind("KV_")},

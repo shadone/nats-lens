@@ -62,7 +62,8 @@ message ConsumerSummary {
 
   // Messages delivered per second over the 15 minutes before the range's
   // end, from the increase of the leader's delivered consumer sequence;
-  // unset without two leader reports in that span.
+  // unset without two leader reports in that span. The span may start
+  // before the range when the range is shorter than 15 minutes.
   optional double delivered_per_second = 15;
 }
 
@@ -128,7 +129,8 @@ message ListConsumersRequest {
   // Order of the consumers.
   ConsumerSort sort = 6;
 
-  // Largest number of consumers to return, after sorting. Zero means all.
+  // Largest number of consumers to return, after sorting. Zero or a
+  // negative number means all.
   int32 limit = 7;
 }
 
