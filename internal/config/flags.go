@@ -3,6 +3,7 @@ package config
 import (
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 )
@@ -69,7 +70,15 @@ func Parse(name string, args []string) (Config, error) {
 	}
 	cfg.Accounts = fillAccountPasswords(cfg.Accounts)
 	cfg.Systems = fillSystemPasswords(cfg.Systems)
-	return cfg, cfg.Validate()
+	if err := cfg.Validate(); err != nil {
+		return cfg, err
+	}
+	// The logger is built from the configuration, so these go to the
+	// default logger.
+	for _, w := range cfg.Warnings() {
+		slog.Warn(w)
+	}
+	return cfg, nil
 }
 
 func applyFlags(cfg, f Config, set map[string]bool) Config {

@@ -191,6 +191,9 @@ func LoadFile(path string, base Config) (Config, error) {
 	for k := range keys {
 		present[k] = true
 	}
+	if present["systems"] && len(cfg.Systems) == 0 {
+		return base, fmt.Errorf("config %s: systems is empty: list at least one system, or remove the key", path)
+	}
 	if err := refusePerSystemKeys(present); err != nil {
 		return base, fmt.Errorf("config %s: %w", path, err)
 	}
