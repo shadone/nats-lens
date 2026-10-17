@@ -7,5 +7,7 @@
 @import "./lower.css";
 @import "./app.css";
 @import "./pages.css";
+@import "./placement.css";
+@import "./sort.css";
 @import "./responsive.css";
 @import "./app-responsive.css";

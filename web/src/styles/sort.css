@@ -1,0 +1,7 @@
+/* Sortable column headers: the header text is a button. */
+.tbl th .sort-btn{display:inline-flex;align-items:center;gap:4px;padding:0;border:0;background:none;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;cursor:pointer}
+.tbl th .sort-btn:hover,.tbl th .sort-btn.on{color:var(--text)}
+.tbl th .sort-ic{width:7px;height:9px;flex:none}
+.tbl th .sort-ic path{fill:var(--text-faint)}
+.tbl th .sort-ic path.act{fill:var(--accent-text)}
+.tbl th[title]{cursor:help}
