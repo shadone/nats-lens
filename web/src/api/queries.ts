@@ -205,10 +205,34 @@ export function useHeaderStatus(intervalMs: number, enabled = true) {
 }
 
 /**
+ * The last data before the collector stopped at since. Kept for ten minutes
+ * per stop, so only the first refresh after a stop pays for the lookup.
+ */
+export function useLastData(since: number | undefined, intervalMs: number) {
+  const sys = useSystem();
+  return useQuery({
+    queryKey: ["lastData", sys, since, intervalMs],
+    queryFn: ({ signal }) => api.getLastData(sys, since!, intervalMs, signal),
+    staleTime: 10 * 60_000,
+    enabled: since !== undefined,
+  });
+}
+
+/**
  * The shell's status call, on the collect interval of the page's system;
- * made only once the system is known to be configured.
+ * made only once the system is known to be configured. While the collector
+ * does not collect and the last two intervals hold no collection, the
+ * servers and the newest collection come from the last data before the stop.
  */
 export function useShellStatus() {
   const info = useLensInfo().data;
-  return useHeaderStatus(info?.collectIntervalMs ?? 30_000, useCurrentSystem().known === true);
+  const intervalMs = info?.collectIntervalMs ?? 30_000;
+  const status = useHeaderStatus(intervalMs, useCurrentSystem().known === true);
+  const f = status.data?.freshness;
+  const stopped = f && !f.collecting && f.epochAt === undefined ? f.notCollectingSince : undefined;
+  const last = useLastData(stopped, intervalMs).data;
+  if (!status.data || !f || stopped === undefined || !last?.freshness) return status;
+  const lf = last.freshness;
+  const data = { ...status.data, servers: last.servers, freshness: { ...f, epoch: lf.epoch, epochAt: lf.epochAt, ageMs: lf.ageMs, partial: lf.partial } };
+  return { ...status, data };
 }
