@@ -123,7 +123,7 @@ kubernetes:
 #   - id: prod                    # ^[a-z0-9][a-z0-9-]{0,62}$; used in URLs, the API, metric labels, directory names
 #     name: Production            # display name; default: the id
 #     environment: production     # free text shown with the system
-#     nats:
+#     nats:                       # name defaults to natslens-<id>
 #       url: nats://nats.prod.example:4222
 #       creds: /etc/natslens/prod-sys.creds
 #     accounts:
@@ -137,7 +137,7 @@ kubernetes:
 #     archive_retention: 90d      # default: the top-level archive_retention
 #     # data_dir: ""              # default: <data_dir>/<id>
 #     # archive_dir: ""           # default: <archive_dir>/<id>, or <system data dir>/archive
-#     # duckdb_memory_limit: ""   # default: the top-level budget divided by the number of systems
+#     # duckdb_memory_limit: ""   # default: an equal share of what the own limits leave of the budget, at least 256MiB
 #   - id: staging
 #     nats:
 #       url: nats://nats.staging.example:4222
