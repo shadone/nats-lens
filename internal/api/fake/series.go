@@ -53,6 +53,34 @@ var prodSlowConsumerEvents = []time.Time{
 	time.Date(2026, 10, 16, 22, 21, 0, 0, time.UTC),
 }
 
+// prodSlowServers are the servers of prodSlowConsumerEvents, in order:
+// clients moved off each server the upgrade restarted.
+var prodSlowServers = []string{"nats-1", "nats-2", "nats-1", "nats-2", "nats-0", "nats-2", "nats-0"}
+
+// prodMetaLeaderChanges are when the upgrade moved example-prod's meta
+// leader: to nats-1 when nats-0 stopped, back to nats-0 when nats-1 did.
+var prodMetaLeaderChanges = []time.Time{fixed(9, 16, 5), fixed(9, 29, 8)}
+
+// slowOn counts the slow consumer events on one server in the sample at c.
+func slowOn(events []time.Time, servers []string, server string, c time.Time) float64 {
+	var on []time.Time
+	for i, t := range events {
+		if servers[i] == server {
+			on = append(on, t)
+		}
+	}
+	return countIn(on, c)
+}
+
+// deliveredRate is a consumer's steady delivery rate: a base between 3
+// and 60 messages per second from its key, shaped by the daily curve.
+func deliveredRate(key string, c time.Time) float64 {
+	h := fnv.New64a()
+	fmt.Fprint(h, key)
+	base := 3 + float64(h.Sum64()%5700)/100
+	return math.Round(base*(1+wave(c)+noise("delivered"+key, c)*0.1)*10) / 10
+}
+
 // traffic is a gauge shaped by the daily curve, noise and the upgrade dip;
 // the last quarter hour holds the scenario's current value.
 func traffic(key string, c time.Time, base, spread, dip, now float64) float64 {
@@ -119,8 +147,12 @@ func prodSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (floa
 			return b, true
 		}
 		return math.Round(float64(sp.msgs) * b / sp.bytes), true
-	case "consumer.num_pending", "consumer.num_ack_pending", "consumer.num_redelivered":
+	case "consumer.num_pending", "consumer.num_ack_pending", "consumer.num_redelivered", "consumer.delivered_rate":
 		return consumerSample(metric, e, c)
+	case "cluster.meta_leader_changes":
+		return countIn(prodMetaLeaderChanges, c), true
+	case "server.slow_consumers":
+		return slowOn(sc.slowEvents, prodSlowServers, e.GetKey(), c), !down(e.GetKey(), c)
 	}
 	return 0, false
 }
@@ -131,6 +163,11 @@ func consumerSample(metric string, e *v1.EntityRef, c time.Time) (float64, bool)
 	}
 	video := e.GetConsumer() == "media-chunk-pool"
 	switch {
+	case metric == "consumer.delivered_rate" && video && !c.Before(fixed(11, 0, 0)):
+		// The pool drains slower than the windows arrive.
+		return math.Round(deliveredRate(e.GetKey(), c)*0.6*10) / 10, true
+	case metric == "consumer.delivered_rate":
+		return deliveredRate(e.GetKey(), c), true
 	case metric == "consumer.num_pending" && video && !c.Before(fixed(11, 0, 0)):
 		return math.Round(8820 + 9600*c.Sub(fixed(11, 0, 0)).Hours()/3.5), true
 	case metric == "consumer.num_pending" && video:
@@ -146,8 +183,11 @@ func consumerSample(metric string, e *v1.EntityRef, c time.Time) (float64, bool)
 }
 
 // series draws a metric over the range: averages of samples for gauges and
-// rates, sums of events for cluster.slow_consumers.
+// rates, sums of events for cluster.slow_consumers and the event metrics.
 func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints int32) *v1.Series {
+	if _, ok := bandOf[metric]; ok {
+		return s.bandSeries(metric, e, r, maxPoints)
+	}
 	step := api.Step(r, maxPoints, sampleEvery)
 	out := &v1.Series{Metric: metric, Entity: e, Unit: api.Metrics[metric].Unit, Step: dur(step)}
 	end := r.GetEnd().AsTime()
@@ -170,9 +210,18 @@ func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints 
 				}
 			}
 			n = 1
+		} else if eventMetrics[metric] {
+			// Samples on a grid of sampleEvery, so that no event counts
+			// in two buckets.
+			for x := api.BucketStart(t.Add(sampleEvery-time.Nanosecond), sampleEvery); x.Before(stop); x = x.Add(sampleEvery) {
+				if v, ok := s.sc.value(metric, e, s.clock(x)); ok {
+					sum += v
+				}
+			}
+			n = 1
 		} else {
 			for x := t; x.Before(stop); x = x.Add(sampleEvery) {
-				if v, ok := s.sc.sample(s.sc, metric, e, s.clock(x)); ok {
+				if v, ok := s.sc.value(metric, e, s.clock(x)); ok {
 					sum += v
 					n++
 				}
