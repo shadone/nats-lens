@@ -20,7 +20,7 @@ remediation: >-
   consumer so the client takes messages at its own pace.
 related_config: [max_pending, write_deadline]
 value_name: pending bytes
-value_basis: largest pending bytes among the client's connections in the epoch
+value_basis: largest pending bytes among the client's connections in the collection
 */
 WITH c AS (
     SELECT coalesce(nullif(c.name, ''), '(unnamed)') AS client, s.server_name, c.cid, c.pending_bytes

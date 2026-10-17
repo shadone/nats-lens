@@ -9,9 +9,9 @@ thresholds:
   - name: min_epochs
     default: "2"
     unit: count
-    description: Consecutive epochs the quorum must be lost before the finding fires; one epoch is usually an election.
+    description: Consecutive collections the quorum must be lost before the finding fires; one collection is usually an election.
 description: >-
-  In each of the last min_epochs epochs, the servers that report a replicated stream do not agree by majority on
+  In each of the last min_epochs collections, the servers that report a replicated stream do not agree by majority on
   a leader, or the leader they agree on sees fewer online replicas than a quorum (2 of 3 for R3), or that leader does not report and fewer than a quorum of replicas report at all. Publishes to the
   stream fail until a leader is elected again. A restarting server's report is left out while the other reporters
   can form a majority without it (just after a restart it may think it leads alone), but never when it says the

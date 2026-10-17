@@ -5,7 +5,7 @@ entity: consumer
 category: consumers
 severity: warning
 severity_rule: >-
-  critical when the consumer has been at max_ack_pending with messages waiting for min_epochs consecutive epochs
+  critical when the consumer has been at max_ack_pending with messages waiting for min_epochs consecutive collections
   and neither its ack floor nor its delivered sequence moved for at least ack_wait, as delivery has then stopped; a pool at the
   limit that still acknowledges is a saturated pool, at most warning; slots all in use with nothing waiting is no
   finding
@@ -18,7 +18,7 @@ thresholds:
   - name: min_epochs
     default: "2"
     unit: count
-    description: Consecutive epochs at the limit with messages waiting and no acknowledgement before the finding is critical.
+    description: Consecutive collections at the limit with messages waiting and no acknowledgement before the finding is critical.
 description: >-
   The consumer has delivered messages that are not acknowledged yet up to warn_ratio of max_ack_pending while
   more messages wait (num_pending above 0, leader's view). At the limit the server delivers nothing more until

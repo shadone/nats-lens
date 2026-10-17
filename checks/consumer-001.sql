@@ -9,9 +9,9 @@ thresholds:
   - name: min_epochs
     default: "2"
     unit: count
-    description: Consecutive epochs the quorum must be lost before the finding fires; one epoch is usually an election.
+    description: Consecutive collections the quorum must be lost before the finding fires; one collection is usually an election.
 description: >-
-  In each of the last min_epochs epochs, the servers that report a replicated consumer do not agree by majority on
+  In each of the last min_epochs collections, the servers that report a replicated consumer do not agree by majority on
   a leader, or the leader they agree on sees fewer online replicas than a quorum, or that leader does not report
   and fewer than a quorum of replicas report at all. A restarting server's report is left out while the others can
   form a majority without it, but never when it says leaderless or, as leader, fewer than a quorum online.

@@ -20,7 +20,7 @@ func checkFailed() *Check {
 	return &Check{
 		Code: CheckFailedCode, Name: "Check failed to run", Entity: "system", Category: "engine",
 		Severity: "warning", Kind: "operational",
-		Description: "One or more checks returned an error or ran out of time in the epoch. " +
+		Description: "One or more checks returned an error or ran out of time in the collection. " +
 			"Their findings keep the state of the last run that worked, so a problem they look for can go unreported.",
 		Remediation: "Read the error in the detail and in the natslens log (`check failed`). A timeout means the query " +
 			"took longer than `checks.timeout` (default 5s): look for a table that grew unusually (connections, events) or raise the timeout. " +

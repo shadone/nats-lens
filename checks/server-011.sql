@@ -18,7 +18,7 @@ thresholds:
   - name: min_epochs
     default: "2"
     unit: count
-    description: Consecutive epochs the thresholds must be met before the finding fires.
+    description: Consecutive collections the thresholds must be met before the finding fires.
   - name: resolve_ratio
     default: "0.8"
     unit: ratio
@@ -27,7 +27,7 @@ thresholds:
       and resolves once they fall below this share of either, so churn that hovers at the threshold does not flap.
 description: >-
   The server accepted many new connections within the lookback compared with the connections it holds, in each of
-  the last min_epochs epochs: clients are reconnecting over and over, or something opens a connection per request.
+  the last min_epochs collections: clients are reconnecting over and over, or something opens a connection per request.
   A firing finding stays until the count falls below resolve_ratio of the thresholds. The detail names the clients
   that connected most within the lookback, from the client.connect and client.churn events.
 remediation: >-

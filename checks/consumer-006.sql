@@ -12,7 +12,7 @@ thresholds:
     description: How long the consumer may deliver nothing while messages wait.
 description: >-
   The consumer's backlog (num_pending, leader's view) has waited longer than max_idle without a delivery: measured
-  from the first epoch of the current run of epochs with messages waiting, or from the last delivery when that is
+  from the first collection of the current run of collections with messages waiting, or from the last delivery when that is
   later, so the first message after an idle hour does not fire at once. The consumer is not paused. For a pull consumer nobody is fetching; for a push consumer nobody is subscribed, or
   delivery stopped at max_ack_pending (consumer-003).
 remediation: >-

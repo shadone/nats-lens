@@ -11,11 +11,11 @@ thresholds:
     unit: duration
     description: How long a raft group may report catching up on the server before the finding fires.
 description: >-
-  RAFTZ on the server has reported one or more raft groups as catching up in every epoch for longer than
+  RAFTZ on the server has reported one or more raft groups as catching up in every collection for longer than
   max_catchup. A replica that is catching up does not count towards the group's quorum.
 remediation: >-
   A server that restarted (server-004) catches up every stream and consumer it holds; large streams take longer.
-  Watch whether the lag in the detail falls between epochs. If it does not, the server cannot get the data from the
+  Watch whether the lag in the detail falls between collections. If it does not, the server cannot get the data from the
   leader: check the routes between the pods, the leader's load, and the server log for "catchup" errors. A replica
   stuck for good can be dropped and rebuilt with `nats stream cluster peer-remove <stream> <server>`, after which the
   meta leader places a new replica.

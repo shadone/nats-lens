@@ -11,7 +11,7 @@ description: >-
   is compared on its own, a missing value included; servers that restarted within restart_window are left out.
 remediation: >-
   The detail lists which servers agree and which settings differ. Right after a consumer update this clears within
-  an epoch or two. If it stays, apply the definition again (the service that creates the consumer at startup does
+  a collection or two. If it stays, apply the definition again (the service that creates the consumer at startup does
   this on its next start, or `nats consumer edit`), and if the replicas still differ, step the consumer leader down
   (`nats consumer cluster step-down <stream> <consumer>`).
 value_name: distinct configurations
