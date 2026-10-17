@@ -88,7 +88,7 @@ function Lower({ start, end }: { start: number; end: number }) {
           </span>
         </div>
         <QueryView q={st} what="streams">
-          {(d) => (d.streams.length ? <StreamPlacementCard streams={d.streams} /> : <Empty>No streams in the newest collection of this range.</Empty>)}
+          {(d) => (d.streams.length ? <StreamPlacementCard streams={d.streams} count={d.count} /> : <Empty>No streams in the newest collection of this range.</Empty>)}
         </QueryView>
       </section>
     </div>

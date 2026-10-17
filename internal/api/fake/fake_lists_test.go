@@ -270,3 +270,22 @@ func TestMissingConsumerReportsNoNumbers(t *testing.T) {
 		}
 	}
 }
+
+// A limit on ListStreams keeps the worst first; the count and the totals
+// still cover every stream.
+func TestFakeListStreamsLimit(t *testing.T) {
+	c := demo(t)
+	all := must(c.ListStreams(ctx, connect.NewRequest(&v1.ListStreamsRequest{})))
+	top := must(c.ListStreams(ctx, connect.NewRequest(&v1.ListStreamsRequest{Limit: 3})))
+	if len(top.GetStreams()) != 3 || len(all.GetStreams()) <= 3 {
+		t.Fatalf("limit 3 gave %d of %d streams", len(top.GetStreams()), len(all.GetStreams()))
+	}
+	for i, s := range top.GetStreams() {
+		if s.GetEntity().GetKey() != all.GetStreams()[i].GetEntity().GetKey() {
+			t.Errorf("row %d = %s, want %s", i, s.GetEntity().GetKey(), all.GetStreams()[i].GetEntity().GetKey())
+		}
+	}
+	if top.GetTotalCount() != int32(len(all.GetStreams())) || all.GetTotalCount() != top.GetTotalCount() || top.GetTotals().GetBytes() != all.GetTotals().GetBytes() {
+		t.Errorf("total count %d / %d of %d, bytes %d of %d", top.GetTotalCount(), all.GetTotalCount(), len(all.GetStreams()), top.GetTotals().GetBytes(), all.GetTotals().GetBytes())
+	}
+}

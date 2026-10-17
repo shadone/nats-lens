@@ -1,16 +1,14 @@
 // The Overview's streams: worst first, each with one placement square per
 // replica, its messages, size and growth per day.
-import type { StreamPlacement } from "../api/overview";
+import { STREAMS_SHOWN, type StreamPlacement } from "../api/overview";
 import { fmtBytes, fmtGrowth } from "../lib/format";
 import { LEVEL_ORDER, streamPath } from "../lib/view";
 import { Num, RLink } from "./common";
 import { PlacementLegend, PlacementSquares } from "./PlacementSquares";
 import { HealthIcon } from "./Severity";
 
-/** Streams listed before the link to all of them. */
-export const STREAMS_SHOWN = 10;
-
-export function StreamPlacementCard({ streams }: { streams: StreamPlacement[] }) {
+/** The worst streams, and a link to all when more than those match (count). */
+export function StreamPlacementCard({ streams, count }: { streams: StreamPlacement[]; count: number }) {
   const ss = [...streams].sort((a, b) => LEVEL_ORDER[a.status] - LEVEL_ORDER[b.status]).slice(0, STREAMS_SHOWN);
   return (
     <>
@@ -60,9 +58,9 @@ export function StreamPlacementCard({ streams }: { streams: StreamPlacement[] })
         </table>
       </div>
       <PlacementLegend states={ss.flatMap((s) => s.placement.map((p) => p.state))} />
-      {streams.length > ss.length && (
+      {count > ss.length && (
         <RLink to="/streams" className="x more-link">
-          All {streams.length} streams
+          All {count} streams
         </RLink>
       )}
     </>

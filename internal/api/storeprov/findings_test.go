@@ -194,6 +194,13 @@ func TestOverviewAndStatusesFromTheChecks(t *testing.T) {
 	if rec.GetStatus() != v1.Status_STATUS_INFO || rec.ConsumersExpected != nil || other.GetStatus() != v1.Status_STATUS_OK {
 		t.Fatalf("catalog-changes %v, order-archive %v", rec, other)
 	}
+	// A limit keeps the worst first; the count and the totals still cover every stream.
+	all := must(c.ListStreams(ctx, connect.NewRequest(&v1.ListStreamsRequest{Range: hour()})))
+	top := must(c.ListStreams(ctx, connect.NewRequest(&v1.ListStreamsRequest{Range: hour(), Limit: 2})))
+	if len(top.GetStreams()) != 2 || top.GetStreams()[0].GetEntity().GetName() != "order-jobs" || top.GetStreams()[1].GetEntity().GetName() != streams[1].GetEntity().GetName() ||
+		top.GetTotalCount() != int32(len(streams)) || all.GetTotalCount() != int32(len(streams)) || top.GetTotals().GetBytes() != all.GetTotals().GetBytes() {
+		t.Fatalf("limit 2: %d streams, total count %d of %d, bytes %d of %d", len(top.GetStreams()), top.GetTotalCount(), len(streams), top.GetTotals().GetBytes(), all.GetTotals().GetBytes())
+	}
 	cons := must(c.ListConsumers(ctx, connect.NewRequest(&v1.ListConsumersRequest{Range: hour(), Stream: "order-jobs"}))).GetConsumers()
 	// consumer-004 failed in epoch 3, so a consumer without a finding has
 	// no data rather than ok.

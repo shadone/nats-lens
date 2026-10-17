@@ -395,7 +395,10 @@ type ListStreamsRequest struct {
 	// Whether to include KV buckets (KV_*) and object stores (OBJ_*).
 	IncludeKv bool `protobuf:"varint,3,opt,name=include_kv,json=includeKv,proto3" json:"include_kv,omitempty"`
 	// System ID, as ListSystems returns it. Empty means the default system.
-	System        string `protobuf:"bytes,4,opt,name=system,proto3" json:"system,omitempty"`
+	System string `protobuf:"bytes,4,opt,name=system,proto3" json:"system,omitempty"`
+	// Largest number of streams to return, after the worst-first order.
+	// Zero or a negative number means all.
+	Limit         int32 `protobuf:"varint,5,opt,name=limit,proto3" json:"limit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -458,13 +461,22 @@ func (x *ListStreamsRequest) GetSystem() string {
 	return ""
 }
 
+func (x *ListStreamsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
 // Streams, worst status first, then by name.
 type ListStreamsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The streams.
+	// The streams, at most the request's limit.
 	Streams []*StreamSummary `protobuf:"bytes,1,rep,name=streams,proto3" json:"streams,omitempty"`
-	// Totals across the listed streams.
-	Totals        *StreamTotals `protobuf:"bytes,2,opt,name=totals,proto3" json:"totals,omitempty"`
+	// Totals across the streams that match, also those past the limit.
+	Totals *StreamTotals `protobuf:"bytes,2,opt,name=totals,proto3" json:"totals,omitempty"`
+	// Number of streams that match, also those past the limit.
+	TotalCount    int32 `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -511,6 +523,13 @@ func (x *ListStreamsResponse) GetTotals() *StreamTotals {
 		return x.Totals
 	}
 	return nil
+}
+
+func (x *ListStreamsResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
 }
 
 // Request for one stream.
@@ -728,16 +747,19 @@ const file_natslens_v1_streams_proto_rawDesc = "" +
 	"\fStreamTotals\x12\x14\n" +
 	"\x05bytes\x18\x01 \x01(\x03R\x05bytes\x12+\n" +
 	"\x11durable_consumers\x18\x02 \x01(\x05R\x10durableConsumers\x12/\n" +
-	"\x13ephemeral_consumers\x18\x03 \x01(\x05R\x12ephemeralConsumers\"\x93\x01\n" +
+	"\x13ephemeral_consumers\x18\x03 \x01(\x05R\x12ephemeralConsumers\"\xa9\x01\n" +
 	"\x12ListStreamsRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x18\n" +
 	"\aaccount\x18\x02 \x01(\tR\aaccount\x12\x1d\n" +
 	"\n" +
 	"include_kv\x18\x03 \x01(\bR\tincludeKv\x12\x16\n" +
-	"\x06system\x18\x04 \x01(\tR\x06system\"~\n" +
+	"\x06system\x18\x04 \x01(\tR\x06system\x12\x14\n" +
+	"\x05limit\x18\x05 \x01(\x05R\x05limit\"\x9f\x01\n" +
 	"\x13ListStreamsResponse\x124\n" +
 	"\astreams\x18\x01 \x03(\v2\x1a.natslens.v1.StreamSummaryR\astreams\x121\n" +
-	"\x06totals\x18\x02 \x01(\v2\x19.natslens.v1.StreamTotalsR\x06totals\"\x8a\x01\n" +
+	"\x06totals\x18\x02 \x01(\v2\x19.natslens.v1.StreamTotalsR\x06totals\x12\x1f\n" +
+	"\vtotal_count\x18\x03 \x01(\x05R\n" +
+	"totalCount\"\x8a\x01\n" +
 	"\x10GetStreamRequest\x12\x18\n" +
 	"\aaccount\x18\x01 \x01(\tR\aaccount\x12\x16\n" +
 	"\x06stream\x18\x02 \x01(\tR\x06stream\x12,\n" +

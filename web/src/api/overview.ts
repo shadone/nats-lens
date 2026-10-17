@@ -98,12 +98,20 @@ export function streamPlacement(s: PStream): StreamPlacement {
   return { ...stream(s), placement: placement(s.placement) };
 }
 
-// TODO(limit): ListStreams has no limit, so the Overview fetches every stream to show
-// the 10 worst; a server-side limit (and sort by status) would cut the reply.
-export async function listStreamPlacement(sys: string, spec: RangeSpec, account: string, signal?: AbortSignal): Promise<{ streams: StreamPlacement[]; totals: StreamTotals }> {
-  const r = await lens.listStreams({ ...systemInit(sys), range: rangeInit(spec), account }, { signal });
+/** Streams the Overview lists before the link to all of them. */
+export const STREAMS_SHOWN = 10;
+
+/** The worst STREAMS_SHOWN streams, and how many streams match in all. */
+export async function listStreamPlacement(
+  sys: string,
+  spec: RangeSpec,
+  account: string,
+  signal?: AbortSignal,
+): Promise<{ streams: StreamPlacement[]; count: number; totals: StreamTotals }> {
+  const r = await lens.listStreams({ ...systemInit(sys), range: rangeInit(spec), account, limit: STREAMS_SHOWN }, { signal });
   return {
     streams: r.streams.map(streamPlacement),
+    count: r.totalCount,
     totals: {
       bytes: Number(r.totals?.bytes ?? 0),
       durableConsumers: r.totals?.durableConsumers ?? 0,
