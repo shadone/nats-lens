@@ -53,6 +53,10 @@ func TestDemoListsThreeSystems(t *testing.T) {
 	if age := staging.GetFreshness().GetAge().AsDuration(); age < 3*time.Hour || age > 3*time.Hour+time.Minute || staging.GetServers() != 3 {
 		t.Errorf("staging freshness %v, servers %d", staging.GetFreshness(), staging.GetServers())
 	}
+	// Nothing writes to a system that is not collecting.
+	if staging.GetFreshness().GetLive() || !prod.GetFreshness().GetLive() || !global.GetFreshness().GetLive() {
+		t.Errorf("live: prod %v, global %v, staging %v", prod.GetFreshness().GetLive(), global.GetFreshness().GetLive(), staging.GetFreshness().GetLive())
+	}
 	strip := staging.GetStrip()
 	if strip[len(strip)-6] != v1.Status_STATUS_NO_DATA || strip[len(strip)-1] != v1.Status_STATUS_NO_DATA || strip[0] == v1.Status_STATUS_NO_DATA {
 		t.Errorf("staging strip = %v", strip)
