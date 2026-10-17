@@ -17,8 +17,17 @@ import (
 // password variable is read only when a user is set, since it belongs to
 // user/password login.
 func Parse(name string, args []string) (Config, error) {
+	return ParseWith(name, args, nil)
+}
+
+// ParseWith is Parse with the caller's own flags: extra, when set,
+// defines them on the flag set before the arguments are parsed.
+func ParseWith(name string, args []string, extra func(fs *flag.FlagSet)) (Config, error) {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	path := fs.String("config", "", "path to a YAML configuration file")
+	if extra != nil {
+		extra(fs)
+	}
 
 	// Flag values are collected separately and applied after the file,
 	// so that only flags actually given override it.

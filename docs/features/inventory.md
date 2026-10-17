@@ -59,4 +59,4 @@ The inventory is an optional YAML file that lists, per account, the streams, dur
 - **No discovery.** nats-lens does not write an inventory from what it sees; a person writes the file.
 - **No settings beyond the listed ones.** Subjects, placement, compression and the other stream settings cannot be declared yet.
 - **No ephemeral consumers.** The inventory lists durable consumers only.
-- **No inventory per environment in one file.** One nats-lens reads one file, for the one system it watches.
+- **No inventory per environment in one file.** Each system reads its own `inventory_file`; one file cannot describe several systems.

@@ -125,7 +125,7 @@ func (p *Provider) lanes(s scen, r *v1.TimeRange) (k8s, nats []*v1.LaneEvent) {
 		if e.GetSource() == srcK8s {
 			stored[e.GetTime().AsTime()] = e.GetId()
 		}
-		if (e.GetSource() == srcNATS && e.GetClientName() != s.sc.routineClient) || e.GetSource() == srcFinding {
+		if (e.GetSource() == srcNATS && e.GetClientName() != s.sc.routineClient && !routineEvent(e)) || e.GetSource() == srcFinding {
 			if inRange(e.GetTime().AsTime(), r) {
 				nats = append(nats, &v1.LaneEvent{Time: e.GetTime(), Source: e.GetSource(), Kind: e.GetKind(),
 					ShortLabel: e.GetType(), Label: e.GetType() + " " + e.GetSummary(), Severity: e.GetSeverity(),

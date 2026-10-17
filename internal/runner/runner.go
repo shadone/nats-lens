@@ -35,9 +35,9 @@ type Runner struct {
 	// transaction; nil runs none. A check run cut short by shutdown stores
 	// nothing for the epoch.
 	Checks *checks.Engine
-	// Stored, when set, is called with each epoch once it is stored, before
-	// its checks run.
-	Stored func(epoch int64)
+	// Stored, when set, is called with each epoch and the time it started
+	// once it is stored, before its checks run.
+	Stored func(epoch int64, startedAt time.Time)
 	// Connected, when set, reports whether the collector's connection has
 	// a server; Run skips epochs while it has none.
 	Connected func() bool
@@ -133,7 +133,7 @@ func (r *Runner) Once(ctx context.Context) (int64, error) {
 		"errors", snap.Errors,
 	)
 	if r.Stored != nil {
-		r.Stored(epoch)
+		r.Stored(epoch, snap.StartedAt)
 	}
 	r.check(ctx, epoch)
 	return epoch, nil

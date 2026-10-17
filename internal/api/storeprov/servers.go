@@ -22,18 +22,30 @@ WITH procs AS (
   FROM servers WHERE last_seen_at >= ? AND first_seen_at < ? AND (? = '' OR server_name = ?)),
 latest AS (
   SELECT ss.*, row_number() OVER (PARTITION BY ss.server_id ORDER BY ss.epoch DESC) AS rn
-  FROM server_stats ss WHERE ss.epoch <= ? AND ss.server_id IN (SELECT server_id FROM procs WHERE rn = 1))
+  FROM server_stats ss WHERE ss.epoch <= ? AND ss.server_id IN (SELECT server_id FROM procs WHERE rn = 1)),
+-- The slow consumer counter's increase per process inside the range, as
+-- the cluster.slow_consumers series counts it; a restart starts a new count.
+-- Rows without the counter are left out, so they do not break the difference.
+slow AS (
+  SELECT s.server_name, coalesce(sum(d) FILTER (WHERE d >= 0), 0) AS inc, count(sc) AS n FROM (
+    SELECT ss.server_id, ss.slow_consumers AS sc,
+      ss.slow_consumers - lag(ss.slow_consumers) OVER (PARTITION BY ss.server_id ORDER BY ss.epoch) AS d
+    FROM server_stats ss JOIN epochs e USING (epoch)
+    WHERE e.started_at >= ? AND e.started_at < ? AND ss.epoch <= ? AND ss.slow_consumers IS NOT NULL) x
+  JOIN servers s USING (server_id) WHERE (? = '' OR s.server_name = ?) GROUP BY s.server_name)
 SELECT p.server_name, p.server_id, coalesce(l.version, p.version), p.cluster, coalesce(l.start_time, p.start_time),
   l.epoch = ?, l.js_enabled, l.meta_leader, h.status, h.error,
   l.connections, l.js_storage, l.js_max_storage, l.mem_bytes, l.cpu_percent,
   coalesce((SELECT list(start_time ORDER BY start_time) FROM servers o
      WHERE o.server_name = p.server_name AND o.start_time >= ? AND o.start_time < ?), []),
-  le.started_at
+  le.started_at, l.js_streams_leader, l.js_consumers_leader, coalesce(p.tags, []),
+  CASE WHEN sl.n > 0 THEN sl.inc END
 FROM procs p
 LEFT JOIN latest l ON l.server_id = p.server_id AND l.rn = 1
 LEFT JOIN epochs le ON le.epoch = l.epoch
 LEFT JOIN health h ON h.server_id = l.server_id AND h.epoch = l.epoch
-WHERE p.rn = 1 ORDER BY p.server_name`, start, end, name, name, e.epoch, e.epoch, start, end)
+LEFT JOIN slow sl ON sl.server_name = p.server_name
+WHERE p.rn = 1 ORDER BY p.server_name`, start, end, name, name, e.epoch, start, end, e.epoch, name, name, e.epoch, start, end)
 	if err != nil {
 		return nil, fmt.Errorf("servers: %w", err)
 	}
@@ -44,10 +56,16 @@ WHERE p.rn = 1 ORDER BY p.server_name`, start, end, name, name, e.epoch, e.epoch
 		var version, cluster, leader, health, healthErr sql.NullString
 		var started, seenAt sql.NullTime
 		var present, js sql.NullBool
-		var restarts []any
+		var restarts, tags []any
 		if err := rows.Scan(&s.Name, &s.ServerId, &version, &cluster, &started, &present, &js, &leader, &health, &healthErr,
-			&s.Connections, &s.JsStorageBytes, &s.JsMaxStorageBytes, &s.MemBytes, &s.CpuPercent, &restarts, &seenAt); err != nil {
+			&s.Connections, &s.JsStorageBytes, &s.JsMaxStorageBytes, &s.MemBytes, &s.CpuPercent, &restarts, &seenAt,
+			&s.StreamLeaders, &s.ConsumerLeaders, &tags, &s.SlowConsumersInRange); err != nil {
 			return nil, err
+		}
+		for _, x := range tags {
+			if tag, ok := x.(string); ok {
+				s.Tags = append(s.Tags, tag)
+			}
 		}
 		s.Version, s.Cluster, s.Healthz, s.HealthzError = nstr(version), nstr(cluster), nstr(health), nstr(healthErr)
 		s.Present = present.Bool
@@ -136,6 +154,17 @@ FROM server_stats WHERE server_id = ? AND epoch <= ? ORDER BY epoch DESC LIMIT 1
 	}
 	res.MetaLeader, res.ConfigDigest = nstr(leader), nstr(digest)
 	if res.Endpoints, err = p.endpoints(ctx, id, e.epoch); err != nil {
+		return nil, err
+	}
+	if err = p.serverConnections(ctx, res, id, e.epoch); err != nil {
+		return nil, err
+	}
+	limits, err := p.allServerLimits(ctx, req.GetRange(), e)
+	if err != nil {
+		return nil, err
+	}
+	res.Limits, res.LimitsDiffer = limits[req.GetName()].proto(), limitsDiffer(limits, req.GetName())
+	if res.Kubernetes, err = p.kubernetesPlacement(ctx, req.GetName(), req.GetRange()); err != nil {
 		return nil, err
 	}
 	res.Processes, err = p.processes(ctx, req.GetName(), req.GetRange())

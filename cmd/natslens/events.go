@@ -23,13 +23,28 @@ var version = "dev"
 // the capture down: it drains the connections in parallel for at most one
 // flush interval, then writes the remaining events until deadline.
 func startEvents(ctx context.Context, cfg config.Config, st *store.Store, log *slog.Logger) (*events.Capture, func(deadline time.Time), error) {
+	if err := recordStart(ctx, st); err != nil {
+		return nil, nil, err
+	}
+	return startCapture(ctx, cfg, st, log)
+}
+
+// recordStart records the start and any capture gap since the last
+// stored activity.
+func recordStart(ctx context.Context, st *store.Store) error {
 	last, err := st.LastActivity(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("read last activity: %w", err)
+		return fmt.Errorf("read last activity: %w", err)
 	}
 	if err := st.WriteEvents(ctx, events.StartEvents(last, time.Now(), version)); err != nil {
-		return nil, nil, fmt.Errorf("record start: %w", err)
+		return fmt.Errorf("record start: %w", err)
 	}
+	return nil
+}
+
+// startCapture is startEvents without recording the start, so that a
+// system whose setup is tried again records its start once.
+func startCapture(ctx context.Context, cfg config.Config, st *store.Store, log *slog.Logger) (*events.Capture, func(deadline time.Time), error) {
 	capture := events.New(events.Options{
 		Writer: st, APIAudit: cfg.Events.APIAudit, AccountConnections: cfg.Events.AccountConnections,
 		FlushInterval: cfg.Events.FlushInterval.D(),
