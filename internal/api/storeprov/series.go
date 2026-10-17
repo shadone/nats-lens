@@ -118,20 +118,22 @@ FROM (
   FROM epochs e LEFT JOIN account_stats a ON a.epoch = e.epoch LEFT JOIN accounts ac ON ac.account = a.account
   WHERE e.started_at >= ? AND e.started_at < ? AND ` + answeredAll("ACCSTATZ") + `)
 GROUP BY epoch, t`},
-	// The meta leader is the one more than half of the servers that name
-	// a leader report; a tie or no leader leaves the epoch without one,
-	// which is no change. A change from the last epoch that had a leader
+	// The meta leader is the one more than half of the expected servers
+	// (the answering ones when none is expected) report; a tie, a lone
+	// stale answer or no leader leaves the epoch without one, which is no
+	// change. A change from the last epoch that had a leader
 	// counts once. The lookback of series() reaches about two intervals
 	// before the range, so a change at the range's first epoch counts
 	// only when an epoch with a leader lies within that lookback.
 	"cluster.meta_leader_changes": {sum: true, query: `
 WITH ep AS (
-  SELECT DISTINCT e.epoch, e.started_at AS t FROM server_stats ss JOIN epochs e USING (epoch)
+  SELECT DISTINCT e.epoch, e.started_at AS t, coalesce(nullif(e.expected_servers, 0), e.observed_servers) AS quorum
+  FROM server_stats ss JOIN epochs e USING (epoch)
   WHERE e.started_at >= ? AND e.started_at < ?),
 votes AS (
   SELECT ss.epoch, ss.meta_leader AS l, count(*) AS n FROM server_stats ss JOIN ep USING (epoch)
   WHERE coalesce(ss.meta_leader, '') <> '' GROUP BY ss.epoch, ss.meta_leader),
-lead AS (SELECT epoch, l FROM votes QUALIFY 2 * n > sum(n) OVER (PARTITION BY epoch))
+lead AS (SELECT epoch, l FROM votes JOIN ep USING (epoch) WHERE 2 * n > quorum)
 SELECT t, CASE WHEN l <> lag(l IGNORE NULLS) OVER (ORDER BY epoch) THEN 1 ELSE 0 END AS v
 FROM ep LEFT JOIN lead USING (epoch)`},
 	"cluster.assets_replicated": {query: assetCount("r > 1")},
