@@ -227,3 +227,7 @@ Every task updates the README sections and `docs/features/` docs it changes, and
 - Synthesised story items ("redeploy, 2 reconnects"): no detector exists; lanes show stored events and windows.
 - "Open in Placement", "Copy nats CLI check": Placement is not built.
 - A collection error after a nats-lens restart lives in memory; T4 falls back to the newest `collector.connection_closed` / `collector.not_connected` event.
+
+## Clean-up (UI)
+
+- `ListStreams` has no limit: the Overview's streams panel fetches every stream to show the 10 worst (`TODO(limit)` in `web/src/api/overview.ts`). A `limit` with a worst-first sort on the request would cut the reply.
