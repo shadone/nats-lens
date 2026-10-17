@@ -113,7 +113,11 @@ func runConfig(ctx context.Context, cmd string, cfg config.Config, only string, 
 	if err != nil {
 		return err
 	}
-	defer closeSystems(rts)
+	// The stores close after the API stopped, in parallel, by the shutdown
+	// deadline, given at least minStateWait like the last state.json; before
+	// the systems run there is no deadline and every close is waited for.
+	closeBy := func() time.Time { return time.Time{} }
+	defer func() { closeSystems(rts, closeBy()) }()
 	reg := registry(rts, set)
 	if observe != nil {
 		observe(reg)
@@ -150,6 +154,7 @@ func runConfig(ctx context.Context, cmd string, cfg config.Config, only string, 
 		return shutdownBy
 	}
 	context.AfterFunc(rctx, func() { deadline() })
+	closeBy = func() time.Time { return stateDeadline(deadline(), time.Now()) }
 
 	errs := make([]error, len(rts))
 	var wg sync.WaitGroup

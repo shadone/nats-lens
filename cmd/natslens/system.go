@@ -71,7 +71,8 @@ func registry(rts []*systemRuntime, set *checks.Set) api.Systems {
 // keeps to deadline, which every system shares: the last epoch write gets
 // shutdown_grace, and in parallel the event connections drain for at most
 // one flush interval and the last events are written until the deadline.
-// The store stays open; the caller closes it after the API stopped.
+// The store stays open; the caller closes it after the API stopped, by
+// the same deadline.
 func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, deadline func() time.Time) (err error) {
 	cfg, st, log := rt.cfg, rt.st, rt.log
 	tracker := collect.NewTracker(cfg.ServerForgetAfter.D())
