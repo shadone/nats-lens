@@ -58,10 +58,27 @@ func writeMarker(sys config.System) error {
 		return err
 	}
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, append(b, '\n'), 0o600); err != nil {
+	if err := writeSynced(tmp, append(b, '\n')); err != nil {
 		return fmt.Errorf("system %s: write %s: %w", sys.ID, markerFile, err)
 	}
 	return os.Rename(tmp, path)
+}
+
+// writeSynced writes a file and syncs it, so that a rename after it never
+// leaves an empty file behind a crash.
+func writeSynced(path string, b []byte) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(b)
+	if serr := f.Sync(); err == nil {
+		err = serr
+	}
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	return err
 }
 
 // threadsPerStore is each database's thread count when n databases share
@@ -96,6 +113,11 @@ func (rt *systemRuntime) open(ctx context.Context, threads int) error {
 	if err := checkMarker(rt.sys); err != nil {
 		return err
 	}
+	// The marker goes first: a database without one would be adopted by
+	// the next start under any id.
+	if err := writeMarker(rt.sys); err != nil {
+		return err
+	}
 	st, arch, err := openStore(ctx, rt.cfg, rt.log)
 	if err != nil {
 		return fmt.Errorf("system %s: %w", rt.sys.ID, err)
@@ -105,9 +127,6 @@ func (rt *systemRuntime) open(ctx context.Context, threads int) error {
 		return fmt.Errorf("system %s: %w", rt.sys.ID, err)
 	}
 	rt.log.Info("duckdb threads", "threads", threads)
-	if err := writeMarker(rt.sys); err != nil {
-		return err
-	}
 	if err := loadInventory(ctx, rt.cfg, st, rt.log); err != nil {
 		return fmt.Errorf("system %s: %w", rt.sys.ID, err)
 	}
