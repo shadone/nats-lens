@@ -60,11 +60,15 @@ func Parse(name string, args []string) (Config, error) {
 	if set["allowed-host"] {
 		f.AllowedHosts = SplitList(*allowed)
 	}
+	if err := refusePerSystemFlags(cfg, set); err != nil {
+		return Config{}, err
+	}
 	cfg = applyFlags(cfg, f, set)
 	if cfg.NATS.Password == "" && cfg.NATS.User != "" {
 		cfg.NATS.Password = os.Getenv(PasswordEnv)
 	}
 	cfg.Accounts = fillAccountPasswords(cfg.Accounts)
+	cfg.Systems = fillSystemPasswords(cfg.Systems)
 	return cfg, cfg.Validate()
 }
 

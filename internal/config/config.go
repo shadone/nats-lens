@@ -3,6 +3,7 @@
 package config
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -74,6 +75,15 @@ type Config struct {
 	Checks Checks `yaml:"checks"`
 	// Kubernetes configures the optional Kubernetes watcher.
 	Kubernetes Kubernetes `yaml:"kubernetes"`
+	// SystemID names the one system of a configuration without Systems;
+	// empty means DefaultSystemID.
+	SystemID string `yaml:"system_id"`
+	// Systems lists the monitored NATS systems. When it is set, DataDir and
+	// ArchiveDir are the roots of the systems' directories, DuckDBMemory is
+	// the budget they share, Retention and ArchiveRetention are their
+	// defaults, and the top-level nats, accounts, inventory_file and
+	// kubernetes keys are refused.
+	Systems []SystemConfig `yaml:"systems"`
 }
 
 // Checks tunes the checks. Codes and threshold names are checked against
@@ -147,7 +157,7 @@ func Default() Config {
 		LogLevel:          "info",
 		NATS: NATS{
 			URL:  "nats://127.0.0.1:4222",
-			Name: "natslens",
+			Name: DefaultNATSName,
 		},
 		Events:                  defaultEvents(),
 		ArchiveProvisionalEvery: Duration(5 * time.Minute),
@@ -161,16 +171,28 @@ func Default() Config {
 // LoadFile reads a YAML file over the given base configuration.
 // Unknown keys are an error so that a typo does not pass silently.
 func LoadFile(path string, base Config) (Config, error) {
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return base, fmt.Errorf("open config: %w", err)
 	}
-	defer f.Close()
-	dec := yaml.NewDecoder(f)
+	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
 	cfg := base
 	if err := dec.Decode(&cfg); err != nil {
 		return base, fmt.Errorf("parse config %s: %w", path, err)
+	}
+	// Defaults hide whether a key was written, so the keys a list of
+	// systems refuses are read from the file itself.
+	var keys map[string]any
+	if err := yaml.Unmarshal(data, &keys); err != nil {
+		return base, fmt.Errorf("parse config %s: %w", path, err)
+	}
+	present := make(map[string]bool, len(keys))
+	for k := range keys {
+		present[k] = true
+	}
+	if err := refusePerSystemKeys(present); err != nil {
+		return base, fmt.Errorf("config %s: %w", path, err)
 	}
 	return cfg, nil
 }
@@ -233,6 +255,7 @@ func (c Config) Validate() error {
 		errs = append(errs, errors.New("archive_retention must be 0 (keep every hour) or at least retention, which a rebuild loads"))
 	}
 	errs = append(errs, validateAccounts(c.Accounts)...)
+	errs = append(errs, c.validateSystems()...)
 	if c.Checks.Timeout.D() <= 0 || c.Checks.Timeout.D() > c.Interval.D() {
 		errs = append(errs, errors.New("checks.timeout must be positive and at most interval"))
 	}
@@ -281,6 +304,8 @@ func (c Config) LogValue() slog.Value {
 		slog.Bool("kubernetes", c.Kubernetes.Enabled),
 		slog.Any("kubernetes_namespaces", c.Kubernetes.Namespaces),
 		slog.String("kubernetes_kubeconfig", c.Kubernetes.Kubeconfig),
+		slog.String("system_id", c.SystemID),
+		slog.Any("systems", systemsLogValue(c.Systems)),
 	)
 }
 
