@@ -13,7 +13,7 @@ Planned; nothing here is built yet. KV buckets and object stores will get pages 
 - **KV Stores.** One row per bucket: its name, replicas, storage, history per key, TTL, whether per-key TTLs are allowed, the number of keys, its size, its growth per day, and its findings.
 - **Object Stores.** One row per store: its name, replicas, storage, TTL, byte limit, the number of objects, its size, its growth per day, and its findings.
 - **The same checks.** Bucket findings are the stream checks' findings for the bucket's stream, shown with the bucket's name.
-- **Built on stored data.** The bucket's stream configuration and statistics are collected today; the number of keys is the stream's subject count, which JSZ reports.
+- **Built on stored data.** The bucket's stream configuration and statistics are collected today; the number of keys is roughly the stream's subject count, which JSZ reports; deleted keys whose delete markers remain are counted too.
 
 ## Scenarios
 
@@ -22,7 +22,7 @@ Planned; nothing here is built yet. KV buckets and object stores will get pages 
 - **Surfaces:** `ui`
 - **Given** the bucket `customer-info` has neither a TTL nor a byte limit
 - **When** I open KV Stores
-- **Then** `customer-info` shows its `stream-005` finding, "KV bucket customer-info …", with its key count
+- **Then** `customer-info` shows its `stream-005` finding, "KV bucket customer-info: keys accumulate without bound; …", with its key count
 
 ### Find an object store without a copy
 
