@@ -277,15 +277,18 @@ WHERE rp.epoch = ? AND (? = '' OR rp.account = ?) AND starts_with(rp.stream, ?)`
 }
 
 // placement lists one bucket's replicas: the leader, then its followers by
-// name. A follower is offline or current as the leader lists it, missing
-// when it reports nothing, and disagrees when its configuration differs
-// from the leader's or the leader does not list it. Without a leader a
-// server's state is unknown unless its configuration differs from
-// another's.
+// name. A follower is offline as the leader lists it, missing when it
+// reports nothing, disagrees when the leader does not list it, behind when
+// the leader lists it as not current, and otherwise disagrees when its
+// configuration differs from the leader's and is in sync when it does not.
+// Without a leader a server's state is unknown unless its configuration
+// differs from another's.
 func placement(vs map[string]*replicaView) []*v1.ReplicaPlacement {
+	// Two servers may both claim the lead in one epoch; the first by name
+	// leads, so the result does not follow map order.
 	leader, leaderHash := "", ""
 	for name, v := range vs {
-		if v.leader {
+		if v.leader && (leader == "" || name < leader) {
 			leader, leaderHash = name, v.hash
 		}
 	}
@@ -312,12 +315,15 @@ func placement(vs map[string]*replicaView) []*v1.ReplicaPlacement {
 			st = v1.PlacementState_PLACEMENT_STATE_OFFLINE
 		case !v.reports:
 			st = v1.PlacementState_PLACEMENT_STATE_MISSING
-		case !v.listed || (v.hash != "" && leaderHash != "" && v.hash != leaderHash):
+		case !v.listed:
 			st = v1.PlacementState_PLACEMENT_STATE_DISAGREES
-		case v.current:
-			st = v1.PlacementState_PLACEMENT_STATE_IN_SYNC
-		default:
+		case !v.current:
+			// A replica catching up may still hold the old configuration.
 			st = v1.PlacementState_PLACEMENT_STATE_BEHIND
+		case v.hash != "" && leaderHash != "" && v.hash != leaderHash:
+			st = v1.PlacementState_PLACEMENT_STATE_DISAGREES
+		default:
+			st = v1.PlacementState_PLACEMENT_STATE_IN_SYNC
 		}
 		out = append(out, &v1.ReplicaPlacement{Server: name, State: st})
 	}

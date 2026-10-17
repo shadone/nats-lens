@@ -36,6 +36,26 @@ func TestPlacementStates(t *testing.T) {
 			},
 		},
 		{
+			// A follower catching up still reports the old configuration:
+			// it is behind, not in disagreement.
+			name: "catching up with the old configuration",
+			vs: map[string]*replicaView{
+				"n-a": {reports: true, leader: true, hash: "new"},
+				"n-b": {reports: true, hash: "old", listed: true},
+			},
+			want: []string{"n-a:PLACEMENT_STATE_LEADER", "n-b:PLACEMENT_STATE_BEHIND"},
+		},
+		{
+			// Two servers claim the lead in one epoch: the first by name leads.
+			name: "two leaders",
+			vs: map[string]*replicaView{
+				"n-c": {reports: true, leader: true, hash: "a", listed: true, current: true},
+				"n-a": {reports: true, leader: true, hash: "a", listed: true, current: true},
+				"n-b": {reports: true, hash: "a", listed: true, current: true},
+			},
+			want: []string{"n-a:PLACEMENT_STATE_LEADER", "n-b:PLACEMENT_STATE_IN_SYNC", "n-c:PLACEMENT_STATE_IN_SYNC"},
+		},
+		{
 			// Without a leader nobody says who is current.
 			name: "no leader",
 			vs: map[string]*replicaView{
@@ -52,8 +72,12 @@ func TestPlacementStates(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := states(placement(c.vs)); !slices.Equal(got, c.want) {
-			t.Errorf("%s: %v, want %v", c.name, got, c.want)
+		// Map order varies between runs; the result must not.
+		for range 20 {
+			if got := states(placement(c.vs)); !slices.Equal(got, c.want) {
+				t.Errorf("%s: %v, want %v", c.name, got, c.want)
+				break
+			}
 		}
 	}
 }
