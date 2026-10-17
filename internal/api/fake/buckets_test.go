@@ -84,3 +84,39 @@ func TestFakeGlobalMissingBucket(t *testing.T) {
 		}
 	}
 }
+
+// The demo's missing bucket finding reads as the real stream-011 writes it.
+func TestFakeMissingBucketFindingMatchesTheCheck(t *testing.T) {
+	c := demo(t)
+	f := must(c.GetFinding(ctx, connect.NewRequest(&v1.GetFindingRequest{System: fake.GlobalSystem, Id: "stream-011:APP/KV_label-templates"}))).GetFinding()
+	want := "KV bucket label-templates (stream KV_label-templates) is in the inventory and no server reports it; " +
+		"last reported by nats-us-4 at 2026-10-17 09:11:35 UTC (may be on nats-us-4, which did not answer JSZ). No delete event recorded."
+	if f.GetDetail() != want || f.GetCheckName() != "Expected stream or bucket missing" {
+		t.Errorf("detail = %q (%s)", f.GetDetail(), f.GetCheckName())
+	}
+	var keys []string
+	for _, c := range f.GetRelatedConfig() {
+		keys = append(keys, c.GetKey())
+	}
+	if !slices.Equal(keys, []string{"kind", "replicas", "max_age", "max_bytes", "max_msgs"}) || f.GetRelatedConfigSource() != "inventory" {
+		t.Errorf("related config = %v", f.GetRelatedConfig())
+	}
+}
+
+// A timeline row of stream-011 carries the check's own name.
+func TestFakeTimelineNamesStream011(t *testing.T) {
+	c := client(t)
+	rows := must(c.GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{}))).GetRows()
+	seen := false
+	for _, r := range rows {
+		if r.GetCheckCode() == "stream-011" {
+			seen = true
+			if r.GetCheckName() != "Expected stream or bucket missing" {
+				t.Errorf("stream-011 row named %q", r.GetCheckName())
+			}
+		}
+	}
+	if !seen {
+		t.Fatal("no stream-011 row")
+	}
+}
