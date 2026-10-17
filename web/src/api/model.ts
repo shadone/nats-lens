@@ -126,6 +126,10 @@ export interface Tile {
   series?: Series;
   series2?: Series;
   limit?: number;
+  // One sentence for the tile's tooltip.
+  description?: string;
+  // The value as text, for a tile whose value is a name.
+  valueText?: string;
 }
 
 export type ServerRole = "meta leader" | "follower" | "no JetStream" | "unknown";

@@ -23,6 +23,14 @@ describe("TileCard", () => {
   });
 });
 
+describe("TileCard text value", () => {
+  it("shows the value text, such as the meta leader's name, in place of the number", () => {
+    render(<TileCard t={tile({ id: "meta_leader", label: "Meta leader", unit: "count", value: 0, valueText: "nats-1", description: "The server that leads the meta group." })} windows={[]} start={0} end={1} />);
+    expect(screen.getByText("nats-1")).toBeInTheDocument();
+    expect(screen.getByText("Meta leader")).toHaveAttribute("title", "The server that leads the meta group.");
+  });
+});
+
 describe("bytes per second", () => {
   it("formats as bytes with /s", () => {
     expect(fmtValue(2048, "bytes_per_second")).toBe("2 KiB/s");
