@@ -11,19 +11,25 @@ export function hasCopies(e: Entity | undefined): e is Entity {
   return !!e && ((e.kind === "stream" && !!e.stream) || (e.kind === "consumer" && !!e.stream && !!e.consumer));
 }
 
+/** What, besides a click, reloads the data loaded once: the finding's state. */
+export function stateKey(f: Pick<Finding, "state" | "resolvedAt"> | undefined): string {
+  return f ? `${f.state}:${f.resolvedAt ?? ""}` : "";
+}
+
 /** The stream or consumer behind a finding, for its per-server table. */
-export function useCopies(spec: RangeSpec, e: Entity | undefined) {
+export function useCopies(spec: RangeSpec, e: Entity | undefined, state = "") {
   const sys = useSystem();
   const on = hasCopies(e);
   return useQuery({
-    queryKey: ["findingCopies", sys, rangeKey(spec), on ? `${e.kind}:${e.key}` : ""],
+    queryKey: ["findingCopies", sys, rangeKey(spec), on ? `${e.kind}:${e.key}` : "", state],
     queryFn: async ({ signal }) => {
       const x = e!;
       if (x.kind === "consumer") return { kind: "consumer" as const, servers: (await getConsumer(sys, spec, x.account, x.stream, x.consumer, signal)).servers };
       return { kind: "stream" as const, servers: (await getStream(sys, spec, x.account, x.stream, signal)).servers };
     },
     enabled: on,
-    // Loaded once: only the finding and its timeline follow a live range.
+    // Loaded once, and again when the finding changes state: only the
+    // finding and its timeline follow a live range.
     staleTime: Infinity,
   });
 }
@@ -32,7 +38,7 @@ export function useCopies(spec: RangeSpec, e: Entity | undefined) {
 export function useOtherFindings(spec: RangeSpec, f: Finding | undefined) {
   const sys = useSystem();
   return useQuery({
-    queryKey: ["findingOthers", sys, rangeKey(spec), f?.checkCode, f?.id],
+    queryKey: ["findingOthers", sys, rangeKey(spec), f?.checkCode, f?.id, stateKey(f)],
     queryFn: async ({ signal }) => {
       // Without states the API lists every state but resolved.
       const page = await listFindings(sys, spec, { checkCode: f!.checkCode, includeMuted: true, pageSize: 1 }, signal);

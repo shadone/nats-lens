@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { useParams } from "react-router";
 import { AROUND_MS, useEventsAround } from "../api/events";
-import { useOtherFindings } from "../api/finding";
+import { stateKey, useOtherFindings } from "../api/finding";
 import type { Entity, Finding } from "../api/model";
 import { useFinding, useLensInfo, useTimeline } from "../api/queries";
 import { Empty, KV, QueryView, RLink, Remediation, Section } from "../components/common";
@@ -291,7 +291,7 @@ export function FindingDetail() {
               )}
               <div className="sec fd-cols">
                 <div className="fd-main">
-                  <FindingEvidence spec={spec} entity={d.finding.entity} />
+                  <FindingEvidence spec={spec} entity={d.finding.entity} state={stateKey(d.finding)} />
                   <section className="grid2 ex" aria-label="What to do">
                     <div className="box">
                       <span className="lbl">Remediation</span>

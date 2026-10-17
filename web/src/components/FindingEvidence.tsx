@@ -179,11 +179,17 @@ export function CopiesTable({ kind, copies }: { kind: "stream" | "consumer"; cop
 }
 
 /** The copies of a stream or consumer finding; nothing for other entities. */
-export function FindingEvidence({ spec, entity }: { spec: RangeSpec; entity: Entity | undefined }) {
-  const q = useCopies(spec, entity);
+export function FindingEvidence({ spec, entity, state }: { spec: RangeSpec; entity: Entity | undefined; state: string }) {
+  const q = useCopies(spec, entity, state);
   if (!hasCopies(entity)) return null;
   return (
-    <Section title="Server copies" aside={`Each server's copy of the ${entity.kind}${q.data && copiesDisagree(q.data.kind, q.data.servers) ? " · copies disagree" : "."}`}>
+    <Section title="Server copies" aside={`Each server's copy of the ${entity.kind}${q.data && copiesDisagree(q.data.kind, q.data.servers) ? " · copies disagree" : "."}`}
+      right={
+        <button type="button" className="btn" aria-label="Refresh server copies" onClick={() => q.refetch()} disabled={q.isFetching}>
+          Refresh
+        </button>
+      }
+    >
       <QueryView q={q} what={`the ${entity.kind}'s copies`}>
         {(d) => (d.servers.length ? <CopiesTable kind={d.kind} copies={d.servers} /> : <p className="muted-note">No server reports this {entity.kind}.</p>)}
       </QueryView>

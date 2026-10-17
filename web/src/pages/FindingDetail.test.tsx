@@ -1,6 +1,6 @@
 import { create } from "@bufbuild/protobuf";
 import { timestampFromMs, timestampMs } from "@bufbuild/protobuf/wkt";
-import { act, screen, within } from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import { Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { lens } from "../api/client";
@@ -196,6 +196,33 @@ describe("server copies", () => {
     expect(screen.queryByRole("alert")).toBeNull();
     expect(m.getStream).not.toHaveBeenCalled();
     expect(m.getConsumer).not.toHaveBeenCalled();
+  });
+});
+
+describe("server copies refresh", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("reloads the copies and the other findings when the finding resolves", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const f = { ...base, checkCode: "consumer-009", entity: consumerEntity };
+    m.getFinding.mockResolvedValueOnce({ finding: f, transitions: [] });
+    m.getFinding.mockResolvedValue({ finding: { ...f, state: "resolved", resolvedAt: Date.now() }, transitions: [] });
+    show();
+    await vi.waitFor(() => expect(m.getConsumer).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(31_000);
+    });
+    expect(await screen.findByText("RESOLVED")).toBeInTheDocument();
+    await vi.waitFor(() => expect(m.getConsumer).toHaveBeenCalledTimes(2));
+    expect(m.listFindings).toHaveBeenCalledTimes(2);
+  });
+
+  it("reloads the copies on Refresh", async () => {
+    m.getFinding.mockResolvedValue({ finding: { ...base, checkCode: "consumer-009", entity: consumerEntity }, transitions: [] });
+    show();
+    await vi.waitFor(() => expect(m.getConsumer).toHaveBeenCalledTimes(1));
+    fireEvent.click(await screen.findByRole("button", { name: "Refresh server copies" }));
+    await vi.waitFor(() => expect(m.getConsumer).toHaveBeenCalledTimes(2));
   });
 });
 
