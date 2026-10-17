@@ -89,7 +89,7 @@ export function SearchJump() {
         aria-expanded={showList && results.length > 0}
         aria-controls={showList ? listId : undefined}
         aria-activedescendant={showList && results[active] ? optId(active) : undefined}
-        placeholder="Search servers, streams, consumers"
+        placeholder="Search this system"
         value={text}
         onChange={(e) => {
           setText(e.target.value);
