@@ -83,10 +83,12 @@ function stateClass(status: Level): string {
  * clamped to the ends. Nothing without both edges; "steady" when they are
  * equal; no dot without a current value.
  */
-export function RangeTrack({ title, min, max, value, fmt, status, period }: { title: string; min?: number; max?: number; value?: number; fmt: (v: number) => string; status: Level; period: string }) {
+export function RangeTrack({ title, min, max, value, fmt, status, period, noCurrent = false }: { title: string; min?: number; max?: number; value?: number; fmt: (v: number) => string; status: Level; period: string; noCurrent?: boolean }) {
   if (min === undefined || max === undefined) return null;
   if (min === max) {
-    return <div className="mb-track-note">steady at {fmt(min)} all window</div>;
+    // Without a current value a steady window says so, so a server that
+    // stopped never reads as quietly steady.
+    return <div className="mb-track-note">{noCurrent ? `steady at ${fmt(min)} in the window · no current value` : `steady at ${fmt(min)} all window`}</div>;
   }
   const frac = value === undefined ? undefined : Math.min(1, Math.max(0, (value - min) / (max - min)));
   const where = value === undefined ? "no current value" : `current ${fmt(value)}${value > max ? ", above the window max" : value < min ? ", below the window min" : ""}`;
@@ -124,6 +126,11 @@ export function MetricBox(p: MetricBoxProps) {
           <b className="mono">{shown}</b>
         </span>
       </div>
+      {p.error && p.series && (
+        <span className="mb-stale" title={p.error}>
+          refresh failed
+        </span>
+      )}
       {p.error && !p.series ? (
         <p className="muted-note">Could not load: {p.error}</p>
       ) : (
@@ -138,7 +145,7 @@ export function MetricBox(p: MetricBoxProps) {
           current={value === undefined ? undefined : p.fmt(value)}
         />
       )}
-      <RangeTrack title={p.title} min={min} max={max} value={value} fmt={p.fmt} status={status} period={period} />
+      <RangeTrack title={p.title} min={min} max={max} value={value} fmt={p.fmt} status={status} period={period} noCurrent={p.value === null} />
       {!hasWindow && !p.error && !p.loading && <div className="mb-track-note">no data for the window</div>}
       {hasWindow && p.value === null && min !== max && <div className="mb-track-note">no current value</div>}
       {p.note && <div className="mb-note">{p.note}</div>}

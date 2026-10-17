@@ -93,4 +93,21 @@ describe("MetricBox", () => {
     render(<MetricBox {...base} series={series([0, 10, 5])} />);
     expect(screen.getByRole("img", { name: /^CPU, current 5%, min 0%, max 10%/ })).toBeInTheDocument();
   });
+
+  it("never reads a steady series as healthy when there is no current value", () => {
+    render(<MetricBox {...base} series={series([0, 0, 0])} value={null} />);
+    expect(screen.getByText("steady at 0% in the window · no current value")).toBeInTheDocument();
+    expect(screen.queryByText("steady at 0% all window")).toBeNull();
+  });
+
+  it("marks an old series whose refresh failed", () => {
+    const { container } = render(<MetricBox {...base} series={series([1, 2])} error="unavailable: down" />);
+    expect(screen.getByText("refresh failed")).toHaveAttribute("title", "unavailable: down");
+    expect(container.querySelector("svg.spark")).not.toBeNull();
+  });
+
+  it("shows no refresh note when the series is current", () => {
+    render(<MetricBox {...base} series={series([1, 2])} />);
+    expect(screen.queryByText("refresh failed")).toBeNull();
+  });
 });
