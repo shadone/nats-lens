@@ -154,8 +154,8 @@ export function Trends({ spec, start, end }: Frame) {
       <OneLine f={f} metric="cluster.servers_up" title="Servers" label="answering" />
       <OneLine f={f} metric="cluster.connections" title="Connections" label="open" />
       <SlowConsumers f={f} />
-      <InOut f={f} title="Messages / s" inMetric="cluster.in_msgs_rate" outMetric="cluster.out_msgs_rate" />
-      <InOut f={f} title="Bytes / s" inMetric="cluster.in_bytes_rate" outMetric="cluster.out_bytes_rate" />
+      <InOut f={f} title="Messages" inMetric="cluster.in_msgs_rate" outMetric="cluster.out_msgs_rate" />
+      <InOut f={f} title="Bytes" inMetric="cluster.in_bytes_rate" outMetric="cluster.out_bytes_rate" />
       <Band f={f} metric="cluster.cpu_percent" title="CPU" />
       <Band f={f} metric="cluster.mem_bytes" title="Memory" />
       <Assets f={f} />

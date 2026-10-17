@@ -115,7 +115,7 @@ export function StoryLanes({ tl, end, live }: Props) {
         {lanes.map((l) => (
           <div className="sl-row" key={l.id}>
             <div className="sl-lab">
-              <RLink to={l.more} className="sl-name">
+              <RLink to={l.more} className="x sl-name">
                 {l.name}
               </RLink>
               <small>{l.note}</small>
