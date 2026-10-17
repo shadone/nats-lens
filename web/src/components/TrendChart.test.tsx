@@ -1,0 +1,71 @@
+import { render, screen, within } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { TrendChart, segments } from "./TrendChart";
+
+const START = Date.parse("2026-10-16T14:30:00Z");
+const END = START + 4 * 900_000;
+const pts = (vals: number[]) => vals.map((v, i) => ({ time: START + i * 900_000, value: v }));
+
+describe("TrendChart", () => {
+  it("names the chart with its current value, period and range", () => {
+    render(
+      <TrendChart
+        title="Connections"
+        now="20"
+        summary="min 14, max 20"
+        start={START}
+        end={END}
+        layers={[{ kind: "line", label: "open", style: { tone: "accent" }, points: pts([14, 18, 20]) }]}
+      />,
+    );
+    const img = screen.getByRole("img", { name: /^Connections/ });
+    expect(img).toHaveAccessibleName("Connections, current 20, 16 Oct 14:30 to 16 Oct 15:30 UTC, min 14, max 20");
+  });
+
+  it("draws the out series dashed, in the chart and in its legend", () => {
+    const { container } = render(
+      <TrendChart
+        title="Messages / s"
+        now="176 in, 190 out"
+        start={START}
+        end={END}
+        layers={[
+          { kind: "line", label: "in", style: { tone: "accent" }, points: pts([1, 2, 3]) },
+          { kind: "line", label: "out", style: { tone: "muted", dash: true }, points: pts([2, 3, 4]) },
+        ]}
+      />,
+    );
+    const legend = screen.getByRole("list", { name: "Messages / s legend" });
+    const out = within(legend).getByText("out").closest("li")!;
+    expect(out.querySelector("line")).toHaveClass("tc-dash");
+    const inn = within(legend).getByText("in").closest("li")!;
+    expect(inn.querySelector("line")).not.toHaveClass("tc-dash");
+    expect(container.querySelectorAll("svg.tc-svg polyline.tc-dash")).toHaveLength(1);
+  });
+
+  it("fills a band between its low and high edges", () => {
+    const { container } = render(
+      <TrendChart
+        title="CPU"
+        start={START}
+        end={END}
+        layers={[{ kind: "band", label: "lowest to highest server", style: { tone: "accent" }, points: pts([1, 2]).map((p) => ({ time: p.time, low: 1, high: 5 })) }]}
+      />,
+    );
+    expect(container.querySelector("svg.tc-svg polygon.tc-fill")).not.toBeNull();
+  });
+
+  it("shows a dash and no data when nothing was observed", () => {
+    render(<TrendChart title="Servers" start={START} end={END} layers={[{ kind: "line", label: "answering", style: { tone: "accent" }, points: [] }]} />);
+    expect(screen.getByRole("img", { name: /^Servers/ })).toHaveAccessibleName(/Servers, no data/);
+    expect(screen.getByText("–")).toBeInTheDocument();
+  });
+});
+
+describe("segments", () => {
+  it("breaks a line at a gap of more than two steps", () => {
+    const p = [0, 1, 2, 6, 7].map((i) => ({ time: i * 10, value: i }));
+    expect(segments(p, 10).map((s) => s.length)).toEqual([3, 2]);
+    expect(segments(p, 0).map((s) => s.length)).toEqual([5]);
+  });
+});
