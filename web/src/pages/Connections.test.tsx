@@ -1,4 +1,6 @@
-import { screen } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { useNavigate } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import type { Connection } from "../api/model";
 import * as requests from "../api/requests";
@@ -36,5 +38,32 @@ describe("Connections name filter", () => {
     renderApp(<Connections />, "/connections?name=natslens");
     expect(await screen.findByText(/shown because the name filter matches them/)).toBeInTheDocument();
     expect(vi.mocked(requests.listConnections).mock.calls.at(-1)?.[2]).toMatchObject({ nameContains: "natslens", includeTooling: true });
+  });
+});
+
+describe("Connections pages", () => {
+  it("never sends one system's page token to another", async () => {
+    let go: ReturnType<typeof useNavigate> = () => {};
+    function Nav() {
+      go = useNavigate();
+      return null;
+    }
+    vi.mocked(requests.listServers).mockResolvedValue({ servers: [], expected: [] } as never);
+    vi.mocked(requests.listConnections).mockImplementation(async (sys, _spec, f) => ({
+      items: [conn("1", "worker", false)], nextPageToken: sys === "sys-a" && !f.pageToken ? "a-token-2" : "", totalCount: 200, epoch: "3", toolingHidden: 0,
+    }));
+    renderApp(
+      <>
+        <Connections />
+        <Nav />
+      </>,
+      "/connections?system=sys-a",
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Next" }));
+    await waitFor(() => expect(requests.listConnections).toHaveBeenCalledWith("sys-a", expect.anything(), expect.objectContaining({ pageToken: "a-token-2" }), expect.anything()));
+    vi.mocked(requests.listConnections).mockClear();
+    act(() => go("/connections?system=sys-b"));
+    await waitFor(() => expect(requests.listConnections).toHaveBeenCalledWith("sys-b", expect.anything(), expect.anything(), expect.anything()));
+    for (const c of vi.mocked(requests.listConnections).mock.calls) expect(c[2].pageToken ?? "").toBe("");
   });
 });

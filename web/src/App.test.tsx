@@ -2,6 +2,8 @@
 // range, system and account.
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { act } from "react";
+import { useNavigate } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { lens } from "./api/client";
@@ -78,6 +80,62 @@ function params(href: string | null) {
 }
 
 const nav = () => screen.getByRole("navigation", { name: "Pages" });
+
+let go: ReturnType<typeof useNavigate> = () => {};
+function Nav() {
+  go = useNavigate();
+  return null;
+}
+
+const server = (name: string) =>
+  ({ name, serverId: name, version: "2.12.2", cluster: "c", role: "follower", present: true, healthz: "ok", healthzError: "", restarts: [], status: "ok" }) as never;
+
+async function switchTo(name: RegExp) {
+  await userEvent.click(await screen.findByRole("button", { name: /Switch system/ }));
+  await userEvent.click(screen.getByRole("menuitemradio", { name }));
+}
+
+describe("switching system", () => {
+  it("never shows the old system's rows while the new system's are loading", async () => {
+    m.listServers.mockImplementation(async (sys) => (sys === "example-prod" ? { servers: [server("prod-server-1")], expected: [], missing: [] } : new Promise<never>(() => {})));
+    renderApp(<App />, "/servers?system=example-prod");
+    expect(await screen.findByText("prod-server-1")).toBeInTheDocument();
+    await switchTo(/Global/);
+    expect(location()).toBe("/servers?system=example-global");
+    expect(screen.queryByText("prod-server-1")).toBeNull();
+  });
+
+  it("starts the connections of the new system at page one", async () => {
+    const conn = { key: "nats-1/7", server: "nats-1", cid: "7", name: "resize-worker", lang: "go", version: "1", account: "APP", tooling: false, user: "", ip: "10.0.0.7" };
+    const page = (n: number, next: string) => ({ items: [conn] as never, nextPageToken: next, totalCount: n, epoch: "1", toolingHidden: 0 });
+    m.listConnections.mockImplementation(async (sys, _spec, f) => page(200, sys === "example-prod" && !f.pageToken ? "prod-token-2" : ""));
+    renderApp(<App />, "/connections?system=example-prod");
+    await userEvent.click(await screen.findByRole("button", { name: "Next" }));
+    await waitFor(() => expect(m.listConnections).toHaveBeenCalledWith("example-prod", expect.anything(), expect.objectContaining({ pageToken: "prod-token-2" }), expect.anything()));
+    m.listConnections.mockClear();
+    await switchTo(/Global/);
+    await waitFor(() => expect(m.listConnections).toHaveBeenCalledWith("example-global", expect.anything(), expect.anything(), expect.anything()));
+    for (const c of m.listConnections.mock.calls) expect(c[2].pageToken ?? "").toBe("");
+  });
+
+  it("goes back to the earlier system with Back", async () => {
+    m.listServers.mockImplementation(async (sys) => ({ servers: [server(`${sys}-server`)], expected: [], missing: [] }));
+    renderApp(
+      <>
+        <App />
+        <Nav />
+      </>,
+      "/servers?system=example-prod",
+    );
+    expect(await screen.findByText("example-prod-server")).toBeInTheDocument();
+    await switchTo(/Global/);
+    expect(await screen.findByText("example-global-server")).toBeInTheDocument();
+    act(() => go(-1));
+    expect(await screen.findByText("example-prod-server")).toBeInTheDocument();
+    expect(screen.queryByText("example-global-server")).toBeNull();
+    expect(screen.getByRole("button", { name: /Switch system/ })).toHaveAccessibleName(/Production/);
+  });
+});
 
 describe("sidebar", () => {
   it("shows the built pages in their groups and hides the planned ones", async () => {
