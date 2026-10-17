@@ -35,14 +35,16 @@ export function FleetChart({ title, now, band = [], lines, legend, start, end, l
   let lo = empty ? 0 : Math.min(...values);
   let hi = empty ? 1 : Math.max(...values);
   if (hi === lo) {
+    // All at 0 lies on the baseline; another constant sits mid-height.
     hi += 1;
-    lo -= 1;
+    if (lo !== 0) lo -= 1;
   }
   const span = end - start || 1;
   const x = (t: number) => (((t - start) / span) * W).toFixed(1);
   const y = (v: number) => (H - 3 - ((v - lo) / (hi - lo)) * (H - 8)).toFixed(1);
   const poly = (pts: Point[]) => pts.map((p) => `${x(p.time)},${y(p.value)}`).join(" ");
-  const bandPoly = banded.length
+  // A band with no width, such as every server at 0, is not filled.
+  const bandPoly = banded.some((p) => p.high !== p.low)
     ? banded.map((p) => `${x(p.time)},${y(p.high!)}`).concat([...banded].reverse().map((p) => `${x(p.time)},${y(p.low!)}`)).join(" ")
     : "";
   return (
