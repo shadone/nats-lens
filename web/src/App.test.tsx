@@ -8,6 +8,7 @@ import { useNavigate } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { Status } from "./gen/natslens/v1/common_pb";
+import { ListServersResponseSchema } from "./gen/natslens/v1/servers_pb";
 import { CollectionState, ListSystemsResponseSchema } from "./gen/natslens/v1/systems_pb";
 import { lens } from "./api/client";
 import * as requests from "./api/requests";
@@ -20,6 +21,8 @@ vi.mock("./api/client", () => ({
     listAccounts: vi.fn(),
     listKeyValueStores: vi.fn(),
     listObjectStores: vi.fn(),
+    listServers: vi.fn(),
+    getTimeSeries: vi.fn(() => new Promise<never>(() => {})),
   },
 }));
 
@@ -90,8 +93,8 @@ function Nav() {
   return null;
 }
 
-const server = (name: string) =>
-  ({ name, serverId: name, version: "2.12.2", cluster: "c", role: "follower", present: true, healthz: "ok", healthzError: "", restarts: [], status: "ok" }) as never;
+// A server that did not answer, so the Servers page lists it under "Needs attention".
+const servers = (name: string) => create(ListServersResponseSchema, { servers: [{ name, serverId: name, version: "2.12.2", cluster: "c", present: false }] });
 
 async function switchTo(name: RegExp) {
   await userEvent.click(await screen.findByRole("button", { name: /Switch system/ }));
@@ -100,7 +103,7 @@ async function switchTo(name: RegExp) {
 
 describe("switching system", () => {
   it("never shows the old system's rows while the new system's are loading", async () => {
-    m.listServers.mockImplementation(async (sys) => (sys === "example-prod" ? { servers: [server("prod-server-1")], expected: [], missing: [] } : new Promise<never>(() => {})));
+    l.listServers.mockImplementation(async (req) => (req.system === "example-prod" ? servers("prod-server-1") : new Promise<never>(() => {})));
     renderApp(<App />, "/servers?system=example-prod");
     expect(await screen.findByText("prod-server-1")).toBeInTheDocument();
     await switchTo(/Global/);
@@ -122,7 +125,7 @@ describe("switching system", () => {
   });
 
   it("goes back to the earlier system with Back", async () => {
-    m.listServers.mockImplementation(async (sys) => ({ servers: [server(`${sys}-server`)], expected: [], missing: [] }));
+    l.listServers.mockImplementation(async (req) => servers(`${req.system}-server`));
     renderApp(
       <>
         <App />
