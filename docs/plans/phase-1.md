@@ -172,7 +172,7 @@ Every task updates the README sections and `docs/features/` docs it changes, and
 
 - **Result:**
   - Status line "Serving normally" plus a count badge, following the worst unmuted severity and freshness ("Not collecting" when stale).
-  - `MetricBox`: title with an (i) tooltip from `description`; the value top right, coloured by status; a line chart; a range track with min left, max right and a dot at the current value (for a band series `Series.min`/`max` are the band's edges, T6); the limit in the note; a state word only when not OK; "steady at N all window" when min equals max.
+  - `MetricBox`: title with an (i) tooltip from `description`; the value top right, coloured by status; a line chart; a range track with min left, max right and a dot at the current value (for a band series `Series.min`/`max` are the band's edges, T6); the limit in the note; a state word only when not OK; "steady at N all window" when min equals max; "steady at N since HH:MM UTC", and "since HH:MM UTC" between min and max and in the track's name, when the series begins more than 1.5 buckets after the range start (added when phase 1 closed; the demo's example-staging has a nine-hour history for it).
   - Grouped-cause cards built client-side from `ListFindings` (by `cause.id`, else check code plus parent entity), with entities, open and mute; a strip of muted findings with their reasons.
   - Trends: servers, connections, slow consumers, msgs/s and bytes/s in and out (out dashed), CPU and memory as band + median + busiest, assets R3/R1 stacked.
   - Story lanes: Kubernetes, findings, events from `GetStatusTimeline`.
