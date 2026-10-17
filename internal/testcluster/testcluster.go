@@ -200,9 +200,14 @@ func (c *Cluster) Restart(i int) {
 	}
 }
 
+// MetaLeaderTimeout bounds the wait for a JetStream meta leader with every
+// peer. It is generous because a full parallel go test run can starve the
+// in-process cluster for a long time.
+var MetaLeaderTimeout = 60 * time.Second
+
 func (c *Cluster) waitForMetaLeader() {
 	c.t.Helper()
-	deadline := time.Now().Add(20 * time.Second)
+	deadline := time.Now().Add(MetaLeaderTimeout)
 	for time.Now().Before(deadline) {
 		for _, s := range c.Servers {
 			if s.JetStreamIsLeader() && len(s.JetStreamClusterPeers()) == len(c.Servers) {
