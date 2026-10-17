@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package natslens.v1;
 
+import "google/protobuf/duration.proto";
 import "natslens/v1/common.proto";
 
 option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
@@ -26,9 +27,76 @@ message KeyValueStore {
 
   // Bucket name, without the KV_ prefix.
   string bucket = 2;
+
+  // Values kept per key (max_msgs_per_subject); unset when no configuration
+  // was reported.
+  optional int32 history = 3;
+
+  // How long a value is kept (max_age); unset when no configuration was
+  // reported, zero when values do not expire.
+  google.protobuf.Duration ttl = 4;
+
+  // Byte limit; -1 is unlimited; unset when no configuration was reported.
+  optional int64 max_bytes = 5;
+
+  // Configured replicas; unset when no configuration was reported.
+  optional int32 replicas = 6;
+
+  // Storage type: file or memory; empty when not reported.
+  string storage = 7;
+
+  // Distinct subjects stored, from the leader's view. A deleted or purged
+  // key keeps its subject until it is compacted, so this counts deleted
+  // keys too. Unset when not reported.
+  optional int64 keys = 8;
+
+  // Bytes stored, from the leader's view; unset when not reported.
+  optional int64 bytes = 9;
+
+  // Messages stored, from the leader's view; unset when not reported.
+  optional int64 messages = 10;
+
+  // Consumers on the bucket's stream, which for a bucket are its watchers;
+  // unset for a bucket no server reports.
+  optional int32 watchers = 11;
+
+  // Worst status of the findings for the bucket's stream.
+  Status status = 12;
+
+  // Codes of the findings that set the status, worst first; a muted one
+  // ends in " muted".
+  repeated string finding_codes = 13;
+
+  // One entry per replica: the leader first, then the followers by server
+  // name.
+  repeated ReplicaPlacement placement = 14;
+
+  // Whether a server reports the bucket in the newest epoch.
+  bool present = 15;
+
+  // Whether the inventory lists the bucket.
+  bool expected = 16;
+
+  // Storage compression: none or s2; empty when not reported.
+  string compression = 17;
+
+  // Name of the stream the bucket mirrors; empty when not a mirror.
+  string mirror = 18;
+
+  // Whether per-key TTLs are allowed (allow_msg_ttl).
+  bool allow_msg_ttl = 19;
+
+  // Bucket description.
+  string description = 20;
+
+  // Growth of bytes over the range, scaled to one day; unset when the range
+  // holds one observation or none.
+  optional double bytes_per_day = 21;
 }
 
-// Key-value stores, ordered by account and bucket.
+// Key-value stores, worst status first, then by account and bucket. A
+// bucket the inventory lists that no server reports is included with
+// present unset.
 message ListKeyValueStoresResponse {
   // The stores.
   repeated KeyValueStore key_value_stores = 1;
@@ -54,9 +122,58 @@ message ObjectStore {
 
   // Bucket name, without the OBJ_ prefix.
   string bucket = 2;
+
+  // Bucket description.
+  string description = 3;
+
+  // Bytes stored, from the leader's view; unset when not reported.
+  optional int64 bytes = 4;
+
+  // Messages stored, from the leader's view: the objects' chunks and one
+  // metadata message per object. Unset when not reported.
+  optional int64 chunks = 5;
+
+  // Configured replicas; unset when no configuration was reported.
+  optional int32 replicas = 6;
+
+  // Storage type: file or memory; empty when not reported.
+  string storage = 7;
+
+  // Byte limit; -1 is unlimited; unset when no configuration was reported.
+  optional int64 max_bytes = 8;
+
+  // How long an object is kept (max_age); unset when no configuration was
+  // reported, zero when objects do not expire.
+  google.protobuf.Duration ttl = 9;
+
+  // Whether the bucket is sealed (read-only).
+  bool sealed = 10;
+
+  // Worst status of the findings for the bucket's stream.
+  Status status = 11;
+
+  // Codes of the findings that set the status, worst first; a muted one
+  // ends in " muted".
+  repeated string finding_codes = 12;
+
+  // One entry per replica: the leader first, then the followers by server
+  // name.
+  repeated ReplicaPlacement placement = 13;
+
+  // Whether a server reports the bucket in the newest epoch.
+  bool present = 14;
+
+  // Whether the inventory lists the bucket.
+  bool expected = 15;
+
+  // Growth of bytes over the range, scaled to one day; unset when the range
+  // holds one observation or none.
+  optional double bytes_per_day = 16;
 }
 
-// Object stores, ordered by account and bucket.
+// Object stores, worst status first, then by account and bucket. A bucket
+// the inventory lists that no server reports is included with present
+// unset.
 message ListObjectStoresResponse {
   // The stores.
   repeated ObjectStore object_stores = 1;

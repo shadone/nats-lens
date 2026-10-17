@@ -4,7 +4,9 @@
 
 import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { EntityRef, TimeRange } from "./common_pb";
+import type { Duration } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_duration } from "@bufbuild/protobuf/wkt";
+import type { EntityRef, ReplicaPlacement, Status, TimeRange } from "./common_pb";
 import { file_natslens_v1_common } from "./common_pb";
 import type { Message } from "@bufbuild/protobuf";
 
@@ -12,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/buckets.proto.
  */
 export const file_natslens_v1_buckets: GenFile = /*@__PURE__*/
-  fileDesc("ChluYXRzbGVucy92MS9idWNrZXRzLnByb3RvEgtuYXRzbGVucy52MSJjChlMaXN0S2V5VmFsdWVTdG9yZXNSZXF1ZXN0Eg4KBnN5c3RlbRgBIAEoCRIlCgVyYW5nZRgCIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRIPCgdhY2NvdW50GAMgASgJIkcKDUtleVZhbHVlU3RvcmUSJgoGZW50aXR5GAEgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEg4KBmJ1Y2tldBgCIAEoCSJSChpMaXN0S2V5VmFsdWVTdG9yZXNSZXNwb25zZRI0ChBrZXlfdmFsdWVfc3RvcmVzGAEgAygLMhoubmF0c2xlbnMudjEuS2V5VmFsdWVTdG9yZSJhChdMaXN0T2JqZWN0U3RvcmVzUmVxdWVzdBIOCgZzeXN0ZW0YASABKAkSJQoFcmFuZ2UYAiABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2USDwoHYWNjb3VudBgDIAEoCSJFCgtPYmplY3RTdG9yZRImCgZlbnRpdHkYASABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSDgoGYnVja2V0GAIgASgJIksKGExpc3RPYmplY3RTdG9yZXNSZXNwb25zZRIvCg1vYmplY3Rfc3RvcmVzGAEgAygLMhgubmF0c2xlbnMudjEuT2JqZWN0U3RvcmVCQlpAZ2l0aHViLmNvbS9zaGFkb25lL25hdHMtbGVucy9pbnRlcm5hbC9nZW4vbmF0c2xlbnMvdjE7bmF0c2xlbnN2MWIGcHJvdG8z", [file_natslens_v1_common]);
+  fileDesc("ChluYXRzbGVucy92MS9idWNrZXRzLnByb3RvEgtuYXRzbGVucy52MSJjChlMaXN0S2V5VmFsdWVTdG9yZXNSZXF1ZXN0Eg4KBnN5c3RlbRgBIAEoCRIlCgVyYW5nZRgCIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRIPCgdhY2NvdW50GAMgASgJIv4ECg1LZXlWYWx1ZVN0b3JlEiYKBmVudGl0eRgBIAEoCzIWLm5hdHNsZW5zLnYxLkVudGl0eVJlZhIOCgZidWNrZXQYAiABKAkSFAoHaGlzdG9yeRgDIAEoBUgAiAEBEiYKA3R0bBgEIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIWCgltYXhfYnl0ZXMYBSABKANIAYgBARIVCghyZXBsaWNhcxgGIAEoBUgCiAEBEg8KB3N0b3JhZ2UYByABKAkSEQoEa2V5cxgIIAEoA0gDiAEBEhIKBWJ5dGVzGAkgASgDSASIAQESFQoIbWVzc2FnZXMYCiABKANIBYgBARIVCgh3YXRjaGVycxgLIAEoBUgGiAEBEiMKBnN0YXR1cxgMIAEoDjITLm5hdHNsZW5zLnYxLlN0YXR1cxIVCg1maW5kaW5nX2NvZGVzGA0gAygJEjAKCXBsYWNlbWVudBgOIAMoCzIdLm5hdHNsZW5zLnYxLlJlcGxpY2FQbGFjZW1lbnQSDwoHcHJlc2VudBgPIAEoCBIQCghleHBlY3RlZBgQIAEoCBITCgtjb21wcmVzc2lvbhgRIAEoCRIOCgZtaXJyb3IYEiABKAkSFQoNYWxsb3dfbXNnX3R0bBgTIAEoCBITCgtkZXNjcmlwdGlvbhgUIAEoCRIaCg1ieXRlc19wZXJfZGF5GBUgASgBSAeIAQFCCgoIX2hpc3RvcnlCDAoKX21heF9ieXRlc0ILCglfcmVwbGljYXNCBwoFX2tleXNCCAoGX2J5dGVzQgsKCV9tZXNzYWdlc0ILCglfd2F0Y2hlcnNCEAoOX2J5dGVzX3Blcl9kYXkiUgoaTGlzdEtleVZhbHVlU3RvcmVzUmVzcG9uc2USNAoQa2V5X3ZhbHVlX3N0b3JlcxgBIAMoCzIaLm5hdHNsZW5zLnYxLktleVZhbHVlU3RvcmUiYQoXTGlzdE9iamVjdFN0b3Jlc1JlcXVlc3QSDgoGc3lzdGVtGAEgASgJEiUKBXJhbmdlGAIgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEg8KB2FjY291bnQYAyABKAki6gMKC09iamVjdFN0b3JlEiYKBmVudGl0eRgBIAEoCzIWLm5hdHNsZW5zLnYxLkVudGl0eVJlZhIOCgZidWNrZXQYAiABKAkSEwoLZGVzY3JpcHRpb24YAyABKAkSEgoFYnl0ZXMYBCABKANIAIgBARITCgZjaHVua3MYBSABKANIAYgBARIVCghyZXBsaWNhcxgGIAEoBUgCiAEBEg8KB3N0b3JhZ2UYByABKAkSFgoJbWF4X2J5dGVzGAggASgDSAOIAQESJgoDdHRsGAkgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEg4KBnNlYWxlZBgKIAEoCBIjCgZzdGF0dXMYCyABKA4yEy5uYXRzbGVucy52MS5TdGF0dXMSFQoNZmluZGluZ19jb2RlcxgMIAMoCRIwCglwbGFjZW1lbnQYDSADKAsyHS5uYXRzbGVucy52MS5SZXBsaWNhUGxhY2VtZW50Eg8KB3ByZXNlbnQYDiABKAgSEAoIZXhwZWN0ZWQYDyABKAgSGgoNYnl0ZXNfcGVyX2RheRgQIAEoAUgEiAEBQggKBl9ieXRlc0IJCgdfY2h1bmtzQgsKCV9yZXBsaWNhc0IMCgpfbWF4X2J5dGVzQhAKDl9ieXRlc19wZXJfZGF5IksKGExpc3RPYmplY3RTdG9yZXNSZXNwb25zZRIvCg1vYmplY3Rfc3RvcmVzGAEgAygLMhgubmF0c2xlbnMudjEuT2JqZWN0U3RvcmVCQlpAZ2l0aHViLmNvbS9zaGFkb25lL25hdHMtbGVucy9pbnRlcm5hbC9nZW4vbmF0c2xlbnMvdjE7bmF0c2xlbnN2MWIGcHJvdG8z", [file_google_protobuf_duration, file_natslens_v1_common]);
 
 /**
  * Request for the key-value stores of a system.
@@ -69,6 +71,147 @@ export type KeyValueStore = Message<"natslens.v1.KeyValueStore"> & {
    * @generated from field: string bucket = 2;
    */
   bucket: string;
+
+  /**
+   * Values kept per key (max_msgs_per_subject); unset when no configuration
+   * was reported.
+   *
+   * @generated from field: optional int32 history = 3;
+   */
+  history?: number | undefined;
+
+  /**
+   * How long a value is kept (max_age); unset when no configuration was
+   * reported, zero when values do not expire.
+   *
+   * @generated from field: google.protobuf.Duration ttl = 4;
+   */
+  ttl?: Duration | undefined;
+
+  /**
+   * Byte limit; -1 is unlimited; unset when no configuration was reported.
+   *
+   * @generated from field: optional int64 max_bytes = 5;
+   */
+  maxBytes?: bigint | undefined;
+
+  /**
+   * Configured replicas; unset when no configuration was reported.
+   *
+   * @generated from field: optional int32 replicas = 6;
+   */
+  replicas?: number | undefined;
+
+  /**
+   * Storage type: file or memory; empty when not reported.
+   *
+   * @generated from field: string storage = 7;
+   */
+  storage: string;
+
+  /**
+   * Distinct subjects stored, from the leader's view. A deleted or purged
+   * key keeps its subject until it is compacted, so this counts deleted
+   * keys too. Unset when not reported.
+   *
+   * @generated from field: optional int64 keys = 8;
+   */
+  keys?: bigint | undefined;
+
+  /**
+   * Bytes stored, from the leader's view; unset when not reported.
+   *
+   * @generated from field: optional int64 bytes = 9;
+   */
+  bytes?: bigint | undefined;
+
+  /**
+   * Messages stored, from the leader's view; unset when not reported.
+   *
+   * @generated from field: optional int64 messages = 10;
+   */
+  messages?: bigint | undefined;
+
+  /**
+   * Consumers on the bucket's stream, which for a bucket are its watchers;
+   * unset for a bucket no server reports.
+   *
+   * @generated from field: optional int32 watchers = 11;
+   */
+  watchers?: number | undefined;
+
+  /**
+   * Worst status of the findings for the bucket's stream.
+   *
+   * @generated from field: natslens.v1.Status status = 12;
+   */
+  status: Status;
+
+  /**
+   * Codes of the findings that set the status, worst first; a muted one
+   * ends in " muted".
+   *
+   * @generated from field: repeated string finding_codes = 13;
+   */
+  findingCodes: string[];
+
+  /**
+   * One entry per replica: the leader first, then the followers by server
+   * name.
+   *
+   * @generated from field: repeated natslens.v1.ReplicaPlacement placement = 14;
+   */
+  placement: ReplicaPlacement[];
+
+  /**
+   * Whether a server reports the bucket in the newest epoch.
+   *
+   * @generated from field: bool present = 15;
+   */
+  present: boolean;
+
+  /**
+   * Whether the inventory lists the bucket.
+   *
+   * @generated from field: bool expected = 16;
+   */
+  expected: boolean;
+
+  /**
+   * Storage compression: none or s2; empty when not reported.
+   *
+   * @generated from field: string compression = 17;
+   */
+  compression: string;
+
+  /**
+   * Name of the stream the bucket mirrors; empty when not a mirror.
+   *
+   * @generated from field: string mirror = 18;
+   */
+  mirror: string;
+
+  /**
+   * Whether per-key TTLs are allowed (allow_msg_ttl).
+   *
+   * @generated from field: bool allow_msg_ttl = 19;
+   */
+  allowMsgTtl: boolean;
+
+  /**
+   * Bucket description.
+   *
+   * @generated from field: string description = 20;
+   */
+  description: string;
+
+  /**
+   * Growth of bytes over the range, scaled to one day; unset when the range
+   * holds one observation or none.
+   *
+   * @generated from field: optional double bytes_per_day = 21;
+   */
+  bytesPerDay?: number | undefined;
 };
 
 /**
@@ -79,7 +222,9 @@ export const KeyValueStoreSchema: GenMessage<KeyValueStore> = /*@__PURE__*/
   messageDesc(file_natslens_v1_buckets, 1);
 
 /**
- * Key-value stores, ordered by account and bucket.
+ * Key-value stores, worst status first, then by account and bucket. A
+ * bucket the inventory lists that no server reports is included with
+ * present unset.
  *
  * @generated from message natslens.v1.ListKeyValueStoresResponse
  */
@@ -154,6 +299,109 @@ export type ObjectStore = Message<"natslens.v1.ObjectStore"> & {
    * @generated from field: string bucket = 2;
    */
   bucket: string;
+
+  /**
+   * Bucket description.
+   *
+   * @generated from field: string description = 3;
+   */
+  description: string;
+
+  /**
+   * Bytes stored, from the leader's view; unset when not reported.
+   *
+   * @generated from field: optional int64 bytes = 4;
+   */
+  bytes?: bigint | undefined;
+
+  /**
+   * Messages stored, from the leader's view: the objects' chunks and one
+   * metadata message per object. Unset when not reported.
+   *
+   * @generated from field: optional int64 chunks = 5;
+   */
+  chunks?: bigint | undefined;
+
+  /**
+   * Configured replicas; unset when no configuration was reported.
+   *
+   * @generated from field: optional int32 replicas = 6;
+   */
+  replicas?: number | undefined;
+
+  /**
+   * Storage type: file or memory; empty when not reported.
+   *
+   * @generated from field: string storage = 7;
+   */
+  storage: string;
+
+  /**
+   * Byte limit; -1 is unlimited; unset when no configuration was reported.
+   *
+   * @generated from field: optional int64 max_bytes = 8;
+   */
+  maxBytes?: bigint | undefined;
+
+  /**
+   * How long an object is kept (max_age); unset when no configuration was
+   * reported, zero when objects do not expire.
+   *
+   * @generated from field: google.protobuf.Duration ttl = 9;
+   */
+  ttl?: Duration | undefined;
+
+  /**
+   * Whether the bucket is sealed (read-only).
+   *
+   * @generated from field: bool sealed = 10;
+   */
+  sealed: boolean;
+
+  /**
+   * Worst status of the findings for the bucket's stream.
+   *
+   * @generated from field: natslens.v1.Status status = 11;
+   */
+  status: Status;
+
+  /**
+   * Codes of the findings that set the status, worst first; a muted one
+   * ends in " muted".
+   *
+   * @generated from field: repeated string finding_codes = 12;
+   */
+  findingCodes: string[];
+
+  /**
+   * One entry per replica: the leader first, then the followers by server
+   * name.
+   *
+   * @generated from field: repeated natslens.v1.ReplicaPlacement placement = 13;
+   */
+  placement: ReplicaPlacement[];
+
+  /**
+   * Whether a server reports the bucket in the newest epoch.
+   *
+   * @generated from field: bool present = 14;
+   */
+  present: boolean;
+
+  /**
+   * Whether the inventory lists the bucket.
+   *
+   * @generated from field: bool expected = 15;
+   */
+  expected: boolean;
+
+  /**
+   * Growth of bytes over the range, scaled to one day; unset when the range
+   * holds one observation or none.
+   *
+   * @generated from field: optional double bytes_per_day = 16;
+   */
+  bytesPerDay?: number | undefined;
 };
 
 /**
@@ -164,7 +412,9 @@ export const ObjectStoreSchema: GenMessage<ObjectStore> = /*@__PURE__*/
   messageDesc(file_natslens_v1_buckets, 4);
 
 /**
- * Object stores, ordered by account and bucket.
+ * Object stores, worst status first, then by account and bucket. A bucket
+ * the inventory lists that no server reports is included with present
+ * unset.
  *
  * @generated from message natslens.v1.ListObjectStoresResponse
  */

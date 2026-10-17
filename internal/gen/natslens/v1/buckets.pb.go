@@ -9,6 +9,7 @@ package natslensv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -92,7 +93,53 @@ type KeyValueStore struct {
 	// The stream that holds the store.
 	Entity *EntityRef `protobuf:"bytes,1,opt,name=entity,proto3" json:"entity,omitempty"`
 	// Bucket name, without the KV_ prefix.
-	Bucket        string `protobuf:"bytes,2,opt,name=bucket,proto3" json:"bucket,omitempty"`
+	Bucket string `protobuf:"bytes,2,opt,name=bucket,proto3" json:"bucket,omitempty"`
+	// Values kept per key (max_msgs_per_subject); unset when no configuration
+	// was reported.
+	History *int32 `protobuf:"varint,3,opt,name=history,proto3,oneof" json:"history,omitempty"`
+	// How long a value is kept (max_age); unset when no configuration was
+	// reported, zero when values do not expire.
+	Ttl *durationpb.Duration `protobuf:"bytes,4,opt,name=ttl,proto3" json:"ttl,omitempty"`
+	// Byte limit; -1 is unlimited; unset when no configuration was reported.
+	MaxBytes *int64 `protobuf:"varint,5,opt,name=max_bytes,json=maxBytes,proto3,oneof" json:"max_bytes,omitempty"`
+	// Configured replicas; unset when no configuration was reported.
+	Replicas *int32 `protobuf:"varint,6,opt,name=replicas,proto3,oneof" json:"replicas,omitempty"`
+	// Storage type: file or memory; empty when not reported.
+	Storage string `protobuf:"bytes,7,opt,name=storage,proto3" json:"storage,omitempty"`
+	// Distinct subjects stored, from the leader's view. A deleted or purged
+	// key keeps its subject until it is compacted, so this counts deleted
+	// keys too. Unset when not reported.
+	Keys *int64 `protobuf:"varint,8,opt,name=keys,proto3,oneof" json:"keys,omitempty"`
+	// Bytes stored, from the leader's view; unset when not reported.
+	Bytes *int64 `protobuf:"varint,9,opt,name=bytes,proto3,oneof" json:"bytes,omitempty"`
+	// Messages stored, from the leader's view; unset when not reported.
+	Messages *int64 `protobuf:"varint,10,opt,name=messages,proto3,oneof" json:"messages,omitempty"`
+	// Consumers on the bucket's stream, which for a bucket are its watchers;
+	// unset for a bucket no server reports.
+	Watchers *int32 `protobuf:"varint,11,opt,name=watchers,proto3,oneof" json:"watchers,omitempty"`
+	// Worst status of the findings for the bucket's stream.
+	Status Status `protobuf:"varint,12,opt,name=status,proto3,enum=natslens.v1.Status" json:"status,omitempty"`
+	// Codes of the findings that set the status, worst first; a muted one
+	// ends in " muted".
+	FindingCodes []string `protobuf:"bytes,13,rep,name=finding_codes,json=findingCodes,proto3" json:"finding_codes,omitempty"`
+	// One entry per replica: the leader first, then the followers by server
+	// name.
+	Placement []*ReplicaPlacement `protobuf:"bytes,14,rep,name=placement,proto3" json:"placement,omitempty"`
+	// Whether a server reports the bucket in the newest epoch.
+	Present bool `protobuf:"varint,15,opt,name=present,proto3" json:"present,omitempty"`
+	// Whether the inventory lists the bucket.
+	Expected bool `protobuf:"varint,16,opt,name=expected,proto3" json:"expected,omitempty"`
+	// Storage compression: none or s2; empty when not reported.
+	Compression string `protobuf:"bytes,17,opt,name=compression,proto3" json:"compression,omitempty"`
+	// Name of the stream the bucket mirrors; empty when not a mirror.
+	Mirror string `protobuf:"bytes,18,opt,name=mirror,proto3" json:"mirror,omitempty"`
+	// Whether per-key TTLs are allowed (allow_msg_ttl).
+	AllowMsgTtl bool `protobuf:"varint,19,opt,name=allow_msg_ttl,json=allowMsgTtl,proto3" json:"allow_msg_ttl,omitempty"`
+	// Bucket description.
+	Description string `protobuf:"bytes,20,opt,name=description,proto3" json:"description,omitempty"`
+	// Growth of bytes over the range, scaled to one day; unset when the range
+	// holds one observation or none.
+	BytesPerDay   *float64 `protobuf:"fixed64,21,opt,name=bytes_per_day,json=bytesPerDay,proto3,oneof" json:"bytes_per_day,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -141,7 +188,142 @@ func (x *KeyValueStore) GetBucket() string {
 	return ""
 }
 
-// Key-value stores, ordered by account and bucket.
+func (x *KeyValueStore) GetHistory() int32 {
+	if x != nil && x.History != nil {
+		return *x.History
+	}
+	return 0
+}
+
+func (x *KeyValueStore) GetTtl() *durationpb.Duration {
+	if x != nil {
+		return x.Ttl
+	}
+	return nil
+}
+
+func (x *KeyValueStore) GetMaxBytes() int64 {
+	if x != nil && x.MaxBytes != nil {
+		return *x.MaxBytes
+	}
+	return 0
+}
+
+func (x *KeyValueStore) GetReplicas() int32 {
+	if x != nil && x.Replicas != nil {
+		return *x.Replicas
+	}
+	return 0
+}
+
+func (x *KeyValueStore) GetStorage() string {
+	if x != nil {
+		return x.Storage
+	}
+	return ""
+}
+
+func (x *KeyValueStore) GetKeys() int64 {
+	if x != nil && x.Keys != nil {
+		return *x.Keys
+	}
+	return 0
+}
+
+func (x *KeyValueStore) GetBytes() int64 {
+	if x != nil && x.Bytes != nil {
+		return *x.Bytes
+	}
+	return 0
+}
+
+func (x *KeyValueStore) GetMessages() int64 {
+	if x != nil && x.Messages != nil {
+		return *x.Messages
+	}
+	return 0
+}
+
+func (x *KeyValueStore) GetWatchers() int32 {
+	if x != nil && x.Watchers != nil {
+		return *x.Watchers
+	}
+	return 0
+}
+
+func (x *KeyValueStore) GetStatus() Status {
+	if x != nil {
+		return x.Status
+	}
+	return Status_STATUS_UNSPECIFIED
+}
+
+func (x *KeyValueStore) GetFindingCodes() []string {
+	if x != nil {
+		return x.FindingCodes
+	}
+	return nil
+}
+
+func (x *KeyValueStore) GetPlacement() []*ReplicaPlacement {
+	if x != nil {
+		return x.Placement
+	}
+	return nil
+}
+
+func (x *KeyValueStore) GetPresent() bool {
+	if x != nil {
+		return x.Present
+	}
+	return false
+}
+
+func (x *KeyValueStore) GetExpected() bool {
+	if x != nil {
+		return x.Expected
+	}
+	return false
+}
+
+func (x *KeyValueStore) GetCompression() string {
+	if x != nil {
+		return x.Compression
+	}
+	return ""
+}
+
+func (x *KeyValueStore) GetMirror() string {
+	if x != nil {
+		return x.Mirror
+	}
+	return ""
+}
+
+func (x *KeyValueStore) GetAllowMsgTtl() bool {
+	if x != nil {
+		return x.AllowMsgTtl
+	}
+	return false
+}
+
+func (x *KeyValueStore) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *KeyValueStore) GetBytesPerDay() float64 {
+	if x != nil && x.BytesPerDay != nil {
+		return *x.BytesPerDay
+	}
+	return 0
+}
+
+// Key-value stores, worst status first, then by account and bucket. A
+// bucket the inventory lists that no server reports is included with
+// present unset.
 type ListKeyValueStoresResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The stores.
@@ -258,7 +440,40 @@ type ObjectStore struct {
 	// The stream that holds the store.
 	Entity *EntityRef `protobuf:"bytes,1,opt,name=entity,proto3" json:"entity,omitempty"`
 	// Bucket name, without the OBJ_ prefix.
-	Bucket        string `protobuf:"bytes,2,opt,name=bucket,proto3" json:"bucket,omitempty"`
+	Bucket string `protobuf:"bytes,2,opt,name=bucket,proto3" json:"bucket,omitempty"`
+	// Bucket description.
+	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	// Bytes stored, from the leader's view; unset when not reported.
+	Bytes *int64 `protobuf:"varint,4,opt,name=bytes,proto3,oneof" json:"bytes,omitempty"`
+	// Messages stored, from the leader's view: the objects' chunks and one
+	// metadata message per object. Unset when not reported.
+	Chunks *int64 `protobuf:"varint,5,opt,name=chunks,proto3,oneof" json:"chunks,omitempty"`
+	// Configured replicas; unset when no configuration was reported.
+	Replicas *int32 `protobuf:"varint,6,opt,name=replicas,proto3,oneof" json:"replicas,omitempty"`
+	// Storage type: file or memory; empty when not reported.
+	Storage string `protobuf:"bytes,7,opt,name=storage,proto3" json:"storage,omitempty"`
+	// Byte limit; -1 is unlimited; unset when no configuration was reported.
+	MaxBytes *int64 `protobuf:"varint,8,opt,name=max_bytes,json=maxBytes,proto3,oneof" json:"max_bytes,omitempty"`
+	// How long an object is kept (max_age); unset when no configuration was
+	// reported, zero when objects do not expire.
+	Ttl *durationpb.Duration `protobuf:"bytes,9,opt,name=ttl,proto3" json:"ttl,omitempty"`
+	// Whether the bucket is sealed (read-only).
+	Sealed bool `protobuf:"varint,10,opt,name=sealed,proto3" json:"sealed,omitempty"`
+	// Worst status of the findings for the bucket's stream.
+	Status Status `protobuf:"varint,11,opt,name=status,proto3,enum=natslens.v1.Status" json:"status,omitempty"`
+	// Codes of the findings that set the status, worst first; a muted one
+	// ends in " muted".
+	FindingCodes []string `protobuf:"bytes,12,rep,name=finding_codes,json=findingCodes,proto3" json:"finding_codes,omitempty"`
+	// One entry per replica: the leader first, then the followers by server
+	// name.
+	Placement []*ReplicaPlacement `protobuf:"bytes,13,rep,name=placement,proto3" json:"placement,omitempty"`
+	// Whether a server reports the bucket in the newest epoch.
+	Present bool `protobuf:"varint,14,opt,name=present,proto3" json:"present,omitempty"`
+	// Whether the inventory lists the bucket.
+	Expected bool `protobuf:"varint,15,opt,name=expected,proto3" json:"expected,omitempty"`
+	// Growth of bytes over the range, scaled to one day; unset when the range
+	// holds one observation or none.
+	BytesPerDay   *float64 `protobuf:"fixed64,16,opt,name=bytes_per_day,json=bytesPerDay,proto3,oneof" json:"bytes_per_day,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -307,7 +522,107 @@ func (x *ObjectStore) GetBucket() string {
 	return ""
 }
 
-// Object stores, ordered by account and bucket.
+func (x *ObjectStore) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *ObjectStore) GetBytes() int64 {
+	if x != nil && x.Bytes != nil {
+		return *x.Bytes
+	}
+	return 0
+}
+
+func (x *ObjectStore) GetChunks() int64 {
+	if x != nil && x.Chunks != nil {
+		return *x.Chunks
+	}
+	return 0
+}
+
+func (x *ObjectStore) GetReplicas() int32 {
+	if x != nil && x.Replicas != nil {
+		return *x.Replicas
+	}
+	return 0
+}
+
+func (x *ObjectStore) GetStorage() string {
+	if x != nil {
+		return x.Storage
+	}
+	return ""
+}
+
+func (x *ObjectStore) GetMaxBytes() int64 {
+	if x != nil && x.MaxBytes != nil {
+		return *x.MaxBytes
+	}
+	return 0
+}
+
+func (x *ObjectStore) GetTtl() *durationpb.Duration {
+	if x != nil {
+		return x.Ttl
+	}
+	return nil
+}
+
+func (x *ObjectStore) GetSealed() bool {
+	if x != nil {
+		return x.Sealed
+	}
+	return false
+}
+
+func (x *ObjectStore) GetStatus() Status {
+	if x != nil {
+		return x.Status
+	}
+	return Status_STATUS_UNSPECIFIED
+}
+
+func (x *ObjectStore) GetFindingCodes() []string {
+	if x != nil {
+		return x.FindingCodes
+	}
+	return nil
+}
+
+func (x *ObjectStore) GetPlacement() []*ReplicaPlacement {
+	if x != nil {
+		return x.Placement
+	}
+	return nil
+}
+
+func (x *ObjectStore) GetPresent() bool {
+	if x != nil {
+		return x.Present
+	}
+	return false
+}
+
+func (x *ObjectStore) GetExpected() bool {
+	if x != nil {
+		return x.Expected
+	}
+	return false
+}
+
+func (x *ObjectStore) GetBytesPerDay() float64 {
+	if x != nil && x.BytesPerDay != nil {
+		return *x.BytesPerDay
+	}
+	return 0
+}
+
+// Object stores, worst status first, then by account and bucket. A bucket
+// the inventory lists that no server reports is included with present
+// unset.
 type ListObjectStoresResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The stores.
@@ -357,23 +672,74 @@ var File_natslens_v1_buckets_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_buckets_proto_rawDesc = "" +
 	"\n" +
-	"\x19natslens/v1/buckets.proto\x12\vnatslens.v1\x1a\x18natslens/v1/common.proto\"{\n" +
+	"\x19natslens/v1/buckets.proto\x12\vnatslens.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x18natslens/v1/common.proto\"{\n" +
 	"\x19ListKeyValueStoresRequest\x12\x16\n" +
 	"\x06system\x18\x01 \x01(\tR\x06system\x12,\n" +
 	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x18\n" +
-	"\aaccount\x18\x03 \x01(\tR\aaccount\"W\n" +
+	"\aaccount\x18\x03 \x01(\tR\aaccount\"\xca\x06\n" +
 	"\rKeyValueStore\x12.\n" +
 	"\x06entity\x18\x01 \x01(\v2\x16.natslens.v1.EntityRefR\x06entity\x12\x16\n" +
-	"\x06bucket\x18\x02 \x01(\tR\x06bucket\"b\n" +
+	"\x06bucket\x18\x02 \x01(\tR\x06bucket\x12\x1d\n" +
+	"\ahistory\x18\x03 \x01(\x05H\x00R\ahistory\x88\x01\x01\x12+\n" +
+	"\x03ttl\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\x03ttl\x12 \n" +
+	"\tmax_bytes\x18\x05 \x01(\x03H\x01R\bmaxBytes\x88\x01\x01\x12\x1f\n" +
+	"\breplicas\x18\x06 \x01(\x05H\x02R\breplicas\x88\x01\x01\x12\x18\n" +
+	"\astorage\x18\a \x01(\tR\astorage\x12\x17\n" +
+	"\x04keys\x18\b \x01(\x03H\x03R\x04keys\x88\x01\x01\x12\x19\n" +
+	"\x05bytes\x18\t \x01(\x03H\x04R\x05bytes\x88\x01\x01\x12\x1f\n" +
+	"\bmessages\x18\n" +
+	" \x01(\x03H\x05R\bmessages\x88\x01\x01\x12\x1f\n" +
+	"\bwatchers\x18\v \x01(\x05H\x06R\bwatchers\x88\x01\x01\x12+\n" +
+	"\x06status\x18\f \x01(\x0e2\x13.natslens.v1.StatusR\x06status\x12#\n" +
+	"\rfinding_codes\x18\r \x03(\tR\ffindingCodes\x12;\n" +
+	"\tplacement\x18\x0e \x03(\v2\x1d.natslens.v1.ReplicaPlacementR\tplacement\x12\x18\n" +
+	"\apresent\x18\x0f \x01(\bR\apresent\x12\x1a\n" +
+	"\bexpected\x18\x10 \x01(\bR\bexpected\x12 \n" +
+	"\vcompression\x18\x11 \x01(\tR\vcompression\x12\x16\n" +
+	"\x06mirror\x18\x12 \x01(\tR\x06mirror\x12\"\n" +
+	"\rallow_msg_ttl\x18\x13 \x01(\bR\vallowMsgTtl\x12 \n" +
+	"\vdescription\x18\x14 \x01(\tR\vdescription\x12'\n" +
+	"\rbytes_per_day\x18\x15 \x01(\x01H\aR\vbytesPerDay\x88\x01\x01B\n" +
+	"\n" +
+	"\b_historyB\f\n" +
+	"\n" +
+	"_max_bytesB\v\n" +
+	"\t_replicasB\a\n" +
+	"\x05_keysB\b\n" +
+	"\x06_bytesB\v\n" +
+	"\t_messagesB\v\n" +
+	"\t_watchersB\x10\n" +
+	"\x0e_bytes_per_day\"b\n" +
 	"\x1aListKeyValueStoresResponse\x12D\n" +
 	"\x10key_value_stores\x18\x01 \x03(\v2\x1a.natslens.v1.KeyValueStoreR\x0ekeyValueStores\"y\n" +
 	"\x17ListObjectStoresRequest\x12\x16\n" +
 	"\x06system\x18\x01 \x01(\tR\x06system\x12,\n" +
 	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x18\n" +
-	"\aaccount\x18\x03 \x01(\tR\aaccount\"U\n" +
+	"\aaccount\x18\x03 \x01(\tR\aaccount\"\x81\x05\n" +
 	"\vObjectStore\x12.\n" +
 	"\x06entity\x18\x01 \x01(\v2\x16.natslens.v1.EntityRefR\x06entity\x12\x16\n" +
-	"\x06bucket\x18\x02 \x01(\tR\x06bucket\"Y\n" +
+	"\x06bucket\x18\x02 \x01(\tR\x06bucket\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x19\n" +
+	"\x05bytes\x18\x04 \x01(\x03H\x00R\x05bytes\x88\x01\x01\x12\x1b\n" +
+	"\x06chunks\x18\x05 \x01(\x03H\x01R\x06chunks\x88\x01\x01\x12\x1f\n" +
+	"\breplicas\x18\x06 \x01(\x05H\x02R\breplicas\x88\x01\x01\x12\x18\n" +
+	"\astorage\x18\a \x01(\tR\astorage\x12 \n" +
+	"\tmax_bytes\x18\b \x01(\x03H\x03R\bmaxBytes\x88\x01\x01\x12+\n" +
+	"\x03ttl\x18\t \x01(\v2\x19.google.protobuf.DurationR\x03ttl\x12\x16\n" +
+	"\x06sealed\x18\n" +
+	" \x01(\bR\x06sealed\x12+\n" +
+	"\x06status\x18\v \x01(\x0e2\x13.natslens.v1.StatusR\x06status\x12#\n" +
+	"\rfinding_codes\x18\f \x03(\tR\ffindingCodes\x12;\n" +
+	"\tplacement\x18\r \x03(\v2\x1d.natslens.v1.ReplicaPlacementR\tplacement\x12\x18\n" +
+	"\apresent\x18\x0e \x01(\bR\apresent\x12\x1a\n" +
+	"\bexpected\x18\x0f \x01(\bR\bexpected\x12'\n" +
+	"\rbytes_per_day\x18\x10 \x01(\x01H\x04R\vbytesPerDay\x88\x01\x01B\b\n" +
+	"\x06_bytesB\t\n" +
+	"\a_chunksB\v\n" +
+	"\t_replicasB\f\n" +
+	"\n" +
+	"_max_bytesB\x10\n" +
+	"\x0e_bytes_per_day\"Y\n" +
 	"\x18ListObjectStoresResponse\x12=\n" +
 	"\robject_stores\x18\x01 \x03(\v2\x18.natslens.v1.ObjectStoreR\fobjectStoresBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
 
@@ -399,19 +765,28 @@ var file_natslens_v1_buckets_proto_goTypes = []any{
 	(*ListObjectStoresResponse)(nil),   // 5: natslens.v1.ListObjectStoresResponse
 	(*TimeRange)(nil),                  // 6: natslens.v1.TimeRange
 	(*EntityRef)(nil),                  // 7: natslens.v1.EntityRef
+	(*durationpb.Duration)(nil),        // 8: google.protobuf.Duration
+	(Status)(0),                        // 9: natslens.v1.Status
+	(*ReplicaPlacement)(nil),           // 10: natslens.v1.ReplicaPlacement
 }
 var file_natslens_v1_buckets_proto_depIdxs = []int32{
-	6, // 0: natslens.v1.ListKeyValueStoresRequest.range:type_name -> natslens.v1.TimeRange
-	7, // 1: natslens.v1.KeyValueStore.entity:type_name -> natslens.v1.EntityRef
-	1, // 2: natslens.v1.ListKeyValueStoresResponse.key_value_stores:type_name -> natslens.v1.KeyValueStore
-	6, // 3: natslens.v1.ListObjectStoresRequest.range:type_name -> natslens.v1.TimeRange
-	7, // 4: natslens.v1.ObjectStore.entity:type_name -> natslens.v1.EntityRef
-	4, // 5: natslens.v1.ListObjectStoresResponse.object_stores:type_name -> natslens.v1.ObjectStore
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	6,  // 0: natslens.v1.ListKeyValueStoresRequest.range:type_name -> natslens.v1.TimeRange
+	7,  // 1: natslens.v1.KeyValueStore.entity:type_name -> natslens.v1.EntityRef
+	8,  // 2: natslens.v1.KeyValueStore.ttl:type_name -> google.protobuf.Duration
+	9,  // 3: natslens.v1.KeyValueStore.status:type_name -> natslens.v1.Status
+	10, // 4: natslens.v1.KeyValueStore.placement:type_name -> natslens.v1.ReplicaPlacement
+	1,  // 5: natslens.v1.ListKeyValueStoresResponse.key_value_stores:type_name -> natslens.v1.KeyValueStore
+	6,  // 6: natslens.v1.ListObjectStoresRequest.range:type_name -> natslens.v1.TimeRange
+	7,  // 7: natslens.v1.ObjectStore.entity:type_name -> natslens.v1.EntityRef
+	8,  // 8: natslens.v1.ObjectStore.ttl:type_name -> google.protobuf.Duration
+	9,  // 9: natslens.v1.ObjectStore.status:type_name -> natslens.v1.Status
+	10, // 10: natslens.v1.ObjectStore.placement:type_name -> natslens.v1.ReplicaPlacement
+	4,  // 11: natslens.v1.ListObjectStoresResponse.object_stores:type_name -> natslens.v1.ObjectStore
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_buckets_proto_init() }
@@ -420,6 +795,8 @@ func file_natslens_v1_buckets_proto_init() {
 		return
 	}
 	file_natslens_v1_common_proto_init()
+	file_natslens_v1_buckets_proto_msgTypes[1].OneofWrappers = []any{}
+	file_natslens_v1_buckets_proto_msgTypes[4].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
