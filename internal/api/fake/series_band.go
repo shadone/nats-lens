@@ -1,6 +1,7 @@
 package fake
 
 import (
+	"math"
 	"slices"
 	"strings"
 	"time"
@@ -76,8 +77,10 @@ func (sc *scenario) value(metric string, e *v1.EntityRef, c time.Time) (float64,
 }
 
 // bandSeries draws a band metric: at each sample the median, lowest and
-// highest server, averaged per bucket, plus the server with the highest
-// mean over the range and its own series.
+// highest server. A bucket's value is the mean of its medians and its
+// edges the lowest and highest sample in it; the series' min and max are
+// the edges'. The server with the highest mean over the range comes with
+// its own averaged series, which lies inside the band.
 func (s scen) bandSeries(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints int32) *v1.Series {
 	perServer := bandOf[metric]
 	step := api.Step(r, maxPoints, sampleEvery)
@@ -91,7 +94,7 @@ func (s scen) bandSeries(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoi
 		if t.Before(start) {
 			t = start
 		}
-		var med, lo, hi float64
+		med, lo, hi := 0.0, math.Inf(1), math.Inf(-1)
 		n := 0
 		for x := t; x.Before(earliest(b.Add(step), end)); x = x.Add(sampleEvery) {
 			var vs []float64
@@ -107,20 +110,19 @@ func (s scen) bandSeries(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoi
 			}
 			slices.Sort(vs)
 			med += median(vs)
-			lo += vs[0]
-			hi += vs[len(vs)-1]
+			lo, hi = math.Min(lo, vs[0]), math.Max(hi, vs[len(vs)-1])
 			n++
 		}
 		if n == 0 {
 			continue
 		}
 		v := med / float64(n)
-		out.Points = append(out.Points, &v1.Point{Time: ts(b), Value: v, Low: ptr(lo / float64(n)), High: ptr(hi / float64(n))})
-		if out.Min == nil || v < out.GetMin() {
-			out.Min = ptr(v)
+		out.Points = append(out.Points, &v1.Point{Time: ts(b), Value: v, Low: ptr(lo), High: ptr(hi)})
+		if out.Min == nil || lo < out.GetMin() {
+			out.Min = ptr(lo)
 		}
-		if out.Max == nil || v > out.GetMax() {
-			out.Max = ptr(v)
+		if out.Max == nil || hi > out.GetMax() {
+			out.Max = ptr(hi)
 		}
 	}
 	top, best := "", 0.0

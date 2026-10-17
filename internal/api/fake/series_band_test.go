@@ -159,3 +159,23 @@ func TestDemoDeliveredRate(t *testing.T) {
 		t.Errorf("resize-worker delivered rate = %v", v)
 	}
 }
+
+// A bucket's edges are the extremes of its samples, so one bucket over an
+// hour has the same edges as the hour's 30-second points, and the series'
+// min and max are the edges'.
+func TestDemoBandEdgesAreEnvelopes(t *testing.T) {
+	c := demo(t)
+	r := &v1.TimeRange{Start: timestamppb.New(at(13, 0, 0)), End: timestamppb.New(at(14, 0, 0))}
+	fine := must(c.GetTimeSeries(ctx, connect.NewRequest(&v1.GetTimeSeriesRequest{System: fake.GlobalSystem, Metric: "cluster.cpu_percent", Range: r, MaxPoints: 120}))).GetSeries()
+	one := must(c.GetTimeSeries(ctx, connect.NewRequest(&v1.GetTimeSeriesRequest{System: fake.GlobalSystem, Metric: "cluster.cpu_percent", Range: r, MaxPoints: 1}))).GetSeries()
+	lo, hi := math.Inf(1), math.Inf(-1)
+	for _, p := range fine.GetPoints() {
+		lo, hi = math.Min(lo, p.GetLow()), math.Max(hi, p.GetHigh())
+	}
+	if fine.GetMin() != lo || fine.GetMax() != hi {
+		t.Errorf("min/max = %v/%v, want the edges %v/%v", fine.GetMin(), fine.GetMax(), lo, hi)
+	}
+	if len(one.GetPoints()) != 1 || one.GetPoints()[0].GetLow() != lo || one.GetPoints()[0].GetHigh() != hi {
+		t.Errorf("one bucket = %v, want edges %v..%v", one.GetPoints(), lo, hi)
+	}
+}
