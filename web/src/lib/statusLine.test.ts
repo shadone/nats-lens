@@ -30,11 +30,11 @@ describe("statusLine", () => {
     expect(statusLine(none, { ...fresh, live: false }, true, NOW).text).toBe("Not collecting");
   });
 
-  it("says since when the collector stopped collecting, with or without a collection in the range", () => {
+  it("says not collecting with the last data's time, not the header's since again", () => {
     const since = Date.parse("2026-10-17T11:30:00Z");
-    const stopped = { ...fresh, collecting: false, notCollectingSince: since };
-    expect(statusLine(none, stopped, true, NOW)).toMatchObject({ level: "nodata", text: "Not collecting since 11:30" });
-    expect(statusLine(none, { ...stopped, epoch: "0", epochAt: undefined }, true, NOW).text).toBe("Not collecting since 11:30");
+    const stopped = { ...fresh, epochAt: Date.parse("2026-10-17T11:29:40Z"), collecting: false, notCollectingSince: since };
+    expect(statusLine(none, stopped, true, NOW)).toMatchObject({ level: "nodata", text: "Not collecting · last data 11:29" });
+    expect(statusLine(none, { ...stopped, epoch: "0", epochAt: undefined }, true, NOW).text).toBe("Not collecting");
   });
 
   it("judges a fixed range by its findings only", () => {
