@@ -38,7 +38,7 @@ Every task updates the README sections and `docs/features/` docs it changes, and
 | T12 | merged |
 | T13 | merged |
 | T14 | merged |
-| Clean-up (UI) | not started |
+| Clean-up (UI) | done |
 
 ## Tasks
 
@@ -200,7 +200,7 @@ Every task updates the README sections and `docs/features/` docs it changes, and
 
 ### Clean-up (UI)
 
-- **Header "not collecting":** done.
+- Done: the header's "not collecting", "collection" in the UI, one page heading, singular tile suffixes, real check codes in the web fixtures, the Overview leftovers, the placement square contrast, the phone axis, varied demo backlogs, the backend test gaps, `ListStreams` `limit`, and one chart component.
 
 ## Decisions (proposed, not yet confirmed)
 
