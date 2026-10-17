@@ -62,12 +62,36 @@ describe("server copies table", () => {
     expect(copiesDisagree("consumer", copies)).toBe(false);
   });
 
-  it("never takes an offline leader's stale position as the reference", () => {
+  it("never takes an offline leader's stale position as the reference, and does not mark it", () => {
     const copies = [copy("nats-0", { isLeader: true, offline: true, deliveredStreamSeq: 10 }), copy("nats-1", { deliveredStreamSeq: 5000 })];
     renderApp(<CopiesTable kind="consumer" copies={copies} />);
     const [leader, follower] = rows();
-    expect(leader).toHaveClass("odd");
+    expect(leader).not.toHaveClass("odd");
     expect(follower).not.toHaveClass("odd");
+    expect(copiesDisagree("consumer", copies)).toBe(false);
+  });
+
+  it("takes the value most copies match as the reference, whatever the server order", () => {
+    const h = 3_600_000;
+    for (const order of [[0, 0.9 * h, 1.8 * h], [1.8 * h, 0.9 * h, 0]]) {
+      expect(commonCreated(order.map((x) => t0 + x))).toBe(t0 + 0.9 * h);
+      const copies = order.map((x, i) => copy(`nats-${i}`, { created: t0 + x, isLeader: i === 0 }));
+      const { unmount } = renderApp(<CopiesTable kind="consumer" copies={copies} />);
+      for (const r of rows()) expect(r).not.toHaveClass("odd");
+      unmount();
+    }
+    for (const order of [[1000, 1090, 1180], [1180, 1090, 1000]]) {
+      expect(commonPosition(order)).toBe(1090);
+      const copies = order.map((v, i) => copy(`nats-${i}`, { deliveredStreamSeq: v, isLeader: i === 0 }));
+      const { unmount } = renderApp(<CopiesTable kind="consumer" copies={copies} />);
+      for (const r of rows()) expect(r).not.toHaveClass("odd");
+      unmount();
+    }
+  });
+
+  it("breaks a tie by the smallest value", () => {
+    // 1000 and 1100 each match both; the smaller is the reference.
+    expect(commonPosition([1100, 1000])).toBe(1000);
   });
 
   it("heads each row with its server", () => {
