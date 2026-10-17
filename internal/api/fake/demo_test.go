@@ -58,7 +58,10 @@ func TestDemoListsThreeSystems(t *testing.T) {
 		t.Errorf("live: prod %v, global %v, staging %v", prod.GetFreshness().GetLive(), global.GetFreshness().GetLive(), staging.GetFreshness().GetLive())
 	}
 	strip := staging.GetStrip()
-	if strip[len(strip)-6] != v1.Status_STATUS_NO_DATA || strip[len(strip)-1] != v1.Status_STATUS_NO_DATA || strip[0] == v1.Status_STATUS_NO_DATA {
+	// Its history began 9 hours ago and its data ended 3 hours ago: of 48
+	// half-hour cells, the first 30 and the last 6 have no data.
+	if strip[len(strip)-6] != v1.Status_STATUS_NO_DATA || strip[len(strip)-1] != v1.Status_STATUS_NO_DATA || strip[0] != v1.Status_STATUS_NO_DATA ||
+		strip[29] != v1.Status_STATUS_NO_DATA || strip[30] == v1.Status_STATUS_NO_DATA || strip[len(strip)-7] == v1.Status_STATUS_NO_DATA {
 		t.Errorf("staging strip = %v", strip)
 	}
 }
@@ -201,5 +204,34 @@ func TestDemoFreshnessSaysWhetherItCollects(t *testing.T) {
 		if f := s.GetFreshness(); f.GetCollecting() != (s.GetSystem().GetId() != fake.StagingSystem) {
 			t.Errorf("%s summary = %v", s.GetSystem().GetId(), f)
 		}
+	}
+}
+
+// example-staging's history is younger than the default range: nats-lens
+// began collecting it nine hours ago, so its series, strip and findings
+// start then, and GetLensInfo says so.
+func TestDemoStagingHistoryIsYoung(t *testing.T) {
+	c := demo(t)
+	start := fake.FixedNow.Add(-9 * time.Hour)
+	info := must(c.GetLensInfo(ctx, connect.NewRequest(&v1.GetLensInfoRequest{System: fake.StagingSystem})))
+	if got := info.GetHistoryStart(); got == nil || !got.AsTime().Equal(start) {
+		t.Errorf("staging history start = %v, want %v", got, start)
+	}
+	if p := must(c.GetLensInfo(ctx, connect.NewRequest(&v1.GetLensInfoRequest{System: fake.Cluster}))); p.GetHistoryStart() == nil ||
+		!p.GetHistoryStart().AsTime().Before(fake.FixedNow.Add(-14*24*time.Hour+time.Hour)) {
+		t.Errorf("prod history start = %v; want it older than the longest range", p.GetHistoryStart())
+	}
+	o := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{System: fake.StagingSystem})))
+	for _, tile := range o.GetTiles() {
+		pts := tile.GetSeries().GetPoints()
+		if len(pts) == 0 {
+			continue
+		}
+		if first := pts[0].GetTime().AsTime(); first.Before(start) || first.After(start.Add(time.Hour)) {
+			t.Errorf("tile %s starts at %v, want at %v", tile.GetId(), first, start)
+		}
+	}
+	if since := o.GetWorstFinding().GetSince(); since != nil && since.AsTime().Before(start) {
+		t.Errorf("worst finding since %v, before the history", since.AsTime())
 	}
 }

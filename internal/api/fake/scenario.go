@@ -27,6 +27,9 @@ type scenario struct {
 	// now the data ends (zero while collecting).
 	epoch int64
 	stale time.Duration
+	// history is how long before now the stored history begins; zero
+	// means defaultHistory, older than any range.
+	history time.Duration
 	// partial is whether the newest epoch missed a server.
 	partial bool
 	// collection, collectionError and errorSince describe the collector;
