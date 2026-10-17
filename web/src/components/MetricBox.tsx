@@ -1,7 +1,8 @@
 // A metric box: a title with an (i) description, the current value top
 // right, a line chart, and a range track with the window's min on the left,
-// its max on the right and a dot at the current value. Health colours the
-// value and the dot, with a word only when it is not ok. A configured limit
+// its max on the right and a dot at the current value. A warning or
+// critical status colours the value and the dot and shows a word; info only
+// tints the dot. A configured limit
 // belongs in the note, not on the track.
 //
 // The track's ends are the series' own min and max, never widened to take
@@ -13,6 +14,7 @@ import { useId, useState, type ReactNode } from "react";
 import type { Level, Series, Window } from "../api/model";
 import { rangeText } from "../charts/chartLabel";
 import { Sparkline } from "../charts/Sparkline";
+import { isTrouble } from "../lib/view";
 
 export interface MetricBoxProps {
   title: string;
@@ -79,8 +81,14 @@ export function InfoTip({ label, text }: { label: string; text: string }) {
   );
 }
 
+/** The dot's tint: info too, quietly. */
 function stateClass(status: Level): string {
   return status === "critical" || status === "warning" || status === "info" ? ` st-${status}` : "";
+}
+
+/** The box's class: only trouble colours the value and shows a word. */
+function alertClass(status: Level): string {
+  return isTrouble(status) ? ` st-${status}` : "";
 }
 
 /**
@@ -117,7 +125,7 @@ export function MetricBox(p: MetricBoxProps) {
   const min = hasWindow ? p.series!.min : undefined;
   const max = hasWindow ? p.series!.max : undefined;
   const shown = p.loading ? "…" : (p.valueText ?? (value === undefined ? "–" : p.fmt(value)));
-  const alert = stateClass(status);
+  const alert = alertClass(status);
   const word = alert ? (p.stateWord ?? status) : undefined;
   const period = rangeText(p.start, p.end);
   return (

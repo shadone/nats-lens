@@ -3,7 +3,6 @@
 .fc{padding:0;border-left:4px solid var(--fc-edge);min-width:0}
 .fc.critical{--fc-edge:var(--sev-critical)}
 .fc.warning{--fc-edge:var(--cell-warning)}
-.fc.info{--fc-edge:var(--sev-info)}
 .fc.notcollecting,.fc.unavailable,.fc.nodata{--fc-edge:var(--text-faint)}
 .fc.muted{--fc-edge:var(--sev-muted)}
 .fc.ok{--fc-edge:var(--accent)}
@@ -17,7 +16,8 @@
 .fc-state .hi{display:block;width:13px;height:13px}
 .fc-state.critical{color:var(--sev-critical)}
 .fc-state.warning{color:var(--sev-warning)}
-.fc-state.info{color:var(--sev-info)}
+.fc-info{display:inline-flex;align-items:center;gap:4px;font:12px var(--mono);color:var(--sev-info);white-space:nowrap}
+.fc-info .hi{display:block;width:12px;height:12px}
 .fc-state.ok{color:var(--accent-text)}
 .fc-head{margin:8px 0 0;font-weight:600;font-size:13.5px;line-height:1.4;overflow-wrap:anywhere}
 .fc.critical .fc-head{color:var(--sev-critical)}

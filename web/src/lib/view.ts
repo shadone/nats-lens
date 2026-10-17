@@ -13,6 +13,15 @@ export const LEVEL_LABEL: Record<Level, string> = {
 /** Lower sorts first. */
 export const LEVEL_ORDER: Record<Level, number> = { critical: 0, warning: 1, info: 2, muted: 3, ok: 4, nodata: 5 };
 
+/**
+ * Whether a state is trouble: critical, warning, not collecting, or a
+ * summary that could not be read. Info is a notice: it is counted and
+ * drawn, but never turns an OK label into another.
+ */
+export function isTrouble(state: Level | "notcollecting" | "unavailable"): boolean {
+  return state === "critical" || state === "warning" || state === "notcollecting" || state === "unavailable";
+}
+
 /** The transition tag the reference shows next to a finding. */
 export type FindingTag = "NEW" | "FLAPPING" | "RESOLVED" | "CHANGED" | "OPEN";
 

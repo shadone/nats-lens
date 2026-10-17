@@ -90,13 +90,24 @@ afterEach(() => {
 });
 
 describe("Fleet", () => {
-  it("lists the systems worst first: critical, warning, info, not collecting, ok", async () => {
+  it("lists the systems worst first: critical, warning, not collecting, ok", async () => {
     renderApp(<Fleet />, "/fleet");
     await screen.findByText("shop-prod");
-    expect(cards().map((c) => c.querySelector(".fc-name")?.textContent)).toEqual(["shop-prod", "shop-eu", "shop-edge", "shop-staging", "shop-dev"]);
+    expect(cards().map((c) => c.querySelector(".fc-name")?.textContent)).toEqual(["shop-prod", "shop-eu", "shop-staging", "shop-dev", "shop-edge"]);
     expect(within(cards()[0]).getByText("critical")).toBeInTheDocument();
     expect(cards()[0]).toHaveTextContent("Expected consumer missing: resize-worker");
     expect(cards()[0]).toHaveTextContent("+2 more");
+  });
+
+  it("shows a system with only info findings as ok, with an info count", async () => {
+    renderApp(<Fleet />, "/fleet");
+    await screen.findByText("shop-edge");
+    const c = cardOf("shop-edge");
+    expect(c.querySelector(".fc-state")).toHaveClass("ok");
+    expect(within(c).getByRole("link")).toHaveAccessibleName("shop-edge ok, 1 info");
+    expect(c.querySelector(".fc-info")).toHaveTextContent("1 info");
+    expect(c).toHaveTextContent("Stream without any limit: catalog-changes");
+    expect(cardOf("shop-dev").querySelector(".fc-info")).toBeNull();
   });
 
   it("asks for a 48-cell strip over the page's range", async () => {

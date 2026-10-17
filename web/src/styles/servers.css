@@ -127,3 +127,4 @@
 .dp-n .mono{white-space:nowrap}
 .sd-dl .nowrap{white-space:nowrap}
 .sd-cards{align-items:start}
+.srv-note{color:var(--sev-info)}

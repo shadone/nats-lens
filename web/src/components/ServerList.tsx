@@ -4,7 +4,7 @@
 import { Fragment, useState } from "react";
 import type { ServerRow } from "../api/servers";
 import { fmtBytes, fmtCount, fmtDuration, fmtInt } from "../lib/format";
-import { attentionReasons, groupByCluster, isFlat, leaders, matchesText, median, storePct, STORE_ATTENTION_PCT } from "../lib/servers";
+import { attentionReasons, groupByCluster, isFlat, leaders, matchesText, median, serverNotes, storePct, STORE_ATTENTION_PCT } from "../lib/servers";
 import { serverPath } from "../lib/view";
 import { Dash, Num, RLink } from "./common";
 
@@ -32,12 +32,13 @@ function clusterSummary(rows: ServerRow[]): string {
     .join(" · ");
 }
 
-function StateCell({ reasons, present }: { reasons: string[]; present: boolean }) {
+function StateCell({ reasons, notes, present }: { reasons: string[]; notes: string[]; present: boolean }) {
   const cls = !present ? "down" : reasons.length ? "warn" : "up";
   return (
     <td className={`srv-state ${cls}`}>
       <span className={`sq ${cls}`} aria-hidden="true" />
       {reasons.length ? reasons.join(" · ") : "ok"}
+      {notes.length > 0 && <span className="srv-note"> · {notes.join(" · ")}</span>}
     </td>
   );
 }
@@ -64,7 +65,7 @@ function Row({ s, majority }: { s: ServerRow; majority?: string }) {
       <td className="mono">
         <RLink to={serverPath(s.name)}>{s.name}</RLink>
       </td>
-      <StateCell reasons={reasons} present={s.present} />
+      <StateCell reasons={reasons} notes={serverNotes(s)} present={s.present} />
       <td>{s.present ? s.role : <Dash />}</td>
       <td className={`mono${off ? " warn" : ""}`}>{s.version || <Dash />}</td>
       <td className="num">{s.present && s.uptimeMs !== undefined ? fmtDuration(s.uptimeMs) : <Dash />}</td>

@@ -4,18 +4,20 @@ import type { Level, SystemSummary } from "../api/model";
 import type { Badge } from "../components/Sidebar";
 import { dayMonHm, fmtDuration, hm } from "./format";
 import { PRESETS } from "./timeRange";
-import { entityName } from "./view";
+import { entityName, isTrouble } from "./view";
 
-/** A card's state: the status, unless the system is not collecting or its summary failed. */
-export type CardState = "critical" | "warning" | "info" | "notcollecting" | "unavailable" | "nodata" | "muted" | "ok";
+/**
+ * A card's state: the status, unless the system is not collecting or its
+ * summary failed. Info findings are notices: such a system is ok.
+ */
+export type CardState = "critical" | "warning" | "notcollecting" | "unavailable" | "nodata" | "muted" | "ok";
 
 /** Worst first; a lower number sorts first. */
-const ORDER: Record<CardState, number> = { critical: 0, warning: 1, info: 2, notcollecting: 3, unavailable: 4, nodata: 5, muted: 6, ok: 7 };
+const ORDER: Record<CardState, number> = { critical: 0, warning: 1, notcollecting: 2, unavailable: 3, nodata: 4, muted: 5, ok: 6 };
 
 export const CARD_STATE_LABEL: Record<CardState, string> = {
   critical: "critical",
   warning: "warning",
-  info: "info",
   notcollecting: "not collecting",
   unavailable: "summary unavailable",
   nodata: "no data",
@@ -30,7 +32,12 @@ export function notCollecting(s: SystemSummary): boolean {
 export function cardState(s: SystemSummary): CardState {
   if (s.error) return "unavailable";
   if (notCollecting(s)) return "notcollecting";
-  return s.status;
+  return s.status === "info" ? "ok" : s.status;
+}
+
+/** Info findings firing on a system: notices that leave an ok card ok. */
+export function infoCount(s: SystemSummary): number {
+  return s.tally.info;
 }
 
 /** The systems worst first; systems in the same state keep their configuration order. */
@@ -70,7 +77,9 @@ export function headline(s: SystemSummary, now: number): Headline {
     case "muted":
       return { text: "Every firing finding is muted", more: 0 };
     case "ok":
-      return { text: "No findings firing", more: 0 };
+      if (!firing) return { text: "No findings firing", more: 0 };
+      if (!s.worst) return { text: `${firing} info ${firing === 1 ? "finding" : "findings"} firing`, more: 0 };
+      return { text: `${s.worst.checkName}: ${entityName(s.worst.entity) || "system"}`, more: Math.max(0, firing - 1) };
     default:
       if (!s.worst) return { text: `${firing} findings firing`, more: 0 };
       return { text: `${s.worst.checkName}: ${entityName(s.worst.entity) || "system"}`, more: Math.max(0, firing - 1) };
@@ -120,11 +129,11 @@ export function stripStartLabel(s: SystemSummary, live: boolean): string {
   return `${preset ? preset.id : fmtDuration(span)} ago`;
 }
 
-const BADGE_LEVEL: Partial<Record<CardState, Level>> = { critical: "critical", warning: "warning", info: "info" };
+const BADGE_LEVEL: Partial<Record<CardState, Level>> = { critical: "critical", warning: "warning" };
 
-/** The sidebar's Fleet badge: systems that are not OK, at the level of the worst. */
+/** The sidebar's Fleet badge: systems in trouble or without data, at the level of the worst. */
 export function fleetBadge(systems: SystemSummary[] | undefined): Badge | undefined {
-  const bad = (systems ?? []).map(cardState).filter((c) => c !== "ok" && c !== "muted");
+  const bad = (systems ?? []).map(cardState).filter((c) => isTrouble(c) || c === "nodata");
   if (!bad.length) return undefined;
   const worst = bad.reduce((a, b) => (ORDER[b] < ORDER[a] ? b : a));
   return { count: bad.length, level: BADGE_LEVEL[worst] ?? "nodata", what: "not OK", worst: CARD_STATE_LABEL[worst] };
