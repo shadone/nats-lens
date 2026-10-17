@@ -77,11 +77,12 @@ func TestOverviewFromSnapshots(t *testing.T) {
 	if got := tiles["clients"].GetSubtitle(); got != "2 apps · 3 slow" {
 		t.Fatalf("clients subtitle = %q, want 2 apps and 3 slow consumer events (nats-0 0, 1, 2 and the old nats-1 0, 1; the new process starts a new count)", got)
 	}
-	if got := tiles["consumers"]; got.GetValue() != 5 || got.Value2 != nil || got.GetSubtitle() != "0 behind" {
+	// The fixture's checks never ran, so "behind" is not claimed.
+	if got := tiles["consumers"]; got.GetValue() != 5 || got.Value2 != nil || got.GetSubtitle() != "" {
 		t.Fatalf("consumers tile = %v", got)
 	}
 	// Growth needs six hours of data; the fixture holds a minute.
-	if got := tiles["storage"]; got.GetLimit() != 100<<30 || got.GetValueSuffix() != "of 100 GiB" || got.GetSubtitle() != "0.5% used" {
+	if got := tiles["storage"]; got.GetLimit() != 100<<30 || got.GetValueSuffix() != "of 100 GiB" || got.GetSubtitle() != "all replicas · 0.5% used" {
 		t.Fatalf("storage tile = %v", got)
 	}
 }

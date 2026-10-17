@@ -10,28 +10,6 @@ import (
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
-// total is the sum of the series' values; nil without points.
-func total(s *v1.Series) *float64 {
-	if len(s.GetPoints()) == 0 {
-		return nil
-	}
-	var t float64
-	for _, x := range s.GetPoints() {
-		t += x.GetValue()
-	}
-	return &t
-}
-
-// newest is the series' last point, so that a tile's number and its
-// chart use the same reduction: the last value of the bucket for a
-// count. nil without points.
-func newest(s *v1.Series) *float64 {
-	if pts := s.GetPoints(); len(pts) > 0 {
-		return ptr(pts[len(pts)-1].GetValue())
-	}
-	return nil
-}
-
 // tileSeries are the system series the tiles chart.
 var tileSeries = []string{"cluster.servers_up", "cluster.meta_leader_changes", "cluster.streams", "cluster.kv_buckets",
 	"cluster.object_stores", "cluster.durable_consumers", "cluster.accounts", "cluster.connections",
@@ -65,30 +43,28 @@ func (p *Provider) tiles(ctx context.Context, r *v1.TimeRange, maxPoints int32, 
 		}
 	}
 
-	serversTile := tile(api.TileServers, newest(get["cluster.servers_up"]), count, "cluster.servers_up")
+	serversTile := tile(api.TileServers, api.LastPoint(get["cluster.servers_up"]), count, "cluster.servers_up")
 	if n := len(servers.GetExpected()); n > 0 {
 		serversTile.ValueSuffix = fmt.Sprintf("/ %d", n)
 	}
 	serversTile.Subtitle = api.ServersSubtitle(servers.GetServers())
 
-	meta := tile(api.TileMetaLeader, total(get["cluster.meta_leader_changes"]), count, "cluster.meta_leader_changes")
+	meta := tile(api.TileMetaLeader, api.SumPoints(get["cluster.meta_leader_changes"]), count, "cluster.meta_leader_changes")
 	meta.ValueText = now.metaLeader
 	if meta.Value != nil {
-		meta.Subtitle = plural(int(meta.GetValue()), "leader change") + " in range"
+		meta.Subtitle = api.Plural(int(meta.GetValue()), "leader change") + " in range"
 	}
 
-	streams := tile(api.TileStreams, newest(get["cluster.streams"]), count, "cluster.streams")
-	kv := tile(api.TileKV, newest(get["cluster.kv_buckets"]), count, "cluster.kv_buckets")
+	streams := tile(api.TileStreams, api.LastPoint(get["cluster.streams"]), count, "cluster.streams")
+	kv := tile(api.TileKV, api.LastPoint(get["cluster.kv_buckets"]), count, "cluster.kv_buckets")
 	kv.ValueSuffix = "buckets"
-	objects := tile(api.TileObjectStores, newest(get["cluster.object_stores"]), count, "cluster.object_stores")
+	objects := tile(api.TileObjectStores, api.LastPoint(get["cluster.object_stores"]), count, "cluster.object_stores")
 	objects.ValueSuffix = "buckets"
-	if ok {
-		streams.Subtitle = fmt.Sprintf("%d replicated · %d lagging", now.streams.replicated, now.streams.lagging)
-		kv.Subtitle = fmt.Sprintf("%d R1 · %d lagging", now.kv.single, now.kv.lagging)
-		objects.Subtitle = fmt.Sprintf("%d lagging", now.objects.lagging)
-	}
+	streams.Subtitle = api.StreamsSubtitle(streams.Value, now.streams.replicated, now.streams.total, now.streams.lagging)
+	kv.Subtitle = api.KVSubtitle(kv.Value, now.kv.single, now.kv.lagging)
+	objects.Subtitle = api.ObjectStoresSubtitle(objects.Value, now.objects.lagging)
 
-	consumers := tile(api.TileConsumers, newest(get["cluster.durable_consumers"]), count, "cluster.durable_consumers")
+	consumers := tile(api.TileConsumers, api.LastPoint(get["cluster.durable_consumers"]), count, "cluster.durable_consumers")
 	consumers.ValueSuffix = "durable"
 	behind := 0
 	for _, f := range cur {
@@ -96,21 +72,16 @@ func (p *Provider) tiles(ctx context.Context, r *v1.TimeRange, maxPoints int32, 
 			behind++
 		}
 	}
-	consumers.Subtitle = fmt.Sprintf("%d behind", behind)
+	consumers.Subtitle = api.ConsumersSubtitle(consumers.Value, now.behindRan, behind)
 
-	accounts := tile(api.TileAccounts, newest(get["cluster.accounts"]), count, "cluster.accounts")
+	accounts := tile(api.TileAccounts, api.LastPoint(get["cluster.accounts"]), count, "cluster.accounts")
 	if now.busiestAccount != "" {
 		accounts.Subtitle = fmt.Sprintf("most connections: %s (%d)", now.busiestAccount, now.busiestConns)
 	}
 
-	clients := tile(api.TileClients, newest(get["cluster.connections"]), count, "cluster.connections")
+	clients := tile(api.TileClients, api.LastPoint(get["cluster.connections"]), count, "cluster.connections")
 	clients.ValueSuffix = "conns"
-	if ok {
-		clients.Subtitle = plural(now.apps, "app")
-		if slow := total(get["cluster.slow_consumers"]); slow != nil {
-			clients.Subtitle += fmt.Sprintf(" · %.0f slow", *slow)
-		}
-	}
+	clients.Subtitle = api.ClientsSubtitle(clients.Value, now.apps, api.SumPoints(get["cluster.slow_consumers"]))
 
 	storage, err := p.storageTile(ctx, r, servers, get["cluster.js_storage_bytes"])
 	if err != nil {
@@ -125,12 +96,14 @@ func (p *Provider) tiles(ctx context.Context, r *v1.TimeRange, maxPoints int32, 
 func (p *Provider) storageTile(ctx context.Context, r *v1.TimeRange, servers *v1.ListServersResponse, ser *v1.Series) (*v1.Tile, error) {
 	t := &v1.Tile{Id: api.TileStorage, Unit: v1.Unit_UNIT_BYTES, Status: v1.Status_STATUS_NO_DATA, Series: ser}
 	var limit, used float64
-	reporting := false
+	reporting, limitKnown := false, true
 	for _, s := range servers.GetServers() {
 		if s.GetPresent() && s.JsStorageBytes != nil {
-			limit += float64(s.GetJsMaxStorageBytes())
 			used += float64(s.GetJsStorageBytes())
 			reporting = true
+			// One server without a limit leaves the sum unknown.
+			limitKnown = limitKnown && s.JsMaxStorageBytes != nil
+			limit += float64(s.GetJsMaxStorageBytes())
 		}
 	}
 	if reporting {
@@ -141,20 +114,15 @@ func (p *Provider) storageTile(ctx context.Context, r *v1.TimeRange, servers *v1
 			ser.Min, ser.Max = ptr(min(ser.GetMin(), used)), ptr(max(ser.GetMax(), used))
 		}
 	}
-	var parts []string
-	if limit > 0 {
+	if reporting && limitKnown && limit > 0 {
 		t.Limit = &limit
 		t.ValueSuffix = "of " + api.FmtBytes(limit)
-		parts = append(parts, fmt.Sprintf("%.1f%% used", used/limit*100))
 	}
 	growth, err := p.storageGrowth(ctx, r)
 	if err != nil {
 		return nil, err
 	}
-	if growth != nil {
-		parts = append(parts, api.FmtGrowth(*growth))
-	}
-	t.Subtitle = strings.Join(parts, " · ")
+	t.Subtitle = api.StorageSubtitle(t.Value, t.Limit, growth)
 	return t, nil
 }
 
@@ -184,7 +152,7 @@ func (p *Provider) storageGrowth(ctx context.Context, r *v1.TimeRange) (*float64
 
 // assetCounts are counts over a kind of stream in one epoch.
 type assetCounts struct {
-	replicated, single, lagging int
+	total, replicated, single, lagging int
 }
 
 // epochFacts are the newest epoch's facts the tiles' subtitles use.
@@ -192,6 +160,7 @@ type epochFacts struct {
 	metaLeader           string
 	streams, kv, objects assetCounts
 	apps                 int
+	behindRan            bool // consumer-002 ran ok in the epoch
 	busiestAccount       string
 	busiestConns         int64
 }
@@ -210,6 +179,12 @@ func (p *Provider) epochFacts(ctx context.Context, epoch int64) (epochFacts, err
 	if f.apps, err = p.appsAt(ctx, epoch); err != nil {
 		return f, err
 	}
+	var runs int
+	if err = p.db().QueryRowContext(ctx, `SELECT count(*) FROM check_runs WHERE epoch = ? AND check_code = 'consumer-002' AND status = 'ok'`,
+		epoch).Scan(&runs); err != nil {
+		return f, err
+	}
+	f.behindRan = runs > 0
 	err = p.db().QueryRowContext(ctx, `
 SELECT coalesce(any_value(ac.account_name), a.account), sum(a.conns)::BIGINT AS n
 FROM account_stats a LEFT JOIN accounts ac USING (account)
@@ -266,6 +241,7 @@ GROUP BY ALL`, epoch, epoch)
 		case strings.HasPrefix(name, "OBJ_"):
 			c = &f.objects
 		}
+		c.total++
 		if replicas != nil && *replicas > 1 {
 			c.replicated++
 		}
