@@ -148,12 +148,14 @@ describe("sidebar", () => {
     expect(within(nav()).getByText("Messaging").parentElement).toHaveTextContent("Connections");
   });
 
-  it("keeps the system, the range and the account on every page link", async () => {
-    renderApp(<App />, "/streams?system=example-global&range=6h&account=APP");
+  it("keeps the system and the range on every page link, the account only where it applies", async () => {
+    renderApp(<App />, "/consumers?system=example-global&range=6h&account=APP");
     await screen.findByText("Global");
     for (const a of within(nav()).getAllByRole("link")) {
       const p = params(a.getAttribute("href"));
-      expect([a.textContent, p.get("system"), p.get("range"), p.get("account")]).toEqual([a.textContent, "example-global", "6h", "APP"]);
+      const name = a.textContent?.replace(/\d+$/, "");
+      const scoped = name === "Consumers" || name === "Connections" ? "APP" : null;
+      expect([name, p.get("system"), p.get("range"), p.get("account")]).toEqual([name, "example-global", "6h", scoped]);
     }
   });
 
