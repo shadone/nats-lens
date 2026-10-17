@@ -14,7 +14,8 @@ One nats-lens watches several NATS systems at once, for example production, stag
 - **One database per system.** Each system's collections, events, findings and mutes go to a database and an archive of their own, in the system's data directory. Losing or rebuilding one system's database touches no other.
 - **A data directory belongs to one system.** On first start nats-lens writes the system's id into its data directory (`system.json`). A directory marked for another system refuses the start, so a mistyped id or directory never mixes two systems' data. A directory from a single-system nats-lens, without the file, is taken over.
 - **Own credentials, own collector.** Each system has its own NATS URL, system account user, account connections, inventory file and Kubernetes watcher. The collect interval and the checks are shared.
-- **One system down stops only its own collection.** A system whose NATS cannot be reached, or whose credentials are rejected, skips its own collections; the other systems, the API and readiness go on. A database that cannot be opened stops nats-lens at start.
+- **Every system is checked before any starts.** A data directory of another system, or a file a system names that is missing (credentials, TLS files, the kubeconfig, the inventory file), refuses the start with one error that names every broken system. A database that cannot be opened also stops nats-lens at start.
+- **One system down stops only its own collection.** A system whose NATS cannot be reached, whose credentials are rejected, or whose setup fails after the start (for example a kubeconfig that does not parse) skips its own collections and is tried again; the other systems, the API and readiness go on. Its status says why, with the error.
 - **Collection status per system.** nats-lens knows for each system whether it is starting, collecting, not connected, or closed for good after rejected credentials, the newest connection error, and when its newest collection started. The API does not show it yet; the planned Fleet summaries will.
 - **Every API call is per system.** Each call names its system; an empty name reads the first configured system, and an unknown one fails with the list of known ids. The web UI passes the `?system=` of its address on.
 - **Metrics name the system.** The `/metrics` series carry the system they belong to, so one alert rule covers every system.
@@ -37,6 +38,13 @@ One nats-lens watches several NATS systems at once, for example production, stag
 - **Given** two systems, one of which cannot be reached
 - **When** I ask the API about the other one
 - **Then** its servers, findings and metrics are complete and current, and nats-lens stays ready
+
+### A missing credentials file
+
+- **Surfaces:** `cli`
+- **Given** two systems, one of which names a credentials file that does not exist
+- **When** I start nats-lens
+- **Then** it refuses to start, and the error names that system and the file
 
 ### A data directory of another system
 
