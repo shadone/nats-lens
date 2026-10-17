@@ -13,6 +13,12 @@ import (
 // Cluster is example-prod's cluster name, which is also its system ID.
 const Cluster = "example-prod"
 
+// IDs of the other demo systems.
+const (
+	GlobalSystem  = "example-global"
+	StagingSystem = "example-staging"
+)
+
 // Account is the JetStream account of every stream in the scenario.
 const Account = "APP"
 

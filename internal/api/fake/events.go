@@ -29,11 +29,7 @@ const (
 // events are every event of the scenario, newest first, with IDs set:
 // the newest has the highest.
 func (p *Provider) events(s scen) []*v1.Event {
-	byCode := map[string]*v1.Finding{}
-	for _, f := range p.findings(s) {
-		byCode[f.GetCheckCode()] = f
-	}
-	out := s.sc.events(s, byCode)
+	out := s.sc.events(s, p.findings(s))
 	for i, e := range out {
 		e.Id = strconv.Itoa(len(out) - i)
 		if e.GetReceivedAt() == nil {
@@ -44,7 +40,11 @@ func (p *Provider) events(s scen) []*v1.Event {
 }
 
 // prodEvents are example-prod's events, newest first.
-func prodEvents(s scen, byCode map[string]*v1.Finding) []*v1.Event {
+func prodEvents(s scen, fs []*v1.Finding) []*v1.Event {
+	byCode := map[string]*v1.Finding{}
+	for _, f := range fs {
+		byCode[f.GetCheckCode()] = f
+	}
 	tr := func(code string, st v1.FindingState, at time.Time) *v1.FindingTransition {
 		f := byCode[code]
 		return &v1.FindingTransition{FindingId: f.GetId(), Time: ts(at), State: st, Severity: f.GetSeverity(), Detail: f.GetDetail()}

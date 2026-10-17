@@ -17,7 +17,8 @@ type serverSpec struct {
 	name    string
 	id      string
 	oldID   string
-	h, m, s int // restart time on 2026-10-17
+	h, m, s int // start time on 2026-10-17, or on day of October 2026
+	day     int
 	conns   int64
 	cluster string
 	version string
@@ -31,13 +32,21 @@ type serverSpec struct {
 	down time.Time
 }
 
+// started is when the server's process started in the scenario.
+func (s scen) started(sp serverSpec) time.Time {
+	if sp.day == 0 {
+		return s.at(sp.h, sp.m, sp.s)
+	}
+	return time.Date(2026, 10, sp.day, sp.h, sp.m, sp.s, 0, time.UTC).Add(s.shift)
+}
+
 // answering reports whether the server answers at the scenario's present.
 func (sp serverSpec) answering() bool { return sp.down.IsZero() }
 
 // server summarizes one server; cur are the findings firing at the range's
 // end.
 func (s scen) server(sp serverSpec, r *v1.TimeRange, cur []*v1.Finding) *v1.ServerSummary {
-	start := s.at(sp.h, sp.m, sp.s)
+	start := s.started(sp)
 	// Uptime as of the newest epoch inside the range, or the last one the
 	// server answered in.
 	seen := earliest(s.lastEpoch(), r.GetEnd().AsTime())
@@ -98,7 +107,7 @@ func (p *Provider) GetServer(_ context.Context, req *v1.GetServerRequest) (*v1.G
 	if !ok {
 		return nil, fmt.Errorf("server %q: %w", req.GetName(), api.ErrNotFound)
 	}
-	start := s.at(sp.h, sp.m, sp.s)
+	start := s.started(sp)
 	lastSeen := s.now.Add(-4 * time.Second)
 	state := "ok"
 	if !sp.answering() {
@@ -130,7 +139,7 @@ func (s scen) connections() []*v1.Connection {
 		if !sp.answering() {
 			continue
 		}
-		start := s.at(sp.h, sp.m, sp.s)
+		start := s.started(sp)
 		for i := range sp.conns {
 			name := s.sc.clients[int(i)%len(s.sc.clients)]
 			lang := "nats.js"

@@ -1,0 +1,185 @@
+package fake
+
+import (
+	"fmt"
+	"slices"
+	"time"
+
+	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+)
+
+// globalFindings is every finding of example-global, before mutes are
+// applied.
+func globalFindings(s scen) []*v1.Finding {
+	us4 := finding("server-001", "Server not reporting", warning, firing, serverRef("nats-us-4"), s.at(9, 12, 35), s.at(9, 12, 35),
+		"nats-us-4 has not answered since 09:12:05. Its pod is Pending: no node of pool-us has room after the upgrade.")
+	us4.Value = &v1.FindingValue{Name: "servers answering", Display: "23 / 24", Number: ptr(23.0), Basis: "per epoch, against the expected servers"}
+	us4.Remediation = "Check why the pod does not schedule (`kubectl describe pod nats-us-4`). " +
+		"The streams with a replica on it run on two of three until it returns."
+
+	replica := func(stream string) *v1.Finding {
+		f := finding("stream-002", "Stream replica offline", warning, firing, streamRef(stream), s.at(9, 13, 0), s.at(9, 13, 0),
+			fmt.Sprintf("The %s replica on nats-us-4 is offline; 2 of 3 replicas are current.", stream))
+		f.RelatedConfig = cfg([][2]string{{"replicas", "3"}, {"placement.cluster", "us"}}, "replicas")
+		f.RelatedConfigSource = "nats-us-3"
+		return f
+	}
+
+	slow := finding("server-009", "Slow consumers", warning, firing, serverRef("nats-us-3"), s.at(13, 41, 0), s.at(13, 41, 0),
+		"9 slow consumer disconnects in 15 minutes, all label-printer.")
+	slow.Value = &v1.FindingValue{Name: "slow consumer disconnects", Display: "9 in 15m", Number: ptr(9.0), Basis: "15 minute window"}
+	slow.Remediation = "label-printer reads slower than shipping-updates delivers to it on nats-us-3. " +
+		"Raise its pending limits or add workers; the backlog on its consumer grows meanwhile."
+
+	backlog := finding("consumer-002", "Consumer backlog growing", warning, firing, consumerRef("shipping-updates", "label-printer"),
+		s.at(13, 40, 0), s.at(13, 40, 0), "Fill 38 msg/s, drain 21 msg/s over 1h. 6,210 pending.")
+	backlog.Value = &v1.FindingValue{Name: "fill minus drain", Display: "+17 msg/s", Number: ptr(17.0), Basis: "1h window, leader view"}
+
+	full := finding("server-014", "JetStream store full soon", info, firing, serverRef("nats-ap-2"), s.on(15, 6, 0), s.on(15, 6, 0),
+		"71% of 100 GiB in use, growing 1.1 GiB/day: full in 26 days.")
+
+	version := func(server string) *v1.Finding {
+		return finding("server-005", "Version differs from the majority", info, firing, serverRef(server), s.on(14, 10, 0), s.on(14, 10, 0),
+			server+" runs "+globalOlder+"; 22 servers run "+globalVersion+".")
+	}
+
+	restarted := func(server string, h, m, sec int) *v1.Finding {
+		at := s.at(h, m, sec)
+		return resolvedFinding("server-004", "Server restarted", info, serverRef(server), at, at.Add(10*time.Minute),
+			server+" restarted during the pool-us upgrade.")
+	}
+
+	return []*v1.Finding{us4, replica("shipping-updates"), replica("price-changes"), slow, backlog, full,
+		version("nats-ap-4"), version("nats-ap-5"),
+		restarted("nats-us-1", 8, 46, 10), restarted("nats-us-2", 8, 58, 30), restarted("nats-us-3", 9, 6, 40),
+		resolvedFinding("stream-001", "Stream quorum lost", critical, streamRef("inventory-changes"), s.at(8, 58, 40), s.at(9, 1, 0),
+			"1 of 3 peers while nats-us-1 and nats-us-2 restarted."),
+	}
+}
+
+// globalSlowEvents are example-global's slow consumer disconnects: one
+// each in three earlier hours, and nine on nats-us-3 since 13:38.
+func globalSlowEvents() []time.Time {
+	out := []time.Time{on16(23, 12), fixed(5, 40, 0), fixed(11, 7, 0)}
+	for i := range 9 {
+		out = append(out, fixed(13, 38, 0).Add(time.Duration(i)*50*time.Second))
+	}
+	return append(out, fixed(14, 21, 0), fixed(14, 24, 0))
+}
+
+// globalEvents are example-global's events, newest first.
+func globalEvents(s scen, fs []*v1.Finding) []*v1.Event {
+	byID := map[string]*v1.Finding{}
+	for _, f := range fs {
+		byID[f.GetId()] = f
+	}
+	tr := func(id string, st v1.FindingState, at time.Time) (*v1.FindingTransition, *v1.Finding) {
+		f := byID[id]
+		return &v1.FindingTransition{FindingId: id, Time: ts(at), State: st, Severity: f.GetSeverity(), Detail: f.GetDetail()}, f
+	}
+	findingEvent := func(id string, st v1.FindingState, at time.Time, kind, summary string) *v1.Event {
+		t, f := tr(id, st, at)
+		return &v1.Event{Time: ts(at), Source: srcFinding, Kind: kind, Type: f.GetCheckCode() + " " + f.GetCheckName(),
+			Severity: f.GetSeverity(), Summary: summary, Transition: t, Finding: f, Server: f.GetEntity().GetServer(),
+			Account: f.GetEntity().GetAccount(), Stream: f.GetEntity().GetStream(), Consumer: f.GetEntity().GetConsumer()}
+	}
+	k8s := func(at time.Time, kind, typ, server, summary string) *v1.Event {
+		return &v1.Event{Time: ts(at), Source: srcK8s, Kind: kind, Type: typ, Server: server, Summary: summary}
+	}
+	nats := func(at time.Time, kind, typ, server, stream, summary string) *v1.Event {
+		e := &v1.Event{Time: ts(at), Source: srcNATS, Kind: kind, Type: typ, Server: server, Summary: summary}
+		if stream != "" {
+			e.Account, e.Stream = Account, stream
+		}
+		return e
+	}
+	var out []*v1.Event
+	slow := globalSlowEvents()
+	for i := len(slow) - 1; i >= 0; i-- {
+		at := slow[i].Add(s.shift)
+		out = append(out, &v1.Event{Time: ts(at), Source: srcNATS, Kind: "client.disconnect", Type: "CLIENT.DISCONNECT", Severity: warning,
+			Server: "nats-us-3", Account: Account, ClientName: "label-printer", ClientHost: fmt.Sprintf("10.30.3.%d", 20+i%6),
+			Summary: "label-printer disconnected: Slow Consumer (Write Deadline)"})
+	}
+	out = append(out,
+		findingEvent("server-009:nats-us-3", firing, s.at(13, 41, 0), "finding.firing", "nats-us-3: 9 slow consumer disconnects in 15 minutes"),
+		findingEvent("consumer-002:"+Account+"/shipping-updates/label-printer", firing, s.at(13, 40, 0), "finding.firing",
+			"label-printer on shipping-updates: fill 38/s, drain 21/s"),
+	)
+	out = append(out,
+		k8s(s.at(9, 20, 30), "k8s.node.upgrade", "NodePoolUpgrade", "", "pool-us upgrade stopped: 3 of 4 nodes on 1.33.4-gke.1245"),
+		findingEvent("stream-002:"+Account+"/price-changes", firing, s.at(9, 13, 0), "finding.firing", "price-changes: replica on nats-us-4 offline"),
+		findingEvent("stream-002:"+Account+"/shipping-updates", firing, s.at(9, 13, 0), "finding.firing", "shipping-updates: replica on nats-us-4 offline"),
+		findingEvent("server-001:nats-us-4", firing, s.at(9, 12, 35), "finding.firing", "nats-us-4 not reporting (23 of 24)"),
+		k8s(s.at(9, 12, 20), "k8s.pod.failed_scheduling", "FailedScheduling", "nats-us-4", "pod nats-us-4: 0/4 nodes are available: 4 Insufficient memory"),
+		nats(s.at(9, 12, 6), "stream.leader_elected", "STREAM.LEADER_ELECTED", "nats-us-2", "price-changes", "price-changes -> nats-us-2 (term 88)"),
+		nats(s.at(9, 12, 5), "server.shutdown", "SERVER.SHUTDOWN", "nats-us-4", "", "nats-us-4 shut down"),
+		k8s(s.at(9, 12, 0), "k8s.pod.killing", "Killing", "nats-us-4", "pod nats-us-4 Killing (node upgrade), grace 120s"),
+		k8s(s.at(9, 6, 40), "k8s.pod.started", "Started", "nats-us-3", "pod nats-us-3 container nats started on gke-example-pool-us-5e21"),
+		nats(s.at(9, 5, 2), "stream.leader_elected", "STREAM.LEADER_ELECTED", "nats-us-5", "shipping-updates", "shipping-updates -> nats-us-5 (term 131)"),
+		k8s(s.at(9, 4, 50), "k8s.pod.killing", "Killing", "nats-us-3", "pod nats-us-3 Killing (node upgrade), grace 120s"),
+		findingEvent("stream-001:"+Account+"/inventory-changes", resolved, s.at(9, 1, 0), "finding.resolved", "inventory-changes back to 3 of 3 peers"),
+		nats(s.at(8, 58, 40), "stream.quorum_lost", "STREAM.QUORUM_LOST", "nats-us-0", "inventory-changes", "inventory-changes (1 of 3 peers)"),
+		k8s(s.at(8, 58, 30), "k8s.pod.started", "Started", "nats-us-2", "pod nats-us-2 container nats started on gke-example-pool-us-a904"),
+		k8s(s.at(8, 56, 20), "k8s.pod.killing", "Killing", "nats-us-2", "pod nats-us-2 Killing (node upgrade), grace 120s"),
+		k8s(s.at(8, 46, 10), "k8s.pod.started", "Started", "nats-us-1", "pod nats-us-1 container nats started on gke-example-pool-us-17bd"),
+		nats(s.at(8, 44, 30), "meta.leader_elected", "LEADER_ELECTED", "nats-eu-1", "", "meta leader stays nats-eu-1 (term 52)"),
+		k8s(s.at(8, 44, 5), "k8s.pod.killing", "Killing", "nats-us-1", "pod nats-us-1 Killing (node upgrade), grace 120s"),
+		k8s(s.at(8, 40, 12), "k8s.node.drained", "NodeDrain", "", "node gke-example-pool-us-17bd cordoned and drained"),
+	)
+	// Routine reconnects of search-api fill the hours before the upgrade.
+	for k := range 240 {
+		kind, typ := "client.connect", "CLIENT.CONNECT"
+		if k%2 == 0 {
+			kind, typ = "client.disconnect", "CLIENT.DISCONNECT"
+		}
+		sv := s.sc.servers[k%len(s.sc.servers)]
+		if !sv.answering() {
+			sv = s.sc.servers[0]
+		}
+		host := fmt.Sprintf("10.30.%d.%d", k%3, 10+k%50)
+		out = append(out, &v1.Event{
+			Time: ts(s.at(8, 30, 0).Add(-time.Duration(k) * 160 * time.Second)), Source: srcNATS, Kind: kind, Type: typ,
+			Server: sv.name, Account: Account, ClientName: "search-api", ClientHost: host,
+			Summary: "search-api " + kind[len("client."):] + " from " + host,
+		})
+	}
+	slices.SortStableFunc(out, func(a, b *v1.Event) int { return b.GetTime().AsTime().Compare(a.GetTime().AsTime()) })
+	return out
+}
+
+// globalRows are the checks of example-global's timeline.
+func globalRows(*scenario) []rowSpec {
+	f := fixed
+	day := func(d, h, m int) time.Time { return time.Date(2026, 10, d, h, m, 0, 0, time.UTC) }
+	us := func(i int) *v1.EntityRef { return serverRef(fmt.Sprintf("nats-us-%d", i)) }
+	return []rowSpec{
+		{"server-001", "Server not reporting", warning, []*v1.EntityRef{us(4)}, []span{{f(9, 12, 35), open}}},
+		{"stream-002", "Stream replica offline", warning, []*v1.EntityRef{streamRef("shipping-updates"), streamRef("price-changes")},
+			[]span{{f(9, 13, 0), open}}},
+		{"server-009", "Slow consumers", warning, []*v1.EntityRef{us(3)},
+			[]span{{on16(23, 10), on16(23, 25)}, {f(11, 5, 0), f(11, 20, 0)}, {f(13, 41, 0), open}}},
+		{"consumer-002", "Consumer backlog growing", warning, []*v1.EntityRef{consumerRef("shipping-updates", "label-printer")},
+			[]span{{f(13, 40, 0), open}}},
+		{"stream-001", "Stream quorum lost", critical, []*v1.EntityRef{streamRef("inventory-changes")}, []span{{f(8, 58, 40), f(9, 1, 0)}}},
+		{"server-004", "Server restarted", info, []*v1.EntityRef{us(1), us(2), us(3)},
+			[]span{{f(8, 46, 10), f(8, 56, 10)}, {f(8, 58, 30), f(9, 8, 30)}, {f(9, 6, 40), f(9, 16, 40)}}},
+		{"server-014", "JetStream store full soon", info, []*v1.EntityRef{serverRef("nats-ap-2")}, []span{{day(15, 6, 0), open}}},
+		{"server-005", "Version differs from the majority", info, []*v1.EntityRef{serverRef("nats-ap-4"), serverRef("nats-ap-5")},
+			[]span{{day(14, 10, 0), open}}},
+	}
+}
+
+// globalK8sLanes are the pool-us upgrade's drains and pod restarts.
+func globalK8sLanes(s scen, lane func(at time.Time, kind, short, label string)) {
+	lane(s.at(8, 40, 12), "k8s.node.drained", "node 17bd", "node gke-example-pool-us-17bd drained (upgrade 1.33.4-gke.1245)")
+	lane(s.at(8, 44, 5), "k8s.pod.killing", "nats-us-1 Killing", "pod nats-us-1 Killing (node upgrade), Started 08:46")
+	lane(s.at(8, 54, 0), "k8s.node.drained", "node a904", "node gke-example-pool-us-a904 drained")
+	lane(s.at(8, 56, 20), "k8s.pod.killing", "nats-us-2 Killing", "pod nats-us-2 Killing (node upgrade), Started 08:58")
+	lane(s.at(9, 3, 0), "k8s.node.drained", "node 5e21", "node gke-example-pool-us-5e21 drained")
+	lane(s.at(9, 4, 50), "k8s.pod.killing", "nats-us-3 Killing", "pod nats-us-3 Killing (node upgrade), Started 09:06")
+	lane(s.at(9, 11, 0), "k8s.node.drained", "node c3f8", "node gke-example-pool-us-c3f8 drained")
+	lane(s.at(9, 12, 0), "k8s.pod.killing", "nats-us-4 Killing", "pod nats-us-4 Killing (node upgrade), not started since")
+	lane(s.at(9, 12, 20), "k8s.pod.failed_scheduling", "nats-us-4 Pending", "pod nats-us-4: 0/4 nodes are available: 4 Insufficient memory")
+	lane(s.at(9, 20, 30), "k8s.node.upgrade", "pool-us stopped", "node pool pool-us upgrade stopped, 3 of 4 nodes upgraded")
+}

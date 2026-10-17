@@ -2,7 +2,9 @@
 // for the demo command and for tests. New serves example-prod: a
 // three-server cluster on 2026-10-17 at 14:30 UTC, five hours after a GKE
 // node upgrade (09:14-09:50) restarted all three NATS servers; it is the
-// data of the reference mockup (docs/ui-reference/reference.html).
+// data of the reference mockup (docs/ui-reference/reference.html). Demo
+// adds example-global, 24 servers in three clusters joined by gateways,
+// and example-staging, whose collector stopped three hours ago.
 //
 // In fixed mode "now" is 2026-10-17T14:30:00Z, so every response is the same
 // on every run. In live mode the scenario is shifted so that its "now" is
@@ -46,6 +48,16 @@ func newProvider(sc *scenario, live bool) *Provider {
 		p.nextID += len(p.mutes)
 	}
 	return p
+}
+
+// Demo returns the demo's systems in order: example-prod (the default),
+// example-global and example-staging.
+func Demo(live bool) api.Systems {
+	return api.Systems{
+		{Ref: &v1.SystemRef{Id: Cluster, Name: Cluster, Environment: "production"}, Provider: New(live)},
+		{Ref: &v1.SystemRef{Id: GlobalSystem, Name: GlobalSystem, Environment: "production"}, Provider: newProvider(globalScenario(), live)},
+		{Ref: &v1.SystemRef{Id: StagingSystem, Name: StagingSystem, Environment: "staging"}, Provider: newProvider(stagingScenario(), live)},
+	}
 }
 
 // Now is FixedNow, or the wall clock to the second in live mode.

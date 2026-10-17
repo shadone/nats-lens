@@ -36,9 +36,9 @@ type scenario struct {
 	routineClient string
 
 	findings func(s scen) []*v1.Finding
-	// events are the events newest first, without IDs; byCode holds the
-	// findings by check code.
-	events  func(s scen, byCode map[string]*v1.Finding) []*v1.Event
+	// events are the events newest first, without IDs; fs are the
+	// findings with the mutes applied.
+	events  func(s scen, fs []*v1.Finding) []*v1.Event
 	rows    func(sc *scenario) []rowSpec
 	windows func(s scen, r *v1.TimeRange) []*v1.TimeWindow
 	// k8sLanes draws the Kubernetes lane through lane.
