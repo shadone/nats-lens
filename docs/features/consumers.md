@@ -10,14 +10,14 @@ The Consumers page lists the JetStream consumers of the newest collection in the
 
 ## Behavior and rules
 
-- **The leader's view.** nats-server tracks a consumer's backlog, waiting pull requests and push interest on its leader only, so the list shows the leader's numbers. A dash means the value was not observed, for example a consumer without a leader report; it never stands for zero.
+- **The leader's view where it matters.** Pending and waiting come from the leader only, because followers report zero for both. Ack pending, redelivered, the leader and the last delivery fall back to a follower's report when no leader reports. A dash means the value was not observed, for example pending on a consumer without a leader report; it never stands for zero.
 - **Durables by default.** "Include ephemeral and ordered" adds the consumers without a durable name, such as KV watchers.
 - **Filter by stream.** A stream selector limits the list to one stream's consumers.
 - **The list.** For each consumer: its status, name and stream, pending messages, unacknowledged messages, redelivered messages, waiting pull requests, leader, how long ago it last delivered, and notes: "missing", "paused", "servers disagree", "ephemeral", and the codes of its firing findings.
 - **Missing consumers are listed.** A consumer the inventory expects that no server reports appears in the list as "missing", with no numbers. Its page says "Missing. The consumer does not exist now: it is expected by the inventory, or it was deleted inside the range."
 - **The consumer page.** The header names the stream, durable or ephemeral, the replicas, and "paused" or "servers disagree" when they apply. Stat cards show pending, ack pending, redelivered, waiting pulls, the leader and the last delivery. Charts show pending, ack pending and redelivered over the range.
-- **Servers disagree and per server.** As on the stream page: a table of the settings that differ between servers, and for each server its replica role, lag, delivered and ack floor sequences, creation time and configuration hash.
-- **Configuration and events.** The configuration as the leader reports it, and the newest 15 events of the consumer.
+- **Servers disagree and per server.** As on the stream page: a table of each server's configuration hash and creation time when they differ, and for each server its replica role, lag, delivered and ack floor sequences, creation time and configuration hash.
+- **Configuration and events.** The configuration as the leader reports it, or, for a missing consumer, the configuration the inventory expects; and the newest 15 events of the consumer.
 
 ## Scenarios
 

@@ -6,14 +6,14 @@
 
 ## What it does
 
-The Findings page lists the findings of the time range, filtered by severity, state and check, and below them the mutes with who set them, why and until when. A finding's own page explains it: what fails, since when, what to do, the related settings with their values, every check of the same entity on a status timeline, and the finding's transitions. From the Overview, the Findings page or a finding's page, an operator can mute a finding with a reason and an end, and lift a mute early.
+The Findings page lists the findings of the time range, filtered by severity, state and check, and below them the mutes with who set them, why and until when. A finding's own page explains it: what fails, since when, what to do, the related settings with their values, every check of the same entity on a status timeline, and the finding's transitions. From the Overview's worst finding or a finding's page, an operator can mute a finding with a reason and an end; from a finding's page or the Findings page's mutes list, an operator can lift a mute early.
 
 ## Behavior and rules
 
 - **What a finding is.** The page says it: "A finding is one failing check for one entity."
 - **Order.** Unmuted findings first, then by severity, then the ones firing longest. 50 per page.
 - **Filters.** Severity (all, critical, warning, info); state: Firing (the default), Flapping, Resolved, or All; "Include muted" (on by default); and a check code. With the default filters and nothing firing, the page says "All clear: no finding fires in this range."
-- **A row.** Severity (or muted), check code and name, a FLAPPING, CHANGED or RESOLVED tag where it applies, the entity, the detail, and since when it fires (or when it resolved). A muted finding shows "Muted by …", the reason and when the mute expires.
+- **A row.** Severity (or muted), check code and name, a FLAPPING, CHANGED or RESOLVED tag where it applies, the entity, the detail, and since when it fires (or when it resolved). On a muted row, the time column shows "until <date> <time>" and "in <duration>", and a line reads "Muted by <name>:" followed by the reason and "Expires <time> UTC."
 - **Past ranges.** For a range that ends in the past, the findings are shown as they stood at its end, with the mutes in force then.
 - **The finding page.** Its header shows the severity (or muted), code, state, name, entity and detail; "First seen by nats-lens" with how long; "Condition since" where the check knows it; when it resolved; its transitions in the last hour; its value with the value's name; and "Cause in window", a link to the event the check names as its cause. Below it: the mute, if any; the remediation (with any text from the remediation file); the related settings, with where they were read from and the metric basis; a status timeline of every check of the same entity; and the transitions, newest first, at most 100.
 - **Mute a finding.** "Mute…" opens a dialog. It applies to this entity, or to every entity of the check. It needs a reason (at most 1000 characters) and an end: in 1 hour, 8 hours, 24 hours (the default), 7 days or 30 days, or at a time in UTC. The end must be between one minute and 90 days ahead.

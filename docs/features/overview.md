@@ -27,7 +27,7 @@ NATS on its own is a black box to most of the people who run it. The servers ans
 - **The nouns.** These are the product's words, each with one meaning (see the table of terms in [README.md](README.md)):
   - a **system** is one NATS deployment with its own system account;
   - a **server** is one `nats-server`, known by its stable name;
-  - an **epoch**, called a **collection** in the UI, is one snapshot of every server;
+  - an **epoch**, called a **collection** in these docs, is one snapshot of every server;
   - an **asset** is a stream, consumer, KV bucket or object store;
   - an **event** is one thing that happened at a moment;
   - a **check** is a rule, and a **finding** is one check failing for one entity;

@@ -12,10 +12,10 @@ Every page of the web UI shares one header. It names the cluster, shows every se
 
 - **The header.** It shows the nats-lens mark (a link to the Overview), the cluster name ("demo" beside it in demo mode), and one chip per server with its name and version. A server that did not answer in the newest collection is shown as down. The chips always show the servers now, also when the page shows a past range; then they are labelled "now".
 - **Tabs.** Overview, Servers, Streams, Consumers, Connections, Events and Findings. A tab keeps the current time range.
-- **One global time range.** Every page reads the same range. Live presets are "Last 1h", "Last 6h", "Last 24h" (the default) and "Last 7d"; a live range moves with the clock. A custom range has a start and an end in UTC, at most 30 days long, and not in the future. The header shows the range's span in UTC.
+- **One global time range.** Every page reads the same range. Live presets are 1h, 6h, 24h (the default) and 7d; the range button shows the chosen one as, for example, "Last 24h". A live range moves with the clock. A custom range has a start and an end in UTC, at most 30 days long, starting no later than now. The header shows the range's span in UTC.
 - **Live and fixed.** The freshness button pauses a live range at its current span, and turns a fixed range back into the closest live preset.
-- **Shareable links.** The range is in the address as `?range=1h|6h|24h|7d` for live, or `?from=…&to=…` (UTC, such as `2026-01-05T09:00:00Z`) for fixed. A link with a range that cannot be used shows the last 24 hours instead, says why in a notice, and offers "Remove it from the link".
-- **Freshness.** The header says "live" with the age of the newest collection; "stale" when that collection is older than three collect intervals; "no data" when the range holds no collection; "fixed" for a fixed range; and "offline" when the status call to nats-lens fails. Its tooltip names the newest collection and whether it was partial.
+- **Shareable links.** The range is in the address as `?range=1h|6h|7d` for live (the default 24 hours leaves the parameter out; `?range=24h` is also read), or `?from=…&to=…` (UTC, such as `2026-01-05T09:00:00Z`) for fixed. A link with a range that cannot be used shows the last 24 hours instead, says why in a notice, and offers "Remove it from the link".
+- **Freshness.** The header asks for the last two collect intervals only, whatever range the page shows. It says "live" with the age of the newest collection; "no data" when no collection started in the last two collect intervals, as when NATS is unreachable; "stale" only while a shown collection is older than three intervals and the next refresh has not landed; "fixed" for a fixed range; and "offline" when the status call to nats-lens fails. Its tooltip names the newest collection and whether it was partial.
 - **What a list shows.** Lists of servers, streams, consumers and connections show the newest collection inside the range. Charts and growth cover the whole range.
 - **Theme.** The theme button cycles through system, light and dark. The choice is kept in the browser; "system" follows the operating system.
 - **Times are UTC.** Every time in the UI is UTC.
@@ -40,7 +40,7 @@ Every page of the web UI shares one header. It names the cluster, shows every se
 
 - **Given** NATS has been unreachable for five minutes with a 30-second interval
 - **When** I look at the header
-- **Then** it says "stale" with the age of the newest collection
+- **Then** it says "no data", and the server chips are gone
 
 ### Switch to the dark theme
 

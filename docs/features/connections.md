@@ -12,9 +12,9 @@ The Connections page lists the client connections of the newest collection in th
 
 - **One row per connection.** A connection is identified by its server and connection ID. The list shows the connections of the newest collection in the range, 100 per page.
 - **Columns.** Name (a link to that client's events), server and connection ID, client library and version, account and user, address, time connected, time idle, round trip time, pending bytes, messages in and out, stalls and subscriptions. Pending bytes and stalls above zero are marked.
-- **Filters.** By server, by part of the connection name, and by account. The filters and the page live in the address.
-- **Tooling is hidden.** nats-lens's own connections and clients from 127.0.0.1 or ::1 are hidden, and a note counts them: "N tooling connections hidden: nats-lens's own, or clients from a loopback address." "Include tooling" shows them, marked "tooling". A name filter also shows the tooling connections it matches, and says so. When the loopback guard has turned the loopback rule off ([checks.md](checks.md)), loopback clients are listed like any other client.
-- **Pages stay on one collection.** Paging keeps the collection of the first page, so new collections do not shift the pages. A page link whose collection has been removed by retention is refused.
+- **Filters.** By server, by part of the connection name, and by account. The filters live in the address; the page number does not.
+- **Tooling is hidden.** nats-lens's own connections and clients from 127.0.0.1 or ::1 are hidden, and a note counts them: "N tooling connections hidden: nats-lens's own, or clients from a loopback address." "Include tooling" shows them, marked "tooling". A name filter also shows the tooling connections it matches, and says so. When `checks.loopback_is_tooling` is false, or the loopback guard has turned the loopback rule off ([checks.md](checks.md)), loopback clients are listed like any other client.
+- **Pages stay on one collection.** Paging keeps the collection of the first page, so new collections do not shift the pages. A page token whose collection has been removed by retention is refused, and the first page must be read again.
 - **Stored connections only.** nats-lens stores at most `connz_limit` (4096) connections per server per collection; a server with more shows only those.
 
 ## Scenarios
