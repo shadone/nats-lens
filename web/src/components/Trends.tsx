@@ -94,7 +94,7 @@ export function InOut({ f, title, inMetric, outMetric }: { f: Frame; title: stri
   );
 }
 
-export function Band({ f, metric, title }: { f: Frame; metric: string; title: string }) {
+export function Band({ f, metric, title, floor = "zero" }: { f: Frame; metric: string; title: string; floor?: "zero" | "data" }) {
   const q = useTrend(f.spec, metric);
   useReportStale(q);
   const s = q.data;
@@ -114,6 +114,7 @@ export function Band({ f, metric, title }: { f: Frame; metric: string; title: st
       end={f.end}
       stepMs={s?.stepMs}
       layers={layers}
+      floor={floor}
       {...state(q)}
     />
   );
@@ -155,7 +156,7 @@ export function Trends({ spec, start, end }: Frame) {
       <InOut f={f} title="Messages" inMetric="cluster.in_msgs_rate" outMetric="cluster.out_msgs_rate" />
       <InOut f={f} title="Bytes" inMetric="cluster.in_bytes_rate" outMetric="cluster.out_bytes_rate" />
       <Band f={f} metric="cluster.cpu_percent" title="CPU" />
-      <Band f={f} metric="cluster.mem_bytes" title="Memory" />
+      <Band f={f} metric="cluster.mem_bytes" title="Memory" floor="data" />
       <Assets f={f} />
     </div>
   );
