@@ -1,6 +1,7 @@
 // The parameters every page shares: the time range, the system and the
 // account scope. Links between pages carry them, so a link opens the next
 // page on the same system, range and account.
+import { navFor } from "../nav";
 import { writeRange, type RangeSpec } from "./timeRange";
 
 export const SYSTEM_PARAM = "system";
@@ -17,16 +18,19 @@ export function globalQuery(spec: RangeSpec, system: string, account: string): s
 
 /**
  * The link with the global parameters added; a parameter the link sets
- * itself wins. A link to another system leaves the account scope behind:
- * accounts belong to one system.
+ * itself wins. The account scope goes only to the pages that apply it
+ * (accountScope in nav.ts) and their detail pages, so a page that ignores
+ * it never holds it unseen; and never to another system, since accounts
+ * belong to one system.
  */
 export function withGlobal(to: string, global: string): string {
   const [path, own] = to.split("?");
   const params = new URLSearchParams(own ?? "");
   const g = new URLSearchParams(global);
   const otherSystem = params.has(SYSTEM_PARAM) && params.get(SYSTEM_PARAM) !== g.get(SYSTEM_PARAM);
+  const scoped = !otherSystem && navFor(path)?.accountScope === true;
   g.forEach((v, k) => {
-    if (params.has(k) || (otherSystem && k === ACCOUNT_PARAM)) return;
+    if (params.has(k) || (k === ACCOUNT_PARAM && !scoped)) return;
     params.set(k, v);
   });
   const q = params.toString();

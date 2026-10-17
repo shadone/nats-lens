@@ -33,7 +33,15 @@ describe("withGlobal", () => {
 
   it("drops the account scope on a link to another system", () => {
     expect(withGlobal("/?system=b", "?range=6h&system=a&account=APP")).toBe("/?system=b&range=6h");
-    expect(withGlobal("/streams?system=a", "?system=a&account=APP")).toBe("/streams?system=a&account=APP");
+    expect(withGlobal("/consumers?system=a", "?system=a&account=APP")).toBe("/consumers?system=a&account=APP");
+  });
+
+  it("carries the account scope only to the pages that apply it, and their detail pages", () => {
+    const g = "?system=a&account=APP";
+    expect(withGlobal("/consumers", g)).toBe("/consumers?system=a&account=APP");
+    expect(withGlobal("/connections?server=nats-1", g)).toBe("/connections?server=nats-1&system=a&account=APP");
+    expect(withGlobal("/consumers/APP/order-jobs/resize-worker", g)).toBe("/consumers/APP/order-jobs/resize-worker?system=a&account=APP");
+    for (const to of ["/", "/streams", "/servers/nats-1", "/findings", "/events", "/fleet"]) expect(withGlobal(to, g)).toBe(`${to}?system=a`);
   });
 
   it("leaves a link alone without global parameters", () => {
