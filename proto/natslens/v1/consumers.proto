@@ -59,6 +59,19 @@ message ConsumerSummary {
   // Whether the consumer exists now; false for an expected consumer that is
   // missing, or one deleted inside the range.
   bool present = 14;
+
+  // Messages delivered per second over the 15 minutes before the range's
+  // end, from the increase of the leader's delivered consumer sequence;
+  // unset without two leader reports in that span.
+  optional double delivered_per_second = 15;
+}
+
+// Order of a consumer list.
+enum ConsumerSort {
+  // Worst status first, then by stream and name.
+  CONSUMER_SORT_UNSPECIFIED = 0;
+  // Highest delivered_per_second first; consumers without a rate last.
+  CONSUMER_SORT_DELIVERED_RATE = 1;
 }
 
 // One server's view of a consumer.
@@ -111,9 +124,15 @@ message ListConsumersRequest {
 
   // System ID, as ListSystems returns it. Empty means the default system.
   string system = 5;
+
+  // Order of the consumers.
+  ConsumerSort sort = 6;
+
+  // Largest number of consumers to return, after sorting. Zero means all.
+  int32 limit = 7;
 }
 
-// Consumers, worst status first, then by stream and name.
+// Consumers in the requested order.
 message ListConsumersResponse {
   // The consumers.
   repeated ConsumerSummary consumers = 1;
