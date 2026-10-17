@@ -38,7 +38,7 @@ Every task updates the README sections and `docs/features/` docs it changes, and
 | T12 | merged |
 | T13 | merged |
 | T14 | merged |
-| Clean-up (UI) | not started |
+| Clean-up (UI) | done |
 
 ## Tasks
 
@@ -200,7 +200,7 @@ Every task updates the README sections and `docs/features/` docs it changes, and
 
 ### Clean-up (UI)
 
-- **Header "not collecting":** when `Freshness.collecting` is false (from `GetOverview`), the header's freshness reads "not collecting since HH:MM", the time from `Freshness.not_collecting_since`, and no longer says "no data" or "stale" for that case. The API side is merged with the backend clean-up; README, `docs/design.md` and `docs/features/navigation.md` (Planned) describe the header as planned until then.
+- Done: the header's "not collecting", "collection" in the UI, one page heading, singular tile suffixes, real check codes in the web fixtures, the Overview leftovers, the placement square contrast, the phone axis, varied demo backlogs, the backend test gaps, `ListStreams` `limit`, and one chart component.
 
 ## Decisions (proposed, not yet confirmed)
 
@@ -232,7 +232,3 @@ Every task updates the README sections and `docs/features/` docs it changes, and
 - Synthesised story items ("redeploy, 2 reconnects"): no detector exists; lanes show stored events and windows.
 - "Open in Placement", "Copy nats CLI check": Placement is not built.
 - A collection error after a nats-lens restart lives in memory; T4 falls back to the newest `collector.connection_closed` / `collector.not_connected` event.
-
-## Clean-up (UI)
-
-- `ListStreams` has no limit: the Overview's streams panel fetches every stream to show the 10 worst (`TODO(limit)` in `web/src/api/overview.ts`). A `limit` with a worst-first sort on the request would cut the reply.

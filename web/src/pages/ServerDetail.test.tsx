@@ -53,6 +53,7 @@ describe("ServerDetail on example-global", () => {
   it("shows five metric boxes with the value, the range and the limit in the note", async () => {
     show(ap3(), "nats-ap-3");
     expect(await screen.findByRole("heading", { name: "nats-ap-3" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 1 }).map((h) => h.textContent)).toEqual(["nats-ap-3"]);
     for (const t of ["CPU", "Memory", "Connections", "Messages", "Slow consumers"]) expect(screen.getByRole("button", { name: `About ${t}` })).toBeInTheDocument();
     expect(await screen.findByRole("img", { name: /^CPU, current 8%, min 6%, max 10%/ })).toBeInTheDocument();
     expect(screen.getByText("steady at 31 all window")).toBeInTheDocument();
@@ -117,7 +118,7 @@ describe("ServerDetail, failing cases", () => {
   it("shows a dash, never a stale value, for a server that did not answer", async () => {
     show(fromJson(GetServerResponseSchema, exampleGlobalUs4), "nats-us-4");
     const h = await screen.findByRole("heading", { name: "nats-us-4" });
-    expect(h.parentElement).toHaveTextContent(/did not answer in the newest epoch$/);
+    expect(h.parentElement).toHaveTextContent(/did not answer in the newest collection$/);
     const cpu = screen.getByRole("button", { name: "About CPU" }).closest(".mbox")!;
     await waitFor(() => expect(cpu.querySelector(".mb-v b")).toHaveTextContent("–"));
     expect(cpu).not.toHaveTextContent("5%");

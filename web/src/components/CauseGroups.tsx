@@ -211,7 +211,10 @@ function MutedStrip({ muted }: { muted: Finding[] }) {
 export function CauseGroups({ groups, muted, onMute }: { groups: CauseGroup[]; muted: Finding[]; onMute: (f: Finding) => void }) {
   if (groups.length === 0 && muted.length === 0) return null;
   return (
-    <section className="causes" aria-label="Findings now">
+    <section className="causes" aria-labelledby="causes-h">
+      <h2 id="causes-h" className="sr-only">
+        Findings
+      </h2>
       {groups.map((g) => (
         <CauseCard key={g.key} g={g} onMute={onMute} />
       ))}

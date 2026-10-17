@@ -23,7 +23,7 @@ function summary(id: string, environment: string, over: Record<string, unknown> 
     system: { id, name: id, environment },
     collection: CollectionState.COLLECTING,
     status: Status.OK,
-    freshness: { epoch: 9n, epochAt: timestampFromMs(NOW - 4_000), live: true, interval: durationFromMs(30_000) },
+    freshness: { epoch: 9n, epochAt: timestampFromMs(NOW - 4_000), live: true, interval: durationFromMs(30_000), collecting: true },
     servers: 3,
     serversAnswering: 3,
     clusters: 1,
@@ -36,7 +36,17 @@ function summary(id: string, environment: string, over: Record<string, unknown> 
   } as Init;
 }
 
-const worst = (checkName: string, name: string) => ({ checkCode: "consumer-006", checkName, entity: { type: EntityType.CONSUMER, key: `APP/order-jobs/${name}`, name, account: "APP", stream: "order-jobs", consumer: name } });
+const CODES: Record<string, string> = { "Stream without any limit": "stream-005", "Server not reporting": "server-001", "Expected consumer missing": "consumer-010" };
+const worst = (checkName: string, name: string) => ({
+  checkCode: CODES[checkName],
+  checkName,
+  entity:
+    CODES[checkName] === "server-001"
+      ? { type: EntityType.SERVER, key: name, name, server: name }
+      : CODES[checkName] === "stream-005"
+        ? { type: EntityType.STREAM, key: `APP/${name}`, name, account: "APP", stream: name }
+        : { type: EntityType.CONSUMER, key: `APP/order-jobs/${name}`, name, account: "APP", stream: "order-jobs", consumer: name },
+});
 
 function respond(systems: Init[]) {
   l.listSystems.mockResolvedValue(create(ListSystemsResponseSchema, { systems, defaultSystem: "shop-prod" }) as never);
@@ -48,12 +58,12 @@ const FIVE: Init[] = [
     collection: CollectionState.CONNECTION_CLOSED,
     collectionError: "nats: authorization violation",
     collectionErrorSince: timestampFromMs(NOW - 3 * 3_600_000),
-    freshness: { epoch: 4n, epochAt: timestampFromMs(NOW - 3 * 3_600_000), live: true, interval: durationFromMs(30_000) },
+    freshness: { epoch: 4n, epochAt: timestampFromMs(NOW - 3 * 3_600_000), live: true, interval: durationFromMs(30_000), collecting: false },
     status: Status.INFO,
   }),
   summary("shop-edge", "edge", { status: Status.INFO, worstFinding: worst("Stream without any limit", "catalog-changes"), tally: { info: 1 } }),
   summary("shop-eu", "production", { status: Status.WARNING, worstFinding: worst("Server not reporting", "nats-eu-4"), servers: 24, serversAnswering: 23 }),
-  summary("shop-prod", "production", { status: Status.CRITICAL, worstFinding: worst("Expected durable missing", "resize-worker"), tally: { critical: 1, warning: 2 } }),
+  summary("shop-prod", "production", { status: Status.CRITICAL, worstFinding: worst("Expected consumer missing", "resize-worker"), tally: { critical: 1, warning: 2 } }),
 ];
 
 let go: ReturnType<typeof useNavigate> = () => {};
@@ -85,7 +95,7 @@ describe("Fleet", () => {
     await screen.findByText("shop-prod");
     expect(cards().map((c) => c.querySelector(".fc-name")?.textContent)).toEqual(["shop-prod", "shop-eu", "shop-edge", "shop-staging", "shop-dev"]);
     expect(within(cards()[0]).getByText("critical")).toBeInTheDocument();
-    expect(cards()[0]).toHaveTextContent("Expected durable missing: resize-worker");
+    expect(cards()[0]).toHaveTextContent("Expected consumer missing: resize-worker");
     expect(cards()[0]).toHaveTextContent("+2 more");
   });
 
@@ -185,7 +195,7 @@ describe("Fleet", () => {
       summary("shop-staging", "staging", {
         collection: CollectionState.CONNECTION_CLOSED,
         collectionError: "nats: authorization violation",
-        freshness: { epoch: 4n, epochAt: timestampFromMs(NOW - 3 * 3_600_000), live: true, interval: durationFromMs(30_000) },
+        freshness: { epoch: 4n, epochAt: timestampFromMs(NOW - 3 * 3_600_000), live: true, interval: durationFromMs(30_000), collecting: false },
         servers: 3,
         serversAnswering: 2,
       }),
@@ -206,7 +216,7 @@ describe("Fleet", () => {
     await screen.findByText("shop-prod");
     const link = within(cardOf("shop-prod")).getByRole("link");
     expect(link).toHaveAccessibleName("shop-prod critical");
-    expect(link).toHaveAccessibleDescription(/^Expected durable missing: resize-worker \+2 more.*live · \ds$/);
+    expect(link).toHaveAccessibleDescription(/^Expected consumer missing: resize-worker \+2 more.*live · \ds$/);
   });
 
   it("shows servers answering of an unknown total as a dash", async () => {

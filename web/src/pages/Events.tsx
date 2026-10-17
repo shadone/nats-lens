@@ -156,7 +156,6 @@ export function Events() {
   return (
     <>
       <div className="page-h">
-        <h1>Events</h1>
         <span className="aside">NATS advisories, Kubernetes events, finding transitions and the collector's own records, newest first.</span>
       </div>
       {id && <OneEvent id={id} end={end} />}

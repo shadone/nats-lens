@@ -161,6 +161,10 @@ export interface Freshness {
   partial: boolean;
   live: boolean;
   intervalMs: number;
+  /** Whether the system's collector collects; false while its connection to NATS is down. */
+  collecting: boolean;
+  /** When the collector stopped collecting; unset while it collects. */
+  notCollectingSince?: number;
 }
 
 /** What a system's collector is doing. */

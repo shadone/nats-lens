@@ -57,15 +57,15 @@ func (p *Provider) tiles(ctx context.Context, r *v1.TimeRange, maxPoints int32, 
 
 	streams := tile(api.TileStreams, api.LastPoint(get["cluster.streams"]), count, "cluster.streams")
 	kv := tile(api.TileKV, api.LastPoint(get["cluster.kv_buckets"]), count, "cluster.kv_buckets")
-	kv.ValueSuffix = "buckets"
+	kv.ValueSuffix = api.CountSuffix(kv.Value, "bucket")
 	objects := tile(api.TileObjectStores, api.LastPoint(get["cluster.object_stores"]), count, "cluster.object_stores")
-	objects.ValueSuffix = "buckets"
+	objects.ValueSuffix = api.CountSuffix(objects.Value, "bucket")
 	streams.Subtitle = api.StreamsSubtitle(streams.Value, now.streams.replicated, now.streams.total, now.streams.lagging)
 	kv.Subtitle = api.KVSubtitle(kv.Value, now.kv.single, now.kv.lagging)
 	objects.Subtitle = api.ObjectStoresSubtitle(objects.Value, now.objects.lagging)
 
 	consumers := tile(api.TileConsumers, api.LastPoint(get["cluster.durable_consumers"]), count, "cluster.durable_consumers")
-	consumers.ValueSuffix = "durable"
+	consumers.ValueSuffix = api.CountSuffix(consumers.Value, "durable")
 	behind := 0
 	for _, f := range cur {
 		if f.GetCheckCode() == "consumer-002" {
@@ -80,7 +80,7 @@ func (p *Provider) tiles(ctx context.Context, r *v1.TimeRange, maxPoints int32, 
 	}
 
 	clients := tile(api.TileClients, api.LastPoint(get["cluster.connections"]), count, "cluster.connections")
-	clients.ValueSuffix = "conns"
+	clients.ValueSuffix = api.CountSuffix(clients.Value, "conn")
 	clients.Subtitle = api.ClientsSubtitle(clients.Value, now.apps, api.SumPoints(get["cluster.slow_consumers"]))
 
 	storage, err := p.storageTile(ctx, r, servers, get["cluster.js_storage_bytes"])

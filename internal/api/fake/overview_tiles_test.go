@@ -124,6 +124,14 @@ func TestFakeBusiestConsumers(t *testing.T) {
 			t.Fatalf("row %d %s at %v/s (set %v) is not in falling order", i, x.GetEntity().GetName(), x.GetDeliveredPerSecond(), x.DeliveredPerSecond != nil)
 		}
 	}
+	// Each row has its own backlog, not one number copied to every row.
+	pending, acks := map[int64]bool{}, map[int64]bool{}
+	for _, x := range cs {
+		pending[x.GetNumPending()], acks[x.GetNumAckPending()] = true, true
+	}
+	if len(pending) < 4 || len(acks) < 4 {
+		t.Errorf("busiest rows share their backlog: %d pending values, %d ack pending values", len(pending), len(acks))
+	}
 	all := must(c.ListConsumers(ctx, connect.NewRequest(&v1.ListConsumersRequest{Sort: v1.ConsumerSort_CONSUMER_SORT_DELIVERED_RATE}))).GetConsumers()
 	last := all[len(all)-1]
 	if last.GetEntity().GetName() != "analytics-aggregator" || last.DeliveredPerSecond != nil {
@@ -168,4 +176,19 @@ func TestFakePlacementLeaderFirst(t *testing.T) {
 		return
 	}
 	t.Fatal("no order-archive")
+}
+
+// A count of one takes the singular suffix: "1 bucket", never "1 buckets".
+func TestTileSuffixesAgreeWithTheCount(t *testing.T) {
+	for _, sys := range []string{"example-prod", "example-global", "example-staging"} {
+		for id, tile := range overviewTiles(t, sys) {
+			suf := tile.GetValueSuffix()
+			if tile.Value == nil || suf == "" || suf[0] == '/' || suf[:2] == "of" {
+				continue
+			}
+			if one, plural := tile.GetValue() == 1, suf[len(suf)-1] == 's'; one == plural {
+				t.Errorf("%s tile %s: %v %q", sys, id, tile.GetValue(), suf)
+			}
+		}
+	}
 }

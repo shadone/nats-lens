@@ -34,12 +34,11 @@ export function ObjectStores() {
   return (
     <>
       <div className="page-h">
-        <h1>Object Stores</h1>
-        <span className="aside">Object stores as the leader reports them in the newest epoch of the range. A dash means the value was not observed.</span>
+        <span className="aside">Object stores as the leader reports them in the newest collection of the range. A dash means the value was not observed.</span>
       </div>
       <QueryView q={q} what="object stores">
         {(all) => {
-          if (all.length === 0) return <Empty>No object stores in the newest epoch of this range.</Empty>;
+          if (all.length === 0) return <Empty>No object stores in the newest collection of this range.</Empty>;
           // Own keys only: ?sort=__proto__ must not reach the prototype.
           const value = sort && Object.hasOwn(SORT, sort.key) ? SORT[sort.key] : undefined;
           const rows = value && sort ? sortRows(all, value, sort.dir) : all;

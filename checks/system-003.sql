@@ -13,7 +13,7 @@ thresholds:
     description: Leader changes within the lookback above which the finding fires.
 description: >-
   The JetStream meta leader changed more than max_changes times within the lookback, counted from the
-  meta.leader_elected advisories and from the leader the servers report in each epoch, whichever is higher. The
+  meta.leader_elected advisories and from the leader the servers report in each collection, whichever is higher. The
   first change away from a leader within two collect intervals after it announced lame duck or shutdown, or after
   its process went away and was replaced, is a hand-over and not counted: a rolling restart moves the leader once
   per restarted leader. Later changes away from the same server count. Each change pauses JetStream API calls for

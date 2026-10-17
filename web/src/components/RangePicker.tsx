@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { errorInfo } from "../api/errors";
 import type { Freshness } from "../api/model";
-import { dayMonHm, fmtDuration } from "../lib/format";
+import { dayMonHm, fmtDuration, sinceText } from "../lib/format";
 import { PRESETS, pauseRange, rangeLabel, resolveRange, resumeLive, type RangeSpec } from "../lib/timeRange";
 import { useNow, useTimeRange } from "../lib/useTimeRange";
 
@@ -21,9 +21,10 @@ export function fromLocalInput(v: string): number {
 
 /**
  * Live state in the header: offline when the status call fails (for a fixed
- * range too), fixed for a fixed range, stale when
- * the newest epoch is older than three collect intervals or no collector
- * writes, otherwise live with the epoch's age.
+ * range too), fixed for a fixed range, not collecting while the collector's
+ * connection to NATS is down or no collector writes, no data without any
+ * collection, stale when the newest collection is older than three collect
+ * intervals, otherwise live with the collection's age.
  */
 export function Freshness({ spec, freshness, error }: { spec: RangeSpec; freshness?: Freshness; error?: unknown }) {
   const now = useNow(1000, spec.kind === "live");
@@ -36,11 +37,20 @@ export function Freshness({ spec, freshness, error }: { spec: RangeSpec; freshne
     );
   }
   if (spec.kind === "fixed") return <span className="live paused">fixed</span>;
+  const title = freshness?.epochAt !== undefined ? `Newest collection ${freshness.epoch}${freshness.partial ? ", partial" : ""}` : undefined;
+  if (freshness && !freshness.collecting) {
+    const since = freshness.notCollectingSince;
+    return (
+      <span className="live stale" title={title}>
+        not collecting{since !== undefined && ` ${sinceText(since, now)}`}
+      </span>
+    );
+  }
   if (!freshness || freshness.epochAt === undefined) return <span className="live stale">no data</span>;
   const age = Math.max(0, now - freshness.epochAt);
   const label = !freshness.live ? "not collecting" : age > 3 * freshness.intervalMs ? "stale" : "live";
   return (
-    <span className={`live${label === "live" ? "" : " stale"}`} title={`Newest epoch ${freshness.epoch}${freshness.partial ? ", partial" : ""}`}>
+    <span className={`live${label === "live" ? "" : " stale"}`} title={title}>
       {label}
       <span className="dotsep"> ·</span> {fmtDuration(age)}
     </span>

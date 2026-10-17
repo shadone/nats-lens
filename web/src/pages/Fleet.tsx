@@ -20,7 +20,6 @@ export function Fleet() {
   return (
     <>
       <div className="page-h">
-        <h1>Fleet</h1>
         {systems.length > 0 && (
           <>
             <span className="aside">

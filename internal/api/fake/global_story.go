@@ -66,7 +66,7 @@ func globalFindings(s scen) []*v1.Finding {
 		version("nats-ap-4"), version("nats-ap-5"),
 		restarted("nats-us-1", 8, 46, 10), restarted("nats-us-2", 8, 58, 30), restarted("nats-us-3", 9, 6, 40),
 		resolvedFinding("stream-001", "Stream quorum lost", critical, streamRef("inventory-changes"), s.at(8, 58, 40), s.at(9, 1, 0),
-			"Leader nats-us-0 sees 1 of 3 replicas online; quorum needs 2, for 4 epochs."),
+			"Leader nats-us-0 sees 1 of 3 replicas online; quorum needs 2, for 4 collections."),
 	}
 }
 

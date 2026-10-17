@@ -12,7 +12,7 @@ description: >-
   different limits remove different messages, so their contents drift apart.
 remediation: >-
   The detail lists which servers agree and which settings differ. A difference right after a stream update that
-  clears within an epoch or two is the update reaching every replica. If it stays, one replica missed the update:
+  clears within a collection or two is the update reaching every replica. If it stays, one replica missed the update:
   apply the definition again (`nats stream edit` with the intended values, or let NACK reconcile it), and if that
   does not converge, step the leader down (`nats stream cluster step-down <stream>`) so the replicas resynchronise.
 value_name: distinct configurations

@@ -193,7 +193,7 @@ func (p *Provider) ListStreams(ctx context.Context, req *v1.ListStreamsRequest) 
 			res.Streams = append(res.Streams, s)
 		}
 	}
-	return res, nil
+	return api.LimitStreams(res, req.GetLimit()), nil
 }
 
 // streamStatus sets the streams' statuses, finding codes and expected

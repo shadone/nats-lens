@@ -57,23 +57,23 @@ describe("groupCauses", () => {
   it("keeps a parent only when every finding of a cause group shares it", () => {
     const cause = { id: "ev-2", kind: "server.restart", summary: "x" };
     const { groups } = groupCauses([
-      f("a", "consumer-012", consumerEnt("order-jobs", "a"), { cause }),
-      f("b", "consumer-012", consumerEnt("media-windows", "b"), { cause }),
+      f("a", "consumer-009", consumerEnt("order-jobs", "a"), { cause }),
+      f("b", "consumer-009", consumerEnt("media-windows", "b"), { cause }),
     ]);
     expect(groups[0].parent).toBeUndefined();
     expect(groups[0].parentCount).toBe(2);
     const same = groupCauses([
-      f("a", "consumer-012", consumerEnt("order-jobs", "a"), { cause }),
-      f("b", "consumer-012", consumerEnt("order-jobs", "b"), { cause }),
+      f("a", "consumer-009", consumerEnt("order-jobs", "a"), { cause }),
+      f("b", "consumer-009", consumerEnt("order-jobs", "b"), { cause }),
     ]);
     expect(same.groups[0].parent).toEqual({ kind: "stream", name: "order-jobs" });
   });
 
   it("puts the worst severity first, and muted findings in their own list", () => {
     const { groups, muted } = groupCauses([
-      f("i", "stream-025", streamEnt("a"), { severity: "info" }),
+      f("i", "stream-005", streamEnt("a"), { severity: "info" }),
       f("c", "consumer-006", consumerEnt("b", "x"), { severity: "critical" }),
-      f("m", "stream-031", streamEnt("c"), { severity: "warning", mute: { id: "m1", checkCode: "stream-031", reason: "by design", mutedBy: "ops", unmutedBy: "" } }),
+      f("m", "stream-006", streamEnt("c"), { severity: "warning", mute: { id: "m1", checkCode: "stream-006", reason: "by design", mutedBy: "ops", unmutedBy: "" } }),
     ]);
     expect(groups.map((g) => g.severity)).toEqual(["critical", "info"]);
     expect(muted.map((m) => m.id)).toEqual(["m"]);

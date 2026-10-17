@@ -6,7 +6,7 @@ category: agreement
 severity: info
 severity_rule: >-
   warning when the replicas' contents (first sequence, last sequence and message count) differ as well, in this
-  epoch and the previous one
+  collection and the previous one
 kind: operational
 thresholds:
   - name: position_tolerance
@@ -32,8 +32,8 @@ description: >-
   that is more, behind the leader and at most position_ahead_tolerance, or position_ahead_tolerance_ratio of the
   leader's value if that is more, ahead of it, its first sequence within the tolerance, current or not), a replica
   was rebuilt at another time (a server restore or a peer replaced) and holds the same messages as the others.
-  When the contents differ as well, in two epochs in a row, one replica may hold a stream that was deleted and
-  created again under the same name. A replica behind by more than the tolerance in two epochs warns even while it
+  When the contents differ as well, in two collections in a row, one replica may hold a stream that was deleted and
+  created again under the same name. A replica behind by more than the tolerance in two collections warns even while it
   catches up, but only here, where the creation times differ. Servers that restarted within restart_window are left out.
 remediation: >-
   The detail names the servers on each creation time and whether their contents agree. While they agree, no action

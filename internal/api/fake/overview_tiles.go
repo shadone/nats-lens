@@ -36,16 +36,16 @@ func (s scen) overviewTiles(r *v1.TimeRange, maxPoints int32, servers []*v1.Serv
 	total, repl, _, lag := s.streamCounts("")
 	streams.Subtitle = api.StreamsSubtitle(streams.Value, repl, total, lag)
 	kv := tile(api.TileKV, "cluster.kv_buckets", api.LastPoint, cnt)
-	kv.ValueSuffix = "buckets"
+	kv.ValueSuffix = api.CountSuffix(kv.Value, "bucket")
 	_, _, single, lag := s.streamCounts("KV_")
 	kv.Subtitle = api.KVSubtitle(kv.Value, single, lag)
 	objects := tile(api.TileObjectStores, "cluster.object_stores", api.LastPoint, cnt)
-	objects.ValueSuffix = "buckets"
+	objects.ValueSuffix = api.CountSuffix(objects.Value, "bucket")
 	_, _, _, lag = s.streamCounts("OBJ_")
 	objects.Subtitle = api.ObjectStoresSubtitle(objects.Value, lag)
 
 	consumers := tile(api.TileConsumers, "cluster.durable_consumers", api.LastPoint, cnt)
-	consumers.ValueSuffix = "durable"
+	consumers.ValueSuffix = api.CountSuffix(consumers.Value, "durable")
 	behind := 0
 	for _, f := range cur {
 		if f.GetCheckCode() == "consumer-002" {
@@ -57,7 +57,7 @@ func (s scen) overviewTiles(r *v1.TimeRange, maxPoints int32, servers []*v1.Serv
 
 	accounts := tile(api.TileAccounts, "cluster.accounts", api.LastPoint, cnt)
 	clients := tile(api.TileClients, "cluster.connections", api.LastPoint, cnt)
-	clients.ValueSuffix = "conns"
+	clients.ValueSuffix = api.CountSuffix(clients.Value, "conn")
 	if clients.Value != nil {
 		// The demo's connections are all in one account.
 		accounts.Subtitle = fmt.Sprintf("most connections: %s (%.0f)", Account, clients.GetValue())

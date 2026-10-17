@@ -119,7 +119,16 @@ describe("Servers on example-global", () => {
   it("names the busiest server in the CPU chart's legend", async () => {
     serve(global());
     renderApp(<Servers />, "/servers");
-    expect(await screen.findByText("busiest, nats-ap-2")).toBeInTheDocument();
+    expect(await screen.findByText(/^busiest: nats-ap-2, [\d.]+%$/)).toBeInTheDocument();
+  });
+
+  it("draws its charts with the Overview's trend charts, whose y axis starts at zero", async () => {
+    serve(global());
+    renderApp(<Servers />, "/servers");
+    const charts = await screen.findByRole("region", { name: "All servers" });
+    expect([...charts.querySelectorAll(".tc .lbl")].map((e) => e.textContent)).toEqual(["CPU", "Memory", "Connections", "Messages"]);
+    expect(charts.querySelector(".sc-svg, .sc-legend")).toBeNull();
+    expect(within(charts).getByRole("list", { name: "CPU legend" })).toBeInTheDocument();
   });
 });
 
@@ -145,10 +154,10 @@ describe("Servers, failing cases", () => {
     expect(parseFloat(band.style.left) + parseFloat(band.style.width)).toBeLessThanOrEqual(100);
   });
 
-  it("names the CPU chart's median and max on one short line", async () => {
+  it("names the CPU chart's median, its period and its range", async () => {
     serve(global());
     renderApp(<Servers />, "/servers");
-    expect(await screen.findByRole("img", { name: /^CPU, current [\d.]+%, max [\d.]+%,/ })).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: /^CPU, current [\d.]+% median, .* UTC, min [\d.]+% · max [\d.]+%$/ })).toBeInTheDocument();
   });
 
   it("shows a dash for a down server's leaders", async () => {

@@ -71,7 +71,7 @@ beforeEach(() => {
   l.listKeyValueStores.mockResolvedValue({ keyValueStores: [] } as never);
   l.listObjectStores.mockResolvedValue({ objectStores: [] } as never);
   m.getLensInfo.mockResolvedValue({ identityMode: "request", version: "dev", cluster: "c", collectIntervalMs: 30_000, retentionMs: 0, live: true, demo: true });
-  m.getHeaderStatus.mockResolvedValue({ cluster: "c", freshness: { epoch: "1", epochAt: Date.now(), partial: false, live: true, intervalMs: 30_000 }, servers: [], tally });
+  m.getHeaderStatus.mockResolvedValue({ cluster: "c", freshness: { epoch: "1", epochAt: Date.now(), partial: false, live: true, intervalMs: 30_000, collecting: true }, servers: [], tally });
   m.listServers.mockResolvedValue({ servers: [], expected: [], missing: [] });
   m.listStreams.mockResolvedValue({ streams: [], totals: { bytes: 0, durableConsumers: 0, ephemeralConsumers: 0 } } as never);
   m.listConsumers.mockResolvedValue([{ entity: entity("order-jobs", "resize-worker"), durable: true, findingCodes: [], disagreements: [], status: "ok" }] as never);
@@ -382,6 +382,39 @@ describe("header", () => {
   it("names the page, also on a detail page", async () => {
     renderApp(<App />, "/streams/APP/order-jobs?system=example-prod");
     expect(screen.getByRole("banner")).toHaveTextContent("Streams");
+  });
+
+  it.each([
+    ["/fleet", "Fleet"],
+    ["/?system=example-prod", "Overview"],
+    ["/findings?system=example-prod", "Findings"],
+    ["/events?system=example-prod", "Events"],
+    ["/connections?system=example-prod", "Connections"],
+    ["/streams?system=example-prod", "Streams"],
+    ["/consumers?system=example-prod", "Consumers"],
+    ["/kv-stores?system=example-prod", "KV Stores"],
+    ["/object-stores?system=example-prod", "Object Stores"],
+    ["/servers?system=example-prod", "Servers"],
+  ])("makes the page name in the header the one heading of %s", async (path, name) => {
+    renderApp(<App />, path);
+    await screen.findByRole("banner");
+    await act(async () => {});
+    const h1 = screen.getAllByRole("heading", { level: 1 });
+    expect(h1.map((h) => h.textContent)).toEqual([name]);
+    expect(within(screen.getByRole("banner")).getByRole("heading", { level: 1 })).toHaveTextContent(name);
+  });
+
+  it("names the section without a heading on a detail page, which has its own", async () => {
+    renderApp(<App />, "/streams/APP/order-jobs?system=example-prod");
+    await act(async () => {});
+    expect(screen.getByRole("banner")).toHaveTextContent("Streams");
+    expect(within(screen.getByRole("banner")).queryByRole("heading")).toBeNull();
+  });
+
+  it("leaves the one heading to the not-found message of an unknown system", async () => {
+    renderApp(<App />, "/streams?system=nope");
+    expect(await screen.findByText("System not found")).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 1 }).map((h) => h.textContent)).toEqual(["System not found"]);
   });
 
   it("writes the account scope to the URL, saying what it limits", async () => {

@@ -108,7 +108,7 @@ var collectorFailures = map[string]v1.CollectionState{
 }
 
 // collectorFailure is the newest stored failure of the collector's own
-// connection after both the newest epoch and the newest reconnect: its
+// connection after both the newest epoch's finish and the newest reconnect: its
 // state and error, and the time of the oldest such failure, when the
 // failure began. since is zero when there is none.
 type collectorFailure struct {
@@ -118,13 +118,15 @@ type collectorFailure struct {
 }
 
 // failure reads the collector's failure from the stored events of its own
-// connection, which outlive a restart of nats-lens.
+// connection, which outlive a restart of nats-lens. A failure counts only
+// after the newest epoch finished, so one stored while an epoch was still
+// gathering replies that epoch then completed does not stop collection.
 func (p *Provider) failure(ctx context.Context) (collectorFailure, error) {
 	var out collectorFailure
 	rows, err := p.db().QueryContext(ctx, `
 WITH since AS (
   SELECT greatest(
-    (SELECT max(started_at) FROM epochs),
+    (SELECT max(finished_at) FROM epochs),
     (SELECT max(time) FROM events WHERE kind = 'collector.reconnected'
        AND json_extract_string(raw, '$.connection') = 'collector')) AS t)
 SELECT e.kind, coalesce(e.reason, ''), e.time FROM events e, since

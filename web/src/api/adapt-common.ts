@@ -187,5 +187,7 @@ export function freshness(f: PFreshness | undefined): Freshness | undefined {
     partial: f.partial,
     live: f.live,
     intervalMs: dur(f.interval) ?? 30_000,
+    collecting: f.collecting,
+    notCollectingSince: ms(f.notCollectingSince),
   };
 }

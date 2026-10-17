@@ -2,8 +2,8 @@
 
 /* status line */
 .status-line{display:flex;align-items:center;gap:10px 12px;flex-wrap:wrap;margin:22px 0 4px}
-.status-line h1{margin:0;font:600 22px/1.2 var(--sans);display:inline-flex;align-items:center;gap:10px}
-.status-line h1 .hi{width:18px;height:18px}
+.status-line .status-text{margin:0;font:600 22px/1.2 var(--sans);display:inline-flex;align-items:center;gap:10px}
+.status-line .status-text .hi{width:18px;height:18px}
 
 /* cause cards */
 .causes{display:grid;gap:12px;margin-top:22px}
@@ -45,7 +45,7 @@
 .tc-fill{fill:var(--tk);fill-opacity:.2;stroke:none}
 .tc-bar{fill:var(--tk)}
 .tc-dot{fill:var(--tk)}
-.tc-band-pt{stroke:var(--tk);stroke-width:2;stroke-opacity:.5}
+.tc-band-pt{stroke:var(--tk);stroke-width:2;stroke-opacity:.5;stroke-linecap:round}
 .lg{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--text-2)}
 .lg li{display:inline-flex;align-items:center;gap:5px}
 .lg-sw{flex:none}
@@ -112,10 +112,9 @@
 @media (max-width:760px){
   .trends{grid-template-columns:minmax(0,1fr)}
   .sl-grid{grid-template-columns:96px minmax(0,1fr)}
-  .sl-ticks span:nth-child(even):not(.edge-r){display:none}
   .cg-list li{grid-template-columns:minmax(0,1fr) auto}
   .cg-list .cg-d{grid-column:1 / -1;grid-row:2}
-  .status-line h1{font-size:19px}
+  .status-line .status-text{font-size:19px}
 }
 
 /* tiles */

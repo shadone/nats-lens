@@ -3,7 +3,7 @@ import type { Freshness, Tally } from "../api/model";
 import { statusLine } from "./statusLine";
 
 const NOW = Date.parse("2026-10-17T14:30:00Z");
-const fresh: Freshness = { epoch: "9", epochAt: NOW - 10_000, ageMs: 10_000, partial: false, live: true, intervalMs: 30_000 };
+const fresh: Freshness = { epoch: "9", epochAt: NOW - 10_000, ageMs: 10_000, partial: false, live: true, intervalMs: 30_000, collecting: true };
 const none: Tally = { critical: 0, warning: 0, info: 0, muted: 0, flapping: 0, resolved24h: 0 };
 
 describe("statusLine", () => {
@@ -28,6 +28,13 @@ describe("statusLine", () => {
     const old = { ...fresh, epochAt: NOW - 120_000, ageMs: 120_000 };
     expect(statusLine({ ...none, warning: 1 }, old, true, NOW)).toMatchObject({ level: "nodata", text: "Not collecting" });
     expect(statusLine(none, { ...fresh, live: false }, true, NOW).text).toBe("Not collecting");
+  });
+
+  it("says not collecting with the last data's time, not the header's since again", () => {
+    const since = Date.parse("2026-10-17T11:30:00Z");
+    const stopped = { ...fresh, epochAt: Date.parse("2026-10-17T11:29:40Z"), collecting: false, notCollectingSince: since };
+    expect(statusLine(none, stopped, true, NOW)).toMatchObject({ level: "nodata", text: "Not collecting · last data 11:29" });
+    expect(statusLine(none, { ...stopped, epoch: "0", epochAt: undefined }, true, NOW).text).toBe("Not collecting");
   });
 
   it("judges a fixed range by its findings only", () => {

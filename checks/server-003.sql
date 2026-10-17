@@ -12,10 +12,10 @@ thresholds:
   - name: min_duration
     default: 3m
     unit: duration
-    description: How long HEALTHZ must report JetStream not ready, in consecutive epochs, before the finding fires.
+    description: How long HEALTHZ must report JetStream not ready, in consecutive collections, before the finding fires.
 description: >-
   HEALTHZ on the server has reported a JetStream error (meta layer still recovering, not current with the meta
-  leader) in every epoch for longer than min_duration, or the server has JetStream configured and JSZ reports it
+  leader) in every collection for longer than min_duration, or the server has JetStream configured and JSZ reports it
   disabled. A crash loop whose restarts come faster than min_duration never stays not ready that long in one
   process; server-004 reports it as repeated restarts, critical above max_restarts.
 remediation: >-
@@ -25,7 +25,7 @@ remediation: >-
   the meta leader resends the assignments and the server catches up (server-012).
 related_config: [min_duration]
 value_name: minutes not ready
-value_basis: time since the first epoch of the run in which HEALTHZ reported a JetStream error
+value_basis: time since the first collection of the run in which HEALTHZ reported a JetStream error
 */
 WITH ids AS (
     SELECT server_id FROM server_stats WHERE epoch = getvariable('epoch')
