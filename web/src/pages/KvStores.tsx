@@ -37,7 +37,6 @@ export function KvStores() {
   return (
     <>
       <div className="page-h">
-        <h1>KV Stores</h1>
         <span className="aside">KV buckets as the leader reports them in the newest collection of the range. A dash means the value was not observed.</span>
       </div>
       <QueryView q={q} what="KV stores">

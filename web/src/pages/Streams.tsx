@@ -19,7 +19,6 @@ export function Streams() {
   return (
     <>
       <div className="page-h">
-        <h1>Streams</h1>
         <span className="aside">As the leader reports them in the newest collection of the range. Growth covers the whole range, scaled to a day.</span>
         <div className="right">
           <label className="check chip">

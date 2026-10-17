@@ -384,6 +384,39 @@ describe("header", () => {
     expect(screen.getByRole("banner")).toHaveTextContent("Streams");
   });
 
+  it.each([
+    ["/fleet", "Fleet"],
+    ["/?system=example-prod", "Overview"],
+    ["/findings?system=example-prod", "Findings"],
+    ["/events?system=example-prod", "Events"],
+    ["/connections?system=example-prod", "Connections"],
+    ["/streams?system=example-prod", "Streams"],
+    ["/consumers?system=example-prod", "Consumers"],
+    ["/kv-stores?system=example-prod", "KV Stores"],
+    ["/object-stores?system=example-prod", "Object Stores"],
+    ["/servers?system=example-prod", "Servers"],
+  ])("makes the page name in the header the one heading of %s", async (path, name) => {
+    renderApp(<App />, path);
+    await screen.findByRole("banner");
+    await act(async () => {});
+    const h1 = screen.getAllByRole("heading", { level: 1 });
+    expect(h1.map((h) => h.textContent)).toEqual([name]);
+    expect(within(screen.getByRole("banner")).getByRole("heading", { level: 1 })).toHaveTextContent(name);
+  });
+
+  it("names the section without a heading on a detail page, which has its own", async () => {
+    renderApp(<App />, "/streams/APP/order-jobs?system=example-prod");
+    await act(async () => {});
+    expect(screen.getByRole("banner")).toHaveTextContent("Streams");
+    expect(within(screen.getByRole("banner")).queryByRole("heading")).toBeNull();
+  });
+
+  it("leaves the one heading to the not-found message of an unknown system", async () => {
+    renderApp(<App />, "/streams?system=nope");
+    expect(await screen.findByText("System not found")).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 1 }).map((h) => h.textContent)).toEqual(["System not found"]);
+  });
+
   it("writes the account scope to the URL, saying what it limits", async () => {
     renderApp(<App />, "/consumers?system=example-prod&range=6h");
     const all = screen.getByRole("button", { name: "All accounts" });

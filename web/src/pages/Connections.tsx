@@ -48,7 +48,6 @@ export function Connections() {
   return (
     <>
       <div className="page-h">
-        <h1>Connections</h1>
         <span className="aside">Client connections in the newest collection of the range.</span>
       </div>
       <div className="filters">

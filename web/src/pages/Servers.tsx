@@ -26,7 +26,6 @@ export function Servers() {
   return (
     <>
       <div className="page-h">
-        <h1>Servers</h1>
         {servers.length > 0 && <span className="aside">{statusLine(servers)}</span>}
       </div>
       <QueryView q={q} what="servers">
