@@ -15,6 +15,8 @@ export interface Badge {
   level: Level;
   /** Said after the count: "3 firing". */
   what: string;
+  /** The worst state in words, when it is not the level's own name. */
+  worst?: string;
 }
 
 /** Unmuted firing findings, at the level of the worst. */

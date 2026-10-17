@@ -159,6 +159,35 @@ export interface Freshness {
   intervalMs: number;
 }
 
+/** What a system's collector is doing. */
+export type Collection = "unknown" | "starting" | "collecting" | "not connected" | "connection closed" | "demo";
+
+/** One system as the Fleet page shows it; read from collected data only. */
+export interface SystemSummary {
+  id: string;
+  name: string;
+  environment: string;
+  collection: Collection;
+  /** Newest connection error while not collecting; empty while collecting. */
+  collectionError: string;
+  collectionErrorSince?: number;
+  freshness?: Freshness;
+  status: Level;
+  worst?: Finding;
+  tally: Tally;
+  servers?: number;
+  serversAnswering?: number;
+  clusters?: number;
+  streams?: number;
+  connections?: number;
+  /** Worst status per bucket, oldest first. */
+  strip: Level[];
+  stripStart?: number;
+  stripBucketMs?: number;
+  /** Why the summary could not be read; the other fields are then unset. */
+  error: string;
+}
+
 export interface Overview {
   cluster: string;
   range?: Range;
