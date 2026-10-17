@@ -71,7 +71,7 @@ ORDER BY n.account, n.stream`, e.epoch, account, account, stream, stream, e.epoc
 	if err != nil {
 		return nil, nil, err
 	}
-	reps, err := p.streamReplicas(ctx, e.epoch, account, stream)
+	reps, err := p.streamReplicas(ctx, e.epoch, account, stream, "")
 	if err != nil {
 		return nil, nil, err
 	}

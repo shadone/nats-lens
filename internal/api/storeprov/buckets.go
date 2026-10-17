@@ -214,120 +214,20 @@ ORDER BY n.account, n.stream`,
 	return out, rows.Err()
 }
 
-// replicaView is what is known of one replica of a bucket's stream: the
-// server's own report, and the leader's entry for it.
-type replicaView struct {
-	reports, leader  bool
-	hash             string
-	listed           bool
-	current, offline bool
-}
-
-// bucketPlacement sets each bucket's placement from the servers' reports
-// and the leader's replica list.
+// bucketPlacement sets each bucket's placement by the streams' rule
+// (placementOf), padded to its configured replicas.
 func (p *Provider) bucketPlacement(ctx context.Context, epoch int64, account, prefix string, bs []*bucketRow) error {
-	rows, err := p.db().QueryContext(ctx, `
-SELECT x.account, x.stream, s.server_name, true AS reports, coalesce(x.is_leader, false), coalesce(sc.config_hash, ''),
-  false AS listed, false, false
-FROM stream_stats x JOIN servers s USING (server_id)
-LEFT JOIN stream_config sc ON sc.server_id = x.server_id AND sc.account = x.account AND sc.stream = x.stream
-  AND x.epoch BETWEEN sc.first_epoch AND sc.last_epoch
-WHERE x.epoch = ? AND (? = '' OR x.account = ?) AND starts_with(x.stream, ?)
-UNION ALL
-SELECT rp.account, rp.stream, rp.peer_name, false, false, '', true, coalesce(rp.current, false), coalesce(rp.offline, false)
-FROM stream_replicas rp
-JOIN stream_stats l ON l.epoch = rp.epoch AND l.server_id = rp.server_id AND l.account = rp.account
-  AND l.stream = rp.stream AND l.is_leader
-WHERE rp.epoch = ? AND (? = '' OR rp.account = ?) AND starts_with(rp.stream, ?)`,
-		epoch, account, account, prefix, epoch, account, account, prefix)
+	reps, err := p.streamReplicas(ctx, epoch, account, "", prefix)
 	if err != nil {
 		return fmt.Errorf("bucket placement: %w", err)
 	}
-	defer rows.Close()
-	views := map[string]map[string]*replicaView{}
-	for rows.Next() {
-		var acc, stream, server string
-		var r replicaView
-		if err := rows.Scan(&acc, &stream, &server, &r.reports, &r.leader, &r.hash, &r.listed, &r.current, &r.offline); err != nil {
-			return err
-		}
-		key := acc + "/" + stream
-		if views[key] == nil {
-			views[key] = map[string]*replicaView{}
-		}
-		v := views[key][server]
-		if v == nil {
-			v = &replicaView{}
-			views[key][server] = v
-		}
-		if r.reports {
-			v.reports, v.leader, v.hash = true, v.leader || r.leader, r.hash
-		}
-		if r.listed {
-			v.listed, v.current, v.offline = true, r.current, r.offline
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return err
-	}
 	for _, b := range bs {
-		b.placement = placement(views[b.ref.GetKey()])
+		if !b.present {
+			continue
+		}
+		b.placement = placementOf(reps[b.ref.GetKey()], b.replicas.Int32)
 	}
 	return nil
-}
-
-// placement lists one bucket's replicas: the leader, then its followers by
-// name. A follower is offline as the leader lists it, missing when it
-// reports nothing, disagrees when the leader does not list it, behind when
-// the leader lists it as not current, and otherwise disagrees when its
-// configuration differs from the leader's and is in sync when it does not.
-// Without a leader a server's state is unknown unless its configuration
-// differs from another's.
-func placement(vs map[string]*replicaView) []*v1.ReplicaPlacement {
-	// Two servers may both claim the lead in one epoch; the first by name
-	// leads, so the result does not follow map order.
-	leader, leaderHash := "", ""
-	for name, v := range vs {
-		if v.leader && (leader == "" || name < leader) {
-			leader, leaderHash = name, v.hash
-		}
-	}
-	names := make([]string, 0, len(vs))
-	for name := range vs {
-		if name != leader {
-			names = append(names, name)
-		}
-	}
-	slices.Sort(names)
-	var out []*v1.ReplicaPlacement
-	if leader != "" {
-		out = append(out, &v1.ReplicaPlacement{Server: leader, State: v1.PlacementState_PLACEMENT_STATE_LEADER})
-	}
-	for _, name := range names {
-		v := vs[name]
-		var st v1.PlacementState
-		switch {
-		case leader == "":
-			if v.hash != "" && slices.ContainsFunc(names, func(o string) bool { return vs[o].hash != "" && vs[o].hash != v.hash }) {
-				st = v1.PlacementState_PLACEMENT_STATE_DISAGREES
-			}
-		case v.listed && v.offline:
-			st = v1.PlacementState_PLACEMENT_STATE_OFFLINE
-		case !v.reports:
-			st = v1.PlacementState_PLACEMENT_STATE_MISSING
-		case !v.listed:
-			st = v1.PlacementState_PLACEMENT_STATE_DISAGREES
-		case !v.current:
-			// A replica catching up may still hold the old configuration.
-			st = v1.PlacementState_PLACEMENT_STATE_BEHIND
-		case v.hash != "" && leaderHash != "" && v.hash != leaderHash:
-			st = v1.PlacementState_PLACEMENT_STATE_DISAGREES
-		default:
-			st = v1.PlacementState_PLACEMENT_STATE_IN_SYNC
-		}
-		out = append(out, &v1.ReplicaPlacement{Server: name, State: st})
-	}
-	return out
 }
 
 // expectedBucket is a bucket the inventory lists, with its account resolved

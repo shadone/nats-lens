@@ -28,6 +28,12 @@ type replicaRow struct {
 // configured with replicas copies.
 func placementStore(t *testing.T, replicas int32, reps []replicaRow) *store.Store {
 	t.Helper()
+	return placementStoreFor(t, "order-jobs", replicas, reps)
+}
+
+// placementStoreFor is placementStore for another stream.
+func placementStoreFor(t *testing.T, stream string, replicas int32, reps []replicaRow) *store.Store {
+	t.Helper()
 	st := emptyStore(t)
 	r := rows{t, st}
 	var ids []string
@@ -38,7 +44,7 @@ func placementStore(t *testing.T, replicas int32, reps []replicaRow) *store.Stor
 		}
 	}
 	r.epoch(1, t0, ids...)
-	r.add("streams", map[string]any{"account": "APP", "stream": "order-jobs", "first_epoch": 1, "last_epoch": 1})
+	r.add("streams", map[string]any{"account": "APP", "stream": stream, "first_epoch": 1, "last_epoch": 1})
 	var lead string
 	for _, x := range reps {
 		if x.leader {
@@ -49,16 +55,16 @@ func placementStore(t *testing.T, replicas int32, reps []replicaRow) *store.Stor
 		if !x.reports {
 			continue
 		}
-		r.add("stream_stats", map[string]any{"epoch": 1, "server_id": x.id, "account": "APP", "stream": "order-jobs",
+		r.add("stream_stats", map[string]any{"epoch": 1, "server_id": x.id, "account": "APP", "stream": stream,
 			"is_leader": x.leader, "messages": 10, "bytes": 100})
-		r.add("stream_config", map[string]any{"server_id": x.id, "account": "APP", "stream": "order-jobs",
+		r.add("stream_config", map[string]any{"server_id": x.id, "account": "APP", "stream": stream,
 			"first_epoch": 1, "last_epoch": 1, "config_hash": x.hash, "replicas": replicas})
 	}
 	for _, x := range reps {
 		if x.leader || lead == "" {
 			continue
 		}
-		r.add("stream_replicas", map[string]any{"epoch": 1, "server_id": lead, "account": "APP", "stream": "order-jobs",
+		r.add("stream_replicas", map[string]any{"epoch": 1, "server_id": lead, "account": "APP", "stream": stream,
 			"peer_name": x.name, "current": x.current, "offline": x.offline, "lag": x.lag})
 	}
 	return st
@@ -124,6 +130,25 @@ func TestPlacementWithoutLeaderIsUnspecified(t *testing.T) {
 	})
 	want := []string{"nats-0=PLACEMENT_STATE_UNSPECIFIED", "nats-1=PLACEMENT_STATE_UNSPECIFIED"}
 	if got := states(streamPlacementOf(t, st)); !slices.Equal(got, want) {
+		t.Fatalf("placement = %v, want %v", got, want)
+	}
+}
+
+// A KV bucket gets the same placement as a stream, padded with MISSING up
+// to its configured replicas.
+func TestBucketPlacementPadsToReplicas(t *testing.T) {
+	st := placementStoreFor(t, "KV_sessions", 3, []replicaRow{
+		{id: "S0", name: "nats-0", reports: true, leader: true, hash: "h"},
+		{id: "S1", name: "nats-1", reports: true, hash: "h", current: true},
+	})
+	c := serveSeries(t, st, t0.Add(30*time.Second))
+	r := &v1.TimeRange{Start: timestamppb.New(t0.Add(-time.Hour)), End: timestamppb.New(t0.Add(30 * time.Second))}
+	kvs := must(c.ListKeyValueStores(ctx, connect.NewRequest(&v1.ListKeyValueStoresRequest{Range: r}))).GetKeyValueStores()
+	if len(kvs) != 1 {
+		t.Fatalf("buckets = %v", kvs)
+	}
+	want := []string{"nats-0=PLACEMENT_STATE_LEADER", "nats-1=PLACEMENT_STATE_IN_SYNC", "=PLACEMENT_STATE_MISSING"}
+	if got := states(kvs[0].GetPlacement()); !slices.Equal(got, want) {
 		t.Fatalf("placement = %v, want %v", got, want)
 	}
 }
