@@ -86,7 +86,7 @@ func (s scen) bandSeries(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoi
 	step := api.Step(r, maxPoints, sampleEvery)
 	out := &v1.Series{Metric: metric, Entity: e, Unit: api.Metrics[metric].Unit, Step: dur(step)}
 	end := earliest(r.GetEnd().AsTime(), s.dataEnd())
-	start := r.GetStart().AsTime()
+	start := latest(r.GetStart().AsTime(), s.dataStart())
 	sums := map[string]float64{}
 	counts := map[string]int{}
 	for b := api.BucketStart(start, step); b.Before(end); b = b.Add(step) {

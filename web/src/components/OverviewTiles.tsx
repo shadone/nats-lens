@@ -2,7 +2,7 @@
 // (i), the value top right, the chart and the window's range track. A
 // tile's limit goes in the note, never on the track. A value the API did
 // not observe is a dash with no dot.
-import type { Tile, Window } from "../api/model";
+import type { Level, Tile, Window } from "../api/model";
 import { tileValue, fmtValue } from "../lib/units";
 import { MetricBox } from "./MetricBox";
 
@@ -27,6 +27,14 @@ export function tileNote(t: Tile): string {
   return [t.subtitle, limit].filter(Boolean).join(" · ");
 }
 
+/**
+ * The tile's status. No data with a value means no check judges the
+ * number, as for Accounts: the tile then reads as ok, never as missing.
+ */
+export function tileStatus(t: Tile): Level {
+  return t.status === "nodata" && (t.value !== undefined || !!t.valueText) ? "ok" : t.status;
+}
+
 export function OverviewTiles({ tiles, windows, start, end }: { tiles: Tile[]; windows: Window[]; start: number; end: number }) {
   return (
     <div className="ov-tiles">
@@ -42,7 +50,7 @@ export function OverviewTiles({ tiles, windows, start, end }: { tiles: Tile[]; w
           // A name has no min and max: the chart shows its changes, without a track.
           track={!t.valueText}
           fmt={(v) => fmtValue(v, t.unit)}
-          status={t.status}
+          status={tileStatus(t)}
           note={tileNote(t) || undefined}
           start={start}
           end={end}

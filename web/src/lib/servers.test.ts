@@ -4,7 +4,7 @@ import { serverList, type ServerRow } from "../api/servers";
 import { ListServersResponseSchema } from "../gen/natslens/v1/servers_pb";
 import { exampleGlobalServers } from "../test/fixtures/exampleGlobal";
 import { colourScale } from "./serverColour";
-import { attentionReasons, groupByCluster, isFlat, majorityVersion, median, needsAttention, sortProblemsFirst, storePct } from "./servers";
+import { attentionReasons, groupByCluster, isFlat, majorityVersion, median, needsAttention, serverNotes, sortProblemsFirst, storePct } from "./servers";
 
 const list = serverList(fromJson(ListServersResponseSchema, exampleGlobalServers));
 const byName = (n: string) => list.servers.find((s) => s.name === n)!;
@@ -34,6 +34,16 @@ describe("example-global servers", () => {
     expect(attentionReasons(byName("nats-ap-2"), v)).toContain("store 71%");
     expect(attentionReasons(byName("nats-ap-4"), v)).toContain("version 2.12.2");
     expect(attentionReasons(byName("nats-eu-0"), v)).toEqual([]);
+  });
+
+  it("does not count an info finding as a reason, and ranks it after every reason", () => {
+    const info = { ...byName("nats-eu-0"), status: "info" as const };
+    expect(attentionReasons(info, "2.12.4")).toEqual([]);
+    expect(serverNotes(info)).toEqual(["info finding"]);
+    expect(serverNotes(byName("nats-eu-0"))).toEqual([]);
+    const old = { ...byName("nats-eu-1"), version: "2.12.2" };
+    const ok = byName("nats-eu-2");
+    expect(sortProblemsFirst([ok, info, old], "2.12.4").map((s) => s.name)).toEqual([old.name, info.name, ok.name]);
   });
 
   it("does not count a muted finding as a reason", () => {

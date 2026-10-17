@@ -93,6 +93,13 @@ describe("FindingDetail", () => {
     expect(screen.getByText("Firing for (since first seen)")).toBeInTheDocument();
   });
 
+  it("adds no unnamed landmark for its side panel", async () => {
+    m.getFinding.mockResolvedValue({ finding: base, transitions: [] });
+    show();
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.queryByRole("complementary")).toBeNull();
+  });
+
   it("polls only the finding and its timeline in live mode", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     m.getFinding.mockResolvedValue({ finding: { ...base, checkCode: "consumer-009", entity: consumerEntity }, transitions: [] });

@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { Tile } from "../api/model";
-import { OverviewTiles, tileText } from "./OverviewTiles";
+import { OverviewTiles, tileStatus, tileText } from "./OverviewTiles";
 
 const START = Date.parse("2026-10-16T14:30:00Z");
 const END = START + 86_400_000;
@@ -66,5 +66,13 @@ describe("OverviewTiles", () => {
 describe("tileText", () => {
   it("joins a second value", () => {
     expect(tileText(tile({ value: 61, value2: 63, valueSuffix: "in", value2Suffix: "out" }))).toBe("61 in, 63 out");
+  });
+});
+
+describe("tileStatus", () => {
+  it("reads a tile with a value and no check behind it as ok", () => {
+    expect(tileStatus(tile({ id: "accounts", value: 3, status: "nodata" }))).toBe("ok");
+    expect(tileStatus(tile({ id: "accounts", value: undefined, status: "nodata" }))).toBe("nodata");
+    expect(tileStatus(tile({ id: "streams", value: 3, status: "warning" }))).toBe("warning");
   });
 });

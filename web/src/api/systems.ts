@@ -1,6 +1,7 @@
 // The systems nats-lens observes, their Fleet summaries, and the accounts
 // of one system.
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import type { ListSystemsResponse } from "../gen/natslens/v1/systems_pb";
 import { DEFAULT_PRESET, LIVE_REFRESH_MS, rangeKey, type RangeSpec } from "../lib/timeRange";
 import { useSystem } from "../lib/useSystem";
 import { systemSummary } from "./adapt-systems";
@@ -32,8 +33,8 @@ export interface AccountInfo {
   consumers?: number;
 }
 
-export async function listSystems(signal?: AbortSignal): Promise<Systems> {
-  const r = await lens.listSystems({}, { signal });
+/** The systems of a ListSystems response, without their summaries. */
+export function systemsOf(r: ListSystemsResponse): Systems {
   const systems = r.systems.flatMap((s) => (s.system ? [{ id: s.system.id, name: s.system.name || s.system.id, environment: s.system.environment }] : []));
   return { systems, defaultSystem: r.defaultSystem || systems[0]?.id || "" };
 }
@@ -50,9 +51,16 @@ export async function listAccounts(sys: string, spec: RangeSpec, signal?: AbortS
   }));
 }
 
-/** The configured systems; they change only on a restart. */
+/** The range the system list and the sidebar's Fleet badge read. */
+const DEFAULT_LIVE: RangeSpec = { kind: "live", preset: DEFAULT_PRESET };
+
+/**
+ * The configured systems; they change only on a restart. They come from
+ * the query of the default live summaries, so that a page load asks
+ * ListSystems once for both.
+ */
 export function useSystems() {
-  return useQuery({ queryKey: ["systems"], queryFn: ({ signal }) => listSystems(signal), staleTime: 60_000 });
+  return useQuery({ ...summariesQuery(DEFAULT_LIVE), select: systemsOf });
 }
 
 /**
@@ -81,27 +89,30 @@ export function useAccounts(spec: RangeSpec) {
   });
 }
 
-export async function listSystemSummaries(spec: RangeSpec, signal?: AbortSignal): Promise<SystemSummary[]> {
-  const r = await lens.listSystems({ range: rangeInit(spec), stripBuckets: STRIP_CELLS }, { signal });
+function summariesOf(r: ListSystemsResponse): SystemSummary[] {
   return r.systems.map(systemSummary);
 }
 
+/** The ListSystems query of a range; a live range is asked again on the live interval. */
+function summariesQuery(spec: RangeSpec) {
+  return {
+    queryKey: ["systemSummaries", rangeKey(spec)],
+    queryFn: ({ signal }: { signal: AbortSignal }) => lens.listSystems({ range: rangeInit(spec), stripBuckets: STRIP_CELLS }, { signal }),
+    refetchInterval: spec.kind === "live" ? LIVE_REFRESH_MS : (false as const),
+    refetchIntervalInBackground: false,
+  };
+}
+
 /**
- * Every system's summary over the range, in configuration order. A live
- * range is asked again on the live interval; a call still pending is
- * awaited, never started a second time.
+ * Every system's summary over the range, in configuration order. Calls
+ * that arrive while one for the same range is pending share its result,
+ * in the browser and in the server.
  */
 export function useSystemSummaries(spec: RangeSpec) {
-  return useQuery({
-    queryKey: ["systemSummaries", rangeKey(spec)],
-    queryFn: ({ signal }) => listSystemSummaries(spec, signal),
-    refetchInterval: spec.kind === "live" ? LIVE_REFRESH_MS : false,
-    refetchIntervalInBackground: false,
-    placeholderData: keepPreviousData,
-  });
+  return useQuery({ ...summariesQuery(spec), select: summariesOf, placeholderData: keepPreviousData });
 }
 
 /** The summaries of the default live range, whatever the page shows: the sidebar's Fleet badge. */
 export function useLiveSystemSummaries() {
-  return useSystemSummaries({ kind: "live", preset: DEFAULT_PRESET });
+  return useSystemSummaries(DEFAULT_LIVE);
 }

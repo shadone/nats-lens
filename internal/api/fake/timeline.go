@@ -92,7 +92,7 @@ func (s scen) timelineRows(r *v1.TimeRange, bucket time.Duration, entity *v1.Ent
 			b0 := start.Add(time.Duration(i) * bucket)
 			b1 := earliest(b0.Add(bucket), end)
 			row.Cells[i] = v1.Status_STATUS_OK
-			if !b0.Before(s.dataEnd()) {
+			if !b0.Before(s.dataEnd()) || !b1.After(s.dataStart()) {
 				row.Cells[i] = v1.Status_STATUS_NO_DATA
 			}
 			for _, sp := range spec.spans {

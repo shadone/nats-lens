@@ -3,17 +3,20 @@ package api_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/api/apitest"
@@ -621,5 +624,157 @@ func TestFreshnessFollowsTheCollectionStatus(t *testing.T) {
 		if f := m.GetSystems()[1].GetFreshness(); !f.GetCollecting() || f.GetNotCollectingSince() != nil {
 			t.Errorf("b %s summary = %v", state, f)
 		}
+	}
+}
+
+// slowSummary counts its summaries and takes a while over each.
+type slowSummary struct {
+	renamed
+	summaries *atomic.Int32
+	delay     time.Duration
+}
+
+func (s slowSummary) SystemSummary(ctx context.Context, req *v1.ListSystemsRequest) (*v1.SystemSummary, error) {
+	s.summaries.Add(1)
+	time.Sleep(s.delay)
+	return s.renamed.SystemSummary(ctx, req)
+}
+
+// Concurrent calls for the same range share one summary per system: each
+// gets the real data, and the provider is asked once. A live range asked
+// a moment later, and the unset range of the same span, are the same range.
+func TestListSystemsCoalescesConcurrentCalls(t *testing.T) {
+	systems, a, _ := twoSystems()
+	n := &atomic.Int32{}
+	systems[0].Provider = slowSummary{a, n, 150 * time.Millisecond}
+	h := &api.Handler{Systems: systems, SummaryTimeout: 2 * time.Second}
+	reqs := []*v1.ListSystemsRequest{
+		{},
+		{Range: &v1.TimeRange{Start: timestamppb.New(a.Now().Add(-24 * time.Hour))}, StripBuckets: 48},
+		{Range: &v1.TimeRange{Start: timestamppb.New(a.Now().Add(-24*time.Hour + 20*time.Millisecond))}},
+	}
+	errs := make([]string, len(reqs))
+	var wg sync.WaitGroup
+	for i, req := range reqs {
+		wg.Go(func() {
+			res, err := h.ListSystems(context.Background(), connect.NewRequest(req))
+			if err != nil {
+				errs[i] = err.Error()
+				return
+			}
+			s := res.Msg.GetSystems()[0]
+			if s.GetError() != "" || s.GetServers() != 3 || s.GetSystem().GetId() != "a" {
+				errs[i] = fmt.Sprintf("card %v", s)
+			}
+		})
+	}
+	wg.Wait()
+	for i, e := range errs {
+		if e != "" {
+			t.Errorf("call %d: %s", i, e)
+		}
+	}
+	if got := n.Load(); got != 1 {
+		t.Errorf("the provider was asked %d times, want 1", got)
+	}
+	// Another range is its own summary.
+	if _, err := h.ListSystems(context.Background(), connect.NewRequest(&v1.ListSystemsRequest{StripBuckets: 24})); err != nil {
+		t.Fatal(err)
+	}
+	if got := n.Load(); got != 2 {
+		t.Errorf("after another range: %d summaries, want 2", got)
+	}
+}
+
+// firstHangs blocks its first summary until the context ends, and answers
+// every later one.
+type firstHangs struct {
+	renamed
+	calls   *atomic.Int32
+	entered chan struct{}
+}
+
+func (f firstHangs) SystemSummary(ctx context.Context, req *v1.ListSystemsRequest) (*v1.SystemSummary, error) {
+	if f.calls.Add(1) == 1 {
+		close(f.entered)
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	return f.renamed.SystemSummary(ctx, req)
+}
+
+// A caller that arrives just after the last waiter of a run went away
+// starts its own run instead of joining the cancelled one. One processor
+// makes the next caller run before the cancelled run's result is set.
+func TestListSystemsDoesNotJoinACancelledRun(t *testing.T) {
+	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(1))
+	for i := range 1000 {
+		systems, a, _ := twoSystems()
+		p := firstHangs{renamed: a, calls: &atomic.Int32{}, entered: make(chan struct{})}
+		systems[0].Provider = p
+		h := &api.Handler{Systems: systems, SummaryTimeout: 2 * time.Second, Log: slog.New(slog.DiscardHandler)}
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			_, _ = h.ListSystems(ctx, connect.NewRequest(&v1.ListSystemsRequest{}))
+		}()
+		<-p.entered
+		cancel()
+		<-done
+		res, err := h.ListSystems(context.Background(), connect.NewRequest(&v1.ListSystemsRequest{}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if s := res.Msg.GetSystems()[0]; s.GetError() != "" || s.GetServers() != 3 {
+			t.Fatalf("iteration %d: the caller after a cancel got %q", i, s.GetError())
+		}
+	}
+}
+
+// ignoresCtx counts its summaries and holds each until release closes,
+// whatever its context says.
+type ignoresCtx struct {
+	renamed
+	calls *atomic.Int32
+}
+
+func (p ignoresCtx) SystemSummary(context.Context, *v1.ListSystemsRequest) (*v1.SystemSummary, error) {
+	p.calls.Add(1)
+	<-p.release
+	return &v1.SystemSummary{}, nil
+}
+
+// At most two runs per system whose provider has not returned: with a
+// provider that ignores its context, callers that give up, or ask for
+// other ranges, start no third one and get the timeout card at once.
+func TestListSystemsCapsRunsPerSystem(t *testing.T) {
+	systems, a, _ := twoSystems()
+	a.release = make(chan struct{})
+	defer close(a.release)
+	p := ignoresCtx{renamed: a, calls: &atomic.Int32{}}
+	systems[0].Provider = p
+	h := &api.Handler{Systems: systems, SummaryTimeout: 5 * time.Second}
+	ask := func(req *v1.ListSystemsRequest) (*v1.SystemSummary, time.Duration) {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+		defer cancel()
+		start := time.Now()
+		res, err := h.ListSystems(ctx, connect.NewRequest(req))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res.Msg.GetSystems()[0], time.Since(start)
+	}
+	// The same range again after a cancel, then other ranges.
+	reqs := []*v1.ListSystemsRequest{{}, {}, {StripBuckets: 24}, {StripBuckets: 12}, {StripBuckets: 6}}
+	for i, req := range reqs {
+		s, took := ask(req)
+		if i >= 2 && (!strings.Contains(s.GetError(), "longer than") || took > 20*time.Millisecond) {
+			t.Errorf("call %d: %q after %v; want the timeout card at once", i, s.GetError(), took)
+		}
+	}
+	time.Sleep(20 * time.Millisecond)
+	if n := p.calls.Load(); n != 2 {
+		t.Errorf("the provider was asked %d times, want 2", n)
 	}
 }

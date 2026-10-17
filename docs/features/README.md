@@ -12,7 +12,7 @@ Start with [overview.md](overview.md): what nats-lens is, which problem it solve
 
 1. Copy `_TEMPLATE.md` to `<capability>.md` (kebab-case, named for the capability, not the page or button it lives on).
 2. Document shipped behaviour as shipped only after you verify each scenario against the source under `cmd/`, `internal/`, `checks/`, `web/src/` and `proto/`. Mark behaviour that is partly built `Status: partial — <what is missing>`, and list what is not built under `Planned` or `Not supported`.
-3. A capability that is designed but not built gets its own doc with `Status: planned`. Its scenarios describe the intended behaviour, and its `What it does` says that they are planned. The audit script reports `bad-status` for these docs; that finding is expected.
+3. A capability that is designed but not built gets its own doc with `Status: planned`. Its scenarios describe the intended behaviour, and its `What it does` says that they are planned. The feature-docs audit script warns `bad-status` on every `Status: planned` doc; those warnings are expected, and every other finding is fixed.
 4. Tag surfaces from the legend below. The doc-level `Surfaces:` line must equal the union of the scenarios' surface tags: every surface listed there has to appear in at least one scenario.
 5. These are product-feature descriptions with a little technical detail, not implementation docs. **Do not link to source code** anywhere, including `Related:`. Refer to symbols as inline code (`` `checks.Engine` ``). Link only design docs and sibling feature docs, as clickable relative Markdown links.
 6. Add a row to the **Capabilities** table **and** an entry to the **coverage by area** map. The two sections drift independently, so updating only one leaves the index misleading.
@@ -40,7 +40,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 
 | Term | Meaning |
 |---|---|
-| system | One NATS deployment with its own system account: a single server, a cluster, or a supercluster joined by gateways. One nats-lens watches one system today; the UI names it in `?system=`. |
+| system | One NATS deployment with its own system account: a single server, a cluster, or a supercluster joined by gateways. One nats-lens can watch several systems, each with its own collector and database; the UI names the one a page shows in `?system=`. |
 | server | One `nats-server` process, known by its stable server name. A restart gives the server a new server ID but keeps its name. |
 | cluster | The servers joined by routes under one cluster name. |
 | account | A NATS account, as the servers report it (the account ID in operator mode), shown with its readable name when nats-lens knows it. |

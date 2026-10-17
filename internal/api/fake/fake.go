@@ -13,6 +13,7 @@
 package fake
 
 import (
+	"cmp"
 	"context"
 	"sync"
 	"time"
@@ -100,6 +101,13 @@ func (s scen) clock(t time.Time) time.Time { return t.Add(-s.shift) }
 // that stopped collecting.
 func (s scen) dataEnd() time.Time { return s.now.Add(-s.sc.stale) }
 
+// defaultHistory is how far back a scenario's history reaches unless it
+// sets its own.
+const defaultHistory = 30 * 24 * time.Hour
+
+// dataStart is where the scenario's stored history begins.
+func (s scen) dataStart() time.Time { return s.now.Add(-cmp.Or(s.sc.history, defaultHistory)) }
+
 // lastEpoch is when the scenario's newest epoch started.
 func (s scen) lastEpoch() time.Time { return s.dataEnd().Add(-4 * time.Second) }
 
@@ -122,7 +130,7 @@ func inRange(t time.Time, r *v1.TimeRange) bool {
 // retention.
 func (p *Provider) Info(context.Context) (*v1.GetLensInfoResponse, error) {
 	return &v1.GetLensInfoResponse{Cluster: p.sc.cluster, CollectInterval: dur(30 * time.Second),
-		Retention: dur(14 * 24 * time.Hour), Live: p.live, Demo: true}, nil
+		Retention: dur(14 * 24 * time.Hour), Live: p.live, Demo: true, HistoryStart: ts(p.scen().dataStart())}, nil
 }
 
 // freshness describes the newest epoch inside the range.
@@ -167,6 +175,13 @@ func worstUnmuted(cur []*v1.Finding) *v1.Finding {
 		}
 	}
 	return nil
+}
+
+func latest(a, b time.Time) time.Time {
+	if b.After(a) {
+		return b
+	}
+	return a
 }
 
 func earliest(a, b time.Time) time.Time {

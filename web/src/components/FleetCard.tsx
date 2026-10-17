@@ -2,7 +2,7 @@
 // legend. The state is a shape and a word as well as a colour.
 import { useId } from "react";
 import type { Level, SystemSummary } from "../api/model";
-import { CARD_STATE_LABEL, cardState, freshnessText, headline, staleCaption, stripStartLabel, type CardState } from "../lib/fleet";
+import { CARD_STATE_LABEL, cardState, freshnessText, headline, infoCount, staleCaption, stripStartLabel, type CardState } from "../lib/fleet";
 import { dayMonHm, hm } from "../lib/format";
 import { bucketLabel } from "../lib/timeRange";
 import { cellRuns, runsText } from "../lib/timelineModel";
@@ -109,6 +109,8 @@ export function FleetCard({ s, live, now }: Props) {
   const caption = staleCaption(s, live, now);
   const fresh = freshnessText(s, live, now);
   const shown = state !== "unavailable";
+  // Info findings are notices: an ok card carries their count beside its state.
+  const info = state === "ok" ? infoCount(s) : 0;
   return (
     <li className={`card fc ${state}`}>
       <RLink
@@ -125,7 +127,14 @@ export function FleetCard({ s, live, now }: Props) {
           <span className={`fc-state ${state}`} id={`${id}-state`}>
             <StateMark state={state} />
             {CARD_STATE_LABEL[state]}
+            {info > 0 && <span className="sr-only">, {info} info</span>}
           </span>
+          {info > 0 && (
+            <span className="fc-info" aria-hidden="true">
+              <HealthIcon level="info" />
+              {info} info
+            </span>
+          )}
         </div>
         <p className="fc-head" id={`${id}-head`}>
           {h.text}

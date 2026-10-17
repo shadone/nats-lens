@@ -5,7 +5,7 @@ import { EntityType } from "../gen/natslens/v1/common_pb";
 import { ConsumerSummarySchema } from "../gen/natslens/v1/consumers_pb";
 import { StreamSummarySchema } from "../gen/natslens/v1/streams_pb";
 import { consumer, stream } from "../api/adapt-entities";
-import { accountLabel, accountLabeller, consumerCount, entityKeyLabel, withAccountName } from "./view";
+import { accountLabel, accountLabeller, consumerCount, entityKeyLabel, isTrouble, withAccountName } from "./view";
 
 describe("account names", () => {
   const id = "ACJQEXMPEXAMPLEAPPACCOUNTKEYQQQQQQQQQQQQQQQQQQQQQQQQQQQQ";
@@ -56,5 +56,12 @@ describe("account labels", () => {
     const e: Entity = { kind: "stream", key: "A1/s", name: "s", account: "A1", stream: "s", consumer: "", server: "" };
     expect(withAccountName(e, [undefined, { account: "A2", accountName: "X" }, { account: "A1", accountName: "APP" }]).accountName).toBe("APP");
     expect(withAccountName(e, []).accountName).toBeUndefined();
+  });
+});
+
+describe("isTrouble", () => {
+  it("is critical, warning, not collecting and summary unavailable; info is a notice", () => {
+    expect(["critical", "warning", "notcollecting", "unavailable"].every((l) => isTrouble(l as never))).toBe(true);
+    expect(["info", "ok", "muted", "nodata"].some((l) => isTrouble(l as never))).toBe(false);
   });
 });

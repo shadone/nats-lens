@@ -8,7 +8,7 @@ export function MiniLine({ points, level, label, period, fmt }: { points: Point[
   const H = 16;
   if (points.length < 2) {
     return (
-      <svg className="gr" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={chartName(label, points.length ? fmt(points[points.length - 1].value) : undefined, period)}>
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={chartName(label, points.length ? fmt(points[points.length - 1].value) : undefined, period)}>
         <line x1="0" x2={W} y1={H - 2} y2={H - 2} style={{ stroke: "var(--border)" }} strokeDasharray="2 2" />
       </svg>
     );
@@ -20,7 +20,7 @@ export function MiniLine({ points, level, label, period, fmt }: { points: Point[
   const col = level === "critical" ? "var(--sev-critical)" : level === "warning" ? "var(--sev-warning)" : "var(--text-muted)";
   const pts = vals.map((v, i) => `${((i / (vals.length - 1)) * W).toFixed(1)},${(H - 2 - ((v - mn) / (mx - mn)) * (H - 4)).toFixed(1)}`);
   return (
-    <svg className="gr" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, fmt(points[points.length - 1].value), period)}>
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, fmt(points[points.length - 1].value), period)}>
       <polyline points={pts.join(" ")} style={{ fill: "none", stroke: col }} strokeWidth="1.3" vectorEffect="non-scaling-stroke" />
     </svg>
   );

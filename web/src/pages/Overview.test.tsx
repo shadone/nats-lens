@@ -128,6 +128,30 @@ describe("Overview timeline lanes", () => {
     expect(screen.queryByText(/more NATS events than the lanes show/)).toBeNull();
   });
 
+  it("counts the checks that fired, info among them, without calling info not ok", async () => {
+    mock(quiet);
+    const row = (checkCode: string, cells: ("ok" | "info" | "warning")[]) => ({ key: checkCode, checkCode, checkName: checkCode, severity: "info" as const, cells, now: cells[cells.length - 1] });
+    vi.mocked(requests.getTimeline).mockResolvedValue({
+      ...emptyTimeline,
+      bucketCount: 2,
+      rows: [row("stream-005", ["info", "info"]), row("consumer-002", ["ok", "warning"]), row("server-001", ["ok", "ok"])],
+    });
+    renderApp(<Overview />);
+    expect(await screen.findByText("2 checks fired")).toBeInTheDocument();
+    expect(screen.queryByText(/not ok/)).toBeNull();
+  });
+
+  it("says one check fired in the singular", async () => {
+    mock(quiet);
+    vi.mocked(requests.getTimeline).mockResolvedValue({
+      ...emptyTimeline,
+      bucketCount: 1,
+      rows: [{ key: "stream-005", checkCode: "stream-005", checkName: "stream-005", severity: "info", cells: ["info"], now: "info" }],
+    });
+    renderApp(<Overview />);
+    expect(await screen.findByText("1 check fired")).toBeInTheDocument();
+  });
+
   it("says when the Kubernetes lane was cut", async () => {
     mock(quiet);
     vi.mocked(requests.getTimeline).mockResolvedValue({ ...emptyTimeline, kubernetesTruncated: true });

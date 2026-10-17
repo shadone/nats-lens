@@ -1,5 +1,6 @@
 // The shell and the routes. Every page reads the time range, the system and
 // the account scope from the URL; the sidebar's pages are listed in nav.ts.
+import { useEffect, useRef } from "react";
 import { Route, Routes, useLocation } from "react-router";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
@@ -23,9 +24,26 @@ import { KvStores } from "./pages/KvStores";
 import { ObjectStores } from "./pages/ObjectStores";
 import { NotFound } from "./pages/NotFound";
 
+/**
+ * Moves focus to the page on a route change, so a keyboard or screen
+ * reader user starts at the new page; never on the first load, and never
+ * when only the query changes, such as a filter being typed.
+ */
+function useFocusOnRouteChange(pathname: string) {
+  const main = useRef<HTMLElement>(null);
+  const shown = useRef(pathname);
+  useEffect(() => {
+    if (shown.current === pathname) return;
+    shown.current = pathname;
+    main.current?.focus({ preventScroll: true });
+  }, [pathname]);
+  return main;
+}
+
 export function App() {
   const { pathname } = useLocation();
   const system = useSystem();
+  const main = useFocusOnRouteChange(pathname);
   const { collapsed, setCollapsed, drawerOpen, setDrawerOpen, drawerShown } = useSidebar();
   return (
     <div className={`shell${collapsed ? " rail" : ""}`}>
@@ -37,7 +55,7 @@ export function App() {
       {/* While the drawer is shown the page behind it is inert, so Tab stays in the drawer. */}
       <div className="main-col" inert={drawerShown}>
         <Header menuOpen={drawerOpen} onMenu={() => setDrawerOpen(!drawerOpen)} />
-        <main className="wrap" id="main" tabIndex={-1}>
+        <main className="wrap" id="main" tabIndex={-1} ref={main}>
           {/* Keyed by system too: a page of another system starts afresh, with
               no rows, filters or page tokens of the one before. */}
           <StaleProvider key={`${pathname}|${system}`}>
