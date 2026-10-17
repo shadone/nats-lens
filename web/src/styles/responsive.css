@@ -12,10 +12,6 @@
 }
 @media (max-width:760px){
   .wrap{padding:0 16px 40px}
-  .bar{gap:10px}
-  .theme{margin-left:auto}
-  .theme .k{display:none}
-  .crumb .lbl{display:none}
   .range .tz{display:none}
   .range > *{padding:7px 8px}
   .range .span{font-size:11px;letter-spacing:-.01em}
@@ -23,7 +19,6 @@
   .live .dotsep{display:none}
   .range{margin-left:0;width:100%;order:5}
   .range .span{flex:1;overflow:hidden;text-overflow:ellipsis}
-  .srv{display:none}
   .find{grid-template-columns:minmax(0,1fr)}
   .worst{padding:16px 16px 16px 20px}
   .worst h1{font-size:20px}

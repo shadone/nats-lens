@@ -1,21 +1,17 @@
-// Small shared pieces: links that keep the time range, loading, empty and
-// error states, key-value lists and remediation text.
+// Small shared pieces: links that keep the range, system and account;
+// loading, empty and error states; key-value lists and remediation text.
 import type { ReactNode } from "react";
 import { Link, type LinkProps } from "react-router";
 import { errorInfo } from "../api/errors";
 import type { ConfigItem } from "../api/model";
 import { fmtInt } from "../lib/format";
-import { useTimeRange } from "../lib/useTimeRange";
+import { withGlobal } from "../lib/globalQuery";
+import { useGlobalQuery } from "../lib/useGlobalQuery";
 import { StaleBannerView, useReportStale } from "./StaleContext";
 
-/** A link that carries the current time range to the next page. */
+/** A link that carries the time range, the system and the account to the next page. */
 export function RLink({ to, className = "x", ...rest }: Omit<LinkProps, "to"> & { to: string }) {
-  const { query } = useTimeRange();
-  const [path, own] = to.split("?");
-  const params = new URLSearchParams(own ?? "");
-  new URLSearchParams(query).forEach((v, k) => params.set(k, v));
-  const q = params.toString();
-  return <Link to={q ? `${path}?${q}` : path} className={className} {...rest} />;
+  return <Link to={withGlobal(to, useGlobalQuery())} className={className} {...rest} />;
 }
 
 /** "unavailable: connection refused", or the message alone for a non-API error. */

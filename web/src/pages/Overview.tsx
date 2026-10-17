@@ -14,9 +14,11 @@ import { usePageTitle } from "../lib/usePageTitle";
 import { bucketLabel, rangeLabel } from "../lib/timeRange";
 import { zoomWindow } from "../lib/timelineModel";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
+import { useGlobalQuery } from "../lib/useGlobalQuery";
 
 function FindingsTop({ o, onMute }: { o: OverviewModel; onMute: (f: Finding) => void }) {
-  const { spec, query } = useTimeRange();
+  const { spec } = useTimeRange();
+  const query = useGlobalQuery();
   const list = useFindings(spec, { includeMuted: true, pageSize: 50 });
   const end = o.range?.end ?? Date.now();
   const others = (list.data?.items ?? []).filter((f) => f.id !== o.worst?.id);
