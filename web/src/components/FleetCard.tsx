@@ -1,14 +1,15 @@
 // One system's card on the Fleet page, its status strip and the strip's
 // legend. The state is a shape and a word as well as a colour.
+import { useId } from "react";
 import type { Level, SystemSummary } from "../api/model";
-import { CARD_STATE_LABEL, cardState, freshnessText, headline, type CardState } from "../lib/fleet";
-import { hm } from "../lib/format";
+import { CARD_STATE_LABEL, cardState, freshnessText, headline, staleCaption, stripStartLabel, type CardState } from "../lib/fleet";
+import { dayMonHm, hm } from "../lib/format";
 import { bucketLabel } from "../lib/timeRange";
 import { cellRuns, runsText } from "../lib/timelineModel";
 import { LEVEL_LABEL } from "../lib/view";
 import { Num, RLink } from "./common";
 import { HealthIcon } from "./Severity";
-import { CELL_FILL } from "./StatusTimeline";
+import { cellStyle } from "./StatusTimeline";
 
 function StateMark({ state }: { state: CardState }) {
   if (state === "notcollecting")
@@ -33,20 +34,18 @@ function StateMark({ state }: { state: CardState }) {
 }
 
 const SW = 480;
-
-/** A cell's fill; a no-data cell is outlined too, so it shows against the card. */
-function cellStyle(lv: Level) {
-  return lv === "nodata" ? { fill: CELL_FILL[lv], stroke: "var(--border)", strokeWidth: 1 } : { fill: CELL_FILL[lv] };
-}
+const DAY = 86_400_000;
 
 /** The worst status per bucket, oldest first, described as text for a screen reader. */
 export function FleetStrip({ cells, start, bucketMs }: { cells: Level[]; start: number; bucketMs: number }) {
   const cw = SW / Math.max(1, cells.length);
+  // Over more than a day a time alone is ambiguous; the cells then carry the date.
+  const when = cells.length * bucketMs > DAY ? dayMonHm : hm;
   return (
-    <svg className="fc-strip" viewBox={`0 0 ${SW} 14`} preserveAspectRatio="none" role="img" aria-label={`Status per ${bucketLabel(bucketMs)}: ${runsText(cellRuns(cells, start, bucketMs))}`}>
+    <svg className="fc-strip" viewBox={`0 0 ${SW} 14`} preserveAspectRatio="none" role="img" aria-label={`Status per ${bucketLabel(bucketMs)}: ${runsText(cellRuns(cells, start, bucketMs), when)}`}>
       {cells.map((lv, i) => (
         <rect key={i} x={(i * cw + 0.6).toFixed(2)} y="0" width={Math.max(0.5, cw - 1.6).toFixed(2)} height="14" rx="1.5" style={cellStyle(lv)} vectorEffect="non-scaling-stroke" data-level={lv}>
-          <title>{`${hm(start + i * bucketMs)} ${LEVEL_LABEL[lv].toLowerCase()}`}</title>
+          <title>{`${when(start + i * bucketMs)} ${LEVEL_LABEL[lv].toLowerCase()}`}</title>
         </rect>
       ))}
     </svg>
@@ -75,14 +74,20 @@ export function StripLegend({ used, bucketMs }: { used: Set<Level>; bucketMs?: n
   );
 }
 
-function Count({ v, of, label }: { v?: number; of?: number; label: string }) {
-  const short = v !== undefined && of !== undefined && v < of;
+/** A count, or "v of total"; a total not observed is a dash. Short is marked only on live numbers. */
+function Count({ v, of, label, stale }: { v?: number; of?: { total?: number }; label: string; stale?: boolean }) {
+  const short = !stale && v !== undefined && of?.total !== undefined && v < of.total;
   return (
     <div className={`fc-n${short ? " bad" : ""}`}>
       <b>
         <Num v={v} />
       </b>
-      {of !== undefined && <small> of {of}</small>}
+      {of && (
+        <small>
+          {" of "}
+          <Num v={of.total} />
+        </small>
+      )}
       <span className="k">{label}</span>
     </div>
   );
@@ -92,43 +97,57 @@ interface Props {
   s: SystemSummary;
   /** The range is live: the strip ends now and freshness ticks. */
   live: boolean;
-  /** The strip's left end in words: "24h ago", or a time for a fixed range. */
-  startLabel: string;
   now: number;
 }
 
-export function FleetCard({ s, live, startLabel, now }: Props) {
+export function FleetCard({ s, live, now }: Props) {
+  const id = useId();
   const state = cardState(s);
   const h = headline(s, now);
   const start = s.stripStart;
   const bucket = s.stripBucketMs;
+  const caption = staleCaption(s, live, now);
+  const fresh = freshnessText(s, live, now);
+  const shown = state !== "unavailable";
   return (
     <li className={`card fc ${state}`}>
-      <RLink to={`/?system=${encodeURIComponent(s.id)}`} className="fc-link">
+      <RLink
+        to={`/?system=${encodeURIComponent(s.id)}`}
+        className="fc-link"
+        aria-labelledby={`${id}-name ${id}-state`}
+        aria-describedby={[`${id}-head`, caption ? `${id}-cap` : shown && `${id}-fresh`].filter(Boolean).join(" ")}
+      >
         <div className="fc-h">
-          <h2 className="fc-name">{s.name}</h2>
+          <h2 className="fc-name" id={`${id}-name`}>
+            {s.name}
+          </h2>
           {s.environment && <span className="fc-env">{s.environment}</span>}
-          <span className={`fc-state ${state}`}>
+          <span className={`fc-state ${state}`} id={`${id}-state`}>
             <StateMark state={state} />
             {CARD_STATE_LABEL[state]}
           </span>
         </div>
-        <p className="fc-head">
+        <p className="fc-head" id={`${id}-head`}>
           {h.text}
-          {h.more > 0 && <span className="fc-more"> +{h.more} more</span>}
+          {h.more > 0 && <> <span className="fc-more">+{h.more} more</span></>}
         </p>
-        {state !== "unavailable" && (
+        {shown && (
           <>
-            <div className="fc-counts">
-              <Count v={s.serversAnswering ?? s.servers} of={s.serversAnswering !== undefined ? s.servers : undefined} label="servers" />
+            {caption && (
+              <p className="fc-cap" id={`${id}-cap`}>
+                {caption}
+              </p>
+            )}
+            <div className={`fc-counts${caption ? " stale" : ""}`}>
+              <Count v={s.serversAnswering ?? s.servers} of={s.serversAnswering !== undefined ? { total: s.servers } : undefined} label="servers" stale={!!caption} />
               <Count v={s.clusters} label="clusters" />
               <Count v={s.streams} label="streams" />
               <Count v={s.connections} label="connections" />
             </div>
             {s.strip.length > 0 && start !== undefined && bucket ? <FleetStrip cells={s.strip} start={start} bucketMs={bucket} /> : null}
             <div className="fc-foot">
-              <span>{startLabel}</span>
-              <span>{freshnessText(s, live, now)}</span>
+              <span>{stripStartLabel(s, live)}</span>
+              <span id={`${id}-fresh`}>{fresh}</span>
             </div>
           </>
         )}
