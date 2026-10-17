@@ -146,10 +146,12 @@ func runConfig(ctx context.Context, cmd string, cfg config.Config, only string, 
 	}
 
 	// A connection or setup failure isolates its system (see
-	// startRetrying). What still ends a system's run early is its store
-	// failing (reading its known servers, recording its start): natslens
-	// run then stops every system, as a store that fails to open fails the
-	// start. once collects every system it can.
+	// startRetrying), and so does a store read inside the setup (the
+	// stored Kubernetes state the watcher starts from): it is retried
+	// with the setup. A store failure before the setup, in LastSeenServers
+	// or recordStart, ends the system's run early, and natslens run then
+	// stops every system, as a store that fails to open fails the start.
+	// once collects every system it can.
 	rctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	// Shutdown starts when the systems are told to stop and must finish
