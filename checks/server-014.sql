@@ -26,8 +26,8 @@ description: >-
   restore, a large import) is not read as steady growth. Measured per server process: a restart starts a new window.
 remediation: >-
   The Streams page shows which streams grow (stream-006 for those with a byte limit). Set max_age or max_bytes on
-  streams that need no unlimited history, or raise max_file_store together with the PVC size before the date in
-  the detail. A store that fills stops every stream with a replica on the server from accepting messages.
+  streams that need no unlimited history, or raise max_file_store together with the PVC size within the time to full
+  that the detail gives. A store that fills stops every stream with a replica on the server from accepting messages.
 related_config: [max_file_store, lookback]
 value_name: days until full
 value_basis: days until the JetStream store is full at the current growth
