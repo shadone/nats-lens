@@ -12,7 +12,7 @@ import { MuteDialog } from "../components/MuteDialog";
 import { StatusLine } from "../components/StatusLine";
 import { StoryLanes } from "../components/StoryLanes";
 import { StreamPlacementCard } from "../components/StreamPlacementCard";
-import { Tiles } from "../components/Tiles";
+import { OverviewTiles } from "../components/OverviewTiles";
 import { Trends } from "../components/Trends";
 import { groupCauses } from "../lib/causeGroups";
 import { usePageTitle } from "../lib/usePageTitle";
@@ -110,7 +110,7 @@ export function Overview() {
       <StaleBanner q={q} />
       <StatusLine tally={o.tally} freshness={o.freshness} live={spec.kind === "live"} now={Date.now()} />
       <section className="sec" aria-label="Health">
-        {o.tiles.length ? <Tiles tiles={o.tiles} windows={o.windows} start={start} end={end} /> : <Empty>No epoch stored in this range yet.</Empty>}
+        {o.tiles.length ? <OverviewTiles tiles={o.tiles} windows={o.windows} start={start} end={end} /> : <Empty>No epoch stored in this range yet.</Empty>}
       </section>
       <Causes onMute={setMuting} />
       <section className="sec">
