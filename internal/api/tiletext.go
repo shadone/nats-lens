@@ -92,10 +92,14 @@ func ClientsSubtitle(value *float64, apps int, slow *float64) string {
 }
 
 // StorageSubtitle says that the value counts every replica, then the share
-// of the limit used and the growth per day, each when known.
+// of the limit used and the growth per day, each when known; empty while
+// the value is unset.
 func StorageSubtitle(used, limit, perDay *float64) string {
+	if used == nil {
+		return ""
+	}
 	parts := []string{"all replicas"}
-	if used != nil && limit != nil && *limit > 0 {
+	if limit != nil && *limit > 0 {
 		parts = append(parts, fmt.Sprintf("%.1f%% used", *used / *limit * 100))
 	}
 	if perDay != nil {
