@@ -183,10 +183,11 @@ export type Event = Message<"natslens.v1.Event"> & {
   firstTime?: Timestamp | undefined;
 
   /**
-   * Whether the event is routine: client churn, sampled acks, API audit,
-   * account connection counts, or a connect or disconnect of a tooling
-   * client. Set only when the request asks for hide_routine,
-   * fold_repeats, histogram_buckets or include_facets.
+   * Whether the event is routine: client churn, sampled acks, account
+   * connection counts, an API audit record of a successful call that
+   * changes nothing, or a connect or disconnect of a tooling client. Set
+   * only when the request asks for hide_routine, fold_repeats,
+   * histogram_buckets or include_facets.
    *
    * @generated from field: bool routine = 23;
    */
@@ -278,7 +279,8 @@ export type ListEventsRequest = Message<"natslens.v1.ListEventsRequest"> & {
 
   /**
    * Fold repeats: events with the same source, kind, server, account,
-   * stream, consumer, client name and reason, each at most 10 minutes
+   * stream, consumer, client name and reason (and finding, for a finding
+   * event; object, for a Kubernetes event), each at most 10 minutes
    * after the previous one, become one row that shows the newest, with
    * repeats and first_time set. Pages then hold rows, not events.
    *
