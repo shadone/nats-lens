@@ -132,11 +132,21 @@ func TestRunTwoSystems(t *testing.T) {
 	}
 	prod, staging := testcluster.Start(t, 1), testcluster.Start(t, 2)
 	dir, apiPort := t.TempDir(), testcluster.FreePort(t)
-	stop := startRun(t, twoSystemsConfig(t, dir, apiPort, prod.URL(0), staging.URL(0)), nil)
+	var mu sync.Mutex
+	var reg api.Systems
+	stop := startRun(t, twoSystemsConfig(t, dir, apiPort, prod.URL(0), staging.URL(0)), func(s api.Systems) {
+		mu.Lock()
+		defer mu.Unlock()
+		reg = s
+	})
 	waitFor(t, "an epoch of each system", 20*time.Second, func() bool {
 		return epochAgeOf(t, apiPort, "shop-prod") && epochAgeOf(t, apiPort, "shop-staging")
 	})
-	time.Sleep(2500 * time.Millisecond) // a second epoch each
+	mu.Lock()
+	systems := reg
+	mu.Unlock()
+	waitForEpochs(t, systems, "shop-prod", 1)
+	waitForEpochs(t, systems, "shop-staging", 1)
 
 	client := natslensv1connect.NewLensServiceClient(http.DefaultClient, fmt.Sprintf("http://127.0.0.1:%d", apiPort)+api.PathPrefix)
 	for _, c := range []struct {

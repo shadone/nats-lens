@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -215,7 +216,9 @@ func TestCloseSystemsInParallelByDeadline(t *testing.T) {
 		t.Errorf("three 400 ms closes took %v: not in parallel", took)
 	}
 
+	var closed atomic.Int32
 	closeStore = func(st *store.Store) error {
+		defer closed.Add(1)
 		time.Sleep(2 * time.Second)
 		return st.Close()
 	}
@@ -228,7 +231,8 @@ func TestCloseSystemsInParallelByDeadline(t *testing.T) {
 	if took := time.Since(start); took > time.Second {
 		t.Errorf("closeSystems took %v past a 200 ms deadline", took)
 	}
-	time.Sleep(2 * time.Second) // let the abandoned closes finish before the temp dir goes
+	// The abandoned closes finish before the temp dir goes.
+	waitFor(t, "the abandoned closes", 10*time.Second, func() bool { return closed.Load() == 3 })
 }
 
 // A system refused at once stops the others' opens instead of waiting for
