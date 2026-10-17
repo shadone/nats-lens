@@ -81,6 +81,7 @@ func (p *Provider) ListConsumers(ctx context.Context, req *v1.ListConsumersReque
 			res.Consumers = append(res.Consumers, c)
 		}
 	}
+	res.Consumers = sortConsumers(res.Consumers, req.GetSort(), req.GetLimit())
 	return res, nil
 }
 
@@ -244,6 +245,15 @@ func (p *Provider) consumersWithMissing(ctx context.Context, r *v1.TimeRange, e 
 	cs, err := p.consumerRows(ctx, e, account, stream, consumer)
 	if err != nil {
 		return nil, err
+	}
+	rates, err := p.deliveredRates(ctx, r, account, stream, consumer)
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range cs {
+		if v, ok := rates[c.GetEntity().GetKey()]; ok {
+			c.DeliveredPerSecond = ptr(v)
+		}
 	}
 	inv, _, err := p.inventory(ctx)
 	if err != nil {
