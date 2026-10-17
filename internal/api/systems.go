@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"connectrpc.com/connect"
@@ -121,6 +120,7 @@ func (h *Handler) ListSystems(ctx context.Context, req *connect.Request[v1.ListS
 		return nil, h.codeOf("ListSystems", fmt.Errorf("%w: no system is configured", ErrFailedPrecondition))
 	}
 	m := req.Msg
+	live := m.GetRange().GetEnd() == nil
 	if err := withRange(d.Provider, &m.Range); err != nil {
 		return nil, h.codeOf("ListSystems", err)
 	}
@@ -131,12 +131,13 @@ func (h *Handler) ListSystems(ctx context.Context, req *connect.Request[v1.ListS
 		return nil, h.codeOf("ListSystems", invalid("strip_buckets must be between 1 and %d", MaxStripBuckets))
 	}
 	timeout := cmp.Or(h.SummaryTimeout, DefaultSummaryTimeout)
+	key := summaryKey(m, live)
 	res := &v1.ListSystemsResponse{Range: m.GetRange(), DefaultSystem: d.Ref.GetId(), Systems: make([]*v1.SystemSummary, len(h.Systems))}
 	var wg sync.WaitGroup
 	for i, sys := range h.Systems {
 		wg.Go(func() {
 			// Each provider reads its own copy of the request.
-			sum := h.summary(ctx, sys, proto.CloneOf(m), timeout)
+			sum := h.summary(ctx, sys, proto.CloneOf(m), key, timeout)
 			sum.System = proto.CloneOf(sys.Ref)
 			res.Systems[i] = sum
 		})
@@ -146,66 +147,49 @@ func (h *Handler) ListSystems(ctx context.Context, req *connect.Request[v1.ListS
 }
 
 // summary reads one system's summary within the timeout, with the
-// runtime's collection status applied. The provider runs in its own
-// goroutine, so that one that ignores its context does not hold up the
-// response; its result is then dropped. One summary per system runs at a
-// time: while the previous one still runs, the call gets the timeout card
-// at once and starts nothing.
-func (h *Handler) summary(ctx context.Context, sys System, req *v1.ListSystemsRequest, timeout time.Duration) *v1.SystemSummary {
+// runtime's collection status applied. Calls for the same range while a
+// run is in flight share that run and its result. A run whose provider
+// outlives the timeout is not started again: until it returns, a call
+// gets the timeout card at once and starts nothing.
+func (h *Handler) summary(ctx context.Context, sys System, req *v1.ListSystemsRequest, key string, timeout time.Duration) *v1.SystemSummary {
 	tooLong := &v1.SystemSummary{Error: fmt.Sprintf("the summary took longer than %s", timeout)}
-	v, _ := h.summaryRunning.LoadOrStore(sys.Ref.GetId(), new(atomic.Bool))
-	running := v.(*atomic.Bool)
-	if !running.CompareAndSwap(false, true) {
+	f := h.summaryFlights.join(sys.Ref.GetId(), key, timeout, func(f *summaryFlight) {
+		var runCtx context.Context
+		runCtx, f.cancel = context.WithTimeout(context.WithoutCancel(ctx), timeout)
+		h.runSummary(runCtx, sys, req, f)
+	})
+	if f == nil {
 		return tooLong
 	}
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	type result struct {
-		sum *v1.SystemSummary
-		err error
-		// status is the runtime's collection status, when there is one.
-		status *CollectionStatus
-	}
-	done := make(chan result, 1)
-	go func() {
-		defer running.Store(false)
-		defer func() {
-			if r := recover(); r != nil {
-				done <- result{err: fmt.Errorf("panic: %v", r)}
-			}
-		}()
-		var r result
-		if sys.Status != nil {
-			st := sys.Status()
-			r.status = &st
-		}
-		r.sum, r.err = sys.Provider.SystemSummary(ctx, req)
-		done <- r
-	}()
-	var r result
+	wait := time.NewTimer(time.Until(f.started.Add(timeout)))
+	defer wait.Stop()
+	var r summaryResult
 	select {
-	case r = <-done:
+	case <-f.ready:
+		r = f.res
 	case <-ctx.Done():
-		r.err = ctx.Err()
+		h.summaryFlights.leave(f)
+		r.err = context.Canceled
+	case <-wait.C:
+		r.err = context.DeadlineExceeded
 	}
-	sum := h.summaryCard(sys, r.sum, r.err, tooLong)
+	sum := summaryCard(proto.CloneOf(r.sum), r.err, tooLong)
 	if r.status != nil && !errors.Is(r.err, context.Canceled) {
 		withCollectionStatus(sum, *r.status)
 	}
 	return sum
 }
 
-// summaryCard is the card for a provider's result.
-func (h *Handler) summaryCard(sys System, sum *v1.SystemSummary, err error, tooLong *v1.SystemSummary) *v1.SystemSummary {
+// summaryCard is the card for a provider's result; the run has logged
+// its failure.
+func summaryCard(sum *v1.SystemSummary, err error, tooLong *v1.SystemSummary) *v1.SystemSummary {
 	switch {
 	case errors.Is(err, context.Canceled):
 		// The caller went away; nothing failed.
 		return &v1.SystemSummary{Error: "the request was canceled"}
 	case errors.Is(err, context.DeadlineExceeded):
-		h.warnSummary(sys, err)
 		return tooLong
 	case err != nil:
-		h.warnSummary(sys, err)
 		return &v1.SystemSummary{Error: "the summary could not be read; see the server log"}
 	case sum == nil:
 		return &v1.SystemSummary{}
