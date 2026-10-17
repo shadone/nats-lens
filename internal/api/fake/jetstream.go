@@ -23,6 +23,9 @@ type streamSpec struct {
 	// peers are the servers with a replica, the leader first; empty means
 	// the first three servers of the scenario.
 	peers []string
+	// behind is a follower the leader reports not current, lag entries back.
+	behind string
+	lag    int64
 }
 
 func isKV(name string) bool { return strings.HasPrefix(name, "KV_") || strings.HasPrefix(name, "OBJ_") }
@@ -102,6 +105,9 @@ func (p *Provider) GetStream(_ context.Context, req *v1.GetStreamRequest) (*v1.G
 		v := &v1.StreamServerView{
 			Server: name, IsLeader: i == 0, Current: true, Messages: ptr(sp.msgs), Bytes: ptr(int64(sp.bytes)),
 			FirstSeq: ptr(int64(1)), LastSeq: ptr(sp.msgs), Created: ts(s.on(2, 8, 30)), ConfigHash: "c4f1a0", Lag: followerLag(i),
+		}
+		if name == sp.behind {
+			v.Current, v.Lag = false, ptr(sp.lag)
 		}
 		if sv, _ := p.sc.server(name); !sv.answering() {
 			// A replica on a server that does not answer reports nothing.

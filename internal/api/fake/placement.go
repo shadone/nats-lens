@@ -8,22 +8,23 @@ import (
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
-// placement is a stream's squares by server name: the leader (its first
-// peer), a replica on a server that does not answer offline, the others
-// in sync.
+// placement is a stream's squares: the leader (its first peer) first, the
+// rest by server name. A replica on a server that does not answer is
+// offline, the follower the stream names behind, the others in sync.
 func (s scen) placement(sp streamSpec) []*v1.ReplicaPlacement {
+	peers := s.sc.peers(sp)
 	var out []*v1.ReplicaPlacement
-	for i, name := range s.sc.peers(sp) {
+	for _, name := range peers[1:] {
 		st := v1.PlacementState_PLACEMENT_STATE_IN_SYNC
-		if sv, _ := s.sc.server(name); i == 0 {
-			st = v1.PlacementState_PLACEMENT_STATE_LEADER
-		} else if !sv.answering() {
+		if sv, _ := s.sc.server(name); !sv.answering() {
 			st = v1.PlacementState_PLACEMENT_STATE_OFFLINE
+		} else if name == sp.behind {
+			st = v1.PlacementState_PLACEMENT_STATE_BEHIND
 		}
 		out = append(out, &v1.ReplicaPlacement{Server: name, State: st})
 	}
 	slices.SortFunc(out, func(a, b *v1.ReplicaPlacement) int { return cmp.Compare(a.GetServer(), b.GetServer()) })
-	return out
+	return append([]*v1.ReplicaPlacement{{Server: peers[0], State: v1.PlacementState_PLACEMENT_STATE_LEADER}}, out...)
 }
 
 // streamCounts counts a scenario's streams of one kind (plain, KV_ or

@@ -76,7 +76,7 @@ func TestGlobalTiles(t *testing.T) {
 	if got := tiles["consumers"].GetSubtitle(); got != "1 behind" {
 		t.Errorf("consumers subtitle = %q, want 1 behind", got)
 	}
-	if got := tiles["streams"].GetSubtitle(); got != "11 of 11 replicated · 0 lagging" {
+	if got := tiles["streams"].GetSubtitle(); got != "11 of 11 replicated · 1 lagging" {
 		t.Errorf("streams subtitle = %q", got)
 	}
 }
@@ -129,4 +129,43 @@ func TestFakeBusiestConsumers(t *testing.T) {
 	if last.GetEntity().GetName() != "analytics-aggregator" || last.DeliveredPerSecond != nil {
 		t.Errorf("last = %s (rate set %v), want the missing analytics-aggregator without a rate", last.GetEntity().GetName(), last.DeliveredPerSecond != nil)
 	}
+}
+
+// search-index's replica on nats-ap-1 is behind its leader, below
+// stream-003's 1000 entries: BEHIND in the placement, not current with its
+// lag in the stream's server views, and no lagging finding.
+func TestFakeLaggingReplica(t *testing.T) {
+	c := demo(t)
+	sys := "example-global"
+	res := must(c.GetStream(ctx, connect.NewRequest(&v1.GetStreamRequest{System: sys, Account: "APP", Stream: "search-index"})))
+	want := []string{"nats-ap-0=PLACEMENT_STATE_LEADER", "nats-ap-1=PLACEMENT_STATE_BEHIND", "nats-ap-2=PLACEMENT_STATE_IN_SYNC"}
+	if got := placementText(res.GetStream().GetPlacement()); !slices.Equal(got, want) {
+		t.Errorf("placement = %v, want %v", got, want)
+	}
+	for _, v := range res.GetServers() {
+		if v.GetServer() == "nats-ap-1" && (v.GetCurrent() || v.GetLag() != 420) {
+			t.Errorf("nats-ap-1 view = current %v, lag %d; want not current, 420", v.GetCurrent(), v.GetLag())
+		}
+	}
+	for _, f := range res.GetFindings() {
+		if f.GetCheckCode() == "stream-003" {
+			t.Errorf("a lag of 420 fired %v", f)
+		}
+	}
+}
+
+// The leader comes first even when another replica sorts before it.
+func TestFakePlacementLeaderFirst(t *testing.T) {
+	c := demo(t)
+	for _, s := range must(c.ListStreams(ctx, connect.NewRequest(&v1.ListStreamsRequest{System: "example-global"}))).GetStreams() {
+		if s.GetEntity().GetStream() != "order-archive" {
+			continue
+		}
+		want := []string{"nats-ap-2=PLACEMENT_STATE_LEADER", "nats-ap-1=PLACEMENT_STATE_IN_SYNC", "nats-ap-5=PLACEMENT_STATE_IN_SYNC"}
+		if got := placementText(s.GetPlacement()); !slices.Equal(got, want) {
+			t.Fatalf("order-archive = %v, want %v", got, want)
+		}
+		return
+	}
+	t.Fatal("no order-archive")
 }
