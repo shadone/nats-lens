@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/checks"
@@ -70,7 +69,7 @@ func (p *Provider) tiles(ctx context.Context, r *v1.TimeRange, maxPoints int32, 
 	if n := len(servers.GetExpected()); n > 0 {
 		serversTile.ValueSuffix = fmt.Sprintf("/ %d", n)
 	}
-	serversTile.Subtitle = serversSubtitle(servers.GetServers())
+	serversTile.Subtitle = api.ServersSubtitle(servers.GetServers())
 
 	meta := tile(api.TileMetaLeader, total(get["cluster.meta_leader_changes"]), count, "cluster.meta_leader_changes")
 	meta.ValueText = now.metaLeader
@@ -119,37 +118,6 @@ func (p *Provider) tiles(ctx context.Context, r *v1.TimeRange, maxPoints int32, 
 	}
 	storage.Label, storage.Description = api.TileLabels[api.TileStorage], api.TileDescriptions[api.TileStorage]
 	return []*v1.Tile{serversTile, meta, streams, kv, objects, consumers, accounts, clients, storage}, nil
-}
-
-// serversSubtitle names the versions and the shortest uptime of the
-// servers that answered.
-func serversSubtitle(servers []*v1.ServerSummary) string {
-	versions := map[string]bool{}
-	var up time.Duration
-	seen := false
-	for _, s := range servers {
-		if s.GetVersion() != "" {
-			versions[s.GetVersion()] = true
-		}
-		if s.GetPresent() && s.GetUptime() != nil {
-			if d := s.GetUptime().AsDuration(); !seen || d < up {
-				up, seen = d, true
-			}
-		}
-	}
-	var parts []string
-	switch {
-	case len(versions) == 1:
-		for v := range versions {
-			parts = append(parts, "v"+v+" on all")
-		}
-	case len(versions) > 1:
-		parts = append(parts, fmt.Sprintf("%d versions", len(versions)))
-	}
-	if seen {
-		parts = append(parts, api.FmtUptime(up))
-	}
-	return strings.Join(parts, " · ")
 }
 
 // storageTile is JetStream storage: the servers' newest reports summed,
