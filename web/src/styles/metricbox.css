@@ -1,7 +1,8 @@
 /* Metric box: title with (i), value top right, line chart, range track. */
 .mbox{padding:13px 14px 12px;display:flex;flex-direction:column;min-width:0}
-.mb-h{display:flex;align-items:baseline;justify-content:space-between;gap:4px 8px;flex-wrap:wrap}
+.mb-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
 .mb-h .lbl{display:inline-flex;align-items:center;gap:6px;min-width:0}
+.mb-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .mb-v{display:inline-flex;align-items:baseline;gap:6px;white-space:nowrap;margin-left:auto}
 .mb-v b{font:500 17px var(--mono)}
 .mb-word{font-style:normal;font-size:11.5px;font-weight:600}

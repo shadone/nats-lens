@@ -53,7 +53,7 @@ describe("ServerDetail on example-global", () => {
   it("shows five metric boxes with the value, the range and the limit in the note", async () => {
     show(ap3(), "nats-ap-3");
     expect(await screen.findByRole("heading", { name: "nats-ap-3" })).toBeInTheDocument();
-    for (const t of ["CPU", "Memory", "Connections", "Messages in / out", "Slow consumers"]) expect(screen.getByRole("button", { name: `About ${t}` })).toBeInTheDocument();
+    for (const t of ["CPU", "Memory", "Connections", "Messages", "Slow consumers"]) expect(screen.getByRole("button", { name: `About ${t}` })).toBeInTheDocument();
     expect(await screen.findByRole("img", { name: /^CPU, current 8%, min 6%, max 10%/ })).toBeInTheDocument();
     expect(screen.getByText("steady at 31 all window")).toBeInTheDocument();
     expect(screen.getByText("limit 65,536")).toBeInTheDocument();
