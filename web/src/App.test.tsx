@@ -191,6 +191,43 @@ describe("sidebar", () => {
     expect(screen.getByRole("complementary", { name: "Sidebar" })).not.toHaveClass("open");
   });
 
+  it("keeps Tab inside the open drawer by making the page inert", async () => {
+    renderApp(<App />, "/servers?system=example-prod");
+    const menu = screen.getByRole("button", { name: "Menu" });
+    const column = screen.getByRole("main").parentElement!;
+    expect(column).not.toHaveAttribute("inert");
+    await userEvent.click(menu);
+    expect(column).toHaveAttribute("inert");
+    expect(screen.getByRole("complementary", { name: "Sidebar" }).closest("[inert]")).toBeNull();
+  });
+
+  it("gives focus back to the menu button however the drawer closes", async () => {
+    renderApp(<App />, "/servers?system=example-prod");
+    const menu = screen.getByRole("button", { name: "Menu" });
+    const side = () => screen.getByRole("complementary", { name: "Sidebar" });
+    await userEvent.click(menu);
+    await userEvent.click(screen.getByRole("button", { name: "Close menu" }));
+    expect(side()).not.toHaveClass("open");
+    expect(menu).toHaveFocus();
+    await userEvent.click(menu);
+    await userEvent.click(document.querySelector(".side-backdrop")!);
+    expect(side()).not.toHaveClass("open");
+    expect(menu).toHaveFocus();
+    await userEvent.click(menu);
+    await userEvent.click(within(nav()).getByRole("link", { name: "Events" }));
+    expect(side()).not.toHaveClass("open");
+    expect(menu).toHaveFocus();
+  });
+
+  it("closes only the system menu on Escape inside it, not the drawer", async () => {
+    renderApp(<App />, "/servers?system=example-prod");
+    await userEvent.click(screen.getByRole("button", { name: "Menu" }));
+    await userEvent.click(await screen.findByRole("button", { name: /Switch system/ }));
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(screen.getByRole("complementary", { name: "Sidebar" })).toHaveClass("open");
+  });
+
   it("closes the drawer on Escape and gives focus back to the menu button", async () => {
     renderApp(<App />, "/servers?system=example-prod");
     const menu = screen.getByRole("button", { name: "Menu" });
