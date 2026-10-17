@@ -9,8 +9,10 @@ export interface CauseGroup {
   /** The check codes in the group, in the order first seen. */
   checkCodes: string[];
   cause?: Finding["cause"];
-  /** What the entities share: a stream, an account, or the system. */
-  parent: { kind: "stream" | "account" | "system"; name: string };
+  /** What every entity shares: a stream, an account, or the system; unset when they differ. */
+  parent?: { kind: "stream" | "account" | "system"; name: string };
+  /** Number of distinct parents of the entities. */
+  parentCount: number;
   findings: Finding[];
 }
 
@@ -42,12 +44,17 @@ export function groupCauses(findings: Finding[]): { groups: CauseGroup[]; muted:
     const key = f.cause?.id ? `cause:${f.cause.id}` : `check:${f.checkCode}|${parentKey(f.entity)}`;
     const g = byKey.get(key);
     if (!g) {
-      byKey.set(key, { key, severity: f.severity, checkCodes: [f.checkCode], cause: f.cause, parent: parentOf(f.entity), findings: [f] });
+      byKey.set(key, { key, severity: f.severity, checkCodes: [f.checkCode], cause: f.cause, parent: parentOf(f.entity), parentCount: 1, findings: [f] });
       continue;
     }
     g.findings.push(f);
     if (!g.checkCodes.includes(f.checkCode)) g.checkCodes.push(f.checkCode);
     if (SEV_ORDER[f.severity] < SEV_ORDER[g.severity]) g.severity = f.severity;
+  }
+  // A cause group can span parents; it names one only when all share it.
+  for (const g of byKey.values()) {
+    g.parentCount = new Set(g.findings.map((f) => parentKey(f.entity))).size;
+    if (g.parentCount > 1) g.parent = undefined;
   }
   const groups = [...byKey.values()]
     .map((g, i) => ({ g, i }))

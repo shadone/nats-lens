@@ -54,6 +54,21 @@ describe("groupCauses", () => {
     expect(groups[0].checkCodes).toEqual(["consumer-006", "stream-013"]);
   });
 
+  it("keeps a parent only when every finding of a cause group shares it", () => {
+    const cause = { id: "ev-2", kind: "server.restart", summary: "x" };
+    const { groups } = groupCauses([
+      f("a", "consumer-012", consumerEnt("order-jobs", "a"), { cause }),
+      f("b", "consumer-012", consumerEnt("media-windows", "b"), { cause }),
+    ]);
+    expect(groups[0].parent).toBeUndefined();
+    expect(groups[0].parentCount).toBe(2);
+    const same = groupCauses([
+      f("a", "consumer-012", consumerEnt("order-jobs", "a"), { cause }),
+      f("b", "consumer-012", consumerEnt("order-jobs", "b"), { cause }),
+    ]);
+    expect(same.groups[0].parent).toEqual({ kind: "stream", name: "order-jobs" });
+  });
+
   it("puts the worst severity first, and muted findings in their own list", () => {
     const { groups, muted } = groupCauses([
       f("i", "stream-025", streamEnt("a"), { severity: "info" }),
