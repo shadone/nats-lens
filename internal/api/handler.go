@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"sync"
 	"time"
 
 	"connectrpc.com/connect"
@@ -37,6 +38,10 @@ type Handler struct {
 	// SummaryTimeout bounds each system's summary in ListSystems; zero
 	// means DefaultSummaryTimeout.
 	SummaryTimeout time.Duration
+
+	// summaryRunning holds an *atomic.Bool per system ID, set while that
+	// system's summary runs.
+	summaryRunning sync.Map
 }
 
 var _ natslensv1connect.LensServiceHandler = (*Handler)(nil)

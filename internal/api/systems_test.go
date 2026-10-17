@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -520,5 +521,61 @@ func TestListSystemsStripBuckets(t *testing.T) {
 	m, _ = listSystems(t, &api.Handler{Systems: systems}, &v1.ListSystemsRequest{StripBuckets: 24})
 	if s := m.GetSystems()[0]; len(s.GetStrip()) != 24 || s.GetStripBucket().AsDuration() != time.Hour {
 		t.Errorf("24 buckets: %d of %v", len(s.GetStrip()), s.GetStripBucket())
+	}
+}
+
+// A provider that ignores its context holds at most one goroutine per
+// system: while its previous summary still runs, a call gets the timeout
+// card at once.
+func TestListSystemsStartsOneSummaryPerSystem(t *testing.T) {
+	systems, a, _ := twoSystems()
+	a.release = make(chan struct{})
+	defer close(a.release)
+	systems[0].Provider = summaryOf{a, "ignore"}
+	h := &api.Handler{Systems: systems, SummaryTimeout: 20 * time.Millisecond}
+	before := runtime.NumGoroutine()
+	for i := range 30 {
+		res, err := h.ListSystems(context.Background(), connect.NewRequest(&v1.ListSystemsRequest{}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if s := res.Msg.GetSystems()[0]; s.GetError() == "" {
+			t.Fatalf("call %d: no error on the blocked system", i)
+		}
+	}
+	time.Sleep(50 * time.Millisecond)
+	if n := runtime.NumGoroutine() - before; n > 3 {
+		t.Errorf("%d goroutines more after 30 calls", n)
+	}
+}
+
+// A collection status that panics fails its own card only.
+func TestListSystemsStatusPanicStaysOnItsCard(t *testing.T) {
+	systems, _, _ := twoSystems()
+	systems[1].Status = func() api.CollectionStatus { panic("status exploded") }
+	h := &api.Handler{Systems: systems, Log: slog.New(slog.DiscardHandler)}
+	res, err := h.ListSystems(context.Background(), connect.NewRequest(&v1.ListSystemsRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := res.Msg.GetSystems(); got[0].GetError() != "" || got[1].GetError() == "" {
+		t.Errorf("errors %q, %q", got[0].GetError(), got[1].GetError())
+	}
+}
+
+// A caller that goes away is not a failed summary.
+func TestListSystemsCancelIsNotLogged(t *testing.T) {
+	systems, a, _ := twoSystems()
+	systems[0].Provider = summaryOf{a, "hang"}
+	var log strings.Builder
+	h := &api.Handler{Systems: systems, Log: slog.New(slog.NewTextHandler(&log, nil))}
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	go func() { time.Sleep(20 * time.Millisecond); cancel() }()
+	if _, err := h.ListSystems(ctx, connect.NewRequest(&v1.ListSystemsRequest{})); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(log.String(), "summary failed") {
+		t.Errorf("a cancel was logged:\n%s", log.String())
 	}
 }
