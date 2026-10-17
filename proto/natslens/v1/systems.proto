@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "natslens/v1/common.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// One NATS system nats-lens observes.
+message SystemRef {
+  // System ID, unique in this nats-lens; the value of the system field of
+  // every request.
+  string id = 1;
+
+  // Display name.
+  string name = 2;
+
+  // Environment, as configured, for example production; free text.
+  string environment = 3;
+}
+
+// Request for the systems nats-lens observes.
+message ListSystemsRequest {
+  // Range the summaries cover. Unset means the last 24 hours up to now.
+  TimeRange range = 1;
+
+  // Number of buckets in each summary's status strip.
+  int32 strip_buckets = 2;
+}
+
+// Summary of one system.
+message SystemSummary {
+  // The system.
+  SystemRef system = 1;
+}
+
+// The systems, in configuration order.
+message ListSystemsResponse {
+  // The systems.
+  repeated SystemSummary systems = 1;
+
+  // Range the summaries cover.
+  TimeRange range = 2;
+
+  // ID of the default system: the one a request with an empty system
+  // reads.
+  string default_system = 3;
+}
+
+// One account of a system.
+message Account {
+  // Account as the servers report it (the account ID in operator mode).
+  string account = 1;
+
+  // Readable name of the account, when known.
+  string account_name = 2;
+
+  // Whether this is the system account.
+  bool is_system = 3;
+
+  // Client connections in the account in the newest epoch; unset when not
+  // observed.
+  optional int32 connections = 4;
+
+  // JetStream streams in the account in the newest epoch; unset when not
+  // observed.
+  optional int32 streams = 5;
+
+  // JetStream consumers in the account in the newest epoch; unset when not
+  // observed.
+  optional int32 consumers = 6;
+}
+
+// Request for the accounts of a system.
+message ListAccountsRequest {
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 1;
+
+  // Range whose newest epoch is read. Unset means the last 24 hours up to
+  // now. A range without an epoch lists every account seen up to its
+  // end, including accounts retired long before it, with every count
+  // unset.
+  TimeRange range = 2;
+}
+
+// Accounts, ordered by account.
+message ListAccountsResponse {
+  // The accounts.
+  repeated Account accounts = 1;
+}

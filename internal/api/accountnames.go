@@ -52,10 +52,11 @@ func nameAccounts(m protoreflect.Message, names map[string]string) {
 	})
 }
 
-// withAccountNames names the accounts in res when the provider can. A
+// withAccountNames names the accounts in res when the provider of the
+// system that answered can. A
 // failed lookup leaves the names unset rather than failing the call.
-func (h *Handler) withAccountNames(ctx context.Context, res any) {
-	n, ok := h.P.(AccountNamer)
+func (h *Handler) withAccountNames(ctx context.Context, p Provider, res any) {
+	n, ok := p.(AccountNamer)
 	if !ok {
 		return
 	}

@@ -19,18 +19,19 @@ var (
 	ErrFailedPrecondition = errors.New("failed precondition")
 )
 
-// Provider answers the API's calls. The handlers pass requests whose
-// ranges, page sizes and other defaults are already filled in (see
-// normalize.go), so a provider reads them as given: every TimeRange has
-// both start and end set.
+// Provider answers the API's calls for one system. It never reads a
+// request's system field: the handler has already resolved it to this
+// provider. The handlers pass requests whose ranges, page sizes and other
+// defaults are already filled in (see normalize.go), so a provider reads
+// them as given: every TimeRange has both start and end set.
 type Provider interface {
 	// Now is the provider's present: the wall clock for the store, the
 	// scenario's fixed time for the fake. Ranges without an end end here.
 	Now() time.Time
 
 	// Info returns the cluster name, collect interval, retention, and
-	// whether the data is live or the demo; the handler adds the identity
-	// mode and the version.
+	// whether the data is live or the demo; the handler adds the system,
+	// the identity mode and the version.
 	Info(ctx context.Context) (*v1.GetLensInfoResponse, error)
 
 	GetOverview(ctx context.Context, req *v1.GetOverviewRequest) (*v1.GetOverviewResponse, error)
@@ -54,4 +55,12 @@ type Provider interface {
 	GetServer(ctx context.Context, req *v1.GetServerRequest) (*v1.GetServerResponse, error)
 	ListConnections(ctx context.Context, req *v1.ListConnectionsRequest) (*v1.ListConnectionsResponse, error)
 	GetTimeSeries(ctx context.Context, req *v1.GetTimeSeriesRequest) (*v1.GetTimeSeriesResponse, error)
+
+	// SystemSummary summarizes the provider's system for ListSystems; the
+	// handler sets its system reference.
+	SystemSummary(ctx context.Context, req *v1.ListSystemsRequest) (*v1.SystemSummary, error)
+	// ListAccounts lists the accounts of the newest epoch in the range.
+	ListAccounts(ctx context.Context, req *v1.ListAccountsRequest) (*v1.ListAccountsResponse, error)
+	ListKeyValueStores(ctx context.Context, req *v1.ListKeyValueStoresRequest) (*v1.ListKeyValueStoresResponse, error)
+	ListObjectStores(ctx context.Context, req *v1.ListObjectStoresRequest) (*v1.ListObjectStoresResponse, error)
 }

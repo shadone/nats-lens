@@ -90,5 +90,5 @@ func epochAge(t *testing.T, apiPort int) bool {
 	if err != nil {
 		return false
 	}
-	return strings.Contains(string(b), "\nnats_lens_last_epoch_age_seconds ")
+	return strings.Contains(string(b), "\nnats_lens_last_epoch_age_seconds{")
 }

@@ -114,6 +114,9 @@ message ListStreamsRequest {
 
   // Whether to include KV buckets (KV_*) and object stores (OBJ_*).
   bool include_kv = 3;
+
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 4;
 }
 
 // Streams, worst status first, then by name.
@@ -136,6 +139,9 @@ message GetStreamRequest {
   // Range whose newest epoch is read. Unset means the last 24 hours up to
   // now.
   TimeRange range = 3;
+
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 4;
 }
 
 // One stream in detail.

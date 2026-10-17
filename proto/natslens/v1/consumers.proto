@@ -108,6 +108,9 @@ message ListConsumersRequest {
 
   // Whether to include ephemeral and ordered consumers.
   bool include_ephemeral = 4;
+
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 5;
 }
 
 // Consumers, worst status first, then by stream and name.
@@ -130,6 +133,9 @@ message GetConsumerRequest {
   // Range whose newest epoch is read. Unset means the last 24 hours up to
   // now.
   TimeRange range = 4;
+
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 5;
 }
 
 // One consumer in detail.

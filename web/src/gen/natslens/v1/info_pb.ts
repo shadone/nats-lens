@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/info.proto.
  */
 export const file_natslens_v1_info: GenFile = /*@__PURE__*/
-  fileDesc("ChZuYXRzbGVucy92MS9pbmZvLnByb3RvEgtuYXRzbGVucy52MSIUChJHZXRMZW5zSW5mb1JlcXVlc3QimwIKE0dldExlbnNJbmZvUmVzcG9uc2USMAoNaWRlbnRpdHlfbW9kZRgBIAEoDjIZLm5hdHNsZW5zLnYxLklkZW50aXR5TW9kZRIPCgd2ZXJzaW9uGAIgASgJEg8KB2NsdXN0ZXIYAyABKAkSMwoQY29sbGVjdF9pbnRlcnZhbBgEIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIsCglyZXRlbnRpb24YBSABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SDAoEbGl2ZRgGIAEoCBIMCgRkZW1vGAcgASgIEjEKDWhpc3Rvcnlfc3RhcnQYCCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wKl8KDElkZW50aXR5TW9kZRIdChlJREVOVElUWV9NT0RFX1VOU1BFQ0lGSUVEEAASFQoRSURFTlRJVFlfTU9ERV9JQVAQARIZChVJREVOVElUWV9NT0RFX1JFUVVFU1QQAkJCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_google_protobuf_duration, file_google_protobuf_timestamp]);
+  fileDesc("ChZuYXRzbGVucy92MS9pbmZvLnByb3RvEgtuYXRzbGVucy52MSIkChJHZXRMZW5zSW5mb1JlcXVlc3QSDgoGc3lzdGVtGAEgASgJIsACChNHZXRMZW5zSW5mb1Jlc3BvbnNlEjAKDWlkZW50aXR5X21vZGUYASABKA4yGS5uYXRzbGVucy52MS5JZGVudGl0eU1vZGUSDwoHdmVyc2lvbhgCIAEoCRIPCgdjbHVzdGVyGAMgASgJEjMKEGNvbGxlY3RfaW50ZXJ2YWwYBCABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SLAoJcmV0ZW50aW9uGAUgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEgwKBGxpdmUYBiABKAgSDAoEZGVtbxgHIAEoCBIxCg1oaXN0b3J5X3N0YXJ0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIOCgZzeXN0ZW0YCSABKAkSEwoLc3lzdGVtX25hbWUYCiABKAkqXwoMSWRlbnRpdHlNb2RlEh0KGUlERU5USVRZX01PREVfVU5TUEVDSUZJRUQQABIVChFJREVOVElUWV9NT0RFX0lBUBABEhkKFUlERU5USVRZX01PREVfUkVRVUVTVBACQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_duration, file_google_protobuf_timestamp]);
 
 /**
  * Request for facts about this nats-lens instance.
@@ -20,6 +20,12 @@ export const file_natslens_v1_info: GenFile = /*@__PURE__*/
  * @generated from message natslens.v1.GetLensInfoRequest
  */
 export type GetLensInfoRequest = Message<"natslens.v1.GetLensInfoRequest"> & {
+  /**
+   * System ID, as ListSystems returns it. Empty means the default system.
+   *
+   * @generated from field: string system = 1;
+   */
+  system: string;
 };
 
 /**
@@ -92,6 +98,20 @@ export type GetLensInfoResponse = Message<"natslens.v1.GetLensInfoResponse"> & {
    * @generated from field: google.protobuf.Timestamp history_start = 8;
    */
   historyStart?: Timestamp | undefined;
+
+  /**
+   * ID of the system these facts are about.
+   *
+   * @generated from field: string system = 9;
+   */
+  system: string;
+
+  /**
+   * Display name of that system.
+   *
+   * @generated from field: string system_name = 10;
+   */
+  systemName: string;
 };
 
 /**

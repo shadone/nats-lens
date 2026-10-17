@@ -326,8 +326,10 @@ type ListConsumersRequest struct {
 	Stream string `protobuf:"bytes,3,opt,name=stream,proto3" json:"stream,omitempty"`
 	// Whether to include ephemeral and ordered consumers.
 	IncludeEphemeral bool `protobuf:"varint,4,opt,name=include_ephemeral,json=includeEphemeral,proto3" json:"include_ephemeral,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System        string `protobuf:"bytes,5,opt,name=system,proto3" json:"system,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListConsumersRequest) Reset() {
@@ -388,6 +390,13 @@ func (x *ListConsumersRequest) GetIncludeEphemeral() bool {
 	return false
 }
 
+func (x *ListConsumersRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
+}
+
 // Consumers, worst status first, then by stream and name.
 type ListConsumersResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -445,7 +454,9 @@ type GetConsumerRequest struct {
 	Consumer string `protobuf:"bytes,3,opt,name=consumer,proto3" json:"consumer,omitempty"`
 	// Range whose newest epoch is read. Unset means the last 24 hours up to
 	// now.
-	Range         *TimeRange `protobuf:"bytes,4,opt,name=range,proto3" json:"range,omitempty"`
+	Range *TimeRange `protobuf:"bytes,4,opt,name=range,proto3" json:"range,omitempty"`
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System        string `protobuf:"bytes,5,opt,name=system,proto3" json:"system,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -506,6 +517,13 @@ func (x *GetConsumerRequest) GetRange() *TimeRange {
 		return x.Range
 	}
 	return nil
+}
+
+func (x *GetConsumerRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
 }
 
 // One consumer in detail.
@@ -631,19 +649,21 @@ const file_natslens_v1_consumers_proto_rawDesc = "" +
 	"configHashB\x06\n" +
 	"\x04_lagB\x17\n" +
 	"\x15_delivered_stream_seqB\x17\n" +
-	"\x15_ack_floor_stream_seq\"\xa3\x01\n" +
+	"\x15_ack_floor_stream_seq\"\xbb\x01\n" +
 	"\x14ListConsumersRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x18\n" +
 	"\aaccount\x18\x02 \x01(\tR\aaccount\x12\x16\n" +
 	"\x06stream\x18\x03 \x01(\tR\x06stream\x12+\n" +
-	"\x11include_ephemeral\x18\x04 \x01(\bR\x10includeEphemeral\"S\n" +
+	"\x11include_ephemeral\x18\x04 \x01(\bR\x10includeEphemeral\x12\x16\n" +
+	"\x06system\x18\x05 \x01(\tR\x06system\"S\n" +
 	"\x15ListConsumersResponse\x12:\n" +
-	"\tconsumers\x18\x01 \x03(\v2\x1c.natslens.v1.ConsumerSummaryR\tconsumers\"\x90\x01\n" +
+	"\tconsumers\x18\x01 \x03(\v2\x1c.natslens.v1.ConsumerSummaryR\tconsumers\"\xa8\x01\n" +
 	"\x12GetConsumerRequest\x12\x18\n" +
 	"\aaccount\x18\x01 \x01(\tR\aaccount\x12\x16\n" +
 	"\x06stream\x18\x02 \x01(\tR\x06stream\x12\x1a\n" +
 	"\bconsumer\x18\x03 \x01(\tR\bconsumer\x12,\n" +
-	"\x05range\x18\x04 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\"\xaf\x02\n" +
+	"\x05range\x18\x04 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x16\n" +
+	"\x06system\x18\x05 \x01(\tR\x06system\"\xaf\x02\n" +
 	"\x13GetConsumerResponse\x128\n" +
 	"\bconsumer\x18\x01 \x01(\v2\x1c.natslens.v1.ConsumerSummaryR\bconsumer\x120\n" +
 	"\x06config\x18\x02 \x03(\v2\x18.natslens.v1.ConfigValueR\x06config\x129\n" +

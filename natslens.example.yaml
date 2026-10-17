@@ -36,6 +36,7 @@ archive_retention: 90d
 # tool has no authentication, so keep it on localhost unless IAP or a
 # similar proxy is in front.
 listen: 127.0.0.1:8080
+metrics_timeout: 8s      # per system in a /metrics scrape; keep it below the Prometheus scrape_timeout
 # Host header values the API accepts; empty means localhost, 127.0.0.1 and
 # ::1 when listen is a loopback address, and any host otherwise.
 # allowed_hosts: [lens.internal.example.com]

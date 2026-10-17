@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net"
@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"connectrpc.com/connect"
@@ -41,6 +42,15 @@ const (
 	maxHeaderBytes    = 64 << 10
 )
 
+// DefaultMetricsTimeout bounds each system's part of a /metrics scrape:
+// below Prometheus's usual 10-second scrape_timeout, so that one hung
+// system does not make Prometheus give up on the whole target.
+const DefaultMetricsTimeout = 8 * time.Second
+
+// metricsTimeout is the timeout of a Handler without MetricsTimeout; a
+// variable so that tests can shorten it.
+var metricsTimeout = DefaultMetricsTimeout
+
 // shutdownTimeout is how long a shutdown waits for calls to finish before
 // it closes their connections; a variable so that tests can shorten it.
 var shutdownTimeout = 5 * time.Second
@@ -65,8 +75,8 @@ func NewMux(h *Handler, ui fs.FS) http.Handler {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_, _ = w.Write([]byte("ok\n"))
 	})
-	if mw, ok := h.P.(MetricsWriter); ok {
-		mux.HandleFunc("GET /metrics", metricsHandler(mw, h))
+	if metricsWriters(h.Systems) {
+		mux.HandleFunc("GET /metrics", metricsHandler(h))
 	}
 	mux.Handle(PathPrefix+"/", http.NotFoundHandler())
 	mux.Handle("/", uiHandler(ui))
@@ -74,18 +84,94 @@ func NewMux(h *Handler, ui fs.FS) http.Handler {
 }
 
 // MetricsWriter is a provider that serves Prometheus metrics at /metrics.
+// It declares its families and adds its samples to m; the handler labels
+// them with the system. WriteMetrics must return when ctx ends: the
+// handler stops waiting then, but runs no second WriteMetrics for the
+// system until the first has returned.
 type MetricsWriter interface {
-	WriteMetrics(ctx context.Context, w io.Writer) error
+	WriteMetrics(ctx context.Context, m *Exposition) error
 }
 
-// metricsHandler writes the metrics into a buffer first, so that a failed
-// read answers 500 instead of a cut exposition.
-func metricsHandler(mw MetricsWriter, h *Handler) http.HandlerFunc {
+// metricsWriters reports whether any system's provider writes metrics.
+func metricsWriters(systems Systems) bool {
+	for _, s := range systems {
+		if _, ok := s.Provider.(MetricsWriter); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// metricsHandler reads the metrics of every system that writes them, in
+// parallel, each within the handler's metrics timeout and into an
+// exposition of its own,
+// and merges a system's samples only when it succeeded, so that a failure
+// halfway leaves no partial families. nats_lens_system_scrape_success
+// says which systems were read. The answer is 200 while any system
+// succeeds and 500 when all fail.
+func metricsHandler(h *Handler) http.HandlerFunc {
+	var writers []System
+	for _, s := range h.Systems {
+		if _, ok := s.Provider.(MetricsWriter); ok {
+			writers = append(writers, s)
+		}
+	}
+	// running[i] is set while a WriteMetrics of writers[i] runs, which may
+	// outlast the scrape that started it.
+	running := make([]atomic.Bool, len(writers))
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), QueryTimeout)
-		defer cancel()
+		timeout := h.MetricsTimeout
+		if timeout <= 0 {
+			timeout = metricsTimeout
+		}
+		type result struct {
+			id  string
+			exp *Exposition
+			err error
+		}
+		results := make([]result, len(writers))
+		var wg sync.WaitGroup
+		for i, s := range writers {
+			wg.Go(func() {
+				id := s.Ref.GetId()
+				ctx, cancel := context.WithTimeout(r.Context(), timeout)
+				defer cancel()
+				exp, err := NewExposition(id)
+				if err == nil {
+					err = writeMetrics(ctx, s.Provider.(MetricsWriter), exp, &running[i])
+				}
+				results[i] = result{id: id, exp: exp, err: err}
+			})
+		}
+		wg.Wait()
+		var out families
+		out.declare("nats_lens_system_scrape_success", "gauge", "1 when the system's metrics were read for this scrape, 0 when they failed.")
+		var merged []*families
+		ok := 0
+		for _, res := range results {
+			v := 0.0
+			if res.err == nil {
+				v = 1
+				ok++
+				merged = append(merged, &res.exp.fams)
+			} else if h.Log != nil {
+				h.Log.Error("metrics failed", "system", res.id, "err", res.err)
+			}
+			if res.id != "" {
+				status, _ := NewExposition(res.id)
+				status.Sample("nats_lens_system_scrape_success", v)
+				out.merge(&status.fams)
+			}
+		}
+		if len(writers) > 0 && ok == 0 {
+			http.Error(w, "metrics unavailable; see the server log", http.StatusInternalServerError)
+			return
+		}
+		for _, m := range merged {
+			out.merge(m)
+		}
 		var buf bytes.Buffer
-		if err := mw.WriteMetrics(ctx, &buf); err != nil {
+		if _, err := out.writeTo(&buf); err != nil {
 			if h.Log != nil {
 				h.Log.Error("metrics failed", "err", err)
 			}
@@ -94,6 +180,37 @@ func metricsHandler(mw MetricsWriter, h *Handler) http.HandlerFunc {
 		}
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 		_, _ = w.Write(buf.Bytes())
+	}
+}
+
+// writeMetrics runs one system's WriteMetrics, returning when ctx ends
+// even if the provider does not, so that a hung system cannot hold the
+// scrape past its timeout. running is held from the start of the call
+// until the provider returns: while it is held, the system fails at once
+// and no second call starts. A panic in the provider fails the system.
+func writeMetrics(ctx context.Context, mw MetricsWriter, exp *Exposition, running *atomic.Bool) error {
+	if !running.CompareAndSwap(false, true) {
+		return errors.New("the previous metrics call of this system is still running")
+	}
+	done := make(chan error, 1)
+	scratch, _ := NewExposition(exp.system)
+	go func() {
+		defer running.Store(false)
+		defer func() {
+			if p := recover(); p != nil {
+				done <- fmt.Errorf("metrics panicked: %v\n%s", p, debug.Stack())
+			}
+		}()
+		done <- mw.WriteMetrics(ctx, scratch)
+	}()
+	select {
+	case err := <-done:
+		if err == nil {
+			exp.fams = scratch.fams
+		}
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 

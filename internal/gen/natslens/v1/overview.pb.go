@@ -346,7 +346,9 @@ type GetOverviewRequest struct {
 	// to now.
 	Range *TimeRange `protobuf:"bytes,1,opt,name=range,proto3" json:"range,omitempty"`
 	// Largest number of points per tile series. Zero means 96.
-	MaxPoints     int32 `protobuf:"varint,2,opt,name=max_points,json=maxPoints,proto3" json:"max_points,omitempty"`
+	MaxPoints int32 `protobuf:"varint,2,opt,name=max_points,json=maxPoints,proto3" json:"max_points,omitempty"`
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System        string `protobuf:"bytes,3,opt,name=system,proto3" json:"system,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -393,6 +395,13 @@ func (x *GetOverviewRequest) GetMaxPoints() int32 {
 		return x.MaxPoints
 	}
 	return 0
+}
+
+func (x *GetOverviewRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
 }
 
 // Summary of the system over a range: cluster, freshness, servers, finding
@@ -539,11 +548,12 @@ const file_natslens_v1_overview_proto_rawDesc = "" +
 	"\x05start\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x05start\x12,\n" +
 	"\x03end\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x03end\x12\x14\n" +
 	"\x05label\x18\x03 \x01(\tR\x05label\x12\x16\n" +
-	"\x06detail\x18\x04 \x01(\tR\x06detail\"a\n" +
+	"\x06detail\x18\x04 \x01(\tR\x06detail\"y\n" +
 	"\x12GetOverviewRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x1d\n" +
 	"\n" +
-	"max_points\x18\x02 \x01(\x05R\tmaxPoints\"\x91\x03\n" +
+	"max_points\x18\x02 \x01(\x05R\tmaxPoints\x12\x16\n" +
+	"\x06system\x18\x03 \x01(\tR\x06system\"\x91\x03\n" +
 	"\x13GetOverviewResponse\x12\x18\n" +
 	"\acluster\x18\x01 \x01(\tR\acluster\x12,\n" +
 	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x124\n" +

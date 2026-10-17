@@ -224,6 +224,75 @@ func (EntityType) EnumDescriptor() ([]byte, []int) {
 	return file_natslens_v1_common_proto_rawDescGZIP(), []int{2}
 }
 
+// State of one replica of a stream or bucket, from the servers' views.
+type PlacementState int32
+
+const (
+	// Not set.
+	PlacementState_PLACEMENT_STATE_UNSPECIFIED PlacementState = 0
+	// The replica is the leader.
+	PlacementState_PLACEMENT_STATE_LEADER PlacementState = 1
+	// The replica is current with the leader.
+	PlacementState_PLACEMENT_STATE_IN_SYNC PlacementState = 2
+	// The replica lags behind the leader.
+	PlacementState_PLACEMENT_STATE_BEHIND PlacementState = 3
+	// The replica's view disagrees with the leader's.
+	PlacementState_PLACEMENT_STATE_DISAGREES PlacementState = 4
+	// The replica is expected but no server reports it.
+	PlacementState_PLACEMENT_STATE_MISSING PlacementState = 5
+	// The server that holds the replica is offline.
+	PlacementState_PLACEMENT_STATE_OFFLINE PlacementState = 6
+)
+
+// Enum value maps for PlacementState.
+var (
+	PlacementState_name = map[int32]string{
+		0: "PLACEMENT_STATE_UNSPECIFIED",
+		1: "PLACEMENT_STATE_LEADER",
+		2: "PLACEMENT_STATE_IN_SYNC",
+		3: "PLACEMENT_STATE_BEHIND",
+		4: "PLACEMENT_STATE_DISAGREES",
+		5: "PLACEMENT_STATE_MISSING",
+		6: "PLACEMENT_STATE_OFFLINE",
+	}
+	PlacementState_value = map[string]int32{
+		"PLACEMENT_STATE_UNSPECIFIED": 0,
+		"PLACEMENT_STATE_LEADER":      1,
+		"PLACEMENT_STATE_IN_SYNC":     2,
+		"PLACEMENT_STATE_BEHIND":      3,
+		"PLACEMENT_STATE_DISAGREES":   4,
+		"PLACEMENT_STATE_MISSING":     5,
+		"PLACEMENT_STATE_OFFLINE":     6,
+	}
+)
+
+func (x PlacementState) Enum() *PlacementState {
+	p := new(PlacementState)
+	*p = x
+	return p
+}
+
+func (x PlacementState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PlacementState) Descriptor() protoreflect.EnumDescriptor {
+	return file_natslens_v1_common_proto_enumTypes[3].Descriptor()
+}
+
+func (PlacementState) Type() protoreflect.EnumType {
+	return &file_natslens_v1_common_proto_enumTypes[3]
+}
+
+func (x PlacementState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PlacementState.Descriptor instead.
+func (PlacementState) EnumDescriptor() ([]byte, []int) {
+	return file_natslens_v1_common_proto_rawDescGZIP(), []int{3}
+}
+
 // Reference to one entity.
 //
 // Only the fields that apply to the type are set: a stream has account and
@@ -648,6 +717,61 @@ func (x *EventRef) GetSummary() string {
 	return ""
 }
 
+// One replica of a stream or bucket and its state.
+type ReplicaPlacement struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Server that holds the replica.
+	Server string `protobuf:"bytes,1,opt,name=server,proto3" json:"server,omitempty"`
+	// State of the replica.
+	State         PlacementState `protobuf:"varint,2,opt,name=state,proto3,enum=natslens.v1.PlacementState" json:"state,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReplicaPlacement) Reset() {
+	*x = ReplicaPlacement{}
+	mi := &file_natslens_v1_common_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplicaPlacement) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplicaPlacement) ProtoMessage() {}
+
+func (x *ReplicaPlacement) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_common_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplicaPlacement.ProtoReflect.Descriptor instead.
+func (*ReplicaPlacement) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_common_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ReplicaPlacement) GetServer() string {
+	if x != nil {
+		return x.Server
+	}
+	return ""
+}
+
+func (x *ReplicaPlacement) GetState() PlacementState {
+	if x != nil {
+		return x.State
+	}
+	return PlacementState_PLACEMENT_STATE_UNSPECIFIED
+}
+
 var File_natslens_v1_common_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_common_proto_rawDesc = "" +
@@ -679,7 +803,10 @@ const file_natslens_v1_common_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12.\n" +
 	"\x04time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12\x12\n" +
 	"\x04kind\x18\x03 \x01(\tR\x04kind\x12\x18\n" +
-	"\asummary\x18\x04 \x01(\tR\asummary*d\n" +
+	"\asummary\x18\x04 \x01(\tR\asummary\"]\n" +
+	"\x10ReplicaPlacement\x12\x16\n" +
+	"\x06server\x18\x01 \x01(\tR\x06server\x121\n" +
+	"\x05state\x18\x02 \x01(\x0e2\x1b.natslens.v1.PlacementStateR\x05state*d\n" +
 	"\bSeverity\x12\x18\n" +
 	"\x14SEVERITY_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rSEVERITY_INFO\x10\x01\x12\x14\n" +
@@ -702,7 +829,15 @@ const file_natslens_v1_common_proto_rawDesc = "" +
 	"\x12ENTITY_TYPE_STREAM\x10\x04\x12\x18\n" +
 	"\x14ENTITY_TYPE_CONSUMER\x10\x05\x12\x1a\n" +
 	"\x16ENTITY_TYPE_CONNECTION\x10\x06\x12\x16\n" +
-	"\x12ENTITY_TYPE_CLIENT\x10\aBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
+	"\x12ENTITY_TYPE_CLIENT\x10\a*\xdf\x01\n" +
+	"\x0ePlacementState\x12\x1f\n" +
+	"\x1bPLACEMENT_STATE_UNSPECIFIED\x10\x00\x12\x1a\n" +
+	"\x16PLACEMENT_STATE_LEADER\x10\x01\x12\x1b\n" +
+	"\x17PLACEMENT_STATE_IN_SYNC\x10\x02\x12\x1a\n" +
+	"\x16PLACEMENT_STATE_BEHIND\x10\x03\x12\x1d\n" +
+	"\x19PLACEMENT_STATE_DISAGREES\x10\x04\x12\x1b\n" +
+	"\x17PLACEMENT_STATE_MISSING\x10\x05\x12\x1b\n" +
+	"\x17PLACEMENT_STATE_OFFLINE\x10\x06BBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
 
 var (
 	file_natslens_v1_common_proto_rawDescOnce sync.Once
@@ -716,31 +851,34 @@ func file_natslens_v1_common_proto_rawDescGZIP() []byte {
 	return file_natslens_v1_common_proto_rawDescData
 }
 
-var file_natslens_v1_common_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_natslens_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_natslens_v1_common_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_natslens_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_natslens_v1_common_proto_goTypes = []any{
 	(Severity)(0),                 // 0: natslens.v1.Severity
 	(Status)(0),                   // 1: natslens.v1.Status
 	(EntityType)(0),               // 2: natslens.v1.EntityType
-	(*EntityRef)(nil),             // 3: natslens.v1.EntityRef
-	(*TimeRange)(nil),             // 4: natslens.v1.TimeRange
-	(*ConfigValue)(nil),           // 5: natslens.v1.ConfigValue
-	(*ServerValue)(nil),           // 6: natslens.v1.ServerValue
-	(*Disagreement)(nil),          // 7: natslens.v1.Disagreement
-	(*EventRef)(nil),              // 8: natslens.v1.EventRef
-	(*timestamppb.Timestamp)(nil), // 9: google.protobuf.Timestamp
+	(PlacementState)(0),           // 3: natslens.v1.PlacementState
+	(*EntityRef)(nil),             // 4: natslens.v1.EntityRef
+	(*TimeRange)(nil),             // 5: natslens.v1.TimeRange
+	(*ConfigValue)(nil),           // 6: natslens.v1.ConfigValue
+	(*ServerValue)(nil),           // 7: natslens.v1.ServerValue
+	(*Disagreement)(nil),          // 8: natslens.v1.Disagreement
+	(*EventRef)(nil),              // 9: natslens.v1.EventRef
+	(*ReplicaPlacement)(nil),      // 10: natslens.v1.ReplicaPlacement
+	(*timestamppb.Timestamp)(nil), // 11: google.protobuf.Timestamp
 }
 var file_natslens_v1_common_proto_depIdxs = []int32{
-	2, // 0: natslens.v1.EntityRef.type:type_name -> natslens.v1.EntityType
-	9, // 1: natslens.v1.TimeRange.start:type_name -> google.protobuf.Timestamp
-	9, // 2: natslens.v1.TimeRange.end:type_name -> google.protobuf.Timestamp
-	6, // 3: natslens.v1.Disagreement.values:type_name -> natslens.v1.ServerValue
-	9, // 4: natslens.v1.EventRef.time:type_name -> google.protobuf.Timestamp
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	2,  // 0: natslens.v1.EntityRef.type:type_name -> natslens.v1.EntityType
+	11, // 1: natslens.v1.TimeRange.start:type_name -> google.protobuf.Timestamp
+	11, // 2: natslens.v1.TimeRange.end:type_name -> google.protobuf.Timestamp
+	7,  // 3: natslens.v1.Disagreement.values:type_name -> natslens.v1.ServerValue
+	11, // 4: natslens.v1.EventRef.time:type_name -> google.protobuf.Timestamp
+	3,  // 5: natslens.v1.ReplicaPlacement.state:type_name -> natslens.v1.PlacementState
+	6,  // [6:6] is the sub-list for method output_type
+	6,  // [6:6] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_common_proto_init() }
@@ -753,8 +891,8 @@ func file_natslens_v1_common_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_common_proto_rawDesc), len(file_natslens_v1_common_proto_rawDesc)),
-			NumEnums:      3,
-			NumMessages:   6,
+			NumEnums:      4,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

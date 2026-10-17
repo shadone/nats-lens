@@ -91,6 +91,9 @@ message GetTimeSeriesRequest {
   // before it, holds only the range's part, and the series can have one
   // point more than this number. Zero means 200; at most 2000.
   int32 max_points = 4;
+
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 5;
 }
 
 // One metric of one entity.
