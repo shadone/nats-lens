@@ -83,3 +83,32 @@ describe("problems first", () => {
     expect(order.slice(0, 3)).toEqual(["nats-us-4", "nats-us-3", "nats-us-0"]);
   });
 });
+
+describe("map colours", () => {
+  it("puts a value shown as 60% in the 60% or more bin", () => {
+    const s = { ...byName("nats-eu-0"), cpuPercent: 59.6 };
+    const scale = colourScale("cpu", [s]);
+    expect(scale.valueText(s)).toBe("60%");
+    expect(scale.binOf(s)?.label).toBe("60% or more");
+  });
+
+  it("keeps three version colours, then other versions", () => {
+    const vs = ["2.12.4", "2.12.4", "2.12.4", "2.12.3", "2.12.3", "2.12.2", "2.11.9", "2.10.1"];
+    const rows = vs.map((version, i) => ({ ...byName("nats-eu-0"), name: `n-${i}`, version }));
+    const scale = colourScale("version", rows);
+    expect(scale.bins.map((b) => [b.cls, b.label])).toEqual([
+      ["ver-0", "2.12.4"],
+      ["ver-1", "2.12.3"],
+      ["ver-2", "2.12.2"],
+      ["ver-3", "other versions"],
+    ]);
+    expect(scale.binOf(rows[6])?.label).toBe("other versions");
+    expect(scale.binOf(rows[7])?.label).toBe("other versions");
+  });
+
+  it("scales from the servers that answered only", () => {
+    const present = list.servers.filter((s) => s.present);
+    const withStale = [...present, { ...byName("nats-us-4"), connections: 10_000 }];
+    expect(colourScale("connections", withStale).bins).toEqual(colourScale("connections", present).bins);
+  });
+});
