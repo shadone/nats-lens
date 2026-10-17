@@ -30,6 +30,9 @@ type renamed struct {
 	// metrics is "fail" to fail WriteMetrics after a partial write, "hang"
 	// to block it until its context ends.
 	metrics string
+	// release ends a WriteMetrics in mode "ignore", which waits for it and
+	// ignores its context.
+	release chan struct{}
 }
 
 func newRenamed(cluster string) renamed {
@@ -67,6 +70,11 @@ func (r renamed) WriteMetrics(ctx context.Context, m *api.Exposition) error {
 	case "hang":
 		<-ctx.Done()
 		return ctx.Err()
+	case "ignore":
+		<-r.release
+		return nil
+	case "panic":
+		panic("metrics exploded")
 	}
 	return nil
 }
@@ -270,11 +278,10 @@ func TestMetricsWhenEverySystemFails(t *testing.T) {
 
 // A hung system uses up its own timeout, not the others'.
 func TestMetricsWithAHungSystem(t *testing.T) {
-	defer api.SetMetricsTimeout(200 * time.Millisecond)()
 	systems, a, _ := twoSystems()
 	a.metrics = "hang"
 	systems[0].Provider = a
-	srv, _ := apitest.ServeHandler(t, &api.Handler{Systems: systems})
+	srv, _ := apitest.ServeHandler(t, &api.Handler{Systems: systems, MetricsTimeout: 200 * time.Millisecond})
 	start := time.Now()
 	code, body := scrapeMetrics(t, srv.URL)
 	if code != http.StatusOK || !strings.Contains(body, `nats_lens_test_up{system="b"} 1`+"\n") ||
@@ -331,5 +338,58 @@ func TestHelpIsEscaped(t *testing.T) {
 	}
 	if want := "# HELP x back\\\\slash and\\nnewline\n"; !strings.Contains(sb.String(), want) {
 		t.Errorf("HELP not escaped:\n%s", sb.String())
+	}
+}
+
+func TestDefaultMetricsTimeout(t *testing.T) {
+	if api.DefaultMetricsTimeout != 8*time.Second {
+		t.Errorf("DefaultMetricsTimeout = %v, want 8s, below a 10s scrape_timeout", api.DefaultMetricsTimeout)
+	}
+}
+
+// A provider that ignores its context has one WriteMetrics running at a
+// time; scrapes meanwhile report the system failed at once.
+func TestMetricsOneScrapePerSystem(t *testing.T) {
+	systems, a, _ := twoSystems()
+	a.metrics, a.release = "ignore", make(chan struct{})
+	systems[0].Provider = a
+	srv, _ := apitest.ServeHandler(t, &api.Handler{Systems: systems, MetricsTimeout: 50 * time.Millisecond})
+	for i := range 5 {
+		start := time.Now()
+		code, body := scrapeMetrics(t, srv.URL)
+		if code != http.StatusOK || !strings.Contains(body, `nats_lens_system_scrape_success{system="a"} 0`+"\n") {
+			t.Fatalf("scrape %d: %d\n%s", i, code, body)
+		}
+		if i > 0 && time.Since(start) > 40*time.Millisecond {
+			t.Errorf("scrape %d waited %v for a system already running", i, time.Since(start))
+		}
+	}
+	if n := a.calls.Load(); n != 1 {
+		t.Errorf("WriteMetrics calls = %d, want 1", n)
+	}
+	close(a.release)
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		_, body := scrapeMetrics(t, srv.URL)
+		if strings.Contains(body, `nats_lens_system_scrape_success{system="a"} 1`+"\n") {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the system never recovered:\n%s", body)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// A panic in one system's metrics fails that system, not the process.
+func TestMetricsPanicFailsTheSystem(t *testing.T) {
+	systems, a, _ := twoSystems()
+	a.metrics = "panic"
+	systems[0].Provider = a
+	srv, _ := apitest.ServeHandler(t, &api.Handler{Systems: systems})
+	code, body := scrapeMetrics(t, srv.URL)
+	if code != http.StatusOK || !strings.Contains(body, `nats_lens_system_scrape_success{system="a"} 0`+"\n") ||
+		!strings.Contains(body, `nats_lens_test_up{system="b"} 1`+"\n") {
+		t.Fatalf("/metrics: %d\n%s", code, body)
 	}
 }

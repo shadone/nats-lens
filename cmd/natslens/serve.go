@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/api/fake"
@@ -22,6 +23,9 @@ type apiOptions struct {
 	iapAudience  string
 	// ready reports whether /readyz answers ok; nil means always.
 	ready func() bool
+	// metricsTimeout bounds each system's part of a /metrics scrape; zero
+	// means api.DefaultMetricsTimeout.
+	metricsTimeout time.Duration
 }
 
 // startAPI listens and serves the API and UI for the systems until ctx is
@@ -36,7 +40,7 @@ func startAPI(ctx context.Context, o apiOptions, systems api.Systems, log *slog.
 	if err != nil {
 		return nil, fmt.Errorf("listen %s: %w", o.listen, err)
 	}
-	h := &api.Handler{Systems: systems, Log: log, Version: version}
+	h := &api.Handler{Systems: systems, Log: log, Version: version, MetricsTimeout: o.metricsTimeout}
 	if o.iapAudience != "" {
 		h.IAP = &iap.Verifier{Audience: o.iapAudience, Keys: iap.NewJWKS()}
 	}

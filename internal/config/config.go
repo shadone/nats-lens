@@ -58,6 +58,9 @@ type Config struct {
 	// record its user as the one who mutes; the value is the backend
 	// service's audience, /projects/<number>/global/backendServices/<id>.
 	IAPAudience string `yaml:"iap_audience"`
+	// MetricsTimeout bounds each system's part of a /metrics scrape; keep
+	// it below the Prometheus scrape_timeout.
+	MetricsTimeout Duration `yaml:"metrics_timeout"`
 	// AllowUnauthenticated lets the API listen beyond loopback without
 	// iap_audience, so that anyone who reaches it may mute findings.
 	AllowUnauthenticated bool `yaml:"allow_unauthenticated"`
@@ -163,6 +166,7 @@ func Default() Config {
 		ArchiveProvisionalEvery: Duration(5 * time.Minute),
 		ArchiveRetention:        Duration(90 * 24 * time.Hour),
 		Listen:                  "127.0.0.1:8080",
+		MetricsTimeout:          Duration(8 * time.Second),
 		Checks:                  Checks{Timeout: Duration(5 * time.Second), RestartWindow: Duration(10 * time.Minute)},
 		Kubernetes:              defaultKubernetes(),
 	}
@@ -218,6 +222,9 @@ func (c Config) Validate() error {
 	// would never be used.
 	if c.ShutdownGrace.D() <= 0 || c.ShutdownGrace.D() > c.Interval.D() {
 		errs = append(errs, errors.New("shutdown_grace must be positive and at most interval"))
+	}
+	if c.MetricsTimeout.D() <= 0 {
+		errs = append(errs, errors.New("metrics_timeout must be positive"))
 	}
 	if c.ServerForgetAfter.D() <= 0 {
 		errs = append(errs, errors.New("server_forget_after must be positive"))
@@ -294,6 +301,7 @@ func (c Config) LogValue() slog.Value {
 		slog.String("nats_tls_ca", c.NATS.TLS.CA),
 		slog.String("archive_dir", c.ResolvedArchiveDir()),
 		slog.String("listen", c.Listen),
+		slog.String("metrics_timeout", c.MetricsTimeout.String()),
 		slog.Any("allowed_hosts", c.AllowedHosts),
 		slog.String("iap_audience", c.IAPAudience),
 		slog.Bool("allow_unauthenticated", c.AllowUnauthenticated),

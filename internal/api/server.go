@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net"
@@ -13,6 +14,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"connectrpc.com/connect"
@@ -40,9 +42,14 @@ const (
 	maxHeaderBytes    = 64 << 10
 )
 
-// metricsTimeout bounds the time one system may spend writing its
-// metrics; a variable so that tests can shorten it.
-var metricsTimeout = QueryTimeout
+// DefaultMetricsTimeout bounds each system's part of a /metrics scrape:
+// below Prometheus's usual 10-second scrape_timeout, so that one hung
+// system does not make Prometheus give up on the whole target.
+const DefaultMetricsTimeout = 8 * time.Second
+
+// metricsTimeout is the timeout of a Handler without MetricsTimeout; a
+// variable so that tests can shorten it.
+var metricsTimeout = DefaultMetricsTimeout
 
 // shutdownTimeout is how long a shutdown waits for calls to finish before
 // it closes their connections; a variable so that tests can shorten it.
@@ -78,7 +85,9 @@ func NewMux(h *Handler, ui fs.FS) http.Handler {
 
 // MetricsWriter is a provider that serves Prometheus metrics at /metrics.
 // It declares its families and adds its samples to m; the handler labels
-// them with the system.
+// them with the system. WriteMetrics must return when ctx ends: the
+// handler stops waiting then, but runs no second WriteMetrics for the
+// system until the first has returned.
 type MetricsWriter interface {
 	WriteMetrics(ctx context.Context, m *Exposition) error
 }
@@ -94,34 +103,42 @@ func metricsWriters(systems Systems) bool {
 }
 
 // metricsHandler reads the metrics of every system that writes them, in
-// parallel, each within metricsTimeout and into an exposition of its own,
+// parallel, each within the handler's metrics timeout and into an
+// exposition of its own,
 // and merges a system's samples only when it succeeded, so that a failure
 // halfway leaves no partial families. nats_lens_system_scrape_success
 // says which systems were read. The answer is 200 while any system
 // succeeds and 500 when all fail.
 func metricsHandler(h *Handler) http.HandlerFunc {
+	var writers []System
+	for _, s := range h.Systems {
+		if _, ok := s.Provider.(MetricsWriter); ok {
+			writers = append(writers, s)
+		}
+	}
+	// running[i] is set while a WriteMetrics of writers[i] runs, which may
+	// outlast the scrape that started it.
+	running := make([]atomic.Bool, len(writers))
 	return func(w http.ResponseWriter, r *http.Request) {
+		timeout := h.MetricsTimeout
+		if timeout <= 0 {
+			timeout = metricsTimeout
+		}
 		type result struct {
 			id  string
 			exp *Exposition
 			err error
-		}
-		var writers []System
-		for _, s := range h.Systems {
-			if _, ok := s.Provider.(MetricsWriter); ok {
-				writers = append(writers, s)
-			}
 		}
 		results := make([]result, len(writers))
 		var wg sync.WaitGroup
 		for i, s := range writers {
 			wg.Go(func() {
 				id := s.Ref.GetId()
-				ctx, cancel := context.WithTimeout(r.Context(), metricsTimeout)
+				ctx, cancel := context.WithTimeout(r.Context(), timeout)
 				defer cancel()
 				exp, err := NewExposition(id)
 				if err == nil {
-					err = writeMetrics(ctx, s.Provider.(MetricsWriter), exp)
+					err = writeMetrics(ctx, s.Provider.(MetricsWriter), exp, &running[i])
 				}
 				results[i] = result{id: id, exp: exp, err: err}
 			})
@@ -168,11 +185,24 @@ func metricsHandler(h *Handler) http.HandlerFunc {
 
 // writeMetrics runs one system's WriteMetrics, returning when ctx ends
 // even if the provider does not, so that a hung system cannot hold the
-// scrape past its timeout.
-func writeMetrics(ctx context.Context, mw MetricsWriter, exp *Exposition) error {
+// scrape past its timeout. running is held from the start of the call
+// until the provider returns: while it is held, the system fails at once
+// and no second call starts. A panic in the provider fails the system.
+func writeMetrics(ctx context.Context, mw MetricsWriter, exp *Exposition, running *atomic.Bool) error {
+	if !running.CompareAndSwap(false, true) {
+		return errors.New("the previous metrics call of this system is still running")
+	}
 	done := make(chan error, 1)
 	scratch, _ := NewExposition(exp.system)
-	go func() { done <- mw.WriteMetrics(ctx, scratch) }()
+	go func() {
+		defer running.Store(false)
+		defer func() {
+			if p := recover(); p != nil {
+				done <- fmt.Errorf("metrics panicked: %v\n%s", p, debug.Stack())
+			}
+		}()
+		done <- mw.WriteMetrics(ctx, scratch)
+	}()
 	select {
 	case err := <-done:
 		if err == nil {
