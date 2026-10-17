@@ -35,6 +35,6 @@ describe("Connections name filter", () => {
     });
     renderApp(<Connections />, "/connections?name=natslens");
     expect(await screen.findByText(/shown because the name filter matches them/)).toBeInTheDocument();
-    expect(vi.mocked(requests.listConnections).mock.calls.at(-1)?.[1]).toMatchObject({ nameContains: "natslens", includeTooling: true });
+    expect(vi.mocked(requests.listConnections).mock.calls.at(-1)?.[2]).toMatchObject({ nameContains: "natslens", includeTooling: true });
   });
 });
