@@ -25,8 +25,24 @@ type Engine struct {
 	// that would start after it is recorded as an error without running.
 	// Zero means no bound beyond each check's timeout.
 	Budget time.Duration
+	// ToolingNames are the nats-lens connection names of the engine's
+	// system, which the client checks leave out; nil means the Set's.
+	// Engines of several systems share one Set and each sets its own.
+	ToolingNames []string
 	// only, when set, limits a run to these codes; for tests.
 	only map[string]bool
+	// loopbackWarned is set once the loopback guard was logged; the
+	// engine's, so that engines sharing a Set neither race on it nor
+	// hide each other's warning.
+	loopbackWarned bool
+}
+
+// tooling is the engine's tooling names, or the Set's without its own.
+func (e *Engine) tooling() []string {
+	if e.ToolingNames != nil {
+		return e.ToolingNames
+	}
+	return e.Set.tooling
 }
 
 func (e *Engine) logger() *slog.Logger {
@@ -99,12 +115,13 @@ FROM epochs WHERE epoch = ?`, epoch, epoch).Scan(&at, &prev)
 		return nil, false, fmt.Errorf("read epoch %d: %w", epoch, err)
 	}
 	at = at.UTC()
-	loopback, _, err := LoopbackDecision(ctx, conn, epoch, e.Set.tooling)
+	tooling := e.tooling()
+	loopback, _, err := LoopbackDecision(ctx, conn, epoch, tooling)
 	if err != nil {
 		return nil, false, err
 	}
-	if !loopback && e.Set.loopbackTooling && !e.Set.loopbackWarned {
-		e.Set.loopbackWarned = true
+	if !loopback && e.Set.loopbackTooling && !e.loopbackWarned {
+		e.loopbackWarned = true
 		e.logger().Warn("most client connections come from a loopback address; they are not treated as tooling",
 			"epoch", epoch)
 	}
@@ -115,7 +132,7 @@ FROM epochs WHERE epoch = ?`, epoch, epoch).Scan(&at, &prev)
 		"epoch": strconv.FormatInt(epoch, 10) + "::BIGINT", "epoch_time": tsLit(at), "prev_epoch": strconv.FormatInt(prev, 10) + "::BIGINT",
 		"restart_window":   Value{Unit: UnitDuration, Duration: e.Set.RestartWindow()}.literal(),
 		"exclude_tooling":  strconv.FormatBool(!e.Set.includeTooling),
-		"tooling_names":    listLiteral(e.Set.tooling),
+		"tooling_names":    listLiteral(tooling),
 		"loopback_setting": strconv.FormatBool(e.Set.loopbackTooling),
 		"loopback_now":     strconv.FormatBool(loopback),
 	}); err != nil {
