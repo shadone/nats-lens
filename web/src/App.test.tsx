@@ -212,6 +212,40 @@ describe("sidebar", () => {
     expect(screen.getByRole("complementary").closest("[inert]")).toBeNull();
   });
 
+  it("closes the drawer and wakes the page when the window grows past phone width", async () => {
+    let listener: ((e: { matches: boolean }) => void) | undefined;
+    const mql = { matches: true, addEventListener: (_: string, f: typeof listener) => (listener = f), removeEventListener: () => {} };
+    const orig = window.matchMedia;
+    window.matchMedia = vi.fn(() => mql) as never;
+    try {
+      renderApp(<App />, "/servers?system=example-prod");
+      const column = screen.getByRole("main").parentElement!;
+      await userEvent.click(screen.getByRole("button", { name: "Menu" }));
+      expect(column).toHaveAttribute("inert");
+      expect(window.matchMedia).toHaveBeenCalledWith("(max-width:760px)");
+      act(() => {
+        mql.matches = false;
+        listener!({ matches: false });
+      });
+      expect(screen.getByRole("complementary")).not.toHaveClass("open");
+      expect(column).not.toHaveAttribute("inert");
+    } finally {
+      window.matchMedia = orig;
+    }
+  });
+
+  it("never makes the page inert at desktop width", async () => {
+    const orig = window.matchMedia;
+    window.matchMedia = vi.fn(() => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} })) as never;
+    try {
+      renderApp(<App />, "/servers?system=example-prod");
+      await userEvent.click(screen.getByRole("button", { name: "Menu" }));
+      expect(screen.getByRole("main").parentElement).not.toHaveAttribute("inert");
+    } finally {
+      window.matchMedia = orig;
+    }
+  });
+
   it("gives focus back to the menu button however the drawer closes", async () => {
     renderApp(<App />, "/servers?system=example-prod");
     const menu = screen.getByRole("button", { name: "Menu" });

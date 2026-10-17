@@ -6,6 +6,23 @@ import { useLocation } from "react-router";
 
 export const SIDEBAR_KEY = "nats-lens-sidebar";
 
+/** The width at which the sidebar is a drawer; the same as in sidebar.css. */
+export const PHONE_QUERY = "(max-width:760px)";
+
+/** Whether the window is phone width. Without matchMedia (tests) it counts as phone width. */
+function usePhoneWidth(): boolean {
+  const mql = typeof window !== "undefined" && window.matchMedia ? window.matchMedia(PHONE_QUERY) : undefined;
+  const [phone, setPhone] = useState(mql ? mql.matches : true);
+  useEffect(() => {
+    if (!mql) return;
+    const onChange = (e: { matches: boolean }) => setPhone(e.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+    // One listener for the life of the shell.
+  }, []);
+  return phone;
+}
+
 function storedCollapsed(): boolean {
   try {
     return localStorage.getItem(SIDEBAR_KEY) === "collapsed";
@@ -18,6 +35,7 @@ export function useSidebar() {
   const [collapsed, setCollapsedState] = useState(storedCollapsed);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { pathname, search } = useLocation();
+  const phone = usePhoneWidth();
 
   const setCollapsed = useCallback((c: boolean) => {
     setCollapsedState(c);
@@ -29,7 +47,8 @@ export function useSidebar() {
     }
   }, []);
 
-  useEffect(() => setDrawerOpen(false), [pathname, search]);
+  // A window that grows past phone width (or a rotated phone) has no drawer.
+  useEffect(() => setDrawerOpen(false), [pathname, search, phone]);
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -46,5 +65,7 @@ export function useSidebar() {
     wasOpen.current = drawerOpen;
   }, [drawerOpen]);
 
-  return { collapsed, setCollapsed, drawerOpen, setDrawerOpen };
+  /** The drawer is open and shown: only then is the page behind it inert. */
+  const drawerShown = drawerOpen && phone;
+  return { collapsed, setCollapsed, drawerOpen, setDrawerOpen, drawerShown };
 }

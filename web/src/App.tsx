@@ -24,7 +24,7 @@ import { NotFound } from "./pages/NotFound";
 export function App() {
   const { pathname } = useLocation();
   const system = useSystem();
-  const { collapsed, setCollapsed, drawerOpen, setDrawerOpen } = useSidebar();
+  const { collapsed, setCollapsed, drawerOpen, setDrawerOpen, drawerShown } = useSidebar();
   return (
     <div className={`shell${collapsed ? " rail" : ""}`}>
       <a className="skip" href="#main">
@@ -32,8 +32,8 @@ export function App() {
       </a>
       <Sidebar collapsed={collapsed} onCollapse={setCollapsed} drawerOpen={drawerOpen} onCloseDrawer={() => setDrawerOpen(false)} />
       {drawerOpen && <div className="side-backdrop" aria-hidden="true" onClick={() => setDrawerOpen(false)} />}
-      {/* While the drawer is open the page behind it is inert, so Tab stays in the drawer. */}
-      <div className="main-col" inert={drawerOpen}>
+      {/* While the drawer is shown the page behind it is inert, so Tab stays in the drawer. */}
+      <div className="main-col" inert={drawerShown}>
         <Header menuOpen={drawerOpen} onMenu={() => setDrawerOpen(!drawerOpen)} />
         <main className="wrap" id="main" tabIndex={-1}>
           {/* Keyed by system too: a page of another system starts afresh, with
