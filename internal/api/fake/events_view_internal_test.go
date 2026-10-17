@@ -41,9 +41,9 @@ func TestFakeAuditRoutine(t *testing.T) {
 		return &v1.Event{Kind: "api.audit", Reason: reason, Summary: subject + " by ops@10.0.0.1"}
 	}
 	cases := map[*v1.Event]bool{
-		audit("$JS.API.STREAM.DELETE.orders", ""):              false,
+		audit("$JS.API.STREAM.DELETE.orders", ""):               false,
 		audit("$JS.API.STREAM.INFO.orders", "stream not found"): false,
-		audit("$JS.API.STREAM.INFO.orders", ""):                true,
+		audit("$JS.API.STREAM.INFO.orders", ""):                 true,
 	}
 	for e, want := range cases {
 		if routineEvent(e) != want {

@@ -134,10 +134,11 @@ type Event struct {
 	// With fold_repeats: when the oldest event of the row happened; the
 	// row's time is the newest. Unset without fold_repeats.
 	FirstTime *timestamppb.Timestamp `protobuf:"bytes,22,opt,name=first_time,json=firstTime,proto3" json:"first_time,omitempty"`
-	// Whether the event is routine: client churn, sampled acks, API audit,
-	// account connection counts, or a connect or disconnect of a tooling
-	// client. Set only when the request asks for hide_routine,
-	// fold_repeats, histogram_buckets or include_facets.
+	// Whether the event is routine: client churn, sampled acks, account
+	// connection counts, an API audit record of a successful call that
+	// changes nothing, or a connect or disconnect of a tooling client. Set
+	// only when the request asks for hide_routine, fold_repeats,
+	// histogram_buckets or include_facets.
 	Routine       bool `protobuf:"varint,23,opt,name=routine,proto3" json:"routine,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -363,7 +364,8 @@ type ListEventsRequest struct {
 	// routine_groups says what they were.
 	HideRoutine bool `protobuf:"varint,9,opt,name=hide_routine,json=hideRoutine,proto3" json:"hide_routine,omitempty"`
 	// Fold repeats: events with the same source, kind, server, account,
-	// stream, consumer, client name and reason, each at most 10 minutes
+	// stream, consumer, client name and reason (and finding, for a finding
+	// event; object, for a Kubernetes event), each at most 10 minutes
 	// after the previous one, become one row that shows the newest, with
 	// repeats and first_time set. Pages then hold rows, not events.
 	FoldRepeats bool `protobuf:"varint,10,opt,name=fold_repeats,json=foldRepeats,proto3" json:"fold_repeats,omitempty"`
