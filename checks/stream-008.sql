@@ -34,7 +34,7 @@ description: >-
   was rebuilt at another time (a server restore or a peer replaced) and holds the same messages as the others.
   When the contents differ as well, in two epochs in a row, one replica may hold a stream that was deleted and
   created again under the same name. A replica behind by more than the tolerance in two epochs warns even while it
-  catches up, but only here, where the creation times differ. Restarting servers are left out until they have caught up.
+  catches up, but only here, where the creation times differ. Servers that restarted within restart_window are left out.
 remediation: >-
   The detail names the servers on each creation time and whether their contents agree. While they agree, no action
   is needed: the replicas were built at different times. When they differ, look on the Events page for the

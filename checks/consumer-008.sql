@@ -8,7 +8,7 @@ kind: operational
 description: >-
   The servers that hold a replica of the consumer report different configurations for it (ack policy, ack_wait,
   max_deliver, filters, max_ack_pending and the other settings; the creation time is consumer-009). Every setting
-  is compared on its own, a missing value included; restarting servers are left out until they have caught up.
+  is compared on its own, a missing value included; servers that restarted within restart_window are left out.
 remediation: >-
   The detail lists which servers agree and which settings differ. Right after a consumer update this clears within
   an epoch or two. If it stays, apply the definition again (the service that creates the consumer at startup does

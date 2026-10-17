@@ -17,7 +17,9 @@ thresholds:
   - name: crit_days
     default: "3"
     unit: count
-    description: Days below which a discard-new stream is critical.
+    description: >-
+      Days below which the stream is critical: a discard-new stream, or a work-queue or interest stream with discard
+      old.
   - name: min_span
     default: 1h
     unit: duration

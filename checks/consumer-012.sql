@@ -7,8 +7,8 @@ severity: warning
 kind: operational
 description: >-
   The consumer leader lists a server as a replica, that server answered JSZ in this epoch, and it does not report
-  the consumer: from that server's view the consumer does not exist. Restarting servers are left
-  out until they have caught up.
+  the consumer: from that server's view the consumer does not exist. Servers that restarted within restart_window
+  are left out.
 remediation: >-
   Look at the server's log for errors creating or recovering the consumer, and at its healthz (server-002). A
   replica that does not appear within a few minutes after a restart can be dropped with `nats consumer cluster
