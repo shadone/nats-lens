@@ -44,7 +44,7 @@ export function EventHistogram({ buckets, start, end, live, worthReading }: {
   const label = `Events over the range: ${fmtInt(totals.warning)} warnings, ${fmtInt(totals.notable)} notable, ${fmtInt(totals.routine)} routine`;
   const h = (n: number) => (n / max) * H;
   return (
-    <section className="card ev-hist" aria-label="Events over time">
+    <section className={`card ev-hist${worthReading ? " worth" : ""}`} aria-label="Events over time">
       <svg className="ev-hist-bars" viewBox={`0 0 ${width} ${H}`} preserveAspectRatio="none" role="img" aria-label={label}>
         {buckets.map((b, i) => {
           const x = i * W + GAP / 2;
