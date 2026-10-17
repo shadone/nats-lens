@@ -33,7 +33,7 @@ func TestCountTilesAreWholeAndMatchTheirChart(t *testing.T) {
 		if v < ser.GetMin() || v > ser.GetMax() {
 			t.Errorf("tile %s: value %v outside its series' range %v..%v", tile.GetId(), v, ser.GetMin(), ser.GetMax())
 		}
-		if tile.GetId() == "servers" || tile.GetId() == "connections" || tile.GetId() == "msgs_rate" {
+		if tile.GetId() == "servers" || tile.GetId() == "clients" || tile.GetId() == "streams" {
 			if last := ser.GetPoints()[len(ser.GetPoints())-1].GetValue(); last != v {
 				t.Errorf("tile %s: value %v, chart ends at %v", tile.GetId(), v, last)
 			}
