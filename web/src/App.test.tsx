@@ -197,6 +197,18 @@ describe("sidebar", () => {
     expect(within(nav()).getByRole("link", { name: "Fleet" }).querySelector(".nb")).toBeNull();
   });
 
+  it("reads the Fleet badge over the last 24 hours, whatever range the page shows", async () => {
+    renderApp(<App />, "/fleet?range=7d");
+    await screen.findAllByText("Production");
+    const hours = () =>
+      l.listSystems.mock.calls
+        .map((c) => c[0] as { stripBuckets?: number; range?: { start?: { seconds: bigint } } })
+        .filter((r) => r.stripBuckets)
+        .map((r) => Math.round((Date.now() / 1000 - Number(r.range!.start!.seconds)) / 3600))
+        .sort((a, b) => a - b);
+    await waitFor(() => expect(hours()).toEqual([24, 168]));
+  });
+
   it("collapses to a rail and remembers it", async () => {
     renderApp(<App />, "/servers?system=example-prod");
     await userEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
