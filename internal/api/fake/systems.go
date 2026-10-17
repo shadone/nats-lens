@@ -15,14 +15,16 @@ func (p *Provider) SystemSummary(context.Context, *v1.ListSystemsRequest) (*v1.S
 // streams and consumers.
 func (p *Provider) ListAccounts(context.Context, *v1.ListAccountsRequest) (*v1.ListAccountsResponse, error) {
 	var conns int32
-	for _, sp := range serverSpecs {
-		conns += int32(sp.conns)
+	for _, sp := range p.sc.servers {
+		if sp.answering() {
+			conns += int32(sp.conns)
+		}
 	}
 	var consumers int32
-	for _, sp := range streamSpecs {
+	for _, sp := range p.sc.streams {
 		consumers += int32(len(sp.consumers) + sp.ephemeral)
 	}
 	return &v1.ListAccountsResponse{Accounts: []*v1.Account{{
-		Account: Account, Connections: ptr(conns), Streams: ptr(int32(len(streamSpecs))), Consumers: ptr(consumers),
+		Account: Account, Connections: ptr(conns), Streams: ptr(int32(len(p.sc.streams))), Consumers: ptr(consumers),
 	}}}, nil
 }

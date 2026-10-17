@@ -71,17 +71,15 @@ func (p *Provider) GetFinding(_ context.Context, req *v1.GetFindingRequest) (*v1
 
 // transitions are the finding's state changes, newest first.
 func (s scen) transitions(f *v1.Finding) []*v1.FindingTransition {
+	if s.sc.transitions != nil {
+		if out := s.sc.transitions(s, f); out != nil {
+			return out
+		}
+	}
 	tr := func(at time.Time, st v1.FindingState) *v1.FindingTransition {
 		return &v1.FindingTransition{FindingId: f.GetId(), Time: ts(at), State: st, Severity: f.GetSeverity(), Detail: f.GetDetail()}
 	}
 	var out []*v1.FindingTransition
-	if f.GetCheckCode() == "stream-020" {
-		out = append(out,
-			tr(s.at(14, 12, 0), flapping), tr(s.at(14, 5, 0), resolved), tr(s.at(13, 48, 0), firing),
-			tr(s.at(13, 41, 0), resolved), tr(s.at(11, 0, 0), firing), tr(s.at(8, 30, 0), resolved),
-			tr(s.at(8, 15, 0), firing), tr(s.at(7, 45, 0), resolved), tr(s.at(7, 30, 0), firing))
-		return out
-	}
 	if f.GetResolvedAt() != nil {
 		out = append(out, tr(f.GetResolvedAt().AsTime(), resolved))
 	}
@@ -94,16 +92,6 @@ func (s scen) transitions(f *v1.Finding) []*v1.FindingTransition {
 type storedMute struct {
 	m        *v1.Mute
 	relative bool
-}
-
-func seedMute() *storedMute {
-	s := scen{now: FixedNow}
-	return &storedMute{relative: true, m: &v1.Mute{
-		Id: "1", CheckCode: "stream-031", Entity: streamRef("audit-archive"),
-		Reason:    "Retention cut to 90d is in review; growth after the backfill is expected.",
-		MutedBy:   "denis",
-		CreatedAt: ts(s.at(12, 0, 0)), ExpiresAt: ts(s.on(24, 12, 0)),
-	}}
 }
 
 // view returns a copy of the mute as of the scenario s.

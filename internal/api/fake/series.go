@@ -46,8 +46,9 @@ func down(server string, c time.Time) bool {
 	return ok && !c.Before(sp[0]) && c.Before(sp[1])
 }
 
-// slowConsumerEvents are the times of the slow consumer disconnects.
-var slowConsumerEvents = []time.Time{
+// prodSlowConsumerEvents are the times of example-prod's slow consumer
+// disconnects.
+var prodSlowConsumerEvents = []time.Time{
 	fixed(9, 16, 40), fixed(9, 17, 5), fixed(9, 17, 30), fixed(9, 18, 10), fixed(9, 31, 20), fixed(9, 32, 0),
 	time.Date(2026, 10, 16, 22, 21, 0, 0, time.UTC),
 }
@@ -65,9 +66,9 @@ func traffic(key string, c time.Time, base, spread, dip, now float64) float64 {
 	return math.Round(v)
 }
 
-func serversUp(c time.Time) float64 {
+func serversUp(sc *scenario, c time.Time) float64 {
 	n := 0.0
-	for _, sp := range serverSpecs {
+	for _, sp := range sc.servers {
 		if !down(sp.name, c) {
 			n++
 		}
@@ -75,13 +76,13 @@ func serversUp(c time.Time) float64 {
 	return n
 }
 
-// sample returns a metric's value at fixed-frame time c; ok is false where
-// there is no data.
-func sample(metric string, e *v1.EntityRef, c time.Time) (float64, bool) {
+// prodSample returns a metric's value at fixed-frame time c; ok is false
+// where there is no data.
+func prodSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (float64, bool) {
 	days := FixedNow.Sub(c).Hours() / 24
 	switch metric {
 	case "cluster.servers_up":
-		return serversUp(c), true
+		return serversUp(sc, c), true
 	case "cluster.connections":
 		return traffic(metric, c, 168, 14, 0.72, 182), true
 	case "cluster.in_msgs_rate":
@@ -90,7 +91,7 @@ func sample(metric string, e *v1.EntityRef, c time.Time) (float64, bool) {
 		return traffic(metric, c, 3700, 700, 0.5, 3910), true
 	case "cluster.in_bytes_rate", "cluster.out_bytes_rate", "server.in_bytes_rate", "server.out_bytes_rate":
 		// About 1.2 KiB per message.
-		v, ok := sample(strings.Replace(metric, "_bytes_", "_msgs_", 1), e, c)
+		v, ok := prodSample(sc, strings.Replace(metric, "_bytes_", "_msgs_", 1), e, c)
 		return math.Round(v * 1230), ok
 	case "cluster.js_storage_bytes":
 		return (5.81 - days*0.19) * gib, true
@@ -103,7 +104,7 @@ func sample(metric string, e *v1.EntityRef, c time.Time) (float64, bool) {
 		if down(e.GetKey(), c) {
 			return 0, false
 		}
-		v, _ := sample("cluster."+strings.TrimPrefix(metric, "server."), e, c)
+		v, _ := prodSample(sc, "cluster."+strings.TrimPrefix(metric, "server."), e, c)
 		return math.Round(v / 3), true
 	case "server.mem_bytes":
 		return 412*mib + noise(metric+e.GetKey(), c)*40*mib, !down(e.GetKey(), c)
@@ -112,7 +113,7 @@ func sample(metric string, e *v1.EntityRef, c time.Time) (float64, bool) {
 	case "server.js_storage_bytes":
 		return 1980*mib - days*65*mib, !down(e.GetKey(), c)
 	case "stream.bytes", "stream.messages":
-		sp, _ := findStream(e.GetAccount(), e.GetStream())
+		sp, _ := sc.findStream(e.GetAccount(), e.GetStream())
 		b := math.Max(sp.bytes-days*sp.perDay, sp.bytes*0.05)
 		if metric == "stream.bytes" {
 			return b, true
@@ -150,8 +151,8 @@ func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints 
 	step := api.Step(r, maxPoints, sampleEvery)
 	out := &v1.Series{Metric: metric, Entity: e, Unit: api.Metrics[metric].Unit, Step: dur(step)}
 	end := r.GetEnd().AsTime()
-	if s.now.Before(end) {
-		end = s.now
+	if s.dataEnd().Before(end) {
+		end = s.dataEnd()
 	}
 	start := r.GetStart().AsTime()
 	for b := api.BucketStart(start, step); b.Before(end); b = b.Add(step) {
@@ -163,7 +164,7 @@ func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints 
 		var sum float64
 		var n int
 		if metric == "cluster.slow_consumers" {
-			for _, ev := range slowConsumerEvents {
+			for _, ev := range s.sc.slowEvents {
 				if c := ev.Add(s.shift); !c.Before(t) && c.Before(stop) {
 					sum++
 				}
@@ -171,7 +172,7 @@ func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints 
 			n = 1
 		} else {
 			for x := t; x.Before(stop); x = x.Add(sampleEvery) {
-				if v, ok := sample(metric, e, s.clock(x)); ok {
+				if v, ok := s.sc.sample(s.sc, metric, e, s.clock(x)); ok {
 					sum += v
 					n++
 				}
@@ -194,7 +195,7 @@ func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints 
 
 // GetTimeSeries draws one metric of a known entity.
 func (p *Provider) GetTimeSeries(_ context.Context, req *v1.GetTimeSeriesRequest) (*v1.GetTimeSeriesResponse, error) {
-	e, err := resolveEntity(req.GetEntity())
+	e, err := p.sc.resolveEntity(req.GetEntity())
 	if err != nil {
 		return nil, err
 	}
@@ -202,25 +203,23 @@ func (p *Provider) GetTimeSeries(_ context.Context, req *v1.GetTimeSeriesRequest
 }
 
 // resolveEntity checks that the entity exists and fills in its parts.
-func resolveEntity(e *v1.EntityRef) (*v1.EntityRef, error) {
+func (sc *scenario) resolveEntity(e *v1.EntityRef) (*v1.EntityRef, error) {
 	switch e.GetType() {
 	case v1.EntityType_ENTITY_TYPE_SYSTEM:
-		return systemRef(), nil
+		return sc.systemRef(), nil
 	case v1.EntityType_ENTITY_TYPE_SERVER:
-		for _, sp := range serverSpecs {
-			if sp.name == e.GetKey() {
-				return serverRef(sp.name), nil
-			}
+		if _, ok := sc.server(e.GetKey()); ok {
+			return serverRef(e.GetKey()), nil
 		}
 	case v1.EntityType_ENTITY_TYPE_STREAM:
 		acc, name, _ := strings.Cut(e.GetKey(), "/")
-		if _, err := findStream(acc, name); err == nil {
+		if _, err := sc.findStream(acc, name); err == nil {
 			return streamRef(name), nil
 		}
 	case v1.EntityType_ENTITY_TYPE_CONSUMER:
 		parts := strings.Split(e.GetKey(), "/")
 		if len(parts) == 3 {
-			if sp, err := findStream(parts[0], parts[1]); err == nil {
+			if sp, err := sc.findStream(parts[0], parts[1]); err == nil {
 				for _, n := range append(append([]string{}, sp.consumers...), sp.expected...) {
 					if n == parts[2] {
 						return consumerRef(sp.name, n), nil

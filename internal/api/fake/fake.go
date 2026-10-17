@@ -1,8 +1,8 @@
-// Package fake serves a fixed scenario through the api.Provider interface:
-// a three-server cluster on 2026-10-17 at 14:30 UTC, five hours after a
-// GKE node upgrade (09:14-09:50) restarted all three NATS servers. It is the
-// data of the reference mockup (docs/ui-reference/reference.html), for the
-// demo command and for tests.
+// Package fake serves fixed scenarios through the api.Provider interface,
+// for the demo command and for tests. New serves example-prod: a
+// three-server cluster on 2026-10-17 at 14:30 UTC, five hours after a GKE
+// node upgrade (09:14-09:50) restarted all three NATS servers; it is the
+// data of the reference mockup (docs/ui-reference/reference.html).
 //
 // In fixed mode "now" is 2026-10-17T14:30:00Z, so every response is the same
 // on every run. In live mode the scenario is shifted so that its "now" is
@@ -21,9 +21,10 @@ import (
 // FixedNow is the scenario's present in fixed mode.
 var FixedNow = time.Date(2026, 10, 17, 14, 30, 0, 0, time.UTC)
 
-// Provider is the fake api.Provider. Mutes created through the API are kept
-// in memory.
+// Provider is the fake api.Provider for one scenario. Mutes created
+// through the API are kept in memory.
 type Provider struct {
+	sc    *scenario
 	live  bool
 	clock func() time.Time
 
@@ -34,11 +35,16 @@ type Provider struct {
 
 var _ api.Provider = (*Provider)(nil)
 
-// New returns the fake provider. With live set the scenario follows the
-// wall clock; otherwise it is fixed at FixedNow.
-func New(live bool) *Provider {
-	p := &Provider{live: live, clock: time.Now, nextID: 2}
-	p.mutes = []*storedMute{seedMute()}
+// New returns the provider of example-prod. With live set the scenario
+// follows the wall clock; otherwise it is fixed at FixedNow.
+func New(live bool) *Provider { return newProvider(prodScenario(), live) }
+
+func newProvider(sc *scenario, live bool) *Provider {
+	p := &Provider{sc: sc, live: live, clock: time.Now, nextID: 1}
+	if sc.mutes != nil {
+		p.mutes = sc.mutes()
+		p.nextID += len(p.mutes)
+	}
 	return p
 }
 
@@ -53,13 +59,14 @@ func (p *Provider) Now() time.Time {
 // scen returns the scenario as of the current Now.
 func (p *Provider) scen() scen {
 	now := p.Now()
-	return scen{now: now, shift: now.Sub(FixedNow)}
+	return scen{now: now, shift: now.Sub(FixedNow), sc: p.sc}
 }
 
 // scen places the scenario's wall-clock times relative to now.
 type scen struct {
 	now   time.Time
 	shift time.Duration
+	sc    *scenario
 }
 
 // at is hh:mm:ss on 2026-10-17 in the scenario.
@@ -76,18 +83,18 @@ func (s scen) on(day, h, m int) time.Time {
 // computed from it do not depend on the shift.
 func (s scen) clock(t time.Time) time.Time { return t.Add(-s.shift) }
 
-// lastEpoch is when the scenario's newest epoch started.
-func (s scen) lastEpoch() time.Time { return s.now.Add(-4 * time.Second) }
+// dataEnd is where the scenario's data ends: now, or earlier for a system
+// that stopped collecting.
+func (s scen) dataEnd() time.Time { return s.now.Add(-s.sc.stale) }
 
-// upgrade is the node upgrade window.
-func (s scen) upgrade() (time.Time, time.Time) { return s.at(9, 14, 0), s.at(9, 50, 0) }
+// lastEpoch is when the scenario's newest epoch started.
+func (s scen) lastEpoch() time.Time { return s.dataEnd().Add(-4 * time.Second) }
 
 func (s scen) windows(r *v1.TimeRange) []*v1.TimeWindow {
-	a, b := s.upgrade()
-	if !overlaps(a, b, r) {
+	if s.sc.windows == nil {
 		return nil
 	}
-	return []*v1.TimeWindow{{Start: ts(a), End: ts(b), Label: "GKE node upgrade", Detail: "3 drains, 3 pod restarts"}}
+	return s.sc.windows(s, r)
 }
 
 func overlaps(a, b time.Time, r *v1.TimeRange) bool {
@@ -101,37 +108,47 @@ func inRange(t time.Time, r *v1.TimeRange) bool {
 // Info describes the demo: its cluster, a 30 s interval and 14 days of
 // retention.
 func (p *Provider) Info(context.Context) (*v1.GetLensInfoResponse, error) {
-	return &v1.GetLensInfoResponse{Cluster: Cluster, CollectInterval: dur(30 * time.Second),
+	return &v1.GetLensInfoResponse{Cluster: p.sc.cluster, CollectInterval: dur(30 * time.Second),
 		Retention: dur(14 * 24 * time.Hour), Live: p.live, Demo: true}, nil
 }
 
+// freshness describes the newest epoch inside the range.
+func (s scen) freshness(r *v1.TimeRange) *v1.Freshness {
+	f := &v1.Freshness{Live: true, Interval: dur(30 * time.Second)}
+	// A range that does not hold the newest epoch reports no epoch.
+	if at := s.lastEpoch(); inRange(at, r) {
+		f.Epoch, f.EpochAt, f.Age, f.Partial = s.sc.epoch, ts(at), dur(s.now.Sub(at)), s.sc.partial
+	}
+	return f
+}
+
 // GetOverview returns the cluster, freshness, tally, worst finding, tiles
-// and the upgrade window.
+// and the maintenance windows.
 func (p *Provider) GetOverview(_ context.Context, req *v1.GetOverviewRequest) (*v1.GetOverviewResponse, error) {
 	s := p.scen()
 	all := p.findings(s)
 	cur := current(all, req.GetRange())
 	res := &v1.GetOverviewResponse{
-		Cluster:   Cluster,
-		Range:     req.GetRange(),
-		Freshness: &v1.Freshness{Live: true, Interval: dur(30 * time.Second)},
-		Servers:   s.servers(req.GetRange()),
-		Tally:     tally(all, req.GetRange()),
-		Tiles:     s.tiles(req.GetRange(), req.GetMaxPoints()),
-		Windows:   s.windows(req.GetRange()),
-	}
-	// The newest epoch started 4 seconds ago; a range that does not hold
-	// it reports no epoch.
-	if at := s.lastEpoch(); inRange(at, req.GetRange()) {
-		res.Freshness.Epoch, res.Freshness.EpochAt, res.Freshness.Age = 1734, ts(at), dur(s.now.Sub(at))
-	}
-	for _, f := range cur {
-		if f.GetMute() == nil {
-			res.WorstFinding = f
-			break
-		}
+		Cluster:      p.sc.cluster,
+		Range:        req.GetRange(),
+		Freshness:    s.freshness(req.GetRange()),
+		Servers:      s.servers(req.GetRange(), all),
+		Tally:        tally(all, req.GetRange()),
+		Tiles:        s.sc.tiles(s, req.GetRange(), req.GetMaxPoints()),
+		Windows:      s.windows(req.GetRange()),
+		WorstFinding: worstUnmuted(cur),
 	}
 	return res, nil
+}
+
+// worstUnmuted is the first unmuted finding of a worst-first list.
+func worstUnmuted(cur []*v1.Finding) *v1.Finding {
+	for _, f := range cur {
+		if f.GetMute() == nil {
+			return f
+		}
+	}
+	return nil
 }
 
 func earliest(a, b time.Time) time.Time {
