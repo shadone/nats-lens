@@ -325,6 +325,43 @@ describe("sidebar", () => {
   });
 });
 
+describe("focus and landmarks", () => {
+  it("names the sidebar", async () => {
+    renderApp(<App />, "/servers?system=example-prod");
+    expect(await screen.findByRole("complementary", { name: "Navigation" })).toBeInTheDocument();
+  });
+
+  it("leaves focus alone on the first load, and moves it to the page on a route change", async () => {
+    renderApp(
+      <>
+        <App />
+        <Nav />
+      </>,
+      "/servers?system=example-prod",
+    );
+    await screen.findByText("Production");
+    expect(document.activeElement).toBe(document.body);
+    await userEvent.click(within(nav()).getByRole("link", { name: "Streams" }));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("main")));
+  });
+
+  it("keeps focus where it is when only the search changes", async () => {
+    renderApp(
+      <>
+        <App />
+        <Nav />
+      </>,
+      "/servers?system=example-prod",
+    );
+    await screen.findByText("Production");
+    const button = screen.getByRole("button", { name: "Collapse sidebar" });
+    button.focus();
+    act(() => go("/servers?system=example-global"));
+    await screen.findByText("Global");
+    expect(document.activeElement).toBe(button);
+  });
+});
+
 describe("system switcher", () => {
   it("opens the same page of the other system, keeping the range and leaving the account", async () => {
     renderApp(<App />, "/streams/APP/order-jobs?system=example-prod&range=6h&account=APP");
