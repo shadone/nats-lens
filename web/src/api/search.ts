@@ -8,7 +8,7 @@ import { consumerPath, serverPath, streamPath } from "../lib/view";
 import { entityOrEmpty } from "./adapt-common";
 import { lens } from "./client";
 import { listConsumers, listServers, listStreams, rangeInit, systemInit } from "./requests";
-import { listAccounts } from "./systems";
+import { listAccounts, useCurrentSystem } from "./systems";
 
 export type SearchKind = "server" | "stream" | "consumer" | "kv" | "object" | "account";
 
@@ -77,10 +77,11 @@ async function loadSearchItems(sys: string, spec: RangeSpec, signal?: AbortSigna
 /** The searchable names of the current system; loaded only once the search is used. */
 export function useSearchItems(spec: RangeSpec, enabled: boolean) {
   const sys = useSystem();
+  const known = useCurrentSystem().known;
   return useQuery({
     queryKey: ["search", sys, rangeKey(spec)],
     queryFn: ({ signal }) => loadSearchItems(sys, spec, signal),
-    enabled,
+    enabled: enabled && known === true,
     staleTime: 60_000,
   });
 }

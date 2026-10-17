@@ -1,6 +1,6 @@
 // Search in the header: type part of a name, pick a result, and its page
-// opens. Ctrl+K or Cmd+K focuses it; the arrow keys move, Enter opens and
-// Escape closes.
+// opens. Cmd+K on a Mac, Ctrl+K elsewhere, focuses it; the arrow keys move,
+// Enter opens, Escape closes the list and a second Escape clears the text.
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { SEARCH_KIND_LABEL, searchItems, useSearchItems, type SearchItem } from "../api/search";
@@ -9,6 +9,17 @@ import { useGlobalQuery } from "../lib/useGlobalQuery";
 import { useTimeRange } from "../lib/useTimeRange";
 
 const MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+
+/** Cmd+K on a Mac, where Ctrl+K kills the line; Ctrl+K elsewhere. */
+export function isSearchShortcut(e: Pick<globalThis.KeyboardEvent, "key" | "metaKey" | "ctrlKey">, mac = MAC): boolean {
+  return e.key.toLowerCase() === "k" && (mac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey);
+}
+
+/** A field that takes typing keeps its keys. */
+function isTextField(el: Element | null): boolean {
+  if (!(el instanceof HTMLElement)) return false;
+  return el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName);
+}
 
 export function SearchJump() {
   const { spec } = useTimeRange();
@@ -26,10 +37,10 @@ export function SearchJump() {
 
   useEffect(() => {
     const onKey = (e: globalThis.KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        input.current?.focus();
-      }
+      if (!isSearchShortcut(e)) return;
+      if (document.activeElement !== input.current && isTextField(document.activeElement)) return;
+      e.preventDefault();
+      input.current?.focus();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -44,6 +55,7 @@ export function SearchJump() {
     input.current?.blur();
   };
 
+  const showList = open && text.trim() !== "";
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown" && results.length) {
       e.preventDefault();
@@ -57,13 +69,11 @@ export function SearchJump() {
       go(results[active]);
     } else if (e.key === "Escape") {
       e.preventDefault();
-      if (text) setText("");
-      else input.current?.blur();
-      setOpen(false);
+      if (showList) setOpen(false);
+      else setText("");
     }
   };
 
-  const showList = open && text.trim() !== "";
   const optId = (i: number) => `${listId}-${i}`;
   return (
     <div className="search">
@@ -78,7 +88,7 @@ export function SearchJump() {
         aria-label="Search this system"
         aria-autocomplete="list"
         aria-expanded={showList && results.length > 0}
-        aria-controls={listId}
+        aria-controls={showList ? listId : undefined}
         aria-activedescendant={showList && results[active] ? optId(active) : undefined}
         placeholder="Search servers, streams, consumers"
         value={text}
