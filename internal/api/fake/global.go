@@ -32,6 +32,8 @@ func globalServer(cluster string, i int, conns int64, cpu float64, storePct floa
 		name: name, id: fmt.Sprintf("N%sFAKE%dGLOBAL", cluster, i), oldID: fmt.Sprintf("N%sFAKE%dOLDGLOBAL", cluster, i),
 		day: 11, h: 6, m: 10 + i, s: 0, conns: conns, cluster: cluster, version: globalVersion,
 		maxStore: 100 * gib, store: int64(storePct / 100 * 100 * gib), mem: int64(100+7*i) * mib, cpu: cpu,
+		tags: []string{fmt.Sprintf("az:%s-1%c", cluster, 'a'+i%3), "region:" + cluster},
+		node: fmt.Sprintf("gke-example-pool-%s-%x", cluster, 0x3a10+0x1d3*i),
 	}
 	if cluster == "ap" && i >= 4 {
 		sp.version = globalOlder
@@ -56,15 +58,17 @@ func globalServers() []serverSpec {
 	}{{52, 6, 31}, {50, 4, 30}, {50, 8, 33}, {50, 34, 32}, {49, 5, 28}, {50, 5, 31}, {50, 3, 27}, {50, 7, 34}, {50, 4, 29}}
 	for i, x := range us {
 		sp := globalServer("us", i, x.conns, x.cpu, x.store)
+		// The upgrade moved nats-us-1 to nats-us-3 to upgraded nodes;
+		// nats-us-4's pod has found none.
 		switch i {
 		case 1:
-			sp.day, sp.h, sp.m, sp.s = 0, 8, 46, 10
+			sp.day, sp.h, sp.m, sp.s, sp.node = 0, 8, 46, 10, "gke-example-pool-us-17bd"
 		case 2:
-			sp.day, sp.h, sp.m, sp.s = 0, 8, 58, 30
+			sp.day, sp.h, sp.m, sp.s, sp.node = 0, 8, 58, 30, "gke-example-pool-us-a904"
 		case 3:
-			sp.day, sp.h, sp.m, sp.s = 0, 9, 6, 40
+			sp.day, sp.h, sp.m, sp.s, sp.node = 0, 9, 6, 40, "gke-example-pool-us-5e21"
 		case 4:
-			sp.down = globalDown
+			sp.down, sp.podPending = globalDown, true
 		}
 		out = append(out, sp)
 	}
@@ -74,9 +78,26 @@ func globalServers() []serverSpec {
 		store float64
 	}{{33, 9, 48}, {31, 12, 52}, {31, 71, 71}, {31, 8, 50}, {31, 11, 53}, {31, 7, 47}}
 	for i, x := range ap {
-		out = append(out, globalServer("ap", i, x.conns, x.cpu, x.store))
+		sp := globalServer("ap", i, x.conns, x.cpu, x.store)
+		if i == 3 {
+			// Configured apart from the others.
+			sp.maxPayload = 8 * mib
+		}
+		out = append(out, sp)
 	}
-	return out
+	return placeGlobalSlow(out)
+}
+
+// placeGlobalSlow puts each of globalSlowEvents on a server: the burst
+// from 13:38 and the two after it on nats-us-3, where label-printer
+// connects; the three before it on nats-eu-3, nats-ap-2 and nats-us-0.
+func placeGlobalSlow(servers []serverSpec) []serverSpec {
+	ev := globalSlowEvents()
+	on := map[string][]time.Time{"nats-eu-3": ev[0:1], "nats-ap-2": ev[1:2], "nats-us-0": ev[2:3], "nats-us-3": ev[3:]}
+	for i := range servers {
+		servers[i].slow = append([]time.Time{}, on[servers[i].name]...)
+	}
+	return servers
 }
 
 // globalScenario is example-global.

@@ -132,6 +132,8 @@ The other tables are `epochs`, `epoch_endpoints`, `events`, `findings`, `finding
 
 Unique indexes cover `epoch_endpoints`, `server_stats`, `health` and the two configuration tables. The per-entity stats tables have none: the writer keeps one row per entity, server and epoch, and an index there would cost memory and insert time every epoch.
 
+`server_stats` carries the VARZ connection limits (`max_payload`, `max_pending`, `write_deadline_ns`, `ping_interval_ns`, `max_pings_out`) since migration 0025, nullable: rows without VARZ, and rows rebuilt from hours archived before the migration, have NULL limits.
+
 Migrations are numbered SQL files, applied once each. Never edit an applied migration; add a new one. The `migrations` table stores each file's SHA-256 and start fails on a mismatch.
 
 Retention is 14 days in DuckDB by default (`retention`), for epochs and events.
@@ -437,6 +439,10 @@ Proposed, not yet confirmed by the owner.
 | `ListSystems` asks the systems in parallel, 5 s each; a failure, panic or timeout is a generic `error` on that system's summary only | API |
 | A system summary reads only collected data: counts from the range's newest epoch, unset without one; status no data without an epoch; strip of 48 buckets by default (at most 500), the worst cell of every check's timeline row | API |
 | Without a runtime status, the collection state comes from the newest close or not-connected event of the collector's own connection after the newest epoch and reconnect; the error began at the oldest such event; the runtime status, when set, replaces it | API |
+| A server's limits are each limit's newest reported value in the range; a limit differs when its value is not the most common one among the servers that report it; a tie for the most common value marks nothing; the demo uses the same rule (`api.OffPlurality`) | API |
+| A server's Kubernetes pod is the one the newest event for the server, of any age up to the range's end, names; unset without one; the node, scheduling time and restarts come from that pod's events, matched by namespace and name; the node is the newest one reported, empty after a later deletion | API |
+| A server's gateways count the remote clusters connected in either direction, unset unless GATEWAYZ answered; slow consumers in the range sum each process's increase, as `cluster.slow_consumers` does | API |
+| The demo gives a server a pod placement only in a system with a Kubernetes lane, so `example-staging` has none | Demo |
 | The demo serves three systems, `example-prod` (default), `example-global` and `example-staging`; demo systems that collect report the state demo; `example-global`'s cluster name is its meta leader's, `eu` | Demo |
 | Routine events: the kinds `client.churn`, `consumer.ack_sampled`, `account.connections`, and `client.connect`/`client.disconnect` of a tooling client; `checks.include_tooling` does not apply, since hiding is display only; tooling as the client checks judge it, in the newest epoch that started at or before the event (no epoch, or no stored decision, counts loopback as tooling) | API |
 | An `api.audit` record is routine only when its reason is empty and its subject changes nothing: `$JS.API.` followed by STREAM CREATE, UPDATE, DELETE, PURGE, MSG.DELETE, SNAPSHOT, RESTORE, PEER.REMOVE or LEADER.STEPDOWN; CONSUMER CREATE, DURABLE.CREATE, DELETE, PAUSE, UNPIN or LEADER.STEPDOWN; META.LEADER.STEPDOWN; SERVER.REMOVE; ACCOUNT.PURGE is notable. Decided in the session that built it, not confirmed | API |

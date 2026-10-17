@@ -46,6 +46,7 @@ var serverStatsCols = []string{
 	"js_api_level", "js_api_total", "js_api_errors", "js_api_inflight",
 	"meta_cluster", "meta_leader", "meta_cluster_size", "meta_quorum_needed", "meta_pending",
 	"meta_peers_offline", "meta_peers_not_current",
+	"max_payload", "max_pending", "write_deadline_ns", "ping_interval_ns", "max_pings_out",
 }
 
 // process holds the process and traffic numbers, from VARZ or else STATSZ.
@@ -58,6 +59,8 @@ type process struct {
 	cores, maxprocs, conns, maxConns, routes, leafs     any
 	slowClients, slowRoutes, slowGateways, slowLeafs    any
 	activeAccounts, activeServers                       any
+	// The connection limits; VARZ only.
+	maxPayload, maxPending, writeDeadline, pingInterval, maxPingsOut any
 }
 
 func processOf(v *collect.ServerView) process {
@@ -81,6 +84,8 @@ func processOf(v *collect.ServerView) process {
 		p.inMsgs, p.inBytes, p.outMsgs, p.outBytes = vz.InMsgs, vz.InBytes, vz.OutMsgs, vz.OutBytes
 		p.slow, p.stale, p.stalled = vz.SlowConsumers, vz.StaleConnections, vz.StalledClients
 		p.slowClients, p.slowRoutes, p.slowGateways, p.slowLeafs = slowStats(vz.SlowConsumersStats)
+		p.maxPayload, p.maxPending, p.maxPingsOut = int64(vz.MaxPayload), vz.MaxPending, vz.MaxPingsOut
+		p.writeDeadline, p.pingInterval = vz.WriteDeadline.Nanoseconds(), vz.PingInterval.Nanoseconds()
 	}
 	return p
 }
@@ -160,6 +165,7 @@ func (w *writer) writeServerStats(v *collect.ServerView) {
 		j.streams, j.streamsLeader, j.consumers, j.consumersLeader, j.msgs, j.bytes, j.ha,
 		j.apiLevel, j.apiTotal, j.apiErrors, j.apiInfl,
 		metaCluster, metaLeader, metaSize, metaQuorum, metaPending, metaOffline, metaNotCurrent,
+		p.maxPayload, p.maxPending, p.writeDeadline, p.pingInterval, p.maxPingsOut,
 	)
 }
 
