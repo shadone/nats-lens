@@ -37,7 +37,7 @@ export function rangeInit(spec: RangeSpec, now = Date.now()): RangeInit {
   return { start: timestampFromMs(spec.from), end: timestampFromMs(spec.to) };
 }
 
-function entityInit(e: Entity | undefined) {
+export function entityInit(e: Entity | undefined) {
   if (!e) return undefined;
   return {
     type: entityKindEnum(e.kind),

@@ -6,7 +6,7 @@
 
 ## What it does
 
-The Findings page lists the findings of the time range, filtered by severity, state and check, and below them the mutes with who set them, why and until when. A finding's own page explains it: what fails, since when, what to do, the related settings with their values, every check of the same entity on a status timeline, and the finding's transitions. From the Overview's worst finding or a finding's page, an operator can mute a finding with a reason and an end; from a finding's page or the Findings page's mutes list, an operator can lift a mute early.
+The Findings page lists the findings of the time range, filtered by severity, state and check, and below them the mutes with who set them, why and until when. A finding's own page explains it: what fails in the check's own words, since when the condition holds and since when nats-lens has seen it, how many other entities share it, each server's copy of a stream or consumer, what to do, the related settings with their values, what happened around its start, every check of the same entity on a status timeline, and the finding's transitions. From the Overview's worst finding or a finding's page, an operator can mute a finding with a reason and an end; from a finding's page or the Findings page's mutes list, an operator can lift a mute early.
 
 ## Behavior and rules
 
@@ -15,7 +15,10 @@ The Findings page lists the findings of the time range, filtered by severity, st
 - **Filters.** Severity (all, critical, warning, info); state: Firing (the default), Flapping, Resolved, or All; "Include muted" (on by default); and a check code. With the default filters and nothing firing, the page says "All clear: no finding fires in this range."
 - **A row.** Severity (or muted), check code and name, a FLAPPING, CHANGED or RESOLVED tag where it applies, the entity, the detail, and since when it fires (or when it resolved). On a muted row, the time column shows "until <date> <time>" and "in <duration>", and a line reads "Muted by <name>:" followed by the reason and "Expires <time> UTC."
 - **Past ranges.** For a range that ends in the past, the findings are shown as they stood at its end, with the mutes in force then.
-- **The finding page.** Its header shows the severity (or muted), code, state, name, entity and detail; "First seen by nats-lens" with how long; "Condition since" where the check knows it; when it resolved; its transitions in the last hour; its value with the value's name; and "Cause in window", a link to the event the check names as its cause. Below it: the mute, if any; the remediation (with any text from the remediation file); the related settings, with where they were read from and the metric basis; a status timeline of every check of the same entity; and the transitions, newest first, at most 100.
+- **The finding page.** Its headline is the check name and the entity, under the severity (or muted), code and state; the finding's detail follows, as the check wrote it. One line reads "Condition since <time> · first seen by nats-lens <time>" where the check knows the condition's start, else "First seen by nats-lens <time>"; it adds "already true when nats-lens started" when the condition began before nats-lens's history, or the finding was first seen within a minute after the history starts; and "N other entities have this finding", linking to the Findings page for the check, when other entities have it (muted ones included, resolved ones not). Then how long it has fired since nats-lens first saw it ("Firing for (since first seen)"), when it resolved, its transitions in the last hour, its value with the value's name, and "Cause in window", a link to the event the check names as its cause. Below it: the mute, if any; for a stream or consumer finding, "Server copies"; the remediation (with any text from the remediation file); the related settings, with where they were read from and the metric basis; "Around the start"; "Related" links; a status timeline of every check of the same entity; and the transitions, newest first, at most 100.
+- **Server copies.** For a stream or consumer finding, a table of each server's copy: role (leader, follower, behind or offline), creation time, positions (messages and last sequence for a stream, delivered and ack floor for a consumer), lag, and whether the configuration is the same as most copies'. Each value is compared with the one most copies match, which must be more than half of them: a creation time more than an hour from it is marked with the difference (for example "+5d"), a position more than max(100, 1%) from it is marked "differs from most copies", and so is a different configuration. An offline copy's positions are never the reference and are not marked. "Refresh" reloads the table, and it reloads by itself when the finding changes state. When no value has more than half the copies, nothing is marked and the section says "copies disagree". A value a server did not report shows as "–". Other findings, such as a client's, have no table.
+- **Around the start.** The events worth reading, folded, in the 10 minutes either side of the condition's start, or of the first sighting without one, at most 20, for the whole system by default; "This entity", offered when the Events page can filter by the entity, narrows them to it. "Showing N of M" counts the events when fewer are shown, and "Open in Events" opens the same window on the Events page. When those minutes lie before nats-lens's history, the page says it has no history from then; when they begin before it, the page says where the history begins.
+- **Related.** Links to the entity, its stream (for a consumer), its server, and the Events page filtered to it.
 - **Mute a finding.** "Mute…" opens a dialog. It applies to this entity, or to every entity of the check. It needs a reason (at most 1000 characters) and an end: in 1 hour, 8 hours, 24 hours (the default), 7 days or 30 days, or at a time in UTC. The end must be between one minute and 90 days ahead.
 - **Who muted it.** With `iap_audience` set, a mute or a lift needs a valid IAP assertion, nats-lens records the verified IAP user, and the dialog says "The mute is recorded as your IAP identity." Without it, nats-lens records the name the request gives; the dialog asks for "Your name" and the browser remembers it for next time.
 - **Lift a mute.** "Lift mute…" on a finding, or "Lift…" in the mutes list, ends a mute early and records who lifted it.
@@ -59,14 +62,25 @@ The Findings page lists the findings of the time range, filtered by severity, st
 - **Then** nats-lens stores the mute with my name, and `ListMutes` returns it
 - **And** behind IAP, the same call without a valid IAP assertion is refused as unauthenticated
 
+### See which server's copy is odd
+
+- **Surfaces:** `ui`
+- **Given** `consumer-012` fires for `resize-worker` on `order-jobs`, whose copy on `nats-0` was created two months before the copies on `nats-1` and `nats-2`
+- **When** I open the finding
+- **Then** "Server copies" lists the three servers, marks the `nats-0` creation time with "−65d", and shows the delivered and ack floor positions of each
+
+### A condition older than the history
+
+- **Surfaces:** `ui`
+- **Given** nats-lens started at 08:19 and a finding's condition began four days earlier
+- **When** I open the finding
+- **Then** it reads "Condition since <four days ago> · first seen by nats-lens <08:19>, already true when nats-lens started", and "Around the start" says nats-lens has no history from then
+
 ## Planned
 
-- **A finding page that explains itself.** A headline in plain words (for example "order-processed was rebuilt on nats-1 five days after the others"), the condition start and the first sighting side by side with "(when it started)" when they differ, and how many other entities have the same finding.
-- **Each server's copy.** For agreement findings, a table of each server's role, creation time, positions and configuration, with the odd value marked.
 - **Why this severity.** A sentence that says why the finding is info rather than a warning, and what would raise it.
 - **What to do, ready to copy.** The `nats` CLI command that checks the finding by hand, with a copy button, and a link to the playbook that applies.
-- **Around the start.** What happened in the 10 minutes around the condition's start: restarts, leader changes and Kubernetes events. When nats-lens has no history from then, it says so.
-- **Related.** Links to the entity, its stream, its server, its placement and its events.
+- **Placement link.** A link to the placement of the finding's stream ([placement.md](placement.md)).
 - **Accept as known.** Accepting with a reason and a review date, for this entity, for the same finding on related entities, or for the check everywhere ([checks.md](checks.md)).
 
 ## Not supported / out of scope
