@@ -1,7 +1,8 @@
 // The Overview's trends row: eight charts over the range on one time axis.
 // CPU and memory are a band from the lowest to the highest server, with
 // the median and the busiest server as lines; assets are stacked by
-// replica count.
+// replica count. The Servers page draws its charts across servers with the
+// same OneLine, InOut and Band.
 import type { Point, Unit } from "../api/model";
 import { useTrend, type TrendSeries } from "../api/overview";
 import { bucketLabel, type RangeSpec } from "../lib/timeRange";
@@ -11,7 +12,7 @@ import { errorText } from "./common";
 import { useReportStale } from "./StaleContext";
 import { TrendChart, type Layer } from "./TrendChart";
 
-interface Frame {
+export interface Frame {
   spec: RangeSpec;
   start: number;
   end: number;
@@ -32,7 +33,7 @@ function pts(s: TrendSeries | undefined): Point[] {
   return s?.points ?? [];
 }
 
-function OneLine({ f, metric, title, label }: { f: Frame; metric: string; title: string; label: string }) {
+export function OneLine({ f, metric, title, label }: { f: Frame; metric: string; title: string; label: string }) {
   const q = useTrend(f.spec, metric);
   useReportStale(q);
   const s = q.data;
@@ -69,7 +70,7 @@ function SlowConsumers({ f }: { f: Frame }) {
   );
 }
 
-function InOut({ f, title, inMetric, outMetric }: { f: Frame; title: string; inMetric: string; outMetric: string }) {
+export function InOut({ f, title, inMetric, outMetric }: { f: Frame; title: string; inMetric: string; outMetric: string }) {
   const qi = useTrend(f.spec, inMetric);
   const qo = useTrend(f.spec, outMetric);
   useReportStale(qi);
@@ -93,7 +94,7 @@ function InOut({ f, title, inMetric, outMetric }: { f: Frame; title: string; inM
   );
 }
 
-function Band({ f, metric, title }: { f: Frame; metric: string; title: string }) {
+export function Band({ f, metric, title }: { f: Frame; metric: string; title: string }) {
   const q = useTrend(f.spec, metric);
   useReportStale(q);
   const s = q.data;
