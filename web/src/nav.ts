@@ -25,7 +25,7 @@ export interface NavItem {
 }
 
 export const NAV: NavItem[] = [
-  { path: "/fleet", label: "Fleet", group: "", icon: "M3 3h5v5H3Z M10 3h5v5h-5Z M3 10h5v5H3Z M12.5 10v5 M10 12.5h5", badge: "fleet", placeholder: true, crossSystem: true },
+  { path: "/fleet", label: "Fleet", group: "", icon: "M3 3h5v5H3Z M10 3h5v5h-5Z M3 10h5v5H3Z M12.5 10v5 M10 12.5h5", badge: "fleet", crossSystem: true },
   { path: "/", label: "Overview", group: "", icon: "M3 9 9 3l6 6M5 7.5V15h8V7.5" },
   { path: "/findings", label: "Findings", group: "", icon: "M9 3 16 15H2Z M9 8v3 M9 13v.5", badge: "findings" },
   { path: "/subjects", label: "Subjects", group: "Messaging", icon: "M3 5h12 M3 9h8 M3 13h5 M13 11l3 2-3 2", planned: true },

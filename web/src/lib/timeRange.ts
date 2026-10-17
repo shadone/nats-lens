@@ -14,6 +14,9 @@ export const PRESETS: { id: Preset; label: string; ms: number }[] = [
 
 export const DEFAULT_PRESET: Preset = "24h";
 
+/** How often a live range is asked again. */
+export const LIVE_REFRESH_MS = 30_000;
+
 export type RangeSpec = { kind: "live"; preset: Preset } | { kind: "fixed"; from: number; to: number };
 
 /** Longest fixed range accepted from a URL: 30 days. */
