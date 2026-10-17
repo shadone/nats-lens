@@ -61,6 +61,6 @@ nats-lens keeps its collections, events and findings in an embedded DuckDB datab
 
 - **The UI reads the database only.** Hours that exist only in the archive, older than `retention`, cannot be shown in the UI or queried with `natslens sql`. Read the Parquet files with DuckDB or another tool.
 - **No bucket destination.** The archive is a local directory; an object storage destination is not built.
-- **No partial rebuild.** A rebuild runs only for a missing or empty database. It does not fill gaps in a database that exists.
+- **No partial rebuild.** A rebuild runs only for a missing or empty database, or for one whose write-ahead log cannot be replayed. It does not fill gaps in a database that exists.
 - **The inventory is not archived.** nats-lens loads the inventory file on every start instead.
 - **No high availability.** Two nats-lens processes cannot share one database, and the archive expects one writer.
