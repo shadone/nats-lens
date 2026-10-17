@@ -84,9 +84,14 @@ var metricQueries = map[string]metricSQL{
 	"cluster.in_bytes_rate":    {query: rate("in_bytes", "")},
 	"cluster.out_bytes_rate":   {query: rate("out_bytes", "")},
 	// The slow consumer counter's increase per epoch: a sum, not a rate.
+	// A restarted process's first epoch has no increase, nor has the first
+	// epoch after a collection gap of more than three intervals, so the
+	// sum agrees with the servers' server.slow_consumers.
 	"cluster.slow_consumers": {sum: true, query: `
 SELECT t, sum(d) AS v FROM (
-  SELECT e.epoch, e.started_at AS t, ss.slow_consumers - lag(ss.slow_consumers) OVER w AS d
+  SELECT e.epoch, e.started_at AS t,
+    CASE WHEN date_diff('millisecond', lag(e.started_at) OVER w, e.started_at) <= ` + maxGapToken + ` THEN
+      ss.slow_consumers - lag(ss.slow_consumers) OVER w END AS d
   FROM server_stats ss JOIN epochs e USING (epoch)
   WHERE e.started_at >= ? AND e.started_at < ?
   WINDOW w AS (PARTITION BY ss.server_id ORDER BY e.epoch))
@@ -98,6 +103,55 @@ JOIN consumer_config cc ON cc.server_id = cs.server_id AND cc.account = cs.accou
   AND cc.consumer = cs.consumer AND cs.epoch BETWEEN cc.first_epoch AND cc.last_epoch
 WHERE e.started_at >= ? AND e.started_at < ? AND coalesce(cc.durable_name, '') <> ''
 GROUP BY e.epoch, e.started_at`},
+	"cluster.streams":       {query: streamCount(`NOT starts_with(ss.stream, 'KV_') AND NOT starts_with(ss.stream, 'OBJ_')`)},
+	"cluster.kv_buckets":    {query: streamCount(`starts_with(ss.stream, 'KV_')`)},
+	"cluster.object_stores": {query: streamCount(`starts_with(ss.stream, 'OBJ_')`)},
+	// Accounts with a connection or a stream on any server, the system
+	// account left out. The connections come from ACCSTATZ, which every
+	// server must have answered; the streams come from JSZ and count only
+	// when every server answered that too, so a system without JetStream
+	// still counts accounts by their connections.
+	"cluster.accounts": {query: `
+SELECT t, count(DISTINCT account) FILTER (WHERE (conns > 0 OR (js_streams > 0 AND jsz)) AND NOT coalesce(is_system, false)) AS v
+FROM (
+  SELECT e.epoch, e.started_at AS t, a.account, a.conns, a.js_streams, ac.is_system, ` + answeredAll("JSZ") + ` AS jsz
+  FROM epochs e LEFT JOIN account_stats a ON a.epoch = e.epoch LEFT JOIN accounts ac ON ac.account = a.account
+  WHERE e.started_at >= ? AND e.started_at < ? AND ` + answeredAll("ACCSTATZ") + `)
+GROUP BY epoch, t`},
+	// The meta leader is the one more than half of the expected servers
+	// (the answering ones when none is expected) report; a tie, a lone
+	// stale answer or no leader leaves the epoch without one, which is no
+	// change. A change from the last epoch that had a leader
+	// counts once. The lookback of series() reaches about two intervals
+	// before the range, so a change at the range's first epoch counts
+	// only when an epoch with a leader lies within that lookback.
+	"cluster.meta_leader_changes": {sum: true, query: `
+WITH ep AS (
+  SELECT DISTINCT e.epoch, e.started_at AS t, coalesce(nullif(e.expected_servers, 0), e.observed_servers) AS quorum
+  FROM server_stats ss JOIN epochs e USING (epoch)
+  WHERE e.started_at >= ? AND e.started_at < ?),
+votes AS (
+  SELECT ss.epoch, ss.meta_leader AS l, count(*) AS n FROM server_stats ss JOIN ep USING (epoch)
+  WHERE coalesce(ss.meta_leader, '') <> '' GROUP BY ss.epoch, ss.meta_leader),
+lead AS (SELECT epoch, l FROM votes JOIN ep USING (epoch) WHERE 2 * n > quorum)
+SELECT t, CASE WHEN l <> lag(l IGNORE NULLS) OVER (ORDER BY epoch) THEN 1 ELSE 0 END AS v
+FROM ep LEFT JOIN lead USING (epoch)`},
+	"cluster.assets_replicated": {query: assetCount("r > 1")},
+	"cluster.assets_single":     {query: assetCount("r = 1")},
+	// The slow consumer counter's increase per epoch and process. As in
+	// cluster.slow_consumers, a restarted process's first epoch has no
+	// increase, so slow consumers before its first report are not
+	// counted; nor is an increase across a collection gap of more than
+	// three intervals credited to one epoch.
+	"server.slow_consumers": {sum: true, query: `
+SELECT t, sum(d) AS v FROM (
+  SELECT e.epoch, e.started_at AS t,
+    CASE WHEN date_diff('millisecond', lag(e.started_at) OVER w, e.started_at) <= ` + maxGapToken + ` THEN
+      ss.slow_consumers - lag(ss.slow_consumers) OVER w END AS d
+  FROM server_stats ss JOIN epochs e USING (epoch) JOIN servers s USING (server_id)
+  WHERE e.started_at >= ? AND e.started_at < ? ` + byServer + `
+  WINDOW w AS (PARTITION BY ss.server_id ORDER BY e.epoch))
+WHERE d >= 0 GROUP BY epoch, t`},
 	"server.connections":      {query: gauge("connections", byServer)},
 	"server.mem_bytes":        {query: gauge("mem_bytes", byServer)},
 	"server.cpu_percent":      {query: gauge("cpu_percent", byServer)},
@@ -121,6 +175,71 @@ WHERE r >= 0`},
 	"consumer.num_pending":     {query: leaderView("consumer_stats", "num_pending", byConsumer)},
 	"consumer.num_ack_pending": {query: leaderView("consumer_stats", "num_ack_pending", byConsumer)},
 	"consumer.num_redelivered": {query: leaderView("consumer_stats", "num_redelivered", byConsumer)},
+	// The leader's delivered consumer sequence as a per-second increase,
+	// per leading server and creation time: a leader move or a recreated
+	// consumer starts a new run whose first epoch has no rate, as servers
+	// and incarnations count apart. An epoch without a leader row has no
+	// value, and the first epoch after a collection gap no rate.
+	"consumer.delivered_rate": {query: `
+SELECT t, r AS v FROM (
+  SELECT t, CASE WHEN date_diff('millisecond', lag(t) OVER w, t) <= ` + maxGapToken + ` THEN
+      (v - lag(v) OVER w) * 1000.0 / nullif(date_diff('millisecond', lag(t) OVER w, t), 0) END AS r FROM (
+    SELECT e.started_at AS t, x.server_id, x.created, x.delivered_consumer_seq AS v
+    FROM consumer_stats x JOIN epochs e USING (epoch)
+    WHERE e.started_at >= ? AND e.started_at < ? ` + byConsumer + ` AND x.is_leader
+    QUALIFY row_number() OVER (PARTITION BY e.epoch ORDER BY x.delivered_consumer_seq DESC, x.server_id) = 1)
+  WINDOW w AS (PARTITION BY server_id, created ORDER BY t))
+WHERE r >= 0`},
+}
+
+// answeredAll keeps the epochs e in which every server that answered at
+// all answered the endpoint: with one reply missing a count would dip, so
+// such an epoch has no point, as does one where no server answered.
+func answeredAll(endpoint string) string {
+	return fmt.Sprintf(`e.observed_servers > 0 AND e.observed_servers <= (SELECT count(DISTINCT x.server_id) FROM epoch_endpoints x
+  WHERE x.epoch = e.epoch AND x.endpoint = '%s' AND x.state = 'ok')`, endpoint)
+}
+
+// jszObserved keeps the epochs whose JSZ replies are complete.
+var jszObserved = answeredAll("JSZ")
+
+// streamCount counts the streams any server reported per epoch whose row
+// ss matches the filter.
+func streamCount(filter string) string {
+	return fmt.Sprintf(`
+SELECT e.started_at AS t, count(DISTINCT (ss.account, ss.stream)) FILTER (WHERE %s) AS v
+FROM epochs e LEFT JOIN stream_stats ss ON ss.epoch = e.epoch
+WHERE e.started_at >= ? AND e.started_at < ? AND %s
+GROUP BY e.epoch, e.started_at`, filter, jszObserved)
+}
+
+// assetCount counts the streams and durable consumers per epoch whose
+// configured replica count r matches the condition. A consumer's
+// replicas 0 means its stream's count. Servers that disagree on a count
+// give the largest.
+func assetCount(cond string) string {
+	return fmt.Sprintf(`
+WITH win AS (SELECT epoch, started_at FROM epochs e WHERE started_at >= ? AND started_at < ? AND %[2]s),
+st AS (
+  SELECT ss.epoch, ss.account, ss.stream, max(sc.replicas) AS r
+  FROM stream_stats ss JOIN win USING (epoch)
+  JOIN stream_config sc ON sc.server_id = ss.server_id AND sc.account = ss.account AND sc.stream = ss.stream
+    AND ss.epoch BETWEEN sc.first_epoch AND sc.last_epoch
+  GROUP BY ss.epoch, ss.account, ss.stream),
+co AS (
+  SELECT cs.epoch, cs.account, cs.stream, cs.consumer, max(cc.replicas) AS r
+  FROM consumer_stats cs JOIN win USING (epoch)
+  JOIN consumer_config cc ON cc.server_id = cs.server_id AND cc.account = cs.account AND cc.stream = cs.stream
+    AND cc.consumer = cs.consumer AND cs.epoch BETWEEN cc.first_epoch AND cc.last_epoch
+  WHERE coalesce(cc.durable_name, '') <> ''
+  GROUP BY cs.epoch, cs.account, cs.stream, cs.consumer),
+assets AS (
+  SELECT epoch, r FROM st
+  UNION ALL
+  SELECT co.epoch, CASE WHEN co.r = 0 THEN st.r ELSE co.r END FROM co LEFT JOIN st USING (epoch, account, stream))
+SELECT w.started_at AS t, count(*) FILTER (WHERE %[1]s) AS v
+FROM win w LEFT JOIN assets USING (epoch)
+GROUP BY w.epoch, w.started_at`, cond, jszObserved)
 }
 
 // entityArgs splits an entity key into the query arguments of its type.
@@ -189,6 +308,9 @@ func refOf(t v1.EntityType, parts []any) *v1.EntityRef {
 // hold only its part of it. A bucket's time is its start; buckets without
 // epochs have no point.
 func (p *Provider) series(ctx context.Context, metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints int32) (*v1.Series, error) {
+	if col, ok := bandMetrics[metric]; ok {
+		return p.bandSeries(ctx, metric, col, e, r, maxPoints)
+	}
 	m, ok := metricQueries[metric]
 	if !ok {
 		return nil, fmt.Errorf("%w: metric %q has no query", api.ErrInvalid, metric)

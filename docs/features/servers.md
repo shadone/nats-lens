@@ -18,6 +18,7 @@ The Servers page lists every NATS server seen in the time range, by its stable n
 - **Monitoring endpoints.** The outcome of every request to the server in the newest collection: `ok`, `error` (with the error as a tooltip) or `missing`.
 - **Processes.** Each process lifetime in the range: server ID, start time, and when nats-lens first and last saw it answer.
 - **Findings and events.** The findings that fire now for the server, worst first, and its newest 15 events, with a link to all of them.
+- **Spread across servers in the API.** `GetTimeSeries` serves `cluster.cpu_percent` and `cluster.mem_bytes` as bands, which the page does not draw yet. Each point's value is the median server, averaged over the bucket, and `low` and `high` are the lowest and highest server in any collection of the bucket, so a short spike stays visible. The series' `min` and `max` are the lowest `low` and highest `high`. `top` names the busiest server, the one with the highest mean over the range, and `top_points` holds its own averaged series in the same buckets, which lies inside the band. A server that did not report the number is left out. `server.slow_consumers` is a server's slow consumer increase, per process, so a restart is not a negative count; the first collection after a restart, and the first after a gap in collection of more than three intervals, count nothing. A cluster metric with an entity is refused as `invalid_argument`.
 - **More in the API (API only).** The API returns these, and the pages do not show them yet. Each server in the list has its stream and consumer leaders, its slow consumers inside the range and its configured tags. Slow consumers are counted per process: a restart starts a new count. The server detail has:
   - each route with the remote server, round trip time and pending bytes, from the newest collection in which ROUTEZ answered;
   - the gateways connected (remote clusters, unset when GATEWAYZ did not answer) and the leaf node connections;
@@ -67,6 +68,13 @@ The Servers page lists every NATS server seen in the time range, by its stable n
 - **Given** `natslens run` serves its API
 - **When** I call `ListServers` and then `GetServer` with a server name
 - **Then** I receive the list with the expected and missing servers, and the one server's numbers, endpoint outcomes and processes
+
+### Find the busiest server from the API
+
+- **Surfaces:** `api`
+- **Given** three servers at 2, 5 and 40 percent CPU
+- **When** I call `GetTimeSeries` for `cluster.cpu_percent`
+- **Then** each point has the value 5, `low` 2 and `high` 40, and `top` is the server at 40 percent with its own points
 
 ## Planned
 

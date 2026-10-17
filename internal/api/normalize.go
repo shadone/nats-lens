@@ -144,6 +144,9 @@ func normalizeTimeSeries(req *v1.GetTimeSeriesRequest, now time.Time) error {
 		return invalid("unknown metric %q", req.GetMetric())
 	}
 	if m.Entity == v1.EntityType_ENTITY_TYPE_SYSTEM {
+		if t := req.GetEntity().GetType(); t != v1.EntityType_ENTITY_TYPE_UNSPECIFIED && t != v1.EntityType_ENTITY_TYPE_SYSTEM {
+			return invalid("metric %s takes no entity", req.GetMetric())
+		}
 		req.Entity = &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SYSTEM}
 	} else if req.GetEntity().GetType() != m.Entity {
 		return invalid("metric %s needs an entity of type %s", req.GetMetric(), m.Entity)

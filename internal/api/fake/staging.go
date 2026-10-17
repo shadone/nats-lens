@@ -131,8 +131,10 @@ func stagingSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (f
 		return math.Round(float64(st.msgs) * b / st.bytes), true
 	case "consumer.num_pending", "consumer.num_ack_pending":
 		return math.Round(3 + noise(metric+e.GetKey(), c)*4), true
-	case "consumer.num_redelivered":
+	case "consumer.num_redelivered", "cluster.meta_leader_changes", "server.slow_consumers":
 		return 0, true
+	case "consumer.delivered_rate":
+		return math.Round((0.4+noise(metric+e.GetKey(), c)*0.3)*10) / 10, true
 	}
 	return 0, false
 }

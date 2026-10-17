@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/timeseries.proto.
  */
 export const file_natslens_v1_timeseries: GenFile = /*@__PURE__*/
-  fileDesc("ChxuYXRzbGVucy92MS90aW1lc2VyaWVzLnByb3RvEgtuYXRzbGVucy52MSJACgVQb2ludBIoCgR0aW1lGAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBINCgV2YWx1ZRgCIAEoASLiAQoGU2VyaWVzEg4KBm1ldHJpYxgBIAEoCRImCgZlbnRpdHkYAiABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSHwoEdW5pdBgDIAEoDjIRLm5hdHNsZW5zLnYxLlVuaXQSJwoEc3RlcBgEIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIiCgZwb2ludHMYBSADKAsyEi5uYXRzbGVucy52MS5Qb2ludBIQCgNtaW4YBiABKAFIAIgBARIQCgNtYXgYByABKAFIAYgBAUIGCgRfbWluQgYKBF9tYXgimQEKFEdldFRpbWVTZXJpZXNSZXF1ZXN0Eg4KBm1ldHJpYxgBIAEoCRImCgZlbnRpdHkYAiABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSJQoFcmFuZ2UYAyABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2USEgoKbWF4X3BvaW50cxgEIAEoBRIOCgZzeXN0ZW0YBSABKAkiPAoVR2V0VGltZVNlcmllc1Jlc3BvbnNlEiMKBnNlcmllcxgBIAEoCzITLm5hdHNsZW5zLnYxLlNlcmllcyJ8CgpNZXRyaWNJbmZvEgoKAmlkGAEgASgJEiwKC2VudGl0eV90eXBlGAIgASgOMhcubmF0c2xlbnMudjEuRW50aXR5VHlwZRIfCgR1bml0GAMgASgOMhEubmF0c2xlbnMudjEuVW5pdBITCgtkZXNjcmlwdGlvbhgEIAEoCSIUChJMaXN0TWV0cmljc1JlcXVlc3QiPwoTTGlzdE1ldHJpY3NSZXNwb25zZRIoCgdtZXRyaWNzGAEgAygLMhcubmF0c2xlbnMudjEuTWV0cmljSW5mbyqoAQoEVW5pdBIUChBVTklUX1VOU1BFQ0lGSUVEEAASDgoKVU5JVF9DT1VOVBABEg4KClVOSVRfQllURVMQAhITCg9VTklUX1BFUl9TRUNPTkQQAxIQCgxVTklUX1BFUkNFTlQQBBIQCgxVTklUX1NFQ09ORFMQBRIWChJVTklUX0JZVEVTX1BFUl9EQVkQBhIZChVVTklUX0JZVEVTX1BFUl9TRUNPTkQQB0JCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common]);
+  fileDesc("ChxuYXRzbGVucy92MS90aW1lc2VyaWVzLnByb3RvEgtuYXRzbGVucy52MSJ2CgVQb2ludBIoCgR0aW1lGAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBINCgV2YWx1ZRgCIAEoARIQCgNsb3cYAyABKAFIAIgBARIRCgRoaWdoGAQgASgBSAGIAQFCBgoEX2xvd0IHCgVfaGlnaCKvAgoGU2VyaWVzEg4KBm1ldHJpYxgBIAEoCRImCgZlbnRpdHkYAiABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSHwoEdW5pdBgDIAEoDjIRLm5hdHNsZW5zLnYxLlVuaXQSJwoEc3RlcBgEIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIiCgZwb2ludHMYBSADKAsyEi5uYXRzbGVucy52MS5Qb2ludBIQCgNtaW4YBiABKAFIAIgBARIQCgNtYXgYByABKAFIAYgBARIjCgN0b3AYCCABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSJgoKdG9wX3BvaW50cxgJIAMoCzISLm5hdHNsZW5zLnYxLlBvaW50QgYKBF9taW5CBgoEX21heCKZAQoUR2V0VGltZVNlcmllc1JlcXVlc3QSDgoGbWV0cmljGAEgASgJEiYKBmVudGl0eRgCIAEoCzIWLm5hdHNsZW5zLnYxLkVudGl0eVJlZhIlCgVyYW5nZRgDIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRISCgptYXhfcG9pbnRzGAQgASgFEg4KBnN5c3RlbRgFIAEoCSI8ChVHZXRUaW1lU2VyaWVzUmVzcG9uc2USIwoGc2VyaWVzGAEgASgLMhMubmF0c2xlbnMudjEuU2VyaWVzInwKCk1ldHJpY0luZm8SCgoCaWQYASABKAkSLAoLZW50aXR5X3R5cGUYAiABKA4yFy5uYXRzbGVucy52MS5FbnRpdHlUeXBlEh8KBHVuaXQYAyABKA4yES5uYXRzbGVucy52MS5Vbml0EhMKC2Rlc2NyaXB0aW9uGAQgASgJIhQKEkxpc3RNZXRyaWNzUmVxdWVzdCI/ChNMaXN0TWV0cmljc1Jlc3BvbnNlEigKB21ldHJpY3MYASADKAsyFy5uYXRzbGVucy52MS5NZXRyaWNJbmZvKqgBCgRVbml0EhQKEFVOSVRfVU5TUEVDSUZJRUQQABIOCgpVTklUX0NPVU5UEAESDgoKVU5JVF9CWVRFUxACEhMKD1VOSVRfUEVSX1NFQ09ORBADEhAKDFVOSVRfUEVSQ0VOVBAEEhAKDFVOSVRfU0VDT05EUxAFEhYKElVOSVRfQllURVNfUEVSX0RBWRAGEhkKFVVOSVRfQllURVNfUEVSX1NFQ09ORBAHQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common]);
 
 /**
  * One value of a series.
@@ -33,11 +33,30 @@ export type Point = Message<"natslens.v1.Point"> & {
    * Value for the bucket.
    *
    * Gauges are averaged over the bucket; rates are averaged per second;
-   * event counts are summed.
+   * event counts are summed. For a band metric it is the median across
+   * servers.
    *
    * @generated from field: double value = 2;
    */
   value: number;
+
+  /**
+   * Lowest value across servers, for a band metric; unset otherwise.
+   *
+   * The lowest server value of any epoch in the bucket.
+   *
+   * @generated from field: optional double low = 3;
+   */
+  low?: number | undefined;
+
+  /**
+   * Highest value across servers, for a band metric; unset otherwise.
+   *
+   * The highest server value of any epoch in the bucket.
+   *
+   * @generated from field: optional double high = 4;
+   */
+  high?: number | undefined;
 };
 
 /**
@@ -94,6 +113,8 @@ export type Series = Message<"natslens.v1.Series"> & {
   /**
    * Smallest value of the points; unset when there are no points.
    *
+   * For a band metric, the smallest low of the points.
+   *
    * @generated from field: optional double min = 6;
    */
   min?: number | undefined;
@@ -101,9 +122,28 @@ export type Series = Message<"natslens.v1.Series"> & {
   /**
    * Largest value of the points; unset when there are no points.
    *
+   * For a band metric, the largest high of the points.
+   *
    * @generated from field: optional double max = 7;
    */
   max?: number | undefined;
+
+  /**
+   * Busiest server of a band metric: the highest mean over the range.
+   * Unset for other metrics and when no server reported.
+   *
+   * @generated from field: natslens.v1.EntityRef top = 8;
+   */
+  top?: EntityRef | undefined;
+
+  /**
+   * Values of the busiest server, in the same buckets as points.
+   *
+   * Each is the server's mean over the bucket, so it lies inside the band.
+   *
+   * @generated from field: repeated natslens.v1.Point top_points = 9;
+   */
+  topPoints: Point[];
 };
 
 /**
