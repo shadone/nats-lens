@@ -12,8 +12,8 @@ Planned; nothing here is built yet. The Accounts and auth pages will show every 
 
 - **Accounts.** One row per account: its readable name and ID, connections, subscriptions, JetStream disk use, streams, imports and exports, and when its JWT expires. The header says whether the system runs in operator mode (names from the account JWTs) or config mode.
 - **Failed logins, 24 hours.** From the servers' authentication error events, grouped by user and source address: the reason, the count and the last time.
-- **Expiring soon.** User and account JWTs, and server and client certificates, with their expiry date and the days left. In config mode, without JWTs, only certificates are listed.
-- **Built partly on stored data.** Connections, subscriptions and JetStream use per account come from account STATZ and JSZ, and authentication errors from the events, all stored today. Account limits, imports, exports and JWT expiry need the per-account ACCOUNTZ detail, which nats-lens requests today only to learn an unnamed account's name. Server certificate expiry is in VARZ (`tls_cert_not_after`, nats-server 2.15) but not stored yet.
+- **Expiring soon.** User and account JWTs, and the servers' own listener certificates, with their expiry date and the days left. In config mode, without JWTs, only the server certificates are listed. Client certificates cannot be listed: CONNZ reports a client certificate's subject and hashes, not its expiry.
+- **Built partly on stored data.** Connections, subscriptions and JetStream use per account come from account STATZ and JSZ, and authentication errors from the events, all stored today. Account limits, imports, exports and JWT expiry need the per-account ACCOUNTZ detail, which nats-lens requests today only to learn an unnamed account's name. Server certificate expiry is in VARZ (`tls_cert_not_after`, for the client listener and for each cluster, gateway, leaf node, websocket and MQTT listener) but not stored yet.
 
 ## Scenarios
 
