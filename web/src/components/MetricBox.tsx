@@ -148,7 +148,7 @@ export function MetricBox(p: MetricBoxProps) {
           start={p.start}
           end={p.end}
           label={p.title}
-          current={value === undefined ? undefined : p.fmt(value)}
+          current={p.valueText ?? (value === undefined ? undefined : p.fmt(value))}
         />
       )}
       {track && <RangeTrack title={p.title} min={min} max={max} value={value} fmt={p.fmt} status={status} period={period} noCurrent={p.value === null} />}

@@ -6,7 +6,7 @@ category: agreement
 severity: warning
 kind: operational
 description: >-
-  The consumer leader lists a server as a replica, that server answered JSZ in this epoch, and it does not report
+  The consumer leader lists a server as a replica, that server answered JSZ in this collection, and it does not report
   the consumer: from that server's view the consumer does not exist. Servers that restarted within restart_window
   are left out.
 remediation: >-

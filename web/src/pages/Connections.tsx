@@ -48,8 +48,7 @@ export function Connections() {
   return (
     <>
       <div className="page-h">
-        <h1>Connections</h1>
-        <span className="aside">Client connections in the newest epoch of the range.</span>
+        <span className="aside">Client connections in the newest collection of the range.</span>
       </div>
       <div className="filters">
         <label className="grp">
@@ -86,7 +85,7 @@ export function Connections() {
               </p>
             )}
           {page.items.length === 0 ? (
-            <Empty>No connections match in the newest epoch of this range.</Empty>
+            <Empty>No connections match in the newest collection of this range.</Empty>
           ) : (
             <div className="card table-wrap">
               <table className="tbl">

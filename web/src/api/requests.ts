@@ -244,12 +244,25 @@ export async function getLensInfo(sys: string, signal?: AbortSignal) {
 
 /**
  * What the shell needs on every page: freshness, the servers now and the
- * findings tally. It
- * reads GetOverview over the last two collect intervals with one point per
- * tile, which keeps the call small; the API has no lighter call that names
- * the newest epoch's time.
+ * findings tally. It reads GetOverview over the last two collect intervals
+ * with one point per tile, which keeps the call small; the API has no
+ * lighter call that names the newest collection's time.
  */
 export async function getHeaderStatus(sys: string, intervalMs: number, signal?: AbortSignal) {
   const o = overview(await lens.getOverview({ ...systemInit(sys), range: { start: timestampFromMs(Date.now() - 2 * intervalMs) }, maxPoints: 1 }, { signal }));
   return { cluster: o.cluster, freshness: o.freshness, servers: o.servers, tally: o.tally };
+}
+
+/** How far back the header looks for the last data of a stopped collector. */
+export const LAST_DATA_LOOKBACK_MS = 2 * 86_400_000;
+
+/**
+ * The newest collection before the collector stopped at since, with its
+ * servers: GetOverview from three intervals before the stop, at most
+ * LAST_DATA_LOOKBACK_MS back, so a long outage never asks for weeks.
+ */
+export async function getLastData(sys: string, since: number, intervalMs: number, signal?: AbortSignal) {
+  const start = Math.max(since - 3 * intervalMs, Date.now() - LAST_DATA_LOOKBACK_MS);
+  const o = overview(await lens.getOverview({ ...systemInit(sys), range: { start: timestampFromMs(start) }, maxPoints: 1 }, { signal }));
+  return { freshness: o.freshness, servers: o.servers };
 }

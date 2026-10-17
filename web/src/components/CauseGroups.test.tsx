@@ -12,8 +12,8 @@ function consumerEnt(stream: string, name: string): Entity {
 function f(id: string, e: Entity, extra: Partial<Finding> = {}): Finding {
   return {
     id,
-    checkCode: "consumer-012",
-    checkName: "Creation time differs across servers",
+    checkCode: "consumer-009",
+    checkName: "Consumer creation time differs across servers",
     severity: "warning",
     state: "firing",
     entity: e,
@@ -47,7 +47,7 @@ describe("CauseGroups", () => {
 
   it("names a single finding's buttons by its check and entity", () => {
     show([f("a", consumerEnt("order-jobs", "resize-worker"))]);
-    expect(screen.getByRole("link", { name: "Open consumer-012 on resize-worker" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Mute consumer-012 on resize-worker" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open consumer-009 on resize-worker" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mute consumer-009 on resize-worker" })).toBeInTheDocument();
   });
 });

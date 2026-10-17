@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"hash/fnv"
 	"slices"
 	"strconv"
 	"strings"
@@ -86,7 +87,7 @@ func (p *Provider) ListStreams(_ context.Context, req *v1.ListStreamsRequest) (*
 		res.Totals.EphemeralConsumers = watchers // the KV watchers exist whether or not their bucket is listed
 	}
 	sortByStatus(res.Streams, (*v1.StreamSummary).GetStatus, func(x *v1.StreamSummary) string { return x.GetEntity().GetName() })
-	return res, nil
+	return api.LimitStreams(res, req.GetLimit()), nil
 }
 
 func (sc *scenario) findStream(account, name string) (streamSpec, error) {
@@ -138,12 +139,26 @@ func (p *Provider) GetStream(_ context.Context, req *v1.GetStreamRequest) (*v1.G
 	return res, nil
 }
 
+// backlog is a consumer's steady pending and ack pending counts, fixed
+// per stream and consumer name so that the rows of the demo differ.
+func backlog(stream, consumer string) (pending, ackPending int64) {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(stream + "/" + consumer))
+	n := int64(h.Sum32())
+	pending = n % 260
+	if n%7 == 0 {
+		pending = 0
+	}
+	return pending, min(pending, (n>>9)%40)
+}
+
 func (s scen) consumerSummary(sp streamSpec, name string, cur []*v1.Finding, present bool) *v1.ConsumerSummary {
 	e := consumerRef(sp.name, name)
 	st, codes := worstStatus(cur, e)
+	pending, acks := backlog(sp.name, name)
 	c := &v1.ConsumerSummary{
 		Entity: e, Durable: !strings.HasPrefix(name, "oc_"), Replicas: ptr(int32(len(s.sc.peers(sp)))), Leader: s.leader(sp), Status: st, FindingCodes: codes,
-		NumAckPending: ptr(int64(12)), NumRedelivered: ptr(int64(0)), NumPending: ptr(int64(40)), NumWaiting: ptr(int64(0)), LastDelivered: ts(s.now.Add(-2 * time.Second)), Present: present,
+		NumAckPending: ptr(acks), NumRedelivered: ptr(int64(0)), NumPending: ptr(pending), NumWaiting: ptr(int64(0)), LastDelivered: ts(s.now.Add(-2 * time.Second)), Present: present,
 	}
 	if !c.GetDurable() {
 		c.Replicas = ptr(int32(1))
@@ -242,7 +257,7 @@ func (p *Provider) GetConsumer(_ context.Context, req *v1.GetConsumerRequest) (*
 	}
 	for i, name := range peers {
 		v := &v1.ConsumerServerView{
-			Server: name, IsLeader: i == 0, Current: true, DeliveredStreamSeq: ptr(sp.msgs), AckFloorStreamSeq: ptr(sp.msgs - 12), Lag: followerLag(i),
+			Server: name, IsLeader: i == 0, Current: true, DeliveredStreamSeq: ptr(sp.msgs), AckFloorStreamSeq: ptr(sp.msgs - c.GetNumAckPending()), Lag: followerLag(i),
 			Created: ts(created[i]), ConfigHash: "9e02b7",
 		}
 		if sv, _ := p.sc.server(name); !sv.answering() {

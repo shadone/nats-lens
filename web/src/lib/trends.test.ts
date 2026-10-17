@@ -40,7 +40,7 @@ describe("inOutText", () => {
   });
 
   it("keeps each unit when the two differ, and a dash for a value not observed", () => {
-    expect(inOutText(900, 2 * 1048576, "bytes_per_second")).toBe("900 B/s / 2 MiB/s");
+    expect(inOutText(900, 2 * 1048576, "bytes_per_second")).toBe("in 900 B/s · out 2 MiB/s");
     expect(inOutText(undefined, 3910, "per_second")).toBe("– / 3,910/s");
     expect(inOutText(undefined, undefined, "per_second")).toBeUndefined();
   });

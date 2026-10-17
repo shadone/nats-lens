@@ -18,7 +18,7 @@ function statusLine(s: ServerRow): string {
     s.present && s.role !== "unknown" ? s.role : "",
     s.version ? `v${s.version}` : "",
     s.present && s.uptimeMs !== undefined ? `up ${fmtDuration(s.uptimeMs)}${s.startTime !== undefined ? ` since ${dayMonHm(s.startTime)} UTC` : ""}` : "",
-    s.present ? "" : "did not answer in the newest epoch",
+    s.present ? "" : "did not answer in the newest collection",
   ]
     .filter(Boolean)
     .join(" · ");

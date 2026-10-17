@@ -32,14 +32,14 @@ func ParseWith(name string, args []string, extra func(fs *flag.FlagSet)) (Config
 	// Flag values are collected separately and applied after the file,
 	// so that only flags actually given override it.
 	var f Config
-	fs.Var(&f.Interval, "interval", "time between epochs (default 30s)")
+	fs.Var(&f.Interval, "interval", "time between collections (default 30s)")
 	fs.Var(&f.Timeout, "timeout", "collect window for one request (default 3s)")
 	fs.StringVar(&f.DataDir, "data-dir", "", "directory for the DuckDB file (default ./data)")
-	fs.Var(&f.Retention, "retention", "how long epochs stay in DuckDB, e.g. 14d (default 14d)")
+	fs.Var(&f.Retention, "retention", "how long collections stay in DuckDB, e.g. 14d (default 14d)")
 	fs.StringVar(&f.ArchiveDir, "archive-dir", "", "directory for the hourly Parquet archive (default data-dir/archive)")
 	fs.Var(&f.ServerForgetAfter, "server-forget-after", "how long a server that stopped answering is still expected (default 1h)")
-	fs.Var(&f.ShutdownGrace, "shutdown-grace", "how long an epoch write may continue after a stop signal (default 5s)")
-	fs.IntVar(&f.ConnzLimit, "connz-limit", 0, "most connections stored per server per epoch (default 4096)")
+	fs.Var(&f.ShutdownGrace, "shutdown-grace", "how long a collection's write may continue after a stop signal (default 5s)")
+	fs.IntVar(&f.ConnzLimit, "connz-limit", 0, "most connections stored per server per collection (default 4096)")
 	fs.StringVar(&f.Listen, "listen", "", "address for the API and UI in natslens run; empty disables them (default 127.0.0.1:8080)")
 	allowed := fs.String("allowed-host", "", "comma-separated Host values the API accepts (default: loopback names when listening on loopback, else any)")
 	fs.StringVar(&f.IAPAudience, "iap-audience", "", "IAP audience; when set, mutes need a verified IAP assertion and record its user")

@@ -19,8 +19,7 @@ export function Streams() {
   return (
     <>
       <div className="page-h">
-        <h1>Streams</h1>
-        <span className="aside">As the leader reports them in the newest epoch of the range. Growth covers the whole range, scaled to a day.</span>
+        <span className="aside">As the leader reports them in the newest collection of the range. Growth covers the whole range, scaled to a day.</span>
         <div className="right">
           <label className="check chip">
             <input
@@ -42,7 +41,7 @@ export function Streams() {
       <QueryView q={q} what="streams">
         {(d) =>
           d.streams.length === 0 ? (
-            <Empty>No streams in the newest epoch of this range.</Empty>
+            <Empty>No streams in the newest collection of this range.</Empty>
           ) : (
             <section className="sec">
               <div className="card table-wrap">

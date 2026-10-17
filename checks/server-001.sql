@@ -11,7 +11,7 @@ severity_rule: >-
 kind: operational
 description: >-
   A server that answered within server_forget_after, or that another server still lists as a route or
-  JetStream meta peer, answered no monitoring request in this epoch. A server that announced lame duck or shutdown
+  JetStream meta peer, answered no monitoring request in this collection. A server that announced lame duck or shutdown
   first is reported at info for restart_window, as a rolling restart takes it away on purpose. With half the
   servers or more missing, the detail counts the replicated streams and consumers left without a quorum, the cause
   of their stream-001 and consumer-001 findings.

@@ -14,7 +14,7 @@ description: >-
   The stream leader reports an online replica more than max_lag raft operations behind. A lagging replica does not
   help the quorum and takes over with old data if it becomes leader.
 remediation: >-
-  A replica that restarted catches up on its own; watch whether the lag falls between epochs. A lag that grows
+  A replica that restarted catches up on its own; watch whether the lag falls between collections. A lag that grows
   means the replica's server cannot keep up: look at its CPU and disk (the PVC's IOPS limit on GKE grows with its
   size) and at server-012. Publishing in large bursts makes followers lag for a while without harm.
 related_config: [max_lag]

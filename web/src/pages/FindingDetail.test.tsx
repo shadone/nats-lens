@@ -33,9 +33,9 @@ const consumerEntity: Entity = { ...blank, kind: "consumer", key: "APP/order-job
 const clientEntity: Entity = { ...blank, kind: "client", key: "catalog-api", name: "catalog-api" };
 
 const base: Finding = {
-  id: "stream-020:A/s",
-  checkCode: "stream-020",
-  checkName: "Backlog growing",
+  id: "stream-004:A/s",
+  checkCode: "stream-004",
+  checkName: "Stream near its message or byte limit",
   severity: "warning",
   state: "firing",
   entity: streamEntity,
@@ -52,7 +52,7 @@ function show(query = "") {
     <Routes>
       <Route path="/findings/:id" element={<FindingDetail />} />
     </Routes>,
-    "/findings/stream-020%3AA%2Fs" + query,
+    "/findings/stream-004%3AA%2Fs" + query,
   );
 }
 
@@ -86,10 +86,10 @@ describe("FindingDetail", () => {
     m.getFinding.mockResolvedValue({ finding: { ...base, detail: "nats-0 2026-08-12T10:02:11Z; order-jobs grew" }, transitions: [] });
     show();
     const h = await screen.findByRole("heading", { level: 1 });
-    expect(h).toHaveTextContent(/^Backlog growing: order-jobs$/);
+    expect(h).toHaveTextContent(/^Stream near its message or byte limit: order-jobs$/);
     expect(within(h).getByText("order-jobs")).toHaveClass("mono");
     expect(screen.getByText("nats-0 2026-08-12T10:02:11Z; order-jobs grew").tagName).toBe("P");
-    expect(screen.queryByText("Backlog growing", { selector: ".k *" })).toBeNull();
+    expect(screen.queryByText("Stream near its message or byte limit", { selector: ".k *" })).toBeNull();
     expect(screen.getByText("Firing for (since first seen)")).toBeInTheDocument();
   });
 

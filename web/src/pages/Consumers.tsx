@@ -31,8 +31,7 @@ export function Consumers() {
   return (
     <>
       <div className="page-h">
-        <h1>Consumers</h1>
-        <span className="aside">Backlog from the leader's view in the newest epoch of the range. A dash means the value was not observed.</span>
+        <span className="aside">Backlog from the leader's view in the newest collection of the range. A dash means the value was not observed.</span>
       </div>
       <div className="filters">
         <label className="grp">
@@ -51,7 +50,7 @@ export function Consumers() {
         </label>
       </div>
       <QueryView q={q} what="consumers">
-        {(cs) => (cs.length ? <ConsumersTable consumers={cs} end={end} /> : <Empty>No consumers match in the newest epoch of this range.</Empty>)}
+        {(cs) => (cs.length ? <ConsumersTable consumers={cs} end={end} /> : <Empty>No consumers match in the newest collection of this range.</Empty>)}
       </QueryView>
     </>
   );

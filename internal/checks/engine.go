@@ -157,7 +157,7 @@ FROM epochs WHERE epoch = ?`, epoch, epoch).Scan(&at, &prev)
 		}
 		start := time.Now()
 		if !deadline.IsZero() && deadline.Sub(start) < minQueryTime {
-			run.Status, run.Error = store.RunError, fmt.Sprintf("not run: the checks of this epoch used up their %s", e.Budget)
+			run.Status, run.Error = store.RunError, fmt.Sprintf("not run: the checks of this collection used up their %s", e.Budget)
 			failed = append(failed, fmt.Sprintf("%s (%s)", c.Code, run.Error))
 			skipped = append(skipped, c.Code)
 			runs = append(runs, run)
@@ -304,7 +304,7 @@ func (e *Engine) failedRun(failed, streak []string) store.CheckRun {
 		severity := c.Severity
 		if len(streak) > 0 {
 			severity = "critical"
-			detail += fmt.Sprintf(" Failing in each of the last %d epochs: %s.", EscalateAfter, strings.Join(streak, ", "))
+			detail += escalationText(streak)
 		}
 		run.Rows = []store.FindingRow{{EntityKey: "", Severity: severity, Detail: detail, Value: &n}}
 	}
@@ -592,4 +592,10 @@ func listLiteral(names []string) string {
 		q[i] = "'" + strings.ReplaceAll(n, "'", "''") + "'"
 	}
 	return "[" + strings.Join(q, ", ") + "]::VARCHAR[]"
+}
+
+// escalationText is the sentence system-001's detail gains when checks
+// failed in each of the last EscalateAfter collections.
+func escalationText(streak []string) string {
+	return fmt.Sprintf(" Failing in each of the last %d collections: %s.", EscalateAfter, strings.Join(streak, ", "))
 }

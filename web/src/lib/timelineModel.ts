@@ -14,11 +14,18 @@ export interface Tick {
 
 const STEPS = [300_000, 600_000, 900_000, 1_800_000, 3_600_000, 10_800_000, 21_600_000, 43_200_000, 86_400_000];
 
+/** Width of one character of an axis label, 10.5 px monospace, in pixels. */
+const CHAR_PX = 6.5;
+/** Space between two labels, in pixels. */
+const LABEL_GAP_PX = 10;
+
 /**
  * Labels at whole UTC steps, about eight across the track, and "now" (or
- * the end time) at the right edge.
+ * the end time) at the right edge. Given the track's width in pixels, it
+ * drops labels so that each keeps clear of its neighbours and of the edge
+ * label, as on a phone.
  */
-export function axisTicks(start: number, end: number, live: boolean): Tick[] {
+export function axisTicks(start: number, end: number, live: boolean, widthPx?: number): Tick[] {
   const span = end - start;
   if (span <= 0) return [];
   const step = STEPS.find((s) => span / s <= 9) ?? STEPS[STEPS.length - 1];
@@ -28,8 +35,20 @@ export function axisTicks(start: number, end: number, live: boolean): Tick[] {
     if (t - start < span * 0.015) continue;
     ticks.push({ frac: (t - start) / span, label: step >= 86_400_000 ? dayMon(t) : hm(t) });
   }
-  ticks.push({ frac: 1, label: live ? "now" : hm(end), edge: true });
-  return ticks;
+  const edge: Tick = { frac: 1, label: live ? "now" : hm(end), edge: true };
+  if (!widthPx) return [...ticks, edge];
+  // A label is centred on its tick; the edge label ends at the right edge.
+  const half = (t: Tick) => (t.label.length * CHAR_PX) / 2;
+  const limit = widthPx - edge.label.length * CHAR_PX - LABEL_GAP_PX;
+  const kept: Tick[] = [];
+  for (const t of ticks) {
+    const x = t.frac * widthPx;
+    const prev = kept[kept.length - 1];
+    if (x + half(t) > limit || x - half(t) < 0) continue;
+    if (prev && x - half(t) < prev.frac * widthPx + half(prev) + LABEL_GAP_PX) continue;
+    kept.push(t);
+  }
+  return [...kept, edge];
 }
 
 export interface CellRun {

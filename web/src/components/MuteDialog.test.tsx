@@ -15,9 +15,9 @@ const getLensInfo = vi.mocked(requests.getLensInfo);
 const info = (identityMode: "iap" | "request") => ({ identityMode, version: "dev", cluster: "c", collectIntervalMs: 30_000, retentionMs: 0, live: true, demo: true });
 
 const finding: Finding = {
-  id: "stream-031:APP/audit-archive",
-  checkCode: "stream-031",
-  checkName: "Days until full below 60",
+  id: "stream-006:APP/audit-archive",
+  checkCode: "stream-006",
+  checkName: "Stream reaches its byte limit soon",
   severity: "warning",
   state: "firing",
   entity: { kind: "stream", key: "APP/audit-archive", name: "audit-archive", account: "APP", stream: "audit-archive", consumer: "", server: "" },
@@ -74,7 +74,7 @@ describe("MuteDialog", () => {
   });
 
   it("mutes the check for the entity until the chosen expiry, then closes", async () => {
-    muteFinding.mockResolvedValue({ id: "1", checkCode: "stream-031", reason: "r", mutedBy: "denis", unmutedBy: "" });
+    muteFinding.mockResolvedValue({ id: "1", checkCode: "stream-006", reason: "r", mutedBy: "denis", unmutedBy: "" });
     const onClose = vi.fn();
     renderApp(<MuteDialog finding={finding} onClose={onClose} />);
     await userEvent.type(screen.getByLabelText("Reason"), "Retention cut in review");
@@ -84,7 +84,7 @@ describe("MuteDialog", () => {
     await userEvent.click(screen.getByRole("button", { name: "Mute" }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     const req = muteFinding.mock.calls[0][1];
-    expect(req).toMatchObject({ checkCode: "stream-031", reason: "Retention cut in review", mutedBy: "denis" });
+    expect(req).toMatchObject({ checkCode: "stream-006", reason: "Retention cut in review", mutedBy: "denis" });
     expect(req.entity?.key).toBe("APP/audit-archive");
     expect(req.expiresAt - before).toBeGreaterThanOrEqual(7 * 86_400_000);
     expect(req.expiresAt - before).toBeLessThan(7 * 86_400_000 + 60_000);
@@ -94,7 +94,7 @@ describe("MuteDialog", () => {
   it("mutes every entity of the check when asked", async () => {
     muteFinding.mockResolvedValue(undefined);
     renderApp(<MuteDialog finding={finding} onClose={() => {}} />);
-    await userEvent.click(screen.getByLabelText(/Every entity of stream-031/));
+    await userEvent.click(screen.getByLabelText(/Every entity of stream-006/));
     await userEvent.type(screen.getByLabelText("Reason"), "noise");
     await userEvent.type(screen.getByLabelText("Your name"), "denis");
     await userEvent.click(screen.getByRole("button", { name: "Mute" }));
@@ -157,7 +157,7 @@ describe("MuteDialog between openings", () => {
     await userEvent.click(screen.getByText("open"));
     await userEvent.type(screen.getByLabelText("Reason"), "first reason");
     await userEvent.type(screen.getByLabelText("Your name"), "me");
-    await userEvent.click(screen.getByLabelText(/Every entity of stream-031/));
+    await userEvent.click(screen.getByLabelText(/Every entity of stream-006/));
     await userEvent.click(screen.getByRole("button", { name: "Mute" }));
     await screen.findByText("boom");
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -199,7 +199,7 @@ describe("dialogs while a request is pending", () => {
   it("says Lifting… and cannot be closed while an unmute is pending", async () => {
     unmuteFinding.mockReturnValue(new Promise(() => {}));
     const onClose = vi.fn();
-    renderApp(<UnmuteDialog mute={{ id: "1", checkCode: "stream-031", reason: "r", mutedBy: "denis", unmutedBy: "" }} onClose={onClose} />);
+    renderApp(<UnmuteDialog mute={{ id: "1", checkCode: "stream-006", reason: "r", mutedBy: "denis", unmutedBy: "" }} onClose={onClose} />);
     await screen.findByText(/IAP identity/);
     await userEvent.click(screen.getByRole("button", { name: "Lift mute" }));
     expect(screen.getByRole("button", { name: "Lifting…" })).toBeDisabled();
@@ -241,7 +241,7 @@ describe("the system a mute goes to", () => {
 
   it("lifts a mute on the system of the page when the dialog opened", async () => {
     vi.mocked(requests.unmuteFinding).mockResolvedValue(undefined);
-    const m = { id: "m1", checkCode: "stream-031", reason: "r", mutedBy: "denis", unmutedBy: "" } as never;
+    const m = { id: "m1", checkCode: "stream-006", reason: "r", mutedBy: "denis", unmutedBy: "" } as never;
     renderApp(
       <>
         <Nav />

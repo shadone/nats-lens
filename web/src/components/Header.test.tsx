@@ -26,7 +26,7 @@ describe("Header", () => {
   it("reads the light status call of the page's system, not the page's overview", async () => {
     m.getHeaderStatus.mockResolvedValue({
       cluster: "example-prod",
-      freshness: { epoch: "1", epochAt: Date.now() - 2000, partial: false, live: true, intervalMs: 30_000 },
+      freshness: { epoch: "1", epochAt: Date.now() - 2000, partial: false, live: true, intervalMs: 30_000, collecting: true },
       servers: [],
       tally,
     });

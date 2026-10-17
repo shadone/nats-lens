@@ -13,12 +13,12 @@ thresholds:
   - name: min_epochs
     default: "2"
     unit: count
-    description: Consecutive epochs a connection of the service must be above max_rtt before the finding fires.
+    description: Consecutive collections a connection of the service must be above max_rtt before the finding fires.
 description: >-
   A connection of this service has had a round trip time to its server above max_rtt in each of the last min_epochs
-  epochs (the same client: server, pod (the name after "@") and address, or server and cid without a pod), so
+  collections (the same client: server, pod (the name after "@") and address, or server and cid without a pod), so
   pods that are slow while they start do not fire and a pod that reconnects while slow does. A pod whose address
-  the server sees changing between epochs (a NAT or proxy in between) counts as a new client, which breaks the run.
+  the server sees changing between collections (a NAT or proxy in between) counts as a new client, which breaks the run.
   Connections are grouped by the service,
   the connection name before any "@" (name each pod's connection service@pod to get this), so a mute covers every
   pod of it; a client without a name is grouped as (unnamed).
@@ -31,7 +31,7 @@ remediation: >-
   mute the finding for that client with a reason.
 related_config: [max_rtt, min_epochs]
 value_name: worst round trip time, ms
-value_basis: largest RTT among the client's connections in the epoch
+value_basis: largest RTT among the client's connections in the collection
 */
 WITH last AS (
     SELECT epoch FROM epochs WHERE epoch <= getvariable('epoch') ORDER BY epoch DESC

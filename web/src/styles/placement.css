@@ -2,7 +2,7 @@
 .pl{display:inline-flex;gap:3px;vertical-align:-2px}
 .pl-sq{width:12px;height:12px;flex:none;display:block}
 .pl-leader{fill:var(--accent)}
-.pl-sync{fill:var(--ok-cell);stroke:var(--accent);stroke-opacity:.35;stroke-width:1}
+.pl-sync{fill:var(--ok-cell);stroke:var(--accent);stroke-width:1.5}
 .pl-behind-o{fill:none;stroke:var(--cell-warning);stroke-width:1.5}
 .pl-behind{fill:var(--cell-warning)}
 .pl-disagree{fill:var(--cell-warning)}

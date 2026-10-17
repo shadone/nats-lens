@@ -115,6 +115,11 @@ export function shortWhen(ms: number, ref: number): string {
   return Math.abs(ref - ms) < DAY ? hm(ms) : dayMon(ms);
 }
 
+/** "since 11:30", or "since 14 Oct 11:30" a day or more before ref. */
+export function sinceText(at: number, ref: number): string {
+  return `since ${ref - at < DAY ? hm(at) : dayMonHm(at)}`;
+}
+
 /** An event time in a list: 09:31:07 within a day before ref, 16 Oct 09:31 otherwise. */
 export function eventWhen(ms: number, ref: number): string {
   return Math.abs(ref - ms) < DAY ? hms(ms) : dayMonHm(ms);

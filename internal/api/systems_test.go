@@ -610,7 +610,7 @@ func TestFreshnessFollowsTheCollectionStatus(t *testing.T) {
 		t.Errorf("b summary = %v", f)
 	}
 	state = api.CollectionConnectionClosed
-	if f := overview("b"); f.GetCollecting() {
+	if f := overview("b"); f.GetCollecting() || !f.GetNotCollectingSince().AsTime().Equal(since) {
 		t.Errorf("b closed = %v", f)
 	}
 	for _, state = range []api.CollectionState{api.CollectionCollecting, api.CollectionStarting} {
