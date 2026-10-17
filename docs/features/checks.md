@@ -2,7 +2,7 @@
 
 - **Surfaces:** `ui`, `api`, `cli`
 - **Status:** partial — accepting a finding with a review date is planned
-- **Related:** [server-checks.md](server-checks.md), [stream-checks.md](stream-checks.md), [consumer-checks.md](consumer-checks.md), [client-checks.md](client-checks.md), [system-checks.md](system-checks.md), [inventory.md](inventory.md), [findings.md](findings.md), [metrics-and-alerting.md](metrics-and-alerting.md), [notifications.md](notifications.md), [design.md](../design.md)
+- **Related:** [server-checks.md](server-checks.md), [stream-checks.md](stream-checks.md), [consumer-checks.md](consumer-checks.md), [client-checks.md](client-checks.md), [system-checks.md](system-checks.md), [inventory.md](inventory.md), [triage-and-mutes.md](triage-and-mutes.md), [metrics-and-alerting.md](metrics-and-alerting.md), [notifications.md](notifications.md), [design.md](../design.md)
 
 ## What it does
 

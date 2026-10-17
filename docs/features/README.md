@@ -76,7 +76,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Consumers](consumers.md) | `ui`, `api` | shipped |
 | [Connections](connections.md) | `ui`, `api` | shipped |
 | [Events](events.md) | `ui`, `api` | shipped |
-| [Findings and mutes](findings.md) | `ui`, `api` | shipped |
+| [Triage and mutes](triage-and-mutes.md) | `ui`, `api` | shipped |
 | [Metrics and alerting](metrics-and-alerting.md) | `api` | shipped |
 | [Running nats-lens](running-nats-lens.md) | `api`, `cli` | shipped |
 | [SQL access](sql-access.md) | `cli` | shipped |
@@ -128,7 +128,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Consumers list and consumer detail (consumers.md)
 - [x] Client connections of the newest collection (connections.md)
 - [x] Every event, filtered by source, kind, entity and client (events.md)
-- [x] Findings, finding detail, mutes (findings.md)
+- [x] Findings, finding detail, mutes (triage-and-mutes.md)
 - [ ] Every asset on every server in one matrix (placement.md)
 - [ ] What changed between two moments (replay.md)
 - [ ] Clients grouped by application (applications.md)
