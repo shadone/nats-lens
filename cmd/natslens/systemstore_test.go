@@ -257,3 +257,42 @@ func TestOpenSystemsStopsAtTheFirstFailure(t *testing.T) {
 		t.Fatal("openSystems waited for the other system after a refusal")
 	}
 }
+
+// The default archive directory inside the data directory is not warned
+// about; an archive_dir set inside a data directory is.
+func TestArchiveInsideDataDirWarnedOnlyWhenSet(t *testing.T) {
+	ctx := context.Background()
+	open := func(cfg config.Config) string {
+		t.Helper()
+		var buf bytes.Buffer
+		rts, err := openSystems(ctx, cfg, cfg.ResolvedSystems(), slog.New(slog.NewTextHandler(&buf, nil)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		closeSystems(rts, time.Time{})
+		return buf.String()
+	}
+	const warning = "archive_dir is inside data_dir"
+	if logs := open(listConfig(t, t.TempDir(), "shop-prod")); strings.Contains(logs, warning) {
+		t.Errorf("list config with the default archive: warned\n%s", logs)
+	}
+	if logs := open(testConfigNoArchive(t.TempDir())); strings.Contains(logs, warning) {
+		t.Errorf("single-system config with the default archive: warned\n%s", logs)
+	}
+	set := listConfig(t, t.TempDir(), "shop-prod")
+	set.Systems[0].ArchiveDir = filepath.Join(set.DataDir, "shop-prod", "parquet")
+	if logs := open(set); !strings.Contains(logs, warning) {
+		t.Errorf("archive_dir set inside the data dir: no warning\n%s", logs)
+	}
+	legacy := testConfigNoArchive(t.TempDir())
+	legacy.ArchiveDir = filepath.Join(legacy.DataDir, "parquet")
+	if logs := open(legacy); !strings.Contains(logs, warning) {
+		t.Errorf("single-system archive_dir set inside data_dir: no warning\n%s", logs)
+	}
+}
+
+func testConfigNoArchive(dir string) config.Config {
+	cfg := testConfig(dir)
+	cfg.ArchiveDir = ""
+	return cfg
+}
