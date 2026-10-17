@@ -73,8 +73,8 @@ func TestProdEventMix(t *testing.T) {
 func TestGlobalEventMix(t *testing.T) {
 	c := demo(t)
 	res := must(c.ListEvents(ctx, connect.NewRequest(worthReading("example-global"))))
-	if res.GetRoutineHidden() < 300 || len(res.GetRoutineGroups()) < 4 {
-		t.Fatalf("hidden %d, groups %v", res.GetRoutineHidden(), res.GetRoutineGroups())
+	if res.GetRoutineHidden() < 600 || len(res.GetRoutineGroups()) < 4 || len(res.GetEvents()) > 40 {
+		t.Fatalf("hidden %d, %d rows, groups %v", res.GetRoutineHidden(), len(res.GetEvents()), res.GetRoutineGroups())
 	}
 	if f := row(res.GetEvents(), "k8s.pod.failed_scheduling", "nats-us-4"); f == nil || f.GetRepeats() != 5 {
 		t.Fatalf("failed scheduling fold: %v", f)
