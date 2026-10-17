@@ -10,6 +10,7 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/api/apitest"
 	"github.com/shadone/nats-lens/internal/api/storeprov"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
@@ -34,23 +35,23 @@ func TestMetrics(t *testing.T) {
 	st, set, _ := findingsStore(t)
 	srv, c := apitest.Serve(t, &storeprov.Provider{St: st, Interval: 30 * time.Second, Live: true, Checks: set, Clock: func() time.Time { return now }})
 	body := scrape(t, srv.URL+"/metrics")
-	id := `code="consumer-010",entity_type="consumer",entity_key="` + missingKey + `"`
+	id := `system="default",code="consumer-010",entity_type="consumer",entity_key="` + missingKey + `"`
 	for _, want := range []string{
 		`nats_lens_finding{` + id + `,muted="false"} 1`,
 		`nats_lens_finding_severity{` + id + `} 2`,
 		`nats_lens_finding_flapping{` + id + `} 0`,
-		`nats_lens_finding_severity{code="stream-005",entity_type="stream",entity_key="` + noLimitsKey + `"} 1`,
-		`nats_lens_findings_by_check{code="consumer-010"} 1`,
-		`nats_lens_findings_by_check_max_severity{code="consumer-010"} 2`,
-		`nats_lens_findings_total{severity="critical"} 0`,
-		`nats_lens_findings_total{severity="warning"} 1`,
-		`nats_lens_findings_muted 0`,
-		`nats_lens_last_epoch_age_seconds 30`,
-		`nats_lens_last_epoch_partial 1`,
-		`nats_lens_partial_epochs_last_hour 3`,
-		`nats_lens_epochs_without_check_runs_last_hour 0`,
-		`nats_lens_check_run_errors_last_hour 1`,
-		`nats_lens_check_failing{code="consumer-004"} 1`,
+		`nats_lens_finding_severity{system="default",code="stream-005",entity_type="stream",entity_key="` + noLimitsKey + `"} 1`,
+		`nats_lens_findings_by_check{system="default",code="consumer-010"} 1`,
+		`nats_lens_findings_by_check_max_severity{system="default",code="consumer-010"} 2`,
+		`nats_lens_findings_total{system="default",severity="critical"} 0`,
+		`nats_lens_findings_total{system="default",severity="warning"} 1`,
+		`nats_lens_findings_muted{system="default"} 0`,
+		`nats_lens_last_epoch_age_seconds{system="default"} 30`,
+		`nats_lens_last_epoch_partial{system="default"} 1`,
+		`nats_lens_partial_epochs_last_hour{system="default"} 3`,
+		`nats_lens_epochs_without_check_runs_last_hour{system="default"} 0`,
+		`nats_lens_check_run_errors_last_hour{system="default"} 1`,
+		`nats_lens_check_failing{system="default",code="consumer-004"} 1`,
 		`# TYPE nats_lens_event_messages_dropped_last_hour gauge`,
 	} {
 		if !strings.Contains(body, want+"\n") {
@@ -68,14 +69,14 @@ func TestMetrics(t *testing.T) {
 	for _, want := range []string{
 		`nats_lens_finding{` + id + `,muted="true"} 1`,
 		`nats_lens_finding_severity{` + id + `} 2`,
-		"nats_lens_findings_muted 1",
-		`nats_lens_findings_total{severity="warning"} 0`,
+		`nats_lens_findings_muted{system="default"} 1`,
+		`nats_lens_findings_total{system="default",severity="warning"} 0`,
 	} {
 		if !strings.Contains(body, want+"\n") {
 			t.Errorf("after the mute, missing %q", want)
 		}
 	}
-	if strings.Contains(body, `nats_lens_findings_by_check{code="consumer-010"}`) {
+	if strings.Contains(body, `nats_lens_findings_by_check{system="default",code="consumer-010"}`) {
 		t.Error("a muted finding is counted per check")
 	}
 }
@@ -91,12 +92,9 @@ func TestMetricsEscapeLabels(t *testing.T) {
 		return "", nil
 	})
 	p := &storeprov.Provider{St: st, Interval: 30 * time.Second, Checks: set, Clock: func() time.Time { return t0.Add(2 * time.Minute) }}
-	var sb strings.Builder
-	if err := p.WriteMetrics(ctx, &sb); err != nil {
-		t.Fatal(err)
-	}
-	if want := `nats_lens_finding{code="client-001",entity_type="client",entity_key="a\"b\\c\nd",muted="false"} 1` + "\n"; !strings.Contains(sb.String(), want) {
-		t.Fatalf("missing %q in\n%s", want, sb.String())
+	body := writeMetrics(t, p)
+	if want := `nats_lens_finding{code="client-001",entity_type="client",entity_key="a\"b\\c\nd",muted="false"} 1` + "\n"; !strings.Contains(body, want) {
+		t.Fatalf("missing %q in\n%s", want, body)
 	}
 }
 
@@ -119,13 +117,13 @@ func TestMetricsCapEntitySeries(t *testing.T) {
 	}
 	srv, _ := apitest.Serve(t, &storeprov.Provider{St: st, Interval: 30 * time.Second, Checks: set, Clock: func() time.Time { return now }})
 	body := scrape(t, srv.URL+"/metrics")
-	if n := strings.Count(body, `nats_lens_finding_severity{code="client-001"`); n != storeprov.MaxFindingSeries {
+	if n := strings.Count(body, `nats_lens_finding_severity{system="default",code="client-001"`); n != storeprov.MaxFindingSeries {
 		t.Errorf("client-001 series = %d, want %d", n, storeprov.MaxFindingSeries)
 	}
 	for _, want := range []string{
-		`nats_lens_findings_by_check{code="client-001"} 57`,
-		`nats_lens_findings_by_check_max_severity{code="client-001"} 2`,
-		`nats_lens_finding_series_omitted{code="client-001"} 7`,
+		`nats_lens_findings_by_check{system="default",code="client-001"} 57`,
+		`nats_lens_findings_by_check_max_severity{system="default",code="client-001"} 2`,
+		`nats_lens_finding_series_omitted{system="default",code="client-001"} 7`,
 	} {
 		if !strings.Contains(body, want+"\n") {
 			t.Errorf("missing %q", want)
@@ -138,12 +136,9 @@ func TestMetricsCapEntitySeries(t *testing.T) {
 // seconds old.
 func TestMetricsCountEpochsWithoutCheckRuns(t *testing.T) {
 	p := &storeprov.Provider{St: fixtureStore(t), Interval: 30 * time.Second, Clock: func() time.Time { return now }}
-	var sb strings.Builder
-	if err := p.WriteMetrics(ctx, &sb); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(sb.String(), "nats_lens_epochs_without_check_runs_last_hour 2\n") {
-		t.Fatalf("metrics:\n%s", sb.String())
+	body := writeMetrics(t, p)
+	if !strings.Contains(body, "nats_lens_epochs_without_check_runs_last_hour 2\n") {
+		t.Fatalf("metrics:\n%s", body)
 	}
 }
 
@@ -176,11 +171,7 @@ func TestMetricsCapIsStableAndLeavesMuted(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := &storeprov.Provider{St: st, Interval: 30 * time.Second, Checks: set, Clock: func() time.Time { return t0.Add(130 * time.Second) }}
-	var sb strings.Builder
-	if err := p.WriteMetrics(ctx, &sb); err != nil {
-		t.Fatal(err)
-	}
-	body := sb.String()
+	body := writeMetrics(t, p)
 	has := func(key string) bool {
 		return strings.Contains(body, `nats_lens_finding_severity{code="client-001",entity_type="client",entity_key="`+key+`"}`)
 	}
@@ -190,4 +181,18 @@ func TestMetricsCapIsStableAndLeavesMuted(t *testing.T) {
 	if !strings.Contains(body, `nats_lens_finding_series_omitted{code="client-001"} 14`+"\n") {
 		t.Errorf("omitted: %s", body)
 	}
+}
+
+// writeMetrics is the provider's exposition without a system label.
+func writeMetrics(t *testing.T, p *storeprov.Provider) string {
+	t.Helper()
+	m := api.NewExposition()
+	if err := p.WriteMetrics(ctx, m); err != nil {
+		t.Fatal(err)
+	}
+	var sb strings.Builder
+	if _, err := m.WriteTo(&sb); err != nil {
+		t.Fatal(err)
+	}
+	return sb.String()
 }

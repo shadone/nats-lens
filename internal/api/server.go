@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io"
 	"io/fs"
 	"log/slog"
 	"net"
@@ -65,8 +64,8 @@ func NewMux(h *Handler, ui fs.FS) http.Handler {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_, _ = w.Write([]byte("ok\n"))
 	})
-	if mw, ok := h.P.(MetricsWriter); ok {
-		mux.HandleFunc("GET /metrics", metricsHandler(mw, h))
+	if metricsWriters(h.Systems) {
+		mux.HandleFunc("GET /metrics", metricsHandler(h))
 	}
 	mux.Handle(PathPrefix+"/", http.NotFoundHandler())
 	mux.Handle("/", uiHandler(ui))
@@ -74,18 +73,46 @@ func NewMux(h *Handler, ui fs.FS) http.Handler {
 }
 
 // MetricsWriter is a provider that serves Prometheus metrics at /metrics.
+// It declares its families and adds its samples to m; the handler labels
+// them with the system.
 type MetricsWriter interface {
-	WriteMetrics(ctx context.Context, w io.Writer) error
+	WriteMetrics(ctx context.Context, m *Exposition) error
 }
 
-// metricsHandler writes the metrics into a buffer first, so that a failed
-// read answers 500 instead of a cut exposition.
-func metricsHandler(mw MetricsWriter, h *Handler) http.HandlerFunc {
+// metricsWriters reports whether any system's provider writes metrics.
+func metricsWriters(systems Systems) bool {
+	for _, s := range systems {
+		if _, ok := s.Provider.(MetricsWriter); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// metricsHandler collects the metrics of every system that writes them,
+// each sample labelled with its system, and writes them into a buffer
+// first, so that a failed read answers 500 instead of a cut exposition.
+func metricsHandler(h *Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), QueryTimeout)
 		defer cancel()
+		m := NewExposition()
+		for _, s := range h.Systems {
+			mw, ok := s.Provider.(MetricsWriter)
+			if !ok {
+				continue
+			}
+			m.SetSystem(s.Ref.GetId())
+			if err := mw.WriteMetrics(ctx, m); err != nil {
+				if h.Log != nil {
+					h.Log.Error("metrics failed", "system", s.Ref.GetId(), "err", err)
+				}
+				http.Error(w, "metrics unavailable; see the server log", http.StatusInternalServerError)
+				return
+			}
+		}
 		var buf bytes.Buffer
-		if err := mw.WriteMetrics(ctx, &buf); err != nil {
+		if _, err := m.WriteTo(&buf); err != nil {
 			if h.Log != nil {
 				h.Log.Error("metrics failed", "err", err)
 			}

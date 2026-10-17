@@ -24,16 +24,16 @@ type apiOptions struct {
 	ready func() bool
 }
 
-// startAPI listens and serves the API and UI from p until ctx is done.
-// Listening happens before it returns, so a taken port fails the command
-// at start. The returned wait blocks until the server stopped and every
+// startAPI listens and serves the API and UI for the systems until ctx is
+// done. Listening happens before it returns, so a taken port fails the
+// command at start. The returned wait blocks until the server stopped and every
 // call returned, so the caller may then close the store.
-func startAPI(ctx context.Context, o apiOptions, p api.Provider, log *slog.Logger) (wait func(), err error) {
+func startAPI(ctx context.Context, o apiOptions, systems api.Systems, log *slog.Logger) (wait func(), err error) {
 	ln, err := net.Listen("tcp", o.listen)
 	if err != nil {
 		return nil, fmt.Errorf("listen %s: %w", o.listen, err)
 	}
-	h := &api.Handler{P: p, Log: log, Version: version}
+	h := &api.Handler{Systems: systems, Log: log, Version: version}
 	if o.iapAudience != "" {
 		h.IAP = &iap.Verifier{Audience: o.iapAudience, Keys: iap.NewJWKS()}
 	}
@@ -55,8 +55,8 @@ func startAPI(ctx context.Context, o apiOptions, p api.Provider, log *slog.Logge
 	return func() { <-done }, nil
 }
 
-// runDemo serves the fake provider: the reference scenario, without NATS
-// or a database.
+// runDemo serves the fake provider: the reference scenario as the one
+// system example-prod, named like its cluster, without NATS or a database.
 func runDemo(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("natslens demo", flag.ContinueOnError)
 	listen := fs.String("listen", api.DefaultListen, "address for the API and UI")
@@ -70,10 +70,17 @@ func runDemo(ctx context.Context, args []string) error {
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 	log.Info("starting", "command", "demo", "version", version, "live", !*fixed)
-	wait, err := startAPI(ctx, apiOptions{listen: *listen, allowedHosts: config.SplitList(*allowed)}, fake.New(!*fixed), log)
+	wait, err := startAPI(ctx, apiOptions{listen: *listen, allowedHosts: config.SplitList(*allowed)},
+		api.One(fake.Cluster, fake.Cluster, fake.New(!*fixed)), log)
 	if err != nil {
 		return err
 	}
 	wait()
 	return nil
+}
+
+// singleSystem serves p as the one system "default", until the
+// configuration lists systems.
+func singleSystem(p api.Provider) api.Systems {
+	return api.One(api.DefaultSystemID, api.DefaultSystemID, p)
 }
