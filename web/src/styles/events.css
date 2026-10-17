@@ -1,0 +1,40 @@
+/* Events page and finding detail: histogram, facets, routine line, the
+   new-events pill, folded rows, server copies and related links. */
+.ev-hist{padding:14px 18px 10px;margin-top:14px}
+.ev-hist-bars{display:block;width:100%;height:64px}
+.hb-warning{fill:var(--cell-warning)}
+.hb-notable{fill:var(--cell-info)}
+.hb-routine{fill:var(--text-faint);opacity:.55}
+.ev-hist.worth .hb-routine{opacity:.22}
+.ev-hist-axis{display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:6px}
+.ev-hist-legend{display:flex;gap:16px;flex-wrap:wrap;list-style:none;margin:6px 0 0;padding:0;font-size:12px;color:var(--text-2)}
+.ev-hist-legend li{display:inline-flex;gap:6px;align-items:center}
+.ev-facets{margin-bottom:0}
+.chip.facet{display:inline-flex;gap:6px;align-items:center}
+.chip.facet .n{font-size:11px;opacity:.8}
+.ev-routine{display:flex;gap:6px 12px;align-items:center;flex-wrap:wrap;padding:10px 14px;margin:12px 0 0;border:1px dashed var(--border);border-radius:10px;background:var(--surface-2);font-size:12.5px;color:var(--text-2)}
+.ev-routine > span:first-child{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
+.linkish{font:inherit;background:none;border:0;padding:0;color:var(--accent-text);cursor:pointer;border-bottom:1px dotted currentColor}
+.ev-new{position:sticky;top:64px;z-index:2;height:0;overflow:visible;display:flex;justify-content:flex-end;padding-right:12px;align-items:flex-start;pointer-events:none}
+.ev-new .btn{margin-top:8px;box-shadow:0 2px 8px var(--shadow)}
+.ev-new .btn{pointer-events:auto;border-radius:999px}
+.ev .rep{margin-left:8px;font-size:11.5px;color:var(--text-muted);white-space:nowrap}
+
+/* Finding detail */
+.worst p.fd-detail{margin:6px 0 0;color:var(--text-muted);font-size:13px;font-weight:400;overflow-wrap:anywhere}
+.worst p.fd-when{margin:8px 0 0;color:var(--text-2);font-size:13px}
+.fd-when .mono{font-family:var(--mono);font-size:12.5px}
+.fd-cols{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
+.fd-main{flex:999 1 560px;min-width:0;display:grid;gap:14px}
+.fd-side{flex:1 1 280px;min-width:0;display:grid;gap:14px}
+.fd-main > *,.fd-side > *{min-width:0}
+.fd-side ul{list-style:none;margin:0;padding:0;display:grid;gap:8px;font-size:12.5px}
+.fd-side .muted-note{margin:0}
+.tbl tr.odd td,.tbl tr.odd th{background:var(--sev-warning-bg)}
+.tbl td.odd{color:var(--sev-warning);font-weight:600}
+.tbl td.odd small{font-weight:400;color:inherit}
+.fd-around .evlist{margin-top:0}
+.tbl tbody th[scope="row"]{font:12px var(--mono);letter-spacing:0;text-transform:none;color:var(--text);padding:9px 12px;border-bottom:0;border-top:1px solid var(--border-soft);text-align:left;white-space:nowrap;vertical-align:baseline}
+.tbl tbody tr:first-child th[scope="row"]{border-top:0}
+.odd-mark{font-size:9px;vertical-align:1px}
+.fd-around p.pager{margin:0}
