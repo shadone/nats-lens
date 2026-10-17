@@ -18,6 +18,52 @@ type started struct {
 	conn       *eventConn
 }
 
+// abandon stops what a setup started that is no longer wanted, within
+// undoWithin.
+func (s *started) abandon() {
+	if s.stopK8s != nil {
+		s.stopK8s()
+	}
+	if s.stopEvents != nil {
+		s.stopEvents(time.Now().Add(undoWithin))
+	}
+	if s.conn != nil {
+		if nc := s.conn.current(); nc != nil {
+			nc.Close()
+		}
+	}
+}
+
+// attempt runs one setup in its own goroutine and returns when it ends or
+// ctx ends, whichever is first. An attempt cut short by ctx finishes on
+// its own; what it started is then stopped and its result dropped.
+func (rt *systemRuntime) attempt(ctx context.Context, col *collect.Collector) (*started, error) {
+	type result struct {
+		s   *started
+		err error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		s, err := setupRuntime(rt, ctx, col)
+		ch <- result{s, err}
+	}()
+	select {
+	case r := <-ch:
+		return r.s, r.err
+	case <-ctx.Done():
+		go func() {
+			if r := <-ch; r.s != nil {
+				r.s.abandon()
+			}
+		}()
+		return nil, ctx.Err()
+	}
+}
+
+// setupRuntime runs one setup attempt; a variable so that tests can slow
+// it.
+var setupRuntime = (*systemRuntime).setup
+
 // undoWithin bounds the stop of a capture whose setup failed halfway.
 const undoWithin = time.Second
 
@@ -26,12 +72,7 @@ const undoWithin = time.Second
 func (rt *systemRuntime) setup(ctx context.Context, col *collect.Collector) (*started, error) {
 	cfg, st, log := rt.cfg, rt.st, rt.log
 	s := &started{stopK8s: func() {}}
-	undo := func() {
-		s.stopK8s()
-		if s.stopEvents != nil {
-			s.stopEvents(time.Now().Add(undoWithin))
-		}
-	}
+	undo := s.abandon
 	if cfg.Events.Enabled {
 		capture, stop, err := startCapture(ctx, cfg, st, log)
 		if err != nil {
@@ -69,14 +110,14 @@ func (rt *systemRuntime) startRetrying(ctx context.Context, col *collect.Collect
 	}
 	wait := b.first
 	for {
-		s, err := rt.setup(ctx, col)
+		s, err := rt.attempt(ctx, col)
 		if err == nil {
 			return s, true
 		}
-		rt.status.set(api.CollectionConnectionClosed, err)
 		if ctx.Err() != nil {
 			return nil, false
 		}
+		rt.status.set(api.CollectionConnectionClosed, err)
 		rt.log.Error("system not started; trying again", "err", err, "in", wait)
 		select {
 		case <-ctx.Done():

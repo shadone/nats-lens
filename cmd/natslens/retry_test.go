@@ -155,3 +155,39 @@ systems:
 		return s.State == api.CollectionCollecting && !s.LastEpochAt.IsZero()
 	})
 }
+
+// A cancel during a setup attempt returns at once; the attempt finishes
+// on its own, and what it started is stopped.
+func TestCancelDuringASetupAttempt(t *testing.T) {
+	cfg := listConfig(t, t.TempDir(), "shop-prod")
+	rt := newSystemRuntime(cfg, cfg.ResolvedSystems()[0], quietLog())
+	release, attempting, stopped := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	defer func(old func(*systemRuntime, context.Context, *collect.Collector) (*started, error)) {
+		setupRuntime = old
+	}(setupRuntime)
+	setupRuntime = func(*systemRuntime, context.Context, *collect.Collector) (*started, error) {
+		close(attempting)
+		<-release // a dial that takes its time
+		return &started{stopK8s: func() { close(stopped) }}, nil
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan bool, 1)
+	go func() { _, ok := rt.startRetrying(ctx, nil); done <- ok }()
+	<-attempting
+	cancel()
+	select {
+	case ok := <-done:
+		if ok {
+			t.Fatal("startRetrying reported a start after the cancel")
+		}
+	case <-time.After(2 * time.Second):
+		close(release)
+		t.Fatal("startRetrying waited for the attempt after the cancel")
+	}
+	close(release)
+	select {
+	case <-stopped:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the abandoned attempt's setup was not stopped")
+	}
+}
