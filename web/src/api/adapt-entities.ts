@@ -13,6 +13,7 @@ import {
   disagreements,
   dur,
   entityOrEmpty,
+  freshness,
   level,
   ms,
   optN,
@@ -82,20 +83,10 @@ function tile(t: PTile): Tile {
 }
 
 export function overview(r: GetOverviewResponse): Overview {
-  const f = r.freshness;
   return {
     cluster: r.cluster,
     range: range(r.range),
-    freshness: f
-      ? {
-          epoch: String(f.epoch),
-          epochAt: ms(f.epochAt),
-          ageMs: dur(f.age),
-          partial: f.partial,
-          live: f.live,
-          intervalMs: dur(f.interval) ?? 30_000,
-        }
-      : undefined,
+    freshness: freshness(r.freshness),
     servers: r.servers.map(server),
     tally: tally(r.tally),
     worst: optFinding(r.worstFinding),

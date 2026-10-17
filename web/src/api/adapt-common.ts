@@ -11,7 +11,7 @@ import {
   type TimeRange,
 } from "../gen/natslens/v1/common_pb";
 import { EventSource } from "../gen/natslens/v1/events_pb";
-import type { TimeWindow } from "../gen/natslens/v1/overview_pb";
+import type { Freshness as PFreshness, TimeWindow } from "../gen/natslens/v1/overview_pb";
 import { Unit as PUnit, type Series as PSeries } from "../gen/natslens/v1/timeseries_pb";
 import type {
   ConfigItem,
@@ -19,6 +19,7 @@ import type {
   Entity,
   EntityKind,
   EventSourceName,
+  Freshness,
   Level,
   Range,
   Series,
@@ -175,4 +176,16 @@ export function config(c: ConfigValue[]): ConfigItem[] {
 
 export function disagreements(d: PDisagreement[]): Disagreement[] {
   return d.map((x) => ({ field: x.field, values: x.values.map((v) => ({ server: v.server, value: v.value })) }));
+}
+
+export function freshness(f: PFreshness | undefined): Freshness | undefined {
+  if (!f) return undefined;
+  return {
+    epoch: String(f.epoch),
+    epochAt: ms(f.epochAt),
+    ageMs: dur(f.age),
+    partial: f.partial,
+    live: f.live,
+    intervalMs: dur(f.interval) ?? 30_000,
+  };
 }
