@@ -514,3 +514,18 @@ High availability, write actions towards NATS, alert delivery (findings are expo
 ## Local development
 
 `scripts/dev-cluster.sh` starts three `nats-server` processes on localhost in config mode with a system account, a JetStream account and monitoring ports. `scripts/load.sh` creates the example shop's streams, consumers and KV buckets and generates traffic. Integration tests start the same cluster in process with the nats-server Go package.
+
+## Owner review of proposed decisions, 2026-10-17
+
+Denis reviewed the nine most consequential proposed decisions on 2026-10-17. These are now confirmed:
+
+- Routine events are hidden by default ("Worth reading"); mutating or failed `api.audit` records are always shown; repeats within 10 minutes fold.
+- Info findings are notices, never trouble (`isTrouble`).
+- The `systems` configuration contract: per-system keys refused at the top level with `systems`, `nats.name` defaults to `natslens-<id>`, a file without `systems` is one system `default`.
+- One process runs every system; a missing file or a store that fails to open stops the start; a system that cannot connect is isolated and retried.
+- DuckDB memory: 60% of the container limit, an equal share per system (at least 256 MiB), threads split the same way.
+- The default archive directory lives inside each system's data directory.
+- `/metrics` is exempt from the host allowlist; alerting goes through Prometheus rules on it.
+- Servers "Needs attention": not answering, a warning or critical finding, a minority version, or store at 60% or more.
+
+Churn collapse (connections the client closes within 10 s stored as one `client.churn` per name per minute) is kept, with Denis's note: "i am not against that but it sounds odd to have such short lived connections, it is likely an indicator of a problem somewhere". Follow-up: make short-lived connections visible as a possible problem rather than only routine noise (see `docs/plans/next.md`).
