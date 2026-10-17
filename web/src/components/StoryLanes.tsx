@@ -2,10 +2,11 @@
 // events with the drain and upgrade windows, the worst finding state of
 // any check, and the NATS events. "Each check" opens the full status
 // timeline, one row per check, in the same card.
-import { useState, type CSSProperties } from "react";
+import { useRef, useState, type CSSProperties } from "react";
 import type { LaneEvent, Timeline } from "../api/model";
 import { hm } from "../lib/format";
 import { findingRuns } from "../lib/storyLanes";
+import { useWidth } from "../lib/useWidth";
 import { axisTicks, isDeployment, runsText, zoomWindow } from "../lib/timelineModel";
 import { RLink } from "./common";
 import { StatusTimeline, trackSpan } from "./StatusTimeline";
@@ -62,6 +63,8 @@ export function StoryLanes({ tl, end, live }: Props) {
   const [checks, setChecks] = useState(false);
   const [asTable, setAsTable] = useState(false);
   const span = trackSpan(tl, end);
+  const axis = useRef<HTMLDivElement>(null);
+  const axisW = useWidth(axis);
   const frac = (t: number) => (t - tl.start) / span;
   const runs = findingRuns(tl.rows, tl.start, tl.bucketMs, tl.bucketCount).filter((r) => r.level !== "nodata");
   const deploys = tl.kubernetes.filter(isDeployment).length;
@@ -128,8 +131,8 @@ export function StoryLanes({ tl, end, live }: Props) {
         ))}
         <div className="sl-row sl-axis" aria-hidden="true">
           <div />
-          <div className="sl-ticks">
-            {axisTicks(tl.start, tl.start + span, live).map((t) => (
+          <div className="sl-ticks" ref={axis}>
+            {axisTicks(tl.start, tl.start + span, live, axisW || undefined).map((t) => (
               <span key={`${t.frac}`} className={t.edge ? "edge-r" : undefined} style={{ left: pct(t.frac) }}>
                 {t.label}
               </span>
