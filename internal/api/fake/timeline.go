@@ -38,7 +38,7 @@ func prodRows(sc *scenario) []rowSpec {
 			[]span{{f(9, 16, 30), f(9, 35, 0)}, {f(9, 41, 30), f(9, 44, 30)}}},
 		{"consumer-008", "Consumer quorum lost", critical, []*v1.EntityRef{consumerRef("order-jobs", "job-cache-projector")},
 			[]span{{f(9, 15, 0), f(9, 45, 0)}}},
-		{"stream-011", "Stream leader changed", info, []*v1.EntityRef{streamRef("order-jobs"), streamRef("media-windows")},
+		{"stream-011", "Expected stream or bucket missing", info, []*v1.EntityRef{streamRef("order-jobs"), streamRef("media-windows")},
 			[]span{{f(9, 15, 0), f(9, 50, 0)}}},
 		{"stream-013", "Replica lagging", warning, []*v1.EntityRef{streamRef("order-archive")},
 			[]span{{f(9, 16, 40), f(10, 5, 0)}}},

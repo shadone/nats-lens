@@ -19,6 +19,8 @@ import { ConsumerDetail } from "./pages/ConsumerDetail";
 import { Servers } from "./pages/Servers";
 import { ServerDetail } from "./pages/ServerDetail";
 import { Connections } from "./pages/Connections";
+import { KvStores } from "./pages/KvStores";
+import { ObjectStores } from "./pages/ObjectStores";
 import { NotFound } from "./pages/NotFound";
 
 export function App() {
@@ -60,6 +62,8 @@ export function App() {
                 <Route path="/servers" element={<Servers />} />
                 <Route path="/servers/:name" element={<ServerDetail />} />
                 <Route path="/connections" element={<Connections />} />
+                <Route path="/kv-stores" element={<KvStores />} />
+                <Route path="/object-stores" element={<ObjectStores />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </SystemGate>
