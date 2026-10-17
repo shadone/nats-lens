@@ -1,13 +1,14 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
+	"sort"
+	"strings"
 )
 
 // DefaultSystemID is the id of the one system of a configuration without
@@ -15,8 +16,13 @@ import (
 const DefaultSystemID = "default"
 
 // DefaultNATSName is the connection name the servers show for nats-lens
-// when nats.name is not set.
+// when nats.name is not set; a listed system's default is
+// DefaultNATSName-<id>.
 const DefaultNATSName = "natslens"
+
+// MinSystemMemoryLimit is the least DuckDB memory a listed system without
+// its own limit gets, however little of the budget is left.
+const MinSystemMemoryLimit = 256 << 20
 
 // systemID is the form of a system id: it appears in URLs, the API, metric
 // labels and directory names.
@@ -32,7 +38,8 @@ type SystemConfig struct {
 	Name string `yaml:"name"`
 	// Environment is free text shown with the system.
 	Environment string `yaml:"environment"`
-	// NATS is the system account connection; nats.name defaults to natslens.
+	// NATS is the system account connection; nats.name defaults to
+	// natslens-<id>.
 	NATS NATS `yaml:"nats"`
 	// Accounts are the JetStream accounts whose advisories are captured.
 	Accounts []Account `yaml:"accounts"`
@@ -51,8 +58,9 @@ type SystemConfig struct {
 	// ArchiveDir receives the system's hourly Parquet files; empty means
 	// <archive_dir>/<id> when archive_dir is set, else <system data dir>/archive.
 	ArchiveDir string `yaml:"archive_dir"`
-	// DuckDBMemory bounds the memory of the system's DuckDB; zero means the
-	// top-level budget divided by the number of systems.
+	// DuckDBMemory bounds the memory of the system's DuckDB; zero means an
+	// equal share of what the systems' own limits leave of the top-level
+	// budget, at least MinSystemMemoryLimit.
 	DuckDBMemory ByteSize `yaml:"duckdb_memory_limit"`
 }
 
@@ -61,7 +69,7 @@ type SystemConfig struct {
 // own unmarshal function, so unknown keys are still refused.
 func (s *SystemConfig) UnmarshalYAML(unmarshal func(any) error) error {
 	type plain SystemConfig
-	p := plain{NATS: NATS{Name: DefaultNATSName}, Kubernetes: defaultKubernetes()}
+	p := plain{Kubernetes: defaultKubernetes()}
 	if err := unmarshal(&p); err != nil {
 		return err
 	}
@@ -105,10 +113,60 @@ func (c Config) ResolvedSystems() []System {
 	if len(c.Systems) == 0 {
 		return []System{c.legacySystem()}
 	}
-	budget := c.DuckDBMemoryLimit()
+	share := c.memoryShare()
 	out := make([]System, 0, len(c.Systems))
 	for _, s := range c.Systems {
-		out = append(out, c.resolve(s, budget/int64(len(c.Systems))))
+		out = append(out, c.resolve(s, share))
+	}
+	return out
+}
+
+// explicitMemory sums the listed systems' own DuckDB limits and counts
+// the systems without one.
+func (c Config) explicitMemory() (sum int64, unset int64) {
+	for _, s := range c.Systems {
+		if s.DuckDBMemory > 0 {
+			sum += int64(s.DuckDBMemory)
+		} else {
+			unset++
+		}
+	}
+	return sum, unset
+}
+
+// memoryShare is the DuckDB limit of a listed system without its own: an
+// equal share of what the own limits leave of the budget, at least
+// MinSystemMemoryLimit.
+func (c Config) memoryShare() int64 {
+	sum, unset := c.explicitMemory()
+	if unset == 0 {
+		return 0
+	}
+	return max(MinSystemMemoryLimit, max(0, c.DuckDBMemoryLimit()-sum)/unset)
+}
+
+// Warnings lists what is accepted but probably not meant: listed systems'
+// own DuckDB limits above the budget, and password variables of a
+// single-system file set while systems are used, which are then ignored.
+// Values of variables are never included.
+func (c Config) Warnings() []string {
+	if len(c.Systems) == 0 {
+		return nil
+	}
+	var out []string
+	if sum, _ := c.explicitMemory(); sum > c.DuckDBMemoryLimit() {
+		out = append(out, fmt.Sprintf("the systems' own duckdb_memory_limit values add up to %d bytes, more than the budget of %d bytes", sum, c.DuckDBMemoryLimit()))
+	}
+	var legacy []string
+	for _, kv := range os.Environ() {
+		name, _, _ := strings.Cut(kv, "=")
+		if name == PasswordEnv || (strings.HasPrefix(name, "NATSLENS_ACCOUNT_") && strings.HasSuffix(name, "_PASSWORD")) {
+			legacy = append(legacy, name)
+		}
+	}
+	if len(legacy) > 0 {
+		sort.Strings(legacy)
+		out = append(out, fmt.Sprintf("%s ignored: with systems, passwords come from NATSLENS_SYSTEM_<ID>_NATS_PASSWORD and NATSLENS_SYSTEM_<ID>_ACCOUNT_<NAME>_PASSWORD", strings.Join(legacy, ", ")))
 	}
 	return out
 }
@@ -150,6 +208,9 @@ func (c Config) resolve(s SystemConfig, memoryShare int64) System {
 	}
 	if out.Name == "" {
 		out.Name = s.ID
+	}
+	if out.NATS.Name == "" {
+		out.NATS.Name = DefaultNATSName + "-" + s.ID
 	}
 	if s.Retention != nil {
 		out.Retention = *s.Retention
@@ -208,129 +269,6 @@ func fillSystemPasswords(systems []SystemConfig) []SystemConfig {
 		}
 		s.Accounts = accs
 		out[i] = s
-	}
-	return out
-}
-
-// perSystemKeys are the top-level keys that describe one system; a
-// configuration with systems sets them on each system instead.
-var perSystemKeys = []string{"nats", "accounts", "inventory_file", "kubernetes", "system_id"}
-
-// perSystemFlags are the flags that set a per-system key.
-var perSystemFlags = []string{"nats-url", "nats-creds", "nats-user", "nats-tls-ca", "nats-tls-cert", "nats-tls-key", "inventory-file"}
-
-// refusePerSystemKeys refuses top-level keys that a configuration with
-// systems sets on each system.
-func refusePerSystemKeys(keys map[string]bool) error {
-	if !keys["systems"] {
-		return nil
-	}
-	var errs []error
-	for _, k := range perSystemKeys {
-		if keys[k] {
-			errs = append(errs, fmt.Errorf("top-level %s cannot be used with systems: set it on each system", k))
-		}
-	}
-	return errors.Join(errs...)
-}
-
-// refusePerSystemFlags refuses flags that set a per-system key when the
-// file lists systems.
-func refusePerSystemFlags(cfg Config, set map[string]bool) error {
-	if len(cfg.Systems) == 0 {
-		return nil
-	}
-	var errs []error
-	for _, f := range perSystemFlags {
-		if set[f] {
-			errs = append(errs, fmt.Errorf("-%s cannot be used with systems: set it on each system in the file", f))
-		}
-	}
-	return errors.Join(errs...)
-}
-
-// validateSystems checks the system ids and each listed system's settings,
-// and refuses two systems sharing a directory.
-func (c Config) validateSystems() []error {
-	if len(c.Systems) == 0 {
-		if c.SystemID != "" && !systemID.MatchString(c.SystemID) {
-			return []error{fmt.Errorf("system_id %q must match %s", c.SystemID, systemID)}
-		}
-		return nil
-	}
-	var errs []error
-	if c.SystemID != "" {
-		errs = append(errs, errors.New("system_id cannot be used with systems: give each system its id"))
-	}
-	seen := map[string]bool{}
-	for i, s := range c.Systems {
-		p := fmt.Sprintf("systems[%d]", i)
-		switch {
-		case !systemID.MatchString(s.ID):
-			errs = append(errs, fmt.Errorf("%s: id %q must match %s", p, s.ID, systemID))
-		case seen[s.ID]:
-			errs = append(errs, fmt.Errorf("%s: duplicate id %q", p, s.ID))
-		}
-		seen[s.ID] = true
-	}
-	resolved := c.ResolvedSystems()
-	for i, s := range resolved {
-		errs = append(errs, prefixErrors(fmt.Sprintf("systems[%d]", i), s.validate(c.Events))...)
-	}
-	return append(errs, validateSystemDirs(resolved)...)
-}
-
-func (s System) validate(events Events) []error {
-	var errs []error
-	if s.NATS.URL == "" {
-		errs = append(errs, errors.New("nats.url is required"))
-	}
-	if s.NATS.Creds != "" && (s.NATS.User != "" || s.NATS.Password != "") {
-		errs = append(errs, errors.New("nats.creds and nats.user/password are mutually exclusive"))
-	}
-	if (s.NATS.TLS.Cert == "") != (s.NATS.TLS.Key == "") {
-		errs = append(errs, errors.New("nats.tls.cert and nats.tls.key must be set together"))
-	}
-	if s.Retention.D() <= 0 {
-		errs = append(errs, errors.New("retention must be positive"))
-	}
-	if ar := s.ArchiveRetention.D(); ar < 0 || (ar > 0 && ar < s.Retention.D()) {
-		errs = append(errs, errors.New("archive_retention must be 0 (keep every hour) or at least retention, which a rebuild loads"))
-	}
-	errs = append(errs, validateAccounts(s.Accounts)...)
-	return append(errs, s.Kubernetes.validate(events)...)
-}
-
-// validateSystemDirs refuses two systems that would write to the same data
-// or archive directory.
-func validateSystemDirs(systems []System) []error {
-	var errs []error
-	owner := map[string]string{}
-	for i, s := range systems {
-		for _, d := range []struct{ kind, dir string }{{"data dir", s.DataDir}, {"archive dir", s.ArchiveDir}} {
-			key := cleanDir(d.dir)
-			who := fmt.Sprintf("systems[%d] (%s) %s", i, s.ID, d.kind)
-			if prev, ok := owner[key]; ok {
-				errs = append(errs, fmt.Errorf("%s and %s are the same directory %s", prev, who, d.dir))
-				continue
-			}
-			owner[key] = who
-		}
-	}
-	return errs
-}
-
-func cleanDir(dir string) string {
-	if abs, err := filepath.Abs(dir); err == nil {
-		return abs
-	}
-	return filepath.Clean(dir)
-}
-
-func prefixErrors(prefix string, errs []error) []error {
-	out := make([]error, len(errs))
-	for i, err := range errs {
-		out[i] = fmt.Errorf("%s: %w", prefix, err)
 	}
 	return out
 }

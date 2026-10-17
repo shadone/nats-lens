@@ -160,12 +160,7 @@ func validateAccounts(accs []Account) []error {
 func accountsLogValue(accs []Account) slog.Value {
 	attrs := make([]slog.Attr, 0, len(accs))
 	for _, a := range accs {
-		attrs = append(attrs, slog.Group(a.Name,
-			slog.String("url", redactURL(a.URL)),
-			slog.String("creds", a.Creds),
-			slog.String("user", a.User),
-			slog.Bool("password_set", a.Password != ""),
-		))
+		attrs = append(attrs, slog.Attr{Key: a.Name, Value: a.LogValue()})
 	}
 	return slog.GroupValue(attrs...)
 }

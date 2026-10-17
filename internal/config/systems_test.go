@@ -166,7 +166,7 @@ func TestSystemsListTakesDefaults(t *testing.T) {
 	if eu.Retention.D() != 10*24*time.Hour || eu.ArchiveRetention.D() != 90*24*time.Hour {
 		t.Errorf("eu retention should default to the top level: %s / %s", eu.Retention, eu.ArchiveRetention)
 	}
-	if prod.NATS.Name != "natslens" || eu.NATS.Name != "natslens" {
+	if prod.NATS.Name != "natslens-prod" || eu.NATS.Name != "natslens-eu-west" {
 		t.Errorf("nats name defaults: %q %q", prod.NATS.Name, eu.NATS.Name)
 	}
 	if prod.NATS.Password != "" {
@@ -182,10 +182,10 @@ func TestSystemsListTakesDefaults(t *testing.T) {
 	if prod.DuckDBMemoryLimit != 512<<20 {
 		t.Errorf("prod memory %d", prod.DuckDBMemoryLimit)
 	}
-	if eu.DuckDBMemoryLimit != (3<<30)/2 {
-		t.Errorf("eu memory %d, want the budget shared by two systems", eu.DuckDBMemoryLimit)
+	if eu.DuckDBMemoryLimit != 3<<30-512<<20 {
+		t.Errorf("eu memory %d, want the budget left after prod's own limit", eu.DuckDBMemoryLimit)
 	}
-	if got := eu.ToolingNames(); !reflect.DeepEqual(got, []string{"natslens", "natslens-events"}) {
+	if got := eu.ToolingNames(); !reflect.DeepEqual(got, []string{"natslens-eu-west", "natslens-eu-west-events"}) {
 		t.Errorf("eu tooling names %v", got)
 	}
 }
