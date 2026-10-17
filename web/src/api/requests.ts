@@ -246,19 +246,23 @@ export async function getLensInfo(sys: string, signal?: AbortSignal) {
  * What the shell needs on every page: freshness, the servers now and the
  * findings tally. It reads GetOverview over the last two collect intervals
  * with one point per tile, which keeps the call small; the API has no
- * lighter call that names the newest collection's time. While the collector
- * does not collect and that window holds no collection, it asks again from
- * three intervals before the stop (at most 30 days back), so the header
- * keeps the servers and the time of the last data.
+ * lighter call that names the newest collection's time.
  */
 export async function getHeaderStatus(sys: string, intervalMs: number, signal?: AbortSignal) {
-  const ask = async (start: number) =>
-    overview(await lens.getOverview({ ...systemInit(sys), range: { start: timestampFromMs(start) }, maxPoints: 1 }, { signal }));
-  const now = Date.now();
-  let o = await ask(now - 2 * intervalMs);
-  const f = o.freshness;
-  if (f && !f.collecting && f.epochAt === undefined && f.notCollectingSince !== undefined) {
-    o = await ask(Math.max(f.notCollectingSince - 3 * intervalMs, now - 30 * 86_400_000));
-  }
+  const o = overview(await lens.getOverview({ ...systemInit(sys), range: { start: timestampFromMs(Date.now() - 2 * intervalMs) }, maxPoints: 1 }, { signal }));
   return { cluster: o.cluster, freshness: o.freshness, servers: o.servers, tally: o.tally };
+}
+
+/** How far back the header looks for the last data of a stopped collector. */
+export const LAST_DATA_LOOKBACK_MS = 2 * 86_400_000;
+
+/**
+ * The newest collection before the collector stopped at since, with its
+ * servers: GetOverview from three intervals before the stop, at most
+ * LAST_DATA_LOOKBACK_MS back, so a long outage never asks for weeks.
+ */
+export async function getLastData(sys: string, since: number, intervalMs: number, signal?: AbortSignal) {
+  const start = Math.max(since - 3 * intervalMs, Date.now() - LAST_DATA_LOOKBACK_MS);
+  const o = overview(await lens.getOverview({ ...systemInit(sys), range: { start: timestampFromMs(start) }, maxPoints: 1 }, { signal }));
+  return { freshness: o.freshness, servers: o.servers };
 }

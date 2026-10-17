@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { GetOverviewResponseSchema } from "../gen/natslens/v1/overview_pb";
 import { ServerSummarySchema } from "../gen/natslens/v1/servers_pb";
 import { lens } from "./client";
-import { getHeaderStatus, getLensInfo, listServers, muteFinding, unmuteFinding } from "./requests";
+import { getHeaderStatus, getLastData, getLensInfo, listServers, muteFinding, unmuteFinding } from "./requests";
 
 vi.mock("./client", () => ({
   lens: {
@@ -53,21 +53,39 @@ describe("getHeaderStatus", () => {
     expect(s.freshness?.epoch).toBe("9");
   });
 
-  it("reads the newest collection before the stop, with its servers, while the collector does not collect", async () => {
+  it("asks once even while the collector does not collect; the last data is a call of its own", async () => {
+    vi.mocked(lens.getOverview).mockResolvedValue(
+      create(GetOverviewResponseSchema, { freshness: { live: true, interval, collecting: false, notCollectingSince: timestampFromMs(Date.now() - 3_600_000) } }),
+    );
+    await getHeaderStatus("example-staging", 30_000);
+    expect(lens.getOverview).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("getLastData", () => {
+  afterEach(() => vi.clearAllMocks());
+  const interval = durationFromMs(30_000);
+  const reply = (since: number) =>
+    create(GetOverviewResponseSchema, {
+      freshness: { epoch: 7n, epochAt: timestampFromMs(since - 20_000), live: true, interval, collecting: false, notCollectingSince: timestampFromMs(since) },
+      servers: [create(ServerSummarySchema, { name: "n1", present: true }), create(ServerSummarySchema, { name: "n2", present: true })],
+    });
+  const startOf = () => Number(vi.mocked(lens.getOverview).mock.calls[0][0].range!.start!.seconds) * 1000;
+
+  it("reads the newest collection before the stop, with its servers, from three intervals before it", async () => {
     const since = Date.now() - 3 * 3_600_000;
-    vi.mocked(lens.getOverview)
-      .mockResolvedValueOnce(create(GetOverviewResponseSchema, { freshness: { live: true, interval, collecting: false, notCollectingSince: timestampFromMs(since) } }))
-      .mockResolvedValueOnce(
-        create(GetOverviewResponseSchema, {
-          freshness: { epoch: 7n, epochAt: timestampFromMs(since - 20_000), live: true, interval, collecting: false, notCollectingSince: timestampFromMs(since) },
-          servers: [create(ServerSummarySchema, { name: "n1", present: true }), create(ServerSummarySchema, { name: "n2", present: true })],
-        }),
-      );
-    const s = await getHeaderStatus("example-staging", 30_000);
-    expect(lens.getOverview).toHaveBeenCalledTimes(2);
-    const second = vi.mocked(lens.getOverview).mock.calls[1][0];
-    expect(Number(second.range!.start!.seconds) * 1000).toBe(Math.floor((since - 90_000) / 1000) * 1000);
+    vi.mocked(lens.getOverview).mockResolvedValue(reply(since));
+    const s = await getLastData("example-staging", since, 30_000);
+    expect(startOf()).toBe(Math.floor((since - 90_000) / 1000) * 1000);
     expect(s.servers.map((x) => x.name)).toEqual(["n1", "n2"]);
-    expect(s.freshness).toMatchObject({ epoch: "7", collecting: false, notCollectingSince: since });
+    expect(s.freshness).toMatchObject({ epoch: "7", epochAt: since - 20_000 });
+  });
+
+  it("looks back at most two days, whenever the collector stopped", async () => {
+    const since = Date.now() - 20 * 86_400_000;
+    vi.mocked(lens.getOverview).mockResolvedValue(reply(since));
+    const before = Date.now();
+    await getLastData("example-staging", since, 30_000);
+    expect(startOf()).toBeGreaterThanOrEqual(Math.floor((before - 2 * 86_400_000) / 1000) * 1000);
   });
 });
