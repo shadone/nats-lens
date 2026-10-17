@@ -109,7 +109,7 @@ func (p *Provider) GetServer(_ context.Context, req *v1.GetServerRequest) (*v1.G
 		consumers += int32(len(st.consumers) + st.ephemeral)
 	}
 	res := &v1.GetServerResponse{
-		Server: s.server(sp, req.GetRange(), current(p.findings(s), req.GetRange())),Subscriptions: ptr(int64(1840)), Routes: ptr(int32(2 * p.sc.clusterSize(sp.cluster))),
+		Server: s.server(sp, req.GetRange(), current(p.findings(s), req.GetRange())), Subscriptions: ptr(int64(1840)), Routes: ptr(int32(2 * p.sc.clusterSize(sp.cluster))),
 		JsStreams: ptr(int32(len(p.sc.streams))), JsConsumers: ptr(consumers), MetaLeader: p.sc.metaLeader, ConfigDigest: "sha256:7f3a91c2",
 		Processes: []*v1.ServerProcess{
 			{ServerId: sp.oldID, StartTime: ts(s.on(2, 8, 12)), FirstSeen: ts(s.on(3, 0, 0)), LastSeen: ts(start.Add(-2 * time.Minute))},
