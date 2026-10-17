@@ -112,7 +112,8 @@ type ConsumerSummary struct {
 	Present bool `protobuf:"varint,14,opt,name=present,proto3" json:"present,omitempty"`
 	// Messages delivered per second over the 15 minutes before the range's
 	// end, from the increase of the leader's delivered consumer sequence;
-	// unset without two leader reports in that span.
+	// unset without two leader reports in that span. The span may start
+	// before the range when the range is shorter than 15 minutes.
 	DeliveredPerSecond *float64 `protobuf:"fixed64,15,opt,name=delivered_per_second,json=deliveredPerSecond,proto3,oneof" json:"delivered_per_second,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
@@ -390,7 +391,8 @@ type ListConsumersRequest struct {
 	System string `protobuf:"bytes,5,opt,name=system,proto3" json:"system,omitempty"`
 	// Order of the consumers.
 	Sort ConsumerSort `protobuf:"varint,6,opt,name=sort,proto3,enum=natslens.v1.ConsumerSort" json:"sort,omitempty"`
-	// Largest number of consumers to return, after sorting. Zero means all.
+	// Largest number of consumers to return, after sorting. Zero or a
+	// negative number means all.
 	Limit         int32 `protobuf:"varint,7,opt,name=limit,proto3" json:"limit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

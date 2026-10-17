@@ -133,7 +133,8 @@ export type ConsumerSummary = Message<"natslens.v1.ConsumerSummary"> & {
   /**
    * Messages delivered per second over the 15 minutes before the range's
    * end, from the increase of the leader's delivered consumer sequence;
-   * unset without two leader reports in that span.
+   * unset without two leader reports in that span. The span may start
+   * before the range when the range is shorter than 15 minutes.
    *
    * @generated from field: optional double delivered_per_second = 15;
    */
@@ -277,7 +278,8 @@ export type ListConsumersRequest = Message<"natslens.v1.ListConsumersRequest"> &
   sort: ConsumerSort;
 
   /**
-   * Largest number of consumers to return, after sorting. Zero means all.
+   * Largest number of consumers to return, after sorting. Zero or a
+   * negative number means all.
    *
    * @generated from field: int32 limit = 7;
    */
