@@ -84,6 +84,30 @@ describe("MetricBox", () => {
     expect(container.querySelector(".mb-dot.st-info")).not.toBeNull();
   });
 
+  describe("a series that starts after the window", () => {
+    // A day's window from 00:00 UTC whose data begins at 14:30.
+    const day = { ...base, start: Date.parse("2026-10-16T00:00:00Z"), end: Date.parse("2026-10-17T00:00:00Z") };
+    const from = Date.parse("2026-10-16T14:30:00Z");
+    const late = (values: number[], at = from): Series => ({ ...series(values), stepMs: 900_000, points: values.map((value, i) => ({ time: at + i * 900_000, value })) });
+
+    it("says steady since the first point, not all window", () => {
+      render(<MetricBox {...day} series={late([3, 3, 3])} />);
+      expect(screen.getByText("steady at 3% since 14:30 UTC")).toBeInTheDocument();
+      expect(screen.queryByText(/all window/)).toBeNull();
+    });
+
+    it("says since on the min and max and in the track's name", () => {
+      render(<MetricBox {...day} series={late([1, 9, 4])} />);
+      expect(screen.getByText("since 14:30 UTC")).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: /^CPU, current 4%, min 1%, max 9%, since 14:30 UTC$/ })).toBeInTheDocument();
+    });
+
+    it("keeps all window when the data starts within a bucket and a half", () => {
+      render(<MetricBox {...day} series={late([3, 3], day.start + 1_200_000)} />);
+      expect(screen.getByText("steady at 3% all window")).toBeInTheDocument();
+    });
+  });
+
   it("puts the limit in the note, not on the track", () => {
     render(<MetricBox {...base} series={series([1, 2])} note="limit 65,536" />);
     expect(screen.getByText("limit 65,536")).toBeInTheDocument();
