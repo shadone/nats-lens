@@ -151,6 +151,8 @@ Configuration comes from defaults, then an optional YAML file (`-config`), then 
 | `connz_limit`         | `-connz-limit`   | `4096`                  | Most connections stored per server per epoch.           |
 | `shutdown_grace`      | `-shutdown-grace` | `5s`                   | How long an epoch write may continue after a stop signal; positive and at most `interval`, since a write never runs longer than one interval. |
 | `log_level`           | `-log-level`     | `info`                  | `debug`, `info`, `warn` or `error`.                      |
+| `system_id`           |                  | `default`               | Id of the one system a file without `systems` describes: lowercase letters, digits and `-`, at most 63, starting with a letter or digit. Used in URLs, the API and metric labels. |
+| `systems`             |                  |                         | Several NATS systems in one natslens; see [Several systems](#several-systems). |
 | `nats.url`            | `-nats-url`      | `nats://127.0.0.1:4222` | System account URL; a comma-separated list is allowed.  |
 | `nats.name`           |                  | `natslens`              | Connection name the servers show; the event connection adds `-events`, an account connection `-<account>`. |
 | `nats.creds`          | `-nats-creds`    |                         | Credentials file for the system account.                 |
@@ -201,6 +203,21 @@ On SIGTERM or SIGINT natslens lets a running epoch write finish for up to `shutd
 The password has no flag, so that it never shows in the process list. A password written into `-nats-url` (`nats://user:pass@host`) does show there; put it in the file or `NATSLENS_NATS_PASSWORD` instead.
 
 JetStream advisories are published inside the account that owns the asset, so each account needs its own connection. Every entry in `accounts` takes `name` (the account name the servers use, for example `APP`), `url` (defaults to `nats.url`), `creds` or `user` and `password`, and `tls` (the CA defaults to `nats.tls.ca`; the client certificate is never inherited). When an account has a `user` and no password in the file, the password is read from `NATSLENS_ACCOUNT_<NAME>_PASSWORD`, with the name upper-cased and other characters replaced by `_`. The account connection asks `$SYS.REQ.USER.INFO` for the account's name as the servers use it, and events from it carry that name. Until it is known (just after connecting), and for the whole run when the user may not request it or may not receive the reply, they carry the configured `name` instead, so filter on both when the two differ.
+
+### Several systems
+
+`systems` lists the NATS systems one natslens watches. Each entry takes `id` (as `system_id`; ids must differ), `name` (display name, default the id), `environment` (free text shown with the system) and its own `nats`, `accounts`, `inventory_file`, `kubernetes`, `retention`, `archive_retention`, `data_dir`, `archive_dir` and `duckdb_memory_limit`, with the same meaning and defaults as the top-level keys, except:
+
+| System key | Default |
+| --- | --- |
+| `retention`, `archive_retention` | The top-level value. |
+| `data_dir` | `<data_dir>/<id>`: the top-level `data_dir` is the root. |
+| `archive_dir` | `<archive_dir>/<id>` when the top-level `archive_dir` is set, else `<system data dir>/archive`. |
+| `duckdb_memory_limit` | The top-level `duckdb_memory_limit` (or its default) divided by the number of systems. |
+
+With `systems`, the top-level `nats`, `accounts`, `inventory_file`, `kubernetes` and `system_id` and the `-nats-*` and `-inventory-file` flags are refused, as are two systems that resolve to the same data or archive directory. Every other key (interval, timeout, listen, IAP, events, checks, `connz_limit`, `shutdown_grace`) applies to all systems. A system password not in the file is read from `NATSLENS_SYSTEM_<ID>_NATS_PASSWORD` and an account password from `NATSLENS_SYSTEM_<ID>_ACCOUNT_<NAME>_PASSWORD`, with the id and name upper-cased and other characters replaced by `_`; `NATSLENS_NATS_PASSWORD` and `NATSLENS_ACCOUNT_<NAME>_PASSWORD` apply only to a file without `systems`.
+
+A file without `systems` is one system with the id `system_id` whose database and archive stay exactly where they are (`data_dir` and `archive_dir`), so adding `system_id` to an existing file moves nothing.
 
 ### NATS permissions
 
