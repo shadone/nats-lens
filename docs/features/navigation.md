@@ -94,6 +94,7 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 - **More pages in the sidebar.** Subjects, Micro services and Applications under Messaging; KV Stores, Object Stores, Placement and Capacity under JetStream; Topology, Accounts and Users and auth under Cluster. Each appears once its page is built.
 - **The account scope on more lists.** Streams, findings and events limited to the scoped account, each offering the scope once it applies it; system-wide tiles and charts stay system-wide and say "all accounts".
 - **A command bar.** Findings, events and prefixes such as `stream:` in the search ([command-bar.md](command-bar.md)).
+- **"Not collecting" in the header.** The API's freshness says whether the collector collects; the header is to read "not collecting since HH:MM" then, in place of "no data" and "stale".
 
 ## Not supported / out of scope
 

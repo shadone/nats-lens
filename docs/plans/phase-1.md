@@ -38,6 +38,7 @@ Every task updates the README sections and `docs/features/` docs it changes, and
 | T12 | not started |
 | T13 | merged |
 | T14 | merged |
+| Clean-up (UI) | not started |
 
 ## Tasks
 
@@ -196,6 +197,10 @@ Every task updates the README sections and `docs/features/` docs it changes, and
 - **Files:** `web/src/pages/Servers.tsx`, `ServerDetail.tsx`, new `components/ServerGrid.tsx`, `ServerHeadline.tsx`, `FleetChart.tsx`, `web/src/api/servers.ts`, `styles/pages.css`.
 - **Tests** (on the `example-global` demo): 3 cluster groups; the down server first in its group; "Needs attention" lists 4, "All" 24; colouring by store marks the 71% server in the top band. Failing case: with one cluster the list is flat, and a server without `cpu_percent` shows "-" with no colour, not 0%.
 - **Risks:** grid colours need light and dark values; the colour legend draws each swatch.
+
+### Clean-up (UI)
+
+- **Header "not collecting":** when `Freshness.collecting` is false (from `GetOverview`), the header's freshness reads "not collecting since HH:MM", the time from `Freshness.not_collecting_since`, and no longer says "no data" or "stale" for that case. The API side is merged with the backend clean-up; README, `docs/design.md` and `docs/features/navigation.md` (Planned) describe the header as planned until then.
 
 ## Decisions (proposed, not yet confirmed)
 

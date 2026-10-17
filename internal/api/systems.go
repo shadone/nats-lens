@@ -227,17 +227,36 @@ var collectionStates = map[CollectionState]v1.CollectionState{
 	CollectionConnectionClosed: v1.CollectionState_COLLECTION_STATE_CONNECTION_CLOSED,
 }
 
-// withCollectionStatus sets the summary's collection fields from the
-// runtime's status. The error and its time are kept only while the
-// collector is not collecting.
+// withCollectionStatus sets the summary's collection fields and its
+// freshness's collecting from the runtime's status. The error and its time
+// are kept only while the collector is not collecting.
 func withCollectionStatus(sum *v1.SystemSummary, st CollectionStatus) {
 	sum.Collection = collectionStates[st.State]
 	sum.CollectionError, sum.CollectionErrorSince = "", nil
-	if st.State == CollectionNotConnected || st.State == CollectionConnectionClosed {
+	if st.notCollecting() {
 		sum.CollectionError = st.LastError
 		if !st.Since.IsZero() {
 			sum.CollectionErrorSince = timestamppb.New(st.Since)
 		}
+	}
+	withCollecting(sum.GetFreshness(), st)
+}
+
+// notCollecting reports whether the collector's connection is not
+// connected or closed for good.
+func (st CollectionStatus) notCollecting() bool {
+	return st.State == CollectionNotConnected || st.State == CollectionConnectionClosed
+}
+
+// withCollecting sets the freshness's collecting and the time it stopped
+// from the runtime's status; f may be nil.
+func withCollecting(f *v1.Freshness, st CollectionStatus) {
+	if f == nil {
+		return
+	}
+	f.Collecting, f.NotCollectingSince = !st.notCollecting(), nil
+	if st.notCollecting() && !st.Since.IsZero() {
+		f.NotCollectingSince = timestamppb.New(st.Since)
 	}
 }
 
