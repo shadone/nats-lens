@@ -6,6 +6,7 @@ import { Sidebar } from "./components/Sidebar";
 import { StaleProvider } from "./components/StaleContext";
 import { Landing, SystemGate } from "./components/SystemGate";
 import { useSidebar } from "./lib/useSidebar";
+import { useSystem } from "./lib/useSystem";
 import { Fleet } from "./pages/Fleet";
 import { Overview } from "./pages/Overview";
 import { Findings } from "./pages/Findings";
@@ -22,6 +23,7 @@ import { NotFound } from "./pages/NotFound";
 
 export function App() {
   const { pathname } = useLocation();
+  const system = useSystem();
   const { collapsed, setCollapsed, drawerOpen, setDrawerOpen } = useSidebar();
   return (
     <div className={`shell${collapsed ? " rail" : ""}`}>
@@ -33,7 +35,9 @@ export function App() {
       <div className="main-col">
         <Header menuOpen={drawerOpen} onMenu={() => setDrawerOpen(!drawerOpen)} />
         <main className="wrap" id="main" tabIndex={-1}>
-          <StaleProvider key={pathname}>
+          {/* Keyed by system too: a page of another system starts afresh, with
+              no rows, filters or page tokens of the one before. */}
+          <StaleProvider key={`${pathname}|${system}`}>
             <SystemGate>
               <Routes>
                 <Route

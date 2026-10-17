@@ -7,6 +7,7 @@ import { Dash, Empty, QueryView, RLink, Num } from "../components/common";
 import { Pager, usePager } from "../components/EntityParts";
 import { fmtBytes, fmtDuration, fmtShortDuration } from "../lib/format";
 import { usePageTitle } from "../lib/usePageTitle";
+import { useSystem } from "../lib/useSystem";
 import { rangeKey } from "../lib/timeRange";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
 import { AccountName } from "../components/AccountName";
@@ -24,7 +25,7 @@ export function Connections() {
   const [nameText, setNameText] = useState(name);
   const [accountText, setAccountText] = useState(account);
   const servers = useServers(spec).data?.servers ?? [];
-  const pager = usePager([server, account, name, String(tooling), rangeKey(spec)].join("|"));
+  const pager = usePager([useSystem(), server, account, name, String(tooling), rangeKey(spec)].join("|"));
   // A name filter shows the tooling connections it matches: whoever types
   // a name looks for that connection.
   const q = useConnections(spec, { server, account, nameContains: name, includeTooling: tooling || name !== "", pageSize: 100, pageToken: pager.token });

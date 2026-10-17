@@ -8,6 +8,7 @@ import { Empty, ErrorBox, QueryView } from "../components/common";
 import { Pager, usePager } from "../components/EntityParts";
 import { EventRow } from "../components/EventRow";
 import { usePageTitle } from "../lib/usePageTitle";
+import { useSystem } from "../lib/useSystem";
 import { rangeKey } from "../lib/timeRange";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
 import { entityKeyLabel, withAccountName } from "../lib/view";
@@ -63,7 +64,7 @@ export function Events() {
   const fromParams = entityFromParams(params);
   const client = params.get("client") ?? "";
   const id = params.get("id") ?? undefined;
-  const pager = usePager([sources.join(), kinds.join(), fromParams?.key, client, rangeKey(spec)].join("|"));
+  const pager = usePager([useSystem(), sources.join(), kinds.join(), fromParams?.key, client, rangeKey(spec)].join("|"));
   const q = useEvents(spec, { sources, kinds, entity: fromParams, clientName: client, pageSize: 50, pageToken: pager.token });
   // The URL holds the account ID; the loaded events name it.
   const entity = fromParams && withAccountName(fromParams, q.data?.items ?? []);

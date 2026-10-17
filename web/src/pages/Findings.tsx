@@ -11,6 +11,7 @@ import { UnmuteDialog } from "../components/MuteDialog";
 import { Sev } from "../components/Severity";
 import { fmtDuration, isoMinute } from "../lib/format";
 import { usePageTitle } from "../lib/usePageTitle";
+import { useSystem } from "../lib/useSystem";
 import { rangeKey } from "../lib/timeRange";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
 
@@ -58,7 +59,7 @@ function MuteRow({ m, now, onLift }: { m: Mute; now: number; onLift: (m: Mute) =
 function Mutes() {
   const [inactive, setInactive] = useState(false);
   const [lifting, setLifting] = useState<Mute>();
-  const pager = usePager(String(inactive));
+  const pager = usePager([useSystem(), String(inactive)].join("|"));
   const q = useMutes(inactive, pager.token);
   const now = Date.now();
   return (
@@ -102,7 +103,7 @@ export function Findings() {
   const muted = params.get("muted") !== "0";
   const check = params.get("check") ?? "";
   const [checkText, setCheckText] = useState(check);
-  const pager = usePager([sev.join(), stateId, muted, check, rangeKey(spec)].join("|"));
+  const pager = usePager([useSystem(), sev.join(), stateId, muted, check, rangeKey(spec)].join("|"));
   const q = useFindings(spec, {
     severities: sev,
     states: STATES.find((s) => s.id === stateId)!.states,
