@@ -1,11 +1,14 @@
 // The shell: sidebar, system switcher, header, and links that keep the
 // range, system and account.
+import { create, type MessageInitShape } from "@bufbuild/protobuf";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { useNavigate } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
+import { Status } from "./gen/natslens/v1/common_pb";
+import { CollectionState, ListSystemsResponseSchema } from "./gen/natslens/v1/systems_pb";
 import { lens } from "./api/client";
 import * as requests from "./api/requests";
 import { RLink } from "./components/common";
@@ -53,8 +56,8 @@ const ONE = { systems: [ref("default", "default")], defaultSystem: "default" };
 const tally = { critical: 0, warning: 2, info: 1, muted: 0, flapping: 0, resolved24h: 0 };
 const entity = (stream: string, consumer = "") => ({ kind: "stream" as const, key: "", name: consumer || stream, account: "APP", stream, consumer, server: "" });
 
-function setSystems(r: unknown) {
-  l.listSystems.mockResolvedValue(r as never);
+function setSystems(r: MessageInitShape<typeof ListSystemsResponseSchema>) {
+  l.listSystems.mockResolvedValue(create(ListSystemsResponseSchema, r) as never);
 }
 
 beforeEach(() => {
@@ -169,6 +172,29 @@ describe("sidebar", () => {
     const link = await within(nav()).findByRole("link", { name: /Findings/ });
     await waitFor(() => expect(link).toHaveAccessibleName("Findings, 3 firing, worst warning"));
     expect(link.querySelector(".nb")).toHaveClass("warning");
+  });
+
+  it("badges Fleet with the systems that are not OK, shaped by the worst", async () => {
+    setSystems({
+      systems: [
+        { ...ref("example-prod", "Production"), status: Status.CRITICAL },
+        { ...ref("example-global", "Global"), status: Status.OK },
+        { ...ref("example-staging", "Staging"), status: Status.INFO, collection: CollectionState.CONNECTION_CLOSED },
+      ],
+      defaultSystem: "example-prod",
+    });
+    renderApp(<App />, "/servers?system=example-prod");
+    const link = await within(nav()).findByRole("link", { name: /Fleet/ });
+    await waitFor(() => expect(link).toHaveAccessibleName("Fleet, 2 not OK, worst critical"));
+    expect(link.querySelector(".nb")).toHaveClass("critical");
+  });
+
+  it("has no Fleet badge when every system is OK", async () => {
+    setSystems({ systems: [{ ...ref("example-prod", "Production"), status: Status.OK }, { ...ref("example-global", "Global"), status: Status.MUTED }], defaultSystem: "example-prod" });
+    renderApp(<App />, "/servers?system=example-prod");
+    await waitFor(() => expect(l.listSystems).toHaveBeenCalledWith(expect.objectContaining({ stripBuckets: 48 }), expect.anything()));
+    await screen.findByText("Production");
+    expect(within(nav()).getByRole("link", { name: "Fleet" }).querySelector(".nb")).toBeNull();
   });
 
   it("collapses to a rail and remembers it", async () => {
