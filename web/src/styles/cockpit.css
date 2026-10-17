@@ -2,8 +2,8 @@
 
 /* status line */
 .status-line{display:flex;align-items:center;gap:10px 12px;flex-wrap:wrap;margin:22px 0 4px}
-.status-line h2{margin:0;font:600 22px/1.2 var(--sans);display:inline-flex;align-items:center;gap:10px}
-.status-line h2 .hi{width:18px;height:18px}
+.status-line .status-text{margin:0;font:600 22px/1.2 var(--sans);display:inline-flex;align-items:center;gap:10px}
+.status-line .status-text .hi{width:18px;height:18px}
 
 /* cause cards */
 .causes{display:grid;gap:12px;margin-top:22px}
@@ -114,7 +114,7 @@
   .sl-grid{grid-template-columns:96px minmax(0,1fr)}
   .cg-list li{grid-template-columns:minmax(0,1fr) auto}
   .cg-list .cg-d{grid-column:1 / -1;grid-row:2}
-  .status-line h2{font-size:19px}
+  .status-line .status-text{font-size:19px}
 }
 
 /* tiles */

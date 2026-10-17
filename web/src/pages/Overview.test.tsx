@@ -69,9 +69,10 @@ describe("Overview without findings", () => {
   it("says serving normally, shows no cause card and an empty state in every section", async () => {
     mock(quiet);
     renderApp(<Overview />);
-    expect(await screen.findByRole("heading", { level: 2, name: "Serving normally" })).toBeInTheDocument();
+    expect(await screen.findByRole("status", { name: "Status" })).toHaveTextContent(/^Serving normally/);
+    expect(screen.queryByRole("heading", { name: "Serving normally" })).toBeNull();
     expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
-    expect(screen.queryByRole("region", { name: "Findings now" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Findings" })).toBeNull();
     expect(screen.getByText(/No collection stored in this range yet/)).toBeInTheDocument();
     expect(await screen.findByText(/No consumer in the newest collection/)).toBeInTheDocument();
     expect(await screen.findByText(/No streams in the newest collection/)).toBeInTheDocument();
@@ -98,8 +99,12 @@ describe("Overview cause cards", () => {
     expect(within(card).getByText("Detail of thumb-worker.")).toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "Mute consumer-009 on audit-writer" })).toBeInTheDocument();
     expect(screen.getAllByRole("article")).toHaveLength(1);
-    expect(screen.getByRole("heading", { name: "Serving normally" })).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Status" })).toHaveTextContent(/^Serving normally/);
     expect(screen.getByText("4 INFO")).toBeInTheDocument();
+    // The cards' h3s sit under an h2, hidden but in the outline.
+    const h2 = screen.getByRole("heading", { level: 2, name: "Findings" });
+    expect(h2).toHaveClass("sr-only");
+    expect(h2.compareDocumentPosition(within(card).getByRole("heading", { level: 3 })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("lists muted findings with their reason in quotes, apart from the cards", async () => {
