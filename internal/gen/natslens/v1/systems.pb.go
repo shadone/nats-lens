@@ -9,6 +9,8 @@ package natslensv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -20,6 +22,73 @@ const (
 	// Verify that runtime/protoimpl is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
+
+// What a system's collector is doing.
+type CollectionState int32
+
+const (
+	// Not known: the system has no collector status and no stored
+	// connection event that says otherwise.
+	CollectionState_COLLECTION_STATE_UNSPECIFIED CollectionState = 0
+	// The collector has started and has not yet written an epoch.
+	CollectionState_COLLECTION_STATE_STARTING CollectionState = 1
+	// The collector writes epochs.
+	CollectionState_COLLECTION_STATE_COLLECTING CollectionState = 2
+	// The collector's connection has no server.
+	CollectionState_COLLECTION_STATE_NOT_CONNECTED CollectionState = 3
+	// NATS closed the collector's connection, for example after repeated
+	// authorization errors; the collector dials again.
+	CollectionState_COLLECTION_STATE_CONNECTION_CLOSED CollectionState = 4
+	// The data is the demo scenario; nothing is collected.
+	CollectionState_COLLECTION_STATE_DEMO CollectionState = 5
+)
+
+// Enum value maps for CollectionState.
+var (
+	CollectionState_name = map[int32]string{
+		0: "COLLECTION_STATE_UNSPECIFIED",
+		1: "COLLECTION_STATE_STARTING",
+		2: "COLLECTION_STATE_COLLECTING",
+		3: "COLLECTION_STATE_NOT_CONNECTED",
+		4: "COLLECTION_STATE_CONNECTION_CLOSED",
+		5: "COLLECTION_STATE_DEMO",
+	}
+	CollectionState_value = map[string]int32{
+		"COLLECTION_STATE_UNSPECIFIED":       0,
+		"COLLECTION_STATE_STARTING":          1,
+		"COLLECTION_STATE_COLLECTING":        2,
+		"COLLECTION_STATE_NOT_CONNECTED":     3,
+		"COLLECTION_STATE_CONNECTION_CLOSED": 4,
+		"COLLECTION_STATE_DEMO":              5,
+	}
+)
+
+func (x CollectionState) Enum() *CollectionState {
+	p := new(CollectionState)
+	*p = x
+	return p
+}
+
+func (x CollectionState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (CollectionState) Descriptor() protoreflect.EnumDescriptor {
+	return file_natslens_v1_systems_proto_enumTypes[0].Descriptor()
+}
+
+func (CollectionState) Type() protoreflect.EnumType {
+	return &file_natslens_v1_systems_proto_enumTypes[0]
+}
+
+func (x CollectionState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use CollectionState.Descriptor instead.
+func (CollectionState) EnumDescriptor() ([]byte, []int) {
+	return file_natslens_v1_systems_proto_rawDescGZIP(), []int{0}
+}
 
 // One NATS system nats-lens observes.
 type SystemRef struct {
@@ -91,7 +160,8 @@ type ListSystemsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Range the summaries cover. Unset means the last 24 hours up to now.
 	Range *TimeRange `protobuf:"bytes,1,opt,name=range,proto3" json:"range,omitempty"`
-	// Number of buckets in each summary's status strip.
+	// Number of buckets in each summary's status strip, at most 500. Zero
+	// means 48.
 	StripBuckets  int32 `protobuf:"varint,2,opt,name=strip_buckets,json=stripBuckets,proto3" json:"strip_buckets,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -142,10 +212,51 @@ func (x *ListSystemsRequest) GetStripBuckets() int32 {
 }
 
 // Summary of one system.
+//
+// Every number comes from data already collected: the newest epoch in the
+// range for the counts, the findings as the range's end sees them. A count
+// is unset when the range holds no epoch.
 type SystemSummary struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The system.
-	System        *SystemRef `protobuf:"bytes,1,opt,name=system,proto3" json:"system,omitempty"`
+	System *SystemRef `protobuf:"bytes,1,opt,name=system,proto3" json:"system,omitempty"`
+	// What the system's collector is doing now.
+	Collection CollectionState `protobuf:"varint,2,opt,name=collection,proto3,enum=natslens.v1.CollectionState" json:"collection,omitempty"`
+	// Newest error of the collector's connection while it is not collecting;
+	// empty while it collects.
+	CollectionError string `protobuf:"bytes,3,opt,name=collection_error,json=collectionError,proto3" json:"collection_error,omitempty"`
+	// When the collection error began.
+	CollectionErrorSince *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=collection_error_since,json=collectionErrorSince,proto3" json:"collection_error_since,omitempty"`
+	// Newest epoch in the range and its age.
+	Freshness *Freshness `protobuf:"bytes,5,opt,name=freshness,proto3" json:"freshness,omitempty"`
+	// Worst status of the findings that fire at the range's end; no data
+	// when the range holds no epoch.
+	Status Status `protobuf:"varint,6,opt,name=status,proto3,enum=natslens.v1.Status" json:"status,omitempty"`
+	// Worst unmuted finding that fires at the range's end.
+	WorstFinding *Finding `protobuf:"bytes,7,opt,name=worst_finding,json=worstFinding,proto3" json:"worst_finding,omitempty"`
+	// Findings by severity, as the overview counts them.
+	Tally *FindingTally `protobuf:"bytes,8,opt,name=tally,proto3" json:"tally,omitempty"`
+	// Servers expected to answer in the newest epoch.
+	Servers *int32 `protobuf:"varint,9,opt,name=servers,proto3,oneof" json:"servers,omitempty"`
+	// Servers that answered in the newest epoch.
+	ServersAnswering *int32 `protobuf:"varint,10,opt,name=servers_answering,json=serversAnswering,proto3,oneof" json:"servers_answering,omitempty"`
+	// Distinct cluster names of the servers of the newest epoch; zero for
+	// servers without a cluster.
+	Clusters *int32 `protobuf:"varint,11,opt,name=clusters,proto3,oneof" json:"clusters,omitempty"`
+	// Streams in the newest epoch.
+	Streams *int32 `protobuf:"varint,12,opt,name=streams,proto3,oneof" json:"streams,omitempty"`
+	// Client connections across servers in the newest epoch.
+	Connections *int64 `protobuf:"varint,13,opt,name=connections,proto3,oneof" json:"connections,omitempty"`
+	// Worst status per bucket over the range, oldest first: the worst cell
+	// of the status timeline's rows in each bucket.
+	Strip []Status `protobuf:"varint,14,rep,packed,name=strip,proto3,enum=natslens.v1.Status" json:"strip,omitempty"`
+	// Start of the strip's first bucket.
+	StripStart *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=strip_start,json=stripStart,proto3" json:"strip_start,omitempty"`
+	// Width of each strip bucket.
+	StripBucket *durationpb.Duration `protobuf:"bytes,16,opt,name=strip_bucket,json=stripBucket,proto3" json:"strip_bucket,omitempty"`
+	// Why the summary could not be read, for example a timeout; the other
+	// fields are then unset. Empty when the summary was read.
+	Error         string `protobuf:"bytes,17,opt,name=error,proto3" json:"error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -185,6 +296,118 @@ func (x *SystemSummary) GetSystem() *SystemRef {
 		return x.System
 	}
 	return nil
+}
+
+func (x *SystemSummary) GetCollection() CollectionState {
+	if x != nil {
+		return x.Collection
+	}
+	return CollectionState_COLLECTION_STATE_UNSPECIFIED
+}
+
+func (x *SystemSummary) GetCollectionError() string {
+	if x != nil {
+		return x.CollectionError
+	}
+	return ""
+}
+
+func (x *SystemSummary) GetCollectionErrorSince() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CollectionErrorSince
+	}
+	return nil
+}
+
+func (x *SystemSummary) GetFreshness() *Freshness {
+	if x != nil {
+		return x.Freshness
+	}
+	return nil
+}
+
+func (x *SystemSummary) GetStatus() Status {
+	if x != nil {
+		return x.Status
+	}
+	return Status_STATUS_UNSPECIFIED
+}
+
+func (x *SystemSummary) GetWorstFinding() *Finding {
+	if x != nil {
+		return x.WorstFinding
+	}
+	return nil
+}
+
+func (x *SystemSummary) GetTally() *FindingTally {
+	if x != nil {
+		return x.Tally
+	}
+	return nil
+}
+
+func (x *SystemSummary) GetServers() int32 {
+	if x != nil && x.Servers != nil {
+		return *x.Servers
+	}
+	return 0
+}
+
+func (x *SystemSummary) GetServersAnswering() int32 {
+	if x != nil && x.ServersAnswering != nil {
+		return *x.ServersAnswering
+	}
+	return 0
+}
+
+func (x *SystemSummary) GetClusters() int32 {
+	if x != nil && x.Clusters != nil {
+		return *x.Clusters
+	}
+	return 0
+}
+
+func (x *SystemSummary) GetStreams() int32 {
+	if x != nil && x.Streams != nil {
+		return *x.Streams
+	}
+	return 0
+}
+
+func (x *SystemSummary) GetConnections() int64 {
+	if x != nil && x.Connections != nil {
+		return *x.Connections
+	}
+	return 0
+}
+
+func (x *SystemSummary) GetStrip() []Status {
+	if x != nil {
+		return x.Strip
+	}
+	return nil
+}
+
+func (x *SystemSummary) GetStripStart() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StripStart
+	}
+	return nil
+}
+
+func (x *SystemSummary) GetStripBucket() *durationpb.Duration {
+	if x != nil {
+		return x.StripBucket
+	}
+	return nil
+}
+
+func (x *SystemSummary) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
 }
 
 // The systems, in configuration order.
@@ -454,16 +677,43 @@ var File_natslens_v1_systems_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_systems_proto_rawDesc = "" +
 	"\n" +
-	"\x19natslens/v1/systems.proto\x12\vnatslens.v1\x1a\x18natslens/v1/common.proto\"Q\n" +
+	"\x19natslens/v1/systems.proto\x12\vnatslens.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\x1a\x1anatslens/v1/findings.proto\x1a\x1anatslens/v1/overview.proto\"Q\n" +
 	"\tSystemRef\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
 	"\venvironment\x18\x03 \x01(\tR\venvironment\"g\n" +
 	"\x12ListSystemsRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12#\n" +
-	"\rstrip_buckets\x18\x02 \x01(\x05R\fstripBuckets\"?\n" +
+	"\rstrip_buckets\x18\x02 \x01(\x05R\fstripBuckets\"\x88\a\n" +
 	"\rSystemSummary\x12.\n" +
-	"\x06system\x18\x01 \x01(\v2\x16.natslens.v1.SystemRefR\x06system\"\xa0\x01\n" +
+	"\x06system\x18\x01 \x01(\v2\x16.natslens.v1.SystemRefR\x06system\x12<\n" +
+	"\n" +
+	"collection\x18\x02 \x01(\x0e2\x1c.natslens.v1.CollectionStateR\n" +
+	"collection\x12)\n" +
+	"\x10collection_error\x18\x03 \x01(\tR\x0fcollectionError\x12P\n" +
+	"\x16collection_error_since\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x14collectionErrorSince\x124\n" +
+	"\tfreshness\x18\x05 \x01(\v2\x16.natslens.v1.FreshnessR\tfreshness\x12+\n" +
+	"\x06status\x18\x06 \x01(\x0e2\x13.natslens.v1.StatusR\x06status\x129\n" +
+	"\rworst_finding\x18\a \x01(\v2\x14.natslens.v1.FindingR\fworstFinding\x12/\n" +
+	"\x05tally\x18\b \x01(\v2\x19.natslens.v1.FindingTallyR\x05tally\x12\x1d\n" +
+	"\aservers\x18\t \x01(\x05H\x00R\aservers\x88\x01\x01\x120\n" +
+	"\x11servers_answering\x18\n" +
+	" \x01(\x05H\x01R\x10serversAnswering\x88\x01\x01\x12\x1f\n" +
+	"\bclusters\x18\v \x01(\x05H\x02R\bclusters\x88\x01\x01\x12\x1d\n" +
+	"\astreams\x18\f \x01(\x05H\x03R\astreams\x88\x01\x01\x12%\n" +
+	"\vconnections\x18\r \x01(\x03H\x04R\vconnections\x88\x01\x01\x12)\n" +
+	"\x05strip\x18\x0e \x03(\x0e2\x13.natslens.v1.StatusR\x05strip\x12;\n" +
+	"\vstrip_start\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"stripStart\x12<\n" +
+	"\fstrip_bucket\x18\x10 \x01(\v2\x19.google.protobuf.DurationR\vstripBucket\x12\x14\n" +
+	"\x05error\x18\x11 \x01(\tR\x05errorB\n" +
+	"\n" +
+	"\b_serversB\x14\n" +
+	"\x12_servers_answeringB\v\n" +
+	"\t_clustersB\n" +
+	"\n" +
+	"\b_streamsB\x0e\n" +
+	"\f_connections\"\xa0\x01\n" +
 	"\x13ListSystemsResponse\x124\n" +
 	"\asystems\x18\x01 \x03(\v2\x1a.natslens.v1.SystemSummaryR\asystems\x12,\n" +
 	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12%\n" +
@@ -484,7 +734,14 @@ const file_natslens_v1_systems_proto_rawDesc = "" +
 	"\x06system\x18\x01 \x01(\tR\x06system\x12,\n" +
 	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\"H\n" +
 	"\x14ListAccountsResponse\x120\n" +
-	"\baccounts\x18\x01 \x03(\v2\x14.natslens.v1.AccountR\baccountsBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
+	"\baccounts\x18\x01 \x03(\v2\x14.natslens.v1.AccountR\baccounts*\xda\x01\n" +
+	"\x0fCollectionState\x12 \n" +
+	"\x1cCOLLECTION_STATE_UNSPECIFIED\x10\x00\x12\x1d\n" +
+	"\x19COLLECTION_STATE_STARTING\x10\x01\x12\x1f\n" +
+	"\x1bCOLLECTION_STATE_COLLECTING\x10\x02\x12\"\n" +
+	"\x1eCOLLECTION_STATE_NOT_CONNECTED\x10\x03\x12&\n" +
+	"\"COLLECTION_STATE_CONNECTION_CLOSED\x10\x04\x12\x19\n" +
+	"\x15COLLECTION_STATE_DEMO\x10\x05BBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
 
 var (
 	file_natslens_v1_systems_proto_rawDescOnce sync.Once
@@ -498,29 +755,46 @@ func file_natslens_v1_systems_proto_rawDescGZIP() []byte {
 	return file_natslens_v1_systems_proto_rawDescData
 }
 
+var file_natslens_v1_systems_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_natslens_v1_systems_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_natslens_v1_systems_proto_goTypes = []any{
-	(*SystemRef)(nil),            // 0: natslens.v1.SystemRef
-	(*ListSystemsRequest)(nil),   // 1: natslens.v1.ListSystemsRequest
-	(*SystemSummary)(nil),        // 2: natslens.v1.SystemSummary
-	(*ListSystemsResponse)(nil),  // 3: natslens.v1.ListSystemsResponse
-	(*Account)(nil),              // 4: natslens.v1.Account
-	(*ListAccountsRequest)(nil),  // 5: natslens.v1.ListAccountsRequest
-	(*ListAccountsResponse)(nil), // 6: natslens.v1.ListAccountsResponse
-	(*TimeRange)(nil),            // 7: natslens.v1.TimeRange
+	(CollectionState)(0),          // 0: natslens.v1.CollectionState
+	(*SystemRef)(nil),             // 1: natslens.v1.SystemRef
+	(*ListSystemsRequest)(nil),    // 2: natslens.v1.ListSystemsRequest
+	(*SystemSummary)(nil),         // 3: natslens.v1.SystemSummary
+	(*ListSystemsResponse)(nil),   // 4: natslens.v1.ListSystemsResponse
+	(*Account)(nil),               // 5: natslens.v1.Account
+	(*ListAccountsRequest)(nil),   // 6: natslens.v1.ListAccountsRequest
+	(*ListAccountsResponse)(nil),  // 7: natslens.v1.ListAccountsResponse
+	(*TimeRange)(nil),             // 8: natslens.v1.TimeRange
+	(*timestamppb.Timestamp)(nil), // 9: google.protobuf.Timestamp
+	(*Freshness)(nil),             // 10: natslens.v1.Freshness
+	(Status)(0),                   // 11: natslens.v1.Status
+	(*Finding)(nil),               // 12: natslens.v1.Finding
+	(*FindingTally)(nil),          // 13: natslens.v1.FindingTally
+	(*durationpb.Duration)(nil),   // 14: google.protobuf.Duration
 }
 var file_natslens_v1_systems_proto_depIdxs = []int32{
-	7, // 0: natslens.v1.ListSystemsRequest.range:type_name -> natslens.v1.TimeRange
-	0, // 1: natslens.v1.SystemSummary.system:type_name -> natslens.v1.SystemRef
-	2, // 2: natslens.v1.ListSystemsResponse.systems:type_name -> natslens.v1.SystemSummary
-	7, // 3: natslens.v1.ListSystemsResponse.range:type_name -> natslens.v1.TimeRange
-	7, // 4: natslens.v1.ListAccountsRequest.range:type_name -> natslens.v1.TimeRange
-	4, // 5: natslens.v1.ListAccountsResponse.accounts:type_name -> natslens.v1.Account
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	8,  // 0: natslens.v1.ListSystemsRequest.range:type_name -> natslens.v1.TimeRange
+	1,  // 1: natslens.v1.SystemSummary.system:type_name -> natslens.v1.SystemRef
+	0,  // 2: natslens.v1.SystemSummary.collection:type_name -> natslens.v1.CollectionState
+	9,  // 3: natslens.v1.SystemSummary.collection_error_since:type_name -> google.protobuf.Timestamp
+	10, // 4: natslens.v1.SystemSummary.freshness:type_name -> natslens.v1.Freshness
+	11, // 5: natslens.v1.SystemSummary.status:type_name -> natslens.v1.Status
+	12, // 6: natslens.v1.SystemSummary.worst_finding:type_name -> natslens.v1.Finding
+	13, // 7: natslens.v1.SystemSummary.tally:type_name -> natslens.v1.FindingTally
+	11, // 8: natslens.v1.SystemSummary.strip:type_name -> natslens.v1.Status
+	9,  // 9: natslens.v1.SystemSummary.strip_start:type_name -> google.protobuf.Timestamp
+	14, // 10: natslens.v1.SystemSummary.strip_bucket:type_name -> google.protobuf.Duration
+	3,  // 11: natslens.v1.ListSystemsResponse.systems:type_name -> natslens.v1.SystemSummary
+	8,  // 12: natslens.v1.ListSystemsResponse.range:type_name -> natslens.v1.TimeRange
+	8,  // 13: natslens.v1.ListAccountsRequest.range:type_name -> natslens.v1.TimeRange
+	5,  // 14: natslens.v1.ListAccountsResponse.accounts:type_name -> natslens.v1.Account
+	15, // [15:15] is the sub-list for method output_type
+	15, // [15:15] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_systems_proto_init() }
@@ -529,19 +803,23 @@ func file_natslens_v1_systems_proto_init() {
 		return
 	}
 	file_natslens_v1_common_proto_init()
+	file_natslens_v1_findings_proto_init()
+	file_natslens_v1_overview_proto_init()
+	file_natslens_v1_systems_proto_msgTypes[2].OneofWrappers = []any{}
 	file_natslens_v1_systems_proto_msgTypes[4].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_systems_proto_rawDesc), len(file_natslens_v1_systems_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_natslens_v1_systems_proto_goTypes,
 		DependencyIndexes: file_natslens_v1_systems_proto_depIdxs,
+		EnumInfos:         file_natslens_v1_systems_proto_enumTypes,
 		MessageInfos:      file_natslens_v1_systems_proto_msgTypes,
 	}.Build()
 	File_natslens_v1_systems_proto = out.File

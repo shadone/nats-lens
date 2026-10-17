@@ -2,17 +2,23 @@
 // @generated from file natslens/v1/systems.proto (package natslens.v1, syntax proto3)
 /* eslint-disable */
 
-import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
-import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { TimeRange } from "./common_pb";
+import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
+import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
+import type { Duration, Timestamp } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_duration, file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
+import type { Status, TimeRange } from "./common_pb";
 import { file_natslens_v1_common } from "./common_pb";
+import type { Finding, FindingTally } from "./findings_pb";
+import { file_natslens_v1_findings } from "./findings_pb";
+import type { Freshness } from "./overview_pb";
+import { file_natslens_v1_overview } from "./overview_pb";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file natslens/v1/systems.proto.
  */
 export const file_natslens_v1_systems: GenFile = /*@__PURE__*/
-  fileDesc("ChluYXRzbGVucy92MS9zeXN0ZW1zLnByb3RvEgtuYXRzbGVucy52MSI6CglTeXN0ZW1SZWYSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRITCgtlbnZpcm9ubWVudBgDIAEoCSJSChJMaXN0U3lzdGVtc1JlcXVlc3QSJQoFcmFuZ2UYASABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2USFQoNc3RyaXBfYnVja2V0cxgCIAEoBSI3Cg1TeXN0ZW1TdW1tYXJ5EiYKBnN5c3RlbRgBIAEoCzIWLm5hdHNsZW5zLnYxLlN5c3RlbVJlZiKBAQoTTGlzdFN5c3RlbXNSZXNwb25zZRIrCgdzeXN0ZW1zGAEgAygLMhoubmF0c2xlbnMudjEuU3lzdGVtU3VtbWFyeRIlCgVyYW5nZRgCIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRIWCg5kZWZhdWx0X3N5c3RlbRgDIAEoCSK1AQoHQWNjb3VudBIPCgdhY2NvdW50GAEgASgJEhQKDGFjY291bnRfbmFtZRgCIAEoCRIRCglpc19zeXN0ZW0YAyABKAgSGAoLY29ubmVjdGlvbnMYBCABKAVIAIgBARIUCgdzdHJlYW1zGAUgASgFSAGIAQESFgoJY29uc3VtZXJzGAYgASgFSAKIAQFCDgoMX2Nvbm5lY3Rpb25zQgoKCF9zdHJlYW1zQgwKCl9jb25zdW1lcnMiTAoTTGlzdEFjY291bnRzUmVxdWVzdBIOCgZzeXN0ZW0YASABKAkSJQoFcmFuZ2UYAiABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2UiPgoUTGlzdEFjY291bnRzUmVzcG9uc2USJgoIYWNjb3VudHMYASADKAsyFC5uYXRzbGVucy52MS5BY2NvdW50QkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_natslens_v1_common]);
+  fileDesc("ChluYXRzbGVucy92MS9zeXN0ZW1zLnByb3RvEgtuYXRzbGVucy52MSI6CglTeXN0ZW1SZWYSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRITCgtlbnZpcm9ubWVudBgDIAEoCSJSChJMaXN0U3lzdGVtc1JlcXVlc3QSJQoFcmFuZ2UYASABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2USFQoNc3RyaXBfYnVja2V0cxgCIAEoBSLDBQoNU3lzdGVtU3VtbWFyeRImCgZzeXN0ZW0YASABKAsyFi5uYXRzbGVucy52MS5TeXN0ZW1SZWYSMAoKY29sbGVjdGlvbhgCIAEoDjIcLm5hdHNsZW5zLnYxLkNvbGxlY3Rpb25TdGF0ZRIYChBjb2xsZWN0aW9uX2Vycm9yGAMgASgJEjoKFmNvbGxlY3Rpb25fZXJyb3Jfc2luY2UYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEikKCWZyZXNobmVzcxgFIAEoCzIWLm5hdHNsZW5zLnYxLkZyZXNobmVzcxIjCgZzdGF0dXMYBiABKA4yEy5uYXRzbGVucy52MS5TdGF0dXMSKwoNd29yc3RfZmluZGluZxgHIAEoCzIULm5hdHNsZW5zLnYxLkZpbmRpbmcSKAoFdGFsbHkYCCABKAsyGS5uYXRzbGVucy52MS5GaW5kaW5nVGFsbHkSFAoHc2VydmVycxgJIAEoBUgAiAEBEh4KEXNlcnZlcnNfYW5zd2VyaW5nGAogASgFSAGIAQESFQoIY2x1c3RlcnMYCyABKAVIAogBARIUCgdzdHJlYW1zGAwgASgFSAOIAQESGAoLY29ubmVjdGlvbnMYDSABKANIBIgBARIiCgVzdHJpcBgOIAMoDjITLm5hdHNsZW5zLnYxLlN0YXR1cxIvCgtzdHJpcF9zdGFydBgPIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLwoMc3RyaXBfYnVja2V0GBAgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEg0KBWVycm9yGBEgASgJQgoKCF9zZXJ2ZXJzQhQKEl9zZXJ2ZXJzX2Fuc3dlcmluZ0ILCglfY2x1c3RlcnNCCgoIX3N0cmVhbXNCDgoMX2Nvbm5lY3Rpb25zIoEBChNMaXN0U3lzdGVtc1Jlc3BvbnNlEisKB3N5c3RlbXMYASADKAsyGi5uYXRzbGVucy52MS5TeXN0ZW1TdW1tYXJ5EiUKBXJhbmdlGAIgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEhYKDmRlZmF1bHRfc3lzdGVtGAMgASgJIrUBCgdBY2NvdW50Eg8KB2FjY291bnQYASABKAkSFAoMYWNjb3VudF9uYW1lGAIgASgJEhEKCWlzX3N5c3RlbRgDIAEoCBIYCgtjb25uZWN0aW9ucxgEIAEoBUgAiAEBEhQKB3N0cmVhbXMYBSABKAVIAYgBARIWCgljb25zdW1lcnMYBiABKAVIAogBAUIOCgxfY29ubmVjdGlvbnNCCgoIX3N0cmVhbXNCDAoKX2NvbnN1bWVycyJMChNMaXN0QWNjb3VudHNSZXF1ZXN0Eg4KBnN5c3RlbRgBIAEoCRIlCgVyYW5nZRgCIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZSI+ChRMaXN0QWNjb3VudHNSZXNwb25zZRImCghhY2NvdW50cxgBIAMoCzIULm5hdHNsZW5zLnYxLkFjY291bnQq2gEKD0NvbGxlY3Rpb25TdGF0ZRIgChxDT0xMRUNUSU9OX1NUQVRFX1VOU1BFQ0lGSUVEEAASHQoZQ09MTEVDVElPTl9TVEFURV9TVEFSVElORxABEh8KG0NPTExFQ1RJT05fU1RBVEVfQ09MTEVDVElORxACEiIKHkNPTExFQ1RJT05fU1RBVEVfTk9UX0NPTk5FQ1RFRBADEiYKIkNPTExFQ1RJT05fU1RBVEVfQ09OTkVDVElPTl9DTE9TRUQQBBIZChVDT0xMRUNUSU9OX1NUQVRFX0RFTU8QBUJCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_findings, file_natslens_v1_overview]);
 
 /**
  * One NATS system nats-lens observes.
@@ -64,7 +70,8 @@ export type ListSystemsRequest = Message<"natslens.v1.ListSystemsRequest"> & {
   range?: TimeRange | undefined;
 
   /**
-   * Number of buckets in each summary's status strip.
+   * Number of buckets in each summary's status strip, at most 500. Zero
+   * means 48.
    *
    * @generated from field: int32 strip_buckets = 2;
    */
@@ -81,6 +88,10 @@ export const ListSystemsRequestSchema: GenMessage<ListSystemsRequest> = /*@__PUR
 /**
  * Summary of one system.
  *
+ * Every number comes from data already collected: the newest epoch in the
+ * range for the counts, the findings as the range's end sees them. A count
+ * is unset when the range holds no epoch.
+ *
  * @generated from message natslens.v1.SystemSummary
  */
 export type SystemSummary = Message<"natslens.v1.SystemSummary"> & {
@@ -90,6 +101,123 @@ export type SystemSummary = Message<"natslens.v1.SystemSummary"> & {
    * @generated from field: natslens.v1.SystemRef system = 1;
    */
   system?: SystemRef | undefined;
+
+  /**
+   * What the system's collector is doing now.
+   *
+   * @generated from field: natslens.v1.CollectionState collection = 2;
+   */
+  collection: CollectionState;
+
+  /**
+   * Newest error of the collector's connection while it is not collecting;
+   * empty while it collects.
+   *
+   * @generated from field: string collection_error = 3;
+   */
+  collectionError: string;
+
+  /**
+   * When the collection error began.
+   *
+   * @generated from field: google.protobuf.Timestamp collection_error_since = 4;
+   */
+  collectionErrorSince?: Timestamp | undefined;
+
+  /**
+   * Newest epoch in the range and its age.
+   *
+   * @generated from field: natslens.v1.Freshness freshness = 5;
+   */
+  freshness?: Freshness | undefined;
+
+  /**
+   * Worst status of the findings that fire at the range's end; no data
+   * when the range holds no epoch.
+   *
+   * @generated from field: natslens.v1.Status status = 6;
+   */
+  status: Status;
+
+  /**
+   * Worst unmuted finding that fires at the range's end.
+   *
+   * @generated from field: natslens.v1.Finding worst_finding = 7;
+   */
+  worstFinding?: Finding | undefined;
+
+  /**
+   * Findings by severity, as the overview counts them.
+   *
+   * @generated from field: natslens.v1.FindingTally tally = 8;
+   */
+  tally?: FindingTally | undefined;
+
+  /**
+   * Servers expected to answer in the newest epoch.
+   *
+   * @generated from field: optional int32 servers = 9;
+   */
+  servers?: number | undefined;
+
+  /**
+   * Servers that answered in the newest epoch.
+   *
+   * @generated from field: optional int32 servers_answering = 10;
+   */
+  serversAnswering?: number | undefined;
+
+  /**
+   * Distinct cluster names of the servers of the newest epoch; zero for
+   * servers without a cluster.
+   *
+   * @generated from field: optional int32 clusters = 11;
+   */
+  clusters?: number | undefined;
+
+  /**
+   * Streams in the newest epoch.
+   *
+   * @generated from field: optional int32 streams = 12;
+   */
+  streams?: number | undefined;
+
+  /**
+   * Client connections across servers in the newest epoch.
+   *
+   * @generated from field: optional int64 connections = 13;
+   */
+  connections?: bigint | undefined;
+
+  /**
+   * Worst status per bucket over the range, oldest first: the worst cell
+   * of the status timeline's rows in each bucket.
+   *
+   * @generated from field: repeated natslens.v1.Status strip = 14;
+   */
+  strip: Status[];
+
+  /**
+   * Start of the strip's first bucket.
+   *
+   * @generated from field: google.protobuf.Timestamp strip_start = 15;
+   */
+  stripStart?: Timestamp | undefined;
+
+  /**
+   * Width of each strip bucket.
+   *
+   * @generated from field: google.protobuf.Duration strip_bucket = 16;
+   */
+  stripBucket?: Duration | undefined;
+
+  /**
+   * Why the summary could not be read, for example a timeout; the other
+   * fields are then unset. Empty when the summary was read.
+   *
+   * @generated from field: string error = 17;
+   */
+  error: string;
 };
 
 /**
@@ -245,4 +373,61 @@ export type ListAccountsResponse = Message<"natslens.v1.ListAccountsResponse"> &
  */
 export const ListAccountsResponseSchema: GenMessage<ListAccountsResponse> = /*@__PURE__*/
   messageDesc(file_natslens_v1_systems, 6);
+
+/**
+ * What a system's collector is doing.
+ *
+ * @generated from enum natslens.v1.CollectionState
+ */
+export enum CollectionState {
+  /**
+   * Not known: the system has no collector status and no stored
+   * connection event that says otherwise.
+   *
+   * @generated from enum value: COLLECTION_STATE_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * The collector has started and has not yet written an epoch.
+   *
+   * @generated from enum value: COLLECTION_STATE_STARTING = 1;
+   */
+  STARTING = 1,
+
+  /**
+   * The collector writes epochs.
+   *
+   * @generated from enum value: COLLECTION_STATE_COLLECTING = 2;
+   */
+  COLLECTING = 2,
+
+  /**
+   * The collector's connection has no server.
+   *
+   * @generated from enum value: COLLECTION_STATE_NOT_CONNECTED = 3;
+   */
+  NOT_CONNECTED = 3,
+
+  /**
+   * NATS closed the collector's connection, for example after repeated
+   * authorization errors; the collector dials again.
+   *
+   * @generated from enum value: COLLECTION_STATE_CONNECTION_CLOSED = 4;
+   */
+  CONNECTION_CLOSED = 4,
+
+  /**
+   * The data is the demo scenario; nothing is collected.
+   *
+   * @generated from enum value: COLLECTION_STATE_DEMO = 5;
+   */
+  DEMO = 5,
+}
+
+/**
+ * Describes the enum natslens.v1.CollectionState.
+ */
+export const CollectionStateSchema: GenEnum<CollectionState> = /*@__PURE__*/
+  enumDesc(file_natslens_v1_systems, 0);
 
