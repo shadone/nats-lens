@@ -43,13 +43,13 @@ export function majorityVersion(servers: ServerRow[]): string | undefined {
 
 /**
  * Why a server needs attention, most serious first: it did not answer, a
- * finding fires on it (a muted one does not count), its healthz is not ok,
+ * warning or critical finding fires on it (info and muted ones do not count), its healthz is not ok,
  * its version is not the majority's, or its store is at 60% or more.
  */
 export function attentionReasons(s: ServerRow, majority: string | undefined): string[] {
   const out: string[] = [];
   if (!s.present) out.push("did not answer");
-  if (s.status === "critical" || s.status === "warning" || s.status === "info") out.push(`${s.status} finding`);
+  if (s.status === "critical" || s.status === "warning") out.push(`${s.status} finding`);
   if (s.present && s.healthz && s.healthz !== "ok") out.push(`healthz ${s.healthz}`);
   if (majority !== undefined && s.version && s.version !== majority) out.push(`version ${s.version}`);
   const pct = storePct(s);
@@ -57,18 +57,23 @@ export function attentionReasons(s: ServerRow, majority: string | undefined): st
   return out;
 }
 
+/** Notices about a server that are not reasons for attention: an info finding. */
+export function serverNotes(s: ServerRow): string[] {
+  return s.status === "info" ? ["info finding"] : [];
+}
+
 export function needsAttention(servers: ServerRow[]): ServerRow[] {
   const v = majorityVersion(servers);
   return servers.filter((s) => attentionReasons(s, v).length > 0);
 }
 
-/** Lower is worse: not answering, then findings by severity, then other reasons, then the rest. */
+/** Lower is worse: not answering, then findings by severity, then other reasons, then info findings, then the rest. */
 export function problemRank(s: ServerRow, majority: string | undefined): number {
   if (!s.present) return 0;
   if (s.status === "critical") return 1;
   if (s.status === "warning") return 2;
-  if (s.status === "info") return 3;
-  return attentionReasons(s, majority).length > 0 ? 4 : 5;
+  if (attentionReasons(s, majority).length > 0) return 3;
+  return s.status === "info" ? 4 : 5;
 }
 
 export function sortProblemsFirst(servers: ServerRow[], majority: string | undefined): ServerRow[] {

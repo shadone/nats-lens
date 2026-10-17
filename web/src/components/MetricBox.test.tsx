@@ -77,6 +77,13 @@ describe("MetricBox", () => {
     expect(screen.queryByText("ok")).toBeNull();
   });
 
+  it("keeps info quiet: a tinted dot, no word and no coloured value", () => {
+    const { container } = render(<MetricBox {...base} series={series([1, 70])} status="info" />);
+    expect(screen.queryByText("info")).toBeNull();
+    expect(container.querySelector(".mbox")).not.toHaveClass("st-info");
+    expect(container.querySelector(".mb-dot.st-info")).not.toBeNull();
+  });
+
   it("puts the limit in the note, not on the track", () => {
     render(<MetricBox {...base} series={series([1, 2])} note="limit 65,536" />);
     expect(screen.getByText("limit 65,536")).toBeInTheDocument();
