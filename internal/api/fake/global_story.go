@@ -127,23 +127,21 @@ func globalEvents(s scen, fs []*v1.Finding) []*v1.Event {
 		k8s(s.at(8, 44, 5), "k8s.pod.killing", "Killing", "nats-us-1", "pod nats-us-1 Killing (node upgrade), grace 120s"),
 		k8s(s.at(8, 40, 12), "k8s.node.drained", "NodeDrain", "", "node gke-example-pool-us-17bd cordoned and drained"),
 	)
-	// Routine reconnects of search-api fill the hours before the upgrade.
+	// Short connections of search-api fill the hours before the upgrade,
+	// one churn summary per minute in which it reconnected.
 	for k := range 240 {
-		kind, typ := "client.connect", "CLIENT.CONNECT"
-		if k%2 == 0 {
-			kind, typ = "client.disconnect", "CLIENT.DISCONNECT"
-		}
 		sv := s.sc.servers[k%len(s.sc.servers)]
 		if !sv.answering() {
 			sv = s.sc.servers[0]
 		}
 		host := fmt.Sprintf("10.30.%d.%d", k%3, 10+k%50)
 		out = append(out, &v1.Event{
-			Time: ts(s.at(8, 30, 0).Add(-time.Duration(k) * 160 * time.Second)), Source: srcNATS, Kind: kind, Type: typ,
-			Server: sv.name, Account: Account, ClientName: "search-api", ClientHost: host,
-			Summary: "search-api " + kind[len("client."):] + " from " + host,
+			Time: ts(s.at(8, 30, 0).Add(-time.Duration(k) * 160 * time.Second)), Source: srcNATS, Kind: "client.churn", Type: "CLIENT.CHURN",
+			Server: sv.name, Account: Account, ClientName: "search-api", ClientHost: host, Reason: "Client Closed",
+			Summary: fmt.Sprintf("search-api connected and disconnected %d times in 1 min (each closed by the client within 10 s)", 4+k%7),
 		})
 	}
+	out = append(out, globalRoutineEvents(s)...)
 	slices.SortStableFunc(out, func(a, b *v1.Event) int { return b.GetTime().AsTime().Compare(a.GetTime().AsTime()) })
 	return out
 }

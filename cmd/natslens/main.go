@@ -1,14 +1,17 @@
-// Command natslens collects monitoring snapshots and events of a NATS system
-// into DuckDB and archives each closed hour to Parquet.
+// Command natslens collects monitoring snapshots and events of one or more
+// NATS systems, each into its own DuckDB, and archives each closed hour to
+// Parquet.
 //
 // Usage:
 //
-//	natslens [run] [flags]            collect one epoch per interval
-//	natslens once [flags]             collect and store a single epoch
-//	natslens sql -data-dir DIR QUERY  query a database no collector has open
-//	natslens checks list              list the checks with their thresholds
-//	natslens checks run -data-dir DIR evaluate the checks on a database no collector has open
-//	natslens demo [-listen ADDR]      serve the API with a fixed scenario, without NATS
+//	natslens [run] [flags]                      collect one epoch per interval of every system
+//	natslens once [-system ID] [flags]          collect and store a single epoch of every system, or one
+//	natslens sql [-config FILE] [-system ID] [-data-dir DIR] QUERY
+//	                                            query a database no collector has open
+//	natslens checks list                        list the checks with their thresholds
+//	natslens checks run [-config FILE] [-system ID] [-data-dir DIR]
+//	                                            evaluate the checks on a database no collector has open
+//	natslens demo [-listen ADDR]                serve the API with a fixed scenario, without NATS
 //
 // natslens run also serves the API and UI on -listen (default
 // 127.0.0.1:8080).
@@ -19,28 +22,26 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
-	"github.com/nats-io/nats.go"
-
-	"github.com/shadone/nats-lens/internal/api/storeprov"
-	"github.com/shadone/nats-lens/internal/checks"
-	"github.com/shadone/nats-lens/internal/collect"
+	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/config"
-	"github.com/shadone/nats-lens/internal/events"
-	"github.com/shadone/nats-lens/internal/natsconn"
-	"github.com/shadone/nats-lens/internal/runner"
 	"github.com/shadone/nats-lens/internal/sqlcli"
 	"github.com/shadone/nats-lens/internal/store"
 )
 
 func main() {
+	// Until the configuration sets the level, messages such as its
+	// warnings go out as JSON like every later one.
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, nil)))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if err := run(ctx, os.Args[1:]); err != nil && !errors.Is(err, flag.ErrHelp) {
@@ -64,43 +65,78 @@ func run(ctx context.Context, args []string) error {
 		return runDemo(ctx, args)
 	}
 
-	cfg, err := config.Parse("natslens "+cmd, args)
+	var only string
+	cfg, err := config.ParseWith("natslens "+cmd, args, func(fs *flag.FlagSet) {
+		if cmd == "once" {
+			fs.StringVar(&only, "system", "", "collect only the system with this id (default: every system)")
+		}
+	})
 	if err != nil {
 		return err
 	}
 	level, _ := config.ParseLevel(cfg.LogLevel)
 	log := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
+	return runConfig(ctx, cmd, cfg, only, log, nil)
+}
+
+// apiOptionsFor are the API settings of the configuration.
+func apiOptionsFor(cfg config.Config, ready func() bool) apiOptions {
+	return apiOptions{listen: cfg.Listen, allowedHosts: cfg.AllowedHosts, iapAudience: cfg.IAPAudience, ready: ready,
+		metricsTimeout: cfg.MetricsTimeout.D()}
+}
+
+// runConfig serves natslens run and once for the configured systems, or
+// only the system with the id only. observe, when set, is told the API's
+// systems once they are open; for tests.
+func runConfig(ctx context.Context, cmd string, cfg config.Config, only string, log *slog.Logger, observe func(api.Systems)) error {
 	log.Info("starting", "command", cmd, "version", version, "config", cfg)
 	if cfg.AllowUnauthenticated && cfg.IAPAudience == "" && cmd == "run" && cfg.Listen != "" {
 		log.Warn("the API is served without IAP verification: anyone who reaches it can mute findings", "listen", cfg.Listen)
+	}
+	systems := cfg.ResolvedSystems()
+	if only != "" {
+		sys, err := pickSystem(cfg, only)
+		if err != nil {
+			return err
+		}
+		systems = []config.System{sys}
 	}
 	set, err := loadChecks(cfg)
 	if err != nil {
 		return err
 	}
+	warnUnusedDatabase(cfg, log)
 
-	st, arch, err := openStore(ctx, cfg, log)
+	// Before any system starts, every system is checked; any problem
+	// refuses the start, naming every broken system.
+	if err := checkSystems(systems, cmd == "run" && cfg.Events.Enabled); err != nil {
+		return err
+	}
+	// Every store is open, and any rebuild finished, before the API
+	// serves; a store that does not open fails the start.
+	rts, err := openSystems(ctx, cfg, systems, log)
 	if err != nil {
-		return err
+		return stoppedDuringStart(ctx, err, log)
 	}
-	defer st.Close()
-	if err := loadInventory(ctx, cfg, st, log); err != nil {
-		return err
+	// The stores close after the API stopped, in parallel, by the shutdown
+	// deadline, given at least minStateWait like the last state.json; before
+	// the systems run there is no deadline and every close is waited for.
+	closeBy := func() time.Time { return time.Time{} }
+	defer func() { closeSystems(rts, closeBy()) }()
+	reg := registry(rts, set)
+	if observe != nil {
+		observe(reg)
 	}
 
-	// The API reports ready once it serves: the store is open by now, so
-	// any rebuild has finished. Collection does not affect readiness.
+	// The API reports ready once it serves: every store is open by now.
+	// Collection does not affect readiness.
 	ready := newReadiness(nil)
-	// The API reads the same database: DuckDB lets one process hold the
+	// The API reads the same databases: DuckDB lets one process hold a
 	// file. It starts its shutdown at the signal, gives calls in progress
-	// up to 5 seconds from then, and is waited for before the store closes.
+	// up to 5 seconds from then, and is waited for before the stores close.
 	if cmd == "run" && cfg.Listen != "" {
 		actx, stopAPI := context.WithCancel(ctx)
-		wait, err := startAPI(actx, apiOptions{listen: cfg.Listen, allowedHosts: cfg.AllowedHosts, iapAudience: cfg.IAPAudience, ready: ready.ready,
-			metricsTimeout: cfg.MetricsTimeout.D()},
-			singleSystem(&storeprov.Provider{St: st, Interval: cfg.Interval.D(), Retention: cfg.Retention.D(), Live: true, Checks: set,
-				ToolingNames: cfg.ToolingNames(), LoopbackNotTooling: !cfg.Checks.LoopbackTooling(),
-				ClientPods: cfg.Kubernetes.ClientPodsPattern()}), log)
+		wait, err := startAPI(actx, apiOptionsFor(cfg, ready.ready), reg, log)
 		if err != nil {
 			stopAPI()
 			return err
@@ -109,158 +145,101 @@ func run(ctx context.Context, args []string) error {
 		ready.serving()
 	}
 
-	tracker := collect.NewTracker(cfg.ServerForgetAfter.D())
-	seen, err := st.LastSeenServers(ctx)
-	if err != nil {
-		return fmt.Errorf("read known servers: %w", err)
-	}
-	for name, at := range seen {
-		tracker.Seed(name, at)
-	}
-
-	// Shutdown starts when ctx ends and must finish within shutdown_grace
-	// plus one events flush interval: the last epoch write gets the grace,
-	// and in parallel the event connections drain for at most one flush
-	// interval and the last events are written until the same deadline.
+	// A connection or setup failure isolates its system (see
+	// startRetrying), and so does a store read inside the setup (the
+	// stored Kubernetes state the watcher starts from): it is retried
+	// with the setup. A store failure before the setup, in LastSeenServers
+	// or recordStart, ends the system's run early, and natslens run then
+	// stops every system, as a store that fails to open fails the start.
+	// once collects every system it can.
+	rctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	// Shutdown starts when the systems are told to stop and must finish
+	// within shutdown_grace plus one events flush interval, for every
+	// system at once.
 	var shutdownBy time.Time
 	var byOnce sync.Once
 	deadline := func() time.Time {
 		byOnce.Do(func() { shutdownBy = time.Now().Add(cfg.ShutdownGrace.D() + cfg.Events.FlushInterval.D()) })
 		return shutdownBy
 	}
-	context.AfterFunc(ctx, func() { deadline() })
+	context.AfterFunc(rctx, func() { deadline() })
+	closeBy = func() time.Time { return stateDeadline(deadline(), time.Now()) }
 
-	// With event capture on, the collector's own connection records its
-	// losses and reconnects as events too.
-	var capture *events.Capture
-	eventsDone := make(chan struct{})
-	if cmd == "run" && cfg.Events.Enabled {
-		var stopEvents func(time.Time)
-		capture, stopEvents, err = startEvents(ctx, cfg, st, log)
-		if err != nil {
-			return err
-		}
-		// The Kubernetes watcher writes through the capture, so it stops first.
-		stopK8s := func() {}
-		if cfg.Kubernetes.Enabled {
-			if stopK8s, err = startKubernetes(ctx, cfg.Kubernetes, st, capture, log); err != nil {
-				stopEvents(deadline())
-				return err
+	errs := make([]error, len(rts))
+	var wg sync.WaitGroup
+	for i, rt := range rts {
+		wg.Go(func() {
+			errs[i] = rt.run(rctx, cmd, set, deadline)
+			if errs[i] != nil && cmd == "run" && ctx.Err() == nil {
+				rt.log.Error("system's store failed; stopping the others", "err", errs[i])
+				cancel()
 			}
-		}
-		stopAtCancel := context.AfterFunc(ctx, func() {
-			stopK8s()
-			stopEvents(deadline())
-			close(eventsDone)
 		})
-		// A return before ctx ends (a failed connect) stops the capture here.
-		defer func() {
-			if stopAtCancel() {
-				stopK8s()
-				stopEvents(deadline())
-				close(eventsDone)
-			}
-			<-eventsDone
-		}()
-	} else {
-		close(eventsDone)
 	}
+	wg.Wait()
+	return errors.Join(errs...)
+}
 
-	col := collect.New(nil, collect.Options{
-		Window: cfg.Timeout.D(), ConnzLimit: cfg.ConnzLimit, Tracker: tracker, Log: log,
-	})
-	var nc *nats.Conn
-	var conn *eventConn
-	if cmd == "run" {
-		// natslens run keeps running while NATS is unreachable: the API,
-		// the events of other sources and the Kubernetes watcher go on, and
-		// the runner skips epochs until the connection has a server. A
-		// connection nats.go closes for good (rejected credentials) is
-		// dialled again.
-		conn = newCollectorConn(cfg.NATS, capture, col, log)
-		if err := conn.open(); err != nil {
-			return err
-		}
-		nc = conn.current()
-		kctx, stopKeep := context.WithCancel(ctx)
-		kept := make(chan struct{})
-		go func() { conn.keep(kctx, time.Second); close(kept) }()
-		defer func() {
-			stopKeep()
-			<-kept
-			if c := conn.current(); c != nil {
-				c.Close()
-			}
-		}()
-	} else {
-		// once fails at once instead.
-		if nc, err = natsconn.Connect(cfg.NATS, log); err != nil {
-			return err
-		}
-		defer nc.Close()
-		col.SetConn(nc)
-	}
-	if nc.IsConnected() {
-		log.Info("connected", "server", nc.ConnectedServerName())
-	} else {
-		log.Warn("nats not reachable; retrying, no epochs until it is")
-	}
-	connected := nc.IsConnected
-	if conn != nil {
-		connected = func() bool {
-			c := conn.current()
-			return c != nil && c.IsConnected()
-		}
-	}
-
-	r := &runner.Runner{
-		Collector: col,
-		Store:     st,
-		Interval:  cfg.Interval.D(),
-		Retention: cfg.Retention.D(),
-		Log:       log,
-		// The process manager's stop timeout must exceed the longer of
-		// this plus the events flush interval plus minStateWait, and the
-		// API's 5-second shutdown, or the last epoch, events, state.json or
-		// API calls are cut off.
-		ShutdownGrace: cfg.ShutdownGrace.D(),
-		// The checks of an epoch get half an interval, so that they never
-		// delay the next epoch.
-		Checks:    &checks.Engine{Set: set, Log: log, Budget: cfg.Interval.D() / 2},
-		Connected: connected,
-	}
-	if cmd == "once" {
-		_, err := r.Once(ctx)
+// stoppedDuringStart turns an error caused by a stop signal before the
+// start completed into a clean exit: the process was asked to stop, and
+// nothing failed.
+func stoppedDuringStart(ctx context.Context, err error, log *slog.Logger) error {
+	if ctx.Err() == nil {
 		return err
 	}
-	// The archive exports on its own goroutine, so a long catch-up never
-	// delays an epoch.
-	archived := make(chan struct{})
-	go func() {
-		arch.Run(ctx, cfg.Interval.D())
-		close(archived)
-	}()
-	err = r.Run(ctx)
-	// An export interrupted by the signal normally ends at once; one that
-	// does not is abandoned at the shutdown deadline.
-	if !waitUntil(archived, deadline()) {
-		log.Warn("archive export still running at the shutdown deadline; abandoned")
+	log.Info("stopped before the start completed", "err", err)
+	return nil
+}
+
+// pickSystem returns the configured system with the id.
+func pickSystem(cfg config.Config, id string) (config.System, error) {
+	var ids []string
+	for _, s := range cfg.ResolvedSystems() {
+		if s.ID == id {
+			return s, nil
+		}
+		ids = append(ids, s.ID)
 	}
-	// The last state goes to the archive after the last events, so that it
-	// covers every number handed out.
-	<-eventsDone
-	writeFinalState(ctx, arch, deadline(), log)
-	return err
+	return config.System{}, fmt.Errorf("unknown system %q; configured systems: %s", id, strings.Join(ids, ", "))
+}
+
+// chosenSystem is the system a command for one database reads: the one
+// with the id, or the only one when id is empty. With several systems an
+// id is required.
+func chosenSystem(cfg config.Config, id string) (config.System, error) {
+	if id != "" {
+		return pickSystem(cfg, id)
+	}
+	systems := cfg.ResolvedSystems()
+	if len(systems) == 1 {
+		return systems[0], nil
+	}
+	ids := make([]string, len(systems))
+	for i, s := range systems {
+		ids[i] = s.ID
+	}
+	return config.System{}, fmt.Errorf("the configuration lists several systems; choose one with -system: %s", strings.Join(ids, ", "))
 }
 
 func runSQL(ctx context.Context, args []string) error {
+	return runSQLTo(ctx, args, os.Stdout)
+}
+
+// runSQLTo serves natslens sql, printing to out.
+func runSQLTo(ctx context.Context, args []string, out io.Writer) error {
+	const usage = "usage: natslens sql [-config FILE] [-system ID] [-data-dir DIR] QUERY"
 	fs := flag.NewFlagSet("natslens sql", flag.ContinueOnError)
-	dataDir := fs.String("data-dir", "./data", "directory holding "+store.FileName)
+	db := oneDatabaseFlags(fs)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if fs.NArg() != 1 {
-		return errors.New("usage: natslens sql [-data-dir DIR] QUERY")
+		return errors.New(usage)
 	}
-	return sqlcli.Run(ctx, filepath.Join(*dataDir, store.FileName), fs.Arg(0), os.Stdout)
+	_, _, dir, err := db.resolve()
+	if err != nil {
+		return err
+	}
+	return sqlcli.Run(ctx, filepath.Join(dir, store.FileName), fs.Arg(0), out)
 }

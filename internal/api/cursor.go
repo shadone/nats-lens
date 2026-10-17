@@ -21,6 +21,9 @@ type Cursor struct {
 	ID   int64     `json:"i,omitempty"`
 	// Epoch pins a list of one epoch's rows to the epoch of its first page.
 	Epoch int64 `json:"e,omitempty"`
+	// Upto pins a list of folded events to the events of its first page:
+	// later pages leave out events with a higher ID.
+	Upto int64 `json:"u,omitempty"`
 }
 
 // EncodeCursor returns the page token for c.
@@ -39,7 +42,7 @@ func DecodeCursor(token string) (Cursor, error) {
 	if err != nil {
 		return c, invalid("page_token is not valid")
 	}
-	if err := json.Unmarshal(b, &c); err != nil || c.Offset < 0 || c.Offset > MaxOffset || c.ID < 0 || c.Epoch < 0 {
+	if err := json.Unmarshal(b, &c); err != nil || c.Offset < 0 || c.Offset > MaxOffset || c.ID < 0 || c.Epoch < 0 || c.Upto < 0 {
 		return Cursor{}, invalid("page_token is not valid")
 	}
 	return c, nil

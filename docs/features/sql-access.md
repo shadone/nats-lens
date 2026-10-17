@@ -11,6 +11,7 @@ Everything nats-lens knows is in its DuckDB database, and `natslens sql` runs on
 ## Behavior and rules
 
 - **One query per call.** `natslens sql [-data-dir DIR] QUERY` opens `natslens.duckdb` in `DIR` (`./data` by default) read-only, runs the query and prints the rows as an aligned table, followed by the row count, for example "(3 rows)".
+- **One system's database.** Each system has its own database. `natslens sql -config FILE -system ID QUERY` reads the database of the system with that id; with a configuration that lists one system, `-system` may be left out, and with several it is required. An unknown id fails and names the configured ones. `-data-dir` overrides the directory.
 - **Plain output.** A missing value prints as `NULL`, and a time prints in UTC to the millisecond.
 - **Read-only.** The database is opened read-only, so a query cannot change it.
 - **Stopped collector, or a copy.** While `natslens run` holds the file, `natslens sql` fails. Stop the collector first, or query a copy of the database directory.
@@ -30,6 +31,13 @@ Everything nats-lens knows is in its DuckDB database, and `natslens sql` runs on
 - **Given** a copy of a nats-lens database directory
 - **When** I run `natslens sql -data-dir DIR "SELECT id, severity, state, since, detail FROM findings WHERE state = 'firing'"`
 - **Then** nats-lens prints the firing findings with their severity, start and detail
+
+### Query one of several systems
+
+- **Given** a configuration that lists `shop-prod` and `shop-staging`, and a stopped nats-lens
+- **When** I run `natslens sql -config natslens.yaml -system shop-staging "SELECT count(*) FROM epochs"`
+- **Then** nats-lens prints the count from the staging database only
+- **And** without `-system` the command fails and lists `shop-prod, shop-staging`
 
 ### The collector still holds the file
 

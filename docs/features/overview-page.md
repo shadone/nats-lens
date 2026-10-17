@@ -64,5 +64,5 @@ The Overview answers "is anything wrong, and what happened?" on one page. It lea
 
 - **No rearranging.** The layout is fixed; tiles and sections cannot be moved or hidden.
 - **No average health score.** The Overview leads with the worst finding instead.
-- **One cluster name.** The page shows one system; several systems are planned ([multiple-systems.md](multiple-systems.md)).
+- **One system at a time.** The page shows the system the address's `?system=` names, or the first configured; a switcher between systems is planned ([multiple-systems.md](multiple-systems.md)).
 - **No per-subject traffic.** Message rates are per server and for the whole system, not per subject.

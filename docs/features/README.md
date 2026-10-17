@@ -71,7 +71,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Inventory](inventory.md) | `ui`, `cli` | shipped |
 | [Navigation, time range and theme](navigation.md) | `ui` | shipped |
 | [Overview page](overview-page.md) | `ui`, `api` | shipped |
-| [Servers](servers.md) | `ui`, `api` | shipped |
+| [Servers](servers.md) | `ui`, `api` | shipped — leaders, tags, limits, routes and pod placement are in the API only |
 | [Streams](streams.md) | `ui`, `api` | shipped |
 | [Consumers](consumers.md) | `ui`, `api` | shipped |
 | [Connections](connections.md) | `ui`, `api` | shipped |
@@ -81,7 +81,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Running nats-lens](running-nats-lens.md) | `api`, `cli` | shipped |
 | [SQL access](sql-access.md) | `cli` | shipped |
 | [Demo mode](demo-mode.md) | `ui`, `api`, `cli` | shipped |
-| [Multiple systems and the Fleet view](multiple-systems.md) | `ui`, `api`, `cli` | partial — the API's system summaries; collecting several systems and the Fleet page are planned |
+| [Multiple systems and the Fleet view](multiple-systems.md) | `ui`, `api`, `cli` | partial — the Fleet page is planned |
 | [Placement](placement.md) | `ui`, `api` | planned |
 | [Replay](replay.md) | `ui`, `api` | planned |
 | [Applications](applications.md) | `ui`, `api` | planned |
@@ -108,7 +108,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] NATS advisories and system events, short-lived connections folded into `client.churn` (event-capture.md)
 - [x] Kubernetes pod, node and client-pod events on the same clock (kubernetes-context.md)
 - [x] Retention, the hourly Parquet archive, and the rebuild from it (history-and-archive.md)
-- [~] Several NATS systems in one nats-lens, with a Fleet view — only the API's system summaries so far (multiple-systems.md)
+- [~] Several NATS systems in one nats-lens, with a system switcher and Fleet summaries in the API — the Fleet page is planned (multiple-systems.md)
 
 **Checks**
 - [~] Findings, severities, restarts, thresholds, remediation file and mutes — accepting with a review date is planned (checks.md)
@@ -123,11 +123,12 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 **Web UI**
 - [x] Sidebar, system switcher, header with account scope and search, the global time range and the theme menu (navigation.md)
 - [x] Overview: worst finding, tiles, status timeline, events, streams and servers (overview-page.md)
-- [x] Servers list and server detail (servers.md)
+- [x] Servers list and server detail; leaders, limits, routes and pod placement in the API only (servers.md)
 - [x] Streams list and stream detail (streams.md)
 - [x] Consumers list and consumer detail (consumers.md)
 - [x] Client connections of the newest collection (connections.md)
 - [x] Every event, filtered by source, kind, entity and client (events.md)
+- [~] Routine events hidden, repeats folded, facets and a histogram: in the API, not yet on the page (events.md)
 - [x] Findings, finding detail, mutes (triage-and-mutes.md)
 - [ ] Every asset on every server in one matrix (placement.md)
 - [ ] What changed between two moments (replay.md)
@@ -144,6 +145,6 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 
 **Operations**
 - [x] Findings and collector health at `/metrics` for Prometheus alerting (metrics-and-alerting.md)
-- [x] `run`, `once`, configuration, health and readiness, the Kubernetes manifests (running-nats-lens.md)
-- [x] Read-only SQL on a stopped database with `natslens sql` (sql-access.md)
+- [x] `run`, `once` for every system or one, configuration, health and readiness, the Kubernetes manifests (running-nats-lens.md)
+- [x] Read-only SQL on a stopped database with `natslens sql`, one system at a time (sql-access.md)
 - [x] Three fixed systems without NATS with `natslens demo` (demo-mode.md)

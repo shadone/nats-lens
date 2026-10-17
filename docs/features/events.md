@@ -18,6 +18,10 @@ The Events page lists every event in the time range, newest first: NATS advisori
 - **One event on top.** A link with `?id=` shows that event, opened, above the list.
 - **Linked entities.** Server, stream and consumer names in an event link to their pages, and a client name links to its connections.
 - **Payloads on request.** The list does not carry raw payloads; opening "Raw payload" fetches the one event.
+- **Routine events, API only.** `ListEvents` marks routine events and, with `hide_routine`, leaves them out, counts them and lists what they were by kind and client (at most 10 groups, largest first). Routine is a fixed rule: the kinds `client.churn`, `consumer.ack_sampled` and `account.connections`; an `api.audit` record of a call that succeeded and changes nothing (a failed call, or a create, update, delete, purge, snapshot, restore, pause, step-down or peer removal, is always shown); and a connect or disconnect of a tooling client, judged as the client checks judge a connection in the epoch the event falls in. `checks.include_tooling` does not change it: hiding routine events only changes what is shown. The Events page does not use it yet.
+- **Repeats folded, API only.** With `fold_repeats`, events with the same source, kind, server, account, stream, consumer, client name and reason, each at most 10 minutes after the previous one, become one row: the newest event, with the count and the time of the oldest. Finding events fold only with the same finding, and Kubernetes events only with the same object, so five stuck pods are five rows. A Kubernetes event counts the occurrences Kubernetes reported for it. `total_count` and the facet counts count events, not rows, and a page shows them as events. Pages hold rows; a folded list keeps to the events that existed when its first page was read, so events that arrive meanwhile move no row between pages.
+- **Facets and histogram, API only.** With `include_facets`, the response counts the events per source and per server, each dimension without its own filter, and the events of the range with no filter. With `histogram_buckets` (at most 120), it counts warnings, other events and routine events in equal buckets over the range, routine events included even when hidden.
+- **Old requests unchanged.** A request without these flags gets the same response as before they existed.
 
 ## Scenarios
 
@@ -46,11 +50,25 @@ The Events page lists every event in the time range, newest first: NATS advisori
 - **When** I call `ListEvents` with sources and kinds, and `GetEvent` with one ID
 - **Then** I receive the matching events without their payloads, and the one event with its raw payload
 
+### Read only what is worth reading from the API
+
+- **Surfaces:** `api`
+- **Given** a day with hundreds of short connections from one client and a pod that failed scheduling five times in six minutes
+- **When** I call `ListEvents` with `hide_routine`, `fold_repeats`, `include_facets` and `histogram_buckets: 48`
+- **Then** the short connections are counted in `routine_hidden` and named in `routine_groups`, the five scheduling failures are one row with `repeats` 5 and `first_time` six minutes before it, and the facets and the 48 buckets count the same events
+
+### Repeats far apart stay apart
+
+- **Surfaces:** `api`
+- **Given** two identical events 11 minutes apart
+- **When** I call `ListEvents` with `fold_repeats`
+- **Then** I receive two rows, each with `repeats` 1
+
 ## Planned
 
-- **Worth reading first.** The page opens on the events worth reading, with routine events (a controller's connect and close every few seconds, tooling on a loopback address) hidden behind a count, "Show them", and "Change what counts as routine".
-- **Repeats folded.** Repeats of one thing fold into one row with a count, such as "×5 in 6 min".
-- **Facets with counts.** The sources and servers show how many events each holds, and a strip over the range shows when events came.
+- **Worth reading first.** The page opens on the events worth reading, with routine events (a controller's connect and close every few seconds, tooling on a loopback address) hidden behind a count, "Show them", and "Change what counts as routine". The API side is shipped; the page and a configurable rule are not.
+- **Repeats folded.** Repeats of one thing fold into one row with a count, such as "×5 in 6 min". The API side is shipped.
+- **Facets with counts.** The sources and servers show how many events each holds, and a strip over the range shows when events came. The API side is shipped.
 - **Subject and where.** Columns for the subject an event concerns and where it happened (server or namespace).
 - **New events wait.** Events that arrive while I read wait behind a "N new" pill instead of moving the list.
 

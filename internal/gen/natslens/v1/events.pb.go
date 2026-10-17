@@ -126,7 +126,20 @@ type Event struct {
 	// The payload as JSON, user JWTs removed; empty in event lists.
 	Raw string `protobuf:"bytes,19,opt,name=raw,proto3" json:"raw,omitempty"`
 	// Readable name of the account, when known.
-	AccountName   string `protobuf:"bytes,20,opt,name=account_name,json=accountName,proto3" json:"account_name,omitempty"`
+	AccountName string `protobuf:"bytes,20,opt,name=account_name,json=accountName,proto3" json:"account_name,omitempty"`
+	// With fold_repeats: how many events this row stands for, at least 1.
+	// A Kubernetes event counts the occurrences Kubernetes reported for it.
+	// Zero without fold_repeats.
+	Repeats int32 `protobuf:"varint,21,opt,name=repeats,proto3" json:"repeats,omitempty"`
+	// With fold_repeats: when the oldest event of the row happened; the
+	// row's time is the newest. Unset without fold_repeats.
+	FirstTime *timestamppb.Timestamp `protobuf:"bytes,22,opt,name=first_time,json=firstTime,proto3" json:"first_time,omitempty"`
+	// Whether the event is routine: client churn, sampled acks, account
+	// connection counts, an API audit record of a successful call that
+	// changes nothing, or a connect or disconnect of a tooling client. Set
+	// only when the request asks for hide_routine, fold_repeats,
+	// histogram_buckets or include_facets.
+	Routine       bool `protobuf:"varint,23,opt,name=routine,proto3" json:"routine,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -301,6 +314,27 @@ func (x *Event) GetAccountName() string {
 	return ""
 }
 
+func (x *Event) GetRepeats() int32 {
+	if x != nil {
+		return x.Repeats
+	}
+	return 0
+}
+
+func (x *Event) GetFirstTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.FirstTime
+	}
+	return nil
+}
+
+func (x *Event) GetRoutine() bool {
+	if x != nil {
+		return x.Routine
+	}
+	return false
+}
+
 // Request for events.
 type ListEventsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -325,7 +359,20 @@ type ListEventsRequest struct {
 	// filters.
 	PageToken string `protobuf:"bytes,7,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	// System ID, as ListSystems returns it. Empty means the default system.
-	System        string `protobuf:"bytes,8,opt,name=system,proto3" json:"system,omitempty"`
+	System string `protobuf:"bytes,8,opt,name=system,proto3" json:"system,omitempty"`
+	// Leave out routine events; routine_hidden counts them and
+	// routine_groups says what they were.
+	HideRoutine bool `protobuf:"varint,9,opt,name=hide_routine,json=hideRoutine,proto3" json:"hide_routine,omitempty"`
+	// Fold repeats: events with the same source, kind, server, account,
+	// stream, consumer, client name and reason (and finding, for a finding
+	// event; object, for a Kubernetes event), each at most 10 minutes
+	// after the previous one, become one row that shows the newest, with
+	// repeats and first_time set. Pages then hold rows, not events.
+	FoldRepeats bool `protobuf:"varint,10,opt,name=fold_repeats,json=foldRepeats,proto3" json:"fold_repeats,omitempty"`
+	// Number of histogram buckets over the range: 0 for none, at most 120.
+	HistogramBuckets int32 `protobuf:"varint,11,opt,name=histogram_buckets,json=histogramBuckets,proto3" json:"histogram_buckets,omitempty"`
+	// Return the facets and total_unfiltered.
+	IncludeFacets bool `protobuf:"varint,12,opt,name=include_facets,json=includeFacets,proto3" json:"include_facets,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -416,6 +463,245 @@ func (x *ListEventsRequest) GetSystem() string {
 	return ""
 }
 
+func (x *ListEventsRequest) GetHideRoutine() bool {
+	if x != nil {
+		return x.HideRoutine
+	}
+	return false
+}
+
+func (x *ListEventsRequest) GetFoldRepeats() bool {
+	if x != nil {
+		return x.FoldRepeats
+	}
+	return false
+}
+
+func (x *ListEventsRequest) GetHistogramBuckets() int32 {
+	if x != nil {
+		return x.HistogramBuckets
+	}
+	return 0
+}
+
+func (x *ListEventsRequest) GetIncludeFacets() bool {
+	if x != nil {
+		return x.IncludeFacets
+	}
+	return false
+}
+
+// The count of events with one value of a dimension.
+type EventFacet struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The dimension: "source" or "server".
+	Dimension string `protobuf:"bytes,1,opt,name=dimension,proto3" json:"dimension,omitempty"`
+	// The value: an EventSource name such as EVENT_SOURCE_NATS, or a
+	// server name.
+	Value string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	// Number of events with this value.
+	Count         int32 `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EventFacet) Reset() {
+	*x = EventFacet{}
+	mi := &file_natslens_v1_events_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EventFacet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EventFacet) ProtoMessage() {}
+
+func (x *EventFacet) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_events_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EventFacet.ProtoReflect.Descriptor instead.
+func (*EventFacet) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_events_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *EventFacet) GetDimension() string {
+	if x != nil {
+		return x.Dimension
+	}
+	return ""
+}
+
+func (x *EventFacet) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+func (x *EventFacet) GetCount() int32 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+// Routine events of one kind and client.
+type RoutineGroup struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Text to show, for example "catalog-api short connections".
+	Label string `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// The events' kind.
+	Kind string `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	// The events' client connection name; empty for none.
+	ClientName string `protobuf:"bytes,3,opt,name=client_name,json=clientName,proto3" json:"client_name,omitempty"`
+	// Number of events.
+	Count         int32 `protobuf:"varint,4,opt,name=count,proto3" json:"count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RoutineGroup) Reset() {
+	*x = RoutineGroup{}
+	mi := &file_natslens_v1_events_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RoutineGroup) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RoutineGroup) ProtoMessage() {}
+
+func (x *RoutineGroup) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_events_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RoutineGroup.ProtoReflect.Descriptor instead.
+func (*RoutineGroup) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_events_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *RoutineGroup) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *RoutineGroup) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *RoutineGroup) GetClientName() string {
+	if x != nil {
+		return x.ClientName
+	}
+	return ""
+}
+
+func (x *RoutineGroup) GetCount() int32 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+// Event counts of one histogram bucket.
+type EventBucket struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Start of the bucket; it ends where the next one starts.
+	Start *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=start,proto3" json:"start,omitempty"`
+	// Events of warning or critical severity that are not routine.
+	Warning int32 `protobuf:"varint,2,opt,name=warning,proto3" json:"warning,omitempty"`
+	// Other events that are not routine.
+	Notable int32 `protobuf:"varint,3,opt,name=notable,proto3" json:"notable,omitempty"`
+	// Routine events.
+	Routine       int32 `protobuf:"varint,4,opt,name=routine,proto3" json:"routine,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EventBucket) Reset() {
+	*x = EventBucket{}
+	mi := &file_natslens_v1_events_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EventBucket) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EventBucket) ProtoMessage() {}
+
+func (x *EventBucket) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_events_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EventBucket.ProtoReflect.Descriptor instead.
+func (*EventBucket) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_events_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *EventBucket) GetStart() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Start
+	}
+	return nil
+}
+
+func (x *EventBucket) GetWarning() int32 {
+	if x != nil {
+		return x.Warning
+	}
+	return 0
+}
+
+func (x *EventBucket) GetNotable() int32 {
+	if x != nil {
+		return x.Notable
+	}
+	return 0
+}
+
+func (x *EventBucket) GetRoutine() int32 {
+	if x != nil {
+		return x.Routine
+	}
+	return 0
+}
+
 // Events, newest first.
 type ListEventsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -423,15 +709,33 @@ type ListEventsResponse struct {
 	Events []*Event `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
 	// Token for the next, older page; empty on the last page.
 	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
-	// Number of events that match the filters, across pages.
-	TotalCount    int32 `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Number of events that match the filters, across pages. With
+	// fold_repeats it still counts events, not rows.
+	TotalCount int32 `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	// With hide_routine: number of routine events the filters matched and
+	// left out.
+	RoutineHidden int32 `protobuf:"varint,4,opt,name=routine_hidden,json=routineHidden,proto3" json:"routine_hidden,omitempty"`
+	// With include_facets: event counts per source and per server. Each
+	// dimension counts the events that match every filter except its own:
+	// the sources for "source", a server entity for "server". Largest
+	// count first.
+	Facets []*EventFacet `protobuf:"bytes,5,rep,name=facets,proto3" json:"facets,omitempty"`
+	// With hide_routine: the routine events left out, by kind and client,
+	// largest first, at most 10.
+	RoutineGroups []*RoutineGroup `protobuf:"bytes,6,rep,name=routine_groups,json=routineGroups,proto3" json:"routine_groups,omitempty"`
+	// With histogram_buckets: event counts per bucket of the range, oldest
+	// first, from every filter except hide_routine.
+	Histogram []*EventBucket `protobuf:"bytes,7,rep,name=histogram,proto3" json:"histogram,omitempty"`
+	// With include_facets: number of events in the range, with no other
+	// filter.
+	TotalUnfiltered int32 `protobuf:"varint,8,opt,name=total_unfiltered,json=totalUnfiltered,proto3" json:"total_unfiltered,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *ListEventsResponse) Reset() {
 	*x = ListEventsResponse{}
-	mi := &file_natslens_v1_events_proto_msgTypes[2]
+	mi := &file_natslens_v1_events_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -443,7 +747,7 @@ func (x *ListEventsResponse) String() string {
 func (*ListEventsResponse) ProtoMessage() {}
 
 func (x *ListEventsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_events_proto_msgTypes[2]
+	mi := &file_natslens_v1_events_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -456,7 +760,7 @@ func (x *ListEventsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEventsResponse.ProtoReflect.Descriptor instead.
 func (*ListEventsResponse) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_events_proto_rawDescGZIP(), []int{2}
+	return file_natslens_v1_events_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ListEventsResponse) GetEvents() []*Event {
@@ -480,6 +784,41 @@ func (x *ListEventsResponse) GetTotalCount() int32 {
 	return 0
 }
 
+func (x *ListEventsResponse) GetRoutineHidden() int32 {
+	if x != nil {
+		return x.RoutineHidden
+	}
+	return 0
+}
+
+func (x *ListEventsResponse) GetFacets() []*EventFacet {
+	if x != nil {
+		return x.Facets
+	}
+	return nil
+}
+
+func (x *ListEventsResponse) GetRoutineGroups() []*RoutineGroup {
+	if x != nil {
+		return x.RoutineGroups
+	}
+	return nil
+}
+
+func (x *ListEventsResponse) GetHistogram() []*EventBucket {
+	if x != nil {
+		return x.Histogram
+	}
+	return nil
+}
+
+func (x *ListEventsResponse) GetTotalUnfiltered() int32 {
+	if x != nil {
+		return x.TotalUnfiltered
+	}
+	return 0
+}
+
 // Request for one event.
 type GetEventRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -493,7 +832,7 @@ type GetEventRequest struct {
 
 func (x *GetEventRequest) Reset() {
 	*x = GetEventRequest{}
-	mi := &file_natslens_v1_events_proto_msgTypes[3]
+	mi := &file_natslens_v1_events_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -505,7 +844,7 @@ func (x *GetEventRequest) String() string {
 func (*GetEventRequest) ProtoMessage() {}
 
 func (x *GetEventRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_events_proto_msgTypes[3]
+	mi := &file_natslens_v1_events_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -518,7 +857,7 @@ func (x *GetEventRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEventRequest.ProtoReflect.Descriptor instead.
 func (*GetEventRequest) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_events_proto_rawDescGZIP(), []int{3}
+	return file_natslens_v1_events_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetEventRequest) GetId() string {
@@ -546,7 +885,7 @@ type GetEventResponse struct {
 
 func (x *GetEventResponse) Reset() {
 	*x = GetEventResponse{}
-	mi := &file_natslens_v1_events_proto_msgTypes[4]
+	mi := &file_natslens_v1_events_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -558,7 +897,7 @@ func (x *GetEventResponse) String() string {
 func (*GetEventResponse) ProtoMessage() {}
 
 func (x *GetEventResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_events_proto_msgTypes[4]
+	mi := &file_natslens_v1_events_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -571,7 +910,7 @@ func (x *GetEventResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEventResponse.ProtoReflect.Descriptor instead.
 func (*GetEventResponse) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_events_proto_rawDescGZIP(), []int{4}
+	return file_natslens_v1_events_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetEventResponse) GetEvent() *Event {
@@ -585,7 +924,7 @@ var File_natslens_v1_events_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_events_proto_rawDesc = "" +
 	"\n" +
-	"\x18natslens/v1/events.proto\x12\vnatslens.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\x1a\x1anatslens/v1/findings.proto\"\xbe\x05\n" +
+	"\x18natslens/v1/events.proto\x12\vnatslens.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\x1a\x1anatslens/v1/findings.proto\"\xad\x06\n" +
 	"\x05Event\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12.\n" +
 	"\x04time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12;\n" +
@@ -612,7 +951,11 @@ const file_natslens_v1_events_proto_rawDesc = "" +
 	"\afinding\x18\x11 \x01(\v2\x14.natslens.v1.FindingR\afinding\x12,\n" +
 	"\x06raised\x18\x12 \x03(\v2\x14.natslens.v1.FindingR\x06raised\x12\x10\n" +
 	"\x03raw\x18\x13 \x01(\tR\x03raw\x12!\n" +
-	"\faccount_name\x18\x14 \x01(\tR\vaccountName\"\xb0\x02\n" +
+	"\faccount_name\x18\x14 \x01(\tR\vaccountName\x12\x18\n" +
+	"\arepeats\x18\x15 \x01(\x05R\arepeats\x129\n" +
+	"\n" +
+	"first_time\x18\x16 \x01(\v2\x1a.google.protobuf.TimestampR\tfirstTime\x12\x18\n" +
+	"\aroutine\x18\x17 \x01(\bR\aroutine\"\xca\x03\n" +
 	"\x11ListEventsRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x122\n" +
 	"\asources\x18\x02 \x03(\x0e2\x18.natslens.v1.EventSourceR\asources\x12\x14\n" +
@@ -623,12 +966,38 @@ const file_natslens_v1_events_proto_rawDesc = "" +
 	"\tpage_size\x18\x06 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
 	"page_token\x18\a \x01(\tR\tpageToken\x12\x16\n" +
-	"\x06system\x18\b \x01(\tR\x06system\"\x89\x01\n" +
+	"\x06system\x18\b \x01(\tR\x06system\x12!\n" +
+	"\fhide_routine\x18\t \x01(\bR\vhideRoutine\x12!\n" +
+	"\ffold_repeats\x18\n" +
+	" \x01(\bR\vfoldRepeats\x12+\n" +
+	"\x11histogram_buckets\x18\v \x01(\x05R\x10histogramBuckets\x12%\n" +
+	"\x0einclude_facets\x18\f \x01(\bR\rincludeFacets\"V\n" +
+	"\n" +
+	"EventFacet\x12\x1c\n" +
+	"\tdimension\x18\x01 \x01(\tR\tdimension\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\x12\x14\n" +
+	"\x05count\x18\x03 \x01(\x05R\x05count\"o\n" +
+	"\fRoutineGroup\x12\x14\n" +
+	"\x05label\x18\x01 \x01(\tR\x05label\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x1f\n" +
+	"\vclient_name\x18\x03 \x01(\tR\n" +
+	"clientName\x12\x14\n" +
+	"\x05count\x18\x04 \x01(\x05R\x05count\"\x8d\x01\n" +
+	"\vEventBucket\x120\n" +
+	"\x05start\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x05start\x12\x18\n" +
+	"\awarning\x18\x02 \x01(\x05R\awarning\x12\x18\n" +
+	"\anotable\x18\x03 \x01(\x05R\anotable\x12\x18\n" +
+	"\aroutine\x18\x04 \x01(\x05R\aroutine\"\x86\x03\n" +
 	"\x12ListEventsResponse\x12*\n" +
 	"\x06events\x18\x01 \x03(\v2\x12.natslens.v1.EventR\x06events\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x05R\n" +
-	"totalCount\"9\n" +
+	"totalCount\x12%\n" +
+	"\x0eroutine_hidden\x18\x04 \x01(\x05R\rroutineHidden\x12/\n" +
+	"\x06facets\x18\x05 \x03(\v2\x17.natslens.v1.EventFacetR\x06facets\x12@\n" +
+	"\x0eroutine_groups\x18\x06 \x03(\v2\x19.natslens.v1.RoutineGroupR\rroutineGroups\x126\n" +
+	"\thistogram\x18\a \x03(\v2\x18.natslens.v1.EventBucketR\thistogram\x12)\n" +
+	"\x10total_unfiltered\x18\b \x01(\x05R\x0ftotalUnfiltered\"9\n" +
 	"\x0fGetEventRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06system\x18\x02 \x01(\tR\x06system\"<\n" +
@@ -654,39 +1023,47 @@ func file_natslens_v1_events_proto_rawDescGZIP() []byte {
 }
 
 var file_natslens_v1_events_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_natslens_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_natslens_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_natslens_v1_events_proto_goTypes = []any{
 	(EventSource)(0),              // 0: natslens.v1.EventSource
 	(*Event)(nil),                 // 1: natslens.v1.Event
 	(*ListEventsRequest)(nil),     // 2: natslens.v1.ListEventsRequest
-	(*ListEventsResponse)(nil),    // 3: natslens.v1.ListEventsResponse
-	(*GetEventRequest)(nil),       // 4: natslens.v1.GetEventRequest
-	(*GetEventResponse)(nil),      // 5: natslens.v1.GetEventResponse
-	(*timestamppb.Timestamp)(nil), // 6: google.protobuf.Timestamp
-	(Severity)(0),                 // 7: natslens.v1.Severity
-	(*FindingTransition)(nil),     // 8: natslens.v1.FindingTransition
-	(*Finding)(nil),               // 9: natslens.v1.Finding
-	(*TimeRange)(nil),             // 10: natslens.v1.TimeRange
-	(*EntityRef)(nil),             // 11: natslens.v1.EntityRef
+	(*EventFacet)(nil),            // 3: natslens.v1.EventFacet
+	(*RoutineGroup)(nil),          // 4: natslens.v1.RoutineGroup
+	(*EventBucket)(nil),           // 5: natslens.v1.EventBucket
+	(*ListEventsResponse)(nil),    // 6: natslens.v1.ListEventsResponse
+	(*GetEventRequest)(nil),       // 7: natslens.v1.GetEventRequest
+	(*GetEventResponse)(nil),      // 8: natslens.v1.GetEventResponse
+	(*timestamppb.Timestamp)(nil), // 9: google.protobuf.Timestamp
+	(Severity)(0),                 // 10: natslens.v1.Severity
+	(*FindingTransition)(nil),     // 11: natslens.v1.FindingTransition
+	(*Finding)(nil),               // 12: natslens.v1.Finding
+	(*TimeRange)(nil),             // 13: natslens.v1.TimeRange
+	(*EntityRef)(nil),             // 14: natslens.v1.EntityRef
 }
 var file_natslens_v1_events_proto_depIdxs = []int32{
-	6,  // 0: natslens.v1.Event.time:type_name -> google.protobuf.Timestamp
-	6,  // 1: natslens.v1.Event.received_at:type_name -> google.protobuf.Timestamp
+	9,  // 0: natslens.v1.Event.time:type_name -> google.protobuf.Timestamp
+	9,  // 1: natslens.v1.Event.received_at:type_name -> google.protobuf.Timestamp
 	0,  // 2: natslens.v1.Event.source:type_name -> natslens.v1.EventSource
-	7,  // 3: natslens.v1.Event.severity:type_name -> natslens.v1.Severity
-	8,  // 4: natslens.v1.Event.transition:type_name -> natslens.v1.FindingTransition
-	9,  // 5: natslens.v1.Event.finding:type_name -> natslens.v1.Finding
-	9,  // 6: natslens.v1.Event.raised:type_name -> natslens.v1.Finding
-	10, // 7: natslens.v1.ListEventsRequest.range:type_name -> natslens.v1.TimeRange
-	0,  // 8: natslens.v1.ListEventsRequest.sources:type_name -> natslens.v1.EventSource
-	11, // 9: natslens.v1.ListEventsRequest.entity:type_name -> natslens.v1.EntityRef
-	1,  // 10: natslens.v1.ListEventsResponse.events:type_name -> natslens.v1.Event
-	1,  // 11: natslens.v1.GetEventResponse.event:type_name -> natslens.v1.Event
-	12, // [12:12] is the sub-list for method output_type
-	12, // [12:12] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	10, // 3: natslens.v1.Event.severity:type_name -> natslens.v1.Severity
+	11, // 4: natslens.v1.Event.transition:type_name -> natslens.v1.FindingTransition
+	12, // 5: natslens.v1.Event.finding:type_name -> natslens.v1.Finding
+	12, // 6: natslens.v1.Event.raised:type_name -> natslens.v1.Finding
+	9,  // 7: natslens.v1.Event.first_time:type_name -> google.protobuf.Timestamp
+	13, // 8: natslens.v1.ListEventsRequest.range:type_name -> natslens.v1.TimeRange
+	0,  // 9: natslens.v1.ListEventsRequest.sources:type_name -> natslens.v1.EventSource
+	14, // 10: natslens.v1.ListEventsRequest.entity:type_name -> natslens.v1.EntityRef
+	9,  // 11: natslens.v1.EventBucket.start:type_name -> google.protobuf.Timestamp
+	1,  // 12: natslens.v1.ListEventsResponse.events:type_name -> natslens.v1.Event
+	3,  // 13: natslens.v1.ListEventsResponse.facets:type_name -> natslens.v1.EventFacet
+	4,  // 14: natslens.v1.ListEventsResponse.routine_groups:type_name -> natslens.v1.RoutineGroup
+	5,  // 15: natslens.v1.ListEventsResponse.histogram:type_name -> natslens.v1.EventBucket
+	1,  // 16: natslens.v1.GetEventResponse.event:type_name -> natslens.v1.Event
+	17, // [17:17] is the sub-list for method output_type
+	17, // [17:17] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_events_proto_init() }
@@ -702,7 +1079,7 @@ func file_natslens_v1_events_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_events_proto_rawDesc), len(file_natslens_v1_events_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   5,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

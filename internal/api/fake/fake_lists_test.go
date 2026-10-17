@@ -26,12 +26,13 @@ func tsAt(h, m, s int) *timestamppb.Timestamp { return timestamppb.New(at(h, m, 
 func TestListEventsPagesNewestFirst(t *testing.T) {
 	c := client(t)
 	first := must(c.ListEvents(ctx, connect.NewRequest(&v1.ListEventsRequest{PageSize: 15})))
-	if first.GetTotalCount() != 214 || first.GetEvents()[0].GetType() != "stream-020 Backlog growing" {
+	if first.GetTotalCount() != 748 || first.GetEvents()[0].GetId() != "748" || !first.GetEvents()[0].GetTime().AsTime().Equal(at(14, 28, 0)) {
 		t.Fatalf("total %d, first %v", first.GetTotalCount(), first.GetEvents()[0])
 	}
-	del := first.GetEvents()[7]
+	deleted := must(c.ListEvents(ctx, connect.NewRequest(&v1.ListEventsRequest{Kinds: []string{"consumer.deleted"}}))).GetEvents()
+	del := deleted[0]
 	if del.GetKind() != "consumer.deleted" || len(del.GetRaised()) != 1 || del.GetRaised()[0].GetCheckCode() != "consumer-006" {
-		t.Fatalf("eighth event = %v", del)
+		t.Fatalf("consumer.deleted = %v", del)
 	}
 	seen := map[string]bool{}
 	var last *v1.Event
@@ -52,18 +53,18 @@ func TestListEventsPagesNewestFirst(t *testing.T) {
 			break
 		}
 	}
-	if len(seen) != 214 {
+	if len(seen) != 748 {
 		t.Fatalf("paged %d events", len(seen))
 	}
 	filters := map[string]struct {
 		req  *v1.ListEventsRequest
 		want int32
 	}{
-		"kubernetes":    {&v1.ListEventsRequest{Sources: []v1.EventSource{v1.EventSource_EVENT_SOURCE_KUBERNETES}}, 7},
+		"kubernetes":    {&v1.ListEventsRequest{Sources: []v1.EventSource{v1.EventSource_EVENT_SOURCE_KUBERNETES}}, 15},
 		"kind":          {&v1.ListEventsRequest{Kinds: []string{"consumer.deleted"}}, 1},
-		"stream":        {&v1.ListEventsRequest{Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/order-jobs"}}, 4},
+		"stream":        {&v1.ListEventsRequest{Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/order-jobs"}}, 82},
 		"client":        {&v1.ListEventsRequest{ClientName: "analytics-worker"}, 1},
-		"last 5 hours":  {&v1.ListEventsRequest{Range: &v1.TimeRange{Start: tsAt(9, 30, 0)}}, 11},
+		"last 5 hours":  {&v1.ListEventsRequest{Range: &v1.TimeRange{Start: tsAt(9, 30, 0)}}, 161},
 		"server nats-2": {&v1.ListEventsRequest{Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SERVER, Key: "nats-2"}, Kinds: []string{"k8s.pod.killing", "k8s.pod.started"}}, 2},
 	}
 	for name, f := range filters {

@@ -118,7 +118,16 @@ type ServerSummary struct {
 	// Worst status of the findings for the server. Until checks exist:
 	// critical when the server did not answer in the newest epoch or its
 	// HEALTHZ is not ok, ok when it is, no data without HEALTHZ.
-	Status        Status `protobuf:"varint,17,opt,name=status,proto3,enum=natslens.v1.Status" json:"status,omitempty"`
+	Status Status `protobuf:"varint,17,opt,name=status,proto3,enum=natslens.v1.Status" json:"status,omitempty"`
+	// Streams whose replica on the server leads; unset when not reported.
+	StreamLeaders *int32 `protobuf:"varint,18,opt,name=stream_leaders,json=streamLeaders,proto3,oneof" json:"stream_leaders,omitempty"`
+	// Consumers whose replica on the server leads; unset when not reported.
+	ConsumerLeaders *int32 `protobuf:"varint,19,opt,name=consumer_leaders,json=consumerLeaders,proto3,oneof" json:"consumer_leaders,omitempty"`
+	// Slow consumers counted by the server's processes inside the range;
+	// unset when no epoch in the range reported the count.
+	SlowConsumersInRange *int64 `protobuf:"varint,20,opt,name=slow_consumers_in_range,json=slowConsumersInRange,proto3,oneof" json:"slow_consumers_in_range,omitempty"`
+	// Tags from the server's configuration, for example az:eu-1a.
+	Tags          []string `protobuf:"bytes,21,rep,name=tags,proto3" json:"tags,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -272,6 +281,293 @@ func (x *ServerSummary) GetStatus() Status {
 	return Status_STATUS_UNSPECIFIED
 }
 
+func (x *ServerSummary) GetStreamLeaders() int32 {
+	if x != nil && x.StreamLeaders != nil {
+		return *x.StreamLeaders
+	}
+	return 0
+}
+
+func (x *ServerSummary) GetConsumerLeaders() int32 {
+	if x != nil && x.ConsumerLeaders != nil {
+		return *x.ConsumerLeaders
+	}
+	return 0
+}
+
+func (x *ServerSummary) GetSlowConsumersInRange() int64 {
+	if x != nil && x.SlowConsumersInRange != nil {
+		return *x.SlowConsumersInRange
+	}
+	return 0
+}
+
+func (x *ServerSummary) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
+// One route connection of a server.
+type RouteView struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Name of the server at the other end.
+	RemoteName string `protobuf:"bytes,1,opt,name=remote_name,json=remoteName,proto3" json:"remote_name,omitempty"`
+	// Round trip time; unset when not reported.
+	Rtt *durationpb.Duration `protobuf:"bytes,2,opt,name=rtt,proto3" json:"rtt,omitempty"`
+	// Bytes waiting to be written to the route; unset when not reported.
+	PendingBytes  *int64 `protobuf:"varint,3,opt,name=pending_bytes,json=pendingBytes,proto3,oneof" json:"pending_bytes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RouteView) Reset() {
+	*x = RouteView{}
+	mi := &file_natslens_v1_servers_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RouteView) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RouteView) ProtoMessage() {}
+
+func (x *RouteView) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_servers_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RouteView.ProtoReflect.Descriptor instead.
+func (*RouteView) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_servers_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *RouteView) GetRemoteName() string {
+	if x != nil {
+		return x.RemoteName
+	}
+	return ""
+}
+
+func (x *RouteView) GetRtt() *durationpb.Duration {
+	if x != nil {
+		return x.Rtt
+	}
+	return nil
+}
+
+func (x *RouteView) GetPendingBytes() int64 {
+	if x != nil && x.PendingBytes != nil {
+		return *x.PendingBytes
+	}
+	return 0
+}
+
+// Limits and settings of a server.
+type ServerLimits struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Largest message payload accepted, bytes; unset when not reported.
+	MaxPayload *int64 `protobuf:"varint,1,opt,name=max_payload,json=maxPayload,proto3,oneof" json:"max_payload,omitempty"`
+	// Unsent data a connection may hold before it is closed as a slow
+	// consumer, bytes; unset when not reported.
+	MaxPending *int64 `protobuf:"varint,2,opt,name=max_pending,json=maxPending,proto3,oneof" json:"max_pending,omitempty"`
+	// Time a write to a client may take before the connection is closed as
+	// a slow consumer; unset when not reported.
+	WriteDeadline *durationpb.Duration `protobuf:"bytes,3,opt,name=write_deadline,json=writeDeadline,proto3" json:"write_deadline,omitempty"`
+	// Interval between PINGs on an idle connection; unset when not
+	// reported.
+	PingInterval *durationpb.Duration `protobuf:"bytes,4,opt,name=ping_interval,json=pingInterval,proto3" json:"ping_interval,omitempty"`
+	// Unanswered PINGs after which a connection is closed as stale; unset
+	// when not reported.
+	MaxPingsOut *int32 `protobuf:"varint,5,opt,name=max_pings_out,json=maxPingsOut,proto3,oneof" json:"max_pings_out,omitempty"`
+	// JetStream file storage limit, bytes; unset when not reported.
+	JsMaxStorage *int64 `protobuf:"varint,6,opt,name=js_max_storage,json=jsMaxStorage,proto3,oneof" json:"js_max_storage,omitempty"`
+	// JetStream memory storage limit, bytes; unset when not reported.
+	JsMaxMemory *int64 `protobuf:"varint,7,opt,name=js_max_memory,json=jsMaxMemory,proto3,oneof" json:"js_max_memory,omitempty"`
+	// Client connection limit; unset when not reported.
+	MaxConnections *int32 `protobuf:"varint,8,opt,name=max_connections,json=maxConnections,proto3,oneof" json:"max_connections,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ServerLimits) Reset() {
+	*x = ServerLimits{}
+	mi := &file_natslens_v1_servers_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerLimits) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerLimits) ProtoMessage() {}
+
+func (x *ServerLimits) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_servers_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerLimits.ProtoReflect.Descriptor instead.
+func (*ServerLimits) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_servers_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ServerLimits) GetMaxPayload() int64 {
+	if x != nil && x.MaxPayload != nil {
+		return *x.MaxPayload
+	}
+	return 0
+}
+
+func (x *ServerLimits) GetMaxPending() int64 {
+	if x != nil && x.MaxPending != nil {
+		return *x.MaxPending
+	}
+	return 0
+}
+
+func (x *ServerLimits) GetWriteDeadline() *durationpb.Duration {
+	if x != nil {
+		return x.WriteDeadline
+	}
+	return nil
+}
+
+func (x *ServerLimits) GetPingInterval() *durationpb.Duration {
+	if x != nil {
+		return x.PingInterval
+	}
+	return nil
+}
+
+func (x *ServerLimits) GetMaxPingsOut() int32 {
+	if x != nil && x.MaxPingsOut != nil {
+		return *x.MaxPingsOut
+	}
+	return 0
+}
+
+func (x *ServerLimits) GetJsMaxStorage() int64 {
+	if x != nil && x.JsMaxStorage != nil {
+		return *x.JsMaxStorage
+	}
+	return 0
+}
+
+func (x *ServerLimits) GetJsMaxMemory() int64 {
+	if x != nil && x.JsMaxMemory != nil {
+		return *x.JsMaxMemory
+	}
+	return 0
+}
+
+func (x *ServerLimits) GetMaxConnections() int32 {
+	if x != nil && x.MaxConnections != nil {
+		return *x.MaxConnections
+	}
+	return 0
+}
+
+// Where a server runs in Kubernetes, as the watcher last recorded it.
+type KubernetesPlacement struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Pod name.
+	Pod string `protobuf:"bytes,1,opt,name=pod,proto3" json:"pod,omitempty"`
+	// Pod namespace.
+	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Node the pod runs on; empty while the pod is not scheduled.
+	Node string `protobuf:"bytes,3,opt,name=node,proto3" json:"node,omitempty"`
+	// When the pod was scheduled on the node; unset when not recorded.
+	ScheduledAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=scheduled_at,json=scheduledAt,proto3" json:"scheduled_at,omitempty"`
+	// Container restarts of the pod recorded inside the range.
+	RestartsInRange int32 `protobuf:"varint,5,opt,name=restarts_in_range,json=restartsInRange,proto3" json:"restarts_in_range,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *KubernetesPlacement) Reset() {
+	*x = KubernetesPlacement{}
+	mi := &file_natslens_v1_servers_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KubernetesPlacement) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KubernetesPlacement) ProtoMessage() {}
+
+func (x *KubernetesPlacement) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_servers_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KubernetesPlacement.ProtoReflect.Descriptor instead.
+func (*KubernetesPlacement) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_servers_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *KubernetesPlacement) GetPod() string {
+	if x != nil {
+		return x.Pod
+	}
+	return ""
+}
+
+func (x *KubernetesPlacement) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *KubernetesPlacement) GetNode() string {
+	if x != nil {
+		return x.Node
+	}
+	return ""
+}
+
+func (x *KubernetesPlacement) GetScheduledAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ScheduledAt
+	}
+	return nil
+}
+
+func (x *KubernetesPlacement) GetRestartsInRange() int32 {
+	if x != nil {
+		return x.RestartsInRange
+	}
+	return 0
+}
+
 // Outcome of one monitoring request to a server.
 type EndpointOutcome struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -287,7 +583,7 @@ type EndpointOutcome struct {
 
 func (x *EndpointOutcome) Reset() {
 	*x = EndpointOutcome{}
-	mi := &file_natslens_v1_servers_proto_msgTypes[1]
+	mi := &file_natslens_v1_servers_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -299,7 +595,7 @@ func (x *EndpointOutcome) String() string {
 func (*EndpointOutcome) ProtoMessage() {}
 
 func (x *EndpointOutcome) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_servers_proto_msgTypes[1]
+	mi := &file_natslens_v1_servers_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -312,7 +608,7 @@ func (x *EndpointOutcome) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EndpointOutcome.ProtoReflect.Descriptor instead.
 func (*EndpointOutcome) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_servers_proto_rawDescGZIP(), []int{1}
+	return file_natslens_v1_servers_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *EndpointOutcome) GetEndpoint() string {
@@ -353,7 +649,7 @@ type ServerProcess struct {
 
 func (x *ServerProcess) Reset() {
 	*x = ServerProcess{}
-	mi := &file_natslens_v1_servers_proto_msgTypes[2]
+	mi := &file_natslens_v1_servers_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -365,7 +661,7 @@ func (x *ServerProcess) String() string {
 func (*ServerProcess) ProtoMessage() {}
 
 func (x *ServerProcess) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_servers_proto_msgTypes[2]
+	mi := &file_natslens_v1_servers_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -378,7 +674,7 @@ func (x *ServerProcess) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerProcess.ProtoReflect.Descriptor instead.
 func (*ServerProcess) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_servers_proto_rawDescGZIP(), []int{2}
+	return file_natslens_v1_servers_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ServerProcess) GetServerId() string {
@@ -422,7 +718,7 @@ type ListServersRequest struct {
 
 func (x *ListServersRequest) Reset() {
 	*x = ListServersRequest{}
-	mi := &file_natslens_v1_servers_proto_msgTypes[3]
+	mi := &file_natslens_v1_servers_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -434,7 +730,7 @@ func (x *ListServersRequest) String() string {
 func (*ListServersRequest) ProtoMessage() {}
 
 func (x *ListServersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_servers_proto_msgTypes[3]
+	mi := &file_natslens_v1_servers_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -447,7 +743,7 @@ func (x *ListServersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListServersRequest.ProtoReflect.Descriptor instead.
 func (*ListServersRequest) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_servers_proto_rawDescGZIP(), []int{3}
+	return file_natslens_v1_servers_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ListServersRequest) GetRange() *TimeRange {
@@ -479,7 +775,7 @@ type ListServersResponse struct {
 
 func (x *ListServersResponse) Reset() {
 	*x = ListServersResponse{}
-	mi := &file_natslens_v1_servers_proto_msgTypes[4]
+	mi := &file_natslens_v1_servers_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -491,7 +787,7 @@ func (x *ListServersResponse) String() string {
 func (*ListServersResponse) ProtoMessage() {}
 
 func (x *ListServersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_servers_proto_msgTypes[4]
+	mi := &file_natslens_v1_servers_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -504,7 +800,7 @@ func (x *ListServersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListServersResponse.ProtoReflect.Descriptor instead.
 func (*ListServersResponse) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_servers_proto_rawDescGZIP(), []int{4}
+	return file_natslens_v1_servers_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ListServersResponse) GetServers() []*ServerSummary {
@@ -543,7 +839,7 @@ type GetServerRequest struct {
 
 func (x *GetServerRequest) Reset() {
 	*x = GetServerRequest{}
-	mi := &file_natslens_v1_servers_proto_msgTypes[5]
+	mi := &file_natslens_v1_servers_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -555,7 +851,7 @@ func (x *GetServerRequest) String() string {
 func (*GetServerRequest) ProtoMessage() {}
 
 func (x *GetServerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_servers_proto_msgTypes[5]
+	mi := &file_natslens_v1_servers_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -568,7 +864,7 @@ func (x *GetServerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetServerRequest.ProtoReflect.Descriptor instead.
 func (*GetServerRequest) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_servers_proto_rawDescGZIP(), []int{5}
+	return file_natslens_v1_servers_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetServerRequest) GetName() string {
@@ -616,14 +912,31 @@ type GetServerResponse struct {
 	MetaLeader string `protobuf:"bytes,9,opt,name=meta_leader,json=metaLeader,proto3" json:"meta_leader,omitempty"`
 	// Configuration digest; differs between servers with different
 	// configuration.
-	ConfigDigest  string `protobuf:"bytes,10,opt,name=config_digest,json=configDigest,proto3" json:"config_digest,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	ConfigDigest string `protobuf:"bytes,10,opt,name=config_digest,json=configDigest,proto3" json:"config_digest,omitempty"`
+	// Route connections now, one per route.
+	RouteViews []*RouteView `protobuf:"bytes,11,rep,name=route_views,json=routeViews,proto3" json:"route_views,omitempty"`
+	// Gateways, by remote cluster name, connected now; unset when not
+	// reported.
+	Gateways *int32 `protobuf:"varint,12,opt,name=gateways,proto3,oneof" json:"gateways,omitempty"`
+	// Leaf node connections now; unset when not reported.
+	Leafnodes *int32 `protobuf:"varint,13,opt,name=leafnodes,proto3,oneof" json:"leafnodes,omitempty"`
+	// Limits and settings now; unset when the server reported none.
+	Limits *ServerLimits `protobuf:"bytes,14,opt,name=limits,proto3" json:"limits,omitempty"`
+	// Names of the limits fields whose value differs from the value most
+	// servers in the newest epoch have, for example max_payload.
+	LimitsDiffer []string `protobuf:"bytes,15,rep,name=limits_differ,json=limitsDiffer,proto3" json:"limits_differ,omitempty"`
+	// Where the server runs in Kubernetes; unset when nats-lens did not
+	// record the server's pod.
+	Kubernetes *KubernetesPlacement `protobuf:"bytes,16,opt,name=kubernetes,proto3" json:"kubernetes,omitempty"`
+	// When the configuration was loaded or last reloaded.
+	ConfigLoadedAt *timestamppb.Timestamp `protobuf:"bytes,17,opt,name=config_loaded_at,json=configLoadedAt,proto3" json:"config_loaded_at,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *GetServerResponse) Reset() {
 	*x = GetServerResponse{}
-	mi := &file_natslens_v1_servers_proto_msgTypes[6]
+	mi := &file_natslens_v1_servers_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -635,7 +948,7 @@ func (x *GetServerResponse) String() string {
 func (*GetServerResponse) ProtoMessage() {}
 
 func (x *GetServerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_servers_proto_msgTypes[6]
+	mi := &file_natslens_v1_servers_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -648,7 +961,7 @@ func (x *GetServerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetServerResponse.ProtoReflect.Descriptor instead.
 func (*GetServerResponse) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_servers_proto_rawDescGZIP(), []int{6}
+	return file_natslens_v1_servers_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GetServerResponse) GetServer() *ServerSummary {
@@ -721,6 +1034,55 @@ func (x *GetServerResponse) GetConfigDigest() string {
 	return ""
 }
 
+func (x *GetServerResponse) GetRouteViews() []*RouteView {
+	if x != nil {
+		return x.RouteViews
+	}
+	return nil
+}
+
+func (x *GetServerResponse) GetGateways() int32 {
+	if x != nil && x.Gateways != nil {
+		return *x.Gateways
+	}
+	return 0
+}
+
+func (x *GetServerResponse) GetLeafnodes() int32 {
+	if x != nil && x.Leafnodes != nil {
+		return *x.Leafnodes
+	}
+	return 0
+}
+
+func (x *GetServerResponse) GetLimits() *ServerLimits {
+	if x != nil {
+		return x.Limits
+	}
+	return nil
+}
+
+func (x *GetServerResponse) GetLimitsDiffer() []string {
+	if x != nil {
+		return x.LimitsDiffer
+	}
+	return nil
+}
+
+func (x *GetServerResponse) GetKubernetes() *KubernetesPlacement {
+	if x != nil {
+		return x.Kubernetes
+	}
+	return nil
+}
+
+func (x *GetServerResponse) GetConfigLoadedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ConfigLoadedAt
+	}
+	return nil
+}
+
 // One client connection.
 type Connection struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -777,7 +1139,7 @@ type Connection struct {
 
 func (x *Connection) Reset() {
 	*x = Connection{}
-	mi := &file_natslens_v1_servers_proto_msgTypes[7]
+	mi := &file_natslens_v1_servers_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -789,7 +1151,7 @@ func (x *Connection) String() string {
 func (*Connection) ProtoMessage() {}
 
 func (x *Connection) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_servers_proto_msgTypes[7]
+	mi := &file_natslens_v1_servers_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -802,7 +1164,7 @@ func (x *Connection) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Connection.ProtoReflect.Descriptor instead.
 func (*Connection) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_servers_proto_rawDescGZIP(), []int{7}
+	return file_natslens_v1_servers_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *Connection) GetKey() string {
@@ -986,7 +1348,7 @@ type ListConnectionsRequest struct {
 
 func (x *ListConnectionsRequest) Reset() {
 	*x = ListConnectionsRequest{}
-	mi := &file_natslens_v1_servers_proto_msgTypes[8]
+	mi := &file_natslens_v1_servers_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -998,7 +1360,7 @@ func (x *ListConnectionsRequest) String() string {
 func (*ListConnectionsRequest) ProtoMessage() {}
 
 func (x *ListConnectionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_servers_proto_msgTypes[8]
+	mi := &file_natslens_v1_servers_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1011,7 +1373,7 @@ func (x *ListConnectionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListConnectionsRequest.ProtoReflect.Descriptor instead.
 func (*ListConnectionsRequest) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_servers_proto_rawDescGZIP(), []int{8}
+	return file_natslens_v1_servers_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ListConnectionsRequest) GetRange() *TimeRange {
@@ -1090,7 +1452,7 @@ type ListConnectionsResponse struct {
 
 func (x *ListConnectionsResponse) Reset() {
 	*x = ListConnectionsResponse{}
-	mi := &file_natslens_v1_servers_proto_msgTypes[9]
+	mi := &file_natslens_v1_servers_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1102,7 +1464,7 @@ func (x *ListConnectionsResponse) String() string {
 func (*ListConnectionsResponse) ProtoMessage() {}
 
 func (x *ListConnectionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_servers_proto_msgTypes[9]
+	mi := &file_natslens_v1_servers_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1115,7 +1477,7 @@ func (x *ListConnectionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListConnectionsResponse.ProtoReflect.Descriptor instead.
 func (*ListConnectionsResponse) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_servers_proto_rawDescGZIP(), []int{9}
+	return file_natslens_v1_servers_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ListConnectionsResponse) GetConnections() []*Connection {
@@ -1157,7 +1519,7 @@ var File_natslens_v1_servers_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_servers_proto_rawDesc = "" +
 	"\n" +
-	"\x19natslens/v1/servers.proto\x12\vnatslens.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\"\xfd\x05\n" +
+	"\x19natslens/v1/servers.proto\x12\vnatslens.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\"\xed\a\n" +
 	"\rServerSummary\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1b\n" +
 	"\tserver_id\x18\x02 \x01(\tR\bserverId\x12\x18\n" +
@@ -1178,13 +1540,49 @@ const file_natslens_v1_servers_proto_rawDesc = "" +
 	"\tmem_bytes\x18\x0f \x01(\x03H\x03R\bmemBytes\x88\x01\x01\x12$\n" +
 	"\vcpu_percent\x18\x10 \x01(\x01H\x04R\n" +
 	"cpuPercent\x88\x01\x01\x12+\n" +
-	"\x06status\x18\x11 \x01(\x0e2\x13.natslens.v1.StatusR\x06statusB\x0e\n" +
+	"\x06status\x18\x11 \x01(\x0e2\x13.natslens.v1.StatusR\x06status\x12*\n" +
+	"\x0estream_leaders\x18\x12 \x01(\x05H\x05R\rstreamLeaders\x88\x01\x01\x12.\n" +
+	"\x10consumer_leaders\x18\x13 \x01(\x05H\x06R\x0fconsumerLeaders\x88\x01\x01\x12:\n" +
+	"\x17slow_consumers_in_range\x18\x14 \x01(\x03H\aR\x14slowConsumersInRange\x88\x01\x01\x12\x12\n" +
+	"\x04tags\x18\x15 \x03(\tR\x04tagsB\x0e\n" +
 	"\f_connectionsB\x13\n" +
 	"\x11_js_storage_bytesB\x17\n" +
 	"\x15_js_max_storage_bytesB\f\n" +
 	"\n" +
 	"_mem_bytesB\x0e\n" +
-	"\f_cpu_percent\"Y\n" +
+	"\f_cpu_percentB\x11\n" +
+	"\x0f_stream_leadersB\x13\n" +
+	"\x11_consumer_leadersB\x1a\n" +
+	"\x18_slow_consumers_in_range\"\x95\x01\n" +
+	"\tRouteView\x12\x1f\n" +
+	"\vremote_name\x18\x01 \x01(\tR\n" +
+	"remoteName\x12+\n" +
+	"\x03rtt\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\x03rtt\x12(\n" +
+	"\rpending_bytes\x18\x03 \x01(\x03H\x00R\fpendingBytes\x88\x01\x01B\x10\n" +
+	"\x0e_pending_bytes\"\xf2\x03\n" +
+	"\fServerLimits\x12$\n" +
+	"\vmax_payload\x18\x01 \x01(\x03H\x00R\n" +
+	"maxPayload\x88\x01\x01\x12$\n" +
+	"\vmax_pending\x18\x02 \x01(\x03H\x01R\n" +
+	"maxPending\x88\x01\x01\x12@\n" +
+	"\x0ewrite_deadline\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\rwriteDeadline\x12>\n" +
+	"\rping_interval\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\fpingInterval\x12'\n" +
+	"\rmax_pings_out\x18\x05 \x01(\x05H\x02R\vmaxPingsOut\x88\x01\x01\x12)\n" +
+	"\x0ejs_max_storage\x18\x06 \x01(\x03H\x03R\fjsMaxStorage\x88\x01\x01\x12'\n" +
+	"\rjs_max_memory\x18\a \x01(\x03H\x04R\vjsMaxMemory\x88\x01\x01\x12,\n" +
+	"\x0fmax_connections\x18\b \x01(\x05H\x05R\x0emaxConnections\x88\x01\x01B\x0e\n" +
+	"\f_max_payloadB\x0e\n" +
+	"\f_max_pendingB\x10\n" +
+	"\x0e_max_pings_outB\x11\n" +
+	"\x0f_js_max_storageB\x10\n" +
+	"\x0e_js_max_memoryB\x12\n" +
+	"\x10_max_connections\"\xc4\x01\n" +
+	"\x13KubernetesPlacement\x12\x10\n" +
+	"\x03pod\x18\x01 \x01(\tR\x03pod\x12\x1c\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x12\n" +
+	"\x04node\x18\x03 \x01(\tR\x04node\x12=\n" +
+	"\fscheduled_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\vscheduledAt\x12*\n" +
+	"\x11restarts_in_range\x18\x05 \x01(\x05R\x0frestartsInRange\"Y\n" +
 	"\x0fEndpointOutcome\x12\x1a\n" +
 	"\bendpoint\x18\x01 \x01(\tR\bendpoint\x12\x14\n" +
 	"\x05state\x18\x02 \x01(\tR\x05state\x12\x14\n" +
@@ -1206,7 +1604,7 @@ const file_natslens_v1_servers_proto_rawDesc = "" +
 	"\x10GetServerRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12,\n" +
 	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x16\n" +
-	"\x06system\x18\x03 \x01(\tR\x06system\"\x93\x04\n" +
+	"\x06system\x18\x03 \x01(\tR\x06system\"\x8b\a\n" +
 	"\x11GetServerResponse\x122\n" +
 	"\x06server\x18\x01 \x01(\v2\x1a.natslens.v1.ServerSummaryR\x06server\x12:\n" +
 	"\tendpoints\x18\x02 \x03(\v2\x1c.natslens.v1.EndpointOutcomeR\tendpoints\x128\n" +
@@ -1220,12 +1618,25 @@ const file_natslens_v1_servers_proto_rawDesc = "" +
 	"\vmeta_leader\x18\t \x01(\tR\n" +
 	"metaLeader\x12#\n" +
 	"\rconfig_digest\x18\n" +
-	" \x01(\tR\fconfigDigestB\x10\n" +
+	" \x01(\tR\fconfigDigest\x127\n" +
+	"\vroute_views\x18\v \x03(\v2\x16.natslens.v1.RouteViewR\n" +
+	"routeViews\x12\x1f\n" +
+	"\bgateways\x18\f \x01(\x05H\x05R\bgateways\x88\x01\x01\x12!\n" +
+	"\tleafnodes\x18\r \x01(\x05H\x06R\tleafnodes\x88\x01\x01\x121\n" +
+	"\x06limits\x18\x0e \x01(\v2\x19.natslens.v1.ServerLimitsR\x06limits\x12#\n" +
+	"\rlimits_differ\x18\x0f \x03(\tR\flimitsDiffer\x12@\n" +
+	"\n" +
+	"kubernetes\x18\x10 \x01(\v2 .natslens.v1.KubernetesPlacementR\n" +
+	"kubernetes\x12D\n" +
+	"\x10config_loaded_at\x18\x11 \x01(\v2\x1a.google.protobuf.TimestampR\x0econfigLoadedAtB\x10\n" +
 	"\x0e_subscriptionsB\x11\n" +
 	"\x0f_slow_consumersB\t\n" +
 	"\a_routesB\r\n" +
 	"\v_js_streamsB\x0f\n" +
-	"\r_js_consumers\"\xa5\x06\n" +
+	"\r_js_consumersB\v\n" +
+	"\t_gatewaysB\f\n" +
+	"\n" +
+	"_leafnodes\"\xa5\x06\n" +
 	"\n" +
 	"Connection\x12\x10\n" +
 	"\x03key\x18\x14 \x01(\tR\x03key\x12\x16\n" +
@@ -1299,49 +1710,60 @@ func file_natslens_v1_servers_proto_rawDescGZIP() []byte {
 }
 
 var file_natslens_v1_servers_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_natslens_v1_servers_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_natslens_v1_servers_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_natslens_v1_servers_proto_goTypes = []any{
 	(ServerRole)(0),                 // 0: natslens.v1.ServerRole
 	(*ServerSummary)(nil),           // 1: natslens.v1.ServerSummary
-	(*EndpointOutcome)(nil),         // 2: natslens.v1.EndpointOutcome
-	(*ServerProcess)(nil),           // 3: natslens.v1.ServerProcess
-	(*ListServersRequest)(nil),      // 4: natslens.v1.ListServersRequest
-	(*ListServersResponse)(nil),     // 5: natslens.v1.ListServersResponse
-	(*GetServerRequest)(nil),        // 6: natslens.v1.GetServerRequest
-	(*GetServerResponse)(nil),       // 7: natslens.v1.GetServerResponse
-	(*Connection)(nil),              // 8: natslens.v1.Connection
-	(*ListConnectionsRequest)(nil),  // 9: natslens.v1.ListConnectionsRequest
-	(*ListConnectionsResponse)(nil), // 10: natslens.v1.ListConnectionsResponse
-	(*timestamppb.Timestamp)(nil),   // 11: google.protobuf.Timestamp
-	(*durationpb.Duration)(nil),     // 12: google.protobuf.Duration
-	(Status)(0),                     // 13: natslens.v1.Status
-	(*TimeRange)(nil),               // 14: natslens.v1.TimeRange
+	(*RouteView)(nil),               // 2: natslens.v1.RouteView
+	(*ServerLimits)(nil),            // 3: natslens.v1.ServerLimits
+	(*KubernetesPlacement)(nil),     // 4: natslens.v1.KubernetesPlacement
+	(*EndpointOutcome)(nil),         // 5: natslens.v1.EndpointOutcome
+	(*ServerProcess)(nil),           // 6: natslens.v1.ServerProcess
+	(*ListServersRequest)(nil),      // 7: natslens.v1.ListServersRequest
+	(*ListServersResponse)(nil),     // 8: natslens.v1.ListServersResponse
+	(*GetServerRequest)(nil),        // 9: natslens.v1.GetServerRequest
+	(*GetServerResponse)(nil),       // 10: natslens.v1.GetServerResponse
+	(*Connection)(nil),              // 11: natslens.v1.Connection
+	(*ListConnectionsRequest)(nil),  // 12: natslens.v1.ListConnectionsRequest
+	(*ListConnectionsResponse)(nil), // 13: natslens.v1.ListConnectionsResponse
+	(*timestamppb.Timestamp)(nil),   // 14: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),     // 15: google.protobuf.Duration
+	(Status)(0),                     // 16: natslens.v1.Status
+	(*TimeRange)(nil),               // 17: natslens.v1.TimeRange
 }
 var file_natslens_v1_servers_proto_depIdxs = []int32{
-	11, // 0: natslens.v1.ServerSummary.start_time:type_name -> google.protobuf.Timestamp
-	12, // 1: natslens.v1.ServerSummary.uptime:type_name -> google.protobuf.Duration
+	14, // 0: natslens.v1.ServerSummary.start_time:type_name -> google.protobuf.Timestamp
+	15, // 1: natslens.v1.ServerSummary.uptime:type_name -> google.protobuf.Duration
 	0,  // 2: natslens.v1.ServerSummary.role:type_name -> natslens.v1.ServerRole
-	11, // 3: natslens.v1.ServerSummary.restarts:type_name -> google.protobuf.Timestamp
-	13, // 4: natslens.v1.ServerSummary.status:type_name -> natslens.v1.Status
-	11, // 5: natslens.v1.ServerProcess.start_time:type_name -> google.protobuf.Timestamp
-	11, // 6: natslens.v1.ServerProcess.first_seen:type_name -> google.protobuf.Timestamp
-	11, // 7: natslens.v1.ServerProcess.last_seen:type_name -> google.protobuf.Timestamp
-	14, // 8: natslens.v1.ListServersRequest.range:type_name -> natslens.v1.TimeRange
-	1,  // 9: natslens.v1.ListServersResponse.servers:type_name -> natslens.v1.ServerSummary
-	14, // 10: natslens.v1.GetServerRequest.range:type_name -> natslens.v1.TimeRange
-	1,  // 11: natslens.v1.GetServerResponse.server:type_name -> natslens.v1.ServerSummary
-	2,  // 12: natslens.v1.GetServerResponse.endpoints:type_name -> natslens.v1.EndpointOutcome
-	3,  // 13: natslens.v1.GetServerResponse.processes:type_name -> natslens.v1.ServerProcess
-	11, // 14: natslens.v1.Connection.start_time:type_name -> google.protobuf.Timestamp
-	11, // 15: natslens.v1.Connection.last_activity:type_name -> google.protobuf.Timestamp
-	12, // 16: natslens.v1.Connection.rtt:type_name -> google.protobuf.Duration
-	14, // 17: natslens.v1.ListConnectionsRequest.range:type_name -> natslens.v1.TimeRange
-	8,  // 18: natslens.v1.ListConnectionsResponse.connections:type_name -> natslens.v1.Connection
-	19, // [19:19] is the sub-list for method output_type
-	19, // [19:19] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	14, // 3: natslens.v1.ServerSummary.restarts:type_name -> google.protobuf.Timestamp
+	16, // 4: natslens.v1.ServerSummary.status:type_name -> natslens.v1.Status
+	15, // 5: natslens.v1.RouteView.rtt:type_name -> google.protobuf.Duration
+	15, // 6: natslens.v1.ServerLimits.write_deadline:type_name -> google.protobuf.Duration
+	15, // 7: natslens.v1.ServerLimits.ping_interval:type_name -> google.protobuf.Duration
+	14, // 8: natslens.v1.KubernetesPlacement.scheduled_at:type_name -> google.protobuf.Timestamp
+	14, // 9: natslens.v1.ServerProcess.start_time:type_name -> google.protobuf.Timestamp
+	14, // 10: natslens.v1.ServerProcess.first_seen:type_name -> google.protobuf.Timestamp
+	14, // 11: natslens.v1.ServerProcess.last_seen:type_name -> google.protobuf.Timestamp
+	17, // 12: natslens.v1.ListServersRequest.range:type_name -> natslens.v1.TimeRange
+	1,  // 13: natslens.v1.ListServersResponse.servers:type_name -> natslens.v1.ServerSummary
+	17, // 14: natslens.v1.GetServerRequest.range:type_name -> natslens.v1.TimeRange
+	1,  // 15: natslens.v1.GetServerResponse.server:type_name -> natslens.v1.ServerSummary
+	5,  // 16: natslens.v1.GetServerResponse.endpoints:type_name -> natslens.v1.EndpointOutcome
+	6,  // 17: natslens.v1.GetServerResponse.processes:type_name -> natslens.v1.ServerProcess
+	2,  // 18: natslens.v1.GetServerResponse.route_views:type_name -> natslens.v1.RouteView
+	3,  // 19: natslens.v1.GetServerResponse.limits:type_name -> natslens.v1.ServerLimits
+	4,  // 20: natslens.v1.GetServerResponse.kubernetes:type_name -> natslens.v1.KubernetesPlacement
+	14, // 21: natslens.v1.GetServerResponse.config_loaded_at:type_name -> google.protobuf.Timestamp
+	14, // 22: natslens.v1.Connection.start_time:type_name -> google.protobuf.Timestamp
+	14, // 23: natslens.v1.Connection.last_activity:type_name -> google.protobuf.Timestamp
+	15, // 24: natslens.v1.Connection.rtt:type_name -> google.protobuf.Duration
+	17, // 25: natslens.v1.ListConnectionsRequest.range:type_name -> natslens.v1.TimeRange
+	11, // 26: natslens.v1.ListConnectionsResponse.connections:type_name -> natslens.v1.Connection
+	27, // [27:27] is the sub-list for method output_type
+	27, // [27:27] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_servers_proto_init() }
@@ -1351,15 +1773,17 @@ func file_natslens_v1_servers_proto_init() {
 	}
 	file_natslens_v1_common_proto_init()
 	file_natslens_v1_servers_proto_msgTypes[0].OneofWrappers = []any{}
-	file_natslens_v1_servers_proto_msgTypes[6].OneofWrappers = []any{}
-	file_natslens_v1_servers_proto_msgTypes[7].OneofWrappers = []any{}
+	file_natslens_v1_servers_proto_msgTypes[1].OneofWrappers = []any{}
+	file_natslens_v1_servers_proto_msgTypes[2].OneofWrappers = []any{}
+	file_natslens_v1_servers_proto_msgTypes[9].OneofWrappers = []any{}
+	file_natslens_v1_servers_proto_msgTypes[10].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_servers_proto_rawDesc), len(file_natslens_v1_servers_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   10,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
