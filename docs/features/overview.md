@@ -66,7 +66,7 @@ NATS on its own is a black box to most of the people who run it. The servers ans
 - **Surfaces:** `api`
 - **Given** `natslens run` serves its API
 - **When** a client calls `ListFindings`, or Prometheus scrapes `/metrics`
-- **Then** it receives the findings with their severity, entity and state
+- **Then** `ListFindings` returns the findings with their severity, entity and state, and `/metrics` exports the firing ones (at most 50 unmuted entities per check) with their severity and mute
 
 ## Not supported / out of scope
 
