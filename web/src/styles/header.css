@@ -67,7 +67,10 @@
 .search-pop .ss{font-size:11px;color:var(--text-muted);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .search-note{margin:0;padding:8px;color:var(--text-muted);font-size:12px}
 
-/* Fleet placeholder */
+/* At 1280px a page with the account scope keeps the bar on one row. */
+@media (max-width:1400px){
+  .search{width:220px}
+}
 @media (max-width:1180px){
   .search{width:210px}
 }
