@@ -13,13 +13,16 @@ import (
 // every broken system, so that a start shows all of them at once. A
 // failure after this check (a connection, a file that later breaks)
 // isolates its system instead of stopping the others.
-func checkSystems(systems []config.System) error {
+// withEvents is whether the command opens the event connections and the
+// Kubernetes watcher (natslens run with events.enabled): only then are the
+// account files and the kubeconfig read.
+func checkSystems(systems []config.System, withEvents bool) error {
 	var errs []error
 	for _, sys := range systems {
 		if err := checkMarker(sys); err != nil {
 			errs = append(errs, err)
 		}
-		if err := missingFiles(sys); err != nil {
+		if err := missingFiles(sys, withEvents); err != nil {
 			errs = append(errs, fmt.Errorf("system %s: %w", sys.ID, err))
 		}
 	}
@@ -30,9 +33,10 @@ func checkSystems(systems []config.System) error {
 }
 
 // missingFiles lists the files the system's configuration names that
-// cannot be read: credentials, TLS files, the kubeconfig and the
-// inventory file.
-func missingFiles(sys config.System) error {
+// cannot be read and the command reads: the nats credentials and TLS
+// files and the inventory file always, the account files and the
+// kubeconfig withEvents.
+func missingFiles(sys config.System, withEvents bool) error {
 	var errs []error
 	need := func(key, path string) {
 		if path == "" {
@@ -51,6 +55,10 @@ func missingFiles(sys config.System) error {
 		need(prefix+".tls.key", n.TLS.Key)
 	}
 	natsFiles("nats", sys.NATS)
+	need("inventory_file", sys.InventoryFile)
+	if !withEvents {
+		return errors.Join(errs...)
+	}
 	for _, a := range sys.Accounts {
 		// The CA a connection inherits from nats is reported there.
 		c := a.Connection(sys.NATS)
@@ -62,6 +70,5 @@ func missingFiles(sys config.System) error {
 	if sys.Kubernetes.Enabled {
 		need("kubernetes.kubeconfig", sys.Kubernetes.Kubeconfig)
 	}
-	need("inventory_file", sys.InventoryFile)
 	return errors.Join(errs...)
 }

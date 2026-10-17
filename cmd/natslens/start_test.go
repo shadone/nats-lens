@@ -173,7 +173,7 @@ func TestMissingFiles(t *testing.T) {
 		Accounts:   []config.Account{{Name: "APP", Creds: missing}},
 		Kubernetes: config.Kubernetes{Enabled: true, Kubeconfig: missing},
 	}
-	err := missingFiles(sys)
+	err := missingFiles(sys, true)
 	if err == nil {
 		t.Fatal("no error")
 	}
@@ -184,5 +184,49 @@ func TestMissingFiles(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "nats.creds") {
 		t.Errorf("present file named: %v", err)
+	}
+	err = missingFiles(sys, false)
+	if err == nil || !strings.Contains(err.Error(), "nats.tls.ca") ||
+		strings.Contains(err.Error(), "accounts[") || strings.Contains(err.Error(), "kubeconfig") {
+		t.Errorf("without events: %v, want only nats.tls.ca", err)
+	}
+}
+
+// writeAccountConfig writes a one-system configuration whose account
+// names a creds file that does not exist.
+func writeAccountConfig(t *testing.T, dir, url, events string) string {
+	t.Helper()
+	conf := filepath.Join(dir, "natslens.yaml")
+	body := fmt.Sprintf(`data_dir: %s
+listen: ""
+events: { enabled: %s }
+nats: { url: %q, user: %s, password: %s }
+accounts: [{ name: APP, creds: %s }]
+`, filepath.Join(dir, "data"), events, url, testcluster.SysUser, testcluster.SysPass, filepath.Join(dir, "missing-app.creds"))
+	if err := os.WriteFile(conf, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return conf
+}
+
+// Account files are read only by the event connections of natslens run:
+// once starts with one missing, with events on or off; run with events
+// refuses it.
+func TestStartCheckOnlyChecksFilesTheCommandReads(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a NATS server")
+	}
+	c := testcluster.Start(t, 1)
+	ctx := context.Background()
+	for _, events := range []string{"true", "false"} {
+		conf := writeAccountConfig(t, t.TempDir(), c.URL(0), events)
+		if err := run(ctx, []string{"once", "-config", conf, "-log-level", "error"}); err != nil {
+			t.Errorf("once with events %s: %v", events, err)
+		}
+	}
+	conf := writeAccountConfig(t, t.TempDir(), c.URL(0), "true")
+	err := run(ctx, []string{"run", "-config", conf, "-log-level", "error"})
+	if err == nil || !strings.Contains(err.Error(), "accounts[APP].creds") {
+		t.Errorf("run with events: err = %v, want the account creds refused", err)
 	}
 }
