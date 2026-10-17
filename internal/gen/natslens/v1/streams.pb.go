@@ -53,7 +53,11 @@ type StreamSummary struct {
 	// or creation time.
 	ServersDisagree bool `protobuf:"varint,11,opt,name=servers_disagree,json=serversDisagree,proto3" json:"servers_disagree,omitempty"`
 	// Server name of the leader.
-	Leader        string `protobuf:"bytes,12,opt,name=leader,proto3" json:"leader,omitempty"`
+	Leader string `protobuf:"bytes,12,opt,name=leader,proto3" json:"leader,omitempty"`
+	// One entry per replica, by server name, with the state the leader
+	// reports; a configured replica that no server names comes last, with
+	// no server.
+	Placement     []*ReplicaPlacement `protobuf:"bytes,13,rep,name=placement,proto3" json:"placement,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -170,6 +174,13 @@ func (x *StreamSummary) GetLeader() string {
 		return x.Leader
 	}
 	return ""
+}
+
+func (x *StreamSummary) GetPlacement() []*ReplicaPlacement {
+	if x != nil {
+		return x.Placement
+	}
+	return nil
 }
 
 // One server's view of a stream.
@@ -671,7 +682,7 @@ var File_natslens_v1_streams_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_streams_proto_rawDesc = "" +
 	"\n" +
-	"\x19natslens/v1/streams.proto\x12\vnatslens.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\x1a\x1bnatslens/v1/consumers.proto\x1a\x1anatslens/v1/findings.proto\x1a\x1cnatslens/v1/timeseries.proto\"\xbc\x04\n" +
+	"\x19natslens/v1/streams.proto\x12\vnatslens.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\x1a\x1bnatslens/v1/consumers.proto\x1a\x1anatslens/v1/findings.proto\x1a\x1cnatslens/v1/timeseries.proto\"\xf9\x04\n" +
 	"\rStreamSummary\x12.\n" +
 	"\x06entity\x18\x01 \x01(\v2\x16.natslens.v1.EntityRefR\x06entity\x12\x1f\n" +
 	"\breplicas\x18\x02 \x01(\x05H\x00R\breplicas\x88\x01\x01\x12\x1f\n" +
@@ -685,7 +696,8 @@ const file_natslens_v1_streams_proto_rawDesc = "" +
 	"\rfinding_codes\x18\n" +
 	" \x03(\tR\ffindingCodes\x12)\n" +
 	"\x10servers_disagree\x18\v \x01(\bR\x0fserversDisagree\x12\x16\n" +
-	"\x06leader\x18\f \x01(\tR\x06leaderB\v\n" +
+	"\x06leader\x18\f \x01(\tR\x06leader\x12;\n" +
+	"\tplacement\x18\r \x03(\v2\x1d.natslens.v1.ReplicaPlacementR\tplacementB\v\n" +
 	"\t_replicasB\v\n" +
 	"\t_messagesB\b\n" +
 	"\x06_bytesB\f\n" +
@@ -763,33 +775,35 @@ var file_natslens_v1_streams_proto_goTypes = []any{
 	(*EntityRef)(nil),             // 7: natslens.v1.EntityRef
 	(*Series)(nil),                // 8: natslens.v1.Series
 	(Status)(0),                   // 9: natslens.v1.Status
-	(*timestamppb.Timestamp)(nil), // 10: google.protobuf.Timestamp
-	(*TimeRange)(nil),             // 11: natslens.v1.TimeRange
-	(*ConfigValue)(nil),           // 12: natslens.v1.ConfigValue
-	(*Disagreement)(nil),          // 13: natslens.v1.Disagreement
-	(*ConsumerSummary)(nil),       // 14: natslens.v1.ConsumerSummary
-	(*Finding)(nil),               // 15: natslens.v1.Finding
+	(*ReplicaPlacement)(nil),      // 10: natslens.v1.ReplicaPlacement
+	(*timestamppb.Timestamp)(nil), // 11: google.protobuf.Timestamp
+	(*TimeRange)(nil),             // 12: natslens.v1.TimeRange
+	(*ConfigValue)(nil),           // 13: natslens.v1.ConfigValue
+	(*Disagreement)(nil),          // 14: natslens.v1.Disagreement
+	(*ConsumerSummary)(nil),       // 15: natslens.v1.ConsumerSummary
+	(*Finding)(nil),               // 16: natslens.v1.Finding
 }
 var file_natslens_v1_streams_proto_depIdxs = []int32{
 	7,  // 0: natslens.v1.StreamSummary.entity:type_name -> natslens.v1.EntityRef
 	8,  // 1: natslens.v1.StreamSummary.bytes_7d:type_name -> natslens.v1.Series
 	9,  // 2: natslens.v1.StreamSummary.status:type_name -> natslens.v1.Status
-	10, // 3: natslens.v1.StreamServerView.created:type_name -> google.protobuf.Timestamp
-	11, // 4: natslens.v1.ListStreamsRequest.range:type_name -> natslens.v1.TimeRange
-	0,  // 5: natslens.v1.ListStreamsResponse.streams:type_name -> natslens.v1.StreamSummary
-	2,  // 6: natslens.v1.ListStreamsResponse.totals:type_name -> natslens.v1.StreamTotals
-	11, // 7: natslens.v1.GetStreamRequest.range:type_name -> natslens.v1.TimeRange
-	0,  // 8: natslens.v1.GetStreamResponse.stream:type_name -> natslens.v1.StreamSummary
-	12, // 9: natslens.v1.GetStreamResponse.config:type_name -> natslens.v1.ConfigValue
-	1,  // 10: natslens.v1.GetStreamResponse.servers:type_name -> natslens.v1.StreamServerView
-	13, // 11: natslens.v1.GetStreamResponse.disagreements:type_name -> natslens.v1.Disagreement
-	14, // 12: natslens.v1.GetStreamResponse.consumers:type_name -> natslens.v1.ConsumerSummary
-	15, // 13: natslens.v1.GetStreamResponse.findings:type_name -> natslens.v1.Finding
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	10, // 3: natslens.v1.StreamSummary.placement:type_name -> natslens.v1.ReplicaPlacement
+	11, // 4: natslens.v1.StreamServerView.created:type_name -> google.protobuf.Timestamp
+	12, // 5: natslens.v1.ListStreamsRequest.range:type_name -> natslens.v1.TimeRange
+	0,  // 6: natslens.v1.ListStreamsResponse.streams:type_name -> natslens.v1.StreamSummary
+	2,  // 7: natslens.v1.ListStreamsResponse.totals:type_name -> natslens.v1.StreamTotals
+	12, // 8: natslens.v1.GetStreamRequest.range:type_name -> natslens.v1.TimeRange
+	0,  // 9: natslens.v1.GetStreamResponse.stream:type_name -> natslens.v1.StreamSummary
+	13, // 10: natslens.v1.GetStreamResponse.config:type_name -> natslens.v1.ConfigValue
+	1,  // 11: natslens.v1.GetStreamResponse.servers:type_name -> natslens.v1.StreamServerView
+	14, // 12: natslens.v1.GetStreamResponse.disagreements:type_name -> natslens.v1.Disagreement
+	15, // 13: natslens.v1.GetStreamResponse.consumers:type_name -> natslens.v1.ConsumerSummary
+	16, // 14: natslens.v1.GetStreamResponse.findings:type_name -> natslens.v1.Finding
+	15, // [15:15] is the sub-list for method output_type
+	15, // [15:15] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_streams_proto_init() }

@@ -22,6 +22,55 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Order of a consumer list.
+type ConsumerSort int32
+
+const (
+	// Worst status first, then by stream and name.
+	ConsumerSort_CONSUMER_SORT_UNSPECIFIED ConsumerSort = 0
+	// Highest delivered_per_second first; consumers without a rate last.
+	ConsumerSort_CONSUMER_SORT_DELIVERED_RATE ConsumerSort = 1
+)
+
+// Enum value maps for ConsumerSort.
+var (
+	ConsumerSort_name = map[int32]string{
+		0: "CONSUMER_SORT_UNSPECIFIED",
+		1: "CONSUMER_SORT_DELIVERED_RATE",
+	}
+	ConsumerSort_value = map[string]int32{
+		"CONSUMER_SORT_UNSPECIFIED":    0,
+		"CONSUMER_SORT_DELIVERED_RATE": 1,
+	}
+)
+
+func (x ConsumerSort) Enum() *ConsumerSort {
+	p := new(ConsumerSort)
+	*p = x
+	return p
+}
+
+func (x ConsumerSort) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ConsumerSort) Descriptor() protoreflect.EnumDescriptor {
+	return file_natslens_v1_consumers_proto_enumTypes[0].Descriptor()
+}
+
+func (ConsumerSort) Type() protoreflect.EnumType {
+	return &file_natslens_v1_consumers_proto_enumTypes[0]
+}
+
+func (x ConsumerSort) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ConsumerSort.Descriptor instead.
+func (ConsumerSort) EnumDescriptor() ([]byte, []int) {
+	return file_natslens_v1_consumers_proto_rawDescGZIP(), []int{0}
+}
+
 // One consumer as of the newest epoch of the range.
 type ConsumerSummary struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -60,9 +109,13 @@ type ConsumerSummary struct {
 	ServersDisagree bool `protobuf:"varint,13,opt,name=servers_disagree,json=serversDisagree,proto3" json:"servers_disagree,omitempty"`
 	// Whether the consumer exists now; false for an expected consumer that is
 	// missing, or one deleted inside the range.
-	Present       bool `protobuf:"varint,14,opt,name=present,proto3" json:"present,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Present bool `protobuf:"varint,14,opt,name=present,proto3" json:"present,omitempty"`
+	// Messages delivered per second over the 15 minutes before the range's
+	// end, from the increase of the leader's delivered consumer sequence;
+	// unset without two leader reports in that span.
+	DeliveredPerSecond *float64 `protobuf:"fixed64,15,opt,name=delivered_per_second,json=deliveredPerSecond,proto3,oneof" json:"delivered_per_second,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *ConsumerSummary) Reset() {
@@ -191,6 +244,13 @@ func (x *ConsumerSummary) GetPresent() bool {
 		return x.Present
 	}
 	return false
+}
+
+func (x *ConsumerSummary) GetDeliveredPerSecond() float64 {
+	if x != nil && x.DeliveredPerSecond != nil {
+		return *x.DeliveredPerSecond
+	}
+	return 0
 }
 
 // One server's view of a consumer.
@@ -327,7 +387,11 @@ type ListConsumersRequest struct {
 	// Whether to include ephemeral and ordered consumers.
 	IncludeEphemeral bool `protobuf:"varint,4,opt,name=include_ephemeral,json=includeEphemeral,proto3" json:"include_ephemeral,omitempty"`
 	// System ID, as ListSystems returns it. Empty means the default system.
-	System        string `protobuf:"bytes,5,opt,name=system,proto3" json:"system,omitempty"`
+	System string `protobuf:"bytes,5,opt,name=system,proto3" json:"system,omitempty"`
+	// Order of the consumers.
+	Sort ConsumerSort `protobuf:"varint,6,opt,name=sort,proto3,enum=natslens.v1.ConsumerSort" json:"sort,omitempty"`
+	// Largest number of consumers to return, after sorting. Zero means all.
+	Limit         int32 `protobuf:"varint,7,opt,name=limit,proto3" json:"limit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -397,7 +461,21 @@ func (x *ListConsumersRequest) GetSystem() string {
 	return ""
 }
 
-// Consumers, worst status first, then by stream and name.
+func (x *ListConsumersRequest) GetSort() ConsumerSort {
+	if x != nil {
+		return x.Sort
+	}
+	return ConsumerSort_CONSUMER_SORT_UNSPECIFIED
+}
+
+func (x *ListConsumersRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+// Consumers in the requested order.
 type ListConsumersResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The consumers.
@@ -612,7 +690,7 @@ var File_natslens_v1_consumers_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_consumers_proto_rawDesc = "" +
 	"\n" +
-	"\x1bnatslens/v1/consumers.proto\x12\vnatslens.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\x1a\x1anatslens/v1/findings.proto\"\x82\x05\n" +
+	"\x1bnatslens/v1/consumers.proto\x12\vnatslens.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\x1a\x1anatslens/v1/findings.proto\"\xd2\x05\n" +
 	"\x0fConsumerSummary\x12.\n" +
 	"\x06entity\x18\x01 \x01(\v2\x16.natslens.v1.EntityRefR\x06entity\x12\x18\n" +
 	"\adurable\x18\x02 \x01(\bR\adurable\x12\x1f\n" +
@@ -630,12 +708,14 @@ const file_natslens_v1_consumers_proto_rawDesc = "" +
 	"\x06status\x18\v \x01(\x0e2\x13.natslens.v1.StatusR\x06status\x12#\n" +
 	"\rfinding_codes\x18\f \x03(\tR\ffindingCodes\x12)\n" +
 	"\x10servers_disagree\x18\r \x01(\bR\x0fserversDisagree\x12\x18\n" +
-	"\apresent\x18\x0e \x01(\bR\apresentB\v\n" +
+	"\apresent\x18\x0e \x01(\bR\apresent\x125\n" +
+	"\x14delivered_per_second\x18\x0f \x01(\x01H\x05R\x12deliveredPerSecond\x88\x01\x01B\v\n" +
 	"\t_replicasB\x0e\n" +
 	"\f_num_pendingB\x12\n" +
 	"\x10_num_ack_pendingB\x12\n" +
 	"\x10_num_redeliveredB\x0e\n" +
-	"\f_num_waiting\"\x92\x03\n" +
+	"\f_num_waitingB\x17\n" +
+	"\x15_delivered_per_second\"\x92\x03\n" +
 	"\x12ConsumerServerView\x12\x16\n" +
 	"\x06server\x18\x01 \x01(\tR\x06server\x12\x1b\n" +
 	"\tis_leader\x18\x02 \x01(\bR\bisLeader\x12\x18\n" +
@@ -649,13 +729,15 @@ const file_natslens_v1_consumers_proto_rawDesc = "" +
 	"configHashB\x06\n" +
 	"\x04_lagB\x17\n" +
 	"\x15_delivered_stream_seqB\x17\n" +
-	"\x15_ack_floor_stream_seq\"\xbb\x01\n" +
+	"\x15_ack_floor_stream_seq\"\x80\x02\n" +
 	"\x14ListConsumersRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x18\n" +
 	"\aaccount\x18\x02 \x01(\tR\aaccount\x12\x16\n" +
 	"\x06stream\x18\x03 \x01(\tR\x06stream\x12+\n" +
 	"\x11include_ephemeral\x18\x04 \x01(\bR\x10includeEphemeral\x12\x16\n" +
-	"\x06system\x18\x05 \x01(\tR\x06system\"S\n" +
+	"\x06system\x18\x05 \x01(\tR\x06system\x12-\n" +
+	"\x04sort\x18\x06 \x01(\x0e2\x19.natslens.v1.ConsumerSortR\x04sort\x12\x14\n" +
+	"\x05limit\x18\a \x01(\x05R\x05limit\"S\n" +
 	"\x15ListConsumersResponse\x12:\n" +
 	"\tconsumers\x18\x01 \x03(\v2\x1c.natslens.v1.ConsumerSummaryR\tconsumers\"\xa8\x01\n" +
 	"\x12GetConsumerRequest\x12\x18\n" +
@@ -669,7 +751,10 @@ const file_natslens_v1_consumers_proto_rawDesc = "" +
 	"\x06config\x18\x02 \x03(\v2\x18.natslens.v1.ConfigValueR\x06config\x129\n" +
 	"\aservers\x18\x03 \x03(\v2\x1f.natslens.v1.ConsumerServerViewR\aservers\x12?\n" +
 	"\rdisagreements\x18\x04 \x03(\v2\x19.natslens.v1.DisagreementR\rdisagreements\x120\n" +
-	"\bfindings\x18\x05 \x03(\v2\x14.natslens.v1.FindingR\bfindingsBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
+	"\bfindings\x18\x05 \x03(\v2\x14.natslens.v1.FindingR\bfindings*O\n" +
+	"\fConsumerSort\x12\x1d\n" +
+	"\x19CONSUMER_SORT_UNSPECIFIED\x10\x00\x12 \n" +
+	"\x1cCONSUMER_SORT_DELIVERED_RATE\x10\x01BBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
 
 var (
 	file_natslens_v1_consumers_proto_rawDescOnce sync.Once
@@ -683,40 +768,43 @@ func file_natslens_v1_consumers_proto_rawDescGZIP() []byte {
 	return file_natslens_v1_consumers_proto_rawDescData
 }
 
+var file_natslens_v1_consumers_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_natslens_v1_consumers_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_natslens_v1_consumers_proto_goTypes = []any{
-	(*ConsumerSummary)(nil),       // 0: natslens.v1.ConsumerSummary
-	(*ConsumerServerView)(nil),    // 1: natslens.v1.ConsumerServerView
-	(*ListConsumersRequest)(nil),  // 2: natslens.v1.ListConsumersRequest
-	(*ListConsumersResponse)(nil), // 3: natslens.v1.ListConsumersResponse
-	(*GetConsumerRequest)(nil),    // 4: natslens.v1.GetConsumerRequest
-	(*GetConsumerResponse)(nil),   // 5: natslens.v1.GetConsumerResponse
-	(*EntityRef)(nil),             // 6: natslens.v1.EntityRef
-	(*timestamppb.Timestamp)(nil), // 7: google.protobuf.Timestamp
-	(Status)(0),                   // 8: natslens.v1.Status
-	(*TimeRange)(nil),             // 9: natslens.v1.TimeRange
-	(*ConfigValue)(nil),           // 10: natslens.v1.ConfigValue
-	(*Disagreement)(nil),          // 11: natslens.v1.Disagreement
-	(*Finding)(nil),               // 12: natslens.v1.Finding
+	(ConsumerSort)(0),             // 0: natslens.v1.ConsumerSort
+	(*ConsumerSummary)(nil),       // 1: natslens.v1.ConsumerSummary
+	(*ConsumerServerView)(nil),    // 2: natslens.v1.ConsumerServerView
+	(*ListConsumersRequest)(nil),  // 3: natslens.v1.ListConsumersRequest
+	(*ListConsumersResponse)(nil), // 4: natslens.v1.ListConsumersResponse
+	(*GetConsumerRequest)(nil),    // 5: natslens.v1.GetConsumerRequest
+	(*GetConsumerResponse)(nil),   // 6: natslens.v1.GetConsumerResponse
+	(*EntityRef)(nil),             // 7: natslens.v1.EntityRef
+	(*timestamppb.Timestamp)(nil), // 8: google.protobuf.Timestamp
+	(Status)(0),                   // 9: natslens.v1.Status
+	(*TimeRange)(nil),             // 10: natslens.v1.TimeRange
+	(*ConfigValue)(nil),           // 11: natslens.v1.ConfigValue
+	(*Disagreement)(nil),          // 12: natslens.v1.Disagreement
+	(*Finding)(nil),               // 13: natslens.v1.Finding
 }
 var file_natslens_v1_consumers_proto_depIdxs = []int32{
-	6,  // 0: natslens.v1.ConsumerSummary.entity:type_name -> natslens.v1.EntityRef
-	7,  // 1: natslens.v1.ConsumerSummary.last_delivered:type_name -> google.protobuf.Timestamp
-	8,  // 2: natslens.v1.ConsumerSummary.status:type_name -> natslens.v1.Status
-	7,  // 3: natslens.v1.ConsumerServerView.created:type_name -> google.protobuf.Timestamp
-	9,  // 4: natslens.v1.ListConsumersRequest.range:type_name -> natslens.v1.TimeRange
-	0,  // 5: natslens.v1.ListConsumersResponse.consumers:type_name -> natslens.v1.ConsumerSummary
-	9,  // 6: natslens.v1.GetConsumerRequest.range:type_name -> natslens.v1.TimeRange
-	0,  // 7: natslens.v1.GetConsumerResponse.consumer:type_name -> natslens.v1.ConsumerSummary
-	10, // 8: natslens.v1.GetConsumerResponse.config:type_name -> natslens.v1.ConfigValue
-	1,  // 9: natslens.v1.GetConsumerResponse.servers:type_name -> natslens.v1.ConsumerServerView
-	11, // 10: natslens.v1.GetConsumerResponse.disagreements:type_name -> natslens.v1.Disagreement
-	12, // 11: natslens.v1.GetConsumerResponse.findings:type_name -> natslens.v1.Finding
-	12, // [12:12] is the sub-list for method output_type
-	12, // [12:12] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	7,  // 0: natslens.v1.ConsumerSummary.entity:type_name -> natslens.v1.EntityRef
+	8,  // 1: natslens.v1.ConsumerSummary.last_delivered:type_name -> google.protobuf.Timestamp
+	9,  // 2: natslens.v1.ConsumerSummary.status:type_name -> natslens.v1.Status
+	8,  // 3: natslens.v1.ConsumerServerView.created:type_name -> google.protobuf.Timestamp
+	10, // 4: natslens.v1.ListConsumersRequest.range:type_name -> natslens.v1.TimeRange
+	0,  // 5: natslens.v1.ListConsumersRequest.sort:type_name -> natslens.v1.ConsumerSort
+	1,  // 6: natslens.v1.ListConsumersResponse.consumers:type_name -> natslens.v1.ConsumerSummary
+	10, // 7: natslens.v1.GetConsumerRequest.range:type_name -> natslens.v1.TimeRange
+	1,  // 8: natslens.v1.GetConsumerResponse.consumer:type_name -> natslens.v1.ConsumerSummary
+	11, // 9: natslens.v1.GetConsumerResponse.config:type_name -> natslens.v1.ConfigValue
+	2,  // 10: natslens.v1.GetConsumerResponse.servers:type_name -> natslens.v1.ConsumerServerView
+	12, // 11: natslens.v1.GetConsumerResponse.disagreements:type_name -> natslens.v1.Disagreement
+	13, // 12: natslens.v1.GetConsumerResponse.findings:type_name -> natslens.v1.Finding
+	13, // [13:13] is the sub-list for method output_type
+	13, // [13:13] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_consumers_proto_init() }
@@ -733,13 +821,14 @@ func file_natslens_v1_consumers_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_consumers_proto_rawDesc), len(file_natslens_v1_consumers_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_natslens_v1_consumers_proto_goTypes,
 		DependencyIndexes: file_natslens_v1_consumers_proto_depIdxs,
+		EnumInfos:         file_natslens_v1_consumers_proto_enumTypes,
 		MessageInfos:      file_natslens_v1_consumers_proto_msgTypes,
 	}.Build()
 	File_natslens_v1_consumers_proto = out.File
