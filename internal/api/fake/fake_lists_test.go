@@ -101,7 +101,7 @@ func TestStreamsAndConsumers(t *testing.T) {
 	if muted.GetStatus() != v1.Status_STATUS_MUTED || muted.GetFindingCodes()[0] != "stream-031 muted" {
 		t.Fatalf("audit-archive = %v", muted)
 	}
-	if n := len(must(c.ListStreams(ctx, connect.NewRequest(&v1.ListStreamsRequest{IncludeKv: true}))).GetStreams()); n != 9 {
+	if n := len(must(c.ListStreams(ctx, connect.NewRequest(&v1.ListStreamsRequest{IncludeKv: true}))).GetStreams()); n != 13 {
 		t.Fatalf("with kv: %d", n)
 	}
 	gs := must(c.GetStream(ctx, connect.NewRequest(&v1.GetStreamRequest{Account: "APP", Stream: "order-archive"})))
