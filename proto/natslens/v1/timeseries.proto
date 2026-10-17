@@ -42,12 +42,12 @@ message Point {
 
   // Lowest value across servers, for a band metric; unset otherwise.
   //
-  // Each epoch's lowest server value, averaged over the bucket.
+  // The lowest server value of any epoch in the bucket.
   optional double low = 3;
 
   // Highest value across servers, for a band metric; unset otherwise.
   //
-  // Each epoch's highest server value, averaged over the bucket.
+  // The highest server value of any epoch in the bucket.
   optional double high = 4;
 }
 
@@ -72,9 +72,13 @@ message Series {
   repeated Point points = 5;
 
   // Smallest value of the points; unset when there are no points.
+  //
+  // For a band metric, the smallest low of the points.
   optional double min = 6;
 
   // Largest value of the points; unset when there are no points.
+  //
+  // For a band metric, the largest high of the points.
   optional double max = 7;
 
   // Busiest server of a band metric: the highest mean over the range.
@@ -82,6 +86,8 @@ message Series {
   EntityRef top = 8;
 
   // Values of the busiest server, in the same buckets as points.
+  //
+  // Each is the server's mean over the bucket, so it lies inside the band.
   repeated Point top_points = 9;
 }
 
