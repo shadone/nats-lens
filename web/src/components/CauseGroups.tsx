@@ -23,22 +23,44 @@ const PLURAL: Record<Entity["kind"], [string, string]> = {
   unknown: ["entity", "entities"],
 };
 
-/** "4 consumers on stream order-jobs", "2 streams in account APP", "3 servers". */
+/** The noun for n entities of one kind, else "entities". */
+function nounOf(fs: Finding[]): string {
+  const kinds = new Set(fs.map((f) => f.entity?.kind ?? "system"));
+  const n = fs.length;
+  return kinds.size === 1 ? PLURAL[[...kinds][0]][n === 1 ? 0 : 1] : n === 1 ? "entity" : "entities";
+}
+
+/**
+ * "4 consumers on stream order-jobs", "2 streams in account APP",
+ * "2 consumers on 2 streams", "3 servers". A parent is named only when
+ * every entity has it.
+ */
 function whereLine(g: CauseGroup) {
-  const kinds = new Set(g.findings.map((f) => f.entity?.kind ?? "system"));
   const n = g.findings.length;
-  const noun = kinds.size === 1 ? PLURAL[[...kinds][0]][n === 1 ? 0 : 1] : n === 1 ? "entity" : "entities";
+  const noun = nounOf(g.findings);
   const first = g.findings[0].entity;
-  if (g.parent.kind === "stream" && first)
+  if (g.parent?.kind === "stream" && first)
     return (
       <>
         {n} {noun} on stream <RLink to={streamPath(first.account, first.stream)}>{g.parent.name}</RLink>
       </>
     );
-  if (g.parent.kind === "account")
+  if (g.parent?.kind === "account")
     return (
       <>
         {n} {noun} in account <span className="mono">{g.parent.name}</span>
+      </>
+    );
+  if (!g.parent && g.findings.every((f) => f.entity?.kind === "consumer"))
+    return (
+      <>
+        {n} {noun} on {g.parentCount} streams
+      </>
+    );
+  if (!g.parent && g.findings.every((f) => f.entity?.kind === "stream"))
+    return (
+      <>
+        {n} {noun} in {g.parentCount} accounts
       </>
     );
   return (
@@ -67,71 +89,86 @@ function Actions({ f, onMute, label }: { f: Finding; onMute: (f: Finding) => voi
   );
 }
 
+function CauseLine({ cause }: { cause: NonNullable<CauseGroup["cause"]> }) {
+  return (
+    <p className="cg-cause">
+      Cause: <code>{cause.kind}</code>
+      {cause.time !== undefined && <span className="mono"> {hms(cause.time)} UTC</span>} “{cause.summary}”{" "}
+      <RLink to={eventPath(cause.id)}>event</RLink>
+    </p>
+  );
+}
+
+function findingLabel(f: Finding): string {
+  return `${f.checkCode} on ${entityName(f.entity) || "system"}`;
+}
+
+/** One finding: the code row with the name, the detail, the entity and cause beside, the buttons. */
+function SingleCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void }) {
+  const f = g.findings[0];
+  const label = findingLabel(f);
+  return (
+    <article className={`card cg one ${g.severity}`} aria-label={`${f.checkName}: 1 finding`}>
+      <div className="cg-main">
+        <div className="cg-k">
+          <Sev level={g.severity} />
+          <span className="code">{f.checkCode}</span>
+          <h3>{f.checkName}</h3>
+        </div>
+        <p className="cg-d">{f.detail}</p>
+      </div>
+      <div className="cg-side">
+        <p className="cg-ent">
+          <EntityLine e={f.entity} />
+        </p>
+        {g.cause && <CauseLine cause={g.cause} />}
+      </div>
+      <span className="cg-btns">
+        <RLink to={findingPath(f.id)} className="btn p" aria-label={`Open ${label}`}>
+          Open finding
+        </RLink>
+        <button type="button" className="btn" onClick={() => onMute(f)} aria-label={`Mute ${label}`}>
+          Mute…
+        </button>
+      </span>
+    </article>
+  );
+}
+
 function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void }) {
-  const f0 = g.findings[0];
   const n = g.findings.length;
-  const codes = g.checkCodes.join(", ");
+  if (n === 1) return <SingleCard g={g} onMute={onMute} />;
   const names = [...new Set(g.findings.map((f) => f.checkName))];
   const shown = g.findings.slice(0, SHOWN);
   return (
-    <article className={`card cg ${g.severity}`} aria-label={`${names.join(", ")}: ${n} ${n === 1 ? "finding" : "findings"}`}>
+    <article className={`card cg ${g.severity}`} aria-label={`${names.join(", ")}: ${n} findings`}>
       <div className="cg-k">
         <Sev level={g.severity} />
         <span className="code">
-          {codes}
-          {n > 1 && ` × ${n}`}
+          {g.checkCodes.join(", ")} × {n}
         </span>
+        <h3>{names.join(" · ")}</h3>
         {g.cause && g.checkCodes.length > 1 && <span className="lbl">one cause</span>}
-        {n === 1 && (
-          <span className="cg-btns">
-            <RLink to={findingPath(f0.id)} className="btn p">
-              Open finding
-            </RLink>
-            <button type="button" className="btn" onClick={() => onMute(f0)}>
-              Mute…
-            </button>
-          </span>
-        )}
       </div>
-      <h3>{names.join(" · ")}</h3>
-      {n > 1 ? (
-        <p className="cg-where">{whereLine(g)}</p>
-      ) : (
-        <p className="cg-ent">
-          <EntityLine e={f0.entity} />
-        </p>
-      )}
-      {g.cause && (
-        <p className="cg-cause">
-          Cause: <code>{g.cause.kind}</code>
-          {g.cause.time !== undefined && <span className="mono"> {hms(g.cause.time)} UTC</span>} “{g.cause.summary}”{" "}
-          <RLink to={eventPath(g.cause.id)}>event</RLink>
-        </p>
-      )}
-      {n === 1 ? (
-        <p className="cg-d">{f0.detail}</p>
-      ) : (
-        <ul className="cg-list">
-          {shown.map((f) => {
-            const label = `${f.checkCode} on ${entityName(f.entity) || "system"}`;
-            return (
-              <li key={f.id}>
-                <span className="cg-n">
-                  <EntityLink e={f.entity} />
-                  {g.checkCodes.length > 1 && <small className="code"> {f.checkCode}</small>}
-                </span>
-                <span className="cg-d">{f.detail}</span>
-                <Actions f={f} onMute={onMute} label={label} />
-              </li>
-            );
-          })}
-          {n > shown.length && (
-            <li className="cg-more">
-              <RLink to={`/findings?check=${encodeURIComponent(g.checkCodes[0])}`}>{n - shown.length} more</RLink>
-            </li>
-          )}
-        </ul>
-      )}
+      <p className="cg-where">{whereLine(g)}</p>
+      {g.cause && <CauseLine cause={g.cause} />}
+      <ul className="cg-list">
+        {shown.map((f) => (
+          <li key={f.id}>
+            <span className="cg-n">
+              <EntityLink e={f.entity} />
+              {g.checkCodes.length > 1 && <small className="code"> {f.checkCode}</small>}
+            </span>
+            <span className="cg-d">{f.detail}</span>
+            <Actions f={f} onMute={onMute} label={findingLabel(f)} />
+          </li>
+        ))}
+        {n > shown.length && (
+          <li className="cg-more">
+            <RLink to={`/findings?check=${encodeURIComponent(g.checkCodes[0])}`}>{n - shown.length} more</RLink>
+          </li>
+        )}
+      </ul>
     </article>
   );
 }
