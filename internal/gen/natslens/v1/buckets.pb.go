@@ -115,7 +115,8 @@ type KeyValueStore struct {
 	// Messages stored, from the leader's view; unset when not reported.
 	Messages *int64 `protobuf:"varint,10,opt,name=messages,proto3,oneof" json:"messages,omitempty"`
 	// Consumers on the bucket's stream, which for a bucket are its watchers;
-	// unset for a bucket no server reports.
+	// unset for a bucket no server reports, and when the servers count
+	// consumers that the JSZ detail does not include.
 	Watchers *int32 `protobuf:"varint,11,opt,name=watchers,proto3,oneof" json:"watchers,omitempty"`
 	// Worst status of the findings for the bucket's stream.
 	Status Status `protobuf:"varint,12,opt,name=status,proto3,enum=natslens.v1.Status" json:"status,omitempty"`

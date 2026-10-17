@@ -58,6 +58,10 @@ func bucketsClient(t *testing.T) natslensv1connect.LensServiceClient {
 		`INSERT INTO stream_stats (epoch, server_id, account, stream, messages, bytes, num_subjects, is_leader, leader) VALUES
 			(3, 'NFAKESERVER0ID', '` + account + `', 'OBJ_image-output', 40, 5242880, 4, true, 'nats-0'),
 			(3, 'NFAKESERVER0ID', '` + account + `', 'KVX_foo', 1, 10, 1, true, 'nats-0')`,
+		// A bucket whose server counts 4 consumers, none of them in the
+		// detail: its watchers were not observed.
+		`INSERT INTO stream_stats (epoch, server_id, account, stream, messages, bytes, num_subjects, is_leader, leader, consumer_count) VALUES
+			(3, 'NFAKESERVER0ID', '` + account + `', 'KV_sessions', 2, 20, 2, true, 'nats-0', 4)`,
 		`INSERT INTO stream_config (server_id, account, stream, first_epoch, last_epoch, config_hash, description, storage,
 			replicas, max_bytes, max_age_ns, sealed) VALUES
 			('NFAKESERVER0ID', '` + account + `', 'OBJ_image-output', 1, 3, 'h1', 'resized images', 'file', 1, 1073741824,
@@ -99,7 +103,7 @@ func TestListKeyValueStores(t *testing.T) {
 	}
 	// The missing bucket's critical finding puts it first; KVX_foo is not a
 	// bucket.
-	if want := []string{"label-templates", "stock-levels"}; !slices.Equal(names, want) {
+	if want := []string{"label-templates", "sessions", "stock-levels"}; !slices.Equal(names, want) {
 		t.Fatalf("buckets = %v, want %v", names, want)
 	}
 
@@ -121,6 +125,10 @@ func TestListKeyValueStores(t *testing.T) {
 		"nats-0:PLACEMENT_STATE_LEADER", "nats-1:PLACEMENT_STATE_IN_SYNC", "nats-2:PLACEMENT_STATE_MISSING",
 	}; !slices.Equal(got, want) {
 		t.Errorf("placement = %v, want %v", got, want)
+	}
+
+	if w := byName["sessions"].Watchers; w != nil {
+		t.Errorf("sessions watchers = %d, want unset", *w)
 	}
 
 	missing := byName["label-templates"]
@@ -162,8 +170,8 @@ func TestListObjectStores(t *testing.T) {
 
 func TestBucketsAccountScope(t *testing.T) {
 	c := bucketsClient(t)
-	if n := len(must(c.ListKeyValueStores(ctx, connect.NewRequest(&v1.ListKeyValueStoresRequest{Range: hour(), Account: account}))).GetKeyValueStores()); n != 2 {
-		t.Errorf("kv in %s: %d, want 2", account, n)
+	if n := len(must(c.ListKeyValueStores(ctx, connect.NewRequest(&v1.ListKeyValueStoresRequest{Range: hour(), Account: account}))).GetKeyValueStores()); n != 3 {
+		t.Errorf("kv in %s: %d, want 3", account, n)
 	}
 	if kvs := must(c.ListKeyValueStores(ctx, connect.NewRequest(&v1.ListKeyValueStoresRequest{Range: hour(), Account: "OTHER"}))).GetKeyValueStores(); len(kvs) != 0 {
 		t.Errorf("kv in OTHER: %v", kvs)

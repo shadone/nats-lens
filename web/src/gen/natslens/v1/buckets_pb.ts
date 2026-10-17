@@ -134,7 +134,8 @@ export type KeyValueStore = Message<"natslens.v1.KeyValueStore"> & {
 
   /**
    * Consumers on the bucket's stream, which for a bucket are its watchers;
-   * unset for a bucket no server reports.
+   * unset for a bucket no server reports, and when the servers count
+   * consumers that the JSZ detail does not include.
    *
    * @generated from field: optional int32 watchers = 11;
    */

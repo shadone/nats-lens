@@ -57,7 +57,8 @@ message KeyValueStore {
   optional int64 messages = 10;
 
   // Consumers on the bucket's stream, which for a bucket are its watchers;
-  // unset for a bucket no server reports.
+  // unset for a bucket no server reports, and when the servers count
+  // consumers that the JSZ detail does not include.
   optional int32 watchers = 11;
 
   // Worst status of the findings for the bucket's stream.

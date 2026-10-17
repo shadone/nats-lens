@@ -29,7 +29,8 @@ type bucketRow struct {
 	present, expected    bool
 	messages, bytes      sql.NullInt64
 	subjects             sql.NullInt64
-	consumers            sql.NullInt32
+	consumers            sql.NullInt32 // from the consumer detail; null without any
+	reported             sql.NullInt64 // the servers' own consumer count
 	description, storage sql.NullString
 	compression, mirror  sql.NullString
 	replicas             sql.NullInt32
@@ -59,9 +60,7 @@ func (p *Provider) ListKeyValueStores(ctx context.Context, req *v1.ListKeyValueS
 			Storage: b.storage.String, Compression: b.compression.String, Mirror: b.mirror.String,
 			AllowMsgTtl: b.allowMsgTTL.Bool, Description: b.description.String,
 		}
-		if b.present {
-			kv.Watchers = ptr(b.consumers.Int32)
-		}
+		kv.Watchers = watchers(b)
 		if b.hasConfig {
 			kv.Replicas, kv.MaxBytes, kv.Ttl = nullI32(b.replicas), nullI64(b.maxBytes), ttlOf(b.maxAgeNs)
 			if b.history.Valid {
@@ -176,7 +175,8 @@ WITH now_ AS (
   SELECT account, stream,
     coalesce(max(messages) FILTER (WHERE is_leader), max(messages)) AS messages,
     coalesce(max(bytes) FILTER (WHERE is_leader), max(bytes)) AS bytes,
-    coalesce(max(num_subjects) FILTER (WHERE is_leader), max(num_subjects)) AS subjects
+    coalesce(max(num_subjects) FILTER (WHERE is_leader), max(num_subjects)) AS subjects,
+    coalesce(max(consumer_count) FILTER (WHERE is_leader), max(consumer_count)) AS reported
   FROM stream_stats WHERE epoch = ? AND (? = '' OR account = ?) AND starts_with(stream, ?) AND length(stream) > length(?)
   GROUP BY ALL),
 cfg AS (
@@ -189,7 +189,7 @@ cfg AS (
 cons AS (
   SELECT account, stream, count(DISTINCT consumer)::INTEGER AS n
   FROM consumer_stats WHERE epoch = ? AND starts_with(stream, ?) GROUP BY ALL)
-SELECT n.account, n.stream, n.messages, n.bytes, n.subjects, coalesce(k.n, 0), c.stream IS NOT NULL,
+SELECT n.account, n.stream, n.messages, n.bytes, n.subjects, k.n, n.reported, c.stream IS NOT NULL,
   c.description, c.storage, c.compression, c.mirror, c.replicas, c.max_bytes, c.max_age_ns, c.max_msgs_per_subject,
   c.sealed, c.allow_msg_ttl
 FROM now_ n LEFT JOIN cfg c USING (account, stream) LEFT JOIN cons k USING (account, stream)
@@ -203,7 +203,7 @@ ORDER BY n.account, n.stream`,
 	for rows.Next() {
 		b := &bucketRow{present: true}
 		var acc, stream string
-		if err := rows.Scan(&acc, &stream, &b.messages, &b.bytes, &b.subjects, &b.consumers, &b.hasConfig,
+		if err := rows.Scan(&acc, &stream, &b.messages, &b.bytes, &b.subjects, &b.consumers, &b.reported, &b.hasConfig,
 			&b.description, &b.storage, &b.compression, &b.mirror, &b.replicas, &b.maxBytes, &b.maxAgeNs, &b.history,
 			&b.sealed, &b.allowMsgTTL); err != nil {
 			return nil, err
@@ -353,6 +353,21 @@ FROM inventory i WHERE i.kind = ? ORDER BY acct, i.stream`, kind)
 		out = append(out, b)
 	}
 	return out, rows.Err()
+}
+
+// watchers counts the consumers in the JSZ detail of a present bucket's
+// stream. Without any in the detail a reported zero is zero and any other
+// count is unset, as the detail of those consumers was not collected.
+func watchers(b *bucketRow) *int32 {
+	switch {
+	case !b.present:
+		return nil
+	case b.consumers.Valid:
+		return ptr(b.consumers.Int32)
+	case b.reported.Valid && b.reported.Int64 == 0:
+		return ptr(int32(0))
+	}
+	return nil
 }
 
 func nullI64(v sql.NullInt64) *int64 {
