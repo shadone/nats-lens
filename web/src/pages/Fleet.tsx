@@ -5,7 +5,6 @@ import { useSystemSummaries } from "../api/systems";
 import { Empty, QueryView } from "../components/common";
 import { FleetCard, StripLegend } from "../components/FleetCard";
 import { worstFirst } from "../lib/fleet";
-import { dayMonHm } from "../lib/format";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useNow, useTimeRange } from "../lib/useTimeRange";
 
@@ -18,7 +17,6 @@ export function Fleet() {
   const systems = q.data ?? [];
   const used = new Set<Level>(systems.flatMap((s) => s.strip));
   const bucketMs = systems.find((s) => s.stripBucketMs)?.stripBucketMs;
-  const startLabel = live ? `${spec.preset} ago` : dayMonHm(spec.from);
   return (
     <>
       <div className="page-h">
@@ -37,9 +35,9 @@ export function Fleet() {
           d.length === 0 ? (
             <Empty>No systems.</Empty>
           ) : (
-            <ul className="fleet-grid" aria-label="Systems">
+            <ul className="fleet-grid" aria-label="Systems" aria-busy={q.isPlaceholderData || undefined}>
               {worstFirst(d).map((s) => (
-                <FleetCard key={s.id} s={s} live={live} startLabel={startLabel} now={now} />
+                <FleetCard key={s.id} s={s} live={live} now={now} />
               ))}
             </ul>
           )

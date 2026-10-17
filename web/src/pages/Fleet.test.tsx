@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { lens } from "../api/client";
 import { EntityType, Status } from "../gen/natslens/v1/common_pb";
 import { CollectionState, ListSystemsResponseSchema, type SystemSummarySchema } from "../gen/natslens/v1/systems_pb";
+import { useNavigate } from "react-router";
 import { renderApp } from "../test/render";
 import { Fleet } from "./Fleet";
 
@@ -54,6 +55,12 @@ const FIVE: Init[] = [
   summary("shop-eu", "production", { status: Status.WARNING, worstFinding: worst("Server not reporting", "nats-eu-4"), servers: 24, serversAnswering: 23 }),
   summary("shop-prod", "production", { status: Status.CRITICAL, worstFinding: worst("Expected durable missing", "resize-worker"), tally: { critical: 1, warning: 2 } }),
 ];
+
+let go: ReturnType<typeof useNavigate> = () => {};
+function Go() {
+  go = useNavigate();
+  return null;
+}
 
 function cards() {
   return within(screen.getByRole("list", { name: "Systems" })).getAllByRole("listitem");
@@ -171,5 +178,80 @@ describe("Fleet", () => {
     renderApp(<Fleet />, "/fleet");
     await screen.findByText("shop-prod");
     expect(screen.getByText("5 systems, worst first")).toBeInTheDocument();
+  });
+
+  it("marks the counts of a system that is not collecting as from its last data, not live", async () => {
+    respond([
+      summary("shop-staging", "staging", {
+        collection: CollectionState.CONNECTION_CLOSED,
+        collectionError: "nats: authorization violation",
+        freshness: { epoch: 4n, epochAt: timestampFromMs(NOW - 3 * 3_600_000), live: true, interval: durationFromMs(30_000) },
+        servers: 3,
+        serversAnswering: 2,
+      }),
+    ]);
+    renderApp(<Fleet />, "/fleet");
+    await screen.findByText("shop-staging");
+    const c = cardOf("shop-staging");
+    expect(c).toHaveTextContent("At last data, 3h ago");
+    expect(c.querySelector(".fc-counts")).toHaveClass("stale");
+    expect(c.querySelector(".fc-n.bad")).toBeNull();
+    expect(within(c).getByRole("link")).toHaveAccessibleDescription(/at last data, 3h ago/i);
+    // The caption already says when; the freshness is not said twice.
+    expect(within(c).getByRole("link").getAttribute("aria-describedby")!.split(" ")).toHaveLength(2);
+  });
+
+  it("names a card's link by the system and its state, and describes it by the headline and freshness", async () => {
+    renderApp(<Fleet />, "/fleet");
+    await screen.findByText("shop-prod");
+    const link = within(cardOf("shop-prod")).getByRole("link");
+    expect(link).toHaveAccessibleName("shop-prod critical");
+    expect(link).toHaveAccessibleDescription(/^Expected durable missing: resize-worker \+2 more.*live · \ds$/);
+  });
+
+  it("shows servers answering of an unknown total as a dash", async () => {
+    respond([summary("shop-eu", "production", { servers: undefined, serversAnswering: 23 })]);
+    renderApp(<Fleet />, "/fleet");
+    await screen.findByText("shop-eu");
+    expect(within(cardOf("shop-eu")).getByText("servers").parentElement).toHaveTextContent(/^23 of –/);
+  });
+
+  it("dates the strip's cells when it spans more than a day", async () => {
+    const week = 7 * 24 * 3_600_000;
+    respond([summary("shop-prod", "production", { strip: Array(48).fill(Status.OK).map((s, i) => (i === 0 ? Status.CRITICAL : s)), stripStart: timestampFromMs(Date.parse("2026-10-10T12:00:00Z")), stripBucket: durationFromMs(week / 48) })]);
+    renderApp(<Fleet />, "/fleet?range=7d");
+    await screen.findByText("shop-prod");
+    const strip = within(cardOf("shop-prod")).getByRole("img", { name: /^Status per/ });
+    expect(strip).toHaveAccessibleName(/critical 10 Oct 12:00–10 Oct 15:30/);
+    expect(strip.querySelector("rect title")?.textContent).toBe("10 Oct 12:00 critical");
+    expect(cardOf("shop-prod").querySelector(".fc-foot")).toHaveTextContent(/^7d ago/);
+  });
+
+  it("outlines a no-data cell in a dashed muted stroke, in the strip and the legend alike", async () => {
+    respond([summary("shop-prod", "production", { strip: [Status.OK, Status.NO_DATA] })]);
+    renderApp(<Fleet />, "/fleet");
+    await screen.findByText("shop-prod");
+    const cell = cardOf("shop-prod").querySelector('rect[data-level="nodata"]')!;
+    expect(cell.getAttribute("style")).toContain("stroke: var(--text-muted)");
+    expect(cell.getAttribute("style")).toContain("stroke-dasharray");
+    const item = within(screen.getByRole("list", { name: "Strip legend" })).getByText("no data").closest("li")!;
+    expect(item.querySelector("rect")!.getAttribute("style")).toBe(cell.getAttribute("style"));
+  });
+
+  it("keeps the old strip's own start label while a new range loads, and says the cards are busy", async () => {
+    renderApp(
+      <>
+        <Fleet />
+        <Go />
+      </>,
+      "/fleet",
+    );
+    await screen.findByText("shop-prod");
+    expect(screen.getByRole("list", { name: "Systems" })).not.toHaveAttribute("aria-busy", "true");
+    l.listSystems.mockImplementation(() => new Promise(() => {}) as never);
+    act(() => go("/fleet?range=7d"));
+    await vi.waitFor(() => expect(screen.getByRole("list", { name: "Systems" })).toHaveAttribute("aria-busy", "true"));
+    // The strip still shows the 24h data, so its label is the data's, not the new range's.
+    expect(cardOf("shop-prod").querySelector(".fc-foot")).toHaveTextContent(/^2h ago/);
   });
 });

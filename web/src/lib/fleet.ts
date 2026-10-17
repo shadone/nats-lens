@@ -3,6 +3,7 @@
 import type { Level, SystemSummary } from "../api/model";
 import type { Badge } from "../components/Sidebar";
 import { dayMonHm, fmtDuration, hm } from "./format";
+import { PRESETS } from "./timeRange";
 import { entityName } from "./view";
 
 /** A card's state: the status, unless the system is not collecting or its summary failed. */
@@ -85,7 +86,36 @@ export function freshnessText(s: SystemSummary, live: boolean, now: number): str
   if (!live) return `newest ${dayMonHm(f.epochAt)}`;
   const age = Math.max(0, now - f.epochAt);
   if (f.live && !notCollecting(s) && age <= 3 * f.intervalMs) return `live · ${fmtDuration(age)}`;
-  return `last data ${fmtDuration(age)} ago`;
+  return `last data ${lastDataWhen(f.epochAt, live, now)}`;
+}
+
+/** When the newest epoch started: "3h ago" in a live range, its time in a fixed one. */
+function lastDataWhen(epochAt: number, live: boolean, now: number): string {
+  return live ? `${fmtDuration(Math.max(0, now - epochAt))} ago` : dayMonHm(epochAt);
+}
+
+/**
+ * The caption over the counts of a system that is not collecting, whose
+ * numbers are those of its newest epoch: "At last data, 3h ago". Undefined
+ * while the system collects or has no epoch.
+ */
+export function staleCaption(s: SystemSummary, live: boolean, now: number): string | undefined {
+  const at = s.freshness?.epochAt;
+  if (cardState(s) !== "notcollecting" || at === undefined) return undefined;
+  return `At last data, ${lastDataWhen(at, live, now)}`;
+}
+
+/**
+ * The strip's left end, from the data itself, so a strip of the previous
+ * range keeps its own label while the next range loads: "24h ago" for a
+ * live strip, its start time for a fixed one.
+ */
+export function stripStartLabel(s: SystemSummary, live: boolean): string {
+  if (s.stripStart === undefined) return "";
+  if (!live) return dayMonHm(s.stripStart);
+  const span = s.strip.length * (s.stripBucketMs ?? 0);
+  const preset = PRESETS.find((p) => p.ms === span);
+  return `${preset ? preset.id : fmtDuration(span)} ago`;
 }
 
 const BADGE_LEVEL: Partial<Record<CardState, Level>> = { critical: "critical", warning: "warning", info: "info" };
