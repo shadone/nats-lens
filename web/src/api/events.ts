@@ -141,9 +141,9 @@ export async function countEventsSince(sys: string, start: number, f: FeedFilter
 }
 
 /** Events worth reading from start to end, repeats folded. */
-export async function listEventsBetween(sys: string, start: number, end: number, signal?: AbortSignal): Promise<{ items: FeedEvent[]; totalCount: number }> {
+export async function listEventsBetween(sys: string, start: number, end: number, entity?: Entity, signal?: AbortSignal): Promise<{ items: FeedEvent[]; totalCount: number }> {
   const r = await lens.listEvents(
-    { ...systemInit(sys), range: { start: timestampFromMs(start), end: timestampFromMs(end) }, hideRoutine: true, foldRepeats: true, pageSize: 20 },
+    { ...systemInit(sys), range: { start: timestampFromMs(start), end: timestampFromMs(end) }, entity: entityInit(entity), hideRoutine: true, foldRepeats: true, pageSize: AROUND_ROWS },
     { signal },
   );
   return { items: r.events.map(feedEvent), totalCount: r.totalCount };
@@ -194,11 +194,15 @@ export function useNewEvents(spec: RangeSpec, f: FeedFilter, shown: EventFeed | 
 /** The ten minutes either side of t: what happened around a finding's start. */
 export const AROUND_MS = 10 * 60_000;
 
-export function useEventsAround(t: number | undefined) {
+/** Rows "Around the start" shows at most. */
+export const AROUND_ROWS = 20;
+
+/** Events around t, for the whole system or, given one, for an entity. */
+export function useEventsAround(t: number | undefined, entity?: Entity) {
   const sys = useSystem();
   return useQuery({
-    queryKey: ["eventsAround", sys, t],
-    queryFn: ({ signal }) => listEventsBetween(sys, t! - AROUND_MS, t! + AROUND_MS, signal),
+    queryKey: ["eventsAround", sys, t, entity ? `${entity.kind}:${entity.key}` : ""],
+    queryFn: ({ signal }) => listEventsBetween(sys, t! - AROUND_MS, t! + AROUND_MS, entity, signal),
     enabled: t !== undefined,
     // Loaded once: only the finding and its timeline follow a live range.
     staleTime: Infinity,

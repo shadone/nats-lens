@@ -16,7 +16,7 @@ import { MuteDialog, UnmuteDialog } from "../components/MuteDialog";
 import { Sev, StateTag } from "../components/Severity";
 import { StatusTimeline } from "../components/StatusTimeline";
 import { fmtDuration, isoMinute, isoSecond } from "../lib/format";
-import type { RangeSpec } from "../lib/timeRange";
+import { writeRange, type RangeSpec } from "../lib/timeRange";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
 import { entityName, entityPath, eventPath, findingTag, serverPath, streamPath } from "../lib/view";
@@ -130,15 +130,36 @@ function Head({ f, spec, start, end, onMute, onUnmute }: { f: Finding; spec: Ran
   );
 }
 
-/** What happened within 10 minutes of the condition's start, or of the first sighting. */
+/** What happened within 10 minutes of the condition's start, or of the
+ * first sighting: the whole system by default, since a cause is often
+ * elsewhere, or only the finding's entity. */
 function Around({ f, end, historyStart }: { f: Finding; end: number; historyStart?: number }) {
   const t = f.conditionSince ?? f.since;
+  const [entityOnly, setEntityOnly] = useState(false);
   const beforeHistory = t !== undefined && historyStart !== undefined && t + AROUND_MS < historyStart;
-  const q = useEventsAround(beforeHistory ? undefined : t);
+  const entity = entityOnly ? f.entity : undefined;
+  const q = useEventsAround(beforeHistory ? undefined : t, entity);
   const [open, setOpen] = useState<string | undefined>();
   if (t === undefined) return null;
+  const link = eventsWindowLink(t - AROUND_MS, t + AROUND_MS, entity);
   return (
-    <Section title="Around the start" aside={`10 minutes either side of ${isoMinute(t)} UTC.`} className="fd-around">
+    <Section
+      title="Around the start"
+      aside={beforeHistory ? undefined : `10 minutes either side of ${isoMinute(t)} UTC.`}
+      right={
+        !beforeHistory && f.entity ? (
+          <div className="grp" role="group" aria-label="Around the start scope">
+            <button type="button" className={`chip${entityOnly ? "" : " on"}`} aria-pressed={!entityOnly} onClick={() => setEntityOnly(false)}>
+              Whole system
+            </button>
+            <button type="button" className={`chip${entityOnly ? " on" : ""}`} aria-pressed={entityOnly} onClick={() => setEntityOnly(true)}>
+              This entity
+            </button>
+          </div>
+        ) : undefined
+      }
+      className="fd-around"
+    >
       {beforeHistory ? (
         <p className="muted-note">nats-lens has no history before {isoMinute(historyStart!)} UTC, so it cannot say what happened then.</p>
       ) : (
@@ -153,6 +174,11 @@ function Around({ f, end, historyStart }: { f: Finding; end: number; historyStar
                   {d.items.map((e) => (
                     <EventRow key={e.id} e={e} end={end} open={open === e.id} onToggle={() => setOpen((o) => (o === e.id ? undefined : e.id))} compact />
                   ))}
+                  <p className="pager">
+                    <span>
+                      Showing {d.items.length} of {d.totalCount} · <RLink to={link}>Open in Events</RLink>
+                    </span>
+                  </p>
                 </div>
               )}
             </>
@@ -161,6 +187,13 @@ function Around({ f, end, historyStart }: { f: Finding; end: number; historyStar
       )}
     </Section>
   );
+}
+
+/** The Events page over a fixed window, filtered to the entity when given. */
+function eventsWindowLink(start: number, end: number, e: Entity | undefined): string {
+  const filtered = e ? eventsLink(e) : undefined;
+  const p = writeRange(new URLSearchParams(filtered ? filtered.split("?")[1] : ""), { kind: "fixed", from: start, to: end });
+  return `/events?${p.toString()}`;
 }
 
 /** The events page filtered to the entity, when it can be. */

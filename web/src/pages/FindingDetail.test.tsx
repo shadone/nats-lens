@@ -129,6 +129,7 @@ describe("FindingDetail times", () => {
     // The window around the start lies before the history.
     expect(await screen.findByText(/nats-lens has no history before 2026-10-17 08:19 UTC/)).toBeInTheDocument();
     expect(listEvents).not.toHaveBeenCalled();
+    expect(screen.queryByText(/10 minutes either side/)).toBeNull();
   });
 });
 
@@ -241,5 +242,36 @@ describe("around the start", () => {
     await vi.waitFor(() => expect(listEvents).toHaveBeenCalled());
     const req = listEvents.mock.calls[0][0] as { range: { start: never } };
     expect(timestampMs(req.range.start)).toBe(base.since! - 600_000);
+  });
+
+  it("switches between the whole system and this entity", async () => {
+    const began = Date.now() - 2 * 3_600_000;
+    m.getFinding.mockResolvedValue({ finding: { ...base, conditionSince: began, entity: consumerEntity }, transitions: [] });
+    show();
+    const scope = await screen.findByRole("group", { name: "Around the start scope" });
+    expect(within(scope).getByRole("button", { name: "Whole system" })).toHaveAttribute("aria-pressed", "true");
+    await vi.waitFor(() => expect(listEvents).toHaveBeenCalled());
+    expect((listEvents.mock.calls[0][0] as { entity?: unknown }).entity).toBeUndefined();
+    within(scope).getByRole("button", { name: "This entity" }).click();
+    await vi.waitFor(() => expect(listEvents).toHaveBeenCalledTimes(2));
+    expect((listEvents.mock.calls[1][0] as { entity?: unknown }).entity).toMatchObject({ key: "APP/order-jobs/resize-worker", consumer: "resize-worker" });
+  });
+
+  it("says how many it shows of how many, and opens the same window in Events", async () => {
+    const began = Date.UTC(2026, 9, 17, 9, 0);
+    m.getFinding.mockResolvedValue({ finding: { ...base, conditionSince: began }, transitions: [] });
+    listEvents.mockResolvedValue(
+      create(ListEventsResponseSchema, {
+        events: [create(EventSchema, { id: "7", time: timestampFromMs(began + 30_000), source: EventSource.NATS, kind: "server.shutdown", type: "SERVER.SHUTDOWN", summary: "nats-1 shut down" })],
+        totalCount: 34,
+      }),
+    );
+    show();
+    const line = await screen.findByText(/Showing 1 of 34/);
+    const link = within(line).getByRole("link", { name: "Open in Events" });
+    const url = new URL(link.getAttribute("href")!, "http://x");
+    expect(url.pathname).toBe("/events");
+    expect(url.searchParams.get("from")).toBe("2026-10-17T08:50:00Z");
+    expect(url.searchParams.get("to")).toBe("2026-10-17T09:10:00Z");
   });
 });
