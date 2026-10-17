@@ -59,6 +59,12 @@ type Account struct {
 // with the name upper-cased and every character other than A-Z and 0-9
 // replaced by an underscore.
 func AccountPasswordEnv(name string) string {
+	return "NATSLENS_ACCOUNT_" + envName(name) + "_PASSWORD"
+}
+
+// envName upper-cases a name for an environment variable and replaces
+// every character other than A-Z and 0-9 by an underscore.
+func envName(name string) string {
 	var b strings.Builder
 	for _, r := range strings.ToUpper(name) {
 		if (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
@@ -67,7 +73,7 @@ func AccountPasswordEnv(name string) string {
 			b.WriteByte('_')
 		}
 	}
-	return "NATSLENS_ACCOUNT_" + b.String() + "_PASSWORD"
+	return b.String()
 }
 
 // Connection returns the account's connection settings. An empty URL falls
@@ -154,12 +160,7 @@ func validateAccounts(accs []Account) []error {
 func accountsLogValue(accs []Account) slog.Value {
 	attrs := make([]slog.Attr, 0, len(accs))
 	for _, a := range accs {
-		attrs = append(attrs, slog.Group(a.Name,
-			slog.String("url", redactURL(a.URL)),
-			slog.String("creds", a.Creds),
-			slog.String("user", a.User),
-			slog.Bool("password_set", a.Password != ""),
-		))
+		attrs = append(attrs, slog.Attr{Key: a.Name, Value: a.LogValue()})
 	}
 	return slog.GroupValue(attrs...)
 }

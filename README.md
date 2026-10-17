@@ -151,6 +151,8 @@ Configuration comes from defaults, then an optional YAML file (`-config`), then 
 | `connz_limit`         | `-connz-limit`   | `4096`                  | Most connections stored per server per epoch.           |
 | `shutdown_grace`      | `-shutdown-grace` | `5s`                   | How long an epoch write may continue after a stop signal; positive and at most `interval`, since a write never runs longer than one interval. |
 | `log_level`           | `-log-level`     | `info`                  | `debug`, `info`, `warn` or `error`.                      |
+| `system_id`           |                  | `default`               | Id of the one system a file without `systems` describes: lowercase letters, digits and `-`, at most 63, starting with a letter or digit. Used in URLs, the API and metric labels. |
+| `systems`             |                  |                         | Several NATS systems in one natslens; see [Several systems](#several-systems). |
 | `nats.url`            | `-nats-url`      | `nats://127.0.0.1:4222` | System account URL; a comma-separated list is allowed.  |
 | `nats.name`           |                  | `natslens`              | Connection name the servers show; the event connection adds `-events`, an account connection `-<account>`. |
 | `nats.creds`          | `-nats-creds`    |                         | Credentials file for the system account.                 |
@@ -201,6 +203,22 @@ On SIGTERM or SIGINT natslens lets a running epoch write finish for up to `shutd
 The password has no flag, so that it never shows in the process list. A password written into `-nats-url` (`nats://user:pass@host`) does show there; put it in the file or `NATSLENS_NATS_PASSWORD` instead.
 
 JetStream advisories are published inside the account that owns the asset, so each account needs its own connection. Every entry in `accounts` takes `name` (the account name the servers use, for example `APP`), `url` (defaults to `nats.url`), `creds` or `user` and `password`, and `tls` (the CA defaults to `nats.tls.ca`; the client certificate is never inherited). When an account has a `user` and no password in the file, the password is read from `NATSLENS_ACCOUNT_<NAME>_PASSWORD`, with the name upper-cased and other characters replaced by `_`. The account connection asks `$SYS.REQ.USER.INFO` for the account's name as the servers use it, and events from it carry that name. Until it is known (just after connecting), and for the whole run when the user may not request it or may not receive the reply, they carry the configured `name` instead, so filter on both when the two differ.
+
+### Several systems
+
+`systems` lists the NATS systems one natslens watches. Each entry takes `id` (as `system_id`; ids must differ), `name` (display name, default the id), `environment` (free text shown with the system) and its own `nats`, `accounts`, `inventory_file`, `kubernetes`, `retention`, `archive_retention`, `data_dir`, `archive_dir` and `duckdb_memory_limit`, with the same meaning and defaults as the top-level keys, except:
+
+| System key | Default |
+| --- | --- |
+| `nats.name` | `natslens-<id>`, so each system's connections can be told apart in CONNZ and server logs; the tooling names follow it (`natslens-<id>-events`, `natslens-<id>-<account>`). |
+| `retention`, `archive_retention` | The top-level value. |
+| `data_dir` | `<data_dir>/<id>`: the top-level `data_dir` is the root. |
+| `archive_dir` | `<archive_dir>/<id>` when the top-level `archive_dir` is set, else `<system data dir>/archive`. |
+| `duckdb_memory_limit` | An equal share of what the systems' own limits leave of the top-level `duckdb_memory_limit` (or its default), at least 256 MiB. The systems' total can therefore exceed the budget: when their own limits alone add up to more, or when the 256 MiB floor applies (for example 4 systems without a limit and a 768 MiB budget). natslens logs a warning at start in both cases, naming the floor when it caused it. |
+
+With `systems`, the top-level `nats`, `accounts`, `inventory_file`, `kubernetes` and `system_id` and the `-nats-*` and `-inventory-file` flags are refused, as is an empty `systems`. Two systems may not share directories: an archive directory may not be equal to or inside another system's archive or data directory, and a data directory may not be equal to another's or inside another system's archive directory (symbolic links are resolved component by component, so `..` after a link leaves the link's target; existing directories are compared as files, so on a case-insensitive file system `Data` and `data` match, but two spellings of a directory that does not exist yet are not recognised as one). A data directory inside another system's data directory is allowed. Every other key (interval, timeout, listen, IAP, events, checks, `connz_limit`, `shutdown_grace`) applies to all systems. A system password not in the file is read from `NATSLENS_SYSTEM_<ID>_NATS_PASSWORD` and an account password from `NATSLENS_SYSTEM_<ID>_ACCOUNT_<NAME>_PASSWORD`, with the id and name upper-cased and other characters replaced by `_`; Two connections that would read the same variable, because each has a `user` and no `password` in the file, (for example id `a` with account `b_account_c` and id `a-account-b` with account `c`, or accounts `a-b` and `a_b` of one system) are refused; this also holds for the accounts of a file without `systems`. `NATSLENS_NATS_PASSWORD` and `NATSLENS_ACCOUNT_<NAME>_PASSWORD` apply only to a file without `systems`; when they are set while `systems` is used, natslens logs one warning that names them and ignores them.
+
+A file without `systems` is one system with the id `system_id` whose database and archive stay exactly where they are (`data_dir` and `archive_dir`), so adding `system_id` to an existing file moves nothing.
 
 ### NATS permissions
 
