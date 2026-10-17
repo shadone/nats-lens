@@ -141,13 +141,14 @@ func (p *Provider) GetOverview(_ context.Context, req *v1.GetOverviewRequest) (*
 	s := p.scen()
 	all := p.findings(s)
 	cur := current(all, req.GetRange())
+	servers := s.servers(req.GetRange(), all)
 	res := &v1.GetOverviewResponse{
 		Cluster:      p.sc.cluster,
 		Range:        req.GetRange(),
 		Freshness:    s.freshness(req.GetRange()),
-		Servers:      s.servers(req.GetRange(), all),
+		Servers:      servers,
 		Tally:        tally(all, req.GetRange()),
-		Tiles:        s.sc.tiles(s, req.GetRange(), req.GetMaxPoints()),
+		Tiles:        s.overviewTiles(req.GetRange(), req.GetMaxPoints(), servers, cur),
 		Windows:      s.windows(req.GetRange()),
 		WorstFinding: worstUnmuted(cur),
 	}

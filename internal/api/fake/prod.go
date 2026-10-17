@@ -49,7 +49,6 @@ func prodScenario() *scenario {
 		rows:          prodRows,
 		windows:       prodWindows,
 		k8sLanes:      prodK8sLanes,
-		tiles:         prodTiles,
 		sample:        prodSample,
 		slowEvents:    prodSlowConsumerEvents,
 		mutes:         func() []*storedMute { return []*storedMute{prodSeedMute()} },

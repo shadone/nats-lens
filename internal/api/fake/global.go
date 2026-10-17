@@ -145,7 +145,6 @@ func globalScenario() *scenario {
 		rows:          globalRows,
 		windows:       globalWindows,
 		k8sLanes:      globalK8sLanes,
-		tiles:         globalTiles,
 		sample:        globalSample,
 		slowEvents:    globalSlowEvents(),
 		mutes:         func() []*storedMute { return []*storedMute{globalSeedMute()} },
