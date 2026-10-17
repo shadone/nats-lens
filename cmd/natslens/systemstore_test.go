@@ -173,3 +173,21 @@ func TestThreadsPerStore(t *testing.T) {
 		}
 	}
 }
+
+// The marker is written before the database, so an open that fails after
+// it still leaves the directory marked, and the next start under another
+// id is refused instead of adopting the database.
+func TestMarkerWrittenBeforeTheDatabase(t *testing.T) {
+	ctx := context.Background()
+	cfg := listConfig(t, t.TempDir(), "shop-prod")
+	sys := cfg.ResolvedSystems()[0]
+	rt := newSystemRuntime(cfg, sys, quietLog())
+	if err := rt.open(ctx, 0); err == nil {
+		closeSystems([]*systemRuntime{rt})
+		t.Fatal("open with 0 threads succeeded")
+	}
+	closeSystems([]*systemRuntime{rt})
+	if got := readMarker(t, sys.DataDir); got != "shop-prod" {
+		t.Fatalf("marker %q after a failed open", got)
+	}
+}
