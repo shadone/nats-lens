@@ -221,14 +221,16 @@ GROUP BY a.account HAVING sum(a.conns) > 0 ORDER BY n DESC, 1 LIMIT 1`, epoch).S
 	return f, nil
 }
 
-// metaLeaderAt is the meta leader more than half of the servers that name
-// one report; empty without such a majority.
+// metaLeaderAt is the meta leader more than half of the expected servers
+// report (the answering servers when none is expected), the rule of
+// cluster.meta_leader_changes; empty without such a majority.
 func (p *Provider) metaLeaderAt(ctx context.Context, epoch int64) (string, error) {
 	var leader string
 	err := p.db().QueryRowContext(ctx, `
 WITH v AS (SELECT meta_leader AS l, count(*) AS n FROM server_stats
   WHERE epoch = ? AND coalesce(meta_leader, '') <> '' GROUP BY meta_leader)
-SELECT l FROM v WHERE 2 * n > (SELECT sum(n) FROM v)`, epoch).Scan(&leader)
+SELECT l FROM v WHERE 2 * n > (SELECT coalesce(nullif(expected_servers, 0), observed_servers) FROM epochs WHERE epoch = ?)`,
+		epoch, epoch).Scan(&leader)
 	if isNoRows(err) {
 		return "", nil
 	}
