@@ -152,8 +152,13 @@ SELECT epoch, leafnodes, config_load_time FROM server_stats WHERE server_id = ? 
 		return err
 	}
 	res.ConfigLoadedAt = ts(ntime(loaded))
+	// The routes of the newest epoch whose ROUTEZ answered: an epoch
+	// without that reply has no route rows, not zero routes.
 	rows, err := p.db().QueryContext(ctx, `
-SELECT remote_name, rtt_ns, pending_bytes FROM routes WHERE server_id = ? AND epoch = ? ORDER BY remote_name, rid`, serverID, at.Int64)
+SELECT remote_name, rtt_ns, pending_bytes FROM routes
+WHERE server_id = ? AND epoch = (SELECT max(epoch) FROM epoch_endpoints
+  WHERE server_id = ? AND epoch <= ? AND endpoint = 'ROUTEZ' AND state = 'ok')
+ORDER BY remote_name, rid`, serverID, serverID, epoch)
 	if err != nil {
 		return fmt.Errorf("routes: %w", err)
 	}
