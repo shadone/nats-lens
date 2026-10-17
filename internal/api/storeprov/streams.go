@@ -71,8 +71,13 @@ ORDER BY n.account, n.stream`, e.epoch, account, account, stream, stream, e.epoc
 	if err != nil {
 		return nil, nil, err
 	}
+	reps, err := p.streamReplicas(ctx, e.epoch, account, stream)
+	if err != nil {
+		return nil, nil, err
+	}
 	for _, s := range out {
 		s.BytesPerDay = robustPerDay(growth[s.GetEntity().GetKey()])
+		s.Placement = placementOf(reps[s.GetEntity().GetKey()], s.GetReplicas())
 	}
 	week := &v1.TimeRange{Start: ts(end.Add(-7 * 24 * time.Hour)), End: r.GetEnd()}
 	lines, err := p.sparklines(ctx, week, account, stream)
