@@ -36,7 +36,7 @@ export function BusiestConsumers({ consumers, spec, start, end }: { consumers: C
             <th scope="col" className="num">
               Unacked
             </th>
-            <th scope="col">Over range</th>
+            <th scope="col">Range</th>
           </tr>
         </thead>
         <tbody>

@@ -6,6 +6,7 @@ import type { CauseGroup } from "../lib/causeGroups";
 import { hms } from "../lib/format";
 import { entityName, entityPath, eventPath, findingPath, streamPath } from "../lib/view";
 import { RLink } from "./common";
+import { EntityLine } from "./FindingParts";
 import { Sev } from "./Severity";
 
 /** Entities listed in a card before "N more". */
@@ -81,9 +82,25 @@ function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void 
           {n > 1 && ` × ${n}`}
         </span>
         {g.cause && g.checkCodes.length > 1 && <span className="lbl">one cause</span>}
+        {n === 1 && (
+          <span className="cg-btns">
+            <RLink to={findingPath(f0.id)} className="btn p">
+              Open finding
+            </RLink>
+            <button type="button" className="btn" onClick={() => onMute(f0)}>
+              Mute…
+            </button>
+          </span>
+        )}
       </div>
       <h3>{names.join(" · ")}</h3>
-      {n > 1 && <p className="cg-where">{whereLine(g)}</p>}
+      {n > 1 ? (
+        <p className="cg-where">{whereLine(g)}</p>
+      ) : (
+        <p className="cg-ent">
+          <EntityLine e={f0.entity} />
+        </p>
+      )}
       {g.cause && (
         <p className="cg-cause">
           Cause: <code>{g.cause.kind}</code>
@@ -92,20 +109,7 @@ function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void 
         </p>
       )}
       {n === 1 ? (
-        <>
-          <p className="cg-ent">
-            <EntityLink e={f0.entity} />
-          </p>
-          <p className="cg-d">{f0.detail}</p>
-          <div className="cg-btns">
-            <RLink to={findingPath(f0.id)} className="btn p">
-              Open finding
-            </RLink>
-            <button type="button" className="btn" onClick={() => onMute(f0)}>
-              Mute…
-            </button>
-          </div>
-        </>
+        <p className="cg-d">{f0.detail}</p>
       ) : (
         <ul className="cg-list">
           {shown.map((f) => {

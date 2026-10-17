@@ -17,7 +17,7 @@
 .cg-where,.cg-cause,.cg-ent{margin:2px 0;color:var(--text-2)}
 .cg-cause code{font:12px var(--mono)}
 .cg-d{color:var(--text-2);margin:6px 0;overflow-wrap:anywhere}
-.cg-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.cg-btns{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
 .cg-list{list-style:none;margin:10px 0 0;padding:0}
 .cg-list li{display:grid;grid-template-columns:minmax(120px,220px) minmax(0,1fr) auto;gap:4px 14px;align-items:baseline;padding:7px 0;border-top:1px solid var(--border-soft)}
 .cg-list .cg-n{font-family:var(--mono);font-size:12.5px;overflow-wrap:anywhere}
@@ -47,8 +47,8 @@
 /* trends */
 .trends{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 .tc{padding:12px 14px;min-width:0}
-.tc-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-.tc-h b{font-size:12.5px;text-align:right}
+.tc-h{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:2px 8px}
+.tc-h b{font-size:12.5px;text-align:right;margin-left:auto}
 .tc-svg{display:block;width:100%;height:70px;margin-top:8px}
 .tc-axis{stroke:var(--border)}
 .tc-f{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-muted);margin-top:3px}
@@ -83,7 +83,7 @@
 .sl-foot .right{margin-left:auto;display:flex;gap:6px}
 .sl-legend{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--text-2)}
 .sl-legend li{display:inline-flex;align-items:center;gap:5px}
-.sl-key{position:relative;display:inline-block;top:auto;left:auto;margin:0}
+.sl-legend .sl-key{position:relative;display:inline-block;top:0;left:0;bottom:auto;margin:0}
 .sl-key.sl-tick{height:12px}
 .sl-key.sl-tick.deploy{height:14px}
 .sl-key.sl-run{width:14px;height:10px}
@@ -93,6 +93,7 @@
 /* busiest consumers and streams */
 .ov-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:22px}
 .ov-panel{padding:16px 18px;min-width:0}
+.tbl.bc th,.tbl.bc td,.tbl.sp th,.tbl.sp td{padding-left:7px;padding-right:7px}
 .tbl a.sub{color:var(--text-muted);font-size:11px}
 .sp-n{display:inline-flex;align-items:center;gap:7px}
 .tbl td.muted{color:var(--text-2)}
@@ -105,6 +106,7 @@
 @media (max-width:760px){
   .trends{grid-template-columns:minmax(0,1fr)}
   .sl-grid{grid-template-columns:96px minmax(0,1fr)}
+  .sl-ticks span:nth-child(even):not(.edge-r){display:none}
   .cg-list li{grid-template-columns:minmax(0,1fr) auto}
   .cg-list .cg-d{grid-column:1 / -1;grid-row:2}
   .status-line h1{font-size:19px}
