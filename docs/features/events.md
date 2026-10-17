@@ -6,21 +6,27 @@
 
 ## What it does
 
-The Events page lists every event in the time range, newest first: NATS advisories and system events, Kubernetes events, finding transitions and the collector's own records. Filters narrow it by source, kind, entity and client. An event opens in place to show the findings it raised, with their remediation, its fields, and its raw payload. Every event has its own link.
+The Events page lists the events of the time range, newest first: NATS advisories and system events, Kubernetes events, finding transitions and the collector's own records. It opens on the events worth reading, with routine events hidden behind a count and repeats folded into one row. A histogram shows when events came, and the sources and servers show how many events each holds. Filters narrow the list by source, server, kind, entity and client. An event opens in place to show the findings it raised, with their remediation, its fields, and its raw payload. Every event has its own link.
 
 ## Behavior and rules
 
-- **Four sources.** NATS, Kubernetes, Findings and Collector. With none chosen ("All"), every source is shown; several can be chosen at once.
-- **Filters.** Kinds as a comma-separated list (for example `consumer.deleted, stream.deleted`), and a client connection name. Links from a server, stream or consumer page add that entity as a filter, which "Clear" removes. A stream or consumer filter also matches events that carry the account's readable name instead of its ID.
-- **Newest first, by time.** The list shows 50 events per page; "Newer" and "Older" move through the pages by time, so events that arrive while I read do not shift them.
-- **One row per event.** A row shows the time, the source, a badge for finding events (NEW, CHANGED, RESOLVED; the demo also shows FLAPPING), the event's type or kind, and its summary.
-- **Open an event.** Opening a row shows the findings it raised (each with severity, code, name, value, remediation and related settings), its fields (kind, server, account, stream, consumer, client, client host, reason, time and receive time), "Raw payload" with the stored JSON, and "Link to this event".
+- **Worth reading first.** The page opens on "Worth reading": routine events are hidden and repeats are folded. "Everything" shows every event, one row each. Each choice shows its number of events, which follows the source and server filters.
+- **Hidden as routine.** While routine events are hidden, a line above the list reads "Hidden as routine:" with their number and the groups the API names (at most 10, largest first, each with its count), and "Show them" switches to "Everything".
+- **Histogram.** Bars over the range count warnings (warning and critical events) on top, other notable events below them, and routine events at the bottom, hidden or not. The legend draws each bar. A bar's title gives its time and its three counts.
+- **Four sources, with counts.** NATS, Kubernetes, Findings and Collector, each with its number of events. With none chosen ("All"), every source is shown; several can be chosen at once.
+- **Servers, with counts.** The busiest 8 servers with their numbers of events, then "N more" for the rest. Choosing a server filters the list to the events it reported; choosing it again clears it. The servers are not offered while a stream or consumer filters the list.
+- **Filters.** Kinds as a comma-separated list (for example `consumer.deleted, stream.deleted`), and a client connection name. Links from a server, stream or consumer page add that entity as a filter; a stream or consumer filter shows with "Clear". A stream or consumer filter also matches events that carry the account's readable name instead of its ID.
+- **Folded rows.** In "Worth reading", repeats of one thing are one row with the count and the time they span, such as "×5 in 6 min"; "×5" when they share one time. Opening a folded row shows the number of repeats and the time of the first. Finding events fold only with the same finding, and Kubernetes events only with the same object, so five stuck pods are five rows.
+- **New events wait.** On a live range's first page, the list stays as it was read. Every 30 seconds nats-lens counts the matching events that arrived since, and shows them as an "N new" pill; pressing it reloads the list.
+- **Newest first, by time.** The list shows 50 rows per page; "Newer" and "Older" move through the pages by time. The page line counts events, not rows: "23 events, repeats folded · page 1", or "50 shown of 748 events · page 1".
+- **One row per event or fold.** A row shows the time, the source, a badge for finding events (NEW, CHANGED, RESOLVED; the demo also shows FLAPPING), the event's type or kind, its summary, and the repeats of a folded row.
+- **Open an event.** Opening a row shows the findings it raised (each with severity, code, name, value, remediation and related settings), its fields (kind, server, account, stream, consumer, client, client host, reason, repeats and first time of a folded row, time and receive time), "Raw payload" with the stored JSON, and "Link to this event".
 - **One event on top.** A link with `?id=` shows that event, opened, above the list.
 - **Linked entities.** Server, stream and consumer names in an event link to their pages, and a client name links to its connections.
 - **Payloads on request.** The list does not carry raw payloads; opening "Raw payload" fetches the one event.
-- **Routine events, API only.** `ListEvents` marks routine events and, with `hide_routine`, leaves them out, counts them and lists what they were by kind and client (at most 10 groups, largest first). Routine is a fixed rule: the kinds `client.churn`, `consumer.ack_sampled` and `account.connections`; an `api.audit` record of a call that succeeded and changes nothing (a failed call, or a create, update, delete, purge, snapshot, restore, pause, step-down or peer removal, is always shown); and a connect or disconnect of a tooling client, judged as the client checks judge a connection in the epoch the event falls in. `checks.include_tooling` does not change it: hiding routine events only changes what is shown. The Events page does not use it yet.
-- **Repeats folded, API only.** With `fold_repeats`, events with the same source, kind, server, account, stream, consumer, client name and reason, each at most 10 minutes after the previous one, become one row: the newest event, with the count and the time of the oldest. Finding events fold only with the same finding, and Kubernetes events only with the same object, so five stuck pods are five rows. A Kubernetes event counts the occurrences Kubernetes reported for it. `total_count` and the facet counts count events, not rows, and a page shows them as events. Pages hold rows; a folded list keeps to the events that existed when its first page was read, so events that arrive meanwhile move no row between pages.
-- **Facets and histogram, API only.** With `include_facets`, the response counts the events per source and per server, each dimension without its own filter, and the events of the range with no filter. With `histogram_buckets` (at most 120), it counts warnings, other events and routine events in equal buckets over the range, routine events included even when hidden.
+- **Routine events.** `ListEvents` marks routine events and, with `hide_routine`, leaves them out, counts them and lists what they were by kind and client (at most 10 groups, largest first). Routine is a fixed rule: the kinds `client.churn`, `consumer.ack_sampled` and `account.connections`; an `api.audit` record of a call that succeeded and changes nothing (a failed call, or a create, update, delete, purge, snapshot, restore, pause, step-down or peer removal, is always shown); and a connect or disconnect of a tooling client, judged as the client checks judge a connection in the epoch the event falls in. `checks.include_tooling` does not change it: hiding routine events only changes what is shown.
+- **Repeats folded.** With `fold_repeats`, events with the same source, kind, server, account, stream, consumer, client name and reason, each at most 10 minutes after the previous one, become one row: the newest event, with the count and the time of the oldest. A Kubernetes event counts the occurrences Kubernetes reported for it. `total_count` and the facet counts count events, not rows. Pages hold rows; a folded list keeps to the events that existed when its first page was read, so events that arrive meanwhile move no row between pages.
+- **Facets and histogram.** With `include_facets`, the response counts the events per source and per server, each dimension without its own filter, and the events of the range with no filter. With `histogram_buckets` (at most 120; the page asks for 48), it counts warnings, other events and routine events in equal buckets over the range, routine events included even when hidden.
 - **Old requests unchanged.** A request without these flags gets the same response as before they existed.
 
 ## Scenarios
@@ -64,13 +70,38 @@ The Events page lists every event in the time range, newest first: NATS advisori
 - **When** I call `ListEvents` with `fold_repeats`
 - **Then** I receive two rows, each with `repeats` 1
 
+### Read what is worth reading
+
+- **Surfaces:** `ui`
+- **Given** a day with hundreds of short connections from one client and a pod that failed scheduling five times in six minutes
+- **When** I open Events
+- **Then** "Worth reading" is chosen, the short connections are counted on the "Hidden as routine" line under the label the API gives them, and the scheduling failures are one row reading "×5 in 6 min"
+
+### See the routine events too
+
+- **Surfaces:** `ui`
+- **Given** routine events are hidden
+- **When** I press "Show them"
+- **Then** "Everything" is chosen and every event is its own row, routine ones included
+
+### Narrow to one server
+
+- **Surfaces:** `ui`
+- **Given** the servers `nats-0`, `nats-1` and `nats-2` show 4, 3 and 3 events
+- **When** I choose `nats-1`
+- **Then** the list shows the events `nats-1` reported, and the link holds `?server=nats-1`
+
+### Keep reading while events arrive
+
+- **Surfaces:** `ui`
+- **Given** I read the first page of a live range
+- **When** three more matching events arrive
+- **Then** the list stays where it is and a "3 new" pill appears; pressing it reloads the list with them
+
 ## Planned
 
-- **Worth reading first.** The page opens on the events worth reading, with routine events (a controller's connect and close every few seconds, tooling on a loopback address) hidden behind a count, "Show them", and "Change what counts as routine". The API side is shipped; the page and a configurable rule are not.
-- **Repeats folded.** Repeats of one thing fold into one row with a count, such as "×5 in 6 min". The API side is shipped.
-- **Facets with counts.** The sources and servers show how many events each holds, and a strip over the range shows when events came. The API side is shipped.
+- **Change what counts as routine.** Routine is a fixed rule today; a configurable rule and a link to it are planned.
 - **Subject and where.** Columns for the subject an event concerns and where it happened (server or namespace).
-- **New events wait.** Events that arrive while I read wait behind a "N new" pill instead of moving the list.
 
 ## Not supported / out of scope
 
