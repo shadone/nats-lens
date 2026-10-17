@@ -31,6 +31,9 @@ type Handler struct {
 	IAP *iap.Verifier
 	// Version is the nats-lens version GetLensInfo reports.
 	Version string
+	// MetricsTimeout bounds each system's part of a /metrics scrape; zero
+	// means DefaultMetricsTimeout.
+	MetricsTimeout time.Duration
 }
 
 var _ natslensv1connect.LensServiceHandler = (*Handler)(nil)
