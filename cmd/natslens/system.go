@@ -15,7 +15,6 @@ import (
 	"github.com/shadone/nats-lens/internal/checks"
 	"github.com/shadone/nats-lens/internal/collect"
 	"github.com/shadone/nats-lens/internal/config"
-	"github.com/shadone/nats-lens/internal/events"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"github.com/shadone/nats-lens/internal/natsconn"
 	"github.com/shadone/nats-lens/internal/runner"
@@ -39,7 +38,10 @@ type systemRuntime struct {
 	// directory.
 	archiveDirSet bool
 	log           *slog.Logger
-	status        *collectionStatus
+	// startBackoff is the wait between setup attempts; the zero value
+	// means defaultBackoff().
+	startBackoff redialBackoff
+	status       *collectionStatus
 
 	st   *store.Store
 	arch *archive.Archiver
@@ -104,56 +106,47 @@ func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, d
 		tracker.Seed(name, at)
 	}
 
-	// With event capture on, the collector's own connection records its
-	// losses and reconnects as events too.
-	var capture *events.Capture
-	eventsDone := make(chan struct{})
-	if cmd == "run" && cfg.Events.Enabled {
-		var stopEvents func(time.Time)
-		capture, stopEvents, err = startEvents(ctx, cfg, st, log)
-		if err != nil {
-			return fmt.Errorf("system %s: %w", rt.sys.ID, err)
-		}
-		// The Kubernetes watcher writes through the capture, so it stops first.
-		stopK8s := func() {}
-		if cfg.Kubernetes.Enabled {
-			if stopK8s, err = startKubernetes(ctx, cfg.Kubernetes, st, capture, log); err != nil {
-				stopEvents(deadline())
-				return fmt.Errorf("system %s: %w", rt.sys.ID, err)
-			}
-		}
-		stopAtCancel := context.AfterFunc(ctx, func() {
-			stopK8s()
-			stopEvents(deadline())
-			close(eventsDone)
-		})
-		// A return before ctx ends (a failed connect) stops the capture here.
-		defer func() {
-			if stopAtCancel() {
-				stopK8s()
-				stopEvents(deadline())
-				close(eventsDone)
-			}
-			<-eventsDone
-		}()
-	} else {
-		close(eventsDone)
-	}
-
 	col := collect.New(nil, collect.Options{
 		Window: cfg.Timeout.D(), ConnzLimit: cfg.ConnzLimit, Tracker: tracker, Log: log,
 	})
+	eventsDone := make(chan struct{})
 	var nc *nats.Conn
 	var conn *eventConn
 	if cmd == "run" {
+		if cfg.Events.Enabled {
+			if err := recordStart(ctx, st); err != nil {
+				return fmt.Errorf("system %s: %w", rt.sys.ID, err)
+			}
+		}
 		// natslens run keeps running while NATS is unreachable: the API,
 		// the other systems, the events of other sources and the
 		// Kubernetes watcher go on, and the runner skips epochs until the
 		// connection has a server. A connection nats.go closes for good
-		// (rejected credentials) is dialled again.
-		conn = newTrackedCollectorConn(cfg.NATS, capture, col, rt.status, log)
-		if err := conn.open(); err != nil {
-			return fmt.Errorf("system %s: %w", rt.sys.ID, err)
+		// (rejected credentials) is dialled again. A setup that fails
+		// (an events connection, the Kubernetes client) isolates this
+		// system and is tried again.
+		s, ok := rt.startRetrying(ctx, col)
+		if !ok {
+			return nil
+		}
+		conn = s.conn
+		if s.stopEvents != nil {
+			stopAtCancel := context.AfterFunc(ctx, func() {
+				s.stopK8s()
+				s.stopEvents(deadline())
+				close(eventsDone)
+			})
+			// A return before ctx ends stops the capture here.
+			defer func() {
+				if stopAtCancel() {
+					s.stopK8s()
+					s.stopEvents(deadline())
+					close(eventsDone)
+				}
+				<-eventsDone
+			}()
+		} else {
+			close(eventsDone)
 		}
 		nc = conn.current()
 		kctx, stopKeep := context.WithCancel(ctx)
