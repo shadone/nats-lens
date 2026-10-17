@@ -157,15 +157,6 @@ export function useServers(spec: RangeSpec) {
   });
 }
 
-export function useServer(spec: RangeSpec, name: string) {
-  const sys = useSystem();
-  return useQuery({
-    queryKey: ["server", sys, rangeKey(spec), name],
-    queryFn: ({ signal }) => api.getServer(sys, spec, name, signal),
-    refetchInterval: refetch(spec),
-  });
-}
-
 export function useConnections(spec: RangeSpec, f: api.ConnectionFilter) {
   const sys = useSystem();
   return useQuery({

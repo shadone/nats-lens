@@ -5,7 +5,7 @@ import { durationFromMs, timestampFromMs } from "@bufbuild/protobuf/wkt";
 import type { TimeRangeSchema } from "../gen/natslens/v1/common_pb";
 import { bucketFor, presetMs, resolveRange, type RangeSpec } from "../lib/timeRange";
 import { entityKindEnum, n, series, severityEnum, sourceEnum } from "./adapt-common";
-import { consumer, consumerDetail, connection, overview, server, serverDetail, stream, streamDetail } from "./adapt-entities";
+import { consumer, consumerDetail, connection, overview, server, stream, streamDetail } from "./adapt-entities";
 import { event, finding, findingStateEnum, mute, timeline, transition } from "./adapt-findings";
 import { lensInfo } from "./adapt-info";
 import { lens } from "./client";
@@ -195,10 +195,6 @@ export async function getConsumer(sys: string, spec: RangeSpec, account: string,
 export async function listServers(sys: string, spec: RangeSpec, signal?: AbortSignal) {
   const r = await lens.listServers({ ...systemInit(sys), range: rangeInit(spec) }, { signal });
   return { servers: r.servers.map(server), expected: r.expected, missing: r.missing };
-}
-
-export async function getServer(sys: string, spec: RangeSpec, name: string, signal?: AbortSignal) {
-  return serverDetail(await lens.getServer({ ...systemInit(sys), name, range: rangeInit(spec) }, { signal }));
 }
 
 export interface ConnectionFilter {
