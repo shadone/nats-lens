@@ -104,8 +104,17 @@ type Point struct {
 	// Value for the bucket.
 	//
 	// Gauges are averaged over the bucket; rates are averaged per second;
-	// event counts are summed.
-	Value         float64 `protobuf:"fixed64,2,opt,name=value,proto3" json:"value,omitempty"`
+	// event counts are summed. For a band metric it is the median across
+	// servers.
+	Value float64 `protobuf:"fixed64,2,opt,name=value,proto3" json:"value,omitempty"`
+	// Lowest value across servers, for a band metric; unset otherwise.
+	//
+	// Each epoch's lowest server value, averaged over the bucket.
+	Low *float64 `protobuf:"fixed64,3,opt,name=low,proto3,oneof" json:"low,omitempty"`
+	// Highest value across servers, for a band metric; unset otherwise.
+	//
+	// Each epoch's highest server value, averaged over the bucket.
+	High          *float64 `protobuf:"fixed64,4,opt,name=high,proto3,oneof" json:"high,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -154,6 +163,20 @@ func (x *Point) GetValue() float64 {
 	return 0
 }
 
+func (x *Point) GetLow() float64 {
+	if x != nil && x.Low != nil {
+		return *x.Low
+	}
+	return 0
+}
+
+func (x *Point) GetHigh() float64 {
+	if x != nil && x.High != nil {
+		return *x.High
+	}
+	return 0
+}
+
 // Values of one metric for one entity over a time range.
 type Series struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -173,7 +196,12 @@ type Series struct {
 	// Smallest value of the points; unset when there are no points.
 	Min *float64 `protobuf:"fixed64,6,opt,name=min,proto3,oneof" json:"min,omitempty"`
 	// Largest value of the points; unset when there are no points.
-	Max           *float64 `protobuf:"fixed64,7,opt,name=max,proto3,oneof" json:"max,omitempty"`
+	Max *float64 `protobuf:"fixed64,7,opt,name=max,proto3,oneof" json:"max,omitempty"`
+	// Busiest server of a band metric: the highest mean over the range.
+	// Unset for other metrics and when no server reported.
+	Top *EntityRef `protobuf:"bytes,8,opt,name=top,proto3" json:"top,omitempty"`
+	// Values of the busiest server, in the same buckets as points.
+	TopPoints     []*Point `protobuf:"bytes,9,rep,name=top_points,json=topPoints,proto3" json:"top_points,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -255,6 +283,20 @@ func (x *Series) GetMax() float64 {
 		return *x.Max
 	}
 	return 0
+}
+
+func (x *Series) GetTop() *EntityRef {
+	if x != nil {
+		return x.Top
+	}
+	return nil
+}
+
+func (x *Series) GetTopPoints() []*Point {
+	if x != nil {
+		return x.TopPoints
+	}
+	return nil
 }
 
 // Request for one metric of one entity.
@@ -556,10 +598,14 @@ var File_natslens_v1_timeseries_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_timeseries_proto_rawDesc = "" +
 	"\n" +
-	"\x1cnatslens/v1/timeseries.proto\x12\vnatslens.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\"M\n" +
+	"\x1cnatslens/v1/timeseries.proto\x12\vnatslens.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\"\x8e\x01\n" +
 	"\x05Point\x12.\n" +
 	"\x04time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x01R\x05value\"\x90\x02\n" +
+	"\x05value\x18\x02 \x01(\x01R\x05value\x12\x15\n" +
+	"\x03low\x18\x03 \x01(\x01H\x00R\x03low\x88\x01\x01\x12\x17\n" +
+	"\x04high\x18\x04 \x01(\x01H\x01R\x04high\x88\x01\x01B\x06\n" +
+	"\x04_lowB\a\n" +
+	"\x05_high\"\xed\x02\n" +
 	"\x06Series\x12\x16\n" +
 	"\x06metric\x18\x01 \x01(\tR\x06metric\x12.\n" +
 	"\x06entity\x18\x02 \x01(\v2\x16.natslens.v1.EntityRefR\x06entity\x12%\n" +
@@ -567,7 +613,10 @@ const file_natslens_v1_timeseries_proto_rawDesc = "" +
 	"\x04step\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\x04step\x12*\n" +
 	"\x06points\x18\x05 \x03(\v2\x12.natslens.v1.PointR\x06points\x12\x15\n" +
 	"\x03min\x18\x06 \x01(\x01H\x00R\x03min\x88\x01\x01\x12\x15\n" +
-	"\x03max\x18\a \x01(\x01H\x01R\x03max\x88\x01\x01B\x06\n" +
+	"\x03max\x18\a \x01(\x01H\x01R\x03max\x88\x01\x01\x12(\n" +
+	"\x03top\x18\b \x01(\v2\x16.natslens.v1.EntityRefR\x03top\x121\n" +
+	"\n" +
+	"top_points\x18\t \x03(\v2\x12.natslens.v1.PointR\ttopPointsB\x06\n" +
 	"\x04_minB\x06\n" +
 	"\x04_max\"\xc3\x01\n" +
 	"\x14GetTimeSeriesRequest\x12\x16\n" +
@@ -636,17 +685,19 @@ var file_natslens_v1_timeseries_proto_depIdxs = []int32{
 	0,  // 2: natslens.v1.Series.unit:type_name -> natslens.v1.Unit
 	10, // 3: natslens.v1.Series.step:type_name -> google.protobuf.Duration
 	1,  // 4: natslens.v1.Series.points:type_name -> natslens.v1.Point
-	9,  // 5: natslens.v1.GetTimeSeriesRequest.entity:type_name -> natslens.v1.EntityRef
-	11, // 6: natslens.v1.GetTimeSeriesRequest.range:type_name -> natslens.v1.TimeRange
-	2,  // 7: natslens.v1.GetTimeSeriesResponse.series:type_name -> natslens.v1.Series
-	12, // 8: natslens.v1.MetricInfo.entity_type:type_name -> natslens.v1.EntityType
-	0,  // 9: natslens.v1.MetricInfo.unit:type_name -> natslens.v1.Unit
-	5,  // 10: natslens.v1.ListMetricsResponse.metrics:type_name -> natslens.v1.MetricInfo
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	9,  // 5: natslens.v1.Series.top:type_name -> natslens.v1.EntityRef
+	1,  // 6: natslens.v1.Series.top_points:type_name -> natslens.v1.Point
+	9,  // 7: natslens.v1.GetTimeSeriesRequest.entity:type_name -> natslens.v1.EntityRef
+	11, // 8: natslens.v1.GetTimeSeriesRequest.range:type_name -> natslens.v1.TimeRange
+	2,  // 9: natslens.v1.GetTimeSeriesResponse.series:type_name -> natslens.v1.Series
+	12, // 10: natslens.v1.MetricInfo.entity_type:type_name -> natslens.v1.EntityType
+	0,  // 11: natslens.v1.MetricInfo.unit:type_name -> natslens.v1.Unit
+	5,  // 12: natslens.v1.ListMetricsResponse.metrics:type_name -> natslens.v1.MetricInfo
+	13, // [13:13] is the sub-list for method output_type
+	13, // [13:13] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_timeseries_proto_init() }
@@ -655,6 +706,7 @@ func file_natslens_v1_timeseries_proto_init() {
 		return
 	}
 	file_natslens_v1_common_proto_init()
+	file_natslens_v1_timeseries_proto_msgTypes[0].OneofWrappers = []any{}
 	file_natslens_v1_timeseries_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

@@ -36,8 +36,19 @@ message Point {
   // Value for the bucket.
   //
   // Gauges are averaged over the bucket; rates are averaged per second;
-  // event counts are summed.
+  // event counts are summed. For a band metric it is the median across
+  // servers.
   double value = 2;
+
+  // Lowest value across servers, for a band metric; unset otherwise.
+  //
+  // Each epoch's lowest server value, averaged over the bucket.
+  optional double low = 3;
+
+  // Highest value across servers, for a band metric; unset otherwise.
+  //
+  // Each epoch's highest server value, averaged over the bucket.
+  optional double high = 4;
 }
 
 // Values of one metric for one entity over a time range.
@@ -65,6 +76,13 @@ message Series {
 
   // Largest value of the points; unset when there are no points.
   optional double max = 7;
+
+  // Busiest server of a band metric: the highest mean over the range.
+  // Unset for other metrics and when no server reported.
+  EntityRef top = 8;
+
+  // Values of the busiest server, in the same buckets as points.
+  repeated Point top_points = 9;
 }
 
 // Request for one metric of one entity.
