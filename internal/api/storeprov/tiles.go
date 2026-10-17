@@ -241,7 +241,11 @@ GROUP BY ALL`, epoch, epoch)
 		case strings.HasPrefix(name, "OBJ_"):
 			c = &f.objects
 		}
-		c.total++
+		// A stream whose replicas are unknown is neither replicated nor
+		// single, so it is left out of the total the "of M" shows.
+		if replicas != nil {
+			c.total++
+		}
 		if replicas != nil && *replicas > 1 {
 			c.replicated++
 		}

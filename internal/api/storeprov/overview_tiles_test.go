@@ -171,3 +171,24 @@ func TestStreamsSubtitleOutOfAll(t *testing.T) {
 		t.Fatalf("streams subtitle = %q, want it to contain %q", s.GetSubtitle(), want)
 	}
 }
+
+// A stream whose replicas no configuration row gives is neither
+// replicated nor single, so it is left out of the "of M" too.
+func TestStreamsSubtitleSkipsUnknownReplicas(t *testing.T) {
+	st := emptyStore(t)
+	r := rows{t, st}
+	r.server("S0", "nats-0")
+	r.epoch(1, t0, "S0")
+	for _, name := range []string{"order-jobs", "audit-archive"} {
+		r.add("streams", map[string]any{"account": "APP", "stream": name, "first_epoch": 1, "last_epoch": 1})
+		r.add("stream_stats", map[string]any{"epoch": 1, "server_id": "S0", "account": "APP", "stream": name, "is_leader": true})
+	}
+	r.add("stream_config", map[string]any{"server_id": "S0", "account": "APP", "stream": "order-jobs",
+		"first_epoch": 1, "last_epoch": 1, "config_hash": "h", "replicas": 3})
+	c := serveSeries(t, st, t0.Add(30*time.Second))
+	o := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{
+		Range: &v1.TimeRange{Start: timestamppb.New(t0.Add(-time.Hour)), End: timestamppb.New(t0.Add(30 * time.Second))}})))
+	if got := tileByID(o.GetTiles(), "streams").GetSubtitle(); got != "1 of 1 replicated · 0 lagging" {
+		t.Fatalf("streams subtitle = %q, want \"1 of 1 replicated · 0 lagging\"", got)
+	}
+}
