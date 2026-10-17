@@ -35,6 +35,15 @@ func globalFindings(s scen) []*v1.Finding {
 		s.at(13, 40, 0), s.at(13, 40, 0), "Fill 38 msg/s, drain 21 msg/s over 1h. 6,210 pending.")
 	backlog.Value = &v1.FindingValue{Name: "fill minus drain", Display: "+17 msg/s", Number: ptr(17.0), Basis: "1h window, leader view"}
 
+	// An R1 bucket whose only replica was on nats-us-4.
+	labels := finding("stream-011", "Expected stream or bucket missing", warning, firing, streamRef("KV_label-templates"),
+		s.at(9, 12, 40), s.at(9, 12, 40), "KV bucket label-templates (stream KV_label-templates) is in the inventory and no server reports it; "+
+			"last reported by nats-us-4 at 2026-10-17 09:11:35 UTC (may be on nats-us-4, which did not answer JSZ). No delete event recorded.")
+	labels.RelatedConfig = cfg([][2]string{{"kind", "kv"}, {"replicas", "1"}, {"max_age", "0"}, {"max_bytes", "67108864"}, {"max_msgs", "-1"}}, "replicas")
+	labels.RelatedConfigSource = "inventory"
+	labels.Remediation = "Bring nats-us-4 back: its pod is Pending, and the bucket's only replica is on it. " +
+		"Then give the bucket more than one replica, so that one server cannot take it away."
+
 	full := finding("server-014", "JetStream store full soon", info, firing, serverRef("nats-ap-2"), s.on(15, 6, 0), s.on(15, 6, 0),
 		"71% of 100 GiB in use, growing 1.1 GiB/day: full in 26 days.")
 
@@ -49,7 +58,7 @@ func globalFindings(s scen) []*v1.Finding {
 			server+" restarted during the pool-us upgrade.")
 	}
 
-	return []*v1.Finding{us4, replica("shipping-updates"), replica("price-changes"), slow, backlog, full,
+	return []*v1.Finding{us4, replica("shipping-updates"), replica("price-changes"), labels, slow, backlog, full,
 		version("nats-ap-4"), version("nats-ap-5"),
 		restarted("nats-us-1", 8, 46, 10), restarted("nats-us-2", 8, 58, 30), restarted("nats-us-3", 9, 6, 40),
 		resolvedFinding("stream-001", "Stream quorum lost", critical, streamRef("inventory-changes"), s.at(8, 58, 40), s.at(9, 1, 0),

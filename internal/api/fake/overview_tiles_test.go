@@ -33,7 +33,7 @@ func overviewTiles(t *testing.T, sys string) map[string]*v1.Tile {
 // changes, the counts from its streams, and statuses from its findings.
 func TestProdTiles(t *testing.T) {
 	tiles := overviewTiles(t, "example-prod")
-	want := map[string]float64{"servers": 3, "meta_leader": 2, "streams": 8, "kv": 1, "object_stores": 0, "consumers": 13,
+	want := map[string]float64{"servers": 3, "meta_leader": 2, "streams": 8, "kv": 3, "object_stores": 2, "consumers": 13,
 		"accounts": 1, "clients": 182}
 	for id, v := range want {
 		if tiles[id].Value == nil || tiles[id].GetValue() != v {
@@ -67,7 +67,7 @@ func TestGlobalTiles(t *testing.T) {
 	}
 	status := map[string]v1.Status{"servers": v1.Status_STATUS_WARNING, "streams": v1.Status_STATUS_WARNING,
 		"clients": v1.Status_STATUS_WARNING, "consumers": v1.Status_STATUS_WARNING, "storage": v1.Status_STATUS_INFO,
-		"kv": v1.Status_STATUS_OK, "object_stores": v1.Status_STATUS_OK}
+		"kv": v1.Status_STATUS_WARNING, "object_stores": v1.Status_STATUS_OK}
 	for id, st := range status {
 		if got := tiles[id].GetStatus(); got != st {
 			t.Errorf("tile %s status %v, want %v", id, got, st)

@@ -81,12 +81,14 @@ func TestListAccounts(t *testing.T) {
 	}
 }
 
-func TestStoreBucketListsAreEmpty(t *testing.T) {
+// A range before the first epoch, without an inventory, lists no buckets.
+func TestStoreBucketListsBeforeTheFirstEpoch(t *testing.T) {
 	_, c := apitest.Serve(t, &storeprov.Provider{St: fixtureStore(t), Interval: 30 * time.Second, Clock: func() time.Time { return now }})
-	if res := must(c.ListKeyValueStores(ctx, connect.NewRequest(&v1.ListKeyValueStoresRequest{}))); len(res.GetKeyValueStores()) != 0 {
+	past := &v1.TimeRange{Start: timestamppb.New(t0.Add(-2 * time.Hour)), End: timestamppb.New(t0.Add(-time.Hour))}
+	if res := must(c.ListKeyValueStores(ctx, connect.NewRequest(&v1.ListKeyValueStoresRequest{Range: past}))); len(res.GetKeyValueStores()) != 0 {
 		t.Errorf("key-value stores = %v", res)
 	}
-	if res := must(c.ListObjectStores(ctx, connect.NewRequest(&v1.ListObjectStoresRequest{}))); len(res.GetObjectStores()) != 0 {
+	if res := must(c.ListObjectStores(ctx, connect.NewRequest(&v1.ListObjectStoresRequest{Range: past}))); len(res.GetObjectStores()) != 0 {
 		t.Errorf("object stores = %v", res)
 	}
 }

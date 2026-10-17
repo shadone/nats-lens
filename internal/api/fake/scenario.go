@@ -18,6 +18,9 @@ type scenario struct {
 	servers []serverSpec
 	streams []streamSpec
 	clients []string
+	// buckets are the KV buckets and object stores the inventory lists;
+	// a KV_ or OBJ_ stream without one is a bucket with defaults.
+	buckets []bucketSpec
 	// metaLeader is the JetStream meta leader.
 	metaLeader string
 	// epoch is the number of the newest epoch; stale is how long before

@@ -3,13 +3,11 @@
 // two systems never share a cache entry. A live range refetches on the
 // collector's interval; a fixed range never changes and is not refetched.
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { rangeKey, type RangeSpec } from "../lib/timeRange";
+import { LIVE_REFRESH_MS, rangeKey, type RangeSpec } from "../lib/timeRange";
 import { useSystem } from "../lib/useSystem";
 import type { Entity } from "./model";
 import * as api from "./requests";
 import { useCurrentSystem } from "./systems";
-
-export const LIVE_REFRESH_MS = 30_000;
 
 function refetch(spec: RangeSpec) {
   return spec.kind === "live" ? LIVE_REFRESH_MS : false;
