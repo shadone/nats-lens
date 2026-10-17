@@ -142,6 +142,41 @@ func TestSystemSummaryCollectionErrorFromEvents(t *testing.T) {
 			t.Errorf("overview freshness %v", f)
 		}
 	})
+	t.Run("after a reconnect", func(t *testing.T) {
+		st, _, _ := findingsStore(t)
+		if err := st.WriteEvents(ctx, []events.Event{
+			collector(70*time.Second, "collector.not_connected", "no server reachable"),
+			collector(75*time.Second, "collector.connection_closed", "nats: authorization violation"),
+			collector(80*time.Second, "collector.reconnected", ""),
+		}); err != nil {
+			t.Fatal(err)
+		}
+		s := summaryOf(t, st, true, &v1.TimeRange{Start: timestamppb.New(t0), End: timestamppb.New(now)})
+		if s.GetCollection() != v1.CollectionState_COLLECTION_STATE_COLLECTING || s.GetCollectionError() != "" || s.GetCollectionErrorSince() != nil {
+			t.Errorf("collection %v %q since %v", s.GetCollection(), s.GetCollectionError(), s.GetCollectionErrorSince())
+		}
+		if f := s.GetFreshness(); !f.GetCollecting() || f.GetNotCollectingSince() != nil {
+			t.Errorf("freshness %v", f)
+		}
+	})
+	t.Run("during the newest epoch, which then completes", func(t *testing.T) {
+		st, _, _ := findingsStore(t)
+		var started, finished time.Time
+		if err := st.DB().QueryRow(`SELECT started_at, finished_at FROM epochs ORDER BY epoch DESC LIMIT 1`).Scan(&started, &finished); err != nil {
+			t.Fatal(err)
+		}
+		if !finished.After(started.Add(time.Millisecond)) {
+			t.Fatalf("fixture epoch takes no time: %v to %v", started, finished)
+		}
+		mid := started.Sub(t0) + finished.Sub(started)/2
+		if err := st.WriteEvents(ctx, []events.Event{collector(mid, "collector.not_connected", "no server reachable")}); err != nil {
+			t.Fatal(err)
+		}
+		s := summaryOf(t, st, true, &v1.TimeRange{Start: timestamppb.New(t0), End: timestamppb.New(now)})
+		if s.GetCollection() != v1.CollectionState_COLLECTION_STATE_COLLECTING || !s.GetFreshness().GetCollecting() {
+			t.Errorf("collection %v, freshness %v", s.GetCollection(), s.GetFreshness())
+		}
+	})
 	t.Run("without a collector", func(t *testing.T) {
 		st, _, _ := findingsStore(t)
 		if s := summaryOf(t, st, false, fixtureRange()); s.GetCollection() != v1.CollectionState_COLLECTION_STATE_UNSPECIFIED ||
