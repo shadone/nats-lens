@@ -115,6 +115,25 @@ func globalSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (fl
 			return 212, true
 		}
 		return 0, true
+	case "consumer.delivered_rate":
+		// label-printer drains 21/s since 13:40 while 38/s arrive.
+		if e.GetConsumer() == "label-printer" && !c.Before(fixed(13, 40, 0)) {
+			return math.Round((21+noise(metric+e.GetKey(), c))*10) / 10, true
+		}
+		if e.GetConsumer() == "label-printer" {
+			return math.Round((38+noise(metric+e.GetKey(), c)*4)*10) / 10, true
+		}
+		return deliveredRate(e.GetKey(), c), true
+	case "cluster.meta_leader_changes":
+		// nats-eu-1 has led since the start of the data: the us restarts
+		// did not touch the meta group's leader.
+		return 0, true
+	case "server.slow_consumers":
+		// Every slow consumer disconnect was label-printer on nats-us-3.
+		if sp.name != "nats-us-3" {
+			return 0, !globalDownAt(sp, c)
+		}
+		return countIn(sc.slowEvents, c), !globalDownAt(sp, c)
 	}
 	return 0, false
 }

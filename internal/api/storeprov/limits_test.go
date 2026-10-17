@@ -502,6 +502,51 @@ func TestTileValueIsTheChartsLastPoint(t *testing.T) {
 	}
 }
 
+// The band query stays far within the call's time limit over a week of
+// 30-second epochs from 24 servers (20 000 epochs, 480 000 server rows).
+func TestBandOverALargeStore(t *testing.T) {
+	if testing.Short() {
+		t.Skip("writes 480 000 server rows")
+	}
+	st := emptyStore(t)
+	const epochs, servers = 20000, 24
+	begin := now.Add(-epochs * 30 * time.Second)
+	// As text: a bound time.Time is cast through the local time zone.
+	at := begin.Format(time.DateTime)
+	for _, q := range []string{
+		`INSERT INTO epochs SELECT i, ?::TIMESTAMP + to_seconds(i * 30), ?::TIMESTAMP + to_seconds(i * 30), 0, 24, 24, [], [], [], 0, false, [], NULL
+		 FROM range(?) t(i)`,
+		`INSERT INTO servers (server_id, server_name, first_epoch, last_epoch, first_seen_at, last_seen_at)
+		 SELECT 'S' || s, 'nats-' || s, 0, ? - 1, ?::TIMESTAMP, ?::TIMESTAMP FROM range(24) t(s)`,
+		`INSERT INTO server_stats (epoch, server_id, cpu_percent, mem_bytes)
+		 SELECT e, 'S' || s, s * 3 + (hash(e, s) % 100) / 50.0, (100 + s) * 1048576 FROM range(?) a(e), range(24) b(s)`,
+	} {
+		var args []any
+		switch {
+		case strings.HasPrefix(strings.TrimSpace(q), "INSERT INTO epochs"):
+			args = []any{at, at, epochs}
+		case strings.Contains(q, "INTO servers"):
+			args = []any{epochs, at, at}
+		default:
+			args = []any{epochs}
+		}
+		if _, err := st.DB().Exec(q, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, c := serve(t, st)
+	for _, points := range []int32{200, 2000} {
+		started := time.Now()
+		s := must(c.GetTimeSeries(ctx, connect.NewRequest(&v1.GetTimeSeriesRequest{Metric: "cluster.cpu_percent", MaxPoints: points,
+			Range: &v1.TimeRange{Start: timestamppb.New(begin), End: timestamppb.New(now)}}))).GetSeries()
+		took := time.Since(started)
+		t.Logf("band over %d epochs x %d servers, %d points: %v", epochs, servers, points, took)
+		if s.GetTop().GetKey() != "nats-23" || len(s.GetPoints()) < int(points) || took > api.QueryTimeout/3 {
+			t.Fatalf("band took %v with top %v and %d points", took, s.GetTop(), len(s.GetPoints()))
+		}
+	}
+}
+
 // 500 000 events over two weeks, with 40 000 epochs, read with routine
 // hiding, folding, facets and a histogram: well within the call timeout.
 func TestFoldedEventsAtScale(t *testing.T) {
