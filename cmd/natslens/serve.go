@@ -62,8 +62,9 @@ func startAPI(ctx context.Context, o apiOptions, systems api.Systems, log *slog.
 	return func() { <-done }, nil
 }
 
-// runDemo serves the fake provider: the reference scenario as the one
-// system example-prod, named like its cluster, without NATS or a database.
+// runDemo serves the fake providers without NATS or a database: the
+// reference scenario as example-prod, the default system, then
+// example-global and example-staging.
 func runDemo(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("natslens demo", flag.ContinueOnError)
 	listen := fs.String("listen", api.DefaultListen, "address for the API and UI")
@@ -78,7 +79,7 @@ func runDemo(ctx context.Context, args []string) error {
 	log := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 	log.Info("starting", "command", "demo", "version", version, "live", !*fixed)
 	wait, err := startAPI(ctx, apiOptions{listen: *listen, allowedHosts: config.SplitList(*allowed)},
-		api.One(fake.Cluster, fake.Cluster, fake.New(!*fixed)), log)
+		fake.Demo(!*fixed), log)
 	if err != nil {
 		return err
 	}
