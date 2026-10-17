@@ -1,0 +1,26 @@
+{
+  "subject": "$JS.EVENT.ADVISORY.API",
+  "account": "APP",
+  "payload": {
+    "type": "io.nats.jetstream.advisory.v1.api_audit",
+    "id": "vU6Vlp5USz2jEIwIlxrdht",
+    "timestamp": "2026-10-17T00:10:30.031348Z",
+    "server": "nats-0",
+    "client": {
+      "start": "2026-10-17T02:10:29.792752+02:00",
+      "host": "127.0.0.1",
+      "id": 22,
+      "acc": "APP",
+      "user": "app",
+      "lang": "go",
+      "ver": "1.54.0",
+      "rtt": 214792,
+      "server": "nats-0",
+      "cluster": "lens-test",
+      "kind": "Client",
+      "client_type": "nats"
+    },
+    "subject": "$JS.API.CONSUMER.CREATE.order-jobs.resize-worker",
+    "response": "{\"type\":\"io.nats.jetstream.api.v1.consumer_create_response\",\"stream_name\":\"order-jobs\",\"name\":\"resize-worker\",\"created\":\"2026-10-17T00:10:29.929344Z\",\"config\":{\"durable_name\":\"resize-worker\",\"name\":\"resize-worker\",\"deliver_policy\":\"all\",\"ack_policy\":\"explicit\",\"ack_wait\":200000000,\"max_deliver\":2,\"replay_policy\":\"instant\",\"sample_freq\":\"100%\",\"max_waiting\":512,\"max_ack_pending\":1000,\"num_replicas\":0,\"metadata\":{\"_nats.level\":\"5\",\"_nats.req.level\":\"0\",\"_nats.ver\":\"2.15.0\"}},\"delivered\":{\"consumer_seq\":0,\"stream_seq\":0},\"ack_floor\":{\"consumer_seq\":0,\"stream_seq\":0},\"num_ack_pending\":0,\"num_redelivered\":0,\"num_waiting\":0,\"num_pending\":0,\"cluster\":{\"name\":\"lens-test\",\"raft_group\":\"C-R3F-9CrkHBIt\",\"leader\":\"nats-0\",\"leader_since\":\"2026-10-17T00:10:30.030993Z\",\"system_account\":true,\"traffic_account\":\"SYS\",\"replicas\":[{\"name\":\"nats-1\",\"current\":true,\"active\":39583,\"peer\":\"yrzKKRBu\"},{\"name\":\"nats-2\",\"current\":true,\"active\":219250,\"peer\":\"cnrtt3eg\"}]},\"ts\":\"2026-10-17T00:10:30.031171Z\"}"
+  }
+}

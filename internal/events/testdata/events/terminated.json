@@ -1,0 +1,15 @@
+{
+  "subject": "$JS.EVENT.ADVISORY.CONSUMER.MSG_TERMINATED.order-jobs.resize-worker",
+  "account": "APP",
+  "payload": {
+    "type": "io.nats.jetstream.advisory.v1.terminated",
+    "id": "vU6Vlp5USz2jEIwIlxre0W",
+    "timestamp": "2026-10-17T00:10:30.044473Z",
+    "stream": "order-jobs",
+    "consumer": "resize-worker",
+    "consumer_seq": 3,
+    "stream_seq": 3,
+    "deliveries": 1,
+    "reason": "bad payload"
+  }
+}

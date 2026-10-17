@@ -1,0 +1,28 @@
+/* Top bar, range, theme switch and tabs, from the reference. */
+/* top bar */
+.top{position:sticky;top:0;z-index:5;background:var(--header-bg);backdrop-filter:blur(6px);border-bottom:1px solid var(--border)}
+.top .wrap{padding-bottom:0}
+.bar{display:flex;align-items:center;gap:18px;min-height:54px;flex-wrap:wrap;padding:8px 0}
+.brand{display:flex;align-items:center;gap:8px;font:600 13px var(--mono);letter-spacing:-.01em}
+.brand i{width:14px;height:14px;border-radius:3px;border:2px solid var(--accent);display:inline-block;position:relative}
+.brand i:after{content:"";position:absolute;inset:3px;background:var(--accent);border-radius:1px}
+.crumb{display:flex;align-items:center;gap:10px;color:var(--text-muted)}
+.crumb b{font:600 15px var(--mono);color:var(--text)}
+.srv{display:flex;gap:6px}
+.srv span{font:500 11.5px var(--mono);padding:3px 7px;border-radius:5px;background:var(--accent-soft);color:var(--accent-text)}
+.srv span:before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:6px;vertical-align:1px}
+.range{margin-left:auto;display:flex;align-items:center;border:1px solid var(--border);border-radius:7px;background:var(--surface);overflow:hidden}
+.range > *{padding:7px 10px;border-right:1px solid var(--border-soft);white-space:nowrap}
+.range > *:last-child{border-right:0}
+.range .preset{font-weight:600}
+.range .span{font:12px var(--mono);color:var(--text-2)}
+.live{display:flex;align-items:center;gap:7px;font:12px var(--mono);color:var(--accent-text)}
+.live:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--live-ring)}
+.theme{display:flex;align-items:center;gap:7px;font:500 12px var(--sans);color:var(--text-2);background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:7px 10px;cursor:pointer;white-space:nowrap}
+.theme:hover{color:var(--text);border-color:var(--text-faint)}
+.theme:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.theme svg{width:14px;height:14px;display:block}
+.theme .k{color:var(--text-muted)}
+.tabs{display:flex;gap:22px;overflow-x:auto;scrollbar-width:none}
+.tabs a{padding:9px 0 10px;color:var(--text-muted);text-decoration:none;font-weight:500;white-space:nowrap;border-bottom:2px solid transparent}
+.tabs a.on{color:var(--text);border-bottom-color:var(--accent)}

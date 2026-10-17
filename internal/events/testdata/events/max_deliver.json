@@ -1,0 +1,13 @@
+{
+  "subject": "$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.order-jobs.resize-worker",
+  "account": "APP",
+  "payload": {
+    "type": "io.nats.jetstream.advisory.v1.max_deliver",
+    "id": "vU6Vlp5USz2jEIwIlxre7y",
+    "timestamp": "2026-10-17T00:10:30.546781Z",
+    "stream": "order-jobs",
+    "consumer": "resize-worker",
+    "stream_seq": 2,
+    "deliveries": 2
+  }
+}

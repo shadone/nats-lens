@@ -1,0 +1,18 @@
+# natslens on an existing Gateway. The Gateway must admit routes from
+# namespace nats-lens (allowedRoutes), and its listener must serve the host
+# name; set allowed_hosts in natslens.yaml to the same name.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: natslens
+  namespace: nats-lens
+spec:
+  parentRefs:
+    - name: example-gateway
+      namespace: gateway
+  hostnames:
+    - nats-lens.example.com
+  rules:
+    - backendRefs:
+        - name: natslens
+          port: 8080

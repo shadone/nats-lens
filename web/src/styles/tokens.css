@@ -1,0 +1,57 @@
+/* Colour tokens, light and dark, ported from docs/ui-reference/reference.html. */
+/* ---------- tokens: light (default) ---------- */
+:root{
+  color-scheme:light;
+  --bg:#f3f4f1; --grid:rgba(20,40,30,.045); --header-bg:rgba(243,244,241,.92);
+  --surface:#fdfdfc; --surface-2:#f6f7f4; --surface-sunk:#eceee9;
+  --border:#e0e3de; --border-soft:#eaece7; --shadow:rgba(20,40,30,.035); --stripe:rgba(20,40,30,.035);
+  --text:#16201c; --text-2:#46514c; --text-muted:#5f6964; --text-faint:#a9b1ac;
+  --strong-bg:#16201c; --on-strong:#fdfdfc;
+  --accent:#0e9a84; --accent-text:#0a6a5a; --accent-soft:#e0f2ec; --live-ring:rgba(14,154,132,.18);
+  --sev-critical:#c2332d; --sev-critical-bg:#fbeceb; --sev-critical-border:#efcfcc; --on-critical:#ffffff;
+  --sev-warning:#8a5c00; --sev-warning-bg:#fbf3e2;
+  --sev-info:#33609e; --sev-info-bg:#e9eff8;
+  --sev-muted:#5f6763;
+  --cell-critical:#d9473f; --cell-warning:#e8a630; --cell-info:#86a5d6; --ok-cell:#d6ece1; --on-cell-warning:#3b2900;
+  --k8s:#5f4aa3; --k8s-bg:#ece9f6; --upgrade-fill:rgba(95,74,163,.065); --upgrade-line:rgba(95,74,163,.5);
+  --track:#e4e7e2; --track-fill:#c6e4d9;
+  --backdrop:rgba(22,32,28,.35);
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace; --sans:"IBM Plex Sans",system-ui,sans-serif;
+}
+/* ---------- tokens: dark ---------- */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0b0f14; --grid:rgba(150,180,215,.03); --header-bg:rgba(11,15,20,.9);
+    --surface:#11161c; --surface-2:#151b22; --surface-sunk:#1a2129;
+    --border:#242d37; --border-soft:#1b232b; --shadow:rgba(0,0,0,0); --stripe:rgba(200,220,240,.025);
+    --text:#e3e8ed; --text-2:#b1bbc5; --text-muted:#8b96a2; --text-faint:#46515c;
+    --strong-bg:#e3e8ed; --on-strong:#0b0f14;
+    --accent:#36a588; --accent-text:#5dc8aa; --accent-soft:#13302a; --live-ring:rgba(54,165,136,.22);
+    --sev-critical:#f2676c; --sev-critical-bg:#2a1518; --sev-critical-border:#4b2428; --on-critical:#1a0709;
+    --sev-warning:#e2ad45; --sev-warning-bg:#272013;
+    --sev-info:#71abf0; --sev-info-bg:#132134;
+    --sev-muted:#97a1ac;
+    --cell-critical:#e0524f; --cell-warning:#d39b2a; --cell-info:#3f6fae; --ok-cell:#1a332d; --on-cell-warning:#1a1306;
+    --k8s:#b8a2ea; --k8s-bg:#211c33; --upgrade-fill:rgba(184,162,234,.075); --upgrade-line:rgba(184,162,234,.5);
+    --track:#222b34; --track-fill:#1d4238;
+    --backdrop:rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0b0f14; --grid:rgba(150,180,215,.03); --header-bg:rgba(11,15,20,.9);
+  --surface:#11161c; --surface-2:#151b22; --surface-sunk:#1a2129;
+  --border:#242d37; --border-soft:#1b232b; --shadow:rgba(0,0,0,0); --stripe:rgba(200,220,240,.025);
+  --text:#e3e8ed; --text-2:#b1bbc5; --text-muted:#8b96a2; --text-faint:#46515c;
+  --strong-bg:#e3e8ed; --on-strong:#0b0f14;
+  --accent:#36a588; --accent-text:#5dc8aa; --accent-soft:#13302a; --live-ring:rgba(54,165,136,.22);
+  --sev-critical:#f2676c; --sev-critical-bg:#2a1518; --sev-critical-border:#4b2428; --on-critical:#1a0709;
+  --sev-warning:#e2ad45; --sev-warning-bg:#272013;
+  --sev-info:#71abf0; --sev-info-bg:#132134;
+  --sev-muted:#97a1ac;
+  --cell-critical:#e0524f; --cell-warning:#d39b2a; --cell-info:#3f6fae; --ok-cell:#1a332d; --on-cell-warning:#1a1306;
+  --k8s:#b8a2ea; --k8s-bg:#211c33; --upgrade-fill:rgba(184,162,234,.075); --upgrade-line:rgba(184,162,234,.5);
+  --track:#222b34; --track-fill:#1d4238;
+  --backdrop:rgba(0,0,0,.6);
+}

@@ -1,0 +1,11 @@
+{
+  "subject": "$JS.EVENT.ADVISORY.STREAM.CREATED.order-jobs",
+  "account": "APP",
+  "payload": {
+    "type": "io.nats.jetstream.advisory.v1.stream_action",
+    "id": "vU6Vlp5USz2jEIwIlxrdPG",
+    "timestamp": "2026-10-17T00:10:29.911134Z",
+    "stream": "order-jobs",
+    "action": "create"
+  }
+}

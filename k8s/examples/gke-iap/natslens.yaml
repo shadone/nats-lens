@@ -1,0 +1,38 @@
+# natslens behind IAP on GKE.
+interval: 30s
+timeout: 3s
+data_dir: /var/lib/natslens/data
+# On the same volume as the database.
+archive_dir: /var/lib/natslens/archive
+retention: 14d
+log_level: info
+listen: 0.0.0.0:8080
+# The host name of the HTTPRoute (httproute.yaml).
+allowed_hosts: [nats-lens.example.com]
+# The backend service of the IAP-protected Service, known once the Gateway
+# created it. natslens refuses to start until the placeholder is replaced.
+iap_audience: /projects/PROJECT_NUMBER/global/backendServices/BACKEND_SERVICE_ID
+
+nats:
+  url: nats://nats.nats.svc.cluster.local:4222
+  name: natslens
+  # Secret natslens-nats-system, key system.creds: a user of the system
+  # account with the grants in the README (NATS permissions).
+  creds: /etc/natslens-creds/system/system.creds
+
+events:
+  enabled: true
+
+accounts:
+  # Secret natslens-nats-app, key app.creds: a user of the APP account
+  # allowed to subscribe to $JS.EVENT.> and $SYS.ACCOUNT.CLIENT.AUTH.ERR and
+  # to request $SYS.REQ.USER.INFO.
+  - name: APP
+    creds: /etc/natslens-creds/app/app.creds
+
+kubernetes:
+  enabled: true
+  namespaces: [nats]
+  nats_selector: app.kubernetes.io/name=nats,app.kubernetes.io/component=nats
+  # The Helm chart sets SERVER_NAME to the pod name.
+  server_name: "{pod}"

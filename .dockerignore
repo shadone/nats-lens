@@ -1,0 +1,14 @@
+.git
+.dev
+bin
+data
+*.duckdb
+*.duckdb.wal
+web/node_modules
+internal/webui/dist/*
+!internal/webui/dist/.gitkeep
+.DS_Store
+.idea
+.vscode
+deploy
+docs

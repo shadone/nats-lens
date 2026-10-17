@@ -1,0 +1,51 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# natslens reached with kubectl port-forward only, for any cluster. NATS is
+# the Helm chart's StatefulSet in namespace nats. Before applying, create
+# the two credentials Secrets in namespace nats-lens:
+#
+#   kubectl create namespace nats-lens
+#   kubectl -n nats-lens create secret generic natslens-nats-system --from-file=system.creds=./system.creds
+#   kubectl -n nats-lens create secret generic natslens-nats-app --from-file=app.creds=./app.creds
+#
+# then `kubectl apply -k k8s/examples/basic` and
+# `kubectl -n nats-lens port-forward svc/natslens 8080` to open
+# http://127.0.0.1:8080.
+resources:
+  - ../../base
+  - networkpolicy.yaml
+
+images:
+  - name: natslens
+    # The image `make image` builds, pushed to a registry the cluster can pull from.
+    newName: registry.example.com/nats-lens/natslens
+    newTag: latest
+
+# The whole configuration is natslens.yaml. Generated so that the name
+# carries a hash of the file: natslens reads its configuration once at
+# start, and the new name rolls the Deployment.
+configMapGenerator:
+  - name: natslens-config
+    namespace: nats-lens
+    files:
+      - natslens.yaml
+
+# NATS in another namespace than nats: uncomment and set it here, in
+# natslens.yaml (nats.url and kubernetes.namespaces) as well.
+# patches:
+#   - target: {kind: Role, name: natslens-read}
+#     patch: |-
+#       - op: replace
+#         path: /metadata/namespace
+#         value: my-nats
+#   - target: {kind: RoleBinding, name: natslens-read}
+#     patch: |-
+#       - op: replace
+#         path: /metadata/namespace
+#         value: my-nats
+#   - target: {kind: Deployment, name: natslens}
+#     patch: |-
+#       - op: replace
+#         path: /spec/template/spec/affinity/podAntiAffinity/preferredDuringSchedulingIgnoredDuringExecution/0/podAffinityTerm/namespaces
+#         value: [my-nats]

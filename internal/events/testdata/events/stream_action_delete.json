@@ -1,0 +1,11 @@
+{
+  "subject": "$JS.EVENT.ADVISORY.STREAM.DELETED.order-jobs",
+  "account": "APP",
+  "payload": {
+    "type": "io.nats.jetstream.advisory.v1.stream_action",
+    "id": "vU6Vlp5USz2jEIwIlxrf9J",
+    "timestamp": "2026-10-17T00:10:38.377044Z",
+    "stream": "order-jobs",
+    "action": "delete"
+  }
+}

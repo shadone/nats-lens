@@ -1,0 +1,27 @@
+{
+  "subject": "$JS.EVENT.ADVISORY.API",
+  "account": "APP",
+  "payload": {
+    "type": "io.nats.jetstream.advisory.v1.api_audit",
+    "id": "vU6Vlp5USz2jEIwIlxrf5a",
+    "timestamp": "2026-10-17T00:10:38.374294Z",
+    "server": "nats-1",
+    "client": {
+      "start": "2026-10-17T02:10:38.370737+02:00",
+      "host": "127.0.0.1",
+      "id": 35,
+      "acc": "APP",
+      "user": "app",
+      "name": "test-deleter",
+      "lang": "go",
+      "ver": "1.54.0",
+      "rtt": 279125,
+      "server": "nats-0",
+      "cluster": "lens-test",
+      "kind": "Client",
+      "client_type": "nats"
+    },
+    "subject": "$JS.API.CONSUMER.DELETE.order-jobs.resize-worker",
+    "response": "{\"type\":\"io.nats.jetstream.api.v1.consumer_delete_response\",\"success\":true}"
+  }
+}

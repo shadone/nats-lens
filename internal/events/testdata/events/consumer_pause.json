@@ -1,0 +1,13 @@
+{
+  "subject": "$JS.EVENT.ADVISORY.CONSUMER.PAUSE.order-jobs.resize-worker",
+  "account": "APP",
+  "payload": {
+    "type": "io.nats.jetstream.advisory.v1.consumer_pause",
+    "id": "vU6Vlp5USz2jEIwIlxreJ9",
+    "timestamp": "2026-10-17T00:10:31.851408Z",
+    "stream": "order-jobs",
+    "consumer": "resize-worker",
+    "paused": true,
+    "pause_until": "2026-10-17T01:10:31.848255Z"
+  }
+}

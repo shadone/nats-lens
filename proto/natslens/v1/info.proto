@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// How the tool learns who makes a write call.
+enum IdentityMode {
+  // Not set.
+  IDENTITY_MODE_UNSPECIFIED = 0;
+  // The tool verifies the signed IAP header and records its user; a name in
+  // the request is ignored.
+  IDENTITY_MODE_IAP = 1;
+  // The request names the user; the IAP headers are ignored.
+  IDENTITY_MODE_REQUEST = 2;
+}
+
+// Request for facts about this nats-lens instance.
+message GetLensInfoRequest {}
+
+// Facts about this nats-lens instance and the system it observes.
+message GetLensInfoResponse {
+  // How a write call names its user.
+  IdentityMode identity_mode = 1;
+
+  // nats-lens version, for example a release tag or "dev".
+  string version = 2;
+
+  // Cluster name the newest epoch's servers report; empty before the first
+  // epoch.
+  string cluster = 3;
+
+  // Time between epochs.
+  google.protobuf.Duration collect_interval = 4;
+
+  // How long epochs and events are kept in the database.
+  google.protobuf.Duration retention = 5;
+
+  // Whether a collector writes to the database this instance reads.
+  bool live = 6;
+
+  // Whether the data is the built-in demo scenario, not a real system.
+  bool demo = 7;
+
+  // Start of the oldest stored epoch: the collector's history begins here.
+  // Unset before the first epoch.
+  google.protobuf.Timestamp history_start = 8;
+}

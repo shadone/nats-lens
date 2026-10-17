@@ -1,0 +1,99 @@
+# Expected JetStream assets for the inventory checks (stream-011, stream-012,
+# consumer-010, consumer-011). Point natslens at a copy with inventory_file.
+#
+# The example is an online shop that processes product media: one APP
+# account with its order, media and catalog streams, their durable
+# consumers, KV buckets and object stores. Only the settings given are
+# compared; leave out what a deployment may choose freely. Durations take
+# s, m, h or d; byte sizes a whole number with an optional KiB, MiB, GiB or
+# TiB suffix, or -1.
+accounts:
+  - name: APP
+    streams:
+      - name: order-jobs
+        replicas: 3
+        retention: limits
+        max_age: 7d
+        max_msgs: 1000000
+        discard: old
+        consumers:
+          # media-worker
+          - name: resize-worker
+          - name: index-worker
+          - name: video-worker
+          # order-service
+          - name: order-processed
+          - name: job-cache-projector
+      - name: order-archive
+        replicas: 3
+        max_age: 0
+        max_bytes: -1
+        max_msgs: -1
+        consumers:
+          - name: analytics-aggregator
+          - name: active-jobs
+      - name: order-callbacks
+        replicas: 3
+        retention: workqueue
+        max_age: 1d
+        max_msgs: 1000000
+        discard: old
+        consumers:
+          - name: callback-delivery
+      - name: media-windows
+        replicas: 3
+        retention: workqueue
+        max_age: 6h
+        max_msgs: 1000000
+        discard: old
+        consumers:
+          # Created with the stream, not by its service: its user cannot
+          # create consumers.
+          - name: media-chunk-pool
+            ack_wait: 30s
+            max_deliver: 3
+            max_ack_pending: 1000
+      - name: audit-archive
+        replicas: 3
+        max_age: 0
+        max_msgs_per_subject: 100000000
+        consumers:
+          - name: usage-aggregator
+      - name: catalog-changes
+        replicas: 3
+        max_age: 30d
+        discard: old
+        consumers:
+          - name: catalog-writer
+      - name: account-changes
+        replicas: 3
+        retention: interest
+        max_age: 7d
+        max_msgs: 10000
+        discard: old
+    kv:
+      - name: customer-info
+        storage: file
+        history: 1
+      - name: worker-presence
+        storage: memory
+        history: 10
+        ttl: 120s
+      - name: stock-levels
+        storage: file
+        history: 1
+      - name: order-jobs-cache
+        storage: file
+        history: 1
+        ttl: 48h
+    object_stores:
+      - name: image-input
+        storage: file
+        replicas: 3
+        ttl: 48h
+        max_bytes: 8GiB
+      - name: image-output
+        storage: file
+        replicas: 3
+        ttl: 48h
+        max_bytes: 8GiB

@@ -1,0 +1,16 @@
+# No other pod may reach natslens: the API has no authentication of its own
+# here. kubectl port-forward and the kubelet's probes are not affected. To
+# let a Prometheus in the cluster scrape /metrics, admit its namespace on
+# port 8080.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: natslens
+  namespace: nats-lens
+spec:
+  podSelector:
+    matchLabels:
+      app: natslens
+  policyTypes:
+    - Ingress
+  ingress: []

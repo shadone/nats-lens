@@ -1,0 +1,39 @@
+# IAP in front of the Service. The tool has no authentication of its own:
+# IAP decides who may pass, and natslens verifies the signed IAP header for
+# mutes when iap_audience is set. The HTTPRoute is the overlay's; the
+# Gateway, its certificate and DNS, and the IAM grant of
+# roles/iap.httpsResourceAccessor are set up outside these manifests.
+apiVersion: networking.gke.io/v1
+kind: GCPBackendPolicy
+metadata:
+  name: natslens
+  namespace: nats-lens
+spec:
+  default:
+    iap:
+      enabled: true
+  targetRef:
+    group: ""
+    kind: Service
+    name: natslens
+---
+# The load balancer probes /healthz, which answers while the process
+# serves; /readyz is the pod's readiness: true once the store is open and the
+# API serves, independent of collection, so the UI stays reachable while
+# NATS is down.
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: natslens
+  namespace: nats-lens
+spec:
+  default:
+    config:
+      type: HTTP
+      httpHealthCheck:
+        requestPath: /healthz
+        portSpecification: USE_SERVING_PORT
+  targetRef:
+    group: ""
+    kind: Service
+    name: natslens

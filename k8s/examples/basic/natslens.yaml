@@ -1,0 +1,41 @@
+# natslens behind kubectl port-forward, without IAP.
+interval: 30s
+timeout: 3s
+data_dir: /var/lib/natslens/data
+# On the same volume as the database.
+archive_dir: /var/lib/natslens/archive
+retention: 14d
+log_level: info
+# A port-forward reaches the pod's own address, so natslens listens beyond
+# loopback. Nothing else reaches it (networkpolicy.yaml), which is why it may
+# serve without iap_audience. That holds only where the cluster's CNI enforces
+# NetworkPolicy (Calico, Cilium, GKE Dataplane V2, ...): kind's default CNI
+# does not, and there any pod in the cluster can reach the API and mute
+# findings.
+listen: 0.0.0.0:8080
+allowed_hosts: [localhost, 127.0.0.1]
+allow_unauthenticated: true
+
+nats:
+  url: nats://nats.nats.svc.cluster.local:4222
+  name: natslens
+  # Secret natslens-nats-system, key system.creds: a user of the system
+  # account with the grants in the README (NATS permissions).
+  creds: /etc/natslens-creds/system/system.creds
+
+events:
+  enabled: true
+
+accounts:
+  # Secret natslens-nats-app, key app.creds: a user of the APP account
+  # allowed to subscribe to $JS.EVENT.> and $SYS.ACCOUNT.CLIENT.AUTH.ERR and
+  # to request $SYS.REQ.USER.INFO.
+  - name: APP
+    creds: /etc/natslens-creds/app/app.creds
+
+kubernetes:
+  enabled: true
+  namespaces: [nats]
+  nats_selector: app.kubernetes.io/name=nats,app.kubernetes.io/component=nats
+  # The Helm chart sets SERVER_NAME to the pod name.
+  server_name: "{pod}"

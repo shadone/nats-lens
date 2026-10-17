@@ -1,0 +1,13 @@
+# natslens configuration for the local dev cluster (make run-dev). The
+# passwords come from NATSLENS_NATS_PASSWORD and
+# NATSLENS_ACCOUNT_APP_PASSWORD, set by the Makefile.
+interval: 10s
+timeout: 2s
+data_dir: .dev/natslens
+nats:
+  url: nats://127.0.0.1:4222,nats://127.0.0.1:4223,nats://127.0.0.1:4224
+  user: sys
+accounts:
+  - name: APP
+    user: app
+inventory_file: scripts/inventory.dev.yaml

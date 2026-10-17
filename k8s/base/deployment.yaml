@@ -1,0 +1,134 @@
+# One replica: DuckDB lets one process write the database, so a rollout
+# stops the old pod before it starts the new one (Recreate).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: natslens
+  namespace: nats-lens
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: natslens
+  template:
+    metadata:
+      labels:
+        app: natslens
+      annotations:
+        # The cluster autoscaler would otherwise evict the one replica when
+        # it scales a node down, leaving gaps in the epochs. GKE Autopilot
+        # accepts the annotation only when every request equals its limit.
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+    spec:
+      serviceAccountName: natslens
+      # natslens stops within shutdown_grace + events.flush_interval + 2 s
+      # (8 s with the defaults), and its API within 5 s; 30 s leaves room.
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        # Preferably not on a node that runs a NATS server: a drain of that
+        # node would take the observer away with the server it should watch.
+        # Preferred, not required, so that natslens still schedules when no
+        # other node fits.
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                namespaces: ["nats"]
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: nats
+                    app.kubernetes.io/component: nats
+      containers:
+        - name: natslens
+          image: natslens
+          args: ["run", "-config", "/etc/natslens/natslens.yaml"]
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            # DuckDB may write under HOME; the root filesystem is read-only.
+            - name: HOME
+              value: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          # Small enough for a laptop cluster. For a production cluster raise
+          # them, for example to 500m CPU and 2Gi memory (DuckDB takes 60% of
+          # the memory limit), keeping limits equal to requests on GKE Autopilot;
+          # k8s/examples/gke-iap shows the patch.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 1Gi
+            limits:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 1Gi
+          # A missing database is rebuilt from the archive before the API
+          # listens, which can take minutes.
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /etc/natslens
+              readOnly: true
+            - name: system-creds
+              mountPath: /etc/natslens-creds/system
+              readOnly: true
+            - name: app-creds
+              mountPath: /etc/natslens-creds/app
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/natslens
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: natslens-config
+        # Created by the overlay or by hand (kubectl create secret generic).
+        - name: system-creds
+          secret:
+            secretName: natslens-nats-system
+            items:
+              - key: system.creds
+                path: system.creds
+        - name: app-creds
+          secret:
+            secretName: natslens-nats-app
+            items:
+              - key: app.creds
+                path: app.creds
+        - name: data
+          persistentVolumeClaim:
+            claimName: natslens-data
+        - name: tmp
+          emptyDir: {}

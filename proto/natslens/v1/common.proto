@@ -1,0 +1,154 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// Severity of a check and of the findings it raises.
+enum Severity {
+  // Not set.
+  SEVERITY_UNSPECIFIED = 0;
+  // Worth knowing; needs no action now.
+  SEVERITY_INFO = 1;
+  // Needs attention soon.
+  SEVERITY_WARNING = 2;
+  // Needs action now.
+  SEVERITY_CRITICAL = 3;
+}
+
+// Status is the state of an entity, a check or a time bucket as one value.
+//
+// It combines the worst severity of the findings that apply with whether
+// they are muted and whether there was data at all.
+enum Status {
+  // Not set.
+  STATUS_UNSPECIFIED = 0;
+  // No data: nothing was collected, or the check did not run.
+  STATUS_NO_DATA = 1;
+  // Data was collected and no finding applies.
+  STATUS_OK = 2;
+  // The worst finding that applies has info severity.
+  STATUS_INFO = 3;
+  // The worst finding that applies has warning severity.
+  STATUS_WARNING = 4;
+  // The worst finding that applies has critical severity.
+  STATUS_CRITICAL = 5;
+  // Findings apply, and all of them are muted.
+  STATUS_MUTED = 6;
+}
+
+// Kind of thing a finding, an event or a time series is about.
+enum EntityType {
+  // Not set.
+  ENTITY_TYPE_UNSPECIFIED = 0;
+  // The whole NATS system (cluster).
+  ENTITY_TYPE_SYSTEM = 1;
+  // One server, by its stable server name.
+  ENTITY_TYPE_SERVER = 2;
+  // One account.
+  ENTITY_TYPE_ACCOUNT = 3;
+  // One stream in an account.
+  ENTITY_TYPE_STREAM = 4;
+  // One consumer on a stream.
+  ENTITY_TYPE_CONSUMER = 5;
+  // One client connection on a server.
+  ENTITY_TYPE_CONNECTION = 6;
+  // A client application, by its connection name across connections.
+  ENTITY_TYPE_CLIENT = 7;
+}
+
+// Reference to one entity.
+//
+// Only the fields that apply to the type are set: a stream has account and
+// stream, a consumer also has consumer, a server has server.
+message EntityRef {
+  // Kind of entity.
+  EntityType type = 1;
+
+  // Canonical key of the entity, unique per type.
+  //
+  // Server: server name. Account: account as the servers report it (the
+  // account ID in operator mode). Stream: account/stream. Consumer:
+  // account/stream/consumer. Connection: server/cid. Client: connection
+  // name. System: empty.
+  string key = 2;
+
+  // Short name to show, for example the consumer name without its stream.
+  string name = 3;
+
+  // Account of a stream or consumer.
+  string account = 4;
+
+  // Stream of a stream or of a consumer.
+  string stream = 5;
+
+  // Consumer name of a consumer.
+  string consumer = 6;
+
+  // Server name of a server or a connection.
+  string server = 7;
+
+  // Readable name of the account (as JWT name or name tag), when known;
+  // account keeps the ID the servers report.
+  string account_name = 8;
+}
+
+// Time range of a read.
+//
+// The range includes start and excludes end, and spans at most 400 days.
+message TimeRange {
+  // Start of the range.
+  google.protobuf.Timestamp start = 1;
+
+  // End of the range.
+  //
+  // Unset means now: the range follows the newest data (live mode).
+  google.protobuf.Timestamp end = 2;
+}
+
+// One configuration setting with its value as text.
+message ConfigValue {
+  // Setting name as NATS spells it, for example max_ack_pending.
+  string key = 1;
+
+  // Value formatted for display, for example 60s or 8000.
+  string value = 2;
+
+  // Whether this setting matters for the finding or view it appears in.
+  bool highlight = 3;
+}
+
+// The value one server reports for one setting.
+message ServerValue {
+  // Server name.
+  string server = 1;
+
+  // Value formatted for display.
+  string value = 2;
+}
+
+// A setting on which the servers disagree.
+message Disagreement {
+  // Setting or property name, for example created or config_hash.
+  string field = 1;
+
+  // What each server reports, one entry per server that reports the entity.
+  repeated ServerValue values = 2;
+}
+
+// Reference to one stored event.
+message EventRef {
+  // Event ID.
+  string id = 1;
+
+  // When the event happened.
+  google.protobuf.Timestamp time = 2;
+
+  // Normalized event kind, for example consumer.deleted.
+  string kind = 3;
+
+  // One line describing the event.
+  string summary = 4;
+}

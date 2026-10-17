@@ -1,0 +1,57 @@
+# syntax=docker/dockerfile:1
+
+# natslens: the web UI is built with Node, embedded into the Go binary,
+# which links DuckDB through cgo; the runtime is distroless with glibc and
+# libstdc++, running as the nonroot user (65532). Base images are pinned
+# by digest; update the tag and the digest together.
+#
+# The Node and Go stages run on the build machine's own platform and the Go
+# stage cross-compiles for TARGETARCH with Debian's gcc cross toolchain, so
+# an amd64 image builds on an arm64 Mac without emulation.
+
+FROM --platform=$BUILDPLATFORM node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e AS web
+WORKDIR /src/web
+COPY web/package.json web/package-lock.json web/.npmrc ./
+RUN npm ci --no-audit --no-fund
+COPY web/ ./
+RUN mkdir -p ../internal/webui/dist && npm run build
+
+FROM --platform=$BUILDPLATFORM golang:1.27.2-bookworm@sha256:5cf287a799e6b94384bad13d16b14904c531f51ba65792237e122ce42b392f61 AS build
+ARG TARGETARCH
+# The C and C++ compilers for the target: the native ones when it is the
+# build machine's architecture, else the cross compilers and the target's
+# C library headers.
+RUN set -eu; \
+    case "$TARGETARCH" in \
+      amd64) pkg=x86-64-linux-gnu ;; \
+      arm64) pkg=aarch64-linux-gnu ;; \
+      *) echo "unsupported TARGETARCH $TARGETARCH" >&2; exit 1 ;; \
+    esac; \
+    if [ "$(dpkg --print-architecture)" = "$TARGETARCH" ]; then \
+      pkgs="g++"; \
+    else \
+      pkgs="gcc-$pkg g++-$pkg libc6-dev-$TARGETARCH-cross"; \
+    fi; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends $pkgs; \
+    rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+COPY --from=web /src/internal/webui/dist/ internal/webui/dist/
+ARG VERSION=dev
+RUN set -eu; \
+    case "$TARGETARCH" in \
+      amd64) triple=x86_64-linux-gnu ;; \
+      arm64) triple=aarch64-linux-gnu ;; \
+    esac; \
+    CGO_ENABLED=1 GOOS=linux GOARCH="$TARGETARCH" CC="$triple-gcc" CXX="$triple-g++" \
+      go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/natslens ./cmd/natslens
+
+FROM gcr.io/distroless/cc-debian12:nonroot@sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f
+COPY --from=build /out/natslens /usr/local/bin/natslens
+USER 65532:65532
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/natslens"]
+CMD ["run", "-config", "/etc/natslens/natslens.yaml"]
