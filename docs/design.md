@@ -339,7 +339,7 @@ Visual design: Denis chose option A (light, calm, one mint-teal accent, IBM Plex
 
 What we take from Synadia Insights: the checks-over-time grid, the event feed with remediation and the related configuration values, monospace numbers, colour only for status.
 
-What we do differently: lead with the worst current finding, not an average grade; show mutes with their reason and expiry; draw Kubernetes and NATS events on the same timeline.
+What we do differently: lead with what fires now, grouped by cause, not an average grade; show mutes with their reason and expiry; draw Kubernetes and NATS events on the same timeline.
 
 At a phone width tables scroll inside their own container, so the page never scrolls sideways. Charts' accessible names include the current value and the range shown. Event IDs are URL-encoded in links.
 
@@ -492,6 +492,13 @@ Proposed, not yet confirmed by the owner.
 | `MetricBox`: the range track's ends are the series' own min and max, never widened by the current value (decided in the session that built it, not confirmed); a value outside them puts the dot at the nearer end and the accessible name says "above the window max" or "below the window min"; "steady at N all window" only when the series has a min and max and they are equal; no track and "no data for the window" without a series (nothing when it failed to load); `value={null}` means no current value: the track is drawn without a dot and says "no current value" | UI |
 | Server metric boxes: CPU at 60% of a core or more is "high", connections at 80% of `max_connections` or more "near limit", slow consumers in the range mark the box; a server that did not answer shows no current value | UI |
 | A server page's recent events are its newest six with routine events hidden and repeats folded | UI |
+| Overview order: status line, nine metric boxes, cause cards with the muted strip, eight trend charts, timeline lanes, busiest consumers beside the streams; the worst finding card, the tally, the event feed and the servers card leave the page; the per-check status timeline opens from the lanes ("Each check") and the zoom strip stays visible. Decided in the session that built it, not confirmed | UI |
+| Status line: "Serving normally" with nothing or only info firing, "Needs attention" with a warning, "Critical findings" with a critical one, muted findings not counted; in a live range "Not collecting" when the newest epoch is older than three collect intervals or no collector writes, "No data yet" without an epoch; a fixed range is judged by its findings only; one badge per severity with its count. Decided in the session that built it, not confirmed | UI |
+| Cause cards: findings that name the same cause event share a card; others group by check code and parent entity (a consumer's stream, a stream's account, else the system); cards by worst severity, then size; at most 8 entities per card, then "N more"; at most 500 findings read; the cards do not follow the account scope yet. Decided in the session that built it, not confirmed | UI |
+| Trend charts use their own `TrendChart` (lines, bands, bars) rather than the Servers page's `FleetChart`, because the row needs bars and stacked bands; every chart starts at zero, a gap of more than two buckets breaks a line, the busiest server is a dashed line in the info colour, and assets stack only where both series have a point. `Legend` draws marks with the chart's own classes. Decided in the session that built it, not confirmed | UI |
+| The findings lane is the worst state of any check per bucket; a check that did not run in a bucket does not count, and buckets where all were ok are empty. Decided in the session that built it, not confirmed | UI |
+| Overview tiles in `MetricBox`: a tile with a limit shows the value without its "of N" suffix and says "limit N" after the subtitle in the note; the meta leader's box draws its changes chart without a range track (`MetricBox` `track={false}`); a cause card names a stream or account only when all its findings share it. Decided in the session that built it, not confirmed | UI |
+| Busiest consumers: the 6 fastest by `ListConsumers` `DELIVERED_RATE`, each with a 96-point `consumer.delivered_rate` sparkline; Overview streams: the 10 worst first with a link to all. Both follow the account scope. Decided in the session that built it, not confirmed | UI |
 
 ## Out of scope for the first release
 

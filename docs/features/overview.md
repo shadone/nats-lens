@@ -43,8 +43,8 @@ NATS on its own is a black box to most of the people who run it. The servers ans
 - **Surfaces:** `ui`
 - **Given** nats-lens has collected for a while
 - **When** I open the UI
-- **Then** the Overview shows the worst current finding first, the number of findings per severity, the system's key numbers and a timeline of every check
-- **And** with nothing firing, the card reads "Nothing needs attention"; when nothing has resolved or been muted in the range either, it says that checks may not have run yet and points to the status timeline
+- **Then** the Overview leads with one status line and the number of findings per severity, then the system's key numbers, the findings grouped by cause, the trends and a timeline
+- **And** with nothing firing, the status line reads "Serving normally" and no finding card is shown
 
 ### Reconstruct a node upgrade
 
