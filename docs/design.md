@@ -298,7 +298,7 @@ Alerting is not part of the tool. A Prometheus scrapes `/metrics` (on GKE, Manag
 
 React, Vite, TypeScript, TanStack Query and the generated Connect client. A left sidebar lists the pages in groups: Fleet, Overview and Findings at the top; Messaging (Connections); JetStream (Streams, Consumers); Cluster (Servers, Events); and a detail page per entity. `web/src/nav.ts` is the list of sidebar pages: each has a group, a path, a label, an icon, a badge source, and `planned` for a page not built yet, which stays hidden. Each feature keeps its query hooks in `web/src/api/<feature>.ts`. The header names the page and holds the account scope, a search, the time range and the theme menu.
 
-Three parameters of the URL are global: the time range (`?range=` live or `?from=&to=` fixed), the system (`?system=`) and the account scope (`?account=`). Every link between pages carries them (`useGlobalQuery`), so a link opens the same view for the next person; a parameter the link sets itself wins, and a link to another system leaves the account behind. Every request takes the system from `useSystem()` and every query key holds it as its second element, so two systems never share a cache entry. A page without `?system=` reads the default system; with several systems its links name the default system. A `?system=` that names no configured system shows "System not found" with a link to Fleet, and the UI makes no call for it. Pages read view models from `web/src/api`, the only code that touches the generated client.
+Three parameters of the URL are global: the time range (`?range=` live or `?from=&to=` fixed), the system (`?system=`) and the account scope (`?account=`). Every link between pages carries them (`useGlobalQuery`, worked out once per URL change by `GlobalQueryProvider`), so a link opens the same view for the next person; a parameter the link sets itself wins, and a link to another system leaves the account behind. Every request takes the system from `useSystem()` and every query key holds it as its second element, so two systems never share a cache entry. A page without `?system=` reads the default system; with several systems its links name the default system. A `?system=` that names no configured system shows "System not found" with a link to Fleet, and the UI makes no call for it. Pages read view models from `web/src/api`, the only code that touches the generated client.
 
 The UI handler serves files from the embedded UI; a GET for a path that names no file and whose last element has no dot gets `index.html`, and a missing asset is a 404.
 
@@ -403,9 +403,10 @@ Proposed, not yet confirmed by the owner.
 | Switching system opens the list page of the current section on the other system, with the range kept and the account dropped | UI |
 | The header has no server chips; the switcher shows the number of servers answering | UI |
 | The Fleet badge stays empty until `ListSystems` returns each system's status | UI |
-| Search loads the servers, streams, consumers, KV stores, object stores and accounts of the current system on first focus; an account result sets the account scope | UI |
-| The account scope applies to Consumers (without a chosen stream) and Connections; the other pages follow as their tasks add the parameter | UI |
-| The collapsed sidebar is remembered in the browser; at phone width the sidebar is a drawer | UI |
+| Search loads the servers, streams, consumers, KV stores, object stores and accounts of the current system on first focus; an account result opens Connections scoped to it; the shortcut is Cmd+K on macOS (Ctrl+K kills the line there) and Ctrl+K elsewhere, never taken from another text field | UI |
+| The account scope applies to Consumers (without a chosen stream) and Connections, and the header offers it only there (`accountScope` in `nav.ts`); other pages follow as they add the parameter | UI |
+| The page content is keyed by path and system, so nothing of one system shows under another; mutes take the system the dialog opened on | UI |
+| The collapsed sidebar is remembered in the browser and keeps the system as its initials; at phone width the sidebar is a drawer with the page behind it inert | UI |
 
 ## Out of scope for the first release
 
