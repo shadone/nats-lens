@@ -1,12 +1,12 @@
 # Multiple systems and the Fleet view
 
 - **Surfaces:** `ui`, `api`, `cli`
-- **Status:** partial — the Fleet page is planned
+- **Status:** partial — a cluster switcher inside a supercluster is planned
 - **Related:** [overview.md](overview.md), [running-nats-lens.md](running-nats-lens.md), [monitoring-snapshots.md](monitoring-snapshots.md), [history-and-archive.md](history-and-archive.md), [sql-access.md](sql-access.md), [metrics-and-alerting.md](metrics-and-alerting.md), [navigation.md](navigation.md), [servers.md](servers.md), [topology.md](topology.md), [design.md](../design.md)
 
 ## What it does
 
-One nats-lens watches several NATS systems at once, for example production, staging and an edge deployment of leaf nodes. Each system has its own credentials, its own collector and its own database, so one system's trouble or size never affects another's history. The API answers each call for the system it names, `ListSystems` summarises every system from collected data, `/metrics` labels every series with its system, and the sidebar's switcher moves between systems. A Fleet page that lists every system worst first is planned.
+One nats-lens watches several NATS systems at once, for example production, staging and an edge deployment of leaf nodes. Each system has its own credentials, its own collector and its own database, so one system's trouble or size never affects another's history. The API answers each call for the system it names, `ListSystems` summarises every system from collected data, `/metrics` labels every series with its system, the sidebar's switcher moves between systems, and the Fleet page shows every system on one screen, worst first.
 
 ## Behavior and rules
 
@@ -20,11 +20,13 @@ One nats-lens watches several NATS systems at once, for example production, stag
 - **Every API call is per system.** Each call names its system; an empty name reads the first configured system, and an unknown one fails with the list of known ids. The web UI keeps the system in the address, so a shared link opens the same system.
 - **Fleet summaries in the API.** `ListSystems` returns one summary per system from data already collected, so the Fleet view never waits for NATS: the collection state (collecting, not connected, connection closed) with its error and since when, the newest epoch's age, the numbers of servers expected and answering, clusters, streams and connections, the worst finding and the tally, and a strip of the worst status per bucket of the range. A system that fails or takes longer than 5 seconds gets an error on its own card; the others still return. After a restart of nats-lens, a system that is not collecting is still reported from the collector's stored connection events.
 - **A switcher.** The sidebar's switcher at the top moves between systems; a cluster switcher inside a supercluster is planned.
-- **The Fleet page (planned).** One card per system, worst first: its name and environment label, its state (critical, warning, info, ok, or not collecting), a headline with its worst finding (or why it is not collecting, such as rejected credentials and when data was last received), the numbers of servers, clusters, streams and connections, its freshness, and a strip of its worst finding per half hour over the last 24 hours.
+- **The Fleet page, worst first.** One card per system: critical, warning, info, not collecting, then OK; systems in the same state keep their configuration order. A system that is not collecting is "not collecting" whatever its stored findings say.
+- **A Fleet card.** The name and environment; the state as a shape and a word; a headline with the worst finding and how many more fire, or the collection error and since when; the servers answering of expected (in red when fewer answer), clusters, streams and connections, with a dash for a number not observed; a strip of 48 cells, the worst status of each part of the range, with a legend above the cards that draws each kind of cell; and the freshness: "live · 6s" while epochs arrive, "last data 3h ago" once they stop, the newest epoch's time in a fixed range. Clicking a card opens that system's Overview with the range kept.
+- **A summary that failed** says "summary unavailable" with the error, and its card still opens the system.
+- **Fleet follows the header's range.** In a live range it asks again every 30 seconds, never while the previous call is still pending.
+- **The Fleet badge.** The sidebar's Fleet entry carries the number of systems that are not OK, shaped by the worst ([navigation.md](navigation.md)).
 - **Metrics name the system.** The `/metrics` series carry the system they belong to, so one alert rule covers every system.
 - **Commands per system.** `natslens once -system ID` collects one system; `natslens sql` and `natslens checks run` take `-config FILE -system ID` to read one system's database.
-- **The Fleet view (planned).** One card per system, worst first: its name and environment label, its state (critical, warning, info, ok, or not collecting), a headline with its worst finding (or why it is not collecting, such as rejected credentials and when data was last received), the numbers of servers, clusters, streams and connections, its freshness, and a strip of its worst finding per half hour over the last 24 hours.
-- **A switcher (planned).** The sidebar's switcher at the top moves between systems. Inside a supercluster a second switcher limits the pages to one cluster.
 
 ## Scenarios
 
@@ -60,8 +62,15 @@ One nats-lens watches several NATS systems at once, for example production, stag
 
 - **Surfaces:** `ui`
 - **Given** production has a critical stream finding and staging is not collecting because its credentials were rejected
-- **When** I open the Fleet view (planned)
+- **When** I open the Fleet page
 - **Then** production comes first with the finding as its headline, and staging says that its credentials are rejected and when its last data arrived
+
+### A summary that cannot be read
+
+- **Surfaces:** `ui`
+- **Given** one system's summary fails with a timeout
+- **When** I open the Fleet page
+- **Then** its card says "summary unavailable" with the error, the other cards are complete, and clicking it opens that system's Overview
 
 ### A slow system does not hold up the Fleet
 
