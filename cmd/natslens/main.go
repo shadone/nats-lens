@@ -111,7 +111,7 @@ func runConfig(ctx context.Context, cmd string, cfg config.Config, only string, 
 	// serves; a store that does not open fails the start.
 	rts, err := openSystems(ctx, cfg, systems, log)
 	if err != nil {
-		return err
+		return stoppedDuringStart(ctx, err, log)
 	}
 	// The stores close after the API stopped, in parallel, by the shutdown
 	// deadline, given at least minStateWait like the last state.json; before
@@ -169,6 +169,17 @@ func runConfig(ctx context.Context, cmd string, cfg config.Config, only string, 
 	}
 	wg.Wait()
 	return errors.Join(errs...)
+}
+
+// stoppedDuringStart turns an error caused by a stop signal before the
+// start completed into a clean exit: the process was asked to stop, and
+// nothing failed.
+func stoppedDuringStart(ctx context.Context, err error, log *slog.Logger) error {
+	if ctx.Err() == nil {
+		return err
+	}
+	log.Info("stopped before the start completed", "err", err)
+	return nil
 }
 
 // pickSystem returns the configured system with the id.
