@@ -107,6 +107,11 @@ func runConfig(ctx context.Context, cmd string, cfg config.Config, only string, 
 	}
 	warnUnusedDatabase(cfg, log)
 
+	// Before any system starts, every system is checked; any problem
+	// refuses the start, naming every broken system.
+	if err := checkSystems(systems); err != nil {
+		return err
+	}
 	// Every store is open, and any rebuild finished, before the API
 	// serves; a store that does not open fails the start.
 	rts, err := openSystems(ctx, cfg, systems, log)
@@ -140,8 +145,11 @@ func runConfig(ctx context.Context, cmd string, cfg config.Config, only string, 
 		ready.serving()
 	}
 
-	// natslens run stops every system when one fails to start, as a
-	// single system did; once collects every system it can.
+	// A connection or setup failure isolates its system (see
+	// startRetrying). What still ends a system's run early is its store
+	// failing (reading its known servers, recording its start): natslens
+	// run then stops every system, as a store that fails to open fails the
+	// start. once collects every system it can.
 	rctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	// Shutdown starts when the systems are told to stop and must finish
@@ -162,7 +170,7 @@ func runConfig(ctx context.Context, cmd string, cfg config.Config, only string, 
 		wg.Go(func() {
 			errs[i] = rt.run(rctx, cmd, set, deadline)
 			if errs[i] != nil && cmd == "run" && ctx.Err() == nil {
-				rt.log.Error("system stopped; stopping the others", "err", errs[i])
+				rt.log.Error("system's store failed; stopping the others", "err", errs[i])
 				cancel()
 			}
 		})
