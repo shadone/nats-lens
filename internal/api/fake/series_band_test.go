@@ -95,10 +95,11 @@ func TestDemoAssetCounts(t *testing.T) {
 		{fake.GlobalSystem, "cluster.assets_replicated", 33},
 		{fake.GlobalSystem, "cluster.assets_single", 0},
 		{fake.Cluster, "cluster.streams", 8},
-		{fake.Cluster, "cluster.kv_buckets", 1},
-		{fake.Cluster, "cluster.object_stores", 0},
-		// 9 streams and 13 durable consumers.
-		{fake.Cluster, "cluster.assets_replicated", 22},
+		{fake.Cluster, "cluster.kv_buckets", 3},
+		{fake.Cluster, "cluster.object_stores", 2},
+		// 13 streams and 13 durable consumers; the KV bucket worker-presence has one replica.
+		{fake.Cluster, "cluster.assets_replicated", 25},
+		{fake.Cluster, "cluster.assets_single", 1},
 	} {
 		if got := lastValue(demoSeries(t, c, x.sys, x.metric, nil, lastHours(1))); got != x.want {
 			t.Errorf("%s %s = %v, want %v", x.sys, x.metric, got, x.want)
@@ -107,8 +108,8 @@ func TestDemoAssetCounts(t *testing.T) {
 	// analytics-aggregator was deleted at 09:31: one asset fewer since.
 	r := &v1.TimeRange{Start: timestamppb.New(at(9, 0, 0)), End: timestamppb.New(at(10, 0, 0))}
 	s := demoSeries(t, c, fake.Cluster, "cluster.assets_replicated", nil, r)
-	if s.GetMax() != 23 || s.GetMin() != 22 {
-		t.Errorf("prod assets 09:00-10:00 = %v..%v, want 22..23", s.GetMin(), s.GetMax())
+	if s.GetMax() != 26 || s.GetMin() != 25 {
+		t.Errorf("prod assets 09:00-10:00 = %v..%v, want 25..26", s.GetMin(), s.GetMax())
 	}
 }
 
