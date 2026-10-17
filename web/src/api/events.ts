@@ -143,7 +143,15 @@ export async function countEventsSince(sys: string, start: number, f: FeedFilter
 /** Events worth reading from start to end, repeats folded. */
 export async function listEventsBetween(sys: string, start: number, end: number, entity?: Entity, signal?: AbortSignal): Promise<{ items: FeedEvent[]; totalCount: number }> {
   const r = await lens.listEvents(
-    { ...systemInit(sys), range: { start: timestampFromMs(start), end: timestampFromMs(end) }, entity: entityInit(entity), hideRoutine: true, foldRepeats: true, pageSize: AROUND_ROWS },
+    {
+      ...systemInit(sys),
+      range: { start: timestampFromMs(start), end: timestampFromMs(end) },
+      // A client is filtered by its connection name, as the Events page does.
+      ...(entity?.kind === "client" ? { clientName: entity.key } : { entity: entityInit(entity) }),
+      hideRoutine: true,
+      foldRepeats: true,
+      pageSize: AROUND_ROWS,
+    },
     { signal },
   );
   return { items: r.events.map(feedEvent), totalCount: r.totalCount };
