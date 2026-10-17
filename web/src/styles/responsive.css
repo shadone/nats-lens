@@ -1,6 +1,5 @@
 /* Responsive rules of the reference. */
 @media (max-width:1180px){
-  .tiles{grid-template-columns:repeat(3,minmax(0,1fr))}
   .lower{grid-template-columns:minmax(0,1fr)}
   .feed-wrap{min-height:0}
   .feed{position:static}
@@ -19,22 +18,11 @@
   .live .dotsep{display:none}
   .range{margin-left:0;width:100%;order:5}
   .range .span{flex:1;overflow:hidden;text-overflow:ellipsis}
-  .find{grid-template-columns:minmax(0,1fr)}
-  .worst{padding:16px 16px 16px 20px}
-  .worst h1{font-size:20px}
-  .worst .meta{gap:14px 18px}
-  .worst .meta .btns{margin-left:0;width:100%}
-  .tally{flex-direction:row;flex-wrap:wrap;padding:10px 12px;gap:0}
-  .tally .row{flex:1 1 30%;border-bottom:0;flex-direction:row;flex-wrap:wrap;align-items:center;gap:3px 6px;padding:4px 6px}
-  .tally .row .n{margin-left:0;order:-1;flex-basis:100%}
   .frow{grid-template-columns:auto minmax(0,1fr);gap:4px 10px;padding:12px 14px}
   .frow .t{grid-column:1 / -1}
   .frow .e,.frow .d,.mute-why{grid-column:1 / -1}
   .frow .s{grid-column:2;grid-row:1;text-align:right}
   .frow > span:nth-child(3){grid-column:1 / -1}
-  .tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-  .tile .val b{font-size:22px}
-  .tile.dual .val b{font-size:18px}
   .tl{padding:14px 12px}
   .sec-h .right.legend{margin-left:0}
   .tlx{--lab:122px;--nowc:12px;--rowh:34px;--laneh:44px;column-gap:8px}

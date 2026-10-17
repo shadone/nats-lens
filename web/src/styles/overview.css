@@ -1,26 +1,8 @@
 @import "./cockpit.css";
-/* Worst finding, tally, finding rows and tiles, from the reference. */
-/* findings */
-.find{display:grid;grid-template-columns:minmax(0,1fr) 248px;gap:14px;margin-top:22px}
-.worst{position:relative;padding:20px 22px 18px 26px;border-color:var(--sev-critical-border);background:linear-gradient(90deg,var(--sev-critical-bg),var(--surface) 58%)}
-.worst:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--sev-critical);border-radius:10px 0 0 10px}
-.worst .k{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+/* Finding rows, buttons and state tags, from the reference. */
 .code{font:500 12px var(--mono);color:var(--text-2)}
-.worst h1{margin:10px 0 4px;font:600 24px/1.2 var(--sans);letter-spacing:-.01em}
-.worst .ent{font:14px var(--mono);color:var(--text);overflow-wrap:anywhere}
-.worst .ent span{color:var(--text-muted);font-family:var(--sans)}
-.worst p{margin:10px 0 0;color:var(--text-2);max-width:760px}
-.worst .meta{display:flex;gap:16px 26px;margin-top:16px;flex-wrap:wrap;align-items:flex-end}
-.worst .meta div{display:flex;flex-direction:column;gap:4px}
-.worst .meta .v{font:500 13px var(--mono)}
-.worst .meta .btns{margin-left:auto;display:flex;flex-direction:row;gap:8px}
 .btn{font:500 12px var(--sans);padding:7px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
 .btn.p{background:var(--strong-bg);color:var(--on-strong);border-color:var(--strong-bg)}
-.tally{padding:14px 16px;display:flex;flex-direction:column}
-.tally .row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border-soft)}
-.tally .row:last-child{border-bottom:0}
-.tally .n{margin-left:auto;font:600 16px var(--mono)}
-.tally .n.zero{color:var(--text-muted)}
 .others{margin-top:10px;overflow:hidden}
 .frow{display:grid;grid-template-columns:96px 112px minmax(220px,300px) minmax(0,1fr) 120px;gap:14px;align-items:baseline;padding:11px 18px;border-top:1px solid var(--border-soft)}
 .frow:first-child{border-top:0}
@@ -36,22 +18,3 @@
 .state{font:600 10px/1 var(--mono);letter-spacing:.06em;padding:3px 5px;border-radius:3px;border:1px solid currentColor;margin-left:6px;vertical-align:1px}
 .state.NEW{color:var(--sev-critical)} .state.FLAPPING{color:var(--sev-warning)} .state.RESOLVED{color:var(--accent-text)} .state.OPEN{color:var(--text-muted)}
 
-/* tiles */
-.tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
-.tile{padding:14px 14px 12px;display:flex;flex-direction:column;min-width:0}
-.tile .lbl{display:flex;align-items:center;gap:7px}
-.tile .val{display:flex;align-items:baseline;gap:6px;margin-top:9px;flex-wrap:wrap;min-height:31px}
-.tile .val b{font:500 26px/1 var(--mono);letter-spacing:-.02em}
-.tile .val em{font-style:normal;color:var(--text-muted);font-size:12px}
-.tile.dual .val b{font-size:21px}
-.tile .val .g{white-space:nowrap}
-.tile .val .sep{width:1px;height:18px;background:var(--border);margin:0 4px;align-self:center}
-.tile.st-critical .val b:not(.b2){color:var(--sev-critical)}
-.tile .sub{color:var(--text-muted);font-size:11.5px;margin-top:5px;min-height:17px}
-.tile svg.spark{width:100%;height:40px;margin-top:10px;display:block}
-.rng{margin-top:9px}
-.rng .track{position:relative;height:4px;background:var(--track);border-radius:2px}
-.rng .fill{position:absolute;top:0;bottom:0;background:var(--track-fill);border-radius:2px}
-.rng .fill.acc{background:var(--accent)}
-.rng .cur{position:absolute;top:-3px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:var(--surface);border:2px solid var(--accent)}
-.rng .ends{display:flex;justify-content:space-between;font:11px var(--mono);color:var(--text-muted);margin-top:5px}
