@@ -44,7 +44,7 @@ Every collect interval (30 seconds by default), nats-lens takes one snapshot of 
 - **Given** three servers that answered in earlier collections
 - **When** one of them answers no request in a collection
 - **Then** the collection is stored as partial, with that server's name among the missing ones
-- **And** the Servers page shows "Not answering:" with its name, and the system switcher says "2 of 3 servers"
+- **And** the Servers page shows "2 of 3" answering and "<name> did not answer", and the system switcher says "2 of 3 servers"
 
 ### One request fails on one server
 

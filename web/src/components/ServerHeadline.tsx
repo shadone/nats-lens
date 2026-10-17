@@ -1,0 +1,171 @@
+// The Servers page's data points: who answers, versions in use, restarts,
+// the JetStream store across servers and slow consumers.
+import type { ServerList, ServerRow } from "../api/servers";
+import { useBandSeries } from "../api/servers";
+import { fmtInt, hm } from "../lib/format";
+import { versionGroups } from "../lib/serverColour";
+import { byName, median, storePct, STORE_ATTENTION_PCT } from "../lib/servers";
+import type { RangeSpec } from "../lib/timeRange";
+import { useReportStale } from "./StaleContext";
+
+/** "24 h" for a live preset, "in range" for a fixed range. */
+export function rangeShort(spec: RangeSpec): string {
+  return spec.kind === "live" ? spec.preset.replace(/(\d+)/, "$1 ") : "in range";
+}
+
+function titled(label: string, spec: RangeSpec) {
+  return spec.kind === "live" ? `${label}, ${rangeShort(spec)}` : `${label} in range`;
+}
+
+/** Up to three names, then how many more. */
+function names(list: string[]): string {
+  return list.length <= 3 ? list.join(", ") : `${list.slice(0, 3).join(", ")} and ${list.length - 3} more`;
+}
+
+function Answering({ list }: { list: ServerList }) {
+  const seen = new Map(list.servers.map((s) => [s.name, s]));
+  const all = [...new Set([...list.servers.map((s) => s.name), ...list.expected])].sort((a, b) => byName({ name: a }, { name: b }));
+  const down = all.filter((n) => !seen.get(n)?.present);
+  return (
+    <div className="card dp">
+      <span className="lbl">Answering</span>
+      <div className="dp-v">
+        <b className={down.length ? "bad" : undefined}>{all.length - down.length}</b> <em>of {all.length}</em>
+      </div>
+      <div className="dp-sq" role="img" aria-label={down.length ? `${down.length} did not answer: ${down.join(", ")}` : "every server answered"}>
+        {all.map((n) => (
+          <span key={n} className={`sq ${down.includes(n) ? "down" : "up"}`} title={`${n}: ${down.includes(n) ? "did not answer" : "answers"}`} />
+        ))}
+      </div>
+      <div className="dp-n">
+        {down.length ? (
+          <>
+            <span className="sq down" aria-hidden="true" /> {names(down)} did not answer
+          </>
+        ) : (
+          "all answer"
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Versions({ servers }: { servers: ServerRow[] }) {
+  const groups = versionGroups(servers);
+  const inUse = groups.reduce((a, g) => a + g.versions.length, 0);
+  return (
+    <div className="card dp">
+      <span className="lbl">Versions</span>
+      <div className="dp-v">
+        <b>{inUse || "–"}</b> <em>in use</em>
+      </div>
+      <div className="dp-split" aria-hidden="true">
+        {groups.map((g) => (
+          <span key={g.cls} className={g.cls} style={{ flex: g.count }} />
+        ))}
+      </div>
+      <ul className="dp-n dp-legend">
+        {groups.map((g) => (
+          <li key={g.cls}>
+            <span className={`sq ${g.cls}`} aria-hidden="true" /> {g.versions.length === 1 ? <span className="mono">{g.label}</span> : g.label} {g.count}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function Restarts({ servers, spec, start, end }: { servers: ServerRow[]; spec: RangeSpec; start: number; end: number }) {
+  const all = servers.flatMap((s) => s.restarts.map((t) => ({ t, name: s.name })));
+  const who = [...new Set(all.map((r) => r.name))].sort((a, b) => byName({ name: a }, { name: b }));
+  const span = end - start || 1;
+  return (
+    <div className="card dp">
+      <span className="lbl">{titled("Restarts", spec)}</span>
+      <div className="dp-v">
+        <b>{all.length}</b>
+      </div>
+      <svg className="dp-strip" viewBox="0 0 240 22" preserveAspectRatio="none" role="img" aria-label={all.length ? `Restarts at ${all.map((r) => `${hm(r.t)} UTC on ${r.name}`).join(", ")}` : "No restarts"}>
+        <line x1="0" y1="21" x2="240" y2="21" className="dp-axis" vectorEffect="non-scaling-stroke" />
+        {all.map((r) => (
+          <rect key={r.name + r.t} x={Math.min(237, Math.max(0, ((r.t - start) / span) * 240)).toFixed(1)} y="4" width="3" height="17" className="dp-tick" />
+        ))}
+      </svg>
+      <div className="dp-n">{who.length ? names(who) : "none"}</div>
+    </div>
+  );
+}
+
+function Store({ servers }: { servers: ServerRow[] }) {
+  const withPct = servers.map((s) => ({ s, p: storePct(s) })).filter((x): x is { s: ServerRow; p: number } => x.p !== undefined);
+  const med = median(withPct.map((x) => x.p));
+  const lo = withPct.length ? Math.min(...withPct.map((x) => x.p)) : undefined;
+  const top = withPct.length ? withPct.reduce((a, b) => (b.p > a.p ? b : a)) : undefined;
+  const r = (v: number) => Math.round(v);
+  // At least 1% wide, and never past the track's end.
+  const bandLeft = lo === undefined ? 0 : Math.min(99, r(lo));
+  return (
+    <div className="card dp">
+      <span className="lbl">JetStream store</span>
+      <div className="dp-v">
+        <b>{med === undefined ? "–" : `${r(med)}%`}</b> {med !== undefined && <em>median</em>}
+      </div>
+      {med !== undefined && lo !== undefined && top && (
+        <>
+          <div className="dp-store" role="img" aria-label={`Store used: median ${r(med)}%, lowest ${r(lo)}%, highest ${r(top.p)}%`}>
+            <span className="band" style={{ left: `${bandLeft}%`, width: `${Math.max(1, Math.min(100, r(top.p)) - bandLeft)}%` }} />
+            <span className="med" style={{ left: `${Math.min(100, r(med))}%` }} />
+          </div>
+          <div className="dp-n">
+            range {r(lo)} to {r(top.p)}% · fullest <span className={top.p >= STORE_ATTENTION_PCT ? "warn mono" : "mono"}>{top.s.name}</span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function SlowConsumers({ servers, spec }: { servers: ServerRow[]; spec: RangeSpec }) {
+  const q = useBandSeries(spec, "cluster.slow_consumers", undefined, 24);
+  useReportStale(q);
+  const known = servers.filter((s) => s.slowConsumersInRange !== undefined);
+  const total = known.reduce((a, s) => a + (s.slowConsumersInRange ?? 0), 0);
+  const most = known.reduce<ServerRow | undefined>((a, s) => ((s.slowConsumersInRange ?? 0) > (a?.slowConsumersInRange ?? 0) ? s : a), undefined);
+  const pts = q.data?.points ?? [];
+  const peak = Math.max(1, ...pts.map((p) => p.value));
+  const w = pts.length ? 240 / pts.length : 0;
+  return (
+    <div className="card dp">
+      <span className="lbl">{titled("Slow consumers", spec)}</span>
+      <div className="dp-v">
+        <b className={total > 0 ? "warn" : undefined}>{known.length ? fmtInt(total) : "–"}</b>
+      </div>
+      <svg className="dp-strip" viewBox="0 0 240 22" preserveAspectRatio="none" role="img" aria-label={`Slow consumers per ${pts.length ? "bucket" : "range"}, peak ${pts.length ? fmtInt(Math.max(...pts.map((p) => p.value))) : "none"}`}>
+        <line x1="0" y1="21" x2="240" y2="21" className="dp-axis" vectorEffect="non-scaling-stroke" />
+        {pts.map((p, i) => {
+          const h = p.value > 0 ? 2 + (p.value / peak) * 18 : 0;
+          return h ? <rect key={p.time} x={(i * w).toFixed(1)} y={(21 - h).toFixed(1)} width={Math.max(1, w - 2).toFixed(1)} height={h.toFixed(1)} className="dp-bar" /> : null;
+        })}
+      </svg>
+      <div className="dp-n">
+        {!known.length ? "not reported" : total === 0 || !most ? "none" : (
+          <>
+            {fmtInt(most.slowConsumersInRange ?? 0)} of them on <span className="mono">{most.name}</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function ServerHeadline({ list, spec, start, end }: { list: ServerList; spec: RangeSpec; start: number; end: number }) {
+  return (
+    <div className="dp-row">
+      <Answering list={list} />
+      <Versions servers={list.servers} />
+      <Restarts servers={list.servers} spec={spec} start={start} end={end} />
+      <Store servers={list.servers} />
+      <SlowConsumers servers={list.servers} spec={spec} />
+    </div>
+  );
+}
