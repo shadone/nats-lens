@@ -31,6 +31,13 @@ message Freshness {
 
   // Time between epochs the collector uses.
   google.protobuf.Duration interval = 6;
+
+  // Whether the system's collector collects: false while its connection to
+  // NATS is not connected or closed for good.
+  bool collecting = 7;
+
+  // When the collector stopped collecting; unset while it collects.
+  google.protobuf.Timestamp not_collecting_since = 8;
 }
 
 // One number of the cluster with its history over the range.

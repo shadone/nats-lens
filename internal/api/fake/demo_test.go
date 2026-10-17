@@ -178,3 +178,28 @@ func TestDemoLiveSystems(t *testing.T) {
 		t.Errorf("staging error since %v", s.GetCollectionErrorSince())
 	}
 }
+
+// example-staging's freshness says it does not collect, since its
+// connection closed; the others collect.
+func TestDemoFreshnessSaysWhetherItCollects(t *testing.T) {
+	c := demo(t)
+	stop := fake.FixedNow.Add(-3 * time.Hour)
+	for _, sys := range []string{fake.Cluster, fake.GlobalSystem, fake.StagingSystem} {
+		f := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{System: sys}))).GetFreshness()
+		if sys == fake.StagingSystem {
+			if f.GetCollecting() || !f.GetNotCollectingSince().AsTime().Equal(stop) {
+				t.Errorf("%s = %v", sys, f)
+			}
+			continue
+		}
+		if !f.GetCollecting() || f.GetNotCollectingSince() != nil {
+			t.Errorf("%s = %v", sys, f)
+		}
+	}
+	res := must(c.ListSystems(ctx, connect.NewRequest(&v1.ListSystemsRequest{})))
+	for _, s := range res.GetSystems() {
+		if f := s.GetFreshness(); f.GetCollecting() != (s.GetSystem().GetId() != fake.StagingSystem) {
+			t.Errorf("%s summary = %v", s.GetSystem().GetId(), f)
+		}
+	}
+}
