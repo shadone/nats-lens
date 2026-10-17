@@ -69,7 +69,8 @@ describe("Overview without findings", () => {
   it("says serving normally, shows no cause card and an empty state in every section", async () => {
     mock(quiet);
     renderApp(<Overview />);
-    expect(await screen.findByRole("heading", { name: "Serving normally" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Serving normally" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
     expect(screen.queryByRole("region", { name: "Findings now" })).toBeNull();
     expect(screen.getByText(/No collection stored in this range yet/)).toBeInTheDocument();
     expect(await screen.findByText(/No consumer in the newest collection/)).toBeInTheDocument();

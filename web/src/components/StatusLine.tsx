@@ -9,12 +9,12 @@ export function StatusLine({ tally, freshness, live, now }: { tally: Tally; fres
   const s = statusLine(tally, freshness, live, now);
   return (
     <section className="status-line" aria-label="Status">
-      <h1>
+      <h2>
         <span aria-hidden="true">
           <HealthIcon level={s.level} />
         </span>
         {s.text}
-      </h1>
+      </h2>
       {s.badges.map((b) => (
         <Sev key={b.level} level={b.level} label={`${b.count} ${LEVEL_LABEL[b.level].toUpperCase()}`} />
       ))}

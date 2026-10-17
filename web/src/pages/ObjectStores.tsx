@@ -34,7 +34,6 @@ export function ObjectStores() {
   return (
     <>
       <div className="page-h">
-        <h1>Object Stores</h1>
         <span className="aside">Object stores as the leader reports them in the newest collection of the range. A dash means the value was not observed.</span>
       </div>
       <QueryView q={q} what="object stores">

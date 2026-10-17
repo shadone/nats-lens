@@ -31,7 +31,6 @@ export function Consumers() {
   return (
     <>
       <div className="page-h">
-        <h1>Consumers</h1>
         <span className="aside">Backlog from the leader's view in the newest collection of the range. A dash means the value was not observed.</span>
       </div>
       <div className="filters">

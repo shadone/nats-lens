@@ -129,7 +129,6 @@ export function Findings() {
   return (
     <>
       <div className="page-h">
-        <h1>Findings</h1>
         <span className="aside">A finding is one failing check for one entity. Unmuted first, then by severity, then the longest firing.</span>
       </div>
       <div className="filters">
