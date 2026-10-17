@@ -26,7 +26,7 @@ export interface SearchItem {
   name: string;
   /** What tells two items of the same name apart: an account, a stream, a cluster. */
   sub: string;
-  /** Page to open; a path that starts with "?" stays on the current page with these parameters. */
+  /** Page to open. */
   path: string;
 }
 
@@ -65,7 +65,7 @@ async function loadSearchItems(sys: string, spec: RangeSpec, signal?: AbortSigna
       }),
     ),
     listAccounts(sys, spec, signal).then((as) =>
-      as.map((a): SearchItem => ({ kind: "account", name: a.name || a.account, sub: a.name ? a.account : "", path: `?account=${encodeURIComponent(a.account)}` })),
+      as.map((a): SearchItem => ({ kind: "account", name: a.name || a.account, sub: a.name ? a.account : "", path: `/connections?account=${encodeURIComponent(a.account)}` })),
     ),
   ]);
   const found = parts.flatMap((p) => (p.status === "fulfilled" ? p.value : []));

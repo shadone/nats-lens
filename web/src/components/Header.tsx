@@ -1,5 +1,5 @@
-// Top bar of every page: the page's name, the account scope, search, the
-// time range with freshness, and the theme. At phone width a menu button
+// Top bar of every page: the page's name, the account scope on the pages
+// that apply it, search, the time range with freshness, and the theme. At phone width a menu button
 // opens the sidebar as a drawer.
 import { useLocation } from "react-router";
 import { useShellStatus } from "../api/queries";
@@ -27,7 +27,7 @@ export function Header({ menuOpen = false, onMenu }: Props) {
           </svg>
         </button>
         {page && <span className="page-title">{page.label}</span>}
-        {!page?.crossSystem && <AccountScope />}
+        {page?.accountScope && pathname === page.path && <AccountScope />}
         <span className="bar-gap" />
         <SearchJump />
         <RangePicker freshness={status.data?.freshness} error={status.error ?? undefined} />

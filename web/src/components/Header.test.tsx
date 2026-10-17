@@ -44,10 +44,10 @@ describe("Header", () => {
 
   it("names the page and holds the account scope, search, range and theme", () => {
     m.getHeaderStatus.mockReturnValue(new Promise(() => {}));
-    renderApp(<Header />, "/consumers/APP/order-jobs/resize-worker");
+    renderApp(<Header />, "/consumers");
     const bar = screen.getByRole("banner");
     expect(bar).toHaveTextContent(/^Consumers/);
-    expect(screen.getByRole("button", { name: /^Account scope/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "All accounts" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Search this system" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Theme: / })).toBeInTheDocument();
   });
@@ -56,6 +56,6 @@ describe("Header", () => {
     m.getHeaderStatus.mockReturnValue(new Promise(() => {}));
     renderApp(<Header />, "/fleet");
     expect(screen.getByRole("banner")).toHaveTextContent(/^Fleet/);
-    expect(screen.queryByRole("button", { name: /^Account scope/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /accounts/ })).toBeNull();
   });
 });

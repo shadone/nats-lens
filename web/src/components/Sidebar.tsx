@@ -69,7 +69,7 @@ export function Sidebar({ collapsed, onCollapse, drawerOpen, onCloseDrawer }: Pr
     if (drawerOpen) close.current?.focus();
   }, [drawerOpen]);
   return (
-    <aside className={`side${collapsed ? " collapsed" : ""}${drawerOpen ? " open" : ""}`} id="sidebar" aria-label="Sidebar">
+    <aside className={`side${collapsed ? " collapsed" : ""}${drawerOpen ? " open" : ""}`} id="sidebar">
       <div className="side-top">
         <NavLink to={withGlobal("/", global)} className="brand" aria-label="nats-lens overview">
           <svg viewBox="0 0 22 22" aria-hidden="true">
@@ -84,7 +84,7 @@ export function Sidebar({ collapsed, onCollapse, drawerOpen, onCloseDrawer }: Pr
           </svg>
         </button>
       </div>
-      <SystemSwitcher />
+      <SystemSwitcher compact={collapsed} />
       <nav aria-label="Pages" className="side-nav">
         {groups(visibleNav()).map(([group, items]) => (
           <div className="side-grp" key={group || "top"}>
@@ -94,7 +94,7 @@ export function Sidebar({ collapsed, onCollapse, drawerOpen, onCloseDrawer }: Pr
                 const b = i.badge ? badges[i.badge] : undefined;
                 return (
                   <li key={i.path}>
-                    <NavLink to={withGlobal(i.path, global)} end={i.path === "/"} title={collapsed ? i.label : undefined} aria-label={b ? `${i.label}, ${b.count} ${b.what}` : undefined} className={({ isActive }) => (isActive ? "on" : undefined)}>
+                    <NavLink to={withGlobal(i.path, global)} end={i.path === "/"} title={collapsed ? i.label : undefined} aria-label={b ? `${i.label}, ${b.count} ${b.what}, worst ${b.level}` : undefined} className={({ isActive }) => (isActive ? "on" : undefined)}>
                       <Icon d={i.icon} />
                       <span className="side-txt">{i.label}</span>
                       {b && (

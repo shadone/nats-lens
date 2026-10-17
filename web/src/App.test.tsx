@@ -68,7 +68,7 @@ beforeEach(() => {
   m.getHeaderStatus.mockResolvedValue({ cluster: "c", freshness: { epoch: "1", epochAt: Date.now(), partial: false, live: true, intervalMs: 30_000 }, servers: [], tally });
   m.listServers.mockResolvedValue({ servers: [], expected: [], missing: [] });
   m.listStreams.mockResolvedValue({ streams: [], totals: { bytes: 0, durableConsumers: 0, ephemeralConsumers: 0 } } as never);
-  m.listConsumers.mockResolvedValue([{ entity: entity("order-jobs", "resize-worker") }] as never);
+  m.listConsumers.mockResolvedValue([{ entity: entity("order-jobs", "resize-worker"), durable: true, findingCodes: [], disagreements: [], status: "ok" }] as never);
 });
 
 function location() {
@@ -165,18 +165,29 @@ describe("sidebar", () => {
   it("badges Findings with the unmuted firing findings, shaped by the worst level", async () => {
     renderApp(<App />, "/servers?system=example-prod");
     const link = await within(nav()).findByRole("link", { name: /Findings/ });
-    await waitFor(() => expect(link).toHaveAccessibleName("Findings, 3 firing"));
+    await waitFor(() => expect(link).toHaveAccessibleName("Findings, 3 firing, worst warning"));
     expect(link.querySelector(".nb")).toHaveClass("warning");
   });
 
   it("collapses to a rail and remembers it", async () => {
     renderApp(<App />, "/servers?system=example-prod");
     await userEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
-    expect(screen.getByRole("complementary", { name: "Sidebar" })).toHaveClass("collapsed");
+    expect(screen.getByRole("complementary")).toHaveClass("collapsed");
     expect(localStorage.getItem("nats-lens-sidebar")).toBe("collapsed");
     expect(within(nav()).getByRole("link", { name: "Servers" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
     expect(localStorage.getItem("nats-lens-sidebar")).toBeNull();
+  });
+
+  it("keeps the system in the rail, as initials that open the switcher", async () => {
+    localStorage.setItem("nats-lens-sidebar", "collapsed");
+    renderApp(<App />, "/servers?system=example-prod");
+    const sw = await screen.findByRole("button", { name: "System: Production. Switch system" });
+    expect(sw).toHaveTextContent("PR");
+    expect(sw).toHaveAttribute("title", "Production");
+    await userEvent.click(sw);
+    await userEvent.click(screen.getByRole("menuitemradio", { name: /Global/ }));
+    expect(location()).toBe("/servers?system=example-global");
   });
 
   it("opens as a drawer from the menu button and closes when a page opens", async () => {
@@ -184,11 +195,11 @@ describe("sidebar", () => {
     const menu = screen.getByRole("button", { name: "Menu" });
     await userEvent.click(menu);
     expect(menu).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("complementary", { name: "Sidebar" })).toHaveClass("open");
+    expect(screen.getByRole("complementary")).toHaveClass("open");
     expect(screen.getByRole("button", { name: "Close menu" })).toHaveFocus();
     await userEvent.click(within(nav()).getByRole("link", { name: "Streams" }));
     expect(menu).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByRole("complementary", { name: "Sidebar" })).not.toHaveClass("open");
+    expect(screen.getByRole("complementary")).not.toHaveClass("open");
   });
 
   it("keeps Tab inside the open drawer by making the page inert", async () => {
@@ -198,13 +209,13 @@ describe("sidebar", () => {
     expect(column).not.toHaveAttribute("inert");
     await userEvent.click(menu);
     expect(column).toHaveAttribute("inert");
-    expect(screen.getByRole("complementary", { name: "Sidebar" }).closest("[inert]")).toBeNull();
+    expect(screen.getByRole("complementary").closest("[inert]")).toBeNull();
   });
 
   it("gives focus back to the menu button however the drawer closes", async () => {
     renderApp(<App />, "/servers?system=example-prod");
     const menu = screen.getByRole("button", { name: "Menu" });
-    const side = () => screen.getByRole("complementary", { name: "Sidebar" });
+    const side = () => screen.getByRole("complementary");
     await userEvent.click(menu);
     await userEvent.click(screen.getByRole("button", { name: "Close menu" }));
     expect(side()).not.toHaveClass("open");
@@ -225,7 +236,7 @@ describe("sidebar", () => {
     await userEvent.click(await screen.findByRole("button", { name: /Switch system/ }));
     await userEvent.keyboard("{Escape}");
     expect(screen.queryByRole("menu")).toBeNull();
-    expect(screen.getByRole("complementary", { name: "Sidebar" })).toHaveClass("open");
+    expect(screen.getByRole("complementary")).toHaveClass("open");
   });
 
   it("closes the drawer on Escape and gives focus back to the menu button", async () => {
@@ -233,7 +244,7 @@ describe("sidebar", () => {
     const menu = screen.getByRole("button", { name: "Menu" });
     await userEvent.click(menu);
     await userEvent.keyboard("{Escape}");
-    expect(screen.getByRole("complementary", { name: "Sidebar" })).not.toHaveClass("open");
+    expect(screen.getByRole("complementary")).not.toHaveClass("open");
     expect(menu).toHaveFocus();
   });
 });
@@ -279,6 +290,7 @@ describe("landing and unknown systems", () => {
   it("says an unknown system is not found, with a link to Fleet, and asks it nothing", async () => {
     renderApp(<App />, "/streams?system=nope&range=6h");
     expect(await screen.findByRole("heading", { name: "System not found" })).toBeInTheDocument();
+    expect(screen.getByRole("main")).toHaveTextContent("No system nope. See Fleet.");
     const fleet = within(screen.getByRole("main")).getByRole("link", { name: "Fleet" });
     expect(fleet.getAttribute("href")).toMatch(/^\/fleet\?/);
     expect(params(fleet.getAttribute("href")).get("system")).not.toBe("nope");
@@ -295,15 +307,27 @@ describe("header", () => {
     expect(screen.getByRole("banner")).toHaveTextContent("Streams");
   });
 
-  it("writes the account scope to the URL", async () => {
-    renderApp(<App />, "/streams?system=example-prod&range=6h");
-    await userEvent.click(screen.getByRole("button", { name: /Account scope: all accounts/ }));
-    await userEvent.click(await screen.findByRole("menuitemradio", { name: /APP/ }));
-    expect(location()).toBe("/streams?system=example-prod&range=6h&account=APP");
-    expect(screen.getByRole("button", { name: "Account scope: APP" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Account scope: APP" }));
+  it("writes the account scope to the URL, saying what it limits", async () => {
+    renderApp(<App />, "/consumers?system=example-prod&range=6h");
+    const all = screen.getByRole("button", { name: "All accounts" });
+    expect(all).toHaveTextContent(/^All accounts$/);
+    await userEvent.click(all);
+    expect(await screen.findByRole("menuitemradio", { name: "All accounts (2)" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("menuitemradio", { name: /^APP/ }));
+    expect(location()).toBe("/consumers?system=example-prod&range=6h&account=APP");
+    const scoped = screen.getByRole("button", { name: "Account: APP" });
+    expect(scoped).toHaveTextContent(/^Account: APP$/);
+    await userEvent.click(scoped);
     await userEvent.click(screen.getByRole("menuitemradio", { name: /All accounts/ }));
-    expect(location()).toBe("/streams?system=example-prod&range=6h");
+    expect(location()).toBe("/consumers?system=example-prod&range=6h");
+  });
+
+  it("shows the account scope only on pages that apply it", async () => {
+    for (const [path, shown] of [["/consumers", true], ["/connections", true], ["/servers", false], ["/streams", false], ["/", false], ["/consumers/APP/order-jobs/resize-worker", false]] as const) {
+      const { unmount } = renderApp(<App />, `${path}?system=example-prod`);
+      expect([path, screen.queryByRole("button", { name: /accounts|^Account:/ }) !== null]).toEqual([path, shown]);
+      unmount();
+    }
   });
 
   it("limits the Consumers list to the scoped account", async () => {

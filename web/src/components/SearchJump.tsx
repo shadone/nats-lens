@@ -2,7 +2,7 @@
 // opens. Cmd+K on a Mac, Ctrl+K elsewhere, focuses it; the arrow keys move,
 // Enter opens, Escape closes the list and a second Escape clears the text.
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { useLocation, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { SEARCH_KIND_LABEL, searchItems, useSearchItems, type SearchItem } from "../api/search";
 import { withGlobal } from "../lib/globalQuery";
 import { useGlobalQuery } from "../lib/useGlobalQuery";
@@ -25,7 +25,6 @@ export function SearchJump() {
   const { spec } = useTimeRange();
   const global = useGlobalQuery();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
   const [used, setUsed] = useState(false);
@@ -49,7 +48,7 @@ export function SearchJump() {
   useEffect(() => setActive(0), [text]);
 
   const go = (r: SearchItem) => {
-    navigate(withGlobal(r.path.startsWith("?") ? `${pathname}${r.path}` : r.path, global));
+    navigate(withGlobal(r.path, global));
     setText("");
     setOpen(false);
     input.current?.blur();

@@ -11,15 +11,16 @@ export function AccountScope() {
   const [account, setAccount] = useAccountScope();
   const accounts = useAccounts(spec).data ?? [];
   const current = accounts.find((a) => a.account === account);
-  const value = account ? current?.name || account : accounts.length ? `All ${accounts.length}` : "All";
+  const name = current?.name || account;
+  const text = account ? `Account: ${name}` : "All accounts";
   return (
     <Menu
-      label={`Account scope: ${account ? value : "all accounts"}`}
+      label={text}
       menuLabel="Accounts"
       className="scope"
       align="left"
       choices={[
-        { key: "", label: "All accounts", checked: !account, onSelect: () => setAccount("") },
+        { key: "", label: accounts.length ? `All accounts (${accounts.length})` : "All accounts", checked: !account, onSelect: () => setAccount("") },
         ...accounts.map((a) => ({
           key: a.account,
           label: <span className="mono">{a.name || a.account}</span>,
@@ -29,10 +30,16 @@ export function AccountScope() {
         })),
       ]}
     >
-      <span className="k">Account</span>
-      <b className="mono" title={account || undefined}>
-        {value}
-      </b>
+      {account ? (
+        <>
+          <span className="k">Account:</span>{" "}
+          <b className="mono" title={account}>
+            {name}
+          </b>
+        </>
+      ) : (
+        <span>All accounts</span>
+      )}
       <Chevron />
     </Menu>
   );
