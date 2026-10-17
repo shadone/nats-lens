@@ -21,7 +21,7 @@ When NATS runs in Kubernetes, many of its troubles start outside NATS: a node is
 - **Each Event once.** A Kubernetes Event that repeats with a growing count is one row, updated as the count grows, and is not stored again after a relist or a restart of nats-lens.
 - **Gaps are recorded.** A list or watch that fails for `kubernetes.gap_after` (30 seconds) is recorded as `collector.k8s_not_watching`, and its recovery as `collector.k8s_gap` with the span. At start, nats-lens records a gap since its last Kubernetes event or collection, and compares the pods and nodes with what it last recorded. A change it missed is recorded then, with "(observed at start)" in the summary.
 - **The Kubernetes lane.** The status timeline shows node cordons, drains, readiness, upgrades and deletions, the NATS pods' stops, starts and readiness, the watcher's gaps, and the client pod warnings. On a timeline for one server, the lane shows only that server's pods.
-- **Drain and upgrade windows.** A window opens at a node drain or upgrade and takes in every node or NATS pod event that follows within 15 minutes of the one before. A window without a drain or a NATS pod event is not shown. The window is labelled "GKE node upgrade" when it holds an upgrade or nodes of different kubelet versions, "Node removed by the autoscaler" when every drain in it was the autoscaler's, and "Node drain" otherwise, with the number of drained nodes and NATS pods stopped.
+- **Drain and upgrade windows.** A window opens at a node drain or upgrade and takes in every node or NATS pod event that follows within 15 minutes of the one before. A window without a drain or a NATS pod event is not shown. The window is labelled "Node upgrade" when it holds an upgrade or nodes of different kubelet versions, "GKE node upgrade" when a node in it also carries GKE's `cloud.google.com/gke-nodepool` label, "Node removed by the autoscaler" when every drain in it was the autoscaler's, and "Node drain" otherwise, with the number of drained nodes and NATS pods stopped.
 
 ## Scenarios
 
@@ -38,7 +38,7 @@ When NATS runs in Kubernetes, many of its troubles start outside NATS: a node is
 - **Surfaces:** `ui`
 - **Given** a node upgrade drained the nodes of the NATS servers one at a time
 - **When** I open the Overview with a range that covers the upgrade
-- **Then** the timeline's Kubernetes lane shows the cordons, drains and pod restarts, and a shaded window labelled "GKE node upgrade"
+- **Then** the timeline's Kubernetes lane shows the cordons, drains and pod restarts, and a shaded window labelled "Node upgrade" ("GKE node upgrade" on GKE nodes)
 - **And** the `stream-001` cells below it show when a stream lost and regained quorum inside that window
 
 ### A NATS server pod runs out of memory

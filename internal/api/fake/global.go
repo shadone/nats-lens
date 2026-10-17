@@ -167,8 +167,8 @@ func globalWindows(s scen, r *v1.TimeRange) []*v1.TimeWindow {
 	if !overlaps(a, b, r) {
 		return nil
 	}
-	return []*v1.TimeWindow{{Start: ts(a), End: ts(b), Label: "GKE node upgrade, pool-us",
-		Detail: "4 drains, 3 pod restarts; nats-us-4 Pending"}}
+	return []*v1.TimeWindow{{Start: ts(a), End: ts(b), Label: "GKE node upgrade",
+		Detail: "4 drains, 4 pod restarts"}}
 }
 
 // globalConsumer gives label-printer the backlog behind the slow consumer

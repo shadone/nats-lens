@@ -33,7 +33,7 @@ func TestDeriveWindows(t *testing.T) {
 		t.Fatalf("windows %v", ws)
 	}
 	w := ws[0]
-	if !w.GetStart().AsTime().Equal(at(21)) || !w.GetEnd().AsTime().Equal(at(50)) || w.GetLabel() != "GKE node upgrade" ||
+	if !w.GetStart().AsTime().Equal(at(21)) || !w.GetEnd().AsTime().Equal(at(50)) || w.GetLabel() != "Node upgrade" ||
 		w.GetDetail() != "3 drains, 3 pod restarts" {
 		t.Fatalf("first window %v", w)
 	}
@@ -58,8 +58,14 @@ func TestWindowRules(t *testing.T) {
 	// An upgrade followed by a NATS pod restart is.
 	ws := deriveWindows([]k8sEvent{{at: at(0), kind: "k8s.node.upgrade", node: "n0"}, {at: at(2), kind: "k8s.pod.killing", server: "nats-0"}},
 		15*time.Minute)
-	if len(ws) != 1 || ws[0].GetLabel() != "GKE node upgrade" {
+	if len(ws) != 1 || ws[0].GetLabel() != "Node upgrade" {
 		t.Fatalf("upgrade with a pod %v", ws)
+	}
+	// A node with GKE's node pool label names the platform.
+	ws = deriveWindows([]k8sEvent{{at: at(0), kind: "k8s.node.upgrade", node: "gke-pool-1-7f3a", pool: "pool-1"},
+		{at: at(2), kind: "k8s.pod.killing", server: "nats-0"}}, 15*time.Minute)
+	if len(ws) != 1 || ws[0].GetLabel() != "GKE node upgrade" {
+		t.Fatalf("upgrade on GKE %v", ws)
 	}
 	// Drains by the autoscaler only.
 	ws = deriveWindows([]k8sEvent{{at: at(0), kind: "k8s.node.drained", node: "n0", cause: "autoscaler"},
