@@ -31,8 +31,8 @@ description: >-
   of the leader's position if that is more, ahead of it, current or not), a replica was rebuilt at another time (a server restore or a peer replaced) and holds the same
   state as the others. When the positions differ as well, in two epochs in a row, the consumer may have been
   deleted and created again with one replica keeping the old one. A replica behind by more than the tolerance in
-  two epochs warns even while it catches up, but only here, where the creation times differ. Restarting servers are left out until they have
-  caught up.
+  two epochs warns even while it catches up, but only here, where the creation times differ. Servers that restarted
+  within restart_window are left out.
 remediation: >-
   The detail names the servers on each creation time and whether their positions agree. While the positions
   agree, no action is needed: the replicas were built at different times. When they differ, look on the Events page

@@ -110,9 +110,18 @@ func tileStatus(tiles []*v1.Tile, cur []*v1.Finding, ran ranFor) {
 }
 
 // freshness describes the newest epoch inside the range; the epoch is
-// zero when the range holds none.
+// zero when the range holds none. The collector collects unless a failure
+// of its connection is stored after the newest epoch; the handler replaces
+// that with the runtime's status when there is one.
 func (p *Provider) freshness(ctx context.Context, r *v1.TimeRange) (*v1.Freshness, error) {
-	f := &v1.Freshness{Live: p.Live, Interval: dur(p.Interval)}
+	f := &v1.Freshness{Live: p.Live, Interval: dur(p.Interval), Collecting: true}
+	fail, err := p.failure(ctx)
+	if err != nil {
+		return f, err
+	}
+	if !fail.since.IsZero() {
+		f.Collecting, f.NotCollectingSince = false, ts(fail.since)
+	}
 	e, ok, err := p.latestEpoch(ctx, r)
 	if err != nil || !ok {
 		return f, err

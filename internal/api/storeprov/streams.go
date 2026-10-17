@@ -57,7 +57,7 @@ ORDER BY n.account, n.stream`, e.epoch, account, account, stream, stream, e.epoc
 			return nil, nil, err
 		}
 		s.Entity = refOf(v1.EntityType_ENTITY_TYPE_STREAM, []any{acc, name})
-		// No check covers streams yet.
+		// The status is no data until streamStatus applies the findings.
 		s.Leader, s.Consumers, s.Status = leader.String, ptr(durable+ephemeral), v1.Status_STATUS_NO_DATA
 		totals.Bytes += s.GetBytes()
 		totals.DurableConsumers += durable

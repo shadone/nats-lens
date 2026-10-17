@@ -63,6 +63,9 @@ type k8sEvent struct {
 	version string
 	// cause is a drain's cordon cause: unschedulable or autoscaler.
 	cause string
+	// pool is the node's GKE node pool (cloud.google.com/gke-nodepool);
+	// empty on other platforms.
+	pool string
 }
 
 // clientPodKinds are the failures of a NATS client's pod drawn on the
@@ -159,8 +162,9 @@ func k8sShortLabel(ev *v1.Event, typ, node string) string {
 // and takes in every following node and NATS pod event that comes within
 // upgradeGap of the one before, so it ends at the last node or pod back
 // to ready. With upgrade evidence (a kubelet version change or an upgrade
-// Event, or nodes of different versions) it is a GKE node upgrade, else a
-// node drain.
+// Event, or nodes of different versions) it is a node upgrade, named a GKE
+// node upgrade when a node carries GKE's node pool label; else a node
+// drain.
 func (p *Provider) k8sWindows(ctx context.Context, r *v1.TimeRange) ([]*v1.TimeWindow, error) {
 	start, end := span(r)
 	args := []any{start.Add(-upgradeLookback), end.Add(upgradeGap)}
@@ -169,7 +173,7 @@ func (p *Provider) k8sWindows(ctx context.Context, r *v1.TimeRange) ([]*v1.TimeW
 	}
 	rows, err := p.db().QueryContext(ctx, `
 SELECT time, kind, server_name, json_extract_string(raw, '$.node'), json_extract_string(raw, '$.kubelet_version'),
-  json_extract_string(raw, '$.cause')
+  json_extract_string(raw, '$.cause'), json_extract_string(raw, '$.pool')
 FROM events
 WHERE source = 'k8s' AND time >= ? AND time < ? AND kind IN (?`+strings.Repeat(", ?", len(windowKinds)-1)+`)
   AND (kind NOT LIKE 'k8s.pod.%' OR server_name IS NOT NULL)
@@ -181,11 +185,11 @@ ORDER BY time DESC, id DESC LIMIT `+strconv.Itoa(windowEventLimit), args...)
 	var evs []k8sEvent
 	for rows.Next() {
 		var e k8sEvent
-		var server, node, version, cause sql.NullString
-		if err := rows.Scan(&e.at, &e.kind, &server, &node, &version, &cause); err != nil {
+		var server, node, version, cause, pool sql.NullString
+		if err := rows.Scan(&e.at, &e.kind, &server, &node, &version, &cause, &pool); err != nil {
 			return nil, err
 		}
-		e.at, e.server, e.node, e.version, e.cause = e.at.UTC(), server.String, node.String, version.String, cause.String
+		e.at, e.server, e.node, e.version, e.cause, e.pool = e.at.UTC(), server.String, node.String, version.String, cause.String, pool.String
 		evs = append(evs, e)
 	}
 	if err := rows.Err(); err != nil {
@@ -227,9 +231,10 @@ func deriveWindows(evs []k8sEvent, gap time.Duration) []*v1.TimeWindow {
 
 func describeWindow(evs []k8sEvent) *v1.TimeWindow {
 	drained, stopped, versions := map[string]bool{}, map[string]bool{}, map[string]bool{}
-	upgrade := false
+	upgrade, gke := false, false
 	autoscaler := 0
 	for _, e := range evs {
+		gke = gke || e.pool != ""
 		switch {
 		case e.kind == "k8s.node.drained":
 			drained[e.node] = true
@@ -247,8 +252,10 @@ func describeWindow(evs []k8sEvent) *v1.TimeWindow {
 	}
 	label := "Node drain"
 	switch {
-	case upgrade || len(versions) > 1:
+	case (upgrade || len(versions) > 1) && gke:
 		label = "GKE node upgrade"
+	case upgrade || len(versions) > 1:
+		label = "Node upgrade"
 	case len(drained) > 0 && autoscaler == countKind(evs, "k8s.node.drained"):
 		label = "Node removed by the autoscaler"
 	}

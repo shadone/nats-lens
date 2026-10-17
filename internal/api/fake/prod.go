@@ -26,7 +26,8 @@ func prodScenario() *scenario {
 				consumers: []string{"resize-worker", "index-worker", "job-cache-projector"}},
 			{name: "order-archive", msgs: 2914330, bytes: 3.92 * gib, perDay: 96 * mib,
 				consumers: []string{"archive-exporter", "archive-indexer"}, expected: []string{"analytics-aggregator"}},
-			{name: "audit-archive", msgs: 1108402, bytes: 1.07 * gib, perDay: 18 * mib, consumers: []string{"audit-archive-writer"}},
+			{name: "audit-archive", msgs: 1108402, bytes: 1.07 * gib, perDay: 18 * mib, consumers: []string{"audit-archive-writer"},
+				maxBytes: 1395864371, discard: "new"},
 			{name: "catalog-changes", msgs: 312880, bytes: 402 * mib, perDay: 6.4 * mib,
 				consumers: []string{"catalog-applier", "catalog-search-indexer"}},
 			{name: "catalog-access", msgs: 640115, bytes: 188 * mib, perDay: 3.1 * mib, consumers: []string{"catalog-access-logger"}},
@@ -94,7 +95,7 @@ func prodConsumer(s scen, c *v1.ConsumerSummary) {
 }
 
 // prodCreated gives resize-worker the creation time disagreement of
-// finding consumer-012: nats-0 kept the old copy.
+// finding consumer-009: nats-0 kept the old copy.
 func prodCreated(s scen, _, consumer string) ([]time.Time, bool) {
 	if consumer != "resize-worker" {
 		return nil, false
@@ -102,9 +103,9 @@ func prodCreated(s scen, _, consumer string) ([]time.Time, bool) {
 	return []time.Time{time.Date(2026, 8, 12, 10, 2, 11, 0, time.UTC).Add(s.shift), s.at(9, 38, 44), s.at(9, 38, 44)}, true
 }
 
-// prodTransitions gives the flapping stream-020 its history.
+// prodTransitions gives the flapping consumer-002 its history.
 func prodTransitions(s scen, f *v1.Finding) []*v1.FindingTransition {
-	if f.GetCheckCode() != "stream-020" {
+	if f.GetCheckCode() != "consumer-002" {
 		return nil
 	}
 	tr := func(at time.Time, st v1.FindingState) *v1.FindingTransition {
@@ -120,7 +121,7 @@ func prodTransitions(s scen, f *v1.Finding) []*v1.FindingTransition {
 func prodSeedMute() *storedMute {
 	s := scen{now: FixedNow}
 	return &storedMute{relative: true, m: &v1.Mute{
-		Id: "1", CheckCode: "stream-031", Entity: streamRef("audit-archive"),
+		Id: "1", CheckCode: "stream-006", Entity: streamRef("audit-archive"),
 		Reason:    "Retention cut to 90d is in review; growth after the backfill is expected.",
 		MutedBy:   "denis",
 		CreatedAt: ts(s.at(12, 0, 0)), ExpiresAt: ts(s.on(24, 12, 0)),

@@ -8,7 +8,7 @@ kind: operational
 description: >-
   The servers that hold a replica of the stream report different configurations for it (subjects, retention,
   limits, replicas, placement and the other settings; the creation time is stream-008). Every setting is compared
-  on its own, a missing value included. Restarting servers are left out until they have caught up. Replicas with
+  on its own, a missing value included. Servers that restarted within restart_window are left out. Replicas with
   different limits remove different messages, so their contents drift apart.
 remediation: >-
   The detail lists which servers agree and which settings differ. A difference right after a stream update that

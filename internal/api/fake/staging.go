@@ -55,8 +55,9 @@ func stagingScenario() *scenario {
 
 func stagingFindings(s scen) []*v1.Finding {
 	f := finding("stream-005", "Stream without any limit", info, firing, streamRef("catalog-changes"), s.on(12, 9, 0), s.on(12, 9, 0),
-		"max_bytes -1, max_msgs -1, max_age 0. Grows 400 KiB/day.")
-	f.RelatedConfig = cfg([][2]string{{"max_bytes", "-1"}, {"max_msgs", "-1"}, {"max_age", "0"}}, "max_bytes")
+		"max_msgs -1, max_bytes -1, max_age 0: nothing bounds the stream.")
+	f.RelatedConfig = cfg([][2]string{{"max_msgs", "-1"}, {"max_bytes", "-1"}, {"max_age", "0"},
+		{"max_msgs_per_subject", "-1"}, {"allow_msg_ttl", "false"}}, "max_bytes")
 	f.RelatedConfigSource = "nats-1"
 	return []*v1.Finding{f}
 }

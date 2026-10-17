@@ -58,7 +58,7 @@ GROUP BY x.account, x.stream, x.consumer ORDER BY x.account, x.stream, x.consume
 			return nil, err
 		}
 		c.Entity = refOf(v1.EntityType_ENTITY_TYPE_CONSUMER, []any{acc, st, name})
-		// No check covers consumers yet.
+		// The status is no data until applyConsumerStatus applies the findings.
 		c.Leader, c.LastDelivered, c.Present, c.Status = leader.String, ts(ntime(last)), true, v1.Status_STATUS_NO_DATA
 		out = append(out, &c)
 	}

@@ -1,8 +1,9 @@
 // Package fake serves fixed scenarios through the api.Provider interface,
 // for the demo command and for tests. New serves example-prod: a
 // three-server cluster on 2026-10-17 at 14:30 UTC, five hours after a GKE
-// node upgrade (09:14-09:50) restarted all three NATS servers; it is the
-// data of the reference mockup (docs/ui-reference/reference.html). Demo
+// node upgrade (09:14-09:50) restarted all three NATS servers; it tells the
+// story of the reference mockup (docs/ui-reference/reference.html), with
+// the real checks' codes, names and details. Demo
 // adds example-global, 24 servers in three clusters joined by gateways,
 // and example-staging, whose collector stopped three hours ago.
 //
@@ -127,7 +128,10 @@ func (p *Provider) Info(context.Context) (*v1.GetLensInfoResponse, error) {
 // freshness describes the newest epoch inside the range.
 func (s scen) freshness(r *v1.TimeRange) *v1.Freshness {
 	// A system that stopped collecting has no collector writing to it.
-	f := &v1.Freshness{Live: s.sc.stale == 0, Interval: dur(30 * time.Second)}
+	f := &v1.Freshness{Live: s.sc.stale == 0, Interval: dur(30 * time.Second), Collecting: true}
+	if st := s.sc.collection; st == v1.CollectionState_COLLECTION_STATE_NOT_CONNECTED || st == v1.CollectionState_COLLECTION_STATE_CONNECTION_CLOSED {
+		f.Collecting, f.NotCollectingSince = false, ts(s.sc.errorSince.Add(s.shift))
+	}
 	// A range that does not hold the newest epoch reports no epoch.
 	if at := s.lastEpoch(); inRange(at, r) {
 		f.Epoch, f.EpochAt, f.Age, f.Partial = s.sc.epoch, ts(at), dur(s.now.Sub(at)), s.sc.partial

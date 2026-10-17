@@ -38,9 +38,14 @@ type Freshness struct {
 	// Whether a collector is writing to the database this API reads.
 	Live bool `protobuf:"varint,5,opt,name=live,proto3" json:"live,omitempty"`
 	// Time between epochs the collector uses.
-	Interval      *durationpb.Duration `protobuf:"bytes,6,opt,name=interval,proto3" json:"interval,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Interval *durationpb.Duration `protobuf:"bytes,6,opt,name=interval,proto3" json:"interval,omitempty"`
+	// Whether the system's collector collects: false while its connection to
+	// NATS is not connected or closed for good.
+	Collecting bool `protobuf:"varint,7,opt,name=collecting,proto3" json:"collecting,omitempty"`
+	// When the collector stopped collecting; unset while it collects.
+	NotCollectingSince *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=not_collecting_since,json=notCollectingSince,proto3" json:"not_collecting_since,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *Freshness) Reset() {
@@ -111,6 +116,20 @@ func (x *Freshness) GetLive() bool {
 func (x *Freshness) GetInterval() *durationpb.Duration {
 	if x != nil {
 		return x.Interval
+	}
+	return nil
+}
+
+func (x *Freshness) GetCollecting() bool {
+	if x != nil {
+		return x.Collecting
+	}
+	return false
+}
+
+func (x *Freshness) GetNotCollectingSince() *timestamppb.Timestamp {
+	if x != nil {
+		return x.NotCollectingSince
 	}
 	return nil
 }
@@ -538,14 +557,18 @@ var File_natslens_v1_overview_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_overview_proto_rawDesc = "" +
 	"\n" +
-	"\x1anatslens/v1/overview.proto\x12\vnatslens.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\x1a\x1anatslens/v1/findings.proto\x1a\x19natslens/v1/servers.proto\x1a\x1cnatslens/v1/timeseries.proto\"\xea\x01\n" +
+	"\x1anatslens/v1/overview.proto\x12\vnatslens.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\x1a\x1anatslens/v1/findings.proto\x1a\x19natslens/v1/servers.proto\x1a\x1cnatslens/v1/timeseries.proto\"\xd8\x02\n" +
 	"\tFreshness\x12\x14\n" +
 	"\x05epoch\x18\x01 \x01(\x03R\x05epoch\x125\n" +
 	"\bepoch_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\aepochAt\x12+\n" +
 	"\x03age\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\x03age\x12\x18\n" +
 	"\apartial\x18\x04 \x01(\bR\apartial\x12\x12\n" +
 	"\x04live\x18\x05 \x01(\bR\x04live\x125\n" +
-	"\binterval\x18\x06 \x01(\v2\x19.google.protobuf.DurationR\binterval\"\xf3\x03\n" +
+	"\binterval\x18\x06 \x01(\v2\x19.google.protobuf.DurationR\binterval\x12\x1e\n" +
+	"\n" +
+	"collecting\x18\a \x01(\bR\n" +
+	"collecting\x12L\n" +
+	"\x14not_collecting_since\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\x12notCollectingSince\"\xf3\x03\n" +
 	"\x04Tile\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12\x19\n" +
@@ -620,25 +643,26 @@ var file_natslens_v1_overview_proto_depIdxs = []int32{
 	5,  // 0: natslens.v1.Freshness.epoch_at:type_name -> google.protobuf.Timestamp
 	6,  // 1: natslens.v1.Freshness.age:type_name -> google.protobuf.Duration
 	6,  // 2: natslens.v1.Freshness.interval:type_name -> google.protobuf.Duration
-	7,  // 3: natslens.v1.Tile.unit:type_name -> natslens.v1.Unit
-	8,  // 4: natslens.v1.Tile.status:type_name -> natslens.v1.Status
-	9,  // 5: natslens.v1.Tile.series:type_name -> natslens.v1.Series
-	9,  // 6: natslens.v1.Tile.series2:type_name -> natslens.v1.Series
-	5,  // 7: natslens.v1.TimeWindow.start:type_name -> google.protobuf.Timestamp
-	5,  // 8: natslens.v1.TimeWindow.end:type_name -> google.protobuf.Timestamp
-	10, // 9: natslens.v1.GetOverviewRequest.range:type_name -> natslens.v1.TimeRange
-	10, // 10: natslens.v1.GetOverviewResponse.range:type_name -> natslens.v1.TimeRange
-	0,  // 11: natslens.v1.GetOverviewResponse.freshness:type_name -> natslens.v1.Freshness
-	11, // 12: natslens.v1.GetOverviewResponse.servers:type_name -> natslens.v1.ServerSummary
-	12, // 13: natslens.v1.GetOverviewResponse.tally:type_name -> natslens.v1.FindingTally
-	13, // 14: natslens.v1.GetOverviewResponse.worst_finding:type_name -> natslens.v1.Finding
-	1,  // 15: natslens.v1.GetOverviewResponse.tiles:type_name -> natslens.v1.Tile
-	2,  // 16: natslens.v1.GetOverviewResponse.windows:type_name -> natslens.v1.TimeWindow
-	17, // [17:17] is the sub-list for method output_type
-	17, // [17:17] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	5,  // 3: natslens.v1.Freshness.not_collecting_since:type_name -> google.protobuf.Timestamp
+	7,  // 4: natslens.v1.Tile.unit:type_name -> natslens.v1.Unit
+	8,  // 5: natslens.v1.Tile.status:type_name -> natslens.v1.Status
+	9,  // 6: natslens.v1.Tile.series:type_name -> natslens.v1.Series
+	9,  // 7: natslens.v1.Tile.series2:type_name -> natslens.v1.Series
+	5,  // 8: natslens.v1.TimeWindow.start:type_name -> google.protobuf.Timestamp
+	5,  // 9: natslens.v1.TimeWindow.end:type_name -> google.protobuf.Timestamp
+	10, // 10: natslens.v1.GetOverviewRequest.range:type_name -> natslens.v1.TimeRange
+	10, // 11: natslens.v1.GetOverviewResponse.range:type_name -> natslens.v1.TimeRange
+	0,  // 12: natslens.v1.GetOverviewResponse.freshness:type_name -> natslens.v1.Freshness
+	11, // 13: natslens.v1.GetOverviewResponse.servers:type_name -> natslens.v1.ServerSummary
+	12, // 14: natslens.v1.GetOverviewResponse.tally:type_name -> natslens.v1.FindingTally
+	13, // 15: natslens.v1.GetOverviewResponse.worst_finding:type_name -> natslens.v1.Finding
+	1,  // 16: natslens.v1.GetOverviewResponse.tiles:type_name -> natslens.v1.Tile
+	2,  // 17: natslens.v1.GetOverviewResponse.windows:type_name -> natslens.v1.TimeWindow
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_overview_proto_init() }

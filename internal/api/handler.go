@@ -167,7 +167,13 @@ func (h *Handler) GetOverview(ctx context.Context, req *connect.Request[v1.GetOv
 			m.MaxPoints, err = points(m.GetMaxPoints(), DefaultOverviewPoint)
 		}
 		return err
-	}, on(Provider.GetOverview))
+	}, func(s System, ctx context.Context, m *v1.GetOverviewRequest) (*v1.GetOverviewResponse, error) {
+		res, err := s.Provider.GetOverview(ctx, m)
+		if err == nil && s.Status != nil {
+			withCollecting(res.GetFreshness(), s.Status())
+		}
+		return res, err
+	})
 }
 
 func (h *Handler) ListFindings(ctx context.Context, req *connect.Request[v1.ListFindingsRequest]) (*connect.Response[v1.ListFindingsResponse], error) {

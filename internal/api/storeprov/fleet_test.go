@@ -110,6 +110,9 @@ func TestSystemSummaryCollectionErrorFromEvents(t *testing.T) {
 		if s.GetCollection() != v1.CollectionState_COLLECTION_STATE_COLLECTING || s.GetCollectionError() != "" {
 			t.Errorf("collection %v %q", s.GetCollection(), s.GetCollectionError())
 		}
+		if f := s.GetFreshness(); !f.GetCollecting() || f.GetNotCollectingSince() != nil {
+			t.Errorf("freshness %v", f)
+		}
 	})
 	t.Run("after the newest epoch", func(t *testing.T) {
 		st, _, _ := findingsStore(t)
@@ -129,11 +132,21 @@ func TestSystemSummaryCollectionErrorFromEvents(t *testing.T) {
 			!s.GetCollectionErrorSince().AsTime().Equal(t0.Add(82*time.Second)) {
 			t.Errorf("collection %v %q since %v", s.GetCollection(), s.GetCollectionError(), s.GetCollectionErrorSince())
 		}
+		if f := s.GetFreshness(); f.GetCollecting() || !f.GetNotCollectingSince().AsTime().Equal(t0.Add(82*time.Second)) {
+			t.Errorf("freshness %v", f)
+		}
+		// The overview's freshness says the same.
+		_, c := serve(t, st)
+		o := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{Range: &v1.TimeRange{Start: timestamppb.New(t0), End: timestamppb.New(now)}})))
+		if f := o.GetFreshness(); f.GetCollecting() || !f.GetNotCollectingSince().AsTime().Equal(t0.Add(82*time.Second)) {
+			t.Errorf("overview freshness %v", f)
+		}
 	})
 	t.Run("without a collector", func(t *testing.T) {
 		st, _, _ := findingsStore(t)
-		if s := summaryOf(t, st, false, fixtureRange()); s.GetCollection() != v1.CollectionState_COLLECTION_STATE_UNSPECIFIED {
-			t.Errorf("collection %v", s.GetCollection())
+		if s := summaryOf(t, st, false, fixtureRange()); s.GetCollection() != v1.CollectionState_COLLECTION_STATE_UNSPECIFIED ||
+			!s.GetFreshness().GetCollecting() {
+			t.Errorf("collection %v, freshness %v", s.GetCollection(), s.GetFreshness())
 		}
 	})
 }
