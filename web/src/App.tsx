@@ -32,7 +32,8 @@ export function App() {
       </a>
       <Sidebar collapsed={collapsed} onCollapse={setCollapsed} drawerOpen={drawerOpen} onCloseDrawer={() => setDrawerOpen(false)} />
       {drawerOpen && <div className="side-backdrop" aria-hidden="true" onClick={() => setDrawerOpen(false)} />}
-      <div className="main-col">
+      {/* While the drawer is open the page behind it is inert, so Tab stays in the drawer. */}
+      <div className="main-col" inert={drawerOpen}>
         <Header menuOpen={drawerOpen} onMenu={() => setDrawerOpen(!drawerOpen)} />
         <main className="wrap" id="main" tabIndex={-1}>
           {/* Keyed by system too: a page of another system starts afresh, with
