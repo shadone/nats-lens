@@ -6,27 +6,45 @@
 
 ## What it does
 
-The Servers page lists every NATS server seen in the time range, by its stable name, with its health and load. A server's own page shows its numbers, its charts over the range, its findings, the outcome of every monitoring request in the newest collection, each process lifetime, and its events. Together they answer: which servers answer, which restarted, which is the meta leader, and which one is short of storage or memory.
+The Servers page shows a system's servers at a glance, built for 20 servers or more: a row of data points, charts across all servers, a map with one square per server, and a list grouped by cluster with the servers that need attention first. A server's own page shows five metric boxes, where it runs, its routes, its limits and settings, its recent events, the monitoring requests it answered, its findings and each process lifetime. Together they answer: which servers answer, which restarted, which is the meta leader, which is configured or versioned apart, and which one is short of storage or under load.
 
 ## Behavior and rules
 
-- **By stable name.** A restart gives a server a new server ID, so the list shows one row per server name. The page says so.
-- **Who does not answer.** A box at the top names the servers that did not answer in the newest collection: "Not answering: … did not answer in the newest epoch." Their rows are marked "missing". A note lists the servers expected in the newest collection.
-- **The list.** For each server: its status (the worst firing finding on it), name, version, uptime, role (meta leader, follower, or no JetStream), healthz, connections, JetStream storage with its limit, memory, CPU, and the times of its restarts in the range.
-- **The server page.** Its header shows the version, role and cluster, and says when the server did not answer in the newest collection. Stat cards show uptime with the start time, healthz with its error, connections (with a link to the connection list of that server), subscriptions, slow consumers since the process started, routes, the streams and consumers with a replica on it, storage with its limit, memory and CPU, the meta leader in this server's view, and the configuration digest.
-- **Charts.** Connections, messages in and out, bytes in and out, memory, CPU and JetStream storage over the range, with drain and upgrade windows shaded. Rates are computed per server process, so they have a gap at each restart rather than a spike.
-- **Monitoring endpoints.** The outcome of every request to the server in the newest collection: `ok`, `error` (with the error as a tooltip) or `missing`.
-- **Processes.** Each process lifetime in the range: server ID, start time, and when nats-lens first and last saw it answer.
-- **Findings and events.** The findings that fire now for the server, worst first, and its newest 15 events, with a link to all of them.
-- **Spread across servers in the API.** `GetTimeSeries` serves `cluster.cpu_percent` and `cluster.mem_bytes` as bands, which the page does not draw yet. Each point's value is the median server, averaged over the bucket, and `low` and `high` are the lowest and highest server in any collection of the bucket, so a short spike stays visible. The series' `min` and `max` are the lowest `low` and highest `high`. `top` names the busiest server, the one with the highest mean over the range, and `top_points` holds its own averaged series in the same buckets, which lies inside the band. A server that did not report the number is left out. `server.slow_consumers` is a server's slow consumer increase, per process, so a restart is not a negative count; the first collection after a restart, and the first after a gap in collection of more than three intervals, count nothing. A cluster metric with an entity is refused as `invalid_argument`.
-- **More in the API (API only).** The API returns these, and the pages do not show them yet. Each server in the list has its stream and consumer leaders, its slow consumers inside the range and its configured tags. Slow consumers are counted per process: a restart starts a new count. The server detail has:
+- **By stable name.** A restart gives a server a new server ID, so every view shows one entry per server name.
+- **Status line.** "24 servers in 3 clusters · meta leader nats-eu-1": the count, the clusters when there are several, and the meta leader.
+- **Data points.** Five cards:
+  - **Answering:** how many servers answered in the newest collection out of those seen or expected, a square per server (red when it did not answer), and the names of those that did not.
+  - **Versions:** how many versions run, a bar split by version, and each version with its count. The legend draws each version's swatch.
+  - **Restarts:** the restarts in the range ("Restarts, 24 h" for a live range), a strip with a tick at each restart, and the servers that restarted.
+  - **JetStream store:** the median use of the store limit across servers, a track with the range from the emptiest to the fullest server and a tick at the median, and the fullest server.
+  - **Slow consumers:** the slow consumers counted in the range across servers, a bar per bucket of `cluster.slow_consumers`, and the server with the most.
+- **Charts across servers.** CPU and memory are drawn as a band from the lowest to the highest server, with the median and the busiest server (the highest mean over the range) as lines; connections as the total; messages in and out per second, with out dashed. Each chart's legend draws its own marks, and its value is the newest bucket's ("6.7% median · 64.1% max").
+- **Every server.** One square per server, grouped by cluster, coloured by a metric chosen with the "Colour by" buttons: CPU, memory, connections, store used, leaders or version. CPU and store used have fixed bins (under 10%, 10 to 30%, 30 to 60%, 60% or more); memory, connections and leaders split the spread between the smallest and largest server into quarters; version gives each version its own colour, the most common first. The meta leader is outlined; a server that did not answer is dashed and has no fill; a server that did not report the value has no colour. Hovering or focusing a square names the server and its value; a click opens the server. The legend draws each swatch, including "did not answer", "not reported" and "meta leader" when they occur. The colours are defined for the light and the dark theme.
+- **The list.**
+  - Grouped by cluster, each group headed by its cluster's summary (servers, how many answer, median CPU, connections, median store). With one cluster the list is flat.
+  - Problems first: a server that did not answer, then by the severity of its findings, then the other reasons below, then the rest, each by name; the group with the worst server comes first.
+  - "Needs attention" is shown by default. A server needs attention when it did not answer, a finding fires on it (a muted one does not count), its healthz is not ok, its version is not the one most servers run, or its store is at 60% of its limit or more. The State column names each reason ("did not answer · warning finding", "version 2.12.2", "store 71%").
+  - "All" shows every server, six per cluster (twenty in a flat list) with "Show N more".
+  - A filter matches the name, the version or a tag.
+  - Columns: server, state, role, version, uptime, CPU, memory, connections, leaders (stream and consumer leaders on the server), store with a bar and its percentage, and tags. A server that did not answer shows "–" for the numbers of the newest collection.
+- **The server page.**
+  - The header names the cluster in the breadcrumb, and the role, version, uptime and start time in one line, or "did not answer in the newest epoch".
+  - **Metric boxes** for CPU, memory, connections, messages in and out (out dashed) and slow consumers. Each has a title with an (i) button describing the metric, the current value at the top right, a line chart over the range, and a track with the window's lowest value on the left, its highest on the right and a dot at the current value. When the value did not change the track reads "steady at N all window"; without a value it reads "no data" and draws no dot. A configured limit, such as the connection limit, is in the note under the track. Health colours the value and the dot, with a word only when it is not ok: CPU at 60% of a core or more is "high", connections at 80% of the limit or more are "near limit", and slow consumers in the range mark the box. A server that did not answer shows no current value, only its history.
+  - **Where it runs:** the pod and namespace with its restarts in the range, the node (or "not scheduled"), when the pod was scheduled, and the zone from an `az:` tag. Hidden when nats-lens does not watch Kubernetes.
+  - **Routes:** the route count with the slowest route's remote server and round trip, bytes waiting on routes when there are any, gateways, leaf nodes and the meta leader in the server's view.
+  - **Limits and settings:** maximum payload, maximum pending, write deadline, ping interval with unanswered pings, JetStream file and memory limits, the connection limit, and the tags. A setting whose value differs from the value most servers have is marked "differs from most servers", and a line counts them. The time the configuration was loaded closes the card.
+  - **Recent events:** the server's newest six events, routine ones hidden and repeats folded ("×4"), each linked to the event, with a link to all of the server's events.
+  - **Endpoints answered:** "13/13 monitoring endpoints answered in the newest epoch", naming up to four that did not, or counting them by state when more failed.
+  - **Findings** that fire now for the server, worst first, and **Processes**: each process lifetime in the range with its server ID, start time, and when nats-lens first and last saw it answer.
+- **Spread across servers in the API.** `GetTimeSeries` serves `cluster.cpu_percent` and `cluster.mem_bytes` as bands. Each point's value is the median server, averaged over the bucket, and `low` and `high` are the lowest and highest server in any collection of the bucket, so a short spike stays visible. The series' `min` and `max` are the lowest `low` and highest `high`. `top` names the busiest server, the one with the highest mean over the range, and `top_points` holds its own averaged series in the same buckets, which lies inside the band. A server that did not report the number is left out. `server.slow_consumers` is a server's slow consumer increase, per process, so a restart is not a negative count; the first collection after a restart, and the first after a gap in collection of more than three intervals, count nothing. A cluster metric with an entity is refused as `invalid_argument`.
+- **Server data in the API.** Each server in `ListServers` has its stream and consumer leaders, its slow consumers inside the range (counted per process) and its configured tags. `GetServer` adds:
   - each route with the remote server, round trip time and pending bytes, from the newest collection in which ROUTEZ answered;
   - the gateways connected (remote clusters, unset when GATEWAYZ did not answer) and the leaf node connections;
-  - the limits: maximum payload, maximum pending, write deadline, ping interval and unanswered pings, JetStream file and memory limits, and the connection limit. Each is the newest value the server reported in the range, so a collection that missed VARZ or JSZ does not hide it;
+  - the limits. Each is the newest value the server reported in the range, so a collection that missed VARZ or JSZ does not hide it;
   - the limits whose value differs from the value most servers have. A tie for the most common value marks nothing, and a server that did not report a limit is neither marked nor counted for it;
-  - where the server runs in Kubernetes: the pod, namespace, node, when the pod was scheduled and its container restarts in the range, The pod is the one the newest Kubernetes event for the server names. The node comes from that pod's newest event with a node; after the pod's deletion it is empty until the pod is scheduled again. Events of a pod of the same name in another watched namespace do not count. Without any such event, as when nats-lens does not watch Kubernetes, the placement is unset;
+  - where the server runs in Kubernetes. The pod is the one the newest Kubernetes event for the server names. The node comes from that pod's newest event with a node; after the pod's deletion it is empty until the pod is scheduled again. Events of a pod of the same name in another watched namespace do not count. Without any such event, as when nats-lens does not watch Kubernetes, the placement is unset;
   - when the configuration was loaded or last reloaded.
-- **Unreported is unset.** A limit a server did not report, such as every VARZ limit stored before nats-lens recorded them, is unset, never 0.
+- **Unobserved is a dash.** A number nats-lens did not observe shows "–" and no colour, never 0. A limit a server did not report, such as every VARZ limit stored before nats-lens recorded them, is unset in the API.
 
 ## Scenarios
 
@@ -34,13 +52,13 @@ The Servers page lists every NATS server seen in the time range, by its stable n
 
 - **Given** `nats-1` restarted at 04:12 UTC within the range
 - **When** I open the Servers page
-- **Then** the row of `nats-1` lists 04:12 under "Restarts in range" and a shorter uptime than the others
+- **Then** the Restarts card counts the restart, ticks it at 04:12 and names `nats-1`, and under "All" its row shows a shorter uptime than the others
 
 ### See why a server's data is incomplete
 
 - **Given** a server that did not answer JSZ in the newest collection
 - **When** I open its page
-- **Then** "Monitoring endpoints" shows JSZ as `missing`, and the other endpoints as `ok`
+- **Then** it reads "12/13 monitoring endpoints answered in the newest epoch; not: JSZ missing"
 
 ### Read a server's history of processes
 
@@ -76,18 +94,41 @@ The Servers page lists every NATS server seen in the time range, by its stable n
 - **When** I call `GetTimeSeries` for `cluster.cpu_percent`
 - **Then** each point has the value 5, `low` 2 and `high` 40, and `top` is the server at 40 percent with its own points
 
-## Planned
+### See which servers need attention
 
-- **Servers page for 20 or more servers.** A summary row: servers answering (with how many are down), versions in use, restarts in the last 24 hours, the JetStream store's median use with its range and the fullest server, and slow consumers in 24 hours with the server most of them came from.
-- **Charts across servers.** CPU, memory, total connections and total messages in and out over the range, each drawn as a band from the minimum to the maximum server with the median and the busiest server.
-- **A map of every server.** One square per server, grouped by cluster, coloured by CPU, memory, connections, store used, leaders or version, with down servers outlined and the meta leader marked. Hovering a square names the server and value; a click opens it.
-- **A list grouped by cluster.** Filter by name, version or tag; show "Needs attention" or all; group by cluster or nothing; problems first, then by name. Columns: state, role, version, uptime, CPU, memory, connections, leaders (stream and consumer leaders on the server), store and tags. A cluster opens by itself when one of its servers needs attention; with one cluster the list is flat. Each cluster row sums its servers.
-- **Server page additions.** Tiles with each metric's range over the period. "Where it runs": the pod and node from the Kubernetes watcher, hidden when nats-lens does not watch Kubernetes. Routes with the slowest route's round trip, and gateways. "Limits and settings" (maximum payload, maximum pending, write deadline, JetStream limits, ping interval), with settings that differ between servers marked. Recent events in plain words, and how many monitoring endpoints answered.
+- **Given** the demo system `example-global`: 24 servers in clusters `eu`, `us` and `ap`; `nats-us-4` stopped answering, `nats-us-3` has a warning finding, `nats-ap-2`'s store is 71% full, and `nats-ap-4` and `nats-ap-5` run an older version
+- **When** I open the Servers page
+- **Then** "Needs attention 5" is selected and lists those five servers under their clusters, `nats-us-4` first in `us`, with the reasons in the State column; "All 24" lists every server
+
+### Colour the map by store
+
+- **Given** `example-global`
+- **When** I choose "Store used" under "Every server"
+- **Then** `nats-ap-2` is in the "60% or more" colour, and the legend draws each bin's swatch
+
+### Read a server configured apart from the others
+
+- **Given** `nats-ap-3` with a maximum payload of 8 MiB where the others have 1 MiB
+- **When** I open its page
+- **Then** "Limits and settings" marks the maximum payload "differs from most servers" and says "1 setting differs from most servers."
+
+### Open a server without the Kubernetes watcher
+
+- **Given** nats-lens does not watch Kubernetes
+- **When** I open a server's page
+- **Then** there is no "Where it runs" card, and the API returns `kubernetes` unset
+
+### One cluster
+
+- **Given** a system whose servers form one cluster
+- **When** I open the Servers page
+- **Then** the list is flat, with no cluster headings
 
 ## Not supported / out of scope
 
 - **No server actions.** nats-lens does not restart, reload or put a server in lame duck mode.
 - **No server log.** nats-lens does not read server logs.
 - **No per-server thresholds.**
-- **No zones.** nats-lens does not record a server's zone. Server tags, such as `az:eu-1a`, are returned instead (API only for now).
+- **No zones.** nats-lens does not record a server's zone. Server tags, such as `az:eu-1a`, are shown instead, and the zone on a server's page comes from an `az:` tag.
+- **No grouping by zone or tag.** The list groups by cluster only.
 - **No "slow to answer" state.** nats-lens stores whether each monitoring request succeeded, not how long the reply took.
