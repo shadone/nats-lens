@@ -76,22 +76,26 @@ export function sortProblemsFirst(servers: ServerRow[], majority: string | undef
 }
 
 export interface ClusterGroup {
-  /** Empty when the servers form one cluster: the list is then flat. */
   cluster: string;
   rows: ServerRow[];
 }
 
 /**
  * Servers by cluster, each group problems first, the group with the worst
- * server first. One cluster gives a single group with no name.
+ * server first. Whether to show the groups or a flat list is the caller's
+ * choice, made from the unfiltered servers.
  */
 export function groupByCluster(servers: ServerRow[], majority = majorityVersion(servers)): ClusterGroup[] {
   const m = new Map<string, ServerRow[]>();
   for (const s of servers) m.set(s.cluster, [...(m.get(s.cluster) ?? []), s]);
-  if (m.size <= 1) return servers.length ? [{ cluster: "", rows: sortProblemsFirst(servers, majority) }] : [];
   const groups = [...m.entries()].map(([cluster, rows]) => ({ cluster, rows: sortProblemsFirst(rows, majority) }));
   const worst = (g: ClusterGroup) => problemRank(g.rows[0], majority);
   return groups.sort((a, b) => worst(a) - worst(b) || a.cluster.localeCompare(b.cluster));
+}
+
+/** One cluster, or none named, gives a flat list. */
+export function isFlat(servers: ServerRow[]): boolean {
+  return new Set(servers.map((s) => s.cluster)).size <= 1;
 }
 
 /** Clusters by name, each with its servers by name, for the map. */

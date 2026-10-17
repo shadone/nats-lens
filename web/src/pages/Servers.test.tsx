@@ -124,6 +124,27 @@ describe("Servers on example-global", () => {
 });
 
 describe("Servers, failing cases", () => {
+  it("keeps the cluster heading when a filter leaves one of three clusters, in both views", async () => {
+    serve(global());
+    renderApp(<Servers />, "/servers");
+    await screen.findByRole("region", { name: "Server list" });
+    await userEvent.type(within(list()).getByRole("searchbox", { name: "Filter servers" }), "nats-ap");
+    expect(groupHeads().map((h) => h.querySelector(".grp-name")?.textContent)).toEqual(["ap"]);
+    expect(list()).not.toHaveTextContent("no cluster");
+    await showAll();
+    expect(groupHeads().map((h) => h.querySelector(".grp-name")?.textContent)).toEqual(["ap"]);
+  });
+
+  it("shows a dash for a down server's leaders", async () => {
+    serve(global());
+    renderApp(<Servers />, "/servers");
+    await screen.findByRole("region", { name: "Server list" });
+    const row = within(list()).getByRole("link", { name: "nats-us-4" }).closest("tr")!;
+    const leadersCell = row.querySelectorAll("td")[8];
+    expect(leadersCell).toHaveTextContent("–");
+    expect(leadersCell).not.toHaveTextContent("0");
+  });
+
   it("shows one cluster as a flat list", async () => {
     const r = global();
     r.servers = r.servers.filter((s) => s.cluster === "eu");
