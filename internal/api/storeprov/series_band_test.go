@@ -566,3 +566,33 @@ func TestClusterSlowConsumersSkipGaps(t *testing.T) {
 		t.Fatalf("slow consumers = %v, want [2 1] with nothing across the gap", got)
 	}
 }
+
+// A lone answer is no majority of the expected servers: when only one of
+// three answers and names another leader, the leader did not change.
+func TestMetaLeaderNeedsAMajorityOfExpected(t *testing.T) {
+	st := emptyStore(t)
+	r := rows{t, st}
+	ids := []string{"S0", "S1", "S2"}
+	for i, id := range ids {
+		r.server(id, fmt.Sprintf("nats-%d", i))
+	}
+	for e := int64(1); e <= 3; e++ {
+		at := t0.Add(time.Duration(e) * 30 * time.Second)
+		if e == 2 {
+			if _, err := st.DB().Exec(`INSERT INTO epochs VALUES (2, ?, ?, 0, 3, 1, [], [], [], 0, true, [], NULL)`, at, at); err != nil {
+				t.Fatal(err)
+			}
+			r.add("server_stats", map[string]any{"epoch": e, "server_id": "S1", "meta_leader": "nats-1"})
+			continue
+		}
+		r.epoch(e, at, ids...)
+		for _, id := range ids {
+			r.add("server_stats", map[string]any{"epoch": e, "server_id": id, "meta_leader": "nats-0"})
+		}
+	}
+	c := serveSeries(t, st, t0.Add(120*time.Second))
+	got := values(seriesOf(t, c, "cluster.meta_leader_changes", nil, &v1.TimeRange{Start: timestamppb.New(t0)}))
+	if !slices.Equal(got, []float64{0, 0, 0}) {
+		t.Fatalf("leader changes = %v, want none", got)
+	}
+}
