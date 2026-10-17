@@ -501,3 +501,51 @@ func TestTileValueIsTheChartsLastPoint(t *testing.T) {
 		}
 	}
 }
+
+// 500 000 events over two weeks, with 40 000 epochs, read with routine
+// hiding, folding, facets and a histogram: well within the call timeout.
+func TestFoldedEventsAtScale(t *testing.T) {
+	if testing.Short() {
+		t.Skip("writes 500 000 events")
+	}
+	st := emptyStore(t)
+	start := now.Add(-14 * 24 * time.Hour)
+	if _, err := st.DB().ExecContext(ctx, `
+INSERT INTO epochs (epoch, started_at, finished_at, duration_ms, expected_servers, observed_servers, expected_names,
+  observed_names, missing_names, endpoint_failures, partial, errors, loopback_tooling)
+SELECT i + 1, ?::TIMESTAMP + to_seconds(i * 30), ?::TIMESTAMP + to_seconds(i * 30 + 1), 1000, 3, 3, [], [], [], 0, false, [],
+  i % 7 <> 0
+FROM range(40000) t(i)`, start, start); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.DB().ExecContext(ctx, `
+INSERT INTO events (id, time, received_at, source, kind, server_name, account, stream, consumer, client_name, client_host, reason, summary, raw)
+SELECT nextval('event_seq'), ?::TIMESTAMP + to_milliseconds(i * 2419), ?::TIMESTAMP + to_milliseconds(i * 2419),
+  ['sys', 'sys', 'jetstream', 'k8s', 'sys'][i % 5 + 1],
+  ['client.churn', 'client.connect', 'consumer.ack_sampled', 'k8s.pod.failed_scheduling', 'client.disconnect'][i % 5 + 1],
+  'nats-' || (i % 24), 'APP', 's' || (i % 40), NULL, 'app-' || (i % 50),
+  CASE WHEN i % 11 = 0 THEN '127.0.0.1' ELSE '10.0.0.' || (i % 200) END, NULL, 'event ' || i,
+  CASE WHEN i % 5 = 3 THEN json_object('uid', 'u' || i, 'count', i % 4 + 1) ELSE '{}'::JSON END
+FROM range(500000) t(i)`, start, start); err != nil {
+		t.Fatal(err)
+	}
+	_, c := serve(t, st)
+	r := &v1.TimeRange{Start: timestamppb.New(start), End: timestamppb.New(now)}
+	began := time.Now()
+	res := must(c.ListEvents(ctx, connect.NewRequest(&v1.ListEventsRequest{Range: r, HideRoutine: true, FoldRepeats: true,
+		IncludeFacets: true, HistogramBuckets: 120, PageSize: 100})))
+	first := time.Since(began)
+	began = time.Now()
+	next := must(c.ListEvents(ctx, connect.NewRequest(&v1.ListEventsRequest{Range: r, HideRoutine: true, FoldRepeats: true,
+		PageSize: 100, PageToken: res.GetNextPageToken()})))
+	t.Logf("first page with facets and histogram %v, next page %v; %d events shown, %d hidden", first, time.Since(began),
+		res.GetTotalCount(), res.GetRoutineHidden())
+	if res.GetTotalUnfiltered() != 500000 || res.GetTotalCount()+res.GetRoutineHidden() != 500000 || len(res.GetEvents()) != 100 ||
+		len(res.GetHistogram()) != 120 || len(next.GetEvents()) != 100 {
+		t.Fatalf("unfiltered %d, total %d, hidden %d, %d rows, %d buckets", res.GetTotalUnfiltered(), res.GetTotalCount(),
+			res.GetRoutineHidden(), len(res.GetEvents()), len(res.GetHistogram()))
+	}
+	if first > 10*time.Second {
+		t.Fatalf("first page took %v", first)
+	}
+}
