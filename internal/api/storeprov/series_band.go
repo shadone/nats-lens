@@ -17,8 +17,11 @@ var bandMetrics = map[string]string{
 }
 
 // bandSeries reads a band metric: per epoch the median, lowest and
-// highest server value, each averaged per bucket, plus the server with
-// the highest mean over the range and its own series. A server that did
+// highest server value. A bucket's value is the mean of its medians and
+// its edges the lowest and highest value of any epoch in it, so a spike
+// stays visible at every step. The series' min and max are the edges'.
+// The server with the highest mean over the range and its own averaged
+// series come with it; that line lies inside the band. A server that did
 // not report the column is left out; an epoch where none did has no
 // point.
 func (p *Provider) bandSeries(ctx context.Context, metric, col string, e *v1.EntityRef, r *v1.TimeRange, maxPoints int32) (*v1.Series, error) {
@@ -30,7 +33,7 @@ func (p *Provider) bandSeries(ctx context.Context, metric, col string, e *v1.Ent
   WHERE e.started_at >= ? AND e.started_at < ? AND ss.%[1]s IS NOT NULL
   GROUP BY e.epoch, e.started_at)
 SELECT time_bucket(to_microseconds(?::BIGINT), t, TIMESTAMP '1970-01-01 00:00:00') AS b,
-  avg(v)::DOUBLE, avg(lo)::DOUBLE, avg(hi)::DOUBLE
+  avg(v)::DOUBLE, min(lo)::DOUBLE, max(hi)::DOUBLE
 FROM per_epoch GROUP BY b ORDER BY b`, col)
 	rows, err := p.db().QueryContext(ctx, q, start, end, step.Microseconds())
 	if err != nil {
@@ -45,11 +48,11 @@ FROM per_epoch GROUP BY b ORDER BY b`, col)
 			return nil, err
 		}
 		out.Points = append(out.Points, &v1.Point{Time: ts(b.UTC()), Value: v, Low: ptr(lo), High: ptr(hi)})
-		if out.Min == nil || v < out.GetMin() {
-			out.Min = ptr(v)
+		if out.Min == nil || lo < out.GetMin() {
+			out.Min = ptr(lo)
 		}
-		if out.Max == nil || v > out.GetMax() {
-			out.Max = ptr(v)
+		if out.Max == nil || hi > out.GetMax() {
+			out.Max = ptr(hi)
 		}
 	}
 	if err := rows.Err(); err != nil {
