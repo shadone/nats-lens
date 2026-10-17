@@ -21,7 +21,7 @@ function BandChart({ spec, metric, title, fmt, start, end }: { spec: RangeSpec; 
   useReportStale(q);
   const s = q.data;
   const p = last(s);
-  const now = p ? [`${fmt(p.value)} median`, p.high !== undefined ? `${fmt(p.high)} highest` : ""].filter(Boolean).join(" · ") : undefined;
+  const now = p ? [`${fmt(p.value)} median`, p.high !== undefined ? `${fmt(p.high)} max` : ""].filter(Boolean).join(" · ") : undefined;
   return (
     <FleetChart
       title={title}

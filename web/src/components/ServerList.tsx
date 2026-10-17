@@ -47,7 +47,7 @@ function StoreCell({ s }: { s: ServerRow }) {
   if (p === undefined) return <td><Dash /></td>;
   return (
     <td className="srv-store" title={s.jsStorageBytes !== undefined && s.jsMaxStorageBytes ? `${fmtBytes(s.jsStorageBytes)} of ${fmtBytes(s.jsMaxStorageBytes)}` : undefined}>
-      <span className="bar" aria-hidden="true">
+      <span className="srv-bar" aria-hidden="true">
         <span className={p >= STORE_ATTENTION_PCT ? "warn" : undefined} style={{ width: `${Math.min(100, p).toFixed(0)}%` }} />
       </span>
       <span className="mono">{Math.round(p)}%</span>

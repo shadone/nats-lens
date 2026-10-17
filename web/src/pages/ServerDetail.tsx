@@ -15,7 +15,7 @@ import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
 
 function statusLine(s: ServerRow): string {
   return [
-    s.role !== "unknown" ? s.role : "",
+    s.present && s.role !== "unknown" ? s.role : "",
     s.version ? `v${s.version}` : "",
     s.present && s.uptimeMs !== undefined ? `up ${fmtDuration(s.uptimeMs)}${s.startTime !== undefined ? ` since ${dayMonHm(s.startTime)} UTC` : ""}` : "",
     s.present ? "" : "did not answer in the newest epoch",
