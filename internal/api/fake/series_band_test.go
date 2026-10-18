@@ -87,12 +87,12 @@ func TestDemoAssetCounts(t *testing.T) {
 		sys, metric string
 		want        float64
 	}{
-		{fake.GlobalSystem, "cluster.streams", 11},
+		{fake.GlobalSystem, "cluster.streams", 13},
 		{fake.GlobalSystem, "cluster.kv_buckets", 2},
 		{fake.GlobalSystem, "cluster.object_stores", 1},
 		{fake.GlobalSystem, "cluster.accounts", 1},
-		// 14 streams and 19 durable consumers, all on three replicas.
-		{fake.GlobalSystem, "cluster.assets_replicated", 33},
+		// 16 streams and 21 durable consumers, all on three replicas.
+		{fake.GlobalSystem, "cluster.assets_replicated", 37},
 		{fake.GlobalSystem, "cluster.assets_single", 0},
 		{fake.Cluster, "cluster.streams", 8},
 		{fake.Cluster, "cluster.kv_buckets", 3},

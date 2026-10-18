@@ -8,18 +8,38 @@ import (
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
-// placement is a stream's squares: the leader (its first peer) first, the
-// rest by server name. A replica on a server that does not answer is
-// offline, the follower the stream names behind, the others in sync.
+// placement is a stream's squares, by the store provider's rule: the
+// leader (its first peer) first, the rest by server name. A replica on a
+// server that does not answer is offline, the follower the stream names
+// missing, behind or disagreeing is so, the others in sync. Without a
+// leader every reporting replica's state is unknown, and one on a server
+// that does not answer is a missing square without a server.
 func (s scen) placement(sp streamSpec) []*v1.ReplicaPlacement {
 	peers := s.sc.peers(sp)
+	if sp.leaderless {
+		var out, gone []*v1.ReplicaPlacement
+		for _, name := range peers {
+			if sv, _ := s.sc.server(name); !sv.answering() {
+				gone = append(gone, &v1.ReplicaPlacement{State: v1.PlacementState_PLACEMENT_STATE_MISSING})
+				continue
+			}
+			out = append(out, &v1.ReplicaPlacement{Server: name, State: v1.PlacementState_PLACEMENT_STATE_UNSPECIFIED})
+		}
+		slices.SortFunc(out, func(a, b *v1.ReplicaPlacement) int { return cmp.Compare(a.GetServer(), b.GetServer()) })
+		return append(out, gone...)
+	}
 	var out []*v1.ReplicaPlacement
 	for _, name := range peers[1:] {
 		st := v1.PlacementState_PLACEMENT_STATE_IN_SYNC
-		if sv, _ := s.sc.server(name); !sv.answering() {
+		switch sv, _ := s.sc.server(name); {
+		case !sv.answering():
 			st = v1.PlacementState_PLACEMENT_STATE_OFFLINE
-		} else if name == sp.behind {
+		case name == sp.missing:
+			st = v1.PlacementState_PLACEMENT_STATE_MISSING
+		case name == sp.behind:
 			st = v1.PlacementState_PLACEMENT_STATE_BEHIND
+		case name == sp.disagrees:
+			st = v1.PlacementState_PLACEMENT_STATE_DISAGREES
 		}
 		out = append(out, &v1.ReplicaPlacement{Server: name, State: st})
 	}

@@ -53,7 +53,7 @@ func prodScenario() *scenario {
 			"catalog-api", "callback-dispatcher", "video-transcoder",
 		},
 		metaLeader:    "nats-0",
-		epoch:         1734,
+		serverDown:    func(sp serverSpec, c time.Time) bool { return down(sp.name, c) },
 		collection:    v1.CollectionState_COLLECTION_STATE_DEMO,
 		routineClient: "catalog-api",
 		findings:      prodFindings,

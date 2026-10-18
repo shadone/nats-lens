@@ -10,6 +10,7 @@ import (
 
 const (
 	firing   = v1.FindingState_FINDING_STATE_FIRING
+	changed  = v1.FindingState_FINDING_STATE_CHANGED
 	flapping = v1.FindingState_FINDING_STATE_FLAPPING
 	resolved = v1.FindingState_FINDING_STATE_RESOLVED
 	critical = v1.Severity_SEVERITY_CRITICAL

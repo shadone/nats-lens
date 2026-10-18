@@ -76,7 +76,7 @@ ORDER BY n.account, n.stream`, e.epoch, account, account, stream, stream, e.epoc
 		return nil, nil, err
 	}
 	for _, s := range out {
-		s.BytesPerDay = robustPerDay(growth[s.GetEntity().GetKey()])
+		s.BytesPerDay = api.RobustPerDay(growth[s.GetEntity().GetKey()])
 		s.Placement = placementOf(reps[s.GetEntity().GetKey()], s.GetReplicas())
 	}
 	week := &v1.TimeRange{Start: ts(end.Add(-7 * 24 * time.Hour)), End: r.GetEnd()}
@@ -95,9 +95,9 @@ ORDER BY n.account, n.stream`, e.epoch, account, account, stream, stream, e.epoc
 }
 
 // streamGrowth reads every stream's leader bytes in the range, reduced in
-// SQL to at most growthBuckets medians per stream, for robustPerDay.
-func (p *Provider) streamGrowth(ctx context.Context, start, end time.Time, account, stream string) (map[string][]sample, error) {
-	width := max(end.Sub(start)/growthBuckets, max(p.Interval, time.Second))
+// SQL to at most api.GrowthBuckets medians per stream, for api.RobustPerDay.
+func (p *Provider) streamGrowth(ctx context.Context, start, end time.Time, account, stream string) (map[string][]api.Sample, error) {
+	width := max(end.Sub(start)/api.GrowthBuckets, max(p.Interval, time.Second))
 	rows, err := p.db().QueryContext(ctx, `
 WITH per AS (
   SELECT x.account, x.stream, e.started_at AS t,
@@ -113,11 +113,11 @@ ORDER BY 1, 2, 3`, start, end, account, account, stream, stream, width.Microseco
 		return nil, fmt.Errorf("stream growth: %w", err)
 	}
 	defer rows.Close()
-	out := map[string][]sample{}
+	out := map[string][]api.Sample{}
 	for rows.Next() {
 		var acc, name string
-		var sm sample
-		if err := rows.Scan(&acc, &name, &sm.t, &sm.v); err != nil {
+		var sm api.Sample
+		if err := rows.Scan(&acc, &name, &sm.T, &sm.V); err != nil {
 			return nil, err
 		}
 		out[acc+"/"+name] = append(out[acc+"/"+name], sm)

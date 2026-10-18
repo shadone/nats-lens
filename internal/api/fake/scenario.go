@@ -23,15 +23,16 @@ type scenario struct {
 	buckets []bucketSpec
 	// metaLeader is the JetStream meta leader.
 	metaLeader string
-	// epoch is the number of the newest epoch; stale is how long before
-	// now the data ends (zero while collecting).
-	epoch int64
+	// stale is how long before now the data ends (zero while
+	// collecting).
 	stale time.Duration
 	// history is how long before now the stored history begins; zero
 	// means defaultHistory, older than any range.
 	history time.Duration
-	// partial is whether the newest epoch missed a server.
-	partial bool
+	// serverDown reports whether a server was down at fixed-frame time
+	// c, as its series draw it, so that an epoch then missed it and lists
+	// none of its connections; nil means never.
+	serverDown func(sp serverSpec, c time.Time) bool
 	// collection, collectionError and errorSince describe the collector;
 	// errorSince is a time in the fixed frame.
 	collection      v1.CollectionState
@@ -44,9 +45,12 @@ type scenario struct {
 	findings func(s scen) []*v1.Finding
 	// events are the events newest first, without IDs; fs are the
 	// findings with the mutes applied.
-	events  func(s scen, fs []*v1.Finding) []*v1.Event
-	rows    func(sc *scenario) []rowSpec
-	windows func(s scen, r *v1.TimeRange) []*v1.TimeWindow
+	events func(s scen, fs []*v1.Finding) []*v1.Event
+	rows   func(sc *scenario) []rowSpec
+	// infoUntil holds, by check code, when a row's findings changed from
+	// info to its severity, in the fixed frame: its cells are info before.
+	infoUntil map[string]time.Time
+	windows   func(s scen, r *v1.TimeRange) []*v1.TimeWindow
 	// k8sLanes draws the Kubernetes lane through lane.
 	k8sLanes func(s scen, lane func(at time.Time, kind, short, label string))
 	// sample is a metric's value at fixed-frame time c; ok is false where
