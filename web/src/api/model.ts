@@ -400,6 +400,8 @@ export interface ConnectionPage extends Page<Connection> {
   epoch: string;
   /** Tooling connections left out because they were not asked for. */
   toolingHidden: number;
+  /** Every server seen in the range, sorted, whatever the filters and the page. */
+  servers: string[];
 }
 
 /** How a write call names its user. */

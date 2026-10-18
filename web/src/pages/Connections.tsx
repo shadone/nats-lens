@@ -2,7 +2,7 @@
 // server and connection ID, filtered by server, account and name.
 import { useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
-import { useConnections, useServers } from "../api/queries";
+import { useConnections } from "../api/queries";
 import { Dash, Empty, QueryView, RLink, Num } from "../components/common";
 import { Pager, usePager } from "../components/EntityParts";
 import { fmtBytes, fmtDuration, fmtShortDuration } from "../lib/format";
@@ -24,11 +24,13 @@ export function Connections() {
   const tooling = params.get("tooling") === "1";
   const [nameText, setNameText] = useState(name);
   const [accountText, setAccountText] = useState(account);
-  const servers = useServers(spec).data?.servers ?? [];
   const pager = usePager([useSystem(), server, account, name, String(tooling), rangeKey(spec)].join("|"));
   // A name filter shows the tooling connections it matches: whoever types
   // a name looks for that connection.
   const q = useConnections(spec, { server, account, nameContains: name, includeTooling: tooling || name !== "", pageSize: 100, pageToken: pager.token });
+  // The server filter's options come with the connections: every server
+  // seen in the range, whatever the filters.
+  const servers = q.data?.servers ?? [];
   const set = (entries: [string, string][]) =>
     setParams((p) => {
       const n = new URLSearchParams(p);
@@ -56,8 +58,8 @@ export function Connections() {
           <select value={server} onChange={(e) => set([["server", e.target.value]])}>
             <option value="">All servers</option>
             {servers.map((s) => (
-              <option key={s.name} value={s.name}>
-                {s.name}
+              <option key={s} value={s}>
+                {s}
               </option>
             ))}
           </select>
