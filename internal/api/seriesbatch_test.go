@@ -302,3 +302,18 @@ func TestBatchHasABudget(t *testing.T) {
 		t.Errorf("got %v, want deadline_exceeded", err)
 	}
 }
+
+// webCallTimeout is CALL_TIMEOUT_MS of web/src/api/client.ts: the web
+// client sends it as Connect-Timeout-Ms, which bounds every call.
+const webCallTimeout = 45 * time.Second
+
+// The batch's own limit fits under the web client's, so the server, not
+// the client, ends a slow batch and says which limit it hit.
+func TestBatchTimeoutFitsUnderTheWebClient(t *testing.T) {
+	if api.BatchTimeout >= webCallTimeout {
+		t.Errorf("BatchTimeout %s, want less than the web client's %s", api.BatchTimeout, webCallTimeout)
+	}
+	if api.BatchTimeout < api.QueryTimeout {
+		t.Errorf("BatchTimeout %s is shorter than one query's %s", api.BatchTimeout, api.QueryTimeout)
+	}
+}
