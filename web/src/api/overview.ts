@@ -11,8 +11,8 @@ import { entity as entityOf, ms, series } from "./adapt-common";
 import { consumer, stream } from "./adapt-entities";
 import { placement, type Placement } from "./adapt-placement";
 import { lens } from "./client";
-import type { ConsumerSummary, Entity, Point, Series, StreamSummary, StreamTotals } from "./model";
-import { entityInit, listFindings, rangeInit, systemInit } from "./requests";
+import type { ConsumerSummary, Point, Series, StreamSummary, StreamTotals } from "./model";
+import { listFindings, rangeInit, systemInit } from "./requests";
 
 /** A point of a band metric: the median as value, the lowest and highest server as low and high. */
 export interface BandPoint extends Point {
@@ -51,28 +51,6 @@ export interface StreamPlacement extends StreamSummary {
 
 function refetch(spec: RangeSpec) {
   return spec.kind === "live" ? LIVE_REFRESH_MS : false;
-}
-
-/** Points per trend chart and per sparkline. */
-export const TREND_POINTS = 96;
-
-export async function getTrend(sys: string, spec: RangeSpec, metric: string, e: Entity | undefined, signal?: AbortSignal) {
-  const r = await lens.getTimeSeries(
-    { ...systemInit(sys), metric, entity: entityInit(e), range: rangeInit(spec), maxPoints: TREND_POINTS },
-    { signal },
-  );
-  return trendSeries(r.series);
-}
-
-/** One metric over the range, with the band and busiest server when the metric has them. */
-export function useTrend(spec: RangeSpec, metric: string, e?: Entity) {
-  const sys = useSystem();
-  return useQuery({
-    queryKey: ["trend", sys, rangeKey(spec), metric, e ? e.key : ""],
-    queryFn: ({ signal }) => getTrend(sys, spec, metric, e, signal),
-    refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
-  });
 }
 
 export async function listBusiestConsumers(sys: string, spec: RangeSpec, account: string, limit: number, signal?: AbortSignal): Promise<ConsumerRate[]> {
