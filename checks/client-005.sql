@@ -77,7 +77,8 @@ named AS (
 SELECT
     n.name AS entity_key,
     n.connects || ' connections closed by the client within seconds in the last ' || getvariable('lookback_text')
-        || ' (about ' || round(n.connects * 60.0 / epoch(getvariable('lookback')))::BIGINT || ' a minute) from '
+        || CASE WHEN round(n.connects * 60.0 / epoch(getvariable('lookback'))) < 1 THEN ' (less than 1 a minute) from '
+            ELSE ' (about ' || round(n.connects * 60.0 / epoch(getvariable('lookback')))::BIGINT || ' a minute) from ' END
         || CASE
             WHEN coalesce(len(n.hosts), 0) = 0 THEN 'an unknown host'
             WHEN len(n.hosts) > 5 THEN array_to_string(n.hosts[1:5], ', ') || ' and ' || (len(n.hosts) - 5) || ' more hosts'

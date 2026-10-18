@@ -139,3 +139,13 @@ func TestShortLivedConnectionsHysteresis(t *testing.T) {
 	r := f.fires("client-005", 40, "stock-poller")
 	want(t, r["stock-poller"], "warning", "16 connections")
 }
+
+// With a lowered threshold a rate that rounds to 0 reads "less than 1 a
+// minute", never "about 0".
+func TestShortLivedConnectionsLowRate(t *testing.T) {
+	f := newFx(t)
+	f.cluster(40)
+	f.churnEvent(1, at(30), "stock-poller", "10.0.0.6", 3, map[string]int{"nats-0": 3})
+	r := f.eval("client-005", 40, map[string]string{"min_short_connections": "1"})
+	want(t, r["stock-poller"], "warning", "3 connections closed by the client within seconds in the last 10m (less than 1 a minute) from 10.0.0.6")
+}
