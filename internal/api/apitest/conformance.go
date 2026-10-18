@@ -361,7 +361,7 @@ func Conformance() []State {
 		{"a finding resolved in the range", findingIn(v1.FindingState_FINDING_STATE_RESOLVED)},
 		{"a muted firing finding", func(q Q) string {
 			for _, f := range q.findings() {
-				if f.GetMute() != nil {
+				if f.GetMute() != nil && f.GetState() == v1.FindingState_FINDING_STATE_FIRING {
 					return f.GetId()
 				}
 			}
