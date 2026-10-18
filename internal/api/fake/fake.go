@@ -140,31 +140,44 @@ func (s scen) freshness(r *v1.TimeRange) *v1.Freshness {
 	if st := s.sc.collection; st == v1.CollectionState_COLLECTION_STATE_NOT_CONNECTED || st == v1.CollectionState_COLLECTION_STATE_CONNECTION_CLOSED {
 		f.Collecting, f.NotCollectingSince = false, ts(s.sc.errorSince.Add(s.shift))
 	}
-	// The range's newest epoch: the last on the collect grid before its
-	// end, as the store reads the newest epoch inside the range; none
-	// when the range holds no data.
+	// The range's newest epoch, partial when a server of the scenario
+	// was down then; none when the range holds no data.
 	if at, n, ok := s.epochBefore(r); ok {
-		partial := s.sc.partial && !s.clock(at).Before(s.sc.partialSince)
-		f.Epoch, f.EpochAt, f.Age, f.Partial = n, ts(at), dur(s.now.Sub(at)), partial
+		f.Epoch, f.EpochAt, f.Age, f.Partial = n, ts(at), dur(s.now.Sub(at)), s.anyDown(at)
 	}
 	return f
 }
 
-// epochBefore is the newest epoch inside the range: its start and number.
-// Epochs lie every 30 seconds back from the newest; numbers count down
-// from the scenario's, and stop at 1.
+// epochBefore is the newest epoch inside the range: the last epoch before
+// its end that is not before its start, and its number. Epochs lie every
+// 30 seconds back from the newest (lastEpoch) to the start of the history,
+// numbered from 1 there, so no two epochs share a number.
 func (s scen) epochBefore(r *v1.TimeRange) (time.Time, int64, bool) {
 	last := s.lastEpoch()
 	end := r.GetEnd().AsTime()
-	at, back := last, int64(0)
+	at := last
 	if !last.Before(end) {
-		back = int64((last.Sub(end))/sampleEvery) + 1
-		at = last.Add(-time.Duration(back) * sampleEvery)
+		at = last.Add(-(last.Sub(end)/sampleEvery + 1) * sampleEvery)
 	}
 	if at.Before(r.GetStart().AsTime()) || at.Before(s.dataStart()) {
 		return time.Time{}, 0, false
 	}
-	return at, max(s.sc.epoch-back, 1), true
+	return at, s.epochNumber(at), true
+}
+
+// epochNumber is the number of the epoch that started at at: 1 for the
+// first epoch of the history, one more every 30 seconds.
+func (s scen) epochNumber(at time.Time) int64 {
+	last := s.lastEpoch()
+	first := last.Add(-last.Sub(s.dataStart()) / sampleEvery * sampleEvery)
+	return 1 + int64(at.Sub(first)/sampleEvery)
+}
+
+// anyDown reports whether a server of the scenario was down at the
+// scenario time at, by the rule its series use, so that an epoch then
+// missed it.
+func (s scen) anyDown(at time.Time) bool {
+	return s.sc.down != nil && s.sc.down(s.sc, s.clock(at))
 }
 
 // GetOverview returns the cluster, freshness, tally, worst finding, tiles
