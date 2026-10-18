@@ -424,6 +424,34 @@ func Conformance() []State {
 			}
 			return ""
 		}},
+		// The shell reads the overview's parts without its tiles, and each
+		// system's badge from its summary: in every system, over a few
+		// ranges, they agree.
+		{"the shell agrees with the overview and each system's summary", func(q Q) string {
+			for _, sys := range q.env.Systems {
+				q := Q{t: q.t, env: q.env, System: sys}
+				for _, r := range []*v1.TimeRange{q.Last(10 * time.Minute), q.Last(time.Hour), q.day()} {
+					sh := must(q.env.Client.GetShellStatus(ctx, connect.NewRequest(&v1.GetShellStatusRequest{System: sys, Range: r}))).of(q.t)
+					o := must(q.env.Client.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{System: sys, Range: r}))).of(q.t)
+					if d := ShellDiff(sh, o); d != "" {
+						q.t.Errorf("system %q over %v: %s", sys, r.GetEnd().AsTime().Sub(r.GetStart().AsTime()), d)
+						return ""
+					}
+				}
+				sum := q.summary()
+				var badge *v1.SystemStatus
+				for _, b := range must(q.env.Client.GetShellStatus(ctx, connect.NewRequest(&v1.GetShellStatusRequest{System: sys}))).of(q.t).GetSystems() {
+					if b.GetSystem().GetId() == sys {
+						badge = b
+					}
+				}
+				if badge.GetStatus() != sum.GetStatus() || badge.GetCollection() != sum.GetCollection() || badge.GetError() != sum.GetError() {
+					q.t.Errorf("system %q: badge %v, summary status %v collection %v error %q", sys, badge, sum.GetStatus(), sum.GetCollection(), sum.GetError())
+					return ""
+				}
+			}
+			return fmt.Sprintf("%d systems", len(q.env.Systems))
+		}},
 		{"a system that collects", func(q Q) string {
 			s := q.summary()
 			if s.GetFreshness().GetCollecting() && s.GetFreshness().GetLive() && s.GetCollectionError() == "" {
