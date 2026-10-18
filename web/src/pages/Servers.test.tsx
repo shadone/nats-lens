@@ -147,10 +147,10 @@ describe("Servers on example-global", () => {
     expect(getTimeSeriesBatch).toHaveBeenCalledTimes(1);
     const queries = getTimeSeriesBatch.mock.calls[0][0].queries ?? [];
     expect(queries.map((q) => [q.metric, q.maxPoints ?? 0])).toEqual([
-      ["cluster.cpu_percent", 0],
-      ["cluster.mem_bytes", 0],
       ["cluster.connections", 0],
+      ["cluster.cpu_percent", 0],
       ["cluster.in_msgs_rate", 0],
+      ["cluster.mem_bytes", 0],
       ["cluster.out_msgs_rate", 0],
       ["cluster.slow_consumers", 24],
     ]);
