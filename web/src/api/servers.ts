@@ -13,6 +13,7 @@ import { event } from "./adapt-findings";
 import { lens } from "./client";
 import type { LensEvent, Point, Server, ServerDetail, Series } from "./model";
 import { rangeInit, systemInit } from "./requests";
+import { useTrends, type TrendQuery } from "./trendBatch";
 
 /** A server with what the Servers page adds to the shared view model. Numbers not observed are unset. */
 export interface ServerRow extends Server {
@@ -209,4 +210,22 @@ export function useServerEvents(spec: RangeSpec, name: string, pageSize = 6) {
     refetchInterval: refetch(spec),
     placeholderData: keepPreviousData,
   });
+}
+
+/** Slow consumers per bucket in the Servers headline. */
+export const SLOW_STRIP_QUERY: TrendQuery = { metric: "cluster.slow_consumers", maxPoints: 24 };
+
+/** The series of the Servers page: the fleet charts and the slow-consumer strip. */
+export const SERVERS_QUERIES: TrendQuery[] = [
+  { metric: "cluster.cpu_percent" },
+  { metric: "cluster.mem_bytes" },
+  { metric: "cluster.connections" },
+  { metric: "cluster.in_msgs_rate" },
+  { metric: "cluster.out_msgs_rate" },
+  SLOW_STRIP_QUERY,
+];
+
+/** The Servers page's series in one call; its parts share the query. */
+export function useServersTrends(spec: RangeSpec) {
+  return useTrends(spec, SERVERS_QUERIES);
 }

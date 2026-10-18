@@ -55,6 +55,13 @@ type systemRequest interface{ GetSystem() string }
 func call[Req systemRequest, Res any](ctx context.Context, h *Handler, procedure string, req Req,
 	normalize func(Provider, Req) error, fn func(System, context.Context, Req) (*Res, error),
 ) (*connect.Response[Res], error) {
+	return callWithin(ctx, h, procedure, QueryTimeout, req, normalize, fn)
+}
+
+// callWithin is call with a time limit other than QueryTimeout.
+func callWithin[Req systemRequest, Res any](ctx context.Context, h *Handler, procedure string, timeout time.Duration, req Req,
+	normalize func(Provider, Req) error, fn func(System, context.Context, Req) (*Res, error),
+) (*connect.Response[Res], error) {
 	sys, err := h.Systems.Resolve(req.GetSystem())
 	if err != nil {
 		return nil, h.codeOf(procedure, err)
@@ -64,7 +71,7 @@ func call[Req systemRequest, Res any](ctx context.Context, h *Handler, procedure
 			return nil, h.codeOf(procedure, err)
 		}
 	}
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeout)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	res, err := fn(sys, ctx, req)
 	if err != nil {

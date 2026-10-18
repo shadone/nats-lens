@@ -23,6 +23,7 @@ vi.mock("./api/client", () => ({
     listObjectStores: vi.fn(),
     listServers: vi.fn(),
     getTimeSeries: vi.fn(() => new Promise<never>(() => {})),
+    getTimeSeriesBatch: vi.fn(() => new Promise<never>(() => {})),
   },
 }));
 

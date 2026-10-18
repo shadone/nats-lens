@@ -343,8 +343,8 @@ func ServeListener(ctx context.Context, ln net.Listener, handler http.Handler, l
 	return err
 }
 
-// newHTTPServer builds the server with its limits. WriteTimeout leaves a
-// call its QueryTimeout and 15 seconds to write the response.
+// newHTTPServer builds the server with its limits. WriteTimeout leaves the
+// longest call its timeout and 15 seconds to write the response.
 func newHTTPServer(handler http.Handler, log *slog.Logger) *http.Server {
 	var protocols http.Protocols
 	protocols.SetHTTP1(true)
@@ -354,7 +354,7 @@ func newHTTPServer(handler http.Handler, log *slog.Logger) *http.Server {
 		Protocols:         &protocols,
 		ReadTimeout:       readTimeout,
 		ReadHeaderTimeout: readHeaderTimeout,
-		WriteTimeout:      QueryTimeout + 15*time.Second,
+		WriteTimeout:      max(QueryTimeout, BatchTimeout) + 15*time.Second,
 		IdleTimeout:       idleTimeout,
 		MaxHeaderBytes:    maxHeaderBytes,
 		ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelWarn),
