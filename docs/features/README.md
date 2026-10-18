@@ -80,7 +80,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Metrics and alerting](metrics-and-alerting.md) | `api` | shipped |
 | [Running nats-lens](running-nats-lens.md) | `api`, `cli` | shipped |
 | [SQL access](sql-access.md) | `cli` | shipped |
-| [Demo mode](demo-mode.md) | `ui`, `api`, `cli` | shipped — tested against the store with one table of states |
+| [Demo mode](demo-mode.md) | `ui`, `api`, `cli` | shipped |
 | [Multiple systems and the Fleet view](multiple-systems.md) | `ui`, `api`, `cli` | partial — a cluster switcher inside a supercluster is planned |
 | [Placement](placement.md) | `ui`, `api` | planned |
 | [Replay](replay.md) | `ui`, `api` | planned |
@@ -149,4 +149,4 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Findings and collector health at `/metrics` for Prometheus alerting (metrics-and-alerting.md)
 - [x] `run`, `once` for every system or one, configuration, health and readiness, the Kubernetes manifests (running-nats-lens.md)
 - [x] Read-only SQL on a stopped database with `natslens sql`, one system at a time (sql-access.md)
-- [x] Three fixed systems without NATS with `natslens demo`, whose findings are the real checks and which show every state real data shows (demo-mode.md)
+- [x] Three fixed systems without NATS with `natslens demo`, whose findings are the real checks and which show every state real data shows, tested against the store with one table of states (demo-mode.md)
