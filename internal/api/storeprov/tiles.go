@@ -136,10 +136,10 @@ func (p *Provider) storageGrowth(ctx context.Context, r *v1.TimeRange) (*float64
 		return nil, fmt.Errorf("storage growth: %w", err)
 	}
 	defer rows.Close()
-	var s []sample
+	var s []api.Sample
 	for rows.Next() {
-		var x sample
-		if err := rows.Scan(&x.t, &x.v); err != nil {
+		var x api.Sample
+		if err := rows.Scan(&x.T, &x.V); err != nil {
 			return nil, err
 		}
 		s = append(s, x)
@@ -147,7 +147,7 @@ func (p *Provider) storageGrowth(ctx context.Context, r *v1.TimeRange) (*float64
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	return robustPerDay(s), nil
+	return api.RobustPerDay(s), nil
 }
 
 // assetCounts are counts over a kind of stream in one epoch.
