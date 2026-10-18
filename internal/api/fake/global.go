@@ -128,7 +128,9 @@ func globalScenario() *scenario {
 				behind: "nats-ap-1", lag: 420},
 			{name: "customer-notifications", msgs: 1402200, bytes: 1.1 * gib, perDay: 36 * mib, consumers: []string{"push-sender", "sms-sender"}, peers: peers("ap-2", "ap-3", "ap-4")},
 			{name: "order-archive", msgs: 61200400, bytes: 52.4 * gib, perDay: 1.1 * gib, consumers: []string{"archive-exporter"}, peers: peers("ap-2", "ap-5", "ap-1")},
-			{name: "KV_session-cache", msgs: 48210, bytes: 38 * mib, perDay: 1 * mib, ephemeral: 64, peers: peers("eu-0", "eu-3", "eu-6")},
+			// Sessions expire by their per-key TTL faster than new ones start
+			// since the weekend sale ended: the bucket shrinks.
+			{name: "KV_session-cache", msgs: 48210, bytes: 38 * mib, perDay: -1 * mib, ephemeral: 64, peers: peers("eu-0", "eu-3", "eu-6")},
 			{name: "KV_feature-flags", msgs: 412, bytes: 210 * kib, perDay: 2 * kib, ephemeral: 22, peers: peers("us-0", "us-5", "us-8")},
 			{name: "OBJ_product-images", msgs: 120400, bytes: 9.6 * gib, perDay: 80 * mib, peers: peers("ap-0", "ap-3", "ap-5")},
 		},
