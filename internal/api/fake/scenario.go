@@ -44,9 +44,12 @@ type scenario struct {
 	findings func(s scen) []*v1.Finding
 	// events are the events newest first, without IDs; fs are the
 	// findings with the mutes applied.
-	events  func(s scen, fs []*v1.Finding) []*v1.Event
-	rows    func(sc *scenario) []rowSpec
-	windows func(s scen, r *v1.TimeRange) []*v1.TimeWindow
+	events func(s scen, fs []*v1.Finding) []*v1.Event
+	rows   func(sc *scenario) []rowSpec
+	// infoUntil holds, by check code, when a row's findings changed from
+	// info to its severity, in the fixed frame: its cells are info before.
+	infoUntil map[string]time.Time
+	windows   func(s scen, r *v1.TimeRange) []*v1.TimeWindow
 	// k8sLanes draws the Kubernetes lane through lane.
 	k8sLanes func(s scen, lane func(at time.Time, kind, short, label string))
 	// sample is a metric's value at fixed-frame time c; ok is false where

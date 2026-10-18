@@ -100,6 +100,9 @@ func (s scen) timelineRows(r *v1.TimeRange, bucket time.Duration, entity *v1.Ent
 			for _, sp := range spec.spans {
 				if sp.from.Add(s.shift).Before(b1) && sp.to.Add(s.shift).After(b0) {
 					row.Cells[i], failed = statusOf(spec.sev), true
+					if until, ok := s.sc.infoUntil[spec.code]; ok && !until.Add(s.shift).Before(b1) {
+						row.Cells[i] = statusOf(info)
+					}
 				}
 			}
 		}

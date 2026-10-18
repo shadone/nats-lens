@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/api/apitest"
@@ -234,4 +236,38 @@ func TestDemoStagingHistoryIsYoung(t *testing.T) {
 	if since := o.GetWorstFinding().GetSince(); since != nil && since.AsTime().Before(start) {
 		t.Errorf("worst finding since %v, before the history", since.AsTime())
 	}
+}
+
+// nats-us-4 announced its shutdown, so the checks raised its findings as
+// info and changed them to warning when the restart window ended at
+// 09:22:30: changed, with both transitions, and info cells before.
+func TestDemoGlobalFindingsChangedSeverity(t *testing.T) {
+	c := demo(t)
+	f := must(c.GetFinding(ctx, connect.NewRequest(&v1.GetFindingRequest{System: fake.GlobalSystem, Id: "server-001:nats-us-4"})))
+	tr := f.GetTransitions()
+	if f.GetFinding().GetState() != v1.FindingState_FINDING_STATE_CHANGED || len(tr) != 2 ||
+		tr[0].GetSeverity() != v1.Severity_SEVERITY_WARNING || tr[1].GetSeverity() != v1.Severity_SEVERITY_INFO ||
+		!tr[0].GetTime().AsTime().Equal(fake.FixedNow.Add(-5*time.Hour-7*time.Minute-30*time.Second)) ||
+		!strings.Contains(tr[1].GetDetail(), "announced shutdown") {
+		t.Fatalf("server-001: %v, transitions %v", f.GetFinding().GetState(), tr)
+	}
+	changed := must(c.ListFindings(ctx, connect.NewRequest(&v1.ListFindingsRequest{System: fake.GlobalSystem,
+		States: []v1.FindingState{v1.FindingState_FINDING_STATE_CHANGED}})))
+	if changed.GetTotalCount() != 4 {
+		t.Errorf("%d changed findings, want server-001, stream-011 and two stream-002", changed.GetTotalCount())
+	}
+	r := &v1.TimeRange{Start: timestamppb.New(fake.FixedNow.Add(-6 * time.Hour)), End: timestamppb.New(fake.FixedNow)}
+	tl := must(c.GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{System: fake.GlobalSystem, Range: r,
+		Bucket: durationpb.New(5 * time.Minute)})))
+	for _, row := range tl.GetRows() {
+		if row.GetCheckCode() != "server-001" {
+			continue
+		}
+		// Buckets of five minutes from 08:30: 09:15 is info, 09:25 warning.
+		if row.GetCells()[9] != v1.Status_STATUS_INFO || row.GetCells()[11] != v1.Status_STATUS_WARNING {
+			t.Errorf("server-001 cells %v", row.GetCells()[8:13])
+		}
+		return
+	}
+	t.Error("no server-001 row")
 }

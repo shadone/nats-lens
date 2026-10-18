@@ -3,6 +3,7 @@ package fake
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
@@ -79,11 +80,58 @@ func globalFindings(s scen) []*v1.Finding {
 	absent.Remediation = "nats-us-3 came back from the upgrade without its replica of return-requests. If it does not appear, " +
 		"remove it (`nats stream cluster peer-remove return-requests nats-us-3`) so the meta leader places a new replica that copies the stream from nats-us-6."
 
-	return []*v1.Finding{us4, replica("shipping-updates", "nats-us-5"), replica("price-changes", "nats-us-2"), labels, slow, backlog, full, config, absent,
+	// The checks raised these as info while nats-us-4's announced shutdown
+	// counted as a planned restart, and changed them to warning when the
+	// restart window ended.
+	for _, f := range []*v1.Finding{us4, labels} {
+		f.State, f.TransitionedAt = changed, ts(globalPlannedEnd.Add(s.shift))
+	}
+	offline := []*v1.Finding{replica("shipping-updates", "nats-us-5"), replica("price-changes", "nats-us-2")}
+	for _, f := range offline {
+		f.State, f.TransitionedAt = changed, ts(globalPlannedEnd.Add(s.shift))
+	}
+
+	return []*v1.Finding{us4, offline[0], offline[1], labels, slow, backlog, full, config, absent,
 		version("nats-ap-4"), version("nats-ap-5"),
 		restarted("nats-us-1", 8, 46, 10), restarted("nats-us-2", 8, 58, 30), restarted("nats-us-3", 9, 6, 40),
 		resolvedFinding("stream-001", "Stream quorum lost", critical, streamRef("inventory-changes"), s.at(8, 58, 40), s.at(9, 1, 0),
 			"Leader nats-us-0 sees 1 of 3 replicas online; quorum needs 2, for 4 collections."),
+	}
+}
+
+// globalPlannedEnd is the first epoch after the restart window that began
+// when nats-us-4 announced its shutdown at 09:12:05, in the fixed frame:
+// from then on its absence is no planned restart.
+var globalPlannedEnd = fixed(9, 22, 30)
+
+// globalPlannedDetail is the detail a finding changed at globalPlannedEnd
+// had while it was info, and whether it is one of them.
+func globalPlannedDetail(f *v1.Finding) (string, bool) {
+	if f.GetState() != changed {
+		return "", false
+	}
+	d := f.GetDetail()
+	switch f.GetCheckCode() {
+	case "server-001":
+		return strings.TrimSuffix(d, ".") + "; announced shutdown at 09:12:05 UTC.", true
+	case "stream-002":
+		return strings.Replace(d, "(last seen 19075s ago)", "(last seen 55s ago; announced shutdown at 09:12:05)", 1), true
+	case "stream-011":
+		return strings.Replace(d, "which did not answer JSZ", "which announced shutdown at 09:12:05", 1), true
+	}
+	return "", false
+}
+
+// globalTransitions gives the findings that changed severity their firing
+// as info and their change to warning.
+func globalTransitions(s scen, f *v1.Finding) []*v1.FindingTransition {
+	before, ok := globalPlannedDetail(f)
+	if !ok {
+		return nil
+	}
+	return []*v1.FindingTransition{
+		{FindingId: f.GetId(), Time: f.GetTransitionedAt(), State: changed, Severity: f.GetSeverity(), Detail: f.GetDetail()},
+		{FindingId: f.GetId(), Time: f.GetSince(), State: firing, Severity: info, Detail: before},
 	}
 }
 
@@ -105,12 +153,17 @@ func globalEvents(s scen, fs []*v1.Finding) []*v1.Event {
 	}
 	tr := func(id string, st v1.FindingState, at time.Time) (*v1.FindingTransition, *v1.Finding) {
 		f := byID[id]
-		return &v1.FindingTransition{FindingId: id, Time: ts(at), State: st, Severity: f.GetSeverity(), Detail: f.GetDetail()}, f
+		t := &v1.FindingTransition{FindingId: id, Time: ts(at), State: st, Severity: f.GetSeverity(), Detail: f.GetDetail()}
+		if before, ok := globalPlannedDetail(f); ok && st == firing {
+			// It fired as info.
+			t.Severity, t.Detail = info, before
+		}
+		return t, f
 	}
 	findingEvent := func(id string, st v1.FindingState, at time.Time, kind, summary string) *v1.Event {
 		t, f := tr(id, st, at)
 		return &v1.Event{Time: ts(at), Source: srcFinding, Kind: kind, Type: f.GetCheckCode() + " " + f.GetCheckName(),
-			Severity: f.GetSeverity(), Summary: summary, Transition: t, Finding: f, Server: f.GetEntity().GetServer(),
+			Severity: t.GetSeverity(), Summary: summary, Transition: t, Finding: f, Server: f.GetEntity().GetServer(),
 			Account: f.GetEntity().GetAccount(), Stream: f.GetEntity().GetStream(), Consumer: f.GetEntity().GetConsumer()}
 	}
 	k8s := func(at time.Time, kind, typ, server, summary string) *v1.Event {
@@ -142,6 +195,14 @@ func globalEvents(s scen, fs []*v1.Finding) []*v1.Event {
 		nats(s.at(13, 5, 2), "stream.updated", "STREAM.UPDATED", "nats-ap-2", "customer-notifications", "customer-notifications updated: max_age 7d -> 3d"),
 		findingEvent("stream-010:"+Account+"/return-requests", firing, s.at(9, 17, 0), "finding.firing",
 			"return-requests: nats-us-3 answers without its replica"),
+	)
+	// The restart window after nats-us-4's announced shutdown ended.
+	planned := globalPlannedEnd.Add(s.shift)
+	out = append(out,
+		findingEvent("server-001:nats-us-4", changed, planned, "finding.changed", "nats-us-4 not reporting: warning, no longer a planned restart"),
+		findingEvent("stream-011:"+Account+"/KV_label-templates", changed, planned, "finding.changed", "KV_label-templates missing: warning"),
+		findingEvent("stream-002:"+Account+"/price-changes", changed, planned, "finding.changed", "price-changes: replica on nats-us-4 offline: warning"),
+		findingEvent("stream-002:"+Account+"/shipping-updates", changed, planned, "finding.changed", "shipping-updates: replica on nats-us-4 offline: warning"),
 	)
 	out = append(out,
 		k8s(s.at(9, 20, 30), "k8s.node.upgrade", "NodePoolUpgrade", "", "pool-us upgrade stopped: 3 of 4 nodes on 1.33.4-gke.1245"),

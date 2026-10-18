@@ -170,6 +170,8 @@ func globalScenario() *scenario {
 		mutes:         func() []*storedMute { return []*storedMute{globalSeedMute()} },
 		consumer:      globalConsumer,
 		created:       globalCreated,
+		transitions:   globalTransitions,
+		infoUntil:     map[string]time.Time{"server-001": globalPlannedEnd, "stream-002": globalPlannedEnd, "stream-011": globalPlannedEnd},
 	}
 }
 
