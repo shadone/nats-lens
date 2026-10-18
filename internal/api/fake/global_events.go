@@ -18,11 +18,13 @@ func globalRoutineEvents(s scen) []*v1.Event {
 	add := func(e *v1.Event) { out = append(out, e) }
 	end := s.at(14, 29, 0)
 	eu := func(k int) string { return fmt.Sprintf("nats-eu-%d", k%9) }
+	// inventory-service: every 4.8 minutes a summary of 2 to 6, at most 15
+	// in any 10 minutes, below client-005's threshold.
 	for k := range 300 {
 		add(&v1.Event{Time: ts(end.Add(-time.Duration(k) * 288 * time.Second)), Source: srcNATS, Kind: "client.churn", Type: "CLIENT.CHURN",
 			Server: eu(k), Account: Account, ClientName: "inventory-service", ClientHost: fmt.Sprintf("10.30.0.%d", 60+k%4),
 			Reason:  "Client Closed",
-			Summary: fmt.Sprintf("inventory-service connected and disconnected %d times in 1 min (each closed by the client within 10 s)", 14+k%6)})
+			Summary: fmt.Sprintf("inventory-service connected and disconnected %d times in 1 min (each closed by the client within 10 s)", 2+k%5)})
 	}
 	for k := range 48 {
 		add(&v1.Event{Time: ts(end.Add(-time.Duration(k)*30*time.Minute - 40*time.Second)), Source: srcNATS, Kind: "consumer.ack_sampled",

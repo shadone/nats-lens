@@ -51,7 +51,7 @@ func TestOverviewReproducesTheReferenceScenario(t *testing.T) {
 		t.Fatalf("range = %v", o.GetRange())
 	}
 	tl := o.GetTally()
-	if tl.GetCritical() != 1 || tl.GetWarning() != 2 || tl.GetInfo() != 1 || tl.GetMuted() != 1 || tl.GetFlapping() != 1 || tl.GetResolved_24H() != 8 {
+	if tl.GetCritical() != 1 || tl.GetWarning() != 3 || tl.GetInfo() != 1 || tl.GetMuted() != 1 || tl.GetFlapping() != 1 || tl.GetResolved_24H() != 8 {
 		t.Fatalf("tally = %v", tl)
 	}
 	w := o.GetWorstFinding()
@@ -80,11 +80,11 @@ func TestListFindingsFiltersAndPages(t *testing.T) {
 	list := func(req *v1.ListFindingsRequest) *v1.ListFindingsResponse {
 		return must(c.ListFindings(ctx, connect.NewRequest(req)))
 	}
-	if got := list(&v1.ListFindingsRequest{}); got.GetTotalCount() != 4 || got.GetFindings()[0].GetCheckCode() != "consumer-010" {
+	if got := list(&v1.ListFindingsRequest{}); got.GetTotalCount() != 5 || got.GetFindings()[0].GetCheckCode() != "consumer-010" {
 		t.Fatalf("default: %d, first %s", got.GetTotalCount(), got.GetFindings()[0].GetCheckCode())
 	}
 	all := list(&v1.ListFindingsRequest{IncludeMuted: true})
-	if all.GetTotalCount() != 5 || all.GetFindings()[4].GetMute().GetMutedBy() != "denis" {
+	if all.GetTotalCount() != 6 || all.GetFindings()[5].GetMute().GetMutedBy() != "denis" {
 		t.Fatalf("with muted: %v", all.GetFindings())
 	}
 	res := list(&v1.ListFindingsRequest{States: []v1.FindingState{v1.FindingState_FINDING_STATE_RESOLVED}})
@@ -106,7 +106,7 @@ func TestListFindingsFiltersAndPages(t *testing.T) {
 			break
 		}
 	}
-	if len(seen) != 5 {
+	if len(seen) != 6 {
 		t.Fatalf("paged %v", seen)
 	}
 	_, err := c.ListFindings(ctx, connect.NewRequest(&v1.ListFindingsRequest{PageToken: "%%%"}))
@@ -139,7 +139,7 @@ func TestMuteRoundTrip(t *testing.T) {
 		t.Fatalf("mute = %v", m)
 	}
 	tl := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{}))).GetTally()
-	if tl.GetWarning() != 1 || tl.GetMuted() != 2 {
+	if tl.GetWarning() != 2 || tl.GetMuted() != 2 {
 		t.Fatalf("tally after mute = %v", tl)
 	}
 	if n := len(must(c.ListMutes(ctx, connect.NewRequest(&v1.ListMutesRequest{}))).GetMutes()); n != 2 {
@@ -149,7 +149,7 @@ func TestMuteRoundTrip(t *testing.T) {
 	if un.GetUnmutedAt() == nil || un.GetUnmutedBy() != "op" {
 		t.Fatalf("unmuted = %v", un)
 	}
-	if tl := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{}))).GetTally(); tl.GetWarning() != 2 || tl.GetMuted() != 1 {
+	if tl := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{}))).GetTally(); tl.GetWarning() != 3 || tl.GetMuted() != 1 {
 		t.Fatalf("tally after unmute = %v", tl)
 	}
 	_, err := c.UnmuteFinding(ctx, connect.NewRequest(&v1.UnmuteFindingRequest{MuteId: m.GetId(), UnmutedBy: "op"}))
@@ -173,15 +173,15 @@ func TestMuteRoundTrip(t *testing.T) {
 
 func TestStatusTimeline(t *testing.T) {
 	tl := must(client(t).GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{})))
-	if tl.GetBucketCount() != 96 || len(tl.GetRows()) != 11 {
+	if tl.GetBucketCount() != 96 || len(tl.GetRows()) != 12 {
 		t.Fatalf("%d buckets, %d rows", tl.GetBucketCount(), len(tl.GetRows()))
 	}
 	first := tl.GetRows()[0]
 	if first.GetCheckCode() != "consumer-010" || first.GetNow() != v1.Status_STATUS_CRITICAL || len(first.GetCells()) != 96 {
 		t.Fatalf("first row %v", first)
 	}
-	if got := tl.GetRows()[4].GetNow(); got != v1.Status_STATUS_OK {
-		t.Fatalf("fifth row now = %v, want ok (four fail now)", got)
+	if got := tl.GetRows()[5].GetNow(); got != v1.Status_STATUS_OK {
+		t.Fatalf("sixth row now = %v, want ok (five fail now)", got)
 	}
 	if len(tl.GetKubernetes()) != 8 || len(tl.GetWindows()) != 1 || len(tl.GetNats()) != 8 {
 		t.Fatalf("lanes %d k8s, %d nats, %d windows", len(tl.GetKubernetes()), len(tl.GetNats()), len(tl.GetWindows()))

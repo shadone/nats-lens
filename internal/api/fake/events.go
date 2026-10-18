@@ -97,7 +97,8 @@ func prodEvents(s scen, fs []*v1.Finding) []*v1.Event {
 			Summary: "node gke-example-pool-1-7f3a cordoned and drained"},
 	}
 	// Short connections of one client fill the hours before the upgrade,
-	// one churn summary per minute in which it reconnected.
+	// one churn summary per minute in which it reconnected; 6 to 10 every
+	// 5.5 minutes peak at 19 in any 10 minutes, below client-005's threshold.
 	for k := range fillerCount {
 		host := fmt.Sprintf("10.20.2.%d", 10+k%40)
 		out = append(out, &v1.Event{
@@ -120,11 +121,18 @@ func prodRoutine(s scen) []*v1.Event {
 	var out []*v1.Event
 	add := func(e *v1.Event) { out = append(out, e) }
 	end := s.at(14, 28, 0)
+	// stock-poller: every 4 minutes a summary of 2 to 5, and of 10 to 13 since
+	// 12:44, when it began to open a connection per poll: at least 21 in any
+	// 10 minutes from 12:48, which client-005 flags.
 	for k := range prodChurnCount {
 		sv := s.sc.servers[k%3].name
+		n := 2 + k%4
+		if k < 27 {
+			n += 8
+		}
 		add(&v1.Event{Time: ts(end.Add(-time.Duration(k) * 4 * time.Minute)), Source: srcNATS, Kind: "client.churn", Type: "CLIENT.CHURN",
 			Server: sv, Account: Account, ClientName: "stock-poller", ClientHost: "10.20.4.31", Reason: "Client Closed",
-			Summary: fmt.Sprintf("stock-poller connected and disconnected %d times in 1 min (each closed by the client within 10 s)", 9+k%4)})
+			Summary: fmt.Sprintf("stock-poller connected and disconnected %d times in 1 min (each closed by the client within 10 s)", n)})
 	}
 	for k := range 72 {
 		add(&v1.Event{Time: ts(end.Add(-time.Duration(k)*20*time.Minute - 50*time.Second)), Source: srcNATS, Kind: "consumer.ack_sampled",

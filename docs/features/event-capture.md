@@ -6,7 +6,7 @@
 
 ## What it does
 
-Between two collections a lot can happen that a snapshot never sees: a leader election that takes a second, a consumer deleted and recreated, a client that connects and drops. nats-lens subscribes to the events and advisories the NATS servers publish and stores each one as an event, with the server, account, stream, consumer and client it concerns. Short-lived connections that close themselves are folded into one `client.churn` event per client and minute, so that a chatty tool does not bury everything else.
+Between two collections a lot can happen that a snapshot never sees: a leader election that takes a second, a consumer deleted and recreated, a client that connects and drops. nats-lens subscribes to the events and advisories the NATS servers publish and stores each one as an event, with the server, account, stream, consumer and client it concerns. Short-lived connections that close themselves are folded into one `client.churn` event per client and minute, so that a chatty tool does not bury everything else; the check `client-005` flags a client that does it often.
 
 ## Behavior and rules
 
@@ -15,7 +15,7 @@ Between two collections a lot can happen that a snapshot never sees: a leader el
 - **Who made the change.** Stream and consumer action advisories do not name a client. nats-lens reads the JetStream API audit advisory of the same call and names its client when the two arrive within 2 seconds of each other. A server-side action without an API call, such as an inactive consumer that the server removes, has no client.
 - **No consumer update advisory.** nats-server 2.15 sends no advisory when a consumer is updated, so nats-lens has no event for it.
 - **Each event once.** A cluster advisory that arrives in both the asset's account and the system account is stored once. An account-scoped authentication error is stored once, with the server-wide event of the same failure.
-- **Connection churn is folded.** With `events.churn.collapse` on (the default), nats-lens holds each connect for `events.churn.pair_within` (10 seconds). When its disconnect arrives within that time with the reason "Client Closed", nats-lens stores neither. Instead it stores one `client.churn` event per client name, client host, account and `events.churn.window` (1 minute), whose summary reads like "jetstream-controller connected and disconnected 28 times in 1 min (each closed by the client within 10 s)". A connect not closed in time is stored as it is. A disconnect for any other reason is always stored, together with its connect.
+- **Connection churn is folded.** With `events.churn.collapse` on (the default), nats-lens holds each connect for `events.churn.pair_within` (10 seconds). When its disconnect arrives within that time with the reason "Client Closed", nats-lens stores neither. Instead it stores one `client.churn` event per client name, client host, account and `events.churn.window` (1 minute), whose summary reads like "jetstream-controller connected and disconnected 28 times in 1 min (each closed by the client within 10 s)". A connect not closed in time is stored as it is. A disconnect for any other reason is always stored, together with its connect. Folding only saves storage and keeps the event list readable: such connections are usually a fault of the client, and `client-005` ([client-checks.md](client-checks.md)) fires for a client name with 20 or more of them in 10 minutes.
 - **Optional, noisy events.** The JetStream API audit of every call is stored only with `events.api_audit`. The connection count that every server sends for every account every 30 seconds is stored only with `events.account_connections`.
 - **nats-lens records itself.** Events with source `collector` record the collector's own state: `collector.started`, `collector.gap` (the time since the last stored collection or event, at start), `collector.disconnected` and `collector.reconnected`, `collector.not_connected`, `collector.connection_closed`, `collector.subscription_error`, `collector.messages_dropped` and `collector.database_recovered`. Silence in the event list therefore never passes for health.
 - **Findings are events too.** Every finding transition is also stored as an event with source `finding` (`finding.firing`, `finding.changed`, `finding.resolved`), so the event list and the timeline show findings beside the NATS events.
@@ -47,6 +47,7 @@ Between two collections a lot can happen that a snapshot never sees: a leader el
 - **Given** a controller that opens a connection, makes one call and closes it every few seconds
 - **When** a minute passes
 - **Then** nats-lens stores one `client.churn` event for that client name, host and account, counting the pairs
+- **And** `client-005` fires for the client name once it has 20 or more such connections in 10 minutes
 - **And** a disconnect of the same client with the reason "Stale Connection" is still stored as its own event, with its connect
 
 ### Read the raw payload of an event
