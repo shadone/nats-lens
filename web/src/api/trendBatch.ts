@@ -29,9 +29,9 @@ export interface TrendResult {
 /** Results by query identity, so that a row never takes another row's series. */
 export type TrendResults = Record<string, TrendResult>;
 
-/** Identity of a query: metric, entity and points. */
+/** Identity of a query: metric, entity and points; unset and 0 points are one query, as on the wire. */
 export function trendKey(q: TrendQuery): string {
-  return `${q.metric}|${q.entity?.key ?? ""}|${q.maxPoints ?? ""}`;
+  return `${q.metric}|${q.entity?.key ?? ""}|${q.maxPoints || ""}`;
 }
 
 /** The queries without repeats, in key order, so that the same set is the same request. */
@@ -51,10 +51,11 @@ export async function getTrends(sys: string, spec: RangeSpec, queries: TrendQuer
     },
     { signal },
   );
+  if (r.results.length !== qs.length) throw new Error(`the server answered ${r.results.length} of ${qs.length} series`);
   const out: TrendResults = {};
   qs.forEach((q, i) => {
     const x = r.results[i];
-    if (x) out[trendKey(q)] = x.error ? { error: x.error } : { series: trendSeries(x.series) };
+    out[trendKey(q)] = x.error ? { error: x.error } : { series: trendSeries(x.series) };
   });
   return out;
 }
