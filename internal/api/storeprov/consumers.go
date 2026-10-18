@@ -138,14 +138,16 @@ func (p *Provider) consumerViews(ctx context.Context, epoch int64, account, stre
 // key.
 func (p *Provider) consumerViewsBy(ctx context.Context, epoch int64, account, stream, consumer string) (map[string][]*v1.ConsumerServerView, error) {
 	rows, err := p.db().QueryContext(ctx, `
-WITH lead AS (
+WITH chosen AS (
+  -- The leader placementOf chooses: the first server by name whose own
+  -- report claims the lead, whether or not it lists replicas.
+  SELECT l.account, l.stream, l.consumer, arg_min(l.server_id, ls.server_name) AS server_id
+  FROM consumer_stats l JOIN servers ls USING (server_id)
+  WHERE l.epoch = ? AND l.is_leader GROUP BY ALL),
+lead AS (
   SELECT rp.account, rp.stream, rp.consumer, rp.peer_name, rp.current, rp.offline, rp.lag FROM consumer_replicas rp
-  JOIN consumer_stats l ON l.epoch = rp.epoch AND l.server_id = rp.server_id AND l.account = rp.account
-    AND l.stream = rp.stream AND l.consumer = rp.consumer AND l.is_leader
-  JOIN servers ls ON ls.server_id = rp.server_id
-  WHERE rp.epoch = ? AND (? = '' OR rp.account = ?) AND (? = '' OR rp.stream = ?) AND (? = '' OR rp.consumer = ?)
-  -- Only the leader placementOf chooses, the first claimant by name.
-  QUALIFY ls.server_name = min(ls.server_name) OVER (PARTITION BY rp.account, rp.stream, rp.consumer))
+  JOIN chosen c ON c.server_id = rp.server_id AND c.account = rp.account AND c.stream = rp.stream AND c.consumer = rp.consumer
+  WHERE rp.epoch = ? AND (? = '' OR rp.account = ?) AND (? = '' OR rp.stream = ?) AND (? = '' OR rp.consumer = ?))
 SELECT x.account, x.stream, x.consumer, s.server_name, coalesce(x.is_leader, false), x.delivered_stream_seq, x.ack_floor_stream_seq,
   x.created, cc.config_hash, r.current, r.offline, r.lag
 FROM consumer_stats x JOIN servers s USING (server_id)
@@ -153,7 +155,7 @@ LEFT JOIN consumer_config cc ON cc.server_id = x.server_id AND cc.account = x.ac
   AND cc.consumer = x.consumer AND x.epoch BETWEEN cc.first_epoch AND cc.last_epoch
 LEFT JOIN lead r ON r.account = x.account AND r.stream = x.stream AND r.consumer = x.consumer AND r.peer_name = s.server_name
 WHERE x.epoch = ? AND (? = '' OR x.account = ?) AND (? = '' OR x.stream = ?) AND (? = '' OR x.consumer = ?) ORDER BY s.server_name`,
-		epoch, account, account, stream, stream, consumer, consumer, epoch, account, account, stream, stream, consumer, consumer)
+		epoch, epoch, account, account, stream, stream, consumer, consumer, epoch, account, account, stream, stream, consumer, consumer)
 	if err != nil {
 		return nil, err
 	}

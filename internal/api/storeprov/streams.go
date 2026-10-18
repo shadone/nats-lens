@@ -308,14 +308,16 @@ func (p *Provider) streamViews(ctx context.Context, epoch int64, account, stream
 // optionally one account or stream, keyed by stream key.
 func (p *Provider) streamViewsBy(ctx context.Context, epoch int64, account, stream string) (map[string][]*v1.StreamServerView, error) {
 	rows, err := p.db().QueryContext(ctx, `
-WITH lead AS (
+WITH chosen AS (
+  -- The leader placementOf chooses: the first server by name whose own
+  -- report claims the lead, whether or not it lists replicas.
+  SELECT l.account, l.stream, arg_min(l.server_id, ls.server_name) AS server_id
+  FROM stream_stats l JOIN servers ls USING (server_id)
+  WHERE l.epoch = ? AND l.is_leader GROUP BY ALL),
+lead AS (
   SELECT rp.account, rp.stream, rp.peer_name, rp.current, rp.offline, rp.lag FROM stream_replicas rp
-  JOIN stream_stats l ON l.epoch = rp.epoch AND l.server_id = rp.server_id AND l.account = rp.account
-    AND l.stream = rp.stream AND l.is_leader
-  JOIN servers ls ON ls.server_id = rp.server_id
-  WHERE rp.epoch = ? AND (? = '' OR rp.account = ?) AND (? = '' OR rp.stream = ?)
-  -- Only the leader placementOf chooses, the first claimant by name.
-  QUALIFY ls.server_name = min(ls.server_name) OVER (PARTITION BY rp.account, rp.stream))
+  JOIN chosen c ON c.server_id = rp.server_id AND c.account = rp.account AND c.stream = rp.stream
+  WHERE rp.epoch = ? AND (? = '' OR rp.account = ?) AND (? = '' OR rp.stream = ?))
 SELECT x.account, x.stream, s.server_name, coalesce(x.is_leader, false), x.messages, x.bytes,
   x.first_seq, x.last_seq, x.created, sc.config_hash, r.current, r.offline, r.lag
 FROM stream_stats x JOIN servers s USING (server_id)
@@ -323,7 +325,7 @@ LEFT JOIN stream_config sc ON sc.server_id = x.server_id AND sc.account = x.acco
   AND x.epoch BETWEEN sc.first_epoch AND sc.last_epoch
 LEFT JOIN lead r ON r.account = x.account AND r.stream = x.stream AND r.peer_name = s.server_name
 WHERE x.epoch = ? AND (? = '' OR x.account = ?) AND (? = '' OR x.stream = ?) ORDER BY s.server_name`,
-		epoch, account, account, stream, stream, epoch, account, account, stream, stream)
+		epoch, epoch, account, account, stream, stream, epoch, account, account, stream, stream)
 	if err != nil {
 		return nil, err
 	}
