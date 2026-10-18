@@ -25,6 +25,7 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 - **Busiest consumers.** The 6 consumers with the highest delivery rate over the 15 minutes before the range's end, read from each consumer's leader, with pending and unacknowledged messages and a sparkline of the delivery rate over the range. A consumer without a rate shows a dash. The list follows the account scope.
 - **Streams with placement.** The streams of the newest collection, worst first, at most 10 with a link to all: one square per replica (leader, in sync, behind, disagreeing, offline or missing, each a different shape), messages, size and growth per day. A legend draws the states that occur. The list follows the account scope.
 - **Trend series in the API.** `GetTimeSeries` serves the series behind the trends and tiles: `cluster.streams` (KV buckets and object stores not counted), `cluster.kv_buckets`, `cluster.object_stores`, `cluster.accounts` (accounts other than the system account with a connection or a stream), `cluster.meta_leader_changes`, `cluster.assets_replicated` and `cluster.assets_single` (streams and durable consumers by configured replicas; a consumer's replicas 0 means its stream's), `cluster.cpu_percent` and `cluster.mem_bytes` as bands, and `consumer.delivered_rate` (from the leader's delivered sequence). A count needs a JSZ reply from every server that answered the collection, so a partial answer has no point rather than a dip. Accounts need an ACCSTATZ reply from every server instead; an account's streams count only when JSZ was complete too, so without JetStream accounts are counted by their connections. A tie between servers on the meta leader is no change. A rate has no value after a gap in collection of more than three intervals, and the delivered rate none at a leader move or a recreated consumer.
+- **Several series in one call.** `GetTimeSeriesBatch` reads up to 32 `GetTimeSeries` queries, each a metric, an entity and optionally its own `max_points`, over one range resolved once, so every series ends at the same instant. Results come in query order. A query that `GetTimeSeries` would refuse as `invalid_argument` or `not_found` gets the error text in its result and the others are served; any other failure fails the call, as do zero queries or more than 32. The call may take 60 seconds, each query 30 within them. The Overview reads its trends in one such call and the busiest consumers' sparklines in another, so a chart whose series fails shows its own error while the others draw.
 - **Tiles in the API.** `GetOverview` returns each tile with a one-sentence `description` for its tooltip. A tile whose value is a name sets `value_text`: the Meta leader tile names the leader there, and its `value` is the number of leader changes in the range. The meta leader is the server more than half of the expected servers report (the answering ones when none is expected), the rule `cluster.meta_leader_changes` uses; without such a majority `value_text` is empty.
 
 ## Scenarios
@@ -80,6 +81,13 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 - **Given** `natslens run` serves its API on 127.0.0.1:8080
 - **When** I post `{}` to `/api/natslens.v1.LensService/GetOverview`
 - **Then** I receive the cluster name, freshness (with whether the collector collects), servers, the tally, the worst finding, the tiles with their series, and the windows to shade
+
+### Read several series in one call
+
+- **Surfaces:** `api`
+- **Given** `natslens demo` serves its API on 127.0.0.1:8080
+- **When** I post `{"queries": [{"metric": "cluster.connections"}, {"metric": "cluster.no_such_metric"}]}` to `/api/natslens.v1.LensService/GetTimeSeriesBatch`
+- **Then** the first result holds the connections series, the second an `error` naming the unknown metric, and `range` the one range both were read for
 
 ## Planned
 
