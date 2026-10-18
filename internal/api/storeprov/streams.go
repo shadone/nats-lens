@@ -298,7 +298,7 @@ func disagreements[T any](views []T, fields func(T) (string, map[string]string))
 }
 
 // streamViews reads each server's view of a stream; current, offline and
-// lag come from the leader's replica list.
+// lag come from the replica list of the leader placementOf chooses.
 func (p *Provider) streamViews(ctx context.Context, epoch int64, account, stream string) ([]*v1.StreamServerView, error) {
 	m, err := p.streamViewsBy(ctx, epoch, account, stream)
 	return m[account+"/"+stream], err
@@ -312,7 +312,10 @@ WITH lead AS (
   SELECT rp.account, rp.stream, rp.peer_name, rp.current, rp.offline, rp.lag FROM stream_replicas rp
   JOIN stream_stats l ON l.epoch = rp.epoch AND l.server_id = rp.server_id AND l.account = rp.account
     AND l.stream = rp.stream AND l.is_leader
-  WHERE rp.epoch = ? AND (? = '' OR rp.account = ?) AND (? = '' OR rp.stream = ?))
+  JOIN servers ls ON ls.server_id = rp.server_id
+  WHERE rp.epoch = ? AND (? = '' OR rp.account = ?) AND (? = '' OR rp.stream = ?)
+  -- Only the leader placementOf chooses, the first claimant by name.
+  QUALIFY ls.server_name = min(ls.server_name) OVER (PARTITION BY rp.account, rp.stream))
 SELECT x.account, x.stream, s.server_name, coalesce(x.is_leader, false), x.messages, x.bytes,
   x.first_seq, x.last_seq, x.created, sc.config_hash, r.current, r.offline, r.lag
 FROM stream_stats x JOIN servers s USING (server_id)
