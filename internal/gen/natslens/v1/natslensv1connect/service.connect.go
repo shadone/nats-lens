@@ -142,9 +142,9 @@ type LensServiceClient interface {
 	ListMetrics(context.Context, *connect.Request[v1.ListMetricsRequest]) (*connect.Response[v1.ListMetricsResponse], error)
 	// One metric of one entity over a range, downsampled.
 	GetTimeSeries(context.Context, *connect.Request[v1.GetTimeSeriesRequest]) (*connect.Response[v1.GetTimeSeriesResponse], error)
-	// Several series over one time range in one call. A query that names an
-	// unknown metric or entity gets an error in its result; the others are
-	// served.
+	// Several series over one time range in one call. A query GetTimeSeries
+	// would refuse as invalid_argument or not_found gets the error in its
+	// result and the others are served; any other failure fails the call.
 	GetTimeSeriesBatch(context.Context, *connect.Request[v1.GetTimeSeriesBatchRequest]) (*connect.Response[v1.GetTimeSeriesBatchResponse], error)
 }
 
@@ -525,9 +525,9 @@ type LensServiceHandler interface {
 	ListMetrics(context.Context, *connect.Request[v1.ListMetricsRequest]) (*connect.Response[v1.ListMetricsResponse], error)
 	// One metric of one entity over a range, downsampled.
 	GetTimeSeries(context.Context, *connect.Request[v1.GetTimeSeriesRequest]) (*connect.Response[v1.GetTimeSeriesResponse], error)
-	// Several series over one time range in one call. A query that names an
-	// unknown metric or entity gets an error in its result; the others are
-	// served.
+	// Several series over one time range in one call. A query GetTimeSeries
+	// would refuse as invalid_argument or not_found gets the error in its
+	// result and the others are served; any other failure fails the call.
 	GetTimeSeriesBatch(context.Context, *connect.Request[v1.GetTimeSeriesBatchRequest]) (*connect.Response[v1.GetTimeSeriesBatchResponse], error)
 }
 

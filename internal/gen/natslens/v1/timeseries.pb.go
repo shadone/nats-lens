@@ -666,6 +666,9 @@ func (x *SeriesQuery) GetMaxPoints() int32 {
 }
 
 // Request for several series over one time range.
+//
+// The call may take 60 seconds; each query 30 seconds within them, as a
+// GetTimeSeries call does.
 type GetTimeSeriesBatchRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Series to read; at least one and at most 32.
@@ -747,8 +750,8 @@ type SeriesResult struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The values; unset when error is set.
 	Series *Series `protobuf:"bytes,1,opt,name=series,proto3" json:"series,omitempty"`
-	// Why the query was not served: an unknown metric, an entity of the
-	// wrong type or one that does not exist. Empty when series is set.
+	// Why the query was not served, for a query GetTimeSeries would refuse
+	// as invalid_argument or not_found. Empty when series is set.
 	Error         string `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

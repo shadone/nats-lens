@@ -351,6 +351,9 @@ export const SeriesQuerySchema: GenMessage<SeriesQuery> = /*@__PURE__*/
 /**
  * Request for several series over one time range.
  *
+ * The call may take 60 seconds; each query 30 seconds within them, as a
+ * GetTimeSeries call does.
+ *
  * @generated from message natslens.v1.GetTimeSeriesBatchRequest
  */
 export type GetTimeSeriesBatchRequest = Message<"natslens.v1.GetTimeSeriesBatchRequest"> & {
@@ -408,8 +411,8 @@ export type SeriesResult = Message<"natslens.v1.SeriesResult"> & {
   series?: Series | undefined;
 
   /**
-   * Why the query was not served: an unknown metric, an entity of the
-   * wrong type or one that does not exist. Empty when series is set.
+   * Why the query was not served, for a query GetTimeSeries would refuse
+   * as invalid_argument or not_found. Empty when series is set.
    *
    * @generated from field: string error = 2;
    */
