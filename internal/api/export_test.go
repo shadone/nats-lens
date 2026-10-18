@@ -17,3 +17,9 @@ func SetBatchTimeouts(batch, query time.Duration) (restore func()) {
 	batchTimeout, batchQueryTimeout = batch, query
 	return func() { batchTimeout, batchQueryTimeout = oldB, oldQ }
 }
+
+// SetBadgeClock sets the clock of the handler's badge expiry and the
+// longest wait for a badge with none kept (zero keeps the default).
+func SetBadgeClock(h *Handler, now func() time.Time, wait time.Duration) {
+	h.badgeCache.now, h.badgeWait = now, wait
+}

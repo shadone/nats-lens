@@ -45,6 +45,8 @@ type Handler struct {
 	summaryFlights summaryFlights
 	// badgeCache keeps GetShellStatus's badge summaries.
 	badgeCache badgeCache
+	// badgeWait replaces badgeWait in tests; zero means badgeWait.
+	badgeWait time.Duration
 }
 
 var _ natslensv1connect.LensServiceHandler = (*Handler)(nil)

@@ -200,6 +200,11 @@ message SystemStatus {
   // Why the status could not be read, for example a timeout; the other
   // fields except system are then unset. Empty when it was read.
   string error = 5;
+
+  // Whether the status is still being read: the system's first summary
+  // took longer than the call waits for it. The other fields except system
+  // are then unset; a later call has it.
+  bool pending = 6;
 }
 
 // What the shell shows: the system's freshness, servers and finding

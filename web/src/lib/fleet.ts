@@ -136,9 +136,11 @@ export function stripStartLabel(s: SystemSummary, live: boolean): string {
 
 const BADGE_LEVEL: Partial<Record<CardState, Level>> = { critical: "critical", warning: "warning" };
 
-/** The sidebar's Fleet badge: systems in trouble or without data, at the level of the worst. */
+/** The sidebar's Fleet badge: systems in trouble or without data, at the level of the worst; a system still being read is not counted. */
 export function fleetBadge(systems: SystemBadge[] | undefined): Badge | undefined {
-  const bad = (systems ?? []).map(badgeState).filter((c) => isTrouble(c) || c === "nodata");
+  const bad = (systems ?? [])
+    .filter((s) => !s.pending)
+    .map(badgeState).filter((c) => isTrouble(c) || c === "nodata");
   if (!bad.length) return undefined;
   const worst = bad.reduce((a, b) => (ORDER[b] < ORDER[a] ? b : a));
   return { count: bad.length, level: BADGE_LEVEL[worst] ?? "nodata", what: "not OK", worst: CARD_STATE_LABEL[worst] };

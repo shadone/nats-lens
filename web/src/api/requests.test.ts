@@ -51,7 +51,7 @@ describe("getShellStatus", () => {
         freshness: { epoch: 9n, epochAt: timestampFromMs(Date.now() - 5_000), live: true, interval, collecting: true },
         systems: [
           { system: { id: "example-prod", name: "Production" }, status: Status.WARNING, collection: CollectionState.COLLECTING, collecting: true },
-          { system: { id: "example-staging" }, error: "the summary took longer than 5s" },
+          { system: { id: "example-staging" }, error: "the summary took longer than 5s", pending: false },
         ],
         defaultSystem: "example-prod",
         systemKnown: true,
@@ -62,8 +62,8 @@ describe("getShellStatus", () => {
     expect(vi.mocked(lens.getShellStatus).mock.calls[0][0]).toEqual({ system: "example-prod", range: undefined });
     expect(s.freshness).toMatchObject({ epoch: "9", intervalMs: 30_000 });
     expect(s.systems).toEqual([
-      { id: "example-prod", name: "Production", environment: "", status: "warning", collection: "collecting", collecting: true, error: "" },
-      { id: "example-staging", name: "example-staging", environment: "", status: "nodata", collection: "unknown", collecting: false, error: "the summary took longer than 5s" },
+      { id: "example-prod", name: "Production", environment: "", status: "warning", collection: "collecting", collecting: true, error: "", pending: false },
+      { id: "example-staging", name: "example-staging", environment: "", status: "nodata", collection: "unknown", collecting: false, error: "the summary took longer than 5s", pending: false },
     ]);
     expect(s).toMatchObject({ defaultSystem: "example-prod", systemKnown: true });
   });

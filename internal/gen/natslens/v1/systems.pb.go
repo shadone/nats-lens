@@ -745,7 +745,11 @@ type SystemStatus struct {
 	Collecting bool `protobuf:"varint,4,opt,name=collecting,proto3" json:"collecting,omitempty"`
 	// Why the status could not be read, for example a timeout; the other
 	// fields except system are then unset. Empty when it was read.
-	Error         string `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
+	Error string `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
+	// Whether the status is still being read: the system's first summary
+	// took longer than the call waits for it. The other fields except system
+	// are then unset; a later call has it.
+	Pending       bool `protobuf:"varint,6,opt,name=pending,proto3" json:"pending,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -813,6 +817,13 @@ func (x *SystemStatus) GetError() string {
 		return x.Error
 	}
 	return ""
+}
+
+func (x *SystemStatus) GetPending() bool {
+	if x != nil {
+		return x.Pending
+	}
+	return false
 }
 
 // What the shell shows: the system's freshness, servers and finding
@@ -994,7 +1005,7 @@ const file_natslens_v1_systems_proto_rawDesc = "" +
 	"\baccounts\x18\x01 \x03(\v2\x14.natslens.v1.AccountR\baccounts\"]\n" +
 	"\x15GetShellStatusRequest\x12\x16\n" +
 	"\x06system\x18\x01 \x01(\tR\x06system\x12,\n" +
-	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\"\xdf\x01\n" +
+	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\"\xf9\x01\n" +
 	"\fSystemStatus\x12.\n" +
 	"\x06system\x18\x01 \x01(\v2\x16.natslens.v1.SystemRefR\x06system\x12+\n" +
 	"\x06status\x18\x02 \x01(\x0e2\x13.natslens.v1.StatusR\x06status\x12<\n" +
@@ -1004,7 +1015,8 @@ const file_natslens_v1_systems_proto_rawDesc = "" +
 	"\n" +
 	"collecting\x18\x04 \x01(\bR\n" +
 	"collecting\x12\x14\n" +
-	"\x05error\x18\x05 \x01(\tR\x05error\"\xe9\x02\n" +
+	"\x05error\x18\x05 \x01(\tR\x05error\x12\x18\n" +
+	"\apending\x18\x06 \x01(\bR\apending\"\xe9\x02\n" +
 	"\x16GetShellStatusResponse\x124\n" +
 	"\tfreshness\x18\x01 \x01(\v2\x16.natslens.v1.FreshnessR\tfreshness\x124\n" +
 	"\aservers\x18\x02 \x03(\v2\x1a.natslens.v1.ServerSummaryR\aservers\x12/\n" +

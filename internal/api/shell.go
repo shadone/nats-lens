@@ -25,6 +25,9 @@ const (
 	// defaultInterval is the collect interval of a provider or summary
 	// that names none.
 	defaultInterval = 30 * time.Second
+	// badgeWait is the longest a call waits for a system's badge summary
+	// when none is kept (proposed, not yet confirmed).
+	badgeWait = 500 * time.Millisecond
 	// DefaultShellTimeout bounds the system's part of GetShellStatus.
 	DefaultShellTimeout = 10 * time.Second
 )
@@ -83,33 +86,70 @@ func (h *Handler) GetShellStatus(ctx context.Context, req *connect.Request[v1.Ge
 	return connect.NewResponse(res), nil
 }
 
-// badges reads every system's badge status in parallel, each within
-// SummaryTimeout, from its summary of the last 24 hours with one strip
-// bucket. A summary that was read is kept for one collect interval; the
-// runtime's collection status is applied afresh on every call.
+// badges returns every system's badge status, from its summary of the
+// last 24 hours with one strip bucket. A summary that was read is kept for
+// one collect interval and served at once; once it expires it is still
+// served while one read in the background replaces it. Only a system with
+// no summary kept, or whose last read failed, waits for its read, and at
+// most badgeWait: past that its badge is pending. The runtime's collection
+// status is applied afresh on every call.
 func (h *Handler) badges(ctx context.Context, d System) []*v1.SystemStatus {
 	now := d.Provider.Now()
 	m := &v1.ListSystemsRequest{StripBuckets: 1, Range: &v1.TimeRange{Start: timestamppb.New(now.Add(-badgeRange)), End: timestamppb.New(now)}}
 	key := summaryKey(m, true)
 	timeout := cmp.Or(h.SummaryTimeout, DefaultSummaryTimeout)
+	wait := cmp.Or(h.badgeWait, badgeWait)
 	out := make([]*v1.SystemStatus, len(h.Systems))
 	var wg sync.WaitGroup
 	for i, sys := range h.Systems {
 		wg.Go(func() {
-			sum, ok := h.badgeCache.get(sys.Ref.GetId(), key)
-			if !ok {
-				sum = h.summary(ctx, sys, proto.CloneOf(m), key, timeout)
-				if sum.GetError() == "" {
-					h.badgeCache.put(sys.Ref.GetId(), key, sum)
+			defer func() {
+				if r := recover(); r != nil {
+					h.warnSummary(sys, fmt.Errorf("panic: %v", r))
+					out[i] = &v1.SystemStatus{System: proto.CloneOf(sys.Ref), Error: "the status could not be read; see the server log"}
 				}
-			} else if sys.Status != nil {
-				withCollectionStatus(sum, sys.Status())
+			}()
+			id := sys.Ref.GetId()
+			kept, ok, start, done := h.badgeCache.lookup(id)
+			if start {
+				go h.refreshBadge(sys, proto.CloneOf(m), key, timeout)
 			}
-			out[i] = badgeOf(sys.Ref, sum)
+			if !ok {
+				t := time.NewTimer(wait)
+				defer t.Stop()
+				select {
+				case <-done:
+					kept = h.badgeCache.peek(id)
+				case <-t.C:
+				case <-ctx.Done():
+				}
+			}
+			if kept == nil {
+				out[i] = &v1.SystemStatus{System: proto.CloneOf(sys.Ref), Pending: true}
+				return
+			}
+			if sys.Status != nil && kept.GetError() == "" {
+				withCollectionStatus(kept, sys.Status())
+			}
+			out[i] = badgeOf(sys.Ref, kept)
 		})
 	}
 	wg.Wait()
 	return out
+}
+
+// refreshBadge reads a system's badge summary and keeps the result; no
+// caller's context bounds it, only the summary's timeout.
+func (h *Handler) refreshBadge(sys System, req *v1.ListSystemsRequest, key string, timeout time.Duration) {
+	var sum *v1.SystemSummary
+	defer func() {
+		if r := recover(); r != nil {
+			h.warnSummary(sys, fmt.Errorf("panic: %v", r))
+			sum = &v1.SystemSummary{Error: "the summary could not be read; see the server log"}
+		}
+		h.badgeCache.finish(sys.Ref.GetId(), sum)
+	}()
+	sum = h.summary(context.Background(), sys, req, key, timeout)
 }
 
 // badgeOf is the badge status of a system's summary. The system does not
@@ -131,38 +171,75 @@ func badgeOf(ref *v1.SystemRef, sum *v1.SystemSummary) *v1.SystemStatus {
 	return st
 }
 
-// badgeCache keeps each system's badge summary for one collect interval,
-// so that shells polling together read each provider once per interval.
+// badgeCache keeps each system's badge summary, and the read that
+// replaces it, so that shells polling together read each provider once per
+// collect interval.
 type badgeCache struct {
 	mu sync.Mutex
-	m  map[string]badgeEntry
+	m  map[string]*badgeEntry
+	// now is the clock of the expiry; nil is the wall clock.
+	now func() time.Time
 }
 
 type badgeEntry struct {
-	key     string
+	// sum is the newest summary read, an error card when the newest read
+	// failed; nil before the first read ends.
 	sum     *v1.SystemSummary
 	expires time.Time
+	// reading is closed when the read in flight ends; nil without one.
+	reading chan struct{}
 }
 
-// get returns a copy of the system's summary for the key while it is
-// kept.
-func (c *badgeCache) get(id, key string) (*v1.SystemSummary, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	e, ok := c.m[id]
-	if !ok || e.key != key || !time.Now().Before(e.expires) {
-		return nil, false
+func (c *badgeCache) clock() time.Time {
+	if c.now != nil {
+		return c.now()
 	}
-	return proto.CloneOf(e.sum), true
+	return time.Now()
 }
 
-// put keeps a copy of the summary for its freshness's collect interval.
-func (c *badgeCache) put(id, key string, sum *v1.SystemSummary) {
-	ttl := cmp.Or(sum.GetFreshness().GetInterval().AsDuration(), defaultInterval)
+// lookup returns a copy of the system's kept summary, and ok when it was
+// read without an error, expired or not. When none is kept, it expired or
+// it is an error card, and no read runs, it marks a read as running and
+// returns start, and the caller starts it. done is closed when the read in
+// flight ends; nil without one.
+func (c *badgeCache) lookup(id string) (sum *v1.SystemSummary, ok, start bool, done <-chan struct{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.m == nil {
-		c.m = map[string]badgeEntry{}
+		c.m = map[string]*badgeEntry{}
 	}
-	c.m[id] = badgeEntry{key: key, sum: proto.CloneOf(sum), expires: time.Now().Add(ttl)}
+	e := c.m[id]
+	if e == nil {
+		e = &badgeEntry{}
+		c.m[id] = e
+	}
+	ok = e.sum != nil && e.sum.GetError() == ""
+	if (!ok || !c.clock().Before(e.expires)) && e.reading == nil {
+		e.reading, start = make(chan struct{}), true
+	}
+	return proto.CloneOf(e.sum), ok, start, e.reading
+}
+
+// peek returns a copy of the system's kept summary; nil when none is.
+func (c *badgeCache) peek(id string) *v1.SystemSummary {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if e := c.m[id]; e != nil {
+		return proto.CloneOf(e.sum)
+	}
+	return nil
+}
+
+// finish keeps a read's summary, for its freshness's collect interval when
+// it was read, and ends the read.
+func (c *badgeCache) finish(id string, sum *v1.SystemSummary) {
+	ttl := cmp.Or(sum.GetFreshness().GetInterval().AsDuration(), defaultInterval)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	e := c.m[id]
+	if sum != nil {
+		e.sum, e.expires = proto.CloneOf(sum), c.clock().Add(ttl)
+	}
+	close(e.reading)
+	e.reading = nil
 }

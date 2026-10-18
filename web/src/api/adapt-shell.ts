@@ -16,6 +16,7 @@ export function systemBadge(s: SystemStatus): SystemBadge {
     collection: collection(s.collection),
     collecting: s.collecting,
     error: s.error,
+    pending: s.pending,
   };
 }
 

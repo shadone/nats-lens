@@ -27,13 +27,15 @@ type shellCounted struct {
 	// shellErr fails ShellStatus; shellHang blocks it until its context ends.
 	shellErr  error
 	shellHang bool
+	// delay holds SystemSummary back, in nanoseconds.
+	delay     *atomic.Int64
 	mu        *sync.Mutex
 	lastRange **v1.TimeRange
 }
 
 func newShellCounted(cluster string) shellCounted {
 	var r *v1.TimeRange
-	return shellCounted{renamed: newRenamed(cluster), shell: &atomic.Int32{}, summaries: &atomic.Int32{}, mu: &sync.Mutex{}, lastRange: &r}
+	return shellCounted{renamed: newRenamed(cluster), shell: &atomic.Int32{}, summaries: &atomic.Int32{}, mu: &sync.Mutex{}, lastRange: &r, delay: &atomic.Int64{}}
 }
 
 func (s shellCounted) ShellStatus(ctx context.Context, req *v1.GetShellStatusRequest) (*v1.GetShellStatusResponse, error) {
@@ -53,6 +55,13 @@ func (s shellCounted) ShellStatus(ctx context.Context, req *v1.GetShellStatusReq
 
 func (s shellCounted) SystemSummary(ctx context.Context, req *v1.ListSystemsRequest) (*v1.SystemSummary, error) {
 	s.summaries.Add(1)
+	if d := time.Duration(s.delay.Load()); d > 0 {
+		select {
+		case <-time.After(d):
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
 	if s.fail {
 		return nil, errors.New("database is gone")
 	}
@@ -220,5 +229,93 @@ func TestShellStatusPartFailureKeepsTheSystems(t *testing.T) {
 				t.Error("the provider's own text reached the client")
 			}
 		})
+	}
+}
+
+// eventually waits up to two seconds for cond.
+func eventually(t *testing.T, what string, cond func() bool) {
+	t.Helper()
+	for deadline := time.Now().Add(2 * time.Second); !cond(); {
+		if time.Now().After(deadline) {
+			t.Fatalf("never: %s", what)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// An expired badge is served at once while one read in the background
+// replaces it; calls during that read start no other.
+func TestShellStatusServesAnExpiredBadgeWhileItIsRead(t *testing.T) {
+	systems, a, _ := shellSystems()
+	var clock atomic.Int64
+	clock.Store(time.Now().UnixNano())
+	h := &api.Handler{Systems: systems}
+	api.SetBadgeClock(h, func() time.Time { return time.Unix(0, clock.Load()) }, 0)
+	_, c := apitest.ServeHandler(t, h)
+	shellStatus(t, c, &v1.GetShellStatusRequest{System: "b"})
+	clock.Add(int64(31 * time.Second))
+	a.delay.Store(int64(time.Second))
+	for range 3 {
+		start := time.Now()
+		m := shellStatus(t, c, &v1.GetShellStatusRequest{System: "b"})
+		if took := time.Since(start); took > 400*time.Millisecond {
+			t.Errorf("the call waited %v for an expired badge", took)
+		}
+		if s := m.GetSystems()[0]; s.GetPending() || s.GetStatus() == v1.Status_STATUS_UNSPECIFIED {
+			t.Errorf("the expired badge was not served: %v", s)
+		}
+	}
+	if n := a.summaries.Load(); n != 2 {
+		t.Errorf("system a's summary was read %d times, want once more in the background", n)
+	}
+	// Once the background read has ended, its badge is fresh.
+	time.Sleep(1200 * time.Millisecond)
+	shellStatus(t, c, &v1.GetShellStatusRequest{System: "b"})
+	if n := a.summaries.Load(); n != 2 {
+		t.Errorf("a fresh badge was read again: %d reads", n)
+	}
+}
+
+// A system with no badge kept whose first read is slow is pending; the
+// other systems and the page system's part do not wait for it, and a later
+// call has it without reading it again.
+func TestShellStatusPendingBadge(t *testing.T) {
+	systems, _, b := shellSystems()
+	b.delay.Store(int64(800 * time.Millisecond))
+	h := &api.Handler{Systems: systems}
+	api.SetBadgeClock(h, nil, 100*time.Millisecond)
+	_, c := apitest.ServeHandler(t, h)
+	start := time.Now()
+	m := shellStatus(t, c, &v1.GetShellStatusRequest{System: "a"})
+	if took := time.Since(start); took > 500*time.Millisecond {
+		t.Errorf("the call took %v", took)
+	}
+	if !m.GetSystems()[1].GetPending() || m.GetSystems()[0].GetPending() || m.GetFreshness() == nil {
+		t.Fatalf("badges %v, freshness %v", m.GetSystems(), m.GetFreshness())
+	}
+	eventually(t, "the slow badge arrives", func() bool {
+		return !shellStatus(t, c, &v1.GetShellStatusRequest{System: "a"}).GetSystems()[1].GetPending()
+	})
+	if n := b.summaries.Load(); n != 1 {
+		t.Errorf("the slow badge was read %d times, want once", n)
+	}
+}
+
+// A runtime status that panics on a kept badge gives that badge an error.
+func TestShellStatusBadgePanic(t *testing.T) {
+	systems, _, _ := shellSystems()
+	var boom atomic.Bool
+	systems[1].Status = func() api.CollectionStatus {
+		if boom.Load() {
+			panic("status exploded")
+		}
+		return api.CollectionStatus{State: api.CollectionCollecting}
+	}
+	_, c := apitest.ServeHandler(t, &api.Handler{Systems: systems})
+	shellStatus(t, c, &v1.GetShellStatusRequest{})
+	boom.Store(true)
+	m := shellStatus(t, c, &v1.GetShellStatusRequest{})
+	if m.GetSystems()[1].GetError() == "" || m.GetSystems()[0].GetError() != "" {
+		t.Errorf("badges after a panic: %v", m.GetSystems())
 	}
 }
