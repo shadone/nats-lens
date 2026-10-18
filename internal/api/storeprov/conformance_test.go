@@ -88,6 +88,11 @@ func conformanceStore(t *testing.T) (*store.Store, *checks.Set) {
 			"is_leader": true, "leader": "nats-2", "messages": 5000 - e, "bytes": 50_000_000 - 100_000*e})
 	}
 	last := int64(confEpochs)
+	// Each server has one connection in the newest epoch.
+	for i, id := range ids {
+		r.add("connections", map[string]any{"epoch": last, "server_id": id, "cid": int64(10 + i), "name": "order-service",
+			"account": "APP", "ip": fmt.Sprintf("10.0.0.%d", 10+i)})
+	}
 	stream := func(name string) {
 		r.add("streams", map[string]any{"account": "APP", "stream": name, "first_epoch": 1, "last_epoch": last})
 	}

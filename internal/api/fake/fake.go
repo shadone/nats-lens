@@ -15,6 +15,7 @@ package fake
 import (
 	"cmp"
 	"context"
+	"slices"
 	"sync"
 	"time"
 
@@ -177,7 +178,12 @@ func (s scen) epochNumber(at time.Time) int64 {
 // scenario time at, by the rule its series use, so that an epoch then
 // missed it.
 func (s scen) anyDown(at time.Time) bool {
-	return s.sc.down != nil && s.sc.down(s.sc, s.clock(at))
+	return slices.ContainsFunc(s.sc.servers, func(sp serverSpec) bool { return s.downAt(sp, at) })
+}
+
+// downAt reports whether a server was down at the scenario time at.
+func (s scen) downAt(sp serverSpec, at time.Time) bool {
+	return s.sc.serverDown != nil && s.sc.serverDown(sp, s.clock(at))
 }
 
 // GetOverview returns the cluster, freshness, tally, worst finding, tiles

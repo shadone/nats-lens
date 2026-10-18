@@ -29,9 +29,10 @@ type scenario struct {
 	// history is how long before now the stored history begins; zero
 	// means defaultHistory, older than any range.
 	history time.Duration
-	// down reports whether a server was down at fixed-frame time c, so
-	// that an epoch then missed it; nil means never.
-	down func(sc *scenario, c time.Time) bool
+	// serverDown reports whether a server was down at fixed-frame time
+	// c, as its series draw it, so that an epoch then missed it and lists
+	// none of its connections; nil means never.
+	serverDown func(sp serverSpec, c time.Time) bool
 	// collection, collectionError and errorSince describe the collector;
 	// errorSince is a time in the fixed frame.
 	collection      v1.CollectionState

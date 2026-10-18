@@ -383,6 +383,20 @@ func Conformance() []State {
 			}
 			return ""
 		}},
+		{"a range without an epoch lists no connections", func(q Q) string {
+			list := func(r *v1.TimeRange) *v1.ListConnectionsResponse {
+				return must(q.env.Client.ListConnections(ctx, connect.NewRequest(&v1.ListConnectionsRequest{System: q.System, Range: r}))).of(q.t)
+			}
+			if list(q.day()).GetTotalCount() == 0 {
+				return ""
+			}
+			old := list(&v1.TimeRange{Start: timestamppb.New(q.env.Now.Add(-60 * 24 * time.Hour)), End: timestamppb.New(q.env.Now.Add(-40 * 24 * time.Hour))})
+			if old.GetEpoch() != 0 || old.GetTotalCount() != 0 || len(old.GetConnections()) != 0 {
+				q.t.Errorf("system %q: a range before the history lists epoch %d with %d connections", q.System, old.GetEpoch(), old.GetTotalCount())
+				return ""
+			}
+			return "empty"
+		}},
 		{"a system that collects", func(q Q) string {
 			s := q.summary()
 			if s.GetFreshness().GetCollecting() && s.GetFreshness().GetLive() && s.GetCollectionError() == "" {

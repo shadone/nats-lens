@@ -23,12 +23,14 @@ func (p *Provider) SystemSummary(_ context.Context, req *v1.ListSystemsRequest) 
 	if !p.sc.errorSince.IsZero() {
 		res.CollectionErrorSince = ts(p.sc.errorSince.Add(s.shift))
 	}
-	if res.GetFreshness().GetEpoch() != 0 {
+	if at, _, ok := s.epochBefore(r); ok {
 		res.Status, _ = worstStatus(cur, nil)
+		// Answering servers and connections as of the range's newest
+		// epoch, as freshness's partial.
 		var answering, conns int64
 		clusters := map[string]bool{}
 		for _, sp := range p.sc.servers {
-			if sp.answering() {
+			if !s.downAt(sp, at) {
 				answering++
 				conns += sp.conns
 			}
