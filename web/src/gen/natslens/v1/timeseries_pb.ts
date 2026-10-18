@@ -351,8 +351,9 @@ export const SeriesQuerySchema: GenMessage<SeriesQuery> = /*@__PURE__*/
 /**
  * Request for several series over one time range.
  *
- * The call may take 60 seconds; each query 30 seconds within them, as a
- * GetTimeSeries call does.
+ * The call may take 40 seconds; each query 30 seconds within them, as a
+ * GetTimeSeries call does. A query that takes longer fails the call as
+ * deadline_exceeded.
  *
  * @generated from message natslens.v1.GetTimeSeriesBatchRequest
  */

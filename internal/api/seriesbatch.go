@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"runtime/debug"
 	"sync"
+	"time"
 
 	"connectrpc.com/connect"
 
@@ -21,7 +22,9 @@ const batchParallelism = 4
 
 // BatchTimeout bounds the time one GetTimeSeriesBatch call may spend in
 // the provider; each of its queries has QueryTimeout of its own within it.
-const BatchTimeout = 2 * QueryTimeout
+// It stays under the web client's 45-second call timeout, which the
+// client sends as Connect-Timeout-Ms and which bounds every call.
+const BatchTimeout = 40 * time.Second
 
 // The limits of a batch and of each of its queries; tests shorten them.
 var (

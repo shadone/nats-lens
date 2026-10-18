@@ -667,8 +667,9 @@ func (x *SeriesQuery) GetMaxPoints() int32 {
 
 // Request for several series over one time range.
 //
-// The call may take 60 seconds; each query 30 seconds within them, as a
-// GetTimeSeries call does.
+// The call may take 40 seconds; each query 30 seconds within them, as a
+// GetTimeSeries call does. A query that takes longer fails the call as
+// deadline_exceeded.
 type GetTimeSeriesBatchRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Series to read; at least one and at most 32.
