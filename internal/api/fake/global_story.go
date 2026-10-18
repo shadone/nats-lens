@@ -62,7 +62,24 @@ func globalFindings(s scen) []*v1.Finding {
 			fmt.Sprintf("%s restarted at %02d:%02d:%02d UTC with version %s unchanged; 1 restart in the last 1h.", server, h, m, sec, globalVersion))
 	}
 
-	return []*v1.Finding{us4, replica("shipping-updates", "nats-us-5"), replica("price-changes", "nats-us-2"), labels, slow, backlog, full,
+	// nats-ap-4 missed the edit of max_age from 7d to 3d at 13:05.
+	config := finding("stream-007", "Stream configuration differs across servers", warning, firing, streamRef("customer-notifications"),
+		s.at(13, 5, 30), s.at(13, 5, 30), "2 configurations (nats-ap-2, nats-ap-3 | nats-ap-4); differing: max_age.")
+	config.Value = &v1.FindingValue{Name: "distinct configurations", Display: "2", Number: ptr(2.0), Basis: "configuration hashes the servers report"}
+	config.Remediation = "nats-ap-4 kept max_age 7d when the stream was edited to 3d at 13:05, so it keeps messages the others removed. " +
+		"Apply the definition again (`nats stream edit customer-notifications --max-age 3d`); if nats-ap-4 still differs, " +
+		"step the leader down (`nats stream cluster step-down customer-notifications`) so the replicas resynchronise."
+
+	// nats-us-3 answered again at 09:06 without its replica; the check
+	// leaves a restarting server out for 10 minutes.
+	absent := finding("stream-010", "Stream missing on an assigned server", warning, firing, streamRef("return-requests"),
+		s.at(9, 17, 0), s.at(9, 17, 0), "Leader nats-us-6 assigns the stream to nats-us-3, which answered JSZ without it.")
+	absent.Value = &v1.FindingValue{Name: "assigned servers without the stream", Display: "1", Number: ptr(1.0),
+		Basis: "assigned peers that answered JSZ and do not report the stream"}
+	absent.Remediation = "nats-us-3 came back from the upgrade without its replica of return-requests. If it does not appear, " +
+		"remove it (`nats stream cluster peer-remove return-requests nats-us-3`) so the meta leader places a new replica that copies the stream from nats-us-6."
+
+	return []*v1.Finding{us4, replica("shipping-updates", "nats-us-5"), replica("price-changes", "nats-us-2"), labels, slow, backlog, full, config, absent,
 		version("nats-ap-4"), version("nats-ap-5"),
 		restarted("nats-us-1", 8, 46, 10), restarted("nats-us-2", 8, 58, 30), restarted("nats-us-3", 9, 6, 40),
 		resolvedFinding("stream-001", "Stream quorum lost", critical, streamRef("inventory-changes"), s.at(8, 58, 40), s.at(9, 1, 0),
@@ -118,6 +135,13 @@ func globalEvents(s scen, fs []*v1.Finding) []*v1.Event {
 		findingEvent("server-009:nats-us-3", firing, s.at(13, 41, 0), "finding.firing", "nats-us-3: 4 slow consumers in the last 15m"),
 		findingEvent("consumer-002:"+Account+"/shipping-updates/label-printer", firing, s.at(13, 40, 0), "finding.firing",
 			"label-printer on shipping-updates: fill 24.5/s, drain 21.4/s"),
+	)
+	out = append(out,
+		findingEvent("stream-007:"+Account+"/customer-notifications", firing, s.at(13, 5, 30), "finding.firing",
+			"customer-notifications: nats-ap-4 differs in max_age"),
+		nats(s.at(13, 5, 2), "stream.updated", "STREAM.UPDATED", "nats-ap-2", "customer-notifications", "customer-notifications updated: max_age 7d -> 3d"),
+		findingEvent("stream-010:"+Account+"/return-requests", firing, s.at(9, 17, 0), "finding.firing",
+			"return-requests: nats-us-3 answers without its replica"),
 	)
 	out = append(out,
 		k8s(s.at(9, 20, 30), "k8s.node.upgrade", "NodePoolUpgrade", "", "pool-us upgrade stopped: 3 of 4 nodes on 1.33.4-gke.1245"),
@@ -178,6 +202,10 @@ func globalRows(*scenario) []rowSpec {
 		{"stream-001", "Stream quorum lost", critical, []*v1.EntityRef{streamRef("inventory-changes")}, []span{{f(8, 58, 40), f(9, 1, 0)}}},
 		{"server-004", "Server restarted", info, []*v1.EntityRef{us(1), us(2), us(3)},
 			[]span{{f(8, 46, 10), f(8, 56, 10)}, {f(8, 58, 30), f(9, 8, 30)}, {f(9, 6, 40), f(9, 16, 40)}}},
+		{"stream-007", "Stream configuration differs across servers", warning, []*v1.EntityRef{streamRef("customer-notifications")},
+			[]span{{f(13, 5, 30), open}}},
+		{"stream-010", "Stream missing on an assigned server", warning, []*v1.EntityRef{streamRef("return-requests")},
+			[]span{{f(9, 17, 0), open}}},
 		{"server-014", "JetStream store full soon", warning, []*v1.EntityRef{serverRef("nats-ap-2")}, []span{{f(12, 6, 0), open}}},
 		{"server-005", "Version differs from the majority", info, []*v1.EntityRef{serverRef("nats-ap-4"), serverRef("nats-ap-5")},
 			[]span{{day(14, 10, 0), open}}},
