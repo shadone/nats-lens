@@ -124,9 +124,11 @@ export function useStreams(spec: RangeSpec, includeKv = false) {
 
 /**
  * The streams that fill a filter. Not polled, whatever the range, and not
- * read again on window focus: a stream added meanwhile appears only when a
- * page using it mounts more than five minutes after the last read, or on a
- * reload. A failed read leaves the filter without streams until then.
+ * read again on window focus. Read again when a page using it mounts more
+ * than five minutes after the last successful read, when the network comes
+ * back after that, when the system or range changes, or on a reload. A
+ * failed read keeps the streams last read; with none, the next mount tries
+ * again.
  */
 export function useStreamNames(spec: RangeSpec) {
   const sys = useSystem();
