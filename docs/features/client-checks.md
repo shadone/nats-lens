@@ -6,7 +6,7 @@
 
 ## What it does
 
-The client checks judge the applications connected to NATS: whether their round trip time is high, whether the server queues bytes they cannot read fast enough, whether they were disconnected as slow consumers, and whether they keep reconnecting. A client finding is keyed by connection name rather than by connection, so it survives reconnects and covers every instance that uses the name. Clients without a name are grouped as `(unnamed)`. There are 4 client checks, `client-001` to `client-004`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
+The client checks judge the applications connected to NATS: whether their round trip time is high, whether the server queues bytes they cannot read fast enough, whether they were disconnected as slow consumers, whether they keep reconnecting, and whether they open connections that last only seconds. A client finding is keyed by connection name rather than by connection, so it survives reconnects and covers every instance that uses the name. Clients without a name are grouped as `(unnamed)`. There are 5 client checks, `client-001` to `client-005`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
 
 ## The checks
 
@@ -46,11 +46,20 @@ The client checks judge the applications connected to NATS: whether their round 
 - **Keyed by:** the whole connection name, so instances that share a name are merged.
 - **Left out:** connects alone (a service that scales out opens one connection per instance under one name), disconnects the client asked for, disconnects caused by a server stopping, and tooling connections unless `checks.include_tooling` is set.
 
+### `client-005` Short-lived connections
+
+- **Problem:** connections with this name are opened and closed by the client itself within seconds, again and again. Each one costs a TCP and TLS handshake, authentication, and a connect and a disconnect advisory on the server. A client that opens a connection per request, per reconcile loop or per job step should keep one long-lived connection instead. A process that crashes, or exits after each unit of work, and is restarted looks the same when it closes its connection cleanly, so check its pod restarts too.
+- **Fires when:** within the lookback, the connects folded into `client.churn` events of the name add up to at least `min_short_connections`. Each such connect had its disconnect, with the reason "Client Closed", within `events.churn.pair_within`. The detail gives the count, the rate per minute, the client hosts (five, then how many more) and the servers, for example "120 connections closed by the client within seconds in the last 10m (about 12 a minute) from 10.0.0.5 (nats-0, nats-1)."
+- **Severity:** warning.
+- **Thresholds:** lookback 10m, `min_short_connections` 20.
+- **Keyed by:** the whole connection name, so instances that share a name are merged.
+- **Left out:** connections that stay open longer than `events.churn.pair_within` (a job that connects for minutes at a time), connections that end for another reason, and tooling connections unless `checks.include_tooling` is set.
+
 ## Behavior and rules
 
-- **By name, not by connection.** A connection ID changes with every reconnect, so client findings are keyed by connection name. `client-001` uses the part before "@"; the other three use the whole name.
+- **By name, not by connection.** A connection ID changes with every reconnect, so client findings are keyed by connection name. `client-001` uses the part before "@"; the other four use the whole name.
 - **Tooling connections are left out.** nats-lens's own connections and, by default, clients from 127.0.0.1 or ::1 do not count, with the loopback guard described in [checks.md](checks.md). The Connections page marks them "tooling".
-- **Events feed two of the checks.** `client-003` and `client-004` read the connect and disconnect events, so they need event capture (on by default in `natslens run`).
+- **Events feed three of the checks.** `client-003`, `client-004` and `client-005` read the connect, disconnect and `client.churn` events, so they need event capture (on by default in `natslens run`). `client-005` also needs `events.churn.collapse`, on by default.
 
 ## Scenarios
 
@@ -72,6 +81,13 @@ The client checks judge the applications connected to NATS: whether their round 
 - **Given** a client named `callback-delivery` disconnected four times in 10 minutes with the reason "Stale Connection", and connected again each time
 - **When** nats-lens collects
 - **Then** `client-004` fires for `callback-delivery`, with the reasons in the detail
+
+### A poller opens a connection for every poll
+
+- **Given** a client named `stock-poller` connects, makes one request and closes its connection about 12 times a minute
+- **When** nats-lens collects
+- **Then** the Events page hides its `client.churn` events as routine
+- **And** `client-005` fires for `stock-poller`, with the count, the rate, its host and the servers in the detail
 
 ### Count tooling as clients
 
