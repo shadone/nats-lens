@@ -48,6 +48,8 @@ func prodRows(*scenario) []rowSpec {
 			[]span{{on16(19, 0), on16(19, 30)}, {f(7, 30, 0), f(7, 45, 0)}, {f(8, 15, 0), f(8, 30, 0)}, {f(11, 0, 0), open}}},
 		{"client-003", "Slow consumer disconnects", warning, []*v1.EntityRef{clientRef("media-worker")},
 			[]span{{on16(22, 15), on16(22, 30)}, {f(9, 15, 0), f(9, 45, 0)}}},
+		{"client-005", "Short-lived connections", warning, []*v1.EntityRef{clientRef("stock-poller")},
+			[]span{{f(12, 48, 0), open}}},
 		{"stream-005", "Stream without any limit", info, []*v1.EntityRef{streamRef("order-archive")},
 			[]span{{time.Date(2026, 10, 14, 14, 30, 0, 0, time.UTC), open}}},
 	}

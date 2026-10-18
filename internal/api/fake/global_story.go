@@ -141,7 +141,8 @@ func globalEvents(s scen, fs []*v1.Finding) []*v1.Event {
 		k8s(s.at(8, 40, 12), "k8s.node.drained", "NodeDrain", "", "node gke-example-pool-us-17bd cordoned and drained"),
 	)
 	// Short connections of search-api fill the hours before the upgrade,
-	// one churn summary per minute in which it reconnected.
+	// one churn summary per minute in which it reconnected; 2 to 5 each,
+	// below client-005's threshold in any 10 minutes.
 	for k := range 240 {
 		sv := s.sc.servers[k%len(s.sc.servers)]
 		if !sv.answering() {
@@ -151,7 +152,7 @@ func globalEvents(s scen, fs []*v1.Finding) []*v1.Event {
 		out = append(out, &v1.Event{
 			Time: ts(s.at(8, 30, 0).Add(-time.Duration(k) * 160 * time.Second)), Source: srcNATS, Kind: "client.churn", Type: "CLIENT.CHURN",
 			Server: sv.name, Account: Account, ClientName: "search-api", ClientHost: host, Reason: "Client Closed",
-			Summary: fmt.Sprintf("search-api connected and disconnected %d times in 1 min (each closed by the client within 10 s)", 4+k%7),
+			Summary: fmt.Sprintf("search-api connected and disconnected %d times in 1 min (each closed by the client within 10 s)", 2+k%4),
 		})
 	}
 	out = append(out, globalRoutineEvents(s)...)
