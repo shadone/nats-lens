@@ -1,6 +1,6 @@
 // Consumers: backlog and status per consumer, worst first.
 import { useSearchParams } from "react-router";
-import { useConsumers, useStreams } from "../api/queries";
+import { useConsumers, useStreamNames } from "../api/queries";
 import { Empty, QueryView } from "../components/common";
 import { ConsumersTable } from "../components/EntityParts";
 import { usePageTitle } from "../lib/usePageTitle";
@@ -18,8 +18,8 @@ export function Consumers() {
   const [scope] = useAccountScope();
   // A chosen stream names its own account; without one the account scope applies.
   const [account = "", streamName = ""] = stream ? stream.split("/") : [scope];
-  const streams = useStreams(spec).data?.streams ?? [];
-  const streamLabel = accountLabeller(streams.map((s) => s.entity));
+  const streams = useStreamNames(spec).data ?? [];
+  const streamLabel = accountLabeller(streams);
   const q = useConsumers(spec, { account, stream: streamName, includeEphemeral: eph });
   const set = (k: string, v: string) =>
     setParams((p) => {
@@ -39,8 +39,8 @@ export function Consumers() {
           <select value={stream} onChange={(e) => set("stream", e.target.value)}>
             <option value="">All streams</option>
             {streams.map((s) => (
-              <option key={s.entity.key} value={`${s.entity.account}/${s.entity.stream}`}>
-                {`${s.entity.stream} (${streamLabel(s.entity.account, s.entity.accountName)})`}
+              <option key={s.key} value={`${s.account}/${s.stream}`}>
+                {`${s.stream} (${streamLabel(s.account, s.accountName)})`}
               </option>
             ))}
           </select>
