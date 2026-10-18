@@ -9,6 +9,9 @@ import type { Entity } from "./model";
 import * as api from "./requests";
 import { useCurrentSystem } from "./systems";
 
+/** How long the names that fill a filter are kept before a mount reads them again. */
+export const FILTER_NAMES_STALE_MS = 5 * 60_000;
+
 function refetch(spec: RangeSpec) {
   return spec.kind === "live" ? LIVE_REFRESH_MS : false;
 }
@@ -115,6 +118,21 @@ export function useStreams(spec: RangeSpec, includeKv = false) {
     queryKey: ["streams", sys, rangeKey(spec), includeKv],
     queryFn: ({ signal }) => api.listStreams(sys, spec, includeKv, signal),
     refetchInterval: refetch(spec),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * The streams that fill a filter. Not polled, whatever the range: a stream
+ * added meanwhile appears after five minutes or on a reload.
+ */
+export function useStreamNames(spec: RangeSpec) {
+  const sys = useSystem();
+  return useQuery({
+    queryKey: ["streamNames", sys, rangeKey(spec)],
+    queryFn: async ({ signal }) => (await api.listStreams(sys, spec, false, signal)).streams.map((s) => s.entity),
+    refetchInterval: false,
+    staleTime: FILTER_NAMES_STALE_MS,
     placeholderData: keepPreviousData,
   });
 }
