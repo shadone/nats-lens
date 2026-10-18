@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MatrixFilter } from "../api/placementMatrix";
@@ -73,7 +73,7 @@ describe("Placement", () => {
     expect(heads[0]).toBe("Asset");
     expect(heads[1]).toMatch(/^nats-0leads 2 · 256 MiB · up 1d 23h$/);
     expect(heads[2]).toMatch(/meta leader/);
-    expect(screen.getByRole("button", { name: /resize-worker on nats-1: in sync, differs: creation time, created 10-13 08:03/ })).toHaveClass("t-disagree");
+    expect(screen.getByRole("button", { name: /resize-worker of order-jobs on nats-1: in sync, differs: creation time, created 10-13 08:03/ })).toHaveClass("t-disagree");
     expect(screen.getByRole("button", { name: /^order-jobs on nats-0: leader, last seq 7,378$/ })).toHaveClass("t-ok");
     // KV_flags holds no replica on nats-0: a cell that is not a button.
     const kvRow = screen.getAllByRole("row")[1];
@@ -98,7 +98,7 @@ describe("Placement", () => {
   it("compares with this time yesterday and marks the cells that changed", async () => {
     const user = setupUser();
     renderApp(<Placement />, "/placement");
-    await screen.findByRole("button", { name: /order-jobs on nats-2: offline/ });
+    await screen.findByRole("button", { name: /^order-jobs on nats-2: offline/ });
     await user.selectOptions(screen.getByRole("combobox", { name: "Compare with" }), "1d");
     expect(screen.getByTestId("location").textContent).toBe("/placement?cmp=1d");
     await waitFor(() => expect(screen.getByRole("status", { name: "" })).toHaveTextContent(/: 2 cells differ\./));
@@ -107,9 +107,9 @@ describe("Placement", () => {
     expect(spec.to - spec.from).toBe(3_600_000);
     expect(Math.abs(Date.now() - 86_400_000 - spec.to)).toBeLessThan(120_000);
     expect(fixedCall[2]).toBe("all");
-    expect(screen.getByRole("button", { name: /^order-jobs on nats-2: offline.*changed: in sync at/ })).toHaveClass("changed");
-    expect(screen.getByRole("button", { name: /^index-worker on nats-2: offline.*changed: in sync at/ })).toHaveClass("changed");
-    expect(screen.getByRole("button", { name: /^resize-worker on nats-2/ })).not.toHaveClass("changed");
+    expect(screen.getByRole("button", { name: /^order-jobs on nats-2: offline, changed: in sync at/ })).toHaveClass("changed");
+    expect(screen.getByRole("button", { name: /^index-worker of order-jobs on nats-2: offline, changed: in sync at/ })).toHaveClass("changed");
+    expect(screen.getByRole("button", { name: /^resize-worker of order-jobs on nats-2/ })).not.toHaveClass("changed");
   });
 
   it("offers a custom time to compare with, in UTC", async () => {
@@ -128,7 +128,7 @@ describe("Placement", () => {
   it("opens the side panel on a cell with each server's creation time and the command to copy", async () => {
     const user = setupUser();
     renderApp(<Placement />, "/placement");
-    await user.click(await screen.findByRole("button", { name: /^resize-worker on nats-1/ }));
+    await user.click(await screen.findByRole("button", { name: /^resize-worker of order-jobs on nats-1/ }));
     expect(screen.getByTestId("location").textContent).toBe("/placement?asset=APP%2Forder-jobs%2Fresize-worker&server=nats-1");
     const panel = screen.getByRole("complementary", { name: "resize-worker" });
     expect(within(panel).getByText(/seen from/)).toHaveTextContent("on order-jobs · seen from nats-1");
@@ -146,7 +146,7 @@ describe("Placement", () => {
     // Step down copies the command; nothing runs it.
     await user.click(within(panel).getByRole("button", { name: "Copy command" }));
     expect(clip).toHaveBeenLastCalledWith("nats consumer cluster step-down -- order-jobs resize-worker");
-    expect(screen.getByRole("button", { name: /^resize-worker on nats-1/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /^resize-worker of order-jobs on nats-1/ })).toHaveAttribute("aria-pressed", "true");
     await user.click(within(panel).getByRole("button", { name: "Close the selected cell" }));
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
     expect(screen.getByTestId("location").textContent).toBe("/placement");
@@ -160,6 +160,43 @@ describe("Placement", () => {
     expect(within(panel).getByText(/lists this replica as offline/)).toBeInTheDocument();
     await user.click(within(panel).getByRole("button", { name: "Copy" }));
     expect(await within(panel).findByText(/did not allow copying/)).toBeInTheDocument();
+  });
+
+  it("says which account and system the copied commands need a context for", async () => {
+    renderApp(<Placement />, "/placement?system=example-global&asset=APP%2Forder-jobs&server=nats-0");
+    const panel = await screen.findByRole("complementary", { name: "order-jobs" });
+    expect(within(panel).getAllByText("Run with a nats context for account APP on example-global.")).toHaveLength(2);
+  });
+
+  it("counts the changes over every asset, not only the listed ones", async () => {
+    renderApp(<Placement />, "/placement?filter=disagree&cmp=1d");
+    await waitFor(() => expect(screen.getByRole("status", { name: "" })).toHaveTextContent(/: 2 cells differ\./));
+  });
+
+  it("shows no earlier moment's matrix while a new one loads", async () => {
+    const user = userEvent.setup();
+    renderApp(<Placement />, "/placement?cmp=1d");
+    await waitFor(() => expect(screen.getByRole("status", { name: "" })).toHaveTextContent(/cells differ/));
+    vi.mocked(requests.getPlacement).mockImplementation(async (_s: string, spec: RangeSpec) => (spec.kind === "fixed" ? new Promise(() => {}) : now()));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Compare with" }), "custom");
+    fireEvent.change(screen.getByLabelText("Time to compare with, UTC"), { target: { value: "2026-10-15T09:00" } });
+    await waitFor(() => expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Loading the matrix of 15 Oct 09:00 UTC"));
+  });
+
+  it("says so when the range holds no collection", async () => {
+    vi.mocked(requests.getPlacement).mockResolvedValue(mmatrix([], { epochAt: undefined, counts: { all: 0, disagree: 0, behind: 0, missing: 0, single: 0 } }));
+    renderApp(<Placement />, "/placement");
+    expect(await screen.findByText("No collection in this range.")).toBeInTheDocument();
+  });
+
+  it("names a cell without repeating its state, and says both for two servers", async () => {
+    vi.mocked(requests.getPlacement).mockResolvedValue(
+      mmatrix([masset("stream", "orders", "", [mcell("nats-0", "leader", { lastSeq: 3 }), mcell("nats-1", "offline"), mcell("nats-2", "in_sync", { lastSeq: 3 })])]),
+    );
+    renderApp(<Placement />, "/placement?asset=APP%2Forders&server=nats-0");
+    expect(await screen.findByRole("button", { name: "orders on nats-1: offline" })).toBeInTheDocument();
+    const panel = screen.getByRole("complementary", { name: "orders" });
+    expect(within(panel).getByText("Positions").nextElementSibling).toHaveTextContent("equal on both servers that report one");
   });
 
   it("shows no command for a name with a line break", async () => {

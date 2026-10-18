@@ -4,7 +4,8 @@
 import type { ReactNode } from "react";
 import type { MatrixAsset, MatrixCell } from "../api/placementMatrix";
 import { fmtDuration, fmtInt, isoSecond } from "../lib/format";
-import { CELL_LABEL, infoCommand, isConsumer, meaning, momentText, peersAgree, stepDownCommand, type Change } from "../lib/placementView";
+import { useSystem } from "../lib/useSystem";
+import { CELL_LABEL, contextNote, infoCommand, isConsumer, meaning, momentText, peersAgree, stepDownCommand, type Change } from "../lib/placementView";
 import { entityPath } from "../lib/view";
 import { Dash, RLink } from "./common";
 import { CopyCommand } from "./CopyCommand";
@@ -50,6 +51,7 @@ export function PlacementPanel({
   compareAt?: number;
   onClose: () => void;
 }) {
+  const system = useSystem();
   const consumer = isConsumer(a);
   const others = a.cells.filter((x) => x.server !== c.server);
   const pos = position(a, c);
@@ -96,7 +98,9 @@ export function PlacementPanel({
         {agree.reporting > 1 && (
           <Row term="Positions" warn={!agree.agree}>
             {agree.agree
-              ? `equal on all ${agree.reporting} servers that report one`
+              ? agree.reporting === 2
+                ? "equal on both servers that report one"
+                : `equal on all ${agree.reporting} servers that report one`
               : others
                   .map((o) => `${o.server}: ${position(a, o) ?? "none"}`)
                   .join("; ")}
@@ -115,7 +119,7 @@ export function PlacementPanel({
         <b>What it means</b>
         <p>{meaning(a, c)}</p>
       </div>
-      <CopyCommand label="Check by hand" command={infoCommand(a, c)} />
+      <CopyCommand label="Check by hand" command={infoCommand(a, c)} note={contextNote(a, system)} />
       <div className="pm-links">
         <RLink to={`/events?${eventsQuery}`} className="btn">
           Events for this {consumer ? "consumer" : "stream"}
@@ -128,7 +132,7 @@ export function PlacementPanel({
       </div>
       {a.leader && (
         <>
-          <CopyCommand label={`Step down leader ${a.leader}`} command={stepDownCommand(a)} button="Copy command" />
+          <CopyCommand label={`Step down leader ${a.leader}`} command={stepDownCommand(a)} button="Copy command" note={contextNote(a, system)} />
           <p className="pm-note">nats-lens changes nothing in NATS: it copies the command, and you decide whether to run it.</p>
         </>
       )}
