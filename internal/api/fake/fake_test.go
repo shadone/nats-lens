@@ -201,8 +201,16 @@ func TestFreshnessFollowsTheRange(t *testing.T) {
 	}
 	past := &v1.TimeRange{Start: timestamppb.New(at(8, 0, 0)), End: timestamppb.New(at(10, 0, 0))}
 	o := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{Range: past})))
-	if o.GetFreshness().GetEpoch() != 0 || o.GetServers()[0].GetUptime().AsDuration() != 42*time.Minute {
-		t.Fatalf("09:00-10:00: freshness %v, nats-0 uptime %v", o.GetFreshness(), o.GetServers()[0].GetUptime().AsDuration())
+	// The range's newest epoch is the last before 10:00 on the 30-second
+	// grid of the newest, 540 epochs back, as the store reports it.
+	if f := o.GetFreshness(); f.GetEpoch() != 1194 || !f.GetEpochAt().AsTime().Equal(at(9, 59, 56)) ||
+		o.GetServers()[0].GetUptime().AsDuration() != 42*time.Minute {
+		t.Fatalf("08:00-10:00: freshness %v, nats-0 uptime %v", f, o.GetServers()[0].GetUptime().AsDuration())
+	}
+	// A range before the history holds no epoch.
+	old := &v1.TimeRange{Start: timestamppb.New(fake.FixedNow.Add(-60 * 24 * time.Hour)), End: timestamppb.New(fake.FixedNow.Add(-40 * 24 * time.Hour))}
+	if f := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{Range: old}))).GetFreshness(); f.GetEpoch() != 0 || f.GetEpochAt() != nil {
+		t.Fatalf("before the history: freshness %v", f)
 	}
 }
 
