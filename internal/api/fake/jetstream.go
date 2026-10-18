@@ -152,8 +152,9 @@ func (p *Provider) GetStream(_ context.Context, req *v1.GetStreamRequest) (*v1.G
 			v.IsLeader, v.Current, v.Lag = false, false, nil
 		}
 		if sv, _ := p.sc.server(name); !sv.answering() {
-			// A replica on a server that does not answer reports nothing.
-			v = &v1.StreamServerView{Server: name}
+			// A server that does not answer reports no view, as in the
+			// store.
+			continue
 		}
 		res.Servers = append(res.Servers, v)
 		hashes.Values = append(hashes.Values, &v1.ServerValue{Server: name, Value: v.GetConfigHash()})
@@ -282,6 +283,9 @@ func (p *Provider) GetConsumer(_ context.Context, req *v1.GetConsumerRequest) (*
 	if disagree {
 		dis := &v1.Disagreement{Field: "created"}
 		for i, name := range peers {
+			if sv, _ := p.sc.server(name); !sv.answering() {
+				continue
+			}
 			dis.Values = append(dis.Values, &v1.ServerValue{Server: name, Value: created[i].Format(time.RFC3339)})
 		}
 		res.Disagreements = append(res.Disagreements, dis)
@@ -292,7 +296,8 @@ func (p *Provider) GetConsumer(_ context.Context, req *v1.GetConsumerRequest) (*
 			Created: ts(created[i]), ConfigHash: "9e02b7",
 		}
 		if sv, _ := p.sc.server(name); !sv.answering() {
-			v = &v1.ConsumerServerView{Server: name}
+			// A server that does not answer reports no view.
+			continue
 		}
 		res.Servers = append(res.Servers, v)
 	}
