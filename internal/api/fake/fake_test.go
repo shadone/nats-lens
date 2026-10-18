@@ -3,6 +3,7 @@ package fake_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -204,7 +205,7 @@ func TestFreshnessFollowsTheRange(t *testing.T) {
 	// The range's newest epoch is the last before 10:00 on the 30-second
 	// grid of the newest, 540 epochs back, as the store reports it.
 	if f := o.GetFreshness(); f.GetEpoch() != 85860 || !f.GetEpochAt().AsTime().Equal(at(9, 59, 56)) ||
-		o.GetServers()[0].GetUptime().AsDuration() != 42*time.Minute {
+		o.GetServers()[0].GetUptime().AsDuration() != 41*time.Minute+56*time.Second { // as of that epoch
 		t.Fatalf("08:00-10:00: freshness %v, nats-0 uptime %v", f, o.GetServers()[0].GetUptime().AsDuration())
 	}
 	// A range before the history holds no epoch.
@@ -338,5 +339,36 @@ func TestConnectionsAndFleetFollowTheEpoch(t *testing.T) {
 				t.Errorf("..09:17: %d connections, want %d", s.GetConnections(), want)
 			}
 		}
+	}
+}
+
+// Servers and accounts read the range's newest epoch too: at 09:17 nats-0
+// is down, so it is missing, not present, and its 61 connections are not
+// counted; before 09:18 its summary is the process it restarted from.
+// Without an epoch in the range the account's counts are unset.
+func TestServersAndAccountsFollowTheEpoch(t *testing.T) {
+	c := demo(t)
+	r := &v1.TimeRange{Start: timestamppb.New(at(8, 17, 0)), End: timestamppb.New(at(9, 17, 0))}
+	sv := must(c.ListServers(ctx, connect.NewRequest(&v1.ListServersRequest{System: fake.Cluster, Range: r})))
+	if strings.Join(sv.GetMissing(), ",") != "nats-0" {
+		t.Errorf("missing at 09:17 = %v, want nats-0", sv.GetMissing())
+	}
+	for _, s := range sv.GetServers() {
+		if (s.GetName() == "nats-0") == s.GetPresent() || s.GetUptime().AsDuration() <= 0 {
+			t.Errorf("%s at 09:17: present %v, healthz %q, uptime %v", s.GetName(), s.GetPresent(), s.GetHealthz(), s.GetUptime().AsDuration())
+		}
+	}
+	o := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{System: fake.Cluster, Range: r})))
+	if o.GetServers()[0].GetPresent() || o.GetServers()[0].GetServerId() != "NB71FAKE0OLDPROCESS" {
+		t.Errorf("overview nats-0 at 09:17 = %v", o.GetServers()[0])
+	}
+	acc := must(c.ListAccounts(ctx, connect.NewRequest(&v1.ListAccountsRequest{System: fake.Cluster, Range: r}))).GetAccounts()
+	if len(acc) != 1 || acc[0].GetConnections() != 121 {
+		t.Errorf("accounts at 09:17 = %v, want 121 connections", acc)
+	}
+	live := &v1.TimeRange{Start: timestamppb.New(fake.FixedNow.Add(-time.Hour)), End: timestamppb.New(fake.FixedNow)}
+	acc = must(c.ListAccounts(ctx, connect.NewRequest(&v1.ListAccountsRequest{System: fake.StagingSystem, Range: live}))).GetAccounts()
+	if len(acc) != 1 || acc[0].Connections != nil || acc[0].Streams != nil || acc[0].Consumers != nil {
+		t.Errorf("staging accounts after its stop = %v, want counts unset", acc)
 	}
 }

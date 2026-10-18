@@ -397,6 +397,33 @@ func Conformance() []State {
 			}
 			return "empty"
 		}},
+		// The range's newest epoch, in the last hour or one ending every
+		// 5 minutes over the 6 hours before: a server it missed has no
+		// connections listed, while the others have.
+		{"a server missing at a range's epoch has no connections listed", func(q Q) string {
+			for back := time.Duration(0); back <= 6*time.Hour; back += 5 * time.Minute {
+				end := q.env.Now.Add(-back)
+				r := &v1.TimeRange{Start: timestamppb.New(end.Add(-time.Hour)), End: timestamppb.New(end)}
+				missing := must(q.env.Client.ListServers(ctx, connect.NewRequest(&v1.ListServersRequest{System: q.System, Range: r}))).of(q.t).GetMissing()
+				if len(missing) == 0 {
+					continue
+				}
+				count := func(server string) int32 {
+					return must(q.env.Client.ListConnections(ctx, connect.NewRequest(&v1.ListConnectionsRequest{System: q.System, Range: r, Server: server}))).of(q.t).GetTotalCount()
+				}
+				if count("") == 0 {
+					continue
+				}
+				for _, name := range missing {
+					if n := count(name); n != 0 {
+						q.t.Errorf("system %q: %s, missing in the epoch before %v, has %d connections listed", q.System, name, end, n)
+						return ""
+					}
+				}
+				return fmt.Sprintf("%v before %v", missing, end.Format("15:04"))
+			}
+			return ""
+		}},
 		{"a system that collects", func(q Q) string {
 			s := q.summary()
 			if s.GetFreshness().GetCollecting() && s.GetFreshness().GetLive() && s.GetCollectionError() == "" {
