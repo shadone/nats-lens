@@ -33,8 +33,13 @@ export function Placement() {
   // ask for a new one every tick.
   const raw = momentOf(cmp, end);
   const at = raw === undefined ? undefined : Math.floor(raw / 60_000) * 60_000;
-  const cq = usePlacement(compareSpec(at ?? 0), "all", at !== undefined);
-  const changed = useMemo(() => (q.data && cq.data && at !== undefined ? diff(q.data, cq.data) : undefined), [q.data, cq.data, at]);
+  // The moment's matrix shows nothing of the moment before while it
+  // loads. Changes are counted over every asset, not only the listed ones,
+  // so the page also reads the unfiltered matrix (the same call as the
+  // matrix itself when no filter applies).
+  const cq = usePlacement(compareSpec(at ?? 0), "all", at !== undefined, false);
+  const all = usePlacement(spec, "all", at !== undefined);
+  const changed = useMemo(() => (all.data && cq.data && at !== undefined ? diff(all.data, cq.data) : undefined), [all.data, cq.data, at]);
   const panel = useRef<HTMLDivElement>(null);
 
   const set = (next: Record<string, string>, push = false) =>
@@ -103,7 +108,7 @@ export function Placement() {
         <p className="pm-cmp-line" role="status">
           {cq.error
             ? `Could not load the matrix to compare with: ${errorText(cq.error)}`
-            : !cq.data
+            : !cq.data || !all.data
               ? `Loading the matrix of ${momentText(at)}…`
               : cq.data.epochAt === undefined
                 ? `No collection in the hour before ${momentText(at)}; nothing to compare with.`
@@ -112,6 +117,7 @@ export function Placement() {
       )}
       <QueryView q={q} what="the placement">
         {(m) => {
+          if (m.epochAt === undefined) return <Empty>No collection in this range.</Empty>;
           if (m.counts.all === 0) return <Empty>No streams in the newest collection of this range.</Empty>;
           if (m.streams.length === 0) {
             return <Empty>No stream or consumer matches “{MATRIX_FILTERS.find((f) => f.id === filter)!.label}” in this collection.</Empty>;

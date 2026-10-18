@@ -49,8 +49,9 @@ func (p *Provider) GetPlacement(_ context.Context, req *v1.GetPlacementRequest) 
 }
 
 // fillAsset turns an asset's squares into cells with each reporting
-// server's view and the peers it names: the stream's other peers that
-// are not offline at the epoch.
+// server's view and the peers it names: every other peer of the stream,
+// offline and missing ones included, as a server's replica list names
+// them.
 func (s scen) fillAsset(a *v1.PlacementAsset, sp streamSpec, squares []*v1.ReplicaPlacement, views map[string]*v1.PlacementCell) {
 	peers := slices.Sorted(slices.Values(s.sc.peers(sp)))
 	for _, sq := range squares {

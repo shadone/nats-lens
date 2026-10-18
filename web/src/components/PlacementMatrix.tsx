@@ -39,7 +39,9 @@ export function assetMeta(a: MatrixAsset): string {
 function cellLabel(a: MatrixAsset, c: MatrixCell, change: Change | undefined, compareAt: number | undefined): string {
   const differs = c.differs.length ? `, differs: ${c.differs.map((d) => (d === "config_hash" ? "configuration" : "creation time")).join(" and ")}` : "";
   const changed = change && compareAt !== undefined ? `, changed: ${CELL_LABEL[change.then]} at ${momentText(compareAt)}` : "";
-  return `${a.entity.name} on ${c.server}: ${CELL_LABEL[c.state]}${differs}, ${cellText(a, c)}${changed}`;
+  const name = isConsumer(a) ? `${a.entity.name} of ${a.entity.stream}` : a.entity.name;
+  const text = cellText(a, c);
+  return `${name} on ${c.server}: ${CELL_LABEL[c.state]}${differs}${text === CELL_LABEL[c.state] ? "" : `, ${text}`}${changed}`;
 }
 
 function Row({

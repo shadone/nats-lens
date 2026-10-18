@@ -124,6 +124,16 @@ export function stepDownCommand(a: MatrixAsset): string | undefined {
   return natsCommand([isConsumer(a) ? "consumer" : "stream", "cluster", "step-down"], names(a));
 }
 
+/**
+ * Which nats context a copied command needs: the commands name neither
+ * the account nor the system. system is the page's ?system=, "" for the
+ * default one.
+ */
+export function contextNote(a: MatrixAsset, system: string): string {
+  const acc = a.entity.accountName && a.entity.accountName !== a.entity.account ? `${a.entity.accountName} (${a.entity.account})` : a.entity.account;
+  return `Run with a nats context for account ${acc} on ${system || "the default system"}.`;
+}
+
 /** Whether every server that names peers names the same replica set, itself included. */
 export function peersAgree(a: MatrixAsset): boolean {
   const sets = a.cells.filter((c) => c.peers.length > 0).map((c) => [...c.peers, c.server].sort().join(" "));

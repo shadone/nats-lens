@@ -14,7 +14,7 @@ async function copy(text: string): Promise<boolean> {
 }
 
 /** A command is undefined when a name it needs holds a control character. */
-export function CopyCommand({ label, command, button = "Copy" }: { label: string; command: string | undefined; button?: string }) {
+export function CopyCommand({ label, command, button = "Copy", note }: { label: string; command: string | undefined; button?: string; note?: string }) {
   const [state, setState] = useState<CopyState>("idle");
   useEffect(() => setState("idle"), [command]);
   if (command === undefined) {
@@ -34,6 +34,7 @@ export function CopyCommand({ label, command, button = "Copy" }: { label: string
           {button}
         </button>
       </div>
+      {note && <p className="copy-note">{note}</p>}
       <span className={`copy-st${state === "failed" ? " bad" : ""}`} role="status" aria-live="polite">
         {state === "copied" ? "Copied." : state === "failed" ? "The browser did not allow copying; select the command instead." : ""}
       </span>

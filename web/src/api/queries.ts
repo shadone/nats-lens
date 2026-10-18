@@ -172,14 +172,17 @@ export function useConsumer(spec: RangeSpec, account: string, stream: string, na
   });
 }
 
-/** The placement matrix of a range; enabled false leaves it unread. */
-export function usePlacement(spec: RangeSpec, filter: MatrixFilter, enabled = true) {
+/**
+ * The placement matrix of a range; enabled false leaves it unread. With
+ * keepPrevious false a new range shows no data until its own arrives.
+ */
+export function usePlacement(spec: RangeSpec, filter: MatrixFilter, enabled = true, keepPrevious = true) {
   const sys = useSystem();
   return useQuery({
     queryKey: ["placement", sys, rangeKey(spec), filter],
     queryFn: ({ signal }) => api.getPlacement(sys, spec, filter, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepPrevious ? keepPreviousData : undefined,
     enabled,
   });
 }
