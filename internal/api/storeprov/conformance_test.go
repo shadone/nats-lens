@@ -58,7 +58,7 @@ const confInventory = `accounts:
 //
 // Consumers on orders: fast delivers 1 a second, planner is paused, fresh
 // appeared in the newest epoch, auditor is expected and missing; settler
-// on payments has another configuration on nats-1. Findings cover every
+// on payments has another configuration and creation time on nats-1. Findings cover every
 // state, and stream-007 on payments is muted.
 func conformanceStore(t *testing.T) (*store.Store, *checks.Set) {
 	t.Helper()
@@ -166,6 +166,14 @@ func conformanceStore(t *testing.T) (*store.Store, *checks.Set) {
 	consumerStats(last, "S0", "orders", "fresh", true, 0, false)
 	consumerStats(last, "S0", "payments", "settler", true, 50, false)
 	consumerStats(last, "S1", "payments", "settler", false, 50, false)
+	// nats-1 rebuilt its copy of settler: another creation time. The
+	// leader lists it as current.
+	if _, err := st.DB().Exec(`UPDATE consumer_stats SET created = CASE server_id WHEN 'S0' THEN TIMESTAMP '2026-10-01 08:00:00'
+  ELSE TIMESTAMP '2026-10-15 09:30:00' END WHERE consumer = 'settler'`); err != nil {
+		t.Fatal(err)
+	}
+	r.add("consumer_replicas", map[string]any{"epoch": last, "server_id": "S0", "account": "APP", "stream": "payments",
+		"consumer": "settler", "peer_name": "nats-1", "current": true, "offline": false, "lag": 0})
 
 	p := filepath.Join(t.TempDir(), "inventory.yaml")
 	if err := os.WriteFile(p, []byte(confInventory), 0o600); err != nil {

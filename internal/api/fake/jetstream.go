@@ -65,7 +65,7 @@ func (s scen) streamSummary(sp streamSpec, cur []*v1.Finding, r *v1.TimeRange) *
 	st, codes := worstStatus(cur, e)
 	out := &v1.StreamSummary{
 		Entity: e, Replicas: ptr(int32(len(s.sc.peers(sp)))), Messages: ptr(sp.msgs), Bytes: ptr(int64(sp.bytes)), Consumers: ptr(int32(len(sp.consumers) + sp.ephemeral)),
-		BytesPerDay: s.growth(e, r), Status: st, FindingCodes: codes, Leader: s.leader(sp), Placement: s.placement(sp),
+		BytesPerDay: s.growth(e, r), Status: st, FindingCodes: codes, Leader: s.leader(sp), Placement: s.placementAt(sp, s.epochTime(r), false),
 		ServersDisagree: sp.disagrees != "",
 		Bytes_7D:        s.series("stream.bytes", e, &v1.TimeRange{Start: ts(r.GetEnd().AsTime().Add(-7 * 24 * time.Hour)), End: r.GetEnd()}, 28),
 	}
@@ -130,11 +130,30 @@ func (p *Provider) GetStream(_ context.Context, req *v1.GetStreamRequest) (*v1.G
 			{"discard", cmp.Or(sp.discard, "old")},
 		}),
 	}
-	hashes := &v1.Disagreement{Field: "config_hash"}
-	for i, name := range peers {
-		if name == sp.missing {
-			// The leader lists the replica, but its server does not
-			// report the stream: it has no view.
+	res.Servers = s.streamViews(sp, s.epochTime(req.GetRange()))
+	if sp.disagrees != "" {
+		hashes := &v1.Disagreement{Field: "config_hash"}
+		for _, v := range res.GetServers() {
+			hashes.Values = append(hashes.Values, &v1.ServerValue{Server: v.GetServer(), Value: v.GetConfigHash()})
+		}
+		res.Disagreements = append(res.Disagreements, hashes)
+	}
+	for _, f := range cur {
+		if matchesEntity(f.GetEntity(), res.GetStream().GetEntity()) {
+			res.Findings = append(res.Findings, f)
+		}
+	}
+	res.Consumers = s.withRates(s.consumers(sp, cur, true), req.GetRange())
+	return res, nil
+}
+
+// streamViews is each server's view of a stream at the scenario time at:
+// the servers that report it, which leaves out the follower the leader
+// lists as missing and every server offline then.
+func (s scen) streamViews(sp streamSpec, at time.Time) []*v1.StreamServerView {
+	var out []*v1.StreamServerView
+	for i, name := range s.sc.peers(sp) {
+		if name == sp.missing || s.offline(name, at) {
 			continue
 		}
 		v := &v1.StreamServerView{
@@ -151,24 +170,9 @@ func (p *Provider) GetStream(_ context.Context, req *v1.GetStreamRequest) (*v1.G
 			// Without a leader no server says how a replica stands.
 			v.IsLeader, v.Current, v.Lag = false, false, nil
 		}
-		if sv, _ := p.sc.server(name); !sv.answering() {
-			// A server that does not answer reports no view, as in the
-			// store.
-			continue
-		}
-		res.Servers = append(res.Servers, v)
-		hashes.Values = append(hashes.Values, &v1.ServerValue{Server: name, Value: v.GetConfigHash()})
+		out = append(out, v)
 	}
-	if sp.disagrees != "" {
-		res.Disagreements = append(res.Disagreements, hashes)
-	}
-	for _, f := range cur {
-		if matchesEntity(f.GetEntity(), res.GetStream().GetEntity()) {
-			res.Findings = append(res.Findings, f)
-		}
-	}
-	res.Consumers = s.withRates(s.consumers(sp, cur, true), req.GetRange())
-	return res, nil
+	return out
 }
 
 // backlog is a consumer's steady pending and ack pending counts, fixed
@@ -269,39 +273,47 @@ func (p *Provider) GetConsumer(_ context.Context, req *v1.GetConsumerRequest) (*
 	if !c.GetPresent() {
 		return res, nil
 	}
-	peers := p.sc.peers(sp)
+	res.Servers, res.Disagreements = s.consumerViews(sp, c, s.epochTime(req.GetRange()))
+	return res, nil
+}
+
+// consumerViews is each server's view of a present consumer at the
+// scenario time at, and the creation time disagreement when the
+// scenario gives one: the servers that report its stream then.
+func (s scen) consumerViews(sp streamSpec, c *v1.ConsumerSummary, at time.Time) ([]*v1.ConsumerServerView, []*v1.Disagreement) {
+	peers := s.sc.peers(sp)
 	var created []time.Time
 	disagree := false
-	if p.sc.created != nil {
-		created, disagree = p.sc.created(s, sp.name, req.GetConsumer())
+	if s.sc.created != nil {
+		created, disagree = s.sc.created(s, sp.name, c.GetEntity().GetConsumer())
 	}
 	if created == nil {
 		for range peers {
 			created = append(created, s.on(12, 10, 2))
 		}
 	}
-	if disagree {
-		dis := &v1.Disagreement{Field: "created"}
-		for i, name := range peers {
-			if sv, _ := p.sc.server(name); !sv.answering() {
-				continue
-			}
-			dis.Values = append(dis.Values, &v1.ServerValue{Server: name, Value: created[i].Format(time.RFC3339)})
-		}
-		res.Disagreements = append(res.Disagreements, dis)
-	}
+	var out []*v1.ConsumerServerView
+	dis := &v1.Disagreement{Field: "created"}
 	for i, name := range peers {
-		v := &v1.ConsumerServerView{
-			Server: name, IsLeader: i == 0, Current: true, DeliveredStreamSeq: ptr(sp.msgs), AckFloorStreamSeq: ptr(sp.msgs - c.GetNumAckPending()), Lag: followerLag(i),
-			Created: ts(created[i]), ConfigHash: "9e02b7",
-		}
-		if sv, _ := p.sc.server(name); !sv.answering() {
-			// A server that does not answer reports no view.
+		if name == sp.missing || s.offline(name, at) {
+			// A server that does not report the stream reports no view.
 			continue
 		}
-		res.Servers = append(res.Servers, v)
+		out = append(out, &v1.ConsumerServerView{
+			Server: name, IsLeader: i == 0 && !sp.leaderless, Current: !sp.leaderless, DeliveredStreamSeq: ptr(sp.msgs),
+			AckFloorStreamSeq: ptr(sp.msgs - c.GetNumAckPending()), Lag: followerLag(i), Created: ts(created[i]), ConfigHash: "9e02b7",
+		})
+		dis.Values = append(dis.Values, &v1.ServerValue{Server: name, Value: created[i].Format(time.RFC3339)})
 	}
-	return res, nil
+	if sp.leaderless {
+		for _, v := range out {
+			v.Lag = nil
+		}
+	}
+	if !disagree {
+		return out, nil
+	}
+	return out, []*v1.Disagreement{dis}
 }
 
 // followerLag is the lag the leader (peer 0) reports for peer i: none

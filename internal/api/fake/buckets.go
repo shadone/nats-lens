@@ -89,7 +89,7 @@ func (p *Provider) bucketViews(r *v1.TimeRange, account, prefix string) []bucket
 		v.status, v.codes = worstStatus(cur, v.ref)
 		if v.present() {
 			v.sp, _ = p.sc.findStream(Account, b.stream)
-			v.placement = s.placement(v.sp)
+			v.placement = s.placementAt(v.sp, s.epochTime(r), false)
 			v.growth = s.growth(v.ref, r)
 		} else if len(v.codes) == 0 {
 			v.status = v1.Status_STATUS_NO_DATA
