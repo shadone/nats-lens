@@ -140,11 +140,31 @@ func (s scen) freshness(r *v1.TimeRange) *v1.Freshness {
 	if st := s.sc.collection; st == v1.CollectionState_COLLECTION_STATE_NOT_CONNECTED || st == v1.CollectionState_COLLECTION_STATE_CONNECTION_CLOSED {
 		f.Collecting, f.NotCollectingSince = false, ts(s.sc.errorSince.Add(s.shift))
 	}
-	// A range that does not hold the newest epoch reports no epoch.
-	if at := s.lastEpoch(); inRange(at, r) {
-		f.Epoch, f.EpochAt, f.Age, f.Partial = s.sc.epoch, ts(at), dur(s.now.Sub(at)), s.sc.partial
+	// The range's newest epoch: the last on the collect grid before its
+	// end, as the store reads the newest epoch inside the range; none
+	// when the range holds no data.
+	if at, n, ok := s.epochBefore(r); ok {
+		partial := s.sc.partial && !s.clock(at).Before(s.sc.partialSince)
+		f.Epoch, f.EpochAt, f.Age, f.Partial = n, ts(at), dur(s.now.Sub(at)), partial
 	}
 	return f
+}
+
+// epochBefore is the newest epoch inside the range: its start and number.
+// Epochs lie every 30 seconds back from the newest; numbers count down
+// from the scenario's, and stop at 1.
+func (s scen) epochBefore(r *v1.TimeRange) (time.Time, int64, bool) {
+	last := s.lastEpoch()
+	end := r.GetEnd().AsTime()
+	at, back := last, int64(0)
+	if !last.Before(end) {
+		back = int64((last.Sub(end))/sampleEvery) + 1
+		at = last.Add(-time.Duration(back) * sampleEvery)
+	}
+	if at.Before(r.GetStart().AsTime()) || at.Before(s.dataStart()) {
+		return time.Time{}, 0, false
+	}
+	return at, max(s.sc.epoch-back, 1), true
 }
 
 // GetOverview returns the cluster, freshness, tally, worst finding, tiles

@@ -323,10 +323,11 @@ func Conformance() []State {
 			}
 			return ""
 		}},
-		{"a range that ends before the newest epoch, without an epoch", func(q Q) string {
-			f := q.freshness(&v1.TimeRange{Start: timestamppb.New(q.env.Now.Add(-48 * time.Hour)), End: timestamppb.New(q.env.Now.Add(-24 * time.Hour))})
-			if f.GetEpoch() == 0 && f.GetEpochAt() == nil {
-				return "no epoch"
+		{"a past range that holds epochs reports its newest epoch", func(q Q) string {
+			end := q.env.Now.Add(-time.Hour)
+			f := q.freshness(&v1.TimeRange{Start: timestamppb.New(q.env.Now.Add(-3 * time.Hour)), End: timestamppb.New(end)})
+			if at := f.GetEpochAt().AsTime(); f.GetEpoch() != 0 && f.GetEpochAt() != nil && at.Before(end) && end.Sub(at) <= 10*time.Minute {
+				return at.String()
 			}
 			return ""
 		}},

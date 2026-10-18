@@ -158,6 +158,7 @@ func globalScenario() *scenario {
 		metaLeader:    "nats-eu-1",
 		epoch:         18406,
 		partial:       true,
+		partialSince:  globalDown,
 		collection:    v1.CollectionState_COLLECTION_STATE_DEMO,
 		routineClient: "search-api",
 		findings:      globalFindings,

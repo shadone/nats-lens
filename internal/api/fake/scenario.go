@@ -30,8 +30,10 @@ type scenario struct {
 	// history is how long before now the stored history begins; zero
 	// means defaultHistory, older than any range.
 	history time.Duration
-	// partial is whether the newest epoch missed a server.
-	partial bool
+	// partial is whether the newest epoch missed a server; partialSince
+	// is when the epochs began to miss it, in the fixed frame (zero: all).
+	partial      bool
+	partialSince time.Time
 	// collection, collectionError and errorSince describe the collector;
 	// errorSince is a time in the fixed frame.
 	collection      v1.CollectionState
