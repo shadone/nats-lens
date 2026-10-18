@@ -59,10 +59,16 @@ func (p *Provider) SystemSummary(_ context.Context, req *v1.ListSystemsRequest) 
 
 // ListAccounts returns the scenario's one account with its connections,
 // streams and consumers.
-func (p *Provider) ListAccounts(context.Context, *v1.ListAccountsRequest) (*v1.ListAccountsResponse, error) {
+func (p *Provider) ListAccounts(_ context.Context, req *v1.ListAccountsRequest) (*v1.ListAccountsResponse, error) {
+	s := p.scen()
+	at, _, ok := s.epochBefore(req.GetRange())
+	if !ok {
+		// Without an epoch in the range the counts are unknown.
+		return &v1.ListAccountsResponse{Accounts: []*v1.Account{{Account: Account}}}, nil
+	}
 	var conns int32
 	for _, sp := range p.sc.servers {
-		if sp.answering() {
+		if !s.downAt(sp, at) {
 			conns += int32(sp.conns)
 		}
 	}
