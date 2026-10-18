@@ -19,12 +19,23 @@ const MaxBatchQueries = 32
 // batchParallelism is the number of series of one batch read at a time.
 const batchParallelism = 4
 
+// BatchTimeout bounds the time one GetTimeSeriesBatch call may spend in
+// the provider; each of its queries has QueryTimeout of its own within it.
+const BatchTimeout = 2 * QueryTimeout
+
+// The limits of a batch and of each of its queries; tests shorten them.
+var (
+	batchTimeout      = BatchTimeout
+	batchQueryTimeout = QueryTimeout
+)
+
 // GetTimeSeriesBatch reads several series over one range. The range is
-// resolved once, so every series ends at the same instant. A query that
+// resolved once, so every series ends at the same instant. The call has
+// BatchTimeout, each query QueryTimeout within it. A query that
 // fails as GetTimeSeries would with invalid_argument or not_found gets its
 // error in its result; any other failure fails the call.
 func (h *Handler) GetTimeSeriesBatch(ctx context.Context, req *connect.Request[v1.GetTimeSeriesBatchRequest]) (*connect.Response[v1.GetTimeSeriesBatchResponse], error) {
-	return call(ctx, h, "GetTimeSeriesBatch", req.Msg, func(p Provider, m *v1.GetTimeSeriesBatchRequest) error {
+	return callWithin(ctx, h, "GetTimeSeriesBatch", batchTimeout, req.Msg, func(p Provider, m *v1.GetTimeSeriesBatchRequest) error {
 		return normalizeTimeSeriesBatch(m, p)
 	}, func(s System, ctx context.Context, m *v1.GetTimeSeriesBatchRequest) (*v1.GetTimeSeriesBatchResponse, error) {
 		return readBatch(ctx, s.Provider, m)
@@ -120,7 +131,9 @@ func readQuery(ctx context.Context, p Provider, batch *v1.GetTimeSeriesBatchRequ
 	err := normalizeTimeSeries(sub, p.Now())
 	var res *v1.GetTimeSeriesResponse
 	if err == nil {
-		res, err = p.GetTimeSeries(ctx, sub)
+		qctx, cancel := context.WithTimeout(ctx, batchQueryTimeout)
+		res, err = p.GetTimeSeries(qctx, sub)
+		cancel()
 	}
 	switch {
 	case err == nil:

@@ -237,3 +237,68 @@ func TestBatchPanicFailsTheCallNotTheProcess(t *testing.T) {
 		t.Errorf("server after the panic: %v", err)
 	}
 }
+
+// slow takes d per GetTimeSeries call, or until its context ends.
+type slow struct {
+	*fake.Provider
+	d time.Duration
+}
+
+func (s *slow) GetTimeSeries(ctx context.Context, req *v1.GetTimeSeriesRequest) (*v1.GetTimeSeriesResponse, error) {
+	select {
+	case <-time.After(s.d):
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	return s.Provider.GetTimeSeries(ctx, req)
+}
+
+func repeatQuery(n int) []*v1.SeriesQuery {
+	q := make([]*v1.SeriesQuery, n)
+	for i := range q {
+		q[i] = &v1.SeriesQuery{Metric: "cluster.connections"}
+	}
+	return q
+}
+
+// Each query has its own limit: twelve queries of 60 ms, four at a time,
+// take longer than one query's 150 ms and are served within the batch's.
+func TestBatchQueriesHaveTheirOwnTimeout(t *testing.T) {
+	defer api.SetBatchTimeouts(2*time.Second, 150*time.Millisecond)()
+	p := &slow{Provider: fake.New(false), d: 60 * time.Millisecond}
+	_, c := apitest.Serve(t, p)
+	res, err := c.GetTimeSeriesBatch(context.Background(), connect.NewRequest(&v1.GetTimeSeriesBatchRequest{Queries: repeatQuery(12)}))
+	if err != nil {
+		t.Fatalf("got %v, want every query served", err)
+	}
+	if len(res.Msg.GetResults()) != 12 {
+		t.Errorf("%d results, want 12", len(res.Msg.GetResults()))
+	}
+}
+
+// A query that outlives its own limit fails the call as deadline_exceeded
+// at that limit, not at the batch's.
+func TestBatchSlowQueryHitsItsOwnLimit(t *testing.T) {
+	defer api.SetBatchTimeouts(5*time.Second, 100*time.Millisecond)()
+	p := &slow{Provider: fake.New(false), d: time.Minute}
+	_, c := apitest.Serve(t, p)
+	t0 := time.Now()
+	_, err := c.GetTimeSeriesBatch(context.Background(), connect.NewRequest(&v1.GetTimeSeriesBatchRequest{Queries: repeatQuery(1)}))
+	if codeOf(err) != connect.CodeDeadlineExceeded {
+		t.Errorf("got %v, want deadline_exceeded", err)
+	}
+	if d := time.Since(t0); d > 2*time.Second {
+		t.Errorf("took %s, want about the query's 100 ms", d)
+	}
+}
+
+// The batch's limit bounds the whole call.
+func TestBatchHasABudget(t *testing.T) {
+	defer api.SetBatchTimeouts(150*time.Millisecond, time.Second)()
+	p := &slow{Provider: fake.New(false), d: 60 * time.Millisecond}
+	_, c := apitest.Serve(t, p)
+	_, err := c.GetTimeSeriesBatch(context.Background(), connect.NewRequest(&v1.GetTimeSeriesBatchRequest{Queries: repeatQuery(16)}))
+	if codeOf(err) != connect.CodeDeadlineExceeded {
+		t.Errorf("got %v, want deadline_exceeded", err)
+	}
+}

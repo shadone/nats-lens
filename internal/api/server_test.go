@@ -156,7 +156,7 @@ func TestCallTrackerRefusesCallsAfterClose(t *testing.T) {
 
 func TestServerLimits(t *testing.T) {
 	srv := newHTTPServer(http.NotFoundHandler(), slog.New(slog.DiscardHandler))
-	if srv.WriteTimeout != QueryTimeout+15*time.Second || srv.ReadTimeout == 0 || srv.IdleTimeout == 0 || srv.MaxHeaderBytes != 64<<10 {
+	if srv.WriteTimeout != BatchTimeout+15*time.Second || srv.ReadTimeout == 0 || srv.IdleTimeout == 0 || srv.MaxHeaderBytes != 64<<10 {
 		t.Fatalf("limits: write %v, read %v, idle %v, header %d", srv.WriteTimeout, srv.ReadTimeout, srv.IdleTimeout, srv.MaxHeaderBytes)
 	}
 }
