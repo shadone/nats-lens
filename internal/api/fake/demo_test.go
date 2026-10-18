@@ -251,6 +251,16 @@ func TestDemoGlobalFindingsChangedSeverity(t *testing.T) {
 		!strings.Contains(tr[1].GetDetail(), "announced shutdown") {
 		t.Fatalf("server-001: %v, transitions %v", f.GetFinding().GetState(), tr)
 	}
+	// Their info details name the planned stop as not_ready() words it.
+	for id, want := range map[string]string{
+		"stream-002:APP/price-changes":      "nats-us-4 (last seen 55s ago; announced shutdown at 09:12:05 and did not answer).",
+		"stream-011:APP/KV_label-templates": "(may be on nats-us-4, which announced shutdown at 09:12:05 and did not answer).",
+	} {
+		tr := must(c.GetFinding(ctx, connect.NewRequest(&v1.GetFindingRequest{System: fake.GlobalSystem, Id: id}))).GetTransitions()
+		if len(tr) != 2 || !strings.Contains(tr[1].GetDetail(), want) || strings.Contains(tr[0].GetDetail(), "announced") {
+			t.Errorf("%s transitions %v, want the info detail to contain %q", id, tr, want)
+		}
+	}
 	changed := must(c.ListFindings(ctx, connect.NewRequest(&v1.ListFindingsRequest{System: fake.GlobalSystem,
 		States: []v1.FindingState{v1.FindingState_FINDING_STATE_CHANGED}})))
 	if changed.GetTotalCount() != 4 {

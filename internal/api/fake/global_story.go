@@ -41,7 +41,7 @@ func globalFindings(s scen) []*v1.Finding {
 	// An R1 bucket whose only replica was on nats-us-4.
 	labels := finding("stream-011", "Expected stream or bucket missing", warning, firing, streamRef("KV_label-templates"),
 		s.at(9, 12, 40), s.at(9, 12, 40), "KV bucket label-templates (stream KV_label-templates) is in the inventory and no server reports it; "+
-			"last reported by nats-us-4 at 2026-10-17 09:11:35 UTC (may be on nats-us-4, which did not answer JSZ). No delete event recorded.")
+			"last reported by nats-us-4 at 2026-10-17 09:11:35 UTC (may be on nats-us-4, which did not answer). No delete event recorded.")
 	labels.RelatedConfig = cfg([][2]string{{"kind", "kv"}, {"replicas", "1"}, {"max_age", "0"}, {"max_bytes", "67108864"}, {"max_msgs", "-1"}}, "replicas")
 	labels.RelatedConfigSource = "inventory"
 	labels.Remediation = "Bring nats-us-4 back: its pod is Pending, and the bucket's only replica is on it. " +
@@ -115,9 +115,9 @@ func globalPlannedDetail(f *v1.Finding) (string, bool) {
 	case "server-001":
 		return strings.TrimSuffix(d, ".") + "; announced shutdown at 09:12:05 UTC.", true
 	case "stream-002":
-		return strings.Replace(d, "(last seen 19075s ago)", "(last seen 55s ago; announced shutdown at 09:12:05)", 1), true
+		return strings.Replace(d, "(last seen 19075s ago)", "(last seen 55s ago; announced shutdown at 09:12:05 and did not answer)", 1), true
 	case "stream-011":
-		return strings.Replace(d, "which did not answer JSZ", "which announced shutdown at 09:12:05", 1), true
+		return strings.Replace(d, "which did not answer", "which announced shutdown at 09:12:05 and did not answer", 1), true
 	}
 	return "", false
 }
