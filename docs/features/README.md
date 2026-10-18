@@ -105,7 +105,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 
 **Collection**
 - [x] One snapshot of every server per interval, partial collections kept (monitoring-snapshots.md)
-- [x] NATS advisories and system events, short-lived connections folded into `client.churn` (event-capture.md)
+- [x] NATS advisories and system events, short-lived connections folded into `client.churn` and flagged by `client-005` when frequent (event-capture.md)
 - [x] Kubernetes pod, node and client-pod events on the same clock, with node upgrade and drain windows (kubernetes-context.md)
 - [x] Retention, the hourly Parquet archive, and the rebuild from it (history-and-archive.md)
 - [~] Several NATS systems in one nats-lens, with a system switcher, the Fleet page and its badge — a cluster switcher inside a supercluster is planned (multiple-systems.md)
@@ -115,7 +115,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Server checks `server-001` to `server-015` (server-checks.md)
 - [x] Stream, KV bucket and object store checks `stream-001` to `stream-014` (stream-checks.md)
 - [x] Consumer checks `consumer-001` to `consumer-013` (consumer-checks.md)
-- [x] Client checks `client-001` to `client-004` (client-checks.md)
+- [x] Client checks `client-001` to `client-005` (client-checks.md)
 - [x] System checks `system-001` to `system-003` (system-checks.md)
 - [x] The inventory of assets that must exist (inventory.md)
 - [ ] Findings sent to a channel such as a webhook (notifications.md)
