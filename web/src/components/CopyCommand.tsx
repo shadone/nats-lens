@@ -13,9 +13,18 @@ async function copy(text: string): Promise<boolean> {
   }
 }
 
-export function CopyCommand({ label, command, button = "Copy" }: { label: string; command: string; button?: string }) {
+/** A command is undefined when a name it needs holds a control character. */
+export function CopyCommand({ label, command, button = "Copy" }: { label: string; command: string | undefined; button?: string }) {
   const [state, setState] = useState<CopyState>("idle");
   useEffect(() => setState("idle"), [command]);
+  if (command === undefined) {
+    return (
+      <div className="copy-cmd">
+        <div className="lbl">{label}</div>
+        <p className="copy-none">No command: the name holds a control character, such as a line break, that a shell would misread.</p>
+      </div>
+    );
+  }
   return (
     <div className="copy-cmd">
       <div className="lbl">{label}</div>

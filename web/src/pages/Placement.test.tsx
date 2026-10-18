@@ -137,7 +137,7 @@ describe("Placement", () => {
     expect(within(panel).getByText("Positions").nextElementSibling).toHaveTextContent("equal on all 3 servers that report one");
     expect(within(panel).getByText("Peers").nextElementSibling).toHaveTextContent("nats-0 nats-1 nats-2 (all agree)");
     expect(within(panel).getByText(/another creation time for the consumer/)).toBeInTheDocument();
-    const cmd = "nats consumer info order-jobs resize-worker --json | jq .created";
+    const cmd = "nats consumer info --json -- order-jobs resize-worker | jq .created";
     expect(within(panel).getByText(cmd)).toBeInTheDocument();
     await user.click(within(panel).getByRole("button", { name: "Copy" }));
     expect(clip).toHaveBeenCalledWith(cmd);
@@ -145,7 +145,7 @@ describe("Placement", () => {
     expect(within(panel).getByRole("link", { name: "Events for this consumer" })).toHaveAttribute("href", "/events?consumer=APP%2Forder-jobs%2Fresize-worker");
     // Step down copies the command; nothing runs it.
     await user.click(within(panel).getByRole("button", { name: "Copy command" }));
-    expect(clip).toHaveBeenLastCalledWith("nats consumer cluster step-down order-jobs resize-worker");
+    expect(clip).toHaveBeenLastCalledWith("nats consumer cluster step-down -- order-jobs resize-worker");
     expect(screen.getByRole("button", { name: /^resize-worker on nats-1/ })).toHaveAttribute("aria-pressed", "true");
     await user.click(within(panel).getByRole("button", { name: "Close the selected cell" }));
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
@@ -160,6 +160,15 @@ describe("Placement", () => {
     expect(within(panel).getByText(/lists this replica as offline/)).toBeInTheDocument();
     await user.click(within(panel).getByRole("button", { name: "Copy" }));
     expect(await within(panel).findByText(/did not allow copying/)).toBeInTheDocument();
+  });
+
+  it("shows no command for a name with a line break", async () => {
+    const odd = masset("stream", "orders\nrm -rf ~", "", [mcell("nats-0", "leader")]);
+    vi.mocked(requests.getPlacement).mockResolvedValue(mmatrix([odd]));
+    renderApp(<Placement />, `/placement?asset=${encodeURIComponent(odd.entity.key)}&server=nats-0`);
+    const panel = await screen.findByRole("complementary");
+    expect(within(panel).getAllByText(/No command: the name holds a control character/)).toHaveLength(2);
+    expect(within(panel).queryByRole("button", { name: "Copy" })).toBeNull();
   });
 
   it("shows only the servers that hold a listed replica, and all on request", async () => {
