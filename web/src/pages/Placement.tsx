@@ -33,11 +33,11 @@ export function Placement() {
   // ask for a new one every tick.
   const raw = momentOf(cmp, end);
   const at = raw === undefined ? undefined : Math.floor(raw / 60_000) * 60_000;
-  // The moment's matrix shows nothing of the moment before while it
-  // loads. Changes are counted over every asset, not only the listed ones,
+  // A newly chosen moment shows nothing of the one before while it
+  // loads; a live range's moment moving to the next minute keeps it. Changes are counted over every asset, not only the listed ones,
   // so the page also reads the unfiltered matrix (the same call as the
   // matrix itself when no filter applies).
-  const cq = usePlacement(compareSpec(at ?? 0), "all", at !== undefined, false);
+  const cq = usePlacement(compareSpec(at ?? 0), "all", at !== undefined, cmp);
   const all = usePlacement(spec, "all", at !== undefined);
   const changed = useMemo(() => (all.data && cq.data && at !== undefined ? diff(all.data, cq.data) : undefined), [all.data, cq.data, at]);
   const panel = useRef<HTMLDivElement>(null);
@@ -106,8 +106,8 @@ export function Placement() {
       </div>
       {at !== undefined && (
         <p className="pm-cmp-line" role="status">
-          {cq.error
-            ? `Could not load the matrix to compare with: ${errorText(cq.error)}`
+          {cq.error || all.error
+            ? `Could not load the matrix to compare with: ${errorText(cq.error ?? all.error)}`
             : !cq.data || !all.data
               ? `Loading the matrix of ${momentText(at)}…`
               : cq.data.epochAt === undefined
