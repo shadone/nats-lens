@@ -1,5 +1,9 @@
-import { screen, within } from "@testing-library/react";
+import { create } from "@bufbuild/protobuf";
+import { screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { lens } from "../api/client";
+import { EntityType } from "../gen/natslens/v1/common_pb";
+import { ConsumerSummarySchema } from "../gen/natslens/v1/consumers_pb";
 import type { Entity, Finding, Overview as OverviewModel } from "../api/model";
 import * as requests from "../api/requests";
 import { renderApp } from "../test/render";
@@ -18,6 +22,7 @@ vi.mock("../api/requests", async (orig) => ({
 vi.mock("../api/client", () => ({
   lens: {
     getTimeSeries: vi.fn(async () => ({ series: undefined })),
+    getTimeSeriesBatch: vi.fn(async (req: { queries: unknown[] }) => ({ results: req.queries.map(() => ({ error: "" })) })),
     listConsumers: vi.fn(async () => ({ consumers: [] })),
     listStreams: vi.fn(async () => ({ streams: [], totals: undefined })),
   },
@@ -158,5 +163,27 @@ describe("Overview timeline lanes", () => {
     renderApp(<Overview />);
     expect(await screen.findByText(/more Kubernetes events than the lane shows/)).toBeInTheDocument();
     expect(screen.queryByText(/more finding transitions than the lanes show/)).toBeNull();
+  });
+});
+
+describe("Overview series requests", () => {
+  it("reads the trends in one batch and the consumer sparks in another", async () => {
+    mock(quiet);
+    const names = ["resize-worker", "thumb-worker", "audit-writer"];
+    vi.mocked(lens.listConsumers).mockResolvedValue({
+      consumers: names.map((n) =>
+        create(ConsumerSummarySchema, { entity: { type: EntityType.CONSUMER, key: `APP/order-jobs/${n}`, name: n, account: "APP", stream: "order-jobs", consumer: n } }),
+      ),
+    } as never);
+    renderApp(<Overview />);
+    await screen.findByText("resize-worker");
+    const batch = vi.mocked(lens.getTimeSeriesBatch);
+    await waitFor(() => expect(batch).toHaveBeenCalledTimes(2));
+    const sizes = batch.mock.calls.map((c) => (c[0] as { queries: { metric: string }[] }).queries);
+    const trends = sizes.find((q) => q[0].metric.startsWith("cluster."));
+    const sparks = sizes.find((q) => q[0].metric === "consumer.delivered_rate");
+    expect(trends).toHaveLength(11);
+    expect(sparks?.map((q) => (q as { entity?: { key: string } }).entity?.key)).toEqual(names.map((n) => `APP/order-jobs/${n}`).sort());
+    expect(lens.getTimeSeries).not.toHaveBeenCalled();
   });
 });

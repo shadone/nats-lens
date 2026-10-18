@@ -1,7 +1,8 @@
 // The Servers page's data points: who answers, versions in use, restarts,
 // the JetStream store across servers and slow consumers.
 import type { ServerList, ServerRow } from "../api/servers";
-import { useBandSeries } from "../api/servers";
+import { SERVERS_QUERIES, SLOW_STRIP_QUERY, useServersTrends } from "../api/servers";
+import { pickTrend } from "../api/trendBatch";
 import { fmtInt, hm } from "../lib/format";
 import { versionGroups } from "../lib/serverColour";
 import { byName, median, storePct, STORE_ATTENTION_PCT } from "../lib/servers";
@@ -126,8 +127,9 @@ function Store({ servers }: { servers: ServerRow[] }) {
 }
 
 function SlowConsumers({ servers, spec }: { servers: ServerRow[]; spec: RangeSpec }) {
-  const q = useBandSeries(spec, "cluster.slow_consumers", undefined, 24);
-  useReportStale(q);
+  const b = useServersTrends(spec);
+  useReportStale(b);
+  const q = pickTrend(b, SERVERS_QUERIES, SLOW_STRIP_QUERY);
   const known = servers.filter((s) => s.slowConsumersInRange !== undefined);
   const total = known.reduce((a, s) => a + (s.slowConsumersInRange ?? 0), 0);
   const most = known.reduce<ServerRow | undefined>((a, s) => ((s.slowConsumersInRange ?? 0) > (a?.slowConsumersInRange ?? 0) ? s : a), undefined);

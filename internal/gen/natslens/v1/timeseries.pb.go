@@ -600,6 +600,263 @@ func (x *ListMetricsResponse) GetMetrics() []*MetricInfo {
 	return nil
 }
 
+// One series of a GetTimeSeriesBatch request.
+type SeriesQuery struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Metric ID, as in GetTimeSeriesRequest.metric.
+	Metric string `protobuf:"bytes,1,opt,name=metric,proto3" json:"metric,omitempty"`
+	// Entity the metric is read for, as in GetTimeSeriesRequest.entity.
+	Entity *EntityRef `protobuf:"bytes,2,opt,name=entity,proto3" json:"entity,omitempty"`
+	// Number of buckets for this series, as in
+	// GetTimeSeriesRequest.max_points. Zero means the request's max_points.
+	MaxPoints     int32 `protobuf:"varint,3,opt,name=max_points,json=maxPoints,proto3" json:"max_points,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SeriesQuery) Reset() {
+	*x = SeriesQuery{}
+	mi := &file_natslens_v1_timeseries_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SeriesQuery) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SeriesQuery) ProtoMessage() {}
+
+func (x *SeriesQuery) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_timeseries_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SeriesQuery.ProtoReflect.Descriptor instead.
+func (*SeriesQuery) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_timeseries_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *SeriesQuery) GetMetric() string {
+	if x != nil {
+		return x.Metric
+	}
+	return ""
+}
+
+func (x *SeriesQuery) GetEntity() *EntityRef {
+	if x != nil {
+		return x.Entity
+	}
+	return nil
+}
+
+func (x *SeriesQuery) GetMaxPoints() int32 {
+	if x != nil {
+		return x.MaxPoints
+	}
+	return 0
+}
+
+// Request for several series over one time range.
+//
+// The call may take 40 seconds; each query 30 seconds within them, as a
+// GetTimeSeries call does. A query that takes longer fails the call as
+// deadline_exceeded.
+type GetTimeSeriesBatchRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Series to read; at least one and at most 32.
+	Queries []*SeriesQuery `protobuf:"bytes,1,rep,name=queries,proto3" json:"queries,omitempty"`
+	// Time range every series is read for; at most 400 days.
+	//
+	// It is resolved once, so an unset end is the same instant for every
+	// series.
+	Range *TimeRange `protobuf:"bytes,2,opt,name=range,proto3" json:"range,omitempty"`
+	// Number of buckets for a query that sets none, as in
+	// GetTimeSeriesRequest.max_points. Zero means 200; at most 2000.
+	MaxPoints int32 `protobuf:"varint,3,opt,name=max_points,json=maxPoints,proto3" json:"max_points,omitempty"`
+	// System ID, as ListSystems returns it. Empty means the default system.
+	System        string `protobuf:"bytes,4,opt,name=system,proto3" json:"system,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTimeSeriesBatchRequest) Reset() {
+	*x = GetTimeSeriesBatchRequest{}
+	mi := &file_natslens_v1_timeseries_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTimeSeriesBatchRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTimeSeriesBatchRequest) ProtoMessage() {}
+
+func (x *GetTimeSeriesBatchRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_timeseries_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTimeSeriesBatchRequest.ProtoReflect.Descriptor instead.
+func (*GetTimeSeriesBatchRequest) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_timeseries_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *GetTimeSeriesBatchRequest) GetQueries() []*SeriesQuery {
+	if x != nil {
+		return x.Queries
+	}
+	return nil
+}
+
+func (x *GetTimeSeriesBatchRequest) GetRange() *TimeRange {
+	if x != nil {
+		return x.Range
+	}
+	return nil
+}
+
+func (x *GetTimeSeriesBatchRequest) GetMaxPoints() int32 {
+	if x != nil {
+		return x.MaxPoints
+	}
+	return 0
+}
+
+func (x *GetTimeSeriesBatchRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
+}
+
+// The result of one query of a batch.
+type SeriesResult struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The values; unset when error is set.
+	Series *Series `protobuf:"bytes,1,opt,name=series,proto3" json:"series,omitempty"`
+	// Why the query was not served, for a query GetTimeSeries would refuse
+	// as invalid_argument or not_found. Empty when series is set.
+	Error         string `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SeriesResult) Reset() {
+	*x = SeriesResult{}
+	mi := &file_natslens_v1_timeseries_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SeriesResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SeriesResult) ProtoMessage() {}
+
+func (x *SeriesResult) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_timeseries_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SeriesResult.ProtoReflect.Descriptor instead.
+func (*SeriesResult) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_timeseries_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *SeriesResult) GetSeries() *Series {
+	if x != nil {
+		return x.Series
+	}
+	return nil
+}
+
+func (x *SeriesResult) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+// Several series over one time range.
+type GetTimeSeriesBatchResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// One result per query, in the order of the queries.
+	Results []*SeriesResult `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	// The resolved time range every series was read for.
+	Range         *TimeRange `protobuf:"bytes,2,opt,name=range,proto3" json:"range,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTimeSeriesBatchResponse) Reset() {
+	*x = GetTimeSeriesBatchResponse{}
+	mi := &file_natslens_v1_timeseries_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTimeSeriesBatchResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTimeSeriesBatchResponse) ProtoMessage() {}
+
+func (x *GetTimeSeriesBatchResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_timeseries_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTimeSeriesBatchResponse.ProtoReflect.Descriptor instead.
+func (*GetTimeSeriesBatchResponse) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_timeseries_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *GetTimeSeriesBatchResponse) GetResults() []*SeriesResult {
+	if x != nil {
+		return x.Results
+	}
+	return nil
+}
+
+func (x *GetTimeSeriesBatchResponse) GetRange() *TimeRange {
+	if x != nil {
+		return x.Range
+	}
+	return nil
+}
+
 var File_natslens_v1_timeseries_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_timeseries_proto_rawDesc = "" +
@@ -643,7 +900,24 @@ const file_natslens_v1_timeseries_proto_rawDesc = "" +
 	"\vdescription\x18\x04 \x01(\tR\vdescription\"\x14\n" +
 	"\x12ListMetricsRequest\"H\n" +
 	"\x13ListMetricsResponse\x121\n" +
-	"\ametrics\x18\x01 \x03(\v2\x17.natslens.v1.MetricInfoR\ametrics*\xa8\x01\n" +
+	"\ametrics\x18\x01 \x03(\v2\x17.natslens.v1.MetricInfoR\ametrics\"t\n" +
+	"\vSeriesQuery\x12\x16\n" +
+	"\x06metric\x18\x01 \x01(\tR\x06metric\x12.\n" +
+	"\x06entity\x18\x02 \x01(\v2\x16.natslens.v1.EntityRefR\x06entity\x12\x1d\n" +
+	"\n" +
+	"max_points\x18\x03 \x01(\x05R\tmaxPoints\"\xb4\x01\n" +
+	"\x19GetTimeSeriesBatchRequest\x122\n" +
+	"\aqueries\x18\x01 \x03(\v2\x18.natslens.v1.SeriesQueryR\aqueries\x12,\n" +
+	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x1d\n" +
+	"\n" +
+	"max_points\x18\x03 \x01(\x05R\tmaxPoints\x12\x16\n" +
+	"\x06system\x18\x04 \x01(\tR\x06system\"Q\n" +
+	"\fSeriesResult\x12+\n" +
+	"\x06series\x18\x01 \x01(\v2\x13.natslens.v1.SeriesR\x06series\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\"\x7f\n" +
+	"\x1aGetTimeSeriesBatchResponse\x123\n" +
+	"\aresults\x18\x01 \x03(\v2\x19.natslens.v1.SeriesResultR\aresults\x12,\n" +
+	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range*\xa8\x01\n" +
 	"\x04Unit\x12\x14\n" +
 	"\x10UNIT_UNSPECIFIED\x10\x00\x12\x0e\n" +
 	"\n" +
@@ -669,41 +943,51 @@ func file_natslens_v1_timeseries_proto_rawDescGZIP() []byte {
 }
 
 var file_natslens_v1_timeseries_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_natslens_v1_timeseries_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_natslens_v1_timeseries_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_natslens_v1_timeseries_proto_goTypes = []any{
-	(Unit)(0),                     // 0: natslens.v1.Unit
-	(*Point)(nil),                 // 1: natslens.v1.Point
-	(*Series)(nil),                // 2: natslens.v1.Series
-	(*GetTimeSeriesRequest)(nil),  // 3: natslens.v1.GetTimeSeriesRequest
-	(*GetTimeSeriesResponse)(nil), // 4: natslens.v1.GetTimeSeriesResponse
-	(*MetricInfo)(nil),            // 5: natslens.v1.MetricInfo
-	(*ListMetricsRequest)(nil),    // 6: natslens.v1.ListMetricsRequest
-	(*ListMetricsResponse)(nil),   // 7: natslens.v1.ListMetricsResponse
-	(*timestamppb.Timestamp)(nil), // 8: google.protobuf.Timestamp
-	(*EntityRef)(nil),             // 9: natslens.v1.EntityRef
-	(*durationpb.Duration)(nil),   // 10: google.protobuf.Duration
-	(*TimeRange)(nil),             // 11: natslens.v1.TimeRange
-	(EntityType)(0),               // 12: natslens.v1.EntityType
+	(Unit)(0),                          // 0: natslens.v1.Unit
+	(*Point)(nil),                      // 1: natslens.v1.Point
+	(*Series)(nil),                     // 2: natslens.v1.Series
+	(*GetTimeSeriesRequest)(nil),       // 3: natslens.v1.GetTimeSeriesRequest
+	(*GetTimeSeriesResponse)(nil),      // 4: natslens.v1.GetTimeSeriesResponse
+	(*MetricInfo)(nil),                 // 5: natslens.v1.MetricInfo
+	(*ListMetricsRequest)(nil),         // 6: natslens.v1.ListMetricsRequest
+	(*ListMetricsResponse)(nil),        // 7: natslens.v1.ListMetricsResponse
+	(*SeriesQuery)(nil),                // 8: natslens.v1.SeriesQuery
+	(*GetTimeSeriesBatchRequest)(nil),  // 9: natslens.v1.GetTimeSeriesBatchRequest
+	(*SeriesResult)(nil),               // 10: natslens.v1.SeriesResult
+	(*GetTimeSeriesBatchResponse)(nil), // 11: natslens.v1.GetTimeSeriesBatchResponse
+	(*timestamppb.Timestamp)(nil),      // 12: google.protobuf.Timestamp
+	(*EntityRef)(nil),                  // 13: natslens.v1.EntityRef
+	(*durationpb.Duration)(nil),        // 14: google.protobuf.Duration
+	(*TimeRange)(nil),                  // 15: natslens.v1.TimeRange
+	(EntityType)(0),                    // 16: natslens.v1.EntityType
 }
 var file_natslens_v1_timeseries_proto_depIdxs = []int32{
-	8,  // 0: natslens.v1.Point.time:type_name -> google.protobuf.Timestamp
-	9,  // 1: natslens.v1.Series.entity:type_name -> natslens.v1.EntityRef
+	12, // 0: natslens.v1.Point.time:type_name -> google.protobuf.Timestamp
+	13, // 1: natslens.v1.Series.entity:type_name -> natslens.v1.EntityRef
 	0,  // 2: natslens.v1.Series.unit:type_name -> natslens.v1.Unit
-	10, // 3: natslens.v1.Series.step:type_name -> google.protobuf.Duration
+	14, // 3: natslens.v1.Series.step:type_name -> google.protobuf.Duration
 	1,  // 4: natslens.v1.Series.points:type_name -> natslens.v1.Point
-	9,  // 5: natslens.v1.Series.top:type_name -> natslens.v1.EntityRef
+	13, // 5: natslens.v1.Series.top:type_name -> natslens.v1.EntityRef
 	1,  // 6: natslens.v1.Series.top_points:type_name -> natslens.v1.Point
-	9,  // 7: natslens.v1.GetTimeSeriesRequest.entity:type_name -> natslens.v1.EntityRef
-	11, // 8: natslens.v1.GetTimeSeriesRequest.range:type_name -> natslens.v1.TimeRange
+	13, // 7: natslens.v1.GetTimeSeriesRequest.entity:type_name -> natslens.v1.EntityRef
+	15, // 8: natslens.v1.GetTimeSeriesRequest.range:type_name -> natslens.v1.TimeRange
 	2,  // 9: natslens.v1.GetTimeSeriesResponse.series:type_name -> natslens.v1.Series
-	12, // 10: natslens.v1.MetricInfo.entity_type:type_name -> natslens.v1.EntityType
+	16, // 10: natslens.v1.MetricInfo.entity_type:type_name -> natslens.v1.EntityType
 	0,  // 11: natslens.v1.MetricInfo.unit:type_name -> natslens.v1.Unit
 	5,  // 12: natslens.v1.ListMetricsResponse.metrics:type_name -> natslens.v1.MetricInfo
-	13, // [13:13] is the sub-list for method output_type
-	13, // [13:13] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	13, // 13: natslens.v1.SeriesQuery.entity:type_name -> natslens.v1.EntityRef
+	8,  // 14: natslens.v1.GetTimeSeriesBatchRequest.queries:type_name -> natslens.v1.SeriesQuery
+	15, // 15: natslens.v1.GetTimeSeriesBatchRequest.range:type_name -> natslens.v1.TimeRange
+	2,  // 16: natslens.v1.SeriesResult.series:type_name -> natslens.v1.Series
+	10, // 17: natslens.v1.GetTimeSeriesBatchResponse.results:type_name -> natslens.v1.SeriesResult
+	15, // 18: natslens.v1.GetTimeSeriesBatchResponse.range:type_name -> natslens.v1.TimeRange
+	19, // [19:19] is the sub-list for method output_type
+	19, // [19:19] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_timeseries_proto_init() }
@@ -720,7 +1004,7 @@ func file_natslens_v1_timeseries_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_timeseries_proto_rawDesc), len(file_natslens_v1_timeseries_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   7,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

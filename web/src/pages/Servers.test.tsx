@@ -5,14 +5,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { lens } from "../api/client";
 import { Status } from "../gen/natslens/v1/common_pb";
 import { ListServersResponseSchema, type ListServersResponse } from "../gen/natslens/v1/servers_pb";
-import { GetTimeSeriesResponseSchema } from "../gen/natslens/v1/timeseries_pb";
+import { GetTimeSeriesBatchResponseSchema, GetTimeSeriesResponseSchema } from "../gen/natslens/v1/timeseries_pb";
 import { exampleGlobalCpu, exampleGlobalServers } from "../test/fixtures/exampleGlobal";
 import { renderApp } from "../test/render";
 import { Servers } from "./Servers";
 
-vi.mock("../api/client", () => ({ lens: { listServers: vi.fn(), getTimeSeries: vi.fn() } }));
+vi.mock("../api/client", () => ({ lens: { listServers: vi.fn(), getTimeSeries: vi.fn(), getTimeSeriesBatch: vi.fn() } }));
 const listServers = vi.mocked(lens.listServers);
 const getTimeSeries = vi.mocked(lens.getTimeSeries);
+const getTimeSeriesBatch = vi.mocked(lens.getTimeSeriesBatch);
 
 const global = () => fromJson(ListServersResponseSchema, exampleGlobalServers);
 
@@ -22,8 +23,10 @@ function serve(r: ListServersResponse) {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  getTimeSeries.mockImplementation(async (req) =>
-    req.metric === "cluster.cpu_percent" ? fromJson(GetTimeSeriesResponseSchema, exampleGlobalCpu) : create(GetTimeSeriesResponseSchema, {}),
+  getTimeSeriesBatch.mockImplementation(async (req) =>
+    create(GetTimeSeriesBatchResponseSchema, {
+      results: (req.queries ?? []).map((q) => ({ series: q.metric === "cluster.cpu_percent" ? fromJson(GetTimeSeriesResponseSchema, exampleGlobalCpu).series : undefined })),
+    }),
   );
 });
 
@@ -135,6 +138,39 @@ describe("Servers on example-global", () => {
     serve(global());
     renderApp(<Servers />, "/servers");
     expect(await screen.findByText(/^busiest: nats-ap-2, [\d.]+%$/)).toBeInTheDocument();
+  });
+
+  it("reads the fleet charts and the slow-consumer strip in one batch", async () => {
+    serve(global());
+    renderApp(<Servers />, "/servers");
+    await screen.findByText(/^busiest: nats-ap-2/);
+    expect(getTimeSeriesBatch).toHaveBeenCalledTimes(1);
+    const queries = getTimeSeriesBatch.mock.calls[0][0].queries ?? [];
+    expect(queries.map((q) => [q.metric, q.maxPoints ?? 0])).toEqual([
+      ["cluster.connections", 0],
+      ["cluster.cpu_percent", 0],
+      ["cluster.in_msgs_rate", 0],
+      ["cluster.mem_bytes", 0],
+      ["cluster.out_msgs_rate", 0],
+      ["cluster.slow_consumers", 24],
+    ]);
+    expect(getTimeSeries).not.toHaveBeenCalled();
+  });
+
+  it("shows a series' own error on its chart only", async () => {
+    getTimeSeriesBatch.mockImplementation(async (req) =>
+      create(GetTimeSeriesBatchResponseSchema, {
+        results: (req.queries ?? []).map((q) =>
+          q.metric === "cluster.connections" ? { error: "not found: no such series" } : { series: q.metric === "cluster.cpu_percent" ? fromJson(GetTimeSeriesResponseSchema, exampleGlobalCpu).series : undefined },
+        ),
+      }),
+    );
+    serve(global());
+    renderApp(<Servers />, "/servers");
+    const charts = await screen.findByRole("region", { name: "All servers" });
+    expect(await within(charts).findByText(/no such series/)).toBeInTheDocument();
+    expect(within(charts).getAllByText(/no such series/)).toHaveLength(1);
+    expect(await screen.findByText(/^busiest: nats-ap-2/)).toBeInTheDocument();
   });
 
   it("draws its charts with the Overview's trend charts, whose y axis starts at zero", async () => {
