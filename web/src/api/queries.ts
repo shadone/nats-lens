@@ -123,8 +123,10 @@ export function useStreams(spec: RangeSpec, includeKv = false) {
 }
 
 /**
- * The streams that fill a filter. Not polled, whatever the range: a stream
- * added meanwhile appears after five minutes or on a reload.
+ * The streams that fill a filter. Not polled, whatever the range, and not
+ * read again on window focus: a stream added meanwhile appears only when a
+ * page using it mounts more than five minutes after the last read, or on a
+ * reload. A failed read leaves the filter without streams until then.
  */
 export function useStreamNames(spec: RangeSpec) {
   const sys = useSystem();

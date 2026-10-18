@@ -125,7 +125,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Overview: status line, nine metric boxes with descriptions, cause cards and muted findings, trends, timeline lanes with the status timeline, busiest consumers, streams with placement, several series in one API call (overview-page.md)
 - [x] Servers for 20 or more servers: data points, charts across servers, a map of every server, a grouped list; server pages with metric boxes, placement, limits and recent events (servers.md)
 - [x] Streams list and stream detail; replica placement in the API only (streams.md)
-- [x] Consumers list and consumer detail, a stream filter read once per five minutes; delivery rate and busiest-first order in the API only (consumers.md)
+- [x] Consumers list and consumer detail, a stream filter that is not polled; delivery rate and busiest-first order in the API only (consumers.md)
 - [x] Client connections of the newest collection, the server filter's choices sent with them (connections.md)
 - [x] Every event, filtered by source, kind, entity and client (events.md)
 - [x] Events worth reading first: routine events hidden, repeats folded, counts per source and server, a histogram, new events behind a pill (events.md)
