@@ -8,7 +8,7 @@ import { masset, mcell, mmatrix } from "../test/fixtures/placement";
 import { renderApp } from "../test/render";
 import { Placement } from "./Placement";
 
-vi.mock("../api/requests", () => ({ getPlacement: vi.fn(), getLensInfo: vi.fn(() => new Promise(() => {})) }));
+vi.mock("../api/requests", () => ({ getPlacement: vi.fn(), getLensInfo: vi.fn(() => new Promise(() => {})), getShellStatus: vi.fn(() => new Promise(() => {})) }));
 
 const CREATED = Date.parse("2026-09-01T08:00:00Z");
 const REBUILT = Date.parse("2026-10-13T08:03:00Z");
@@ -181,6 +181,22 @@ describe("Placement", () => {
     await user.selectOptions(screen.getByRole("combobox", { name: "Compare with" }), "custom");
     fireEvent.change(screen.getByLabelText("Time to compare with, UTC"), { target: { value: "2026-10-15T09:00" } });
     await waitFor(() => expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Loading the matrix of 15 Oct 09:00 UTC"));
+  });
+
+  it("says why the comparison failed when the unfiltered matrix fails", async () => {
+    vi.mocked(requests.getPlacement).mockImplementation(async (_s: string, spec: RangeSpec, f: MatrixFilter) => {
+      if (spec.kind === "live" && f === "all") throw new Error("unfiltered failed");
+      return spec.kind === "fixed" ? yesterday() : onlyDisagree();
+    });
+    renderApp(<Placement />, "/placement?filter=disagree&cmp=1d");
+    await waitFor(() => expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Could not load the matrix to compare with: unfiltered failed"));
+  });
+
+  it("names the default system in the context line when the address names none", async () => {
+    vi.mocked(requests.getShellStatus).mockResolvedValue({ defaultSystem: "example-prod" } as never);
+    renderApp(<Placement />, "/placement?asset=APP%2Forder-jobs&server=nats-0");
+    const panel = await screen.findByRole("complementary", { name: "order-jobs" });
+    await waitFor(() => expect(within(panel).getAllByText("Run with a nats context for account APP on example-prod.")).toHaveLength(2));
   });
 
   it("says so when the range holds no collection", async () => {
