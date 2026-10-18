@@ -116,7 +116,7 @@ func TestFakePlacement(t *testing.T) {
 	for stream, want := range map[string][]string{
 		"customer-notifications": {"nats-ap-2=PLACEMENT_STATE_LEADER", "nats-ap-3=PLACEMENT_STATE_IN_SYNC", "nats-ap-4=PLACEMENT_STATE_DISAGREES"},
 		"return-requests":        {"nats-us-6=PLACEMENT_STATE_LEADER", "nats-us-3=PLACEMENT_STATE_MISSING", "nats-us-8=PLACEMENT_STATE_IN_SYNC"},
-		"wishlist-events":        {"nats-eu-6=PLACEMENT_STATE_UNSPECIFIED", "nats-eu-7=PLACEMENT_STATE_UNSPECIFIED", "nats-eu-8=PLACEMENT_STATE_UNSPECIFIED"},
+		"basket-events":          {"nats-eu-6=PLACEMENT_STATE_UNSPECIFIED", "nats-eu-7=PLACEMENT_STATE_UNSPECIFIED", "nats-eu-8=PLACEMENT_STATE_UNSPECIFIED"},
 	} {
 		if got := global[stream]; !slices.Equal(got, want) {
 			t.Errorf("%s = %v, want %v", stream, got, want)
@@ -132,9 +132,17 @@ func TestFakePlacement(t *testing.T) {
 	if len(r.GetServers()) != 2 || slices.ContainsFunc(r.GetServers(), func(v *v1.StreamServerView) bool { return v.GetServer() == "nats-us-3" }) {
 		t.Errorf("return-requests views = %v", r.GetServers())
 	}
-	w := must(c.GetStream(ctx, connect.NewRequest(&v1.GetStreamRequest{System: "example-global", Account: "APP", Stream: "wishlist-events"})))
+	// The Overview shows the ten worst streams: they include each of
+	// these squares.
+	top := must(c.ListStreams(ctx, connect.NewRequest(&v1.ListStreamsRequest{System: "example-global", Limit: 10}))).GetStreams()
+	for _, want := range []string{"shipping-updates", "customer-notifications", "return-requests", "basket-events"} {
+		if !slices.ContainsFunc(top, func(s *v1.StreamSummary) bool { return s.GetEntity().GetStream() == want }) {
+			t.Errorf("%s is not among the ten worst streams", want)
+		}
+	}
+	w := must(c.GetStream(ctx, connect.NewRequest(&v1.GetStreamRequest{System: "example-global", Account: "APP", Stream: "basket-events"})))
 	if w.GetStream().GetLeader() != "" || slices.ContainsFunc(w.GetServers(), (*v1.StreamServerView).GetIsLeader) {
-		t.Errorf("wishlist-events leader %q, views %v", w.GetStream().GetLeader(), w.GetServers())
+		t.Errorf("basket-events leader %q, views %v", w.GetStream().GetLeader(), w.GetServers())
 	}
 }
 
