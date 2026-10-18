@@ -79,6 +79,9 @@ func globalSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (fl
 		for _, st := range sc.streams {
 			n += len(st.consumers)
 		}
+		if c.Before(globalInvoiceCreated) {
+			n--
+		}
 		return float64(n), true
 	case "server.connections", "server.in_msgs_rate", "server.out_msgs_rate":
 		if globalDownAt(sp, c) {
@@ -99,6 +102,40 @@ func globalSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (fl
 			return b, true
 		}
 		return math.Round(float64(st.msgs) * b / st.bytes), true
+	case "cluster.meta_leader_changes":
+		// nats-eu-1 has led since the start of the data: the us restarts
+		// did not touch the meta group's leader.
+		return 0, true
+	case "server.slow_consumers":
+		// Every slow consumer disconnect was label-printer on nats-us-3.
+		if sp.name != "nats-us-3" {
+			return 0, !globalDownAt(sp, c)
+		}
+		return countIn(sc.slowEvents, c), !globalDownAt(sp, c)
+	case "consumer.num_pending", "consumer.num_ack_pending", "consumer.num_redelivered", "consumer.delivered_rate":
+		return globalConsumerSample(metric, e, c)
+	}
+	return 0, false
+}
+
+// globalConsumerSample is a consumer metric's value at fixed-frame time c.
+func globalConsumerSample(metric string, e *v1.EntityRef, c time.Time) (float64, bool) {
+	switch name := e.GetConsumer(); {
+	case name == "invoice-renderer" && c.Before(globalInvoiceCreated):
+		return 0, false
+	case name == "invoice-renderer" && metric == "consumer.delivered_rate":
+		// A rate needs two reports of the leader.
+		return 0, !c.Before(globalInvoiceCreated.Add(sampleEvery))
+	case name == "invoice-renderer":
+		return 0, true
+	case name == "reorder-planner" && metric == "consumer.delivered_rate":
+		// Paused but for its run from 02:00 to 02:30 each night.
+		if c.Hour() == 2 && c.Minute() < 30 {
+			return deliveredRate(e.GetKey(), c), true
+		}
+		return 0, true
+	}
+	switch metric {
 	case "consumer.num_pending":
 		if e.GetConsumer() == "label-printer" && !c.Before(fixed(13, 40, 0)) {
 			return math.Round(40 + 6170*c.Sub(fixed(13, 40, 0)).Hours()/(50.0/60)), true
@@ -123,16 +160,6 @@ func globalSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (fl
 			return math.Round((38+noise(metric+e.GetKey(), c)*4)*10) / 10, true
 		}
 		return deliveredRate(e.GetKey(), c), true
-	case "cluster.meta_leader_changes":
-		// nats-eu-1 has led since the start of the data: the us restarts
-		// did not touch the meta group's leader.
-		return 0, true
-	case "server.slow_consumers":
-		// Every slow consumer disconnect was label-printer on nats-us-3.
-		if sp.name != "nats-us-3" {
-			return 0, !globalDownAt(sp, c)
-		}
-		return countIn(sc.slowEvents, c), !globalDownAt(sp, c)
 	}
 	return 0, false
 }

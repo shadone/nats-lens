@@ -120,7 +120,7 @@ func globalScenario() *scenario {
 		streams: []streamSpec{
 			{name: "order-jobs", msgs: 182044, bytes: 230 * mib, perDay: 9 * mib, consumers: []string{"resize-worker", "index-worker"}, peers: peers("eu-0", "eu-1", "eu-2")},
 			{name: "order-events", msgs: 9204411, bytes: 11.2 * gib, perDay: 310 * mib,
-				consumers: []string{"order-projector", "email-sender", "analytics-aggregator"}, peers: peers("eu-3", "eu-4", "eu-5")},
+				consumers: []string{"order-projector", "email-sender", "analytics-aggregator", "invoice-renderer"}, peers: peers("eu-3", "eu-4", "eu-5")},
 			{name: "payment-events", msgs: 2210980, bytes: 2.6 * gib, perDay: 74 * mib, consumers: []string{"ledger-writer", "fraud-scorer"}, peers: peers("eu-1", "eu-6", "eu-7")},
 			{name: "cart-events", msgs: 4120330, bytes: 1.9 * gib, perDay: 120 * mib, consumers: []string{"cart-abandon-notifier"}, peers: peers("eu-2", "eu-5", "eu-8")},
 			{name: "inventory-changes", msgs: 1880220, bytes: 1.4 * gib, perDay: 40 * mib, consumers: []string{"stock-projector", "reorder-planner"}, peers: peers("us-0", "us-1", "us-2")},
@@ -169,6 +169,7 @@ func globalScenario() *scenario {
 		slowEvents:    globalSlowEvents(),
 		mutes:         func() []*storedMute { return []*storedMute{globalSeedMute()} },
 		consumer:      globalConsumer,
+		created:       globalCreated,
 	}
 }
 
@@ -184,12 +185,36 @@ func globalWindows(s scen, r *v1.TimeRange) []*v1.TimeWindow {
 		Detail: "4 drains, 4 pod restarts"}}
 }
 
+// globalInvoiceCreated is when invoice-renderer was created on
+// order-events, in the fixed frame: the newest epoch is the first to
+// report it, so it has no delivery rate yet.
+var globalInvoiceCreated = fixed(14, 29, 20)
+
 // globalConsumer gives label-printer the backlog behind the slow consumer
-// finding.
-func globalConsumer(_ scen, c *v1.ConsumerSummary) {
-	if c.GetEntity().GetConsumer() == "label-printer" && c.GetPresent() {
-		c.NumPending, c.NumAckPending, c.NumRedelivered = ptr(int64(6210)), ptr(int64(1000)), ptr(int64(212))
+// finding, pauses reorder-planner between its nightly runs, and leaves the
+// new invoice-renderer without deliveries.
+func globalConsumer(s scen, c *v1.ConsumerSummary) {
+	if !c.GetPresent() {
+		return
 	}
+	switch c.GetEntity().GetConsumer() {
+	case "label-printer":
+		c.NumPending, c.NumAckPending, c.NumRedelivered = ptr(int64(6210)), ptr(int64(1000)), ptr(int64(212))
+	case "reorder-planner":
+		c.Paused, c.LastDelivered = true, ts(s.at(2, 30, 0))
+	case "invoice-renderer":
+		// Created with deliver policy new: nothing waits yet.
+		c.NumPending, c.NumAckPending, c.LastDelivered = ptr(int64(0)), ptr(int64(0)), nil
+	}
+}
+
+// globalCreated gives invoice-renderer its creation time on every peer.
+func globalCreated(s scen, _, consumer string) ([]time.Time, bool) {
+	if consumer != "invoice-renderer" {
+		return nil, false
+	}
+	at := globalInvoiceCreated.Add(s.shift)
+	return []time.Time{at, at, at}, false
 }
 
 func globalSeedMute() *storedMute {
