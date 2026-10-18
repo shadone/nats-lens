@@ -16,7 +16,7 @@ vi.mock("../api/requests", async (orig) => ({
 }));
 const m = vi.mocked(requests);
 const tally = { critical: 0, warning: 0, info: 0, muted: 0, flapping: 0, resolved24h: 0 };
-const prod = { id: "example-prod", name: "Production", environment: "", status: "ok", collection: "collecting", collecting: true, error: "" } as const;
+const prod = { id: "example-prod", name: "Production", environment: "", status: "ok", collection: "collecting", collecting: true, error: "", pending: false } as const;
 
 describe("Header", () => {
   beforeEach(() => {

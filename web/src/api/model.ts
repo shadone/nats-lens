@@ -207,6 +207,8 @@ export interface SystemBadge {
   collecting: boolean;
   /** Why the status could not be read; the other fields are then unset. */
   error: string;
+  /** Still being read; not counted until a later call has it. */
+  pending: boolean;
 }
 
 /** What the shell of every page shows: the page's system and every system's badge. */

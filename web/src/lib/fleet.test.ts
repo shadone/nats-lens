@@ -123,7 +123,7 @@ describe("freshnessText", () => {
 describe("fleetBadge", () => {
   // The badge reads each system's badge, which the server derives from its summary as notCollecting reads it.
   const fb = (xs?: SystemSummary[]) =>
-    fleetBadge(xs?.map((s): SystemBadge => ({ id: s.id, name: s.name, environment: s.environment, status: s.status, collection: s.collection, collecting: !notCollecting(s), error: s.error })));
+    fleetBadge(xs?.map((s): SystemBadge => ({ id: s.id, name: s.name, environment: s.environment, status: s.status, collection: s.collection, collecting: !notCollecting(s), error: s.error, pending: false })));
 
   it("counts the systems that are not OK, at the level of the worst", () => {
     const b = fb([sys("a"), sys("b", { status: "warning" }), sys("c", { collection: "connection closed" }), sys("d", { status: "muted" })]);
@@ -140,9 +140,15 @@ describe("fleetBadge", () => {
   });
 
   it("counts a system whose status failed or that does not collect", () => {
-    const b = (over: Partial<SystemBadge>): SystemBadge => ({ id: "a", name: "a", environment: "", status: "ok", collection: "collecting", collecting: true, error: "", ...over });
+    const b = (over: Partial<SystemBadge>): SystemBadge => ({ id: "a", name: "a", environment: "", status: "ok", collection: "collecting", collecting: true, error: "", pending: false, ...over });
     expect(fleetBadge([b({ error: "the summary took longer than 5s" })])).toMatchObject({ count: 1, worst: "summary unavailable" });
     expect(fleetBadge([b({ collecting: false, collection: "demo" })])).toMatchObject({ count: 1, worst: "not collecting" });
+  });
+
+  it("does not count a system whose status is still being read", () => {
+    const b = (over: Partial<SystemBadge>): SystemBadge => ({ id: "a", name: "a", environment: "", status: "nodata", collection: "unknown", collecting: false, error: "", pending: true, ...over });
+    expect(fleetBadge([b({})])).toBeUndefined();
+    expect(fleetBadge([b({}), b({ id: "b", pending: false, status: "warning", collecting: true })])).toMatchObject({ count: 1, worst: "warning" });
   });
 
   it("has no badge when every system is OK, or before the summaries arrive", () => {
