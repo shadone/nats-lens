@@ -39,6 +39,9 @@ func (p *Provider) ListConnections(ctx context.Context, req *v1.ListConnectionsR
 		return &v1.ListConnectionsResponse{}, nil
 	}
 	res := &v1.ListConnectionsResponse{Epoch: e.epoch}
+	if res.Servers, err = p.serverNames(ctx, req.GetRange()); err != nil {
+		return nil, err
+	}
 	// The epoch's stored decision, as the client checks took it; an epoch
 	// without one counts as on.
 	stored, err := checks.StoredLoopback(ctx, p.db(), e.epoch)
@@ -101,4 +104,25 @@ SELECT s.server_name, c.cid, c.name, c.lang, c.version, c.account, c.authorized_
 		res.NextPageToken = api.EncodeCursor(api.Cursor{Offset: next, Epoch: e.epoch})
 	}
 	return res, nil
+}
+
+// serverNames reads the names of every server seen in the range, sorted:
+// the servers ListServers lists.
+func (p *Provider) serverNames(ctx context.Context, r *v1.TimeRange) ([]string, error) {
+	start, end := span(r)
+	rows, err := p.db().QueryContext(ctx, `
+SELECT DISTINCT server_name FROM servers WHERE last_seen_at >= ? AND first_seen_at < ? ORDER BY server_name`, start, end)
+	if err != nil {
+		return nil, fmt.Errorf("server names: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			return nil, err
+		}
+		out = append(out, n)
+	}
+	return out, rows.Err()
 }

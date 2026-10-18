@@ -226,6 +226,7 @@ export async function listConnections(sys: string, spec: RangeSpec, f: Connectio
     totalCount: r.totalCount,
     epoch: String(r.epoch),
     toolingHidden: r.toolingHidden,
+    servers: r.servers,
   };
 }
 
