@@ -103,3 +103,17 @@ func TestShortLivedConnectionsManyHosts(t *testing.T) {
 	want(t, r["catalog-api"], "warning",
 		"24 connections", "from 10.0.1.1, 10.0.1.2, 10.0.1.3, 10.0.1.4, 10.0.1.5 and 3 more hosts (nats-0).")
 }
+
+// Summaries written by one flush share received_at: the cause is the one
+// written last, the highest id.
+func TestShortLivedConnectionsCauseTie(t *testing.T) {
+	f := newFx(t)
+	f.cluster(40)
+	for id := int64(1); id <= 6; id++ {
+		f.churnEvent(id, at(30), "order-sync", "10.0.0."+string(rune('0'+id)), 5, map[string]int{"nats-0": 5})
+	}
+	r := f.fires("client-005", 40, "order-sync")
+	if got := r["order-sync"].CauseEventID; got != 6 {
+		t.Errorf("cause %d, want 6, the summary written last", got)
+	}
+}
