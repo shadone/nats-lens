@@ -53,6 +53,9 @@ type Provider struct {
 
 var _ api.Provider = (*Provider)(nil)
 
+// CollectInterval is the collector's time between epochs.
+func (p *Provider) CollectInterval() time.Duration { return p.Interval }
+
 // Now is the wall clock in UTC.
 func (p *Provider) Now() time.Time {
 	if p.Clock != nil {

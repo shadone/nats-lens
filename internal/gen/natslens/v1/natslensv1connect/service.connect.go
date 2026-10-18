@@ -74,6 +74,9 @@ const (
 	LensServiceListConnectionsProcedure = "/natslens.v1.LensService/ListConnections"
 	// LensServiceListSystemsProcedure is the fully-qualified name of the LensService's ListSystems RPC.
 	LensServiceListSystemsProcedure = "/natslens.v1.LensService/ListSystems"
+	// LensServiceGetShellStatusProcedure is the fully-qualified name of the LensService's
+	// GetShellStatus RPC.
+	LensServiceGetShellStatusProcedure = "/natslens.v1.LensService/GetShellStatus"
 	// LensServiceListAccountsProcedure is the fully-qualified name of the LensService's ListAccounts
 	// RPC.
 	LensServiceListAccountsProcedure = "/natslens.v1.LensService/ListAccounts"
@@ -132,6 +135,10 @@ type LensServiceClient interface {
 	ListConnections(context.Context, *connect.Request[v1.ListConnectionsRequest]) (*connect.Response[v1.ListConnectionsResponse], error)
 	// The systems nats-lens observes, in configuration order.
 	ListSystems(context.Context, *connect.Request[v1.ListSystemsRequest]) (*connect.Response[v1.ListSystemsResponse], error)
+	// Freshness, servers and finding tally of a system and the status of
+	// every system: what the shell of every page shows. An unknown system
+	// is not an error here; the response says so.
+	GetShellStatus(context.Context, *connect.Request[v1.GetShellStatusRequest]) (*connect.Response[v1.GetShellStatusResponse], error)
 	// Accounts of a system with their connection, stream and consumer counts.
 	ListAccounts(context.Context, *connect.Request[v1.ListAccountsRequest]) (*connect.Response[v1.ListAccountsResponse], error)
 	// Key-value stores of a system.
@@ -283,6 +290,13 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		getShellStatus: connect.NewClient[v1.GetShellStatusRequest, v1.GetShellStatusResponse](
+			httpClient,
+			baseURL+LensServiceGetShellStatusProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetShellStatus")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		listAccounts: connect.NewClient[v1.ListAccountsRequest, v1.ListAccountsResponse](
 			httpClient,
 			baseURL+LensServiceListAccountsProcedure,
@@ -348,6 +362,7 @@ type lensServiceClient struct {
 	getServer          *connect.Client[v1.GetServerRequest, v1.GetServerResponse]
 	listConnections    *connect.Client[v1.ListConnectionsRequest, v1.ListConnectionsResponse]
 	listSystems        *connect.Client[v1.ListSystemsRequest, v1.ListSystemsResponse]
+	getShellStatus     *connect.Client[v1.GetShellStatusRequest, v1.GetShellStatusResponse]
 	listAccounts       *connect.Client[v1.ListAccountsRequest, v1.ListAccountsResponse]
 	listKeyValueStores *connect.Client[v1.ListKeyValueStoresRequest, v1.ListKeyValueStoresResponse]
 	listObjectStores   *connect.Client[v1.ListObjectStoresRequest, v1.ListObjectStoresResponse]
@@ -446,6 +461,11 @@ func (c *lensServiceClient) ListSystems(ctx context.Context, req *connect.Reques
 	return c.listSystems.CallUnary(ctx, req)
 }
 
+// GetShellStatus calls natslens.v1.LensService.GetShellStatus.
+func (c *lensServiceClient) GetShellStatus(ctx context.Context, req *connect.Request[v1.GetShellStatusRequest]) (*connect.Response[v1.GetShellStatusResponse], error) {
+	return c.getShellStatus.CallUnary(ctx, req)
+}
+
 // ListAccounts calls natslens.v1.LensService.ListAccounts.
 func (c *lensServiceClient) ListAccounts(ctx context.Context, req *connect.Request[v1.ListAccountsRequest]) (*connect.Response[v1.ListAccountsResponse], error) {
 	return c.listAccounts.CallUnary(ctx, req)
@@ -515,6 +535,10 @@ type LensServiceHandler interface {
 	ListConnections(context.Context, *connect.Request[v1.ListConnectionsRequest]) (*connect.Response[v1.ListConnectionsResponse], error)
 	// The systems nats-lens observes, in configuration order.
 	ListSystems(context.Context, *connect.Request[v1.ListSystemsRequest]) (*connect.Response[v1.ListSystemsResponse], error)
+	// Freshness, servers and finding tally of a system and the status of
+	// every system: what the shell of every page shows. An unknown system
+	// is not an error here; the response says so.
+	GetShellStatus(context.Context, *connect.Request[v1.GetShellStatusRequest]) (*connect.Response[v1.GetShellStatusResponse], error)
 	// Accounts of a system with their connection, stream and consumer counts.
 	ListAccounts(context.Context, *connect.Request[v1.ListAccountsRequest]) (*connect.Response[v1.ListAccountsResponse], error)
 	// Key-value stores of a system.
@@ -662,6 +686,13 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	lensServiceGetShellStatusHandler := connect.NewUnaryHandler(
+		LensServiceGetShellStatusProcedure,
+		svc.GetShellStatus,
+		connect.WithSchema(lensServiceMethods.ByName("GetShellStatus")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	lensServiceListAccountsHandler := connect.NewUnaryHandler(
 		LensServiceListAccountsProcedure,
 		svc.ListAccounts,
@@ -742,6 +773,8 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceListConnectionsHandler.ServeHTTP(w, r)
 		case LensServiceListSystemsProcedure:
 			lensServiceListSystemsHandler.ServeHTTP(w, r)
+		case LensServiceGetShellStatusProcedure:
+			lensServiceGetShellStatusHandler.ServeHTTP(w, r)
 		case LensServiceListAccountsProcedure:
 			lensServiceListAccountsHandler.ServeHTTP(w, r)
 		case LensServiceListKeyValueStoresProcedure:
@@ -833,6 +866,10 @@ func (UnimplementedLensServiceHandler) ListConnections(context.Context, *connect
 
 func (UnimplementedLensServiceHandler) ListSystems(context.Context, *connect.Request[v1.ListSystemsRequest]) (*connect.Response[v1.ListSystemsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListSystems is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetShellStatus(context.Context, *connect.Request[v1.GetShellStatusRequest]) (*connect.Response[v1.GetShellStatusResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetShellStatus is not implemented"))
 }
 
 func (UnimplementedLensServiceHandler) ListAccounts(context.Context, *connect.Request[v1.ListAccountsRequest]) (*connect.Response[v1.ListAccountsResponse], error) {

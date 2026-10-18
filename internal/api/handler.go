@@ -40,6 +40,8 @@ type Handler struct {
 
 	// summaryFlights are the ListSystems summaries in flight.
 	summaryFlights summaryFlights
+	// badgeCache keeps GetShellStatus's badge summaries.
+	badgeCache badgeCache
 }
 
 var _ natslensv1connect.LensServiceHandler = (*Handler)(nil)
