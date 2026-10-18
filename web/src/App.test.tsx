@@ -113,7 +113,7 @@ describe("switching system", () => {
 
   it("starts the connections of the new system at page one", async () => {
     const conn = { key: "nats-1/7", server: "nats-1", cid: "7", name: "resize-worker", lang: "go", version: "1", account: "APP", tooling: false, user: "", ip: "10.0.0.7" };
-    const page = (n: number, next: string) => ({ items: [conn] as never, nextPageToken: next, totalCount: n, epoch: "1", toolingHidden: 0 });
+    const page = (n: number, next: string) => ({ items: [conn] as never, nextPageToken: next, totalCount: n, epoch: "1", toolingHidden: 0, servers: [] });
     m.listConnections.mockImplementation(async (sys, _spec, f) => page(200, sys === "example-prod" && !f.pageToken ? "prod-token-2" : ""));
     renderApp(<App />, "/connections?system=example-prod");
     await userEvent.click(await screen.findByRole("button", { name: "Next" }));
