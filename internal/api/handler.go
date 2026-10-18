@@ -37,6 +37,9 @@ type Handler struct {
 	// SummaryTimeout bounds each system's summary in ListSystems; zero
 	// means DefaultSummaryTimeout.
 	SummaryTimeout time.Duration
+	// ShellTimeout bounds the system's part of GetShellStatus; zero means
+	// DefaultShellTimeout.
+	ShellTimeout time.Duration
 
 	// summaryFlights are the ListSystems summaries in flight.
 	summaryFlights summaryFlights

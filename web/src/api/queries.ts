@@ -3,9 +3,11 @@
 // two systems never share a cache entry. A live range refetches on the
 // collector's interval; a fixed range never changes and is not refetched.
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { LIVE_REFRESH_MS, rangeKey, type RangeSpec } from "../lib/timeRange";
 import { useSystem } from "../lib/useSystem";
 import type { Entity } from "./model";
+import { reportedError } from "./errors";
 import * as api from "./requests";
 import { shellQuery } from "./shell";
 
@@ -220,12 +222,24 @@ export function useLastData(since: number | undefined, intervalMs: number) {
 }
 
 /**
- * The shell's status of the page's system. While the collector does not
+ * The shell's status query, with a failure of the system's own part, which
+ * the response reports beside the systems, as the query's error.
+ */
+function useShellQuery() {
+  const status = useQuery(shellQuery(useSystem()));
+  const e = status.data?.error;
+  const error = useMemo(() => (e ? reportedError(e.code, e.message) : null), [e?.code, e?.message]);
+  return error ? { ...status, error } : status;
+}
+
+/**
+ * The shell's status of the page's system. A failure of the system's own
+ * part is the status's error, as a failed call's would be. While the collector does not
  * collect and the last two intervals hold no collection, the servers and
  * the newest collection come from the last data before the stop.
  */
 export function useShellStatus() {
-  const status = useQuery(shellQuery(useSystem()));
+  const status = useShellQuery();
   const f = status.data?.freshness;
   const stopped = f && !f.collecting && f.epochAt === undefined ? f.notCollectingSince : undefined;
   const last = useLastData(stopped, f?.intervalMs || LIVE_REFRESH_MS).data;

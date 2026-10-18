@@ -66,6 +66,15 @@ export function errorInfo(e: unknown): ErrorInfo {
   return { code: "error", message: e instanceof Error ? e.message : String(e), hint: "" };
 }
 
+/**
+ * The error a response reports in its own fields, as a Connect code name
+ * and a message, as the ConnectError a failed call would have thrown.
+ */
+export function reportedError(code: string, message: string): ConnectError {
+  const c = (Object.values(Code).filter((v): v is Code => typeof v === "number") as Code[]).find((x) => codeName(x) === code);
+  return new ConnectError(message, c ?? Code.Unknown);
+}
+
 // deadline_exceeded is not retried: the attempt already waited the full
 // call timeout, and a slow server should be shown, not called again.
 const RETRYABLE = new Set([Code.Unavailable, Code.ResourceExhausted]);
