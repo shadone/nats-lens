@@ -7,6 +7,7 @@ import { useMemo } from "react";
 import { LIVE_REFRESH_MS, rangeKey, type RangeSpec } from "../lib/timeRange";
 import { useSystem } from "../lib/useSystem";
 import type { Entity } from "./model";
+import type { MatrixFilter } from "./placementMatrix";
 import { reportedError } from "./errors";
 import * as api from "./requests";
 import { shellQuery } from "./shell";
@@ -168,6 +169,18 @@ export function useConsumer(spec: RangeSpec, account: string, stream: string, na
     queryKey: ["consumer", sys, rangeKey(spec), account, stream, name],
     queryFn: ({ signal }) => api.getConsumer(sys, spec, account, stream, name, signal),
     refetchInterval: refetch(spec),
+  });
+}
+
+/** The placement matrix of a range; enabled false leaves it unread. */
+export function usePlacement(spec: RangeSpec, filter: MatrixFilter, enabled = true) {
+  const sys = useSystem();
+  return useQuery({
+    queryKey: ["placement", sys, rangeKey(spec), filter],
+    queryFn: ({ signal }) => api.getPlacement(sys, spec, filter, signal),
+    refetchInterval: refetch(spec),
+    placeholderData: keepPreviousData,
+    enabled,
   });
 }
 
