@@ -91,6 +91,7 @@ func prodFindings(s scen) []*v1.Finding {
 			server+" healthz unavailable (503): JetStream stream 'APP > "+stream+"' is not current (+2 more).")
 	}
 	out := []*v1.Finding{c010, c009, c002, s005, s006,
+		shortLived("stock-poller", s.at(12, 48, 0), 21, []string{"10.20.4.31"}, []string{"nats-0", "nats-1"}),
 		resolvedFinding("consumer-001", "Consumer quorum lost", critical,
 			consumerRef("order-jobs", "job-cache-projector"), s.at(9, 15, 0), s.at(9, 45, 0),
 			"Leader nats-0 sees 1 of 3 replicas online; quorum needs 2, for 60 collections."),
