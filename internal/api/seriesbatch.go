@@ -3,6 +3,8 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
+	"runtime/debug"
 	"sync"
 
 	"connectrpc.com/connect"
@@ -71,7 +73,7 @@ func readBatch(ctx context.Context, p Provider, req *v1.GetTimeSeriesBatchReques
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			res, err := readQuery(ctx, p, req, q)
+			res, err := readQueryRecovered(ctx, p, req, q)
 			if err != nil {
 				once.Do(func() { firstErr = err; cancel() })
 				return
@@ -87,6 +89,18 @@ func readBatch(ctx context.Context, p Provider, req *v1.GetTimeSeriesBatchReques
 		return nil, err
 	}
 	return &v1.GetTimeSeriesBatchResponse{Results: results, Range: req.GetRange()}, nil
+}
+
+// readQueryRecovered is readQuery with a panic turned into an error that
+// fails the call: the worker runs outside the handler's goroutine, where
+// the server's recovery does not reach.
+func readQueryRecovered(ctx context.Context, p Provider, batch *v1.GetTimeSeriesBatchRequest, q *v1.SeriesQuery) (res *v1.SeriesResult, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			res, err = nil, fmt.Errorf("series %s panicked: %v\n%s", q.GetMetric(), r, debug.Stack())
+		}
+	}()
+	return readQuery(ctx, p, batch, q)
 }
 
 // readQuery reads one query as GetTimeSeries would, with the batch's

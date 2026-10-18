@@ -3,6 +3,7 @@ package api_test
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 	"sync"
 	"testing"
@@ -206,5 +207,33 @@ func TestBatchExplicitRange(t *testing.T) {
 	}))
 	if codeOf(err) != connect.CodeInvalidArgument {
 		t.Errorf("empty range: got %v, want invalid_argument", err)
+	}
+}
+
+// panicking panics on one metric.
+type panicking struct{ *fake.Provider }
+
+func (p panicking) GetTimeSeries(ctx context.Context, req *v1.GetTimeSeriesRequest) (*v1.GetTimeSeriesResponse, error) {
+	if req.GetMetric() == "server.in_msgs_rate" {
+		panic("boom")
+	}
+	return p.Provider.GetTimeSeries(ctx, req)
+}
+
+func TestBatchPanicFailsTheCallNotTheProcess(t *testing.T) {
+	var logs syncBuffer
+	_, c := apitest.ServeHandler(t, &api.Handler{
+		Systems: api.One(api.DefaultSystemID, api.DefaultSystemID, panicking{fake.New(false)}),
+		Log:     slog.New(slog.NewTextHandler(&logs, nil)),
+	})
+	_, err := c.GetTimeSeriesBatch(context.Background(), connect.NewRequest(&v1.GetTimeSeriesBatchRequest{Queries: batchQueries}))
+	if codeOf(err) != connect.CodeInternal || strings.Contains(err.Error(), "boom") {
+		t.Errorf("got %v, want internal without the panic's text", err)
+	}
+	if !strings.Contains(logs.String(), "server.in_msgs_rate panicked: boom") {
+		t.Errorf("log %q does not name the metric and the panic", logs.String())
+	}
+	if _, err := c.GetTimeSeries(context.Background(), connect.NewRequest(&v1.GetTimeSeriesRequest{Metric: "cluster.connections"})); err != nil {
+		t.Errorf("server after the panic: %v", err)
 	}
 }
