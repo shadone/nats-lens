@@ -28,6 +28,13 @@ type streamSpec struct {
 	// behind is a follower the leader reports not current, lag entries back.
 	behind string
 	lag    int64
+	// disagrees is a follower whose configuration differs from the
+	// leader's; missing a follower the leader lists that does not report
+	// the stream; leaderless is a stream no replica leads in the newest
+	// epoch.
+	disagrees  string
+	missing    string
+	leaderless bool
 	// maxBytes and discard are the stream's byte limit and discard
 	// policy; zero means no limit and "" discard old.
 	maxBytes int64
@@ -44,8 +51,14 @@ func (sp streamSpec) maxBytesText() string {
 
 func isKV(name string) bool { return strings.HasPrefix(name, "KV_") || strings.HasPrefix(name, "OBJ_") }
 
-// leader is the stream's leader: its first peer.
-func (s scen) leader(sp streamSpec) string { return s.sc.peers(sp)[0] }
+// leader is the stream's leader: its first peer, none for a leaderless
+// stream.
+func (s scen) leader(sp streamSpec) string {
+	if sp.leaderless {
+		return ""
+	}
+	return s.sc.peers(sp)[0]
+}
 
 func (s scen) streamSummary(sp streamSpec, cur []*v1.Finding, r *v1.TimeRange) *v1.StreamSummary {
 	e := streamRef(sp.name)
@@ -53,6 +66,7 @@ func (s scen) streamSummary(sp streamSpec, cur []*v1.Finding, r *v1.TimeRange) *
 	out := &v1.StreamSummary{
 		Entity: e, Replicas: ptr(int32(len(s.sc.peers(sp)))), Messages: ptr(sp.msgs), Bytes: ptr(int64(sp.bytes)), Consumers: ptr(int32(len(sp.consumers) + sp.ephemeral)),
 		BytesPerDay: s.growth(e, r), Status: st, FindingCodes: codes, Leader: s.leader(sp), Placement: s.placement(sp),
+		ServersDisagree: sp.disagrees != "",
 		Bytes_7D: s.series("stream.bytes", e, &v1.TimeRange{Start: ts(r.GetEnd().AsTime().Add(-7 * 24 * time.Hour)), End: r.GetEnd()}, 28),
 	}
 	if len(sp.expected) > 0 {
@@ -116,19 +130,36 @@ func (p *Provider) GetStream(_ context.Context, req *v1.GetStreamRequest) (*v1.G
 			{"discard", cmp.Or(sp.discard, "old")},
 		}),
 	}
+	hashes := &v1.Disagreement{Field: "config_hash"}
 	for i, name := range peers {
+		if name == sp.missing {
+			// The leader lists the replica, but its server does not
+			// report the stream: it has no view.
+			continue
+		}
 		v := &v1.StreamServerView{
 			Server: name, IsLeader: i == 0, Current: true, Messages: ptr(sp.msgs), Bytes: ptr(int64(sp.bytes)),
 			FirstSeq: ptr(int64(1)), LastSeq: ptr(sp.msgs), Created: ts(s.on(2, 8, 30)), ConfigHash: "c4f1a0", Lag: followerLag(i),
 		}
-		if name == sp.behind {
+		switch name {
+		case sp.behind:
 			v.Current, v.Lag = false, ptr(sp.lag)
+		case sp.disagrees:
+			v.ConfigHash = "7d3e91"
+		}
+		if sp.leaderless {
+			// Without a leader no server says how a replica stands.
+			v.IsLeader, v.Current, v.Lag = false, false, nil
 		}
 		if sv, _ := p.sc.server(name); !sv.answering() {
 			// A replica on a server that does not answer reports nothing.
 			v = &v1.StreamServerView{Server: name}
 		}
 		res.Servers = append(res.Servers, v)
+		hashes.Values = append(hashes.Values, &v1.ServerValue{Server: name, Value: v.GetConfigHash()})
+	}
+	if sp.disagrees != "" {
+		res.Disagreements = append(res.Disagreements, hashes)
 	}
 	for _, f := range cur {
 		if matchesEntity(f.GetEntity(), res.GetStream().GetEntity()) {

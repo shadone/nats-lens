@@ -76,7 +76,7 @@ func TestGlobalTiles(t *testing.T) {
 	if got := tiles["consumers"].GetSubtitle(); got != "1 behind" {
 		t.Errorf("consumers subtitle = %q, want 1 behind", got)
 	}
-	if got := tiles["streams"].GetSubtitle(); got != "11 of 11 replicated · 1 lagging" {
+	if got := tiles["streams"].GetSubtitle(); got != "13 of 13 replicated · 1 lagging" {
 		t.Errorf("streams subtitle = %q", got)
 	}
 }
@@ -106,8 +106,35 @@ func TestFakePlacement(t *testing.T) {
 		t.Errorf("order-jobs = %v, want %v", got, want)
 	}
 	want = []string{"nats-us-3=PLACEMENT_STATE_LEADER", "nats-us-4=PLACEMENT_STATE_OFFLINE", "nats-us-5=PLACEMENT_STATE_IN_SYNC"}
-	if got := streams("example-global")["shipping-updates"]; !slices.Equal(got, want) {
+	global := streams("example-global")
+	if got := global["shipping-updates"]; !slices.Equal(got, want) {
 		t.Errorf("shipping-updates = %v, want %v", got, want)
+	}
+	// The other squares the store draws: a follower with another
+	// configuration, one the leader lists that does not report the stream,
+	// and a stream without a leader.
+	for stream, want := range map[string][]string{
+		"customer-notifications": {"nats-ap-2=PLACEMENT_STATE_LEADER", "nats-ap-3=PLACEMENT_STATE_IN_SYNC", "nats-ap-4=PLACEMENT_STATE_DISAGREES"},
+		"return-requests":        {"nats-us-6=PLACEMENT_STATE_LEADER", "nats-us-3=PLACEMENT_STATE_MISSING", "nats-us-8=PLACEMENT_STATE_IN_SYNC"},
+		"wishlist-events":        {"nats-eu-6=PLACEMENT_STATE_UNSPECIFIED", "nats-eu-7=PLACEMENT_STATE_UNSPECIFIED", "nats-eu-8=PLACEMENT_STATE_UNSPECIFIED"},
+	} {
+		if got := global[stream]; !slices.Equal(got, want) {
+			t.Errorf("%s = %v, want %v", stream, got, want)
+		}
+	}
+	// The disagreeing stream says so, with the differing hash in its
+	// detail; the missing replica has no server view.
+	d := must(c.GetStream(ctx, connect.NewRequest(&v1.GetStreamRequest{System: "example-global", Account: "APP", Stream: "customer-notifications"})))
+	if !d.GetStream().GetServersDisagree() || len(d.GetDisagreements()) != 1 || d.GetDisagreements()[0].GetField() != "config_hash" {
+		t.Errorf("customer-notifications: disagree %v, %v", d.GetStream().GetServersDisagree(), d.GetDisagreements())
+	}
+	r := must(c.GetStream(ctx, connect.NewRequest(&v1.GetStreamRequest{System: "example-global", Account: "APP", Stream: "return-requests"})))
+	if len(r.GetServers()) != 2 || slices.ContainsFunc(r.GetServers(), func(v *v1.StreamServerView) bool { return v.GetServer() == "nats-us-3" }) {
+		t.Errorf("return-requests views = %v", r.GetServers())
+	}
+	w := must(c.GetStream(ctx, connect.NewRequest(&v1.GetStreamRequest{System: "example-global", Account: "APP", Stream: "wishlist-events"})))
+	if w.GetStream().GetLeader() != "" || slices.ContainsFunc(w.GetServers(), (*v1.StreamServerView).GetIsLeader) {
+		t.Errorf("wishlist-events leader %q, views %v", w.GetStream().GetLeader(), w.GetServers())
 	}
 }
 
