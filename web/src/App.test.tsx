@@ -166,8 +166,8 @@ describe("sidebar", () => {
   it("shows the built pages in their groups and hides the planned ones", async () => {
     renderApp(<App />, "/streams?system=example-global");
     const links = within(nav()).getAllByRole("link").map((a) => a.textContent?.replace(/\d+$/, ""));
-    expect(links).toEqual(["Fleet", "Overview", "Findings", "Connections", "Streams", "Consumers", "KV Stores", "Object Stores", "Servers", "Events"]);
-    for (const planned of ["Subjects", "Micro services", "Applications", "Placement", "Capacity", "Topology", "Accounts", "Users & auth"]) {
+    expect(links).toEqual(["Fleet", "Overview", "Findings", "Connections", "Streams", "Consumers", "KV Stores", "Object Stores", "Placement", "Servers", "Events"]);
+    for (const planned of ["Subjects", "Micro services", "Applications", "Capacity", "Topology", "Accounts", "Users & auth"]) {
       expect(within(nav()).queryByText(planned)).toBeNull();
     }
     expect(within(nav()).getByText("Messaging").parentElement).toHaveTextContent("Connections");

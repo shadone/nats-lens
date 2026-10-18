@@ -9,6 +9,7 @@ import { consumer, consumerDetail, connection, overview, server, stream, streamD
 import { event, finding, findingStateEnum, mute, timeline, transition } from "./adapt-findings";
 import { lensInfo } from "./adapt-info";
 import { shellStatus } from "./adapt-shell";
+import { FILTER_ENUM, matrix, type MatrixFilter } from "./placementMatrix";
 import { lens } from "./client";
 import type {
   ConnectionPage,
@@ -191,6 +192,10 @@ export async function getConsumer(sys: string, spec: RangeSpec, account: string,
   return consumerDetail(
     await lens.getConsumer({ ...systemInit(sys), account, stream: streamName, consumer: name, range: rangeInit(spec) }, { signal }),
   );
+}
+
+export async function getPlacement(sys: string, spec: RangeSpec, filter: MatrixFilter, signal?: AbortSignal) {
+  return matrix(await lens.getPlacement({ ...systemInit(sys), range: rangeInit(spec), filter: FILTER_ENUM[filter] }, { signal }));
 }
 
 export async function listServers(sys: string, spec: RangeSpec, signal?: AbortSignal) {
