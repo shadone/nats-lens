@@ -1,13 +1,14 @@
-// The systems nats-lens observes, their Fleet summaries, and the accounts
-// of one system.
+// The systems nats-lens observes, their badges and Fleet summaries, and the
+// accounts of one system.
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { ListSystemsResponse } from "../gen/natslens/v1/systems_pb";
-import { DEFAULT_PRESET, LIVE_REFRESH_MS, rangeKey, type RangeSpec } from "../lib/timeRange";
+import { LIVE_REFRESH_MS, rangeKey, type RangeSpec } from "../lib/timeRange";
 import { useSystem } from "../lib/useSystem";
 import { systemSummary } from "./adapt-systems";
 import { lens } from "./client";
-import type { SystemSummary } from "./model";
+import type { ShellStatus, SystemBadge, SystemSummary } from "./model";
 import { rangeInit, systemInit } from "./requests";
+import { shellQuery } from "./shell";
 
 /** Cells in each system's status strip. */
 export const STRIP_CELLS = 48;
@@ -33,10 +34,10 @@ export interface AccountInfo {
   consumers?: number;
 }
 
-/** The systems of a ListSystems response, without their summaries. */
-export function systemsOf(r: ListSystemsResponse): Systems {
-  const systems = r.systems.flatMap((s) => (s.system ? [{ id: s.system.id, name: s.system.name || s.system.id, environment: s.system.environment }] : []));
-  return { systems, defaultSystem: r.defaultSystem || systems[0]?.id || "" };
+/** The systems of the shell's status, without their badges. */
+export function systemsOf(r: ShellStatus): Systems {
+  const systems = r.systems.map((s) => ({ id: s.id, name: s.name, environment: s.environment }));
+  return { systems, defaultSystem: r.defaultSystem };
 }
 
 export async function listAccounts(sys: string, spec: RangeSpec, signal?: AbortSignal): Promise<AccountInfo[]> {
@@ -51,16 +52,23 @@ export async function listAccounts(sys: string, spec: RangeSpec, signal?: AbortS
   }));
 }
 
-/** The range the system list and the sidebar's Fleet badge read. */
-const DEFAULT_LIVE: RangeSpec = { kind: "live", preset: DEFAULT_PRESET };
-
 /**
  * The configured systems; they change only on a restart. They come from
- * the query of the default live summaries, so that a page load asks
- * ListSystems once for both.
+ * the shell's status query of the page's system, so that a page load asks
+ * for them in the call the shell makes anyway. On a switch of system the
+ * list of the previous one is kept until the new one answers.
  */
 export function useSystems() {
-  return useQuery({ ...summariesQuery(DEFAULT_LIVE), select: systemsOf });
+  return useQuery({ ...shellQuery(useSystem()), select: systemsOf, placeholderData: keepPreviousData });
+}
+
+function badgesOf(r: ShellStatus): SystemBadge[] {
+  return r.systems;
+}
+
+/** Every system's badge state, in configuration order: the sidebar's Fleet badge. */
+export function useSystemBadges() {
+  return useQuery({ ...shellQuery(useSystem()), select: badgesOf, placeholderData: keepPreviousData });
 }
 
 /**
@@ -104,15 +112,10 @@ function summariesQuery(spec: RangeSpec) {
 }
 
 /**
- * Every system's summary over the range, in configuration order. Calls
- * that arrive while one for the same range is pending share its result,
- * in the browser and in the server.
+ * Every system's summary over the range, in configuration order: the Fleet
+ * page. Calls that arrive while one for the same range is pending share
+ * its result, in the browser and in the server.
  */
 export function useSystemSummaries(spec: RangeSpec) {
   return useQuery({ ...summariesQuery(spec), select: summariesOf, placeholderData: keepPreviousData });
-}
-
-/** The summaries of the default live range, whatever the page shows: the sidebar's Fleet badge. */
-export function useLiveSystemSummaries() {
-  return useSystemSummaries(DEFAULT_LIVE);
 }

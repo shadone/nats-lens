@@ -34,7 +34,14 @@ type Provider interface {
 	// the identity mode and the version.
 	Info(ctx context.Context) (*v1.GetLensInfoResponse, error)
 
+	// CollectInterval is the time between epochs; the default range of
+	// GetShellStatus is two of them.
+	CollectInterval() time.Duration
+
 	GetOverview(ctx context.Context, req *v1.GetOverviewRequest) (*v1.GetOverviewResponse, error)
+	// ShellStatus returns the freshness, servers and finding tally of the
+	// range, as GetOverview reads them; the handler adds the systems.
+	ShellStatus(ctx context.Context, req *v1.GetShellStatusRequest) (*v1.GetShellStatusResponse, error)
 	ListFindings(ctx context.Context, req *v1.ListFindingsRequest) (*v1.ListFindingsResponse, error)
 	GetFinding(ctx context.Context, req *v1.GetFindingRequest) (*v1.GetFindingResponse, error)
 	// MuteFinding stores a mute; the handler has checked the reason, the

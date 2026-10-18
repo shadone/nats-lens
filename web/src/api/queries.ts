@@ -3,11 +3,13 @@
 // two systems never share a cache entry. A live range refetches on the
 // collector's interval; a fixed range never changes and is not refetched.
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { LIVE_REFRESH_MS, rangeKey, type RangeSpec } from "../lib/timeRange";
 import { useSystem } from "../lib/useSystem";
 import type { Entity } from "./model";
+import { reportedError } from "./errors";
 import * as api from "./requests";
-import { useCurrentSystem } from "./systems";
+import { shellQuery } from "./shell";
 
 /** How long the names that fill a filter are kept before a mount reads them again. */
 export const FILTER_NAMES_STALE_MS = 5 * 60_000;
@@ -205,18 +207,6 @@ export function useLensInfo() {
   return useQuery({ queryKey: ["lensInfo", sys], queryFn: ({ signal }) => api.getLensInfo(sys, signal), staleTime: 5 * 60_000 });
 }
 
-/** Shell status, live whatever the page's range; refreshed every collect interval. */
-export function useHeaderStatus(intervalMs: number, enabled = true) {
-  const sys = useSystem();
-  return useQuery({
-    queryKey: ["headerStatus", sys, intervalMs],
-    queryFn: ({ signal }) => api.getHeaderStatus(sys, intervalMs, signal),
-    refetchInterval: intervalMs,
-    refetchIntervalInBackground: false,
-    enabled,
-  });
-}
-
 /**
  * The last data before the collector stopped at since. Kept for ten minutes
  * per stop, so only the first refresh after a stop pays for the lookup.
@@ -232,18 +222,27 @@ export function useLastData(since: number | undefined, intervalMs: number) {
 }
 
 /**
- * The shell's status call, on the collect interval of the page's system;
- * made only once the system is known to be configured. While the collector
- * does not collect and the last two intervals hold no collection, the
- * servers and the newest collection come from the last data before the stop.
+ * The shell's status query, with a failure of the system's own part, which
+ * the response reports beside the systems, as the query's error.
+ */
+function useShellQuery() {
+  const status = useQuery(shellQuery(useSystem()));
+  const e = status.data?.error;
+  const error = useMemo(() => (e ? reportedError(e.code, e.message) : null), [e?.code, e?.message]);
+  return error ? { ...status, error } : status;
+}
+
+/**
+ * The shell's status of the page's system. A failure of the system's own
+ * part is the status's error, as a failed call's would be. While the collector does not
+ * collect and the last two intervals hold no collection, the servers and
+ * the newest collection come from the last data before the stop.
  */
 export function useShellStatus() {
-  const info = useLensInfo().data;
-  const intervalMs = info?.collectIntervalMs ?? 30_000;
-  const status = useHeaderStatus(intervalMs, useCurrentSystem().known === true);
+  const status = useShellQuery();
   const f = status.data?.freshness;
   const stopped = f && !f.collecting && f.epochAt === undefined ? f.notCollectingSince : undefined;
-  const last = useLastData(stopped, intervalMs).data;
+  const last = useLastData(stopped, f?.intervalMs || LIVE_REFRESH_MS).data;
   if (!status.data || !f || stopped === undefined || !last?.freshness) return status;
   const lf = last.freshness;
   const data = { ...status.data, servers: last.servers, freshness: { ...f, epoch: lf.epoch, epochAt: lf.epochAt, ageMs: lf.ageMs, partial: lf.partial } };

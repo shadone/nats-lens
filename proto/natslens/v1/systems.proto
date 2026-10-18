@@ -7,6 +7,7 @@ import "google/protobuf/timestamp.proto";
 import "natslens/v1/common.proto";
 import "natslens/v1/findings.proto";
 import "natslens/v1/overview.proto";
+import "natslens/v1/servers.proto";
 
 option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
 
@@ -167,4 +168,74 @@ message ListAccountsRequest {
 message ListAccountsResponse {
   // The accounts.
   repeated Account accounts = 1;
+}
+
+// Request for what the shell of every page shows.
+message GetShellStatusRequest {
+  // System ID, as ListSystems returns it. Empty means the default system.
+  // An unknown one is not an error: the response says so in system_known.
+  string system = 1;
+
+  // Range whose newest epoch gives the freshness and the servers. Unset
+  // means the last two collect intervals up to now.
+  TimeRange range = 2;
+}
+
+// Badge status of one system.
+message SystemStatus {
+  // The system.
+  SystemRef system = 1;
+
+  // Worst status of the findings that fire now; no data when the last 24
+  // hours hold no epoch.
+  Status status = 2;
+
+  // What the system's collector is doing now.
+  CollectionState collection = 3;
+
+  // Whether the system's collector collects: false while its connection
+  // fails or the stored data says it stopped.
+  bool collecting = 4;
+
+  // Why the status could not be read, for example a timeout; the other
+  // fields except system are then unset. Empty when it was read.
+  string error = 5;
+
+  // Whether the status is still being read: the system's first summary
+  // took longer than the call waits for it. The other fields except system
+  // are then unset; a later call has it.
+  bool pending = 6;
+}
+
+// What the shell shows: the system's freshness, servers and finding
+// tally, and every system's badge status.
+message GetShellStatusResponse {
+  // How current the system's data is, over the request's range.
+  Freshness freshness = 1;
+
+  // Servers seen in the range, by name, as GetOverview lists them.
+  repeated ServerSummary servers = 2;
+
+  // Counts of findings, as GetOverview counts them.
+  FindingTally tally = 3;
+
+  // Every system with its status over the last 24 hours, in
+  // configuration order.
+  repeated SystemStatus systems = 4;
+
+  // ID of the default system: the one a request with an empty system
+  // reads.
+  string default_system = 5;
+
+  // Whether the request's system is configured. When false, freshness,
+  // servers and tally are unset.
+  bool system_known = 6;
+
+  // Connect code of the failure of the system's part, for example
+  // deadline_exceeded; empty when it was read. Freshness, servers and
+  // tally are then unset, while the systems are still listed.
+  string error_code = 7;
+
+  // Why the system's part could not be read; empty when it was read.
+  string error = 8;
 }

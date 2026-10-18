@@ -11,28 +11,19 @@ import (
 // GetOverview reads the cluster, freshness, servers, tiles, the finding
 // tally and the worst unmuted firing finding.
 func (p *Provider) GetOverview(ctx context.Context, req *v1.GetOverviewRequest) (*v1.GetOverviewResponse, error) {
-	res := &v1.GetOverviewResponse{Range: req.GetRange(), Tally: &v1.FindingTally{}}
-	f, err := p.freshness(ctx, req.GetRange())
+	sh, err := p.shell(ctx, req.GetRange())
 	if err != nil {
 		return nil, err
 	}
-	res.Freshness = f
-	servers, err := p.listServers(ctx, req.GetRange())
-	if err != nil {
-		return nil, err
-	}
-	res.Servers = servers.GetServers()
+	res := &v1.GetOverviewResponse{Range: req.GetRange(), Freshness: sh.freshness, Servers: sh.servers.GetServers(), Tally: sh.tally}
 	for _, s := range res.GetServers() {
 		if s.GetCluster() != "" {
 			res.Cluster = s.GetCluster()
 			break
 		}
 	}
-	cur, err := p.firingFindings(ctx, req.GetRange())
-	if err != nil {
-		return nil, err
-	}
-	if res.Tiles, err = p.tiles(ctx, req.GetRange(), req.GetMaxPoints(), servers, cur); err != nil {
+	cur := sh.cur
+	if res.Tiles, err = p.tiles(ctx, req.GetRange(), req.GetMaxPoints(), sh.servers, cur); err != nil {
 		return nil, err
 	}
 	if res.Windows, err = p.k8sWindows(ctx, req.GetRange()); err != nil {
@@ -51,10 +42,44 @@ func (p *Provider) GetOverview(ctx context.Context, req *v1.GetOverviewRequest) 
 		}
 	}
 	tileStatus(res.Tiles, cur, ran)
-	if res.Tally, err = p.tally(ctx, req.GetRange(), cur); err != nil {
+	return res, nil
+}
+
+// ShellStatus reads the overview's freshness, servers and finding tally
+// over the range, without its tiles and windows.
+func (p *Provider) ShellStatus(ctx context.Context, req *v1.GetShellStatusRequest) (*v1.GetShellStatusResponse, error) {
+	sh, err := p.shell(ctx, req.GetRange())
+	if err != nil {
 		return nil, err
 	}
-	return res, nil
+	return &v1.GetShellStatusResponse{Freshness: sh.freshness, Servers: sh.servers.GetServers(), Tally: sh.tally}, nil
+}
+
+// shellParts are the parts of the overview the shell shows, with the
+// firing findings they count.
+type shellParts struct {
+	freshness *v1.Freshness
+	servers   *v1.ListServersResponse
+	cur       []*v1.Finding
+	tally     *v1.FindingTally
+}
+
+// shell reads the freshness, servers, firing findings and tally of the
+// range.
+func (p *Provider) shell(ctx context.Context, r *v1.TimeRange) (shellParts, error) {
+	var sh shellParts
+	var err error
+	if sh.freshness, err = p.freshness(ctx, r); err != nil {
+		return sh, err
+	}
+	if sh.servers, err = p.listServers(ctx, r); err != nil {
+		return sh, err
+	}
+	if sh.cur, err = p.firingFindings(ctx, r); err != nil {
+		return sh, err
+	}
+	sh.tally, err = p.tally(ctx, r, sh.cur)
+	return sh, err
 }
 
 // tally counts the firing findings as the range's end sees them and the

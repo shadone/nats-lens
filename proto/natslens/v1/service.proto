@@ -21,7 +21,8 @@ option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natsl
 //
 // Every call except ListSystems and ListMetrics reads one system, named by
 // the request's system field; an empty one reads the default system, the
-// first configured. An unknown system is invalid_argument.
+// first configured. An unknown system is invalid_argument, except in
+// GetShellStatus.
 //
 // Every call reads the tool's own database. MuteFinding and UnmuteFinding
 // are the only writes, and they write only to that database.
@@ -110,6 +111,13 @@ service LensService {
 
   // The systems nats-lens observes, in configuration order.
   rpc ListSystems(ListSystemsRequest) returns (ListSystemsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Freshness, servers and finding tally of a system and the status of
+  // every system: what the shell of every page shows. An unknown system
+  // is not an error here; the response says so.
+  rpc GetShellStatus(GetShellStatusRequest) returns (GetShellStatusResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 

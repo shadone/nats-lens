@@ -69,7 +69,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Client checks](client-checks.md) | `ui`, `cli` | shipped |
 | [System checks](system-checks.md) | `ui`, `cli` | shipped |
 | [Inventory](inventory.md) | `ui`, `cli` | shipped |
-| [Navigation, time range and theme](navigation.md) | `ui` | shipped |
+| [Navigation, time range and theme](navigation.md) | `ui`, `api` | shipped |
 | [Overview page](overview-page.md) | `ui`, `api` | shipped — tile links, cause evidence, a shared hover and more lanes are planned |
 | [Servers](servers.md) | `ui`, `api` | shipped |
 | [Streams](streams.md) | `ui`, `api` | shipped — replica placement is in the API only |
@@ -108,7 +108,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] NATS advisories and system events, short-lived connections folded into `client.churn` and flagged by `client-005` when frequent (event-capture.md)
 - [x] Kubernetes pod, node and client-pod events on the same clock, with node upgrade and drain windows (kubernetes-context.md)
 - [x] Retention, the hourly Parquet archive, and the rebuild from it (history-and-archive.md)
-- [~] Several NATS systems in one nats-lens, with a system switcher, the Fleet page and its badge — a cluster switcher inside a supercluster is planned (multiple-systems.md)
+- [~] Several NATS systems in one nats-lens, with a system switcher, the Fleet page and its badge, and the shell's status of every system in one call — a cluster switcher inside a supercluster is planned (multiple-systems.md)
 
 **Checks**
 - [~] Findings, severities, restarts, thresholds, remediation file and mutes — accepting with a review date is planned (checks.md)
@@ -121,7 +121,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [ ] Findings sent to a channel such as a webhook (notifications.md)
 
 **Web UI**
-- [x] Sidebar, system switcher, header with account scope and search, the global time range and the theme menu (navigation.md)
+- [x] Sidebar, system switcher, header with account scope and search, the global time range and the theme menu, all fed by one status call per system (navigation.md)
 - [x] Overview: status line, nine metric boxes with descriptions, cause cards and muted findings, trends, timeline lanes with the status timeline, busiest consumers, streams with placement, several series in one API call (overview-page.md)
 - [x] Servers for 20 or more servers: data points, charts across servers, a map of every server, a grouped list; server pages with metric boxes, placement, limits and recent events (servers.md)
 - [x] Streams list and stream detail; replica placement in the API only (streams.md)
