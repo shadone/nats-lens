@@ -182,7 +182,7 @@ Configuration comes from defaults, then an optional YAML file (`-config`), then 
 | `inventory_file`      | `-inventory-file` |                        | YAML file of expected streams, consumers and buckets ([inventory.example.yaml](inventory.example.yaml)); read on every start. |
 | `checks.timeout`      |                  | `5s`                    | Longest one check's query may run; at most `interval`. |
 | `checks.disabled`     |                  |                         | Check codes that do not run; their findings resolve. |
-| `checks.include_tooling` |              | `false`                 | Count tooling connections in the client checks (`client-001` to `client-004`) and in `server-011`'s client list: nats-lens's own connections (`nats.name`, `<name>-events`, `<name>-<account>`) and clients connected from 127.0.0.1 or ::1, such as a port-forwarded CLI. The API marks them `tooling` either way. |
+| `checks.include_tooling` |              | `false`                 | Count tooling connections in the client checks (`client-001` to `client-005`) and in `server-011`'s client list: nats-lens's own connections (`nats.name`, `<name>-events`, `<name>-<account>`) and clients connected from 127.0.0.1 or ::1, such as a port-forwarded CLI. The API marks them `tooling` either way. |
 | `checks.loopback_is_tooling` |          | `true`                  | Clients connected from 127.0.0.1 or ::1 are tooling. When such clients are more than 60% of the connections that are not nats-lens's own over the last 10 epochs (a sidecar that makes inbound traffic look local), they are not, until the share falls below 40%; natslens logs it once. An epoch with fewer than 3 such connections keeps the previous decision. |
 | `checks.restart_window` |                | `10m`                   | How long a restarted server counts as restarting: checks that judge the cluster leave its own reports out, and a planned restart is reported at info. |
 | `checks.thresholds`   |                  |                         | Threshold overrides: check code to threshold name to value; see [Checks](#checks). |
@@ -431,6 +431,7 @@ To try a change to a check on a copy of a database: `natslens checks run -data-d
 | client-002 | High pending bytes | warning | `connections.pending_bytes` above 4 MiB, by connection name |
 | client-003 | Slow consumer disconnects | warning | `client.disconnect` events with a slow consumer reason, 30m |
 | client-004 | Client reconnecting repeatedly | warning | 3 or more reconnects of one name in 10m: the smaller of the `client.disconnect` events not asked for by the client nor caused by a server stopping, and the `client.connect` events, of that name; instances sharing a name are merged |
+| client-005 | Short-lived connections | warning | 20 or more connects of one name in 10m folded into `client.churn` events (closed by the client within `events.churn.pair_within`); instances sharing a name are merged; a firing finding resolves below 0.8 of the threshold |
 
 To add a check, write its file, then a test in `internal/checks` that builds the rows it reads with the fixture helpers and shows one entity that fails and one that does not.
 

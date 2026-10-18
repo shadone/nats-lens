@@ -9,7 +9,7 @@ Phase 1 is complete on `develop` (see `phase-1.md`). This note is the starting p
 
 ## Next work, most valuable first
 
-1. **Short-lived connections as a signal.** The owner's note on churn collapse: very short-lived connections likely point to a problem. Proposal to discuss first: keep folding them for storage, but stop treating `client.churn` as routine when the rate is high or new for a client; add a check (or extend `client-004`) that fires when a client opens and closes connections within seconds repeatedly, with the client names and hosts in the detail.
+1. **Short-lived connections as a signal.** Done: `client-005` fires for a name with 20 or more short-lived connections in 10 minutes; folding and the routine status of `client.churn` stay (see `docs/features/client-checks.md`).
 2. **One conformance table for the store and the demo.** The demo cannot show some states the store produces: placement DISAGREES/UNSPECIFIED/MISSING on streams, an unset delivery rate, Theil-Sen growth. Drive both from one shared test table.
 3. **Fewer requests per page.** The Overview makes about 27 calls per load and refetches them every 30 s. Ideas: a light header-status RPC, a multi-metric `GetTimeSeries`, a cached `ListSystems` strip, `Connections` without the full server list.
 4. **Phase 2 pages from the design canvas:** Placement, Replay, Topology, Accounts and auth, Capacity, Subjects (observable data only), Micro services, Applications. Each has a planned doc in `docs/features/`.
