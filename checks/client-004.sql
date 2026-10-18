@@ -55,7 +55,7 @@ named AS (
     SELECT d.client_name, count(*) AS dropped, any_value(c.n) AS connected,
         array_to_string(list(DISTINCT coalesce(d.server_name, '?') ORDER BY coalesce(d.server_name, '?')), ', ') AS servers,
         array_to_string(list(DISTINCT coalesce(d.reason, 'no reason') ORDER BY coalesce(d.reason, 'no reason')), ', ') AS reasons,
-        max(d.time) AS last_at, arg_max(d.id, d.received_at) AS last_id
+        max(d.time) AS last_at, arg_max(d.id, (d.received_at, d.id)) AS last_id
     FROM drops d JOIN connects c ON c.client_name IS NOT DISTINCT FROM d.client_name
     GROUP BY d.client_name
 )
