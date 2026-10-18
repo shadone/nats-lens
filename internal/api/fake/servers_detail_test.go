@@ -58,7 +58,7 @@ func TestGlobalServerDetail(t *testing.T) {
 		t.Errorf("servers with differing limits = %v", differ)
 	}
 	// 13 streams, 2 KV stores and an object store, each led by one server
-	// except wishlist-events, which has no leader in the newest epoch.
+	// except basket-events, which has no leader in the newest epoch.
 	if leaders != 15 {
 		t.Errorf("stream leaders sum to %d, want 15", leaders)
 	}

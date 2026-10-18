@@ -14,7 +14,7 @@ import (
 // ap, nats-ap-2's store is 71% full, and nats-ap-4 and nats-ap-5 still run
 // the older version; nats-ap-4 also missed the edit of
 // customer-notifications at 13:05. nats-us-3 came back from the upgrade
-// without its replica of return-requests, and wishlist-events has no
+// without its replica of return-requests, and basket-events has no
 // leader in the newest epoch. Since 13:38 label-printer has been dropped
 // as a slow consumer on nats-us-3.
 
@@ -138,7 +138,7 @@ func globalScenario() *scenario {
 				missing: "nats-us-3"},
 			// Its leader stepped down and the newest epoch has none yet; a
 			// second epoch without one would fire stream-001.
-			{name: "wishlist-events", msgs: 220400, bytes: 180 * mib, perDay: 5 * mib, peers: peers("eu-6", "eu-7", "eu-8"), leaderless: true},
+			{name: "basket-events", msgs: 220400, bytes: 180 * mib, perDay: 5 * mib, peers: peers("eu-6", "eu-7", "eu-8"), leaderless: true},
 			// Sessions expire by their per-key TTL faster than new ones start
 			// since the weekend sale ended: the bucket shrinks.
 			{name: "KV_session-cache", msgs: 48210, bytes: 38 * mib, perDay: -1 * mib, ephemeral: 64, peers: peers("eu-0", "eu-3", "eu-6")},
