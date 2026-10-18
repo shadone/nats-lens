@@ -76,7 +76,7 @@ func TestGlobalTiles(t *testing.T) {
 	if got := tiles["consumers"].GetSubtitle(); got != "1 behind" {
 		t.Errorf("consumers subtitle = %q, want 1 behind", got)
 	}
-	if got := tiles["streams"].GetSubtitle(); got != "11 of 11 replicated · 1 lagging" {
+	if got := tiles["streams"].GetSubtitle(); got != "13 of 13 replicated · 1 lagging" {
 		t.Errorf("streams subtitle = %q", got)
 	}
 }
@@ -106,8 +106,43 @@ func TestFakePlacement(t *testing.T) {
 		t.Errorf("order-jobs = %v, want %v", got, want)
 	}
 	want = []string{"nats-us-3=PLACEMENT_STATE_LEADER", "nats-us-4=PLACEMENT_STATE_OFFLINE", "nats-us-5=PLACEMENT_STATE_IN_SYNC"}
-	if got := streams("example-global")["shipping-updates"]; !slices.Equal(got, want) {
+	global := streams("example-global")
+	if got := global["shipping-updates"]; !slices.Equal(got, want) {
 		t.Errorf("shipping-updates = %v, want %v", got, want)
+	}
+	// The other squares the store draws: a follower with another
+	// configuration, one the leader lists that does not report the stream,
+	// and a stream without a leader.
+	for stream, want := range map[string][]string{
+		"customer-notifications": {"nats-ap-2=PLACEMENT_STATE_LEADER", "nats-ap-3=PLACEMENT_STATE_IN_SYNC", "nats-ap-4=PLACEMENT_STATE_DISAGREES"},
+		"return-requests":        {"nats-us-6=PLACEMENT_STATE_LEADER", "nats-us-3=PLACEMENT_STATE_MISSING", "nats-us-8=PLACEMENT_STATE_IN_SYNC"},
+		"basket-events":          {"nats-eu-6=PLACEMENT_STATE_UNSPECIFIED", "nats-eu-7=PLACEMENT_STATE_UNSPECIFIED", "nats-eu-8=PLACEMENT_STATE_UNSPECIFIED"},
+	} {
+		if got := global[stream]; !slices.Equal(got, want) {
+			t.Errorf("%s = %v, want %v", stream, got, want)
+		}
+	}
+	// The disagreeing stream says so, with the differing hash in its
+	// detail; the missing replica has no server view.
+	d := must(c.GetStream(ctx, connect.NewRequest(&v1.GetStreamRequest{System: "example-global", Account: "APP", Stream: "customer-notifications"})))
+	if !d.GetStream().GetServersDisagree() || len(d.GetDisagreements()) != 1 || d.GetDisagreements()[0].GetField() != "config_hash" {
+		t.Errorf("customer-notifications: disagree %v, %v", d.GetStream().GetServersDisagree(), d.GetDisagreements())
+	}
+	r := must(c.GetStream(ctx, connect.NewRequest(&v1.GetStreamRequest{System: "example-global", Account: "APP", Stream: "return-requests"})))
+	if len(r.GetServers()) != 2 || slices.ContainsFunc(r.GetServers(), func(v *v1.StreamServerView) bool { return v.GetServer() == "nats-us-3" }) {
+		t.Errorf("return-requests views = %v", r.GetServers())
+	}
+	// The Overview shows the ten worst streams: they include each of
+	// these squares.
+	top := must(c.ListStreams(ctx, connect.NewRequest(&v1.ListStreamsRequest{System: "example-global", Limit: 10}))).GetStreams()
+	for _, want := range []string{"shipping-updates", "customer-notifications", "return-requests", "basket-events"} {
+		if !slices.ContainsFunc(top, func(s *v1.StreamSummary) bool { return s.GetEntity().GetStream() == want }) {
+			t.Errorf("%s is not among the ten worst streams", want)
+		}
+	}
+	w := must(c.GetStream(ctx, connect.NewRequest(&v1.GetStreamRequest{System: "example-global", Account: "APP", Stream: "basket-events"})))
+	if w.GetStream().GetLeader() != "" || slices.ContainsFunc(w.GetServers(), (*v1.StreamServerView).GetIsLeader) {
+		t.Errorf("basket-events leader %q, views %v", w.GetStream().GetLeader(), w.GetServers())
 	}
 }
 
@@ -190,5 +225,37 @@ func TestTileSuffixesAgreeWithTheCount(t *testing.T) {
 				t.Errorf("%s tile %s: %v %q", sys, id, tile.GetValue(), suf)
 			}
 		}
+	}
+}
+
+// example-global has a consumer for each delivery rate the store gives:
+// set, zero for the paused reorder-planner, and unset for invoice-renderer,
+// created in the newest epoch; the unset one sorts last by rate.
+func TestGlobalConsumerRates(t *testing.T) {
+	c := demo(t)
+	cs := must(c.ListConsumers(ctx, connect.NewRequest(&v1.ListConsumersRequest{System: "example-global", Sort: v1.ConsumerSort_CONSUMER_SORT_DELIVERED_RATE}))).GetConsumers()
+	by := map[string]*v1.ConsumerSummary{}
+	for _, x := range cs {
+		by[x.GetEntity().GetConsumer()] = x
+	}
+	if p := by["reorder-planner"]; !p.GetPaused() || p.DeliveredPerSecond == nil || p.GetDeliveredPerSecond() != 0 {
+		t.Errorf("reorder-planner paused %v at %v/s (set %v)", p.GetPaused(), p.GetDeliveredPerSecond(), p.DeliveredPerSecond != nil)
+	}
+	if n := by["invoice-renderer"]; !n.GetPresent() || n.DeliveredPerSecond != nil || n.GetLastDelivered() != nil || n.GetNumPending() != 0 {
+		t.Errorf("invoice-renderer = %v", n)
+	}
+	if last := cs[len(cs)-1]; last.GetEntity().GetConsumer() != "invoice-renderer" {
+		t.Errorf("last by rate = %s, want invoice-renderer", last.GetEntity().GetConsumer())
+	}
+	// The capture records the creation and the pause.
+	evs := must(c.ListEvents(ctx, connect.NewRequest(&v1.ListEventsRequest{System: "example-global", PageSize: 1000}))).GetEvents()
+	for _, want := range [][2]string{{"consumer.created", "invoice-renderer"}, {"consumer.paused", "reorder-planner"}} {
+		if !slices.ContainsFunc(evs, func(e *v1.Event) bool { return e.GetKind() == want[0] && e.GetConsumer() == want[1] }) {
+			t.Errorf("no %s event for %s", want[0], want[1])
+		}
+	}
+	d := must(c.GetConsumer(ctx, connect.NewRequest(&v1.GetConsumerRequest{System: "example-global", Account: "APP", Stream: "order-events", Consumer: "invoice-renderer"})))
+	if got := d.GetServers()[0].GetCreated().AsTime(); !got.Equal(at(14, 29, 20)) {
+		t.Errorf("invoice-renderer created %v", got)
 	}
 }

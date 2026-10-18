@@ -23,12 +23,14 @@ func (p *Provider) SystemSummary(_ context.Context, req *v1.ListSystemsRequest) 
 	if !p.sc.errorSince.IsZero() {
 		res.CollectionErrorSince = ts(p.sc.errorSince.Add(s.shift))
 	}
-	if res.GetFreshness().GetEpoch() != 0 {
+	if at, _, ok := s.epochBefore(r); ok {
 		res.Status, _ = worstStatus(cur, nil)
+		// Answering servers and connections as of the range's newest
+		// epoch, as freshness's partial.
 		var answering, conns int64
 		clusters := map[string]bool{}
 		for _, sp := range p.sc.servers {
-			if sp.answering() {
+			if !s.downAt(sp, at) {
 				answering++
 				conns += sp.conns
 			}
@@ -57,10 +59,16 @@ func (p *Provider) SystemSummary(_ context.Context, req *v1.ListSystemsRequest) 
 
 // ListAccounts returns the scenario's one account with its connections,
 // streams and consumers.
-func (p *Provider) ListAccounts(context.Context, *v1.ListAccountsRequest) (*v1.ListAccountsResponse, error) {
+func (p *Provider) ListAccounts(_ context.Context, req *v1.ListAccountsRequest) (*v1.ListAccountsResponse, error) {
+	s := p.scen()
+	at, _, ok := s.epochBefore(req.GetRange())
+	if !ok {
+		// Without an epoch in the range the counts are unknown.
+		return &v1.ListAccountsResponse{Accounts: []*v1.Account{{Account: Account}}}, nil
+	}
 	var conns int32
 	for _, sp := range p.sc.servers {
-		if sp.answering() {
+		if !s.downAt(sp, at) {
 			conns += int32(sp.conns)
 		}
 	}

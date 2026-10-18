@@ -15,6 +15,7 @@ package fake
 import (
 	"cmp"
 	"context"
+	"slices"
 	"sync"
 	"time"
 
@@ -140,11 +141,49 @@ func (s scen) freshness(r *v1.TimeRange) *v1.Freshness {
 	if st := s.sc.collection; st == v1.CollectionState_COLLECTION_STATE_NOT_CONNECTED || st == v1.CollectionState_COLLECTION_STATE_CONNECTION_CLOSED {
 		f.Collecting, f.NotCollectingSince = false, ts(s.sc.errorSince.Add(s.shift))
 	}
-	// A range that does not hold the newest epoch reports no epoch.
-	if at := s.lastEpoch(); inRange(at, r) {
-		f.Epoch, f.EpochAt, f.Age, f.Partial = s.sc.epoch, ts(at), dur(s.now.Sub(at)), s.sc.partial
+	// The range's newest epoch, partial when a server of the scenario
+	// was down then; none when the range holds no data.
+	if at, n, ok := s.epochBefore(r); ok {
+		f.Epoch, f.EpochAt, f.Age, f.Partial = n, ts(at), dur(s.now.Sub(at)), s.anyDown(at)
 	}
 	return f
+}
+
+// epochBefore is the newest epoch inside the range: the last epoch before
+// its end that is not before its start, and its number. Epochs lie every
+// 30 seconds back from the newest (lastEpoch) to the start of the history,
+// numbered from 1 there, so no two epochs share a number.
+func (s scen) epochBefore(r *v1.TimeRange) (time.Time, int64, bool) {
+	last := s.lastEpoch()
+	end := r.GetEnd().AsTime()
+	at := last
+	if !last.Before(end) {
+		at = last.Add(-(last.Sub(end)/sampleEvery + 1) * sampleEvery)
+	}
+	if at.Before(r.GetStart().AsTime()) || at.Before(s.dataStart()) {
+		return time.Time{}, 0, false
+	}
+	return at, s.epochNumber(at), true
+}
+
+// epochNumber is the number of the epoch that started at at: 1 for the
+// first epoch of the history, one more every 30 seconds.
+func (s scen) epochNumber(at time.Time) int64 {
+	last := s.lastEpoch()
+	first := last.Add(-last.Sub(s.dataStart()) / sampleEvery * sampleEvery)
+	return 1 + int64(at.Sub(first)/sampleEvery)
+}
+
+// anyDown reports whether a server of the scenario was down at the
+// scenario time at, by the rule its series use, so that an epoch then
+// missed it.
+func (s scen) anyDown(at time.Time) bool {
+	return slices.ContainsFunc(s.sc.servers, func(sp serverSpec) bool { return s.downAt(sp, at) })
+}
+
+// downAt reports whether a server was down at the scenario time at.
+func (s scen) downAt(sp serverSpec, at time.Time) bool {
+	return s.sc.serverDown != nil && s.sc.serverDown(sp, s.clock(at))
 }
 
 // GetOverview returns the cluster, freshness, tally, worst finding, tiles

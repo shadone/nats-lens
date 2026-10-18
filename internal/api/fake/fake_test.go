@@ -3,6 +3,7 @@ package fake_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -196,13 +197,21 @@ func TestStatusTimeline(t *testing.T) {
 
 func TestFreshnessFollowsTheRange(t *testing.T) {
 	c := client(t)
-	if f := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{}))).GetFreshness(); f.GetEpoch() != 1734 || f.GetAge().AsDuration() != 4*time.Second {
+	if f := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{}))).GetFreshness(); f.GetEpoch() != 86400 || f.GetAge().AsDuration() != 4*time.Second {
 		t.Fatalf("now: %v", f)
 	}
 	past := &v1.TimeRange{Start: timestamppb.New(at(8, 0, 0)), End: timestamppb.New(at(10, 0, 0))}
 	o := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{Range: past})))
-	if o.GetFreshness().GetEpoch() != 0 || o.GetServers()[0].GetUptime().AsDuration() != 42*time.Minute {
-		t.Fatalf("09:00-10:00: freshness %v, nats-0 uptime %v", o.GetFreshness(), o.GetServers()[0].GetUptime().AsDuration())
+	// The range's newest epoch is the last before 10:00 on the 30-second
+	// grid of the newest, 540 epochs back, as the store reports it.
+	if f := o.GetFreshness(); f.GetEpoch() != 85860 || !f.GetEpochAt().AsTime().Equal(at(9, 59, 56)) ||
+		o.GetServers()[0].GetUptime().AsDuration() != 41*time.Minute+56*time.Second { // as of that epoch
+		t.Fatalf("08:00-10:00: freshness %v, nats-0 uptime %v", f, o.GetServers()[0].GetUptime().AsDuration())
+	}
+	// A range before the history holds no epoch.
+	old := &v1.TimeRange{Start: timestamppb.New(fake.FixedNow.Add(-60 * 24 * time.Hour)), End: timestamppb.New(fake.FixedNow.Add(-40 * 24 * time.Hour))}
+	if f := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{Range: old}))).GetFreshness(); f.GetEpoch() != 0 || f.GetEpochAt() != nil {
+		t.Fatalf("before the history: freshness %v", f)
 	}
 }
 
@@ -221,5 +230,145 @@ func TestMutePagesKeepTheirPlace(t *testing.T) {
 	second := must(c.ListMutes(ctx, connect.NewRequest(&v1.ListMutesRequest{PageSize: 1, PageToken: first.GetNextPageToken()})))
 	if len(second.GetMutes()) != 1 || second.GetMutes()[0].GetCheckCode() != "stream-006" || second.GetNextPageToken() != "" {
 		t.Fatalf("second page = %v", second)
+	}
+}
+
+// Epochs are numbered from 1 at the start of the history, 30 seconds
+// apart: the newest of 30 days is 86400, and ranges far back still get
+// numbers of their own. ListConnections names the range's epoch too.
+func TestEpochNumbersCoverTheHistory(t *testing.T) {
+	c := demo(t)
+	epoch := func(sys string, end time.Time) int64 {
+		t.Helper()
+		r := &v1.TimeRange{Start: timestamppb.New(end.Add(-time.Hour)), End: timestamppb.New(end)}
+		f := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{System: sys, Range: r}))).GetFreshness()
+		conns := must(c.ListConnections(ctx, connect.NewRequest(&v1.ListConnectionsRequest{System: sys, Range: r})))
+		if conns.GetEpoch() != f.GetEpoch() {
+			t.Errorf("%s ..%v: connections epoch %d, freshness %d", sys, end, conns.GetEpoch(), f.GetEpoch())
+		}
+		return f.GetEpoch()
+	}
+	seen := map[int64]time.Duration{}
+	for _, d := range []time.Duration{0, 10 * time.Hour, 15 * time.Hour, 48 * time.Hour, 10 * 24 * time.Hour, 29 * 24 * time.Hour} {
+		n := epoch(fake.Cluster, fake.FixedNow.Add(-d))
+		if prev, ok := seen[n]; ok || n < 1 {
+			t.Errorf("now-%v has epoch %d, as now-%v", d, n, prev)
+		}
+		seen[n] = d
+	}
+	// The first epoch of a 30-day history is 1.
+	if n := epoch(fake.Cluster, fake.FixedNow.Add(-30*24*time.Hour+time.Minute)); n != 1 && n != 2 {
+		t.Errorf("first minute of the history: epoch %d", n)
+	}
+	// example-staging's six hours of epochs end three hours ago.
+	if n := epoch(fake.StagingSystem, fake.FixedNow.Add(-3*time.Hour+time.Minute)); n != 720 {
+		t.Errorf("staging newest epoch %d, want 720", n)
+	}
+}
+
+// An epoch is partial when a server was down then, by the rule the
+// servers_up series uses: inside a restart, not before it.
+func TestPartialEpochsFollowTheDownServers(t *testing.T) {
+	c := demo(t)
+	for _, x := range []struct {
+		sys     string
+		end     time.Time
+		partial bool
+	}{
+		{fake.Cluster, at(9, 17, 0), true},       // nats-0 down 09:16:02-09:18:00
+		{fake.Cluster, at(9, 30, 0), true},       // nats-1 down from 09:29:05
+		{fake.Cluster, at(9, 0, 0), false},       // before the upgrade
+		{fake.Cluster, at(12, 0, 0), false},      // after it
+		{fake.GlobalSystem, at(8, 45, 30), true}, // nats-us-1 down 08:44:10-08:46:10
+		{fake.GlobalSystem, at(8, 30, 0), false}, // before the us upgrade
+		{fake.GlobalSystem, at(9, 12, 5), false}, // nats-us-4 answered at 09:12:05
+		{fake.GlobalSystem, at(9, 13, 0), true},  // and not since
+		{fake.StagingSystem, fake.FixedNow, false},
+	} {
+		r := &v1.TimeRange{Start: timestamppb.New(x.end.Add(-time.Hour)), End: timestamppb.New(x.end)}
+		f := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{System: x.sys, Range: r}))).GetFreshness()
+		if f.GetPartial() != x.partial {
+			t.Errorf("%s ..%s: epoch at %v partial %v, want %v", x.sys, x.end.Format("15:04:05"), f.GetEpochAt().AsTime().Format("15:04:05"), f.GetPartial(), x.partial)
+		}
+		if x.sys == fake.StagingSystem {
+			continue
+		}
+		// servers_up in the 30 seconds of the epoch agrees.
+		at := f.GetEpochAt().AsTime()
+		sr := &v1.TimeRange{Start: timestamppb.New(at.Add(-30 * time.Second)), End: timestamppb.New(at.Add(time.Second))}
+		pts := must(c.GetTimeSeries(ctx, connect.NewRequest(&v1.GetTimeSeriesRequest{System: x.sys, Metric: "cluster.servers_up", Range: sr, MaxPoints: 100}))).GetSeries().GetPoints()
+		total := map[string]float64{fake.Cluster: 3, fake.GlobalSystem: 24}[x.sys]
+		if len(pts) == 0 || (pts[len(pts)-1].GetValue() < total) != x.partial {
+			t.Errorf("%s ..%s: servers_up %v of %v, partial %v", x.sys, x.end.Format("15:04:05"), pts, total, x.partial)
+		}
+	}
+}
+
+// ListConnections lists the connections of the range's newest epoch: none
+// for a server down then, and nothing at all for a range without an
+// epoch. The Fleet summary counts answering servers and connections at
+// the same epoch, so partial means fewer answering than expected.
+func TestConnectionsAndFleetFollowTheEpoch(t *testing.T) {
+	c := demo(t)
+	rng := func(end time.Time) *v1.TimeRange {
+		return &v1.TimeRange{Start: timestamppb.New(end.Add(-time.Hour)), End: timestamppb.New(end)}
+	}
+	conns := func(end time.Time, server string) *v1.ListConnectionsResponse {
+		return must(c.ListConnections(ctx, connect.NewRequest(&v1.ListConnectionsRequest{System: fake.Cluster, Range: rng(end), Server: server})))
+	}
+	// nats-0 was down 09:16:02-09:18:00.
+	if r := conns(at(9, 17, 0), "nats-0"); r.GetEpoch() == 0 || r.GetTotalCount() != 0 {
+		t.Errorf("nats-0 at 09:17: epoch %d, %d connections, want none", r.GetEpoch(), r.GetTotalCount())
+	}
+	if r := conns(at(9, 17, 0), "nats-1"); r.GetTotalCount() != 60 {
+		t.Errorf("nats-1 at 09:17: %d connections, want 60", r.GetTotalCount())
+	}
+	if r := conns(fake.FixedNow.Add(-40*24*time.Hour), ""); r.GetEpoch() != 0 || r.GetTotalCount() != 0 || len(r.GetConnections()) != 0 {
+		t.Errorf("before the history: epoch %d, %d connections", r.GetEpoch(), r.GetTotalCount())
+	}
+	for _, end := range []time.Time{at(9, 17, 0), at(9, 30, 0), at(10, 0, 0), at(8, 0, 0)} {
+		res := must(c.ListSystems(ctx, connect.NewRequest(&v1.ListSystemsRequest{Range: rng(end)})))
+		for _, s := range res.GetSystems() {
+			if s.GetSystem().GetId() != fake.Cluster {
+				continue
+			}
+			if partial, fewer := s.GetFreshness().GetPartial(), s.GetServersAnswering() < s.GetServers(); partial != fewer {
+				t.Errorf("..%s: partial %v, %d of %d answering", end.Format("15:04"), partial, s.GetServersAnswering(), s.GetServers())
+			}
+			if want := map[bool]int64{true: 121, false: 182}[s.GetServersAnswering() < s.GetServers()]; end.Equal(at(9, 17, 0)) && s.GetConnections() != want {
+				t.Errorf("..09:17: %d connections, want %d", s.GetConnections(), want)
+			}
+		}
+	}
+}
+
+// Servers and accounts read the range's newest epoch too: at 09:17 nats-0
+// is down, so it is missing, not present, and its 61 connections are not
+// counted; before 09:18 its summary is the process it restarted from.
+// Without an epoch in the range the account's counts are unset.
+func TestServersAndAccountsFollowTheEpoch(t *testing.T) {
+	c := demo(t)
+	r := &v1.TimeRange{Start: timestamppb.New(at(8, 17, 0)), End: timestamppb.New(at(9, 17, 0))}
+	sv := must(c.ListServers(ctx, connect.NewRequest(&v1.ListServersRequest{System: fake.Cluster, Range: r})))
+	if strings.Join(sv.GetMissing(), ",") != "nats-0" {
+		t.Errorf("missing at 09:17 = %v, want nats-0", sv.GetMissing())
+	}
+	for _, s := range sv.GetServers() {
+		if (s.GetName() == "nats-0") == s.GetPresent() || s.GetUptime().AsDuration() <= 0 {
+			t.Errorf("%s at 09:17: present %v, healthz %q, uptime %v", s.GetName(), s.GetPresent(), s.GetHealthz(), s.GetUptime().AsDuration())
+		}
+	}
+	o := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{System: fake.Cluster, Range: r})))
+	if o.GetServers()[0].GetPresent() || o.GetServers()[0].GetServerId() != "NB71FAKE0OLDPROCESS" {
+		t.Errorf("overview nats-0 at 09:17 = %v", o.GetServers()[0])
+	}
+	acc := must(c.ListAccounts(ctx, connect.NewRequest(&v1.ListAccountsRequest{System: fake.Cluster, Range: r}))).GetAccounts()
+	if len(acc) != 1 || acc[0].GetConnections() != 121 {
+		t.Errorf("accounts at 09:17 = %v, want 121 connections", acc)
+	}
+	live := &v1.TimeRange{Start: timestamppb.New(fake.FixedNow.Add(-time.Hour)), End: timestamppb.New(fake.FixedNow)}
+	acc = must(c.ListAccounts(ctx, connect.NewRequest(&v1.ListAccountsRequest{System: fake.StagingSystem, Range: live}))).GetAccounts()
+	if len(acc) != 1 || acc[0].Connections != nil || acc[0].Streams != nil || acc[0].Consumers != nil {
+		t.Errorf("staging accounts after its stop = %v, want counts unset", acc)
 	}
 }

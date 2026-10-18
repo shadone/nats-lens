@@ -3,6 +3,7 @@ package fake
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
@@ -40,7 +41,7 @@ func globalFindings(s scen) []*v1.Finding {
 	// An R1 bucket whose only replica was on nats-us-4.
 	labels := finding("stream-011", "Expected stream or bucket missing", warning, firing, streamRef("KV_label-templates"),
 		s.at(9, 12, 40), s.at(9, 12, 40), "KV bucket label-templates (stream KV_label-templates) is in the inventory and no server reports it; "+
-			"last reported by nats-us-4 at 2026-10-17 09:11:35 UTC (may be on nats-us-4, which did not answer JSZ). No delete event recorded.")
+			"last reported by nats-us-4 at 2026-10-17 09:11:35 UTC (may be on nats-us-4, which did not answer). No delete event recorded.")
 	labels.RelatedConfig = cfg([][2]string{{"kind", "kv"}, {"replicas", "1"}, {"max_age", "0"}, {"max_bytes", "67108864"}, {"max_msgs", "-1"}}, "replicas")
 	labels.RelatedConfigSource = "inventory"
 	labels.Remediation = "Bring nats-us-4 back: its pod is Pending, and the bucket's only replica is on it. " +
@@ -62,11 +63,75 @@ func globalFindings(s scen) []*v1.Finding {
 			fmt.Sprintf("%s restarted at %02d:%02d:%02d UTC with version %s unchanged; 1 restart in the last 1h.", server, h, m, sec, globalVersion))
 	}
 
-	return []*v1.Finding{us4, replica("shipping-updates", "nats-us-5"), replica("price-changes", "nats-us-2"), labels, slow, backlog, full,
+	// nats-ap-4 missed the edit of max_age from 7d to 3d at 13:05.
+	config := finding("stream-007", "Stream configuration differs across servers", warning, firing, streamRef("customer-notifications"),
+		s.at(13, 5, 30), s.at(13, 5, 30), "2 configurations (nats-ap-2, nats-ap-3 | nats-ap-4); differing: max_age.")
+	config.Value = &v1.FindingValue{Name: "distinct configurations", Display: "2", Number: ptr(2.0), Basis: "configuration hashes the servers report"}
+	config.Remediation = "nats-ap-4 kept max_age 7d when the stream was edited to 3d at 13:05, so it keeps messages the others removed. " +
+		"Apply the definition again (`nats stream edit customer-notifications --max-age 3d`); if nats-ap-4 still differs, " +
+		"step the leader down (`nats stream cluster step-down customer-notifications`) so the replicas resynchronise."
+
+	// nats-us-3 answered again at 09:06 without its replica; the check
+	// leaves a restarting server out for 10 minutes.
+	absent := finding("stream-010", "Stream missing on an assigned server", warning, firing, streamRef("return-requests"),
+		s.at(9, 17, 0), s.at(9, 17, 0), "Leader nats-us-6 assigns the stream to nats-us-3, which answered JSZ without it.")
+	absent.Value = &v1.FindingValue{Name: "assigned servers without the stream", Display: "1", Number: ptr(1.0),
+		Basis: "assigned peers that answered JSZ and do not report the stream"}
+	absent.Remediation = "nats-us-3 came back from the upgrade without its replica of return-requests. If it does not appear, " +
+		"remove it (`nats stream cluster peer-remove return-requests nats-us-3`) so the meta leader places a new replica that copies the stream from nats-us-6."
+
+	// The checks raised these as info while nats-us-4's announced shutdown
+	// counted as a planned restart, and changed them to warning when the
+	// restart window ended.
+	for _, f := range []*v1.Finding{us4, labels} {
+		f.State, f.TransitionedAt = changed, ts(globalPlannedEnd.Add(s.shift))
+	}
+	offline := []*v1.Finding{replica("shipping-updates", "nats-us-5"), replica("price-changes", "nats-us-2")}
+	for _, f := range offline {
+		f.State, f.TransitionedAt = changed, ts(globalPlannedEnd.Add(s.shift))
+	}
+
+	return []*v1.Finding{us4, offline[0], offline[1], labels, slow, backlog, full, config, absent,
 		version("nats-ap-4"), version("nats-ap-5"),
 		restarted("nats-us-1", 8, 46, 10), restarted("nats-us-2", 8, 58, 30), restarted("nats-us-3", 9, 6, 40),
 		resolvedFinding("stream-001", "Stream quorum lost", critical, streamRef("inventory-changes"), s.at(8, 58, 40), s.at(9, 1, 0),
 			"Leader nats-us-0 sees 1 of 3 replicas online; quorum needs 2, for 4 collections."),
+	}
+}
+
+// globalPlannedEnd is the first epoch after the restart window that began
+// when nats-us-4 announced its shutdown at 09:12:05, in the fixed frame:
+// from then on its absence is no planned restart.
+var globalPlannedEnd = fixed(9, 22, 30)
+
+// globalPlannedDetail is the detail a finding changed at globalPlannedEnd
+// had while it was info, and whether it is one of them.
+func globalPlannedDetail(f *v1.Finding) (string, bool) {
+	if f.GetState() != changed {
+		return "", false
+	}
+	d := f.GetDetail()
+	switch f.GetCheckCode() {
+	case "server-001":
+		return strings.TrimSuffix(d, ".") + "; announced shutdown at 09:12:05 UTC.", true
+	case "stream-002":
+		return strings.Replace(d, "(last seen 19075s ago)", "(last seen 55s ago; announced shutdown at 09:12:05 and did not answer)", 1), true
+	case "stream-011":
+		return strings.Replace(d, "which did not answer", "which announced shutdown at 09:12:05 and did not answer", 1), true
+	}
+	return "", false
+}
+
+// globalTransitions gives the findings that changed severity their firing
+// as info and their change to warning.
+func globalTransitions(s scen, f *v1.Finding) []*v1.FindingTransition {
+	before, ok := globalPlannedDetail(f)
+	if !ok {
+		return nil
+	}
+	return []*v1.FindingTransition{
+		{FindingId: f.GetId(), Time: f.GetTransitionedAt(), State: changed, Severity: f.GetSeverity(), Detail: f.GetDetail()},
+		{FindingId: f.GetId(), Time: f.GetSince(), State: firing, Severity: info, Detail: before},
 	}
 }
 
@@ -88,12 +153,17 @@ func globalEvents(s scen, fs []*v1.Finding) []*v1.Event {
 	}
 	tr := func(id string, st v1.FindingState, at time.Time) (*v1.FindingTransition, *v1.Finding) {
 		f := byID[id]
-		return &v1.FindingTransition{FindingId: id, Time: ts(at), State: st, Severity: f.GetSeverity(), Detail: f.GetDetail()}, f
+		t := &v1.FindingTransition{FindingId: id, Time: ts(at), State: st, Severity: f.GetSeverity(), Detail: f.GetDetail()}
+		if before, ok := globalPlannedDetail(f); ok && st == firing {
+			// It fired as info.
+			t.Severity, t.Detail = info, before
+		}
+		return t, f
 	}
 	findingEvent := func(id string, st v1.FindingState, at time.Time, kind, summary string) *v1.Event {
 		t, f := tr(id, st, at)
 		return &v1.Event{Time: ts(at), Source: srcFinding, Kind: kind, Type: f.GetCheckCode() + " " + f.GetCheckName(),
-			Severity: f.GetSeverity(), Summary: summary, Transition: t, Finding: f, Server: f.GetEntity().GetServer(),
+			Severity: t.GetSeverity(), Summary: summary, Transition: t, Finding: f, Server: f.GetEntity().GetServer(),
 			Account: f.GetEntity().GetAccount(), Stream: f.GetEntity().GetStream(), Consumer: f.GetEntity().GetConsumer()}
 	}
 	k8s := func(at time.Time, kind, typ, server, summary string) *v1.Event {
@@ -118,6 +188,33 @@ func globalEvents(s scen, fs []*v1.Finding) []*v1.Event {
 		findingEvent("server-009:nats-us-3", firing, s.at(13, 41, 0), "finding.firing", "nats-us-3: 4 slow consumers in the last 15m"),
 		findingEvent("consumer-002:"+Account+"/shipping-updates/label-printer", firing, s.at(13, 40, 0), "finding.firing",
 			"label-printer on shipping-updates: fill 24.5/s, drain 21.4/s"),
+	)
+	// The consumer advisories as the capture decodes them.
+	consumerEvent := func(at time.Time, kind, typ, stream, consumer, summary string) *v1.Event {
+		e := nats(at, kind, typ, "", stream, summary)
+		e.Consumer = consumer
+		return e
+	}
+	out = append(out,
+		consumerEvent(globalInvoiceCreated.Add(s.shift), "consumer.created", "CONSUMER.CREATED", "order-events", "invoice-renderer",
+			"consumer APP > order-events > invoice-renderer created"),
+		consumerEvent(s.at(2, 30, 0), "consumer.paused", "CONSUMER.PAUSED", "inventory-changes", "reorder-planner",
+			"consumer APP > inventory-changes > reorder-planner paused until 2026-10-18T02:00:00Z"),
+	)
+	out = append(out,
+		findingEvent("stream-007:"+Account+"/customer-notifications", firing, s.at(13, 5, 30), "finding.firing",
+			"customer-notifications: nats-ap-4 differs in max_age"),
+		nats(s.at(13, 5, 2), "stream.updated", "STREAM.UPDATED", "nats-ap-2", "customer-notifications", "customer-notifications updated: max_age 7d -> 3d"),
+		findingEvent("stream-010:"+Account+"/return-requests", firing, s.at(9, 17, 0), "finding.firing",
+			"return-requests: nats-us-3 answers without its replica"),
+	)
+	// The restart window after nats-us-4's announced shutdown ended.
+	planned := globalPlannedEnd.Add(s.shift)
+	out = append(out,
+		findingEvent("server-001:nats-us-4", changed, planned, "finding.changed", "nats-us-4 not reporting: warning, no longer a planned restart"),
+		findingEvent("stream-011:"+Account+"/KV_label-templates", changed, planned, "finding.changed", "KV_label-templates missing: warning"),
+		findingEvent("stream-002:"+Account+"/price-changes", changed, planned, "finding.changed", "price-changes: replica on nats-us-4 offline: warning"),
+		findingEvent("stream-002:"+Account+"/shipping-updates", changed, planned, "finding.changed", "shipping-updates: replica on nats-us-4 offline: warning"),
 	)
 	out = append(out,
 		k8s(s.at(9, 20, 30), "k8s.node.upgrade", "NodePoolUpgrade", "", "pool-us upgrade stopped: 3 of 4 nodes on 1.33.4-gke.1245"),
@@ -178,6 +275,10 @@ func globalRows(*scenario) []rowSpec {
 		{"stream-001", "Stream quorum lost", critical, []*v1.EntityRef{streamRef("inventory-changes")}, []span{{f(8, 58, 40), f(9, 1, 0)}}},
 		{"server-004", "Server restarted", info, []*v1.EntityRef{us(1), us(2), us(3)},
 			[]span{{f(8, 46, 10), f(8, 56, 10)}, {f(8, 58, 30), f(9, 8, 30)}, {f(9, 6, 40), f(9, 16, 40)}}},
+		{"stream-007", "Stream configuration differs across servers", warning, []*v1.EntityRef{streamRef("customer-notifications")},
+			[]span{{f(13, 5, 30), open}}},
+		{"stream-010", "Stream missing on an assigned server", warning, []*v1.EntityRef{streamRef("return-requests")},
+			[]span{{f(9, 17, 0), open}}},
 		{"server-014", "JetStream store full soon", warning, []*v1.EntityRef{serverRef("nats-ap-2")}, []span{{f(12, 6, 0), open}}},
 		{"server-005", "Version differs from the majority", info, []*v1.EntityRef{serverRef("nats-ap-4"), serverRef("nats-ap-5")},
 			[]span{{day(14, 10, 0), open}}},

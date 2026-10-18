@@ -48,7 +48,6 @@ func stagingScenario() *scenario {
 		},
 		clients:         []string{"order-service", "catalog-api", "resize-worker"},
 		metaLeader:      "nats-1",
-		epoch:           911,
 		stale:           stagingStale,
 		history:         stagingHistory,
 		collection:      v1.CollectionState_COLLECTION_STATE_CONNECTION_CLOSED,

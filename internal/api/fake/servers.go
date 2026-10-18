@@ -55,18 +55,35 @@ func (s scen) started(sp serverSpec) time.Time {
 // answering reports whether the server answers at the scenario's present.
 func (sp serverSpec) answering() bool { return sp.down.IsZero() }
 
+// missingIn reports whether the server did not answer in the range's
+// newest epoch; without an epoch in the range, whether it answers now.
+func (s scen) missingIn(sp serverSpec, r *v1.TimeRange) bool {
+	if at, _, ok := s.epochBefore(r); ok {
+		return s.downAt(sp, at)
+	}
+	return !sp.answering()
+}
+
 // server summarizes one server; cur are the findings firing at the range's
 // end.
 func (s scen) server(sp serverSpec, r *v1.TimeRange, cur []*v1.Finding) *v1.ServerSummary {
-	start := s.started(sp)
+	start, id := s.started(sp), sp.id
 	// Uptime as of the newest epoch inside the range, or the last one the
 	// server answered in.
 	seen := earliest(s.lastEpoch(), r.GetEnd().AsTime())
+	if at, _, ok := s.epochBefore(r); ok {
+		seen = at
+		if start.After(at) {
+			// The range's epoch predates this process: the summary is the
+			// process before, as GetServer lists it.
+			start, id = s.on(2, 8, 12), sp.oldID
+		}
+	}
 	if !sp.answering() {
 		seen = earliest(sp.down.Add(s.shift), seen)
 	}
 	out := &v1.ServerSummary{
-		Name: sp.name, ServerId: sp.id, Version: sp.version, Cluster: sp.cluster, StartTime: ts(start),
+		Name: sp.name, ServerId: id, Version: sp.version, Cluster: sp.cluster, StartTime: ts(start),
 		Uptime: dur(seen.Sub(start).Truncate(time.Second)), Role: v1.ServerRole_SERVER_ROLE_FOLLOWER,
 		Present: true, Healthz: "ok", Connections: ptr(sp.conns),
 		JsStorageBytes: ptr(sp.store), JsMaxStorageBytes: ptr(sp.maxStore), MemBytes: ptr(sp.mem), CpuPercent: ptr(sp.cpu),
@@ -81,9 +98,9 @@ func (s scen) server(sp serverSpec, r *v1.TimeRange, cur []*v1.Finding) *v1.Serv
 	if inRange(start, r) {
 		out.Restarts = append(out.Restarts, ts(start))
 	}
-	if !sp.answering() {
-		// A server that stopped answering keeps the numbers of its last
-		// answer, without a health reply.
+	if s.missingIn(sp, r) {
+		// A server that did not answer in the range's newest epoch keeps
+		// the numbers of its last answer, without a health reply.
 		out.Present, out.Healthz = false, ""
 	}
 	out.Status, _ = worstStatus(cur, serverRef(sp.name))
@@ -106,7 +123,7 @@ func (p *Provider) ListServers(_ context.Context, req *v1.ListServersRequest) (*
 	res := &v1.ListServersResponse{Servers: s.servers(req.GetRange(), p.findings(s))}
 	for _, sp := range p.sc.servers {
 		res.Expected = append(res.Expected, sp.name)
-		if !sp.answering() {
+		if s.missingIn(sp, req.GetRange()) {
 			res.Missing = append(res.Missing, sp.name)
 		}
 	}
@@ -143,12 +160,13 @@ func (p *Provider) GetServer(_ context.Context, req *v1.GetServerRequest) (*v1.G
 	return res, nil
 }
 
-// connections builds the connections of the scenario's newest epoch: each
-// answering server's count, named in turn after the scenario's clients.
-func (s scen) connections() []*v1.Connection {
+// connections builds the connections of the epoch that started at at:
+// each server's count but for the servers down then, named in turn after
+// the scenario's clients.
+func (s scen) connections(at time.Time) []*v1.Connection {
 	var out []*v1.Connection
 	for _, sp := range s.sc.servers {
-		if !sp.answering() {
+		if s.downAt(sp, at) {
 			continue
 		}
 		start := s.started(sp)
@@ -172,8 +190,14 @@ func (s scen) connections() []*v1.Connection {
 
 // ListConnections filters the connections and pages through them.
 func (p *Provider) ListConnections(_ context.Context, req *v1.ListConnectionsRequest) (*v1.ListConnectionsResponse, error) {
+	s := p.scen()
+	// The connections of the range's newest epoch; none without one.
+	at, epoch, ok := s.epochBefore(req.GetRange())
+	if !ok {
+		return &v1.ListConnectionsResponse{}, nil
+	}
 	var out []*v1.Connection
-	for _, c := range p.scen().connections() {
+	for _, c := range s.connections(at) {
 		if (req.GetServer() == "" || c.GetServer() == req.GetServer()) &&
 			(req.GetAccount() == "" || c.GetAccount() == req.GetAccount()) &&
 			strings.Contains(c.GetName(), req.GetNameContains()) {
@@ -184,7 +208,7 @@ func (p *Provider) ListConnections(_ context.Context, req *v1.ListConnectionsReq
 	if err != nil {
 		return nil, err
 	}
-	res := &v1.ListConnectionsResponse{Connections: page, NextPageToken: next, TotalCount: int32(len(out)), Epoch: p.sc.epoch}
+	res := &v1.ListConnectionsResponse{Connections: page, NextPageToken: next, TotalCount: int32(len(out)), Epoch: epoch}
 	// Every server ListServers lists, whatever the filters and the page.
 	for _, sp := range p.sc.servers {
 		res.Servers = append(res.Servers, sp.name)
