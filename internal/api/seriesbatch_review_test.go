@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -133,15 +132,17 @@ func TestBatchReviewAllPanicNoHang(t *testing.T) {
 
 // A client that goes away cancels the workers, and no goroutine is left.
 func TestBatchReviewClientCancelNoLeak(t *testing.T) {
-	var running sync.WaitGroup
+	// A counter, not a WaitGroup: a worker may enter after the client gave
+	// up, and WaitGroup.Add racing Wait is a misuse the race detector flags.
+	var running atomic.Int32
 	p := &scripted{Provider: fake.New(false)}
 	p.fn = func(ctx context.Context, req *v1.GetTimeSeriesRequest) (*v1.GetTimeSeriesResponse, error) {
 		running.Add(1)
-		defer running.Done()
+		defer running.Add(-1)
 		<-ctx.Done()
 		return nil, ctx.Err()
 	}
-	_, c := apitest.Serve(t, p)
+	srv, c := apitest.Serve(t, p)
 	before := runtime.NumGoroutine()
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
@@ -153,15 +154,18 @@ func TestBatchReviewClientCancelNoLeak(t *testing.T) {
 	if err == nil {
 		t.Fatal("want an error")
 	}
-	waited := make(chan struct{})
-	go func() { running.Wait(); close(waited) }()
-	select {
-	case <-waited:
-	case <-time.After(3 * time.Second):
-		t.Fatal("workers still running after the client went away")
+	stop := time.Now().Add(3 * time.Second)
+	for running.Load() > 0 && time.Now().Before(stop) {
+		time.Sleep(10 * time.Millisecond)
 	}
+	if n := running.Load(); n > 0 {
+		t.Fatalf("%d workers still running after the client went away", n)
+	}
+	// The connection the cancelled call left idle has goroutines of its
+	// own on both ends; close it so that only a leak is counted.
 	deadline := time.Now().Add(3 * time.Second)
 	for runtime.NumGoroutine() > before+2 && time.Now().Before(deadline) {
+		srv.Client().CloseIdleConnections()
 		time.Sleep(20 * time.Millisecond)
 	}
 	if g := runtime.NumGoroutine(); g > before+2 {
