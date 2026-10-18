@@ -1,14 +1,16 @@
+import { create } from "@bufbuild/protobuf";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { lens } from "../api/client";
+import { GetShellStatusResponseSchema } from "../gen/natslens/v1/systems_pb";
 import * as requests from "../api/requests";
 import { renderApp } from "../test/render";
 import { isSearchShortcut, SearchJump } from "./SearchJump";
 
 vi.mock("../api/client", () => ({
   lens: {
-    listSystems: vi.fn(),
+    getShellStatus: vi.fn(),
     listAccounts: vi.fn(async () => ({ accounts: [] })),
     listKeyValueStores: vi.fn(async () => ({ keyValueStores: [] })),
     listObjectStores: vi.fn(async () => ({ objectStores: [] })),
@@ -24,7 +26,8 @@ const m = vi.mocked(requests);
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(lens.listSystems).mockResolvedValue({ systems: [{ system: { id: "sys-a", name: "A", environment: "" } }], defaultSystem: "sys-a" } as never);
+  vi.mocked(lens.getShellStatus).mockImplementation((async (req: { system?: string }) =>
+    create(GetShellStatusResponseSchema, { systems: [{ system: { id: "sys-a", name: "A" } }], defaultSystem: "sys-a", systemKnown: !req.system || req.system === "sys-a" })) as never);
   m.listServers.mockResolvedValue({ servers: [{ name: "nats-1", cluster: "c" }], expected: [], missing: [] } as never);
   m.listStreams.mockResolvedValue({ streams: [{ entity: { account: "APP", stream: "order-jobs" } }, { entity: { account: "APP", stream: "order-archive" } }] } as never);
   m.listConsumers.mockResolvedValue([]);
@@ -95,7 +98,7 @@ describe("SearchJump", () => {
 
   it("asks nothing of a system that is not configured", async () => {
     renderApp(<SearchJump />, "/?system=nope");
-    await waitFor(() => expect(lens.listSystems).toHaveBeenCalled());
+    await waitFor(() => expect(lens.getShellStatus).toHaveBeenCalled());
     await userEvent.type(box(), "order");
     await new Promise((r) => setTimeout(r, 50));
     expect(m.listServers).not.toHaveBeenCalled();

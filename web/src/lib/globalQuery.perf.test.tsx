@@ -9,7 +9,7 @@ vi.mock("./globalQuery", async (orig) => {
   const real = await orig<typeof import("./globalQuery")>();
   return { ...real, globalQuery: vi.fn(real.globalQuery) };
 });
-vi.mock("../api/client", () => ({ lens: { listSystems: vi.fn(() => new Promise(() => {})) } }));
+vi.mock("../api/client", () => ({ lens: { getShellStatus: vi.fn(() => new Promise(() => {})) } }));
 
 describe("global query", () => {
   it("is computed once for a page full of links", () => {

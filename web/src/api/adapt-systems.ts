@@ -13,13 +13,17 @@ const COLLECTION: Record<CollectionState, Collection> = {
   [CollectionState.DEMO]: "demo",
 };
 
+export function collection(c: CollectionState): Collection {
+  return COLLECTION[c] ?? "unknown";
+}
+
 export function systemSummary(s: PSummary): SystemSummary {
   const id = s.system?.id ?? "";
   return {
     id,
     name: s.system?.name || id,
     environment: s.system?.environment ?? "",
-    collection: COLLECTION[s.collection] ?? "unknown",
+    collection: collection(s.collection),
     collectionError: s.collectionError,
     collectionErrorSince: ms(s.collectionErrorSince),
     freshness: freshness(s.freshness),
