@@ -183,7 +183,7 @@ describe("Overview series requests", () => {
     const trends = sizes.find((q) => q[0].metric.startsWith("cluster."));
     const sparks = sizes.find((q) => q[0].metric === "consumer.delivered_rate");
     expect(trends).toHaveLength(11);
-    expect(sparks?.map((q) => (q as { entity?: { key: string } }).entity?.key)).toEqual(names.map((n) => `APP/order-jobs/${n}`));
+    expect(sparks?.map((q) => (q as { entity?: { key: string } }).entity?.key)).toEqual(names.map((n) => `APP/order-jobs/${n}`).sort());
     expect(lens.getTimeSeries).not.toHaveBeenCalled();
   });
 });

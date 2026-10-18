@@ -5,7 +5,7 @@ import { GetTimeSeriesBatchResponseSchema, SeriesSchema } from "../gen/natslens/
 import { lens } from "./client";
 import type { Entity } from "./model";
 import type { TrendSeries } from "./overview";
-import { getTrends, pickTrend, type TrendQuery, type TrendResult } from "./trendBatch";
+import { getTrends, pickTrend, trendKey, type TrendQuery, type TrendResults } from "./trendBatch";
 
 vi.mock("./client", () => ({ lens: { getTimeSeriesBatch: vi.fn() } }));
 const batch = vi.mocked(lens.getTimeSeriesBatch);
@@ -28,15 +28,22 @@ describe("getTrends", () => {
     expect(req.queries[1].entity).toMatchObject({ type: EntityType.CONSUMER, key: consumer.key, account: "APP" });
   });
 
-  it("keeps the query order and passes a per-query error through", async () => {
+  it("sends the queries once each in key order, so the same set is the same request", async () => {
+    batch.mockResolvedValue(create(GetTimeSeriesBatchResponseSchema, {}));
+    await getTrends("", live, [{ metric: "cluster.servers_up" }, { metric: "cluster.connections" }, { metric: "cluster.servers_up" }]);
+    const req = batch.mock.calls[0][0] as { queries: { metric: string }[] };
+    expect(req.queries.map((q) => q.metric)).toEqual(["cluster.connections", "cluster.servers_up"]);
+  });
+
+  it("keys the results by query and passes a per-query error through", async () => {
     batch.mockResolvedValue(
       create(GetTimeSeriesBatchResponseSchema, {
         results: [{ series: create(SeriesSchema, { metric: "cluster.connections" }) }, { error: "invalid argument: unknown metric" }],
       }),
     );
     const r = await getTrends("", live, [{ metric: "cluster.connections" }, { metric: "cluster.nope" }]);
-    expect(r[0].series?.metric).toBe("cluster.connections");
-    expect(r[1]).toEqual({ error: "invalid argument: unknown metric" });
+    expect(r["cluster.connections||"].series?.metric).toBe("cluster.connections");
+    expect(r["cluster.nope||"]).toEqual({ error: "invalid argument: unknown metric" });
     expect(batch.mock.calls[0][0]).not.toHaveProperty("system");
   });
 });
@@ -44,7 +51,11 @@ describe("getTrends", () => {
 describe("pickTrend", () => {
   const queries: TrendQuery[] = [{ metric: "cluster.connections" }, { metric: "cluster.slow_consumers", maxPoints: 24 }, { metric: "consumer.delivered_rate", entity: consumer }];
   const s = (metric: string) => ({ metric }) as TrendSeries;
-  const data: TrendResult[] = [{ series: s("cluster.connections") }, { error: "not found" }, { series: s("consumer.delivered_rate") }];
+  const data: TrendResults = {
+    [trendKey(queries[0])]: { series: s("cluster.connections") },
+    [trendKey(queries[1])]: { error: "not found" },
+    [trendKey(queries[2])]: { series: s("consumer.delivered_rate") },
+  };
 
   it("gives each query its own series", () => {
     const q = { data, error: null, isPending: false };
@@ -71,6 +82,14 @@ describe("pickTrend", () => {
     const q = { data, error: err, isPending: false };
     expect(pickTrend(q, queries, { metric: "cluster.connections" })).toEqual({ data: s("cluster.connections"), error: err, isPending: false });
     expect(pickTrend({ data: undefined, error: err, isPending: false }, queries, { metric: "cluster.connections" })).toEqual({ data: undefined, error: err, isPending: false });
+  });
+
+  it("a query the data does not hold yet is pending without data, or has the call's error", () => {
+    const other: TrendQuery = { metric: "consumer.delivered_rate", entity: { ...consumer, key: "APP/order-jobs/thumb-worker", consumer: "thumb-worker" } };
+    const qs = [...queries, other];
+    expect(pickTrend({ data, error: null, isPending: false }, qs, other)).toEqual({ data: undefined, error: undefined, isPending: true });
+    const err = new Error("unavailable");
+    expect(pickTrend({ data, error: err, isPending: false }, qs, other)).toEqual({ data: undefined, error: err, isPending: false });
   });
 
   it("is pending while the call is", () => {
