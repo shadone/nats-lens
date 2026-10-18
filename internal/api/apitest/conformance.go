@@ -194,6 +194,47 @@ func Conformance() []State {
 		{"a stream replica whose server is offline", streamWith(v1.PlacementState_PLACEMENT_STATE_OFFLINE)},
 		{"a stream replica that disagrees with its leader", streamWith(v1.PlacementState_PLACEMENT_STATE_DISAGREES)},
 		{"a stream replica the leader lists that no server reports", streamWith(v1.PlacementState_PLACEMENT_STATE_MISSING)},
+		// A server that does not answer reports no view: the details list
+		// the servers that report the stream or consumer, no empty rows.
+		{"an offline replica's server has no empty view in the stream detail", func(q Q) string {
+			for _, s := range q.streams(q.day()) {
+				for _, p := range s.GetPlacement() {
+					if p.GetState() != v1.PlacementState_PLACEMENT_STATE_OFFLINE {
+						continue
+					}
+					if slices.ContainsFunc(q.stream(s.GetEntity()).GetServers(), func(v *v1.StreamServerView) bool {
+						return v.GetServer() == p.GetServer() && v.Messages == nil
+					}) {
+						q.t.Errorf("system %q: %s has an empty view for %s", q.System, s.GetEntity().GetKey(), p.GetServer())
+						return ""
+					}
+					return s.GetEntity().GetKey() + " on " + p.GetServer()
+				}
+			}
+			return ""
+		}},
+		{"an offline replica's server has no empty view in its consumers' details", func(q Q) string {
+			for _, s := range q.streams(q.day()) {
+				for _, p := range s.GetPlacement() {
+					if p.GetState() != v1.PlacementState_PLACEMENT_STATE_OFFLINE {
+						continue
+					}
+					for _, c := range q.stream(s.GetEntity()).GetConsumers() {
+						if !c.GetPresent() {
+							continue
+						}
+						if slices.ContainsFunc(q.consumer(c.GetEntity()).GetServers(), func(v *v1.ConsumerServerView) bool {
+							return v.GetServer() == p.GetServer() && v.DeliveredStreamSeq == nil
+						}) {
+							q.t.Errorf("system %q: %s has an empty view for %s", q.System, c.GetEntity().GetKey(), p.GetServer())
+							return ""
+						}
+						return c.GetEntity().GetKey() + " beside " + p.GetServer()
+					}
+				}
+			}
+			return ""
+		}},
 		{"a stream without a leader, its replicas' states unknown", func(q Q) string {
 			for _, s := range q.streams(q.day()) {
 				ps := s.GetPlacement()
