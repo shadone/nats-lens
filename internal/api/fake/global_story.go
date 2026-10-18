@@ -189,6 +189,18 @@ func globalEvents(s scen, fs []*v1.Finding) []*v1.Event {
 		findingEvent("consumer-002:"+Account+"/shipping-updates/label-printer", firing, s.at(13, 40, 0), "finding.firing",
 			"label-printer on shipping-updates: fill 24.5/s, drain 21.4/s"),
 	)
+	// The consumer advisories as the capture decodes them.
+	consumerEvent := func(at time.Time, kind, typ, stream, consumer, summary string) *v1.Event {
+		e := nats(at, kind, typ, "", stream, summary)
+		e.Consumer = consumer
+		return e
+	}
+	out = append(out,
+		consumerEvent(globalInvoiceCreated.Add(s.shift), "consumer.created", "CONSUMER.CREATED", "order-events", "invoice-renderer",
+			"consumer APP > order-events > invoice-renderer created"),
+		consumerEvent(s.at(2, 30, 0), "consumer.paused", "CONSUMER.PAUSED", "inventory-changes", "reorder-planner",
+			"consumer APP > inventory-changes > reorder-planner paused until 2026-10-18T02:00:00Z"),
+	)
 	out = append(out,
 		findingEvent("stream-007:"+Account+"/customer-notifications", firing, s.at(13, 5, 30), "finding.firing",
 			"customer-notifications: nats-ap-4 differs in max_age"),

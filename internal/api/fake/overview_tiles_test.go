@@ -247,6 +247,13 @@ func TestGlobalConsumerRates(t *testing.T) {
 	if last := cs[len(cs)-1]; last.GetEntity().GetConsumer() != "invoice-renderer" {
 		t.Errorf("last by rate = %s, want invoice-renderer", last.GetEntity().GetConsumer())
 	}
+	// The capture records the creation and the pause.
+	evs := must(c.ListEvents(ctx, connect.NewRequest(&v1.ListEventsRequest{System: "example-global", PageSize: 1000}))).GetEvents()
+	for _, want := range [][2]string{{"consumer.created", "invoice-renderer"}, {"consumer.paused", "reorder-planner"}} {
+		if !slices.ContainsFunc(evs, func(e *v1.Event) bool { return e.GetKind() == want[0] && e.GetConsumer() == want[1] }) {
+			t.Errorf("no %s event for %s", want[0], want[1])
+		}
+	}
 	d := must(c.GetConsumer(ctx, connect.NewRequest(&v1.GetConsumerRequest{System: "example-global", Account: "APP", Stream: "order-events", Consumer: "invoice-renderer"})))
 	if got := d.GetServers()[0].GetCreated().AsTime(); !got.Equal(at(14, 29, 20)) {
 		t.Errorf("invoice-renderer created %v", got)
