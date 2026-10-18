@@ -13,7 +13,7 @@ Phase 1 is complete on `develop` (see `phase-1.md`). This note is the starting p
 2. **One conformance table for the store and the demo.** The demo cannot show some states the store produces: placement DISAGREES/UNSPECIFIED/MISSING on streams, an unset delivery rate, Theil-Sen growth. Drive both from one shared test table.
 3. **Fewer requests per page.** The Overview makes about 27 calls per load and refetches them every 30 s. Ideas: a light header-status RPC, a multi-metric `GetTimeSeries`, a cached `ListSystems` strip, `Connections` without the full server list.
 4. **Phase 2 pages from the design canvas:** Placement, Replay, Topology, Accounts and auth, Capacity, Subjects (observable data only), Micro services, Applications. Each has a planned doc in `docs/features/`.
-5. **Small leftovers:** an Events page with the account scope; tile links to their pages; cause-card evidence tables; drag to zoom.
+5. **Small leftovers:** an Events page with the account scope; tile links to their pages; cause-card evidence tables; drag to zoom; `client-005` and `server-011` keep their hysteresis only when the check ran in the previous epoch, so match the last epoch the check ran successfully instead; the Overview sends `GetOverview` twice per cycle (header and page).
 
 ## How the work was run
 
