@@ -193,7 +193,18 @@ func Conformance() []State {
 		{"a stream replica behind its leader", streamWith(v1.PlacementState_PLACEMENT_STATE_BEHIND)},
 		{"a stream replica whose server is offline", streamWith(v1.PlacementState_PLACEMENT_STATE_OFFLINE)},
 		{"a stream replica that disagrees with its leader", streamWith(v1.PlacementState_PLACEMENT_STATE_DISAGREES)},
-		{"a stream replica the leader lists that no server reports", streamWith(v1.PlacementState_PLACEMENT_STATE_MISSING)},
+		// A MISSING square with a server: one without a server is a
+		// configured replica no server names, a different state.
+		{"a stream replica the leader lists that no server reports", func(q Q) string {
+			for _, s := range q.streams(q.day()) {
+				for _, p := range s.GetPlacement() {
+					if p.GetState() == v1.PlacementState_PLACEMENT_STATE_MISSING && p.GetServer() != "" {
+						return s.GetEntity().GetKey() + " on " + p.GetServer()
+					}
+				}
+			}
+			return ""
+		}},
 		// A server that does not answer reports no view: the details list
 		// the servers that report the stream or consumer, no empty rows.
 		{"an offline replica's server has no empty view in the stream detail", func(q Q) string {
