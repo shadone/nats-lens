@@ -97,7 +97,8 @@ func prodEvents(s scen, fs []*v1.Finding) []*v1.Event {
 			Summary: "node gke-example-pool-1-7f3a cordoned and drained"},
 	}
 	// Short connections of one client fill the hours before the upgrade,
-	// one churn summary per minute in which it reconnected.
+	// one churn summary per minute in which it reconnected; 6 to 10 every
+	// 5.5 minutes peak at 19 in any 10 minutes, below client-005's threshold.
 	for k := range fillerCount {
 		host := fmt.Sprintf("10.20.2.%d", 10+k%40)
 		out = append(out, &v1.Event{
