@@ -5,6 +5,7 @@ import type { PlacementStateName } from "../api/adapt-placement";
 import type { Matrix, MatrixAsset, MatrixCell } from "../api/placementMatrix";
 import { assetsOf } from "../api/placementMatrix";
 import { dayMonHm, fmtInt } from "./format";
+import { natsCommand } from "./natsCommand";
 import type { RangeSpec } from "./timeRange";
 
 /** A server that holds no replica of an asset. */
@@ -104,19 +105,23 @@ export function meaning(a: MatrixAsset, c: MatrixCell): string {
   return parts.join(" ");
 }
 
-function q(s: string): string {
-  return /^[A-Za-z0-9._-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`;
+/** The names a command about the asset takes: the stream, and a consumer's name. */
+function names(a: MatrixAsset): string[] {
+  return isConsumer(a) ? [a.entity.stream, a.entity.consumer] : [a.entity.stream];
 }
 
-/** The nats CLI command that shows the asset as its leader reports it. */
-export function infoCommand(a: MatrixAsset, c?: MatrixCell): string {
-  const base = isConsumer(a) ? `nats consumer info ${q(a.entity.stream)} ${q(a.entity.consumer)} --json` : `nats stream info ${q(a.entity.stream)} --json`;
-  return c?.differs.includes("created") ? `${base} | jq .created` : base;
+/**
+ * The nats CLI command that shows the asset as its leader reports it;
+ * undefined when a name holds a control character.
+ */
+export function infoCommand(a: MatrixAsset, c?: MatrixCell): string | undefined {
+  const cmd = natsCommand([isConsumer(a) ? "consumer" : "stream", "info"], names(a), ["--json"]);
+  return cmd && c?.differs.includes("created") ? `${cmd} | jq .created` : cmd;
 }
 
 /** The nats CLI command that asks the leader to step down; nats-lens never runs it. */
-export function stepDownCommand(a: MatrixAsset): string {
-  return isConsumer(a) ? `nats consumer cluster step-down ${q(a.entity.stream)} ${q(a.entity.consumer)}` : `nats stream cluster step-down ${q(a.entity.stream)}`;
+export function stepDownCommand(a: MatrixAsset): string | undefined {
+  return natsCommand([isConsumer(a) ? "consumer" : "stream", "cluster", "step-down"], names(a));
 }
 
 /** Whether every server that names peers names the same replica set, itself included. */

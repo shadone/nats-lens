@@ -28,13 +28,24 @@ describe("cellText", () => {
 });
 
 describe("commands", () => {
-  it("names the stream and consumer, quoted when needed, and asks jq for the creation time when it differs", () => {
+  it("puts the names after --, quoted when needed, and asks jq for the creation time when it differs", () => {
     const c = masset("consumer", "order-jobs", "resize-worker", []);
-    expect(infoCommand(c)).toBe("nats consumer info order-jobs resize-worker --json");
-    expect(infoCommand(c, mcell("nats-0", "in_sync", { differs: ["created"] }))).toBe("nats consumer info order-jobs resize-worker --json | jq .created");
-    expect(infoCommand(masset("stream", "odd name", "", []))).toBe("nats stream info 'odd name' --json");
-    expect(stepDownCommand(masset("stream", "order-jobs", "", []))).toBe("nats stream cluster step-down order-jobs");
-    expect(stepDownCommand(c)).toBe("nats consumer cluster step-down order-jobs resize-worker");
+    expect(infoCommand(c)).toBe("nats consumer info --json -- order-jobs resize-worker");
+    expect(infoCommand(c, mcell("nats-0", "in_sync", { differs: ["created"] }))).toBe("nats consumer info --json -- order-jobs resize-worker | jq .created");
+    expect(stepDownCommand(masset("stream", "order-jobs", "", []))).toBe("nats stream cluster step-down -- order-jobs");
+    expect(stepDownCommand(c)).toBe("nats consumer cluster step-down -- order-jobs resize-worker");
+  });
+  it("never lets a name read as an option", () => {
+    expect(stepDownCommand(masset("stream", "--server=nats://evil.example.com", "", []))).toBe("nats stream cluster step-down -- '--server=nats://evil.example.com'");
+    expect(infoCommand(masset("consumer", "orders", "-x", []))).toBe("nats consumer info --json -- orders '-x'");
+  });
+  it("quotes a name with a quote or a space", () => {
+    expect(infoCommand(masset("stream", "it's odd", "", []))).toBe("nats stream info --json -- 'it'\\''s odd'");
+  });
+  it("gives no command for a name with a control character", () => {
+    expect(infoCommand(masset("stream", "orders\nrm -rf ~", "", []))).toBeUndefined();
+    expect(stepDownCommand(masset("consumer", "orders", "a\rb", []))).toBeUndefined();
+    expect(stepDownCommand(masset("consumer", "orders", "a\u0000b", []))).toBeUndefined();
   });
 });
 
