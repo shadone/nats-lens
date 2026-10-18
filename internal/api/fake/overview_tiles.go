@@ -3,7 +3,6 @@ package fake
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
@@ -76,26 +75,11 @@ func (s scen) overviewTiles(r *v1.TimeRange, maxPoints int32, servers []*v1.Serv
 	if limit > 0 {
 		storage.Limit, storage.ValueSuffix = ptr(limit), "of "+api.FmtBytes(limit)
 	}
-	storage.Subtitle = api.StorageSubtitle(storage.Value, storage.Limit, growth(storage.GetSeries()))
+	storage.Subtitle = api.StorageSubtitle(storage.Value, storage.Limit, seriesGrowth(storage.GetSeries()))
 
 	tiles := []*v1.Tile{srv, meta, streams, kv, objects, consumers, accounts, clients, storage}
 	s.tileStatus(tiles, cur)
 	return tiles
-}
-
-// growth is the change per day between a series' first and last point;
-// nil when they lie less than six hours apart, as the store requires.
-func growth(s *v1.Series) *float64 {
-	pts := s.GetPoints()
-	if len(pts) < 2 {
-		return nil
-	}
-	a, b := pts[0], pts[len(pts)-1]
-	d := b.GetTime().AsTime().Sub(a.GetTime().AsTime())
-	if d < 6*time.Hour {
-		return nil
-	}
-	return ptr((b.GetValue() - a.GetValue()) / d.Hours() * 24)
 }
 
 // tileStatus sets each tile's status from the firing findings its rule
