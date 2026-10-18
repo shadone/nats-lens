@@ -17,7 +17,7 @@ beforeEach(() => vi.resetAllMocks());
 
 describe("getTrends", () => {
   it("sends the system, the range once, the default points and each query", async () => {
-    batch.mockResolvedValue(create(GetTimeSeriesBatchResponseSchema, {}));
+    batch.mockImplementation(async (req) => create(GetTimeSeriesBatchResponseSchema, { results: (req.queries ?? []).map(() => ({})) }));
     await getTrends("example-global", live, [{ metric: "cluster.connections" }, { metric: "consumer.delivered_rate", entity: consumer, maxPoints: 24 }]);
     const req = batch.mock.calls[0][0] as Record<string, unknown> & { queries: Record<string, unknown>[] };
     expect(req).toMatchObject({ system: "example-global", maxPoints: 96 });
@@ -29,7 +29,7 @@ describe("getTrends", () => {
   });
 
   it("sends the queries once each in key order, so the same set is the same request", async () => {
-    batch.mockResolvedValue(create(GetTimeSeriesBatchResponseSchema, {}));
+    batch.mockImplementation(async (req) => create(GetTimeSeriesBatchResponseSchema, { results: (req.queries ?? []).map(() => ({})) }));
     await getTrends("", live, [{ metric: "cluster.servers_up" }, { metric: "cluster.connections" }, { metric: "cluster.servers_up" }]);
     const req = batch.mock.calls[0][0] as { queries: { metric: string }[] };
     expect(req.queries.map((q) => q.metric)).toEqual(["cluster.connections", "cluster.servers_up"]);
