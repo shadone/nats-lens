@@ -3,6 +3,7 @@ package fake
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -183,5 +184,11 @@ func (p *Provider) ListConnections(_ context.Context, req *v1.ListConnectionsReq
 	if err != nil {
 		return nil, err
 	}
-	return &v1.ListConnectionsResponse{Connections: page, NextPageToken: next, TotalCount: int32(len(out)), Epoch: p.sc.epoch}, nil
+	res := &v1.ListConnectionsResponse{Connections: page, NextPageToken: next, TotalCount: int32(len(out)), Epoch: p.sc.epoch}
+	// Every server ListServers lists, whatever the filters and the page.
+	for _, sp := range p.sc.servers {
+		res.Servers = append(res.Servers, sp.name)
+	}
+	slices.Sort(res.Servers)
+	return res, nil
 }

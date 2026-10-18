@@ -1446,6 +1446,10 @@ type ListConnectionsResponse struct {
 	// Tooling connections that match the other filters and were left out
 	// because include_tooling is false.
 	ToolingHidden int32 `protobuf:"varint,5,opt,name=tooling_hidden,json=toolingHidden,proto3" json:"tooling_hidden,omitempty"`
+	// Names of every server seen in the range, sorted: the same servers
+	// ListServers lists, whatever the filters and the page. Lets a client
+	// offer the server filter without a ListServers call.
+	Servers       []string `protobuf:"bytes,6,rep,name=servers,proto3" json:"servers,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1513,6 +1517,13 @@ func (x *ListConnectionsResponse) GetToolingHidden() int32 {
 		return x.ToolingHidden
 	}
 	return 0
+}
+
+func (x *ListConnectionsResponse) GetServers() []string {
+	if x != nil {
+		return x.Servers
+	}
+	return nil
 }
 
 var File_natslens_v1_servers_proto protoreflect.FileDescriptor
@@ -1682,14 +1693,15 @@ const file_natslens_v1_servers_proto_rawDesc = "" +
 	"\n" +
 	"page_token\x18\x06 \x01(\tR\tpageToken\x12'\n" +
 	"\x0finclude_tooling\x18\a \x01(\bR\x0eincludeTooling\x12\x16\n" +
-	"\x06system\x18\b \x01(\tR\x06system\"\xda\x01\n" +
+	"\x06system\x18\b \x01(\tR\x06system\"\xf4\x01\n" +
 	"\x17ListConnectionsResponse\x129\n" +
 	"\vconnections\x18\x01 \x03(\v2\x17.natslens.v1.ConnectionR\vconnections\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x05R\n" +
 	"totalCount\x12\x14\n" +
 	"\x05epoch\x18\x04 \x01(\x03R\x05epoch\x12%\n" +
-	"\x0etooling_hidden\x18\x05 \x01(\x05R\rtoolingHidden*~\n" +
+	"\x0etooling_hidden\x18\x05 \x01(\x05R\rtoolingHidden\x12\x18\n" +
+	"\aservers\x18\x06 \x03(\tR\aservers*~\n" +
 	"\n" +
 	"ServerRole\x12\x1b\n" +
 	"\x17SERVER_ROLE_UNSPECIFIED\x10\x00\x12\x1b\n" +
