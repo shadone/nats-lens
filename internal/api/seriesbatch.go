@@ -1,0 +1,118 @@
+package api
+
+import (
+	"context"
+	"errors"
+	"sync"
+
+	"connectrpc.com/connect"
+
+	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+)
+
+// MaxBatchQueries is the number of series one GetTimeSeriesBatch call may
+// ask for.
+const MaxBatchQueries = 32
+
+// batchParallelism is the number of series of one batch read at a time.
+const batchParallelism = 4
+
+// GetTimeSeriesBatch reads several series over one range. The range is
+// resolved once, so every series ends at the same instant. A query that
+// fails as GetTimeSeries would with invalid_argument or not_found gets its
+// error in its result; any other failure fails the call.
+func (h *Handler) GetTimeSeriesBatch(ctx context.Context, req *connect.Request[v1.GetTimeSeriesBatchRequest]) (*connect.Response[v1.GetTimeSeriesBatchResponse], error) {
+	return call(ctx, h, "GetTimeSeriesBatch", req.Msg, func(p Provider, m *v1.GetTimeSeriesBatchRequest) error {
+		return normalizeTimeSeriesBatch(m, p)
+	}, func(s System, ctx context.Context, m *v1.GetTimeSeriesBatchRequest) (*v1.GetTimeSeriesBatchResponse, error) {
+		return readBatch(ctx, s.Provider, m)
+	})
+}
+
+// normalizeTimeSeriesBatch checks the number of queries and resolves the
+// range and the default max_points; the queries are checked one by one in
+// readBatch, so that a bad one fails alone.
+func normalizeTimeSeriesBatch(req *v1.GetTimeSeriesBatchRequest, p Provider) error {
+	switch n := len(req.GetQueries()); {
+	case n == 0:
+		return invalid("queries is empty")
+	case n > MaxBatchQueries:
+		return invalid("queries has %d entries, at most %d", n, MaxBatchQueries)
+	}
+	r, err := ResolveRange(req.GetRange(), p.Now(), DefaultRange)
+	if err != nil {
+		return err
+	}
+	req.Range = r
+	req.MaxPoints, err = points(req.GetMaxPoints(), DefaultSeriesPoints)
+	return err
+}
+
+// readBatch reads each query of a normalized request, a few at a time.
+func readBatch(ctx context.Context, p Provider, req *v1.GetTimeSeriesBatchRequest) (*v1.GetTimeSeriesBatchResponse, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	results := make([]*v1.SeriesResult, len(req.GetQueries()))
+	var (
+		wg       sync.WaitGroup
+		once     sync.Once
+		firstErr error
+	)
+	sem := make(chan struct{}, batchParallelism)
+	for i, q := range req.GetQueries() {
+		select {
+		case sem <- struct{}{}:
+		case <-ctx.Done():
+		}
+		if ctx.Err() != nil {
+			break
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer func() { <-sem }()
+			res, err := readQuery(ctx, p, req, q)
+			if err != nil {
+				once.Do(func() { firstErr = err; cancel() })
+				return
+			}
+			results[i] = res
+		}()
+	}
+	wg.Wait()
+	if firstErr != nil {
+		return nil, firstErr
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return &v1.GetTimeSeriesBatchResponse{Results: results, Range: req.GetRange()}, nil
+}
+
+// readQuery reads one query as GetTimeSeries would, with the batch's
+// resolved range. An invalid or unknown metric or entity is the result's
+// error; any other error is returned.
+func readQuery(ctx context.Context, p Provider, batch *v1.GetTimeSeriesBatchRequest, q *v1.SeriesQuery) (*v1.SeriesResult, error) {
+	sub := &v1.GetTimeSeriesRequest{
+		Metric:    q.GetMetric(),
+		Entity:    q.GetEntity(),
+		Range:     batch.GetRange(),
+		MaxPoints: q.GetMaxPoints(),
+		System:    batch.GetSystem(),
+	}
+	if sub.MaxPoints == 0 {
+		sub.MaxPoints = batch.GetMaxPoints()
+	}
+	err := normalizeTimeSeries(sub, p.Now())
+	var res *v1.GetTimeSeriesResponse
+	if err == nil {
+		res, err = p.GetTimeSeries(ctx, sub)
+	}
+	switch {
+	case err == nil:
+		return &v1.SeriesResult{Series: res.GetSeries()}, nil
+	case errors.Is(err, ErrInvalid), errors.Is(err, ErrNotFound):
+		return &v1.SeriesResult{Error: err.Error()}, nil
+	}
+	return nil, err
+}

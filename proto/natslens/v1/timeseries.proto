@@ -149,3 +149,54 @@ message ListMetricsResponse {
   // The metrics.
   repeated MetricInfo metrics = 1;
 }
+
+// One series of a GetTimeSeriesBatch request.
+message SeriesQuery {
+  // Metric ID, as in GetTimeSeriesRequest.metric.
+  string metric = 1;
+
+  // Entity the metric is read for, as in GetTimeSeriesRequest.entity.
+  EntityRef entity = 2;
+
+  // Number of buckets for this series, as in
+  // GetTimeSeriesRequest.max_points. Zero means the request's max_points.
+  int32 max_points = 3;
+}
+
+// Request for several series over one time range.
+message GetTimeSeriesBatchRequest {
+  // Series to read; at least one and at most 32.
+  repeated SeriesQuery queries = 1;
+
+  // Time range every series is read for; at most 400 days.
+  //
+  // It is resolved once, so an unset end is the same instant for every
+  // series.
+  TimeRange range = 2;
+
+  // Number of buckets for a query that sets none, as in
+  // GetTimeSeriesRequest.max_points. Zero means 200; at most 2000.
+  int32 max_points = 3;
+
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 4;
+}
+
+// The result of one query of a batch.
+message SeriesResult {
+  // The values; unset when error is set.
+  Series series = 1;
+
+  // Why the query was not served: an unknown metric, an entity of the
+  // wrong type or one that does not exist. Empty when series is set.
+  string error = 2;
+}
+
+// Several series over one time range.
+message GetTimeSeriesBatchResponse {
+  // One result per query, in the order of the queries.
+  repeated SeriesResult results = 1;
+
+  // The resolved time range every series was read for.
+  TimeRange range = 2;
+}
