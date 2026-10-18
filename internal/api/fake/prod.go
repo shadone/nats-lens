@@ -1,7 +1,6 @@
 package fake
 
 import (
-	"slices"
 	"time"
 
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
@@ -53,10 +52,8 @@ func prodScenario() *scenario {
 			"media-worker", "order-service", "analytics-worker", "ledger-service", "api-gateway",
 			"catalog-api", "callback-dispatcher", "video-transcoder",
 		},
-		metaLeader: "nats-0",
-		down: func(sc *scenario, c time.Time) bool {
-			return slices.ContainsFunc(sc.servers, func(sp serverSpec) bool { return down(sp.name, c) })
-		},
+		metaLeader:    "nats-0",
+		serverDown:    func(sp serverSpec, c time.Time) bool { return down(sp.name, c) },
 		collection:    v1.CollectionState_COLLECTION_STATE_DEMO,
 		routineClient: "catalog-api",
 		findings:      prodFindings,

@@ -142,12 +142,13 @@ func (p *Provider) GetServer(_ context.Context, req *v1.GetServerRequest) (*v1.G
 	return res, nil
 }
 
-// connections builds the connections of the scenario's newest epoch: each
-// answering server's count, named in turn after the scenario's clients.
-func (s scen) connections() []*v1.Connection {
+// connections builds the connections of the epoch that started at at:
+// each server's count but for the servers down then, named in turn after
+// the scenario's clients.
+func (s scen) connections(at time.Time) []*v1.Connection {
 	var out []*v1.Connection
 	for _, sp := range s.sc.servers {
-		if !sp.answering() {
+		if s.downAt(sp, at) {
 			continue
 		}
 		start := s.started(sp)
@@ -171,8 +172,14 @@ func (s scen) connections() []*v1.Connection {
 
 // ListConnections filters the connections and pages through them.
 func (p *Provider) ListConnections(_ context.Context, req *v1.ListConnectionsRequest) (*v1.ListConnectionsResponse, error) {
+	s := p.scen()
+	// The connections of the range's newest epoch; none without one.
+	at, epoch, ok := s.epochBefore(req.GetRange())
+	if !ok {
+		return &v1.ListConnectionsResponse{}, nil
+	}
 	var out []*v1.Connection
-	for _, c := range p.scen().connections() {
+	for _, c := range s.connections(at) {
 		if (req.GetServer() == "" || c.GetServer() == req.GetServer()) &&
 			(req.GetAccount() == "" || c.GetAccount() == req.GetAccount()) &&
 			strings.Contains(c.GetName(), req.GetNameContains()) {
@@ -183,8 +190,5 @@ func (p *Provider) ListConnections(_ context.Context, req *v1.ListConnectionsReq
 	if err != nil {
 		return nil, err
 	}
-	// The epoch the range's freshness names; the connections themselves
-	// are the newest epoch's.
-	_, epoch, _ := p.scen().epochBefore(req.GetRange())
 	return &v1.ListConnectionsResponse{Connections: page, NextPageToken: next, TotalCount: int32(len(out)), Epoch: epoch}, nil
 }

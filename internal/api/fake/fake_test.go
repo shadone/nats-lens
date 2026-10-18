@@ -302,3 +302,41 @@ func TestPartialEpochsFollowTheDownServers(t *testing.T) {
 		}
 	}
 }
+
+// ListConnections lists the connections of the range's newest epoch: none
+// for a server down then, and nothing at all for a range without an
+// epoch. The Fleet summary counts answering servers and connections at
+// the same epoch, so partial means fewer answering than expected.
+func TestConnectionsAndFleetFollowTheEpoch(t *testing.T) {
+	c := demo(t)
+	rng := func(end time.Time) *v1.TimeRange {
+		return &v1.TimeRange{Start: timestamppb.New(end.Add(-time.Hour)), End: timestamppb.New(end)}
+	}
+	conns := func(end time.Time, server string) *v1.ListConnectionsResponse {
+		return must(c.ListConnections(ctx, connect.NewRequest(&v1.ListConnectionsRequest{System: fake.Cluster, Range: rng(end), Server: server})))
+	}
+	// nats-0 was down 09:16:02-09:18:00.
+	if r := conns(at(9, 17, 0), "nats-0"); r.GetEpoch() == 0 || r.GetTotalCount() != 0 {
+		t.Errorf("nats-0 at 09:17: epoch %d, %d connections, want none", r.GetEpoch(), r.GetTotalCount())
+	}
+	if r := conns(at(9, 17, 0), "nats-1"); r.GetTotalCount() != 60 {
+		t.Errorf("nats-1 at 09:17: %d connections, want 60", r.GetTotalCount())
+	}
+	if r := conns(fake.FixedNow.Add(-40*24*time.Hour), ""); r.GetEpoch() != 0 || r.GetTotalCount() != 0 || len(r.GetConnections()) != 0 {
+		t.Errorf("before the history: epoch %d, %d connections", r.GetEpoch(), r.GetTotalCount())
+	}
+	for _, end := range []time.Time{at(9, 17, 0), at(9, 30, 0), at(10, 0, 0), at(8, 0, 0)} {
+		res := must(c.ListSystems(ctx, connect.NewRequest(&v1.ListSystemsRequest{Range: rng(end)})))
+		for _, s := range res.GetSystems() {
+			if s.GetSystem().GetId() != fake.Cluster {
+				continue
+			}
+			if partial, fewer := s.GetFreshness().GetPartial(), s.GetServersAnswering() < s.GetServers(); partial != fewer {
+				t.Errorf("..%s: partial %v, %d of %d answering", end.Format("15:04"), partial, s.GetServersAnswering(), s.GetServers())
+			}
+			if want := map[bool]int64{true: 121, false: 182}[s.GetServersAnswering() < s.GetServers()]; end.Equal(at(9, 17, 0)) && s.GetConnections() != want {
+				t.Errorf("..09:17: %d connections, want %d", s.GetConnections(), want)
+			}
+		}
+	}
+}
