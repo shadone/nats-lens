@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useNavigate } from "react-router";
 import { describe, expect, it, vi } from "vitest";
@@ -16,9 +16,8 @@ const conn = (cid: string, name: string, tooling: boolean): Connection => ({
 
 describe("Connections", () => {
   it("tags a tooling connection for every reader and counts the hidden ones", async () => {
-    vi.mocked(requests.listServers).mockResolvedValue({ servers: [], expected: [] } as never);
     vi.mocked(requests.listConnections).mockResolvedValue({
-      items: [conn("1", "nats-cli", true), conn("2", "worker", false)], nextPageToken: "", totalCount: 2, epoch: "3", toolingHidden: 4,
+      items: [conn("1", "nats-cli", true), conn("2", "worker", false)], nextPageToken: "", totalCount: 2, epoch: "3", toolingHidden: 4, servers: [],
     });
     renderApp(<Connections />, "/connections");
     expect(await screen.findByText("4 tooling connections hidden", { exact: false })).toBeInTheDocument();
@@ -31,9 +30,8 @@ describe("Connections", () => {
 
 describe("Connections name filter", () => {
   it("includes the tooling connections a name filter matches and says so", async () => {
-    vi.mocked(requests.listServers).mockResolvedValue({ servers: [], expected: [] } as never);
     vi.mocked(requests.listConnections).mockResolvedValue({
-      items: [conn("1", "natslens-events", true)], nextPageToken: "", totalCount: 1, epoch: "3", toolingHidden: 0,
+      items: [conn("1", "natslens-events", true)], nextPageToken: "", totalCount: 1, epoch: "3", toolingHidden: 0, servers: [],
     });
     renderApp(<Connections />, "/connections?name=natslens");
     expect(await screen.findByText(/shown because the name filter matches them/)).toBeInTheDocument();
@@ -48,9 +46,8 @@ describe("Connections pages", () => {
       go = useNavigate();
       return null;
     }
-    vi.mocked(requests.listServers).mockResolvedValue({ servers: [], expected: [] } as never);
     vi.mocked(requests.listConnections).mockImplementation(async (sys, _spec, f) => ({
-      items: [conn("1", "worker", false)], nextPageToken: sys === "sys-a" && !f.pageToken ? "a-token-2" : "", totalCount: 200, epoch: "3", toolingHidden: 0,
+      items: [conn("1", "worker", false)], nextPageToken: sys === "sys-a" && !f.pageToken ? "a-token-2" : "", totalCount: 200, epoch: "3", toolingHidden: 0, servers: [],
     }));
     renderApp(
       <>
@@ -65,5 +62,20 @@ describe("Connections pages", () => {
     act(() => go("/connections?system=sys-b"));
     await waitFor(() => expect(requests.listConnections).toHaveBeenCalledWith("sys-b", expect.anything(), expect.anything(), expect.anything()));
     for (const c of vi.mocked(requests.listConnections).mock.calls) expect(c[2].pageToken ?? "").toBe("");
+  });
+});
+
+describe("Connections server filter", () => {
+  it("offers the servers ListConnections names, all of them while one is chosen, without asking ListServers", async () => {
+    vi.mocked(requests.listServers).mockClear();
+    vi.mocked(requests.listConnections).mockResolvedValue({
+      items: [conn("1", "worker", false)], nextPageToken: "", totalCount: 1, epoch: "3", toolingHidden: 0, servers: ["nats-0", "nats-1", "nats-2"],
+    });
+    renderApp(<Connections />, "/connections?server=nats-1");
+    const select = screen.getByRole("combobox", { name: "Server" });
+    await waitFor(() => expect(within(select).getAllByRole("option").map((o) => o.textContent)).toEqual(["All servers", "nats-0", "nats-1", "nats-2"]));
+    expect(select).toHaveValue("nats-1");
+    expect(vi.mocked(requests.listConnections).mock.calls.at(-1)?.[2]).toMatchObject({ server: "nats-1" });
+    expect(requests.listServers).not.toHaveBeenCalled();
   });
 });

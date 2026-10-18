@@ -9,6 +9,9 @@ import type { Entity } from "./model";
 import * as api from "./requests";
 import { useCurrentSystem } from "./systems";
 
+/** How long the names that fill a filter are kept before a mount reads them again. */
+export const FILTER_NAMES_STALE_MS = 5 * 60_000;
+
 function refetch(spec: RangeSpec) {
   return spec.kind === "live" ? LIVE_REFRESH_MS : false;
 }
@@ -115,6 +118,25 @@ export function useStreams(spec: RangeSpec, includeKv = false) {
     queryKey: ["streams", sys, rangeKey(spec), includeKv],
     queryFn: ({ signal }) => api.listStreams(sys, spec, includeKv, signal),
     refetchInterval: refetch(spec),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * The streams that fill a filter. Not polled, whatever the range, and not
+ * read again on window focus. Read again when a page using it mounts more
+ * than five minutes after the last successful read, when the network comes
+ * back after that, when the system or range changes, or on a reload. A
+ * failed read keeps the streams last read; with none, the next mount tries
+ * again.
+ */
+export function useStreamNames(spec: RangeSpec) {
+  const sys = useSystem();
+  return useQuery({
+    queryKey: ["streamNames", sys, rangeKey(spec)],
+    queryFn: async ({ signal }) => (await api.listStreams(sys, spec, false, signal)).streams.map((s) => s.entity),
+    refetchInterval: false,
+    staleTime: FILTER_NAMES_STALE_MS,
     placeholderData: keepPreviousData,
   });
 }

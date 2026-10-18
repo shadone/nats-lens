@@ -47,6 +47,7 @@ function AllHooks() {
   q.useEvents(live, {});
   q.useEvent("e1");
   q.useStreams(live);
+  q.useStreamNames(live);
   q.useStream(live, "APP", "order-jobs");
   q.useConsumers(live, {});
   q.useConsumer(live, "APP", "order-jobs", "resize-worker");
@@ -101,7 +102,7 @@ describe("query keys and the system", () => {
     const qc = setup("/?system=sys-a");
     await waitFor(() => METHODS.forEach((m) => expect(lens[m]).toHaveBeenCalled()));
     const keys = qc.getQueryCache().getAll().map((x) => x.queryKey);
-    expect(keys.length).toBe(16);
+    expect(keys.length).toBe(17);
     for (const k of keys) expect(k, JSON.stringify(k)).toContain("sys-a");
     for (const m of METHODS) expect(lastSystem(m), m).toBe("sys-a");
   });
@@ -113,7 +114,7 @@ describe("query keys and the system", () => {
     act(() => navigate("/?system=sys-b"));
     await waitFor(() => METHODS.forEach((m) => expect(lastSystem(m), m).toBe("sys-b")));
     const keys = qc.getQueryCache().getAll().map((x) => x.queryKey);
-    expect(keys.filter((k) => k.includes("sys-b")).length).toBe(16);
+    expect(keys.filter((k) => k.includes("sys-b")).length).toBe(17);
   });
 
   it("keys a page without ?system= on the empty system and sends none", async () => {
