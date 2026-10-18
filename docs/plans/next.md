@@ -2,10 +2,12 @@
 
 Phase 1 is complete on `develop` (see `phase-1.md`). This note is the starting point for the next session.
 
-## State
+## State on 2026-10-18, evening
 
-- Every phase 1 task, the backend and UI clean-ups and the closing round are merged and pushed. All Go tests and the web tests pass; the feature-docs audit has 0 errors.
-- The owner confirmed the proposed decisions listed in `docs/design.md` under "Owner review of proposed decisions, 2026-10-17".
+- Items 1 to 3 below are done and merged on `develop`. `develop` is **not pushed**; the owner pushes when ready. Go tests, web tests and the feature-docs audit pass on `develop`.
+- **Placement page, open branch `feat/placement-page`** in the worktree `../nats-lens-placement` (head `3cb8213`). Built, then three review rounds; rounds 1 and 2 were fixed and reviewed, and the fixes of round 2 (`1579dc9`, `4459060`, `3cb8213`) still need a fresh review. The review of them was stopped when the session paused. Next: a fresh reviewer for `b9c0e4a..3cb8213`, fixes if any, then merge with the tests run before the merge commit. The branch also edits items 4 and 5 below.
+- Phase 1 decisions: the owner confirmed those listed in `docs/design.md` under "Owner review of proposed decisions, 2026-10-17".
+- The design canvas the phase 2 pages come from is the claude.ai artifact <https://claude.ai/artifact/Lz4Tsej5k1XHDdfV1kbLJD> (one board per page, such as `Placement.dc.html`).
 
 ## Next work, most valuable first
 
@@ -18,3 +20,18 @@ Phase 1 is complete on `develop` (see `phase-1.md`). This note is the starting p
 ## How the work was run
 
 Each task: a fresh implementer in its own worktree, then a fresh reviewer, then fix rounds with their own reviewer, then a merge with the tests run before the merge commit. Decisions an agent makes are written as "proposed, not yet confirmed" until the owner confirms them.
+
+## Proposed decisions waiting for the owner (2026-10-18)
+
+Made in the session that built them, not confirmed. Each is also written in `docs/design.md` or the feature doc as "proposed, not yet confirmed".
+
+- `client-005`: fires at 20 short-lived connections of one name in 10 minutes, warning severity; once firing it holds down to `resolve_ratio` 0.8 of the threshold.
+- `GetTimeSeriesBatch`: at most 32 series per call, read four at a time; each series gets 30 s and the call 40 s, which fits under the web client's 45 s; the server's write timeout is 55 s. The Overview and Servers pages no longer share cached series.
+- Connections names its servers from `ListConnections`: every server seen in the range, also servers without connections. The Consumers stream filter is not polled.
+- `GetShellStatus`: the page system's part gets 10 s; a failure keeps the system list and returns `error_code` and `error`; badges are kept one collect interval and refreshed in the background; a first badge waits at most 500 ms and is otherwise `pending`. The Fleet badge can trail the Fleet cards by up to two intervals.
+- The demo: `stock-poller` fires `client-005`; the demo choices listed in the Demo section of `docs/design.md`.
+- Placement (on the open branch): the odd copy is the value most servers report, the leader's on a tie; only durable consumers; "servers disagree" also counts a differing creation time; open questions in the review: KV and object stores sort before plain streams, and `example-global`'s "All" view shows 24 columns.
+
+## Real data seen on 2026-10-18
+
+The owner runs a collector against two real clusters outside the repository. On one of them a Kubernetes controller opened and closed a connection about 12 times a minute all day, all of it folded into routine `client.churn` events; that is what `client-005` now flags. Short-lived CronJob connections that last minutes are not folded, as intended.
