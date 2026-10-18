@@ -1,6 +1,6 @@
 import { Code, ConnectError } from "@connectrpc/connect";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Freshness as FreshnessModel } from "../api/model";
 import { Freshness } from "./RangePicker";
 
@@ -37,6 +37,15 @@ describe("Freshness", () => {
 
 describe("Freshness when the collector stopped", () => {
   const since = Date.parse("2026-10-17T11:30:00Z");
+  // The label drops the date only on the day it stopped, so the clock is
+  // pinned to that day.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(since + 3 * 3_600_000);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
   const stopped = (f: Partial<FreshnessModel>): FreshnessModel => ({ ...fresh(3 * 3_600_000), collecting: false, notCollectingSince: since, ...f });
 
   it("says not collecting since the time it stopped, in place of stale", () => {
