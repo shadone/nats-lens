@@ -35,6 +35,10 @@ func (p *Provider) GetPlacement(ctx context.Context, req *v1.GetPlacementRequest
 	if err != nil {
 		return nil, err
 	}
+	sreps, err := p.streamReplicas(ctx, e.epoch, "", "", "")
+	if err != nil {
+		return nil, err
+	}
 	sx, err := p.placementExtras(ctx, streamTables, e.epoch)
 	if err != nil {
 		return nil, err
@@ -45,10 +49,10 @@ func (p *Provider) GetPlacement(ctx context.Context, req *v1.GetPlacementRequest
 		a := &v1.PlacementAsset{Entity: s.GetEntity(), Replicas: s.Replicas, ServersDisagree: s.GetServersDisagree(), Messages: s.Messages}
 		views := map[string]*v1.PlacementCell{}
 		for _, v := range sviews[key] {
-			views[v.GetServer()] = &v1.PlacementCell{Created: createdOrNil(v.GetCreated()), ConfigHash: v.GetConfigHash(), Lag: v.Lag,
+			views[v.GetServer()] = &v1.PlacementCell{Created: createdOrNil(v.GetCreated()), ConfigHash: v.GetConfigHash(),
 				Messages: v.Messages, FirstSeq: v.FirstSeq, LastSeq: v.LastSeq}
 		}
-		fillAsset(a, s.GetPlacement(), views, sx, key)
+		fillAsset(a, s.GetPlacement(), views, sreps[key], sx, key)
 		byStream[key] = a
 		res.Streams = append(res.Streams, a)
 	}
@@ -77,10 +81,10 @@ func (p *Provider) GetPlacement(ctx context.Context, req *v1.GetPlacementRequest
 		a := &v1.PlacementAsset{Entity: c.GetEntity(), Replicas: c.Replicas, ServersDisagree: c.GetServersDisagree(), Durable: true}
 		views := map[string]*v1.PlacementCell{}
 		for _, v := range cviews[key] {
-			views[v.GetServer()] = &v1.PlacementCell{Created: createdOrNil(v.GetCreated()), ConfigHash: v.GetConfigHash(), Lag: v.Lag,
+			views[v.GetServer()] = &v1.PlacementCell{Created: createdOrNil(v.GetCreated()), ConfigHash: v.GetConfigHash(),
 				DeliveredStreamSeq: v.DeliveredStreamSeq, AckFloorStreamSeq: v.AckFloorStreamSeq}
 		}
-		fillAsset(a, placementOf(creps[key], c.GetReplicas()), views, cx, key)
+		fillAsset(a, placementOf(creps[key], c.GetReplicas()), views, creps[key], cx, key)
 		parent.Consumers = append(parent.Consumers, a)
 	}
 	return res, nil
@@ -95,9 +99,11 @@ func createdOrNil(t *timestamppb.Timestamp) *timestamppb.Timestamp {
 }
 
 // fillAsset turns an asset's placement squares into cells, with each
-// server's report from views, the peers it names and the leader's
-// tenure.
-func fillAsset(a *v1.PlacementAsset, squares []*v1.ReplicaPlacement, views map[string]*v1.PlacementCell, x extras, key string) {
+// server's report from views, the lag the chosen leader reports in reps
+// (the list placementOf reads, never another claimant's), the peers it
+// names and the chosen leader's tenure.
+func fillAsset(a *v1.PlacementAsset, squares []*v1.ReplicaPlacement, views map[string]*v1.PlacementCell, reps map[string]*replicaReport,
+	x extras, key string) {
 	for _, sq := range squares {
 		if sq.GetServer() == "" {
 			a.Unplaced++
@@ -113,26 +119,32 @@ func fillAsset(a *v1.PlacementAsset, squares []*v1.ReplicaPlacement, views map[s
 		}
 		a.Cells = append(a.Cells, c)
 	}
-	if a.GetLeader() != "" {
-		if t, ok := x.leaderSince[key]; ok {
-			a.LeaderSince = ts(t)
+	for _, c := range a.GetCells() {
+		c.Lag = nil
+		if r := reps[c.GetServer()]; r != nil && a.GetLeader() != "" && c.GetServer() != a.GetLeader() {
+			if v, ok := r.byLeader[a.GetLeader()]; ok && v.lag.Valid {
+				c.Lag = &v.lag.Int64
+			}
 		}
+	}
+	if t, ok := x.leaderSince[key][a.GetLeader()]; ok && a.GetLeader() != "" {
+		a.LeaderSince = ts(t)
 	}
 	api.SetDiffers(a.GetCells(), a.GetLeader())
 }
 
-// extras are what the matrix reads beside the views, keyed by asset key:
-// the peers each server names, by server name, and when the leader took
-// the lead.
+// extras are what the matrix reads beside the views, keyed by asset key
+// and server name: the peers each server names, and when each server
+// that claims the lead took it.
 type extras struct {
 	peers       map[string]map[string][]string
-	leaderSince map[string]time.Time
+	leaderSince map[string]map[string]time.Time
 }
 
 // placementExtras reads the extras of every asset of one kind in the
 // epoch.
 func (p *Provider) placementExtras(ctx context.Context, t assetTables, epoch int64) (extras, error) {
-	x := extras{peers: map[string]map[string][]string{}, leaderSince: map[string]time.Time{}}
+	x := extras{peers: map[string]map[string][]string{}, leaderSince: map[string]map[string]time.Time{}}
 	rows, err := p.db().QueryContext(ctx, fmt.Sprintf(`
 SELECT %s, s.server_name, list(DISTINCT rp.peer_name ORDER BY rp.peer_name)
 FROM %s rp JOIN servers s USING (server_id)
@@ -157,20 +169,25 @@ WHERE rp.epoch = ? GROUP BY ALL`, t.cols("rp"), t.replicas), epoch)
 		return x, err
 	}
 	since, err := p.db().QueryContext(ctx, fmt.Sprintf(`
-SELECT %s, max(x.leader_since) FROM %s x WHERE x.epoch = ? AND x.is_leader AND x.leader_since IS NOT NULL GROUP BY ALL`,
+SELECT %s, s.server_name, max(x.leader_since) FROM %s x JOIN servers s USING (server_id)
+WHERE x.epoch = ? AND x.is_leader AND x.leader_since IS NOT NULL GROUP BY ALL`,
 		t.cols("x"), t.stats), epoch)
 	if err != nil {
 		return x, fmt.Errorf("%s leader since: %w", t.stats, err)
 	}
 	defer since.Close()
 	for since.Next() {
+		var server string
 		var at sql.NullTime
-		key, err := scanKey(since, len(t.keys), &at)
+		key, err := scanKey(since, len(t.keys), &server, &at)
 		if err != nil {
 			return x, err
 		}
 		if at.Valid {
-			x.leaderSince[key] = at.Time.UTC()
+			if x.leaderSince[key] == nil {
+				x.leaderSince[key] = map[string]time.Time{}
+			}
+			x.leaderSince[key][server] = at.Time.UTC()
 		}
 	}
 	return x, since.Err()
