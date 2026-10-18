@@ -51,10 +51,12 @@ server_lists AS (
     FROM servers WHERE coalesce(server, '') <> ''
     GROUP BY name
 ),
+-- Summaries of one flush share received_at; of those, the highest id was
+-- written last.
 named AS (
     SELECT name, sum(n)::BIGINT AS connects,
         list(DISTINCT host ORDER BY host) FILTER (WHERE host IS NOT NULL) AS hosts,
-        arg_max(id, received_at) AS last_id
+        arg_max(id, (received_at, id)) AS last_id
     FROM churn
     GROUP BY name
 )
