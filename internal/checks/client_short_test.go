@@ -117,3 +117,25 @@ func TestShortLivedConnectionsCauseTie(t *testing.T) {
 		t.Errorf("cause %d, want 6, the summary written last", got)
 	}
 }
+
+// A firing finding keeps firing while the count stays at or above
+// resolve_ratio (0.8) of the threshold, 16 of 20, and resolves below it; a
+// name that was not firing needs the full threshold.
+func TestShortLivedConnectionsHysteresis(t *testing.T) {
+	f := newFx(t)
+	f.cluster(40)
+	firingAt := func(name string, epoch int64) {
+		f.row("findings", m{"id": "client-005:" + name, "check_code": "client-005", "entity_type": "client", "entity_key": name,
+			"severity": "warning", "state": "firing", "last_transition": "firing", "since": at(20), "since_epoch": 20,
+			"transitioned_at": at(20), "last_seen_epoch": epoch, "updated_epoch": epoch, "detail": "x"})
+	}
+	firingAt("stock-poller", 39)
+	firingAt("catalog-api", 39)
+	firingAt("report-builder", 38)
+	f.churnEvent(1, at(30), "stock-poller", "10.0.0.6", 16, map[string]int{"nats-0": 16})
+	f.churnEvent(2, at(30), "catalog-api", "10.0.0.7", 15, map[string]int{"nats-0": 15})
+	f.churnEvent(3, at(30), "order-sync", "10.0.0.5", 19, map[string]int{"nats-0": 19})
+	f.churnEvent(4, at(30), "report-builder", "10.0.0.8", 19, map[string]int{"nats-0": 19})
+	r := f.fires("client-005", 40, "stock-poller")
+	want(t, r["stock-poller"], "warning", "16 connections")
+}

@@ -11,6 +11,13 @@ thresholds:
     default: "20"
     unit: count
     description: Short-lived connections of one connection name within the lookback at which the finding fires.
+  - name: resolve_ratio
+    default: "0.8"
+    unit: ratio
+    description: >-
+      A firing finding keeps firing while the short-lived connections stay at or above this share of
+      min_short_connections, and resolves once they fall below it, so a client near the threshold does not flap as
+      one-minute summaries enter and leave the lookback.
 description: >-
   Connections with this name were opened and closed by the client itself, each within seconds, min_short_connections
   times or more within the lookback. These are the connects that event capture folds into client.churn events (a
@@ -18,14 +25,15 @@ description: >-
   the check needs events.churn.collapse, which is on by default. Grouped by the name the client gives itself, from
   any host, so instances sharing a name are merged; a client without a name is grouped as (unnamed). Every connection
   costs a TCP and TLS handshake, authentication, and a connect and a disconnect advisory on the server, and a client
-  that holds no connection misses the messages published while it is away.
+  that holds no connection misses the messages published while it is away. A firing finding stays until the count
+  falls below resolve_ratio of min_short_connections.
 remediation: >-
   A client that opens a connection per request, per reconcile loop or per job step should open one connection when it
   starts and keep it: a NATS connection is meant to live as long as the process and reconnects by itself. Find the
   code path from the hosts in the detail and the client's own logs. A process that crashes, or exits after each unit
   of work, and is restarted looks the same when it closes its connection cleanly: check its pod restarts
   (`kubectl get pods`). A batch job that connects once per run for minutes at a time is not folded and does not count.
-related_config: [min_short_connections, lookback]
+related_config: [min_short_connections, resolve_ratio, lookback]
 value_name: short-lived connections
 value_basis: >-
   the connects folded into client.churn events of the connection name within the lookback, each closed by the client
@@ -51,6 +59,12 @@ server_lists AS (
     FROM servers WHERE coalesce(server, '') <> ''
     GROUP BY name
 ),
+-- Names whose finding fired at the previous epoch keep firing down to
+-- resolve_ratio of the threshold.
+firing AS (
+    SELECT entity_key FROM findings
+    WHERE check_code = 'client-005' AND state = 'firing' AND last_seen_epoch = getvariable('prev_epoch')
+),
 -- Summaries of one flush share received_at; of those, the highest id was
 -- written last.
 named AS (
@@ -74,3 +88,4 @@ SELECT
     n.last_id AS cause_event_id
 FROM named n LEFT JOIN server_lists s ON s.name = n.name
 WHERE n.connects >= getvariable('min_short_connections')
+   OR (n.connects >= getvariable('resolve_ratio') * getvariable('min_short_connections') AND n.name IN (SELECT entity_key FROM firing))
