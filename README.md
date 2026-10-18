@@ -431,7 +431,7 @@ To try a change to a check on a copy of a database: `natslens checks run -data-d
 | client-002 | High pending bytes | warning | `connections.pending_bytes` above 4 MiB, by connection name |
 | client-003 | Slow consumer disconnects | warning | `client.disconnect` events with a slow consumer reason, 30m |
 | client-004 | Client reconnecting repeatedly | warning | 3 or more reconnects of one name in 10m: the smaller of the `client.disconnect` events not asked for by the client nor caused by a server stopping, and the `client.connect` events, of that name; instances sharing a name are merged |
-| client-005 | Short-lived connections | warning | 20 or more connects of one name in 10m folded into `client.churn` events (closed by the client within `events.churn.pair_within`); instances sharing a name are merged |
+| client-005 | Short-lived connections | warning | 20 or more connects of one name in 10m folded into `client.churn` events (closed by the client within `events.churn.pair_within`); instances sharing a name are merged; a firing finding resolves below 0.8 of the threshold |
 
 To add a check, write its file, then a test in `internal/checks` that builds the rows it reads with the fixture helpers and shows one entity that fails and one that does not.
 
