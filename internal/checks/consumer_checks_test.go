@@ -1189,3 +1189,19 @@ func TestLoopbackDecisionStoredPerEpoch(t *testing.T) {
 		t.Errorf("an epoch without a decision reads as on: %v, %v", got, err)
 	}
 }
+
+// Drops written in one batch share received_at: the cause is the one
+// written last, the highest id.
+func TestClientReconnectingCauseTie(t *testing.T) {
+	f := newFx(t)
+	f.cluster(40)
+	for i := range 4 {
+		f.event(int64(i+1), at(30), "client.disconnect", m{"source": "sys", "client_name": "media-worker",
+			"server_name": "nats-0", "reason": "Stale Connection"})
+		f.event(int64(i+11), at(31), "client.connect", m{"source": "sys", "client_name": "media-worker", "server_name": "nats-0"})
+	}
+	r := f.fires("client-004", 40, "media-worker")
+	if got := r["media-worker"].CauseEventID; got != 4 {
+		t.Errorf("cause %d, want 4, the drop written last", got)
+	}
+}
