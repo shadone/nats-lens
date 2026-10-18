@@ -206,6 +206,21 @@ func (p *Provider) GetOverview(_ context.Context, req *v1.GetOverviewRequest) (*
 	return res, nil
 }
 
+// ShellStatus returns the overview's freshness, servers and tally over
+// the range, read from the range's epoch as GetOverview reads them.
+func (p *Provider) ShellStatus(_ context.Context, req *v1.GetShellStatusRequest) (*v1.GetShellStatusResponse, error) {
+	s := p.scen()
+	all := p.findings(s)
+	return &v1.GetShellStatusResponse{
+		Freshness: s.freshness(req.GetRange()),
+		Servers:   s.servers(req.GetRange(), all),
+		Tally:     tally(all, req.GetRange()),
+	}, nil
+}
+
+// CollectInterval is the scenario's time between epochs.
+func (p *Provider) CollectInterval() time.Duration { return sampleEvery }
+
 // worstUnmuted is the first unmuted finding of a worst-first list.
 func worstUnmuted(cur []*v1.Finding) *v1.Finding {
 	for _, f := range cur {

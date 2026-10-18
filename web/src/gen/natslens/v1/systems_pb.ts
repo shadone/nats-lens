@@ -12,13 +12,15 @@ import type { Finding, FindingTally } from "./findings_pb";
 import { file_natslens_v1_findings } from "./findings_pb";
 import type { Freshness } from "./overview_pb";
 import { file_natslens_v1_overview } from "./overview_pb";
+import type { ServerSummary } from "./servers_pb";
+import { file_natslens_v1_servers } from "./servers_pb";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file natslens/v1/systems.proto.
  */
 export const file_natslens_v1_systems: GenFile = /*@__PURE__*/
-  fileDesc("ChluYXRzbGVucy92MS9zeXN0ZW1zLnByb3RvEgtuYXRzbGVucy52MSI6CglTeXN0ZW1SZWYSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRITCgtlbnZpcm9ubWVudBgDIAEoCSJSChJMaXN0U3lzdGVtc1JlcXVlc3QSJQoFcmFuZ2UYASABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2USFQoNc3RyaXBfYnVja2V0cxgCIAEoBSLDBQoNU3lzdGVtU3VtbWFyeRImCgZzeXN0ZW0YASABKAsyFi5uYXRzbGVucy52MS5TeXN0ZW1SZWYSMAoKY29sbGVjdGlvbhgCIAEoDjIcLm5hdHNsZW5zLnYxLkNvbGxlY3Rpb25TdGF0ZRIYChBjb2xsZWN0aW9uX2Vycm9yGAMgASgJEjoKFmNvbGxlY3Rpb25fZXJyb3Jfc2luY2UYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEikKCWZyZXNobmVzcxgFIAEoCzIWLm5hdHNsZW5zLnYxLkZyZXNobmVzcxIjCgZzdGF0dXMYBiABKA4yEy5uYXRzbGVucy52MS5TdGF0dXMSKwoNd29yc3RfZmluZGluZxgHIAEoCzIULm5hdHNsZW5zLnYxLkZpbmRpbmcSKAoFdGFsbHkYCCABKAsyGS5uYXRzbGVucy52MS5GaW5kaW5nVGFsbHkSFAoHc2VydmVycxgJIAEoBUgAiAEBEh4KEXNlcnZlcnNfYW5zd2VyaW5nGAogASgFSAGIAQESFQoIY2x1c3RlcnMYCyABKAVIAogBARIUCgdzdHJlYW1zGAwgASgFSAOIAQESGAoLY29ubmVjdGlvbnMYDSABKANIBIgBARIiCgVzdHJpcBgOIAMoDjITLm5hdHNsZW5zLnYxLlN0YXR1cxIvCgtzdHJpcF9zdGFydBgPIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLwoMc3RyaXBfYnVja2V0GBAgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEg0KBWVycm9yGBEgASgJQgoKCF9zZXJ2ZXJzQhQKEl9zZXJ2ZXJzX2Fuc3dlcmluZ0ILCglfY2x1c3RlcnNCCgoIX3N0cmVhbXNCDgoMX2Nvbm5lY3Rpb25zIoEBChNMaXN0U3lzdGVtc1Jlc3BvbnNlEisKB3N5c3RlbXMYASADKAsyGi5uYXRzbGVucy52MS5TeXN0ZW1TdW1tYXJ5EiUKBXJhbmdlGAIgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEhYKDmRlZmF1bHRfc3lzdGVtGAMgASgJIrUBCgdBY2NvdW50Eg8KB2FjY291bnQYASABKAkSFAoMYWNjb3VudF9uYW1lGAIgASgJEhEKCWlzX3N5c3RlbRgDIAEoCBIYCgtjb25uZWN0aW9ucxgEIAEoBUgAiAEBEhQKB3N0cmVhbXMYBSABKAVIAYgBARIWCgljb25zdW1lcnMYBiABKAVIAogBAUIOCgxfY29ubmVjdGlvbnNCCgoIX3N0cmVhbXNCDAoKX2NvbnN1bWVycyJMChNMaXN0QWNjb3VudHNSZXF1ZXN0Eg4KBnN5c3RlbRgBIAEoCRIlCgVyYW5nZRgCIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZSI+ChRMaXN0QWNjb3VudHNSZXNwb25zZRImCghhY2NvdW50cxgBIAMoCzIULm5hdHNsZW5zLnYxLkFjY291bnQq2gEKD0NvbGxlY3Rpb25TdGF0ZRIgChxDT0xMRUNUSU9OX1NUQVRFX1VOU1BFQ0lGSUVEEAASHQoZQ09MTEVDVElPTl9TVEFURV9TVEFSVElORxABEh8KG0NPTExFQ1RJT05fU1RBVEVfQ09MTEVDVElORxACEiIKHkNPTExFQ1RJT05fU1RBVEVfTk9UX0NPTk5FQ1RFRBADEiYKIkNPTExFQ1RJT05fU1RBVEVfQ09OTkVDVElPTl9DTE9TRUQQBBIZChVDT0xMRUNUSU9OX1NUQVRFX0RFTU8QBUJCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_findings, file_natslens_v1_overview]);
+  fileDesc("ChluYXRzbGVucy92MS9zeXN0ZW1zLnByb3RvEgtuYXRzbGVucy52MSI6CglTeXN0ZW1SZWYSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRITCgtlbnZpcm9ubWVudBgDIAEoCSJSChJMaXN0U3lzdGVtc1JlcXVlc3QSJQoFcmFuZ2UYASABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2USFQoNc3RyaXBfYnVja2V0cxgCIAEoBSLDBQoNU3lzdGVtU3VtbWFyeRImCgZzeXN0ZW0YASABKAsyFi5uYXRzbGVucy52MS5TeXN0ZW1SZWYSMAoKY29sbGVjdGlvbhgCIAEoDjIcLm5hdHNsZW5zLnYxLkNvbGxlY3Rpb25TdGF0ZRIYChBjb2xsZWN0aW9uX2Vycm9yGAMgASgJEjoKFmNvbGxlY3Rpb25fZXJyb3Jfc2luY2UYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEikKCWZyZXNobmVzcxgFIAEoCzIWLm5hdHNsZW5zLnYxLkZyZXNobmVzcxIjCgZzdGF0dXMYBiABKA4yEy5uYXRzbGVucy52MS5TdGF0dXMSKwoNd29yc3RfZmluZGluZxgHIAEoCzIULm5hdHNsZW5zLnYxLkZpbmRpbmcSKAoFdGFsbHkYCCABKAsyGS5uYXRzbGVucy52MS5GaW5kaW5nVGFsbHkSFAoHc2VydmVycxgJIAEoBUgAiAEBEh4KEXNlcnZlcnNfYW5zd2VyaW5nGAogASgFSAGIAQESFQoIY2x1c3RlcnMYCyABKAVIAogBARIUCgdzdHJlYW1zGAwgASgFSAOIAQESGAoLY29ubmVjdGlvbnMYDSABKANIBIgBARIiCgVzdHJpcBgOIAMoDjITLm5hdHNsZW5zLnYxLlN0YXR1cxIvCgtzdHJpcF9zdGFydBgPIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLwoMc3RyaXBfYnVja2V0GBAgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEg0KBWVycm9yGBEgASgJQgoKCF9zZXJ2ZXJzQhQKEl9zZXJ2ZXJzX2Fuc3dlcmluZ0ILCglfY2x1c3RlcnNCCgoIX3N0cmVhbXNCDgoMX2Nvbm5lY3Rpb25zIoEBChNMaXN0U3lzdGVtc1Jlc3BvbnNlEisKB3N5c3RlbXMYASADKAsyGi5uYXRzbGVucy52MS5TeXN0ZW1TdW1tYXJ5EiUKBXJhbmdlGAIgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEhYKDmRlZmF1bHRfc3lzdGVtGAMgASgJIrUBCgdBY2NvdW50Eg8KB2FjY291bnQYASABKAkSFAoMYWNjb3VudF9uYW1lGAIgASgJEhEKCWlzX3N5c3RlbRgDIAEoCBIYCgtjb25uZWN0aW9ucxgEIAEoBUgAiAEBEhQKB3N0cmVhbXMYBSABKAVIAYgBARIWCgljb25zdW1lcnMYBiABKAVIAogBAUIOCgxfY29ubmVjdGlvbnNCCgoIX3N0cmVhbXNCDAoKX2NvbnN1bWVycyJMChNMaXN0QWNjb3VudHNSZXF1ZXN0Eg4KBnN5c3RlbRgBIAEoCRIlCgVyYW5nZRgCIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZSI+ChRMaXN0QWNjb3VudHNSZXNwb25zZRImCghhY2NvdW50cxgBIAMoCzIULm5hdHNsZW5zLnYxLkFjY291bnQiTgoVR2V0U2hlbGxTdGF0dXNSZXF1ZXN0Eg4KBnN5c3RlbRgBIAEoCRIlCgVyYW5nZRgCIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZSLBAQoMU3lzdGVtU3RhdHVzEiYKBnN5c3RlbRgBIAEoCzIWLm5hdHNsZW5zLnYxLlN5c3RlbVJlZhIjCgZzdGF0dXMYAiABKA4yEy5uYXRzbGVucy52MS5TdGF0dXMSMAoKY29sbGVjdGlvbhgDIAEoDjIcLm5hdHNsZW5zLnYxLkNvbGxlY3Rpb25TdGF0ZRISCgpjb2xsZWN0aW5nGAQgASgIEg0KBWVycm9yGAUgASgJEg8KB3BlbmRpbmcYBiABKAgilwIKFkdldFNoZWxsU3RhdHVzUmVzcG9uc2USKQoJZnJlc2huZXNzGAEgASgLMhYubmF0c2xlbnMudjEuRnJlc2huZXNzEisKB3NlcnZlcnMYAiADKAsyGi5uYXRzbGVucy52MS5TZXJ2ZXJTdW1tYXJ5EigKBXRhbGx5GAMgASgLMhkubmF0c2xlbnMudjEuRmluZGluZ1RhbGx5EioKB3N5c3RlbXMYBCADKAsyGS5uYXRzbGVucy52MS5TeXN0ZW1TdGF0dXMSFgoOZGVmYXVsdF9zeXN0ZW0YBSABKAkSFAoMc3lzdGVtX2tub3duGAYgASgIEhIKCmVycm9yX2NvZGUYByABKAkSDQoFZXJyb3IYCCABKAkq2gEKD0NvbGxlY3Rpb25TdGF0ZRIgChxDT0xMRUNUSU9OX1NUQVRFX1VOU1BFQ0lGSUVEEAASHQoZQ09MTEVDVElPTl9TVEFURV9TVEFSVElORxABEh8KG0NPTExFQ1RJT05fU1RBVEVfQ09MTEVDVElORxACEiIKHkNPTExFQ1RJT05fU1RBVEVfTk9UX0NPTk5FQ1RFRBADEiYKIkNPTExFQ1RJT05fU1RBVEVfQ09OTkVDVElPTl9DTE9TRUQQBBIZChVDT0xMRUNUSU9OX1NUQVRFX0RFTU8QBUJCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_findings, file_natslens_v1_overview, file_natslens_v1_servers]);
 
 /**
  * One NATS system nats-lens observes.
@@ -373,6 +375,173 @@ export type ListAccountsResponse = Message<"natslens.v1.ListAccountsResponse"> &
  */
 export const ListAccountsResponseSchema: GenMessage<ListAccountsResponse> = /*@__PURE__*/
   messageDesc(file_natslens_v1_systems, 6);
+
+/**
+ * Request for what the shell of every page shows.
+ *
+ * @generated from message natslens.v1.GetShellStatusRequest
+ */
+export type GetShellStatusRequest = Message<"natslens.v1.GetShellStatusRequest"> & {
+  /**
+   * System ID, as ListSystems returns it. Empty means the default system.
+   * An unknown one is not an error: the response says so in system_known.
+   *
+   * @generated from field: string system = 1;
+   */
+  system: string;
+
+  /**
+   * Range whose newest epoch gives the freshness and the servers. Unset
+   * means the last two collect intervals up to now.
+   *
+   * @generated from field: natslens.v1.TimeRange range = 2;
+   */
+  range?: TimeRange | undefined;
+};
+
+/**
+ * Describes the message natslens.v1.GetShellStatusRequest.
+ * Use `create(GetShellStatusRequestSchema)` to create a new message.
+ */
+export const GetShellStatusRequestSchema: GenMessage<GetShellStatusRequest> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_systems, 7);
+
+/**
+ * Badge status of one system.
+ *
+ * @generated from message natslens.v1.SystemStatus
+ */
+export type SystemStatus = Message<"natslens.v1.SystemStatus"> & {
+  /**
+   * The system.
+   *
+   * @generated from field: natslens.v1.SystemRef system = 1;
+   */
+  system?: SystemRef | undefined;
+
+  /**
+   * Worst status of the findings that fire now; no data when the last 24
+   * hours hold no epoch.
+   *
+   * @generated from field: natslens.v1.Status status = 2;
+   */
+  status: Status;
+
+  /**
+   * What the system's collector is doing now.
+   *
+   * @generated from field: natslens.v1.CollectionState collection = 3;
+   */
+  collection: CollectionState;
+
+  /**
+   * Whether the system's collector collects: false while its connection
+   * fails or the stored data says it stopped.
+   *
+   * @generated from field: bool collecting = 4;
+   */
+  collecting: boolean;
+
+  /**
+   * Why the status could not be read, for example a timeout; the other
+   * fields except system are then unset. Empty when it was read.
+   *
+   * @generated from field: string error = 5;
+   */
+  error: string;
+
+  /**
+   * Whether the status is still being read: the system's first summary
+   * took longer than the call waits for it. The other fields except system
+   * are then unset; a later call has it.
+   *
+   * @generated from field: bool pending = 6;
+   */
+  pending: boolean;
+};
+
+/**
+ * Describes the message natslens.v1.SystemStatus.
+ * Use `create(SystemStatusSchema)` to create a new message.
+ */
+export const SystemStatusSchema: GenMessage<SystemStatus> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_systems, 8);
+
+/**
+ * What the shell shows: the system's freshness, servers and finding
+ * tally, and every system's badge status.
+ *
+ * @generated from message natslens.v1.GetShellStatusResponse
+ */
+export type GetShellStatusResponse = Message<"natslens.v1.GetShellStatusResponse"> & {
+  /**
+   * How current the system's data is, over the request's range.
+   *
+   * @generated from field: natslens.v1.Freshness freshness = 1;
+   */
+  freshness?: Freshness | undefined;
+
+  /**
+   * Servers seen in the range, by name, as GetOverview lists them.
+   *
+   * @generated from field: repeated natslens.v1.ServerSummary servers = 2;
+   */
+  servers: ServerSummary[];
+
+  /**
+   * Counts of findings, as GetOverview counts them.
+   *
+   * @generated from field: natslens.v1.FindingTally tally = 3;
+   */
+  tally?: FindingTally | undefined;
+
+  /**
+   * Every system with its status over the last 24 hours, in
+   * configuration order.
+   *
+   * @generated from field: repeated natslens.v1.SystemStatus systems = 4;
+   */
+  systems: SystemStatus[];
+
+  /**
+   * ID of the default system: the one a request with an empty system
+   * reads.
+   *
+   * @generated from field: string default_system = 5;
+   */
+  defaultSystem: string;
+
+  /**
+   * Whether the request's system is configured. When false, freshness,
+   * servers and tally are unset.
+   *
+   * @generated from field: bool system_known = 6;
+   */
+  systemKnown: boolean;
+
+  /**
+   * Connect code of the failure of the system's part, for example
+   * deadline_exceeded; empty when it was read. Freshness, servers and
+   * tally are then unset, while the systems are still listed.
+   *
+   * @generated from field: string error_code = 7;
+   */
+  errorCode: string;
+
+  /**
+   * Why the system's part could not be read; empty when it was read.
+   *
+   * @generated from field: string error = 8;
+   */
+  error: string;
+};
+
+/**
+ * Describes the message natslens.v1.GetShellStatusResponse.
+ * Use `create(GetShellStatusResponseSchema)` to create a new message.
+ */
+export const GetShellStatusResponseSchema: GenMessage<GetShellStatusResponse> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_systems, 9);
 
 /**
  * What a system's collector is doing.

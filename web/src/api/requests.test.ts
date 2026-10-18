@@ -1,10 +1,11 @@
 import { create } from "@bufbuild/protobuf";
 import { durationFromMs, timestampFromMs } from "@bufbuild/protobuf/wkt";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { GetOverviewResponseSchema } from "../gen/natslens/v1/overview_pb";
+import { Status } from "../gen/natslens/v1/common_pb";
 import { ServerSummarySchema } from "../gen/natslens/v1/servers_pb";
+import { CollectionState, GetShellStatusResponseSchema } from "../gen/natslens/v1/systems_pb";
 import { lens } from "./client";
-import { getHeaderStatus, getLastData, getLensInfo, listServers, muteFinding, unmuteFinding } from "./requests";
+import { getLastData, getShellStatus, getLensInfo, listServers, muteFinding, unmuteFinding } from "./requests";
 
 vi.mock("./client", () => ({
   lens: {
@@ -12,7 +13,7 @@ vi.mock("./client", () => ({
     getLensInfo: vi.fn(async () => ({})),
     muteFinding: vi.fn(async () => ({})),
     unmuteFinding: vi.fn(async () => ({})),
-    getOverview: vi.fn(),
+    getShellStatus: vi.fn(),
   },
 }));
 
@@ -40,25 +41,31 @@ describe("system pass-through", () => {
   });
 });
 
-describe("getHeaderStatus", () => {
+describe("getShellStatus", () => {
   afterEach(() => vi.clearAllMocks());
   const interval = durationFromMs(30_000);
 
-  it("asks only the last two collect intervals while the collector collects", async () => {
-    vi.mocked(lens.getOverview).mockResolvedValue(
-      create(GetOverviewResponseSchema, { freshness: { epoch: 9n, epochAt: timestampFromMs(Date.now() - 5_000), live: true, interval, collecting: true } }),
+  it("sends no range, so the server reads the last two collect intervals, and adapts the systems", async () => {
+    vi.mocked(lens.getShellStatus).mockResolvedValue(
+      create(GetShellStatusResponseSchema, {
+        freshness: { epoch: 9n, epochAt: timestampFromMs(Date.now() - 5_000), live: true, interval, collecting: true },
+        systems: [
+          { system: { id: "example-prod", name: "Production" }, status: Status.WARNING, collection: CollectionState.COLLECTING, collecting: true },
+          { system: { id: "example-staging" }, error: "the summary took longer than 5s", pending: false },
+        ],
+        defaultSystem: "example-prod",
+        systemKnown: true,
+      }),
     );
-    const s = await getHeaderStatus("example-prod", 30_000);
-    expect(lens.getOverview).toHaveBeenCalledTimes(1);
-    expect(s.freshness?.epoch).toBe("9");
-  });
-
-  it("asks once even while the collector does not collect; the last data is a call of its own", async () => {
-    vi.mocked(lens.getOverview).mockResolvedValue(
-      create(GetOverviewResponseSchema, { freshness: { live: true, interval, collecting: false, notCollectingSince: timestampFromMs(Date.now() - 3_600_000) } }),
-    );
-    await getHeaderStatus("example-staging", 30_000);
-    expect(lens.getOverview).toHaveBeenCalledTimes(1);
+    const s = await getShellStatus("example-prod");
+    expect(lens.getShellStatus).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(lens.getShellStatus).mock.calls[0][0]).toEqual({ system: "example-prod", range: undefined });
+    expect(s.freshness).toMatchObject({ epoch: "9", intervalMs: 30_000 });
+    expect(s.systems).toEqual([
+      { id: "example-prod", name: "Production", environment: "", status: "warning", collection: "collecting", collecting: true, error: "", pending: false },
+      { id: "example-staging", name: "example-staging", environment: "", status: "nodata", collection: "unknown", collecting: false, error: "the summary took longer than 5s", pending: false },
+    ]);
+    expect(s).toMatchObject({ defaultSystem: "example-prod", systemKnown: true });
   });
 });
 
@@ -66,15 +73,15 @@ describe("getLastData", () => {
   afterEach(() => vi.clearAllMocks());
   const interval = durationFromMs(30_000);
   const reply = (since: number) =>
-    create(GetOverviewResponseSchema, {
+    create(GetShellStatusResponseSchema, {
       freshness: { epoch: 7n, epochAt: timestampFromMs(since - 20_000), live: true, interval, collecting: false, notCollectingSince: timestampFromMs(since) },
       servers: [create(ServerSummarySchema, { name: "n1", present: true }), create(ServerSummarySchema, { name: "n2", present: true })],
     });
-  const startOf = () => Number(vi.mocked(lens.getOverview).mock.calls[0][0].range!.start!.seconds) * 1000;
+  const startOf = () => Number(vi.mocked(lens.getShellStatus).mock.calls[0][0].range!.start!.seconds) * 1000;
 
   it("reads the newest collection before the stop, with its servers, from three intervals before it", async () => {
     const since = Date.now() - 3 * 3_600_000;
-    vi.mocked(lens.getOverview).mockResolvedValue(reply(since));
+    vi.mocked(lens.getShellStatus).mockResolvedValue(reply(since));
     const s = await getLastData("example-staging", since, 30_000);
     expect(startOf()).toBe(Math.floor((since - 90_000) / 1000) * 1000);
     expect(s.servers.map((x) => x.name)).toEqual(["n1", "n2"]);
@@ -83,7 +90,7 @@ describe("getLastData", () => {
 
   it("looks back at most two days, whenever the collector stopped", async () => {
     const since = Date.now() - 20 * 86_400_000;
-    vi.mocked(lens.getOverview).mockResolvedValue(reply(since));
+    vi.mocked(lens.getShellStatus).mockResolvedValue(reply(since));
     const before = Date.now();
     await getLastData("example-staging", since, 30_000);
     expect(startOf()).toBeGreaterThanOrEqual(Math.floor((before - 2 * 86_400_000) / 1000) * 1000);
