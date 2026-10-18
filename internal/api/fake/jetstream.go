@@ -67,7 +67,7 @@ func (s scen) streamSummary(sp streamSpec, cur []*v1.Finding, r *v1.TimeRange) *
 		Entity: e, Replicas: ptr(int32(len(s.sc.peers(sp)))), Messages: ptr(sp.msgs), Bytes: ptr(int64(sp.bytes)), Consumers: ptr(int32(len(sp.consumers) + sp.ephemeral)),
 		BytesPerDay: s.growth(e, r), Status: st, FindingCodes: codes, Leader: s.leader(sp), Placement: s.placement(sp),
 		ServersDisagree: sp.disagrees != "",
-		Bytes_7D: s.series("stream.bytes", e, &v1.TimeRange{Start: ts(r.GetEnd().AsTime().Add(-7 * 24 * time.Hour)), End: r.GetEnd()}, 28),
+		Bytes_7D:        s.series("stream.bytes", e, &v1.TimeRange{Start: ts(r.GetEnd().AsTime().Add(-7 * 24 * time.Hour)), End: r.GetEnd()}, 28),
 	}
 	if len(sp.expected) > 0 {
 		out.ConsumersExpected = ptr(int32(len(sp.consumers) + len(sp.expected)))
