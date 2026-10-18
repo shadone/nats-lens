@@ -23,17 +23,15 @@ type scenario struct {
 	buckets []bucketSpec
 	// metaLeader is the JetStream meta leader.
 	metaLeader string
-	// epoch is the number of the newest epoch; stale is how long before
-	// now the data ends (zero while collecting).
-	epoch int64
+	// stale is how long before now the data ends (zero while
+	// collecting).
 	stale time.Duration
 	// history is how long before now the stored history begins; zero
 	// means defaultHistory, older than any range.
 	history time.Duration
-	// partial is whether the newest epoch missed a server; partialSince
-	// is when the epochs began to miss it, in the fixed frame (zero: all).
-	partial      bool
-	partialSince time.Time
+	// down reports whether a server was down at fixed-frame time c, so
+	// that an epoch then missed it; nil means never.
+	down func(sc *scenario, c time.Time) bool
 	// collection, collectionError and errorSince describe the collector;
 	// errorSince is a time in the fixed frame.
 	collection      v1.CollectionState

@@ -24,7 +24,8 @@ func globalTraffic(key string, c time.Time, base, spread, dip, now float64) floa
 // globalDownAt reports whether a server did not answer at c: from its stop
 // on for nats-us-4, two minutes before each restart for the others.
 func globalDownAt(sp serverSpec, c time.Time) bool {
-	if !sp.answering() && !c.Before(sp.down) {
+	// It last answered at sp.down.
+	if !sp.answering() && c.After(sp.down) {
 		return true
 	}
 	if sp.day != 0 {

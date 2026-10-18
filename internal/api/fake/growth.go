@@ -19,7 +19,8 @@ func (s scen) growth(e *v1.EntityRef, r *v1.TimeRange) *float64 {
 	width := max(r.GetEnd().AsTime().Sub(r.GetStart().AsTime())/api.GrowthBuckets, sampleEvery)
 	var pts []api.Sample
 	for b := api.BucketStart(start, width); b.Before(end); b = b.Add(width) {
-		// The epochs of the bucket lie on the sampleEvery grid.
+		// Samples lie on the Unix-aligned sampleEvery grid of the series;
+		// the epochs of freshness lie 4 seconds before it (see lastEpoch).
 		first := api.BucketStart(latest(b, start).Add(sampleEvery-time.Nanosecond), sampleEvery)
 		last := api.BucketStart(earliest(b.Add(width), end).Add(-time.Nanosecond), sampleEvery)
 		if last.Before(first) {

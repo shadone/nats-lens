@@ -183,5 +183,8 @@ func (p *Provider) ListConnections(_ context.Context, req *v1.ListConnectionsReq
 	if err != nil {
 		return nil, err
 	}
-	return &v1.ListConnectionsResponse{Connections: page, NextPageToken: next, TotalCount: int32(len(out)), Epoch: p.sc.epoch}, nil
+	// The epoch the range's freshness names; the connections themselves
+	// are the newest epoch's.
+	_, epoch, _ := p.scen().epochBefore(req.GetRange())
+	return &v1.ListConnectionsResponse{Connections: page, NextPageToken: next, TotalCount: int32(len(out)), Epoch: epoch}, nil
 }

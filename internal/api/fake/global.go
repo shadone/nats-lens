@@ -2,6 +2,7 @@ package fake
 
 import (
 	"fmt"
+	"slices"
 	"time"
 
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
@@ -155,10 +156,10 @@ func globalScenario() *scenario {
 			"api-gateway", "order-service", "checkout-service", "inventory-service", "shipping-service",
 			"search-api", "notification-worker", "label-printer",
 		},
-		metaLeader:    "nats-eu-1",
-		epoch:         18406,
-		partial:       true,
-		partialSince:  globalDown,
+		metaLeader: "nats-eu-1",
+		down: func(sc *scenario, c time.Time) bool {
+			return slices.ContainsFunc(sc.servers, func(sp serverSpec) bool { return globalDownAt(sp, c) })
+		},
 		collection:    v1.CollectionState_COLLECTION_STATE_DEMO,
 		routineClient: "search-api",
 		findings:      globalFindings,
