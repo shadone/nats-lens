@@ -91,8 +91,8 @@ func TestDemoAssetCounts(t *testing.T) {
 		{fake.GlobalSystem, "cluster.kv_buckets", 2},
 		{fake.GlobalSystem, "cluster.object_stores", 1},
 		{fake.GlobalSystem, "cluster.accounts", 1},
-		// 16 streams and 20 durable consumers, all on three replicas.
-		{fake.GlobalSystem, "cluster.assets_replicated", 36},
+		// 16 streams and 21 durable consumers, all on three replicas.
+		{fake.GlobalSystem, "cluster.assets_replicated", 37},
 		{fake.GlobalSystem, "cluster.assets_single", 0},
 		{fake.Cluster, "cluster.streams", 8},
 		{fake.Cluster, "cluster.kv_buckets", 3},

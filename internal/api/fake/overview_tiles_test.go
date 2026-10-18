@@ -219,3 +219,28 @@ func TestTileSuffixesAgreeWithTheCount(t *testing.T) {
 		}
 	}
 }
+
+// example-global has a consumer for each delivery rate the store gives:
+// set, zero for the paused reorder-planner, and unset for invoice-renderer,
+// created in the newest epoch; the unset one sorts last by rate.
+func TestGlobalConsumerRates(t *testing.T) {
+	c := demo(t)
+	cs := must(c.ListConsumers(ctx, connect.NewRequest(&v1.ListConsumersRequest{System: "example-global", Sort: v1.ConsumerSort_CONSUMER_SORT_DELIVERED_RATE}))).GetConsumers()
+	by := map[string]*v1.ConsumerSummary{}
+	for _, x := range cs {
+		by[x.GetEntity().GetConsumer()] = x
+	}
+	if p := by["reorder-planner"]; !p.GetPaused() || p.DeliveredPerSecond == nil || p.GetDeliveredPerSecond() != 0 {
+		t.Errorf("reorder-planner paused %v at %v/s (set %v)", p.GetPaused(), p.GetDeliveredPerSecond(), p.DeliveredPerSecond != nil)
+	}
+	if n := by["invoice-renderer"]; !n.GetPresent() || n.DeliveredPerSecond != nil || n.GetLastDelivered() != nil || n.GetNumPending() != 0 {
+		t.Errorf("invoice-renderer = %v", n)
+	}
+	if last := cs[len(cs)-1]; last.GetEntity().GetConsumer() != "invoice-renderer" {
+		t.Errorf("last by rate = %s, want invoice-renderer", last.GetEntity().GetConsumer())
+	}
+	d := must(c.GetConsumer(ctx, connect.NewRequest(&v1.GetConsumerRequest{System: "example-global", Account: "APP", Stream: "order-events", Consumer: "invoice-renderer"})))
+	if got := d.GetServers()[0].GetCreated().AsTime(); !got.Equal(at(14, 29, 20)) {
+		t.Errorf("invoice-renderer created %v", got)
+	}
+}
