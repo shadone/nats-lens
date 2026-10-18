@@ -164,6 +164,9 @@ message SeriesQuery {
 }
 
 // Request for several series over one time range.
+//
+// The call may take 60 seconds; each query 30 seconds within them, as a
+// GetTimeSeries call does.
 message GetTimeSeriesBatchRequest {
   // Series to read; at least one and at most 32.
   repeated SeriesQuery queries = 1;
@@ -187,8 +190,8 @@ message SeriesResult {
   // The values; unset when error is set.
   Series series = 1;
 
-  // Why the query was not served: an unknown metric, an entity of the
-  // wrong type or one that does not exist. Empty when series is set.
+  // Why the query was not served, for a query GetTimeSeries would refuse
+  // as invalid_argument or not_found. Empty when series is set.
   string error = 2;
 }
 

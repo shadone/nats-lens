@@ -279,9 +279,9 @@ export const LensService: GenService<{
     output: typeof GetTimeSeriesResponseSchema;
   },
   /**
-   * Several series over one time range in one call. A query that names an
-   * unknown metric or entity gets an error in its result; the others are
-   * served.
+   * Several series over one time range in one call. A query GetTimeSeries
+   * would refuse as invalid_argument or not_found gets the error in its
+   * result and the others are served; any other failure fails the call.
    *
    * @generated from rpc natslens.v1.LensService.GetTimeSeriesBatch
    */
