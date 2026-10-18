@@ -24,8 +24,11 @@ type shellCounted struct {
 	renamed
 	shell, summaries *atomic.Int32
 	fail             bool
-	mu               *sync.Mutex
-	lastRange        **v1.TimeRange
+	// shellErr fails ShellStatus; shellHang blocks it until its context ends.
+	shellErr  error
+	shellHang bool
+	mu        *sync.Mutex
+	lastRange **v1.TimeRange
 }
 
 func newShellCounted(cluster string) shellCounted {
@@ -38,6 +41,13 @@ func (s shellCounted) ShellStatus(ctx context.Context, req *v1.GetShellStatusReq
 	s.mu.Lock()
 	*s.lastRange = proto.CloneOf(req.GetRange())
 	s.mu.Unlock()
+	if s.shellHang {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	if s.shellErr != nil {
+		return nil, s.shellErr
+	}
 	return s.renamed.ShellStatus(ctx, req)
 }
 
@@ -176,5 +186,39 @@ func TestShellStatusKeepsBadgesForAnInterval(t *testing.T) {
 	}
 	if s := second.GetSystems()[0]; s.GetCollecting() || s.GetCollection() != v1.CollectionState_COLLECTION_STATE_NOT_CONNECTED {
 		t.Errorf("the kept badge ignores the runtime's status: %v", s)
+	}
+}
+
+// A system whose part fails or runs past ShellTimeout still gets the
+// systems, their badges and the default; the failure is in the response's
+// error, not the call's.
+func TestShellStatusPartFailureKeepsTheSystems(t *testing.T) {
+	for _, tc := range []struct {
+		name, code string
+		set        func(*shellCounted)
+	}{
+		{"error", "internal", func(s *shellCounted) { s.shellErr = errors.New("database is gone") }},
+		{"timeout", "deadline_exceeded", func(s *shellCounted) { s.shellHang = true }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			systems, a, _ := shellSystems()
+			tc.set(&a)
+			systems[0].Provider = a
+			_, c := apitest.ServeHandler(t, &api.Handler{Systems: systems, ShellTimeout: 200 * time.Millisecond})
+			start := time.Now()
+			m := shellStatus(t, c, &v1.GetShellStatusRequest{System: "a"})
+			if took := time.Since(start); took > time.Second {
+				t.Errorf("the call took %v; the part's limit is 200ms", took)
+			}
+			if m.GetErrorCode() != tc.code || m.GetError() == "" || !m.GetSystemKnown() || m.GetDefaultSystem() != "a" || len(m.GetSystems()) != 2 {
+				t.Errorf("code %q error %q known %v default %q systems %d", m.GetErrorCode(), m.GetError(), m.GetSystemKnown(), m.GetDefaultSystem(), len(m.GetSystems()))
+			}
+			if m.GetFreshness() != nil || m.GetTally() != nil {
+				t.Errorf("a failed part has data: %v", m)
+			}
+			if tc.code == "internal" && m.GetError() == "database is gone" {
+				t.Error("the provider's own text reached the client")
+			}
+		})
 	}
 }

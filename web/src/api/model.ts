@@ -219,6 +219,8 @@ export interface ShellStatus {
   defaultSystem: string;
   /** Whether the system asked for is configured; false leaves freshness unset. */
   systemKnown: boolean;
+  /** The failure of the system's own part, with the systems still listed. */
+  error?: { code: string; message: string };
 }
 
 export interface Overview {

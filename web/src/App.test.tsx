@@ -63,7 +63,7 @@ const entity = (stream: string, consumer = "") => ({ kind: "stream" as const, ke
 const notCollecting = [CollectionState.NOT_CONNECTED, CollectionState.CONNECTION_CLOSED];
 
 /** The systems as ListSystems lists them for Fleet, and as the shell's status call gives them with their badges. */
-function setSystems(r: MessageInitShape<typeof ListSystemsResponseSchema>) {
+function setSystems(r: MessageInitShape<typeof ListSystemsResponseSchema>, partError?: { errorCode: string; error: string }) {
   l.listSystems.mockResolvedValue(create(ListSystemsResponseSchema, r) as never);
   l.getShellStatus.mockImplementation((async (req: { system?: string }) => {
     const known = !req.system || (r.systems ?? []).some((s) => s.system?.id === req.system);
@@ -78,6 +78,7 @@ function setSystems(r: MessageInitShape<typeof ListSystemsResponseSchema>) {
       })),
       defaultSystem: r.defaultSystem,
       systemKnown: known,
+      ...(known && partError ? { ...partError, freshness: undefined, tally: undefined } : {}),
     });
   }) as never);
 }
@@ -442,6 +443,23 @@ describe("landing and unknown systems", () => {
     expect(l.getShellStatus).toHaveBeenCalledWith(expect.objectContaining({ system: "nope" }), expect.anything());
     expect(l.listSystems).not.toHaveBeenCalled();
     expect(l.listAccounts).not.toHaveBeenCalledWith(expect.objectContaining({ system: "nope" }), expect.anything());
+  });
+});
+
+describe("a system whose own status fails", () => {
+  beforeEach(() => setSystems(THREE, { errorCode: "deadline_exceeded", error: "context deadline exceeded" }));
+
+  it("still lands on Fleet with several systems", async () => {
+    renderApp(<App />, "/?range=6h");
+    await waitFor(() => expect(location()).toBe("/fleet?range=6h"));
+  });
+
+  it("still lists the systems in the switcher, and the header says offline with the code", async () => {
+    renderApp(<App />, "/streams?system=example-prod");
+    await userEvent.click(await screen.findByRole("button", { name: "System: Production. Switch system" }));
+    expect(screen.getAllByRole("menuitemradio").map((e) => e.textContent)).toEqual([expect.stringMatching(/^Production/), expect.stringMatching(/^Global/), expect.stringMatching(/^Staging/)]);
+    const offline = await screen.findByText("offline");
+    expect(offline).toHaveAttribute("title", expect.stringContaining("deadline_exceeded"));
   });
 });
 

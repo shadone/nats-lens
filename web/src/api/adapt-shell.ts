@@ -27,5 +27,6 @@ export function shellStatus(r: GetShellStatusResponse): ShellStatus {
     systems: r.systems.map(systemBadge),
     defaultSystem: r.defaultSystem || r.systems[0]?.system?.id || "",
     systemKnown: r.systemKnown,
+    error: r.errorCode ? { code: r.errorCode, message: r.error } : undefined,
   };
 }

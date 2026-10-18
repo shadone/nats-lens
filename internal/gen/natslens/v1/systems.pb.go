@@ -833,7 +833,13 @@ type GetShellStatusResponse struct {
 	DefaultSystem string `protobuf:"bytes,5,opt,name=default_system,json=defaultSystem,proto3" json:"default_system,omitempty"`
 	// Whether the request's system is configured. When false, freshness,
 	// servers and tally are unset.
-	SystemKnown   bool `protobuf:"varint,6,opt,name=system_known,json=systemKnown,proto3" json:"system_known,omitempty"`
+	SystemKnown bool `protobuf:"varint,6,opt,name=system_known,json=systemKnown,proto3" json:"system_known,omitempty"`
+	// Connect code of the failure of the system's part, for example
+	// deadline_exceeded; empty when it was read. Freshness, servers and
+	// tally are then unset, while the systems are still listed.
+	ErrorCode string `protobuf:"bytes,7,opt,name=error_code,json=errorCode,proto3" json:"error_code,omitempty"`
+	// Why the system's part could not be read; empty when it was read.
+	Error         string `protobuf:"bytes,8,opt,name=error,proto3" json:"error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -910,6 +916,20 @@ func (x *GetShellStatusResponse) GetSystemKnown() bool {
 	return false
 }
 
+func (x *GetShellStatusResponse) GetErrorCode() string {
+	if x != nil {
+		return x.ErrorCode
+	}
+	return ""
+}
+
+func (x *GetShellStatusResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
 var File_natslens_v1_systems_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_systems_proto_rawDesc = "" +
@@ -984,14 +1004,17 @@ const file_natslens_v1_systems_proto_rawDesc = "" +
 	"\n" +
 	"collecting\x18\x04 \x01(\bR\n" +
 	"collecting\x12\x14\n" +
-	"\x05error\x18\x05 \x01(\tR\x05error\"\xb4\x02\n" +
+	"\x05error\x18\x05 \x01(\tR\x05error\"\xe9\x02\n" +
 	"\x16GetShellStatusResponse\x124\n" +
 	"\tfreshness\x18\x01 \x01(\v2\x16.natslens.v1.FreshnessR\tfreshness\x124\n" +
 	"\aservers\x18\x02 \x03(\v2\x1a.natslens.v1.ServerSummaryR\aservers\x12/\n" +
 	"\x05tally\x18\x03 \x01(\v2\x19.natslens.v1.FindingTallyR\x05tally\x123\n" +
 	"\asystems\x18\x04 \x03(\v2\x19.natslens.v1.SystemStatusR\asystems\x12%\n" +
 	"\x0edefault_system\x18\x05 \x01(\tR\rdefaultSystem\x12!\n" +
-	"\fsystem_known\x18\x06 \x01(\bR\vsystemKnown*\xda\x01\n" +
+	"\fsystem_known\x18\x06 \x01(\bR\vsystemKnown\x12\x1d\n" +
+	"\n" +
+	"error_code\x18\a \x01(\tR\terrorCode\x12\x14\n" +
+	"\x05error\x18\b \x01(\tR\x05error*\xda\x01\n" +
 	"\x0fCollectionState\x12 \n" +
 	"\x1cCOLLECTION_STATE_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19COLLECTION_STATE_STARTING\x10\x01\x12\x1f\n" +

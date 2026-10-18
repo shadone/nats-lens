@@ -22,15 +22,19 @@ const (
 	// badgeRange is the range every system's badge status covers: the
 	// default live range the Fleet page opens with.
 	badgeRange = 24 * time.Hour
-	// defaultBadgeTTL is how long a badge status is kept when its summary
-	// names no collect interval.
-	defaultBadgeTTL = 30 * time.Second
+	// defaultInterval is the collect interval of a provider or summary
+	// that names none.
+	defaultInterval = 30 * time.Second
+	// DefaultShellTimeout bounds the system's part of GetShellStatus.
+	DefaultShellTimeout = 10 * time.Second
 )
 
 // GetShellStatus returns the system's freshness, servers and finding tally
 // with every system's badge status. An unknown system is not an error: the
 // response lists the systems with system_known false, and the system's
-// part is not read. Unlike call, it does not look up account names, as the
+// part is not read. A failure of the system's part, or one that runs past
+// ShellTimeout, is reported in the response's error with the systems still
+// listed, so the shell keeps its system list and badges. Unlike call, it does not look up account names, as the
 // response names no account.
 func (h *Handler) GetShellStatus(ctx context.Context, req *connect.Request[v1.GetShellStatusRequest]) (*connect.Response[v1.GetShellStatusResponse], error) {
 	const procedure = "GetShellStatus"
@@ -45,7 +49,7 @@ func (h *Handler) GetShellStatus(ctx context.Context, req *connect.Request[v1.Ge
 	}
 	known := err == nil
 	if known {
-		def := shellIntervals * cmp.Or(sys.Provider.CollectInterval(), defaultBadgeTTL)
+		def := shellIntervals * cmp.Or(sys.Provider.CollectInterval(), defaultInterval)
 		r, err := ResolveRange(m.GetRange(), sys.Provider.Now(), def)
 		if err != nil {
 			return nil, h.codeOf(procedure, err)
@@ -56,13 +60,23 @@ func (h *Handler) GetShellStatus(ctx context.Context, req *connect.Request[v1.Ge
 	go func() { badges <- h.badges(ctx, d) }()
 	res := &v1.GetShellStatusResponse{}
 	if known {
-		qctx, cancel := context.WithTimeout(ctx, QueryTimeout)
+		qctx, cancel := context.WithTimeout(ctx, cmp.Or(h.ShellTimeout, DefaultShellTimeout))
 		defer cancel()
-		if res, err = sys.Provider.ShellStatus(qctx, m); err != nil {
-			return nil, h.codeOf(procedure, err)
-		}
-		if sys.Status != nil {
-			withCollecting(res.GetFreshness(), sys.Status())
+		part, err := sys.Provider.ShellStatus(qctx, m)
+		switch {
+		case ctx.Err() != nil:
+			// The caller went away or ran out of time; nothing failed here.
+			return nil, h.codeOf(procedure, ctx.Err())
+		case err != nil:
+			var ce *connect.Error
+			if errors.As(h.codeOf(procedure, err), &ce) {
+				res.ErrorCode, res.Error = ce.Code().String(), ce.Message()
+			}
+		default:
+			res = part
+			if sys.Status != nil {
+				withCollecting(res.GetFreshness(), sys.Status())
+			}
 		}
 	}
 	res.SystemKnown, res.DefaultSystem, res.Systems = known, d.Ref.GetId(), <-badges
@@ -144,7 +158,7 @@ func (c *badgeCache) get(id, key string) (*v1.SystemSummary, bool) {
 
 // put keeps a copy of the summary for its freshness's collect interval.
 func (c *badgeCache) put(id, key string, sum *v1.SystemSummary) {
-	ttl := cmp.Or(sum.GetFreshness().GetInterval().AsDuration(), defaultBadgeTTL)
+	ttl := cmp.Or(sum.GetFreshness().GetInterval().AsDuration(), defaultInterval)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.m == nil {

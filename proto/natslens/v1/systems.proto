@@ -225,4 +225,12 @@ message GetShellStatusResponse {
   // Whether the request's system is configured. When false, freshness,
   // servers and tally are unset.
   bool system_known = 6;
+
+  // Connect code of the failure of the system's part, for example
+  // deadline_exceeded; empty when it was read. Freshness, servers and
+  // tally are then unset, while the systems are still listed.
+  string error_code = 7;
+
+  // Why the system's part could not be read; empty when it was read.
+  string error = 8;
 }
