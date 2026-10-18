@@ -88,6 +88,9 @@ const (
 	// LensServiceGetTimeSeriesProcedure is the fully-qualified name of the LensService's GetTimeSeries
 	// RPC.
 	LensServiceGetTimeSeriesProcedure = "/natslens.v1.LensService/GetTimeSeries"
+	// LensServiceGetTimeSeriesBatchProcedure is the fully-qualified name of the LensService's
+	// GetTimeSeriesBatch RPC.
+	LensServiceGetTimeSeriesBatchProcedure = "/natslens.v1.LensService/GetTimeSeriesBatch"
 )
 
 // LensServiceClient is a client for the natslens.v1.LensService service.
@@ -139,6 +142,10 @@ type LensServiceClient interface {
 	ListMetrics(context.Context, *connect.Request[v1.ListMetricsRequest]) (*connect.Response[v1.ListMetricsResponse], error)
 	// One metric of one entity over a range, downsampled.
 	GetTimeSeries(context.Context, *connect.Request[v1.GetTimeSeriesRequest]) (*connect.Response[v1.GetTimeSeriesResponse], error)
+	// Several series over one time range in one call. A query that names an
+	// unknown metric or entity gets an error in its result; the others are
+	// served.
+	GetTimeSeriesBatch(context.Context, *connect.Request[v1.GetTimeSeriesBatchRequest]) (*connect.Response[v1.GetTimeSeriesBatchResponse], error)
 }
 
 // NewLensServiceClient constructs a client for the natslens.v1.LensService service. By default, it
@@ -311,6 +318,13 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		getTimeSeriesBatch: connect.NewClient[v1.GetTimeSeriesBatchRequest, v1.GetTimeSeriesBatchResponse](
+			httpClient,
+			baseURL+LensServiceGetTimeSeriesBatchProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetTimeSeriesBatch")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -339,6 +353,7 @@ type lensServiceClient struct {
 	listObjectStores   *connect.Client[v1.ListObjectStoresRequest, v1.ListObjectStoresResponse]
 	listMetrics        *connect.Client[v1.ListMetricsRequest, v1.ListMetricsResponse]
 	getTimeSeries      *connect.Client[v1.GetTimeSeriesRequest, v1.GetTimeSeriesResponse]
+	getTimeSeriesBatch *connect.Client[v1.GetTimeSeriesBatchRequest, v1.GetTimeSeriesBatchResponse]
 }
 
 // GetLensInfo calls natslens.v1.LensService.GetLensInfo.
@@ -456,6 +471,11 @@ func (c *lensServiceClient) GetTimeSeries(ctx context.Context, req *connect.Requ
 	return c.getTimeSeries.CallUnary(ctx, req)
 }
 
+// GetTimeSeriesBatch calls natslens.v1.LensService.GetTimeSeriesBatch.
+func (c *lensServiceClient) GetTimeSeriesBatch(ctx context.Context, req *connect.Request[v1.GetTimeSeriesBatchRequest]) (*connect.Response[v1.GetTimeSeriesBatchResponse], error) {
+	return c.getTimeSeriesBatch.CallUnary(ctx, req)
+}
+
 // LensServiceHandler is an implementation of the natslens.v1.LensService service.
 type LensServiceHandler interface {
 	// Identity mode, version, cluster, collect interval and retention of this
@@ -505,6 +525,10 @@ type LensServiceHandler interface {
 	ListMetrics(context.Context, *connect.Request[v1.ListMetricsRequest]) (*connect.Response[v1.ListMetricsResponse], error)
 	// One metric of one entity over a range, downsampled.
 	GetTimeSeries(context.Context, *connect.Request[v1.GetTimeSeriesRequest]) (*connect.Response[v1.GetTimeSeriesResponse], error)
+	// Several series over one time range in one call. A query that names an
+	// unknown metric or entity gets an error in its result; the others are
+	// served.
+	GetTimeSeriesBatch(context.Context, *connect.Request[v1.GetTimeSeriesBatchRequest]) (*connect.Response[v1.GetTimeSeriesBatchResponse], error)
 }
 
 // NewLensServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -673,6 +697,13 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	lensServiceGetTimeSeriesBatchHandler := connect.NewUnaryHandler(
+		LensServiceGetTimeSeriesBatchProcedure,
+		svc.GetTimeSeriesBatch,
+		connect.WithSchema(lensServiceMethods.ByName("GetTimeSeriesBatch")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/natslens.v1.LensService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case LensServiceGetLensInfoProcedure:
@@ -721,6 +752,8 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceListMetricsHandler.ServeHTTP(w, r)
 		case LensServiceGetTimeSeriesProcedure:
 			lensServiceGetTimeSeriesHandler.ServeHTTP(w, r)
+		case LensServiceGetTimeSeriesBatchProcedure:
+			lensServiceGetTimeSeriesBatchHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -820,4 +853,8 @@ func (UnimplementedLensServiceHandler) ListMetrics(context.Context, *connect.Req
 
 func (UnimplementedLensServiceHandler) GetTimeSeries(context.Context, *connect.Request[v1.GetTimeSeriesRequest]) (*connect.Response[v1.GetTimeSeriesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetTimeSeries is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetTimeSeriesBatch(context.Context, *connect.Request[v1.GetTimeSeriesBatchRequest]) (*connect.Response[v1.GetTimeSeriesBatchResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetTimeSeriesBatch is not implemented"))
 }
