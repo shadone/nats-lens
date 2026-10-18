@@ -6,11 +6,9 @@ import { renderApp } from "../test/render";
 import { useShellStatus } from "./queries";
 import * as requests from "./requests";
 
-vi.mock("./client", () => ({ lens: { listSystems: vi.fn(async () => ({ systems: [], defaultSystem: "" })) } }));
 vi.mock("./requests", async (orig) => ({
   ...(await orig<typeof import("./requests")>()),
-  getLensInfo: vi.fn(),
-  getHeaderStatus: vi.fn(),
+  getShellStatus: vi.fn(),
   getLastData: vi.fn(),
 }));
 const m = vi.mocked(requests);
@@ -30,12 +28,13 @@ function Probe() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  m.getLensInfo.mockResolvedValue({ identityMode: "request", version: "dev", cluster: "c", collectIntervalMs: 30_000, retentionMs: 0, live: true, demo: true });
-  m.getHeaderStatus.mockResolvedValue({
-    cluster: "c",
+  m.getShellStatus.mockResolvedValue({
     freshness: { epoch: "0", partial: false, live: true, intervalMs: 30_000, collecting: false, notCollectingSince: since },
     servers: [],
     tally,
+    systems: [],
+    defaultSystem: "c",
+    systemKnown: true,
   });
   m.getLastData.mockResolvedValue({
     freshness: { epoch: "7", epochAt: since - 20_000, partial: false, live: true, intervalMs: 30_000, collecting: false, notCollectingSince: since },
@@ -48,18 +47,34 @@ describe("useShellStatus while the collector does not collect", () => {
     renderApp(<Probe />, "/");
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("2 servers, newest 7"));
     for (let i = 0; i < 3; i++) await act(async () => void (await refetch()));
-    expect(m.getHeaderStatus.mock.calls.length).toBeGreaterThanOrEqual(4);
+    expect(m.getShellStatus.mock.calls.length).toBeGreaterThanOrEqual(4);
     expect(m.getLastData).toHaveBeenCalledTimes(1);
     expect(m.getLastData).toHaveBeenCalledWith("", since, 30_000, expect.anything());
     expect(screen.getByTestId("status")).toHaveTextContent("2 servers, newest 7");
   });
 
+  it("looks back by the collect interval the status names", async () => {
+    m.getShellStatus.mockResolvedValue({
+      freshness: { epoch: "0", partial: false, live: true, intervalMs: 60_000, collecting: false, notCollectingSince: since },
+      servers: [],
+      tally,
+      systems: [],
+      defaultSystem: "c",
+      systemKnown: true,
+    });
+    renderApp(<Probe />, "/");
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("2 servers, newest 7"));
+    expect(m.getLastData).toHaveBeenCalledWith("", since, 60_000, expect.anything());
+  });
+
   it("asks nothing more while the collector collects", async () => {
-    m.getHeaderStatus.mockResolvedValue({
-      cluster: "c",
+    m.getShellStatus.mockResolvedValue({
       freshness: { epoch: "9", epochAt: Date.now(), partial: false, live: true, intervalMs: 30_000, collecting: true },
       servers: [],
       tally,
+      systems: [],
+      defaultSystem: "c",
+      systemKnown: true,
     });
     renderApp(<Probe />, "/");
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("newest 9"));

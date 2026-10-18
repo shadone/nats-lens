@@ -1,40 +1,77 @@
-// The system list and the badge's live summaries share one ListSystems
-// query over the default live range.
+// The system list, the badges and the header's status share the shell's
+// one status call of the page's system.
 import { create } from "@bufbuild/protobuf";
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
+import { useNavigate } from "react-router";
 import { beforeEach, expect, it, vi } from "vitest";
 import { Status } from "../gen/natslens/v1/common_pb";
-import { ListSystemsResponseSchema } from "../gen/natslens/v1/systems_pb";
+import { CollectionState, GetShellStatusResponseSchema } from "../gen/natslens/v1/systems_pb";
 import { renderApp } from "../test/render";
 import { lens } from "./client";
-import { useLiveSystemSummaries, useSystems } from "./systems";
+import { useShellStatus } from "./queries";
+import { useCurrentSystem, useSystemBadges, useSystems } from "./systems";
 
-vi.mock("./client", () => ({ lens: { listSystems: vi.fn() } }));
+vi.mock("./client", () => ({ lens: { getShellStatus: vi.fn(), listSystems: vi.fn() } }));
 const l = vi.mocked(lens);
 
+let navigate: (to: string) => void = () => {};
 function Probe() {
+  navigate = useNavigate();
   const systems = useSystems().data;
-  const summaries = useLiveSystemSummaries().data;
+  const badges = useSystemBadges().data;
+  const known = useCurrentSystem().known;
+  const tally = useShellStatus().data?.tally;
   return (
     <div data-testid="probe">
-      {systems?.defaultSystem ?? "-"} {systems?.systems.map((s) => s.name).join(",") ?? "-"} {summaries?.map((s) => s.status).join(",") ?? "-"}
+      {systems?.defaultSystem ?? "-"} {systems?.systems.map((s) => s.name).join(",") ?? "-"} {badges?.map((s) => `${s.status}${s.collecting ? "" : " stopped"}`).join(",") ?? "-"}{" "}
+      known={String(known)} warnings={tally?.warning ?? "-"}
     </div>
   );
 }
 
+/** Set to hold the staging system's answer until release is called. */
+let holdStaging = false;
+let release: (() => void) | undefined;
+
 beforeEach(() => {
   vi.clearAllMocks();
-  l.listSystems.mockResolvedValue(
-    create(ListSystemsResponseSchema, {
-      systems: [{ system: { id: "shop-prod", name: "Production" }, status: Status.WARNING }, { system: { id: "shop-staging", name: "" }, status: Status.OK }],
+  holdStaging = false;
+  release = undefined;
+  l.getShellStatus.mockImplementation((async (req: { system?: string }) => {
+    if (holdStaging && req.system === "shop-staging") await new Promise<void>((r) => (release = r));
+    const known = !req.system || req.system === "shop-prod" || req.system === "shop-staging";
+    return create(GetShellStatusResponseSchema, {
+      tally: known ? { warning: 2 } : undefined,
+      systems: [
+        { system: { id: "shop-prod", name: "Production" }, status: Status.WARNING, collection: CollectionState.COLLECTING, collecting: true },
+        { system: { id: "shop-staging", name: "" }, status: Status.OK, collection: CollectionState.NOT_CONNECTED },
+      ],
       defaultSystem: "shop-prod",
-    }) as never,
-  );
+      systemKnown: known,
+    });
+  }) as never);
 });
 
-it("asks ListSystems once for the system list and the live summaries", async () => {
+it("asks the shell's status once for the system list, the badges and the header", async () => {
   renderApp(<Probe />);
-  await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("shop-prod Production,shop-staging warning,ok"));
-  expect(l.listSystems).toHaveBeenCalledTimes(1);
-  expect(l.listSystems).toHaveBeenCalledWith(expect.objectContaining({ stripBuckets: 48 }), expect.anything());
+  await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("shop-prod Production,shop-staging warning,ok stopped known=true warnings=2"));
+  expect(l.getShellStatus).toHaveBeenCalledTimes(1);
+  expect(l.listSystems).not.toHaveBeenCalled();
+});
+
+it("says a ?system= that names no configured system is unknown", async () => {
+  renderApp(<Probe />, "/?system=nope");
+  await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("known=false warnings=0"));
+  expect(l.getShellStatus).toHaveBeenCalledTimes(1);
+});
+
+it("keeps the system list and the badges while the next system's status loads, but not the header's", async () => {
+  holdStaging = true;
+  renderApp(<Probe />, "/?system=shop-prod");
+  await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("warnings=2"));
+  act(() => navigate("/?system=shop-staging"));
+  await waitFor(() => expect(release).toBeDefined());
+  expect(screen.getByTestId("probe")).toHaveTextContent("shop-prod Production,shop-staging warning,ok stopped known=true warnings=-");
+  await act(async () => release!());
+  await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("warnings=2"));
 });

@@ -27,6 +27,7 @@ vi.mock("./client", () => {
       listConnections: ok(),
       getTimeSeries: ok(),
       getLensInfo: ok(),
+      getShellStatus: ok(),
     },
   };
 });
@@ -55,7 +56,7 @@ function AllHooks() {
   q.useConnections(live, {});
   q.useSeries(live, "cluster.connections", undefined);
   q.useLensInfo();
-  q.useHeaderStatus(30_000);
+  q.useShellStatus();
   return null;
 }
 
@@ -76,6 +77,7 @@ const METHODS = [
   "listConnections",
   "getTimeSeries",
   "getLensInfo",
+  "getShellStatus",
 ] as const;
 
 function setup(route: string) {
@@ -102,7 +104,7 @@ describe("query keys and the system", () => {
     const qc = setup("/?system=sys-a");
     await waitFor(() => METHODS.forEach((m) => expect(lens[m]).toHaveBeenCalled()));
     const keys = qc.getQueryCache().getAll().map((x) => x.queryKey);
-    expect(keys.length).toBe(17);
+    expect(keys.length).toBe(18);
     for (const k of keys) expect(k, JSON.stringify(k)).toContain("sys-a");
     for (const m of METHODS) expect(lastSystem(m), m).toBe("sys-a");
   });
@@ -114,7 +116,7 @@ describe("query keys and the system", () => {
     act(() => navigate("/?system=sys-b"));
     await waitFor(() => METHODS.forEach((m) => expect(lastSystem(m), m).toBe("sys-b")));
     const keys = qc.getQueryCache().getAll().map((x) => x.queryKey);
-    expect(keys.filter((k) => k.includes("sys-b")).length).toBe(17);
+    expect(keys.filter((k) => k.includes("sys-b")).length).toBe(18);
   });
 
   it("keys a page without ?system= on the empty system and sends none", async () => {

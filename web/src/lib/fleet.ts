@@ -1,6 +1,6 @@
 // The Fleet page's rules: each system's state, the order of the cards,
 // the headline, the freshness line and the sidebar badge.
-import type { Level, SystemSummary } from "../api/model";
+import type { Level, SystemBadge, SystemSummary } from "../api/model";
 import type { Badge } from "../components/Sidebar";
 import { dayMonHm, fmtDuration, hm } from "./format";
 import { PRESETS } from "./timeRange";
@@ -30,9 +30,14 @@ export function notCollecting(s: SystemSummary): boolean {
 }
 
 export function cardState(s: SystemSummary): CardState {
-  if (s.error) return "unavailable";
-  if (notCollecting(s)) return "notcollecting";
-  return s.status === "info" ? "ok" : s.status;
+  return badgeState({ error: s.error, collecting: !notCollecting(s), status: s.status });
+}
+
+/** A badge's state, by the rules of a card's. */
+export function badgeState(b: Pick<SystemBadge, "error" | "collecting" | "status">): CardState {
+  if (b.error) return "unavailable";
+  if (!b.collecting) return "notcollecting";
+  return b.status === "info" ? "ok" : b.status;
 }
 
 /** Info findings firing on a system: notices that leave an ok card ok. */
@@ -132,8 +137,8 @@ export function stripStartLabel(s: SystemSummary, live: boolean): string {
 const BADGE_LEVEL: Partial<Record<CardState, Level>> = { critical: "critical", warning: "warning" };
 
 /** The sidebar's Fleet badge: systems in trouble or without data, at the level of the worst. */
-export function fleetBadge(systems: SystemSummary[] | undefined): Badge | undefined {
-  const bad = (systems ?? []).map(cardState).filter((c) => isTrouble(c) || c === "nodata");
+export function fleetBadge(systems: SystemBadge[] | undefined): Badge | undefined {
+  const bad = (systems ?? []).map(badgeState).filter((c) => isTrouble(c) || c === "nodata");
   if (!bad.length) return undefined;
   const worst = bad.reduce((a, b) => (ORDER[b] < ORDER[a] ? b : a));
   return { count: bad.length, level: BADGE_LEVEL[worst] ?? "nodata", what: "not OK", worst: CARD_STATE_LABEL[worst] };

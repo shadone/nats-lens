@@ -196,6 +196,31 @@ export interface SystemSummary {
   error: string;
 }
 
+/** One system's state for the sidebar's Fleet badge. */
+export interface SystemBadge {
+  id: string;
+  name: string;
+  environment: string;
+  status: Level;
+  collection: Collection;
+  /** Whether the system's collector collects; false while its connection fails. */
+  collecting: boolean;
+  /** Why the status could not be read; the other fields are then unset. */
+  error: string;
+}
+
+/** What the shell of every page shows: the page's system and every system's badge. */
+export interface ShellStatus {
+  freshness?: Freshness;
+  servers: Server[];
+  tally: Tally;
+  systems: SystemBadge[];
+  /** The system a request without ?system= reads. */
+  defaultSystem: string;
+  /** Whether the system asked for is configured; false leaves freshness unset. */
+  systemKnown: boolean;
+}
+
 export interface Overview {
   cluster: string;
   range?: Range;

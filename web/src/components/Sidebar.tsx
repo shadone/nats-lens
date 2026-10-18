@@ -4,7 +4,7 @@
 import { useEffect, useRef } from "react";
 import { NavLink } from "react-router";
 import { useShellStatus } from "../api/queries";
-import { useLiveSystemSummaries } from "../api/systems";
+import { useSystemBadges } from "../api/systems";
 import { fleetBadge } from "../lib/fleet";
 import { withGlobal } from "../lib/globalQuery";
 import { useGlobalQuery } from "../lib/useGlobalQuery";
@@ -30,10 +30,10 @@ export function findingsBadge(t: Tally | undefined): Badge | undefined {
   return { count, level, what: "firing" };
 }
 
-/** Each badge source's count: Fleet over the default live range, Findings on the page's system. */
+/** Each badge source's count: Fleet over every system's last 24 hours, Findings on the page's system. */
 function useBadges(): Partial<Record<BadgeSource, Badge>> {
   const tally = useShellStatus().data?.tally;
-  const systems = useLiveSystemSummaries().data;
+  const systems = useSystemBadges().data;
   return { fleet: fleetBadge(systems), findings: findingsBadge(tally) };
 }
 
