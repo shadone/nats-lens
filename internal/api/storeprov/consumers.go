@@ -127,7 +127,7 @@ func (p *Provider) GetConsumer(ctx context.Context, req *v1.GetConsumerRequest) 
 }
 
 // consumerViews reads each server's view of a consumer; current, offline
-// and lag come from the leader's replica list.
+// and lag come from the replica list of the leader placementOf chooses.
 func (p *Provider) consumerViews(ctx context.Context, epoch int64, account, stream, consumer string) ([]*v1.ConsumerServerView, error) {
 	m, err := p.consumerViewsBy(ctx, epoch, account, stream, consumer)
 	return m[account+"/"+stream+"/"+consumer], err
@@ -142,7 +142,10 @@ WITH lead AS (
   SELECT rp.account, rp.stream, rp.consumer, rp.peer_name, rp.current, rp.offline, rp.lag FROM consumer_replicas rp
   JOIN consumer_stats l ON l.epoch = rp.epoch AND l.server_id = rp.server_id AND l.account = rp.account
     AND l.stream = rp.stream AND l.consumer = rp.consumer AND l.is_leader
-  WHERE rp.epoch = ? AND (? = '' OR rp.account = ?) AND (? = '' OR rp.stream = ?) AND (? = '' OR rp.consumer = ?))
+  JOIN servers ls ON ls.server_id = rp.server_id
+  WHERE rp.epoch = ? AND (? = '' OR rp.account = ?) AND (? = '' OR rp.stream = ?) AND (? = '' OR rp.consumer = ?)
+  -- Only the leader placementOf chooses, the first claimant by name.
+  QUALIFY ls.server_name = min(ls.server_name) OVER (PARTITION BY rp.account, rp.stream, rp.consumer))
 SELECT x.account, x.stream, x.consumer, s.server_name, coalesce(x.is_leader, false), x.delivered_stream_seq, x.ack_floor_stream_seq,
   x.created, cc.config_hash, r.current, r.offline, r.lag
 FROM consumer_stats x JOIN servers s USING (server_id)
