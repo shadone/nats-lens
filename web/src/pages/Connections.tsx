@@ -29,8 +29,10 @@ export function Connections() {
   // a name looks for that connection.
   const q = useConnections(spec, { server, account, nameContains: name, includeTooling: tooling || name !== "", pageSize: 100, pageToken: pager.token });
   // The server filter's options come with the connections: every server
-  // seen in the range, whatever the filters.
-  const servers = q.data?.servers ?? [];
+  // seen in the range, whatever the filters. The chosen server stays on
+  // offer while they load, when the call fails, or when the range lacks it.
+  const known = q.data?.servers ?? [];
+  const servers = server && !known.includes(server) ? [...known, server] : known;
   const set = (entries: [string, string][]) =>
     setParams((p) => {
       const n = new URLSearchParams(p);

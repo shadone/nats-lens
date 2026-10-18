@@ -20,6 +20,9 @@ export function Consumers() {
   const [account = "", streamName = ""] = stream ? stream.split("/") : [scope];
   const streams = useStreamNames(spec).data ?? [];
   const streamLabel = accountLabeller(streams);
+  // The chosen stream stays on offer while the streams load, when the call
+  // fails, or when the range lacks it.
+  const chosenMissing = stream !== "" && !streams.some((s) => `${s.account}/${s.stream}` === stream);
   const q = useConsumers(spec, { account, stream: streamName, includeEphemeral: eph });
   const set = (k: string, v: string) =>
     setParams((p) => {
@@ -43,6 +46,7 @@ export function Consumers() {
                 {`${s.stream} (${streamLabel(s.account, s.accountName)})`}
               </option>
             ))}
+            {chosenMissing && <option value={stream}>{`${streamName} (${account})`}</option>}
           </select>
         </label>
         <label className="check">
