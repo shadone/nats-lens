@@ -590,3 +590,15 @@ func TestReplayStepsTakeInNothingAfterB(t *testing.T) {
 		}
 	}
 }
+
+// When the read limit cut the events, a restart does not say that no
+// announcement was captured.
+func TestReplayNoAbsenceClaimWhenEventsWereCut(t *testing.T) {
+	f := facts()
+	f.EventsCaptured, f.EventsTruncated = true, true
+	f.Restarts = []api.ReplayRestart{{Server: "nats-0", LastSeen: rAt(50, 0), FirstSeen: rAt(51, 0), OldEpoch: 200, NewEpoch: 202}}
+	r := stepsOf(api.FinishReplay(f), v1.ReplayStepKind_REPLAY_STEP_KIND_RESTART)[0]
+	if strings.Contains(r.GetBody(), "No lame duck") {
+		t.Errorf("body = %q", r.GetBody())
+	}
+}
