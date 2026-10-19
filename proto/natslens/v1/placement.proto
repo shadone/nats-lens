@@ -1,0 +1,165 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "google/protobuf/timestamp.proto";
+import "natslens/v1/common.proto";
+import "natslens/v1/servers.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// Which assets a placement matrix lists.
+enum PlacementFilter {
+  // Every stream and durable consumer.
+  PLACEMENT_FILTER_UNSPECIFIED = 0;
+  // Assets whose servers disagree on the configuration or creation time,
+  // or with a replica in state DISAGREES.
+  PLACEMENT_FILTER_SERVERS_DISAGREE = 1;
+  // Assets with a replica in state BEHIND.
+  PLACEMENT_FILTER_REPLICA_BEHIND = 2;
+  // Assets with a replica in state MISSING, with or without a server.
+  PLACEMENT_FILTER_MISSING = 3;
+  // Assets with one replica.
+  PLACEMENT_FILTER_SINGLE_REPLICA = 4;
+}
+
+// One server's view of a stream or consumer.
+message PlacementCell {
+  // Server name.
+  string server = 1;
+
+  // State of the replica on the server, by the rule of the summaries'
+  // placement squares.
+  PlacementState state = 2;
+
+  // Creation time the server reports; unset when it reports none.
+  google.protobuf.Timestamp created = 3;
+
+  // Hash of the configuration the server reports; empty when not
+  // reported.
+  string config_hash = 4;
+
+  // Raft entries this replica is behind, as the leader reports; unset for
+  // the leader and when no leader reports it.
+  optional int64 lag = 5;
+
+  // Messages a stream's replica stores; unset when not reported and for a
+  // consumer.
+  optional int64 messages = 6;
+
+  // First sequence a stream's replica holds; unset when not reported and
+  // for a consumer.
+  optional int64 first_seq = 7;
+
+  // Last sequence a stream's replica holds; unset when not reported and
+  // for a consumer.
+  optional int64 last_seq = 8;
+
+  // Last delivered stream sequence of a consumer's replica; unset when
+  // not reported and for a stream.
+  optional int64 delivered_stream_seq = 9;
+
+  // Acknowledgement floor stream sequence of a consumer's replica; unset
+  // when not reported and for a stream.
+  optional int64 ack_floor_stream_seq = 10;
+
+  // Settings on which this server's report differs from the value most
+  // servers report, the leader's on a tie: created, config_hash.
+  repeated string differs = 11;
+
+  // Servers this server names as the asset's other replicas, by name;
+  // empty when it names none.
+  repeated string peers = 12;
+}
+
+// One stream or consumer of a placement matrix.
+message PlacementAsset {
+  // The stream or consumer.
+  EntityRef entity = 1;
+
+  // Configured replicas; a consumer configured with none has its
+  // stream's. Unset when no configuration was reported.
+  optional int32 replicas = 2;
+
+  // Server name of the leader; empty without one.
+  string leader = 3;
+
+  // When the leader took the lead, as it reports; unset without a leader
+  // or when not reported.
+  google.protobuf.Timestamp leader_since = 4;
+
+  // One cell per server that reports the asset or that its leader lists:
+  // the leader first, the rest by server name.
+  repeated PlacementCell cells = 5;
+
+  // Configured replicas that no server names.
+  int32 unplaced = 6;
+
+  // Whether the servers that hold the asset disagree on its configuration
+  // or creation time, as the summaries say.
+  bool servers_disagree = 7;
+
+  // Messages a stream stores, from the leader's view (the largest when no
+  // server leads); unset when not reported and for a consumer.
+  optional int64 messages = 8;
+
+  // Whether a consumer is durable; false for a stream.
+  bool durable = 9;
+
+  // Whether the asset passes the request's filter; false for a stream
+  // listed only because consumers of it do.
+  bool matches = 10;
+
+  // A stream's durable consumers that pass the filter, by name; empty for
+  // a consumer.
+  repeated PlacementAsset consumers = 11;
+}
+
+// Number of assets, streams and consumers alike, that each filter lists.
+message PlacementCounts {
+  // Every stream and durable consumer.
+  int32 all = 1;
+
+  // As PLACEMENT_FILTER_SERVERS_DISAGREE.
+  int32 servers_disagree = 2;
+
+  // As PLACEMENT_FILTER_REPLICA_BEHIND.
+  int32 replica_behind = 3;
+
+  // As PLACEMENT_FILTER_MISSING.
+  int32 missing = 4;
+
+  // As PLACEMENT_FILTER_SINGLE_REPLICA.
+  int32 single_replica = 5;
+}
+
+// Request for the placement matrix.
+message GetPlacementRequest {
+  // Range whose newest epoch is read. Unset means the last 24 hours up to
+  // now.
+  TimeRange range = 1;
+
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 2;
+
+  // Which assets to list; the counts cover every asset whatever it is.
+  PlacementFilter filter = 3;
+}
+
+// Every stream and durable consumer as each server sees it, in the
+// range's newest epoch.
+message GetPlacementResponse {
+  // The servers, as ListServers lists them for the same range: the
+  // matrix's columns.
+  repeated ServerSummary servers = 1;
+
+  // The streams that pass the filter or have consumers that do, by
+  // account and name, KV buckets and object stores among them.
+  repeated PlacementAsset streams = 2;
+
+  // How many assets each filter lists.
+  PlacementCounts counts = 3;
+
+  // When the epoch read started; unset when the range holds none.
+  google.protobuf.Timestamp epoch_at = 4;
+}

@@ -17,6 +17,35 @@ import (
 // stream, with growth since the range's first epoch.
 func (p *Provider) streamRows(ctx context.Context, e epochInfo, r *v1.TimeRange, account, stream string) ([]*v1.StreamSummary, *v1.StreamTotals, error) {
 	start, end := span(r)
+	out, totals, err := p.streamBase(ctx, e, account, stream)
+	if err != nil {
+		return nil, nil, err
+	}
+	growth, err := p.streamGrowth(ctx, start, end, account, stream)
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, s := range out {
+		s.BytesPerDay = api.RobustPerDay(growth[s.GetEntity().GetKey()])
+	}
+	week := &v1.TimeRange{Start: ts(end.Add(-7 * 24 * time.Hour)), End: r.GetEnd()}
+	lines, err := p.sparklines(ctx, week, account, stream)
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, s := range out {
+		s.Bytes_7D = lines[s.GetEntity().GetKey()]
+		if s.Bytes_7D == nil {
+			s.Bytes_7D = &v1.Series{Metric: "stream.bytes", Unit: v1.Unit_UNIT_BYTES}
+		}
+		s.Bytes_7D.Entity = s.GetEntity()
+	}
+	return out, totals, nil
+}
+
+// streamBase reads the streams of epoch e, optionally one account or one
+// stream, with their numbers and placement but without growth or series.
+func (p *Provider) streamBase(ctx context.Context, e epochInfo, account, stream string) ([]*v1.StreamSummary, *v1.StreamTotals, error) {
 	rows, err := p.db().QueryContext(ctx, `
 WITH now_ AS (
   SELECT account, stream,
@@ -67,29 +96,12 @@ ORDER BY n.account, n.stream`, e.epoch, account, account, stream, stream, e.epoc
 	if err := rows.Err(); err != nil {
 		return nil, nil, err
 	}
-	growth, err := p.streamGrowth(ctx, start, end, account, stream)
-	if err != nil {
-		return nil, nil, err
-	}
 	reps, err := p.streamReplicas(ctx, e.epoch, account, stream, "")
 	if err != nil {
 		return nil, nil, err
 	}
 	for _, s := range out {
-		s.BytesPerDay = api.RobustPerDay(growth[s.GetEntity().GetKey()])
 		s.Placement = placementOf(reps[s.GetEntity().GetKey()], s.GetReplicas())
-	}
-	week := &v1.TimeRange{Start: ts(end.Add(-7 * 24 * time.Hour)), End: r.GetEnd()}
-	lines, err := p.sparklines(ctx, week, account, stream)
-	if err != nil {
-		return nil, nil, err
-	}
-	for _, s := range out {
-		s.Bytes_7D = lines[s.GetEntity().GetKey()]
-		if s.Bytes_7D == nil {
-			s.Bytes_7D = &v1.Series{Metric: "stream.bytes", Unit: v1.Unit_UNIT_BYTES}
-		}
-		s.Bytes_7D.Entity = s.GetEntity()
 	}
 	return out, totals, nil
 }
@@ -286,38 +298,52 @@ func disagreements[T any](views []T, fields func(T) (string, map[string]string))
 }
 
 // streamViews reads each server's view of a stream; current, offline and
-// lag come from the leader's replica list.
+// lag come from the replica list of the leader placementOf chooses.
 func (p *Provider) streamViews(ctx context.Context, epoch int64, account, stream string) ([]*v1.StreamServerView, error) {
+	m, err := p.streamViewsBy(ctx, epoch, account, stream)
+	return m[account+"/"+stream], err
+}
+
+// streamViewsBy reads each server's view of every stream of the epoch,
+// optionally one account or stream, keyed by stream key.
+func (p *Provider) streamViewsBy(ctx context.Context, epoch int64, account, stream string) (map[string][]*v1.StreamServerView, error) {
 	rows, err := p.db().QueryContext(ctx, `
-WITH lead AS (
-  SELECT rp.peer_name, rp.current, rp.offline, rp.lag FROM stream_replicas rp
-  JOIN stream_stats l ON l.epoch = rp.epoch AND l.server_id = rp.server_id AND l.account = rp.account
-    AND l.stream = rp.stream AND l.is_leader
-  WHERE rp.epoch = ? AND rp.account = ? AND rp.stream = ?)
-SELECT s.server_name, coalesce(x.is_leader, false), x.messages, x.bytes,
+WITH chosen AS (
+  -- The leader placementOf chooses: the first server by name whose own
+  -- report claims the lead, whether or not it lists replicas.
+  SELECT l.account, l.stream, arg_min(l.server_id, ls.server_name) AS server_id
+  FROM stream_stats l JOIN servers ls USING (server_id)
+  WHERE l.epoch = ? AND l.is_leader GROUP BY ALL),
+lead AS (
+  SELECT rp.account, rp.stream, rp.peer_name, rp.current, rp.offline, rp.lag FROM stream_replicas rp
+  JOIN chosen c ON c.server_id = rp.server_id AND c.account = rp.account AND c.stream = rp.stream
+  WHERE rp.epoch = ? AND (? = '' OR rp.account = ?) AND (? = '' OR rp.stream = ?))
+SELECT x.account, x.stream, s.server_name, coalesce(x.is_leader, false), x.messages, x.bytes,
   x.first_seq, x.last_seq, x.created, sc.config_hash, r.current, r.offline, r.lag
 FROM stream_stats x JOIN servers s USING (server_id)
 LEFT JOIN stream_config sc ON sc.server_id = x.server_id AND sc.account = x.account AND sc.stream = x.stream
   AND x.epoch BETWEEN sc.first_epoch AND sc.last_epoch
-LEFT JOIN lead r ON r.peer_name = s.server_name
-WHERE x.epoch = ? AND x.account = ? AND x.stream = ? ORDER BY s.server_name`, epoch, account, stream, epoch, account, stream)
+LEFT JOIN lead r ON r.account = x.account AND r.stream = x.stream AND r.peer_name = s.server_name
+WHERE x.epoch = ? AND (? = '' OR x.account = ?) AND (? = '' OR x.stream = ?) ORDER BY s.server_name`,
+		epoch, epoch, account, account, stream, stream, epoch, account, account, stream, stream)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []*v1.StreamServerView
+	out := map[string][]*v1.StreamServerView{}
 	for rows.Next() {
 		var v v1.StreamServerView
+		var acc, st string
 		var created sql.NullTime
 		var hash sql.NullString
 		var current, offline sql.NullBool
-		if err := rows.Scan(&v.Server, &v.IsLeader, &v.Messages, &v.Bytes, &v.FirstSeq, &v.LastSeq, &created, &hash,
+		if err := rows.Scan(&acc, &st, &v.Server, &v.IsLeader, &v.Messages, &v.Bytes, &v.FirstSeq, &v.LastSeq, &created, &hash,
 			&current, &offline, &v.Lag); err != nil {
 			return nil, err
 		}
 		v.Created, v.ConfigHash = ts(ntime(created)), hash.String
 		v.Current, v.Offline = v.GetIsLeader() || current.Bool, offline.Bool
-		out = append(out, &v)
+		out[acc+"/"+st] = append(out[acc+"/"+st], &v)
 	}
 	return out, rows.Err()
 }

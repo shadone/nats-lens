@@ -19,6 +19,10 @@ const STATE: Record<PlacementState, PlacementStateName> = {
   [PlacementState.OFFLINE]: "offline",
 };
 
+export function placementState(st: PlacementState): PlacementStateName {
+  return STATE[st] ?? "unknown";
+}
+
 export function placement(ps: ReplicaPlacement[]): Placement[] {
-  return ps.map((p) => ({ server: p.server, state: STATE[p.state] ?? "unknown" }));
+  return ps.map((p) => ({ server: p.server, state: placementState(p.state) }));
 }

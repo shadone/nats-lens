@@ -58,6 +58,10 @@ type Provider interface {
 	GetStream(ctx context.Context, req *v1.GetStreamRequest) (*v1.GetStreamResponse, error)
 	ListConsumers(ctx context.Context, req *v1.ListConsumersRequest) (*v1.ListConsumersResponse, error)
 	GetConsumer(ctx context.Context, req *v1.GetConsumerRequest) (*v1.GetConsumerResponse, error)
+	// GetPlacement returns every stream and durable consumer of the range's
+	// newest epoch with its cells, unfiltered and in any order; the
+	// handler applies the filter and counts with FinishPlacement.
+	GetPlacement(ctx context.Context, req *v1.GetPlacementRequest) (*v1.GetPlacementResponse, error)
 	ListServers(ctx context.Context, req *v1.ListServersRequest) (*v1.ListServersResponse, error)
 	GetServer(ctx context.Context, req *v1.GetServerRequest) (*v1.GetServerResponse, error)
 	ListConnections(ctx context.Context, req *v1.ListConnectionsRequest) (*v1.ListConnectionsResponse, error)
