@@ -40,7 +40,7 @@ func (b *replayBuilder) k8s() {
 		if len(grp) == 1 {
 			d.title = k8sTitle(first)
 		} else {
-			d.title = k8sFoldTitle(first, len(grp), at(first), at(last))
+			d.title = k8sFoldTitle(grp, at(first), at(last))
 			d.end = at(last)
 		}
 		for _, e := range grp {
