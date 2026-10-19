@@ -233,9 +233,10 @@ func (p *Provider) replayNodes(ctx context.Context, f *api.ReplayFacts, _ map[st
 	err := p.db().QueryRowContext(ctx, `
 SELECT count(DISTINCT raw->>'node') FILTER (WHERE kind = 'k8s.node.upgrade' AND coalesce(raw->>'node', '') <> ''),
     count(DISTINCT raw->>'node') FILTER (WHERE kind = 'k8s.node.drained' AND coalesce(raw->>'node', '') <> ''),
-    count(DISTINCT raw->>'pool') FILTER (WHERE kind = 'k8s.node.upgrade' AND coalesce(raw->>'pool', '') <> '')
+    count(DISTINCT raw->>'pool') FILTER (WHERE kind = 'k8s.node.upgrade' AND coalesce(raw->>'pool', '') <> ''),
+    count(*) FILTER (WHERE coalesce(raw->>'node', '') = '') > 0
 FROM events WHERE source = 'k8s' AND kind IN ('k8s.node.upgrade', 'k8s.node.drained') AND time >= ? AND time <= ?`,
-		f.A, f.B).Scan(&f.Nodes.Upgraded, &f.Nodes.Drained, &f.Nodes.Pools)
+		f.A, f.B).Scan(&f.Nodes.Upgraded, &f.Nodes.Drained, &f.Nodes.Pools, &f.Nodes.Unnamed)
 	if err != nil {
 		return fmt.Errorf("replay nodes: %w", err)
 	}

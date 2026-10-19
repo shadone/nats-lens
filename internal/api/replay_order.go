@@ -201,8 +201,10 @@ func (b *replayBuilder) counts() *v1.ReplayCounts {
 		c.ClientReconnects = n(int(f.ClientReconnects))
 	}
 	if b.kubernetesWhole() {
-		c.NodesUpgraded, c.NodesDrained = n(int(f.Nodes.Upgraded)), n(int(f.Nodes.Drained))
-		if f.Nodes.PoolLabels {
+		if !f.Nodes.Unnamed {
+			c.NodesUpgraded, c.NodesDrained = n(int(f.Nodes.Upgraded)), n(int(f.Nodes.Drained))
+		}
+		if f.Nodes.PoolLabels && !f.Nodes.Unnamed {
 			c.NodePoolsUpgraded = n(int(f.Nodes.Pools))
 		}
 	}
