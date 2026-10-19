@@ -9,12 +9,12 @@
 .rs-strip{position:absolute;left:0;right:0;top:0;width:100%;height:26px;display:block}
 .rs-wins{position:absolute;left:0;right:0;top:30px;height:22px;z-index:1}
 .rs-win{position:absolute;top:0;height:22px;min-width:6px;padding:0;border:0;border-radius:5px;background:var(--k8s-bg);color:var(--k8s);cursor:pointer;overflow:visible}
-.rs-wl{position:absolute;left:0;top:0;padding:0 8px;border-radius:5px;background:var(--k8s-bg);font:11px/22px var(--mono);white-space:nowrap;cursor:pointer}
+.rs-wl{position:absolute;left:0;top:0;padding:0 8px;border-radius:5px;background:var(--k8s-bg);font:11px/22px var(--mono);white-space:nowrap;pointer-events:none}
 .rs-wext{position:absolute;left:0;right:0;bottom:-4px;height:3px;border-radius:2px;background:var(--k8s)}
 .rs-win.end .rs-wl{left:auto;right:0}
 .rs-win:hover .rs-wl,.rs-win:focus-visible .rs-wl{box-shadow:inset 0 0 0 1px var(--k8s)}
 .rs-win:focus-visible{outline:2px solid var(--k8s);outline-offset:2px}
-.rs-line{position:absolute;top:0;height:60px;width:2px;margin-left:-1px;background:var(--text);pointer-events:none}
+.rs-line{position:absolute;top:0;height:60px;width:2px;margin-left:-1px;background:var(--text);pointer-events:none;z-index:2}
 .rs-chip{position:absolute;top:60px;box-sizing:border-box;min-width:24px;height:24px;border-radius:6px;background:var(--text);color:var(--surface);font:500 12px/24px var(--mono);text-align:center;white-space:nowrap;cursor:grab;outline:none}
 .rs-chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .rs-axis{position:relative;height:16px;margin-top:4px;font:11px var(--mono);color:var(--text-muted)}
