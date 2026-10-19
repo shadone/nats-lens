@@ -602,3 +602,31 @@ func TestReplayNoAbsenceClaimWhenEventsWereCut(t *testing.T) {
 		t.Errorf("body = %q", r.GetBody())
 	}
 }
+
+// A time nats-lens was not running inside a restart's announcement window,
+// even before A, keeps the step from saying no announcement was captured;
+// the counts over A to B stay set.
+func TestReplayAbsenceClaimNeedsCaptureOverTheWindow(t *testing.T) {
+	f := facts()
+	f.EventsCaptured = true
+	f.Gaps = []api.ReplayGap{{Kind: api.GapCollector, Start: rAt(-8, 0), End: rAt(-1, 0)}}
+	f.Restarts = []api.ReplayRestart{{Server: "nats-0", LastSeen: rAt(2, 0), FirstSeen: rAt(3, 0), OldEpoch: 104, NewEpoch: 106}}
+	res := api.FinishReplay(f)
+	if r := stepsOf(res, v1.ReplayStepKind_REPLAY_STEP_KIND_RESTART)[0]; strings.Contains(r.GetBody(), "No lame duck") {
+		t.Errorf("body = %q", r.GetBody())
+	}
+	if res.GetCounts().LeaderElections == nil {
+		t.Errorf("counts = %v", res.GetCounts())
+	}
+}
+
+// A gap that starts at B is a step and unsets the event counts alike.
+func TestReplayGapStartingAtB(t *testing.T) {
+	f := facts()
+	f.EventsCaptured = true
+	f.Gaps = []api.ReplayGap{{Kind: api.GapCollector, Start: f.B, End: f.B.Add(time.Hour), Event: ev(f.B, "collector.gap", "")}}
+	res := api.FinishReplay(f)
+	if len(stepsOf(res, v1.ReplayStepKind_REPLAY_STEP_KIND_GAP)) != 1 || res.GetCounts().LeaderElections != nil {
+		t.Errorf("gap steps %v, counts %v", stepsOf(res, v1.ReplayStepKind_REPLAY_STEP_KIND_GAP), res.GetCounts())
+	}
+}

@@ -223,7 +223,7 @@ func (b *replayBuilder) restarts() {
 		if ann != nil {
 			from = ann.GetTime().AsTime()
 		}
-		d.body = joinSentences(announcementText(ann, b.eventsWhole()), assetsAfterText(r),
+		d.body = joinSentences(announcementText(ann, b.capturedOver(r.LastSeen.Add(-b.f.RestartWindow), started)), assetsAfterText(r),
 			b.leadersTaken(r, from, b.upToB(r.FirstSeen.Add(b.f.Interval)), d))
 		for _, id := range b.findingIDs() {
 			for _, t := range b.byFinding[id] {
@@ -291,7 +291,7 @@ func (b *replayBuilder) stops() {
 		}
 		d.evidence = append(d.evidence, collectionEvidence(s.LastEpoch, s.LastSeen, serverEntity(s.Server)),
 			collectionEvidence(b.f.EpochB, b.f.EpochBAt, nil))
-		d.body = joinSentences(announcementText(ann, b.eventsWhole()),
+		d.body = joinSentences(announcementText(ann, b.capturedOver(s.LastSeen.Add(-b.f.RestartWindow), b.upToB(s.LastSeen.Add(b.f.RestartWindow)))),
 			fmt.Sprintf("Last answered at %s; not answering at B.", clockText(s.LastSeen)))
 		b.add(d)
 		if !s.BackAt.IsZero() && b.afterB(s.BackAt) {
@@ -308,26 +308,28 @@ func transitionKey(t ReplayTransition) string {
 	return t.FindingID + "@" + t.Time.Format(time.RFC3339Nano)
 }
 
-// eventsWhole reports whether events were captured and read over all of
-// A to B: some were captured, the read limit did not cut them, and no
-// time nats-lens was not running (collector.gap) overlaps A to B. Otherwise the event counts stay unset
-// and a step does not say an announcement was not captured (proposed, not
-// yet confirmed).
-func (b *replayBuilder) eventsWhole() bool {
-	return b.f.EventsCaptured && !b.f.EventsTruncated && !b.gapOverlaps(GapCollector)
+// capturedOver reports whether events were captured and read over all of
+// from to to: some were captured, the read limit did not cut them, and no
+// time nats-lens was not running (collector.gap) overlaps the span. A step
+// says an announcement was not captured only when its announcement
+// window was (proposed, not yet confirmed).
+func (b *replayBuilder) capturedOver(from, to time.Time) bool {
+	return b.f.EventsCaptured && !b.f.EventsTruncated && !b.gapOverlaps(GapCollector, from, to)
 }
 
 // kubernetesWhole reports whether Kubernetes was watched over all of A to
 // B: it is watched, and neither a time nats-lens was not running nor a
 // Kubernetes watch gap overlaps A to B.
 func (b *replayBuilder) kubernetesWhole() bool {
-	return b.f.Kubernetes && !b.gapOverlaps(GapCollector) && !b.gapOverlaps(GapKubernetes)
+	return b.f.Kubernetes && !b.gapOverlaps(GapCollector, b.f.A, b.f.B) && !b.gapOverlaps(GapKubernetes, b.f.A, b.f.B)
 }
 
-// gapOverlaps reports whether a gap of the kind overlaps A to B.
-func (b *replayBuilder) gapOverlaps(kind string) bool {
+// gapOverlaps reports whether a gap of the kind overlaps from to to, by
+// the rule gaps uses for its steps: it starts at or before to and ends
+// after from.
+func (b *replayBuilder) gapOverlaps(kind string, from, to time.Time) bool {
 	return slices.ContainsFunc(b.f.Gaps, func(g ReplayGap) bool {
-		return g.Kind == kind && g.Start.Before(b.f.B) && (g.End.IsZero() || g.End.After(b.f.A))
+		return g.Kind == kind && !g.Start.After(to) && (g.End.IsZero() || g.End.After(from))
 	})
 }
 
