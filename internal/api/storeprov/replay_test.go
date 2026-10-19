@@ -284,7 +284,7 @@ func TestReplayWithoutCollectionsOrKubernetes(t *testing.T) {
 	for _, s := range res.GetSteps() {
 		if s.GetKind() == v1.ReplayStepKind_REPLAY_STEP_KIND_GAP {
 			gaps++
-			if s.GetTitle() != "No collections since 09:24:30" || !s.GetOpenAtB() {
+			if s.GetTitle() != "No collections since 09:24:30, still at B" || !s.GetOpenAtB() {
 				t.Errorf("gap = %v", s)
 			}
 		}

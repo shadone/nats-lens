@@ -396,7 +396,7 @@ func TestReplayGaps(t *testing.T) {
 	if gs[0].GetTitle() != "nats-lens was not running from 09:20:00 to 09:30:00" || gs[0].GetEvidenceCount() != 3 {
 		t.Errorf("collector gap = %v", gs[0])
 	}
-	if gs[1].GetTitle() != "No collections since 09:50:00" || !gs[1].GetOpenAtB() {
+	if gs[1].GetTitle() != "No collections since 09:50:00, still at B" || !gs[1].GetOpenAtB() {
 		t.Errorf("trailing gap = %v", gs[1])
 	}
 }
@@ -695,5 +695,22 @@ func TestReplayReadCutAfterBKeepsCounts(t *testing.T) {
 	res := api.FinishReplay(f)
 	if c := res.GetCounts(); c.LeaderElections == nil || c.FindingsRaised == nil || !res.GetStepsTruncated() {
 		t.Errorf("counts = %v, truncated %v", c, res.GetStepsTruncated())
+	}
+}
+
+// Nothing after B in a gap's title, and no gone finding that first fired
+// after B in finding_ids.
+func TestReplayNamesNoTimeAfterB(t *testing.T) {
+	f := facts()
+	f.Gaps = []api.ReplayGap{{Kind: api.GapCollector, Start: rAt(50, 0), End: rAt(90, 0), Event: ev(rAt(50, 0), "collector.gap", "")}}
+	f.GoneRead = true
+	f.Gone = []api.ReplayGone{{Entity: consumerEnt("orders", "x"), ServersAtA: []string{"nats-0"}, LastReported: rAt(20, 0), LastEpoch: 140}}
+	f.Transitions = []api.ReplayTransition{tr("consumer-013:x", "consumer-013", consumerEnt("orders", "x"), rAt(65, 0), firing, critical)}
+	res := api.FinishReplay(f)
+	if g := stepsOf(res, v1.ReplayStepKind_REPLAY_STEP_KIND_GAP)[0]; g.GetTitle() != "nats-lens not running since 09:50:00, still at B" {
+		t.Errorf("gap title = %q", g.GetTitle())
+	}
+	if ids := res.GetGone()[0].GetFindingIds(); len(ids) != 0 {
+		t.Errorf("finding IDs = %v", ids)
 	}
 }

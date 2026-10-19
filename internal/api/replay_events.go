@@ -239,20 +239,19 @@ func (b *replayBuilder) gapStep(g ReplayGap) *draft {
 	} else {
 		d.end = g.End
 	}
-	var what string
+	var what, since string
 	switch g.Kind {
 	case GapCollector:
-		what = "nats-lens was not running"
+		what, since = "nats-lens was not running", "nats-lens not running"
 	case GapKubernetes:
-		what = "Kubernetes was not watched"
+		what, since = "Kubernetes was not watched", "Kubernetes not watched"
 	default:
-		what = "No collections"
+		what, since = "No collections", "No collections"
 	}
+	// A gap open at B is titled up to B: the step names no time after it.
 	switch {
-	case g.End.IsZero() && g.Kind == GapCollections:
-		d.title = "No collections since " + clockText(g.Start)
-	case g.End.IsZero():
-		d.title = what + " from " + clockText(g.Start)
+	case open:
+		d.title = since + " since " + clockText(g.Start) + ", still at B"
 	default:
 		d.title = fmt.Sprintf("%s from %s to %s", what, clockText(g.Start), clockText(g.End))
 	}
@@ -260,11 +259,11 @@ func (b *replayBuilder) gapStep(g ReplayGap) *draft {
 		d.evidence = append(d.evidence, eventEvidence(g.Event))
 		d.body = g.Event.GetSummary()
 	}
-	if g.Kind == GapCollections && !g.End.IsZero() {
+	if g.Kind == GapCollections && !open {
 		d.body = fmt.Sprintf("No collection for %s; nothing is known of that time.", durText(g.End.Sub(g.Start)))
 	}
-	if g.Kind == GapCollections && g.End.IsZero() {
-		d.body = "No collection after " + clockText(g.Start) + "; nothing is known of the time after it."
+	if g.Kind == GapCollections && open {
+		d.body = "No collection after " + clockText(g.Start) + " up to B; nothing is known of that time."
 	}
 	return d
 }
