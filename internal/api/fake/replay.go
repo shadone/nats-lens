@@ -44,7 +44,7 @@ func (p *Provider) Replay(_ context.Context, req *v1.GetReplayRequest) (*api.Rep
 		}
 		f.Events = append(f.Events, e)
 	}
-	f.Restarts, f.Stops = s.replayServers(a, b)
+	f.Restarts, f.Stops = s.replayServers(f)
 	f.Transitions = s.replayTransitions(p.findings(s), a, f.Until)
 	for _, sp := range s.sc.streams {
 		if l := s.leader(sp); l != "" && f.EpochA != 0 {
@@ -73,8 +73,8 @@ func (s scen) replayEpoch(t time.Time) (time.Time, int64) {
 
 // epochNear walks the epochs from the one at or before t by step (one
 // interval back or forward) to the first in which the server answered,
-// at most an hour; ok is false when there is none.
-func (s scen) epochNear(sp serverSpec, t time.Time, step time.Duration) (time.Time, int64, bool) {
+// at most limit; ok is false when there is none.
+func (s scen) epochNear(sp serverSpec, t time.Time, step, limit time.Duration) (time.Time, int64, bool) {
 	at, n := s.replayEpoch(t)
 	if n == 0 {
 		return time.Time{}, 0, false
@@ -82,11 +82,11 @@ func (s scen) epochNear(sp serverSpec, t time.Time, step time.Duration) (time.Ti
 	if step > 0 && at.Before(t) {
 		at, n = at.Add(step), n+1
 	}
-	for range int(time.Hour / sampleEvery) {
+	for range int(limit / sampleEvery) {
 		if at.After(s.lastEpoch()) || at.Before(s.dataStart()) {
 			return time.Time{}, 0, false
 		}
-		if !s.downAt(sp, at) && (sp.answering() || at.Before(sp.down.Add(s.shift))) {
+		if s.answers(sp, at) {
 			return at, n, true
 		}
 		at, n = at.Add(step), n+int64(step/sampleEvery)
@@ -94,26 +94,43 @@ func (s scen) epochNear(sp serverSpec, t time.Time, step time.Duration) (time.Ti
 	return time.Time{}, 0, false
 }
 
+// answers reports whether a server answered in the epoch at at.
+func (s scen) answers(sp serverSpec, at time.Time) bool {
+	return !s.downAt(sp, at) && (sp.answering() || at.Before(sp.down.Add(s.shift)))
+}
+
 // replayServers are the restarts (a process with an earlier one that
-// started after A and at or before B) and the servers that stopped
-// answering between A and B.
-func (s scen) replayServers(a, b time.Time) ([]api.ReplayRestart, []api.ReplayStop) {
+// started after A and at or before B and was first collected by B) and
+// the stops (a server that answered in A's collection or later and not
+// in B's, with when it answered again up to Until), by the store's rules.
+func (s scen) replayServers(f *api.ReplayFacts) ([]api.ReplayRestart, []api.ReplayStop) {
 	var restarts []api.ReplayRestart
 	var stops []api.ReplayStop
 	for _, sp := range s.sc.servers {
-		if start := s.started(sp); sp.oldID != "" && start.After(a) && !start.After(b) {
-			last, oldEpoch, ok1 := s.epochNear(sp, start.Add(-time.Nanosecond), -sampleEvery)
-			first, newEpoch, ok2 := s.epochNear(sp, start, sampleEvery)
-			if ok1 && ok2 && !first.After(b) {
+		if start := s.started(sp); sp.oldID != "" && start.After(f.A) && !start.After(f.B) {
+			last, oldEpoch, ok1 := s.epochNear(sp, start.Add(-time.Nanosecond), -sampleEvery, time.Hour)
+			first, newEpoch, ok2 := s.epochNear(sp, start, sampleEvery, time.Hour)
+			if ok1 && ok2 && !first.After(f.B) {
 				restarts = append(restarts, api.ReplayRestart{Server: sp.name, OldID: sp.oldID, NewID: sp.id, LastSeen: last,
 					FirstSeen: first, Started: start, OldEpoch: oldEpoch, NewEpoch: newEpoch, OldVersion: sp.version, NewVersion: sp.version})
 			}
 		}
-		if down := sp.down.Add(s.shift); !sp.answering() && down.After(a) && !down.After(b) {
-			if last, n, ok := s.epochNear(sp, down.Add(-time.Nanosecond), -sampleEvery); ok {
-				stops = append(stops, api.ReplayStop{Server: sp.name, LastSeen: last, LastEpoch: n})
-			}
+		if f.EpochB == 0 || s.answers(sp, f.EpochBAt) {
+			continue
 		}
+		from := f.EpochAAt
+		if f.EpochA == 0 {
+			from = f.A
+		}
+		last, n, ok := s.epochNear(sp, f.EpochBAt.Add(-sampleEvery), -sampleEvery, f.EpochBAt.Sub(from)+sampleEvery)
+		if !ok || last.Before(from) {
+			continue
+		}
+		stop := api.ReplayStop{Server: sp.name, LastSeen: last, LastEpoch: n}
+		if back, bn, ok := s.epochNear(sp, f.B.Add(time.Nanosecond), sampleEvery, f.Until.Sub(f.B)+sampleEvery); ok && !back.After(f.Until) {
+			stop.BackAt, stop.BackEpoch = back, bn
+		}
+		stops = append(stops, stop)
 	}
 	return restarts, stops
 }
