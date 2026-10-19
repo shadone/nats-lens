@@ -308,13 +308,13 @@ func transitionKey(t ReplayTransition) string {
 	return t.FindingID + "@" + t.Time.Format(time.RFC3339Nano)
 }
 
-// eventsWhole reports whether events were captured over all of A to B:
-// some were captured, and no time nats-lens was not running
-// (collector.gap) overlaps A to B. Otherwise the event counts stay unset
+// eventsWhole reports whether events were captured and read over all of
+// A to B: some were captured, the read limit did not cut them, and no
+// time nats-lens was not running (collector.gap) overlaps A to B. Otherwise the event counts stay unset
 // and a step does not say an announcement was not captured (proposed, not
 // yet confirmed).
 func (b *replayBuilder) eventsWhole() bool {
-	return b.f.EventsCaptured && !b.gapOverlaps(GapCollector)
+	return b.f.EventsCaptured && !b.f.EventsTruncated && !b.gapOverlaps(GapCollector)
 }
 
 // kubernetesWhole reports whether Kubernetes was watched over all of A to
