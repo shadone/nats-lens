@@ -92,6 +92,10 @@ type ReplayFacts struct {
 	// Transitions are the finding transitions from A to Until, and for
 	// each finding with none at A the newest before A.
 	Transitions []ReplayTransition
+	// EventsTruncated and TransitionsTruncated say that a provider's read
+	// limit cut Events or Transitions: the steps are then marked truncated
+	// and the counts taken from them stay unset.
+	EventsTruncated, TransitionsTruncated bool
 	// LeadersAtA are the leaders of the streams and consumers at EpochA;
 	// MetaLeaderAtA the meta leader most servers named then.
 	LeadersAtA    []ReplayLeader

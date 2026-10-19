@@ -307,3 +307,23 @@ func TestReplayProcessCollectedAfterBIsAStop(t *testing.T) {
 		t.Errorf("restarts %+v, stops %+v", f.Restarts, f.Stops)
 	}
 }
+
+// When the read limit cuts the events and transitions, the response says
+// the steps are truncated and leaves the counts taken from them unset.
+func TestReplayRowLimitIsReported(t *testing.T) {
+	defer storeprov.SetReplayRowLimit(3)()
+	p, _ := replayStore(t)
+	f, err := p.Replay(ctx, replayReq(rEpoch(3), rEpoch(40)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !f.EventsTruncated || !f.TransitionsTruncated || len(f.Events) != 3 || len(f.Transitions) != 3 {
+		t.Fatalf("truncated %v %v, %d events, %d transitions", f.EventsTruncated, f.TransitionsTruncated, len(f.Events), len(f.Transitions))
+	}
+	res := api.FinishReplay(f)
+	c := res.GetCounts()
+	if !res.GetStepsTruncated() || c.LeaderElections != nil || c.LeadersMoved != nil || c.QuorumLostReports != nil ||
+		c.FindingsRaised != nil || c.ClientReconnects == nil {
+		t.Errorf("truncated %v, counts %v", res.GetStepsTruncated(), c)
+	}
+}

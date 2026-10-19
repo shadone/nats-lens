@@ -13,8 +13,9 @@ import (
 )
 
 // replayRowLimit bounds the events and transitions one Replay reads; the
-// earliest are kept, as the story starts at A.
-const replayRowLimit = 20000
+// earliest are kept, as the story starts at A, and the facts say when the
+// limit cut them. A variable so that tests can lower it.
+var replayRowLimit = 20000
 
 // Replay reads the facts of the story between A and B, one query after
 // another; the handler has checked and clamped A and B. A moment A older
