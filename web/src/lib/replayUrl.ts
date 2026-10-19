@@ -91,7 +91,7 @@ export function clampMoments(m: Moments, now: number, minGapMs: number): Moments
 export interface Resolved extends Moments {
   /** Why the moments differ from the link's. */
   notes: string[];
-  /** The link lacked a moment: write these with replace. */
+  /** The link does not say these moments (it lacks one, or they were clamped): write them with replace. */
   write: boolean;
 }
 
@@ -120,7 +120,9 @@ export function resolveMoments(
   const c = clampMoments(m, ctx.now, ctx.minGapMs);
   // To the second, as the link writes them, so a written default reads back the same.
   const sec = (t: number) => Math.floor(t / 1000) * 1000;
-  return { a: sec(c.a), b: sec(c.b), notes: [...notes, ...c.notes], write: pa === undefined || pb === undefined };
+  const a = sec(c.a);
+  const b = sec(c.b);
+  return { a, b, notes: [...notes, ...c.notes], write: momentIso(a) !== rawA || momentIso(b) !== rawB };
 }
 
 /** What the scrubber says about a moment outside the page's range. */
