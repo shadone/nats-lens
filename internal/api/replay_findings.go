@@ -32,14 +32,15 @@ func goneClass(g ReplayGone) string {
 func (b *replayBuilder) gone() []*v1.GoneAsset {
 	gs := slices.Clone(b.f.Gone)
 	// A gone asset's findings of the gone checks, from the transitions; a
-	// gone stream also takes those of its durables, which went with it.
+	// gone stream also takes those of the durables that went with it.
 	for i, g := range gs {
 		ids := slices.Clone(g.FindingIDs)
 		for _, id := range b.findingIDs() {
 			t := b.byFinding[id][0]
 			about := t.Entity.GetKey() == g.Entity.GetKey() ||
 				(g.Entity.GetType() == v1.EntityType_ENTITY_TYPE_STREAM && t.Entity.GetType() == v1.EntityType_ENTITY_TYPE_CONSUMER &&
-					t.Entity.GetAccount() == g.Entity.GetAccount() && t.Entity.GetStream() == g.Entity.GetStream())
+					t.Entity.GetAccount() == g.Entity.GetAccount() && t.Entity.GetStream() == g.Entity.GetStream() &&
+					slices.Contains(g.DurablesWithIt, t.Entity.GetConsumer()))
 			if slices.Contains(ReplayGoneChecks, t.Check) && about && !slices.Contains(ids, id) {
 				ids = append(ids, id)
 			}
@@ -62,7 +63,7 @@ func (b *replayBuilder) gone() []*v1.GoneAsset {
 	out := make([]*v1.GoneAsset, 0, len(gs))
 	for _, g := range gs {
 		a := &v1.GoneAsset{Entity: g.Entity, ServersAtA: g.ServersAtA, NotAnsweringAtB: g.NotAnsweringAtB,
-			LastReported: tsOrNil(g.LastReported), LastEpoch: g.LastEpoch, ConsumersWithIt: g.ConsumersWithIt, FindingIds: g.FindingIDs}
+			LastReported: tsOrNil(g.LastReported), LastEpoch: g.LastEpoch, ConsumersWithIt: int32(len(g.DurablesWithIt)), FindingIds: g.FindingIDs}
 		if e := g.Delete; e != nil {
 			a.DeleteEvent = &v1.EventRef{Id: e.GetId(), Time: e.GetTime(), Kind: e.GetKind(), Summary: e.GetSummary()}
 			a.DeleteClient = clientText(e.GetClientName(), e.GetClientHost())
@@ -168,8 +169,8 @@ func goneBody(g ReplayGone, class string) string {
 	default:
 		parts = append(parts, held+", by none at B.", "Last reported at "+clockText(g.LastReported)+".")
 	}
-	if g.ConsumersWithIt > 0 {
-		parts = append(parts, fmt.Sprintf("%s went with it.", Plural(int(g.ConsumersWithIt), "durable consumer")))
+	if len(g.DurablesWithIt) > 0 {
+		parts = append(parts, fmt.Sprintf("%s went with it.", Plural(len(g.DurablesWithIt), "durable consumer")))
 	}
 	return joinSentences(parts...)
 }

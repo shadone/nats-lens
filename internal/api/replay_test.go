@@ -555,13 +555,16 @@ func TestReplayGoneStreamTakesItsDurablesFindings(t *testing.T) {
 	f := facts()
 	f.GoneRead = true
 	f.Gone = []api.ReplayGone{{Entity: streamEnt("orders"), ServersAtA: []string{"nats-0"}, LastReported: rAt(20, 0), LastEpoch: 140,
-		ConsumersWithIt: 1}}
-	f.Transitions = []api.ReplayTransition{tr("consumer-013:x", "consumer-013", consumerEnt("orders", "x"), rAt(21, 0), firing, critical)}
+		DurablesWithIt: []string{"x"}}}
+	f.Transitions = []api.ReplayTransition{tr("consumer-013:x", "consumer-013", consumerEnt("orders", "x"), rAt(21, 0), firing, critical),
+		// y vanished before A and did not go with the stream: its finding is
+		// a step of its own.
+		tr("consumer-013:y", "consumer-013", consumerEnt("orders", "y"), rAt(22, 0), firing, critical)}
 	res := api.FinishReplay(f)
-	if n := len(stepsOf(res, v1.ReplayStepKind_REPLAY_STEP_KIND_FINDING)); n != 0 {
-		t.Errorf("finding steps = %d", n)
+	if fs := stepsOf(res, v1.ReplayStepKind_REPLAY_STEP_KIND_FINDING); len(fs) != 1 || !strings.Contains(fs[0].GetTitle(), "y on orders") {
+		t.Errorf("finding steps = %v", fs)
 	}
-	if ids := res.GetGone()[0].GetFindingIds(); len(ids) != 1 || ids[0] != "consumer-013:x" {
+	if ids := res.GetGone()[0].GetFindingIds(); len(ids) != 1 || ids[0] != "consumer-013:x" || res.GetGone()[0].GetConsumersWithIt() != 1 {
 		t.Errorf("finding IDs = %v", ids)
 	}
 }
