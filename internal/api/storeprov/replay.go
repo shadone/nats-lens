@@ -87,7 +87,7 @@ func (p *Provider) replayEpochs(ctx context.Context, f *api.ReplayFacts, _ map[s
 	}
 	var start sql.NullTime
 	if err := p.db().QueryRowContext(ctx, `SELECT min(started_at), count(*) FILTER (WHERE started_at >= ? AND started_at <= ?) > 0,
-  (SELECT count(*) > 0 FROM events WHERE time <= ?) FROM epochs`, f.A, f.B, f.B).Scan(&start, &f.Collected, &f.EventsCaptured); err != nil {
+  EXISTS (SELECT 1 FROM events WHERE time <= ?) FROM epochs`, f.A, f.B, f.B).Scan(&start, &f.Collected, &f.EventsCaptured); err != nil {
 		return fmt.Errorf("replay epochs: %w", err)
 	}
 	f.HistoryStart = ntime(start)
