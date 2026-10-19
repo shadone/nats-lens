@@ -24,7 +24,15 @@ export const FOOTER = "Built from collections, NATS advisories and Kubernetes ev
 
 /** A time of a step: 09:14:05, with the day when A and B are on different days. */
 export function whenFormat(m: Moments): (t: number) => string {
-  return dayMon(m.a) === dayMon(m.b) ? hms : (t) => `${dayMon(t)} ${hms(t)}`;
+  // A time on another day than A's carries the day, so a gap from the
+  // evening before never reads as one in the same night.
+  if (dayMon(m.a) !== dayMon(m.b)) return (t) => `${dayMon(t)} ${hms(t)}`;
+  return (t) => (sameDay(t, m.a) ? hms(t) : `${dayMon(t)} ${hms(t)}`);
+}
+
+/** Whether two times fall on the same UTC day. */
+function sameDay(x: number, y: number): boolean {
+  return Math.floor(x / 86_400_000) === Math.floor(y / 86_400_000);
 }
 
 /** "09:14:05", "09:14:05–09:16:30", or "09:14:05–still at B". */
@@ -220,7 +228,7 @@ export function unsetGroups(tiles: CountTile[], unobserved: Unobserved[], fmt: (
 export function stepNotes(r: Pick<Replay, "a" | "b" | "stepsTruncated" | "stepsOmitted" | "completeUntil">): string[] {
   const out: string[] = [];
   if (r.completeUntil !== undefined) {
-    const at = dayMon(r.a) === dayMon(r.b) ? hm(r.completeUntil) : dayMonHm(r.completeUntil);
+    const at = sameDay(r.a, r.b) && sameDay(r.completeUntil, r.a) ? hm(r.completeUntil) : dayMonHm(r.completeUntil);
     out.push(`Steps after ${at} may be missing: the read limit was reached.`);
   }
   if (r.stepsOmitted > 0) {

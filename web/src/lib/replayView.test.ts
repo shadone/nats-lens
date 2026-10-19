@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectionNotes, stepNotes } from "./replayView";
+import { collectionNotes, stepNotes, unobservedText, whenFormat } from "./replayView";
 
 const base = { stepsTruncated: true, stepsOmitted: 0 };
 
@@ -17,5 +17,21 @@ describe("collectionNotes", () => {
     const r = { a: Date.parse("2026-10-17T08:00:00Z"), historyStart: Date.parse("2026-10-17T08:30:00Z"), epochAAt: undefined, epochBAt: Date.parse("2026-10-17T09:00:00Z") };
     expect(collectionNotes(r)[0]).toBe("A is before the history starts, 17 Oct 08:30 UTC: nats-lens stored nothing before then.");
     expect(collectionNotes({ ...r, a: Date.parse("2026-10-17T08:45:00Z") })).toHaveLength(1);
+  });
+});
+
+describe("times on another day than A", () => {
+  const m = { a: Date.parse("2026-10-17T09:00:00Z"), b: Date.parse("2026-10-17T10:00:00Z") };
+
+  it("carry the day, though A and B fall on one day", () => {
+    const fmt = whenFormat(m);
+    expect(fmt(Date.parse("2026-10-17T09:30:00Z"))).toBe("09:30:00");
+    expect(fmt(Date.parse("2026-10-14T23:00:00Z"))).toBe("14 Oct 23:00:00");
+    const u = { count: "leadersMoved", reason: "collector_gap" as const, from: Date.parse("2026-10-14T23:00:00Z"), to: Date.parse("2026-10-17T09:10:00Z") };
+    expect(unobservedText(u, fmt)).toBe("nats-lens was not running 14 Oct 23:00:00–09:10:00");
+  });
+
+  it("carry the day in the read-limit note", () => {
+    expect(stepNotes({ ...m, stepsTruncated: true, stepsOmitted: 0, completeUntil: Date.parse("2026-10-18T01:00:00Z") })).toEqual(["Steps after 18 Oct 01:00 may be missing: the read limit was reached."]);
   });
 });

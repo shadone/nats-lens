@@ -80,7 +80,8 @@ function Step({ s, fmt }: { s: ReplayStep; fmt: (t: number) => string }) {
 export function ReplaySteps({ steps, moments, notes }: { steps: ReplayStep[]; moments: Moments; notes: string[] }) {
   const fmt = whenFormat(moments);
   // Times with a day need a wider column.
-  const list = `rp-list${fmt(moments.a).length > 8 ? " days" : ""}`;
+  const days = steps.some((s) => fmt(s.time).length > 8 || (s.end !== undefined && fmt(s.end).length > 8));
+  const list = `rp-list${days ? " days" : ""}`;
   const inRange = steps.filter((s) => !s.outsideRange);
   const after = steps.filter((s) => s.outsideRange);
   return (
