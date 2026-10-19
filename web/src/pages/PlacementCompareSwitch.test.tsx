@@ -126,3 +126,54 @@ it("marks no cell once a refetch of the comparison fails", async () => {
     vi.useRealTimers();
   }
 });
+
+// With a filter, the matrix on screen is its own call. The marks of
+// system b must not land on system a's filtered matrix while b's loads.
+it("marks nothing on the previous system's filtered matrix", async () => {
+  vi.mocked(requests.getPlacement).mockImplementation(async (sys: string, spec: RangeSpec, filter: string) => {
+    if (sys === "a") return now();
+    if (spec.kind === "fixed") return before();
+    return filter === "all" ? now() : never();
+  });
+  page("/placement?system=a&cmp=1d&filter=disagree");
+  await waitFor(() => expect(line()).toHaveTextContent("0 cells differ"));
+  act(() => go("/placement?system=b&cmp=1d&filter=disagree"));
+  await waitFor(() => expect(vi.mocked(requests.getPlacement).mock.calls.some(([s, sp]) => s === "b" && sp.kind === "fixed")).toBe(true));
+  await settle();
+  expect(line()).toHaveTextContent(/^Loading the matrix of/);
+  expect(marked()).toHaveLength(0);
+});
+
+// The same for a change of range with a filter.
+it("marks nothing on the previous range's filtered matrix", async () => {
+  const to = Date.parse("2026-09-10T09:00:00Z");
+  vi.mocked(requests.getPlacement).mockImplementation(async (_s: string, spec: RangeSpec, filter: string) => {
+    if (spec.kind === "live") return now();
+    if (spec.to === to) return filter === "all" ? now() : never();
+    return spec.to === to - 86_400_000 ? before() : now();
+  });
+  page("/placement?cmp=1d&filter=disagree");
+  await waitFor(() => expect(line()).toHaveTextContent("0 cells differ"));
+  act(() => go("/placement?cmp=1d&filter=disagree&from=2026-09-10T08:00:00Z&to=2026-09-10T09:00:00Z"));
+  await waitFor(() => expect(vi.mocked(requests.getPlacement).mock.calls.some(([, sp]) => sp.kind === "fixed" && sp.to === to - 86_400_000)).toBe(true));
+  await settle();
+  expect(line()).toHaveTextContent(/^Loading the matrix of/);
+  expect(marked()).toHaveLength(0);
+});
+
+// A change of the filter alone keeps the comparison: the count is over
+// every asset whatever the filter, and the matrix kept while the new
+// filter loads is the same system's and range's.
+it("keeps the comparison while a new filter loads", async () => {
+  vi.mocked(requests.getPlacement).mockImplementation(async (_s: string, spec: RangeSpec, filter: string) =>
+    spec.kind === "fixed" ? before() : filter === "all" ? now() : never(),
+  );
+  page("/placement?cmp=1d");
+  await waitFor(() => expect(line()).toHaveTextContent("1 cell differs"));
+  expect(marked()).toHaveLength(1);
+  act(() => go("/placement?cmp=1d&filter=disagree"));
+  await waitFor(() => expect(vi.mocked(requests.getPlacement).mock.calls.some(([, , f]) => f === "disagree")).toBe(true));
+  await settle();
+  expect(line()).toHaveTextContent("1 cell differs");
+  expect(marked()).toHaveLength(1);
+});
