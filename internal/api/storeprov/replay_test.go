@@ -453,3 +453,26 @@ func TestReplayOpenGapNamesNothingAfterBFromStore(t *testing.T) {
 		}
 	}
 }
+
+// A node upgrade Event as the watcher wrote it before it named the node
+// at the top of the payload: the node is the Event's object, and counts.
+func TestReplayCountsANodeEventByItsObject(t *testing.T) {
+	p, r := replayStore(t)
+	r.add("events", map[string]any{"id": 1001, "time": rEpoch(7), "received_at": rEpoch(7), "source": "k8s", "kind": "k8s.node.upgrade",
+		"summary": "node gke-example-pool-1-9b2e NodeUpgrade: upgrading", "raw": `{"reason":"NodeUpgrade","object":{"kind":"Node","name":"gke-example-pool-1-9b2e"}}`})
+	f, err := p.Replay(ctx, replayReq(rEpoch(3), rEpoch(40)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Nodes.Unnamed || f.Nodes.Upgraded != 2 {
+		t.Errorf("nodes = %+v", f.Nodes)
+	}
+	// It folds with the upgrade of gke-example-pool-1-7f3a a minute
+	// before: two named nodes, not two unnamed events.
+	for _, s := range api.FinishReplay(f).GetSteps() {
+		if strings.HasPrefix(s.GetTitle(), "2 nodes upgraded") {
+			return
+		}
+	}
+	t.Error("no step counts the two nodes")
+}

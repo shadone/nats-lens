@@ -399,3 +399,20 @@ func TestOOMKillFromRestart(t *testing.T) {
 		t.Fatalf("oom kills %v (%v)", oom, s.kinds())
 	}
 }
+
+// A node's upgrade Event names the node and its pool in the payload, as
+// the node watch's events do, so that Replay counts it.
+func TestNodeUpgradeEventNamesNodeAndPool(t *testing.T) {
+	tr, s, _ := newTestTracker()
+	tr.podsListed("example", []*corev1.Pod{natsPod("nats-0", "n0", true)}, true)
+	tr.nodesListed([]*corev1.Node{node("n0", "pool-1", "v1")}, true)
+	s.reset()
+	tr.eventObserved(kevent("k", "default", "Node", "n0", "NodeUpgrade", "Normal", "upgrading to 1.34", 1, t0.Add(time.Minute)))
+	e, ok := find(s.all(), KindNodeUpgrade)
+	if !ok {
+		t.Fatalf("kinds %v", s.kinds())
+	}
+	if raw := rawOf(t, e); raw["node"] != "n0" || raw["pool"] != "pool-1" {
+		t.Errorf("raw = %v", raw)
+	}
+}
