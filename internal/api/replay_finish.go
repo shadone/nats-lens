@@ -214,7 +214,7 @@ func (b *replayBuilder) restarts() {
 		if ann != nil {
 			from = ann.GetTime().AsTime()
 		}
-		d.body = joinSentences(announcementText(ann, b.f.EventsCaptured), assetsAfterText(r),
+		d.body = joinSentences(announcementText(ann, b.eventsWhole()), assetsAfterText(r),
 			b.leadersTaken(r, from, r.FirstSeen.Add(b.f.Interval), d))
 		for _, id := range b.findingIDs() {
 			for _, t := range b.byFinding[id] {
@@ -282,7 +282,7 @@ func (b *replayBuilder) stops() {
 		}
 		d.evidence = append(d.evidence, collectionEvidence(s.LastEpoch, s.LastSeen, serverEntity(s.Server)),
 			collectionEvidence(b.f.EpochB, b.f.EpochBAt, nil))
-		d.body = joinSentences(announcementText(ann, b.f.EventsCaptured),
+		d.body = joinSentences(announcementText(ann, b.eventsWhole()),
 			fmt.Sprintf("Last answered at %s; not answering at B.", clockText(s.LastSeen)))
 		b.add(d)
 		if !s.BackAt.IsZero() && b.afterB(s.BackAt) {
@@ -297,6 +297,29 @@ func (b *replayBuilder) stops() {
 // transitionKey identifies a transition: its finding and time.
 func transitionKey(t ReplayTransition) string {
 	return t.FindingID + "@" + t.Time.Format(time.RFC3339Nano)
+}
+
+// eventsWhole reports whether events were captured over all of A to B:
+// some were captured, and no time nats-lens was not running
+// (collector.gap) overlaps A to B. Otherwise the event counts stay unset
+// and a step does not say an announcement was not captured (proposed, not
+// yet confirmed).
+func (b *replayBuilder) eventsWhole() bool {
+	return b.f.EventsCaptured && !b.gapOverlaps(GapCollector)
+}
+
+// kubernetesWhole reports whether Kubernetes was watched over all of A to
+// B: it is watched, and neither a time nats-lens was not running nor a
+// Kubernetes watch gap overlaps A to B.
+func (b *replayBuilder) kubernetesWhole() bool {
+	return b.f.Kubernetes && !b.gapOverlaps(GapCollector) && !b.gapOverlaps(GapKubernetes)
+}
+
+// gapOverlaps reports whether a gap of the kind overlaps A to B.
+func (b *replayBuilder) gapOverlaps(kind string) bool {
+	return slices.ContainsFunc(b.f.Gaps, func(g ReplayGap) bool {
+		return g.Kind == kind && g.Start.Before(b.f.B) && (g.End.IsZero() || g.End.After(b.f.A))
+	})
 }
 
 // findingIDs are the IDs of the findings with transitions, sorted.

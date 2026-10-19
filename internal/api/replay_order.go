@@ -171,7 +171,7 @@ func (b *replayBuilder) counts() *v1.ReplayCounts {
 		c.StreamsGoneWithoutDelete, c.ConsumersGoneWithoutDelete, c.AssetsGoneWithDelete, c.AssetsUnknownAtB =
 			n(streams), n(consumers), n(deleted), n(unknown)
 	}
-	if f.EventsCaptured {
+	if b.eventsWhole() {
 		moved, _, elections := b.elections()
 		m := 0
 		for _, v := range moved {
@@ -197,7 +197,7 @@ func (b *replayBuilder) counts() *v1.ReplayCounts {
 		}
 		c.ClientReconnects = n(int(f.ClientReconnects))
 	}
-	if f.Kubernetes {
+	if b.kubernetesWhole() {
 		c.NodesUpgraded, c.NodesDrained = n(int(f.Nodes.Upgraded)), n(int(f.Nodes.Drained))
 		if f.Nodes.PoolLabels {
 			c.NodePoolsUpgraded = n(int(f.Nodes.Pools))
