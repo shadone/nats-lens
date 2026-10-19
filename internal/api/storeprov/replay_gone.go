@@ -65,6 +65,8 @@ SELECT f.account, f.stream, f.consumer, f.with_it, coalesce(f.stream_holders, f.
     (SELECT e.id FROM events e
      WHERE e.stream = f.stream AND ((e.kind = 'consumer.deleted' AND e.consumer = f.consumer) OR e.kind = 'stream.deleted')
        AND (e.account IS NULL OR e.account = f.account OR e.account IN (SELECT account_name FROM accounts WHERE account = f.account))
+       -- Subtract from the TIMESTAMP column, never from a bound time.Time:
+       -- that binds as TIMESTAMPTZ and compares in the host's time zone.
        AND e.received_at <= $3 AND e.received_at >= x.started_at - INTERVAL 30 SECOND
      ORDER BY (e.kind = 'consumer.deleted') DESC, e.received_at DESC, e.id DESC LIMIT 1) AS delete_id
 FROM facts f JOIN epochs x ON x.epoch = f.last_epoch
