@@ -474,13 +474,16 @@ type ReplayCounts struct {
 	ServersRestarted *int32 `protobuf:"varint,1,opt,name=servers_restarted,json=serversRestarted,proto3,oneof" json:"servers_restarted,omitempty"`
 	// Servers that stopped answering and were not back by B.
 	ServersStopped *int32 `protobuf:"varint,2,opt,name=servers_stopped,json=serversStopped,proto3,oneof" json:"servers_stopped,omitempty"`
-	// Streams in the gone list without a delete event.
+	// Streams in the gone list without a delete event whose holders at A
+	// all answered JSZ at B.
 	StreamsGoneWithoutDelete *int32 `protobuf:"varint,3,opt,name=streams_gone_without_delete,json=streamsGoneWithoutDelete,proto3,oneof" json:"streams_gone_without_delete,omitempty"`
-	// Durable consumers in the gone list without a delete event.
+	// Durable consumers in the gone list without a delete event whose
+	// holders at A all answered JSZ at B.
 	ConsumersGoneWithoutDelete *int32 `protobuf:"varint,4,opt,name=consumers_gone_without_delete,json=consumersGoneWithoutDelete,proto3,oneof" json:"consumers_gone_without_delete,omitempty"`
 	// Streams and durable consumers in the gone list with a delete event.
 	AssetsGoneWithDelete *int32 `protobuf:"varint,5,opt,name=assets_gone_with_delete,json=assetsGoneWithDelete,proto3,oneof" json:"assets_gone_with_delete,omitempty"`
-	// Assets in the gone list with a holder that did not answer JSZ at B.
+	// Assets in the gone list without a delete event and with a holder at
+	// A that did not answer JSZ at B, so they may still exist.
 	AssetsUnknownAtB *int32 `protobuf:"varint,6,opt,name=assets_unknown_at_b,json=assetsUnknownAtB,proto3,oneof" json:"assets_unknown_at_b,omitempty"`
 	// Stream and consumer leader elections that moved the lead to another
 	// server; an election whose previous leader is unknown is not a move.
