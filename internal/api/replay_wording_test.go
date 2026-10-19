@@ -122,3 +122,18 @@ func TestReplayRestartIsAWarning(t *testing.T) {
 		t.Errorf("restart steps = %v", rs)
 	}
 }
+
+// Resolves folded at one time say that time once.
+func TestReplayFoldedResolvesAtOneTime(t *testing.T) {
+	f := facts()
+	f.Transitions = []api.ReplayTransition{
+		tr("consumer-013:APP/o/a", "consumer-013", consumerEnt("o", "a"), rAt(10, 0), firing, critical),
+		tr("consumer-013:APP/o/b", "consumer-013", consumerEnt("o", "b"), rAt(10, 0), firing, critical),
+		tr("consumer-013:APP/o/a", "consumer-013", consumerEnt("o", "a"), rAt(30, 0), resolved, critical),
+		tr("consumer-013:APP/o/b", "consumer-013", consumerEnt("o", "b"), rAt(30, 0), resolved, critical),
+	}
+	rs := stepsOf(api.FinishReplay(f), v1.ReplayStepKind_REPLAY_STEP_KIND_RESOLVED)
+	if len(rs) != 1 || !strings.HasSuffix(rs[0].GetBody(), "Resolved at 09:30:00.") {
+		t.Errorf("resolved = %v", rs)
+	}
+}

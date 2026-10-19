@@ -437,7 +437,9 @@ func (b *replayBuilder) resolves() {
 				d.title = fmt.Sprintf("%s resolved for %s", name, Plural(len(grp), entityNoun(last.Entity.GetType())))
 			}
 			d.body = "Resolved at " + clockText(last.Time) + "."
-			if len(grp) > 1 {
+			if len(grp) > 1 && last.Time.Equal(grp[0].Time) {
+				d.body = joinSentences(listText(labels)+".", d.body)
+			} else if len(grp) > 1 {
 				d.body = joinSentences(listText(labels)+".", "Resolved from "+clockText(grp[0].Time)+" to "+clockText(last.Time)+".")
 			}
 			b.add(d)
