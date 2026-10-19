@@ -80,3 +80,35 @@ func TestReplayEvidenceLabelsDistinct(t *testing.T) {
 		}
 	}
 }
+
+// A gap open at B names no time after B: neither its body nor its
+// evidence, which leaves out the first collection after B.
+func TestReplayOpenGapNamesNothingAfterB(t *testing.T) {
+	f := facts()
+	gapEv := ev(rAt(50, 0), "collector.gap", "", func(e *v1.Event) {
+		e.Summary = "no capture for 40m, from 09:50:00 to 10:30:00"
+		e.ReceivedAt = ts(rAt(90, 0))
+	})
+	f.Gaps = []api.ReplayGap{
+		{Kind: api.GapCollector, Start: rAt(50, 0), End: rAt(90, 0), Event: gapEv},
+		{Kind: api.GapCollections, Start: rAt(50, 0), End: rAt(90, 0), BeforeEpoch: 160, BeforeAt: rAt(50, 0), AfterEpoch: 161, AfterAt: rAt(90, 0)},
+	}
+	gs := stepsOf(api.FinishReplay(f), v1.ReplayStepKind_REPLAY_STEP_KIND_GAP)
+	if len(gs) != 1 {
+		t.Fatalf("gaps = %v", gs)
+	}
+	g := gs[0]
+	text := g.GetBody()
+	for _, e := range g.GetEvidence() {
+		text += " " + e.GetLabel()
+		if e.GetTime().AsTime().After(f.B) {
+			t.Errorf("evidence after B: %v", e)
+		}
+	}
+	if strings.Contains(text, "10:30") || g.GetBody() == "" {
+		t.Errorf("gap names a time after B: body %q, evidence %v", g.GetBody(), g.GetEvidence())
+	}
+	if g.GetEvidenceCount() != 2 {
+		t.Errorf("evidence = %v; want the gap event and the collection before", g.GetEvidence())
+	}
+}

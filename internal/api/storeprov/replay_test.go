@@ -425,3 +425,31 @@ func TestReplayReadsTheAnnouncementWindowOfAStopInAsCollection(t *testing.T) {
 	}
 	t.Errorf("no stop step for nats-2")
 }
+
+// A B inside the missing epochs 25 to 28, with nats-lens not running from
+// before B to after it: the gap step names nothing after B, neither the
+// collector event's end nor the first collection after B.
+func TestReplayOpenGapNamesNothingAfterBFromStore(t *testing.T) {
+	p, r := replayStore(t)
+	r.add("events", map[string]any{"id": 1000, "time": rEpoch(24).Add(5 * time.Second), "received_at": rEpoch(30), "source": "collector",
+		"kind": "collector.gap", "summary": "no capture for 3m, from 09:11:35 to 09:14:30"})
+	f, err := p.Replay(ctx, replayReq(rEpoch(3), rEpoch(26)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range api.FinishReplay(f).GetSteps() {
+		if s.GetKind() != v1.ReplayStepKind_REPLAY_STEP_KIND_GAP {
+			continue
+		}
+		text := s.GetTitle() + " " + s.GetBody()
+		for _, e := range s.GetEvidence() {
+			text += " " + e.GetLabel()
+			if e.GetTime().AsTime().After(rEpoch(26)) {
+				t.Errorf("evidence after B: %v", e)
+			}
+		}
+		if strings.Contains(text, "09:14") {
+			t.Errorf("gap step names a time after B: %s", text)
+		}
+	}
+}
