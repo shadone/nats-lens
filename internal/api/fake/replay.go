@@ -166,9 +166,13 @@ func (s scen) replayTransitions(fs []*v1.Finding, a, until time.Time) []api.Repl
 }
 
 // replayGaps are the times without collections that overlap A to B:
-// before the history starts, and after the data ends.
+// before the history starts, and after the data ends. Without a
+// collection near A to B the gap runs from A, as the store reads it.
 func (s scen) replayGaps(a, b time.Time) []api.ReplayGap {
 	reach := api.ReplayEpochReach * sampleEvery
+	if s.lastEpoch().Before(a.Add(-reach)) || s.dataStart().After(b.Add(reach)) {
+		return []api.ReplayGap{{Kind: api.GapCollections, Start: a}}
+	}
 	var out []api.ReplayGap
 	if first := s.dataStart(); first.Sub(a) > reach && first.Before(b) {
 		_, n, _ := s.epochBefore(&v1.TimeRange{Start: ts(first), End: ts(first.Add(sampleEvery))})
