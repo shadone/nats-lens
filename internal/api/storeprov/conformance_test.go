@@ -241,22 +241,57 @@ func closedStore(t *testing.T, clock time.Time) *store.Store {
 	return st
 }
 
+// replayConformance is the replay fixture of replay_test.go with what
+// the Replay rows read from the system's newest Kubernetes window: pod
+// events of nats-1 and nats-2 that stretch the window from 09:02 to
+// 09:22:10, and the assets of epoch 3 and 40 again at epochs 5 and 45,
+// the collections read as A and B. Its clock is clock.
+func replayConformance(t *testing.T, clock time.Time) *storeprov.Provider {
+	t.Helper()
+	p, r := replayStore(t)
+	p.Clock = func() time.Time { return clock }
+	for i, e := range []struct {
+		at           time.Time
+		kind, server string
+	}{
+		{rEpoch(12), "k8s.pod.started", "nats-1"},
+		{rEpoch(20).Add(10 * time.Second), "k8s.pod.killing", "nats-2"},
+		{rEpoch(45).Add(10 * time.Second), "k8s.pod.started", "nats-2"},
+	} {
+		r.add("events", map[string]any{"id": 500 + i, "time": e.at, "received_at": e.at, "source": "k8s", "kind": e.kind,
+			"server_name": e.server, "summary": e.kind + " " + e.server})
+	}
+	copyStats := func(from, to int) {
+		for _, table := range []string{"stream_stats", "consumer_stats"} {
+			if _, err := p.St.DB().Exec(fmt.Sprintf(`INSERT INTO %[1]s BY NAME (SELECT * REPLACE (%[2]d AS epoch) FROM %[1]s WHERE epoch = %[3]d)`,
+				table, to, from)); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	copyStats(3, 5)
+	// At B nats-1 holds what it held at epoch 40; nats-2 does not answer.
+	copyStats(40, 45)
+	return p
+}
+
 // The store provider shows every state of the conformance table; the fake
 // runs the same table over the demo.
 func TestStoreConformance(t *testing.T) {
 	clock := confAt(confEpochs).Add(30 * time.Second)
 	st, set := conformanceStore(t)
 	at := func() time.Time { return clock }
-	main := &storeprov.Provider{St: st, Interval: confStep, Live: true, Checks: set, Clock: at}
+	main := &storeprov.Provider{St: st, Interval: confStep, Live: true, Checks: set, Clock: at, Retention: 14 * 24 * time.Hour}
 	closed := &storeprov.Provider{St: closedStore(t, clock), Interval: confStep, Live: true, Clock: at}
 	_, c := apitest.ServeHandler(t, &api.Handler{Systems: api.Systems{
 		{Ref: &v1.SystemRef{Id: "main", Name: "main"}, Provider: main},
 		{Ref: &v1.SystemRef{Id: "closed", Name: "closed"}, Provider: closed},
+		{Ref: &v1.SystemRef{Id: "replay", Name: "replay"}, Provider: replayConformance(t, clock)},
 	}})
 	if _, err := c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{System: "main", CheckCode: "stream-007",
 		Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/payments"}, Reason: "Update in review.", MutedBy: "ops",
 		ExpiresAt: timestamppb.New(clock.Add(24 * time.Hour))})); err != nil {
 		t.Fatal(err)
 	}
-	apitest.RunConformance(t, apitest.Env{Client: c, Systems: []string{"main", "closed"}, Now: clock})
+	apitest.RunConformance(t, apitest.Env{Client: c, Systems: []string{"main", "closed", "replay"}, Now: clock})
 }
