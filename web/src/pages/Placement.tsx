@@ -50,8 +50,8 @@ export function Placement() {
   // one kept while it loads may be another system's or range's. One
   // kept across a change of the filter alone is this system's and
   // range's, so the marks stay on it. An error on either side, or of
-  // the matrix on screen before it was read for this system and range,
-  // marks nothing, though the data before it stays.
+  // the filtered matrix while none has loaded for this system and
+  // range, marks nothing, though the data before it stays.
   const here = `${sys}|${rangeKey(spec)}`;
   const shownFor = useRef<string | undefined>(undefined);
   if (q.data !== undefined && !q.isPlaceholderData) shownFor.current = here;
