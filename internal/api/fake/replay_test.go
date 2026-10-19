@@ -53,6 +53,17 @@ func TestDemoReplayStagingGap(t *testing.T) {
 	}
 }
 
+// The last hour of the range of example-staging, whose data ended three
+// hours ago: no collection near A or B, so one gap from A, open at B, as
+// the store reads it.
+func TestDemoReplayStagingGapAfterTheData(t *testing.T) {
+	res := replay(t, fake.StagingSystem, at(13, 30, 0), at(14, 30, 0))
+	steps := res.GetSteps()
+	if len(steps) != 1 || steps[0].GetTitle() != "No collections since 13:30:00, still at B" || !steps[0].GetOpenAtB() {
+		t.Errorf("steps = %v", steps)
+	}
+}
+
 // Before example-staging's history starts there is no collection at A,
 // so no leaders at A; it does not watch Kubernetes.
 func TestDemoReplayFactsBeforeTheHistory(t *testing.T) {
