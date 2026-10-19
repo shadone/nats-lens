@@ -456,3 +456,20 @@ func TestReplayCapsEvidenceAndEntities(t *testing.T) {
 			len(s.GetEntities()), s.GetEntityCount())
 	}
 }
+
+// A restart takes in the server-004 transition of its own time only; a
+// later critical firing of the same finding is a step of its own.
+func TestReplayRestartTakesInOnlyItsOwnRestartFinding(t *testing.T) {
+	f := facts()
+	srv := &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SERVER, Key: "nats-1", Name: "nats-1"}
+	f.Restarts = []api.ReplayRestart{{Server: "nats-1", LastSeen: rAt(10, 0), FirstSeen: rAt(11, 0), OldEpoch: 120, NewEpoch: 122}}
+	f.Transitions = []api.ReplayTransition{
+		tr("server-004:nats-1", "server-004", srv, rAt(11, 0), firing, warning),
+		tr("server-004:nats-1", "server-004", srv, rAt(40, 0), v1.FindingState_FINDING_STATE_CHANGED, critical),
+	}
+	res := api.FinishReplay(f)
+	fs := stepsOf(res, v1.ReplayStepKind_REPLAY_STEP_KIND_FINDING)
+	if len(fs) != 1 || !fs[0].GetTime().AsTime().Equal(rAt(40, 0)) || fs[0].GetSeverity() != critical {
+		t.Errorf("finding steps = %v", fs)
+	}
+}

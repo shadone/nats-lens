@@ -336,7 +336,8 @@ func (b *replayBuilder) findings() {
 			continue
 		}
 		for _, t := range all {
-			if t.State != v1.FindingState_FINDING_STATE_RESOLVED && t.Severity >= v1.Severity_SEVERITY_WARNING && b.inRange(t.Time) {
+			if t.State != v1.FindingState_FINDING_STATE_RESOLVED && t.Severity >= v1.Severity_SEVERITY_WARNING && b.inRange(t.Time) &&
+				!b.takenIn[transitionKey(t)] {
 				trs = append(trs, t)
 			}
 		}
