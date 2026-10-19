@@ -2,7 +2,7 @@
 // step's time reads, where its evidence links to, and the count tiles.
 import type { GoneAsset, Replay, ReplayCounts, ReplayEvidence, ReplayStep, ReplayStepKind } from "../api/adapt-replay";
 import type { Entity } from "../api/model";
-import { dayMon, hm, hms } from "./format";
+import { dayMon, dayMonHm, hm, hms } from "./format";
 import { momentIso, type Moments } from "./replayUrl";
 import { entityPath, eventPath, findingPath } from "./view";
 
@@ -146,9 +146,12 @@ export function countTiles(c: ReplayCounts): CountTile[] {
 }
 
 /** What may be missing from the steps, one sentence each. */
-export function stepNotes(r: Pick<Replay, "stepsTruncated" | "stepsOmitted" | "completeUntil">): string[] {
+export function stepNotes(r: Pick<Replay, "a" | "b" | "stepsTruncated" | "stepsOmitted" | "completeUntil">): string[] {
   const out: string[] = [];
-  if (r.completeUntil !== undefined) out.push(`Steps after ${hm(r.completeUntil)} may be missing: the read limit was reached.`);
+  if (r.completeUntil !== undefined) {
+    const at = dayMon(r.a) === dayMon(r.b) ? hm(r.completeUntil) : dayMonHm(r.completeUntil);
+    out.push(`Steps after ${at} may be missing: the read limit was reached.`);
+  }
   if (r.stepsOmitted > 0) {
     out.push(
       `${r.stepsOmitted} ${r.stepsOmitted === 1 ? "step was" : "steps were"} left out to keep at most 200 between A and B and 10 after B; critical, warning, restart, gone and gap steps are kept first.`,
