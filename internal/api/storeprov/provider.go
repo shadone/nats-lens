@@ -47,6 +47,10 @@ type Provider struct {
 	// those a connection name names; their failures are drawn on the
 	// Kubernetes lane. Nil matches none.
 	ClientPods *regexp.Regexp
+	// Kubernetes is whether nats-lens watches Kubernetes for this system
+	// (kubernetes.enabled); without it Replay leaves the node counts
+	// unset.
+	Kubernetes bool
 
 	podCache podNameCache
 }
