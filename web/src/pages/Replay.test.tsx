@@ -165,6 +165,17 @@ describe("Replay", () => {
     }
   });
 
+  it("gives the link in the status when the clipboard refuses it", async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(navigator, "clipboard", { value: { writeText: vi.fn(() => Promise.reject(new Error("Write permission denied."))) }, configurable: true });
+    renderApp(<Replay />, `/replay?system=example-prod&${FIXED}&${AB}`);
+    await screen.findByText("nats-1 restarts at 09:14");
+    await user.click(screen.getByRole("button", { name: "Copy link to A–B" }));
+    const status = await screen.findByText(/^Could not copy the link \(Write permission denied\.\): http/);
+    expect(status).toHaveAttribute("role", "status");
+    expect(status).toHaveTextContent(`${window.location.origin}/replay?system=example-prod&`);
+  });
+
   it("exports the story as a text file named by system and moments", async () => {
     let saved: Blob | undefined;
     const create = vi.fn((b: Blob) => {
