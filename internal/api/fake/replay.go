@@ -35,7 +35,8 @@ func (p *Provider) Replay(_ context.Context, req *v1.GetReplayRequest) (*api.Rep
 	f.ReadFrom = api.ReplayReadFrom(f)
 	_, _, f.Collected = s.epochBefore(&v1.TimeRange{Start: ts(a), End: ts(b.Add(time.Nanosecond))})
 	all := p.events(s)
-	f.EventsCaptured = len(all) > 0
+	// As the store reads it: any event stored up to B.
+	f.EventsCaptured = slices.ContainsFunc(all, func(e *v1.Event) bool { return !e.GetTime().AsTime().After(b) })
 	kinds := api.ReplayEventKinds()
 	for _, e := range all {
 		at := e.GetTime().AsTime()

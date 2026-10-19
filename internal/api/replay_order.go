@@ -210,10 +210,12 @@ func (b *replayBuilder) counts() *v1.ReplayCounts {
 		c.StreamsGoneWithoutDelete, c.ConsumersGoneWithoutDelete, c.AssetsGoneWithDelete, c.AssetsUnknownAtB =
 			n(streams), n(consumers), n(deleted), n(unknown)
 	}
-	// Event capture over A to B; the counts from the event rows also need
+	// Event capture over A to B, and collections at A, at B and between
+	// (without them nothing shows that the events were captured; proposed,
+	// not yet confirmed); the counts from the event rows also need
 	// the read limit not to have cut them, the reconnects (read by a query
 	// of their own) do not.
-	if f.EventsCaptured && !b.gapOverlaps(GapCollector, f.A, f.B) {
+	if f.EventsCaptured && f.EpochA != 0 && f.EpochB != 0 && !b.gapOverlaps(GapCollector, f.A, f.B) && !b.gapOverlaps(GapCollections, f.A, f.B) {
 		moved, _, elections := b.elections()
 		m := 0
 		for _, v := range moved {
