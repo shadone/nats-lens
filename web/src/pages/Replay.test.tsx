@@ -228,6 +228,20 @@ describe("Replay", () => {
     expect(screen.getByText('The link\'s A "garbage" is not a valid UTC time, so a default was used.')).toBeInTheDocument();
   });
 
+  it("does not bring a link's note back after a move away and back", async () => {
+    renderApp(<Replay />, `/replay?system=example-prod&${FIXED}&a=garbage&b=2026-10-17T09:50:00Z`);
+    await waitFor(() => expect(location()).toContain("a=2026-10-17T08:50:00Z&b=2026-10-17T09:50:00Z"));
+    expect(screen.getByText(/garbage/)).toBeInTheDocument();
+    const a = screen.getByRole("slider", { name: "Moment A" });
+    fireEvent.keyDown(a, { key: "ArrowRight" });
+    fireEvent.keyUp(a, { key: "ArrowRight" });
+    await waitFor(() => expect(location()).toContain("a=2026-10-17T08:55:00Z"));
+    fireEvent.keyDown(a, { key: "ArrowLeft" });
+    fireEvent.keyUp(a, { key: "ArrowLeft" });
+    await waitFor(() => expect(location()).toContain("a=2026-10-17T08:50:00Z"));
+    expect(screen.queryByText(/garbage/)).toBeNull();
+  });
+
   it("writes a B after now into the link as now, so it no longer moves with the clock", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(T("2026-10-17T12:00:00Z"));

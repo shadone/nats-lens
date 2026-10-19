@@ -77,7 +77,11 @@ export function Replay() {
   }, [resolved?.write, resolved?.a, resolved?.b]);
   const linkNotes = kept.link === `${rawA}|${rawB}` ? kept.notes : (resolved?.notes ?? []);
 
-  const setMoments = (m: Moments) => setParams((p) => writeMoments(p, m), { replace: true });
+  // A move of the user's own ends what the link's notes said.
+  const setMoments = (m: Moments) => {
+    setKept({ link: "", notes: [] });
+    setParams((p) => writeMoments(p, m), { replace: true });
+  };
 
   const settled = useSettledMoments(moments?.a, moments?.b);
   const q = useReplay(settled.a, settled.b);
