@@ -818,7 +818,8 @@ export enum ReplayUnobservedReason {
   NODE_UNNAMED = 10,
 
   /**
-   * No upgraded node carried a node pool label.
+   * An upgraded node carried no node pool label, so the pools cannot be
+   * counted.
    *
    * @generated from enum value: REPLAY_UNOBSERVED_REASON_NO_POOL_LABELS = 11;
    */

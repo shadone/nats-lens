@@ -297,7 +297,8 @@ type ReplayGap struct {
 // ReplayNodes counts Kubernetes node changes.
 type ReplayNodes struct {
 	Upgraded, Drained, Pools int32
-	// PoolLabels is whether an upgraded node carried a node pool label;
+	// PoolLabels is whether every upgraded node carried a node pool
+	// label, so that the pools can be counted;
 	// Unnamed whether a node event between A and B named no node, which
 	// leaves the node counts unset, as they cannot be told apart.
 	PoolLabels, Unnamed bool

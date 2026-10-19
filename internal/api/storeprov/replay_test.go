@@ -467,7 +467,8 @@ func TestReplayCountsANodeEventByItsObject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Nodes.Unnamed || f.Nodes.Upgraded != 2 {
+	// Its pool is not known, so the pools upgraded cannot be counted.
+	if f.Nodes.Unnamed || f.Nodes.Upgraded != 2 || f.Nodes.PoolLabels {
 		t.Errorf("nodes = %+v", f.Nodes)
 	}
 	// It folds with the upgrade of gke-example-pool-1-7f3a a minute
