@@ -44,7 +44,12 @@ export function Placement() {
   // matrix (the same call as the matrix itself when no filter applies).
   const cq = usePlacement(compareSpec(at ?? 0), "all", at !== undefined, `${sys}|${rangeKey(spec)}|${cmp}`);
   const all = usePlacement(spec, "all", at !== undefined);
-  const changed = useMemo(() => (all.data && cq.data && at !== undefined ? diff(all.data, cq.data) : undefined), [all.data, cq.data, at]);
+  // The current side counts only once it is this system's and range's
+  // own matrix, not the previous one kept while it loads. An error on
+  // either side marks nothing, though the data before it stays.
+  const failed = cq.error ?? all.error;
+  const current = all.isPlaceholderData ? undefined : all.data;
+  const changed = useMemo(() => (current && cq.data && at !== undefined && !failed ? diff(current, cq.data) : undefined), [current, cq.data, at, failed]);
   const panel = useRef<HTMLDivElement>(null);
 
   const set = (next: Record<string, string>, push = false) =>
@@ -111,9 +116,9 @@ export function Placement() {
       </div>
       {at !== undefined && (
         <p className="pm-cmp-line" role="status">
-          {cq.error || all.error
-            ? `Could not load the matrix to compare with: ${errorText(cq.error ?? all.error)}`
-            : !cq.data || !all.data
+          {failed
+            ? `Could not load the matrix to compare with: ${errorText(failed)}`
+            : !cq.data || !current
               ? `Loading the matrix of ${momentText(at)}…`
               : cq.data.epochAt === undefined
                 ? `No collection in the hour before ${momentText(at)}; nothing to compare with.`
