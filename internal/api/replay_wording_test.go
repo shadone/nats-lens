@@ -55,8 +55,27 @@ func TestReplayKubernetesBodyAddsToTitle(t *testing.T) {
 			t.Errorf("step %q does not name its window: %q", s.GetTitle(), s.GetBody())
 		}
 	}
-	if ks[2].GetBody() != "pod nats-4: 0/4 nodes are available" {
+	if ks[2].GetBody() != "0/4 nodes are available." {
 		t.Errorf("failure body = %q", ks[2].GetBody())
+	}
+}
+
+// A pod failure's body is its reason as a sentence, from the Event's note
+// when the payload has one, then the window it lies in.
+func TestReplayPodFailureReasonInAWindow(t *testing.T) {
+	f := facts()
+	f.Events = []*v1.Event{
+		ev(rAt(10, 0), "k8s.pod.failed_scheduling", "nats-4", func(e *v1.Event) {
+			e.Summary = "pod nats-4 FailedScheduling: 0/4 nodes are available: 4 Insufficient memory (x3)"
+			e.Raw = `{"reason":"FailedScheduling","note":"0/4 nodes are available: 4 Insufficient memory"}`
+		}),
+		ev(rAt(40, 0), "k8s.pod.backoff", "nats-4", func(e *v1.Event) { e.Summary = "pod nats-4 BackOff: back-off restarting failed container (x2)" }),
+	}
+	f.Windows = []*v1.TimeWindow{{Start: ts(rAt(4, 0)), End: ts(rAt(25, 0)), Label: "GKE node upgrade"}}
+	ks := stepsOf(api.FinishReplay(f), v1.ReplayStepKind_REPLAY_STEP_KIND_KUBERNETES)
+	if len(ks) != 2 || ks[0].GetBody() != "0/4 nodes are available: 4 Insufficient memory. Within the GKE node upgrade window, 09:04–09:25." ||
+		ks[1].GetBody() != "Back-off restarting failed container." {
+		t.Errorf("steps = %v", ks)
 	}
 }
 

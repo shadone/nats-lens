@@ -143,6 +143,38 @@ func rawNode(e *v1.Event) string {
 	return m.Node
 }
 
+// podReason is the reason a pod event gives: the Event's note, else its
+// summary after the first colon, without a repeat count ("(x3)").
+func podReason(e *v1.Event) string {
+	var m struct {
+		Note string `json:"note"`
+	}
+	if e.GetRaw() != "" && json.Unmarshal([]byte(e.GetRaw()), &m) == nil && m.Note != "" {
+		return m.Note
+	}
+	s := e.GetSummary()
+	if _, after, ok := strings.Cut(s, ": "); ok {
+		s = after
+	}
+	if i := strings.LastIndex(s, " (x"); i >= 0 && strings.HasSuffix(s, ")") {
+		s = s[:i]
+	}
+	return s
+}
+
+// sentence makes a sentence of a text: a capital first letter and a
+// full stop; empty stays empty.
+func sentence(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	if !strings.HasSuffix(s, ".") && !strings.HasSuffix(s, "!") && !strings.HasSuffix(s, "?") {
+		s += "."
+	}
+	return capitalize(s)
+}
+
 // k8sTitle is the title of one Kubernetes event's step.
 func k8sTitle(e *v1.Event) string {
 	node, server := rawNode(e), e.GetServer()

@@ -37,7 +37,7 @@ func (b *replayBuilder) k8s() {
 		switch first.GetKind() {
 		case "k8s.pod.failed_scheduling", "k8s.pod.backoff", "k8s.pod.oom_killed":
 			// The reason Kubernetes gives, which the title leaves out.
-			d.severity, d.body = v1.Severity_SEVERITY_WARNING, last.GetSummary()
+			d.severity, d.body = v1.Severity_SEVERITY_WARNING, sentence(podReason(last))
 		}
 		d.body = joinSentences(d.body, b.windowText(at(first)))
 		if len(grp) == 1 {
