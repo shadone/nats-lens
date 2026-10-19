@@ -79,7 +79,7 @@ func FinishReplay(f *ReplayFacts) *v1.GetReplayResponse {
 	if res.GoneTruncated {
 		res.Gone = gone[:maxGoneAssets]
 	}
-	res.Counts = b.counts()
+	res.Counts, res.Unobserved = b.counts()
 	return res
 }
 
@@ -323,13 +323,6 @@ func transitionKey(t ReplayTransition) string {
 // (proposed, not yet confirmed).
 func (b *replayBuilder) capturedOver(from, to time.Time) bool {
 	return b.f.EventsCaptured && !from.Before(b.f.ReadFrom) && (!b.f.EventsTruncated || to.Before(b.f.EventsReadUntil)) && !b.gapOverlaps(GapCollector, from, to)
-}
-
-// kubernetesWhole reports whether Kubernetes was watched over all of A to
-// B: it is watched, and neither a time nats-lens was not running nor a
-// Kubernetes watch gap overlaps A to B.
-func (b *replayBuilder) kubernetesWhole() bool {
-	return b.f.Kubernetes && !b.gapOverlaps(GapCollector, b.f.A, b.f.B) && !b.gapOverlaps(GapKubernetes, b.f.A, b.f.B)
 }
 
 // completeUntil is the earlier of the times the read limit cut the events

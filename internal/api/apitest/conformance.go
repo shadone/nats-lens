@@ -464,6 +464,33 @@ func replayRows() []State {
 			}
 			return fmt.Sprintf("%d steps, %d gone", len(res.GetSteps()), len(res.GetGone()))
 		})},
+		{"every unset Replay count says why, and only those, in every system", everySystem(func(q Q) string {
+			res := q.replay()
+			c := res.GetCounts().ProtoReflect()
+			unset := map[string]bool{}
+			fs := c.Descriptor().Fields()
+			for i := range fs.Len() {
+				if !c.Has(fs.Get(i)) {
+					unset[string(fs.Get(i).Name())] = true
+				}
+			}
+			listed := map[string]bool{}
+			for _, u := range res.GetUnobserved() {
+				if !unset[u.GetCount()] || listed[u.GetCount()] || u.GetReason() == v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_UNSPECIFIED {
+					q.t.Errorf("system %q: %v names a set count, a count twice or no reason", q.System, u)
+					return ""
+				}
+				listed[u.GetCount()] = true
+			}
+			if len(listed) != len(unset) {
+				q.t.Errorf("system %q: unset %v, listed %v", q.System, unset, listed)
+				return ""
+			}
+			if len(unset) == 0 {
+				return ""
+			}
+			return fmt.Sprintf("%d unset", len(unset))
+		})},
 		{"a Replay with A older than the retention is invalid_argument", func(q Q) string {
 			ret := must(q.env.Client.GetLensInfo(ctx, connect.NewRequest(&v1.GetLensInfoRequest{System: q.System}))).of(q.t).GetRetention()
 			if ret == nil || ret.AsDuration() <= 0 {
