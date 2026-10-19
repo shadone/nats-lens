@@ -7,7 +7,7 @@
 .rs-track{--chip:68px;position:relative;height:88px;touch-action:none;cursor:pointer;user-select:none}
 .rs-track.dragging{cursor:grabbing}
 .rs-strip{position:absolute;left:0;right:0;top:0;width:100%;height:26px;display:block}
-.rs-wins{position:absolute;left:0;right:0;top:32px;height:22px}
+.rs-wins{position:absolute;left:0;right:0;top:32px;height:22px;z-index:1}
 .rs-win{position:absolute;top:0;height:22px;min-width:6px;padding:0;border:0;border-radius:5px;background:var(--k8s-bg);color:var(--k8s);cursor:pointer;overflow:visible}
 .rs-wl{position:absolute;left:0;top:0;padding:0 8px;border-radius:5px;background:var(--k8s-bg);font:11px/22px var(--mono);white-space:nowrap;pointer-events:none}
 .rs-win.end .rs-wl{left:auto;right:0}
@@ -39,6 +39,7 @@
 .rp-list.days .rp-step{grid-template-columns:128px 22px minmax(0,1fr)}
 .rp-when{font:12.5px/1.45 var(--mono);color:var(--text-muted);padding-top:1px}
 .rp-when time,.rp-to{display:block;white-space:nowrap}
+.rp-to time{display:inline}
 .rp-rail{display:flex;flex-direction:column;align-items:center}
 .rp-dot{flex:none;width:12px;height:12px;margin-top:4px;border-radius:50%;border:1.5px solid var(--text-muted);background:transparent;box-sizing:border-box}
 .rp-dot.critical{background:var(--cell-critical);border-color:var(--cell-critical)}
