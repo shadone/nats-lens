@@ -1,8 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Timeline } from "../api/model";
-import { handleText, moveHandle, ReplayScrubber } from "./ReplayScrubber";
+import { chipLefts, handleText, moveHandle, ReplayScrubber } from "./ReplayScrubber";
 
 const T = (s: string) => Date.parse(s);
 const NOW = T("2026-10-17T12:00:00Z");
@@ -53,29 +53,26 @@ describe("ReplayScrubber", () => {
     await userEvent.keyboard("{ArrowRight}");
     expect(onChange).toHaveBeenLastCalledWith({ a: A + BUCKET, b: B });
     await userEvent.keyboard("{ArrowLeft}");
-    expect(onChange).toHaveBeenLastCalledWith({ a: A - BUCKET, b: B });
+    expect(onChange).toHaveBeenLastCalledWith({ a: A, b: B });
     await userEvent.keyboard("{Shift>}{ArrowLeft}{/Shift}");
     expect(onChange).toHaveBeenLastCalledWith({ a: A - 10 * BUCKET, b: B });
     await userEvent.keyboard("{ArrowDown}");
-    expect(onChange).toHaveBeenLastCalledWith({ a: A - BUCKET, b: B });
+    expect(onChange).toHaveBeenLastCalledWith({ a: A - 11 * BUCKET, b: B });
   });
 
   it("sends Home and End to the ends each handle may reach", () => {
-    const onChange = setup();
-    const a = screen.getByRole("slider", { name: "Moment A" });
-    const b = screen.getByRole("slider", { name: "Moment B" });
-    fireEvent.keyDown(a, { key: "Home" });
-    fireEvent.keyUp(a, { key: "Home" });
-    expect(onChange).toHaveBeenLastCalledWith({ a: START, b: B });
-    fireEvent.keyDown(a, { key: "End" });
-    fireEvent.keyUp(a, { key: "End" });
-    expect(onChange).toHaveBeenLastCalledWith({ a: B - 30_000, b: B });
-    fireEvent.keyDown(b, { key: "Home" });
-    fireEvent.keyUp(b, { key: "Home" });
-    expect(onChange).toHaveBeenLastCalledWith({ a: A, b: A + 30_000 });
-    fireEvent.keyDown(b, { key: "End" });
-    fireEvent.keyUp(b, { key: "End" });
-    expect(onChange).toHaveBeenLastCalledWith({ a: A, b: NOW });
+    const press = (name: string, key: string) => {
+      const onChange = setup();
+      const h = screen.getByRole("slider", { name });
+      fireEvent.keyDown(h, { key });
+      fireEvent.keyUp(h, { key });
+      cleanup();
+      return onChange.mock.calls.at(-1)?.[0];
+    };
+    expect(press("Moment A", "Home")).toEqual({ a: START, b: B });
+    expect(press("Moment A", "End")).toEqual({ a: B - 30_000, b: B });
+    expect(press("Moment B", "Home")).toEqual({ a: A, b: A + 30_000 });
+    expect(press("Moment B", "End")).toEqual({ a: A, b: NOW });
   });
 
   it("keeps A before B, B before now and the span within 24 hours", () => {
@@ -115,7 +112,7 @@ describe("ReplayScrubber", () => {
     expect(onChange).toHaveBeenLastCalledWith({ a: A, b: T("2026-10-17T10:05:00Z") });
     fireEvent.change(screen.getByLabelText("A (UTC)"), { target: { value: "2026-10-17T09:20" } });
     fireEvent.keyDown(screen.getByLabelText("A (UTC)"), { key: "Enter" });
-    expect(onChange).toHaveBeenLastCalledWith({ a: T("2026-10-17T09:20:00Z"), b: B });
+    expect(onChange).toHaveBeenLastCalledWith({ a: T("2026-10-17T09:20:00Z"), b: T("2026-10-17T10:05:00Z") });
   });
 
   it("tells the page of a held arrow key once, when it is let go", () => {
@@ -163,6 +160,75 @@ describe("ReplayScrubber", () => {
     const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ left: 0, width: 1000, top: 0, height: 88, right: 1000, bottom: 88, x: 0, y: 0, toJSON: () => ({}) } as DOMRect);
     const { container } = render(<ReplayScrubber start={START} end={NOW} live now={NOW} strip={strip()} moments={{ a: A, b: B }} minGapMs={30_000} onChange={() => {}} />);
     expect([...container.querySelectorAll(".rs-axis span")].map((s) => s.textContent)).toEqual(["07:00", "08:00", "09:00", "10:00", "11:00", "now"]);
+    rect.mockRestore();
+  });
+
+  it("never lets the chips overlap, B at the right end included", () => {
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ left: 0, width: 1000, top: 0, height: 88, right: 1000, bottom: 88, x: 0, y: 0, toJSON: () => ({}) } as DOMRect);
+    render(<ReplayScrubber start={START} end={NOW} live now={NOW} strip={strip()} moments={{ a: NOW - 3_600_000, b: NOW }} minGapMs={30_000} onChange={() => {}} />);
+    const left = (name: string) => parseFloat((screen.getByRole("slider", { name }) as HTMLElement).style.left);
+    expect(left("Moment B")).toBe(1000 - 68);
+    expect(left("Moment A")).toBeLessThanOrEqual(1000 - 2 * 68);
+    rect.mockRestore();
+    // The mirror at the left end, and a narrow track.
+    expect(chipLefts(0, 5, 1000, 68)).toEqual({ a: 0, b: 68 });
+    expect(chipLefts(320, 330, 330, 26)).toEqual({ a: 278, b: 304 });
+    expect(chipLefts(400, 600, 1000, 68)).toEqual({ a: 332, b: 600 });
+  });
+
+  it("shows a bucket with an info and a muted check as muted", () => {
+    const s = strip();
+    s.rows = [
+      { ...s.rows[0], key: "x", cells: s.rows[0].cells.map(() => "info") },
+      { ...s.rows[0], key: "y", cells: s.rows[0].cells.map((c, i) => (i === 30 ? "muted" : "ok")) },
+    ];
+    const { container } = render(<ReplayScrubber start={START} end={NOW} live now={NOW} strip={s} moments={{ a: A, b: B }} minGapMs={30_000} onChange={() => {}} />);
+    expect(container.querySelectorAll('rect[data-level="muted"]')).toHaveLength(1);
+  });
+
+  it("applies a held arrow once, whatever other key is let go meanwhile", () => {
+    const onChange = setup();
+    const a = screen.getByRole("slider", { name: "Moment A" });
+    fireEvent.keyDown(a, { key: "ArrowRight" });
+    fireEvent.keyDown(a, { key: "Shift" });
+    fireEvent.keyUp(a, { key: "Shift" });
+    fireEvent.keyDown(a, { key: "ArrowRight" });
+    fireEvent.keyUp(a, { key: "ArrowRight" });
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a typed A when a press on B starts a move", () => {
+    const onChange = setup();
+    const input = screen.getByLabelText("A (UTC)");
+    input.focus();
+    fireEvent.change(input, { target: { value: "2026-10-17T08:00" } });
+    const b = screen.getByRole("slider", { name: "Moment B" });
+    fireEvent.pointerDown(b, { button: 0, pointerId: 1 });
+    fireEvent.keyDown(b, { key: "ArrowRight" });
+    fireEvent.keyUp(b, { key: "ArrowRight" });
+    expect(onChange.mock.calls.at(-1)![0]).toEqual({ a: T("2026-10-17T08:00:00Z"), b: B + BUCKET });
+  });
+
+  it("holds a typed moment to the handles' rules", () => {
+    const onChange = setup();
+    const input = screen.getByLabelText("A (UTC)");
+    fireEvent.change(input, { target: { value: "2026-12-19T08:00" } });
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenLastCalledWith({ a: B - 30_000, b: B });
+    const bIn = screen.getByLabelText("B (UTC)");
+    fireEvent.change(bIn, { target: { value: "2026-10-18T08:00" } });
+    fireEvent.blur(bIn);
+    expect(onChange).toHaveBeenLastCalledWith({ a: B - 30_000, b: NOW });
+  });
+
+  it("puts the handle back when the pointer is cancelled", () => {
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ left: 0, width: 720, top: 0, height: 88, right: 720, bottom: 88, x: 0, y: 0, toJSON: () => ({}) } as DOMRect);
+    const onChange = setup();
+    const track = document.querySelector(".rs-track")!;
+    fireEvent.pointerDown(track, { button: 0, clientX: 600, pointerId: 1 });
+    fireEvent.pointerCancel(track, { pointerId: 1 });
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("slider", { name: "Moment B" })).toHaveAttribute("aria-valuetext", handleText("b", B));
     rect.mockRestore();
   });
 });
