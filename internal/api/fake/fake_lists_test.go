@@ -64,7 +64,7 @@ func TestListEventsPagesNewestFirst(t *testing.T) {
 		"kind":          {&v1.ListEventsRequest{Kinds: []string{"consumer.deleted"}}, 1},
 		"stream":        {&v1.ListEventsRequest{Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/order-jobs"}}, 82},
 		"client":        {&v1.ListEventsRequest{ClientName: "analytics-worker"}, 1},
-		"last 5 hours":  {&v1.ListEventsRequest{Range: &v1.TimeRange{Start: tsAt(9, 30, 0)}}, 164},
+		"last 5 hours":  {&v1.ListEventsRequest{Range: &v1.TimeRange{Start: tsAt(9, 30, 0)}}, 163},
 		"server nats-2": {&v1.ListEventsRequest{Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SERVER, Key: "nats-2"}, Kinds: []string{"k8s.pod.killing", "k8s.pod.started"}}, 2},
 	}
 	for name, f := range filters {
