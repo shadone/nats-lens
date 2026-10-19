@@ -2,10 +2,11 @@
 
 Phase 1 is complete on `develop` (see `phase-1.md`). This note is the starting point for the next session.
 
-## State on 2026-10-18, evening
+## State on 2026-10-19
 
-- Items 1 to 3 below are done and merged on `develop`. `develop` is **not pushed**; the owner pushes when ready. Go tests, web tests and the feature-docs audit pass on `develop`.
-- **Placement page, open branch `feat/placement-page`** in the worktree `../nats-lens-placement` (head `3cb8213`). Built, then three review rounds; rounds 1 and 2 were fixed and reviewed, and the fixes of round 2 (`1579dc9`, `4459060`, `3cb8213`) still need a fresh review. The review of them was stopped when the session paused. Next: a fresh reviewer for `b9c0e4a..3cb8213`, fixes if any, then merge with the tests run before the merge commit. The branch also edits items 4 and 5 below.
+- Items 1 to 3 below and the Placement page are done and merged on `develop`. `develop` is **not pushed**; the owner pushes when ready. Go tests, web tests and the feature-docs audit pass on `develop`.
+- **Placement page** merged on 2026-10-19 (`8011d15`) after seven review rounds; the later rounds fixed the comparison with an earlier time, which could mark cells from another system's or range's matrix, or stay on "Loading" when a load failed. Its leftovers are in item 5. The worktree `../nats-lens-placement` can be removed.
+- Next: the next phase 2 page of item 4, or leftovers of item 5, as the owner chooses.
 - Phase 1 decisions: the owner confirmed those listed in `docs/design.md` under "Owner review of proposed decisions, 2026-10-17".
 - The design canvas the phase 2 pages come from is the claude.ai artifact <https://claude.ai/artifact/Lz4Tsej5k1XHDdfV1kbLJD> (one board per page, such as `Placement.dc.html`).
 
@@ -30,7 +31,7 @@ Made in the session that built them, not confirmed. Each is also written in `doc
 - Connections names its servers from `ListConnections`: every server seen in the range, also servers without connections. The Consumers stream filter is not polled.
 - `GetShellStatus`: the page system's part gets 10 s; a failure keeps the system list and returns `error_code` and `error`; badges are kept one collect interval and refreshed in the background; a first badge waits at most 500 ms and is otherwise `pending`. The Fleet badge can trail the Fleet cards by up to two intervals.
 - The demo: `stock-poller` fires `client-005`; the demo choices listed in the Demo section of `docs/design.md`.
-- Placement (on the open branch): the odd copy is the value most servers report, the leader's on a tie; only durable consumers; "servers disagree" also counts a differing creation time; open questions in the review: KV and object stores sort before plain streams, and `example-global`'s "All" view shows 24 columns.
+- Placement: a change of the filter alone keeps the comparison line and marks while the filtered matrix loads, and keeps the line if that load fails (2026-10-19); the odd copy is the value most servers report, the leader's on a tie; only durable consumers; "servers disagree" also counts a differing creation time; open questions in the review: KV and object stores sort before plain streams, and `example-global`'s "All" view shows 24 columns.
 
 ## Real data seen on 2026-10-18
 
