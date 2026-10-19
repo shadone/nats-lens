@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { clampMoments, type Moments } from "../lib/replayUrl";
 import type { Timeline } from "../api/model";
 import { chipLefts, handleText, moveHandle, ReplayScrubber } from "./ReplayScrubber";
 
@@ -27,11 +29,34 @@ function strip(): Timeline {
   };
 }
 
-function setup(over: { a?: number; b?: number } = {}) {
-  const onChange = vi.fn();
-  render(
-    <ReplayScrubber start={START} end={NOW} live now={NOW} strip={strip()} moments={{ a: over.a ?? A, b: over.b ?? B }} minGapMs={30_000} onChange={onChange} />,
+/**
+ * The scrubber under a parent that keeps the moments and reads what it
+ * hears as the page does: clamped to what GetReplay accepts and cut to the
+ * second.
+ */
+function Page({ initial, onChange, strip: st = strip() }: { initial: Moments; onChange: (m: Moments) => void; strip?: Timeline }) {
+  const [m, setM] = useState(initial);
+  return (
+    <ReplayScrubber
+      start={START}
+      end={NOW}
+      live
+      now={NOW}
+      strip={st}
+      moments={m}
+      minGapMs={30_000}
+      onChange={(next) => {
+        onChange(next);
+        const c = clampMoments(next, NOW, 30_000);
+        setM({ a: Math.floor(c.a / 1000) * 1000, b: Math.floor(c.b / 1000) * 1000 });
+      }}
+    />
   );
+}
+
+function setup(over: { a?: number; b?: number; strip?: Timeline } = {}) {
+  const onChange = vi.fn();
+  render(<Page initial={{ a: over.a ?? A, b: over.b ?? B }} onChange={onChange} strip={over.strip} />);
   return onChange;
 }
 
@@ -230,5 +255,17 @@ describe("ReplayScrubber", () => {
     expect(onChange).not.toHaveBeenCalled();
     expect(screen.getByRole("slider", { name: "Moment B" })).toHaveAttribute("aria-valuetext", handleText("b", B));
     rect.mockRestore();
+  });
+
+  it("moves from the moments the page shows after a window it clamped", () => {
+    const st = strip();
+    st.windows = [{ start: NOW - 30 * 3_600_000, end: NOW - 15 * 60_000, label: "GKE node upgrade", detail: "" }];
+    const b0 = NOW - 10 * 60_000;
+    const onChange = setup({ a: b0 - 24 * 3_600_000, b: b0, strip: st });
+    fireEvent.click(screen.getByRole("button", { name: /^Replay GKE node upgrade/ }));
+    const b = screen.getByRole("slider", { name: "Moment B" });
+    fireEvent.keyDown(b, { key: "ArrowLeft" });
+    fireEvent.keyUp(b, { key: "ArrowLeft" });
+    expect(onChange).toHaveBeenLastCalledWith({ a: b0 - 24 * 3_600_000, b: b0 - BUCKET });
   });
 });

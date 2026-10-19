@@ -79,6 +79,8 @@ export function Replay() {
 
   // A move of the user's own ends what the link's notes said.
   const setMoments = (m: Moments) => {
+    // Moments the link already says change nothing, and keep its notes.
+    if (momentIso(m.a) === rawA && momentIso(m.b) === rawB) return;
     setKept({ link: "", notes: [] });
     setParams((p) => writeMoments(p, m), { replace: true });
   };

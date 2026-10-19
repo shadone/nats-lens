@@ -4,10 +4,10 @@
 // and two UTC inputs. A moving handle is drawn from local state; the
 // moments go to the page once it rests (pointer up, key up, blur), so the
 // URL is written once per move.
-import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { Level, Timeline, Window } from "../api/model";
 import { dayMon, dayMonHm, hm } from "../lib/format";
-import { MAX_SPAN_MS, rangeNotes, windowMoments, type Moments } from "../lib/replayUrl";
+import { MAX_SPAN_MS, clampMoments, rangeNotes, windowMoments, type Moments } from "../lib/replayUrl";
 import { worstPerBucket } from "../lib/storyLanes";
 import { bucketFor, bucketLabel } from "../lib/timeRange";
 import { axisTicks, cellRuns, runsText } from "../lib/timelineModel";
@@ -22,6 +22,8 @@ const MINUTE = 60_000;
 const SW = 1000;
 
 type Handle = "a" | "b";
+
+const toSecond = (t: number) => Math.floor(t / 1000) * 1000;
 
 /** "Moment A, 09:14 UTC 17 Oct" */
 export function handleText(which: Handle, t: number): string {
@@ -127,16 +129,19 @@ export function ReplayScrubber({ start, end, live, now, strip, stripError, momen
   const draftRef = useRef<Moments | undefined>(undefined);
   // The moments last sent to the page, ahead of the props until the page
   // renders them: a typed moment applied on blur by a press on the track
-  // is the base of the drag that press starts.
+  // is the base of the drag that press starts. Sent moments are clamped
+  // and cut to the second as the page reads them, and after every render
+  // they are the moments the page shows.
   const sent = useRef<Moments>(moments);
-  const prop = useRef<Moments>(moments);
-  if (prop.current.a !== moments.a || prop.current.b !== moments.b) {
-    prop.current = moments;
+  useLayoutEffect(() => {
     sent.current = moments;
-  }
+  });
   const send = (m: Moments) => {
-    sent.current = m;
-    onChange(m);
+    const c = clampMoments(m, now, minGapMs);
+    const n = { a: toSecond(c.a), b: toSecond(c.b) };
+    if (n.a === sent.current.a && n.b === sent.current.b) return;
+    sent.current = n;
+    onChange(n);
   };
   const shown = draft ?? moments;
   const span = Math.max(1, end - start);
@@ -154,7 +159,7 @@ export function ReplayScrubber({ start, end, live, now, strip, stripError, momen
     const m = draftRef.current;
     draftRef.current = undefined;
     setDraft(undefined);
-    if (m && (m.a !== sent.current.a || m.b !== sent.current.b)) send(m);
+    if (m) send(m);
   };
   /** Drops a moving handle's moments: it goes back to where it was. */
   const discard = () => {
