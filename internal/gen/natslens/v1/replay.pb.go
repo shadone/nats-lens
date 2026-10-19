@@ -782,8 +782,9 @@ type GetReplayResponse struct {
 	EpochBAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=epoch_b_at,json=epochBAt,proto3" json:"epoch_b_at,omitempty"`
 	// The steps in time order; steps outside the range come last.
 	Steps []*ReplayStep `protobuf:"bytes,7,rep,name=steps,proto3" json:"steps,omitempty"`
-	// Whether steps were left out to keep at most 200 in the range and 10
-	// after it.
+	// Whether steps may be missing: some were left out to keep at most 200
+	// in the range and 10 after it, or the provider's read limit cut the
+	// events or finding transitions it reads (see complete_until).
 	StepsTruncated bool `protobuf:"varint,8,opt,name=steps_truncated,json=stepsTruncated,proto3" json:"steps_truncated,omitempty"`
 	// Number of steps left out.
 	StepsOmitted int32 `protobuf:"varint,9,opt,name=steps_omitted,json=stepsOmitted,proto3" json:"steps_omitted,omitempty"`
@@ -798,7 +799,12 @@ type GetReplayResponse struct {
 	// Whether nats-lens watches Kubernetes for this system.
 	KubernetesWatched bool `protobuf:"varint,14,opt,name=kubernetes_watched,json=kubernetesWatched,proto3" json:"kubernetes_watched,omitempty"`
 	// When the stored history begins.
-	HistoryStart  *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=history_start,json=historyStart,proto3" json:"history_start,omitempty"`
+	HistoryStart *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=history_start,json=historyStart,proto3" json:"history_start,omitempty"`
+	// When the read limit cut the events or finding transitions: the time
+	// before which they were read in full, so steps after it may be missing
+	// and the counts taken from the cut rows are unset. Unset when nothing
+	// was cut.
+	CompleteUntil *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=complete_until,json=completeUntil,proto3" json:"complete_until,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -938,6 +944,13 @@ func (x *GetReplayResponse) GetHistoryStart() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *GetReplayResponse) GetCompleteUntil() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CompleteUntil
+	}
+	return nil
+}
+
 var File_natslens_v1_replay_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_replay_proto_rawDesc = "" +
@@ -1014,7 +1027,7 @@ const file_natslens_v1_replay_proto_rawDesc = "" +
 	"\rdelete_client\x18\a \x01(\tR\fdeleteClient\x12*\n" +
 	"\x11consumers_with_it\x18\b \x01(\x05R\x0fconsumersWithIt\x12\x1f\n" +
 	"\vfinding_ids\x18\t \x03(\tR\n" +
-	"findingIds\"\xb3\x05\n" +
+	"findingIds\"\xf6\x05\n" +
 	"\x11GetReplayResponse\x12(\n" +
 	"\x01a\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x01a\x12(\n" +
 	"\x01b\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x01b\x12\x17\n" +
@@ -1033,7 +1046,8 @@ const file_natslens_v1_replay_proto_rawDesc = "" +
 	"\x0egone_truncated\x18\f \x01(\bR\rgoneTruncated\x121\n" +
 	"\awindows\x18\r \x03(\v2\x17.natslens.v1.TimeWindowR\awindows\x12-\n" +
 	"\x12kubernetes_watched\x18\x0e \x01(\bR\x11kubernetesWatched\x12?\n" +
-	"\rhistory_start\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\fhistoryStart*\x9e\x02\n" +
+	"\rhistory_start\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\fhistoryStart\x12A\n" +
+	"\x0ecomplete_until\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampR\rcompleteUntil*\x9e\x02\n" +
 	"\x0eReplayStepKind\x12 \n" +
 	"\x1cREPLAY_STEP_KIND_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bREPLAY_STEP_KIND_KUBERNETES\x10\x01\x12\x1c\n" +
@@ -1103,11 +1117,12 @@ var file_natslens_v1_replay_proto_depIdxs = []int32{
 	6,  // 20: natslens.v1.GetReplayResponse.gone:type_name -> natslens.v1.GoneAsset
 	12, // 21: natslens.v1.GetReplayResponse.windows:type_name -> natslens.v1.TimeWindow
 	8,  // 22: natslens.v1.GetReplayResponse.history_start:type_name -> google.protobuf.Timestamp
-	23, // [23:23] is the sub-list for method output_type
-	23, // [23:23] is the sub-list for method input_type
-	23, // [23:23] is the sub-list for extension type_name
-	23, // [23:23] is the sub-list for extension extendee
-	0,  // [0:23] is the sub-list for field type_name
+	8,  // 23: natslens.v1.GetReplayResponse.complete_until:type_name -> google.protobuf.Timestamp
+	24, // [24:24] is the sub-list for method output_type
+	24, // [24:24] is the sub-list for method input_type
+	24, // [24:24] is the sub-list for extension type_name
+	24, // [24:24] is the sub-list for extension extendee
+	0,  // [0:24] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_replay_proto_init() }

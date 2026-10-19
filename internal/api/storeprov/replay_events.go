@@ -29,7 +29,7 @@ ORDER BY e.time, e.id LIMIT `+fmt.Sprint(replayRowLimit+1), args...)
 	defer rows.Close()
 	for rows.Next() {
 		if len(f.Events) == replayRowLimit {
-			f.EventsTruncated = true
+			f.EventsTruncated, f.EventsReadUntil = true, f.Events[len(f.Events)-1].GetTime().AsTime()
 			break
 		}
 		var raw sql.NullString
@@ -65,7 +65,7 @@ ORDER BY time, finding_id LIMIT `+fmt.Sprint(replayRowLimit+1), f.A, f.Until, f.
 	defer rows.Close()
 	for rows.Next() {
 		if len(f.Transitions) == replayRowLimit {
-			f.TransitionsTruncated = true
+			f.TransitionsTruncated, f.TransitionsReadUntil = true, f.Transitions[len(f.Transitions)-1].Time
 			break
 		}
 		var t api.ReplayTransition
