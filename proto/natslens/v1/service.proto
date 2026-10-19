@@ -9,6 +9,7 @@ import "natslens/v1/findings.proto";
 import "natslens/v1/info.proto";
 import "natslens/v1/overview.proto";
 import "natslens/v1/placement.proto";
+import "natslens/v1/replay.proto";
 import "natslens/v1/servers.proto";
 import "natslens/v1/streams.proto";
 import "natslens/v1/systems.proto";
@@ -98,6 +99,14 @@ service LensService {
   // Every stream and durable consumer as each server sees it: one cell
   // per server that holds or is assigned a replica, with filter counts.
   rpc GetPlacement(GetPlacementRequest) returns (GetPlacementResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // What changed between two moments, and in what order: steps built
+  // from collections, events and findings, with counts and the assets
+  // gone in between. A and B are at most 24 hours apart and within the
+  // retention.
+  rpc GetReplay(GetReplayRequest) returns (GetReplayResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
