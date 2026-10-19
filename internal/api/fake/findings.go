@@ -55,7 +55,7 @@ func prodFindings(s scen) []*v1.Finding {
 		{"max_ack_pending", "8000"}, {"filter_subjects", "orders.archive.>"}, {"replicas", "3"},
 	}, "max_ack_pending", "ack_wait")
 	c010.RelatedConfigSource = "inventory"
-	c010.Cause = &v1.EventRef{Id: idConsumerDeleted, Time: ts(s.at(9, 31, 7)), Kind: "consumer.deleted",
+	c010.Cause = &v1.EventRef{Id: s.sc.eventID("consumer.deleted", fixed(9, 31, 7)), Time: ts(s.at(9, 31, 7)), Kind: "consumer.deleted",
 		Summary: "analytics-aggregator on order-archive by analytics-worker@10.20.0.12"}
 
 	c009 := finding("consumer-009", "Consumer creation time differs across servers", warning, firing,
