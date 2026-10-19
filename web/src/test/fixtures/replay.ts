@@ -54,6 +54,7 @@ export function rreplay(over: Partial<Replay> = {}, system = ""): Replay {
     gone: [],
     goneTruncated: false,
     kubernetesWatched: true,
+    unobserved: [],
     ...over,
   };
 }

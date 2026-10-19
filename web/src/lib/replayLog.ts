@@ -17,6 +17,7 @@ import {
   serversText,
   stepNotes,
   stepWhen,
+  unobservedText,
   whenFormat,
 } from "./replayView";
 import { entityName } from "./view";
@@ -81,7 +82,13 @@ export function replayLog(r: Replay, ctx: LogContext): string {
   }
   lines.push("", "Between A and B", "");
   for (const t of countTiles(r.counts)) {
-    lines.push(`${t.label}: ${t.value === undefined ? "not observed" : t.value}${t.value !== undefined && t.note ? ` (${t.note})` : ""}`);
+    if (t.value !== undefined) {
+      lines.push(`${t.label}: ${t.value}${t.note ? ` (${t.note})` : ""}`);
+      continue;
+    }
+    const u = r.unobserved.find((x) => x.count === t.key);
+    const why = u && unobservedText(u, fmt);
+    lines.push(`${t.label}: not observed${why ? ` (${why})` : ""}`);
   }
   lines.push("", "Gone between A and B", "");
   if (!r.gone.length) lines.push("None that nats-lens observed.");

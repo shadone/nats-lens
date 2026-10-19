@@ -288,6 +288,20 @@ describe("Replay", () => {
     }
   });
 
+  it("names the reason the response gives for each unset count", async () => {
+    vi.mocked(requests.getReplay).mockImplementation(async (sys, a, b) => ({
+      ...story(sys, a, b),
+      unobserved: [
+        { count: "serversStopped", reason: "no_collection_at_b" },
+        { count: "leadersMoved", reason: "collector_gap", from: T("2026-10-17T09:40:00Z") },
+        { count: "clientReconnects", reason: "collector_gap", from: T("2026-10-17T09:40:00Z") },
+      ],
+    }));
+    renderApp(<Replay />, `/replay?system=example-prod&${FIXED}&${AB}`);
+    expect(await screen.findByText("Not observed (no collection at B):")).toBeInTheDocument();
+    expect(screen.getByText("Not observed (nats-lens was not running 09:40:00–still at B):").closest("p")).toHaveTextContent(/: leaders moved and client reconnects\.$/);
+  });
+
   it("says when there was no collection at A", async () => {
     vi.mocked(requests.getReplay).mockImplementation(async (sys, a, b) => ({ ...story(sys, a, b), epochAAt: undefined, epochA: "0" }));
     renderApp(<Replay />, `/replay?system=example-prod&${FIXED}&${AB}`);

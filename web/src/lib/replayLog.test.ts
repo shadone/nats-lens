@@ -28,6 +28,7 @@ function story() {
       rstep("resolved:3", "10:10:00", { kind: "resolved", title: "Consumer missing resolved", outsideRange: true }),
     ],
     counts: { serversRestarted: 1, leadersMoved: 2, leaderElections: 5 },
+    unobserved: [{ count: "serversStopped", reason: "no_collection_at_b" }, { count: "clientReconnects", reason: "collector_gap", from: Date.parse("2026-10-17T09:40:00Z") }],
     gone: [rgone()],
     completeUntil: Date.parse("2026-10-17T09:45:00Z"),
   });
@@ -65,7 +66,9 @@ describe("replayLog", () => {
     expect(text).toContain("10:10:00  Resolved  Consumer missing resolved  [outside the range]");
     expect(text).toContain("Servers restarted: 1\n");
     expect(text).toContain("Leaders moved: 2 (of 5 elections)\n");
-    expect(text).toContain("Servers stopped: not observed\n");
+    expect(text).toContain("Servers stopped: not observed (no collection at B)\n");
+    expect(text).toContain("Client reconnects: not observed (nats-lens was not running 09:40:00–still at B)\n");
+    expect(text).toContain("Findings raised: not observed\n");
     expect(text).toContain("restock-alerts (consumer) https://lens.example.com/consumers/APP/inventory-changes/restock-alerts?from=2026-10-17T08%3A14%3A00Z&to=2026-10-17T09%3A14%3A01Z&system=example-global");
     expect(text).toContain("    at A: 3 servers: nats-0, nats-1, nats-2; at B: none\n    delete event: none captured\n");
     expect(text.endsWith("Gaps\n\n09:30:00–09:33:00  No collections for 3 min\n")).toBe(true);

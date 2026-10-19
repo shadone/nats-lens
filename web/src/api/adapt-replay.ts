@@ -2,6 +2,7 @@
 import {
   ReplayEvidenceKind as PEvidenceKind,
   ReplayGapKind as PGapKind,
+  ReplayUnobservedReason as PReason,
   ReplayStepKind as PStepKind,
   type GetReplayResponse,
   type GoneAsset as PGone,
@@ -14,6 +15,50 @@ import type { Entity, SeverityLevel } from "./model";
 export type ReplayStepKind = "kubernetes" | "restart" | "leaders" | "quorum" | "gone" | "finding" | "resolved" | "gap" | "other";
 
 export type ReplayEvidenceKind = "event" | "finding" | "collection" | "other";
+
+/** Why a count was not observed, as GetReplay says it. */
+export type UnobservedReason =
+  | "no_collections"
+  | "no_collection_at_a"
+  | "no_collection_at_b"
+  | "collections_gap"
+  | "events_not_captured"
+  | "collector_gap"
+  | "read_limit"
+  | "kubernetes_not_watched"
+  | "kubernetes_gap"
+  | "node_unnamed"
+  | "no_pool_labels"
+  | "gone_not_read";
+
+const REASON: Partial<Record<PReason, UnobservedReason>> = {
+  [PReason.NO_COLLECTIONS]: "no_collections",
+  [PReason.NO_COLLECTION_AT_A]: "no_collection_at_a",
+  [PReason.NO_COLLECTION_AT_B]: "no_collection_at_b",
+  [PReason.COLLECTIONS_GAP]: "collections_gap",
+  [PReason.EVENTS_NOT_CAPTURED]: "events_not_captured",
+  [PReason.COLLECTOR_GAP]: "collector_gap",
+  [PReason.READ_LIMIT]: "read_limit",
+  [PReason.KUBERNETES_NOT_WATCHED]: "kubernetes_not_watched",
+  [PReason.KUBERNETES_GAP]: "kubernetes_gap",
+  [PReason.NODE_UNNAMED]: "node_unnamed",
+  [PReason.NO_POOL_LABELS]: "no_pool_labels",
+  [PReason.GONE_NOT_READ]: "gone_not_read",
+};
+
+/** Why one count is unset; reason unset when the API gives none this UI knows. */
+export interface Unobserved {
+  /** The ReplayCounts field, as the view model names it: "leadersMoved". */
+  count: string;
+  reason?: UnobservedReason;
+  from?: number;
+  to?: number;
+}
+
+/** "leaders_moved" to "leadersMoved". */
+function camel(name: string): string {
+  return name.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+}
 
 /** What a gap step's time lacked: collections, nats-lens running, or the Kubernetes watch. */
 export type ReplayGapKind = "collections" | "collector" | "kubernetes";
@@ -125,6 +170,8 @@ export interface Replay {
   historyStart?: number;
   /** The read limit cut events or transitions: steps after it may be missing. */
   completeUntil?: number;
+  /** Why each unset count is unset, one per count. */
+  unobserved: Unobserved[];
 }
 
 function step(s: PStep): ReplayStep {
@@ -196,5 +243,6 @@ export function replay(r: GetReplayResponse, asked: Replay["asked"]): Replay {
     kubernetesWatched: r.kubernetesWatched,
     historyStart: ms(r.historyStart),
     completeUntil: ms(r.completeUntil),
+    unobserved: r.unobserved.map((u) => ({ count: camel(u.count), reason: REASON[u.reason], from: ms(u.from), to: ms(u.to) })),
   };
 }
