@@ -112,7 +112,7 @@ func (p *Provider) k8sLane(ctx context.Context, r *v1.TimeRange, entity *v1.Enti
 		return nil, false, err
 	}
 	where, args := k8sFilter(start, end, entity, p.ClientPods, pods)
-	rows, err := p.db().QueryContext(ctx, `SELECT `+eventCols+`, e.type, json_extract_string(e.raw, '$.node') FROM events e WHERE `+where+
+	rows, err := p.db().QueryContext(ctx, `SELECT `+eventCols+`, e.type, `+strings.ReplaceAll(nodeOfEvent, "raw", "e.raw")+` FROM events e WHERE `+where+
 		` ORDER BY e.time DESC, e.id DESC LIMIT ?`, append(args, laneLimit+1)...)
 	if err != nil {
 		return nil, false, fmt.Errorf("kubernetes lane: %w", err)
@@ -172,7 +172,7 @@ func (p *Provider) k8sWindows(ctx context.Context, r *v1.TimeRange) ([]*v1.TimeW
 		args = append(args, k)
 	}
 	rows, err := p.db().QueryContext(ctx, `
-SELECT time, kind, server_name, json_extract_string(raw, '$.node'), json_extract_string(raw, '$.kubelet_version'),
+SELECT time, kind, server_name, `+nodeOfEvent+`, json_extract_string(raw, '$.kubelet_version'),
   json_extract_string(raw, '$.cause'), json_extract_string(raw, '$.pool')
 FROM events
 WHERE source = 'k8s' AND time >= ? AND time < ? AND kind IN (?`+strings.Repeat(", ?", len(windowKinds)-1)+`)

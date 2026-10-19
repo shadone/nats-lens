@@ -225,6 +225,11 @@ SELECT sum(least(d.n, c.n)) FROM drops d JOIN connects c ON c.client_name IS NOT
 	return nil
 }
 
+// nodeOfEvent is the node a Kubernetes event names: its node, else the
+// Node its Event is about, as Events of a node stored before the watcher
+// named the node at the top of the payload give it.
+const nodeOfEvent = `coalesce(raw->>'node', CASE WHEN raw->'object'->>'kind' = 'Node' THEN raw->'object'->>'name' END)`
+
 // replayNodes counts the nodes upgraded and drained between A and B and
 // the node pools of the upgraded ones.
 func (p *Provider) replayNodes(ctx context.Context, f *api.ReplayFacts, _ map[string]string) error {
@@ -232,11 +237,15 @@ func (p *Provider) replayNodes(ctx context.Context, f *api.ReplayFacts, _ map[st
 		return nil
 	}
 	err := p.db().QueryRowContext(ctx, `
-SELECT count(DISTINCT raw->>'node') FILTER (WHERE kind = 'k8s.node.upgrade' AND coalesce(raw->>'node', '') <> ''),
-    count(DISTINCT raw->>'node') FILTER (WHERE kind = 'k8s.node.drained' AND coalesce(raw->>'node', '') <> ''),
-    count(DISTINCT raw->>'pool') FILTER (WHERE kind = 'k8s.node.upgrade' AND coalesce(raw->>'pool', '') <> ''),
-    count(*) FILTER (WHERE coalesce(raw->>'node', '') = '') > 0
-FROM events WHERE source = 'k8s' AND kind IN ('k8s.node.upgrade', 'k8s.node.drained') AND time >= ? AND time <= ?`,
+WITH n AS (
+    SELECT kind, coalesce(`+nodeOfEvent+`, '') AS node, coalesce(raw->>'pool', '') AS pool
+    FROM events WHERE source = 'k8s' AND kind IN ('k8s.node.upgrade', 'k8s.node.drained') AND time >= ? AND time <= ?
+)
+SELECT count(DISTINCT node) FILTER (WHERE kind = 'k8s.node.upgrade' AND node <> ''),
+    count(DISTINCT node) FILTER (WHERE kind = 'k8s.node.drained' AND node <> ''),
+    count(DISTINCT pool) FILTER (WHERE kind = 'k8s.node.upgrade' AND pool <> ''),
+    count(*) FILTER (WHERE node = '') > 0
+FROM n`,
 		f.A, f.B).Scan(&f.Nodes.Upgraded, &f.Nodes.Drained, &f.Nodes.Pools, &f.Nodes.Unnamed)
 	if err != nil {
 		return fmt.Errorf("replay nodes: %w", err)

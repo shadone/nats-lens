@@ -126,10 +126,19 @@ func rawNode(e *v1.Event) string {
 		return ""
 	}
 	var m struct {
-		Node string `json:"node"`
+		Node   string `json:"node"`
+		Object struct {
+			Kind string `json:"kind"`
+			Name string `json:"name"`
+		} `json:"object"`
 	}
 	if json.Unmarshal([]byte(e.GetRaw()), &m) != nil {
 		return ""
+	}
+	if m.Node == "" && m.Object.Kind == "Node" {
+		// An Event of a node, stored before the watcher named the node
+		// at the top of the payload.
+		return m.Object.Name
 	}
 	return m.Node
 }
