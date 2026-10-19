@@ -165,19 +165,22 @@ func (b *replayBuilder) leaders() {
 	}
 	for _, grp := range foldGroups(metas, func(*v1.Event) string { return "meta" }, at, b.window) {
 		first, last := grp[0], grp[len(grp)-1]
+		p := prev[first.GetId()]
+		if len(grp) == 1 && p == first.GetServer() {
+			// An election that keeps the leader changes nothing
+			// (proposed, not yet confirmed).
+			continue
+		}
 		d := &draft{kind: v1.ReplayStepKind_REPLAY_STEP_KIND_LEADERS, time: at(first), entities: []*v1.EntityRef{serverEntity(last.GetServer())}}
 		for _, e := range grp {
 			d.evidence = append(d.evidence, eventEvidence(e))
 		}
-		p := prev[first.GetId()]
 		switch {
 		case len(grp) > 1:
 			d.title = fmt.Sprintf("Meta leader elected %d times, last on %s", len(grp), last.GetServer())
 			d.end = at(last)
 		case p != "" && p != first.GetServer():
 			d.title = fmt.Sprintf("Meta leader moves from %s to %s", p, first.GetServer())
-		case p == first.GetServer():
-			d.title = "Meta leader elected again on " + first.GetServer()
 		default:
 			d.title = "Meta leader elected on " + first.GetServer()
 		}
