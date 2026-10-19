@@ -510,6 +510,9 @@ func TestReplayFoldedNodeEventsCountNodes(t *testing.T) {
 		ev(rAt(11, 0), "k8s.node.drained", "", node("gke-a")),
 		ev(rAt(30, 0), "k8s.node.drained", "", node("gke-a")),
 		ev(rAt(31, 0), "k8s.node.drained", "", node("gke-b")),
+		ev(rAt(40, 0), "k8s.node.drained", "", node("gke-c")),
+		ev(rAt(40, 30), "k8s.node.drained", "", node("gke-d")),
+		ev(rAt(41, 0), "k8s.node.drained", "", node("gke-c")),
 		ev(rAt(50, 0), "k8s.node.drained", ""),
 		ev(rAt(51, 0), "k8s.node.drained", ""),
 	}
@@ -517,7 +520,8 @@ func TestReplayFoldedNodeEventsCountNodes(t *testing.T) {
 	for _, s := range stepsOf(api.FinishReplay(f), v1.ReplayStepKind_REPLAY_STEP_KIND_KUBERNETES) {
 		titles = append(titles, s.GetTitle())
 	}
-	want := []string{"Node gke-a drained (2 times, 09:10–09:11)", "2 nodes drained (09:30–09:31)", "2 drain events (09:50–09:51)"}
+	want := []string{"Node gke-a drained (2 times, 09:10–09:11)", "2 nodes drained (09:30–09:31)", "2 nodes drained (09:40–09:41)",
+		"2 drain events (09:50–09:51)"}
 	if strings.Join(titles, "|") != strings.Join(want, "|") {
 		t.Errorf("titles = %q, want %q", titles, want)
 	}
