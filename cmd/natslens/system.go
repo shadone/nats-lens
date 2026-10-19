@@ -71,7 +71,7 @@ func archiveDirSet(cfg config.Config, id string) bool {
 func (rt *systemRuntime) provider(set *checks.Set) *storeprov.Provider {
 	return &storeprov.Provider{St: rt.st, Interval: rt.cfg.Interval.D(), Retention: rt.sys.Retention.D(), Live: true, Checks: set,
 		ToolingNames: rt.sys.ToolingNames(), LoopbackNotTooling: !rt.cfg.Checks.LoopbackTooling(),
-		ClientPods: rt.sys.Kubernetes.ClientPodsPattern()}
+		ClientPods: rt.sys.Kubernetes.ClientPodsPattern(), Kubernetes: rt.sys.Kubernetes.Enabled}
 }
 
 // registry lists the systems for the API in configuration order; the
