@@ -269,11 +269,11 @@ func (b *replayBuilder) gapStep(g ReplayGap) *draft {
 	var what, since string
 	switch g.Kind {
 	case GapCollector:
-		what, since = "nats-lens was not running", "nats-lens not running"
+		what, since, d.gapKind = "nats-lens was not running", "nats-lens not running", v1.ReplayGapKind_REPLAY_GAP_KIND_COLLECTOR
 	case GapKubernetes:
-		what, since = "Kubernetes was not watched", "Kubernetes not watched"
+		what, since, d.gapKind = "Kubernetes was not watched", "Kubernetes not watched", v1.ReplayGapKind_REPLAY_GAP_KIND_KUBERNETES
 	default:
-		what, since = "No collections", "No collections"
+		what, since, d.gapKind = "No collections", "No collections", v1.ReplayGapKind_REPLAY_GAP_KIND_COLLECTIONS
 	}
 	// A gap open at B is titled up to B: the step names no time after it.
 	switch {

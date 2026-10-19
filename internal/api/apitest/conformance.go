@@ -447,8 +447,8 @@ func replayRows() []State {
 		{"a Replay step after B that closes one in the range", replayStep(func(res *v1.GetReplayResponse, s *v1.ReplayStep) bool {
 			return s.GetOutsideRange() && s.GetTime().AsTime().After(res.GetB().AsTime())
 		})},
-		{"a Replay gap step", replayStep(func(_ *v1.GetReplayResponse, s *v1.ReplayStep) bool {
-			return s.GetKind() == v1.ReplayStepKind_REPLAY_STEP_KIND_GAP
+		{"a Replay gap step, with its gap kind", replayStep(func(_ *v1.GetReplayResponse, s *v1.ReplayStep) bool {
+			return s.GetKind() == v1.ReplayStepKind_REPLAY_STEP_KIND_GAP && s.GetGapKind() != v1.ReplayGapKind_REPLAY_GAP_KIND_UNSPECIFIED
 		})},
 		{"the Replay counts agree with its steps and gone list, in every system", everySystem(func(q Q) string {
 			res := q.replay()

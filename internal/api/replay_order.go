@@ -20,7 +20,7 @@ func (b *replayBuilder) finish() ([]*v1.ReplayStep, int32) {
 	ids := map[string]int{}
 	for _, d := range b.steps {
 		s := &v1.ReplayStep{Time: tsOrNil(d.time), End: tsOrNil(d.end), OpenAtB: d.openAtB, Kind: d.kind, Severity: d.severity,
-			Title: d.title, Body: d.body, OutsideRange: d.outside}
+			Title: d.title, Body: d.body, OutsideRange: d.outside, GapKind: d.gapKind}
 		ev := distinctLabels(uniqueEvidence(d.evidence))
 		s.EvidenceCount, s.Evidence = int32(len(ev)), ev[:min(len(ev), maxStepEvidence)]
 		ents := uniqueEntities(d.entities)
