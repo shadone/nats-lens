@@ -33,9 +33,11 @@ type replayBuilder struct {
 	window time.Duration
 	steps  []*draft
 	// used are the events a restart or stop step took in; absorbed the
-	// findings whose transitions a restart or gone step took in.
+	// findings whose transitions a gone step took in, takenIn the
+	// transitions a restart step took in (by finding ID and time).
 	used     map[string]bool
 	absorbed map[string]bool
+	takenIn  map[string]bool
 	// hasStep are the findings with a warning or critical step in the
 	// range; their first resolve after B closes it.
 	hasStep map[string]bool
@@ -46,7 +48,7 @@ type replayBuilder struct {
 // FinishReplay words, folds, orders, caps and counts the facts a provider
 // read into the response. The store and the demo both call it.
 func FinishReplay(f *ReplayFacts) *v1.GetReplayResponse {
-	b := &replayBuilder{f: f, window: max(2*time.Minute, 2*f.Interval), used: map[string]bool{}, absorbed: map[string]bool{},
+	b := &replayBuilder{f: f, window: max(2*time.Minute, 2*f.Interval), used: map[string]bool{}, absorbed: map[string]bool{}, takenIn: map[string]bool{},
 		hasStep: map[string]bool{}, byFinding: map[string][]ReplayTransition{}}
 	trs := slices.Clone(f.Transitions)
 	slices.SortStableFunc(trs, func(x, y ReplayTransition) int { return x.Time.Compare(y.Time) })
@@ -205,7 +207,7 @@ func (b *replayBuilder) restarts() {
 		for _, id := range b.findingIDs() {
 			for _, t := range b.byFinding[id] {
 				if t.Check == restartCheck && t.Entity.GetKey() == r.Server && !t.Time.Before(r.LastSeen) && !t.Time.After(r.FirstSeen.Add(b.f.Interval)) {
-					b.absorbed[id] = true
+					b.takenIn[transitionKey(t)] = true
 					d.evidence = append(d.evidence, findingEvidence(t))
 				}
 			}
@@ -278,6 +280,11 @@ func (b *replayBuilder) stops() {
 				evidence: []*v1.ReplayEvidence{collectionEvidence(s.BackEpoch, s.BackAt, serverEntity(s.Server))}})
 		}
 	}
+}
+
+// transitionKey identifies a transition: its finding and time.
+func transitionKey(t ReplayTransition) string {
+	return t.FindingID + "@" + t.Time.Format(time.RFC3339Nano)
 }
 
 // findingIDs are the IDs of the findings with transitions, sorted.
