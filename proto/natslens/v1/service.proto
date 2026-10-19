@@ -8,6 +8,7 @@ import "natslens/v1/events.proto";
 import "natslens/v1/findings.proto";
 import "natslens/v1/info.proto";
 import "natslens/v1/overview.proto";
+import "natslens/v1/placement.proto";
 import "natslens/v1/servers.proto";
 import "natslens/v1/streams.proto";
 import "natslens/v1/systems.proto";
@@ -91,6 +92,12 @@ service LensService {
 
   // One consumer with configuration, per-server views and disagreements.
   rpc GetConsumer(GetConsumerRequest) returns (GetConsumerResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Every stream and durable consumer as each server sees it: one cell
+  // per server that holds or is assigned a replica, with filter counts.
+  rpc GetPlacement(GetPlacementRequest) returns (GetPlacementResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 

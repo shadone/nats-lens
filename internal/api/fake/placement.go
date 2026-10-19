@@ -4,22 +4,50 @@ import (
 	"cmp"
 	"slices"
 	"strings"
+	"time"
 
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
-// placement is a stream's squares, by the store provider's rule: the
-// leader (its first peer) first, the rest by server name. A replica on a
-// server that does not answer is offline, the follower the stream names
-// missing, behind or disagreeing is so, the others in sync. Without a
-// leader every reporting replica's state is unknown, and one on a server
-// that does not answer is a missing square without a server.
+// placement is a stream's squares now; placementAt's at a scenario time.
 func (s scen) placement(sp streamSpec) []*v1.ReplicaPlacement {
+	return s.placementAt(sp, s.lastEpoch(), false)
+}
+
+// epochTime is when the range's newest epoch started; the newest epoch
+// when the range holds none.
+func (s scen) epochTime(r *v1.TimeRange) time.Time {
+	if at, _, ok := s.epochBefore(r); ok {
+		return at
+	}
+	return s.lastEpoch()
+}
+
+// offline reports whether a server did not answer at the scenario time
+// at: after it stopped answering, or while the scenario's series draw it
+// down.
+func (s scen) offline(name string, at time.Time) bool {
+	sv, ok := s.sc.server(name)
+	if !ok {
+		return false
+	}
+	return (!sv.answering() && !at.Before(sv.down.Add(s.shift))) || s.downAt(sv, at)
+}
+
+// placementAt is a stream's squares at the scenario time at, by the store
+// provider's rule: the leader (its first peer) first, the rest by server
+// name. A replica on a server offline then is offline, the follower the
+// stream names missing, behind or disagreeing is so, the others in sync.
+// Without a leader every reporting replica's state is unknown, and one on
+// an offline server is a missing square without a server. A consumer's
+// replicas (consumer true) follow their stream's, but are never behind or
+// disagreeing.
+func (s scen) placementAt(sp streamSpec, at time.Time, consumer bool) []*v1.ReplicaPlacement {
 	peers := s.sc.peers(sp)
 	if sp.leaderless {
 		var out, gone []*v1.ReplicaPlacement
 		for _, name := range peers {
-			if sv, _ := s.sc.server(name); !sv.answering() {
+			if s.offline(name, at) {
 				gone = append(gone, &v1.ReplicaPlacement{State: v1.PlacementState_PLACEMENT_STATE_MISSING})
 				continue
 			}
@@ -31,14 +59,14 @@ func (s scen) placement(sp streamSpec) []*v1.ReplicaPlacement {
 	var out []*v1.ReplicaPlacement
 	for _, name := range peers[1:] {
 		st := v1.PlacementState_PLACEMENT_STATE_IN_SYNC
-		switch sv, _ := s.sc.server(name); {
-		case !sv.answering():
+		switch {
+		case s.offline(name, at):
 			st = v1.PlacementState_PLACEMENT_STATE_OFFLINE
 		case name == sp.missing:
 			st = v1.PlacementState_PLACEMENT_STATE_MISSING
-		case name == sp.behind:
+		case name == sp.behind && !consumer:
 			st = v1.PlacementState_PLACEMENT_STATE_BEHIND
-		case name == sp.disagrees:
+		case name == sp.disagrees && !consumer:
 			st = v1.PlacementState_PLACEMENT_STATE_DISAGREES
 		}
 		out = append(out, &v1.ReplicaPlacement{Server: name, State: st})

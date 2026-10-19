@@ -1,10 +1,12 @@
 package apitest
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"math"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -113,6 +115,74 @@ func (q Q) summary() *v1.SystemSummary {
 	}
 	q.t.Fatalf("system %q not listed", q.System)
 	return nil
+}
+
+func (q Q) placement(f v1.PlacementFilter) *v1.GetPlacementResponse {
+	q.t.Helper()
+	return must(q.env.Client.GetPlacement(ctx, connect.NewRequest(&v1.GetPlacementRequest{System: q.System, Range: q.day(), Filter: f}))).of(q.t)
+}
+
+// assets are a placement's streams and their consumers, in order.
+func assets(res *v1.GetPlacementResponse) []*v1.PlacementAsset {
+	var out []*v1.PlacementAsset
+	for _, s := range res.GetStreams() {
+		out = append(out, s)
+		out = append(out, s.GetConsumers()...)
+	}
+	return out
+}
+
+// cellWith finds a matrix cell in state st, of a consumer when consumer
+// is set, else of a stream.
+func cellWith(st v1.PlacementState, consumer bool) func(Q) string {
+	return func(q Q) string {
+		for _, a := range assets(q.placement(v1.PlacementFilter_PLACEMENT_FILTER_UNSPECIFIED)) {
+			if (a.GetEntity().GetType() == v1.EntityType_ENTITY_TYPE_CONSUMER) != consumer {
+				continue
+			}
+			for _, c := range a.GetCells() {
+				if c.GetState() == st {
+					return a.GetEntity().GetKey() + " on " + c.GetServer()
+				}
+			}
+		}
+		return ""
+	}
+}
+
+// everySystem runs a row's check in every system of the env, not only
+// until one finds it: an agreement must hold everywhere. It reports where
+// each system found it, or "" when one did not or the check failed.
+func everySystem(find func(Q) string) func(Q) string {
+	return func(q Q) string {
+		var where []string
+		for _, sys := range q.env.Systems {
+			w := find(Q{t: q.t, env: q.env, System: sys})
+			if q.t.Failed() {
+				return ""
+			}
+			if w != "" {
+				where = append(where, sys+": "+w)
+			}
+		}
+		return strings.Join(where, "; ")
+	}
+}
+
+// reporting reports whether a cell's state allows a report of its own: a
+// missing or offline replica's server reports nothing, so the details
+// list no view for it.
+func reporting(c *v1.PlacementCell) bool {
+	return c.GetState() != v1.PlacementState_PLACEMENT_STATE_MISSING && c.GetState() != v1.PlacementState_PLACEMENT_STATE_OFFLINE
+}
+
+// sameTime reports whether a view's creation time is the cell's: both
+// unset, or equal.
+func sameTime(view, cell interface{ AsTime() time.Time }, viewSet, cellSet bool) bool {
+	if !viewSet || view.AsTime().Unix() <= 0 {
+		return !cellSet
+	}
+	return cellSet && view.AsTime().Equal(cell.AsTime())
 }
 
 // streamWith finds a stream whose placement has a replica in state st.
@@ -267,6 +337,134 @@ func Conformance() []State {
 				}
 			}
 			return ""
+		}},
+
+		// The placement matrix: its cells are the summaries' squares, with
+		// each server's view as the details list it.
+		{"the placement matrix agrees with the stream list and details, in every system", everySystem(func(q Q) string {
+			sums := map[string]*v1.StreamSummary{}
+			for _, s := range q.streams(q.day()) {
+				sums[s.GetEntity().GetKey()] = s
+			}
+			found := ""
+			for _, a := range q.placement(v1.PlacementFilter_PLACEMENT_FILTER_UNSPECIFIED).GetStreams() {
+				key := a.GetEntity().GetKey()
+				sum := sums[key]
+				if sum == nil {
+					q.t.Errorf("system %q: %s in the matrix, not in the stream list", q.System, key)
+					return ""
+				}
+				var squares, cells []string
+				unplaced := int32(0)
+				for _, p := range sum.GetPlacement() {
+					if p.GetServer() == "" {
+						unplaced++
+						continue
+					}
+					squares = append(squares, p.GetServer()+" "+p.GetState().String())
+				}
+				for _, c := range a.GetCells() {
+					cells = append(cells, c.GetServer()+" "+c.GetState().String())
+				}
+				if !slices.Equal(squares, cells) || unplaced != a.GetUnplaced() || sum.GetServersDisagree() != a.GetServersDisagree() {
+					q.t.Errorf("system %q: %s cells %v (%d unplaced, disagree %v), squares %v (%d, %v)", q.System, key, cells, a.GetUnplaced(),
+						a.GetServersDisagree(), squares, unplaced, sum.GetServersDisagree())
+					return ""
+				}
+				byServer := map[string]*v1.PlacementCell{}
+				for _, c := range a.GetCells() {
+					byServer[c.GetServer()] = c
+				}
+				views := q.stream(a.GetEntity()).GetServers()
+				for _, v := range views {
+					c := byServer[v.GetServer()]
+					if c == nil || !reporting(c) || c.GetLastSeq() != v.GetLastSeq() || c.GetMessages() != v.GetMessages() || c.GetConfigHash() != v.GetConfigHash() ||
+						c.GetLag() != v.GetLag() || !sameTime(v.GetCreated(), c.GetCreated(), v.GetCreated() != nil, c.GetCreated() != nil) {
+						q.t.Errorf("system %q: %s on %s: cell %v, view %v", q.System, key, v.GetServer(), c, v)
+						return ""
+					}
+				}
+				if len(views) > 1 {
+					found = key
+				}
+			}
+			return found
+		})},
+		{"the placement matrix agrees with the consumer details, in every system", everySystem(func(q Q) string {
+			found := ""
+			for _, s := range q.placement(v1.PlacementFilter_PLACEMENT_FILTER_UNSPECIFIED).GetStreams() {
+				for _, a := range s.GetConsumers() {
+					key := a.GetEntity().GetKey()
+					d := q.consumer(a.GetEntity())
+					if d.GetConsumer().GetServersDisagree() != a.GetServersDisagree() || !d.GetConsumer().GetDurable() {
+						q.t.Errorf("system %q: %s disagree %v in the matrix, %v in the detail", q.System, key, a.GetServersDisagree(),
+							d.GetConsumer().GetServersDisagree())
+						return ""
+					}
+					byServer := map[string]*v1.PlacementCell{}
+					for _, c := range a.GetCells() {
+						byServer[c.GetServer()] = c
+					}
+					for _, v := range d.GetServers() {
+						c := byServer[v.GetServer()]
+						if c == nil || !reporting(c) || c.GetDeliveredStreamSeq() != v.GetDeliveredStreamSeq() || c.GetAckFloorStreamSeq() != v.GetAckFloorStreamSeq() ||
+							c.GetConfigHash() != v.GetConfigHash() || !sameTime(v.GetCreated(), c.GetCreated(), v.GetCreated() != nil, c.GetCreated() != nil) {
+							q.t.Errorf("system %q: %s on %s: cell %v, view %v", q.System, key, v.GetServer(), c, v)
+							return ""
+						}
+					}
+					if len(d.GetServers()) > 1 {
+						found = key
+					}
+				}
+			}
+			return found
+		})},
+		{"a matrix cell of a stream's leader", cellWith(v1.PlacementState_PLACEMENT_STATE_LEADER, false)},
+		{"a matrix cell of a stream's replica in sync", cellWith(v1.PlacementState_PLACEMENT_STATE_IN_SYNC, false)},
+		{"a matrix cell of a stream's replica behind", cellWith(v1.PlacementState_PLACEMENT_STATE_BEHIND, false)},
+		{"a matrix cell of a stream's replica that disagrees", cellWith(v1.PlacementState_PLACEMENT_STATE_DISAGREES, false)},
+		{"a matrix cell of a stream's missing replica", cellWith(v1.PlacementState_PLACEMENT_STATE_MISSING, false)},
+		{"a matrix cell of a stream's offline replica", cellWith(v1.PlacementState_PLACEMENT_STATE_OFFLINE, false)},
+		{"a matrix cell of a stream without a leader", cellWith(v1.PlacementState_PLACEMENT_STATE_UNSPECIFIED, false)},
+		{"a matrix cell of a consumer's leader", cellWith(v1.PlacementState_PLACEMENT_STATE_LEADER, true)},
+		{"a matrix cell of a consumer's replica in sync or disagreeing", func(q Q) string {
+			return cmp.Or(cellWith(v1.PlacementState_PLACEMENT_STATE_IN_SYNC, true)(q), cellWith(v1.PlacementState_PLACEMENT_STATE_DISAGREES, true)(q))
+		}},
+		{"a matrix cell of a consumer whose creation time differs from the others'", func(q Q) string {
+			for _, a := range assets(q.placement(v1.PlacementFilter_PLACEMENT_FILTER_SERVERS_DISAGREE)) {
+				for _, c := range a.GetCells() {
+					if a.GetEntity().GetType() == v1.EntityType_ENTITY_TYPE_CONSUMER && slices.Contains(c.GetDiffers(), "created") {
+						return a.GetEntity().GetKey() + " on " + c.GetServer()
+					}
+				}
+			}
+			return ""
+		}},
+		{"each placement filter lists as many assets as its count", func(q Q) string {
+			n := q.placement(v1.PlacementFilter_PLACEMENT_FILTER_UNSPECIFIED).GetCounts()
+			for f, want := range map[v1.PlacementFilter]int32{
+				v1.PlacementFilter_PLACEMENT_FILTER_UNSPECIFIED:      n.GetAll(),
+				v1.PlacementFilter_PLACEMENT_FILTER_SERVERS_DISAGREE: n.GetServersDisagree(),
+				v1.PlacementFilter_PLACEMENT_FILTER_REPLICA_BEHIND:   n.GetReplicaBehind(),
+				v1.PlacementFilter_PLACEMENT_FILTER_MISSING:          n.GetMissing(),
+				v1.PlacementFilter_PLACEMENT_FILTER_SINGLE_REPLICA:   n.GetSingleReplica(),
+			} {
+				got := int32(0)
+				for _, a := range assets(q.placement(f)) {
+					if a.GetMatches() {
+						got++
+					}
+				}
+				if got != want {
+					q.t.Errorf("system %q: %v lists %d matching assets, counts %d", q.System, f, got, want)
+					return ""
+				}
+			}
+			if n.GetAll() == 0 || n.GetServersDisagree() == 0 || n.GetMissing() == 0 {
+				return ""
+			}
+			return fmt.Sprintf("%v", n)
 		}},
 
 		// Growth, computed the same way by both providers.

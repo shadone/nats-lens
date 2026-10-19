@@ -42,14 +42,72 @@ func (r *replicaReport) withLeader(leader string) *replicaReport {
 	return &c
 }
 
+// assetTables names the tables of one kind of replicated asset and the
+// columns that key it; the names are constants, never input.
+type assetTables struct {
+	stats, config, replicas string
+	keys                    []string
+}
+
+var (
+	streamTables   = assetTables{"stream_stats", "stream_config", "stream_replicas", []string{"account", "stream"}}
+	consumerTables = assetTables{"consumer_stats", "consumer_config", "consumer_replicas", []string{"account", "stream", "consumer"}}
+)
+
+// cols is the key columns of alias a, comma separated.
+func (t assetTables) cols(a string) string {
+	out := make([]string, len(t.keys))
+	for i, k := range t.keys {
+		out[i] = a + "." + k
+	}
+	return strings.Join(out, ", ")
+}
+
+// on is a join condition matching the key columns of aliases a and b.
+func (t assetTables) on(a, b string) string {
+	out := make([]string, len(t.keys))
+	for i, k := range t.keys {
+		out[i] = fmt.Sprintf("%s.%s = %s.%s", a, k, b, k)
+	}
+	return strings.Join(out, " AND ")
+}
+
+// scanKey scans the key columns and the rest of a row; the key is the
+// columns joined by "/", as an entity's key.
+func scanKey(rows *sql.Rows, n int, rest ...any) (string, error) {
+	keys := make([]string, n)
+	dest := make([]any, 0, n+len(rest))
+	for i := range keys {
+		dest = append(dest, &keys[i])
+	}
+	if err := rows.Scan(append(dest, rest...)...); err != nil {
+		return "", err
+	}
+	return strings.Join(keys, "/"), nil
+}
+
 // streamReplicas reads, for every stream of the epoch (optionally one
 // account or stream), each replica's report keyed by server name.
 // prefix keeps only the streams whose name starts with it (all when
 // empty).
 func (p *Provider) streamReplicas(ctx context.Context, epoch int64, account, stream, prefix string) (map[string]map[string]*replicaReport, error) {
+	return p.replicaReports(ctx, streamTables, epoch, func(a string) string {
+		return fmt.Sprintf("(? = '' OR %[1]s.account = ?) AND (? = '' OR %[1]s.stream = ?) AND starts_with(%[1]s.stream, ?)", a)
+	}, account, account, stream, stream, prefix)
+}
+
+// consumerReplicas reads each replica's report of every consumer of the
+// epoch, keyed by consumer key and server name.
+func (p *Provider) consumerReplicas(ctx context.Context, epoch int64) (map[string]map[string]*replicaReport, error) {
+	return p.replicaReports(ctx, consumerTables, epoch, func(string) string { return "true" })
+}
+
+// replicaReports reads each replica's report of every asset of the epoch
+// that passes where, a condition on the alias it is given with args,
+// keyed by asset key and server name.
+func (p *Provider) replicaReports(ctx context.Context, t assetTables, epoch int64, where func(alias string) string, args ...any) (map[string]map[string]*replicaReport, error) {
 	out := map[string]map[string]*replicaReport{}
-	get := func(acc, st, server string) *replicaReport {
-		key := acc + "/" + st
+	get := func(key, server string) *replicaReport {
 		if out[key] == nil {
 			out[key] = map[string]*replicaReport{}
 		}
@@ -58,24 +116,24 @@ func (p *Provider) streamReplicas(ctx context.Context, epoch int64, account, str
 		}
 		return out[key][server]
 	}
-	rows, err := p.db().QueryContext(ctx, `
-SELECT x.account, x.stream, s.server_name, coalesce(x.is_leader, false), coalesce(sc.config_hash, '')
-FROM stream_stats x JOIN servers s USING (server_id)
-LEFT JOIN stream_config sc ON sc.server_id = x.server_id AND sc.account = x.account AND sc.stream = x.stream
-  AND x.epoch BETWEEN sc.first_epoch AND sc.last_epoch
-WHERE x.epoch = ? AND (? = '' OR x.account = ?) AND (? = '' OR x.stream = ?) AND starts_with(x.stream, ?)`,
-		epoch, account, account, stream, stream, prefix)
+	rows, err := p.db().QueryContext(ctx, fmt.Sprintf(`
+SELECT %s, s.server_name, coalesce(x.is_leader, false), coalesce(sc.config_hash, '')
+FROM %s x JOIN servers s USING (server_id)
+LEFT JOIN %s sc ON sc.server_id = x.server_id AND %s AND x.epoch BETWEEN sc.first_epoch AND sc.last_epoch
+WHERE x.epoch = ? AND `, t.cols("x"), t.stats, t.config, t.on("sc", "x"))+where("x"),
+		append([]any{epoch}, args...)...)
 	if err != nil {
-		return nil, fmt.Errorf("stream replicas: %w", err)
+		return nil, fmt.Errorf("%s: %w", t.replicas, err)
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var acc, st, server, hash string
+		var server, hash string
 		var leader bool
-		if err := rows.Scan(&acc, &st, &server, &leader, &hash); err != nil {
+		key, err := scanKey(rows, len(t.keys), &server, &leader, &hash)
+		if err != nil {
 			return nil, err
 		}
-		r := get(acc, st, server)
+		r := get(key, server)
 		r.reports, r.leader, r.hash = true, r.leader || leader, hash
 	}
 	if err := rows.Err(); err != nil {
@@ -83,24 +141,24 @@ WHERE x.epoch = ? AND (? = '' OR x.account = ?) AND (? = '' OR x.stream = ?) AND
 	}
 	// Every leader claimant's list is kept apart; placementOf uses the
 	// chosen leader's only.
-	lead, err := p.db().QueryContext(ctx, `
-SELECT rp.account, rp.stream, ls.server_name, rp.peer_name, rp.current, rp.offline, rp.lag FROM stream_replicas rp
-JOIN stream_stats l ON l.epoch = rp.epoch AND l.server_id = rp.server_id AND l.account = rp.account
-  AND l.stream = rp.stream AND l.is_leader
+	lead, err := p.db().QueryContext(ctx, fmt.Sprintf(`
+SELECT %s, ls.server_name, rp.peer_name, rp.current, rp.offline, rp.lag FROM %s rp
+JOIN %s l ON l.epoch = rp.epoch AND l.server_id = rp.server_id AND %s AND l.is_leader
 JOIN servers ls ON ls.server_id = rp.server_id
-WHERE rp.epoch = ? AND (? = '' OR rp.account = ?) AND (? = '' OR rp.stream = ?) AND starts_with(rp.stream, ?)`,
-		epoch, account, account, stream, stream, prefix)
+WHERE rp.epoch = ? AND `, t.cols("rp"), t.replicas, t.stats, t.on("l", "rp"))+where("rp"),
+		append([]any{epoch}, args...)...)
 	if err != nil {
-		return nil, fmt.Errorf("stream replicas: %w", err)
+		return nil, fmt.Errorf("%s: %w", t.replicas, err)
 	}
 	defer lead.Close()
 	for lead.Next() {
-		var acc, st, leader, peer string
+		var leader, peer string
 		var v claimantView
-		if err := lead.Scan(&acc, &st, &leader, &peer, &v.current, &v.offline, &v.lag); err != nil {
+		key, err := scanKey(lead, len(t.keys), &leader, &peer, &v.current, &v.offline, &v.lag)
+		if err != nil {
 			return nil, err
 		}
-		get(acc, st, peer).byLeader[leader] = v
+		get(key, peer).byLeader[leader] = v
 	}
 	return out, lead.Err()
 }

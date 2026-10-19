@@ -304,6 +304,21 @@ func (h *Handler) GetConsumer(ctx context.Context, req *connect.Request[v1.GetCo
 	}, on(Provider.GetConsumer))
 }
 
+func (h *Handler) GetPlacement(ctx context.Context, req *connect.Request[v1.GetPlacementRequest]) (*connect.Response[v1.GetPlacementResponse], error) {
+	return call(ctx, h, "GetPlacement", req.Msg, func(p Provider, m *v1.GetPlacementRequest) error {
+		if _, ok := v1.PlacementFilter_name[int32(m.GetFilter())]; !ok {
+			return invalid("unknown filter %d", m.GetFilter())
+		}
+		return withRange(p, &m.Range)
+	}, func(s System, ctx context.Context, m *v1.GetPlacementRequest) (*v1.GetPlacementResponse, error) {
+		res, err := s.Provider.GetPlacement(ctx, m)
+		if err != nil {
+			return nil, err
+		}
+		return FinishPlacement(res, m.GetFilter()), nil
+	})
+}
+
 func (h *Handler) ListServers(ctx context.Context, req *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error) {
 	return call(ctx, h, "ListServers", req.Msg, func(p Provider, m *v1.ListServersRequest) error {
 		return withRange(p, &m.Range)
