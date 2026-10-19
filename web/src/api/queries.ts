@@ -175,7 +175,8 @@ export function useConsumer(spec: RangeSpec, account: string, stream: string, na
 /**
  * The placement matrix of a range; enabled false leaves it unread. A new
  * range shows the previous range's data while it loads; with keepFor set,
- * only when the previous query was asked with the same keepFor.
+ * only when the previous query was asked with the same keepFor, so keepFor
+ * names everything the kept data must share (system, page range, choice).
  */
 export function usePlacement(spec: RangeSpec, filter: MatrixFilter, enabled = true, keepFor?: string) {
   const sys = useSystem();
