@@ -372,3 +372,14 @@ func TestServersAndAccountsFollowTheEpoch(t *testing.T) {
 		t.Errorf("staging accounts after its stop = %v, want counts unset", acc)
 	}
 }
+
+// The demo reads the Kubernetes events of a window as the store does, up
+// to 15 minutes after the range: a range ending at 09:00 sees example-
+// global's upgrade end at nats-us-4's pod Killing, 09:12:00, not at 09:20:30.
+func TestWindowsReadAsTheStoreReadsThem(t *testing.T) {
+	o := must(demo(t).GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{System: fake.GlobalSystem,
+		Range: &v1.TimeRange{Start: tsAt(8, 0, 0), End: tsAt(9, 0, 0)}})))
+	if ws := o.GetWindows(); len(ws) != 1 || !ws[0].GetEnd().AsTime().Equal(at(9, 12, 0)) {
+		t.Errorf("windows = %v", ws)
+	}
+}

@@ -120,8 +120,14 @@ func (p *Provider) windows(s scen, r *v1.TimeRange) []*v1.TimeWindow {
 	if !s.sc.kubernetes {
 		return nil
 	}
+	// The events the store reads: from 12 hours before the range to the
+	// window gap after it.
+	from, to := r.GetStart().AsTime().Add(-12*time.Hour), r.GetEnd().AsTime().Add(api.K8sUpgradeGap)
 	var evs []api.K8sWindowEvent
 	for _, e := range p.events(s) {
+		if at := e.GetTime().AsTime(); at.Before(from) || !at.Before(to) {
+			continue
+		}
 		if e.GetSource() != srcK8s || !slices.Contains(api.K8sWindowKinds, e.GetKind()) ||
 			(strings.HasPrefix(e.GetKind(), "k8s.pod.") && e.GetServer() == "") {
 			continue
