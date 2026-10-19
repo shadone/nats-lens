@@ -117,3 +117,24 @@ func TestLeaderSinceIsWhenTheLeadBegan(t *testing.T) {
 		}
 	}
 }
+
+// A durable that went is elected nowhere after it went, and leads nothing.
+func TestNoElectionOfAGoneDurable(t *testing.T) {
+	for _, sys := range Demo(false) {
+		p := sys.Provider.(*Provider)
+		s := p.scen()
+		for _, sp := range s.sc.streams {
+			for _, v := range sp.vanished {
+				at := v.at.Add(s.shift)
+				for _, e := range p.events(s) {
+					if e.GetKind() == "consumer.leader_elected" && e.GetStream() == sp.name && e.GetConsumer() == v.name && !e.GetTime().AsTime().Before(at) {
+						t.Errorf("%s: %s elected at %s, after it went", sys.Ref.GetId(), v.name, e.GetTime().AsTime().Format("15:04:05"))
+					}
+				}
+				if l := s.consumerLeaderAt(sp, v.name, at.Add(time.Minute)); l != "" {
+					t.Errorf("%s: %s led by %s after it went", sys.Ref.GetId(), v.name, l)
+				}
+			}
+		}
+	}
+}
