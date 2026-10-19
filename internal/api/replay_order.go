@@ -137,7 +137,11 @@ func (b *replayBuilder) counts() *v1.ReplayCounts {
 	f, c := b.f, &v1.ReplayCounts{}
 	n := func(v int) *int32 { x := int32(v); return &x }
 	if f.Collected {
-		c.ServersRestarted, c.ServersStopped = n(len(f.Restarts)), n(len(f.Stops))
+		c.ServersRestarted = n(len(f.Restarts))
+		// A stop needs the collection at B to be told.
+		if f.EpochB != 0 {
+			c.ServersStopped = n(len(f.Stops))
+		}
 		raised := map[string]bool{}
 		for _, t := range f.Transitions {
 			if t.State == v1.FindingState_FINDING_STATE_FIRING && t.Severity >= v1.Severity_SEVERITY_WARNING && b.inRange(t.Time) {

@@ -490,3 +490,13 @@ func TestReplayAnnouncementIsTakenOnce(t *testing.T) {
 		t.Errorf("restarts = %q / %q", rs[0].GetBody(), rs[1].GetBody())
 	}
 }
+
+// Without a collection at B no stop can be told, so the count stays unset.
+func TestReplayStopsUnsetWithoutCollectionAtB(t *testing.T) {
+	f := facts()
+	f.Collected, f.EpochB, f.EpochBAt = true, 0, time.Time{}
+	c := api.FinishReplay(f).GetCounts()
+	if c.ServersStopped != nil || c.ServersRestarted == nil {
+		t.Errorf("counts = %v", c)
+	}
+}
