@@ -248,3 +248,34 @@ func TestReplayEventCountsNeedCollections(t *testing.T) {
 		t.Errorf("with collections: counts %v", c)
 	}
 }
+
+// Every gap step names its kind; other steps none.
+func TestReplayGapStepsNameTheirKind(t *testing.T) {
+	f := facts()
+	f.Gaps = []api.ReplayGap{
+		{Kind: api.GapCollections, Start: rAt(5, 0), End: rAt(8, 0), BeforeEpoch: 110, BeforeAt: rAt(5, 0), AfterEpoch: 111, AfterAt: rAt(8, 0)},
+		{Kind: api.GapCollector, Start: rAt(20, 0), End: rAt(30, 0), Event: ev(rAt(20, 0), "collector.gap", "")},
+		{Kind: api.GapKubernetes, Start: rAt(40, 0), End: rAt(45, 0), Event: ev(rAt(40, 0), "collector.k8s_gap", "")},
+	}
+	f.Events = []*v1.Event{ev(rAt(50, 0), "k8s.node.drained", "")}
+	want := map[string]v1.ReplayGapKind{"No collections": v1.ReplayGapKind_REPLAY_GAP_KIND_COLLECTIONS,
+		"nats-lens": v1.ReplayGapKind_REPLAY_GAP_KIND_COLLECTOR, "Kubernetes": v1.ReplayGapKind_REPLAY_GAP_KIND_KUBERNETES}
+	got := map[v1.ReplayGapKind]bool{}
+	for _, s := range api.FinishReplay(f).GetSteps() {
+		if s.GetKind() != v1.ReplayStepKind_REPLAY_STEP_KIND_GAP {
+			if s.GetGapKind() != v1.ReplayGapKind_REPLAY_GAP_KIND_UNSPECIFIED {
+				t.Errorf("%q has gap kind %v", s.GetTitle(), s.GetGapKind())
+			}
+			continue
+		}
+		for prefix, k := range want {
+			if strings.HasPrefix(s.GetTitle(), prefix) && s.GetGapKind() != k {
+				t.Errorf("%q has gap kind %v, want %v", s.GetTitle(), s.GetGapKind(), k)
+			}
+		}
+		got[s.GetGapKind()] = true
+	}
+	if len(got) != 3 || got[v1.ReplayGapKind_REPLAY_GAP_KIND_UNSPECIFIED] {
+		t.Errorf("gap kinds %v", got)
+	}
+}

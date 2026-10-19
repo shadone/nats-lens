@@ -23,6 +23,7 @@ type draft struct {
 	entities    []*v1.EntityRef
 	evidence    []*v1.ReplayEvidence
 	outside     bool
+	gapKind     v1.ReplayGapKind
 }
 
 // replayBuilder turns ReplayFacts into steps.
