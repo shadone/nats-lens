@@ -51,9 +51,10 @@ type scenario struct {
 	// infoUntil holds, by check code, when a row's findings changed from
 	// info to its severity, in the fixed frame: its cells are info before.
 	infoUntil map[string]time.Time
-	windows   func(s scen, r *v1.TimeRange) []*v1.TimeWindow
-	// k8sLanes draws the Kubernetes lane through lane.
-	k8sLanes func(s scen, lane func(at time.Time, kind, short, label string))
+	// kubernetes is whether the system watches Kubernetes: its
+	// Kubernetes events draw the lane and the windows, by the store's
+	// rules.
+	kubernetes bool
 	// sample is a metric's value at fixed-frame time c; ok is false where
 	// there is no data.
 	sample func(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (float64, bool)

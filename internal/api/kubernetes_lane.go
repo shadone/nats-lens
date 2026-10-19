@@ -19,6 +19,14 @@ var K8sLaneKinds = []string{
 	"collector.k8s_gap", "collector.k8s_not_watching",
 }
 
+// NATSLaneKinds are the NATS events worth drawing on the timeline's NATS
+// lane, besides the finding transitions.
+var NATSLaneKinds = []string{
+	"stream.created", "stream.deleted", "stream.leader_elected", "stream.quorum_lost",
+	"consumer.created", "consumer.deleted", "consumer.leader_elected", "consumer.quorum_lost",
+	"meta.leader_elected", "server.lameduck", "server.shutdown", "server.out_of_storage", "collector.gap",
+}
+
 // K8sUpgradeGap is the longest quiet time inside one node upgrade window:
 // an event later than this after the window's last one starts a new
 // window.

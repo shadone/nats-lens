@@ -136,7 +136,7 @@ func (sc *scenario) gateways(sp serverSpec) int32 {
 // kubernetes is where sp's pod runs; nil for a scenario without the
 // watcher, which draws no Kubernetes lane.
 func (s scen) kubernetes(sp serverSpec) *v1.KubernetesPlacement {
-	if s.sc.k8sLanes == nil {
+	if !s.sc.kubernetes {
 		return nil
 	}
 	k := &v1.KubernetesPlacement{Pod: sp.name, Namespace: "nats"}

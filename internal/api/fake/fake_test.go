@@ -62,7 +62,7 @@ func TestOverviewReproducesTheReferenceScenario(t *testing.T) {
 	if got := o.GetServers()[0]; got.GetRole() != v1.ServerRole_SERVER_ROLE_META_LEADER || got.GetUptime().AsDuration() != 5*time.Hour+11*time.Minute+56*time.Second {
 		t.Fatalf("nats-0 = %v", got)
 	}
-	if len(o.GetTiles()) != 9 || len(o.GetWindows()) != 1 || !o.GetWindows()[0].GetStart().AsTime().Equal(at(9, 14, 0)) {
+	if len(o.GetTiles()) != 9 || len(o.GetWindows()) != 1 || !o.GetWindows()[0].GetStart().AsTime().Equal(at(9, 16, 1)) {
 		t.Fatalf("%d tiles, windows %v", len(o.GetTiles()), o.GetWindows())
 	}
 	want := map[string]float64{"servers": 3, "clients": 182, "meta_leader": 2, "consumers": 13}
@@ -184,7 +184,7 @@ func TestStatusTimeline(t *testing.T) {
 	if got := tl.GetRows()[5].GetNow(); got != v1.Status_STATUS_OK {
 		t.Fatalf("sixth row now = %v, want ok (five fail now)", got)
 	}
-	if len(tl.GetKubernetes()) != 8 || len(tl.GetWindows()) != 1 || len(tl.GetNats()) != 8 {
+	if len(tl.GetKubernetes()) != 15 || len(tl.GetWindows()) != 1 || len(tl.GetNats()) != 8 {
 		t.Fatalf("lanes %d k8s, %d nats, %d windows", len(tl.GetKubernetes()), len(tl.GetNats()), len(tl.GetWindows()))
 	}
 	one := must(client(t).GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{
