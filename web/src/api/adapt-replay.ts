@@ -7,8 +7,8 @@ import {
   type ReplayCounts as PCounts,
   type ReplayStep as PStep,
 } from "../gen/natslens/v1/replay_pb";
-import { entity, entityOrEmpty, ms, optSeverity, window } from "./adapt-common";
-import type { Entity, SeverityLevel, Window } from "./model";
+import { entity, entityOrEmpty, ms, optSeverity } from "./adapt-common";
+import type { Entity, SeverityLevel } from "./model";
 
 export type ReplayStepKind = "kubernetes" | "restart" | "leaders" | "quorum" | "gone" | "finding" | "resolved" | "gap" | "other";
 
@@ -54,8 +54,6 @@ export interface ReplayStep {
   severity?: SeverityLevel;
   title: string;
   body: string;
-  entities: Entity[];
-  entityCount: number;
   evidence: ReplayEvidence[];
   evidenceCount: number;
   /** After B: it closes a step in the range. */
@@ -86,12 +84,10 @@ export interface GoneAsset {
   serversAtA: string[];
   notAnsweringAtB: string[];
   lastReported?: number;
-  lastEpoch: string;
   deleteEvent?: { id: string; time?: number; kind: string; summary: string };
   /** "analytics-worker (10.20.0.12)"; empty without one. */
   deleteClient: string;
   consumersWithIt: number;
-  findingIds: string[];
 }
 
 export interface Replay {
@@ -112,8 +108,8 @@ export interface Replay {
   counts: ReplayCounts;
   gone: GoneAsset[];
   goneTruncated: boolean;
-  windows: Window[];
   kubernetesWatched: boolean;
+  /** When the stored history begins. */
   historyStart?: number;
   /** The read limit cut events or transitions: steps after it may be missing. */
   completeUntil?: number;
@@ -129,8 +125,6 @@ function step(s: PStep): ReplayStep {
     severity: optSeverity(s.severity),
     title: s.title,
     body: s.body,
-    entities: s.entities.map(entityOrEmpty),
-    entityCount: s.entityCount,
     evidence: s.evidence.map((e) => ({ kind: EVIDENCE_KIND[e.kind] ?? "other", id: e.id, time: ms(e.time), label: e.label, entity: entity(e.entity) })),
     evidenceCount: s.evidenceCount,
     outsideRange: s.outsideRange,
@@ -165,11 +159,9 @@ function gone(g: PGone): GoneAsset {
     serversAtA: g.serversAtA,
     notAnsweringAtB: g.notAnsweringAtB,
     lastReported: ms(g.lastReported),
-    lastEpoch: String(g.lastEpoch),
     deleteEvent: d && d.id ? { id: d.id, time: ms(d.time), kind: d.kind, summary: d.summary } : undefined,
     deleteClient: g.deleteClient,
     consumersWithIt: g.consumersWithIt,
-    findingIds: g.findingIds,
   };
 }
 
@@ -188,7 +180,6 @@ export function replay(r: GetReplayResponse, asked: Replay["asked"]): Replay {
     counts: counts(r.counts),
     gone: r.gone.map(gone),
     goneTruncated: r.goneTruncated,
-    windows: r.windows.map(window),
     kubernetesWatched: r.kubernetesWatched,
     historyStart: ms(r.historyStart),
     completeUntil: ms(r.completeUntil),
