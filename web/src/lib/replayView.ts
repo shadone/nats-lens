@@ -1,6 +1,6 @@
 // The Replay page's rules shared by the page and the incident log: how a
 // step's time reads, where its evidence links to, and the count tiles.
-import type { GoneAsset, Replay, ReplayCounts, ReplayEvidence, ReplayStep, ReplayStepKind } from "../api/adapt-replay";
+import type { GoneAsset, Replay, ReplayCounts, Unobserved, ReplayEvidence, ReplayStep, ReplayStepKind } from "../api/adapt-replay";
 import type { Entity } from "../api/model";
 import { dayMon, dayMonHm, hm, hms } from "./format";
 import { momentIso, type Moments } from "./replayUrl";
@@ -107,55 +107,113 @@ export function serversText(names: string[]): string {
   return `${names.length} ${names.length === 1 ? "server" : "servers"}: ${names.join(", ")}`;
 }
 
-/** What a count is read from: collections (servers, gone assets, findings), stored events, or the Kubernetes watch. */
-export type CountSource = "server" | "gone" | "finding" | "event" | "node";
-
 export interface CountTile {
+  /** The ReplayCounts field the tile shows. */
+  key: keyof ReplayCounts;
   label: string;
   /** Unset: not observed. */
   value?: number;
   note?: string;
   /** The colour of a count above zero, as the board draws it. */
   tone?: "warning" | "critical" | "k8s" | "muted";
-  /** Counted from the Kubernetes watch. */
-  k8s?: boolean;
-  /** What the count is read from, so a gap can be named as the reason it is unset. */
-  source: CountSource;
 }
 
 /** The tiles of "Between A and B", in order; an unset count stays unset. */
 export function countTiles(c: ReplayCounts): CountTile[] {
   const pools: CountTile =
     c.nodePoolsUpgraded === undefined && c.nodesUpgraded !== undefined
-      ? { label: "Nodes upgraded", value: c.nodesUpgraded, note: "no node pool labels", tone: "k8s", k8s: true, source: "node" }
+      ? { key: "nodesUpgraded", label: "Nodes upgraded", value: c.nodesUpgraded, note: "no node pool labels", tone: "k8s" }
       : {
+          key: "nodePoolsUpgraded",
           label: "Node pools upgraded",
           value: c.nodePoolsUpgraded,
           note: c.nodesUpgraded !== undefined ? `${c.nodesUpgraded} ${c.nodesUpgraded === 1 ? "node" : "nodes"}` : undefined,
           tone: "k8s",
-          k8s: true,
-          source: "node",
         };
   return [
-    { label: "Servers restarted", value: c.serversRestarted, tone: "warning", source: "server" },
-    { label: "Servers stopped", value: c.serversStopped, note: "not back by B", tone: "warning", source: "server" },
-    { label: "Streams gone without a delete", value: c.streamsGoneWithoutDelete, tone: "critical", source: "gone" },
-    { label: "Consumers gone without a delete", value: c.consumersGoneWithoutDelete, tone: "critical", source: "gone" },
-    { label: "Assets gone with a delete", value: c.assetsGoneWithDelete, source: "gone" },
-    { label: "Assets unknown at B", value: c.assetsUnknownAtB, note: "a holder did not answer at B", tone: "warning", source: "gone" },
+    { key: "serversRestarted", label: "Servers restarted", value: c.serversRestarted, tone: "warning" },
+    { key: "serversStopped", label: "Servers stopped", value: c.serversStopped, note: "not back by B", tone: "warning" },
+    { key: "streamsGoneWithoutDelete", label: "Streams gone without a delete", value: c.streamsGoneWithoutDelete, tone: "critical" },
+    { key: "consumersGoneWithoutDelete", label: "Consumers gone without a delete", value: c.consumersGoneWithoutDelete, tone: "critical" },
+    { key: "assetsGoneWithDelete", label: "Assets gone with a delete", value: c.assetsGoneWithDelete },
+    { key: "assetsUnknownAtB", label: "Assets unknown at B", value: c.assetsUnknownAtB, note: "a holder did not answer at B", tone: "warning" },
     {
+      key: "leadersMoved",
       label: "Leaders moved",
-      source: "event",
       value: c.leadersMoved,
       note: c.leaderElections ? `of ${c.leaderElections} ${c.leaderElections === 1 ? "election" : "elections"}` : undefined,
     },
-    { label: "Meta leader changes", value: c.metaLeaderChanges, source: "event" },
-    { label: "Quorum lost advisories", value: c.quorumLostReports, note: "NATS advisories, not server logs", tone: "critical", source: "event" },
+    { key: "metaLeaderChanges", label: "Meta leader changes", value: c.metaLeaderChanges },
+    { key: "quorumLostReports", label: "Quorum lost advisories", value: c.quorumLostReports, note: "NATS advisories, not server logs", tone: "critical" },
     pools,
-    { label: "Nodes drained", value: c.nodesDrained, tone: "k8s", k8s: true, source: "node" },
-    { label: "Client reconnects", value: c.clientReconnects, tone: "muted", source: "event" },
-    { label: "Findings raised", value: c.findingsRaised, note: "warning and critical", tone: "warning", source: "finding" },
+    { key: "nodesDrained", label: "Nodes drained", value: c.nodesDrained, tone: "k8s" },
+    { key: "clientReconnects", label: "Client reconnects", value: c.clientReconnects, tone: "muted" },
+    { key: "findingsRaised", label: "Findings raised", value: c.findingsRaised, note: "warning and critical", tone: "warning" },
   ];
+}
+
+/** "09:40–09:55", "09:40–still at B", or "" without times. */
+function span(u: Unobserved, fmt: (t: number) => string): string {
+  if (u.from === undefined) return "";
+  return u.to !== undefined ? `${fmt(u.from)}–${fmt(u.to)}` : `${fmt(u.from)}–still at B`;
+}
+
+/** Why a count was not observed, in words with the times of the gap or cut; undefined for a reason this UI does not know. */
+export function unobservedText(u: Unobserved, fmt: (t: number) => string): string | undefined {
+  const at = (s: string) => (s ? ` ${s}` : "");
+  switch (u.reason) {
+    case "no_collections":
+      return "no collection started between A and B";
+    case "no_collection_at_a":
+      return "no collection at A";
+    case "no_collection_at_b":
+      return "no collection at B";
+    case "collections_gap":
+      return `no collections${at(span(u, fmt))}`;
+    case "events_not_captured":
+      return "no event was stored up to B";
+    case "collector_gap":
+      return `nats-lens was not running${at(span(u, fmt))}`;
+    case "read_limit":
+      return u.from !== undefined ? `the read limit was reached at ${fmt(u.from)}` : "the read limit was reached";
+    case "kubernetes_not_watched":
+      return "Kubernetes is not watched for this system";
+    case "kubernetes_gap":
+      return `Kubernetes was not watched${at(span(u, fmt))}`;
+    case "node_unnamed":
+      return "a node event names no node";
+    case "no_pool_labels":
+      return "no upgraded node carried a node pool label";
+    case "gone_not_read":
+      return "the gone assets were not read";
+    default:
+      return undefined;
+  }
+}
+
+export interface UnsetGroup {
+  /** Why these counts are unset; undefined when the response gives no reason this UI knows. */
+  reason?: string;
+  tiles: CountTile[];
+}
+
+/**
+ * The unset tiles grouped by why, in tile order: one group per reason and
+ * its times, as GetReplay's unobserved gives them, and one without a
+ * reason for the rest.
+ */
+export function unsetGroups(tiles: CountTile[], unobserved: Unobserved[], fmt: (t: number) => string): UnsetGroup[] {
+  const groups = new Map<string, UnsetGroup>();
+  for (const t of tiles) {
+    if (t.value !== undefined) continue;
+    const u = unobserved.find((x) => x.count === t.key);
+    const reason = u ? unobservedText(u, fmt) : undefined;
+    const key = reason ?? "";
+    const g = groups.get(key) ?? { reason, tiles: [] };
+    g.tiles.push(t);
+    groups.set(key, g);
+  }
+  return [...groups.values()];
 }
 
 /** What may be missing from the steps, one sentence each. */
