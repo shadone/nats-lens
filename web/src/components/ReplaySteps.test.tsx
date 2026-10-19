@@ -76,19 +76,25 @@ describe("ReplaySteps", () => {
 });
 
 describe("ReplayCounts", () => {
-  it("shows an unset count as a dash, not observed, and zero as 0", () => {
-    renderApp(<ReplayCounts counts={{ serversRestarted: 3, serversStopped: 0, leadersMoved: 2, leaderElections: 5 }} />);
-    const tiles = screen.getAllByRole("listitem");
-    const tile = (label: string) => tiles.find((t) => t.textContent?.startsWith(label))!;
-    expect(tile("Servers restarted")).toHaveTextContent("Servers restarted3");
-    expect(tile("Servers stopped")).toHaveTextContent("0");
-    expect(tile("Leaders moved")).toHaveTextContent("of 5 elections");
-    expect(tile("Client reconnects")).toHaveTextContent("Client reconnectsnot observed—");
-    expect(tile("Client reconnects")).not.toHaveTextContent("0");
+  it("shows observed counts as tiles, zero quieter, and names the unobserved ones in one line", () => {
+    renderApp(<ReplayCounts counts={{ serversRestarted: 3, serversStopped: 0, leadersMoved: 2, leaderElections: 5 }} kubernetesWatched />);
+    const tiles = within(screen.getByRole("list", { name: "Between A and B" })).getAllByRole("listitem");
+    expect(tiles.map((t) => t.textContent)).toEqual(["3Servers restarted", "0Servers stoppednot back by B", "2Leaders movedof 5 elections"]);
+    expect(tiles[0]).toHaveClass("t-warning");
+    expect(tiles[1]).toHaveClass("zero");
+    const line = screen.getByText("Not observed:").closest("p")!;
+    expect(line).toHaveTextContent(/^Not observed: streams gone without a delete, .*node pools upgraded, nodes drained, client reconnects, findings raised\.$/);
+    expect(screen.queryByText(/Kubernetes is not watched/)).toBeNull();
+  });
+
+  it("says once that Kubernetes is not watched instead of listing its counts as not observed", () => {
+    renderApp(<ReplayCounts counts={{ serversRestarted: 1 }} kubernetesWatched={false} />);
+    expect(screen.getByText("Kubernetes is not watched for this system, so node pools upgraded and nodes drained are not counted.")).toBeInTheDocument();
+    expect(screen.getByText("Not observed:").closest("p")).not.toHaveTextContent("nodes drained");
   });
 
   it("names the nodes upgraded when no pool label counts the pools", () => {
-    renderApp(<ReplayCounts counts={{ nodesUpgraded: 4 }} />);
+    renderApp(<ReplayCounts counts={{ nodesUpgraded: 4 }} kubernetesWatched />);
     expect(screen.getByText("Nodes upgraded")).toBeInTheDocument();
     expect(screen.queryByText("Node pools upgraded")).toBeNull();
   });

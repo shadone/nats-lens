@@ -102,7 +102,7 @@ describe("Replay", () => {
     expect(screen.getByRole("heading", { name: "After B" })).toBeInTheDocument();
     const counts = screen.getByRole("list", { name: "Between A and B" });
     expect(within(counts).getByText("Servers restarted").closest("li")).toHaveTextContent("1");
-    expect(within(counts).getByText("Servers stopped").closest("li")).toHaveTextContent("not observed");
+    expect(screen.getByText("Not observed:").closest("p")).toHaveTextContent("servers stopped");
     const row = screen.getByRole("link", { name: "restock-alerts" }).closest("tr")!;
     expect(row).toHaveTextContent("3 servers: nats-0, nats-1, nats-2");
     expect(row).toHaveTextContent("none answering: nats-2");

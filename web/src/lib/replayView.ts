@@ -112,36 +112,42 @@ export interface CountTile {
   /** Unset: not observed. */
   value?: number;
   note?: string;
+  /** The colour of a count above zero, as the board draws it. */
+  tone?: "warning" | "critical" | "k8s" | "muted";
+  /** Counted from the Kubernetes watch. */
+  k8s?: boolean;
 }
 
 /** The tiles of "Between A and B", in order; an unset count stays unset. */
 export function countTiles(c: ReplayCounts): CountTile[] {
   const pools: CountTile =
     c.nodePoolsUpgraded === undefined && c.nodesUpgraded !== undefined
-      ? { label: "Nodes upgraded", value: c.nodesUpgraded, note: "no node pool labels" }
+      ? { label: "Nodes upgraded", value: c.nodesUpgraded, note: "no node pool labels", tone: "k8s", k8s: true }
       : {
           label: "Node pools upgraded",
           value: c.nodePoolsUpgraded,
           note: c.nodesUpgraded !== undefined ? `${c.nodesUpgraded} ${c.nodesUpgraded === 1 ? "node" : "nodes"}` : undefined,
+          tone: "k8s",
+          k8s: true,
         };
   return [
-    { label: "Servers restarted", value: c.serversRestarted },
-    { label: "Servers stopped", value: c.serversStopped, note: "not back by B" },
-    { label: "Streams gone without a delete", value: c.streamsGoneWithoutDelete },
-    { label: "Consumers gone without a delete", value: c.consumersGoneWithoutDelete },
+    { label: "Servers restarted", value: c.serversRestarted, tone: "warning" },
+    { label: "Servers stopped", value: c.serversStopped, note: "not back by B", tone: "warning" },
+    { label: "Streams gone without a delete", value: c.streamsGoneWithoutDelete, tone: "critical" },
+    { label: "Consumers gone without a delete", value: c.consumersGoneWithoutDelete, tone: "critical" },
     { label: "Assets gone with a delete", value: c.assetsGoneWithDelete },
-    { label: "Assets unknown at B", value: c.assetsUnknownAtB, note: "a holder did not answer at B" },
+    { label: "Assets unknown at B", value: c.assetsUnknownAtB, note: "a holder did not answer at B", tone: "warning" },
     {
       label: "Leaders moved",
       value: c.leadersMoved,
       note: c.leaderElections !== undefined ? `of ${c.leaderElections} ${c.leaderElections === 1 ? "election" : "elections"}` : undefined,
     },
     { label: "Meta leader changes", value: c.metaLeaderChanges },
-    { label: "Quorum lost advisories", value: c.quorumLostReports, note: "NATS advisories, not server logs" },
+    { label: "Quorum lost advisories", value: c.quorumLostReports, note: "NATS advisories, not server logs", tone: "critical" },
     pools,
-    { label: "Nodes drained", value: c.nodesDrained },
-    { label: "Client reconnects", value: c.clientReconnects },
-    { label: "Findings raised", value: c.findingsRaised, note: "warning and critical" },
+    { label: "Nodes drained", value: c.nodesDrained, tone: "k8s", k8s: true },
+    { label: "Client reconnects", value: c.clientReconnects, tone: "muted" },
+    { label: "Findings raised", value: c.findingsRaised, note: "warning and critical", tone: "warning" },
   ];
 }
 
