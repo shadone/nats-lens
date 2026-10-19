@@ -371,3 +371,7 @@ func (h *Handler) ListObjectStores(ctx context.Context, req *connect.Request[v1.
 		return withRange(p, &m.Range)
 	}, on(Provider.ListObjectStores))
 }
+
+func (h *Handler) GetReplay(context.Context, *connect.Request[v1.GetReplayRequest]) (*connect.Response[v1.GetReplayResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("GetReplay is not built yet"))
+}

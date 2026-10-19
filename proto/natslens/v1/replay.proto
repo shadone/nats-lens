@@ -1,0 +1,258 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "google/protobuf/timestamp.proto";
+import "natslens/v1/common.proto";
+import "natslens/v1/overview.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// Request for the story between two moments.
+message GetReplayRequest {
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 1;
+
+  // Moment A, the start. Required, and not older than the retention.
+  google.protobuf.Timestamp a = 2;
+
+  // Moment B, the end. Required, after A and at most 24 hours after it; a
+  // moment after now is read as now.
+  google.protobuf.Timestamp b = 3;
+}
+
+// Kind of a replay step.
+enum ReplayStepKind {
+  // Not set.
+  REPLAY_STEP_KIND_UNSPECIFIED = 0;
+  // A node drain or upgrade, or a NATS pod event outside a restart.
+  REPLAY_STEP_KIND_KUBERNETES = 1;
+  // A server process replaced by another, or a server that stops
+  // answering.
+  REPLAY_STEP_KIND_RESTART = 2;
+  // A meta leader change, or leader elections not tied to a restart.
+  REPLAY_STEP_KIND_LEADERS = 3;
+  // Streams or consumers without a quorum, or no meta leader.
+  REPLAY_STEP_KIND_QUORUM = 4;
+  // Streams or durable consumers that servers held at A and none holds at
+  // B.
+  REPLAY_STEP_KIND_GONE = 5;
+  // Other warning and critical findings firing or changing.
+  REPLAY_STEP_KIND_FINDING = 6;
+  // A finding resolving, or a server answering again.
+  REPLAY_STEP_KIND_RESOLVED = 7;
+  // A time without collections, while nats-lens was not running, or while
+  // Kubernetes was not watched.
+  REPLAY_STEP_KIND_GAP = 8;
+}
+
+// Kind of a step's evidence.
+enum ReplayEvidenceKind {
+  // Not set.
+  REPLAY_EVIDENCE_KIND_UNSPECIFIED = 0;
+  // A stored event, by event ID.
+  REPLAY_EVIDENCE_KIND_EVENT = 1;
+  // A finding, by finding ID.
+  REPLAY_EVIDENCE_KIND_FINDING = 2;
+  // A collection, by epoch number.
+  REPLAY_EVIDENCE_KIND_COLLECTION = 3;
+}
+
+// One record a step was built from.
+message ReplayEvidence {
+  // Kind of record.
+  ReplayEvidenceKind kind = 1;
+
+  // Event ID, finding ID, or epoch number in decimal.
+  string id = 2;
+
+  // When the event happened, the finding's transition was made, or the
+  // collection started.
+  google.protobuf.Timestamp time = 3;
+
+  // One line naming the record, for example "pod nats-1 Killing" or
+  // "collection of 09:18:30".
+  string label = 4;
+
+  // For a collection, the entity to open at that moment; unset means the
+  // system.
+  EntityRef entity = 5;
+}
+
+// One step of the story.
+message ReplayStep {
+  // Identifier, stable within a response: the kind and the first evidence.
+  string id = 1;
+
+  // When the step happened, or its span started.
+  google.protobuf.Timestamp time = 2;
+
+  // When the span ended; unset for a moment and for a span still open at
+  // B.
+  google.protobuf.Timestamp end = 3;
+
+  // Whether the span had not ended at B.
+  bool open_at_b = 4;
+
+  // Kind of step.
+  ReplayStepKind kind = 5;
+
+  // Severity of the step; unset is neutral.
+  Severity severity = 6;
+
+  // One sentence, for example "nats-1 restarts".
+  string title = 7;
+
+  // What the step consists of, in one or two sentences.
+  string body = 8;
+
+  // The entities the step is about, at most 50.
+  repeated EntityRef entities = 9;
+
+  // Number of entities the step is about, entities beyond the 50 included.
+  int32 entity_count = 10;
+
+  // The records the step was built from, at most 10.
+  repeated ReplayEvidence evidence = 11;
+
+  // Number of records the step was built from, those beyond the 10
+  // included.
+  int32 evidence_count = 12;
+
+  // Whether the step happened after B: it closes a step in the range.
+  bool outside_range = 13;
+}
+
+// What changed between A and B, in numbers. An unset count was not
+// observed: there was no collection, no event capture or no Kubernetes
+// watch to count it from. Zero means none was observed.
+message ReplayCounts {
+  // Servers whose process was replaced by another.
+  optional int32 servers_restarted = 1;
+
+  // Servers that stopped answering and were not back by B.
+  optional int32 servers_stopped = 2;
+
+  // Streams in the gone list without a delete event.
+  optional int32 streams_gone_without_delete = 3;
+
+  // Durable consumers in the gone list without a delete event.
+  optional int32 consumers_gone_without_delete = 4;
+
+  // Streams and durable consumers in the gone list with a delete event.
+  optional int32 assets_gone_with_delete = 5;
+
+  // Assets in the gone list with a holder that did not answer JSZ at B.
+  optional int32 assets_unknown_at_b = 6;
+
+  // Stream and consumer leader elections that moved the lead to another
+  // server; an election whose previous leader is unknown is not a move.
+  optional int32 leaders_moved = 7;
+
+  // Stream and consumer leader elections.
+  optional int32 leader_elections = 8;
+
+  // Meta leader elections that moved the lead to another server.
+  optional int32 meta_leader_changes = 9;
+
+  // Stream and consumer quorum lost advisories.
+  optional int32 quorum_lost_reports = 10;
+
+  // Node pools with an upgraded node; unset without Kubernetes or without
+  // node pool labels.
+  optional int32 node_pools_upgraded = 11;
+
+  // Nodes upgraded; unset without Kubernetes.
+  optional int32 nodes_upgraded = 12;
+
+  // Nodes drained; unset without Kubernetes.
+  optional int32 nodes_drained = 13;
+
+  // Client reconnects, as client-004 pairs them, with disconnects by a
+  // server stopping counted and tooling clients left out.
+  optional int32 client_reconnects = 14;
+
+  // Warning and critical findings that started firing.
+  optional int32 findings_raised = 15;
+}
+
+// A stream or durable consumer that servers held at A and none holds at B.
+message GoneAsset {
+  // The stream (KV_ and OBJ_ streams included) or durable consumer.
+  EntityRef entity = 1;
+
+  // The servers that held it at A, by name.
+  repeated string servers_at_a = 2;
+
+  // Its holders at A that did not answer JSZ at B, by name.
+  repeated string not_answering_at_b = 3;
+
+  // When a server last reported it.
+  google.protobuf.Timestamp last_reported = 4;
+
+  // The epoch in which a server last reported it.
+  int64 last_epoch = 5;
+
+  // The delete event; unset when none was captured.
+  EventRef delete_event = 6;
+
+  // The client that deleted it, for example "analytics-worker
+  // (10.20.0.12)"; empty without a delete event or a client.
+  string delete_client = 7;
+
+  // For a stream, its durable consumers gone with it.
+  int32 consumers_with_it = 8;
+
+  // IDs of the findings about it.
+  repeated string finding_ids = 9;
+}
+
+// What changed between A and B, and in what order.
+message GetReplayResponse {
+  // Moment A.
+  google.protobuf.Timestamp a = 1;
+
+  // Moment B, after it was clamped to now.
+  google.protobuf.Timestamp b = 2;
+
+  // The collection read as the state at A: the newest that started at or
+  // before A, within three collect intervals; 0 when none.
+  int64 epoch_a = 3;
+
+  // When epoch_a started; unset when there was no collection at A.
+  google.protobuf.Timestamp epoch_a_at = 4;
+
+  // The collection read as the state at B, by the same rule; 0 when none.
+  int64 epoch_b = 5;
+
+  // When epoch_b started; unset when there was no collection at B.
+  google.protobuf.Timestamp epoch_b_at = 6;
+
+  // The steps in time order; steps outside the range come last.
+  repeated ReplayStep steps = 7;
+
+  // Whether steps were left out to keep at most 200 in the range and 10
+  // after it.
+  bool steps_truncated = 8;
+
+  // Number of steps left out.
+  int32 steps_omitted = 9;
+
+  // What changed, in numbers.
+  ReplayCounts counts = 10;
+
+  // Assets that servers held at A and none holds at B, at most 200.
+  repeated GoneAsset gone = 11;
+
+  // Whether gone assets were left out.
+  bool gone_truncated = 12;
+
+  // Kubernetes windows that overlap A to B.
+  repeated TimeWindow windows = 13;
+
+  // Whether nats-lens watches Kubernetes for this system.
+  bool kubernetes_watched = 14;
+
+  // When the stored history begins.
+  google.protobuf.Timestamp history_start = 15;
+}
