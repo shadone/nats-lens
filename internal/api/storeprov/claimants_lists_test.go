@@ -110,6 +110,9 @@ func TestDetailsOfflineByChosenLeader(t *testing.T) {
 		t.Errorf("GetStream servers\n got %q\nwant %q", got, want)
 	}
 	ca := asset(must(c.GetPlacement(ctx, connect.NewRequest(&v1.GetPlacementRequest{Range: rg}))), "APP/orders/ship")
+	if got, want := ca.GetLeader(), "nats-0"; got != want {
+		t.Errorf("matrix consumer leader %q, want %q", got, want)
+	}
 	if got, want := strings.Join(cellsText(ca), " "), "nats-0:LEADER nats-1:OFFLINE nats-2:DISAGREES"; got != want {
 		t.Errorf("matrix consumer cells %q, want %q", got, want)
 	}
