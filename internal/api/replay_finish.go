@@ -143,22 +143,32 @@ func sameAsset(e *v1.Event, ref *v1.EntityRef) bool {
 }
 
 // announcement is the first lame duck or shutdown event of a server
-// between from and to, the lame duck first.
+// between from and to that no other step took in, the lame duck first.
+// Every such event in the span is marked used, so that a later restart or
+// stop of the server does not take in the same announcement.
 func (b *replayBuilder) announcement(server string, from, to time.Time) *v1.Event {
-	var shutdown *v1.Event
+	var lame, shutdown *v1.Event
 	for _, e := range b.f.Events {
 		at := e.GetTime().AsTime()
-		if e.GetServer() != server || at.Before(from) || at.After(to) {
+		if e.GetServer() != server || at.Before(from) || at.After(to) || b.used[e.GetId()] {
 			continue
 		}
 		switch e.GetKind() {
 		case "server.lameduck":
-			return e
+			if lame == nil {
+				lame = e
+			}
 		case "server.shutdown":
 			if shutdown == nil {
 				shutdown = e
 			}
+		default:
+			continue
 		}
+		b.used[e.GetId()] = true
+	}
+	if lame != nil {
+		return lame
 	}
 	return shutdown
 }
@@ -181,7 +191,9 @@ func (b *replayBuilder) podEvents(server string, from, to time.Time) []*v1.Event
 // process's last answer to the new one's first, the announcement, the
 // pod events, the leaders elected elsewhere and the restart findings.
 func (b *replayBuilder) restarts() {
-	for _, r := range b.f.Restarts {
+	rs := slices.Clone(b.f.Restarts)
+	slices.SortStableFunc(rs, func(x, y ReplayRestart) int { return x.LastSeen.Compare(y.LastSeen) })
+	for _, r := range rs {
 		started := cmp.Or(r.Started, r.FirstSeen)
 		d := &draft{kind: v1.ReplayStepKind_REPLAY_STEP_KIND_RESTART, time: r.LastSeen, end: r.FirstSeen,
 			entities: []*v1.EntityRef{serverEntity(r.Server)}, title: r.Server + " restarts"}

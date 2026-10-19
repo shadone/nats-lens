@@ -473,3 +473,20 @@ func TestReplayRestartTakesInOnlyItsOwnRestartFinding(t *testing.T) {
 		t.Errorf("finding steps = %v", fs)
 	}
 }
+
+// An announcement goes into one step only: a second, unannounced restart
+// of the same server within the restart window does not claim it.
+func TestReplayAnnouncementIsTakenOnce(t *testing.T) {
+	f := facts()
+	f.EventsCaptured = true
+	f.Events = []*v1.Event{ev(rAt(9, 50), "server.lameduck", "nats-1")}
+	f.Restarts = []api.ReplayRestart{
+		{Server: "nats-1", LastSeen: rAt(15, 0), FirstSeen: rAt(16, 0), OldEpoch: 130, NewEpoch: 132},
+		{Server: "nats-1", LastSeen: rAt(10, 0), FirstSeen: rAt(11, 0), OldEpoch: 120, NewEpoch: 122},
+	}
+	rs := stepsOf(api.FinishReplay(f), v1.ReplayStepKind_REPLAY_STEP_KIND_RESTART)
+	if len(rs) != 2 || !strings.HasPrefix(rs[0].GetBody(), "Lame duck mode announced at 09:09:50.") ||
+		!strings.HasPrefix(rs[1].GetBody(), "No lame duck or shutdown event was captured.") {
+		t.Errorf("restarts = %q / %q", rs[0].GetBody(), rs[1].GetBody())
+	}
+}
