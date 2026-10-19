@@ -73,10 +73,14 @@ describe("clampMoments and the future", () => {
     expect(c.notes).toEqual(["A was after B, so the two were swapped.", "B is after now, so it is read as now."]);
   });
 
+  it("says an A exactly at now is at or after now", () => {
+    expect(clampMoments({ a: NOW, b: NOW }, NOW, 30_000).notes).toEqual(["A is at or after now, so it is read as an hour before now."]);
+  });
+
   it("reads A and B both in the future as the hour before now", () => {
     const c = clampMoments({ a: NOW + 3_600_000, b: NOW + 7_200_000 }, NOW, 30_000);
     expect([c.a, c.b]).toEqual([NOW - 3_600_000, NOW]);
-    expect(c.notes).toEqual(["B is after now, so it is read as now.", "A is after now, so it is read as an hour before now."]);
+    expect(c.notes).toEqual(["B is after now, so it is read as now.", "A is at or after now, so it is read as an hour before now."]);
   });
 
   it("moves an A equal to B in the past back by one collect interval, without calling it after now", () => {
