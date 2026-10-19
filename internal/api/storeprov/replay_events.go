@@ -141,7 +141,7 @@ ORDER BY epoch`, f.A.Add(-reach), f.A.Add(-reach), f.B, f.B)
 		}
 	})...)
 	evs, err := p.db().QueryContext(ctx, `SELECT `+eventCols+`, e.received_at FROM events e
-WHERE e.kind IN ('collector.gap', 'collector.k8s_gap') AND e.time <= ? AND e.received_at >= ? ORDER BY e.time, e.id`, f.B, f.A)
+WHERE e.kind IN ('collector.gap', 'collector.k8s_gap') AND e.time <= ? AND e.received_at >= ? ORDER BY e.time, e.id`, f.B, f.A.Add(-f.RestartWindow))
 	if err != nil {
 		return fmt.Errorf("replay collector gaps: %w", err)
 	}

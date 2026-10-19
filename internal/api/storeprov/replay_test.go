@@ -367,3 +367,18 @@ func TestReplayStopLastSeenInAsCollection(t *testing.T) {
 		t.Errorf("epoch A %d, stops %+v", f.EpochA, f.Stops)
 	}
 }
+
+// A time nats-lens was not running that ended within the restart window
+// before A is read, so a restart near A can weigh it.
+func TestReplayReadsCollectorGapsBeforeA(t *testing.T) {
+	p, r := replayStore(t)
+	r.add("events", map[string]any{"id": 900, "time": rEpoch(1).Add(-5 * time.Minute), "received_at": rEpoch(1).Add(-time.Minute),
+		"source": "collector", "kind": "collector.gap", "summary": "gap"})
+	f, err := p.Replay(ctx, replayReq(rEpoch(3), rEpoch(40)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.ContainsFunc(f.Gaps, func(g api.ReplayGap) bool { return g.Kind == api.GapCollector }) {
+		t.Errorf("gaps = %+v", f.Gaps)
+	}
+}

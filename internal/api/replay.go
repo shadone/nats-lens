@@ -110,8 +110,10 @@ type ReplayFacts struct {
 	// unset when they were not.
 	Gone     []ReplayGone
 	GoneRead bool
-	// Gaps are the times without collections, while nats-lens was not
-	// running, or while Kubernetes was not watched, that overlap A to B.
+	// Gaps are the times without collections that overlap A to B, and the
+	// times nats-lens was not running or Kubernetes was not watched that
+	// overlap A minus the restart window to B (they decide whether a step
+	// may say an announcement was not captured).
 	Gaps []ReplayGap
 	// ClientReconnects counts reconnects between A and B (see
 	// ReplayCounts.client_reconnects); read only with EventsCaptured.
