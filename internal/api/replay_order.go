@@ -132,7 +132,9 @@ func stepID(s *v1.ReplayStep, ids map[string]int) string {
 }
 
 // counts are the response's numbers; a count stays unset when what it
-// counts was not observed.
+// counts was not observed. A read cut by the limit after B read every row
+// of A to B, so the counts taken from those rows stay set (proposed, not
+// yet confirmed).
 func (b *replayBuilder) counts() *v1.ReplayCounts {
 	f, c := b.f, &v1.ReplayCounts{}
 	n := func(v int) *int32 { x := int32(v); return &x }
@@ -148,7 +150,7 @@ func (b *replayBuilder) counts() *v1.ReplayCounts {
 				raised[t.FindingID] = true
 			}
 		}
-		if !f.TransitionsTruncated {
+		if !f.TransitionsTruncated || f.TransitionsReadUntil.After(f.B) {
 			c.FindingsRaised = n(len(raised))
 		}
 	}
@@ -195,7 +197,7 @@ func (b *replayBuilder) counts() *v1.ReplayCounts {
 				quorum++
 			}
 		}
-		if !f.EventsTruncated {
+		if !f.EventsTruncated || f.EventsReadUntil.After(f.B) {
 			c.LeadersMoved, c.LeaderElections, c.MetaLeaderChanges, c.QuorumLostReports = n(m), n(elections), n(meta), n(quorum)
 		}
 		c.ClientReconnects = n(int(f.ClientReconnects))
