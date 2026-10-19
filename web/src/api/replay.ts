@@ -21,14 +21,12 @@ type Key = readonly [string, string, number | undefined, number | undefined];
  */
 export function useSettledMoments(a: number | undefined, b: number | undefined): { a?: number; b?: number } {
   const sys = useSystem();
-  const moments = a === undefined || b === undefined ? "" : `${a}|${b}`;
-  const key = useDebounced(`${sys}#${moments}`, REPLAY_DEBOUNCE_MS, (settled, next) => {
-    const [ss, sm] = settled.split("#");
-    return ss !== next.split("#")[0] || sm === "";
+  const key = useDebounced(JSON.stringify([sys, a ?? null, b ?? null]), REPLAY_DEBOUNCE_MS, (settled, next) => {
+    const [ss, sa] = JSON.parse(settled) as [string, number | null];
+    return ss !== (JSON.parse(next) as [string])[0] || sa === null;
   });
-  const [ks, km] = key.split("#");
-  if (ks !== sys || !km) return {};
-  const [ka, kb] = km.split("|").map(Number);
+  const [ks, ka, kb] = JSON.parse(key) as [string, number | null, number | null];
+  if (ks !== sys || ka === null || kb === null) return {};
   return { a: ka, b: kb };
 }
 

@@ -157,6 +157,8 @@ describe("Replay", () => {
     );
     await screen.findByText("nats-1 restarts at 07:00");
     await userEvent.click(screen.getByRole("button", { name: "go" }));
+    // Without the 300 ms wait for a change of system or for the first moments.
+    await waitFor(() => expect(requests.getReplay).toHaveBeenCalledTimes(2), { timeout: 200 });
     await screen.findByText("nats-us-1 restarts at 09:09");
     const calls = vi.mocked(requests.getReplay).mock.calls.map((c) => `${c[0]} ${new Date(c[1]).toISOString()}`);
     expect(calls).toEqual(["example-prod 2026-10-17T07:00:00.000Z", "example-global 2026-10-17T09:09:00.000Z"]);
