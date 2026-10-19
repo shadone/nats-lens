@@ -205,7 +205,7 @@ func (b *replayBuilder) restarts() {
 	slices.SortStableFunc(rs, func(x, y ReplayRestart) int { return x.LastSeen.Compare(y.LastSeen) })
 	for _, r := range rs {
 		started := cmp.Or(r.Started, r.FirstSeen)
-		d := &draft{kind: v1.ReplayStepKind_REPLAY_STEP_KIND_RESTART, time: r.LastSeen, end: r.FirstSeen,
+		d := &draft{kind: v1.ReplayStepKind_REPLAY_STEP_KIND_RESTART, time: r.LastSeen, end: r.FirstSeen, severity: v1.Severity_SEVERITY_WARNING,
 			entities: []*v1.EntityRef{serverEntity(r.Server)}, title: r.Server + " restarts"}
 		if r.OldVersion != "" && r.NewVersion != "" && r.OldVersion != r.NewVersion {
 			d.title = fmt.Sprintf("%s restarts for an upgrade from %s to %s", r.Server, r.OldVersion, r.NewVersion)

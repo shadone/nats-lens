@@ -112,3 +112,13 @@ func TestReplayOpenGapNamesNothingAfterB(t *testing.T) {
 		t.Errorf("evidence = %v; want the gap event and the collection before", g.GetEvidence())
 	}
 }
+
+// A restart step is a warning, as a stop is.
+func TestReplayRestartIsAWarning(t *testing.T) {
+	f := facts()
+	f.Restarts = []api.ReplayRestart{{Server: "nats-1", LastSeen: rAt(10, 0), FirstSeen: rAt(11, 30), OldEpoch: 120, NewEpoch: 123}}
+	rs := stepsOf(api.FinishReplay(f), v1.ReplayStepKind_REPLAY_STEP_KIND_RESTART)
+	if len(rs) != 1 || rs[0].GetSeverity() != warning {
+		t.Errorf("restart steps = %v", rs)
+	}
+}
