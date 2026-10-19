@@ -168,8 +168,11 @@ export function stepNotes(r: Pick<Replay, "a" | "b" | "stepsTruncated" | "stepsO
 }
 
 /** What the page says when there was no collection at A or at B. */
-export function collectionNotes(r: Pick<Replay, "epochAAt" | "epochBAt">): string[] {
+export function collectionNotes(r: Pick<Replay, "a" | "epochAAt" | "epochBAt" | "historyStart">): string[] {
   const out: string[] = [];
+  if (r.historyStart !== undefined && r.a < r.historyStart) {
+    out.push(`A is before the history starts, ${dayMonHm(r.historyStart)} UTC: nats-lens stored nothing before then.`);
+  }
   const why = "none started in the three collect intervals before it, so the counts that need it are not observed.";
   if (r.epochAAt === undefined) out.push(`No collection at A: ${why}`);
   if (r.epochBAt === undefined) out.push(`No collection at B: ${why}`);

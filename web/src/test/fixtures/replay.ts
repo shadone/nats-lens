@@ -17,8 +17,6 @@ export function rstep(id: string, at: string, over: Partial<ReplayStep> = {}): R
     kind: "finding",
     title: id,
     body: "",
-    entities: [],
-    entityCount: 0,
     evidence: [],
     evidenceCount: 0,
     outsideRange: false,
@@ -32,10 +30,8 @@ export function rgone(over: Partial<GoneAsset> = {}): GoneAsset {
     serversAtA: ["nats-0", "nats-1", "nats-2"],
     notAnsweringAtB: [],
     lastReported: Date.parse("2026-10-17T09:30:30Z"),
-    lastEpoch: "120",
     deleteClient: "",
     consumersWithIt: 0,
-    findingIds: [],
     ...over,
   };
 }
@@ -57,7 +53,6 @@ export function rreplay(over: Partial<Replay> = {}, system = ""): Replay {
     counts: {},
     gone: [],
     goneTruncated: false,
-    windows: [],
     kubernetesWatched: true,
     ...over,
   };
