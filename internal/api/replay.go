@@ -97,8 +97,11 @@ type ReplayFacts struct {
 	MetaLeaderAtA string
 	// Windows are the Kubernetes windows overlapping A to B.
 	Windows []*v1.TimeWindow
-	// Gone are the assets servers held at EpochA and none holds at EpochB.
-	Gone []ReplayGone
+	// Gone are the assets servers held at EpochA and none holds at EpochB;
+	// GoneRead is whether they were read, so that the gone counts stay
+	// unset when they were not.
+	Gone     []ReplayGone
+	GoneRead bool
 	// Gaps are the times without collections, while nats-lens was not
 	// running, or while Kubernetes was not watched, that overlap A to B.
 	Gaps []ReplayGap
@@ -178,7 +181,8 @@ type ReplayGone struct {
 	Delete *v1.Event
 	// ConsumersWithIt counts a gone stream's durables.
 	ConsumersWithIt int32
-	// FindingIDs are its findings of ReplayGoneChecks.
+	// FindingIDs are its findings of ReplayGoneChecks; FinishReplay adds
+	// those it finds in Transitions.
 	FindingIDs []string
 }
 

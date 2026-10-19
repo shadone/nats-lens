@@ -146,7 +146,7 @@ func (b *replayBuilder) counts() *v1.ReplayCounts {
 		}
 		c.FindingsRaised = n(len(raised))
 	}
-	if f.EpochA != 0 && f.EpochB != 0 {
+	if f.GoneRead && f.EpochA != 0 && f.EpochB != 0 {
 		streams, consumers, deleted, unknown := 0, 0, 0, 0
 		for _, g := range f.Gone {
 			switch goneClass(g) {

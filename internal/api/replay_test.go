@@ -277,6 +277,7 @@ func TestReplayGoneAssets(t *testing.T) {
 	del := ev(rAt(31, 7), "consumer.deleted", "nats-0", onAsset("APP", "archive", "agg"), func(e *v1.Event) {
 		e.ClientName, e.ClientHost = "analytics-worker", "10.20.0.12"
 	})
+	f.GoneRead = true
 	f.Gone = []api.ReplayGone{
 		{Entity: consumerEnt("inventory-changes", "restock-alerts"), ServersAtA: []string{"nats-us-0", "nats-us-1", "nats-us-2"},
 			LastReported: rAt(29, 0), LastEpoch: 158, FindingIDs: []string{"consumer-013:restock"}},
@@ -289,6 +290,8 @@ func TestReplayGoneAssets(t *testing.T) {
 	f.Transitions = []api.ReplayTransition{
 		tr("consumer-013:restock", "consumer-013", consumerEnt("inventory-changes", "restock-alerts"), rAt(29, 30), firing, critical),
 		tr("consumer-013:restock", "consumer-013", consumerEnt("inventory-changes", "restock-alerts"), rAt(95, 0), resolved, critical),
+		// A finding the provider did not name is found by its entity.
+		tr("consumer-013:stock", "consumer-013", consumerEnt("inventory-changes", "stock-audit-export"), rAt(29, 30), firing, critical),
 	}
 	res := api.FinishReplay(f)
 	noCause(t, res)
@@ -317,6 +320,9 @@ func TestReplayGoneAssets(t *testing.T) {
 	if !last.GetOutsideRange() || !strings.Contains(last.GetTitle(), "resolved: restock-alerts on inventory-changes") {
 		t.Errorf("last = %v", last)
 	}
+	if ids := res.GetGone()[3].GetFindingIds(); len(ids) != 1 || ids[0] != "consumer-013:stock" {
+		t.Errorf("finding IDs of stock-audit-export = %v", ids)
+	}
 	if len(res.GetGone()) != 4 || res.GetGone()[0].GetEntity().GetKey() != "APP/KV_label-templates" ||
 		res.GetGone()[1].GetDeleteClient() != "analytics-worker (10.20.0.12)" || res.GetGone()[1].GetDeleteEvent().GetId() != del.GetId() {
 		t.Errorf("gone = %v", res.GetGone())
@@ -337,6 +343,11 @@ func TestReplayCountsUnsetWhenNotObserved(t *testing.T) {
 		if v != nil {
 			t.Errorf("%s = %d, want unset", name, *v)
 		}
+	}
+	// With both collections but the gone assets not read, the gone counts
+	// stay unset.
+	if c := api.FinishReplay(facts()).GetCounts(); c.ConsumersGoneWithoutDelete != nil || c.AssetsGoneWithDelete != nil {
+		t.Errorf("gone counts set without GoneRead: %v", c)
 	}
 	f = facts()
 	f.Collected, f.EventsCaptured, f.Kubernetes = true, true, true
