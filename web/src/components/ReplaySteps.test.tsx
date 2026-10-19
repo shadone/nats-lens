@@ -23,7 +23,7 @@ const steps = [
     ],
     evidenceCount: 6,
   }),
-  rstep("gap:1", "09:30:00", { kind: "gap", end: Date.parse("2026-10-17T09:33:00Z"), title: "No collections for 3 min", gapKind: "collections" }),
+  rstep("gap:1", "09:30:00", { kind: "gap", end: Date.parse("2026-10-17T09:33:00Z"), title: "No collections for 3 min" }),
   rstep("quorum:1", "09:40:00", { kind: "quorum", severity: "critical", openAtB: true, title: "order-jobs has no quorum" }),
   rstep("resolved:1", "10:05:00", { kind: "resolved", title: "order-jobs has quorum again", outsideRange: true }),
 ];
@@ -62,6 +62,13 @@ describe("ReplaySteps", () => {
     expect(divider.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(screen.getByRole("list", { name: "What happened, in order" })).queryByText("outside the range")).toBeNull();
     expect(screen.getByText("Built from collections, NATS advisories and Kubernetes events; every line links to its evidence.")).toBeInTheDocument();
+  });
+
+  it("gives a span that began on an earlier day its day, in a wider column", () => {
+    const gap = rstep("gap:old", "09:00:00", { kind: "gap", time: Date.parse("2026-10-14T23:00:00Z"), end: Date.parse("2026-10-17T09:10:00Z"), title: "nats-lens was not running" });
+    const { container } = renderApp(<ReplaySteps steps={[gap]} moments={M} notes={[]} />);
+    expect(container.querySelector('[data-step="gap:old"] .rp-when')).toHaveTextContent("14 Oct 23:00:00–09:10:00");
+    expect(container.querySelector(".rp-list")).toHaveClass("days");
   });
 
   it("shows what may be missing", () => {
