@@ -9,7 +9,7 @@ The board's sample names come from a private deployment. Use the example shop of
 | Task | Status |
 |---|---|
 | T1 API and store | built on `feat/replay-page`, awaiting review |
-| T2 Demo story and conformance | open |
+| T2 Demo story and conformance | built on `feat/replay-page`, awaiting review |
 | T3 UI | open |
 | T4 Feature docs and audit | open |
 
@@ -61,6 +61,19 @@ Decided in the session that built T1, not confirmed.
 - The demo leaves leaders at A unset without a collection at A, watches Kubernetes when its scenario has a Kubernetes lane, and counts nodes as the store does: a node event that names no node leaves the node counts unset. Its node events name no node yet, so its node counts are unset; T2 should add `node` and `pool` to them.
 - The delete-event match once wrote `e.received_at >= ? - INTERVAL 30 SECOND` with a bound `time.Time`. A bound `time.Time` binds as TIMESTAMP WITH TIME ZONE unless its type is inferred from a column, so that expression stays TIMESTAMPTZ and the comparison casts the TIMESTAMP column in the host's time zone: no rows in Europe/Berlin, correct in UTC (found by the T1 review). The match now subtracts from the epochs' TIMESTAMP column inside the gone query. Plain `col >= ?`, `?::TIMESTAMP - INTERVAL ...` or subtracting in Go are correct; see `internal/store/archive.go`.
 - The demo leaves the meta leader at A unknown (the scenario names only the current one), and its restarts have no versions or asset counts; T2 can add them.
+
+## Where T2 departed from this plan
+
+Decided in the session that built T2, not confirmed.
+
+- The demo's leaders come from leader spells in the scenario, which agree with its election events: the leaders at A (streams and durables), the meta leader at A (`example-prod`'s was `nats-1` until 09:30:11) and what each restarted process led. The present Placement still shows each stream's first peer as leader.
+- Gone durables are a stream's `vanished` list, time-aware on Consumers, Placement and the stream detail; `example-prod`'s `analytics-aggregator` is one too, so its delete is a gone asset with a delete event. Restart asset counts leave out ephemeral consumers: the demo does not say which server holds them.
+- `consumer-013` on the two durables fires at 08:59:26 (the collection after the first one without them) and resolves at 09:58:56.
+- Node events name node, pool and kubelet version; each drained and upgraded node has its own event. The node pools' own reports (`pool-us upgrade stopped`, `pool-1 upgrade complete`) name no node and became `k8s.event`, so they are no Replay step.
+- Fixes to `FinishReplay` asked for during T2: no step for a meta election that keeps the leader; a Kubernetes step's body gives a pod failure's reason and the window it lies in, never the event's summary again; repeated evidence labels in one step begin with their time (and a finding's end with its entity); a gap open at B names nothing after B (body up to B, the gap event labelled up to B, no collection after B); a restart step is a warning; folded resolves at one time say "Resolved at".
+- The demo gives one gap from A when no collection is near A to B (the store's rule), so a range after `example-staging`'s data ended shows "No collections since …".
+- An `invalid_argument` message reads "invalid argument: A is older than …" because every RPC's `ErrInvalid` wraps the same way; left as it is.
+- The conformance rows read each system's newest Kubernetes window of the last day, else the last 2 hours. The store runs them over the Replay fixture as a third system, with pod events that stretch its window and assets at its A and B.
 
 ## Proto
 
