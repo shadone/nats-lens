@@ -11,7 +11,9 @@ import { PlacementMatrix, type CellRef } from "../components/PlacementMatrix";
 import { PlacementPanel } from "../components/PlacementPanel";
 import { hms } from "../lib/format";
 import { changes as diff, compareAt as momentOf, compareSpec, momentText } from "../lib/placementView";
+import { rangeKey } from "../lib/timeRange";
 import { usePageTitle } from "../lib/usePageTitle";
+import { useSystem } from "../lib/useSystem";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
 
 /** "2026-10-16T14:30" for a datetime-local input, in UTC. */
@@ -23,6 +25,7 @@ export function Placement() {
   usePageTitle("Placement");
   const [params, setParams] = useSearchParams();
   const { spec } = useTimeRange();
+  const sys = useSystem();
   const { end } = useResolvedRange(spec);
   const filter = matrixFilter(params.get("filter"));
   const cmp = params.get("cmp") ?? "";
@@ -34,10 +37,12 @@ export function Placement() {
   const raw = momentOf(cmp, end);
   const at = raw === undefined ? undefined : Math.floor(raw / 60_000) * 60_000;
   // A newly chosen moment shows nothing of the one before while it
-  // loads; a live range's moment moving to the next minute keeps it. Changes are counted over every asset, not only the listed ones,
-  // so the page also reads the unfiltered matrix (the same call as the
-  // matrix itself when no filter applies).
-  const cq = usePlacement(compareSpec(at ?? 0), "all", at !== undefined, cmp);
+  // loads, nor does a change of system or range; a live range's moment
+  // moving to the next minute keeps it, since a live range's key names
+  // its preset, not the minute. Changes are counted over every asset,
+  // not only the listed ones, so the page also reads the unfiltered
+  // matrix (the same call as the matrix itself when no filter applies).
+  const cq = usePlacement(compareSpec(at ?? 0), "all", at !== undefined, `${sys}|${rangeKey(spec)}|${cmp}`);
   const all = usePlacement(spec, "all", at !== undefined);
   const changed = useMemo(() => (all.data && cq.data && at !== undefined ? diff(all.data, cq.data) : undefined), [all.data, cq.data, at]);
   const panel = useRef<HTMLDivElement>(null);
