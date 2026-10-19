@@ -82,6 +82,8 @@ type asset struct {
 	key, stream, consumer string
 	peers                 []string
 	initial               string
+	// until is when a vanished durable went: it has no leader from then.
+	until time.Time
 }
 
 func buildLeaders(sc *scenario) *leaderModel {
@@ -129,13 +131,15 @@ func buildLeaders(sc *scenario) *leaderModel {
 		key := streamRef(sp.name).GetKey()
 		init := cmp.Or(sc.initialLeaders[key], peers[0])
 		assets = append(assets, asset{key: key, stream: sp.name, peers: peers, initial: init})
+		gone := map[string]time.Time{}
 		names := slices.Clone(sp.consumers)
 		for _, v := range sp.vanished {
-			names = append(names, v.name)
+			names, gone[v.name] = append(names, v.name), v.at
 		}
 		for _, n := range names {
 			ck := consumerRef(sp.name, n).GetKey()
-			consumers = append(consumers, asset{key: ck, stream: sp.name, consumer: n, peers: peers, initial: cmp.Or(sc.initialLeaders[ck], init)})
+			consumers = append(consumers, asset{key: ck, stream: sp.name, consumer: n, peers: peers, initial: cmp.Or(sc.initialLeaders[ck], init),
+				until: gone[n]})
 		}
 	}
 	// Streams and the meta group first: a consumer follows its stream's
@@ -169,6 +173,9 @@ func (m *leaderModel) follow(a asset, scripted []*v1.Event, down map[string][]do
 		}
 	}
 	slices.SortStableFunc(pts, func(x, y point) int { return x.at.Compare(y.at) })
+	if !a.until.IsZero() {
+		pts = slices.DeleteFunc(pts, func(p point) bool { return !p.at.Before(a.until) })
+	}
 	segs := []leaderSeg{{server: a.initial}}
 	cur := a.initial
 	set := func(at time.Time, server string, elected bool) {
@@ -216,6 +223,9 @@ func (m *leaderModel) follow(a asset, scripted []*v1.Event, down map[string][]do
 			}
 			elect(pt.at.Add(delay))
 		}
+	}
+	if !a.until.IsZero() {
+		segs = append(segs, leaderSeg{from: a.until})
 	}
 	return segs
 }

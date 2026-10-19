@@ -184,7 +184,7 @@ func TestStatusTimeline(t *testing.T) {
 	if got := tl.GetRows()[5].GetNow(); got != v1.Status_STATUS_OK {
 		t.Fatalf("sixth row now = %v, want ok (five fail now)", got)
 	}
-	if len(tl.GetKubernetes()) != 15 || len(tl.GetWindows()) != 1 || len(tl.GetNats()) != 61 {
+	if len(tl.GetKubernetes()) != 15 || len(tl.GetWindows()) != 1 || len(tl.GetNats()) != 60 {
 		t.Fatalf("lanes %d k8s, %d nats, %d windows", len(tl.GetKubernetes()), len(tl.GetNats()), len(tl.GetWindows()))
 	}
 	one := must(client(t).GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{
