@@ -161,6 +161,10 @@ func (b *replayBuilder) leaders() {
 		switch {
 		case len(grp) == 1 && n == 1:
 			moves = "The lead moved from another server."
+		case n == 2 && len(grp) == 2:
+			moves = "Both moved the lead from another server."
+		case n == len(grp):
+			moves = "All moved the lead from another server."
 		case n > 0:
 			moves = fmt.Sprintf("%d of them moved the lead from another server.", n)
 		}
@@ -174,18 +178,15 @@ func (b *replayBuilder) leaders() {
 	prev := b.metaElections()
 	var metas []*v1.Event
 	for _, e := range b.f.Events {
-		if _, ok := prev[e.GetId()]; ok && e.GetKind() == "meta.leader_elected" {
+		// An election that keeps the leader changes nothing: no step
+		// (proposed, not yet confirmed).
+		if p, ok := prev[e.GetId()]; ok && e.GetKind() == "meta.leader_elected" && p != e.GetServer() {
 			metas = append(metas, e)
 		}
 	}
 	for _, grp := range foldGroups(metas, func(*v1.Event) string { return "meta" }, at, b.window) {
 		first, last := grp[0], grp[len(grp)-1]
 		p := prev[first.GetId()]
-		if len(grp) == 1 && p == first.GetServer() {
-			// An election that keeps the leader changes nothing
-			// (proposed, not yet confirmed).
-			continue
-		}
 		d := &draft{kind: v1.ReplayStepKind_REPLAY_STEP_KIND_LEADERS, time: at(first), entities: []*v1.EntityRef{serverEntity(last.GetServer())}}
 		for _, e := range grp {
 			d.evidence = append(d.evidence, eventEvidence(e))
@@ -194,10 +195,13 @@ func (b *replayBuilder) leaders() {
 		case len(grp) > 1:
 			d.title = fmt.Sprintf("Meta leader elected %d times, last on %s", len(grp), last.GetServer())
 			d.end = at(last)
-		case p != "" && p != first.GetServer():
+			d.body = fmt.Sprintf("From %s to %s.", clockText(at(first)), clockText(at(last)))
+		case p != "":
 			d.title = fmt.Sprintf("Meta leader moves from %s to %s", p, first.GetServer())
+			d.body = fmt.Sprintf("Elected at %s.", clockText(at(first)))
 		default:
 			d.title = "Meta leader elected on " + first.GetServer()
+			d.body = fmt.Sprintf("Elected at %s; the meta leader before it is not known.", clockText(at(first)))
 		}
 		b.add(d)
 	}

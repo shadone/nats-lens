@@ -134,7 +134,18 @@ func (b *replayBuilder) goneStep(grp []ReplayGone, at func(ReplayGone) time.Time
 	if streams == len(grp) {
 		d.title = fmt.Sprintf("%s %s", Plural(len(grp), noun), what)
 	}
-	d.body = joinSentences(listText(labels)+".", "Last reported at "+clockText(first.LastReported)+".")
+	if streams == 0 {
+		// The title names their stream.
+		labels = labels[:0]
+		for _, g := range grp {
+			labels = append(labels, g.Entity.GetConsumer())
+		}
+	}
+	held := ""
+	if class == goneSilent && !slices.ContainsFunc(grp, func(g ReplayGone) bool { return !slices.Equal(g.ServersAtA, first.ServersAtA) }) {
+		held = "Held by " + listAll(first.ServersAtA) + " at A, by none at B."
+	}
+	d.body = joinSentences(listText(labels)+".", held, "Last reported at "+clockText(first.LastReported)+".")
 	if class == goneDeleted {
 		d.body = joinSentences(listText(labels)+".", "Deleted from "+clockText(at(first))+" to "+clockText(at(grp[len(grp)-1]))+".")
 	}
