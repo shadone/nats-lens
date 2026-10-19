@@ -225,7 +225,7 @@ func (b *replayBuilder) restarts() {
 			from = ann.GetTime().AsTime()
 		}
 		d.body = joinSentences(announcementText(ann, b.capturedOver(r.LastSeen.Add(-b.f.RestartWindow), started)), assetsAfterText(r),
-			b.leadersTaken(r, from, b.upToB(r.FirstSeen.Add(b.f.Interval)), d))
+			b.leadersTaken(r.Server, r.LedBefore, from, b.upToB(r.FirstSeen.Add(b.f.Interval)), d))
 		for _, id := range b.findingIDs() {
 			for _, t := range b.byFinding[id] {
 				if t.Check == restartCheck && t.Entity.GetKey() == r.Server && !t.Time.Before(r.LastSeen) && !t.Time.After(b.upToB(r.FirstSeen.Add(b.f.Interval))) {
@@ -238,19 +238,19 @@ func (b *replayBuilder) restarts() {
 	}
 }
 
-// leadersTaken marks the elections between from and to of the assets the
-// restarted process led, won by another server, as used and says where
+// leadersTaken marks the elections between from and to of the assets a
+// restarted or stopped server led, won by another server, as used and says where
 // they went: "Leaders it held were elected on other servers: 3 on nats-2,
 // 1 on nats-5."
-func (b *replayBuilder) leadersTaken(r ReplayRestart, from, to time.Time, d *draft) string {
+func (b *replayBuilder) leadersTaken(server string, led []*v1.EntityRef, from, to time.Time, d *draft) string {
 	by := map[string]int{}
 	for _, e := range b.f.Events {
 		at := e.GetTime().AsTime()
 		if (e.GetKind() != "stream.leader_elected" && e.GetKind() != "consumer.leader_elected") || b.used[e.GetId()] ||
-			e.GetServer() == r.Server || at.Before(from) || at.After(to) {
+			e.GetServer() == server || at.Before(from) || at.After(to) {
 			continue
 		}
-		if !slices.ContainsFunc(r.LedBefore, func(ref *v1.EntityRef) bool { return sameAsset(e, ref) }) {
+		if !slices.ContainsFunc(led, func(ref *v1.EntityRef) bool { return sameAsset(e, ref) }) {
 			continue
 		}
 		b.used[e.GetId()] = true
@@ -292,8 +292,13 @@ func (b *replayBuilder) stops() {
 		}
 		d.evidence = append(d.evidence, collectionEvidence(s.LastEpoch, s.LastSeen, serverEntity(s.Server)),
 			collectionEvidence(b.f.EpochB, b.f.EpochBAt, nil))
+		from := s.LastSeen
+		if ann != nil {
+			from = earliestTime(from, ann.GetTime().AsTime())
+		}
 		d.body = joinSentences(announcementText(ann, b.capturedOver(s.LastSeen.Add(-b.f.RestartWindow), b.upToB(s.LastSeen.Add(b.f.RestartWindow)))),
-			fmt.Sprintf("Last answered at %s; not answering at B.", clockText(s.LastSeen)))
+			fmt.Sprintf("Last answered at %s; not answering at B.", clockText(s.LastSeen)),
+			b.leadersTaken(s.Server, s.LedBefore, from, b.upToB(s.LastSeen.Add(b.f.RestartWindow)), d))
 		b.add(d)
 		if !s.BackAt.IsZero() && b.afterB(s.BackAt) {
 			b.add(&draft{kind: v1.ReplayStepKind_REPLAY_STEP_KIND_RESOLVED, time: s.BackAt, outside: true,
@@ -352,6 +357,13 @@ func (b *replayBuilder) gapOverlaps(kind string, from, to time.Time) bool {
 
 // findingIDs are the IDs of the findings with transitions, sorted.
 func (b *replayBuilder) findingIDs() []string { return slices.Sorted(mapKeys(b.byFinding)) }
+
+func earliestTime(a, b time.Time) time.Time {
+	if b.Before(a) {
+		return b
+	}
+	return a
+}
 
 func latest(a, b time.Time) time.Time {
 	if b.After(a) {

@@ -198,7 +198,7 @@ func assetRef(account, stream, consumer string, names map[string]string) *v1.Ent
 // replayStops reads the servers that answered in A's collection or a
 // later one and not in the collection at B, and when one answered again
 // after B.
-func (p *Provider) replayStops(ctx context.Context, f *api.ReplayFacts, _ map[string]string) error {
+func (p *Provider) replayStops(ctx context.Context, f *api.ReplayFacts, names map[string]string) error {
 	if f.EpochB == 0 {
 		return nil
 	}
@@ -234,5 +234,21 @@ ORDER BY x.started_at, seen.server_name`, f.A, f.EpochA, f.EpochA, f.EpochB, f.B
 		s.LastSeen, s.BackEpoch, s.BackAt = s.LastSeen.UTC(), back.Int64, ntime(backAt)
 		f.Stops = append(f.Stops, s)
 	}
-	return rows.Err()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	// What each led when it last answered.
+	for i := range f.Stops {
+		s := &f.Stops[i]
+		led, err := p.leaders(ctx, s.LastEpoch, "", names)
+		if err != nil {
+			return err
+		}
+		for _, l := range led {
+			if l.Server == s.Server {
+				s.LedBefore = append(s.LedBefore, l.Entity)
+			}
+		}
+	}
+	return nil
 }

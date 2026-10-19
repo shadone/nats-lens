@@ -164,6 +164,9 @@ type ReplayRestart struct {
 // ReplayStop is a server that answered after A and not at B.
 type ReplayStop struct {
 	Server string
+	// LedBefore are the streams and consumers it led when it last
+	// answered.
+	LedBefore []*v1.EntityRef
 	// LastSeen is when it last answered, in epoch LastEpoch.
 	LastSeen  time.Time
 	LastEpoch int64

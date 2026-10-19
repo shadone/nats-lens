@@ -156,3 +156,23 @@ func TestReplayFoldedResolvesAtOneTime(t *testing.T) {
 		t.Errorf("resolved = %v", rs)
 	}
 }
+
+// A stopped server's leaders elected elsewhere go into its stop step,
+// as a restart's do.
+func TestReplayStopTakesInItsLeaders(t *testing.T) {
+	f := facts()
+	f.EventsCaptured = true
+	f.Stops = []api.ReplayStop{{Server: "nats-4", LastSeen: rAt(10, 0), LastEpoch: 120, LedBefore: []*v1.EntityRef{streamEnt("orders")}}}
+	f.Events = []*v1.Event{
+		ev(rAt(10, 5), "server.shutdown", "nats-4"),
+		ev(rAt(10, 6), "stream.leader_elected", "nats-2", onAsset("APP", "orders", "")),
+	}
+	res := api.FinishReplay(f)
+	rs := stepsOf(res, v1.ReplayStepKind_REPLAY_STEP_KIND_RESTART)
+	if len(rs) != 1 || !strings.Contains(rs[0].GetBody(), "Leaders it held were elected on other servers: 1 on nats-2.") {
+		t.Errorf("stop = %v", rs)
+	}
+	if ls := stepsOf(res, v1.ReplayStepKind_REPLAY_STEP_KIND_LEADERS); len(ls) != 0 {
+		t.Errorf("leader steps = %v", ls)
+	}
+}
