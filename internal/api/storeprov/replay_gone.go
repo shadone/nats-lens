@@ -22,6 +22,7 @@ func (p *Provider) replayGone(ctx context.Context, f *api.ReplayFacts, names map
 	if f.EpochA == 0 || f.EpochB == 0 {
 		return nil
 	}
+	f.GoneRead = true
 	rows, err := p.db().QueryContext(ctx, `
 WITH durable_a AS (
     SELECT DISTINCT x.account, x.stream, x.consumer FROM consumer_stats x

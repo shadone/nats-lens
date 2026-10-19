@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
@@ -155,7 +157,7 @@ func k8sTitle(e *v1.Event) string {
 	case "k8s.pod.started":
 		return "The pod of " + server + " starts"
 	}
-	return e.GetSummary()
+	return capitalize(e.GetSummary())
 }
 
 // k8sFoldTitle is the title of n folded Kubernetes events of one kind.
@@ -222,4 +224,13 @@ func joinSentences(parts ...string) string {
 		}
 	}
 	return strings.Join(out, " ")
+}
+
+// capitalize upper-cases the first letter of a sentence.
+func capitalize(s string) string {
+	r, n := utf8.DecodeRuneInString(s)
+	if n == 0 {
+		return s
+	}
+	return string(unicode.ToUpper(r)) + s[n:]
 }
