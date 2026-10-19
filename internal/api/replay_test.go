@@ -661,3 +661,15 @@ func TestReplayReadLimitTimes(t *testing.T) {
 		t.Errorf("restart = %q", r.GetBody())
 	}
 }
+
+// A step whose announcement window starts before the events were read
+// does not say none was captured.
+func TestReplayNoAbsenceClaimBeforeTheRead(t *testing.T) {
+	f := facts()
+	f.EventsCaptured, f.ReadFrom = true, rAt(-5, 0)
+	f.Stops = []api.ReplayStop{{Server: "nats-2", LastSeen: rA.Add(-20 * time.Second), LastEpoch: 100}}
+	s := api.FinishReplay(f).GetSteps()[0]
+	if strings.Contains(s.GetBody(), "No lame duck") {
+		t.Errorf("body = %q", s.GetBody())
+	}
+}

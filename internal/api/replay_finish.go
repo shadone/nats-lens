@@ -310,13 +310,13 @@ func transitionKey(t ReplayTransition) string {
 }
 
 // capturedOver reports whether events were captured and read over all of
-// from to to: some were captured, the read limit did not cut them before
-// to, and no
-// time nats-lens was not running (collector.gap) overlaps the span. A step
-// says an announcement was not captured only when its announcement
-// window was (proposed, not yet confirmed).
+// from to to: some were captured, the span starts at or after ReadFrom,
+// the read limit did not cut them before to, and no time nats-lens was
+// not running (collector.gap) overlaps the span. A step says an
+// announcement was not captured only when its announcement window was
+// (proposed, not yet confirmed).
 func (b *replayBuilder) capturedOver(from, to time.Time) bool {
-	return b.f.EventsCaptured && (!b.f.EventsTruncated || to.Before(b.f.EventsReadUntil)) && !b.gapOverlaps(GapCollector, from, to)
+	return b.f.EventsCaptured && !from.Before(b.f.ReadFrom) && (!b.f.EventsTruncated || to.Before(b.f.EventsReadUntil)) && !b.gapOverlaps(GapCollector, from, to)
 }
 
 // kubernetesWhole reports whether Kubernetes was watched over all of A to

@@ -403,3 +403,25 @@ func TestReplayNodeCountsUnsetForAnUnnamedNode(t *testing.T) {
 		t.Errorf("nodes %+v, counts %v", f.Nodes, c)
 	}
 }
+
+// A stop last seen in A's collection, which started before A, has its
+// whole announcement window read: the lame duck early in it is found.
+func TestReplayReadsTheAnnouncementWindowOfAStopInAsCollection(t *testing.T) {
+	p, r := replayStore(t)
+	r.add("events", map[string]any{"id": 902, "time": rEpoch(20).Add(-10*time.Minute + 5*time.Second),
+		"received_at": rEpoch(20).Add(-10*time.Minute + 5*time.Second), "source": "sys", "kind": "server.lameduck", "summary": "lame duck",
+		"server_name": "nats-2"})
+	f, err := p.Replay(ctx, replayReq(rEpoch(20).Add(25*time.Second), rEpoch(40)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range api.FinishReplay(f).GetSteps() {
+		if s.GetTitle() == "nats-2 stops answering" {
+			if !strings.HasPrefix(s.GetBody(), "Lame duck mode announced at 08:59:35.") {
+				t.Errorf("body = %q", s.GetBody())
+			}
+			return
+		}
+	}
+	t.Errorf("no stop step for nats-2")
+}

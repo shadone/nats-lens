@@ -24,8 +24,8 @@ const (
 	maxGoneAssets   = 200
 )
 
-// Event kinds a provider reads for Replay, from ReplayFacts.A minus the
-// restart window to ReplayFacts.Until.
+// Event kinds a provider reads for Replay, from ReplayReadFrom to
+// ReplayFacts.Until.
 var (
 	// ReplayK8sStepKinds are Kubernetes events that make a step of their
 	// own; pod kinds only for NATS pods (with a server name).
@@ -42,6 +42,16 @@ var (
 	// go into its step and its finding_ids.
 	ReplayGoneChecks = []string{"consumer-013", "stream-014", "consumer-010", "stream-011"}
 )
+
+// ReplayReadFrom is where a provider reads the events and collector gaps
+// from: the restart window before the earlier of A and A's collection.
+func ReplayReadFrom(f *ReplayFacts) time.Time {
+	from := f.A
+	if f.EpochA != 0 && f.EpochAAt.Before(from) {
+		from = f.EpochAAt
+	}
+	return from.Add(-f.RestartWindow)
+}
 
 // ReplayEventKinds are every event kind of the lists above.
 func ReplayEventKinds() []string {
@@ -88,9 +98,14 @@ type ReplayFacts struct {
 	// Stops are the servers that answered in A's collection or later and
 	// did not answer at B.
 	Stops []ReplayStop
-	// Events are the events of ReplayEventKinds from A minus the restart
-	// window to Until, in any order; pod kinds only of NATS pods.
+	// Events are the events of ReplayEventKinds from ReadFrom to Until, in
+	// any order; pod kinds only of NATS pods.
 	Events []*v1.Event
+	// ReadFrom is where the events and the collector gaps were read from:
+	// the restart window before the earlier of A and A's collection, so
+	// that a stop last seen in A's collection has its whole announcement
+	// window read. Nothing is claimed absent before it.
+	ReadFrom time.Time
 	// Transitions are the finding transitions from A to Until, and for
 	// each finding still firing at A the newest before A and the firing
 	// that started it.
@@ -115,8 +130,8 @@ type ReplayFacts struct {
 	GoneRead bool
 	// Gaps are the times without collections that overlap A to B, and the
 	// times nats-lens was not running or Kubernetes was not watched that
-	// overlap A minus the restart window to B (they decide whether a step
-	// may say an announcement was not captured).
+	// overlap ReadFrom to B (they decide whether a step may say an
+	// announcement was not captured).
 	Gaps []ReplayGap
 	// ClientReconnects counts reconnects between A and B (see
 	// ReplayCounts.client_reconnects); read only with EventsCaptured.
