@@ -45,16 +45,19 @@ ORDER BY e.time, e.id LIMIT `+fmt.Sprint(replayRowLimit+1), args...)
 }
 
 // replayTransitions reads the finding transitions from A to Until, and
-// for each finding still firing at A the newest before A.
+// for each finding still firing at A the newest before A and the firing
+// that started it, so a span that began before A starts at that firing.
 func (p *Provider) replayTransitions(ctx context.Context, f *api.ReplayFacts, _ map[string]string) error {
 	rows, err := p.db().QueryContext(ctx, `
 SELECT finding_id, check_code, entity_type, entity_key, epoch, time, kind, severity, detail FROM (
     SELECT * FROM finding_transitions WHERE time >= ? AND time <= ?
     UNION ALL
-    SELECT * EXCLUDE (rn) FROM (
-        SELECT *, row_number() OVER (PARTITION BY finding_id ORDER BY time DESC, epoch DESC) AS rn
-        FROM finding_transitions WHERE time < ?)
-    WHERE rn = 1 AND kind <> 'resolved')
+    SELECT * EXCLUDE (rn, frn, last_kind) FROM (
+        SELECT *, row_number() OVER w AS rn, first_value(kind) OVER w AS last_kind,
+            row_number() OVER (PARTITION BY finding_id, kind = 'firing' ORDER BY time DESC, epoch DESC) AS frn
+        FROM finding_transitions WHERE time < ?
+        WINDOW w AS (PARTITION BY finding_id ORDER BY time DESC, epoch DESC))
+    WHERE last_kind <> 'resolved' AND (rn = 1 OR (kind = 'firing' AND frn = 1)))
 ORDER BY time, finding_id LIMIT `+fmt.Sprint(replayRowLimit+1), f.A, f.Until, f.A)
 	if err != nil {
 		return fmt.Errorf("replay transitions: %w", err)
