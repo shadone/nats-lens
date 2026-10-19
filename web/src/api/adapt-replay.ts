@@ -20,7 +20,6 @@ export type UnobservedReason =
   | "no_collections"
   | "no_collection_at_a"
   | "no_collection_at_b"
-  | "collections_gap"
   | "events_not_captured"
   | "collector_gap"
   | "read_limit"
@@ -28,13 +27,13 @@ export type UnobservedReason =
   | "kubernetes_gap"
   | "node_unnamed"
   | "no_pool_labels"
-  | "gone_not_read";
+  | "gone_not_read"
+  | "events_connection_lost";
 
 const REASON: Partial<Record<PReason, UnobservedReason>> = {
   [PReason.NO_COLLECTIONS]: "no_collections",
   [PReason.NO_COLLECTION_AT_A]: "no_collection_at_a",
   [PReason.NO_COLLECTION_AT_B]: "no_collection_at_b",
-  [PReason.COLLECTIONS_GAP]: "collections_gap",
   [PReason.EVENTS_NOT_CAPTURED]: "events_not_captured",
   [PReason.COLLECTOR_GAP]: "collector_gap",
   [PReason.READ_LIMIT]: "read_limit",
@@ -43,6 +42,7 @@ const REASON: Partial<Record<PReason, UnobservedReason>> = {
   [PReason.NODE_UNNAMED]: "node_unnamed",
   [PReason.NO_POOL_LABELS]: "no_pool_labels",
   [PReason.GONE_NOT_READ]: "gone_not_read",
+  [PReason.EVENTS_CONNECTION_LOST]: "events_connection_lost",
 };
 
 /** Why one count is unset; reason unset when the API gives none this UI knows. */

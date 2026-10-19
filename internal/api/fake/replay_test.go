@@ -33,8 +33,8 @@ func TestDemoReplayGlobal(t *testing.T) {
 		"nats-us-1 restarts",
 		"Node gke-example-pool-us-17bd drained",
 		"Node gke-example-pool-us-17bd upgraded",
-		"Node gke-example-pool-us-a904 drained",
 		"nats-us-2 restarts",
+		"Node gke-example-pool-us-a904 drained",
 		"Node gke-example-pool-us-a904 upgraded",
 		"2 durables on inventory-changes gone without a delete event",
 		"Stream inventory-changes has no quorum for 2 min",
@@ -92,7 +92,7 @@ func TestDemoReplayProdGoneWithDelete(t *testing.T) {
 	res := replay(t, fake.Cluster, at(9, 10, 0), at(9, 55, 0))
 	c := res.GetCounts()
 	if c.GetAssetsGoneWithDelete() != 1 || c.ConsumersGoneWithoutDelete == nil || c.GetConsumersGoneWithoutDelete() != 0 ||
-		c.GetServersRestarted() != 3 || c.GetMetaLeaderChanges() != 1 {
+		c.GetServersRestarted() != 3 || c.GetMetaLeaderChanges() != 2 {
 		t.Errorf("counts = %v", c)
 	}
 	gone := res.GetGone()
@@ -102,24 +102,35 @@ func TestDemoReplayProdGoneWithDelete(t *testing.T) {
 	}
 }
 
-// example-staging stopped collecting three hours before now: a gap open
-// at B.
+// gapTitles are the titles of a response's gap steps.
+func gapTitles(res *v1.GetReplayResponse) []string {
+	var out []string
+	for _, s := range res.GetSteps() {
+		if s.GetKind() == v1.ReplayStepKind_REPLAY_STEP_KIND_GAP && s.GetOpenAtB() {
+			out = append(out, s.GetTitle())
+		}
+	}
+	return out
+}
+
+// example-staging stopped collecting three hours before now, when its
+// credentials were rejected and every connection closed: no collections
+// and no events since, both open at B.
 func TestDemoReplayStagingGap(t *testing.T) {
 	res := replay(t, fake.StagingSystem, at(10, 30, 0), at(14, 30, 0))
-	steps := res.GetSteps()
-	if len(steps) != 1 || steps[0].GetKind() != v1.ReplayStepKind_REPLAY_STEP_KIND_GAP || !steps[0].GetOpenAtB() || res.GetEpochB() != 0 {
-		t.Errorf("steps = %v, epoch B %d", steps, res.GetEpochB())
+	if got := gapTitles(res); strings.Join(got, "|") != "No collections since 11:29:56, still at B|Events not captured since 11:30:00, still at B" ||
+		len(res.GetSteps()) != 2 || res.GetEpochB() != 0 {
+		t.Errorf("gap steps %q, steps %d, epoch B %d", got, len(res.GetSteps()), res.GetEpochB())
 	}
 }
 
 // The last hour of the range of example-staging, whose data ended three
 // hours ago: no collection near A or B, so one gap from A, open at B, as
-// the store reads it.
+// the store reads it, besides the events not captured since the close.
 func TestDemoReplayStagingGapAfterTheData(t *testing.T) {
 	res := replay(t, fake.StagingSystem, at(13, 30, 0), at(14, 30, 0))
-	steps := res.GetSteps()
-	if len(steps) != 1 || steps[0].GetTitle() != "No collections since 13:30:00, still at B" || !steps[0].GetOpenAtB() {
-		t.Errorf("steps = %v", steps)
+	if got := gapTitles(res); strings.Join(got, "|") != "Events not captured since 11:30:00, still at B|No collections since 13:30:00, still at B" {
+		t.Errorf("gap steps %q", got)
 	}
 }
 
@@ -194,13 +205,29 @@ func TestDemoVanishedDurablesFollowTheRange(t *testing.T) {
 	}
 }
 
-// Without collections over A to B, example-staging claims no event counts:
-// after its data ended, and before its history began.
+// example-staging claims no event counts after its connections closed
+// (its events connections were lost too) nor before its history began
+// (no event stored up to B).
 func TestDemoReplayNoEventCountsWithoutCollections(t *testing.T) {
 	for _, ab := range [][2]time.Time{{at(12, 0, 0), at(13, 0, 0)}, {at(0, 0, 0), at(1, 0, 0)}} {
 		c := replay(t, fake.StagingSystem, ab[0], ab[1]).GetCounts()
 		if c.LeaderElections != nil || c.LeadersMoved != nil || c.QuorumLostReports != nil || c.ClientReconnects != nil {
 			t.Errorf("%v: counts %v", ab, c)
 		}
+	}
+}
+
+// nats-1 led the meta group until it stopped at 09:29:05; no server led
+// it at A, so the election of nats-0 at 09:30:11 is a step of its own and
+// not dropped as one that keeps the leader. With no leader at A it is no
+// counted change: the previous leader is not known.
+func TestDemoReplayMetaElectionWhileNoneLeads(t *testing.T) {
+	res := replay(t, fake.Cluster, at(9, 29, 30), at(9, 35, 0))
+	found := false
+	for _, s := range res.GetSteps() {
+		found = found || s.GetTitle() == "Meta leader elected on nats-0"
+	}
+	if !found || res.GetCounts().GetMetaLeaderChanges() != 0 {
+		t.Errorf("steps %v, counts %v", res.GetSteps(), res.GetCounts())
 	}
 }

@@ -99,14 +99,14 @@ describe("ReplayCounts", () => {
     expect(line).toHaveTextContent(/^Not observed: servers stopped, .* and findings raised\.$/);
   });
 
-  it("names a collections gap as the reason for the event counts it left unset, from the response and not from the gap steps", () => {
-    // A time without collections that left only the event counts unset (S1 of the review).
+  it("names a lost events connection as the reason for the event counts it left unset, from the response and not from the gap steps", () => {
+    // A lost events connection that left only the event counts unset.
     const events = ["leadersMoved", "metaLeaderChanges", "quorumLostReports", "clientReconnects"];
-    const unobserved = events.map((count) => ({ count, reason: "collections_gap" as const, from: at("09:20:00"), to: at("09:22:00") }));
+    const unobserved = events.map((count) => ({ count, reason: "events_connection_lost" as const, from: at("09:20:00"), to: at("09:22:00") }));
     const counts = { serversRestarted: 1, serversStopped: 0, streamsGoneWithoutDelete: 0, consumersGoneWithoutDelete: 0, assetsGoneWithDelete: 0, assetsUnknownAtB: 0, nodePoolsUpgraded: 0, nodesDrained: 0, findingsRaised: 2 };
     renderApp(<ReplayCounts counts={counts} unobserved={unobserved} />);
-    expect(screen.getByText("Not observed (no collections 09:20–09:22):").closest("p")).toHaveTextContent(
-      /^Not observed \(no collections 09:20–09:22\): leaders moved, meta leader changes, quorum lost advisories and client reconnects\.$/,
+    expect(screen.getByText("Not observed (events were not captured, as an events connection was lost 09:20–09:22):").closest("p")).toHaveTextContent(
+      /^Not observed \(events were not captured, as an events connection was lost 09:20–09:22\): leaders moved, meta leader changes, quorum lost advisories and client reconnects\.$/,
     );
     expect(screen.queryByText("Not observed:")).toBeNull();
   });

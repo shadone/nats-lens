@@ -1,6 +1,8 @@
 package api
 
 import (
+	"encoding/json"
+	"slices"
 	"time"
 
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
@@ -225,7 +227,56 @@ const (
 	GapCollections = "collections"
 	GapCollector   = "collector"
 	GapKubernetes  = "kubernetes"
+	// GapEvents is a time a connection that captures events had no server
+	// or was closed: from its collector.not_connected or
+	// collector.connection_closed to its next collector.reconnected.
+	GapEvents = "events"
 )
+
+// EventsConnectionGaps are the times the connections that capture events
+// (every collector connection but the collector's own) had no server or
+// were closed, from the connection events in time order: each from the
+// first failure to the next reconnect of that connection, open when none
+// followed.
+func EventsConnectionGaps(evs []*v1.Event) []ReplayGap {
+	var out []ReplayGap
+	open := map[string]int{}
+	for _, e := range evs {
+		var raw struct {
+			Connection string `json:"connection"`
+		}
+		_ = json.Unmarshal([]byte(e.GetRaw()), &raw)
+		if raw.Connection == "" || raw.Connection == "collector" {
+			continue
+		}
+		at := e.GetTime().AsTime()
+		switch e.GetKind() {
+		case "collector.not_connected", "collector.connection_closed":
+			if _, ok := open[raw.Connection]; !ok {
+				open[raw.Connection] = len(out)
+				out = append(out, ReplayGap{Kind: GapEvents, Start: at, Event: e})
+			}
+		case "collector.reconnected":
+			if i, ok := open[raw.Connection]; ok {
+				out[i].End = at
+				delete(open, raw.Connection)
+			}
+		}
+	}
+	// Connections lost together are one time without events.
+	slices.SortStableFunc(out, func(x, y ReplayGap) int { return x.Start.Compare(y.Start) })
+	var merged []ReplayGap
+	for _, g := range out {
+		if n := len(merged); n > 0 && (merged[n-1].End.IsZero() || !g.Start.After(merged[n-1].End)) {
+			if !merged[n-1].End.IsZero() && (g.End.IsZero() || g.End.After(merged[n-1].End)) {
+				merged[n-1].End = g.End
+			}
+			continue
+		}
+		merged = append(merged, g)
+	}
+	return merged
+}
 
 // ReplayGap is a time without collections (GapCollections), while
 // nats-lens was not running (GapCollector, a collector.gap event) or
@@ -246,7 +297,8 @@ type ReplayGap struct {
 // ReplayNodes counts Kubernetes node changes.
 type ReplayNodes struct {
 	Upgraded, Drained, Pools int32
-	// PoolLabels is whether an upgraded node carried a node pool label;
+	// PoolLabels is whether every upgraded node carried a node pool
+	// label, so that the pools can be counted;
 	// Unnamed whether a node event between A and B named no node, which
 	// leaves the node counts unset, as they cannot be told apart.
 	PoolLabels, Unnamed bool

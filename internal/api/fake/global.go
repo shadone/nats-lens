@@ -179,12 +179,10 @@ func globalScenario() *scenario {
 		transitions:   globalTransitions,
 		infoUntil:     map[string]time.Time{"server-001": globalPlannedEnd, "stream-002": globalPlannedEnd, "stream-011": globalPlannedEnd},
 		gone:          globalGone,
-		// The leaders the restarts moved, as the election events tell.
-		leaders: []leaderSpell{
-			{key: Account + "/inventory-changes/stock-projector", server: "nats-us-1", until: fixed(8, 44, 8)},
-			{key: Account + "/inventory-changes/reorder-planner", server: "nats-us-1", until: fixed(8, 44, 9)},
-			{key: Account + "/price-changes", server: "nats-us-4", from: fixed(8, 56, 31), until: fixed(9, 12, 6)},
-			{key: Account + "/shipping-updates", server: "nats-us-5", from: fixed(9, 5, 2)},
+		// nats-us-1 led two consumers of inventory-changes until its restart.
+		initialLeaders: map[string]string{
+			Account + "/inventory-changes/stock-projector": "nats-us-1",
+			Account + "/inventory-changes/reorder-planner": "nats-us-1",
 		},
 	}
 }
