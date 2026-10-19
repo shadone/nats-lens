@@ -73,10 +73,26 @@ describe("clampMoments and the future", () => {
     expect(c.notes).toEqual(["A was after B, so the two were swapped.", "B is after now, so it is read as now."]);
   });
 
+  it("says an A exactly at now is at or after now", () => {
+    expect(clampMoments({ a: NOW, b: NOW }, NOW, 30_000).notes).toEqual(["A is at or after now, so it is read as an hour before now."]);
+  });
+
   it("reads A and B both in the future as the hour before now", () => {
     const c = clampMoments({ a: NOW + 3_600_000, b: NOW + 7_200_000 }, NOW, 30_000);
     expect([c.a, c.b]).toEqual([NOW - 3_600_000, NOW]);
-    expect(c.notes).toEqual(["B is after now, so it is read as now.", "A is after now, so it is read as an hour before now."]);
+    expect(c.notes).toEqual(["B is after now, so it is read as now.", "A is at or after now, so it is read as an hour before now."]);
+  });
+
+  it("moves an A equal to B in the past back by one collect interval, without calling it after now", () => {
+    const c = clampMoments({ a: T("2026-10-17T09:00:00Z"), b: T("2026-10-17T09:00:00Z") }, NOW, 30_000);
+    expect(c.a).toBe(T("2026-10-17T09:00:00Z") - 30_000);
+    expect(c.notes).toEqual(["A must be at least one collect interval before B, so A was moved."]);
+  });
+
+  it("reads a lone B in the future as the hour before now, saying nothing of an A the link lacks", () => {
+    const r = resolveMoments(null, "2026-10-17T14:00:00Z", ctx(undefined))!;
+    expect([r.a, r.b]).toEqual([NOW - 3_600_000, NOW]);
+    expect(r.notes).toEqual(["The link's B is after now, so the hour before now is shown."]);
   });
 
   it("reads a lone A in the future as the hour before now", () => {

@@ -107,6 +107,8 @@ describe("Replay", () => {
     expect(row).toHaveTextContent("3 servers: nats-0, nats-1, nats-2");
     expect(row).toHaveTextContent("none answering: nats-2");
     expect(row).toHaveTextContent("none captured");
+    // A table wider than its card scrolls inside it with a shadow at the cut.
+    expect(row.closest(".table-wrap")).toHaveClass("scroll-cue");
     expect(screen.getByRole("link", { name: "Compare in Placement" }).getAttribute("href")).toContain("/placement?from=2026-10-17T08%3A50%3A00Z&to=2026-10-17T09%3A50%3A00Z&cmp=2026-10-17T09%3A14%3A00Z");
   });
 
@@ -143,6 +145,45 @@ describe("Replay", () => {
     expect(await screen.findByText("Loading the replay…")).toBeInTheDocument();
     expect(screen.queryByText("nats-1 restarts at 09:14")).toBeNull();
     expect(screen.queryByText("Servers restarted")).toBeNull();
+  });
+
+  it("never asks the next system for the previous system's moments", async () => {
+    renderApp(
+      <>
+        <GoTo to={`/replay?system=example-global&${FIXED}`} />
+        <Replay />
+      </>,
+      `/replay?system=example-prod&${FIXED}&a=2026-10-17T07:00:00Z&b=2026-10-17T07:30:00Z`,
+    );
+    await screen.findByText("nats-1 restarts at 07:00");
+    await userEvent.click(screen.getByRole("button", { name: "go" }));
+    // Without the 300 ms wait for a change of system or for the first moments.
+    await waitFor(() => expect(requests.getReplay).toHaveBeenCalledTimes(2), { timeout: 200 });
+    await screen.findByText("nats-us-1 restarts at 09:09");
+    const calls = vi.mocked(requests.getReplay).mock.calls.map((c) => `${c[0]} ${new Date(c[1]).toISOString()}`);
+    expect(calls).toEqual(["example-prod 2026-10-17T07:00:00.000Z", "example-global 2026-10-17T09:09:00.000Z"]);
+  });
+
+  it("moves B two buckets for two quick presses while the router applies the first", async () => {
+    renderApp(<Replay />, `/replay?system=example-prod&${FIXED}&${AB}`);
+    await screen.findByText("nats-1 restarts at 09:14");
+    const g = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+    const before = g.IS_REACT_ACT_ENVIRONMENT;
+    g.IS_REACT_ACT_ENVIRONMENT = false;
+    try {
+      const b = screen.getByRole("slider", { name: "Moment B" });
+      // Plain events, outside act, so the router's transition waits as in a browser.
+      const press = () => {
+        b.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+        b.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowLeft", bubbles: true }));
+      };
+      press();
+      await Promise.resolve();
+      press();
+      await waitFor(() => expect(location()).toContain("b=2026-10-17T09:40:00Z"));
+    } finally {
+      g.IS_REACT_ACT_ENVIRONMENT = before;
+    }
   });
 
   it("copies an absolute link to A–B over a fixed range, and fixes the page's range too", async () => {
@@ -211,6 +252,28 @@ describe("Replay", () => {
     await waitFor(() => expect(location()).toContain("a=2026-10-17T08:50:00Z&b=2026-10-17T09:50:00Z"));
     await screen.findByText("nats-1 restarts at 08:50");
     expect(screen.getByText('The link\'s A "garbage" is not a valid UTC time, so a default was used.')).toBeInTheDocument();
+  });
+
+  it("does not bring a link's note back after a move away and back", async () => {
+    renderApp(<Replay />, `/replay?system=example-prod&${FIXED}&a=garbage&b=2026-10-17T09:50:00Z`);
+    await waitFor(() => expect(location()).toContain("a=2026-10-17T08:50:00Z&b=2026-10-17T09:50:00Z"));
+    expect(screen.getByText(/garbage/)).toBeInTheDocument();
+    const a = screen.getByRole("slider", { name: "Moment A" });
+    fireEvent.keyDown(a, { key: "ArrowRight" });
+    fireEvent.keyUp(a, { key: "ArrowRight" });
+    await waitFor(() => expect(location()).toContain("a=2026-10-17T08:55:00Z"));
+    fireEvent.keyDown(a, { key: "ArrowLeft" });
+    fireEvent.keyUp(a, { key: "ArrowLeft" });
+    await waitFor(() => expect(location()).toContain("a=2026-10-17T08:50:00Z"));
+    expect(screen.queryByText(/garbage/)).toBeNull();
+  });
+
+  it("keeps a link's note when a window sets the moments the link already says", async () => {
+    renderApp(<Replay />, `/replay?system=example-prod&${FIXED}&a=2026-10-17T09:55:00Z&b=2026-10-17T09:09:00Z`);
+    await waitFor(() => expect(location()).toContain("a=2026-10-17T09:09:00Z&b=2026-10-17T09:55:00Z"));
+    expect(screen.getByText("A was after B, so the two were swapped.")).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: /^Replay GKE node upgrade/ }));
+    expect(screen.getByText("A was after B, so the two were swapped.")).toBeInTheDocument();
   });
 
   it("writes a B after now into the link as now, so it no longer moves with the clock", async () => {

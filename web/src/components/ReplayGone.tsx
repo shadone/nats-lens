@@ -24,7 +24,7 @@ export function ReplayGone({ gone, truncated, moments, read }: { gone: GoneAsset
           {read ? "No stream or durable consumer that servers held at A is missing at B." : "Not observed for this A and B: gone assets need a collection at each and a provider that reads them."}
         </div>
       ) : (
-        <div className="card table-wrap">
+        <div className="card table-wrap scroll-cue">
           <table className="tbl">
             <thead>
               <tr>
