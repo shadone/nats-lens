@@ -19,19 +19,33 @@ const (
 	srcFinding = v1.EventSource_EVENT_SOURCE_FINDING
 )
 
-// Event counts and IDs of example-prod. IDs grow with time; the newest
-// event has ID eventCount.
+// Event counts of example-prod's filler and routine events.
 const (
 	fillerCount    = 199
 	prodChurnCount = 360
-	// eventCount is the 27 events of the upgrade story, the filler, the
-	// routine events (360 churn, 72 sampled acks, 48 account counts, 6 API
-	// audit, 6 collector reconnects, 34 CLI), the 8 of the pending pod and
-	// the clients' reconnects as the servers restarted (61, 60 and 61
-	// connections, each a disconnect and a connect).
-	eventCount        = 27 + fillerCount + prodChurnCount + 72 + 48 + 6 + 6 + 34 + 8 + 2*(61+60+61)
-	idConsumerDeleted = "783"
 )
+
+// allEvents are the scenario's events and the elections the leader model
+// made, newest first, without IDs.
+func (s scen) allEvents(fs []*v1.Finding) []*v1.Event {
+	out := append(s.sc.events(s, fs), s.modelElections()...)
+	slices.SortStableFunc(out, func(a, b *v1.Event) int { return b.GetTime().AsTime().Compare(a.GetTime().AsTime()) })
+	return out
+}
+
+// eventID is the ID the scenario's event of the kind at the fixed-frame
+// time at gets: its place among all events, newest highest. The IDs do
+// not depend on the findings or the shift, so they are counted once.
+func (sc *scenario) eventID(kind string, at time.Time) string {
+	sc.idsOnce.Do(func() {
+		sc.ids = map[string]string{}
+		evs := scen{now: FixedNow, sc: sc}.allEvents(nil)
+		for i, e := range evs {
+			sc.ids[e.GetKind()+"@"+e.GetTime().AsTime().Format(time.RFC3339Nano)] = strconv.Itoa(len(evs) - i)
+		}
+	})
+	return sc.ids[kind+"@"+at.Format(time.RFC3339Nano)]
+}
 
 // nodeRaw is a node event's payload as the Kubernetes watcher writes it:
 // the node, its GKE node pool and its kubelet version.
@@ -50,7 +64,7 @@ func poolEvent(at time.Time, pool, summary string) *v1.Event {
 // events are every event of the scenario, newest first, with IDs set:
 // the newest has the highest.
 func (p *Provider) events(s scen) []*v1.Event {
-	out := s.sc.events(s, p.findings(s))
+	out := s.allEvents(p.findings(s))
 	for i, e := range out {
 		e.Id = strconv.Itoa(len(out) - i)
 		if e.GetReceivedAt() == nil {
@@ -135,7 +149,10 @@ func prodEvents(s scen, fs []*v1.Finding) []*v1.Event {
 			Summary: "pod nats-1 Killing (node upgrade), grace 120s"},
 		{Time: ts(s.at(9, 16, 30)), Source: srcNATS, Kind: "stream.quorum_lost", Type: "STREAM.QUORUM_LOST", Severity: critical, Server: "nats-1",
 			Account: Account, Stream: "media-windows", Summary: "media-windows (1 of 3 peers)"},
-		// nats-1 took the lead of order-jobs while nats-0 restarted.
+		// When nats-0 stopped, nats-1 took the lead of order-jobs and nats-2
+		// that of order-archive; the demo elects the other leaders.
+		{Time: ts(s.at(9, 16, 4)), Source: srcNATS, Kind: "stream.leader_elected", Type: "STREAM.LEADER_ELECTED", Server: "nats-2",
+			Account: Account, Stream: "order-archive", Summary: "order-archive -> nats-2 (term 96)"},
 		{Time: ts(s.at(9, 16, 3)), Source: srcNATS, Kind: "stream.leader_elected", Type: "STREAM.LEADER_ELECTED", Server: "nats-1",
 			Account: Account, Stream: "order-jobs", Summary: "order-jobs -> nats-1 (term 412)"},
 		{Time: ts(s.at(9, 16, 2)), Source: srcK8s, Kind: "k8s.pod.killing", Type: "Killing", Server: "nats-0",

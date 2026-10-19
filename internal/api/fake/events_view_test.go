@@ -30,7 +30,7 @@ func row(evs []*v1.Event, kind, server string) *v1.Event {
 func TestProdEventMix(t *testing.T) {
 	c := client(t)
 	res := must(c.ListEvents(ctx, connect.NewRequest(worthReading(""))))
-	if res.GetRoutineHidden() < 400 || len(res.GetEvents()) > 90 || len(res.GetRoutineGroups()) < 4 {
+	if res.GetRoutineHidden() < 400 || len(res.GetEvents()) > 140 || len(res.GetRoutineGroups()) < 4 {
 		t.Fatalf("hidden %d, %d rows, %d groups", res.GetRoutineHidden(), len(res.GetEvents()), len(res.GetRoutineGroups()))
 	}
 	if res.GetTotalUnfiltered() != res.GetTotalCount()+res.GetRoutineHidden() {
