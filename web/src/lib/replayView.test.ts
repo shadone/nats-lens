@@ -35,3 +35,17 @@ describe("times on another day than A", () => {
     expect(stepNotes({ ...m, stepsTruncated: true, stepsOmitted: 0, completeUntil: Date.parse("2026-10-18T01:00:00Z") })).toEqual(["Steps after 18 Oct 01:00 may be missing: the read limit was reached."]);
   });
 });
+
+describe("a lost events connection", () => {
+  const fmt = whenFormat({ a: Date.parse("2026-10-17T09:00:00Z"), b: Date.parse("2026-10-17T10:00:00Z") });
+
+  it("says the events were not captured, with the connection's lost time", () => {
+    const at = (h: string) => Date.parse(`2026-10-17T${h}Z`);
+    expect(unobservedText({ count: "leadersMoved", reason: "events_connection_lost", from: at("09:40:00"), to: at("09:52:00") }, fmt)).toBe(
+      "events were not captured, as an events connection was lost 09:40:00–09:52:00",
+    );
+    expect(unobservedText({ count: "clientReconnects", reason: "events_connection_lost", from: at("09:40:00") }, fmt)).toBe(
+      "events were not captured, as an events connection was lost 09:40:00–still at B",
+    );
+  });
+});
