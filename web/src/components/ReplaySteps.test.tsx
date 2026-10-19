@@ -23,7 +23,7 @@ const steps = [
     ],
     evidenceCount: 6,
   }),
-  rstep("gap:1", "09:30:00", { kind: "gap", end: Date.parse("2026-10-17T09:33:00Z"), title: "No collections for 3 min" }),
+  rstep("gap:1", "09:30:00", { kind: "gap", end: Date.parse("2026-10-17T09:33:00Z"), title: "No collections for 3 min", gapKind: "collections" }),
   rstep("quorum:1", "09:40:00", { kind: "quorum", severity: "critical", openAtB: true, title: "order-jobs has no quorum" }),
   rstep("resolved:1", "10:05:00", { kind: "resolved", title: "order-jobs has quorum again", outsideRange: true }),
 ];
@@ -94,7 +94,7 @@ describe("ReplayCounts", () => {
   });
 
   it("gives a Kubernetes watch gap as the reason for the node counts only", () => {
-    const gap = rstep("gap:k8s", "09:05:00", { kind: "gap", end: Date.parse("2026-10-17T09:20:00Z"), title: "Kubernetes was not watched from 09:05 to 09:20" });
+    const gap = rstep("gap:k8s", "09:05:00", { kind: "gap", end: Date.parse("2026-10-17T09:20:00Z"), title: "Kubernetes was not watched from 09:05 to 09:20", gapKind: "kubernetes" });
     renderApp(<ReplayCounts counts={{ serversRestarted: 1 }} kubernetesWatched gaps={[gap]} />);
     expect(screen.getByText("The Kubernetes watch had a gap (09:05–09:20), which can leave node pools upgraded and nodes drained not observed.")).toBeInTheDocument();
     const line = screen.getByText("Not observed:").closest("p")!;
@@ -103,9 +103,9 @@ describe("ReplayCounts", () => {
   });
 
   it("gives each kind of gap and the read limit as the reason for its own counts", () => {
-    const collector = rstep("gap:c", "09:05:00", { kind: "gap", end: Date.parse("2026-10-17T09:10:00Z"), title: "nats-lens was not running from 09:05 to 09:10" });
-    const none1 = rstep("gap:n1", "09:20:00", { kind: "gap", end: Date.parse("2026-10-17T09:22:00Z"), title: "No collections from 09:20 to 09:22" });
-    const none2 = rstep("gap:n2", "09:30:00", { kind: "gap", openAtB: true, title: "No collections since 09:30, still at B" });
+    const collector = rstep("gap:c", "09:05:00", { kind: "gap", end: Date.parse("2026-10-17T09:10:00Z"), title: "nats-lens was not running from 09:05 to 09:10", gapKind: "collector" });
+    const none1 = rstep("gap:n1", "09:20:00", { kind: "gap", end: Date.parse("2026-10-17T09:22:00Z"), title: "No collections from 09:20 to 09:22", gapKind: "collections" });
+    const none2 = rstep("gap:n2", "09:30:00", { kind: "gap", openAtB: true, title: "No collections since 09:30, still at B", gapKind: "collections" });
     renderApp(<ReplayCounts counts={{}} kubernetesWatched gaps={[collector, none1, none2]} />);
     expect(screen.getByText(/^nats-lens was not running \(09:05–09:10\), which can leave leaders moved, meta leader changes, quorum lost advisories, node pools upgraded, nodes drained and client reconnects not observed\.$/)).toBeInTheDocument();
     expect(screen.getByText(/^Collections had gaps \(09:20–09:22 and 09:30–still at B\), which can leave servers restarted, .*and assets unknown at B not observed\.$/)).toBeInTheDocument();
@@ -113,14 +113,14 @@ describe("ReplayCounts", () => {
   });
 
   it("gives the read limit, not a gap, as the reason for event counts cut by it", () => {
-    const none = rstep("gap:n", "09:20:00", { kind: "gap", end: Date.parse("2026-10-17T09:21:00Z"), title: "No collections from 09:20 to 09:21" });
+    const none = rstep("gap:n", "09:20:00", { kind: "gap", end: Date.parse("2026-10-17T09:21:00Z"), title: "No collections from 09:20 to 09:21", gapKind: "collections" });
     renderApp(<ReplayCounts counts={{ serversRestarted: 1, serversStopped: 0, streamsGoneWithoutDelete: 0, consumersGoneWithoutDelete: 0, assetsGoneWithDelete: 0, assetsUnknownAtB: 0, nodePoolsUpgraded: 0, nodesDrained: 0 }} kubernetesWatched gaps={[none]} completeUntil={Date.parse("2026-10-17T09:40:00Z")} />);
     expect(screen.getByText("The read limit was reached at 09:40, which can leave leaders moved, meta leader changes, quorum lost advisories, client reconnects and findings raised not observed.")).toBeInTheDocument();
     expect(screen.queryByText(/^Collections had/)).toBeNull();
   });
 
-  it("gives no reason for a gap it cannot tell the kind of", () => {
-    const odd = rstep("gap:x", "09:20:00", { kind: "gap", title: "Something else" });
+  it("gives no reason for a gap whose kind the API does not give, whatever its title", () => {
+    const odd = rstep("gap:x", "09:20:00", { kind: "gap", title: "No collections from 09:20 to 09:21" });
     renderApp(<ReplayCounts counts={{}} kubernetesWatched gaps={[odd]} />);
     expect(screen.getByText("Not observed:").closest("p")).toHaveTextContent("servers restarted");
     expect(screen.queryByText(/which can leave/)).toBeNull();
