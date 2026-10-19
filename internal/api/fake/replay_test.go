@@ -74,3 +74,20 @@ func TestDemoReplayCountsNodesByName(t *testing.T) {
 		t.Errorf("counts = %v", c)
 	}
 }
+
+// A B one second after nats-us-1's new process started, before it was
+// collected: nats-us-1 is a stop that answers again after B, as the store
+// reads it.
+func TestDemoReplayProcessCollectedAfterBIsAStop(t *testing.T) {
+	res := replay(t, fake.GlobalSystem, at(8, 30, 0), at(8, 46, 11))
+	var titles []string
+	for _, s := range res.GetSteps() {
+		if s.GetKind() == v1.ReplayStepKind_REPLAY_STEP_KIND_RESTART || s.GetOutsideRange() {
+			titles = append(titles, s.GetTitle())
+		}
+	}
+	if len(titles) != 2 || titles[0] != "nats-us-1 stops answering" || titles[1] != "nats-us-1 answers again" ||
+		res.GetCounts().GetServersStopped() != 1 || res.GetCounts().GetServersRestarted() != 0 {
+		t.Errorf("steps %q, counts %v", titles, res.GetCounts())
+	}
+}
