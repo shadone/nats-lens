@@ -8,7 +8,7 @@ The board's sample names come from a private deployment. Use the example shop of
 
 | Task | Status |
 |---|---|
-| T1 API and store | open |
+| T1 API and store | built on `feat/replay-page`, awaiting review |
 | T2 Demo story and conformance | open |
 | T3 UI | open |
 | T4 Feature docs and audit | open |
@@ -40,6 +40,20 @@ The board's sample names come from a private deployment. Use the example shop of
 | Gaps | `epochs` spacing over 3 intervals (the series rule), `collector.gap` (`time` to `received_at`), `collector.k8s_gap` | `lead(started_at) OVER (ORDER BY epoch)` over `[a - 3i, b + 3i]`; leading and trailing gaps count. |
 
 Not backed, so not shown: "from disk"; why a server restarted beyond the k8s event's summary; replica catch-up time (only as `stream-003`/`server-012` finding steps); which applications reconnected.
+
+## Where T1 departed from this plan
+
+Decided in the session that built T1, not confirmed.
+
+- Matching is shared, not per provider: providers return the raw events (`api.ReplayEventKinds`, from A minus the restart window to the lookahead), and `FinishReplay` matches announcements, pod events and elections to restarts and stops, and adds a gone asset's findings from the transitions. `FinishReplay(facts)` takes everything from `ReplayFacts`, which also carries `Until`, `RestartWindow`, `Collected`, `EventsCaptured`, `LeadersAtA`, `MetaLeaderAtA` and `GoneRead`.
+- Counts: `streams_gone_without_delete` and `consumers_gone_without_delete` leave out assets with a holder not answering at B, which `assets_unknown_at_b` counts. Gone counts need `GoneRead` (the demo reads no gone assets yet, so they stay unset there); event counts need a stored event up to B; `findings_raised` counts warning and critical findings that fired.
+- A server that stops answering is a `RESTART` step with warning severity; a gone asset without a delete event is critical, with a delete or a holder not answering warning. Gone steps fold by stream and class.
+- Quorum spans of one check fold when they start within the fold window, not while one is open, so a long loss does not swallow later ones. A span from before A starts its step at A and says since when.
+- A restart step's time is the old process's last answer, even when that is before A.
+- Steps between A and B include both ends.
+- The store reads at most 20,000 events and 20,000 transitions, the earliest.
+- In DuckDB a bound parameter minus an `INTERVAL` matched nothing in the delete-event query, so the 30 seconds before the last report are subtracted in Go.
+- The demo leaves the meta leader at A unknown (the scenario names only the current one), and its restarts have no versions or asset counts; T2 can add them.
 
 ## Proto
 
