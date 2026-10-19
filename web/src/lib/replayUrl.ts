@@ -76,7 +76,7 @@ export function clampMoments(m: Moments, now: number, minGapMs: number): Moments
   }
   if (aFuture) {
     a = b - DEFAULT_SPAN_MS;
-    notes.push("A is after now, so it is read as an hour before now.");
+    notes.push("A is at or after now, so it is read as an hour before now.");
   }
   if (b - a < minGapMs) {
     a = b - minGapMs;
