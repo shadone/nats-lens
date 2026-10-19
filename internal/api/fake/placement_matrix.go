@@ -3,6 +3,7 @@ package fake
 import (
 	"context"
 	"slices"
+	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
@@ -30,9 +31,12 @@ func (p *Provider) GetPlacement(_ context.Context, req *v1.GetPlacementRequest) 
 			views[v.GetServer()] = &v1.PlacementCell{Created: v.GetCreated(), ConfigHash: v.GetConfigHash(), Lag: v.Lag,
 				Messages: v.Messages, FirstSeq: v.FirstSeq, LastSeq: v.LastSeq}
 		}
-		s.fillAsset(a, sp, s.placementAt(sp, at, false), views)
+		key := streamRef(sp.name).GetKey()
+		leader := s.streamLeaderAt(sp, at)
+		s.fillAsset(a, sp, s.placementLed(sp, at, false, leader), views,
+			s.leaderSince([]string{key}, s.sc.peers(sp), leader, at, func(t time.Time) string { return s.streamLeaderAt(sp, t) }))
 		for _, n := range s.consumersAt(sp, at) {
-			c := s.consumerSummary(sp, n, cur, true)
+			c := s.consumerSummary(sp, n, cur, true, at)
 			ca := &v1.PlacementAsset{Entity: c.GetEntity(), Replicas: c.Replicas, ServersDisagree: c.GetServersDisagree(), Durable: true}
 			cv, _ := s.consumerViews(sp, c, at)
 			views := map[string]*v1.PlacementCell{}
@@ -40,7 +44,9 @@ func (p *Provider) GetPlacement(_ context.Context, req *v1.GetPlacementRequest) 
 				views[v.GetServer()] = &v1.PlacementCell{Created: v.GetCreated(), ConfigHash: v.GetConfigHash(), Lag: v.Lag,
 					DeliveredStreamSeq: v.DeliveredStreamSeq, AckFloorStreamSeq: v.AckFloorStreamSeq}
 			}
-			s.fillAsset(ca, sp, s.placementAt(sp, at, true), views)
+			cl := s.consumerLeaderAt(sp, n, at)
+			s.fillAsset(ca, sp, s.placementLed(sp, at, true, cl), views, s.leaderSince([]string{key, c.GetEntity().GetKey()}, s.sc.peers(sp), cl, at,
+				func(t time.Time) string { return s.consumerLeaderAt(sp, n, t) }))
 			a.Consumers = append(a.Consumers, ca)
 		}
 		res.Streams = append(res.Streams, a)
@@ -52,7 +58,7 @@ func (p *Provider) GetPlacement(_ context.Context, req *v1.GetPlacementRequest) 
 // server's view and the peers it names: every other peer of the stream,
 // offline and missing ones included, as a server's replica list names
 // them.
-func (s scen) fillAsset(a *v1.PlacementAsset, sp streamSpec, squares []*v1.ReplicaPlacement, views map[string]*v1.PlacementCell) {
+func (s scen) fillAsset(a *v1.PlacementAsset, sp streamSpec, squares []*v1.ReplicaPlacement, views map[string]*v1.PlacementCell, since time.Time) {
 	peers := slices.Sorted(slices.Values(s.sc.peers(sp)))
 	for _, sq := range squares {
 		if sq.GetServer() == "" {
@@ -66,9 +72,8 @@ func (s scen) fillAsset(a *v1.PlacementAsset, sp streamSpec, squares []*v1.Repli
 		c.Server, c.State = sq.GetServer(), sq.GetState()
 		if c.GetState() == v1.PlacementState_PLACEMENT_STATE_LEADER {
 			a.Leader = c.GetServer()
-			// The leader took the lead when its process started.
-			if sv, ok := s.sc.server(c.GetServer()); ok {
-				a.LeaderSince = ts(s.started(sv))
+			if !since.IsZero() {
+				a.LeaderSince = ts(since)
 			}
 		}
 		if reports {

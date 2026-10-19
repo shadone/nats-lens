@@ -60,7 +60,7 @@ func TestDemoPlacementGlobal(t *testing.T) {
 		k("return-requests"):               {"nats-us-6:LEADER", "nats-us-3:MISSING", "nats-us-8:IN_SYNC"},
 		k("return-requests/refund-issuer"): {"nats-us-6:LEADER", "nats-us-3:MISSING", "nats-us-8:IN_SYNC"},
 		k("basket-events"):                 {"nats-eu-6:UNSPECIFIED", "nats-eu-7:UNSPECIFIED", "nats-eu-8:UNSPECIFIED"},
-		k("shipping-updates"):              {"nats-us-3:LEADER", "nats-us-4:OFFLINE", "nats-us-5:IN_SYNC"},
+		k("shipping-updates"):              {"nats-us-5:LEADER", "nats-us-3:IN_SYNC", "nats-us-4:OFFLINE"},
 		k("search-index/search-indexer"):   {"nats-ap-0:LEADER", "nats-ap-1:IN_SYNC", "nats-ap-2:IN_SYNC"},
 	} {
 		if got := cellStates(res, key); !slices.Equal(got, want) {
@@ -73,7 +73,7 @@ func TestDemoPlacementGlobal(t *testing.T) {
 	if c := assetOf(res, k("search-index")).GetCells()[1]; c.GetLag() != 420 {
 		t.Errorf("nats-ap-1 lag %d, want 420", c.GetLag())
 	}
-	off := assetOf(res, k("shipping-updates")).GetCells()[1]
+	off := assetOf(res, k("shipping-updates")).GetCells()[2]
 	if off.Messages != nil || len(off.GetPeers()) != 0 {
 		t.Errorf("offline nats-us-4 reports %v", off)
 	}

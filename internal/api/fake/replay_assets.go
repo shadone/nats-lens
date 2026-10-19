@@ -8,21 +8,6 @@ import (
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
-// streamLeaderAt is a stream's leader at the scenario time at; "" for a
-// leaderless stream.
-func (s scen) streamLeaderAt(sp streamSpec, at time.Time) string {
-	if sp.leaderless {
-		return ""
-	}
-	return s.leaderAt(streamRef(sp.name).GetKey(), s.leader(sp), at)
-}
-
-// consumerLeaderAt is a durable's leader at the scenario time at: its
-// stream's unless the scenario says otherwise.
-func (s scen) consumerLeaderAt(sp streamSpec, name string, at time.Time) string {
-	return s.leaderAt(consumerRef(sp.name, name).GetKey(), s.streamLeaderAt(sp, at), at)
-}
-
 // leadersAt are the leaders of the streams and durables at the scenario
 // time at.
 func (s scen) leadersAt(at time.Time) []api.ReplayLeader {

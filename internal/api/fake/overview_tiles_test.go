@@ -105,7 +105,8 @@ func TestFakePlacement(t *testing.T) {
 	if got := streams("example-prod")["order-jobs"]; !slices.Equal(got, want) {
 		t.Errorf("order-jobs = %v, want %v", got, want)
 	}
-	want = []string{"nats-us-3=PLACEMENT_STATE_LEADER", "nats-us-4=PLACEMENT_STATE_OFFLINE", "nats-us-5=PLACEMENT_STATE_IN_SYNC"}
+	// nats-us-5 took the lead when nats-us-3 restarted.
+	want = []string{"nats-us-5=PLACEMENT_STATE_LEADER", "nats-us-3=PLACEMENT_STATE_IN_SYNC", "nats-us-4=PLACEMENT_STATE_OFFLINE"}
 	global := streams("example-global")
 	if got := global["shipping-updates"]; !slices.Equal(got, want) {
 		t.Errorf("shipping-updates = %v, want %v", got, want)

@@ -354,6 +354,51 @@ func replayCountsDiff(res *v1.GetReplayResponse) string {
 	return ""
 }
 
+// leadersPresent checks, over ranges ending every 10 minutes in the 7
+// hours before now, that every leader the placement matrix and the
+// server list name answered in the range's newest collection: a server
+// that did not answer leads nothing then. It returns how many leaders it
+// checked.
+func leadersPresent(q Q) int {
+	q.t.Helper()
+	n := 0
+	for back := time.Duration(0); back <= 7*time.Hour; back += 10 * time.Minute {
+		end := q.env.Now.Add(-back)
+		r := &v1.TimeRange{Start: timestamppb.New(end.Add(-time.Hour)), End: timestamppb.New(end)}
+		servers := must(q.env.Client.ListServers(ctx, connect.NewRequest(&v1.ListServersRequest{System: q.System, Range: r}))).of(q.t)
+		absent := map[string]bool{}
+		for _, m := range servers.GetMissing() {
+			absent[m] = true
+		}
+		for _, sv := range servers.GetServers() {
+			if !sv.GetPresent() {
+				absent[sv.GetName()] = true
+			}
+		}
+		for _, sv := range servers.GetServers() {
+			if absent[sv.GetName()] && (sv.GetRole() == v1.ServerRole_SERVER_ROLE_META_LEADER || sv.GetStreamLeaders() > 0 || sv.GetConsumerLeaders() > 0) {
+				q.t.Errorf("system %q before %s: absent %s is %v with %d stream and %d consumer leaders", q.System, end.Format("15:04"),
+					sv.GetName(), sv.GetRole(), sv.GetStreamLeaders(), sv.GetConsumerLeaders())
+				return 0
+			}
+		}
+		res := must(q.env.Client.GetPlacement(ctx, connect.NewRequest(&v1.GetPlacementRequest{System: q.System, Range: r}))).of(q.t)
+		for _, a := range assets(res) {
+			for _, c := range a.GetCells() {
+				if c.GetState() != v1.PlacementState_PLACEMENT_STATE_LEADER {
+					continue
+				}
+				if absent[c.GetServer()] {
+					q.t.Errorf("system %q before %s: %s led by absent %s", q.System, end.Format("15:04"), a.GetEntity().GetKey(), c.GetServer())
+					return 0
+				}
+				n++
+			}
+		}
+	}
+	return n
+}
+
 // replayRows are the Replay states both providers must show.
 func replayRows() []State {
 	return []State{
@@ -583,6 +628,12 @@ func Conformance() []State {
 			return found
 		})},
 		{"a matrix cell of a stream's leader", cellWith(v1.PlacementState_PLACEMENT_STATE_LEADER, false)},
+		{"every leader answered in its range's collection, in every system", everySystem(func(q Q) string {
+			if n := leadersPresent(q); n > 0 {
+				return fmt.Sprintf("%d leaders", n)
+			}
+			return ""
+		})},
 		{"a matrix cell of a stream's replica in sync", cellWith(v1.PlacementState_PLACEMENT_STATE_IN_SYNC, false)},
 		{"a matrix cell of a stream's replica behind", cellWith(v1.PlacementState_PLACEMENT_STATE_BEHIND, false)},
 		{"a matrix cell of a stream's replica that disagrees", cellWith(v1.PlacementState_PLACEMENT_STATE_DISAGREES, false)},

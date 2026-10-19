@@ -51,7 +51,7 @@ func (p *Provider) Replay(_ context.Context, req *v1.GetReplayRequest) (*api.Rep
 	f.Transitions = s.replayTransitions(fs, a, f.Until)
 	if f.EpochA != 0 {
 		f.LeadersAtA = s.leadersAt(f.EpochAAt)
-		f.MetaLeaderAtA = s.leaderAt("meta", s.sc.metaLeader, f.EpochAAt)
+		f.MetaLeaderAtA = s.metaLeaderAt(f.EpochAAt)
 	}
 	f.Windows = s.windows(&v1.TimeRange{Start: ts(a), End: ts(b)})
 	if f.EpochA != 0 && f.EpochB != 0 {

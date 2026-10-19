@@ -88,17 +88,6 @@ type leaderSpell struct {
 	from, until time.Time
 }
 
-// leaderAt is the leader of the asset key at the scenario time at: the
-// spell's, else def.
-func (s scen) leaderAt(key, def string, at time.Time) string {
-	for _, l := range s.sc.leaders {
-		if l.key == key && (l.from.IsZero() || !at.Before(l.from.Add(s.shift))) && (l.until.IsZero() || at.Before(l.until.Add(s.shift))) {
-			return l.server
-		}
-	}
-	return def
-}
-
 // systemRef is the scenario's system entity.
 func (sc *scenario) systemRef() *v1.EntityRef {
 	return &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SYSTEM, Name: sc.cluster}
