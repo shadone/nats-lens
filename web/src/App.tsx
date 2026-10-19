@@ -23,6 +23,7 @@ import { Connections } from "./pages/Connections";
 import { KvStores } from "./pages/KvStores";
 import { ObjectStores } from "./pages/ObjectStores";
 import { Placement } from "./pages/Placement";
+import { Replay } from "./pages/Replay";
 import { NotFound } from "./pages/NotFound";
 
 /**
@@ -84,6 +85,7 @@ export function App() {
                 <Route path="/kv-stores" element={<KvStores />} />
                 <Route path="/object-stores" element={<ObjectStores />} />
                 <Route path="/placement" element={<Placement />} />
+                <Route path="/replay" element={<Replay />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </SystemGate>

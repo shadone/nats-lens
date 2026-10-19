@@ -1,0 +1,102 @@
+/* The Replay page: the scrubber, the steps, the count tiles and the gone table. */
+.rp-status:empty{margin:0}
+.rp-status{margin:6px 0 0;font-size:12.5px;color:var(--accent-text);overflow-wrap:anywhere}
+
+/* Scrubber */
+.rs{padding:18px 24px 14px;margin-top:14px}
+.rs-track{--chip:68px;position:relative;height:88px;touch-action:none;cursor:pointer;user-select:none}
+.rs-track.dragging{cursor:grabbing}
+.rs-strip{position:absolute;left:0;right:0;top:0;width:100%;height:26px;display:block}
+.rs-wins{position:absolute;left:0;right:0;top:32px;height:22px;z-index:1}
+.rs-win{position:absolute;top:0;height:22px;min-width:6px;padding:0;border:0;border-radius:5px;background:var(--k8s-bg);color:var(--k8s);cursor:pointer;overflow:visible}
+.rs-wl{position:absolute;left:0;top:0;padding:0 8px;border-radius:5px;background:var(--k8s-bg);font:11px/22px var(--mono);white-space:nowrap;pointer-events:none}
+.rs-win.end .rs-wl{left:auto;right:0}
+.rs-win:hover .rs-wl,.rs-win:focus-visible .rs-wl{box-shadow:inset 0 0 0 1px var(--k8s)}
+.rs-win:focus-visible{outline:2px solid var(--k8s);outline-offset:2px}
+.rs-line{position:absolute;top:0;height:60px;width:2px;margin-left:-1px;background:var(--text);pointer-events:none}
+.rs-chip{position:absolute;top:60px;box-sizing:border-box;width:var(--chip);min-width:24px;height:24px;border-radius:6px;background:var(--text);color:var(--surface);font:500 12px/24px var(--mono);text-align:center;white-space:nowrap;cursor:grab;outline:none}
+.rs-chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.rs-axis{position:relative;height:16px;margin-top:4px;font:11px var(--mono);color:var(--text-muted)}
+.rs-axis span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+.rs-axis span.edge{right:0;transform:none}
+.rs-note{margin:8px 0 0;font-size:12px;color:var(--sev-warning)}
+.rs-inputs{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-top:10px}
+.rs-inputs .grp{display:flex;gap:6px;align-items:center}
+.rs-inputs input{font:12px var(--mono)}
+.rs-hint{font-size:11.5px;color:var(--text-muted)}
+
+/* Story */
+.rp-loading{display:flex;gap:8px;align-items:center;margin:12px 0 0;font-size:12.5px;color:var(--text-muted)}
+.rp-story.stale{opacity:.45}
+.rp-notes{padding:10px 14px;margin-top:14px;font-size:12.5px;color:var(--sev-warning)}
+.rp-notes p{margin:0}
+.rp-notes p + p{margin-top:4px}
+.card > .rp-notes{margin:0;border-bottom:1px solid var(--border-soft)}
+.rp-grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:14px;align-items:start;margin-top:18px}
+.rp-grid > .sec{margin:0}
+.rp-list{list-style:none;margin:0;padding:18px 22px 0}
+.rp-step{display:grid;grid-template-columns:76px 22px minmax(0,1fr);gap:0 12px;padding:0}
+.rp-list.days .rp-step{grid-template-columns:128px 22px minmax(0,1fr)}
+.rp-when{font:12.5px/1.45 var(--mono);color:var(--text-muted);padding-top:1px}
+.rp-when time,.rp-to{display:block;white-space:nowrap}
+.rp-to time{display:inline}
+.rp-rail{display:flex;flex-direction:column;align-items:center}
+.rp-dot{flex:none;width:12px;height:12px;margin-top:4px;border-radius:50%;border:1.5px solid var(--text-muted);background:transparent;box-sizing:border-box}
+.rp-dot.critical{background:var(--cell-critical);border-color:var(--cell-critical)}
+.rp-dot.warning{border:3px solid var(--cell-warning)}
+.rp-dot.info{border:1.5px dashed var(--sev-info)}
+.rp-dot.k8s{background:var(--k8s);border-color:var(--k8s)}
+.rp-dot.ok{background:var(--accent);border-color:var(--accent)}
+.rp-dot.gap{border:1.5px dashed var(--text-muted)}
+.rp-conn{flex:1;width:2px;margin-top:4px;background:var(--border)}
+.rp-step.gap .rp-conn{width:0;border-left:2px dashed var(--border);background:none}
+.rp-step.gap .rp-title{color:var(--text-2)}
+.rp-what{padding-bottom:18px;min-width:0}
+.rp-title{font-weight:500;overflow-wrap:anywhere}
+.rp-tag{display:inline-block;margin-left:8px;padding:1px 6px;border:1px solid var(--border);border-radius:4px;font:500 10.5px/1.4 var(--sans);color:var(--text-muted);white-space:nowrap}
+
+.rp-what > .rp-body{margin:2px 0 0;color:var(--text-2);font-size:12.5px}
+.rp-ev{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:2px;font-size:12px}
+.rp-ev li{overflow-wrap:anywhere}
+.rp-evk{font:600 9.5px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
+.rp-more{color:var(--text-muted)}
+.rp-after{margin:0 22px;padding:12px 0 0;border-top:1px solid var(--border);font:600 10.5px/1.2 var(--sans);letter-spacing:.11em;text-transform:uppercase;color:var(--text-muted)}
+.rp-empty{margin:0;padding:14px 16px;color:var(--text-muted)}
+.rp-foot{margin:0;padding:10px 16px;border-top:1px solid var(--border-soft);font-size:11.5px;color:var(--text-muted)}
+
+/* Counts */
+.rp-counts-card{padding:16px 18px}
+.rp-tiles{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.rp-tile{padding:11px 13px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);min-width:0}
+.rp-tv{display:block;font:600 22px/1.15 var(--mono);color:var(--text)}
+.rp-tile.t-warning .rp-tv{color:var(--sev-warning)}
+.rp-tile.t-critical .rp-tv{color:var(--sev-critical)}
+.rp-tile.t-k8s .rp-tv{color:var(--k8s)}
+.rp-tile.t-muted .rp-tv{color:var(--text-muted)}
+.rp-tile.zero{background:transparent}
+.rp-tile.zero .rp-tv{color:var(--text-muted);font-weight:500}
+.rp-tl{display:block;font-size:12.5px;color:var(--text-2);overflow-wrap:anywhere}
+.rp-tile small{display:block;font-size:11px;color:var(--text-muted)}
+.rp-unseen{margin:12px 0 0;font-size:12px;color:var(--text-muted)}
+.rp-unseen b{font-weight:600;color:var(--text-2)}
+.rp-tiles + .rp-unseen{margin-top:14px}
+.rp-counts-card > .rp-unseen:first-child{margin-top:0}
+
+/* Gone */
+.rp-gone{margin-top:18px}
+
+@media (max-width:1180px){
+  .rp-grid{grid-template-columns:minmax(0,1fr)}
+  .rp-tiles{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+}
+@media (max-width:760px){
+  .rs{padding:12px 14px}
+  .rs-track{--chip:26px}
+  .rs-ht{display:none}
+  .rp-list{padding:14px 14px 0}
+  .rp-step,.rp-list.days .rp-step{grid-template-columns:22px minmax(0,1fr);gap:0 10px}
+  .rp-when{grid-column:2;grid-row:1;display:flex;gap:0 4px;flex-wrap:wrap;padding:0 0 2px}
+  .rp-rail{grid-column:1;grid-row:1 / span 2}
+  .rp-what{grid-column:2;grid-row:2}
+  .rp-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
