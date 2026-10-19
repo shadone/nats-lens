@@ -66,11 +66,11 @@ func TestDemoReplayFactsBeforeTheHistory(t *testing.T) {
 	}
 }
 
-// Node events without a node name are not counted, as in the store; the
-// demo's node events name no node yet.
-func TestDemoReplayCountsNodesByName(t *testing.T) {
+// The demo's node events name no node, so its node counts stay unset, as
+// the store leaves them.
+func TestDemoReplayNodeCountsUnsetWithoutNodeNames(t *testing.T) {
 	c := replay(t, fake.Cluster, at(9, 10, 0), at(9, 55, 0)).GetCounts()
-	if c.NodesDrained == nil || c.GetNodesDrained() != 0 || c.GetNodesUpgraded() != 0 {
+	if c.NodesDrained != nil || c.NodesUpgraded != nil || c.NodePoolsUpgraded != nil {
 		t.Errorf("counts = %v", c)
 	}
 }

@@ -212,10 +212,12 @@ func replayReconnects(evs []*v1.Event, a, b time.Time) int32 {
 }
 
 // replayNodes counts the nodes drained and upgraded between A and B by
-// the node the payload names, as the store does: an event without one is
-// not counted. It also counts the node pools of the upgraded ones.
+// the node the payload names, and the node pools of the upgraded ones,
+// as the store does; an event without a node name marks the counts
+// Unnamed.
 func replayNodes(evs []*v1.Event, a, b time.Time) api.ReplayNodes {
 	drained, upgraded, pools := map[string]bool{}, map[string]bool{}, map[string]bool{}
+	unnamed := false
 	for _, e := range evs {
 		if at := e.GetTime().AsTime(); at.Before(a) || at.After(b) {
 			continue
@@ -226,7 +228,8 @@ func replayNodes(evs []*v1.Event, a, b time.Time) api.ReplayNodes {
 		}
 		_ = json.Unmarshal([]byte(e.GetRaw()), &raw)
 		node := raw.Node
-		if node == "" {
+		if node == "" && (e.GetKind() == "k8s.node.drained" || e.GetKind() == "k8s.node.upgrade") {
+			unnamed = true
 			continue
 		}
 		switch e.GetKind() {
@@ -239,5 +242,6 @@ func replayNodes(evs []*v1.Event, a, b time.Time) api.ReplayNodes {
 			}
 		}
 	}
-	return api.ReplayNodes{Upgraded: int32(len(upgraded)), Drained: int32(len(drained)), Pools: int32(len(pools)), PoolLabels: len(pools) > 0}
+	return api.ReplayNodes{Upgraded: int32(len(upgraded)), Drained: int32(len(drained)), Pools: int32(len(pools)), PoolLabels: len(pools) > 0,
+		Unnamed: unnamed}
 }

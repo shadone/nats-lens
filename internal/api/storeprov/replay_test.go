@@ -382,3 +382,17 @@ func TestReplayReadsCollectorGapsBeforeA(t *testing.T) {
 		t.Errorf("gaps = %+v", f.Gaps)
 	}
 }
+
+// A node event that names no node leaves the node counts unset.
+func TestReplayNodeCountsUnsetForAnUnnamedNode(t *testing.T) {
+	p, r := replayStore(t)
+	r.add("events", map[string]any{"id": 901, "time": rEpoch(7), "received_at": rEpoch(7), "source": "k8s", "kind": "k8s.node.drained",
+		"summary": "node drained", "raw": `{}`})
+	f, err := p.Replay(ctx, replayReq(rEpoch(3), rEpoch(40)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := api.FinishReplay(f).GetCounts(); !f.Nodes.Unnamed || c.NodesDrained != nil || c.NodePoolsUpgraded != nil {
+		t.Errorf("nodes %+v, counts %v", f.Nodes, c)
+	}
+}
