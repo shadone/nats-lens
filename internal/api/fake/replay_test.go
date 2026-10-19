@@ -24,26 +24,26 @@ func replay(t *testing.T, system string, a, b time.Time) *v1.GetReplayResponse {
 // quorum loss, nats-us-4 stopping with its bucket, and consumer-013
 // resolving after B.
 func TestDemoReplayGlobal(t *testing.T) {
-	res := replay(t, fake.GlobalSystem, at(8, 40, 12), at(9, 20, 30))
+	res := replay(t, fake.GlobalSystem, at(8, 44, 4), at(9, 20, 30))
 	var titles []string
 	for _, s := range res.GetSteps() {
 		titles = append(titles, s.GetTitle())
 	}
 	want := []string{
-		"Node gke-example-pool-us-17bd drained",
 		"nats-us-1 restarts",
+		"Node gke-example-pool-us-17bd drained",
 		"Node gke-example-pool-us-17bd upgraded",
 		"Node gke-example-pool-us-a904 drained",
 		"nats-us-2 restarts",
 		"Node gke-example-pool-us-a904 upgraded",
 		"2 durables on inventory-changes gone without a delete event",
 		"Stream inventory-changes has no quorum for 2 min",
-		"Node gke-example-pool-us-5e21 drained",
 		"nats-us-3 restarts",
+		"Node gke-example-pool-us-5e21 drained",
 		"Node gke-example-pool-us-5e21 upgraded",
-		"Node gke-example-pool-us-c3f8 drained",
 		"nats-us-4 stops answering",
 		"Stream KV_label-templates not reported at B",
+		"Node gke-example-pool-us-c3f8 drained",
 		"The pod of nats-us-4 cannot be scheduled (5 times, 09:12–09:18)",
 		"Stream missing on an assigned server: return-requests",
 		"Durable consumer disappeared resolved for 2 consumers",
@@ -70,7 +70,7 @@ func TestDemoReplayGlobal(t *testing.T) {
 	c := res.GetCounts()
 	if c.GetServersRestarted() != 3 || c.GetServersStopped() != 1 || c.GetConsumersGoneWithoutDelete() != 2 || c.GetAssetsUnknownAtB() != 1 ||
 		c.GetLeadersMoved() != 9 || c.MetaLeaderChanges == nil || c.GetMetaLeaderChanges() != 0 || c.GetNodesUpgraded() != 3 ||
-		c.GetNodesDrained() != 4 || c.GetNodePoolsUpgraded() != 1 {
+		c.GetNodesDrained() != 4 || c.GetNodePoolsUpgraded() != 1 || c.GetClientReconnects() != 150 {
 		t.Errorf("counts = %v", c)
 	}
 	gone := map[string]*v1.GoneAsset{}

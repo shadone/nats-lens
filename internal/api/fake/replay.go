@@ -29,7 +29,7 @@ func (p *Provider) Replay(_ context.Context, req *v1.GetReplayRequest) (*api.Rep
 		return nil, fmt.Errorf("%w: A is older than retention (14d); Replay reads the database only", api.ErrInvalid)
 	}
 	f := &api.ReplayFacts{A: a, B: b, Until: earliest(s.now, b.Add(api.ReplayLookahead)), Interval: sampleEvery,
-		RestartWindow: replayRestartWindow, HistoryStart: s.dataStart(), Kubernetes: s.sc.k8sLanes != nil}
+		RestartWindow: replayRestartWindow, HistoryStart: s.dataStart(), Kubernetes: s.sc.kubernetes}
 	f.EpochAAt, f.EpochA = s.replayEpoch(a)
 	f.EpochBAt, f.EpochB = s.replayEpoch(b)
 	f.ReadFrom = api.ReplayReadFrom(f)
@@ -53,7 +53,7 @@ func (p *Provider) Replay(_ context.Context, req *v1.GetReplayRequest) (*api.Rep
 		f.LeadersAtA = s.leadersAt(f.EpochAAt)
 		f.MetaLeaderAtA = s.metaLeaderAt(f.EpochAAt)
 	}
-	f.Windows = s.windows(&v1.TimeRange{Start: ts(a), End: ts(b)})
+	f.Windows = p.windows(s, &v1.TimeRange{Start: ts(a), End: ts(b)})
 	if f.EpochA != 0 && f.EpochB != 0 {
 		f.Gone, f.GoneRead = s.vanishedGone(f, all, fs), true
 		if s.sc.gone != nil {

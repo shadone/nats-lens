@@ -170,8 +170,7 @@ func globalScenario() *scenario {
 		findings:      globalFindings,
 		events:        globalEvents,
 		rows:          globalRows,
-		windows:       globalWindows,
-		k8sLanes:      globalK8sLanes,
+		kubernetes:    true,
 		sample:        globalSample,
 		slowEvents:    globalSlowEvents(),
 		mutes:         func() []*storedMute { return []*storedMute{globalSeedMute()} },
@@ -190,17 +189,9 @@ func globalScenario() *scenario {
 	}
 }
 
-// globalUpgrade is the us node pool upgrade, in the fixed frame.
+// globalUpgrade is the us node pool upgrade, in the fixed frame, as the
+// traffic series draw it; its window comes from the Kubernetes events.
 var globalUpgrade = [2]time.Time{fixed(8, 40, 0), fixed(9, 20, 30)}
-
-func globalWindows(s scen, r *v1.TimeRange) []*v1.TimeWindow {
-	a, b := globalUpgrade[0].Add(s.shift), globalUpgrade[1].Add(s.shift)
-	if !overlaps(a, b, r) {
-		return nil
-	}
-	return []*v1.TimeWindow{{Start: ts(a), End: ts(b), Label: "GKE node upgrade",
-		Detail: "4 drains, 4 pod restarts"}}
-}
 
 // globalInvoiceCreated is when invoice-renderer was created on
 // order-events, in the fixed frame: the newest epoch is the first to

@@ -60,8 +60,7 @@ func prodScenario() *scenario {
 		findings:      prodFindings,
 		events:        prodEvents,
 		rows:          prodRows,
-		windows:       prodWindows,
-		k8sLanes:      prodK8sLanes,
+		kubernetes:    true,
 		sample:        prodSample,
 		slowEvents:    prodSlowConsumerEvents,
 		mutes:         func() []*storedMute { return []*storedMute{prodSeedMute()} },
@@ -75,17 +74,6 @@ func prodScenario() *scenario {
 			{key: Account + "/order-archive", server: "nats-2", from: fixed(9, 16, 2), until: fixed(9, 18, 0)},
 		},
 	}
-}
-
-// prodUpgrade is the node upgrade window.
-func (s scen) prodUpgrade() (time.Time, time.Time) { return s.at(9, 14, 0), s.at(9, 50, 0) }
-
-func prodWindows(s scen, r *v1.TimeRange) []*v1.TimeWindow {
-	a, b := s.prodUpgrade()
-	if !overlaps(a, b, r) {
-		return nil
-	}
-	return []*v1.TimeWindow{{Start: ts(a), End: ts(b), Label: "GKE node upgrade", Detail: "3 drains, 3 pod restarts"}}
 }
 
 // prodConsumer gives resize-worker its disagreement, media-chunk-pool its

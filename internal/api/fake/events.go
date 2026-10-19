@@ -24,11 +24,13 @@ const (
 const (
 	fillerCount    = 199
 	prodChurnCount = 360
-	// eventCount is the 20 events of the upgrade story, the filler, the
+	// eventCount is the 27 events of the upgrade story, the filler, the
 	// routine events (360 churn, 72 sampled acks, 48 account counts, 6 API
-	// audit, 6 collector reconnects, 34 CLI) and the 8 of the pending pod.
-	eventCount        = 20 + fillerCount + prodChurnCount + 72 + 48 + 6 + 6 + 34 + 8
-	idConsumerDeleted = "595"
+	// audit, 6 collector reconnects, 34 CLI), the 8 of the pending pod and
+	// the clients' reconnects as the servers restarted (61, 60 and 61
+	// connections, each a disconnect and a connect).
+	eventCount        = 27 + fillerCount + prodChurnCount + 72 + 48 + 6 + 6 + 34 + 8 + 2*(61+60+61)
+	idConsumerDeleted = "783"
 )
 
 // nodeRaw is a node event's payload as the Kubernetes watcher writes it:
@@ -86,12 +88,23 @@ func prodEvents(s scen, fs []*v1.Finding) []*v1.Event {
 			Transition: tr("consumer-002", flapping, s.at(11, 0, 0)), Finding: byCode["consumer-002"],
 			Account: Account, Stream: "media-windows", Consumer: "media-chunk-pool"},
 		poolEvent(s.at(9, 50, 12), "pool-1", "pool-1 upgrade complete, 3 of 3 nodes on 1.33.4-gke.1245"),
+		// Each node is cordoned, drained as its NATS pod leaves,
+		// upgraded and uncordoned.
+		prodNode(s.at(9, 43, 45), "k8s.node.uncordoned", "Uncordoned", "c40d", prodKubelet, "node gke-example-pool-1-c40d uncordoned"),
+		prodNode(s.at(9, 41, 9), "k8s.node.drained", "NodeDrain", "c40d", prodOldKubelet, "node gke-example-pool-1-c40d cordoned and drained: nats-2 leaves it"),
+		prodNode(s.at(9, 40, 0), "k8s.node.cordoned", "Cordoned", "c40d", prodOldKubelet, "node gke-example-pool-1-c40d cordoned (unschedulable), running [nats-2]"),
+		prodNode(s.at(9, 30, 35), "k8s.node.uncordoned", "Uncordoned", "91c2", prodKubelet, "node gke-example-pool-1-91c2 uncordoned"),
+		prodNode(s.at(9, 29, 4), "k8s.node.drained", "NodeDrain", "91c2", prodOldKubelet, "node gke-example-pool-1-91c2 cordoned and drained: nats-1 leaves it"),
+		prodNode(s.at(9, 27, 0), "k8s.node.cordoned", "Cordoned", "91c2", prodOldKubelet, "node gke-example-pool-1-91c2 cordoned (unschedulable), running [nats-1]"),
+		{Time: ts(s.at(9, 18, 0)), Source: srcK8s, Kind: "k8s.pod.started", Type: "Started", Server: "nats-0",
+			Summary: "pod nats-0 container nats started on gke-example-pool-1-7f3a"},
+		prodNode(s.at(9, 17, 25), "k8s.node.uncordoned", "Uncordoned", "7f3a", prodKubelet, "node gke-example-pool-1-7f3a uncordoned"),
+		prodNode(s.at(9, 16, 1), "k8s.node.drained", "NodeDrain", "7f3a", prodOldKubelet, "node gke-example-pool-1-7f3a cordoned and drained: nats-0 leaves it"),
+		prodNode(s.at(9, 14, 48), "k8s.node.cordoned", "Cordoned", "7f3a", prodOldKubelet, "node gke-example-pool-1-7f3a cordoned (unschedulable), running [nats-0]"),
 		prodNode(s.at(9, 43, 40), "k8s.node.upgrade", "KubeletVersion", "c40d", prodKubelet,
 			"node gke-example-pool-1-c40d kubelet "+prodOldKubelet+" -> "+prodKubelet),
-		prodNode(s.at(9, 40, 0), "k8s.node.drained", "NodeDrain", "c40d", prodOldKubelet, "node gke-example-pool-1-c40d cordoned and drained: nats-2 leaves it"),
 		prodNode(s.at(9, 30, 30), "k8s.node.upgrade", "KubeletVersion", "91c2", prodKubelet,
 			"node gke-example-pool-1-91c2 kubelet "+prodOldKubelet+" -> "+prodKubelet),
-		prodNode(s.at(9, 27, 0), "k8s.node.drained", "NodeDrain", "91c2", prodOldKubelet, "node gke-example-pool-1-91c2 cordoned and drained: nats-1 leaves it"),
 		prodNode(s.at(9, 17, 20), "k8s.node.upgrade", "KubeletVersion", "7f3a", prodKubelet,
 			"node gke-example-pool-1-7f3a kubelet "+prodOldKubelet+" -> "+prodKubelet),
 		{Time: ts(s.at(9, 45, 0)), Source: srcFinding, Kind: "finding.firing", Type: "consumer-009 Consumer creation time differs across servers", Severity: warning,
@@ -127,7 +140,6 @@ func prodEvents(s scen, fs []*v1.Finding) []*v1.Event {
 			Account: Account, Stream: "order-jobs", Summary: "order-jobs -> nats-1 (term 412)"},
 		{Time: ts(s.at(9, 16, 2)), Source: srcK8s, Kind: "k8s.pod.killing", Type: "Killing", Server: "nats-0",
 			Summary: "pod nats-0 Killing (node upgrade), grace 120s"},
-		prodNode(s.at(9, 14, 48), "k8s.node.drained", "NodeDrain", "7f3a", prodOldKubelet, "node gke-example-pool-1-7f3a cordoned and drained"),
 	}
 	// Short connections of one client fill the hours before the upgrade,
 	// one churn summary per minute in which it reconnected; 6 to 10 every
@@ -142,6 +154,7 @@ func prodEvents(s scen, fs []*v1.Finding) []*v1.Event {
 	}
 	out = append(out, prodRoutine(s)...)
 	out = append(out, prodPending(s)...)
+	out = append(out, restartReconnects(s, map[string]time.Time{"nats-0": s.at(9, 16, 2), "nats-1": s.at(9, 29, 5), "nats-2": s.at(9, 41, 10)})...)
 	slices.SortStableFunc(out, func(a, b *v1.Event) int { return b.GetTime().AsTime().Compare(a.GetTime().AsTime()) })
 	return out
 }

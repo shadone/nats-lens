@@ -271,11 +271,23 @@ func globalEvents(s scen, fs []*v1.Finding) []*v1.Event {
 		// The node pool's own report names no node: an Event of its own
 		// kind, not a node upgrade.
 		poolEvent(s.at(9, 20, 30), "pool-us", "pool-us upgrade stopped: 3 of 4 nodes on 1.33.4-gke.1245"),
-		node(s.at(9, 11, 0), "k8s.node.drained", "NodeDrain", "c3f8", globalOldKubelet, "node gke-example-pool-us-c3f8 cordoned and drained: nats-us-4 leaves it"),
+		// Each node is cordoned, drained as its NATS pod leaves,
+		// upgraded and uncordoned; the upgrade stopped before it upgraded
+		// c3f8, which was uncordoned again.
+		node(s.at(9, 20, 30), "k8s.node.uncordoned", "Uncordoned", "c3f8", globalOldKubelet, "node gke-example-pool-us-c3f8 uncordoned"),
+		node(s.at(9, 11, 59), "k8s.node.drained", "NodeDrain", "c3f8", globalOldKubelet, "node gke-example-pool-us-c3f8 cordoned and drained: nats-us-4 leaves it"),
+		node(s.at(9, 11, 0), "k8s.node.cordoned", "Cordoned", "c3f8", globalOldKubelet, "node gke-example-pool-us-c3f8 cordoned (unschedulable), running [nats-us-4]"),
+		node(s.at(9, 6, 15), "k8s.node.uncordoned", "Uncordoned", "5e21", globalKubelet, "node gke-example-pool-us-5e21 uncordoned"),
+		node(s.at(9, 4, 49), "k8s.node.drained", "NodeDrain", "5e21", globalOldKubelet, "node gke-example-pool-us-5e21 cordoned and drained: nats-us-3 leaves it"),
+		node(s.at(9, 3, 0), "k8s.node.cordoned", "Cordoned", "5e21", globalOldKubelet, "node gke-example-pool-us-5e21 cordoned (unschedulable), running [nats-us-3]"),
+		node(s.at(8, 58, 5), "k8s.node.uncordoned", "Uncordoned", "a904", globalKubelet, "node gke-example-pool-us-a904 uncordoned"),
+		node(s.at(8, 56, 19), "k8s.node.drained", "NodeDrain", "a904", globalOldKubelet, "node gke-example-pool-us-a904 cordoned and drained: nats-us-2 leaves it"),
+		node(s.at(8, 54, 0), "k8s.node.cordoned", "Cordoned", "a904", globalOldKubelet, "node gke-example-pool-us-a904 cordoned (unschedulable), running [nats-us-2]"),
+		node(s.at(8, 45, 45), "k8s.node.uncordoned", "Uncordoned", "17bd", globalKubelet, "node gke-example-pool-us-17bd uncordoned"),
+		node(s.at(8, 44, 4), "k8s.node.drained", "NodeDrain", "17bd", globalOldKubelet, "node gke-example-pool-us-17bd cordoned and drained: nats-us-1 leaves it"),
+		node(s.at(8, 40, 12), "k8s.node.cordoned", "Cordoned", "17bd", globalOldKubelet, "node gke-example-pool-us-17bd cordoned (unschedulable), running [nats-us-1]"),
 		node(s.at(9, 6, 10), "k8s.node.upgrade", "KubeletVersion", "5e21", globalKubelet, "node gke-example-pool-us-5e21 kubelet "+globalOldKubelet+" -> "+globalKubelet),
-		node(s.at(9, 3, 0), "k8s.node.drained", "NodeDrain", "5e21", globalOldKubelet, "node gke-example-pool-us-5e21 cordoned and drained: nats-us-3 leaves it"),
 		node(s.at(8, 58, 0), "k8s.node.upgrade", "KubeletVersion", "a904", globalKubelet, "node gke-example-pool-us-a904 kubelet "+globalOldKubelet+" -> "+globalKubelet),
-		node(s.at(8, 54, 0), "k8s.node.drained", "NodeDrain", "a904", globalOldKubelet, "node gke-example-pool-us-a904 cordoned and drained: nats-us-2 leaves it"),
 		node(s.at(8, 45, 40), "k8s.node.upgrade", "KubeletVersion", "17bd", globalKubelet, "node gke-example-pool-us-17bd kubelet "+globalOldKubelet+" -> "+globalKubelet),
 		// Each restarting server announced lame duck mode a second after
 		// its pod was killed; the leaders it held were elected elsewhere.
@@ -308,7 +320,6 @@ func globalEvents(s scen, fs []*v1.Finding) []*v1.Event {
 		k8s(s.at(8, 46, 10), "k8s.pod.started", "Started", "nats-us-1", "pod nats-us-1 container nats started on gke-example-pool-us-17bd"),
 		nats(s.at(8, 44, 30), "meta.leader_elected", "LEADER_ELECTED", "nats-eu-1", "", "meta leader stays nats-eu-1 (term 52)"),
 		k8s(s.at(8, 44, 5), "k8s.pod.killing", "Killing", "nats-us-1", "pod nats-us-1 Killing (node upgrade), grace 120s"),
-		node(s.at(8, 40, 12), "k8s.node.drained", "NodeDrain", "17bd", globalOldKubelet, "node gke-example-pool-us-17bd cordoned and drained"),
 	)
 	// Short connections of search-api fill the hours before the upgrade,
 	// one churn summary per minute in which it reconnected; 2 to 5 each,
@@ -326,6 +337,7 @@ func globalEvents(s scen, fs []*v1.Finding) []*v1.Event {
 		})
 	}
 	out = append(out, globalRoutineEvents(s)...)
+	out = append(out, restartReconnects(s, map[string]time.Time{"nats-us-1": s.at(8, 44, 5), "nats-us-2": s.at(8, 56, 20), "nats-us-3": s.at(9, 4, 50)})...)
 	slices.SortStableFunc(out, func(a, b *v1.Event) int { return b.GetTime().AsTime().Compare(a.GetTime().AsTime()) })
 	return out
 }
@@ -359,18 +371,4 @@ func globalRows(*scenario) []rowSpec {
 		{"server-005", "Version differs from the majority", info, []*v1.EntityRef{serverRef("nats-ap-4"), serverRef("nats-ap-5")},
 			[]span{{day(14, 10, 0), open}}},
 	}
-}
-
-// globalK8sLanes are the pool-us upgrade's drains and pod restarts.
-func globalK8sLanes(s scen, lane func(at time.Time, kind, short, label string)) {
-	lane(s.at(8, 40, 12), "k8s.node.drained", "node 17bd", "node gke-example-pool-us-17bd drained (upgrade 1.33.4-gke.1245)")
-	lane(s.at(8, 44, 5), "k8s.pod.killing", "nats-us-1 Killing", "pod nats-us-1 Killing (node upgrade), Started 08:46")
-	lane(s.at(8, 54, 0), "k8s.node.drained", "node a904", "node gke-example-pool-us-a904 drained")
-	lane(s.at(8, 56, 20), "k8s.pod.killing", "nats-us-2 Killing", "pod nats-us-2 Killing (node upgrade), Started 08:58")
-	lane(s.at(9, 3, 0), "k8s.node.drained", "node 5e21", "node gke-example-pool-us-5e21 drained")
-	lane(s.at(9, 4, 50), "k8s.pod.killing", "nats-us-3 Killing", "pod nats-us-3 Killing (node upgrade), Started 09:06")
-	lane(s.at(9, 11, 0), "k8s.node.drained", "node c3f8", "node gke-example-pool-us-c3f8 drained")
-	lane(s.at(9, 12, 0), "k8s.pod.killing", "nats-us-4 Killing", "pod nats-us-4 Killing (node upgrade), not started since")
-	lane(s.at(9, 12, 20), "k8s.pod.failed_scheduling", "nats-us-4 Pending", "pod nats-us-4: 0/4 nodes are available: 4 Insufficient memory")
-	lane(s.at(9, 20, 30), "k8s.node.upgrade", "pool-us stopped", "node pool pool-us upgrade stopped, 3 of 4 nodes upgraded")
 }
