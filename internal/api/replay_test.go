@@ -685,3 +685,15 @@ func TestReplayReadLimitAtB(t *testing.T) {
 		t.Errorf("quorum = %q, open %v", q.GetBody(), q.GetOpenAtB())
 	}
 }
+
+// A read cut only after B read every row of A to B: the counts stay set.
+func TestReplayReadCutAfterBKeepsCounts(t *testing.T) {
+	f := facts()
+	f.EventsCaptured, f.Collected = true, true
+	f.EventsTruncated, f.EventsReadUntil = true, f.B.Add(time.Hour)
+	f.TransitionsTruncated, f.TransitionsReadUntil = true, f.B.Add(time.Hour)
+	res := api.FinishReplay(f)
+	if c := res.GetCounts(); c.LeaderElections == nil || c.FindingsRaised == nil || !res.GetStepsTruncated() {
+		t.Errorf("counts = %v, truncated %v", c, res.GetStepsTruncated())
+	}
+}

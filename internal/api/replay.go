@@ -111,8 +111,9 @@ type ReplayFacts struct {
 	// that started it.
 	Transitions []ReplayTransition
 	// EventsTruncated and TransitionsTruncated say that a provider's read
-	// limit cut Events or Transitions: the steps are then marked truncated
-	// and the counts taken from them stay unset.
+	// limit cut Events or Transitions: the steps are then marked truncated,
+	// and the counts taken from them stay unset unless the read reached
+	// past B.
 	EventsTruncated, TransitionsTruncated bool
 	// EventsReadUntil and TransitionsReadUntil are, when cut, the time of
 	// the last row read: rows before it were read in full.
