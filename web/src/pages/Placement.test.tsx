@@ -193,7 +193,7 @@ describe("Placement", () => {
   });
 
   it("names the default system in the context line when the address names none", async () => {
-    vi.mocked(requests.getShellStatus).mockResolvedValue({ defaultSystem: "example-prod" } as never);
+    vi.mocked(requests.getShellStatus).mockResolvedValue({ defaultSystem: "example-prod", systems: [] } as never);
     renderApp(<Placement />, "/placement?asset=APP%2Forder-jobs&server=nats-0");
     const panel = await screen.findByRole("complementary", { name: "order-jobs" });
     await waitFor(() => expect(within(panel).getAllByText("Run with a nats context for account APP on example-prod.")).toHaveLength(2));
