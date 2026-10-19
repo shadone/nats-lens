@@ -15,7 +15,7 @@ import { dayMonHm } from "../lib/format";
 import { SYSTEM_PARAM, ACCOUNT_PARAM } from "../lib/globalQuery";
 import { logFileName, replayLog } from "../lib/replayLog";
 import { A_PARAM, B_PARAM, momentIso, resolveMoments, shareParams, writeMoments, type Moments } from "../lib/replayUrl";
-import { collectionNotes, stepNotes } from "../lib/replayView";
+import { collectionNotes, stepNotes, whenFormat } from "../lib/replayView";
 import { pauseRange } from "../lib/timeRange";
 import { useGlobalQuery } from "../lib/useGlobalQuery";
 import { usePageTitle } from "../lib/usePageTitle";
@@ -153,7 +153,7 @@ export function Replay() {
           )}
           <div className="rp-grid">
             <ReplaySteps steps={data.steps} moments={shown} notes={stepNotes(data)} />
-            <ReplayCounts counts={data.counts} kubernetesWatched={data.kubernetesWatched} gap={data.steps.some((st) => st.kind === "gap" && !st.outsideRange)} />
+            <ReplayCounts counts={data.counts} kubernetesWatched={data.kubernetesWatched} gaps={data.steps.filter((st) => st.kind === "gap" && !st.outsideRange)} fmt={whenFormat(shown)} />
           </div>
           <ReplayGone gone={data.gone} truncated={data.goneTruncated} moments={shown} read={goneRead(data)} />
         </div>

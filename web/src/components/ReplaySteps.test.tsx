@@ -93,9 +93,14 @@ describe("ReplayCounts", () => {
     expect(screen.getByText("Not observed:").closest("p")).not.toHaveTextContent("nodes drained");
   });
 
-  it("gives a gap between A and B as the possible reason for unset node counts", () => {
-    renderApp(<ReplayCounts counts={{ serversRestarted: 1 }} kubernetesWatched gap />);
-    expect(screen.getByText("There is a gap between A and B (see the gap steps), which can leave node pools upgraded and nodes drained not counted.")).toBeInTheDocument();
+  it("names a gap by its times as the possible reason for every unset count", () => {
+    const gap = rstep("gap:1", "09:05:00", { kind: "gap", end: Date.parse("2026-10-17T09:20:00Z"), title: "No collections" });
+    renderApp(<ReplayCounts counts={{ serversRestarted: 1, findingsRaised: 0 }} kubernetesWatched={false} gaps={[gap]} />);
+    expect(screen.getByText("Kubernetes is not watched for this system, so node pools upgraded and nodes drained are not counted.")).toBeInTheDocument();
+    const p = screen.getByText(/^Collections or event capture had a gap/);
+    expect(p).toHaveTextContent(/^Collections or event capture had a gap \(09:05–09:20; see the gap step\), which can leave servers stopped, .*leaders moved, .*client reconnects not observed\.$/);
+    expect(p).not.toHaveTextContent("between A and B");
+    expect(screen.queryByText("Not observed:")).toBeNull();
   });
 
   it("says nothing of elections when there were none", () => {

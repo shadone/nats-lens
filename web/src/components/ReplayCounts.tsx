@@ -3,23 +3,32 @@
 // line, never shown as 0.
 import type { ReplayCounts as Counts } from "../api/adapt-replay";
 import { fmtInt } from "../lib/format";
-import { countTiles } from "../lib/replayView";
+import { hm } from "../lib/format";
+import { countTiles, stepWhen } from "../lib/replayView";
+import type { ReplayStep } from "../api/adapt-replay";
 
 function lower(label: string): string {
   return label.charAt(0).toLowerCase() + label.slice(1);
 }
 
-export function ReplayCounts({ counts, kubernetesWatched, gap = false }: { counts: Counts; kubernetesWatched: boolean; gap?: boolean }) {
+/** "a, b and c" */
+function listText(items: string[]): string {
+  return items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+export function ReplayCounts({ counts, kubernetesWatched, gaps = [], fmt = hm }: { counts: Counts; kubernetesWatched: boolean; gaps?: ReplayStep[]; fmt?: (t: number) => string }) {
   const tiles = countTiles(counts);
   const seen = tiles.filter((t) => t.value !== undefined);
   const unseen = tiles.filter((t) => t.value === undefined);
-  // The node counts that were not observed, with a reason when the
-  // response gives one: no Kubernetes watch, or a gap step between A and B.
-  const nodes = unseen.filter((t) => t.k8s);
-  const reason = !kubernetesWatched ? "unwatched" : gap ? "gap" : undefined;
-  const explained = reason ? nodes : [];
-  const rest = unseen.filter((t) => !explained.includes(t));
-  const named = explained.map((t) => lower(t.label)).join(" and ");
+  // A reason for the counts that were not observed, when the response
+  // gives one: no Kubernetes watch for the node counts; a gap, named by its
+  // times (it may lie around A or B, not only between them), for the rest.
+  const unwatched = kubernetesWatched ? [] : unseen.filter((t) => t.k8s);
+  const left = unseen.filter((t) => !unwatched.includes(t));
+  const inGap = gaps.length ? left : [];
+  const rest = left.filter((t) => !inGap.includes(t));
+  const names = (ts: typeof tiles) => listText(ts.map((t) => lower(t.label)));
+  const gapTimes = listText(gaps.map((g) => stepWhen(g, fmt)));
   return (
     <section className="sec rp-counts">
       <div className="sec-h">
@@ -42,11 +51,10 @@ export function ReplayCounts({ counts, kubernetesWatched, gap = false }: { count
             <b>Not observed:</b> {rest.map((t) => lower(t.label)).join(", ")}.
           </p>
         )}
-        {explained.length > 0 && (
+        {unwatched.length > 0 && <p className="rp-unseen">Kubernetes is not watched for this system, so {names(unwatched)} are not counted.</p>}
+        {inGap.length > 0 && (
           <p className="rp-unseen">
-            {reason === "unwatched"
-              ? `Kubernetes is not watched for this system, so ${named} are not counted.`
-              : `There is a gap between A and B (see the gap steps), which can leave ${named} not counted.`}
+            Collections or event capture had a gap ({gapTimes}; see the gap {gaps.length === 1 ? "step" : "steps"}), which can leave {names(inGap)} not observed.
           </p>
         )}
       </div>
