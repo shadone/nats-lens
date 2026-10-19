@@ -99,3 +99,9 @@
   .rp-what{grid-column:2;grid-row:2}
   .rp-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+/* The gone table fits its card: long headers and server lists wrap; what
+   still does not fit scrolls inside the card with a shadow at the cut. */
+.rp-gone .tbl th{white-space:normal;vertical-align:bottom}
+.rp-gone .tbl td.mono{white-space:normal;overflow-wrap:anywhere;min-width:110px}
+.rp-gone .tbl td small{white-space:normal}
