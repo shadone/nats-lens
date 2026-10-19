@@ -39,6 +39,29 @@ type streamSpec struct {
 	// policy; zero means no limit and "" discard old.
 	maxBytes int64
 	discard  string
+	// vanished are durables the servers held until a time and no server
+	// holds since; they are listed for a range whose newest epoch is
+	// before that time.
+	vanished []vanishedConsumer
+}
+
+// vanishedConsumer is a durable that no server held from at, a time in
+// the fixed frame, on.
+type vanishedConsumer struct {
+	name string
+	at   time.Time
+}
+
+// consumersAt are the durables of a stream at the scenario time at: its
+// own and the vanished ones not yet gone.
+func (s scen) consumersAt(sp streamSpec, at time.Time) []string {
+	out := slices.Clone(sp.consumers)
+	for _, v := range sp.vanished {
+		if at.Before(v.at.Add(s.shift)) {
+			out = append(out, v.name)
+		}
+	}
+	return out
 }
 
 // maxBytesText is max_bytes as the server reports it: -1 without a limit.
@@ -64,7 +87,7 @@ func (s scen) streamSummary(sp streamSpec, cur []*v1.Finding, r *v1.TimeRange) *
 	e := streamRef(sp.name)
 	st, codes := worstStatus(cur, e)
 	out := &v1.StreamSummary{
-		Entity: e, Replicas: ptr(int32(len(s.sc.peers(sp)))), Messages: ptr(sp.msgs), Bytes: ptr(int64(sp.bytes)), Consumers: ptr(int32(len(sp.consumers) + sp.ephemeral)),
+		Entity: e, Replicas: ptr(int32(len(s.sc.peers(sp)))), Messages: ptr(sp.msgs), Bytes: ptr(int64(sp.bytes)), Consumers: ptr(int32(len(s.consumersAt(sp, s.epochTime(r))) + sp.ephemeral)),
 		BytesPerDay: s.growth(e, r), Status: st, FindingCodes: codes, Leader: s.leader(sp), Placement: s.placementAt(sp, s.epochTime(r), false),
 		ServersDisagree: sp.disagrees != "",
 		Bytes_7D:        s.series("stream.bytes", e, &v1.TimeRange{Start: ts(r.GetEnd().AsTime().Add(-7 * 24 * time.Hour)), End: r.GetEnd()}, 28),
@@ -94,7 +117,7 @@ func (p *Provider) ListStreams(_ context.Context, req *v1.ListStreamsRequest) (*
 		}
 		res.Streams = append(res.Streams, s.streamSummary(sp, cur, req.GetRange()))
 		res.Totals.Bytes += int64(sp.bytes)
-		res.Totals.DurableConsumers += int32(len(sp.consumers))
+		res.Totals.DurableConsumers += int32(len(s.consumersAt(sp, s.epochTime(req.GetRange()))))
 		res.Totals.EphemeralConsumers += int32(sp.ephemeral)
 	}
 	if !req.GetIncludeKv() {
@@ -143,7 +166,7 @@ func (p *Provider) GetStream(_ context.Context, req *v1.GetStreamRequest) (*v1.G
 			res.Findings = append(res.Findings, f)
 		}
 	}
-	res.Consumers = s.withRates(s.consumers(sp, cur, true), req.GetRange())
+	res.Consumers = s.withRates(s.consumers(sp, cur, true, s.epochTime(req.GetRange())), req.GetRange())
 	return res, nil
 }
 
@@ -211,13 +234,19 @@ func (s scen) consumerSummary(sp streamSpec, name string, cur []*v1.Finding, pre
 	return c
 }
 
-func (s scen) consumers(sp streamSpec, cur []*v1.Finding, ephemeral bool) []*v1.ConsumerSummary {
+// consumers are a stream's consumers at the scenario time at: the
+// durables then, the expected ones no server reports, and the ephemeral
+// ones when asked for.
+func (s scen) consumers(sp streamSpec, cur []*v1.Finding, ephemeral bool, at time.Time) []*v1.ConsumerSummary {
 	var out []*v1.ConsumerSummary
-	for _, n := range sp.consumers {
+	present := s.consumersAt(sp, at)
+	for _, n := range present {
 		out = append(out, s.consumerSummary(sp, n, cur, true))
 	}
 	for _, n := range sp.expected {
-		out = append(out, s.consumerSummary(sp, n, cur, false))
+		if !slices.Contains(present, n) {
+			out = append(out, s.consumerSummary(sp, n, cur, false))
+		}
 	}
 	if ephemeral {
 		for i := range sp.ephemeral {
@@ -236,7 +265,7 @@ func (p *Provider) ListConsumers(_ context.Context, req *v1.ListConsumersRequest
 		if (req.GetAccount() != "" && req.GetAccount() != Account) || (req.GetStream() != "" && req.GetStream() != sp.name) {
 			continue
 		}
-		res.Consumers = append(res.Consumers, s.consumers(sp, cur, req.GetIncludeEphemeral())...)
+		res.Consumers = append(res.Consumers, s.consumers(sp, cur, req.GetIncludeEphemeral(), s.epochTime(req.GetRange()))...)
 	}
 	sortByStatus(res.Consumers, (*v1.ConsumerSummary).GetStatus, func(x *v1.ConsumerSummary) string { return x.GetEntity().GetKey() })
 	res.Consumers = sortedConsumers(s.withRates(res.Consumers, req.GetRange()), req)
@@ -253,7 +282,7 @@ func (p *Provider) GetConsumer(_ context.Context, req *v1.GetConsumerRequest) (*
 	s := p.scen()
 	cur := current(p.findings(s), req.GetRange())
 	var c *v1.ConsumerSummary
-	for _, x := range s.consumers(sp, cur, true) {
+	for _, x := range s.consumers(sp, cur, true, s.epochTime(req.GetRange())) {
 		if x.GetEntity().GetConsumer() == req.GetConsumer() {
 			c = x
 		}

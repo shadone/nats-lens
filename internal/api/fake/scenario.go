@@ -70,8 +70,33 @@ type scenario struct {
 	// order, and whether they disagree; nil means the same time on all.
 	created func(s scen, stream, consumer string) ([]time.Time, bool)
 	// gone returns the assets servers held at Replay's A and none holds
-	// at its B; nil means none.
+	// at its B besides the vanished durables of the streams; nil means
+	// none.
 	gone func(s scen, f *api.ReplayFacts) []api.ReplayGone
+	// leaders are the spans in which a stream, a consumer (by entity key)
+	// or the meta group (key "meta") had another leader than the
+	// scenario's present one: a stream's first peer, a consumer's stream
+	// leader, metaLeader.
+	leaders []leaderSpell
+}
+
+// leaderSpell is a leader of one asset from from to until, times in the
+// fixed frame; a zero from reaches back to the history's start, a zero
+// until up to now.
+type leaderSpell struct {
+	key, server string
+	from, until time.Time
+}
+
+// leaderAt is the leader of the asset key at the scenario time at: the
+// spell's, else def.
+func (s scen) leaderAt(key, def string, at time.Time) string {
+	for _, l := range s.sc.leaders {
+		if l.key == key && (l.from.IsZero() || !at.Before(l.from.Add(s.shift))) && (l.until.IsZero() || at.Before(l.until.Add(s.shift))) {
+			return l.server
+		}
+	}
+	return def
 }
 
 // systemRef is the scenario's system entity.

@@ -25,7 +25,8 @@ func prodScenario() *scenario {
 			{name: "order-jobs", msgs: 48211, bytes: 61.2 * mib, perDay: 2.1 * mib,
 				consumers: []string{"resize-worker", "index-worker", "job-cache-projector"}},
 			{name: "order-archive", msgs: 2914330, bytes: 3.92 * gib, perDay: 96 * mib,
-				consumers: []string{"archive-exporter", "archive-indexer"}, expected: []string{"analytics-aggregator"}},
+				consumers: []string{"archive-exporter", "archive-indexer"}, expected: []string{"analytics-aggregator"},
+				vanished: []vanishedConsumer{{"analytics-aggregator", fixed(9, 31, 7)}}},
 			{name: "audit-archive", msgs: 1108402, bytes: 1.07 * gib, perDay: 18 * mib, consumers: []string{"audit-archive-writer"},
 				maxBytes: 1395864371, discard: "new"},
 			{name: "catalog-changes", msgs: 312880, bytes: 402 * mib, perDay: 6.4 * mib,
@@ -67,6 +68,8 @@ func prodScenario() *scenario {
 		transitions:   prodTransitions,
 		consumer:      prodConsumer,
 		created:       prodCreated,
+		// nats-0 took the meta leadership when nats-1's pod was killed.
+		leaders: []leaderSpell{{key: "meta", server: "nats-1", until: fixed(9, 30, 11)}},
 	}
 }
 

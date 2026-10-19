@@ -19,9 +19,9 @@ const replayRestartWindow = 10 * time.Minute
 // scenario: restarts from the servers' start times and down periods,
 // servers that stopped answering, the events and the findings'
 // transitions, the windows, the gone assets of scenario.gone and the
-// times without collections. The meta leader at A is left unknown, as
-// the scenario names only the current one. A older than the demo's 14
-// days of retention is refused.
+// times without collections. Leaders at A, the meta leader's included,
+// follow the scenario's leader spells. A older than the demo's 14 days of
+// retention is refused.
 func (p *Provider) Replay(_ context.Context, req *v1.GetReplayRequest) (*api.ReplayFacts, error) {
 	s := p.scen()
 	a, b := req.GetA().AsTime().UTC(), req.GetB().AsTime().UTC()
@@ -46,15 +46,18 @@ func (p *Provider) Replay(_ context.Context, req *v1.GetReplayRequest) (*api.Rep
 		f.Events = append(f.Events, e)
 	}
 	f.Restarts, f.Stops = s.replayServers(f)
-	f.Transitions = s.replayTransitions(p.findings(s), a, f.Until)
-	for _, sp := range s.sc.streams {
-		if l := s.leader(sp); l != "" && f.EpochA != 0 {
-			f.LeadersAtA = append(f.LeadersAtA, api.ReplayLeader{Entity: streamRef(sp.name), Server: l})
-		}
+	fs := p.findings(s)
+	f.Transitions = s.replayTransitions(fs, a, f.Until)
+	if f.EpochA != 0 {
+		f.LeadersAtA = s.leadersAt(f.EpochAAt)
+		f.MetaLeaderAtA = s.leaderAt("meta", s.sc.metaLeader, f.EpochAAt)
 	}
 	f.Windows = s.windows(&v1.TimeRange{Start: ts(a), End: ts(b)})
-	if s.sc.gone != nil && f.EpochA != 0 && f.EpochB != 0 {
-		f.Gone, f.GoneRead = s.sc.gone(s, f), true
+	if f.EpochA != 0 && f.EpochB != 0 {
+		f.Gone, f.GoneRead = s.vanishedGone(f, all, fs), true
+		if s.sc.gone != nil {
+			f.Gone = append(f.Gone, s.sc.gone(s, f)...)
+		}
 	}
 	f.Gaps = s.replayGaps(a, b)
 	f.ClientReconnects = replayReconnects(all, a, b)
@@ -112,8 +115,12 @@ func (s scen) replayServers(f *api.ReplayFacts) ([]api.ReplayRestart, []api.Repl
 			last, oldEpoch, ok1 := s.epochNear(sp, start.Add(-time.Nanosecond), -sampleEvery, time.Hour)
 			first, newEpoch, ok2 := s.epochNear(sp, start, sampleEvery, time.Hour)
 			if ok1 && ok2 && !first.After(f.B) {
-				restarts = append(restarts, api.ReplayRestart{Server: sp.name, OldID: sp.oldID, NewID: sp.id, LastSeen: last,
-					FirstSeen: first, Started: start, OldEpoch: oldEpoch, NewEpoch: newEpoch, OldVersion: sp.version, NewVersion: sp.version})
+				r := api.ReplayRestart{Server: sp.name, OldID: sp.oldID, NewID: sp.id, LastSeen: last,
+					FirstSeen: first, Started: start, OldEpoch: oldEpoch, NewEpoch: newEpoch, OldVersion: sp.version, NewVersion: sp.version,
+					LedBefore: s.ledBy(sp.name, last)}
+				r.StreamsBefore, r.ConsumersBefore = s.heldBy(sp.name, last)
+				r.StreamsAfter, r.ConsumersAfter = s.heldBy(sp.name, first)
+				restarts = append(restarts, r)
 			}
 		}
 		if f.EpochB == 0 || s.answers(sp, f.EpochBAt) {
