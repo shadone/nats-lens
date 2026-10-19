@@ -113,7 +113,10 @@ export function resolveMoments(
   if (rawB && pb === undefined) notes.push(`The link's B "${rawB}" is not a valid UTC time, so a default was used.`);
   let m: Moments;
   if (pa !== undefined && pb !== undefined) m = { a: pa, b: pb };
-  else if (pa !== undefined) m = { a: pa, b: Math.min(pa + DEFAULT_SPAN_MS, ctx.now) };
+  else if (pa !== undefined && pa >= ctx.now) {
+    notes.push("The link's A is after now, so the hour before now is shown.");
+    m = { a: ctx.now - DEFAULT_SPAN_MS, b: ctx.now };
+  } else if (pa !== undefined) m = { a: pa, b: Math.min(pa + DEFAULT_SPAN_MS, ctx.now) };
   else if (pb !== undefined) m = { a: pb - DEFAULT_SPAN_MS, b: pb };
   else if (ctx.windows === undefined) return undefined;
   else m = defaultMoments(ctx.windows, ctx.range, ctx.now);
