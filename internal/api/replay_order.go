@@ -193,15 +193,16 @@ func cause(cond bool, r v1.ReplayUnobservedReason) *why {
 	return &why{reason: r}
 }
 
-// gapCause is the first gap of the kind that overlaps A to B, by the rule
-// of gapOverlaps, as a cause.
+// gapCause is the earliest gap of the kind that overlaps A to B, by the
+// rule of gapOverlaps, as a cause.
 func (b *replayBuilder) gapCause(kind string, r v1.ReplayUnobservedReason) *why {
+	var out *why
 	for _, g := range b.f.Gaps {
-		if g.Kind == kind && !g.Start.After(b.f.B) && (g.End.IsZero() || g.End.After(b.f.A)) {
-			return &why{reason: r, from: g.Start, to: g.End}
+		if g.Kind == kind && !g.Start.After(b.f.B) && (g.End.IsZero() || g.End.After(b.f.A)) && (out == nil || g.Start.Before(out.from)) {
+			out = &why{reason: r, from: g.Start, to: g.End}
 		}
 	}
-	return nil
+	return out
 }
 
 // cutCause is the read limit as a cause when it cut the rows at or

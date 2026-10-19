@@ -68,15 +68,29 @@ export type ReplayUnobserved = Message<"natslens.v1.ReplayUnobserved"> & {
   count: string;
 
   /**
-   * The first of the causes that applies, in the order FinishReplay
-   * checks them.
+   * The first of the causes that applies, in this order per count:
+   *  - servers_restarted: NO_COLLECTIONS.
+   *  - servers_stopped: NO_COLLECTIONS, NO_COLLECTION_AT_B.
+   *  - findings_raised: NO_COLLECTIONS, READ_LIMIT.
+   *  - the four gone counts: NO_COLLECTION_AT_A, NO_COLLECTION_AT_B,
+   *    GONE_NOT_READ.
+   *  - leaders_moved, leader_elections, meta_leader_changes,
+   *    quorum_lost_reports: EVENTS_NOT_CAPTURED, COLLECTOR_GAP,
+   *    EVENTS_CONNECTION_LOST, READ_LIMIT.
+   *  - client_reconnects: EVENTS_NOT_CAPTURED, COLLECTOR_GAP,
+   *    EVENTS_CONNECTION_LOST.
+   *  - nodes_upgraded, nodes_drained: KUBERNETES_NOT_WATCHED,
+   *    COLLECTOR_GAP, KUBERNETES_GAP, NODE_UNNAMED.
+   *  - node_pools_upgraded: those of the nodes, then NO_POOL_LABELS.
    *
    * @generated from field: natslens.v1.ReplayUnobservedReason reason = 2;
    */
   reason: ReplayUnobservedReason;
 
   /**
-   * The gap or cut behind it, when there is one.
+   * The span behind the cause, when there is one: of a gap, the earliest
+   * that overlaps A to B, from its start to its end (to unset while it
+   * had not ended); of READ_LIMIT, from is where the read ended.
    *
    * @generated from field: google.protobuf.Timestamp from = 3;
    */
@@ -803,7 +817,8 @@ export enum ReplayUnobservedReason {
   KUBERNETES_NOT_WATCHED = 8,
 
   /**
-   * Kubernetes was not watched between A and B (from and to bound it).
+   * Kubernetes was not watched between A and B (from and to bound it; to
+   * unset while it had not ended).
    *
    * @generated from enum value: REPLAY_UNOBSERVED_REASON_KUBERNETES_GAP = 9;
    */

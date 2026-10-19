@@ -143,3 +143,18 @@ func TestReplayCutAfterBKeepsCompleteUntil(t *testing.T) {
 		t.Errorf("complete until %v, unobserved %v", res.GetCompleteUntil(), res.GetUnobserved())
 	}
 }
+
+// Of two gaps behind a count, the earlier is named, whatever the order
+// the provider gave them in.
+func TestReplayUnobservedNamesTheEarlierGap(t *testing.T) {
+	f := observedFacts()
+	f.Gaps = []api.ReplayGap{
+		{Kind: api.GapCollector, Start: rAt(40, 0), End: rAt(45, 0), Event: ev(rAt(40, 0), "collector.gap", "")},
+		{Kind: api.GapCollector, Start: rAt(20, 0), End: rAt(30, 0), Event: ev(rAt(20, 0), "collector.gap", "")},
+	}
+	for _, u := range api.FinishReplay(f).GetUnobserved() {
+		if !u.GetFrom().AsTime().Equal(rAt(20, 0)) {
+			t.Errorf("%v", u)
+		}
+	}
+}
