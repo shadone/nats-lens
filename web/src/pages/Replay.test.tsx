@@ -244,6 +244,14 @@ describe("Replay", () => {
     expect(screen.queryByText(/garbage/)).toBeNull();
   });
 
+  it("keeps a link's note when a window sets the moments the link already says", async () => {
+    renderApp(<Replay />, `/replay?system=example-prod&${FIXED}&a=2026-10-17T09:55:00Z&b=2026-10-17T09:09:00Z`);
+    await waitFor(() => expect(location()).toContain("a=2026-10-17T09:09:00Z&b=2026-10-17T09:55:00Z"));
+    expect(screen.getByText("A was after B, so the two were swapped.")).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: /^Replay GKE node upgrade/ }));
+    expect(screen.getByText("A was after B, so the two were swapped.")).toBeInTheDocument();
+  });
+
   it("writes a B after now into the link as now, so it no longer moves with the clock", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(T("2026-10-17T12:00:00Z"));
