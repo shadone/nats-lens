@@ -1,6 +1,7 @@
 // Proto to view model: the Replay page's story between two moments.
 import {
   ReplayEvidenceKind as PEvidenceKind,
+  ReplayGapKind as PGapKind,
   ReplayStepKind as PStepKind,
   type GetReplayResponse,
   type GoneAsset as PGone,
@@ -13,6 +14,15 @@ import type { Entity, SeverityLevel } from "./model";
 export type ReplayStepKind = "kubernetes" | "restart" | "leaders" | "quorum" | "gone" | "finding" | "resolved" | "gap" | "other";
 
 export type ReplayEvidenceKind = "event" | "finding" | "collection" | "other";
+
+/** What a gap step's time lacked: collections, nats-lens running, or the Kubernetes watch. */
+export type ReplayGapKind = "collections" | "collector" | "kubernetes";
+
+const GAP_KIND: Partial<Record<PGapKind, ReplayGapKind>> = {
+  [PGapKind.COLLECTIONS]: "collections",
+  [PGapKind.COLLECTOR]: "collector",
+  [PGapKind.KUBERNETES]: "kubernetes",
+};
 
 const STEP_KIND: Record<PStepKind, ReplayStepKind> = {
   [PStepKind.UNSPECIFIED]: "other",
@@ -58,6 +68,8 @@ export interface ReplayStep {
   evidenceCount: number;
   /** After B: it closes a step in the range. */
   outsideRange: boolean;
+  /** For a gap step, what its time lacked; unset when the API does not say. */
+  gapKind?: ReplayGapKind;
 }
 
 /** An unset count was not observed; zero means none was observed. */
@@ -128,6 +140,7 @@ function step(s: PStep): ReplayStep {
     evidence: s.evidence.map((e) => ({ kind: EVIDENCE_KIND[e.kind] ?? "other", id: e.id, time: ms(e.time), label: e.label, entity: entity(e.entity) })),
     evidenceCount: s.evidenceCount,
     outsideRange: s.outsideRange,
+    gapKind: GAP_KIND[s.gapKind],
   };
 }
 
