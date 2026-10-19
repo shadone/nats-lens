@@ -51,12 +51,14 @@ Decided in the session that built T1, not confirmed.
 - Quorum spans of one check fold when they start within the fold window, not while one is open, so a long loss does not swallow later ones. A span from before A starts its step at A and says since when.
 - A restart step's time is the old process's last answer, even when that is before A.
 - Steps between A and B include both ends.
-- The store reads at most 20,000 events and 20,000 transitions, the earliest; a cut sets `EventsTruncated` or `TransitionsTruncated`, which mark the steps truncated and unset the counts taken from them.
+- The store reads at most 20,000 events and 20,000 transitions, the earliest; a cut sets `EventsTruncated` or `TransitionsTruncated` with the time of the last row read, which mark the steps truncated, unset the counts taken from the cut rows and give `complete_until` (new field 16). A quorum loss whose resolve may be in cut transitions is not called open at B.
+- A stop is a server that answered in the collection at A or later and not in the one at B; the demo reads stops by the same rule.
 - A process that started by B but was first collected after B is no restart: its server is a stop that answered again after B. `servers_stopped` needs the collection at B.
-- A `collector.gap` overlapping A to B unsets the event and node counts and the "no announcement captured" sentence; a `collector.k8s_gap` unsets the node counts.
+- A `collector.gap` overlapping A to B (starting at B included) unsets the event and node counts; a `collector.k8s_gap` unsets the node counts. "No lame duck or shutdown event was captured" needs capture over the step's whole announcement window, so the store reads collector gaps from A minus the restart window.
+- A step between A and B takes in nothing from after B.
 - A loss already open at A starts at the firing that began it: the providers return that firing as well as the newest transition before A.
-- A gone stream takes in its durables' gone findings.
-- The demo leaves leaders at A unset without a collection at A, watches Kubernetes when its scenario has a Kubernetes lane, and counts only node events that name a node, as the store does; its node events name no node yet, so T2 should add `node` and `pool` to them.
+- A gone stream takes in the gone findings of the durables that went with it (`ReplayGone.DurablesWithIt`).
+- The demo leaves leaders at A unset without a collection at A, watches Kubernetes when its scenario has a Kubernetes lane, and counts nodes as the store does: a node event that names no node leaves the node counts unset. Its node events name no node yet, so its node counts are unset; T2 should add `node` and `pool` to them.
 - The delete-event match once wrote `e.received_at >= ? - INTERVAL 30 SECOND` with a bound `time.Time`. A bound `time.Time` binds as TIMESTAMP WITH TIME ZONE unless its type is inferred from a column, so that expression stays TIMESTAMPTZ and the comparison casts the TIMESTAMP column in the host's time zone: no rows in Europe/Berlin, correct in UTC (found by the T1 review). The match now subtracts from the epochs' TIMESTAMP column inside the gone query. Plain `col >= ?`, `?::TIMESTAMP - INTERVAL ...` or subtracting in Go are correct; see `internal/store/archive.go`.
 - The demo leaves the meta leader at A unknown (the scenario names only the current one), and its restarts have no versions or asset counts; T2 can add them.
 
