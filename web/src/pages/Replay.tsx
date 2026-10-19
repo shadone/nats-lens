@@ -151,7 +151,7 @@ export function Replay() {
           )}
           <div className="rp-grid">
             <ReplaySteps steps={data.steps} moments={shown} notes={stepNotes(data)} />
-            <ReplayCounts counts={data.counts} kubernetesWatched={data.kubernetesWatched} />
+            <ReplayCounts counts={data.counts} kubernetesWatched={data.kubernetesWatched} gap={data.steps.some((st) => st.kind === "gap" && !st.outsideRange)} />
           </div>
           <ReplayGone gone={data.gone} truncated={data.goneTruncated} moments={shown} read={goneRead(data)} />
         </div>

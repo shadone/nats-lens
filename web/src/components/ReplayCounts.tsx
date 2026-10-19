@@ -9,13 +9,17 @@ function lower(label: string): string {
   return label.charAt(0).toLowerCase() + label.slice(1);
 }
 
-export function ReplayCounts({ counts, kubernetesWatched }: { counts: Counts; kubernetesWatched: boolean }) {
+export function ReplayCounts({ counts, kubernetesWatched, gap = false }: { counts: Counts; kubernetesWatched: boolean; gap?: boolean }) {
   const tiles = countTiles(counts);
   const seen = tiles.filter((t) => t.value !== undefined);
   const unseen = tiles.filter((t) => t.value === undefined);
-  // Without a Kubernetes watch the node counts cannot be observed; say why once.
-  const unwatched = kubernetesWatched ? [] : unseen.filter((t) => t.k8s);
-  const rest = unseen.filter((t) => !unwatched.includes(t));
+  // The node counts that were not observed, with a reason when the
+  // response gives one: no Kubernetes watch, or a gap step between A and B.
+  const nodes = unseen.filter((t) => t.k8s);
+  const reason = !kubernetesWatched ? "unwatched" : gap ? "gap" : undefined;
+  const explained = reason ? nodes : [];
+  const rest = unseen.filter((t) => !explained.includes(t));
+  const named = explained.map((t) => lower(t.label)).join(" and ");
   return (
     <section className="sec rp-counts">
       <div className="sec-h">
@@ -38,9 +42,11 @@ export function ReplayCounts({ counts, kubernetesWatched }: { counts: Counts; ku
             <b>Not observed:</b> {rest.map((t) => lower(t.label)).join(", ")}.
           </p>
         )}
-        {unwatched.length > 0 && (
+        {explained.length > 0 && (
           <p className="rp-unseen">
-            Kubernetes is not watched for this system, so {unwatched.map((t) => lower(t.label)).join(" and ")} are not counted.
+            {reason === "unwatched"
+              ? `Kubernetes is not watched for this system, so ${named} are not counted.`
+              : `There is a gap between A and B (see the gap steps), which can leave ${named} not counted.`}
           </p>
         )}
       </div>

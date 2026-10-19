@@ -93,6 +93,16 @@ describe("ReplayCounts", () => {
     expect(screen.getByText("Not observed:").closest("p")).not.toHaveTextContent("nodes drained");
   });
 
+  it("gives a gap between A and B as the possible reason for unset node counts", () => {
+    renderApp(<ReplayCounts counts={{ serversRestarted: 1 }} kubernetesWatched gap />);
+    expect(screen.getByText("There is a gap between A and B (see the gap steps), which can leave node pools upgraded and nodes drained not counted.")).toBeInTheDocument();
+  });
+
+  it("says nothing of elections when there were none", () => {
+    renderApp(<ReplayCounts counts={{ leadersMoved: 0, leaderElections: 0 }} kubernetesWatched />);
+    expect(screen.getByText("Leaders moved").closest("li")).toHaveTextContent(/^0Leaders moved$/);
+  });
+
   it("names the nodes upgraded when no pool label counts the pools", () => {
     renderApp(<ReplayCounts counts={{ nodesUpgraded: 4 }} kubernetesWatched />);
     expect(screen.getByText("Nodes upgraded")).toBeInTheDocument();

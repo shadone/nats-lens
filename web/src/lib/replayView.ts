@@ -140,7 +140,7 @@ export function countTiles(c: ReplayCounts): CountTile[] {
     {
       label: "Leaders moved",
       value: c.leadersMoved,
-      note: c.leaderElections !== undefined ? `of ${c.leaderElections} ${c.leaderElections === 1 ? "election" : "elections"}` : undefined,
+      note: c.leaderElections ? `of ${c.leaderElections} ${c.leaderElections === 1 ? "election" : "elections"}` : undefined,
     },
     { label: "Meta leader changes", value: c.metaLeaderChanges },
     { label: "Quorum lost advisories", value: c.quorumLostReports, note: "NATS advisories, not server logs", tone: "critical" },
