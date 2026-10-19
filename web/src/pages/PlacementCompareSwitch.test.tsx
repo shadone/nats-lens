@@ -1,4 +1,5 @@
 import { act, screen, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { useNavigate, type NavigateFunction } from "react-router";
 import * as requests from "../api/requests";
@@ -176,4 +177,26 @@ it("keeps the comparison while a new filter loads", async () => {
   await settle();
   expect(line()).toHaveTextContent("1 cell differs");
   expect(marked()).toHaveLength(1);
+});
+
+// The filtered matrix of the new system fails: the line says so instead
+// of loading for ever, and nothing is marked. Also under StrictMode,
+// which renders twice and so would show a ref written during render
+// going wrong.
+it.each([false, true])("reports a failed filtered matrix of the new system (strict %s)", async (strict) => {
+  vi.mocked(requests.getPlacement).mockImplementation(async (sys: string, spec: RangeSpec, filter: string) => {
+    if (sys === "a" || filter === "all") return spec.kind === "fixed" && sys === "b" ? before() : now();
+    throw new Error("filtered failed");
+  });
+  const ui = (
+    <>
+      <Placement />
+      <Nav />
+    </>
+  );
+  renderApp(strict ? <StrictMode>{ui}</StrictMode> : ui, "/placement?system=a&cmp=1d&filter=disagree");
+  await waitFor(() => expect(line()).toHaveTextContent("0 cells differ"));
+  act(() => go("/placement?system=b&cmp=1d&filter=disagree"));
+  await waitFor(() => expect(line()).toHaveTextContent("Could not load the matrix to compare with: filtered failed"));
+  expect(marked()).toHaveLength(0);
 });
