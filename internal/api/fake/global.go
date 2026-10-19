@@ -27,6 +27,11 @@ const (
 // globalDown is when nats-us-4 stopped answering, in the fixed frame.
 var globalDown = fixed(9, 12, 5)
 
+// globalVanished is when restock-alerts and stock-audit-export were last
+// held, in the fixed frame: nats-us-2's new process started then, and
+// from its first collection on no server reports them.
+var globalVanished = fixed(8, 58, 30)
+
 // globalServer builds one server: up since 2026-10-11 unless restarted
 // on 2026-10-17 at h:m:s.
 func globalServer(cluster string, i int, conns int64, cpu float64, storePct float64) serverSpec {
@@ -123,7 +128,10 @@ func globalScenario() *scenario {
 				consumers: []string{"order-projector", "email-sender", "analytics-aggregator", "invoice-renderer"}, peers: peers("eu-3", "eu-4", "eu-5")},
 			{name: "payment-events", msgs: 2210980, bytes: 2.6 * gib, perDay: 74 * mib, consumers: []string{"ledger-writer", "fraud-scorer"}, peers: peers("eu-1", "eu-6", "eu-7")},
 			{name: "cart-events", msgs: 4120330, bytes: 1.9 * gib, perDay: 120 * mib, consumers: []string{"cart-abandon-notifier"}, peers: peers("eu-2", "eu-5", "eu-8")},
-			{name: "inventory-changes", msgs: 1880220, bytes: 1.4 * gib, perDay: 40 * mib, consumers: []string{"stock-projector", "reorder-planner"}, peers: peers("us-0", "us-1", "us-2")},
+			// Two durables no server held after nats-us-2 restarted, with
+			// no delete event.
+			{name: "inventory-changes", msgs: 1880220, bytes: 1.4 * gib, perDay: 40 * mib, consumers: []string{"stock-projector", "reorder-planner"}, peers: peers("us-0", "us-1", "us-2"),
+				vanished: []vanishedConsumer{{"restock-alerts", globalVanished}, {"stock-audit-export", globalVanished}}},
 			{name: "shipping-updates", msgs: 640118, bytes: 820 * mib, perDay: 22 * mib, consumers: []string{"label-printer", "tracking-notifier"}, peers: peers("us-3", "us-4", "us-5")},
 			{name: "catalog-changes", msgs: 512880, bytes: 610 * mib, perDay: 8 * mib, consumers: []string{"catalog-applier", "catalog-search-indexer"}, peers: peers("us-6", "us-7", "us-8")},
 			{name: "price-changes", msgs: 96410, bytes: 140 * mib, perDay: 3 * mib, consumers: []string{"price-cache-invalidator"}, peers: peers("us-2", "us-4", "us-7")},
@@ -171,6 +179,14 @@ func globalScenario() *scenario {
 		created:       globalCreated,
 		transitions:   globalTransitions,
 		infoUntil:     map[string]time.Time{"server-001": globalPlannedEnd, "stream-002": globalPlannedEnd, "stream-011": globalPlannedEnd},
+		gone:          globalGone,
+		// The leaders the restarts moved, as the election events tell.
+		leaders: []leaderSpell{
+			{key: Account + "/inventory-changes/stock-projector", server: "nats-us-1", until: fixed(8, 44, 8)},
+			{key: Account + "/inventory-changes/reorder-planner", server: "nats-us-1", until: fixed(8, 44, 9)},
+			{key: Account + "/price-changes", server: "nats-us-4", from: fixed(8, 56, 31), until: fixed(9, 12, 6)},
+			{key: Account + "/shipping-updates", server: "nats-us-5", from: fixed(9, 5, 2)},
+		},
 	}
 }
 

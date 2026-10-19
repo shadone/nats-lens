@@ -78,6 +78,11 @@ func globalSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (fl
 		n := 0
 		for _, st := range sc.streams {
 			n += len(st.consumers)
+			for _, v := range st.vanished {
+				if c.Before(v.at) {
+					n++
+				}
+			}
 		}
 		if c.Before(globalInvoiceCreated) {
 			n--

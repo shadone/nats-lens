@@ -24,12 +24,26 @@ const (
 const (
 	fillerCount    = 199
 	prodChurnCount = 360
-	// eventCount is the 15 events of the upgrade story, the filler, the
+	// eventCount is the 20 events of the upgrade story, the filler, the
 	// routine events (360 churn, 72 sampled acks, 48 account counts, 6 API
 	// audit, 6 collector reconnects, 34 CLI) and the 8 of the pending pod.
-	eventCount        = 15 + fillerCount + prodChurnCount + 72 + 48 + 6 + 6 + 34 + 8
-	idConsumerDeleted = "591"
+	eventCount        = 20 + fillerCount + prodChurnCount + 72 + 48 + 6 + 6 + 34 + 8
+	idConsumerDeleted = "594"
 )
+
+// nodeRaw is a node event's payload as the Kubernetes watcher writes it:
+// the node, its GKE node pool and its kubelet version.
+func nodeRaw(node, pool, kubelet string) string {
+	return `{"node":"` + node + `","pool":"` + pool + `","kubelet_version":"` + kubelet + `"}`
+}
+
+// poolEvent is a node pool's report of its upgrade. It names no node, so
+// it is kept as an Event of no kind of its own (k8s.event), not as a
+// node upgrade, which the node counts would need a node for.
+func poolEvent(at time.Time, pool, summary string) *v1.Event {
+	return &v1.Event{Time: ts(at), Source: srcK8s, Kind: "k8s.event", Type: "NodePoolUpgrade", Summary: summary,
+		Raw: `{"pool":"` + pool + `"}`}
+}
 
 // events are every event of the scenario, newest first, with IDs set:
 // the newest has the highest.
@@ -42,6 +56,18 @@ func (p *Provider) events(s scen) []*v1.Event {
 		}
 	}
 	return out
+}
+
+// The kubelet versions of example-prod's node upgrade.
+const (
+	prodOldKubelet = "1.32.9-gke.1130"
+	prodKubelet    = "1.33.4-gke.1245"
+)
+
+// prodNode is a node event of example-prod's pool-1.
+func prodNode(at time.Time, kind, typ, suffix, kubelet, summary string) *v1.Event {
+	return &v1.Event{Time: ts(at), Source: srcK8s, Kind: kind, Type: typ, Summary: summary,
+		Raw: nodeRaw("gke-example-pool-1-"+suffix, "pool-1", kubelet)}
 }
 
 // prodEvents are example-prod's events, newest first.
@@ -59,8 +85,15 @@ func prodEvents(s scen, fs []*v1.Finding) []*v1.Event {
 			Summary:    "media-chunk-pool on media-windows: fill 37.4/s, drain 31.6/s (4 transitions in 1h)",
 			Transition: tr("consumer-002", flapping, s.at(11, 0, 0)), Finding: byCode["consumer-002"],
 			Account: Account, Stream: "media-windows", Consumer: "media-chunk-pool"},
-		{Time: ts(s.at(9, 50, 12)), Source: srcK8s, Kind: "k8s.node.upgrade", Type: "NodePoolUpgrade",
-			Summary: "pool-1 upgrade complete, 3 of 3 nodes on 1.33.4-gke.1245"},
+		poolEvent(s.at(9, 50, 12), "pool-1", "pool-1 upgrade complete, 3 of 3 nodes on 1.33.4-gke.1245"),
+		prodNode(s.at(9, 43, 40), "k8s.node.upgrade", "KubeletVersion", "c40d", prodKubelet,
+			"node gke-example-pool-1-c40d kubelet "+prodOldKubelet+" -> "+prodKubelet),
+		prodNode(s.at(9, 40, 0), "k8s.node.drained", "NodeDrain", "c40d", prodOldKubelet, "node gke-example-pool-1-c40d cordoned and drained: nats-2 leaves it"),
+		prodNode(s.at(9, 30, 30), "k8s.node.upgrade", "KubeletVersion", "91c2", prodKubelet,
+			"node gke-example-pool-1-91c2 kubelet "+prodOldKubelet+" -> "+prodKubelet),
+		prodNode(s.at(9, 27, 0), "k8s.node.drained", "NodeDrain", "91c2", prodOldKubelet, "node gke-example-pool-1-91c2 cordoned and drained: nats-1 leaves it"),
+		prodNode(s.at(9, 17, 20), "k8s.node.upgrade", "KubeletVersion", "7f3a", prodKubelet,
+			"node gke-example-pool-1-7f3a kubelet "+prodOldKubelet+" -> "+prodKubelet),
 		{Time: ts(s.at(9, 45, 0)), Source: srcFinding, Kind: "finding.firing", Type: "consumer-009 Consumer creation time differs across servers", Severity: warning,
 			Summary:    "resize-worker on order-jobs: nats-0 2026-08-12, nats-1 and nats-2 2026-10-17",
 			Transition: tr("consumer-009", firing, s.at(9, 45, 0)), Finding: byCode["consumer-009"],
@@ -93,8 +126,7 @@ func prodEvents(s scen, fs []*v1.Finding) []*v1.Event {
 			Account: Account, Stream: "media-windows", Summary: "media-windows (1 of 3 peers)"},
 		{Time: ts(s.at(9, 16, 2)), Source: srcK8s, Kind: "k8s.pod.killing", Type: "Killing", Server: "nats-0",
 			Summary: "pod nats-0 Killing (node upgrade), grace 120s"},
-		{Time: ts(s.at(9, 14, 48)), Source: srcK8s, Kind: "k8s.node.drained", Type: "NodeDrain",
-			Summary: "node gke-example-pool-1-7f3a cordoned and drained"},
+		prodNode(s.at(9, 14, 48), "k8s.node.drained", "NodeDrain", "7f3a", prodOldKubelet, "node gke-example-pool-1-7f3a cordoned and drained"),
 	}
 	// Short connections of one client fill the hours before the upgrade,
 	// one churn summary per minute in which it reconnected; 6 to 10 every

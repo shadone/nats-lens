@@ -91,13 +91,36 @@ func globalFindings(s scen) []*v1.Finding {
 		f.State, f.TransitionedAt = changed, ts(globalPlannedEnd.Add(s.shift))
 	}
 
+	// No server reports the two durables from nats-us-2's first
+	// collection after its restart on; the check fires once all three
+	// holders answer again, and keeps firing for its 1h lookback.
+	vanished := func(consumer string) *v1.Finding {
+		f := resolvedFinding("consumer-013", "Durable consumer disappeared", critical, consumerRef("inventory-changes", consumer),
+			globalVanishedFiring.Add(s.shift), globalVanishedResolved.Add(s.shift),
+			"Durable "+consumer+" on inventory-changes was last reported by nats-us-0, nats-us-1 at 2026-10-17 08:58:26 UTC and no server reports it now. "+
+				"No delete event recorded; the durable may have been renamed or removed by the server.")
+		f.Value = &v1.FindingValue{Name: "minutes since last reported", Display: "1.1", Number: ptr(1.1),
+			Basis: "time since a server last reported the durable"}
+		return f
+	}
+
 	return []*v1.Finding{us4, offline[0], offline[1], labels, slow, backlog, full, config, absent,
+		vanished("restock-alerts"), vanished("stock-audit-export"),
 		version("nats-ap-4"), version("nats-ap-5"),
 		restarted("nats-us-1", 8, 46, 10), restarted("nats-us-2", 8, 58, 30), restarted("nats-us-3", 9, 6, 40),
 		resolvedFinding("stream-001", "Stream quorum lost", critical, streamRef("inventory-changes"), s.at(8, 58, 40), s.at(9, 1, 0),
 			"Leader nats-us-0 sees 1 of 3 replicas online; quorum needs 2, for 4 collections."),
 	}
 }
+
+// globalVanishedFiring and globalVanishedResolved bound consumer-013 on
+// restock-alerts and stock-audit-export, in the fixed frame: it fires in
+// the first collection after nats-us-2 answered again and resolves an
+// hour after their last report.
+var (
+	globalVanishedFiring   = fixed(8, 59, 26)
+	globalVanishedResolved = fixed(9, 58, 56)
+)
 
 // globalPlannedEnd is the first epoch after the restart window that began
 // when nats-us-4 announced its shutdown at 09:12:05, in the fixed frame:
@@ -135,6 +158,12 @@ func globalTransitions(s scen, f *v1.Finding) []*v1.FindingTransition {
 	}
 }
 
+// The kubelet versions of the pool-us upgrade.
+const (
+	globalOldKubelet = "1.32.9-gke.1130"
+	globalKubelet    = "1.33.4-gke.1245"
+)
+
 // globalSlowEvents are example-global's slow consumer disconnects: one
 // each in three earlier hours, and nine on nats-us-3 since 13:38.
 func globalSlowEvents() []time.Time {
@@ -168,6 +197,13 @@ func globalEvents(s scen, fs []*v1.Finding) []*v1.Event {
 	}
 	k8s := func(at time.Time, kind, typ, server, summary string) *v1.Event {
 		return &v1.Event{Time: ts(at), Source: srcK8s, Kind: kind, Type: typ, Server: server, Summary: summary}
+	}
+	// node events carry the node, its pool and its kubelet version in
+	// their payload, as the watcher writes them.
+	node := func(at time.Time, kind, typ, suffix, version, summary string) *v1.Event {
+		e := k8s(at, kind, typ, "", summary)
+		e.Raw = nodeRaw("gke-example-pool-us-"+suffix, "pool-us", version)
+		return e
 	}
 	nats := func(at time.Time, kind, typ, server, stream, summary string) *v1.Event {
 		e := &v1.Event{Time: ts(at), Source: srcNATS, Kind: kind, Type: typ, Server: server, Summary: summary}
@@ -216,8 +252,45 @@ func globalEvents(s scen, fs []*v1.Finding) []*v1.Event {
 		findingEvent("stream-002:"+Account+"/price-changes", changed, planned, "finding.changed", "price-changes: replica on nats-us-4 offline: warning"),
 		findingEvent("stream-002:"+Account+"/shipping-updates", changed, planned, "finding.changed", "shipping-updates: replica on nats-us-4 offline: warning"),
 	)
+	consumerElected := func(at time.Time, server, stream, consumer, term string) *v1.Event {
+		e := nats(at, "consumer.leader_elected", "CONSUMER.LEADER_ELECTED", server, stream, consumer+" on "+stream+" -> "+server+" (term "+term+")")
+		e.Consumer = consumer
+		return e
+	}
+	lameDuck := func(at time.Time, server string) *v1.Event {
+		return nats(at, "server.lameduck", "SERVER.LAMEDUCK", server, "", "server "+server+" entered lame duck mode")
+	}
+	vanished := func(st v1.FindingState, at time.Time, kind, consumer, summary string) *v1.Event {
+		return findingEvent("consumer-013:"+Account+"/inventory-changes/"+consumer, st, at, kind, summary)
+	}
 	out = append(out,
-		k8s(s.at(9, 20, 30), "k8s.node.upgrade", "NodePoolUpgrade", "", "pool-us upgrade stopped: 3 of 4 nodes on 1.33.4-gke.1245"),
+		vanished(resolved, globalVanishedResolved.Add(s.shift), "finding.resolved", "restock-alerts", "restock-alerts on inventory-changes: 1h since its last report"),
+		vanished(resolved, globalVanishedResolved.Add(s.shift), "finding.resolved", "stock-audit-export", "stock-audit-export on inventory-changes: 1h since its last report"),
+		vanished(firing, globalVanishedFiring.Add(s.shift), "finding.firing", "restock-alerts", "restock-alerts on inventory-changes reported by no server"),
+		vanished(firing, globalVanishedFiring.Add(s.shift), "finding.firing", "stock-audit-export", "stock-audit-export on inventory-changes reported by no server"),
+		// The node pool's own report names no node: an Event of its own
+		// kind, not a node upgrade.
+		poolEvent(s.at(9, 20, 30), "pool-us", "pool-us upgrade stopped: 3 of 4 nodes on 1.33.4-gke.1245"),
+		node(s.at(9, 11, 0), "k8s.node.drained", "NodeDrain", "c3f8", globalOldKubelet, "node gke-example-pool-us-c3f8 cordoned and drained: nats-us-4 leaves it"),
+		node(s.at(9, 6, 10), "k8s.node.upgrade", "KubeletVersion", "5e21", globalKubelet, "node gke-example-pool-us-5e21 kubelet "+globalOldKubelet+" -> "+globalKubelet),
+		node(s.at(9, 3, 0), "k8s.node.drained", "NodeDrain", "5e21", globalOldKubelet, "node gke-example-pool-us-5e21 cordoned and drained: nats-us-3 leaves it"),
+		node(s.at(8, 58, 0), "k8s.node.upgrade", "KubeletVersion", "a904", globalKubelet, "node gke-example-pool-us-a904 kubelet "+globalOldKubelet+" -> "+globalKubelet),
+		node(s.at(8, 54, 0), "k8s.node.drained", "NodeDrain", "a904", globalOldKubelet, "node gke-example-pool-us-a904 cordoned and drained: nats-us-2 leaves it"),
+		node(s.at(8, 45, 40), "k8s.node.upgrade", "KubeletVersion", "17bd", globalKubelet, "node gke-example-pool-us-17bd kubelet "+globalOldKubelet+" -> "+globalKubelet),
+		// Each restarting server announced lame duck mode a second after
+		// its pod was killed; the leaders it held were elected elsewhere.
+		lameDuck(s.at(8, 44, 6), "nats-us-1"),
+		consumerElected(s.at(8, 44, 8), "nats-us-0", "inventory-changes", "stock-projector", "17"),
+		consumerElected(s.at(8, 44, 9), "nats-us-0", "inventory-changes", "reorder-planner", "23"),
+		lameDuck(s.at(8, 56, 21), "nats-us-2"),
+		nats(s.at(8, 56, 31), "stream.leader_elected", "STREAM.LEADER_ELECTED", "nats-us-4", "price-changes", "price-changes -> nats-us-4 (term 87)"),
+		consumerElected(s.at(8, 56, 32), "nats-us-4", "price-changes", "price-cache-invalidator", "41"),
+		lameDuck(s.at(9, 4, 51), "nats-us-3"),
+		consumerElected(s.at(9, 5, 3), "nats-us-5", "shipping-updates", "label-printer", "64"),
+		consumerElected(s.at(9, 5, 4), "nats-us-5", "shipping-updates", "tracking-notifier", "58"),
+		consumerElected(s.at(9, 12, 7), "nats-us-2", "price-changes", "price-cache-invalidator", "42"),
+	)
+	out = append(out,
 		findingEvent("stream-002:"+Account+"/price-changes", firing, s.at(9, 13, 0), "finding.firing", "price-changes: replica on nats-us-4 offline"),
 		findingEvent("stream-002:"+Account+"/shipping-updates", firing, s.at(9, 13, 0), "finding.firing", "shipping-updates: replica on nats-us-4 offline"),
 		findingEvent("server-001:nats-us-4", firing, s.at(9, 12, 35), "finding.firing", "nats-us-4 not reporting (23 of 24)"),
@@ -235,7 +308,7 @@ func globalEvents(s scen, fs []*v1.Finding) []*v1.Event {
 		k8s(s.at(8, 46, 10), "k8s.pod.started", "Started", "nats-us-1", "pod nats-us-1 container nats started on gke-example-pool-us-17bd"),
 		nats(s.at(8, 44, 30), "meta.leader_elected", "LEADER_ELECTED", "nats-eu-1", "", "meta leader stays nats-eu-1 (term 52)"),
 		k8s(s.at(8, 44, 5), "k8s.pod.killing", "Killing", "nats-us-1", "pod nats-us-1 Killing (node upgrade), grace 120s"),
-		k8s(s.at(8, 40, 12), "k8s.node.drained", "NodeDrain", "", "node gke-example-pool-us-17bd cordoned and drained"),
+		node(s.at(8, 40, 12), "k8s.node.drained", "NodeDrain", "17bd", globalOldKubelet, "node gke-example-pool-us-17bd cordoned and drained"),
 	)
 	// Short connections of search-api fill the hours before the upgrade,
 	// one churn summary per minute in which it reconnected; 2 to 5 each,
@@ -273,6 +346,9 @@ func globalRows(*scenario) []rowSpec {
 		{"consumer-002", "Consumer backlog growing", warning, []*v1.EntityRef{consumerRef("shipping-updates", "label-printer")},
 			[]span{{f(13, 40, 0), open}}},
 		{"stream-001", "Stream quorum lost", critical, []*v1.EntityRef{streamRef("inventory-changes")}, []span{{f(8, 58, 40), f(9, 1, 0)}}},
+		{"consumer-013", "Durable consumer disappeared", critical,
+			[]*v1.EntityRef{consumerRef("inventory-changes", "restock-alerts"), consumerRef("inventory-changes", "stock-audit-export")},
+			[]span{{globalVanishedFiring, globalVanishedResolved}}},
 		{"server-004", "Server restarted", info, []*v1.EntityRef{us(1), us(2), us(3)},
 			[]span{{f(8, 46, 10), f(8, 56, 10)}, {f(8, 58, 30), f(9, 8, 30)}, {f(9, 6, 40), f(9, 16, 40)}}},
 		{"stream-007", "Stream configuration differs across servers", warning, []*v1.EntityRef{streamRef("customer-notifications")},

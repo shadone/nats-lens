@@ -31,7 +31,7 @@ func (p *Provider) GetPlacement(_ context.Context, req *v1.GetPlacementRequest) 
 				Messages: v.Messages, FirstSeq: v.FirstSeq, LastSeq: v.LastSeq}
 		}
 		s.fillAsset(a, sp, s.placementAt(sp, at, false), views)
-		for _, n := range sp.consumers {
+		for _, n := range s.consumersAt(sp, at) {
 			c := s.consumerSummary(sp, n, cur, true)
 			ca := &v1.PlacementAsset{Entity: c.GetEntity(), Replicas: c.Replicas, ServersDisagree: c.GetServersDisagree(), Durable: true}
 			cv, _ := s.consumerViews(sp, c, at)
