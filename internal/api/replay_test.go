@@ -673,3 +673,15 @@ func TestReplayNoAbsenceClaimBeforeTheRead(t *testing.T) {
 		t.Errorf("body = %q", s.GetBody())
 	}
 }
+
+// Transitions read up to B itself may miss a resolve at B: the span is not
+// said to be open at B.
+func TestReplayReadLimitAtB(t *testing.T) {
+	f := facts()
+	f.TransitionsTruncated, f.TransitionsReadUntil = true, f.B
+	f.Transitions = []api.ReplayTransition{tr("stream-001:s", "stream-001", streamEnt("s"), rAt(10, 0), firing, critical)}
+	q := stepsOf(api.FinishReplay(f), v1.ReplayStepKind_REPLAY_STEP_KIND_QUORUM)[0]
+	if q.GetOpenAtB() || strings.Contains(q.GetBody(), "still without quorum at B") {
+		t.Errorf("quorum = %q, open %v", q.GetBody(), q.GetOpenAtB())
+	}
+}

@@ -289,7 +289,7 @@ func (b *replayBuilder) quorumStep(grp []*quorumSpan) {
 	d.time = latest(start, b.f.A)
 	// A resolve may lie in transitions the read limit cut: the span is then
 	// not known to be open at B.
-	cut := open && b.f.TransitionsTruncated && b.f.TransitionsReadUntil.Before(b.f.B)
+	cut := open && b.f.TransitionsTruncated && !b.f.TransitionsReadUntil.After(b.f.B)
 	switch {
 	case cut:
 	case open:
