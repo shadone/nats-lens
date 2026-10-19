@@ -17,6 +17,11 @@ describe("parseMoment", () => {
     expect(parseMoment(null)).toBeUndefined();
   });
 
+  it("refuses a day that does not exist instead of rolling it over", () => {
+    expect(parseMoment("2026-02-30T00:00Z")).toBeUndefined();
+    expect(parseMoment("2026-10-17T24:30Z")).toBeUndefined();
+  });
+
   it("writes to the second", () => {
     expect(momentIso(T("2026-10-17T09:14:05.678Z"))).toBe("2026-10-17T09:14:05Z");
     expect(compactMoment(T("2026-10-17T09:14:05Z"))).toBe("20261017T091405Z");
@@ -58,6 +63,20 @@ describe("clampMoments", () => {
     const c = clampMoments({ a: NOW - 3_600_000, b: NOW + 60_000 }, NOW, 30_000);
     expect(c.b).toBe(NOW);
     expect(c.notes).toEqual(["B is after now, so it is read as now."]);
+  });
+});
+
+describe("clampMoments and the future", () => {
+  it("keeps a swapped future B at now", () => {
+    const c = clampMoments({ a: NOW + 3_600_000, b: NOW - 3_600_000 }, NOW, 30_000);
+    expect([c.a, c.b]).toEqual([NOW - 3_600_000, NOW]);
+    expect(c.notes).toEqual(["A was after B, so the two were swapped.", "B is after now, so it is read as now."]);
+  });
+
+  it("reads a lone A in the future as the hour before now", () => {
+    const r = resolveMoments("2099-01-01T00:00:00Z", null, ctx(undefined))!;
+    expect([r.a, r.b]).toEqual([NOW - 3_600_000, NOW]);
+    expect(r.notes).toContain("A is after now, so it is read as an hour before now.");
   });
 });
 

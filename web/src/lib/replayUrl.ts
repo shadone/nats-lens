@@ -19,10 +19,12 @@ export const WINDOW_PAD_MS = 5 * 60_000;
 /** A UTC time with a Z, to the minute or finer, as the range's from and to. */
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?Z$/;
 
+/** A UTC time of the link; undefined for any other text, and for a day that does not exist, such as 30 Feb. */
 export function parseMoment(v: string | null): number | undefined {
   if (!v || !ISO.test(v)) return undefined;
   const t = Date.parse(v);
-  return Number.isNaN(t) ? undefined : t;
+  if (Number.isNaN(t) || new Date(t).toISOString().slice(0, 16) !== v.slice(0, 16)) return undefined;
+  return t;
 }
 
 /** 2026-10-19T09:14:00Z, to the second. */
@@ -55,20 +57,25 @@ export function defaultMoments(windows: Window[], range: { start: number; end: n
 }
 
 /**
- * The moments GetReplay accepts, with a note for each change: B no later
- * than now, A before B (swapped when after it), at least minGapMs apart and
- * at most 24 hours apart (A moves).
+ * The moments GetReplay accepts, with a note for each change: A before B
+ * (swapped when after it), B no later than now, A before now (an hour
+ * before B when it is not), at least minGapMs apart and at most 24 hours
+ * apart (A moves).
  */
 export function clampMoments(m: Moments, now: number, minGapMs: number): Moments & { notes: string[] } {
   let { a, b } = m;
   const notes: string[] = [];
+  if (a > b) {
+    [a, b] = [b, a];
+    notes.push("A was after B, so the two were swapped.");
+  }
   if (b > now) {
     b = now;
     notes.push("B is after now, so it is read as now.");
   }
-  if (a > b) {
-    [a, b] = [b, a];
-    notes.push("A was after B, so the two were swapped.");
+  if (a >= b) {
+    a = b - DEFAULT_SPAN_MS;
+    notes.push("A is after now, so it is read as an hour before now.");
   }
   if (b - a < minGapMs) {
     a = b - minGapMs;
