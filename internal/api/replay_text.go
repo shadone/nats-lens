@@ -160,13 +160,29 @@ func k8sTitle(e *v1.Event) string {
 	return capitalize(e.GetSummary())
 }
 
-// k8sFoldTitle is the title of n folded Kubernetes events of one kind.
-func k8sFoldTitle(first *v1.Event, n int, a, b time.Time) string {
-	switch first.GetKind() {
-	case "k8s.node.drained":
-		return Plural(n, "node") + " drained (" + spanText(a, b) + ")"
-	case "k8s.node.upgrade":
-		return Plural(n, "node upgrade event") + " (" + spanText(a, b) + ")"
+// k8sFoldTitle is the title of folded Kubernetes events of one kind:
+// node events count the distinct nodes they name ("2 nodes drained"), or
+// the events when one names no node ("3 drain events"); pod events count
+// the events.
+func k8sFoldTitle(grp []*v1.Event, a, b time.Time) string {
+	first, n := grp[0], len(grp)
+	nodes, unnamed := map[string]bool{}, false
+	for _, e := range grp {
+		if node := rawNode(e); node != "" {
+			nodes[node] = true
+		} else {
+			unnamed = true
+		}
+	}
+	verb := map[string]string{"k8s.node.drained": "drained", "k8s.node.upgrade": "upgraded"}[first.GetKind()]
+	noun := map[string]string{"k8s.node.drained": "drain event", "k8s.node.upgrade": "node upgrade event"}[first.GetKind()]
+	switch {
+	case verb != "" && !unnamed && len(nodes) == 1:
+		return fmt.Sprintf("Node %s %s (%d times, %s)", rawNode(first), verb, n, spanText(a, b))
+	case verb != "" && !unnamed:
+		return Plural(len(nodes), "node") + " " + verb + " (" + spanText(a, b) + ")"
+	case verb != "":
+		return Plural(n, noun) + " (" + spanText(a, b) + ")"
 	}
 	return fmt.Sprintf("%s (%d times, %s)", k8sTitle(first), n, spanText(a, b))
 }

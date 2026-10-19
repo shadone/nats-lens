@@ -500,3 +500,25 @@ func TestReplayStopsUnsetWithoutCollectionAtB(t *testing.T) {
 		t.Errorf("counts = %v", c)
 	}
 }
+
+// Folded node events count nodes, not events.
+func TestReplayFoldedNodeEventsCountNodes(t *testing.T) {
+	f := facts()
+	node := func(n string) func(*v1.Event) { return func(e *v1.Event) { e.Raw = `{"node":"` + n + `"}` } }
+	f.Events = []*v1.Event{
+		ev(rAt(10, 0), "k8s.node.drained", "", node("gke-a")),
+		ev(rAt(11, 0), "k8s.node.drained", "", node("gke-a")),
+		ev(rAt(30, 0), "k8s.node.drained", "", node("gke-a")),
+		ev(rAt(31, 0), "k8s.node.drained", "", node("gke-b")),
+		ev(rAt(50, 0), "k8s.node.drained", ""),
+		ev(rAt(51, 0), "k8s.node.drained", ""),
+	}
+	var titles []string
+	for _, s := range stepsOf(api.FinishReplay(f), v1.ReplayStepKind_REPLAY_STEP_KIND_KUBERNETES) {
+		titles = append(titles, s.GetTitle())
+	}
+	want := []string{"Node gke-a drained (2 times, 09:10–09:11)", "2 nodes drained (09:30–09:31)", "2 drain events (09:50–09:51)"}
+	if strings.Join(titles, "|") != strings.Join(want, "|") {
+		t.Errorf("titles = %q, want %q", titles, want)
+	}
+}
