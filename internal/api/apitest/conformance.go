@@ -294,12 +294,34 @@ func hasEvidence(s *v1.ReplayStep, kind v1.ReplayEvidenceKind) bool {
 	return slices.ContainsFunc(s.GetEvidence(), func(e *v1.ReplayEvidence) bool { return e.GetKind() == kind })
 }
 
-// replayCountsDiff says where a Replay's counts disagree with its steps
-// and its gone list; "" when they agree. A count that is unset is not
-// compared.
-func replayCountsDiff(res *v1.GetReplayResponse) string {
+// replayCountsDiff says where a Replay's counts disagree with its steps,
+// their evidence and its gone list; "" when they agree. A count that is
+// unset is not compared.
+func replayCountsDiff(res *v1.GetReplayResponse, event func(id string) *v1.Event) string {
 	if res.GetStepsTruncated() || res.GetGoneTruncated() {
 		return ""
+	}
+	// Elections and quorum advisories among the steps' evidence; every
+	// election between A and B is evidence of a restart, stop or leaders
+	// step, a quorum advisory only when a quorum step takes it in.
+	elections, quorum, capped := 0, 0, false
+	for _, s := range res.GetSteps() {
+		capped = capped || int(s.GetEvidenceCount()) > len(s.GetEvidence())
+		for _, e := range s.GetEvidence() {
+			if e.GetKind() != v1.ReplayEvidenceKind_REPLAY_EVIDENCE_KIND_EVENT {
+				continue
+			}
+			at := e.GetTime().AsTime()
+			if at.Before(res.GetA().AsTime()) || at.After(res.GetB().AsTime()) {
+				continue
+			}
+			switch event(e.GetId()).GetKind() {
+			case "stream.leader_elected", "consumer.leader_elected":
+				elections++
+			case "stream.quorum_lost", "consumer.quorum_lost":
+				quorum++
+			}
+		}
 	}
 	restarts, stops := 0, 0
 	stepped := map[string]bool{}
@@ -321,6 +343,12 @@ func replayCountsDiff(res *v1.GetReplayResponse) string {
 		}
 	}
 	c := res.GetCounts()
+	if c.LeaderElections != nil && !capped && int(c.GetLeaderElections()) != elections {
+		return fmt.Sprintf("%d leader elections, %d among the evidence", c.GetLeaderElections(), elections)
+	}
+	if c.QuorumLostReports != nil && !capped && int(c.GetQuorumLostReports()) < quorum {
+		return fmt.Sprintf("%d quorum reports, %d among the evidence", c.GetQuorumLostReports(), quorum)
+	}
 	if c.ServersRestarted != nil && int(c.GetServersRestarted()) != restarts {
 		return fmt.Sprintf("%d servers restarted, %d restart steps", c.GetServersRestarted(), restarts)
 	}
@@ -424,7 +452,10 @@ func replayRows() []State {
 		})},
 		{"the Replay counts agree with its steps and gone list, in every system", everySystem(func(q Q) string {
 			res := q.replay()
-			if d := replayCountsDiff(res); d != "" {
+			event := func(id string) *v1.Event {
+				return must(q.env.Client.GetEvent(ctx, connect.NewRequest(&v1.GetEventRequest{System: q.System, Id: id}))).of(q.t).GetEvent()
+			}
+			if d := replayCountsDiff(res, event); d != "" {
 				q.t.Errorf("system %q: %s", q.System, d)
 				return ""
 			}
