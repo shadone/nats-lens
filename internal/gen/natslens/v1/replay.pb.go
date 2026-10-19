@@ -195,7 +195,8 @@ const (
 	// A node event between A and B names no node, so nodes cannot be told
 	// apart.
 	ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_NODE_UNNAMED ReplayUnobservedReason = 10
-	// No upgraded node carried a node pool label.
+	// An upgraded node carried no node pool label, so the pools cannot be
+	// counted.
 	ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_NO_POOL_LABELS ReplayUnobservedReason = 11
 	// The provider did not read the gone assets.
 	ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_GONE_NOT_READ ReplayUnobservedReason = 12

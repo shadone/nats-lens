@@ -272,6 +272,7 @@ func (p *Provider) replayNodes(ctx context.Context, f *api.ReplayFacts, _ map[st
 	if !p.Kubernetes {
 		return nil
 	}
+	var labelled int32
 	err := p.db().QueryRowContext(ctx, `
 WITH n AS (
     SELECT kind, coalesce(`+nodeOfEvent+`, '') AS node, coalesce(raw->>'pool', '') AS pool
@@ -280,12 +281,15 @@ WITH n AS (
 SELECT count(DISTINCT node) FILTER (WHERE kind = 'k8s.node.upgrade' AND node <> ''),
     count(DISTINCT node) FILTER (WHERE kind = 'k8s.node.drained' AND node <> ''),
     count(DISTINCT pool) FILTER (WHERE kind = 'k8s.node.upgrade' AND pool <> ''),
-    count(*) FILTER (WHERE node = '') > 0
+    count(*) FILTER (WHERE node = '') > 0,
+    count(DISTINCT node) FILTER (WHERE kind = 'k8s.node.upgrade' AND node <> '' AND pool <> '')
 FROM n`,
-		f.A, f.B).Scan(&f.Nodes.Upgraded, &f.Nodes.Drained, &f.Nodes.Pools, &f.Nodes.Unnamed)
+		f.A, f.B).Scan(&f.Nodes.Upgraded, &f.Nodes.Drained, &f.Nodes.Pools, &f.Nodes.Unnamed, &labelled)
 	if err != nil {
 		return fmt.Errorf("replay nodes: %w", err)
 	}
-	f.Nodes.PoolLabels = f.Nodes.Pools > 0
+	// Every upgraded node's pool is known: a node Event stored before the
+	// watcher named the pool counts as a node without one.
+	f.Nodes.PoolLabels = f.Nodes.Pools > 0 && labelled == f.Nodes.Upgraded
 	return nil
 }
