@@ -107,6 +107,8 @@ describe("Replay", () => {
     expect(row).toHaveTextContent("3 servers: nats-0, nats-1, nats-2");
     expect(row).toHaveTextContent("none answering: nats-2");
     expect(row).toHaveTextContent("none captured");
+    // A table wider than its card scrolls inside it with a shadow at the cut.
+    expect(row.closest(".table-wrap")).toHaveClass("scroll-cue");
     expect(screen.getByRole("link", { name: "Compare in Placement" }).getAttribute("href")).toContain("/placement?from=2026-10-17T08%3A50%3A00Z&to=2026-10-17T09%3A50%3A00Z&cmp=2026-10-17T09%3A14%3A00Z");
   });
 
