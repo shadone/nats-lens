@@ -189,8 +189,9 @@ type ReplayGone struct {
 	// Delete is its delete event (or its stream's), nil when none was
 	// captured.
 	Delete *v1.Event
-	// ConsumersWithIt counts a gone stream's durables.
-	ConsumersWithIt int32
+	// DurablesWithIt are a gone stream's durables at A, by name: they went
+	// with it.
+	DurablesWithIt []string
 	// FindingIDs are its findings of ReplayGoneChecks, a stream's also
 	// those of its durables; FinishReplay adds those it finds in
 	// Transitions.

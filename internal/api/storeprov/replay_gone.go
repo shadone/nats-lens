@@ -35,10 +35,10 @@ gone_streams AS (
 ),
 gone AS (
     SELECT account, stream, NULL::VARCHAR AS consumer,
-        (SELECT count(*) FROM durable_a d WHERE d.account = g.account AND d.stream = g.stream) AS with_it
+        (SELECT coalesce(list(d.consumer ORDER BY d.consumer), []) FROM durable_a d WHERE d.account = g.account AND d.stream = g.stream) AS with_it
     FROM gone_streams g
     UNION ALL
-    SELECT account, stream, consumer, 0 FROM (
+    SELECT account, stream, consumer, []::VARCHAR[] FROM (
         SELECT account, stream, consumer FROM durable_a
         EXCEPT SELECT DISTINCT account, stream, consumer FROM consumer_stats WHERE epoch = $2)
     WHERE (account, stream) NOT IN (SELECT account, stream FROM gone_streams)
@@ -83,15 +83,16 @@ ORDER BY f.account, f.stream, f.consumer NULLS FIRST`, f.EpochA, f.EpochB, f.B)
 		var g api.ReplayGone
 		var acc, stream string
 		var consumer sql.NullString
-		var holders, away []any
+		var holders, away, withIt []any
 		var del sql.NullInt64
-		if err := rows.Scan(&acc, &stream, &consumer, &g.ConsumersWithIt, &holders, &away, &g.LastEpoch, &g.LastReported, &del); err != nil {
+		if err := rows.Scan(&acc, &stream, &consumer, &withIt, &holders, &away, &g.LastEpoch, &g.LastReported, &del); err != nil {
 			return err
 		}
 		if del.Valid {
 			deletes = append(deletes, del.Int64)
 			deleteOf[len(f.Gone)] = del.Int64
 		}
+		g.DurablesWithIt = strs(withIt)
 		g.Entity, g.ServersAtA, g.NotAnsweringAtB, g.LastReported = assetRef(acc, stream, consumer.String, names), strs(holders),
 			strs(away), g.LastReported.UTC()
 		f.Gone = append(f.Gone, g)
