@@ -145,6 +145,21 @@ describe("Replay", () => {
     expect(screen.queryByText("Servers restarted")).toBeNull();
   });
 
+  it("never asks the next system for the previous system's moments", async () => {
+    renderApp(
+      <>
+        <GoTo to={`/replay?system=example-global&${FIXED}`} />
+        <Replay />
+      </>,
+      `/replay?system=example-prod&${FIXED}&a=2026-10-17T07:00:00Z&b=2026-10-17T07:30:00Z`,
+    );
+    await screen.findByText("nats-1 restarts at 07:00");
+    await userEvent.click(screen.getByRole("button", { name: "go" }));
+    await screen.findByText("nats-us-1 restarts at 09:09");
+    const calls = vi.mocked(requests.getReplay).mock.calls.map((c) => `${c[0]} ${new Date(c[1]).toISOString()}`);
+    expect(calls).toEqual(["example-prod 2026-10-17T07:00:00.000Z", "example-global 2026-10-17T09:09:00.000Z"]);
+  });
+
   it("copies an absolute link to A–B over a fixed range, and fixes the page's range too", async () => {
     const user = userEvent.setup();
     Object.defineProperty(navigator, "clipboard", { value: { writeText: clip }, configurable: true });

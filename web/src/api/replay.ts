@@ -15,12 +15,20 @@ type Key = readonly [string, string, number | undefined, number | undefined];
 
 /**
  * The moments once they have rested for REPLAY_DEBOUNCE_MS, so a moving
- * handle asks for one replay, not one per step; the first moments at once.
+ * handle asks for one replay, not one per step. The first moments come at
+ * once, and so does a change of system: another system's page never asks
+ * for the moments of the one before.
  */
 export function useSettledMoments(a: number | undefined, b: number | undefined): { a?: number; b?: number } {
-  const key = useDebounced(a === undefined || b === undefined ? "" : `${a}|${b}`, REPLAY_DEBOUNCE_MS);
-  if (!key) return {};
-  const [ka, kb] = key.split("|").map(Number);
+  const sys = useSystem();
+  const moments = a === undefined || b === undefined ? "" : `${a}|${b}`;
+  const key = useDebounced(`${sys}#${moments}`, REPLAY_DEBOUNCE_MS, (settled, next) => {
+    const [ss, sm] = settled.split("#");
+    return ss !== next.split("#")[0] || sm === "";
+  });
+  const [ks, km] = key.split("#");
+  if (ks !== sys || !km) return {};
+  const [ka, kb] = km.split("|").map(Number);
   return { a: ka, b: kb };
 }
 
