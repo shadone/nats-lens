@@ -148,7 +148,9 @@ func (b *replayBuilder) counts() *v1.ReplayCounts {
 				raised[t.FindingID] = true
 			}
 		}
-		c.FindingsRaised = n(len(raised))
+		if !f.TransitionsTruncated {
+			c.FindingsRaised = n(len(raised))
+		}
 	}
 	if f.GoneRead && f.EpochA != 0 && f.EpochB != 0 {
 		streams, consumers, deleted, unknown := 0, 0, 0, 0
@@ -190,7 +192,9 @@ func (b *replayBuilder) counts() *v1.ReplayCounts {
 				quorum++
 			}
 		}
-		c.LeadersMoved, c.LeaderElections, c.MetaLeaderChanges, c.QuorumLostReports = n(m), n(elections), n(meta), n(quorum)
+		if !f.EventsTruncated {
+			c.LeadersMoved, c.LeaderElections, c.MetaLeaderChanges, c.QuorumLostReports = n(m), n(elections), n(meta), n(quorum)
+		}
 		c.ClientReconnects = n(int(f.ClientReconnects))
 	}
 	if f.Kubernetes {

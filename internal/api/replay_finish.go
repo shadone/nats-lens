@@ -72,7 +72,7 @@ func FinishReplay(f *ReplayFacts) *v1.GetReplayResponse {
 		Windows: f.Windows, KubernetesWatched: f.Kubernetes, HistoryStart: tsOrNil(f.HistoryStart),
 	}
 	res.Steps, res.StepsOmitted = b.finish()
-	res.StepsTruncated = res.StepsOmitted > 0
+	res.StepsTruncated = res.StepsOmitted > 0 || f.EventsTruncated || f.TransitionsTruncated
 	res.Gone, res.GoneTruncated = gone, len(gone) > maxGoneAssets
 	if res.GoneTruncated {
 		res.Gone = gone[:maxGoneAssets]

@@ -22,12 +22,16 @@ func (p *Provider) replayEvents(ctx context.Context, f *api.ReplayFacts, _ map[s
 	rows, err := p.db().QueryContext(ctx, `SELECT `+eventCols+`, CASE WHEN e.source = 'k8s' THEN e.raw::VARCHAR END FROM events e
 WHERE e.time >= ? AND e.time <= ? AND e.kind IN (?`+strings.Repeat(", ?", len(kinds)-1)+`)
   AND (e.kind NOT LIKE 'k8s.pod.%' OR e.server_name IS NOT NULL)
-ORDER BY e.time, e.id LIMIT `+fmt.Sprint(replayRowLimit), args...)
+ORDER BY e.time, e.id LIMIT `+fmt.Sprint(replayRowLimit+1), args...)
 	if err != nil {
 		return fmt.Errorf("replay events: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
+		if len(f.Events) == replayRowLimit {
+			f.EventsTruncated = true
+			break
+		}
 		var raw sql.NullString
 		ev, err := scanEvent(rows, &raw)
 		if err != nil {
@@ -51,12 +55,16 @@ SELECT finding_id, check_code, entity_type, entity_key, epoch, time, kind, sever
         SELECT *, row_number() OVER (PARTITION BY finding_id ORDER BY time DESC, epoch DESC) AS rn
         FROM finding_transitions WHERE time < ?)
     WHERE rn = 1 AND kind <> 'resolved')
-ORDER BY time, finding_id LIMIT `+fmt.Sprint(replayRowLimit), f.A, f.Until, f.A)
+ORDER BY time, finding_id LIMIT `+fmt.Sprint(replayRowLimit+1), f.A, f.Until, f.A)
 	if err != nil {
 		return fmt.Errorf("replay transitions: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
+		if len(f.Transitions) == replayRowLimit {
+			f.TransitionsTruncated = true
+			break
+		}
 		var t api.ReplayTransition
 		var typ, key, kind, sev string
 		if err := rows.Scan(&t.FindingID, &t.Check, &typ, &key, &t.Epoch, &t.Time, &kind, &sev, &t.Detail); err != nil {
