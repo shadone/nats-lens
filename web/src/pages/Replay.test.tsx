@@ -116,6 +116,7 @@ describe("Replay", () => {
     vi.mocked(requests.getReplay).mockImplementation(() => new Promise(() => {}));
     fireEvent.keyDown(screen.getByRole("slider", { name: "Moment A" }), { key: "ArrowRight" });
     fireEvent.keyDown(screen.getByRole("slider", { name: "Moment A" }), { key: "ArrowRight" });
+    fireEvent.keyUp(screen.getByRole("slider", { name: "Moment A" }), { key: "ArrowRight" });
     expect(location()).toContain("a=2026-10-17T09:24:00Z");
     const status = await screen.findByText(/^Loading 17 Oct 09:24–17 Oct 09:50 UTC; below is the earlier choice, 17 Oct 09:14–17 Oct 09:50 UTC\.$/);
     expect(status.closest("[role=status]")).toBeInTheDocument();

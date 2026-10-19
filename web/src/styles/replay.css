@@ -1,23 +1,24 @@
 /* The Replay page: the scrubber, the steps, the count tiles and the gone table. */
-.rp-status:empty{display:none}
+.rp-status:empty{margin:0}
 .rp-status{margin:6px 0 0;font-size:12.5px;color:var(--accent-text);overflow-wrap:anywhere}
 
 /* Scrubber */
-.rs{padding:12px 16px 12px;margin-top:14px}
-.rs-wins{position:relative;height:22px;margin-bottom:4px}
-.rs-win{position:absolute;top:0;height:20px;max-width:100%;padding:0 6px;border:1px solid var(--upgrade-line);border-radius:4px;background:var(--k8s-bg);color:var(--k8s);font:500 11px/18px var(--sans);text-align:left;cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:8px}
-.rs-win span{overflow:hidden;text-overflow:ellipsis;display:block}
-.rs-win:hover,.rs-win:focus-visible{border-color:var(--k8s)}
-.rs-track{position:relative;height:40px;touch-action:none;cursor:pointer;user-select:none}
+.rs{padding:18px 24px 14px;margin-top:14px}
+.rs-track{--chip:68px;position:relative;height:88px;touch-action:none;cursor:pointer;user-select:none}
 .rs-track.dragging{cursor:grabbing}
-.rs-strip{position:absolute;left:0;right:0;top:11px;width:100%;height:18px;display:block}
-.rs-wshade{position:absolute;top:4px;bottom:4px;background:var(--upgrade-fill);border-left:1px dashed var(--upgrade-line);border-right:1px dashed var(--upgrade-line);pointer-events:none}
-.rs-sel{position:absolute;top:2px;bottom:2px;border-top:2px solid var(--accent);border-bottom:2px solid var(--accent);background:var(--live-ring);pointer-events:none}
-.rs-handle{position:absolute;top:0;bottom:0;width:22px;margin-left:-11px;display:flex;align-items:flex-start;justify-content:center;cursor:grab;outline:none}
-.rs-handle::before{content:"";position:absolute;top:0;bottom:0;left:10px;width:2px;background:var(--accent)}
-.rs-handle span{position:relative;margin-top:-2px;min-width:18px;height:16px;padding:0 3px;border-radius:4px;background:var(--accent);color:var(--surface);font:600 10.5px/16px var(--mono);text-align:center}
-.rs-handle:focus-visible span{outline:2px solid var(--text);outline-offset:2px}
-.rs-axis{display:flex;justify-content:space-between;font:11px var(--mono);color:var(--text-muted);margin-top:4px}
+.rs-strip{position:absolute;left:0;right:0;top:0;width:100%;height:26px;display:block}
+.rs-wins{position:absolute;left:0;right:0;top:32px;height:22px}
+.rs-win{position:absolute;top:0;height:22px;min-width:6px;padding:0;border:0;border-radius:5px;background:var(--k8s-bg);color:var(--k8s);cursor:pointer;overflow:visible}
+.rs-wl{position:absolute;left:0;top:0;padding:0 8px;border-radius:5px;background:var(--k8s-bg);font:11px/22px var(--mono);white-space:nowrap;pointer-events:none}
+.rs-win.end .rs-wl{left:auto;right:0}
+.rs-win:hover .rs-wl,.rs-win:focus-visible .rs-wl{box-shadow:inset 0 0 0 1px var(--k8s)}
+.rs-win:focus-visible{outline:2px solid var(--k8s);outline-offset:2px}
+.rs-line{position:absolute;top:0;height:60px;width:2px;margin-left:-1px;background:var(--text);pointer-events:none}
+.rs-chip{position:absolute;top:60px;box-sizing:border-box;width:var(--chip);min-width:24px;height:24px;border-radius:6px;background:var(--text);color:var(--surface);font:500 12px/24px var(--mono);text-align:center;white-space:nowrap;cursor:grab;outline:none}
+.rs-chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.rs-axis{position:relative;height:16px;margin-top:4px;font:11px var(--mono);color:var(--text-muted)}
+.rs-axis span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+.rs-axis span.edge{right:0;transform:none}
 .rs-note{margin:8px 0 0;font-size:12px;color:var(--sev-warning)}
 .rs-inputs{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-top:10px}
 .rs-inputs .grp{display:flex;gap:6px;align-items:center}
@@ -75,7 +76,9 @@
   .rp-tile:first-child{border-top:1px solid var(--border-soft)}
 }
 @media (max-width:760px){
-  .rs{padding:10px 12px}
+  .rs{padding:12px 14px}
+  .rs-track{--chip:26px}
+  .rs-ht{display:none}
   .rp-step{grid-template-columns:14px minmax(0,1fr);padding:9px 12px}
   .rp-when{grid-column:1 / -1}
   .rp-tiles{grid-template-columns:minmax(0,1fr)}

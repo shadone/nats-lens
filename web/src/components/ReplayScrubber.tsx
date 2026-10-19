@@ -1,13 +1,17 @@
-// The Replay page's picker of A and B: the range's status strip with its
-// Kubernetes windows as buttons, two slider handles that move by keyboard,
-// drag or a click on the track, and two UTC inputs.
+// The Replay page's picker of A and B: the range's status strip, its
+// Kubernetes windows as a bar of buttons under it that set A and B, two
+// handles that move by keyboard, drag or a click on the track, an axis,
+// and two UTC inputs. A moving handle is drawn from local state; the
+// moments go to the page once it rests (pointer up, key up, blur), so the
+// URL is written once per move.
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import type { Timeline, Window } from "../api/model";
+import type { Level, Timeline, Window } from "../api/model";
 import { dayMon, dayMonHm, hm } from "../lib/format";
 import { MAX_SPAN_MS, rangeNotes, windowMoments, type Moments } from "../lib/replayUrl";
 import { worstPerBucket } from "../lib/storyLanes";
 import { bucketFor, bucketLabel } from "../lib/timeRange";
-import { cellRuns, runsText } from "../lib/timelineModel";
+import { axisTicks, cellRuns, runsText } from "../lib/timelineModel";
+import { useWidth } from "../lib/useWidth";
 import { LEVEL_LABEL } from "../lib/view";
 import { cellStyle } from "./StatusTimeline";
 
@@ -28,12 +32,49 @@ function inputValue(t: number): string {
 }
 
 /**
+ * The strip's state of a bucket: info counts as ok, as Fleet counts a
+ * system whose only findings are info as OK, so the strip shows trouble.
+ */
+export function stripLevel(l: Level): Level {
+  return l === "info" ? "ok" : l;
+}
+
+/**
  * Moves one handle to t within the rules of GetReplay: A at least one
  * collect interval before B, at most 24 hours apart, B no later than now.
  */
 export function moveHandle(m: Moments, which: Handle, t: number, minGapMs: number, now: number): Moments {
   if (which === "a") return { a: Math.min(Math.max(t, m.b - MAX_SPAN_MS), m.b - minGapMs), b: m.b };
   return { a: m.a, b: Math.max(Math.min(t, now, m.a + MAX_SPAN_MS), m.a + minGapMs) };
+}
+
+/** A UTC input that keeps what is typed until Enter or leaving the field, so a half-typed date is never applied. */
+function MomentInput({ which, value, max, onCommit }: { which: Handle; value: number; max: number; onCommit: (t: number) => void }) {
+  const [draft, setDraft] = useState<string | undefined>(undefined);
+  const commit = () => {
+    if (draft === undefined) return;
+    setDraft(undefined);
+    const t = Date.parse(`${draft}:00Z`);
+    if (draft && !Number.isNaN(t) && t !== value) onCommit(t);
+  };
+  const label = `${which.toUpperCase()} (UTC)`;
+  return (
+    <label className="grp">
+      <span className="lbl">{label}</span>
+      <input
+        type="datetime-local"
+        aria-label={label}
+        value={draft ?? inputValue(value)}
+        max={inputValue(max)}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") setDraft(undefined);
+        }}
+      />
+    </label>
+  );
 }
 
 export interface ReplayScrubberProps {
@@ -53,7 +94,12 @@ export interface ReplayScrubberProps {
 
 export function ReplayScrubber({ start, end, live, now, strip, stripError, moments, minGapMs, onChange }: ReplayScrubberProps) {
   const track = useRef<HTMLDivElement>(null);
+  const width = useWidth(track);
   const [drag, setDrag] = useState<Handle | undefined>(undefined);
+  // The moments while a handle moves; the page hears of them when it rests.
+  const [draft, setDraft] = useState<Moments | undefined>(undefined);
+  const draftRef = useRef<Moments | undefined>(undefined);
+  const shown = draft ?? moments;
   const span = Math.max(1, end - start);
   const frac = (t: number) => Math.min(1, Math.max(0, (t - start) / span));
   const pct = (t: number) => `${(frac(t) * 100).toFixed(3)}%`;
@@ -61,35 +107,59 @@ export function ReplayScrubber({ start, end, live, now, strip, stripError, momen
   const fmt = span > DAY ? dayMonHm : hm;
   const windows: Window[] = strip?.windows ?? [];
 
+  const preview = (m: Moments) => {
+    draftRef.current = m;
+    setDraft(m);
+  };
+  const commit = () => {
+    const m = draftRef.current;
+    draftRef.current = undefined;
+    setDraft(undefined);
+    if (m && (m.a !== moments.a || m.b !== moments.b)) onChange(m);
+  };
+  const move = (which: Handle, t: number) => preview(moveHandle(draftRef.current ?? moments, which, t, minGapMs, now));
+
   const timeAt = (clientX: number) => {
     const r = track.current?.getBoundingClientRect();
     if (!r || r.width <= 0) return undefined;
     const t = start + ((clientX - r.left) / r.width) * span;
     return Math.round(t / MINUTE) * MINUTE;
   };
-  const move = (which: Handle, t: number) => onChange(moveHandle(moments, which, t, minGapMs, now));
 
-  const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+  const grab = (which: Handle, e: PointerEvent<HTMLElement>) => {
+    setDrag(which);
+    track.current?.setPointerCapture?.(e.pointerId);
+    // The handle takes the focus, so the arrow keys go on from here.
+    track.current?.querySelector<HTMLElement>(`[data-handle="${which}"]`)?.focus();
+  };
+  const onTrackDown = (e: PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     const t = timeAt(e.clientX);
     if (t === undefined) return;
-    const which: Handle = Math.abs(t - moments.a) <= Math.abs(t - moments.b) ? "a" : "b";
-    setDrag(which);
-    track.current?.setPointerCapture?.(e.pointerId);
+    const which: Handle = Math.abs(t - shown.a) <= Math.abs(t - shown.b) ? "a" : "b";
+    grab(which, e);
     move(which, t);
-    // The handle takes the focus, so the arrow keys go on from here.
-    track.current?.querySelector<HTMLElement>(`[data-handle="${which}"]`)?.focus();
     e.preventDefault();
+  };
+  const onHandleDown = (which: Handle) => (e: PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    grab(which, e);
   };
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
     if (!drag) return;
     const t = timeAt(e.clientX);
     if (t !== undefined) move(drag, t);
   };
-  const endDrag = () => setDrag(undefined);
+  const endDrag = () => {
+    if (!drag) return;
+    setDrag(undefined);
+    commit();
+  };
 
   const onKey = (which: Handle) => (e: KeyboardEvent<HTMLDivElement>) => {
-    const v = moments[which];
+    const v = (draftRef.current ?? moments)[which];
     const n = e.shiftKey ? 10 : 1;
     let t: number | undefined;
     switch (e.key) {
@@ -120,79 +190,87 @@ export function ReplayScrubber({ start, end, live, now, strip, stripError, momen
     move(which, t);
   };
 
-  const cells = strip ? worstPerBucket(strip.rows, strip.bucketCount) : [];
+  const cells = strip ? worstPerBucket(strip.rows, strip.bucketCount).map(stripLevel) : [];
   const runs = strip ? runsText(cellRuns(cells, strip.start, strip.bucketMs), fmt) : "";
-  const notes = rangeNotes(moments, { start, end });
+  const notes = rangeNotes(shown, { start, end });
+  const ticks = width ? axisTicks(start, end, live, width) : [];
 
   return (
     <div className="card rs">
-      {windows.length > 0 && (
-      <div className="rs-wins" aria-label="Kubernetes windows" role="group">
-        {windows.map((w) => (
-          <button
-            key={`${w.start}-${w.end}`}
-            type="button"
-            className="rs-win"
-            style={{ left: pct(w.start), width: `max(8px, calc(${pct(w.end)} - ${pct(w.start)}))` }}
-            aria-label={`Replay ${w.label} ${hm(w.start)}–${hm(w.end)}`}
-            title={`${w.label} ${hm(w.start)}–${hm(w.end)} UTC${w.detail ? `: ${w.detail}` : ""}`}
-            onClick={() => onChange(windowMoments(w, now))}
-          >
-            <span>{w.label}</span>
-          </button>
-        ))}
-      </div>
-      )}
       <div
         ref={track}
         className={`rs-track${drag ? " dragging" : ""}`}
-        onPointerDown={onPointerDown}
+        onPointerDown={onTrackDown}
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
       >
-        <svg className="rs-strip" viewBox={`0 0 ${SW} 18`} preserveAspectRatio="none" role="img" aria-label={strip ? `Status per ${bucketLabel(strip.bucketMs)}: ${runs}` : "Status strip loading"}>
+        <svg className="rs-strip" viewBox={`0 0 ${SW} 26`} preserveAspectRatio="none" role="img" aria-label={strip ? `Status per ${bucketLabel(strip.bucketMs)}: ${runs}` : "Status strip loading"}>
           {strip &&
             cells.map((lv, i) => {
               const t0 = strip.start + i * strip.bucketMs;
               const x = frac(t0) * SW;
               const w = (strip.bucketMs / span) * SW;
               return (
-                <rect key={i} x={(x + 0.6).toFixed(2)} y="0" width={Math.max(0.5, w - 1.6).toFixed(2)} height="18" rx="1.5" style={cellStyle(lv)} vectorEffect="non-scaling-stroke" data-level={lv}>
+                <rect key={i} x={(x + 0.6).toFixed(2)} y="0" width={Math.max(0.5, w - 1.6).toFixed(2)} height="26" rx="2" style={cellStyle(lv)} vectorEffect="non-scaling-stroke" data-level={lv}>
                   <title>{`${fmt(t0)} ${LEVEL_LABEL[lv].toLowerCase()}`}</title>
                 </rect>
               );
             })}
         </svg>
-        {windows.map((w) => (
-          <span key={`${w.start}-${w.end}`} className="rs-wshade" style={{ left: pct(w.start), width: `calc(${pct(w.end)} - ${pct(w.start)})` }} aria-hidden="true" />
-        ))}
-        <span className="rs-sel" style={{ left: pct(moments.a), width: `calc(${pct(moments.b)} - ${pct(moments.a)})` }} aria-hidden="true" />
+        {windows.length > 0 && (
+          <div className="rs-wins" role="group" aria-label="Kubernetes windows">
+            {windows.map((w) => (
+              <button
+                key={`${w.start}-${w.end}`}
+                type="button"
+                className={`rs-win${frac(w.start) > 0.6 ? " end" : ""}`}
+                style={{ left: pct(w.start), width: `calc(${pct(w.end)} - ${pct(w.start)})` }}
+                aria-label={`Replay ${w.label} ${hm(w.start)}–${hm(w.end)} UTC`}
+                title={`${w.label} ${hm(w.start)}–${hm(w.end)} UTC${w.detail ? `: ${w.detail}` : ""}`}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => onChange(windowMoments(w, now))}
+              >
+                <span className="rs-wl">{w.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
         {(["a", "b"] as const).map((which) => {
-          const v = moments[which];
+          const v = shown[which];
+          const p = pct(v);
           return (
-            <div
-              key={which}
-              data-handle={which}
-              className={`rs-handle rs-${which}`}
-              style={{ left: pct(v) }}
-              role="slider"
-              tabIndex={0}
-              aria-label={`Moment ${which.toUpperCase()}`}
-              aria-valuemin={Math.min(start, v)}
-              aria-valuemax={Math.max(end, v)}
-              aria-valuenow={v}
-              aria-valuetext={handleText(which, v)}
-              onKeyDown={onKey(which)}
-            >
-              <span aria-hidden="true">{which.toUpperCase()}</span>
-            </div>
+            <span key={which}>
+              <span className={`rs-line rs-line-${which}`} style={{ left: p }} aria-hidden="true" />
+              <div
+                data-handle={which}
+                className={`rs-chip rs-${which}`}
+                style={{ left: which === "a" ? `max(0px, calc(${p} - var(--chip)))` : `min(${p}, calc(100% - var(--chip)))` }}
+                role="slider"
+                tabIndex={0}
+                aria-label={`Moment ${which.toUpperCase()}`}
+                aria-valuemin={Math.min(start, v)}
+                aria-valuemax={Math.max(end, v)}
+                aria-valuenow={v}
+                aria-valuetext={handleText(which, v)}
+                onKeyDown={onKey(which)}
+                onKeyUp={commit}
+                onBlur={commit}
+                onPointerDown={onHandleDown(which)}
+              >
+                {which.toUpperCase()}
+                <span className="rs-ht"> {hm(v)}</span>
+              </div>
+            </span>
           );
         })}
       </div>
       <div className="rs-axis" aria-hidden="true">
-        <span>{fmt(start)}</span>
-        <span>{live ? "now" : fmt(end)}</span>
+        {ticks.map((t) => (
+          <span key={`${t.label}-${t.frac}`} className={t.edge ? "edge" : undefined} style={t.edge ? undefined : { left: `${(t.frac * 100).toFixed(3)}%` }}>
+            {t.label}
+          </span>
+        ))}
       </div>
       {stripError && <p className="rs-note">The status strip could not be loaded: {stripError}</p>}
       {notes.length > 0 && (
@@ -202,19 +280,7 @@ export function ReplayScrubber({ start, end, live, now, strip, stripError, momen
       )}
       <div className="rs-inputs">
         {(["a", "b"] as const).map((which) => (
-          <label key={which} className="grp">
-            <span className="lbl">{which.toUpperCase()} (UTC)</span>
-            <input
-              type="datetime-local"
-              aria-label={`${which.toUpperCase()} (UTC)`}
-              value={inputValue(moments[which])}
-              max={inputValue(now)}
-              onChange={(e) => {
-                const t = Date.parse(`${e.target.value}:00Z`);
-                if (e.target.value && !Number.isNaN(t)) onChange({ ...moments, [which]: t });
-              }}
-            />
-          </label>
+          <MomentInput key={which} which={which} value={moments[which]} max={now} onCommit={(t) => onChange({ ...moments, [which]: t })} />
         ))}
         <span className="rs-hint">Arrows move a handle by {bucketLabel(step)}, Shift+arrows by ten.</span>
       </div>
