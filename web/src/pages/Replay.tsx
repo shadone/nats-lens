@@ -14,7 +14,7 @@ import { ReplaySteps } from "../components/ReplaySteps";
 import { dayMonHm } from "../lib/format";
 import { SYSTEM_PARAM, ACCOUNT_PARAM } from "../lib/globalQuery";
 import { logFileName, replayLog } from "../lib/replayLog";
-import { A_PARAM, B_PARAM, resolveMoments, shareParams, writeMoments, type Moments } from "../lib/replayUrl";
+import { A_PARAM, B_PARAM, momentIso, resolveMoments, shareParams, writeMoments, type Moments } from "../lib/replayUrl";
 import { collectionNotes, stepNotes } from "../lib/replayView";
 import { pauseRange } from "../lib/timeRange";
 import { useGlobalQuery } from "../lib/useGlobalQuery";
@@ -65,11 +65,17 @@ export function Replay() {
   );
   const moments: Moments | undefined = resolved && { a: resolved.a, b: resolved.b };
 
-  // A link without A or B gets the defaults written into it, without a
-  // history entry of its own.
+  // A link without A or B, or with moments GetReplay does not accept, gets
+  // the moments read from it written into it, without a history entry of
+  // its own, so they no longer move with the clock. What was changed stays
+  // said for as long as the link is the one written.
+  const [kept, setKept] = useState<{ link: string; notes: string[] }>({ link: "", notes: [] });
   useEffect(() => {
-    if (resolved?.write) setParams((p) => writeMoments(p, resolved), { replace: true });
+    if (!resolved?.write) return;
+    setKept({ link: `${momentIso(resolved.a)}|${momentIso(resolved.b)}`, notes: resolved.notes });
+    setParams((p) => writeMoments(p, resolved), { replace: true });
   }, [resolved?.write, resolved?.a, resolved?.b]);
+  const linkNotes = kept.link === `${rawA}|${rawB}` ? kept.notes : (resolved?.notes ?? []);
 
   const setMoments = (m: Moments) => setParams((p) => writeMoments(p, m), { replace: true });
 
@@ -178,9 +184,9 @@ export function Replay() {
           onChange={setMoments}
         />
       )}
-      {resolved && resolved.notes.length > 0 && (
+      {linkNotes.length > 0 && (
         <p className="rs-note" role="note">
-          {resolved.notes.join(" ")}
+          {linkNotes.join(" ")}
         </p>
       )}
       {body}

@@ -194,6 +194,25 @@ describe("Replay", () => {
     expect(alert).toHaveTextContent("A is older than retention (14d); Replay reads the database only");
   });
 
+  it("keeps saying why it changed a link's moments after writing them into the link", async () => {
+    renderApp(<Replay />, `/replay?system=example-prod&${FIXED}&a=garbage&b=2026-10-17T09:50:00Z`);
+    await waitFor(() => expect(location()).toContain("a=2026-10-17T08:50:00Z&b=2026-10-17T09:50:00Z"));
+    await screen.findByText("nats-1 restarts at 08:50");
+    expect(screen.getByText('The link\'s A "garbage" is not a valid UTC time, so a default was used.')).toBeInTheDocument();
+  });
+
+  it("writes a B after now into the link as now, so it no longer moves with the clock", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(T("2026-10-17T12:00:00Z"));
+    try {
+      renderApp(<Replay />, `/replay?system=example-prod&range=6h&a=2026-10-17T11:00:00Z&b=2026-10-17T13:00:00Z`);
+      await waitFor(() => expect(location()).toContain("a=2026-10-17T11:00:00Z&b=2026-10-17T12:00:00Z"));
+      expect(screen.getByText("B is after now, so it is read as now.")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("says when there was no collection at A", async () => {
     vi.mocked(requests.getReplay).mockImplementation(async (sys, a, b) => ({ ...story(sys, a, b), epochAAt: undefined, epochA: "0" }));
     renderApp(<Replay />, `/replay?system=example-prod&${FIXED}&${AB}`);

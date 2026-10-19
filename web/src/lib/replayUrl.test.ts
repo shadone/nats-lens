@@ -101,7 +101,7 @@ describe("resolveMoments", () => {
   it("explains a link longer than 24 hours and keeps its B", () => {
     const r = resolveMoments("2026-10-15T09:00:00Z", "2026-10-17T09:00:00Z", ctx(undefined))!;
     expect(r.a).toBe(T("2026-10-16T09:00:00Z"));
-    expect(r.write).toBe(false);
+    expect(r.write).toBe(true);
     expect(r.notes).toHaveLength(1);
   });
 });
