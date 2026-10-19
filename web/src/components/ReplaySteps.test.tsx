@@ -43,6 +43,16 @@ describe("ReplaySteps", () => {
     expect(items[2].querySelector(".rp-dot")).toHaveClass("critical");
   });
 
+  it("writes a span as two times, and the kind and severity once for a screen reader", () => {
+    const k8s = rstep("k8s:1", "09:16:00", { kind: "kubernetes", title: "Node drained" });
+    const { container } = renderApp(<ReplaySteps steps={[...steps, k8s]} moments={M} notes={[]} />);
+    const span = container.querySelector('[data-step="restart:1"] .rp-when')!;
+    expect([...span.querySelectorAll("time")].map((t) => t.getAttribute("datetime"))).toEqual(["2026-10-17T09:18:00Z", "2026-10-17T09:18:30Z"]);
+    expect(container.querySelector('[data-step="k8s:1"] .sr-only')).toHaveTextContent(/^Kubernetes:$/);
+    expect(container.querySelector('[data-step="resolved:1"] .sr-only')).toHaveTextContent(/^Resolved:$/);
+    expect(container.querySelector('[data-step="quorum:1"] .sr-only')).toHaveTextContent(/^Quorum, critical:$/);
+  });
+
   it("puts the steps after B under an After B divider, each tagged", () => {
     renderApp(<ReplaySteps steps={steps} moments={M} notes={[]} />);
     const after = screen.getByRole("list", { name: "After B" });
