@@ -95,7 +95,10 @@ func (p *Provider) replayEpochs(ctx context.Context, f *api.ReplayFacts, _ map[s
 
 // replayRestarts reads the processes that replaced an earlier one of the
 // same name and started after A and at or before B, as server-004 pairs
-// them, with what each process held and the old one led.
+// them, with what each process held and the old one led. The new process
+// must also have been collected by B: one first collected after B is
+// read as a stop that answered again after B (proposed, not yet
+// confirmed).
 func (p *Provider) replayRestarts(ctx context.Context, f *api.ReplayFacts, names map[string]string) error {
 	rows, err := p.db().QueryContext(ctx, `
 WITH procs AS (
@@ -114,8 +117,8 @@ SELECT server_name, prev_id, server_id, prev_last_seen, first_seen_at, started, 
     (SELECT count(*) FROM stream_stats x WHERE x.server_id = p.server_id AND x.epoch = p.first_epoch),
     (SELECT count(*) FROM consumer_stats x WHERE x.server_id = p.server_id AND x.epoch = p.first_epoch)
 FROM procs p
-WHERE prev_id IS NOT NULL AND started > ? AND started <= ?
-ORDER BY started, server_name`, f.A, f.B)
+WHERE prev_id IS NOT NULL AND started > ? AND started <= ? AND first_seen_at <= ?
+ORDER BY started, server_name`, f.A, f.B, f.B)
 	if err != nil {
 		return fmt.Errorf("replay restarts: %w", err)
 	}

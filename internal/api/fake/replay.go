@@ -105,7 +105,7 @@ func (s scen) replayServers(a, b time.Time) ([]api.ReplayRestart, []api.ReplaySt
 		if start := s.started(sp); sp.oldID != "" && start.After(a) && !start.After(b) {
 			last, oldEpoch, ok1 := s.epochNear(sp, start.Add(-time.Nanosecond), -sampleEvery)
 			first, newEpoch, ok2 := s.epochNear(sp, start, sampleEvery)
-			if ok1 && ok2 {
+			if ok1 && ok2 && !first.After(b) {
 				restarts = append(restarts, api.ReplayRestart{Server: sp.name, OldID: sp.oldID, NewID: sp.id, LastSeen: last,
 					FirstSeen: first, Started: start, OldEpoch: oldEpoch, NewEpoch: newEpoch, OldVersion: sp.version, NewVersion: sp.version})
 			}

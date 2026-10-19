@@ -293,3 +293,17 @@ func TestReplayWithoutCollectionsOrKubernetes(t *testing.T) {
 		t.Errorf("steps = %v", res.GetSteps())
 	}
 }
+
+// A process that started before B but was first collected after it is not
+// a restart: its server stops answering and answers again after B.
+func TestReplayProcessCollectedAfterBIsAStop(t *testing.T) {
+	p, _ := replayStore(t)
+	f, err := p.Replay(ctx, replayReq(rEpoch(3), rEpoch(45).Add(20*time.Second)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.Restarts) != 1 || f.Restarts[0].Server != "nats-1" || len(f.Stops) != 1 || f.Stops[0].Server != "nats-2" ||
+		f.Stops[0].BackEpoch != 46 {
+		t.Errorf("restarts %+v, stops %+v", f.Restarts, f.Stops)
+	}
+}

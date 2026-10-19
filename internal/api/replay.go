@@ -80,7 +80,8 @@ type ReplayFacts struct {
 	Collected, EventsCaptured, Kubernetes bool
 
 	// Restarts are the processes that replaced an earlier one of the same
-	// server name and started after A and at or before B.
+	// server name, started after A and at or before B, and were first
+	// collected by B; one first collected after B makes its server a stop.
 	Restarts []ReplayRestart
 	// Stops are the servers that answered after A and did not answer at
 	// B.
