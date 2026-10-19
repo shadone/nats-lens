@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"google.golang.org/protobuf/proto"
+
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -19,7 +21,7 @@ func (b *replayBuilder) finish() ([]*v1.ReplayStep, int32) {
 	for _, d := range b.steps {
 		s := &v1.ReplayStep{Time: tsOrNil(d.time), End: tsOrNil(d.end), OpenAtB: d.openAtB, Kind: d.kind, Severity: d.severity,
 			Title: d.title, Body: d.body, OutsideRange: d.outside}
-		ev := uniqueEvidence(d.evidence)
+		ev := distinctLabels(uniqueEvidence(d.evidence))
 		s.EvidenceCount, s.Evidence = int32(len(ev)), ev[:min(len(ev), maxStepEvidence)]
 		ents := uniqueEntities(d.entities)
 		s.EntityCount, s.Entities = int32(len(ents)), ents[:min(len(ents), maxStepEntities)]
@@ -95,6 +97,41 @@ func uniqueEvidence(ev []*v1.ReplayEvidence) []*v1.ReplayEvidence {
 		return cmp.Or(x.GetTime().AsTime().Compare(y.GetTime().AsTime()), cmp.Compare(x.GetKind(), y.GetKind()), cmp.Compare(x.GetId(), y.GetId()))
 	})
 	return out
+}
+
+// distinctLabels tells apart evidence of one step whose labels are the
+// same, as a folded step's often are: such labels begin with their time,
+// and a finding's that still repeat end with its entity (proposed, not
+// yet confirmed).
+func distinctLabels(ev []*v1.ReplayEvidence) []*v1.ReplayEvidence {
+	relabel := func(ev []*v1.ReplayEvidence, f func(e *v1.ReplayEvidence) string) []*v1.ReplayEvidence {
+		n := map[string]int{}
+		for _, e := range ev {
+			n[e.GetLabel()]++
+		}
+		out := make([]*v1.ReplayEvidence, len(ev))
+		for i, e := range ev {
+			out[i] = e
+			if n[e.GetLabel()] > 1 {
+				c := proto.Clone(e).(*v1.ReplayEvidence)
+				c.Label = f(e)
+				out[i] = c
+			}
+		}
+		return out
+	}
+	ev = relabel(ev, func(e *v1.ReplayEvidence) string {
+		if e.GetTime() == nil {
+			return e.GetLabel()
+		}
+		return clockText(e.GetTime().AsTime()) + " " + e.GetLabel()
+	})
+	return relabel(ev, func(e *v1.ReplayEvidence) string {
+		if _, key, ok := strings.Cut(e.GetId(), ":"); ok && e.GetKind() == v1.ReplayEvidenceKind_REPLAY_EVIDENCE_KIND_FINDING {
+			return e.GetLabel() + ", " + key
+		}
+		return e.GetLabel()
+	})
 }
 
 func uniqueEntities(es []*v1.EntityRef) []*v1.EntityRef {

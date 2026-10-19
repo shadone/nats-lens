@@ -3,6 +3,7 @@ package api_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -56,5 +57,26 @@ func TestReplayKubernetesBodyAddsToTitle(t *testing.T) {
 	}
 	if ks[2].GetBody() != "pod nats-4: 0/4 nodes are available" {
 		t.Errorf("failure body = %q", ks[2].GetBody())
+	}
+}
+
+// The evidence of a folded step tells its pieces apart.
+func TestReplayEvidenceLabelsDistinct(t *testing.T) {
+	f := facts()
+	for i := range 5 {
+		f.Events = append(f.Events, ev(rAt(12, 0).Add(time.Duration(i)*90*time.Second), "k8s.pod.failed_scheduling", "nats-4"))
+	}
+	f.Transitions = []api.ReplayTransition{
+		tr("stream-001:APP/a", "stream-001", streamEnt("a"), rAt(30, 0), firing, critical),
+		tr("stream-001:APP/b", "stream-001", streamEnt("b"), rAt(30, 0), firing, critical),
+	}
+	for _, s := range api.FinishReplay(f).GetSteps() {
+		seen := map[string]bool{}
+		for _, e := range s.GetEvidence() {
+			if seen[e.GetLabel()] {
+				t.Errorf("step %q: label %q twice", s.GetTitle(), e.GetLabel())
+			}
+			seen[e.GetLabel()] = true
+		}
 	}
 }
