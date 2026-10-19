@@ -1,7 +1,9 @@
 package storeprov_test
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -53,7 +55,10 @@ func TestDetailsFirstClaimantWithoutList(t *testing.T) {
 }
 
 // An offline replica listed by the chosen leader, and a second
-// claimant that names it online; matrix vs details.
+// claimant that names it online. The matrix shows nats-1 OFFLINE from
+// the chosen leader's list; details today list only the servers with a
+// stats row, so nats-1 is missing from them (a known gap, see
+// docs/plans/next.md). This test pins both as they are.
 func TestDetailsOfflineByChosenLeader(t *testing.T) {
 	st := emptyStore(t)
 	r := rows{t, st}
@@ -75,8 +80,21 @@ func TestDetailsOfflineByChosenLeader(t *testing.T) {
 	c := serveSeries(t, st, t0.Add(30*time.Second))
 	rg := &v1.TimeRange{Start: timestamppb.New(t0.Add(-time.Hour)), End: timestamppb.New(t0.Add(30 * time.Second))}
 	a := asset(must(c.GetPlacement(ctx, connect.NewRequest(&v1.GetPlacementRequest{Range: rg}))), "APP/orders")
-	t.Logf("matrix: leader %s cells %v nats-1 lag %v", a.GetLeader(), cellsText(a), cellOn(a, "nats-1").Lag)
+	if got, want := a.GetLeader(), "nats-0"; got != want {
+		t.Errorf("matrix leader %q, want %q", got, want)
+	}
+	if got, want := strings.Join(cellsText(a), " "), "nats-0:LEADER nats-1:OFFLINE nats-2:DISAGREES"; got != want {
+		t.Errorf("matrix cells %q, want %q", got, want)
+	}
+	var got []string
 	for _, v := range must(c.GetStream(ctx, connect.NewRequest(&v1.GetStreamRequest{Account: "APP", Stream: "orders", Range: rg}))).GetServers() {
-		t.Logf("GetStream %s leader=%v current=%v offline=%v lag=%v", v.GetServer(), v.GetIsLeader(), v.Current, v.Offline, v.Lag)
+		got = append(got, fmt.Sprintf("%s leader=%v current=%v offline=%v lag=%v", v.GetServer(), v.GetIsLeader(), v.GetCurrent(), v.GetOffline(), v.Lag != nil))
+	}
+	want := []string{
+		"nats-0 leader=true current=true offline=false lag=false",
+		"nats-2 leader=true current=true offline=false lag=false",
+	}
+	if strings.Join(got, "; ") != strings.Join(want, "; ") {
+		t.Errorf("GetStream servers\n got %q\nwant %q", got, want)
 	}
 }
