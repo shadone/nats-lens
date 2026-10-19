@@ -4,9 +4,7 @@
 import type { ReactNode } from "react";
 import type { MatrixAsset, MatrixCell } from "../api/placementMatrix";
 import { fmtDuration, fmtInt, isoSecond } from "../lib/format";
-import { useQuery } from "@tanstack/react-query";
-import { shellQuery } from "../api/shell";
-import { useSystem } from "../lib/useSystem";
+import { useCurrentSystem } from "../api/systems";
 import { CELL_LABEL, contextNote, infoCommand, isConsumer, meaning, momentText, peersAgree, stepDownCommand, type Change } from "../lib/placementView";
 import { entityPath } from "../lib/view";
 import { Dash, RLink } from "./common";
@@ -53,11 +51,8 @@ export function PlacementPanel({
   compareAt?: number;
   onClose: () => void;
 }) {
-  const page = useSystem();
-  // The shell's status call names the default system; it is the shell's
-  // own query, so this asks nothing more.
-  const shell = useQuery(shellQuery(page));
-  const system = page || shell.data?.defaultSystem || "";
+  // The page's system, else the default one the shell's status names.
+  const system = useCurrentSystem().id;
   const consumer = isConsumer(a);
   const others = a.cells.filter((x) => x.server !== c.server);
   const pos = position(a, c);
