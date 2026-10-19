@@ -130,12 +130,14 @@ export function ReplayScrubber({ start, end, live, now, strip, stripError, momen
   // The moments last sent to the page, ahead of the props until the page
   // renders them: a typed moment applied on blur by a press on the track
   // is the base of the drag that press starts. Sent moments are clamped
-  // and cut to the second as the page reads them, and after every render
-  // they are the moments the page shows.
+  // and cut to the second as the page reads them, so they are what the
+  // page will show; a change of the page's moments replaces them.
   const sent = useRef<Moments>(moments);
+  // Only a change of the moments the page shows resets it: a render of a
+  // pending move before the page's transition commits must not.
   useLayoutEffect(() => {
     sent.current = moments;
-  });
+  }, [moments.a, moments.b]);
   const send = (m: Moments) => {
     const c = clampMoments(m, now, minGapMs);
     const n = { a: toSecond(c.a), b: toSecond(c.b) };

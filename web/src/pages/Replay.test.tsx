@@ -164,6 +164,28 @@ describe("Replay", () => {
     expect(calls).toEqual(["example-prod 2026-10-17T07:00:00.000Z", "example-global 2026-10-17T09:09:00.000Z"]);
   });
 
+  it("moves B two buckets for two quick presses while the router applies the first", async () => {
+    renderApp(<Replay />, `/replay?system=example-prod&${FIXED}&${AB}`);
+    await screen.findByText("nats-1 restarts at 09:14");
+    const g = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+    const before = g.IS_REACT_ACT_ENVIRONMENT;
+    g.IS_REACT_ACT_ENVIRONMENT = false;
+    try {
+      const b = screen.getByRole("slider", { name: "Moment B" });
+      // Plain events, outside act, so the router's transition waits as in a browser.
+      const press = () => {
+        b.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+        b.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowLeft", bubbles: true }));
+      };
+      press();
+      await Promise.resolve();
+      press();
+      await waitFor(() => expect(location()).toContain("b=2026-10-17T09:40:00Z"));
+    } finally {
+      g.IS_REACT_ACT_ENVIRONMENT = before;
+    }
+  });
+
   it("copies an absolute link to A–B over a fixed range, and fixes the page's range too", async () => {
     const user = userEvent.setup();
     Object.defineProperty(navigator, "clipboard", { value: { writeText: clip }, configurable: true });
