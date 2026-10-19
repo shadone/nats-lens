@@ -1,6 +1,7 @@
 package api
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -32,11 +33,13 @@ func (b *replayBuilder) k8s() {
 	at := func(e *v1.Event) time.Time { return e.GetTime().AsTime() }
 	for _, grp := range foldGroups(evs, key, at, b.window) {
 		first, last := grp[0], grp[len(grp)-1]
-		d := &draft{kind: v1.ReplayStepKind_REPLAY_STEP_KIND_KUBERNETES, time: at(first), body: last.GetSummary()}
+		d := &draft{kind: v1.ReplayStepKind_REPLAY_STEP_KIND_KUBERNETES, time: at(first)}
 		switch first.GetKind() {
 		case "k8s.pod.failed_scheduling", "k8s.pod.backoff", "k8s.pod.oom_killed":
-			d.severity = v1.Severity_SEVERITY_WARNING
+			// The reason Kubernetes gives, which the title leaves out.
+			d.severity, d.body = v1.Severity_SEVERITY_WARNING, last.GetSummary()
 		}
+		d.body = joinSentences(d.body, b.windowText(at(first)))
 		if len(grp) == 1 {
 			d.title = k8sTitle(first)
 		} else {
@@ -51,6 +54,18 @@ func (b *replayBuilder) k8s() {
 		}
 		b.add(d)
 	}
+}
+
+// windowText names the Kubernetes window a step at t lies in; empty
+// when none does. The body of a Kubernetes step never repeats its event's
+// summary, which its evidence shows (proposed, not yet confirmed).
+func (b *replayBuilder) windowText(t time.Time) string {
+	for _, w := range b.f.Windows {
+		if !t.Before(w.GetStart().AsTime()) && !t.After(w.GetEnd().AsTime()) {
+			return fmt.Sprintf("Within the %s window, %s.", cmp.Or(w.GetLabel(), "Kubernetes"), spanText(w.GetStart().AsTime(), w.GetEnd().AsTime()))
+		}
+	}
+	return ""
 }
 
 // electionKey identifies the asset of an election: the matching leader
