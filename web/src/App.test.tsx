@@ -38,6 +38,7 @@ vi.mock("./api/requests", async (orig) => {
     getOverview: pending(),
     listFindings: pending(),
     getTimeline: pending(),
+    getReplay: pending(),
     listEvents: pending(),
     listStreams: vi.fn(),
     getStream: pending(),
@@ -166,7 +167,7 @@ describe("sidebar", () => {
   it("shows the built pages in their groups and hides the planned ones", async () => {
     renderApp(<App />, "/streams?system=example-global");
     const links = within(nav()).getAllByRole("link").map((a) => a.textContent?.replace(/\d+$/, ""));
-    expect(links).toEqual(["Fleet", "Overview", "Findings", "Connections", "Streams", "Consumers", "KV Stores", "Object Stores", "Placement", "Servers", "Events"]);
+    expect(links).toEqual(["Fleet", "Overview", "Findings", "Connections", "Streams", "Consumers", "KV Stores", "Object Stores", "Placement", "Servers", "Events", "Replay"]);
     for (const planned of ["Subjects", "Micro services", "Applications", "Capacity", "Topology", "Accounts", "Users & auth"]) {
       expect(within(nav()).queryByText(planned)).toBeNull();
     }
@@ -498,6 +499,7 @@ describe("header", () => {
     ["/kv-stores?system=example-prod", "KV Stores"],
     ["/object-stores?system=example-prod", "Object Stores"],
     ["/servers?system=example-prod", "Servers"],
+    ["/replay?system=example-prod", "Replay"],
   ])("makes the page name in the header the one heading of %s", async (path, name) => {
     renderApp(<App />, path);
     await screen.findByRole("banner");
