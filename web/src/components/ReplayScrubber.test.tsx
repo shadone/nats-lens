@@ -180,7 +180,7 @@ describe("ReplayScrubber", () => {
     const s = strip();
     s.rows = [
       { ...s.rows[0], key: "x", cells: s.rows[0].cells.map(() => "info") },
-      { ...s.rows[0], key: "y", cells: s.rows[0].cells.map((c, i) => (i === 30 ? "muted" : "ok")) },
+      { ...s.rows[0], key: "y", cells: s.rows[0].cells.map((_, i) => (i === 30 ? "muted" : "ok")) },
     ];
     const { container } = render(<ReplayScrubber start={START} end={NOW} live now={NOW} strip={s} moments={{ a: A, b: B }} minGapMs={30_000} onChange={() => {}} />);
     expect(container.querySelectorAll('rect[data-level="muted"]')).toHaveLength(1);
