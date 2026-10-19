@@ -193,3 +193,14 @@ func TestDemoVanishedDurablesFollowTheRange(t *testing.T) {
 		t.Errorf("finding = %v", f)
 	}
 }
+
+// Without collections over A to B, example-staging claims no event counts:
+// after its data ended, and before its history began.
+func TestDemoReplayNoEventCountsWithoutCollections(t *testing.T) {
+	for _, ab := range [][2]time.Time{{at(12, 0, 0), at(13, 0, 0)}, {at(0, 0, 0), at(1, 0, 0)}} {
+		c := replay(t, fake.StagingSystem, ab[0], ab[1]).GetCounts()
+		if c.LeaderElections != nil || c.LeadersMoved != nil || c.QuorumLostReports != nil || c.ClientReconnects != nil {
+			t.Errorf("%v: counts %v", ab, c)
+		}
+	}
+}

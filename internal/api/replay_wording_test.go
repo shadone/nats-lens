@@ -223,3 +223,28 @@ func TestReplayFoldedGoneNamesOnce(t *testing.T) {
 		t.Errorf("gone = %v", gs)
 	}
 }
+
+// Event counts need collections over A to B: without one near A or B, or
+// with a time without collections between, nothing says the events were
+// captured, so the counts stay unset.
+func TestReplayEventCountsNeedCollections(t *testing.T) {
+	for name, change := range map[string]func(*api.ReplayFacts){
+		"no collection at A": func(f *api.ReplayFacts) { f.EpochA, f.EpochAAt = 0, time.Time{} },
+		"no collection at B": func(f *api.ReplayFacts) { f.EpochB, f.EpochBAt = 0, time.Time{} },
+		"collections gap": func(f *api.ReplayFacts) {
+			f.Gaps = []api.ReplayGap{{Kind: api.GapCollections, Start: rAt(20, 0), End: rAt(30, 0), BeforeEpoch: 140, BeforeAt: rAt(20, 0)}}
+		},
+	} {
+		f := facts()
+		f.EventsCaptured = true
+		change(f)
+		if c := api.FinishReplay(f).GetCounts(); c.LeaderElections != nil || c.QuorumLostReports != nil || c.ClientReconnects != nil {
+			t.Errorf("%s: counts %v", name, c)
+		}
+	}
+	f := facts()
+	f.EventsCaptured = true
+	if c := api.FinishReplay(f).GetCounts(); c.LeaderElections == nil || c.ClientReconnects == nil {
+		t.Errorf("with collections: counts %v", c)
+	}
+}

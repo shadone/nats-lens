@@ -252,8 +252,10 @@ func TestReplayStoryFromStore(t *testing.T) {
 	}
 	c := res.GetCounts()
 	if c.GetServersRestarted() != 1 || c.GetServersStopped() != 1 || c.GetConsumersGoneWithoutDelete() != 1 || c.GetAssetsGoneWithDelete() != 1 ||
-		c.GetAssetsUnknownAtB() != 1 || c.GetLeaderElections() != 1 || c.GetLeadersMoved() != 1 || c.GetQuorumLostReports() != 1 ||
-		c.GetNodePoolsUpgraded() != 1 || c.GetClientReconnects() != 1 || c.GetFindingsRaised() != 3 {
+		c.GetAssetsUnknownAtB() != 1 || c.GetNodePoolsUpgraded() != 1 || c.GetFindingsRaised() != 3 ||
+		// The time without collections (epochs 25 to 28) leaves the event
+		// counts unset.
+		c.LeaderElections != nil || c.LeadersMoved != nil || c.QuorumLostReports != nil || c.ClientReconnects != nil {
 		t.Errorf("counts = %v", c)
 	}
 }
@@ -277,8 +279,8 @@ func TestReplayWithoutCollectionsOrKubernetes(t *testing.T) {
 	}
 	res := api.FinishReplay(f)
 	c := res.GetCounts()
-	if c.ServersRestarted != nil || c.ConsumersGoneWithoutDelete != nil || c.NodesUpgraded != nil || c.LeaderElections == nil {
-		t.Errorf("counts = %v; event counts stay set, as events were captured", c)
+	if c.ServersRestarted != nil || c.ConsumersGoneWithoutDelete != nil || c.NodesUpgraded != nil || c.LeaderElections != nil {
+		t.Errorf("counts = %v; without collections the event counts stay unset too", c)
 	}
 	gaps := 0
 	for _, s := range res.GetSteps() {
@@ -313,7 +315,8 @@ func TestReplayProcessCollectedAfterBIsAStop(t *testing.T) {
 func TestReplayRowLimitIsReported(t *testing.T) {
 	defer storeprov.SetReplayRowLimit(3)()
 	p, _ := replayStore(t)
-	f, err := p.Replay(ctx, replayReq(rEpoch(3), rEpoch(40)))
+	// Up to epoch 22, before the time without collections.
+	f, err := p.Replay(ctx, replayReq(rEpoch(3), rEpoch(22)))
 	if err != nil {
 		t.Fatal(err)
 	}
