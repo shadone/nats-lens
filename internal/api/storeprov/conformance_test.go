@@ -80,6 +80,8 @@ func conformanceStore(t *testing.T) (*store.Store, *checks.Set) {
 		}
 		for _, id := range ids {
 			r.add("epoch_endpoints", map[string]any{"epoch": e, "server_id": id, "endpoint": "JSZ", "state": "ok"})
+			// Each answered VARZ too, as a server that answers JSZ does.
+			r.add("server_stats", map[string]any{"epoch": e, "server_id": id, "meta_leader": "nats-0"})
 		}
 		// Growth: orders grows and KV_sessions shrinks over every epoch.
 		r.add("stream_stats", map[string]any{"epoch": e, "server_id": "S0", "account": "APP", "stream": "orders",

@@ -90,9 +90,9 @@ func (s scen) server(sp serverSpec, r *v1.TimeRange, cur []*v1.Finding) *v1.Serv
 		Status: v1.Status_STATUS_OK, Tags: sp.tags,
 		SlowConsumersInRange: ptr(s.slowCount(sp, r.GetStart().AsTime(), r.GetEnd().AsTime())),
 	}
-	streams, consumers := s.leads(sp)
+	streams, consumers := s.leads(sp, s.epochTime(r))
 	out.StreamLeaders, out.ConsumerLeaders = ptr(streams), ptr(consumers)
-	if sp.name == s.sc.metaLeader {
+	if sp.name == s.metaLeaderAt(s.epochTime(r)) {
 		out.Role = v1.ServerRole_SERVER_ROLE_META_LEADER
 	}
 	if inRange(start, r) {
@@ -147,7 +147,7 @@ func (p *Provider) GetServer(_ context.Context, req *v1.GetServerRequest) (*v1.G
 	}
 	res := &v1.GetServerResponse{
 		Server:        s.server(sp, req.GetRange(), current(p.findings(s), req.GetRange())),
-		Subscriptions: ptr(int64(1840)), MetaLeader: p.sc.metaLeader, ConfigDigest: "sha256:7f3a91c2",
+		Subscriptions: ptr(int64(1840)), MetaLeader: s.metaLeaderAt(s.epochTime(req.GetRange())), ConfigDigest: "sha256:7f3a91c2",
 		Processes: []*v1.ServerProcess{
 			{ServerId: sp.oldID, StartTime: ts(s.on(2, 8, 12)), FirstSeen: ts(s.on(3, 0, 0)), LastSeen: ts(start.Add(-2 * time.Minute))},
 			{ServerId: sp.id, StartTime: ts(start), FirstSeen: ts(start.Add(30 * time.Second)), LastSeen: ts(lastSeen)},
