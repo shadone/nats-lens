@@ -268,4 +268,26 @@ describe("ReplayScrubber", () => {
     fireEvent.keyUp(b, { key: "ArrowLeft" });
     expect(onChange).toHaveBeenLastCalledWith({ a: b0 - 24 * 3_600_000, b: b0 - BUCKET });
   });
+
+  it("moves from moments the page changes itself, such as another link", async () => {
+    const onChange = vi.fn();
+    const X = { a: T("2026-10-17T07:00:00Z"), b: T("2026-10-17T07:30:00Z") };
+    function Outer() {
+      const [m, setM] = useState<Moments>({ a: A, b: B });
+      return (
+        <>
+          <button type="button" onClick={() => setM(X)}>
+            other link
+          </button>
+          <ReplayScrubber start={START} end={NOW} live now={NOW} strip={strip()} moments={m} minGapMs={30_000} onChange={(n) => (onChange(n), setM(n))} />
+        </>
+      );
+    }
+    render(<Outer />);
+    fireEvent.click(screen.getByRole("button", { name: "other link" }));
+    const a = screen.getByRole("slider", { name: "Moment A" });
+    fireEvent.keyDown(a, { key: "ArrowRight" });
+    fireEvent.keyUp(a, { key: "ArrowRight" });
+    expect(onChange).toHaveBeenLastCalledWith({ a: X.a + BUCKET, b: X.b });
+  });
 });
