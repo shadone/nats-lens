@@ -561,3 +561,32 @@ func TestReplayGoneStreamTakesItsDurablesFindings(t *testing.T) {
 		t.Errorf("finding IDs = %v", ids)
 	}
 }
+
+// A step between A and B takes in nothing from after B: neither a stop's
+// announcement nor a restart's pod event, election or restart finding.
+func TestReplayStepsTakeInNothingAfterB(t *testing.T) {
+	f := facts()
+	f.EventsCaptured = true
+	b := f.B
+	led := streamEnt("orders")
+	f.Stops = []api.ReplayStop{{Server: "nats-2", LastSeen: b.Add(-time.Minute), LastEpoch: 218}}
+	f.Restarts = []api.ReplayRestart{{Server: "nats-1", LastSeen: b.Add(-time.Minute), FirstSeen: b.Add(-10 * time.Second),
+		OldEpoch: 218, NewEpoch: 220, LedBefore: []*v1.EntityRef{led}}}
+	f.Events = []*v1.Event{
+		ev(b.Add(3*time.Minute), "server.lameduck", "nats-2"),
+		ev(b.Add(20*time.Second), "k8s.pod.started", "nats-1"),
+		ev(b.Add(15*time.Second), "stream.leader_elected", "nats-0", onAsset("APP", "orders", "")),
+	}
+	f.Transitions = []api.ReplayTransition{tr("server-004:nats-1", "server-004", &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SERVER,
+		Key: "nats-1"}, b.Add(15*time.Second), firing, info)}
+	for _, s := range api.FinishReplay(f).GetSteps() {
+		for _, e := range s.GetEvidence() {
+			if e.GetKind() != v1.ReplayEvidenceKind_REPLAY_EVIDENCE_KIND_COLLECTION && e.GetTime().AsTime().After(b) && !s.GetOutsideRange() {
+				t.Errorf("step %q takes in %q from after B", s.GetTitle(), e.GetLabel())
+			}
+		}
+		if strings.Contains(s.GetBody(), "announced") || strings.Contains(s.GetBody(), "elected on other servers") {
+			t.Errorf("step %q: %q", s.GetTitle(), s.GetBody())
+		}
+	}
+}

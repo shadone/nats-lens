@@ -93,6 +93,15 @@ func tsOrNil(t time.Time) *timestamppb.Timestamp {
 // inRange reports whether t lies between A and B, both included.
 func (b *replayBuilder) inRange(t time.Time) bool { return !t.Before(b.f.A) && !t.After(b.f.B) }
 
+// upToB is t, or B when t is after it: a step between A and B takes in
+// nothing from after B.
+func (b *replayBuilder) upToB(t time.Time) time.Time {
+	if t.After(b.f.B) {
+		return b.f.B
+	}
+	return t
+}
+
 // afterB reports whether t lies after B, up to Until.
 func (b *replayBuilder) afterB(t time.Time) bool { return t.After(b.f.B) && !t.After(b.f.Until) }
 
@@ -205,7 +214,7 @@ func (b *replayBuilder) restarts() {
 			b.used[ann.GetId()] = true
 			d.evidence = append(d.evidence, eventEvidence(ann))
 		}
-		for _, e := range b.podEvents(r.Server, r.LastSeen.Add(-b.f.RestartWindow), r.FirstSeen.Add(2*b.f.Interval)) {
+		for _, e := range b.podEvents(r.Server, r.LastSeen.Add(-b.f.RestartWindow), b.upToB(r.FirstSeen.Add(2*b.f.Interval))) {
 			d.evidence = append(d.evidence, eventEvidence(e))
 		}
 		d.evidence = append(d.evidence, collectionEvidence(r.OldEpoch, r.LastSeen, serverEntity(r.Server)),
@@ -215,10 +224,10 @@ func (b *replayBuilder) restarts() {
 			from = ann.GetTime().AsTime()
 		}
 		d.body = joinSentences(announcementText(ann, b.eventsWhole()), assetsAfterText(r),
-			b.leadersTaken(r, from, r.FirstSeen.Add(b.f.Interval), d))
+			b.leadersTaken(r, from, b.upToB(r.FirstSeen.Add(b.f.Interval)), d))
 		for _, id := range b.findingIDs() {
 			for _, t := range b.byFinding[id] {
-				if t.Check == restartCheck && t.Entity.GetKey() == r.Server && !t.Time.Before(r.LastSeen) && !t.Time.After(r.FirstSeen.Add(b.f.Interval)) {
+				if t.Check == restartCheck && t.Entity.GetKey() == r.Server && !t.Time.Before(r.LastSeen) && !t.Time.After(b.upToB(r.FirstSeen.Add(b.f.Interval))) {
 					b.takenIn[transitionKey(t)] = true
 					d.evidence = append(d.evidence, findingEvidence(t))
 				}
@@ -272,7 +281,7 @@ func (b *replayBuilder) stops() {
 		d := &draft{kind: v1.ReplayStepKind_REPLAY_STEP_KIND_RESTART, time: s.LastSeen, openAtB: true,
 			severity: v1.Severity_SEVERITY_WARNING, entities: []*v1.EntityRef{serverEntity(s.Server)},
 			title: s.Server + " stops answering"}
-		ann := b.announcement(s.Server, s.LastSeen.Add(-b.f.RestartWindow), latest(s.LastSeen.Add(b.f.RestartWindow), b.f.B))
+		ann := b.announcement(s.Server, s.LastSeen.Add(-b.f.RestartWindow), b.upToB(s.LastSeen.Add(b.f.RestartWindow)))
 		if ann != nil {
 			b.used[ann.GetId()] = true
 			d.evidence = append(d.evidence, eventEvidence(ann))
