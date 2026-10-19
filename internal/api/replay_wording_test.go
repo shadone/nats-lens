@@ -224,10 +224,10 @@ func TestReplayFoldedGoneNamesOnce(t *testing.T) {
 	}
 }
 
-// Event counts need collections over A to B: without one near A or B, or
-// with a time without collections between, nothing says the events were
-// captured, so the counts stay unset.
-func TestReplayEventCountsNeedCollections(t *testing.T) {
+// Event counts follow event capture, not the collections: a time without
+// collections or none at A or B leaves them set, a connection that
+// captures events without a server unsets them.
+func TestReplayEventCountsFollowEventCapture(t *testing.T) {
 	for name, change := range map[string]func(*api.ReplayFacts){
 		"no collection at A": func(f *api.ReplayFacts) { f.EpochA, f.EpochAAt = 0, time.Time{} },
 		"no collection at B": func(f *api.ReplayFacts) { f.EpochB, f.EpochBAt = 0, time.Time{} },
@@ -238,14 +238,20 @@ func TestReplayEventCountsNeedCollections(t *testing.T) {
 		f := facts()
 		f.EventsCaptured = true
 		change(f)
-		if c := api.FinishReplay(f).GetCounts(); c.LeaderElections != nil || c.QuorumLostReports != nil || c.ClientReconnects != nil {
+		if c := api.FinishReplay(f).GetCounts(); c.LeaderElections == nil || c.ClientReconnects == nil {
 			t.Errorf("%s: counts %v", name, c)
 		}
 	}
 	f := facts()
 	f.EventsCaptured = true
-	if c := api.FinishReplay(f).GetCounts(); c.LeaderElections == nil || c.ClientReconnects == nil {
-		t.Errorf("with collections: counts %v", c)
+	f.Gaps = []api.ReplayGap{{Kind: api.GapEvents, Start: rAt(20, 0), Event: ev(rAt(20, 0), "collector.connection_closed", "")}}
+	res := api.FinishReplay(f)
+	if c := res.GetCounts(); c.LeaderElections != nil || c.ClientReconnects != nil {
+		t.Errorf("events connection lost: counts %v", c)
+	}
+	gs := stepsOf(res, v1.ReplayStepKind_REPLAY_STEP_KIND_GAP)
+	if len(gs) != 1 || gs[0].GetGapKind() != v1.ReplayGapKind_REPLAY_GAP_KIND_EVENTS || gs[0].GetTitle() != "Events not captured since 09:20:00, still at B" {
+		t.Errorf("gap steps %v", gs)
 	}
 }
 
