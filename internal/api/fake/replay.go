@@ -61,6 +61,15 @@ func (p *Provider) Replay(_ context.Context, req *v1.GetReplayRequest) (*api.Rep
 		}
 	}
 	f.Gaps = s.replayGaps(a, b)
+	// The times the connections that capture events were lost, as the
+	// store reads them from the connection events up to B.
+	var conns []*v1.Event
+	for i := len(all) - 1; i >= 0; i-- {
+		if e := all[i]; e.GetSource() == v1.EventSource_EVENT_SOURCE_COLLECTOR && !e.GetTime().AsTime().After(b) {
+			conns = append(conns, e)
+		}
+	}
+	f.Gaps = append(f.Gaps, api.EventsConnectionGaps(conns)...)
 	f.ClientReconnects = replayReconnects(all, a, b)
 	f.Nodes = replayNodes(all, a, b)
 	return f, nil

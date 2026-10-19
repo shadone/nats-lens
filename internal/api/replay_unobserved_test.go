@@ -56,12 +56,17 @@ func TestReplayUnobservedNamesEachUnsetCount(t *testing.T) {
 		{"no collections", func(f *api.ReplayFacts) { f.Collected = false },
 			map[v1.ReplayUnobservedReason][]string{R(v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_NO_COLLECTIONS): {"findings_raised", "servers_restarted", "servers_stopped"}}},
 		{"no collection at A", func(f *api.ReplayFacts) { f.EpochA, f.EpochAAt = 0, time.Time{} },
-			map[v1.ReplayUnobservedReason][]string{R(v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_NO_COLLECTION_AT_A): join(gone, events)}},
+			map[v1.ReplayUnobservedReason][]string{R(v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_NO_COLLECTION_AT_A): gone}},
 		{"no collection at B", func(f *api.ReplayFacts) { f.EpochB, f.EpochBAt = 0, time.Time{} },
-			map[v1.ReplayUnobservedReason][]string{R(v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_NO_COLLECTION_AT_B): join(gone, events, []string{"servers_stopped"})}},
+			map[v1.ReplayUnobservedReason][]string{R(v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_NO_COLLECTION_AT_B): join(gone, []string{"servers_stopped"})}},
+		// Events come on connections of their own: a time without
+		// collections leaves the event counts set.
 		{"collections gap", func(f *api.ReplayFacts) {
 			f.Gaps = []api.ReplayGap{{Kind: api.GapCollections, Start: rAt(20, 0), End: rAt(30, 0)}}
-		}, map[v1.ReplayUnobservedReason][]string{R(v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_COLLECTIONS_GAP): events}},
+		}, nil},
+		{"events connection lost", func(f *api.ReplayFacts) {
+			f.Gaps = []api.ReplayGap{{Kind: api.GapEvents, Start: rAt(20, 0), End: rAt(25, 0), Event: ev(rAt(20, 0), "collector.not_connected", "")}}
+		}, map[v1.ReplayUnobservedReason][]string{R(v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_EVENTS_CONNECTION_LOST): events}},
 		{"events not captured", func(f *api.ReplayFacts) { f.EventsCaptured = false },
 			map[v1.ReplayUnobservedReason][]string{R(v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_EVENTS_NOT_CAPTURED): events}},
 		{"collector gap", func(f *api.ReplayFacts) {

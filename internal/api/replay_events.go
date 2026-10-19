@@ -272,6 +272,8 @@ func (b *replayBuilder) gapStep(g ReplayGap) *draft {
 		what, since, d.gapKind = "nats-lens was not running", "nats-lens not running", v1.ReplayGapKind_REPLAY_GAP_KIND_COLLECTOR
 	case GapKubernetes:
 		what, since, d.gapKind = "Kubernetes was not watched", "Kubernetes not watched", v1.ReplayGapKind_REPLAY_GAP_KIND_KUBERNETES
+	case GapEvents:
+		what, since, d.gapKind = "Events were not captured", "Events not captured", v1.ReplayGapKind_REPLAY_GAP_KIND_EVENTS
 	default:
 		what, since, d.gapKind = "No collections", "No collections", v1.ReplayGapKind_REPLAY_GAP_KIND_COLLECTIONS
 	}

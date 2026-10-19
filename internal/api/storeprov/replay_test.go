@@ -253,9 +253,9 @@ func TestReplayStoryFromStore(t *testing.T) {
 	c := res.GetCounts()
 	if c.GetServersRestarted() != 1 || c.GetServersStopped() != 1 || c.GetConsumersGoneWithoutDelete() != 1 || c.GetAssetsGoneWithDelete() != 1 ||
 		c.GetAssetsUnknownAtB() != 1 || c.GetNodePoolsUpgraded() != 1 || c.GetFindingsRaised() != 3 ||
-		// The time without collections (epochs 25 to 28) leaves the event
-		// counts unset.
-		c.LeaderElections != nil || c.LeadersMoved != nil || c.QuorumLostReports != nil || c.ClientReconnects != nil {
+		// Events come on connections of their own: the time without
+		// collections (epochs 25 to 28) leaves the event counts set.
+		c.GetLeaderElections() != 1 || c.GetLeadersMoved() != 1 || c.GetQuorumLostReports() != 1 || c.GetClientReconnects() != 1 {
 		t.Errorf("counts = %v", c)
 	}
 }
@@ -279,8 +279,8 @@ func TestReplayWithoutCollectionsOrKubernetes(t *testing.T) {
 	}
 	res := api.FinishReplay(f)
 	c := res.GetCounts()
-	if c.ServersRestarted != nil || c.ConsumersGoneWithoutDelete != nil || c.NodesUpgraded != nil || c.LeaderElections != nil {
-		t.Errorf("counts = %v; without collections the event counts stay unset too", c)
+	if c.ServersRestarted != nil || c.ConsumersGoneWithoutDelete != nil || c.NodesUpgraded != nil || c.LeaderElections == nil {
+		t.Errorf("counts = %v; event counts stay set, as events were captured", c)
 	}
 	gaps := 0
 	for _, s := range res.GetSteps() {
@@ -497,4 +497,35 @@ func TestReplayStopLeadersFromStore(t *testing.T) {
 		}
 	}
 	t.Errorf("stops = %+v", f.Stops)
+}
+
+// The sys connection had no server from epoch 30 to 33: the event counts
+// over A to B are unset, with that reason and span.
+func TestReplayEventsConnectionLostFromStore(t *testing.T) {
+	p, r := replayStore(t)
+	for i, e := range []struct {
+		n    int
+		kind string
+	}{{30, "collector.not_connected"}, {33, "collector.reconnected"}} {
+		r.add("events", map[string]any{"id": 1100 + i, "time": rEpoch(e.n), "received_at": rEpoch(e.n), "source": "collector", "kind": e.kind,
+			"summary": e.kind, "raw": `{"connection":"sys","reason":"no server reachable"}`})
+	}
+	f, err := p.Replay(ctx, replayReq(rEpoch(3), rEpoch(40)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res := api.FinishReplay(f)
+	if c := res.GetCounts(); c.LeaderElections != nil || c.ClientReconnects != nil {
+		t.Errorf("counts = %v", c)
+	}
+	lost := 0
+	for _, u := range res.GetUnobserved() {
+		if u.GetReason() == v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_EVENTS_CONNECTION_LOST && u.GetFrom().AsTime().Equal(rEpoch(30)) &&
+			u.GetTo().AsTime().Equal(rEpoch(33)) {
+			lost++
+		}
+	}
+	if lost != 5 {
+		t.Errorf("unobserved = %v", res.GetUnobserved())
+	}
 }

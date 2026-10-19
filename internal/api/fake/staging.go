@@ -76,13 +76,17 @@ func stagingFindings(s scen) []*v1.Finding {
 // stagingEvents are the connection's close and routine reconnects before.
 func stagingEvents(s scen, _ []*v1.Finding) []*v1.Event {
 	stop := stagingStop.Add(s.shift)
-	collector := func(at time.Time, kind, reason, summary string) *v1.Event {
+	collector := func(at time.Time, kind, label, reason, summary string) *v1.Event {
 		return &v1.Event{Time: ts(at), Source: v1.EventSource_EVENT_SOURCE_COLLECTOR, Kind: kind, Type: "", Server: "nats-1",
-			Summary: summary + reason}
+			Reason: reason, Summary: summary + reason, Raw: `{"connection":"` + label + `","reason":"` + reason + `"}`}
 	}
+	// The rotated credentials closed every connection: the collector's and
+	// the two that capture events.
 	out := []*v1.Event{
-		collector(stop, "collector.connection_closed", "nats: authorization violation", "collector connection collector closed: "),
-		collector(stop.Add(-2*time.Second), "collector.disconnected", "nats: authorization violation", "collector connection collector lost server nats-1: "),
+		collector(stop, "collector.connection_closed", "collector", "nats: authorization violation", "collector connection collector closed: "),
+		collector(stop, "collector.connection_closed", "sys", "nats: authorization violation", "collector connection sys closed: "),
+		collector(stop, "collector.connection_closed", Account, "nats: authorization violation", "collector connection APP closed: "),
+		collector(stop.Add(-2*time.Second), "collector.disconnected", "collector", "nats: authorization violation", "collector connection collector lost server nats-1: "),
 	}
 	// Routine reconnects every 17 minutes, from the start of the history.
 	for k := range int((stagingStop.Sub(stagingStart) - time.Minute) / (17 * time.Minute)) {

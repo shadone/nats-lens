@@ -3,11 +3,14 @@ package storeprov
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
+	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
 // replayEvents reads the events Replay tells, from ReplayReadFrom to
@@ -159,7 +162,40 @@ WHERE e.kind IN ('collector.gap', 'collector.k8s_gap') AND e.time <= ? AND e.rec
 		}
 		f.Gaps = append(f.Gaps, g)
 	}
-	return evs.Err()
+	if err := evs.Err(); err != nil {
+		return err
+	}
+	return p.eventsConnectionGaps(ctx, f)
+}
+
+// eventsConnectionGaps reads the times the connections that capture
+// events had no server or were closed, up to B: the newest connection
+// events, at most 5000.
+func (p *Provider) eventsConnectionGaps(ctx context.Context, f *api.ReplayFacts) error {
+	rows, err := p.db().QueryContext(ctx, `SELECT `+eventCols+`, coalesce(json_extract_string(e.raw, '$.connection'), '') FROM events e
+WHERE e.kind IN ('collector.not_connected', 'collector.connection_closed', 'collector.reconnected') AND e.time <= ?
+ORDER BY e.time DESC, e.id DESC LIMIT 5000`, f.B)
+	if err != nil {
+		return fmt.Errorf("replay events connections: %w", err)
+	}
+	defer rows.Close()
+	var evs []*v1.Event
+	for rows.Next() {
+		var conn string
+		ev, err := scanEvent(rows, &conn)
+		if err != nil {
+			return err
+		}
+		raw, _ := json.Marshal(map[string]string{"connection": conn})
+		ev.Raw = string(raw)
+		evs = append(evs, ev)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	slices.Reverse(evs)
+	f.Gaps = append(f.Gaps, api.EventsConnectionGaps(evs)...)
+	return nil
 }
 
 // collectionGaps finds the gaps longer than reach between the epochs (in

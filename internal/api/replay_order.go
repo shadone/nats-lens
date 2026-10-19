@@ -267,14 +267,15 @@ func (b *replayBuilder) counts() (*v1.ReplayCounts, []*v1.ReplayUnobserved) {
 	set("assets_gone_with_delete", &c.AssetsGoneWithDelete, deleted, gone)
 	set("assets_unknown_at_b", &c.AssetsUnknownAtB, unknown, gone)
 
-	// Event capture over A to B, and collections at A, at B and between
-	// (without them nothing shows that the events were captured; proposed,
-	// not yet confirmed); the counts from the event rows also need the read
+	// Event capture over A to B: events stored up to B, nats-lens running
+	// and every connection that captures events connected (collections do
+	// not tell, as events come on connections of their own; proposed, not
+	// yet confirmed); the counts from the event rows also need the read
 	// limit not to have cut them before B, the reconnects (read by a query
 	// of their own) do not.
-	events := first(cause(!f.EventsCaptured, R(v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_EVENTS_NOT_CAPTURED)), noA, noB,
+	events := first(cause(!f.EventsCaptured, R(v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_EVENTS_NOT_CAPTURED)),
 		b.gapCause(GapCollector, v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_COLLECTOR_GAP),
-		b.gapCause(GapCollections, v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_COLLECTIONS_GAP))
+		b.gapCause(GapEvents, v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_EVENTS_CONNECTION_LOST))
 	rows := first(events, b.cutCause(f.EventsTruncated, f.EventsReadUntil))
 	moved, _, elections := b.elections()
 	m := 0
