@@ -69,11 +69,12 @@ export function clampMoments(m: Moments, now: number, minGapMs: number): Moments
     [a, b] = [b, a];
     notes.push("A was after B, so the two were swapped.");
   }
+  const aFuture = a >= now;
   if (b > now) {
     b = now;
     notes.push("B is after now, so it is read as now.");
   }
-  if (a >= b) {
+  if (aFuture) {
     a = b - DEFAULT_SPAN_MS;
     notes.push("A is after now, so it is read as an hour before now.");
   }
@@ -117,7 +118,10 @@ export function resolveMoments(
     notes.push("The link's A is after now, so the hour before now is shown.");
     m = { a: ctx.now - DEFAULT_SPAN_MS, b: ctx.now };
   } else if (pa !== undefined) m = { a: pa, b: Math.min(pa + DEFAULT_SPAN_MS, ctx.now) };
-  else if (pb !== undefined) m = { a: pb - DEFAULT_SPAN_MS, b: pb };
+  else if (pb !== undefined && pb > ctx.now) {
+    notes.push("The link's B is after now, so the hour before now is shown.");
+    m = { a: ctx.now - DEFAULT_SPAN_MS, b: ctx.now };
+  } else if (pb !== undefined) m = { a: pb - DEFAULT_SPAN_MS, b: pb };
   else if (ctx.windows === undefined) return undefined;
   else m = defaultMoments(ctx.windows, ctx.range, ctx.now);
   const c = clampMoments(m, ctx.now, ctx.minGapMs);
