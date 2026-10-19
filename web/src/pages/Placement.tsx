@@ -49,12 +49,13 @@ export function Placement() {
   // screen must be too: with a filter it is a call of its own, and the
   // one kept while it loads may be another system's or range's. One
   // kept across a change of the filter alone is this system's and
-  // range's, so the marks stay on it. An error on either side marks
-  // nothing, though the data before it stays.
+  // range's, so the marks stay on it. An error on either side, or of
+  // the matrix on screen before it was read for this system and range,
+  // marks nothing, though the data before it stays.
   const here = `${sys}|${rangeKey(spec)}`;
   const shownFor = useRef<string | undefined>(undefined);
   if (q.data !== undefined && !q.isPlaceholderData) shownFor.current = here;
-  const failed = cq.error ?? all.error;
+  const failed = cq.error ?? all.error ?? (shownFor.current !== here ? q.error : null);
   const current = all.isPlaceholderData || shownFor.current !== here ? undefined : all.data;
   const changed = useMemo(() => (current && cq.data && at !== undefined && !failed ? diff(current, cq.data) : undefined), [current, cq.data, at, failed]);
   const panel = useRef<HTMLDivElement>(null);
