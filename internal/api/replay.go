@@ -90,7 +90,8 @@ type ReplayFacts struct {
 	// window to Until, in any order; pod kinds only of NATS pods.
 	Events []*v1.Event
 	// Transitions are the finding transitions from A to Until, and for
-	// each finding with none at A the newest before A.
+	// each finding still firing at A the newest before A and the firing
+	// that started it.
 	Transitions []ReplayTransition
 	// EventsTruncated and TransitionsTruncated say that a provider's read
 	// limit cut Events or Transitions: the steps are then marked truncated

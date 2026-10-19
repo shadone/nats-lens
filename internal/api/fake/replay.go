@@ -120,7 +120,8 @@ func (s scen) replayServers(a, b time.Time) ([]api.ReplayRestart, []api.ReplaySt
 }
 
 // replayTransitions are the findings' transitions from A to until, and
-// for a finding still firing at A the newest before A.
+// for a finding still firing at A the newest before A and the firing that
+// started it.
 func (s scen) replayTransitions(fs []*v1.Finding, a, until time.Time) []api.ReplayTransition {
 	var out []api.ReplayTransition
 	for _, f := range fs {
@@ -132,14 +133,14 @@ func (s scen) replayTransitions(fs []*v1.Finding, a, until time.Time) []api.Repl
 				continue
 			}
 			if at.Before(a) {
-				if before || t.GetState() == resolved {
+				if !before && t.GetState() == resolved {
 					break
 				}
 				before = true
 			}
 			out = append(out, api.ReplayTransition{FindingID: f.GetId(), Check: f.GetCheckCode(), CheckName: f.GetCheckName(),
 				Entity: f.GetEntity(), Time: at, State: t.GetState(), Severity: t.GetSeverity(), Detail: t.GetDetail()})
-			if before {
+			if before && t.GetState() == firing {
 				break
 			}
 		}

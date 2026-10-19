@@ -327,3 +327,30 @@ func TestReplayRowLimitIsReported(t *testing.T) {
 		t.Errorf("truncated %v, counts %v", res.GetStepsTruncated(), c)
 	}
 }
+
+// A quorum loss that began before A is dated by the firing that started
+// it, not by a later severity change.
+func TestReplayQuorumSinceTheFiringBeforeA(t *testing.T) {
+	p, r := replayStore(t)
+	for _, tr := range []struct {
+		n         int
+		kind, sev string
+	}{{1, "firing", "warning"}, {2, "changed", "critical"}} {
+		r.add("finding_transitions", map[string]any{"finding_id": "stream-001:" + rAcc + "/KV_labels", "check_code": "stream-001",
+			"entity_type": "stream", "entity_key": rAcc + "/KV_labels", "epoch": tr.n, "time": rEpoch(tr.n), "kind": tr.kind,
+			"severity": tr.sev, "detail": "d"})
+	}
+	f, err := p.Replay(ctx, replayReq(rEpoch(3), rEpoch(40)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range api.FinishReplay(f).GetSteps() {
+		if s.GetTitle() == "Stream KV_labels has no quorum" {
+			if !strings.HasPrefix(s.GetBody(), "Already without quorum at A (since 09:00:00)") {
+				t.Errorf("body = %q", s.GetBody())
+			}
+			return
+		}
+	}
+	t.Errorf("no quorum step for KV_labels")
+}
