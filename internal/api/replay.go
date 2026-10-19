@@ -85,8 +85,8 @@ type ReplayFacts struct {
 	// server name, started after A and at or before B, and were first
 	// collected by B; one first collected after B makes its server a stop.
 	Restarts []ReplayRestart
-	// Stops are the servers that answered after A and did not answer at
-	// B.
+	// Stops are the servers that answered in A's collection or later and
+	// did not answer at B.
 	Stops []ReplayStop
 	// Events are the events of ReplayEventKinds from A minus the restart
 	// window to Until, in any order; pod kinds only of NATS pods.

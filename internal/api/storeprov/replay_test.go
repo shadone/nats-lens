@@ -354,3 +354,16 @@ func TestReplayQuorumSinceTheFiringBeforeA(t *testing.T) {
 	}
 	t.Errorf("no quorum step for KV_labels")
 }
+
+// A server whose last answer was in A's own collection, which started
+// before A, is a stop too.
+func TestReplayStopLastSeenInAsCollection(t *testing.T) {
+	p, _ := replayStore(t)
+	f, err := p.Replay(ctx, replayReq(rEpoch(20).Add(10*time.Second), rEpoch(45).Add(20*time.Second)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.EpochA != 20 || len(f.Stops) != 1 || f.Stops[0].Server != "nats-2" || f.Stops[0].LastEpoch != 20 || f.Stops[0].BackEpoch != 46 {
+		t.Errorf("epoch A %d, stops %+v", f.EpochA, f.Stops)
+	}
+}

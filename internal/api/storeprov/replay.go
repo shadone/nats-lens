@@ -195,8 +195,9 @@ func assetRef(account, stream, consumer string, names map[string]string) *v1.Ent
 	return ref
 }
 
-// replayStops reads the servers that answered in a collection after A and
-// not in the collection at B, and when one answered again after B.
+// replayStops reads the servers that answered in A's collection or a
+// later one and not in the collection at B, and when one answered again
+// after B.
 func (p *Provider) replayStops(ctx context.Context, f *api.ReplayFacts, _ map[string]string) error {
 	if f.EpochB == 0 {
 		return nil
@@ -205,7 +206,7 @@ func (p *Provider) replayStops(ctx context.Context, f *api.ReplayFacts, _ map[st
 WITH seen AS (
     SELECT s.server_name, max(e.epoch) AS last_epoch
     FROM epoch_endpoints e JOIN servers s USING (server_id) JOIN epochs x ON x.epoch = e.epoch
-    WHERE x.started_at >= ? AND e.epoch < ?
+    WHERE (x.started_at >= ? OR (? > 0 AND e.epoch >= ?)) AND e.epoch < ?
     GROUP BY s.server_name
 ),
 back AS (
@@ -218,7 +219,7 @@ SELECT seen.server_name, seen.last_epoch, x.started_at, back.epoch, bx.started_a
 FROM seen JOIN epochs x ON x.epoch = seen.last_epoch
 LEFT JOIN back USING (server_name) LEFT JOIN epochs bx ON bx.epoch = back.epoch
 WHERE NOT list_contains((SELECT observed_names FROM epochs WHERE epoch = ?), seen.server_name)
-ORDER BY x.started_at, seen.server_name`, f.A, f.EpochB, f.B, f.Until, f.EpochB)
+ORDER BY x.started_at, seen.server_name`, f.A, f.EpochA, f.EpochA, f.EpochB, f.B, f.Until, f.EpochB)
 	if err != nil {
 		return fmt.Errorf("replay stops: %w", err)
 	}
