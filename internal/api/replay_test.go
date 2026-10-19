@@ -522,3 +522,25 @@ func TestReplayFoldedNodeEventsCountNodes(t *testing.T) {
 		t.Errorf("titles = %q, want %q", titles, want)
 	}
 }
+
+// While nats-lens was not running for part of A to B, the event and node
+// counts stay unset; a Kubernetes watch gap unsets the node counts only.
+func TestReplayCountsUnsetDuringCaptureGaps(t *testing.T) {
+	f := facts()
+	f.EventsCaptured, f.Kubernetes = true, true
+	f.Gaps = []api.ReplayGap{{Kind: api.GapCollector, Start: rAt(20, 0), End: rAt(30, 0)}}
+	c := api.FinishReplay(f).GetCounts()
+	if c.LeaderElections != nil || c.ClientReconnects != nil || c.NodesDrained != nil {
+		t.Errorf("counts during a collector gap = %v", c)
+	}
+	f.Gaps = []api.ReplayGap{{Kind: api.GapKubernetes, Start: rAt(20, 0), End: rAt(30, 0)}}
+	c = api.FinishReplay(f).GetCounts()
+	if c.LeaderElections == nil || c.NodesDrained != nil {
+		t.Errorf("counts during a Kubernetes watch gap = %v", c)
+	}
+	// A gap that ended before A changes nothing.
+	f.Gaps = []api.ReplayGap{{Kind: api.GapCollector, Start: rAt(-30, 0), End: rAt(-20, 0)}}
+	if c := api.FinishReplay(f).GetCounts(); c.LeaderElections == nil || c.NodesDrained == nil {
+		t.Errorf("counts after an earlier gap = %v", c)
+	}
+}

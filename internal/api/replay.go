@@ -76,7 +76,9 @@ type ReplayFacts struct {
 	HistoryStart time.Time
 	// Collected is whether a collection started between A and B;
 	// EventsCaptured whether events were captured (any stored event up to
-	// B); Kubernetes whether nats-lens watches Kubernetes.
+	// B); Kubernetes whether nats-lens watches Kubernetes. FinishReplay
+	// treats event capture and the Kubernetes watch as broken over A to B
+	// when a GapCollector or GapKubernetes gap overlaps it.
 	Collected, EventsCaptured, Kubernetes bool
 
 	// Restarts are the processes that replaced an earlier one of the same
