@@ -102,6 +102,67 @@ func (ReplayStepKind) EnumDescriptor() ([]byte, []int) {
 	return file_natslens_v1_replay_proto_rawDescGZIP(), []int{0}
 }
 
+// Kind of a gap step: what was not running, and so which counts it
+// leaves unset.
+type ReplayGapKind int32
+
+const (
+	// Not set: the step is no gap.
+	ReplayGapKind_REPLAY_GAP_KIND_UNSPECIFIED ReplayGapKind = 0
+	// No collections: nothing is known of the servers then; the event counts
+	// stay unset.
+	ReplayGapKind_REPLAY_GAP_KIND_COLLECTIONS ReplayGapKind = 1
+	// nats-lens was not running (a collector.gap): no events were captured,
+	// so the event and node counts stay unset.
+	ReplayGapKind_REPLAY_GAP_KIND_COLLECTOR ReplayGapKind = 2
+	// Kubernetes was not watched (a collector.k8s_gap): the node counts stay
+	// unset.
+	ReplayGapKind_REPLAY_GAP_KIND_KUBERNETES ReplayGapKind = 3
+)
+
+// Enum value maps for ReplayGapKind.
+var (
+	ReplayGapKind_name = map[int32]string{
+		0: "REPLAY_GAP_KIND_UNSPECIFIED",
+		1: "REPLAY_GAP_KIND_COLLECTIONS",
+		2: "REPLAY_GAP_KIND_COLLECTOR",
+		3: "REPLAY_GAP_KIND_KUBERNETES",
+	}
+	ReplayGapKind_value = map[string]int32{
+		"REPLAY_GAP_KIND_UNSPECIFIED": 0,
+		"REPLAY_GAP_KIND_COLLECTIONS": 1,
+		"REPLAY_GAP_KIND_COLLECTOR":   2,
+		"REPLAY_GAP_KIND_KUBERNETES":  3,
+	}
+)
+
+func (x ReplayGapKind) Enum() *ReplayGapKind {
+	p := new(ReplayGapKind)
+	*p = x
+	return p
+}
+
+func (x ReplayGapKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ReplayGapKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_natslens_v1_replay_proto_enumTypes[1].Descriptor()
+}
+
+func (ReplayGapKind) Type() protoreflect.EnumType {
+	return &file_natslens_v1_replay_proto_enumTypes[1]
+}
+
+func (x ReplayGapKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ReplayGapKind.Descriptor instead.
+func (ReplayGapKind) EnumDescriptor() ([]byte, []int) {
+	return file_natslens_v1_replay_proto_rawDescGZIP(), []int{1}
+}
+
 // Kind of a step's evidence.
 type ReplayEvidenceKind int32
 
@@ -143,11 +204,11 @@ func (x ReplayEvidenceKind) String() string {
 }
 
 func (ReplayEvidenceKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_natslens_v1_replay_proto_enumTypes[1].Descriptor()
+	return file_natslens_v1_replay_proto_enumTypes[2].Descriptor()
 }
 
 func (ReplayEvidenceKind) Type() protoreflect.EnumType {
-	return &file_natslens_v1_replay_proto_enumTypes[1]
+	return &file_natslens_v1_replay_proto_enumTypes[2]
 }
 
 func (x ReplayEvidenceKind) Number() protoreflect.EnumNumber {
@@ -156,7 +217,7 @@ func (x ReplayEvidenceKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ReplayEvidenceKind.Descriptor instead.
 func (ReplayEvidenceKind) EnumDescriptor() ([]byte, []int) {
-	return file_natslens_v1_replay_proto_rawDescGZIP(), []int{1}
+	return file_natslens_v1_replay_proto_rawDescGZIP(), []int{2}
 }
 
 // Request for the story between two moments.
@@ -339,7 +400,9 @@ type ReplayStep struct {
 	// included.
 	EvidenceCount int32 `protobuf:"varint,12,opt,name=evidence_count,json=evidenceCount,proto3" json:"evidence_count,omitempty"`
 	// Whether the step happened after B: it closes a step in the range.
-	OutsideRange  bool `protobuf:"varint,13,opt,name=outside_range,json=outsideRange,proto3" json:"outside_range,omitempty"`
+	OutsideRange bool `protobuf:"varint,13,opt,name=outside_range,json=outsideRange,proto3" json:"outside_range,omitempty"`
+	// For a gap step, what was not running; unset for every other step.
+	GapKind       ReplayGapKind `protobuf:"varint,14,opt,name=gap_kind,json=gapKind,proto3,enum=natslens.v1.ReplayGapKind" json:"gap_kind,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -463,6 +526,13 @@ func (x *ReplayStep) GetOutsideRange() bool {
 		return x.OutsideRange
 	}
 	return false
+}
+
+func (x *ReplayStep) GetGapKind() ReplayGapKind {
+	if x != nil {
+		return x.GapKind
+	}
+	return ReplayGapKind_REPLAY_GAP_KIND_UNSPECIFIED
 }
 
 // What changed between A and B, in numbers. An unset count was not
@@ -965,7 +1035,7 @@ const file_natslens_v1_replay_proto_rawDesc = "" +
 	"\x02id\x18\x02 \x01(\tR\x02id\x12.\n" +
 	"\x04time\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12\x14\n" +
 	"\x05label\x18\x04 \x01(\tR\x05label\x12.\n" +
-	"\x06entity\x18\x05 \x01(\v2\x16.natslens.v1.EntityRefR\x06entity\"\x80\x04\n" +
+	"\x06entity\x18\x05 \x01(\v2\x16.natslens.v1.EntityRefR\x06entity\"\xb7\x04\n" +
 	"\n" +
 	"ReplayStep\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12.\n" +
@@ -981,7 +1051,8 @@ const file_natslens_v1_replay_proto_rawDesc = "" +
 	" \x01(\x05R\ventityCount\x127\n" +
 	"\bevidence\x18\v \x03(\v2\x1b.natslens.v1.ReplayEvidenceR\bevidence\x12%\n" +
 	"\x0eevidence_count\x18\f \x01(\x05R\revidenceCount\x12#\n" +
-	"\routside_range\x18\r \x01(\bR\foutsideRange\"\xf7\b\n" +
+	"\routside_range\x18\r \x01(\bR\foutsideRange\x125\n" +
+	"\bgap_kind\x18\x0e \x01(\x0e2\x1a.natslens.v1.ReplayGapKindR\agapKind\"\xf7\b\n" +
 	"\fReplayCounts\x120\n" +
 	"\x11servers_restarted\x18\x01 \x01(\x05H\x00R\x10serversRestarted\x88\x01\x01\x12,\n" +
 	"\x0fservers_stopped\x18\x02 \x01(\x05H\x01R\x0eserversStopped\x88\x01\x01\x12B\n" +
@@ -1057,7 +1128,12 @@ const file_natslens_v1_replay_proto_rawDesc = "" +
 	"\x15REPLAY_STEP_KIND_GONE\x10\x05\x12\x1c\n" +
 	"\x18REPLAY_STEP_KIND_FINDING\x10\x06\x12\x1d\n" +
 	"\x19REPLAY_STEP_KIND_RESOLVED\x10\a\x12\x18\n" +
-	"\x14REPLAY_STEP_KIND_GAP\x10\b*\xa1\x01\n" +
+	"\x14REPLAY_STEP_KIND_GAP\x10\b*\x90\x01\n" +
+	"\rReplayGapKind\x12\x1f\n" +
+	"\x1bREPLAY_GAP_KIND_UNSPECIFIED\x10\x00\x12\x1f\n" +
+	"\x1bREPLAY_GAP_KIND_COLLECTIONS\x10\x01\x12\x1d\n" +
+	"\x19REPLAY_GAP_KIND_COLLECTOR\x10\x02\x12\x1e\n" +
+	"\x1aREPLAY_GAP_KIND_KUBERNETES\x10\x03*\xa1\x01\n" +
 	"\x12ReplayEvidenceKind\x12$\n" +
 	" REPLAY_EVIDENCE_KIND_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aREPLAY_EVIDENCE_KIND_EVENT\x10\x01\x12 \n" +
@@ -1076,53 +1152,55 @@ func file_natslens_v1_replay_proto_rawDescGZIP() []byte {
 	return file_natslens_v1_replay_proto_rawDescData
 }
 
-var file_natslens_v1_replay_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_natslens_v1_replay_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_natslens_v1_replay_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_natslens_v1_replay_proto_goTypes = []any{
 	(ReplayStepKind)(0),           // 0: natslens.v1.ReplayStepKind
-	(ReplayEvidenceKind)(0),       // 1: natslens.v1.ReplayEvidenceKind
-	(*GetReplayRequest)(nil),      // 2: natslens.v1.GetReplayRequest
-	(*ReplayEvidence)(nil),        // 3: natslens.v1.ReplayEvidence
-	(*ReplayStep)(nil),            // 4: natslens.v1.ReplayStep
-	(*ReplayCounts)(nil),          // 5: natslens.v1.ReplayCounts
-	(*GoneAsset)(nil),             // 6: natslens.v1.GoneAsset
-	(*GetReplayResponse)(nil),     // 7: natslens.v1.GetReplayResponse
-	(*timestamppb.Timestamp)(nil), // 8: google.protobuf.Timestamp
-	(*EntityRef)(nil),             // 9: natslens.v1.EntityRef
-	(Severity)(0),                 // 10: natslens.v1.Severity
-	(*EventRef)(nil),              // 11: natslens.v1.EventRef
-	(*TimeWindow)(nil),            // 12: natslens.v1.TimeWindow
+	(ReplayGapKind)(0),            // 1: natslens.v1.ReplayGapKind
+	(ReplayEvidenceKind)(0),       // 2: natslens.v1.ReplayEvidenceKind
+	(*GetReplayRequest)(nil),      // 3: natslens.v1.GetReplayRequest
+	(*ReplayEvidence)(nil),        // 4: natslens.v1.ReplayEvidence
+	(*ReplayStep)(nil),            // 5: natslens.v1.ReplayStep
+	(*ReplayCounts)(nil),          // 6: natslens.v1.ReplayCounts
+	(*GoneAsset)(nil),             // 7: natslens.v1.GoneAsset
+	(*GetReplayResponse)(nil),     // 8: natslens.v1.GetReplayResponse
+	(*timestamppb.Timestamp)(nil), // 9: google.protobuf.Timestamp
+	(*EntityRef)(nil),             // 10: natslens.v1.EntityRef
+	(Severity)(0),                 // 11: natslens.v1.Severity
+	(*EventRef)(nil),              // 12: natslens.v1.EventRef
+	(*TimeWindow)(nil),            // 13: natslens.v1.TimeWindow
 }
 var file_natslens_v1_replay_proto_depIdxs = []int32{
-	8,  // 0: natslens.v1.GetReplayRequest.a:type_name -> google.protobuf.Timestamp
-	8,  // 1: natslens.v1.GetReplayRequest.b:type_name -> google.protobuf.Timestamp
-	1,  // 2: natslens.v1.ReplayEvidence.kind:type_name -> natslens.v1.ReplayEvidenceKind
-	8,  // 3: natslens.v1.ReplayEvidence.time:type_name -> google.protobuf.Timestamp
-	9,  // 4: natslens.v1.ReplayEvidence.entity:type_name -> natslens.v1.EntityRef
-	8,  // 5: natslens.v1.ReplayStep.time:type_name -> google.protobuf.Timestamp
-	8,  // 6: natslens.v1.ReplayStep.end:type_name -> google.protobuf.Timestamp
+	9,  // 0: natslens.v1.GetReplayRequest.a:type_name -> google.protobuf.Timestamp
+	9,  // 1: natslens.v1.GetReplayRequest.b:type_name -> google.protobuf.Timestamp
+	2,  // 2: natslens.v1.ReplayEvidence.kind:type_name -> natslens.v1.ReplayEvidenceKind
+	9,  // 3: natslens.v1.ReplayEvidence.time:type_name -> google.protobuf.Timestamp
+	10, // 4: natslens.v1.ReplayEvidence.entity:type_name -> natslens.v1.EntityRef
+	9,  // 5: natslens.v1.ReplayStep.time:type_name -> google.protobuf.Timestamp
+	9,  // 6: natslens.v1.ReplayStep.end:type_name -> google.protobuf.Timestamp
 	0,  // 7: natslens.v1.ReplayStep.kind:type_name -> natslens.v1.ReplayStepKind
-	10, // 8: natslens.v1.ReplayStep.severity:type_name -> natslens.v1.Severity
-	9,  // 9: natslens.v1.ReplayStep.entities:type_name -> natslens.v1.EntityRef
-	3,  // 10: natslens.v1.ReplayStep.evidence:type_name -> natslens.v1.ReplayEvidence
-	9,  // 11: natslens.v1.GoneAsset.entity:type_name -> natslens.v1.EntityRef
-	8,  // 12: natslens.v1.GoneAsset.last_reported:type_name -> google.protobuf.Timestamp
-	11, // 13: natslens.v1.GoneAsset.delete_event:type_name -> natslens.v1.EventRef
-	8,  // 14: natslens.v1.GetReplayResponse.a:type_name -> google.protobuf.Timestamp
-	8,  // 15: natslens.v1.GetReplayResponse.b:type_name -> google.protobuf.Timestamp
-	8,  // 16: natslens.v1.GetReplayResponse.epoch_a_at:type_name -> google.protobuf.Timestamp
-	8,  // 17: natslens.v1.GetReplayResponse.epoch_b_at:type_name -> google.protobuf.Timestamp
-	4,  // 18: natslens.v1.GetReplayResponse.steps:type_name -> natslens.v1.ReplayStep
-	5,  // 19: natslens.v1.GetReplayResponse.counts:type_name -> natslens.v1.ReplayCounts
-	6,  // 20: natslens.v1.GetReplayResponse.gone:type_name -> natslens.v1.GoneAsset
-	12, // 21: natslens.v1.GetReplayResponse.windows:type_name -> natslens.v1.TimeWindow
-	8,  // 22: natslens.v1.GetReplayResponse.history_start:type_name -> google.protobuf.Timestamp
-	8,  // 23: natslens.v1.GetReplayResponse.complete_until:type_name -> google.protobuf.Timestamp
-	24, // [24:24] is the sub-list for method output_type
-	24, // [24:24] is the sub-list for method input_type
-	24, // [24:24] is the sub-list for extension type_name
-	24, // [24:24] is the sub-list for extension extendee
-	0,  // [0:24] is the sub-list for field type_name
+	11, // 8: natslens.v1.ReplayStep.severity:type_name -> natslens.v1.Severity
+	10, // 9: natslens.v1.ReplayStep.entities:type_name -> natslens.v1.EntityRef
+	4,  // 10: natslens.v1.ReplayStep.evidence:type_name -> natslens.v1.ReplayEvidence
+	1,  // 11: natslens.v1.ReplayStep.gap_kind:type_name -> natslens.v1.ReplayGapKind
+	10, // 12: natslens.v1.GoneAsset.entity:type_name -> natslens.v1.EntityRef
+	9,  // 13: natslens.v1.GoneAsset.last_reported:type_name -> google.protobuf.Timestamp
+	12, // 14: natslens.v1.GoneAsset.delete_event:type_name -> natslens.v1.EventRef
+	9,  // 15: natslens.v1.GetReplayResponse.a:type_name -> google.protobuf.Timestamp
+	9,  // 16: natslens.v1.GetReplayResponse.b:type_name -> google.protobuf.Timestamp
+	9,  // 17: natslens.v1.GetReplayResponse.epoch_a_at:type_name -> google.protobuf.Timestamp
+	9,  // 18: natslens.v1.GetReplayResponse.epoch_b_at:type_name -> google.protobuf.Timestamp
+	5,  // 19: natslens.v1.GetReplayResponse.steps:type_name -> natslens.v1.ReplayStep
+	6,  // 20: natslens.v1.GetReplayResponse.counts:type_name -> natslens.v1.ReplayCounts
+	7,  // 21: natslens.v1.GetReplayResponse.gone:type_name -> natslens.v1.GoneAsset
+	13, // 22: natslens.v1.GetReplayResponse.windows:type_name -> natslens.v1.TimeWindow
+	9,  // 23: natslens.v1.GetReplayResponse.history_start:type_name -> google.protobuf.Timestamp
+	9,  // 24: natslens.v1.GetReplayResponse.complete_until:type_name -> google.protobuf.Timestamp
+	25, // [25:25] is the sub-list for method output_type
+	25, // [25:25] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_replay_proto_init() }
@@ -1138,7 +1216,7 @@ func file_natslens_v1_replay_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_replay_proto_rawDesc), len(file_natslens_v1_replay_proto_rawDesc)),
-			NumEnums:      2,
+			NumEnums:      3,
 			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
