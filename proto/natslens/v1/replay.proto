@@ -46,6 +46,22 @@ enum ReplayStepKind {
   REPLAY_STEP_KIND_GAP = 8;
 }
 
+// Kind of a gap step: what was not running, and so which counts it
+// leaves unset.
+enum ReplayGapKind {
+  // Not set: the step is no gap.
+  REPLAY_GAP_KIND_UNSPECIFIED = 0;
+  // No collections: nothing is known of the servers then; the event counts
+  // stay unset.
+  REPLAY_GAP_KIND_COLLECTIONS = 1;
+  // nats-lens was not running (a collector.gap): no events were captured,
+  // so the event and node counts stay unset.
+  REPLAY_GAP_KIND_COLLECTOR = 2;
+  // Kubernetes was not watched (a collector.k8s_gap): the node counts stay
+  // unset.
+  REPLAY_GAP_KIND_KUBERNETES = 3;
+}
+
 // Kind of a step's evidence.
 enum ReplayEvidenceKind {
   // Not set.
@@ -121,6 +137,9 @@ message ReplayStep {
 
   // Whether the step happened after B: it closes a step in the range.
   bool outside_range = 13;
+
+  // For a gap step, what was not running; unset for every other step.
+  ReplayGapKind gap_kind = 14;
 }
 
 // What changed between A and B, in numbers. An unset count was not
