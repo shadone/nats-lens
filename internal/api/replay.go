@@ -99,6 +99,9 @@ type ReplayFacts struct {
 	// limit cut Events or Transitions: the steps are then marked truncated
 	// and the counts taken from them stay unset.
 	EventsTruncated, TransitionsTruncated bool
+	// EventsReadUntil and TransitionsReadUntil are, when cut, the time of
+	// the last row read: rows before it were read in full.
+	EventsReadUntil, TransitionsReadUntil time.Time
 	// LeadersAtA are the leaders of the streams and consumers at EpochA;
 	// MetaLeaderAtA the meta leader most servers named then.
 	LeadersAtA    []ReplayLeader

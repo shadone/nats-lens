@@ -287,9 +287,14 @@ func (b *replayBuilder) quorumStep(grp []*quorumSpan) {
 		}
 	}
 	d.time = latest(start, b.f.A)
-	if open {
+	// A resolve may lie in transitions the read limit cut: the span is then
+	// not known to be open at B.
+	cut := open && b.f.TransitionsTruncated && b.f.TransitionsReadUntil.Before(b.f.B)
+	switch {
+	case cut:
+	case open:
 		d.openAtB = true
-	} else {
+	default:
 		d.end = end
 	}
 	check := first.t.Check
@@ -310,6 +315,12 @@ func (b *replayBuilder) quorumStep(grp []*quorumSpan) {
 	}
 	var when string
 	switch {
+	case cut && start.Before(b.f.A):
+		when = fmt.Sprintf("Already without quorum at A (since %s); no resolve was read before %s, where the read limit stopped.",
+			clockText(start), clockText(b.f.TransitionsReadUntil))
+	case cut:
+		when = fmt.Sprintf("From %s; no resolve was read before %s, where the read limit stopped.", clockText(start),
+			clockText(b.f.TransitionsReadUntil))
 	case start.Before(b.f.A) && open:
 		when = fmt.Sprintf("Already without quorum at A (since %s); still without quorum at B.", clockText(start))
 	case start.Before(b.f.A):

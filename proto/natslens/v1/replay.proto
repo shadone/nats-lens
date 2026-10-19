@@ -234,8 +234,9 @@ message GetReplayResponse {
   // The steps in time order; steps outside the range come last.
   repeated ReplayStep steps = 7;
 
-  // Whether steps were left out to keep at most 200 in the range and 10
-  // after it.
+  // Whether steps may be missing: some were left out to keep at most 200
+  // in the range and 10 after it, or the provider's read limit cut the
+  // events or finding transitions it reads (see complete_until).
   bool steps_truncated = 8;
 
   // Number of steps left out.
@@ -258,4 +259,10 @@ message GetReplayResponse {
 
   // When the stored history begins.
   google.protobuf.Timestamp history_start = 15;
+
+  // When the read limit cut the events or finding transitions: the time
+  // before which they were read in full, so steps after it may be missing
+  // and the counts taken from the cut rows are unset. Unset when nothing
+  // was cut.
+  google.protobuf.Timestamp complete_until = 16;
 }

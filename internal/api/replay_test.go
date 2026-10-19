@@ -637,3 +637,27 @@ func TestReplayGapStartingAtB(t *testing.T) {
 		t.Errorf("gap steps %v, counts %v", stepsOf(res, v1.ReplayStepKind_REPLAY_STEP_KIND_GAP), res.GetCounts())
 	}
 }
+
+// When the read limit cut the transitions before B, a quorum loss whose
+// resolve may be in the cut rows is not said to be open at B, and the
+// response says up to when the read is complete; an announcement window
+// before the cut may still say none was captured.
+func TestReplayReadLimitTimes(t *testing.T) {
+	f := facts()
+	f.EventsCaptured = true
+	f.TransitionsTruncated, f.TransitionsReadUntil = true, rAt(20, 0)
+	f.EventsTruncated, f.EventsReadUntil = true, rAt(50, 0)
+	f.Transitions = []api.ReplayTransition{tr("stream-001:s", "stream-001", streamEnt("s"), rAt(10, 0), firing, critical)}
+	f.Restarts = []api.ReplayRestart{{Server: "nats-0", LastSeen: rAt(15, 0), FirstSeen: rAt(16, 0), OldEpoch: 130, NewEpoch: 132}}
+	res := api.FinishReplay(f)
+	q := stepsOf(res, v1.ReplayStepKind_REPLAY_STEP_KIND_QUORUM)[0]
+	if q.GetOpenAtB() || q.GetBody() != "From 09:10:00; no resolve was read before 09:20:00, where the read limit stopped." {
+		t.Errorf("quorum = %v", q)
+	}
+	if !res.GetCompleteUntil().AsTime().Equal(rAt(20, 0)) || !res.GetStepsTruncated() {
+		t.Errorf("complete until %v, truncated %v", res.GetCompleteUntil(), res.GetStepsTruncated())
+	}
+	if r := stepsOf(res, v1.ReplayStepKind_REPLAY_STEP_KIND_RESTART)[0]; !strings.HasPrefix(r.GetBody(), "No lame duck") {
+		t.Errorf("restart = %q", r.GetBody())
+	}
+}

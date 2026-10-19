@@ -322,6 +322,13 @@ func TestReplayRowLimitIsReported(t *testing.T) {
 	}
 	res := api.FinishReplay(f)
 	c := res.GetCounts()
+	until := f.Events[2].GetTime().AsTime()
+	if f.Transitions[2].Time.Before(until) {
+		until = f.Transitions[2].Time
+	}
+	if res.GetCompleteUntil() == nil || !res.GetCompleteUntil().AsTime().Equal(until) {
+		t.Errorf("complete until %v, want the earlier last row read, %v", res.GetCompleteUntil(), until)
+	}
 	if !res.GetStepsTruncated() || c.LeaderElections != nil || c.LeadersMoved != nil || c.QuorumLostReports != nil ||
 		c.FindingsRaised != nil || c.ClientReconnects == nil {
 		t.Errorf("truncated %v, counts %v", res.GetStepsTruncated(), c)
