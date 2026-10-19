@@ -231,7 +231,12 @@ func (b *replayBuilder) gaps() {
 		b.add(d)
 	}
 	for _, g := range plain {
-		ev := []*v1.ReplayEvidence{collectionEvidence(g.BeforeEpoch, g.BeforeAt, nil), collectionEvidence(g.AfterEpoch, g.AfterAt, nil)}
+		ev := []*v1.ReplayEvidence{collectionEvidence(g.BeforeEpoch, g.BeforeAt, nil)}
+		if !g.AfterAt.After(b.f.B) {
+			// The first collection after B is no evidence of a step
+			// between A and B.
+			ev = append(ev, collectionEvidence(g.AfterEpoch, g.AfterAt, nil))
+		}
 		if i := slices.IndexFunc(collector, func(d *draft) bool { return overlapsSpan(d, g) }); i >= 0 {
 			collector[i].evidence = append(collector[i].evidence, ev...)
 			continue
@@ -273,7 +278,15 @@ func (b *replayBuilder) gapStep(g ReplayGap) *draft {
 	default:
 		d.title = fmt.Sprintf("%s from %s to %s", what, clockText(g.Start), clockText(g.End))
 	}
-	if g.Event != nil {
+	switch {
+	case g.Event != nil && open:
+		// The event's summary names the gap's end, after B: the step
+		// says only what lies up to B (proposed, not yet confirmed).
+		e := eventEvidence(g.Event)
+		e.Label = since + " since " + clockText(g.Start) + " (" + g.Event.GetKind() + ")"
+		d.evidence = append(d.evidence, e)
+		d.body = what + " from " + clockText(g.Start) + " up to B; nothing was captured then."
+	case g.Event != nil:
 		d.evidence = append(d.evidence, eventEvidence(g.Event))
 		d.body = g.Event.GetSummary()
 	}
