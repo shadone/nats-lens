@@ -147,7 +147,7 @@ export function Replay() {
           )}
           <div className="rp-grid">
             <ReplaySteps steps={data.steps} moments={shown} notes={stepNotes(data)} />
-            <ReplayCounts counts={data.counts} />
+            <ReplayCounts counts={data.counts} kubernetesWatched={data.kubernetesWatched} />
           </div>
           <ReplayGone gone={data.gone} truncated={data.goneTruncated} moments={shown} read={goneRead(data)} />
         </div>
