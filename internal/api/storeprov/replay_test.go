@@ -476,3 +476,22 @@ func TestReplayCountsANodeEventByItsObject(t *testing.T) {
 	}
 	t.Error("no step counts the two nodes")
 }
+
+// nats-2 led KV_labels when it last answered (epoch 20); its election on
+// nats-0 after goes into nats-2's stop step.
+func TestReplayStopLeadersFromStore(t *testing.T) {
+	p, r := replayStore(t)
+	r.add("stream_stats", map[string]any{"epoch": 20, "server_id": "S2", "account": rAcc, "stream": "KV_labels", "is_leader": true})
+	r.add("events", map[string]any{"id": 1002, "time": rEpoch(20).Add(20 * time.Second), "received_at": rEpoch(20).Add(20 * time.Second),
+		"source": "jetstream", "kind": "stream.leader_elected", "server_name": "nats-0", "account": rAcc, "stream": "KV_labels", "summary": "KV_labels -> nats-0"})
+	f, err := p.Replay(ctx, replayReq(rEpoch(3), rEpoch(40)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range api.FinishReplay(f).GetSteps() {
+		if s.GetTitle() == "nats-2 stops answering" && strings.Contains(s.GetBody(), "Leaders it held were elected on other servers: 1 on nats-0.") {
+			return
+		}
+	}
+	t.Errorf("stops = %+v", f.Stops)
+}

@@ -44,7 +44,6 @@ func TestDemoReplayGlobal(t *testing.T) {
 		"Node gke-example-pool-us-c3f8 drained",
 		"nats-us-4 stops answering",
 		"Stream KV_label-templates not reported at B",
-		"2 leaders elected on nats-us-2",
 		"The pod of nats-us-4 cannot be scheduled (5 times, 09:12–09:18)",
 		"Stream missing on an assigned server: return-requests",
 		"Durable consumer disappeared resolved for 2 consumers",
@@ -52,7 +51,18 @@ func TestDemoReplayGlobal(t *testing.T) {
 	if strings.Join(titles, "\n") != strings.Join(want, "\n") {
 		t.Errorf("steps:\n%s", strings.Join(titles, "\n"))
 	}
-	us2 := res.GetSteps()[4].GetBody()
+	body := func(title string) string {
+		for _, s := range res.GetSteps() {
+			if s.GetTitle() == title {
+				return s.GetBody()
+			}
+		}
+		return ""
+	}
+	if b := body("nats-us-4 stops answering"); !strings.HasSuffix(b, "Leaders it held were elected on other servers: 2 on nats-us-2.") {
+		t.Errorf("nats-us-4 body = %q", b)
+	}
+	us2 := body("nats-us-2 restarts")
 	if us2 != "Lame duck mode announced at 08:56:21. Back at 08:58:56 with 2 streams and 3 consumers, 2 consumers fewer than before the restart. "+
 		"Leaders it held were elected on other servers: 2 on nats-us-4." {
 		t.Errorf("nats-us-2 body = %q", us2)

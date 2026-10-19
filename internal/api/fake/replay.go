@@ -134,7 +134,7 @@ func (s scen) replayServers(f *api.ReplayFacts) ([]api.ReplayRestart, []api.Repl
 		if !ok || last.Before(from) {
 			continue
 		}
-		stop := api.ReplayStop{Server: sp.name, LastSeen: last, LastEpoch: n}
+		stop := api.ReplayStop{Server: sp.name, LastSeen: last, LastEpoch: n, LedBefore: s.ledBy(sp.name, last)}
 		if back, bn, ok := s.epochNear(sp, f.B.Add(time.Nanosecond), sampleEvery, f.Until.Sub(f.B)+sampleEvery); ok && !back.After(f.Until) {
 			stop.BackAt, stop.BackEpoch = back, bn
 		}
