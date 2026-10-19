@@ -52,3 +52,25 @@ func TestDemoReplayStagingGap(t *testing.T) {
 		t.Errorf("steps = %v, epoch B %d", steps, res.GetEpochB())
 	}
 }
+
+// Before example-staging's history starts there is no collection at A,
+// so no leaders at A; it does not watch Kubernetes.
+func TestDemoReplayFactsBeforeTheHistory(t *testing.T) {
+	p := fake.Demo(false)[2].Provider
+	f, err := p.Replay(ctx, &v1.GetReplayRequest{A: timestamppb.New(at(4, 0, 0)), B: timestamppb.New(at(6, 0, 0))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.EpochA != 0 || len(f.LeadersAtA) != 0 || f.Kubernetes {
+		t.Errorf("epoch A %d, leaders at A %v, Kubernetes %v", f.EpochA, f.LeadersAtA, f.Kubernetes)
+	}
+}
+
+// Node events without a node name are not counted, as in the store; the
+// demo's node events name no node yet.
+func TestDemoReplayCountsNodesByName(t *testing.T) {
+	c := replay(t, fake.Cluster, at(9, 10, 0), at(9, 55, 0)).GetCounts()
+	if c.NodesDrained == nil || c.GetNodesDrained() != 0 || c.GetNodesUpgraded() != 0 {
+		t.Errorf("counts = %v", c)
+	}
+}

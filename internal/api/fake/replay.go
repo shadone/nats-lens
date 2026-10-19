@@ -29,7 +29,7 @@ func (p *Provider) Replay(_ context.Context, req *v1.GetReplayRequest) (*api.Rep
 		return nil, fmt.Errorf("%w: A is older than retention (14d); Replay reads the database only", api.ErrInvalid)
 	}
 	f := &api.ReplayFacts{A: a, B: b, Until: earliest(s.now, b.Add(api.ReplayLookahead)), Interval: sampleEvery,
-		RestartWindow: replayRestartWindow, HistoryStart: s.dataStart()}
+		RestartWindow: replayRestartWindow, HistoryStart: s.dataStart(), Kubernetes: s.sc.k8sLanes != nil}
 	f.EpochAAt, f.EpochA = s.replayEpoch(a)
 	f.EpochBAt, f.EpochB = s.replayEpoch(b)
 	_, _, f.Collected = s.epochBefore(&v1.TimeRange{Start: ts(a), End: ts(b.Add(time.Nanosecond))})
@@ -38,7 +38,6 @@ func (p *Provider) Replay(_ context.Context, req *v1.GetReplayRequest) (*api.Rep
 	kinds := api.ReplayEventKinds()
 	for _, e := range all {
 		at := e.GetTime().AsTime()
-		f.Kubernetes = f.Kubernetes || e.GetSource() == srcK8s
 		if at.Before(a.Add(-replayRestartWindow)) || at.After(f.Until) || !slices.Contains(kinds, e.GetKind()) ||
 			(strings.HasPrefix(e.GetKind(), "k8s.pod.") && e.GetServer() == "") {
 			continue
@@ -48,7 +47,7 @@ func (p *Provider) Replay(_ context.Context, req *v1.GetReplayRequest) (*api.Rep
 	f.Restarts, f.Stops = s.replayServers(a, b)
 	f.Transitions = s.replayTransitions(p.findings(s), a, f.Until)
 	for _, sp := range s.sc.streams {
-		if l := s.leader(sp); l != "" {
+		if l := s.leader(sp); l != "" && f.EpochA != 0 {
 			f.LeadersAtA = append(f.LeadersAtA, api.ReplayLeader{Entity: streamRef(sp.name), Server: l})
 		}
 	}
@@ -195,9 +194,9 @@ func replayReconnects(evs []*v1.Event, a, b time.Time) int32 {
 	return int32(n)
 }
 
-// replayNodes counts the nodes drained and upgraded between A and B, by
-// the node the payload names, else by the event's summary, and the node
-// pools of the upgraded ones.
+// replayNodes counts the nodes drained and upgraded between A and B by
+// the node the payload names, as the store does: an event without one is
+// not counted. It also counts the node pools of the upgraded ones.
 func replayNodes(evs []*v1.Event, a, b time.Time) api.ReplayNodes {
 	drained, upgraded, pools := map[string]bool{}, map[string]bool{}, map[string]bool{}
 	for _, e := range evs {
@@ -211,7 +210,7 @@ func replayNodes(evs []*v1.Event, a, b time.Time) api.ReplayNodes {
 		_ = json.Unmarshal([]byte(e.GetRaw()), &raw)
 		node := raw.Node
 		if node == "" {
-			node = e.GetSummary()
+			continue
 		}
 		switch e.GetKind() {
 		case "k8s.node.drained":
