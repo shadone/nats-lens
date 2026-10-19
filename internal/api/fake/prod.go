@@ -69,7 +69,11 @@ func prodScenario() *scenario {
 		consumer:      prodConsumer,
 		created:       prodCreated,
 		// nats-0 took the meta leadership when nats-1's pod was killed.
-		leaders: []leaderSpell{{key: "meta", server: "nats-1", until: fixed(9, 30, 11)}},
+		leaders: []leaderSpell{
+			{key: "meta", server: "nats-1", until: fixed(9, 30, 11)},
+			// nats-2 led order-archive while nats-0 restarted.
+			{key: Account + "/order-archive", server: "nats-2", from: fixed(9, 16, 2), until: fixed(9, 18, 0)},
+		},
 	}
 }
 

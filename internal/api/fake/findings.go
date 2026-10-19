@@ -104,7 +104,7 @@ func prodFindings(s scen) []*v1.Finding {
 		resolvedFinding("stream-001", "Stream quorum lost", critical, streamRef("order-jobs"), s.at(9, 41, 30), s.at(9, 44, 30),
 			"Leader nats-0 sees 1 of 3 replicas online; quorum needs 2, for 6 collections."),
 		resolvedFinding("stream-003", "Stream replica lagging", warning, streamRef("order-archive"), s.at(9, 16, 40), s.at(10, 5, 0),
-			"Leader nats-0 reports nats-1 12400 operations behind."),
+			"Leader nats-2 reports nats-1 12400 operations behind."),
 		resolvedFinding("client-003", "Slow consumer disconnects", warning, clientRef("media-worker"), s.at(9, 15, 30), s.at(9, 45, 0),
 			"6 slow consumer disconnects in the last 30m (nats-0, nats-2), the last at 09:44:12 UTC: Slow Consumer (Write Deadline)."),
 	}

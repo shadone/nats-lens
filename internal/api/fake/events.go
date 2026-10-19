@@ -28,7 +28,7 @@ const (
 	// routine events (360 churn, 72 sampled acks, 48 account counts, 6 API
 	// audit, 6 collector reconnects, 34 CLI) and the 8 of the pending pod.
 	eventCount        = 20 + fillerCount + prodChurnCount + 72 + 48 + 6 + 6 + 34 + 8
-	idConsumerDeleted = "594"
+	idConsumerDeleted = "595"
 )
 
 // nodeRaw is a node event's payload as the Kubernetes watcher writes it:
@@ -104,8 +104,6 @@ func prodEvents(s scen, fs []*v1.Finding) []*v1.Event {
 			Account: Account, Stream: "order-jobs", Consumer: "job-cache-projector"},
 		{Time: ts(s.at(9, 44, 21)), Source: srcK8s, Kind: "k8s.pod.started", Type: "Started", Server: "nats-2",
 			Summary: "pod nats-2 container nats started on gke-example-pool-1-c40d"},
-		{Time: ts(s.at(9, 42, 3)), Source: srcNATS, Kind: "stream.leader_elected", Type: "STREAM.LEADER_ELECTED", Server: "nats-2",
-			Account: Account, Stream: "order-jobs", Summary: "order-jobs -> nats-2 (term 412)"},
 		{Time: ts(s.at(9, 41, 10)), Source: srcK8s, Kind: "k8s.pod.killing", Type: "Killing", Server: "nats-2",
 			Summary: "pod nats-2 Killing (node upgrade), grace 120s"},
 		{Time: ts(s.at(9, 31, 7)), Source: srcNATS, Kind: "consumer.deleted", Type: "CONSUMER.DELETED", Severity: critical, Server: "nats-0",
@@ -124,6 +122,9 @@ func prodEvents(s scen, fs []*v1.Finding) []*v1.Event {
 			Summary: "pod nats-1 Killing (node upgrade), grace 120s"},
 		{Time: ts(s.at(9, 16, 30)), Source: srcNATS, Kind: "stream.quorum_lost", Type: "STREAM.QUORUM_LOST", Severity: critical, Server: "nats-1",
 			Account: Account, Stream: "media-windows", Summary: "media-windows (1 of 3 peers)"},
+		// nats-1 took the lead of order-jobs while nats-0 restarted.
+		{Time: ts(s.at(9, 16, 3)), Source: srcNATS, Kind: "stream.leader_elected", Type: "STREAM.LEADER_ELECTED", Server: "nats-1",
+			Account: Account, Stream: "order-jobs", Summary: "order-jobs -> nats-1 (term 412)"},
 		{Time: ts(s.at(9, 16, 2)), Source: srcK8s, Kind: "k8s.pod.killing", Type: "Killing", Server: "nats-0",
 			Summary: "pod nats-0 Killing (node upgrade), grace 120s"},
 		prodNode(s.at(9, 14, 48), "k8s.node.drained", "NodeDrain", "7f3a", prodOldKubelet, "node gke-example-pool-1-7f3a cordoned and drained"),
