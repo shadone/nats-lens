@@ -31,8 +31,9 @@ func goneClass(g ReplayGone) string {
 // returns the gone list sorted by key.
 func (b *replayBuilder) gone() []*v1.GoneAsset {
 	gs := slices.Clone(b.f.Gone)
-	// A gone asset's findings of the gone checks, from the transitions; a
-	// gone stream also takes those of the durables that went with it.
+	// A gone asset's findings of the gone checks that fired by B, from the
+	// transitions; a gone stream also takes those of the durables that
+	// went with it.
 	for i, g := range gs {
 		ids := slices.Clone(g.FindingIDs)
 		for _, id := range b.findingIDs() {
@@ -41,7 +42,7 @@ func (b *replayBuilder) gone() []*v1.GoneAsset {
 				(g.Entity.GetType() == v1.EntityType_ENTITY_TYPE_STREAM && t.Entity.GetType() == v1.EntityType_ENTITY_TYPE_CONSUMER &&
 					t.Entity.GetAccount() == g.Entity.GetAccount() && t.Entity.GetStream() == g.Entity.GetStream() &&
 					slices.Contains(g.DurablesWithIt, t.Entity.GetConsumer()))
-			if slices.Contains(ReplayGoneChecks, t.Check) && about && !slices.Contains(ids, id) {
+			if slices.Contains(ReplayGoneChecks, t.Check) && about && !t.Time.After(b.f.B) && !slices.Contains(ids, id) {
 				ids = append(ids, id)
 			}
 		}
