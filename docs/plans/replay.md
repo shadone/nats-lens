@@ -8,10 +8,10 @@ The board's sample names come from a private deployment. Use the example shop of
 
 | Task | Status |
 |---|---|
-| T1 API and store | built on `feat/replay-page`, awaiting review |
-| T2 Demo story and conformance | built on `feat/replay-page`, awaiting review |
-| T3 UI | open |
-| T4 Feature docs and audit | open |
+| T1 API and store | done on `feat/replay-page`, after review rounds |
+| T2 Demo story and conformance | done on `feat/replay-page`, after review rounds |
+| T3 UI | done on `feat/replay-page`, after review rounds |
+| T4 Feature docs and audit | done: `docs/features/replay.md` is `Status: partial`, the README's table and map list it, the audit passes |
 
 ## Rules for every step
 
@@ -77,6 +77,15 @@ Decided in the session that built T2, not confirmed.
 - An `invalid_argument` message reads "invalid argument: A is older than …" because every RPC's `ErrInvalid` wraps the same way; left as it is.
 - The conformance rows read each system's newest Kubernetes window of the last day, else the last 2 hours. The store runs them over the Replay fixture as a third system, with pod events that stretch its window and assets at its A and B. The counts row also checks leader elections against the elections among the evidence and quorum reports against the advisories the quorum steps take in. A row for every system checks that every leader the placement matrix and the server list name answered in that range's collection; the store's conformance fixture gained the VARZ rows of servers that answer JSZ.
 - Left for later (`docs/plans/next.md`): the demo lists findings in their present state for a past range.
+
+## Where T3 departed from this plan
+
+Decided in the session that built T3, not confirmed. The UI section of `docs/design.md` has the full rules.
+
+- An unset count is not a tile with "—": the observed counts are tiles, a zero one quieter, and the unobserved ones are named in one "Not observed: …" line, with the reason a gap of each kind (`gap_kind`, field added for this), a system without a Kubernetes watch or the read limit gives.
+- The URL is written once a handle is released or a moving key let go, not while it moves; the replay is asked for once A and B have rested for 300 ms, and at once after a change of system. The answer kept while the next loads is the same system's only, dimmed under "Loading …; below is the earlier choice, …".
+- A link's moments that `GetReplay` would refuse are clamped (swapped, B to now, the 24-hour and one-interval rules) and written back with `replace`, and the page says what it changed. A window button sets the window widened by five minutes on each side, as the default does.
+- The strip counts info as ok, as Fleet does. "Copy link to A–B" also fixes a live range on the page itself; when the clipboard refuses, the status line gives the URL. The gone table has a "Durables with it" column. A collection link opens the hour ending a second after the collection.
 
 ## Proto
 
@@ -214,14 +223,6 @@ Conformance rows in `internal/api/apitest/conformance.go` (A and B from the syst
 - **T3 UI.** `nav.ts`, the route, `api/replay.ts`, `requests.ts`, `queries.ts`, `lib/replayUrl.ts` and `lib/replayLog.ts` with tests, the four components, `pages/Replay.test.tsx` (keyboard handles, window buttons, the After B divider, unset counts, copy link, export text); `navigation.md` and the UI section of `design.md`.
 - **T4 Feature docs and audit.** `replay.md` to `Status: partial` with its Not supported list, `docs/features/README.md` table and coverage map, the audit, leftovers into `docs/plans/next.md`.
 
-## Leftovers, most valuable first
+## Leftovers
 
-1. "Replay this window" links from the Overview's windows and the finding page.
-2. A catch-up step ("replicas current again after N min") from `stream_replicas.current` across epochs.
-3. `GetReplayStrip` if the timeline payload is too heavy.
-4. A span longer than 24 h.
-5. Leader moves from snapshot diffs when advisories are missing.
-6. Per-application reconnect steps, after Applications ships.
-7. Markdown or JSON export.
-
-Not supported: moments older than `retention` (no archive reads), causal claims, "from disk" wording, quorum reports from server logs.
+Moved to `docs/plans/next.md`, item 5, on 2026-10-20. Not supported: moments older than `retention` (no archive reads), causal claims, "from disk" wording, quorum reports from server logs (see `docs/features/replay.md`).
