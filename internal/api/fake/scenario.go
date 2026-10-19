@@ -3,6 +3,7 @@ package fake
 import (
 	"time"
 
+	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -68,6 +69,9 @@ type scenario struct {
 	// created returns each peer's creation time of a consumer, in peer
 	// order, and whether they disagree; nil means the same time on all.
 	created func(s scen, stream, consumer string) ([]time.Time, bool)
+	// gone returns the assets servers held at Replay's A and none holds
+	// at its B; nil means none.
+	gone func(s scen, f *api.ReplayFacts) []api.ReplayGone
 }
 
 // systemRef is the scenario's system entity.
