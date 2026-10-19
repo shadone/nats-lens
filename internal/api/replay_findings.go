@@ -31,12 +31,16 @@ func goneClass(g ReplayGone) string {
 // returns the gone list sorted by key.
 func (b *replayBuilder) gone() []*v1.GoneAsset {
 	gs := slices.Clone(b.f.Gone)
-	// A gone asset's findings of the gone checks, from the transitions.
+	// A gone asset's findings of the gone checks, from the transitions; a
+	// gone stream also takes those of its durables, which went with it.
 	for i, g := range gs {
 		ids := slices.Clone(g.FindingIDs)
 		for _, id := range b.findingIDs() {
 			t := b.byFinding[id][0]
-			if slices.Contains(ReplayGoneChecks, t.Check) && t.Entity.GetKey() == g.Entity.GetKey() && !slices.Contains(ids, id) {
+			about := t.Entity.GetKey() == g.Entity.GetKey() ||
+				(g.Entity.GetType() == v1.EntityType_ENTITY_TYPE_STREAM && t.Entity.GetType() == v1.EntityType_ENTITY_TYPE_CONSUMER &&
+					t.Entity.GetAccount() == g.Entity.GetAccount() && t.Entity.GetStream() == g.Entity.GetStream())
+			if slices.Contains(ReplayGoneChecks, t.Check) && about && !slices.Contains(ids, id) {
 				ids = append(ids, id)
 			}
 		}

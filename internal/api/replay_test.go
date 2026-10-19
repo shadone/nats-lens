@@ -544,3 +544,20 @@ func TestReplayCountsUnsetDuringCaptureGaps(t *testing.T) {
 		t.Errorf("counts after an earlier gap = %v", c)
 	}
 }
+
+// A gone stream takes in its durables' consumer-013 findings: they make
+// no finding step of their own.
+func TestReplayGoneStreamTakesItsDurablesFindings(t *testing.T) {
+	f := facts()
+	f.GoneRead = true
+	f.Gone = []api.ReplayGone{{Entity: streamEnt("orders"), ServersAtA: []string{"nats-0"}, LastReported: rAt(20, 0), LastEpoch: 140,
+		ConsumersWithIt: 1}}
+	f.Transitions = []api.ReplayTransition{tr("consumer-013:x", "consumer-013", consumerEnt("orders", "x"), rAt(21, 0), firing, critical)}
+	res := api.FinishReplay(f)
+	if n := len(stepsOf(res, v1.ReplayStepKind_REPLAY_STEP_KIND_FINDING)); n != 0 {
+		t.Errorf("finding steps = %d", n)
+	}
+	if ids := res.GetGone()[0].GetFindingIds(); len(ids) != 1 || ids[0] != "consumer-013:x" {
+		t.Errorf("finding IDs = %v", ids)
+	}
+}

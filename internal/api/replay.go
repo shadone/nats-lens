@@ -189,8 +189,9 @@ type ReplayGone struct {
 	Delete *v1.Event
 	// ConsumersWithIt counts a gone stream's durables.
 	ConsumersWithIt int32
-	// FindingIDs are its findings of ReplayGoneChecks; FinishReplay adds
-	// those it finds in Transitions.
+	// FindingIDs are its findings of ReplayGoneChecks, a stream's also
+	// those of its durables; FinishReplay adds those it finds in
+	// Transitions.
 	FindingIDs []string
 }
 
