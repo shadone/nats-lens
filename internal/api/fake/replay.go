@@ -32,13 +32,14 @@ func (p *Provider) Replay(_ context.Context, req *v1.GetReplayRequest) (*api.Rep
 		RestartWindow: replayRestartWindow, HistoryStart: s.dataStart(), Kubernetes: s.sc.k8sLanes != nil}
 	f.EpochAAt, f.EpochA = s.replayEpoch(a)
 	f.EpochBAt, f.EpochB = s.replayEpoch(b)
+	f.ReadFrom = api.ReplayReadFrom(f)
 	_, _, f.Collected = s.epochBefore(&v1.TimeRange{Start: ts(a), End: ts(b.Add(time.Nanosecond))})
 	all := p.events(s)
 	f.EventsCaptured = len(all) > 0
 	kinds := api.ReplayEventKinds()
 	for _, e := range all {
 		at := e.GetTime().AsTime()
-		if at.Before(a.Add(-replayRestartWindow)) || at.After(f.Until) || !slices.Contains(kinds, e.GetKind()) ||
+		if at.Before(f.ReadFrom) || at.After(f.Until) || !slices.Contains(kinds, e.GetKind()) ||
 			(strings.HasPrefix(e.GetKind(), "k8s.pod.") && e.GetServer() == "") {
 			continue
 		}

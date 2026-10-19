@@ -10,12 +10,13 @@ import (
 	"github.com/shadone/nats-lens/internal/api"
 )
 
-// replayEvents reads the events Replay tells, from A minus the restart
-// window to Until; pod events only of NATS pods. Only a Kubernetes
+// replayEvents reads the events Replay tells, from ReplayReadFrom to
+// Until; pod events only of NATS pods. Only a Kubernetes
 // event keeps its payload.
 func (p *Provider) replayEvents(ctx context.Context, f *api.ReplayFacts, _ map[string]string) error {
 	kinds := api.ReplayEventKinds()
-	args := []any{f.A.Add(-f.RestartWindow), f.Until}
+	f.ReadFrom = api.ReplayReadFrom(f)
+	args := []any{f.ReadFrom, f.Until}
 	for _, k := range kinds {
 		args = append(args, k)
 	}
@@ -141,7 +142,7 @@ ORDER BY epoch`, f.A.Add(-reach), f.A.Add(-reach), f.B, f.B)
 		}
 	})...)
 	evs, err := p.db().QueryContext(ctx, `SELECT `+eventCols+`, e.received_at FROM events e
-WHERE e.kind IN ('collector.gap', 'collector.k8s_gap') AND e.time <= ? AND e.received_at >= ? ORDER BY e.time, e.id`, f.B, f.A.Add(-f.RestartWindow))
+WHERE e.kind IN ('collector.gap', 'collector.k8s_gap') AND e.time <= ? AND e.received_at >= ? ORDER BY e.time, e.id`, f.B, api.ReplayReadFrom(f))
 	if err != nil {
 		return fmt.Errorf("replay collector gaps: %w", err)
 	}
