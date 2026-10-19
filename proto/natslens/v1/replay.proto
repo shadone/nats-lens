@@ -51,15 +51,61 @@ enum ReplayStepKind {
 enum ReplayGapKind {
   // Not set: the step is no gap.
   REPLAY_GAP_KIND_UNSPECIFIED = 0;
-  // No collections: nothing is known of the servers then; the event counts
-  // stay unset.
+  // No collection for more than three collect intervals. A collections
+  // gap that lies inside a time nats-lens was not running is told by that
+  // step, with the collections as evidence.
   REPLAY_GAP_KIND_COLLECTIONS = 1;
-  // nats-lens was not running (a collector.gap): no events were captured,
-  // so the event and node counts stay unset.
+  // nats-lens was not running (a collector.gap): no events were captured.
   REPLAY_GAP_KIND_COLLECTOR = 2;
-  // Kubernetes was not watched (a collector.k8s_gap): the node counts stay
-  // unset.
+  // Kubernetes was not watched (a collector.k8s_gap).
   REPLAY_GAP_KIND_KUBERNETES = 3;
+}
+
+// Why a count was not observed. Which counts a gap leaves unset is in
+// GetReplayResponse.unobserved, not in the gap steps.
+enum ReplayUnobservedReason {
+  // Not set.
+  REPLAY_UNOBSERVED_REASON_UNSPECIFIED = 0;
+  // No collection started between A and B.
+  REPLAY_UNOBSERVED_REASON_NO_COLLECTIONS = 1;
+  // No collection near A (within three collect intervals before it).
+  REPLAY_UNOBSERVED_REASON_NO_COLLECTION_AT_A = 2;
+  // No collection near B.
+  REPLAY_UNOBSERVED_REASON_NO_COLLECTION_AT_B = 3;
+  // A time without collections between A and B (from and to bound it).
+  REPLAY_UNOBSERVED_REASON_COLLECTIONS_GAP = 4;
+  // No event was stored up to B.
+  REPLAY_UNOBSERVED_REASON_EVENTS_NOT_CAPTURED = 5;
+  // nats-lens was not running between A and B (from and to bound it; to
+  // unset while it had not ended).
+  REPLAY_UNOBSERVED_REASON_COLLECTOR_GAP = 6;
+  // The read limit cut the rows before B (from is where the read ended).
+  REPLAY_UNOBSERVED_REASON_READ_LIMIT = 7;
+  // nats-lens does not watch Kubernetes for this system.
+  REPLAY_UNOBSERVED_REASON_KUBERNETES_NOT_WATCHED = 8;
+  // Kubernetes was not watched between A and B (from and to bound it).
+  REPLAY_UNOBSERVED_REASON_KUBERNETES_GAP = 9;
+  // A node event between A and B names no node, so nodes cannot be told
+  // apart.
+  REPLAY_UNOBSERVED_REASON_NODE_UNNAMED = 10;
+  // No upgraded node carried a node pool label.
+  REPLAY_UNOBSERVED_REASON_NO_POOL_LABELS = 11;
+  // The provider did not read the gone assets.
+  REPLAY_UNOBSERVED_REASON_GONE_NOT_READ = 12;
+}
+
+// Why one count of ReplayCounts is unset.
+message ReplayUnobserved {
+  // The ReplayCounts field's name, for example "leaders_moved".
+  string count = 1;
+
+  // The first of the causes that applies, in the order FinishReplay
+  // checks them.
+  ReplayUnobservedReason reason = 2;
+
+  // The gap or cut behind it, when there is one.
+  google.protobuf.Timestamp from = 3;
+  google.protobuf.Timestamp to = 4;
 }
 
 // Kind of a step's evidence.
@@ -280,8 +326,12 @@ message GetReplayResponse {
   google.protobuf.Timestamp history_start = 15;
 
   // When the read limit cut the events or finding transitions: the time
-  // before which they were read in full, so steps after it may be missing
-  // and the counts taken from the cut rows are unset. Unset when nothing
-  // was cut.
+  // before which they were read in full, so steps after it may be missing,
+  // those after B included. Unset when nothing was cut. Which counts the
+  // cut left unset is in unobserved: none when the read reached past B.
   google.protobuf.Timestamp complete_until = 16;
+
+  // Why each unset count of counts is unset: one entry per unset count,
+  // none for a set one.
+  repeated ReplayUnobserved unobserved = 17;
 }
