@@ -1,6 +1,7 @@
 package fake
 
 import (
+	"sync"
 	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
@@ -74,19 +75,16 @@ type scenario struct {
 	// at its B besides the vanished durables of the streams; nil means
 	// none.
 	gone func(s scen, f *api.ReplayFacts) []api.ReplayGone
-	// leaders are the spans in which a stream, a consumer (by entity key)
-	// or the meta group (key "meta") had another leader than the
-	// scenario's present one: a stream's first peer, a consumer's stream
-	// leader, metaLeader.
-	leaders []leaderSpell
-}
-
-// leaderSpell is a leader of one asset from from to until, times in the
-// fixed frame; a zero from reaches back to the history's start, a zero
-// until up to now.
-type leaderSpell struct {
-	key, server string
-	from, until time.Time
+	// initialLeaders are the leaders, by entity key, that differ at the
+	// start of the history from a stream's first peer and a consumer's
+	// stream leader.
+	initialLeaders map[string]string
+	// model is the leaders' history, built once from the scenario.
+	modelOnce sync.Once
+	model     *leaderModel
+	// ids are the events' IDs by kind and time, counted once.
+	idsOnce sync.Once
+	ids     map[string]string
 }
 
 // systemRef is the scenario's system entity.

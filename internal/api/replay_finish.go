@@ -322,7 +322,8 @@ func transitionKey(t ReplayTransition) string {
 // announcement was not captured only when its announcement window was
 // (proposed, not yet confirmed).
 func (b *replayBuilder) capturedOver(from, to time.Time) bool {
-	return b.f.EventsCaptured && !from.Before(b.f.ReadFrom) && (!b.f.EventsTruncated || to.Before(b.f.EventsReadUntil)) && !b.gapOverlaps(GapCollector, from, to)
+	return b.f.EventsCaptured && !from.Before(b.f.ReadFrom) && (!b.f.EventsTruncated || to.Before(b.f.EventsReadUntil)) && !b.gapOverlaps(GapCollector, from, to) &&
+		!b.gapOverlaps(GapEvents, from, to)
 }
 
 // completeUntil is the earlier of the times the read limit cut the events

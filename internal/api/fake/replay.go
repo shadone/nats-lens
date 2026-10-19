@@ -61,6 +61,15 @@ func (p *Provider) Replay(_ context.Context, req *v1.GetReplayRequest) (*api.Rep
 		}
 	}
 	f.Gaps = s.replayGaps(a, b)
+	// The times the connections that capture events were lost, as the
+	// store reads them from the connection events up to B.
+	var conns []*v1.Event
+	for i := len(all) - 1; i >= 0; i-- {
+		if e := all[i]; e.GetSource() == v1.EventSource_EVENT_SOURCE_COLLECTOR && !e.GetTime().AsTime().After(b) {
+			conns = append(conns, e)
+		}
+	}
+	f.Gaps = append(f.Gaps, api.EventsConnectionGaps(conns)...)
 	f.ClientReconnects = replayReconnects(all, a, b)
 	f.Nodes = replayNodes(all, a, b)
 	return f, nil
@@ -229,7 +238,7 @@ func replayReconnects(evs []*v1.Event, a, b time.Time) int32 {
 // as the store does; an event without a node name marks the counts
 // Unnamed.
 func replayNodes(evs []*v1.Event, a, b time.Time) api.ReplayNodes {
-	drained, upgraded, pools := map[string]bool{}, map[string]bool{}, map[string]bool{}
+	drained, upgraded, pools, labelled := map[string]bool{}, map[string]bool{}, map[string]bool{}, map[string]bool{}
 	unnamed := false
 	for _, e := range evs {
 		if at := e.GetTime().AsTime(); at.Before(a) || at.After(b) {
@@ -251,10 +260,11 @@ func replayNodes(evs []*v1.Event, a, b time.Time) api.ReplayNodes {
 		case "k8s.node.upgrade":
 			upgraded[node] = true
 			if raw.Pool != "" {
-				pools[raw.Pool] = true
+				pools[raw.Pool], labelled[node] = true, true
 			}
 		}
 	}
-	return api.ReplayNodes{Upgraded: int32(len(upgraded)), Drained: int32(len(drained)), Pools: int32(len(pools)), PoolLabels: len(pools) > 0,
-		Unnamed: unnamed}
+	return api.ReplayNodes{Upgraded: int32(len(upgraded)), Drained: int32(len(drained)), Pools: int32(len(pools)),
+		PoolLabels: len(pools) > 0 && len(labelled) == len(upgraded),
+		Unnamed:    unnamed}
 }

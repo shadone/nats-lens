@@ -117,6 +117,10 @@ const (
 	ReplayGapKind_REPLAY_GAP_KIND_COLLECTOR ReplayGapKind = 2
 	// Kubernetes was not watched (a collector.k8s_gap).
 	ReplayGapKind_REPLAY_GAP_KIND_KUBERNETES ReplayGapKind = 3
+	// A connection that captures events had no server or was closed
+	// (collector.not_connected or collector.connection_closed of a
+	// connection other than the collector's): events were not captured.
+	ReplayGapKind_REPLAY_GAP_KIND_EVENTS ReplayGapKind = 4
 )
 
 // Enum value maps for ReplayGapKind.
@@ -126,12 +130,14 @@ var (
 		1: "REPLAY_GAP_KIND_COLLECTIONS",
 		2: "REPLAY_GAP_KIND_COLLECTOR",
 		3: "REPLAY_GAP_KIND_KUBERNETES",
+		4: "REPLAY_GAP_KIND_EVENTS",
 	}
 	ReplayGapKind_value = map[string]int32{
 		"REPLAY_GAP_KIND_UNSPECIFIED": 0,
 		"REPLAY_GAP_KIND_COLLECTIONS": 1,
 		"REPLAY_GAP_KIND_COLLECTOR":   2,
 		"REPLAY_GAP_KIND_KUBERNETES":  3,
+		"REPLAY_GAP_KIND_EVENTS":      4,
 	}
 )
 
@@ -175,8 +181,6 @@ const (
 	ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_NO_COLLECTION_AT_A ReplayUnobservedReason = 2
 	// No collection near B.
 	ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_NO_COLLECTION_AT_B ReplayUnobservedReason = 3
-	// A time without collections between A and B (from and to bound it).
-	ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_COLLECTIONS_GAP ReplayUnobservedReason = 4
 	// No event was stored up to B.
 	ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_EVENTS_NOT_CAPTURED ReplayUnobservedReason = 5
 	// nats-lens was not running between A and B (from and to bound it; to
@@ -186,15 +190,21 @@ const (
 	ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_READ_LIMIT ReplayUnobservedReason = 7
 	// nats-lens does not watch Kubernetes for this system.
 	ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_KUBERNETES_NOT_WATCHED ReplayUnobservedReason = 8
-	// Kubernetes was not watched between A and B (from and to bound it).
+	// Kubernetes was not watched between A and B (from and to bound it; to
+	// unset while it had not ended).
 	ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_KUBERNETES_GAP ReplayUnobservedReason = 9
 	// A node event between A and B names no node, so nodes cannot be told
 	// apart.
 	ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_NODE_UNNAMED ReplayUnobservedReason = 10
-	// No upgraded node carried a node pool label.
+	// An upgraded node carried no node pool label, so the pools cannot be
+	// counted.
 	ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_NO_POOL_LABELS ReplayUnobservedReason = 11
 	// The provider did not read the gone assets.
 	ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_GONE_NOT_READ ReplayUnobservedReason = 12
+	// A connection that captures events had no server or was closed
+	// between A and B (from and to bound it; to unset while it had not
+	// connected again).
+	ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_EVENTS_CONNECTION_LOST ReplayUnobservedReason = 13
 )
 
 // Enum value maps for ReplayUnobservedReason.
@@ -204,7 +214,6 @@ var (
 		1:  "REPLAY_UNOBSERVED_REASON_NO_COLLECTIONS",
 		2:  "REPLAY_UNOBSERVED_REASON_NO_COLLECTION_AT_A",
 		3:  "REPLAY_UNOBSERVED_REASON_NO_COLLECTION_AT_B",
-		4:  "REPLAY_UNOBSERVED_REASON_COLLECTIONS_GAP",
 		5:  "REPLAY_UNOBSERVED_REASON_EVENTS_NOT_CAPTURED",
 		6:  "REPLAY_UNOBSERVED_REASON_COLLECTOR_GAP",
 		7:  "REPLAY_UNOBSERVED_REASON_READ_LIMIT",
@@ -213,13 +222,13 @@ var (
 		10: "REPLAY_UNOBSERVED_REASON_NODE_UNNAMED",
 		11: "REPLAY_UNOBSERVED_REASON_NO_POOL_LABELS",
 		12: "REPLAY_UNOBSERVED_REASON_GONE_NOT_READ",
+		13: "REPLAY_UNOBSERVED_REASON_EVENTS_CONNECTION_LOST",
 	}
 	ReplayUnobservedReason_value = map[string]int32{
 		"REPLAY_UNOBSERVED_REASON_UNSPECIFIED":            0,
 		"REPLAY_UNOBSERVED_REASON_NO_COLLECTIONS":         1,
 		"REPLAY_UNOBSERVED_REASON_NO_COLLECTION_AT_A":     2,
 		"REPLAY_UNOBSERVED_REASON_NO_COLLECTION_AT_B":     3,
-		"REPLAY_UNOBSERVED_REASON_COLLECTIONS_GAP":        4,
 		"REPLAY_UNOBSERVED_REASON_EVENTS_NOT_CAPTURED":    5,
 		"REPLAY_UNOBSERVED_REASON_COLLECTOR_GAP":          6,
 		"REPLAY_UNOBSERVED_REASON_READ_LIMIT":             7,
@@ -228,6 +237,7 @@ var (
 		"REPLAY_UNOBSERVED_REASON_NODE_UNNAMED":           10,
 		"REPLAY_UNOBSERVED_REASON_NO_POOL_LABELS":         11,
 		"REPLAY_UNOBSERVED_REASON_GONE_NOT_READ":          12,
+		"REPLAY_UNOBSERVED_REASON_EVENTS_CONNECTION_LOST": 13,
 	}
 )
 
@@ -385,10 +395,24 @@ type ReplayUnobserved struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The ReplayCounts field's name, for example "leaders_moved".
 	Count string `protobuf:"bytes,1,opt,name=count,proto3" json:"count,omitempty"`
-	// The first of the causes that applies, in the order FinishReplay
-	// checks them.
+	// The first of the causes that applies, in this order per count:
+	//  - servers_restarted: NO_COLLECTIONS.
+	//  - servers_stopped: NO_COLLECTIONS, NO_COLLECTION_AT_B.
+	//  - findings_raised: NO_COLLECTIONS, READ_LIMIT.
+	//  - the four gone counts: NO_COLLECTION_AT_A, NO_COLLECTION_AT_B,
+	//    GONE_NOT_READ.
+	//  - leaders_moved, leader_elections, meta_leader_changes,
+	//    quorum_lost_reports: EVENTS_NOT_CAPTURED, COLLECTOR_GAP,
+	//    EVENTS_CONNECTION_LOST, READ_LIMIT.
+	//  - client_reconnects: EVENTS_NOT_CAPTURED, COLLECTOR_GAP,
+	//    EVENTS_CONNECTION_LOST.
+	//  - nodes_upgraded, nodes_drained: KUBERNETES_NOT_WATCHED,
+	//    COLLECTOR_GAP, KUBERNETES_GAP, NODE_UNNAMED.
+	//  - node_pools_upgraded: those of the nodes, then NO_POOL_LABELS.
 	Reason ReplayUnobservedReason `protobuf:"varint,2,opt,name=reason,proto3,enum=natslens.v1.ReplayUnobservedReason" json:"reason,omitempty"`
-	// The gap or cut behind it, when there is one.
+	// The span behind the cause, when there is one: of a gap, the earliest
+	// that overlaps A to B, from its start to its end (to unset while it
+	// had not ended); of READ_LIMIT, from is where the read ended.
 	From          *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=from,proto3" json:"from,omitempty"`
 	To            *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=to,proto3" json:"to,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1314,18 +1338,18 @@ const file_natslens_v1_replay_proto_rawDesc = "" +
 	"\x15REPLAY_STEP_KIND_GONE\x10\x05\x12\x1c\n" +
 	"\x18REPLAY_STEP_KIND_FINDING\x10\x06\x12\x1d\n" +
 	"\x19REPLAY_STEP_KIND_RESOLVED\x10\a\x12\x18\n" +
-	"\x14REPLAY_STEP_KIND_GAP\x10\b*\x90\x01\n" +
+	"\x14REPLAY_STEP_KIND_GAP\x10\b*\xac\x01\n" +
 	"\rReplayGapKind\x12\x1f\n" +
 	"\x1bREPLAY_GAP_KIND_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bREPLAY_GAP_KIND_COLLECTIONS\x10\x01\x12\x1d\n" +
 	"\x19REPLAY_GAP_KIND_COLLECTOR\x10\x02\x12\x1e\n" +
-	"\x1aREPLAY_GAP_KIND_KUBERNETES\x10\x03*\xec\x04\n" +
+	"\x1aREPLAY_GAP_KIND_KUBERNETES\x10\x03\x12\x1a\n" +
+	"\x16REPLAY_GAP_KIND_EVENTS\x10\x04*\xf9\x04\n" +
 	"\x16ReplayUnobservedReason\x12(\n" +
 	"$REPLAY_UNOBSERVED_REASON_UNSPECIFIED\x10\x00\x12+\n" +
 	"'REPLAY_UNOBSERVED_REASON_NO_COLLECTIONS\x10\x01\x12/\n" +
 	"+REPLAY_UNOBSERVED_REASON_NO_COLLECTION_AT_A\x10\x02\x12/\n" +
-	"+REPLAY_UNOBSERVED_REASON_NO_COLLECTION_AT_B\x10\x03\x12,\n" +
-	"(REPLAY_UNOBSERVED_REASON_COLLECTIONS_GAP\x10\x04\x120\n" +
+	"+REPLAY_UNOBSERVED_REASON_NO_COLLECTION_AT_B\x10\x03\x120\n" +
 	",REPLAY_UNOBSERVED_REASON_EVENTS_NOT_CAPTURED\x10\x05\x12*\n" +
 	"&REPLAY_UNOBSERVED_REASON_COLLECTOR_GAP\x10\x06\x12'\n" +
 	"#REPLAY_UNOBSERVED_REASON_READ_LIMIT\x10\a\x123\n" +
@@ -1334,7 +1358,8 @@ const file_natslens_v1_replay_proto_rawDesc = "" +
 	"%REPLAY_UNOBSERVED_REASON_NODE_UNNAMED\x10\n" +
 	"\x12+\n" +
 	"'REPLAY_UNOBSERVED_REASON_NO_POOL_LABELS\x10\v\x12*\n" +
-	"&REPLAY_UNOBSERVED_REASON_GONE_NOT_READ\x10\f*\xa1\x01\n" +
+	"&REPLAY_UNOBSERVED_REASON_GONE_NOT_READ\x10\f\x123\n" +
+	"/REPLAY_UNOBSERVED_REASON_EVENTS_CONNECTION_LOST\x10\r\"\x04\b\x04\x10\x04*\xa1\x01\n" +
 	"\x12ReplayEvidenceKind\x12$\n" +
 	" REPLAY_EVIDENCE_KIND_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aREPLAY_EVIDENCE_KIND_EVENT\x10\x01\x12 \n" +

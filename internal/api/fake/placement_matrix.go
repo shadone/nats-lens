@@ -33,8 +33,7 @@ func (p *Provider) GetPlacement(_ context.Context, req *v1.GetPlacementRequest) 
 		}
 		key := streamRef(sp.name).GetKey()
 		leader := s.streamLeaderAt(sp, at)
-		s.fillAsset(a, sp, s.placementLed(sp, at, false, leader), views,
-			s.leaderSince([]string{key}, s.sc.peers(sp), leader, at, func(t time.Time) string { return s.streamLeaderAt(sp, t) }))
+		s.fillAsset(a, sp, s.placementLed(sp, at, false, leader), views, s.leaderSince(key, at))
 		for _, n := range s.consumersAt(sp, at) {
 			c := s.consumerSummary(sp, n, cur, true, at)
 			ca := &v1.PlacementAsset{Entity: c.GetEntity(), Replicas: c.Replicas, ServersDisagree: c.GetServersDisagree(), Durable: true}
@@ -45,8 +44,7 @@ func (p *Provider) GetPlacement(_ context.Context, req *v1.GetPlacementRequest) 
 					DeliveredStreamSeq: v.DeliveredStreamSeq, AckFloorStreamSeq: v.AckFloorStreamSeq}
 			}
 			cl := s.consumerLeaderAt(sp, n, at)
-			s.fillAsset(ca, sp, s.placementLed(sp, at, true, cl), views, s.leaderSince([]string{key, c.GetEntity().GetKey()}, s.sc.peers(sp), cl, at,
-				func(t time.Time) string { return s.consumerLeaderAt(sp, n, t) }))
+			s.fillAsset(ca, sp, s.placementLed(sp, at, true, cl), views, s.leaderSince(c.GetEntity().GetKey(), at))
 			a.Consumers = append(a.Consumers, ca)
 		}
 		res.Streams = append(res.Streams, a)

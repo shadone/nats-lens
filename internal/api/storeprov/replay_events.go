@@ -3,11 +3,14 @@ package storeprov
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
+	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
 // replayEvents reads the events Replay tells, from ReplayReadFrom to
@@ -159,7 +162,40 @@ WHERE e.kind IN ('collector.gap', 'collector.k8s_gap') AND e.time <= ? AND e.rec
 		}
 		f.Gaps = append(f.Gaps, g)
 	}
-	return evs.Err()
+	if err := evs.Err(); err != nil {
+		return err
+	}
+	return p.eventsConnectionGaps(ctx, f)
+}
+
+// eventsConnectionGaps reads the times the connections that capture
+// events had no server or were closed, up to B: the newest connection
+// events, at most 5000.
+func (p *Provider) eventsConnectionGaps(ctx context.Context, f *api.ReplayFacts) error {
+	rows, err := p.db().QueryContext(ctx, `SELECT `+eventCols+`, coalesce(json_extract_string(e.raw, '$.connection'), '') FROM events e
+WHERE e.kind IN ('collector.not_connected', 'collector.connection_closed', 'collector.reconnected') AND e.time <= ?
+ORDER BY e.time DESC, e.id DESC LIMIT 5000`, f.B)
+	if err != nil {
+		return fmt.Errorf("replay events connections: %w", err)
+	}
+	defer rows.Close()
+	var evs []*v1.Event
+	for rows.Next() {
+		var conn string
+		ev, err := scanEvent(rows, &conn)
+		if err != nil {
+			return err
+		}
+		raw, _ := json.Marshal(map[string]string{"connection": conn})
+		ev.Raw = string(raw)
+		evs = append(evs, ev)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	slices.Reverse(evs)
+	f.Gaps = append(f.Gaps, api.EventsConnectionGaps(evs)...)
+	return nil
 }
 
 // collectionGaps finds the gaps longer than reach between the epochs (in
@@ -225,10 +261,14 @@ SELECT sum(least(d.n, c.n)) FROM drops d JOIN connects c ON c.client_name IS NOT
 	return nil
 }
 
-// nodeOfEvent is the node a Kubernetes event names: its node, else the
-// Node its Event is about, as Events of a node stored before the watcher
-// named the node at the top of the payload give it.
-const nodeOfEvent = `coalesce(raw->>'node', CASE WHEN raw->'object'->>'kind' = 'Node' THEN raw->'object'->>'name' END)`
+// nodeOfEvent is the node a Kubernetes event names, its raw column read
+// as raw (a table alias and a dot, or nothing): its node, else the Node
+// its Event is about, as Events of a node stored before the watcher named
+// the node at the top of the payload give it.
+func nodeOfEvent(alias string) string {
+	raw := alias + "raw"
+	return `coalesce(` + raw + `->>'node', CASE WHEN ` + raw + `->'object'->>'kind' = 'Node' THEN ` + raw + `->'object'->>'name' END)`
+}
 
 // replayNodes counts the nodes upgraded and drained between A and B and
 // the node pools of the upgraded ones.
@@ -236,20 +276,24 @@ func (p *Provider) replayNodes(ctx context.Context, f *api.ReplayFacts, _ map[st
 	if !p.Kubernetes {
 		return nil
 	}
+	var labelled int32
 	err := p.db().QueryRowContext(ctx, `
 WITH n AS (
-    SELECT kind, coalesce(`+nodeOfEvent+`, '') AS node, coalesce(raw->>'pool', '') AS pool
+    SELECT kind, coalesce(`+nodeOfEvent("")+`, '') AS node, coalesce(raw->>'pool', '') AS pool
     FROM events WHERE source = 'k8s' AND kind IN ('k8s.node.upgrade', 'k8s.node.drained') AND time >= ? AND time <= ?
 )
 SELECT count(DISTINCT node) FILTER (WHERE kind = 'k8s.node.upgrade' AND node <> ''),
     count(DISTINCT node) FILTER (WHERE kind = 'k8s.node.drained' AND node <> ''),
     count(DISTINCT pool) FILTER (WHERE kind = 'k8s.node.upgrade' AND pool <> ''),
-    count(*) FILTER (WHERE node = '') > 0
+    count(*) FILTER (WHERE node = '') > 0,
+    count(DISTINCT node) FILTER (WHERE kind = 'k8s.node.upgrade' AND node <> '' AND pool <> '')
 FROM n`,
-		f.A, f.B).Scan(&f.Nodes.Upgraded, &f.Nodes.Drained, &f.Nodes.Pools, &f.Nodes.Unnamed)
+		f.A, f.B).Scan(&f.Nodes.Upgraded, &f.Nodes.Drained, &f.Nodes.Pools, &f.Nodes.Unnamed, &labelled)
 	if err != nil {
 		return fmt.Errorf("replay nodes: %w", err)
 	}
-	f.Nodes.PoolLabels = f.Nodes.Pools > 0
+	// Every upgraded node's pool is known: a node Event stored before the
+	// watcher named the pool counts as a node without one.
+	f.Nodes.PoolLabels = f.Nodes.Pools > 0 && labelled == f.Nodes.Upgraded
 	return nil
 }

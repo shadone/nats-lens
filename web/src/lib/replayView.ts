@@ -176,8 +176,6 @@ export function unobservedText(u: Unobserved, fmt: (t: number) => string): strin
       return "no collection at A";
     case "no_collection_at_b":
       return "no collection at B";
-    case "collections_gap":
-      return `no collections${at(span(u, fmt))}`;
     case "events_not_captured":
       return "no event was stored up to B";
     case "collector_gap":
@@ -192,6 +190,8 @@ export function unobservedText(u: Unobserved, fmt: (t: number) => string): strin
       return "a node event names no node";
     case "no_pool_labels":
       return "no upgraded node carried a node pool label";
+    case "events_connection_lost":
+      return `events were not captured, as an events connection was lost${at(span(u, fmt))}`;
     case "gone_not_read":
       return "the gone assets were not read";
     default:

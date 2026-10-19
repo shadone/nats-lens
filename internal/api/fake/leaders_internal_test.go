@@ -1,9 +1,12 @@
 package fake
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
 // Every election in the demo's events is won by a server that answered
@@ -38,6 +41,99 @@ func TestElectionsWonByAnsweringServers(t *testing.T) {
 			if drawn != e.GetServer() {
 				t.Errorf("%s: %s %s/%s at %s won by %s, drawn as led by %q", sys.Ref.GetId(), e.GetKind(), e.GetStream(), e.GetConsumer(),
 					at.Format("15:04:05"), e.GetServer(), drawn)
+			}
+		}
+	}
+}
+
+// assetKeys are the keys of every stream and durable the model follows,
+// and "meta".
+func assetKeys(s scen) []string {
+	out := []string{"meta"}
+	for k := range s.sc.leaders().segs {
+		if k != "meta" {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+// Every change of the leader drawn in one collection after another is an
+// election event of that asset naming the new leader, as the store reads
+// leaders from what the servers report.
+func TestEveryLeaderChangeIsAnElection(t *testing.T) {
+	for _, sys := range Demo(false) {
+		p := sys.Provider.(*Provider)
+		s := p.scen()
+		elected := map[string][]*v1.Event{}
+		for _, e := range p.events(s) {
+			if !strings.HasSuffix(e.GetKind(), "leader_elected") {
+				continue
+			}
+			k := "meta"
+			if e.GetKind() == "stream.leader_elected" {
+				k = streamRef(e.GetStream()).GetKey()
+			} else if e.GetKind() == "consumer.leader_elected" {
+				k = consumerRef(e.GetStream(), e.GetConsumer()).GetKey()
+			}
+			elected[k] = append(elected[k], e)
+		}
+		for _, k := range assetKeys(s) {
+			prev := s.leaderAt(k, "", s.at(6, 0, 0))
+			for at := s.at(6, 0, 30); at.Before(s.now); at = at.Add(sampleEvery) {
+				cur := s.leaderAt(k, "", at)
+				if cur != prev && cur != "" && !slices.ContainsFunc(elected[k], func(e *v1.Event) bool {
+					t := e.GetTime().AsTime()
+					return e.GetServer() == cur && t.After(at.Add(-sampleEvery)) && !t.After(at)
+				}) {
+					t.Errorf("%s: %s led by %q at %s, by %q before, without an election", sys.Ref.GetId(), k, cur, at.Format("15:04:05"), prev)
+				}
+				prev = cur
+			}
+		}
+	}
+}
+
+// A leader's since is when it took the lead: it led from then on, and
+// another server or none led the second before, unless it is the start
+// of its process.
+func TestLeaderSinceIsWhenTheLeadBegan(t *testing.T) {
+	for _, sys := range Demo(false) {
+		p := sys.Provider.(*Provider)
+		s := p.scen()
+		for _, at := range []time.Time{s.at(8, 50, 0), s.at(9, 5, 30), s.at(9, 16, 30), s.at(9, 20, 0), s.at(9, 30, 0), s.at(14, 0, 0)} {
+			for _, k := range assetKeys(s) {
+				l := s.leaderAt(k, "", at)
+				if l == "" || k == "meta" {
+					continue
+				}
+				since := s.leaderSince(k, at)
+				sv, _ := s.sc.server(l)
+				start := s.started(sv)
+				if s.leaderAt(k, "", since) != l || (s.leaderAt(k, "", since.Add(-time.Second)) == l && !since.Equal(start) && start.Before(at)) {
+					t.Errorf("%s: %s at %s led by %s since %s", sys.Ref.GetId(), k, at.Format("15:04:05"), l, since.Format("01-02 15:04:05"))
+				}
+			}
+		}
+	}
+}
+
+// A durable that went is elected nowhere after it went, and leads nothing.
+func TestNoElectionOfAGoneDurable(t *testing.T) {
+	for _, sys := range Demo(false) {
+		p := sys.Provider.(*Provider)
+		s := p.scen()
+		for _, sp := range s.sc.streams {
+			for _, v := range sp.vanished {
+				at := v.at.Add(s.shift)
+				for _, e := range p.events(s) {
+					if e.GetKind() == "consumer.leader_elected" && e.GetStream() == sp.name && e.GetConsumer() == v.name && !e.GetTime().AsTime().Before(at) {
+						t.Errorf("%s: %s elected at %s, after it went", sys.Ref.GetId(), v.name, e.GetTime().AsTime().Format("15:04:05"))
+					}
+				}
+				if l := s.consumerLeaderAt(sp, v.name, at.Add(time.Minute)); l != "" {
+					t.Errorf("%s: %s led by %s after it went", sys.Ref.GetId(), v.name, l)
+				}
 			}
 		}
 	}
