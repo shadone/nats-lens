@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 
@@ -168,86 +169,148 @@ func stepID(s *v1.ReplayStep, ids map[string]int) string {
 	return id
 }
 
-// counts are the response's numbers; a count stays unset when what it
-// counts was not observed. A read cut by the limit after B read every row
-// of A to B, so the counts taken from those rows stay set (proposed, not
-// yet confirmed).
-func (b *replayBuilder) counts() *v1.ReplayCounts {
+// why is a cause of a count staying unset; nil when there is none.
+type why struct {
+	reason   v1.ReplayUnobservedReason
+	from, to time.Time
+}
+
+// first is the first cause that applies.
+func first(ws ...*why) *why {
+	for _, w := range ws {
+		if w != nil {
+			return w
+		}
+	}
+	return nil
+}
+
+// cause is a cause without a span when cond holds.
+func cause(cond bool, r v1.ReplayUnobservedReason) *why {
+	if !cond {
+		return nil
+	}
+	return &why{reason: r}
+}
+
+// gapCause is the first gap of the kind that overlaps A to B, by the rule
+// of gapOverlaps, as a cause.
+func (b *replayBuilder) gapCause(kind string, r v1.ReplayUnobservedReason) *why {
+	for _, g := range b.f.Gaps {
+		if g.Kind == kind && !g.Start.After(b.f.B) && (g.End.IsZero() || g.End.After(b.f.A)) {
+			return &why{reason: r, from: g.Start, to: g.End}
+		}
+	}
+	return nil
+}
+
+// cutCause is the read limit as a cause when it cut the rows at or
+// before B: a read that reached past B read every row of A to B
+// (proposed, not yet confirmed).
+func (b *replayBuilder) cutCause(cut bool, until time.Time) *why {
+	if !cut || until.After(b.f.B) {
+		return nil
+	}
+	return &why{reason: v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_READ_LIMIT, from: until}
+}
+
+// counts are the response's numbers and why each unset one is unset: a
+// count stays unset when what it counts was not observed, and then has
+// one entry naming the first cause that applies, in the order checked
+// here (proposed, not yet confirmed).
+func (b *replayBuilder) counts() (*v1.ReplayCounts, []*v1.ReplayUnobserved) {
 	f, c := b.f, &v1.ReplayCounts{}
-	n := func(v int) *int32 { x := int32(v); return &x }
-	if f.Collected {
-		c.ServersRestarted = n(len(f.Restarts))
-		// A stop needs the collection at B to be told.
-		if f.EpochB != 0 {
-			c.ServersStopped = n(len(f.Stops))
+	var unobserved []*v1.ReplayUnobserved
+	// set sets a count, or records why it stays unset.
+	set := func(name string, dst **int32, v int, w *why) {
+		if w == nil {
+			x := int32(v)
+			*dst = &x
+			return
 		}
-		raised := map[string]bool{}
-		for _, t := range f.Transitions {
-			if t.State == v1.FindingState_FINDING_STATE_FIRING && t.Severity >= v1.Severity_SEVERITY_WARNING && b.inRange(t.Time) {
-				raised[t.FindingID] = true
-			}
-		}
-		if !f.TransitionsTruncated || f.TransitionsReadUntil.After(f.B) {
-			c.FindingsRaised = n(len(raised))
+		unobserved = append(unobserved, &v1.ReplayUnobserved{Count: name, Reason: w.reason, From: tsOrNil(w.from), To: tsOrNil(w.to)})
+	}
+	R := func(r v1.ReplayUnobservedReason) v1.ReplayUnobservedReason { return r }
+	noCollections := cause(!f.Collected, R(v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_NO_COLLECTIONS))
+	noA := cause(f.EpochA == 0, R(v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_NO_COLLECTION_AT_A))
+	noB := cause(f.EpochB == 0, R(v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_NO_COLLECTION_AT_B))
+
+	set("servers_restarted", &c.ServersRestarted, len(f.Restarts), noCollections)
+	// A stop needs the collection at B to be told.
+	set("servers_stopped", &c.ServersStopped, len(f.Stops), first(noCollections, noB))
+	raised := map[string]bool{}
+	for _, t := range f.Transitions {
+		if t.State == v1.FindingState_FINDING_STATE_FIRING && t.Severity >= v1.Severity_SEVERITY_WARNING && b.inRange(t.Time) {
+			raised[t.FindingID] = true
 		}
 	}
-	if f.GoneRead && f.EpochA != 0 && f.EpochB != 0 {
-		streams, consumers, deleted, unknown := 0, 0, 0, 0
-		for _, g := range f.Gone {
-			switch goneClass(g) {
-			case goneDeleted:
-				deleted++
-			case goneUnknown:
-				unknown++
-			default:
-				if g.Entity.GetType() == v1.EntityType_ENTITY_TYPE_STREAM {
-					streams++
-				} else {
-					consumers++
-				}
+	set("findings_raised", &c.FindingsRaised, len(raised), first(noCollections, b.cutCause(f.TransitionsTruncated, f.TransitionsReadUntil)))
+
+	streams, consumers, deleted, unknown := 0, 0, 0, 0
+	for _, g := range f.Gone {
+		switch goneClass(g) {
+		case goneDeleted:
+			deleted++
+		case goneUnknown:
+			unknown++
+		default:
+			if g.Entity.GetType() == v1.EntityType_ENTITY_TYPE_STREAM {
+				streams++
+			} else {
+				consumers++
 			}
 		}
-		c.StreamsGoneWithoutDelete, c.ConsumersGoneWithoutDelete, c.AssetsGoneWithDelete, c.AssetsUnknownAtB =
-			n(streams), n(consumers), n(deleted), n(unknown)
 	}
+	gone := first(noA, noB, cause(!f.GoneRead, R(v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_GONE_NOT_READ)))
+	set("streams_gone_without_delete", &c.StreamsGoneWithoutDelete, streams, gone)
+	set("consumers_gone_without_delete", &c.ConsumersGoneWithoutDelete, consumers, gone)
+	set("assets_gone_with_delete", &c.AssetsGoneWithDelete, deleted, gone)
+	set("assets_unknown_at_b", &c.AssetsUnknownAtB, unknown, gone)
+
 	// Event capture over A to B, and collections at A, at B and between
 	// (without them nothing shows that the events were captured; proposed,
-	// not yet confirmed); the counts from the event rows also need
-	// the read limit not to have cut them, the reconnects (read by a query
+	// not yet confirmed); the counts from the event rows also need the read
+	// limit not to have cut them before B, the reconnects (read by a query
 	// of their own) do not.
-	if f.EventsCaptured && f.EpochA != 0 && f.EpochB != 0 && !b.gapOverlaps(GapCollector, f.A, f.B) && !b.gapOverlaps(GapCollections, f.A, f.B) {
-		moved, _, elections := b.elections()
-		m := 0
-		for _, v := range moved {
-			if v {
-				m++
-			}
-		}
-		meta := 0
-		for id, prev := range b.metaElections() {
-			if i := slices.IndexFunc(f.Events, func(e *v1.Event) bool { return e.GetId() == id }); i >= 0 &&
-				prev != "" && prev != f.Events[i].GetServer() {
-				meta++
-			}
-		}
-		quorum := 0
-		for _, e := range f.Events {
-			if (e.GetKind() == "stream.quorum_lost" || e.GetKind() == "consumer.quorum_lost") && b.inRange(e.GetTime().AsTime()) {
-				quorum++
-			}
-		}
-		if !f.EventsTruncated || f.EventsReadUntil.After(f.B) {
-			c.LeadersMoved, c.LeaderElections, c.MetaLeaderChanges, c.QuorumLostReports = n(m), n(elections), n(meta), n(quorum)
-		}
-		c.ClientReconnects = n(int(f.ClientReconnects))
-	}
-	if b.kubernetesWhole() {
-		if !f.Nodes.Unnamed {
-			c.NodesUpgraded, c.NodesDrained = n(int(f.Nodes.Upgraded)), n(int(f.Nodes.Drained))
-		}
-		if f.Nodes.PoolLabels && !f.Nodes.Unnamed {
-			c.NodePoolsUpgraded = n(int(f.Nodes.Pools))
+	events := first(cause(!f.EventsCaptured, R(v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_EVENTS_NOT_CAPTURED)), noA, noB,
+		b.gapCause(GapCollector, v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_COLLECTOR_GAP),
+		b.gapCause(GapCollections, v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_COLLECTIONS_GAP))
+	rows := first(events, b.cutCause(f.EventsTruncated, f.EventsReadUntil))
+	moved, _, elections := b.elections()
+	m := 0
+	for _, v := range moved {
+		if v {
+			m++
 		}
 	}
-	return c
+	meta := 0
+	for id, prev := range b.metaElections() {
+		if i := slices.IndexFunc(f.Events, func(e *v1.Event) bool { return e.GetId() == id }); i >= 0 &&
+			prev != "" && prev != f.Events[i].GetServer() {
+			meta++
+		}
+	}
+	quorum := 0
+	for _, e := range f.Events {
+		if (e.GetKind() == "stream.quorum_lost" || e.GetKind() == "consumer.quorum_lost") && b.inRange(e.GetTime().AsTime()) {
+			quorum++
+		}
+	}
+	set("leaders_moved", &c.LeadersMoved, m, rows)
+	set("leader_elections", &c.LeaderElections, elections, rows)
+	set("meta_leader_changes", &c.MetaLeaderChanges, meta, rows)
+	set("quorum_lost_reports", &c.QuorumLostReports, quorum, rows)
+	set("client_reconnects", &c.ClientReconnects, int(f.ClientReconnects), events)
+
+	// The node counts need Kubernetes watched over all of A to B, and
+	// every node event to name its node; the pool count a pool label.
+	nodes := first(cause(!f.Kubernetes, R(v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_KUBERNETES_NOT_WATCHED)),
+		b.gapCause(GapCollector, v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_COLLECTOR_GAP),
+		b.gapCause(GapKubernetes, v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_KUBERNETES_GAP),
+		cause(f.Nodes.Unnamed, R(v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_NODE_UNNAMED)))
+	set("nodes_upgraded", &c.NodesUpgraded, int(f.Nodes.Upgraded), nodes)
+	set("nodes_drained", &c.NodesDrained, int(f.Nodes.Drained), nodes)
+	set("node_pools_upgraded", &c.NodePoolsUpgraded, int(f.Nodes.Pools),
+		first(nodes, cause(!f.Nodes.PoolLabels, R(v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_NO_POOL_LABELS))))
+	return c, unobserved
 }
