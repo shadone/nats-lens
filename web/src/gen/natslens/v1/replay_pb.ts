@@ -236,14 +236,16 @@ export type ReplayCounts = Message<"natslens.v1.ReplayCounts"> & {
   serversStopped?: number | undefined;
 
   /**
-   * Streams in the gone list without a delete event.
+   * Streams in the gone list without a delete event whose holders at A
+   * all answered JSZ at B.
    *
    * @generated from field: optional int32 streams_gone_without_delete = 3;
    */
   streamsGoneWithoutDelete?: number | undefined;
 
   /**
-   * Durable consumers in the gone list without a delete event.
+   * Durable consumers in the gone list without a delete event whose
+   * holders at A all answered JSZ at B.
    *
    * @generated from field: optional int32 consumers_gone_without_delete = 4;
    */
@@ -257,7 +259,8 @@ export type ReplayCounts = Message<"natslens.v1.ReplayCounts"> & {
   assetsGoneWithDelete?: number | undefined;
 
   /**
-   * Assets in the gone list with a holder that did not answer JSZ at B.
+   * Assets in the gone list without a delete event and with a holder at
+   * A that did not answer JSZ at B, so they may still exist.
    *
    * @generated from field: optional int32 assets_unknown_at_b = 6;
    */

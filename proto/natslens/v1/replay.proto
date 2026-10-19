@@ -133,16 +133,19 @@ message ReplayCounts {
   // Servers that stopped answering and were not back by B.
   optional int32 servers_stopped = 2;
 
-  // Streams in the gone list without a delete event.
+  // Streams in the gone list without a delete event whose holders at A
+  // all answered JSZ at B.
   optional int32 streams_gone_without_delete = 3;
 
-  // Durable consumers in the gone list without a delete event.
+  // Durable consumers in the gone list without a delete event whose
+  // holders at A all answered JSZ at B.
   optional int32 consumers_gone_without_delete = 4;
 
   // Streams and durable consumers in the gone list with a delete event.
   optional int32 assets_gone_with_delete = 5;
 
-  // Assets in the gone list with a holder that did not answer JSZ at B.
+  // Assets in the gone list without a delete event and with a holder at
+  // A that did not answer JSZ at B, so they may still exist.
   optional int32 assets_unknown_at_b = 6;
 
   // Stream and consumer leader elections that moved the lead to another
