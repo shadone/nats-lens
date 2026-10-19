@@ -10,6 +10,7 @@ import { event, finding, findingStateEnum, mute, timeline, transition } from "./
 import { lensInfo } from "./adapt-info";
 import { shellStatus } from "./adapt-shell";
 import { FILTER_ENUM, matrix, type MatrixFilter } from "./placementMatrix";
+import { replay, type Replay } from "./adapt-replay";
 import { lens } from "./client";
 import type {
   ConnectionPage,
@@ -119,10 +120,11 @@ export async function unmuteFinding(sys: string, muteId: string, unmutedBy: stri
   return mute(r.mute);
 }
 
-export async function getTimeline(sys: string, spec: RangeSpec, entity: Entity | undefined, signal?: AbortSignal) {
+/** The status timeline; includeOk adds the checks that were OK in every bucket. */
+export async function getTimeline(sys: string, spec: RangeSpec, entity: Entity | undefined, signal?: AbortSignal, includeOk = false) {
   const { start, end } = resolveRange(spec, Date.now());
   const r = await lens.getStatusTimeline(
-    { ...systemInit(sys), range: rangeInit(spec), bucket: durationFromMs(bucketFor(end - start)), entity: entityInit(entity) },
+    { ...systemInit(sys), range: rangeInit(spec), bucket: durationFromMs(bucketFor(end - start)), entity: entityInit(entity), includeOk },
     { signal },
   );
   return timeline(r);
@@ -192,6 +194,11 @@ export async function getConsumer(sys: string, spec: RangeSpec, account: string,
   return consumerDetail(
     await lens.getConsumer({ ...systemInit(sys), account, stream: streamName, consumer: name, range: rangeInit(spec) }, { signal }),
   );
+}
+
+/** The story between moments a and b; the view model records what was asked. */
+export async function getReplay(sys: string, a: number, b: number, signal?: AbortSignal): Promise<Replay> {
+  return replay(await lens.getReplay({ ...systemInit(sys), a: timestampFromMs(a), b: timestampFromMs(b) }, { signal }), { system: sys, a, b });
 }
 
 export async function getPlacement(sys: string, spec: RangeSpec, filter: MatrixFilter, signal?: AbortSignal) {
