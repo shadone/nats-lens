@@ -714,3 +714,13 @@ func TestReplayNamesNoTimeAfterB(t *testing.T) {
 		t.Errorf("finding IDs = %v", ids)
 	}
 }
+
+// A node event that names no node leaves the node and pool counts unset.
+func TestReplayUnnamedNodeUnsetsNodeCounts(t *testing.T) {
+	f := facts()
+	f.Kubernetes = true
+	f.Nodes = api.ReplayNodes{Upgraded: 2, Drained: 1, Pools: 1, PoolLabels: true, Unnamed: true}
+	if c := api.FinishReplay(f).GetCounts(); c.NodesUpgraded != nil || c.NodesDrained != nil || c.NodePoolsUpgraded != nil {
+		t.Errorf("counts = %v", c)
+	}
+}
