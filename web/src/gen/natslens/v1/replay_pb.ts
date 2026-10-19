@@ -16,7 +16,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/replay.proto.
  */
 export const file_natslens_v1_replay: GenFile = /*@__PURE__*/
-  fileDesc("ChhuYXRzbGVucy92MS9yZXBsYXkucHJvdG8SC25hdHNsZW5zLnYxInAKEEdldFJlcGxheVJlcXVlc3QSDgoGc3lzdGVtGAEgASgJEiUKAWEYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiUKAWIYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIqwBCg5SZXBsYXlFdmlkZW5jZRItCgRraW5kGAEgASgOMh8ubmF0c2xlbnMudjEuUmVwbGF5RXZpZGVuY2VLaW5kEgoKAmlkGAIgASgJEigKBHRpbWUYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg0KBWxhYmVsGAQgASgJEiYKBmVudGl0eRgFIAEoCzIWLm5hdHNsZW5zLnYxLkVudGl0eVJlZiK7AwoKUmVwbGF5U3RlcBIKCgJpZBgBIAEoCRIoCgR0aW1lGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBInCgNlbmQYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhEKCW9wZW5fYXRfYhgEIAEoCBIpCgRraW5kGAUgASgOMhsubmF0c2xlbnMudjEuUmVwbGF5U3RlcEtpbmQSJwoIc2V2ZXJpdHkYBiABKA4yFS5uYXRzbGVucy52MS5TZXZlcml0eRINCgV0aXRsZRgHIAEoCRIMCgRib2R5GAggASgJEigKCGVudGl0aWVzGAkgAygLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEhQKDGVudGl0eV9jb3VudBgKIAEoBRItCghldmlkZW5jZRgLIAMoCzIbLm5hdHNsZW5zLnYxLlJlcGxheUV2aWRlbmNlEhYKDmV2aWRlbmNlX2NvdW50GAwgASgFEhUKDW91dHNpZGVfcmFuZ2UYDSABKAgSLAoIZ2FwX2tpbmQYDiABKA4yGi5uYXRzbGVucy52MS5SZXBsYXlHYXBLaW5kIuAGCgxSZXBsYXlDb3VudHMSHgoRc2VydmVyc19yZXN0YXJ0ZWQYASABKAVIAIgBARIcCg9zZXJ2ZXJzX3N0b3BwZWQYAiABKAVIAYgBARIoChtzdHJlYW1zX2dvbmVfd2l0aG91dF9kZWxldGUYAyABKAVIAogBARIqCh1jb25zdW1lcnNfZ29uZV93aXRob3V0X2RlbGV0ZRgEIAEoBUgDiAEBEiQKF2Fzc2V0c19nb25lX3dpdGhfZGVsZXRlGAUgASgFSASIAQESIAoTYXNzZXRzX3Vua25vd25fYXRfYhgGIAEoBUgFiAEBEhoKDWxlYWRlcnNfbW92ZWQYByABKAVIBogBARIdChBsZWFkZXJfZWxlY3Rpb25zGAggASgFSAeIAQESIAoTbWV0YV9sZWFkZXJfY2hhbmdlcxgJIAEoBUgIiAEBEiAKE3F1b3J1bV9sb3N0X3JlcG9ydHMYCiABKAVICYgBARIgChNub2RlX3Bvb2xzX3VwZ3JhZGVkGAsgASgFSAqIAQESGwoObm9kZXNfdXBncmFkZWQYDCABKAVIC4gBARIaCg1ub2Rlc19kcmFpbmVkGA0gASgFSAyIAQESHgoRY2xpZW50X3JlY29ubmVjdHMYDiABKAVIDYgBARIcCg9maW5kaW5nc19yYWlzZWQYDyABKAVIDogBAUIUChJfc2VydmVyc19yZXN0YXJ0ZWRCEgoQX3NlcnZlcnNfc3RvcHBlZEIeChxfc3RyZWFtc19nb25lX3dpdGhvdXRfZGVsZXRlQiAKHl9jb25zdW1lcnNfZ29uZV93aXRob3V0X2RlbGV0ZUIaChhfYXNzZXRzX2dvbmVfd2l0aF9kZWxldGVCFgoUX2Fzc2V0c191bmtub3duX2F0X2JCEAoOX2xlYWRlcnNfbW92ZWRCEwoRX2xlYWRlcl9lbGVjdGlvbnNCFgoUX21ldGFfbGVhZGVyX2NoYW5nZXNCFgoUX3F1b3J1bV9sb3N0X3JlcG9ydHNCFgoUX25vZGVfcG9vbHNfdXBncmFkZWRCEQoPX25vZGVzX3VwZ3JhZGVkQhAKDl9ub2Rlc19kcmFpbmVkQhQKEl9jbGllbnRfcmVjb25uZWN0c0ISChBfZmluZGluZ3NfcmFpc2VkIqACCglHb25lQXNzZXQSJgoGZW50aXR5GAEgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEhQKDHNlcnZlcnNfYXRfYRgCIAMoCRIaChJub3RfYW5zd2VyaW5nX2F0X2IYAyADKAkSMQoNbGFzdF9yZXBvcnRlZBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEgoKbGFzdF9lcG9jaBgFIAEoAxIrCgxkZWxldGVfZXZlbnQYBiABKAsyFS5uYXRzbGVucy52MS5FdmVudFJlZhIVCg1kZWxldGVfY2xpZW50GAcgASgJEhkKEWNvbnN1bWVyc193aXRoX2l0GAggASgFEhMKC2ZpbmRpbmdfaWRzGAkgAygJItEEChFHZXRSZXBsYXlSZXNwb25zZRIlCgFhGAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIlCgFiGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgdlcG9jaF9hGAMgASgDEi4KCmVwb2NoX2FfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg8KB2Vwb2NoX2IYBSABKAMSLgoKZXBvY2hfYl9hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJgoFc3RlcHMYByADKAsyFy5uYXRzbGVucy52MS5SZXBsYXlTdGVwEhcKD3N0ZXBzX3RydW5jYXRlZBgIIAEoCBIVCg1zdGVwc19vbWl0dGVkGAkgASgFEikKBmNvdW50cxgKIAEoCzIZLm5hdHNsZW5zLnYxLlJlcGxheUNvdW50cxIkCgRnb25lGAsgAygLMhYubmF0c2xlbnMudjEuR29uZUFzc2V0EhYKDmdvbmVfdHJ1bmNhdGVkGAwgASgIEigKB3dpbmRvd3MYDSADKAsyFy5uYXRzbGVucy52MS5UaW1lV2luZG93EhoKEmt1YmVybmV0ZXNfd2F0Y2hlZBgOIAEoCBIxCg1oaXN0b3J5X3N0YXJ0GA8gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIyCg5jb21wbGV0ZV91bnRpbBgQIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAqngIKDlJlcGxheVN0ZXBLaW5kEiAKHFJFUExBWV9TVEVQX0tJTkRfVU5TUEVDSUZJRUQQABIfChtSRVBMQVlfU1RFUF9LSU5EX0tVQkVSTkVURVMQARIcChhSRVBMQVlfU1RFUF9LSU5EX1JFU1RBUlQQAhIcChhSRVBMQVlfU1RFUF9LSU5EX0xFQURFUlMQAxIbChdSRVBMQVlfU1RFUF9LSU5EX1FVT1JVTRAEEhkKFVJFUExBWV9TVEVQX0tJTkRfR09ORRAFEhwKGFJFUExBWV9TVEVQX0tJTkRfRklORElORxAGEh0KGVJFUExBWV9TVEVQX0tJTkRfUkVTT0xWRUQQBxIYChRSRVBMQVlfU1RFUF9LSU5EX0dBUBAIKpABCg1SZXBsYXlHYXBLaW5kEh8KG1JFUExBWV9HQVBfS0lORF9VTlNQRUNJRklFRBAAEh8KG1JFUExBWV9HQVBfS0lORF9DT0xMRUNUSU9OUxABEh0KGVJFUExBWV9HQVBfS0lORF9DT0xMRUNUT1IQAhIeChpSRVBMQVlfR0FQX0tJTkRfS1VCRVJORVRFUxADKqEBChJSZXBsYXlFdmlkZW5jZUtpbmQSJAogUkVQTEFZX0VWSURFTkNFX0tJTkRfVU5TUEVDSUZJRUQQABIeChpSRVBMQVlfRVZJREVOQ0VfS0lORF9FVkVOVBABEiAKHFJFUExBWV9FVklERU5DRV9LSU5EX0ZJTkRJTkcQAhIjCh9SRVBMQVlfRVZJREVOQ0VfS0lORF9DT0xMRUNUSU9OEANCQlpAZ2l0aHViLmNvbS9zaGFkb25lL25hdHMtbGVucy9pbnRlcm5hbC9nZW4vbmF0c2xlbnMvdjE7bmF0c2xlbnN2MWIGcHJvdG8z", [file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_overview]);
+  fileDesc("ChhuYXRzbGVucy92MS9yZXBsYXkucHJvdG8SC25hdHNsZW5zLnYxInAKEEdldFJlcGxheVJlcXVlc3QSDgoGc3lzdGVtGAEgASgJEiUKAWEYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiUKAWIYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIqgBChBSZXBsYXlVbm9ic2VydmVkEg0KBWNvdW50GAEgASgJEjMKBnJlYXNvbhgCIAEoDjIjLm5hdHNsZW5zLnYxLlJlcGxheVVub2JzZXJ2ZWRSZWFzb24SKAoEZnJvbRgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJgoCdG8YBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIqwBCg5SZXBsYXlFdmlkZW5jZRItCgRraW5kGAEgASgOMh8ubmF0c2xlbnMudjEuUmVwbGF5RXZpZGVuY2VLaW5kEgoKAmlkGAIgASgJEigKBHRpbWUYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg0KBWxhYmVsGAQgASgJEiYKBmVudGl0eRgFIAEoCzIWLm5hdHNsZW5zLnYxLkVudGl0eVJlZiK7AwoKUmVwbGF5U3RlcBIKCgJpZBgBIAEoCRIoCgR0aW1lGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBInCgNlbmQYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhEKCW9wZW5fYXRfYhgEIAEoCBIpCgRraW5kGAUgASgOMhsubmF0c2xlbnMudjEuUmVwbGF5U3RlcEtpbmQSJwoIc2V2ZXJpdHkYBiABKA4yFS5uYXRzbGVucy52MS5TZXZlcml0eRINCgV0aXRsZRgHIAEoCRIMCgRib2R5GAggASgJEigKCGVudGl0aWVzGAkgAygLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEhQKDGVudGl0eV9jb3VudBgKIAEoBRItCghldmlkZW5jZRgLIAMoCzIbLm5hdHNsZW5zLnYxLlJlcGxheUV2aWRlbmNlEhYKDmV2aWRlbmNlX2NvdW50GAwgASgFEhUKDW91dHNpZGVfcmFuZ2UYDSABKAgSLAoIZ2FwX2tpbmQYDiABKA4yGi5uYXRzbGVucy52MS5SZXBsYXlHYXBLaW5kIuAGCgxSZXBsYXlDb3VudHMSHgoRc2VydmVyc19yZXN0YXJ0ZWQYASABKAVIAIgBARIcCg9zZXJ2ZXJzX3N0b3BwZWQYAiABKAVIAYgBARIoChtzdHJlYW1zX2dvbmVfd2l0aG91dF9kZWxldGUYAyABKAVIAogBARIqCh1jb25zdW1lcnNfZ29uZV93aXRob3V0X2RlbGV0ZRgEIAEoBUgDiAEBEiQKF2Fzc2V0c19nb25lX3dpdGhfZGVsZXRlGAUgASgFSASIAQESIAoTYXNzZXRzX3Vua25vd25fYXRfYhgGIAEoBUgFiAEBEhoKDWxlYWRlcnNfbW92ZWQYByABKAVIBogBARIdChBsZWFkZXJfZWxlY3Rpb25zGAggASgFSAeIAQESIAoTbWV0YV9sZWFkZXJfY2hhbmdlcxgJIAEoBUgIiAEBEiAKE3F1b3J1bV9sb3N0X3JlcG9ydHMYCiABKAVICYgBARIgChNub2RlX3Bvb2xzX3VwZ3JhZGVkGAsgASgFSAqIAQESGwoObm9kZXNfdXBncmFkZWQYDCABKAVIC4gBARIaCg1ub2Rlc19kcmFpbmVkGA0gASgFSAyIAQESHgoRY2xpZW50X3JlY29ubmVjdHMYDiABKAVIDYgBARIcCg9maW5kaW5nc19yYWlzZWQYDyABKAVIDogBAUIUChJfc2VydmVyc19yZXN0YXJ0ZWRCEgoQX3NlcnZlcnNfc3RvcHBlZEIeChxfc3RyZWFtc19nb25lX3dpdGhvdXRfZGVsZXRlQiAKHl9jb25zdW1lcnNfZ29uZV93aXRob3V0X2RlbGV0ZUIaChhfYXNzZXRzX2dvbmVfd2l0aF9kZWxldGVCFgoUX2Fzc2V0c191bmtub3duX2F0X2JCEAoOX2xlYWRlcnNfbW92ZWRCEwoRX2xlYWRlcl9lbGVjdGlvbnNCFgoUX21ldGFfbGVhZGVyX2NoYW5nZXNCFgoUX3F1b3J1bV9sb3N0X3JlcG9ydHNCFgoUX25vZGVfcG9vbHNfdXBncmFkZWRCEQoPX25vZGVzX3VwZ3JhZGVkQhAKDl9ub2Rlc19kcmFpbmVkQhQKEl9jbGllbnRfcmVjb25uZWN0c0ISChBfZmluZGluZ3NfcmFpc2VkIqACCglHb25lQXNzZXQSJgoGZW50aXR5GAEgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEhQKDHNlcnZlcnNfYXRfYRgCIAMoCRIaChJub3RfYW5zd2VyaW5nX2F0X2IYAyADKAkSMQoNbGFzdF9yZXBvcnRlZBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEgoKbGFzdF9lcG9jaBgFIAEoAxIrCgxkZWxldGVfZXZlbnQYBiABKAsyFS5uYXRzbGVucy52MS5FdmVudFJlZhIVCg1kZWxldGVfY2xpZW50GAcgASgJEhkKEWNvbnN1bWVyc193aXRoX2l0GAggASgFEhMKC2ZpbmRpbmdfaWRzGAkgAygJIoQFChFHZXRSZXBsYXlSZXNwb25zZRIlCgFhGAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIlCgFiGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgdlcG9jaF9hGAMgASgDEi4KCmVwb2NoX2FfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg8KB2Vwb2NoX2IYBSABKAMSLgoKZXBvY2hfYl9hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJgoFc3RlcHMYByADKAsyFy5uYXRzbGVucy52MS5SZXBsYXlTdGVwEhcKD3N0ZXBzX3RydW5jYXRlZBgIIAEoCBIVCg1zdGVwc19vbWl0dGVkGAkgASgFEikKBmNvdW50cxgKIAEoCzIZLm5hdHNsZW5zLnYxLlJlcGxheUNvdW50cxIkCgRnb25lGAsgAygLMhYubmF0c2xlbnMudjEuR29uZUFzc2V0EhYKDmdvbmVfdHJ1bmNhdGVkGAwgASgIEigKB3dpbmRvd3MYDSADKAsyFy5uYXRzbGVucy52MS5UaW1lV2luZG93EhoKEmt1YmVybmV0ZXNfd2F0Y2hlZBgOIAEoCBIxCg1oaXN0b3J5X3N0YXJ0GA8gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIyCg5jb21wbGV0ZV91bnRpbBgQIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASMQoKdW5vYnNlcnZlZBgRIAMoCzIdLm5hdHNsZW5zLnYxLlJlcGxheVVub2JzZXJ2ZWQqngIKDlJlcGxheVN0ZXBLaW5kEiAKHFJFUExBWV9TVEVQX0tJTkRfVU5TUEVDSUZJRUQQABIfChtSRVBMQVlfU1RFUF9LSU5EX0tVQkVSTkVURVMQARIcChhSRVBMQVlfU1RFUF9LSU5EX1JFU1RBUlQQAhIcChhSRVBMQVlfU1RFUF9LSU5EX0xFQURFUlMQAxIbChdSRVBMQVlfU1RFUF9LSU5EX1FVT1JVTRAEEhkKFVJFUExBWV9TVEVQX0tJTkRfR09ORRAFEhwKGFJFUExBWV9TVEVQX0tJTkRfRklORElORxAGEh0KGVJFUExBWV9TVEVQX0tJTkRfUkVTT0xWRUQQBxIYChRSRVBMQVlfU1RFUF9LSU5EX0dBUBAIKpABCg1SZXBsYXlHYXBLaW5kEh8KG1JFUExBWV9HQVBfS0lORF9VTlNQRUNJRklFRBAAEh8KG1JFUExBWV9HQVBfS0lORF9DT0xMRUNUSU9OUxABEh0KGVJFUExBWV9HQVBfS0lORF9DT0xMRUNUT1IQAhIeChpSRVBMQVlfR0FQX0tJTkRfS1VCRVJORVRFUxADKuwEChZSZXBsYXlVbm9ic2VydmVkUmVhc29uEigKJFJFUExBWV9VTk9CU0VSVkVEX1JFQVNPTl9VTlNQRUNJRklFRBAAEisKJ1JFUExBWV9VTk9CU0VSVkVEX1JFQVNPTl9OT19DT0xMRUNUSU9OUxABEi8KK1JFUExBWV9VTk9CU0VSVkVEX1JFQVNPTl9OT19DT0xMRUNUSU9OX0FUX0EQAhIvCitSRVBMQVlfVU5PQlNFUlZFRF9SRUFTT05fTk9fQ09MTEVDVElPTl9BVF9CEAMSLAooUkVQTEFZX1VOT0JTRVJWRURfUkVBU09OX0NPTExFQ1RJT05TX0dBUBAEEjAKLFJFUExBWV9VTk9CU0VSVkVEX1JFQVNPTl9FVkVOVFNfTk9UX0NBUFRVUkVEEAUSKgomUkVQTEFZX1VOT0JTRVJWRURfUkVBU09OX0NPTExFQ1RPUl9HQVAQBhInCiNSRVBMQVlfVU5PQlNFUlZFRF9SRUFTT05fUkVBRF9MSU1JVBAHEjMKL1JFUExBWV9VTk9CU0VSVkVEX1JFQVNPTl9LVUJFUk5FVEVTX05PVF9XQVRDSEVEEAgSKwonUkVQTEFZX1VOT0JTRVJWRURfUkVBU09OX0tVQkVSTkVURVNfR0FQEAkSKQolUkVQTEFZX1VOT0JTRVJWRURfUkVBU09OX05PREVfVU5OQU1FRBAKEisKJ1JFUExBWV9VTk9CU0VSVkVEX1JFQVNPTl9OT19QT09MX0xBQkVMUxALEioKJlJFUExBWV9VTk9CU0VSVkVEX1JFQVNPTl9HT05FX05PVF9SRUFEEAwqoQEKElJlcGxheUV2aWRlbmNlS2luZBIkCiBSRVBMQVlfRVZJREVOQ0VfS0lORF9VTlNQRUNJRklFRBAAEh4KGlJFUExBWV9FVklERU5DRV9LSU5EX0VWRU5UEAESIAocUkVQTEFZX0VWSURFTkNFX0tJTkRfRklORElORxACEiMKH1JFUExBWV9FVklERU5DRV9LSU5EX0NPTExFQ1RJT04QA0JCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_overview]);
 
 /**
  * Request for the story between two moments.
@@ -53,6 +53,47 @@ export type GetReplayRequest = Message<"natslens.v1.GetReplayRequest"> & {
  */
 export const GetReplayRequestSchema: GenMessage<GetReplayRequest> = /*@__PURE__*/
   messageDesc(file_natslens_v1_replay, 0);
+
+/**
+ * Why one count of ReplayCounts is unset.
+ *
+ * @generated from message natslens.v1.ReplayUnobserved
+ */
+export type ReplayUnobserved = Message<"natslens.v1.ReplayUnobserved"> & {
+  /**
+   * The ReplayCounts field's name, for example "leaders_moved".
+   *
+   * @generated from field: string count = 1;
+   */
+  count: string;
+
+  /**
+   * The first of the causes that applies, in the order FinishReplay
+   * checks them.
+   *
+   * @generated from field: natslens.v1.ReplayUnobservedReason reason = 2;
+   */
+  reason: ReplayUnobservedReason;
+
+  /**
+   * The gap or cut behind it, when there is one.
+   *
+   * @generated from field: google.protobuf.Timestamp from = 3;
+   */
+  from?: Timestamp | undefined;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp to = 4;
+   */
+  to?: Timestamp | undefined;
+};
+
+/**
+ * Describes the message natslens.v1.ReplayUnobserved.
+ * Use `create(ReplayUnobservedSchema)` to create a new message.
+ */
+export const ReplayUnobservedSchema: GenMessage<ReplayUnobserved> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_replay, 1);
 
 /**
  * One record a step was built from.
@@ -104,7 +145,7 @@ export type ReplayEvidence = Message<"natslens.v1.ReplayEvidence"> & {
  * Use `create(ReplayEvidenceSchema)` to create a new message.
  */
 export const ReplayEvidenceSchema: GenMessage<ReplayEvidence> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_replay, 1);
+  messageDesc(file_natslens_v1_replay, 2);
 
 /**
  * One step of the story.
@@ -218,7 +259,7 @@ export type ReplayStep = Message<"natslens.v1.ReplayStep"> & {
  * Use `create(ReplayStepSchema)` to create a new message.
  */
 export const ReplayStepSchema: GenMessage<ReplayStep> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_replay, 2);
+  messageDesc(file_natslens_v1_replay, 3);
 
 /**
  * What changed between A and B, in numbers. An unset count was not
@@ -345,7 +386,7 @@ export type ReplayCounts = Message<"natslens.v1.ReplayCounts"> & {
  * Use `create(ReplayCountsSchema)` to create a new message.
  */
 export const ReplayCountsSchema: GenMessage<ReplayCounts> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_replay, 3);
+  messageDesc(file_natslens_v1_replay, 4);
 
 /**
  * A stream or durable consumer that servers held at A and none holds at B.
@@ -423,7 +464,7 @@ export type GoneAsset = Message<"natslens.v1.GoneAsset"> & {
  * Use `create(GoneAssetSchema)` to create a new message.
  */
 export const GoneAssetSchema: GenMessage<GoneAsset> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_replay, 4);
+  messageDesc(file_natslens_v1_replay, 5);
 
 /**
  * What changed between A and B, and in what order.
@@ -541,13 +582,21 @@ export type GetReplayResponse = Message<"natslens.v1.GetReplayResponse"> & {
 
   /**
    * When the read limit cut the events or finding transitions: the time
-   * before which they were read in full, so steps after it may be missing
-   * and the counts taken from the cut rows are unset. Unset when nothing
-   * was cut.
+   * before which they were read in full, so steps after it may be missing,
+   * those after B included. Unset when nothing was cut. Which counts the
+   * cut left unset is in unobserved: none when the read reached past B.
    *
    * @generated from field: google.protobuf.Timestamp complete_until = 16;
    */
   completeUntil?: Timestamp | undefined;
+
+  /**
+   * Why each unset count of counts is unset: one entry per unset count,
+   * none for a set one.
+   *
+   * @generated from field: repeated natslens.v1.ReplayUnobserved unobserved = 17;
+   */
+  unobserved: ReplayUnobserved[];
 };
 
 /**
@@ -555,7 +604,7 @@ export type GetReplayResponse = Message<"natslens.v1.GetReplayResponse"> & {
  * Use `create(GetReplayResponseSchema)` to create a new message.
  */
 export const GetReplayResponseSchema: GenMessage<GetReplayResponse> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_replay, 5);
+  messageDesc(file_natslens_v1_replay, 6);
 
 /**
  * Kind of a replay step.
@@ -651,24 +700,23 @@ export enum ReplayGapKind {
   UNSPECIFIED = 0,
 
   /**
-   * No collections: nothing is known of the servers then; the event counts
-   * stay unset.
+   * No collection for more than three collect intervals. A collections
+   * gap that lies inside a time nats-lens was not running is told by that
+   * step, with the collections as evidence.
    *
    * @generated from enum value: REPLAY_GAP_KIND_COLLECTIONS = 1;
    */
   COLLECTIONS = 1,
 
   /**
-   * nats-lens was not running (a collector.gap): no events were captured,
-   * so the event and node counts stay unset.
+   * nats-lens was not running (a collector.gap): no events were captured.
    *
    * @generated from enum value: REPLAY_GAP_KIND_COLLECTOR = 2;
    */
   COLLECTOR = 2,
 
   /**
-   * Kubernetes was not watched (a collector.k8s_gap): the node counts stay
-   * unset.
+   * Kubernetes was not watched (a collector.k8s_gap).
    *
    * @generated from enum value: REPLAY_GAP_KIND_KUBERNETES = 3;
    */
@@ -680,6 +728,113 @@ export enum ReplayGapKind {
  */
 export const ReplayGapKindSchema: GenEnum<ReplayGapKind> = /*@__PURE__*/
   enumDesc(file_natslens_v1_replay, 1);
+
+/**
+ * Why a count was not observed. Which counts a gap leaves unset is in
+ * GetReplayResponse.unobserved, not in the gap steps.
+ *
+ * @generated from enum natslens.v1.ReplayUnobservedReason
+ */
+export enum ReplayUnobservedReason {
+  /**
+   * Not set.
+   *
+   * @generated from enum value: REPLAY_UNOBSERVED_REASON_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * No collection started between A and B.
+   *
+   * @generated from enum value: REPLAY_UNOBSERVED_REASON_NO_COLLECTIONS = 1;
+   */
+  NO_COLLECTIONS = 1,
+
+  /**
+   * No collection near A (within three collect intervals before it).
+   *
+   * @generated from enum value: REPLAY_UNOBSERVED_REASON_NO_COLLECTION_AT_A = 2;
+   */
+  NO_COLLECTION_AT_A = 2,
+
+  /**
+   * No collection near B.
+   *
+   * @generated from enum value: REPLAY_UNOBSERVED_REASON_NO_COLLECTION_AT_B = 3;
+   */
+  NO_COLLECTION_AT_B = 3,
+
+  /**
+   * A time without collections between A and B (from and to bound it).
+   *
+   * @generated from enum value: REPLAY_UNOBSERVED_REASON_COLLECTIONS_GAP = 4;
+   */
+  COLLECTIONS_GAP = 4,
+
+  /**
+   * No event was stored up to B.
+   *
+   * @generated from enum value: REPLAY_UNOBSERVED_REASON_EVENTS_NOT_CAPTURED = 5;
+   */
+  EVENTS_NOT_CAPTURED = 5,
+
+  /**
+   * nats-lens was not running between A and B (from and to bound it; to
+   * unset while it had not ended).
+   *
+   * @generated from enum value: REPLAY_UNOBSERVED_REASON_COLLECTOR_GAP = 6;
+   */
+  COLLECTOR_GAP = 6,
+
+  /**
+   * The read limit cut the rows before B (from is where the read ended).
+   *
+   * @generated from enum value: REPLAY_UNOBSERVED_REASON_READ_LIMIT = 7;
+   */
+  READ_LIMIT = 7,
+
+  /**
+   * nats-lens does not watch Kubernetes for this system.
+   *
+   * @generated from enum value: REPLAY_UNOBSERVED_REASON_KUBERNETES_NOT_WATCHED = 8;
+   */
+  KUBERNETES_NOT_WATCHED = 8,
+
+  /**
+   * Kubernetes was not watched between A and B (from and to bound it).
+   *
+   * @generated from enum value: REPLAY_UNOBSERVED_REASON_KUBERNETES_GAP = 9;
+   */
+  KUBERNETES_GAP = 9,
+
+  /**
+   * A node event between A and B names no node, so nodes cannot be told
+   * apart.
+   *
+   * @generated from enum value: REPLAY_UNOBSERVED_REASON_NODE_UNNAMED = 10;
+   */
+  NODE_UNNAMED = 10,
+
+  /**
+   * No upgraded node carried a node pool label.
+   *
+   * @generated from enum value: REPLAY_UNOBSERVED_REASON_NO_POOL_LABELS = 11;
+   */
+  NO_POOL_LABELS = 11,
+
+  /**
+   * The provider did not read the gone assets.
+   *
+   * @generated from enum value: REPLAY_UNOBSERVED_REASON_GONE_NOT_READ = 12;
+   */
+  GONE_NOT_READ = 12,
+}
+
+/**
+ * Describes the enum natslens.v1.ReplayUnobservedReason.
+ */
+export const ReplayUnobservedReasonSchema: GenEnum<ReplayUnobservedReason> = /*@__PURE__*/
+  enumDesc(file_natslens_v1_replay, 2);
 
 /**
  * Kind of a step's evidence.
@@ -720,5 +875,5 @@ export enum ReplayEvidenceKind {
  * Describes the enum natslens.v1.ReplayEvidenceKind.
  */
 export const ReplayEvidenceKindSchema: GenEnum<ReplayEvidenceKind> = /*@__PURE__*/
-  enumDesc(file_natslens_v1_replay, 2);
+  enumDesc(file_natslens_v1_replay, 3);
 
