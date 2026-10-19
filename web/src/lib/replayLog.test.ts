@@ -23,7 +23,7 @@ function story() {
         ],
         evidenceCount: 3,
       }),
-      rstep("gap:1", "09:30:00", { kind: "gap", end: Date.parse("2026-10-17T09:33:00Z"), title: "No collections for 3 min", gapKind: "collections" }),
+      rstep("gap:1", "09:30:00", { kind: "gap", end: Date.parse("2026-10-17T09:33:00Z"), title: "No collections for 3 min" }),
       rstep("finding:2", "09:40:00", { severity: "critical", title: "Consumer missing", evidence: [{ kind: "finding", id: "consumer-013:APP/x", label: "consumer-013 (firing)" }], evidenceCount: 1 }),
       rstep("resolved:3", "10:10:00", { kind: "resolved", title: "Consumer missing resolved", outsideRange: true }),
     ],
