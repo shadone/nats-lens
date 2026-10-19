@@ -176,3 +176,50 @@ func TestReplayStopTakesInItsLeaders(t *testing.T) {
 		t.Errorf("leader steps = %v", ls)
 	}
 }
+
+// Meta elections that all keep the leader make no step, folded or not; a
+// meta step has a body.
+func TestReplayMetaStepsOnlyForChanges(t *testing.T) {
+	f := facts()
+	f.EventsCaptured = true
+	f.MetaLeaderAtA = "nats-1"
+	f.Events = []*v1.Event{ev(rAt(4, 30), "meta.leader_elected", "nats-1"), ev(rAt(5, 0), "meta.leader_elected", "nats-1")}
+	if ls := stepsOf(api.FinishReplay(f), v1.ReplayStepKind_REPLAY_STEP_KIND_LEADERS); len(ls) != 0 {
+		t.Errorf("leader steps for elections that keep the leader: %v", ls)
+	}
+	f.Events = append(f.Events, ev(rAt(30, 0), "meta.leader_elected", "nats-0"))
+	ls := stepsOf(api.FinishReplay(f), v1.ReplayStepKind_REPLAY_STEP_KIND_LEADERS)
+	if len(ls) != 1 || ls[0].GetBody() == "" {
+		t.Errorf("meta move = %v", ls)
+	}
+}
+
+// Folded elections that all moved the lead say so plainly.
+func TestReplayFoldedElectionsAllMoved(t *testing.T) {
+	f := facts()
+	f.LeadersAtA = []api.ReplayLeader{{Entity: streamEnt("a"), Server: "nats-1"}, {Entity: streamEnt("b"), Server: "nats-1"}}
+	f.Events = []*v1.Event{
+		ev(rAt(10, 0), "stream.leader_elected", "nats-2", onAsset("APP", "a", "")),
+		ev(rAt(10, 1), "stream.leader_elected", "nats-2", onAsset("APP", "b", "")),
+	}
+	ls := stepsOf(api.FinishReplay(f), v1.ReplayStepKind_REPLAY_STEP_KIND_LEADERS)
+	if len(ls) != 1 || !strings.Contains(ls[0].GetBody(), "Both moved the lead from another server.") {
+		t.Errorf("leaders = %v", ls)
+	}
+}
+
+// Folded gone durables of one stream are named without the stream the
+// title already names.
+func TestReplayFoldedGoneNamesOnce(t *testing.T) {
+	f := facts()
+	f.GoneRead = true
+	for _, n := range []string{"x", "y"} {
+		f.Gone = append(f.Gone, api.ReplayGone{Entity: consumerEnt("orders", n), ServersAtA: []string{"nats-0", "nats-1"}, LastReported: rAt(20, 0),
+			LastEpoch: 140})
+	}
+	gs := stepsOf(api.FinishReplay(f), v1.ReplayStepKind_REPLAY_STEP_KIND_GONE)
+	if len(gs) != 1 || strings.Count(gs[0].GetTitle()+" "+gs[0].GetBody(), "orders") != 1 ||
+		!strings.Contains(gs[0].GetBody(), "Held by nats-0 and nats-1 at A, by none at B.") {
+		t.Errorf("gone = %v", gs)
+	}
+}
