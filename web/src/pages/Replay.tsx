@@ -15,7 +15,7 @@ import { dayMonHm } from "../lib/format";
 import { SYSTEM_PARAM, ACCOUNT_PARAM } from "../lib/globalQuery";
 import { logFileName, replayLog } from "../lib/replayLog";
 import { A_PARAM, B_PARAM, momentIso, resolveMoments, shareParams, writeMoments, type Moments } from "../lib/replayUrl";
-import { collectionNotes, stepNotes } from "../lib/replayView";
+import { collectionNotes, stepNotes, whenFormat } from "../lib/replayView";
 import { pauseRange } from "../lib/timeRange";
 import { useGlobalQuery } from "../lib/useGlobalQuery";
 import { usePageTitle } from "../lib/usePageTitle";
@@ -77,7 +77,11 @@ export function Replay() {
   }, [resolved?.write, resolved?.a, resolved?.b]);
   const linkNotes = kept.link === `${rawA}|${rawB}` ? kept.notes : (resolved?.notes ?? []);
 
-  const setMoments = (m: Moments) => setParams((p) => writeMoments(p, m), { replace: true });
+  // A move of the user's own ends what the link's notes said.
+  const setMoments = (m: Moments) => {
+    setKept({ link: "", notes: [] });
+    setParams((p) => writeMoments(p, m), { replace: true });
+  };
 
   const settled = useSettledMoments(moments?.a, moments?.b);
   const q = useReplay(settled.a, settled.b);
@@ -147,7 +151,7 @@ export function Replay() {
           )}
           <div className="rp-grid">
             <ReplaySteps steps={data.steps} moments={shown} notes={stepNotes(data)} />
-            <ReplayCounts counts={data.counts} kubernetesWatched={data.kubernetesWatched} />
+            <ReplayCounts counts={data.counts} kubernetesWatched={data.kubernetesWatched} gaps={data.steps.filter((st) => st.kind === "gap" && !st.outsideRange)} completeUntil={data.completeUntil} fmt={whenFormat(shown)} />
           </div>
           <ReplayGone gone={data.gone} truncated={data.goneTruncated} moments={shown} read={goneRead(data)} />
         </div>

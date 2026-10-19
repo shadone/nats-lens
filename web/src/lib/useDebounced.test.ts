@@ -20,3 +20,15 @@ describe("useDebounced", () => {
     expect(result.current).toBe("c");
   });
 });
+
+describe("useDebounced with a reset", () => {
+  it("gives a value at once when the reset says so", () => {
+    vi.useFakeTimers();
+    const other = (s: string, v: string) => s.split("#")[0] !== v.split("#")[0];
+    const { result, rerender } = renderHook(({ v }) => useDebounced(v, 300, other), { initialProps: { v: "prod#1" } });
+    rerender({ v: "prod#2" });
+    expect(result.current).toBe("prod#1");
+    rerender({ v: "global#2" });
+    expect(result.current).toBe("global#2");
+  });
+});

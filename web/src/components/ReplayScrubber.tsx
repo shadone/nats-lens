@@ -4,10 +4,10 @@
 // and two UTC inputs. A moving handle is drawn from local state; the
 // moments go to the page once it rests (pointer up, key up, blur), so the
 // URL is written once per move.
-import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { Level, Timeline, Window } from "../api/model";
 import { dayMon, dayMonHm, hm } from "../lib/format";
-import { MAX_SPAN_MS, rangeNotes, windowMoments, type Moments } from "../lib/replayUrl";
+import { MAX_SPAN_MS, clampMoments, rangeNotes, windowMoments, type Moments } from "../lib/replayUrl";
 import { worstPerBucket } from "../lib/storyLanes";
 import { bucketFor, bucketLabel } from "../lib/timeRange";
 import { axisTicks, cellRuns, runsText } from "../lib/timelineModel";
@@ -16,10 +16,14 @@ import { LEVEL_LABEL } from "../lib/view";
 import { cellStyle } from "./StatusTimeline";
 
 const DAY = 86_400_000;
+/** The keys that move a handle; letting one go applies the move. */
+const MOVE_KEYS = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End"]);
 const MINUTE = 60_000;
 const SW = 1000;
 
 type Handle = "a" | "b";
+
+const toSecond = (t: number) => Math.floor(t / 1000) * 1000;
 
 /** "Moment A, 09:14 UTC 17 Oct" */
 export function handleText(which: Handle, t: number): string {
@@ -77,6 +81,30 @@ function MomentInput({ which, value, max, onCommit }: { which: Handle; value: nu
   );
 }
 
+/** Width of a handle's chip: "A 08:50", or the letter alone on a narrow track. */
+const CHIP_PX = 68;
+const CHIP_NARROW_PX = 26;
+/** Below this track width the chips show the letter alone. */
+const NARROW_TRACK_PX = 480;
+
+/**
+ * Where the two chips start, in pixels: A's ends at its line and B's
+ * starts at its line, both inside the track, and they never overlap; when
+ * the lines are closer than a chip near an end, the chips move apart.
+ */
+export function chipLefts(pa: number, pb: number, width: number, chip: number): { a: number; b: number } {
+  let a = Math.max(0, pa - chip);
+  let b = Math.min(width - chip, pb);
+  if (b < a + chip) {
+    if (a + 2 * chip <= width) b = a + chip;
+    else {
+      b = width - chip;
+      a = Math.max(0, width - 2 * chip);
+    }
+  }
+  return { a, b };
+}
+
 export interface ReplayScrubberProps {
   /** The page's range, the track's ends. */
   start: number;
@@ -99,6 +127,24 @@ export function ReplayScrubber({ start, end, live, now, strip, stripError, momen
   // The moments while a handle moves; the page hears of them when it rests.
   const [draft, setDraft] = useState<Moments | undefined>(undefined);
   const draftRef = useRef<Moments | undefined>(undefined);
+  // The moments last sent to the page, ahead of the props until the page
+  // renders them: a typed moment applied on blur by a press on the track
+  // is the base of the drag that press starts. Sent moments are clamped
+  // and cut to the second as the page reads them, so they are what the
+  // page will show; a change of the page's moments replaces them.
+  const sent = useRef<Moments>(moments);
+  // Only a change of the moments the page shows resets it: a render of a
+  // pending move before the page's transition commits must not.
+  useLayoutEffect(() => {
+    sent.current = moments;
+  }, [moments.a, moments.b]);
+  const send = (m: Moments) => {
+    const c = clampMoments(m, now, minGapMs);
+    const n = { a: toSecond(c.a), b: toSecond(c.b) };
+    if (n.a === sent.current.a && n.b === sent.current.b) return;
+    sent.current = n;
+    onChange(n);
+  };
   const shown = draft ?? moments;
   const span = Math.max(1, end - start);
   const frac = (t: number) => Math.min(1, Math.max(0, (t - start) / span));
@@ -115,9 +161,14 @@ export function ReplayScrubber({ start, end, live, now, strip, stripError, momen
     const m = draftRef.current;
     draftRef.current = undefined;
     setDraft(undefined);
-    if (m && (m.a !== moments.a || m.b !== moments.b)) onChange(m);
+    if (m) send(m);
   };
-  const move = (which: Handle, t: number) => preview(moveHandle(draftRef.current ?? moments, which, t, minGapMs, now));
+  /** Drops a moving handle's moments: it goes back to where it was. */
+  const discard = () => {
+    draftRef.current = undefined;
+    setDraft(undefined);
+  };
+  const move = (which: Handle, t: number) => preview(moveHandle(draftRef.current ?? sent.current, which, t, minGapMs, now));
 
   const timeAt = (clientX: number) => {
     const r = track.current?.getBoundingClientRect();
@@ -157,9 +208,14 @@ export function ReplayScrubber({ start, end, live, now, strip, stripError, momen
     setDrag(undefined);
     commit();
   };
+  const cancelDrag = () => {
+    if (!drag) return;
+    setDrag(undefined);
+    discard();
+  };
 
   const onKey = (which: Handle) => (e: KeyboardEvent<HTMLDivElement>) => {
-    const v = (draftRef.current ?? moments)[which];
+    const v = (draftRef.current ?? sent.current)[which];
     const n = e.shiftKey ? 10 : 1;
     let t: number | undefined;
     switch (e.key) {
@@ -190,20 +246,25 @@ export function ReplayScrubber({ start, end, live, now, strip, stripError, momen
     move(which, t);
   };
 
-  const cells = strip ? worstPerBucket(strip.rows, strip.bucketCount).map(stripLevel) : [];
+  // Info is folded into ok in each row before the worst is taken, so a
+  // bucket with an info and a muted check shows muted.
+  const cells = strip ? worstPerBucket(strip.rows.map((r) => ({ ...r, cells: r.cells.map(stripLevel) })), strip.bucketCount) : [];
   const runs = strip ? runsText(cellRuns(cells, strip.start, strip.bucketMs), fmt) : "";
   const notes = rangeNotes(shown, { start, end });
   const ticks = width ? axisTicks(start, end, live, width) : [];
+  const narrow = width > 0 && width < NARROW_TRACK_PX;
+  const chip = narrow ? CHIP_NARROW_PX : CHIP_PX;
+  const lefts = width ? chipLefts(frac(shown.a) * width, frac(shown.b) * width, width, chip) : undefined;
 
   return (
     <div className="card rs">
       <div
         ref={track}
-        className={`rs-track${drag ? " dragging" : ""}`}
+        className={`rs-track${drag ? " dragging" : ""}${narrow ? " narrow" : ""}`}
         onPointerDown={onTrackDown}
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
-        onPointerCancel={endDrag}
+        onPointerCancel={cancelDrag}
       >
         <svg className="rs-strip" viewBox={`0 0 ${SW} 26`} preserveAspectRatio="none" role="img" aria-label={strip ? `Status per ${bucketLabel(strip.bucketMs)}: ${runs}` : "Status strip loading"}>
           {strip &&
@@ -229,8 +290,9 @@ export function ReplayScrubber({ start, end, live, now, strip, stripError, momen
                 aria-label={`Replay ${w.label} ${hm(w.start)}–${hm(w.end)} UTC`}
                 title={`${w.label} ${hm(w.start)}–${hm(w.end)} UTC${w.detail ? `: ${w.detail}` : ""}`}
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => onChange(windowMoments(w, now))}
+                onClick={() => send(windowMoments(w, now))}
               >
+                <span className="rs-wext" aria-hidden="true" />
                 <span className="rs-wl">{w.label}</span>
               </button>
             ))}
@@ -245,7 +307,7 @@ export function ReplayScrubber({ start, end, live, now, strip, stripError, momen
               <div
                 data-handle={which}
                 className={`rs-chip rs-${which}`}
-                style={{ left: which === "a" ? `max(0px, calc(${p} - var(--chip)))` : `min(${p}, calc(100% - var(--chip)))` }}
+                style={{ left: lefts ? `${lefts[which]}px` : which === "a" ? `max(0px, calc(${p} - ${chip}px))` : `min(${p}, calc(100% - ${chip}px))`, width: chip }}
                 role="slider"
                 tabIndex={0}
                 aria-label={`Moment ${which.toUpperCase()}`}
@@ -254,12 +316,12 @@ export function ReplayScrubber({ start, end, live, now, strip, stripError, momen
                 aria-valuenow={v}
                 aria-valuetext={handleText(which, v)}
                 onKeyDown={onKey(which)}
-                onKeyUp={commit}
+                onKeyUp={(e) => MOVE_KEYS.has(e.key) && commit()}
                 onBlur={commit}
                 onPointerDown={onHandleDown(which)}
               >
                 {which.toUpperCase()}
-                <span className="rs-ht"> {hm(v)}</span>
+                {!narrow && <span className="rs-ht"> {hm(v)}</span>}
               </div>
             </span>
           );
@@ -280,7 +342,7 @@ export function ReplayScrubber({ start, end, live, now, strip, stripError, momen
       )}
       <div className="rs-inputs">
         {(["a", "b"] as const).map((which) => (
-          <MomentInput key={which} which={which} value={moments[which]} max={now} onCommit={(t) => onChange({ ...moments, [which]: t })} />
+          <MomentInput key={which} which={which} value={moments[which]} max={now} onCommit={(t) => send(moveHandle(sent.current, which, t, minGapMs, now))} />
         ))}
         <span className="rs-hint">Arrows move a handle by {bucketLabel(step)}, Shift+arrows by ten.</span>
       </div>
