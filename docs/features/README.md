@@ -83,7 +83,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Demo mode](demo-mode.md) | `ui`, `api`, `cli` | shipped |
 | [Multiple systems and the Fleet view](multiple-systems.md) | `ui`, `api`, `cli` | partial — a cluster switcher inside a supercluster is planned |
 | [Placement](placement.md) | `ui`, `api` | partial — how long a state other than a leader's has lasted, and a playbook link, are not built |
-| [Replay](replay.md) | `ui`, `api` | planned |
+| [Replay](replay.md) | `ui`, `api` | partial — "Replay this window" links and a replica catch-up step are not built |
 | [Applications](applications.md) | `ui`, `api` | planned |
 | [Capacity and retention](capacity.md) | `ui`, `api` | planned |
 | [Subjects](subjects.md) | `ui`, `api` | planned |
@@ -133,7 +133,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Findings, finding detail with server copies, start times and events around the start, mutes (triage-and-mutes.md)
 - [ ] Why a finding has its severity, a CLI check ready to copy, accept as known (triage-and-mutes.md)
 - [~] Every stream and durable consumer on every server in one matrix, with filters, a moment to compare with and a side panel — how long most states have lasted and a playbook link are not built (placement.md)
-- [ ] What changed between two moments (replay.md)
+- [~] What changed between two moments A and B, in order, with counts, gone assets, evidence links, a shared link and an incident log — "Replay this window" links and a replica catch-up step are not built (replay.md)
 - [ ] Clients grouped by application (applications.md)
 - [ ] What each stream keeps, what bounds it, and when disks fill (capacity.md)
 - [ ] Subject patterns, from data the servers expose (subjects.md)
