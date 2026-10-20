@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
@@ -169,13 +168,28 @@ WHERE e.kind IN ('collector.gap', 'collector.k8s_gap') AND e.time <= ? AND e.rec
 }
 
 // eventsConnectionGaps reads the times the connections that capture
-// events had no server or were closed, up to B: the newest connection
-// events, at most 5000.
+// events were lost, up to B: for each such connection still lost at
+// ReadFrom the failure that began it, and every state change of those
+// connections and every collector.started from ReadFrom to B. The
+// collector's own connection is left out in the query.
 func (p *Provider) eventsConnectionGaps(ctx context.Context, f *api.ReplayFacts) error {
-	rows, err := p.db().QueryContext(ctx, `SELECT `+eventCols+`, coalesce(json_extract_string(e.raw, '$.connection'), '') FROM events e
-WHERE e.kind IN ('collector.disconnected', 'collector.not_connected', 'collector.connection_closed', 'collector.reconnected', 'collector.started')
-  AND e.time <= ?
-ORDER BY e.time DESC, e.id DESC LIMIT 5000`, f.B)
+	from := api.ReplayReadFrom(f)
+	rows, err := p.db().QueryContext(ctx, `
+WITH s AS (
+  SELECT e.*, coalesce(json_extract_string(e.raw, '$.connection'), '') AS conn FROM events e
+  WHERE e.kind = 'collector.started'
+     OR (e.kind IN ('collector.disconnected', 'collector.not_connected', 'collector.connection_closed', 'collector.reconnected')
+         AND coalesce(json_extract_string(e.raw, '$.connection'), '') NOT IN ('', 'collector'))
+),
+open AS (
+  SELECT * FROM s
+  WHERE s.kind IN ('collector.disconnected', 'collector.not_connected', 'collector.connection_closed') AND s.time < ?
+    AND s.time > coalesce((SELECT max(time) FROM s r WHERE (r.kind = 'collector.started' OR (r.kind = 'collector.reconnected' AND r.conn = s.conn))
+        AND r.time < ?), TIMESTAMP '1970-01-01')
+  QUALIFY row_number() OVER (PARTITION BY s.conn ORDER BY s.time, s.id) = 1
+)
+SELECT `+eventCols+`, e.conn FROM (SELECT * FROM open UNION ALL SELECT * FROM s WHERE s.time >= ? AND s.time <= ?) e
+ORDER BY e.time, e.id`, from, from, from, f.B)
 	if err != nil {
 		return fmt.Errorf("replay events connections: %w", err)
 	}
@@ -194,7 +208,6 @@ ORDER BY e.time DESC, e.id DESC LIMIT 5000`, f.B)
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	slices.Reverse(evs)
 	f.Gaps = append(f.Gaps, api.EventsConnectionGaps(evs)...)
 	return nil
 }

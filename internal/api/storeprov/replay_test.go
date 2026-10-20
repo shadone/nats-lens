@@ -574,3 +574,24 @@ func TestReplayEventsFailoverFromStore(t *testing.T) {
 		}
 	}
 }
+
+// A sys connection lost two days before A and never back stays a time
+// without events however many other connection events came since.
+func TestReplayOldEventsGapStaysReadFromStore(t *testing.T) {
+	p, r := replayStore(t)
+	lost := rT.Add(-48 * time.Hour)
+	r.add("events", map[string]any{"id": 1400, "time": lost, "received_at": lost, "source": "collector", "kind": "collector.not_connected",
+		"summary": "no server", "raw": `{"connection":"sys","reason":"no server reachable"}`})
+	if _, err := p.St.DB().Exec(`INSERT INTO events (id, time, received_at, source, kind, summary, raw)
+SELECT 2000 + i, ?::TIMESTAMP + i * INTERVAL 1 SECOND, ?::TIMESTAMP + i * INTERVAL 1 SECOND, 'collector', 'collector.disconnected', 'lost',
+  '{"connection":"collector","reason":"EOF"}' FROM range(6000) t(i)`, lost.Add(time.Hour), lost.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	f, err := p.Replay(ctx, replayReq(rEpoch(3), rEpoch(40)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.ContainsFunc(f.Gaps, func(g api.ReplayGap) bool { return g.Kind == api.GapEvents && g.Start.Equal(lost) && g.End.IsZero() }) {
+		t.Errorf("gaps = %+v", f.Gaps)
+	}
+}
