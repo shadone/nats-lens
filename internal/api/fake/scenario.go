@@ -82,6 +82,10 @@ type scenario struct {
 	// spreadLeaders spreads the initial stream leaders over the replicas:
 	// the i-th stream's is its peer i modulo its replicas, not its first.
 	spreadLeaders bool
+	// auth is what the Accounts and auth page reads; nil means the stream
+	// account alone, never looked up, with no failed logins, certificates
+	// or user JWTs.
+	auth *authSpec
 	// links are how the servers connect; nil means routes only, one per
 	// pair of servers.
 	links *linkSpec

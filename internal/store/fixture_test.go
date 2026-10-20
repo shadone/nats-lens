@@ -60,6 +60,7 @@ func fixtureSnapshot(t *testing.T, start time.Time) *collect.Snapshot {
 		mustApply(t, snap, collect.Varz, envelope(t, s.name, s.id, server.Varz{
 			ID: s.id, Name: s.name, Version: "2.15.0", Start: start.Add(-time.Hour), Mem: 1 << 28, CPU: 2.5,
 			Connections: 2, Subscriptions: 40, InMsgs: 100, OutMsgs: 200, SystemAccount: "SYS",
+			TLSCertNotAfter: start.Add(16 * 24 * time.Hour).Truncate(time.Second),
 		}))
 		mustApply(t, snap, collect.Connz, envelope(t, s.name, s.id, server.Connz{
 			ID: s.id, NumConns: 1, Total: 1, Conns: []*server.ConnInfo{{
@@ -83,6 +84,13 @@ func fixtureSnapshot(t *testing.T, start time.Time) *collect.Snapshot {
 		mustApply(t, snap, collect.Ipqueuesz, envelope(t, s.name, s.id, map[string]any{
 			"/stream/APP/order-jobs/inflight": map[string]any{"pending": 3, "in_progress": 1},
 		}))
+	}
+	snap.AccountDetails = []collect.AccountDetails{
+		{Account: "AFAKEAPPACCOUNT", LookedUpAt: start.Add(100 * time.Millisecond), ServerID: "NFAKESERVER0ID",
+			Name: "APP", Imports: 1, Exports: 2, HasJWT: true, JWTIssuedAt: start.Add(-30 * 24 * time.Hour),
+			JWTExpires: start.Add(12 * 24 * time.Hour), Limits: collect.AccountLimits{Connections: 2000, LeafNodes: -1,
+				Subscriptions: -1, Data: -1, Payload: -1, JSDisk: 500 << 30, JSMemory: 1 << 30, JSStreams: -1, JSConsumers: -1}},
+		{Account: "SYS", LookedUpAt: start.Add(100 * time.Millisecond), ServerID: "NFAKESERVER1ID", Name: "SYS", IsSystem: true},
 	}
 	snap.Expected = []string{"nats-0", "nats-1", "nats-2"}
 	snap.FinishedAt = start.Add(250 * time.Millisecond)

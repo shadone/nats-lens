@@ -57,26 +57,27 @@ func (p *Provider) SystemSummary(_ context.Context, req *v1.ListSystemsRequest) 
 	return res, nil
 }
 
-// ListAccounts returns the scenario's one account with its connections,
-// streams and consumers.
+// ListAccounts returns the scenario's accounts in identifier order: the
+// stream account with its connections, streams and consumers, and the
+// others of its Accounts and auth page.
 func (p *Provider) ListAccounts(_ context.Context, req *v1.ListAccountsRequest) (*v1.ListAccountsResponse, error) {
 	s := p.scen()
 	at, _, ok := s.epochBefore(req.GetRange())
-	if !ok {
+	res := &v1.ListAccountsResponse{}
+	for _, a := range s.accounts(at) {
+		acc := &v1.Account{Account: a.Account, AccountName: a.Name, IsSystem: a.IsSystem}
 		// Without an epoch in the range the counts are unknown.
-		return &v1.ListAccountsResponse{Accounts: []*v1.Account{{Account: Account}}}, nil
-	}
-	var conns int32
-	for _, sp := range p.sc.servers {
-		if !s.downAt(sp, at) {
-			conns += int32(sp.conns)
+		if ok {
+			acc.Connections, acc.Streams, acc.Consumers = a.Connections, a.Streams, ptr(int32(0))
+			if a.Account == Account {
+				var consumers int32
+				for _, sp := range p.sc.streams {
+					consumers += int32(len(sp.consumers) + sp.ephemeral)
+				}
+				acc.Consumers = ptr(consumers)
+			}
 		}
+		res.Accounts = append(res.Accounts, acc)
 	}
-	var consumers int32
-	for _, sp := range p.sc.streams {
-		consumers += int32(len(sp.consumers) + sp.ephemeral)
-	}
-	return &v1.ListAccountsResponse{Accounts: []*v1.Account{{
-		Account: Account, Connections: ptr(conns), Streams: ptr(int32(len(p.sc.streams))), Consumers: ptr(consumers),
-	}}}, nil
+	return res, nil
 }

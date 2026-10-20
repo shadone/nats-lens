@@ -95,10 +95,15 @@ export function dayMonHm(ms: number): string {
   return `${dayMon(ms)} ${hm(ms)}`;
 }
 
+/** 2026-10-24 */
+export function isoDate(ms: number): string {
+  const d = new Date(ms);
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+}
+
 /** 2026-10-24 12:00 */
 export function isoMinute(ms: number): string {
-  const d = new Date(ms);
-  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${hm(ms)}`;
+  return `${isoDate(ms)} ${hm(ms)}`;
 }
 
 /** 2026-10-24 12:00:05 */

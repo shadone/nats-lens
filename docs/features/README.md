@@ -88,7 +88,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Applications](applications.md) | `ui`, `api` | planned |
 | [Capacity and retention](capacity.md) | `ui`, `api` | planned |
 | [Subjects](subjects.md) | `ui`, `api` | planned |
-| [Accounts and auth](accounts-and-auth.md) | `ui`, `api` | planned |
+| [Accounts and auth](accounts-and-auth.md) | `ui`, `api` | shipped |
 | [KV and object stores](kv-and-object-stores.md) | `ui`, `api` | shipped |
 | [Micro services](micro-services.md) | `ui`, `api` | planned |
 | [Command bar](command-bar.md) | `ui` | partial — search by name is shipped; findings, events and prefixes are planned |
@@ -104,7 +104,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] What nats-lens is, the problem it solves, and its nouns (overview.md)
 
 **Collection**
-- [x] One snapshot of every server per interval, partial collections kept (monitoring-snapshots.md)
+- [x] One snapshot of every server per interval, partial collections kept, account details and the expiry of account JWTs, user JWTs and listener certificates (monitoring-snapshots.md)
 - [x] NATS advisories and system events, short-lived connections folded into `client.churn` and flagged by `client-005` when frequent (event-capture.md)
 - [x] Kubernetes pod, node and client-pod events on the same clock, with node upgrade and drain windows (kubernetes-context.md)
 - [x] Retention, the hourly Parquet archive, and the rebuild from it (history-and-archive.md)
@@ -138,7 +138,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [ ] Clients grouped by application (applications.md)
 - [ ] What each stream keeps, what bounds it, and when disks fill (capacity.md)
 - [ ] Subject patterns, from data the servers expose (subjects.md)
-- [ ] Accounts, users, failed logins and expiring credentials (accounts-and-auth.md)
+- [x] Accounts with their limits, imports, exports and JWT expiry, the failed logins of 24 hours, and the certificates and JWTs that expire within 30 days (accounts-and-auth.md)
 - [x] KV buckets and object stores as their own pages, with placement and missing buckets (kv-and-object-stores.md)
 - [ ] Services built on the NATS micro framework (micro-services.md)
 - [~] Search and jump to anything from one box — findings, events and prefixes are planned (command-bar.md)
@@ -149,4 +149,4 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Findings and collector health at `/metrics` for Prometheus alerting (metrics-and-alerting.md)
 - [x] `run`, `once` for every system or one, configuration, health and readiness, the Kubernetes manifests (running-nats-lens.md)
 - [x] Read-only SQL on a stopped database with `natslens sql`, one system at a time (sql-access.md)
-- [x] Three fixed systems without NATS with `natslens demo`, whose findings are the real checks, with a node pool upgrade to replay, links of a supercluster to draw from `GetTopology`, and which show every state real data shows, tested against the store with one table of states (demo-mode.md)
+- [x] Three fixed systems without NATS with `natslens demo`, whose findings are the real checks, with a node pool upgrade to replay, links of a supercluster to draw from `GetTopology`, accounts and failed logins from `GetAccountsAndAuth`, and which show every state real data shows, tested against the store with one table of states (demo-mode.md)

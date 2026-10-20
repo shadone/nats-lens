@@ -83,7 +83,8 @@ func (snap *Snapshot) Apply(e Endpoint, b []byte) error {
 	case Connz:
 		var d *server.Connz
 		info, d, err = decodeReply[*server.Connz](b)
-		set = func(v *ServerView) { v.Connz = d }
+		jwts := takeUserJWTs(d)
+		set = func(v *ServerView) { v.Connz, v.UserJWTs = d, jwts }
 	case Routez:
 		var d *server.Routez
 		info, d, err = decodeReply[*server.Routez](b)
