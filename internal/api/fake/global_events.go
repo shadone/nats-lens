@@ -43,6 +43,13 @@ func globalRoutineEvents(s scen) []*v1.Event {
 				Summary: "natslens-" + GlobalSystem + " " + strings.TrimPrefix(kind, "client.") + " from 10.30.9.40"})
 		}
 	}
+	// The sys events connection was on nats-us-1: it fails over to
+	// another server within a second of the kill, no loss of capture.
+	for i, kind := range []string{"collector.disconnected", "collector.reconnected"} {
+		add(&v1.Event{Time: ts(s.at(8, 44, 6).Add(time.Duration(i) * time.Second)), Source: v1.EventSource_EVENT_SOURCE_COLLECTOR, Kind: kind,
+			Server: "nats-us-1", Summary: "collector connection sys " + map[bool]string{true: "lost server nats-us-1: EOF", false: "reconnected to nats-us-0"}[i == 0],
+			Raw: `{"connection":"sys","reason":""}`})
+	}
 	// Someone watches the upgrade with the CLI through a port-forward.
 	for k := range 12 {
 		at := s.at(8, 50, 0).Add(time.Duration(k) * 4 * time.Minute)

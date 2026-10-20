@@ -27,13 +27,19 @@ func newCollectorConn(c config.NATS, capture *events.Capture, col *collect.Colle
 func newTrackedCollectorConn(c config.NATS, capture *events.Capture, col *collect.Collector, status *collectionStatus,
 	log *slog.Logger) *eventConn {
 	const label = "collector"
+	dialled := false
 	return &eventConn{
 		label: label, log: log,
 		dial: func() (*nats.Conn, error) {
 			var opts []nats.Option
-			if capture != nil {
+			switch {
+			case capture != nil && dialled:
+				// A redial: its first connect is recorded as a reconnect.
+				opts = capture.RedialHandlers(label)
+			case capture != nil:
 				opts = capture.ConnHandlers(label)
 			}
+			dialled = true
 			// Keep running while NATS is unreachable; epochs are skipped
 			// until the connection has a server.
 			opts = append(opts, nats.RetryOnFailedConnect(true))
@@ -47,11 +53,6 @@ func newTrackedCollectorConn(c config.NATS, capture *events.Capture, col *collec
 			col.SetConn(nc)
 			return nc, nil
 		},
-		reopened: func(nc *nats.Conn) {
-			log.Info("collector connection dialled again", "server", nc.ConnectedServerName())
-			if capture != nil {
-				capture.RecordReopened(label, nc)
-			}
-		},
+		reopened: func(*nats.Conn) { log.Info("collector connection dialled again") },
 	}
 }

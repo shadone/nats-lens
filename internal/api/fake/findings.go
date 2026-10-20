@@ -55,7 +55,7 @@ func prodFindings(s scen) []*v1.Finding {
 		{"max_ack_pending", "8000"}, {"filter_subjects", "orders.archive.>"}, {"replicas", "3"},
 	}, "max_ack_pending", "ack_wait")
 	c010.RelatedConfigSource = "inventory"
-	c010.Cause = &v1.EventRef{Id: idConsumerDeleted, Time: ts(s.at(9, 31, 7)), Kind: "consumer.deleted",
+	c010.Cause = &v1.EventRef{Id: s.sc.eventID("consumer.deleted", fixed(9, 31, 7)), Time: ts(s.at(9, 31, 7)), Kind: "consumer.deleted",
 		Summary: "analytics-aggregator on order-archive by analytics-worker@10.20.0.12"}
 
 	c009 := finding("consumer-009", "Consumer creation time differs across servers", warning, firing,
@@ -104,9 +104,11 @@ func prodFindings(s scen) []*v1.Finding {
 		resolvedFinding("stream-001", "Stream quorum lost", critical, streamRef("order-jobs"), s.at(9, 41, 30), s.at(9, 44, 30),
 			"Leader nats-0 sees 1 of 3 replicas online; quorum needs 2, for 6 collections."),
 		resolvedFinding("stream-003", "Stream replica lagging", warning, streamRef("order-archive"), s.at(9, 16, 40), s.at(10, 5, 0),
-			"Leader nats-0 reports nats-1 12400 operations behind."),
-		resolvedFinding("client-003", "Slow consumer disconnects", warning, clientRef("media-worker"), s.at(9, 15, 30), s.at(9, 45, 0),
-			"6 slow consumer disconnects in the last 30m (nats-0, nats-2), the last at 09:44:12 UTC: Slow Consumer (Write Deadline)."),
+			"Leader nats-2 reports nats-1 12400 operations behind."),
+		// It fired at the third disconnect and resolved 30 minutes after
+		// the last (prodSlowConsumerEvents).
+		resolvedFinding("client-003", "Slow consumer disconnects", warning, clientRef("media-worker"), s.at(9, 17, 30), s.at(10, 2, 0),
+			prodSlowDetail(6, "nats-0, nats-1, nats-2", s.at(9, 32, 0))),
 	}
 	return out
 }

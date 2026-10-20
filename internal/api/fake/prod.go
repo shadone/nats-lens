@@ -1,6 +1,7 @@
 package fake
 
 import (
+	"fmt"
 	"time"
 
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
@@ -25,7 +26,8 @@ func prodScenario() *scenario {
 			{name: "order-jobs", msgs: 48211, bytes: 61.2 * mib, perDay: 2.1 * mib,
 				consumers: []string{"resize-worker", "index-worker", "job-cache-projector"}},
 			{name: "order-archive", msgs: 2914330, bytes: 3.92 * gib, perDay: 96 * mib,
-				consumers: []string{"archive-exporter", "archive-indexer"}, expected: []string{"analytics-aggregator"}},
+				consumers: []string{"archive-exporter", "archive-indexer"}, expected: []string{"analytics-aggregator"},
+				vanished: []vanishedConsumer{{"analytics-aggregator", fixed(9, 31, 7)}}},
 			{name: "audit-archive", msgs: 1108402, bytes: 1.07 * gib, perDay: 18 * mib, consumers: []string{"audit-archive-writer"},
 				maxBytes: 1395864371, discard: "new"},
 			{name: "catalog-changes", msgs: 312880, bytes: 402 * mib, perDay: 6.4 * mib,
@@ -59,26 +61,18 @@ func prodScenario() *scenario {
 		findings:      prodFindings,
 		events:        prodEvents,
 		rows:          prodRows,
-		windows:       prodWindows,
-		k8sLanes:      prodK8sLanes,
+		kubernetes:    true,
 		sample:        prodSample,
 		slowEvents:    prodSlowConsumerEvents,
 		mutes:         func() []*storedMute { return []*storedMute{prodSeedMute()} },
 		transitions:   prodTransitions,
 		consumer:      prodConsumer,
 		created:       prodCreated,
+		// The leads are spread over the three servers; order-archive's
+		// leader is nats-0, so that nats-2 takes it when nats-0 stops.
+		spreadLeaders:  true,
+		initialLeaders: map[string]string{Account + "/order-archive": "nats-0"},
 	}
-}
-
-// prodUpgrade is the node upgrade window.
-func (s scen) prodUpgrade() (time.Time, time.Time) { return s.at(9, 14, 0), s.at(9, 50, 0) }
-
-func prodWindows(s scen, r *v1.TimeRange) []*v1.TimeWindow {
-	a, b := s.prodUpgrade()
-	if !overlaps(a, b, r) {
-		return nil
-	}
-	return []*v1.TimeWindow{{Start: ts(a), End: ts(b), Label: "GKE node upgrade", Detail: "3 drains, 3 pod restarts"}}
 }
 
 // prodConsumer gives resize-worker its disagreement, media-chunk-pool its
@@ -103,8 +97,17 @@ func prodCreated(s scen, _, consumer string) ([]time.Time, bool) {
 	return []time.Time{time.Date(2026, 8, 12, 10, 2, 11, 0, time.UTC).Add(s.shift), s.at(9, 38, 44), s.at(9, 38, 44)}, true
 }
 
-// prodTransitions gives the flapping consumer-002 its history.
+// prodTransitions gives the flapping consumer-002 its history, and
+// client-003 on media-worker its firing and resolve.
 func prodTransitions(s scen, f *v1.Finding) []*v1.FindingTransition {
+	if f.GetCheckCode() == "client-003" && f.GetEntity().GetKey() == "media-worker" {
+		// It fired with the third disconnect, and its detail then named
+		// those three.
+		return []*v1.FindingTransition{
+			{FindingId: f.GetId(), Time: f.GetResolvedAt(), State: resolved, Severity: f.GetSeverity(), Detail: f.GetDetail()},
+			{FindingId: f.GetId(), Time: f.GetSince(), State: firing, Severity: f.GetSeverity(), Detail: prodSlowDetail(3, "nats-1, nats-2", s.at(9, 17, 30))},
+		}
+	}
 	if f.GetCheckCode() != "consumer-002" {
 		return nil
 	}
@@ -116,6 +119,13 @@ func prodTransitions(s scen, f *v1.Finding) []*v1.FindingTransition {
 		tr(s.at(13, 41, 0), resolved), tr(s.at(11, 0, 0), firing), tr(s.at(8, 30, 0), resolved),
 		tr(s.at(8, 15, 0), firing), tr(s.at(7, 45, 0), resolved), tr(s.at(7, 30, 0), firing),
 	}
+}
+
+// prodSlowDetail is client-003's detail for media-worker: n disconnects
+// on the servers, the last at last, a scenario time.
+func prodSlowDetail(n int, servers string, last time.Time) string {
+	return fmt.Sprintf("%d slow consumer disconnects in the last 30m (%s), the last at %s UTC: Slow Consumer (Write Deadline).", n, servers,
+		last.UTC().Format("15:04:05"))
 }
 
 func prodSeedMute() *storedMute {

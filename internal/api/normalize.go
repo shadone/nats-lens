@@ -224,3 +224,29 @@ func normalizeUnmute(req *v1.UnmuteFindingRequest, user string) error {
 	req.UnmutedBy, err = text("unmuted_by", req.GetUnmutedBy(), MaxNameLength)
 	return err
 }
+
+// normalizeReplay checks a Replay request: A and B are set and valid, B
+// after now is now, A is before B, and B is at most MaxReplaySpan after
+// A.
+func normalizeReplay(m *v1.GetReplayRequest, now time.Time) error {
+	if m.GetA() == nil || m.GetB() == nil {
+		return invalid("a and b are required")
+	}
+	if err := m.GetA().CheckValid(); err != nil {
+		return invalid("a: %v", err)
+	}
+	if err := m.GetB().CheckValid(); err != nil {
+		return invalid("b: %v", err)
+	}
+	if m.GetB().AsTime().After(now) {
+		m.B = timestamppb.New(now)
+	}
+	a, b := m.GetA().AsTime(), m.GetB().AsTime()
+	if !a.Before(b) {
+		return invalid("a must be before b, and before now")
+	}
+	if b.Sub(a) > MaxReplaySpan {
+		return invalid("a and b are at most %g hours apart", MaxReplaySpan.Hours())
+	}
+	return nil
+}

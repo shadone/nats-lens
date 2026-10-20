@@ -371,3 +371,15 @@ func (h *Handler) ListObjectStores(ctx context.Context, req *connect.Request[v1.
 		return withRange(p, &m.Range)
 	}, on(Provider.ListObjectStores))
 }
+
+func (h *Handler) GetReplay(ctx context.Context, req *connect.Request[v1.GetReplayRequest]) (*connect.Response[v1.GetReplayResponse], error) {
+	return call(ctx, h, "GetReplay", req.Msg, func(p Provider, m *v1.GetReplayRequest) error {
+		return normalizeReplay(m, p.Now())
+	}, func(s System, ctx context.Context, m *v1.GetReplayRequest) (*v1.GetReplayResponse, error) {
+		f, err := s.Provider.Replay(ctx, m)
+		if err != nil {
+			return nil, err
+		}
+		return FinishReplay(f), nil
+	})
+}

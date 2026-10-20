@@ -1,7 +1,7 @@
 // Package fake serves fixed scenarios through the api.Provider interface,
 // for the demo command and for tests. New serves example-prod: a
 // three-server cluster on 2026-10-17 at 14:30 UTC, five hours after a GKE
-// node upgrade (09:14-09:50) restarted all three NATS servers; it tells the
+// node upgrade (09:16-09:44) restarted all three NATS servers; it tells the
 // story of the reference mockup (docs/ui-reference/reference.html), with
 // the real checks' codes, names and details. Demo
 // adds example-global, 24 servers in three clusters joined by gateways,
@@ -15,7 +15,9 @@ package fake
 import (
 	"cmp"
 	"context"
+	"encoding/json"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -112,11 +114,42 @@ func (s scen) dataStart() time.Time { return s.now.Add(-cmp.Or(s.sc.history, def
 // lastEpoch is when the scenario's newest epoch started.
 func (s scen) lastEpoch() time.Time { return s.dataEnd().Add(-4 * time.Second) }
 
-func (s scen) windows(r *v1.TimeRange) []*v1.TimeWindow {
-	if s.sc.windows == nil {
+// windows are the Kubernetes windows that overlap the range, derived from
+// the scenario's Kubernetes events as the store derives them.
+func (p *Provider) windows(s scen, r *v1.TimeRange) []*v1.TimeWindow {
+	if !s.sc.kubernetes {
 		return nil
 	}
-	return s.sc.windows(s, r)
+	// The events the store reads: from 12 hours before the range to the
+	// window gap after it.
+	from, to := r.GetStart().AsTime().Add(-12*time.Hour), r.GetEnd().AsTime().Add(api.K8sUpgradeGap)
+	var evs []api.K8sWindowEvent
+	for _, e := range p.events(s) {
+		if at := e.GetTime().AsTime(); at.Before(from) || !at.Before(to) {
+			continue
+		}
+		if e.GetSource() != srcK8s || !slices.Contains(api.K8sWindowKinds, e.GetKind()) ||
+			(strings.HasPrefix(e.GetKind(), "k8s.pod.") && e.GetServer() == "") {
+			continue
+		}
+		var raw struct {
+			Node    string `json:"node"`
+			Pool    string `json:"pool"`
+			Kubelet string `json:"kubelet_version"`
+			Cause   string `json:"cause"`
+		}
+		_ = json.Unmarshal([]byte(e.GetRaw()), &raw)
+		evs = append(evs, api.K8sWindowEvent{At: e.GetTime().AsTime(), Kind: e.GetKind(), Server: e.GetServer(), Node: raw.Node,
+			Version: raw.Kubelet, Cause: raw.Cause, Pool: raw.Pool})
+	}
+	slices.Reverse(evs) // oldest first
+	var out []*v1.TimeWindow
+	for _, w := range api.DeriveK8sWindows(evs, api.K8sUpgradeGap) {
+		if w.GetStart().AsTime().Before(r.GetEnd().AsTime()) && !w.GetEnd().AsTime().Before(r.GetStart().AsTime()) {
+			out = append(out, w)
+		}
+	}
+	return out
 }
 
 func overlaps(a, b time.Time, r *v1.TimeRange) bool {
@@ -200,7 +233,7 @@ func (p *Provider) GetOverview(_ context.Context, req *v1.GetOverviewRequest) (*
 		Servers:      servers,
 		Tally:        tally(all, req.GetRange()),
 		Tiles:        s.overviewTiles(req.GetRange(), req.GetMaxPoints(), servers, cur),
-		Windows:      s.windows(req.GetRange()),
+		Windows:      p.windows(s, req.GetRange()),
 		WorstFinding: worstUnmuted(cur),
 	}
 	return res, nil

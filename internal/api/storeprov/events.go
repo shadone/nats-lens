@@ -309,11 +309,7 @@ func (p *Provider) GetEvent(ctx context.Context, req *v1.GetEventRequest) (*v1.G
 // the finding transitions, which have a limit of their own so that a burst
 // of findings cannot push the NATS events out of the lane.
 var (
-	laneKinds = []string{
-		"stream.created", "stream.deleted", "stream.leader_elected", "stream.quorum_lost",
-		"consumer.created", "consumer.deleted", "consumer.leader_elected", "consumer.quorum_lost",
-		"meta.leader_elected", "server.lameduck", "server.shutdown", "server.out_of_storage", "collector.gap",
-	}
+	laneKinds    = api.NATSLaneKinds
 	findingKinds = []string{"finding.firing", "finding.changed", "finding.resolved"}
 )
 

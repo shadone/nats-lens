@@ -35,14 +35,19 @@ func (s scen) offline(name string, at time.Time) bool {
 }
 
 // placementAt is a stream's squares at the scenario time at, by the store
-// provider's rule: the leader (its first peer) first, the rest by server
-// name. A replica on a server offline then is offline, the follower the
+// provider's rule: the leader then first, the rest by server name. A replica on a server offline then is offline, the follower the
 // stream names missing, behind or disagreeing is so, the others in sync.
 // Without a leader every reporting replica's state is unknown, and one on
 // an offline server is a missing square without a server. A consumer's
 // replicas (consumer true) follow their stream's, but are never behind or
 // disagreeing.
 func (s scen) placementAt(sp streamSpec, at time.Time, consumer bool) []*v1.ReplicaPlacement {
+	return s.placementLed(sp, at, consumer, s.streamLeaderAt(sp, at))
+}
+
+// placementLed is placementAt with the leader given, for a consumer led
+// apart from its stream.
+func (s scen) placementLed(sp streamSpec, at time.Time, consumer bool, leader string) []*v1.ReplicaPlacement {
 	peers := s.sc.peers(sp)
 	if sp.leaderless {
 		var out, gone []*v1.ReplicaPlacement
@@ -57,7 +62,10 @@ func (s scen) placementAt(sp streamSpec, at time.Time, consumer bool) []*v1.Repl
 		return append(out, gone...)
 	}
 	var out []*v1.ReplicaPlacement
-	for _, name := range peers[1:] {
+	for _, name := range peers {
+		if name == leader {
+			continue
+		}
 		st := v1.PlacementState_PLACEMENT_STATE_IN_SYNC
 		switch {
 		case s.offline(name, at):
@@ -72,7 +80,10 @@ func (s scen) placementAt(sp streamSpec, at time.Time, consumer bool) []*v1.Repl
 		out = append(out, &v1.ReplicaPlacement{Server: name, State: st})
 	}
 	slices.SortFunc(out, func(a, b *v1.ReplicaPlacement) int { return cmp.Compare(a.GetServer(), b.GetServer()) })
-	return append([]*v1.ReplicaPlacement{{Server: peers[0], State: v1.PlacementState_PLACEMENT_STATE_LEADER}}, out...)
+	if leader == "" {
+		return out
+	}
+	return append([]*v1.ReplicaPlacement{{Server: leader, State: v1.PlacementState_PLACEMENT_STATE_LEADER}}, out...)
 }
 
 // streamCounts counts a scenario's streams of one kind (plain, KV_ or
