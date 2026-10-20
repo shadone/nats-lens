@@ -131,11 +131,12 @@ message TopologyRoute {
   // ROUTEZ, does not.
   bool one_sided = 8;
 
-  // Whether the route stands out, at 1 ms or more: its round trip is at
-  // least 3 times the median of the cluster's pairs that touch neither of
-  // its servers, or one of its servers is slow (its fastest pair at least
-  // 3 times the median of the pairs that do not touch it). Two servers
-  // alone are never slow.
+  // Whether the route stands out. The cluster's core grows from its
+  // fastest pair by every server whose fastest pair to the core is under 3
+  // times the median of the core's pairs or under 2 ms; a route of a
+  // server outside the core is slow, and a route inside it is slow at 2 ms
+  // or more and 3 times the median of at least 2 core pairs that touch
+  // neither of its servers. Two servers alone are never slow.
   bool slow = 9;
 
   // The ends that report the pair, by name.
