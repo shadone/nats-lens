@@ -262,7 +262,7 @@ export function ReplayScrubber({ start, end, live, now, strip, stripError, momen
     <div className="card rs">
       <div
         ref={track}
-        className={`rs-track${drag ? " dragging" : ""}${narrow ? " narrow" : ""}`}
+        className={`rs-track${drag ? " dragging" : ""}${narrow ? " narrow" : ""}${windows.length ? " has-wins" : ""}`}
         onPointerDown={onTrackDown}
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}

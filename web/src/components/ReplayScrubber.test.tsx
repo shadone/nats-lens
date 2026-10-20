@@ -297,4 +297,9 @@ describe("ReplayScrubber", () => {
     setup({ strip: st });
     expect(screen.getByRole("button", { name: /^Replay GKE node upgrade/ })).toHaveAccessibleName("Replay GKE node upgrade 16 Oct 23:00–07:00 UTC");
   });
+
+  it("marks a track with a window bar, so the handle lines leave a gap across its labels", () => {
+    setup();
+    expect(document.querySelector(".rs-track")).toHaveClass("has-wins");
+  });
 });

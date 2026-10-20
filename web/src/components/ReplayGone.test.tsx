@@ -31,4 +31,16 @@ describe("ReplayGone", () => {
     const cells = screen.getByRole("link", { name: "analytics-aggregator" }).closest("tr")!.querySelectorAll("td");
     expect(cells[cells.length - 1]).toHaveTextContent("—not a stream");
   });
+
+  it("says in a user's words when the gone assets were not observed, without a link to compare", () => {
+    renderApp(<ReplayGone gone={[]} truncated={false} moments={{ a: A, b: B }} read={false} />);
+    expect(screen.getByText('Not observed for this A and B; "Between A and B" says why.')).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Compare in Placement" })).toBeNull();
+  });
+
+  it("offers Compare in Placement when the gone assets were read", () => {
+    renderApp(<ReplayGone gone={[]} truncated={false} moments={{ a: A, b: B }} read />);
+    expect(screen.getByText("No stream or durable consumer that servers held at A is missing at B.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Compare in Placement" })).toBeInTheDocument();
+  });
 });
