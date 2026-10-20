@@ -49,7 +49,7 @@ function stepLines(s: ReplayStep, fmt: (t: number) => string, url: (path: string
     const p = evidencePath(e);
     return `${indent}${evidenceWord(e)}: ${e.label}${p ? ` ${url(p)}` : ""}`;
   };
-  for (const item of groupEvidence(s.evidence)) {
+  for (const item of groupEvidence(s.evidence, s.leadersTaken)) {
     if (item.kind === "one") {
       out.push(line(item.e, INDENT));
       continue;

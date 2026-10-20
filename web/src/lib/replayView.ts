@@ -80,34 +80,30 @@ function collectionPage(e: Entity | undefined): string {
   return p ?? "/placement";
 }
 
-/** A leader election as the API labels its evidence: "order-jobs -> nats-0 (term 412)". */
-const ELECTION = /^.+ -> (\S+)(?: \(term \d+\))?$/;
-
-export type EvidenceItem = { kind: "one"; e: ReplayEvidence } | { kind: "elections"; leader: string; items: ReplayEvidence[] };
+export type EvidenceItem = { kind: "one"; e: ReplayEvidence } | { kind: "elections"; leader: string; count: number; items: ReplayEvidence[] };
 
 /**
- * A step's evidence with the leader elections folded into one item per
- * new leader when there are two or more for it, in the place of the first;
- * every other record stays as it is.
+ * A step's evidence with its leader elections (the rows that name the
+ * server they elected) folded into one item per new leader, in the place
+ * of the first, when the step holds two or more elections on that leader.
+ * The count comes from the step's leaders taken, which the evidence cap
+ * does not cut; every other record stays as it is.
  */
-export function groupEvidence(evidence: ReplayEvidence[]): EvidenceItem[] {
-  const leaderOf = (e: ReplayEvidence) => (e.kind === "event" ? ELECTION.exec(e.label)?.[1] : undefined);
-  const counts = new Map<string, number>();
-  for (const e of evidence) {
-    const l = leaderOf(e);
-    if (l) counts.set(l, (counts.get(l) ?? 0) + 1);
-  }
+export function groupEvidence(evidence: ReplayEvidence[], leadersTaken: { leader: string; count: number }[] = []): EvidenceItem[] {
+  const shown = new Map<string, number>();
+  for (const e of evidence) if (e.elected) shown.set(e.elected, (shown.get(e.elected) ?? 0) + 1);
+  const total = (l: string) => Math.max(leadersTaken.find((x) => x.leader === l)?.count ?? 0, shown.get(l) ?? 0);
   const out: EvidenceItem[] = [];
-  const groups = new Map<string, { kind: "elections"; leader: string; items: ReplayEvidence[] }>();
+  const groups = new Map<string, { kind: "elections"; leader: string; count: number; items: ReplayEvidence[] }>();
   for (const e of evidence) {
-    const l = leaderOf(e);
-    if (!l || (counts.get(l) ?? 0) < 2) {
+    const l = e.elected;
+    if (!l || total(l) < 2) {
       out.push({ kind: "one", e });
       continue;
     }
     let g = groups.get(l);
     if (!g) {
-      g = { kind: "elections", leader: l, items: [] };
+      g = { kind: "elections", leader: l, count: total(l), items: [] };
       groups.set(l, g);
       out.push(g);
     }
@@ -116,9 +112,9 @@ export function groupEvidence(evidence: ReplayEvidence[]): EvidenceItem[] {
   return out;
 }
 
-/** "10 leader elections on nats-0" */
-export function electionsText(g: { leader: string; items: ReplayEvidence[] }): string {
-  return `${g.items.length} leader elections on ${g.leader}`;
+/** "22 leader elections on nats-0" */
+export function electionsText(g: { leader: string; count: number }): string {
+  return `${g.count} leader elections on ${g.leader}`;
 }
 
 /** "event", "finding", "collection": what a link opens. */

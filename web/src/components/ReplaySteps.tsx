@@ -65,7 +65,7 @@ function Step({ s, fmt }: { s: ReplayStep; fmt: (t: number) => string }) {
         {s.body && <p className="rp-body">{s.body}</p>}
         {s.evidence.length > 0 && (
           <ul className="rp-ev" aria-label="Evidence">
-            {groupEvidence(s.evidence).map((item, i) => {
+            {groupEvidence(s.evidence, s.leadersTaken).map((item, i) => {
               if (item.kind === "elections") {
                 return (
                   <li key={`elections:${item.leader}`}>
