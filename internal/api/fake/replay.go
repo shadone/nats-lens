@@ -19,9 +19,9 @@ const replayRestartWindow = 10 * time.Minute
 // scenario: restarts from the servers' start times and down periods,
 // servers that stopped answering, the events and the findings'
 // transitions, the windows, the gone assets of scenario.gone and the
-// times without collections. Leaders at A, the meta leader's included,
-// follow the scenario's leader spells. A older than the demo's 14 days of
-// retention is refused.
+// times without collections and events. Leaders at A, the meta leader's
+// included, come from the scenario's leaders' history (leaders.go). A
+// older than the demo's 14 days of retention is refused.
 func (p *Provider) Replay(_ context.Context, req *v1.GetReplayRequest) (*api.ReplayFacts, error) {
 	s := p.scen()
 	a, b := req.GetA().AsTime().UTC(), req.GetB().AsTime().UTC()

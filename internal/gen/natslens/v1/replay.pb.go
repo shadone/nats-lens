@@ -117,9 +117,10 @@ const (
 	ReplayGapKind_REPLAY_GAP_KIND_COLLECTOR ReplayGapKind = 2
 	// Kubernetes was not watched (a collector.k8s_gap).
 	ReplayGapKind_REPLAY_GAP_KIND_KUBERNETES ReplayGapKind = 3
-	// A connection that captures events had no server or was closed
-	// (collector.not_connected or collector.connection_closed of a
-	// connection other than the collector's): events were not captured.
+	// A connection that captures events (any but the collector's) was lost:
+	// from collector.disconnected, collector.not_connected or
+	// collector.connection_closed to its collector.reconnected or the next
+	// collector.started. Events were not captured.
 	ReplayGapKind_REPLAY_GAP_KIND_EVENTS ReplayGapKind = 4
 )
 
@@ -201,9 +202,11 @@ const (
 	ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_NO_POOL_LABELS ReplayUnobservedReason = 11
 	// The provider did not read the gone assets.
 	ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_GONE_NOT_READ ReplayUnobservedReason = 12
-	// A connection that captures events had no server or was closed
-	// between A and B (from and to bound it; to unset while it had not
-	// connected again).
+	// A connection that captures events was lost between A and B: from its
+	// disconnect, a time without a server or its close to its reconnect or
+	// nats-lens starting again (from and to bound it; to unset while it had
+	// not). Any one connection unsets every event count, though each
+	// carries only some of the events.
 	ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_EVENTS_CONNECTION_LOST ReplayUnobservedReason = 13
 )
 

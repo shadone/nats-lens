@@ -737,9 +737,10 @@ export enum ReplayGapKind {
   KUBERNETES = 3,
 
   /**
-   * A connection that captures events had no server or was closed
-   * (collector.not_connected or collector.connection_closed of a
-   * connection other than the collector's): events were not captured.
+   * A connection that captures events (any but the collector's) was lost:
+   * from collector.disconnected, collector.not_connected or
+   * collector.connection_closed to its collector.reconnected or the next
+   * collector.started. Events were not captured.
    *
    * @generated from enum value: REPLAY_GAP_KIND_EVENTS = 4;
    */
@@ -848,9 +849,11 @@ export enum ReplayUnobservedReason {
   GONE_NOT_READ = 12,
 
   /**
-   * A connection that captures events had no server or was closed
-   * between A and B (from and to bound it; to unset while it had not
-   * connected again).
+   * A connection that captures events was lost between A and B: from its
+   * disconnect, a time without a server or its close to its reconnect or
+   * nats-lens starting again (from and to bound it; to unset while it had
+   * not). Any one connection unsets every event count, though each
+   * carries only some of the events.
    *
    * @generated from enum value: REPLAY_UNOBSERVED_REASON_EVENTS_CONNECTION_LOST = 13;
    */
