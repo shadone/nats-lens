@@ -34,7 +34,7 @@ function ServerLink({ name }: { name: string }) {
   return name ? <RLink to={serverPath(name)}>{name}</RLink> : <Unset why="not known" />;
 }
 
-export function LeafTable({ rows, total, at }: { rows: TopologyLeafnode[]; total: number; at?: number }) {
+export function LeafTable({ rows, total, at, leafzFailed = [] }: { rows: TopologyLeafnode[]; total: number; at?: number; leafzFailed?: string[] }) {
   return (
     <Card title="Leaf nodes, worst first" className="tp-leaf">
       <div className="table-wrap scroll-cue">
@@ -50,30 +50,44 @@ export function LeafTable({ rows, total, at }: { rows: TopologyLeafnode[]; total
             </tr>
           </thead>
           <tbody>
-            {rows.map((l) => (
-              <tr key={`${l.name}|${l.account}`} className={l.connected ? undefined : "warn"}>
-                <th scope="row" className="mono">
-                  {l.name}
-                  {!l.connected && (
-                    <small>
-                      not connected{l.lastSeen !== undefined && <>, last seen {shortWhen(l.lastSeen, at ?? l.lastSeen)}</>}
-                      {l.hubServer && <> on {l.hubServer}</>}
-                    </small>
-                  )}
-                </th>
-                <td className="mono">
-                  <ServerLink name={l.hubServer} />
-                </td>
-                <td className="mono">{l.connected ? <Num v={l.rttMs} fmt={fmtShortDuration} /> : <Unset why="not connected" />}</td>
-                <td className={`mono${!l.connected && (l.drops24h ?? 0) > 0 ? " tp-warn" : ""}`}>
-                  <Num v={l.drops24h} />
-                </td>
-                <td className="mono">{l.connected ? <Num v={l.subscriptions} /> : <Unset why="not connected" />}</td>
-                <td className="mono">
-                  <AccountName id={l.account} name={l.accountName} />
-                </td>
-              </tr>
-            ))}
+            {rows.map((l) => {
+              // Not connected here, but a server whose LEAFZ failed may hold it: its state is not known.
+              const unknown = !l.connected && l.connectionUnknown;
+              const why = unknown ? "state unknown" : "not connected";
+              const hubs = l.connected && l.hubServers.length > 0 ? l.hubServers : [l.hubServer];
+              const when = l.lastSeen !== undefined ? `last seen ${shortWhen(l.lastSeen, at ?? l.lastSeen)}` : "";
+              const seen = [when, l.hubServer ? `${when ? "" : "last "}on ${l.hubServer}` : ""].filter(Boolean).join(" ");
+              return (
+                <tr key={`${l.name}|${l.account}`} className={l.connected ? undefined : unknown ? "unknown" : "warn"}>
+                  <th scope="row" className="mono">
+                    {l.name}
+                    {unknown && (
+                      <small>
+                        state unknown{leafzFailed.length > 0 && `: LEAFZ did not answer on ${leafzFailed.join(", ")}`}
+                        {seen && `; ${seen}`}
+                      </small>
+                    )}
+                    {!l.connected && !unknown && <small>not connected{seen && `, ${seen}`}</small>}
+                  </th>
+                  <td className="mono">
+                    {hubs.map((h, k) => (
+                      <span key={h || k}>
+                        {k > 0 && ", "}
+                        <ServerLink name={h} />
+                      </span>
+                    ))}
+                  </td>
+                  <td className="mono">{l.connected ? <Num v={l.rttMs} fmt={fmtShortDuration} /> : <Unset why={why} />}</td>
+                  <td className={`mono${!l.connected && !unknown && (l.drops24h ?? 0) > 0 ? " tp-warn" : ""}`}>
+                    <Num v={l.drops24h} />
+                  </td>
+                  <td className="mono">{l.connected ? <Num v={l.subscriptions} /> : <Unset why={why} />}</td>
+                  <td className="mono">
+                    <AccountName id={l.account} name={l.accountName} />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

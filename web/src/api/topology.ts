@@ -66,6 +66,10 @@ export interface TopologyLeafnode {
   drops24h?: number;
   lastSeen?: number;
   compression: string;
+  /** Every hub the site is on now; hubServer is the first. Empty for a site not connected. */
+  hubServers: string[];
+  /** Not connected here, but a server whose LEAFZ failed may hold it. */
+  connectionUnknown: boolean;
 }
 
 export interface TopologyUnobserved {
@@ -137,6 +141,8 @@ export function topology(r: GetTopologyResponse): Topology {
       drops24h: l.drops24h,
       lastSeen: ms(l.lastSeen),
       compression: l.compression,
+      hubServers: l.hubServers,
+      connectionUnknown: l.connectionUnknown,
     })),
     leafnodesTotal: r.leafnodesTotal,
     unobserved: r.unobserved.map((u) => ({ endpoint: u.endpoint, servers: u.servers })),

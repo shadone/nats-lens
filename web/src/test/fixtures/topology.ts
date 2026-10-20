@@ -36,6 +36,8 @@ export function leaf(name: string, hub: string, o: Partial<TopologyLeafnode> = {
     subscriptions: 148,
     drops24h: 0,
     compression: "s2_auto",
+    hubServers: o.connected === false ? [] : [hub],
+    connectionUnknown: false,
     ...o,
   };
 }

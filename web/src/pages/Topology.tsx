@@ -90,7 +90,7 @@ function Body({ t, asked, onPick }: { t: TopologyData; asked: string | null; onP
         </div>
       )}
       <div className={`tp-tables${t.leafnodes.length > 0 ? " two" : ""}`}>
-        {t.leafnodes.length > 0 && <LeafTable rows={t.leafnodes} total={t.leafnodesTotal} at={t.epochAt} />}
+        {t.leafnodes.length > 0 && <LeafTable rows={t.leafnodes} total={t.leafnodesTotal} at={t.epochAt} leafzFailed={t.unobserved.filter((u) => u.endpoint === "LEAFZ").flatMap((u) => u.servers)} />}
         <RouteTable routes={t.routes} clusters={t.clusters} picked={picked} onPick={onPick} single={t.clusters.length === 1 && !showMap} />
       </div>
     </>

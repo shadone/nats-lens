@@ -71,3 +71,5 @@ span.tm-name:hover{text-decoration:none}
   .tp-card .table-wrap{padding:0}
   .tp-foot{padding:10px 14px 12px}
 }
+.tbl tr.unknown > *{background:var(--surface-2)}
+.tbl tr.unknown th small{color:var(--text-2)}
