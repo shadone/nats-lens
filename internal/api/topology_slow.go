@@ -2,6 +2,7 @@ package api
 
 import (
 	"cmp"
+	"maps"
 	"slices"
 	"time"
 
@@ -24,15 +25,21 @@ const (
 //     until none is left, every server whose fastest pair to the core is
 //     under slowRouteFactor times the median of the core's pairs, or under
 //     slowRouteFloor.
-//  2. A server outside the core is slow; all its routes are slow.
-//  3. A pair inside the core is slow (a slow link) when it is at least
+//  2. Only a core of more than half the cluster's measured servers is a
+//     reference: otherwise the cluster is split into groups of similar
+//     size, none of which is the normal one, and nothing in it is slow.
+//  3. A server outside the core is slow; all its routes are slow.
+//  4. A pair inside the core is slow (a slow link) when it is at least
 //     slowRouteFloor and slowRouteFactor times the median of the core's
 //     pairs that touch neither of its servers, given at least
 //     slowLinkReferences of them.
 //
 // Growing the core from the fastest pair keeps slow servers out of the
-// reference, so one or two slow servers stand out in a cluster of 3 or
-// more (two slow servers of 3 leave nothing to compare with). Normal
+// reference, so one slow server stands out in a cluster of 3 or more and
+// two in a cluster of 5 or more; two of 4 make an even split, not judged.
+// The majority keeps the result from depending on which half of an even
+// split holds the fastest pair, which jitter changes between refreshes,
+// and never marks most of a cluster slow. Normal
 // layouts stay quiet: jitter and zones under 2 ms join the core by the
 // floor. With 2 servers, or all pairs alike, nothing is slow.
 func markSlowRoutes(routes []*v1.TopologyRoute) {
@@ -84,6 +91,16 @@ func markSlowInCluster(rs []*v1.TopologyRoute) {
 				core[s], grown = true, true
 			}
 		}
+	}
+	// The measured servers: the core and those a pair measures against it.
+	measured := maps.Clone(core)
+	for _, r := range rs {
+		if a, b := r.GetServerA(), r.GetServerB(); core[a] != core[b] {
+			measured[a], measured[b] = true, true
+		}
+	}
+	if 2*len(core) <= len(measured) {
+		return
 	}
 	// A server outside the core is slow when a pair measures it against
 	// the core; one with pairs only to other outside servers is not judged.
