@@ -15,6 +15,17 @@ import { useTimeRange } from "../lib/useTimeRange";
 import { useElementWidth } from "../lib/useWidth";
 
 const CLUSTER_PARAM = "cluster";
+
+/** The servers whose LEAFZ did not answer, by their cluster. */
+function leafzFailedByCluster(t: TopologyData): Record<string, string[]> {
+  const of = new Map(t.clusters.flatMap((c) => c.servers.map((s) => [s.name, c.name] as const)));
+  const out: Record<string, string[]> = {};
+  for (const u of t.unobserved) {
+    if (u.endpoint !== "LEAFZ") continue;
+    for (const s of u.servers) (out[of.get(s) ?? ""] ??= []).push(s);
+  }
+  return out;
+}
 const DAY = 86_400_000;
 
 export function Topology() {
@@ -90,7 +101,7 @@ function Body({ t, asked, onPick }: { t: TopologyData; asked: string | null; onP
         </div>
       )}
       <div className={`tp-tables${t.leafnodes.length > 0 ? " two" : ""}`}>
-        {t.leafnodes.length > 0 && <LeafTable rows={t.leafnodes} total={t.leafnodesTotal} at={t.epochAt} leafzFailed={t.unobserved.filter((u) => u.endpoint === "LEAFZ").flatMap((u) => u.servers)} />}
+        {t.leafnodes.length > 0 && <LeafTable rows={t.leafnodes} total={t.leafnodesTotal} at={t.epochAt} leafzFailed={leafzFailedByCluster(t)} />}
         <RouteTable routes={t.routes} clusters={t.clusters} picked={picked} onPick={onPick} single={t.clusters.length === 1 && !showMap} />
       </div>
     </>

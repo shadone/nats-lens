@@ -53,7 +53,8 @@ function ServerLink({ name }: { name: string }) {
   return name ? <RLink to={serverPath(name)}>{name}</RLink> : <Unset why="not known" />;
 }
 
-export function LeafTable({ rows, total, at, leafzFailed = [] }: { rows: TopologyLeafnode[]; total: number; at?: number; leafzFailed?: string[] }) {
+/** leafzFailed: per cluster, its servers whose LEAFZ did not answer; a site of unknown state names those of its own cluster. */
+export function LeafTable({ rows, total, at, leafzFailed = {} }: { rows: TopologyLeafnode[]; total: number; at?: number; leafzFailed?: Record<string, string[]> }) {
   return (
     <Card title="Leaf nodes, worst first" className="tp-leaf">
       <div className="table-wrap scroll-cue">
@@ -98,9 +99,9 @@ export function LeafTable({ rows, total, at, leafzFailed = [] }: { rows: Topolog
                     {unknown && (
                       <small>
                         state unknown
-                        {leafzFailed.length > 0 && (
+                        {(leafzFailed[l.hubCluster] ?? []).length > 0 && (
                           <>
-                            : LEAFZ did not answer on <Names list={leafzFailed} />
+                            : LEAFZ did not answer on <Names list={leafzFailed[l.hubCluster]} />
                           </>
                         )}
                         {seen && <>; {seen}</>}
