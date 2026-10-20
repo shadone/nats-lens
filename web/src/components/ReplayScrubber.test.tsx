@@ -290,4 +290,11 @@ describe("ReplayScrubber", () => {
     fireEvent.keyUp(a, { key: "ArrowRight" });
     expect(onChange).toHaveBeenLastCalledWith({ a: X.a + BUCKET, b: X.b });
   });
+
+  it("gives a Kubernetes window on another day than A its day", () => {
+    const st = strip();
+    st.windows = [{ start: T("2026-10-16T23:00:00Z"), end: T("2026-10-17T07:00:00Z"), label: "GKE node upgrade", detail: "" }];
+    setup({ strip: st });
+    expect(screen.getByRole("button", { name: /^Replay GKE node upgrade/ })).toHaveAccessibleName("Replay GKE node upgrade 16 Oct 23:00–07:00 UTC");
+  });
 });

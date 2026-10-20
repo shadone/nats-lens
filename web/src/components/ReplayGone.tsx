@@ -34,7 +34,7 @@ export function ReplayGone({ gone, truncated, moments, read }: { gone: GoneAsset
                 <th>At B</th>
                 <th>Delete event</th>
                 <th>Last reported</th>
-                <th className="num">Durables with it</th>
+                <th className="num">Durables</th>
               </tr>
             </thead>
             <tbody>
@@ -54,14 +54,24 @@ export function ReplayGone({ gone, truncated, moments, read }: { gone: GoneAsset
                       {g.deleteEvent ? (
                         <>
                           <RLink to={eventPath(g.deleteEvent.id)}>{g.deleteEvent.summary || g.deleteEvent.kind}</RLink>
-                          {g.deleteClient && <small>by {g.deleteClient}</small>}
+                          {/* The summary names the client; without one, the client is named here. */}
+                          {!g.deleteEvent.summary && g.deleteClient && <small>by {g.deleteClient}</small>}
                         </>
                       ) : (
                         "none captured"
                       )}
                     </td>
                     <td className="mono">{g.lastReported !== undefined ? `${isoSecond(g.lastReported)} UTC` : "not recorded"}</td>
-                    <td className="num">{g.entity.kind === "consumer" ? "" : g.consumersWithIt}</td>
+                    <td className="num">
+                      {g.entity.kind === "consumer" ? (
+                        <>
+                          <span aria-hidden="true">—</span>
+                          <span className="sr-only">not a stream</span>
+                        </>
+                      ) : (
+                        g.consumersWithIt
+                      )}
+                    </td>
                   </tr>
                 );
               })}

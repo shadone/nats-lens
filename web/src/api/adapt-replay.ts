@@ -8,6 +8,7 @@ import {
   type ReplayCounts as PCounts,
   type ReplayStep as PStep,
 } from "../gen/natslens/v1/replay_pb";
+import { EntityType } from "../gen/natslens/v1/common_pb";
 import { entity, entityOrEmpty, ms, optSeverity } from "./adapt-common";
 import type { Entity, SeverityLevel } from "./model";
 
@@ -87,6 +88,8 @@ export interface ReplayEvidence {
   label: string;
   /** For a collection, the entity to open at that moment; unset is the system. */
   entity?: Entity;
+  /** For a leader election, the server it elected. */
+  elected?: string;
 }
 
 export interface ReplayStep {
@@ -102,6 +105,10 @@ export interface ReplayStep {
   body: string;
   evidence: ReplayEvidence[];
   evidenceCount: number;
+  /** A meta leader step: a leaders step about servers, not streams or consumers. */
+  meta: boolean;
+  /** All leader elections of the step by new leader, most first; not capped like the evidence. */
+  leadersTaken: { leader: string; count: number }[];
   /** After B: it closes a step in the range. */
   outsideRange: boolean;
 }
@@ -173,7 +180,9 @@ function step(s: PStep): ReplayStep {
     severity: optSeverity(s.severity),
     title: s.title,
     body: s.body,
-    evidence: s.evidence.map((e) => ({ kind: EVIDENCE_KIND[e.kind] ?? "other", id: e.id, time: ms(e.time), label: e.label, entity: entity(e.entity) })),
+    evidence: s.evidence.map((e) => ({ kind: EVIDENCE_KIND[e.kind] ?? "other", id: e.id, time: ms(e.time), label: e.label, entity: entity(e.entity), elected: e.elected || undefined })),
+    leadersTaken: s.leadersTaken.map((l) => ({ leader: l.leader, count: l.count })),
+    meta: s.kind === PStepKind.LEADERS && s.entities.length > 0 && s.entities.every((e) => e.type === EntityType.SERVER),
     evidenceCount: s.evidenceCount,
     outsideRange: s.outsideRange,
   };
