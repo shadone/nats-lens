@@ -9,7 +9,7 @@ The board's sample names come from a sketch. Use the example shop of `inventory.
 | Task | Status |
 |---|---|
 | T1 Collector and store | built on `feat/accounts-page`, awaiting review |
-| T2 API and demo | not started |
+| T2 API and demo | built on `feat/accounts-api`, awaiting review |
 | T3 UI | not started |
 | T4 Feature docs and audit | not started |
 
@@ -81,6 +81,20 @@ Each point was decided in the session that built T1: proposed, not yet confirmed
 - **Demo.** `example-global` runs in operator mode: `APP` keeps its readable name everywhere but its identifier becomes an account public key on every page (`ListAccounts`, events, connections, streams), with the system account `SYS` and an idle account `SUPPLIERS` (no connections, an export of `inventory.changes`, its JWT expiring in 12 days); `APP` has limits (2,000 connections, 500 GiB disk) and a JWT without expiry. Failed logins: user `label-printer` from `10.20.4.31`, "User Authentication Revoked", every minute (about 1,440 in 24 hours); no user from `203.0.113.12`, "Authentication Timeout", 96 times. `nats-eu-0`'s client listener certificate expires in 16 days; the `pos-terminal` user JWT in 5 days on 3 connections. If switching `APP`'s identifier is too wide a change, the implementer keeps `APP` and gives only `SUPPLIERS` a key, and says so. `example-prod`: config mode, `APP` only, server certificates more than 30 days out. `example-staging`: as its scenario allows. The demo's auth errors appear on the Events page too.
 - Conformance rows in `apitest`: operator mode with an account JWT expiring and one without expiry; config mode with certificates only; failed logins grouped with the count and last time; an account without details reads "not looked up yet"; the store fixture and the demo pass alike.
 - Docs: `docs/design.md` (the RPC, limits, the 30-day window), `demo-mode.md`.
+
+### Where T2 departed from this plan
+
+Each point was decided in the session that built T2: proposed, not yet confirmed.
+
+- **APP keeps its identifier.** Switching `APP` to an account public key on every demo page would change every stream, consumer and finding key of `example-global` (`fake.Account` is one constant that every scenario and many tests share), so only `SUPPLIERS` has a key (`fake.SuppliersAccount`); `APP` and `SYS` keep their names as identifiers. Operator mode reads true because one identifier is a key, the rule of the table above.
+- **No disk limit in config mode.** `account_stats.js_reserved_storage` is the sum of the streams' `max_bytes` reservations (nats-server's `reservedStorage`), not the account's JetStream limit, so the plan's "the JetStream reservation is the disk limit" would show a stream setting as a limit. `disk_limit` is set from the account JWT only; config mode leaves it unset. Config-mode account limits would need JetStream account info, which nothing collects.
+- **Expiring rows have fields, not one subject.** `Expiring` carries `server` and `listener` for a certificate, `account`, `account_name` and `user` for a JWT, in place of a composed `subject`, so the account name fills as in every response and the UI words the row. `expiring_total` counts the rows before the limit of 100, as the other lists have a total.
+- **Accounts are `ListAccounts`' accounts.** The rows are the accounts the `accounts` table holds for the epoch, with `account_stats` joined, so this page and `ListAccounts` always list the same accounts; a conformance row checks it in every system. An account in `account_stats` alone cannot occur: the writer adds every reported account to `accounts`.
+- **Limits from the JWT only when it is known.** `conn_limit` and `disk_limit` are set only for an account whose lookup is known and carries a JWT; `imports` and `exports` for any known lookup.
+- **User JWTs counted.** A user JWT group is (account, user) of the epoch's connections with `user_jwt` true; its expiry is the soonest, `connections` the connections whose JWT expires then. A user whose connections report no expiry counts in `never_expire`; a JWT that did not decode is counted there too, as the store cannot tell the two apart.
+- **Capture gaps include "never captured".** `capture_gaps` is also true when no event at all is stored up to the epoch, as Replay's "events not captured".
+- **Failed-login window.** It ends at the epoch and starts 24 hours before it, or at the first collection when the history is shorter; events at its start count.
+- **Demo details.** `example-global`'s timeouts from `203.0.113.12` come 8 at a time every 2 hours (96 a day), not every 15 minutes: one every 15 minutes is more than the 10-minute fold gap apart, so the Events page would show each as a row of its own, about 100 more rows. The test of the Events page's readable view now allows 135 rows instead of 120, for the label-printer row and the bursts. `SYS` has 0 connections, as the demo's connections list holds `APP`'s only. Three `checkout-service` connections on `nats-eu-0` to `nats-eu-2` authenticate as `pos-terminal`; every other connection as `app`, whose user JWT has no expiry. The other certificates of `example-global` expire in 75 days, `example-prod`'s in 58. `example-staging` has no lookup and no certificates.
 
 ## T3 UI
 
