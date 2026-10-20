@@ -106,13 +106,13 @@ Each departure was made by the session that built T2: proposed, not yet confirme
 - **Cluster note.** "JetStream meta leader · 5 streams led", plus "1 missing" and "gateway to us dropping" where they apply (the board's "mirrors from" is not backed). A cluster box is in the warning colour when a server is missing or its gateway dropped in the last hour.
 - **Routes table.** The cluster is `?cluster=` in the URL; without it, the cluster of the worst route (the first in the response). From and to are both full server names, each a link. A pair with no pooled route shows "none" in Pool, as does an empty Pinned accounts. A pair one end reports while the other answered says "only nats-eu-1 reports it; nats-eu-2 does not"; one whose other end did not answer says "as nats-eu-1 reports it; nats-eu-2 did not answer ROUTEZ".
 - **Drops in the leaf table.** Shown in the warning colour only in a row not connected, as on the board.
+- **Map width.** The map is measured through a callback ref (`useElementWidth`), so a map that appears only after a refetch, or again after it was gone, is measured too.
 - **Short history.** When `drops_window_start` is more than a minute later than 24 hours before the collection, the drops line adds when the history starts.
 - **Round trips.** The adapter reads durations with their fraction of a millisecond, as `durationMs` of the protobuf library rounds to whole milliseconds and showed routes as "0 ms".
 - **The board's sentence.** "For a single cluster this page shows just the routes; with no gateways or leaf nodes those sections stay hidden." is shown under the routes table only when the page shows nothing else.
 
 ### Leftovers of T2
 
-- The map's width is measured once the map is first drawn; a page whose map appears only after a later refetch keeps the board's row until the next resize.
 - No demo system has a failed endpoint, a cut leaf node list or a one-sided route, so those were seen only in tests.
 
 ## Tasks

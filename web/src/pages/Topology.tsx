@@ -2,7 +2,6 @@
 // collection. A map of the clusters, their gateways and leaf node hubs,
 // then the leaf node sites worst first and the routes inside one cluster.
 // The cluster of the routes table lives in the URL as ?cluster=.
-import { useRef } from "react";
 import { useSearchParams } from "react-router";
 import { useTopology } from "../api/queries";
 import type { Topology as TopologyData } from "../api/topology";
@@ -13,7 +12,7 @@ import { dayMonHm, hms } from "../lib/format";
 import { dropsLine, leafBox, routesCluster, summary, unobservedLines } from "../lib/topologyView";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useTimeRange } from "../lib/useTimeRange";
-import { useWidth } from "../lib/useWidth";
+import { useElementWidth } from "../lib/useWidth";
 
 const CLUSTER_PARAM = "cluster";
 const DAY = 86_400_000;
@@ -59,8 +58,7 @@ export function Topology() {
 }
 
 function Body({ t, asked, onPick }: { t: TopologyData; asked: string | null; onPick: (c: string) => void }) {
-  const mapRef = useRef<HTMLElement>(null);
-  const width = useWidth(mapRef);
+  const [mapRef, width] = useElementWidth();
   const picked = routesCluster(t, asked);
   const anyLeaf = t.leafnodes.length > 0 || t.clusters.some((c) => leafBox(c) !== undefined);
   const showMap = t.clusters.length > 1 || anyLeaf;
