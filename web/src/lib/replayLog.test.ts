@@ -19,9 +19,11 @@ function story() {
         body: "Back at 09:18:30 with 4 streams and 9 consumers.",
         evidence: [
           { kind: "event", id: "e 7", time: Date.parse("2026-10-17T09:17:58Z"), label: "pod nats-1 Killing" },
+          { kind: "event", id: "8", label: "order-jobs -> nats-0 (term 4)" },
+          { kind: "event", id: "9", label: "order-archive -> nats-0 (term 5)" },
           { kind: "collection", id: "120", time: Date.parse("2026-10-17T09:18:30Z"), label: "collection of 09:18:30", entity: server("nats-1") },
         ],
-        evidenceCount: 3,
+        evidenceCount: 5,
       }),
       rstep("gap:1", "09:30:00", { kind: "gap", end: Date.parse("2026-10-17T09:33:00Z"), title: "No collections for 3 min" }),
       rstep("finding:2", "09:40:00", { severity: "critical", title: "Consumer missing", evidence: [{ kind: "finding", id: "consumer-013:APP/x", label: "consumer-013 (firing)" }], evidenceCount: 1 }),
@@ -56,6 +58,7 @@ describe("replayLog", () => {
     // A collection opens its entity over the hour that ends a second after it.
     expect(text).toContain("    collection: collection of 09:18:30 https://lens.example.com/servers/nats-1?from=2026-10-17T08%3A18%3A30Z&to=2026-10-17T09%3A18%3A31Z&system=example-global\n");
     expect(text).toContain("    and 1 more\n");
+    expect(text).toContain("    events: 2 leader elections on nats-0\n        event: order-jobs -> nats-0 (term 4) https://lens.example.com/events?id=8&");
     expect(text).toContain("09:40:00  Finding (critical)  Consumer missing\n    finding: consumer-013 (firing) https://lens.example.com/findings/consumer-013%3AAPP%2Fx?");
     expect(text).toContain("Steps after 09:45 may be missing: the read limit was reached.");
   });
@@ -77,5 +80,12 @@ describe("replayLog", () => {
   it("names the file by system and moments", () => {
     expect(logFileName("example-global", { a: A, b: B })).toBe("replay-example-global-20261017T091400Z-20261017T095000Z.txt");
     expect(logFileName("", { a: A, b: B })).toBe("replay-default-20261017T091400Z-20261017T095000Z.txt");
+  });
+
+  it("names a delete event's client once", () => {
+    const g = rgone({ deleteEvent: { id: "41", kind: "consumer.deleted", summary: "restock-alerts on inventory-changes by analytics-worker@10.20.0.12" }, deleteClient: "analytics-worker (10.20.0.12)" });
+    const t = replayLog(rreplay({ gone: [g] }), CTX);
+    expect(t).toContain("    delete event: restock-alerts on inventory-changes by analytics-worker@10.20.0.12 https://lens.example.com/events?id=41&");
+    expect(t.match(/analytics-worker/g)).toHaveLength(1);
   });
 });
