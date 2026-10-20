@@ -220,8 +220,8 @@ func TestTopologyRoutePairs(t *testing.T) {
 	}
 }
 
-// A route is slow at 3 times its cluster's median and at least 1 ms;
-// slow routes come first, then by RTT.
+// One server far from the other four makes its routes slow (the rule is
+// in topology_slow.go); slow routes come first, then by RTT.
 func TestTopologySlowRoute(t *testing.T) {
 	f := topoFacts()
 	f.Servers = nil
@@ -251,7 +251,7 @@ func TestTopologySlowRoute(t *testing.T) {
 	if !slices.Equal(slow, []string{"n0-n4", "n1-n4", "n2-n4", "n3-n4"}) {
 		t.Errorf("slow = %v", slow)
 	}
-	// Under 1 ms nothing is slow, however far above the median.
+	// Under 2 ms nothing is slow, however far above the rest.
 	for i := range f.Routes {
 		if *f.Routes[i].RTT == 4*time.Millisecond {
 			f.Routes[i].RTT = ms(0.9)
