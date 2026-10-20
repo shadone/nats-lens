@@ -168,7 +168,9 @@ export function routesCluster(t: Topology, asked: string | null): string | undef
   const pool = slow.size > 0 ? t.clusters.filter((c) => slow.has(c.name)) : t.clusters;
   const leader = pool.find((c) => c.metaLeader);
   if (leader) return leader.name;
-  return pool.map((c) => c.name).sort()[0] ?? [...slow].sort()[0];
+  // The unknown cluster (no name) comes after every named one.
+  const byName = (a: string, b: string) => (a === "" ? 1 : 0) - (b === "" ? 1 : 0) || (a < b ? -1 : a > b ? 1 : 0);
+  return pool.map((c) => c.name).sort(byName)[0] ?? [...slow].sort(byName)[0];
 }
 
 /** "Drops are counted from collections every 30s; …" */
