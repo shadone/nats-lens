@@ -308,12 +308,15 @@ export type TopologyRoute = Message<"natslens.v1.TopologyRoute"> & {
   oneSided: boolean;
 
   /**
-   * Whether the route stands out. The cluster's core grows from its
-   * fastest pair by every server whose fastest pair to the core is under 3
-   * times the median of the core's pairs or under 2 ms; a route of a
-   * server outside the core is slow, and a route inside it is slow at 2 ms
-   * or more and 3 times the median of at least 2 core pairs that touch
-   * neither of its servers. Two servers alone are never slow.
+   * Whether the route stands out. Servers are near when their round trip
+   * is under 2 ms or under 3 times the median of each server's fastest
+   * round trip; servers joined by near pairs form groups. Only when the
+   * largest group holds more than half of the servers with a reported
+   * round trip is the cluster judged: a route of a server outside that
+   * group is slow, and a route inside it is slow at 2 ms or more and 3
+   * times the median of at least 2 of the group's routes that touch
+   * neither of its servers. A cluster split into groups of similar size,
+   * or of two servers, has nothing slow.
    *
    * @generated from field: bool slow = 9;
    */
