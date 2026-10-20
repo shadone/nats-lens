@@ -34,3 +34,10 @@ describe("accounts.css", () => {
     expect(read("../styles/index.css")).toContain('@import "./accounts.css";');
   });
 });
+
+describe("accounts.css bars", () => {
+  it("gives a fill a minimum width only above 0", () => {
+    expect(css).not.toMatch(/\.ac-bar-fill\{[^}]*min-width/);
+    expect(css).toMatch(/\.ac-bar-fill\.ac-bar-some\{min-width:2px\}/);
+  });
+});

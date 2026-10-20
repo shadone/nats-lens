@@ -72,15 +72,25 @@ export type Tone = "ok" | "warn" | "crit" | "muted";
 
 /** A bar against a limit: only for a limit that is set and above 0. */
 export interface LimitBar {
-  /** 0 to 100. */
+  /** The fill, 0 to 100. */
   pct: number;
-  tone: "ok" | "warn";
+  /** The real share of the limit in percent, above 100 over the limit. */
+  share: number;
+  /** ok below 80%, warn from 80% up to the limit, crit over it. */
+  tone: "ok" | "warn" | "crit";
 }
 
 export function limitBar(used: number | undefined, limit: number | undefined): LimitBar | undefined {
   if (used === undefined || limit === undefined || limit <= 0) return undefined;
-  const pct = (used * 100) / limit;
-  return { pct: Math.min(100, Math.max(0, pct)), tone: pct >= LIMIT_WARN * 100 ? "warn" : "ok" };
+  const share = (used * 100) / limit;
+  const tone = used > limit ? "crit" : share >= LIMIT_WARN * 100 ? "warn" : "ok";
+  return { pct: Math.min(100, Math.max(0, share)), share, tone };
+}
+
+/** The bar's words, also its non-colour cue: "82% of the limit", "150% of the limit, over the limit". */
+export function limitBarText(bar: LimitBar): string {
+  const pct = `${fmtInt(Math.floor(bar.share))}% of the limit`;
+  return bar.tone === "crit" ? `${pct}, over the limit` : pct;
 }
 
 /** "of 2,000", "of unlimited", or undefined without a limit. */
@@ -112,14 +122,19 @@ export function diskLimitText(a: AccountRow): string | undefined {
   return a.diskLimit < 0 ? "of unlimited" : `of ${fmtBytes(a.diskLimit)}`;
 }
 
-/** "2 imports · 1 export", "none", "system account", "idle now", "1 export · idle now"; undefined when nothing is known. */
+/**
+ * "2 imports · 1 export", "none", "system account", "idle now", "1 export ·
+ * idle now", "not looked up yet"; undefined when the account was looked up
+ * and neither count is known.
+ */
 export function importsExports(a: AccountRow): string | undefined {
   if (a.isSystem) return "system account";
   const parts: string[] = [];
-  if (a.imports !== undefined && a.exports !== undefined) {
-    if (a.imports > 0) parts.push(plural(a.imports, "import"));
-    if (a.exports > 0) parts.push(plural(a.exports, "export"));
-    if (parts.length === 0 && !isIdle(a)) parts.push("none");
+  if (!a.detailsKnown) parts.push("not looked up yet");
+  else {
+    if ((a.imports ?? 0) > 0) parts.push(plural(a.imports!, "import"));
+    if ((a.exports ?? 0) > 0) parts.push(plural(a.exports!, "export"));
+    if (parts.length === 0 && a.imports === 0 && a.exports === 0 && !isIdle(a)) parts.push("none");
   }
   if (isIdle(a)) parts.push("idle now");
   return parts.length > 0 ? parts.join(" · ") : undefined;
@@ -131,6 +146,8 @@ export interface JwtCell {
   tone?: Tone;
   /** For screen readers when text is undefined and the cell shows a dash. */
   why?: string;
+  /** Under a date within 30 days, the cue that does not rest on colour: "in 12 days". */
+  note?: string;
 }
 
 export function jwtCell(a: AccountRow, operatorMode: boolean, epochAt: number | undefined): JwtCell {
@@ -140,20 +157,38 @@ export function jwtCell(a: AccountRow, operatorMode: boolean, epochAt: number | 
   if (a.expired) return { text: "expired", tone: "crit" };
   if (a.jwtExpires === undefined) return { text: "never", tone: "muted" };
   if (epochAt !== undefined && a.jwtExpires <= epochAt) return { text: "expired", tone: "crit" };
-  const soon = epochAt !== undefined && a.jwtExpires - epochAt <= EXPIRING_WINDOW_MS;
-  return { text: isoDate(a.jwtExpires), tone: soon ? "warn" : undefined };
+  if (epochAt === undefined || a.jwtExpires - epochAt > EXPIRING_WINDOW_MS) return { text: isoDate(a.jwtExpires) };
+  return { text: isoDate(a.jwtExpires), tone: "warn", note: `in ${expiresIn({ expires: a.jwtExpires, expired: false }, epochAt)}` };
 }
 
-/** The window failed logins are counted over, in milliseconds: 24 hours, or less when the history is shorter. */
+/**
+ * The window failed logins are counted over, in milliseconds: 24 hours, or
+ * less when the history is shorter. A start at or after the collection (the
+ * first collection) is a history of 0, not a day.
+ */
 export function loginWindowMs(d: Pick<AccountsAndAuth, "epochAt" | "failedLoginsWindowStart">): number {
   if (d.epochAt === undefined || d.failedLoginsWindowStart === undefined) return DAY;
-  const w = d.epochAt - d.failedLoginsWindowStart;
-  return w > 0 ? w : DAY;
+  return Math.min(DAY, Math.max(0, d.epochAt - d.failedLoginsWindowStart));
 }
 
-/** Whether a group averages 60 or more attempts an hour over the window; a window under an hour counts as one. */
+/** Whether the window is shorter than 24 hours (by more than a minute), so the card says where the history starts. */
+export function loginWindowShort(d: Pick<AccountsAndAuth, "epochAt" | "failedLoginsWindowStart">): boolean {
+  return d.failedLoginsWindowStart !== undefined && loginWindowMs(d) < DAY - 60_000;
+}
+
+/** Attempts an hour over the window; a window under an hour counts as one. */
+export function loginRate(l: FailedLogin, windowMs: number): number {
+  return l.count / Math.max(windowMs / HOUR, 1);
+}
+
+/** Whether a group averages 60 or more attempts an hour over the window. */
 export function loginHot(l: FailedLogin, windowMs: number): boolean {
-  return l.count / Math.max(windowMs / HOUR, 1) >= HOT_PER_HOUR;
+  return loginRate(l, windowMs) >= HOT_PER_HOUR;
+}
+
+/** The hot row's cue that does not rest on colour: "about 60 an hour". */
+export function loginRateText(l: FailedLogin, windowMs: number): string {
+  return `about ${fmtInt(loginRate(l, windowMs))} an hour`;
 }
 
 /** "(no user)" for a client that gave none. */
@@ -196,7 +231,7 @@ export function expiringWhat(e: Expiring): string {
 }
 
 /** "16 days", "1 day", "5h 12m", or "expired". */
-export function expiresIn(e: Expiring, epochAt: number | undefined): string {
+export function expiresIn(e: Pick<Expiring, "expires" | "expired">, epochAt: number | undefined): string {
   if (e.expired || e.expires === undefined) return "expired";
   if (epochAt === undefined) return isoDate(e.expires);
   const left = e.expires - epochAt;

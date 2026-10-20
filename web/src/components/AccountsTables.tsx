@@ -16,9 +16,12 @@ import {
   diskStateText,
   jwtCell,
   limitBar,
+  limitBarText,
   loginHot,
+  loginRateText,
   loginUser,
   loginWindowMs,
+  loginWindowShort,
   loginsCutLine,
   orderAccounts,
   shortIdentifier,
@@ -27,8 +30,6 @@ import {
 } from "../lib/accountsView";
 import { serverPath } from "../lib/view";
 import { Num, RLink } from "./common";
-
-const DAY = 86_400_000;
 
 /** A dash for a value that is not there, with the reason for screen readers. */
 function Unset({ why }: { why: string }) {
@@ -61,12 +62,30 @@ function accountPath(account: string): string {
   return `/connections?account=${encodeURIComponent(account)}`;
 }
 
+/**
+ * A bar against a limit, named with the real share. From 80% a line under
+ * it says the share in words, so the warning does not rest on colour alone;
+ * screen readers hear it from the bar's name.
+ */
 function Bar({ bar, label }: { bar: LimitBar; label: string }) {
+  const fill = `ac-bar-fill${bar.pct > 0 ? " ac-bar-some" : ""}${bar.tone === "ok" ? "" : ` ac-bar-${bar.tone}`}`;
   return (
-    <div className="ac-bar" role="img" aria-label={`${label}: ${Math.round(bar.pct)}% of the limit`}>
-      <div className={`ac-bar-fill${bar.tone === "warn" ? " ac-bar-warn" : ""}`} style={{ width: `${bar.pct}%` }} />
-    </div>
+    <>
+      <div className="ac-bar" role="img" aria-label={`${label}: ${limitBarText(bar)}`}>
+        <div className={fill} style={{ width: `${bar.pct}%` }} />
+      </div>
+      {bar.tone !== "ok" && (
+        <small className={`ac-limit-note ac-${bar.tone}`} aria-hidden="true">
+          {limitBarText(bar)}
+        </small>
+      )}
+    </>
   );
+}
+
+/** The class of a count against its bar: the bar's tone, none below 80%. */
+function barTone(bar: LimitBar | undefined): string | undefined {
+  return bar && bar.tone !== "ok" ? `ac-${bar.tone}` : undefined;
 }
 
 function AccountCell({ a }: { a: AccountRow }) {
@@ -92,7 +111,7 @@ function ConnectionsCell({ a }: { a: AccountRow }) {
   const bar = limitBar(a.connections, a.connLimit);
   return (
     <>
-      <div className={bar?.tone === "warn" ? "ac-warn" : undefined}>
+      <div className={barTone(bar)}>
         {fmtInt(a.connections)}
         {of && <span className="ac-of"> {of}</span>}
       </div>
@@ -110,7 +129,7 @@ function DiskCell({ a }: { a: AccountRow }) {
   const bar = limitBar(a.jsStorage, a.diskLimit);
   return (
     <>
-      <div className={bar?.tone === "warn" ? "ac-warn" : undefined}>
+      <div className={barTone(bar)}>
         {fmtBytes(a.jsStorage)}
         {of && <span className="ac-of"> {of}</span>}
       </div>
@@ -159,8 +178,11 @@ export function AccountsTable({ d }: { d: AccountsAndAuth }) {
                     <td className="mono">
                       <Num v={a.streams} />
                     </td>
-                    <td className={a.isSystem ? "ac-quiet" : undefined}>{ie ?? <Unset why="not looked up yet" />}</td>
-                    <td className={`mono${toneClass(jwt.tone)}`}>{jwt.text ?? <Unset why={jwt.why ?? "not known"} />}</td>
+                    <td className={a.isSystem || !a.detailsKnown ? "ac-quiet" : undefined}>{ie ?? <Unset why="not reported" />}</td>
+                    <td className={`mono${toneClass(jwt.tone)}`}>
+                      {jwt.text ?? <Unset why={jwt.why ?? "not known"} />}
+                      {jwt.note && <small>{jwt.note}</small>}
+                    </td>
                   </tr>
                 );
               })}
@@ -179,12 +201,13 @@ export function AccountsTable({ d }: { d: AccountsAndAuth }) {
 
 export function FailedLoginsCard({ d }: { d: AccountsAndAuth }) {
   const windowMs = loginWindowMs(d);
-  const short = d.failedLoginsWindowStart !== undefined && windowMs < DAY - 60_000;
+  const short = loginWindowShort(d);
+  const since = short ? `${dayMonHm(d.failedLoginsWindowStart!)} UTC` : "";
   const cut = loginsCutLine(d);
   return (
     <Card title="Failed logins, 24 h" sub="From the servers' auth error advisories, grouped by user, address and reason." className="ac-logins">
       {d.failedLogins.length === 0 ? (
-        <p className="ac-empty">No failed logins in these 24 hours.</p>
+        <p className="ac-empty">{short ? `No failed logins since ${since}.` : "No failed logins in these 24 hours."}</p>
       ) : (
         <div className="table-wrap scroll-cue">
           <table className="tbl">
@@ -204,9 +227,20 @@ export function FailedLoginsCard({ d }: { d: AccountsAndAuth }) {
                   <tr key={`${l.user}|${l.host}|${l.reason}`} className={hot ? "ac-hot" : undefined}>
                     <th scope="row" className={`ac-mono${l.user ? "" : " ac-quiet"}`}>
                       {loginUser(l)}
-                      {l.account && (
+                      {(l.account || hot) && (
                         <small>
-                          account <RLink to={accountPath(l.account)}>{accountTitle(l)}</RLink>
+                          {l.account && (
+                            <>
+                              account <RLink to={accountPath(l.account)}>{accountTitle(l)}</RLink>
+                            </>
+                          )}
+                          {l.account && hot && " · "}
+                          {hot && (
+                            <span className="ac-warn">
+                              <span className="sr-only">frequent, </span>
+                              {loginRateText(l, windowMs)}
+                            </span>
+                          )}
                         </small>
                       )}
                     </th>
@@ -224,7 +258,7 @@ export function FailedLoginsCard({ d }: { d: AccountsAndAuth }) {
       <div className="ac-notes">
         {cut && <p>{cut}</p>}
         {d.failedLogins.length > 0 && <p className="ac-text">A client retrying with revoked credentials every minute shows up here before anyone notices it never connected.</p>}
-        {short && <p>The history starts at {dayMonHm(d.failedLoginsWindowStart!)} UTC, so fewer than 24 hours are counted.</p>}
+        {short && d.failedLogins.length > 0 && <p>The history starts at {since}, so fewer than 24 hours are counted.</p>}
         {d.captureGaps && <p className="ac-gap">Event capture was not running for part of these 24 hours, so the counts can be low.</p>}
       </div>
     </Card>

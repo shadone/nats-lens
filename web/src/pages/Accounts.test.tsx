@@ -1,7 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as requests from "../api/requests";
-import { account, empty, EPOCH_AT, expiring, global, prod, SUPPLIERS } from "../test/fixtures/accounts";
+import { account, empty, EPOCH_AT, expiring, global, login, prod, SUPPLIERS } from "../test/fixtures/accounts";
 import { renderApp } from "../test/render";
 import { Accounts } from "./Accounts";
 
@@ -45,9 +45,9 @@ describe("Accounts", () => {
     const [name, conns, subs, disk, streams, ie, jwt] = cells(rows[0]);
     expect(within(name).getByRole("link", { name: "APP" })).toHaveAttribute("href", "/connections?account=APP&system=example-global");
     expect(conns).toHaveTextContent("412 of 2,000");
-    expect(within(conns).getByRole("img")).toHaveAccessibleName("Connections: 21% of the limit");
+    expect(within(conns).getByRole("img")).toHaveAccessibleName("Connections: 20% of the limit");
     expect(subs).toHaveTextContent("3,120");
-    expect(disk).toHaveTextContent("410 GiB of 500 GiB");
+    expect(disk).toHaveTextContent("410 GiB of 500 GiB82% of the limit");
     // 82% of the disk limit: the warning colour.
     expect(disk.querySelector(".ac-bar-warn")).not.toBeNull();
     expect(conns.querySelector(".ac-bar-warn")).toBeNull();
@@ -66,7 +66,7 @@ describe("Accounts", () => {
     expect(conns).toHaveTextContent("0 of 50");
     expect(disk).toHaveTextContent(/^JetStream off$/);
     expect(ie).toHaveTextContent("1 export · idle now");
-    expect(jwt).toHaveTextContent("2026-10-29");
+    expect(jwt).toHaveTextContent("2026-10-29in 12 days");
     expect(jwt).toHaveClass("ac-warn");
   });
 
@@ -88,7 +88,8 @@ describe("Accounts", () => {
     await screen.findByRole("region", { name: "Accounts and limits" });
     const [, conns, , , , ie, jwt] = cells(bodyRows("Accounts and limits")[0]);
     expect(conns).toHaveTextContent(/^4$/);
-    expect(ie).toHaveTextContent(/^– not looked up yet$/);
+    expect(ie).toHaveTextContent(/^not looked up yet$/);
+    expect(ie).toHaveClass("ac-quiet");
     expect(jwt).toHaveTextContent("not looked up yet");
   });
 
@@ -108,7 +109,7 @@ describe("Accounts", () => {
     await screen.findByRole("region", { name: "Failed logins, 24 h" });
     const rows = bodyRows("Failed logins, 24 h");
     expect(rows[0]).toHaveClass("ac-hot");
-    expect(rows[0]).toHaveTextContent("label-printeraccount APP10.20.4.31User Authentication Revoked1,44014:29");
+    expect(rows[0]).toHaveTextContent("label-printeraccount APP · frequent, about 60 an hour10.20.4.31User Authentication Revoked1,44014:29");
     expect(rows[1]).not.toHaveClass("ac-hot");
     expect(rows[1]).toHaveTextContent("(no user)203.0.113.12Authentication Timeout9613:49");
     expect(card("Failed logins, 24 h").getByText(/revoked credentials every minute/)).toBeInTheDocument();
@@ -216,5 +217,86 @@ describe("Accounts' JetStream disk cell", () => {
 
   it("shows the use alone without a known JWT", async () => {
     expect(await diskOf({ diskLimit: undefined, jetstreamEnabled: undefined, jsStorage: 0, hasJwt: false })).toHaveTextContent(/^0 B$/);
+  });
+});
+
+describe("Accounts' warnings beyond colour", () => {
+  it("draws no fill at 0 of a limit", async () => {
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValue(global());
+    renderApp(<Accounts />, "/accounts");
+    await screen.findByRole("region", { name: "Accounts and limits" });
+    const bar = within(cells(bodyRows("Accounts and limits")[1])[1]).getByRole("img", { name: "Connections: 0% of the limit" });
+    expect(bar.firstElementChild).not.toHaveClass("ac-bar-some");
+    const app = within(cells(bodyRows("Accounts and limits")[0])[1]).getByRole("img");
+    expect(app.firstElementChild).toHaveClass("ac-bar-some");
+  });
+
+  it("says an account over its limit is over it, with the real share, in the critical colour", async () => {
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValue({ ...prod(), operatorMode: true, accounts: [account("APP", { connections: 75, connLimit: 50, hasJwt: true })] });
+    renderApp(<Accounts />, "/accounts");
+    await screen.findByRole("region", { name: "Accounts and limits" });
+    const conns = cells(bodyRows("Accounts and limits")[0])[1];
+    expect(within(conns).getByRole("img")).toHaveAccessibleName("Connections: 150% of the limit, over the limit");
+    expect(within(conns).getByRole("img").firstElementChild).toHaveClass("ac-bar-crit");
+    expect(conns).toHaveTextContent("75 of 50150% of the limit, over the limit");
+    expect(conns.firstElementChild).toHaveClass("ac-crit");
+  });
+
+  it("says a warning count's share in words, and nothing below 80%", async () => {
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValue(global());
+    renderApp(<Accounts />, "/accounts");
+    await screen.findByRole("region", { name: "Accounts and limits" });
+    const [, conns, , disk] = cells(bodyRows("Accounts and limits")[0]);
+    expect(disk.querySelector(".ac-limit-note")).toHaveTextContent("82% of the limit");
+    expect(conns.querySelector(".ac-limit-note")).toBeNull();
+  });
+
+  it("marks a frequent failed-login group in words next to the user, for screen readers too", async () => {
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValue(global());
+    renderApp(<Accounts />, "/accounts");
+    await screen.findByRole("region", { name: "Failed logins, 24 h" });
+    const [hot, quiet] = bodyRows("Failed logins, 24 h");
+    expect(within(hot).getByRole("rowheader")).toHaveTextContent("about 60 an hour");
+    expect(within(hot).getByRole("rowheader").querySelector(".sr-only")).toHaveTextContent("frequent");
+    expect(within(quiet).getByRole("rowheader")).not.toHaveTextContent("an hour");
+  });
+});
+
+describe("Accounts on the first collection", () => {
+  it("says no failed logins since the history starts, not in 24 hours", async () => {
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValue({ ...prod(), failedLoginsWindowStart: EPOCH_AT });
+    renderApp(<Accounts />, "/accounts");
+    expect(await screen.findByText("No failed logins since 17 Oct 14:30 UTC.")).toBeInTheDocument();
+    expect(screen.queryByText("No failed logins in these 24 hours.")).toBeNull();
+  });
+
+  it("says where the history starts and rates the attempts over at least an hour", async () => {
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValue({
+      ...global(),
+      failedLoginsWindowStart: EPOCH_AT,
+      failedLogins: [login("label-printer", "10.20.4.31", "User Authentication Revoked", 70), login("", "203.0.113.12", "Authentication Timeout", 8)],
+    });
+    renderApp(<Accounts />, "/accounts");
+    await screen.findByRole("region", { name: "Failed logins, 24 h" });
+    expect(card("Failed logins, 24 h").getByText("The history starts at 17 Oct 14:30 UTC, so fewer than 24 hours are counted.")).toBeInTheDocument();
+    const [hot, quiet] = bodyRows("Failed logins, 24 h");
+    expect(hot).toHaveClass("ac-hot");
+    expect(hot).toHaveTextContent("about 70 an hour");
+    expect(quiet).not.toHaveClass("ac-hot");
+  });
+});
+
+describe("Accounts in config mode without a lookup", () => {
+  it("says not looked up yet in Imports / exports, visibly", async () => {
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValue({
+      ...prod(),
+      accounts: [account("APP", { connections: 16, streams: 3, detailsKnown: false, imports: undefined, exports: undefined, detailsAt: undefined })],
+    });
+    renderApp(<Accounts />, "/accounts");
+    await screen.findByRole("region", { name: "Accounts and limits" });
+    const [, , , , , ie, jwt] = cells(bodyRows("Accounts and limits")[0]);
+    expect(ie).toHaveTextContent(/^not looked up yet$/);
+    expect(ie.querySelector("[aria-hidden]")).toBeNull();
+    expect(jwt).toHaveTextContent(/^– no account JWTs in config mode$/);
   });
 });
