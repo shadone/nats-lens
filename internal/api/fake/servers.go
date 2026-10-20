@@ -156,7 +156,7 @@ func (p *Provider) GetServer(_ context.Context, req *v1.GetServerRequest) (*v1.G
 	for _, e := range endpoints {
 		res.Endpoints = append(res.Endpoints, &v1.EndpointOutcome{Endpoint: e, State: state})
 	}
-	s.detail(sp, res)
+	s.detail(sp, res, req.GetRange())
 	return res, nil
 }
 

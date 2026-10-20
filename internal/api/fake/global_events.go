@@ -30,9 +30,14 @@ func globalRoutineEvents(s scen) []*v1.Event {
 		add(&v1.Event{Time: ts(end.Add(-time.Duration(k)*30*time.Minute - 40*time.Second)), Source: srcNATS, Kind: "consumer.ack_sampled",
 			Type: "CONSUMER.ACK_SAMPLED", Server: "nats-us-3", Account: Account, Stream: "shipping-updates", Consumer: "label-printer",
 			Summary: fmt.Sprintf("label-printer on shipping-updates acked after %d ms (1 delivery)", 120+k%5*40)})
-		add(&v1.Event{Time: ts(end.Add(-time.Duration(k)*30*time.Minute - 15*time.Second)), Source: srcNATS, Kind: "account.connections",
+		// Worded as the capture words it; the total counts the server's
+		// leaf node connections too, as NATS does.
+		sv, _ := s.sc.server(eu(k))
+		at := end.Add(-time.Duration(k)*30*time.Minute - 15*time.Second)
+		add(&v1.Event{Time: ts(at), Source: srcNATS, Kind: "account.connections",
 			Type: "ACCOUNT.CONNECTIONS", Server: eu(k), Account: Account,
-			Summary: fmt.Sprintf("account APP: %d connections, 0 leaf nodes", 1410+k%13)})
+			Summary: fmt.Sprintf("account APP has %d connections on %s, %d in total, %d slow consumers", sv.conns, eu(k), sv.conns+int64(s.leafCount(sv, at)),
+				s.slowCount(sv, s.started(sv), at))})
 	}
 	// The collector's connection to the us cluster moves as its servers
 	// restart.
