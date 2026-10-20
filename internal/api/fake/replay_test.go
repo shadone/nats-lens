@@ -231,3 +231,11 @@ func TestDemoReplayMetaElectionWhileNoneLeads(t *testing.T) {
 		t.Errorf("steps %v, counts %v", res.GetSteps(), res.GetCounts())
 	}
 }
+
+// Without a node upgrade between A and B the pools upgraded are 0,
+// observed.
+func TestDemoReplayNoUpgradeCountsNoPools(t *testing.T) {
+	if c := replay(t, fake.GlobalSystem, at(12, 0, 0), at(13, 0, 0)).GetCounts(); c.NodePoolsUpgraded == nil || c.GetNodePoolsUpgraded() != 0 {
+		t.Errorf("counts = %v", c)
+	}
+}

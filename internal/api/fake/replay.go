@@ -265,6 +265,6 @@ func replayNodes(evs []*v1.Event, a, b time.Time) api.ReplayNodes {
 		}
 	}
 	return api.ReplayNodes{Upgraded: int32(len(upgraded)), Drained: int32(len(drained)), Pools: int32(len(pools)),
-		PoolLabels: len(pools) > 0 && len(labelled) == len(upgraded),
+		PoolLabels: len(labelled) == len(upgraded),
 		Unnamed:    unnamed}
 }
