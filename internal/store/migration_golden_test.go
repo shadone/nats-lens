@@ -36,6 +36,8 @@ var goldenMigrations = map[string]string{
 	"0024_epoch_loopback_tooling":      "efdbf768e7cc3bf501e9f15317dc4a17c79eeb7a46077e61202795d994be207b",
 	"0025_server_limits":               "5490f28d075b4c255b9572195027c73da1d2911c6e92945feaa6960a7144669f",
 	"0026_leafnodes_is_spoke_comment":  "45c7501c732e0df8aaab40444713ee42d53857d5e3a88a55d4ccdd48445bbdc6",
+	"0027_account_details":             "515152e0f135574571bda6dbaddf433c87d41b1b73ba2d97d1e0fe5d6cf29540",
+	"0028_cert_and_jwt_expiry":         "919419f38977405fd301ea9ec17ce96ad72cd9e0fffd783840a10510ff7085e2",
 }
 
 func TestMigrationsMatchGolden(t *testing.T) {
