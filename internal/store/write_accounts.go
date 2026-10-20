@@ -11,7 +11,7 @@ import (
 var connectionCols = []string{
 	"epoch", "server_id", "cid", "kind", "type", "name", "lang", "version", "account", "authorized_user",
 	"ip", "port", "start_time", "last_activity", "rtt_ns", "pending_bytes", "in_msgs", "out_msgs",
-	"in_bytes", "out_bytes", "stalls", "subscriptions", "tls_version", "name_tag",
+	"in_bytes", "out_bytes", "stalls", "subscriptions", "tls_version", "name_tag", "user_jwt", "jwt_expires",
 }
 
 func (w *writer) writeConnections(v *collect.ServerView) {
@@ -23,9 +23,11 @@ func (w *writer) writeConnections(v *collect.ServerView) {
 			// CONNZ gives the account's name tag with each connection.
 			w.ids.account(c.Account, c.NameTag, false)
 		}
+		j, hasJWT := v.UserJWTs[c.Cid]
 		w.insert("connections", connectionCols, w.epoch, v.Info.ID, i64(c.Cid), c.Kind, c.Type, c.Name, c.Lang,
 			c.Version, c.Account, c.AuthorizedUser, c.IP, c.Port, ts(c.Start), ts(c.LastActivity), durNS(c.RTT),
-			c.Pending, c.InMsgs, c.OutMsgs, c.InBytes, c.OutBytes, c.Stalls, int64(c.NumSubs), c.TLSVersion, c.NameTag)
+			c.Pending, c.InMsgs, c.OutMsgs, c.InBytes, c.OutBytes, c.Stalls, int64(c.NumSubs), c.TLSVersion, c.NameTag,
+			hasJWT, ts(j.Expires))
 	}
 }
 
@@ -107,5 +109,32 @@ func (w *writer) writeAccountStats(v *collect.ServerView) {
 			vals = append(vals, nil, nil, nil, nil, nil, nil, nil, nil)
 		}
 		w.insert("account_stats", accountStatsCols, vals...)
+	}
+}
+
+var accountDetailCols = []string{
+	"epoch", "server_id", "account", "looked_up_at", "account_name", "is_system", "expired", "imports", "exports",
+	"has_jwt", "jwt_issued_at", "jwt_expires", "limit_connections", "limit_leafnodes", "limit_subscriptions",
+	"limit_data", "limit_payload", "limit_js_disk", "limit_js_memory", "limit_js_streams", "limit_js_consumers",
+}
+
+// writeAccountDetails writes the epoch's ACCOUNTZ lookups, one row each.
+func (w *writer) writeAccountDetails() {
+	for _, d := range w.snap.AccountDetails {
+		var name any
+		if d.Name != "" {
+			name = d.Name
+		}
+		vals := []any{w.epoch, d.ServerID, d.Account, d.LookedUpAt.UTC(), name, d.IsSystem, d.Expired,
+			d.Imports, d.Exports, d.HasJWT}
+		if d.HasJWT {
+			l := d.Limits
+			vals = append(vals, ts(d.JWTIssuedAt), ts(d.JWTExpires), l.Connections, l.LeafNodes, l.Subscriptions,
+				l.Data, l.Payload, l.JSDisk, l.JSMemory, l.JSStreams, l.JSConsumers)
+		} else {
+			vals = append(vals, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+		}
+		w.insert("account_details", accountDetailCols, vals...)
+		w.ids.account(d.Account, d.Name, d.IsSystem)
 	}
 }

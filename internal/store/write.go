@@ -55,6 +55,7 @@ func (s *Store) writeSnapshot(ctx context.Context, snap *collect.Snapshot) (int6
 	for _, v := range snap.SortedViews() {
 		w.writeServerView(v)
 	}
+	w.writeAccountDetails()
 	for _, acc := range sortedKeys(snap.AccountNames) {
 		w.ids.account(acc, snap.AccountNames[acc], false)
 	}

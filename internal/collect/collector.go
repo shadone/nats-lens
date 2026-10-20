@@ -27,7 +27,7 @@ type Collector struct {
 	log        *slog.Logger
 	// raftAccounts are the JetStream accounts seen in the previous epoch.
 	raftAccounts []string
-	// accountNames are the names ACCOUNTZ lookups found, and
+	// accountNames are the readable names ACCOUNTZ lookups found, and
 	// accountAsked when each account was last looked up.
 	accountNames map[string]string
 	accountAsked map[string]time.Time
@@ -92,21 +92,25 @@ func (c *Collector) Collect(ctx context.Context) *Snapshot {
 	c.gatherAll(ctx, snap, detail, want)
 	accounts := jetStreamAccounts(snap)
 	newAccounts := without(accounts, c.raftAccounts)
-	// Accounts no reply names are looked up with ACCOUNTZ in the same
-	// window as the second RAFTZ pass, so the epoch takes no longer.
-	lookUp := accountsToLookUp(snap, c.accountNames, c.accountAsked, snap.StartedAt)
-	var found map[string]string
+	// Account details are looked up with ACCOUNTZ in the same window as
+	// the second RAFTZ pass, so the epoch takes no longer.
+	lookUp := accountsToLookUp(snap, c.accountAsked, snap.StartedAt)
+	var found []AccountDetails
 	var lookups sync.WaitGroup
-	lookups.Go(func() { found = c.lookUpAccountNames(ctx, lookUp, want) })
+	lookups.Go(func() { found = c.lookUpAccounts(ctx, lookUp, want) })
 	c.gatherAll(ctx, snap, accountRaftz(newAccounts), want)
 	lookups.Wait()
 	for _, id := range lookUp {
 		c.accountAsked[id] = snap.StartedAt
 	}
-	for id, name := range found {
-		c.accountNames[id] = name
+	for _, d := range found {
+		if d.Name != "" && d.Name != d.Account {
+			c.accountNames[d.Account] = d.Name
+		}
 	}
+	snap.AccountDetails = found
 	snap.AccountNames = c.listedAccountNames(snap)
+	c.logUndecodedJWTs(snap)
 	asked := append(append([]Endpoint{Statsz}, detail...), accountRaftz(newAccounts)...)
 	if allJsz(snap) {
 		// Every server answered JSZ, so an account of the previous epoch
