@@ -48,7 +48,7 @@ func prodRows(*scenario) []rowSpec {
 		{"consumer-002", "Consumer backlog growing", warning, []*v1.EntityRef{consumerRef("media-windows", "media-chunk-pool")},
 			[]span{{on16(19, 0), on16(19, 30)}, {f(7, 30, 0), f(7, 45, 0)}, {f(8, 15, 0), f(8, 30, 0)}, {f(11, 0, 0), open}}},
 		{"client-003", "Slow consumer disconnects", warning, []*v1.EntityRef{clientRef("media-worker")},
-			[]span{{on16(22, 15), on16(22, 30)}, {f(9, 15, 0), f(9, 45, 0)}}},
+			[]span{{on16(22, 15), on16(22, 30)}, {f(9, 17, 30), f(10, 2, 0)}}},
 		{"client-005", "Short-lived connections", warning, []*v1.EntityRef{clientRef("stock-poller")},
 			[]span{{f(12, 48, 0), open}}},
 		{"stream-005", "Stream without any limit", info, []*v1.EntityRef{streamRef("order-archive")},

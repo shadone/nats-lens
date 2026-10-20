@@ -105,8 +105,10 @@ func prodFindings(s scen) []*v1.Finding {
 			"Leader nats-0 sees 1 of 3 replicas online; quorum needs 2, for 6 collections."),
 		resolvedFinding("stream-003", "Stream replica lagging", warning, streamRef("order-archive"), s.at(9, 16, 40), s.at(10, 5, 0),
 			"Leader nats-2 reports nats-1 12400 operations behind."),
-		resolvedFinding("client-003", "Slow consumer disconnects", warning, clientRef("media-worker"), s.at(9, 15, 30), s.at(9, 45, 0),
-			"6 slow consumer disconnects in the last 30m (nats-0, nats-2), the last at 09:44:12 UTC: Slow Consumer (Write Deadline)."),
+		// It fired at the third disconnect and resolved 30 minutes after
+		// the last (prodSlowConsumerEvents).
+		resolvedFinding("client-003", "Slow consumer disconnects", warning, clientRef("media-worker"), s.at(9, 17, 30), s.at(10, 2, 0),
+			prodSlowDetail(6, "nats-0, nats-1, nats-2", s.at(9, 32, 0))),
 	}
 	return out
 }

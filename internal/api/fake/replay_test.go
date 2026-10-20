@@ -239,3 +239,24 @@ func TestDemoReplayNoUpgradeCountsNoPools(t *testing.T) {
 		t.Errorf("counts = %v", c)
 	}
 }
+
+// A finding's transition names no disconnect after its own time: the
+// slow consumer finding's detail at its firing is the one of then.
+func TestDemoTransitionDetailsAreOfTheirTime(t *testing.T) {
+	c := demo(t)
+	res := must(c.GetFinding(ctx, connect.NewRequest(&v1.GetFindingRequest{System: fake.Cluster, Id: "client-003:media-worker"})))
+	for _, tr := range res.GetTransitions() {
+		_, last, ok := strings.Cut(tr.GetDetail(), "the last at ")
+		if !ok {
+			t.Fatalf("detail %q", tr.GetDetail())
+		}
+		at, err := time.Parse("15:04:05", last[:8])
+		if err != nil {
+			t.Fatal(err)
+		}
+		when := tr.GetTime().AsTime()
+		if at.Hour()*3600+at.Minute()*60+at.Second() > when.Hour()*3600+when.Minute()*60+when.Second() {
+			t.Errorf("%v at %s names %s", tr.GetState(), when.Format("15:04:05"), last[:8])
+		}
+	}
+}
