@@ -167,6 +167,20 @@ message ReplayEvidence {
   // For a collection, the entity to open at that moment; unset means the
   // system.
   EntityRef entity = 5;
+
+  // For a stream, consumer or meta leader election, the server it
+  // elected; unset for any other evidence.
+  string elected = 6;
+}
+
+// How many elections of a step one server won.
+message ReplayLeaderCount {
+  // The server elected.
+  string leader = 1;
+
+  // Number of elections it won, those beyond the step's evidence
+  // included.
+  int32 count = 2;
 }
 
 // One step of the story.
@@ -214,6 +228,10 @@ message ReplayStep {
 
   // For a gap step, what was not running; unset for every other step.
   ReplayGapKind gap_kind = 14;
+
+  // For a restart, stop or leaders step, the elections it took in by new
+  // leader, most first: all of them, as the evidence is capped at 10.
+  repeated ReplayLeaderCount leaders_taken = 15;
 }
 
 // What changed between A and B, in numbers. An unset count was not
