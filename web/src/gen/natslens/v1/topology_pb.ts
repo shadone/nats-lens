@@ -432,8 +432,9 @@ export type TopologyLeafnode = Message<"natslens.v1.TopologyLeafnode"> & {
   hubServers: string[];
 
   /**
-   * Whether a site not connected may be connected after all: a server's
-   * LEAFZ failed in the epoch (see unobserved), and the site may be on it.
+   * Whether a site not connected may be connected after all: a server of
+   * the cluster it was last seen on failed LEAFZ in the epoch (see
+   * unobserved), and the site may be on it.
    *
    * @generated from field: bool connection_unknown = 13;
    */

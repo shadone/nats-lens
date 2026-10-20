@@ -188,8 +188,9 @@ message TopologyLeafnode {
   // the first. Empty for a site not connected.
   repeated string hub_servers = 12;
 
-  // Whether a site not connected may be connected after all: a server's
-  // LEAFZ failed in the epoch (see unobserved), and the site may be on it.
+  // Whether a site not connected may be connected after all: a server of
+  // the cluster it was last seen on failed LEAFZ in the epoch (see
+  // unobserved), and the site may be on it.
   bool connection_unknown = 13;
 }
 

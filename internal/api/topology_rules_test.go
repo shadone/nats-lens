@@ -168,3 +168,53 @@ func TestTopologySiteAccountsAndHubs(t *testing.T) {
 		t.Errorf("%d rows, want 3 (store-a twice, store-b once)", res.GetLeafnodesTotal())
 	}
 }
+
+// A failed LEAFZ makes a site's state unknown only in the cluster the site
+// was last seen on.
+func TestTopologyUnknownScope(t *testing.T) {
+	f := topoFacts()
+	gone := leaf("E0", "e0", "gone", 2)
+	f.Drops = api.TopologyDrops{LastSeen: []api.TopologyLeafSighting{{Row: gone, At: topoAt.Add(-time.Hour)}},
+		Leafs: []api.TopologyLeafDrops{{Name: "gone", Account: "APP", Drops: 1}}}
+	f.Answered[api.EndpointLeafz] = []string{"e0", "e1", "e2", "u1", "u2"}
+	f.Unanswered[api.EndpointLeafz] = []string{"u0"}
+	res := api.FinishTopology(f)
+	if l := res.GetLeafnodes()[0]; l.GetConnectionUnknown() || res.GetClusters()[0].GetLeafnodesNotConnected() != 1 {
+		t.Errorf("a failure on us: %v, eu not connected %d; want known not connected", l, res.GetClusters()[0].GetLeafnodesNotConnected())
+	}
+	f.Answered[api.EndpointLeafz] = []string{"e0", "e1", "u0", "u1", "u2"}
+	f.Unanswered[api.EndpointLeafz] = []string{"e2"}
+	if l := api.FinishTopology(f).GetLeafnodes()[0]; !l.GetConnectionUnknown() {
+		t.Errorf("a failure on eu: %v, want unknown", l)
+	}
+}
+
+// The rows of a server placed in a cluster by the routes count there: its
+// gateways, its sites and their counts.
+func TestTopologyPlacedRows(t *testing.T) {
+	f := topoFacts()
+	f.Servers = []api.TopologyServerFact{{Name: "e0", Cluster: "eu"}, {Name: "x"}, {Name: "u0", Cluster: "us"}}
+	f.Answered = map[string][]string{api.EndpointLeafz: {"e0", "x", "u0"}, api.EndpointGatewayz: {"e0", "x", "u0"}, api.EndpointRoutez: {"e0", "x"}}
+	f.Routes = []api.TopologyRouteRow{route("e0", "x", 0.4, ""), {Server: "x", Remote: "e0", RTT: ms(0.4)}}
+	xGateway := api.TopologyGatewayRow{ServerID: "X", Server: "x", Gateway: "us", Outbound: true, CID: i64(1)}
+	f.Gateways = []api.TopologyGatewayRow{outbound("E0", "e0", 1, 80), xGateway, outbound("U0", "u0", 1, 80)}
+	f.Leafnodes = []api.TopologyLeafRow{{ServerID: "X", Server: "x", LID: 1, Name: "site-a", Account: "APP"}}
+	f.Drops = api.TopologyDrops{LastSeen: []api.TopologyLeafSighting{{Row: api.TopologyLeafRow{ServerID: "X", Server: "x", LID: 2,
+		Name: "site-b", Account: "APP"}, At: topoAt.Add(-time.Minute)}},
+		Gateways: []api.TopologyGatewayDrops{{Server: "x", Gateway: "us", Recent: 1, Day: 1, ObservedRecent: true, ObservedDay: true}}}
+	res := api.FinishTopology(f)
+	if len(res.GetClusters()) != 2 || res.GetClusters()[0].GetName() != "eu" {
+		t.Fatalf("clusters = %v", res.GetClusters())
+	}
+	if eu := res.GetClusters()[0]; eu.GetLeafnodesConnected() != 1 || eu.GetLeafnodesNotConnected() != 1 {
+		t.Errorf("eu = %v, want site-a connected and site-b not", eu)
+	}
+	for _, l := range res.GetLeafnodes() {
+		if l.GetHubCluster() != "eu" {
+			t.Errorf("site %s on cluster %q, want eu", l.GetName(), l.GetHubCluster())
+		}
+	}
+	if g := res.GetGateways(); len(g) != 1 || g[0].GetConnections() != 3 || g[0].GetExpected() != 3 || g[0].GetDrops_1H() != 1 {
+		t.Errorf("gateways = %v, want eu-us 3 of 3 with x's drop", g)
+	}
+}
