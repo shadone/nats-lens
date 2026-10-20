@@ -70,6 +70,12 @@ type Provider interface {
 	// window before it; the handler pairs, counts and orders them with
 	// FinishTopology. A range without an epoch gives facts with Epoch 0.
 	Topology(ctx context.Context, req *v1.GetTopologyRequest) (*TopologyFacts, error)
+	// AccountsAndAuth reads the accounts of the range's newest epoch with
+	// their newest lookups, the failed logins of the 24 hours before it
+	// grouped, and the epoch's certificates and user JWTs; the handler
+	// orders, limits and counts them with FinishAccounts. A range without
+	// an epoch gives facts with Epoch 0.
+	AccountsAndAuth(ctx context.Context, req *v1.GetAccountsAndAuthRequest) (*AccountsFacts, error)
 	ListServers(ctx context.Context, req *v1.ListServersRequest) (*v1.ListServersResponse, error)
 	GetServer(ctx context.Context, req *v1.GetServerRequest) (*v1.GetServerResponse, error)
 	ListConnections(ctx context.Context, req *v1.ListConnectionsRequest) (*v1.ListConnectionsResponse, error)

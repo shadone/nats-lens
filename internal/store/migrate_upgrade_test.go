@@ -38,3 +38,47 @@ VALUES ('a','c','e','k','warning','firing','firing', now()::TIMESTAMP, 1, now():
 		t.Fatal(n, err)
 	}
 }
+
+// Migrations 0027 and 0028 apply to a database written by 0001 to 0026
+// that holds server_stats and connections rows; the new columns are NULL
+// for them and account_details starts empty.
+func TestMigrationsFrom26OnAPopulatedDatabase(t *testing.T) {
+	ctx := context.Background()
+	all, err := loadMigrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("duckdb", filepath.Join(t.TempDir(), "db.duckdb"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE migrations (version INTEGER PRIMARY KEY, name VARCHAR NOT NULL, applied_at TIMESTAMP NOT NULL DEFAULT current_timestamp)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateWith(ctx, db, all[:26], 0); err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`INSERT INTO server_stats (epoch, server_id, max_payload) VALUES (1, 'NSERVER0', 1048576)`,
+		`INSERT INTO connections (epoch, server_id, cid, account) VALUES (1, 'NSERVER0', 7, 'APP')`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	if err := migrateWith(ctx, db, all, 26); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := db.QueryRow(`SELECT count(*) FROM server_stats WHERE max_payload = 1048576 AND tls_cert_not_after IS NULL
+  AND mqtt_tls_cert_not_after IS NULL`).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("server_stats rows kept with NULL certificates = %d, %v", n, err)
+	}
+	if err := db.QueryRow(`SELECT count(*) FROM connections WHERE cid = 7 AND user_jwt IS NULL AND jwt_expires IS NULL`).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("connections rows kept with NULL user JWT = %d, %v", n, err)
+	}
+	if err := db.QueryRow(`SELECT count(*) FROM account_details`).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("account_details = %d, %v", n, err)
+	}
+}

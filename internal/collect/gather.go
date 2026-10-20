@@ -65,6 +65,13 @@ type replier struct {
 // expected servers have all answered. Running out of time is the normal end
 // of a gather, not an error.
 func gather(ctx context.Context, nc *nats.Conn, subject string, body []byte, window time.Duration, done until) ([][]byte, error) {
+	return gatherUntil(ctx, nc, subject, body, window, done, nil)
+}
+
+// gatherUntil is gather that also stops at the first reply for which
+// enough reports true; that reply is the last one returned.
+func gatherUntil(ctx context.Context, nc *nats.Conn, subject string, body []byte, window time.Duration, done until,
+	enough func([]byte) bool) ([][]byte, error) {
 	if nc == nil {
 		return nil, fmt.Errorf("gather %s: no connection", subject)
 	}
@@ -99,6 +106,9 @@ func gather(ctx context.Context, nc *nats.Conn, subject string, body []byte, win
 			continue
 		}
 		out = append(out, msg.Data)
+		if enough != nil && enough(msg.Data) {
+			break
+		}
 		var r replier
 		if json.Unmarshal(msg.Data, &r) == nil && r.Server.ID != "" {
 			seen.ids[r.Server.ID] = true

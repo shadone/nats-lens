@@ -28,6 +28,7 @@ vi.mock("./client", () => {
       getTimeSeries: ok(),
       getLensInfo: ok(),
       getShellStatus: ok(),
+      getAccountsAndAuth: ok(),
     },
   };
 });
@@ -57,6 +58,7 @@ function AllHooks() {
   q.useSeries(live, "cluster.connections", undefined);
   q.useLensInfo();
   q.useShellStatus();
+  q.useAccountsAndAuth(live);
   return null;
 }
 
@@ -78,6 +80,7 @@ const METHODS = [
   "getTimeSeries",
   "getLensInfo",
   "getShellStatus",
+  "getAccountsAndAuth",
 ] as const;
 
 function setup(route: string) {
@@ -104,7 +107,7 @@ describe("query keys and the system", () => {
     const qc = setup("/?system=sys-a");
     await waitFor(() => METHODS.forEach((m) => expect(lens[m]).toHaveBeenCalled()));
     const keys = qc.getQueryCache().getAll().map((x) => x.queryKey);
-    expect(keys.length).toBe(18);
+    expect(keys.length).toBe(19);
     for (const k of keys) expect(k, JSON.stringify(k)).toContain("sys-a");
     for (const m of METHODS) expect(lastSystem(m), m).toBe("sys-a");
   });
@@ -116,7 +119,7 @@ describe("query keys and the system", () => {
     act(() => navigate("/?system=sys-b"));
     await waitFor(() => METHODS.forEach((m) => expect(lastSystem(m), m).toBe("sys-b")));
     const keys = qc.getQueryCache().getAll().map((x) => x.queryKey);
-    expect(keys.filter((k) => k.includes("sys-b")).length).toBe(18);
+    expect(keys.filter((k) => k.includes("sys-b")).length).toBe(19);
   });
 
   it("keys a page without ?system= on the empty system and sends none", async () => {
@@ -152,5 +155,16 @@ describe("mutations and the system", () => {
     });
     expect(vi.mocked(lens.muteFinding).mock.calls[0][0]).toMatchObject({ system: "sys-c" });
     expect(vi.mocked(lens.unmuteFinding).mock.calls[0][0]).toMatchObject({ system: "sys-c" });
+  });
+});
+
+describe("live refetch", () => {
+  afterEach(() => vi.clearAllMocks());
+
+  it("refetches the Accounts page on the collector's interval in a live range, as Topology", async () => {
+    const qc = setup("/?system=sys-a");
+    await waitFor(() => expect(lens.getAccountsAndAuth).toHaveBeenCalled());
+    const query = qc.getQueryCache().find({ queryKey: ["accounts-and-auth", "sys-a"], exact: false });
+    expect(query?.observers[0]?.options.refetchInterval).toBe(30_000);
   });
 });

@@ -25,6 +25,7 @@ import { ObjectStores } from "./pages/ObjectStores";
 import { Placement } from "./pages/Placement";
 import { Replay } from "./pages/Replay";
 import { Topology } from "./pages/Topology";
+import { Accounts } from "./pages/Accounts";
 import { NotFound } from "./pages/NotFound";
 
 /**
@@ -88,6 +89,7 @@ export function App() {
                 <Route path="/placement" element={<Placement />} />
                 <Route path="/replay" element={<Replay />} />
                 <Route path="/topology" element={<Topology />} />
+                <Route path="/accounts" element={<Accounts />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </SystemGate>

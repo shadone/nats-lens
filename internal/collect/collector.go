@@ -27,7 +27,7 @@ type Collector struct {
 	log        *slog.Logger
 	// raftAccounts are the JetStream accounts seen in the previous epoch.
 	raftAccounts []string
-	// accountNames are the names ACCOUNTZ lookups found, and
+	// accountNames are the readable names ACCOUNTZ lookups found, and
 	// accountAsked when each account was last looked up.
 	accountNames map[string]string
 	accountAsked map[string]time.Time
@@ -92,21 +92,28 @@ func (c *Collector) Collect(ctx context.Context) *Snapshot {
 	c.gatherAll(ctx, snap, detail, want)
 	accounts := jetStreamAccounts(snap)
 	newAccounts := without(accounts, c.raftAccounts)
-	// Accounts no reply names are looked up with ACCOUNTZ in the same
-	// window as the second RAFTZ pass, so the epoch takes no longer.
-	lookUp := accountsToLookUp(snap, c.accountNames, c.accountAsked, snap.StartedAt)
-	var found map[string]string
+	// Account details are looked up with ACCOUNTZ alongside the second
+	// RAFTZ pass; all lookups together end within one window, so the
+	// epoch takes no longer.
+	lookUp := accountsToLookUp(snap, c.accountAsked, snap.StartedAt)
+	var found []AccountDetails
+	var sent []string
 	var lookups sync.WaitGroup
-	lookups.Go(func() { found = c.lookUpAccountNames(ctx, lookUp, want) })
+	lookups.Go(func() { found, sent = c.lookUpAccounts(ctx, lookUp, want) })
 	c.gatherAll(ctx, snap, accountRaftz(newAccounts), want)
 	lookups.Wait()
-	for _, id := range lookUp {
+	for _, id := range sent {
 		c.accountAsked[id] = snap.StartedAt
 	}
-	for id, name := range found {
-		c.accountNames[id] = name
+	for _, d := range found {
+		if d.Name != "" && d.Name != d.Account {
+			c.accountNames[d.Account] = d.Name
+		}
 	}
+	snap.AccountDetails = found
+	c.forgetUnlistedAccounts(snap)
 	snap.AccountNames = c.listedAccountNames(snap)
+	c.logUndecodedJWTs(snap)
 	asked := append(append([]Endpoint{Statsz}, detail...), accountRaftz(newAccounts)...)
 	if allJsz(snap) {
 		// Every server answered JSZ, so an account of the previous epoch
@@ -128,6 +135,38 @@ func (c *Collector) Collect(ctx context.Context) *Snapshot {
 	c.tracker.observe(snap)
 	snap.FinishedAt = c.now().UTC()
 	return snap
+}
+
+// forgetUnlistedAccounts drops the lookup time and name of every account
+// no server's ACCOUNTZ lists in this snapshot, so that accounts that are
+// gone do not pile up. It forgets only in an epoch in which every server
+// that answered anything answered ACCOUNTZ, as allJsz does for the RAFTZ
+// accounts: an account loaded only on a server that missed ACCOUNTZ is
+// unknown, not gone, and keeps its lookup time. An account that comes back
+// after it was forgotten is looked up as new.
+func (c *Collector) forgetUnlistedAccounts(snap *Snapshot) {
+	if len(snap.Servers) == 0 {
+		return
+	}
+	listed := map[string]bool{}
+	for _, v := range snap.Servers {
+		if v.Accountz == nil {
+			return
+		}
+		for _, id := range v.Accountz.Accounts {
+			listed[id] = true
+		}
+	}
+	for id := range c.accountAsked {
+		if !listed[id] {
+			delete(c.accountAsked, id)
+		}
+	}
+	for id := range c.accountNames {
+		if !listed[id] {
+			delete(c.accountNames, id)
+		}
+	}
 }
 
 // listedAccountNames returns the looked-up names of the accounts ACCOUNTZ

@@ -12,6 +12,7 @@ import { shellStatus } from "./adapt-shell";
 import { FILTER_ENUM, matrix, type MatrixFilter } from "./placementMatrix";
 import { replay, type Replay } from "./adapt-replay";
 import { topology } from "./topology";
+import { accountsAndAuth } from "./accounts";
 import { lens } from "./client";
 import type {
   ConnectionPage,
@@ -209,6 +210,11 @@ export async function getPlacement(sys: string, spec: RangeSpec, filter: MatrixF
 /** How the servers connect, in the range's newest collection. */
 export async function getTopology(sys: string, spec: RangeSpec, signal?: AbortSignal) {
   return topology(await lens.getTopology({ ...systemInit(sys), range: rangeInit(spec) }, { signal }));
+}
+
+/** The accounts of the range's newest collection, the failed logins of the 24 hours before it, and what expires soon. */
+export async function getAccountsAndAuth(sys: string, spec: RangeSpec, signal?: AbortSignal) {
+  return accountsAndAuth(await lens.getAccountsAndAuth({ ...systemInit(sys), range: rangeInit(spec) }, { signal }));
 }
 
 export async function listServers(sys: string, spec: RangeSpec, signal?: AbortSignal) {

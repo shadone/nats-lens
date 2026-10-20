@@ -100,7 +100,7 @@ The client checks judge the applications connected to NATS: whether their round 
 
 These client checks are not built. Each line says what it would detect and what data it needs.
 
-- **Account connection limit near its maximum.** An account holds most of the connections its limit allows, so new clients will be refused. Needs: the account's connection limit, which ACCOUNTZ gives per account (from the account JWT). nats-lens does not request the per-account detail every collection today; the current connections per account it already stores.
+- **Account connection limit near its maximum.** An account holds most of the connections its limit allows, so new clients will be refused. Needs: the account's connection limit, which nats-lens stores from ACCOUNTZ in `account_details` (from the account JWT, each account at most every 10 minutes), and the current connections per account, which it stores every collection. Only the check is missing.
 - **Repeated authentication errors.** One user or address fails to log in again and again, for example with revoked credentials. Needs: the `client.auth_error` events, stored today.
 - **Permission violations (deny-listed subjects).** A client publishes or subscribes to a subject it may not use. nats-server publishes no event for a permission violation; it only logs it and sends the error to the client. nats-lens cannot see it without the server log.
 - **Old TLS version.** A client connects with an outdated TLS version. Needs: the TLS version per connection from CONNZ, stored today.
