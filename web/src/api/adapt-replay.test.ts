@@ -1,7 +1,7 @@
 import { create } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
 import { timestampFromMs } from "@bufbuild/protobuf/wkt";
-import { GetReplayResponseSchema, ReplayUnobservedReason } from "../gen/natslens/v1/replay_pb";
+import { GetReplayResponseSchema, ReplayEvidenceKind, ReplayUnobservedReason } from "../gen/natslens/v1/replay_pb";
 import { replay } from "./adapt-replay";
 
 describe("replay adapter", () => {
@@ -18,5 +18,23 @@ describe("replay adapter", () => {
       { count: "nodesDrained", reason: "kubernetes_not_watched", from: undefined, to: undefined },
       { count: "findingsRaised", reason: undefined, from: undefined, to: undefined },
     ]);
+  });
+
+  it("carries the server an election elected and the step's leaders taken", () => {
+    const r = create(GetReplayResponseSchema, {
+      steps: [
+        {
+          id: "restart:1",
+          evidence: [
+            { kind: ReplayEvidenceKind.EVENT, id: "1", label: "order-jobs -> nats-0", elected: "nats-0" },
+            { kind: ReplayEvidenceKind.EVENT, id: "2", label: "pod nats-1 Killing" },
+          ],
+          leadersTaken: [{ leader: "nats-0", count: 22 }],
+        },
+      ],
+    });
+    const s = replay(r, { system: "", a: 0, b: 1 }).steps[0];
+    expect(s.evidence.map((e) => e.elected)).toEqual(["nats-0", undefined]);
+    expect(s.leadersTaken).toEqual([{ leader: "nats-0", count: 22 }]);
   });
 });

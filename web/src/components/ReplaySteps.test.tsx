@@ -54,7 +54,7 @@ describe("ReplaySteps", () => {
   });
 
   it("folds a step's leader elections into one line per new leader that opens to the list", () => {
-    const el = (id: string, stream: string, leader: string) => ({ kind: "event" as const, id, label: `${stream} -> ${leader} (term 4${id})` });
+    const el = (id: string, stream: string, leader: string) => ({ kind: "event" as const, id, label: `${stream} -> ${leader} (term 4${id})`, elected: leader });
     const st = rstep("restart:9", "09:20:00", {
       kind: "restart",
       title: "nats-1 restarts",
@@ -66,6 +66,34 @@ describe("ReplaySteps", () => {
     const lines = [...(container.querySelector('[data-step="restart:9"] .rp-ev') as HTMLElement).children].map((li) => li.querySelector("summary")?.textContent ?? li.textContent);
     expect(lines).toEqual(["event pod nats-1 Killing", "events 3 leader elections on nats-0", "event media-windows -> nats-2 (term 44)", "and 20 more"]);
     expect(ev.getByRole("link", { name: "order-archive -> nats-0 (term 43)" })).toHaveAttribute("href", "/events?id=3");
+  });
+
+  it("folds elections by the server they elected, whatever their label says", () => {
+    const st = rstep("leaders:9", "09:20:00", {
+      kind: "leaders",
+      title: "Leaders elected",
+      evidence: [
+        { kind: "event", id: "2", label: "order-jobs leader elected (term 9)", elected: "nats-0" },
+        { kind: "event", id: "3", label: "order-archive leader elected (term 4)", elected: "nats-0" },
+      ],
+      evidenceCount: 2,
+    });
+    const { container } = renderApp(<ReplaySteps steps={[st]} moments={M} notes={[]} />);
+    expect(container.querySelector('[data-step="leaders:9"] .rp-ev summary')).toHaveTextContent("events 2 leader elections on nats-0");
+  });
+
+  it("counts the step's elections on a leader beyond the evidence it carries", () => {
+    const st = rstep("restart:7", "09:20:00", {
+      kind: "restart",
+      title: "nats-1 restarts",
+      evidence: [{ kind: "event", id: "2", label: "order-jobs -> nats-0 (term 4)", elected: "nats-0" }],
+      evidenceCount: 30,
+      leadersTaken: [{ leader: "nats-0", count: 22 }, { leader: "nats-2", count: 8 }],
+    });
+    const { container } = renderApp(<ReplaySteps steps={[st]} moments={M} notes={[]} />);
+    const summary = container.querySelector('[data-step="restart:7"] .rp-ev summary')!;
+    expect(summary).toHaveTextContent("events 22 leader elections on nats-0");
+    expect(within(summary.closest("details")!).getAllByRole("link").map((a) => a.textContent)).toEqual(["order-jobs -> nats-0 (term 4)"]);
   });
 
   it("puts the steps after B under an After B divider, each tagged", () => {

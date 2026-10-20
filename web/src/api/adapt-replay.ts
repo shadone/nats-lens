@@ -87,6 +87,8 @@ export interface ReplayEvidence {
   label: string;
   /** For a collection, the entity to open at that moment; unset is the system. */
   entity?: Entity;
+  /** For a leader election, the server it elected. */
+  elected?: string;
 }
 
 export interface ReplayStep {
@@ -102,6 +104,8 @@ export interface ReplayStep {
   body: string;
   evidence: ReplayEvidence[];
   evidenceCount: number;
+  /** All leader elections of the step by new leader, most first; not capped like the evidence. */
+  leadersTaken: { leader: string; count: number }[];
   /** After B: it closes a step in the range. */
   outsideRange: boolean;
 }
@@ -173,7 +177,8 @@ function step(s: PStep): ReplayStep {
     severity: optSeverity(s.severity),
     title: s.title,
     body: s.body,
-    evidence: s.evidence.map((e) => ({ kind: EVIDENCE_KIND[e.kind] ?? "other", id: e.id, time: ms(e.time), label: e.label, entity: entity(e.entity) })),
+    evidence: s.evidence.map((e) => ({ kind: EVIDENCE_KIND[e.kind] ?? "other", id: e.id, time: ms(e.time), label: e.label, entity: entity(e.entity), elected: e.elected || undefined })),
+    leadersTaken: s.leadersTaken.map((l) => ({ leader: l.leader, count: l.count })),
     evidenceCount: s.evidenceCount,
     outsideRange: s.outsideRange,
   };
