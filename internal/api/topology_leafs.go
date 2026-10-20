@@ -11,12 +11,24 @@ import (
 
 // topologyLeafnodes lists the sites of the epoch, one per site name and
 // account with every hub it is on, and the sites seen in the window and
-// not connected now, with their drops, worst first. When a server's
-// LEAFZ failed in the epoch a site not seen may be connected to it: such
-// sites are marked connection_unknown rather than left out, so their
-// drops still show.
-func topologyLeafnodes(f *TopologyFacts) []*v1.TopologyLeafnode {
-	unknown := len(f.Unanswered[EndpointLeafz]) > 0
+// not connected now, with their drops, worst first. When a server of the
+// cluster a site was last seen on failed LEAFZ in the epoch, the site may
+// be connected to it: it is marked connection_unknown rather than left
+// out, so its drops still show. A failure in another cluster leaves a
+// known disconnect known.
+func topologyLeafnodes(f *TopologyFacts, servers []TopologyServerFact) []*v1.TopologyLeafnode {
+	// The clusters with a server whose LEAFZ failed: a site last seen on
+	// one may be connected to that server.
+	clusterOf := map[string]string{}
+	for _, s := range servers {
+		clusterOf[s.Name] = s.Cluster
+	}
+	failed := map[string]bool{}
+	for _, n := range f.Unanswered[EndpointLeafz] {
+		if cl, ok := clusterOf[n]; ok {
+			failed[cl] = true
+		}
+	}
 	bySite := map[leafSite]*v1.TopologyLeafnode{}
 	var out []*v1.TopologyLeafnode
 	rows := slices.Clone(f.Leafnodes)
@@ -46,7 +58,7 @@ func topologyLeafnodes(f *TopologyFacts) []*v1.TopologyLeafnode {
 			continue
 		}
 		l := &v1.TopologyLeafnode{Name: k.name, Account: s.Row.Account, HubServer: s.Row.Server, HubCluster: s.Row.Cluster,
-			LastSeen: timestamppb.New(s.At), Compression: s.Row.Compression, ConnectionUnknown: unknown}
+			LastSeen: timestamppb.New(s.At), Compression: s.Row.Compression, ConnectionUnknown: failed[s.Row.Cluster]}
 		bySite[k] = l
 		out = append(out, l)
 	}

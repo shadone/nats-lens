@@ -308,11 +308,12 @@ export type TopologyRoute = Message<"natslens.v1.TopologyRoute"> & {
   oneSided: boolean;
 
   /**
-   * Whether the route stands out, at 1 ms or more: its round trip is at
-   * least 3 times the median of the cluster's pairs that touch neither of
-   * its servers, or one of its servers is slow (its fastest pair at least
-   * 3 times the median of the pairs that do not touch it). Two servers
-   * alone are never slow.
+   * Whether the route stands out. The cluster's core grows from its
+   * fastest pair by every server whose fastest pair to the core is under 3
+   * times the median of the core's pairs or under 2 ms; a route of a
+   * server outside the core is slow, and a route inside it is slow at 2 ms
+   * or more and 3 times the median of at least 2 core pairs that touch
+   * neither of its servers. Two servers alone are never slow.
    *
    * @generated from field: bool slow = 9;
    */
@@ -431,8 +432,9 @@ export type TopologyLeafnode = Message<"natslens.v1.TopologyLeafnode"> & {
   hubServers: string[];
 
   /**
-   * Whether a site not connected may be connected after all: a server's
-   * LEAFZ failed in the epoch (see unobserved), and the site may be on it.
+   * Whether a site not connected may be connected after all: a server of
+   * the cluster it was last seen on failed LEAFZ in the epoch (see
+   * unobserved), and the site may be on it.
    *
    * @generated from field: bool connection_unknown = 13;
    */

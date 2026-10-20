@@ -178,9 +178,10 @@ func FinishTopology(f *TopologyFacts) *v1.GetTopologyResponse {
 		res.DropsWindowStart = timestamppb.New(f.Drops.WindowStart)
 	}
 	servers := placeServers(f)
+	f = placeRows(f, servers)
 	res.Gateways = topologyGateways(f, servers)
 	res.Routes = topologyRoutes(f, servers)
-	leafs := topologyLeafnodes(f)
+	leafs := topologyLeafnodes(f, servers)
 	res.LeafnodesTotal = int32(len(leafs))
 	res.Leafnodes = leafs[:min(len(leafs), MaxTopologyLeafnodes)]
 	res.Clusters = topologyClusters(f, servers, leafs)
@@ -227,4 +228,48 @@ func topologyUnobserved(f *TopologyFacts, servers []TopologyServerFact) []*v1.To
 		}
 	}
 	return out
+}
+
+// placeRows is f with the rows of each server placed by placeServers in
+// that server's cluster: its routes, gateways, leaf nodes, gateway drops
+// and sightings, so that they count where the server is drawn.
+func placeRows(f *TopologyFacts, servers []TopologyServerFact) *TopologyFacts {
+	placed := map[string]string{}
+	for i, s := range servers {
+		if f.Servers[i].Cluster == "" && s.Cluster != "" {
+			placed[s.Name] = s.Cluster
+		}
+	}
+	if len(placed) == 0 {
+		return f
+	}
+	cluster := func(server, cluster string) string {
+		if cl, ok := placed[server]; ok && cluster == "" {
+			return cl
+		}
+		return cluster
+	}
+	g := *f
+	g.Routes = slices.Clone(f.Routes)
+	for i := range g.Routes {
+		g.Routes[i].Cluster = cluster(g.Routes[i].Server, g.Routes[i].Cluster)
+	}
+	g.Gateways = slices.Clone(f.Gateways)
+	for i := range g.Gateways {
+		g.Gateways[i].Cluster = cluster(g.Gateways[i].Server, g.Gateways[i].Cluster)
+	}
+	g.Leafnodes = slices.Clone(f.Leafnodes)
+	for i := range g.Leafnodes {
+		g.Leafnodes[i].Cluster = cluster(g.Leafnodes[i].Server, g.Leafnodes[i].Cluster)
+	}
+	g.Drops.Gateways = slices.Clone(f.Drops.Gateways)
+	for i := range g.Drops.Gateways {
+		g.Drops.Gateways[i].Cluster = cluster(g.Drops.Gateways[i].Server, g.Drops.Gateways[i].Cluster)
+	}
+	g.Drops.LastSeen = slices.Clone(f.Drops.LastSeen)
+	for i := range g.Drops.LastSeen {
+		r := &g.Drops.LastSeen[i].Row
+		r.Cluster = cluster(r.Server, r.Cluster)
+	}
+	return &g
 }

@@ -2,20 +2,11 @@ package api
 
 import (
 	"cmp"
-	"maps"
 	"slices"
-	"time"
 
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
-)
-
-// The slow route rule: a route is slow at slowRouteFloor or more when it
-// is slowRouteFactor times its reference.
-const (
-	slowRouteFactor = 3
-	slowRouteFloor  = time.Millisecond
 )
 
 // routeEnd is one end's report of a pair.
@@ -96,61 +87,4 @@ func topologyRoutes(f *TopologyFacts, servers []TopologyServerFact) []*v1.Topolo
 			cmp.Compare(a.GetServerA(), b.GetServerA()), cmp.Compare(a.GetServerB(), b.GetServerB()))
 	})
 	return out
-}
-
-// markSlowRoutes marks, per cluster, the pairs whose round trip is at
-// least slowRouteFloor and either
-//   - at least slowRouteFactor times the median of the cluster's pairs that
-//     touch neither of its servers (a slow link), or
-//   - has a slow server at one end: a server whose fastest pair is at least
-//     slowRouteFactor times the median of the pairs that do not touch it.
-//
-// Comparing with the pairs that do not touch the servers keeps one slow
-// server from setting the reference, as it would with the cluster's
-// median in a cluster of 3 or 4. With 2 servers there is nothing to
-// compare with, and nothing is slow.
-func markSlowRoutes(routes []*v1.TopologyRoute) {
-	byCluster := map[string][]*v1.TopologyRoute{}
-	for _, r := range routes {
-		if r.Rtt != nil {
-			byCluster[r.GetCluster()] = append(byCluster[r.GetCluster()], r)
-		}
-	}
-	for _, rs := range byCluster {
-		touches := func(r *v1.TopologyRoute, s string) bool { return r.GetServerA() == s || r.GetServerB() == s }
-		// reference is the median round trip of the pairs that touch none
-		// of the servers; false when there are none.
-		reference := func(servers ...string) (time.Duration, bool) {
-			var ds []time.Duration
-			for _, r := range rs {
-				if !slices.ContainsFunc(servers, func(s string) bool { return touches(r, s) }) {
-					ds = append(ds, r.GetRtt().AsDuration())
-				}
-			}
-			if len(ds) == 0 {
-				return 0, false
-			}
-			return medianDuration(ds), true
-		}
-		slowAgainst := func(d time.Duration, servers ...string) bool {
-			ref, ok := reference(servers...)
-			return ok && d >= slowRouteFloor && d >= slowRouteFactor*ref
-		}
-		fastest := map[string]time.Duration{}
-		for _, r := range rs {
-			for _, s := range []string{r.GetServerA(), r.GetServerB()} {
-				if d, ok := fastest[s]; !ok || r.GetRtt().AsDuration() < d {
-					fastest[s] = r.GetRtt().AsDuration()
-				}
-			}
-		}
-		slowServer := map[string]bool{}
-		for _, s := range slices.Sorted(maps.Keys(fastest)) {
-			slowServer[s] = slowAgainst(fastest[s], s)
-		}
-		for _, r := range rs {
-			r.Slow = slowServer[r.GetServerA()] || slowServer[r.GetServerB()] ||
-				slowAgainst(r.GetRtt().AsDuration(), r.GetServerA(), r.GetServerB())
-		}
-	}
 }
