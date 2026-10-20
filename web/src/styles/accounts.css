@@ -18,8 +18,11 @@
 .ac-id{display:block;margin-top:2px;font:11px var(--mono);color:var(--text-muted)}
 .ac-of{color:var(--text-muted)}
 .ac-bar{width:120px;max-width:100%;height:5px;margin-top:5px;border-radius:3px;background:var(--track)}
-.ac-bar-fill{height:5px;border-radius:3px;background:var(--accent);min-width:2px}
+.ac-bar-fill{height:5px;border-radius:3px;background:var(--accent)}
+.ac-bar-fill.ac-bar-some{min-width:2px}
 .ac-bar-fill.ac-bar-warn{background:var(--cell-warning)}
+.ac-bar-fill.ac-bar-crit{background:var(--cell-critical)}
+.ac-card .tbl small.ac-limit-note{margin-top:3px}
 .ac-card .ac-warn{color:var(--sev-warning);font-weight:600}
 .ac-card .ac-crit{color:var(--sev-critical);font-weight:600}
 .ac-card .ac-muted,.ac-card .ac-quiet,.ac-none{color:var(--text-muted)}

@@ -14,10 +14,13 @@ import {
   jetStreamOff,
   jwtCell,
   limitBar,
+  limitBarText,
   memoryOnly,
   loginHot,
+  loginRateText,
   loginUser,
   loginWindowMs,
+  loginWindowShort,
   loginsCutLine,
   orderAccounts,
   shortIdentifier,
@@ -80,14 +83,22 @@ describe("limitBar", () => {
   });
 
   it("fills to the share of the limit, in the accent below 80% and the warning colour from it", () => {
-    expect(limitBar(412, 2000)).toEqual({ pct: 20.6, tone: "ok" });
+    expect(limitBar(412, 2000)).toEqual({ pct: 20.6, share: 20.6, tone: "ok" });
     expect(limitBar(1599, 2000)?.tone).toBe("ok");
-    expect(limitBar(1600, 2000)).toEqual({ pct: 80, tone: "warn" });
+    expect(limitBar(1600, 2000)).toEqual({ pct: 80, share: 80, tone: "warn" });
+    expect(limitBar(2000, 2000)?.tone).toBe("warn");
     expect(limitBar(410 * GIB, 500 * GIB)?.tone).toBe("warn");
   });
 
-  it("stops at a full bar over the limit", () => {
-    expect(limitBar(2500, 2000)).toEqual({ pct: 100, tone: "warn" });
+  it("stops at a full bar over the limit, keeps the real share, and is critical", () => {
+    expect(limitBar(2500, 2000)).toEqual({ pct: 100, share: 125, tone: "crit" });
+  });
+
+  it("words the share, and says when it is over the limit", () => {
+    expect(limitBarText(limitBar(412, 2000)!)).toBe("20% of the limit");
+    expect(limitBarText(limitBar(1640, 2000)!)).toBe("82% of the limit");
+    expect(limitBarText(limitBar(75, 50)!)).toBe("150% of the limit, over the limit");
+    expect(limitBarText(limitBar(0, 50)!)).toBe("0% of the limit");
   });
 });
 
@@ -162,8 +173,14 @@ describe("importsExports", () => {
     expect(isIdle(account("X", { leafnodes: 2 }))).toBe(false);
   });
 
-  it("knows nothing of an account not looked up yet", () => {
-    expect(importsExports(account("APP", { connections: 4, detailsKnown: false, imports: undefined, exports: undefined }))).toBeUndefined();
+  it("says visibly that an account was not looked up yet, in either mode", () => {
+    expect(importsExports(account("APP", { connections: 4, detailsKnown: false, imports: undefined, exports: undefined }))).toBe("not looked up yet");
+    expect(importsExports(account("APP", { connections: 0, streams: 0, detailsKnown: false, imports: undefined, exports: undefined }))).toBe("not looked up yet · idle now");
+  });
+
+  it("shows the count it has when the other is not reported", () => {
+    expect(importsExports(account("APP", { connections: 3, imports: undefined, exports: 2 }))).toBe("2 exports");
+    expect(importsExports(account("APP", { connections: 3, imports: undefined, exports: undefined }))).toBeUndefined();
   });
 });
 
@@ -182,8 +199,8 @@ describe("jwtCell", () => {
     expect(jwtCell(jwt({}), true, EPOCH_AT)).toEqual({ text: "never", tone: "muted" });
     expect(jwtCell(jwt({ expired: true }), true, EPOCH_AT)).toEqual({ text: "expired", tone: "crit" });
     expect(jwtCell(jwt({ jwtExpires: EPOCH_AT - 1000 }), true, EPOCH_AT)).toEqual({ text: "expired", tone: "crit" });
-    expect(jwtCell(jwt({ jwtExpires: Date.parse("2026-10-29T08:00:00Z") }), true, EPOCH_AT)).toEqual({ text: "2026-10-29", tone: "warn" });
-    expect(jwtCell(jwt({ jwtExpires: EPOCH_AT + 90 * DAY }), true, EPOCH_AT)).toEqual({ text: "2027-01-15", tone: undefined });
+    expect(jwtCell(jwt({ jwtExpires: Date.parse("2026-10-29T14:30:00Z") }), true, EPOCH_AT)).toEqual({ text: "2026-10-29", tone: "warn", note: "in 12 days" });
+    expect(jwtCell(jwt({ jwtExpires: EPOCH_AT + 90 * DAY }), true, EPOCH_AT)).toEqual({ text: "2027-01-15" });
   });
 
   it("gives a dash to a looked-up account without a JWT", () => {
@@ -196,6 +213,20 @@ describe("failed logins", () => {
     expect(loginWindowMs({ epochAt: EPOCH_AT, failedLoginsWindowStart: EPOCH_AT - DAY })).toBe(DAY);
     expect(loginWindowMs({ epochAt: EPOCH_AT, failedLoginsWindowStart: EPOCH_AT - 2 * 3_600_000 })).toBe(2 * 3_600_000);
     expect(loginWindowMs({ epochAt: EPOCH_AT, failedLoginsWindowStart: undefined })).toBe(DAY);
+  });
+
+  it("reads a window that starts at the collection, the first one, as no history, not a day", () => {
+    expect(loginWindowMs({ epochAt: EPOCH_AT, failedLoginsWindowStart: EPOCH_AT })).toBe(0);
+    expect(loginWindowShort({ epochAt: EPOCH_AT, failedLoginsWindowStart: EPOCH_AT })).toBe(true);
+    expect(loginWindowShort({ epochAt: EPOCH_AT, failedLoginsWindowStart: EPOCH_AT - DAY })).toBe(false);
+    expect(loginWindowShort({ epochAt: EPOCH_AT, failedLoginsWindowStart: undefined })).toBe(false);
+    // 70 attempts at the first collection count over one hour: hot.
+    expect(loginHot(login("", "", "", 70), 0)).toBe(true);
+  });
+
+  it("words a frequent group's rate", () => {
+    expect(loginRateText(login("label-printer", "", "", 1_440), DAY)).toBe("about 60 an hour");
+    expect(loginRateText(login("", "", "", 130), 2 * 3_600_000)).toBe("about 65 an hour");
   });
 
   it("warns of a group averaging 60 or more an hour", () => {
