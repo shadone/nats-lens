@@ -8,7 +8,7 @@ The board's sample names (`acme-prod`, `eu-west`, `store-0417`, `RETAIL`, `IOT`)
 
 | Task | Status |
 |---|---|
-| T1 API, store and demo | not started |
+| T1 API, store and demo | built on `feat/topology-page`, awaiting review |
 | T2 UI | not started |
 | T3 Feature docs and audit | not started |
 
@@ -70,6 +70,28 @@ Unset means not reported; counts of drops are unset when no two consecutive answ
 - Hidden sections: no gateways, no map lines; no leaf nodes, no leaf boxes or table; a single cluster shows the routes only, with the board's sentence.
 - One line under the map: "Drops are counted from collections every <interval>; a drop and reconnect within one interval is seen only as a new connection ID." Unobserved servers listed as "ROUTEZ did not answer on nats-eu-4".
 - Data: `requests.getTopology`, `api/topology.ts`, `useTopology()` keyed by system and range, refetched with the page's live interval like Placement.
+
+## Where T1 departed from this plan
+
+Each departure was made by the session that built T1: proposed, not yet confirmed.
+
+- **Durations, not nanoseconds.** Round trips are `google.protobuf.Duration` (`rtt_max`, `rtt_median`, `rtt`), as `RouteView.rtt` and the rest of the API carry them, not `int64 rtt_ns`.
+- **Gateways from outbound rows.** Every gateway connection is one server's outbound and another's inbound, so connections, round trips and drops are read from the outbound rows only (pending bytes from both); counting both directions would count one disconnect twice and give twice the expected connections. `expected` stays one outbound per server of either cluster that answered GATEWAYZ.
+- **Consecutive collections.** Two collections count as consecutive when they are at most 3 collect intervals apart, the gap rule of Replay. A pair counts in a window (1 hour, 24 hours) when its earlier collection lies in it; `drops_window_start` is the oldest collection read.
+- **Route pairs.** The two ends are folded into one row rather than shown each: the highest round trip of either end, pending summed, the pool the larger count either end reports (not the sum), pinned accounts the union, and `reported_by` naming the ends that report the pair. A pair is one-sided only when the silent end answered ROUTEZ; a pair whose other end did not answer is listed from the end that did. The median for the slow rule is the usual one, the mean of the middle two for an even count.
+- **Spoke rows left out.** nats-server sets `is_spoke` on the server that opened the connection to a hub (`leafnode.go`: `isSpoke` when the remote is not a hub or declares itself one), so a hub lists its sites with `is_spoke` false. Rows with `is_spoke` true are the observed server's own uplinks and are not sites. The column's comment in `0001_epochs_servers.sql` says the opposite (a leftover).
+- **Sites not connected.** A site seen in the 24 hours and not in the epoch is listed as not connected only when its last hub's server answered LEAFZ in the epoch; otherwise its state is not known and it is left out, by the rule for unobserved links. A site without a name is keyed by its IP address.
+- **Cluster leaf counts.** `leafnodes_connected` and `leafnodes_not_connected` are set, 0 included, when a server of the cluster answered LEAFZ, else unset.
+- **Unobserved.** A server that answered nothing is drawn missing in its cluster and not named in `unobserved` again.
+- **Added fields.** `leafnodes_total`, `collect_interval` (for the page's line on drops), `account_name` on a site (the handler fills it as for other messages), `reported_by` on a route.
+- **Demo.** Every site is in `APP`, as `ListAccounts` lists only `APP`. A gateway or site whose server the upgrade stopped moves to the next server of its cluster that never stops; the gateway move is a drop of its reporter (`eu`-`us` 4 and `ap`-`us` 7 in 24 hours, with `nats-ap-1`'s 3 in the last hour), the site's is none. The demo writes no inbound gateway rows. To keep the Server page in agreement, its route list now holds the pooled and pinned routes per remote (3 per remote in `example-global`, 4 in `example-prod` with its `APP` route) with the Topology page's round trips, its leaf node count the sites on the server, and `example-global`'s account connection events are worded as the capture words them (`internal/events/decode_system.go`), the total counting the server's leaf nodes as NATS does.
+
+### Leftovers of T1
+
+- The comment on `leafnodes.is_spoke` in `0001_epochs_servers.sql` has the meaning reversed; correcting it takes a new migration with a `COMMENT ON COLUMN`.
+- `example-prod`'s account connection events keep the demo's own wording ("account APP: N connections, 0 leaf nodes"), which the capture does not write; the leaf node count agrees, as `example-prod` has none.
+- No demo system has an endpoint that failed, so `unobserved` is empty in the demo; the store tests cover it.
+- Measured on a synthetic store (24 servers, 1,000 leaf node sites, a day at 30 seconds): 1.8 seconds to read and 1.2 seconds in `FinishTopology`, within the 30 seconds; the leaf drop count builds a map per collection and could reuse runs of unchanged collections if larger systems need it.
 
 ## Tasks
 
