@@ -300,10 +300,10 @@ describe("expiring", () => {
 
 describe("seenAtText", () => {
   it("says when an older certificate row was read, with the day when the UTC date differs from the collection's", () => {
-    expect(seenAtText(expiring({ server: "nats-us-4", seenAt: EPOCH_AT - 70 * 60_000 }), EPOCH_AT)).toBe("as of 13:20 UTC; no answer since");
-    expect(seenAtText(expiring({ server: "nats-us-4", seenAt: EPOCH_AT - 25 * 3_600_000 }), EPOCH_AT)).toBe("as of 16 Oct 13:30 UTC; no answer since");
+    expect(seenAtText(expiring({ server: "nats-us-4", seenAt: EPOCH_AT - 70 * 60_000 }), EPOCH_AT)).toBe("read at 13:20 UTC; no answer from the server since");
+    expect(seenAtText(expiring({ server: "nats-us-4", seenAt: EPOCH_AT - 25 * 3_600_000 }), EPOCH_AT)).toBe("read at 16 Oct 13:30 UTC; no answer from the server since");
     // Under 24 hours back but on the previous UTC day: 13:20 alone would read as after a 10:00 collection.
-    expect(seenAtText(expiring({ seenAt: Date.parse("2026-10-16T13:20:00Z") }), Date.parse("2026-10-17T10:00:00Z"))).toBe("as of 16 Oct 13:20 UTC; no answer since");
+    expect(seenAtText(expiring({ seenAt: Date.parse("2026-10-16T13:20:00Z") }), Date.parse("2026-10-17T10:00:00Z"))).toBe("read at 16 Oct 13:20 UTC; no answer from the server since");
     expect(seenAtText(expiring({ server: "nats-us-4" }), EPOCH_AT)).toBeUndefined();
   });
 });

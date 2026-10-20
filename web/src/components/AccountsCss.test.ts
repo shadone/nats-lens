@@ -48,3 +48,9 @@ describe("accounts.css small lines", () => {
     expect(rule).not.toMatch(/white-space:nowrap/);
   });
 });
+
+describe("accounts.css parts of a line", () => {
+  it("keeps a part of a line under a cell on one line", () => {
+    expect(css).toMatch(/\.ac-card \.tbl small \.ac-nw\{white-space:nowrap\}/);
+  });
+});

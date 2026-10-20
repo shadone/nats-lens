@@ -17,6 +17,7 @@ import {
   diskStateText,
   jwtCell,
   limitBar,
+  limitBarParts,
   limitBarText,
   loginHot,
   loginRateText,
@@ -25,7 +26,7 @@ import {
   loginWindowShort,
   loginsCutLine,
   orderAccounts,
-  seenAtText,
+  seenAtParts,
   shortIdentifier,
   type LimitBar,
   type Tone,
@@ -55,6 +56,25 @@ function Card({ title, sub, children, className }: { title: string; sub?: ReactN
   );
 }
 
+/** One part of a line under a cell, kept on one line: the line breaks only between parts. */
+function Nw({ children }: { children: ReactNode }) {
+  return <span className="ac-nw">{children}</span>;
+}
+
+/** Parts joined by sep, each kept on one line. */
+function Parts({ parts, sep }: { parts: string[]; sep: string }) {
+  return (
+    <>
+      {parts.map((p, k) => (
+        <span key={p}>
+          {k > 0 && sep}
+          <Nw>{p}</Nw>
+        </span>
+      ))}
+    </>
+  );
+}
+
 function toneClass(t: Tone | undefined): string {
   return t ? ` ac-${t}` : "";
 }
@@ -78,7 +98,7 @@ function Bar({ bar, label }: { bar: LimitBar; label: string }) {
       </div>
       {bar.tone !== "ok" && (
         <small className="ac-limit-note" aria-hidden="true">
-          {limitBarText(bar)}
+          <Parts parts={limitBarParts(bar)} sep=", " />
         </small>
       )}
     </>
@@ -118,7 +138,9 @@ function ConnectionsCell({ a }: { a: AccountRow }) {
         {of && <span className="ac-of"> {of}</span>}
       </div>
       {bar && <Bar bar={bar} label="Connections" />}
-      {(a.leafnodes ?? 0) > 0 && <small>{a.leafnodes === 1 ? "1 leaf node" : `${fmtInt(a.leafnodes!)} leaf nodes`}</small>}
+      {(a.leafnodes ?? 0) > 0 && <small>
+          <Nw>{a.leafnodes === 1 ? "1 leaf node" : `${fmtInt(a.leafnodes!)} leaf nodes`}</Nw>
+        </small>}
     </>
   );
 }
@@ -183,7 +205,11 @@ export function AccountsTable({ d }: { d: AccountsAndAuth }) {
                     <td className={a.isSystem || !a.detailsKnown ? "ac-quiet" : undefined}>{ie ?? <Unset why="not reported" />}</td>
                     <td className={`mono${toneClass(jwt.tone)}`}>
                       {jwt.text ?? <Unset why={jwt.why ?? "not known"} />}
-                      {jwt.note && <small>{jwt.note}</small>}
+                      {jwt.note && (
+                        <small>
+                          <Nw>{jwt.note}</Nw>
+                        </small>
+                      )}
                     </td>
                   </tr>
                 );
@@ -234,16 +260,16 @@ export function FailedLoginsCard({ d }: { d: AccountsAndAuth }) {
                       {(l.account || hot) && (
                         <small>
                           {l.account && (
-                            <>
+                            <Nw>
                               account <RLink to={accountPath(l.account)}>{accountTitle(l)}</RLink>
-                            </>
+                            </Nw>
                           )}
                           {l.account && hot && " · "}
                           {hot && (
-                            <span>
+                            <Nw>
                               <span className="sr-only">frequent, </span>
                               {loginRateText(l, windowMs, d.failedLoginsWindowStart)}
-                            </span>
+                            </Nw>
                           )}
                         </small>
                       )}
@@ -307,7 +333,7 @@ export function ExpiringCard({ d }: { d: AccountsAndAuth }) {
             <tbody>
               {d.expiring.map((e) => {
                 const tone = expiringTone(e, d.epochAt);
-                const seen = seenAtText(e, d.epochAt);
+                const seen = seenAtParts(e, d.epochAt);
                 return (
                   <tr key={`${e.kind}|${e.server}|${e.listener}|${e.account}|${e.user}`}>
                     <th scope="row">
@@ -315,11 +341,22 @@ export function ExpiringCard({ d }: { d: AccountsAndAuth }) {
                         <ExpiringName e={e} />
                       </span>{" "}
                       {expiringWhat(e)}
-                      {seen && <small>{seen}</small>}
+                      {seen && (
+                        <small>
+                          <Parts parts={seen} sep="; " />
+                        </small>
+                      )}
                       {e.kind === "userJwt" && (
                         <small>
-                          account <RLink to={accountPath(e.account)}>{accountTitle(e)}</RLink>
-                          {e.connections > 0 && ` · ${e.connections === 1 ? "1 connection" : `${fmtInt(e.connections)} connections`}`}
+                          <Nw>
+                            account <RLink to={accountPath(e.account)}>{accountTitle(e)}</RLink>
+                          </Nw>
+                          {e.connections > 0 && (
+                            <>
+                              {" · "}
+                              <Nw>{e.connections === 1 ? "1 connection" : `${fmtInt(e.connections)} connections`}</Nw>
+                            </>
+                          )}
                         </small>
                       )}
                     </th>

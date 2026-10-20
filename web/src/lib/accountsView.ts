@@ -89,8 +89,13 @@ export function limitBar(used: number | undefined, limit: number | undefined): L
 
 /** The bar's words, also its non-colour cue: "82% of the limit", "150% of the limit, over the limit". */
 export function limitBarText(bar: LimitBar): string {
+  return limitBarParts(bar).join(", ");
+}
+
+/** The bar's words in parts, each kept on one line: ["150% of the limit", "over the limit"]. */
+export function limitBarParts(bar: LimitBar): string[] {
   const pct = `${fmtInt(Math.floor(bar.share))}% of the limit`;
-  return bar.tone === "crit" ? `${pct}, over the limit` : pct;
+  return bar.tone === "crit" ? [pct, "over the limit"] : [pct];
 }
 
 /** "of 2,000", "of unlimited", or undefined without a limit. */
@@ -244,14 +249,19 @@ export function expiringWhat(e: Expiring): string {
 
 /**
  * A certificate read from an older collection (its server has not answered
- * since): "as of 13:20 UTC; no answer since", with the day when the UTC date
+ * since): "read at 13:20 UTC; no answer from the server since", with the day when the UTC date
  * differs from the collection's; undefined for a row read from the
  * collection itself.
  */
 export function seenAtText(e: Expiring, epochAt: number | undefined): string | undefined {
+  return seenAtParts(e, epochAt)?.join("; ");
+}
+
+/** seenAtText in parts, each kept on one line: ["read at 13:20 UTC", "no answer from the server since"]. */
+export function seenAtParts(e: Expiring, epochAt: number | undefined): string[] | undefined {
   if (e.seenAt === undefined) return undefined;
   const when = epochAt !== undefined && isoDate(epochAt) === isoDate(e.seenAt) ? hm(e.seenAt) : dayMonHm(e.seenAt);
-  return `as of ${when} UTC; no answer since`;
+  return [`read at ${when} UTC`, "no answer from the server since"];
 }
 
 /** The failed-logins card when no event was stored up to the collection, in the words of Replay's events-not-captured reason; past tense, so it holds on a past range. */
