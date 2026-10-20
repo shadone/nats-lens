@@ -103,3 +103,43 @@ func TestConnectedAfterFailedStart(t *testing.T) {
 	defer s.Shutdown()
 	waitKind(t, w, "collector.reconnected")
 }
+
+// A connection dialled again after the one before closed, which reaches
+// its server at the first try, records one reconnect; a first dial that
+// connects at once records none.
+func TestRedialConnectedAtOnce(t *testing.T) {
+	s, err := server.NewServer(&server.Options{Host: "127.0.0.1", Port: -1, NoLog: true, NoSigs: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	go s.Start()
+	defer s.Shutdown()
+	if !s.ReadyForConnections(5 * time.Second) {
+		t.Fatal("server not ready")
+	}
+	w := &flakyWriter{}
+	c := New(Options{Writer: w, FlushInterval: 20 * time.Millisecond, Log: quiet()})
+	stop := runCapture(t, c)
+	defer stop()
+	first, err := nats.Connect(s.ClientURL(), append(c.ConnHandlers("sys"), nats.RetryOnFailedConnect(true))...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer first.Close()
+	redial, err := nats.Connect(s.ClientURL(), append(c.RedialHandlers("sys"), nats.RetryOnFailedConnect(true))...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer redial.Close()
+	waitKind(t, w, "collector.reconnected")
+	time.Sleep(200 * time.Millisecond)
+	n := 0
+	for _, k := range kinds(w) {
+		if k == "collector.reconnected" {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Errorf("kinds = %v", kinds(w))
+	}
+}
