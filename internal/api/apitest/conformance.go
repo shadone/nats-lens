@@ -718,7 +718,7 @@ func Conformance() []State {
 			}
 			return ""
 		}},
-	}, replayRows()...)
+	}, append(replayRows(), topologyRows()...)...)
 }
 
 // RunConformance checks every row of the table against env: each must be

@@ -61,8 +61,10 @@ export function fmtDuration(ms: number): string {
 
 /** Round trip times and other short durations: 0.3 ms, 12 ms, 1.2 s. */
 export function fmtShortDuration(ms: number): string {
+  if (ms > 0 && ms < 0.005) return "<0.01 ms";
   if (ms < 1) return `${trimZeros(ms.toFixed(2))} ms`;
-  if (ms < 1000) return `${trimZeros(ms.toFixed(ms < 10 ? 1 : 0))} ms`;
+  // A value that rounds up to 1000 ms is shown as seconds.
+  if (ms < 999.5) return `${trimZeros(ms.toFixed(ms < 10 ? 1 : 0))} ms`;
   return `${trimZeros((ms / 1000).toFixed(1))} s`;
 }
 
