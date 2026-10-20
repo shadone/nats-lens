@@ -552,3 +552,25 @@ func TestReplayEventsGapEndsAtTheNextStartFromStore(t *testing.T) {
 		t.Errorf("gaps = %+v", f.Gaps)
 	}
 }
+
+// A sys connection that reconnects 5 seconds after its disconnect fails
+// over: the event counts stay set; one that takes 15 seconds was lost.
+func TestReplayEventsFailoverFromStore(t *testing.T) {
+	for _, tc := range []struct {
+		took time.Duration
+		lost bool
+	}{{5 * time.Second, false}, {15 * time.Second, true}} {
+		p, r := replayStore(t)
+		r.add("events", map[string]any{"id": 1300, "time": rEpoch(30), "received_at": rEpoch(30), "source": "collector", "kind": "collector.disconnected",
+			"summary": "lost", "raw": `{"connection":"sys","reason":"EOF"}`})
+		r.add("events", map[string]any{"id": 1301, "time": rEpoch(30).Add(tc.took), "received_at": rEpoch(30).Add(tc.took), "source": "collector",
+			"kind": "collector.reconnected", "summary": "back", "raw": `{"connection":"sys","reason":""}`})
+		f, err := p.Replay(ctx, replayReq(rEpoch(3), rEpoch(40)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c := api.FinishReplay(f).GetCounts(); (c.LeaderElections == nil) != tc.lost {
+			t.Errorf("reconnect after %v: counts %v", tc.took, c)
+		}
+	}
+}

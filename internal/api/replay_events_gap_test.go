@@ -45,3 +45,20 @@ func TestEventsConnectionGapsOpenAtDisconnectAndEndAtStart(t *testing.T) {
 		t.Errorf("gaps = %+v", gaps)
 	}
 }
+
+// A connection that reconnects within 10 seconds is a failover, not a loss
+// of capture; 10 seconds or more is a loss (proposed, not yet confirmed).
+func TestEventsConnectionFailoverIsNoGap(t *testing.T) {
+	conn := func(at time.Time, kind, label string) *v1.Event {
+		return ev(at, kind, "", func(e *v1.Event) { e.Raw = `{"connection":"` + label + `","reason":"x"}` })
+	}
+	gaps := api.EventsConnectionGaps([]*v1.Event{
+		conn(rAt(1, 0), "collector.disconnected", "sys"),
+		conn(rAt(1, 9), "collector.reconnected", "sys"),
+		conn(rAt(5, 0), "collector.disconnected", "sys"),
+		conn(rAt(5, 10), "collector.reconnected", "sys"),
+	})
+	if len(gaps) != 1 || !gaps[0].Start.Equal(rAt(5, 0)) {
+		t.Errorf("gaps = %+v", gaps)
+	}
+}
