@@ -11,7 +11,7 @@ The board's sample names come from a sketch. Use the example shop of `inventory.
 | T1 Collector and store | built on `feat/accounts-page`, review findings of rounds 1 and 2 fixed, awaiting review |
 | T2 API and demo | built on `feat/accounts-api`, review findings of round 1 fixed and reviewed |
 | T3 UI | built on `feat/accounts-ui`, review findings of rounds 1 and 2 fixed, awaiting review |
-| T4 Feature docs and audit | not started |
+| T4 Feature docs and audit | done on `feat/accounts-ui`: `accounts-and-auth.md` shipped, the README table and coverage map, `demo-mode.md`; the audit passes |
 
 ## Rules for every step
 
@@ -136,8 +136,6 @@ Each point was decided in the session that built T3: proposed, not yet confirmed
 
 `accounts-and-auth.md` to `Status: shipped` (or `partial`) with its scenarios and Not supported list, `docs/features/README.md` table and coverage map, `monitoring-snapshots.md` and `event-capture.md` where they describe what is collected, the audit, leftovers into `docs/plans/next.md`.
 
-## Leftovers known now
+## Leftovers
 
-- "Unused for 30 days, candidate to remove" from account history.
-- A check for a certificate or account JWT that expires within 14 days.
-- Account limits reached (connections at the limit, disk near the reservation) as findings.
+Moved to `docs/plans/next.md`, item 5, "Accounts".
