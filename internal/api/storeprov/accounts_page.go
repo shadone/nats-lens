@@ -33,8 +33,10 @@ func (p *Provider) AccountsAndAuth(ctx context.Context, req *v1.GetAccountsAndAu
 // accountFacts reads the accounts ListAccounts lists for the epoch:
 // connections, leaf nodes and subscriptions summed over the servers'
 // STATZ shares, JetStream use the largest any server reports (each
-// reports the account total), distinct streams, and the newest lookup at
-// or before the epoch within AccountDetailsMaxAge.
+// reports the account total), distinct streams, and the lookup of the
+// newest epoch up to this one, when it was read at most
+// AccountDetailsMaxAge before the epoch started. A lookup is read after
+// its epoch's collection started, so its time is later than the epoch's.
 func (p *Provider) accountFacts(ctx context.Context, f *api.AccountsFacts) error {
 	rows, err := p.db().QueryContext(ctx, `
 WITH st AS (
@@ -44,7 +46,7 @@ WITH st AS (
 ), ss AS (
     SELECT account, count(DISTINCT stream) AS n FROM stream_stats WHERE epoch = $1 GROUP BY account
 ), d AS (
-    SELECT * FROM account_details WHERE epoch <= $1 AND looked_up_at <= $2 AND looked_up_at >= $3
+    SELECT * FROM account_details WHERE epoch <= $1 AND looked_up_at >= $2
     QUALIFY row_number() OVER (PARTITION BY account ORDER BY epoch DESC, looked_up_at DESC) = 1
 )
 SELECT a.account, coalesce(nullif(a.account_name, a.account), nullif(d.account_name, a.account), ''),
@@ -52,7 +54,7 @@ SELECT a.account, coalesce(nullif(a.account_name, a.account), nullif(d.account_n
     d.looked_up_at, d.has_jwt, d.expired, d.imports, d.exports, d.jwt_expires, d.limit_connections, d.limit_js_disk, d.limit_js_memory
 FROM accounts a LEFT JOIN st USING (account) LEFT JOIN ss USING (account) LEFT JOIN d USING (account)
 WHERE a.first_epoch <= $1 AND a.last_epoch >= $1
-ORDER BY a.account`, f.Epoch, f.EpochAt, f.EpochAt.Add(-api.AccountDetailsMaxAge))
+ORDER BY a.account`, f.Epoch, f.EpochAt.Add(-api.AccountDetailsMaxAge))
 	if err != nil {
 		return fmt.Errorf("accounts and auth accounts: %w", err)
 	}
@@ -133,20 +135,20 @@ ORDER BY n DESC, last DESC, u, h, r LIMIT $3`, from, f.EpochAt, api.MaxFailedLog
 	return rows.Err()
 }
 
-// captureGaps reports whether event capture was not running for part of
-// the window, by Replay's rules: no event stored up to the epoch (capture
-// never ran), a time nats-lens was not running (collector.gap) that
-// overlaps the window, or a lost connection that captures events
+// captureGaps reads whether events were captured (any event stored up to
+// the epoch) and, by Replay's rules, whether capture stopped for part of
+// the window: a time nats-lens was not running (collector.gap) that
+// overlaps it, or a lost connection that captures events
 // (EventsConnectionGaps).
 func (p *Provider) captureGaps(ctx context.Context, f *api.AccountsFacts) error {
-	var captured, stopped bool
+	var stopped bool
 	if err := p.db().QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM events WHERE time <= $1),
   EXISTS (SELECT 1 FROM events WHERE kind = 'collector.gap' AND time <= $1 AND received_at >= $2)`, f.EpochAt, f.WindowStart).
-		Scan(&captured, &stopped); err != nil {
+		Scan(&f.EventsCaptured, &stopped); err != nil {
 		return fmt.Errorf("accounts and auth capture: %w", err)
 	}
-	if !captured || stopped {
-		f.CaptureGaps = true
+	if !f.EventsCaptured || stopped {
+		f.CaptureGaps = stopped
 		return nil
 	}
 	rf := &api.ReplayFacts{A: f.WindowStart, B: f.EpochAt}
@@ -161,13 +163,28 @@ func (p *Provider) captureGaps(ctx context.Context, f *api.AccountsFacts) error 
 	return nil
 }
 
-// certificates reads the listener certificates each server reported in
-// the epoch.
+// certificates reads the listener certificates of every server the epoch
+// expected (or observed, or missed), each from its newest collection at or
+// before the epoch, at most AccountDetailsMaxAge older, in which its VARZ
+// answered; a row older than the epoch carries that collection's start.
 func (p *Provider) certificates(ctx context.Context, f *api.AccountsFacts) error {
 	rows, err := p.db().QueryContext(ctx, `
-SELECT s.server_name, ss.tls_cert_not_after, ss.cluster_tls_cert_not_after, ss.gateway_tls_cert_not_after,
-    ss.leafnode_tls_cert_not_after, ss.websocket_tls_cert_not_after, ss.mqtt_tls_cert_not_after
-FROM server_stats ss JOIN servers s USING (server_id) WHERE ss.epoch = ? ORDER BY s.server_name`, f.Epoch)
+WITH names AS (
+    SELECT DISTINCT unnest(expected_names || observed_names || missing_names) AS name FROM epochs WHERE epoch = $1
+), varz AS (
+    SELECT s.server_name AS name, e.epoch, e.started_at, ss.tls_cert_not_after, ss.cluster_tls_cert_not_after,
+        ss.gateway_tls_cert_not_after, ss.leafnode_tls_cert_not_after, ss.websocket_tls_cert_not_after, ss.mqtt_tls_cert_not_after
+    FROM epoch_endpoints ee
+    JOIN epochs e ON e.epoch = ee.epoch
+    JOIN servers s ON s.server_id = ee.server_id
+    JOIN server_stats ss ON ss.epoch = ee.epoch AND ss.server_id = ee.server_id
+    WHERE ee.endpoint = 'VARZ' AND ee.state = 'ok' AND ee.epoch <= $1 AND e.started_at >= $2
+      AND (s.server_name IN (SELECT name FROM names) OR ee.epoch = $1)
+    QUALIFY row_number() OVER (PARTITION BY s.server_name ORDER BY ee.epoch DESC) = 1
+)
+SELECT name, CASE WHEN epoch < $1 THEN started_at END, tls_cert_not_after, cluster_tls_cert_not_after, gateway_tls_cert_not_after,
+    leafnode_tls_cert_not_after, websocket_tls_cert_not_after, mqtt_tls_cert_not_after
+FROM varz ORDER BY name`, f.Epoch, f.EpochAt.Add(-api.AccountDetailsMaxAge))
 	if err != nil {
 		return fmt.Errorf("accounts and auth certificates: %w", err)
 	}
@@ -175,13 +192,18 @@ FROM server_stats ss JOIN servers s USING (server_id) WHERE ss.epoch = ? ORDER B
 	listeners := []string{api.ListenerClient, api.ListenerCluster, api.ListenerGateway, api.ListenerLeafnode, api.ListenerWebsocket, api.ListenerMQTT}
 	for rows.Next() {
 		var name string
+		var seen sql.NullTime
 		ts := make([]sql.NullTime, len(listeners))
-		if err := rows.Scan(&name, &ts[0], &ts[1], &ts[2], &ts[3], &ts[4], &ts[5]); err != nil {
+		if err := rows.Scan(&name, &seen, &ts[0], &ts[1], &ts[2], &ts[3], &ts[4], &ts[5]); err != nil {
 			return err
 		}
 		for i, t := range ts {
 			if t.Valid {
-				f.Certificates = append(f.Certificates, api.CertificateFact{Server: name, Listener: listeners[i], NotAfter: t.Time.UTC()})
+				c := api.CertificateFact{Server: name, Listener: listeners[i], NotAfter: t.Time.UTC()}
+				if seen.Valid {
+					c.SeenAt = seen.Time.UTC()
+				}
+				f.Certificates = append(f.Certificates, c)
 			}
 		}
 	}

@@ -161,6 +161,12 @@ message Expiring {
 
   // Connections holding a user JWT that expires at expires.
   int32 connections = 9;
+
+  // For a certificate of a server whose VARZ did not answer in the epoch:
+  // when the collection it is read from started, the newest in which the
+  // server's VARZ answered, at most 24 hours before the epoch. Unset when
+  // read from the epoch itself.
+  google.protobuf.Timestamp seen_at = 10;
 }
 
 // The accounts of a system in the range's newest epoch, the failed logins
@@ -198,14 +204,17 @@ message GetAccountsAndAuthResponse {
   // epoch, or the first collection when the history is shorter.
   google.protobuf.Timestamp failed_logins_window_start = 9;
 
-  // Whether event capture was not running for part of the window (nats-lens
-  // stopped, or a connection that captures events was lost), so the
-  // counts can be low.
+  // Whether event capture, while it ran, stopped for part of the window
+  // (nats-lens stopped, or a connection that captures events was lost),
+  // so the counts can be low. False when events_captured is false.
   bool capture_gaps = 10;
 
   // Certificates and JWTs that have expired or expire within 30 days of
-  // the epoch: expired first, then the soonest. At most 100. In config
-  // mode only certificates.
+  // the epoch. Certificates are those of every server the epoch expected,
+  // read from the epoch or, for a server whose VARZ did not answer, from
+  // its newest collection with VARZ within 24 hours (seen_at). Order:
+  // expired first, then the soonest. At most 100. In config mode only
+  // certificates.
   repeated Expiring expiring = 11;
 
   // Certificates and JWTs that expire more than 30 days after the epoch.
@@ -216,4 +225,10 @@ message GetAccountsAndAuthResponse {
 
   // Expiring rows before the limit of 100.
   int32 expiring_total = 14;
+
+  // Whether events were captured: some event is stored up to the epoch.
+  // False when event capture is off or never ran, as Replay's
+  // events-not-captured reason; then failed logins cannot be shown, and
+  // an empty list does not mean there were none.
+  bool events_captured = 15;
 }
