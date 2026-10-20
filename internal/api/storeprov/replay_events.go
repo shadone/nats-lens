@@ -308,6 +308,7 @@ FROM n`,
 	}
 	// Every upgraded node's pool is known: a node Event stored before the
 	// watcher named the pool counts as a node without one.
-	f.Nodes.PoolLabels = f.Nodes.Pools > 0 && labelled == f.Nodes.Upgraded
+	// Without an upgraded node the pools upgraded are 0, observed.
+	f.Nodes.PoolLabels = labelled == f.Nodes.Upgraded
 	return nil
 }

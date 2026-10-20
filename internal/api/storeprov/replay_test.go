@@ -616,3 +616,16 @@ func TestReplayEventsLossBeforeTheReadEndedFromStore(t *testing.T) {
 		t.Errorf("gaps = %+v", f.Gaps)
 	}
 }
+
+// Without a node upgrade between A and B the pools upgraded are 0,
+// observed.
+func TestReplayNoUpgradeCountsNoPoolsFromStore(t *testing.T) {
+	p, _ := replayStore(t)
+	f, err := p.Replay(ctx, replayReq(rEpoch(10), rEpoch(40)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := api.FinishReplay(f).GetCounts(); c.NodePoolsUpgraded == nil || c.GetNodePoolsUpgraded() != 0 {
+		t.Errorf("counts = %v, nodes %+v", c, f.Nodes)
+	}
+}
