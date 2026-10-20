@@ -45,8 +45,9 @@ type lookupSpec struct {
 	// zero means none.
 	expires          time.Duration
 	imports, exports int32
-	// connLimit and diskLimit are the JWT's limits, -1 none.
-	connLimit, diskLimit int64
+	// connLimit, diskLimit and memLimit are the JWT's limits, -1 none;
+	// disk and memory both 0 disable JetStream for the account.
+	connLimit, diskLimit, memLimit int64
 }
 
 // accountSpec is an account besides Account.
@@ -158,7 +159,7 @@ func (s scen) details(l *lookupSpec, at time.Time) *api.AccountDetails {
 	}
 	d := &api.AccountDetails{At: at.Add(-lookupAge), HasJWT: l.jwt, Imports: l.imports, Exports: l.exports}
 	if l.jwt {
-		d.LimitConnections, d.LimitJSDisk = ptr(l.connLimit), ptr(l.diskLimit)
+		d.LimitConnections, d.LimitJSDisk, d.LimitJSMemory = ptr(l.connLimit), ptr(l.diskLimit), ptr(l.memLimit)
 		if l.expires != 0 {
 			exp := FixedNow.Add(l.expires + s.shift)
 			d.JWTExpires = &exp

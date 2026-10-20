@@ -77,10 +77,12 @@ func accountsStore(t *testing.T, last time.Time, withGap bool) *store.Store {
 		r.add("account_details", row)
 	}
 	lookup(1, first, keyApp, map[string]any{"imports": 7, "limit_connections": 10, "limit_js_disk": 10, "jwt_expires": last.Add(day)})
-	lookup(2, last.Add(-40*time.Second), keyApp, map[string]any{"imports": 1, "limit_connections": 2000, "limit_js_disk": 500 << 30})
-	lookup(2, last.Add(-30*time.Second), keySys, map[string]any{"is_system": true, "exports": 11, "limit_connections": -1, "limit_js_disk": 0})
+	lookup(2, last.Add(-40*time.Second), keyApp, map[string]any{"imports": 1, "limit_connections": 2000, "limit_js_disk": 500 << 30,
+		"limit_js_memory": 16 << 30})
+	lookup(2, last.Add(-30*time.Second), keySys, map[string]any{"is_system": true, "exports": 11, "limit_connections": -1, "limit_js_disk": 0,
+		"limit_js_memory": 0})
 	lookup(2, last.Add(-20*time.Second), keySuppliers, map[string]any{"exports": 1, "limit_connections": 50, "limit_js_disk": 0,
-		"jwt_expires": last.Add(12 * day)})
+		"limit_js_memory": 0, "jwt_expires": last.Add(12 * day)})
 	lookup(1, first, keyLegacy, map[string]any{"limit_connections": 5, "limit_js_disk": 5})
 
 	id := 0
@@ -177,15 +179,19 @@ func TestAccountsAndAuthFromStore(t *testing.T) {
 			}
 			return fmt.Sprint(*p)
 		}
-		accs = append(accs, fmt.Sprintf("%s c%d l%d s%d d%d st%d lim %s/%s imp %v exp %v known %v jwt %v until %v", a.GetAccountName(),
+		js := "-"
+		if a.JetstreamEnabled != nil {
+			js = fmt.Sprint(a.GetJetstreamEnabled())
+		}
+		accs = append(accs, fmt.Sprintf("%s c%d l%d s%d d%d st%d lim %s/%s js %s imp %v exp %v known %v jwt %v until %v", a.GetAccountName(),
 			a.GetConnections(), a.GetLeafnodes(), a.GetSubscriptions(), a.GetJsStorage(), a.GetStreams(), limit(a.ConnLimit), limit(a.DiskLimit),
-			a.Imports != nil && a.GetImports() == 1, a.GetExports(), a.GetDetailsKnown(), a.GetHasJwt(), a.GetJwtExpires() != nil))
+			js, a.Imports != nil && a.GetImports() == 1, a.GetExports(), a.GetDetailsKnown(), a.GetHasJwt(), a.GetJwtExpires() != nil))
 	}
 	want := []string{
-		"APP c15 l1 s70 d1000 st2 lim 2000/536870912000 imp true exp 0 known true jwt true until false",
-		"LEGACY c1 l0 s3 d0 st0 lim -/- imp false exp 0 known false jwt false until false",
-		"SUPPLIERS c0 l0 s0 d0 st0 lim 50/0 imp false exp 1 known true jwt true until true",
-		"SYS c2 l0 s400 d0 st0 lim -1/0 imp false exp 11 known true jwt true until false",
+		"APP c15 l1 s70 d1000 st2 lim 2000/536870912000 js true imp true exp 0 known true jwt true until false",
+		"LEGACY c1 l0 s3 d0 st0 lim -/- js - imp false exp 0 known false jwt false until false",
+		"SUPPLIERS c0 l0 s0 d0 st0 lim 50/0 js false imp false exp 1 known true jwt true until true",
+		"SYS c2 l0 s400 d0 st0 lim -1/0 js false imp false exp 11 known true jwt true until false",
 	}
 	if !slices.Equal(accs, want) {
 		t.Errorf("accounts\n%v\nwant\n%v", accs, want)
@@ -288,7 +294,7 @@ func TestAccountsAndAuthConfigMode(t *testing.T) {
 		t.Fatalf("res = %v", res)
 	}
 	for _, a := range res.GetAccounts() {
-		if !a.GetDetailsKnown() || a.GetHasJwt() || a.ConnLimit != nil || a.DiskLimit != nil || a.GetAccountName() != "" {
+		if !a.GetDetailsKnown() || a.GetHasJwt() || a.ConnLimit != nil || a.DiskLimit != nil || a.JetstreamEnabled != nil || a.GetAccountName() != "" {
 			t.Errorf("account = %v", a)
 		}
 	}
