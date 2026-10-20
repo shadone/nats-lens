@@ -111,8 +111,9 @@ func TestSlowRouteMatrix(t *testing.T) {
 		}
 		return 600 * time.Microsecond
 	}), touching(4, 0))
-	// Pairs without a round trip are left out; s3 is measured only against
-	// the slow s0.
+	// Pairs without a round trip are left out. s3 is measured only against
+	// s0, at 4 ms: half the servers' nearest pair is 4 ms, so nothing
+	// tells which of them is far, and nothing is slow.
 	check("unreported pairs", slowCluster(4, func(a, b int) time.Duration {
 		if a == 0 {
 			return 4 * time.Millisecond
@@ -121,7 +122,17 @@ func TestSlowRouteMatrix(t *testing.T) {
 			return base
 		}
 		return 0
-	}), touching(4, 0))
+	}), nil)
+	// s2 measured only against s0, far from s0, s1 and s3: slow.
+	check("one slow server, partly measured", slowCluster(4, func(a, b int) time.Duration {
+		if (a == 1 && b == 2) || (a == 2 && b == 3) {
+			return 0
+		}
+		if a == 2 || b == 2 {
+			return 10 * time.Millisecond
+		}
+		return base
+	}), []string{"s0-s2"})
 	// Zones: 0.15 ms inside a zone, 1.1 to 1.4 ms across.
 	for _, z := range [][]int{{0, 0, 1}, {0, 0, 1, 2}, {0, 0, 1, 1}, {0, 0, 1, 1, 2}, {0, 0, 1, 1, 2, 2}, {0, 1, 2}, {0, 0, 0, 1}} {
 		check(fmt.Sprintf("zones %v", z), slowCluster(len(z), func(a, b int) time.Duration {
@@ -211,5 +222,82 @@ func TestSlowRouteSplitsAndJitter(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// zonedFrom is zoned with each zone's servers listed in zones (server i in
+// zone zones[i]), drop leaving pairs unreported, at 0.4 ms inside a zone
+// and 10 ms across, each with up to 0.1 ms (1 ms across) of jitter.
+func zonedFrom(rng *rand.Rand, zones []int, drop func(a, b int) bool) []*v1.TopologyRoute {
+	return slowCluster(len(zones), func(a, b int) time.Duration {
+		if drop != nil && drop(a, b) {
+			return 0
+		}
+		j := time.Duration(rng.Intn(100)) * time.Microsecond
+		if zones[a] == zones[b] {
+			return 400*time.Microsecond + j
+		}
+		return 10*time.Millisecond + 10*j
+	})
+}
+
+// Uneven and even splits, and pairs left unreported, give the same slow
+// routes for every seed of the jitter: the result never depends on which
+// group holds the fastest pair. Cases of the fourth review of the API.
+func TestSlowRouteSameOnEveryRefresh(t *testing.T) {
+	for _, c := range []struct {
+		name  string
+		zones []int
+		drop  func(a, b int) bool
+		want  []string
+	}{
+		{"3+2", []int{0, 0, 0, 1, 1}, nil, touching(5, 3, 4)},
+		{"4+3", []int{0, 0, 0, 0, 1, 1, 1}, nil, touching(7, 4, 5, 6)},
+		{"5+2", []int{0, 0, 0, 0, 0, 1, 1}, nil, touching(7, 5, 6)},
+		{"6+2", []int{0, 0, 0, 0, 0, 0, 1, 1}, nil, touching(8, 6, 7)},
+		{"4+2", []int{0, 0, 0, 0, 1, 1}, nil, touching(6, 4, 5)},
+		{"3+1+1", []int{0, 0, 0, 1, 2}, nil, touching(5, 3, 4)},
+		{"1+3", []int{0, 1, 1, 1}, nil, touching(4, 0)},
+		{"2+1", []int{0, 0, 1}, nil, touching(3, 2)},
+		{"2+2", []int{0, 0, 1, 1}, nil, nil},
+		{"3+3", []int{0, 0, 0, 1, 1, 1}, nil, nil},
+		{"4+4", []int{0, 0, 0, 0, 1, 1, 1, 1}, nil, nil},
+		{"2+2+1", []int{0, 0, 1, 1, 2}, nil, nil},
+		{"3+2+2", []int{0, 0, 0, 1, 1, 2, 2}, nil, nil},
+		{"2+2+2", []int{0, 0, 1, 1, 2, 2}, nil, nil},
+		{"2+1+1", []int{0, 0, 1, 2}, nil, nil},
+		{"1+1+1", []int{0, 1, 2}, nil, nil},
+		// Unreported pairs cannot make one half the reference.
+		{"2+2, s3 unreported to s0 and s1", []int{0, 0, 1, 1}, func(a, b int) bool { return b == 3 && a < 2 }, nil},
+		{"3+3, only s3 measured to s0..s2", []int{0, 0, 0, 1, 1, 1}, func(a, b int) bool { return a < 3 && b > 3 }, nil},
+		// s4 is measured only against the slow s3: not judged, but its
+		// pair with s3 is a route of a slow server.
+		{"3+2, s4 measured only to s3", []int{0, 0, 0, 1, 1}, func(a, b int) bool { return b == 4 && a < 3 }, touching(5, 3)},
+	} {
+		for seed := range 200 {
+			got := slowOf(zonedFrom(rand.New(rand.NewSource(int64(seed))), c.zones, c.drop))
+			if !slices.Equal(got, c.want) {
+				t.Errorf("%s, seed %d: slow %v, want %v", c.name, seed, got, c.want)
+				break
+			}
+		}
+	}
+}
+
+// A cluster of 30 servers, every pair reported, is judged quickly.
+func TestSlowRouteThirtyServers(t *testing.T) {
+	rng := rand.New(rand.NewSource(1))
+	zones := make([]int, 30)
+	for i := range zones {
+		zones[i] = i % 3
+	}
+	zones[29] = 3
+	rs := zonedFrom(rng, zones, nil)
+	start := time.Now()
+	slowOf(rs)
+	took := time.Since(start)
+	t.Logf("30 servers, %d pairs: %v", len(rs), took)
+	if took > 100*time.Millisecond {
+		t.Errorf("30 servers took %v", took)
 	}
 }
