@@ -35,8 +35,12 @@ type AccountDetails struct {
 	Limits                  AccountLimits
 }
 
-// AccountLimits are the limits of an account JWT, as the JWT states them:
-// -1 is no limit; for JetStream disk and memory 0 means JetStream is not
+// AccountLimits are the limits of an account JWT: -1 is no limit. The
+// connection, leaf node, subscription, data and payload limits are as the
+// JWT states them. The JetStream limits are the ones nats-server enforces
+// (accountJSLimits): the account-wide ones or the tiers combined, with
+// stream and consumer limits of 0 read as -1; JetStream disk and memory of
+// 0 mean none is allowed, which without tiers means JetStream is not
 // enabled for the account.
 type AccountLimits struct {
 	Connections, LeafNodes, Subscriptions, Data, Payload int64
@@ -153,14 +157,17 @@ func positiveOrNoLimit(v int64) int64 {
 // replicated usage against its limit times n (jetstream.go,
 // wouldExceedLimits). So disk and memory are each tier's limit times its
 // replicas, summed, since the account can use every tier at once; -1 when
-// any tier has no limit. Streams are summed the same way, without the
-// factor. The consumer limit applies to each stream, so it is the largest
-// of the tiers'. A tier key that is not R<n> is never selected by the
+// any tier has no limit, and when the sum overflows. Streams are summed
+// the same way, without the factor. The consumer limit applies per stream,
+// and nats-server counts each consumer against the tier of its own
+// replicas (jetstream_cluster.go, isSameTier), so one stream can hold
+// consumers of every tier: the sum over the tiers is the most any one
+// stream can hold. A tier key that is not R<n> is never selected by the
 // server and is left out.
 func sumTiers(tiers map[string]jsLimits) jsLimits {
 	var out jsLimits
 	add := func(sum *int64, v int64) {
-		if *sum < 0 || v < 0 {
+		if *sum < 0 || v < 0 || v > math.MaxInt64-*sum {
 			*sum = -1
 			return
 		}
@@ -174,9 +181,7 @@ func sumTiers(tiers map[string]jsLimits) jsLimits {
 		add(&out.Memory, scaled(t.Memory, n))
 		add(&out.Disk, scaled(t.Disk, n))
 		add(&out.Streams, positiveOrNoLimit(t.Streams))
-		if c := positiveOrNoLimit(t.Consumers); out.Consumers >= 0 && (c < 0 || c > out.Consumers) {
-			out.Consumers = c
-		}
+		add(&out.Consumers, positiveOrNoLimit(t.Consumers))
 	}
 	return out
 }
