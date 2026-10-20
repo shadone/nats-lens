@@ -73,12 +73,14 @@ func TestFinishAccountsLimit(t *testing.T) {
 func TestFinishAccountsDetails(t *testing.T) {
 	exp := accEpochAt.Add(40 * 24 * time.Hour)
 	jwt := &api.AccountDetails{At: accEpochAt.Add(-24 * time.Hour), HasJWT: true, Imports: 2, Exports: 1, JWTExpires: &exp,
-		LimitConnections: i64(2000), LimitJSDisk: i64(-1)}
+		LimitConnections: i64(2000), LimitJSDisk: i64(-1), LimitJSMemory: i64(0)}
 	f := &api.AccountsFacts{Epoch: 1, EpochAt: accEpochAt, Accounts: []api.AccountFact{
 		{Account: "jwt", Details: jwt},
 		{Account: "old", Details: &api.AccountDetails{At: accEpochAt.Add(-24*time.Hour - time.Second), HasJWT: true, LimitConnections: i64(5)}},
 		{Account: "future", Details: &api.AccountDetails{At: accEpochAt.Add(time.Second)}},
 		{Account: "config", Details: &api.AccountDetails{At: accEpochAt, LimitConnections: i64(9)}},
+		{Account: "disabled", Details: &api.AccountDetails{At: accEpochAt, HasJWT: true, LimitJSDisk: i64(0), LimitJSMemory: i64(0)}},
+		{Account: "memory-only", Details: &api.AccountDetails{At: accEpochAt, HasJWT: true, LimitJSDisk: i64(0), LimitJSMemory: i64(1 << 30)}},
 	}}
 	by := map[string]*v1.AccountRow{}
 	for _, a := range api.FinishAccounts(f).GetAccounts() {
@@ -89,6 +91,17 @@ func TestFinishAccountsDetails(t *testing.T) {
 		j.GetDiskLimit() != -1 || !j.GetJwtExpires().AsTime().Equal(exp) || !j.GetDetailsAt().AsTime().Equal(jwt.At) {
 		t.Errorf("jwt = %v", j)
 	}
+	// Disk 0 tells JetStream disabled (memory 0 too) from no file storage
+	// allowed (memory only) by jetstream_enabled; -1 is no limit.
+	if j.JetstreamEnabled == nil || !j.GetJetstreamEnabled() {
+		t.Errorf("jwt: jetstream_enabled %v, want true", j.JetstreamEnabled)
+	}
+	if d := by["disabled"]; d.DiskLimit == nil || d.GetDiskLimit() != 0 || d.JetstreamEnabled == nil || d.GetJetstreamEnabled() {
+		t.Errorf("disabled = %v", d)
+	}
+	if m := by["memory-only"]; m.DiskLimit == nil || m.GetDiskLimit() != 0 || !m.GetJetstreamEnabled() {
+		t.Errorf("memory-only = %v", m)
+	}
 	for _, name := range []string{"old", "future"} {
 		a := by[name]
 		if a.GetDetailsKnown() || a.Imports != nil || a.Exports != nil || a.ConnLimit != nil || a.GetDetailsAt() != nil || a.GetHasJwt() {
@@ -97,6 +110,9 @@ func TestFinishAccountsDetails(t *testing.T) {
 	}
 	if c := by["config"]; !c.GetDetailsKnown() || c.ConnLimit != nil || c.DiskLimit != nil || c.GetImports() != 0 || c.Imports == nil {
 		t.Errorf("config = %v", c)
+	}
+	if c := by["config"]; c.JetstreamEnabled != nil || by["old"].JetstreamEnabled != nil {
+		t.Errorf("jetstream_enabled set without a known JWT: %v, %v", c, by["old"])
 	}
 }
 

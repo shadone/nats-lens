@@ -53,7 +53,7 @@ func accountsRows() []State {
 		})},
 		{"Accounts in operator mode with an account JWT that never expires, counted in never_expire", accountRow(func(res *v1.GetAccountsAndAuthResponse, a *v1.AccountRow) bool {
 			return res.GetOperatorMode() && a.GetDetailsKnown() && a.GetHasJwt() && a.GetJwtExpires() == nil && !a.GetExpired() &&
-				a.ConnLimit != nil && a.DiskLimit != nil && res.GetNeverExpire() > 0
+				a.ConnLimit != nil && a.DiskLimit != nil && a.GetJetstreamEnabled() && res.GetNeverExpire() > 0
 		})},
 		{"Accounts in config mode: certificates only, no JWT and no limits", func(q Q) string {
 			res := q.accountsAndAuth()
@@ -67,7 +67,7 @@ func accountsRows() []State {
 				}
 			}
 			for _, a := range res.GetAccounts() {
-				if a.GetHasJwt() || a.ConnLimit != nil || a.DiskLimit != nil || a.GetJwtExpires() != nil {
+				if a.GetHasJwt() || a.ConnLimit != nil || a.DiskLimit != nil || a.JetstreamEnabled != nil || a.GetJwtExpires() != nil {
 					return ""
 				}
 			}
@@ -106,6 +106,10 @@ func accountsRows() []State {
 		{"an account not looked up yet: no imports, exports, limits or JWT", accountRow(func(_ *v1.GetAccountsAndAuthResponse, a *v1.AccountRow) bool {
 			return !a.GetDetailsKnown() && a.Imports == nil && a.Exports == nil && a.ConnLimit == nil && a.DiskLimit == nil &&
 				a.GetJwtExpires() == nil && a.GetDetailsAt() == nil && !a.GetHasJwt()
+		})},
+		{"an account whose JWT disables JetStream: disk limit 0 and jetstream_enabled false", accountRow(func(_ *v1.GetAccountsAndAuthResponse, a *v1.AccountRow) bool {
+			return a.GetDetailsKnown() && a.GetHasJwt() && a.DiskLimit != nil && a.GetDiskLimit() == 0 && a.JetstreamEnabled != nil &&
+				!a.GetJetstreamEnabled()
 		})},
 		{"an idle account: no connections, leaf nodes or streams", accountRow(func(_ *v1.GetAccountsAndAuthResponse, a *v1.AccountRow) bool {
 			return !a.GetIsSystem() && a.Connections != nil && a.GetConnections() == 0 && a.Leafnodes != nil && a.GetLeafnodes() == 0 &&

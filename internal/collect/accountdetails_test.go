@@ -55,7 +55,8 @@ func TestAccountDetailsFromJWT(t *testing.T) {
 }
 
 // A JWT without expiry and without limits: no expiry, and every limit
-// unlimited as the JWT says; JetStream not enabled reads as 0.
+// unlimited as the JWT says; JetStream not enabled reads as 0 disk and
+// memory; streams and consumers left out (0) are not enforced, so -1.
 func TestAccountDetailsUnlimitedNoExpiry(t *testing.T) {
 	b := accountzReply(`{"account_name":"` + keyNamed + `","expired":false,"imports":` + sysImports + `],
  "decoded_jwt":{"iat":1760000000,"name":"APP","sub":"` + keyNamed + `",
@@ -67,26 +68,72 @@ func TestAccountDetailsUnlimitedNoExpiry(t *testing.T) {
 	if !d.JWTExpires.IsZero() || d.Name != "APP" || d.Imports != 0 || d.Exports != 0 {
 		t.Errorf("details %+v, want no expiry, name from the JWT, no imports or exports", d)
 	}
-	want := AccountLimits{Connections: -1, LeafNodes: -1, Subscriptions: -1, Data: -1, Payload: -1}
+	want := AccountLimits{Connections: -1, LeafNodes: -1, Subscriptions: -1, Data: -1, Payload: -1,
+		JSStreams: -1, JSConsumers: -1}
 	if d.Limits != want {
 		t.Errorf("limits %+v, want %+v", d.Limits, want)
 	}
 }
 
-// Tiered JetStream limits are summed over the tiers; a tier without a
-// limit makes the sum unlimited; the account-wide JetStream limits are
-// ignored, as the server ignores them.
+// Tiered JetStream limits read as nats-server enforces them: each tier
+// R<n> limits single-copy bytes, so its disk and memory count n times
+// against the replicated usage JSZ reports, summed over the tiers; a tier
+// without a limit makes the sum unlimited; streams are summed; the
+// consumer limit applies per stream, so the largest tier's counts; a key
+// that is not R<n> is never selected by the server and is left out.
 func TestAccountDetailsTieredLimits(t *testing.T) {
 	b := accountzReply(`{"account_name":"` + keyNamed + `","decoded_jwt":{"name":"APP","nats":{"limits":{"conn":10,
- "disk_storage":1,"mem_storage":1,"streams":1,"consumer":1,
- "tiered_limits":{"R1":{"mem_storage":1000,"disk_storage":2000,"streams":5,"consumer":-1},
-  "R3":{"mem_storage":3000,"disk_storage":6000,"streams":10,"consumer":100}}}}}}`)
+ "tiered_limits":{"R1":{"mem_storage":1000,"disk_storage":2000,"streams":5,"consumer":50},
+  "R3":{"mem_storage":3000,"disk_storage":6000,"streams":10,"consumer":100},
+  "gold":{"mem_storage":-1,"disk_storage":-1,"streams":-1,"consumer":-1}}}}}}`)
 	d, ok := accountDetailsFromReply(b, keyNamed, lookupAt)
 	if !ok {
 		t.Fatal("reply not read")
 	}
-	if l := d.Limits; l.JSMemory != 4000 || l.JSDisk != 8000 || l.JSStreams != 15 || l.JSConsumers != -1 || l.Connections != 10 {
-		t.Errorf("limits %+v, want memory 4000, disk 8000, streams 15, consumers unlimited", l)
+	if l := d.Limits; l.JSMemory != 10000 || l.JSDisk != 20000 || l.JSStreams != 15 || l.JSConsumers != 100 || l.Connections != 10 {
+		t.Errorf("limits %+v, want memory 10000, disk 20000, streams 15, consumers 100", l)
+	}
+}
+
+// An R1 and an R3 tier of 1 GiB each let the account hold 4 GiB of
+// replicated bytes, the measure of JSZ usage.
+func TestTieredLimitComparableWithReplicatedUsage(t *testing.T) {
+	got := sumTiers(map[string]jsLimits{"R1": {Disk: 1 << 30}, "R3": {Disk: 1 << 30}})
+	if want := int64(4 << 30); got.Disk != want {
+		t.Errorf("summed tier disk limit = %d GiB, want %d GiB", got.Disk>>30, want>>30)
+	}
+	if got := sumTiers(map[string]jsLimits{"R1": {Disk: 1 << 30}, "R3": {Disk: -1}}); got.Disk != -1 {
+		t.Errorf("a tier without a limit: %d, want -1", got.Disk)
+	}
+	if got := sumTiers(map[string]jsLimits{"R1": {Consumers: 0}, "R3": {Consumers: 100}}); got.Consumers != -1 {
+		t.Errorf("a tier without a consumer limit: %d, want -1", got.Consumers)
+	}
+}
+
+// When a JWT sets account-wide JetStream disk or memory and tiers,
+// nats-server enforces the account-wide limits and ignores the tiers.
+func TestAccountWideLimitsWinOverTiers(t *testing.T) {
+	b := accountzReply(`{"account_name":"` + keyNamed + `","decoded_jwt":{"nats":{"limits":{"disk_storage":100,"mem_storage":10,
+ "tiered_limits":{"R1":{"disk_storage":5,"mem_storage":5}}}}}}`)
+	d, ok := accountDetailsFromReply(b, keyNamed, lookupAt)
+	if !ok {
+		t.Fatal("reply not read")
+	}
+	if d.Limits.JSDisk != 100 || d.Limits.JSMemory != 10 {
+		t.Errorf("JS disk %d memory %d, want the account-wide 100 and 10", d.Limits.JSDisk, d.Limits.JSMemory)
+	}
+}
+
+// nats-server reports the account's identifier as its name tag when it
+// has none: an operator account without a name has no name.
+func TestNameTagFallbackIsNoName(t *testing.T) {
+	b := accountzReply(`{"account_name":"` + keyNamed + `","name_tag":"` + keyNamed + `","decoded_jwt":{"name":"` + keyNamed + `"}}`)
+	d, ok := accountDetailsFromReply(b, keyNamed, lookupAt)
+	if !ok {
+		t.Fatal("reply not read")
+	}
+	if d.Name != "" {
+		t.Errorf("name = %q, want none", d.Name)
 	}
 }
 

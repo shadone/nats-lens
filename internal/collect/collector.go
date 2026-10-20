@@ -92,15 +92,17 @@ func (c *Collector) Collect(ctx context.Context) *Snapshot {
 	c.gatherAll(ctx, snap, detail, want)
 	accounts := jetStreamAccounts(snap)
 	newAccounts := without(accounts, c.raftAccounts)
-	// Account details are looked up with ACCOUNTZ in the same window as
-	// the second RAFTZ pass, so the epoch takes no longer.
+	// Account details are looked up with ACCOUNTZ alongside the second
+	// RAFTZ pass; all lookups together end within one window, so the
+	// epoch takes no longer.
 	lookUp := accountsToLookUp(snap, c.accountAsked, snap.StartedAt)
 	var found []AccountDetails
+	var sent []string
 	var lookups sync.WaitGroup
-	lookups.Go(func() { found = c.lookUpAccounts(ctx, lookUp, want) })
+	lookups.Go(func() { found, sent = c.lookUpAccounts(ctx, lookUp, want) })
 	c.gatherAll(ctx, snap, accountRaftz(newAccounts), want)
 	lookups.Wait()
-	for _, id := range lookUp {
+	for _, id := range sent {
 		c.accountAsked[id] = snap.StartedAt
 	}
 	for _, d := range found {
@@ -109,6 +111,7 @@ func (c *Collector) Collect(ctx context.Context) *Snapshot {
 		}
 	}
 	snap.AccountDetails = found
+	c.forgetUnlistedAccounts(snap)
 	snap.AccountNames = c.listedAccountNames(snap)
 	c.logUndecodedJWTs(snap)
 	asked := append(append([]Endpoint{Statsz}, detail...), accountRaftz(newAccounts)...)
@@ -132,6 +135,37 @@ func (c *Collector) Collect(ctx context.Context) *Snapshot {
 	c.tracker.observe(snap)
 	snap.FinishedAt = c.now().UTC()
 	return snap
+}
+
+// forgetUnlistedAccounts drops the lookup time and name of every account
+// no server's ACCOUNTZ lists in this snapshot, so that accounts that are
+// gone do not pile up. An epoch in which no server answered ACCOUNTZ
+// keeps everything. An account that comes back is looked up as new.
+func (c *Collector) forgetUnlistedAccounts(snap *Snapshot) {
+	listed := map[string]bool{}
+	answered := false
+	for _, v := range snap.Servers {
+		if v.Accountz == nil {
+			continue
+		}
+		answered = true
+		for _, id := range v.Accountz.Accounts {
+			listed[id] = true
+		}
+	}
+	if !answered {
+		return
+	}
+	for id := range c.accountAsked {
+		if !listed[id] {
+			delete(c.accountAsked, id)
+		}
+	}
+	for id := range c.accountNames {
+		if !listed[id] {
+			delete(c.accountNames, id)
+		}
+	}
 }
 
 // listedAccountNames returns the looked-up names of the accounts ACCOUNTZ
