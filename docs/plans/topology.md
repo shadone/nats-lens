@@ -9,7 +9,7 @@ The board's sample names (`acme-prod`, `eu-west`, `store-0417`, `RETAIL`, `IOT`)
 | Task | Status |
 |---|---|
 | T1 API, store and demo | built on `feat/topology-page`, awaiting review |
-| T2 UI | not started |
+| T2 UI | built on `feat/topology-ui`, awaiting review |
 | T3 Feature docs and audit | not started |
 
 ## Rules for every step
@@ -92,6 +92,28 @@ Each departure was made by the session that built T1: proposed, not yet confirme
 - `example-prod`'s account connection events keep the demo's own wording ("account APP: N connections, 0 leaf nodes"), which the capture does not write; the leaf node count agrees, as `example-prod` has none.
 - No demo system has an endpoint that failed, so `unobserved` is empty in the demo; the store tests cover it.
 - Measured on a synthetic store (24 servers, 1,000 leaf node sites, a day at 30 seconds): 1.8 seconds to read and 1.2 seconds in `FinishTopology`, within the 30 seconds; the leaf drop count builds a map per collection and could reuse runs of unchanged collections if larger systems need it.
+
+## Where T2 departed from this plan
+
+Each departure was made by the session that built T2: proposed, not yet confirmed.
+
+- **The heading.** The header's "Topology" is the page's one heading, as on every sidebar page; the page starts with the muted line ("3 clusters joined by gateways, 30 leaf node sites at the edge, in the collection of 05:22:17 UTC."). A single cluster reads "One cluster, example-prod, of 3 servers".
+- **The dash.** Unset values use the app's dash (–, read out as "not observed"), as every other page does, not the board's em dash; in a row not connected the dash reads "not connected".
+- **Gateway label.** "gateway 84 ms" is the median round trip; the highest is in the title and screen reader text with the connections and the drops in 1 and 24 hours. "· 4 of 6 up" is added and the line drawn in the warning colour when connections are down, as for a drop in the last hour.
+- **Far pairs.** A gateway between clusters not next to each other is a bracket under the boxes, rather than the board's single diagonal; four clusters need up to three of them.
+- **Leaf node boxes.** The number is the sites seen (connected now and not connected), with "· N not connected" or "· all connected". In the grid layout the box sits inside the cluster box.
+- **Grid layout.** The board's row is used for up to 4 clusters while the map has at least 240 px per cluster; below that, or with more clusters, the grid and the gateway table.
+- **Cluster note.** "JetStream meta leader · 5 streams led", plus "1 missing" and "gateway to us dropping" where they apply (the board's "mirrors from" is not backed). A cluster box is in the warning colour when a server is missing or its gateway dropped in the last hour.
+- **Routes table.** The cluster is `?cluster=` in the URL; without it, the cluster of the worst route (the first in the response). From and to are both full server names, each a link. A pair with no pooled route shows "none" in Pool, as does an empty Pinned accounts. A pair one end reports while the other answered says "only nats-eu-1 reports it; nats-eu-2 does not"; one whose other end did not answer says "as nats-eu-1 reports it; nats-eu-2 did not answer ROUTEZ".
+- **Drops in the leaf table.** Shown in the warning colour only in a row not connected, as on the board.
+- **Short history.** When `drops_window_start` is more than a minute later than 24 hours before the collection, the drops line adds when the history starts.
+- **Round trips.** The adapter reads durations with their fraction of a millisecond, as `durationMs` of the protobuf library rounds to whole milliseconds and showed routes as "0 ms".
+- **The board's sentence.** "For a single cluster this page shows just the routes; with no gateways or leaf nodes those sections stay hidden." is shown under the routes table only when the page shows nothing else.
+
+### Leftovers of T2
+
+- The map's width is measured once the map is first drawn; a page whose map appears only after a later refetch keeps the board's row until the next resize.
+- No demo system has a failed endpoint, a cut leaf node list or a one-sided route, so those were seen only in tests.
 
 ## Tasks
 
