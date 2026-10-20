@@ -139,22 +139,23 @@ func (c *Collector) Collect(ctx context.Context) *Snapshot {
 
 // forgetUnlistedAccounts drops the lookup time and name of every account
 // no server's ACCOUNTZ lists in this snapshot, so that accounts that are
-// gone do not pile up. An epoch in which no server answered ACCOUNTZ
-// keeps everything. An account that comes back is looked up as new.
+// gone do not pile up. It forgets only in an epoch in which every server
+// that answered anything answered ACCOUNTZ, as allJsz does for the RAFTZ
+// accounts: an account loaded only on a server that missed ACCOUNTZ is
+// unknown, not gone, and keeps its lookup time. An account that comes back
+// after it was forgotten is looked up as new.
 func (c *Collector) forgetUnlistedAccounts(snap *Snapshot) {
+	if len(snap.Servers) == 0 {
+		return
+	}
 	listed := map[string]bool{}
-	answered := false
 	for _, v := range snap.Servers {
 		if v.Accountz == nil {
-			continue
+			return
 		}
-		answered = true
 		for _, id := range v.Accountz.Accounts {
 			listed[id] = true
 		}
-	}
-	if !answered {
-		return
 	}
 	for id := range c.accountAsked {
 		if !listed[id] {

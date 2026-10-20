@@ -189,3 +189,24 @@ func TestForgetUnlistedAccounts(t *testing.T) {
 		t.Errorf("names = %v, want only the listed key's", c.accountNames)
 	}
 }
+
+// An account loaded only on a server that missed this epoch's ACCOUNTZ is
+// unknown, not gone: it keeps its lookup time, and is not looked up again
+// within the interval once that server answers.
+func TestPartialAccountzKeepsLookupTimes(t *testing.T) {
+	c := &Collector{accountAsked: map[string]time.Time{"ONLYC": lookupAt, "APP": lookupAt},
+		accountNames: map[string]string{keyNamed: "SHOP"}}
+	partial := NewSnapshot(lookupAt.Add(time.Minute))
+	partial.view(server.ServerInfo{ID: "NA", Name: "nats-a"}).Accountz = &server.Accountz{Accounts: []string{"APP"}}
+	partial.view(server.ServerInfo{ID: "NC", Name: "nats-c"})
+	c.forgetUnlistedAccounts(partial)
+	if _, ok := c.accountAsked["ONLYC"]; !ok || c.accountNames[keyNamed] != "SHOP" {
+		t.Fatalf("a partial ACCOUNTZ epoch forgot %v %v", c.accountAsked, c.accountNames)
+	}
+	back := NewSnapshot(lookupAt.Add(2 * time.Minute))
+	back.view(server.ServerInfo{ID: "NA", Name: "nats-a"}).Accountz = &server.Accountz{Accounts: []string{"APP"}}
+	back.view(server.ServerInfo{ID: "NC", Name: "nats-c"}).Accountz = &server.Accountz{Accounts: []string{"ONLYC"}}
+	if got := accountsToLookUp(back, c.accountAsked, back.StartedAt); slices.Contains(got, "ONLYC") {
+		t.Errorf("ONLYC looked up again 2 minutes after its last lookup: %v", got)
+	}
+}
