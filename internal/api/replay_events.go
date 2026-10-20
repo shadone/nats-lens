@@ -143,6 +143,7 @@ func (b *replayBuilder) leaders() {
 		n := 0
 		for _, e := range grp {
 			d.evidence = append(d.evidence, eventEvidence(e))
+			d.elected(e.GetServer())
 			if ent := entity[e.GetId()]; ent != nil {
 				d.entities = append(d.entities, ent)
 				labels = append(labels, entityLabel(ent))
@@ -190,6 +191,7 @@ func (b *replayBuilder) leaders() {
 		d := &draft{kind: v1.ReplayStepKind_REPLAY_STEP_KIND_LEADERS, time: at(first), entities: []*v1.EntityRef{serverEntity(last.GetServer())}}
 		for _, e := range grp {
 			d.evidence = append(d.evidence, eventEvidence(e))
+			d.elected(e.GetServer())
 		}
 		switch {
 		case len(grp) > 1:
