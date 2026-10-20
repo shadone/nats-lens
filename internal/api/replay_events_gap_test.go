@@ -26,3 +26,22 @@ func TestEventsConnectionGaps(t *testing.T) {
 		t.Errorf("gaps = %+v", gaps)
 	}
 }
+
+// A disconnect opens the time without events at once (core subscriptions
+// lose what comes while disconnected), and nats-lens starting again ends
+// every open one: its connections are new.
+func TestEventsConnectionGapsOpenAtDisconnectAndEndAtStart(t *testing.T) {
+	conn := func(at time.Time, kind, label string) *v1.Event {
+		return ev(at, kind, "", func(e *v1.Event) { e.Raw = `{"connection":"` + label + `","reason":"x"}` })
+	}
+	gaps := api.EventsConnectionGaps([]*v1.Event{
+		conn(rAt(1, 0), "collector.disconnected", "sys"),
+		conn(rAt(1, 10), "collector.reconnected", "sys"),
+		conn(rAt(5, 0), "collector.not_connected", "APP"),
+		ev(rAt(9, 0), "collector.started", ""),
+	})
+	if len(gaps) != 2 || !gaps[0].Start.Equal(rAt(1, 0)) || !gaps[0].End.Equal(rAt(1, 10)) || !gaps[1].Start.Equal(rAt(5, 0)) ||
+		!gaps[1].End.Equal(rAt(9, 0)) {
+		t.Errorf("gaps = %+v", gaps)
+	}
+}
