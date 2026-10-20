@@ -41,3 +41,10 @@ describe("accounts.css bars", () => {
     expect(css).toMatch(/\.ac-bar-fill\.ac-bar-some\{min-width:2px\}/);
   });
 });
+
+describe("accounts.css small lines", () => {
+  it("lets the lines under a cell wrap, so a long one does not widen its column at a phone width", () => {
+    const rule = css.match(/\.ac-card \.tbl small\{([^}]*)\}/)![1];
+    expect(rule).not.toMatch(/white-space:nowrap/);
+  });
+});

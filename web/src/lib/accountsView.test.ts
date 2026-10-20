@@ -192,8 +192,8 @@ describe("jwtCell", () => {
     expect(jwtCell(account("APP"), false, EPOCH_AT)).toEqual({ why: "no account JWTs in config mode" });
   });
 
-  it("says an account was not looked up yet", () => {
-    expect(jwtCell(account("APP", { detailsKnown: false, hasJwt: false }), true, EPOCH_AT)).toEqual({ text: "not looked up yet", tone: "muted" });
+  it("leaves not looked up yet to a dash with the reason for screen readers; Imports / exports says it visibly", () => {
+    expect(jwtCell(account("APP", { detailsKnown: false, hasJwt: false }), true, EPOCH_AT)).toEqual({ why: "not looked up yet" });
   });
 
   it("says never for a JWT without expiry, expired in critical, and the date otherwise", () => {
@@ -221,7 +221,6 @@ describe("failed logins", () => {
     expect(loginWindowShort({ epochAt: EPOCH_AT, failedLoginsWindowStart: EPOCH_AT })).toBe(true);
     expect(loginWindowShort({ epochAt: EPOCH_AT, failedLoginsWindowStart: EPOCH_AT - DAY })).toBe(false);
     expect(loginWindowShort({ epochAt: EPOCH_AT, failedLoginsWindowStart: undefined })).toBe(false);
-    // 70 attempts at the first collection count over one hour: hot.
     expect(loginHot(login("", "", "", 70), 0)).toBe(true);
   });
 
@@ -235,8 +234,23 @@ describe("failed logins", () => {
     expect(loginHot(login("", "", "", 1_439), DAY)).toBe(false);
     expect(loginHot(login("", "", "", 96), DAY)).toBe(false);
     expect(loginHot(login("", "", "", 130), 2 * 3_600_000)).toBe(true);
-    // A window under an hour counts as one: 30 in ten minutes is not 180 an hour.
-    expect(loginHot(login("", "", "", 30), 600_000)).toBe(false);
+  });
+
+  it("rates a window under an hour by the true hourly rate, with a ten-minute floor", () => {
+    // 30 in ten minutes is 180 an hour; 40 in 30 minutes is 80 an hour; 9 in ten minutes is 54.
+    expect(loginHot(login("", "", "", 30), 600_000)).toBe(true);
+    expect(loginHot(login("", "", "", 40), 1_800_000)).toBe(true);
+    expect(loginHot(login("", "", "", 9), 600_000)).toBe(false);
+    // The first collection (a window of 0) counts over ten minutes: 10 is 60 an hour, 8 is 48.
+    expect(loginHot(login("", "", "", 10), 0)).toBe(true);
+    expect(loginHot(login("", "", "", 8), 0)).toBe(false);
+    expect(loginHot(login("", "", "", 1), 0)).toBe(false);
+  });
+
+  it("words the count since the window's start for a window under an hour", () => {
+    expect(loginRateText(login("", "", "", 60), 1_800_000, EPOCH_AT - 1_800_000)).toBe("60 since 14:00 UTC");
+    expect(loginRateText(login("", "", "", 70), 0, EPOCH_AT)).toBe("70 since 14:30 UTC");
+    expect(loginRateText(login("", "", "", 1_440), DAY, EPOCH_AT - DAY)).toBe("about 60 an hour");
   });
 
   it("names a client without a user", () => {
@@ -285,9 +299,11 @@ describe("expiring", () => {
 });
 
 describe("seenAtText", () => {
-  it("says when an older certificate row was read, with the day when a day or more before", () => {
-    expect(seenAtText(expiring({ server: "nats-us-4", seenAt: EPOCH_AT - 70 * 60_000 }), EPOCH_AT)).toBe("as of 13:20 UTC: nats-us-4 did not answer in this collection");
-    expect(seenAtText(expiring({ server: "nats-us-4", seenAt: EPOCH_AT - 25 * 3_600_000 }), EPOCH_AT)).toBe("as of 16 Oct 13:30 UTC: nats-us-4 did not answer in this collection");
+  it("says when an older certificate row was read, with the day when the UTC date differs from the collection's", () => {
+    expect(seenAtText(expiring({ server: "nats-us-4", seenAt: EPOCH_AT - 70 * 60_000 }), EPOCH_AT)).toBe("as of 13:20 UTC; no answer since");
+    expect(seenAtText(expiring({ server: "nats-us-4", seenAt: EPOCH_AT - 25 * 3_600_000 }), EPOCH_AT)).toBe("as of 16 Oct 13:30 UTC; no answer since");
+    // Under 24 hours back but on the previous UTC day: 13:20 alone would read as after a 10:00 collection.
+    expect(seenAtText(expiring({ seenAt: Date.parse("2026-10-16T13:20:00Z") }), Date.parse("2026-10-17T10:00:00Z"))).toBe("as of 16 Oct 13:20 UTC; no answer since");
     expect(seenAtText(expiring({ server: "nats-us-4" }), EPOCH_AT)).toBeUndefined();
   });
 });
