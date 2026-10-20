@@ -162,11 +162,12 @@ describe("Topology's leaf node hubs and sites of unknown state", () => {
 
   it("shows a site that may be connected on a server whose LEAFZ failed as unknown, not as a known drop", async () => {
     const t = global();
-    t.unobserved = [{ endpoint: "LEAFZ", servers: ["nats-us-4"] }];
+    t.unobserved = [{ endpoint: "LEAFZ", servers: ["nats-us-2"] }];
     t.leafnodes.splice(1, 0, {
       ...t.leafnodes[0],
       name: "pickup-1210",
       hubServer: "nats-us-1",
+      hubCluster: "us",
       drops24h: 1,
       connectionUnknown: true,
     });
@@ -176,7 +177,7 @@ describe("Topology's leaf node hubs and sites of unknown state", () => {
     const row = (await screen.findAllByRole("row")).find((r) => r.textContent?.startsWith("pickup-1210"))!;
     expect(row).not.toHaveClass("warn");
     expect(row).toHaveClass("tp-unknown");
-    expect(within(row).getByRole("rowheader")).toHaveTextContent("pickup-1210state unknown: LEAFZ did not answer on nats-us-4; last seen 09:12 on nats-us-1");
+    expect(within(row).getByRole("rowheader")).toHaveTextContent("pickup-1210state unknown: LEAFZ did not answer on nats-us-2; last seen 09:12 on nats-us-1");
     const cells = within(row).getAllByRole("cell");
     expect(cells[1]).toHaveTextContent(/^– state unknown$/);
     expect(cells[2]).not.toHaveClass("tp-warn");
