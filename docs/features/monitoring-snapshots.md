@@ -17,7 +17,10 @@ Every collect interval (30 seconds by default), nats-lens takes one snapshot of 
 - **Expected servers, by name.** A server gets a new server ID on every restart, so nats-lens tracks servers by name. A collection expects every server name that answered within `server_forget_after` (1 hour by default), every server that answers now, and every route peer and JetStream meta peer that those servers list.
 - **Partial collections are stored.** A collection is partial when an expected server answered nothing, when a server did not answer one of the requests or answered with an error, or when the collector itself failed (for example, a reply it could not decode). nats-lens records the outcome of every request per server: `ok`, `error` (with the error text) or `missing` (no reply within the window).
 - **Connections are capped.** nats-lens stores at most `connz_limit` (4096 by default) connections per server per collection.
-- **Readable account names.** In operator mode the servers name accounts by ID. nats-lens learns each account's readable name from the servers' reports and from connect events, and asks ACCOUNTZ for at most 32 unnamed accounts per collection. A name, once known, is kept.
+- **Account details.** nats-lens asks ACCOUNTZ about each account the servers list, in operator and config mode, at most every 10 minutes per account and for at most 32 accounts per collection, the ones never asked first. It keeps the account's readable name, whether it is the system account, its imports and exports, and from its account JWT the issue time, the expiry and the limits (connections, leaf nodes, subscriptions, data, payload, JetStream disk and memory, streams, consumers). Tiered JetStream limits are summed over the tiers. A config-mode account has no JWT, so its limits are not known.
+- **Readable account names.** In operator mode the servers name accounts by ID. nats-lens learns each account's readable name from the servers' reports, from the account lookups and from connect events. A name, once known, is kept.
+- **Expiry of certificates and user JWTs.** From VARZ, nats-lens keeps when each server's listener certificates expire: client, cluster, gateway, leaf node, websocket and MQTT. From CONNZ it keeps whether each connection presented a user JWT and when that JWT expires. The server reports a bearer JWT as empty, so its connection counts as having none.
+- **No JWT is stored.** nats-lens reads the expiry and limits from a JWT's claims, without verifying it (the server did when the client connected), and drops the token.
 - **Collection pauses while NATS is away.** `natslens run` skips collections while its connection has no server and keeps serving the UI and the API. With event capture on (the default), it records `collector.not_connected` after 30 seconds without a server (and again every 10 minutes), and `collector.reconnected` when it connects again. When the NATS client closes the connection for good, for example after its credentials were revoked, nats-lens records `collector.connection_closed` and dials again, waiting 2 seconds at first and doubling up to a minute.
 - **The permissions it needs.** The system account user publishes only to `$SYS.REQ.SERVER.PING.>` and `$SYS.REQ.ACCOUNT.PING.STATZ`, and subscribes to `$SYS.ACCOUNT.>`, `$SYS.SERVER.>`, `$JS.EVENT.ADVISORY.>` and `_INBOX.>`. A scoped user is safer than the account's full user, which may also send the `$SYS.REQ` calls that reload, kick or lame-duck a server. The project README lists the grants for the account users of event capture.
 
@@ -38,6 +41,13 @@ Every collect interval (30 seconds by default), nats-lens takes one snapshot of 
 - **When** I run `natslens once` with the same connection flags
 - **Then** nats-lens stores a single collection, runs the checks on it and exits
 - **And** it captures no events, serves no UI, and fails at once when NATS is not reachable
+
+### Look up when an account JWT expires
+
+- **Surfaces:** `cli`
+- **Given** a system in operator mode whose account `APP` has a JWT that expires in 12 days
+- **When** I run `natslens sql "SELECT account_name, jwt_expires, limit_connections FROM account_details WHERE account_name = 'APP' ORDER BY looked_up_at DESC LIMIT 1"`
+- **Then** the row shows `APP` with the JWT's expiry and its connection limit, -1 when the JWT sets none
 
 ### A server stops answering
 
@@ -66,6 +76,7 @@ Every collect interval (30 seconds by default), nats-lens takes one snapshot of 
 
 - **No sampling of individual messages.** nats-lens reads the servers' monitoring reports and advisories, never application messages.
 - **No subscription lists.** CONNZ is asked for subscription counts only, not for the subjects of each subscription.
+- **No client certificate expiry.** CONNZ reports a client certificate's subject and hashes, not when it expires.
 - **No collection without the system account.** nats-lens needs a system account user; it cannot collect through an application account alone.
 - **No catch-up of missed collections.** A collection that was not taken while nats-lens or NATS was down is not taken later. The gap stays visible ([data-history.md](data-history.md) plans a page for it).
 - **No more than `connz_limit` connections per server.** On a server with more connections, the rest are not stored for that collection.

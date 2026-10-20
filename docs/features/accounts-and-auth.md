@@ -6,14 +6,14 @@
 
 ## What it does
 
-Planned; nothing here is built yet. The Accounts and auth pages will show every account with its connections, subscriptions, JetStream use, streams, imports and exports, and when its JWT expires; the failed logins of the last day, grouped by user and source; and the credentials and certificates that expire soon. A client that retries with revoked credentials every minute shows up here before anyone notices that it never connected. All scenarios below describe intended behaviour.
+Planned; the page is not built yet, though the data it needs is collected (see "Built partly on stored data"). The Accounts and auth pages will show every account with its connections, subscriptions, JetStream use, streams, imports and exports, and when its JWT expires; the failed logins of the last day, grouped by user and source; and the credentials and certificates that expire soon. A client that retries with revoked credentials every minute shows up here before anyone notices that it never connected. All scenarios below describe intended behaviour.
 
 ## Behavior and rules
 
 - **Accounts.** One row per account: its readable name and ID, connections, subscriptions, JetStream disk use, streams, imports and exports, and when its JWT expires. The header says whether the system runs in operator mode (names from the account JWTs) or config mode.
 - **Failed logins, 24 hours.** From the servers' authentication error events, grouped by user and source address: the reason, the count and the last time.
 - **Expiring soon.** User and account JWTs, and the servers' own listener certificates, with their expiry date and the days left. In config mode, without JWTs, only the server certificates are listed. Client certificates cannot be listed: CONNZ reports a client certificate's subject and hashes, not its expiry.
-- **Built partly on stored data.** Connections, subscriptions and JetStream use per account come from account STATZ and JSZ, and authentication errors from the events, all stored today. Account limits, imports, exports and JWT expiry need the per-account ACCOUNTZ detail, which nats-lens requests today only to learn an unnamed account's name. Server certificate expiry is in VARZ (`tls_cert_not_after`, for the client listener and for each cluster, gateway, leaf node, websocket and MQTT listener) but not stored yet.
+- **Built partly on stored data.** Connections, subscriptions and JetStream use per account come from account STATZ and JSZ, and authentication errors from the events, all stored today. Account limits, imports, exports and JWT expiry come from the per-account ACCOUNTZ detail, which nats-lens stores in `account_details` for every account, each at most every 10 minutes. Server certificate expiry comes from VARZ (`tls_cert_not_after`, for the client listener and for each cluster, gateway, leaf node, websocket and MQTT listener), and user JWT expiry from CONNZ; both are stored with each collection.
 
 ## Scenarios
 
@@ -42,4 +42,4 @@ Planned; nothing here is built yet. The Accounts and auth pages will show every 
 
 - **No account or user management.** nats-lens does not create, edit or revoke accounts, users or JWTs.
 - **No permission violations.** nats-server publishes no event when a client uses a subject it may not; only the server log and the client see it.
-- **No secrets shown.** JWTs and credentials are never displayed; nats-lens removes user JWTs from stored payloads.
+- **No secrets shown.** JWTs and credentials are never displayed or stored; nats-lens keeps only the expiry and limits read from a JWT's claims, and removes user JWTs from stored event payloads.
