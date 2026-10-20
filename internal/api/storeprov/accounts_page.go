@@ -49,7 +49,7 @@ WITH st AS (
 )
 SELECT a.account, coalesce(nullif(a.account_name, a.account), nullif(d.account_name, a.account), ''),
     a.is_system OR coalesce(d.is_system, false), st.conns, st.leafs, st.subs, st.js_storage, st.js_memory, ss.n, st.js_streams,
-    d.looked_up_at, d.has_jwt, d.expired, d.imports, d.exports, d.jwt_expires, d.limit_connections, d.limit_js_disk
+    d.looked_up_at, d.has_jwt, d.expired, d.imports, d.exports, d.jwt_expires, d.limit_connections, d.limit_js_disk, d.limit_js_memory
 FROM accounts a LEFT JOIN st USING (account) LEFT JOIN ss USING (account) LEFT JOIN d USING (account)
 WHERE a.first_epoch <= $1 AND a.last_epoch >= $1
 ORDER BY a.account`, f.Epoch, f.EpochAt, f.EpochAt.Add(-api.AccountDetailsMaxAge))
@@ -65,9 +65,10 @@ ORDER BY a.account`, f.Epoch, f.EpochAt, f.EpochAt.Add(-api.AccountDetailsMaxAge
 			at, expires                        sql.NullTime
 			hasJWT, expired                    sql.NullBool
 			imports, exports, connLimit, limit sql.NullInt64
+			memLimit                           sql.NullInt64
 		)
 		if err := rows.Scan(&a.Account, &a.Name, &a.IsSystem, &conns, &leafs, &subs, &disk, &mem, &streams, &jsStreams,
-			&at, &hasJWT, &expired, &imports, &exports, &expires, &connLimit, &limit); err != nil {
+			&at, &hasJWT, &expired, &imports, &exports, &expires, &connLimit, &limit, &memLimit); err != nil {
 			return err
 		}
 		a.Connections, a.Leafnodes = int32Of(conns), int32Of(leafs)
@@ -75,7 +76,8 @@ ORDER BY a.account`, f.Epoch, f.EpochAt, f.EpochAt.Add(-api.AccountDetailsMaxAge
 		a.Streams = jsCount(streams, jsStreams)
 		if at.Valid {
 			d := &api.AccountDetails{At: at.Time.UTC(), HasJWT: hasJWT.Bool, Expired: expired.Bool,
-				Imports: int32(imports.Int64), Exports: int32(exports.Int64), LimitConnections: int64Ptr(connLimit), LimitJSDisk: int64Ptr(limit)}
+				Imports: int32(imports.Int64), Exports: int32(exports.Int64), LimitConnections: int64Ptr(connLimit), LimitJSDisk: int64Ptr(limit),
+				LimitJSMemory: int64Ptr(memLimit)}
 			if expires.Valid {
 				d.JWTExpires = ptr(expires.Time.UTC())
 			}

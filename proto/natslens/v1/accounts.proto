@@ -55,8 +55,10 @@ message AccountRow {
   // without a known JWT (config mode, or not looked up yet).
   optional int64 conn_limit = 10;
 
-  // JetStream file storage the account JWT allows, bytes; -1 no limit, 0
-  // JetStream not enabled. Unset as conn_limit.
+  // JetStream file storage the account JWT allows, bytes, comparable with
+  // js_storage; -1 no limit. 0 means JetStream is disabled when
+  // jetstream_enabled is false, and no file storage allowed (memory only)
+  // when it is true. Unset as conn_limit.
   optional int64 disk_limit = 11;
 
   // Imports, without those nats-server adds to every account; unset
@@ -83,6 +85,12 @@ message AccountRow {
 
   // When the lookup read; unset unless details_known.
   google.protobuf.Timestamp details_at = 18;
+
+  // Whether the account JWT enables JetStream: its JetStream disk or
+  // memory limit is other than 0, as nats-server enables JetStream for an
+  // account. False: JetStream is disabled for the account. Unset as
+  // conn_limit.
+  optional bool jetstream_enabled = 19;
 }
 
 // Failed logins of one user from one address for one reason.

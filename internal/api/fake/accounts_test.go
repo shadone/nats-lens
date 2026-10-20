@@ -28,10 +28,11 @@ func TestGlobalAccountsAndAuth(t *testing.T) {
 	}
 	var accs []string
 	for _, a := range res.GetAccounts() {
-		accs = append(accs, fmt.Sprintf("%s %s %d %d/%d %v %v", a.GetAccount()[:3], a.GetAccountName(), a.GetConnections(), a.GetConnLimit(),
-			a.GetDiskLimit(), a.GetJwtExpires() != nil, a.GetIsSystem()))
+		accs = append(accs, fmt.Sprintf("%s %s %d %d/%d js %v %v %v", a.GetAccount()[:3], a.GetAccountName(), a.GetConnections(), a.GetConnLimit(),
+			a.GetDiskLimit(), a.GetJetstreamEnabled(), a.GetJwtExpires() != nil, a.GetIsSystem()))
 	}
-	if want := []string{"APP  1142 2000/536870912000 false false", "ADS SUPPLIERS 0 50/0 true false", "SYS  0 -1/0 false true"}; !slices.Equal(accs, want) {
+	want := []string{"APP  1142 2000/536870912000 js true false false", "ADS SUPPLIERS 0 50/0 js false true false", "SYS  0 -1/0 js false false true"}
+	if !slices.Equal(accs, want) {
 		t.Errorf("accounts %v, want %v", accs, want)
 	}
 	if app := res.GetAccounts()[0]; app.GetJsStorage() >= app.GetDiskLimit() || app.GetStreams() != 16 || app.GetImports() != 1 {
@@ -50,7 +51,7 @@ func TestGlobalAccountsAndAuth(t *testing.T) {
 		exp = append(exp, fmt.Sprintf("%s %s%s%s%s %d days, %d", e.GetKind(), e.GetServer(), e.GetListener(), e.GetAccountName(), e.GetUser(),
 			int(e.GetExpires().AsTime().Sub(epoch)/(24*time.Hour)), e.GetConnections()))
 	}
-	want := []string{
+	want = []string{
 		"EXPIRING_KIND_USER_JWT pos-terminal 5 days, 3",
 		"EXPIRING_KIND_ACCOUNT_JWT SUPPLIERS 12 days, 0",
 		"EXPIRING_KIND_SERVER_CERTIFICATE nats-eu-0client 16 days, 0",
