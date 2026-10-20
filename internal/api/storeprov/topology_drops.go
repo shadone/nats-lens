@@ -102,11 +102,13 @@ seen AS (
   JOIN ok ob ON ob.epoch = p.b AND ob.server_id = l.server_id
   GROUP BY ALL),
 pos AS (SELECT epoch, row_number() OVER (ORDER BY epoch) AS i FROM ep),
--- Each connection with its rows: one stored in every collection from its
--- first to its last can only have dropped after its last.
+-- Each connection with its rows: one stored once in every collection
+-- from its first to its last can only have dropped after its last; a
+-- duplicate row sends it to the row-by-row count, so it cannot hide a gap.
 conns AS (
-  SELECT c.*, c.n = pl.i - pf.i + 1 AS unbroken FROM (
-    SELECT server_id, lid, site, account, count(*) AS n, min(epoch) AS first, max(epoch) AS last FROM site GROUP BY ALL) c
+  SELECT c.*, c.n = c.d AND c.d = pl.i - pf.i + 1 AS unbroken FROM (
+    SELECT server_id, lid, site, account, count(*) AS n, count(DISTINCT epoch) AS d, min(epoch) AS first, max(epoch) AS last
+    FROM site GROUP BY ALL) c
   JOIN pos pf ON pf.epoch = c.first JOIN pos pl ON pl.epoch = c.last),
 ends AS (
   SELECT c.site, c.account, count(*) AS drops FROM conns c JOIN pairs p ON p.a = c.last
