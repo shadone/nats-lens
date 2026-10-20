@@ -68,8 +68,10 @@ function Body({ t, asked, onPick }: { t: TopologyData; asked: string | null; onP
   return (
     <>
       {showMap && (
-        <section ref={mapRef} className="card tp-map" aria-label="Map of clusters, gateways and leaf nodes">
-          <TopologyMap t={t} width={width} picked={picked} onPick={onPick} />
+        <section className="card tp-map" aria-label="Map of clusters, gateways and leaf nodes">
+          <div ref={mapRef}>
+            <TopologyMap t={t} width={width} picked={picked} onPick={onPick} />
+          </div>
         </section>
       )}
       {(drops || notes.length > 0) && (

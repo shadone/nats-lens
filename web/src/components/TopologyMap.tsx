@@ -7,14 +7,16 @@ import type { Topology, TopologyCluster, TopologyGateway } from "../api/topology
 import { fmtBytes, fmtShortDuration } from "../lib/format";
 import {
   brackets,
+  clusterLabel,
   clusterNote,
   clusterWarns,
   droppingServers,
-  gatewayLabel,
+  gatewayLabelParts,
   gatewayText,
   gatewayWarns,
   leafBox,
   neighbours,
+  rowFractions,
   rowLayout,
   type Bracket,
 } from "../lib/topologyView";
@@ -30,15 +32,10 @@ interface Props {
   onPick: (cluster: string) => void;
 }
 
-// Columns of the row, in fractions: a box, then the gap a gateway label sits in.
-const BOX = 5;
-const GAP = 3;
-// The row is laid out for at least this many clusters, so one or two boxes keep the board's width.
-const MIN_SLOTS = 3;
 // SVG units per fraction.
 const U = 100;
-// A leg's distance from its box's centre per step, in fractions.
-const LEG_STEP = 0.12 * BOX;
+// A leg's distance from its box's centre per step, as a share of the box.
+const LEG_SHARE = 0.12;
 // Heights of the band under the boxes, in pixels.
 const BAND_TOP = 22;
 const BAND_LEVEL = 30;
@@ -61,7 +58,9 @@ export function TopologyMap({ t, width, picked, onPick }: Props) {
   }
 
   const n = t.clusters.length;
-  const slots = Math.max(n, MIN_SLOTS);
+  // One or two clusters are laid out as three, so their boxes keep the board's width.
+  const { box: BOX, gap: GAP, slots } = rowFractions(n);
+  const LEG_STEP = LEG_SHARE * BOX;
   const total = slots * BOX + (slots - 1) * GAP;
   const used = n * BOX + (n - 1) * GAP;
   const columns = [...t.clusters.flatMap((_, i) => (i === 0 ? [`minmax(0,${BOX}fr)`] : [`minmax(0,${GAP}fr)`, `minmax(0,${BOX}fr)`]))];
@@ -108,7 +107,8 @@ export function TopologyMap({ t, width, picked, onPick }: Props) {
             })}
           </svg>
           {far.map((b) => (
-            <GatewayLabel key={`${b.g.a}|${b.g.b}`} g={b.g} style={{ left: pct((legX(b, "i") + legX(b, "j")) / 2), top: levelY(b.level) }} />
+            // In the middle of the gap right of the first box, clear of the leaf node connectors at the box centres.
+            <GatewayLabel key={`${b.g.a}|${b.g.b}`} g={b.g} style={{ left: pct((b.i * (BOX + GAP) + BOX + GAP / 2) * U), top: levelY(b.level) }} />
           ))}
         </div>
       )}
@@ -146,7 +146,14 @@ function GatewayLabel({ g, style }: { g: TopologyGateway; style?: CSSProperties 
   const text = gatewayText(g);
   return (
     <span className={`tm-gw-label mono${gatewayWarns(g) ? " warn" : ""}`} style={style} title={text}>
-      <span aria-hidden="true">{gatewayLabel(g)}</span>
+      <span aria-hidden="true">
+        {gatewayLabelParts(g).map((part, k) => (
+          <span key={part}>
+            {k > 0 && " · "}
+            <span className="nw">{part}</span>
+          </span>
+        ))}
+      </span>
       <span className="sr-only">{text}</span>
     </span>
   );
@@ -157,17 +164,22 @@ function LeafCell({ c, i }: { c: TopologyCluster; i: number }) {
   return (
     <>
       {i > 0 && <div />}
-      <div className="tm-leaf-slot">{l && <LeafBox c={c} sites={l.sites} rest={l.rest} />}</div>
+      <div className="tm-leaf-slot">{l && <LeafBox c={c} />}</div>
     </>
   );
 }
 
-function LeafBox({ c, sites, rest }: { c: TopologyCluster; sites: number; rest: string }) {
+function LeafBox({ c }: { c: TopologyCluster }) {
+  const l = leafBox(c);
+  if (!l) return null;
   return (
     <div className="tm-leaf">
-      <div className="lbl">Leaf nodes on {c.name || "the cluster"}</div>
+      <div className="lbl">Leaf nodes on {clusterLabel(c.name)}</div>
       <div className="tm-leaf-n mono">
-        {sites} <span>{rest}</span>
+        {l.sites}{" "}
+        <span>
+          <span className="nw">{l.unit}</span> · <span className="nw">{l.state}</span>
+        </span>
       </div>
     </div>
   );
@@ -176,26 +188,25 @@ function LeafBox({ c, sites, rest }: { c: TopologyCluster; sites: number; rest: 
 function ClusterBox(p: { c: TopologyCluster; t: Topology; dropping: Set<string>; picked: boolean; pickable: boolean; onPick: (c: string) => void; withLeaf?: boolean }) {
   const { c } = p;
   const note = clusterNote(c, p.t.gateways);
-  const leaf = p.withLeaf ? leafBox(c) : undefined;
   // A click anywhere on the box but a server's link picks the cluster; the name is the keyboard's way.
   const onClick = (e: MouseEvent) => {
     if (!p.pickable || (e.target as HTMLElement).closest("a,button")) return;
     p.onPick(c.name);
   };
   return (
-    <div className={`tm-box${clusterWarns(c, p.dropping) ? " warn" : ""}${p.picked ? " on" : ""}${p.pickable ? " pickable" : ""}`} onClick={onClick}>
+    <div className={`tm-box${clusterWarns(c, p.dropping, p.t.gateways) ? " warn" : ""}${p.picked ? " on" : ""}${p.pickable ? " pickable" : ""}`} onClick={onClick}>
       <div className="tm-box-h">
         {p.pickable ? (
-          <button type="button" className="tm-name mono" aria-pressed={p.picked} onClick={() => p.onPick(c.name)} title={`Show the routes inside ${c.name}`}>
-            {c.name || "(no name)"}
+          <button type="button" className="tm-name mono" aria-pressed={p.picked} onClick={() => p.onPick(c.name)} title={`Show the routes inside ${clusterLabel(c.name)}`}>
+            {clusterLabel(c.name)}
             <span className="sr-only">, show its routes</span>
           </button>
         ) : (
-          <span className="tm-name mono">{c.name || "(no name)"}</span>
+          <span className="tm-name mono">{clusterLabel(c.name)}</span>
         )}
         {c.place && <span className="tm-place">{c.place}</span>}
       </div>
-      <ul className="tm-chips" aria-label={`Servers of ${c.name || "the cluster"}`}>
+      <ul className="tm-chips" aria-label={`Servers of ${clusterLabel(c.name)}`}>
         {c.servers.map((s) => {
           const why = s.missing ? "missing" : p.dropping.has(s.name) ? "gateway dropping" : "";
           return (
@@ -209,7 +220,7 @@ function ClusterBox(p: { c: TopologyCluster; t: Topology; dropping: Set<string>;
         })}
       </ul>
       {note && <div className="tm-note">{note}</div>}
-      {leaf && <LeafBox c={c} sites={leaf.sites} rest={leaf.rest} />}
+      {p.withLeaf && <LeafBox c={c} />}
     </div>
   );
 }
@@ -234,7 +245,7 @@ function GatewayTable({ gateways }: { gateways: TopologyGateway[] }) {
           {gateways.map((g) => (
             <tr key={`${g.a}|${g.b}`} className={gatewayWarns(g) ? "warn" : undefined}>
               <th scope="row" className="mono">
-                {g.a} – {g.b}
+                {clusterLabel(g.a)} – {clusterLabel(g.b)}
               </th>
               <td className="mono">
                 <Num v={g.rttMedianMs} fmt={fmtShortDuration} />
