@@ -13,15 +13,17 @@ export function ReplayGone({ gone, truncated, moments, read }: { gone: GoneAsset
     <section className="sec rp-gone">
       <div className="sec-h">
         <h2>Gone between A and B</h2>
-        <div className="right">
-          <RLink to={comparePath(moments)} className="btn">
-            Compare in Placement
-          </RLink>
-        </div>
+        {read && (
+          <div className="right">
+            <RLink to={comparePath(moments)} className="btn">
+              Compare in Placement
+            </RLink>
+          </div>
+        )}
       </div>
       {gone.length === 0 ? (
         <div className="state-box empty">
-          {read ? "No stream or durable consumer that servers held at A is missing at B." : "Not observed for this A and B: gone assets need a collection at each and a provider that reads them."}
+          {read ? "No stream or durable consumer that servers held at A is missing at B." : 'Not observed for this A and B; "Between A and B" says why.'}
         </div>
       ) : (
         <div className="card table-wrap scroll-cue">
