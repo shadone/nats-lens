@@ -10,7 +10,7 @@ Planned; nothing here is built yet. The Topology page will draw how the servers 
 
 ## Behavior and rules
 
-- **Clusters and gateways.** Each cluster is a box with its servers. Gateways between clusters are lines labelled with their round trip time and drops per hour.
+- **Clusters and gateways.** Each cluster is a box with its servers. Gateways between clusters are lines labelled with their round trip time and drops per hour. A pair whose gateways are all down is still drawn; a cluster that was removed shows so too, until its last gateway connection is more than 24 hours old.
 - **Leaf nodes by hub cluster.** Per cluster, how many leaf node sites connect to it now and how many seen in the last day are not connected.
 - **Leaf nodes, worst first.** A table of leaf node sites: the hub server, round trip time, drops in the last 24 hours, subscriptions and account.
 - **Routes inside a cluster.** From and to, round trip time, pending bytes, route pool size and pinned accounts.
