@@ -12,8 +12,9 @@ import (
 )
 
 // An events connection that nats.go closed after rejected credentials is
-// dialled again, and the redial is stored as collector.reconnected of
-// that connection, so that Replay's time without events ends.
+// dialled again. Redials that do not connect record no reconnect; the one
+// that connects records exactly one collector.reconnected of that
+// connection, so that Replay's time without events ends once.
 func TestEventsConnectionRedialIsRecorded(t *testing.T) {
 	if testing.Short() {
 		t.Skip("starts a server and waits for nats.go to give up")
@@ -46,14 +47,6 @@ func TestEventsConnectionRedialIsRecorded(t *testing.T) {
 	go ec.keep(ctx, 50*time.Millisecond)
 	waitFor(t, "first connect", 5*time.Second, func() bool { return ec.current().IsConnected() })
 
-	first := ec.current()
-	c.SetSysPassword(testcluster.SysPass, "rotated-elsewhere")
-	waitFor(t, "the connection to close for good", 20*time.Second, first.IsClosed)
-	c.SetSysPassword("rotated-elsewhere", testcluster.SysPass)
-	waitFor(t, "a new connection", 20*time.Second, func() bool {
-		nc := ec.current()
-		return nc != first && nc.IsConnected()
-	})
 	kinds := func(kind string) int {
 		var n int
 		if err := st.DB().QueryRow(`SELECT count(*) FROM events WHERE kind = ? AND (raw->>'connection') = 'sys'`, kind).Scan(&n); err != nil {
@@ -61,7 +54,24 @@ func TestEventsConnectionRedialIsRecorded(t *testing.T) {
 		}
 		return n
 	}
-	waitFor(t, "the closed and reconnected events of sys", 5*time.Second, func() bool {
-		return kinds("collector.connection_closed") >= 1 && kinds("collector.reconnected") >= 1
+	first := ec.current()
+	c.SetSysPassword(testcluster.SysPass, "rotated-elsewhere")
+	waitFor(t, "the connection to close for good", 20*time.Second, first.IsClosed)
+	// Several redials while the password stays rotated: none connects.
+	redialled := ec.current()
+	waitFor(t, "a few redials", 20*time.Second, func() bool { nc := ec.current(); return nc != first && nc != redialled })
+	time.Sleep(time.Second)
+	if n := kinds("collector.reconnected"); n != 0 {
+		t.Fatalf("%d reconnects recorded while the credentials are rejected", n)
+	}
+	c.SetSysPassword("rotated-elsewhere", testcluster.SysPass)
+	waitFor(t, "a new connection", 20*time.Second, func() bool {
+		nc := ec.current()
+		return nc != first && nc.IsConnected()
 	})
+	waitFor(t, "the reconnected event of sys", 5*time.Second, func() bool { return kinds("collector.reconnected") >= 1 })
+	time.Sleep(time.Second)
+	if n := kinds("collector.reconnected"); n != 1 || kinds("collector.connection_closed") < 1 {
+		t.Fatalf("%d reconnects, %d closes recorded", n, kinds("collector.connection_closed"))
+	}
 }
