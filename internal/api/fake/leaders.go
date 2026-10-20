@@ -123,13 +123,17 @@ func buildLeaders(sc *scenario) *leaderModel {
 	}
 	assets := []asset{{key: "meta", peers: all, initial: sc.metaLeader}}
 	var consumers []asset
-	for _, sp := range sc.streams {
+	for i, sp := range sc.streams {
 		if sp.leaderless {
 			continue
 		}
 		peers := sc.peers(sp)
 		key := streamRef(sp.name).GetKey()
-		init := cmp.Or(sc.initialLeaders[key], peers[0])
+		first := peers[0]
+		if sc.spreadLeaders {
+			first = peers[i%len(peers)]
+		}
+		init := cmp.Or(sc.initialLeaders[key], first)
 		assets = append(assets, asset{key: key, stream: sp.name, peers: peers, initial: init})
 		gone := map[string]time.Time{}
 		names := slices.Clone(sp.consumers)
@@ -189,6 +193,9 @@ func (m *leaderModel) follow(a asset, scripted []*v1.Event, down map[string][]do
 		})
 	}
 	elect := func(at time.Time) {
+		if !a.until.IsZero() && !at.Before(a.until) {
+			return // the durable went before
+		}
 		candidates := a.peers
 		if a.consumer != "" {
 			if l := m.leaderOf(streamRef(a.stream).GetKey(), at); l != "" {
@@ -203,8 +210,15 @@ func (m *leaderModel) follow(a asset, scripted []*v1.Event, down map[string][]do
 			}
 		}
 	}
+	// A single-replica asset has no raft group, so no election: its lead
+	// goes with its server and comes back with it.
+	single := len(a.peers) == 1 && a.key != "meta"
 	for _, pt := range pts {
 		switch {
+		case single && pt.stop != "" && pt.stop == cur:
+			set(pt.at, "", false)
+		case single && pt.up != "" && cur == "":
+			set(pt.at, pt.up, false)
 		case pt.election != nil:
 			set(pt.at, pt.election.GetServer(), true)
 		case pt.stop != "" && pt.stop == cur:

@@ -79,6 +79,9 @@ type scenario struct {
 	// start of the history from a stream's first peer and a consumer's
 	// stream leader.
 	initialLeaders map[string]string
+	// spreadLeaders spreads the initial stream leaders over the replicas:
+	// the i-th stream's is its peer i modulo its replicas, not its first.
+	spreadLeaders bool
 	// model is the leaders' history, built once from the scenario.
 	modelOnce sync.Once
 	model     *leaderModel
