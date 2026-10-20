@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/topology.proto.
  */
 export const file_natslens_v1_topology: GenFile = /*@__PURE__*/
-  fileDesc("ChpuYXRzbGVucy92MS90b3BvbG9neS5wcm90bxILbmF0c2xlbnMudjEiSwoSR2V0VG9wb2xvZ3lSZXF1ZXN0Eg4KBnN5c3RlbRgBIAEoCRIlCgVyYW5nZRgCIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZSJECg5Ub3BvbG9neVNlcnZlchIMCgRuYW1lGAEgASgJEg8KB21pc3NpbmcYAiABKAgSEwoLbWV0YV9sZWFkZXIYAyABKAgilwIKD1RvcG9sb2d5Q2x1c3RlchIMCgRuYW1lGAEgASgJEg0KBXBsYWNlGAIgASgJEiwKB3NlcnZlcnMYAyADKAsyGy5uYXRzbGVucy52MS5Ub3BvbG9neVNlcnZlchITCgttZXRhX2xlYWRlchgEIAEoCBIYCgtzdHJlYW1zX2xlZBgFIAEoBUgAiAEBEiAKE2xlYWZub2Rlc19jb25uZWN0ZWQYBiABKAVIAYgBARIkChdsZWFmbm9kZXNfbm90X2Nvbm5lY3RlZBgHIAEoBUgCiAEBQg4KDF9zdHJlYW1zX2xlZEIWChRfbGVhZm5vZGVzX2Nvbm5lY3RlZEIaChhfbGVhZm5vZGVzX25vdF9jb25uZWN0ZWQiywIKD1RvcG9sb2d5R2F0ZXdheRIRCgljbHVzdGVyX2EYASABKAkSEQoJY2x1c3Rlcl9iGAIgASgJEhMKC2Nvbm5lY3Rpb25zGAMgASgFEhAKCGV4cGVjdGVkGAQgASgFEioKB3J0dF9tYXgYBSABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SLQoKcnR0X21lZGlhbhgGIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIaCg1wZW5kaW5nX2J5dGVzGAcgASgDSACIAQESFQoIZHJvcHNfMWgYCCABKAVIAYgBARIWCglkcm9wc18yNGgYCSABKAVIAogBARIYChBkcm9wcGluZ19zZXJ2ZXJzGAogAygJQhAKDl9wZW5kaW5nX2J5dGVzQgsKCV9kcm9wc18xaEIMCgpfZHJvcHNfMjRoIoUCCg1Ub3BvbG9neVJvdXRlEg8KB2NsdXN0ZXIYASABKAkSEAoIc2VydmVyX2EYAiABKAkSEAoIc2VydmVyX2IYAyABKAkSJgoDcnR0GAQgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEhoKDXBlbmRpbmdfYnl0ZXMYBSABKANIAIgBARIRCgRwb29sGAYgASgFSAGIAQESFwoPcGlubmVkX2FjY291bnRzGAcgAygJEhEKCW9uZV9zaWRlZBgIIAEoCBIMCgRzbG93GAkgASgIEhMKC3JlcG9ydGVkX2J5GAogAygJQhAKDl9wZW5kaW5nX2J5dGVzQgcKBV9wb29sIsMCChBUb3BvbG9neUxlYWZub2RlEgwKBG5hbWUYASABKAkSDwoHYWNjb3VudBgCIAEoCRIUCgxhY2NvdW50X25hbWUYAyABKAkSEgoKaHViX3NlcnZlchgEIAEoCRITCgtodWJfY2x1c3RlchgFIAEoCRIRCgljb25uZWN0ZWQYBiABKAgSJgoDcnR0GAcgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEhoKDXN1YnNjcmlwdGlvbnMYCCABKANIAIgBARIWCglkcm9wc18yNGgYCSABKAVIAYgBARItCglsYXN0X3NlZW4YCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhMKC2NvbXByZXNzaW9uGAsgASgJQhAKDl9zdWJzY3JpcHRpb25zQgwKCl9kcm9wc18yNGgiNwoSVG9wb2xvZ3lVbm9ic2VydmVkEhAKCGVuZHBvaW50GAEgASgJEg8KB3NlcnZlcnMYAiADKAkiywMKE0dldFRvcG9sb2d5UmVzcG9uc2USDQoFZXBvY2gYASABKAMSLAoIZXBvY2hfYXQYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCGNsdXN0ZXJzGAMgAygLMhwubmF0c2xlbnMudjEuVG9wb2xvZ3lDbHVzdGVyEi4KCGdhdGV3YXlzGAQgAygLMhwubmF0c2xlbnMudjEuVG9wb2xvZ3lHYXRld2F5EioKBnJvdXRlcxgFIAMoCzIaLm5hdHNsZW5zLnYxLlRvcG9sb2d5Um91dGUSMAoJbGVhZm5vZGVzGAYgAygLMh0ubmF0c2xlbnMudjEuVG9wb2xvZ3lMZWFmbm9kZRIXCg9sZWFmbm9kZXNfdG90YWwYByABKAUSMwoKdW5vYnNlcnZlZBgIIAMoCzIfLm5hdHNsZW5zLnYxLlRvcG9sb2d5VW5vYnNlcnZlZBI2ChJkcm9wc193aW5kb3dfc3RhcnQYCSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjMKEGNvbGxlY3RfaW50ZXJ2YWwYCiABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb25CQlpAZ2l0aHViLmNvbS9zaGFkb25lL25hdHMtbGVucy9pbnRlcm5hbC9nZW4vbmF0c2xlbnMvdjE7bmF0c2xlbnN2MWIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common]);
+  fileDesc("ChpuYXRzbGVucy92MS90b3BvbG9neS5wcm90bxILbmF0c2xlbnMudjEiSwoSR2V0VG9wb2xvZ3lSZXF1ZXN0Eg4KBnN5c3RlbRgBIAEoCRIlCgVyYW5nZRgCIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZSJECg5Ub3BvbG9neVNlcnZlchIMCgRuYW1lGAEgASgJEg8KB21pc3NpbmcYAiABKAgSEwoLbWV0YV9sZWFkZXIYAyABKAgilwIKD1RvcG9sb2d5Q2x1c3RlchIMCgRuYW1lGAEgASgJEg0KBXBsYWNlGAIgASgJEiwKB3NlcnZlcnMYAyADKAsyGy5uYXRzbGVucy52MS5Ub3BvbG9neVNlcnZlchITCgttZXRhX2xlYWRlchgEIAEoCBIYCgtzdHJlYW1zX2xlZBgFIAEoBUgAiAEBEiAKE2xlYWZub2Rlc19jb25uZWN0ZWQYBiABKAVIAYgBARIkChdsZWFmbm9kZXNfbm90X2Nvbm5lY3RlZBgHIAEoBUgCiAEBQg4KDF9zdHJlYW1zX2xlZEIWChRfbGVhZm5vZGVzX2Nvbm5lY3RlZEIaChhfbGVhZm5vZGVzX25vdF9jb25uZWN0ZWQiywIKD1RvcG9sb2d5R2F0ZXdheRIRCgljbHVzdGVyX2EYASABKAkSEQoJY2x1c3Rlcl9iGAIgASgJEhMKC2Nvbm5lY3Rpb25zGAMgASgFEhAKCGV4cGVjdGVkGAQgASgFEioKB3J0dF9tYXgYBSABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SLQoKcnR0X21lZGlhbhgGIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIaCg1wZW5kaW5nX2J5dGVzGAcgASgDSACIAQESFQoIZHJvcHNfMWgYCCABKAVIAYgBARIWCglkcm9wc18yNGgYCSABKAVIAogBARIYChBkcm9wcGluZ19zZXJ2ZXJzGAogAygJQhAKDl9wZW5kaW5nX2J5dGVzQgsKCV9kcm9wc18xaEIMCgpfZHJvcHNfMjRoIoUCCg1Ub3BvbG9neVJvdXRlEg8KB2NsdXN0ZXIYASABKAkSEAoIc2VydmVyX2EYAiABKAkSEAoIc2VydmVyX2IYAyABKAkSJgoDcnR0GAQgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEhoKDXBlbmRpbmdfYnl0ZXMYBSABKANIAIgBARIRCgRwb29sGAYgASgFSAGIAQESFwoPcGlubmVkX2FjY291bnRzGAcgAygJEhEKCW9uZV9zaWRlZBgIIAEoCBIMCgRzbG93GAkgASgIEhMKC3JlcG9ydGVkX2J5GAogAygJQhAKDl9wZW5kaW5nX2J5dGVzQgcKBV9wb29sIvQCChBUb3BvbG9neUxlYWZub2RlEgwKBG5hbWUYASABKAkSDwoHYWNjb3VudBgCIAEoCRIUCgxhY2NvdW50X25hbWUYAyABKAkSEgoKaHViX3NlcnZlchgEIAEoCRITCgtodWJfY2x1c3RlchgFIAEoCRIRCgljb25uZWN0ZWQYBiABKAgSJgoDcnR0GAcgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEhoKDXN1YnNjcmlwdGlvbnMYCCABKANIAIgBARIWCglkcm9wc18yNGgYCSABKAVIAYgBARItCglsYXN0X3NlZW4YCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhMKC2NvbXByZXNzaW9uGAsgASgJEhMKC2h1Yl9zZXJ2ZXJzGAwgAygJEhoKEmNvbm5lY3Rpb25fdW5rbm93bhgNIAEoCEIQCg5fc3Vic2NyaXB0aW9uc0IMCgpfZHJvcHNfMjRoIjcKElRvcG9sb2d5VW5vYnNlcnZlZBIQCghlbmRwb2ludBgBIAEoCRIPCgdzZXJ2ZXJzGAIgAygJIssDChNHZXRUb3BvbG9neVJlc3BvbnNlEg0KBWVwb2NoGAEgASgDEiwKCGVwb2NoX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCghjbHVzdGVycxgDIAMoCzIcLm5hdHNsZW5zLnYxLlRvcG9sb2d5Q2x1c3RlchIuCghnYXRld2F5cxgEIAMoCzIcLm5hdHNsZW5zLnYxLlRvcG9sb2d5R2F0ZXdheRIqCgZyb3V0ZXMYBSADKAsyGi5uYXRzbGVucy52MS5Ub3BvbG9neVJvdXRlEjAKCWxlYWZub2RlcxgGIAMoCzIdLm5hdHNsZW5zLnYxLlRvcG9sb2d5TGVhZm5vZGUSFwoPbGVhZm5vZGVzX3RvdGFsGAcgASgFEjMKCnVub2JzZXJ2ZWQYCCADKAsyHy5uYXRzbGVucy52MS5Ub3BvbG9neVVub2JzZXJ2ZWQSNgoSZHJvcHNfd2luZG93X3N0YXJ0GAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIzChBjb2xsZWN0X2ludGVydmFsGAogASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common]);
 
 /**
  * Request for how the servers of a system connect.
@@ -87,7 +87,9 @@ export const TopologyServerSchema: GenMessage<TopologyServer> = /*@__PURE__*/
  */
 export type TopologyCluster = Message<"natslens.v1.TopologyCluster"> & {
   /**
-   * Cluster name; empty when the servers report none.
+   * Cluster name. Empty for the servers whose cluster is not known: they
+   * have no stored identity, and no route of a server with a known
+   * cluster names them.
    *
    * @generated from field: string name = 1;
    */
@@ -123,16 +125,18 @@ export type TopologyCluster = Message<"natslens.v1.TopologyCluster"> & {
   streamsLed?: number | undefined;
 
   /**
-   * Leaf node sites connected to the cluster's servers now; unset when no
-   * server of the cluster answered LEAFZ.
+   * Leaf node sites, by name, connected to the cluster's servers now;
+   * unset when no server of the cluster answered LEAFZ.
    *
    * @generated from field: optional int32 leafnodes_connected = 6;
    */
   leafnodesConnected?: number | undefined;
 
   /**
-   * Leaf node sites seen on the cluster in the 24 hours and not connected
-   * now; unset when no server of the cluster answered LEAFZ.
+   * Leaf node sites, by name, last seen on the cluster in the 24 hours
+   * and not connected now, without those whose state is not known
+   * (connection_unknown); unset when no server of the cluster answered
+   * LEAFZ.
    *
    * @generated from field: optional int32 leafnodes_not_connected = 7;
    */
@@ -147,7 +151,9 @@ export const TopologyClusterSchema: GenMessage<TopologyCluster> = /*@__PURE__*/
   messageDesc(file_natslens_v1_topology, 2);
 
 /**
- * The gateway connections between two clusters.
+ * The gateway connections between two clusters: every two clusters with a
+ * gateway row in the epoch or an outbound gateway in the 24 hours before,
+ * so a pair that is down in the epoch is listed with 0 connections.
  *
  * @generated from message natslens.v1.TopologyGateway
  */
@@ -302,8 +308,11 @@ export type TopologyRoute = Message<"natslens.v1.TopologyRoute"> & {
   oneSided: boolean;
 
   /**
-   * Whether the route stands out: its round trip time is at least 3 times
-   * the cluster's median and at least 1 ms.
+   * Whether the route stands out, at 1 ms or more: its round trip is at
+   * least 3 times the median of the cluster's pairs that touch neither of
+   * its servers, or one of its servers is slow (its fastest pair at least
+   * 3 times the median of the pairs that do not touch it). Two servers
+   * alone are never slow.
    *
    * @generated from field: bool slow = 9;
    */
@@ -412,6 +421,22 @@ export type TopologyLeafnode = Message<"natslens.v1.TopologyLeafnode"> & {
    * @generated from field: string compression = 11;
    */
   compression: string;
+
+  /**
+   * Every hub server the site is connected to now, by name; hub_server is
+   * the first. Empty for a site not connected.
+   *
+   * @generated from field: repeated string hub_servers = 12;
+   */
+  hubServers: string[];
+
+  /**
+   * Whether a site not connected may be connected after all: a server's
+   * LEAFZ failed in the epoch (see unobserved), and the site may be on it.
+   *
+   * @generated from field: bool connection_unknown = 13;
+   */
+  connectionUnknown: boolean;
 };
 
 /**
@@ -480,8 +505,9 @@ export type GetTopologyResponse = Message<"natslens.v1.GetTopologyResponse"> & {
   clusters: TopologyCluster[];
 
   /**
-   * Gateway pairs, those that dropped most in the last hour first, then
-   * by highest round trip time.
+   * Gateway pairs: those with no connection of the ones expected first,
+   * then most drops in the last hour, then most connections missing,
+   * then highest round trip time.
    *
    * @generated from field: repeated natslens.v1.TopologyGateway gateways = 4;
    */
@@ -489,14 +515,16 @@ export type GetTopologyResponse = Message<"natslens.v1.GetTopologyResponse"> & {
 
   /**
    * Routes, slow ones first, then by round trip time, highest first.
+   * Round trips of 0 (sent before the first ping) count as not reported.
    *
    * @generated from field: repeated natslens.v1.TopologyRoute routes = 5;
    */
   routes: TopologyRoute[];
 
   /**
-   * Leaf node sites, worst first: not connected, then most drops, then
-   * highest round trip time, then by name. At most 500.
+   * Leaf node sites, worst first: not connected, then those whose state is
+   * not known, then most drops, then highest round trip time, then by
+   * name. At most 500.
    *
    * @generated from field: repeated natslens.v1.TopologyLeafnode leafnodes = 6;
    */
