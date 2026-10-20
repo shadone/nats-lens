@@ -203,6 +203,17 @@ export function useTopology(spec: RangeSpec) {
   });
 }
 
+/** The Accounts page: the range's newest collection, followed on a live range as Topology is. */
+export function useAccountsAndAuth(spec: RangeSpec) {
+  const sys = useSystem();
+  return useQuery({
+    queryKey: ["accounts-and-auth", sys, rangeKey(spec)],
+    queryFn: ({ signal }) => api.getAccountsAndAuth(sys, spec, signal),
+    refetchInterval: refetch(spec),
+    placeholderData: keepPreviousData,
+  });
+}
+
 export function useServers(spec: RangeSpec) {
   const sys = useSystem();
   return useQuery({
