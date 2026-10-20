@@ -155,7 +155,8 @@ export type ReplayEvidence = Message<"natslens.v1.ReplayEvidence"> & {
 
   /**
    * For a stream, consumer or meta leader election, the server it
-   * elected; unset for any other evidence.
+   * elected; unset for any other evidence and for an election that names
+   * no server.
    *
    * @generated from field: string elected = 6;
    */
