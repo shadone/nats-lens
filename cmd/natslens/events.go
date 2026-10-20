@@ -45,22 +45,26 @@ func recordStart(ctx context.Context, st *store.Store) error {
 // newEventsConn is one connection that captures events. It retries a
 // failed first connect instead of stopping the collector; the capture
 // records each state change, and a redial after nats.go closed it as
-// collector.reconnected, so that the time without events ends.
+// collector.reconnected once it connects, so that the time without events
+// ends.
 func newEventsConn(capture *events.Capture, label string, c config.NATS, subscribe func(*nats.Conn) error, log *slog.Logger) *eventConn {
+	dialled := false
 	return &eventConn{
 		label: label, subscribe: subscribe, log: log,
 		dial: func() (*nats.Conn, error) {
-			opts := append(capture.ConnHandlers(label), nats.RetryOnFailedConnect(true))
+			handlers := capture.ConnHandlers(label)
+			if dialled {
+				handlers = capture.RedialHandlers(label)
+			}
+			dialled = true
+			opts := append(handlers, nats.RetryOnFailedConnect(true))
 			nc, err := natsconn.Connect(c, log.With("connection", label), opts...)
 			if err != nil {
 				return nil, fmt.Errorf("%s events connection: %w", label, err)
 			}
 			return nc, nil
 		},
-		reopened: func(nc *nats.Conn) {
-			log.Info("events connection dialled again", "connection", label, "server", nc.ConnectedServerName())
-			capture.RecordReopened(label, nc)
-		},
+		reopened: func(*nats.Conn) { log.Info("events connection dialled again", "connection", label) },
 	}
 }
 
