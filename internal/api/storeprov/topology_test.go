@@ -93,7 +93,9 @@ func topologyStore(t *testing.T, last time.Time) *store.Store {
 				}
 				r.add("epoch_endpoints", map[string]any{"epoch": e, "server_id": s.id, "endpoint": ep, "state": state})
 			}
-			r.add("server_stats", map[string]any{"epoch": e, "server_id": s.id, "meta_leader": "nats-eu-0", "js_streams_leader": 2})
+			// Each eu server leads two streams.
+			led := map[string]any{"eu": 2, "us": 0}[s.cluster]
+			r.add("server_stats", map[string]any{"epoch": e, "server_id": s.id, "meta_leader": "nats-eu-0", "js_streams_leader": led})
 			// One outbound gateway to the other cluster.
 			if s.id == "E2" && e == 8 {
 				continue

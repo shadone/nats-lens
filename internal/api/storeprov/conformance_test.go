@@ -289,11 +289,15 @@ func TestStoreConformance(t *testing.T) {
 		{Ref: &v1.SystemRef{Id: "main", Name: "main"}, Provider: main},
 		{Ref: &v1.SystemRef{Id: "closed", Name: "closed"}, Provider: closed},
 		{Ref: &v1.SystemRef{Id: "replay", Name: "replay"}, Provider: replayConformance(t, clock)},
+		{Ref: &v1.SystemRef{Id: "topology", Name: "topology"}, Provider: &storeprov.Provider{St: topologyStore(t, clock.Add(-30*time.Second)),
+			Interval: 30 * time.Second, Live: true, Clock: at, Retention: 14 * 24 * time.Hour}},
+		{Ref: &v1.SystemRef{Id: "topology-single", Name: "topology-single"}, Provider: &storeprov.Provider{St: topologySingle(t, clock.Add(-30*time.Second)),
+			Interval: 30 * time.Second, Live: true, Clock: at, Retention: 14 * 24 * time.Hour}},
 	}})
 	if _, err := c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{System: "main", CheckCode: "stream-007",
 		Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/payments"}, Reason: "Update in review.", MutedBy: "ops",
 		ExpiresAt: timestamppb.New(clock.Add(24 * time.Hour))})); err != nil {
 		t.Fatal(err)
 	}
-	apitest.RunConformance(t, apitest.Env{Client: c, Systems: []string{"main", "closed", "replay"}, Now: clock})
+	apitest.RunConformance(t, apitest.Env{Client: c, Systems: []string{"main", "closed", "replay", "topology", "topology-single"}, Now: clock})
 }
