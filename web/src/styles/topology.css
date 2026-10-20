@@ -6,7 +6,7 @@
 :root{--tp-line:#848d88;--tp-warn-line:#b47a00}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--tp-line:#5f6b78;--tp-warn-line:var(--cell-warning)}}
 :root[data-theme="dark"]{--tp-line:#5f6b78;--tp-warn-line:var(--cell-warning)}
-.nw{white-space:nowrap}
+.tm-nw{white-space:nowrap}
 .tp-map{margin-top:14px;padding:20px}
 .tm-row{display:grid;align-items:stretch}
 .tm-box{padding:14px 16px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface-2);min-width:0}
@@ -27,11 +27,12 @@ span.tm-name:hover{text-decoration:none}
 .tm-near{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:30px;min-width:0}
 .tm-near-line{display:block;width:100%;height:0;border-top:3px solid var(--tp-line);margin-top:6px}
 .tm-near.warn .tm-near-line{border-top-style:dashed;border-top-color:var(--tp-warn-line)}
-.tm-gw-label{font-size:12px;background:var(--surface);color:var(--text-2);padding:0 6px;border-radius:4px;text-align:center;max-width:100%;cursor:default}
+.tm-gw-label{font-size:12px;background:var(--surface);color:var(--text-2);padding:0 4px;border-radius:4px;text-align:center;max-width:100%;cursor:default}
 .tm-gw-label.warn{background:var(--sev-warning-bg);color:var(--sev-warning)}
 .tm-band{position:relative}
 .tm-band svg{position:absolute;inset:0;overflow:visible}
-.tm-band .tm-gw-label{position:absolute;transform:translate(-50%,-50%);white-space:nowrap}
+.tm-band .tm-gw-label{position:absolute;transform:translate(0,-50%);text-align:left;line-height:16px}
+.tm-gw-label .tm-gw-row{display:block;white-space:nowrap}
 .tm-gw-line{stroke:var(--tp-line);stroke-width:2}
 .tm-gw-line.warn{stroke:var(--tp-warn-line);stroke-width:3;stroke-dasharray:8 5}
 .tm-leaf-line{stroke:var(--tp-line);stroke-width:1.5}
@@ -71,5 +72,7 @@ span.tm-name:hover{text-decoration:none}
   .tp-card .table-wrap{padding:0}
   .tp-foot{padding:10px 14px 12px}
 }
-.tbl tr.unknown > *{background:var(--surface-2)}
-.tbl tr.unknown th small{color:var(--text-2)}
+.tbl tr.tp-unknown > *{background:var(--surface-2)}
+.tbl tr.tp-unknown th small{color:var(--text-2)}
+.tbl td.tp-hubs{white-space:normal;min-width:90px}
+.tbl th[scope="row"] small .tm-nw{white-space:nowrap}
