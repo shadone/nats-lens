@@ -1,0 +1,132 @@
+package api
+
+import (
+	"fmt"
+	"slices"
+	"testing"
+	"time"
+
+	"google.golang.org/protobuf/types/known/durationpb"
+
+	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+)
+
+// slowCluster is the pairs of servers s0..s(n-1) with the round trip rtt
+// gives; 0 leaves it unreported.
+func slowCluster(n int, rtt func(a, b int) time.Duration) []*v1.TopologyRoute {
+	var out []*v1.TopologyRoute
+	for a := range n {
+		for b := a + 1; b < n; b++ {
+			r := &v1.TopologyRoute{Cluster: "c", ServerA: fmt.Sprintf("s%d", a), ServerB: fmt.Sprintf("s%d", b)}
+			if d := rtt(a, b); d > 0 {
+				r.Rtt = durationpb.New(d)
+			}
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+func slowOf(rs []*v1.TopologyRoute) []string {
+	markSlowRoutes(rs)
+	var out []string
+	for _, r := range rs {
+		if r.GetSlow() {
+			out = append(out, r.GetServerA()+"-"+r.GetServerB())
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
+// touching are the pairs of s0..s(n-1) with an end among servers.
+func touching(n int, servers ...int) []string {
+	var out []string
+	for a := range n {
+		for b := a + 1; b < n; b++ {
+			if slices.Contains(servers, a) || slices.Contains(servers, b) {
+				out = append(out, fmt.Sprintf("s%d-s%d", a, b))
+			}
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
+const base = 400 * time.Microsecond
+
+func slowServers(at time.Duration, slow ...int) func(a, b int) time.Duration {
+	return func(a, b int) time.Duration {
+		if slices.Contains(slow, a) || slices.Contains(slow, b) {
+			return at
+		}
+		return base
+	}
+}
+
+// The slow rule's matrix: slow servers and links found, normal layouts
+// quiet.
+func TestSlowRouteMatrix(t *testing.T) {
+	check := func(name string, rs []*v1.TopologyRoute, want []string) {
+		t.Helper()
+		if got := slowOf(rs); !slices.Equal(got, want) {
+			t.Errorf("%s: slow %v, want %v", name, got, want)
+		}
+	}
+	for n := 2; n <= 6; n++ {
+		var one, two []string
+		if n >= 3 {
+			one = touching(n, 0)
+		}
+		if n >= 4 {
+			two = touching(n, 0, 1)
+		}
+		check(fmt.Sprintf("n=%d one slow server", n), slowCluster(n, slowServers(4*time.Millisecond, 0)), one)
+		// Two slow servers of 3 leave no pair to compare with.
+		check(fmt.Sprintf("n=%d two slow servers", n), slowCluster(n, slowServers(4*time.Millisecond, 0, 1)), two)
+		var link []string
+		if n >= 5 {
+			link = []string{"s0-s1"}
+		}
+		// A slow link needs 2 pairs that touch neither end: 5 servers.
+		check(fmt.Sprintf("n=%d one slow link", n), slowCluster(n, func(a, b int) time.Duration {
+			if a == 0 && b == 1 {
+				return 4 * time.Millisecond
+			}
+			return base
+		}), link)
+		check(fmt.Sprintf("n=%d all at 5 ms", n), slowCluster(n, func(int, int) time.Duration { return 5 * time.Millisecond }), nil)
+		check(fmt.Sprintf("n=%d one slow server at 1.9 ms", n), slowCluster(n, slowServers(1900*time.Microsecond, 0)), nil)
+		jitter := func(lo, hi time.Duration) func(a, b int) time.Duration {
+			return func(a, b int) time.Duration { return lo + time.Duration((a*7+b*13)%10)*(hi-lo)/9 }
+		}
+		check(fmt.Sprintf("n=%d jitter 0.3-0.9 ms", n), slowCluster(n, jitter(300*time.Microsecond, 900*time.Microsecond)), nil)
+		check(fmt.Sprintf("n=%d jitter 0.4-1.6 ms", n), slowCluster(n, jitter(400*time.Microsecond, 1600*time.Microsecond)), nil)
+	}
+	check("slow server at 2 ms against 0.6 ms", slowCluster(4, func(a, b int) time.Duration {
+		if a == 0 {
+			return 2 * time.Millisecond
+		}
+		return 600 * time.Microsecond
+	}), touching(4, 0))
+	// Pairs without a round trip are left out; s3 is measured only against
+	// the slow s0.
+	check("unreported pairs", slowCluster(4, func(a, b int) time.Duration {
+		if a == 0 {
+			return 4 * time.Millisecond
+		}
+		if a == 1 && b == 2 {
+			return base
+		}
+		return 0
+	}), touching(4, 0))
+	// Zones: 0.15 ms inside a zone, 1.1 to 1.4 ms across.
+	for _, z := range [][]int{{0, 0, 1}, {0, 0, 1, 2}, {0, 0, 1, 1}, {0, 0, 1, 1, 2}, {0, 0, 1, 1, 2, 2}, {0, 1, 2}, {0, 0, 0, 1}} {
+		check(fmt.Sprintf("zones %v", z), slowCluster(len(z), func(a, b int) time.Duration {
+			if z[a] == z[b] {
+				return 150 * time.Microsecond
+			}
+			return 1100*time.Microsecond + time.Duration((a+b)%4)*100*time.Microsecond
+		}), nil)
+	}
+}
