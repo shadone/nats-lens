@@ -18,13 +18,13 @@ pairs AS (
   SELECT a, a_at, b FROM (
     SELECT epoch AS a, started_at AS a_at, lead(epoch) OVER (ORDER BY epoch) AS b,
       lead(started_at) OVER (ORDER BY epoch) AS b_at FROM ep)
-  WHERE b IS NOT NULL AND date_diff('millisecond', a_at, b_at) <= ?)`
+  WHERE b IS NOT NULL AND date_diff('microsecond', a_at, b_at) <= ?)`
 
 // windowArgs are the arguments of topologyWindow for f's epoch.
 func (p *Provider) windowArgs(f *api.TopologyFacts) []any {
 	gap := int64(math.MaxInt64)
 	if p.Interval > 0 {
-		gap = (api.TopologyGapIntervals * p.Interval).Milliseconds()
+		gap = (api.TopologyGapIntervals * p.Interval).Microseconds()
 	}
 	return []any{f.EpochAt.Add(-api.TopologyDropWindow), f.Epoch, gap}
 }
@@ -68,13 +68,13 @@ WHERE g.direction = 'outbound' AND g.epoch IN (SELECT epoch FROM ep)`, window, f
 		return err
 	}
 	if err := query("gateway drops", topologyWindow+`,
-gw AS (SELECT epoch, server_id, gateway, cid FROM gateways
-  WHERE direction = 'outbound' AND cid IS NOT NULL AND epoch IN (SELECT epoch FROM ep)),
+gw AS (SELECT epoch, server_id, gateway, cid,
+    `+nextSeen("server_id, gateway, cid")+` AS nxt
+  FROM gateways WHERE direction = 'outbound' AND cid IS NOT NULL AND epoch IN (SELECT epoch FROM ep)),
 ok AS (SELECT DISTINCT epoch, server_id FROM epoch_endpoints
   WHERE endpoint = 'GATEWAYZ' AND state = 'ok' AND epoch IN (SELECT epoch FROM ep)),
 obs AS (
-  SELECT g.server_id, g.gateway, p.a_at >= ? AS recent,
-    NOT EXISTS (SELECT 1 FROM gw n WHERE n.epoch = p.b AND n.server_id = g.server_id AND n.gateway = g.gateway AND n.cid = g.cid) AS dropped
+  SELECT g.server_id, g.gateway, p.a_at >= ? AS recent, g.nxt IS DISTINCT FROM p.b AS dropped
   FROM pairs p JOIN gw g ON g.epoch = p.a
   JOIN ok oa ON oa.epoch = p.a AND oa.server_id = g.server_id
   JOIN ok ob ON ob.epoch = p.b AND ob.server_id = g.server_id)
@@ -91,17 +91,40 @@ FROM obs o JOIN servers s USING (server_id) GROUP BY ALL`, append(window, f.Epoc
 		return err
 	}
 	if err := query("leaf node drops", topologyWindow+`,
-lf AS (SELECT epoch, server_id, lid, coalesce(nullif(name, ''), ip, '') AS site, coalesce(account, '') AS account
+site AS (SELECT epoch, server_id, lid, coalesce(nullif(name, ''), ip, '') AS site, coalesce(account, '') AS account
   FROM leafnodes WHERE `+leafSite+` AND epoch IN (SELECT epoch FROM ep)),
 ok AS (SELECT DISTINCT epoch, server_id FROM epoch_endpoints
-  WHERE endpoint = 'LEAFZ' AND state = 'ok' AND epoch IN (SELECT epoch FROM ep))
-SELECT l.site, l.account,
-  count(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM lf n
-    WHERE n.epoch = p.b AND n.server_id = l.server_id AND n.lid = l.lid AND n.site = l.site AND n.account = l.account))
-FROM pairs p JOIN lf l ON l.epoch = p.a
-JOIN ok oa ON oa.epoch = p.a AND oa.server_id = l.server_id
-JOIN ok ob ON ob.epoch = p.b AND ob.server_id = l.server_id
-GROUP BY ALL`, window, func(rows *sql.Rows) error {
+  WHERE endpoint = 'LEAFZ' AND state = 'ok' AND epoch IN (SELECT epoch FROM ep)),
+-- The rows of a connection observed between consecutive collections.
+seen AS (
+  SELECT l.site, l.account, count(*) AS n FROM pairs p JOIN site l ON l.epoch = p.a
+  JOIN ok oa ON oa.epoch = p.a AND oa.server_id = l.server_id
+  JOIN ok ob ON ob.epoch = p.b AND ob.server_id = l.server_id
+  GROUP BY ALL),
+pos AS (SELECT epoch, row_number() OVER (ORDER BY epoch) AS i FROM ep),
+-- Each connection with its rows: one stored in every collection from its
+-- first to its last can only have dropped after its last.
+conns AS (
+  SELECT c.*, c.n = pl.i - pf.i + 1 AS unbroken FROM (
+    SELECT server_id, lid, site, account, count(*) AS n, min(epoch) AS first, max(epoch) AS last FROM site GROUP BY ALL) c
+  JOIN pos pf ON pf.epoch = c.first JOIN pos pl ON pl.epoch = c.last),
+ends AS (
+  SELECT c.site, c.account, count(*) AS drops FROM conns c JOIN pairs p ON p.a = c.last
+  JOIN ok oa ON oa.epoch = p.a AND oa.server_id = c.server_id
+  JOIN ok ob ON ob.epoch = p.b AND ob.server_id = c.server_id
+  WHERE c.unbroken GROUP BY ALL),
+-- The other connections, rare, row by row.
+broken AS (
+  SELECT s.*, `+nextSeen("server_id, lid, site, account")+` AS nxt FROM site s
+  WHERE (server_id, lid, site, account) IN (SELECT (server_id, lid, site, account) FROM conns WHERE NOT unbroken)),
+gaps AS (
+  SELECT l.site, l.account, count(*) FILTER (WHERE l.nxt IS DISTINCT FROM p.b) AS drops
+  FROM pairs p JOIN broken l ON l.epoch = p.a
+  JOIN ok oa ON oa.epoch = p.a AND oa.server_id = l.server_id
+  JOIN ok ob ON ob.epoch = p.b AND ob.server_id = l.server_id
+  GROUP BY ALL)
+SELECT s.site, s.account, coalesce(e.drops, 0) + coalesce(g.drops, 0)
+FROM seen s LEFT JOIN ends e USING (site, account) LEFT JOIN gaps g USING (site, account)`, window, func(rows *sql.Rows) error {
 		var d api.TopologyLeafDrops
 		if err := rows.Scan(&d.Name, &d.Account, &d.Drops); err != nil {
 			return err
@@ -112,11 +135,16 @@ GROUP BY ALL`, window, func(rows *sql.Rows) error {
 		return err
 	}
 	return query("leaf node sightings", topologyWindow+`,
+-- Each site's newest collection before the epoch, then its rows there:
+-- an aggregate over the window, not a sort of it.
+newest AS (
+  SELECT coalesce(nullif(name, ''), ip, '') AS site, coalesce(account, '') AS account, max(epoch) AS epoch
+  FROM leafnodes WHERE epoch < ? AND epoch IN (SELECT epoch FROM ep) AND `+leafSite+` GROUP BY ALL),
 x AS (
-  SELECT `+leafCols+`, row_number() OVER (PARTITION BY coalesce(nullif(l.name, ''), l.ip, ''), coalesce(l.account, '')
-    ORDER BY l.epoch DESC, s.server_name, l.lid) AS rn
+  SELECT `+leafCols+`, row_number() OVER (PARTITION BY n.site, n.account ORDER BY s.server_name, l.lid) AS rn
   FROM leafnodes l JOIN servers s USING (server_id)
-  WHERE l.epoch < ? AND l.epoch IN (SELECT epoch FROM ep) AND `+leafWhere+`)
+  JOIN newest n ON n.epoch = l.epoch AND n.site = coalesce(nullif(l.name, ''), l.ip, '') AND n.account = coalesce(l.account, '')
+  WHERE `+leafWhere+`)
 SELECT x.* EXCLUDE (rn), e.started_at FROM x JOIN epochs e USING (epoch) WHERE rn = 1`, append(window, f.Epoch), func(rows *sql.Rows) error {
 		var s api.TopologyLeafSighting
 		var epoch int64
@@ -134,3 +162,12 @@ SELECT x.* EXCLUDE (rn), e.started_at FROM x JOIN epochs e USING (epoch) WHERE r
 // leafSite keeps the rows of the leafnodes table that are sites, not the
 // server's own uplinks; leafWhere is the same on alias l.
 const leafSite = `NOT coalesce(is_spoke, false)`
+
+// nextSeen is the next epoch, after a row's own, in which a row of the
+// same key (the columns given) is stored; NULL when none is. A connection
+// is still there at b exactly when it is b, as b is the collection after
+// a. The window replaces a self-join on the next collection, which DuckDB
+// ran about three times slower.
+func nextSeen(key string) string {
+	return `min(epoch) OVER (PARTITION BY ` + key + ` ORDER BY epoch RANGE BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING)`
+}
