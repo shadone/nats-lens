@@ -208,7 +208,7 @@ func (s scen) gatewayRows(at time.Time) []api.TopologyGatewayRow {
 			key := sp.name + ">" + cluster
 			cid := int64(100+10*ci+moved) + int64(timesIn(l.flaps[key], start, c))
 			rtt := l.gatewayRTT[[2]string{min(sp.cluster, cluster), max(sp.cluster, cluster)}] +
-				time.Duration(s.sc.indexIn(sp)%4*600-900)*time.Microsecond
+				time.Duration(s.sc.indexIn(sp)%3-1)*600*time.Microsecond
 			out = append(out, api.TopologyGatewayRow{ServerID: s.processID(sp, at), Server: sp.name, Cluster: sp.cluster,
 				Gateway: cluster, Outbound: true, CID: &cid, RTT: &rtt, Pending: ptr(l.gatewayPending[key])})
 		}
