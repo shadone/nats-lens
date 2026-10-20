@@ -10,7 +10,7 @@ The board's sample names come from a sketch. Use the example shop of `inventory.
 |---|---|
 | T1 Collector and store | built on `feat/accounts-page`, awaiting review |
 | T2 API and demo | built on `feat/accounts-api`, awaiting review |
-| T3 UI | not started |
+| T3 UI | built on `feat/accounts-ui`, awaiting review |
 | T4 Feature docs and audit | not started |
 
 ## Rules for every step
@@ -105,6 +105,24 @@ Each point was decided in the session that built T2: proposed, not yet confirmed
 - Phone width: the cards stack; the accounts table scrolls inside its card.
 - Data: `requests.getAccountsAndAuth`, `api/accounts.ts`, `useAccountsAndAuth()` keyed by system and range, refetched with the page's live interval.
 - Docs: `navigation.md`, the UI section of `design.md`.
+
+### Where T3 departed from this plan
+
+Each point was decided in the session that built T3: proposed, not yet confirmed.
+
+- **The header line names the collection.** As on Topology: "Operator mode · 3 accounts · names from the account JWTs, in the collection of 19:49:18 UTC." Without a collection: "No collection in this range." and no cards.
+- **Account links.** An account name (in the table, under a failed login, in an expiring row) opens the Connections list scoped to it (`/connections?account=`), the target the search already uses for an account; no new route.
+- **No identifier under a name that is its own identifier.** In config mode, and for `APP` and `SYS` in the demo, the name is the identifier, so nothing is shown under it; an account key is shortened to its first 4 and last 5 characters, as the board does.
+- **Both bars warn at 80%.** The connections bar turns to the warning colour at 80% of the limit as the disk bar does; reaching the connection limit refuses clients, so it matters as much. A bar is drawn only against a limit above 0; "of unlimited" has none.
+- **A disk limit of 0 reads "JetStream off".** One function, `jetStreamOff` in `web/src/lib/accountsView.ts`, reads the 0, so a change in how the API marks a disabled JetStream changes only there.
+- **"idle now" joins the counts.** An idle account with an export reads "1 export · idle now"; an idle account with neither reads "idle now" alone. An account whose counts were not reported is not called idle.
+- **JWT expires.** A date within 30 days of the collection is in the warning colour, as in Expiring soon; a looked-up account without a JWT gets an en dash, as config mode does.
+- **Failed logins.** A client that gave no user reads "(no user)", as the board has it; the account an event names is shown under the user. The hourly average uses at least one hour, so a burst in a short history is not taken for a client retrying all day. The board's sentence on revoked credentials shows only when there is a row. A history shorter than 24 hours gets a line, as Topology's drops do; the card's subtitle reads "From the servers' auth error advisories, grouped by user, address and reason."
+- **Expiring soon.** The subtitle names what is backed ("User and account JWTs and server certificates, within 30 days."; config mode: "Server certificates, within 30 days."), not the board's client certificates. A certificate row reads "nats-eu-0 certificate, client listener", linking the server; a user JWT row names its account and connections under it. The "In" cell carries the colour, as on the board. The count line also says when rows were cut ("The 100 soonest of 140 are listed; …"). The line on config mode shows in config mode only.
+- **Cut lists.** "The first 500 of 612 accounts are listed." and "The 100 most frequent of 140 groups are listed; 2,000 failed logins in all." when the API cut a list.
+- **The cards stack under 1000 px**, wider than the phone width, since two cards side by side squeeze the failed-login reasons below that.
+- **`isoDate`** ("2026-11-02") joins `web/src/lib/format.ts`; `isoMinute` now uses it.
+- **Feature docs left to T4.** `accounts-and-auth.md` and the README's table and coverage line ("the page is not built") are T4's; they are wrong once this lands and T4 has not.
 
 ## T4 Feature docs and audit
 
