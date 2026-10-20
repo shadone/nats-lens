@@ -143,18 +143,18 @@ export function leafBox(c: TopologyCluster): { sites: number; unit: string; stat
 }
 
 /**
- * The routes table's cluster: the one asked for; else the cluster of a
- * slow route; else the meta leader's; else the first by name. Never the
- * cluster of the highest round trip alone, which can change with every
- * refetch when the round trips are close.
+ * The routes table's cluster: the one asked for; else, among the clusters
+ * with a slow route (or all clusters when none has one), the meta leader's,
+ * else the first by name. Never chosen by the order of the routes, which
+ * can change with every refetch when round trips are close.
  */
 export function routesCluster(t: Topology, asked: string | null): string | undefined {
   if (asked !== null && t.clusters.some((c) => c.name === asked)) return asked;
-  const slow = t.routes.find((r) => r.slow);
-  if (slow) return slow.cluster;
-  const leader = t.clusters.find((c) => c.metaLeader);
+  const slow = new Set(t.routes.filter((r) => r.slow).map((r) => r.cluster));
+  const pool = slow.size > 0 ? t.clusters.filter((c) => slow.has(c.name)) : t.clusters;
+  const leader = pool.find((c) => c.metaLeader);
   if (leader) return leader.name;
-  return [...t.clusters].map((c) => c.name).sort()[0];
+  return pool.map((c) => c.name).sort()[0] ?? [...slow].sort()[0];
 }
 
 /** "Drops are counted from collections every 30s; …" */
