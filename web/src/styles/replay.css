@@ -109,3 +109,7 @@
 /* A step's leader elections on one server, folded into one line that opens to the list. */
 .rp-evg summary{cursor:pointer;list-style-position:inside}
 .rp-evg ul{list-style:none;margin:2px 0 0 14px;padding:0;display:flex;flex-direction:column;gap:2px}
+
+/* With a window bar, the handle lines leave a gap across it, so a line
+   never runs through a window's label. */
+.rs-track.has-wins .rs-line{background:linear-gradient(var(--text) 0 28px,transparent 28px 54px,var(--text) 54px)}
