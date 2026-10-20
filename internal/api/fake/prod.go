@@ -1,6 +1,7 @@
 package fake
 
 import (
+	"fmt"
 	"time"
 
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
@@ -98,6 +99,14 @@ func prodCreated(s scen, _, consumer string) ([]time.Time, bool) {
 
 // prodTransitions gives the flapping consumer-002 its history.
 func prodTransitions(s scen, f *v1.Finding) []*v1.FindingTransition {
+	if f.GetCheckCode() == "client-003" && f.GetEntity().GetKey() == "media-worker" {
+		// It fired with the third disconnect, and its detail then named
+		// those three.
+		return []*v1.FindingTransition{
+			{FindingId: f.GetId(), Time: f.GetResolvedAt(), State: resolved, Severity: f.GetSeverity(), Detail: f.GetDetail()},
+			{FindingId: f.GetId(), Time: f.GetSince(), State: firing, Severity: f.GetSeverity(), Detail: prodSlowDetail(3, "nats-1, nats-2", s.at(9, 17, 30))},
+		}
+	}
 	if f.GetCheckCode() != "consumer-002" {
 		return nil
 	}
@@ -109,6 +118,13 @@ func prodTransitions(s scen, f *v1.Finding) []*v1.FindingTransition {
 		tr(s.at(13, 41, 0), resolved), tr(s.at(11, 0, 0), firing), tr(s.at(8, 30, 0), resolved),
 		tr(s.at(8, 15, 0), firing), tr(s.at(7, 45, 0), resolved), tr(s.at(7, 30, 0), firing),
 	}
+}
+
+// prodSlowDetail is client-003's detail for media-worker: n disconnects
+// on the servers, the last at last, a scenario time.
+func prodSlowDetail(n int, servers string, last time.Time) string {
+	return fmt.Sprintf("%d slow consumer disconnects in the last 30m (%s), the last at %s UTC: Slow Consumer (Write Deadline).", n, servers,
+		last.UTC().Format("15:04:05"))
 }
 
 func prodSeedMute() *storedMute {
