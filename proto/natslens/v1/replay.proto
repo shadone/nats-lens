@@ -169,7 +169,8 @@ message ReplayEvidence {
   EntityRef entity = 5;
 
   // For a stream, consumer or meta leader election, the server it
-  // elected; unset for any other evidence.
+  // elected; unset for any other evidence and for an election that names
+  // no server.
   string elected = 6;
 }
 

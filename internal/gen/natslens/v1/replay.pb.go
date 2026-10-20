@@ -497,7 +497,8 @@ type ReplayEvidence struct {
 	// system.
 	Entity *EntityRef `protobuf:"bytes,5,opt,name=entity,proto3" json:"entity,omitempty"`
 	// For a stream, consumer or meta leader election, the server it
-	// elected; unset for any other evidence.
+	// elected; unset for any other evidence and for an election that names
+	// no server.
 	Elected       string `protobuf:"bytes,6,opt,name=elected,proto3" json:"elected,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

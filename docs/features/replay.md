@@ -171,4 +171,5 @@ The Replay page, under Cluster in the sidebar, answers "what changed between the
 - **No step for replicas catching up.** A lagging replica shows only as its `stream-003` or `server-012` finding.
 - **No leader moves without advisories.** nats-lens counts leaders moved from election advisories only, not from differences between collections.
 - **No reconnects per application.** Client reconnects are one count; the page does not say which applications reconnected.
+- **No events gap in the first 30 seconds after a start.** When nats-lens starts and an events connection does not connect, nothing marks the time until `collector.not_connected` is recorded 30 seconds later; those seconds count as captured (proposed, not yet confirmed).
 - **Text export only.** The incident log is plain text; there is no Markdown or JSON export.
