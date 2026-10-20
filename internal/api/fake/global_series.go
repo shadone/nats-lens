@@ -27,12 +27,17 @@ func globalDownAt(sp serverSpec, c time.Time) bool {
 	if !sp.answering() && !c.Before(sp.down) {
 		return true
 	}
-	if sp.day != 0 {
+	kill, ok := globalKilled[sp.name]
+	if sp.day != 0 || !ok {
 		return false
 	}
-	start := fixed(sp.h, sp.m, sp.s)
-	return !c.Before(start.Add(-2*time.Minute)) && c.Before(start)
+	return !c.Before(kill) && c.Before(fixed(sp.h, sp.m, sp.s))
 }
+
+// globalKilled is when the upgrade killed the pods of nats-us-1 to
+// nats-us-3, in the fixed frame: each server is down from then until its
+// new process starts.
+var globalKilled = map[string]time.Time{"nats-us-1": fixed(8, 44, 5), "nats-us-2": fixed(8, 56, 20), "nats-us-3": fixed(9, 4, 50)}
 
 // globalGrowth is how much a server's store grows per day.
 func globalGrowth(sp serverSpec) float64 {
@@ -78,6 +83,11 @@ func globalSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (fl
 		n := 0
 		for _, st := range sc.streams {
 			n += len(st.consumers)
+			for _, v := range st.vanished {
+				if c.Before(v.at) {
+					n++
+				}
+			}
 		}
 		if c.Before(globalInvoiceCreated) {
 			n--

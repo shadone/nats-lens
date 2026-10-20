@@ -68,6 +68,8 @@ const (
 	// LensServiceGetPlacementProcedure is the fully-qualified name of the LensService's GetPlacement
 	// RPC.
 	LensServiceGetPlacementProcedure = "/natslens.v1.LensService/GetPlacement"
+	// LensServiceGetReplayProcedure is the fully-qualified name of the LensService's GetReplay RPC.
+	LensServiceGetReplayProcedure = "/natslens.v1.LensService/GetReplay"
 	// LensServiceListServersProcedure is the fully-qualified name of the LensService's ListServers RPC.
 	LensServiceListServersProcedure = "/natslens.v1.LensService/ListServers"
 	// LensServiceGetServerProcedure is the fully-qualified name of the LensService's GetServer RPC.
@@ -133,6 +135,11 @@ type LensServiceClient interface {
 	// Every stream and durable consumer as each server sees it: one cell
 	// per server that holds or is assigned a replica, with filter counts.
 	GetPlacement(context.Context, *connect.Request[v1.GetPlacementRequest]) (*connect.Response[v1.GetPlacementResponse], error)
+	// What changed between two moments, and in what order: steps built
+	// from collections, events and findings, with counts and the assets
+	// gone in between. A and B are at most 24 hours apart and within the
+	// retention.
+	GetReplay(context.Context, *connect.Request[v1.GetReplayRequest]) (*connect.Response[v1.GetReplayResponse], error)
 	// Servers by name with version, uptime and role.
 	ListServers(context.Context, *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error)
 	// One server with endpoint outcomes and process lifetimes.
@@ -275,6 +282,13 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		getReplay: connect.NewClient[v1.GetReplayRequest, v1.GetReplayResponse](
+			httpClient,
+			baseURL+LensServiceGetReplayProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetReplay")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		listServers: connect.NewClient[v1.ListServersRequest, v1.ListServersResponse](
 			httpClient,
 			baseURL+LensServiceListServersProcedure,
@@ -372,6 +386,7 @@ type lensServiceClient struct {
 	listConsumers      *connect.Client[v1.ListConsumersRequest, v1.ListConsumersResponse]
 	getConsumer        *connect.Client[v1.GetConsumerRequest, v1.GetConsumerResponse]
 	getPlacement       *connect.Client[v1.GetPlacementRequest, v1.GetPlacementResponse]
+	getReplay          *connect.Client[v1.GetReplayRequest, v1.GetReplayResponse]
 	listServers        *connect.Client[v1.ListServersRequest, v1.ListServersResponse]
 	getServer          *connect.Client[v1.GetServerRequest, v1.GetServerResponse]
 	listConnections    *connect.Client[v1.ListConnectionsRequest, v1.ListConnectionsResponse]
@@ -458,6 +473,11 @@ func (c *lensServiceClient) GetConsumer(ctx context.Context, req *connect.Reques
 // GetPlacement calls natslens.v1.LensService.GetPlacement.
 func (c *lensServiceClient) GetPlacement(ctx context.Context, req *connect.Request[v1.GetPlacementRequest]) (*connect.Response[v1.GetPlacementResponse], error) {
 	return c.getPlacement.CallUnary(ctx, req)
+}
+
+// GetReplay calls natslens.v1.LensService.GetReplay.
+func (c *lensServiceClient) GetReplay(ctx context.Context, req *connect.Request[v1.GetReplayRequest]) (*connect.Response[v1.GetReplayResponse], error) {
+	return c.getReplay.CallUnary(ctx, req)
 }
 
 // ListServers calls natslens.v1.LensService.ListServers.
@@ -549,6 +569,11 @@ type LensServiceHandler interface {
 	// Every stream and durable consumer as each server sees it: one cell
 	// per server that holds or is assigned a replica, with filter counts.
 	GetPlacement(context.Context, *connect.Request[v1.GetPlacementRequest]) (*connect.Response[v1.GetPlacementResponse], error)
+	// What changed between two moments, and in what order: steps built
+	// from collections, events and findings, with counts and the assets
+	// gone in between. A and B are at most 24 hours apart and within the
+	// retention.
+	GetReplay(context.Context, *connect.Request[v1.GetReplayRequest]) (*connect.Response[v1.GetReplayResponse], error)
 	// Servers by name with version, uptime and role.
 	ListServers(context.Context, *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error)
 	// One server with endpoint outcomes and process lifetimes.
@@ -687,6 +712,13 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	lensServiceGetReplayHandler := connect.NewUnaryHandler(
+		LensServiceGetReplayProcedure,
+		svc.GetReplay,
+		connect.WithSchema(lensServiceMethods.ByName("GetReplay")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	lensServiceListServersHandler := connect.NewUnaryHandler(
 		LensServiceListServersProcedure,
 		svc.ListServers,
@@ -796,6 +828,8 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceGetConsumerHandler.ServeHTTP(w, r)
 		case LensServiceGetPlacementProcedure:
 			lensServiceGetPlacementHandler.ServeHTTP(w, r)
+		case LensServiceGetReplayProcedure:
+			lensServiceGetReplayHandler.ServeHTTP(w, r)
 		case LensServiceListServersProcedure:
 			lensServiceListServersHandler.ServeHTTP(w, r)
 		case LensServiceGetServerProcedure:
@@ -885,6 +919,10 @@ func (UnimplementedLensServiceHandler) GetConsumer(context.Context, *connect.Req
 
 func (UnimplementedLensServiceHandler) GetPlacement(context.Context, *connect.Request[v1.GetPlacementRequest]) (*connect.Response[v1.GetPlacementResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetPlacement is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetReplay(context.Context, *connect.Request[v1.GetReplayRequest]) (*connect.Response[v1.GetReplayResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetReplay is not implemented"))
 }
 
 func (UnimplementedLensServiceHandler) ListServers(context.Context, *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error) {

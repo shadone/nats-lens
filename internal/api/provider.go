@@ -62,6 +62,10 @@ type Provider interface {
 	// newest epoch with its cells, unfiltered and in any order; the
 	// handler applies the filter and counts with FinishPlacement.
 	GetPlacement(ctx context.Context, req *v1.GetPlacementRequest) (*v1.GetPlacementResponse, error)
+	// Replay reads the facts of the story between the request's A and B,
+	// which the handler has checked and clamped to Now; the handler words
+	// them with FinishReplay. A older than the retention is ErrInvalid.
+	Replay(ctx context.Context, req *v1.GetReplayRequest) (*ReplayFacts, error)
 	ListServers(ctx context.Context, req *v1.ListServersRequest) (*v1.ListServersResponse, error)
 	GetServer(ctx context.Context, req *v1.GetServerRequest) (*v1.GetServerResponse, error)
 	ListConnections(ctx context.Context, req *v1.ListConnectionsRequest) (*v1.ListConnectionsResponse, error)

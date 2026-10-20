@@ -62,7 +62,7 @@ func TestOverviewReproducesTheReferenceScenario(t *testing.T) {
 	if got := o.GetServers()[0]; got.GetRole() != v1.ServerRole_SERVER_ROLE_META_LEADER || got.GetUptime().AsDuration() != 5*time.Hour+11*time.Minute+56*time.Second {
 		t.Fatalf("nats-0 = %v", got)
 	}
-	if len(o.GetTiles()) != 9 || len(o.GetWindows()) != 1 || !o.GetWindows()[0].GetStart().AsTime().Equal(at(9, 14, 0)) {
+	if len(o.GetTiles()) != 9 || len(o.GetWindows()) != 1 || !o.GetWindows()[0].GetStart().AsTime().Equal(at(9, 16, 1)) {
 		t.Fatalf("%d tiles, windows %v", len(o.GetTiles()), o.GetWindows())
 	}
 	want := map[string]float64{"servers": 3, "clients": 182, "meta_leader": 2, "consumers": 13}
@@ -184,7 +184,7 @@ func TestStatusTimeline(t *testing.T) {
 	if got := tl.GetRows()[5].GetNow(); got != v1.Status_STATUS_OK {
 		t.Fatalf("sixth row now = %v, want ok (five fail now)", got)
 	}
-	if len(tl.GetKubernetes()) != 8 || len(tl.GetWindows()) != 1 || len(tl.GetNats()) != 8 {
+	if len(tl.GetKubernetes()) != 15 || len(tl.GetWindows()) != 1 || len(tl.GetNats()) != 48 {
 		t.Fatalf("lanes %d k8s, %d nats, %d windows", len(tl.GetKubernetes()), len(tl.GetNats()), len(tl.GetWindows()))
 	}
 	one := must(client(t).GetStatusTimeline(ctx, connect.NewRequest(&v1.GetStatusTimelineRequest{
@@ -370,5 +370,16 @@ func TestServersAndAccountsFollowTheEpoch(t *testing.T) {
 	acc = must(c.ListAccounts(ctx, connect.NewRequest(&v1.ListAccountsRequest{System: fake.StagingSystem, Range: live}))).GetAccounts()
 	if len(acc) != 1 || acc[0].Connections != nil || acc[0].Streams != nil || acc[0].Consumers != nil {
 		t.Errorf("staging accounts after its stop = %v, want counts unset", acc)
+	}
+}
+
+// The demo reads the Kubernetes events of a window as the store does, up
+// to 15 minutes after the range: a range ending at 09:00 sees example-
+// global's upgrade end at nats-us-4's pod Killing, 09:12:00, not at 09:20:30.
+func TestWindowsReadAsTheStoreReadsThem(t *testing.T) {
+	o := must(demo(t).GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{System: fake.GlobalSystem,
+		Range: &v1.TimeRange{Start: tsAt(8, 0, 0), End: tsAt(9, 0, 0)}})))
+	if ws := o.GetWindows(); len(ws) != 1 || !ws[0].GetEnd().AsTime().Equal(at(9, 12, 0)) {
+		t.Errorf("windows = %v", ws)
 	}
 }

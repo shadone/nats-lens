@@ -278,7 +278,11 @@ func (sc *scenario) resolveEntity(e *v1.EntityRef) (*v1.EntityRef, error) {
 		parts := strings.Split(e.GetKey(), "/")
 		if len(parts) == 3 {
 			if sp, err := sc.findStream(parts[0], parts[1]); err == nil {
-				for _, n := range append(append([]string{}, sp.consumers...), sp.expected...) {
+				names := append(append([]string{}, sp.consumers...), sp.expected...)
+				for _, v := range sp.vanished {
+					names = append(names, v.name)
+				}
+				for _, n := range names {
 					if n == parts[2] {
 						return consumerRef(sp.name, n), nil
 					}

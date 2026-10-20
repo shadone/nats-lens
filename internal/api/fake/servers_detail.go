@@ -48,13 +48,18 @@ func (s scen) slowCount(sp serverSpec, after, before time.Time) int64 {
 	return n
 }
 
-// leads counts the streams sp leads and their consumers, which follow
-// their stream's leader.
-func (s scen) leads(sp serverSpec) (streams, consumers int32) {
+// leads counts the streams sp leads at the scenario time at and the
+// consumers it leads; ephemeral ones follow their stream's leader.
+func (s scen) leads(sp serverSpec, at time.Time) (streams, consumers int32) {
 	for _, st := range s.sc.streams {
-		if s.leader(st) == sp.name {
+		if s.streamLeaderAt(st, at) == sp.name {
 			streams++
-			consumers += int32(len(st.consumers) + st.ephemeral)
+			consumers += int32(st.ephemeral)
+		}
+		for _, n := range s.consumersAt(st, at) {
+			if s.consumerLeaderAt(st, n, at) == sp.name {
+				consumers++
+			}
 		}
 	}
 	return streams, consumers
@@ -131,7 +136,7 @@ func (sc *scenario) gateways(sp serverSpec) int32 {
 // kubernetes is where sp's pod runs; nil for a scenario without the
 // watcher, which draws no Kubernetes lane.
 func (s scen) kubernetes(sp serverSpec) *v1.KubernetesPlacement {
-	if s.sc.k8sLanes == nil {
+	if !s.sc.kubernetes {
 		return nil
 	}
 	k := &v1.KubernetesPlacement{Pod: sp.name, Namespace: "nats"}

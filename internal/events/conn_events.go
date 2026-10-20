@@ -29,6 +29,9 @@ type connWatch struct {
 	lastErr  error     // last connect or reconnect error
 	loggedAt time.Time // last reconnect error logged
 	timer    *time.Timer
+	// redial is a connection dialled again after nats.go closed the one
+	// before: its first connect is a reconnect.
+	redial bool
 }
 
 // setServer records the connected server and returns the last known one;
@@ -106,16 +109,35 @@ func (w *connWatch) reconnectFailed(nc *nats.Conn, err error) {
 // server for NotConnectedAfter, also one that never connected, is recorded
 // as collector.not_connected.
 func (c *Capture) ConnHandlers(label string) []nats.Option {
-	w := &connWatch{c: c, label: label, log: c.o.Log.With("connection", label)}
+	return c.connHandlers(label, false)
+}
+
+// RedialHandlers are ConnHandlers for a connection dialled again after
+// nats.go closed the one before: its first connect, whenever it comes, is
+// recorded once as collector.reconnected; a redial that never connects
+// records none.
+func (c *Capture) RedialHandlers(label string) []nats.Option {
+	return c.connHandlers(label, true)
+}
+
+func (c *Capture) connHandlers(label string, redial bool) []nats.Option {
+	w := &connWatch{c: c, label: label, log: c.o.Log.With("connection", label), redial: redial}
 	return []nats.Option{
 		nats.ConnectHandler(func(nc *nats.Conn) {
 			to := w.setServer(nc)
 			// With RetryOnFailedConnect the first connect after failed
 			// attempts comes here, not to the reconnect handler.
 			w.mu.Lock()
-			failed := w.lastErr != nil || w.timer != nil
+			failed, redial := w.lastErr != nil || w.timer != nil, w.redial
+			w.redial = false
 			w.mu.Unlock()
 			w.disarm()
+			if redial {
+				w.log.Info("nats connected after the connection was dialled again", "server", to)
+				c.Record(c.collectorEvent("collector.reconnected", label, nc, "dialled again after the connection closed",
+					fmt.Sprintf("collector connection %s dialled again after it closed, connected to %s", label, orDash(to))))
+				return
+			}
 			if failed {
 				w.log.Info("nats connected after failed attempts", "server", to)
 				c.Record(c.collectorEvent("collector.reconnected", label, nc, "",
@@ -179,17 +201,6 @@ func (c *Capture) ConnHandlers(label string) []nats.Option {
 				fmt.Sprintf("collector connection %s subscription %s: %v", label, orDash(subj), err)))
 		}),
 	}
-}
-
-// RecordReopened records collector.reconnected for a connection that
-// nats.go had closed and the collector dialled again.
-func (c *Capture) RecordReopened(label string, nc *nats.Conn) {
-	to := ""
-	if nc != nil {
-		to = nc.ConnectedServerName()
-	}
-	c.Record(c.collectorEvent("collector.reconnected", label, nc, "dialled again after the connection closed",
-		fmt.Sprintf("collector connection %s dialled again after it closed, connected to %s", label, orDash(to))))
 }
 
 func (c *Capture) collectorEvent(kind, label string, nc *nats.Conn, reason, summary string) Event {

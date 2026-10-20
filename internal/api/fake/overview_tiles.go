@@ -26,7 +26,7 @@ func (s scen) overviewTiles(r *v1.TimeRange, maxPoints int32, servers []*v1.Serv
 	srv.Subtitle = api.ServersSubtitle(servers)
 
 	meta := tile(api.TileMetaLeader, "cluster.meta_leader_changes", api.SumPoints, cnt)
-	meta.ValueText = s.sc.metaLeader
+	meta.ValueText = s.metaLeaderAt(s.epochTime(r))
 	if meta.Value != nil {
 		meta.Subtitle = api.Plural(int(meta.GetValue()), "leader change") + " in range"
 	}

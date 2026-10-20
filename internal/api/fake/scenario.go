@@ -1,8 +1,10 @@
 package fake
 
 import (
+	"sync"
 	"time"
 
+	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -50,9 +52,10 @@ type scenario struct {
 	// infoUntil holds, by check code, when a row's findings changed from
 	// info to its severity, in the fixed frame: its cells are info before.
 	infoUntil map[string]time.Time
-	windows   func(s scen, r *v1.TimeRange) []*v1.TimeWindow
-	// k8sLanes draws the Kubernetes lane through lane.
-	k8sLanes func(s scen, lane func(at time.Time, kind, short, label string))
+	// kubernetes is whether the system watches Kubernetes: its
+	// Kubernetes events draw the lane and the windows, by the store's
+	// rules.
+	kubernetes bool
 	// sample is a metric's value at fixed-frame time c; ok is false where
 	// there is no data.
 	sample func(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (float64, bool)
@@ -68,6 +71,23 @@ type scenario struct {
 	// created returns each peer's creation time of a consumer, in peer
 	// order, and whether they disagree; nil means the same time on all.
 	created func(s scen, stream, consumer string) ([]time.Time, bool)
+	// gone returns the assets servers held at Replay's A and none holds
+	// at its B besides the vanished durables of the streams; nil means
+	// none.
+	gone func(s scen, f *api.ReplayFacts) []api.ReplayGone
+	// initialLeaders are the leaders, by entity key, that differ at the
+	// start of the history from a stream's first peer and a consumer's
+	// stream leader.
+	initialLeaders map[string]string
+	// spreadLeaders spreads the initial stream leaders over the replicas:
+	// the i-th stream's is its peer i modulo its replicas, not its first.
+	spreadLeaders bool
+	// model is the leaders' history, built once from the scenario.
+	modelOnce sync.Once
+	model     *leaderModel
+	// ids are the events' IDs by kind and time, counted once.
+	idsOnce sync.Once
+	ids     map[string]string
 }
 
 // systemRef is the scenario's system entity.
