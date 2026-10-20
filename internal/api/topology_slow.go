@@ -30,7 +30,7 @@ const (
 //     split into groups of similar size, none of which is the normal one,
 //     and nothing in it is slow.
 //  3. A server outside the reference group with a reported pair to it is
-//     slow; all its routes are slow. One without such a pair is not judged.
+//     slow; all its routes with a round trip are slow. One without such a pair is not judged.
 //  4. A pair inside the reference group is slow (a slow link) when it is at
 //     least slowRouteFloor and slowRouteFactor times the median of the
 //     group's pairs that touch neither of its servers, given at least
