@@ -45,9 +45,9 @@ export function global(): AccountsAndAuth {
     epochAt: EPOCH_AT,
     operatorMode: true,
     accounts: [
-      account("APP", { connections: 412, subscriptions: 3_120, jsStorage: 410 * GIB, streams: 23, connLimit: 2000, diskLimit: 500 * GIB, imports: 1, hasJwt: true }),
-      account(SUPPLIERS, { accountName: "SUPPLIERS", exports: 1, connLimit: 50, diskLimit: 0, jsStorage: undefined, hasJwt: true, jwtExpires: EPOCH_AT + 12 * DAY }),
-      account("SYS", { isSystem: true, subscriptions: 412, exports: 11, connLimit: -1, diskLimit: 0, jsStorage: undefined, hasJwt: true }),
+      account("APP", { connections: 412, subscriptions: 3_120, jsStorage: 410 * GIB, streams: 23, connLimit: 2000, diskLimit: 500 * GIB, jetstreamEnabled: true, imports: 1, hasJwt: true }),
+      account(SUPPLIERS, { accountName: "SUPPLIERS", exports: 1, connLimit: 50, diskLimit: 0, jetstreamEnabled: false, jsStorage: undefined, hasJwt: true, jwtExpires: EPOCH_AT + 12 * DAY }),
+      account("SYS", { isSystem: true, subscriptions: 412, exports: 11, connLimit: -1, diskLimit: 0, jetstreamEnabled: false, jsStorage: undefined, hasJwt: true }),
     ],
     accountsTotal: 3,
     failedLogins: [

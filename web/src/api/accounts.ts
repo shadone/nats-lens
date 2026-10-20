@@ -17,8 +17,10 @@ export interface AccountRow {
   streams?: number;
   /** -1 no limit; undefined without a known account JWT. */
   connLimit?: number;
-  /** Bytes; -1 no limit, 0 JetStream not enabled; undefined without a known account JWT. */
+  /** Bytes; -1 no limit, 0 no file storage (see jetstreamEnabled); undefined without a known account JWT. */
   diskLimit?: number;
+  /** False when the account JWT disables JetStream; true with diskLimit 0 means memory only; undefined without a known JWT. */
+  jetstreamEnabled?: boolean;
   imports?: number;
   exports?: number;
   /** Looked up at most 24 hours before the collection; without it the limits and JWT fields are unset. */
@@ -98,6 +100,7 @@ export function accountsAndAuth(r: GetAccountsAndAuthResponse): AccountsAndAuth 
       streams: a.streams,
       connLimit: optN(a.connLimit),
       diskLimit: optN(a.diskLimit),
+      jetstreamEnabled: a.jetstreamEnabled,
       imports: a.imports,
       exports: a.exports,
       detailsKnown: a.detailsKnown,

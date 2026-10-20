@@ -21,7 +21,7 @@ describe("accountsAndAuth", () => {
         epochAt: timestampFromMs(AT),
         operatorMode: true,
         accounts: [
-          { account: "APP", connections: 0, subscriptions: 12n, connLimit: -1n, diskLimit: 0n, detailsKnown: true, hasJwt: true },
+          { account: "APP", connections: 0, subscriptions: 12n, connLimit: -1n, diskLimit: 0n, jetstreamEnabled: true, detailsKnown: true, hasJwt: true },
           { account: "SYS", isSystem: true },
         ],
         accountsTotal: 2,
@@ -37,10 +37,10 @@ describe("accountsAndAuth", () => {
     expect(d.collected).toBe(true);
     expect(d.epochAt).toBe(AT);
     const [app, sys] = d.accounts;
-    expect(app).toMatchObject({ connections: 0, subscriptions: 12, connLimit: -1, diskLimit: 0, detailsKnown: true, hasJwt: true });
+    expect(app).toMatchObject({ connections: 0, subscriptions: 12, connLimit: -1, diskLimit: 0, jetstreamEnabled: true, detailsKnown: true, hasJwt: true });
     expect(app.jsStorage).toBeUndefined();
     expect(app.jwtExpires).toBeUndefined();
-    expect(sys).toMatchObject({ isSystem: true, connections: undefined, subscriptions: undefined, connLimit: undefined, diskLimit: undefined, imports: undefined });
+    expect(sys).toMatchObject({ isSystem: true, connections: undefined, subscriptions: undefined, connLimit: undefined, diskLimit: undefined, jetstreamEnabled: undefined, imports: undefined });
     expect(d.failedLogins[0]).toEqual({ user: "", host: "203.0.113.12", reason: "Authentication Timeout", account: "", accountName: "", count: 96, last: AT - 1000 });
     expect(d.failedLoginsTotal).toBe(96);
     expect(d.expiring.map((e) => e.kind)).toEqual(["certificate", "accountJwt", "userJwt"]);

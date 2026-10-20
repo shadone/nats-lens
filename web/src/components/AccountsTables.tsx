@@ -13,7 +13,7 @@ import {
   expiringTone,
   expiringWhat,
   importsExports,
-  jetStreamOff,
+  diskStateText,
   jwtCell,
   limitBar,
   loginHot,
@@ -103,7 +103,8 @@ function ConnectionsCell({ a }: { a: AccountRow }) {
 }
 
 function DiskCell({ a }: { a: AccountRow }) {
-  if (jetStreamOff(a) && !a.jsStorage) return <span className="ac-none">JetStream off</span>;
+  const state = diskStateText(a);
+  if (state && !a.jsStorage) return <span className="ac-none">{state}</span>;
   if (a.jsStorage === undefined) return <Unset why="not reported" />;
   const of = diskLimitText(a);
   const bar = limitBar(a.jsStorage, a.diskLimit);
@@ -114,7 +115,7 @@ function DiskCell({ a }: { a: AccountRow }) {
         {of && <span className="ac-of"> {of}</span>}
       </div>
       {bar && <Bar bar={bar} label="JetStream disk" />}
-      {jetStreamOff(a) && <small>JetStream off</small>}
+      {state && <small>{state}</small>}
     </>
   );
 }

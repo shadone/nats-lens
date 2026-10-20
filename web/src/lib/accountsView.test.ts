@@ -3,6 +3,7 @@ import { account, EPOCH_AT, expiring, global, login, prod, SUPPLIERS } from "../
 import {
   connLimitText,
   diskLimitText,
+  diskStateText,
   expiresIn,
   expiringCountLine,
   expiringTone,
@@ -13,6 +14,7 @@ import {
   jetStreamOff,
   jwtCell,
   limitBar,
+  memoryOnly,
   loginHot,
   loginUser,
   loginWindowMs,
@@ -102,12 +104,37 @@ describe("limits in words", () => {
     expect(diskLimitText(account("APP", { diskLimit: undefined }))).toBeUndefined();
   });
 
-  it("reads a disk limit of 0 as JetStream off, never as 'of 0 B'", () => {
-    const off = account("SYS", { diskLimit: 0 });
+  it("reads JetStream off from jetstream_enabled false", () => {
+    const off = account("SYS", { diskLimit: 0, jetstreamEnabled: false });
     expect(jetStreamOff(off)).toBe(true);
+    expect(memoryOnly(off)).toBe(false);
+    expect(diskStateText(off)).toBe("JetStream off");
     expect(diskLimitText(off)).toBeUndefined();
-    expect(jetStreamOff(account("APP", { diskLimit: undefined }))).toBe(false);
-    expect(jetStreamOff(account("APP", { diskLimit: -1 }))).toBe(false);
+  });
+
+  it("reads memory only from JetStream enabled with a disk limit of 0, never as 'of 0 B'", () => {
+    const mem = account("APP", { diskLimit: 0, jetstreamEnabled: true });
+    expect(jetStreamOff(mem)).toBe(false);
+    expect(memoryOnly(mem)).toBe(true);
+    expect(diskStateText(mem)).toBe("memory only");
+    expect(diskLimitText(mem)).toBeUndefined();
+  });
+
+  it("says nothing of an enabled account with file storage", () => {
+    const on = account("APP", { diskLimit: 500 * GIB, jetstreamEnabled: true });
+    expect(jetStreamOff(on)).toBe(false);
+    expect(memoryOnly(on)).toBe(false);
+    expect(diskStateText(on)).toBeUndefined();
+    expect(diskStateText(account("APP", { diskLimit: -1, jetstreamEnabled: true }))).toBeUndefined();
+  });
+
+  it("calls nothing off without a known JWT, whatever the disk limit", () => {
+    for (const diskLimit of [undefined, 0]) {
+      const unknown = account("APP", { diskLimit, jetstreamEnabled: undefined });
+      expect(jetStreamOff(unknown)).toBe(false);
+      expect(memoryOnly(unknown)).toBe(false);
+      expect(diskStateText(unknown)).toBeUndefined();
+    }
   });
 });
 
