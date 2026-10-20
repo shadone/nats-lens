@@ -337,7 +337,7 @@ describe("Accounts' certificates read from an older collection", () => {
     renderApp(<Accounts />, "/accounts");
     await screen.findByRole("region", { name: "Expiring soon" });
     const [old, fresh] = bodyRows("Expiring soon");
-    expect(within(old).getByRole("rowheader")).toHaveTextContent("nats-us-4 certificate, client listeneras of 13:20 UTC; no answer since");
+    expect(within(old).getByRole("rowheader")).toHaveTextContent("nats-us-4 certificate, client listenerread at 13:20 UTC; no answer from the server since");
     expect(within(fresh).getByRole("rowheader")).toHaveTextContent(/^nats-eu-0 certificate, client listener$/);
   });
 });
@@ -383,6 +383,15 @@ describe("Accounts review round 2", () => {
   });
 });
 
+function Go({ to }: { to: string }) {
+  const nav = useNavigate();
+  return (
+    <button type="button" onClick={() => nav(to)}>
+      go
+    </button>
+  );
+}
+
 function SwitchSystem() {
   const nav = useNavigate();
   return (
@@ -409,18 +418,38 @@ describe("Accounts on a system switch", () => {
     expect(screen.queryByRole("region", { name: "Accounts and limits" })).toBeNull();
   });
 
-  it("does not keep the previous system's accounts when the new system's request fails", async () => {
-    vi.mocked(requests.getAccountsAndAuth).mockResolvedValueOnce(global()).mockRejectedValueOnce(new Error("unavailable"));
+  it("keeps the same system's answer while a new range loads", async () => {
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValueOnce(global()).mockReturnValueOnce(new Promise(() => {}));
     renderApp(
       <>
         <Accounts />
-        <SwitchSystem />
+        <Go to="/accounts?system=example-global&range=1h" />
       </>,
       "/accounts?system=example-global",
     );
     await screen.findByText(/^Operator mode · 3 accounts/);
-    await act(async () => screen.getByRole("button", { name: "switch" }).click());
-    await screen.findByText(/unavailable/);
-    expect(screen.queryByRole("region", { name: "Accounts and limits" })).toBeNull();
+    await act(async () => screen.getByRole("button", { name: "go" }).click());
+    expect(vi.mocked(requests.getAccountsAndAuth).mock.calls.length).toBe(2);
+    expect(screen.getByText(/^Operator mode · 3 accounts/)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Accounts and limits" })).toBeInTheDocument();
+  });
+});
+
+describe("Accounts' lines under a cell", () => {
+  it("keeps each part on one line, so a line breaks only between parts", async () => {
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValue({
+      ...global(),
+      accounts: [account("APP", { connections: 75, connLimit: 50, hasJwt: true })],
+      expiring: [expiring({ kind: "certificate", server: "nats-us-4", listener: "client", expires: EPOCH_AT + 16 * DAY, seenAt: EPOCH_AT - 70 * 60_000 })],
+      expiringTotal: 1,
+    });
+    renderApp(<Accounts />, "/accounts");
+    await screen.findByRole("region", { name: "Expiring soon" });
+    const parts = (el: Element) => [...el.querySelectorAll(".ac-nw")].map((n) => n.textContent);
+    expect(parts(document.querySelector(".ac-limit-note")!)).toEqual(["150% of the limit", "over the limit"]);
+    const login = within(bodyRows("Failed logins, 24 h")[0]).getByRole("rowheader").querySelector("small")!;
+    expect(parts(login)).toEqual(["account APP", "frequent, about 60 an hour"]);
+    const cert = within(bodyRows("Expiring soon")[0]).getByRole("rowheader").querySelector("small")!;
+    expect(parts(cert)).toEqual(["read at 13:20 UTC", "no answer from the server since"]);
   });
 });
