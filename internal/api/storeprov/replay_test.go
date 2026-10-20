@@ -530,3 +530,25 @@ func TestReplayEventsConnectionLostFromStore(t *testing.T) {
 		t.Errorf("unobserved = %v", res.GetUnobserved())
 	}
 }
+
+// nats-lens restarted while the sys connection had no server: the time
+// without events ends when it started again.
+func TestReplayEventsGapEndsAtTheNextStartFromStore(t *testing.T) {
+	p, r := replayStore(t)
+	r.add("events", map[string]any{"id": 1200, "time": rEpoch(30), "received_at": rEpoch(30), "source": "collector", "kind": "collector.not_connected",
+		"summary": "not connected", "raw": `{"connection":"sys","reason":"no server reachable"}`})
+	r.add("events", map[string]any{"id": 1201, "time": rEpoch(33), "received_at": rEpoch(33), "source": "collector", "kind": "collector.started",
+		"summary": "collector started", "raw": `{}`})
+	f, err := p.Replay(ctx, replayReq(rEpoch(3), rEpoch(40)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, u := range api.FinishReplay(f).GetUnobserved() {
+		if u.GetReason() == v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_EVENTS_CONNECTION_LOST && !u.GetTo().AsTime().Equal(rEpoch(33)) {
+			t.Errorf("%v", u)
+		}
+	}
+	if len(f.Gaps) == 0 || !slices.ContainsFunc(f.Gaps, func(g api.ReplayGap) bool { return g.Kind == api.GapEvents && g.End.Equal(rEpoch(33)) }) {
+		t.Errorf("gaps = %+v", f.Gaps)
+	}
+}
