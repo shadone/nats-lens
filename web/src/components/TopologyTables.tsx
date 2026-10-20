@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import type { TopologyCluster, TopologyLeafnode, TopologyRoute } from "../api/topology";
 import { fmtBytes, fmtInt, fmtShortDuration, shortWhen } from "../lib/format";
+import { clusterLabel } from "../lib/topologyView";
 import { serverPath } from "../lib/view";
 import { AccountName } from "./AccountName";
 import { Num, RLink } from "./common";
@@ -108,6 +109,7 @@ export function RouteTable({
   single: boolean;
 }) {
   const rows = routes.filter((r) => r.cluster === picked);
+  const name = picked === undefined ? "the cluster" : clusterLabel(picked);
   const pick =
     clusters.length > 1 ? (
       <label className="tp-pick">
@@ -115,16 +117,16 @@ export function RouteTable({
         <select value={picked ?? ""} onChange={(e) => onPick(e.target.value)}>
           {clusters.map((c) => (
             <option key={c.name} value={c.name}>
-              {c.name || "(no name)"}
+              {clusterLabel(c.name)}
             </option>
           ))}
         </select>
       </label>
     ) : undefined;
   return (
-    <Card title={`Routes inside ${picked || "the cluster"}`} right={pick} className="tp-routes">
+    <Card title={`Routes inside ${name}`} right={pick} className="tp-routes">
       {rows.length === 0 ? (
-        <p className="tp-foot">No routes reported inside {picked || "the cluster"}.</p>
+        <p className="tp-foot">No routes reported inside {name}.</p>
       ) : (
         <div className="table-wrap scroll-cue">
           <table className="tbl">

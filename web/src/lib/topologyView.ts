@@ -6,17 +6,42 @@ import { fmtDuration, fmtInt, fmtShortDuration } from "./format";
 /** The board's layout holds at most this many clusters in a row. */
 export const MAP_MAX_CLUSTERS = 4;
 
-/** Below this width per cluster the map is a grid of boxes and a gateway table. */
-export const MAP_MIN_WIDTH_PER_CLUSTER = 240;
+/** The narrowest gap that holds "gateway 166 ms" on one line, in pixels. */
+export const MAP_MIN_GAP = 116;
 
-/** Whether the map draws the board's row of boxes; width 0 is not yet measured. */
+/** The narrowest cluster box of the row, in pixels: two server chips side by side. */
+export const MAP_MIN_BOX = 150;
+
+/** The row's columns in fractions: a box, then the gap a gateway label sits in. */
+export function rowFractions(clusters: number): { box: number; gap: number; slots: number } {
+  return clusters >= 4 ? { box: 4, gap: 3, slots: clusters } : { box: 5, gap: 3, slots: 3 };
+}
+
+/**
+ * Whether the map draws the board's row of boxes in a map of this inner
+ * width: at most four clusters, each gap wide enough for a label and each
+ * box for two chips. Width 0 is not yet measured.
+ */
 export function rowLayout(clusters: number, width: number): boolean {
   if (clusters > MAP_MAX_CLUSTERS) return false;
-  return width === 0 || width >= clusters * MAP_MIN_WIDTH_PER_CLUSTER;
+  if (width === 0) return true;
+  const f = rowFractions(clusters);
+  const unit = width / (f.slots * f.box + (f.slots - 1) * f.gap);
+  return unit * f.gap >= MAP_MIN_GAP && unit * f.box >= MAP_MIN_BOX;
+}
+
+/** The name a cluster is shown by; one whose servers report no cluster name is the unknown cluster. */
+export function clusterLabel(name: string): string {
+  return name || "unknown cluster";
 }
 
 function plural(n: number, one: string, many = `${one}s`): string {
   return `${fmtInt(n)} ${n === 1 ? one : many}`;
+}
+
+/** Whether no connection of the pair is up though some are expected. */
+export function gatewayDown(g: TopologyGateway): boolean {
+  return g.expected > 0 && g.connections === 0;
 }
 
 /** "3 clusters joined by gateways, 30 leaf node sites at the edge" */
@@ -27,7 +52,13 @@ export function summary(t: Topology): string {
     const c = t.clusters[0];
     parts.push(`One cluster${c.name ? `, ${c.name},` : ""} of ${plural(c.servers.length, "server")}`);
   } else if (n > 1) {
-    parts.push(t.gateways.length > 0 ? `${plural(n, "cluster")} joined by gateways` : plural(n, "cluster"));
+    const down = t.gateways.filter(gatewayDown).length;
+    if (t.gateways.length === 0) parts.push(plural(n, "cluster"));
+    else if (down === t.gateways.length) parts.push(`${plural(n, "cluster")}, every gateway pair down`);
+    else {
+      parts.push(`${plural(n, "cluster")} joined by gateways`);
+      if (down > 0) parts.push(`${plural(down, "gateway pair")} down`);
+    }
   }
   if (t.leafnodesTotal > 0) parts.push(`${plural(t.leafnodesTotal, "leaf node site")} at the edge`);
   return parts.join(", ");
@@ -38,12 +69,20 @@ export function droppingServers(gateways: TopologyGateway[]): Set<string> {
   return new Set(gateways.filter((g) => (g.drops1h ?? 0) > 0).flatMap((g) => g.droppingServers));
 }
 
+function other(g: TopologyGateway, c: TopologyCluster): string {
+  return clusterLabel(g.a === c.name ? g.b : g.a);
+}
+
+function touches(g: TopologyGateway, c: TopologyCluster): boolean {
+  return g.a === c.name || g.b === c.name;
+}
+
 /** The other cluster of each pair whose gateway from c dropped in the last hour. */
 function droppingTo(c: TopologyCluster, gateways: TopologyGateway[]): string[] {
   const names = new Set(c.servers.map((s) => s.name));
   return gateways
-    .filter((g) => (g.drops1h ?? 0) > 0 && (g.a === c.name || g.b === c.name) && g.droppingServers.some((s) => names.has(s)))
-    .map((g) => (g.a === c.name ? g.b : g.a));
+    .filter((g) => (g.drops1h ?? 0) > 0 && touches(g, c) && !gatewayDown(g) && g.droppingServers.some((s) => names.has(s)))
+    .map((g) => other(g, c));
 }
 
 /** "JetStream meta leader · 5 streams led · gateway to us dropping" */
@@ -53,13 +92,14 @@ export function clusterNote(c: TopologyCluster, gateways: TopologyGateway[]): st
   if (c.streamsLed !== undefined) parts.push(`${plural(c.streamsLed, "stream")} led`);
   const missing = c.servers.filter((s) => s.missing).length;
   if (missing > 0) parts.push(`${missing} missing`);
+  for (const g of gateways) if (touches(g, c) && gatewayDown(g)) parts.push(`gateway to ${other(g, c)} down`);
   for (const o of droppingTo(c, gateways)) parts.push(`gateway to ${o} dropping`);
   return parts.join(" · ");
 }
 
-/** Whether the cluster's box is drawn in the warning colour. */
-export function clusterWarns(c: TopologyCluster, dropping: Set<string>): boolean {
-  return c.servers.some((s) => s.missing || dropping.has(s.name));
+/** Whether the cluster's box is drawn in the warning colour: a server missing or dropping, or a gateway pair of it down. */
+export function clusterWarns(c: TopologyCluster, dropping: Set<string>, gateways: TopologyGateway[]): boolean {
+  return c.servers.some((s) => s.missing || dropping.has(s.name)) || gateways.some((g) => touches(g, c) && gatewayDown(g));
 }
 
 /** A gateway pair is drawn in the warning colour when it dropped in the last hour or has connections down. */
@@ -67,17 +107,23 @@ export function gatewayWarns(g: TopologyGateway): boolean {
   return (g.drops1h ?? 0) > 0 || g.connections < g.expected;
 }
 
-/** "gateway 84 ms · 3 drops/h" */
-export function gatewayLabel(g: TopologyGateway): string {
-  const parts = [g.rttMedianMs === undefined ? "gateway" : `gateway ${fmtShortDuration(g.rttMedianMs)}`];
+/** The parts of a gateway's label, each kept on one line: ["gateway 84 ms", "3 drops/h"]. */
+export function gatewayLabelParts(g: TopologyGateway): string[] {
+  const parts = [gatewayDown(g) ? "gateway down" : g.rttMedianMs === undefined ? "gateway" : `gateway ${fmtShortDuration(g.rttMedianMs)}`];
   if ((g.drops1h ?? 0) > 0) parts.push(`${fmtInt(g.drops1h!)} ${g.drops1h === 1 ? "drop" : "drops"}/h`);
   if (g.connections < g.expected) parts.push(`${g.connections} of ${g.expected} up`);
-  return parts.join(" · ");
+  return parts;
+}
+
+/** "gateway 84 ms · 3 drops/h" */
+export function gatewayLabel(g: TopologyGateway): string {
+  return gatewayLabelParts(g).join(" · ");
 }
 
 /** The whole of a gateway pair in words, for the tooltip and screen readers. */
 export function gatewayText(g: TopologyGateway): string {
-  const parts = [`Gateway ${g.a} – ${g.b}: ${g.connections} of ${g.expected} connections up`];
+  const parts = [`Gateway ${clusterLabel(g.a)} – ${clusterLabel(g.b)}: ${g.connections} of ${g.expected} connections up`];
+  if (gatewayDown(g)) parts.push("down");
   if (g.rttMedianMs !== undefined) parts.push(`round trip ${fmtShortDuration(g.rttMedianMs)} median, ${fmtShortDuration(g.rttMaxMs ?? g.rttMedianMs)} highest`);
   else parts.push("no round trip reported");
   parts.push(g.drops1h === undefined ? "drops in the last hour not known" : `${plural(g.drops1h, "drop")} in the last hour`);
@@ -86,14 +132,14 @@ export function gatewayText(g: TopologyGateway): string {
   return parts.join("; ");
 }
 
-/** "18 sites · 1 not connected", "12 sites · all connected"; undefined without sites or counts. */
-export function leafBox(c: TopologyCluster): { sites: number; rest: string } | undefined {
+/** 18, "sites", "1 not connected"; undefined without sites or counts. */
+export function leafBox(c: TopologyCluster): { sites: number; unit: string; state: string } | undefined {
   if (c.leafConnected === undefined && c.leafNotConnected === undefined) return undefined;
   const up = c.leafConnected ?? 0;
   const down = c.leafNotConnected ?? 0;
   const sites = up + down;
   if (sites === 0) return undefined;
-  return { sites, rest: `${sites === 1 ? "site" : "sites"} · ${down === 0 ? "all connected" : `${fmtInt(down)} not connected`}` };
+  return { sites, unit: sites === 1 ? "site" : "sites", state: down === 0 ? "all connected" : `${fmtInt(down)} not connected` };
 }
 
 /**

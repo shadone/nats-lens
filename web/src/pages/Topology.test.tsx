@@ -12,6 +12,13 @@ vi.mock("../api/requests", () => ({ getTopology: vi.fn(), getLensInfo: vi.fn(() 
 
 afterEach(() => vi.mocked(requests.getTopology).mockReset());
 
+/** The map label whose visible text is text, as its parts read together. */
+function gwLabel(text: string): HTMLElement {
+  const el = [...document.querySelectorAll<HTMLElement>(".tm-gw-label")].find((e) => e.querySelector("[aria-hidden]")?.textContent === text);
+  if (!el) throw new Error(`no gateway label "${text}"`);
+  return el;
+}
+
 function table(name: string) {
   return within(screen.getByRole("region", { name }));
 }
@@ -43,9 +50,11 @@ describe("Topology", () => {
   it("draws a gateway that dropped in the last hour in the warning colour, with its servers", async () => {
     vi.mocked(requests.getTopology).mockResolvedValue(global());
     renderApp(<Topology />, "/topology");
-    const label = await screen.findByText("gateway 212 ms · 3 drops/h");
-    expect(label.parentElement).toHaveClass("warn");
-    expect(label.parentElement).toHaveAccessibleName(/Gateway ap – us: 6 of 6 connections up; .*3 drops in the last hour; 7 drops in 24 hours; dropping on nats-ap-1/);
+    await screen.findByText("gateway 84 ms");
+    const label = gwLabel("gateway 212 ms · 3 drops/h");
+    expect(label).toHaveClass("warn");
+    expect(label.querySelectorAll(".nw")).toHaveLength(2);
+    expect(label).toHaveAccessibleName(/Gateway ap – us: 6 of 6 connections up; .*3 drops in the last hour; 7 drops in 24 hours; dropping on nats-ap-1/);
     expect(screen.getByRole("link", { name: "nats-ap-1, gateway dropping" })).toHaveClass("warn");
     expect(screen.getByRole("link", { name: "nats-us-2, missing" })).toHaveClass("warn");
     expect(screen.getByRole("link", { name: "nats-ap-0" })).not.toHaveClass("warn");
@@ -200,7 +209,11 @@ describe("TopologyMap", () => {
   it("draws a gateway between clusters that are not neighbours under the boxes", () => {
     const t = { ...global(), gateways: [gateway("ap", "us", 212, { drops1h: 1, droppingServers: ["nats-ap-1"] })] };
     const { container } = renderApp(<TopologyMap t={t} width={1200} onPick={() => {}} />);
-    expect(screen.getByText("gateway 212 ms · 1 drop/h")).toBeInTheDocument();
+    expect(gwLabel("gateway 212 ms · 1 drop/h")).toBeInTheDocument();
     expect(container.querySelector("polyline.tm-gw-line.warn")).not.toBeNull();
+    // The label sits in the middle of the gap right of ap, clear of the leaf node connector under eu.
+    expect(gwLabel("gateway 212 ms · 1 drop/h").style.left).toMatch(/^30.95/);
+    // Each part of a leaf box stays on one line.
+    expect([...container.querySelectorAll(".tm-leaf .nw")].map((e) => e.textContent)).toEqual(["sites", "1 not connected", "site", "all connected"]);
   });
 });
