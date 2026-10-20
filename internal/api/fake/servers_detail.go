@@ -106,14 +106,14 @@ func (sc *scenario) limitsDiffer(sp serverSpec) []string {
 	return nil
 }
 
-// routeViews are sp's routes: the pooled and pinned routes to every other
-// server of its cluster that answers, or, for a server that stopped
-// answering, to every other server as of its last answer, with the round
-// trips the Topology page reads.
-func (sc *scenario) routeViews(sp serverSpec) []*v1.RouteView {
+// routeViews are sp's routes at the scenario time at: the pooled and
+// pinned routes to every other server of its cluster that answered then,
+// with the round trips the Topology page reads.
+func (s scen) routeViews(sp serverSpec, at time.Time) []*v1.RouteView {
+	sc := s.sc
 	var out []*v1.RouteView
 	for _, x := range sc.servers {
-		if x.cluster != sp.cluster || x.name == sp.name || (sp.answering() && !x.answering()) {
+		if x.cluster != sp.cluster || x.name == sp.name || s.downAt(x, at) {
 			continue
 		}
 		for range sc.routeAccounts() {
@@ -156,9 +156,10 @@ func (s scen) kubernetes(sp serverSpec) *v1.KubernetesPlacement {
 
 // detail fills the parts of GetServer beyond the summary.
 func (s scen) detail(sp serverSpec, res *v1.GetServerResponse, r *v1.TimeRange) {
-	res.RouteViews = s.sc.routeViews(sp)
+	at := s.answeredAt(sp, r)
+	res.RouteViews = s.routeViews(sp, at)
 	res.Routes = ptr(int32(len(res.RouteViews)))
-	res.Gateways, res.Leafnodes = ptr(s.sc.gateways(sp)), ptr(s.leafnodesOn(sp, r))
+	res.Gateways, res.Leafnodes = ptr(s.sc.gateways(sp)), ptr(s.leafCount(sp, at))
 	res.Limits, res.LimitsDiffer = s.sc.limits(sp), s.sc.limitsDiffer(sp)
 	res.Kubernetes = s.kubernetes(sp)
 	res.ConfigLoadedAt = ts(s.started(sp))
@@ -167,15 +168,15 @@ func (s scen) detail(sp serverSpec, res *v1.GetServerResponse, r *v1.TimeRange) 
 	res.JsStreams, res.JsConsumers = ptr(streams), ptr(consumers)
 }
 
-// leafnodesOn counts the leaf node sites on sp in the range's epoch, or,
-// for a server that stopped answering, in its last epoch, as the store
-// reads a server's newest row.
-func (s scen) leafnodesOn(sp serverSpec, r *v1.TimeRange) int32 {
+// answeredAt is the time of the range's epoch, or, for a server that
+// stopped answering before it, of its last epoch, as the store reads a
+// server's newest rows.
+func (s scen) answeredAt(sp serverSpec, r *v1.TimeRange) time.Time {
 	at := s.epochTime(r)
 	if s.downAt(sp, at) && !sp.down.IsZero() {
 		if t, _, ok := s.epochBefore(&v1.TimeRange{Start: ts(s.dataStart()), End: ts(sp.down.Add(s.shift))}); ok {
 			at = t
 		}
 	}
-	return s.leafCount(sp, at)
+	return at
 }
