@@ -53,6 +53,21 @@ describe("ReplaySteps", () => {
     expect(container.querySelector('[data-step="quorum:1"] .sr-only')).toHaveTextContent(/^Quorum, critical:$/);
   });
 
+  it("folds a step's leader elections into one line per new leader that opens to the list", () => {
+    const el = (id: string, stream: string, leader: string) => ({ kind: "event" as const, id, label: `${stream} -> ${leader} (term 4${id})` });
+    const st = rstep("restart:9", "09:20:00", {
+      kind: "restart",
+      title: "nats-1 restarts",
+      evidence: [{ kind: "event", id: "1", label: "pod nats-1 Killing" }, el("2", "order-jobs", "nats-0"), el("3", "order-archive", "nats-0"), el("4", "media-windows", "nats-2"), el("5", "price-changes", "nats-0")],
+      evidenceCount: 25,
+    });
+    const { container } = renderApp(<ReplaySteps steps={[st]} moments={M} notes={[]} />);
+    const ev = within(container.querySelector('[data-step="restart:9"] .rp-ev') as HTMLElement);
+    const lines = [...(container.querySelector('[data-step="restart:9"] .rp-ev') as HTMLElement).children].map((li) => li.querySelector("summary")?.textContent ?? li.textContent);
+    expect(lines).toEqual(["event pod nats-1 Killing", "events 3 leader elections on nats-0", "event media-windows -> nats-2 (term 44)", "and 20 more"]);
+    expect(ev.getByRole("link", { name: "order-archive -> nats-0 (term 43)" })).toHaveAttribute("href", "/events?id=3");
+  });
+
   it("puts the steps after B under an After B divider, each tagged", () => {
     renderApp(<ReplaySteps steps={steps} moments={M} notes={[]} />);
     const after = screen.getByRole("list", { name: "After B" });

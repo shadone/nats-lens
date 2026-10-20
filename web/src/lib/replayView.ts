@@ -80,6 +80,47 @@ function collectionPage(e: Entity | undefined): string {
   return p ?? "/placement";
 }
 
+/** A leader election as the API labels its evidence: "order-jobs -> nats-0 (term 412)". */
+const ELECTION = /^.+ -> (\S+)(?: \(term \d+\))?$/;
+
+export type EvidenceItem = { kind: "one"; e: ReplayEvidence } | { kind: "elections"; leader: string; items: ReplayEvidence[] };
+
+/**
+ * A step's evidence with the leader elections folded into one item per
+ * new leader when there are two or more for it, in the place of the first;
+ * every other record stays as it is.
+ */
+export function groupEvidence(evidence: ReplayEvidence[]): EvidenceItem[] {
+  const leaderOf = (e: ReplayEvidence) => (e.kind === "event" ? ELECTION.exec(e.label)?.[1] : undefined);
+  const counts = new Map<string, number>();
+  for (const e of evidence) {
+    const l = leaderOf(e);
+    if (l) counts.set(l, (counts.get(l) ?? 0) + 1);
+  }
+  const out: EvidenceItem[] = [];
+  const groups = new Map<string, { kind: "elections"; leader: string; items: ReplayEvidence[] }>();
+  for (const e of evidence) {
+    const l = leaderOf(e);
+    if (!l || (counts.get(l) ?? 0) < 2) {
+      out.push({ kind: "one", e });
+      continue;
+    }
+    let g = groups.get(l);
+    if (!g) {
+      g = { kind: "elections", leader: l, items: [] };
+      groups.set(l, g);
+      out.push(g);
+    }
+    g.items.push(e);
+  }
+  return out;
+}
+
+/** "10 leader elections on nats-0" */
+export function electionsText(g: { leader: string; items: ReplayEvidence[] }): string {
+  return `${g.items.length} leader elections on ${g.leader}`;
+}
+
 /** "event", "finding", "collection": what a link opens. */
 export function evidenceWord(e: ReplayEvidence): string {
   return e.kind === "other" ? "record" : e.kind;
