@@ -483,7 +483,12 @@ type Expiring struct {
 	// account JWT as expired.
 	Expired bool `protobuf:"varint,8,opt,name=expired,proto3" json:"expired,omitempty"`
 	// Connections holding a user JWT that expires at expires.
-	Connections   int32 `protobuf:"varint,9,opt,name=connections,proto3" json:"connections,omitempty"`
+	Connections int32 `protobuf:"varint,9,opt,name=connections,proto3" json:"connections,omitempty"`
+	// For a certificate of a server whose VARZ did not answer in the epoch:
+	// when the collection it is read from started, the newest in which the
+	// server's VARZ answered, at most 24 hours before the epoch. Unset when
+	// read from the epoch itself.
+	SeenAt        *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=seen_at,json=seenAt,proto3" json:"seen_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -581,6 +586,13 @@ func (x *Expiring) GetConnections() int32 {
 	return 0
 }
 
+func (x *Expiring) GetSeenAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.SeenAt
+	}
+	return nil
+}
+
 // The accounts of a system in the range's newest epoch, the failed logins
 // of the 24 hours before it, and what expires soon.
 type GetAccountsAndAuthResponse struct {
@@ -608,13 +620,16 @@ type GetAccountsAndAuthResponse struct {
 	// Start of the time failed logins are counted over: 24 hours before the
 	// epoch, or the first collection when the history is shorter.
 	FailedLoginsWindowStart *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=failed_logins_window_start,json=failedLoginsWindowStart,proto3" json:"failed_logins_window_start,omitempty"`
-	// Whether event capture was not running for part of the window (nats-lens
-	// stopped, or a connection that captures events was lost), so the
-	// counts can be low.
+	// Whether event capture, while it ran, stopped for part of the window
+	// (nats-lens stopped, or a connection that captures events was lost),
+	// so the counts can be low. False when events_captured is false.
 	CaptureGaps bool `protobuf:"varint,10,opt,name=capture_gaps,json=captureGaps,proto3" json:"capture_gaps,omitempty"`
 	// Certificates and JWTs that have expired or expire within 30 days of
-	// the epoch: expired first, then the soonest. At most 100. In config
-	// mode only certificates.
+	// the epoch. Certificates are those of every server the epoch expected,
+	// read from the epoch or, for a server whose VARZ did not answer, from
+	// its newest collection with VARZ within 24 hours (seen_at). Order:
+	// expired first, then the soonest. At most 100. In config mode only
+	// certificates.
 	Expiring []*Expiring `protobuf:"bytes,11,rep,name=expiring,proto3" json:"expiring,omitempty"`
 	// Certificates and JWTs that expire more than 30 days after the epoch.
 	ExpireLater int32 `protobuf:"varint,12,opt,name=expire_later,json=expireLater,proto3" json:"expire_later,omitempty"`
@@ -622,8 +637,13 @@ type GetAccountsAndAuthResponse struct {
 	NeverExpire int32 `protobuf:"varint,13,opt,name=never_expire,json=neverExpire,proto3" json:"never_expire,omitempty"`
 	// Expiring rows before the limit of 100.
 	ExpiringTotal int32 `protobuf:"varint,14,opt,name=expiring_total,json=expiringTotal,proto3" json:"expiring_total,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Whether events were captured: some event is stored up to the epoch.
+	// False when event capture is off or never ran, as Replay's
+	// events-not-captured reason; then failed logins cannot be shown, and
+	// an empty list does not mean there were none.
+	EventsCaptured bool `protobuf:"varint,15,opt,name=events_captured,json=eventsCaptured,proto3" json:"events_captured,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *GetAccountsAndAuthResponse) Reset() {
@@ -754,6 +774,13 @@ func (x *GetAccountsAndAuthResponse) GetExpiringTotal() int32 {
 	return 0
 }
 
+func (x *GetAccountsAndAuthResponse) GetEventsCaptured() bool {
+	if x != nil {
+		return x.EventsCaptured
+	}
+	return false
+}
+
 var File_natslens_v1_accounts_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_accounts_proto_rawDesc = "" +
@@ -813,7 +840,7 @@ const file_natslens_v1_accounts_proto_rawDesc = "" +
 	"\aaccount\x18\x04 \x01(\tR\aaccount\x12!\n" +
 	"\faccount_name\x18\x05 \x01(\tR\vaccountName\x12\x14\n" +
 	"\x05count\x18\x06 \x01(\x03R\x05count\x12.\n" +
-	"\x04last\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x04last\"\xb0\x02\n" +
+	"\x04last\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x04last\"\xe5\x02\n" +
 	"\bExpiring\x12-\n" +
 	"\x04kind\x18\x01 \x01(\x0e2\x19.natslens.v1.ExpiringKindR\x04kind\x12\x16\n" +
 	"\x06server\x18\x02 \x01(\tR\x06server\x12\x1a\n" +
@@ -823,7 +850,9 @@ const file_natslens_v1_accounts_proto_rawDesc = "" +
 	"\x04user\x18\x06 \x01(\tR\x04user\x124\n" +
 	"\aexpires\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\aexpires\x12\x18\n" +
 	"\aexpired\x18\b \x01(\bR\aexpired\x12 \n" +
-	"\vconnections\x18\t \x01(\x05R\vconnections\"\xb0\x05\n" +
+	"\vconnections\x18\t \x01(\x05R\vconnections\x123\n" +
+	"\aseen_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\x06seenAt\"\xd9\x05\n" +
 	"\x1aGetAccountsAndAuthResponse\x12\x14\n" +
 	"\x05epoch\x18\x01 \x01(\x03R\x05epoch\x125\n" +
 	"\bepoch_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\aepochAt\x12#\n" +
@@ -839,7 +868,8 @@ const file_natslens_v1_accounts_proto_rawDesc = "" +
 	"\bexpiring\x18\v \x03(\v2\x15.natslens.v1.ExpiringR\bexpiring\x12!\n" +
 	"\fexpire_later\x18\f \x01(\x05R\vexpireLater\x12!\n" +
 	"\fnever_expire\x18\r \x01(\x05R\vneverExpire\x12%\n" +
-	"\x0eexpiring_total\x18\x0e \x01(\x05R\rexpiringTotal*\x8e\x01\n" +
+	"\x0eexpiring_total\x18\x0e \x01(\x05R\rexpiringTotal\x12'\n" +
+	"\x0fevents_captured\x18\x0f \x01(\bR\x0eeventsCaptured*\x8e\x01\n" +
 	"\fExpiringKind\x12\x1d\n" +
 	"\x19EXPIRING_KIND_UNSPECIFIED\x10\x00\x12$\n" +
 	" EXPIRING_KIND_SERVER_CERTIFICATE\x10\x01\x12\x1d\n" +
@@ -877,16 +907,17 @@ var file_natslens_v1_accounts_proto_depIdxs = []int32{
 	7,  // 3: natslens.v1.FailedLogin.last:type_name -> google.protobuf.Timestamp
 	0,  // 4: natslens.v1.Expiring.kind:type_name -> natslens.v1.ExpiringKind
 	7,  // 5: natslens.v1.Expiring.expires:type_name -> google.protobuf.Timestamp
-	7,  // 6: natslens.v1.GetAccountsAndAuthResponse.epoch_at:type_name -> google.protobuf.Timestamp
-	2,  // 7: natslens.v1.GetAccountsAndAuthResponse.accounts:type_name -> natslens.v1.AccountRow
-	3,  // 8: natslens.v1.GetAccountsAndAuthResponse.failed_logins:type_name -> natslens.v1.FailedLogin
-	7,  // 9: natslens.v1.GetAccountsAndAuthResponse.failed_logins_window_start:type_name -> google.protobuf.Timestamp
-	4,  // 10: natslens.v1.GetAccountsAndAuthResponse.expiring:type_name -> natslens.v1.Expiring
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	7,  // 6: natslens.v1.Expiring.seen_at:type_name -> google.protobuf.Timestamp
+	7,  // 7: natslens.v1.GetAccountsAndAuthResponse.epoch_at:type_name -> google.protobuf.Timestamp
+	2,  // 8: natslens.v1.GetAccountsAndAuthResponse.accounts:type_name -> natslens.v1.AccountRow
+	3,  // 9: natslens.v1.GetAccountsAndAuthResponse.failed_logins:type_name -> natslens.v1.FailedLogin
+	7,  // 10: natslens.v1.GetAccountsAndAuthResponse.failed_logins_window_start:type_name -> google.protobuf.Timestamp
+	4,  // 11: natslens.v1.GetAccountsAndAuthResponse.expiring:type_name -> natslens.v1.Expiring
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_accounts_proto_init() }

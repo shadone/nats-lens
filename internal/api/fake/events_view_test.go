@@ -74,8 +74,8 @@ func TestProdEventMix(t *testing.T) {
 func TestGlobalEventMix(t *testing.T) {
 	c := demo(t)
 	res := must(c.ListEvents(ctx, connect.NewRequest(worthReading("example-global"))))
-	// The failed logins add a row for label-printer's retries and one for
-	// each burst of timeouts from 203.0.113.12.
+	// The failed logins add rows for scale-terminal-07's retries (one per
+	// server) and one for each burst of timeouts from 203.0.113.12.
 	if res.GetRoutineHidden() < 600 || len(res.GetRoutineGroups()) < 4 || len(res.GetEvents()) > 135 {
 		t.Fatalf("hidden %d, %d rows, groups %v", res.GetRoutineHidden(), len(res.GetEvents()), res.GetRoutineGroups())
 	}

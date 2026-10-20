@@ -14,11 +14,12 @@ const SuppliersAccount = "ADSUPPLIERSFAKEACCOUNTKEYEXAMPLEGLOBAL7Q2M4XKV3WPJ6RT5
 
 // globalAuth is example-global in operator mode: APP with limits and a
 // JWT without expiry, the system account SYS, and SUPPLIERS, idle, whose
-// JWT expires in 12 days; JetStream is disabled for SYS and SUPPLIERS. label-printer's credentials were revoked
-// yesterday at 12:00 and it retries every minute; something without
-// credentials times out 8 times every 2 hours. nats-eu-0's client certificate
-// expires in 16 days, and the pos-terminal user JWT of three checkout
-// connections in 5 days.
+// JWT expires in 12 days; JetStream is disabled for SYS and SUPPLIERS.
+// The credentials of scale-terminal-07, a warehouse scale, were revoked
+// yesterday at 12:00 and it retries every minute, on nats-us-3 or, while
+// that restarts, nats-us-0; something without credentials times out 8
+// times every 2 hours. nats-eu-0's client certificate expires in 16 days,
+// and the pos-terminal user JWT of three checkout connections in 5 days.
 func globalAuth() *authSpec {
 	return &authSpec{
 		app: &lookupSpec{jwt: true, imports: 1, connLimit: 2000, diskLimit: 500 * gib, memLimit: 16 * gib},
@@ -28,9 +29,10 @@ func globalAuth() *authSpec {
 				lookup: &lookupSpec{jwt: true, expires: 12 * day, exports: 1, connLimit: 50, diskLimit: 0}},
 		},
 		failed: []failedLoginSpec{
-			{user: "label-printer", host: "10.20.4.31", reason: "User Authentication Revoked", account: Account, server: "nats-us-3",
-				since: time.Date(2026, 10, 16, 12, 0, 30, 0, time.UTC), every: time.Minute},
-			{host: "203.0.113.12", reason: "Authentication Timeout", server: "nats-eu-0",
+			{user: "scale-terminal-07", host: "10.20.4.31", reason: "User Authentication Revoked", account: Account,
+				servers: []string{"nats-us-3", "nats-us-0"},
+				since:   time.Date(2026, 10, 16, 12, 0, 30, 0, time.UTC), every: time.Minute},
+			{host: "203.0.113.12", reason: "Authentication Timeout", servers: []string{"nats-eu-0"},
 				since: time.Date(2026, 10, 16, 8, 7, 0, 0, time.UTC), every: 2 * time.Hour, burst: 8, spacing: 20 * time.Second},
 		},
 		certs: func(sp serverSpec) map[string]time.Duration {

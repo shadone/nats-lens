@@ -60,18 +60,31 @@ type accountSpec struct {
 
 // failedLoginSpec is a client that fails to log in every interval from
 // since (fixed frame) on, burst times in a row spaced by spacing (once
-// when burst is 0).
+// when burst is 0), on the first of servers that is up at the time.
 type failedLoginSpec struct {
-	user, host, reason, account, server string
-	since                               time.Time
-	every                               time.Duration
-	burst                               int
-	spacing                             time.Duration
+	user, host, reason, account string
+	servers                     []string
+	since                       time.Time
+	every                       time.Duration
+	burst                       int
+	spacing                     time.Duration
+}
+
+// upServer is the first of names whose server is up at the scenario time
+// at; the first when none is.
+func (s scen) upServer(names []string, at time.Time) string {
+	for _, n := range names {
+		if sp, ok := s.sc.server(n); ok && !s.downAt(sp, at) {
+			return n
+		}
+	}
+	return names[0]
 }
 
 // lookupAge is how long before an epoch the demo's accounts were looked
-// up.
-const lookupAge = 3 * time.Minute
+// up: in the epoch 3 minutes earlier, 2 seconds after it started, as the
+// collector reads a lookup after the epoch's collection.
+const lookupAge = 3*time.Minute - 2*time.Second
 
 // authEvents are the failed logins of the scenario up to now, as the
 // capture stores them: kind client.auth_error, the user in the payload.
@@ -90,11 +103,12 @@ func (s scen) authEvents() []*v1.Event {
 			}
 		}
 		for _, at := range times {
+			server := s.upServer(l.servers, at)
 			raw, _ := json.Marshal(map[string]any{"client": map[string]string{"user": l.user, "host": l.host, "acc": l.account},
 				"reason": l.reason})
 			out = append(out, &v1.Event{Time: ts(at), Source: srcNATS, Kind: "client.auth_error", Type: "CLIENT.AUTH_ERROR",
-				Server: l.server, Account: l.account, ClientHost: l.host, Reason: l.reason, Raw: string(raw),
-				Summary: fmt.Sprintf("authentication failed on %s for user %s from %s: %s", l.server, cmp.Or(l.user, "-"), l.host, l.reason)})
+				Server: server, Account: l.account, ClientHost: l.host, Reason: l.reason, Raw: string(raw),
+				Summary: fmt.Sprintf("authentication failed on %s for user %s from %s: %s", server, cmp.Or(l.user, "-"), l.host, l.reason)})
 		}
 	}
 	return out
@@ -184,7 +198,7 @@ func (p *Provider) AccountsAndAuth(_ context.Context, req *v1.GetAccountsAndAuth
 	}
 	all := p.events(s)
 	s.failedLogins(f, all)
-	f.CaptureGaps = captureGaps(f, all)
+	captureGaps(f, all)
 	f.Certificates = s.certificates(at)
 	f.UserJWTs = s.userJWTs(at)
 	return f, nil
@@ -219,46 +233,54 @@ func (s scen) failedLogins(f *api.AccountsFacts, all []*v1.Event) {
 	f.FailedLoginGroups = int32(len(groups))
 }
 
-// captureGaps applies the store's rule to the scenario's events: none
-// stored up to the epoch, a collector.gap that overlaps the window, or a
-// lost events connection (api.EventsConnectionGaps) that does.
-func captureGaps(f *api.AccountsFacts, all []*v1.Event) bool {
+// captureGaps applies the store's rules to the scenario's events: events
+// were captured when any is stored up to the epoch; capture stopped for
+// part of the window when a collector.gap overlaps it or a lost events
+// connection (api.EventsConnectionGaps) does.
+func captureGaps(f *api.AccountsFacts, all []*v1.Event) {
 	var conns []*v1.Event
-	captured := false
 	for i := len(all) - 1; i >= 0; i-- {
 		e := all[i]
 		if e.GetTime().AsTime().After(f.EpochAt) {
 			continue
 		}
-		captured = true
+		f.EventsCaptured = true
 		if e.GetKind() == "collector.gap" && !e.GetReceivedAt().AsTime().Before(f.WindowStart) {
-			return true
+			f.CaptureGaps = true
 		}
 		if e.GetSource() == v1.EventSource_EVENT_SOURCE_COLLECTOR {
 			conns = append(conns, e)
 		}
 	}
-	if !captured {
-		return true
-	}
-	return slices.ContainsFunc(api.EventsConnectionGaps(conns), func(g api.ReplayGap) bool {
+	f.CaptureGaps = f.CaptureGaps || slices.ContainsFunc(api.EventsConnectionGaps(conns), func(g api.ReplayGap) bool {
 		return !g.Start.After(f.EpochAt) && (g.End.IsZero() || g.End.After(f.WindowStart))
 	})
 }
 
-// certificates are the listener certificates of the servers answering
-// at at.
+// certificates are the listener certificates of every server of the
+// scenario at the epoch at at: a server down then is read from its newest
+// epoch up, at most api.AccountDetailsMaxAge before, with that epoch's
+// time as SeenAt, as the store reads a server whose VARZ did not answer.
 func (s scen) certificates(at time.Time) []api.CertificateFact {
 	if s.sc.auth == nil || s.sc.auth.certs == nil {
 		return nil
 	}
 	var out []api.CertificateFact
 	for _, sp := range s.sc.servers {
+		var seen time.Time
 		if s.downAt(sp, at) {
-			continue
+			for t := at.Add(-sampleEvery); !t.Before(at.Add(-api.AccountDetailsMaxAge)) && !t.Before(s.dataStart()); t = t.Add(-sampleEvery) {
+				if !s.downAt(sp, t) {
+					seen = t
+					break
+				}
+			}
+			if seen.IsZero() {
+				continue
+			}
 		}
 		for listener, in := range s.sc.auth.certs(sp) {
-			out = append(out, api.CertificateFact{Server: sp.name, Listener: listener, NotAfter: FixedNow.Add(in + s.shift)})
+			out = append(out, api.CertificateFact{Server: sp.name, Listener: listener, NotAfter: FixedNow.Add(in + s.shift), SeenAt: seen})
 		}
 	}
 	return out
