@@ -1,9 +1,9 @@
 // "What happened, in order": the steps between A and B, each with its time
 // or span, a dot by kind and severity, a sentence, what it consists of and
 // links to its evidence; then the steps after B that close one of them.
-import type { ReplayStep } from "../api/adapt-replay";
+import type { ReplayEvidence, ReplayStep } from "../api/adapt-replay";
 import { momentIso, type Moments } from "../lib/replayUrl";
-import { FOOTER, KIND_LABEL, dotClass, evidencePath, evidenceWord, whenFormat } from "../lib/replayView";
+import { FOOTER, KIND_LABEL, dotClass, evidencePath, evidenceWord, whenFormat, electionsText, groupEvidence } from "../lib/replayView";
 import { RLink } from "./common";
 
 /** The severity a dot shows, for a screen reader; the kind already says Kubernetes, resolved or gap. */
@@ -33,9 +33,20 @@ function When({ s, fmt }: { s: ReplayStep; fmt: (t: number) => string }) {
   return start;
 }
 
+function EvidenceLink({ e }: { e: ReplayEvidence }) {
+  const p = evidencePath(e);
+  return p ? (
+    <RLink to={p} className="x">
+      {e.label || e.id}
+    </RLink>
+  ) : (
+    <>{e.label || e.id}</>
+  );
+}
+
 function Step({ s, fmt }: { s: ReplayStep; fmt: (t: number) => string }) {
   const dot = dotClass(s);
-  const more = s.evidenceCount - s.evidence.length;
+  const { items, more } = groupEvidence(s);
   return (
     <li className={`rp-step k-${s.kind}${s.kind === "gap" ? " gap" : ""}`} data-step={s.id}>
       <span className="rp-when mono">
@@ -52,20 +63,38 @@ function Step({ s, fmt }: { s: ReplayStep; fmt: (t: number) => string }) {
           {s.outsideRange && <span className="rp-tag">outside the range</span>}
         </div>
         {s.body && <p className="rp-body">{s.body}</p>}
-        {s.evidence.length > 0 && (
+        {items.length > 0 && (
           <ul className="rp-ev" aria-label="Evidence">
-            {s.evidence.map((e, i) => {
-              const p = evidencePath(e);
+            {items.map((item, i) => {
+              if (item.kind === "elections" && item.items.length === 0) {
+                return (
+                  <li key={`elections:${item.leader}`}>
+                    <span className="rp-evk">events</span> {electionsText(item)}
+                  </li>
+                );
+              }
+              if (item.kind === "elections") {
+                return (
+                  <li key={`elections:${item.leader}`}>
+                    <details className="rp-evg">
+                      <summary>
+                        <span className="rp-evk">events</span> {electionsText(item)}
+                      </summary>
+                      <ul>
+                        {item.items.map((e) => (
+                          <li key={e.id}>
+                            <EvidenceLink e={e} />
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  </li>
+                );
+              }
+              const e = item.e;
               return (
                 <li key={`${e.kind}:${e.id}:${i}`}>
-                  <span className="rp-evk">{evidenceWord(e)}</span>{" "}
-                  {p ? (
-                    <RLink to={p} className="x">
-                      {e.label || e.id}
-                    </RLink>
-                  ) : (
-                    e.label || e.id
-                  )}
+                  <span className="rp-evk">{evidenceWord(e)}</span> <EvidenceLink e={e} />
                 </li>
               );
             })}

@@ -42,10 +42,10 @@ describe("a lost events connection", () => {
   it("says the events were not captured, with the connection's lost time", () => {
     const at = (h: string) => Date.parse(`2026-10-17T${h}Z`);
     expect(unobservedText({ count: "leadersMoved", reason: "events_connection_lost", from: at("09:40:00"), to: at("09:52:00") }, fmt)).toBe(
-      "events were not captured, as an events connection was lost 09:40:00–09:52:00",
+      "no events captured: an events connection was lost 09:40:00–09:52:00",
     );
     expect(unobservedText({ count: "clientReconnects", reason: "events_connection_lost", from: at("09:40:00") }, fmt)).toBe(
-      "events were not captured, as an events connection was lost 09:40:00–still at B",
+      "no events captured: an events connection was lost 09:40:00–still at B",
     );
   });
 });

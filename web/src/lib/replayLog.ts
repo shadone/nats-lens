@@ -1,6 +1,6 @@
 // "Export as incident log": the replay as plain text, with every piece of
 // evidence as an absolute link, and the name of the file it downloads as.
-import type { Replay, ReplayStep } from "../api/adapt-replay";
+import type { Replay, ReplayEvidence, ReplayStep } from "../api/adapt-replay";
 import { isoSecond } from "./format";
 import { withGlobal } from "./globalQuery";
 import { compactMoment } from "./replayUrl";
@@ -10,7 +10,9 @@ import {
   collectionNotes,
   countTiles,
   evidencePath,
+  electionsText,
   evidenceWord,
+  groupEvidence,
   goneAtB,
   goneKind,
   gonePath,
@@ -43,11 +45,19 @@ function stepLines(s: ReplayStep, fmt: (t: number) => string, url: (path: string
   const head = `${stepWhen(s, fmt)}  ${KIND_LABEL[s.kind]}${s.severity && s.severity !== "info" ? ` (${s.severity})` : ""}  ${s.title}`;
   const out = [head + (s.outsideRange ? "  [outside the range]" : "")];
   if (s.body) out.push(INDENT + s.body);
-  for (const e of s.evidence) {
+  const line = (e: ReplayEvidence, indent: string) => {
     const p = evidencePath(e);
-    out.push(`${INDENT}${evidenceWord(e)}: ${e.label}${p ? ` ${url(p)}` : ""}`);
+    return `${indent}${evidenceWord(e)}: ${e.label}${p ? ` ${url(p)}` : ""}`;
+  };
+  const { items, more } = groupEvidence(s);
+  for (const item of items) {
+    if (item.kind === "one") {
+      out.push(line(item.e, INDENT));
+      continue;
+    }
+    out.push(`${INDENT}events: ${electionsText(item)}`);
+    for (const e of item.items) out.push(line(e, INDENT + INDENT));
   }
-  const more = s.evidenceCount - s.evidence.length;
   if (more > 0) out.push(`${INDENT}and ${more} more`);
   return out;
 }
@@ -97,7 +107,7 @@ export function replayLog(r: Replay, ctx: LogContext): string {
     lines.push(`${entityName(g.entity)} (${goneKind(g)})${p ? ` ${url(p)}` : ""}`);
     lines.push(`${INDENT}at A: ${serversText(g.serversAtA)}; at B: ${goneAtB(g)}`);
     lines.push(
-      `${INDENT}delete event: ${g.deleteEvent ? `${g.deleteEvent.summary}${g.deleteClient ? ` by ${g.deleteClient}` : ""} ${url(evidencePath({ kind: "event", id: g.deleteEvent.id, label: "" })!)}` : "none captured"}`,
+      `${INDENT}delete event: ${g.deleteEvent ? `${g.deleteEvent.summary || g.deleteEvent.kind}${!g.deleteEvent.summary && g.deleteClient ? ` by ${g.deleteClient}` : ""} ${url(evidencePath({ kind: "event", id: g.deleteEvent.id, label: "" })!)}` : "none captured"}`,
     );
     if (g.lastReported !== undefined) lines.push(`${INDENT}last reported: ${utc(g.lastReported)}`);
     if (g.consumersWithIt > 0) lines.push(`${INDENT}durables with it: ${g.consumersWithIt}`);

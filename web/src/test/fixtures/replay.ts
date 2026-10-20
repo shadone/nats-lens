@@ -19,6 +19,8 @@ export function rstep(id: string, at: string, over: Partial<ReplayStep> = {}): R
     body: "",
     evidence: [],
     evidenceCount: 0,
+    leadersTaken: [],
+    meta: false,
     outsideRange: false,
     ...over,
   };
