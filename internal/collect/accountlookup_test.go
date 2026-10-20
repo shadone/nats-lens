@@ -210,3 +210,14 @@ func TestPartialAccountzKeepsLookupTimes(t *testing.T) {
 		t.Errorf("ONLYC looked up again 2 minutes after its last lookup: %v", got)
 	}
 }
+
+// An epoch in which no server answered anything forgets nothing.
+func TestEmptySnapshotKeepsLookupTimes(t *testing.T) {
+	now := time.Now()
+	c := &Collector{accountAsked: map[string]time.Time{"APP": now, keyNamed: now},
+		accountNames: map[string]string{keyNamed: "APP"}}
+	c.forgetUnlistedAccounts(NewSnapshot(now))
+	if len(c.accountAsked) != 2 || len(c.accountNames) != 1 {
+		t.Errorf("an empty snapshot forgot: %v %v", c.accountAsked, c.accountNames)
+	}
+}
