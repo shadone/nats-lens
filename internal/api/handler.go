@@ -395,3 +395,15 @@ func (h *Handler) GetTopology(ctx context.Context, req *connect.Request[v1.GetTo
 		return FinishTopology(f), nil
 	})
 }
+
+func (h *Handler) GetAccountsAndAuth(ctx context.Context, req *connect.Request[v1.GetAccountsAndAuthRequest]) (*connect.Response[v1.GetAccountsAndAuthResponse], error) {
+	return call(ctx, h, "GetAccountsAndAuth", req.Msg, func(p Provider, m *v1.GetAccountsAndAuthRequest) error {
+		return withRange(p, &m.Range)
+	}, func(s System, ctx context.Context, m *v1.GetAccountsAndAuthRequest) (*v1.GetAccountsAndAuthResponse, error) {
+		f, err := s.Provider.AccountsAndAuth(ctx, m)
+		if err != nil {
+			return nil, err
+		}
+		return FinishAccounts(f), nil
+	})
+}

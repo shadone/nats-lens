@@ -74,7 +74,9 @@ func TestProdEventMix(t *testing.T) {
 func TestGlobalEventMix(t *testing.T) {
 	c := demo(t)
 	res := must(c.ListEvents(ctx, connect.NewRequest(worthReading("example-global"))))
-	if res.GetRoutineHidden() < 600 || len(res.GetRoutineGroups()) < 4 || len(res.GetEvents()) > 120 {
+	// The failed logins add a row for label-printer's retries and one for
+	// each burst of timeouts from 203.0.113.12.
+	if res.GetRoutineHidden() < 600 || len(res.GetRoutineGroups()) < 4 || len(res.GetEvents()) > 135 {
 		t.Fatalf("hidden %d, %d rows, groups %v", res.GetRoutineHidden(), len(res.GetEvents()), res.GetRoutineGroups())
 	}
 	if f := row(res.GetEvents(), "k8s.pod.failed_scheduling", "nats-us-4"); f == nil || f.GetRepeats() != 5 {

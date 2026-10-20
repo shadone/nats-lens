@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package natslens.v1;
 
+import "natslens/v1/accounts.proto";
 import "natslens/v1/buckets.proto";
 import "natslens/v1/consumers.proto";
 import "natslens/v1/events.proto";
@@ -116,6 +117,13 @@ service LensService {
   // the edge, with round trip times and the drops counted from the
   // collections of the 24 hours before.
   rpc GetTopology(GetTopologyRequest) returns (GetTopologyResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // The accounts of the range's newest epoch with their use, limits and
+  // JWT expiry, the failed logins of the 24 hours before it, and the
+  // certificates and JWTs that expire within 30 days.
+  rpc GetAccountsAndAuth(GetAccountsAndAuthRequest) returns (GetAccountsAndAuthResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 

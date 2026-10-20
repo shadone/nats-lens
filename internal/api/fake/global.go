@@ -164,6 +164,7 @@ func globalScenario() *scenario {
 			"search-api", "notification-worker", "label-printer",
 		},
 		metaLeader:    "nats-eu-1",
+		auth:          globalAuth(),
 		links:         globalLinks(),
 		serverDown:    globalDownAt,
 		collection:    v1.CollectionState_COLLECTION_STATE_DEMO,

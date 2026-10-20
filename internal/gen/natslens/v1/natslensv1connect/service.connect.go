@@ -72,6 +72,9 @@ const (
 	LensServiceGetReplayProcedure = "/natslens.v1.LensService/GetReplay"
 	// LensServiceGetTopologyProcedure is the fully-qualified name of the LensService's GetTopology RPC.
 	LensServiceGetTopologyProcedure = "/natslens.v1.LensService/GetTopology"
+	// LensServiceGetAccountsAndAuthProcedure is the fully-qualified name of the LensService's
+	// GetAccountsAndAuth RPC.
+	LensServiceGetAccountsAndAuthProcedure = "/natslens.v1.LensService/GetAccountsAndAuth"
 	// LensServiceListServersProcedure is the fully-qualified name of the LensService's ListServers RPC.
 	LensServiceListServersProcedure = "/natslens.v1.LensService/ListServers"
 	// LensServiceGetServerProcedure is the fully-qualified name of the LensService's GetServer RPC.
@@ -147,6 +150,10 @@ type LensServiceClient interface {
 	// the edge, with round trip times and the drops counted from the
 	// collections of the 24 hours before.
 	GetTopology(context.Context, *connect.Request[v1.GetTopologyRequest]) (*connect.Response[v1.GetTopologyResponse], error)
+	// The accounts of the range's newest epoch with their use, limits and
+	// JWT expiry, the failed logins of the 24 hours before it, and the
+	// certificates and JWTs that expire within 30 days.
+	GetAccountsAndAuth(context.Context, *connect.Request[v1.GetAccountsAndAuthRequest]) (*connect.Response[v1.GetAccountsAndAuthResponse], error)
 	// Servers by name with version, uptime and role.
 	ListServers(context.Context, *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error)
 	// One server with endpoint outcomes and process lifetimes.
@@ -303,6 +310,13 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		getAccountsAndAuth: connect.NewClient[v1.GetAccountsAndAuthRequest, v1.GetAccountsAndAuthResponse](
+			httpClient,
+			baseURL+LensServiceGetAccountsAndAuthProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetAccountsAndAuth")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		listServers: connect.NewClient[v1.ListServersRequest, v1.ListServersResponse](
 			httpClient,
 			baseURL+LensServiceListServersProcedure,
@@ -402,6 +416,7 @@ type lensServiceClient struct {
 	getPlacement       *connect.Client[v1.GetPlacementRequest, v1.GetPlacementResponse]
 	getReplay          *connect.Client[v1.GetReplayRequest, v1.GetReplayResponse]
 	getTopology        *connect.Client[v1.GetTopologyRequest, v1.GetTopologyResponse]
+	getAccountsAndAuth *connect.Client[v1.GetAccountsAndAuthRequest, v1.GetAccountsAndAuthResponse]
 	listServers        *connect.Client[v1.ListServersRequest, v1.ListServersResponse]
 	getServer          *connect.Client[v1.GetServerRequest, v1.GetServerResponse]
 	listConnections    *connect.Client[v1.ListConnectionsRequest, v1.ListConnectionsResponse]
@@ -498,6 +513,11 @@ func (c *lensServiceClient) GetReplay(ctx context.Context, req *connect.Request[
 // GetTopology calls natslens.v1.LensService.GetTopology.
 func (c *lensServiceClient) GetTopology(ctx context.Context, req *connect.Request[v1.GetTopologyRequest]) (*connect.Response[v1.GetTopologyResponse], error) {
 	return c.getTopology.CallUnary(ctx, req)
+}
+
+// GetAccountsAndAuth calls natslens.v1.LensService.GetAccountsAndAuth.
+func (c *lensServiceClient) GetAccountsAndAuth(ctx context.Context, req *connect.Request[v1.GetAccountsAndAuthRequest]) (*connect.Response[v1.GetAccountsAndAuthResponse], error) {
+	return c.getAccountsAndAuth.CallUnary(ctx, req)
 }
 
 // ListServers calls natslens.v1.LensService.ListServers.
@@ -599,6 +619,10 @@ type LensServiceHandler interface {
 	// the edge, with round trip times and the drops counted from the
 	// collections of the 24 hours before.
 	GetTopology(context.Context, *connect.Request[v1.GetTopologyRequest]) (*connect.Response[v1.GetTopologyResponse], error)
+	// The accounts of the range's newest epoch with their use, limits and
+	// JWT expiry, the failed logins of the 24 hours before it, and the
+	// certificates and JWTs that expire within 30 days.
+	GetAccountsAndAuth(context.Context, *connect.Request[v1.GetAccountsAndAuthRequest]) (*connect.Response[v1.GetAccountsAndAuthResponse], error)
 	// Servers by name with version, uptime and role.
 	ListServers(context.Context, *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error)
 	// One server with endpoint outcomes and process lifetimes.
@@ -751,6 +775,13 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	lensServiceGetAccountsAndAuthHandler := connect.NewUnaryHandler(
+		LensServiceGetAccountsAndAuthProcedure,
+		svc.GetAccountsAndAuth,
+		connect.WithSchema(lensServiceMethods.ByName("GetAccountsAndAuth")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	lensServiceListServersHandler := connect.NewUnaryHandler(
 		LensServiceListServersProcedure,
 		svc.ListServers,
@@ -864,6 +895,8 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceGetReplayHandler.ServeHTTP(w, r)
 		case LensServiceGetTopologyProcedure:
 			lensServiceGetTopologyHandler.ServeHTTP(w, r)
+		case LensServiceGetAccountsAndAuthProcedure:
+			lensServiceGetAccountsAndAuthHandler.ServeHTTP(w, r)
 		case LensServiceListServersProcedure:
 			lensServiceListServersHandler.ServeHTTP(w, r)
 		case LensServiceGetServerProcedure:
@@ -961,6 +994,10 @@ func (UnimplementedLensServiceHandler) GetReplay(context.Context, *connect.Reque
 
 func (UnimplementedLensServiceHandler) GetTopology(context.Context, *connect.Request[v1.GetTopologyRequest]) (*connect.Response[v1.GetTopologyResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetTopology is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetAccountsAndAuth(context.Context, *connect.Request[v1.GetAccountsAndAuthRequest]) (*connect.Response[v1.GetAccountsAndAuthResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetAccountsAndAuth is not implemented"))
 }
 
 func (UnimplementedLensServiceHandler) ListServers(context.Context, *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error) {
