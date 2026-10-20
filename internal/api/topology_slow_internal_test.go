@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"math/rand"
 	"slices"
 	"testing"
 	"time"
@@ -78,11 +79,12 @@ func TestSlowRouteMatrix(t *testing.T) {
 		if n >= 3 {
 			one = touching(n, 0)
 		}
-		if n >= 4 {
+		if n >= 5 {
 			two = touching(n, 0, 1)
 		}
 		check(fmt.Sprintf("n=%d one slow server", n), slowCluster(n, slowServers(4*time.Millisecond, 0)), one)
-		// Two slow servers of 3 leave no pair to compare with.
+		// Two slow servers of 3 or 4 leave a core of half or less: not
+		// judged.
 		check(fmt.Sprintf("n=%d two slow servers", n), slowCluster(n, slowServers(4*time.Millisecond, 0, 1)), two)
 		var link []string
 		if n >= 5 {
@@ -128,5 +130,86 @@ func TestSlowRouteMatrix(t *testing.T) {
 			}
 			return 1100*time.Microsecond + time.Duration((a+b)%4)*100*time.Microsecond
 		}), nil)
+	}
+}
+
+// zoned is a cluster of zones of the given sizes, 0.15 ms inside a zone
+// and cross across, every round trip within a sixth either way.
+func zoned(rng *rand.Rand, sizes []int, cross time.Duration) []*v1.TopologyRoute {
+	var zone []int
+	for z, n := range sizes {
+		for range n {
+			zone = append(zone, z)
+		}
+	}
+	jitter := func(d time.Duration) time.Duration { return d + time.Duration(rng.Int63n(int64(d)/3+1)) - d/6 }
+	return slowCluster(len(zone), func(a, b int) time.Duration {
+		if zone[a] == zone[b] {
+			return jitter(150 * time.Microsecond)
+		}
+		return jitter(cross)
+	})
+}
+
+// A cluster split into groups of similar size is not judged, on every
+// refresh; a group of fewer than half is; a co-located pair does not make
+// the rest slow; one slow server is found whatever the jitter.
+func TestSlowRouteSplitsAndJitter(t *testing.T) {
+	rng := rand.New(rand.NewSource(3))
+	for _, sizes := range [][]int{{3, 3}, {4, 4}, {5, 5}, {3, 3, 3}, {4, 3, 3}} {
+		for _, cross := range []time.Duration{2500 * time.Microsecond, 3 * time.Millisecond, 5 * time.Millisecond} {
+			for refresh := range 20 {
+				if got := slowOf(zoned(rng, sizes, cross)); len(got) > 0 {
+					t.Errorf("zones %v at %v, refresh %d: slow %v", sizes, cross, refresh, got)
+					break
+				}
+			}
+		}
+	}
+	// Two of seven far from the other five: the two are slow.
+	if got := slowOf(zoned(rng, []int{5, 2}, 5*time.Millisecond)); !slices.Equal(got, touching(7, 5, 6)) {
+		t.Errorf("zones 5+2 at 5 ms: slow %v, want the routes of s5 and s6", got)
+	}
+	for n := 3; n <= 8; n++ {
+		for _, other := range []time.Duration{2500 * time.Microsecond, 4 * time.Millisecond} {
+			got := slowOf(slowCluster(n, func(a, b int) time.Duration {
+				if a == 0 && b == 1 {
+					return 50 * time.Microsecond
+				}
+				return other
+			}))
+			// With 3, the co-located pair is the majority and the third
+			// server is far from it: slow, as one slow server of 3 is.
+			var want []string
+			if n == 3 {
+				want = touching(3, 2)
+			}
+			if !slices.Equal(got, want) {
+				t.Errorf("n=%d, s0 and s1 0.05 ms apart, the rest %v: slow %v, want %v", n, other, got, want)
+			}
+		}
+	}
+	jitter := func(d time.Duration) time.Duration { return d + time.Duration(rng.Int63n(int64(d)/3+1)) - d/6 }
+	for n := 3; n <= 10; n++ {
+		for _, k := range []int{1, 2} {
+			if k == 2 && n < 5 {
+				continue
+			}
+			for _, at := range []time.Duration{2600 * time.Microsecond, 4 * time.Millisecond, 20 * time.Millisecond} {
+				for refresh := range 20 {
+					slow := rng.Perm(n)[:k]
+					got := slowOf(slowCluster(n, func(a, b int) time.Duration {
+						if slices.Contains(slow, a) || slices.Contains(slow, b) {
+							return jitter(at)
+						}
+						return jitter(base)
+					}))
+					if want := touching(n, slow...); !slices.Equal(got, want) {
+						t.Errorf("n=%d, %v slow at %v, refresh %d: slow %v, want %v", n, slow, at, refresh, got, want)
+						break
+					}
+				}
+			}
+		}
 	}
 }
