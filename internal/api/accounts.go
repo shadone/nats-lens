@@ -101,9 +101,10 @@ type AccountDetails struct {
 	Imports, Exports int32
 	// JWTExpires is nil when the JWT never expires or there is none.
 	JWTExpires *time.Time
-	// LimitConnections and LimitJSDisk are the JWT's limits, -1 no limit;
-	// nil without a JWT.
-	LimitConnections, LimitJSDisk *int64
+	// LimitConnections, LimitJSDisk and LimitJSMemory are the JWT's
+	// limits, -1 no limit; nil without a JWT. JetStream disk and memory
+	// both 0 means JetStream is disabled for the account.
+	LimitConnections, LimitJSDisk, LimitJSMemory *int64
 }
 
 // FailedLoginFact is the failed logins of one user from one address for
@@ -160,6 +161,7 @@ func FinishAccounts(f *AccountsFacts) *v1.GetAccountsAndAuthResponse {
 			row.Imports, row.Exports = ptrTo(d.Imports), ptrTo(d.Exports)
 			if d.HasJWT {
 				row.ConnLimit, row.DiskLimit = d.LimitConnections, d.LimitJSDisk
+				row.JetstreamEnabled = jetStreamEnabled(d)
 				if d.JWTExpires != nil {
 					row.JwtExpires = timestamppb.New(*d.JWTExpires)
 				}
@@ -256,4 +258,14 @@ func compareExpiring(a, b *v1.Expiring) int {
 	return cmp.Or(compareBool(b.GetExpired(), a.GetExpired()), at(a).Compare(at(b)), cmp.Compare(a.GetKind(), b.GetKind()),
 		cmp.Compare(a.GetServer(), b.GetServer()), cmp.Compare(a.GetListener(), b.GetListener()),
 		cmp.Compare(a.GetAccount(), b.GetAccount()), cmp.Compare(a.GetUser(), b.GetUser()))
+}
+
+// jetStreamEnabled is whether the account JWT enables JetStream: a disk
+// or memory limit other than 0, as nats-server enables it. nil when the
+// lookup did not read both limits.
+func jetStreamEnabled(d *AccountDetails) *bool {
+	if d.LimitJSDisk == nil || d.LimitJSMemory == nil {
+		return nil
+	}
+	return ptrTo(*d.LimitJSDisk != 0 || *d.LimitJSMemory != 0)
 }

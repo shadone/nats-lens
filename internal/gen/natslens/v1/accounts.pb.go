@@ -165,8 +165,10 @@ type AccountRow struct {
 	// Most client connections the account JWT allows; -1 no limit. Unset
 	// without a known JWT (config mode, or not looked up yet).
 	ConnLimit *int64 `protobuf:"varint,10,opt,name=conn_limit,json=connLimit,proto3,oneof" json:"conn_limit,omitempty"`
-	// JetStream file storage the account JWT allows, bytes; -1 no limit, 0
-	// JetStream not enabled. Unset as conn_limit.
+	// JetStream file storage the account JWT allows, bytes, comparable with
+	// js_storage; -1 no limit. 0 means JetStream is disabled when
+	// jetstream_enabled is false, and no file storage allowed (memory only)
+	// when it is true. Unset as conn_limit.
 	DiskLimit *int64 `protobuf:"varint,11,opt,name=disk_limit,json=diskLimit,proto3,oneof" json:"disk_limit,omitempty"`
 	// Imports, without those nats-server adds to every account; unset
 	// unless details_known.
@@ -185,9 +187,14 @@ type AccountRow struct {
 	// Whether the server reported the account JWT as expired.
 	Expired bool `protobuf:"varint,17,opt,name=expired,proto3" json:"expired,omitempty"`
 	// When the lookup read; unset unless details_known.
-	DetailsAt     *timestamppb.Timestamp `protobuf:"bytes,18,opt,name=details_at,json=detailsAt,proto3" json:"details_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	DetailsAt *timestamppb.Timestamp `protobuf:"bytes,18,opt,name=details_at,json=detailsAt,proto3" json:"details_at,omitempty"`
+	// Whether the account JWT enables JetStream: its JetStream disk or
+	// memory limit is other than 0, as nats-server enables JetStream for an
+	// account. False: JetStream is disabled for the account. Unset as
+	// conn_limit.
+	JetstreamEnabled *bool `protobuf:"varint,19,opt,name=jetstream_enabled,json=jetstreamEnabled,proto3,oneof" json:"jetstream_enabled,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *AccountRow) Reset() {
@@ -344,6 +351,13 @@ func (x *AccountRow) GetDetailsAt() *timestamppb.Timestamp {
 		return x.DetailsAt
 	}
 	return nil
+}
+
+func (x *AccountRow) GetJetstreamEnabled() bool {
+	if x != nil && x.JetstreamEnabled != nil {
+		return *x.JetstreamEnabled
+	}
+	return false
 }
 
 // Failed logins of one user from one address for one reason.
@@ -747,7 +761,7 @@ const file_natslens_v1_accounts_proto_rawDesc = "" +
 	"\x1anatslens/v1/accounts.proto\x12\vnatslens.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\"a\n" +
 	"\x19GetAccountsAndAuthRequest\x12\x16\n" +
 	"\x06system\x18\x01 \x01(\tR\x06system\x12,\n" +
-	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\"\xa5\x06\n" +
+	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\"\xed\x06\n" +
 	"\n" +
 	"AccountRow\x12\x18\n" +
 	"\aaccount\x18\x01 \x01(\tR\aaccount\x12!\n" +
@@ -773,7 +787,9 @@ const file_natslens_v1_accounts_proto_rawDesc = "" +
 	"\ahas_jwt\x18\x10 \x01(\bR\x06hasJwt\x12\x18\n" +
 	"\aexpired\x18\x11 \x01(\bR\aexpired\x129\n" +
 	"\n" +
-	"details_at\x18\x12 \x01(\v2\x1a.google.protobuf.TimestampR\tdetailsAtB\x0e\n" +
+	"details_at\x18\x12 \x01(\v2\x1a.google.protobuf.TimestampR\tdetailsAt\x120\n" +
+	"\x11jetstream_enabled\x18\x13 \x01(\bH\n" +
+	"R\x10jetstreamEnabled\x88\x01\x01B\x0e\n" +
 	"\f_connectionsB\f\n" +
 	"\n" +
 	"_leafnodesB\x10\n" +
@@ -788,7 +804,8 @@ const file_natslens_v1_accounts_proto_rawDesc = "" +
 	"\n" +
 	"\b_importsB\n" +
 	"\n" +
-	"\b_exports\"\xd0\x01\n" +
+	"\b_exportsB\x14\n" +
+	"\x12_jetstream_enabled\"\xd0\x01\n" +
 	"\vFailedLogin\x12\x12\n" +
 	"\x04user\x18\x01 \x01(\tR\x04user\x12\x12\n" +
 	"\x04host\x18\x02 \x01(\tR\x04host\x12\x16\n" +

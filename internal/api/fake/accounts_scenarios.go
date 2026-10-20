@@ -14,14 +14,14 @@ const SuppliersAccount = "ADSUPPLIERSFAKEACCOUNTKEYEXAMPLEGLOBAL7Q2M4XKV3WPJ6RT5
 
 // globalAuth is example-global in operator mode: APP with limits and a
 // JWT without expiry, the system account SYS, and SUPPLIERS, idle, whose
-// JWT expires in 12 days. label-printer's credentials were revoked
+// JWT expires in 12 days; JetStream is disabled for SYS and SUPPLIERS. label-printer's credentials were revoked
 // yesterday at 12:00 and it retries every minute; something without
 // credentials times out 8 times every 2 hours. nats-eu-0's client certificate
 // expires in 16 days, and the pos-terminal user JWT of three checkout
 // connections in 5 days.
 func globalAuth() *authSpec {
 	return &authSpec{
-		app: &lookupSpec{jwt: true, imports: 1, connLimit: 2000, diskLimit: 500 * gib},
+		app: &lookupSpec{jwt: true, imports: 1, connLimit: 2000, diskLimit: 500 * gib, memLimit: 16 * gib},
 		others: []accountSpec{
 			{id: "SYS", system: true, subs: 412, lookup: &lookupSpec{jwt: true, exports: 11, connLimit: -1, diskLimit: 0}},
 			{id: SuppliersAccount, name: "SUPPLIERS", subs: 0,
