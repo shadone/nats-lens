@@ -152,7 +152,8 @@ export interface JwtCell {
 
 export function jwtCell(a: AccountRow, operatorMode: boolean, epochAt: number | undefined): JwtCell {
   if (!operatorMode) return { why: "no account JWTs in config mode" };
-  if (!a.detailsKnown) return { text: "not looked up yet", tone: "muted" };
+  // Imports / exports says it visibly; one row says it once.
+  if (!a.detailsKnown) return { why: "not looked up yet" };
   if (!a.hasJwt) return { why: "no account JWT" };
   if (a.expired) return { text: "expired", tone: "crit" };
   if (a.jwtExpires === undefined) return { text: "never", tone: "muted" };
@@ -176,9 +177,16 @@ export function loginWindowShort(d: Pick<AccountsAndAuth, "epochAt" | "failedLog
   return d.failedLoginsWindowStart !== undefined && loginWindowMs(d) < DAY - 60_000;
 }
 
-/** Attempts an hour over the window; a window under an hour counts as one. */
+/**
+ * The shortest window a rate is taken over: ten minutes, so a window of 0
+ * (the first collection) has a rate and a handful of attempts in its first
+ * minutes is not taken for a client retrying every minute.
+ */
+const MIN_RATE_WINDOW_MS = 10 * 60_000;
+
+/** Attempts an hour over the window, the true rate; a window under ten minutes counts as ten minutes. */
 export function loginRate(l: FailedLogin, windowMs: number): number {
-  return l.count / Math.max(windowMs / HOUR, 1);
+  return l.count / (Math.max(windowMs, MIN_RATE_WINDOW_MS) / HOUR);
 }
 
 /** Whether a group averages 60 or more attempts an hour over the window. */
@@ -186,8 +194,12 @@ export function loginHot(l: FailedLogin, windowMs: number): boolean {
   return loginRate(l, windowMs) >= HOT_PER_HOUR;
 }
 
-/** The hot row's cue that does not rest on colour: "about 60 an hour". */
-export function loginRateText(l: FailedLogin, windowMs: number): string {
+/**
+ * The hot row's cue that does not rest on colour: "about 60 an hour", or,
+ * for a window under an hour, the count since its start: "70 since 14:00 UTC".
+ */
+export function loginRateText(l: FailedLogin, windowMs: number, windowStart?: number): string {
+  if (windowMs < HOUR && windowStart !== undefined) return `${fmtInt(l.count)} since ${hm(windowStart)} UTC`;
   return `about ${fmtInt(loginRate(l, windowMs))} an hour`;
 }
 
@@ -231,18 +243,20 @@ export function expiringWhat(e: Expiring): string {
 }
 
 /**
- * A certificate read from an older collection: "as of 13:20 UTC: nats-us-4
- * did not answer in this collection", with the day when it is a day or more
- * before; undefined for a row read from the collection itself.
+ * A certificate read from an older collection (its server has not answered
+ * since): "as of 13:20 UTC; no answer since", with the day when the UTC date
+ * differs from the collection's; undefined for a row read from the
+ * collection itself.
  */
 export function seenAtText(e: Expiring, epochAt: number | undefined): string | undefined {
   if (e.seenAt === undefined) return undefined;
-  const when = epochAt !== undefined && epochAt - e.seenAt < DAY ? hm(e.seenAt) : dayMonHm(e.seenAt);
-  return `as of ${when} UTC: ${e.server || "its server"} did not answer in this collection`;
+  const when = epochAt !== undefined && isoDate(epochAt) === isoDate(e.seenAt) ? hm(e.seenAt) : dayMonHm(e.seenAt);
+  return `as of ${when} UTC; no answer since`;
 }
 
-/** The failed-logins card when no event was stored up to the collection, in the words of Replay's events-not-captured reason. */
-export const EVENTS_NOT_CAPTURED_TEXT = "Failed logins are not shown: no event was stored up to this collection, so event capture is not running for this system.";
+/** The failed-logins card when no event was stored up to the collection, in the words of Replay's events-not-captured reason; past tense, so it holds on a past range. */
+export const EVENTS_NOT_CAPTURED_TEXT =
+  "Failed logins are not shown: no event was stored up to this collection, so event capture was not running for this system then.";
 
 /** "16 days", "1 day", "5h 12m", or "expired". */
 export function expiresIn(e: Pick<Expiring, "expires" | "expired">, epochAt: number | undefined): string {

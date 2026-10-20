@@ -77,7 +77,7 @@ function Bar({ bar, label }: { bar: LimitBar; label: string }) {
         <div className={fill} style={{ width: `${bar.pct}%` }} />
       </div>
       {bar.tone !== "ok" && (
-        <small className={`ac-limit-note ac-${bar.tone}`} aria-hidden="true">
+        <small className="ac-limit-note" aria-hidden="true">
           {limitBarText(bar)}
         </small>
       )}
@@ -240,9 +240,9 @@ export function FailedLoginsCard({ d }: { d: AccountsAndAuth }) {
                           )}
                           {l.account && hot && " · "}
                           {hot && (
-                            <span className="ac-warn">
+                            <span>
                               <span className="sr-only">frequent, </span>
-                              {loginRateText(l, windowMs)}
+                              {loginRateText(l, windowMs, d.failedLoginsWindowStart)}
                             </span>
                           )}
                         </small>
@@ -259,12 +259,14 @@ export function FailedLoginsCard({ d }: { d: AccountsAndAuth }) {
           </table>
         </div>
       )}
-      <div className="ac-notes">
-        {cut && <p>{cut}</p>}
-        {d.eventsCaptured && d.failedLogins.length > 0 && <p className="ac-text">A client retrying with revoked credentials every minute shows up here before anyone notices it never connected.</p>}
-        {short && d.failedLogins.length > 0 && <p>The history starts at {since}, so fewer than 24 hours are counted.</p>}
-        {d.eventsCaptured && d.captureGaps && <p className="ac-gap">Event capture stopped for part of these 24 hours, so the counts can be low.</p>}
-      </div>
+      {d.eventsCaptured && (
+        <div className="ac-notes">
+          {cut && <p>{cut}</p>}
+          {d.failedLogins.length > 0 && <p className="ac-text">A client retrying with revoked credentials every minute shows up here before anyone notices it never connected.</p>}
+          {short && d.failedLogins.length > 0 && <p>The history starts at {since}, so fewer than 24 hours are counted.</p>}
+          {d.captureGaps && <p className="ac-gap">Event capture stopped for part of {short ? "this window" : "these 24 hours"}, so the counts can be low.</p>}
+        </div>
+      )}
     </Card>
   );
 }

@@ -1,4 +1,5 @@
-import { screen, within } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
+import { useNavigate } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as requests from "../api/requests";
 import { account, empty, EPOCH_AT, expiring, global, login, prod, SUPPLIERS } from "../test/fixtures/accounts";
@@ -90,7 +91,8 @@ describe("Accounts", () => {
     expect(conns).toHaveTextContent(/^4$/);
     expect(ie).toHaveTextContent(/^not looked up yet$/);
     expect(ie).toHaveClass("ac-quiet");
-    expect(jwt).toHaveTextContent("not looked up yet");
+    expect(jwt).toHaveTextContent(/^– not looked up yet$/);
+    expect(jwt.querySelector("[aria-hidden]")).toHaveTextContent("–");
   });
 
   it("shows a dash, never 0, for counts a server did not report", async () => {
@@ -121,7 +123,7 @@ describe("Accounts", () => {
     renderApp(<Accounts />, "/accounts");
     await screen.findByRole("region", { name: "Failed logins, 24 h" });
     const c = card("Failed logins, 24 h");
-    expect(c.getByText("Event capture stopped for part of these 24 hours, so the counts can be low.")).toBeInTheDocument();
+    expect(c.getByText("Event capture stopped for part of this window, so the counts can be low.")).toBeInTheDocument();
     expect(c.getByText("The history starts at 17 Oct 11:30 UTC, so fewer than 24 hours are counted.")).toBeInTheDocument();
   });
 
@@ -281,7 +283,7 @@ describe("Accounts on the first collection", () => {
     expect(card("Failed logins, 24 h").getByText("The history starts at 17 Oct 14:30 UTC, so fewer than 24 hours are counted.")).toBeInTheDocument();
     const [hot, quiet] = bodyRows("Failed logins, 24 h");
     expect(hot).toHaveClass("ac-hot");
-    expect(hot).toHaveTextContent("about 70 an hour");
+    expect(hot).toHaveTextContent("70 since 14:30 UTC");
     expect(quiet).not.toHaveClass("ac-hot");
   });
 });
@@ -307,7 +309,7 @@ describe("Accounts without captured events", () => {
     renderApp(<Accounts />, "/accounts");
     await screen.findByRole("region", { name: "Failed logins, 24 h" });
     const c = card("Failed logins, 24 h");
-    expect(c.getByText("Failed logins are not shown: no event was stored up to this collection, so event capture is not running for this system.")).toBeInTheDocument();
+    expect(c.getByText("Failed logins are not shown: no event was stored up to this collection, so event capture was not running for this system then.")).toBeInTheDocument();
     expect(c.queryByText(/No failed logins/)).toBeNull();
     expect(c.queryByText(/revoked credentials/)).toBeNull();
     expect(c.queryByText(/Event capture stopped/)).toBeNull();
@@ -318,7 +320,7 @@ describe("Accounts without captured events", () => {
     vi.mocked(requests.getAccountsAndAuth).mockResolvedValue(prod());
     renderApp(<Accounts />, "/accounts");
     expect(await screen.findByText("No failed logins in these 24 hours.")).toBeInTheDocument();
-    expect(screen.queryByText(/event capture is not running/)).toBeNull();
+    expect(screen.queryByText(/event capture was not running/)).toBeNull();
   });
 });
 
@@ -335,7 +337,90 @@ describe("Accounts' certificates read from an older collection", () => {
     renderApp(<Accounts />, "/accounts");
     await screen.findByRole("region", { name: "Expiring soon" });
     const [old, fresh] = bodyRows("Expiring soon");
-    expect(within(old).getByRole("rowheader")).toHaveTextContent("nats-us-4 certificate, client listeneras of 13:20 UTC: nats-us-4 did not answer in this collection");
+    expect(within(old).getByRole("rowheader")).toHaveTextContent("nats-us-4 certificate, client listeneras of 13:20 UTC; no answer since");
     expect(within(fresh).getByRole("rowheader")).toHaveTextContent(/^nats-eu-0 certificate, client listener$/);
+  });
+});
+
+describe("Accounts review round 2", () => {
+  it("says not looked up yet once in an operator-mode row: visibly in Imports / exports, for screen readers in JWT expires", async () => {
+    const d = global();
+    d.accounts[0] = { ...d.accounts[0], detailsKnown: false, imports: undefined, exports: undefined, hasJwt: false, jwtExpires: undefined };
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValue(d);
+    renderApp(<Accounts />, "/accounts");
+    await screen.findByRole("region", { name: "Accounts and limits" });
+    const row = bodyRows("Accounts and limits")[0];
+    const seen = row.cloneNode(true) as HTMLElement;
+    seen.querySelectorAll(".sr-only").forEach((n) => n.remove());
+    expect(row.textContent!.match(/not looked up yet/g)).toHaveLength(2);
+    expect(seen.textContent!.match(/not looked up yet/g) ?? []).toHaveLength(1);
+  });
+
+  it("hides the cut line, the history line and the gap line without captured events", async () => {
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValue({ ...global(), eventsCaptured: false, captureGaps: true, failedLoginsWindowStart: EPOCH_AT - 2 * 3_600_000, failedLoginGroupsTotal: 5 });
+    renderApp(<Accounts />, "/accounts");
+    const c = within(await screen.findByRole("region", { name: "Failed logins, 24 h" }));
+    expect(c.getByText(/^Failed logins are not shown/)).toBeInTheDocument();
+    expect(c.queryByText(/most frequent of/)).toBeNull();
+    expect(c.queryByText(/history starts/)).toBeNull();
+    expect(c.queryByText(/Event capture stopped/)).toBeNull();
+  });
+
+  it("keeps the quiet cue lines muted: no tone class on the limit line or the rate", async () => {
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValue({ ...prod(), operatorMode: true, accounts: [account("APP", { connections: 75, connLimit: 50, hasJwt: true })] });
+    renderApp(<Accounts />, "/accounts");
+    await screen.findByRole("region", { name: "Accounts and limits" });
+    const note = document.querySelector(".ac-limit-note")!;
+    expect(note.className).toBe("ac-limit-note");
+  });
+
+  it("keeps the rate cue as plain text in the muted line", async () => {
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValue(global());
+    renderApp(<Accounts />, "/accounts");
+    await screen.findByRole("region", { name: "Failed logins, 24 h" });
+    const small = within(bodyRows("Failed logins, 24 h")[0]).getByRole("rowheader").querySelector("small")!;
+    expect(small.querySelector(".ac-warn, .ac-crit")).toBeNull();
+  });
+});
+
+function SwitchSystem() {
+  const nav = useNavigate();
+  return (
+    <button type="button" onClick={() => nav("/accounts?system=example-prod")}>
+      switch
+    </button>
+  );
+}
+
+describe("Accounts on a system switch", () => {
+  it("does not show the previous system's accounts while the new system's load", async () => {
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValueOnce(global()).mockReturnValueOnce(new Promise(() => {}));
+    renderApp(
+      <>
+        <Accounts />
+        <SwitchSystem />
+      </>,
+      "/accounts?system=example-global",
+    );
+    await screen.findByText(/^Operator mode · 3 accounts/);
+    await act(async () => screen.getByRole("button", { name: "switch" }).click());
+    expect(vi.mocked(requests.getAccountsAndAuth).mock.calls.at(-1)![0]).toBe("example-prod");
+    expect(screen.queryByText(/^Operator mode · 3 accounts/)).toBeNull();
+    expect(screen.queryByRole("region", { name: "Accounts and limits" })).toBeNull();
+  });
+
+  it("does not keep the previous system's accounts when the new system's request fails", async () => {
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValueOnce(global()).mockRejectedValueOnce(new Error("unavailable"));
+    renderApp(
+      <>
+        <Accounts />
+        <SwitchSystem />
+      </>,
+      "/accounts?system=example-global",
+    );
+    await screen.findByText(/^Operator mode · 3 accounts/);
+    await act(async () => screen.getByRole("button", { name: "switch" }).click());
+    await screen.findByText(/unavailable/);
+    expect(screen.queryByRole("region", { name: "Accounts and limits" })).toBeNull();
   });
 });

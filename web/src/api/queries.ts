@@ -210,7 +210,8 @@ export function useAccountsAndAuth(spec: RangeSpec) {
     queryKey: ["accounts-and-auth", sys, rangeKey(spec)],
     queryFn: ({ signal }) => api.getAccountsAndAuth(sys, spec, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
+    // The previous range's answer stands in while the next loads, never another system's.
+    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === sys ? prev : undefined),
   });
 }
 
