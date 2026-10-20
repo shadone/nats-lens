@@ -67,9 +67,9 @@ func TestFinishAccountsLimit(t *testing.T) {
 	}
 }
 
-// A lookup at most 24 hours older than the epoch fills the details; an
-// older one, or one after the epoch, reads as not looked up yet. Limits
-// come from a JWT only.
+// A lookup at most 24 hours older than the epoch fills the details, the
+// epoch's own lookup too, read after the epoch started; an older one
+// reads as not looked up yet. Limits come from a JWT only.
 func TestFinishAccountsDetails(t *testing.T) {
 	exp := accEpochAt.Add(40 * 24 * time.Hour)
 	jwt := &api.AccountDetails{At: accEpochAt.Add(-24 * time.Hour), HasJWT: true, Imports: 2, Exports: 1, JWTExpires: &exp,
@@ -77,7 +77,7 @@ func TestFinishAccountsDetails(t *testing.T) {
 	f := &api.AccountsFacts{Epoch: 1, EpochAt: accEpochAt, Accounts: []api.AccountFact{
 		{Account: "jwt", Details: jwt},
 		{Account: "old", Details: &api.AccountDetails{At: accEpochAt.Add(-24*time.Hour - time.Second), HasJWT: true, LimitConnections: i64(5)}},
-		{Account: "future", Details: &api.AccountDetails{At: accEpochAt.Add(time.Second)}},
+		{Account: "own", Details: &api.AccountDetails{At: accEpochAt.Add(2 * time.Second), Imports: 3}},
 		{Account: "config", Details: &api.AccountDetails{At: accEpochAt, LimitConnections: i64(9)}},
 		{Account: "disabled", Details: &api.AccountDetails{At: accEpochAt, HasJWT: true, LimitJSDisk: i64(0), LimitJSMemory: i64(0)}},
 		{Account: "memory-only", Details: &api.AccountDetails{At: accEpochAt, HasJWT: true, LimitJSDisk: i64(0), LimitJSMemory: i64(1 << 30)}},
@@ -102,7 +102,10 @@ func TestFinishAccountsDetails(t *testing.T) {
 	if m := by["memory-only"]; m.DiskLimit == nil || m.GetDiskLimit() != 0 || !m.GetJetstreamEnabled() {
 		t.Errorf("memory-only = %v", m)
 	}
-	for _, name := range []string{"old", "future"} {
+	if o := by["own"]; !o.GetDetailsKnown() || o.GetImports() != 3 {
+		t.Errorf("own = %v, want the epoch's own lookup", o)
+	}
+	for _, name := range []string{"old"} {
 		a := by[name]
 		if a.GetDetailsKnown() || a.Imports != nil || a.Exports != nil || a.ConnLimit != nil || a.GetDetailsAt() != nil || a.GetHasJwt() {
 			t.Errorf("%s = %v, want not looked up yet", name, a)
@@ -125,7 +128,7 @@ func TestFinishAccountsFailedLogins(t *testing.T) {
 			{User: "old", Count: 5, Last: accEpochAt.Add(-time.Hour)},
 			{User: "new", Count: 5, Last: accEpochAt.Add(-time.Minute), Account: opKey},
 			{User: "many", Count: 1440, Last: accEpochAt.Add(-2 * time.Hour)},
-		}, FailedLoginGroups: 250, FailedLoginsCount: 4000, CaptureGaps: true}
+		}, FailedLoginGroups: 250, FailedLoginsCount: 4000, EventsCaptured: true, CaptureGaps: true}
 	res := api.FinishAccounts(f)
 	var got []string
 	for _, l := range res.GetFailedLogins() {
@@ -135,8 +138,13 @@ func TestFinishAccountsFailedLogins(t *testing.T) {
 		t.Errorf("order %v, want %v", got, want)
 	}
 	if res.GetFailedLogins()[1].GetAccountName() != "SHOP" || res.GetFailedLoginGroupsTotal() != 250 || res.GetFailedLoginsTotal() != 4000 ||
-		!res.GetCaptureGaps() || !res.GetFailedLoginsWindowStart().AsTime().Equal(f.WindowStart) {
+		!res.GetCaptureGaps() || !res.GetEventsCaptured() || !res.GetFailedLoginsWindowStart().AsTime().Equal(f.WindowStart) {
 		t.Errorf("res = %v", res)
+	}
+	// Nothing captured is not a gap.
+	f.EventsCaptured = false
+	if res := api.FinishAccounts(f); res.GetEventsCaptured() || res.GetCaptureGaps() {
+		t.Errorf("not captured: events_captured %v, capture_gaps %v", res.GetEventsCaptured(), res.GetCaptureGaps())
 	}
 	f.FailedLogins, f.FailedLoginGroups, f.FailedLoginsCount = nil, 0, 0
 	for i := range 130 {
@@ -165,7 +173,8 @@ func TestFinishAccountsExpiring(t *testing.T) {
 		{Server: "nats-1", Listener: api.ListenerClient, NotAfter: *in(-day)},
 		{Server: "nats-1", Listener: api.ListenerCluster, NotAfter: *in(30 * day)},
 		{Server: "nats-2", Listener: api.ListenerClient, NotAfter: *in(30*day + time.Second)},
-		{Server: "nats-2", Listener: api.ListenerCluster, NotAfter: accEpochAt},
+		{Server: "nats-2", Listener: api.ListenerCluster, NotAfter: accEpochAt, SeenAt: accEpochAt},
+		{Server: "nats-3", Listener: api.ListenerClient, NotAfter: *in(3 * day), SeenAt: accEpochAt.Add(-time.Hour)},
 	}, UserJWTs: []api.UserJWTFact{
 		{Account: "soon", User: "pos-terminal", Expires: in(5 * day), Connections: 3},
 		{Account: "soon", User: "app"},
@@ -174,13 +183,20 @@ func TestFinishAccountsExpiring(t *testing.T) {
 	res := api.FinishAccounts(f)
 	var got []string
 	for _, e := range res.GetExpiring() {
-		got = append(got, fmt.Sprintf("%s %s%s%s%s %v %d", e.GetKind(), e.GetServer(), e.GetListener(), e.GetAccountName(), e.GetUser(),
-			e.GetExpired(), e.GetConnections()))
+		seen := ""
+		if e.GetSeenAt() != nil {
+			seen = " seen " + e.GetSeenAt().AsTime().Sub(accEpochAt).String()
+		}
+		got = append(got, fmt.Sprintf("%s %s%s%s%s %v %d%s", e.GetKind(), e.GetServer(), e.GetListener(), e.GetAccountName(), e.GetUser(),
+			e.GetExpired(), e.GetConnections(), seen))
 	}
+	// A certificate read before the epoch carries seen_at; one read in
+	// the epoch does not.
 	want := []string{
 		"EXPIRING_KIND_ACCOUNT_JWT  true 0",
 		"EXPIRING_KIND_SERVER_CERTIFICATE nats-1client true 0",
 		"EXPIRING_KIND_SERVER_CERTIFICATE nats-2cluster true 0",
+		"EXPIRING_KIND_SERVER_CERTIFICATE nats-3client false 0 seen -1h0m0s",
 		"EXPIRING_KIND_USER_JWT Soonpos-terminal false 3",
 		"EXPIRING_KIND_ACCOUNT_JWT Soon false 0",
 		"EXPIRING_KIND_SERVER_CERTIFICATE nats-0client false 0",
@@ -192,14 +208,14 @@ func TestFinishAccountsExpiring(t *testing.T) {
 	if res.GetExpiring()[0].GetExpires() != nil || res.GetExpiring()[0].GetAccount() != "flagged" {
 		t.Errorf("flagged = %v", res.GetExpiring()[0])
 	}
-	if res.GetExpireLater() != 2 || res.GetNeverExpire() != 2 || res.GetExpiringTotal() != 7 {
+	if res.GetExpireLater() != 2 || res.GetNeverExpire() != 2 || res.GetExpiringTotal() != 8 {
 		t.Errorf("later %d, never %d, total %d", res.GetExpireLater(), res.GetNeverExpire(), res.GetExpiringTotal())
 	}
 	// At most 100 rows, with the total.
 	for i := range 150 {
 		f.Certificates = append(f.Certificates, api.CertificateFact{Server: fmt.Sprintf("s-%03d", i), Listener: api.ListenerClient, NotAfter: *in(day)})
 	}
-	if res := api.FinishAccounts(f); len(res.GetExpiring()) != api.MaxExpiringRows || res.GetExpiringTotal() != 157 {
+	if res := api.FinishAccounts(f); len(res.GetExpiring()) != api.MaxExpiringRows || res.GetExpiringTotal() != 158 {
 		t.Errorf("%d expiring of %d", len(res.GetExpiring()), res.GetExpiringTotal())
 	}
 }

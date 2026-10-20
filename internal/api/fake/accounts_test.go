@@ -19,7 +19,7 @@ func accountsAndAuth(t *testing.T, system string) *v1.GetAccountsAndAuthResponse
 
 // example-global runs in operator mode: APP with limits and a JWT without
 // expiry, the idle SUPPLIERS whose JWT expires in 12 days, SYS last; the
-// revoked label-printer and the timeouts from 203.0.113.12; nats-eu-0's
+// revoked scale-terminal-07 and the timeouts from 203.0.113.12; nats-eu-0's
 // client certificate and the pos-terminal user JWT.
 func TestGlobalAccountsAndAuth(t *testing.T) {
 	res := accountsAndAuth(t, fake.GlobalSystem)
@@ -42,7 +42,7 @@ func TestGlobalAccountsAndAuth(t *testing.T) {
 	for _, l := range res.GetFailedLogins() {
 		logins = append(logins, fmt.Sprintf("%s %s %s %s %d", l.GetUser(), l.GetHost(), l.GetReason(), l.GetAccount(), l.GetCount()))
 	}
-	if want := []string{"label-printer 10.20.4.31 User Authentication Revoked APP 1440", " 203.0.113.12 Authentication Timeout  96"}; !slices.Equal(logins, want) {
+	if want := []string{"scale-terminal-07 10.20.4.31 User Authentication Revoked APP 1440", " 203.0.113.12 Authentication Timeout  96"}; !slices.Equal(logins, want) {
 		t.Errorf("failed logins %v, want %v", logins, want)
 	}
 	epoch := res.GetEpochAt().AsTime()
@@ -59,9 +59,10 @@ func TestGlobalAccountsAndAuth(t *testing.T) {
 	if !slices.Equal(exp, want) {
 		t.Errorf("expiring %v, want %v", exp, want)
 	}
-	// 23 answering servers with three certificates each, but the one
-	// listed; APP's and SYS's JWTs and app's user JWTs never expire.
-	if res.GetExpireLater() != 68 || res.GetNeverExpire() != 3 {
+	// 24 servers with three certificates each, but the one listed;
+	// nats-us-4's read from its last collection before it stopped. APP's
+	// and SYS's JWTs and app's user JWTs never expire.
+	if res.GetExpireLater() != 71 || res.GetNeverExpire() != 3 || !res.GetEventsCaptured() {
 		t.Errorf("later %d, never %d", res.GetExpireLater(), res.GetNeverExpire())
 	}
 }
@@ -76,6 +77,11 @@ func TestGlobalAuthOnOtherPages(t *testing.T) {
 			PageSize: 1000, PageToken: token})))
 		for _, e := range res.GetEvents() {
 			n[e.GetClientHost()+" "+e.GetReason()]++
+			// nats-us-3 restarted from 09:04:50 to 09:06:40; the retries
+			// went to nats-us-0 then.
+			if when := e.GetTime().AsTime(); e.GetServer() == "nats-us-3" && !when.Before(at(9, 4, 50)) && when.Before(at(9, 6, 40)) {
+				t.Errorf("failed login at %v on nats-us-3 while it was down", when)
+			}
 		}
 		if token = res.GetNextPageToken(); token == "" {
 			break

@@ -26,8 +26,9 @@ const (
 
 const day = 24 * time.Hour
 
-// accountsStore is an operator-mode system whose newest epoch (2)
-// started at last, 26 hours after its first:
+// accountsStore is an operator-mode system of four servers whose newest
+// epoch (3) started at last, an hour after epoch 2 and 26 hours after its
+// first:
 //   - APP: 15 connections over two servers, two streams, looked up with
 //     limits and a JWT without expiry (an older lookup says otherwise);
 //   - SYS: the system account, looked up;
@@ -35,9 +36,12 @@ const day = 24 * time.Hour
 //   - LEGACY: looked up only 26 hours before the epoch, so not looked up
 //     yet.
 //
-// label-printer failed 5 times in the window and once before it; a client
+// scale-terminal-07 failed 5 times in the window and once before it; a client
 // without a user timed out twice. nats-0's client certificate expires in
-// 16 days, nats-1's websocket certificate expired a day ago. pos-terminal
+// 16 days; nats-1's VARZ failed in the newest epoch, and its websocket
+// certificate, read an hour before, expired a day ago; nats-2 is missing
+// and its client certificate, read an hour before, expires in 10 days;
+// nats-3 was last read 26 hours before, too old to be shown. pos-terminal
 // holds three connections whose JWT expires in 5 days and one later; app
 // two without expiry; one connection uses a bearer JWT. withGap adds a
 // time nats-lens was not running inside the window.
@@ -46,18 +50,48 @@ func accountsStore(t *testing.T, last time.Time, withGap bool) *store.Store {
 	st := emptyStore(t)
 	r := rows{t, st}
 	first := last.Add(-26 * time.Hour)
-	r.server("S0", "nats-0")
-	r.server("S1", "nats-1")
-	r.epoch(1, first, "S0", "S1")
-	r.epoch(2, last, "S0", "S1")
+	names := []string{"nats-0", "nats-1", "nats-2", "nats-3"}
+	for i, n := range names {
+		r.server(fmt.Sprintf("S%d", i), n)
+	}
+	// epoch writes epoch n at at, with every server expected, those of
+	// varz answering VARZ (and so writing server_stats) and the others
+	// missing; S1 answers, but its VARZ fails in the newest epoch.
+	epoch := func(n int64, at time.Time, varz ...string) {
+		var missing []string
+		for i, name := range names {
+			id := fmt.Sprintf("S%d", i)
+			switch {
+			case slices.Contains(varz, id):
+				r.add("epoch_endpoints", map[string]any{"epoch": n, "server_id": id, "endpoint": "VARZ", "state": "ok"})
+			case id == "S1" && n == 3:
+				r.add("epoch_endpoints", map[string]any{"epoch": n, "server_id": id, "endpoint": "VARZ", "state": "error"})
+				r.add("server_stats", map[string]any{"epoch": n, "server_id": id})
+			default:
+				missing = append(missing, name)
+			}
+		}
+		if _, err := st.DB().Exec(`INSERT INTO epochs VALUES (?, ?, ?, 0, 4, ?, ?, [], ?, 0, ?, [], NULL)`,
+			n, at, at, 4-len(missing), names, missing, len(missing) > 0); err != nil {
+			t.Fatal(err)
+		}
+	}
+	epoch(1, first, "S0", "S1", "S2", "S3")
+	epoch(2, last.Add(-time.Hour), "S0", "S1", "S2")
+	epoch(3, last, "S0")
+	// nats-3 answered VARZ last 26 hours ago: too old to be read.
+	r.add("server_stats", map[string]any{"epoch": 1, "server_id": "S3", "tls_cert_not_after": last.Add(3 * day)})
+	// nats-2, missing now, answered an hour ago.
+	r.add("server_stats", map[string]any{"epoch": 2, "server_id": "S2", "tls_cert_not_after": last.Add(10 * day)})
+	r.add("server_stats", map[string]any{"epoch": 2, "server_id": "S0", "tls_cert_not_after": last.Add(99 * day)})
 	for _, a := range []struct {
 		id, name string
 		system   bool
 	}{{keyApp, "APP", false}, {keySys, "SYS", true}, {keySuppliers, "SUPPLIERS", false}, {keyLegacy, "LEGACY", false}} {
-		r.add("accounts", map[string]any{"account": a.id, "account_name": a.name, "is_system": a.system, "first_epoch": 1, "last_epoch": 2})
+		r.add("accounts", map[string]any{"account": a.id, "account_name": a.name, "is_system": a.system, "first_epoch": 1, "last_epoch": 3})
 	}
 	stat := func(id, acc string, conns, leafs, subs, disk int64) {
-		r.add("account_stats", map[string]any{"epoch": 2, "server_id": id, "account": acc, "conns": conns, "leafnodes": leafs,
+		r.add("account_stats", map[string]any{"epoch": 3, "server_id": id, "account": acc, "conns": conns, "leafnodes": leafs,
 			"subscriptions": subs, "js_storage": disk, "js_memory": 0, "js_streams": 0})
 	}
 	stat("S0", keyApp, 10, 1, 50, 1000)
@@ -66,7 +100,7 @@ func accountsStore(t *testing.T, last time.Time, withGap bool) *store.Store {
 	stat("S0", keySuppliers, 0, 0, 0, 0)
 	stat("S0", keyLegacy, 1, 0, 3, 0)
 	for _, s := range []struct{ id, stream string }{{"S0", "orders"}, {"S1", "orders"}, {"S0", "payments"}} {
-		r.add("stream_stats", map[string]any{"epoch": 2, "server_id": s.id, "account": keyApp, "stream": s.stream, "is_leader": s.id == "S0"})
+		r.add("stream_stats", map[string]any{"epoch": 3, "server_id": s.id, "account": keyApp, "stream": s.stream, "is_leader": s.id == "S0"})
 	}
 	lookup := func(epoch int64, at time.Time, acc string, cols map[string]any) {
 		row := map[string]any{"epoch": epoch, "server_id": "S0", "account": acc, "looked_up_at": at, "is_system": false,
@@ -76,14 +110,14 @@ func accountsStore(t *testing.T, last time.Time, withGap bool) *store.Store {
 		}
 		r.add("account_details", row)
 	}
-	lookup(1, first, keyApp, map[string]any{"imports": 7, "limit_connections": 10, "limit_js_disk": 10, "jwt_expires": last.Add(day)})
-	lookup(2, last.Add(-40*time.Second), keyApp, map[string]any{"imports": 1, "limit_connections": 2000, "limit_js_disk": 500 << 30,
+	lookup(1, first.Add(2*time.Second), keyApp, map[string]any{"imports": 7, "limit_connections": 10, "limit_js_disk": 10, "jwt_expires": last.Add(day)})
+	lookup(3, last.Add(2*time.Second), keyApp, map[string]any{"imports": 1, "limit_connections": 2000, "limit_js_disk": 500 << 30,
 		"limit_js_memory": 16 << 30})
-	lookup(2, last.Add(-30*time.Second), keySys, map[string]any{"is_system": true, "exports": 11, "limit_connections": -1, "limit_js_disk": 0,
+	lookup(3, last.Add(3*time.Second), keySys, map[string]any{"is_system": true, "exports": 11, "limit_connections": -1, "limit_js_disk": 0,
 		"limit_js_memory": 0})
-	lookup(2, last.Add(-20*time.Second), keySuppliers, map[string]any{"exports": 1, "limit_connections": 50, "limit_js_disk": 0,
+	lookup(3, last.Add(4*time.Second), keySuppliers, map[string]any{"exports": 1, "limit_connections": 50, "limit_js_disk": 0,
 		"limit_js_memory": 0, "jwt_expires": last.Add(12 * day)})
-	lookup(1, first, keyLegacy, map[string]any{"limit_connections": 5, "limit_js_disk": 5})
+	lookup(1, first.Add(2*time.Second), keyLegacy, map[string]any{"limit_connections": 5, "limit_js_disk": 5})
 
 	id := 0
 	event := func(at time.Time, kind string, cols map[string]any) {
@@ -96,7 +130,7 @@ func accountsStore(t *testing.T, last time.Time, withGap bool) *store.Store {
 	}
 	event(first, "collector.started", map[string]any{"source": "collector"})
 	for i := range 6 {
-		event(last.Add(-time.Duration(i)*time.Hour-19*time.Hour-30*time.Minute), "client.auth_error", map[string]any{"client_user": "label-printer",
+		event(last.Add(-time.Duration(i)*time.Hour-19*time.Hour-30*time.Minute), "client.auth_error", map[string]any{"client_user": "scale-terminal-07",
 			"client_host": "10.20.4.31", "reason": "User Authentication Revoked", "account": keyApp})
 	}
 	for _, d := range []time.Duration{time.Hour, 3 * time.Hour} {
@@ -106,7 +140,7 @@ func accountsStore(t *testing.T, last time.Time, withGap bool) *store.Store {
 		event(last.Add(-5*time.Hour), "collector.gap", map[string]any{"source": "collector", "received_at": last.Add(-4 * time.Hour)})
 	}
 
-	r.add("server_stats", map[string]any{"epoch": 2, "server_id": "S0", "tls_cert_not_after": last.Add(16 * day),
+	r.add("server_stats", map[string]any{"epoch": 3, "server_id": "S0", "tls_cert_not_after": last.Add(16 * day),
 		"cluster_tls_cert_not_after": last.Add(75 * day)})
 	r.add("server_stats", map[string]any{"epoch": 2, "server_id": "S1", "tls_cert_not_after": last.Add(75 * day),
 		"websocket_tls_cert_not_after": last.Add(-day)})
@@ -114,7 +148,7 @@ func accountsStore(t *testing.T, last time.Time, withGap bool) *store.Store {
 	cid := int64(0)
 	conn := func(user string, jwt bool, expires any) {
 		cid++
-		r.add("connections", map[string]any{"epoch": 2, "server_id": "S0", "cid": cid, "account": keyApp, "authorized_user": user,
+		r.add("connections", map[string]any{"epoch": 3, "server_id": "S0", "cid": cid, "account": keyApp, "authorized_user": user,
 			"user_jwt": jwt, "jwt_expires": expires})
 	}
 	for range 3 {
@@ -144,11 +178,12 @@ func accountsConfigStore(t *testing.T, last time.Time) *store.Store {
 		r.add("accounts", map[string]any{"account": a.id, "account_name": a.id, "is_system": a.system, "first_epoch": 1, "last_epoch": 2})
 		r.add("account_stats", map[string]any{"epoch": 2, "server_id": "S0", "account": a.id, "conns": 3, "leafnodes": 0,
 			"subscriptions": 9, "js_storage": 0, "js_memory": 0, "js_streams": 0, "js_reserved_storage": 1 << 30})
-		r.add("account_details", map[string]any{"epoch": 2, "server_id": "S0", "account": a.id, "looked_up_at": last, "account_name": a.id,
+		r.add("account_details", map[string]any{"epoch": 2, "server_id": "S0", "account": a.id, "looked_up_at": last.Add(time.Second), "account_name": a.id,
 			"is_system": a.system, "expired": false, "imports": 0, "exports": 0, "has_jwt": false})
 	}
 	r.add("events", map[string]any{"id": 1, "time": last.Add(-time.Hour), "received_at": last.Add(-time.Hour), "source": "collector",
 		"kind": "collector.started", "summary": "started"})
+	r.add("epoch_endpoints", map[string]any{"epoch": 2, "server_id": "S0", "endpoint": "VARZ", "state": "ok"})
 	r.add("server_stats", map[string]any{"epoch": 2, "server_id": "S0", "tls_cert_not_after": last.Add(80 * day),
 		"cluster_tls_cert_not_after": last.Add(10 * day)})
 	r.add("connections", map[string]any{"epoch": 2, "server_id": "S0", "cid": 1, "account": "APP", "authorized_user": "app", "user_jwt": false})
@@ -168,7 +203,7 @@ func accountsOf(t *testing.T, st *store.Store, clock time.Time, r *v1.TimeRange)
 func TestAccountsAndAuthFromStore(t *testing.T) {
 	last := time.Date(2026, 10, 17, 14, 0, 0, 0, time.UTC)
 	res := accountsOf(t, accountsStore(t, last, false), last.Add(30*time.Second), nil)
-	if res.GetEpoch() != 2 || !res.GetEpochAt().AsTime().Equal(last) || !res.GetOperatorMode() || res.GetCaptureGaps() {
+	if res.GetEpoch() != 3 || !res.GetEpochAt().AsTime().Equal(last) || !res.GetOperatorMode() || res.GetCaptureGaps() || !res.GetEventsCaptured() {
 		t.Fatalf("res = %v", res)
 	}
 	var accs []string
@@ -196,7 +231,7 @@ func TestAccountsAndAuthFromStore(t *testing.T) {
 	if !slices.Equal(accs, want) {
 		t.Errorf("accounts\n%v\nwant\n%v", accs, want)
 	}
-	if !res.GetAccounts()[0].GetDetailsAt().AsTime().Equal(last.Add(-40 * time.Second)) {
+	if !res.GetAccounts()[0].GetDetailsAt().AsTime().Equal(last.Add(2 * time.Second)) {
 		t.Errorf("APP details at %v", res.GetAccounts()[0].GetDetailsAt())
 	}
 	var logins []string
@@ -204,7 +239,7 @@ func TestAccountsAndAuthFromStore(t *testing.T) {
 		logins = append(logins, fmt.Sprintf("%s|%s|%s|%s|%d|%s", l.GetUser(), l.GetHost(), l.GetReason(), l.GetAccountName(), l.GetCount(),
 			l.GetLast().AsTime().Format(time.TimeOnly)))
 	}
-	if want := []string{"label-printer|10.20.4.31|User Authentication Revoked|APP|5|18:30:00", "|203.0.113.12|Authentication Timeout||2|13:00:00"}; !slices.Equal(logins, want) {
+	if want := []string{"scale-terminal-07|10.20.4.31|User Authentication Revoked|APP|5|18:30:00", "|203.0.113.12|Authentication Timeout||2|13:00:00"}; !slices.Equal(logins, want) {
 		t.Errorf("failed logins %v, want %v", logins, want)
 	}
 	if res.GetFailedLoginGroupsTotal() != 2 || res.GetFailedLoginsTotal() != 7 || !res.GetFailedLoginsWindowStart().AsTime().Equal(last.Add(-day)) {
@@ -212,21 +247,28 @@ func TestAccountsAndAuthFromStore(t *testing.T) {
 	}
 	var exp []string
 	for _, e := range res.GetExpiring() {
-		exp = append(exp, fmt.Sprintf("%s %s%s %s%s %v %d %s", e.GetKind(), e.GetServer(), e.GetListener(), e.GetAccountName(), e.GetUser(),
-			e.GetExpired(), e.GetConnections(), e.GetExpires().AsTime().Sub(last)))
+		seen := "now"
+		if e.GetSeenAt() != nil {
+			seen = e.GetSeenAt().AsTime().Sub(last).String()
+		}
+		exp = append(exp, fmt.Sprintf("%s %s%s %s%s %v %d %s seen %s", e.GetKind(), e.GetServer(), e.GetListener(), e.GetAccountName(), e.GetUser(),
+			e.GetExpired(), e.GetConnections(), e.GetExpires().AsTime().Sub(last), seen))
 	}
 	wantExp := []string{
-		"EXPIRING_KIND_SERVER_CERTIFICATE nats-1websocket  true 0 -24h0m0s",
-		"EXPIRING_KIND_USER_JWT  APPpos-terminal false 3 120h0m0s",
-		"EXPIRING_KIND_ACCOUNT_JWT  SUPPLIERS false 0 288h0m0s",
-		"EXPIRING_KIND_SERVER_CERTIFICATE nats-0client  false 0 384h0m0s",
+		"EXPIRING_KIND_SERVER_CERTIFICATE nats-1websocket  true 0 -24h0m0s seen -1h0m0s",
+		"EXPIRING_KIND_USER_JWT  APPpos-terminal false 3 120h0m0s seen now",
+		"EXPIRING_KIND_SERVER_CERTIFICATE nats-2client  false 0 240h0m0s seen -1h0m0s",
+		"EXPIRING_KIND_ACCOUNT_JWT  SUPPLIERS false 0 288h0m0s seen now",
+		"EXPIRING_KIND_SERVER_CERTIFICATE nats-0client  false 0 384h0m0s seen now",
 	}
 	if !slices.Equal(exp, wantExp) {
 		t.Errorf("expiring\n%v\nwant\n%v", exp, wantExp)
 	}
 	// Later: nats-0's cluster and nats-1's client certificates. Never:
 	// the JWTs of APP and SYS, and app's user JWTs.
-	if res.GetExpireLater() != 2 || res.GetNeverExpire() != 3 || res.GetExpiringTotal() != 4 {
+	// nats-0's epoch-2 row is older than its newest and not read; nats-3's
+	// is too old.
+	if res.GetExpireLater() != 2 || res.GetNeverExpire() != 3 || res.GetExpiringTotal() != 5 {
 		t.Errorf("later %d, never %d, total %d", res.GetExpireLater(), res.GetNeverExpire(), res.GetExpiringTotal())
 	}
 
@@ -253,8 +295,9 @@ func TestAccountsAndAuthFromStore(t *testing.T) {
 }
 
 // Event capture gaps: a time nats-lens was not running inside the window,
-// no event captured at all, or an events connection lost for longer than a
-// failover; a failover alone is none.
+// or an events connection lost for longer than a failover; a failover
+// alone is none. No event captured at all is not a gap but
+// events_captured false.
 func TestAccountsAndAuthCaptureGaps(t *testing.T) {
 	last := time.Date(2026, 10, 17, 14, 0, 0, 0, time.UTC)
 	clock := last.Add(30 * time.Second)
@@ -266,8 +309,8 @@ func TestAccountsAndAuthCaptureGaps(t *testing.T) {
 	r.server("S0", "nats-0")
 	r.epoch(1, last.Add(-25*time.Hour), "S0")
 	r.epoch(2, last, "S0")
-	if !accountsOf(t, st, clock, nil).GetCaptureGaps() {
-		t.Error("no event captured: no capture gap")
+	if res := accountsOf(t, st, clock, nil); res.GetEventsCaptured() || res.GetCaptureGaps() {
+		t.Errorf("no event captured: events_captured %v, capture_gaps %v; want both false", res.GetEventsCaptured(), res.GetCaptureGaps())
 	}
 	conn := func(id int, at time.Time, kind string) {
 		r.add("events", map[string]any{"id": id, "time": at, "received_at": at, "source": "collector", "kind": kind, "summary": kind,
@@ -275,8 +318,8 @@ func TestAccountsAndAuthCaptureGaps(t *testing.T) {
 	}
 	conn(1, last.Add(-3*time.Hour), "collector.disconnected")
 	conn(2, last.Add(-3*time.Hour+time.Second), "collector.reconnected")
-	if accountsOf(t, st, clock, nil).GetCaptureGaps() {
-		t.Error("a failover within a second counts as a gap")
+	if res := accountsOf(t, st, clock, nil); res.GetCaptureGaps() || !res.GetEventsCaptured() {
+		t.Errorf("a failover within a second: capture_gaps %v, events_captured %v", res.GetCaptureGaps(), res.GetEventsCaptured())
 	}
 	conn(3, last.Add(-2*time.Hour), "collector.disconnected")
 	conn(4, last.Add(-time.Hour), "collector.reconnected")
