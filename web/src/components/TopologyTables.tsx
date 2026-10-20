@@ -30,6 +30,25 @@ function Card({ title, right, children, className }: { title: string; right?: Re
   );
 }
 
+/** A server name that never breaks at its hyphens. */
+function Name({ n }: { n: string }) {
+  return <span className="tm-nw">{n}</span>;
+}
+
+/** Server names, each unbroken, the list wrapping after its commas. */
+function Names({ list }: { list: string[] }) {
+  return (
+    <>
+      {list.map((n, k) => (
+        <span key={n}>
+          {k > 0 && ", "}
+          <Name n={n} />
+        </span>
+      ))}
+    </>
+  );
+}
+
 function ServerLink({ name }: { name: string }) {
   return name ? <RLink to={serverPath(name)}>{name}</RLink> : <Unset why="not known" />;
 }
@@ -55,25 +74,53 @@ export function LeafTable({ rows, total, at, leafzFailed = [] }: { rows: Topolog
               const unknown = !l.connected && l.connectionUnknown;
               const why = unknown ? "state unknown" : "not connected";
               const hubs = l.connected && l.hubServers.length > 0 ? l.hubServers : [l.hubServer];
-              const when = l.lastSeen !== undefined ? `last seen ${shortWhen(l.lastSeen, at ?? l.lastSeen)}` : "";
-              const seen = [when, l.hubServer ? `${when ? "" : "last "}on ${l.hubServer}` : ""].filter(Boolean).join(" ");
+              // "last seen 09:12 on nats-eu-1", or "last hub nats-eu-1" without a time.
+              const seen =
+                l.lastSeen !== undefined ? (
+                  <>
+                    last seen {shortWhen(l.lastSeen, at ?? l.lastSeen)}
+                    {l.hubServer && (
+                      <>
+                        {" "}
+                        on <Name n={l.hubServer} />
+                      </>
+                    )}
+                  </>
+                ) : l.hubServer ? (
+                  <>
+                    last hub <Name n={l.hubServer} />
+                  </>
+                ) : null;
               return (
-                <tr key={`${l.name}|${l.account}`} className={l.connected ? undefined : unknown ? "unknown" : "warn"}>
+                <tr key={`${l.name}|${l.account}`} className={l.connected ? undefined : unknown ? "tp-unknown" : "warn"}>
                   <th scope="row" className="mono">
                     {l.name}
                     {unknown && (
                       <small>
-                        state unknown{leafzFailed.length > 0 && `: LEAFZ did not answer on ${leafzFailed.join(", ")}`}
-                        {seen && `; ${seen}`}
+                        state unknown
+                        {leafzFailed.length > 0 && (
+                          <>
+                            : LEAFZ did not answer on <Names list={leafzFailed} />
+                          </>
+                        )}
+                        {seen && <>; {seen}</>}
                       </small>
                     )}
-                    {!l.connected && !unknown && <small>not connected{seen && `, ${seen}`}</small>}
+                    {!l.connected && !unknown && (
+                      <small>
+                        not connected
+                        {seen && (l.lastSeen !== undefined ? <>, {seen}</> : <>; {seen}</>)}
+                      </small>
+                    )}
                   </th>
-                  <td className="mono">
+                  <td className="mono tp-hubs">
                     {hubs.map((h, k) => (
                       <span key={h || k}>
-                        {k > 0 && ", "}
-                        <ServerLink name={h} />
+                        {k > 0 && " "}
+                        <span className="tm-nw">
+                          <ServerLink name={h} />
+                          {k < hubs.length - 1 && ","}
+                        </span>
                       </span>
                     ))}
                   </td>

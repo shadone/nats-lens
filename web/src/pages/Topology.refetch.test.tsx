@@ -175,7 +175,7 @@ describe("Topology's leaf node hubs and sites of unknown state", () => {
     await screen.findByText("Leaf nodes, worst first");
     const row = (await screen.findAllByRole("row")).find((r) => r.textContent?.startsWith("pickup-1210"))!;
     expect(row).not.toHaveClass("warn");
-    expect(row).toHaveClass("unknown");
+    expect(row).toHaveClass("tp-unknown");
     expect(within(row).getByRole("rowheader")).toHaveTextContent("pickup-1210state unknown: LEAFZ did not answer on nats-us-4; last seen 09:12 on nats-us-1");
     const cells = within(row).getAllByRole("cell");
     expect(cells[1]).toHaveTextContent(/^– state unknown$/);
