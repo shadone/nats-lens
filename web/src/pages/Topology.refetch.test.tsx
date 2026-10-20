@@ -144,3 +144,42 @@ describe("Topology with a cluster without a name and a gateway pair down", () =>
     expect(await screen.findByText(/^3 clusters, every gateway pair down, 4 leaf node sites at the edge/)).toBeInTheDocument();
   });
 });
+
+describe("Topology's leaf node hubs and sites of unknown state", () => {
+  it("lists every hub a site is on, each a link", async () => {
+    const t = global();
+    t.leafnodes[1] = { ...t.leafnodes[1], hubServer: "nats-eu-2", hubServers: ["nats-eu-2", "nats-eu-5"] };
+    vi.mocked(requests.getTopology).mockResolvedValue(t);
+    renderApp(<Topology />, "/topology?system=example-global");
+    const row = (await screen.findAllByRole("row")).find((r) => r.textContent?.startsWith("warehouse-eu-03"))!;
+    const hub = within(row).getAllByRole("cell")[0];
+    expect(within(hub).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual([
+      "/servers/nats-eu-2?system=example-global",
+      "/servers/nats-eu-5?system=example-global",
+    ]);
+    expect(hub).toHaveTextContent("nats-eu-2, nats-eu-5");
+  });
+
+  it("shows a site that may be connected on a server whose LEAFZ failed as unknown, not as a known drop", async () => {
+    const t = global();
+    t.unobserved = [{ endpoint: "LEAFZ", servers: ["nats-us-4"] }];
+    t.leafnodes.splice(1, 0, {
+      ...t.leafnodes[0],
+      name: "pickup-1210",
+      hubServer: "nats-us-1",
+      drops24h: 1,
+      connectionUnknown: true,
+    });
+    vi.mocked(requests.getTopology).mockResolvedValue(t);
+    renderApp(<Topology />, "/topology");
+    await screen.findByText("Leaf nodes, worst first");
+    const row = (await screen.findAllByRole("row")).find((r) => r.textContent?.startsWith("pickup-1210"))!;
+    expect(row).not.toHaveClass("warn");
+    expect(row).toHaveClass("unknown");
+    expect(within(row).getByRole("rowheader")).toHaveTextContent("pickup-1210state unknown: LEAFZ did not answer on nats-us-4; last seen 09:12 on nats-us-1");
+    const cells = within(row).getAllByRole("cell");
+    expect(cells[1]).toHaveTextContent(/^– state unknown$/);
+    expect(cells[2]).not.toHaveClass("tp-warn");
+    expect(cells[3]).toHaveTextContent(/^– state unknown$/);
+  });
+});
