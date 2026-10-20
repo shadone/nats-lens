@@ -194,3 +194,31 @@ func TestGlobalTopologyAgreesWithServers(t *testing.T) {
 		}
 	}
 }
+
+// In a past range the Server page lists the routes of that range's epoch,
+// as the Topology page pairs them: before nats-us-4 stopped, nats-us-0
+// has routes to it.
+func TestPastServerRoutesAgreeWithTopology(t *testing.T) {
+	c := demo(t)
+	r := &v1.TimeRange{Start: timestamppb.New(time.Date(2026, 10, 17, 8, 0, 0, 0, time.UTC)),
+		End: timestamppb.New(time.Date(2026, 10, 17, 8, 30, 0, 0, time.UTC))}
+	d := must(c.GetServer(ctx, connect.NewRequest(&v1.GetServerRequest{System: fake.GlobalSystem, Name: "nats-us-0", Range: r})))
+	remotes := map[string]bool{}
+	for _, v := range d.GetRouteViews() {
+		remotes[v.GetRemoteName()] = true
+	}
+	pairs := map[string]bool{}
+	for _, rt := range topology(t, c, fake.GlobalSystem, r).GetRoutes() {
+		if rt.GetServerA() == "nats-us-0" {
+			pairs[rt.GetServerB()] = true
+		}
+	}
+	if len(d.GetRouteViews()) != 24 || !remotes["nats-us-4"] || len(remotes) != len(pairs) {
+		t.Errorf("nats-us-0 at 08:30: %d routes to %v; topology pairs %v", len(d.GetRouteViews()), remotes, pairs)
+	}
+	for n := range pairs {
+		if !remotes[n] {
+			t.Errorf("topology pairs nats-us-0 with %s, the Server page lists no route", n)
+		}
+	}
+}

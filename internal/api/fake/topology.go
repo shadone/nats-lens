@@ -17,6 +17,9 @@ type linkSpec struct {
 	// with a route of their own.
 	pool   int
 	pinned []string
+	// routeBase is added to every route round trip of a cluster whose
+	// servers lie further apart.
+	routeBase map[string]time.Duration
 	// slowRoutes gives the round trip of every route of a server that is
 	// slower than the rest.
 	slowRoutes map[string]time.Duration
@@ -128,6 +131,9 @@ func (sc *scenario) routeRTT(a, b string) time.Duration {
 	d := time.Duration(300+h.Sum32()%280) * time.Microsecond
 	if a > b {
 		d += 9 * time.Microsecond
+	}
+	if sp, ok := sc.server(a); ok && sc.links != nil {
+		d += sc.links.routeBase[sp.cluster]
 	}
 	return d
 }
@@ -369,6 +375,7 @@ func (p *Provider) Topology(_ context.Context, req *v1.GetTopologyRequest) (*api
 	from := latest(at.Add(-api.TopologyDropWindow), s.dataStart())
 	first := at.Add(-at.Sub(from) / sampleEvery * sampleEvery)
 	var prev api.TopologyCollection
+	var history []api.TopologyCollection
 	for t := first; !t.After(at); t = t.Add(sampleEvery) {
 		c := api.TopologyCollection{Epoch: s.epochNumber(t), At: t, Gatewayz: s.answeringIDs(t),
 			Gateways: s.gatewayRows(t), Leafnodes: s.leafRows(t)}
@@ -382,8 +389,9 @@ func (p *Provider) Topology(_ context.Context, req *v1.GetTopologyRequest) (*api
 			c.Leafnodes = prev.Leafnodes
 		}
 		c.Leafz = c.Gatewayz
-		f.History = append(f.History, c)
+		history = append(history, c)
 		prev = c
 	}
+	f.Drops = api.CountTopologyDrops(history, sampleEvery, epoch, at)
 	return f, nil
 }

@@ -7,7 +7,7 @@ import (
 
 // globalLinks is how example-global's servers connect: three pooled
 // routes between any two servers of a cluster, nats-eu-3's at 4 ms where
-// the others take about 0.4 ms; a gateway from every server to each other
+// the others of eu and us take about 0.4 ms and those of ap about 4.6 ms; a gateway from every server to each other
 // cluster, eu-us 84 ms, eu-ap 166 ms and us-ap 212 ms, nats-ap-1's to us
 // reconnecting three times in the last hour; and 30 warehouses and pickup
 // points of the shop as leaf nodes on eu and us. pickup-0417 dropped 17
@@ -19,6 +19,9 @@ func globalLinks() *linkSpec {
 	l := &linkSpec{
 		pool:       3,
 		slowRoutes: map[string]time.Duration{"nats-eu-3": 4 * time.Millisecond},
+		// ap's servers lie in zones further apart: its routes take about
+		// 4.6 ms, all alike, so none is slow.
+		routeBase: map[string]time.Duration{"ap": 4300 * time.Microsecond},
 		gatewayRTT: map[[2]string]time.Duration{
 			{"eu", "us"}: 84 * time.Millisecond,
 			{"ap", "eu"}: 166 * time.Millisecond,
