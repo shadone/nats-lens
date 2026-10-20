@@ -24,7 +24,7 @@ func (b *replayBuilder) finish() ([]*v1.ReplayStep, int32) {
 			Title: d.title, Body: d.body, OutsideRange: d.outside, GapKind: d.gapKind,
 			LeadersTaken: leaderCounts(d.leaders)}
 		ev := distinctLabels(uniqueEvidence(d.evidence))
-		s.EvidenceCount, s.Evidence = int32(len(ev)), ev[:min(len(ev), maxStepEvidence)]
+		s.EvidenceCount, s.Evidence = int32(len(ev)), capEvidence(ev, maxStepEvidence)
 		ents := uniqueEntities(d.entities)
 		s.EntityCount, s.Entities = int32(len(ents)), ents[:min(len(ents), maxStepEntities)]
 		s.Id = stepID(s, ids)
@@ -98,6 +98,31 @@ func uniqueEvidence(ev []*v1.ReplayEvidence) []*v1.ReplayEvidence {
 	slices.SortStableFunc(out, func(x, y *v1.ReplayEvidence) int {
 		return cmp.Or(x.GetTime().AsTime().Compare(y.GetTime().AsTime()), cmp.Compare(x.GetKind(), y.GetKind()), cmp.Compare(x.GetId(), y.GetId()))
 	})
+	return out
+}
+
+// capEvidence keeps at most n of a step's evidence, in time order: the
+// step's own evidence first (collections, findings, announcements, pod
+// events), then elections, which leaders_taken counts in full
+// (proposed, not yet confirmed).
+func capEvidence(ev []*v1.ReplayEvidence, n int) []*v1.ReplayEvidence {
+	if len(ev) <= n {
+		return ev
+	}
+	keep := map[*v1.ReplayEvidence]bool{}
+	for _, elections := range []bool{false, true} {
+		for _, e := range ev {
+			if len(keep) < n && (e.GetElected() != "") == elections {
+				keep[e] = true
+			}
+		}
+	}
+	out := make([]*v1.ReplayEvidence, 0, n)
+	for _, e := range ev {
+		if keep[e] {
+			out = append(out, e)
+		}
+	}
 	return out
 }
 

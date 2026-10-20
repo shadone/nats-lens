@@ -329,3 +329,41 @@ func TestReplayElectionEvidenceNamesTheLeader(t *testing.T) {
 		t.Errorf("meta = %v", meta)
 	}
 }
+
+// A step whose evidence is capped keeps the evidence of its own first and
+// fills the rest with elections, which leaders_taken counts in full: a
+// restart keeps the collection it came back in.
+func TestReplayCapKeepsTheStepsOwnEvidence(t *testing.T) {
+	f := facts()
+	f.EventsCaptured, f.Collected = true, true
+	var led []*v1.EntityRef
+	for i := range 12 {
+		led = append(led, streamEnt(fmt.Sprintf("s%d", i)))
+	}
+	f.Restarts = []api.ReplayRestart{{Server: "nats-1", LastSeen: rAt(10, 0), FirstSeen: rAt(11, 30), OldEpoch: 120, NewEpoch: 123, LedBefore: led}}
+	for i := range 12 {
+		f.Events = append(f.Events, ev(rAt(10, 5).Add(time.Duration(i)*time.Second), "stream.leader_elected", "nats-0", onAsset("APP", fmt.Sprintf("s%d", i), "")))
+	}
+	f.Transitions = []api.ReplayTransition{tr("server-004:nats-1", "server-004", &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SERVER, Key: "nats-1"},
+		rAt(11, 30), firing, info)}
+	r := stepsOf(api.FinishReplay(f), v1.ReplayStepKind_REPLAY_STEP_KIND_RESTART)[0]
+	var collections, findings, elections int
+	for _, e := range r.GetEvidence() {
+		switch {
+		case e.GetKind() == v1.ReplayEvidenceKind_REPLAY_EVIDENCE_KIND_COLLECTION:
+			collections++
+		case e.GetKind() == v1.ReplayEvidenceKind_REPLAY_EVIDENCE_KIND_FINDING:
+			findings++
+		case e.GetElected() != "":
+			elections++
+		}
+	}
+	if len(r.GetEvidence()) != 10 || collections != 2 || findings != 1 || elections != 7 || r.GetEvidenceCount() != 15 {
+		t.Errorf("evidence %d of %d: %d collections, %d findings, %d elections", len(r.GetEvidence()), r.GetEvidenceCount(), collections, findings, elections)
+	}
+	for i := 1; i < len(r.GetEvidence()); i++ {
+		if r.GetEvidence()[i].GetTime().AsTime().Before(r.GetEvidence()[i-1].GetTime().AsTime()) {
+			t.Errorf("evidence out of time order: %v", r.GetEvidence())
+		}
+	}
+}
