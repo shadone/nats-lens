@@ -152,6 +152,8 @@ export function ReplayScrubber({ start, end, live, now, strip, stripError, momen
   const step = strip?.bucketMs || bucketFor(span);
   const fmt = span > DAY ? dayMonHm : hm;
   const windows: Window[] = strip?.windows ?? [];
+  // A window's time carries the day when it is not on A's day.
+  const windowTime = (t: number) => (dayMon(t) === dayMon(moments.a) ? hm(t) : dayMonHm(t));
 
   const preview = (m: Moments) => {
     draftRef.current = m;
@@ -287,8 +289,8 @@ export function ReplayScrubber({ start, end, live, now, strip, stripError, momen
                 type="button"
                 className={`rs-win${frac(w.start) > 0.6 ? " end" : ""}`}
                 style={{ left: pct(w.start), width: `calc(${pct(w.end)} - ${pct(w.start)})` }}
-                aria-label={`Replay ${w.label} ${hm(w.start)}–${hm(w.end)} UTC`}
-                title={`${w.label} ${hm(w.start)}–${hm(w.end)} UTC${w.detail ? `: ${w.detail}` : ""}`}
+                aria-label={`Replay ${w.label} ${windowTime(w.start)}–${windowTime(w.end)} UTC`}
+                title={`${w.label} ${windowTime(w.start)}–${windowTime(w.end)} UTC${w.detail ? `: ${w.detail}` : ""}`}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => send(windowMoments(w, now))}
               >
