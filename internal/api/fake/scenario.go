@@ -82,6 +82,12 @@ type scenario struct {
 	// spreadLeaders spreads the initial stream leaders over the replicas:
 	// the i-th stream's is its peer i modulo its replicas, not its first.
 	spreadLeaders bool
+	// links are how the servers connect; nil means routes only, one per
+	// pair of servers.
+	links *linkSpec
+	// layout indexes the servers by cluster, built once.
+	layoutOnce sync.Once
+	layout     clusterLayout
 	// model is the leaders' history, built once from the scenario.
 	modelOnce sync.Once
 	model     *leaderModel
