@@ -89,17 +89,26 @@ export function connLimitText(limit: number | undefined): string | undefined {
   return limit < 0 ? "of unlimited" : `of ${fmtInt(limit)}`;
 }
 
-/**
- * Whether the account JWT turns JetStream off: a disk limit of 0. The only
- * place that reads the 0, so a change in how the API marks it changes here.
- */
+/** Whether the account JWT disables JetStream: jetstream_enabled false. Unset (no known JWT) is not off. */
 export function jetStreamOff(a: AccountRow): boolean {
-  return a.diskLimit === 0;
+  return a.jetstreamEnabled === false;
 }
 
-/** "of 500 GiB", "of unlimited", or undefined without a limit or with JetStream off. */
+/** Whether the account JWT allows JetStream memory but no file storage: enabled with a disk limit of 0. */
+export function memoryOnly(a: AccountRow): boolean {
+  return a.jetstreamEnabled === true && a.diskLimit === 0;
+}
+
+/** The disk cell's word for an account without file storage: "JetStream off", "memory only", or undefined. */
+export function diskStateText(a: AccountRow): string | undefined {
+  if (jetStreamOff(a)) return "JetStream off";
+  if (memoryOnly(a)) return "memory only";
+  return undefined;
+}
+
+/** "of 500 GiB", "of unlimited", or undefined without a limit or with a limit of 0, never "of 0 B". */
 export function diskLimitText(a: AccountRow): string | undefined {
-  if (a.diskLimit === undefined || jetStreamOff(a)) return undefined;
+  if (a.diskLimit === undefined || a.diskLimit === 0) return undefined;
   return a.diskLimit < 0 ? "of unlimited" : `of ${fmtBytes(a.diskLimit)}`;
 }
 

@@ -193,3 +193,28 @@ describe("Accounts", () => {
     expect(await screen.findByText("No account reported in this collection.")).toBeInTheDocument();
   });
 });
+
+describe("Accounts' JetStream disk cell", () => {
+  async function diskOf(o: Parameters<typeof account>[1]) {
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValue({ ...global(), accounts: [account("APP", { connections: 4, hasJwt: true, ...o })] });
+    renderApp(<Accounts />, "/accounts");
+    await screen.findByRole("region", { name: "Accounts and limits" });
+    return cells(bodyRows("Accounts and limits")[0])[3];
+  }
+
+  it("says JetStream off when the JWT disables it", async () => {
+    expect(await diskOf({ diskLimit: 0, jetstreamEnabled: false, jsStorage: undefined })).toHaveTextContent(/^JetStream off$/);
+  });
+
+  it("says memory only when JetStream is enabled without file storage", async () => {
+    expect(await diskOf({ diskLimit: 0, jetstreamEnabled: true, jsStorage: 0 })).toHaveTextContent(/^memory only$/);
+  });
+
+  it("shows the use against the limit when file storage is allowed", async () => {
+    expect(await diskOf({ diskLimit: 1024 ** 3, jetstreamEnabled: true, jsStorage: 512 * 1024 ** 2 })).toHaveTextContent(/^512 MiB of 1 GiB$/);
+  });
+
+  it("shows the use alone without a known JWT", async () => {
+    expect(await diskOf({ diskLimit: undefined, jetstreamEnabled: undefined, jsStorage: 0, hasJwt: false })).toHaveTextContent(/^0 B$/);
+  });
+});
