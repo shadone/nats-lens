@@ -293,7 +293,7 @@ func (b *replayBuilder) gapStep(g ReplayGap) *draft {
 		e := eventEvidence(g.Event)
 		e.Label = since + " since " + clockText(g.Start) + " (" + g.Event.GetKind() + ")"
 		d.evidence = append(d.evidence, e)
-		d.body = what + " from " + clockText(g.Start) + " up to B; nothing was captured then."
+		d.body = what + " from " + clockText(g.Start) + " up to B."
 	case g.Event != nil:
 		d.evidence = append(d.evidence, eventEvidence(g.Event))
 		d.body = g.Event.GetSummary()

@@ -394,3 +394,13 @@ func TestReplayLeadersStepEntities(t *testing.T) {
 		t.Errorf("stream step entities = %v", ls[1].GetEntities())
 	}
 }
+
+// An open gap's body says once what was missing.
+func TestReplayOpenGapBodyIsOneSentence(t *testing.T) {
+	f := facts()
+	f.Gaps = []api.ReplayGap{{Kind: api.GapEvents, Start: rAt(50, 0), Event: ev(rAt(50, 0), "collector.connection_closed", "")}}
+	g := stepsOf(api.FinishReplay(f), v1.ReplayStepKind_REPLAY_STEP_KIND_GAP)[0]
+	if g.GetBody() != "Events were not captured from 09:50:00 up to B." {
+		t.Errorf("body = %q", g.GetBody())
+	}
+}
