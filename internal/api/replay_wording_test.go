@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -283,5 +284,48 @@ func TestReplayGapStepsNameTheirKind(t *testing.T) {
 	}
 	if len(got) != 3 || got[v1.ReplayGapKind_REPLAY_GAP_KIND_UNSPECIFIED] {
 		t.Errorf("gap kinds %v", got)
+	}
+}
+
+// Election evidence names the server it elected, other evidence none; a
+// step gives its elections by new leader, all of them, beyond the
+// evidence's 10.
+func TestReplayElectionEvidenceNamesTheLeader(t *testing.T) {
+	f := facts()
+	f.EventsCaptured, f.Collected = true, true
+	var led []*v1.EntityRef
+	for i := range 12 {
+		led = append(led, streamEnt(fmt.Sprintf("s%d", i)))
+	}
+	f.Restarts = []api.ReplayRestart{{Server: "nats-1", LastSeen: rAt(10, 0), FirstSeen: rAt(11, 30), OldEpoch: 120, NewEpoch: 123, LedBefore: led}}
+	for i := range 12 {
+		server := "nats-0"
+		if i%3 == 0 {
+			server = "nats-2"
+		}
+		f.Events = append(f.Events, ev(rAt(10, 5).Add(time.Duration(i)*time.Second), "stream.leader_elected", server, onAsset("APP", fmt.Sprintf("s%d", i), "")))
+	}
+	f.Events = append(f.Events, ev(rAt(30, 0), "meta.leader_elected", "nats-2"))
+	f.MetaLeaderAtA = "nats-1"
+	res := api.FinishReplay(f)
+	r := stepsOf(res, v1.ReplayStepKind_REPLAY_STEP_KIND_RESTART)[0]
+	var got []string
+	for _, l := range r.GetLeadersTaken() {
+		got = append(got, fmt.Sprintf("%s=%d", l.GetLeader(), l.GetCount()))
+	}
+	if strings.Join(got, ",") != "nats-0=8,nats-2=4" {
+		t.Errorf("leaders taken %v", got)
+	}
+	for _, s := range res.GetSteps() {
+		for _, e := range s.GetEvidence() {
+			isElection := strings.Contains(e.GetLabel(), "leader_elected")
+			if isElection != (e.GetElected() != "") {
+				t.Errorf("%q: evidence %v", s.GetTitle(), e)
+			}
+		}
+	}
+	meta := stepsOf(res, v1.ReplayStepKind_REPLAY_STEP_KIND_LEADERS)
+	if len(meta) != 1 || len(meta[0].GetLeadersTaken()) != 1 || meta[0].GetLeadersTaken()[0].GetLeader() != "nats-2" {
+		t.Errorf("meta = %v", meta)
 	}
 }

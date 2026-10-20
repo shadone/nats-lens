@@ -173,7 +173,8 @@ WHERE e.kind IN ('collector.gap', 'collector.k8s_gap') AND e.time <= ? AND e.rec
 // events, at most 5000.
 func (p *Provider) eventsConnectionGaps(ctx context.Context, f *api.ReplayFacts) error {
 	rows, err := p.db().QueryContext(ctx, `SELECT `+eventCols+`, coalesce(json_extract_string(e.raw, '$.connection'), '') FROM events e
-WHERE e.kind IN ('collector.not_connected', 'collector.connection_closed', 'collector.reconnected') AND e.time <= ?
+WHERE e.kind IN ('collector.disconnected', 'collector.not_connected', 'collector.connection_closed', 'collector.reconnected', 'collector.started')
+  AND e.time <= ?
 ORDER BY e.time DESC, e.id DESC LIMIT 5000`, f.B)
 	if err != nil {
 		return fmt.Errorf("replay events connections: %w", err)

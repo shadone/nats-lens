@@ -67,6 +67,10 @@ func prodScenario() *scenario {
 		transitions:   prodTransitions,
 		consumer:      prodConsumer,
 		created:       prodCreated,
+		// The leads are spread over the three servers; order-archive's
+		// leader is nats-0, so that nats-2 takes it when nats-0 stops.
+		spreadLeaders:  true,
+		initialLeaders: map[string]string{Account + "/order-archive": "nats-0"},
 	}
 }
 

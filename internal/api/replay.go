@@ -236,12 +236,22 @@ const (
 // EventsConnectionGaps are the times the connections that capture events
 // (every collector connection but the collector's own) had no server or
 // were closed, from the connection events in time order: each from the
-// first failure to the next reconnect of that connection, open when none
-// followed.
+// first loss (collector.disconnected, as core subscriptions lose what
+// comes while disconnected, collector.not_connected or
+// collector.connection_closed) to the next reconnect of that connection,
+// or to nats-lens starting again (collector.started: its connections are
+// new); open when neither followed.
 func EventsConnectionGaps(evs []*v1.Event) []ReplayGap {
 	var out []ReplayGap
 	open := map[string]int{}
 	for _, e := range evs {
+		if e.GetKind() == "collector.started" {
+			for c, i := range open {
+				out[i].End = e.GetTime().AsTime()
+				delete(open, c)
+			}
+			continue
+		}
 		var raw struct {
 			Connection string `json:"connection"`
 		}
@@ -251,7 +261,7 @@ func EventsConnectionGaps(evs []*v1.Event) []ReplayGap {
 		}
 		at := e.GetTime().AsTime()
 		switch e.GetKind() {
-		case "collector.not_connected", "collector.connection_closed":
+		case "collector.disconnected", "collector.not_connected", "collector.connection_closed":
 			if _, ok := open[raw.Connection]; !ok {
 				open[raw.Connection] = len(out)
 				out = append(out, ReplayGap{Kind: GapEvents, Start: at, Event: e})

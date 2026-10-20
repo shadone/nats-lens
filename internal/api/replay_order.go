@@ -21,7 +21,8 @@ func (b *replayBuilder) finish() ([]*v1.ReplayStep, int32) {
 	ids := map[string]int{}
 	for _, d := range b.steps {
 		s := &v1.ReplayStep{Time: tsOrNil(d.time), End: tsOrNil(d.end), OpenAtB: d.openAtB, Kind: d.kind, Severity: d.severity,
-			Title: d.title, Body: d.body, OutsideRange: d.outside, GapKind: d.gapKind}
+			Title: d.title, Body: d.body, OutsideRange: d.outside, GapKind: d.gapKind,
+			LeadersTaken: leaderCounts(d.leaders)}
 		ev := distinctLabels(uniqueEvidence(d.evidence))
 		s.EvidenceCount, s.Evidence = int32(len(ev)), ev[:min(len(ev), maxStepEvidence)]
 		ents := uniqueEntities(d.entities)
@@ -96,6 +97,19 @@ func uniqueEvidence(ev []*v1.ReplayEvidence) []*v1.ReplayEvidence {
 	}
 	slices.SortStableFunc(out, func(x, y *v1.ReplayEvidence) int {
 		return cmp.Or(x.GetTime().AsTime().Compare(y.GetTime().AsTime()), cmp.Compare(x.GetKind(), y.GetKind()), cmp.Compare(x.GetId(), y.GetId()))
+	})
+	return out
+}
+
+// leaderCounts are a step's elections by new leader, most first, then by
+// name.
+func leaderCounts(by map[string]int) []*v1.ReplayLeaderCount {
+	var out []*v1.ReplayLeaderCount
+	for l, n := range by {
+		out = append(out, &v1.ReplayLeaderCount{Leader: l, Count: int32(n)})
+	}
+	slices.SortFunc(out, func(x, y *v1.ReplayLeaderCount) int {
+		return cmp.Or(cmp.Compare(y.GetCount(), x.GetCount()), cmp.Compare(x.GetLeader(), y.GetLeader()))
 	})
 	return out
 }
