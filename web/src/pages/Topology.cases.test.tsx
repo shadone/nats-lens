@@ -1,13 +1,17 @@
 // Edge cases of the Topology page: the second review's cases and the fixes
 // that followed them.
 import { screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import * as requests from "../api/requests";
 import { LeafTable } from "../components/TopologyTables";
 import { TopologyMap } from "../components/TopologyMap";
 import { fmtShortDuration } from "../lib/format";
 import { boxCentre, clusterNote, farLabels, gatewayLabelParts, labelWidth, rowFractions, routesCluster, summary } from "../lib/topologyView";
 import { cluster, gateway, global, leaf, route } from "../test/fixtures/topology";
 import { renderApp } from "../test/render";
+import { Topology } from "./Topology";
+
+vi.mock("../api/requests", () => ({ getTopology: vi.fn(), getLensInfo: vi.fn(() => new Promise(() => {})), getShellStatus: vi.fn(() => new Promise(() => {})) }));
 
 describe("routes cluster across refetches", () => {
   it("stays on one cluster when two clusters have slow routes and their order swaps", () => {
@@ -49,7 +53,7 @@ describe("down pair and summary", () => {
 
 describe("leaf rows wording", () => {
   function row(l: ReturnType<typeof leaf>, failed: string[] = []) {
-    renderApp(<LeafTable rows={[l]} total={1} at={Date.parse("2026-10-17T14:30:00Z")} leafzFailed={failed} />);
+    renderApp(<LeafTable rows={[l]} total={1} at={Date.parse("2026-10-17T14:30:00Z")} leafzFailed={{ [l.hubCluster]: failed }} />);
     return within(screen.getAllByRole("row")[1]);
   }
   it("not connected without a last-seen time names the last hub", () => {
@@ -113,5 +117,28 @@ describe("gateway labels", () => {
     // Labels on different levels never overlap vertically.
     const [a, b] = [...placed].sort((x, y) => x.y - y.y);
     expect(a.y + a.height / 2).toBeLessThanOrEqual(b.y - b.height / 2);
+  });
+});
+
+describe("round 3", () => {
+  it("names only the failed LEAFZ servers of the site's own cluster", async () => {
+    const t = global();
+    t.unobserved = [{ endpoint: "LEAFZ", servers: ["nats-eu-3", "nats-us-2"] }];
+    t.leafnodes.splice(1, 0, { ...t.leafnodes[0], name: "pickup-1210", hubServer: "nats-us-1", hubCluster: "us", connectionUnknown: true });
+    vi.mocked(requests.getTopology).mockResolvedValue(t);
+    renderApp(<Topology />, "/topology");
+    const header = await screen.findByRole("rowheader", { name: /pickup-1210/ });
+    expect(header).toHaveTextContent("state unknown: LEAFZ did not answer on nats-us-2; last seen");
+    expect(header).not.toHaveTextContent("nats-eu-3");
+  });
+
+  it("puts the unknown cluster after named ones among clusters with slow routes", () => {
+    const t = global();
+    t.clusters = [...t.clusters.map((c) => ({ ...c, metaLeader: false })), cluster("", ["nats-x-0", "nats-x-1"])];
+    t.routes = [route("", "nats-x-0", "nats-x-1", { rttMs: 5, slow: true }), route("us", "nats-us-0", "nats-us-1", { rttMs: 4, slow: true })];
+    expect(routesCluster(t, null)).toBe("us");
+    // Alone, it is still picked.
+    t.routes = [route("", "nats-x-0", "nats-x-1", { rttMs: 5, slow: true })];
+    expect(routesCluster(t, null)).toBe("");
   });
 });
