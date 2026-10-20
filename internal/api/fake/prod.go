@@ -97,7 +97,8 @@ func prodCreated(s scen, _, consumer string) ([]time.Time, bool) {
 	return []time.Time{time.Date(2026, 8, 12, 10, 2, 11, 0, time.UTC).Add(s.shift), s.at(9, 38, 44), s.at(9, 38, 44)}, true
 }
 
-// prodTransitions gives the flapping consumer-002 its history.
+// prodTransitions gives the flapping consumer-002 its history, and
+// client-003 on media-worker its firing and resolve.
 func prodTransitions(s scen, f *v1.Finding) []*v1.FindingTransition {
 	if f.GetCheckCode() == "client-003" && f.GetEntity().GetKey() == "media-worker" {
 		// It fired with the third disconnect, and its detail then named

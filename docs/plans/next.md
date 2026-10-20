@@ -2,11 +2,12 @@
 
 Phase 1 is complete on `develop` (see `phase-1.md`). This note is the starting point for the next session.
 
-## State on 2026-10-19
+## State on 2026-10-20
 
-- Items 1 to 3 below and the Placement page are done and merged on `develop`. `develop` is **not pushed**; the owner pushes when ready. Go tests, web tests and the feature-docs audit pass on `develop`.
+- Items 1 to 3 below, the Placement page and the Replay page are done and merged on `develop`. `develop` is **not pushed**; the owner pushes when ready. Go tests, web tests and the feature-docs audit pass on `develop`.
 - **Placement page** merged on 2026-10-19 (`8011d15`) after seven review rounds; the later rounds fixed the comparison with an earlier time, which could mark cells from another system's or range's matrix, or stay on "Loading" when a load failed. Its leftovers are in item 5. The worktree `../nats-lens-placement` can be removed.
-- **Replay page** built on `feat/replay-page` (worktree `../nats-lens-replay`), tasks T1 to T4 of `docs/plans/replay.md` done on 2026-10-20; not merged yet. Its leftovers are in item 5.
+- **Replay page** merged on 2026-10-20 (tasks T1 to T4 of `docs/plans/replay.md`), after review rounds on the API, the demo story and the page. Besides the page it changed the collector: events connections now record a redial as `collector.reconnected`, and Node upgrade events carry `node`, `pool` and `kubelet_version`. The demo's leaders now change only at election events, on every page. Its leftovers are in item 5. The worktrees `../nats-lens-replay` and `../nats-lens-replay-ui` can be removed.
+- **Proposed decisions of the Replay session, not yet confirmed**, each written in `docs/design.md` or `docs/features/replay.md`: A to B at most 24 h; at most 200 steps, 10 evidence per step (own evidence first); an events connection back within 10 s is a failover, not lost capture; the loss of any one events connection for longer leaves every event count not observed; one reason per unset count, the first in a fixed order; the 30 s after a start before `collector.not_connected` count as captured; a window button sets A and B to the window widened by 5 minutes; warning dots stay outlined rings; Replay sits under Cluster after Events.
 - Next: the next phase 2 page of item 4, or leftovers of item 5, as the owner chooses.
 - Phase 1 decisions: the owner confirmed those listed in `docs/design.md` under "Owner review of proposed decisions, 2026-10-17".
 - The design canvas the phase 2 pages come from is the claude.ai artifact <https://claude.ai/artifact/Lz4Tsej5k1XHDdfV1kbLJD> (one board per page, such as `Placement.dc.html`).
