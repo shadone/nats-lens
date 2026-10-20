@@ -29,6 +29,7 @@ const (
 // made, newest first, without IDs.
 func (s scen) allEvents(fs []*v1.Finding) []*v1.Event {
 	out := append(s.sc.events(s, fs), s.modelElections()...)
+	out = append(out, s.authEvents()...)
 	slices.SortStableFunc(out, func(a, b *v1.Event) int { return b.GetTime().AsTime().Compare(a.GetTime().AsTime()) })
 	return out
 }

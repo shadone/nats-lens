@@ -1,0 +1,211 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "google/protobuf/timestamp.proto";
+import "natslens/v1/common.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// Request for the accounts of a system, its failed logins and what expires
+// soon.
+message GetAccountsAndAuthRequest {
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 1;
+
+  // Range whose newest epoch is read; failed logins are counted over the
+  // 24 hours before that epoch. Unset means the last 24 hours up to now.
+  TimeRange range = 2;
+}
+
+// One account in the epoch.
+message AccountRow {
+  // Account as the servers report it: the account public key in operator
+  // mode, the configured name in config mode.
+  string account = 1;
+
+  // Readable name of the account; empty when none is known.
+  string account_name = 2;
+
+  // Whether this is the system account.
+  bool is_system = 3;
+
+  // Client connections, summed over the servers; unset when no server
+  // reported the account's statistics.
+  optional int32 connections = 4;
+
+  // Leaf node connections, summed over the servers; unset as connections.
+  optional int32 leafnodes = 5;
+
+  // Subscriptions, summed over the servers; unset as connections.
+  optional int64 subscriptions = 6;
+
+  // JetStream file storage in use, bytes: the largest any server reports
+  // (each reports the account total). Unset when none reports it.
+  optional int64 js_storage = 7;
+
+  // JetStream memory storage in use, bytes; unset as js_storage.
+  optional int64 js_memory = 8;
+
+  // Streams of the account in the epoch, each counted once however many
+  // replicas it has; unset when not known.
+  optional int32 streams = 9;
+
+  // Most client connections the account JWT allows; -1 no limit. Unset
+  // without a known JWT (config mode, or not looked up yet).
+  optional int64 conn_limit = 10;
+
+  // JetStream file storage the account JWT allows, bytes; -1 no limit, 0
+  // JetStream not enabled. Unset as conn_limit.
+  optional int64 disk_limit = 11;
+
+  // Imports, without those nats-server adds to every account; unset
+  // unless details_known.
+  optional int32 imports = 12;
+
+  // Exports; unset unless details_known.
+  optional int32 exports = 13;
+
+  // Whether the account was looked up (ACCOUNTZ) at most 24 hours before
+  // the epoch. Without that, imports, exports, the limits and the JWT
+  // fields are unset: not looked up yet.
+  bool details_known = 14;
+
+  // When the account JWT expires; unset when it never expires, without a
+  // JWT, or unless details_known.
+  google.protobuf.Timestamp jwt_expires = 15;
+
+  // Whether the lookup found an account JWT (operator mode).
+  bool has_jwt = 16;
+
+  // Whether the server reported the account JWT as expired.
+  bool expired = 17;
+
+  // When the lookup read; unset unless details_known.
+  google.protobuf.Timestamp details_at = 18;
+}
+
+// Failed logins of one user from one address for one reason.
+message FailedLogin {
+  // User the client tried; empty when it gave none.
+  string user = 1;
+
+  // Client IP address; empty when not reported.
+  string host = 2;
+
+  // Reason the server gave, for example "User Authentication Revoked".
+  string reason = 3;
+
+  // Account an event of the group names; empty when none does.
+  string account = 4;
+
+  // Readable name of the account; empty when none is known.
+  string account_name = 5;
+
+  // Failed logins in the window.
+  int64 count = 6;
+
+  // The newest of them.
+  google.protobuf.Timestamp last = 7;
+}
+
+// What an expiring row is.
+enum ExpiringKind {
+  // Not set.
+  EXPIRING_KIND_UNSPECIFIED = 0;
+  // A server's listener certificate: server and listener are set.
+  EXPIRING_KIND_SERVER_CERTIFICATE = 1;
+  // An account JWT: account is set.
+  EXPIRING_KIND_ACCOUNT_JWT = 2;
+  // The user JWTs of one user of an account held by connections in the
+  // epoch: account, user and connections are set.
+  EXPIRING_KIND_USER_JWT = 3;
+}
+
+// A certificate or JWT that has expired or expires within 30 days of the
+// epoch.
+message Expiring {
+  // What expires.
+  ExpiringKind kind = 1;
+
+  // Server name of a certificate.
+  string server = 2;
+
+  // Listener of a certificate: client, cluster, gateway, leafnode,
+  // websocket or mqtt.
+  string listener = 3;
+
+  // Account of an account or user JWT.
+  string account = 4;
+
+  // Readable name of the account; empty when none is known.
+  string account_name = 5;
+
+  // User of a user JWT, as the connections authenticated.
+  string user = 6;
+
+  // When it expires; for user JWTs the soonest of the user's.
+  google.protobuf.Timestamp expires = 7;
+
+  // Whether it has expired at the epoch, or the server reports the
+  // account JWT as expired.
+  bool expired = 8;
+
+  // Connections holding a user JWT that expires at expires.
+  int32 connections = 9;
+}
+
+// The accounts of a system in the range's newest epoch, the failed logins
+// of the 24 hours before it, and what expires soon.
+message GetAccountsAndAuthResponse {
+  // Epoch read; 0 when the range holds none, and then everything else is
+  // empty.
+  int64 epoch = 1;
+
+  // When the epoch started.
+  google.protobuf.Timestamp epoch_at = 2;
+
+  // Whether the system runs in operator mode: an account identifier of
+  // the epoch is an account public key.
+  bool operator_mode = 3;
+
+  // Accounts: the system account last, the others by connections, most
+  // first, then by account name. At most 500.
+  repeated AccountRow accounts = 4;
+
+  // Accounts before the limit of 500.
+  int32 accounts_total = 5;
+
+  // Failed logins grouped by user, address and reason: most first, then
+  // the newest first. At most 100 groups.
+  repeated FailedLogin failed_logins = 6;
+
+  // Groups before the limit of 100.
+  int32 failed_login_groups_total = 7;
+
+  // Failed logins in every group.
+  int64 failed_logins_total = 8;
+
+  // Start of the time failed logins are counted over: 24 hours before the
+  // epoch, or the first collection when the history is shorter.
+  google.protobuf.Timestamp failed_logins_window_start = 9;
+
+  // Whether event capture was not running for part of the window (nats-lens
+  // stopped, or a connection that captures events was lost), so the
+  // counts can be low.
+  bool capture_gaps = 10;
+
+  // Certificates and JWTs that have expired or expire within 30 days of
+  // the epoch: expired first, then the soonest. At most 100. In config
+  // mode only certificates.
+  repeated Expiring expiring = 11;
+
+  // Certificates and JWTs that expire more than 30 days after the epoch.
+  int32 expire_later = 12;
+
+  // Account JWTs without an expiry and users whose JWTs report none.
+  int32 never_expire = 13;
+
+  // Expiring rows before the limit of 100.
+  int32 expiring_total = 14;
+}
