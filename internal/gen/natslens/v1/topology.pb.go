@@ -556,8 +556,9 @@ type TopologyLeafnode struct {
 	// Every hub server the site is connected to now, by name; hub_server is
 	// the first. Empty for a site not connected.
 	HubServers []string `protobuf:"bytes,12,rep,name=hub_servers,json=hubServers,proto3" json:"hub_servers,omitempty"`
-	// Whether a site not connected may be connected after all: a server's
-	// LEAFZ failed in the epoch (see unobserved), and the site may be on it.
+	// Whether a site not connected may be connected after all: a server of
+	// the cluster it was last seen on failed LEAFZ in the epoch (see
+	// unobserved), and the site may be on it.
 	ConnectionUnknown bool `protobuf:"varint,13,opt,name=connection_unknown,json=connectionUnknown,proto3" json:"connection_unknown,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
