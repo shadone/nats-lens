@@ -88,7 +88,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Applications](applications.md) | `ui`, `api` | planned |
 | [Capacity and retention](capacity.md) | `ui`, `api` | planned |
 | [Subjects](subjects.md) | `ui`, `api` | planned |
-| [Accounts and auth](accounts-and-auth.md) | `ui`, `api` | planned |
+| [Accounts and auth](accounts-and-auth.md) | `ui`, `api` | shipped |
 | [KV and object stores](kv-and-object-stores.md) | `ui`, `api` | shipped |
 | [Micro services](micro-services.md) | `ui`, `api` | planned |
 | [Command bar](command-bar.md) | `ui` | partial — search by name is shipped; findings, events and prefixes are planned |
@@ -138,7 +138,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [ ] Clients grouped by application (applications.md)
 - [ ] What each stream keeps, what bounds it, and when disks fill (capacity.md)
 - [ ] Subject patterns, from data the servers expose (subjects.md)
-- [ ] Accounts, users, failed logins and expiring credentials; `GetAccountsAndAuth` answers, the page is not built (accounts-and-auth.md)
+- [x] Accounts with their limits, imports, exports and JWT expiry, the failed logins of 24 hours, and the certificates and JWTs that expire within 30 days (accounts-and-auth.md)
 - [x] KV buckets and object stores as their own pages, with placement and missing buckets (kv-and-object-stores.md)
 - [ ] Services built on the NATS micro framework (micro-services.md)
 - [~] Search and jump to anything from one box — findings, events and prefixes are planned (command-bar.md)
