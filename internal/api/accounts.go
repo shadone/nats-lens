@@ -66,10 +66,13 @@ type AccountsFacts struct {
 	FailedLoginsCount int64
 	// WindowStart is where failed logins are counted from.
 	WindowStart time.Time
-	// CaptureGaps is whether event capture was not running for part of
-	// the window.
-	CaptureGaps bool
-	// Certificates are the servers' listener certificates of the epoch.
+	// EventsCaptured is whether any event is stored up to the epoch;
+	// CaptureGaps whether capture, while it ran, stopped for part of the
+	// window.
+	EventsCaptured, CaptureGaps bool
+	// Certificates are the listener certificates of the servers the epoch
+	// expected, each from the epoch or from the server's newest collection
+	// with VARZ within 24 hours.
 	Certificates []CertificateFact
 	// UserJWTs are the epoch's connections with a user JWT, by account and
 	// user.
@@ -88,9 +91,9 @@ type AccountFact struct {
 	JSStorage, JSMemory *int64
 	// Streams is the distinct streams of the account; nil when not known.
 	Streams *int32
-	// Details is the newest lookup at or before the epoch; nil when there
-	// is none or it is older than AccountDetailsMaxAge. FinishAccounts
-	// applies the age rule again.
+	// Details is the lookup of the newest epoch up to this one, read after
+	// that epoch started; nil when there is none or it is older than
+	// AccountDetailsMaxAge. FinishAccounts applies the age rule again.
 	Details *AccountDetails
 }
 
@@ -115,10 +118,12 @@ type FailedLoginFact struct {
 	Last                        time.Time
 }
 
-// CertificateFact is one listener certificate of one server.
+// CertificateFact is one listener certificate of one server. SeenAt is
+// when the collection it was read from started, when that is older than
+// the epoch; zero when read from the epoch.
 type CertificateFact struct {
 	Server, Listener string
-	NotAfter         time.Time
+	NotAfter, SeenAt time.Time
 }
 
 // UserJWTFact is the connections of one user of an account that hold a
@@ -131,10 +136,11 @@ type UserJWTFact struct {
 }
 
 // detailsOf is the account's lookup when it is recent enough for the
-// epoch.
+// epoch: read at most AccountDetailsMaxAge before the epoch started. The
+// lookup of the epoch itself is read after the epoch started.
 func (f *AccountsFacts) detailsOf(a AccountFact) *AccountDetails {
 	d := a.Details
-	if d == nil || d.At.After(f.EpochAt) || f.EpochAt.Sub(d.At) > AccountDetailsMaxAge {
+	if d == nil || f.EpochAt.Sub(d.At) > AccountDetailsMaxAge {
 		return nil
 	}
 	return d
@@ -147,7 +153,8 @@ func FinishAccounts(f *AccountsFacts) *v1.GetAccountsAndAuthResponse {
 	if f == nil || f.Epoch == 0 {
 		return &v1.GetAccountsAndAuthResponse{}
 	}
-	res := &v1.GetAccountsAndAuthResponse{Epoch: f.Epoch, EpochAt: timestamppb.New(f.EpochAt), CaptureGaps: f.CaptureGaps}
+	res := &v1.GetAccountsAndAuthResponse{Epoch: f.Epoch, EpochAt: timestamppb.New(f.EpochAt), EventsCaptured: f.EventsCaptured,
+		CaptureGaps: f.EventsCaptured && f.CaptureGaps}
 	if !f.WindowStart.IsZero() {
 		res.FailedLoginsWindowStart = timestamppb.New(f.WindowStart)
 	}
@@ -197,8 +204,11 @@ func FinishAccounts(f *AccountsFacts) *v1.GetAccountsAndAuthResponse {
 	}
 
 	for _, c := range f.Certificates {
-		exp.add(f.EpochAt, &v1.Expiring{Kind: v1.ExpiringKind_EXPIRING_KIND_SERVER_CERTIFICATE, Server: c.Server, Listener: c.Listener},
-			&c.NotAfter, false)
+		e := &v1.Expiring{Kind: v1.ExpiringKind_EXPIRING_KIND_SERVER_CERTIFICATE, Server: c.Server, Listener: c.Listener}
+		if !c.SeenAt.IsZero() && c.SeenAt.Before(f.EpochAt) {
+			e.SeenAt = timestamppb.New(c.SeenAt)
+		}
+		exp.add(f.EpochAt, e, &c.NotAfter, false)
 	}
 	for _, u := range f.UserJWTs {
 		exp.add(f.EpochAt, &v1.Expiring{Kind: v1.ExpiringKind_EXPIRING_KIND_USER_JWT, Account: u.Account, AccountName: names[u.Account],

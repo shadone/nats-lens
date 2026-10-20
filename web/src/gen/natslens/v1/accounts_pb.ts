@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/accounts.proto.
  */
 export const file_natslens_v1_accounts: GenFile = /*@__PURE__*/
-  fileDesc("ChpuYXRzbGVucy92MS9hY2NvdW50cy5wcm90bxILbmF0c2xlbnMudjEiUgoZR2V0QWNjb3VudHNBbmRBdXRoUmVxdWVzdBIOCgZzeXN0ZW0YASABKAkSJQoFcmFuZ2UYAiABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2UimAUKCkFjY291bnRSb3cSDwoHYWNjb3VudBgBIAEoCRIUCgxhY2NvdW50X25hbWUYAiABKAkSEQoJaXNfc3lzdGVtGAMgASgIEhgKC2Nvbm5lY3Rpb25zGAQgASgFSACIAQESFgoJbGVhZm5vZGVzGAUgASgFSAGIAQESGgoNc3Vic2NyaXB0aW9ucxgGIAEoA0gCiAEBEhcKCmpzX3N0b3JhZ2UYByABKANIA4gBARIWCglqc19tZW1vcnkYCCABKANIBIgBARIUCgdzdHJlYW1zGAkgASgFSAWIAQESFwoKY29ubl9saW1pdBgKIAEoA0gGiAEBEhcKCmRpc2tfbGltaXQYCyABKANIB4gBARIUCgdpbXBvcnRzGAwgASgFSAiIAQESFAoHZXhwb3J0cxgNIAEoBUgJiAEBEhUKDWRldGFpbHNfa25vd24YDiABKAgSLwoLand0X2V4cGlyZXMYDyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg8KB2hhc19qd3QYECABKAgSDwoHZXhwaXJlZBgRIAEoCBIuCgpkZXRhaWxzX2F0GBIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIeChFqZXRzdHJlYW1fZW5hYmxlZBgTIAEoCEgKiAEBQg4KDF9jb25uZWN0aW9uc0IMCgpfbGVhZm5vZGVzQhAKDl9zdWJzY3JpcHRpb25zQg0KC19qc19zdG9yYWdlQgwKCl9qc19tZW1vcnlCCgoIX3N0cmVhbXNCDQoLX2Nvbm5fbGltaXRCDQoLX2Rpc2tfbGltaXRCCgoIX2ltcG9ydHNCCgoIX2V4cG9ydHNCFAoSX2pldHN0cmVhbV9lbmFibGVkIpkBCgtGYWlsZWRMb2dpbhIMCgR1c2VyGAEgASgJEgwKBGhvc3QYAiABKAkSDgoGcmVhc29uGAMgASgJEg8KB2FjY291bnQYBCABKAkSFAoMYWNjb3VudF9uYW1lGAUgASgJEg0KBWNvdW50GAYgASgDEigKBGxhc3QYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIt0BCghFeHBpcmluZxInCgRraW5kGAEgASgOMhkubmF0c2xlbnMudjEuRXhwaXJpbmdLaW5kEg4KBnNlcnZlchgCIAEoCRIQCghsaXN0ZW5lchgDIAEoCRIPCgdhY2NvdW50GAQgASgJEhQKDGFjY291bnRfbmFtZRgFIAEoCRIMCgR1c2VyGAYgASgJEisKB2V4cGlyZXMYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg8KB2V4cGlyZWQYCCABKAgSEwoLY29ubmVjdGlvbnMYCSABKAUi5wMKGkdldEFjY291bnRzQW5kQXV0aFJlc3BvbnNlEg0KBWVwb2NoGAEgASgDEiwKCGVwb2NoX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIVCg1vcGVyYXRvcl9tb2RlGAMgASgIEikKCGFjY291bnRzGAQgAygLMhcubmF0c2xlbnMudjEuQWNjb3VudFJvdxIWCg5hY2NvdW50c190b3RhbBgFIAEoBRIvCg1mYWlsZWRfbG9naW5zGAYgAygLMhgubmF0c2xlbnMudjEuRmFpbGVkTG9naW4SIQoZZmFpbGVkX2xvZ2luX2dyb3Vwc190b3RhbBgHIAEoBRIbChNmYWlsZWRfbG9naW5zX3RvdGFsGAggASgDEj4KGmZhaWxlZF9sb2dpbnNfd2luZG93X3N0YXJ0GAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIUCgxjYXB0dXJlX2dhcHMYCiABKAgSJwoIZXhwaXJpbmcYCyADKAsyFS5uYXRzbGVucy52MS5FeHBpcmluZxIUCgxleHBpcmVfbGF0ZXIYDCABKAUSFAoMbmV2ZXJfZXhwaXJlGA0gASgFEhYKDmV4cGlyaW5nX3RvdGFsGA4gASgFKo4BCgxFeHBpcmluZ0tpbmQSHQoZRVhQSVJJTkdfS0lORF9VTlNQRUNJRklFRBAAEiQKIEVYUElSSU5HX0tJTkRfU0VSVkVSX0NFUlRJRklDQVRFEAESHQoZRVhQSVJJTkdfS0lORF9BQ0NPVU5UX0pXVBACEhoKFkVYUElSSU5HX0tJTkRfVVNFUl9KV1QQA0JCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_google_protobuf_timestamp, file_natslens_v1_common]);
+  fileDesc("ChpuYXRzbGVucy92MS9hY2NvdW50cy5wcm90bxILbmF0c2xlbnMudjEiUgoZR2V0QWNjb3VudHNBbmRBdXRoUmVxdWVzdBIOCgZzeXN0ZW0YASABKAkSJQoFcmFuZ2UYAiABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2UimAUKCkFjY291bnRSb3cSDwoHYWNjb3VudBgBIAEoCRIUCgxhY2NvdW50X25hbWUYAiABKAkSEQoJaXNfc3lzdGVtGAMgASgIEhgKC2Nvbm5lY3Rpb25zGAQgASgFSACIAQESFgoJbGVhZm5vZGVzGAUgASgFSAGIAQESGgoNc3Vic2NyaXB0aW9ucxgGIAEoA0gCiAEBEhcKCmpzX3N0b3JhZ2UYByABKANIA4gBARIWCglqc19tZW1vcnkYCCABKANIBIgBARIUCgdzdHJlYW1zGAkgASgFSAWIAQESFwoKY29ubl9saW1pdBgKIAEoA0gGiAEBEhcKCmRpc2tfbGltaXQYCyABKANIB4gBARIUCgdpbXBvcnRzGAwgASgFSAiIAQESFAoHZXhwb3J0cxgNIAEoBUgJiAEBEhUKDWRldGFpbHNfa25vd24YDiABKAgSLwoLand0X2V4cGlyZXMYDyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg8KB2hhc19qd3QYECABKAgSDwoHZXhwaXJlZBgRIAEoCBIuCgpkZXRhaWxzX2F0GBIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIeChFqZXRzdHJlYW1fZW5hYmxlZBgTIAEoCEgKiAEBQg4KDF9jb25uZWN0aW9uc0IMCgpfbGVhZm5vZGVzQhAKDl9zdWJzY3JpcHRpb25zQg0KC19qc19zdG9yYWdlQgwKCl9qc19tZW1vcnlCCgoIX3N0cmVhbXNCDQoLX2Nvbm5fbGltaXRCDQoLX2Rpc2tfbGltaXRCCgoIX2ltcG9ydHNCCgoIX2V4cG9ydHNCFAoSX2pldHN0cmVhbV9lbmFibGVkIpkBCgtGYWlsZWRMb2dpbhIMCgR1c2VyGAEgASgJEgwKBGhvc3QYAiABKAkSDgoGcmVhc29uGAMgASgJEg8KB2FjY291bnQYBCABKAkSFAoMYWNjb3VudF9uYW1lGAUgASgJEg0KBWNvdW50GAYgASgDEigKBGxhc3QYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIooCCghFeHBpcmluZxInCgRraW5kGAEgASgOMhkubmF0c2xlbnMudjEuRXhwaXJpbmdLaW5kEg4KBnNlcnZlchgCIAEoCRIQCghsaXN0ZW5lchgDIAEoCRIPCgdhY2NvdW50GAQgASgJEhQKDGFjY291bnRfbmFtZRgFIAEoCRIMCgR1c2VyGAYgASgJEisKB2V4cGlyZXMYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg8KB2V4cGlyZWQYCCABKAgSEwoLY29ubmVjdGlvbnMYCSABKAUSKwoHc2Vlbl9hdBgKIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAigAQKGkdldEFjY291bnRzQW5kQXV0aFJlc3BvbnNlEg0KBWVwb2NoGAEgASgDEiwKCGVwb2NoX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIVCg1vcGVyYXRvcl9tb2RlGAMgASgIEikKCGFjY291bnRzGAQgAygLMhcubmF0c2xlbnMudjEuQWNjb3VudFJvdxIWCg5hY2NvdW50c190b3RhbBgFIAEoBRIvCg1mYWlsZWRfbG9naW5zGAYgAygLMhgubmF0c2xlbnMudjEuRmFpbGVkTG9naW4SIQoZZmFpbGVkX2xvZ2luX2dyb3Vwc190b3RhbBgHIAEoBRIbChNmYWlsZWRfbG9naW5zX3RvdGFsGAggASgDEj4KGmZhaWxlZF9sb2dpbnNfd2luZG93X3N0YXJ0GAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIUCgxjYXB0dXJlX2dhcHMYCiABKAgSJwoIZXhwaXJpbmcYCyADKAsyFS5uYXRzbGVucy52MS5FeHBpcmluZxIUCgxleHBpcmVfbGF0ZXIYDCABKAUSFAoMbmV2ZXJfZXhwaXJlGA0gASgFEhYKDmV4cGlyaW5nX3RvdGFsGA4gASgFEhcKD2V2ZW50c19jYXB0dXJlZBgPIAEoCCqOAQoMRXhwaXJpbmdLaW5kEh0KGUVYUElSSU5HX0tJTkRfVU5TUEVDSUZJRUQQABIkCiBFWFBJUklOR19LSU5EX1NFUlZFUl9DRVJUSUZJQ0FURRABEh0KGUVYUElSSU5HX0tJTkRfQUNDT1VOVF9KV1QQAhIaChZFWFBJUklOR19LSU5EX1VTRVJfSldUEANCQlpAZ2l0aHViLmNvbS9zaGFkb25lL25hdHMtbGVucy9pbnRlcm5hbC9nZW4vbmF0c2xlbnMvdjE7bmF0c2xlbnN2MWIGcHJvdG8z", [file_google_protobuf_timestamp, file_natslens_v1_common]);
 
 /**
  * Request for the accounts of a system, its failed logins and what expires
@@ -342,6 +342,16 @@ export type Expiring = Message<"natslens.v1.Expiring"> & {
    * @generated from field: int32 connections = 9;
    */
   connections: number;
+
+  /**
+   * For a certificate of a server whose VARZ did not answer in the epoch:
+   * when the collection it is read from started, the newest in which the
+   * server's VARZ answered, at most 24 hours before the epoch. Unset when
+   * read from the epoch itself.
+   *
+   * @generated from field: google.protobuf.Timestamp seen_at = 10;
+   */
+  seenAt?: Timestamp | undefined;
 };
 
 /**
@@ -427,9 +437,9 @@ export type GetAccountsAndAuthResponse = Message<"natslens.v1.GetAccountsAndAuth
   failedLoginsWindowStart?: Timestamp | undefined;
 
   /**
-   * Whether event capture was not running for part of the window (nats-lens
-   * stopped, or a connection that captures events was lost), so the
-   * counts can be low.
+   * Whether event capture, while it ran, stopped for part of the window
+   * (nats-lens stopped, or a connection that captures events was lost),
+   * so the counts can be low. False when events_captured is false.
    *
    * @generated from field: bool capture_gaps = 10;
    */
@@ -437,8 +447,11 @@ export type GetAccountsAndAuthResponse = Message<"natslens.v1.GetAccountsAndAuth
 
   /**
    * Certificates and JWTs that have expired or expire within 30 days of
-   * the epoch: expired first, then the soonest. At most 100. In config
-   * mode only certificates.
+   * the epoch. Certificates are those of every server the epoch expected,
+   * read from the epoch or, for a server whose VARZ did not answer, from
+   * its newest collection with VARZ within 24 hours (seen_at). Order:
+   * expired first, then the soonest. At most 100. In config mode only
+   * certificates.
    *
    * @generated from field: repeated natslens.v1.Expiring expiring = 11;
    */
@@ -464,6 +477,16 @@ export type GetAccountsAndAuthResponse = Message<"natslens.v1.GetAccountsAndAuth
    * @generated from field: int32 expiring_total = 14;
    */
   expiringTotal: number;
+
+  /**
+   * Whether events were captured: some event is stored up to the epoch.
+   * False when event capture is off or never ran, as Replay's
+   * events-not-captured reason; then failed logins cannot be shown, and
+   * an empty list does not mean there were none.
+   *
+   * @generated from field: bool events_captured = 15;
+   */
+  eventsCaptured: boolean;
 };
 
 /**
