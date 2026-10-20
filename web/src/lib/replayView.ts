@@ -83,38 +83,52 @@ function collectionPage(e: Entity | undefined): string {
 export type EvidenceItem = { kind: "one"; e: ReplayEvidence } | { kind: "elections"; leader: string; count: number; items: ReplayEvidence[] };
 
 /**
- * A step's evidence with its leader elections (the rows that name the
- * server they elected) folded into one item per new leader, in the place
- * of the first, when the step holds two or more elections on that leader.
- * The count comes from the step's leaders taken, which the evidence cap
- * does not cut; every other record stays as it is.
+ * A step's evidence as the page lists it, and how many records are left
+ * out beyond it. The leader elections (rows that name the server they
+ * elected) fold into one item per new leader, in the place of its first
+ * row, when the step holds two or more elections on that leader; the
+ * count comes from the step's leaders taken, which the evidence cap does
+ * not cut, and a leader whose elections all fell past the cap gets an item
+ * without rows. "More" then counts only the other records left out. A meta
+ * leader step is not folded: its few rows keep their time order.
  */
-export function groupEvidence(evidence: ReplayEvidence[], leadersTaken: { leader: string; count: number }[] = []): EvidenceItem[] {
+export function groupEvidence(s: Pick<ReplayStep, "evidence" | "evidenceCount" | "leadersTaken" | "meta">): { items: EvidenceItem[]; more: number } {
+  const { evidence, leadersTaken } = s;
+  if (s.meta) return { items: evidence.map((e) => ({ kind: "one", e })), more: Math.max(0, s.evidenceCount - evidence.length) };
   const shown = new Map<string, number>();
   for (const e of evidence) if (e.elected) shown.set(e.elected, (shown.get(e.elected) ?? 0) + 1);
   const total = (l: string) => Math.max(leadersTaken.find((x) => x.leader === l)?.count ?? 0, shown.get(l) ?? 0);
-  const out: EvidenceItem[] = [];
+  const items: EvidenceItem[] = [];
   const groups = new Map<string, { kind: "elections"; leader: string; count: number; items: ReplayEvidence[] }>();
   for (const e of evidence) {
     const l = e.elected;
     if (!l || total(l) < 2) {
-      out.push({ kind: "one", e });
+      items.push({ kind: "one", e });
       continue;
     }
     let g = groups.get(l);
     if (!g) {
       g = { kind: "elections", leader: l, count: total(l), items: [] };
       groups.set(l, g);
-      out.push(g);
+      items.push(g);
     }
     g.items.push(e);
   }
-  return out;
+  for (const l of leadersTaken) {
+    if (l.count > 0 && !shown.has(l.leader)) items.push({ kind: "elections", leader: l.leader, count: l.count, items: [] });
+  }
+  // Elections not listed are told by their groups, not by "more".
+  const electionsShown = [...shown.values()].reduce((a, b) => a + b, 0);
+  const electionsAll = leadersTaken.reduce((a, l) => a + l.count, 0);
+  const hiddenElections = Math.max(0, electionsAll - electionsShown);
+  return { items, more: Math.max(0, s.evidenceCount - evidence.length - hiddenElections) };
 }
 
-/** "22 leader elections on nats-0" */
-export function electionsText(g: { leader: string; count: number }): string {
-  return `${g.count} leader elections on ${g.leader}`;
+/** "11 leader elections on nats-1 (6 of 11 listed)", "3 leader elections on nats-3, none listed" */
+export function electionsText(g: { leader: string; count: number; items: ReplayEvidence[] }): string {
+  const head = `${g.count} leader ${g.count === 1 ? "election" : "elections"} on ${g.leader}`;
+  if (g.items.length === 0) return `${head}, none listed`;
+  return g.items.length < g.count ? `${head} (${g.items.length} of ${g.count} listed)` : head;
 }
 
 /** "event", "finding", "collection": what a link opens. */
@@ -228,7 +242,7 @@ export function unobservedText(u: Unobserved, fmt: (t: number) => string): strin
     case "no_pool_labels":
       return "no upgraded node carried a node pool label";
     case "events_connection_lost":
-      return `events were not captured, as an events connection was lost${at(span(u, fmt))}`;
+      return `no events captured: an events connection was lost${at(span(u, fmt))}`;
     case "gone_not_read":
       return "the gone assets were not read";
     default:

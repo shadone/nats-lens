@@ -46,7 +46,7 @@ function EvidenceLink({ e }: { e: ReplayEvidence }) {
 
 function Step({ s, fmt }: { s: ReplayStep; fmt: (t: number) => string }) {
   const dot = dotClass(s);
-  const more = s.evidenceCount - s.evidence.length;
+  const { items, more } = groupEvidence(s);
   return (
     <li className={`rp-step k-${s.kind}${s.kind === "gap" ? " gap" : ""}`} data-step={s.id}>
       <span className="rp-when mono">
@@ -63,9 +63,16 @@ function Step({ s, fmt }: { s: ReplayStep; fmt: (t: number) => string }) {
           {s.outsideRange && <span className="rp-tag">outside the range</span>}
         </div>
         {s.body && <p className="rp-body">{s.body}</p>}
-        {s.evidence.length > 0 && (
+        {items.length > 0 && (
           <ul className="rp-ev" aria-label="Evidence">
-            {groupEvidence(s.evidence, s.leadersTaken).map((item, i) => {
+            {items.map((item, i) => {
+              if (item.kind === "elections" && item.items.length === 0) {
+                return (
+                  <li key={`elections:${item.leader}`}>
+                    <span className="rp-evk">events</span> {electionsText(item)}
+                  </li>
+                );
+              }
               if (item.kind === "elections") {
                 return (
                   <li key={`elections:${item.leader}`}>

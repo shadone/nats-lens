@@ -23,7 +23,8 @@ function story() {
           { kind: "event", id: "9", label: "order-archive -> nats-0 (term 5)", elected: "nats-0" },
           { kind: "collection", id: "120", time: Date.parse("2026-10-17T09:18:30Z"), label: "collection of 09:18:30", entity: server("nats-1") },
         ],
-        evidenceCount: 5,
+        // 4 rows shown, 20 more elections on nats-0 and 1 other record left out.
+        evidenceCount: 25,
         leadersTaken: [{ leader: "nats-0", count: 22 }],
       }),
       rstep("gap:1", "09:30:00", { kind: "gap", end: Date.parse("2026-10-17T09:33:00Z"), title: "No collections for 3 min" }),
@@ -59,7 +60,7 @@ describe("replayLog", () => {
     // A collection opens its entity over the hour that ends a second after it.
     expect(text).toContain("    collection: collection of 09:18:30 https://lens.example.com/servers/nats-1?from=2026-10-17T08%3A18%3A30Z&to=2026-10-17T09%3A18%3A31Z&system=example-global\n");
     expect(text).toContain("    and 1 more\n");
-    expect(text).toContain("    events: 22 leader elections on nats-0\n        event: order-jobs -> nats-0 (term 4) https://lens.example.com/events?id=8&");
+    expect(text).toContain("    events: 22 leader elections on nats-0 (2 of 22 listed)\n        event: order-jobs -> nats-0 (term 4) https://lens.example.com/events?id=8&");
     expect(text).toContain("09:40:00  Finding (critical)  Consumer missing\n    finding: consumer-013 (firing) https://lens.example.com/findings/consumer-013%3AAPP%2Fx?");
     expect(text).toContain("Steps after 09:45 may be missing: the read limit was reached.");
   });
