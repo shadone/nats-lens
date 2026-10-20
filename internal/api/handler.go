@@ -383,3 +383,15 @@ func (h *Handler) GetReplay(ctx context.Context, req *connect.Request[v1.GetRepl
 		return FinishReplay(f), nil
 	})
 }
+
+func (h *Handler) GetTopology(ctx context.Context, req *connect.Request[v1.GetTopologyRequest]) (*connect.Response[v1.GetTopologyResponse], error) {
+	return call(ctx, h, "GetTopology", req.Msg, func(p Provider, m *v1.GetTopologyRequest) error {
+		return withRange(p, &m.Range)
+	}, func(s System, ctx context.Context, m *v1.GetTopologyRequest) (*v1.GetTopologyResponse, error) {
+		f, err := s.Provider.Topology(ctx, m)
+		if err != nil {
+			return nil, err
+		}
+		return FinishTopology(f), nil
+	})
+}

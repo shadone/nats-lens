@@ -11,6 +11,7 @@ import { lensInfo } from "./adapt-info";
 import { shellStatus } from "./adapt-shell";
 import { FILTER_ENUM, matrix, type MatrixFilter } from "./placementMatrix";
 import { replay, type Replay } from "./adapt-replay";
+import { topology } from "./topology";
 import { lens } from "./client";
 import type {
   ConnectionPage,
@@ -203,6 +204,11 @@ export async function getReplay(sys: string, a: number, b: number, signal?: Abor
 
 export async function getPlacement(sys: string, spec: RangeSpec, filter: MatrixFilter, signal?: AbortSignal) {
   return matrix(await lens.getPlacement({ ...systemInit(sys), range: rangeInit(spec), filter: FILTER_ENUM[filter] }, { signal }));
+}
+
+/** How the servers connect, in the range's newest collection. */
+export async function getTopology(sys: string, spec: RangeSpec, signal?: AbortSignal) {
+  return topology(await lens.getTopology({ ...systemInit(sys), range: rangeInit(spec) }, { signal }));
 }
 
 export async function listServers(sys: string, spec: RangeSpec, signal?: AbortSignal) {

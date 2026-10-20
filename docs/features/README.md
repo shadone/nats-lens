@@ -84,10 +84,10 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Multiple systems and the Fleet view](multiple-systems.md) | `ui`, `api`, `cli` | partial — a cluster switcher inside a supercluster is planned |
 | [Placement](placement.md) | `ui`, `api` | partial — how long a state other than a leader's has lasted, and a playbook link, are not built |
 | [Replay](replay.md) | `ui`, `api` | partial — "Replay this window" links and a replica catch-up step are not built |
+| [Topology](topology.md) | `ui`, `api` | shipped |
 | [Applications](applications.md) | `ui`, `api` | planned |
 | [Capacity and retention](capacity.md) | `ui`, `api` | planned |
 | [Subjects](subjects.md) | `ui`, `api` | planned |
-| [Topology](topology.md) | `ui`, `api` | planned |
 | [Accounts and auth](accounts-and-auth.md) | `ui`, `api` | planned |
 | [KV and object stores](kv-and-object-stores.md) | `ui`, `api` | shipped |
 | [Micro services](micro-services.md) | `ui`, `api` | planned |
@@ -134,10 +134,10 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [ ] Why a finding has its severity, a CLI check ready to copy, accept as known (triage-and-mutes.md)
 - [~] Every stream and durable consumer on every server in one matrix, with filters, a moment to compare with and a side panel — how long most states have lasted and a playbook link are not built (placement.md)
 - [~] What changed between two moments A and B, in order, with counts, gone assets, evidence links, a shared link and an incident log — "Replay this window" links and a replica catch-up step are not built (replay.md)
+- [x] How the servers connect: routes, gateways and leaf node sites, with round trips, drops counted from the collections, slow routes and sites not connected (topology.md)
 - [ ] Clients grouped by application (applications.md)
 - [ ] What each stream keeps, what bounds it, and when disks fill (capacity.md)
 - [ ] Subject patterns, from data the servers expose (subjects.md)
-- [ ] Routes, gateways and leaf nodes (topology.md)
 - [ ] Accounts, users, failed logins and expiring credentials (accounts-and-auth.md)
 - [x] KV buckets and object stores as their own pages, with placement and missing buckets (kv-and-object-stores.md)
 - [ ] Services built on the NATS micro framework (micro-services.md)
@@ -149,4 +149,4 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Findings and collector health at `/metrics` for Prometheus alerting (metrics-and-alerting.md)
 - [x] `run`, `once` for every system or one, configuration, health and readiness, the Kubernetes manifests (running-nats-lens.md)
 - [x] Read-only SQL on a stopped database with `natslens sql`, one system at a time (sql-access.md)
-- [x] Three fixed systems without NATS with `natslens demo`, whose findings are the real checks, with a node pool upgrade to replay, and which show every state real data shows, tested against the store with one table of states (demo-mode.md)
+- [x] Three fixed systems without NATS with `natslens demo`, whose findings are the real checks, with a node pool upgrade to replay, links of a supercluster to draw from `GetTopology`, and which show every state real data shows, tested against the store with one table of states (demo-mode.md)

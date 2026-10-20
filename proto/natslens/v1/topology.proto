@@ -1,0 +1,251 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "natslens/v1/common.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// Request for how the servers of a system connect.
+message GetTopologyRequest {
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 1;
+
+  // Range whose newest epoch is read; drops are counted over the 24 hours
+  // before that epoch. Unset means the last 24 hours up to now.
+  TimeRange range = 2;
+}
+
+// One server of a cluster.
+message TopologyServer {
+  // Server name.
+  string name = 1;
+
+  // Whether the server was expected and answered no request in the epoch.
+  bool missing = 2;
+
+  // Whether the server is the JetStream meta leader.
+  bool meta_leader = 3;
+}
+
+// One cluster of a system: its servers and what sits on it.
+message TopologyCluster {
+  // Cluster name. Empty for the servers whose cluster is not known: they
+  // have no stored identity, and no route of a server with a known
+  // cluster names them.
+  string name = 1;
+
+  // The value of the region: tag every server of the cluster carries;
+  // empty when they carry none or differ.
+  string place = 2;
+
+  // The servers expected in the epoch, by name.
+  repeated TopologyServer servers = 3;
+
+  // Whether the JetStream meta leader is a server of the cluster.
+  bool meta_leader = 4;
+
+  // Streams the cluster's servers lead; unset when no server reports it.
+  optional int32 streams_led = 5;
+
+  // Leaf node sites, by name, connected to the cluster's servers now;
+  // unset when no server of the cluster answered LEAFZ.
+  optional int32 leafnodes_connected = 6;
+
+  // Leaf node sites, by name, last seen on the cluster in the 24 hours
+  // and not connected now, without those whose state is not known
+  // (connection_unknown); unset when no server of the cluster answered
+  // LEAFZ.
+  optional int32 leafnodes_not_connected = 7;
+}
+
+// The gateway connections between two clusters: every two clusters with a
+// gateway row in the epoch or an outbound gateway in the 24 hours before,
+// so a pair that is down in the epoch is listed with 0 connections.
+message TopologyGateway {
+  // The two clusters, in name order.
+  string cluster_a = 1;
+  string cluster_b = 2;
+
+  // Outbound gateway connections up now, from either cluster to the
+  // other.
+  int32 connections = 3;
+
+  // Outbound connections expected: one from each server of either cluster
+  // that answered GATEWAYZ.
+  int32 expected = 4;
+
+  // The highest round trip time of the connections up now; unset when
+  // none reports one.
+  google.protobuf.Duration rtt_max = 5;
+
+  // The median round trip time of the connections up now; unset when none
+  // reports one.
+  google.protobuf.Duration rtt_median = 6;
+
+  // Bytes waiting to be written on the pair's connections, both
+  // directions; unset when none reports it.
+  optional int64 pending_bytes = 7;
+
+  // Outbound connections that dropped in the last hour before the epoch;
+  // unset when no two consecutive collections in that hour were answered
+  // by a server of the pair.
+  optional int32 drops_1h = 8;
+
+  // Outbound connections that dropped in the 24 hours before the epoch
+  // (from drops_window_start); unset as drops_1h.
+  optional int32 drops_24h = 9;
+
+  // Servers whose outbound connection of the pair dropped in the last
+  // hour, by name.
+  repeated string dropping_servers = 10;
+}
+
+// The routes between two servers of a cluster.
+message TopologyRoute {
+  // Cluster name.
+  string cluster = 1;
+
+  // The two servers, in name order.
+  string server_a = 2;
+  string server_b = 3;
+
+  // The highest round trip time of the pair's routes, as either end
+  // reports; unset when not reported.
+  google.protobuf.Duration rtt = 4;
+
+  // Bytes waiting to be written on the pair's routes, both ends summed;
+  // unset when not reported.
+  optional int64 pending_bytes = 5;
+
+  // Pooled routes (routes without an account), the larger count of the
+  // two ends; unset when every route of the pair is pinned to an account.
+  optional int32 pool = 6;
+
+  // Accounts with a route of their own between the pair, sorted.
+  repeated string pinned_accounts = 7;
+
+  // Whether one end reports the pair and the other, which answered
+  // ROUTEZ, does not.
+  bool one_sided = 8;
+
+  // Whether the route stands out. Servers are near when their round trip
+  // is under 2 ms or under 3 times the median of each server's fastest
+  // round trip; servers joined by near pairs form groups. Only when the
+  // largest group holds more than half of the servers with a reported
+  // round trip is the cluster judged: a route of a server outside that
+  // group is slow, and a route inside it is slow at 2 ms or more and 3
+  // times the median of at least 2 of the group's routes that touch
+  // neither of its servers. A cluster split into groups of similar size,
+  // or of two servers, has nothing slow.
+  bool slow = 9;
+
+  // The ends that report the pair, by name.
+  repeated string reported_by = 10;
+}
+
+// One leaf node site: a remote server connected to a hub server of the
+// system, in one account.
+message TopologyLeafnode {
+  // Server name of the remote leaf node; its IP address when it reports
+  // no name.
+  string name = 1;
+
+  // Account the connection is bound to.
+  string account = 2;
+
+  // Readable name of the account; empty when none is known.
+  string account_name = 3;
+
+  // Hub server now, or the last hub of a site not connected.
+  string hub_server = 4;
+
+  // Cluster of the hub server.
+  string hub_cluster = 5;
+
+  // Whether the site is connected in the epoch.
+  bool connected = 6;
+
+  // Round trip time; unset when not reported and for a site not
+  // connected.
+  google.protobuf.Duration rtt = 7;
+
+  // Subscriptions over the connection; unset when not reported and for a
+  // site not connected.
+  optional int64 subscriptions = 8;
+
+  // Times the site's connection dropped in the 24 hours before the epoch;
+  // unset when no two consecutive collections were answered by its hub
+  // while it was connected.
+  optional int32 drops_24h = 9;
+
+  // When a site not connected was last seen; unset for a connected one.
+  google.protobuf.Timestamp last_seen = 10;
+
+  // Compression mode; empty when not reported.
+  string compression = 11;
+
+  // Every hub server the site is connected to now, by name; hub_server is
+  // the first. Empty for a site not connected.
+  repeated string hub_servers = 12;
+
+  // Whether a site not connected may be connected after all: a server of
+  // the cluster it was last seen on failed LEAFZ in the epoch (see
+  // unobserved), and the site may be on it.
+  bool connection_unknown = 13;
+}
+
+// Servers whose reply to one monitoring request is missing or in error in
+// the epoch; their links of that kind are left out rather than drawn as
+// down.
+message TopologyUnobserved {
+  // ROUTEZ, GATEWAYZ or LEAFZ.
+  string endpoint = 1;
+
+  // Server names, sorted.
+  repeated string servers = 2;
+}
+
+// How the servers of a system connect, in the range's newest epoch.
+message GetTopologyResponse {
+  // Epoch read; 0 when the range holds none, and then everything else is
+  // empty.
+  int64 epoch = 1;
+
+  // When the epoch started.
+  google.protobuf.Timestamp epoch_at = 2;
+
+  // Clusters by name.
+  repeated TopologyCluster clusters = 3;
+
+  // Gateway pairs: those with no connection of the ones expected first,
+  // then most drops in the last hour, then most connections missing,
+  // then highest round trip time.
+  repeated TopologyGateway gateways = 4;
+
+  // Routes, slow ones first, then by round trip time, highest first.
+  // Round trips of 0 (sent before the first ping) count as not reported.
+  repeated TopologyRoute routes = 5;
+
+  // Leaf node sites, worst first: not connected, then those whose state is
+  // not known, then most drops, then highest round trip time, then by
+  // name. At most 500.
+  repeated TopologyLeafnode leafnodes = 6;
+
+  // Leaf node sites before the limit of 500.
+  int32 leafnodes_total = 7;
+
+  // Endpoints that did not answer on some servers, in the order ROUTEZ,
+  // GATEWAYZ, LEAFZ; servers that answered nothing are missing instead.
+  repeated TopologyUnobserved unobserved = 8;
+
+  // Start of the time drops are counted over: the oldest collection read,
+  // later than 24 hours before the epoch when the history is shorter.
+  google.protobuf.Timestamp drops_window_start = 9;
+
+  // Time between collections: a drop and reconnect within one is seen
+  // only as a new connection ID.
+  google.protobuf.Duration collect_interval = 10;
+}

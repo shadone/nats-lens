@@ -66,6 +66,10 @@ type Provider interface {
 	// which the handler has checked and clamped to Now; the handler words
 	// them with FinishReplay. A older than the retention is ErrInvalid.
 	Replay(ctx context.Context, req *v1.GetReplayRequest) (*ReplayFacts, error)
+	// Topology reads the rows of the range's newest epoch and the drop
+	// window before it; the handler pairs, counts and orders them with
+	// FinishTopology. A range without an epoch gives facts with Epoch 0.
+	Topology(ctx context.Context, req *v1.GetTopologyRequest) (*TopologyFacts, error)
 	ListServers(ctx context.Context, req *v1.ListServersRequest) (*v1.ListServersResponse, error)
 	GetServer(ctx context.Context, req *v1.GetServerRequest) (*v1.GetServerResponse, error)
 	ListConnections(ctx context.Context, req *v1.ListConnectionsRequest) (*v1.ListConnectionsResponse, error)
