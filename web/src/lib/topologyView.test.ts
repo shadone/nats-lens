@@ -39,8 +39,8 @@ describe("map layout", () => {
     expect(rowLayout(3, 0)).toBe(true);
     expect(rowLayout(3, 1100)).toBe(true);
     expect(rowLayout(3, 390)).toBe(false);
-    // A 1010 px window: the label "gateway 166 ms" would wrap in a gap under 116 px.
-    expect(rowLayout(3, 760)).toBe(false);
+    // A 1010 px window, whose map is about 680 px inside the card: the label "gateway 166 ms" would wrap in a gap under 116 px.
+    expect(rowLayout(3, 680)).toBe(false);
     expect(rowLayout(4, 1110)).toBe(true);
     expect(rowLayout(4, 900)).toBe(false);
     expect(rowLayout(5, 2000)).toBe(false);

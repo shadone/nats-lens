@@ -6,19 +6,21 @@ import type { CSSProperties, MouseEvent } from "react";
 import type { Topology, TopologyCluster, TopologyGateway } from "../api/topology";
 import { fmtBytes, fmtShortDuration } from "../lib/format";
 import {
-  brackets,
+  boxCentre,
   clusterLabel,
   clusterNote,
   clusterWarns,
   droppingServers,
+  farBand,
+  farLabels,
   gatewayLabelParts,
   gatewayText,
   gatewayWarns,
+  labelTokens,
   leafBox,
   neighbours,
   rowFractions,
   rowLayout,
-  type Bracket,
 } from "../lib/topologyView";
 import { serverPath } from "../lib/view";
 import { Num, RLink } from "./common";
@@ -32,13 +34,9 @@ interface Props {
   onPick: (cluster: string) => void;
 }
 
-// SVG units per fraction.
-const U = 100;
-// A leg's distance from its box's centre per step, as a share of the box.
-const LEG_SHARE = 0.12;
-// Heights of the band under the boxes, in pixels.
-const BAND_TOP = 22;
-const BAND_LEVEL = 30;
+// The width the row is drawn for before the map is measured, in pixels.
+const UNMEASURED_WIDTH = 1100;
+// The band under the boxes when it holds only leaf node connectors, in pixels.
 const BAND_LEAF_ONLY = 30;
 
 export function TopologyMap({ t, width, picked, onPick }: Props) {
@@ -58,25 +56,26 @@ export function TopologyMap({ t, width, picked, onPick }: Props) {
   }
 
   const n = t.clusters.length;
-  // One or two clusters are laid out as three, so their boxes keep the board's width.
-  const { box: BOX, gap: GAP, slots } = rowFractions(n);
-  const LEG_STEP = LEG_SHARE * BOX;
-  const total = slots * BOX + (slots - 1) * GAP;
-  const used = n * BOX + (n - 1) * GAP;
-  const columns = [...t.clusters.flatMap((_, i) => (i === 0 ? [`minmax(0,${BOX}fr)`] : [`minmax(0,${GAP}fr)`, `minmax(0,${BOX}fr)`]))];
+  const { box, gap, slots } = rowFractions(n);
+  const total = slots * box + (slots - 1) * gap;
+  const used = n * box + (n - 1) * gap;
+  const columns = [...t.clusters.flatMap((_, i) => (i === 0 ? [`minmax(0,${box}fr)`] : [`minmax(0,${gap}fr)`, `minmax(0,${box}fr)`]))];
   if (total > used) columns.push(`minmax(0,${total - used}fr)`);
   const gridTemplateColumns = columns.join(" ");
   const order = t.clusters.map((c) => c.name);
   const near = neighbours(order, t.gateways);
-  const far = brackets(order, t.gateways);
   const leaves = t.clusters.map(leafBox);
   const anyLeaf = leaves.some((l) => l !== undefined);
-  const levels = far.reduce((m, b) => Math.max(m, b.level + 1), 0);
-  const band = levels > 0 ? BAND_TOP + levels * BAND_LEVEL : anyLeaf ? BAND_LEAF_ONLY : 0;
-  const centre = (i: number) => (i * (BOX + GAP) + BOX / 2) * U;
-  const pct = (x: number) => `${(x / (total * U)) * 100}%`;
-  const levelY = (l: number) => BAND_TOP + l * BAND_LEVEL;
-  const legX = (b: Bracket, end: "i" | "j") => (end === "i" ? centre(b.i) + (b.legI + 1) * LEG_STEP * U : centre(b.j) - (b.legJ + 1) * LEG_STEP * U);
+  // The brackets and labels are laid out in pixels of the map's width.
+  const w = width || UNMEASURED_WIDTH;
+  const far = farLabels(
+    order,
+    t.gateways,
+    leaves.map((l) => l !== undefined),
+    w,
+  );
+  const band = far.length > 0 ? farBand(far) : anyLeaf ? BAND_LEAF_ONLY : 0;
+  const pct = (x: number) => `${(x / w) * 100}%`;
 
   return (
     <div className="tm">
@@ -87,28 +86,24 @@ export function TopologyMap({ t, width, picked, onPick }: Props) {
       </div>
       {band > 0 && (
         <div className="tm-band" style={{ height: band }}>
-          <svg width="100%" height={band} viewBox={`0 0 ${total * U} ${band}`} preserveAspectRatio="none" aria-hidden="true">
-            {t.clusters.map((c, i) =>
-              leaves[i] ? <line key={c.name} className="tm-leaf-line" x1={centre(i)} y1={0} x2={centre(i)} y2={band} vectorEffect="non-scaling-stroke" /> : null,
-            )}
-            {far.map((b) => {
-              const y = levelY(b.level);
-              const x1 = legX(b, "i");
-              const x2 = legX(b, "j");
-              return (
-                <polyline
-                  key={`${b.g.a}|${b.g.b}`}
-                  className={`tm-gw-line${gatewayWarns(b.g) ? " warn" : ""}`}
-                  points={`${x1},0 ${x1},${y} ${x2},${y} ${x2},0`}
-                  fill="none"
-                  vectorEffect="non-scaling-stroke"
-                />
-              );
+          <svg width="100%" height={band} viewBox={`0 0 ${w} ${band}`} preserveAspectRatio="none" aria-hidden="true">
+            {t.clusters.map((c, i) => {
+              const x = boxCentre(i, n, w);
+              return leaves[i] ? <line key={c.name} className="tm-leaf-line" x1={x} y1={0} x2={x} y2={band} vectorEffect="non-scaling-stroke" /> : null;
             })}
+            {far.map((p) => (
+              <polyline
+                key={`${p.b.g.a}|${p.b.g.b}`}
+                className={`tm-gw-line${gatewayWarns(p.b.g) ? " warn" : ""}`}
+                points={`${p.legX},0 ${p.legX},${p.y} ${p.legEndX},${p.y} ${p.legEndX},0`}
+                fill="none"
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
           </svg>
-          {far.map((b) => (
-            // In the middle of the gap right of the first box, clear of the leaf node connectors at the box centres.
-            <GatewayLabel key={`${b.g.a}|${b.g.b}`} g={b.g} style={{ left: pct((b.i * (BOX + GAP) + BOX + GAP / 2) * U), top: levelY(b.level) }} />
+          {far.map((p) => (
+            // Just right of the bracket's first leg, wrapped to end before the next line it would cover.
+            <GatewayLabel key={`${p.b.g.a}|${p.b.g.b}`} g={p.b.g} lines={p.tokens} style={{ left: pct(p.left), top: p.y }} />
           ))}
         </div>
       )}
@@ -142,15 +137,26 @@ function NearGateway({ g }: { g: TopologyGateway }) {
   );
 }
 
-function GatewayLabel({ g, style }: { g: TopologyGateway; style?: CSSProperties }) {
+/**
+ * A gateway's label. Each part stays on one line and every part after the
+ * first starts with "· ", so a wrapped line starts with the separator.
+ * With lines, the parts are broken into those lines; without, the browser
+ * wraps them in the space it has.
+ */
+function GatewayLabel({ g, style, lines }: { g: TopologyGateway; style?: CSSProperties; lines?: string[][] }) {
   const text = gatewayText(g);
+  const rows = lines ?? [labelTokens(gatewayLabelParts(g))];
   return (
-    <span className={`tm-gw-label mono${gatewayWarns(g) ? " warn" : ""}`} style={style} title={text}>
+    <span className={`tm-gw-label mono${gatewayWarns(g) ? " warn" : ""}${lines ? " far" : ""}`} style={style} title={text}>
       <span aria-hidden="true">
-        {gatewayLabelParts(g).map((part, k) => (
-          <span key={part}>
-            {k > 0 && " · "}
-            <span className="nw">{part}</span>
+        {rows.map((row, r) => (
+          <span key={r} className={lines ? "tm-gw-row" : undefined}>
+            {row.map((tok, k) => (
+              <span key={tok}>
+                {k > 0 && " "}
+                <span className="tm-nw">{tok}</span>
+              </span>
+            ))}
           </span>
         ))}
       </span>
@@ -178,7 +184,7 @@ function LeafBox({ c }: { c: TopologyCluster }) {
       <div className="tm-leaf-n mono">
         {l.sites}{" "}
         <span>
-          <span className="nw">{l.unit}</span> · <span className="nw">{l.state}</span>
+          <span className="tm-nw">{l.unit}</span> <span className="tm-nw">· {l.state}</span>
         </span>
       </div>
     </div>

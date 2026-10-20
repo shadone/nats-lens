@@ -12,9 +12,23 @@ export const MAP_MIN_GAP = 116;
 /** The narrowest cluster box of the row, in pixels: two server chips side by side. */
 export const MAP_MIN_BOX = 150;
 
-/** The row's columns in fractions: a box, then the gap a gateway label sits in. */
+/**
+ * The row's columns in fractions: a box, then the gap a gateway label sits
+ * in, 4:3 so a 3-cluster map at a 1440 px window holds "gateway 84 ms ·
+ * 1 drop/h" on one line. One or two clusters are laid out as three, so
+ * their boxes keep the board's width.
+ */
 export function rowFractions(clusters: number): { box: number; gap: number; slots: number } {
-  return clusters >= 4 ? { box: 4, gap: 3, slots: clusters } : { box: 5, gap: 3, slots: 3 };
+  return { box: 4, gap: 3, slots: Math.max(clusters, 3) };
+}
+
+/** Width of a 12 px IBM Plex Mono character, and the label's side padding, in pixels. */
+const CHAR_W = 7.25;
+const LABEL_PAD = 8;
+
+/** The width of a gateway label of this text on one line, in pixels. */
+export function labelWidth(text: string): number {
+  return text.length * CHAR_W + LABEL_PAD;
 }
 
 /**
@@ -230,4 +244,98 @@ export function neighbours(order: string[], gateways: TopologyGateway[]): Map<nu
     if (x !== undefined && y !== undefined && Math.abs(x - y) === 1) out.set(Math.min(x, y), g);
   }
   return out;
+}
+
+/** The parts of a label as they are drawn: every part after the first starts with "· ", so a wrapped line never ends in a separator. */
+export function labelTokens(parts: string[]): string[] {
+  return parts.map((p, k) => (k > 0 ? `· ${p}` : p));
+}
+
+/** Packs tokens into lines no wider than max pixels, a space between tokens; a token wider than max gets a line of its own. */
+export function packLines(tokens: string[], max: number): string[][] {
+  const lines: string[][] = [];
+  for (const t of tokens) {
+    const last = lines[lines.length - 1];
+    if (last && labelWidth([...last, t].join(" ")) <= max) last.push(t);
+    else lines.push([t]);
+  }
+  return lines;
+}
+
+/** A far gateway's bracket and label in pixels of the map's inner width. */
+export interface FarLabel {
+  b: Bracket;
+  /** The bracket's legs: at the first box and at the last. */
+  legX: number;
+  legEndX: number;
+  /** The level's horizontal line. */
+  y: number;
+  /** The label's left edge, just right of the first leg. */
+  left: number;
+  /** The first line right of the label that it must end before: a leaf node connector, a deeper bracket's leg, or its own end leg. */
+  limit: number;
+  /** The widest line, and the height of all lines. */
+  width: number;
+  height: number;
+  /** Each line's tokens, joined by a space. */
+  lines: string[];
+  tokens: string[][];
+}
+
+/** The vertical room of one line of a label, and the least distance between two levels, in pixels. */
+const LINE_H = 16;
+const LEVEL_MIN = 30;
+const BAND_TOP = 22;
+const LABEL_GAP = 6;
+
+/** The x of box i's centre in pixels, for a row of this inner width. */
+export function boxCentre(i: number, clusters: number, width: number): number {
+  const f = rowFractions(clusters);
+  const unit = width / (f.slots * f.box + (f.slots - 1) * f.gap);
+  return (i * (f.box + f.gap) + f.box / 2) * unit;
+}
+
+/**
+ * Places the brackets of gateways between clusters that are not next to
+ * each other, with their labels: each label starts just right of the
+ * bracket's first leg and wraps between its parts to end before the next
+ * line it would cover, and each level is as tall as its tallest label.
+ * leaves says which clusters have a leaf node connector at their centre.
+ */
+export function farLabels(order: string[], gateways: TopologyGateway[], leaves: boolean[], width: number): FarLabel[] {
+  const n = order.length;
+  const f = rowFractions(n);
+  const unit = width / (f.slots * f.box + (f.slots - 1) * f.gap);
+  const step = 0.12 * f.box * unit;
+  const placed = brackets(order, gateways);
+  const legI = (b: Bracket) => boxCentre(b.i, n, width) + (b.legI + 1) * step;
+  const legJ = (b: Bracket) => boxCentre(b.j, n, width) - (b.legJ + 1) * step;
+  const out = placed.map((b) => {
+    const left = legI(b) + LABEL_GAP;
+    let limit = legJ(b);
+    for (let k = b.i + 1; k < b.j; k++) if (leaves[k]) limit = Math.min(limit, boxCentre(k, n, width));
+    for (const o of placed) {
+      if (o === b || o.level <= b.level) continue;
+      for (const x of [legI(o), legJ(o)]) if (x > left && x < limit) limit = x;
+    }
+    limit -= LABEL_GAP;
+    const tokens = packLines(labelTokens(gatewayLabelParts(b.g)), limit - left);
+    const lines = tokens.map((l) => l.join(" "));
+    return { b, legX: legI(b), legEndX: legJ(b), y: 0, left, limit, width: Math.max(...lines.map(labelWidth)), height: lines.length * LINE_H + 2, lines, tokens };
+  });
+  // Each level's line sits below the one before by at least LEVEL_MIN and clear of both levels' labels.
+  const levels = Math.max(0, ...placed.map((b) => b.level + 1));
+  const tall = Array.from({ length: levels }, (_, l) => Math.max(LINE_H, ...out.filter((p) => p.b.level === l).map((p) => p.height)));
+  const ys: number[] = [];
+  for (let l = 0; l < levels; l++) {
+    ys[l] = l === 0 ? Math.max(BAND_TOP, tall[0] / 2 + LABEL_GAP) : ys[l - 1] + Math.max(LEVEL_MIN, tall[l - 1] / 2 + tall[l] / 2 + LABEL_GAP);
+  }
+  for (const p of out) p.y = ys[p.b.level];
+  return out;
+}
+
+/** The height of the band under the boxes that holds these brackets. */
+export function farBand(labels: FarLabel[]): number {
+  if (labels.length === 0) return 0;
+  return Math.max(...labels.map((p) => p.y + p.height / 2)) + 10;
 }
