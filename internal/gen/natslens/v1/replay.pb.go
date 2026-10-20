@@ -117,9 +117,10 @@ const (
 	ReplayGapKind_REPLAY_GAP_KIND_COLLECTOR ReplayGapKind = 2
 	// Kubernetes was not watched (a collector.k8s_gap).
 	ReplayGapKind_REPLAY_GAP_KIND_KUBERNETES ReplayGapKind = 3
-	// A connection that captures events had no server or was closed
-	// (collector.not_connected or collector.connection_closed of a
-	// connection other than the collector's): events were not captured.
+	// A connection that captures events (any but the collector's) was lost:
+	// from collector.disconnected, collector.not_connected or
+	// collector.connection_closed to its collector.reconnected or the next
+	// collector.started. Events were not captured.
 	ReplayGapKind_REPLAY_GAP_KIND_EVENTS ReplayGapKind = 4
 )
 
@@ -201,9 +202,11 @@ const (
 	ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_NO_POOL_LABELS ReplayUnobservedReason = 11
 	// The provider did not read the gone assets.
 	ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_GONE_NOT_READ ReplayUnobservedReason = 12
-	// A connection that captures events had no server or was closed
-	// between A and B (from and to bound it; to unset while it had not
-	// connected again).
+	// A connection that captures events was lost between A and B: from its
+	// disconnect, a time without a server or its close to its reconnect or
+	// nats-lens starting again (from and to bound it; to unset while it had
+	// not). Any one connection unsets every event count, though each
+	// carries only some of the events.
 	ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_EVENTS_CONNECTION_LOST ReplayUnobservedReason = 13
 )
 
@@ -492,7 +495,10 @@ type ReplayEvidence struct {
 	Label string `protobuf:"bytes,4,opt,name=label,proto3" json:"label,omitempty"`
 	// For a collection, the entity to open at that moment; unset means the
 	// system.
-	Entity        *EntityRef `protobuf:"bytes,5,opt,name=entity,proto3" json:"entity,omitempty"`
+	Entity *EntityRef `protobuf:"bytes,5,opt,name=entity,proto3" json:"entity,omitempty"`
+	// For a stream, consumer or meta leader election, the server it
+	// elected; unset for any other evidence.
+	Elected       string `protobuf:"bytes,6,opt,name=elected,proto3" json:"elected,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -562,6 +568,69 @@ func (x *ReplayEvidence) GetEntity() *EntityRef {
 	return nil
 }
 
+func (x *ReplayEvidence) GetElected() string {
+	if x != nil {
+		return x.Elected
+	}
+	return ""
+}
+
+// How many elections of a step one server won.
+type ReplayLeaderCount struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The server elected.
+	Leader string `protobuf:"bytes,1,opt,name=leader,proto3" json:"leader,omitempty"`
+	// Number of elections it won, those beyond the step's evidence
+	// included.
+	Count         int32 `protobuf:"varint,2,opt,name=count,proto3" json:"count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReplayLeaderCount) Reset() {
+	*x = ReplayLeaderCount{}
+	mi := &file_natslens_v1_replay_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplayLeaderCount) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplayLeaderCount) ProtoMessage() {}
+
+func (x *ReplayLeaderCount) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_replay_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplayLeaderCount.ProtoReflect.Descriptor instead.
+func (*ReplayLeaderCount) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_replay_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ReplayLeaderCount) GetLeader() string {
+	if x != nil {
+		return x.Leader
+	}
+	return ""
+}
+
+func (x *ReplayLeaderCount) GetCount() int32 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
 // One step of the story.
 type ReplayStep struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -594,14 +663,17 @@ type ReplayStep struct {
 	// Whether the step happened after B: it closes a step in the range.
 	OutsideRange bool `protobuf:"varint,13,opt,name=outside_range,json=outsideRange,proto3" json:"outside_range,omitempty"`
 	// For a gap step, what was not running; unset for every other step.
-	GapKind       ReplayGapKind `protobuf:"varint,14,opt,name=gap_kind,json=gapKind,proto3,enum=natslens.v1.ReplayGapKind" json:"gap_kind,omitempty"`
+	GapKind ReplayGapKind `protobuf:"varint,14,opt,name=gap_kind,json=gapKind,proto3,enum=natslens.v1.ReplayGapKind" json:"gap_kind,omitempty"`
+	// For a restart, stop or leaders step, the elections it took in by new
+	// leader, most first: all of them, as the evidence is capped at 10.
+	LeadersTaken  []*ReplayLeaderCount `protobuf:"bytes,15,rep,name=leaders_taken,json=leadersTaken,proto3" json:"leaders_taken,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ReplayStep) Reset() {
 	*x = ReplayStep{}
-	mi := &file_natslens_v1_replay_proto_msgTypes[3]
+	mi := &file_natslens_v1_replay_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -613,7 +685,7 @@ func (x *ReplayStep) String() string {
 func (*ReplayStep) ProtoMessage() {}
 
 func (x *ReplayStep) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_replay_proto_msgTypes[3]
+	mi := &file_natslens_v1_replay_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -626,7 +698,7 @@ func (x *ReplayStep) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplayStep.ProtoReflect.Descriptor instead.
 func (*ReplayStep) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_replay_proto_rawDescGZIP(), []int{3}
+	return file_natslens_v1_replay_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ReplayStep) GetId() string {
@@ -727,6 +799,13 @@ func (x *ReplayStep) GetGapKind() ReplayGapKind {
 	return ReplayGapKind_REPLAY_GAP_KIND_UNSPECIFIED
 }
 
+func (x *ReplayStep) GetLeadersTaken() []*ReplayLeaderCount {
+	if x != nil {
+		return x.LeadersTaken
+	}
+	return nil
+}
+
 // What changed between A and B, in numbers. An unset count was not
 // observed: there was no collection, no event capture or no Kubernetes
 // watch to count it from. Zero means none was observed.
@@ -774,7 +853,7 @@ type ReplayCounts struct {
 
 func (x *ReplayCounts) Reset() {
 	*x = ReplayCounts{}
-	mi := &file_natslens_v1_replay_proto_msgTypes[4]
+	mi := &file_natslens_v1_replay_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -786,7 +865,7 @@ func (x *ReplayCounts) String() string {
 func (*ReplayCounts) ProtoMessage() {}
 
 func (x *ReplayCounts) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_replay_proto_msgTypes[4]
+	mi := &file_natslens_v1_replay_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -799,7 +878,7 @@ func (x *ReplayCounts) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplayCounts.ProtoReflect.Descriptor instead.
 func (*ReplayCounts) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_replay_proto_rawDescGZIP(), []int{4}
+	return file_natslens_v1_replay_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ReplayCounts) GetServersRestarted() int32 {
@@ -935,7 +1014,7 @@ type GoneAsset struct {
 
 func (x *GoneAsset) Reset() {
 	*x = GoneAsset{}
-	mi := &file_natslens_v1_replay_proto_msgTypes[5]
+	mi := &file_natslens_v1_replay_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -947,7 +1026,7 @@ func (x *GoneAsset) String() string {
 func (*GoneAsset) ProtoMessage() {}
 
 func (x *GoneAsset) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_replay_proto_msgTypes[5]
+	mi := &file_natslens_v1_replay_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -960,7 +1039,7 @@ func (x *GoneAsset) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GoneAsset.ProtoReflect.Descriptor instead.
 func (*GoneAsset) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_replay_proto_rawDescGZIP(), []int{5}
+	return file_natslens_v1_replay_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GoneAsset) GetEntity() *EntityRef {
@@ -1076,7 +1155,7 @@ type GetReplayResponse struct {
 
 func (x *GetReplayResponse) Reset() {
 	*x = GetReplayResponse{}
-	mi := &file_natslens_v1_replay_proto_msgTypes[6]
+	mi := &file_natslens_v1_replay_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1088,7 +1167,7 @@ func (x *GetReplayResponse) String() string {
 func (*GetReplayResponse) ProtoMessage() {}
 
 func (x *GetReplayResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_replay_proto_msgTypes[6]
+	mi := &file_natslens_v1_replay_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1101,7 +1180,7 @@ func (x *GetReplayResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetReplayResponse.ProtoReflect.Descriptor instead.
 func (*GetReplayResponse) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_replay_proto_rawDescGZIP(), []int{6}
+	return file_natslens_v1_replay_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetReplayResponse) GetA() *timestamppb.Timestamp {
@@ -1236,13 +1315,17 @@ const file_natslens_v1_replay_proto_rawDesc = "" +
 	"\x05count\x18\x01 \x01(\tR\x05count\x12;\n" +
 	"\x06reason\x18\x02 \x01(\x0e2#.natslens.v1.ReplayUnobservedReasonR\x06reason\x12.\n" +
 	"\x04from\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x04from\x12*\n" +
-	"\x02to\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x02to\"\xcb\x01\n" +
+	"\x02to\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x02to\"\xe5\x01\n" +
 	"\x0eReplayEvidence\x123\n" +
 	"\x04kind\x18\x01 \x01(\x0e2\x1f.natslens.v1.ReplayEvidenceKindR\x04kind\x12\x0e\n" +
 	"\x02id\x18\x02 \x01(\tR\x02id\x12.\n" +
 	"\x04time\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12\x14\n" +
 	"\x05label\x18\x04 \x01(\tR\x05label\x12.\n" +
-	"\x06entity\x18\x05 \x01(\v2\x16.natslens.v1.EntityRefR\x06entity\"\xb7\x04\n" +
+	"\x06entity\x18\x05 \x01(\v2\x16.natslens.v1.EntityRefR\x06entity\x12\x18\n" +
+	"\aelected\x18\x06 \x01(\tR\aelected\"A\n" +
+	"\x11ReplayLeaderCount\x12\x16\n" +
+	"\x06leader\x18\x01 \x01(\tR\x06leader\x12\x14\n" +
+	"\x05count\x18\x02 \x01(\x05R\x05count\"\xfc\x04\n" +
 	"\n" +
 	"ReplayStep\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12.\n" +
@@ -1259,7 +1342,8 @@ const file_natslens_v1_replay_proto_rawDesc = "" +
 	"\bevidence\x18\v \x03(\v2\x1b.natslens.v1.ReplayEvidenceR\bevidence\x12%\n" +
 	"\x0eevidence_count\x18\f \x01(\x05R\revidenceCount\x12#\n" +
 	"\routside_range\x18\r \x01(\bR\foutsideRange\x125\n" +
-	"\bgap_kind\x18\x0e \x01(\x0e2\x1a.natslens.v1.ReplayGapKindR\agapKind\"\xf7\b\n" +
+	"\bgap_kind\x18\x0e \x01(\x0e2\x1a.natslens.v1.ReplayGapKindR\agapKind\x12C\n" +
+	"\rleaders_taken\x18\x0f \x03(\v2\x1e.natslens.v1.ReplayLeaderCountR\fleadersTaken\"\xf7\b\n" +
 	"\fReplayCounts\x120\n" +
 	"\x11servers_restarted\x18\x01 \x01(\x05H\x00R\x10serversRestarted\x88\x01\x01\x12,\n" +
 	"\x0fservers_stopped\x18\x02 \x01(\x05H\x01R\x0eserversStopped\x88\x01\x01\x12B\n" +
@@ -1379,7 +1463,7 @@ func file_natslens_v1_replay_proto_rawDescGZIP() []byte {
 }
 
 var file_natslens_v1_replay_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_natslens_v1_replay_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_natslens_v1_replay_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_natslens_v1_replay_proto_goTypes = []any{
 	(ReplayStepKind)(0),           // 0: natslens.v1.ReplayStepKind
 	(ReplayGapKind)(0),            // 1: natslens.v1.ReplayGapKind
@@ -1388,51 +1472,53 @@ var file_natslens_v1_replay_proto_goTypes = []any{
 	(*GetReplayRequest)(nil),      // 4: natslens.v1.GetReplayRequest
 	(*ReplayUnobserved)(nil),      // 5: natslens.v1.ReplayUnobserved
 	(*ReplayEvidence)(nil),        // 6: natslens.v1.ReplayEvidence
-	(*ReplayStep)(nil),            // 7: natslens.v1.ReplayStep
-	(*ReplayCounts)(nil),          // 8: natslens.v1.ReplayCounts
-	(*GoneAsset)(nil),             // 9: natslens.v1.GoneAsset
-	(*GetReplayResponse)(nil),     // 10: natslens.v1.GetReplayResponse
-	(*timestamppb.Timestamp)(nil), // 11: google.protobuf.Timestamp
-	(*EntityRef)(nil),             // 12: natslens.v1.EntityRef
-	(Severity)(0),                 // 13: natslens.v1.Severity
-	(*EventRef)(nil),              // 14: natslens.v1.EventRef
-	(*TimeWindow)(nil),            // 15: natslens.v1.TimeWindow
+	(*ReplayLeaderCount)(nil),     // 7: natslens.v1.ReplayLeaderCount
+	(*ReplayStep)(nil),            // 8: natslens.v1.ReplayStep
+	(*ReplayCounts)(nil),          // 9: natslens.v1.ReplayCounts
+	(*GoneAsset)(nil),             // 10: natslens.v1.GoneAsset
+	(*GetReplayResponse)(nil),     // 11: natslens.v1.GetReplayResponse
+	(*timestamppb.Timestamp)(nil), // 12: google.protobuf.Timestamp
+	(*EntityRef)(nil),             // 13: natslens.v1.EntityRef
+	(Severity)(0),                 // 14: natslens.v1.Severity
+	(*EventRef)(nil),              // 15: natslens.v1.EventRef
+	(*TimeWindow)(nil),            // 16: natslens.v1.TimeWindow
 }
 var file_natslens_v1_replay_proto_depIdxs = []int32{
-	11, // 0: natslens.v1.GetReplayRequest.a:type_name -> google.protobuf.Timestamp
-	11, // 1: natslens.v1.GetReplayRequest.b:type_name -> google.protobuf.Timestamp
+	12, // 0: natslens.v1.GetReplayRequest.a:type_name -> google.protobuf.Timestamp
+	12, // 1: natslens.v1.GetReplayRequest.b:type_name -> google.protobuf.Timestamp
 	2,  // 2: natslens.v1.ReplayUnobserved.reason:type_name -> natslens.v1.ReplayUnobservedReason
-	11, // 3: natslens.v1.ReplayUnobserved.from:type_name -> google.protobuf.Timestamp
-	11, // 4: natslens.v1.ReplayUnobserved.to:type_name -> google.protobuf.Timestamp
+	12, // 3: natslens.v1.ReplayUnobserved.from:type_name -> google.protobuf.Timestamp
+	12, // 4: natslens.v1.ReplayUnobserved.to:type_name -> google.protobuf.Timestamp
 	3,  // 5: natslens.v1.ReplayEvidence.kind:type_name -> natslens.v1.ReplayEvidenceKind
-	11, // 6: natslens.v1.ReplayEvidence.time:type_name -> google.protobuf.Timestamp
-	12, // 7: natslens.v1.ReplayEvidence.entity:type_name -> natslens.v1.EntityRef
-	11, // 8: natslens.v1.ReplayStep.time:type_name -> google.protobuf.Timestamp
-	11, // 9: natslens.v1.ReplayStep.end:type_name -> google.protobuf.Timestamp
+	12, // 6: natslens.v1.ReplayEvidence.time:type_name -> google.protobuf.Timestamp
+	13, // 7: natslens.v1.ReplayEvidence.entity:type_name -> natslens.v1.EntityRef
+	12, // 8: natslens.v1.ReplayStep.time:type_name -> google.protobuf.Timestamp
+	12, // 9: natslens.v1.ReplayStep.end:type_name -> google.protobuf.Timestamp
 	0,  // 10: natslens.v1.ReplayStep.kind:type_name -> natslens.v1.ReplayStepKind
-	13, // 11: natslens.v1.ReplayStep.severity:type_name -> natslens.v1.Severity
-	12, // 12: natslens.v1.ReplayStep.entities:type_name -> natslens.v1.EntityRef
+	14, // 11: natslens.v1.ReplayStep.severity:type_name -> natslens.v1.Severity
+	13, // 12: natslens.v1.ReplayStep.entities:type_name -> natslens.v1.EntityRef
 	6,  // 13: natslens.v1.ReplayStep.evidence:type_name -> natslens.v1.ReplayEvidence
 	1,  // 14: natslens.v1.ReplayStep.gap_kind:type_name -> natslens.v1.ReplayGapKind
-	12, // 15: natslens.v1.GoneAsset.entity:type_name -> natslens.v1.EntityRef
-	11, // 16: natslens.v1.GoneAsset.last_reported:type_name -> google.protobuf.Timestamp
-	14, // 17: natslens.v1.GoneAsset.delete_event:type_name -> natslens.v1.EventRef
-	11, // 18: natslens.v1.GetReplayResponse.a:type_name -> google.protobuf.Timestamp
-	11, // 19: natslens.v1.GetReplayResponse.b:type_name -> google.protobuf.Timestamp
-	11, // 20: natslens.v1.GetReplayResponse.epoch_a_at:type_name -> google.protobuf.Timestamp
-	11, // 21: natslens.v1.GetReplayResponse.epoch_b_at:type_name -> google.protobuf.Timestamp
-	7,  // 22: natslens.v1.GetReplayResponse.steps:type_name -> natslens.v1.ReplayStep
-	8,  // 23: natslens.v1.GetReplayResponse.counts:type_name -> natslens.v1.ReplayCounts
-	9,  // 24: natslens.v1.GetReplayResponse.gone:type_name -> natslens.v1.GoneAsset
-	15, // 25: natslens.v1.GetReplayResponse.windows:type_name -> natslens.v1.TimeWindow
-	11, // 26: natslens.v1.GetReplayResponse.history_start:type_name -> google.protobuf.Timestamp
-	11, // 27: natslens.v1.GetReplayResponse.complete_until:type_name -> google.protobuf.Timestamp
-	5,  // 28: natslens.v1.GetReplayResponse.unobserved:type_name -> natslens.v1.ReplayUnobserved
-	29, // [29:29] is the sub-list for method output_type
-	29, // [29:29] is the sub-list for method input_type
-	29, // [29:29] is the sub-list for extension type_name
-	29, // [29:29] is the sub-list for extension extendee
-	0,  // [0:29] is the sub-list for field type_name
+	7,  // 15: natslens.v1.ReplayStep.leaders_taken:type_name -> natslens.v1.ReplayLeaderCount
+	13, // 16: natslens.v1.GoneAsset.entity:type_name -> natslens.v1.EntityRef
+	12, // 17: natslens.v1.GoneAsset.last_reported:type_name -> google.protobuf.Timestamp
+	15, // 18: natslens.v1.GoneAsset.delete_event:type_name -> natslens.v1.EventRef
+	12, // 19: natslens.v1.GetReplayResponse.a:type_name -> google.protobuf.Timestamp
+	12, // 20: natslens.v1.GetReplayResponse.b:type_name -> google.protobuf.Timestamp
+	12, // 21: natslens.v1.GetReplayResponse.epoch_a_at:type_name -> google.protobuf.Timestamp
+	12, // 22: natslens.v1.GetReplayResponse.epoch_b_at:type_name -> google.protobuf.Timestamp
+	8,  // 23: natslens.v1.GetReplayResponse.steps:type_name -> natslens.v1.ReplayStep
+	9,  // 24: natslens.v1.GetReplayResponse.counts:type_name -> natslens.v1.ReplayCounts
+	10, // 25: natslens.v1.GetReplayResponse.gone:type_name -> natslens.v1.GoneAsset
+	16, // 26: natslens.v1.GetReplayResponse.windows:type_name -> natslens.v1.TimeWindow
+	12, // 27: natslens.v1.GetReplayResponse.history_start:type_name -> google.protobuf.Timestamp
+	12, // 28: natslens.v1.GetReplayResponse.complete_until:type_name -> google.protobuf.Timestamp
+	5,  // 29: natslens.v1.GetReplayResponse.unobserved:type_name -> natslens.v1.ReplayUnobserved
+	30, // [30:30] is the sub-list for method output_type
+	30, // [30:30] is the sub-list for method input_type
+	30, // [30:30] is the sub-list for extension type_name
+	30, // [30:30] is the sub-list for extension extendee
+	0,  // [0:30] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_replay_proto_init() }
@@ -1442,14 +1528,14 @@ func file_natslens_v1_replay_proto_init() {
 	}
 	file_natslens_v1_common_proto_init()
 	file_natslens_v1_overview_proto_init()
-	file_natslens_v1_replay_proto_msgTypes[4].OneofWrappers = []any{}
+	file_natslens_v1_replay_proto_msgTypes[5].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_replay_proto_rawDesc), len(file_natslens_v1_replay_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   7,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -60,7 +60,8 @@ func assetKeys(s scen) []string {
 
 // Every change of the leader drawn in one collection after another is an
 // election event of that asset naming the new leader, as the store reads
-// leaders from what the servers report.
+// leaders from what the servers report; a single-replica asset, which
+// has no election, leads again when its server answers.
 func TestEveryLeaderChangeIsAnElection(t *testing.T) {
 	for _, sys := range Demo(false) {
 		p := sys.Provider.(*Provider)
@@ -79,6 +80,11 @@ func TestEveryLeaderChangeIsAnElection(t *testing.T) {
 			elected[k] = append(elected[k], e)
 		}
 		for _, k := range assetKeys(s) {
+			if parts := strings.Split(k, "/"); len(parts) > 1 {
+				if sp, err := s.sc.findStream(parts[0], parts[1]); err == nil && len(s.sc.peers(sp)) == 1 {
+					continue
+				}
+			}
 			prev := s.leaderAt(k, "", s.at(6, 0, 0))
 			for at := s.at(6, 0, 30); at.Before(s.now); at = at.Add(sampleEvery) {
 				cur := s.leaderAt(k, "", at)
@@ -136,5 +142,34 @@ func TestNoElectionOfAGoneDurable(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// A durable whose leader stops a second before it goes is elected nowhere
+// after it went, and its history stays in time order.
+func TestFollowElectsNoGoneDurable(t *testing.T) {
+	stop := fixed(9, 0, 0)
+	down := map[string][]downSpan{"a": {{from: stop}}}
+	answers := func(name string, c time.Time) bool { return name != "a" || c.Before(stop) }
+	m := &leaderModel{segs: map[string][]leaderSeg{}}
+	segs := m.follow(asset{key: "APP/s/x", stream: "s", consumer: "x", peers: []string{"a", "b"}, initial: "a", until: stop.Add(time.Second)},
+		nil, down, answers)
+	if len(m.elections) != 0 || !slices.IsSortedFunc(segs[1:], func(x, y leaderSeg) int { return x.from.Compare(y.from) }) ||
+		segs[len(segs)-1].server != "" {
+		t.Errorf("elections %v, segments %+v", m.elections, segs)
+	}
+}
+
+// A single-replica asset has no raft group, so no election: its lead goes
+// with its server and comes back with it.
+func TestFollowElectsNoSingleReplica(t *testing.T) {
+	stop, back := fixed(9, 0, 0), fixed(9, 2, 0)
+	down := map[string][]downSpan{"a": {{from: stop, to: back}}}
+	answers := func(name string, c time.Time) bool { return c.Before(stop) || !c.Before(back) }
+	m := &leaderModel{segs: map[string][]leaderSeg{}}
+	segs := m.follow(asset{key: "APP/s", stream: "s", peers: []string{"a"}, initial: "a"}, nil, down, answers)
+	m.segs["APP/s"] = segs
+	if len(m.elections) != 0 || m.leaderOf("APP/s", stop.Add(time.Minute)) != "" || m.leaderOf("APP/s", back.Add(time.Second)) != "a" {
+		t.Errorf("elections %v, segments %+v", m.elections, segs)
 	}
 }

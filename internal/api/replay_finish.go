@@ -24,6 +24,16 @@ type draft struct {
 	evidence    []*v1.ReplayEvidence
 	outside     bool
 	gapKind     v1.ReplayGapKind
+	// leaders counts the elections the step took in by new leader.
+	leaders map[string]int
+}
+
+// elected counts an election the step took in.
+func (d *draft) elected(server string) {
+	if d.leaders == nil {
+		d.leaders = map[string]int{}
+	}
+	d.leaders[server]++
 }
 
 // replayBuilder turns ReplayFacts into steps.
@@ -111,7 +121,11 @@ func (b *replayBuilder) add(d *draft) { b.steps = append(b.steps, d) }
 
 // evidence builders.
 func eventEvidence(e *v1.Event) *v1.ReplayEvidence {
-	return &v1.ReplayEvidence{Kind: v1.ReplayEvidenceKind_REPLAY_EVIDENCE_KIND_EVENT, Id: e.GetId(), Time: e.GetTime(), Label: e.GetSummary()}
+	ev := &v1.ReplayEvidence{Kind: v1.ReplayEvidenceKind_REPLAY_EVIDENCE_KIND_EVENT, Id: e.GetId(), Time: e.GetTime(), Label: e.GetSummary()}
+	if strings.HasSuffix(e.GetKind(), "leader_elected") {
+		ev.Elected = e.GetServer()
+	}
+	return ev
 }
 
 func collectionEvidence(epoch int64, at time.Time, e *v1.EntityRef) *v1.ReplayEvidence {
@@ -256,6 +270,7 @@ func (b *replayBuilder) leadersTaken(server string, led []*v1.EntityRef, from, t
 		}
 		b.used[e.GetId()] = true
 		by[e.GetServer()]++
+		d.elected(e.GetServer())
 		d.evidence = append(d.evidence, eventEvidence(e))
 	}
 	if len(by) == 0 {

@@ -26,7 +26,7 @@ func tsAt(h, m, s int) *timestamppb.Timestamp { return timestamppb.New(at(h, m, 
 func TestListEventsPagesNewestFirst(t *testing.T) {
 	c := client(t)
 	first := must(c.ListEvents(ctx, connect.NewRequest(&v1.ListEventsRequest{PageSize: 15})))
-	if first.GetTotalCount() != 1176 || first.GetEvents()[0].GetId() != "1176" || !first.GetEvents()[0].GetTime().AsTime().Equal(at(14, 28, 0)) {
+	if first.GetTotalCount() != 1164 || first.GetEvents()[0].GetId() != "1164" || !first.GetEvents()[0].GetTime().AsTime().Equal(at(14, 28, 0)) {
 		t.Fatalf("total %d, first %v", first.GetTotalCount(), first.GetEvents()[0])
 	}
 	deleted := must(c.ListEvents(ctx, connect.NewRequest(&v1.ListEventsRequest{Kinds: []string{"consumer.deleted"}}))).GetEvents()
@@ -53,7 +53,7 @@ func TestListEventsPagesNewestFirst(t *testing.T) {
 			break
 		}
 	}
-	if len(seen) != 1176 {
+	if len(seen) != 1164 {
 		t.Fatalf("paged %d events", len(seen))
 	}
 	filters := map[string]struct {
@@ -65,7 +65,7 @@ func TestListEventsPagesNewestFirst(t *testing.T) {
 		"stream":     {&v1.ListEventsRequest{Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/order-jobs"}}, 89},
 		// Its delete, and its reconnects as each server restarted.
 		"client":        {&v1.ListEventsRequest{ClientName: "analytics-worker"}, 49},
-		"last 5 hours":  {&v1.ListEventsRequest{Range: &v1.TimeRange{Start: tsAt(9, 30, 0)}}, 352},
+		"last 5 hours":  {&v1.ListEventsRequest{Range: &v1.TimeRange{Start: tsAt(9, 30, 0)}}, 357},
 		"server nats-2": {&v1.ListEventsRequest{Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SERVER, Key: "nats-2"}, Kinds: []string{"k8s.pod.killing", "k8s.pod.started"}}, 2},
 	}
 	for name, f := range filters {
