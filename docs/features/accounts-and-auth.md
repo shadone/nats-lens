@@ -6,7 +6,7 @@
 
 ## What it does
 
-Planned; the page is not built yet, though the data it needs is collected (see "Built partly on stored data"). The Accounts and auth pages will show every account with its connections, subscriptions, JetStream use, streams, imports and exports, and when its JWT expires; the failed logins of the last day, grouped by user and source; and the credentials and certificates that expire soon. A client that retries with revoked credentials every minute shows up here before anyone notices that it never connected. All scenarios below describe intended behaviour.
+Planned; the page is not built yet, though the data it needs is collected (see "Built partly on stored data") and `GetAccountsAndAuth` serves it, in the demo too. The Accounts and auth pages will show every account with its connections, subscriptions, JetStream use, streams, imports and exports, and when its JWT expires; the failed logins of the last day, grouped by user and source; and the credentials and certificates that expire soon. A client that retries with revoked credentials every minute shows up here before anyone notices that it never connected. All scenarios below describe intended behaviour.
 
 ## Behavior and rules
 
