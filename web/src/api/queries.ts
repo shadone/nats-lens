@@ -192,6 +192,17 @@ export function usePlacement(spec: RangeSpec, filter: MatrixFilter, enabled = tr
   });
 }
 
+/** The topology of the range's newest collection; a live range follows it as Placement does. */
+export function useTopology(spec: RangeSpec) {
+  const sys = useSystem();
+  return useQuery({
+    queryKey: ["topology", sys, rangeKey(spec)],
+    queryFn: ({ signal }) => api.getTopology(sys, spec, signal),
+    refetchInterval: refetch(spec),
+    placeholderData: keepPreviousData,
+  });
+}
+
 export function useServers(spec: RangeSpec) {
   const sys = useSystem();
   return useQuery({
