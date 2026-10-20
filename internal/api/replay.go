@@ -233,6 +233,12 @@ const (
 	GapEvents = "events"
 )
 
+// EventsFailover is how soon an events connection must reconnect for its
+// disconnect to be a failover, not a loss of capture: no gap step, no
+// count unset, though advisories sent in those seconds may be missing
+// (proposed, not yet confirmed).
+const EventsFailover = 10 * time.Second
+
 // EventsConnectionGaps are the times the connections that capture events
 // (every collector connection but the collector's own) had no server or
 // were closed, from the connection events in time order: each from the
@@ -273,6 +279,8 @@ func EventsConnectionGaps(evs []*v1.Event) []ReplayGap {
 			}
 		}
 	}
+	// A failover within EventsFailover loses no capture worth a step.
+	out = slices.DeleteFunc(out, func(g ReplayGap) bool { return !g.End.IsZero() && g.End.Sub(g.Start) < EventsFailover })
 	// Connections lost together are one time without events.
 	slices.SortStableFunc(out, func(x, y ReplayGap) int { return x.Start.Compare(y.Start) })
 	var merged []ReplayGap
