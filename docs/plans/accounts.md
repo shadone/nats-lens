@@ -8,7 +8,7 @@ The board's sample names come from a sketch. Use the example shop of `inventory.
 
 | Task | Status |
 |---|---|
-| T1 Collector and store | not started |
+| T1 Collector and store | built on `feat/accounts-page`, awaiting review |
 | T2 API and demo | not started |
 | T3 UI | not started |
 | T4 Feature docs and audit | not started |
@@ -51,6 +51,20 @@ Not backed, so not shown: permission violations; client certificates (CONNZ give
 - **Checks.** No new check in this task.
 - **Docs.** `docs/design.md` (what is collected from ACCOUNTZ and how often, never keeping a JWT), `monitoring-snapshots.md` and the SQL access table list if it names tables.
 - **Tests.** Lookups ordering and caps; the claims read from a sample `decoded_jwt` (expiry, limits, unlimited, no JWT, a config-mode account); a JWT that does not decode; the VARZ certificate fields; the migration applies on a store with data (`ALTER` on an archived table keeps the archive readable); an in-process cluster test where available.
+
+### Where T1 departed from this plan
+
+Each point was decided in the session that built T1: proposed, not yet confirmed.
+
+- **Two migrations.** `0027_account_details.sql` creates `account_details`; `0028_cert_and_jwt_expiry.sql` adds the `server_stats` certificate columns and the `connections` JWT columns. `account_details` also has a unique index on (`epoch`, `account`), as the small tables of 0012 do.
+- **Limit column names.** `limit_connections`, `limit_leafnodes`, `limit_subscriptions`, `limit_data`, `limit_payload`, `limit_js_disk`, `limit_js_memory`, `limit_js_streams`, `limit_js_consumers`. A limit the JWT leaves out reads as 0, which is what the JWT means: the JWT library omits zero values, and 0 JetStream disk and memory means JetStream is not enabled for the account.
+- **Tiered JetStream limits are summed.** The account can use every tier at once, and a tier's disk and memory limits count replicated bytes as the account's usage in JSZ does; the R1 tier alone would understate an account with R3 streams. A tier with -1 makes the sum -1. With tiers set, the account-wide JetStream limits are ignored, as nats-server ignores them.
+- **Imports leave out what the server adds.** nats-server gives every account service imports from the system account (subjects under `$SYS.REQ.`: the CONNZ and STATZ pings and the user info request) and a JetStream account an import of `$JS.API.>`; counted as they are, every config-mode account would show 4 or 5 imports. `imports` counts the others. `exports` counts all, so the system account's count includes the exports nats-server adds to it; the page shows "system account" there anyway.
+- **`account_name`.** The name tag, else the JWT's name; in config mode the identifier; NULL for an operator account with neither.
+- **Name lookups.** Looking up every account replaces the old name-only rules: the 24-hour recheck of a learnt name and "unnamed accounts first" are gone, and a name is now refreshed with the details, at most every 10 minutes.
+- **CONNZ needed no change.** `ConnzOptions.Username` is the `auth` option and was already set. The user JWT is removed from the CONNZ reply as soon as it is applied, so no snapshot holds it; the snapshot carries only the expiry per connection ID (`ServerView.UserJWTs`). A bearer JWT arrives empty, so its connection has `user_jwt` false. Rows written before 0028 have `user_jwt` NULL.
+- **Test dependencies.** `github.com/nats-io/jwt/v2` and `github.com/nats-io/nkeys` became direct dependencies in `go.mod`, used only by the operator-mode server test in `internal/collect`.
+- **Docs beyond the list.** `docs/features/client-checks.md` (the account connection limit is now stored), the coverage line of monitoring snapshots in `docs/features/README.md`, and the "Built partly on stored data" and "No secrets shown" text of `accounts-and-auth.md`, whose status stays planned.
 
 ## T2 API and demo
 
