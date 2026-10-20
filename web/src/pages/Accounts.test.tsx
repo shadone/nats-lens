@@ -113,7 +113,7 @@ describe("Accounts", () => {
     expect(rows[1]).not.toHaveClass("ac-hot");
     expect(rows[1]).toHaveTextContent("(no user)203.0.113.12Authentication Timeout9613:49");
     expect(card("Failed logins, 24 h").getByText(/revoked credentials every minute/)).toBeInTheDocument();
-    expect(card("Failed logins, 24 h").queryByText(/Event capture was not running/)).toBeNull();
+    expect(card("Failed logins, 24 h").queryByText(/Event capture stopped/)).toBeNull();
   });
 
   it("says when event capture had gaps and when the history is shorter than 24 hours", async () => {
@@ -121,7 +121,7 @@ describe("Accounts", () => {
     renderApp(<Accounts />, "/accounts");
     await screen.findByRole("region", { name: "Failed logins, 24 h" });
     const c = card("Failed logins, 24 h");
-    expect(c.getByText("Event capture was not running for part of these 24 hours, so the counts can be low.")).toBeInTheDocument();
+    expect(c.getByText("Event capture stopped for part of these 24 hours, so the counts can be low.")).toBeInTheDocument();
     expect(c.getByText("The history starts at 17 Oct 11:30 UTC, so fewer than 24 hours are counted.")).toBeInTheDocument();
   });
 
@@ -298,5 +298,44 @@ describe("Accounts in config mode without a lookup", () => {
     expect(ie).toHaveTextContent(/^not looked up yet$/);
     expect(ie.querySelector("[aria-hidden]")).toBeNull();
     expect(jwt).toHaveTextContent(/^– no account JWTs in config mode$/);
+  });
+});
+
+describe("Accounts without captured events", () => {
+  it("does not say there were no failed logins, and says capture is not running", async () => {
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValue({ ...prod(), eventsCaptured: false, captureGaps: false });
+    renderApp(<Accounts />, "/accounts");
+    await screen.findByRole("region", { name: "Failed logins, 24 h" });
+    const c = card("Failed logins, 24 h");
+    expect(c.getByText("Failed logins are not shown: no event was stored up to this collection, so event capture is not running for this system.")).toBeInTheDocument();
+    expect(c.queryByText(/No failed logins/)).toBeNull();
+    expect(c.queryByText(/revoked credentials/)).toBeNull();
+    expect(c.queryByText(/Event capture stopped/)).toBeNull();
+    expect(c.queryByRole("table")).toBeNull();
+  });
+
+  it("still says there were none when events were captured", async () => {
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValue(prod());
+    renderApp(<Accounts />, "/accounts");
+    expect(await screen.findByText("No failed logins in these 24 hours.")).toBeInTheDocument();
+    expect(screen.queryByText(/event capture is not running/)).toBeNull();
+  });
+});
+
+describe("Accounts' certificates read from an older collection", () => {
+  it("says when the row was read and that the server did not answer now", async () => {
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValue({
+      ...global(),
+      expiring: [
+        expiring({ kind: "certificate", server: "nats-us-4", listener: "client", expires: EPOCH_AT + 16 * DAY, seenAt: EPOCH_AT - 70 * 60_000 }),
+        expiring({ kind: "certificate", server: "nats-eu-0", listener: "client", expires: EPOCH_AT + 17 * DAY }),
+      ],
+      expiringTotal: 2,
+    });
+    renderApp(<Accounts />, "/accounts");
+    await screen.findByRole("region", { name: "Expiring soon" });
+    const [old, fresh] = bodyRows("Expiring soon");
+    expect(within(old).getByRole("rowheader")).toHaveTextContent("nats-us-4 certificate, client listeneras of 13:20 UTC: nats-us-4 did not answer in this collection");
+    expect(within(fresh).getByRole("rowheader")).toHaveTextContent(/^nats-eu-0 certificate, client listener$/);
   });
 });

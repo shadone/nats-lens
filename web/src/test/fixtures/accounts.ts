@@ -57,6 +57,7 @@ export function global(): AccountsAndAuth {
     failedLoginGroupsTotal: 2,
     failedLoginsTotal: 1_536,
     failedLoginsWindowStart: EPOCH_AT - DAY,
+    eventsCaptured: true,
     captureGaps: false,
     expiring: [
       expiring({ kind: "userJwt", account: "APP", accountName: "APP", user: "pos-terminal", expires: EPOCH_AT + 5 * DAY, connections: 3 }),
@@ -80,6 +81,7 @@ export function prod(): AccountsAndAuth {
     failedLoginGroupsTotal: 0,
     failedLoginsTotal: 0,
     failedLoginsWindowStart: EPOCH_AT - DAY,
+    eventsCaptured: true,
     captureGaps: false,
     expiring: [],
     expiringTotal: 0,
@@ -97,6 +99,7 @@ export function empty(): AccountsAndAuth {
     failedLogins: [],
     failedLoginGroupsTotal: 0,
     failedLoginsTotal: 0,
+    eventsCaptured: false,
     captureGaps: false,
     expiring: [],
     expiringTotal: 0,

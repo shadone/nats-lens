@@ -23,6 +23,7 @@ import {
   loginWindowShort,
   loginsCutLine,
   orderAccounts,
+  seenAtText,
   shortIdentifier,
 } from "./accountsView";
 
@@ -280,5 +281,13 @@ describe("expiring", () => {
     expect(expiringCountLine({ ...prod(), expireLater: 1, neverExpire: 1 })).toBe("1 expires later; 1 never expires.");
     expect(expiringCountLine({ ...prod(), expireLater: 0 })).toBeUndefined();
     expect(expiringCountLine({ ...global(), expiringTotal: 140 })).toBe("The 3 soonest of 140 are listed; 26 more expire later; 3 never expire.");
+  });
+});
+
+describe("seenAtText", () => {
+  it("says when an older certificate row was read, with the day when a day or more before", () => {
+    expect(seenAtText(expiring({ server: "nats-us-4", seenAt: EPOCH_AT - 70 * 60_000 }), EPOCH_AT)).toBe("as of 13:20 UTC: nats-us-4 did not answer in this collection");
+    expect(seenAtText(expiring({ server: "nats-us-4", seenAt: EPOCH_AT - 25 * 3_600_000 }), EPOCH_AT)).toBe("as of 16 Oct 13:30 UTC: nats-us-4 did not answer in this collection");
+    expect(seenAtText(expiring({ server: "nats-us-4" }), EPOCH_AT)).toBeUndefined();
   });
 });

@@ -12,6 +12,7 @@ describe("accountsAndAuth", () => {
     expect(d.collected).toBe(false);
     expect(d.epochAt).toBeUndefined();
     expect(d.accounts).toEqual([]);
+    expect(d.eventsCaptured).toBe(false);
   });
 
   it("keeps unset values undefined and set ones, 0 and -1 among them, as numbers", () => {
@@ -20,6 +21,7 @@ describe("accountsAndAuth", () => {
         epoch: 7n,
         epochAt: timestampFromMs(AT),
         operatorMode: true,
+        eventsCaptured: true,
         accounts: [
           { account: "APP", connections: 0, subscriptions: 12n, connLimit: -1n, diskLimit: 0n, jetstreamEnabled: true, detailsKnown: true, hasJwt: true },
           { account: "SYS", isSystem: true },
@@ -28,7 +30,7 @@ describe("accountsAndAuth", () => {
         failedLogins: [{ user: "", host: "203.0.113.12", reason: "Authentication Timeout", count: 96n, last: timestampFromMs(AT - 1000) }],
         failedLoginsTotal: 96n,
         expiring: [
-          { kind: ExpiringKind.SERVER_CERTIFICATE, server: "nats-eu-0", listener: "client", expires: timestampFromMs(AT + 1000) },
+          { kind: ExpiringKind.SERVER_CERTIFICATE, server: "nats-eu-0", listener: "client", expires: timestampFromMs(AT + 1000), seenAt: timestampFromMs(AT - 60_000) },
           { kind: ExpiringKind.ACCOUNT_JWT, account: "APP", expired: true },
           { kind: ExpiringKind.USER_JWT, account: "APP", user: "pos-terminal", connections: 3 },
         ],
@@ -46,5 +48,8 @@ describe("accountsAndAuth", () => {
     expect(d.expiring.map((e) => e.kind)).toEqual(["certificate", "accountJwt", "userJwt"]);
     expect(d.expiring[1].expires).toBeUndefined();
     expect(d.expiring[2].connections).toBe(3);
+    expect(d.eventsCaptured).toBe(true);
+    expect(d.expiring[0].seenAt).toBe(AT - 60_000);
+    expect(d.expiring[1].seenAt).toBeUndefined();
   });
 });

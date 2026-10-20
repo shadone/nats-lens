@@ -56,6 +56,8 @@ export interface Expiring {
   expires?: number;
   expired: boolean;
   connections: number;
+  /** For a certificate read from an older collection (its server's VARZ did not answer in this one): when that collection started. */
+  seenAt?: number;
 }
 
 export interface AccountsAndAuth {
@@ -69,6 +71,9 @@ export interface AccountsAndAuth {
   failedLoginGroupsTotal: number;
   failedLoginsTotal: number;
   failedLoginsWindowStart?: number;
+  /** False when no event was stored up to the collection: failed logins cannot be shown, and none listed does not mean none happened. */
+  eventsCaptured: boolean;
+  /** Capture, while it ran, stopped for part of the window. */
   captureGaps: boolean;
   expiring: Expiring[];
   expiringTotal: number;
@@ -122,6 +127,7 @@ export function accountsAndAuth(r: GetAccountsAndAuthResponse): AccountsAndAuth 
     failedLoginGroupsTotal: r.failedLoginGroupsTotal,
     failedLoginsTotal: Number(r.failedLoginsTotal),
     failedLoginsWindowStart: ms(r.failedLoginsWindowStart),
+    eventsCaptured: r.eventsCaptured,
     captureGaps: r.captureGaps,
     expiring: r.expiring.map((e) => ({
       kind: KIND[e.kind] ?? "unknown",
@@ -133,6 +139,7 @@ export function accountsAndAuth(r: GetAccountsAndAuthResponse): AccountsAndAuth 
       expires: ms(e.expires),
       expired: e.expired,
       connections: e.connections,
+      seenAt: ms(e.seenAt),
     })),
     expiringTotal: r.expiringTotal,
     expireLater: r.expireLater,
