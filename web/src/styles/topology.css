@@ -43,8 +43,8 @@ span.tm-name:hover{text-decoration:none}
 .tm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
 .tm-grid .tm-leaf{width:100%;margin-top:12px}
 .tm-gw-table{margin-top:14px;border:1px solid var(--border);border-radius:10px}
-.tbl tr.warn > *{background:var(--sev-warning-bg)}
-.tbl th[scope="row"]{text-align:left;font-weight:400}
+.tp-card .tbl tr.warn > *,.tm-gw-table .tbl tr.warn > *{background:var(--sev-warning-bg)}
+.tp-card .tbl th[scope="row"],.tm-gw-table .tbl th[scope="row"]{text-align:left;font-weight:400}
 .tp-card .tbl th[scope="row"] small{white-space:normal;min-width:160px}
 .tp-notes{margin:8px 2px 0;font-size:12px;color:var(--text-muted)}
 .tp-notes p{margin:4px 0}
@@ -75,4 +75,4 @@ span.tm-name:hover{text-decoration:none}
 .tbl tr.tp-unknown > *{background:var(--surface-2)}
 .tbl tr.tp-unknown th small{color:var(--text-2)}
 .tbl td.tp-hubs{white-space:normal;min-width:90px}
-.tbl th[scope="row"] small .tm-nw{white-space:nowrap}
+.tp-card .tbl th[scope="row"] small .tm-nw{white-space:nowrap}
