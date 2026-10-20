@@ -4,6 +4,7 @@ import { ConnectError, Code } from "@connectrpc/connect";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as requests from "../api/requests";
 import { TopologyMap } from "../components/TopologyMap";
+import { farLabels } from "../lib/topologyView";
 import { cluster, gateway, global, empty, single } from "../test/fixtures/topology";
 import { renderApp } from "../test/render";
 import { Topology } from "./Topology";
@@ -53,7 +54,7 @@ describe("Topology", () => {
     await screen.findByText("gateway 84 ms");
     const label = gwLabel("gateway 212 ms · 3 drops/h");
     expect(label).toHaveClass("warn");
-    expect(label.querySelectorAll(".nw")).toHaveLength(2);
+    expect(label.querySelectorAll(".tm-nw")).toHaveLength(2);
     expect(label).toHaveAccessibleName(/Gateway ap – us: 6 of 6 connections up; .*3 drops in the last hour; 7 drops in 24 hours; dropping on nats-ap-1/);
     expect(screen.getByRole("link", { name: "nats-ap-1, gateway dropping" })).toHaveClass("warn");
     expect(screen.getByRole("link", { name: "nats-us-2, missing" })).toHaveClass("warn");
@@ -211,9 +212,9 @@ describe("TopologyMap", () => {
     const { container } = renderApp(<TopologyMap t={t} width={1200} onPick={() => {}} />);
     expect(gwLabel("gateway 212 ms · 1 drop/h")).toBeInTheDocument();
     expect(container.querySelector("polyline.tm-gw-line.warn")).not.toBeNull();
-    // The label sits in the middle of the gap right of ap, clear of the leaf node connector under eu.
-    expect(gwLabel("gateway 212 ms · 1 drop/h").style.left).toMatch(/^30.95/);
+    // The label sits just right of the bracket's leg under ap.
+    expect(parseFloat(gwLabel("gateway 212 ms · 1 drop/h").style.left)).toBeCloseTo((farLabels(t.clusters.map((c) => c.name), t.gateways, [false, true, true], 1200)[0].left / 1200) * 100, 3);
     // Each part of a leaf box stays on one line.
-    expect([...container.querySelectorAll(".tm-leaf .nw")].map((e) => e.textContent)).toEqual(["sites", "1 not connected", "site", "all connected"]);
+    expect([...container.querySelectorAll(".tm-leaf .tm-nw")].map((e) => e.textContent)).toEqual(["sites", "· 1 not connected", "site", "· all connected"]);
   });
 });
