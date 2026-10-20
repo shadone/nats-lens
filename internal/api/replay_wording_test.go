@@ -367,3 +367,30 @@ func TestReplayCapKeepsTheStepsOwnEvidence(t *testing.T) {
 		}
 	}
 }
+
+// The page tells a meta leaders step by its entities: one server; a
+// stream or consumer leaders step names no server.
+func TestReplayLeadersStepEntities(t *testing.T) {
+	f := facts()
+	f.MetaLeaderAtA = "nats-1"
+	f.Events = []*v1.Event{
+		ev(rAt(10, 0), "meta.leader_elected", "nats-0"),
+		ev(rAt(20, 0), "stream.leader_elected", "nats-2", onAsset("APP", "orders", "")),
+		ev(rAt(20, 1), "consumer.leader_elected", "nats-2", onAsset("APP", "orders", "fast")),
+	}
+	ls := stepsOf(api.FinishReplay(f), v1.ReplayStepKind_REPLAY_STEP_KIND_LEADERS)
+	if len(ls) != 2 {
+		t.Fatalf("leaders steps = %v", ls)
+	}
+	if es := ls[0].GetEntities(); len(es) != 1 || es[0].GetType() != v1.EntityType_ENTITY_TYPE_SERVER || es[0].GetKey() != "nats-0" {
+		t.Errorf("meta step entities = %v", es)
+	}
+	for _, e := range ls[1].GetEntities() {
+		if e.GetType() == v1.EntityType_ENTITY_TYPE_SERVER {
+			t.Errorf("stream step names a server: %v", ls[1].GetEntities())
+		}
+	}
+	if len(ls[1].GetEntities()) != 2 {
+		t.Errorf("stream step entities = %v", ls[1].GetEntities())
+	}
+}
