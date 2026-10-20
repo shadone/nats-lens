@@ -68,15 +68,34 @@ func forEachLimited(ids []string, limit int, fn func(string)) {
 }
 
 // lookUpAccounts asks ACCOUNTZ for each account, in parallel, and returns
-// the details of the first reply that holds the account, sorted by
-// account. The requests are best effort: they are not endpoints of the
-// epoch, and an account without a reply is only asked again later.
-func (c *Collector) lookUpAccounts(ctx context.Context, ids []string, want until) []AccountDetails {
+// the details of the first reply that holds each account, sorted by
+// account, and the accounts it asked. All lookups share one window from
+// the call on: each stops at the first reply that holds its account, else
+// when every server in want has answered or the shared window ends, so a
+// silent server costs one window, not one per round of lookups. An
+// account whose turn comes after the window ended is not asked, and so
+// stays first in line for the next epoch. The requests are best effort:
+// they are not endpoints of the epoch, and an account without a reply is
+// only asked again later.
+func (c *Collector) lookUpAccounts(ctx context.Context, ids []string, want until) ([]AccountDetails, []string) {
 	var out []AccountDetails
+	var asked []string
 	var mu sync.Mutex
+	deadline := c.now().Add(c.window)
 	forEachLimited(ids, accountLookupParallel, func(id string) {
+		left := deadline.Sub(c.now())
+		if left <= 0 {
+			return
+		}
+		mu.Lock()
+		asked = append(asked, id)
+		mu.Unlock()
 		body, _ := json.Marshal(server.AccountzOptions{Account: id})
-		msgs, err := gather(ctx, c.conn(), Accountz.Subject(), body, c.window, want)
+		holds := func(b []byte) bool {
+			_, ok := accountDetailsFromReply(b, id, time.Time{})
+			return ok
+		}
+		msgs, err := gatherUntil(ctx, c.conn(), Accountz.Subject(), body, left, want, holds)
 		if err != nil {
 			c.log.Debug("account lookup failed", "account", id, "err", err)
 			return
@@ -92,5 +111,6 @@ func (c *Collector) lookUpAccounts(ctx context.Context, ids []string, want until
 		}
 	})
 	sort.Slice(out, func(i, j int) bool { return out[i].Account < out[j].Account })
-	return out
+	sort.Strings(asked)
+	return out, asked
 }
