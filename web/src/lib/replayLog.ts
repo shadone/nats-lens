@@ -49,7 +49,8 @@ function stepLines(s: ReplayStep, fmt: (t: number) => string, url: (path: string
     const p = evidencePath(e);
     return `${indent}${evidenceWord(e)}: ${e.label}${p ? ` ${url(p)}` : ""}`;
   };
-  for (const item of groupEvidence(s.evidence, s.leadersTaken)) {
+  const { items, more } = groupEvidence(s);
+  for (const item of items) {
     if (item.kind === "one") {
       out.push(line(item.e, INDENT));
       continue;
@@ -57,7 +58,6 @@ function stepLines(s: ReplayStep, fmt: (t: number) => string, url: (path: string
     out.push(`${INDENT}events: ${electionsText(item)}`);
     for (const e of item.items) out.push(line(e, INDENT + INDENT));
   }
-  const more = s.evidenceCount - s.evidence.length;
   if (more > 0) out.push(`${INDENT}and ${more} more`);
   return out;
 }
