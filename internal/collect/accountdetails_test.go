@@ -1,6 +1,7 @@
 package collect
 
 import (
+	"math"
 	"testing"
 	"time"
 )
@@ -78,8 +79,9 @@ func TestAccountDetailsUnlimitedNoExpiry(t *testing.T) {
 // Tiered JetStream limits read as nats-server enforces them: each tier
 // R<n> limits single-copy bytes, so its disk and memory count n times
 // against the replicated usage JSZ reports, summed over the tiers; a tier
-// without a limit makes the sum unlimited; streams are summed; the
-// consumer limit applies per stream, so the largest tier's counts; a key
+// without a limit makes the sum unlimited; streams are summed; consumers
+// are summed too, as the most one stream can hold, since each consumer
+// counts against the tier of its own replicas; a key
 // that is not R<n> is never selected by the server and is left out.
 func TestAccountDetailsTieredLimits(t *testing.T) {
 	b := accountzReply(`{"account_name":"` + keyNamed + `","decoded_jwt":{"name":"APP","nats":{"limits":{"conn":10,
@@ -90,8 +92,8 @@ func TestAccountDetailsTieredLimits(t *testing.T) {
 	if !ok {
 		t.Fatal("reply not read")
 	}
-	if l := d.Limits; l.JSMemory != 10000 || l.JSDisk != 20000 || l.JSStreams != 15 || l.JSConsumers != 100 || l.Connections != 10 {
-		t.Errorf("limits %+v, want memory 10000, disk 20000, streams 15, consumers 100", l)
+	if l := d.Limits; l.JSMemory != 10000 || l.JSDisk != 20000 || l.JSStreams != 15 || l.JSConsumers != 150 || l.Connections != 10 {
+		t.Errorf("limits %+v, want memory 10000, disk 20000, streams 15, consumers 150", l)
 	}
 }
 
@@ -182,5 +184,21 @@ func TestAccountDetailsNotInReply(t *testing.T) {
 		if d, ok := accountDetailsFromReply([]byte(b), keyNamed, lookupAt); ok {
 			t.Errorf("%s: read %+v", name, d)
 		}
+	}
+}
+
+// One stream can hold consumers of every tier, each counted against the
+// tier of its own replicas: R1 10 and R3 5 allow 15 on one stream.
+func TestTierConsumersSumPerStream(t *testing.T) {
+	if got := sumTiers(map[string]jsLimits{"R1": {Consumers: 10}, "R3": {Consumers: 5}}); got.Consumers != 15 {
+		t.Errorf("consumers %d, want 15", got.Consumers)
+	}
+}
+
+// A sum that overflows reads as no limit, never as another negative.
+func TestSumTiersOverflowIsNoLimit(t *testing.T) {
+	got := sumTiers(map[string]jsLimits{"R1": {Disk: math.MaxInt64, Streams: math.MaxInt64}, "R2": {Disk: 1, Streams: 1}})
+	if got.Disk != -1 || got.Streams != -1 {
+		t.Errorf("disk %d streams %d, want -1", got.Disk, got.Streams)
 	}
 }
