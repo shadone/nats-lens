@@ -146,7 +146,9 @@ func (x *TopologyServer) GetMetaLeader() bool {
 // One cluster of a system: its servers and what sits on it.
 type TopologyCluster struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Cluster name; empty when the servers report none.
+	// Cluster name. Empty for the servers whose cluster is not known: they
+	// have no stored identity, and no route of a server with a known
+	// cluster names them.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// The value of the region: tag every server of the cluster carries;
 	// empty when they carry none or differ.
@@ -157,11 +159,13 @@ type TopologyCluster struct {
 	MetaLeader bool `protobuf:"varint,4,opt,name=meta_leader,json=metaLeader,proto3" json:"meta_leader,omitempty"`
 	// Streams the cluster's servers lead; unset when no server reports it.
 	StreamsLed *int32 `protobuf:"varint,5,opt,name=streams_led,json=streamsLed,proto3,oneof" json:"streams_led,omitempty"`
-	// Leaf node sites connected to the cluster's servers now; unset when no
-	// server of the cluster answered LEAFZ.
+	// Leaf node sites, by name, connected to the cluster's servers now;
+	// unset when no server of the cluster answered LEAFZ.
 	LeafnodesConnected *int32 `protobuf:"varint,6,opt,name=leafnodes_connected,json=leafnodesConnected,proto3,oneof" json:"leafnodes_connected,omitempty"`
-	// Leaf node sites seen on the cluster in the 24 hours and not connected
-	// now; unset when no server of the cluster answered LEAFZ.
+	// Leaf node sites, by name, last seen on the cluster in the 24 hours
+	// and not connected now, without those whose state is not known
+	// (connection_unknown); unset when no server of the cluster answered
+	// LEAFZ.
 	LeafnodesNotConnected *int32 `protobuf:"varint,7,opt,name=leafnodes_not_connected,json=leafnodesNotConnected,proto3,oneof" json:"leafnodes_not_connected,omitempty"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
@@ -246,7 +250,9 @@ func (x *TopologyCluster) GetLeafnodesNotConnected() int32 {
 	return 0
 }
 
-// The gateway connections between two clusters.
+// The gateway connections between two clusters: every two clusters with a
+// gateway row in the epoch or an outbound gateway in the 24 hours before,
+// so a pair that is down in the epoch is listed with 0 connections.
 type TopologyGateway struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The two clusters, in name order.
@@ -403,8 +409,11 @@ type TopologyRoute struct {
 	// Whether one end reports the pair and the other, which answered
 	// ROUTEZ, does not.
 	OneSided bool `protobuf:"varint,8,opt,name=one_sided,json=oneSided,proto3" json:"one_sided,omitempty"`
-	// Whether the route stands out: its round trip time is at least 3 times
-	// the cluster's median and at least 1 ms.
+	// Whether the route stands out, at 1 ms or more: its round trip is at
+	// least 3 times the median of the cluster's pairs that touch neither of
+	// its servers, or one of its servers is slow (its fastest pair at least
+	// 3 times the median of the pairs that do not touch it). Two servers
+	// alone are never slow.
 	Slow bool `protobuf:"varint,9,opt,name=slow,proto3" json:"slow,omitempty"`
 	// The ends that report the pair, by name.
 	ReportedBy    []string `protobuf:"bytes,10,rep,name=reported_by,json=reportedBy,proto3" json:"reported_by,omitempty"`
@@ -542,9 +551,15 @@ type TopologyLeafnode struct {
 	// When a site not connected was last seen; unset for a connected one.
 	LastSeen *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=last_seen,json=lastSeen,proto3" json:"last_seen,omitempty"`
 	// Compression mode; empty when not reported.
-	Compression   string `protobuf:"bytes,11,opt,name=compression,proto3" json:"compression,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Compression string `protobuf:"bytes,11,opt,name=compression,proto3" json:"compression,omitempty"`
+	// Every hub server the site is connected to now, by name; hub_server is
+	// the first. Empty for a site not connected.
+	HubServers []string `protobuf:"bytes,12,rep,name=hub_servers,json=hubServers,proto3" json:"hub_servers,omitempty"`
+	// Whether a site not connected may be connected after all: a server's
+	// LEAFZ failed in the epoch (see unobserved), and the site may be on it.
+	ConnectionUnknown bool `protobuf:"varint,13,opt,name=connection_unknown,json=connectionUnknown,proto3" json:"connection_unknown,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *TopologyLeafnode) Reset() {
@@ -654,6 +669,20 @@ func (x *TopologyLeafnode) GetCompression() string {
 	return ""
 }
 
+func (x *TopologyLeafnode) GetHubServers() []string {
+	if x != nil {
+		return x.HubServers
+	}
+	return nil
+}
+
+func (x *TopologyLeafnode) GetConnectionUnknown() bool {
+	if x != nil {
+		return x.ConnectionUnknown
+	}
+	return false
+}
+
 // Servers whose reply to one monitoring request is missing or in error in
 // the epoch; their links of that kind are left out rather than drawn as
 // down.
@@ -721,13 +750,16 @@ type GetTopologyResponse struct {
 	EpochAt *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=epoch_at,json=epochAt,proto3" json:"epoch_at,omitempty"`
 	// Clusters by name.
 	Clusters []*TopologyCluster `protobuf:"bytes,3,rep,name=clusters,proto3" json:"clusters,omitempty"`
-	// Gateway pairs, those that dropped most in the last hour first, then
-	// by highest round trip time.
+	// Gateway pairs: those with no connection of the ones expected first,
+	// then most drops in the last hour, then most connections missing,
+	// then highest round trip time.
 	Gateways []*TopologyGateway `protobuf:"bytes,4,rep,name=gateways,proto3" json:"gateways,omitempty"`
 	// Routes, slow ones first, then by round trip time, highest first.
+	// Round trips of 0 (sent before the first ping) count as not reported.
 	Routes []*TopologyRoute `protobuf:"bytes,5,rep,name=routes,proto3" json:"routes,omitempty"`
-	// Leaf node sites, worst first: not connected, then most drops, then
-	// highest round trip time, then by name. At most 500.
+	// Leaf node sites, worst first: not connected, then those whose state is
+	// not known, then most drops, then highest round trip time, then by
+	// name. At most 500.
 	Leafnodes []*TopologyLeafnode `protobuf:"bytes,6,rep,name=leafnodes,proto3" json:"leafnodes,omitempty"`
 	// Leaf node sites before the limit of 500.
 	LeafnodesTotal int32 `protobuf:"varint,7,opt,name=leafnodes_total,json=leafnodesTotal,proto3" json:"leafnodes_total,omitempty"`
@@ -901,7 +933,7 @@ const file_natslens_v1_topology_proto_rawDesc = "" +
 	" \x03(\tR\n" +
 	"reportedByB\x10\n" +
 	"\x0e_pending_bytesB\a\n" +
-	"\x05_pool\"\xb6\x03\n" +
+	"\x05_pool\"\x86\x04\n" +
 	"\x10TopologyLeafnode\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\aaccount\x18\x02 \x01(\tR\aaccount\x12!\n" +
@@ -916,7 +948,10 @@ const file_natslens_v1_topology_proto_rawDesc = "" +
 	"\tdrops_24h\x18\t \x01(\x05H\x01R\bdrops24h\x88\x01\x01\x127\n" +
 	"\tlast_seen\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\blastSeen\x12 \n" +
-	"\vcompression\x18\v \x01(\tR\vcompressionB\x10\n" +
+	"\vcompression\x18\v \x01(\tR\vcompression\x12\x1f\n" +
+	"\vhub_servers\x18\f \x03(\tR\n" +
+	"hubServers\x12-\n" +
+	"\x12connection_unknown\x18\r \x01(\bR\x11connectionUnknownB\x10\n" +
 	"\x0e_subscriptionsB\f\n" +
 	"\n" +
 	"_drops_24h\"J\n" +

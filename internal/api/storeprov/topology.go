@@ -11,8 +11,8 @@ import (
 )
 
 // Topology reads the range's newest epoch: its servers, their ROUTEZ,
-// GATEWAYZ and LEAFZ outcomes and rows, and for the drops the outbound
-// gateway and leaf node rows of every collection of the 24 hours before.
+// GATEWAYZ and LEAFZ outcomes and rows, and the drops of the 24 hours
+// before, counted in SQL (topology_drops.go).
 // Leaf rows in which the reporting server is the spoke (its own uplink to
 // a hub) are not sites of this system and are left out.
 func (p *Provider) Topology(ctx context.Context, req *v1.GetTopologyRequest) (*api.TopologyFacts, error) {
@@ -23,7 +23,7 @@ func (p *Provider) Topology(ctx context.Context, req *v1.GetTopologyRequest) (*a
 	f := &api.TopologyFacts{Epoch: e.epoch, EpochAt: e.startedAt, Interval: p.Interval,
 		Answered: map[string][]string{}, Unanswered: map[string][]string{}}
 	steps := []func(context.Context, *api.TopologyFacts) error{
-		p.topologyServers, p.topologyEndpoints, p.topologyRoutes, p.topologyGateways, p.topologyLeafs, p.topologyHistory,
+		p.topologyServers, p.topologyEndpoints, p.topologyRoutes, p.topologyGateways, p.topologyLeafs, p.topologyDrops,
 	}
 	for _, step := range steps {
 		if err := step(ctx, f); err != nil {
@@ -189,89 +189,4 @@ FROM leafnodes l JOIN servers s USING (server_id) WHERE l.epoch = ? AND `+leafWh
 		f.Leafnodes = append(f.Leafnodes, r)
 	}
 	return rows.Err()
-}
-
-// topologyHistory reads the collections of the drop window up to the
-// epoch: which servers answered GATEWAYZ and LEAFZ, their outbound
-// gateway connections and their leaf node sites.
-func (p *Provider) topologyHistory(ctx context.Context, f *api.TopologyFacts) error {
-	rows, err := p.db().QueryContext(ctx, `SELECT epoch, started_at FROM epochs WHERE started_at >= ? AND epoch <= ? ORDER BY epoch`,
-		f.EpochAt.Add(-api.TopologyDropWindow), f.Epoch)
-	if err != nil {
-		return fmt.Errorf("topology collections: %w", err)
-	}
-	at := map[int64]int{}
-	for rows.Next() {
-		c := api.TopologyCollection{Gatewayz: map[string]bool{}, Leafz: map[string]bool{}}
-		if err := rows.Scan(&c.Epoch, &c.At); err != nil {
-			rows.Close()
-			return err
-		}
-		c.At = c.At.UTC()
-		at[c.Epoch] = len(f.History)
-		f.History = append(f.History, c)
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil || len(f.History) == 0 {
-		return err
-	}
-	first := f.History[0].Epoch
-	read := func(what, query string, scan func(*sql.Rows) error) error {
-		rows, err := p.db().QueryContext(ctx, query, first, f.Epoch)
-		if err != nil {
-			return fmt.Errorf("topology %s: %w", what, err)
-		}
-		defer rows.Close()
-		for rows.Next() {
-			if err := scan(rows); err != nil {
-				return err
-			}
-		}
-		return rows.Err()
-	}
-	if err := read("answers", `SELECT epoch, server_id, endpoint FROM epoch_endpoints
-WHERE epoch BETWEEN ? AND ? AND endpoint IN ('GATEWAYZ', 'LEAFZ') AND state = 'ok'`, func(rows *sql.Rows) error {
-		var epoch int64
-		var id, endpoint string
-		if err := rows.Scan(&epoch, &id, &endpoint); err != nil {
-			return err
-		}
-		if i, ok := at[epoch]; ok {
-			if endpoint == api.EndpointGatewayz {
-				f.History[i].Gatewayz[id] = true
-			} else {
-				f.History[i].Leafz[id] = true
-			}
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	if err := read("gateway history", `SELECT g.epoch, g.server_id, s.server_name, coalesce(s.cluster, ''), g.gateway, g.cid
-FROM gateways g JOIN servers s USING (server_id)
-WHERE g.epoch BETWEEN ? AND ? AND g.direction = 'outbound' AND g.cid IS NOT NULL`, func(rows *sql.Rows) error {
-		var epoch, cid int64
-		r := api.TopologyGatewayRow{Outbound: true}
-		if err := rows.Scan(&epoch, &r.ServerID, &r.Server, &r.Cluster, &r.Gateway, &cid); err != nil {
-			return err
-		}
-		r.CID = &cid
-		if i, ok := at[epoch]; ok {
-			f.History[i].Gateways = append(f.History[i].Gateways, r)
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	return read("leaf node history", `SELECT `+leafCols+`
-FROM leafnodes l JOIN servers s USING (server_id) WHERE l.epoch BETWEEN ? AND ? AND `+leafWhere, func(rows *sql.Rows) error {
-		epoch, r, err := scanLeaf(rows)
-		if err != nil {
-			return err
-		}
-		if i, ok := at[epoch]; ok {
-			f.History[i].Leafnodes = append(f.History[i].Leafnodes, r)
-		}
-		return nil
-	})
 }

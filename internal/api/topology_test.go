@@ -104,6 +104,13 @@ func collection(epoch int64, back time.Duration, gws []api.TopologyGatewayRow, l
 		Gateways: gws, Leafnodes: leafs}
 }
 
+// history counts the drops of h into f, as the demo does, its last
+// collection the epoch.
+func history(f *api.TopologyFacts, h []api.TopologyCollection) {
+	last := h[len(h)-1]
+	f.Drops = api.CountTopologyDrops(h, f.Interval, last.Epoch, last.At)
+}
+
 // Drops: a changed connection ID or a connection gone counts between two
 // consecutive collections in which the server answered GATEWAYZ; a gap, a
 // failed GATEWAYZ and a restart count none.
@@ -126,9 +133,9 @@ func TestTopologyGatewayDrops(t *testing.T) {
 		collection(8, 50*time.Minute-60*time.Second, []api.TopologyGatewayRow{outbound("U0B", "u0", 1, 80)}, nil, both...),
 		collection(9, 50*time.Minute-90*time.Second, []api.TopologyGatewayRow{outbound("E0", "e0", 5, 80), outbound("U0B", "u0", 1, 80)}, nil, both...),
 	}
-	f.History = h
 	f.Gateways = h[len(h)-1].Gateways
 	f.Epoch, f.EpochAt = 9, h[len(h)-1].At
+	history(f, h)
 	g := api.FinishTopology(f).GetGateways()[0]
 	if g.Drops_24H == nil || g.GetDrops_24H() != 2 || g.Drops_1H == nil || g.GetDrops_1H() != 1 {
 		t.Errorf("drops 24h %s, 1h %s; want 2 and 1", opt(g.Drops_24H), opt(g.Drops_1H))
@@ -149,20 +156,20 @@ func TestTopologyGatewayDropsUnset(t *testing.T) {
 	f := topoFacts()
 	rows := []api.TopologyGatewayRow{outbound("E0", "e0", 1, 80)}
 	f.Gateways = rows
-	f.History = []api.TopologyCollection{
+	history(f, []api.TopologyCollection{
 		collection(1, 2*time.Hour, rows, nil, "E0"),
 		// Too long after the first to be consecutive.
 		collection(2, 0, rows, nil, "E0"),
-	}
+	})
 	g := api.FinishTopology(f).GetGateways()[0]
 	if g.Drops_24H != nil || g.Drops_1H != nil {
 		t.Errorf("drops %s %s across a gap, want unset", opt(g.Drops_24H), opt(g.Drops_1H))
 	}
-	f.History = []api.TopologyCollection{
+	history(f, []api.TopologyCollection{
 		collection(1, 2*time.Hour, rows, nil, "E0"),
 		collection(2, 2*time.Hour-30*time.Second, rows, nil, "E0"),
 		collection(3, 0, rows, nil, "E0"),
-	}
+	})
 	g = api.FinishTopology(f).GetGateways()[0]
 	if g.Drops_24H == nil || g.GetDrops_24H() != 0 || g.Drops_1H != nil {
 		t.Errorf("drops 24h %s 1h %s, want 0 and unset", opt(g.Drops_24H), opt(g.Drops_1H))
@@ -288,8 +295,8 @@ func TestTopologyLeafDrops(t *testing.T) {
 		// store-c appears in the newest collection only.
 		collection(8, step(46), nil, []api.TopologyLeafRow{leaf("E0B", "e0", "store-a", 2), leaf("E0B", "e0", "store-c", 3)}, all...),
 	}
-	f.History = h
 	f.Epoch, f.EpochAt, f.Leafnodes = 8, h[7].At, h[7].Leafnodes
+	history(f, h)
 	res := api.FinishTopology(f)
 	by := map[string]*v1.TopologyLeafnode{}
 	var order []string
@@ -318,14 +325,17 @@ func TestTopologyLeafDrops(t *testing.T) {
 	if us := res.GetClusters()[1]; us.LeafnodesConnected == nil || us.GetLeafnodesConnected() != 0 {
 		t.Errorf("us = %v, want 0 leaf nodes", us)
 	}
-	// When e1 did not answer LEAFZ in the epoch, store-b's state is not
-	// known: it is left out.
-	f.Answered[api.EndpointLeafz] = []string{"e0", "e2", "u0", "u1", "u2"}
-	f.Unanswered[api.EndpointLeafz] = []string{"e1"}
-	for _, l := range api.FinishTopology(f).GetLeafnodes() {
-		if l.GetName() == "store-b" {
-			t.Errorf("store-b listed while its hub did not answer: %v", l)
-		}
+	// When a server (here e2) did not answer LEAFZ in the epoch, store-b may
+	// be connected to it: listed with its drops, its state not known, and
+	// not counted as not connected.
+	f.Answered[api.EndpointLeafz] = []string{"e0", "e1", "u0", "u1", "u2"}
+	f.Unanswered[api.EndpointLeafz] = []string{"e2"}
+	res = api.FinishTopology(f)
+	if l := res.GetLeafnodes()[0]; l.GetName() != "store-b" || !l.GetConnectionUnknown() || l.GetConnected() || l.GetDrops_24H() != 2 {
+		t.Errorf("first = %v, want store-b of unknown state with 2 drops", l)
+	}
+	if eu := res.GetClusters()[0]; eu.GetLeafnodesNotConnected() != 0 {
+		t.Errorf("eu counts %d not connected, want 0", eu.GetLeafnodesNotConnected())
 	}
 }
 
