@@ -2,6 +2,8 @@ package collect
 
 import (
 	"encoding/json"
+	"math"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -101,8 +103,10 @@ func accountDetailsFromReply(b []byte, id string, at time.Time) (AccountDetails,
 			d.Imports++
 		}
 	}
+	// nats-server reports the account's own identifier as its name tag
+	// when it has none, so a tag equal to the identifier names nothing.
 	switch {
-	case a.NameTag != "":
+	case a.NameTag != "" && a.NameTag != id:
 		d.Name = a.NameTag
 	case a.Claim != nil && a.Claim.Name != "" && a.Claim.Name != id:
 		d.Name = a.Claim.Name
@@ -113,10 +117,7 @@ func accountDetailsFromReply(b []byte, id string, at time.Time) (AccountDetails,
 		d.HasJWT = true
 		d.JWTIssuedAt, d.JWTExpires = unixTime(c.IssuedAt), unixTime(c.Expires)
 		l := c.Nats.Limits
-		js := l.jsLimits
-		if len(l.Tiered) > 0 {
-			js = sumTiers(l.Tiered)
-		}
+		js := accountJSLimits(l.jsLimits, l.Tiered)
 		d.Limits = AccountLimits{
 			Connections: l.Conn, LeafNodes: l.Leaf, Subscriptions: l.Subs, Data: l.Data, Payload: l.Payload,
 			JSDisk: js.Disk, JSMemory: js.Memory, JSStreams: js.Streams, JSConsumers: js.Consumers,
@@ -125,14 +126,37 @@ func accountDetailsFromReply(b []byte, id string, at time.Time) (AccountDetails,
 	return d, true
 }
 
-// sumTiers reads tiered JetStream limits as one limit per kind: the sum
-// over the tiers, or -1 when any tier sets no limit. The account may use
-// every tier at once, so the sum is the most it can hold; and a tier's
-// disk and memory limits count replicated bytes, as the account's usage in
-// JSZ does, so the sum compares with that usage. Taking the R1 tier alone
-// would understate an account whose streams are R3. When tiered limits are
-// set the server ignores the account-wide JetStream limits, and so does
-// this.
+// accountJSLimits picks the JetStream limits nats-server enforces for an
+// account JWT (accounts.go, updateAccountClaimsWithRefresh): the
+// account-wide limits when they set disk or memory, else the tiers. The
+// stream and consumer limits are enforced only when positive, so 0 reads
+// as -1, no limit.
+func accountJSLimits(wide jsLimits, tiers map[string]jsLimits) jsLimits {
+	out := wide
+	if wide.Disk == 0 && wide.Memory == 0 && len(tiers) > 0 {
+		out = sumTiers(tiers)
+	}
+	out.Streams, out.Consumers = positiveOrNoLimit(out.Streams), positiveOrNoLimit(out.Consumers)
+	return out
+}
+
+func positiveOrNoLimit(v int64) int64 {
+	if v <= 0 {
+		return -1
+	}
+	return v
+}
+
+// sumTiers reads tiered JetStream limits as one limit per kind, comparable
+// with the account's usage in JSZ, which counts replicated bytes. A tier
+// "R<n>" limits single-copy bytes: nats-server checks the tier's
+// replicated usage against its limit times n (jetstream.go,
+// wouldExceedLimits). So disk and memory are each tier's limit times its
+// replicas, summed, since the account can use every tier at once; -1 when
+// any tier has no limit. Streams are summed the same way, without the
+// factor. The consumer limit applies to each stream, so it is the largest
+// of the tiers'. A tier key that is not R<n> is never selected by the
+// server and is left out.
 func sumTiers(tiers map[string]jsLimits) jsLimits {
 	var out jsLimits
 	add := func(sum *int64, v int64) {
@@ -142,13 +166,45 @@ func sumTiers(tiers map[string]jsLimits) jsLimits {
 		}
 		*sum += v
 	}
-	for _, t := range tiers {
-		add(&out.Memory, t.Memory)
-		add(&out.Disk, t.Disk)
-		add(&out.Streams, t.Streams)
-		add(&out.Consumers, t.Consumers)
+	for key, t := range tiers {
+		n, ok := tierReplicas(key)
+		if !ok {
+			continue
+		}
+		add(&out.Memory, scaled(t.Memory, n))
+		add(&out.Disk, scaled(t.Disk, n))
+		add(&out.Streams, positiveOrNoLimit(t.Streams))
+		if c := positiveOrNoLimit(t.Consumers); out.Consumers >= 0 && (c < 0 || c > out.Consumers) {
+			out.Consumers = c
+		}
 	}
 	return out
+}
+
+// tierReplicas returns n of a tier key "R<n>", the only keys nats-server
+// selects (jetstream.go, tierName).
+func tierReplicas(key string) (int64, bool) {
+	rest, ok := strings.CutPrefix(key, "R")
+	if !ok {
+		return 0, false
+	}
+	n, err := strconv.ParseInt(rest, 10, 64)
+	if err != nil || n < 1 || strconv.FormatInt(n, 10) != rest {
+		return 0, false
+	}
+	return n, true
+}
+
+// scaled multiplies a limit by a tier's replicas; -1 stays -1, and an
+// overflow reads as no limit.
+func scaled(v, n int64) int64 {
+	if v < 0 {
+		return -1
+	}
+	if v > math.MaxInt64/n {
+		return -1
+	}
+	return v * n
 }
 
 // serverAddedImport reports whether an import is one that nats-server
