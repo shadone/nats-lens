@@ -15,6 +15,7 @@ import "natslens/v1/streams.proto";
 import "natslens/v1/systems.proto";
 import "natslens/v1/timeline.proto";
 import "natslens/v1/timeseries.proto";
+import "natslens/v1/topology.proto";
 
 option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
 
@@ -107,6 +108,14 @@ service LensService {
   // gone in between. A and B are at most 24 hours apart and within the
   // retention.
   rpc GetReplay(GetReplayRequest) returns (GetReplayResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // How the servers connect in the range's newest epoch: clusters, the
+  // routes inside each, the gateways between them and the leaf nodes at
+  // the edge, with round trip times and the drops counted from the
+  // collections of the 24 hours before.
+  rpc GetTopology(GetTopologyRequest) returns (GetTopologyResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 

@@ -70,6 +70,8 @@ const (
 	LensServiceGetPlacementProcedure = "/natslens.v1.LensService/GetPlacement"
 	// LensServiceGetReplayProcedure is the fully-qualified name of the LensService's GetReplay RPC.
 	LensServiceGetReplayProcedure = "/natslens.v1.LensService/GetReplay"
+	// LensServiceGetTopologyProcedure is the fully-qualified name of the LensService's GetTopology RPC.
+	LensServiceGetTopologyProcedure = "/natslens.v1.LensService/GetTopology"
 	// LensServiceListServersProcedure is the fully-qualified name of the LensService's ListServers RPC.
 	LensServiceListServersProcedure = "/natslens.v1.LensService/ListServers"
 	// LensServiceGetServerProcedure is the fully-qualified name of the LensService's GetServer RPC.
@@ -140,6 +142,11 @@ type LensServiceClient interface {
 	// gone in between. A and B are at most 24 hours apart and within the
 	// retention.
 	GetReplay(context.Context, *connect.Request[v1.GetReplayRequest]) (*connect.Response[v1.GetReplayResponse], error)
+	// How the servers connect in the range's newest epoch: clusters, the
+	// routes inside each, the gateways between them and the leaf nodes at
+	// the edge, with round trip times and the drops counted from the
+	// collections of the 24 hours before.
+	GetTopology(context.Context, *connect.Request[v1.GetTopologyRequest]) (*connect.Response[v1.GetTopologyResponse], error)
 	// Servers by name with version, uptime and role.
 	ListServers(context.Context, *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error)
 	// One server with endpoint outcomes and process lifetimes.
@@ -289,6 +296,13 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		getTopology: connect.NewClient[v1.GetTopologyRequest, v1.GetTopologyResponse](
+			httpClient,
+			baseURL+LensServiceGetTopologyProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetTopology")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		listServers: connect.NewClient[v1.ListServersRequest, v1.ListServersResponse](
 			httpClient,
 			baseURL+LensServiceListServersProcedure,
@@ -387,6 +401,7 @@ type lensServiceClient struct {
 	getConsumer        *connect.Client[v1.GetConsumerRequest, v1.GetConsumerResponse]
 	getPlacement       *connect.Client[v1.GetPlacementRequest, v1.GetPlacementResponse]
 	getReplay          *connect.Client[v1.GetReplayRequest, v1.GetReplayResponse]
+	getTopology        *connect.Client[v1.GetTopologyRequest, v1.GetTopologyResponse]
 	listServers        *connect.Client[v1.ListServersRequest, v1.ListServersResponse]
 	getServer          *connect.Client[v1.GetServerRequest, v1.GetServerResponse]
 	listConnections    *connect.Client[v1.ListConnectionsRequest, v1.ListConnectionsResponse]
@@ -478,6 +493,11 @@ func (c *lensServiceClient) GetPlacement(ctx context.Context, req *connect.Reque
 // GetReplay calls natslens.v1.LensService.GetReplay.
 func (c *lensServiceClient) GetReplay(ctx context.Context, req *connect.Request[v1.GetReplayRequest]) (*connect.Response[v1.GetReplayResponse], error) {
 	return c.getReplay.CallUnary(ctx, req)
+}
+
+// GetTopology calls natslens.v1.LensService.GetTopology.
+func (c *lensServiceClient) GetTopology(ctx context.Context, req *connect.Request[v1.GetTopologyRequest]) (*connect.Response[v1.GetTopologyResponse], error) {
+	return c.getTopology.CallUnary(ctx, req)
 }
 
 // ListServers calls natslens.v1.LensService.ListServers.
@@ -574,6 +594,11 @@ type LensServiceHandler interface {
 	// gone in between. A and B are at most 24 hours apart and within the
 	// retention.
 	GetReplay(context.Context, *connect.Request[v1.GetReplayRequest]) (*connect.Response[v1.GetReplayResponse], error)
+	// How the servers connect in the range's newest epoch: clusters, the
+	// routes inside each, the gateways between them and the leaf nodes at
+	// the edge, with round trip times and the drops counted from the
+	// collections of the 24 hours before.
+	GetTopology(context.Context, *connect.Request[v1.GetTopologyRequest]) (*connect.Response[v1.GetTopologyResponse], error)
 	// Servers by name with version, uptime and role.
 	ListServers(context.Context, *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error)
 	// One server with endpoint outcomes and process lifetimes.
@@ -719,6 +744,13 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	lensServiceGetTopologyHandler := connect.NewUnaryHandler(
+		LensServiceGetTopologyProcedure,
+		svc.GetTopology,
+		connect.WithSchema(lensServiceMethods.ByName("GetTopology")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	lensServiceListServersHandler := connect.NewUnaryHandler(
 		LensServiceListServersProcedure,
 		svc.ListServers,
@@ -830,6 +862,8 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceGetPlacementHandler.ServeHTTP(w, r)
 		case LensServiceGetReplayProcedure:
 			lensServiceGetReplayHandler.ServeHTTP(w, r)
+		case LensServiceGetTopologyProcedure:
+			lensServiceGetTopologyHandler.ServeHTTP(w, r)
 		case LensServiceListServersProcedure:
 			lensServiceListServersHandler.ServeHTTP(w, r)
 		case LensServiceGetServerProcedure:
@@ -923,6 +957,10 @@ func (UnimplementedLensServiceHandler) GetPlacement(context.Context, *connect.Re
 
 func (UnimplementedLensServiceHandler) GetReplay(context.Context, *connect.Request[v1.GetReplayRequest]) (*connect.Response[v1.GetReplayResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetReplay is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetTopology(context.Context, *connect.Request[v1.GetTopologyRequest]) (*connect.Response[v1.GetTopologyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetTopology is not implemented"))
 }
 
 func (UnimplementedLensServiceHandler) ListServers(context.Context, *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error) {
