@@ -1,7 +1,7 @@
 // The Accounts page's wording, order and colours, apart from React so they
 // can be tested on their own.
 import type { AccountRow, AccountsAndAuth, Expiring, FailedLogin } from "../api/accounts";
-import { fmtBytes, fmtDuration, fmtInt, isoDate } from "./format";
+import { dayMonHm, fmtBytes, fmtDuration, fmtInt, hm, isoDate } from "./format";
 
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
@@ -229,6 +229,20 @@ export function expiringWhat(e: Expiring): string {
       return "";
   }
 }
+
+/**
+ * A certificate read from an older collection: "as of 13:20 UTC: nats-us-4
+ * did not answer in this collection", with the day when it is a day or more
+ * before; undefined for a row read from the collection itself.
+ */
+export function seenAtText(e: Expiring, epochAt: number | undefined): string | undefined {
+  if (e.seenAt === undefined) return undefined;
+  const when = epochAt !== undefined && epochAt - e.seenAt < DAY ? hm(e.seenAt) : dayMonHm(e.seenAt);
+  return `as of ${when} UTC: ${e.server || "its server"} did not answer in this collection`;
+}
+
+/** The failed-logins card when no event was stored up to the collection, in the words of Replay's events-not-captured reason. */
+export const EVENTS_NOT_CAPTURED_TEXT = "Failed logins are not shown: no event was stored up to this collection, so event capture is not running for this system.";
 
 /** "16 days", "1 day", "5h 12m", or "expired". */
 export function expiresIn(e: Pick<Expiring, "expires" | "expired">, epochAt: number | undefined): string {

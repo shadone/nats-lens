@@ -7,6 +7,7 @@ import { dayMonHm, fmtBytes, fmtInt, isoDate, shortWhen } from "../lib/format";
 import {
   accountTitle,
   connLimitText,
+  EVENTS_NOT_CAPTURED_TEXT,
   diskLimitText,
   expiresIn,
   expiringCountLine,
@@ -24,6 +25,7 @@ import {
   loginWindowShort,
   loginsCutLine,
   orderAccounts,
+  seenAtText,
   shortIdentifier,
   type LimitBar,
   type Tone,
@@ -206,7 +208,9 @@ export function FailedLoginsCard({ d }: { d: AccountsAndAuth }) {
   const cut = loginsCutLine(d);
   return (
     <Card title="Failed logins, 24 h" sub="From the servers' auth error advisories, grouped by user, address and reason." className="ac-logins">
-      {d.failedLogins.length === 0 ? (
+      {!d.eventsCaptured ? (
+        <p className="ac-empty">{EVENTS_NOT_CAPTURED_TEXT}</p>
+      ) : d.failedLogins.length === 0 ? (
         <p className="ac-empty">{short ? `No failed logins since ${since}.` : "No failed logins in these 24 hours."}</p>
       ) : (
         <div className="table-wrap scroll-cue">
@@ -257,9 +261,9 @@ export function FailedLoginsCard({ d }: { d: AccountsAndAuth }) {
       )}
       <div className="ac-notes">
         {cut && <p>{cut}</p>}
-        {d.failedLogins.length > 0 && <p className="ac-text">A client retrying with revoked credentials every minute shows up here before anyone notices it never connected.</p>}
+        {d.eventsCaptured && d.failedLogins.length > 0 && <p className="ac-text">A client retrying with revoked credentials every minute shows up here before anyone notices it never connected.</p>}
         {short && d.failedLogins.length > 0 && <p>The history starts at {since}, so fewer than 24 hours are counted.</p>}
-        {d.captureGaps && <p className="ac-gap">Event capture was not running for part of these 24 hours, so the counts can be low.</p>}
+        {d.eventsCaptured && d.captureGaps && <p className="ac-gap">Event capture stopped for part of these 24 hours, so the counts can be low.</p>}
       </div>
     </Card>
   );
@@ -301,6 +305,7 @@ export function ExpiringCard({ d }: { d: AccountsAndAuth }) {
             <tbody>
               {d.expiring.map((e) => {
                 const tone = expiringTone(e, d.epochAt);
+                const seen = seenAtText(e, d.epochAt);
                 return (
                   <tr key={`${e.kind}|${e.server}|${e.listener}|${e.account}|${e.user}`}>
                     <th scope="row">
@@ -308,6 +313,7 @@ export function ExpiringCard({ d }: { d: AccountsAndAuth }) {
                         <ExpiringName e={e} />
                       </span>{" "}
                       {expiringWhat(e)}
+                      {seen && <small>{seen}</small>}
                       {e.kind === "userJwt" && (
                         <small>
                           account <RLink to={accountPath(e.account)}>{accountTitle(e)}</RLink>
