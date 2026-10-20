@@ -595,3 +595,24 @@ SELECT 2000 + i, ?::TIMESTAMP + i * INTERVAL 1 SECOND, ?::TIMESTAMP + i * INTERV
 		t.Errorf("gaps = %+v", f.Gaps)
 	}
 }
+
+// A sys connection lost and back an hour before the read starts left no
+// time without events at A.
+func TestReplayEventsLossBeforeTheReadEndedFromStore(t *testing.T) {
+	p, r := replayStore(t)
+	lost := rT.Add(-time.Hour)
+	for i, e := range []struct {
+		at   time.Time
+		kind string
+	}{{lost, "collector.not_connected"}, {lost.Add(30 * time.Second), "collector.reconnected"}} {
+		r.add("events", map[string]any{"id": 1500 + i, "time": e.at, "received_at": e.at, "source": "collector", "kind": e.kind,
+			"summary": e.kind, "raw": `{"connection":"sys","reason":"x"}`})
+	}
+	f, err := p.Replay(ctx, replayReq(rEpoch(3), rEpoch(40)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slices.ContainsFunc(f.Gaps, func(g api.ReplayGap) bool { return g.Kind == api.GapEvents }) {
+		t.Errorf("gaps = %+v", f.Gaps)
+	}
+}
