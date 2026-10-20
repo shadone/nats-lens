@@ -45,8 +45,9 @@ func topoAt(last time.Time, e int64) time.Time {
 //     nats-eu-1, reconnecting before epoch 7, gone in 10, back on
 //     nats-eu-3 in 11 and gone again in 12 (3 drops); pickup-0420 on
 //     nats-eu-2 in the newest epoch only (drops unset); pickup-0500 on
-//     nats-eu-4 in epoch 11, whose LEAFZ failed in 12 (left out); and
-//     nats-eu-0's own uplink to a hub, which is no site.
+//     nats-eu-4 in epoch 11 only (1 drop); and nats-eu-0's own uplink to
+//     a hub, which is no site. nats-eu-4's ROUTEZ failed in the newest
+//     epoch.
 func topologyStore(t *testing.T, last time.Time) *store.Store {
 	t.Helper()
 	st := emptyStore(t)
@@ -88,7 +89,7 @@ func topologyStore(t *testing.T, last time.Time) *store.Store {
 		for _, s := range up(e) {
 			for _, ep := range []string{"ROUTEZ", "GATEWAYZ", "LEAFZ"} {
 				state := "ok"
-				if (s.id == "E2" && ep == "GATEWAYZ" && e == 8) || (s.id == "E4" && ep == "LEAFZ" && e == topoEpochs) {
+				if (s.id == "E2" && ep == "GATEWAYZ" && e == 8) || (s.id == "E4" && ep == "ROUTEZ" && e == topoEpochs) {
 					state = "missing"
 				}
 				r.add("epoch_endpoints", map[string]any{"epoch": e, "server_id": s.id, "endpoint": ep, "state": state})
@@ -154,7 +155,7 @@ func topologyStore(t *testing.T, last time.Time) *store.Store {
 			}
 		}
 	}
-	route("U0", "nats-us-1", 600*time.Microsecond, "")
+	route("U0", "nats-us-1", 6*time.Millisecond, "")
 	return st
 }
 
@@ -249,17 +250,18 @@ func TestTopologyFromStore(t *testing.T) {
 	for _, l := range res.GetLeafnodes() {
 		got = append(got, fmt.Sprintf("%s %s %v %s", l.GetName(), l.GetHubServer(), l.GetConnected(), drops(l.Drops_24H)))
 	}
-	want := []string{"pickup-0417 nats-eu-3 false 3", "pickup-0420 nats-eu-2 true unset", "warehouse-eu-01 nats-eu-0 true 0"}
-	if !slices.Equal(got, want) || res.GetLeafnodesTotal() != 3 {
+	want := []string{"pickup-0417 nats-eu-3 false 3", "pickup-0500 nats-eu-4 false 1", "pickup-0420 nats-eu-2 true unset",
+		"warehouse-eu-01 nats-eu-0 true 0"}
+	if !slices.Equal(got, want) || res.GetLeafnodesTotal() != 4 {
 		t.Errorf("leaf nodes = %v, want %v", got, want)
 	}
 	if l := res.GetLeafnodes()[0]; !l.GetLastSeen().AsTime().Equal(topoAt(last, 11)) || l.Rtt != nil || l.GetHubCluster() != "eu" {
 		t.Errorf("pickup-0417 = %v", l)
 	}
-	if eu.GetLeafnodesConnected() != 2 || eu.GetLeafnodesNotConnected() != 1 || us.GetLeafnodesConnected() != 0 || us.LeafnodesConnected == nil {
+	if eu.GetLeafnodesConnected() != 2 || eu.GetLeafnodesNotConnected() != 2 || us.GetLeafnodesConnected() != 0 || us.LeafnodesConnected == nil {
 		t.Errorf("leaf counts eu %d/%d us %v", eu.GetLeafnodesConnected(), eu.GetLeafnodesNotConnected(), us.LeafnodesConnected)
 	}
-	if u := res.GetUnobserved(); len(u) != 1 || u[0].GetEndpoint() != "LEAFZ" || !slices.Equal(u[0].GetServers(), []string{"nats-eu-4"}) {
+	if u := res.GetUnobserved(); len(u) != 1 || u[0].GetEndpoint() != "ROUTEZ" || !slices.Equal(u[0].GetServers(), []string{"nats-eu-4"}) {
 		t.Errorf("unobserved = %v", u)
 	}
 }
