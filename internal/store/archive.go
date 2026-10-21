@@ -199,8 +199,8 @@ type ExportedFile struct {
 type HourExport struct {
 	Files []ExportedFile
 	// Epochs and Events are the hour's epoch and event counts, and
-	// MuteChanges the mutes plus lifted mutes, read in the same transaction
-	// as the files.
+	// MuteChanges the mutes plus lifted mutes plus acceptances with a
+	// growth, read in the same transaction as the files.
 	Epochs, Events, MuteChanges int64
 }
 
