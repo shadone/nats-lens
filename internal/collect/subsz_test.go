@@ -178,3 +178,21 @@ func TestSubszMissingOnlyWhenAsked(t *testing.T) {
 		t.Error("epoch that did not ask SUBSZ has a status for the real server")
 	}
 }
+
+// A wall clock stepped back after a collection makes the next epoch ask
+// again at once, rather than wait until the clock passes the old start;
+// a fresh collector (a restart) asks on its first epoch.
+func TestSubszDueAfterClockStepsBack(t *testing.T) {
+	c := &Collector{subsInterval: 5 * time.Minute}
+	t0 := time.Date(2026, 10, 22, 14, 0, 0, 0, time.UTC)
+	if !c.subscriptionsDue(t0) {
+		t.Fatal("first epoch not due")
+	}
+	c.subsAsked = t0
+	if c.subscriptionsDue(t0.Add(time.Minute)) {
+		t.Fatal("due within the interval")
+	}
+	if !c.subscriptionsDue(t0.Add(-time.Hour)) {
+		t.Error("not due after the clock stepped back an hour")
+	}
+}
