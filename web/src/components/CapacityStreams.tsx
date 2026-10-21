@@ -1,7 +1,7 @@
 // The Capacity page's streams table: what each stream keeps, what bounds
 // it, how much it holds, the limit it reaches next, and the decision on an
 // unbounded one, with the button that accepts it as by design.
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Capacity, CapacityStream } from "../api/capacity";
 import type { Mute } from "../api/model";
 import {
@@ -121,20 +121,44 @@ function HeldCell({ s, epochAt }: { s: CapacityStream; epochAt: number }) {
   );
 }
 
-/** Rows the page accepted, shown as accepted until the next answer says so itself. */
-function withAccepted(rows: CapacityStream[], accepted: Record<string, Mute>): CapacityStream[] {
-  return rows.map((s) => (s.status === "awaiting" && accepted[s.findingId] ? { ...s, status: "accepted", mute: accepted[s.findingId] } : s));
+/** An acceptance saved on this page, and the time of the answer shown when it was saved. */
+interface Saved {
+  mute: Mute;
+  shownAt: number;
 }
 
-export function StreamsTable({ d }: { d: Capacity }) {
+/**
+ * Rows the page accepted, shown as accepted until an answer newer than the
+ * one shown at the save arrives; that answer is then shown, whatever it says (the
+ * acceptance may have ended elsewhere in the meantime).
+ */
+export function withAccepted(rows: CapacityStream[], saved: Record<string, Saved>, answeredAt: number): CapacityStream[] {
+  return rows.map((s) => {
+    const a = saved[s.findingId];
+    return s.status === "awaiting" && a && answeredAt <= a.shownAt ? { ...s, status: "accepted", mute: a.mute } : s;
+  });
+}
+
+/** answeredAt: when the answer d was fetched (the query's dataUpdatedAt). */
+export function StreamsTable({ d, answeredAt }: { d: Capacity; answeredAt: number }) {
   const [accepting, setAccepting] = useState<CapacityStream>();
-  const [accepted, setAccepted] = useState<Record<string, Mute>>({});
-  const rows = withAccepted(d.streams, accepted);
+  const [saved, setSaved] = useState<Record<string, Saved>>({});
+  // The row whose acceptance was just saved: its button is gone, so focus moves to its stream link.
+  const [focusRow, setFocusRow] = useState("");
+  const tableRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!focusRow) return;
+    tableRef.current?.querySelector<HTMLElement>(`tr[data-finding="${CSS.escape(focusRow)}"] .cap-name`)?.focus();
+    setFocusRow("");
+  }, [focusRow]);
+  const shown = useRef(answeredAt);
+  shown.current = answeredAt;
+  const rows = withAccepted(d.streams, saved, answeredAt);
   const accounts = new Set(rows.map((s) => s.account)).size;
   const epochAt = d.epochAt ?? 0;
   return (
     <>
-      <section className="card cap-card" aria-label="Streams by what bounds them">
+      <section ref={tableRef} className="card cap-card" aria-label="Streams by what bounds them">
         {rows.length === 0 ? (
           <p className="cap-foot">No stream in this collection.</p>
         ) : (
@@ -160,7 +184,7 @@ export function StreamsTable({ d }: { d: Capacity }) {
                   const next = nextLimitText(s);
                   const perDay = perDayTimesR(s);
                   return (
-                    <tr key={rowKey(s)}>
+                    <tr key={rowKey(s)} data-finding={s.findingId || undefined}>
                       <th scope="row">
                         <RLink to={streamPath(s.account, s.stream)} className="x cap-name">
                           {s.stream}
@@ -202,7 +226,10 @@ export function StreamsTable({ d }: { d: Capacity }) {
       <AcceptDialog
         target={accepting ? acceptTarget(accepting) : undefined}
         onClose={() => setAccepting(undefined)}
-        onAccepted={(id, m) => setAccepted((a) => ({ ...a, [id]: m }))}
+        onAccepted={(id, m) => {
+          setSaved((a) => ({ ...a, [id]: { mute: m, shownAt: shown.current } }));
+          setFocusRow(id);
+        }}
       />
     </>
   );
