@@ -59,7 +59,8 @@ const confInventory = `accounts:
 // Consumers on orders: fast delivers 1 a second, planner is paused, fresh
 // appeared in the newest epoch, auditor is expected and missing; settler
 // on payments has another configuration and creation time on nats-1. Findings cover every
-// state, and stream-007 on payments is muted.
+// state, stream-007 on payments is muted, and stream-005 on wishlist is
+// accepted as by design.
 func conformanceStore(t *testing.T) (*store.Store, *checks.Set) {
 	t.Helper()
 	st := emptyStore(t)
@@ -202,6 +203,7 @@ func conformanceStore(t *testing.T) (*store.Store, *checks.Set) {
 		if e >= 90 {
 			found["stream-002"] = []store.FindingRow{{EntityKey: "APP/payments", Severity: "warning", Detail: "Leader nats-0 reports 1 replica offline: nats-2."}}
 			found["stream-007"] = []store.FindingRow{{EntityKey: "APP/payments", Severity: "warning", Detail: "2 configurations (nats-0 | nats-1); differing: max_age."}}
+			found["stream-005"] = []store.FindingRow{{EntityKey: "APP/wishlist", Severity: "info", Detail: "wishlist has no limits."}}
 		}
 		if e >= 92 {
 			sev := "info"
@@ -301,6 +303,11 @@ func TestStoreConformance(t *testing.T) {
 	if _, err := c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{System: "main", CheckCode: "stream-007",
 		Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/payments"}, Reason: "Update in review.", MutedBy: "ops",
 		ExpiresAt: timestamppb.New(clock.Add(24 * time.Hour))})); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{System: "main", CheckCode: "stream-005", Accept: true,
+		Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/wishlist"}, Reason: "Wishes are kept for the account's life.",
+		MutedBy: "ops@example.com", ExpiresAt: timestamppb.New(clock.Add(180 * 24 * time.Hour))})); err != nil {
 		t.Fatal(err)
 	}
 	apitest.RunConformance(t, apitest.Env{Client: c, Systems: []string{"main", "closed", "replay", "topology", "topology-single", "accounts", "accounts-config"}, Now: clock})

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -175,7 +176,7 @@ func globalScenario() *scenario {
 		kubernetes:    true,
 		sample:        globalSample,
 		slowEvents:    globalSlowEvents(),
-		mutes:         func() []*storedMute { return []*storedMute{globalSeedMute()} },
+		mutes:         func() []*storedMute { return []*storedMute{globalSeedMute(), globalSeedEndedAcceptance()} },
 		consumer:      globalConsumer,
 		created:       globalCreated,
 		transitions:   globalTransitions,
@@ -223,6 +224,20 @@ func globalCreated(s scen, _, consumer string) ([]time.Time, bool) {
 	}
 	at := globalInvoiceCreated.Add(s.shift)
 	return []time.Time{at, at, at}, false
+}
+
+// globalSeedEndedAcceptance is an acceptance of stream-005 on
+// KV_feature-flags that nats-lens ended when the bucket's growth changed.
+func globalSeedEndedAcceptance() *storedMute {
+	s := scen{now: FixedNow}
+	return &storedMute{relative: true, seededLift: true, m: &v1.Mute{
+		Id: "2", CheckCode: "stream-005", Entity: streamRef("KV_feature-flags"), Accepted: true, GrowthPerDay: ptr(1.6 * mib),
+		Reason:    "Flags are few and change rarely.",
+		MutedBy:   "ops@example.com",
+		CreatedAt: ts(s.on(1, 9, 0)), ExpiresAt: ts(s.on(1, 9, 0).AddDate(0, 3, 0)),
+		UnmutedAt: ts(s.on(12, 4, 0)), UnmutedBy: api.AcceptEndedBy,
+		EndReason: api.GrowthEndReason(1.6*mib, 2*kib),
+	}}
 }
 
 func globalSeedMute() *storedMute {

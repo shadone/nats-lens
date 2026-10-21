@@ -80,6 +80,13 @@ func prodFindings(s scen) []*v1.Finding {
 		{"max_msgs_per_subject", "-1"}, {"allow_msg_ttl", "false"}}, "max_bytes")
 	s005.RelatedConfigSource = "nats-0"
 
+	// Accepted as by design (prodSeedAcceptance): it reads as muted.
+	s005kv := finding("stream-005", "Stream without any limit", info, firing, streamRef("KV_customer-config"),
+		s.on(2, 10, 0), s.on(2, 10, 0), "max_msgs -1, max_bytes -1, max_age 0: nothing bounds the stream.")
+	s005kv.RelatedConfig = cfg([][2]string{{"max_msgs", "-1"}, {"max_bytes", "-1"}, {"max_age", "0"},
+		{"max_msgs_per_subject", "1"}, {"allow_msg_ttl", "false"}}, "max_bytes")
+	s005kv.RelatedConfigSource = "nats-0"
+
 	s006 := finding("stream-006", "Stream reaches its byte limit soon", warning, firing, streamRef("audit-archive"),
 		s.on(15, 8, 0), s.on(15, 8, 0),
 		"Grows 18.0 MiB per day over the last 6h: reaches max_bytes 1.3 GiB in 13.1 days (1.1 GiB now); discard new.")
@@ -91,7 +98,7 @@ func prodFindings(s scen) []*v1.Finding {
 		return resolvedFinding("server-002", "Healthz not ok", critical, serverRef(server), since, end,
 			server+" healthz unavailable (503): JetStream stream 'APP > "+stream+"' is not current (+2 more).")
 	}
-	out := []*v1.Finding{c010, c009, c002, s005, s006,
+	out := []*v1.Finding{c010, c009, c002, s005, s005kv, s006,
 		shortLived("stock-poller", s.at(12, 48, 0), 21, []string{"10.20.4.31"}, []string{"nats-0", "nats-1"}),
 		resolvedFinding("consumer-001", "Consumer quorum lost", critical,
 			consumerRef("order-jobs", "job-cache-projector"), s.at(9, 15, 0), s.at(9, 45, 0),
