@@ -9,7 +9,7 @@ The board's sample names come from a sketch of a real deployment. Use the exampl
 | Task | Status |
 |---|---|
 | T1 Collect subscription lists | built on `feat/subjects-collect`, awaiting review |
-| T2 API, store and demo | not started |
+| T2 API, store and demo | built on `feat/subjects-api` (with `feat/subjects-collect` merged in), awaiting review |
 | T3 UI | not started |
 | T4 Feature docs and audit | not started |
 
@@ -83,6 +83,21 @@ Each point was decided in the session that built T1: proposed, not yet confirmed
 - **Demo.** Each demo system gets subjects that tell the page's story with the shop's names: in `example-global` a stream without a consumer (a limits stream named for a test), an interest stream with one ephemeral push consumer whose connection is named, a work queue with no messages, a KV bucket with two watchers, a mirror, a queue group of three `order-service` connections, `_INBOX` subscriptions from several connections, natslens's own connection subscribed to wide `$SYS` subjects in the system account, and a subscription on `>` by a monitoring tool. One server's list is cut at the limit in `example-global`. `example-staging` has no subscription collection.
 - Conformance rows in `apitest`: a stream row with its consumers and rate; a subscription row with a queue group; the inbox fold; a push consumer's deliver subject is not a row of its own and names its client on the stream row; a server subscription is left out when CONNZ is complete and counted as unlisted when it was cut; the filters' counts; overlap; the tester (stream, consumer filter, mirror, queue group once, nothing matches, a wildcard refused); no subscription collection; the store fixture and the demo pass alike.
 - Docs: `docs/design.md` (the RPCs, the rules), `demo-mode.md`.
+
+### Where T2 departed from this plan
+
+Each point was decided in the session that built T2 and is proposed, not yet confirmed.
+
+- **A filter in the request.** `GetSubjectsRequest` has `filter` (`SubjectFilter`: stored, no consumer, overlapping, wide), as `GetPlacement` has: the server filters before the cut of 1,000, so a pill shows every row it counts. The counts are `all_count`, `stored_count`, `no_consumer_count`, `overlapping_count` and `wide_count`; the footnote's servers are `subsz_servers`.
+- **Fields the plan did not list.** `SubjectRow.mirrored_by` (streams that mirror the row's stream, beside `sourced_into`), `SubjectRow.system_account` (the order puts it last and the UI can say so), `SubjectMatch.ephemeral_consumers` (the tester names durables and counts ephemeral ones, whose names are random), and `epoch` and `epoch_at` on `MatchSubjectResponse`. `messages` is `optional`, unset when not reported.
+- **A mirror is never "without a consumer".** A mirror kept as a copy is read by nobody on purpose; flagging every backup mirror would bury the real cases.
+- **SUBSZ servers and totals.** `subsz_servers` lists the servers with a SUBSZ outcome in the collection and, unanswered, those the epoch missed. `total` is SUBSZ's own count of local subscriptions before the limit, not `num_subscriptions`, which counts route interest too.
+- **The CONNZ rule.** A subscription without a connection is the server's own only when that server's CONNZ answered in the collection's epoch and was not cut; a CONNZ that did not answer counts as unlisted, as a cut one does. The join is on server and client ID only. The tester leaves unlisted connections out too, not only the servers' own.
+- **JetStream use.** An account has a `$JS.API.>` row when it holds a stream or its `account_stats` report API requests or streams in the epoch.
+- **Deliver subjects** are those of the page's epoch's push consumers, matched exactly.
+- **Conformance.** The demo never cuts CONNZ, so "counted as unlisted when it was cut" is a store test (`TestSubjectsFromStore`, `TestSubjectsCollectionReach`), not a table row. NATS refuses overlapping stream subjects in one account, so the demo has none; the table checks that the overlap count is the overlapping rows' and that overlap is symmetric in every system, and the store fixture holds two overlapping streams.
+- **The demo.** The KV story uses `KV_feature-flags`' existing 22 watchers, named by their connections, instead of a new bucket with two. The monitoring tool on `>` is `ops-monitor` in `SYS`, beside `natslens-example-global`; they are `example-global`'s new connections in `SYS`, so the Accounts page counts 2 connections there, the servers' and systems' connection counts include them, and the demo's `ListConnections` now hides tooling connections unless `include_tooling` is set, as the store does. Three streams are new in `example-global` (`checkout-load-test`, `stock-alerts`, `gift-card-jobs`), so its pages count 19 streams. `example-prod` collects subscription lists too, as the default system. `nats-eu-3` reports 14,212 subscriptions on its server page, the list cut at 10,000. A stream's subjects in `GetStream`'s configuration now follow the same rule as the Subjects page (none for a mirror, the bucket subjects for KV and object stores).
+- **The merge.** `feat/subjects-collect` was merged into `feat/subjects-api` while T1 was in a fix round, once its migration 0032 existed; T1's later fixes change comments and validation, not tables.
 
 ## T3 UI
 
