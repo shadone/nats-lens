@@ -10,7 +10,7 @@ import (
 var epochTables = []string{
 	"epoch_endpoints", "server_stats", "routes", "gateways", "leafnodes", "ipqueues", "health",
 	"connections", "account_stats", "account_details", "stream_stats", "stream_replicas",
-	"consumer_stats", "consumer_replicas", "raft_stats",
+	"consumer_stats", "consumer_replicas", "raft_stats", "subscriptions", "subscription_lists",
 }
 
 // checkTables hold the checks' rows of an epoch: they are swept and
