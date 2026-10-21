@@ -129,18 +129,21 @@ interface Saved {
 
 /**
  * Rows the page accepted, shown as accepted until an answer newer than the
- * one shown at the save arrives; that answer is then shown, whatever it says (the
- * acceptance may have ended elsewhere in the meantime).
+ * one shown at the save arrives; that answer is then shown, whatever it says
+ * (the acceptance may have ended elsewhere in the meantime). On a fixed range
+ * the answers apply the mutes in force at the range's end, before the
+ * acceptance, so there the saved acceptance stays for the table's life
+ * (proposed, not yet confirmed).
  */
-export function withAccepted(rows: CapacityStream[], saved: Record<string, Saved>, answeredAt: number): CapacityStream[] {
+export function withAccepted(rows: CapacityStream[], saved: Record<string, Saved>, answeredAt: number, live: boolean): CapacityStream[] {
   return rows.map((s) => {
     const a = saved[s.findingId];
-    return s.status === "awaiting" && a && answeredAt <= a.shownAt ? { ...s, status: "accepted", mute: a.mute } : s;
+    return s.status === "awaiting" && a && (!live || answeredAt <= a.shownAt) ? { ...s, status: "accepted", mute: a.mute } : s;
   });
 }
 
-/** answeredAt: when the answer d was fetched (the query's dataUpdatedAt). */
-export function StreamsTable({ d, answeredAt }: { d: Capacity; answeredAt: number }) {
+/** answeredAt: when the answer d was fetched (the query's dataUpdatedAt); live: whether the page's range follows now. */
+export function StreamsTable({ d, answeredAt, live }: { d: Capacity; answeredAt: number; live: boolean }) {
   const [accepting, setAccepting] = useState<CapacityStream>();
   const [saved, setSaved] = useState<Record<string, Saved>>({});
   // The row whose acceptance was just saved: its button is gone, so focus moves to its stream link.
@@ -153,7 +156,7 @@ export function StreamsTable({ d, answeredAt }: { d: Capacity; answeredAt: numbe
   }, [focusRow]);
   const shown = useRef(answeredAt);
   shown.current = answeredAt;
-  const rows = withAccepted(d.streams, saved, answeredAt);
+  const rows = withAccepted(d.streams, saved, answeredAt, live);
   const accounts = new Set(rows.map((s) => s.account)).size;
   const epochAt = d.epochAt ?? 0;
   return (
