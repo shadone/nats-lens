@@ -73,7 +73,13 @@ function useInvalidateAll() {
  */
 export function useMuteFinding() {
   const invalidate = useInvalidateAll();
-  return useMutation({ mutationFn: (m: api.MuteInput & { system: string }) => api.muteFinding(m.system, m), onSuccess: invalidate });
+  // The refetch is not awaited: the dialog closes as soon as the mute is saved.
+  return useMutation({
+    mutationFn: (m: api.MuteInput & { system: string }) => api.muteFinding(m.system, m),
+    onSuccess: () => {
+      void invalidate();
+    },
+  });
 }
 
 export function useUnmuteFinding() {
