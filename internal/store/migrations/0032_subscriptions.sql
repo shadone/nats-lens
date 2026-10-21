@@ -14,10 +14,10 @@ CREATE TABLE subscriptions (
 COMMENT ON TABLE subscriptions IS 'Subscriptions each server holds for its own connections at an epoch that collected subscription lists (SUBSZ), up to subsz_limit per server; an epoch without a collection has no rows (see subscription_lists). One row per (epoch, server_id, account, subject, queue, cid): subscriptions of one connection with the same subject and queue are folded. A server lists its clients'' subscriptions and those of its own system, JetStream and account clients, not the interest its routes, gateways and leaf nodes carry, so a client subscription appears once, on the server the client is connected to.';
 COMMENT ON COLUMN subscriptions.epoch IS 'Epoch that collected the list (epochs.epoch).';
 COMMENT ON COLUMN subscriptions.server_id IS 'Server that holds the subscriptions (servers.server_id).';
-COMMENT ON COLUMN subscriptions.account IS 'Account of the subscribing connection (accounts.account).';
+COMMENT ON COLUMN subscriptions.account IS 'Account of the subscribing connection (accounts.account). The global account is $G, as in account_stats, where connections.account is empty: join connections on (epoch, server_id, cid) only.';
 COMMENT ON COLUMN subscriptions.subject IS 'Subscribed subject, wildcards included.';
 COMMENT ON COLUMN subscriptions.queue IS 'Queue group; NULL for a subscription without one.';
-COMMENT ON COLUMN subscriptions.cid IS 'Connection ID on that server: joins connections.cid of the same epoch and server_id for a client. An ID CONNZ does not list is one of the server''s own clients, or a client CONNZ left out at connz_limit or that connected or left between the two requests.';
+COMMENT ON COLUMN subscriptions.cid IS 'Connection ID on that server: joins connections.cid of the same epoch and server_id for a client. An ID CONNZ does not list is one of the server''s own clients, a client CONNZ left out at connz_limit or that connected or left between the two requests, or any connection when CONNZ did not answer that server in that epoch.';
 COMMENT ON COLUMN subscriptions.subs IS 'Subscriptions folded into this row: the connection''s subscriptions with this subject and queue.';
 COMMENT ON COLUMN subscriptions.msgs IS 'Messages delivered to these subscriptions since they were made, summed.';
 
