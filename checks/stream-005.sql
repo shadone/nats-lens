@@ -16,7 +16,7 @@ remediation: >-
   If the stream needs no unlimited history, set max_age or max_bytes in its definition (a NACK resource, or
   wherever the stream is declared). If unbounded growth is intended, as for an archive stream,
   declare it in the inventory with max_age 0 and max_bytes -1 (or mute this finding with that
-  reason and an expiry, or accept it as by design with a review date; nats-lens ends an acceptance early when the
+  reason and an expiry, or accept it as by design with a review date on the Capacity page; nats-lens ends an acceptance early when the
   stream's growth changes), and keep an eye on server-014 for the date the store fills. For a KV bucket or object
   store, set a TTL (`nats kv add --ttl`, or the bucket's definition) or max_bytes; its keys accumulate without
   bound otherwise.
