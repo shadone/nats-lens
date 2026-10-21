@@ -108,8 +108,14 @@ func globalSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (fl
 	case "stream.bytes", "stream.messages":
 		st, _ := sc.findStream(e.GetAccount(), e.GetStream())
 		b := math.Max(st.bytes-days*st.perDay, st.bytes*0.05)
+		if st.name == "KV_feature-flags" {
+			b = globalFlagsBytes(st, c)
+		}
 		if metric == "stream.bytes" {
 			return b, true
+		}
+		if st.bytes == 0 {
+			return 0, true
 		}
 		return math.Round(float64(st.msgs) * b / st.bytes), true
 	case "cluster.meta_leader_changes":

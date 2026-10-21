@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
+	"github.com/shadone/nats-lens/internal/checks"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -76,14 +77,6 @@ func (s scen) consumersAt(sp streamSpec, at time.Time) []string {
 		}
 	}
 	return out
-}
-
-// maxBytesText is max_bytes as the server reports it: -1 without a limit.
-func (sp streamSpec) maxBytesText() string {
-	if sp.maxBytes <= 0 {
-		return "-1"
-	}
-	return strconv.FormatInt(sp.maxBytes, 10)
 }
 
 func isKV(name string) bool { return strings.HasPrefix(name, "KV_") || strings.HasPrefix(name, "OBJ_") }
@@ -158,14 +151,9 @@ func (p *Provider) GetStream(_ context.Context, req *v1.GetStreamRequest) (*v1.G
 	}
 	s := p.scen()
 	cur := current(p.findings(s), req.GetRange())
-	peers := p.sc.peers(sp)
 	res := &v1.GetStreamResponse{
 		Stream: s.streamSummary(sp, cur, req.GetRange()),
-		Config: cfg([][2]string{
-			{"subjects", strings.ReplaceAll(sp.name, "-", ".") + ".>"}, {"retention", "limits"}, {"storage", "file"},
-			{"replicas", fmt.Sprint(len(peers))}, {"max_bytes", sp.maxBytesText()}, {"max_msgs", "-1"}, {"max_age", "0"},
-			{"discard", cmp.Or(sp.discard, "old")},
-		}),
+		Config: s.streamConfig(sp),
 	}
 	res.Servers = s.streamViews(sp, s.epochTime(req.GetRange()))
 	if sp.disagrees != "" {
@@ -182,6 +170,28 @@ func (p *Provider) GetStream(_ context.Context, req *v1.GetStreamRequest) (*v1.G
 	}
 	res.Consumers = s.withRates(s.consumers(sp, cur, true, s.epochTime(req.GetRange())), req.GetRange())
 	return res, nil
+}
+
+// streamConfig is the configuration GetStream lists: the limits the
+// Capacity page reads.
+func (s scen) streamConfig(sp streamSpec) []*v1.ConfigValue {
+	l := s.sc.streamLimitsOf(sp)
+	pairs := [][2]string{
+		{"subjects", strings.ReplaceAll(sp.name, "-", ".") + ".>"}, {"retention", l.retention}, {"storage", l.storage},
+		{"replicas", fmt.Sprint(len(s.sc.peers(sp)))}, {"max_bytes", strconv.FormatInt(l.maxBytes, 10)},
+		{"max_msgs", strconv.FormatInt(l.maxMsgs, 10)}, {"max_age", checks.DurationText(l.maxAge)},
+		{"max_msgs_per_subject", strconv.FormatInt(l.perSubject, 10)}, {"discard", l.discard},
+	}
+	if l.mirror != "" {
+		pairs = append(pairs, [2]string{"mirror", l.mirror})
+	}
+	if len(sp.sources) > 0 {
+		pairs = append(pairs, [2]string{"sources", strings.Join(sp.sources, ", ")})
+	}
+	if l.allowMsgTTL {
+		pairs = append(pairs, [2]string{"allow_msg_ttl", "true"})
+	}
+	return cfg(pairs)
 }
 
 // streamViews is each server's view of a stream at the scenario time at:

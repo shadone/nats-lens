@@ -42,9 +42,12 @@ func stagingScenario() *scenario {
 			server("nats-2", "NSTAGEFAKE2SERVER", 5),
 		},
 		streams: []streamSpec{
-			{name: "order-jobs", msgs: 1204, bytes: 1.6 * mib, perDay: 120 * kib, consumers: []string{"resize-worker", "index-worker"}},
-			{name: "catalog-changes", msgs: 8840, bytes: 12 * mib, perDay: 400 * kib, consumers: []string{"catalog-applier"}},
-			{name: "KV_customer-config", msgs: 31, bytes: 14 * kib, perDay: 1 * kib, ephemeral: 3},
+			{name: "order-jobs", msgs: 1204, bytes: 1.6 * mib, perDay: 120 * kib, maxMsgs: 1_000_000, held: 8 * time.Hour, consumers: []string{"resize-worker", "index-worker"}},
+			{name: "catalog-changes", msgs: 8840, bytes: 12 * mib, perDay: 400 * kib, held: 8 * time.Hour, consumers: []string{"catalog-applier"}},
+			{name: "KV_customer-config", msgs: 31, bytes: 14 * kib, perDay: 1 * kib, ephemeral: 3, held: 8 * time.Hour},
+		},
+		buckets: []bucketSpec{
+			{stream: "KV_customer-config", description: "Per-customer settings", history: 5, maxBytes: 64 * mib},
 		},
 		clients:         []string{"order-service", "catalog-api", "resize-worker"},
 		metaLeader:      "nats-1",
@@ -66,11 +69,7 @@ func stagingFindings(s scen) []*v1.Finding {
 	// The stream had no limit before nats-lens watched it: first seen at
 	// the start of the history.
 	at := stagingStart.Add(s.shift)
-	f := finding("stream-005", "Stream without any limit", info, firing, streamRef("catalog-changes"), at, at,
-		"max_msgs -1, max_bytes -1, max_age 0: nothing bounds the stream.")
-	f.RelatedConfig = cfg([][2]string{{"max_msgs", "-1"}, {"max_bytes", "-1"}, {"max_age", "0"},
-		{"max_msgs_per_subject", "-1"}, {"allow_msg_ttl", "false"}}, "max_bytes")
-	f.RelatedConfigSource = "nats-1"
+	f := s.unboundedFinding("catalog-changes", at)
 	return []*v1.Finding{f}
 }
 
@@ -144,6 +143,9 @@ func stagingSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (f
 		b := math.Max(st.bytes-days*st.perDay, st.bytes*0.05)
 		if metric == "stream.bytes" {
 			return b, true
+		}
+		if st.bytes == 0 {
+			return 0, true
 		}
 		return math.Round(float64(st.msgs) * b / st.bytes), true
 	case "consumer.num_pending", "consumer.num_ack_pending":
