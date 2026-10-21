@@ -43,6 +43,7 @@ func TestSubscriptionsValidation(t *testing.T) {
 		"negative interval": func(c *Config) { c.SubscriptionsInterval = Duration(-time.Second) },
 		"zero limit":        func(c *Config) { c.SubszLimit = 0 },
 		"negative limit":    func(c *Config) { c.SubszLimit = -1 },
+		"limit too large":   func(c *Config) { c.SubszLimit = MaxSubszLimit + 1 },
 	} {
 		t.Run(name, func(t *testing.T) {
 			c := Default()
@@ -60,6 +61,10 @@ func TestSubscriptionsValidation(t *testing.T) {
 	c.SubscriptionsInterval = 0
 	if err := c.Validate(); err != nil {
 		t.Fatalf("interval 0 turns collections off and is valid: %v", err)
+	}
+	c.SubszLimit = MaxSubszLimit
+	if err := c.Validate(); err != nil {
+		t.Fatalf("subsz_limit %d is valid: %v", MaxSubszLimit, err)
 	}
 }
 
