@@ -69,16 +69,17 @@ function useInvalidateAll() {
 
 /**
  * A mute names its system in the call, the one the dialog captured when it
- * opened, so a URL that changes meanwhile cannot send it elsewhere.
+ * opened, so a URL that changes meanwhile cannot send it elsewhere. The
+ * mutation stays pending until every query has refetched, so a dialog
+ * stays busy and its opener's button cannot mute twice; awaitRefetch false
+ * ends it once the mute is saved, for the accept dialog, whose page shows
+ * the saved acceptance until the refetch lands.
  */
-export function useMuteFinding() {
+export function useMuteFinding({ awaitRefetch = true }: { awaitRefetch?: boolean } = {}) {
   const invalidate = useInvalidateAll();
-  // The refetch is not awaited: the dialog closes as soon as the mute is saved.
   return useMutation({
     mutationFn: (m: api.MuteInput & { system: string }) => api.muteFinding(m.system, m),
-    onSuccess: () => {
-      void invalidate();
-    },
+    onSuccess: () => (awaitRefetch ? invalidate() : void invalidate()),
   });
 }
 

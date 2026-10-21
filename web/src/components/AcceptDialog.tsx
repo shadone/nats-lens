@@ -55,7 +55,8 @@ function AcceptBody({
   const askName = need.askName;
   const [form, setForm] = useState<AcceptForm>({ reason: "", review: "3mo", reviewDate: "", name: rememberedName() });
   const [errors, setErrors] = useState<AcceptErrors>({});
-  const mute = useMuteFinding();
+  // The table shows the saved acceptance until the refetch lands, so the dialog need not wait for it.
+  const mute = useMuteFinding({ awaitRefetch: false });
   // The system of the page when the dialog opened; the body mounts on open.
   const [system] = useState(useSystem());
   const [opened] = useState(() => Date.now());
