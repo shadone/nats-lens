@@ -4,14 +4,14 @@ import { useEffect, useId, useState, type FormEvent } from "react";
 import { identityNeed, rememberName, rememberedName, type IdentityNeed } from "../api/identity";
 import type { Finding, Mute } from "../api/model";
 import { useLensInfo, useMuteFinding, useUnmuteFinding } from "../api/queries";
-import { isoMinute } from "../lib/format";
+import { isoDate, isoMinute } from "../lib/format";
 import { useSystem } from "../lib/useSystem";
 import { EXPIRY_PRESETS, MAX_REASON, expiryOf, hasErrors, validateMute, type MuteErrors, type MuteForm } from "../lib/muteForm";
 import { entityName } from "../lib/view";
 import { errorText } from "./common";
 import { Dialog } from "./Dialog";
 
-function Field({ id, label, error, children, hint }: { id: string; label: string; error?: string; hint?: string; children: React.ReactNode }) {
+export function Field({ id, label, error, children, hint }: { id: string; label: string; error?: string; hint?: string; children: React.ReactNode }) {
   return (
     <div className="field">
       <label htmlFor={id}>{label}</label>
@@ -45,7 +45,7 @@ export function MuteDialog({ finding, onClose }: { finding: Finding | undefined;
 }
 
 /** Reports a pending request to the dialog, which then cannot be closed. */
-function useBusy(pending: boolean, onBusy: (b: boolean) => void) {
+export function useBusy(pending: boolean, onBusy: (b: boolean) => void) {
   useEffect(() => {
     onBusy(pending);
     return () => onBusy(false);
@@ -145,7 +145,7 @@ export function UnmuteDialog({ mute, onClose }: { mute: Mute | undefined; onClos
   const need = identityNeed(useLensInfo().data);
   const [busy, setBusy] = useState(false);
   return (
-    <Dialog open={mute !== undefined} title="Lift mute" onClose={onClose} busy={busy}>
+    <Dialog open={mute !== undefined} title={mute?.accepted ? "End acceptance" : "Lift mute"} onClose={onClose} busy={busy}>
       {mute && <UnmuteBody key={mute.id} mute={mute} need={need} onClose={onClose} onBusy={setBusy} />}
     </Dialog>
   );
@@ -168,8 +168,18 @@ function UnmuteBody({ mute, need, onClose, onBusy }: { mute: Mute; need: Identit
   return (
     <form onSubmit={submit} noValidate>
       <p className="dlg-sub">
-        <span className="code">{mute.checkCode}</span> {entityName(mute.entity) || "every entity"}, muted by {mute.mutedBy || "unknown"}
-        {mute.expiresAt !== undefined && ` until ${isoMinute(mute.expiresAt)} UTC`}.
+        <span className="code">{mute.checkCode}</span> {entityName(mute.entity) || "every entity"}
+        {mute.accepted ? (
+          <>
+            , accepted as by design by {mute.mutedBy || "unknown"}
+            {mute.expiresAt !== undefined && ` until its review on ${isoDate(mute.expiresAt)}`}. The finding counts again from now if it still fires.
+          </>
+        ) : (
+          <>
+            , muted by {mute.mutedBy || "unknown"}
+            {mute.expiresAt !== undefined && ` until ${isoMinute(mute.expiresAt)} UTC`}.
+          </>
+        )}
       </p>
       <p className="dlg-sub">{mute.reason}</p>
       {askName && (
@@ -188,7 +198,7 @@ function UnmuteBody({ mute, need, onClose, onBusy }: { mute: Mute; need: Identit
           Cancel
         </button>
         <button type="submit" className="btn p" disabled={unmute.isPending}>
-          {unmute.isPending ? "Lifting…" : "Lift mute"}
+          {mute.accepted ? (unmute.isPending ? "Ending…" : "End acceptance") : unmute.isPending ? "Lifting…" : "Lift mute"}
         </button>
       </div>
     </form>
