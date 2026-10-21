@@ -68,7 +68,7 @@ func everyPoint(time.Time) bool { return true }
 
 // at is the growth per day at t, or nil.
 func (s *series) at(t time.Time) *float64 {
-	if g := WeeklyGrowth(s.points(t, everyPoint), t); g != nil {
+	if g := WeeklyGrowth(s.points(t, everyPoint), t, AcceptGrowthBucket); g != nil {
 		return &g.PerDay
 	}
 	return nil
@@ -83,7 +83,7 @@ func spaced(val func(time.Time) float64, t time.Time) *float64 {
 			s = append(s, Sample{T: at, V: val(at)})
 		}
 	}
-	if g := WeeklyGrowth(s, t); g != nil {
+	if g := WeeklyGrowth(s, t, 7*time.Minute); g != nil {
 		return &g.PerDay
 	}
 	return nil
@@ -191,7 +191,7 @@ func TestCollectorGapNotEnded(t *testing.T) {
 	val := func(at time.Time) float64 { return 1000*mib + at.Sub(history).Hours()/24*10*mib }
 	s := newSeries(val)
 	up := func(x time.Time) bool { return x.Before(down0) || x.After(down1) }
-	read := func(t time.Time) *Growth { return WeeklyGrowth(s.points(t, up), t) }
+	read := func(t time.Time) *Growth { return WeeklyGrowth(s.points(t, up), t, AcceptGrowthBucket) }
 	rec := read(down0)
 	for h := 1; h < 9*24; h += 3 {
 		now := read(down0.Add(time.Duration(h) * time.Hour))
@@ -213,13 +213,13 @@ func TestPurgeEnds(t *testing.T) {
 		}
 		return v
 	})
-	rec := WeeklyGrowth(s.points(purge.Add(-time.Hour), everyPoint), purge.Add(-time.Hour))
+	rec := WeeklyGrowth(s.points(purge.Add(-time.Hour), everyPoint), purge.Add(-time.Hour), AcceptGrowthBucket)
 	if rec == nil || math.Abs(rec.PerDay-10*mib) > 0.01*mib {
 		t.Fatalf("recorded %v, want +10 MiB/day", rec)
 	}
 	for h := 1; h <= 24; h++ {
 		at := purge.Add(time.Duration(h) * time.Hour)
-		now := WeeklyGrowth(s.points(at, everyPoint), at)
+		now := WeeklyGrowth(s.points(at, everyPoint), at, AcceptGrowthBucket)
 		if !GrowthChanged(rec.PerDay, now.PerDay) {
 			continue
 		}
@@ -247,12 +247,12 @@ func TestLastingChangeEnds(t *testing.T) {
 			}
 			return v
 		})
-		rec := WeeklyGrowth(s.points(change, everyPoint), change)
+		rec := WeeklyGrowth(s.points(change, everyPoint), change, AcceptGrowthBucket)
 		h := 1
 		var now *Growth
 		for ; h <= 9*24; h++ {
 			at := change.Add(time.Duration(h) * time.Hour)
-			if now = WeeklyGrowth(s.points(at, everyPoint), at); GrowthChanged(rec.PerDay, now.PerDay) {
+			if now = WeeklyGrowth(s.points(at, everyPoint), at, AcceptGrowthBucket); GrowthChanged(rec.PerDay, now.PerDay) {
 				break
 			}
 		}
@@ -281,7 +281,7 @@ func TestLastingChangeEnds(t *testing.T) {
 		return v
 	})
 	at := change.Add(30 * time.Hour)
-	if g := WeeklyGrowth(s.points(at, everyPoint), at); g.LastDay == nil || math.Abs(*g.LastDay-100*mib) > 2*mib {
+	if g := WeeklyGrowth(s.points(at, everyPoint), at, AcceptGrowthBucket); g.LastDay == nil || math.Abs(*g.LastDay-100*mib) > 2*mib {
 		t.Errorf("last day after the change = %v, want 100 MiB", g.LastDay)
 	}
 }
@@ -302,12 +302,12 @@ func TestWeeklyGrowthNeedsEightDays(t *testing.T) {
 	young := func(x time.Time) bool { return !x.Before(start) }
 	for _, h := range []int{25, 7 * 24, 7*24 + 7} {
 		at := start.Add(time.Duration(h) * time.Hour)
-		if g := WeeklyGrowth(s.points(at, young), at); g != nil {
+		if g := WeeklyGrowth(s.points(at, young), at, AcceptGrowthBucket); g != nil {
 			t.Errorf("%dh of data: %v MiB/day, want none", h, g.PerDay/mib)
 		}
 	}
 	at := start.Add(8*24*time.Hour + time.Hour)
-	if g := WeeklyGrowth(s.points(at, young), at); g == nil || math.Abs(g.PerDay-10*mib) > 0.01*mib {
+	if g := WeeklyGrowth(s.points(at, young), at, AcceptGrowthBucket); g == nil || math.Abs(g.PerDay-10*mib) > 0.01*mib {
 		t.Errorf("8 days and an hour of data: %v, want +10 MiB/day", g)
 	}
 }

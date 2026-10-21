@@ -62,30 +62,23 @@ type Growth struct {
 }
 
 // WeeklyGrowth is the growth at t of time-ordered samples read over
-// AcceptGrowthSpans(t). For every sample p in the day before t, the value
-// a week earlier is interpolated between the two samples around it, never
-// across a gap of more than three times the median spacing; the growth per
-// day is the median of (v(p) - v(p - 7 days)) / 7. A pattern that repeats
-// every day or every week (business hours, weekdays, a weekly cleanup)
-// adds the same to each difference and cancels; noise is damped by the
-// median over a day of points. A purge or a restore within the week
-// changes the week's growth, as it changes the week's net bytes. Nil
-// unless at least two thirds of the day's samples have a partner a week
-// earlier: an entity under about 8 days old has no rate.
-func WeeklyGrowth(s []Sample, t time.Time) *Growth {
-	if len(s) < 2 {
+// AcceptGrowthSpans(t) in buckets width wide, one sample a bucket. For
+// every sample p in the day before t, the value a week earlier is
+// interpolated between the two samples around it, never across a gap of
+// more than three widths; the growth per day is the median of
+// (v(p) - v(p - 7 days)) / 7. A pattern that repeats every day or every
+// week (business hours, weekdays, a weekly cleanup) adds the same to each
+// difference and cancels; noise is damped by the median over a day of
+// points. A purge or a restore within the week changes the week's growth,
+// as it changes the week's net bytes. Nil unless pairs cover at least two
+// thirds of the buckets a full day has (day / width): an entity under
+// about 8 days old, or a day mostly lost to a collector outage, has no
+// rate rather than one that a few pairs decide.
+func WeeklyGrowth(s []Sample, t time.Time, width time.Duration) *Growth {
+	if len(s) < 2 || width <= 0 {
 		return nil
 	}
-	gaps := make([]float64, 0, len(s)-1)
-	for i := 1; i < len(s); i++ {
-		if g := s[i].T.Sub(s[i-1].T); g < day {
-			gaps = append(gaps, float64(g))
-		}
-	}
-	if len(gaps) == 0 {
-		return nil
-	}
-	maxGap := time.Duration(3 * median(gaps))
+	maxGap := 3 * width
 	at := func(x time.Time) (float64, bool) {
 		j := sort.Search(len(s), func(i int) bool { return !s[i].T.Before(x) })
 		switch {
@@ -101,20 +94,17 @@ func WeeklyGrowth(s []Sample, t time.Time) *Growth {
 		return 0, false
 	}
 	var rates []float64
-	points := 0
 	for _, p := range s {
 		if !p.T.After(t.Add(-day)) || p.T.After(t) {
 			continue
 		}
-		points++
 		if v, ok := at(p.T.Add(-week)); ok {
 			rates = append(rates, (p.V-v)/7)
 		}
 	}
-	// Two thirds of the day's points need a partner a week earlier: an
-	// entity under about 8 days old, or a day half lost to gaps, gives no
-	// rate rather than one from a few pairs.
-	if len(rates) == 0 || 3*len(rates) < 2*points {
+	// Pairs for two thirds of a full day's buckets, counted against the
+	// buckets a day has, not against the samples that are there.
+	if len(rates) == 0 || 3*float64(len(rates)) < 2*float64(day)/float64(width) {
 		return nil
 	}
 	g := &Growth{PerDay: median(rates)}
