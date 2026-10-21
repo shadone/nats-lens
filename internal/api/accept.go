@@ -70,8 +70,9 @@ type Growth struct {
 // week (business hours, weekdays, a weekly cleanup) adds the same to each
 // difference and cancels; noise is damped by the median over a day of
 // points. A purge or a restore within the week changes the week's growth,
-// as it changes the week's net bytes. Nil unless pairs cover at least two
-// thirds of the buckets a full day has (day / width): an entity under
+// as it changes the week's net bytes. Nil unless the samples with a
+// partner cover at least two thirds of the day, a stretch between two of
+// them counting only when it is at most three widths: an entity under
 // about 8 days old, or a day mostly lost to a collector outage, has no
 // rate rather than one that a few pairs decide.
 func WeeklyGrowth(s []Sample, t time.Time, width time.Duration) *Growth {
@@ -94,17 +95,31 @@ func WeeklyGrowth(s []Sample, t time.Time, width time.Duration) *Growth {
 		return 0, false
 	}
 	var rates []float64
+	// covered is the time of the day the paired samples cover: each
+	// stretch between neighbouring paired samples (and the day's ends)
+	// no longer than maxGap. A stretch of an outage or of samples without
+	// a partner counts nothing.
+	var covered time.Duration
+	prev := t.Add(-day)
 	for _, p := range s {
 		if !p.T.After(t.Add(-day)) || p.T.After(t) {
 			continue
 		}
 		if v, ok := at(p.T.Add(-week)); ok {
 			rates = append(rates, (p.V-v)/7)
+			if d := p.T.Sub(prev); d <= maxGap {
+				covered += d
+			}
+			prev = p.T
 		}
 	}
-	// Pairs for two thirds of a full day's buckets, counted against the
-	// buckets a day has, not against the samples that are there.
-	if len(rates) == 0 || 3*float64(len(rates)) < 2*float64(day)/float64(width) {
+	if d := t.Sub(prev); d <= maxGap {
+		covered += d
+	}
+	// Two thirds of the day must be covered. Coverage, not a count of
+	// samples: epochs within jitter of the bucket grid put two in one
+	// bucket and none in the next, which loses no data but one sample.
+	if len(rates) == 0 || 3*covered < 2*day {
 		return nil
 	}
 	g := &Growth{PerDay: median(rates)}
