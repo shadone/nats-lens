@@ -17,6 +17,7 @@ Every collect interval (30 seconds by default), nats-lens takes one snapshot of 
 - **Expected servers, by name.** A server gets a new server ID on every restart, so nats-lens tracks servers by name. A collection expects every server name that answered within `server_forget_after` (1 hour by default), every server that answers now, and every route peer and JetStream meta peer that those servers list.
 - **Partial collections are stored.** A collection is partial when an expected server answered nothing, when a server did not answer one of the requests or answered with an error, or when the collector itself failed (for example, a reply it could not decode). nats-lens records the outcome of every request per server: `ok`, `error` (with the error text) or `missing` (no reply within the window).
 - **Connections are capped.** nats-lens stores at most `connz_limit` (4096 by default) connections per server per collection.
+- **Subscription lists, every few minutes.** A collection also asks every server for its subscription list (SUBSZ) when the last one that did started at least `subscriptions_interval` (5 minutes by default) earlier; `0` turns the lists off. The request goes out with the other reports, so the collection takes no longer, and SUBSZ is recorded missing for a server only in a collection that asked for it. Each server lists the subscriptions of its own connections: its clients' and those of its internal system, JetStream and account clients (a stream's subjects, for example, under its leader). It does not list what its routes, gateways and leaf nodes carry, so a client's subscription is listed once, by the server the client is connected to. nats-lens keeps the account, subject, queue group, connection ID and delivered message count, one row per connection, subject and queue group, at most `subsz_limit` (10,000 by default) subscriptions per server; it records how many the server holds, so a cut list shows as cut. Subscriptions carry no message content and no JWT.
 - **Account details.** nats-lens asks ACCOUNTZ about each account the servers list, in operator and config mode, at most every 10 minutes per account and for at most 32 accounts per collection, the ones never asked first. It keeps the account's readable name, whether it is the system account, its imports and exports, and from its account JWT the issue time, the expiry and the limits (connections, leaf nodes, subscriptions, data, payload, JetStream disk and memory, streams, consumers). The JetStream limits are the ones the server enforces: the account-wide ones when the JWT sets them, else the tiers, each tier's disk and memory counted once per replica so that they compare with the account's replicated usage. A config-mode account has no JWT, so its limits are not known.
 - **Readable account names.** In operator mode the servers name accounts by ID. nats-lens learns each account's readable name from the servers' reports, from the account lookups and from connect events. A name, once known, is kept.
 - **Expiry of certificates and user JWTs.** From VARZ, nats-lens keeps when each server's listener certificates expire: client, cluster, gateway, leaf node, websocket and MQTT. From CONNZ it keeps whether each connection presented a user JWT and when that JWT expires. The server reports a bearer JWT as empty, so its connection counts as having none.
@@ -49,6 +50,13 @@ Every collect interval (30 seconds by default), nats-lens takes one snapshot of 
 - **When** I run `natslens sql "SELECT account_name, jwt_expires, limit_connections FROM account_details WHERE account_name = 'APP' ORDER BY looked_up_at DESC LIMIT 1"`
 - **Then** the row shows `APP` with the JWT's expiry and its connection limit, -1 when the JWT sets none
 
+### See which connections subscribe to a subject
+
+- **Surfaces:** `cli`
+- **Given** three `order-service` connections in queue group `order-service` subscribed to `orders.created`, and a collection that read the subscription lists
+- **When** I run `natslens sql "SELECT c.name, s.queue, s.subs FROM subscriptions s JOIN connections c USING (epoch, server_id, cid) WHERE s.subject = 'orders.created' AND s.epoch = (SELECT max(epoch) FROM subscription_lists)"`
+- **Then** each connection is one row, named `order-service`, with queue `order-service`, from the server it is connected to
+
 ### A server stops answering
 
 - **Given** three servers that answered in earlier collections
@@ -75,7 +83,7 @@ Every collect interval (30 seconds by default), nats-lens takes one snapshot of 
 ## Not supported / out of scope
 
 - **No sampling of individual messages.** nats-lens reads the servers' monitoring reports and advisories, never application messages.
-- **No subscription lists.** CONNZ is asked for subscription counts only, not for the subjects of each subscription.
+- **No subscription list in every collection.** Subscription lists are read every `subscriptions_interval`, not every collection, and at most `subsz_limit` subscriptions per server; which ones a cut list keeps is up to the server.
 - **No client certificate expiry.** CONNZ reports a client certificate's subject and hashes, not when it expires.
 - **No collection without the system account.** nats-lens needs a system account user; it cannot collect through an application account alone.
 - **No catch-up of missed collections.** A collection that was not taken while nats-lens or NATS was down is not taken later. The gap stays visible ([data-history.md](data-history.md) plans a page for it).

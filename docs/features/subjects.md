@@ -14,7 +14,7 @@ Planned; nothing here is built yet. The Subjects page will show where messages c
 - **Filters with counts.** All patterns, captured by a stream, stream without a consumer, overlapping streams, and wide subscriptions (`>`).
 - **Where would a message go?** Typing a subject shows which stream would store it, through which pattern, which consumers would then read it, which mirrors copy it, and which core subscribers would receive it.
 - **Rates only where a stream stores the subject.** A stored rate comes from the growth of the stream's last sequence. A subject that no stream stores has no rate.
-- **Subscriptions refreshed less often.** Each server's subscription list is read every few minutes rather than every collection, to keep large systems cheap. nats-lens does not collect subscription lists today (it asks CONNZ for counts only), so this needs a new request; stream subjects and consumer filters it already stores.
+- **Subscriptions refreshed less often.** Each server's subscription list is read every few minutes rather than every collection, to keep large systems cheap. nats-lens collects the lists with SUBSZ every `subscriptions_interval` (5 minutes by default) and stores them ([monitoring-snapshots.md](monitoring-snapshots.md)); stream subjects and consumer filters it stores with every collection.
 
 ## Scenarios
 

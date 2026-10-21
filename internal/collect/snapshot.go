@@ -41,6 +41,9 @@ type ServerView struct {
 	Healthz      *server.HealthStatus
 	Raftz        RaftzStatus
 	Ipqueuesz    server.IpqueueszStatus
+	// Subsz is the server's subscription list, set only in an epoch in
+	// which a subscription collection was due and the server answered.
+	Subsz *server.Subsz
 	// UserJWTs holds, by connection ID, what was read from the user JWT
 	// of each CONNZ connection that reported one. The JWT itself is
 	// removed from Connz when the reply is applied.
