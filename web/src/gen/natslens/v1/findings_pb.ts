@@ -148,11 +148,14 @@ export type Mute = Message<"natslens.v1.Mute"> & {
   accepted: boolean;
 
   /**
-   * Growth of the accepted entity when it was accepted, bytes per day,
-   * recorded by the server: a stream's leader bytes or a server's
-   * JetStream storage over the 24 hours before. Unset for a plain mute,
-   * for other entity types, and when there was no rate (under 6 hours of
-   * data).
+   * Growth of the accepted entity, bytes per day, recorded by the server:
+   * a stream's leader bytes or a server's JetStream storage, the week's
+   * growth (the median over the last day's points of the change since a
+   * week earlier, divided by 7), so that daily and weekly patterns cancel.
+   * For an entity under about 8 days old it is unset at acceptance and
+   * nats-lens records it later, the first time it can be measured. Unset
+   * for a plain mute and for other entity types. It can differ from the
+   * growth the Streams page shows for a range.
    *
    * @generated from field: optional double growth_per_day = 11;
    */
@@ -160,7 +163,8 @@ export type Mute = Message<"natslens.v1.Mute"> & {
 
   /**
    * Why nats-lens ended the acceptance before its review date, for example
-   * "growth changed from +2.1 MiB/day to +4.0 MiB/day"; empty when a person
+   * "growth changed from +2.1 MiB/day to +4.0 MiB/day over the last 7 days
+   * (+9.0 MiB in the last day)"; empty when a person
    * lifted it or it ran out.
    *
    * @generated from field: string end_reason = 12;
