@@ -223,3 +223,20 @@ func TestCapacityServers(t *testing.T) {
 		t.Errorf("b-empty = %v", by["b-empty"])
 	}
 }
+
+// Stores whose days to full differ only by floating-point noise keep their
+// name order.
+func TestCapacityServersTieOnNoise(t *testing.T) {
+	f := &api.CapacityFacts{Epoch: 1, EpochAt: capAt, Servers: []api.ServerStoreFact{
+		{Name: "nats-0", Cluster: "c", Reported: true, Used: i64(2076180480), Limit: i64(53687091200), PerDay: f64(17825792)},
+		{Name: "nats-1", Cluster: "c", Reported: true, Used: i64(2076180480), Limit: i64(53687091200), PerDay: f64(17825792.00001)},
+		{Name: "nats-2", Cluster: "c", Reported: true, Used: i64(2076180480), Limit: i64(53687091200), PerDay: f64(17825792.00002)},
+	}}
+	var order []string
+	for _, s := range api.FinishCapacity(f).GetServers() {
+		order = append(order, s.GetServerName())
+	}
+	if want := []string{"nats-0", "nats-1", "nats-2"}; !slices.Equal(order, want) {
+		t.Errorf("order %v, want %v", order, want)
+	}
+}
