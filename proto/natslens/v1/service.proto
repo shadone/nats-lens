@@ -4,6 +4,7 @@ package natslens.v1;
 
 import "natslens/v1/accounts.proto";
 import "natslens/v1/buckets.proto";
+import "natslens/v1/capacity.proto";
 import "natslens/v1/consumers.proto";
 import "natslens/v1/events.proto";
 import "natslens/v1/findings.proto";
@@ -124,6 +125,14 @@ service LensService {
   // JWT expiry, the failed logins of the 24 hours before it, and the
   // certificates and JWTs that expire within 30 days.
   rpc GetAccountsAndAuth(GetAccountsAndAuthRequest) returns (GetAccountsAndAuthResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // What each stream of the range's newest epoch keeps and what bounds
+  // it, when it reaches its next limit, and how full each server's
+  // JetStream file store is and when it fills at its growth over the
+  // range.
+  rpc GetCapacity(GetCapacityRequest) returns (GetCapacityResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
