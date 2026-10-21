@@ -371,7 +371,7 @@ describe("FindingDetail of an accepted finding", () => {
     show();
     expect(await screen.findByText("Accepted as by design")).toBeInTheDocument();
     expect(screen.getByText("Accepted by ops@example.com:").parentElement).toHaveTextContent("Accepted by ops@example.com: Kept for audits. Review on 2027-04-07.");
-    expect(screen.getByText(/^Growth at acceptance: \+2 MiB\/day over the last 7 days/)).toBeInTheDocument();
+    expect(screen.getByText(/^Growth at acceptance: \+2 MiB\/day per copy/)).toBeInTheDocument();
     expect(screen.getByText("Accepted", { selector: ".sev" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "End acceptance…" }));
     expect(within(screen.getByRole("dialog")).getByRole("button", { name: "End acceptance" })).toBeInTheDocument();

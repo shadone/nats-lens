@@ -40,6 +40,10 @@ export function endedByLens(m: Mute): string {
 export function baselineText(m: Mute, fmt: (perDay: number) => string): string {
   const what = m.entity?.kind === "stream" ? "stream" : m.entity?.kind === "server" ? "server" : "";
   if (!m.accepted || !what) return "";
-  if (m.growthPerDay !== undefined) return `Growth at acceptance: ${fmt(m.growthPerDay)}/day over the last 7 days; nats-lens ends the acceptance early when it changes by more than half of it, or of 1 MiB/day when that is larger.`;
+  if (m.growthPerDay !== undefined) {
+    // A stream's rate is one copy's, as the end reason's is; the Capacity page's /day counts every replica.
+    const measure = what === "stream" ? " per copy (the Capacity page's /day counts every replica)" : "";
+    return `Growth at acceptance: ${fmt(m.growthPerDay)}/day${measure}, over the last 7 days; nats-lens ends the acceptance early when it changes by more than half of it, or of 1 MiB/day when that is larger.`;
+  }
   return `No growth baseline is recorded yet: growth is recorded once the ${what} has 8 days of history.`;
 }
