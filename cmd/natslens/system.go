@@ -108,6 +108,7 @@ func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, d
 
 	col := collect.New(nil, collect.Options{
 		Window: cfg.Timeout.D(), ConnzLimit: cfg.ConnzLimit, Tracker: tracker, Log: log,
+		SubscriptionsInterval: cfg.SubscriptionsInterval.D(), SubszLimit: cfg.SubszLimit,
 	})
 	eventsDone := make(chan struct{})
 	var nc *nats.Conn

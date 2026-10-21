@@ -149,6 +149,8 @@ Configuration comes from defaults, then an optional YAML file (`-config`), then 
 | `retention`           | `-retention`     | `14d`                   | Epochs older than this are deleted.                      |
 | `server_forget_after` | `-server-forget-after` | `1h`              | How long a server that stopped answering is expected; must be positive. |
 | `connz_limit`         | `-connz-limit`   | `4096`                  | Most connections stored per server per collection.      |
+| `subscriptions_interval` | `-subscriptions-interval` | `5m`         | Shortest time between two collections of the servers' subscription lists (SUBSZ), taken with a collection; `0` turns them off. |
+| `subsz_limit`         | `-subsz-limit`   | `10000`                 | Most subscriptions stored per server per subscription collection. |
 | `shutdown_grace`      | `-shutdown-grace` | `5s`                   | How long a collection's write may continue after a stop signal; positive and at most `interval`, since a write never runs longer than one interval. |
 | `log_level`           | `-log-level`     | `info`                  | `debug`, `info`, `warn` or `error`.                      |
 | `system_id`           |                  | `default`               | Id of the one system a file without `systems` describes: lowercase letters, digits and `-`, at most 63, starting with a letter or digit. Used in URLs, the API and metric labels. |
