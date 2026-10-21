@@ -182,6 +182,7 @@ Decided by the session that built it, proposed, not yet confirmed:
 - Server cards compare days to full in whole days, so equal stores keep their name order.
 - Demo findings without a story of their own carry their check's remediation from `checks/*.sql`.
 - Among mutes of one entity, an acceptance wins over a plain mute; otherwise the newest.
+- After the review of that round: the mute dialog waits for the refetch again (closing early let a second click mute twice); only the accept dialog closes once saved, as the table bridges the gap. On a fixed past range, whose answers apply the mutes at its end, the saved acceptance stays on its row while the page is open. Server cards order by the time to full their words show (`api.ShownDays`: hours, tenths of a day, days, months, years, more than 5 years as one group), so cards that read alike never swap. The dialog's hint names 364 days. The retention warning fires for `once` as well as `run`, on purpose: both run the checks and the review on the same database.
 
 ### Where T4 departed from this plan
 
