@@ -249,7 +249,7 @@ Checks do not read Kubernetes events yet; the restart rules rely on process star
 
 The inventory file lists per account the streams (with their durable consumers), KV buckets and object stores that must exist, and the settings that must have a given value; a setting left out is not compared. Byte sizes take binary suffixes only (KiB to TiB), because NATS tools read `GB` differently. It is loaded into `inventory` on every start.
 
-An operator can mute a check, or a check on one entity, with a reason and an expiry. Muted findings still record but are shown apart and do not alert. A mute without an expiry is not allowed.
+An operator can mute a check, or a check on one entity, with a reason and an expiry. Muted findings still record but are shown apart and do not alert. A mute without an expiry is not allowed. An operator can also accept one entity's finding as by design, with a reason and a review date; an acceptance is a kind of mute (see "Accepted findings" under the API).
 
 ## API
 
@@ -327,6 +327,14 @@ A request or response message is at most 1 MiB; a `GetReplay` spans at most 24 h
 ### Mutes
 
 A mute covers a check (`^[a-z]+-\d{3}$`), or a check for one entity of a known type; it needs a reason (at most 1000 characters) and an expiry between one minute and 90 days ahead, truncated to seconds. Lifted and expired mutes stay as history and are not swept by retention. The handler checks every rule before the store sees the row, so a row the table's constraints still reject is a server fault: internal, with the database's text only in the log. A mute call waits for the store's write lock only as long as its context allows.
+
+### Accepted findings
+
+An acceptance is a mute with `accepted` set (`MuteFindingRequest.accept`, migration `0031_accepted_findings`): it records one entity's finding as by design. It needs an entity with a key (the system entity is refused, as it has none), a reason as a mute does, and a review date as its expiry, between one day and 365 days ahead (`MaxAcceptLength`). The rule is checked in Go, not by a table constraint. Every reader of mutes reads an accepted row as a mute in force with nothing of its own: the findings list and `Finding.mute`, the tally and the Overview status, the Fleet badges, the status timeline's SQL, `/metrics` and the archive's `mute_changes`. Lifting is `UnmuteFinding`; `ListMutes` lists acceptances with the mutes. At its review date an acceptance runs out as a mute does, and the finding counts again if it still fires.
+
+The server records the entity's growth at acceptance in `growth_per_day`; the request has no field for it. For a stream it is the leader's bytes (any replica's in an epoch without a leader row), for a server its `js_storage` by server name; both are reduced to bucket medians in SQL (`Store.GrowthPoints`, buckets of a 200th of the window and at least one collect interval) and given to `api.RobustPerDay` over the 24 hours before now. Under 6 hours of data, or for any other entity type, it records none.
+
+After each successful check run the runner reviews the acceptances in force at the epoch's time that recorded a growth (`runner.ReviewAcceptances`): one query reads them, one reads the growth of all their entities over the 24 hours before the epoch by the same rule, and each one whose growth now differs from the recorded one by more than half of the larger of the recorded rate's size and 1 MiB per day is ended: `unmuted_at` the epoch's time, `unmuted_by` `nats-lens`, `end_reason` "growth changed from +2.1 MiB/day to +4.0 MiB/day". The 1 MiB floor keeps a bucket accepted at about +0 from returning on a few KiB of change (proposed, not yet confirmed). A growth that cannot be measured now (under 6 hours of data, the entity gone) ends nothing. The review never touches a plain mute, an acceptance created after the epoch started, or one already ended, so it ends each acceptance at most once. The demo keeps `accept`, the growth (its scenario's growth by the same rule) and `end_reason`, and does not simulate the review.
 
 ### Health and metrics
 
@@ -438,6 +446,7 @@ Proposed, not yet confirmed by the owner.
 | Configuration tables hold runs of identical configuration, not a row per epoch; applied migrations are checksummed | Storage and archive |
 | Archive layout: export ids, manifest written last, superseded files removed after 10 minutes; open hour archived every 5 minutes | Storage and archive |
 | Findings and mutes archived whole every hour; the newest copy wins on a rebuild | Storage and archive |
+| An acceptance is a mute with `accepted`; nats-lens ends it when the entity's growth changes by more than half of max(recorded, 1 MiB/day) (the floor proposed, not yet confirmed) | Checks |
 | `archive_retention` (90d, `0` keeps every hour, at least `retention`) prunes whole hours after a successful export | Storage and archive |
 | Rebuild only when the database is missing or empty, written aside and renamed into place | Storage and archive |
 | DuckDB `memory_limit` 60% of the cgroup limit by default | Storage and archive |
