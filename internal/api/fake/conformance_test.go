@@ -12,3 +12,8 @@ import (
 func TestDemoConformance(t *testing.T) {
 	apitest.RunConformance(t, apitest.Env{Client: demo(t), Systems: []string{fake.Cluster, fake.GlobalSystem, fake.StagingSystem}, Now: fake.FixedNow})
 }
+
+// The demo shows every Subjects state of the conformance table.
+func TestDemoSubjectsConformance(t *testing.T) {
+	apitest.RunSubjectsConformance(t, apitest.Env{Client: demo(t), Systems: []string{fake.Cluster, fake.GlobalSystem, fake.StagingSystem}, Now: fake.FixedNow})
+}
