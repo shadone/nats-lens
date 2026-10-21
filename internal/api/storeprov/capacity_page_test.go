@@ -75,6 +75,7 @@ func steady(msgs, bytes int64, held time.Duration) func(int64) (int64, int64, ti
 //   - big: 2 GB with discard new; stream-006 fires.
 //   - OBJ_images: 48 hours and 8 GiB, at its age limit.
 //   - KV_shrink: 100 MB, shrinking.
+//   - spread: no leader in the newest epoch, two reports that differ.
 func capacityStore(t *testing.T, last time.Time) (*store.Store, *checks.Set) {
 	t.Helper()
 	st := emptyStore(t)
@@ -136,6 +137,15 @@ func capacityStore(t *testing.T, last time.Time) (*store.Store, *checks.Set) {
 			r.add("stream_stats", row)
 		}
 	}
+	// spread has no leader in the newest epoch and its two reports differ:
+	// the largest is read, as ListStreams reads it.
+	for i, b := range []int64{20_000, 36_000} {
+		r.add("stream_stats", map[string]any{"epoch": int64(capEpochs), "server_id": fmt.Sprintf("S%d", i), "account": "APP", "stream": "spread",
+			"is_leader": false, "leader": "", "messages": b / 100, "bytes": b, "first_ts": at(capEpochs).Add(-time.Duration(i+1) * time.Hour)})
+	}
+	r.add("stream_config", map[string]any{"server_id": "S0", "account": "APP", "stream": "spread", "first_epoch": 1, "last_epoch": capEpochs,
+		"config_hash": "h", "retention": "limits", "storage": "file", "replicas": 2, "max_msgs": -1, "max_bytes": -1, "max_age_ns": int64(7 * day),
+		"max_msgs_per_subject": -1, "discard": "old"})
 	// A follower of orders reports other numbers; the leader's are read.
 	r.add("stream_stats", map[string]any{"epoch": int64(capEpochs), "server_id": "S1", "account": "APP", "stream": "orders",
 		"is_leader": false, "leader": "nats-0", "messages": 1, "bytes": 1})
@@ -228,7 +238,7 @@ func TestCapacityFromStore(t *testing.T) {
 	day24 := &v1.TimeRange{Start: timestamppb.New(last.Add(-24 * time.Hour)), End: timestamppb.New(last.Add(time.Minute))}
 	res := must(c.GetCapacity(ctx, connect.NewRequest(&v1.GetCapacityRequest{Range: day24})))
 	if res.GetEpoch() != capEpochs || !res.GetEpochAt().AsTime().Equal(last) || !res.GetGrowthFrom().AsTime().Equal(last.Add(-12*time.Hour)) ||
-		res.GetServersWithoutJetstream() != 1 || res.GetStreamsTotal() != 14 {
+		res.GetServersWithoutJetstream() != 1 || res.GetStreamsTotal() != 15 {
 		t.Fatalf("response = epoch %d at %v from %v, %d without JetStream, %d streams", res.GetEpoch(), res.GetEpochAt().AsTime(),
 			res.GetGrowthFrom().AsTime(), res.GetServersWithoutJetstream(), res.GetStreamsTotal())
 	}
@@ -244,7 +254,7 @@ func TestCapacityFromStore(t *testing.T) {
 	if s := srv["nats-1"]; !s.GetReported() || s.Limit != nil || s.PerDay != nil || s.DaysToFull != nil {
 		t.Errorf("nats-1 = %v", s)
 	}
-	if s := srv["nats-2"]; s.GetReported() || s.Used != nil || s.GetPerDay() != 0 {
+	if s := srv["nats-2"]; s.GetReported() || s.Used != nil || s.PerDay != nil {
 		t.Errorf("nats-2 = %v", s)
 	}
 	if srv["nats-3"] != nil || len(srv) != 3 {
@@ -289,6 +299,9 @@ func TestCapacityFromStore(t *testing.T) {
 		s.GetMsgsPerDay() != 144_000 || s.GetNextLimit().GetDays() != 3 || !s.GetFirstTs().AsTime().Equal(last.Add(-4*day)) ||
 		s.GetMaxAge().AsDuration() != 7*day || s.MaxMsgs != nil || s.MaxBytes != nil || s.GetRetention() != "limits" || s.GetKind() != v1.CapacityStreamKind_CAPACITY_STREAM_KIND_STREAM {
 		t.Errorf("orders = %v", s)
+	}
+	if s := by["spread"]; s.GetBytes() != 36_000 || s.GetMessages() != 360 || !s.GetFirstTs().AsTime().Equal(last.Add(-2*time.Hour)) {
+		t.Errorf("spread = %v", s)
 	}
 	if s := by["jobs"]; s.FirstTs != nil || s.GetRetention() != "workqueue" {
 		t.Errorf("jobs = %v", s)

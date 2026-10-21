@@ -114,7 +114,7 @@ func capacityRows() []State {
 			return s.GetStatus() == v1.CapacityStatus_CAPACITY_STATUS_AWAITING_DECISION && s.GetMute() == nil && s.GetFindingId() != ""
 		})},
 		{"a Capacity row bounded", capacityRow(statusIs(v1.CapacityStatus_CAPACITY_STATUS_BOUNDED))},
-		{"a Capacity page whose streams are those ListStreams lists, with the same growth, and at most 500 of its total", everySystem(func(q Q) string {
+		{"a Capacity page whose streams are those ListStreams lists, with the same bytes, messages and growth, and at most 500 of its total", everySystem(func(q Q) string {
 			res := q.capacity()
 			if len(res.GetStreams()) > api.MaxCapacityRows || int(res.GetStreamsTotal()) < len(res.GetStreams()) ||
 				(res.GetStreamsTotal() <= api.MaxCapacityRows && int(res.GetStreamsTotal()) != len(res.GetStreams())) {
@@ -132,6 +132,12 @@ func capacityRows() []State {
 				l := list[key]
 				if l == nil {
 					q.t.Errorf("%s: %s is on the Capacity page and not in ListStreams", q.System, key)
+					return ""
+				}
+				if (l.Bytes == nil) != (s.Bytes == nil) || l.GetBytes() != s.GetBytes() || (l.Messages == nil) != (s.Messages == nil) ||
+					l.GetMessages() != s.GetMessages() {
+					q.t.Errorf("%s %s: %d bytes, %d messages on the Capacity page; %d, %d in ListStreams", q.System, key, s.GetBytes(),
+						s.GetMessages(), l.GetBytes(), l.GetMessages())
 					return ""
 				}
 				if (l.BytesPerDay == nil) != (s.BytesPerDay == nil) || math.Abs(l.GetBytesPerDay()-s.GetBytesPerDay()) > 1e-6*math.Abs(l.GetBytesPerDay()) {
