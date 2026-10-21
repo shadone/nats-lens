@@ -2,6 +2,7 @@ package api
 
 import (
 	"cmp"
+	"math"
 	"slices"
 	"strings"
 	"time"
@@ -302,15 +303,24 @@ func NextLimitOf(epochAt time.Time, s *v1.CapacityStream) *v1.NextLimit {
 }
 
 // compareServerStores groups the cards by cluster in name order, then
-// puts the soonest full first, then the fullest, then orders by name.
+// puts the soonest full first in whole days, then the fullest, then orders
+// by name. Days are rounded so that stores whose growth differs only by
+// floating-point noise keep their name order from one answer to the next.
 func compareServerStores(a, b *v1.ServerStore) int {
+	days := func(s *v1.ServerStore) *float64 {
+		if s.DaysToFull == nil {
+			return nil
+		}
+		d := math.Round(s.GetDaysToFull())
+		return &d
+	}
 	share := func(s *v1.ServerStore) float64 {
 		if s.Used == nil || s.Limit == nil {
 			return -1
 		}
 		return float64(s.GetUsed()) / float64(s.GetLimit())
 	}
-	return cmp.Or(cmp.Compare(a.GetCluster(), b.GetCluster()), compareSoonest(a.DaysToFull, b.DaysToFull),
+	return cmp.Or(cmp.Compare(a.GetCluster(), b.GetCluster()), compareSoonest(days(a), days(b)),
 		cmp.Compare(share(b), share(a)), cmp.Compare(a.GetServerName(), b.GetServerName()))
 }
 
