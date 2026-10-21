@@ -419,3 +419,30 @@ func (h *Handler) GetCapacity(ctx context.Context, req *connect.Request[v1.GetCa
 		return FinishCapacity(f), nil
 	})
 }
+
+func (h *Handler) GetSubjects(ctx context.Context, req *connect.Request[v1.GetSubjectsRequest]) (*connect.Response[v1.GetSubjectsResponse], error) {
+	return call(ctx, h, "GetSubjects", req.Msg, func(p Provider, m *v1.GetSubjectsRequest) error {
+		return withRange(p, &m.Range)
+	}, func(s System, ctx context.Context, m *v1.GetSubjectsRequest) (*v1.GetSubjectsResponse, error) {
+		f, err := s.Provider.Subjects(ctx, m)
+		if err != nil {
+			return nil, err
+		}
+		return FinishSubjects(f, m.GetAccount(), m.GetFilter()), nil
+	})
+}
+
+func (h *Handler) MatchSubject(ctx context.Context, req *connect.Request[v1.MatchSubjectRequest]) (*connect.Response[v1.MatchSubjectResponse], error) {
+	return call(ctx, h, "MatchSubject", req.Msg, func(p Provider, m *v1.MatchSubjectRequest) error {
+		if err := ValidateLiteralSubject(m.GetSubject()); err != nil {
+			return err
+		}
+		return withRange(p, &m.Range)
+	}, func(s System, ctx context.Context, m *v1.MatchSubjectRequest) (*v1.MatchSubjectResponse, error) {
+		f, err := s.Provider.MatchSubject(ctx, m)
+		if err != nil {
+			return nil, err
+		}
+		return FinishMatch(f, m.GetAccount(), m.GetSubject()), nil
+	})
+}

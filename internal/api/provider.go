@@ -81,6 +81,20 @@ type Provider interface {
 	// the epoch; the handler words, orders and cuts them with
 	// FinishCapacity. A range without an epoch gives facts with Epoch 0.
 	Capacity(ctx context.Context, req *v1.GetCapacityRequest) (*CapacityFacts, error)
+	// Subjects reads the streams and consumers of the range's newest
+	// epoch, the JetStream API rates of the accounts that use JetStream,
+	// and the newest subscription collection at or before the epoch within
+	// SubscriptionsMaxAge, grouped by GroupSubscriptions' rules; it may
+	// leave out what lies outside the request's account. The handler
+	// builds the rows, orders, counts and cuts them with FinishSubjects. A
+	// range without an epoch gives facts with Epoch 0.
+	Subjects(ctx context.Context, req *v1.GetSubjectsRequest) (*SubjectsFacts, error)
+	// MatchSubject reads what GetSubjects reads for the tester: the
+	// streams with their consumers, and the subscription collection's
+	// CoreGroups, at least those whose subject matches the request's
+	// literal subject, which the handler has checked. The handler keeps
+	// what matches with FinishMatch.
+	MatchSubject(ctx context.Context, req *v1.MatchSubjectRequest) (*MatchFacts, error)
 	ListServers(ctx context.Context, req *v1.ListServersRequest) (*v1.ListServersResponse, error)
 	GetServer(ctx context.Context, req *v1.GetServerRequest) (*v1.GetServerResponse, error)
 	ListConnections(ctx context.Context, req *v1.ListConnectionsRequest) (*v1.ListConnectionsResponse, error)
