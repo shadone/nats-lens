@@ -35,6 +35,12 @@ type Config struct {
 	ShutdownGrace Duration `yaml:"shutdown_grace"`
 	// ConnzLimit is the most connections requested from one server per epoch.
 	ConnzLimit int `yaml:"connz_limit"`
+	// SubscriptionsInterval is the shortest time between two collections
+	// of the servers' subscription lists (SUBSZ); 0 turns them off.
+	SubscriptionsInterval Duration `yaml:"subscriptions_interval"`
+	// SubszLimit is the most subscriptions requested from one server per
+	// subscription collection.
+	SubszLimit int `yaml:"subsz_limit"`
 	// LogLevel is debug, info, warn or error.
 	LogLevel string `yaml:"log_level"`
 	// NATS is the system account connection.
@@ -150,14 +156,16 @@ const PasswordEnv = "NATSLENS_NATS_PASSWORD"
 // Default returns the configuration used when nothing overrides it.
 func Default() Config {
 	return Config{
-		Interval:          Duration(30 * time.Second),
-		Timeout:           Duration(3 * time.Second),
-		DataDir:           "./data",
-		Retention:         Duration(14 * 24 * time.Hour),
-		ServerForgetAfter: Duration(time.Hour),
-		ShutdownGrace:     Duration(5 * time.Second),
-		ConnzLimit:        4096,
-		LogLevel:          "info",
+		Interval:              Duration(30 * time.Second),
+		Timeout:               Duration(3 * time.Second),
+		DataDir:               "./data",
+		Retention:             Duration(14 * 24 * time.Hour),
+		ServerForgetAfter:     Duration(time.Hour),
+		ShutdownGrace:         Duration(5 * time.Second),
+		ConnzLimit:            4096,
+		SubscriptionsInterval: Duration(5 * time.Minute),
+		SubszLimit:            10000,
+		LogLevel:              "info",
 		NATS: NATS{
 			URL:  "nats://127.0.0.1:4222",
 			Name: DefaultNATSName,
@@ -238,6 +246,12 @@ func (c Config) Validate() error {
 	if c.ConnzLimit <= 0 {
 		errs = append(errs, errors.New("connz_limit must be positive"))
 	}
+	if c.SubscriptionsInterval.D() < 0 {
+		errs = append(errs, errors.New("subscriptions_interval must not be negative; 0 turns subscription collections off"))
+	}
+	if c.SubszLimit <= 0 {
+		errs = append(errs, errors.New("subsz_limit must be positive"))
+	}
 	if c.NATS.URL == "" {
 		errs = append(errs, errors.New("nats.url is required"))
 	}
@@ -293,6 +307,9 @@ func (c Config) LogValue() slog.Value {
 		slog.String("data_dir", c.DataDir),
 		slog.String("retention", c.Retention.String()),
 		slog.String("archive_retention", c.ArchiveRetention.String()),
+		slog.Int("connz_limit", c.ConnzLimit),
+		slog.String("subscriptions_interval", c.SubscriptionsInterval.String()),
+		slog.Int("subsz_limit", c.SubszLimit),
 		slog.String("log_level", c.LogLevel),
 		slog.String("nats_url", redactURL(c.NATS.URL)),
 		slog.String("nats_creds", c.NATS.Creds),
