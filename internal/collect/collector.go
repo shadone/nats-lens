@@ -20,17 +20,22 @@ import (
 type Collector struct {
 	// nc is the system account connection; SetConn replaces it when the
 	// connection is dialled again.
-	nc         atomic.Pointer[nats.Conn]
-	window     time.Duration
-	connzLimit int
-	tracker    *Tracker
-	log        *slog.Logger
+	nc      atomic.Pointer[nats.Conn]
+	window  time.Duration
+	limits  limits
+	tracker *Tracker
+	log     *slog.Logger
 	// raftAccounts are the JetStream accounts seen in the previous epoch.
 	raftAccounts []string
 	// accountNames are the readable names ACCOUNTZ lookups found, and
 	// accountAsked when each account was last looked up.
 	accountNames map[string]string
 	accountAsked map[string]time.Time
+	// subsInterval is the shortest time between the starts of two
+	// subscription collections; 0 turns them off. subsAsked is the start
+	// of the epoch that last asked SUBSZ, zero before the first.
+	subsInterval time.Duration
+	subsAsked    time.Time
 	now          func() time.Time
 }
 
@@ -40,6 +45,11 @@ type Options struct {
 	Window time.Duration
 	// ConnzLimit is the most connections asked of one server.
 	ConnzLimit int
+	// SubscriptionsInterval is the shortest time between two epochs that
+	// ask SUBSZ for the servers' subscription lists; 0 never asks.
+	SubscriptionsInterval time.Duration
+	// SubszLimit is the most subscriptions asked of one server.
+	SubszLimit int
 	// Tracker remembers servers between epochs. Required.
 	Tracker *Tracker
 	Log     *slog.Logger
@@ -53,7 +63,8 @@ func New(nc *nats.Conn, o Options) *Collector {
 	}
 	c := &Collector{
 		window:       o.Window,
-		connzLimit:   o.ConnzLimit,
+		limits:       limits{connz: o.ConnzLimit, subsz: o.SubszLimit},
+		subsInterval: o.SubscriptionsInterval,
 		tracker:      o.Tracker,
 		log:          log,
 		accountNames: map[string]string{},
@@ -89,6 +100,13 @@ func (c *Collector) Collect(ctx context.Context) *Snapshot {
 	// that JSZ reveals for the first time gets a second pass, so an epoch
 	// takes at most three collect windows and usually two.
 	detail := append(append([]Endpoint{}, DetailEndpoints...), accountRaftz(c.raftAccounts)...)
+	// The subscription lists go out with the detail requests when due,
+	// so they cost the epoch no window of their own. Only an epoch that
+	// asks SUBSZ can record it missing.
+	if c.subscriptionsDue(snap.StartedAt) {
+		detail = append(detail, Subsz)
+		c.subsAsked = snap.StartedAt
+	}
 	c.gatherAll(ctx, snap, detail, want)
 	accounts := jetStreamAccounts(snap)
 	newAccounts := without(accounts, c.raftAccounts)
@@ -135,6 +153,21 @@ func (c *Collector) Collect(ctx context.Context) *Snapshot {
 	c.tracker.observe(snap)
 	snap.FinishedAt = c.now().UTC()
 	return snap
+}
+
+// subscriptionsSlack lets an epoch that starts a little early count as one
+// subscription interval after the last collection: epoch starts jitter by
+// milliseconds, and without it a 5-minute interval at a 30-second epoch
+// interval would often wait 5 minutes 30.
+const subscriptionsSlack = time.Second
+
+// subscriptionsDue reports whether an epoch started at now asks SUBSZ:
+// collections are on and none started within the interval before now.
+func (c *Collector) subscriptionsDue(now time.Time) bool {
+	if c.subsInterval <= 0 {
+		return false
+	}
+	return c.subsAsked.IsZero() || now.Sub(c.subsAsked) >= c.subsInterval-subscriptionsSlack
 }
 
 // forgetUnlistedAccounts drops the lookup time and name of every account
@@ -193,7 +226,7 @@ func (c *Collector) gatherAll(ctx context.Context, snap *Snapshot, endpoints []E
 	var wg sync.WaitGroup
 	for i, e := range endpoints {
 		wg.Go(func() {
-			replies[i], errs[i] = gather(ctx, c.conn(), e.Subject(), e.requestBody(c.connzLimit), c.window, want)
+			replies[i], errs[i] = gather(ctx, c.conn(), e.Subject(), e.requestBody(c.limits), c.window, want)
 		})
 	}
 	wg.Wait()
@@ -266,7 +299,7 @@ func without(a, b []string) []string {
 }
 
 func (c *Collector) request(ctx context.Context, snap *Snapshot, e Endpoint, want until) {
-	msgs, err := gather(ctx, c.conn(), e.Subject(), e.requestBody(c.connzLimit), c.window, want)
+	msgs, err := gather(ctx, c.conn(), e.Subject(), e.requestBody(c.limits), c.window, want)
 	if err != nil {
 		snap.Errors = append(snap.Errors, err.Error())
 	}
