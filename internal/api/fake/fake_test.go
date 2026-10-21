@@ -392,7 +392,8 @@ func TestWindowsReadAsTheStoreReadsThem(t *testing.T) {
 }
 
 // An acceptance through the API keeps accept and records the stream's
-// growth over the 24 hours before now, as the store does.
+// growth: in the demo its Theil-Sen growth over the 8 days before now, not
+// the store's week-over-week rule.
 func TestAcceptRecordsGrowth(t *testing.T) {
 	c := client(t)
 	accept := func(e *v1.EntityRef) *v1.Mute {
