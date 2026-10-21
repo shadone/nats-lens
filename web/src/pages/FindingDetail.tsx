@@ -249,7 +249,7 @@ function Related({ e }: { e: Entity | undefined }) {
 
 /** The mute or acceptance in force on the finding. */
 function MuteSection({ m }: { m: Mute }) {
-  const baseline = baselineText(m, fmtGrowth);
+  const baseline = baselineText(m, fmtGrowth, useLensInfo().data?.retentionMs ?? 0);
   return (
     <section className="sec card box-card">
       <span className="lbl">{m.accepted ? "Accepted as by design" : "Muted"}</span>
