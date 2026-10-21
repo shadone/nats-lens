@@ -58,7 +58,12 @@ func globalServers() []serverSpec {
 		store float64
 	}{{61, 3, 35}, {64, 4, 37}, {61, 5, 36}, {61, 22, 41}, {61, 3, 33}, {61, 6, 36}, {61, 4, 38}, {61, 2, 29}, {61, 5, 39}}
 	for i, x := range eu {
-		out = append(out, globalServer("eu", i, x.conns, x.cpu, x.store))
+		sp := globalServer("eu", i, x.conns, x.cpu, x.store)
+		if i == 3 {
+			// More subscriptions than the collector keeps: its list is cut.
+			sp.subs = 14212
+		}
+		out = append(out, sp)
 	}
 	us := []struct {
 		conns int64
@@ -153,11 +158,23 @@ func globalScenario() *scenario {
 			{name: "basket-events", msgs: 220400, bytes: 180 * mib, perDay: 5 * mib, maxAge: day, peers: peers("eu-6", "eu-7", "eu-8"), leaderless: true},
 			// Sessions expire by their per-key TTL faster than new ones start
 			// since the weekend sale ended: the bucket shrinks.
-			{name: "KV_session-cache", msgs: 48210, bytes: 38 * mib, perDay: -1 * mib, ephemeral: 64, held: 9 * day, peers: peers("eu-0", "eu-3", "eu-6")},
+			{name: "KV_session-cache", msgs: 48210, bytes: 38 * mib, perDay: -1 * mib, ephemeral: 64, held: 9 * day, peers: peers("eu-0", "eu-3", "eu-6"),
+				storedRate: ptr(14.2), watchers: []string{"checkout-service", "api-gateway"}},
 			// Few flags that changed rarely until a release began writing
 			// flags per user (globalFlagsChange); its series bends there.
-			{name: "KV_feature-flags", msgs: 21200, bytes: globalFlagsNow, perDay: globalFlagsRate, ephemeral: 22, held: 200 * day, peers: peers("us-0", "us-5", "us-8")},
+			{name: "KV_feature-flags", msgs: 21200, bytes: globalFlagsNow, perDay: globalFlagsRate, ephemeral: 22, held: 200 * day, peers: peers("us-0", "us-5", "us-8"),
+				watchers: []string{"api-gateway", "checkout-service", "search-api", "order-service"}},
 			{name: "OBJ_product-images", msgs: 120400, bytes: 9.6 * gib, perDay: 80 * mib, held: 400 * day, peers: peers("ap-0", "ap-3", "ap-5")},
+			// Written by last week's checkout load test; nothing reads it.
+			{name: "checkout-load-test", subjects: []string{"loadtest.checkout.>"}, msgs: 1_250_000, bytes: 610 * mib, maxAge: 14 * day,
+				held: 6 * day, storedRate: ptr(0.0), peers: peers("eu-6", "eu-7", "eu-8")},
+			// Low-stock alerts, kept only while inventory-service listens
+			// through an ephemeral push consumer.
+			{name: "stock-alerts", retention: "interest", msgs: 3, bytes: 2 * kib, maxAge: day, held: 40 * time.Second, ephemeral: 1,
+				watchers: []string{"inventory-service"}, storedRate: ptr(0.6), peers: peers("eu-3", "eu-4", "eu-5")},
+			// A work queue its issuer keeps empty.
+			{name: "gift-card-jobs", subjects: []string{"jobs.gift-card.*"}, retention: "workqueue", maxAge: day, maxMsgs: 100_000,
+				consumers: []string{"gift-card-issuer"}, storedRate: ptr(0.2), peers: peers("eu-0", "eu-1", "eu-2")},
 		},
 		buckets: []bucketSpec{
 			// Listed with per-message TTLs and no other limit: its writers bound
@@ -171,6 +188,16 @@ func globalScenario() *scenario {
 			"api-gateway", "order-service", "checkout-service", "inventory-service", "shipping-service",
 			"search-api", "notification-worker", "label-printer",
 		},
+		subs: globalSubs(),
+		// nats-lens's own connection to the system account, and a
+		// monitoring tool that listens to every system event.
+		extraConns: []extraConn{
+			{server: "nats-us-0", name: "natslens-" + GlobalSystem, account: "SYS", ip: "10.30.9.40", user: "natslens", cid: 900,
+				subjects: []string{"$SYS.ACCOUNT.>", "$SYS.SERVER.>", api.InboxPrefix + "NATSLENSGLOBAL.*"}, since: fixed(9, 12, 4)},
+			{server: "nats-eu-0", name: "ops-monitor", account: "SYS", ip: "10.30.9.52", user: "ops-monitor", cid: 901, subjects: []string{">"}},
+		},
+		apiRate:       4.6,
+		apiErrors:     0.0013,
 		metaLeader:    "nats-eu-1",
 		auth:          globalAuth(),
 		links:         globalLinks(),

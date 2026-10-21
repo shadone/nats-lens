@@ -42,6 +42,9 @@ type serverSpec struct {
 	// slow are the fixed-frame times of the slow consumer disconnects on
 	// the server; nil on every server shares the scenario's among them.
 	slow []time.Time
+	// subs is the subscriptions the server holds; zero means
+	// serverSubscriptions.
+	subs int64
 }
 
 // started is when the server's process started in the scenario.
@@ -85,7 +88,7 @@ func (s scen) server(sp serverSpec, r *v1.TimeRange, cur []*v1.Finding) *v1.Serv
 	out := &v1.ServerSummary{
 		Name: sp.name, ServerId: id, Version: sp.version, Cluster: sp.cluster, StartTime: ts(start),
 		Uptime: dur(seen.Sub(start).Truncate(time.Second)), Role: v1.ServerRole_SERVER_ROLE_FOLLOWER,
-		Present: true, Healthz: "ok", Connections: ptr(sp.conns),
+		Present: true, Healthz: "ok", Connections: ptr(s.sc.connsOn(sp)),
 		JsStorageBytes: ptr(sp.store), JsMaxStorageBytes: ptr(sp.maxStore), MemBytes: ptr(sp.mem), CpuPercent: ptr(sp.cpu),
 		Status: v1.Status_STATUS_OK, Tags: sp.tags,
 		SlowConsumersInRange: ptr(s.slowCount(sp, r.GetStart().AsTime(), r.GetEnd().AsTime())),
@@ -147,7 +150,7 @@ func (p *Provider) GetServer(_ context.Context, req *v1.GetServerRequest) (*v1.G
 	}
 	res := &v1.GetServerResponse{
 		Server:        s.server(sp, req.GetRange(), current(p.findings(s), req.GetRange())),
-		Subscriptions: ptr(int64(1840)), MetaLeader: s.metaLeaderAt(s.epochTime(req.GetRange())), ConfigDigest: "sha256:7f3a91c2",
+		Subscriptions: ptr(sp.subsTotal()), MetaLeader: s.metaLeaderAt(s.epochTime(req.GetRange())), ConfigDigest: "sha256:7f3a91c2",
 		Processes: []*v1.ServerProcess{
 			{ServerId: sp.oldID, StartTime: ts(s.on(2, 8, 12)), FirstSeen: ts(s.on(3, 0, 0)), LastSeen: ts(start.Add(-2 * time.Minute))},
 			{ServerId: sp.id, StartTime: ts(start), FirstSeen: ts(start.Add(30 * time.Second)), LastSeen: ts(lastSeen)},
@@ -184,8 +187,36 @@ func (s scen) connections(at time.Time) []*v1.Connection {
 				OutBytes: ptr((2000 + i*577) * 900), Stalls: ptr(i % 23 / 22), Subscriptions: ptr(3 + i%7),
 			})
 		}
+		for _, e := range s.sc.extraConns {
+			if e.server != sp.name {
+				continue
+			}
+			since := start
+			if !e.since.IsZero() {
+				since = latest(start, e.since.Add(s.shift))
+			}
+			out = append(out, &v1.Connection{
+				Key: fmt.Sprintf("%s/%d", sp.name, e.cid), Server: sp.name, Cid: e.cid, Name: e.name, Lang: "go", Version: "1.54.0",
+				Account: e.account, User: e.user, Ip: e.ip, Port: ptr(int32(51000 + e.cid)), StartTime: ts(since), LastActivity: ts(s.now.Add(-time.Second)),
+				Rtt: dur(410 * time.Microsecond), PendingBytes: ptr(int64(0)), InMsgs: ptr(int64(52000)), OutMsgs: ptr(int64(31000)),
+				InBytes: ptr(int64(52000 * 700)), OutBytes: ptr(int64(31000 * 300)), Stalls: ptr(int64(0)), Subscriptions: ptr(int64(len(e.subjects))),
+				Tooling: strings.HasPrefix(e.name, "natslens-"),
+			})
+		}
 	}
 	return out
+}
+
+// connsOn is the client connections a server holds: the clients' and the
+// extra connections on it.
+func (sc *scenario) connsOn(sp serverSpec) int64 {
+	n := sp.conns
+	for _, e := range sc.extraConns {
+		if e.server == sp.name {
+			n++
+		}
+	}
+	return n
 }
 
 // ListConnections filters the connections and pages through them.
@@ -197,10 +228,15 @@ func (p *Provider) ListConnections(_ context.Context, req *v1.ListConnectionsReq
 		return &v1.ListConnectionsResponse{}, nil
 	}
 	var out []*v1.Connection
+	var hidden int32
 	for _, c := range s.connections(at) {
 		if (req.GetServer() == "" || c.GetServer() == req.GetServer()) &&
 			(req.GetAccount() == "" || c.GetAccount() == req.GetAccount()) &&
 			strings.Contains(c.GetName(), req.GetNameContains()) {
+			if c.GetTooling() && !req.GetIncludeTooling() {
+				hidden++
+				continue
+			}
 			out = append(out, c)
 		}
 	}
@@ -208,7 +244,7 @@ func (p *Provider) ListConnections(_ context.Context, req *v1.ListConnectionsReq
 	if err != nil {
 		return nil, err
 	}
-	res := &v1.ListConnectionsResponse{Connections: page, NextPageToken: next, TotalCount: int32(len(out)), Epoch: epoch}
+	res := &v1.ListConnectionsResponse{Connections: page, NextPageToken: next, TotalCount: int32(len(out)), Epoch: epoch, ToolingHidden: hidden}
 	// Every server ListServers lists, whatever the filters and the page.
 	for _, sp := range p.sc.servers {
 		res.Servers = append(res.Servers, sp.name)

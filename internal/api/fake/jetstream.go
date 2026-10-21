@@ -58,6 +58,16 @@ type streamSpec struct {
 	// holds since; they are listed for a range whose newest epoch is
 	// before that time.
 	vanished []vanishedConsumer
+	// subjects are the stream's subjects; nil means its name with dots
+	// for dashes and .> (see subjectsOf).
+	subjects []string
+	// storedRate is the messages stored per second; nil means its growth
+	// in bytes over its mean message size.
+	storedRate *float64
+	// watchers are the clients whose connections subscribe to the deliver
+	// subjects of the ephemeral consumers, in turn; nil means the
+	// scenario's first client.
+	watchers []string
 }
 
 // vanishedConsumer is a durable that no server held from at, a time in
@@ -177,10 +187,13 @@ func (p *Provider) GetStream(_ context.Context, req *v1.GetStreamRequest) (*v1.G
 func (s scen) streamConfig(sp streamSpec) []*v1.ConfigValue {
 	l := s.sc.streamLimitsOf(sp)
 	pairs := [][2]string{
-		{"subjects", strings.ReplaceAll(sp.name, "-", ".") + ".>"}, {"retention", l.retention}, {"storage", l.storage},
+		{"retention", l.retention}, {"storage", l.storage},
 		{"replicas", fmt.Sprint(len(s.sc.peers(sp)))}, {"max_bytes", strconv.FormatInt(l.maxBytes, 10)},
 		{"max_msgs", strconv.FormatInt(l.maxMsgs, 10)}, {"max_age", checks.DurationText(l.maxAge)},
 		{"max_msgs_per_subject", strconv.FormatInt(l.perSubject, 10)}, {"discard", l.discard},
+	}
+	if subj := subjectsOf(sp); len(subj) > 0 {
+		pairs = append([][2]string{{"subjects", strings.Join(subj, ", ")}}, pairs...)
 	}
 	if l.mirror != "" {
 		pairs = append(pairs, [2]string{"mirror", l.mirror})
