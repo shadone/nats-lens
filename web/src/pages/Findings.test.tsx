@@ -62,9 +62,22 @@ describe("Findings with acceptances", () => {
     const list = within((await screen.findAllByText(/^Accepted by ops@example.com/))[0].closest(".mutes-list") as HTMLElement);
     const rows = list.getAllByText(/^Accepted by/).map((b) => b.closest(".frow") as HTMLElement);
     expect(within(rows[0]).getByText("Accepted", { selector: ".sev" })).toBeInTheDocument();
-    expect(within(rows[0]).getByRole("button", { name: "End…" })).toBeInTheDocument();
+    expect(within(rows[0]).getByRole("button", { name: "End acceptance of stream-005 for KV_customer-config…" })).toHaveTextContent(/^End…$/);
     expect(within(rows[1]).getByText("Ended", { selector: ".sev" })).toBeInTheDocument();
     expect(rows[1]).toHaveTextContent("Ended by nats-lens: growth changed from +2.0 KiB/day to +520 KiB/day over the last 7 days (+1.6 MiB in the last day).");
     expect(rows[1]).not.toHaveTextContent("Lifted");
+  });
+
+  it("words an acceptance a person ended as ended, and names a mute's lift button with its entity", async () => {
+    m.listFindings.mockResolvedValue(page<Finding>([]));
+    const ended = acceptance({ unmutedAt: Date.parse("2026-10-21T10:00:00Z"), unmutedBy: "reviewer" });
+    const mute = acceptance({ id: "m3", accepted: false, checkCode: "stream-006", expiresAt: Date.now() + 86_400_000 });
+    m.listMutes.mockResolvedValue(page([ended, mute]));
+    renderApp(<Findings />, "/findings");
+    const row = (await screen.findByText(/^Accepted by/)).closest(".frow") as HTMLElement;
+    expect(within(row).getByText("Ended", { selector: ".sev" })).toBeInTheDocument();
+    expect(row).toHaveTextContent("Ended 2026-10-21 10:00 by reviewer.");
+    expect(row).not.toHaveTextContent("Lifted");
+    expect(screen.getByRole("button", { name: "Lift mute of stream-006 for KV_customer-config…" })).toHaveTextContent(/^Lift…$/);
   });
 });
