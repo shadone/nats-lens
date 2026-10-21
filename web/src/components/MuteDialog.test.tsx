@@ -74,7 +74,7 @@ describe("MuteDialog", () => {
   });
 
   it("mutes the check for the entity until the chosen expiry, then closes", async () => {
-    muteFinding.mockResolvedValue({ id: "1", checkCode: "stream-006", reason: "r", mutedBy: "denis", unmutedBy: "" });
+    muteFinding.mockResolvedValue({ id: "1", checkCode: "stream-006", reason: "r", mutedBy: "denis", unmutedBy: "", accepted: false, endReason: "" });
     const onClose = vi.fn();
     renderApp(<MuteDialog finding={finding} onClose={onClose} />);
     await userEvent.type(screen.getByLabelText("Reason"), "Retention cut in review");
@@ -199,7 +199,7 @@ describe("dialogs while a request is pending", () => {
   it("says Lifting… and cannot be closed while an unmute is pending", async () => {
     unmuteFinding.mockReturnValue(new Promise(() => {}));
     const onClose = vi.fn();
-    renderApp(<UnmuteDialog mute={{ id: "1", checkCode: "stream-006", reason: "r", mutedBy: "denis", unmutedBy: "" }} onClose={onClose} />);
+    renderApp(<UnmuteDialog mute={{ id: "1", checkCode: "stream-006", reason: "r", mutedBy: "denis", unmutedBy: "", accepted: false, endReason: "" }} onClose={onClose} />);
     await screen.findByText(/IAP identity/);
     await userEvent.click(screen.getByRole("button", { name: "Lift mute" }));
     expect(screen.getByRole("button", { name: "Lifting…" })).toBeDisabled();
@@ -241,7 +241,7 @@ describe("the system a mute goes to", () => {
 
   it("lifts a mute on the system of the page when the dialog opened", async () => {
     vi.mocked(requests.unmuteFinding).mockResolvedValue(undefined);
-    const m = { id: "m1", checkCode: "stream-006", reason: "r", mutedBy: "denis", unmutedBy: "" } as never;
+    const m = { id: "m1", checkCode: "stream-006", reason: "r", mutedBy: "denis", unmutedBy: "", accepted: false, endReason: "" } as never;
     renderApp(
       <>
         <Nav />

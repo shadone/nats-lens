@@ -215,6 +215,18 @@ export function useAccountsAndAuth(spec: RangeSpec) {
   });
 }
 
+/** The Capacity page: the range's newest collection, followed on a live range as Accounts is. */
+export function useCapacity(spec: RangeSpec) {
+  const sys = useSystem();
+  return useQuery({
+    queryKey: ["capacity", sys, rangeKey(spec)],
+    queryFn: ({ signal }) => api.getCapacity(sys, spec, signal),
+    refetchInterval: refetch(spec),
+    // The previous range's answer stands in while the next loads, never another system's.
+    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === sys ? prev : undefined),
+  });
+}
+
 export function useServers(spec: RangeSpec) {
   const sys = useSystem();
   return useQuery({
