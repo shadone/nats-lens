@@ -178,7 +178,7 @@ FROM per WHERE v IS NOT NULL OR m IS NOT NULL
 GROUP BY ALL
 ORDER BY 1, 2, 3`, start, end, account, account, stream, stream, p.growthWidth(start, end).Microseconds())
 	if err != nil {
-		return nil, fmt.Errorf("stream growth: %w", err)
+		return nil, fmt.Errorf("stream points: %w", err)
 	}
 	defer rows.Close()
 	out := map[string]streamPts{}
