@@ -33,6 +33,10 @@ const (
 	MaxNameLength        = 256
 	MinMuteLength        = time.Minute
 	MaxMuteLength        = 90 * 24 * time.Hour
+	// MinAcceptLength and MaxAcceptLength bound an acceptance's review
+	// date, from now.
+	MinAcceptLength = 24 * time.Hour
+	MaxAcceptLength = 365 * 24 * time.Hour
 )
 
 func invalid(format string, args ...any) error {
@@ -195,6 +199,13 @@ func normalizeMute(req *v1.MuteFindingRequest, now time.Time, user string) error
 	}
 	exp := req.GetExpiresAt().AsTime().Truncate(time.Second)
 	switch {
+	case req.GetAccept() && (req.GetEntity() == nil || req.GetEntity().GetType() == v1.EntityType_ENTITY_TYPE_SYSTEM):
+		return invalid("entity is required to accept a finding: an acceptance covers one entity with a key")
+	case req.GetAccept() && exp.Before(now.Add(MinAcceptLength)):
+		return invalid("expires_at, the review date, must be at least one day ahead")
+	case req.GetAccept() && exp.After(now.Add(MaxAcceptLength)):
+		return invalid("expires_at, the review date, must be at most %d days ahead", MaxAcceptLength/(24*time.Hour))
+	case req.GetAccept():
 	case exp.Before(now.Add(MinMuteLength)):
 		return invalid("expires_at must be at least %s ahead", MinMuteLength)
 	case exp.After(now.Add(MaxMuteLength)):

@@ -161,6 +161,10 @@ func (x *FindingValue) GetBasis() string {
 //
 // A muted finding still records transitions; it is kept apart from the
 // unmuted ones and never alerts. Every mute has an expiry.
+//
+// An acceptance is a mute too: it records one entity's finding as by
+// design, its expiry is the review date, and every reader of mutes treats
+// it as a mute.
 type Mute struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Mute ID.
@@ -182,8 +186,22 @@ type Mute struct {
 	// When the mute was lifted before its expiry; unset while it applies or
 	// after it expired on its own.
 	UnmutedAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=unmuted_at,json=unmutedAt,proto3" json:"unmuted_at,omitempty"`
-	// Who lifted the mute.
-	UnmutedBy     string `protobuf:"bytes,9,opt,name=unmuted_by,json=unmutedBy,proto3" json:"unmuted_by,omitempty"`
+	// Who lifted the mute; "nats-lens" when nats-lens ended an acceptance
+	// because the entity's growth changed.
+	UnmutedBy string `protobuf:"bytes,9,opt,name=unmuted_by,json=unmutedBy,proto3" json:"unmuted_by,omitempty"`
+	// Whether the mute accepts the finding as by design. An acceptance has
+	// an entity, and expires_at is its review date.
+	Accepted bool `protobuf:"varint,10,opt,name=accepted,proto3" json:"accepted,omitempty"`
+	// Growth of the accepted entity when it was accepted, bytes per day,
+	// recorded by the server: a stream's leader bytes or a server's
+	// JetStream storage over the 24 hours before. Unset for a plain mute,
+	// for other entity types, and when there was no rate (under 6 hours of
+	// data).
+	GrowthPerDay *float64 `protobuf:"fixed64,11,opt,name=growth_per_day,json=growthPerDay,proto3,oneof" json:"growth_per_day,omitempty"`
+	// Why nats-lens ended the acceptance before its review date, for example
+	// "growth changed from +2.1 MiB/day to +4.0 MiB/day"; empty when a person
+	// lifted it or it ran out.
+	EndReason     string `protobuf:"bytes,12,opt,name=end_reason,json=endReason,proto3" json:"end_reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -277,6 +295,27 @@ func (x *Mute) GetUnmutedAt() *timestamppb.Timestamp {
 func (x *Mute) GetUnmutedBy() string {
 	if x != nil {
 		return x.UnmutedBy
+	}
+	return ""
+}
+
+func (x *Mute) GetAccepted() bool {
+	if x != nil {
+		return x.Accepted
+	}
+	return false
+}
+
+func (x *Mute) GetGrowthPerDay() float64 {
+	if x != nil && x.GrowthPerDay != nil {
+		return *x.GrowthPerDay
+	}
+	return 0
+}
+
+func (x *Mute) GetEndReason() string {
+	if x != nil {
+		return x.EndReason
 	}
 	return ""
 }
@@ -971,7 +1010,13 @@ type MuteFindingRequest struct {
 	// recorded instead.
 	MutedBy string `protobuf:"bytes,5,opt,name=muted_by,json=mutedBy,proto3" json:"muted_by,omitempty"`
 	// System ID, as ListSystems returns it. Empty means the default system.
-	System        string `protobuf:"bytes,6,opt,name=system,proto3" json:"system,omitempty"`
+	System string `protobuf:"bytes,6,opt,name=system,proto3" json:"system,omitempty"`
+	// Accept the finding as by design instead of muting it. The entity is
+	// then required, and expires_at is the review date: at least one day
+	// and at most 365 days ahead. The server records the entity's growth;
+	// nats-lens ends the acceptance early when that growth changes by more
+	// than half of the larger of the recorded rate and 1 MiB per day.
+	Accept        bool `protobuf:"varint,7,opt,name=accept,proto3" json:"accept,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1046,6 +1091,13 @@ func (x *MuteFindingRequest) GetSystem() string {
 		return x.System
 	}
 	return ""
+}
+
+func (x *MuteFindingRequest) GetAccept() bool {
+	if x != nil {
+		return x.Accept
+	}
+	return false
 }
 
 // The created mute.
@@ -1354,7 +1406,7 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\adisplay\x18\x02 \x01(\tR\adisplay\x12\x1b\n" +
 	"\x06number\x18\x03 \x01(\x01H\x00R\x06number\x88\x01\x01\x12\x14\n" +
 	"\x05basis\x18\x04 \x01(\tR\x05basisB\t\n" +
-	"\a_number\"\xe8\x02\n" +
+	"\a_number\"\xe1\x03\n" +
 	"\x04Mute\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -1369,7 +1421,13 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\n" +
 	"unmuted_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tunmutedAt\x12\x1d\n" +
 	"\n" +
-	"unmuted_by\x18\t \x01(\tR\tunmutedBy\"\xcc\x06\n" +
+	"unmuted_by\x18\t \x01(\tR\tunmutedBy\x12\x1a\n" +
+	"\baccepted\x18\n" +
+	" \x01(\bR\baccepted\x12)\n" +
+	"\x0egrowth_per_day\x18\v \x01(\x01H\x00R\fgrowthPerDay\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"end_reason\x18\f \x01(\tR\tendReasonB\x11\n" +
+	"\x0f_growth_per_day\"\xcc\x06\n" +
 	"\aFinding\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -1431,7 +1489,7 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\x06system\x18\x02 \x01(\tR\x06system\"\x86\x01\n" +
 	"\x12GetFindingResponse\x12.\n" +
 	"\afinding\x18\x01 \x01(\v2\x14.natslens.v1.FindingR\afinding\x12@\n" +
-	"\vtransitions\x18\x02 \x03(\v2\x1e.natslens.v1.FindingTransitionR\vtransitions\"\xe9\x01\n" +
+	"\vtransitions\x18\x02 \x03(\v2\x1e.natslens.v1.FindingTransitionR\vtransitions\"\x81\x02\n" +
 	"\x12MuteFindingRequest\x12\x1d\n" +
 	"\n" +
 	"check_code\x18\x01 \x01(\tR\tcheckCode\x12.\n" +
@@ -1440,7 +1498,8 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\n" +
 	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x19\n" +
 	"\bmuted_by\x18\x05 \x01(\tR\amutedBy\x12\x16\n" +
-	"\x06system\x18\x06 \x01(\tR\x06system\"<\n" +
+	"\x06system\x18\x06 \x01(\tR\x06system\x12\x16\n" +
+	"\x06accept\x18\a \x01(\bR\x06accept\"<\n" +
 	"\x13MuteFindingResponse\x12%\n" +
 	"\x04mute\x18\x01 \x01(\v2\x11.natslens.v1.MuteR\x04mute\"f\n" +
 	"\x14UnmuteFindingRequest\x12\x17\n" +
@@ -1551,6 +1610,7 @@ func file_natslens_v1_findings_proto_init() {
 	}
 	file_natslens_v1_common_proto_init()
 	file_natslens_v1_findings_proto_msgTypes[0].OneofWrappers = []any{}
+	file_natslens_v1_findings_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
