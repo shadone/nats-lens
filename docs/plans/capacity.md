@@ -167,6 +167,22 @@ Each point was decided by the session that built T3: proposed, not yet confirmed
 
 `capacity.md` to `Status: shipped` (or `partial`), with its rules, scenarios and Not supported list, and its "Time to full uses the checks' rule" line replaced by the rule built; "No account disk limits yet" rewritten (operator-mode limits are collected now, the page does not show them). `triage-and-mutes.md` and `checks.md`: accepted findings as shipped for one entity, the rest still planned. `stream-checks.md` (the `stream-005` remediation). `docs/features/README.md` table and coverage map. `demo-mode.md`. The audit, `python3 /Users/denis/dev/info.ddenis/dotfiles/agent-rules/packs/ddenis-core/skills/feature-docs/scripts/audit_feature_docs.py docs/features/ --map-refs require`; leftovers into `docs/plans/next.md`.
 
+### Final fix round (UI review and broad final review)
+
+Decided by the session that built it, proposed, not yet confirmed:
+
+- The table's row headers are written `.tbl.cap-tbl tbody th[scope="row"]`, as `events.css`'s `.tbl tbody th[scope="row"]` outranked them and the wrap and centring did nothing in a browser.
+- After an acceptance, focus moves to the row's stream link; the saved acceptance shows on its row only until an answer newer than the one shown at the save arrives, whatever it says; the mute dialogs close once the mute is saved, without waiting for every query's refetch.
+- An acceptance a person ends reads Ended ("Ended <time> by <name>."), never Lifted; the lift buttons' accessible names name the check and the entity.
+- The finding page says an accepted stream's recorded growth is per copy, as the end reason's is; the Capacity page's /day counts every replica.
+- "In 1 year" is 364 days, and the date picker's last day likewise, a day inside the server's 365.
+- The header says "no growth rate yet (6 hours of history needed)" when no card or row has a rate.
+- `api.AcceptRetention` (8 days and an hour) is what the review reads back; a shorter retention logs a warning at start, and the finding page says that the acceptance then ends only at its review date.
+- The demo's review helper reads each bucket's epochs as the runner does; KV_feature-flags' acceptance ends at 16:24 (was 17:00), "+516 KiB/day", and the coherence test checks every collection of the day before the end.
+- Server cards compare days to full in whole days, so equal stores keep their name order.
+- Demo findings without a story of their own carry their check's remediation from `checks/*.sql`.
+- Among mutes of one entity, an acceptance wins over a plain mute; otherwise the newest.
+
 ### Where T4 departed from this plan
 
 - `capacity.md` is `shipped`, with a Planned list (account disk limits as a bound, object counts, memory store cards) and the same three under Not supported. `checks.md` stays `partial`: one entity is built, related entities, a check everywhere and the review list are planned. `stream-checks.md` gains a "What to do" line for `stream-005` and points the "Oldest message expires unread" view at the stream page, not Capacity. Decided by the session that built it, not confirmed.
