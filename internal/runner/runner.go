@@ -191,7 +191,7 @@ func (r *Runner) sweep(ctx context.Context) {
 // entity's growth over the api.AcceptGrowthWindow before the epoch differs
 // from the recorded one by more than api.GrowthChanged allows. An
 // acceptance without a recorded growth, or whose entity has no growth now
-// (under api.MinGrowthSpan of data, the entity gone), is kept. One query
+// (under a day of data, the entity gone), is kept. One query
 // reads the acceptances and one the growth of all their entities. It
 // returns the acceptances it ended.
 func ReviewAcceptances(ctx context.Context, st *store.Store, epoch int64, interval time.Duration) ([]store.Mute, error) {
@@ -207,7 +207,7 @@ func ReviewAcceptances(ctx context.Context, st *store.Store, epoch int64, interv
 	for _, m := range ms {
 		ents = append(ents, store.EntityKey{Type: m.EntityType, Key: m.EntityKey})
 	}
-	width := max(api.AcceptGrowthWindow/api.GrowthBuckets, interval)
+	width := api.AcceptGrowthWidth(interval)
 	pts, err := st.GrowthPoints(ctx, at.Add(-api.AcceptGrowthWindow), at, width, ents)
 	if err != nil {
 		return nil, err
@@ -219,7 +219,7 @@ func ReviewAcceptances(ctx context.Context, st *store.Store, epoch int64, interv
 		for _, p := range pts[e] {
 			s = append(s, api.Sample{T: p.T, V: p.V})
 		}
-		now := api.RobustPerDay(s)
+		now := api.DailyPerDay(s)
 		if now == nil || !api.GrowthChanged(*m.GrowthPerDay, *now) {
 			continue
 		}

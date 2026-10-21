@@ -96,9 +96,9 @@ func TestAcceptedFindingReadsAsMuted(t *testing.T) {
 
 var acceptNow = time.Date(2026, 10, 21, 0, 0, 0, 0, time.UTC)
 
-// growthFixture holds 49 epochs over the 24 hours to acceptNow: the stream
+// growthFixture holds 145 epochs over the 3 days to acceptNow: the stream
 // SHOP/order-archive grows 16 MiB a day, SHOP/new-stream exists for the
-// last 3 hours only, and nats-0's JetStream storage grows 30 MiB a day.
+// last 21 hours only, and nats-0's JetStream storage grows 30 MiB a day.
 func growthFixture(t *testing.T) *store.Store {
 	t.Helper()
 	st, err := store.OpenPath(ctx, "")
@@ -112,9 +112,9 @@ func growthFixture(t *testing.T) *store.Store {
 			t.Fatalf("%s: %v", q, err)
 		}
 	}
-	start := acceptNow.Add(-24 * time.Hour)
-	exec(`INSERT INTO servers (server_id, server_name, first_epoch, last_epoch, first_seen_at, last_seen_at) VALUES ('NSERVER0', 'nats-0', 1, 49, ?, ?)`, start, acceptNow)
-	for i := 0; i <= 48; i++ {
+	start := acceptNow.Add(-72 * time.Hour)
+	exec(`INSERT INTO servers (server_id, server_name, first_epoch, last_epoch, first_seen_at, last_seen_at) VALUES ('NSERVER0', 'nats-0', 1, 145, ?, ?)`, start, acceptNow)
+	for i := 0; i <= 144; i++ {
 		at := start.Add(time.Duration(i) * 30 * time.Minute)
 		days := at.Sub(start).Hours() / 24
 		exec(`INSERT INTO epochs (epoch, started_at, finished_at, duration_ms, expected_servers, observed_servers,
@@ -124,7 +124,7 @@ VALUES (?, ?, ?, 0, 1, 1, ['nats-0'], ['nats-0'], [], 0, false, [])`, i+1, at, a
 		// A follower with other bytes: the leader's are the ones read.
 		exec(`INSERT INTO stream_stats (epoch, server_id, account, stream, bytes, is_leader) VALUES (?, 'NSERVER0', 'SHOP', 'order-archive', ?, true),
   (?, 'NSERVER1', 'SHOP', 'order-archive', 1, false)`, i+1, int64(100*(1<<20)+days*16*(1<<20)), i+1)
-		if i >= 42 {
+		if i >= 102 {
 			exec(`INSERT INTO stream_stats (epoch, server_id, account, stream, bytes, is_leader) VALUES (?, 'NSERVER0', 'SHOP', 'new-stream', ?, true)`,
 				i+1, int64(i)*(1<<20))
 		}
@@ -133,8 +133,8 @@ VALUES (?, ?, ?, 0, 1, 1, ['nats-0'], ['nats-0'], [], 0, false, [])`, i+1, at, a
 }
 
 // The server records the entity's growth at acceptance: a stream's leader
-// bytes and a server's JetStream storage over the 24 hours before, by
-// RobustPerDay; nothing for other entity types or without 6 hours of data.
+// bytes and a server's JetStream storage over the 7 days before, by
+// DailyPerDay; nothing for other entity types or under a day of data.
 func TestAcceptanceRecordsGrowth(t *testing.T) {
 	st := growthFixture(t)
 	_, c := apitest.Serve(t, &storeprov.Provider{St: st, Interval: 30 * time.Minute, Live: true, Clock: func() time.Time { return acceptNow }})
@@ -152,7 +152,7 @@ func TestAcceptanceRecordsGrowth(t *testing.T) {
 		t.Errorf("server growth = %v, want 30 MiB/day", m.GrowthPerDay)
 	}
 	if m := accept("stream-005", v1.EntityType_ENTITY_TYPE_STREAM, "SHOP/new-stream"); m.GrowthPerDay != nil {
-		t.Errorf("growth of a stream with 3 hours of data = %v, want none", *m.GrowthPerDay)
+		t.Errorf("growth of a stream with 21 hours of data = %v, want none", *m.GrowthPerDay)
 	}
 	if m := accept("consumer-004", v1.EntityType_ENTITY_TYPE_CONSUMER, "SHOP/order-archive/worker"); m.GrowthPerDay != nil {
 		t.Errorf("consumer growth = %v, want none", *m.GrowthPerDay)

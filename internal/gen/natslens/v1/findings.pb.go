@@ -194,12 +194,15 @@ type Mute struct {
 	Accepted bool `protobuf:"varint,10,opt,name=accepted,proto3" json:"accepted,omitempty"`
 	// Growth of the accepted entity when it was accepted, bytes per day,
 	// recorded by the server: a stream's leader bytes or a server's
-	// JetStream storage over the 24 hours before. Unset for a plain mute,
-	// for other entity types, and when there was no rate (under 6 hours of
-	// data).
+	// JetStream storage, measured day over day (the median change between
+	// points whole days apart, per day) over up to 7 days before, so it does
+	// not depend on the time of day. Unset for a plain mute, for other
+	// entity types, and when there was no rate (under a day of data). It
+	// can differ from the growth the Streams page shows for a range.
 	GrowthPerDay *float64 `protobuf:"fixed64,11,opt,name=growth_per_day,json=growthPerDay,proto3,oneof" json:"growth_per_day,omitempty"`
 	// Why nats-lens ended the acceptance before its review date, for example
-	// "growth changed from +2.1 MiB/day to +4.0 MiB/day"; empty when a person
+	// "growth changed from +2.1 MiB/day to +4.0 MiB/day (day over day, over
+	// the last 7 days)"; empty when a person
 	// lifted it or it ran out.
 	EndReason     string `protobuf:"bytes,12,opt,name=end_reason,json=endReason,proto3" json:"end_reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
