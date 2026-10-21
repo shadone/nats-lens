@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/checks"
 	"github.com/shadone/nats-lens/internal/collect"
 	"github.com/shadone/nats-lens/internal/store"
@@ -162,6 +163,17 @@ func (r *Runner) check(ctx context.Context, epoch int64) {
 	if res.Firing+res.Changed+res.Resolved > 0 {
 		r.logger().Info("findings changed", "epoch", epoch, "firing", res.Firing, "changed", res.Changed, "resolved", res.Resolved)
 	}
+	ended, err := ReviewAcceptances(ctx, r.Store, epoch, r.Interval)
+	if err != nil {
+		if ctx.Err() == nil {
+			r.logger().Error("acceptances not reviewed", "epoch", epoch, "err", err)
+		}
+		return
+	}
+	for _, m := range ended {
+		r.logger().Info("acceptance ended", "epoch", epoch, "mute", m.ID, "check", m.CheckCode,
+			"entity", m.EntityType+" "+m.EntityKey, "reason", m.EndReason)
+	}
 }
 
 func (r *Runner) sweep(ctx context.Context) {
@@ -173,4 +185,53 @@ func (r *Runner) sweep(ctx context.Context) {
 	if res.Epochs > 0 || res.Events > 0 {
 		r.logger().Info("retention sweep", "deleted_epochs", res.Epochs, "deleted_events", res.Events, "oldest_kept", res.Cutoff)
 	}
+}
+
+// ReviewAcceptances ends every acceptance in force at the epoch whose
+// entity's growth over the api.AcceptGrowthWindow before the epoch differs
+// from the recorded one by more than api.GrowthChanged allows. An
+// acceptance without a recorded growth, or whose entity has no growth now
+// (under api.MinGrowthSpan of data, the entity gone), is kept. One query
+// reads the acceptances and one the growth of all their entities. It
+// returns the acceptances it ended.
+func ReviewAcceptances(ctx context.Context, st *store.Store, epoch int64, interval time.Duration) ([]store.Mute, error) {
+	at, err := st.EpochStartedAt(ctx, epoch)
+	if err != nil {
+		return nil, err
+	}
+	ms, err := st.AcceptancesToReview(ctx, at)
+	if err != nil || len(ms) == 0 {
+		return nil, err
+	}
+	ents := make([]store.EntityKey, 0, len(ms))
+	for _, m := range ms {
+		ents = append(ents, store.EntityKey{Type: m.EntityType, Key: m.EntityKey})
+	}
+	width := max(api.AcceptGrowthWindow/api.GrowthBuckets, interval)
+	pts, err := st.GrowthPoints(ctx, at.Add(-api.AcceptGrowthWindow), at, width, ents)
+	if err != nil {
+		return nil, err
+	}
+	var ended []store.Mute
+	for _, m := range ms {
+		e := store.EntityKey{Type: m.EntityType, Key: m.EntityKey}
+		s := make([]api.Sample, 0, len(pts[e]))
+		for _, p := range pts[e] {
+			s = append(s, api.Sample{T: p.T, V: p.V})
+		}
+		now := api.RobustPerDay(s)
+		if now == nil || !api.GrowthChanged(*m.GrowthPerDay, *now) {
+			continue
+		}
+		reason := api.GrowthEndReason(*m.GrowthPerDay, *now)
+		ok, err := st.EndAcceptance(ctx, m.ID, at, api.AcceptEndedBy, reason)
+		if err != nil {
+			return ended, err
+		}
+		if ok {
+			m.UnmutedAt, m.UnmutedBy, m.EndReason = at, api.AcceptEndedBy, reason
+			ended = append(ended, m)
+		}
+	}
+	return ended, nil
 }
