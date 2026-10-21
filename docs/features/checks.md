@@ -1,12 +1,12 @@
 # Checks and findings
 
 - **Surfaces:** `ui`, `api`, `cli`
-- **Status:** partial — accepting a finding with a review date is planned
+- **Status:** partial — accepting a finding is built for one entity; related entities, a check everywhere and a review list are planned
 - **Related:** [server-checks.md](server-checks.md), [stream-checks.md](stream-checks.md), [consumer-checks.md](consumer-checks.md), [client-checks.md](client-checks.md), [system-checks.md](system-checks.md), [inventory.md](inventory.md), [triage-and-mutes.md](triage-and-mutes.md), [metrics-and-alerting.md](metrics-and-alerting.md), [notifications.md](notifications.md), [design.md](../design.md)
 
 ## What it does
 
-After every collection, nats-lens runs its checks against what it just stored. Each check looks for one kind of problem, such as a stream that lost quorum, a consumer whose backlog keeps growing, or a server whose disk fills in three days. It reports every entity where it finds that problem. Each report is a **finding**: one check failing for one server, stream, consumer, client or for the whole system. A finding stays open while the problem lasts and resolves on its own when the problem goes away. nats-lens ships 50 checks. You can tune their thresholds, turn single checks off, add your own remediation text, and mute findings you have decided to live with.
+After every collection, nats-lens runs its checks against what it just stored. Each check looks for one kind of problem, such as a stream that lost quorum, a consumer whose backlog keeps growing, or a server whose disk fills in three days. It reports every entity where it finds that problem. Each report is a **finding**: one check failing for one server, stream, consumer, client or for the whole system. A finding stays open while the problem lasts and resolves on its own when the problem goes away. nats-lens ships 50 checks. You can tune their thresholds, turn single checks off, add your own remediation text, and mute findings you have decided to live with, or accept one entity's finding as by design until a review date.
 
 ## Behavior and rules
 
@@ -26,6 +26,7 @@ After every collection, nats-lens runs its checks against what it just stored. E
 - **Your own remediation text.** `checks.remediation_file` points at a YAML file that maps a check code to extra text, such as a runbook link or the team that owns a stream. The API and the UI show that text after the check's own remediation, below a `---` line. The text is plain, with `backticks` around code; nats-lens renders no other Markdown. nats-lens reads the file at start only, so a change needs a restart (in Kubernetes, a changed ConfigMap needs a rollout). An unknown check code or an empty text stops the start.
 - **A failing check is itself a finding.** If a check cannot run, its findings stay as they were. nats-lens then raises `system-001` "Check failed to run", which becomes critical when the same check has failed ten collections in a row. Each check has `checks.timeout` (5 seconds) to run, and all checks of a collection share half the collect interval. The order of the checks rotates by one every collection, so an overrun does not always leave out the same checks.
 - **Mutes hide a finding without losing it.** A mute covers one check, either for one entity or for every entity. It needs a reason of at most 1000 characters and an end between one minute and 90 days ahead, and records who set it: the verified IAP user behind IAP, otherwise the name given in the request. A muted finding still records its transitions. The UI shows it apart from the unmuted findings, it never counts towards the overview's status, and it is exported to `/metrics` with `muted="true"`. A mute can be lifted early, and nats-lens records who lifted it. Lifted and expired mutes stay as history.
+- **Accept one entity's finding as by design.** An acceptance is a mute of one entity's finding (`MuteFinding` with `accept`) with a review date, between a day and 365 days ahead, as its end, and the same reason and author rules. It reads as muted everywhere mutes are read, and as accepted in the UI ([triage-and-mutes.md](triage-and-mutes.md)); the Capacity page accepts `stream-005` ([capacity.md](capacity.md)). For a stream or a server, nats-lens records the entity's growth over the last week (the median, over the last day, of the change since a week earlier divided by 7, so daily and weekly patterns cancel), and after each check run ends the acceptance when that growth now differs by more than half of the recorded rate, or of 1 MiB a day when that is larger, recording "growth changed from … to …" as the reason. An entity with under about 8 days of history gets its baseline recorded later, the first time it can be measured. A purge or a restore changes the week's growth and also ends it, so the finding returns for a new decision. At the review date the acceptance ends as a mute does.
 
 ## Scenarios
 
@@ -93,9 +94,17 @@ After every collection, nats-lens runs its checks against what it just stored. E
 - **Then** the finding moves to the muted findings and no longer affects the Overview's status
 - **And** when the mute ends, the finding counts again if the condition still holds
 
+### Accept a finding through the API
+
+- **Surfaces:** `api`
+- **Given** `stream-005` fires for `order-archive`, which keeps everything on purpose
+- **When** I call `MuteFinding` with the check code, the stream as entity, a reason, a review date six months ahead and `accept`
+- **Then** `ListMutes` returns it with `accepted` and the growth nats-lens recorded, and the finding counts as muted until the review date
+- **And** a request with `accept` and no entity, or a review date more than 365 days ahead, is refused
+
 ## Planned
 
-- **Accept a finding with a review date.** An accepted finding records who accepted it and why, and has a review date at most one year ahead. On that date it returns for a new decision. Acceptance can cover one entity, the same finding on related entities (for example every consumer of one stream), or the check everywhere. Accepted findings leave the Overview and are listed together under "Review accepted findings". A finding about growth comes back early when the growth changes by more than 50%. Mutes stay for short-term silencing.
+- **Accept more than one entity.** Acceptance of the same finding on related entities (for example every consumer of one stream), or of the check everywhere, and accepted findings listed together under "Review accepted findings". Mutes stay for short-term silencing.
 - **One cause, one card.** Findings of one check that share a cause, such as four consumers of one stream with the same creation-time difference, are grouped into one item on the Overview.
 - **Notifications.** Sending firing and resolved findings to a channel is planned in [notifications.md](notifications.md).
 - **More checks.** Each check catalogue lists its planned checks.

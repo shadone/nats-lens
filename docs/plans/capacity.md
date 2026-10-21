@@ -10,8 +10,8 @@ The board's sample names come from a sketch of a real deployment. Use the exampl
 |---|---|
 | T1 Accept a finding as by design | built on `feat/capacity-accept`, in review; departures below |
 | T2 API, store and demo | built on `feat/capacity-api`, in review; departures below |
-| T3 UI | planned, after T2 is merged |
-| T4 Feature docs and audit | planned |
+| T3 UI | built on `feat/capacity-ui`, in review; departures below |
+| T4 Feature docs and audit | built on `feat/capacity-ui`, in review; departures below |
 
 ## Rules for every step
 
@@ -149,10 +149,28 @@ Each point was decided by the session that built T2: proposed, not yet confirmed
 - Data: `requests.getCapacity`, `web/src/api/capacity.ts`, `useCapacity()` keyed by system and range, refetched with the page's live interval, keeping the previous answer only for the same system (as `useAccountsAndAuth`). View helpers in `web/src/lib/capacityView.ts` with tests (time-to-full words, next-limit words, bound text, data-held label and bar width).
 - Docs: `navigation.md`, the UI section of `design.md`.
 
+### Where T3 departed from this plan
+
+Each point was decided by the session that built T3: proposed, not yet confirmed.
+
+- **Header.** As on every other page, the app header names the page ("Capacity" as the page's `<h1>`); the subtitle and the collection line share the line under it: "What each stream keeps, what bounds it, and when the disks fill. 13 streams · 3 stores · growth from <growth_from> UTC, in the collection of <time> UTC." The board has its own `<h1>` beside the subtitle.
+- **Server cards.** Grouped under a cluster heading only with more than one cluster; three a row, two under 1000 px, one under 760 px. The bar's colour is the firing finding's severity, `server-014` included, not a ratio the UI computes. `server-007` reads "store usage high by server-007", with the severity badge beside every finding link. A card with a rate but no limit shows the rate alone.
+- **Words.** Time to full: hours under a day, days (one decimal under 10) under 60 days, months under two years, then whole years up to 5 years; the same words for a next limit's "in …". An age limit in days from 3 days, else in hours ("24 h", "48 h") or minutes; a round message limit short ("1M", "100k"). The kind line gives the message count of every plain stream with messages (the board shows it on one row). A bucket with a byte limit and no TTL reads "64 MiB, no TTL"; an object store without a bound "nothing (keeps all)"; a bucket's data held label is always its keys.
+- **Status cells.** An accepted row links `stream-005` under its line, and a row awaiting a decision reads "stream-005 awaits a decision" under the button. A muted `stream-006` row reads "full in N days" with "muted until …" under it.
+- **Accept dialog.** "In 1 year" is 365 days, the server's limit, and a chosen date is the end of that UTC day (23:59), so "tomorrow" is always at least a day ahead. The check's name in the dialog is the constant `ACCEPT_CHECK`, tested against `checks/stream-005.sql`, as `CapacityStream` carries no check name.
+- **BY DESIGN at once.** After a save, the table shows the returned acceptance on that row while an answer still says awaiting; the table is keyed by system. In the demo and the store the refetch says accepted itself.
+- **The note.** "Data held spans from the oldest retained message to the collection on a one-year scale; Size × R and /day count every replica. Accept as by design records a reason, who accepted it and a review date; the finding then leaves the Overview until that date, or until nats-lens sees the stream's growth over a week change by more than half."
+- **Accepted elsewhere.** The severity badge reads Accepted on the Findings row, the finding page and the mutes list; the row's time column reads "review on <date>"; the mutes list marks an acceptance nats-lens ended as Ended, offers "End…" in place of "Lift…", and the lift dialog reads "End acceptance". The finding page names the recorded growth, or says "No growth baseline is recorded yet: growth is recorded once the stream has 8 days of history." ("the server" in place of "the stream" for a server).
+- **Phone width.** The stream column is sticky inside the scrolling table, so the status and its button are reached with the name in view; long names wrap.
+
 ## T4 Feature docs and audit
 
 `capacity.md` to `Status: shipped` (or `partial`), with its rules, scenarios and Not supported list, and its "Time to full uses the checks' rule" line replaced by the rule built; "No account disk limits yet" rewritten (operator-mode limits are collected now, the page does not show them). `triage-and-mutes.md` and `checks.md`: accepted findings as shipped for one entity, the rest still planned. `stream-checks.md` (the `stream-005` remediation). `docs/features/README.md` table and coverage map. `demo-mode.md`. The audit, `python3 /Users/denis/dev/info.ddenis/dotfiles/agent-rules/packs/ddenis-core/skills/feature-docs/scripts/audit_feature_docs.py docs/features/ --map-refs require`; leftovers into `docs/plans/next.md`.
 
+### Where T4 departed from this plan
+
+- `capacity.md` is `shipped`, with a Planned list (account disk limits as a bound, object counts, memory store cards) and the same three under Not supported. `checks.md` stays `partial`: one entity is built, related entities, a check everywhere and the review list are planned. `stream-checks.md` gains a "What to do" line for `stream-005` and points the "Oldest message expires unread" view at the stream page, not Capacity. Decided by the session that built it, not confirmed.
+
 ## Leftovers
 
-To move to `docs/plans/next.md` when the page ships, most valuable first: acceptance of the same finding on related entities and of a check everywhere; the "Review accepted findings" list; accepting from the finding page and the Findings page; an Overview tally that counts accepted apart from muted; account JetStream disk limits as a bound and an account card (operator mode); object counts of an object store; a forecast per subject; memory stores on the cards.
+Moved to `docs/plans/next.md` item 5 with T4, most valuable first: acceptance of the same finding on related entities and of a check everywhere; the "Review accepted findings" list; accepting from the finding page and the Findings page; an Overview tally that counts accepted apart from muted; account JetStream disk limits as a bound and an account card (operator mode); object counts of an object store; a forecast per subject; memory stores on the cards.
