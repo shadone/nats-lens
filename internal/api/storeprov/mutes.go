@@ -62,10 +62,10 @@ func (p *Provider) MuteFinding(ctx context.Context, req *v1.MuteFindingRequest) 
 }
 
 // acceptGrowth is the growth an acceptance records: the entity's growth
-// over the api.AcceptGrowthWindow before now, by api.RobustPerDay; nil for
-// an entity type without one or under api.MinGrowthSpan of data.
+// over the api.AcceptGrowthWindow before now, by api.DailyPerDay; nil for
+// an entity type without one or under a day of data.
 func (p *Provider) acceptGrowth(ctx context.Context, now time.Time, e store.EntityKey) (*float64, error) {
-	width := max(api.AcceptGrowthWindow/api.GrowthBuckets, p.Interval)
+	width := api.AcceptGrowthWidth(p.Interval)
 	pts, err := p.St.GrowthPoints(ctx, now.Add(-api.AcceptGrowthWindow), now, width, []store.EntityKey{e})
 	if err != nil {
 		return nil, err
@@ -74,7 +74,7 @@ func (p *Provider) acceptGrowth(ctx context.Context, now time.Time, e store.Enti
 	for _, pt := range pts[e] {
 		s = append(s, api.Sample{T: pt.T, V: pt.V})
 	}
-	return api.RobustPerDay(s), nil
+	return api.DailyPerDay(s), nil
 }
 
 // UnmuteFinding lifts an active mute.

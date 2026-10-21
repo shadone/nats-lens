@@ -14,7 +14,7 @@ const mib = 1 << 20
 
 var reviewStart = time.Date(2026, 10, 20, 0, 0, 0, 0, time.UTC)
 
-// growthStore holds 49 epochs, every 30 minutes over 24 hours, in which
+// growthStore holds 145 epochs, every 30 minutes over 3 days, in which
 // each stream of perDay grows steadily at its rate (bytes per day) and the
 // server nats-0's JetStream storage at serverPerDay. A stream listed in
 // lastHours reports only in the epochs of its last so many hours. It
@@ -32,10 +32,10 @@ func growthStore(t *testing.T, perDay map[string]float64, lastHours map[string]i
 			t.Fatalf("%s: %v", q, err)
 		}
 	}
-	exec(`INSERT INTO servers (server_id, server_name, first_epoch, last_epoch, first_seen_at, last_seen_at) VALUES ('NSERVER0', 'nats-0', 1, 49, ?, ?)`,
+	exec(`INSERT INTO servers (server_id, server_name, first_epoch, last_epoch, first_seen_at, last_seen_at) VALUES ('NSERVER0', 'nats-0', 1, 145, ?, ?)`,
 		reviewStart, reviewStart)
 	var epoch int64
-	for i := 0; i <= 48; i++ {
+	for i := 0; i <= 144; i++ {
 		epoch = int64(i + 1)
 		at := reviewStart.Add(time.Duration(i) * 30 * time.Minute)
 		days := at.Sub(reviewStart).Hours() / 24
@@ -45,7 +45,7 @@ VALUES (?, ?, ?, 0, 1, 1, ['nats-0'], ['nats-0'], [], 0, false, [])`, epoch, at,
 		exec(`INSERT INTO server_stats (epoch, server_id, js_storage) VALUES (?, 'NSERVER0', ?)`,
 			epoch, int64(1<<30+serverPerDay*days))
 		for name, rate := range perDay {
-			if h, ok := lastHours[name]; ok && at.Before(reviewStart.Add(time.Duration(24-h)*time.Hour)) {
+			if h, ok := lastHours[name]; ok && at.Before(reviewStart.Add(time.Duration(72-h)*time.Hour)) {
 				continue
 			}
 			exec(`INSERT INTO stream_stats (epoch, server_id, account, stream, bytes, is_leader) VALUES (?, 'NSERVER0', 'SHOP', ?, ?, true)`,
@@ -90,13 +90,13 @@ func TestReviewEndsAcceptanceOnGrowthChange(t *testing.T) {
 		"short":       50 * mib,
 		"no-recorded": 50 * mib,
 		"muted":       50 * mib,
-	}, map[string]int{"short": 5}, 30*mib)
+	}, map[string]int{"short": 20}, 30*mib)
 	grew60 := accept(t, st, "stream", "SHOP/grew-60", f(10*mib))
 	grew40 := accept(t, st, "stream", "SHOP/grew-40", f(10*mib))
 	// Under the floor: +100 KiB to +200 KiB/day is a change of 100%, but
 	// less than half of 1 MiB.
 	small := accept(t, st, "stream", "SHOP/small", f(100<<10))
-	// Under 6 hours of data now: no rate, so nothing to compare.
+	// Under a day of data now: no rate, so nothing to compare.
 	short := accept(t, st, "stream", "SHOP/short", f(1*mib))
 	// The stream is gone: no data at all.
 	gone := accept(t, st, "stream", "SHOP/gone", f(1*mib))
@@ -117,14 +117,14 @@ func TestReviewEndsAcceptanceOnGrowthChange(t *testing.T) {
 	if len(ended) != 2 {
 		t.Fatalf("ended %+v, want grew-60 and the server", ended)
 	}
-	at := reviewStart.Add(24 * time.Hour)
+	at := reviewStart.Add(72 * time.Hour)
 	ms := mutesByID(t, st)
 	for _, tc := range []struct {
 		m      store.Mute
 		reason string
 	}{
-		{grew60, "growth changed from +10 MiB/day to +16 MiB/day"},
-		{server, "growth changed from +10 MiB/day to +30 MiB/day"},
+		{grew60, "growth changed from +10 MiB/day to +16 MiB/day (day over day, over the last 7 days)"},
+		{server, "growth changed from +10 MiB/day to +30 MiB/day (day over day, over the last 7 days)"},
 	} {
 		got := ms[tc.m.ID]
 		if !got.UnmutedAt.Equal(at) || got.UnmutedBy != api.AcceptEndedBy || got.EndReason != tc.reason {
@@ -154,7 +154,7 @@ func TestReviewSkipsAcceptanceNewerThanTheEpoch(t *testing.T) {
 	ctx := context.Background()
 	st, last := growthStore(t, map[string]float64{"grew": 16 * mib}, nil, 0)
 	m, err := st.CreateMute(ctx, store.Mute{CheckCode: "stream-005", EntityType: "stream", EntityKey: "SHOP/grew",
-		Reason: "r", MutedBy: "op", CreatedAt: reviewStart.Add(24*time.Hour + time.Second), ExpiresAt: reviewStart.Add(48 * time.Hour),
+		Reason: "r", MutedBy: "op", CreatedAt: reviewStart.Add(72*time.Hour + time.Second), ExpiresAt: reviewStart.Add(96 * time.Hour),
 		Accepted: true, GrowthPerDay: f(1 * mib)})
 	if err != nil {
 		t.Fatal(err)
