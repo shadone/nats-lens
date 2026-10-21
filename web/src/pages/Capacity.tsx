@@ -24,7 +24,7 @@ export function Capacity() {
           {CAPACITY_SUBTITLE}{" "}
           {d?.collected && d.epochAt !== undefined ? (
             <>
-              {headerLine(d.streamsTotal, d.servers.length, d.growthFrom)}, in the collection of <span className="mono">{hms(d.epochAt)} UTC</span>.
+              {headerLine(d)}, in the collection of <span className="mono">{hms(d.epochAt)} UTC</span>.
             </>
           ) : (
             "In the newest collection of the range."
