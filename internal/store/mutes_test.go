@@ -63,3 +63,36 @@ func TestMuteLockGivesUpWithTheContext(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestAcceptanceRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	s := openMem(t)
+	g := -3.0 * (1 << 20)
+	a, err := s.CreateMute(ctx, Mute{CheckCode: "stream-005", EntityType: "stream", EntityKey: "SHOP/order-archive",
+		Reason: "kept for the account's life", MutedBy: "ops@example.com", CreatedAt: t0, ExpiresAt: t0.Add(180 * 24 * time.Hour),
+		Accepted: true, GrowthPerDay: &g})
+	if err != nil || !a.Accepted || a.GrowthPerDay == nil || *a.GrowthPerDay != g {
+		t.Fatalf("created %+v, %v", a, err)
+	}
+	if _, err := s.CreateMute(ctx, Mute{CheckCode: "stream-005", Reason: "r", MutedBy: "op", CreatedAt: t0,
+		ExpiresAt: t0.Add(time.Hour), Accepted: true}); err == nil {
+		t.Fatal("an acceptance without an entity was stored")
+	}
+	// A person lifts it: no end reason. EndAcceptance then ends nothing.
+	un, err := s.UnmuteMute(ctx, a.ID, "lead", t0.Add(time.Hour))
+	if err != nil || !un.Accepted || un.EndReason != "" {
+		t.Fatalf("unmute = %+v, %v", un, err)
+	}
+	if ok, err := s.EndAcceptance(ctx, a.ID, t0.Add(2*time.Hour), "nats-lens", "x"); err != nil || ok {
+		t.Fatalf("end of a lifted acceptance = %v, %v", ok, err)
+	}
+	// EndAcceptance leaves a plain mute alone.
+	m, err := s.CreateMute(ctx, Mute{CheckCode: "stream-005", EntityType: "stream", EntityKey: "SHOP/x", Reason: "r", MutedBy: "op",
+		CreatedAt: t0, ExpiresAt: t0.Add(time.Hour)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := s.EndAcceptance(ctx, m.ID, t0.Add(time.Minute), "nats-lens", "x"); err != nil || ok {
+		t.Fatalf("end of a plain mute = %v, %v", ok, err)
+	}
+}
