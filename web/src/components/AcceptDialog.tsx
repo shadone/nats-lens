@@ -31,7 +31,7 @@ export function AcceptDialog({ target, onClose, onAccepted }: { target: AcceptTa
   );
 }
 
-/** The latest date the date field offers: its end of day must stay within 365 days. */
+/** The latest date the date field offers: its end of day must stay within MAX_REVIEW_AHEAD. */
 function lastDate(now: number): string {
   const end = now + MAX_REVIEW_AHEAD;
   const d = isoDate(end);

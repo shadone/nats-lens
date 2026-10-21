@@ -24,10 +24,10 @@ const DAY = 86_400_000;
 const form: AcceptForm = { reason: "Order history is kept for audits", review: "3mo", reviewDate: "", name: "denis" };
 
 describe("reviewDateOf", () => {
-  it("adds calendar months, a year of 365 days, or the end of a chosen UTC day", () => {
+  it("adds calendar months, a year of 364 days, inside the server's 365,, or the end of a chosen UTC day", () => {
     expect(reviewDateOf(form, NOW)).toBe(Date.parse("2027-01-21T14:30:00Z"));
     expect(reviewDateOf({ ...form, review: "6mo" }, NOW)).toBe(Date.parse("2027-04-21T14:30:00Z"));
-    expect(reviewDateOf({ ...form, review: "1y" }, NOW)).toBe(NOW + 365 * DAY);
+    expect(reviewDateOf({ ...form, review: "1y" }, NOW)).toBe(NOW + 364 * DAY);
     expect(reviewDateOf({ ...form, review: "date", reviewDate: "2027-02-01" }, NOW)).toBe(Date.parse("2027-02-01T23:59:00Z"));
     expect(reviewDateOf({ ...form, review: "date", reviewDate: "" }, NOW)).toBeNaN();
   });
@@ -48,13 +48,13 @@ describe("validateAccept", () => {
     expect(validateAccept({ ...form, reason: "x".repeat(1001) }, NOW, true).reason).toMatch(/1000/);
   });
 
-  it("keeps the review date between a day and 365 days ahead", () => {
+  it("keeps the review date between a day and 364 days ahead", () => {
     const at = (d: string) => validateAccept({ ...form, review: "date", reviewDate: d }, NOW, true).review;
     expect(at("")).toMatch(/Choose/);
     expect(at("2026-10-21")).toMatch(/at least a day/);
     expect(at("2026-10-22")).toBeUndefined();
-    expect(at("2027-10-20")).toBeUndefined();
-    expect(at("2027-10-21")).toMatch(/365 days/);
+    expect(at("2027-10-19")).toBeUndefined();
+    expect(at("2027-10-20")).toMatch(/364 days/);
   });
 });
 
@@ -89,8 +89,8 @@ describe("AcceptDialog", () => {
     const req = muteFinding.mock.calls[0][1];
     expect(req).toMatchObject({ checkCode: "stream-005", reason: "Order history is kept for audits", mutedBy: "denis", accept: true });
     expect(req.entity?.key).toBe("APP/order-archive");
-    expect(req.expiresAt - before).toBeGreaterThanOrEqual(365 * DAY);
-    expect(req.expiresAt - before).toBeLessThan(365 * DAY + 60_000);
+    expect(req.expiresAt - before).toBeGreaterThanOrEqual(364 * DAY);
+    expect(req.expiresAt - before).toBeLessThan(364 * DAY + 60_000);
     expect(onAccepted).toHaveBeenCalledWith("stream-005:APP/order-archive", acceptance());
   });
 
@@ -112,7 +112,7 @@ describe("AcceptDialog", () => {
     const date = screen.getByLabelText("Review on, UTC");
     expect(date).toHaveAttribute("type", "date");
     expect(Date.parse(`${date.getAttribute("min")}T23:59:00Z`) - Date.now()).toBeGreaterThanOrEqual(DAY);
-    expect(Date.parse(`${date.getAttribute("max")}T23:59:00Z`) - Date.now()).toBeLessThanOrEqual(365 * DAY);
+    expect(Date.parse(`${date.getAttribute("max")}T23:59:00Z`) - Date.now()).toBeLessThanOrEqual(364 * DAY);
   });
 
   it("shows the server's refusal and stays open", async () => {

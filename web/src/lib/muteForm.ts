@@ -56,16 +56,16 @@ export function hasErrors(e: MuteErrors): boolean {
   return Object.keys(e).length > 0;
 }
 
-/** Review dates an acceptance offers; months are calendar months, a year 365 days (the server's limit). */
+/** Review dates an acceptance offers; months are calendar months, a year 364 days (a day inside the server's 365, so a browser clock a little ahead is not refused). */
 export const REVIEW_PRESETS: { id: string; label: string }[] = [
   { id: "3mo", label: "in 3 months" },
   { id: "6mo", label: "in 6 months" },
   { id: "1y", label: "in 1 year" },
 ];
 
-/** Limits the server enforces on a review date. */
+/** The server's limits on a review date are a day and 365 days; the form allows a day less at the far end. */
 export const MIN_REVIEW_AHEAD = 24 * 3_600_000;
-export const MAX_REVIEW_AHEAD = 365 * 24 * 3_600_000;
+export const MAX_REVIEW_AHEAD = 364 * 24 * 3_600_000;
 
 export interface AcceptForm {
   reason: string;
@@ -116,7 +116,7 @@ export function validateAccept(f: AcceptForm, now: number, askName: boolean): Ac
   const at = reviewDateOf(f, now);
   if (!Number.isFinite(at)) e.review = "Choose a review date.";
   else if (at < now + MIN_REVIEW_AHEAD) e.review = "The review date must be at least a day from now.";
-  else if (at > now + MAX_REVIEW_AHEAD) e.review = "The review date is at most a year (365 days) from now.";
+  else if (at > now + MAX_REVIEW_AHEAD) e.review = "The review date is at most 364 days from now.";
   const name = f.name.trim();
   if (askName && name.length === 0) e.name = "Enter your name; it is recorded with the acceptance.";
   else if (askName && [...name].length > MAX_NAME) e.name = `At most ${MAX_NAME} characters.`;
