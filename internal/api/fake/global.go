@@ -252,7 +252,7 @@ const (
 // KV_feature-flags, in the fixed frame: the first collection whose week's
 // growth (api.WeeklyGrowth) differs from the recorded +2.0 KiB/day by more
 // than the 1 MiB floor's half.
-var globalFlagsEnded = time.Date(2026, 10, 13, 17, 0, 0, 0, time.UTC)
+var globalFlagsEnded = time.Date(2026, 10, 13, 16, 24, 0, 0, time.UTC)
 
 // globalFlagsBytes is KV_feature-flags' bytes at fixed-frame time c: its
 // spec's growth back to globalFlagsChange, globalFlagsBefore before it.
