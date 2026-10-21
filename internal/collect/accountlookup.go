@@ -37,7 +37,8 @@ func accountsToLookUp(snap *Snapshot, asked map[string]time.Time, now time.Time)
 			continue
 		}
 		for _, id := range v.Accountz.Accounts {
-			if at, ok := asked[id]; ok && now.Sub(at) < accountLookupInterval {
+			// A lookup after now means the clock stepped back: due.
+			if at, ok := asked[id]; ok && !now.Before(at) && now.Sub(at) < accountLookupInterval {
 				continue
 			}
 			set[id] = true

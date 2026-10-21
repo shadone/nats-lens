@@ -162,12 +162,14 @@ func (c *Collector) Collect(ctx context.Context) *Snapshot {
 const subscriptionsSlack = time.Second
 
 // subscriptionsDue reports whether an epoch started at now asks SUBSZ:
-// collections are on and none started within the interval before now.
+// collections are on and none started within the interval before now. A
+// last collection after now means the clock stepped back; it is due then,
+// rather than once the clock passes the old start again.
 func (c *Collector) subscriptionsDue(now time.Time) bool {
 	if c.subsInterval <= 0 {
 		return false
 	}
-	return c.subsAsked.IsZero() || now.Sub(c.subsAsked) >= c.subsInterval-subscriptionsSlack
+	return c.subsAsked.IsZero() || now.Before(c.subsAsked) || now.Sub(c.subsAsked) >= c.subsInterval-subscriptionsSlack
 }
 
 // forgetUnlistedAccounts drops the lookup time and name of every account
