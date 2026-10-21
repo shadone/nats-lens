@@ -74,18 +74,9 @@ func prodFindings(s scen) []*v1.Finding {
 	c002.TransitionsLastHour = 4
 	c002.Remediation = "Add workers to the media-chunk-pool pull consumer or lower the producer rate; the backlog grows since the 11:02 media-worker rollout."
 
-	s005 := finding("stream-005", "Stream without any limit", info, firing, streamRef("order-archive"),
-		s.on(14, 14, 30), s.on(14, 14, 30), "max_msgs -1, max_bytes -1, max_age 0: nothing bounds the stream.")
-	s005.RelatedConfig = cfg([][2]string{{"max_msgs", "-1"}, {"max_bytes", "-1"}, {"max_age", "0"},
-		{"max_msgs_per_subject", "-1"}, {"allow_msg_ttl", "false"}}, "max_bytes")
-	s005.RelatedConfigSource = "nats-0"
-
+	s005 := s.unboundedFinding("order-archive", s.on(14, 14, 30))
 	// Accepted as by design (prodSeedAcceptance): it reads as muted.
-	s005kv := finding("stream-005", "Stream without any limit", info, firing, streamRef("KV_customer-config"),
-		s.on(2, 10, 0), s.on(2, 10, 0), "max_msgs -1, max_bytes -1, max_age 0: nothing bounds the stream.")
-	s005kv.RelatedConfig = cfg([][2]string{{"max_msgs", "-1"}, {"max_bytes", "-1"}, {"max_age", "0"},
-		{"max_msgs_per_subject", "1"}, {"allow_msg_ttl", "false"}}, "max_bytes")
-	s005kv.RelatedConfigSource = "nats-0"
+	s005kv := s.unboundedFinding("KV_customer-config", s.on(2, 10, 0))
 
 	s006 := finding("stream-006", "Stream reaches its byte limit soon", warning, firing, streamRef("audit-archive"),
 		s.on(15, 8, 0), s.on(15, 8, 0),

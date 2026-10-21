@@ -104,7 +104,12 @@ func globalFindings(s scen) []*v1.Finding {
 		return f
 	}
 
-	return []*v1.Finding{us4, offline[0], offline[1], labels, slow, backlog, full, config, absent,
+	// order-archive is muted (globalSeedArchiveMute); KV_feature-flags
+	// fires again since nats-lens ended its acceptance.
+	archive := s.unboundedFinding("order-archive", s.on(1, 8, 30))
+	flags := s.unboundedFinding("KV_feature-flags", s.on(1, 8, 30))
+
+	return []*v1.Finding{us4, offline[0], offline[1], labels, slow, backlog, full, config, absent, archive, flags,
 		vanished("restock-alerts"), vanished("stock-audit-export"),
 		version("nats-ap-4"), version("nats-ap-5"),
 		restarted("nats-us-1", 8, 46, 10), restarted("nats-us-2", 8, 58, 30), restarted("nats-us-3", 9, 6, 40),
@@ -370,5 +375,7 @@ func globalRows(*scenario) []rowSpec {
 		{"server-014", "JetStream store full soon", warning, []*v1.EntityRef{serverRef("nats-ap-2")}, []span{{f(12, 6, 0), open}}},
 		{"server-005", "Version differs from the majority", info, []*v1.EntityRef{serverRef("nats-ap-4"), serverRef("nats-ap-5")},
 			[]span{{day(14, 10, 0), open}}},
+		{"stream-005", "Stream without any limit", info, []*v1.EntityRef{streamRef("order-archive"), streamRef("KV_feature-flags")},
+			[]span{{day(1, 8, 30), open}}},
 	}
 }
