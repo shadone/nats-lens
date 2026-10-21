@@ -61,12 +61,16 @@ func (p *Provider) MuteFinding(ctx context.Context, req *v1.MuteFindingRequest) 
 	return muteProto(out), nil
 }
 
-// acceptGrowth is the growth an acceptance records: the entity's growth
-// over the api.AcceptGrowthWindow before now, by api.DailyPerDay; nil for
-// an entity type without one or under a day of data.
+// acceptGrowth is the growth an acceptance records: the entity's week's
+// growth per day at now, by api.WeeklyGrowth; nil for an entity type
+// without one or under 8 days of data, and the review then records it
+// later as the baseline.
 func (p *Provider) acceptGrowth(ctx context.Context, now time.Time, e store.EntityKey) (*float64, error) {
-	width := api.AcceptGrowthWidth(p.Interval)
-	pts, err := p.St.GrowthPoints(ctx, now.Add(-api.AcceptGrowthWindow), now, width, []store.EntityKey{e})
+	var spans []store.Span
+	for _, sp := range api.AcceptGrowthSpans(now) {
+		spans = append(spans, store.Span{From: sp.From, To: sp.To})
+	}
+	pts, err := p.St.GrowthPoints(ctx, spans, api.AcceptGrowthWidth(p.Interval), []store.EntityKey{e})
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +78,10 @@ func (p *Provider) acceptGrowth(ctx context.Context, now time.Time, e store.Enti
 	for _, pt := range pts[e] {
 		s = append(s, api.Sample{T: pt.T, V: pt.V})
 	}
-	return api.DailyPerDay(s), nil
+	if g := api.WeeklyGrowth(s, now); g != nil {
+		return &g.PerDay, nil
+	}
+	return nil, nil
 }
 
 // UnmuteFinding lifts an active mute.
