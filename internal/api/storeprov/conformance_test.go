@@ -53,7 +53,7 @@ const confInventory = `accounts:
 //     offline.
 //   - returns: nats-1 leads, nats-2 listed and not reporting, nats-3 in
 //     sync.
-//   - wishlist: three replicas, none leads.
+//   - wishlist: three replicas, none leads, each reporting another size.
 //   - KV_sessions: R1 on nats-2, shrinking 100 kB every epoch.
 //
 // Consumers on orders: fast delivers 1 a second, planner is paused, fresh
@@ -138,9 +138,12 @@ func conformanceStore(t *testing.T) (*store.Store, *checks.Set) {
 	listed("S1", "returns", "nats-3", true, false, 0)
 
 	stream("wishlist")
-	for _, id := range []string{"S0", "S1", "S2"} {
+	// No leader, and the replicas report different sizes: every page reads
+	// the largest.
+	for i, id := range []string{"S0", "S1", "S2"} {
 		configure(id, "wishlist", "h", 3)
-		report(id, "wishlist", "", false)
+		r.add("stream_stats", map[string]any{"epoch": last, "server_id": id, "account": "APP", "stream": "wishlist",
+			"is_leader": false, "leader": "", "messages": 10 + i, "bytes": 1000 * (i + 1)})
 	}
 
 	stream("KV_sessions")
