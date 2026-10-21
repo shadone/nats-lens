@@ -1,0 +1,90 @@
+# Subjects build plan
+
+Working plan for the Subjects page (`docs/features/subjects.md`, board `Subjects.dc.html` of the design canvas). Everything here was proposed by the planning session of 2026-10-22 and is not yet confirmed by the owner. When a task lands, its lasting content moves into `docs/features/subjects.md`, `docs/features/monitoring-snapshots.md` and `docs/design.md`; this file then only tracks status.
+
+The board's sample names come from a sketch of a real deployment. Use the example shop of `inventory.example.yaml` and the demo's systems (`example-global`, `example-prod`, `example-staging`) instead; no name from the board goes into the repository.
+
+## Status
+
+| Task | Status |
+|---|---|
+| T1 Collect subscription lists | not started |
+| T2 API, store and demo | not started |
+| T3 UI | not started |
+| T4 Feature docs and audit | not started |
+
+## Rules for every step
+
+- Read-only towards NATS, as everywhere. The page never subscribes to an application subject and never asks a server live; it reads the store, so a past range works as a live one.
+- A value a server did not report is unset, never 0. "No subscriber" and "subscriptions not collected" are different states and the page says which.
+- The page shows the newest collection at or before the end of the page range (the epoch rule of `GetPlacement`), and the newest subscription collection at or before that epoch.
+- No message rate per subject: NATS does not count one. Rates come from a stream's sequence growth, and from the JetStream API counters for the `$JS.API.>` row.
+
+## What backs each part
+
+| Part | Source | Rule |
+|---|---|---|
+| Stream rows | `stream_config` and `stream_stats` of the epoch | One row per (account, stream) with its subjects, from the leader's configuration (else the first reporting server by name, the rule of the Capacity page). KV buckets (`KV_`) and object stores (`OBJ_`) by the prefix rule of `ListKeyValueStores`; their subjects are the ones the stream configuration lists (`$KV.<bucket>.>`, `$O.<bucket>.C.>`, `$O.<bucket>.M.>`). A mirror has no subjects of its own: its row has an empty pattern cell and reads "mirror of `<origin>`". |
+| Stored msgs/s | leader `stream_stats.last_seq` | The increase of the leader's last sequence per second over the 15 minutes before the range end, in the newest run of one leader and one creation time, as `deliveredRates` reads a consumer's delivered sequence. Fewer than two rows: unset (an en dash). |
+| Stream subscribers | `consumer_config`, `consumer_stats` of the epoch, the subscription collection | The stream's consumers: "6 durable consumers", "1 ephemeral", "2 durable, 1 ephemeral"; on a KV bucket the ephemeral consumers are "watchers". A push consumer whose `deliver_subject` has a core subscriber in the subscription collection names that connection: "1 ephemeral (`<connection name>`)", at most 3 names, then "+N". No consumer: "none". |
+| Subscription rows | the subscription collection (T1) | One row per (account, subject) of client subscriptions that is not a push consumer's `deliver_subject`: "2 connections (`<name>`, `<name>`)", "3 connections in queue group `<q>`"; names as above. Subscriptions on `_INBOX.` subjects fold into one row per account, pattern `_INBOX.>`, note "reply inboxes". |
+| Server subscriptions | the subscription collection | A subscription whose connection ID is not a client connection of the same server in the same epoch's CONNZ is the server's own (JetStream, system and account internal clients) when that server's CONNZ listed every connection; it is left out of the rows and counted in the footnote. When CONNZ was cut at `connz_limit`, such a subscription is counted as "connection not listed" in the footnote, not guessed. |
+| JetStream API row | `account_stats.js_api_total`, `js_api_errors` | One row per account with JetStream use: pattern `$JS.API.>`, subscribers "server", note "JetStream API: 3.1 req/s, 0.2% errors" from the counters' increase over the 15 minutes before the range end, summed over the servers. Independent of the subscription collection. |
+| Note | the row's facts | First that applies: overlap ("overlaps `<other>`", warning), stream without a consumer (below, warning), "work queue, empty", "interest retention: kept only while someone listens", "mirror of `<origin>`", "sourced into `<stream>`", "receives every message in the account" (a subscription on `>`), "reply inboxes". |
+| Filters | the rows | All patterns; Captured by a stream (rows with a stream); Stream without a consumer (a stream with no consumer that no other stream mirrors or sources, KV buckets and object stores excluded; an interest stream reads "messages are dropped", a work queue "messages wait for a consumer", a limits stream "messages are kept but nobody reads them"); Overlapping streams (a stream row whose subjects overlap another stream's in the same account, wildcards included); Wide subscriptions (`>`) (subscription rows whose subject ends in `>`, the folded inbox row excluded). Each pill shows its count over all rows, not the cut list. |
+| Where would a message go? | stored rows, the subscription collection | A literal subject (no `*` or `>`) in the page's account scope, else in every account: each stream whose subject matches, with the pattern that matched; its consumers whose filter matches (no filter matches all); the streams that mirror or source it; core subscribers whose subject matches, counted per connection, a queue group counted once ("one of 3 in queue group `<q>`"). Server subscriptions are left out. A subject that nothing matches: "no stream stores it and no subscriber listens". |
+
+Order of the rows: rows with a warning first; then by account (the system account last); within an account, stream rows before subscription rows; stream rows by stored rate, descending, then pattern; subscription rows by connections, descending, then pattern. At most 1,000 rows, with the total and each filter's count.
+
+Footnote: the board's text, plus the subscription collection's time ("subscriptions as of 14:05") and, when it applies, servers that did not answer, servers whose list was cut at the limit ("nats-1 listed 10,000 of 48,211"), and the count of server subscriptions left out. No subscription collection within 24 hours before the epoch: "Subscriptions not collected" and subscription rows are absent; stream rows still show their consumers.
+
+### One row per stream, not per pattern
+
+The feature doc says one row per subject pattern. A stream with several subjects has one rate and one set of consumers, so a row per pattern would repeat them and the rate would read as each pattern's own. Proposed, not yet confirmed: one row per stream with every pattern in its first cell, one per line; the tester names the one pattern that matched.
+
+## T1 Collect subscription lists
+
+- **Request.** A new endpoint `SUBSZ` (`$SYS.REQ.SERVER.PING.SUBSZ`) with `server.SubszOptions{Subscriptions: true, Limit: <subsz_limit>}`. It is asked in an epoch only when the last subscription collection started at least `subscriptions_interval` ago (the collector keeps the time, as `accountAsked` does), alongside the detail endpoints in the same window, so the epoch takes no longer. It is marked missing for a server only in an epoch in which it was asked.
+- **Config.** `subscriptions_interval` (duration, default 5 minutes, 0 turns the collection off) and `subsz_limit` (the most subscriptions stored per server per collection, default 10,000), with flags, as `connz_limit` is. Validation and the `run` startup log name them.
+- **What SUBSZ lists.** nats-server 2.15 lists each account's local subscriptions (`Sublist.localSubs` without leaf hubs): clients, and the server's own system, JetStream and account clients; not route or gateway interest, so a subscription is listed once, by the server its client is connected to. The implementer confirms this with an in-process cluster test.
+- **Storage.** Migration `0032_subscriptions.sql`:
+  - table `subscriptions` (`epoch`, `server_id`, `account`, `subject`, `queue` (NULL for none), `cid`, `subs` (subscriptions with this subject, queue and connection), `msgs` (messages delivered to them, summed)), one row per (epoch, server, account, subject, queue, cid), with comments on every column;
+  - table `subscription_lists` (`epoch`, `server_id`, `total` (the server's `num_subscriptions`), `listed` (rows of the reply before folding)), one row per server that answered SUBSZ in the epoch.
+  - Both follow `connections` in retention and in the hourly archive (`epochTables`). A rebuild from hours archived before 0032 must still work.
+- **No JWT, no payload.** SUBSZ carries neither; nothing else is kept.
+- **Docs.** `docs/design.md` (what is collected and how often), `monitoring-snapshots.md`, `running-nats-lens.md` (the two options), the SQL access table list if it names tables.
+- **Tests.** The interval (asked on the first epoch, not again before the interval, again after it; 0 never); the limit; folding of duplicate subscriptions of one connection; queue groups; missing marked only when asked; the migration applies on a store with data; archive and rebuild with and without the new tables; an in-process cluster test: a client's subscription is listed once in a 3-node cluster, with its account, queue and `cid` matching the CONNZ row.
+
+## T2 API, store and demo
+
+`proto/natslens/v1/subjects.proto`:
+
+- RPC `GetSubjects(GetSubjectsRequest) returns (GetSubjectsResponse)`. Request: `system`, `range`, `account` (the scope, empty for all). Response: `epoch`, `epoch_at`, `optional subscriptions_at` (unset: not collected within 24 hours), `repeated SubjectRow rows`, `int32 rows_total`, the five filter counts, `repeated SubszServer` (server name, answered, `total`, `listed`) for the footnote, `int64 server_subscriptions`, `int64 unlisted_connection_subscriptions`.
+- `SubjectRow`: `account`, `account_name`, `kind` (enum: stream, KV bucket, object store, subscription, inbox, JetStream API), `repeated string patterns`, `stream` (empty for none), `mirror_of`, `repeated string sourced_into`, `retention`, `int64 messages`, `int32 durable_consumers`, `int32 ephemeral_consumers`, `int32 connections`, `queue` (when every subscriber shares one), `repeated string client_names` (at most 3) and `int32 more_names`, `optional double stored_per_second`, `optional double api_per_second`, `optional double api_error_share`, `repeated string overlaps`, `bool no_consumer`, `bool wide`. The UI words the subscribers and the note from these fields.
+- RPC `MatchSubject(MatchSubjectRequest) returns (MatchSubjectResponse)`. Request: `system`, `range`, `account`, `subject`. A subject with a wildcard, an empty token or over 255 bytes is `InvalidArgument`. Response: `repeated SubjectMatch matches`, each with `account`, `account_name`, `stream`, `pattern`, `repeated string consumers`, `repeated string mirrors`, `repeated string sourced_by`; and `repeated CoreMatch subscribers` (`account`, `subject`, `queue`, `int32 connections`, client names as above); `optional subscriptions_at`.
+- Rules in `internal/api/subjects.go` (subject matching and overlap, the inbox fold, the server-subscription rule, the notes' facts, the order, the counts, the cut), shared by the store (`storeprov/subjects_page.go`, SQL aggregates for the subscription rows, so a list of 100,000 subscriptions is never read into Go row by row) and the demo, as `FinishCapacity` is. Subject matching may use nats-server's exported helpers (`server.SubjectsCollide`, `server.SubjectMatchesFilter`) if they fit.
+- Handler: the common range validation and `QueryTimeout` through `call()`. No epoch in the range: the empty response with `epoch` 0.
+- **Demo.** Each demo system gets subjects that tell the page's story with the shop's names: in `example-global` a stream without a consumer (a limits stream named for a test), an interest stream with one ephemeral push consumer whose connection is named, a work queue with no messages, a KV bucket with two watchers, a mirror, a queue group of three `order-service` connections, `_INBOX` subscriptions from several connections, natslens's own connection subscribed to wide `$SYS` subjects in the system account, and a subscription on `>` by a monitoring tool. One server's list is cut at the limit in `example-global`. `example-staging` has no subscription collection.
+- Conformance rows in `apitest`: a stream row with its consumers and rate; a subscription row with a queue group; the inbox fold; a push consumer's deliver subject is not a row of its own and names its client on the stream row; a server subscription is left out when CONNZ is complete and counted as unlisted when it was cut; the filters' counts; overlap; the tester (stream, consumer filter, mirror, queue group once, nothing matches, a wildcard refused); no subscription collection; the store fixture and the demo pass alike.
+- Docs: `docs/design.md` (the RPCs, the rules), `demo-mode.md`.
+
+## T3 UI
+
+- `/subjects` under Messaging (remove `planned` from `nav.ts`), with the account scope.
+- The board: title and line, filter pills with counts, the subject field on the right of the pills, the "would reach" card under them when the field holds a subject (debounced, the answer of the typed subject only), the pattern table with the board's columns, warning rows in the warning colours, and the footnote.
+- Patterns, streams, consumers and accounts link to their pages; a subscription row's names link to the Connections page filtered by name when that page has such a filter, else plain text.
+- Empty and partial states: no epoch, no subscription collection, a cut list, a subject that nothing matches, an invalid subject (the field says why).
+- Phone width: the table scrolls inside its card; the pills wrap.
+- Tests for the view functions (wording of subscribers and notes) and the page states.
+
+## T4 Feature docs and audit
+
+`docs/features/subjects.md` to shipped with what was built, `navigation.md`, `connections.md` (subscription lists are now collected), `monitoring-snapshots.md`, `running-nats-lens.md`, `demo-mode.md`, `sql-access.md` if it lists tables, the README table and coverage map, `docs/plans/next.md`. Then the audit.
+
+## Leftovers
+
+Recorded as they come up; moved to `docs/plans/next.md` item 5 when the work merges.
+
+- Service endpoints: the board's line names them, but nothing collects `$SRV` replies; they come with the Micro services page. A service's endpoints appear here today as its connections' queue subscriptions.
+- A delivered message rate per subscription from `subscriptions.msgs` (the server counts messages per subscription, not per subject).
+- Imports and exports between accounts in the tester (a message published in one account reaching a stream of another).
