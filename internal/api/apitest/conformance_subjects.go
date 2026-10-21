@@ -3,7 +3,6 @@ package apitest
 import (
 	"fmt"
 	"strings"
-	"testing"
 
 	"connectrpc.com/connect"
 
@@ -300,21 +299,4 @@ func containsString(list []string, s string) bool {
 		}
 	}
 	return false
-}
-
-// RunSubjectsConformance checks the Subjects rows of the table against
-// env, as RunConformance does the others.
-func RunSubjectsConformance(t *testing.T, env Env) {
-	t.Helper()
-	for _, row := range subjectsRows() {
-		t.Run(row.Name, func(t *testing.T) {
-			for _, sys := range env.Systems {
-				if where := row.Find(Q{t: t, env: env, System: sys}); where != "" {
-					t.Logf("%s: %s", sys, where)
-					return
-				}
-			}
-			t.Errorf("not found in %v", env.Systems)
-		})
-	}
 }
