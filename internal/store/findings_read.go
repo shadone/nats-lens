@@ -193,9 +193,8 @@ func (s *Store) Finding(ctx context.Context, id string, now time.Time) (Finding,
 	return one[0], nil
 }
 
-// applyMutes sets Mute on every firing finding an active mute covers. A
-// mute for the finding's entity wins over one for the whole check; among
-// equals the newest mute wins.
+// applyMutes sets Mute on every firing finding an active mute covers (see
+// muteFor for which one).
 func (s *Store) applyMutes(ctx context.Context, now time.Time, fs []Finding) error {
 	mutes, _, err := s.ListMutes(ctx, now, false, 1<<30, 0)
 	if err != nil {
@@ -208,12 +207,15 @@ func (s *Store) applyMutes(ctx context.Context, now time.Time, fs []Finding) err
 }
 
 // muteFor returns the mute that covers f among mutes ordered newest
-// first, or nil.
+// first, or nil. A mute for the finding's entity wins over one for the
+// whole check; among those for the entity an acceptance wins over a plain
+// mute, so the finding reads as accepted while both apply; otherwise the
+// newest wins (proposed, not yet confirmed).
 func muteFor(mutes []Mute, f Finding) *Mute {
 	if !f.Firing() {
 		return nil
 	}
-	var whole *Mute
+	var whole, entity *Mute
 	for i := range mutes {
 		m := mutes[i]
 		if m.CheckCode != f.CheckCode {
@@ -225,9 +227,12 @@ func muteFor(mutes []Mute, f Finding) *Mute {
 			}
 			continue
 		}
-		if m.EntityType == f.EntityType && m.EntityKey == f.EntityKey {
-			return &m
+		if m.EntityType == f.EntityType && m.EntityKey == f.EntityKey && (entity == nil || (m.Accepted && !entity.Accepted)) {
+			entity = &m
 		}
+	}
+	if entity != nil {
+		return entity
 	}
 	return whole
 }
