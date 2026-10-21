@@ -98,7 +98,7 @@ ORDER BY n.name`, f.Epoch)
 // by server name (so a restart continues the series), reduced in SQL to at
 // most api.GrowthBuckets medians per server.
 func (p *Provider) serverStoreGrowth(ctx context.Context, start, end time.Time) (map[string][]api.Sample, error) {
-	width := max(end.Sub(start)/api.GrowthBuckets, max(p.Interval, time.Second))
+	width := p.growthWidth(start, end)
 	rows, err := p.db().QueryContext(ctx, `
 WITH per AS (
   SELECT s.server_name AS name, e.started_at AS t, max(st.js_storage) AS v
