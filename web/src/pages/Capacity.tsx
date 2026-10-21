@@ -36,7 +36,7 @@ export function Capacity() {
           r.collected ? (
             <>
               <ServerCards servers={r.servers} withoutJetstream={r.serversWithoutJetstream} />
-              <StreamsTable key={system} d={r} answeredAt={q.dataUpdatedAt} />
+              <StreamsTable key={system} d={r} answeredAt={q.dataUpdatedAt} live={spec.kind === "live"} />
             </>
           ) : (
             <Empty>No collection in this range.</Empty>

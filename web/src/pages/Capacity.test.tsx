@@ -161,6 +161,21 @@ describe("Capacity", () => {
     expect(await within(row("order-archive")).findByRole("button", { name: "Accept order-archive as by design…" })).toBeInTheDocument();
   });
 
+  it("keeps the saved acceptance on a fixed range, whose answers apply the mutes of its end", async () => {
+    getCapacity.mockResolvedValue(prod());
+    muteFinding.mockResolvedValue(acceptance({ reason: "Kept", mutedBy: "denis" }));
+    renderApp(<Capacity />, "/capacity?from=2026-10-20T00:00:00Z&to=2026-10-21T00:00:00Z");
+    await userEvent.click(await screen.findByRole("button", { name: "Accept order-archive as by design…" }));
+    const dlg = within(screen.getByRole("dialog"));
+    await userEvent.type(dlg.getByLabelText("Reason"), "Kept");
+    await userEvent.type(dlg.getByLabelText("Your name"), "denis");
+    await userEvent.click(dlg.getByRole("button", { name: "Accept as by design" }));
+    await waitFor(() => expect(getCapacity).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await new Promise((r) => setTimeout(r, 50));
+    expect(cellTexts("order-archive")[5]).toMatch(/^BY DESIGNAccepted by denis: Kept\./);
+  });
+
   it("moves focus to the accepted row's stream, as its button is gone", async () => {
     getCapacity.mockResolvedValueOnce(prod());
     getCapacity.mockImplementation(() => new Promise(() => {}));
