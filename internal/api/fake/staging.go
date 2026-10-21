@@ -50,6 +50,7 @@ func stagingScenario() *scenario {
 			{stream: "KV_customer-config", description: "Per-customer settings", history: 5, maxBytes: 64 * mib},
 		},
 		clients:         []string{"order-service", "catalog-api", "resize-worker"},
+		apiRate:         0.3,
 		metaLeader:      "nats-1",
 		links:           stagingLinks(),
 		stale:           stagingStale,

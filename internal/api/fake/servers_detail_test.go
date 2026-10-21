@@ -57,10 +57,10 @@ func TestGlobalServerDetail(t *testing.T) {
 	if !slices.Equal(differ, []string{"nats-ap-3:max_payload"}) {
 		t.Errorf("servers with differing limits = %v", differ)
 	}
-	// 13 streams, 2 KV stores and an object store, each led by one server
+	// 16 streams, 2 KV stores and an object store, each led by one server
 	// except basket-events, which has no leader in the newest epoch.
-	if leaders != 15 {
-		t.Errorf("stream leaders sum to %d, want 15", leaders)
+	if leaders != 18 {
+		t.Errorf("stream leaders sum to %d, want 18", leaders)
 	}
 	// The servers' slow consumers add up to the system's count in the range.
 	series := must(c.GetTimeSeries(ctx, connect.NewRequest(&v1.GetTimeSeriesRequest{System: fake.GlobalSystem, Metric: "cluster.slow_consumers"})))
