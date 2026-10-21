@@ -221,3 +221,19 @@ func TestEmptySnapshotKeepsLookupTimes(t *testing.T) {
 		t.Errorf("an empty snapshot forgot: %v %v", c.accountAsked, c.accountNames)
 	}
 }
+
+// A wall clock stepped back after a lookup makes the account due again
+// at once, rather than wait until the clock passes the old lookup.
+func TestAccountLookupAfterClockStepsBack(t *testing.T) {
+	snap := NewSnapshot(time.Now())
+	v := snap.view(server.ServerInfo{ID: "N0", Name: "nats-0"})
+	v.Accountz = &server.Accountz{Accounts: []string{"APP"}}
+	now := time.Now()
+	asked := map[string]time.Time{"APP": now}
+	if got := accountsToLookUp(snap, asked, now.Add(time.Minute)); len(got) != 0 {
+		t.Fatalf("asked again within the interval: %v", got)
+	}
+	if got := accountsToLookUp(snap, asked, now.Add(-time.Hour)); !slices.Equal(got, []string{"APP"}) {
+		t.Errorf("after the clock stepped back an hour: %v, want APP", got)
+	}
+}

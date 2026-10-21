@@ -8,7 +8,7 @@ The board's sample names come from a sketch of a real deployment. Use the exampl
 
 | Task | Status |
 |---|---|
-| T1 Collect subscription lists | not started |
+| T1 Collect subscription lists | built on `feat/subjects-collect`, awaiting review |
 | T2 API, store and demo | not started |
 | T3 UI | not started |
 | T4 Feature docs and audit | not started |
@@ -54,6 +54,22 @@ The feature doc says one row per subject pattern. A stream with several subjects
 - **No JWT, no payload.** SUBSZ carries neither; nothing else is kept.
 - **Docs.** `docs/design.md` (what is collected and how often), `monitoring-snapshots.md`, `running-nats-lens.md` (the two options), the SQL access table list if it names tables.
 - **Tests.** The interval (asked on the first epoch, not again before the interval, again after it; 0 never); the limit; folding of duplicate subscriptions of one connection; queue groups; missing marked only when asked; the migration applies on a store with data; archive and rebuild with and without the new tables; an in-process cluster test: a client's subscription is listed once in a 3-node cluster, with its account, queue and `cid` matching the CONNZ row.
+
+### Where T1 departed from this plan
+
+Each point was decided in the session that built T1: proposed, not yet confirmed.
+
+- **`subscription_lists.total` is SUBSZ `total`, not `num_subscriptions`.** `num_subscriptions` counts every entry of the accounts' subject trees, route and gateway interest included: in the 3-node test cluster each server reported 217 to 242 against 73 to 98 local subscriptions. `total` is the number of local subscriptions before the limit, the figure "nats-1 listed 10,000 of 48,211" needs. `num_subscriptions` is not stored with the list; `server_stats.subscriptions` holds the VARZ value.
+- **One second of slack.** A collection is due when the last one started at least `subscriptions_interval` less one second ago. Epoch starts jitter by milliseconds; without the slack a 5-minute interval at a 30-second epoch interval often became 5 minutes 30.
+- **Asked when sent.** An epoch that sent SUBSZ counts as the last collection whether or not any server answered, as an account lookup does; a collection that no server answered is not retried before the interval.
+- **What SUBSZ lists, confirmed.** `monitor.go` `Subsz` walks every account and calls `acc.sl.localSubs(&subs, false)`; `sublist.go` `addLocalSub` keeps a subscription whose client kind is `CLIENT`, `SYSTEM`, `JETSTREAM` or `ACCOUNT` (leaf hubs only when asked, which SUBSZ does not), so route, gateway and leaf node interest is never listed. Internal clients take their cid from the same counter as clients (`client.go` `initClient`), so they never share a CONNZ cid. In the 3-node test (`TestSubszClusterListsEachSubscriptionOnce`) a client's queue subscription was listed once, by its own server, with the account, queue group and cid of that server's CONNZ row; most of each server's 73 to 98 listed subscriptions were its own clients': in `SYS` the `$SYS.REQ.>` services (46), `$SYS.SERVER.>`, `$SYS.ACCOUNT.>`, `$NRG.>` raft subjects, `$JSC.>` and `$JS.API.>`; in each account, `$G` included, `$JS.API.>` and four `$SYS.REQ.>` service imports. A stream's subjects (`inventory.>`) were listed once, under the stream leader's JetStream client. T2's server-subscription rule covers all of these by cid.
+- **Batched writes.** Subscriptions go to DuckDB as JSON batches of 5,000 rows (`from_json` and `unnest`, as the findings writer does) rather than one prepared insert per row; two lists of 10,000 are written in about 80 ms in memory (`TestSubscriptionsLargeList`).
+- **Indexes and types.** `subscription_lists` has a unique index on (`epoch`, `server_id`); `subscriptions` none, as the other per-entity stats tables. `subs` is INTEGER, `msgs` BIGINT, `cid` BIGINT as in `connections`.
+- **Account names.** SUBSZ gives each subscription's account name tag; the writer does not record it in `accounts`, which CONNZ, STATZ, JSZ and ACCOUNTZ fill.
+- **Reply size.** A reply of 10,000 subscriptions measured about 1.5 MB in config mode and crossed a route to the collector without trouble (`TestSubszTenThousandOverARoute`); with 56-character account keys and name tags the field sizes make it about 2.3 MB. The server sends it as an internal reply, which `max_payload` does not limit, and the collector's inbox has no pending limits. `subsz_limit` has no upper bound; a much larger limit makes a larger reply.
+- **The start log.** It names `connz_limit` too, which it did not before.
+- **The store fixture.** `fixtureSnapshot` in `internal/store` now carries a SUBSZ reply per server (nats-0 lists 5 of 7, with a folded queue pair, an inbox and an internal client's subscription; nats-1 lists 1), which T2's store tests can build on.
+- **Docs beyond the list.** The README (configuration table, the keys shared by systems, the collector line, the table list and a paragraph on the two tables), `natslens.example.yaml`, the coverage line of monitoring snapshots in `docs/features/README.md`, and a `natslens sql` scenario in `monitoring-snapshots.md`.
 
 ## T2 API, store and demo
 

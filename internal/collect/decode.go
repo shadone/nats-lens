@@ -121,6 +121,10 @@ func (snap *Snapshot) Apply(e Endpoint, b []byte) error {
 		var d server.IpqueueszStatus
 		info, d, err = decodeReply[server.IpqueueszStatus](b)
 		set = func(v *ServerView) { v.Ipqueuesz = d }
+	case Subsz:
+		var d *server.Subsz
+		info, d, err = decodeReply[*server.Subsz](b)
+		set = func(v *ServerView) { v.Subsz = d }
 	default:
 		return fmt.Errorf("unknown endpoint %s", e)
 	}

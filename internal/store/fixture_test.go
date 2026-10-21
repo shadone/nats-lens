@@ -81,6 +81,7 @@ func fixtureSnapshot(t *testing.T, start time.Time) *collect.Snapshot {
 			"SYS": {"_meta_": map[string]any{"id": "_meta_", "state": "FOLLOWER", "size": 3, "leader": "nats-1",
 				"peers": map[string]any{"yrzKKRBu": map[string]any{"name": "nats-1", "known": true}}}},
 		}))
+		mustApply(t, snap, collect.Subsz, envelope(t, s.name, s.id, fixtureSubsz(s.id, i)))
 		mustApply(t, snap, collect.Ipqueuesz, envelope(t, s.name, s.id, map[string]any{
 			"/stream/APP/order-jobs/inflight": map[string]any{"pending": 3, "in_progress": 1},
 		}))
@@ -95,6 +96,26 @@ func fixtureSnapshot(t *testing.T, start time.Time) *collect.Snapshot {
 	snap.Expected = []string{"nats-0", "nats-1", "nats-2"}
 	snap.FinishedAt = start.Add(250 * time.Millisecond)
 	return snap
+}
+
+// fixtureSubsz is a SUBSZ reply. nats-0 lists 5 of its 7 subscriptions:
+// the media-worker connection (cid 7) holds two subscriptions on one
+// subject and queue group, one plain and one inbox subscription, and the
+// server's own JetStream client (cid 2, not in CONNZ) one. nats-1 lists
+// its one subscription.
+func fixtureSubsz(id string, i int) *server.Subsz {
+	if i == 0 {
+		return &server.Subsz{ID: id, SublistStats: &server.SublistStats{NumSubs: 40}, Total: 7, Limit: 5,
+			Subs: []server.SubDetail{
+				{Account: "APP", Subject: "media.resize.>", Queue: "media-worker", Sid: "1", Msgs: 3, Cid: 7},
+				{Account: "APP", Subject: "media.resize.>", Queue: "media-worker", Sid: "2", Msgs: 4, Cid: 7},
+				{Account: "APP", Subject: "media.status", Sid: "3", Msgs: 1, Cid: 7},
+				{Account: "APP", Subject: "_INBOX.k3J9.*", Sid: "4", Cid: 7},
+				{Account: "APP", Subject: "$JS.API.>", Sid: "5", Cid: 2},
+			}}
+	}
+	return &server.Subsz{ID: id, SublistStats: &server.SublistStats{NumSubs: 40}, Total: 1, Limit: 5,
+		Subs: []server.SubDetail{{Account: "APP", Subject: "media.status", Sid: "1", Cid: 7}}}
 }
 
 func count(t *testing.T, db *sql.DB, q string, args ...any) int {
