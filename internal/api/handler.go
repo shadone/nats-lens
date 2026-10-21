@@ -407,3 +407,15 @@ func (h *Handler) GetAccountsAndAuth(ctx context.Context, req *connect.Request[v
 		return FinishAccounts(f), nil
 	})
 }
+
+func (h *Handler) GetCapacity(ctx context.Context, req *connect.Request[v1.GetCapacityRequest]) (*connect.Response[v1.GetCapacityResponse], error) {
+	return call(ctx, h, "GetCapacity", req.Msg, func(p Provider, m *v1.GetCapacityRequest) error {
+		return withRange(p, &m.Range)
+	}, func(s System, ctx context.Context, m *v1.GetCapacityRequest) (*v1.GetCapacityResponse, error) {
+		f, err := s.Provider.Capacity(ctx, m)
+		if err != nil {
+			return nil, err
+		}
+		return FinishCapacity(f), nil
+	})
+}

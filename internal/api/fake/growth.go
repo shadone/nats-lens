@@ -14,6 +14,12 @@ import (
 // (api.RobustPerDay). It is unset when the data in the range spans less
 // than six hours, as for a short range or a system that stopped collecting.
 func (s scen) growth(e *v1.EntityRef, r *v1.TimeRange) *float64 {
+	return s.growthOf("stream.bytes", e, r)
+}
+
+// growthOf is growth's rule for any metric of the scenario: a stream's
+// messages, a server's file store.
+func (s scen) growthOf(metric string, e *v1.EntityRef, r *v1.TimeRange) *float64 {
 	start := latest(r.GetStart().AsTime(), s.dataStart())
 	end := earliest(r.GetEnd().AsTime(), s.dataEnd())
 	width := max(r.GetEnd().AsTime().Sub(r.GetStart().AsTime())/api.GrowthBuckets, sampleEvery)
@@ -27,7 +33,7 @@ func (s scen) growth(e *v1.EntityRef, r *v1.TimeRange) *float64 {
 			continue
 		}
 		mid := first.Add(last.Sub(first) / 2)
-		if v, ok := s.sc.value("stream.bytes", e, s.clock(mid)); ok {
+		if v, ok := s.sc.value(metric, e, s.clock(mid)); ok {
 			pts = append(pts, api.Sample{T: mid, V: v})
 		}
 	}

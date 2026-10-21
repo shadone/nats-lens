@@ -39,6 +39,20 @@ type streamSpec struct {
 	// policy; zero means no limit and "" discard old.
 	maxBytes int64
 	discard  string
+	// retention and storage are "" for limits and file; maxMsgs,
+	// perSubject and maxAge are the other limits, zero for none. A KV
+	// bucket's or object store's limits come from its bucketSpec instead.
+	retention, storage  string
+	maxMsgs, perSubject int64
+	maxAge              time.Duration
+	// held is the age of the oldest message at the scenario's present;
+	// zero means maxAge (a stream at its age limit).
+	held time.Duration
+	// mirror is the stream this one mirrors; sources those it sources.
+	mirror  string
+	sources []string
+	// declared is a stream the inventory declares unbounded on purpose.
+	declared bool
 	// vanished are durables the servers held until a time and no server
 	// holds since; they are listed for a range whose newest epoch is
 	// before that time.
