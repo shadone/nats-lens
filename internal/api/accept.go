@@ -54,6 +54,12 @@ const (
 // Span is a time span (From, To].
 type Span struct{ From, To time.Time }
 
+// AcceptRetention is the retention the growth review needs: its earliest
+// span starts this long before the review. With a shorter retention the
+// sweep has removed that span, so acceptances record no growth and never
+// end early; nats-lens warns at start (proposed, not yet confirmed).
+const AcceptRetention = week + day + spanMargin
+
 // AcceptGrowthSpans are the spans WeeklyGrowth reads at t: the day before
 // t and the day a week before that, each an hour wider. Nothing between
 // them is read, so the review reads two days of data, not eight.

@@ -63,3 +63,17 @@ func TestCountFloorRefusesACoveredDayOfFewSamples(t *testing.T) {
 		t.Errorf("%d samples covering the day: rate %v, want none", len(last), g.PerDay)
 	}
 }
+
+// AcceptRetention reaches back to the start of the review's earliest span.
+func TestAcceptRetentionCoversTheReviewSpans(t *testing.T) {
+	at := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
+	earliest := at
+	for _, sp := range AcceptGrowthSpans(at) {
+		if sp.From.Before(earliest) {
+			earliest = sp.From
+		}
+	}
+	if got := at.Sub(earliest); got != AcceptRetention {
+		t.Errorf("the spans reach back %v, AcceptRetention is %v", got, AcceptRetention)
+	}
+}

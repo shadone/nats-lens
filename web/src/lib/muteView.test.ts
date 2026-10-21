@@ -40,4 +40,12 @@ describe("muteView", () => {
     expect(baselineText(acceptance({ accepted: false }), fmtGrowth)).toBe("");
     expect(baselineText(acceptance({ entity: undefined }), fmtGrowth)).toBe("");
   });
+
+  it("says the review cannot run under a retention shorter than it needs", () => {
+    const short = "This nats-lens keeps 7 days of history and the growth review needs 8 days and an hour, so no baseline is recorded and the acceptance does not end early; it ends at its review date.";
+    expect(baselineText(acceptance({ growthPerDay: undefined }), fmtGrowth, 7 * 86_400_000)).toBe(short);
+    expect(baselineText(acceptance(), fmtGrowth, 7 * 86_400_000)).toMatch(/over the last 7 days; this nats-lens keeps 7 days of history and the growth review needs 8 days and an hour, so the acceptance does not end early;/);
+    expect(baselineText(acceptance({ growthPerDay: undefined }), fmtGrowth, 14 * 86_400_000)).toMatch(/^No growth baseline is recorded yet/);
+    expect(baselineText(acceptance({ growthPerDay: undefined }), fmtGrowth, 0)).toMatch(/^No growth baseline is recorded yet/);
+  });
 });
