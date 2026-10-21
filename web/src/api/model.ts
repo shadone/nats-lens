@@ -56,6 +56,12 @@ export interface Mute {
   expiresAt?: number;
   unmutedAt?: number;
   unmutedBy: string;
+  /** An acceptance as by design: expiresAt is its review date. */
+  accepted: boolean;
+  /** The accepted entity's week's growth, bytes per day; undefined until nats-lens can measure it. */
+  growthPerDay?: number;
+  /** Why nats-lens ended the acceptance early; empty otherwise. */
+  endReason: string;
 }
 
 export interface Finding {

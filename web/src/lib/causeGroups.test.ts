@@ -73,7 +73,7 @@ describe("groupCauses", () => {
     const { groups, muted } = groupCauses([
       f("i", "stream-005", streamEnt("a"), { severity: "info" }),
       f("c", "consumer-006", consumerEnt("b", "x"), { severity: "critical" }),
-      f("m", "stream-006", streamEnt("c"), { severity: "warning", mute: { id: "m1", checkCode: "stream-006", reason: "by design", mutedBy: "ops", unmutedBy: "" } }),
+      f("m", "stream-006", streamEnt("c"), { severity: "warning", mute: { id: "m1", checkCode: "stream-006", reason: "by design", mutedBy: "ops", unmutedBy: "", accepted: false, endReason: "" } }),
     ]);
     expect(groups.map((g) => g.severity)).toEqual(["critical", "info"]);
     expect(muted.map((m) => m.id)).toEqual(["m"]);
