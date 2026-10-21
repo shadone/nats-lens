@@ -303,15 +303,15 @@ func NextLimitOf(epochAt time.Time, s *v1.CapacityStream) *v1.NextLimit {
 }
 
 // compareServerStores groups the cards by cluster in name order, then
-// puts the soonest full first in whole days, then the fullest, then orders
-// by name. Days are rounded so that stores whose growth differs only by
-// floating-point noise keep their name order from one answer to the next.
+// puts the soonest full first as the card words it (ShownDays), then the
+// fullest, then orders by name. Two cards whose words are the same never
+// swap on floating-point noise in their growth.
 func compareServerStores(a, b *v1.ServerStore) int {
 	days := func(s *v1.ServerStore) *float64 {
 		if s.DaysToFull == nil {
 			return nil
 		}
-		d := math.Round(s.GetDaysToFull())
+		d := ShownDays(s.GetDaysToFull())
 		return &d
 	}
 	share := func(s *v1.ServerStore) float64 {
@@ -322,6 +322,27 @@ func compareServerStores(a, b *v1.ServerStore) int {
 	}
 	return cmp.Or(cmp.Compare(a.GetCluster(), b.GetCluster()), compareSoonest(days(a), days(b)),
 		cmp.Compare(share(b), share(a)), cmp.Compare(a.GetServerName(), b.GetServerName()))
+}
+
+// ShownDays is days to full in the unit the card's words use
+// (web/src/lib/capacityView.ts daysWords): whole hours under a day, tenths
+// of a day under 10 days, whole days under 60, months under two years,
+// whole years up to 5 years, and every longer time as one group.
+func ShownDays(d float64) float64 {
+	const year = 365.25
+	switch {
+	case d < 1:
+		return max(1, math.Round(d*24)) / 24
+	case d < 10:
+		return math.Round(d*10) / 10
+	case d < 60:
+		return math.Round(d)
+	case d < 730:
+		return math.Round(d/(year/12)) * (year / 12)
+	case d <= 5*year:
+		return math.Round(d/year) * year
+	}
+	return math.Inf(1)
 }
 
 // compareSoonest orders known days first, the fewest first.
