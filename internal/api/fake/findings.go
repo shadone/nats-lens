@@ -115,6 +115,7 @@ func prodFindings(s scen) []*v1.Finding {
 // unmuted before muted, then by severity, then the longest firing first.
 func (p *Provider) findings(s scen) []*v1.Finding {
 	all := s.sc.findings(s)
+	withRemediation(all)
 	p.mu.Lock()
 	for _, f := range all {
 		if f.GetState() == resolved {
