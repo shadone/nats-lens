@@ -53,3 +53,9 @@ describe("capacity.css at a phone width", () => {
     expect(rule).not.toMatch(/white-space:nowrap/);
   });
 });
+
+describe("capacity.css stream names", () => {
+  it("breaks a long stream name, so it stays inside the sticky first column at a phone width", () => {
+    expect(css).toMatch(/\.cap-tbl \.cap-name\{[^}]*overflow-wrap:anywhere/);
+  });
+});
