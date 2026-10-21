@@ -146,7 +146,8 @@ func TestCapacityStatusAndOrder(t *testing.T) {
 	if s := status["small"]; s.MaxMsgs != nil || s.MaxBytes != nil || s.GetMaxAge().AsDuration() != 7*day {
 		t.Errorf("limits not set are unset: %v", s)
 	}
-	head := []string{"sooner", "soon", "awaiting-big", "awaiting", "declared-but-fires", "wide", "big", "small"}
+	// A muted forecast ("soon") sorts after the rows awaiting a decision.
+	head := []string{"sooner", "awaiting-big", "awaiting", "declared-but-fires", "soon", "wide", "big", "small"}
 	if !slices.Equal(order[:len(head)], head) {
 		t.Errorf("order %v, want it to start %v", order, head)
 	}
@@ -214,7 +215,8 @@ func TestCapacityServers(t *testing.T) {
 	if s := by["a-nolimit"]; s.Limit != nil || s.DaysToFull != nil || s.GetUsed() != 5 {
 		t.Errorf("a-nolimit = %v", s)
 	}
-	if s := by["a-gone"]; s.GetReported() || s.Used != nil || s.Limit != nil || s.DaysToFull != nil || s.GetPerDay() != 3 {
+	// Not reported: no rate from earlier collections either.
+	if s := by["a-gone"]; s.GetReported() || s.Used != nil || s.Limit != nil || s.DaysToFull != nil || s.PerDay != nil {
 		t.Errorf("a-gone = %v", s)
 	}
 	if by["b-empty"].PerDay != nil || by["b-empty"].DaysToFull != nil {

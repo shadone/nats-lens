@@ -40,7 +40,8 @@ message ServerStore {
   optional int64 limit = 5;
 
   // Growth of the file store in use over the range, bytes per day, by
-  // Theil-Sen (RobustPerDay); unset under 6 hours of data. May be negative.
+  // Theil-Sen (RobustPerDay); unset under 6 hours of data and when not
+  // reported. May be negative.
   optional double per_day = 6;
 
   // Days until used reaches limit at per_day; set only when per_day is
@@ -154,8 +155,8 @@ enum CapacityStatus {
   CAPACITY_STATUS_BOUNDED = 7;
 }
 
-// One stream, KV bucket or object store in the epoch, read from its
-// leader's report (else the first reporting server by name).
+// One stream, KV bucket or object store in the epoch, with ListStreams'
+// numbers: its leader's report, else the largest any server reports.
 message CapacityStream {
   // Account as the servers report it.
   string account = 1;
@@ -264,9 +265,10 @@ message GetCapacityResponse {
   // Servers the epoch expected that answered without JetStream.
   int32 servers_without_jetstream = 4;
 
-  // Streams: those whose stream-006 fires first (soonest first), then
-  // those awaiting a decision, then the others by bytes times replicas,
-  // most first, then by account and name. At most 500.
+  // Streams: those whose stream-006 fires unmuted first (soonest first),
+  // then those awaiting a decision, then those whose stream-006 fires
+  // under a mute, then the others by bytes times replicas, most first,
+  // then by account and name. At most 500.
   repeated CapacityStream streams = 5;
 
   // Streams before the limit of 500.

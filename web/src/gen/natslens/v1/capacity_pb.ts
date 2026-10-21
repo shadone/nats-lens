@@ -93,7 +93,8 @@ export type ServerStore = Message<"natslens.v1.ServerStore"> & {
 
   /**
    * Growth of the file store in use over the range, bytes per day, by
-   * Theil-Sen (RobustPerDay); unset under 6 hours of data. May be negative.
+   * Theil-Sen (RobustPerDay); unset under 6 hours of data and when not
+   * reported. May be negative.
    *
    * @generated from field: optional double per_day = 6;
    */
@@ -190,8 +191,8 @@ export const NextLimitSchema: GenMessage<NextLimit> = /*@__PURE__*/
   messageDesc(file_natslens_v1_capacity, 2);
 
 /**
- * One stream, KV bucket or object store in the epoch, read from its
- * leader's report (else the first reporting server by name).
+ * One stream, KV bucket or object store in the epoch, with ListStreams'
+ * numbers: its leader's report, else the largest any server reports.
  *
  * @generated from message natslens.v1.CapacityStream
  */
@@ -441,9 +442,10 @@ export type GetCapacityResponse = Message<"natslens.v1.GetCapacityResponse"> & {
   serversWithoutJetstream: number;
 
   /**
-   * Streams: those whose stream-006 fires first (soonest first), then
-   * those awaiting a decision, then the others by bytes times replicas,
-   * most first, then by account and name. At most 500.
+   * Streams: those whose stream-006 fires unmuted first (soonest first),
+   * then those awaiting a decision, then those whose stream-006 fires
+   * under a mute, then the others by bytes times replicas, most first,
+   * then by account and name. At most 500.
    *
    * @generated from field: repeated natslens.v1.CapacityStream streams = 5;
    */

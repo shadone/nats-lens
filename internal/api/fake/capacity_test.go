@@ -44,11 +44,11 @@ func checkStreams(t *testing.T, system string, by map[string]*v1.CapacityStream,
 }
 
 // example-prod: three cards a few percent full that fill in more than 5
-// years; a stream of every kind; order-archive awaiting a decision,
-// KV_customer-config accepted, audit-archive filling.
+// years; a stream of every kind; order-archive awaiting a decision first,
+// then audit-archive filling under its mute; KV_customer-config accepted.
 func TestDemoCapacityProd(t *testing.T) {
 	res, by, servers := capacityOf(t, fake.Cluster)
-	if len(servers) != 3 || res.GetStreamsTotal() != 13 || res.GetStreams()[0].GetStream() != "audit-archive" || res.GetStreams()[1].GetStream() != "order-archive" {
+	if len(servers) != 3 || res.GetStreamsTotal() != 13 || res.GetStreams()[0].GetStream() != "order-archive" || res.GetStreams()[1].GetStream() != "audit-archive" {
 		t.Fatalf("prod: %d servers, %d streams, first %v", len(servers), res.GetStreamsTotal(), res.GetStreams()[:2])
 	}
 	for _, s := range servers {
