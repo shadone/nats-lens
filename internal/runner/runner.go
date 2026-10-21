@@ -223,12 +223,13 @@ func ReviewAcceptances(ctx context.Context, st *store.Store, epoch int64, interv
 	for _, m := range ms {
 		ents = append(ents, store.EntityKey{Type: m.EntityType, Key: m.EntityKey})
 	}
-	pts, err := st.GrowthPoints(ctx, growthSpans(at), api.AcceptGrowthWidth(interval), ents)
+	width := api.AcceptGrowthWidth(interval)
+	pts, err := st.GrowthPoints(ctx, growthSpans(at), width, ents)
 	if err != nil {
 		return res, err
 	}
 	for _, m := range ms {
-		now := api.WeeklyGrowth(samples(pts[store.EntityKey{Type: m.EntityType, Key: m.EntityKey}]), at)
+		now := api.WeeklyGrowth(samples(pts[store.EntityKey{Type: m.EntityType, Key: m.EntityKey}]), at, width)
 		if now == nil {
 			continue
 		}

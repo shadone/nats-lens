@@ -70,7 +70,8 @@ func (p *Provider) acceptGrowth(ctx context.Context, now time.Time, e store.Enti
 	for _, sp := range api.AcceptGrowthSpans(now) {
 		spans = append(spans, store.Span{From: sp.From, To: sp.To})
 	}
-	pts, err := p.St.GrowthPoints(ctx, spans, api.AcceptGrowthWidth(p.Interval), []store.EntityKey{e})
+	width := api.AcceptGrowthWidth(p.Interval)
+	pts, err := p.St.GrowthPoints(ctx, spans, width, []store.EntityKey{e})
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +79,7 @@ func (p *Provider) acceptGrowth(ctx context.Context, now time.Time, e store.Enti
 	for _, pt := range pts[e] {
 		s = append(s, api.Sample{T: pt.T, V: pt.V})
 	}
-	if g := api.WeeklyGrowth(s, now); g != nil {
+	if g := api.WeeklyGrowth(s, now, width); g != nil {
 		return &g.PerDay, nil
 	}
 	return nil, nil
