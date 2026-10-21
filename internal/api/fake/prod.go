@@ -66,7 +66,7 @@ func prodScenario() *scenario {
 		kubernetes:    true,
 		sample:        prodSample,
 		slowEvents:    prodSlowConsumerEvents,
-		mutes:         func() []*storedMute { return []*storedMute{prodSeedMute()} },
+		mutes:         func() []*storedMute { return []*storedMute{prodSeedMute(), prodSeedAcceptance()} },
 		transitions:   prodTransitions,
 		consumer:      prodConsumer,
 		created:       prodCreated,
@@ -128,6 +128,19 @@ func prodTransitions(s scen, f *v1.Finding) []*v1.FindingTransition {
 func prodSlowDetail(n int, servers string, last time.Time) string {
 	return fmt.Sprintf("%d slow consumer disconnects in the last 30m (%s), the last at %s UTC: Slow Consumer (Write Deadline).", n, servers,
 		last.UTC().Format("15:04:05"))
+}
+
+// prodSeedAcceptance accepts stream-005 on KV_customer-config as by
+// design, with the bucket's growth when it was accepted and a review date
+// six months later.
+func prodSeedAcceptance() *storedMute {
+	s := scen{now: FixedNow}
+	return &storedMute{relative: true, m: &v1.Mute{
+		Id: "2", CheckCode: "stream-005", Entity: streamRef("KV_customer-config"), Accepted: true, GrowthPerDay: ptr(1.0 * kib),
+		Reason:    "Customer records are kept for the account's life.",
+		MutedBy:   "ops@example.com",
+		CreatedAt: ts(s.on(3, 9, 0)), ExpiresAt: ts(s.on(3, 9, 0).AddDate(0, 6, 0)),
+	}}
 }
 
 func prodSeedMute() *storedMute {

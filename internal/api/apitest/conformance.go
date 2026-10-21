@@ -610,7 +610,23 @@ func Conformance() []State {
 		{"a finding resolved in the range", findingIn(v1.FindingState_FINDING_STATE_RESOLVED)},
 		{"a muted firing finding", func(q Q) string {
 			for _, f := range q.findings() {
-				if f.GetMute() != nil && f.GetState() == v1.FindingState_FINDING_STATE_FIRING {
+				if f.GetMute() != nil && !f.GetMute().GetAccepted() && f.GetState() == v1.FindingState_FINDING_STATE_FIRING {
+					return f.GetId()
+				}
+			}
+			return ""
+		}},
+		{"a finding under an acceptance, counted as muted", func(q Q) string {
+			for _, f := range q.findings() {
+				m := f.GetMute()
+				if m == nil || !m.GetAccepted() || m.GetEntity().GetKey() == "" || m.GetUnmutedAt() != nil {
+					continue
+				}
+				// Not among the unmuted findings: the tally and the
+				// default list treat it as muted.
+				unmuted := must(q.env.Client.ListFindings(ctx, connect.NewRequest(&v1.ListFindingsRequest{System: q.System,
+					Range: q.day(), PageSize: 1000}))).of(q.t).GetFindings()
+				if !slices.ContainsFunc(unmuted, func(u *v1.Finding) bool { return u.GetId() == f.GetId() }) {
 					return f.GetId()
 				}
 			}

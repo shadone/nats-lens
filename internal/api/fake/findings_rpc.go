@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -92,6 +93,9 @@ func (s scen) transitions(f *v1.Finding) []*v1.FindingTransition {
 type storedMute struct {
 	m        *v1.Mute
 	relative bool
+	// seededLift marks a seeded mute that was lifted in the scenario (an
+	// acceptance nats-lens ended): its unmuted_at moves with it.
+	seededLift bool
 }
 
 // view returns a copy of the mute as of the scenario s.
@@ -103,9 +107,15 @@ func (sm *storedMute) view(s scen) *v1.Mute {
 		Id: sm.m.GetId(), CheckCode: sm.m.GetCheckCode(), Entity: sm.m.GetEntity(), Reason: sm.m.GetReason(),
 		MutedBy: sm.m.GetMutedBy(), UnmutedBy: sm.m.GetUnmutedBy(),
 		CreatedAt: ts(sm.m.GetCreatedAt().AsTime().Add(s.shift)), ExpiresAt: ts(sm.m.GetExpiresAt().AsTime().Add(s.shift)),
+		Accepted: sm.m.GetAccepted(), GrowthPerDay: sm.m.GrowthPerDay, EndReason: sm.m.GetEndReason(),
 	}
 	if sm.m.GetUnmutedAt() != nil {
 		out.UnmutedAt = sm.m.GetUnmutedAt()
+		// A seeded lift moves with the scenario; a lift through the API
+		// is absolute.
+		if sm.seededLift {
+			out.UnmutedAt = ts(sm.m.GetUnmutedAt().AsTime().Add(s.shift))
+		}
 	}
 	return out
 }
@@ -123,15 +133,25 @@ func (sm *storedMute) covers(f *v1.Finding) bool {
 	return e == nil || (e.GetType() == f.GetEntity().GetType() && e.GetKey() == f.GetEntity().GetKey())
 }
 
-// MuteFinding keeps a new mute in memory.
+// MuteFinding keeps a new mute in memory. An acceptance of a stream
+// records the stream's growth over the 24 hours before now, by the rule of
+// the store; the growth review that may end it is not simulated.
 func (p *Provider) MuteFinding(_ context.Context, req *v1.MuteFindingRequest) (*v1.Mute, error) {
-	now := p.Now()
+	s := p.scen()
+	now := s.now
+	m := &v1.Mute{
+		Id: "", CheckCode: req.GetCheckCode(), Entity: req.GetEntity(), Reason: req.GetReason(),
+		MutedBy: req.GetMutedBy(), CreatedAt: ts(now), ExpiresAt: req.GetExpiresAt(), Accepted: req.GetAccept(),
+	}
+	if m.Accepted && req.GetEntity().GetType() == v1.EntityType_ENTITY_TYPE_STREAM {
+		acc, name, _ := strings.Cut(req.GetEntity().GetKey(), "/")
+		if _, err := s.sc.findStream(acc, name); err == nil {
+			m.GrowthPerDay = s.growth(streamRef(name), &v1.TimeRange{Start: ts(now.Add(-api.AcceptGrowthWindow)), End: ts(now)})
+		}
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	m := &v1.Mute{
-		Id: strconv.Itoa(p.nextID), CheckCode: req.GetCheckCode(), Entity: req.GetEntity(), Reason: req.GetReason(),
-		MutedBy: req.GetMutedBy(), CreatedAt: ts(now), ExpiresAt: req.GetExpiresAt(),
-	}
+	m.Id = strconv.Itoa(p.nextID)
 	p.nextID++
 	p.mutes = append(p.mutes, &storedMute{m: m})
 	return proto.Clone(m).(*v1.Mute), nil

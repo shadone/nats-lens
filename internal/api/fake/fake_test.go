@@ -3,6 +3,7 @@ package fake_test
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -52,7 +53,7 @@ func TestOverviewReproducesTheReferenceScenario(t *testing.T) {
 		t.Fatalf("range = %v", o.GetRange())
 	}
 	tl := o.GetTally()
-	if tl.GetCritical() != 1 || tl.GetWarning() != 3 || tl.GetInfo() != 1 || tl.GetMuted() != 1 || tl.GetFlapping() != 1 || tl.GetResolved_24H() != 8 {
+	if tl.GetCritical() != 1 || tl.GetWarning() != 3 || tl.GetInfo() != 1 || tl.GetMuted() != 2 || tl.GetFlapping() != 1 || tl.GetResolved_24H() != 8 {
 		t.Fatalf("tally = %v", tl)
 	}
 	w := o.GetWorstFinding()
@@ -85,7 +86,9 @@ func TestListFindingsFiltersAndPages(t *testing.T) {
 		t.Fatalf("default: %d, first %s", got.GetTotalCount(), got.GetFindings()[0].GetCheckCode())
 	}
 	all := list(&v1.ListFindingsRequest{IncludeMuted: true})
-	if all.GetTotalCount() != 6 || all.GetFindings()[5].GetMute().GetMutedBy() != "denis" {
+	// Muted last: stream-006 under its mute, stream-005 on
+	// KV_customer-config under its acceptance.
+	if all.GetTotalCount() != 7 || all.GetFindings()[5].GetMute().GetMutedBy() != "denis" || !all.GetFindings()[6].GetMute().GetAccepted() {
 		t.Fatalf("with muted: %v", all.GetFindings())
 	}
 	res := list(&v1.ListFindingsRequest{States: []v1.FindingState{v1.FindingState_FINDING_STATE_RESOLVED}})
@@ -107,7 +110,7 @@ func TestListFindingsFiltersAndPages(t *testing.T) {
 			break
 		}
 	}
-	if len(seen) != 6 {
+	if len(seen) != 7 {
 		t.Fatalf("paged %v", seen)
 	}
 	_, err := c.ListFindings(ctx, connect.NewRequest(&v1.ListFindingsRequest{PageToken: "%%%"}))
@@ -140,24 +143,24 @@ func TestMuteRoundTrip(t *testing.T) {
 		t.Fatalf("mute = %v", m)
 	}
 	tl := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{}))).GetTally()
-	if tl.GetWarning() != 2 || tl.GetMuted() != 2 {
+	if tl.GetWarning() != 2 || tl.GetMuted() != 3 {
 		t.Fatalf("tally after mute = %v", tl)
 	}
-	if n := len(must(c.ListMutes(ctx, connect.NewRequest(&v1.ListMutesRequest{}))).GetMutes()); n != 2 {
+	if n := len(must(c.ListMutes(ctx, connect.NewRequest(&v1.ListMutesRequest{}))).GetMutes()); n != 3 {
 		t.Fatalf("active mutes = %d", n)
 	}
 	un := must(c.UnmuteFinding(ctx, connect.NewRequest(&v1.UnmuteFindingRequest{MuteId: m.GetId(), UnmutedBy: "op"}))).GetMute()
 	if un.GetUnmutedAt() == nil || un.GetUnmutedBy() != "op" {
 		t.Fatalf("unmuted = %v", un)
 	}
-	if tl := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{}))).GetTally(); tl.GetWarning() != 3 || tl.GetMuted() != 1 {
+	if tl := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{}))).GetTally(); tl.GetWarning() != 3 || tl.GetMuted() != 2 {
 		t.Fatalf("tally after unmute = %v", tl)
 	}
 	_, err := c.UnmuteFinding(ctx, connect.NewRequest(&v1.UnmuteFindingRequest{MuteId: m.GetId(), UnmutedBy: "op"}))
 	if codeOf(err) != connect.CodeFailedPrecondition {
 		t.Fatalf("second unmute: %v", err)
 	}
-	if n := len(must(c.ListMutes(ctx, connect.NewRequest(&v1.ListMutesRequest{IncludeInactive: true}))).GetMutes()); n != 2 {
+	if n := len(must(c.ListMutes(ctx, connect.NewRequest(&v1.ListMutesRequest{IncludeInactive: true}))).GetMutes()); n != 3 {
 		t.Fatalf("all mutes = %d", n)
 	}
 	for name, bad := range map[string]*v1.MuteFindingRequest{
@@ -223,13 +226,17 @@ func TestMutePagesKeepTheirPlace(t *testing.T) {
 	}
 	newest := mute("stream-001")
 	first := must(c.ListMutes(ctx, connect.NewRequest(&v1.ListMutesRequest{PageSize: 1})))
-	if first.GetMutes()[0].GetId() != newest || first.GetTotalCount() != 2 {
+	if first.GetMutes()[0].GetId() != newest || first.GetTotalCount() != 3 {
 		t.Fatalf("first page = %v", first)
 	}
 	mute("stream-002")
 	second := must(c.ListMutes(ctx, connect.NewRequest(&v1.ListMutesRequest{PageSize: 1, PageToken: first.GetNextPageToken()})))
-	if len(second.GetMutes()) != 1 || second.GetMutes()[0].GetCheckCode() != "stream-006" || second.GetNextPageToken() != "" {
+	if len(second.GetMutes()) != 1 || !second.GetMutes()[0].GetAccepted() || second.GetNextPageToken() == "" {
 		t.Fatalf("second page = %v", second)
+	}
+	third := must(c.ListMutes(ctx, connect.NewRequest(&v1.ListMutesRequest{PageSize: 1, PageToken: second.GetNextPageToken()})))
+	if len(third.GetMutes()) != 1 || third.GetMutes()[0].GetCheckCode() != "stream-006" || third.GetNextPageToken() != "" {
+		t.Fatalf("third page = %v", third)
 	}
 }
 
@@ -381,5 +388,28 @@ func TestWindowsReadAsTheStoreReadsThem(t *testing.T) {
 		Range: &v1.TimeRange{Start: tsAt(8, 0, 0), End: tsAt(9, 0, 0)}})))
 	if ws := o.GetWindows(); len(ws) != 1 || !ws[0].GetEnd().AsTime().Equal(at(9, 12, 0)) {
 		t.Errorf("windows = %v", ws)
+	}
+}
+
+// An acceptance through the API keeps accept and records the stream's
+// growth over the 24 hours before now, as the store does.
+func TestAcceptRecordsGrowth(t *testing.T) {
+	c := client(t)
+	accept := func(e *v1.EntityRef) *v1.Mute {
+		t.Helper()
+		return must(c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{CheckCode: "stream-005", Entity: e, Accept: true,
+			Reason: "kept for the account's life", MutedBy: "ops@example.com", ExpiresAt: timestamppb.New(fake.FixedNow.Add(180 * 24 * time.Hour))}))).GetMute()
+	}
+	m := accept(&v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/order-archive"})
+	// order-archive grows 96 MiB a day in the scenario.
+	if !m.GetAccepted() || m.GrowthPerDay == nil || math.Abs(m.GetGrowthPerDay()-96*(1<<20)) > 2*(1<<20) {
+		t.Fatalf("acceptance = %v, want growth near 96 MiB/day", m)
+	}
+	f := must(c.GetFinding(ctx, connect.NewRequest(&v1.GetFindingRequest{Id: "stream-005:APP/order-archive"}))).GetFinding()
+	if f.GetMute().GetId() != m.GetId() || !f.GetMute().GetAccepted() {
+		t.Fatalf("finding mute = %v", f.GetMute())
+	}
+	if s := accept(&v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SERVER, Key: "nats-0"}); s.GrowthPerDay != nil {
+		t.Errorf("server acceptance in the demo records %v, want none", s.GetGrowthPerDay())
 	}
 }
