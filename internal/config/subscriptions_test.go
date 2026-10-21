@@ -39,21 +39,24 @@ func TestSubscriptionsFlagsAndFile(t *testing.T) {
 }
 
 func TestSubscriptionsValidation(t *testing.T) {
-	for name, set := range map[string]func(c *Config){
-		"negative interval": func(c *Config) { c.SubscriptionsInterval = Duration(-time.Second) },
-		"zero limit":        func(c *Config) { c.SubszLimit = 0 },
-		"negative limit":    func(c *Config) { c.SubszLimit = -1 },
-		"limit too large":   func(c *Config) { c.SubszLimit = MaxSubszLimit + 1 },
+	for name, tc := range map[string]struct {
+		set  func(c *Config)
+		want string
+	}{
+		"negative interval": {func(c *Config) { c.SubscriptionsInterval = Duration(-time.Second) }, "subscriptions_interval must not be negative"},
+		"zero limit":        {func(c *Config) { c.SubszLimit = 0 }, "subsz_limit must be positive"},
+		"negative limit":    {func(c *Config) { c.SubszLimit = -1 }, "subsz_limit must be positive"},
+		"limit too large":   {func(c *Config) { c.SubszLimit = MaxSubszLimit + 1 }, "subsz_limit must be at most 100000: every server's list"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			c := Default()
-			set(&c)
+			tc.set(&c)
 			err := c.Validate()
 			if err == nil {
 				t.Fatal("expected a validation error")
 			}
-			if !strings.Contains(err.Error(), "subscriptions_interval") && !strings.Contains(err.Error(), "subsz_limit") {
-				t.Fatalf("error does not name the key: %v", err)
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error %q does not say %q", err, tc.want)
 			}
 		})
 	}
