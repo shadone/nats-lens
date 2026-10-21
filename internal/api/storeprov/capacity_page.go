@@ -11,10 +11,11 @@ import (
 )
 
 // Capacity reads the range's newest epoch: every server's file store with
-// its growth over the range, every stream with its configuration, the
-// leader's numbers and their growth over the range, what the inventory
-// declares, and the findings firing. Five queries, whatever the number of
-// streams.
+// its growth over the range, every stream with its configuration, its
+// numbers and their growth over the range, what the inventory declares,
+// and the findings firing. The number of queries is fixed (a few for the
+// epoch, the stores, the streams and their growth, and the findings'),
+// none per stream or server.
 func (p *Provider) Capacity(ctx context.Context, req *v1.GetCapacityRequest) (*api.CapacityFacts, error) {
 	e, ok, err := p.latestEpoch(ctx, req.GetRange())
 	if err != nil || !ok {
@@ -125,17 +126,20 @@ ORDER BY 1, 2`, start, end, width.Microseconds())
 }
 
 // capacityStreams reads the streams of the epoch, as ListStreams lists
-// them: the numbers of the leader's report (else the first reporting
-// server's by name), the configuration of the server stream-005 reads
-// (the leader, else the first by name), what the inventory declares by
-// stream-005's rules, and the growth of bytes and messages over the range.
+// them and with its numbers: the leader's report, else the largest any
+// server reports (the earliest first message), so both pages agree. The
+// configuration is that of the server stream-005 reads (the leader, else
+// the first by name); what the inventory declares follows stream-005's
+// rules; growth of bytes and messages is over the range.
 func (p *Provider) capacityStreams(ctx context.Context, f *api.CapacityFacts, start, end time.Time) error {
 	rows, err := p.db().QueryContext(ctx, `
 WITH st AS (
-    SELECT x.account, x.stream, x.messages, x.bytes, x.first_ts, x.num_subjects
-    FROM stream_stats x JOIN servers s USING (server_id)
-    WHERE x.epoch = $1
-    QUALIFY row_number() OVER (PARTITION BY x.account, x.stream ORDER BY coalesce(x.is_leader, false) DESC, s.server_name) = 1
+    SELECT account, stream,
+        coalesce(max(messages) FILTER (WHERE is_leader), max(messages)) AS messages,
+        coalesce(max(bytes) FILTER (WHERE is_leader), max(bytes)) AS bytes,
+        coalesce(min(first_ts) FILTER (WHERE is_leader), min(first_ts)) AS first_ts,
+        coalesce(max(num_subjects) FILTER (WHERE is_leader), max(num_subjects)) AS num_subjects
+    FROM stream_stats WHERE epoch = $1 GROUP BY account, stream
 ), cf AS (
     SELECT c.account, c.stream, c.retention, c.storage, c.replicas, c.mirror, len(coalesce(c.sources, [])) AS sources,
         c.max_msgs, c.max_bytes, c.max_age_ns, c.max_msgs_per_subject, c.discard, coalesce(c.allow_msg_ttl, false) AS allow_msg_ttl
