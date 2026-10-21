@@ -8,7 +8,7 @@ The board's sample names come from a sketch of a real deployment. Use the exampl
 
 | Task | Status |
 |---|---|
-| T1 Accept a finding as by design | planned |
+| T1 Accept a finding as by design | built on `feat/capacity-accept`, in review; departures below |
 | T2 API, store and demo | planned, after T1 is merged |
 | T3 UI | planned, after T2 is merged |
 | T4 Feature docs and audit | planned |
@@ -89,6 +89,17 @@ The first part of "Accept a finding with a review date" of `docs/features/checks
 - **Demo.** `fake` MuteFinding and UnmuteFinding keep `accept`, `growth_per_day` (from the stream's `perDay` in the scenario) and `end_reason`; the growth review is not simulated, but the seeded mutes gain one acceptance in force and one ended by nats-lens with its `end_reason` (T2 picks the streams). `TestDemoUsesRealChecks` covers the seeded acceptances.
 - **Tests.** Normalize: accept without an entity, a review date of 366 days, 365 days accepted; growth recorded by the server and a client value ignored; the runner ends an acceptance on a change of 60%, keeps it on 40%, keeps it under the 1 MiB floor, keeps it when growth is unset; an accepted finding reads as muted in `Findings`, the tally, the timeline and `/metrics`; the migration applies on a store with mutes, and an archive rebuild from old Parquet loads. A conformance row: a finding under an acceptance, in both providers.
 - **Docs.** `docs/design.md` (acceptance as a kind of mute, the growth review and its floor), `triage-and-mutes.md` and `checks.md` stay planned for the parts not built; T4 moves what shipped. `checks/stream-005.sql`'s remediation adds "or accept it as by design on the Capacity page" to the inventory and mute advice.
+
+### Where T1 departed from this plan
+
+Each point was decided by the session that built T1: proposed, not yet confirmed.
+
+- **Migration column order.** `accepted BOOLEAN DEFAULT false` is added last in `0031_accepted_findings.sql`: DuckDB refuses to commit a transaction in which another `ALTER` follows `ADD COLUMN ... DEFAULT` on a table that holds rows (seen on a store with mutes; `TestMigrationsFrom30OnMutes`). Rows from before the migration and rows loaded from older Parquet files get `false` from the default, not NULL; readers still read NULL as false.
+- **System entity refused.** An acceptance needs an entity with a key, so the system entity is refused as invalid. A plain mute of the system entity fails today as an internal error (its NULL key breaks the table's check that type and key are both set or both NULL); that is older than T1 and is left for its own fix.
+- **No client growth to ignore.** `MuteFindingRequest` has no growth field, so a client cannot send one; the tests show the recorded value is the rate of the stored data instead.
+- **Growth window.** The server records and the review compares the growth of epochs started in (t − 24 h, t], buckets of 1/200 of the window and at least one collect interval, as `streamGrowth` does for the Streams page. The review runs only after a check run that succeeded, and skips an acceptance created after the epoch started, so it never ends one at a time before its creation.
+- **`stream-005` remediation.** It says "or accept it as by design with a review date" without "on the Capacity page", as the page arrives with T3; T3 adds the page's name.
+- **Demo.** The fake records the growth of an accepted stream by the store's rule over its scenario series (`scen.growth`), which is the stream's `perDay` up to the series' shape. Seeded: in `example-prod` a new `stream-005` finding on `KV_customer-config`, accepted in force by `ops@example.com` with a review date six months later; in `example-global` an acceptance of `stream-005` on `KV_feature-flags` ended by nats-lens ("growth changed from +1.6 MiB/day to +2.0 KiB/day"). The fake timeline has no row for the new finding: it does not apply mutes to its rows at all, so T2 adds the row if the page needs it. `fake_test.go`'s counts of the prod scenario (muted 2, 7 findings with muted, 3 mutes) changed with it.
 
 ## T2 API, store and demo
 
