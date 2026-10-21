@@ -499,8 +499,9 @@ type SubszServer struct {
 	// Whether the server answered SUBSZ in that collection. False: it was
 	// asked and did not answer, and total and listed are unset.
 	Answered bool `protobuf:"varint,2,opt,name=answered,proto3" json:"answered,omitempty"`
-	// Subscriptions the server holds (its num_subscriptions); unset when
-	// it did not answer.
+	// Local subscriptions the server's reply counted before the subsz
+	// limit (SUBSZ total; not num_subscriptions, which counts route
+	// interest too); unset when it did not answer.
 	Total *int64 `protobuf:"varint,3,opt,name=total,proto3,oneof" json:"total,omitempty"`
 	// Subscriptions its reply listed, at most the subsz limit; fewer than
 	// total when the list was cut. Unset when it did not answer.
@@ -602,12 +603,13 @@ type GetSubjectsResponse struct {
 	SubszServers []*SubszServer `protobuf:"bytes,11,rep,name=subsz_servers,json=subszServers,proto3" json:"subsz_servers,omitempty"`
 	// Subscriptions of the servers' own clients (JetStream, system and
 	// account internal clients) left out of the rows: those whose
-	// connection is not in a CONNZ reply of its server that listed every
-	// connection. Counted in the scope.
+	// connection is not in its server's CONNZ reply of the same epoch, when
+	// that reply came and listed every connection. Counted in the scope.
 	ServerSubscriptions int64 `protobuf:"varint,12,opt,name=server_subscriptions,json=serverSubscriptions,proto3" json:"server_subscriptions,omitempty"`
-	// Subscriptions whose connection is not in a CONNZ reply of its server
-	// that was cut at the connz limit: left out, as their connection
-	// cannot be told from a server's own. Counted in the scope.
+	// Subscriptions whose connection is not in its server's CONNZ reply of
+	// the same epoch when that reply was cut at the connz limit or did not
+	// come: left out, as their connection cannot be told from a server's
+	// own. Counted in the scope.
 	UnlistedConnectionSubscriptions int64 `protobuf:"varint,13,opt,name=unlisted_connection_subscriptions,json=unlistedConnectionSubscriptions,proto3" json:"unlisted_connection_subscriptions,omitempty"`
 	unknownFields                   protoimpl.UnknownFields
 	sizeCache                       protoimpl.SizeCache
