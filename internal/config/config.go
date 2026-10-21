@@ -149,6 +149,13 @@ type TLS struct {
 	Key  string `yaml:"key"`
 }
 
+// MaxSubszLimit is the largest subsz_limit. Every server's SUBSZ reply
+// arrives on the collector's one connection within one window, with the
+// CONNZ replies, and a server closes a connection whose unsent replies
+// pass its max_pending (64 MB by default) as a slow consumer; 100,000
+// subscriptions make a reply of about 15 to 25 MB.
+const MaxSubszLimit = 100000
+
 // PasswordEnv is the environment variable read for the NATS password when
 // neither the file nor a flag sets it.
 const PasswordEnv = "NATSLENS_NATS_PASSWORD"
@@ -249,8 +256,9 @@ func (c Config) Validate() error {
 	if c.SubscriptionsInterval.D() < 0 {
 		errs = append(errs, errors.New("subscriptions_interval must not be negative; 0 turns subscription collections off"))
 	}
-	if c.SubszLimit <= 0 {
-		errs = append(errs, errors.New("subsz_limit must be positive"))
+	if c.SubszLimit <= 0 || c.SubszLimit > MaxSubszLimit {
+		errs = append(errs, fmt.Errorf("subsz_limit must be positive and at most %d: every server's list arrives on one connection, "+
+			"which a server closes as a slow consumer past its max_pending", MaxSubszLimit))
 	}
 	if c.NATS.URL == "" {
 		errs = append(errs, errors.New("nats.url is required"))
