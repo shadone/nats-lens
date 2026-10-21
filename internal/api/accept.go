@@ -29,6 +29,20 @@ const AcceptEndedBy = "nats-lens"
 // AcceptGrowthWindow is the history WeeklyGrowth needs: 8 days.
 const AcceptGrowthWindow = week + day
 
+// coverStretch is the longest stretch, in bucket widths, between two
+// paired points that counts as covered. With no epoch missing, jitter on
+// the bucket grid leaves at most one bucket empty between two that hold a
+// point (an empty bucket needs its own epoch early and the next one late,
+// so two in a row cannot be), and a bucket's point is the middle of its
+// epochs: two points are then at most 2.5 widths apart, plus half the
+// jitter. A tenth of a width covers that jitter; a collector that keeps
+// one bucket in 3 leaves 3 widths and covers nothing.
+const coverStretch = 2.6
+
+// minPairsShare is the least share of a full day's buckets (day / width)
+// that must have a pair, however the pairs are spread.
+const minPairsShare = 0.5
+
 const (
 	day  = 24 * time.Hour
 	week = 7 * day
@@ -72,8 +86,9 @@ type Growth struct {
 // points. A purge or a restore within the week changes the week's growth,
 // as it changes the week's net bytes. Nil unless the samples with a
 // partner cover at least two thirds of the day, a stretch between two of
-// them counting only when it is at most three widths: an entity under
-// about 8 days old, or a day mostly lost to a collector outage, has no
+// them counting only up to coverStretch widths, and number at least half
+// the buckets a full day has: an entity under about 8 days old, a day
+// mostly lost to an outage, or a day of a few spread-out samples has no
 // rate rather than one that a few pairs decide.
 func WeeklyGrowth(s []Sample, t time.Time, width time.Duration) *Growth {
 	if len(s) < 2 || width <= 0 {
@@ -94,6 +109,7 @@ func WeeklyGrowth(s []Sample, t time.Time, width time.Duration) *Growth {
 		}
 		return 0, false
 	}
+	coverMax := time.Duration(coverStretch * float64(width))
 	var rates []float64
 	// covered is the time of the day the paired samples cover: each
 	// stretch between neighbouring paired samples (and the day's ends)
@@ -107,19 +123,20 @@ func WeeklyGrowth(s []Sample, t time.Time, width time.Duration) *Growth {
 		}
 		if v, ok := at(p.T.Add(-week)); ok {
 			rates = append(rates, (p.V-v)/7)
-			if d := p.T.Sub(prev); d <= maxGap {
+			if d := p.T.Sub(prev); d <= coverMax {
 				covered += d
 			}
 			prev = p.T
 		}
 	}
-	if d := t.Sub(prev); d <= maxGap {
+	if d := t.Sub(prev); d <= coverMax {
 		covered += d
 	}
-	// Two thirds of the day must be covered. Coverage, not a count of
-	// samples: epochs within jitter of the bucket grid put two in one
-	// bucket and none in the next, which loses no data but one sample.
-	if len(rates) == 0 || 3*covered < 2*day {
+	// Two thirds of the day must be covered, and half a full day's buckets
+	// must have a pair. Coverage rather than a full count: epochs within
+	// jitter of the bucket grid put two in one bucket and none in the
+	// next, which loses no data but one sample.
+	if len(rates) == 0 || 3*covered < 2*day || float64(len(rates)) < minPairsShare*float64(day)/float64(width) {
 		return nil
 	}
 	g := &Growth{PerDay: median(rates)}
