@@ -63,3 +63,81 @@ func TestMuteLockGivesUpWithTheContext(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestAcceptanceRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	s := openMem(t)
+	g := -3.0 * (1 << 20)
+	a, err := s.CreateMute(ctx, Mute{CheckCode: "stream-005", EntityType: "stream", EntityKey: "SHOP/order-archive",
+		Reason: "kept for the account's life", MutedBy: "ops@example.com", CreatedAt: t0, ExpiresAt: t0.Add(180 * 24 * time.Hour),
+		Accepted: true, GrowthPerDay: &g})
+	if err != nil || !a.Accepted || a.GrowthPerDay == nil || *a.GrowthPerDay != g {
+		t.Fatalf("created %+v, %v", a, err)
+	}
+	if _, err := s.CreateMute(ctx, Mute{CheckCode: "stream-005", Reason: "r", MutedBy: "op", CreatedAt: t0,
+		ExpiresAt: t0.Add(time.Hour), Accepted: true}); err == nil {
+		t.Fatal("an acceptance without an entity was stored")
+	}
+	// A person lifts it: no end reason. EndAcceptance then ends nothing.
+	un, err := s.UnmuteMute(ctx, a.ID, "lead", t0.Add(time.Hour))
+	if err != nil || !un.Accepted || un.EndReason != "" {
+		t.Fatalf("unmute = %+v, %v", un, err)
+	}
+	if ok, err := s.EndAcceptance(ctx, a.ID, t0.Add(2*time.Hour), "nats-lens", "x"); err != nil || ok {
+		t.Fatalf("end of a lifted acceptance = %v, %v", ok, err)
+	}
+	// EndAcceptance leaves a plain mute alone.
+	m, err := s.CreateMute(ctx, Mute{CheckCode: "stream-005", EntityType: "stream", EntityKey: "SHOP/x", Reason: "r", MutedBy: "op",
+		CreatedAt: t0, ExpiresAt: t0.Add(time.Hour)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := s.EndAcceptance(ctx, m.ID, t0.Add(time.Minute), "nats-lens", "x"); err != nil || ok {
+		t.Fatalf("end of a plain mute = %v, %v", ok, err)
+	}
+}
+
+// The baseline is written only to an acceptance in force that has none, so
+// it cannot race with a person lifting it.
+func TestSetAcceptanceBaseline(t *testing.T) {
+	ctx := context.Background()
+	s := openMem(t)
+	create := func(m Mute) Mute {
+		t.Helper()
+		m.CheckCode, m.EntityType, m.Reason, m.MutedBy, m.CreatedAt, m.ExpiresAt = "stream-005", "stream", "r", "op", t0, t0.Add(48*time.Hour)
+		out, err := s.CreateMute(ctx, m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+	g := 1.0
+	open := create(Mute{EntityKey: "SHOP/a", Accepted: true})
+	lifted := create(Mute{EntityKey: "SHOP/b", Accepted: true})
+	has := create(Mute{EntityKey: "SHOP/c", Accepted: true, GrowthPerDay: &g})
+	plain := create(Mute{EntityKey: "SHOP/d"})
+	if _, err := s.UnmuteMute(ctx, lifted.ID, "lead", t0.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	at := t0.Add(2 * time.Hour)
+	for _, c := range []struct {
+		m    Mute
+		want bool
+	}{{open, true}, {open, false}, {lifted, false}, {has, false}, {plain, false}} {
+		if ok, err := s.SetAcceptanceBaseline(ctx, c.m.ID, at, 5); err != nil || ok != c.want {
+			t.Errorf("baseline of %s = %v, %v; want %v", c.m.EntityKey, ok, err, c.want)
+		}
+	}
+	all, _, err := s.ListMutes(ctx, at, true, 10, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range all {
+		want := map[string]*float64{"SHOP/a": ptrF(5), "SHOP/c": &g}[m.EntityKey]
+		if (m.GrowthPerDay == nil) != (want == nil) || (want != nil && *m.GrowthPerDay != *want) {
+			t.Errorf("%s growth = %v, want %v", m.EntityKey, m.GrowthPerDay, want)
+		}
+	}
+}
+
+func ptrF(v float64) *float64 { return &v }

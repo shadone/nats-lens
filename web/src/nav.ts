@@ -35,7 +35,7 @@ export const NAV: NavItem[] = [
   { path: "/kv-stores", label: "KV Stores", group: "JetStream", icon: "M4 4h4v4H4Z M10 5h5 M4 10h4v4H4Z M10 11h5", accountScope: true },
   { path: "/object-stores", label: "Object Stores", group: "JetStream", icon: "M3 6 9 3l6 3v7l-6 3-6-3Z M3 6l6 3 6-3 M9 9v7", accountScope: true },
   { path: "/placement", label: "Placement", group: "JetStream", icon: "M3 3h5v5H3Z M10 3h5v5h-5Z M3 10h5v5H3Z M10 10h5v5h-5Z" },
-  { path: "/capacity", label: "Capacity", group: "JetStream", icon: "M3 15V9 M7 15V6 M11 15V10 M15 15V3", planned: true },
+  { path: "/capacity", label: "Capacity", group: "JetStream", icon: "M3 15V9 M7 15V6 M11 15V10 M15 15V3" },
   { path: "/servers", label: "Servers", group: "Cluster", icon: "M3 3h12v5H3Z M3 10h12v5H3Z M6 5.5h.5 M6 12.5h.5" },
   { path: "/events", label: "Events", group: "Cluster", icon: "M3 4h12 M3 9h12 M3 14h8" },
   { path: "/replay", label: "Replay", group: "Cluster", icon: "M3.5 9a5.5 5.5 0 1 0 1.6-3.9 M3 3v3h3 M9 6v3.2l2.2 1.6" },

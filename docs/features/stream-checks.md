@@ -49,6 +49,7 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 - **Severity:** info.
 - **Thresholds:** none.
 - **Left out:** a stream the inventory declares unbounded on purpose, with `max_age: 0` and `max_bytes: -1` both given. A KV bucket that the inventory lists and that allows per-key TTLs (`allow_msg_ttl`), whose writers bound its keys. A bucket that allows per-key TTLs but is not in the inventory is still reported, and its detail says that nats-lens cannot see whether its writers set TTLs.
+- **What to do:** set `max_age` or `max_bytes`; for a stream that keeps everything on purpose, declare it in the inventory, mute the finding, or accept it as by design with a review date on the Capacity page ([capacity.md](capacity.md)), and watch `server-014` for the date the store fills.
 
 ### `stream-006` Stream reaches its byte limit soon
 
@@ -168,7 +169,7 @@ These stream checks are not built. Each line says what it would detect and what 
 - **KV bucket history setting.** A KV bucket keeps a long history per key without a byte limit, so it grows by history times keys. Needs: the bucket's `max_msgs_per_subject` and `max_bytes`, stored today.
 - **Stream without a consumer.** A work-queue or interest stream has no consumer, so its messages are never removed. Needs: the consumer count from JSZ, stored today.
 - **Many deleted messages.** A stream holds many interior deletes, which cost memory and disk. Needs: the deleted count from JSZ, stored today.
-- **Oldest message expires unread.** A stream's `max_age` removes messages before its slowest consumer reads them. Needs: the stream's first sequence and time and each consumer's ack floor, stored today. The [capacity.md](capacity.md) page plans the same view per stream.
+- **Oldest message expires unread.** A stream's `max_age` removes messages before its slowest consumer reads them. Needs: the stream's first sequence and time and each consumer's ack floor, stored today. The stream page plans the same view per consumer ([streams.md](streams.md)).
 
 ## Not supported / out of scope
 

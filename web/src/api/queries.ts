@@ -69,11 +69,18 @@ function useInvalidateAll() {
 
 /**
  * A mute names its system in the call, the one the dialog captured when it
- * opened, so a URL that changes meanwhile cannot send it elsewhere.
+ * opened, so a URL that changes meanwhile cannot send it elsewhere. The
+ * mutation stays pending until every query has refetched, so a dialog
+ * stays busy and its opener's button cannot mute twice; awaitRefetch false
+ * ends it once the mute is saved, for the accept dialog, whose page shows
+ * the saved acceptance until the refetch lands.
  */
-export function useMuteFinding() {
+export function useMuteFinding({ awaitRefetch = true }: { awaitRefetch?: boolean } = {}) {
   const invalidate = useInvalidateAll();
-  return useMutation({ mutationFn: (m: api.MuteInput & { system: string }) => api.muteFinding(m.system, m), onSuccess: invalidate });
+  return useMutation({
+    mutationFn: (m: api.MuteInput & { system: string }) => api.muteFinding(m.system, m),
+    onSuccess: () => (awaitRefetch ? invalidate() : void invalidate()),
+  });
 }
 
 export function useUnmuteFinding() {
@@ -209,6 +216,18 @@ export function useAccountsAndAuth(spec: RangeSpec) {
   return useQuery({
     queryKey: ["accounts-and-auth", sys, rangeKey(spec)],
     queryFn: ({ signal }) => api.getAccountsAndAuth(sys, spec, signal),
+    refetchInterval: refetch(spec),
+    // The previous range's answer stands in while the next loads, never another system's.
+    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === sys ? prev : undefined),
+  });
+}
+
+/** The Capacity page: the range's newest collection, followed on a live range as Accounts is. */
+export function useCapacity(spec: RangeSpec) {
+  const sys = useSystem();
+  return useQuery({
+    queryKey: ["capacity", sys, rangeKey(spec)],
+    queryFn: ({ signal }) => api.getCapacity(sys, spec, signal),
     refetchInterval: refetch(spec),
     // The previous range's answer stands in while the next loads, never another system's.
     placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === sys ? prev : undefined),

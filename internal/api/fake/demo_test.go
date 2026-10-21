@@ -42,9 +42,10 @@ func TestDemoListsThreeSystems(t *testing.T) {
 		prod.GetWorstFinding().GetCheckCode() != "consumer-010" {
 		t.Errorf("prod = %v", prod)
 	}
+	// Muted: server-005 on two servers and stream-005 on order-archive.
 	if global.GetServers() != 24 || global.GetServersAnswering() != 23 || global.GetClusters() != 3 ||
 		global.GetCollection() != v1.CollectionState_COLLECTION_STATE_DEMO || global.GetStatus() != v1.Status_STATUS_WARNING ||
-		global.GetWorstFinding().GetCheckCode() != "server-001" || global.GetTally().GetMuted() != 2 || !global.GetFreshness().GetPartial() {
+		global.GetWorstFinding().GetCheckCode() != "server-001" || global.GetTally().GetMuted() != 3 || !global.GetFreshness().GetPartial() {
 		t.Errorf("global = %v", global)
 	}
 	if staging.GetCollection() != v1.CollectionState_COLLECTION_STATE_CONNECTION_CLOSED || !strings.Contains(staging.GetCollectionError(), "authorization") ||

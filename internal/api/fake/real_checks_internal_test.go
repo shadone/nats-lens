@@ -1,9 +1,11 @@
 package fake
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/checks"
 	"github.com/shadone/nats-lens/internal/config"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
@@ -23,6 +25,7 @@ func TestDemoUsesRealChecks(t *testing.T) {
 		v1.EntityType_ENTITY_TYPE_SYSTEM: "system",
 	}
 	scenarios := map[string]*scenario{Cluster: prodScenario(), GlobalSystem: globalScenario(), StagingSystem: stagingScenario()}
+	var inForce, ended int
 	for name, sc := range scenarios {
 		p := newProvider(sc, false)
 		s := p.scen()
@@ -81,6 +84,32 @@ func TestDemoUsesRealChecks(t *testing.T) {
 		}
 		for _, m := range p.mutes {
 			check("mute "+m.m.GetId(), m.m.GetCheckCode(), "", m.m.GetEntity())
+			if !m.m.GetAccepted() {
+				continue
+			}
+			// An acceptance covers one entity and runs out at its review date.
+			v := m.view(s)
+			if v.GetEntity().GetKey() == "" || v.GetExpiresAt().AsTime().Sub(v.GetCreatedAt().AsTime()) > api.MaxAcceptLength {
+				t.Errorf("%s acceptance %s: entity %v, created %v, review %v", name, m.m.GetId(), v.GetEntity(), v.GetCreatedAt(), v.GetExpiresAt())
+			}
+			switch {
+			case m.active(s) && v.GetEndReason() == "":
+				inForce++
+				// The acceptance in force covers a finding that fires.
+				if !slices.ContainsFunc(fs, func(f *v1.Finding) bool { return f.GetMute().GetId() == v.GetId() }) {
+					t.Errorf("%s acceptance %s covers no firing finding", name, v.GetId())
+				}
+			case v.GetUnmutedBy() == api.AcceptEndedBy && strings.HasPrefix(v.GetEndReason(), "growth changed from "):
+				ended++
+				if v.GetUnmutedAt().AsTime().After(s.now) || v.GetUnmutedAt().AsTime().Before(v.GetCreatedAt().AsTime()) {
+					t.Errorf("%s acceptance %s ended at %v", name, v.GetId(), v.GetUnmutedAt())
+				}
+			default:
+				t.Errorf("%s acceptance %s is neither in force nor ended by nats-lens: %v", name, v.GetId(), v)
+			}
 		}
+	}
+	if inForce != 1 || ended != 1 {
+		t.Errorf("seeded acceptances: %d in force, %d ended by nats-lens; want one of each", inForce, ended)
 	}
 }

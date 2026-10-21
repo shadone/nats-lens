@@ -181,6 +181,10 @@ func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, d
 		}
 	}
 
+	if ret := cfg.Retention.D(); ret < api.AcceptRetention {
+		log.Warn("retention is shorter than the growth review of acceptances reads; acceptances record no growth and never end early",
+			"retention", ret.String(), "needed", api.AcceptRetention.String())
+	}
 	r := &runner.Runner{
 		Collector: col,
 		Store:     st,

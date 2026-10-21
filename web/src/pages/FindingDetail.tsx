@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useParams } from "react-router";
 import { AROUND_MS, useEventsAround } from "../api/events";
 import { stateKey, useOtherFindings } from "../api/finding";
-import type { Entity, Finding } from "../api/model";
+import type { Entity, Finding, Mute } from "../api/model";
 import { useFinding, useLensInfo, useTimeline } from "../api/queries";
 import { Empty, KV, QueryView, RLink, Remediation, Section } from "../components/common";
 import { EventRow } from "../components/EventRow";
@@ -15,7 +15,8 @@ import { EntityLine } from "../components/FindingParts";
 import { MuteDialog, UnmuteDialog } from "../components/MuteDialog";
 import { Sev, StateTag } from "../components/Severity";
 import { StatusTimeline } from "../components/StatusTimeline";
-import { fmtDuration, isoMinute, isoSecond } from "../lib/format";
+import { fmtDuration, fmtGrowth, isoMinute, isoSecond } from "../lib/format";
+import { baselineText, muteBy, reviewOn, sentence } from "../lib/muteView";
 import { writeRange, type RangeSpec } from "../lib/timeRange";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
@@ -65,7 +66,7 @@ function Head({ f, spec, start, end, onMute, onUnmute }: { f: Finding; spec: Ran
   return (
     <div className={`card worst finding-h ${f.mute ? "info" : f.severity}`}>
       <div className="k">
-        <Sev level={f.mute ? "muted" : f.severity} />
+        <Sev level={f.mute ? "muted" : f.severity} label={f.mute?.accepted ? "Accepted" : undefined} />
         <span className="code">{f.checkCode}</span>
         <StateTag tag={findingTag(f, start)} />
       </div>
@@ -117,7 +118,7 @@ function Head({ f, spec, start, end, onMute, onUnmute }: { f: Finding; spec: Ran
         <div className="btns">
           {f.mute ? (
             <button type="button" className="btn" onClick={onUnmute}>
-              Lift mute…
+              {f.mute.accepted ? "End acceptance…" : "Lift mute…"}
             </button>
           ) : (
             <button type="button" className="btn p" onClick={onMute}>
@@ -246,6 +247,21 @@ function Related({ e }: { e: Entity | undefined }) {
   );
 }
 
+/** The mute or acceptance in force on the finding. */
+function MuteSection({ m }: { m: Mute }) {
+  const baseline = baselineText(m, fmtGrowth, useLensInfo().data?.retentionMs ?? 0);
+  return (
+    <section className="sec card box-card">
+      <span className="lbl">{m.accepted ? "Accepted as by design" : "Muted"}</span>
+      <p className="dlg-sub">
+        <b>{muteBy(m)}:</b> {m.accepted ? `${sentence(m.reason)} ${reviewOn(m)}` : m.reason}
+        {!m.accepted && m.expiresAt !== undefined && ` Expires ${isoMinute(m.expiresAt)} UTC.`}
+      </p>
+      {baseline && <p className="dlg-sub">{baseline}</p>}
+    </section>
+  );
+}
+
 export function FindingDetail() {
   const id = useParams().id ?? "";
   usePageTitle(id);
@@ -281,15 +297,7 @@ export function FindingDetail() {
               <section className="sec">
                 <Head f={d.finding} spec={spec} start={start} end={end} onMute={() => setMuting(true)} onUnmute={() => setLifting(true)} />
               </section>
-              {d.finding.mute && (
-                <section className="sec card box-card">
-                  <span className="lbl">Muted</span>
-                  <p className="dlg-sub">
-                    <b>Muted by {d.finding.mute.mutedBy || "unknown"}:</b> {d.finding.mute.reason}
-                    {d.finding.mute.expiresAt !== undefined && ` Expires ${isoMinute(d.finding.mute.expiresAt)} UTC.`}
-                  </p>
-                </section>
-              )}
+              {d.finding.mute && <MuteSection m={d.finding.mute} />}
               <div className="sec fd-cols">
                 <div className="fd-main">
                   <FindingEvidence spec={spec} entity={d.finding.entity} state={stateKey(d.finding)} />

@@ -75,6 +75,8 @@ const (
 	// LensServiceGetAccountsAndAuthProcedure is the fully-qualified name of the LensService's
 	// GetAccountsAndAuth RPC.
 	LensServiceGetAccountsAndAuthProcedure = "/natslens.v1.LensService/GetAccountsAndAuth"
+	// LensServiceGetCapacityProcedure is the fully-qualified name of the LensService's GetCapacity RPC.
+	LensServiceGetCapacityProcedure = "/natslens.v1.LensService/GetCapacity"
 	// LensServiceListServersProcedure is the fully-qualified name of the LensService's ListServers RPC.
 	LensServiceListServersProcedure = "/natslens.v1.LensService/ListServers"
 	// LensServiceGetServerProcedure is the fully-qualified name of the LensService's GetServer RPC.
@@ -154,6 +156,11 @@ type LensServiceClient interface {
 	// JWT expiry, the failed logins of the 24 hours before it, and the
 	// certificates and JWTs that expire within 30 days.
 	GetAccountsAndAuth(context.Context, *connect.Request[v1.GetAccountsAndAuthRequest]) (*connect.Response[v1.GetAccountsAndAuthResponse], error)
+	// What each stream of the range's newest epoch keeps and what bounds
+	// it, when it reaches its next limit, and how full each server's
+	// JetStream file store is and when it fills at its growth over the
+	// range.
+	GetCapacity(context.Context, *connect.Request[v1.GetCapacityRequest]) (*connect.Response[v1.GetCapacityResponse], error)
 	// Servers by name with version, uptime and role.
 	ListServers(context.Context, *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error)
 	// One server with endpoint outcomes and process lifetimes.
@@ -317,6 +324,13 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		getCapacity: connect.NewClient[v1.GetCapacityRequest, v1.GetCapacityResponse](
+			httpClient,
+			baseURL+LensServiceGetCapacityProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetCapacity")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		listServers: connect.NewClient[v1.ListServersRequest, v1.ListServersResponse](
 			httpClient,
 			baseURL+LensServiceListServersProcedure,
@@ -417,6 +431,7 @@ type lensServiceClient struct {
 	getReplay          *connect.Client[v1.GetReplayRequest, v1.GetReplayResponse]
 	getTopology        *connect.Client[v1.GetTopologyRequest, v1.GetTopologyResponse]
 	getAccountsAndAuth *connect.Client[v1.GetAccountsAndAuthRequest, v1.GetAccountsAndAuthResponse]
+	getCapacity        *connect.Client[v1.GetCapacityRequest, v1.GetCapacityResponse]
 	listServers        *connect.Client[v1.ListServersRequest, v1.ListServersResponse]
 	getServer          *connect.Client[v1.GetServerRequest, v1.GetServerResponse]
 	listConnections    *connect.Client[v1.ListConnectionsRequest, v1.ListConnectionsResponse]
@@ -518,6 +533,11 @@ func (c *lensServiceClient) GetTopology(ctx context.Context, req *connect.Reques
 // GetAccountsAndAuth calls natslens.v1.LensService.GetAccountsAndAuth.
 func (c *lensServiceClient) GetAccountsAndAuth(ctx context.Context, req *connect.Request[v1.GetAccountsAndAuthRequest]) (*connect.Response[v1.GetAccountsAndAuthResponse], error) {
 	return c.getAccountsAndAuth.CallUnary(ctx, req)
+}
+
+// GetCapacity calls natslens.v1.LensService.GetCapacity.
+func (c *lensServiceClient) GetCapacity(ctx context.Context, req *connect.Request[v1.GetCapacityRequest]) (*connect.Response[v1.GetCapacityResponse], error) {
+	return c.getCapacity.CallUnary(ctx, req)
 }
 
 // ListServers calls natslens.v1.LensService.ListServers.
@@ -623,6 +643,11 @@ type LensServiceHandler interface {
 	// JWT expiry, the failed logins of the 24 hours before it, and the
 	// certificates and JWTs that expire within 30 days.
 	GetAccountsAndAuth(context.Context, *connect.Request[v1.GetAccountsAndAuthRequest]) (*connect.Response[v1.GetAccountsAndAuthResponse], error)
+	// What each stream of the range's newest epoch keeps and what bounds
+	// it, when it reaches its next limit, and how full each server's
+	// JetStream file store is and when it fills at its growth over the
+	// range.
+	GetCapacity(context.Context, *connect.Request[v1.GetCapacityRequest]) (*connect.Response[v1.GetCapacityResponse], error)
 	// Servers by name with version, uptime and role.
 	ListServers(context.Context, *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error)
 	// One server with endpoint outcomes and process lifetimes.
@@ -782,6 +807,13 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	lensServiceGetCapacityHandler := connect.NewUnaryHandler(
+		LensServiceGetCapacityProcedure,
+		svc.GetCapacity,
+		connect.WithSchema(lensServiceMethods.ByName("GetCapacity")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	lensServiceListServersHandler := connect.NewUnaryHandler(
 		LensServiceListServersProcedure,
 		svc.ListServers,
@@ -897,6 +929,8 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceGetTopologyHandler.ServeHTTP(w, r)
 		case LensServiceGetAccountsAndAuthProcedure:
 			lensServiceGetAccountsAndAuthHandler.ServeHTTP(w, r)
+		case LensServiceGetCapacityProcedure:
+			lensServiceGetCapacityHandler.ServeHTTP(w, r)
 		case LensServiceListServersProcedure:
 			lensServiceListServersHandler.ServeHTTP(w, r)
 		case LensServiceGetServerProcedure:
@@ -998,6 +1032,10 @@ func (UnimplementedLensServiceHandler) GetTopology(context.Context, *connect.Req
 
 func (UnimplementedLensServiceHandler) GetAccountsAndAuth(context.Context, *connect.Request[v1.GetAccountsAndAuthRequest]) (*connect.Response[v1.GetAccountsAndAuthResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetAccountsAndAuth is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetCapacity(context.Context, *connect.Request[v1.GetCapacityRequest]) (*connect.Response[v1.GetCapacityResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetCapacity is not implemented"))
 }
 
 func (UnimplementedLensServiceHandler) ListServers(context.Context, *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error) {

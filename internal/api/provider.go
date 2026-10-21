@@ -76,6 +76,11 @@ type Provider interface {
 	// orders, limits and counts them with FinishAccounts. A range without
 	// an epoch gives facts with Epoch 0.
 	AccountsAndAuth(ctx context.Context, req *v1.GetAccountsAndAuthRequest) (*AccountsFacts, error)
+	// Capacity reads the server stores and streams of the range's newest
+	// epoch with their growth over the range, and the firing findings of
+	// the epoch; the handler words, orders and cuts them with
+	// FinishCapacity. A range without an epoch gives facts with Epoch 0.
+	Capacity(ctx context.Context, req *v1.GetCapacityRequest) (*CapacityFacts, error)
 	ListServers(ctx context.Context, req *v1.ListServersRequest) (*v1.ListServersResponse, error)
 	GetServer(ctx context.Context, req *v1.GetServerRequest) (*v1.GetServerResponse, error)
 	ListConnections(ctx context.Context, req *v1.ListConnectionsRequest) (*v1.ListConnectionsResponse, error)

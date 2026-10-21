@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
+	"github.com/shadone/nats-lens/internal/checks"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -39,6 +40,20 @@ type streamSpec struct {
 	// policy; zero means no limit and "" discard old.
 	maxBytes int64
 	discard  string
+	// retention and storage are "" for limits and file; maxMsgs,
+	// perSubject and maxAge are the other limits, zero for none. A KV
+	// bucket's or object store's limits come from its bucketSpec instead.
+	retention, storage  string
+	maxMsgs, perSubject int64
+	maxAge              time.Duration
+	// held is the age of the oldest message at the scenario's present;
+	// zero means maxAge (a stream at its age limit).
+	held time.Duration
+	// mirror is the stream this one mirrors; sources those it sources.
+	mirror  string
+	sources []string
+	// declared is a stream the inventory declares unbounded on purpose.
+	declared bool
 	// vanished are durables the servers held until a time and no server
 	// holds since; they are listed for a range whose newest epoch is
 	// before that time.
@@ -62,14 +77,6 @@ func (s scen) consumersAt(sp streamSpec, at time.Time) []string {
 		}
 	}
 	return out
-}
-
-// maxBytesText is max_bytes as the server reports it: -1 without a limit.
-func (sp streamSpec) maxBytesText() string {
-	if sp.maxBytes <= 0 {
-		return "-1"
-	}
-	return strconv.FormatInt(sp.maxBytes, 10)
 }
 
 func isKV(name string) bool { return strings.HasPrefix(name, "KV_") || strings.HasPrefix(name, "OBJ_") }
@@ -144,14 +151,9 @@ func (p *Provider) GetStream(_ context.Context, req *v1.GetStreamRequest) (*v1.G
 	}
 	s := p.scen()
 	cur := current(p.findings(s), req.GetRange())
-	peers := p.sc.peers(sp)
 	res := &v1.GetStreamResponse{
 		Stream: s.streamSummary(sp, cur, req.GetRange()),
-		Config: cfg([][2]string{
-			{"subjects", strings.ReplaceAll(sp.name, "-", ".") + ".>"}, {"retention", "limits"}, {"storage", "file"},
-			{"replicas", fmt.Sprint(len(peers))}, {"max_bytes", sp.maxBytesText()}, {"max_msgs", "-1"}, {"max_age", "0"},
-			{"discard", cmp.Or(sp.discard, "old")},
-		}),
+		Config: s.streamConfig(sp),
 	}
 	res.Servers = s.streamViews(sp, s.epochTime(req.GetRange()))
 	if sp.disagrees != "" {
@@ -168,6 +170,28 @@ func (p *Provider) GetStream(_ context.Context, req *v1.GetStreamRequest) (*v1.G
 	}
 	res.Consumers = s.withRates(s.consumers(sp, cur, true, s.epochTime(req.GetRange())), req.GetRange())
 	return res, nil
+}
+
+// streamConfig is the configuration GetStream lists: the limits the
+// Capacity page reads.
+func (s scen) streamConfig(sp streamSpec) []*v1.ConfigValue {
+	l := s.sc.streamLimitsOf(sp)
+	pairs := [][2]string{
+		{"subjects", strings.ReplaceAll(sp.name, "-", ".") + ".>"}, {"retention", l.retention}, {"storage", l.storage},
+		{"replicas", fmt.Sprint(len(s.sc.peers(sp)))}, {"max_bytes", strconv.FormatInt(l.maxBytes, 10)},
+		{"max_msgs", strconv.FormatInt(l.maxMsgs, 10)}, {"max_age", checks.DurationText(l.maxAge)},
+		{"max_msgs_per_subject", strconv.FormatInt(l.perSubject, 10)}, {"discard", l.discard},
+	}
+	if l.mirror != "" {
+		pairs = append(pairs, [2]string{"mirror", l.mirror})
+	}
+	if len(sp.sources) > 0 {
+		pairs = append(pairs, [2]string{"sources", strings.Join(sp.sources, ", ")})
+	}
+	if l.allowMsgTTL {
+		pairs = append(pairs, [2]string{"allow_msg_ttl", "true"})
+	}
+	return cfg(pairs)
 }
 
 // streamViews is each server's view of a stream at the scenario time at:

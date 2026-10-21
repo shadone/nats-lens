@@ -51,8 +51,10 @@ func prodRows(*scenario) []rowSpec {
 			[]span{{on16(22, 15), on16(22, 30)}, {f(9, 17, 30), f(10, 2, 0)}}},
 		{"client-005", "Short-lived connections", warning, []*v1.EntityRef{clientRef("stock-poller")},
 			[]span{{f(12, 48, 0), open}}},
-		{"stream-005", "Stream without any limit", info, []*v1.EntityRef{streamRef("order-archive")},
-			[]span{{time.Date(2026, 10, 14, 14, 30, 0, 0, time.UTC), open}}},
+		// KV_customer-config fires from October 2, order-archive from
+		// October 14; the row is the check's, so it fails from the first.
+		{"stream-005", "Stream without any limit", info, []*v1.EntityRef{streamRef("order-archive"), streamRef("KV_customer-config")},
+			[]span{{time.Date(2026, 10, 2, 10, 0, 0, 0, time.UTC), open}}},
 	}
 }
 

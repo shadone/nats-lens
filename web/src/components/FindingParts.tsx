@@ -1,6 +1,7 @@
 // Finding pieces: the entity line and a row of the findings list.
 import type { Entity, Finding } from "../api/model";
-import { fmtDuration, isoMinute, shortWhen } from "../lib/format";
+import { fmtDuration, isoDate, isoMinute, shortWhen } from "../lib/format";
+import { muteBy, reviewOn, sentence } from "../lib/muteView";
 import { entityName, entityPath, findingPath, findingTag, streamPath } from "../lib/view";
 import { RLink } from "./common";
 import { Sev, StateTag } from "./Severity";
@@ -20,7 +21,7 @@ export function EntityLine({ e, small }: { e?: Entity; small?: boolean }) {
   );
 }
 
-/** One row of the findings list; a muted one shows who muted it and why. */
+/** One row of the findings list; a muted or accepted one shows who muted or accepted it and why. */
 export function FindingRow({ f, end, rangeStart }: { f: Finding; end: number; rangeStart?: number }) {
   const tag = findingTag(f, rangeStart);
   const m = f.mute;
@@ -28,7 +29,7 @@ export function FindingRow({ f, end, rangeStart }: { f: Finding; end: number; ra
   return (
     <div className={`frow${m ? " mute" : ""}`}>
       <span>
-        <Sev level={m ? "muted" : f.severity} />
+        <Sev level={m ? "muted" : f.severity} label={m?.accepted ? "Accepted" : undefined} />
       </span>
       <span className="code">{f.checkCode}</span>
       <span>
@@ -44,7 +45,15 @@ export function FindingRow({ f, end, rangeStart }: { f: Finding; end: number; ra
       <span className="d">{f.detail}</span>
       {m && m.expiresAt !== undefined ? (
         <span className="s">
-          until {shortWhen(m.expiresAt, end)} {isoMinute(m.expiresAt).slice(11)}
+          {m.accepted ? (
+            <>
+              review on
+              <br />
+              {isoDate(m.expiresAt)}
+            </>
+          ) : (
+            `until ${shortWhen(m.expiresAt, end)} ${isoMinute(m.expiresAt).slice(11)}`
+          )}
           <br />
           in {fmtDuration(m.expiresAt - end)}
         </span>
@@ -58,8 +67,8 @@ export function FindingRow({ f, end, rangeStart }: { f: Finding; end: number; ra
       )}
       {m && (
         <span className="mute-why">
-          <b>Muted by {m.mutedBy || "unknown"}:</b> {m.reason}
-          {m.expiresAt !== undefined && ` Expires ${isoMinute(m.expiresAt)} UTC.`}
+          <b>{muteBy(m)}:</b> {m.accepted ? `${sentence(m.reason)} ${reviewOn(m)}` : m.reason}
+          {!m.accepted && m.expiresAt !== undefined && ` Expires ${isoMinute(m.expiresAt)} UTC.`}
         </span>
       )}
     </div>
