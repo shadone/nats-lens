@@ -156,7 +156,7 @@ func globalScenario() *scenario {
 			{name: "KV_session-cache", msgs: 48210, bytes: 38 * mib, perDay: -1 * mib, ephemeral: 64, held: 9 * day, peers: peers("eu-0", "eu-3", "eu-6")},
 			// Few flags that changed rarely until a release began writing
 			// flags per user (globalFlagsChange); its series bends there.
-			{name: "KV_feature-flags", msgs: 21200, bytes: 10.8 * mib, perDay: 1.6 * mib, ephemeral: 22, held: 200 * day, peers: peers("us-0", "us-5", "us-8")},
+			{name: "KV_feature-flags", msgs: 21200, bytes: globalFlagsNow, perDay: globalFlagsRate, ephemeral: 22, held: 200 * day, peers: peers("us-0", "us-5", "us-8")},
 			{name: "OBJ_product-images", msgs: 120400, bytes: 9.6 * gib, perDay: 80 * mib, held: 400 * day, peers: peers("ap-0", "ap-3", "ap-5")},
 		},
 		buckets: []bucketSpec{
@@ -240,9 +240,19 @@ func globalCreated(s scen, _, consumer string) ([]time.Time, bool) {
 // 1.6 MiB a day since.
 var globalFlagsChange = time.Date(2026, 10, 11, 0, 0, 0, 0, time.UTC)
 
-// globalFlagsBefore is KV_feature-flags' growth per day before
-// globalFlagsChange.
-const globalFlagsBefore = 2 * kib
+// KV_feature-flags' bytes now, its growth per day since
+// globalFlagsChange and before it.
+const (
+	globalFlagsNow    = 10.8 * mib
+	globalFlagsRate   = 1.6 * mib
+	globalFlagsBefore = 2 * kib
+)
+
+// globalFlagsEnded is when the review ended the acceptance of
+// KV_feature-flags, in the fixed frame: the first collection whose week's
+// growth (api.WeeklyGrowth) differs from the recorded +2.0 KiB/day by more
+// than the 1 MiB floor's half.
+var globalFlagsEnded = time.Date(2026, 10, 13, 17, 0, 0, 0, time.UTC)
 
 // globalFlagsBytes is KV_feature-flags' bytes at fixed-frame time c: its
 // spec's growth back to globalFlagsChange, globalFlagsBefore before it.
@@ -255,18 +265,20 @@ func globalFlagsBytes(sp streamSpec, c time.Time) float64 {
 }
 
 // globalSeedEndedAcceptance is an acceptance of stream-005 on
-// KV_feature-flags at its growth then, which nats-lens ended when the
-// growth of the 24 hours before an epoch, all after globalFlagsChange, was
-// the new one. stream-005 fires again since.
+// KV_feature-flags at its growth then, which the review ended at
+// globalFlagsEnded with the end reason it writes from the bucket's series.
+// stream-005 fires again since.
 func globalSeedEndedAcceptance() *storedMute {
 	s := scen{now: FixedNow}
+	sp := streamSpec{bytes: globalFlagsNow, perDay: globalFlagsRate}
+	g := reviewGrowth(func(c time.Time) (float64, bool) { return globalFlagsBytes(sp, c), true }, globalFlagsEnded)
 	return &storedMute{relative: true, seededLift: true, m: &v1.Mute{
 		Id: "2", CheckCode: "stream-005", Entity: streamRef("KV_feature-flags"), Accepted: true, GrowthPerDay: ptr(float64(globalFlagsBefore)),
 		Reason:    "Flags are few and change rarely.",
 		MutedBy:   "ops@example.com",
 		CreatedAt: ts(s.on(1, 9, 0)), ExpiresAt: ts(s.on(1, 9, 0).AddDate(0, 3, 0)),
-		UnmutedAt: ts(s.on(12, 4, 0)), UnmutedBy: api.AcceptEndedBy,
-		EndReason: api.GrowthEndReason(globalFlagsBefore, 1.6*mib),
+		UnmutedAt: ts(globalFlagsEnded.Add(s.shift)), UnmutedBy: api.AcceptEndedBy,
+		EndReason: g.EndReason(globalFlagsBefore),
 	}}
 }
 

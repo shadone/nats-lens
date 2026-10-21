@@ -85,9 +85,16 @@ func TestDemoStorageStoryAgreesWithSpecs(t *testing.T) {
 			if m.GetUnmutedBy() != api.AcceptEndedBy {
 				continue
 			}
-			g := before(m.GetUnmutedAt().AsTime())
-			if g == nil || !api.GrowthChanged(m.GetGrowthPerDay(), *g) || m.GetEndReason() != api.GrowthEndReason(m.GetGrowthPerDay(), *g) {
-				t.Errorf("%s acceptance %s ended %q, its series grew %s then", name, m.GetId(), m.GetEndReason(), growthText(g))
+			// The review's rule over the series: changed at the end, not
+			// half an hour before it, and worded as the review words it.
+			series := func(c time.Time) (float64, bool) { return sc.value("stream.bytes", m.GetEntity(), c) }
+			end := m.GetUnmutedAt().AsTime()
+			g, earlier := reviewGrowth(series, end), reviewGrowth(series, end.Add(-30*time.Minute))
+			if g == nil || !api.GrowthChanged(m.GetGrowthPerDay(), g.PerDay) || m.GetEndReason() != g.EndReason(m.GetGrowthPerDay()) {
+				t.Errorf("%s acceptance %s ended %q, the review reads %v then", name, m.GetId(), m.GetEndReason(), g)
+			}
+			if earlier != nil && api.GrowthChanged(m.GetGrowthPerDay(), earlier.PerDay) {
+				t.Errorf("%s acceptance %s: the review would have ended it before %v", name, m.GetId(), end)
 			}
 			if firing[key] == nil {
 				t.Errorf("%s acceptance %s ended, and %s does not fire", name, m.GetId(), key)

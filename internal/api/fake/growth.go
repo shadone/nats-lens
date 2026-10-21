@@ -49,3 +49,19 @@ func seriesGrowth(ser *v1.Series) *float64 {
 	}
 	return api.RobustPerDay(pts)
 }
+
+// reviewGrowth is the growth the acceptance review reads at t
+// (api.WeeklyGrowth) from a series' values at fixed-frame times, sampled
+// once per bucket of api.AcceptGrowthWidth over api.AcceptGrowthSpans(t).
+func reviewGrowth(value func(c time.Time) (float64, bool), t time.Time) *api.Growth {
+	width := api.AcceptGrowthWidth(sampleEvery)
+	var pts []api.Sample
+	for _, sp := range api.AcceptGrowthSpans(t) {
+		for b := api.BucketStart(sp.From, width).Add(width); !b.After(sp.To); b = b.Add(width) {
+			if v, ok := value(b); ok {
+				pts = append(pts, api.Sample{T: b, V: v})
+			}
+		}
+	}
+	return api.WeeklyGrowth(pts, t, width)
+}
