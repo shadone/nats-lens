@@ -104,7 +104,7 @@ function AcceptBody({
         id={`${ids}-review`}
         label="Review date"
         error={errors.review}
-        hint={`${Number.isFinite(preview) ? `On ${isoDate(preview)}. ` : ""}Between a day and a year from now; dates are UTC.`}
+        hint={`${Number.isFinite(preview) ? `On ${isoDate(preview)}. ` : ""}Between a day and 364 days from now; dates are UTC.`}
       >
         <select id={`${ids}-review`} value={form.review} onChange={set("review")} aria-invalid={!!errors.review} aria-describedby={describe("review", true)}>
           {REVIEW_PRESETS.map((p) => (

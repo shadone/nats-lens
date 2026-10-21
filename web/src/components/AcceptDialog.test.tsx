@@ -80,6 +80,7 @@ describe("AcceptDialog", () => {
     const onAccepted = vi.fn();
     renderApp(<AcceptDialog target={target} onClose={onClose} onAccepted={onAccepted} />);
     expect(screen.getByLabelText("Review date")).toHaveValue("3mo");
+    expect(screen.getByText(/Between a day and 364 days from now; dates are UTC\./)).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText("Reason"), "Order history is kept for audits");
     await userEvent.type(screen.getByLabelText("Your name"), "denis");
     fireEvent.change(screen.getByLabelText("Review date"), { target: { value: "1y" } });
