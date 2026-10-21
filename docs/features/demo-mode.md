@@ -29,7 +29,7 @@
 - **The same states as real data.** One test table lists the states of the API's responses that the UI shows in its own way (each placement square, growth set, unset and negative, each delivery rate, paused and missing consumers, each finding state, a partial collection, the newest collection of a past range, a collector that lost its connection, and Replay's restart, quorum, gone, gap and after-B steps, gone assets with and without a delete event, counts that agree with the steps, and A before the retention refused, and Topology's gateway pair with its round trips, a gateway that dropped in the last hour, a slow route listed before a higher round trip that is not slow, a leaf node site not connected and one whose drops are not counted yet, a gateway pair whose drops are not counted at the first collection, and a single cluster with routes only, and Accounts and auth in operator mode with an account JWT that expires soon and one that never does, in config mode with certificates only, a server certificate and a user JWT that expire soon, failed logins grouped with and without a user, an account not looked up yet, an account whose JWT disables JetStream, an idle account, and the same accounts as `ListAccounts`, and Capacity's cards with a time to full, without enough history, not reported and with `server-014`, each kind of stream, next limit and status, and the same streams and growth as `ListStreams`). The tests find every row both in the demo and in a test database whose tables, findings and inventory are written row by row to hold each state. The demo's collecting systems say demo where a real one says collecting.
 - **The same shapes as real data.** The scenario uses the same event kinds, check codes and API messages as a real collector. Every finding, timeline row and finding event is a real check, with its code, its name and a detail worded as the check's query writes it, with the online shop's assets of the project's examples (streams such as `order-jobs` and `order-archive`, consumers such as `resize-worker`).
 - **Marked as a demo.** The system switcher at the top of the sidebar shows "demo" under the system name, and the collecting systems' summaries say demo as their collection state.
-- **Mutes in memory.** Mutes and lifts made in the demo work. A demo mute keeps its chosen end and stops applying when it expires or is lifted; mutes live in memory only and are gone when the demo stops. The mute dialog asks for a name, as without IAP.
+- **Mutes in memory.** Mutes and lifts made in the demo work. A demo mute keeps its chosen end and stops applying when it expires or is lifted; mutes live in memory only and are gone when the demo stops. The mute dialog asks for a name, as without IAP. An acceptance made on the Capacity page works the same way: the row reads BY DESIGN, its finding counts as muted, and the demo records the stream's growth from its scenario; the demo does not end acceptances when growth changes, so only the seeded one on `KV_feature-flags` shows an end by nats-lens.
 - **Address.** `-listen` sets the address (`127.0.0.1:8080` by default), and `-allowed-host` the Host names the API accepts.
 
 ## Scenarios
@@ -82,6 +82,13 @@
 - **Given** a test that compares API responses
 - **When** I run `natslens demo -fixed`
 - **Then** every response is the same on every run, at the scenario's own time
+
+### Accept a stream in the demo
+
+- **Surfaces:** `ui`
+- **Given** `natslens demo` runs
+- **When** I open Capacity for `example-prod` and accept `order-archive` as by design with a reason and my name
+- **Then** the row reads BY DESIGN, the Findings badge counts one finding less, and the finding page reads "Accepted as by design" until I end the acceptance or stop the demo
 
 ### Try a mute
 

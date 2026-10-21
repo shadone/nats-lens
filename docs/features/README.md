@@ -62,7 +62,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Event capture](event-capture.md) | `ui`, `api`, `cli` | shipped |
 | [Kubernetes context](kubernetes-context.md) | `ui`, `cli` | shipped |
 | [History and archive](history-and-archive.md) | `ui`, `cli` | shipped |
-| [Checks and findings](checks.md) | `ui`, `api`, `cli` | partial — accepting a finding with a review date is planned |
+| [Checks and findings](checks.md) | `ui`, `api`, `cli` | partial — accepting a finding is built for one entity; related entities, a check everywhere and a review list are planned |
 | [Server checks](server-checks.md) | `ui`, `cli` | shipped |
 | [Stream checks](stream-checks.md) | `ui`, `cli` | shipped |
 | [Consumer checks](consumer-checks.md) | `ui`, `cli` | shipped |
@@ -86,7 +86,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Replay](replay.md) | `ui`, `api` | partial — "Replay this window" links and a replica catch-up step are not built |
 | [Topology](topology.md) | `ui`, `api` | shipped |
 | [Applications](applications.md) | `ui`, `api` | planned |
-| [Capacity and retention](capacity.md) | `ui`, `api` | planned |
+| [Capacity and retention](capacity.md) | `ui`, `api` | shipped |
 | [Subjects](subjects.md) | `ui`, `api` | planned |
 | [Accounts and auth](accounts-and-auth.md) | `ui`, `api` | shipped |
 | [KV and object stores](kv-and-object-stores.md) | `ui`, `api` | shipped |
@@ -111,7 +111,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [~] Several NATS systems in one nats-lens, with a system switcher, the Fleet page and its badge, and the shell's status of every system in one call — a cluster switcher inside a supercluster is planned (multiple-systems.md)
 
 **Checks**
-- [~] Findings, severities, restarts, thresholds, remediation file and mutes — accepting with a review date is planned (checks.md)
+- [~] Findings, severities, restarts, thresholds, remediation file, mutes, and one entity's finding accepted until a review date — accepting related entities or a check everywhere is planned (checks.md)
 - [x] Server checks `server-001` to `server-015` (server-checks.md)
 - [x] Stream, KV bucket and object store checks `stream-001` to `stream-014` (stream-checks.md)
 - [x] Consumer checks `consumer-001` to `consumer-013` (consumer-checks.md)
@@ -130,13 +130,13 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Every event, filtered by source, kind, entity and client (events.md)
 - [x] Events worth reading first: routine events hidden, repeats folded, counts per source and server, a histogram, new events behind a pill (events.md)
 - [ ] A configurable routine rule; subject and where columns (events.md)
-- [x] Findings, finding detail with server copies, start times and events around the start, mutes (triage-and-mutes.md)
-- [ ] Why a finding has its severity, a CLI check ready to copy, accept as known (triage-and-mutes.md)
+- [x] Findings, finding detail with server copies, start times and events around the start, mutes, accepted findings read as accepted (triage-and-mutes.md)
+- [ ] Why a finding has its severity, a CLI check ready to copy, accepting from the finding page or for related entities (triage-and-mutes.md)
 - [~] Every stream and durable consumer on every server in one matrix, with filters, a moment to compare with and a side panel — how long most states have lasted and a playbook link are not built (placement.md)
 - [~] What changed between two moments A and B, in order, with counts, gone assets, evidence links, a shared link and an incident log — "Replay this window" links and a replica catch-up step are not built (replay.md)
 - [x] How the servers connect: routes, gateways and leaf node sites, with round trips, drops counted from the collections, slow routes and sites not connected (topology.md)
 - [ ] Clients grouped by application (applications.md)
-- [ ] What each stream keeps, what bounds it, and when disks fill (capacity.md)
+- [x] What each stream keeps, what bounds it, and when disks fill, with an unbounded stream accepted as by design (capacity.md)
 - [ ] Subject patterns, from data the servers expose (subjects.md)
 - [x] Accounts with their limits, imports, exports and JWT expiry, the failed logins of 24 hours, and the certificates and JWTs that expire within 30 days (accounts-and-auth.md)
 - [x] KV buckets and object stores as their own pages, with placement and missing buckets (kv-and-object-stores.md)
@@ -149,4 +149,4 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Findings and collector health at `/metrics` for Prometheus alerting (metrics-and-alerting.md)
 - [x] `run`, `once` for every system or one, configuration, health and readiness, the Kubernetes manifests (running-nats-lens.md)
 - [x] Read-only SQL on a stopped database with `natslens sql`, one system at a time (sql-access.md)
-- [x] Three fixed systems without NATS with `natslens demo`, whose findings are the real checks, with a node pool upgrade to replay, links of a supercluster to draw from `GetTopology`, accounts and failed logins from `GetAccountsAndAuth`, and which show every state real data shows, tested against the store with one table of states (demo-mode.md)
+- [x] Three fixed systems without NATS with `natslens demo`, whose findings are the real checks, with a node pool upgrade to replay, links of a supercluster to draw from `GetTopology`, accounts and failed logins from `GetAccountsAndAuth`, the stores and streams of the Capacity page from `GetCapacity`, and which show every state real data shows, tested against the store with one table of states (demo-mode.md)
