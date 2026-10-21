@@ -26,6 +26,7 @@ import { Placement } from "./pages/Placement";
 import { Replay } from "./pages/Replay";
 import { Topology } from "./pages/Topology";
 import { Accounts } from "./pages/Accounts";
+import { Capacity } from "./pages/Capacity";
 import { NotFound } from "./pages/NotFound";
 
 /**
@@ -90,6 +91,7 @@ export function App() {
                 <Route path="/replay" element={<Replay />} />
                 <Route path="/topology" element={<Topology />} />
                 <Route path="/accounts" element={<Accounts />} />
+                <Route path="/capacity" element={<Capacity />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </SystemGate>

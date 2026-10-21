@@ -26,6 +26,10 @@ type archiveTable struct {
 	// latest orders the copies of one key, newest first; empty means
 	// last_epoch DESC.
 	latest string
+	// columns lists columns latest reads that files written before a
+	// migration lack, as "NULL::TYPE AS name"; the rebuild adds them,
+	// NULL, to such files' rows.
+	columns []string
 }
 
 const (
@@ -63,7 +67,11 @@ func archiveTables() []archiveTable {
 	// whole table as it was at export, and a rebuild keeps each mute's
 	// newest copy, which is the lifted one once it was lifted. Mutes are
 	// never swept.
-	out = append(out, archiveTable{name: "mutes", key: []string{"id"}, latest: "unmuted_at DESC NULLS LAST"})
+	// Among copies that are not lifted, the one with the acceptance's
+	// growth baseline wins: the review writes it later, and unmuted_at
+	// alone ties.
+	out = append(out, archiveTable{name: "mutes", key: []string{"id"}, latest: "unmuted_at DESC NULLS LAST, growth_per_day IS NULL",
+		columns: []string{"NULL::DOUBLE AS growth_per_day"}})
 	// Findings are the current state of every check, updated after every
 	// epoch: like mutes, every hour holds the whole table, and a rebuild
 	// keeps each finding's copy with the highest updated_epoch. Their
@@ -191,14 +199,16 @@ type ExportedFile struct {
 type HourExport struct {
 	Files []ExportedFile
 	// Epochs and Events are the hour's epoch and event counts, and
-	// MuteChanges the mutes plus lifted mutes, read in the same transaction
-	// as the files.
+	// MuteChanges the mutes plus lifted mutes plus acceptances with a
+	// growth, read in the same transaction as the files.
 	Epochs, Events, MuteChanges int64
 }
 
-// muteChanges counts mutes plus lifted mutes. Mutes are never deleted, so
-// the number grows by one with every mute created or lifted.
-const muteChanges = `SELECT count(*) + count(unmuted_at) FROM mutes`
+// muteChanges counts mutes, lifted mutes and acceptances with a growth.
+// Mutes are never deleted and a growth is never cleared, so the number
+// grows with every mute created or lifted and every baseline the review
+// writes, and the hour of a baseline is exported again.
+const muteChanges = `SELECT count(*) + count(unmuted_at) + count(growth_per_day) FROM mutes`
 
 // Rows returns the rows written across all files.
 func (e HourExport) Rows() int64 {
@@ -343,8 +353,11 @@ func (s *Store) Rebuild(ctx context.Context, hours map[time.Time]RebuildHour, mi
 			continue
 		}
 		sort.Strings(paths)
-		q := fmt.Sprintf("INSERT INTO %s BY NAME SELECT * FROM read_parquet([%s], union_by_name = true, hive_partitioning = false)",
-			t.name, quoteAll(paths))
+		from := fmt.Sprintf("read_parquet([%s], union_by_name = true, hive_partitioning = false)", quoteAll(paths))
+		if len(t.columns) > 0 {
+			from = fmt.Sprintf("(SELECT * FROM %s UNION ALL BY NAME SELECT %s WHERE false)", from, strings.Join(t.columns, ", "))
+		}
+		q := fmt.Sprintf("INSERT INTO %s BY NAME SELECT * FROM %s", t.name, from)
 		if t.key != nil {
 			latest := t.latest
 			if latest == "" {

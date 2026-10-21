@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
@@ -26,6 +27,7 @@ func muteProto(m store.Mute) *v1.Mute {
 	out := &v1.Mute{
 		Id: strconv.FormatInt(m.ID, 10), CheckCode: m.CheckCode, Reason: m.Reason, MutedBy: m.MutedBy,
 		CreatedAt: ts(m.CreatedAt), ExpiresAt: ts(m.ExpiresAt), UnmutedAt: ts(m.UnmutedAt), UnmutedBy: m.UnmutedBy,
+		Accepted: m.Accepted, GrowthPerDay: m.GrowthPerDay, EndReason: m.EndReason,
 	}
 	if m.EntityType != "" {
 		out.Entity = &v1.EntityRef{Type: entityTypeOf(m.EntityType), Key: m.EntityKey}
@@ -42,6 +44,14 @@ func (p *Provider) MuteFinding(ctx context.Context, req *v1.MuteFindingRequest) 
 	if e := req.GetEntity(); e != nil {
 		m.EntityType, m.EntityKey = entityTypeName(e.GetType()), e.GetKey()
 	}
+	if req.GetAccept() {
+		m.Accepted = true
+		g, err := p.acceptGrowth(ctx, m.CreatedAt, store.EntityKey{Type: m.EntityType, Key: m.EntityKey})
+		if err != nil {
+			return nil, err
+		}
+		m.GrowthPerDay = g
+	}
 	// The handler has checked the request, so a row the table rejects is
 	// a fault of this server, reported as internal.
 	out, err := p.St.CreateMute(ctx, m)
@@ -49,6 +59,30 @@ func (p *Provider) MuteFinding(ctx context.Context, req *v1.MuteFindingRequest) 
 		return nil, err
 	}
 	return muteProto(out), nil
+}
+
+// acceptGrowth is the growth an acceptance records: the entity's week's
+// growth per day at now, by api.WeeklyGrowth; nil for an entity type
+// without one or under 8 days of data, and the review then records it
+// later as the baseline.
+func (p *Provider) acceptGrowth(ctx context.Context, now time.Time, e store.EntityKey) (*float64, error) {
+	var spans []store.Span
+	for _, sp := range api.AcceptGrowthSpans(now) {
+		spans = append(spans, store.Span{From: sp.From, To: sp.To})
+	}
+	width := api.AcceptGrowthWidth(p.Interval)
+	pts, err := p.St.GrowthPoints(ctx, spans, width, []store.EntityKey{e})
+	if err != nil {
+		return nil, err
+	}
+	s := make([]api.Sample, 0, len(pts[e]))
+	for _, pt := range pts[e] {
+		s = append(s, api.Sample{T: pt.T, V: pt.V})
+	}
+	if g := api.WeeklyGrowth(s, now, width); g != nil {
+		return &g.PerDay, nil
+	}
+	return nil, nil
 }
 
 // UnmuteFinding lifts an active mute.

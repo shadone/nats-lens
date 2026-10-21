@@ -1,0 +1,62 @@
+/* Capacity: the server cards and the streams table. Every rule names a
+   cap- class, so the page's rules reach no other page; a test checks it.
+   Row headers are written .tbl.cap-tbl tbody th[scope="row"] so that
+   they outrank the shared rule of events.css.
+   Colours are the design board's: the accent for a bounded stream and a
+   store's bar, the info colour for an unbounded stream, the severity
+   tokens for a finding. */
+.cap-servers{margin-top:14px}
+.cap-group + .cap-group{margin-top:16px}
+.cap-cluster{margin:0 0 8px;font:600 11px/1.3 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
+.cap-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.cap-server{padding:16px 18px;min-width:0}
+.cap-server-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.cap-server-h .cap-server-name{font:600 13px var(--mono)}
+.cap-store{font:12px var(--mono);color:var(--text-muted)}
+.cap-use{margin-top:6px;font:600 22px/1.25 var(--mono)}
+.cap-use .cap-of{font-size:13px;font-weight:400;color:var(--text-muted)}
+.cap-bar{height:8px;margin-top:8px;border-radius:4px;background:var(--track);overflow:hidden}
+.cap-bar-fill{height:8px;background:var(--accent)}
+.cap-bar-fill.cap-bar-some{min-width:3px}
+.cap-bar-fill.cap-bar-warn{background:var(--cell-warning)}
+.cap-bar-fill.cap-bar-crit{background:var(--cell-critical)}
+.cap-growth{margin:6px 0 0;font-size:12px;color:var(--text-2)}
+.cap-server .cap-quiet{color:var(--text-muted)}
+.cap-finding{margin:8px 0 0;font-size:12px}
+.cap-finding .cap-warn{color:var(--sev-warning);font-weight:600}
+.cap-finding .cap-crit{color:var(--sev-critical);font-weight:600}
+.cap-line{margin:10px 2px 0;font-size:12px;color:var(--text-muted)}
+.cap-card{margin-top:20px;padding:4px 0 0;min-width:0;overflow:hidden}
+.cap-card .table-wrap{padding:0 8px}
+.cap-card .table-wrap:last-child{padding-bottom:8px}
+.cap-tbl td{vertical-align:middle;font-size:13px}
+.tbl.cap-tbl tbody th[scope="row"]{text-align:left;vertical-align:middle;white-space:normal;font:400 12.5px var(--sans)}
+.cap-tbl .cap-name{font:600 12.5px var(--mono);overflow-wrap:anywhere}
+.cap-tbl small{display:block;margin-top:3px;font:12px var(--sans);color:var(--text-muted);white-space:normal;min-width:120px}
+.cap-tbl .cap-held-cell{min-width:180px}
+.cap-held{position:relative;height:10px;border-radius:5px;background:var(--track)}
+.cap-held-fill{position:absolute;right:0;top:0;bottom:0;min-width:3px;border-radius:5px;background:var(--accent)}
+.cap-held-fill.cap-held-open{background:var(--sev-info)}
+.cap-held-label{margin-top:3px;font:11px var(--mono);color:var(--text-muted)}
+.cap-tbl .cap-rate{color:var(--text-2)}
+.cap-tbl td.cap-crit{color:var(--sev-critical);font-weight:600}
+.cap-tbl .cap-status{min-width:170px;max-width:280px;white-space:normal}
+.cap-tbl .cap-design{display:inline-block;padding:1px 7px;border:1.5px dotted var(--text-muted);border-radius:5px;font:11px var(--mono);color:var(--text-muted);white-space:nowrap}
+.cap-tbl .cap-tag{display:inline-block;padding:1px 7px;border-radius:5px;font:600 12px var(--sans);white-space:nowrap}
+.cap-tbl .cap-tag.cap-warn{color:var(--sev-warning);background:var(--sev-warning-bg);border:1px solid var(--sev-warning)}
+.cap-tbl .cap-accept{white-space:nowrap}
+.cap-tbl .cap-ok{color:var(--accent-text);white-space:nowrap}
+.cap-tbl .cap-quiet{color:var(--text-muted)}
+.cap-foot{margin:0;padding:10px 20px 14px;font-size:12px;color:var(--text-muted)}
+.cap-card .table-wrap + .cap-foot{border-top:1px solid var(--border-soft)}
+.cap-note{margin:10px 2px 0;font-size:12px;color:var(--text-muted);max-width:900px}
+@media (max-width:1000px){
+  .cap-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:760px){
+  .cap-cards{grid-template-columns:minmax(0,1fr)}
+  .cap-card .table-wrap{padding:0}
+  .cap-tbl thead th:first-child{position:sticky;left:0;z-index:1;background:var(--surface)}
+  .tbl.cap-tbl tbody th[scope="row"]{position:sticky;left:0;z-index:1;max-width:150px;background:var(--surface);box-shadow:1px 0 0 var(--border-soft)}
+  .cap-foot{padding-left:14px;padding-right:14px}
+}

@@ -122,7 +122,7 @@ func prodSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (floa
 		v, ok := prodSample(sc, strings.Replace(metric, "_bytes_", "_msgs_", 1), e, c)
 		return math.Round(v * 1230), ok
 	case "cluster.js_storage_bytes":
-		return (5.81 - days*0.19) * gib, true
+		return 5.81*gib - days*51*mib, true
 	case "cluster.durable_consumers":
 		if c.Before(fixed(9, 31, 7)) {
 			return 14, true
@@ -139,12 +139,15 @@ func prodSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (floa
 	case "server.cpu_percent":
 		return 7.5 + noise(metric+e.GetKey(), c)*4, !down(e.GetKey(), c)
 	case "server.js_storage_bytes":
-		return 1980*mib - days*65*mib, !down(e.GetKey(), c)
+		return 1980*mib - days*17*mib, !down(e.GetKey(), c)
 	case "stream.bytes", "stream.messages":
 		sp, _ := sc.findStream(e.GetAccount(), e.GetStream())
 		b := math.Max(sp.bytes-days*sp.perDay, sp.bytes*0.05)
 		if metric == "stream.bytes" {
 			return b, true
+		}
+		if sp.bytes == 0 {
+			return 0, true
 		}
 		return math.Round(float64(sp.msgs) * b / sp.bytes), true
 	case "consumer.num_pending", "consumer.num_ack_pending", "consumer.num_redelivered", "consumer.delivered_rate":

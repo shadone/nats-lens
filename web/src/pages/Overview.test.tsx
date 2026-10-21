@@ -114,7 +114,7 @@ describe("Overview cause cards", () => {
 
   it("lists muted findings with their reason in quotes, apart from the cards", async () => {
     const m = finding("m", consumerEnt("resize-worker"), {
-      mute: { id: "mu", checkCode: "consumer-009", reason: "rebuilt on purpose", mutedBy: "ops", unmutedBy: "" },
+      mute: { id: "mu", checkCode: "consumer-009", reason: "rebuilt on purpose", mutedBy: "ops", unmutedBy: "", accepted: false, endReason: "" },
     });
     mock({ ...quiet, tally: { ...quiet.tally, muted: 1 } }, [m]);
     renderApp(<Overview />);

@@ -13,6 +13,7 @@ import { FILTER_ENUM, matrix, type MatrixFilter } from "./placementMatrix";
 import { replay, type Replay } from "./adapt-replay";
 import { topology } from "./topology";
 import { accountsAndAuth } from "./accounts";
+import { capacity } from "./capacity";
 import { lens } from "./client";
 import type {
   ConnectionPage,
@@ -103,6 +104,8 @@ export interface MuteInput {
   reason: string;
   expiresAt: number;
   mutedBy: string;
+  /** Accept the finding as by design: expiresAt is the review date. */
+  accept?: boolean;
 }
 
 export async function muteFinding(sys: string, m: MuteInput) {
@@ -113,6 +116,7 @@ export async function muteFinding(sys: string, m: MuteInput) {
     reason: m.reason,
     expiresAt: timestampFromMs(m.expiresAt),
     mutedBy: m.mutedBy,
+    accept: m.accept ?? false,
   });
   return mute(r.mute);
 }
@@ -210,6 +214,11 @@ export async function getPlacement(sys: string, spec: RangeSpec, filter: MatrixF
 /** How the servers connect, in the range's newest collection. */
 export async function getTopology(sys: string, spec: RangeSpec, signal?: AbortSignal) {
   return topology(await lens.getTopology({ ...systemInit(sys), range: rangeInit(spec) }, { signal }));
+}
+
+/** What each stream keeps and bounds it, and when the stores fill, in the range's newest collection. */
+export async function getCapacity(sys: string, spec: RangeSpec, signal?: AbortSignal) {
+  return capacity(await lens.getCapacity({ ...systemInit(sys), range: rangeInit(spec) }, { signal }));
 }
 
 /** The accounts of the range's newest collection, the failed logins of the 24 hours before it, and what expires soon. */

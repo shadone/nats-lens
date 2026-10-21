@@ -53,13 +53,14 @@ const confInventory = `accounts:
 //     offline.
 //   - returns: nats-1 leads, nats-2 listed and not reporting, nats-3 in
 //     sync.
-//   - wishlist: three replicas, none leads.
+//   - wishlist: three replicas, none leads, each reporting another size.
 //   - KV_sessions: R1 on nats-2, shrinking 100 kB every epoch.
 //
 // Consumers on orders: fast delivers 1 a second, planner is paused, fresh
 // appeared in the newest epoch, auditor is expected and missing; settler
 // on payments has another configuration and creation time on nats-1. Findings cover every
-// state, and stream-007 on payments is muted.
+// state, stream-007 on payments is muted, and stream-005 on wishlist is
+// accepted as by design.
 func conformanceStore(t *testing.T) (*store.Store, *checks.Set) {
 	t.Helper()
 	st := emptyStore(t)
@@ -137,9 +138,12 @@ func conformanceStore(t *testing.T) (*store.Store, *checks.Set) {
 	listed("S1", "returns", "nats-3", true, false, 0)
 
 	stream("wishlist")
-	for _, id := range []string{"S0", "S1", "S2"} {
+	// No leader, and the replicas report different sizes: every page reads
+	// the largest.
+	for i, id := range []string{"S0", "S1", "S2"} {
 		configure(id, "wishlist", "h", 3)
-		report(id, "wishlist", "", false)
+		r.add("stream_stats", map[string]any{"epoch": last, "server_id": id, "account": "APP", "stream": "wishlist",
+			"is_leader": false, "leader": "", "messages": 10 + i, "bytes": 1000 * (i + 1)})
 	}
 
 	stream("KV_sessions")
@@ -202,6 +206,7 @@ func conformanceStore(t *testing.T) (*store.Store, *checks.Set) {
 		if e >= 90 {
 			found["stream-002"] = []store.FindingRow{{EntityKey: "APP/payments", Severity: "warning", Detail: "Leader nats-0 reports 1 replica offline: nats-2."}}
 			found["stream-007"] = []store.FindingRow{{EntityKey: "APP/payments", Severity: "warning", Detail: "2 configurations (nats-0 | nats-1); differing: max_age."}}
+			found["stream-005"] = []store.FindingRow{{EntityKey: "APP/wishlist", Severity: "info", Detail: "wishlist has no limits."}}
 		}
 		if e >= 92 {
 			sev := "info"
@@ -297,11 +302,17 @@ func TestStoreConformance(t *testing.T) {
 			Interval: 30 * time.Second, Live: true, Clock: at, Retention: 14 * 24 * time.Hour}},
 		{Ref: &v1.SystemRef{Id: "accounts-config", Name: "accounts-config"}, Provider: &storeprov.Provider{St: accountsConfigStore(t, clock.Add(-30*time.Second)),
 			Interval: 30 * time.Second, Live: true, Clock: at, Retention: 14 * 24 * time.Hour}},
+		{Ref: &v1.SystemRef{Id: "capacity", Name: "capacity"}, Provider: capacityProvider(t, clock.Add(-30*time.Second))},
 	}})
 	if _, err := c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{System: "main", CheckCode: "stream-007",
 		Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/payments"}, Reason: "Update in review.", MutedBy: "ops",
 		ExpiresAt: timestamppb.New(clock.Add(24 * time.Hour))})); err != nil {
 		t.Fatal(err)
 	}
-	apitest.RunConformance(t, apitest.Env{Client: c, Systems: []string{"main", "closed", "replay", "topology", "topology-single", "accounts", "accounts-config"}, Now: clock})
+	if _, err := c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{System: "main", CheckCode: "stream-005", Accept: true,
+		Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/wishlist"}, Reason: "Wishes are kept for the account's life.",
+		MutedBy: "ops@example.com", ExpiresAt: timestamppb.New(clock.Add(180 * 24 * time.Hour))})); err != nil {
+		t.Fatal(err)
+	}
+	apitest.RunConformance(t, apitest.Env{Client: c, Systems: []string{"main", "closed", "replay", "topology", "topology-single", "accounts", "accounts-config", "capacity"}, Now: clock})
 }

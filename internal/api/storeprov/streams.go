@@ -106,21 +106,41 @@ ORDER BY n.account, n.stream`, e.epoch, account, account, stream, stream, e.epoc
 	return out, totals, nil
 }
 
-// streamGrowth reads every stream's leader bytes in the range, reduced in
-// SQL to at most api.GrowthBuckets medians per stream, for api.RobustPerDay.
+// The pieces of SQL streamGrowth and streamPoints share, so that the
+// Streams and Capacity pages read one bytes growth: a stream's value in an
+// epoch (the leader's report, else the largest), the epochs of the range,
+// and the growth buckets.
+const (
+	streamPerEpoch = `FROM stream_stats x JOIN epochs e USING (epoch)
+  WHERE e.started_at >= ? AND e.started_at < ? AND (? = '' OR x.account = ?) AND (? = '' OR x.stream = ?)
+  GROUP BY x.account, x.stream, e.epoch, e.started_at`
+	growthBucket = `time_bucket(to_microseconds(?::BIGINT), t, TIMESTAMP '1970-01-01 00:00:00')`
+)
+
+// leaderValue is a stream's value of col in one epoch: the leader's
+// report, else the largest any server reports.
+func leaderValue(col string) string {
+	return "coalesce(max(x." + col + ") FILTER (WHERE x.is_leader), max(x." + col + "))"
+}
+
+// growthWidth is the width of a growth bucket over a range.
+func (p *Provider) growthWidth(start, end time.Time) time.Duration {
+	return max(end.Sub(start)/api.GrowthBuckets, max(p.Interval, time.Second))
+}
+
+// streamGrowth reads every stream's bytes in the range, reduced in SQL to
+// at most api.GrowthBuckets medians per stream, for api.RobustPerDay. Its
+// bytes medians are streamPoints' for the same range, without the messages
+// ListStreams does not read.
 func (p *Provider) streamGrowth(ctx context.Context, start, end time.Time, account, stream string) (map[string][]api.Sample, error) {
-	width := max(end.Sub(start)/api.GrowthBuckets, max(p.Interval, time.Second))
 	rows, err := p.db().QueryContext(ctx, `
 WITH per AS (
-  SELECT x.account, x.stream, e.started_at AS t,
-    coalesce(max(x.bytes) FILTER (WHERE x.is_leader), max(x.bytes)) AS v
-  FROM stream_stats x JOIN epochs e USING (epoch)
-  WHERE e.started_at >= ? AND e.started_at < ? AND (? = '' OR x.account = ?) AND (? = '' OR x.stream = ?)
-  GROUP BY x.account, x.stream, e.epoch, e.started_at)
+  SELECT x.account, x.stream, e.started_at AS t, `+leaderValue("bytes")+` AS v
+  `+streamPerEpoch+`)
 SELECT account, stream, min(t) + (max(t) - min(t)) / 2, median(v)::DOUBLE
 FROM per WHERE v IS NOT NULL
-GROUP BY account, stream, time_bucket(to_microseconds(?::BIGINT), t, TIMESTAMP '1970-01-01 00:00:00')
-ORDER BY 1, 2, 3`, start, end, account, account, stream, stream, width.Microseconds())
+GROUP BY account, stream, `+growthBucket+`
+ORDER BY 1, 2, 3`, start, end, account, account, stream, stream, p.growthWidth(start, end).Microseconds())
 	if err != nil {
 		return nil, fmt.Errorf("stream growth: %w", err)
 	}
@@ -133,6 +153,51 @@ ORDER BY 1, 2, 3`, start, end, account, account, stream, stream, width.Microseco
 			return nil, err
 		}
 		out[acc+"/"+name] = append(out[acc+"/"+name], sm)
+	}
+	return out, rows.Err()
+}
+
+// streamPts are a stream's bucket medians of bytes and of messages.
+type streamPts struct{ bytes, msgs []api.Sample }
+
+// streamPoints reads every stream's bytes and messages in the range for
+// the Capacity page (the leader's report, else the largest any server
+// reports), reduced in SQL to at most api.GrowthBuckets medians per stream
+// and keyed by account/stream: one query for every stream.
+func (p *Provider) streamPoints(ctx context.Context, start, end time.Time, account, stream string) (map[string]streamPts, error) {
+	rows, err := p.db().QueryContext(ctx, `
+WITH per AS (
+  SELECT x.account, x.stream, e.started_at AS t, `+leaderValue("bytes")+` AS v, `+leaderValue("messages")+` AS m
+  `+streamPerEpoch+`)
+SELECT account, stream, `+growthBucket+` AS b,
+  min(t) FILTER (WHERE v IS NOT NULL) + (max(t) FILTER (WHERE v IS NOT NULL) - min(t) FILTER (WHERE v IS NOT NULL)) / 2,
+  median(v)::DOUBLE,
+  min(t) FILTER (WHERE m IS NOT NULL) + (max(t) FILTER (WHERE m IS NOT NULL) - min(t) FILTER (WHERE m IS NOT NULL)) / 2,
+  median(m)::DOUBLE
+FROM per WHERE v IS NOT NULL OR m IS NOT NULL
+GROUP BY ALL
+ORDER BY 1, 2, 3`, start, end, account, account, stream, stream, p.growthWidth(start, end).Microseconds())
+	if err != nil {
+		return nil, fmt.Errorf("stream points: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]streamPts{}
+	for rows.Next() {
+		var acc, name string
+		var b time.Time
+		var bt, mt sql.NullTime
+		var bv, mv sql.NullFloat64
+		if err := rows.Scan(&acc, &name, &b, &bt, &bv, &mt, &mv); err != nil {
+			return nil, err
+		}
+		pts := out[acc+"/"+name]
+		if bt.Valid && bv.Valid {
+			pts.bytes = append(pts.bytes, api.Sample{T: bt.Time, V: bv.Float64})
+		}
+		if mt.Valid && mv.Valid {
+			pts.msgs = append(pts.msgs, api.Sample{T: mt.Time, V: mv.Float64})
+		}
+		out[acc+"/"+name] = pts
 	}
 	return out, rows.Err()
 }

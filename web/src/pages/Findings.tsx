@@ -10,6 +10,8 @@ import { EntityLine, FindingRow } from "../components/FindingParts";
 import { UnmuteDialog } from "../components/MuteDialog";
 import { Sev } from "../components/Severity";
 import { fmtDuration, isoMinute } from "../lib/format";
+import { entityName } from "../lib/view";
+import { endedByLens, muteActive, muteBy, reviewOn, sentence } from "../lib/muteView";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useSystem } from "../lib/useSystem";
 import { rangeKey } from "../lib/timeRange";
@@ -24,33 +26,39 @@ const STATES: { id: string; label: string; states: FindingState[] }[] = [
   { id: "all", label: "All", states: ["firing", "changed", "flapping", "resolved"] },
 ];
 
+/** The lift button's name, with the check and what it covers: "End acceptance of stream-005 for order-archive…". */
+function liftName(m: Mute): string {
+  return `${m.accepted ? "End acceptance" : "Lift mute"} of ${m.checkCode} for ${entityName(m.entity) || "every entity"}…`;
+}
+
 function MuteRow({ m, now, onLift }: { m: Mute; now: number; onLift: (m: Mute) => void }) {
-  const active = m.unmutedAt === undefined && (m.expiresAt ?? 0) > now;
+  const active = muteActive(m, now);
+  const ended = endedByLens(m);
   return (
     <div className="frow mute">
       <span>
-        <Sev level="muted" label={active ? "Muted" : m.unmutedAt !== undefined ? "Lifted" : "Expired"} />
+        <Sev level="muted" label={active ? (m.accepted ? "Accepted" : "Muted") : m.unmutedAt !== undefined ? (m.accepted ? "Ended" : "Lifted") : "Expired"} />
       </span>
       <span className="code">{m.checkCode}</span>
       <span>
         <span className="e">{m.entity ? <EntityLine e={m.entity} small /> : "every entity"}</span>
       </span>
       <span className="s">
-        {m.expiresAt !== undefined && (active ? `ends in ${fmtDuration(m.expiresAt - now)}` : `ended ${isoMinute(m.unmutedAt ?? m.expiresAt)}`)}
+        {m.expiresAt !== undefined && (active ? `${m.accepted ? "review" : "ends"} in ${fmtDuration(m.expiresAt - now)}` : `ended ${isoMinute(m.unmutedAt ?? m.expiresAt)}`)}
         {active && (
           <>
             <br />
-            <button type="button" className="btn" onClick={() => onLift(m)}>
-              Lift…
+            <button type="button" className="btn" onClick={() => onLift(m)} aria-label={liftName(m)}>
+              {m.accepted ? "End…" : "Lift…"}
             </button>
           </>
         )}
       </span>
       <span className="mute-why">
-        <b>Muted by {m.mutedBy || "unknown"}</b>
-        {m.createdAt !== undefined && ` on ${isoMinute(m.createdAt)}`}: {m.reason}
-        {m.expiresAt !== undefined && ` Expires ${isoMinute(m.expiresAt)} UTC.`}
-        {m.unmutedAt !== undefined && ` Lifted ${isoMinute(m.unmutedAt)} by ${m.unmutedBy || "unknown"}.`}
+        <b>{muteBy(m)}</b>
+        {m.createdAt !== undefined && ` on ${isoMinute(m.createdAt)}`}: {m.accepted ? sentence(m.reason) : m.reason}
+        {m.expiresAt !== undefined && (m.accepted ? ` ${reviewOn(m)}` : ` Expires ${isoMinute(m.expiresAt)} UTC.`)}
+        {ended ? ` ${ended}` : m.unmutedAt !== undefined && ` ${m.accepted ? "Ended" : "Lifted"} ${isoMinute(m.unmutedAt)} by ${m.unmutedBy || "unknown"}.`}
       </span>
     </div>
   );
@@ -65,7 +73,7 @@ function Mutes() {
   return (
     <Section
       title="Mutes"
-      aside="A muted finding still records transitions and never alerts. Every mute ends."
+      aside="A muted or accepted finding still records transitions and never alerts. Every mute ends; an acceptance at its review date."
       right={
         <label className="check chip">
           <input type="checkbox" checked={inactive} onChange={(e) => setInactive(e.target.checked)} /> Include ended

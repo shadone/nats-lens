@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -123,39 +124,46 @@ func globalScenario() *scenario {
 		cluster: "eu",
 		servers: globalServers(),
 		streams: []streamSpec{
-			{name: "order-jobs", msgs: 182044, bytes: 230 * mib, perDay: 9 * mib, consumers: []string{"resize-worker", "index-worker"}, peers: peers("eu-0", "eu-1", "eu-2")},
-			{name: "order-events", msgs: 9204411, bytes: 11.2 * gib, perDay: 310 * mib,
+			{name: "order-jobs", msgs: 182044, bytes: 230 * mib, perDay: 9 * mib, maxAge: 7 * day, maxMsgs: 1_000_000, consumers: []string{"resize-worker", "index-worker"}, peers: peers("eu-0", "eu-1", "eu-2")},
+			{name: "order-events", msgs: 9204411, bytes: 11.2 * gib, perDay: 310 * mib, maxAge: 30 * day, maxBytes: 64 * gib,
 				consumers: []string{"order-projector", "email-sender", "analytics-aggregator", "invoice-renderer"}, peers: peers("eu-3", "eu-4", "eu-5")},
-			{name: "payment-events", msgs: 2210980, bytes: 2.6 * gib, perDay: 74 * mib, consumers: []string{"ledger-writer", "fraud-scorer"}, peers: peers("eu-1", "eu-6", "eu-7")},
-			{name: "cart-events", msgs: 4120330, bytes: 1.9 * gib, perDay: 120 * mib, consumers: []string{"cart-abandon-notifier"}, peers: peers("eu-2", "eu-5", "eu-8")},
+			{name: "payment-events", msgs: 2210980, bytes: 2.6 * gib, perDay: 74 * mib, maxAge: 90 * day, held: 40 * day, consumers: []string{"ledger-writer", "fraud-scorer"}, peers: peers("eu-1", "eu-6", "eu-7")},
+			{name: "cart-events", msgs: 4120330, bytes: 1.9 * gib, perDay: 120 * mib, retention: "interest", maxAge: 14 * day, held: 3 * day, consumers: []string{"cart-abandon-notifier"}, peers: peers("eu-2", "eu-5", "eu-8")},
 			// Two durables no server held after nats-us-2 restarted, with
 			// no delete event.
-			{name: "inventory-changes", msgs: 1880220, bytes: 1.4 * gib, perDay: 40 * mib, consumers: []string{"stock-projector", "reorder-planner"}, peers: peers("us-0", "us-1", "us-2"),
+			{name: "inventory-changes", msgs: 1880220, bytes: 1.4 * gib, perDay: 40 * mib, maxAge: 30 * day, consumers: []string{"stock-projector", "reorder-planner"}, peers: peers("us-0", "us-1", "us-2"),
 				vanished: []vanishedConsumer{{"restock-alerts", globalVanished}, {"stock-audit-export", globalVanished}}},
-			{name: "shipping-updates", msgs: 640118, bytes: 820 * mib, perDay: 22 * mib, consumers: []string{"label-printer", "tracking-notifier"}, peers: peers("us-3", "us-4", "us-5")},
-			{name: "catalog-changes", msgs: 512880, bytes: 610 * mib, perDay: 8 * mib, consumers: []string{"catalog-applier", "catalog-search-indexer"}, peers: peers("us-6", "us-7", "us-8")},
-			{name: "price-changes", msgs: 96410, bytes: 140 * mib, perDay: 3 * mib, consumers: []string{"price-cache-invalidator"}, peers: peers("us-2", "us-4", "us-7")},
-			{name: "search-index", msgs: 3301200, bytes: 4.8 * gib, perDay: 160 * mib, consumers: []string{"search-indexer"}, peers: peers("ap-0", "ap-1", "ap-2"),
+			{name: "shipping-updates", msgs: 640118, bytes: 820 * mib, perDay: 22 * mib, retention: "workqueue", maxMsgs: 1_000_000, held: 2 * day, consumers: []string{"label-printer", "tracking-notifier"}, peers: peers("us-3", "us-4", "us-5")},
+			{name: "catalog-changes", msgs: 512880, bytes: 610 * mib, perDay: 8 * mib, maxAge: 30 * day, consumers: []string{"catalog-applier", "catalog-search-indexer"}, peers: peers("us-6", "us-7", "us-8")},
+			// At its message limit with discard new: it refuses new prices.
+			{name: "price-changes", msgs: 96410, bytes: 140 * mib, maxMsgs: 96_500, discard: "new", held: 45 * day, consumers: []string{"price-cache-invalidator"}, peers: peers("us-2", "us-4", "us-7")},
+			{name: "search-index", msgs: 3301200, bytes: 4.8 * gib, perDay: 160 * mib, sources: []string{"catalog-changes", "price-changes"}, maxAge: 30 * day, held: 21 * day, consumers: []string{"search-indexer"}, peers: peers("ap-0", "ap-1", "ap-2"),
 				behind: "nats-ap-1", lag: 420},
 			// nats-ap-4 kept max_age 7d when the stream was edited to 3d.
-			{name: "customer-notifications", msgs: 1402200, bytes: 1.1 * gib, perDay: 36 * mib, consumers: []string{"push-sender", "sms-sender"}, peers: peers("ap-2", "ap-3", "ap-4"),
+			{name: "customer-notifications", msgs: 1402200, bytes: 1.1 * gib, perDay: 36 * mib, maxAge: 3 * day, consumers: []string{"push-sender", "sms-sender"}, peers: peers("ap-2", "ap-3", "ap-4"),
 				disagrees: "nats-ap-4"},
-			{name: "order-archive", msgs: 61200400, bytes: 52.4 * gib, perDay: 1.1 * gib, consumers: []string{"archive-exporter"}, peers: peers("ap-2", "ap-5", "ap-1")},
+			// A mirror of order-events that keeps everything; stream-005 is
+			// muted while its retention is decided (globalSeedArchiveMute).
+			{name: "order-archive", msgs: 61200400, bytes: 52.4 * gib, perDay: 1.1 * gib, mirror: "order-events", held: 300 * day, consumers: []string{"archive-exporter"}, peers: peers("ap-2", "ap-5", "ap-1")},
 			// nats-us-3 came back from the upgrade without its replica.
-			{name: "return-requests", msgs: 84120, bytes: 96 * mib, perDay: 2 * mib, consumers: []string{"refund-issuer"}, peers: peers("us-6", "us-3", "us-8"),
+			{name: "return-requests", msgs: 84120, bytes: 96 * mib, perDay: 2 * mib, retention: "workqueue", maxAge: 7 * day, held: 2 * day, consumers: []string{"refund-issuer"}, peers: peers("us-6", "us-3", "us-8"),
 				missing: "nats-us-3"},
 			// Its leader stepped down and the newest epoch has none yet; a
 			// second epoch without one would fire stream-001.
-			{name: "basket-events", msgs: 220400, bytes: 180 * mib, perDay: 5 * mib, peers: peers("eu-6", "eu-7", "eu-8"), leaderless: true},
+			{name: "basket-events", msgs: 220400, bytes: 180 * mib, perDay: 5 * mib, maxAge: day, peers: peers("eu-6", "eu-7", "eu-8"), leaderless: true},
 			// Sessions expire by their per-key TTL faster than new ones start
 			// since the weekend sale ended: the bucket shrinks.
-			{name: "KV_session-cache", msgs: 48210, bytes: 38 * mib, perDay: -1 * mib, ephemeral: 64, peers: peers("eu-0", "eu-3", "eu-6")},
-			{name: "KV_feature-flags", msgs: 412, bytes: 210 * kib, perDay: 2 * kib, ephemeral: 22, peers: peers("us-0", "us-5", "us-8")},
-			{name: "OBJ_product-images", msgs: 120400, bytes: 9.6 * gib, perDay: 80 * mib, peers: peers("ap-0", "ap-3", "ap-5")},
+			{name: "KV_session-cache", msgs: 48210, bytes: 38 * mib, perDay: -1 * mib, ephemeral: 64, held: 9 * day, peers: peers("eu-0", "eu-3", "eu-6")},
+			// Few flags that changed rarely until a release began writing
+			// flags per user (globalFlagsChange); its series bends there.
+			{name: "KV_feature-flags", msgs: 21200, bytes: globalFlagsNow, perDay: globalFlagsRate, ephemeral: 22, held: 200 * day, peers: peers("us-0", "us-5", "us-8")},
+			{name: "OBJ_product-images", msgs: 120400, bytes: 9.6 * gib, perDay: 80 * mib, held: 400 * day, peers: peers("ap-0", "ap-3", "ap-5")},
 		},
 		buckets: []bucketSpec{
-			{stream: "KV_session-cache", description: "Checkout sessions", storage: "memory", maxBytes: 512 * mib, allowMsgTTL: true, keys: 41870},
-			{stream: "KV_feature-flags", description: "Feature flags per region", history: 10, keys: 38},
+			// Listed with per-message TTLs and no other limit: its writers bound
+			// it, so stream-005 leaves it out.
+			{stream: "KV_session-cache", description: "Checkout sessions", storage: "memory", allowMsgTTL: true, keys: 41870},
+			{stream: "KV_feature-flags", description: "Feature flags per region and user", history: 10, keys: 20400},
 			{stream: "KV_label-templates", missing: true},
 			{stream: "OBJ_product-images", description: "Product photos", maxBytes: 64 * gib, compression: "s2"},
 		},
@@ -175,12 +183,14 @@ func globalScenario() *scenario {
 		kubernetes:    true,
 		sample:        globalSample,
 		slowEvents:    globalSlowEvents(),
-		mutes:         func() []*storedMute { return []*storedMute{globalSeedMute()} },
-		consumer:      globalConsumer,
-		created:       globalCreated,
-		transitions:   globalTransitions,
-		infoUntil:     map[string]time.Time{"server-001": globalPlannedEnd, "stream-002": globalPlannedEnd, "stream-011": globalPlannedEnd},
-		gone:          globalGone,
+		mutes: func() []*storedMute {
+			return []*storedMute{globalSeedMute(), globalSeedEndedAcceptance(), globalSeedArchiveMute()}
+		},
+		consumer:    globalConsumer,
+		created:     globalCreated,
+		transitions: globalTransitions,
+		infoUntil:   map[string]time.Time{"server-001": globalPlannedEnd, "stream-002": globalPlannedEnd, "stream-011": globalPlannedEnd},
+		gone:        globalGone,
 		// nats-us-1 led two consumers of inventory-changes until its restart.
 		initialLeaders: map[string]string{
 			Account + "/inventory-changes/stock-projector": "nats-us-1",
@@ -223,6 +233,65 @@ func globalCreated(s scen, _, consumer string) ([]time.Time, bool) {
 	}
 	at := globalInvoiceCreated.Add(s.shift)
 	return []time.Time{at, at, at}, false
+}
+
+// globalFlagsChange is when a release began writing feature flags per
+// user, in the fixed frame: KV_feature-flags grew 2 KiB a day before and
+// 1.6 MiB a day since.
+var globalFlagsChange = time.Date(2026, 10, 11, 0, 0, 0, 0, time.UTC)
+
+// KV_feature-flags' bytes now, its growth per day since
+// globalFlagsChange and before it.
+const (
+	globalFlagsNow    = 10.8 * mib
+	globalFlagsRate   = 1.6 * mib
+	globalFlagsBefore = 2 * kib
+)
+
+// globalFlagsEnded is when the review ended the acceptance of
+// KV_feature-flags, in the fixed frame: the first collection whose week's
+// growth (api.WeeklyGrowth) differs from the recorded +2.0 KiB/day by more
+// than the 1 MiB floor's half.
+var globalFlagsEnded = time.Date(2026, 10, 13, 16, 24, 0, 0, time.UTC)
+
+// globalFlagsBytes is KV_feature-flags' bytes at fixed-frame time c: its
+// spec's growth back to globalFlagsChange, globalFlagsBefore before it.
+func globalFlagsBytes(sp streamSpec, c time.Time) float64 {
+	if !c.Before(globalFlagsChange) {
+		return sp.bytes - FixedNow.Sub(c).Hours()/24*sp.perDay
+	}
+	at := sp.bytes - FixedNow.Sub(globalFlagsChange).Hours()/24*sp.perDay
+	return at - globalFlagsChange.Sub(c).Hours()/24*globalFlagsBefore
+}
+
+// globalSeedEndedAcceptance is an acceptance of stream-005 on
+// KV_feature-flags at its growth then, which the review ended at
+// globalFlagsEnded with the end reason it writes from the bucket's series.
+// stream-005 fires again since.
+func globalSeedEndedAcceptance() *storedMute {
+	s := scen{now: FixedNow}
+	sp := streamSpec{bytes: globalFlagsNow, perDay: globalFlagsRate}
+	g := reviewGrowth(func(c time.Time) (float64, bool) { return globalFlagsBytes(sp, c), true }, globalFlagsEnded)
+	return &storedMute{relative: true, seededLift: true, m: &v1.Mute{
+		Id: "2", CheckCode: "stream-005", Entity: streamRef("KV_feature-flags"), Accepted: true, GrowthPerDay: ptr(float64(globalFlagsBefore)),
+		Reason:    "Flags are few and change rarely.",
+		MutedBy:   "ops@example.com",
+		CreatedAt: ts(s.on(1, 9, 0)), ExpiresAt: ts(s.on(1, 9, 0).AddDate(0, 3, 0)),
+		UnmutedAt: ts(globalFlagsEnded.Add(s.shift)), UnmutedBy: api.AcceptEndedBy,
+		EndReason: g.EndReason(globalFlagsBefore),
+	}}
+}
+
+// globalSeedArchiveMute mutes stream-005 on order-archive while its
+// retention is decided.
+func globalSeedArchiveMute() *storedMute {
+	s := scen{now: FixedNow}
+	return &storedMute{relative: true, m: &v1.Mute{
+		Id: "3", CheckCode: "stream-005", Entity: streamRef("order-archive"),
+		Reason:    "Retention of the order archive is decided with finance by mid-November.",
+		MutedBy:   "ops@example.com",
+		CreatedAt: ts(s.on(15, 10, 0)), ExpiresAt: ts(time.Date(2026, 11, 14, 0, 0, 0, 0, time.UTC).Add(s.shift)),
+	}}
 }
 
 func globalSeedMute() *storedMute {

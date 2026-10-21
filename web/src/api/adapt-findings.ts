@@ -36,6 +36,9 @@ export function mute(m: PMute | undefined): Mute | undefined {
     expiresAt: ms(m.expiresAt),
     unmutedAt: ms(m.unmutedAt),
     unmutedBy: m.unmutedBy,
+    accepted: m.accepted,
+    growthPerDay: m.growthPerDay,
+    endReason: m.endReason,
   };
 }
 

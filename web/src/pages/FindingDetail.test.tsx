@@ -352,3 +352,42 @@ describe("around the start", () => {
     expect(req.entity).toBeUndefined();
   });
 });
+
+describe("FindingDetail of an accepted finding", () => {
+  const accepted = {
+    id: "m1",
+    checkCode: "stream-004",
+    entity: streamEntity,
+    reason: "Kept for audits",
+    mutedBy: "ops@example.com",
+    expiresAt: Date.parse("2027-04-07T06:57:00Z"),
+    unmutedBy: "",
+    accepted: true,
+    endReason: "",
+  };
+
+  it("reads as accepted, with its review date and an End acceptance button", async () => {
+    m.getFinding.mockResolvedValue({ finding: { ...base, mute: { ...accepted, growthPerDay: 2 * 1024 * 1024 } }, transitions: [] });
+    show();
+    expect(await screen.findByText("Accepted as by design")).toBeInTheDocument();
+    expect(screen.getByText("Accepted by ops@example.com:").parentElement).toHaveTextContent("Accepted by ops@example.com: Kept for audits. Review on 2027-04-07.");
+    expect(screen.getByText(/^Growth at acceptance: \+2 MiB\/day per copy/)).toBeInTheDocument();
+    expect(screen.getByText("Accepted", { selector: ".sev" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "End acceptance…" }));
+    expect(within(screen.getByRole("dialog")).getByRole("button", { name: "End acceptance" })).toBeInTheDocument();
+  });
+
+  it("says when no growth baseline is recorded yet", async () => {
+    m.getFinding.mockResolvedValue({ finding: { ...base, mute: accepted }, transitions: [] });
+    show();
+    expect(await screen.findByText("No growth baseline is recorded yet: growth is recorded once the stream has 8 days of history.")).toBeInTheDocument();
+  });
+
+  it("keeps a plain mute's words", async () => {
+    m.getFinding.mockResolvedValue({ finding: { ...base, mute: { ...accepted, accepted: false } }, transitions: [] });
+    show();
+    expect(await screen.findByText("Muted by ops@example.com:")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lift mute…" })).toBeInTheDocument();
+    expect(screen.queryByText(/growth baseline/)).toBeNull();
+  });
+});
