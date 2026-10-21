@@ -369,7 +369,8 @@ type ServerStore struct {
 	// reported as 0 (no limit reported).
 	Limit *int64 `protobuf:"varint,5,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	// Growth of the file store in use over the range, bytes per day, by
-	// Theil-Sen (RobustPerDay); unset under 6 hours of data. May be negative.
+	// Theil-Sen (RobustPerDay); unset under 6 hours of data and when not
+	// reported. May be negative.
 	PerDay *float64 `protobuf:"fixed64,6,opt,name=per_day,json=perDay,proto3,oneof" json:"per_day,omitempty"`
 	// Days until used reaches limit at per_day; set only when per_day is
 	// above 0 and limit and used are known.
@@ -570,8 +571,8 @@ func (x *NextLimit) GetDiscardNew() bool {
 	return false
 }
 
-// One stream, KV bucket or object store in the epoch, read from its
-// leader's report (else the first reporting server by name).
+// One stream, KV bucket or object store in the epoch, with ListStreams'
+// numbers: its leader's report, else the largest any server reports.
 type CapacityStream struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Account as the servers report it.
@@ -876,9 +877,10 @@ type GetCapacityResponse struct {
 	Servers []*ServerStore `protobuf:"bytes,3,rep,name=servers,proto3" json:"servers,omitempty"`
 	// Servers the epoch expected that answered without JetStream.
 	ServersWithoutJetstream int32 `protobuf:"varint,4,opt,name=servers_without_jetstream,json=serversWithoutJetstream,proto3" json:"servers_without_jetstream,omitempty"`
-	// Streams: those whose stream-006 fires first (soonest first), then
-	// those awaiting a decision, then the others by bytes times replicas,
-	// most first, then by account and name. At most 500.
+	// Streams: those whose stream-006 fires unmuted first (soonest first),
+	// then those awaiting a decision, then those whose stream-006 fires
+	// under a mute, then the others by bytes times replicas, most first,
+	// then by account and name. At most 500.
 	Streams []*CapacityStream `protobuf:"bytes,5,rep,name=streams,proto3" json:"streams,omitempty"`
 	// Streams before the limit of 500.
 	StreamsTotal int32 `protobuf:"varint,6,opt,name=streams_total,json=streamsTotal,proto3" json:"streams_total,omitempty"`

@@ -73,7 +73,7 @@ type ServerStoreFact struct {
 	PerDay *float64
 }
 
-// CapacityStreamFact is one stream of the epoch, from its leader's report.
+// CapacityStreamFact is one stream of the epoch, with ListStreams' numbers.
 type CapacityStreamFact struct {
 	Account, Stream            string
 	Retention, Storage, Mirror string
@@ -128,9 +128,11 @@ func FinishCapacity(f *CapacityFacts) *v1.GetCapacityResponse {
 }
 
 func serverStore(s ServerStoreFact, firing map[string]*v1.Finding) *v1.ServerStore {
-	out := &v1.ServerStore{ServerName: s.Name, Cluster: s.Cluster, Reported: s.Reported, PerDay: s.PerDay}
+	out := &v1.ServerStore{ServerName: s.Name, Cluster: s.Cluster, Reported: s.Reported}
+	// A card not reported in the epoch shows no rate: its growth would be
+	// of collections before it, beside no use to set it against.
 	if s.Reported {
-		out.Used = s.Used
+		out.Used, out.PerDay = s.Used, s.PerDay
 		if s.Limit != nil && *s.Limit > 0 {
 			out.Limit = s.Limit
 		}
@@ -326,17 +328,21 @@ func compareSoonest(a, b *float64) int {
 }
 
 // compareCapacityStreams puts the streams that fill soon first (soonest
-// first), then those awaiting a decision, then the others by bytes times
-// replicas, most first, then by account and name.
+// first), then those awaiting a decision, then those that fill soon under
+// a mute (soonest first), then the others by bytes times replicas, most
+// first, then by account and name.
 func compareCapacityStreams(a, b *v1.CapacityStream) int {
 	rank := func(s *v1.CapacityStream) int {
 		switch s.GetStatus() {
 		case v1.CapacityStatus_CAPACITY_STATUS_FILLS_SOON:
+			if s.GetMute() != nil {
+				return 2
+			}
 			return 0
 		case v1.CapacityStatus_CAPACITY_STATUS_AWAITING_DECISION:
 			return 1
 		}
-		return 2
+		return 3
 	}
 	size := func(s *v1.CapacityStream) int64 { return s.GetBytes() * int64(max(s.GetReplicas(), 1)) }
 	return cmp.Or(cmp.Compare(rank(a), rank(b)), compareSoonest(a.FindingDays, b.FindingDays), cmp.Compare(size(b), size(a)),
