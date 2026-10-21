@@ -33,7 +33,9 @@ describe("muteView", () => {
   });
 
   it("says the recorded growth, or that it waits for 8 days of history", () => {
-    expect(baselineText(acceptance(), fmtGrowth)).toMatch(/^Growth at acceptance: \+1 KiB\/day over the last 7 days;/);
+    expect(baselineText(acceptance(), fmtGrowth)).toMatch(/^Growth at acceptance: \+1 KiB\/day per copy \(the Capacity page's \/day counts every replica\), over the last 7 days;/);
+    const server = acceptance({ entity: { kind: "server", key: "nats-0", name: "nats-0", account: "", stream: "", consumer: "", server: "nats-0" } });
+    expect(baselineText(server, fmtGrowth)).toMatch(/^Growth at acceptance: \+1 KiB\/day, over the last 7 days;/);
     expect(baselineText(acceptance({ growthPerDay: undefined }), fmtGrowth)).toBe("No growth baseline is recorded yet: growth is recorded once the stream has 8 days of history.");
     expect(baselineText(acceptance({ accepted: false }), fmtGrowth)).toBe("");
     expect(baselineText(acceptance({ entity: undefined }), fmtGrowth)).toBe("");
