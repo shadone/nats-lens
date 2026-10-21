@@ -110,7 +110,8 @@ type SubscriptionFacts struct {
 type SubszServerFact struct {
 	Name     string
 	Answered bool
-	// Total and Listed are nil when it did not answer.
+	// Total is the reply's count of local subscriptions before the limit,
+	// Listed the rows it listed; nil when it did not answer.
 	Total, Listed *int64
 }
 
@@ -141,7 +142,11 @@ type SubscriptionFact struct {
 
 // ServerConnections is one server's CONNZ in the subscription
 // collection's epoch: the client IDs it listed with their names, and
-// whether it listed every connection (none was cut at the connz limit).
+// whether it listed every connection (it answered, and none was cut at
+// the connz limit). A server without a CONNZ reply has none: every
+// subscription on it is unlisted. Subscriptions join connections on
+// server and client ID only, never on account: SUBSZ names the global
+// account $G where CONNZ leaves the account empty.
 type ServerConnections struct {
 	Complete bool
 	Names    map[uint64]string

@@ -156,7 +156,12 @@ func (p *Provider) GetServer(_ context.Context, req *v1.GetServerRequest) (*v1.G
 			{ServerId: sp.id, StartTime: ts(start), FirstSeen: ts(start.Add(30 * time.Second)), LastSeen: ts(lastSeen)},
 		},
 	}
-	for _, e := range endpoints {
+	asked := endpoints
+	if p.sc.subs != nil {
+		// A system that collects subscription lists asks SUBSZ too.
+		asked = append(slices.Clone(endpoints), "SUBSZ")
+	}
+	for _, e := range asked {
 		res.Endpoints = append(res.Endpoints, &v1.EndpointOutcome{Endpoint: e, State: state})
 	}
 	s.detail(sp, res, req.GetRange())

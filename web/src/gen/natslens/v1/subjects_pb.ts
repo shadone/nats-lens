@@ -276,8 +276,9 @@ export type SubszServer = Message<"natslens.v1.SubszServer"> & {
   answered: boolean;
 
   /**
-   * Subscriptions the server holds (its num_subscriptions); unset when
-   * it did not answer.
+   * Local subscriptions the server's reply counted before the subsz
+   * limit (SUBSZ total; not num_subscriptions, which counts route
+   * interest too); unset when it did not answer.
    *
    * @generated from field: optional int64 total = 3;
    */
@@ -389,17 +390,18 @@ export type GetSubjectsResponse = Message<"natslens.v1.GetSubjectsResponse"> & {
   /**
    * Subscriptions of the servers' own clients (JetStream, system and
    * account internal clients) left out of the rows: those whose
-   * connection is not in a CONNZ reply of its server that listed every
-   * connection. Counted in the scope.
+   * connection is not in its server's CONNZ reply of the same epoch, when
+   * that reply came and listed every connection. Counted in the scope.
    *
    * @generated from field: int64 server_subscriptions = 12;
    */
   serverSubscriptions: bigint;
 
   /**
-   * Subscriptions whose connection is not in a CONNZ reply of its server
-   * that was cut at the connz limit: left out, as their connection
-   * cannot be told from a server's own. Counted in the scope.
+   * Subscriptions whose connection is not in its server's CONNZ reply of
+   * the same epoch when that reply was cut at the connz limit or did not
+   * come: left out, as their connection cannot be told from a server's
+   * own. Counted in the scope.
    *
    * @generated from field: int64 unlisted_connection_subscriptions = 13;
    */
