@@ -127,7 +127,8 @@ ORDER BY 1, 2`, start, end, width.Microseconds())
 
 // capacityStreams reads the streams of the epoch, as ListStreams lists
 // them and with its numbers: the leader's report, else the largest any
-// server reports (the earliest first message), so both pages agree. The
+// server reports (the earliest first message), so both pages agree; with a
+// leader, its first message even when it has none. The
 // configuration is that of the server stream-005 reads (the leader, else
 // the first by name); what the inventory declares follows stream-005's
 // rules; growth of bytes and messages is over the range.
@@ -137,8 +138,11 @@ WITH st AS (
     SELECT account, stream,
         coalesce(max(messages) FILTER (WHERE is_leader), max(messages)) AS messages,
         coalesce(max(bytes) FILTER (WHERE is_leader), max(bytes)) AS bytes,
-        coalesce(min(first_ts) FILTER (WHERE is_leader), min(first_ts)) AS first_ts,
-        coalesce(max(num_subjects) FILTER (WHERE is_leader), max(num_subjects)) AS num_subjects
+        -- The leader's first message and subjects whenever a leader row
+        -- exists (an empty stream's leader has none), else the earliest
+        -- and the most any server reports.
+        CASE WHEN bool_or(is_leader) THEN max(first_ts) FILTER (WHERE is_leader) ELSE min(first_ts) END AS first_ts,
+        CASE WHEN bool_or(is_leader) THEN max(num_subjects) FILTER (WHERE is_leader) ELSE max(num_subjects) END AS num_subjects
     FROM stream_stats WHERE epoch = $1 GROUP BY account, stream
 ), cf AS (
     SELECT c.account, c.stream, c.retention, c.storage, c.replicas, c.mirror, len(coalesce(c.sources, [])) AS sources,
