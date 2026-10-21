@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { DAY, EPOCH_AT, GIB, MIB, store, stream } from "../test/fixtures/capacity";
+import { DAY, EPOCH_AT, GIB, MIB, prod, store, stream } from "../test/fixtures/capacity";
 import {
   ACCEPT_CHECK,
   boundText,
@@ -11,6 +11,7 @@ import {
   fmtAge,
   fmtLimitCount,
   growthLine,
+  headerLine,
   isBounded,
   kindLine,
   nextLimitText,
@@ -208,5 +209,14 @@ describe("ACCEPT_CHECK", () => {
     const read = (f: string) => readFileSync(new URL(f, import.meta.url), "utf8");
     const sql = read("../../../checks/stream-005.sql");
     expect(sql).toContain(`code: ${ACCEPT_CHECK.code}\nname: ${ACCEPT_CHECK.name}\n`);
+  });
+});
+
+describe("headerLine", () => {
+  it("says since when growth is read, or that no rate exists yet", () => {
+    const d = prod();
+    expect(headerLine(d)).toBe("9 streams · 3 stores · growth from 2026-10-20 12:00 UTC");
+    const young = { ...d, servers: d.servers.map((s) => ({ ...s, perDay: undefined, daysToFull: undefined })), streams: d.streams.map((s) => ({ ...s, bytesPerDay: undefined })) };
+    expect(headerLine(young)).toBe("9 streams · 3 stores · no growth rate yet (6 hours of history needed)");
   });
 });

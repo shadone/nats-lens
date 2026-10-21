@@ -1,7 +1,7 @@
 // Words and numbers of the Capacity page, from the view model of
 // api/capacity.ts. A value the server left unset gives an en dash or no
 // words, never 0.
-import type { CapacityStream, ServerStore } from "../api/capacity";
+import type { Capacity, CapacityStream, ServerStore } from "../api/capacity";
 import { fmtBytes, fmtGrowth, fmtInt, isoDate, isoMinute } from "./format";
 
 export const DASH = "–";
@@ -256,9 +256,15 @@ export function fillsSoonText(s: CapacityStream): string {
   return days !== undefined ? `full in ${daysWords(days)}` : "full soon";
 }
 
-/** The header line: what the page covers and since when growth is read. */
-export function headerLine(streamsTotal: number, servers: number, growthFrom: number | undefined): string {
-  const parts = [`${fmtInt(streamsTotal)} ${streamsTotal === 1 ? "stream" : "streams"}`, `${fmtInt(servers)} ${servers === 1 ? "store" : "stores"}`];
-  if (growthFrom !== undefined) parts.push(`growth from ${isoMinute(growthFrom)} UTC`);
+/** Whether any card or row has a growth rate: under 6 hours of history none has. */
+export function hasRate(d: Capacity): boolean {
+  return d.servers.some((s) => s.perDay !== undefined) || d.streams.some((s) => s.bytesPerDay !== undefined);
+}
+
+/** The header line: what the page covers, and since when growth is read, or that no rate exists yet. */
+export function headerLine(d: Capacity): string {
+  const parts = [`${fmtInt(d.streamsTotal)} ${d.streamsTotal === 1 ? "stream" : "streams"}`, `${fmtInt(d.servers.length)} ${d.servers.length === 1 ? "store" : "stores"}`];
+  if (!hasRate(d)) parts.push("no growth rate yet (6 hours of history needed)");
+  else if (d.growthFrom !== undefined) parts.push(`growth from ${isoMinute(d.growthFrom)} UTC`);
   return parts.join(" · ");
 }
