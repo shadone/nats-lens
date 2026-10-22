@@ -9,7 +9,7 @@ The board's sample services (`orders`, `pricing`, `inventory`) fit the example s
 | Task | Status |
 |---|---|
 | T1 Collect micro service replies | not started |
-| T2 API, store and demo | not started |
+| T2 API, store and demo | in progress on `feat/micro-api`: the API, the shared rules, the demo and the store's seen level done; the store's asked level waits for T1's migration 0033 |
 | T3 UI | not started |
 | T4 Feature docs and audit | not started |
 
@@ -67,6 +67,21 @@ Order of the cards: services with a warning note first, then by requests per sec
 - **Demo.** `example-global` with `APP` asked: `orders` (1.4.2, 3 instances, `get` on `orders.get.*` 10 times its 7-day level since a time in the story, `create` with a last error "409 duplicate order id"), `pricing` (4 instances, 3 on 2.0.0 and 1 on 1.9.3), `inventory` (2 instances, healthy, one instance missing for part of the story). Their instances are connections on the Connections page and their `$SRV` subscriptions on the Subjects page. `example-prod`: an account not listed under `accounts`, so its services are seen in subscriptions only. `example-staging`: none.
 - Conformance rows: asked and seen-only services, mixed versions, missing instance, rates over an instance restart, average time, the slow rule and its start, last error, no answer, the store fixture and the demo alike.
 - Docs: `docs/design.md`, `demo-mode.md`.
+
+### Where T2 departed from this plan
+
+Each point was decided in the session that built T2 and is proposed, not yet confirmed.
+
+- **The missing rule.** "Its connection is still listed" would warn after an in-process restart (a new ID on the same connection) and say nothing a count cannot. An instance gone within the hour is missing when its `$SRV` subscriptions are still in a subscription collection taken after it went missing (asked accounts: registered, not answering), or when the service has fewer instances now than in the collection that last listed it. A rolling restart is therefore not missing; a scale-down is, for the hour, as the plan says. `MicroMissingInstance.still_subscribed` replaces a "connection listed" field.
+- **The rate.** Per instance of the epoch, its newest run (one instance ID and start time, no counter falling) with two reports in the 15 minutes, increase over the run's time, summed. A gone instance is left out, so a restart is not counted twice; an instance with one report so far adds nothing yet.
+- **The slow start and the level.** The slow run is the run of collections, each slow on its own average (the instances' increases ending in that collection, summed), that ends at the newest slow one; a slow 15-minute average implies one. "Under 24 hours of history" reads as fewer than 24 hours with an average in the 7 days.
+- **The last error.** STATS gives `last_error` no time, so "newest" is not knowable; the endpoint shows the first by instance ID among the epoch's instances that report one.
+- **Fields the plan did not list.** `MicroService.note` (`MicroNote`, the first note that applies, so both providers and the UI agree), `answered`, `instance_list` (ID, version, start, connection and server; at most 100), `endpoints_total`, `system_account`; `MicroEndpoint.slow` and `errors_high`; `MicroAccountState` (the plan's `AccountState`) with `services` and `system_account`, its requests as `MicroRequest` with a `MicroRequestState`. The accounts list holds every account asked, also one without a service, so the page can say "asked but no answer".
+- **Endpoint order.** Slow endpoints first, then those with errors above 1% (highest first), then by name: the endpoint a note names is the first, within the cap of 100.
+- **Service order.** A note warns for instance missing, mixed versions, slow endpoint, errors and no answer; those first, then the system account's last, then by requests per second (unset last), name and account.
+- **The seen level in the store.** An instance last held on a server whose list in the newest collection was cut at the limit or did not come is not missing: its absence there says nothing. An instance on a connection CONNZ does not list still counts, without a connection name.
+- **The demo.** The instances run on existing client connections of `eu` servers: `orders` on `order-service`, `pricing` on `checkout-service` (no client is named for pricing), `inventory` on `inventory-service`, so the Connections and Accounts pages keep their counts. A `pricing` instance restarts in place at 14:21 on the same connection; an `inventory` instance hangs from 10:05 to 10:47, still subscribed. `SUPPLIERS` is asked and refused (a permissions violation), for "asked but no answer". `example-prod` runs `catalog` (on `catalog-api`) and `ledger` (on `ledger-service`), seen only. Every instance's nine `$SRV` subscriptions and its endpoints' subjects in queue group `q` are rows of the Subjects page.
+- **Conformance.** The Micro services rows are a table of their own (`apitest.MicroConformance`), run over the demo; they join the shared table once the store reads the `$SRV` replies.
 
 ## T3 UI
 
