@@ -12,10 +12,12 @@ import (
 
 // Every server's JSZ account detail reports the account's JetStream API
 // total across the cluster, not only the requests it answered: requests
-// made through one server show on all three alike, once the account stores
-// data on each (every server then sends its usage, with its API counters,
-// every 1.5 seconds). The Subjects page's API rate therefore takes one
-// server's increase, never the sum.
+// made through one server show on all three alike once the account stores
+// data on any server of the cluster (servers holding data send their
+// usage, with the API counters, every 1.5 seconds, and the others take it
+// in). Until then each server reports only the requests it answered,
+// mostly the meta leader, and the highest is a lower bound. The Subjects
+// page's API rate therefore takes one server's increase, never the sum.
 func TestJetStreamAPITotalIsClusterWide(t *testing.T) {
 	if testing.Short() {
 		t.Skip("in-process cluster")
@@ -29,8 +31,8 @@ func TestJetStreamAPITotalIsClusterWide(t *testing.T) {
 	if _, err := js.AddStream(&nats.StreamConfig{Name: "s", Subjects: []string{"s.>"}, Replicas: 3}); err != nil {
 		t.Fatal(err)
 	}
-	// A server sends its usage updates, which carry the API counters,
-	// only once the account stores something on it.
+	// The servers share the API counters only once the account stores
+	// data on a server of the cluster.
 	if _, err := js.Publish("s.x", []byte("x")); err != nil {
 		t.Fatal(err)
 	}

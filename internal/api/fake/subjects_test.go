@@ -235,3 +235,20 @@ func TestGlobalConnectionCountsAgree(t *testing.T) {
 		t.Errorf("servers %d, connections with tooling %d, cluster.connections %v", sum, all.GetTotalCount(), last)
 	}
 }
+
+// A mirror stores what its origin stores, in every demo system.
+func TestDemoMirrorStoresAsItsOrigin(t *testing.T) {
+	c := demo(t)
+	for _, sys := range []string{fake.Cluster, fake.GlobalSystem, fake.StagingSystem} {
+		res := subjectsOf(t, c, sys)
+		for _, r := range res.GetRows() {
+			if r.GetMirrorOf() == "" {
+				continue
+			}
+			o := subjectRow(res, r.GetAccount(), r.GetMirrorOf())
+			if o == nil || (r.StoredPerSecond == nil) != (o.StoredPerSecond == nil) || r.GetStoredPerSecond() != o.GetStoredPerSecond() {
+				t.Errorf("%s: mirror %s stores %v a second, its origin %v", sys, r.GetStream(), r.StoredPerSecond, o)
+			}
+		}
+	}
+}
