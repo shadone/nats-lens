@@ -197,7 +197,14 @@ describe("Micro services", () => {
     getMicro.mockResolvedValue(none());
     renderApp(<MicroServices />, "/micro-services?system=example-staging");
     expect(await screen.findByText("No micro service known: no account is listed under accounts, and no subscription list within 24 hours before this collection.")).toBeInTheDocument();
-    expect(screen.getByRole("note")).toHaveTextContent(/^Subscriptions not collected\./);
+    expect(screen.queryByText(/Subscriptions not collected/)).toBeNull();
+  });
+
+  it("says subscriptions were not collected above the services of asked accounts", async () => {
+    getMicro.mockResolvedValue(global({ subscriptionsAt: undefined }));
+    renderApp(<MicroServices />, "/micro-services");
+    await screen.findByRole("group", { name: "Services" });
+    expect(screen.getAllByRole("note")[0]).toHaveTextContent(/^Subscriptions not collected\. No subscription list within 24 hours before this collection: only the services of accounts listed under accounts are shown/);
   });
 
   it("says why a chosen service of an asked account has no endpoints", async () => {

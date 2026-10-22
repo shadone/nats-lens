@@ -59,7 +59,8 @@ function Body({ d, scope }: { d: Micro; scope: string }) {
 
   return (
     <>
-      {d.subscriptionsAt === undefined && (
+      {/* With nothing asked and no service, the empty state says it alone. */}
+      {d.subscriptionsAt === undefined && (d.services.length > 0 || d.accounts.some((a) => a.asked)) && (
         <p className="mi-notice" role="note">
           <b>Subscriptions not collected.</b> No subscription list within 24 hours before this collection: only the services of accounts listed under accounts are shown, and instances name no connection.
         </p>

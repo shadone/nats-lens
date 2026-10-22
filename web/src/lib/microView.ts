@@ -146,8 +146,10 @@ export function slowText(e: Pick<MicroEndpoint, "averageMs" | "levelMs" | "slowS
 
 /** "missing since 10:05, last answered 10:04; still subscribed, so registered but not answering". */
 export function missingText(m: MicroMissing, asked: boolean, ref: number): string {
-  const parts = [m.since !== undefined ? `missing since ${whenText(m.since, ref)}` : "missing"];
-  if (m.lastSeen !== undefined) parts.push(`${asked ? "last answered" : "last seen"} ${whenText(m.lastSeen, ref)}`);
+  const since = m.since !== undefined ? whenText(m.since, ref) : undefined;
+  const parts = [since !== undefined ? `missing since ${since}` : "missing"];
+  // The same minute twice says nothing more.
+  if (m.lastSeen !== undefined && whenText(m.lastSeen, ref) !== since) parts.push(`${asked ? "last answered" : "last seen"} ${whenText(m.lastSeen, ref)}`);
   let t = parts.join(", ");
   if (m.stillSubscribed) t += "; still subscribed, so registered but not answering";
   return t;

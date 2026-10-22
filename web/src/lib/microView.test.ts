@@ -109,6 +109,7 @@ describe("microView endpoints and instances", () => {
     const m = { id: "INV1", since: Date.parse("2026-10-17T10:05:00Z"), lastSeen: Date.parse("2026-10-17T10:04:30Z"), connectionName: "inventory-service", stillSubscribed: true };
     expect(missingText(m, true, EPOCH_AT)).toBe("missing since 10:05, last answered 10:04; still subscribed, so registered but not answering");
     expect(missingText({ ...m, stillSubscribed: false }, false, EPOCH_AT)).toBe("missing since 10:05, last seen 10:04");
+    expect(missingText({ ...m, lastSeen: Date.parse("2026-10-17T10:05:10Z"), stillSubscribed: false }, true, EPOCH_AT)).toBe("missing since 10:05");
   });
 
   it("says why a service has no endpoint rows", () => {
