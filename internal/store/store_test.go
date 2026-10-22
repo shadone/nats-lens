@@ -117,7 +117,7 @@ func TestSweep(t *testing.T) {
 	if n := count(t, db, `SELECT count(*) FROM epochs`); n != 2 {
 		t.Errorf("epochs left = %d", n)
 	}
-	for _, tbl := range epochTables {
+	for _, tbl := range append(append([]string{}, epochTables...), accountEpochTables...) {
 		if n := count(t, db, "SELECT count(*) FROM "+tbl+" WHERE epoch < 2"); n != 0 {
 			t.Errorf("%s keeps %d old rows", tbl, n)
 		}
@@ -131,7 +131,7 @@ func TestSweep(t *testing.T) {
 	if _, err := s.Sweep(ctx, now.Add(30*24*time.Hour), time.Hour); err != nil {
 		t.Fatal(err)
 	}
-	for _, tbl := range append(append([]string{"epochs"}, epochTables...), rangeTables...) {
+	for _, tbl := range append(append(append([]string{"epochs"}, epochTables...), accountEpochTables...), rangeTables...) {
 		if n := count(t, db, "SELECT count(*) FROM "+tbl); n != 0 {
 			t.Errorf("%s keeps %d rows", tbl, n)
 		}
@@ -150,7 +150,7 @@ func TestSweep(t *testing.T) {
 func TestSweepCoversEveryEpochTable(t *testing.T) {
 	s := openMem(t)
 	swept := map[string]bool{"epochs": true}
-	for _, x := range append(append(append([]string{}, epochTables...), rangeTables...), checkTables...) {
+	for _, x := range append(append(append(append([]string{}, epochTables...), accountEpochTables...), rangeTables...), checkTables...) {
 		swept[x] = true
 	}
 	rows, err := s.DB().Query(`SELECT DISTINCT c.table_name FROM duckdb_columns() c

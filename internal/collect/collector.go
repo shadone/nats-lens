@@ -36,7 +36,11 @@ type Collector struct {
 	// of the epoch that last asked SUBSZ, zero before the first.
 	subsInterval time.Duration
 	subsAsked    time.Time
-	now          func() time.Time
+	// accountConns are the account connections whose micro services are
+	// asked; microAccounts what each label's requests left behind.
+	accountConns  atomic.Pointer[[]AccountConn]
+	microAccounts map[string]*microAccount
+	now           func() time.Time
 }
 
 // Options configure a Collector.
@@ -62,14 +66,15 @@ func New(nc *nats.Conn, o Options) *Collector {
 		log = slog.Default()
 	}
 	c := &Collector{
-		window:       o.Window,
-		limits:       limits{connz: o.ConnzLimit, subsz: o.SubszLimit},
-		subsInterval: o.SubscriptionsInterval,
-		tracker:      o.Tracker,
-		log:          log,
-		accountNames: map[string]string{},
-		accountAsked: map[string]time.Time{},
-		now:          time.Now,
+		window:        o.Window,
+		limits:        limits{connz: o.ConnzLimit, subsz: o.SubszLimit},
+		subsInterval:  o.SubscriptionsInterval,
+		tracker:       o.Tracker,
+		log:           log,
+		accountNames:  map[string]string{},
+		accountAsked:  map[string]time.Time{},
+		microAccounts: map[string]*microAccount{},
+		now:           time.Now,
 	}
 	c.nc.Store(nc)
 	return c
@@ -91,6 +96,11 @@ func (c *Collector) Collect(ctx context.Context) *Snapshot {
 	if len(snap.Servers) == 0 {
 		snap.Errors = append(snap.Errors, "no server answered "+Statsz.Subject())
 	}
+
+	// The account connections ask their micro services alongside the
+	// detail endpoints, within one window, so the epoch takes no longer.
+	var microDone sync.WaitGroup
+	microDone.Go(func() { snap.Micro = c.askMicro(ctx, snap.StartedAt) })
 
 	// Detail endpoints run in parallel, each with its own window, and stop
 	// early once every discovered server has answered.
@@ -120,6 +130,7 @@ func (c *Collector) Collect(ctx context.Context) *Snapshot {
 	lookups.Go(func() { found, sent = c.lookUpAccounts(ctx, lookUp, want) })
 	c.gatherAll(ctx, snap, accountRaftz(newAccounts), want)
 	lookups.Wait()
+	microDone.Wait()
 	for _, id := range sent {
 		c.accountAsked[id] = snap.StartedAt
 	}

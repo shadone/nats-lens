@@ -43,7 +43,7 @@ const (
 // archiveTables lists every archived table, in rebuild order.
 func archiveTables() []archiveTable {
 	out := []archiveTable{{name: "epochs", where: `started_at >= %[1]s AND started_at < %[2]s`}}
-	for _, t := range append(append([]string{}, epochTables...), checkTables...) {
+	for _, t := range append(append(append([]string{}, epochTables...), accountEpochTables...), checkTables...) {
 		out = append(out, archiveTable{name: t, where: hourEpochs})
 	}
 	keys := map[string][]string{
