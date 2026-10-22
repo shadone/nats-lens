@@ -102,3 +102,27 @@ func TestMicroCutInstanceStaysKnown(t *testing.T) {
 		t.Errorf("epoch 3: FAR, cut once, no longer waited for: %v", got)
 	}
 }
+
+// The first label's user may look up its account but not send $SRV
+// requests; the second may: the account's service is seen through the
+// second.
+func TestMicroRefusedLabelHidesNoAsker(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a server")
+	}
+	url := startMicroServer(t)
+	startOrders(t, url, "1.0.0")
+	at := time.Now()
+	c := microCollector(2*time.Second, 5*time.Minute, &at,
+		fixedConn("A", connectAs(t, url, "shop-nosrv")), fixedConn("B", connectAs(t, url, "shop-asker")))
+	for e := range 3 {
+		at = at.Add(30 * time.Second)
+		ms := c.Collect(context.Background()).Micro
+		for _, m := range ms {
+			t.Logf("epoch %d: %s account=%s %s stats=%d", e, m.Label, m.Account, askedOf(m), len(m.Stats))
+		}
+		if got := statsIDs(ms); len(got) != 1 {
+			t.Errorf("epoch %d: the service is seen %d times though B may ask", e, len(got))
+		}
+	}
+}
