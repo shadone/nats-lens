@@ -117,7 +117,7 @@ type MicroInstanceFact struct {
 // endpoint is slow.
 type MicroEndpointFact struct {
 	Name, Subject, QueueGroup string
-	// Subjects are every subject of the endpoint's name, in order; Subject
+	// Subjects are every subject of the endpoint's name, sorted; Subject
 	// is the first.
 	Subjects                     []string
 	Window                       MicroIncrease
@@ -381,12 +381,12 @@ func MicroSlowSpan(hours []MicroAverage, levelMs float64, epochAt time.Time) (fr
 // its hourly averages up to the epoch's hour and its collections'
 // averages (MicroCollectionAverages over every instance, up to the
 // epoch) in MicroSlowSpan, in time order. When no hour before the epoch's
-// is fast, the run began at the first hour. Otherwise the run starts at
-// the first collection after the span's last collection that is not
-// slow, provided a slow one follows it; else at the start of the first
-// slow hour after the last fast one, else of the hour after it. A fast
-// collection after the span does not end the run. nil only without
-// hours.
+// is fast, the run began at the first hour. Otherwise it starts at the
+// first collection after the span's last collection that is not slow;
+// when the span ends with a fast collection (or holds none), at the first
+// collection after the span: the span's end, or the epoch when that is
+// earlier. So a fast collection read later never moves the start back.
+// nil only without hours.
 func MicroSlowStart(hours, cols []MicroAverage, levelMs float64, epochAt time.Time) *time.Time {
 	if len(hours) == 0 {
 		return nil
@@ -408,19 +408,14 @@ func MicroSlowStart(hours, cols []MicroAverage, levelMs float64, epochAt time.Ti
 			last = i
 		}
 	}
-	for _, c := range span[last+1:] {
-		if MicroIsSlow(&c.Ms, &levelMs) {
-			at := span[last+1].At
-			return &at
-		}
+	if last+1 < len(span) {
+		at := span[last+1].At
+		return &at
 	}
-	for _, h := range hours {
-		if h.At.After(from) && MicroIsSlow(&h.Ms, &levelMs) {
-			at := h.At
-			return &at
-		}
+	at := to
+	if epochAt.Before(at) {
+		at = epochAt
 	}
-	at := from.Add(time.Hour)
 	return &at
 }
 

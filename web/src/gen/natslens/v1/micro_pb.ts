@@ -386,9 +386,10 @@ export type MicroEndpoint = Message<"natslens.v1.MicroEndpoint"> & {
   /**
    * When the current slow run began; set on every slow endpoint, unset
    * otherwise. The run began after the newest hour before the epoch's
-   * whose average is not slow, at the first collection after that span's
-   * last fast one (over all instances), else at the first slow hour after
-   * it; docs/design.md (GetMicroServices) has the whole rule.
+   * whose average is not slow: at the first collection after the last fast
+   * one (over all instances) of that hour through the next hour with
+   * requests, or after that span when it ends fast; docs/design.md
+   * (GetMicroServices) has the whole rule.
    *
    * @generated from field: google.protobuf.Timestamp slow_since = 11;
    */
@@ -402,10 +403,10 @@ export type MicroEndpoint = Message<"natslens.v1.MicroEndpoint"> & {
   errorsHigh: boolean;
 
   /**
-   * Every subject the endpoint's instances listen on under this name, in
-   * order; subject is the first. More than one when instances, or one
-   * instance, have endpoints of this name on different subjects; the
-   * rates, times and errors cover them all.
+   * Every subject the endpoint's instances listen on under this name,
+   * sorted by subject; subject is the first. More than one when
+   * instances, or one instance, have endpoints of this name on different
+   * subjects; the rates, times and errors cover them all.
    *
    * @generated from field: repeated string subjects = 13;
    */
