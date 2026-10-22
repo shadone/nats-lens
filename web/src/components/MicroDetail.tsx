@@ -107,7 +107,8 @@ function Instances({ s, epochAt }: { s: MicroService; epochAt: number }) {
   const notes = s.missing.length > 0;
   return (
     <>
-      <h3 className="mi-h3">Instances</h3>
+      {/* Without an answer in this collection the server lists the instances that last answered within the hour. */}
+      <h3 className="mi-h3">{s.asked && !s.answered ? "Instances that last answered within the hour before this collection" : "Instances"}</h3>
       <div className="table-wrap scroll-cue">
         <table className="tbl mi-tbl mi-inst">
           <thead>

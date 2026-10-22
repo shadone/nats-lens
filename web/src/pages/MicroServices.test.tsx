@@ -220,6 +220,8 @@ describe("Micro services", () => {
     await screen.findByRole("group", { name: "Services" });
     expect(card("inventory")).toHaveTextContent("2 instances – not observed req/s – not observed errors no answer to $SRV.STATS: no reply within the collect window");
     expect(detail().getByText("No endpoints known: none of its instances answered $SRV.STATS in this collection (no reply within the collect window).")).toBeInTheDocument();
+    // Its instances are those that last answered within the hour, and the heading says so.
+    expect(detail().getByRole("heading", { level: 3 })).toHaveTextContent("Instances that last answered within the hour before this collection");
   });
 
   it("names an account the response leaves unnamed from the header's account list", async () => {
