@@ -85,7 +85,8 @@ type mcFixture struct {
 // before last on, and whose create endpoint
 // fails 1% with O2's last error; pricing (P1, P2 on 2.0.0, P3 on 1.9.3),
 // whose P2 was replaced by P4, started 12 minutes before last on the same
-// connection while P2 answered until 3 minutes before last, and whose P1's
+// connection while P2 answered until 3 minutes before last (P4's first
+// report without a subject), and whose P1's
 // counters fell 7 minutes before last without a new start time; inventory (I1, I2),
 // whose I2 hung from 130 to 100 minutes before last, still subscribed,
 // and whose I1's stats were reset 7 minutes before last;
@@ -254,6 +255,11 @@ func microConfStore(t *testing.T, last time.Time) *mcFixture {
 					"average_processing_time_ns": ns / max(req, 1)}
 				if ep.lastError != "" && ep.lastBy == in.id {
 					cols["last_error"] = ep.lastError
+				}
+				if in.id == "P4" && t0.Equal(in.from.Add(2*time.Minute)) {
+					// P4's first STATS came before INFO gave its endpoint a
+					// subject: still one series.
+					delete(cols, "subject")
 				}
 				r.add("micro_endpoints", cols)
 				k := in.service + "/" + ep.name
