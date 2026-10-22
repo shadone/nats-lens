@@ -122,6 +122,7 @@ func TestUpgradeFromVersion9(t *testing.T) {
 		`ALTER TABLE server_stats DROP COLUMN websocket_tls_cert_not_after`, `ALTER TABLE server_stats DROP COLUMN mqtt_tls_cert_not_after`,
 		`ALTER TABLE connections DROP COLUMN user_jwt`, `ALTER TABLE connections DROP COLUMN jwt_expires`,
 		`DROP TABLE subscriptions`, `DROP TABLE subscription_lists`,
+		`DROP TABLE micro_requests`, `DROP TABLE micro_instances`, `DROP TABLE micro_stats`, `DROP TABLE micro_endpoints`,
 		`DELETE FROM migrations WHERE version >= 10`,
 		`CREATE TABLE m2 AS SELECT version, name, applied_at FROM migrations`,
 		`DROP TABLE migrations`,
