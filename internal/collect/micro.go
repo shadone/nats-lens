@@ -102,6 +102,9 @@ type microAccount struct {
 	// key is the account this label's answers were last kept under, empty
 	// before it asked over a connection.
 	key string
+	// statsFailed is set when this label's last STATS failed (refused,
+	// not connected): it does not ask for another label.
+	statsFailed bool
 	// sameAs is the earlier label that asks this label's account for it,
 	// empty when this label asks.
 	sameAs string
@@ -118,11 +121,15 @@ func (c *Collector) SetAccountConns(conns []AccountConn) {
 // askMicro asks every account connection's micro services in parallel,
 // within one window from now, and returns the answers sorted by label.
 func (c *Collector) askMicro(ctx context.Context, started time.Time) []MicroAccount {
-	p := c.accountConns.Load()
-	if p == nil || len(*p) == 0 {
+	var conns []AccountConn
+	if p := c.accountConns.Load(); p != nil {
+		conns = *p
+	}
+	if len(conns) == 0 {
+		clear(c.microAccounts)
+		clear(c.microKnown)
 		return nil
 	}
-	conns := *p
 	// Forget the labels no longer configured.
 	for label := range c.microAccounts {
 		if !slices.ContainsFunc(conns, func(ac AccountConn) bool { return ac.Label == label }) {
@@ -133,9 +140,12 @@ func (c *Collector) askMicro(ctx context.Context, started time.Time) []MicroAcco
 	out := make([]MicroAccount, len(conns))
 	states := make([]*microAccount, len(conns))
 	// An account already asked under an earlier label over a connected
-	// connection is not asked again under a later one. A label's account
-	// is the one its answers were last kept under: the servers' name for
-	// it, or the label when the lookup was refused.
+	// connection, whose last STATS was not refused, is not asked again
+	// under a later one. A label's account is the one its answers were
+	// last kept under: the servers' name for it, or the label when the
+	// lookup was refused. The choice is made before the requests: a
+	// connection that drops during them leaves its account without
+	// answers in that epoch.
 	asking := map[string]string{}
 	var wg sync.WaitGroup
 	for i, ac := range conns {
@@ -148,7 +158,7 @@ func (c *Collector) askMicro(ctx context.Context, started time.Time) []MicroAcco
 		if _, ok := asking[st.key]; ok && st.key != "" {
 			continue
 		}
-		if nc := connOf(ac); st.key != "" && nc != nil && nc.IsConnected() {
+		if nc := connOf(ac); st.key != "" && nc != nil && nc.IsConnected() && !st.statsFailed {
 			asking[st.key] = ac.Label
 		}
 		known := knownSet(c.microKnown[st.key])
@@ -156,9 +166,9 @@ func (c *Collector) askMicro(ctx context.Context, started time.Time) []MicroAcco
 	}
 	wg.Wait()
 	// One MicroAccount per account and epoch: of the labels that name one
-	// account, the first asked over a connection is kept, and a label
-	// that could not ask is kept only when no other label of its account
-	// asked.
+	// account, the first whose STATS was asked and not refused is kept,
+	// and a label that could not ask, or was refused, only when no other
+	// label of its account did better.
 	var kept []MicroAccount
 	var keptState []*microAccount
 	at := map[string]int{}
@@ -171,13 +181,14 @@ func (c *Collector) askMicro(ctx context.Context, started time.Time) []MicroAcco
 		if connected(m) {
 			st.key = m.Account
 		}
+		st.statsFailed = !statsAnswered(m)
 		j, ok := at[m.Account]
 		switch {
 		case !ok:
 			at[m.Account] = len(kept)
 			kept, keptState = append(kept, m), append(keptState, st)
 			c.noteSameAccount(m.Label, st, "")
-		case connected(kept[j]) || !connected(m):
+		case statsAnswered(kept[j]) || !statsAnswered(m):
 			c.noteSameAccount(m.Label, st, kept[j].Label)
 		default:
 			c.noteSameAccount(kept[j].Label, keptState[j], m.Label)
@@ -201,6 +212,17 @@ func (c *Collector) askMicro(ctx context.Context, started time.Time) []MicroAcco
 	}
 	sort.Slice(kept, func(i, j int) bool { return kept[i].Label < kept[j].Label })
 	return kept
+}
+
+// statsAnswered reports whether the account's STATS went out and was
+// neither refused nor failed: ok, no responders or timeout.
+func statsAnswered(m MicroAccount) bool {
+	for _, a := range m.Asked {
+		if a.Request == MicroStats {
+			return a.State != MicroError
+		}
+	}
+	return false
 }
 
 // connected reports whether the account's requests went out over a
@@ -233,8 +255,8 @@ func (c *Collector) noteSameAccount(label string, st *microAccount, first string
 		return
 	}
 	if first != "" {
-		c.log.Info("two accounts entries name one account; its micro services are asked once, under the first that is connected",
-			"label", label, "first", first, "account", st.key)
+		c.log.Info("accounts entry names an account asked under another entry; its micro services are not asked under this one",
+			"label", label, "asked_under", first, "account", st.key)
 	} else {
 		c.log.Info("accounts entry asks its micro services itself again", "label", label, "account", st.key)
 	}
