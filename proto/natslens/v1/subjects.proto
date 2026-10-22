@@ -71,9 +71,9 @@ message SubjectRow {
   // What the row is.
   SubjectRowKind kind = 3;
 
-  // A stream's subjects as its configuration lists them (empty for a
-  // mirror); the one subject of a subscription row; _INBOX.> and
-  // $JS.API.> for those rows.
+  // A stream's subjects as its configuration lists them, the first 20
+  // (empty for a mirror); the one subject of a subscription row; _INBOX.>
+  // and $JS.API.> for those rows.
   repeated string patterns = 4;
 
   // Stream name; empty for the other kinds.
@@ -148,6 +148,10 @@ message SubjectRow {
 
   // Whether the row's account is the system account.
   bool system_account = 23;
+
+  // A stream's subjects beyond the 20 in patterns, so 1,000 rows stay
+  // within a response's size limit.
+  int32 more_patterns = 24;
 }
 
 // One server's subscription list in the subscription collection.
