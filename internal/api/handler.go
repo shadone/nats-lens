@@ -432,6 +432,18 @@ func (h *Handler) GetSubjects(ctx context.Context, req *connect.Request[v1.GetSu
 	})
 }
 
+func (h *Handler) GetMicroServices(ctx context.Context, req *connect.Request[v1.GetMicroServicesRequest]) (*connect.Response[v1.GetMicroServicesResponse], error) {
+	return call(ctx, h, "GetMicroServices", req.Msg, func(p Provider, m *v1.GetMicroServicesRequest) error {
+		return withRange(p, &m.Range)
+	}, func(s System, ctx context.Context, m *v1.GetMicroServicesRequest) (*v1.GetMicroServicesResponse, error) {
+		f, err := s.Provider.MicroServices(ctx, m)
+		if err != nil {
+			return nil, err
+		}
+		return FinishMicro(f, m.GetAccount()), nil
+	})
+}
+
 func (h *Handler) MatchSubject(ctx context.Context, req *connect.Request[v1.MatchSubjectRequest]) (*connect.Response[v1.MatchSubjectResponse], error) {
 	return call(ctx, h, "MatchSubject", req.Msg, func(p Provider, m *v1.MatchSubjectRequest) error {
 		if err := ValidateLiteralSubject(m.GetSubject()); err != nil {

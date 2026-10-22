@@ -43,7 +43,7 @@ const (
 // archiveTables lists every archived table, in rebuild order.
 func archiveTables() []archiveTable {
 	out := []archiveTable{{name: "epochs", where: `started_at >= %[1]s AND started_at < %[2]s`}}
-	for _, t := range append(append([]string{}, epochTables...), checkTables...) {
+	for _, t := range append(append(append([]string{}, epochTables...), accountEpochTables...), checkTables...) {
 		out = append(out, archiveTable{name: t, where: hourEpochs})
 	}
 	keys := map[string][]string{
@@ -58,6 +58,9 @@ func archiveTables() []archiveTable {
 	for _, t := range rangeTables {
 		out = append(out, archiveTable{name: t, where: hourRange, key: keys[t]})
 	}
+	// The hourly sums of micro service endpoints change only while their
+	// hour's epochs are written.
+	out = append(out, archiveTable{name: "micro_endpoint_hours", where: `hour >= %[1]s AND hour < %[2]s`})
 	// A Kubernetes Event's row moves to the hour of its latest occurrence;
 	// when an earlier hour's files still hold it, the rebuild keeps the
 	// copy received last.

@@ -90,7 +90,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Subjects](subjects.md) | `ui`, `api` | shipped |
 | [Accounts and auth](accounts-and-auth.md) | `ui`, `api` | shipped |
 | [KV and object stores](kv-and-object-stores.md) | `ui`, `api` | shipped |
-| [Micro services](micro-services.md) | `ui`, `api` | planned |
+| [Micro services](micro-services.md) | `ui`, `api` | shipped |
 | [Command bar](command-bar.md) | `ui` | partial — search by name is shipped; findings, events and prefixes are planned |
 | [On call on the phone](mobile.md) | `ui` | planned |
 | [Data history](data-history.md) | `ui`, `api` | planned |
@@ -104,8 +104,8 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] What nats-lens is, the problem it solves, and its nouns (overview.md)
 
 **Collection**
-- [x] One snapshot of every server per interval, partial collections kept, account details, the expiry of account JWTs, user JWTs and listener certificates, and subscription lists every few minutes (monitoring-snapshots.md)
-- [x] NATS advisories and system events, short-lived connections folded into `client.churn` and flagged by `client-005` when frequent (event-capture.md)
+- [x] One snapshot of every server per interval, partial collections kept, account details, the expiry of account JWTs, user JWTs and listener certificates, subscription lists every few minutes, and the replies of micro services in the listed accounts (monitoring-snapshots.md)
+- [x] NATS advisories and system events, short-lived connections folded into `client.churn` and flagged by `client-005` when frequent, and account connections that also ask micro services (event-capture.md)
 - [x] Kubernetes pod, node and client-pod events on the same clock, with node upgrade and drain windows (kubernetes-context.md)
 - [x] Retention, the hourly Parquet archive, and the rebuild from it (history-and-archive.md)
 - [~] Several NATS systems in one nats-lens, with a system switcher, the Fleet page and its badge, and the shell's status of every system in one call — a cluster switcher inside a supercluster is planned (multiple-systems.md)
@@ -140,7 +140,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Where messages can go: each stream with its subjects and readers, client subscriptions by subject, reply inboxes and the JetStream API, filters with counts, and a tester that says what a message on a subject would reach in each account (subjects.md)
 - [x] Accounts with their limits, imports, exports and JWT expiry, the failed logins of 24 hours, and the certificates and JWTs that expire within 30 days (accounts-and-auth.md)
 - [x] KV buckets and object stores as their own pages, with placement and missing buckets (kv-and-object-stores.md)
-- [ ] Services built on the NATS micro framework (micro-services.md)
+- [x] Services built on the NATS micro framework: a card per service with its versions, instances, rate, errors and a note, its endpoints with their slow spells and last errors, its instances with the missing ones, asked in the listed accounts and seen in subscriptions in all (micro-services.md)
 - [~] Search and jump to anything from one box — findings, events and prefixes are planned (command-bar.md)
 - [ ] A finding on the phone, for the person on call (mobile.md)
 - [ ] What history exists and where it has gaps (data-history.md)

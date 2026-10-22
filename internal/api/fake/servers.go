@@ -209,7 +209,26 @@ func (s scen) connections(at time.Time) []*v1.Connection {
 			})
 		}
 	}
+	s.countSubscriptions(at, out)
 	return out
+}
+
+// countSubscriptions sets each connection's subscription count to the
+// subscriptions the scenario lists for it at at, the Subjects page's
+// source, in a system that collects subscription lists; elsewhere the
+// counts stay as built.
+func (s scen) countSubscriptions(at time.Time, conns []*v1.Connection) {
+	if s.sc.subs == nil {
+		return
+	}
+	n := map[string]int64{}
+	subs, _ := s.subscriptionsOf(at, conns)
+	for _, x := range subs {
+		n[fmt.Sprintf("%s/%d", x.Server, x.CID)] += x.Subs
+	}
+	for _, x := range conns {
+		x.Subscriptions = ptr(n[x.GetKey()])
+	}
 }
 
 // connsOn is the client connections a server holds: the clients' and the

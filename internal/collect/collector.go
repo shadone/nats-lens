@@ -36,7 +36,15 @@ type Collector struct {
 	// of the epoch that last asked SUBSZ, zero before the first.
 	subsInterval time.Duration
 	subsAsked    time.Time
-	now          func() time.Time
+	// accountConns are the account connections whose micro services are
+	// asked; microAccounts what each label's requests left behind.
+	accountConns  atomic.Pointer[[]AccountConn]
+	microAccounts map[string]*microAccount
+	// microKnown are, per account, the instances the account's requests
+	// wait for, with the answered STATS each has missed in a row since it
+	// last answered.
+	microKnown map[string]map[instanceKey]int
+	now        func() time.Time
 }
 
 // Options configure a Collector.
@@ -62,14 +70,16 @@ func New(nc *nats.Conn, o Options) *Collector {
 		log = slog.Default()
 	}
 	c := &Collector{
-		window:       o.Window,
-		limits:       limits{connz: o.ConnzLimit, subsz: o.SubszLimit},
-		subsInterval: o.SubscriptionsInterval,
-		tracker:      o.Tracker,
-		log:          log,
-		accountNames: map[string]string{},
-		accountAsked: map[string]time.Time{},
-		now:          time.Now,
+		window:        o.Window,
+		limits:        limits{connz: o.ConnzLimit, subsz: o.SubszLimit},
+		subsInterval:  o.SubscriptionsInterval,
+		tracker:       o.Tracker,
+		log:           log,
+		accountNames:  map[string]string{},
+		accountAsked:  map[string]time.Time{},
+		microAccounts: map[string]*microAccount{},
+		microKnown:    map[string]map[instanceKey]int{},
+		now:           time.Now,
 	}
 	c.nc.Store(nc)
 	return c
@@ -85,6 +95,13 @@ func (c *Collector) conn() *nats.Conn { return c.nc.Load() }
 func (c *Collector) Collect(ctx context.Context) *Snapshot {
 	snap := NewSnapshot(c.now().UTC())
 	known := c.tracker.Known(snap.StartedAt)
+
+	// The account connections ask their micro services from the start of
+	// the epoch, alongside discovery and the detail endpoints, each
+	// account within one collect window. An epoch whose other requests end
+	// early still waits for the micro requests' quiet period.
+	var microDone sync.WaitGroup
+	microDone.Go(func() { snap.Micro = c.askMicro(ctx, snap.StartedAt) })
 
 	// Discovery: stop early once every known server has answered.
 	c.request(ctx, snap, Statsz, allNames(known))
@@ -120,6 +137,7 @@ func (c *Collector) Collect(ctx context.Context) *Snapshot {
 	lookups.Go(func() { found, sent = c.lookUpAccounts(ctx, lookUp, want) })
 	c.gatherAll(ctx, snap, accountRaftz(newAccounts), want)
 	lookups.Wait()
+	microDone.Wait()
 	for _, id := range sent {
 		c.accountAsked[id] = snap.StartedAt
 	}
