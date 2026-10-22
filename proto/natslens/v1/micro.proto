@@ -138,7 +138,7 @@ message MicroEndpoint {
   string name = 1;
 
   // Subject the endpoint listens on, as $SRV.STATS reports it, else from
-  // the newest $SRV.INFO reply.
+  // the newest $SRV.INFO reply; the first of subjects.
   string subject = 2;
 
   // Queue group of the endpoint; empty for none.
@@ -187,6 +187,12 @@ message MicroEndpoint {
 
   // Whether the error share is above 1%.
   bool errors_high = 12;
+
+  // Every subject the endpoint's instances listen on under this name, in
+  // order; subject is the first. More than one when instances, or one
+  // instance, have endpoints of this name on different subjects; the
+  // rates, times and errors cover them all.
+  repeated string subjects = 13;
 }
 
 // Which note a service card shows: the first that applies, in this
@@ -283,6 +289,25 @@ message MicroService {
   // Whether an instance answered the epoch's $SRV.STATS; false when not
   // asked.
   bool answered = 18;
+
+  // Where instance_list and instances come from.
+  MicroInstanceSource instance_source = 19;
+}
+
+// Where a service's instances come from.
+enum MicroInstanceSource {
+  // No instance: the service is listed for its missing ones.
+  MICRO_INSTANCE_SOURCE_UNSPECIFIED = 0;
+  // They answered the epoch's $SRV.STATS.
+  MICRO_INSTANCE_SOURCE_ANSWERED = 1;
+  // None answered: their $SRV subscriptions are in the subscription
+  // collection (an account not asked, or one asked that they did not
+  // answer).
+  MICRO_INSTANCE_SOURCE_SUBSCRIPTIONS = 2;
+  // The account's $SRV.STATS request was not ok and no subscription
+  // collection lists the service: those that last answered within the
+  // hour before the epoch.
+  MICRO_INSTANCE_SOURCE_LAST_ANSWERED = 3;
 }
 
 // The micro services of the range's newest epoch.

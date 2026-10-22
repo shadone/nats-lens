@@ -64,12 +64,13 @@ func hasInstance(s *v1.MicroService, id string) bool {
 func microRows() []State {
 	return []State{
 		{"a Micro services service that answered, with its versions, endpoints and rate", microService(func(s *v1.MicroService) bool {
-			return s.GetAsked() && s.GetAnswered() && len(s.GetVersions()) > 0 && s.GetDescription() != "" && s.RequestsPerSecond != nil &&
+			return s.GetAsked() && s.GetAnswered() && s.GetInstanceSource() == v1.MicroInstanceSource_MICRO_INSTANCE_SOURCE_ANSWERED && len(s.GetVersions()) > 0 && s.GetDescription() != "" && s.RequestsPerSecond != nil &&
 				len(s.GetEndpoints()) > 0 && s.GetEndpoints()[0].GetSubject() != "" && s.GetEndpoints()[0].GetQueueGroup() != "" &&
 				s.GetInstances() == int32(len(s.GetInstanceList())) && s.GetInstanceList()[0].GetStarted() != nil
 		})},
 		{"a Micro services service seen in subscriptions only, its account not asked", microService(func(s *v1.MicroService) bool {
 			return !s.GetAsked() && !s.GetAnswered() && s.GetNote() == v1.MicroNote_MICRO_NOTE_NOT_ASKED && s.GetInstances() > 0 &&
+				s.GetInstanceSource() == v1.MicroInstanceSource_MICRO_INSTANCE_SOURCE_SUBSCRIPTIONS &&
 				len(s.GetConnectionNames()) > 0 && len(s.GetEndpoints()) == 0 && len(s.GetVersions()) == 0 && s.RequestsPerSecond == nil
 		})},
 		{"a Micro services service with mixed versions", microService(func(s *v1.MicroService) bool {
@@ -154,6 +155,27 @@ func microRows() []State {
 		{"a Micro services endpoint's last error with the instance that reported it", microEndpoint(func(s *v1.MicroService, e *v1.MicroEndpoint) bool {
 			return e.GetLastError() != "" && hasInstance(s, e.GetLastErrorInstance())
 		})},
+		{"a Micro services $SRV.STATS timeout, the instances still subscribed: seen in subscriptions, not missing", func(q Q) string {
+			for _, r := range q.microHours() {
+				res := q.micro(r, "")
+				timedOut := map[string]bool{}
+				for _, a := range res.GetAccounts() {
+					timedOut[a.GetAccount()] = a.GetStats().GetState() == v1.MicroRequestState_MICRO_REQUEST_STATE_TIMEOUT
+				}
+				for _, s := range res.GetServices() {
+					if !timedOut[s.GetAccount()] || s.GetInstances() == 0 {
+						continue
+					}
+					if s.GetAnswered() || len(s.GetMissing()) != 0 || s.GetNote() != v1.MicroNote_MICRO_NOTE_NO_ANSWER ||
+						s.GetInstanceSource() != v1.MicroInstanceSource_MICRO_INSTANCE_SOURCE_SUBSCRIPTIONS {
+						q.t.Errorf("%s: %s after a timeout: %v", q.System, s.GetName(), s)
+						return ""
+					}
+					return fmt.Sprintf("%s before %s", s.GetName(), r.GetEnd().AsTime().Format("15:04"))
+				}
+			}
+			return ""
+		}},
 		{"a Micro services account asked without an answer", func(q Q) string {
 			for _, a := range q.micro(q.day(), "").GetAccounts() {
 				if a.GetAsked() && a.GetStats().GetState() != v1.MicroRequestState_MICRO_REQUEST_STATE_OK && a.GetStats().GetAt() != nil {

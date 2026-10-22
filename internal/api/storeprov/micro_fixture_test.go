@@ -13,11 +13,11 @@ import (
 	"github.com/shadone/nats-lens/internal/store"
 )
 
-// The micro conformance store holds 26 hours of epochs, 5 minutes apart,
+// The micro conformance store holds 30 hours of epochs, 5 minutes apart,
 // ending at last; subscription lists were collected in every epoch of the
 // last 3 hours.
 const (
-	mcEpochs  = 26*12 + 1
+	mcEpochs  = 30*12 + 1
 	mcStep    = 5 * time.Minute
 	mcSubsFor = 3 * time.Hour
 )
@@ -90,7 +90,8 @@ type mcFixture struct {
 // whose I2 hung from 130 to 100 minutes before last, still subscribed,
 // and whose I1's stats were reset 7 minutes before last;
 // labels, subscribed and never answering. SUPPLIERS is asked and refused.
-// PROD is not asked: catalog, seen only.
+// PROD is not asked: catalog, seen only. APP's requests an hour before
+// last timed out, its instances still subscribed.
 func microConfStore(t *testing.T, last time.Time) *mcFixture {
 	t.Helper()
 	st := emptyStore(t)
@@ -129,7 +130,14 @@ func microConfStore(t *testing.T, last time.Time) *mcFixture {
 			ms: func(t time.Time) float64 { return 3 + 0.2*float64(t.Hour()%3) }},
 		// A second create endpoint on another subject: a series of its own
 		// within the endpoint.
-		{service: "orders", name: "create", subject: "orders.create.v2", rate: 1, ms: func(time.Time) float64 { return 9 }},
+		// It is slow from 3 hours to 150 minutes before last, so create is
+		// slow then.
+		{service: "orders", name: "create", subject: "orders.create.v2", rate: 1, ms: func(t time.Time) float64 {
+			if t.After(last.Add(-3*time.Hour)) && !t.After(last.Add(-150*time.Minute)) {
+				return 200
+			}
+			return 9
+		}},
 		{service: "pricing", name: "quote", subject: "pricing.quote", rate: 20, errors: 0.001, ms: func(time.Time) float64 { return 2.1 }},
 		{service: "inventory", name: "stock", subject: "inventory.stock.get", rate: 3, ms: func(time.Time) float64 { return 1.6 }},
 	}
@@ -158,7 +166,7 @@ func microConfStore(t *testing.T, last time.Time) *mcFixture {
 		subs := last.Sub(t0) < mcSubsFor
 		answered := map[string]int{}
 		for _, in := range insts {
-			if in.answers(t0) {
+			if in.answers(t0) && !t0.Equal(last.Add(-time.Hour)) {
 				answered[in.account]++
 			}
 		}
@@ -169,8 +177,13 @@ func microConfStore(t *testing.T, last time.Time) *mcFixture {
 				r.add("subscription_lists", map[string]any{"epoch": e, "server_id": sid, "total": 100, "listed": 100})
 			}
 		}
+		timedOut := t0.Equal(last.Add(-time.Hour))
 		for _, req := range []string{"INFO", "STATS"} {
-			r.add("micro_requests", map[string]any{"epoch": e, "label": "app", "account": "APP", "request": req, "state": "ok",
+			state := "ok"
+			if timedOut {
+				state = "timeout"
+			}
+			r.add("micro_requests", map[string]any{"epoch": e, "label": "app", "account": "APP", "request": req, "state": state,
 				"replies": answered["APP"]})
 			r.add("micro_requests", map[string]any{"epoch": e, "label": "suppliers", "account": "SUPPLIERS", "request": req, "state": "error",
 				"replies": 0, "error": `nats: Permissions Violation for Publish to "$SRV.` + req + `"`})
@@ -223,7 +236,7 @@ func microConfStore(t *testing.T, last time.Time) *mcFixture {
 				c.ns += n * ep.ms(t0) * 1e6
 				c.at = t0
 			}
-			if !in.answers(t0) {
+			if !in.answers(t0) || timedOut {
 				continue
 			}
 			r.add("micro_instances", map[string]any{"epoch": e, "account": in.account, "service": in.service, "instance_id": in.id,

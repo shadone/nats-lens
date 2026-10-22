@@ -135,6 +135,9 @@ func (s scen) microSubscriptions(c time.Time) []api.SubscriptionFact {
 // answering are the instances of a service that answer at scenario time
 // t: running, not hung, on a connection.
 func (s scen) answering(m microSpec, t time.Time) []microInstanceSpec {
+	if s.microTimedOut(t) {
+		return nil
+	}
 	on := s.microConnections(t)
 	var out []microInstanceSpec
 	for _, in := range m.instances {
@@ -229,7 +232,7 @@ func (s scen) microAnswered(at time.Time, r *v1.TimeRange) []api.MicroServiceFac
 						Errors: errs, ProcessingNs: ns})
 				}
 			}
-			x := api.MicroEndpointFact{Name: e.name, Subject: e.subject, QueueGroup: microQueue,
+			x := api.MicroEndpointFact{Name: e.name, Subject: e.subject, Subjects: []string{e.subject}, QueueGroup: microQueue,
 				Window: api.MicroWindowIncrease(reports, current)}
 			if e.lastError != "" && current[m.instances[e.lastErrorBy].id] {
 				x.LastError, x.LastErrorInstance = e.lastError, m.instances[e.lastErrorBy].id
@@ -319,7 +322,7 @@ func (s scen) microGone(at time.Time, asked bool, subsAt *time.Time) []api.Micro
 				}
 				done[id] = true
 				out = append(out, api.MicroGoneFact{Account: Account, Service: m.name, ID: id, LastSeen: times[i], Since: times[i-1],
-					Connection: x.name, InstancesThen: int32(len(who[i])), Absent: int32(i), FromSubscriptions: !asked})
+					Connection: x.name, InstancesThen: int32(len(who[i])), Absent: s.okBefore(times[:i], asked), FromSubscriptions: !asked})
 			}
 		}
 	}
@@ -349,9 +352,33 @@ func (s scen) microAccounts(at time.Time) []api.MicroAccountFact {
 		}
 		a.Info = microReplies(info, nInfo)
 		a.Stats = microReplies(at, nStats)
+		if s.microTimedOut(info) {
+			a.Info = api.MicroRequestFact{State: v1.MicroRequestState_MICRO_REQUEST_STATE_TIMEOUT, At: info}
+		}
+		if s.microTimedOut(at) {
+			a.Stats = api.MicroRequestFact{State: v1.MicroRequestState_MICRO_REQUEST_STATE_TIMEOUT, At: at}
+		}
 		out = append(out, a)
 	}
 	return out
+}
+
+// okBefore counts the collections of times that count as an absence:
+// for an asked account those whose request did not time out.
+func (s scen) okBefore(times []time.Time, asked bool) int32 {
+	n := int32(0)
+	for _, t := range times {
+		if !asked || !s.microTimedOut(t) {
+			n++
+		}
+	}
+	return n
+}
+
+// microTimedOut reports whether the stream account's $SRV requests of the
+// epoch at scenario time t got no reply in the collect window.
+func (s scen) microTimedOut(t time.Time) bool {
+	return slices.ContainsFunc(s.sc.microTimeouts, func(c time.Time) bool { return c.Equal(s.clock(t)) })
 }
 
 // microReplies is a request that gathered n replies at t: ok, or no
