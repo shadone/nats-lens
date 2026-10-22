@@ -2,6 +2,7 @@ package collect
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"sort"
 	"strings"
@@ -108,7 +109,9 @@ type microAccount struct {
 	// sameAs is the earlier label that asks this label's account for it,
 	// empty when this label asks.
 	sameAs string
-	// refused holds each request's refusal as last logged.
+	// backoff holds the requests refused within refusedRetry.
+	backoff map[MicroRequest]refusal
+	// refused holds what each request was refused, as last logged.
 	refused map[MicroRequest]string
 }
 
@@ -151,7 +154,8 @@ func (c *Collector) askMicro(ctx context.Context, started time.Time) []MicroAcco
 	for i, ac := range conns {
 		st := c.microAccounts[ac.Label]
 		if st == nil {
-			st = &microAccount{endpoints: map[instanceKey][]micro.EndpointInfo{}, refused: map[MicroRequest]string{}}
+			st = &microAccount{endpoints: map[instanceKey][]micro.EndpointInfo{}, refused: map[MicroRequest]string{},
+				backoff: map[MicroRequest]refusal{}}
 			c.microAccounts[ac.Label] = st
 		}
 		states[i] = st
@@ -274,6 +278,45 @@ func (c *Collector) infoDue(st *microAccount, now time.Time) bool {
 	return c.subsInterval > 0 && now.Sub(st.infoAsked) >= c.subsInterval-subscriptionsSlack
 }
 
+// refusedRetry is how long a request the server refused is not sent
+// again for the account.
+const refusedRetry = 10 * time.Minute
+
+// refusal is a request the server refused, and when.
+type refusal struct {
+	at   time.Time
+	text string
+}
+
+// asked is the record of request r not sent because of the refusal: an
+// error with the server's text and when it is sent again.
+func (f refusal) asked(r MicroRequest) MicroAsked {
+	return MicroAsked{Request: r, State: MicroError, Error: fmt.Sprintf("%s (not sent: refused at %s, asked again after %s)",
+		f.text, f.at.UTC().Format(time.RFC3339), f.at.Add(refusedRetry).UTC().Format(time.RFC3339))}
+}
+
+// held returns the refusal that keeps request r from being sent in an
+// epoch started at now; a refusal older than refusedRetry, or after now
+// (the clock stepped back), holds nothing and is forgotten.
+func (st *microAccount) held(r MicroRequest, now time.Time) (refusal, bool) {
+	f, ok := st.backoff[r]
+	if !ok {
+		return refusal{}, false
+	}
+	if now.Before(f.at) || now.Sub(f.at) >= refusedRetry {
+		delete(st.backoff, r)
+		return refusal{}, false
+	}
+	return f, true
+}
+
+// noteRefusal starts the back-off of a request the server refused.
+func (st *microAccount) noteRefusal(a MicroAsked, at time.Time) {
+	if refusalKind(a.Error) != "" {
+		st.backoff[a.Request] = refusal{at: at, text: a.Error}
+	}
+}
+
 // lookupRetry is how long after a refused account lookup it is made again.
 const lookupRetry = 10 * time.Minute
 
@@ -303,8 +346,16 @@ func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAcc
 		st.watch.install(nc)
 		st.watchedOn = nc
 	}
-	reqs := map[string]string{string(MicroStats): MicroStats.Subject()}
-	if wantInfo {
+	// A request refused within refusedRetry is not sent again: every
+	// refused publish is an error in the server's log.
+	statsHeld, holdStats := st.held(MicroStats, started)
+	infoHeld, holdInfo := st.held(MicroInfo, started)
+	holdInfo = holdInfo && wantInfo
+	reqs := map[string]string{}
+	if !holdStats {
+		reqs[string(MicroStats)] = MicroStats.Subject()
+	}
+	if wantInfo && !holdInfo {
 		reqs[string(MicroInfo)] = MicroInfo.Subject()
 		st.infoAsked = started
 	}
@@ -313,26 +364,41 @@ func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAcc
 	if lookUp {
 		reqs[userInfoToken] = userInfoSubject
 	}
-	got := exchange(ctx, nc, st.watch, reqs, deadline, microQuiet, known, string(MicroStats), string(MicroInfo))
+	got := map[string]*exchanged{}
+	if len(reqs) > 0 {
+		got = exchange(ctx, nc, st.watch, reqs, deadline, microQuiet, known, string(MicroStats), string(MicroInfo))
+	}
 	if lookUp {
 		c.resolveMicroAccount(ac.Label, st, nc, got[userInfoToken], started)
 	}
-	statsAsked, stats := decodeStats(got[string(MicroStats)])
+	var statsAsked MicroAsked
+	var stats []micro.Stats
+	if holdStats {
+		statsAsked = statsHeld.asked(MicroStats)
+	} else {
+		statsAsked, stats = decodeStats(got[string(MicroStats)])
+		st.noteRefusal(statsAsked, started)
+	}
 	res.Stats = stats
 	var infos []micro.Info
-	if wantInfo {
+	switch {
+	case holdInfo:
+		res.Asked = append(res.Asked, infoHeld.asked(MicroInfo))
+	case wantInfo:
 		var a MicroAsked
 		a, infos = decodeInfos(got[string(MicroInfo)])
+		st.noteRefusal(a, started)
 		res.Asked = append(res.Asked, a)
 	}
 	pruneDescribed(st, statsAsked, stats)
 	describe(st, infos)
-	if !wantInfo && undescribed(st, stats) {
+	if _, held := st.held(MicroInfo, started); !wantInfo && !held && undescribed(st, stats) {
 		// A new instance: ask INFO in the time left.
 		st.infoAsked = started
 		var a MicroAsked
 		a, infos = decodeInfos(exchange(ctx, nc, st.watch, map[string]string{string(MicroInfo): MicroInfo.Subject()},
 			deadline, microQuiet, instancesOf(stats), string(MicroInfo))[string(MicroInfo)])
+		st.noteRefusal(a, started)
 		res.Asked = append(res.Asked, a)
 		describe(st, infos)
 	}
@@ -348,31 +414,33 @@ func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAcc
 }
 
 // logRefusal logs the account's refused requests once, and again only
-// when a request's refusal changes or every refusal has ended, rather
-// than every epoch. A request not sent this epoch keeps its last state.
+// when what a request is refused changes or every refusal has ended,
+// rather than every epoch. Refusals are compared by what was refused (the
+// publish to the request's subject, or the subscription to a reply
+// inbox), not by the server's text, which names each epoch's own inbox.
+// A request not sent this epoch keeps its last state.
 func (c *Collector) logRefusal(label string, st *microAccount, asked []MicroAsked) {
 	changed, had := false, len(st.refused) > 0
+	texts := map[MicroRequest]string{}
 	for _, a := range asked {
-		text := ""
-		if strings.Contains(strings.ToLower(a.Error), "permissions violation") {
-			text = a.Error
-		}
-		if st.refused[a.Request] == text {
+		kind := refusalKind(a.Error)
+		texts[a.Request] = a.Error
+		if st.refused[a.Request] == kind {
 			continue
 		}
-		if text == "" {
+		if kind == "" {
 			delete(st.refused, a.Request)
 			continue
 		}
-		st.refused[a.Request] = text
+		st.refused[a.Request] = kind
 		changed = true
 	}
 	switch {
 	case changed:
 		var all []string
 		for _, r := range []MicroRequest{MicroInfo, MicroStats} {
-			if text := st.refused[r]; text != "" {
-				all = append(all, string(r)+": "+text)
+			if st.refused[r] != "" && texts[r] != "" {
+				all = append(all, string(r)+": "+texts[r])
 			}
 		}
 		c.log.Warn("micro service requests refused; the account user needs publish on $SRV.INFO and $SRV.STATS and subscribe on _INBOX.>",
@@ -380,6 +448,25 @@ func (c *Collector) logRefusal(label string, st *microAccount, asked []MicroAske
 	case had && len(st.refused) == 0:
 		c.log.Info("micro service requests permitted again", "account", label)
 	}
+}
+
+// refusalKind names what a request's error says was refused: "publish
+// <subject>", "subscribe reply inbox", or "" for no permissions
+// violation.
+func refusalKind(text string) string {
+	lower := strings.ToLower(text)
+	if !strings.Contains(lower, "permissions violation") {
+		return ""
+	}
+	if strings.Contains(lower, "for subscription to") {
+		return "subscribe reply inbox"
+	}
+	for _, r := range []MicroRequest{MicroInfo, MicroStats} {
+		if strings.Contains(text, `"`+r.Subject()+`"`) {
+			return "publish " + r.Subject()
+		}
+	}
+	return "publish"
 }
 
 // microKnownMisses is how many answered STATS in a row an instance may

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -145,8 +146,11 @@ func (p *Provider) microAnswered(ctx context.Context, e epochInfo, r *v1.TimeRan
 	}
 	for _, k := range eps.order {
 		x := eps.byKey[k]
-		i := index[x.account+"\x00"+x.service]
-		out[i].Endpoints = append(out[i].Endpoints, x.fact)
+		// An endpoint row without its instance's stats row belongs to no
+		// answered service.
+		if i, ok := index[x.account+"\x00"+x.service]; ok {
+			out[i].Endpoints = append(out[i].Endpoints, x.fact)
+		}
 	}
 	return out, nil
 }
@@ -355,9 +359,10 @@ func valuesOf(slow []*microEndpoint, args []any, extra func(*microEndpoint) any,
 // requests), up to the epoch, of every instance: each the sum of the
 // increases between consecutive reports of one instance, endpoint subject
 // and start time that end in it, an increase where a counter fell left
-// out (api.MicroDeltas). The walk is bounded by the 7 days; raw reports
-// are read only over each endpoint's span, two hours unless the endpoint
-// was idle in between.
+// out (api.MicroDeltas). The walk is bounded by the 7 days. Raw reports
+// are read only for the span's two hours with requests, each with the
+// hour before for its first increase: the hours between have none, and
+// their collections no average, so idle days are not scanned.
 func (p *Provider) microSlowStarts(ctx context.Context, e epochInfo, eps microEndpointSet) error {
 	slow := slowEndpoints(eps)
 	if len(slow) == 0 {
@@ -388,9 +393,12 @@ WHERE h.hour >= `+tsParam(1)+` AND h.hour <= `+tsParam(2)+` AND h.requests > 0 O
 	if err := rows.Err(); err != nil {
 		return err
 	}
+	// Each slow endpoint's span is its last fast hour and the next hour
+	// with requests; the hours between have none, so only those two hours
+	// are read, each with the hour before it for its first increase.
 	var withSpan []*microEndpoint
-	lo := e.startedAt
-	args = []any{int64(0), int64(0), us(e.startedAt)}
+	var windows [][2]time.Time
+	args = []any{us(e.startedAt)}
 	var spans []string
 	for _, x := range slow {
 		k := microKey(x.account, x.service, x.fact.Name)
@@ -399,39 +407,64 @@ WHERE h.hour >= `+tsParam(1)+` AND h.hour <= `+tsParam(2)+` AND h.requests > 0 O
 			x.fact.SlowSince = api.MicroSlowStart(hours[k], nil, *x.fact.LevelMs, e.startedAt)
 			continue
 		}
+		next := to.Add(-time.Hour)
 		withSpan = append(withSpan, x)
-		lo = earliestTime(lo, from)
+		windows = append(windows, [2]time.Time{from.Add(-time.Hour), from.Add(time.Hour)}, [2]time.Time{next.Add(-time.Hour), to})
 		n := len(args)
 		spans = append(spans, fmt.Sprintf("($%d, $%d, $%d, $%d::BIGINT, $%d::BIGINT)", n+1, n+2, n+3, n+4, n+5))
-		args = append(args, x.account, x.service, x.fact.Name, us(from), us(to))
+		args = append(args, x.account, x.service, x.fact.Name, us(from), us(next))
 	}
 	if len(withSpan) == 0 {
 		return nil
 	}
-	// The report before the span gives its first increase.
-	elo, ehi, ok, err := p.epochBounds(ctx, lo.Add(-api.MicroMissingWindow), e.startedAt.Add(time.Nanosecond))
-	if err != nil || !ok {
-		return err
+	// The windows' epochs, merged, as ranges a scan can be bounded by.
+	slices.SortFunc(windows, func(a, b [2]time.Time) int { return a[0].Compare(b[0]) })
+	var ranges []string
+	for i := 0; i < len(windows); {
+		w := windows[i]
+		for i++; i < len(windows) && !windows[i][0].After(w[1]); i++ {
+			w[1] = latestTime(w[1], windows[i][1])
+		}
+		lo, hi, ok, err := p.epochBounds(ctx, w[0], earliestTime(w[1], e.startedAt.Add(time.Nanosecond)))
+		if err != nil {
+			return err
+		}
+		if ok {
+			n := len(args)
+			ranges = append(ranges, fmt.Sprintf("epoch BETWEEN $%d AND $%d", n+1, n+2))
+			args = append(args, lo, hi)
+		}
 	}
-	args[0], args[1] = elo, ehi
+	if len(ranges) == 0 {
+		return nil
+	}
+	within := func(table string) string {
+		var parts []string
+		for _, r := range ranges {
+			parts = append(parts, "SELECT * FROM "+table+" WHERE "+r)
+		}
+		return "(" + strings.Join(parts, " UNION ALL ") + ")"
+	}
 	rows, err = p.db().QueryContext(ctx, `
-WITH v0(account, service, endpoint, f_us, to_us) AS (VALUES `+strings.Join(spans, ", ")+`
-), v AS (SELECT account, service, endpoint, make_timestamp(f_us) AS f, make_timestamp(to_us) AS upto FROM v0
+WITH v0(account, service, endpoint, f_us, n_us) AS (VALUES `+strings.Join(spans, ", ")+`
+), v AS (SELECT account, service, endpoint, make_timestamp(f_us) AS f, make_timestamp(n_us) AS nx FROM v0
 ), pts AS (
-  SELECT x.account, x.service, x.endpoint, x.instance_id, s.started, ep.started_at AS t, v.f,
+  SELECT x.account, x.service, x.endpoint, x.instance_id, s.started, ep.started_at AS t, v.f, v.nx,
     `+subjOf+` AS subj, x.num_requests AS r, x.num_errors AS er, x.processing_time_ns AS ns
-  FROM micro_endpoints x
+  FROM `+within("micro_endpoints")+` x
   JOIN v ON v.account = x.account AND v.service = x.service AND v.endpoint = x.endpoint
-  JOIN micro_stats s ON s.epoch = x.epoch AND s.account = x.account AND s.service = x.service AND s.instance_id = x.instance_id
+  JOIN `+within("micro_stats")+` s ON s.epoch = x.epoch AND s.account = x.account AND s.service = x.service AND s.instance_id = x.instance_id
   JOIN epochs ep ON ep.epoch = x.epoch
-  WHERE x.epoch BETWEEN $1 AND $2 AND ep.started_at >= v.f - INTERVAL 1 HOUR AND ep.started_at <= `+tsParam(3)+`
-    AND ep.started_at < v.upto
+  WHERE ep.started_at <= `+tsParam(1)+`
+    AND ((ep.started_at >= v.f - INTERVAL 1 HOUR AND ep.started_at < v.f + INTERVAL 1 HOUR)
+      OR (ep.started_at >= v.nx - INTERVAL 1 HOUR AND ep.started_at < v.nx + INTERVAL 1 HOUR))
 ), d AS (
-  SELECT account, service, endpoint, t, f, r - lag(r) OVER w AS dr, er - lag(er) OVER w AS de, ns - lag(ns) OVER w AS dn
+  SELECT account, service, endpoint, t, f, nx, r - lag(r) OVER w AS dr, er - lag(er) OVER w AS de, ns - lag(ns) OVER w AS dn
   FROM pts WINDOW w AS (PARTITION BY account, service, endpoint, instance_id, subj, started ORDER BY t)
 )
 SELECT account, service, endpoint, t, sum(dn) / sum(dr) / 1e6 FROM d
-WHERE t >= f AND dr >= 0 AND de >= 0 AND dn >= 0 GROUP BY ALL HAVING sum(dr) > 0 ORDER BY 1, 2, 3, 4`, args...)
+WHERE ((t >= f AND t < f + INTERVAL 1 HOUR) OR (t >= nx AND t < nx + INTERVAL 1 HOUR)) AND dr >= 0 AND de >= 0 AND dn >= 0
+GROUP BY ALL HAVING sum(dr) > 0 ORDER BY 1, 2, 3, 4`, args...)
 	if err != nil {
 		return fmt.Errorf("micro slow collections: %w", err)
 	}
@@ -455,6 +488,13 @@ WHERE t >= f AND dr >= 0 AND de >= 0 AND dn >= 0 GROUP BY ALL HAVING sum(dr) > 0
 		x.fact.SlowSince = api.MicroSlowStart(hours[k], cols[k], *x.fact.LevelMs, e.startedAt)
 	}
 	return nil
+}
+
+func latestTime(a, b time.Time) time.Time {
+	if b.After(a) {
+		return b
+	}
+	return a
 }
 
 func earliestTime(a, b time.Time) time.Time {
@@ -504,7 +544,7 @@ WITH asked AS (
 SELECT l.account, l.service, l.instance_id, le.started_at,
   (SELECT min(q.started_at) FROM reqs q WHERE q.account = l.account AND q.epoch > l.epoch),
   (SELECT count(*) FROM reqs q WHERE q.account = l.account AND q.epoch > l.epoch AND q.ok),
-  coalesce(h.name, ''), (SELECT count(*) FROM st o WHERE o.epoch = l.epoch AND o.account = l.account AND o.service = l.service)
+  coalesce(h.name, ''), (SELECT count(DISTINCT o.instance_id) FROM st o WHERE o.epoch = l.epoch AND o.account = l.account AND o.service = l.service)
 FROM last l JOIN epochs le ON le.epoch = l.epoch
 LEFT JOIN held h ON h.service = l.service AND h.id = l.instance_id
 ORDER BY 1, 2, 3`, e.epoch, lo, slo)

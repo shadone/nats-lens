@@ -130,6 +130,10 @@ message MicroMissingInstance {
   // but does not answer. Asked accounts only. Such an instance stays
   // missing for as long as the collection lists it, past the hour.
   bool still_subscribed = 5;
+
+  // Server of the connection that holds its $SRV subscriptions, for an
+  // instance still subscribed; empty otherwise or when not found.
+  string server = 6;
 }
 
 // One endpoint of a service, over its instances.
@@ -181,7 +185,9 @@ message MicroEndpoint {
   // otherwise. The run began after the newest hour before the epoch's
   // whose average is not slow: at the first collection after the last fast
   // one (over all instances) of that hour through the next hour with
-  // requests, or after that span when it ends fast; docs/design.md
+  // requests, or after that span when it ends fast. A fast collection read
+  // later does not move it back while the 7-day level stays the same; a
+  // new level can make another hour the last fast one. docs/design.md
   // (GetMicroServices) has the whole rule.
   google.protobuf.Timestamp slow_since = 11;
 
