@@ -11,18 +11,25 @@ import (
 const microLookback = time.Hour
 
 // microHoursQuery adds the epoch's increases to micro_endpoint_hours.
+// An instance's rows are taken once per epoch even if they were stored
+// twice, so that a duplicate never multiplies an increase.
 // Arguments: the epoch, the hour, the lowest epoch of the lookback, the
 // previous epoch's start (NULL without one).
 const microHoursQuery = `INSERT INTO micro_endpoint_hours
-WITH cur AS (
-  SELECT e.account, e.service, e.instance_id, e.endpoint, e.num_requests, e.num_errors, e.processing_time_ns, s.started
-  FROM micro_endpoints e JOIN micro_stats s USING (epoch, account, service, instance_id)
-  WHERE e.epoch = $1),
+WITH stats AS (
+  SELECT epoch, account, service, instance_id, any_value(started) AS started
+  FROM micro_stats WHERE epoch >= $3 AND epoch <= $1 GROUP BY ALL),
+cur AS (
+  SELECT e.account, e.service, e.instance_id, e.endpoint, any_value(e.num_requests) AS num_requests,
+    any_value(e.num_errors) AS num_errors, any_value(e.processing_time_ns) AS processing_time_ns, any_value(s.started) AS started
+  FROM micro_endpoints e JOIN stats s USING (epoch, account, service, instance_id)
+  WHERE e.epoch = $1
+  GROUP BY ALL),
 prev AS (
   SELECT e.account, e.service, e.instance_id, e.endpoint,
     arg_max(e.num_requests, e.epoch) AS num_requests, arg_max(e.num_errors, e.epoch) AS num_errors,
     arg_max(e.processing_time_ns, e.epoch) AS processing_time_ns, arg_max(s.started, e.epoch) AS started
-  FROM micro_endpoints e JOIN micro_stats s USING (epoch, account, service, instance_id)
+  FROM micro_endpoints e JOIN stats s USING (epoch, account, service, instance_id)
   WHERE e.epoch >= $3 AND e.epoch < $1
   GROUP BY ALL),
 d AS (

@@ -99,9 +99,9 @@ type microAccount struct {
 	// watch takes the refusals of the collector's requests on watchedOn.
 	watchedOn *nats.Conn
 	watch     *microWatch
-	// answered are the instances that answered the last STATS that was
-	// answered; the next requests wait for them before the quiet period.
-	answered map[instanceKey]bool
+	// key is the account this label's answers were last kept under, empty
+	// before it asked over a connection.
+	key string
 	// sameAs is the earlier label that asks this label's account for it,
 	// empty when this label asks.
 	sameAs string
@@ -133,8 +133,10 @@ func (c *Collector) askMicro(ctx context.Context, started time.Time) []MicroAcco
 	out := make([]MicroAccount, len(conns))
 	states := make([]*microAccount, len(conns))
 	// An account already asked under an earlier label over a connected
-	// connection is not asked again under a later one.
-	asking := map[string]bool{}
+	// connection is not asked again under a later one. A label's account
+	// is the one its answers were last kept under: the servers' name for
+	// it, or the label when the lookup was refused.
+	asking := map[string]string{}
 	var wg sync.WaitGroup
 	for i, ac := range conns {
 		st := c.microAccounts[ac.Label]
@@ -143,36 +145,59 @@ func (c *Collector) askMicro(ctx context.Context, started time.Time) []MicroAcco
 			c.microAccounts[ac.Label] = st
 		}
 		states[i] = st
-		if st.account != "" && asking[st.account] {
+		if _, ok := asking[st.key]; ok && st.key != "" {
 			continue
 		}
-		if nc := connOf(ac); st.account != "" && nc != nil && nc.IsConnected() {
-			asking[st.account] = true
+		if nc := connOf(ac); st.key != "" && nc != nil && nc.IsConnected() {
+			asking[st.key] = ac.Label
 		}
-		wg.Go(func() { out[i] = c.askAccount(ctx, ac, st, started, deadline) })
+		known := c.microKnown[st.key]
+		wg.Go(func() { out[i] = c.askAccount(ctx, ac, st, known, started, deadline) })
 	}
 	wg.Wait()
-	// Two labels that turned out to name one account in this epoch keep
-	// the first label's answers only. Only an account the servers named
-	// counts, never a label standing in for one, and only a label that
-	// was asked over a connection.
-	kept := out[:0]
-	firstLabel := map[string]string{}
+	// One MicroAccount per account and epoch: of the labels that name one
+	// account, the first asked over a connection is kept, and a label
+	// that could not ask is kept only when no other label of its account
+	// asked.
+	var kept []MicroAccount
+	var keptState []*microAccount
+	at := map[string]int{}
 	for i, m := range out {
+		st := states[i]
 		if m.Label == "" {
-			c.noteSameAccount(conns[i].Label, states[i], firstLabel[states[i].account])
+			c.noteSameAccount(conns[i].Label, st, asking[st.key])
 			continue
 		}
-		resolved := states[i].account
-		if first, ok := firstLabel[resolved]; ok && resolved != "" {
-			c.noteSameAccount(m.Label, states[i], first)
-			continue
+		if connected(m) {
+			st.key = m.Account
 		}
-		if resolved != "" && connected(m) {
-			firstLabel[resolved] = m.Label
+		j, ok := at[m.Account]
+		switch {
+		case !ok:
+			at[m.Account] = len(kept)
+			kept, keptState = append(kept, m), append(keptState, st)
+			c.noteSameAccount(m.Label, st, "")
+		case connected(kept[j]) || !connected(m):
+			c.noteSameAccount(m.Label, st, kept[j].Label)
+		default:
+			c.noteSameAccount(kept[j].Label, keptState[j], m.Label)
+			kept[j], keptState[j] = m, st
+			c.noteSameAccount(m.Label, st, "")
 		}
-		c.noteSameAccount(m.Label, states[i], "")
-		kept = append(kept, m)
+	}
+	// The instances that answered STATS are known per account, whichever
+	// label asked.
+	for _, m := range kept {
+		for _, a := range m.Asked {
+			if a.Request == MicroStats && (a.State == MicroOK || a.State == MicroNoResponders) {
+				c.microKnown[m.Account] = instancesOf(m.Stats)
+			}
+		}
+	}
+	for key := range c.microKnown {
+		if _, ok := at[key]; !ok && !slices.ContainsFunc(states, func(st *microAccount) bool { return st.key == key }) {
+			delete(c.microKnown, key)
+		}
 	}
 	sort.Slice(kept, func(i, j int) bool { return kept[i].Label < kept[j].Label })
 	return kept
@@ -200,16 +225,18 @@ func connOf(ac AccountConn) *nats.Conn {
 	return ac.Conn()
 }
 
-// noteSameAccount logs once that label names the account first already
-// asks, and once when it no longer does; first is empty when label is
-// asked itself.
+// noteSameAccount logs once that label names the account first asks for
+// it, and once when label asks for itself again; first is empty when
+// label is asked itself.
 func (c *Collector) noteSameAccount(label string, st *microAccount, first string) {
 	if st.sameAs == first {
 		return
 	}
 	if first != "" {
-		c.log.Info("two accounts entries name one account; its micro services are asked once, under the first",
-			"label", label, "first", first, "account", st.account)
+		c.log.Info("two accounts entries name one account; its micro services are asked once, under the first that is connected",
+			"label", label, "first", first, "account", st.key)
+	} else {
+		c.log.Info("accounts entry asks its micro services itself again", "label", label, "account", st.key)
 	}
 	st.sameAs = first
 }
@@ -233,7 +260,10 @@ const userInfoToken = "USER"
 
 // askAccount sends STATS, and INFO when due, to one account, and INFO
 // again when STATS names an instance no INFO described.
-func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAccount, started, deadline time.Time) MicroAccount {
+// known are the instances that answered the account's last answered
+// STATS, under any label; the requests wait for them.
+func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAccount, known map[instanceKey]bool,
+	started, deadline time.Time) MicroAccount {
 	res := MicroAccount{Label: ac.Label, Account: ac.Label}
 	wantInfo := c.infoDue(st, started)
 	nc := connOf(ac)
@@ -261,7 +291,7 @@ func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAcc
 	if lookUp {
 		reqs[userInfoToken] = userInfoSubject
 	}
-	got := exchange(ctx, nc, st.watch, reqs, deadline, microQuiet, st.answered, string(MicroStats), string(MicroInfo))
+	got := exchange(ctx, nc, st.watch, reqs, deadline, microQuiet, known, string(MicroStats), string(MicroInfo))
 	if lookUp {
 		c.resolveMicroAccount(ac.Label, st, nc, got[userInfoToken], started)
 	}
@@ -274,20 +304,13 @@ func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAcc
 		res.Asked = append(res.Asked, a)
 	}
 	pruneDescribed(st, statsAsked, stats)
-	switch statsAsked.State {
-	case MicroOK, MicroNoResponders:
-		st.answered = map[instanceKey]bool{}
-		for _, s := range stats {
-			st.answered[instanceKey{s.Name, s.ID}] = true
-		}
-	}
 	describe(st, infos)
 	if !wantInfo && undescribed(st, stats) {
 		// A new instance: ask INFO in the time left.
 		st.infoAsked = started
 		var a MicroAsked
 		a, infos = decodeInfos(exchange(ctx, nc, st.watch, map[string]string{string(MicroInfo): MicroInfo.Subject()},
-			deadline, microQuiet, st.answered, string(MicroInfo))[string(MicroInfo)])
+			deadline, microQuiet, instancesOf(stats), string(MicroInfo))[string(MicroInfo)])
 		res.Asked = append(res.Asked, a)
 		describe(st, infos)
 	}
@@ -335,6 +358,15 @@ func (c *Collector) logRefusal(label string, st *microAccount, asked []MicroAske
 	case had && len(st.refused) == 0:
 		c.log.Info("micro service requests permitted again", "account", label)
 	}
+}
+
+// instancesOf returns the instances of STATS replies.
+func instancesOf(stats []micro.Stats) map[instanceKey]bool {
+	out := map[instanceKey]bool{}
+	for _, s := range stats {
+		out[instanceKey{s.Name, s.ID}] = true
+	}
+	return out
 }
 
 // asked lists the requests of an epoch: STATS, and INFO when due.
