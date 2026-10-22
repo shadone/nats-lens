@@ -14,7 +14,9 @@ const microLookback = time.Hour
 // An instance's rows are taken once per epoch even if they were stored
 // twice, so that a duplicate never multiplies an increase.
 // Arguments: the epoch, the hour, the lowest epoch of the lookback, the
-// previous epoch's start (NULL without one).
+// previous epoch's start (NULL without one); times are Unix microseconds
+// of UTC, made into TIMESTAMP in SQL, so that no session time zone shifts
+// them on the way.
 const microHoursQuery = `INSERT INTO micro_endpoint_hours
 WITH stats AS (
   SELECT epoch, account, service, instance_id, any_value(started) AS started
@@ -35,7 +37,7 @@ prev AS (
 d AS (
   SELECT c.account, c.service, c.endpoint,
     CASE
-      WHEN p.num_requests IS NULL THEN c.started IS NOT NULL AND $4::TIMESTAMP IS NOT NULL AND c.started > $4::TIMESTAMP
+      WHEN p.num_requests IS NULL THEN c.started IS NOT NULL AND $4::BIGINT IS NOT NULL AND c.started > make_timestamp($4::BIGINT)
       ELSE c.num_requests < p.num_requests OR c.num_errors < p.num_errors
         OR c.processing_time_ns < p.processing_time_ns OR c.started IS DISTINCT FROM p.started
     END AS whole,
@@ -43,7 +45,7 @@ d AS (
     c.num_requests, c.num_errors, c.processing_time_ns,
     p.num_requests AS p_requests, p.num_errors AS p_errors, p.processing_time_ns AS p_time
   FROM cur c LEFT JOIN prev p USING (account, service, instance_id, endpoint))
-SELECT $2::TIMESTAMP, account, service, endpoint,
+SELECT make_timestamp($2::BIGINT), account, service, endpoint,
   sum(CASE WHEN whole THEN num_requests WHEN first THEN 0 ELSE num_requests - p_requests END),
   sum(CASE WHEN whole THEN num_errors WHEN first THEN 0 ELSE num_errors - p_errors END),
   sum(CASE WHEN whole THEN processing_time_ns WHEN first THEN 0 ELSE processing_time_ns - p_time END),
@@ -80,7 +82,7 @@ func (w *writer) writeMicroHours() {
 			w.fail(fmt.Errorf("previous epoch start: %w", err))
 			return
 		}
-		prevStart = t
+		prevStart = t.UTC().UnixMicro()
 	}
-	w.exec(microHoursQuery, w.epoch, start.Truncate(time.Hour), lo, prevStart)
+	w.exec(microHoursQuery, w.epoch, start.Truncate(time.Hour).UnixMicro(), lo, prevStart)
 }
