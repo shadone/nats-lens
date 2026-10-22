@@ -1,6 +1,7 @@
 package fake_test
 
 import (
+	"math"
 	"slices"
 	"strings"
 	"testing"
@@ -249,6 +250,34 @@ func TestDemoMirrorStoresAsItsOrigin(t *testing.T) {
 			if o == nil || (r.StoredPerSecond == nil) != (o.StoredPerSecond == nil) || r.GetStoredPerSecond() != o.GetStoredPerSecond() {
 				t.Errorf("%s: mirror %s stores %v a second, its origin %v", sys, r.GetStream(), r.StoredPerSecond, o)
 			}
+		}
+	}
+}
+
+// example-global's order-events and its mirror order-archive tell one
+// story: the mirror grows per day, on the Streams and Capacity pages, by
+// what the origin stores per second on the Subjects page in messages of
+// the same size, and the origin, at its 30-day age limit, holds 30 days of
+// them and does not grow.
+func TestGlobalOrderEventsAgreeWithTheirMirror(t *testing.T) {
+	c := demo(t)
+	sys := fake.GlobalSystem
+	streams := map[string]*v1.StreamSummary{}
+	for _, s := range must(c.ListStreams(ctx, connect.NewRequest(&v1.ListStreamsRequest{System: sys}))).GetStreams() {
+		streams[s.GetEntity().GetStream()] = s
+	}
+	origin, mirror := streams["order-events"], streams["order-archive"]
+	rate := subjectRow(subjectsOf(t, c, sys), fake.Account, "order-events").GetStoredPerSecond()
+	size := float64(origin.GetBytes()) / float64(origin.GetMessages())
+	near := func(a, b float64) bool { return math.Abs(a-b) <= 0.01*math.Abs(b) }
+	if !near(float64(mirror.GetBytes())/float64(mirror.GetMessages()), size) || !near(mirror.GetBytesPerDay(), rate*86400*size) ||
+		!near(float64(origin.GetMessages()), rate*30*86400) || math.Abs(origin.GetBytesPerDay()) > 0.01*mirror.GetBytesPerDay() {
+		t.Errorf("origin %d msgs %d bytes %+.0f/day at %.2f/s; mirror %d msgs %d bytes %+.0f/day", origin.GetMessages(), origin.GetBytes(),
+			origin.GetBytesPerDay(), rate, mirror.GetMessages(), mirror.GetBytes(), mirror.GetBytesPerDay())
+	}
+	for _, s := range must(c.GetCapacity(ctx, connect.NewRequest(&v1.GetCapacityRequest{System: sys}))).GetStreams() {
+		if s.GetStream() == "order-archive" && !near(s.GetBytesPerDay(), mirror.GetBytesPerDay()) {
+			t.Errorf("Capacity growth %v, Streams %v", s.GetBytesPerDay(), mirror.GetBytesPerDay())
 		}
 	}
 }
