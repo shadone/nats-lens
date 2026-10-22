@@ -14,8 +14,9 @@ import (
 // total across the cluster, not only the requests it answered: requests
 // made through one server show on all three alike once the account stores
 // data on any server of the cluster (servers holding data send their
-// usage, with the API counters, every 1.5 seconds, and the others take it
-// in). Until then each server reports only the requests it answered,
+// usage, with the API counters, every 1.5 seconds; a server that receives
+// one creates its own usage entry and sends updates too, with a local
+// count of 0). Until then each server reports only the requests it answered,
 // mostly the meta leader, and the highest is a lower bound. The Subjects
 // page's API rate therefore takes one server's increase, never the sum.
 func TestJetStreamAPITotalIsClusterWide(t *testing.T) {
