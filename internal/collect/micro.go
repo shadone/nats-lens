@@ -345,6 +345,9 @@ func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAcc
 		st.watch = newMicroWatch()
 		st.watch.install(nc)
 		st.watchedOn = nc
+		// A new connection may carry new credentials: the refusals of
+		// the old one hold nothing back.
+		clear(st.backoff)
 	}
 	// A request refused within refusedRetry is not sent again: every
 	// refused publish is an error in the server's log.
