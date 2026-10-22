@@ -1,6 +1,7 @@
 package storeprov_test
 
 import (
+	"fmt"
 	"math"
 	"slices"
 	"strings"
@@ -109,8 +110,9 @@ func TestMicroServicesAskedFollowTheRules(t *testing.T) {
 				}
 				if !optEqual(e.RequestsPerSecond, w.PerSecond) || !optEqual(e.AverageMs, avg) || !optEqual(e.ErrorShare, share) ||
 					!optEqual(e.LevelMs, level) || (since == nil) != (e.SlowSince == nil) || (since != nil && !e.GetSlowSince().AsTime().Equal(*since)) {
-					t.Errorf("%v before last, %s.%s: rate %v avg %v share %v level %v since %v; want %v %v %v %v %v", back, s.GetName(), e.GetName(),
-						e.RequestsPerSecond, e.AverageMs, e.ErrorShare, e.LevelMs, e.GetSlowSince(), w.PerSecond, avg, share, level, since)
+					t.Errorf("%v before last, %s.%s: rate %s avg %s share %s level %s since %v; want %s %s %s %s %v", back, s.GetName(), e.GetName(),
+						optStr(e.RequestsPerSecond), optStr(e.AverageMs), optStr(e.ErrorShare), optStr(e.LevelMs), e.GetSlowSince().AsTime(),
+						optStr(w.PerSecond), optStr(avg), optStr(share), optStr(level), since)
 				}
 				checked++
 			}
@@ -126,6 +128,14 @@ func TestMicroServicesAskedFollowTheRules(t *testing.T) {
 
 func ptrTo(v float64) *float64 { return &v }
 
+// optStr shows an optional number, or unset.
+func optStr(v *float64) string {
+	if v == nil {
+		return "unset"
+	}
+	return fmt.Sprintf("%.6g", *v)
+}
+
 // The asked level's story at the newest epoch and in the hang.
 func TestMicroServicesAskedFromStore(t *testing.T) {
 	last := time.Date(2026, 10, 17, 14, 0, 0, 0, time.UTC)
@@ -140,8 +150,8 @@ func TestMicroServicesAskedFromStore(t *testing.T) {
 	for _, s := range m.GetServices() {
 		names = append(names, s.GetAccount()+"/"+s.GetName()+":"+s.GetNote().String())
 	}
-	// pricing takes 60 requests a second, orders 24.
-	want := []string{"APP/pricing:MICRO_NOTE_MIXED_VERSIONS", "APP/orders:MICRO_NOTE_SLOW_ENDPOINT", "APP/labels:MICRO_NOTE_NO_ANSWER",
+	// pricing takes 60 requests a second, orders 26, search 1.
+	want := []string{"APP/pricing:MICRO_NOTE_MIXED_VERSIONS", "APP/orders:MICRO_NOTE_SLOW_ENDPOINT", "APP/search:MICRO_NOTE_SLOW_ENDPOINT", "APP/labels:MICRO_NOTE_NO_ANSWER",
 		"APP/inventory:MICRO_NOTE_HEALTHY", "PROD/catalog:MICRO_NOTE_NOT_ASKED"}
 	if !slices.Equal(names, want) {
 		t.Errorf("services\n%v\nwant\n%v", names, want)
@@ -166,10 +176,15 @@ func TestMicroServicesAskedFromStore(t *testing.T) {
 	if pr.GetInstances() != 3 || len(pr.GetMissing()) != 0 || pr.GetVersions()[0].GetInstances() != 2 || math.Abs(pr.GetRequestsPerSecond()-60) > 0.1 {
 		t.Errorf("pricing = %v", pr)
 	}
+	// search was idle for three hours before its slow hour: the run starts
+	// at its first collection after them.
+	if q := microNamed(m, "APP", "search").GetEndpoints()[0]; !q.GetSlow() || !q.GetSlowSince().AsTime().Equal(last.Add(-55*time.Minute)) {
+		t.Errorf("search.query = %v", q)
+	}
 	if l := microNamed(m, "APP", "labels"); !l.GetAsked() || l.GetAnswered() || l.GetInstances() != 1 || l.GetConnectionNames()[0] != "label-printer" {
 		t.Errorf("labels = %v", l)
 	}
-	if len(m.GetAccounts()) != 3 || m.GetAccounts()[0].GetAccount() != "APP" || m.GetAccounts()[0].GetStats().GetReplies() != 7 ||
+	if len(m.GetAccounts()) != 3 || m.GetAccounts()[0].GetAccount() != "APP" || m.GetAccounts()[0].GetStats().GetReplies() != 8 ||
 		m.GetAccounts()[0].GetInfo().GetState() != v1.MicroRequestState_MICRO_REQUEST_STATE_OK || m.GetAccounts()[1].GetAccount() != "PROD" ||
 		m.GetAccounts()[1].GetAsked() || m.GetAccounts()[2].GetStats().GetState() != v1.MicroRequestState_MICRO_REQUEST_STATE_ERROR ||
 		m.GetAccounts()[2].GetStats().GetError() == "" {

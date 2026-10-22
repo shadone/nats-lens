@@ -138,19 +138,25 @@ Fix round 1 (review of T2), decided in the session that fixed it, proposed, not 
 - **Missing instances.** None is judged after a `$SRV.STATS` request that was not ok; the service then shows the instances its `$SRV` subscriptions list in the subscription collection, else, without one, those that last answered within the hour (fix round 2 says which in `instance_source`); an asked instance must be absent from two ok requests (`MicroGoneFact.Absent`); the count rule lists at most the shortfall, the most recently gone first; an instance still subscribed stays missing while the collection lists it, past the hour (the store looks back 24 hours for those). Gone facts carry their source (`FromSubscriptions`), and an asked account uses only its answers'.
 - **Two labels for one account.** The ok request first, then an error with its reason, a timeout, no responders.
 - **The demo.** Connections count the subscriptions the demo lists for them where it collects subscription lists (elsewhere the counts stay as they were); the demo names its accounts as the store does (`SUPPLIERS`).
-Fix round 2 (second review), decided in the session that fixed it, proposed, not yet confirmed:
-
-- **A slow endpoint always has a start.** `api.MicroSlowSpan` reads collections from the newest fast hour before the epoch's (the epoch's partial hour no longer decides) through the next hour with requests after it, not a fixed two hours, so idle hours between are crossed. The run starts at the first collection after the span's last fast one when a slow one follows; else at the first slow hour after the fast hour, else the hour after it; when no hour before the epoch's is fast, at the first hour. A fast collection after the span does not end the run.
-- **`MicroEndpoint.subjects` (field 13).** Every subject of the endpoint's name, in order; `subject` is the first.
-- **`MicroService.instance_source` (field 19, enum `MicroInstanceSource`).** Says where `instance_list` came from: answered, seen in subscriptions, or last answered within the hour.
-- **The demo** times out `APP`'s `$SRV` requests at 11:29:56, its instances still subscribed; the store fixture does the same an hour before last.
-- **The fixture** spans 30 hours, and orders' second create endpoint on `orders.create.v2` is slow from 3 hours to 150 minutes before last, so the subject pairing of the slow run is tested.
-
-- **A subject that first appears** (after T1's round 4): a row without a subject joins the series of the one subject the instance's other rows of the name have, in the rate window and the slow run, as the rollup pairs it by name alone; with two subjects it stays a series of its own. `TestMicroSubjectFirstAppearing` (doubled rate before) and P4's first report in the fixture hold it. Proposed, not yet confirmed.
 - **Time zones.** Every time parameter of the micro queries is passed as microseconds and made a TIMESTAMP in SQL, as DuckDB compared a `time.Time` parameter in the session's zone in one query (the slow run's hours, 7 hours off in Los Angeles). `TestMicroServicesZoneIndependent` checks four zones. T1's `microHoursQuery` casts its hour and previous-epoch parameters with `::TIMESTAMP`, the same pattern; its owner should check it.
 - **The merges.** `feat/micro-collect` was merged again at T1's fix round 2 (`bd3b909`); its hours query now takes an instance's rows once per epoch, which the fixture's `fillHours` matches as it writes each row once.
 - **Endpoint series.** The rate window and the slow run's collections pair an instance's rows by endpoint name and subject, as T1's round 3 rollup does: one instance may have two endpoints of one name on two subjects. Merged at T1's fix round 3 (`39f9e34`).
 - **Proto.** Comments only: `MicroEndpoint.subject`, `last_error`, `level_ms`, `slow_since`; `MicroService.instances`, `missing`; `MicroMissingInstance.still_subscribed`; `MicroNote` `INSTANCE_MISSING` and `NO_ANSWER`. No field was added, renamed or renumbered.
+
+Fix round 2 (second review), decided in the session that fixed it, proposed, not yet confirmed:
+
+- **A slow endpoint always has a start.** `api.MicroSlowSpan` reads collections from the newest fast hour before the epoch's (the epoch's partial hour no longer decides) through the next hour with requests after it, not a fixed two hours, so idle hours between are crossed. The run starts at the first collection after the span's last fast one when a slow one follows; else at the first slow hour after the fast hour, else the hour after it; when no hour before the epoch's is fast, at the first hour. A fast collection after the span does not end the run.
+- **`MicroEndpoint.subjects` (field 13).** Every subject of the endpoint's name, sorted by subject; `subject` is the first.
+- **`MicroService.instance_source` (field 19, enum `MicroInstanceSource`).** Says where `instance_list` came from: answered, seen in subscriptions, or last answered within the hour.
+- **The demo** times out `APP`'s `$SRV` requests at 11:29:56, its instances still subscribed; the store fixture does the same an hour before last.
+- **The fixture** spans 30 hours, and orders' second create endpoint on `orders.create.v2` is slow from 3 hours to 150 minutes before last, so the subject pairing of the slow run is tested.
+- **A subject that first appears** (after T1's round 4): a row without a subject joins the series of the one subject the instance's other rows of the name have, in the rate window and the slow run, as the rollup pairs it by name alone; with two subjects it stays a series of its own. `TestMicroSubjectFirstAppearing` (doubled rate before) and P4's first report in the fixture hold it. Proposed, not yet confirmed.
+
+Fix round 3 (third review), decided in the session that fixed it, proposed, not yet confirmed:
+
+- **The slow start never moves back.** When the span (`api.MicroSlowSpan`) ends with a fast collection, or holds none, the run starts at the first collection after it: the span's end, or the epoch when that is earlier. Round 2's fallback to the first slow hour moved the start 55 minutes earlier when a fast collection was the span's last (a blip at 1:50 gave 1:55, at 1:55 gave 1:00); "the first hour" remains only when no hour before the epoch's is fast.
+- **The rules test covers the slow-collections query.** The fixture adds `search`, idle from 4 hours to an hour before last and then slow, so its span crosses idle hours (a fixed two-hour span fails the test), and both orders instances' `get` rows of the slow run's first collection lack a subject (pairing by `coalesce(subject, '')` fails it).
+- **`subjects` is sorted by subject**, as the store lists it.
 
 ## T3 UI
 

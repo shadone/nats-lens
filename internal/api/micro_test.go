@@ -620,14 +620,16 @@ func TestMicroSlowStartAfterIdleHours(t *testing.T) {
 	if got := api.MicroSlowStart(hours, cols, 4, hour(4).Add(20*time.Minute)); got == nil || !got.Equal(hour(4)) {
 		t.Errorf("after idle hours: %v", got)
 	}
-	if got := api.MicroSlowStart(hours, cols[:12], 4, hour(4).Add(20*time.Minute)); got == nil || !got.Equal(hour(4)) {
+	// Without hour 4's collections the span ends fast: the run starts
+	// after it, at the epoch, which comes before the span's end.
+	if got := api.MicroSlowStart(hours, cols[:12], 4, hour(4).Add(20*time.Minute)); got == nil || !got.Equal(hour(4).Add(20*time.Minute)) {
 		t.Errorf("after idle hours, no collection of hour 4: %v", got)
 	}
 }
 
 // Hour 0 fast, hour 1 slow overall but its last collection fast, hour 2
-// slow: no slow collection follows the last fast one in hours 0 and 1, so
-// the run starts at hour 1, the first slow hour.
+// slow: the span (hours 0 and 1) ends fast, so the run starts after it,
+// at hour 2.
 func TestMicroSlowStartLastCollectionOfNextHourFast(t *testing.T) {
 	hour := func(h int) time.Time { return microT0.Add(time.Duration(h) * time.Hour) }
 	hours := []api.MicroAverage{{At: hour(0), Ms: 4}, {At: hour(1), Ms: 30}, {At: hour(2), Ms: 40}}
@@ -639,18 +641,27 @@ func TestMicroSlowStartLastCollectionOfNextHourFast(t *testing.T) {
 		}
 		cols = append(cols, api.MicroAverage{At: hour(0).Add(time.Duration(m) * time.Minute), Ms: ms})
 	}
-	if got := api.MicroSlowStart(hours, cols, 4, hour(2).Add(30*time.Minute)); got == nil || !got.Equal(hour(1)) {
+	if got := api.MicroSlowStart(hours, cols, 4, hour(2).Add(30*time.Minute)); got == nil || !got.Equal(hour(2)) {
 		t.Errorf("last collection of the next hour fast: %v", got)
 	}
 }
 
 // The epoch's hour has begun with one fast collection while the window,
-// mostly in the hour before, is slow: the partial hour does not decide,
-// and the run starts at hour 1.
+// mostly in the hour before, is slow: the partial hour does not decide;
+// the span is hours 0 and 1, and the run starts at hour 1's first slow
+// collection.
 func TestMicroSlowStartEpochHourFastSoFar(t *testing.T) {
 	hour := func(h int) time.Time { return microT0.Add(time.Duration(h) * time.Hour) }
 	hours := []api.MicroAverage{{At: hour(0), Ms: 4}, {At: hour(1), Ms: 40}, {At: hour(2), Ms: 5}}
-	cols := []api.MicroAverage{{At: hour(2), Ms: 5}}
+	var cols []api.MicroAverage
+	for m := 0; m < 120; m += 5 {
+		ms := 4.0
+		if m >= 60 {
+			ms = 40
+		}
+		cols = append(cols, api.MicroAverage{At: hour(0).Add(time.Duration(m) * time.Minute), Ms: ms})
+	}
+	cols = append(cols, api.MicroAverage{At: hour(2), Ms: 5})
 	if got := api.MicroSlowStart(hours, cols, 4, hour(2).Add(30*time.Second)); got == nil || !got.Equal(hour(1)) {
 		t.Errorf("epoch's hour fast so far: %v", got)
 	}
