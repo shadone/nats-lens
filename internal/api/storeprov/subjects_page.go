@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
@@ -64,12 +66,8 @@ func (p *Provider) MatchSubject(ctx context.Context, req *v1.MatchSubjectRequest
 	if f.Streams, err = p.subjectStreams(ctx, e.epoch, req.GetRange(), req.GetAccount()); err != nil {
 		return nil, err
 	}
-	apis, err := p.jetStreamAPIs(ctx, e.epoch, req.GetRange(), req.GetAccount())
-	if err != nil {
+	if f.JetStreamAccounts, err = p.jetStreamAccounts(ctx, e.epoch, req.GetAccount()); err != nil {
 		return nil, err
-	}
-	for _, a := range apis {
-		f.JetStreamAccounts = append(f.JetStreamAccounts, a.Account)
 	}
 	c, ok, err := p.subsCollection(ctx, e)
 	if err != nil || !ok {
@@ -228,20 +226,52 @@ GROUP BY ALL HAVING count(*) >= 2 AND max(l.t) > min(l.t)`, end.Add(-api.RateSpa
 // adds the others' usage updates), so the servers are not summed: per
 // server the increase between the first and last report of its newest run
 // (a server ID is one process; a counter that fell, as another server's
-// restart takes its share away, starts a new run), and per account the
-// server with the highest rate, its error share with it.
+// restart takes its share away, starts a new run), its reports within
+// apiSettle of its start left out, and per account the server with the
+// highest rate (the first by ID on a tie), its error share with it.
+// jetStreamUse selects the accounts with JetStream use in epoch $1, in
+// account $4 or every one: a stream, or JetStream streams or API requests
+// in their account report.
+const jetStreamUse = `
+  SELECT DISTINCT account FROM account_stats
+  WHERE epoch = $1 AND (coalesce(js_streams, 0) > 0 OR coalesce(js_api_total, 0) > 0) AND ($4 = '' OR account = $4)
+  UNION SELECT DISTINCT account FROM stream_stats WHERE epoch = $1 AND ($4 = '' OR account = $4)`
+
+// jetStreamAccounts reads the accounts with JetStream use in the epoch, in
+// account or every one, by name.
+func (p *Provider) jetStreamAccounts(ctx context.Context, epoch int64, account string) ([]string, error) {
+	rows, err := p.db().QueryContext(ctx, `SELECT account FROM (`+strings.ReplaceAll(jetStreamUse, "$4", "$2")+`) ORDER BY account`, epoch, account)
+	if err != nil {
+		return nil, fmt.Errorf("jetstream accounts: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var a string
+		if err := rows.Scan(&a); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// apiSettle is how long after its start a server's API counters are left
+// out: a new process reports its own requests until the others' usage
+// updates, every 1.5 seconds, bring in the cluster's total, and a report
+// in between would make that jump read as requests.
+const apiSettle = 60 * time.Second
+
 func (p *Provider) jetStreamAPIs(ctx context.Context, epoch int64, r *v1.TimeRange, account string) ([]api.JetStreamAPIFact, error) {
 	_, end := span(r)
 	rows, err := p.db().QueryContext(ctx, `
-WITH used AS (
-  SELECT DISTINCT account FROM account_stats
-  WHERE epoch = $1 AND (coalesce(js_streams, 0) > 0 OR coalesce(js_api_total, 0) > 0) AND ($4 = '' OR account = $4)
-  UNION SELECT DISTINCT account FROM stream_stats WHERE epoch = $1 AND ($4 = '' OR account = $4)
-), pts AS (
+WITH used AS (`+jetStreamUse+`), pts AS (
   SELECT a.account, a.server_id, e.started_at AS t, a.js_api_total AS v, coalesce(a.js_api_errors, 0) AS err,
     CASE WHEN a.js_api_total < lag(a.js_api_total) OVER (PARTITION BY a.account, a.server_id ORDER BY e.started_at) THEN 1 ELSE 0 END AS fell
   FROM account_stats a JOIN epochs e USING (epoch)
+  LEFT JOIN server_stats ss ON ss.epoch = a.epoch AND ss.server_id = a.server_id
   WHERE e.started_at >= $2 AND e.started_at < $3 AND a.js_api_total IS NOT NULL AND a.account IN (SELECT account FROM used)
+    AND (ss.start_time IS NULL OR e.started_at >= ss.start_time + INTERVAL '`+fmt.Sprint(int(apiSettle.Seconds()))+` seconds')
 ), runs AS (
   SELECT *, sum(fell) OVER (PARTITION BY account, server_id ORDER BY t ROWS UNBOUNDED PRECEDING) AS run FROM pts
 ), per AS (
@@ -251,9 +281,8 @@ WITH used AS (
 ), newest AS (
   SELECT * FROM per QUALIFY row_number() OVER (PARTITION BY account, server_id ORDER BY run DESC) = 1
 ), best AS (
-  SELECT account, max(total * 1000.0 / ms) AS rate, arg_max(total, total * 1000.0 / ms)::DOUBLE AS total,
-    arg_max(errors, total * 1000.0 / ms)::DOUBLE AS errors
-  FROM newest GROUP BY account
+  SELECT account, total * 1000.0 / ms AS rate, total::DOUBLE AS total, errors::DOUBLE AS errors FROM newest
+  QUALIFY row_number() OVER (PARTITION BY account ORDER BY total * 1000.0 / ms DESC, server_id) = 1
 )
 SELECT u.account, b.rate, b.total, b.errors FROM used u LEFT JOIN best b USING (account) ORDER BY u.account`, epoch, end.Add(-api.RateSpan), end, account)
 	if err != nil {
