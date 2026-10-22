@@ -10,7 +10,7 @@ The board's sample services (`orders`, `pricing`, `inventory`) fit the example s
 |---|---|
 | T1 Collect micro service replies | built on `feat/micro-collect`; fix rounds 1 to 4 done |
 | T2 API, store and demo | built on `feat/micro-api` (with `feat/micro-collect` merged in, up to T1's fix round 4); fix rounds 1 and 2 done |
-| T3 UI | built on `feat/micro-ui` (from `feat/micro-api` at 6b80bd0, merged again at e05f3b6 and 4699f01); review rounds 1 and 2 fixed, awaiting review |
+| T3 UI | built on `feat/micro-ui` (from `feat/micro-api` at 6b80bd0, merged again at e05f3b6, 4699f01 and 4859d7b); review rounds 1 to 3 fixed, ready for the final review |
 | T4 Feature docs and audit | done on `feat/micro-ui`: `micro-services.md` shipped, the README, adjacent docs and `docs/plans/next.md` items 4 and 5 |
 
 ## Rules for every step
@@ -183,7 +183,7 @@ Each point was decided in the session that built T3: proposed, not yet confirmed
 - **The configuration key** `accounts` is set in mono in the notes, the footnote and the empty state (backticks in `lib/microView.ts`, shown by `components/Ticks.tsx`). The grants are worded once: the card's no-answer reason, the endpoint section and the notice say "the account's user needs to publish on $SRV.INFO and $SRV.STATS and subscribe on _INBOX.>".
 - **`?subject=` on Subjects** is read whenever it changes, not only when the page opens.
 - **After T2's fix round 1.** Several missing instances still read "N instances missing since" the earliest of them; the slow start and level need no change in words.
-- **Review round 2, after T2's fix round 2.** The Instances heading follows `instance_source`: "Instances" (answered), "Instances seen in the subscription list", "Instances that last answered within the hour before this collection". The configuration key `accounts` is a part of its own in a phrase (`components/Words.tsx`), so backticks in server and client text are shown as they are. A `?service=` without an account part is read in the scoped account ("No service orders in Shop in this collection; …"). An endpoint name with several subjects lists them all, comma-separated, each literal one a link to the tester. On Subjects, Back to an address without `?subject=` empties the field, as the typed subject was never in the address (the review asked to keep or change; changed).
+- **Review round 2, after T2's fix round 2.** The Instances heading follows `instance_source`: "Instances" (answered), "Instances seen in the subscription list", "Instances that last answered within the hour before this collection". The configuration key `accounts` is a part of its own in a phrase (`components/Words.tsx`), so backticks in server and client text are shown as they are. A `?service=` without an account part is read in the scoped account ("No service orders in Shop in this collection; …"). An endpoint name with several subjects lists them all, comma-separated, each literal one a link to the tester. On Subjects, Back after typing over a linked subject empties the field, as the typed subject was never in the address (the review asked to keep or change; changed; proposed, not yet confirmed).
 
 ## T4 Feature docs and audit
 
