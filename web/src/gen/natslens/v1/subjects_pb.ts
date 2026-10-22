@@ -249,8 +249,9 @@ export type SubjectRow = Message<"natslens.v1.SubjectRow"> & {
   systemAccount: boolean;
 
   /**
-   * A stream's subjects beyond the 20 in patterns, so 1,000 rows stay
-   * within a response's size limit.
+   * A stream's subjects beyond the 20 in patterns. It bounds the count,
+   * not the bytes: 1,000 rows of 20 subjects stay within a response's
+   * size limit only while subjects average under about 48 bytes.
    *
    * @generated from field: int32 more_patterns = 24;
    */

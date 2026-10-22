@@ -298,8 +298,9 @@ type SubjectRow struct {
 	MirroredBy []string `protobuf:"bytes,22,rep,name=mirrored_by,json=mirroredBy,proto3" json:"mirrored_by,omitempty"`
 	// Whether the row's account is the system account.
 	SystemAccount bool `protobuf:"varint,23,opt,name=system_account,json=systemAccount,proto3" json:"system_account,omitempty"`
-	// A stream's subjects beyond the 20 in patterns, so 1,000 rows stay
-	// within a response's size limit.
+	// A stream's subjects beyond the 20 in patterns. It bounds the count,
+	// not the bytes: 1,000 rows of 20 subjects stay within a response's
+	// size limit only while subjects average under about 48 bytes.
 	MorePatterns  int32 `protobuf:"varint,24,opt,name=more_patterns,json=morePatterns,proto3" json:"more_patterns,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
