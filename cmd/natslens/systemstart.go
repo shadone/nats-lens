@@ -16,11 +16,17 @@ type started struct {
 	stopEvents func(deadline time.Time)
 	stopK8s    func()
 	conn       *eventConn
+	// stopAccounts closes the account connections opened for micro
+	// services without event capture; nil when there are none.
+	stopAccounts func()
 }
 
 // abandon stops what a setup started that is no longer wanted, within
 // undoWithin.
 func (s *started) abandon() {
+	if s.stopAccounts != nil {
+		s.stopAccounts()
+	}
 	if s.stopK8s != nil {
 		s.stopK8s()
 	}
@@ -73,12 +79,13 @@ func (rt *systemRuntime) setup(ctx context.Context, col *collect.Collector) (*st
 	cfg, st, log := rt.cfg, rt.st, rt.log
 	s := &started{stopK8s: func() {}}
 	undo := s.abandon
+	var micro []collect.AccountConn
 	if cfg.Events.Enabled {
-		capture, stop, err := startCapture(ctx, cfg, st, log)
+		capture, stop, conns, err := startCapture(ctx, cfg, st, log)
 		if err != nil {
 			return nil, err
 		}
-		s.capture, s.stopEvents = capture, stop
+		s.capture, s.stopEvents, micro = capture, stop, conns
 		// The Kubernetes watcher writes through the capture, so it stops first.
 		if cfg.Kubernetes.Enabled {
 			stopK8s, err := startKubernetes(ctx, cfg.Kubernetes, st, capture, log)
@@ -88,6 +95,10 @@ func (rt *systemRuntime) setup(ctx context.Context, col *collect.Collector) (*st
 			}
 			s.stopK8s = stopK8s
 		}
+	} else {
+		// Without event capture the account connections are opened here,
+		// only to ask the accounts' micro services.
+		micro, s.stopAccounts = startAccountConns(ctx, cfg, log)
 	}
 	conn := newTrackedCollectorConn(cfg.NATS, s.capture, col, rt.status, log)
 	if err := conn.open(); err != nil {
@@ -95,6 +106,7 @@ func (rt *systemRuntime) setup(ctx context.Context, col *collect.Collector) (*st
 		return nil, err
 	}
 	s.conn = conn
+	col.SetAccountConns(micro)
 	return s, nil
 }
 

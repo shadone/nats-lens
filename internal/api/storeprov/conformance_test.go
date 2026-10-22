@@ -288,6 +288,7 @@ func TestStoreConformance(t *testing.T) {
 	clock := confAt(confEpochs).Add(30 * time.Second)
 	st, set := conformanceStore(t)
 	at := func() time.Time { return clock }
+	microConf, _ := microConfProvider(t, clock.Add(-30*time.Second))
 	main := &storeprov.Provider{St: st, Interval: confStep, Live: true, Checks: set, Clock: at, Retention: 14 * 24 * time.Hour}
 	closed := &storeprov.Provider{St: closedStore(t, clock), Interval: confStep, Live: true, Clock: at}
 	_, c := apitest.ServeHandler(t, &api.Handler{Systems: api.Systems{
@@ -304,6 +305,7 @@ func TestStoreConformance(t *testing.T) {
 			Interval: 30 * time.Second, Live: true, Clock: at, Retention: 14 * 24 * time.Hour}},
 		{Ref: &v1.SystemRef{Id: "capacity", Name: "capacity"}, Provider: capacityProvider(t, clock.Add(-30*time.Second))},
 		{Ref: &v1.SystemRef{Id: "subjects", Name: "subjects"}, Provider: subjectsProvider(t, clock.Add(-30*time.Second))},
+		{Ref: &v1.SystemRef{Id: "micro", Name: "micro"}, Provider: microConf},
 	}})
 	if _, err := c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{System: "main", CheckCode: "stream-007",
 		Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/payments"}, Reason: "Update in review.", MutedBy: "ops",
@@ -315,5 +317,5 @@ func TestStoreConformance(t *testing.T) {
 		MutedBy: "ops@example.com", ExpiresAt: timestamppb.New(clock.Add(180 * 24 * time.Hour))})); err != nil {
 		t.Fatal(err)
 	}
-	apitest.RunConformance(t, apitest.Env{Client: c, Systems: []string{"main", "closed", "replay", "topology", "topology-single", "accounts", "accounts-config", "capacity", "subjects"}, Now: clock})
+	apitest.RunConformance(t, apitest.Env{Client: c, Systems: []string{"main", "closed", "replay", "topology", "topology-single", "accounts", "accounts-config", "capacity", "subjects", "micro"}, Now: clock})
 }

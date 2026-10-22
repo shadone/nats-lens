@@ -51,7 +51,7 @@ accounts {
       subscribe: { allow: ["$SYS.ACCOUNT.>", "$SYS.SERVER.>", "$JS.EVENT.ADVISORY.>", "_INBOX.>"] } } } ] }
   APP { jetstream: enabled, users: [ { user: %s, password: %s },
     { user: app-scoped, password: app-scoped-test, permissions: {
-      publish: { allow: ["$SYS.REQ.USER.INFO"] },
+      publish: { allow: ["$SYS.REQ.USER.INFO", "$SRV.INFO", "$SRV.STATS"] },
       subscribe: { allow: ["$JS.EVENT.>", "$SYS.ACCOUNT.CLIENT.AUTH.ERR", "_INBOX.>"] } } } ] }
 }
 system_account: SYS

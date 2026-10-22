@@ -734,14 +734,21 @@ func Conformance() []State {
 			}
 			return ""
 		}},
-	}, slices.Concat(replayRows(), topologyRows(), accountsRows(), capacityRows(), subjectsRows())...)
+	}, slices.Concat(replayRows(), topologyRows(), accountsRows(), capacityRows(), subjectsRows(), microRows())...)
 }
 
 // RunConformance checks every row of the table against env: each must be
 // found in one of its systems.
 func RunConformance(t *testing.T, env Env) {
 	t.Helper()
-	for _, row := range Conformance() {
+	RunStates(t, env, Conformance())
+}
+
+// RunStates checks every row of a table against env: each must be found
+// in one of its systems.
+func RunStates(t *testing.T, env Env, rows []State) {
+	t.Helper()
+	for _, row := range rows {
 		t.Run(row.Name, func(t *testing.T) {
 			for _, sys := range env.Systems {
 				if where := row.Find(Q{t: t, env: env, System: sys}); where != "" {

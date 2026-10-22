@@ -67,6 +67,9 @@ type Snapshot struct {
 	// AccountDetails are the ACCOUNTZ lookups answered in this epoch,
 	// sorted by account; an account not looked up this epoch has none.
 	AccountDetails []AccountDetails
+	// Micro holds what each account connection's micro services answered,
+	// sorted by label; nil without account connections.
+	Micro []MicroAccount
 }
 
 // NewSnapshot returns an empty snapshot started at start.

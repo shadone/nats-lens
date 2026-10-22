@@ -214,7 +214,11 @@ func globalScenario() *scenario {
 			"api-gateway", "order-service", "checkout-service", "inventory-service", "shipping-service",
 			"search-api", "notification-worker", "label-printer",
 		},
-		subs: globalSubs(),
+		subs:       globalSubs(),
+		micro:      globalMicro(),
+		microAsked: []string{Account, SuppliersAccount},
+		// One collection's $SRV requests to APP timed out.
+		microTimeouts: []time.Time{fixed(11, 29, 56)},
 		// nats-lens's own connection to the system account, and a
 		// monitoring tool that listens to every system event.
 		extraConns: []extraConn{

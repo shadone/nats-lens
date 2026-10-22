@@ -82,6 +82,9 @@ const (
 	// LensServiceMatchSubjectProcedure is the fully-qualified name of the LensService's MatchSubject
 	// RPC.
 	LensServiceMatchSubjectProcedure = "/natslens.v1.LensService/MatchSubject"
+	// LensServiceGetMicroServicesProcedure is the fully-qualified name of the LensService's
+	// GetMicroServices RPC.
+	LensServiceGetMicroServicesProcedure = "/natslens.v1.LensService/GetMicroServices"
 	// LensServiceListServersProcedure is the fully-qualified name of the LensService's ListServers RPC.
 	LensServiceListServersProcedure = "/natslens.v1.LensService/ListServers"
 	// LensServiceGetServerProcedure is the fully-qualified name of the LensService's GetServer RPC.
@@ -175,6 +178,11 @@ type LensServiceClient interface {
 	// newest epoch: the streams that store it with their consumers, mirrors
 	// and sources, and the client subscriptions on it.
 	MatchSubject(context.Context, *connect.Request[v1.MatchSubjectRequest]) (*connect.Response[v1.MatchSubjectResponse], error)
+	// The services built on the NATS micro framework in the range's newest
+	// epoch: from the $SRV.INFO and $SRV.STATS replies of the accounts
+	// nats-lens asks, else from their $SRV subscriptions in the subscription
+	// collection; with rates, average times and the slow rule per endpoint.
+	GetMicroServices(context.Context, *connect.Request[v1.GetMicroServicesRequest]) (*connect.Response[v1.GetMicroServicesResponse], error)
 	// Servers by name with version, uptime and role.
 	ListServers(context.Context, *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error)
 	// One server with endpoint outcomes and process lifetimes.
@@ -359,6 +367,13 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		getMicroServices: connect.NewClient[v1.GetMicroServicesRequest, v1.GetMicroServicesResponse](
+			httpClient,
+			baseURL+LensServiceGetMicroServicesProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetMicroServices")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		listServers: connect.NewClient[v1.ListServersRequest, v1.ListServersResponse](
 			httpClient,
 			baseURL+LensServiceListServersProcedure,
@@ -462,6 +477,7 @@ type lensServiceClient struct {
 	getCapacity        *connect.Client[v1.GetCapacityRequest, v1.GetCapacityResponse]
 	getSubjects        *connect.Client[v1.GetSubjectsRequest, v1.GetSubjectsResponse]
 	matchSubject       *connect.Client[v1.MatchSubjectRequest, v1.MatchSubjectResponse]
+	getMicroServices   *connect.Client[v1.GetMicroServicesRequest, v1.GetMicroServicesResponse]
 	listServers        *connect.Client[v1.ListServersRequest, v1.ListServersResponse]
 	getServer          *connect.Client[v1.GetServerRequest, v1.GetServerResponse]
 	listConnections    *connect.Client[v1.ListConnectionsRequest, v1.ListConnectionsResponse]
@@ -578,6 +594,11 @@ func (c *lensServiceClient) GetSubjects(ctx context.Context, req *connect.Reques
 // MatchSubject calls natslens.v1.LensService.MatchSubject.
 func (c *lensServiceClient) MatchSubject(ctx context.Context, req *connect.Request[v1.MatchSubjectRequest]) (*connect.Response[v1.MatchSubjectResponse], error) {
 	return c.matchSubject.CallUnary(ctx, req)
+}
+
+// GetMicroServices calls natslens.v1.LensService.GetMicroServices.
+func (c *lensServiceClient) GetMicroServices(ctx context.Context, req *connect.Request[v1.GetMicroServicesRequest]) (*connect.Response[v1.GetMicroServicesResponse], error) {
+	return c.getMicroServices.CallUnary(ctx, req)
 }
 
 // ListServers calls natslens.v1.LensService.ListServers.
@@ -697,6 +718,11 @@ type LensServiceHandler interface {
 	// newest epoch: the streams that store it with their consumers, mirrors
 	// and sources, and the client subscriptions on it.
 	MatchSubject(context.Context, *connect.Request[v1.MatchSubjectRequest]) (*connect.Response[v1.MatchSubjectResponse], error)
+	// The services built on the NATS micro framework in the range's newest
+	// epoch: from the $SRV.INFO and $SRV.STATS replies of the accounts
+	// nats-lens asks, else from their $SRV subscriptions in the subscription
+	// collection; with rates, average times and the slow rule per endpoint.
+	GetMicroServices(context.Context, *connect.Request[v1.GetMicroServicesRequest]) (*connect.Response[v1.GetMicroServicesResponse], error)
 	// Servers by name with version, uptime and role.
 	ListServers(context.Context, *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error)
 	// One server with endpoint outcomes and process lifetimes.
@@ -877,6 +903,13 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	lensServiceGetMicroServicesHandler := connect.NewUnaryHandler(
+		LensServiceGetMicroServicesProcedure,
+		svc.GetMicroServices,
+		connect.WithSchema(lensServiceMethods.ByName("GetMicroServices")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	lensServiceListServersHandler := connect.NewUnaryHandler(
 		LensServiceListServersProcedure,
 		svc.ListServers,
@@ -998,6 +1031,8 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceGetSubjectsHandler.ServeHTTP(w, r)
 		case LensServiceMatchSubjectProcedure:
 			lensServiceMatchSubjectHandler.ServeHTTP(w, r)
+		case LensServiceGetMicroServicesProcedure:
+			lensServiceGetMicroServicesHandler.ServeHTTP(w, r)
 		case LensServiceListServersProcedure:
 			lensServiceListServersHandler.ServeHTTP(w, r)
 		case LensServiceGetServerProcedure:
@@ -1111,6 +1146,10 @@ func (UnimplementedLensServiceHandler) GetSubjects(context.Context, *connect.Req
 
 func (UnimplementedLensServiceHandler) MatchSubject(context.Context, *connect.Request[v1.MatchSubjectRequest]) (*connect.Response[v1.MatchSubjectResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.MatchSubject is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetMicroServices(context.Context, *connect.Request[v1.GetMicroServicesRequest]) (*connect.Response[v1.GetMicroServicesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetMicroServices is not implemented"))
 }
 
 func (UnimplementedLensServiceHandler) ListServers(context.Context, *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error) {

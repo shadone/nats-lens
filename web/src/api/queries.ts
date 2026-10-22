@@ -252,6 +252,21 @@ export function useSubjects(spec: RangeSpec, account: string, filter: SubjectFil
 }
 
 /**
+ * The Micro services page: the range's newest collection. The previous
+ * answer stands in while the next loads only for the same system and
+ * account, so a switch never shows another account's services.
+ */
+export function useMicroServices(spec: RangeSpec, account: string) {
+  const sys = useSystem();
+  return useQuery({
+    queryKey: ["microServices", sys, rangeKey(spec), account],
+    queryFn: ({ signal }) => api.getMicroServices(sys, spec, account, signal),
+    refetchInterval: refetch(spec),
+    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === sys && prevQuery.queryKey[3] === account ? prev : undefined),
+  });
+}
+
+/**
  * What a message on subject would reach; "" asks nothing. No answer
  * stands in for another subject's while the next loads.
  */

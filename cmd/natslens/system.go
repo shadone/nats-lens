@@ -131,6 +131,9 @@ func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, d
 			return nil
 		}
 		conn = s.conn
+		if s.stopAccounts != nil {
+			defer s.stopAccounts()
+		}
 		if s.stopEvents != nil {
 			stopAtCancel := context.AfterFunc(ctx, func() {
 				s.stopK8s()
@@ -167,6 +170,9 @@ func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, d
 		}
 		defer nc.Close()
 		col.SetConn(nc)
+		accs, closeAccs := onceAccountConns(cfg, log)
+		defer closeAccs()
+		col.SetAccountConns(accs)
 	}
 	if nc.IsConnected() {
 		rt.status.set(api.CollectionCollecting, nil)

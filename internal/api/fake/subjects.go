@@ -153,10 +153,16 @@ func (s scen) subjectStreams(at time.Time, r *v1.TimeRange) []api.SubjectStreamF
 // servers' own (JetStream's, and the system account's up to the count its
 // accounts row shows).
 func (s scen) subscriptionsAt(c time.Time) ([]api.SubscriptionFact, map[string]api.ServerConnections) {
+	return s.subscriptionsOf(c, s.connections(c))
+}
+
+// subscriptionsOf is subscriptionsAt over the given connections of the
+// collection at c.
+func (s scen) subscriptionsOf(c time.Time, list []*v1.Connection) ([]api.SubscriptionFact, map[string]api.ServerConnections) {
 	conns := map[string]api.ServerConnections{}
 	byName := map[string][]*v1.Connection{}
 	var names []string
-	for _, x := range s.connections(c) {
+	for _, x := range list {
 		cs := conns[x.GetServer()]
 		if cs.Names == nil {
 			cs = api.ServerConnections{Complete: true, Names: map[uint64]string{}}
@@ -193,6 +199,7 @@ func (s scen) subscriptionsAt(c time.Time) ([]api.SubscriptionFact, map[string]a
 			}
 		}
 	}
+	out = append(out, s.microSubscriptions(c)...)
 	for _, sp := range s.sc.streams {
 		watchers := sp.watchers
 		if len(watchers) == 0 {

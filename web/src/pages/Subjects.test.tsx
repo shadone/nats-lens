@@ -1,12 +1,31 @@
 import { Code, ConnectError } from "@connectrpc/connect";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useNavigate } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as requests from "../api/requests";
 import type { SubjectMatches } from "../api/subjects";
 import { coreMatch, global, matches, noCollection, published, row, streamMatch, sub } from "../test/fixtures/subjects";
 import { renderApp } from "../test/render";
 import { Subjects } from "./Subjects";
+
+function Back() {
+  const nav = useNavigate();
+  return (
+    <button type="button" onClick={() => nav(-1)}>
+      back
+    </button>
+  );
+}
+
+function Go({ to }: { to: string }) {
+  const nav = useNavigate();
+  return (
+    <button type="button" onClick={() => nav(to)}>
+      go
+    </button>
+  );
+}
 
 vi.mock("../api/requests", () => ({
   getSubjects: vi.fn(),
@@ -379,6 +398,58 @@ describe("Subjects tester", () => {
     await userEvent.type(field(), "x");
     const card = within(await screen.findByRole("region", { name: "Where this subject goes" }));
     expect(await card.findByText("order-service", { selector: ".sj-name" })).toBeInTheDocument();
+  });
+
+  it("fills the field from a link's ?subject= and asks for it at once, then drops the parameter once the field is edited", async () => {
+    getSubjects.mockResolvedValue(global());
+    matchSubject.mockResolvedValue(matches({ accounts: [published({ core: [coreMatch()] })] }));
+    renderApp(<Subjects />, "/subjects?system=example-global&account=APP&subject=orders.create");
+    expect(field()).toHaveValue("orders.create");
+    const card = within(await screen.findByRole("region", { name: "Where this subject goes" }));
+    expect(card.getByText("orders.create", { selector: ".sj-subject" })).toBeInTheDocument();
+    await waitFor(() => expect(matchSubject).toHaveBeenCalled());
+    expect(matchSubject.mock.calls[0].slice(2, 4)).toEqual(["APP", "orders.create"]);
+    expect(location()).toContain("subject=orders.create");
+    await userEvent.type(field(), "x");
+    expect(field()).toHaveValue("orders.createx");
+    expect(location()).not.toContain("subject=");
+    expect(location()).toContain("account=APP");
+  });
+
+  it("takes a changed ?subject= into the field", async () => {
+    getSubjects.mockResolvedValue(global());
+    matchSubject.mockResolvedValue(matches({ accounts: [published()] }));
+    renderApp(
+      <>
+        <Go to="/subjects?subject=orders.cancel" />
+        <Subjects />
+      </>,
+      "/subjects?subject=orders.create",
+    );
+    expect(field()).toHaveValue("orders.create");
+    await userEvent.click(screen.getByRole("button", { name: "go" }));
+    expect(field()).toHaveValue("orders.cancel");
+    await waitFor(() => expect(matchSubject.mock.calls.map((c) => c[3])).toContain("orders.cancel"));
+  });
+
+  it("keeps the field in step with the address on Back after typing", async () => {
+    getSubjects.mockResolvedValue(global());
+    matchSubject.mockResolvedValue(matches({ accounts: [published()] }));
+    renderApp(
+      <>
+        <Go to="/subjects?subject=b.b" />
+        <Back />
+        <Subjects />
+      </>,
+      "/subjects?subject=a.a",
+    );
+    await userEvent.type(field(), "x");
+    await userEvent.click(screen.getByRole("button", { name: "go" }));
+    expect(field()).toHaveValue("b.b");
+    await userEvent.click(screen.getByRole("button", { name: "back" }));
+    // The typed subject was never in the address, so Back empties the field.
+    expect(location()).not.toContain("subject=");
+    expect(field()).toHaveValue("");
   });
 
   it("asks nothing for an empty or blank field", async () => {

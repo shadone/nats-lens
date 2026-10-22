@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/nats-io/nats-server/v2/server"
+	"github.com/nats-io/nats.go/micro"
 
 	"github.com/shadone/nats-lens/internal/collect"
 )
@@ -93,9 +94,49 @@ func fixtureSnapshot(t *testing.T, start time.Time) *collect.Snapshot {
 				Subscriptions: -1, Data: -1, Payload: -1, JSDisk: 500 << 30, JSMemory: 1 << 30, JSStreams: -1, JSConsumers: -1}},
 		{Account: "SYS", LookedUpAt: start.Add(100 * time.Millisecond), ServerID: "NFAKESERVER1ID", Name: "SYS", IsSystem: true},
 	}
+	snap.Micro = fixtureMicro(start)
 	snap.Expected = []string{"nats-0", "nats-1", "nats-2"}
 	snap.FinishedAt = start.Add(250 * time.Millisecond)
 	return snap
+}
+
+// fixtureMicro is what two account connections asked. APP answered INFO
+// and STATS: the service orders has two instances, each with the
+// endpoints get and create; the second instance's create has a last
+// error and custom stats. OPS may not publish to $SRV.STATS.
+func fixtureMicro(start time.Time) []collect.MicroAccount {
+	id := micro.ServiceIdentity{Name: "orders", Version: "1.4.2"}
+	ids := []string{"ORD1", "ORD2"}
+	app := collect.MicroAccount{Label: "APP", Account: "AFAKEAPPACCOUNT", Asked: []collect.MicroAsked{
+		{Request: collect.MicroInfo, State: collect.MicroOK, Replies: 2},
+		{Request: collect.MicroStats, State: collect.MicroOK, Replies: 2},
+	}}
+	for i, instance := range ids {
+		id.ID = instance
+		app.Infos = append(app.Infos, micro.Info{ServiceIdentity: id, Type: micro.InfoResponseType,
+			Description: "Order intake", Endpoints: []micro.EndpointInfo{
+				{Name: "create", Subject: "orders.create", QueueGroup: "q"},
+				{Name: "get", Subject: "orders.get.*", QueueGroup: "q", Metadata: map[string]string{"cache": "on"}},
+			}})
+		create := &micro.EndpointStats{Name: "create", Subject: "orders.create", QueueGroup: "q",
+			NumRequests: 10 * (i + 1), ProcessingTime: time.Duration(10*(i+1)) * time.Millisecond,
+			AverageProcessingTime: time.Millisecond}
+		if i == 1 {
+			create.NumErrors, create.LastError = 1, "409 duplicate order id"
+			create.Data = json.RawMessage(`{"retries":3}`)
+		}
+		app.Stats = append(app.Stats, micro.Stats{ServiceIdentity: id, Type: micro.StatsResponseType,
+			Started: start.Add(-time.Duration(i+1) * time.Hour), Endpoints: []*micro.EndpointStats{create,
+				{Name: "get", Subject: "orders.get.*", QueueGroup: "q", NumRequests: 100, ProcessingTime: 50 * time.Millisecond,
+					AverageProcessingTime: 500 * time.Microsecond}}})
+	}
+	ops := collect.MicroAccount{Label: "OPS", Account: "OPS", Asked: []collect.MicroAsked{
+		{Request: collect.MicroInfo, State: collect.MicroError,
+			Error: `nats: permissions violation: Permissions Violation for Publish to "$SRV.INFO"`},
+		{Request: collect.MicroStats, State: collect.MicroError,
+			Error: `nats: permissions violation: Permissions Violation for Publish to "$SRV.STATS"`},
+	}}
+	return []collect.MicroAccount{app, ops}
 }
 
 // fixtureSubsz is a SUBSZ reply. nats-0 lists 5 of its 7 subscriptions:
