@@ -176,6 +176,22 @@ func microRows() []State {
 			}
 			return ""
 		}},
+		{"a Micro services held request reads its refusal and retry time", func(q Q) string {
+			for _, a := range q.micro(q.day(), "").GetAccounts() {
+				st := a.GetStats()
+				if st.GetState() != v1.MicroRequestState_MICRO_REQUEST_STATE_HELD {
+					continue
+				}
+				if st.GetError() == "" || st.RefusedAt == nil || st.RetryAfter == nil || st.GetRefusedAt().AsTime().After(st.GetAt().AsTime()) ||
+					!st.GetRetryAfter().AsTime().After(st.GetRefusedAt().AsTime()) {
+					q.t.Errorf("%s: held %v", q.System, st)
+					return ""
+				}
+				return fmt.Sprintf("%s refused %s, retry %s", a.GetAccount(), st.GetRefusedAt().AsTime().Format("15:04"),
+					st.GetRetryAfter().AsTime().Format("15:04"))
+			}
+			return ""
+		}},
 		{"a Micro services account asked without an answer", func(q Q) string {
 			for _, a := range q.micro(q.day(), "").GetAccounts() {
 				if a.GetAsked() && a.GetStats().GetState() != v1.MicroRequestState_MICRO_REQUEST_STATE_OK && a.GetStats().GetAt() != nil {
