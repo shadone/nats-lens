@@ -173,6 +173,10 @@ Final review's fixes, decided in the session that fixed them, proposed, not yet 
 - **Smaller fixes.** An endpoint row without its instance's stats row is left out rather than added to another service; a stats row stored twice counts its instance once; a name or ID token is a wildcard only when it is `*` or `>` as a whole, in Go and SQL alike; "never moves back" holds while the 7-day level stays the same.
 - **`MicroMissingInstance.server` (field 6).** The server of a still-subscribed instance's connection.
 
+Held requests (after T1's backoff, `fb611d1`), decided in the session that built it, proposed, not yet confirmed:
+
+- **`MICRO_REQUEST_STATE_HELD` (5)** with `MicroRequest.refused_at` (5) and `retry_after` (6): a refused request not sent again yet, its refusal in `error`. It is not ok (no answer, no missing instances) and ranks after an error and before a timeout when two labels share an account. The demo's `SUPPLIERS` is refused every 10 minutes and held in between; the store fixture alternates refused and held epochs.
+
 ## T3 UI
 
 - `/micro-services` under Messaging (remove `planned` in `nav.ts`), with the account scope.
