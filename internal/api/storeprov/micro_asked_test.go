@@ -3,10 +3,13 @@ package storeprov_test
 import (
 	"math"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/shadone/nats-lens/internal/api"
@@ -249,4 +252,53 @@ func TestMicroLabelScopedToKey(t *testing.T) {
 	if a.GetNote() != s.GetNote() || a.GetAnswered() != s.GetAnswered() {
 		t.Errorf("scoped to the key differs from unscoped")
 	}
+}
+
+// The page does not depend on the database session's time zone: natslens
+// may run on a laptop that is not in UTC. Every page end of the rule test
+// gives the same answer in UTC, Auckland, Los Angeles and Berlin.
+func TestMicroServicesZoneIndependent(t *testing.T) {
+	last := time.Date(2026, 10, 17, 14, 0, 0, 0, time.UTC)
+	p, f := microConfProvider(t, last)
+	_, c := apitest.Serve(t, p)
+	pages := func() []*v1.GetMicroServicesResponse {
+		var out []*v1.GetMicroServicesResponse
+		for _, back := range []time.Duration{0, 70 * time.Minute, 110 * time.Minute, 20 * time.Hour} {
+			end := last.Add(30*time.Second - back)
+			res, err := c.GetMicroServices(ctx, connect.NewRequest(&v1.GetMicroServicesRequest{
+				Range: &v1.TimeRange{Start: timestamppb.New(end.Add(-time.Hour)), End: timestamppb.New(end)}}))
+			if err != nil {
+				t.Fatal(err)
+			}
+			out = append(out, res.Msg)
+		}
+		return out
+	}
+	setZone := func(zone string) {
+		t.Helper()
+		if _, err := f.st.DB().Exec(`SET GLOBAL TimeZone = '` + zone + `'`); err != nil {
+			t.Fatal(err)
+		}
+	}
+	setZone("UTC")
+	want := pages()
+	if want[0].GetServices()[0].GetEndpoints()[0].GetSlowSince() == nil && want[0].GetServices()[1].GetEndpoints()[0].GetSlowSince() == nil {
+		t.Fatal("no slow run to compare")
+	}
+	for _, zone := range []string{"Pacific/Auckland", "America/Los_Angeles", "Europe/Berlin"} {
+		setZone(zone)
+		for i, got := range pages() {
+			if !proto.Equal(got, want[i]) {
+				g, w := protojson.Format(got), protojson.Format(want[i])
+				gl, wl := strings.Split(g, "\n"), strings.Split(w, "\n")
+				for j := range min(len(gl), len(wl)) {
+					if gl[j] != wl[j] {
+						t.Errorf("%s, page %d, line %d: %s; in UTC: %s", zone, i, j, gl[j], wl[j])
+						break
+					}
+				}
+			}
+		}
+	}
+	setZone("UTC")
 }

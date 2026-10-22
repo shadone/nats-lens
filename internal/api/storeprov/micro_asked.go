@@ -16,12 +16,24 @@ import (
 // those epochs' rows.
 func (p *Provider) epochBounds(ctx context.Context, from, to time.Time) (lo, hi int64, ok bool, err error) {
 	var l, h sql.NullInt64
-	if err := p.db().QueryRowContext(ctx, `SELECT min(epoch), max(epoch) FROM epochs WHERE started_at >= ? AND started_at < ?`, from, to).
+	if err := p.db().QueryRowContext(ctx, `SELECT min(epoch), max(epoch) FROM epochs WHERE started_at >= `+tsParam(1)+` AND started_at < `+tsParam(2),
+		us(from), us(to)).
 		Scan(&l, &h); err != nil {
 		return 0, 0, false, fmt.Errorf("epoch bounds: %w", err)
 	}
 	return l.Int64, h.Int64, l.Valid, nil
 }
+
+// us is a time as microseconds since 1970 in UTC, the form every time
+// takes as a parameter of the micro queries (see tsParam).
+func us(t time.Time) int64 { return t.UnixMicro() }
+
+// tsParam is the TIMESTAMP of parameter n given by us. DuckDB may type a
+// time.Time parameter as TIMESTAMP WITH TIME ZONE, depending on the query,
+// and compare it with the stored UTC timestamps in the session's time
+// zone: a page on a laptop in Los Angeles then read hours 7 hours off.
+// Microseconds carry no zone.
+func tsParam(n int) string { return fmt.Sprintf("make_timestamp($%d::BIGINT)", n) }
 
 // microStates maps micro_requests.state to the API's.
 var microStates = map[string]v1.MicroRequestState{
@@ -87,7 +99,7 @@ const microPoints = `
   JOIN (SELECT account, service, instance_id FROM micro_stats WHERE epoch = $1) cur
     ON cur.account = x.account AND cur.service = x.service AND cur.instance_id = x.instance_id
   JOIN eps ON eps.account = x.account AND eps.service = x.service AND eps.endpoint = x.endpoint
-  WHERE x.epoch BETWEEN $2 AND $3 AND ep.started_at >= $4 AND ep.started_at < $5`
+  WHERE x.epoch BETWEEN $2 AND $3 AND ep.started_at >= make_timestamp($4::BIGINT) AND ep.started_at < make_timestamp($5::BIGINT)`
 
 // microAnswered reads the services that answered the epoch's $SRV.STATS:
 // each instance with its start, and the version and description of its
@@ -240,7 +252,7 @@ WITH `+epsOf+`, pts AS (`+microPoints+`
   FROM newest GROUP BY ALL HAVING count(*) >= 2 AND max(t) > min(t)
 )
 SELECT account, service, endpoint, sum(dr * 1000.0 / ms), sum(dr)::DOUBLE, sum(de)::DOUBLE, sum(dn)::DOUBLE FROM per GROUP BY ALL`,
-		e.epoch, lo, hi, from, end)
+		e.epoch, lo, hi, us(from), us(end))
 	if err != nil {
 		return fmt.Errorf("micro window: %w", err)
 	}
@@ -269,8 +281,8 @@ SELECT account, service, endpoint, sum(dr * 1000.0 / ms), sum(dr)::DOUBLE, sum(d
 func (p *Provider) microLevels(ctx context.Context, from time.Time, eps microEndpointSet) error {
 	rows, err := p.db().QueryContext(ctx, `
 SELECT account, service, endpoint, median(processing_time_ns / requests / 1e6)
-FROM micro_endpoint_hours WHERE hour >= $1 AND hour + INTERVAL 1 HOUR <= $2 AND requests > 0
-GROUP BY ALL HAVING count(*) >= `+fmt.Sprint(api.MicroLevelMinHours), from.Add(-api.MicroLevelSpan), from)
+FROM micro_endpoint_hours WHERE hour >= `+tsParam(1)+` AND hour + INTERVAL 1 HOUR <= `+tsParam(2)+` AND requests > 0
+GROUP BY ALL HAVING count(*) >= `+fmt.Sprint(api.MicroLevelMinHours), us(from.Add(-api.MicroLevelSpan)), us(from))
 	if err != nil {
 		return fmt.Errorf("micro levels: %w", err)
 	}
@@ -332,12 +344,12 @@ func (p *Provider) microSlowStarts(ctx context.Context, e epochInfo, eps microEn
 	if len(slow) == 0 {
 		return nil
 	}
-	values, args := valuesOf(slow, []any{e.startedAt.Add(-api.MicroLevelSpan), e.startedAt}, func(*microEndpoint) any { return "" }, "VARCHAR")
+	values, args := valuesOf(slow, []any{us(e.startedAt.Add(-api.MicroLevelSpan)), us(e.startedAt)}, func(*microEndpoint) any { return "" }, "VARCHAR")
 	rows, err := p.db().QueryContext(ctx, `
 WITH v(account, service, endpoint, x) AS (VALUES `+values+`)
 SELECT h.account, h.service, h.endpoint, h.hour, h.processing_time_ns / h.requests / 1e6
 FROM micro_endpoint_hours h JOIN v USING (account, service, endpoint)
-WHERE h.hour >= $1 AND h.hour <= $2 AND h.requests > 0 ORDER BY 1, 2, 3, 4`, args...)
+WHERE h.hour >= `+tsParam(1)+` AND h.hour <= `+tsParam(2)+` AND h.requests > 0 ORDER BY 1, 2, 3, 4`, args...)
 	if err != nil {
 		return fmt.Errorf("micro slow hours: %w", err)
 	}
@@ -378,9 +390,7 @@ WHERE h.hour >= $1 AND h.hour <= $2 AND h.requests > 0 ORDER BY 1, 2, 3, 4`, arg
 	if err != nil || !ok {
 		return err
 	}
-	// The hour goes as microseconds: a time bound as a parameter and cast
-	// to TIMESTAMP would move by the session's time zone.
-	values, args = valuesOf(withFast, []any{elo, ehi, e.startedAt}, func(x *microEndpoint) any {
+	values, args = valuesOf(withFast, []any{elo, ehi, us(e.startedAt)}, func(x *microEndpoint) any {
 		return fast[microKey(x.account, x.service, x.fact.Name)].UnixMicro()
 	}, "BIGINT")
 	rows, err = p.db().QueryContext(ctx, `
@@ -393,7 +403,7 @@ WITH v0(account, service, endpoint, us) AS (VALUES `+values+`
   JOIN v ON v.account = x.account AND v.service = x.service AND v.endpoint = x.endpoint
   JOIN micro_stats s ON s.epoch = x.epoch AND s.account = x.account AND s.service = x.service AND s.instance_id = x.instance_id
   JOIN epochs ep ON ep.epoch = x.epoch
-  WHERE x.epoch BETWEEN $1 AND $2 AND ep.started_at >= v.f - INTERVAL 1 HOUR AND ep.started_at <= $3
+  WHERE x.epoch BETWEEN $1 AND $2 AND ep.started_at >= v.f - INTERVAL 1 HOUR AND ep.started_at <= `+tsParam(3)+`
     AND ep.started_at < v.f + INTERVAL `+fmt.Sprint(int(api.MicroSlowStartSpan.Hours()))+` HOUR
 ), d AS (
   SELECT account, service, endpoint, t, f, r - lag(r) OVER w AS dr, er - lag(er) OVER w AS de, ns - lag(ns) OVER w AS dn
