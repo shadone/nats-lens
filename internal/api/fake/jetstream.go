@@ -383,14 +383,15 @@ func (s scen) consumerViews(sp streamSpec, c *v1.ConsumerSummary, at time.Time) 
 	var out []*v1.ConsumerServerView
 	dis := &v1.Disagreement{Field: "created"}
 	leader := s.consumerLeaderAt(sp, c.GetEntity().GetConsumer(), at)
+	_, last := sp.seqs()
 	for i, name := range peers {
 		if name == sp.missing || s.offline(name, at) {
 			// A server that does not report the stream reports no view.
 			continue
 		}
 		out = append(out, &v1.ConsumerServerView{
-			Server: name, IsLeader: name == leader, Current: !sp.leaderless, DeliveredStreamSeq: ptr(sp.msgs),
-			AckFloorStreamSeq: ptr(sp.msgs - c.GetNumAckPending()), Lag: followerLag(name == leader), Created: ts(created[i]), ConfigHash: "9e02b7",
+			Server: name, IsLeader: name == leader, Current: !sp.leaderless, DeliveredStreamSeq: ptr(last),
+			AckFloorStreamSeq: ptr(last - c.GetNumAckPending()), Lag: followerLag(name == leader), Created: ts(created[i]), ConfigHash: "9e02b7",
 		})
 		dis.Values = append(dis.Values, &v1.ServerValue{Server: name, Value: created[i].Format(time.RFC3339)})
 	}
