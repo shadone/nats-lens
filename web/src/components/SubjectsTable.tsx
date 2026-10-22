@@ -47,6 +47,12 @@ function Subscribers({ r }: { r: SubjectRow }) {
   return (
     <>
       {s.consumers ? <RLink to={consumersPath(r)}>{s.lead}</RLink> : <span className={s.lead === "none" ? "sj-quiet" : undefined}>{s.lead}</span>}
+      {s.queue && (
+        <>
+          {" "}
+          <span className="sj-nobr">{s.queue}</span>
+        </>
+      )}
       <Names names={s.names} more={s.more} />
     </>
   );
@@ -70,20 +76,19 @@ function NoteCell({ r }: { r: SubjectRow }) {
   );
 }
 
-/** A subject with a line break allowed after each dot, so a narrow column breaks it between tokens. */
-function Breakable({ text }: { text: string }) {
+/**
+ * A subject as one span per token, each with its dot. They read as one
+ * word; at phone width the stylesheet makes them inline blocks, so a
+ * narrow column can break between tokens and nowhere else.
+ */
+function Tokens({ text }: { text: string }) {
   const parts = text.split(".");
   return (
     <>
       {parts.map((t, i) => (
-        <Fragment key={i}>
-          {t}
-          {i < parts.length - 1 && (
-            <>
-              .<wbr />
-            </>
-          )}
-        </Fragment>
+        <span key={i} className="sj-tok">
+          {i < parts.length - 1 ? `${t}.` : t}
+        </span>
       ))}
     </>
   );
@@ -101,7 +106,7 @@ function Patterns({ r }: { r: SubjectRow }) {
     <>
       {r.patterns.map((p) => (
         <span key={p} className="sj-pattern">
-          <Breakable text={p} />
+          <Tokens text={p} />
         </span>
       ))}
     </>
@@ -109,7 +114,18 @@ function Patterns({ r }: { r: SubjectRow }) {
 }
 
 /** scoped: the page shows one account, so an account is not offered as a link to itself. */
-export function SubjectsTable({ d, scoped, empty }: { d: Subjects; scoped: boolean; empty: string }) {
+/** No stored rate: the row is not a stream's, so it never has one. */
+function NoRate() {
+  return (
+    <span>
+      <span aria-hidden="true">–</span>
+      <span className="sr-only">{" no stored rate"}</span>
+    </span>
+  );
+}
+
+/** filterParam: the page's ?filter=, kept on an account's link. */
+export function SubjectsTable({ d, scoped, empty, filterParam = "" }: { d: Subjects; scoped: boolean; empty: string; filterParam?: string }) {
   const label = accountLabeller(d.rows);
   const cut = cutText(d);
   return (
@@ -142,14 +158,14 @@ export function SubjectsTable({ d, scoped, empty }: { d: Subjects; scoped: boole
                       <Patterns r={r} />
                     </th>
                     <td className="sj-account">
-                      {scoped ? acc : <RLink to={`/subjects?account=${enc(r.account)}`}>{acc}</RLink>}
+                      {scoped ? acc : <RLink to={`/subjects?account=${enc(r.account)}${filterParam ? `&filter=${enc(filterParam)}` : ""}`}>{acc}</RLink>}
                       {r.systemAccount && <span className="sj-system">system</span>}
                     </td>
                     <td className="sj-stream">{isStored(r) && <RLink to={streamPath(r.account, r.stream)}>{r.stream}</RLink>}</td>
                     <td className="sj-subs">
                       <Subscribers r={r} />
                     </td>
-                    <td className="num sj-rate">{rate === undefined ? <Dash /> : rate}</td>
+                    <td className="num sj-rate">{!isStored(r) ? <NoRate /> : rate === undefined ? <Dash /> : rate}</td>
                     <NoteCell r={r} />
                   </tr>
                 );

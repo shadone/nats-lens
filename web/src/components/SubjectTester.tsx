@@ -4,8 +4,8 @@
 // shown; an answer for a subject typed before never stands in.
 import { Code, ConnectError } from "@connectrpc/connect";
 import { Fragment } from "react";
-import type { StreamMatch, SubjectMatches } from "../api/subjects";
-import { consumersText, coreLead, invalidReason, JETSTREAM_API_ANSWERS, NOTHING_NOT_COLLECTED, NOTHING_REACHED, reachesNothing } from "../lib/subjectsView";
+import type { CoreMatch, StreamMatch, SubjectMatches } from "../api/subjects";
+import { coreParts, invalidReason, JETSTREAM_API_ANSWERS, NOTHING_NOT_COLLECTED, NOTHING_REACHED, reachesNothing, readers } from "../lib/subjectsView";
 import { consumerPath, streamPath } from "../lib/view";
 import { AccountName } from "./AccountName";
 import { errorText, RLink } from "./common";
@@ -38,33 +38,33 @@ export function SubjectField({ value, onChange, why }: { value: string; onChange
           aria-describedby={why ? WHY_ID : undefined}
         />
       </label>
-      {why && (
-        <p id={WHY_ID} className="sj-why" role="alert">
-          {why}
-        </p>
-      )}
+      {/* Always present, so a screen reader hears a reason that appears. */}
+      <p id={WHY_ID} className="sj-why" aria-live="polite">
+        {why}
+      </p>
     </div>
   );
 }
 
-function ConsumerNames({ s }: { s: StreamMatch }) {
+function ConsumerNames({ s, ephemeral }: { s: StreamMatch; ephemeral: string }) {
   return (
     <>
       {s.consumers.map((c, i) => (
         <Fragment key={c}>
-          {i > 0 && (i === s.consumers.length - 1 && s.ephemeral === 0 ? " and " : ", ")}
+          {i > 0 && (i === s.consumers.length - 1 && !ephemeral ? " and " : ", ")}
           <RLink to={consumerPath(s.account, s.stream, c)} className="x mono">
             {c}
           </RLink>
         </Fragment>
       ))}
-      {s.ephemeral > 0 && `${s.consumers.length ? " and " : ""}${s.ephemeral} ephemeral`}
+      {ephemeral && `${s.consumers.length ? " and " : ""}${ephemeral}`}
     </>
   );
 }
 
 function StreamReach({ s }: { s: StreamMatch }) {
-  const consumers = consumersText(s);
+  const r = readers(s);
+  const read = s.consumers.length > 0 || r.ephemeral !== "";
   return (
     <>
       <span className="sj-chip sj-chip-stream">
@@ -76,13 +76,13 @@ function StreamReach({ s }: { s: StreamMatch }) {
           via <span className="mono">{s.pattern}</span>
         </span>
       </span>
-      <span className={`sj-chip${consumers ? "" : " sj-chip-warn"}`}>
-        {consumers ? (
+      <span className={`sj-chip${r.warn ? " sj-chip-warn" : ""}`}>
+        <span className="sj-k">{r.label}</span>
+        {read && (
           <>
-            <span className="sj-k">then consumers</span> <ConsumerNames s={s} />
+            {" "}
+            <ConsumerNames s={s} ephemeral={r.ephemeral} />
           </>
-        ) : (
-          <span className="sj-k">no consumer reads it</span>
         )}
       </span>
       {s.mirrors.map((m) => (
@@ -102,6 +102,18 @@ function StreamReach({ s }: { s: StreamMatch }) {
         </span>
       ))}
     </>
+  );
+}
+
+/** A core match's lead with its queue group kept on one line. */
+function CoreLead({ c }: { c: CoreMatch }) {
+  const p = coreParts(c);
+  return p.queue ? (
+    <>
+      {p.lead} <span className="sj-nobr">{p.queue}</span>
+    </>
+  ) : (
+    <>{p.lead}</>
   );
 }
 
@@ -142,7 +154,7 @@ function Reach({ m, scoped }: { m: SubjectMatches; scoped: boolean }) {
                   {g.core.map((c, i) => (
                     <Fragment key={`${c.subject}|${c.queue}`}>
                       {i > 0 && "; "}
-                      {coreLead(c)}
+                      <CoreLead c={c} />
                       <Names names={c.names} more={c.moreNames} /> via <span className="mono">{c.subject}</span>
                     </Fragment>
                   ))}
@@ -170,17 +182,18 @@ export function ReachCard({ subject, answer, error, scoped }: { subject: string;
       <div className="sj-k sj-reach-h">
         A message on <span className="mono sj-subject">{subject}</span> would reach
       </div>
-      {error ? (
-        <p className="sj-reach-none" role="alert">
-          Could not look it up: {errorText(error)}
-        </p>
-      ) : answer === undefined ? (
-        <p className="sj-reach-none" role="status">
-          Looking it up…
-        </p>
-      ) : (
-        <Reach m={answer} scoped={scoped} />
-      )}
+      {/* One live region for the card's life, so each answer is announced. */}
+      <div className="sj-reach-body" aria-live="polite">
+        {error ? (
+          <p className="sj-reach-none">Could not look it up: {errorText(error)}</p>
+        ) : answer === undefined ? (
+          <p className="sj-reach-none">Looking it up…</p>
+        ) : !answer.collected ? (
+          <p className="sj-reach-none">No collection in this range.</p>
+        ) : (
+          <Reach m={answer} scoped={scoped} />
+        )}
+      </div>
     </section>
   );
 }
