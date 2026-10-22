@@ -136,6 +136,14 @@ type MicroGoneFact struct {
 	// InstancesThen is how many instances of the service answered (or were
 	// seen) in that last collection.
 	InstancesThen int32
+	// Absent counts the collections of the same kind after LastSeen up to
+	// the epoch that went without it: for an asked account those whose
+	// $SRV.STATS request was ok, else the subscription collections.
+	Absent int32
+	// FromSubscriptions is set when it was seen in subscription
+	// collections rather than in $SRV.STATS answers; such a fact is left
+	// out for an account that is asked.
+	FromSubscriptions bool
 }
 
 // MicroReport is one instance's $SRV.STATS counters of one endpoint in one
@@ -318,12 +326,6 @@ func averages(deltas []MicroDelta, key func(time.Time) time.Time) []MicroAverage
 	return out
 }
 
-// MicroHourlyAverages are the average processing times of each UTC hour
-// with requests, in hour order: the deltas of the hour summed.
-func MicroHourlyAverages(deltas []MicroDelta) []MicroAverage {
-	return averages(deltas, func(t time.Time) time.Time { return t.UTC().Truncate(time.Hour) })
-}
-
 // MicroCollectionAverages are the average processing times of each
 // collection with requests, in time order: the deltas that end in it
 // summed over the instances.
@@ -331,8 +333,12 @@ func MicroCollectionAverages(deltas []MicroDelta) []MicroAverage {
 	return averages(deltas, func(t time.Time) time.Time { return t })
 }
 
-// MicroLevel is the median of the hourly averages of the MicroLevelSpan
-// before the rate window; nil with fewer than MicroLevelMinHours of them.
+// MicroLevel is the median of an endpoint's hourly average times over
+// the MicroLevelSpan before the rate window (the hours that start at or
+// after its start and end at or before the window), each the hour's
+// processing time over its requests, summed over the instances as the
+// store's hourly rollup sums them; hours without a request have none. nil
+// with fewer than MicroLevelMinHours of them.
 func MicroLevel(hourly []float64) *float64 {
 	if len(hourly) < MicroLevelMinHours {
 		return nil
@@ -346,27 +352,50 @@ func MicroIsSlow(avgMs, levelMs *float64) bool {
 	return avgMs != nil && levelMs != nil && *avgMs >= MicroSlowFactor**levelMs && *avgMs >= *levelMs+MicroSlowMarginMs
 }
 
-// MicroSlowSince is when the current slow run began: the collections with
-// requests, in time order, up to the epoch; the run of collections each
-// slow on its own that ends at the newest slow one; its first. nil when
-// none is slow. A slow average over the rate window is a weighted mean of
-// its collections', so one of them is slow too.
-func MicroSlowSince(avgs []MicroAverage, levelMs float64) *time.Time {
-	end := -1
-	for i := len(avgs) - 1; i >= 0; i-- {
-		if MicroIsSlow(&avgs[i].Ms, &levelMs) {
-			end = i
-			break
+// MicroLastFastHour is the newest hour, of an endpoint's hourly
+// averages up to the epoch's hour in time order, that is not slow against
+// the level; nil when every one is slow.
+func MicroLastFastHour(hours []MicroAverage, levelMs float64) *time.Time {
+	for i := len(hours) - 1; i >= 0; i-- {
+		if !MicroIsSlow(&hours[i].Ms, &levelMs) {
+			at := hours[i].At
+			return &at
 		}
 	}
-	if end < 0 {
+	return nil
+}
+
+// MicroSlowStartSpan is how much of the collections from the last fast
+// hour on MicroSlowStart reads: that hour and the next.
+const MicroSlowStartSpan = 2 * time.Hour
+
+// MicroSlowStart is when a slow endpoint's current slow run began. The
+// hours decide first: the run began after the newest hour that is not
+// slow (MicroLastFastHour). Inside that hour and the next, the
+// collections' own averages (MicroCollectionAverages over the instances'
+// increases, up to the epoch) decide: the run starts at the first
+// collection after the last one that is not slow. cols are those
+// collections in time order. A brief fast spell inside a later slow hour
+// does not end the run. When every hour of the span is slow, the run
+// began at or before the first of them, which is returned.
+func MicroSlowStart(hours, cols []MicroAverage, levelMs float64) *time.Time {
+	if len(hours) == 0 {
 		return nil
 	}
-	start := end
-	for start > 0 && MicroIsSlow(&avgs[start-1].Ms, &levelMs) {
-		start--
+	if MicroLastFastHour(hours, levelMs) == nil {
+		at := hours[0].At
+		return &at
 	}
-	at := avgs[start].At
+	last := -1
+	for i, c := range cols {
+		if !MicroIsSlow(&c.Ms, &levelMs) {
+			last = i
+		}
+	}
+	if last+1 >= len(cols) {
+		return nil
+	}
+	at := cols[last+1].At
 	return &at
 }
 
@@ -394,7 +423,8 @@ func FinishMicro(f *MicroFacts, account string) *v1.GetMicroServicesResponse {
 	}
 	asked := map[string]MicroAccountFact{}
 	for _, a := range f.Accounts {
-		if inScope(account, a.Account) {
+		// Two labels of one account: the answered request's.
+		if old, ok := asked[a.Account]; inScope(account, a.Account) && (!ok || old.Stats.State != v1.MicroRequestState_MICRO_REQUEST_STATE_OK) {
 			asked[a.Account] = a
 		}
 	}
@@ -418,7 +448,7 @@ func FinishMicro(f *MicroFacts, account string) *v1.GetMicroServicesResponse {
 		}
 	}
 	for _, g := range f.Gone {
-		if inScope(account, g.Account) && !g.LastSeen.Before(f.EpochAt.Add(-MicroMissingWindow)) {
+		if _, isAsked := asked[g.Account]; inScope(account, g.Account) && g.FromSubscriptions != isAsked {
 			m := get(g.Account, g.Service)
 			m.gone = append(m.gone, g)
 		}
@@ -426,8 +456,8 @@ func FinishMicro(f *MicroFacts, account string) *v1.GetMicroServicesResponse {
 	counts := map[string]int32{}
 	var services []*v1.MicroService
 	for _, m := range all {
-		_, isAsked := asked[m.account]
-		s := microServiceOf(m, isAsked, f.SubscriptionsAt)
+		a, isAsked := asked[m.account]
+		s := microServiceOf(m, isAsked, a.Stats.State == v1.MicroRequestState_MICRO_REQUEST_STATE_OK, f.EpochAt, f.SubscriptionsAt)
 		if s.GetInstances() == 0 && len(s.GetMissing()) == 0 {
 			continue
 		}
@@ -463,7 +493,8 @@ func FinishMicro(f *MicroFacts, account string) *v1.GetMicroServicesResponse {
 // account's configured label, which in operator mode is not the account
 // key the servers report: an asked account none of whose services is
 // seen under it, whose answered instances are all seen under one other
-// account (by service name and instance ID), is that account. Its
+// account (by service name and instance ID; one instance not seen, or
+// seen under a second account, and it stays as it is), is that account. Its
 // answered services, gone instances and requests move to it, so a
 // service is not listed twice, asked under the label and seen under the
 // key.
@@ -486,6 +517,7 @@ func microAliased(f *MicroFacts) *MicroFacts {
 			k, ok := seenAt[[2]string{s.Name, in.ID}]
 			switch {
 			case !ok:
+				bad[s.Account] = true
 			case alias[s.Account] == "" || alias[s.Account] == k:
 				alias[s.Account] = k
 			default:
@@ -527,12 +559,20 @@ func microRequest(r MicroRequestFact) *v1.MicroRequest {
 
 // microServiceOf applies the rules to one service. Its instances are
 // those that answered when any did, else those seen (registered and not
-// answering, or in an account not asked), each named by the connection
-// that holds its $SRV subscriptions. A gone instance not among them is
-// missing when its $SRV subscriptions are in a subscription collection
-// taken after it went missing, or the service has fewer instances than
-// when it was last seen.
-func microServiceOf(m *microService, asked bool, subsAt *time.Time) *v1.MicroService {
+// answering, or in an account not asked), else, when the account's
+// $SRV.STATS request was not ok, those that last answered within the
+// hour; each named by the connection that holds its $SRV subscriptions.
+//
+// Missing instances are judged only when the request was ok or the
+// account is not asked: a failed request says nothing of who left. A gone
+// instance not among the instances is missing when its $SRV subscriptions
+// are in a subscription collection taken after it went missing (still
+// subscribed: listed for as long as the collection lists it), or, within
+// MicroMissingWindow of its last answer, when the service has fewer
+// instances than then: at most that shortfall, the most recently gone
+// first. An asked account's instance must be absent from two ok requests,
+// so one late reply is not a missing instance.
+func microServiceOf(m *microService, asked, statsOK bool, epochAt time.Time, subsAt *time.Time) *v1.MicroService {
 	s := &v1.MicroService{Account: m.account, Name: m.name, Asked: asked || m.answered != nil}
 	seen := map[string]MicroInstanceFact{}
 	if m.seen != nil {
@@ -540,6 +580,7 @@ func microServiceOf(m *microService, asked bool, subsAt *time.Time) *v1.MicroSer
 			seen[in.ID] = in
 		}
 	}
+	recent := func(g MicroGoneFact) bool { return !g.LastSeen.Before(epochAt.Add(-MicroMissingWindow)) }
 	var insts []MicroInstanceFact
 	switch {
 	case m.answered != nil && len(m.answered.Instances) > 0:
@@ -552,6 +593,12 @@ func microServiceOf(m *microService, asked bool, subsAt *time.Time) *v1.MicroSer
 		}
 	case m.seen != nil:
 		insts = slices.Clone(m.seen.Instances)
+	case asked && !statsOK:
+		for _, g := range m.gone {
+			if recent(g) {
+				insts = append(insts, MicroInstanceFact{ID: g.ID, Connection: g.Connection})
+			}
+		}
 	}
 	slices.SortFunc(insts, func(a, b MicroInstanceFact) int { return cmp.Compare(a.ID, b.ID) })
 	insts = slices.CompactFunc(insts, func(a, b MicroInstanceFact) bool { return a.ID == b.ID })
@@ -591,20 +638,8 @@ func microServiceOf(m *microService, asked bool, subsAt *time.Time) *v1.MicroSer
 			s.Description, best = d, descriptions[d]
 		}
 	}
-	gone := slices.Clone(m.gone)
-	slices.SortFunc(gone, func(a, b MicroGoneFact) int { return cmp.Or(cmp.Compare(a.ID, b.ID), b.LastSeen.Compare(a.LastSeen)) })
-	gone = slices.CompactFunc(gone, func(a, b MicroGoneFact) bool { return a.ID == b.ID })
-	for _, g := range gone {
-		if current[g.ID] {
-			continue
-		}
-		_, subscribed := seen[g.ID]
-		subscribed = subscribed && asked && subsAt != nil && !subsAt.Before(g.Since)
-		if !subscribed && g.InstancesThen <= s.GetInstances() {
-			continue
-		}
-		s.Missing = append(s.Missing, &v1.MicroMissingInstance{Id: g.ID, Since: timestamppb.New(g.Since), LastSeen: timestamppb.New(g.LastSeen),
-			ConnectionName: g.Connection, StillSubscribed: subscribed})
+	if !asked || statsOK {
+		s.Missing = microMissing(m.gone, current, seen, asked, s.GetInstances(), recent, subsAt)
 	}
 	if m.answered != nil && s.GetAnswered() {
 		var rate, req, errs float64
@@ -631,6 +666,40 @@ func microServiceOf(m *microService, asked bool, subsAt *time.Time) *v1.MicroSer
 	}
 	s.Note = microNote(s)
 	return s
+}
+
+// microMissing picks a service's missing instances from its gone ones;
+// see microServiceOf.
+func microMissing(gone []MicroGoneFact, current map[string]bool, seen map[string]MicroInstanceFact, asked bool, instances int32,
+	recent func(MicroGoneFact) bool, subsAt *time.Time) []*v1.MicroMissingInstance {
+	gone = slices.Clone(gone)
+	slices.SortFunc(gone, func(a, b MicroGoneFact) int { return cmp.Or(cmp.Compare(a.ID, b.ID), b.LastSeen.Compare(a.LastSeen)) })
+	gone = slices.CompactFunc(gone, func(a, b MicroGoneFact) bool { return a.ID == b.ID })
+	// The most recently gone first.
+	slices.SortStableFunc(gone, func(a, b MicroGoneFact) int { return b.LastSeen.Compare(a.LastSeen) })
+	var still, short []MicroGoneFact
+	var then int32
+	for _, g := range gone {
+		if current[g.ID] || (asked && g.Absent < 2) {
+			continue
+		}
+		_, subscribed := seen[g.ID]
+		switch {
+		case subscribed && subsAt != nil && !subsAt.Before(g.Since):
+			still = append(still, g)
+		case recent(g) && g.InstancesThen > instances:
+			short = append(short, g)
+			then = max(then, g.InstancesThen)
+		}
+	}
+	n := max(0, int(then-instances)-len(still))
+	var out []*v1.MicroMissingInstance
+	for i, g := range append(still, short[:min(n, len(short))]...) {
+		out = append(out, &v1.MicroMissingInstance{Id: g.ID, Since: timestamppb.New(g.Since), LastSeen: timestamppb.New(g.LastSeen),
+			ConnectionName: g.Connection, StillSubscribed: i < len(still)})
+	}
+	slices.SortFunc(out, func(a, b *v1.MicroMissingInstance) int { return cmp.Compare(a.GetId(), b.GetId()) })
+	return out
 }
 
 // microEndpointOf applies the endpoint rules: the average time and error
