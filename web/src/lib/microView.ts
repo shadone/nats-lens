@@ -101,9 +101,14 @@ export function serviceKey(s: Pick<MicroService, "account" | "name">): string {
   return `${s.account}/${s.name}`;
 }
 
-/** ?service= in its parts; an empty or missing account part is "". */
+/**
+ * ?service= in its parts; an empty or missing account part is "". It is
+ * split at the last slash: the micro framework allows only letters,
+ * digits, "-" and "_" in a service name, while an account's name may
+ * hold a slash.
+ */
 function serviceParam(param: string): { account: string; name: string } {
-  const cut = param.indexOf("/");
+  const cut = param.lastIndexOf("/");
   return cut < 0 ? { account: "", name: param } : { account: param.slice(0, cut), name: param.slice(cut + 1) };
 }
 
@@ -128,6 +133,7 @@ export function unknownServiceText(param: string, scope: string, label: (id: str
   // No account part: the scoped account's.
   const account = p.account || scope;
   const name = p.name;
+  if (!name) return `No service named in the address is in this collection; showing ${shown}.`;
   if (!account) return `No service ${name} in this collection; showing ${shown}.`;
   if (scope && account !== scope) return `${name} of ${label(account)} is not in account ${label(scope)}; showing ${shown}.`;
   if (scope) return `No service ${name} in ${label(scope)} in this collection; showing ${shown}.`;
@@ -193,6 +199,7 @@ function noteWords(s: MicroService, accounts: MicroAccount[], ref: number): { te
     case "missing": {
       const since = s.missing.map((m) => m.since).filter((t): t is number => t !== undefined);
       const at = since.length ? ` since ${whenText(Math.min(...since), ref)}` : "";
+      if (s.missing.length === 0) return { text: "an instance missing", warn: true };
       if (s.missing.length === 1) return { text: `instance missing: ${s.missing[0].id}${at}`, warn: true };
       return { text: `${plural(s.missing.length, "instance")} missing${at}`, warn: true };
     }
