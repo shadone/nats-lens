@@ -35,14 +35,17 @@ describe("subjects.css at a phone width", () => {
     expect(phone).toMatch(/\.sj-field-wrap\{width:100%\}/);
   });
 
-  it("keeps the pattern column in view and lets a long pattern break anywhere inside it", () => {
-    expect(phone).toMatch(/\.tbl\.sj-tbl tbody th\[scope="row"\]\{position:sticky;[^}]*max-width:150px/);
-    expect(phone).toMatch(/\.sj-tbl \.sj-pattern\{white-space:normal;overflow-wrap:anywhere\}/);
+  it("gives the sticky pattern column a fixed width that holds about 18 characters", () => {
+    const fixed = /width:176px;min-width:176px;max-width:176px;box-sizing:border-box/;
+    expect(phone).toMatch(new RegExp(`\\.sj-tbl thead th:first-child\\{position:sticky;[^}]*${fixed.source}`));
+    expect(phone).toMatch(new RegExp(`\\.tbl\\.sj-tbl tbody th\\[scope="row"\\]\\{position:sticky;[^}]*${fixed.source}`));
   });
 
-  it("keeps a pattern on one line above phone width, as plain text", () => {
+  it("lets a long pattern break anywhere at every width, the column at least 240 px above phone width", () => {
     const wide = css.slice(0, css.indexOf("@media (max-width:760px)"));
-    expect(wide).toMatch(/\.sj-tbl \.sj-pattern\{display:block;white-space:nowrap\}/);
+    expect(wide).toMatch(/\.sj-tbl \.sj-pattern\{display:block;overflow-wrap:anywhere\}/);
+    expect(wide).toMatch(/\.tbl\.sj-tbl tbody th\[scope="row"\]\{[^}]*min-width:240px\}/);
+    expect(css).not.toMatch(/\.sj-pattern\{[^}]*nowrap/);
     expect(css).not.toMatch(/\.sj-tok/);
   });
 
