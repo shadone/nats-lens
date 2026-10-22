@@ -23,8 +23,8 @@ func (p *Provider) Subjects(ctx context.Context, req *v1.GetSubjectsRequest) (*a
 	}
 	f := &api.SubjectsFacts{Epoch: e.epoch, EpochAt: e.startedAt}
 	acc := req.GetAccount()
-	if err := p.db().QueryRowContext(ctx, `SELECT coalesce(min(account) FILTER (WHERE is_system), '') FROM accounts`).Scan(&f.SystemAccount); err != nil {
-		return nil, fmt.Errorf("system account: %w", err)
+	if f.SystemAccount, err = p.systemAccount(ctx); err != nil {
+		return nil, err
 	}
 	if f.Streams, err = p.subjectStreams(ctx, e.epoch, req.GetRange(), acc); err != nil {
 		return nil, err
@@ -58,8 +58,18 @@ func (p *Provider) MatchSubject(ctx context.Context, req *v1.MatchSubjectRequest
 		return &api.MatchFacts{}, err
 	}
 	f := &api.MatchFacts{Epoch: e.epoch, EpochAt: e.startedAt}
+	if f.SystemAccount, err = p.systemAccount(ctx); err != nil {
+		return nil, err
+	}
 	if f.Streams, err = p.subjectStreams(ctx, e.epoch, req.GetRange(), req.GetAccount()); err != nil {
 		return nil, err
+	}
+	apis, err := p.jetStreamAPIs(ctx, e.epoch, req.GetRange(), req.GetAccount())
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range apis {
+		f.JetStreamAccounts = append(f.JetStreamAccounts, a.Account)
 	}
 	c, ok, err := p.subsCollection(ctx, e)
 	if err != nil || !ok {
@@ -213,10 +223,13 @@ GROUP BY ALL HAVING count(*) >= 2 AND max(l.t) > min(l.t)`, end.Add(-api.RateSpa
 
 // jetStreamAPIs reads the accounts with JetStream use in the epoch (a
 // stream, or JetStream API requests) and their API requests per second
-// and error share over the api.RateSpan before the range's end: per
-// server, the increase between its first and last report there (a server
-// ID is one process, so a restart starts over; a counter that fell is
-// left out), summed over the servers.
+// and error share over the api.RateSpan before the range's end. Every
+// server reports the account's API counters for the whole cluster (each
+// adds the others' usage updates), so the servers are not summed: per
+// server the increase between the first and last report of its newest run
+// (a server ID is one process; a counter that fell, as another server's
+// restart takes its share away, starts a new run), and per account the
+// server with the highest rate, its error share with it.
 func (p *Provider) jetStreamAPIs(ctx context.Context, epoch int64, r *v1.TimeRange, account string) ([]api.JetStreamAPIFact, error) {
 	_, end := span(r)
 	rows, err := p.db().QueryContext(ctx, `
@@ -224,17 +237,25 @@ WITH used AS (
   SELECT DISTINCT account FROM account_stats
   WHERE epoch = $1 AND (coalesce(js_streams, 0) > 0 OR coalesce(js_api_total, 0) > 0) AND ($4 = '' OR account = $4)
   UNION SELECT DISTINCT account FROM stream_stats WHERE epoch = $1 AND ($4 = '' OR account = $4)
-), per AS (
-  SELECT a.account, a.server_id,
-    arg_max(a.js_api_total, e.started_at) - arg_min(a.js_api_total, e.started_at) AS total,
-    arg_max(a.js_api_errors, e.started_at) - arg_min(a.js_api_errors, e.started_at) AS errors,
-    date_diff('millisecond', min(e.started_at), max(e.started_at)) AS ms
+), pts AS (
+  SELECT a.account, a.server_id, e.started_at AS t, a.js_api_total AS v, coalesce(a.js_api_errors, 0) AS err,
+    CASE WHEN a.js_api_total < lag(a.js_api_total) OVER (PARTITION BY a.account, a.server_id ORDER BY e.started_at) THEN 1 ELSE 0 END AS fell
   FROM account_stats a JOIN epochs e USING (epoch)
   WHERE e.started_at >= $2 AND e.started_at < $3 AND a.js_api_total IS NOT NULL AND a.account IN (SELECT account FROM used)
-  GROUP BY ALL HAVING count(*) >= 2 AND max(e.started_at) > min(e.started_at)
-), ok AS (SELECT * FROM per WHERE total >= 0)
-SELECT u.account, sum(o.total * 1000.0 / o.ms), sum(o.total)::DOUBLE, sum(greatest(coalesce(o.errors, 0), 0))::DOUBLE
-FROM used u LEFT JOIN ok o USING (account) GROUP BY u.account ORDER BY u.account`, epoch, end.Add(-api.RateSpan), end, account)
+), runs AS (
+  SELECT *, sum(fell) OVER (PARTITION BY account, server_id ORDER BY t ROWS UNBOUNDED PRECEDING) AS run FROM pts
+), per AS (
+  SELECT account, server_id, run, arg_max(v, t) - arg_min(v, t) AS total, greatest(arg_max(err, t) - arg_min(err, t), 0) AS errors,
+    date_diff('millisecond', min(t), max(t)) AS ms
+  FROM runs GROUP BY account, server_id, run HAVING count(*) >= 2 AND max(t) > min(t) AND arg_max(v, t) >= arg_min(v, t)
+), newest AS (
+  SELECT * FROM per QUALIFY row_number() OVER (PARTITION BY account, server_id ORDER BY run DESC) = 1
+), best AS (
+  SELECT account, max(total * 1000.0 / ms) AS rate, arg_max(total, total * 1000.0 / ms)::DOUBLE AS total,
+    arg_max(errors, total * 1000.0 / ms)::DOUBLE AS errors
+  FROM newest GROUP BY account
+)
+SELECT u.account, b.rate, b.total, b.errors FROM used u LEFT JOIN best b USING (account) ORDER BY u.account`, epoch, end.Add(-api.RateSpan), end, account)
 	if err != nil {
 		return nil, fmt.Errorf("jetstream api: %w", err)
 	}
@@ -258,12 +279,15 @@ FROM used u LEFT JOIN ok o USING (account) GROUP BY u.account ORDER BY u.account
 }
 
 // subsCollection is the newest epoch at or before e, within
-// api.SubscriptionsMaxAge, that asked SUBSZ; false when there is none.
+// api.SubscriptionsMaxAge, in which a server answered SUBSZ, so an ask
+// that went unanswered everywhere does not hide the collection before it;
+// false when there is none.
 func (p *Provider) subsCollection(ctx context.Context, e epochInfo) (epochInfo, bool, error) {
 	var c epochInfo
 	err := p.db().QueryRowContext(ctx, `
 SELECT x.epoch, x.started_at FROM epochs x
-WHERE x.epoch <= ? AND x.started_at >= ? AND EXISTS (SELECT 1 FROM epoch_endpoints p WHERE p.epoch = x.epoch AND p.endpoint = 'SUBSZ')
+WHERE x.epoch <= ? AND x.started_at >= ?
+  AND EXISTS (SELECT 1 FROM epoch_endpoints p WHERE p.epoch = x.epoch AND p.endpoint = 'SUBSZ' AND p.state = 'ok')
 ORDER BY x.epoch DESC LIMIT 1`, e.epoch, e.startedAt.Add(-api.SubscriptionsMaxAge)).Scan(&c.epoch, &c.startedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return c, false, nil
@@ -381,4 +405,14 @@ ORDER BY 1, 2, 3, 4`, collection, epoch, account)
 		}
 	}
 	return rows.Err()
+}
+
+// systemAccount is the account the store records as the system account;
+// empty when none is known.
+func (p *Provider) systemAccount(ctx context.Context) (string, error) {
+	var acc string
+	if err := p.db().QueryRowContext(ctx, `SELECT coalesce(min(account) FILTER (WHERE is_system), '') FROM accounts`).Scan(&acc); err != nil {
+		return "", fmt.Errorf("system account: %w", err)
+	}
+	return acc, nil
 }
