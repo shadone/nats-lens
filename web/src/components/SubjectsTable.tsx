@@ -27,17 +27,23 @@ export function connectionPath(name: string): string {
 /** "(a, b, c +2)" with each name a link to its connections. */
 export function Names({ names, more }: { names: string[]; more: number }) {
   if (names.length === 0 && more === 0) return null;
+  const last = names.length - 1;
   return (
     <span className="sj-names">
-      {" ("}
+      {" "}
+      {names.length === 0 && `(+${more})`}
       {names.map((n, i) => (
         <Fragment key={n}>
-          {i > 0 && ", "}
-          <RLink to={connectionPath(n)}>{n}</RLink>
+          {i > 0 && " "}
+          {/* A name breaks only when it is wider than its box; its brackets and comma stay with it. */}
+          <span className="sj-name">
+            {i === 0 && "("}
+            <RLink to={connectionPath(n)}>{n}</RLink>
+            {i < last ? "," : more > 0 ? "" : ")"}
+          </span>
         </Fragment>
       ))}
-      {more > 0 && `${names.length ? " " : ""}+${more}`}
-      {")"}
+      {names.length > 0 && more > 0 && ` +${more})`}
     </span>
   );
 }
@@ -50,7 +56,7 @@ function Subscribers({ r }: { r: SubjectRow }) {
       {s.queue && (
         <>
           {" "}
-          <span className="sj-nobr">{s.queue}</span>
+          <span className="sj-name">{s.queue}</span>
         </>
       )}
       <Names names={s.names} more={s.more} />
@@ -76,24 +82,6 @@ function NoteCell({ r }: { r: SubjectRow }) {
   );
 }
 
-/**
- * A subject as one span per token, each with its dot. They read as one
- * word; at phone width the stylesheet makes them inline blocks, so a
- * narrow column can break between tokens and nowhere else.
- */
-function Tokens({ text }: { text: string }) {
-  const parts = text.split(".");
-  return (
-    <>
-      {parts.map((t, i) => (
-        <span key={i} className="sj-tok">
-          {i < parts.length - 1 ? `${t}.` : t}
-        </span>
-      ))}
-    </>
-  );
-}
-
 function Patterns({ r }: { r: SubjectRow }) {
   if (r.patterns.length === 0)
     return (
@@ -106,7 +94,7 @@ function Patterns({ r }: { r: SubjectRow }) {
     <>
       {r.patterns.map((p) => (
         <span key={p} className="sj-pattern">
-          <Tokens text={p} />
+          {p}
         </span>
       ))}
     </>

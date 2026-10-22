@@ -110,7 +110,7 @@ function CoreLead({ c }: { c: CoreMatch }) {
   const p = coreParts(c);
   return p.queue ? (
     <>
-      {p.lead} <span className="sj-nobr">{p.queue}</span>
+      {p.lead} <span className="sj-name">{p.queue}</span>
     </>
   ) : (
     <>{p.lead}</>

@@ -80,7 +80,8 @@ export function Subjects() {
         </div>
         <SubjectField value={typed} onChange={setTyped} why={why} />
       </div>
-      {subject !== "" && !why && (
+      {/* Without a collection the page says so below; the card would say it again. */}
+      {subject !== "" && !why && d?.collected !== false && (
         <ReachCard subject={subject} answer={current && !mq.isPending ? mq.data : undefined} error={failed} scoped={account !== ""} />
       )}
       <QueryView q={q} what="subjects">
