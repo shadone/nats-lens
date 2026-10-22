@@ -48,7 +48,7 @@ function Body({ d, scope, names }: { d: Micro; scope: string; names: Map<string,
   const { chosen, unknown } = chooseService(d.services, param, scope);
   const epochAt = d.epochAt ?? 0;
   const showAccount = scope === "" && new Set(d.services.map((s) => s.account)).size > 1;
-  const unanswered = d.accounts.map((a) => ({ a, text: unansweredText(a) })).filter((x) => x.text);
+  const unanswered = d.accounts.map((a) => ({ a, text: unansweredText(a, d.epochAt ?? 0) })).filter((x) => x.text);
 
   const choose = (key: string) =>
     setParams(

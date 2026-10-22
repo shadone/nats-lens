@@ -56,4 +56,28 @@ describe("microServices", () => {
     expect(d.accounts[0].stats).toEqual({ state: "timeout", at: AT, replies: 0, error: "" });
     expect(d.accounts[0].info).toEqual({ state: "notAsked", replies: 0, error: "" });
   });
+  it("reads a held refusal into the server's text, when it was refused and when it is asked again", () => {
+    const held = 'nats: Permissions Violation for Publish to "$SRV.STATS" (not sent: refused at 2026-10-17T14:00:00Z, asked again after 2026-10-17T14:10:00Z)';
+    const d = microServices(
+      create(GetMicroServicesResponseSchema, {
+        epoch: 7n,
+        accounts: [
+          { account: "A", asked: true, stats: { state: MicroRequestState.ERROR, error: held } },
+          { account: "B", asked: true, stats: { state: MicroRequestState.ERROR, error: "nats: connection closed (x)" } },
+        ],
+        services: [{ name: "inventory", missing: [{ id: "I1", server: "nats-eu-5", stillSubscribed: true }, { id: "I2" }] }],
+      }),
+    );
+    expect(d.accounts[0].stats).toEqual({
+      state: "error",
+      at: undefined,
+      replies: 0,
+      error: 'nats: Permissions Violation for Publish to "$SRV.STATS"',
+      refusedAt: Date.parse("2026-10-17T14:00:00Z"),
+      againAfter: Date.parse("2026-10-17T14:10:00Z"),
+    });
+    expect(d.accounts[1].stats.error).toBe("nats: connection closed (x)");
+    expect(d.accounts[1].stats.againAfter).toBeUndefined();
+    expect(d.services[0].missing.map((m) => m.server)).toEqual(["nats-eu-5", ""]);
+  });
 });

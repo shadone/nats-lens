@@ -167,11 +167,11 @@ function permissionRefused(r: MicroRequest): boolean {
 }
 
 /** Why a service's instances gave no answer to $SRV.STATS, from its account's request. */
-export function noAnswerReason(stats: MicroRequest | undefined): string {
+export function noAnswerReason(stats: MicroRequest | undefined, ref = 0): string {
   if (!stats) return "its instances did not reply";
   switch (stats.state) {
     case "error":
-      return permissionRefused(stats) ? `refused; ${NEEDS}` : `the request failed: ${stats.error}`;
+      return (permissionRefused(stats) ? `refused; ${NEEDS}` : `the request failed: ${stats.error}`) + (stats.againAfter !== undefined ? `; asked again after ${whenText(stats.againAfter, ref)}` : "");
     case "timeout":
       return "no reply within the collect window";
     case "noResponders":
@@ -217,7 +217,7 @@ function noteWords(s: MicroService, accounts: MicroAccount[], ref: number): { te
     }
     case "noAnswer": {
       const a = accounts.find((x) => x.account === s.account);
-      return { text: `no answer to $SRV.STATS: ${noAnswerReason(a?.stats)}`, warn: true };
+      return { text: `no answer to $SRV.STATS: ${noAnswerReason(a?.stats, ref)}`, warn: true };
     }
     case "notAsked":
       return { text: ["list the account under ", ACCOUNTS, " for versions, endpoints and timings"], warn: false };
@@ -265,12 +265,15 @@ export function seenOnlyText(s: MicroService, accountLabel: string): Phrase[] {
 }
 
 /** Why an asked account with no service listed did not answer; undefined when it answered, had no responders or was not asked. */
-export function unansweredText(a: MicroAccount): string | undefined {
+export function unansweredText(a: MicroAccount, ref = 0): string | undefined {
   if (!a.asked || a.services > 0) return undefined;
   const r = a.stats;
   if (r.state === "error") {
-    if (permissionRefused(r)) return `The server refused $SRV.STATS (${r.error}): ${NEEDS}.`;
-    return `$SRV.STATS failed: ${r.error}.`;
+    // A held refusal: nats-lens does not send the request again until then.
+    const again = r.againAfter !== undefined ? ` nats-lens asks again after ${whenText(r.againAfter, ref)}.` : "";
+    const at = r.refusedAt !== undefined ? ` at ${whenText(r.refusedAt, ref)}` : "";
+    if (permissionRefused(r)) return `The server refused $SRV.STATS${at} (${r.error}): ${NEEDS}.${again}`;
+    return `$SRV.STATS failed: ${r.error}.${again}`;
   }
   if (r.state === "timeout") return "No reply to $SRV.STATS came within the collect window.";
   return undefined;

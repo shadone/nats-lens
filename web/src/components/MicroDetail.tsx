@@ -149,11 +149,9 @@ function Instances({ s, epochAt }: { s: MicroService; epochAt: number }) {
                   <None words="not known" />
                 </td>
                 <td className="mi-subj">
-                  <Connection name={m.connectionName} />
+                  <Connection name={m.connectionName} server={m.server || undefined} />
                 </td>
-                <td>
-                  <None words="not known" />
-                </td>
+                <td className="mi-subj">{m.server ? <RLink to={serverPath(m.server)}>{m.server}</RLink> : <None words="not known" />}</td>
                 <td className="mi-note-cell mi-warn-text">{missingText(m, s.asked, epochAt)}</td>
               </tr>
             ))}
