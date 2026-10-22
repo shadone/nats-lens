@@ -2,7 +2,7 @@
 // stream with its subjects and consumers, the client subscriptions by
 // subject, reply inboxes and the JetStream API, with a tester that says
 // what a message on one subject would reach.
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useMatchSubject, useSubjects } from "../api/queries";
 import type { SubjectFilter } from "../api/subjects";
@@ -47,13 +47,19 @@ export function Subjects() {
   const [typed, setTypedState] = useState(linked ?? "");
   // A link to another subject while the page is open fills the field again.
   const [shownLink, setShownLink] = useState(linked);
+  // The parameter typing dropped, so its going is not read as navigation.
+  const dropped = useRef<string | null>(null);
+  // When Back leads to an address without one, the field empties, as the
+  // typed subject was never in the address.
   if (linked !== shownLink) {
     setShownLink(linked);
-    if (linked !== null) setTypedState(linked);
+    if (!(linked === null && dropped.current === shownLink)) setTypedState(linked ?? "");
+    dropped.current = null;
   }
   const setTyped = (v: string) => {
     setTypedState(v);
-    if (params.has(SUBJECT_PARAM))
+    if (params.has(SUBJECT_PARAM)) {
+      dropped.current = params.get(SUBJECT_PARAM);
       setParams(
         (p) => {
           const n = new URLSearchParams(p);
@@ -62,6 +68,7 @@ export function Subjects() {
         },
         { replace: true },
       );
+    }
   };
   const subject = typed.trim();
   const asked = useDebounced(subject, SUBJECT_DEBOUNCE_MS);
