@@ -60,6 +60,7 @@ func prodScenario() *scenario {
 			"catalog-api", "callback-dispatcher", "video-transcoder",
 		},
 		subs:          prodSubs(),
+		micro:         prodMicro(),
 		apiRate:       2.2,
 		apiErrors:     0,
 		metaLeader:    "nats-0",

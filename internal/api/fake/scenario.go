@@ -94,6 +94,11 @@ type scenario struct {
 	subs map[string][]clientSub
 	// extraConns are connections besides the clients' in Account.
 	extraConns []extraConn
+	// micro are the micro services the clients run in Account, and
+	// microAsked the accounts nats-lens asks with $SRV requests: Account
+	// answers, any other is refused.
+	micro      []microSpec
+	microAsked []string
 	// apiRate and apiErrors are the stream account's JetStream API
 	// requests per second and the share that failed.
 	apiRate, apiErrors float64

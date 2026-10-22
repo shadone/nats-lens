@@ -95,6 +95,17 @@ type Provider interface {
 	// literal subject, which the handler has checked. The handler keeps
 	// what matches with FinishMatch.
 	MatchSubject(ctx context.Context, req *v1.MatchSubjectRequest) (*MatchFacts, error)
+	// MicroServices reads the micro services of the range's newest epoch:
+	// the accounts asked in it with their newest $SRV.INFO and the epoch's
+	// $SRV.STATS requests, the services that answered with their endpoints'
+	// rates (MicroWindowIncrease), levels (MicroLevel) and slow runs
+	// (MicroSlowSince), the services seen in the newest subscription
+	// collection at or before the epoch within SubscriptionsMaxAge
+	// (SeenMicro), and the instances gone within MicroMissingWindow; it may
+	// leave out what lies outside the request's account. The handler merges,
+	// orders and cuts them with FinishMicro. A range without an epoch gives
+	// facts with Epoch 0.
+	MicroServices(ctx context.Context, req *v1.GetMicroServicesRequest) (*MicroFacts, error)
 	ListServers(ctx context.Context, req *v1.ListServersRequest) (*v1.ListServersResponse, error)
 	GetServer(ctx context.Context, req *v1.GetServerRequest) (*v1.GetServerResponse, error)
 	ListConnections(ctx context.Context, req *v1.ListConnectionsRequest) (*v1.ListConnectionsResponse, error)

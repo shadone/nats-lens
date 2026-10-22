@@ -9,6 +9,7 @@ import "natslens/v1/consumers.proto";
 import "natslens/v1/events.proto";
 import "natslens/v1/findings.proto";
 import "natslens/v1/info.proto";
+import "natslens/v1/micro.proto";
 import "natslens/v1/overview.proto";
 import "natslens/v1/placement.proto";
 import "natslens/v1/replay.proto";
@@ -149,6 +150,14 @@ service LensService {
   // newest epoch: the streams that store it with their consumers, mirrors
   // and sources, and the client subscriptions on it.
   rpc MatchSubject(MatchSubjectRequest) returns (MatchSubjectResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // The services built on the NATS micro framework in the range's newest
+  // epoch: from the $SRV.INFO and $SRV.STATS replies of the accounts
+  // nats-lens asks, else from their $SRV subscriptions in the subscription
+  // collection; with rates, average times and the slow rule per endpoint.
+  rpc GetMicroServices(GetMicroServicesRequest) returns (GetMicroServicesResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
