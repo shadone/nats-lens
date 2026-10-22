@@ -81,7 +81,9 @@ func TestMicroRefusalLoggedOnce(t *testing.T) {
 		c.Collect(context.Background())
 		at = at.Add(30 * time.Second)
 	}
+	// A refused request is sent again only after refusedRetry.
 	useRefused.Store(false)
+	at = at.Add(refusedRetry)
 	c.Collect(context.Background())
 	if n := strings.Count(buf.String(), "micro service requests refused"); n != 1 {
 		t.Errorf("refusal logged %d times in 3 epochs:\n%s", n, buf.String())
@@ -193,5 +195,40 @@ func TestMicroUnresolvedLabelHidesNoAccount(t *testing.T) {
 			t.Errorf("epoch: %s", s)
 		}
 		at = at.Add(30 * time.Second)
+	}
+}
+
+// A refused request is not sent again for ten minutes: each epoch in
+// between records it as an error with the server's text and when it is
+// sent again, and the connection publishes nothing; after ten minutes it
+// is sent again.
+func TestMicroRefusedRequestBacksOff(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a server")
+	}
+	url := startMicroServer(t)
+	startOrders(t, url, "1.4.2")
+	nc := connectAs(t, url, "shop-nosrv")
+	at := time.Now()
+	c := microCollector(time.Second, 5*time.Minute, &at, fixedConn("SHOP", nc))
+	c.Collect(context.Background())
+	sent := nc.Stats().OutMsgs
+	for range 3 {
+		at = at.Add(30 * time.Second)
+		m := c.Collect(context.Background()).Micro[0]
+		for _, a := range m.Asked {
+			if a.State != MicroError || !strings.Contains(a.Error, `Permissions Violation for Publish to "`+a.Request.Subject()+`"`) ||
+				!strings.Contains(a.Error, "not sent: refused at") {
+				t.Errorf("held %s: %s %q", a.Request, a.State, a.Error)
+			}
+		}
+	}
+	if n := nc.Stats().OutMsgs - sent; n != 0 {
+		t.Errorf("%d messages sent within ten minutes of the refusal", n)
+	}
+	at = at.Add(refusedRetry)
+	m := c.Collect(context.Background()).Micro[0]
+	if nc.Stats().OutMsgs == sent || strings.Contains(askedOf(m)+m.Asked[0].Error, "not sent") {
+		t.Errorf("not sent again after ten minutes: %+v", m.Asked)
 	}
 }
