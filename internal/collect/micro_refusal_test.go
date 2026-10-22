@@ -155,7 +155,8 @@ func TestMicroLookupRetriedAfterRefusal(t *testing.T) {
 	}
 }
 
-// A label no longer configured is forgotten.
+// A label no longer configured is forgotten, and everything is when no
+// account connection is left.
 func TestMicroForgetsUnconfiguredLabels(t *testing.T) {
 	at := time.Now()
 	c := microCollector(100*time.Millisecond, 5*time.Minute, &at, AccountConn{Label: "old"})
@@ -164,6 +165,12 @@ func TestMicroForgetsUnconfiguredLabels(t *testing.T) {
 	c.Collect(context.Background())
 	if _, ok := c.microAccounts["old"]; ok || len(c.microAccounts) != 1 {
 		t.Errorf("states %v", c.microAccounts)
+	}
+	c.microKnown["SHOP"] = map[instanceKey]int{{"orders", "A"}: 0}
+	c.SetAccountConns(nil)
+	c.Collect(context.Background())
+	if len(c.microAccounts) != 0 || len(c.microKnown) != 0 {
+		t.Errorf("without account connections: states %v, known %v", c.microAccounts, c.microKnown)
 	}
 }
 

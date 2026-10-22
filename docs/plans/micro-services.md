@@ -8,8 +8,8 @@ The board's sample services (`orders`, `pricing`, `inventory`) fit the example s
 
 | Task | Status |
 |---|---|
-| T1 Collect micro service replies | built on `feat/micro-collect`; fix rounds 1 and 2 done, awaiting review |
-| T2 API, store and demo | built on `feat/micro-api` (with `feat/micro-collect` merged in, up to T1's fix round 2); fix round 1 done, awaiting its review |
+| T1 Collect micro service replies | built on `feat/micro-collect`; fix rounds 1 to 3 done, awaiting review |
+| T2 API, store and demo | built on `feat/micro-api` (with `feat/micro-collect` merged in, up to T1's fix round 3); fix round 1 done, awaiting its review |
 | T3 UI | not started |
 | T4 Feature docs and audit | not started |
 
@@ -88,6 +88,12 @@ Each point was decided in the session that built T1: proposed, not yet confirmed
   - `keep` logs one warning per dial ("connection not open; dialling" for a connection that never opened, then one per failed dial with its error and the next wait) instead of a warning and an error each time.
   - A label that asks for itself again after another asked for it is logged once.
   - The new-start rule with an unchanged instance ID has a test: the Go framework gives every start a new ID, another implementation or a moved clock may not.
+- **Fix round 3 (review of fix round 2).**
+  - A reply from an unknown instance no longer ends the wait for the known ones; it caps it at the later of one second after that reply and half the exchange's window. A known instance is forgotten only after three answered STATS in a row without it, so a slow instance cut once is waited for again; the price is that a stopped instance holds up three epochs instead of one.
+  - The hourly sums pair rows by endpoint name and subject and sum them into the hour of the name: one instance may have two endpoints of one name in two groups, stored as two `micro_endpoints` rows. `micro_endpoint_hours` keeps its key (`hour`, `account`, `service`, `endpoint`), so T2 reads it per endpoint name and needs no change; two endpoints of one name share one 7-day level.
+  - A label whose last STATS failed (refused, not connected) does not ask for another label, and of one account's labels the first whose STATS was answered is kept.
+  - The writer passes the hour and the previous epoch's start as Unix microseconds and builds them with `make_timestamp`, as T2 does; with `SET GLOBAL TimeZone` to America/Los_Angeles or Pacific/Auckland the hours equal UTC's. The statements are executed, not queried, and gave the same hours before the change too: the test could not be seen to fail; a query `SELECT ?::TIMESTAMP` did shift.
+  - Without account connections the collector forgets every label and known instance; the log line of a label asked under another names it (`asked_under`).
 
 ## T2 API, store and demo
 
@@ -151,3 +157,5 @@ Recorded as they come up; moved to `docs/plans/next.md` item 5 when the work mer
 - Endpoint metadata and the service's custom stats (`data` in STATS replies) are stored but not shown.
 - With event capture on, an account connection that cannot connect still fails the system's setup (retried with backoff), so one bad entry under `accounts` stops collection; with capture off collection goes on. Whether the capture should keep going without that account is open.
 - A new instance whose first STATS reply comes in a later epoch than its start loses its activity before that reply in `micro_endpoint_hours`.
+- When the entry asking for an account loses its connection during the requests, the account has no answers in that epoch; another entry of the account could ask in the time left.
+- In operator mode an entry whose account lookup is refused cannot be matched with another entry of the same account, and both are stored.
