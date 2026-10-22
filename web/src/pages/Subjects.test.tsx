@@ -141,16 +141,25 @@ describe("Subjects", () => {
     getSubjects.mockResolvedValue(global());
     renderApp(<Subjects />, "/subjects");
     await screen.findByRole("region", { name: "Subject patterns" });
-    expect(within(rowOf("orders.place")).getByText("order-service", { selector: ".sj-nobr" })).toBeInTheDocument();
+    expect(within(rowOf("orders.place")).getByText("order-service", { selector: ".sj-name" })).toBeInTheDocument();
   });
 
-  it("breaks a pattern only between its tokens, by spans the stylesheet lays out at phone width", async () => {
+  it("keeps each connection name with its comma in a box of its own", async () => {
     getSubjects.mockResolvedValue(global());
-    const { container } = renderApp(<Subjects />, "/subjects");
+    renderApp(<Subjects />, "/subjects");
+    await screen.findByRole("region", { name: "Subject patterns" });
+    const names = [...rowOf("$KV.feature-flags.>").querySelectorAll(".sj-names .sj-name")].map((n) => n.textContent);
+    expect(names).toEqual(["(api-gateway,", "checkout-service,", "order-service"]);
+    expect(within(rowOf("orders.place")).getByText((_, el) => el?.className === "sj-name" && el.textContent === "(order-service)")).toBeInTheDocument();
+  });
+
+  it("renders a pattern as plain text, so it reads as one subject", async () => {
+    getSubjects.mockResolvedValue(global());
+    renderApp(<Subjects />, "/subjects");
     await screen.findByRole("region", { name: "Subject patterns" });
     const p = rowOf("$KV.feature-flags.>").querySelector(".sj-pattern")!;
-    expect([...p.querySelectorAll(".sj-tok")].map((t) => t.textContent)).toEqual(["$KV.", "feature-flags.", ">"]);
-    expect(container.querySelector("wbr")).toBeNull();
+    expect(p.children).toHaveLength(0);
+    expect(p.textContent).toBe("$KV.feature-flags.>");
   });
 
   it("shows no counts on the pills when the range holds no collection", async () => {
@@ -330,13 +339,15 @@ describe("Subjects tester", () => {
     expect(within(container.querySelector(".sj-reach")! as HTMLElement).queryByRole("status")).toBeNull();
   });
 
-  it("says the range holds no collection in the card", async () => {
+  it("says once that the range holds no collection when a subject is typed", async () => {
     getSubjects.mockResolvedValue(noCollection());
     matchSubject.mockResolvedValue({ collected: false, accounts: [] });
     renderApp(<Subjects />, "/subjects");
+    await screen.findByText("No collection in this range.");
     await userEvent.type(field(), "x");
-    const card = within(await screen.findByRole("region", { name: "Where this subject goes" }));
-    expect(await card.findByText("No collection in this range.")).toBeInTheDocument();
+    await waitFor(() => expect(matchSubject).toHaveBeenCalled());
+    await act(async () => {});
+    expect(screen.getAllByText("No collection in this range.")).toHaveLength(1);
   });
 
   it("keeps a core match's queue group on one line", async () => {
@@ -345,7 +356,7 @@ describe("Subjects tester", () => {
     renderApp(<Subjects />, "/subjects");
     await userEvent.type(field(), "x");
     const card = within(await screen.findByRole("region", { name: "Where this subject goes" }));
-    expect(await card.findByText("order-service", { selector: ".sj-nobr" })).toBeInTheDocument();
+    expect(await card.findByText("order-service", { selector: ".sj-name" })).toBeInTheDocument();
   });
 
   it("asks nothing for an empty or blank field", async () => {

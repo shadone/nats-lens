@@ -14,7 +14,7 @@
 .filters .sj-field input[type="text"]{flex:1;min-width:0;width:auto;padding:0;border:0;outline:0;background:transparent;font:13px var(--mono);color:var(--text)}
 .sj-why{margin:4px 0 0;font-size:12px;color:var(--sev-warning)}
 .sj-why:empty{margin:0}
-.sj-nobr{white-space:nowrap}
+.sj-name{display:inline-block;max-width:100%;overflow-wrap:anywhere}
 .sj-k{font:600 11px/1.3 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
 .sj-reach{margin:0 0 18px;padding:16px 22px;border-left:4px solid var(--accent)}
 .sj-reach .sj-subject{text-transform:none;letter-spacing:0;font-weight:500;color:var(--text);overflow-wrap:anywhere}
@@ -56,8 +56,7 @@
   .sj-card .table-wrap{padding:0}
   .sj-tbl thead th:first-child{position:sticky;left:0;z-index:1;background:var(--surface)}
   .tbl.sj-tbl tbody th[scope="row"]{position:sticky;left:0;z-index:1;min-width:130px;max-width:150px;background:var(--surface);box-shadow:1px 0 0 var(--border-soft)}
-  .sj-tbl .sj-pattern{white-space:normal}
-  .sj-tbl .sj-tok{display:inline-block;white-space:nowrap}
+  .sj-tbl .sj-pattern{white-space:normal;overflow-wrap:anywhere}
   .sj-tbl tr.sj-warn > th[scope="row"]{background:var(--sev-warning-bg)}
   .sj-foot{padding-left:14px;padding-right:14px}
 }

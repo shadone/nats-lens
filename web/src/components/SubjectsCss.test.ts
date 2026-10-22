@@ -35,19 +35,25 @@ describe("subjects.css at a phone width", () => {
     expect(phone).toMatch(/\.sj-field-wrap\{width:100%\}/);
   });
 
-  it("keeps the pattern column in view and lets a long pattern break inside it", () => {
+  it("keeps the pattern column in view and lets a long pattern break anywhere inside it", () => {
     expect(phone).toMatch(/\.tbl\.sj-tbl tbody th\[scope="row"\]\{position:sticky;[^}]*max-width:150px/);
-    expect(phone).toMatch(/\.sj-tbl \.sj-pattern\{white-space:normal\}/);
-    expect(phone).toMatch(/\.sj-tbl \.sj-tok\{display:inline-block;white-space:nowrap\}/);
+    expect(phone).toMatch(/\.sj-tbl \.sj-pattern\{white-space:normal;overflow-wrap:anywhere\}/);
   });
 
-  it("keeps a pattern on one line above phone width", () => {
+  it("keeps a pattern on one line above phone width, as plain text", () => {
     const wide = css.slice(0, css.indexOf("@media (max-width:760px)"));
     expect(wide).toMatch(/\.sj-tbl \.sj-pattern\{display:block;white-space:nowrap\}/);
-    expect(wide).not.toMatch(/\.sj-tok/);
+    expect(css).not.toMatch(/\.sj-tok/);
   });
 
   it("keeps a warning row's colour on its sticky first cell", () => {
     expect(phone).toMatch(/\.sj-tbl tr\.sj-warn > th\[scope="row"\]\{background:var\(--sev-warning-bg\)\}/);
+  });
+});
+
+describe("subjects.css names", () => {
+  it("keeps a connection or queue group name whole unless it is wider than its box", () => {
+    const wide = css.slice(0, css.indexOf("@media (max-width:760px)"));
+    expect(wide).toMatch(/\.sj-name\{display:inline-block;max-width:100%;overflow-wrap:anywhere\}/);
   });
 });
