@@ -230,3 +230,15 @@ describe("microView review round 2", () => {
     expect(instancesHeading("lastAnswered")).toBe("Instances that last answered within the hour before this collection");
   });
 });
+
+describe("microView review round 3", () => {
+  it("reads an empty account part (?service=/inventory) as no account part, in choosing and in words", () => {
+    const list = [service({ account: "SHOP", name: "inventory" }), service({ account: "APP", name: "inventory" })];
+    expect(chooseService(list, "/inventory", "")).toEqual({ chosen: list[0], unknown: false });
+    expect(chooseService(list, "/inventory", "APP")).toEqual({ chosen: list[1], unknown: false });
+    const r = chooseService([service({ account: "SHOP" })], "/inventory", "APP");
+    expect(r.unknown).toBe(true);
+    expect(unknownServiceText("/inventory", "APP", (x) => x, r.chosen!.name)).toBe("No service inventory in APP in this collection; showing inventory.");
+    expect(unknownServiceText("/orders", "", (x) => x, "inventory")).toBe("No service orders in this collection; showing inventory.");
+  });
+});

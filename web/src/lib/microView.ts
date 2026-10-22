@@ -101,14 +101,20 @@ export function serviceKey(s: Pick<MicroService, "account" | "name">): string {
   return `${s.account}/${s.name}`;
 }
 
+/** ?service= in its parts; an empty or missing account part is "". */
+function serviceParam(param: string): { account: string; name: string } {
+  const cut = param.indexOf("/");
+  return cut < 0 ? { account: "", name: param } : { account: param.slice(0, cut), name: param.slice(cut + 1) };
+}
+
 /**
  * The service ?service= names, else the first. A name without an account
  * part is looked for in the scoped account, or by name without a scope.
  * unknown: the parameter names a service the list does not hold.
  */
 export function chooseService(services: MicroService[], param: string | null, scope = ""): { chosen?: MicroService; unknown: boolean } {
-  const bare = param !== null && !param.includes("/");
-  const named = !param ? undefined : bare ? services.find((s) => s.name === param && (!scope || s.account === scope)) : services.find((s) => serviceKey(s) === param);
+  const p = param ? serviceParam(param) : undefined;
+  const named = !p ? undefined : p.account ? services.find((s) => s.account === p.account && s.name === p.name) : services.find((s) => s.name === p.name && (!scope || s.account === scope));
   return { chosen: named ?? services[0], unknown: !!param && !named };
 }
 
@@ -118,10 +124,10 @@ export function chooseService(services: MicroService[], param: string | null, sc
  * this collection has none of that name.
  */
 export function unknownServiceText(param: string, scope: string, label: (id: string) => string, shown: string): string {
-  const cut = param.indexOf("/");
+  const p = serviceParam(param);
   // No account part: the scoped account's.
-  const account = cut <= 0 ? scope : param.slice(0, cut);
-  const name = cut < 0 ? param : param.slice(cut + 1);
+  const account = p.account || scope;
+  const name = p.name;
   if (!account) return `No service ${name} in this collection; showing ${shown}.`;
   if (scope && account !== scope) return `${name} of ${label(account)} is not in account ${label(scope)}; showing ${shown}.`;
   if (scope) return `No service ${name} in ${label(scope)} in this collection; showing ${shown}.`;
