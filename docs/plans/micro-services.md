@@ -11,7 +11,7 @@ The board's sample services (`orders`, `pricing`, `inventory`) fit the example s
 | T1 Collect micro service replies | built on `feat/micro-collect`; fix rounds 1 to 3 done, awaiting review |
 | T2 API, store and demo | built on `feat/micro-api` (with `feat/micro-collect` merged in, up to T1's fix round 3); fix round 1 done, awaiting its review |
 | T3 UI | built on `feat/micro-ui` (from `feat/micro-api` at 6b80bd0, merged again at e05f3b6 after T2's fix round 1 and checked against it); review round 1 fixed, awaiting its review |
-| T4 Feature docs and audit | not started |
+| T4 Feature docs and audit | done on `feat/micro-ui`: `micro-services.md` shipped, the README, adjacent docs and `docs/plans/next.md` items 4 and 5 |
 
 ## Rules for every step
 
