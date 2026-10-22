@@ -9,6 +9,15 @@ import { coreMatch, global, matches, noCollection, published, row, streamMatch, 
 import { renderApp } from "../test/render";
 import { Subjects } from "./Subjects";
 
+function Back() {
+  const nav = useNavigate();
+  return (
+    <button type="button" onClick={() => nav(-1)}>
+      back
+    </button>
+  );
+}
+
 function Go({ to }: { to: string }) {
   const nav = useNavigate();
   return (
@@ -421,6 +430,26 @@ describe("Subjects tester", () => {
     await userEvent.click(screen.getByRole("button", { name: "go" }));
     expect(field()).toHaveValue("orders.cancel");
     await waitFor(() => expect(matchSubject.mock.calls.map((c) => c[3])).toContain("orders.cancel"));
+  });
+
+  it("keeps the field in step with the address on Back after typing", async () => {
+    getSubjects.mockResolvedValue(global());
+    matchSubject.mockResolvedValue(matches({ accounts: [published()] }));
+    renderApp(
+      <>
+        <Go to="/subjects?subject=b.b" />
+        <Back />
+        <Subjects />
+      </>,
+      "/subjects?subject=a.a",
+    );
+    await userEvent.type(field(), "x");
+    await userEvent.click(screen.getByRole("button", { name: "go" }));
+    expect(field()).toHaveValue("b.b");
+    await userEvent.click(screen.getByRole("button", { name: "back" }));
+    // The typed subject was never in the address, so Back empties the field.
+    expect(location()).not.toContain("subject=");
+    expect(field()).toHaveValue("");
   });
 
   it("asks nothing for an empty or blank field", async () => {
