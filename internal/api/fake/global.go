@@ -214,7 +214,9 @@ func globalScenario() *scenario {
 			"api-gateway", "order-service", "checkout-service", "inventory-service", "shipping-service",
 			"search-api", "notification-worker", "label-printer",
 		},
-		subs: globalSubs(),
+		subs:       globalSubs(),
+		micro:      globalMicro(),
+		microAsked: []string{Account, SuppliersAccount},
 		// nats-lens's own connection to the system account, and a
 		// monitoring tool that listens to every system event.
 		extraConns: []extraConn{

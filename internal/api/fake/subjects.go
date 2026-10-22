@@ -193,6 +193,7 @@ func (s scen) subscriptionsAt(c time.Time) ([]api.SubscriptionFact, map[string]a
 			}
 		}
 	}
+	out = append(out, s.microSubscriptions(c)...)
 	for _, sp := range s.sc.streams {
 		watchers := sp.watchers
 		if len(watchers) == 0 {

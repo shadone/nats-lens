@@ -1,0 +1,303 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "google/protobuf/timestamp.proto";
+import "natslens/v1/common.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// Request for the services built on the NATS micro framework in a system.
+message GetMicroServicesRequest {
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 1;
+
+  // Range whose newest epoch is read. Unset means the last 24 hours up to
+  // now.
+  TimeRange range = 2;
+
+  // Account the page is scoped to; empty for every account.
+  string account = 3;
+}
+
+// How a $SRV request to an account ended.
+enum MicroRequestState {
+  // Not asked: the account is not listed under accounts, or nats-lens did
+  // not ask it in that epoch.
+  MICRO_REQUEST_STATE_UNSPECIFIED = 0;
+  // At least one service replied.
+  MICRO_REQUEST_STATE_OK = 1;
+  // The server said nobody listens on the subject: no service runs in the
+  // account.
+  MICRO_REQUEST_STATE_NO_RESPONDERS = 2;
+  // No reply came within the collect window.
+  MICRO_REQUEST_STATE_TIMEOUT = 3;
+  // The request failed, a permissions violation among others; error says
+  // why.
+  MICRO_REQUEST_STATE_ERROR = 4;
+}
+
+// One $SRV request to an account.
+message MicroRequest {
+  // How it ended; unspecified when not asked.
+  MicroRequestState state = 1;
+
+  // When the epoch that asked it started; unset when not asked.
+  google.protobuf.Timestamp at = 2;
+
+  // Replies gathered: one per service instance.
+  int32 replies = 3;
+
+  // Why it failed, as the client or server said; empty unless the state
+  // is error.
+  string error = 4;
+}
+
+// An account in the page's scope: one with a service, or one nats-lens
+// asks.
+message MicroAccountState {
+  // Account as the servers report it.
+  string account = 1;
+
+  // Readable name of the account; empty when none is known.
+  string account_name = 2;
+
+  // Whether nats-lens asked the account in the epoch: it is listed under
+  // accounts. False: its services are known from the subscription
+  // collection only.
+  bool asked = 3;
+
+  // The newest $SRV.INFO request at or before the epoch, and the epoch's
+  // $SRV.STATS request; unset when not asked.
+  MicroRequest info = 4;
+  MicroRequest stats = 5;
+
+  // Whether this is the system account.
+  bool system_account = 6;
+
+  // Services of the account in the response's list, before the limit.
+  int32 services = 7;
+}
+
+// Instances of a service that run one version.
+message MicroVersionCount {
+  // The version the instances report.
+  string version = 1;
+
+  // Instances that report it.
+  int32 instances = 2;
+}
+
+// An instance of a service as the epoch knows it.
+message MicroInstance {
+  // Instance ID, as the service reports it.
+  string id = 1;
+
+  // Version from its newest $SRV.INFO reply; empty when not asked or not
+  // described yet.
+  string version = 2;
+
+  // When the instance started or its stats were last reset, as it
+  // reports; unset when not asked.
+  google.protobuf.Timestamp started = 3;
+
+  // Name of the connection that holds its $SRV subscriptions in the
+  // subscription collection; empty when unnamed or not found.
+  string connection_name = 4;
+
+  // Server that connection is on; empty when not found.
+  string server = 5;
+}
+
+// An instance that answered recently and is not in the epoch.
+message MicroMissingInstance {
+  // Instance ID.
+  string id = 1;
+
+  // The first collection that went without it.
+  google.protobuf.Timestamp since = 2;
+
+  // Its last answer (asked), or the last subscription collection that
+  // listed it (seen only).
+  google.protobuf.Timestamp last_seen = 3;
+
+  // Name of its connection when last seen; empty when unnamed or not
+  // found.
+  string connection_name = 4;
+
+  // Whether its $SRV subscriptions are still in the subscription
+  // collection, taken after it went missing: the instance is registered
+  // but does not answer. Asked accounts only.
+  bool still_subscribed = 5;
+}
+
+// One endpoint of a service, over its instances.
+message MicroEndpoint {
+  // Endpoint name.
+  string name = 1;
+
+  // Subject the endpoint listens on, from the newest $SRV.INFO reply.
+  string subject = 2;
+
+  // Queue group of the endpoint; empty for none.
+  string queue_group = 3;
+
+  // Requests per second over the 15 minutes before the range's end: per
+  // instance of the epoch, the increase of its request count in its newest
+  // run (one instance ID and start time, the count never falling) divided
+  // by the run's time, summed over the instances. Unset when no instance
+  // reported twice in one run.
+  optional double requests_per_second = 4;
+
+  // Average processing time over the same runs: the increase of the total
+  // processing time divided by the increase of requests, in milliseconds.
+  // Unset without a request.
+  optional double average_ms = 5;
+
+  // Share of the same requests that failed, 0 to 1; unset without a
+  // request.
+  optional double error_share = 6;
+
+  // The newest non-empty last error of the endpoint's instances, and the
+  // instance that reported it; empty when none did.
+  string last_error = 7;
+  string last_error_instance = 8;
+
+  // The 7-day level: the median of the endpoint's hourly average times in
+  // the 7 days before the 15 minutes, in milliseconds. Unset with fewer
+  // than 24 hours that have an average.
+  optional double level_ms = 9;
+
+  // Whether the endpoint is slow: its average time is at least 3 times
+  // its level and at least 5 ms above it.
+  bool slow = 10;
+
+  // When the current slow run began: the first collection of the run of
+  // collections, each slow on its own, that ends at the newest slow one.
+  // Unset when the endpoint is not slow.
+  google.protobuf.Timestamp slow_since = 11;
+
+  // Whether the error share is above 1%.
+  bool errors_high = 12;
+}
+
+// Which note a service card shows: the first that applies, in this
+// order.
+enum MicroNote {
+  // Not set.
+  MICRO_NOTE_UNSPECIFIED = 0;
+  // An instance answered within the hour before the epoch and is not in
+  // it; missing names them.
+  MICRO_NOTE_INSTANCE_MISSING = 1;
+  // The instances report more than one version; versions counts them.
+  MICRO_NOTE_MIXED_VERSIONS = 2;
+  // An endpoint is slow: the first of endpoints.
+  MICRO_NOTE_SLOW_ENDPOINT = 3;
+  // An endpoint's error share is above 1%: the first of endpoints.
+  MICRO_NOTE_ERRORS = 4;
+  // The account was asked and none of the service's instances answered
+  // $SRV.STATS: the account's state says how the request ended.
+  MICRO_NOTE_NO_ANSWER = 5;
+  // The account is not asked: versions, endpoints and timings are not
+  // known.
+  MICRO_NOTE_NOT_ASKED = 6;
+  // Nothing above applies.
+  MICRO_NOTE_HEALTHY = 7;
+}
+
+// A service built on the NATS micro framework: one name in one account.
+message MicroService {
+  // Account as the servers report it.
+  string account = 1;
+
+  // Readable name of the account; empty when none is known.
+  string account_name = 2;
+
+  // Service name.
+  string name = 3;
+
+  // Whether nats-lens asked the account in the epoch.
+  bool asked = 4;
+
+  // Versions of the instances, most instances first, then by version;
+  // more than one is mixed. Empty when not asked.
+  repeated MicroVersionCount versions = 5;
+
+  // The description most instances report; empty when none.
+  string description = 6;
+
+  // Instances in the epoch: those that answered its $SRV.STATS when
+  // asked, else those with $SRV subscriptions in the subscription
+  // collection.
+  int32 instances = 7;
+
+  // Instances that answered (or were seen) within the hour before the
+  // epoch and are not in it, while their $SRV subscriptions are still
+  // listed or the service has fewer instances than when they were last
+  // seen; by ID.
+  repeated MicroMissingInstance missing = 8;
+
+  // Requests per second, the sum of the endpoints'; unset when no
+  // endpoint has a rate.
+  optional double requests_per_second = 9;
+
+  // Share of the endpoints' requests that failed, 0 to 1; unset without a
+  // request.
+  optional double error_share = 10;
+
+  // Endpoints: slow ones first, then those with errors above 1% (most
+  // first), then by name. At most 100. Empty when not asked.
+  repeated MicroEndpoint endpoints = 11;
+
+  // Names of the instances' connections: distinct, in name order, at most
+  // 3; an unnamed connection has no name here.
+  repeated string connection_names = 12;
+
+  // Distinct names beyond connection_names.
+  int32 more_names = 13;
+
+  // The card's note.
+  MicroNote note = 14;
+
+  // Whether the account is the system account.
+  bool system_account = 15;
+
+  // Endpoints before the limit of 100.
+  int32 endpoints_total = 16;
+
+  // The instances in the epoch, by ID. At most 100.
+  repeated MicroInstance instance_list = 17;
+
+  // Whether an instance answered the epoch's $SRV.STATS; false when not
+  // asked.
+  bool answered = 18;
+}
+
+// The micro services of the range's newest epoch.
+message GetMicroServicesResponse {
+  // Epoch read; 0 when the range holds none, and then everything else is
+  // empty.
+  int64 epoch = 1;
+
+  // When the epoch started.
+  google.protobuf.Timestamp epoch_at = 2;
+
+  // Services: those with a warning note first (instance missing, mixed
+  // versions, slow endpoint, errors, no answer); the system account's
+  // last; then by requests per second, most first (unset last), then by
+  // name and account. At most 200.
+  repeated MicroService services = 3;
+
+  // Services before the limit of 200.
+  int32 services_total = 4;
+
+  // Accounts in the scope with a service or asked by nats-lens, by
+  // account with the system account last.
+  repeated MicroAccountState accounts = 5;
+
+  // When the subscription collection read started: the newest at or
+  // before the epoch within 24 hours, as on the Subjects page. Unset when
+  // there is none; then services of accounts not asked are not known, and
+  // instances name no connection.
+  google.protobuf.Timestamp subscriptions_at = 6;
+}
