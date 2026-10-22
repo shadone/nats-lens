@@ -86,13 +86,15 @@ FROM st LEFT JOIN inf USING (account) LEFT JOIN epochs ie ON ie.epoch = inf.epoc
 
 // microPoints selects the endpoint reports of the instances that
 // answered the epoch ($1), of the epochs $2 to $3 that started in [$4,
-// $5): their counters, with their instance's start time from micro_stats
-// and the epoch's start as t. The endpoints are those of the relation the
-// query names eps; the rate window reads only the epoch's instances, as a
-// gone instance's run would count a restart twice.
+// $5) (microseconds): their counters and subject, with their instance's
+// start time from micro_stats and the epoch's start as t. An instance may
+// have two endpoints of one name on two subjects; each is a series of its
+// own, as the hourly rollup pairs them. The endpoints are those of the
+// relation the query names eps; the rate window reads only the epoch's
+// instances, as a gone instance's run would count a restart twice.
 const microPoints = `
   SELECT x.account, x.service, x.endpoint, x.instance_id, s.started, ep.started_at AS t,
-    x.num_requests AS r, x.num_errors AS er, x.processing_time_ns AS ns
+    coalesce(x.subject, '') AS subj, x.num_requests AS r, x.num_errors AS er, x.processing_time_ns AS ns
   FROM micro_endpoints x
   JOIN micro_stats s ON s.epoch = x.epoch AND s.account = x.account AND s.service = x.service AND s.instance_id = x.instance_id
   JOIN epochs ep ON ep.epoch = x.epoch
@@ -241,13 +243,13 @@ WITH `+epsOf+`, pts AS (`+microPoints+`
 ), marked AS (
   SELECT *, CASE WHEN started IS DISTINCT FROM lag(started) OVER w OR r < lag(r) OVER w OR er < lag(er) OVER w OR ns < lag(ns) OVER w
     THEN 1 ELSE 0 END AS brk
-  FROM pts WINDOW w AS (PARTITION BY account, service, endpoint, instance_id ORDER BY t)
+  FROM pts WINDOW w AS (PARTITION BY account, service, endpoint, instance_id, subj ORDER BY t)
 ), runs AS (
-  SELECT *, sum(brk) OVER (PARTITION BY account, service, endpoint, instance_id ORDER BY t ROWS UNBOUNDED PRECEDING) AS run FROM marked
+  SELECT *, sum(brk) OVER (PARTITION BY account, service, endpoint, instance_id, subj ORDER BY t ROWS UNBOUNDED PRECEDING) AS run FROM marked
 ), newest AS (
-  SELECT * FROM runs QUALIFY run = max(run) OVER (PARTITION BY account, service, endpoint, instance_id)
+  SELECT * FROM runs QUALIFY run = max(run) OVER (PARTITION BY account, service, endpoint, instance_id, subj)
 ), per AS (
-  SELECT account, service, endpoint, instance_id, arg_max(r, t) - arg_min(r, t) AS dr, arg_max(er, t) - arg_min(er, t) AS de,
+  SELECT account, service, endpoint, instance_id, subj, arg_max(r, t) - arg_min(r, t) AS dr, arg_max(er, t) - arg_min(er, t) AS de,
     arg_max(ns, t) - arg_min(ns, t) AS dn, date_diff('millisecond', min(t), max(t)) AS ms
   FROM newest GROUP BY ALL HAVING count(*) >= 2 AND max(t) > min(t)
 )
@@ -398,7 +400,7 @@ WITH v0(account, service, endpoint, us) AS (VALUES `+values+`
 ), v AS (SELECT account, service, endpoint, make_timestamp(us) AS f FROM v0
 ), pts AS (
   SELECT x.account, x.service, x.endpoint, x.instance_id, s.started, ep.started_at AS t, v.f,
-    x.num_requests AS r, x.num_errors AS er, x.processing_time_ns AS ns
+    coalesce(x.subject, '') AS subj, x.num_requests AS r, x.num_errors AS er, x.processing_time_ns AS ns
   FROM micro_endpoints x
   JOIN v ON v.account = x.account AND v.service = x.service AND v.endpoint = x.endpoint
   JOIN micro_stats s ON s.epoch = x.epoch AND s.account = x.account AND s.service = x.service AND s.instance_id = x.instance_id
@@ -407,7 +409,7 @@ WITH v0(account, service, endpoint, us) AS (VALUES `+values+`
     AND ep.started_at < v.f + INTERVAL `+fmt.Sprint(int(api.MicroSlowStartSpan.Hours()))+` HOUR
 ), d AS (
   SELECT account, service, endpoint, t, f, r - lag(r) OVER w AS dr, er - lag(er) OVER w AS de, ns - lag(ns) OVER w AS dn
-  FROM pts WINDOW w AS (PARTITION BY account, service, endpoint, instance_id, started ORDER BY t)
+  FROM pts WINDOW w AS (PARTITION BY account, service, endpoint, instance_id, subj, started ORDER BY t)
 )
 SELECT account, service, endpoint, t, sum(dn) / sum(dr) / 1e6 FROM d
 WHERE t >= f AND dr >= 0 AND de >= 0 AND dn >= 0 GROUP BY ALL HAVING sum(dr) > 0 ORDER BY 1, 2, 3, 4`, args...)

@@ -150,8 +150,10 @@ func TestMicroServicesAskedFromStore(t *testing.T) {
 		get.GetSubject() != "orders.get.*" || get.GetQueueGroup() != "q" {
 		t.Errorf("get = %v", get)
 	}
+	// create: 2 a second on orders.create, 1% failing, and 1 on
+	// orders.create.v2, per instance.
 	if create := o.GetEndpoints()[1]; create.GetLastError() != "409 duplicate order id" || create.GetLastErrorInstance() != "O2" ||
-		math.Abs(create.GetErrorShare()-0.01) > 0.001 {
+		math.Abs(create.GetErrorShare()-0.02/3) > 0.001 || math.Abs(create.GetRequestsPerSecond()-6) > 0.01 {
 		t.Errorf("create = %v", create)
 	}
 	pr := microNamed(m, "APP", "pricing")
