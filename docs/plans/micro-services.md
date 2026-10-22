@@ -8,7 +8,7 @@ The board's sample services (`orders`, `pricing`, `inventory`) fit the example s
 
 | Task | Status |
 |---|---|
-| T1 Collect micro service replies | built on `feat/micro-collect`; fix rounds 1 to 3 done, awaiting review |
+| T1 Collect micro service replies | built on `feat/micro-collect`; fix rounds 1 to 4 done |
 | T2 API, store and demo | not started |
 | T3 UI | not started |
 | T4 Feature docs and audit | not started |
@@ -94,6 +94,10 @@ Each point was decided in the session that built T1: proposed, not yet confirmed
   - A label whose last STATS failed (refused, not connected) does not ask for another label, and of one account's labels the first whose STATS was answered is kept.
   - The writer passes the hour and the previous epoch's start as Unix microseconds and builds them with `make_timestamp`, as T2 does; with `SET GLOBAL TimeZone` to America/Los_Angeles or Pacific/Auckland the hours equal UTC's. The statements are executed, not queried, and gave the same hours before the change too: the test could not be seen to fail; a query `SELECT ?::TIMESTAMP` did shift.
   - Without account connections the collector forgets every label and known instance; the log line of a label asked under another names it (`asked_under`).
+- **Fix round 4 (review of fix round 3).**
+  - The cap on the wait for known instances is never later than a quarter of the window (at least the quiet period) before its end: a new instance replying late, with a stopped known one, left its INFO no time.
+  - Endpoint rows are paired by name alone when either has no subject, so an endpoint whose subject first appears keeps its increase. Two endpoints of one name without subjects stay a known limit (a skipped test records it).
+  - The costs of the three-miss rule are measured and in `docs/design.md` and the leftovers.
 
 ## T2 API, store and demo
 
@@ -130,3 +134,5 @@ Recorded as they come up; moved to `docs/plans/next.md` item 5 when the work mer
 - A new instance whose first STATS reply comes in a later epoch than its start loses its activity before that reply in `micro_endpoint_hours`.
 - When the entry asking for an account loses its connection during the requests, the account has no answers in that epoch; another entry of the account could ask in the time left.
 - In operator mode an entry whose account lookup is refused cannot be matched with another entry of the same account, and both are stored.
+- The cost of waiting for known instances (three misses before one is forgotten), measured with a 2-second window: a scale-down holds up three epochs by a full window; a restart about half the window and the quiet period, then two full windows; a rolling deploy that replaces an instance every epoch waits until the cap (half to three quarters of the window) every epoch. Whether fewer misses, or a shorter wait for an instance that missed the last STATS, is better is open.
+- Two endpoints of one name that both lack a subject are summed as one in `micro_endpoint_hours`; the micro framework always reports subjects.

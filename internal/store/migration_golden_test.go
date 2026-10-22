@@ -42,7 +42,7 @@ var goldenMigrations = map[string]string{
 	"0030_account_consumer_limit_comment":  "f46781815a4fdeb2e3d061eefb8b0d8c6d25190303efd97dae586dc0cf5c01f7",
 	"0031_accepted_findings":               "0a27fa0a16fd801f2a615f2d35c15815565e98b1105fc5c51e196f3186d5d408",
 	"0032_subscriptions":                   "f4286f91ca4a72655feabe7861c1da421d7ec9ba9a8ae74a9f4bc4814e8fb169",
-	"0033_micro_services":                  "e4855d5f9abd7dd9550f2adfd1754cef81462cc41d07f1bf81845d7cd26add5a",
+	"0033_micro_services":                  "682e2a6f0be9260bb871d57d3b5c9f2c931ed35a5308702c7eca6e417aaeade9",
 }
 
 func TestMigrationsMatchGolden(t *testing.T) {
