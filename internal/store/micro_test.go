@@ -163,8 +163,15 @@ func bigMicroAccount(start time.Time, services, instances, endpoints int) collec
 func TestMicroManyInstances(t *testing.T) {
 	s := openMem(t)
 	snap := fixtureSnapshot(t, t0)
-	snap.Micro = []collect.MicroAccount{bigMicroAccount(t0, 1, 100, 20)}
+	snap.Micro = nil
 	start := time.Now()
+	if _, err := s.WriteSnapshot(context.Background(), snap); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("epoch without micro services written in %s", time.Since(start))
+	snap = fixtureSnapshot(t, t0.Add(time.Minute))
+	snap.Micro = []collect.MicroAccount{bigMicroAccount(t0, 1, 100, 20)}
+	start = time.Now()
 	epoch, err := s.WriteSnapshot(context.Background(), snap)
 	if err != nil {
 		t.Fatal(err)
