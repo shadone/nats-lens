@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -131,6 +132,24 @@ FROM micro_endpoints WHERE epoch = ?`, epoch), []string{"NULL|NULL|0|NULL|NULL"}
 			t.Errorf("%s has %d rows without account connections", table, n)
 		}
 	}
+}
+
+// Custom stats over 1 KB are stored as an object that gives their size;
+// up to 1 KB they are stored as sent.
+func TestMicroEndpointDataCapped(t *testing.T) {
+	s := openMem(t)
+	snap := fixtureSnapshot(t, t0)
+	big := json.RawMessage(`{"blob":"` + strings.Repeat("x", 2000) + `"}`)
+	snap.Micro[0].Stats[0].Endpoints[0].Data = big
+	epoch, err := s.WriteSnapshot(context.Background(), snap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantRows(t, "data", rowStrings(t, s.DB(), `SELECT instance_id, data::VARCHAR FROM micro_endpoints
+WHERE epoch = ? AND endpoint = 'create' ORDER BY instance_id`, epoch), []string{
+		fmt.Sprintf(`ORD1|{"truncated":true,"bytes":%d}`, len(big)),
+		`ORD2|{"retries":3}`,
+	})
 }
 
 // bigMicroAccount is one account with services×instances instances of

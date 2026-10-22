@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/micro"
@@ -129,16 +130,18 @@ func lessIdentity(a, b micro.ServiceIdentity) bool {
 }
 
 // resolveMicroAccount records the account name the server gave for nc's
-// user. A refused lookup is not made again for the label; a lookup that
-// got no answer is made again next epoch.
-func (c *Collector) resolveMicroAccount(label string, st *microAccount, nc *nats.Conn, x *exchanged) {
+// user. A refused lookup is made again after lookupRetry, as the grant may
+// have been added; a lookup that got no answer is made again next epoch.
+func (c *Collector) resolveMicroAccount(label string, st *microAccount, nc *nats.Conn, x *exchanged, at time.Time) {
 	if x == nil {
 		return
 	}
 	if x.err != nil && errors.Is(x.err, nats.ErrPermissionViolation) {
-		st.lookupDenied = true
-		c.log.Info("account name lookup not permitted; micro services are stored under the configured label",
-			"label", label, "subject", userInfoSubject)
+		if st.lookupDeniedAt.IsZero() {
+			c.log.Info("account name lookup not permitted; micro services are stored under the configured label",
+				"label", label, "subject", userInfoSubject)
+		}
+		st.lookupDeniedAt = at
 		return
 	}
 	for _, b := range x.replies {

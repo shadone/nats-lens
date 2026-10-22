@@ -72,7 +72,8 @@ func (e *eventConn) current() *nats.Conn {
 	return e.nc
 }
 
-// keep redials the connection whenever it closes, until ctx is done. The
+// keep redials the connection whenever it closes, or dials it when it has
+// none because its first dial failed, until ctx is done. The
 // wait doubles with every redial and starts over only after a reopened
 // connection lasted backoff.reset; a failing dial never resets it.
 func (e *eventConn) keep(ctx context.Context, poll time.Duration) {
@@ -83,7 +84,7 @@ func (e *eventConn) keep(ctx context.Context, poll time.Duration) {
 	wait := b.first
 	var opened time.Time // last successful reopen; zero before any
 	for {
-		for nc := e.current(); nc == nil || !nc.IsClosed(); nc = e.current() {
+		for nc := e.current(); nc != nil && !nc.IsClosed(); nc = e.current() {
 			select {
 			case <-ctx.Done():
 				return
