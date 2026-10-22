@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 
@@ -279,5 +280,37 @@ func TestGlobalOrderEventsAgreeWithTheirMirror(t *testing.T) {
 		if s.GetStream() == "order-archive" && !near(s.GetBytesPerDay(), mirror.GetBytesPerDay()) {
 			t.Errorf("Capacity growth %v, Streams %v", s.GetBytesPerDay(), mirror.GetBytesPerDay())
 		}
+	}
+}
+
+// The stream details of order-events and order-archive follow the same
+// story: order-events was created long enough ago to reach its 30-day
+// limit, and order-archive, a mirror made 48 days ago, keeps its origin's
+// sequence numbers, so both end at the same last sequence and each holds
+// its messages before it.
+func TestGlobalOrderEventsDetails(t *testing.T) {
+	c := demo(t)
+	view := func(stream string) *v1.StreamServerView {
+		res := must(c.GetStream(ctx, connect.NewRequest(&v1.GetStreamRequest{System: fake.GlobalSystem, Account: fake.Account, Stream: stream})))
+		for _, v := range res.GetServers() {
+			if v.GetIsLeader() {
+				return v
+			}
+		}
+		t.Fatalf("%s has no leader view", stream)
+		return nil
+	}
+	o, m := view("order-events"), view("order-archive")
+	now := fake.FixedNow
+	if age := now.Sub(o.GetCreated().AsTime()); age < 30*24*time.Hour {
+		t.Errorf("order-events created %s ago, before its 30-day limit", age)
+	}
+	if age := now.Sub(m.GetCreated().AsTime()); age != 48*24*time.Hour {
+		t.Errorf("order-archive created %s ago, want 48 days", age)
+	}
+	if o.GetLastSeq() != m.GetLastSeq() || o.GetLastSeq()-o.GetFirstSeq()+1 != o.GetMessages() || m.GetLastSeq()-m.GetFirstSeq()+1 != m.GetMessages() ||
+		m.GetFirstSeq() >= o.GetFirstSeq() {
+		t.Errorf("order-events %d..%d (%d), order-archive %d..%d (%d)", o.GetFirstSeq(), o.GetLastSeq(), o.GetMessages(), m.GetFirstSeq(),
+			m.GetLastSeq(), m.GetMessages())
 	}
 }

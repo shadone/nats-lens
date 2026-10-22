@@ -34,6 +34,12 @@ const (
 	orderArchiveDays = 48
 )
 
+// orderEventsCreated is when order-events was created, in the fixed frame:
+// orderEventsAge days ago, long enough to have reached its 30-day limit.
+const orderEventsAge = 77
+
+var orderEventsCreated = FixedNow.Add(-orderEventsAge * day)
+
 // orderMsgs is how many order events are stored in days.
 func orderMsgs(days float64) int64 { return int64(orderEventsRate * days * 86400) }
 
@@ -145,7 +151,7 @@ func globalScenario() *scenario {
 			// At its 30-day age limit: it stores orderEventsRate messages a
 			// second and drops as many, so it does not grow.
 			{name: "order-events", msgs: orderMsgs(30), bytes: float64(orderMsgs(30)) * orderMsgSize,
-				maxAge: 30 * day, maxBytes: 64 * gib, storedRate: ptr(orderEventsRate),
+				maxAge: 30 * day, maxBytes: 64 * gib, storedRate: ptr(orderEventsRate), created: orderEventsCreated, lastSeq: orderMsgs(orderEventsAge),
 				consumers: []string{"order-projector", "email-sender", "analytics-aggregator", "invoice-renderer"}, peers: peers("eu-3", "eu-4", "eu-5")},
 			{name: "payment-events", msgs: 2210980, bytes: 2.6 * gib, perDay: 74 * mib, maxAge: 90 * day, held: 40 * day, consumers: []string{"ledger-writer", "fraud-scorer"}, peers: peers("eu-1", "eu-6", "eu-7")},
 			{name: "cart-events", msgs: 4120330, bytes: 1.9 * gib, perDay: 120 * mib, retention: "interest", maxAge: 14 * day, held: 3 * day, consumers: []string{"cart-abandon-notifier"}, peers: peers("eu-2", "eu-5", "eu-8")},
@@ -168,6 +174,7 @@ func globalScenario() *scenario {
 			// (globalSeedArchiveMute).
 			{name: "order-archive", msgs: orderMsgs(orderArchiveDays), bytes: float64(orderMsgs(orderArchiveDays)) * orderMsgSize,
 				perDay: orderEventsRate * 86400 * orderMsgSize, mirror: "order-events", held: orderArchiveDays * day, consumers: []string{"archive-exporter"},
+				created: FixedNow.Add(-orderArchiveDays * day), lastSeq: orderMsgs(orderEventsAge),
 				peers: peers("ap-2", "ap-5", "ap-1")},
 			// nats-us-3 came back from the upgrade without its replica.
 			{name: "return-requests", msgs: 84120, bytes: 96 * mib, perDay: 2 * mib, retention: "workqueue", maxAge: 7 * day, held: 2 * day, consumers: []string{"refund-issuer"}, peers: peers("us-6", "us-3", "us-8"),
