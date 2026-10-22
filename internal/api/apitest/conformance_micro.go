@@ -59,9 +59,8 @@ func hasInstance(s *v1.MicroService, id string) bool {
 	return slices.ContainsFunc(s.GetInstanceList(), func(in *v1.MicroInstance) bool { return in.GetId() == id })
 }
 
-// MicroConformance are the Micro services states both providers must
-// show.
-func MicroConformance() []State {
+// microRows are the Micro services states both providers must show.
+func microRows() []State {
 	return []State{
 		{"a Micro services service that answered, with its versions, endpoints and rate", microService(func(s *v1.MicroService) bool {
 			return s.GetAsked() && s.GetAnswered() && len(s.GetVersions()) > 0 && s.GetDescription() != "" && s.RequestsPerSecond != nil &&
