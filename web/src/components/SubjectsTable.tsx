@@ -97,11 +97,11 @@ function Patterns({ r }: { r: SubjectRow }) {
           {p}
         </span>
       ))}
+      {r.morePatterns > 0 && <span className="sj-more">+{fmtInt(r.morePatterns)} more</span>}
     </>
   );
 }
 
-/** scoped: the page shows one account, so an account is not offered as a link to itself. */
 /** No stored rate: the row is not a stream's, so it never has one. */
 function NoRate() {
   return (
@@ -112,7 +112,11 @@ function NoRate() {
   );
 }
 
-/** filterParam: the page's ?filter=, kept on an account's link. */
+/**
+ * scoped: the page shows one account, so an account is not offered as a
+ * link to itself. filterParam: the page's ?filter=, kept on an account's
+ * link.
+ */
 export function SubjectsTable({ d, scoped, empty, filterParam = "" }: { d: Subjects; scoped: boolean; empty: string; filterParam?: string }) {
   const label = accountLabeller(d.rows);
   const cut = cutText(d);
