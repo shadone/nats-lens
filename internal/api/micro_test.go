@@ -117,29 +117,15 @@ func TestMicroWindowIncrease(t *testing.T) {
 	}
 }
 
-// The level is the median of the hourly averages, each the hour's
-// processing time over its requests; fewer than 24 hours give none.
+// The level is the median of the hourly averages; fewer than 24 hours
+// give none.
 func TestMicroLevel(t *testing.T) {
-	var reports []api.MicroReport
-	start := microT0.Add(-30 * time.Hour)
-	var req, ns int64
-	for m := 0; m <= 30*60; m += 5 {
-		ms := 4.0
-		if m >= 25*60 {
-			ms = 40 // the last 5 hours are slow
+	vals := make([]float64, 31)
+	for i := range vals {
+		vals[i] = 4
+		if i >= 26 {
+			vals[i] = 40 // the last 5 hours are slow
 		}
-		r := api.MicroReport{Instance: "A", Started: start, At: start.Add(time.Duration(m) * time.Minute), Requests: req, ProcessingNs: ns}
-		reports = append(reports, r)
-		req += 600
-		ns += int64(600 * ms * 1e6)
-	}
-	hourly := api.MicroHourlyAverages(api.MicroDeltas(reports))
-	if len(hourly) != 31 {
-		t.Fatalf("%d hours", len(hourly))
-	}
-	var vals []float64
-	for _, h := range hourly {
-		vals = append(vals, h.Ms)
 	}
 	if l := api.MicroLevel(vals); l == nil || !near(*l, 4) {
 		t.Errorf("level = %v", l)
@@ -174,33 +160,50 @@ func TestMicroIsSlow(t *testing.T) {
 	}
 }
 
-// The slow run is the run of collections, each slow, that ends at the
-// newest slow one.
-func TestMicroSlowSince(t *testing.T) {
-	avgs := func(ms ...float64) []api.MicroAverage {
+// The slow run starts after the newest hour that is not slow, at the
+// first collection after that hour's and the next's last fast one; a
+// brief fast spell inside a later slow hour does not end it.
+func TestMicroSlowStart(t *testing.T) {
+	hour := func(h int) time.Time { return microT0.Add(time.Duration(h) * time.Hour) }
+	avgs := func(step time.Duration, from time.Time, ms ...float64) []api.MicroAverage {
 		var out []api.MicroAverage
 		for i, v := range ms {
-			out = append(out, api.MicroAverage{At: at(30 * i), Ms: v})
+			out = append(out, api.MicroAverage{At: from.Add(time.Duration(i) * step), Ms: v})
 		}
 		return out
 	}
-	for _, c := range []struct {
-		ms   []float64
-		want int
-	}{
-		{[]float64{4, 40, 4, 40, 41, 42}, 3},
-		{[]float64{4, 40, 40, 40, 4}, 1},
-		{[]float64{40, 40}, 0},
-		{[]float64{4, 4}, -1},
-		{nil, -1},
-	} {
-		got := api.MicroSlowSince(avgs(c.ms...), 4)
-		switch {
-		case c.want < 0 && got != nil:
-			t.Errorf("%v: %v", c.ms, got)
-		case c.want >= 0 && (got == nil || !got.Equal(at(30*c.want))):
-			t.Errorf("%v: %v, want %v", c.ms, got, at(30*c.want))
+	hours := avgs(time.Hour, hour(0), 4, 4, 30, 40, 40)
+	if f := api.MicroLastFastHour(hours, 4); f == nil || !f.Equal(hour(1)) {
+		t.Errorf("last fast hour = %v", f)
+	}
+	// In hour 1 and 2: fast until 1:40, a slow blip at 1:20, slow from
+	// 1:45 but for one fast collection at 2:30 (hour 2 is slow overall).
+	var cols []api.MicroAverage
+	for m := 0; m < 120; m += 5 {
+		ms := 4.0
+		if m == 20 || m >= 45 {
+			ms = 40
 		}
+		if m == 90 {
+			ms = 4.5
+		}
+		cols = append(cols, api.MicroAverage{At: hour(1).Add(time.Duration(m) * time.Minute), Ms: ms})
+	}
+	got := api.MicroSlowStart(hours, cols, 4)
+	if got == nil || !got.Equal(hour(2).Add(35*time.Minute)) {
+		// The last fast collection of the two hours is 2:30.
+		t.Errorf("slow start = %v", got)
+	}
+	cols[18].Ms = 40 // 2:30 slow too: the run starts after 1:40
+	if got := api.MicroSlowStart(hours, cols, 4); got == nil || !got.Equal(hour(1).Add(45*time.Minute)) {
+		t.Errorf("slow start = %v", got)
+	}
+	allSlow := avgs(time.Hour, hour(0), 30, 40)
+	if got := api.MicroSlowStart(allSlow, nil, 4); got == nil || !got.Equal(hour(0)) {
+		t.Errorf("every hour slow: %v", got)
+	}
+	if got := api.MicroSlowStart(nil, nil, 4); got != nil {
+		t.Errorf("no hours: %v", got)
 	}
 	// Collection averages sum the instances' deltas of one collection.
 	reports := []api.MicroReport{report("A", microT0, 0, 0, 0, 1), report("A", microT0, 30, 100, 0, 1), report("B", microT0, 0, 0, 0, 9),
@@ -280,15 +283,17 @@ func TestFinishMicro(t *testing.T) {
 		Gone: []api.MicroGoneFact{
 			// Hung: still subscribed in a collection after it went missing.
 			{Account: "APP", Service: "inventory", ID: "I2", LastSeen: epoch.Add(-10 * time.Minute), Since: epoch.Add(-9*time.Minute - 30*time.Second),
-				Connection: "inv", InstancesThen: 2},
+				Connection: "inv", InstancesThen: 2, Absent: 19},
 			// Replaced in a rolling restart: as many instances now.
-			{Account: "APP", Service: "rolled", ID: "R1", LastSeen: epoch.Add(-20 * time.Minute), Since: epoch.Add(-19 * time.Minute), InstancesThen: 2},
+			{Account: "APP", Service: "rolled", ID: "R1", LastSeen: epoch.Add(-20 * time.Minute), Since: epoch.Add(-19 * time.Minute), InstancesThen: 2, Absent: 38},
 			// Gone longer than the hour.
-			{Account: "APP", Service: "rolled", ID: "R2", LastSeen: epoch.Add(-61 * time.Minute), Since: epoch.Add(-60 * time.Minute), InstancesThen: 3},
+			{Account: "APP", Service: "rolled", ID: "R2", LastSeen: epoch.Add(-61 * time.Minute), Since: epoch.Add(-60 * time.Minute), InstancesThen: 3, Absent: 120},
 			// Scaled down from 2 to 1, gone with its connection.
-			{Account: "PROD", Service: "catalog", ID: "C2", LastSeen: epoch.Add(-5 * time.Minute), Since: epoch, InstancesThen: 2},
+			{Account: "PROD", Service: "catalog", ID: "C2", LastSeen: epoch.Add(-5 * time.Minute), Since: epoch, InstancesThen: 2, Absent: 1,
+				FromSubscriptions: true},
 			// A whole service gone, in an account not asked.
-			{Account: "PROD", Service: "search", ID: "Z1", LastSeen: epoch.Add(-5 * time.Minute), Since: epoch, InstancesThen: 1},
+			{Account: "PROD", Service: "search", ID: "Z1", LastSeen: epoch.Add(-5 * time.Minute), Since: epoch, InstancesThen: 1, Absent: 1,
+				FromSubscriptions: true},
 		},
 	}
 	res := api.FinishMicro(f, "")
@@ -407,7 +412,7 @@ func TestFinishMicroStillSubscribedNeedsALaterCollection(t *testing.T) {
 		Answered:        []api.MicroServiceFact{{Account: "APP", Name: "s", Instances: instances("1", "A", "B2")}},
 		SubscriptionsAt: &early,
 		Seen:            []api.MicroServiceFact{{Account: "APP", Name: "s", Instances: []api.MicroInstanceFact{{ID: "A"}, {ID: "B"}}}},
-		Gone:            []api.MicroGoneFact{{Account: "APP", Service: "s", ID: "B", LastSeen: epoch.Add(-90 * time.Second), Since: epoch.Add(-time.Minute), InstancesThen: 2}},
+		Gone:            []api.MicroGoneFact{{Account: "APP", Service: "s", ID: "B", LastSeen: epoch.Add(-90 * time.Second), Since: epoch.Add(-time.Minute), InstancesThen: 2, Absent: 2}},
 	}
 	if s := api.FinishMicro(f, "").GetServices()[0]; len(s.GetMissing()) != 0 {
 		t.Errorf("replaced before the collection: %v", s.GetMissing())
@@ -461,5 +466,133 @@ func TestFinishMicroLabelIsTheSeenAccount(t *testing.T) {
 	}
 	if s := api.FinishMicro(f, key); len(s.GetServices()) != 1 {
 		t.Errorf("scoped to the key: %v", s)
+	}
+}
+
+func okStats(account string) api.MicroAccountFact {
+	return api.MicroAccountFact{Account: account, Stats: api.MicroRequestFact{State: v1.MicroRequestState_MICRO_REQUEST_STATE_OK, At: microT0}}
+}
+
+// The epoch's $SRV.STATS timed out: nothing says the instances left. The
+// service shows its last instances and says no answer; with one instance
+// seen in the subscriptions, the other is still not missing.
+func TestFinishMicroFailedStatsIsNotMissing(t *testing.T) {
+	subsAt := microT0.Add(-time.Minute)
+	f := &api.MicroFacts{Epoch: 2, EpochAt: microT0,
+		Accounts: []api.MicroAccountFact{{Account: "APP", Stats: api.MicroRequestFact{State: v1.MicroRequestState_MICRO_REQUEST_STATE_TIMEOUT, At: microT0}}},
+		Gone: []api.MicroGoneFact{
+			{Account: "APP", Service: "orders", ID: "O1", LastSeen: microT0.Add(-30 * time.Second), Since: microT0, InstancesThen: 2, Absent: 2},
+			{Account: "APP", Service: "orders", ID: "O2", LastSeen: microT0.Add(-30 * time.Second), Since: microT0, InstancesThen: 2, Absent: 2},
+		},
+	}
+	s := findService(api.FinishMicro(f, ""), "APP", "orders")
+	if s == nil || s.GetNote() != v1.MicroNote_MICRO_NOTE_NO_ANSWER || len(s.GetMissing()) != 0 || s.GetInstances() != 2 {
+		t.Errorf("STATS timed out: %v", s)
+	}
+	f.SubscriptionsAt = &subsAt
+	f.Seen = []api.MicroServiceFact{{Account: "APP", Name: "orders", Instances: []api.MicroInstanceFact{{ID: "O1"}}}}
+	s = findService(api.FinishMicro(f, ""), "APP", "orders")
+	if s == nil || s.GetNote() != v1.MicroNote_MICRO_NOTE_NO_ANSWER || len(s.GetMissing()) != 0 {
+		t.Errorf("STATS timed out, one seen: %v", s)
+	}
+}
+
+// B and C went and D replaced one of them: one instance short, so one
+// missing, the most recently gone.
+func TestFinishMicroMissingAtMostTheShortfall(t *testing.T) {
+	f := &api.MicroFacts{Epoch: 2, EpochAt: microT0, Accounts: []api.MicroAccountFact{okStats("APP")},
+		Answered: []api.MicroServiceFact{{Account: "APP", Name: "orders", Instances: instances("1", "A", "D")}},
+		Gone: []api.MicroGoneFact{
+			{Account: "APP", Service: "orders", ID: "B", LastSeen: microT0.Add(-5 * time.Minute), Since: microT0, InstancesThen: 3, Absent: 9},
+			{Account: "APP", Service: "orders", ID: "C", LastSeen: microT0.Add(-4 * time.Minute), Since: microT0, InstancesThen: 3, Absent: 7},
+		},
+	}
+	s := findService(api.FinishMicro(f, ""), "APP", "orders")
+	if len(s.GetMissing()) != 1 || s.GetMissing()[0].GetId() != "C" {
+		t.Errorf("one instance short: missing %v", s.GetMissing())
+	}
+}
+
+// One late reply is not a missing instance: it must be absent from two
+// ok requests.
+func TestFinishMicroOneLateReplyIsNotMissing(t *testing.T) {
+	f := &api.MicroFacts{Epoch: 2, EpochAt: microT0, Accounts: []api.MicroAccountFact{okStats("APP")},
+		Answered: []api.MicroServiceFact{{Account: "APP", Name: "orders", Instances: instances("1", "A")}},
+		Gone: []api.MicroGoneFact{{Account: "APP", Service: "orders", ID: "B", LastSeen: microT0.Add(-30 * time.Second), Since: microT0,
+			InstancesThen: 2, Absent: 1}},
+	}
+	if s := findService(api.FinishMicro(f, ""), "APP", "orders"); len(s.GetMissing()) != 0 {
+		t.Errorf("late once: %v", s.GetMissing())
+	}
+	f.Gone[0].Absent = 2
+	if s := findService(api.FinishMicro(f, ""), "APP", "orders"); len(s.GetMissing()) != 1 {
+		t.Errorf("absent twice: %v", s.GetMissing())
+	}
+}
+
+// A hang longer than the hour stays missing while the subscription
+// collection lists the instance.
+func TestFinishMicroLongHangStaysMissing(t *testing.T) {
+	subsAt := microT0.Add(-time.Minute)
+	f := &api.MicroFacts{Epoch: 2, EpochAt: microT0, Accounts: []api.MicroAccountFact{okStats("APP")},
+		Answered:        []api.MicroServiceFact{{Account: "APP", Name: "orders", Instances: instances("1", "A")}},
+		SubscriptionsAt: &subsAt,
+		Seen:            []api.MicroServiceFact{{Account: "APP", Name: "orders", Instances: []api.MicroInstanceFact{{ID: "A"}, {ID: "B"}}}},
+		Gone: []api.MicroGoneFact{{Account: "APP", Service: "orders", ID: "B", LastSeen: microT0.Add(-3 * time.Hour), Since: microT0.Add(-179 * time.Minute),
+			InstancesThen: 2, Absent: 300}},
+	}
+	if s := findService(api.FinishMicro(f, ""), "APP", "orders"); len(s.GetMissing()) != 1 || !s.GetMissing()[0].GetStillSubscribed() {
+		t.Errorf("3-hour hang: %v", s.GetMissing())
+	}
+	f.Seen[0].Instances = f.Seen[0].Instances[:1]
+	if s := findService(api.FinishMicro(f, ""), "APP", "orders"); len(s.GetMissing()) != 0 {
+		t.Errorf("gone 3 hours ago, unsubscribed: %v", s.GetMissing())
+	}
+}
+
+// An asked account's gone instances come from its answers, not from the
+// subscription collections.
+func TestFinishMicroAskedIgnoresSeenGone(t *testing.T) {
+	f := &api.MicroFacts{Epoch: 2, EpochAt: microT0, Accounts: []api.MicroAccountFact{okStats("APP")},
+		Answered: []api.MicroServiceFact{{Account: "APP", Name: "orders", Instances: instances("1", "A")}},
+		Gone: []api.MicroGoneFact{{Account: "APP", Service: "orders", ID: "B", LastSeen: microT0.Add(-5 * time.Minute), Since: microT0,
+			InstancesThen: 2, Absent: 5, FromSubscriptions: true}},
+	}
+	if s := findService(api.FinishMicro(f, ""), "APP", "orders"); len(s.GetMissing()) != 0 {
+		t.Errorf("seen gone in an asked account: %v", s.GetMissing())
+	}
+}
+
+// A label is aliased only when every answered instance is seen under one
+// other account; two labels of one key keep the answered request.
+func TestFinishMicroAliasNeedsEveryInstance(t *testing.T) {
+	seen := func(acc string, ids ...string) api.MicroServiceFact {
+		s := api.MicroServiceFact{Account: acc, Name: "orders"}
+		for _, id := range ids {
+			s.Instances = append(s.Instances, api.MicroInstanceFact{ID: id})
+		}
+		return s
+	}
+	base := api.MicroFacts{Epoch: 1, EpochAt: microT0, Accounts: []api.MicroAccountFact{okStats("shop")},
+		Answered: []api.MicroServiceFact{{Account: "shop", Name: "orders", Instances: instances("1", "O1", "O2")}}}
+	for name, s := range map[string][]api.MicroServiceFact{
+		"two keys": {seen("K1", "O1"), seen("K2", "O2")},
+		"partial":  {seen("K1", "O1")},
+	} {
+		f := base
+		f.Seen = s
+		if svc := findService(api.FinishMicro(&f, ""), "shop", "orders"); svc == nil || !svc.GetAnswered() {
+			t.Errorf("%s: aliased anyway", name)
+		}
+	}
+	f := base
+	f.Seen = []api.MicroServiceFact{seen("K", "O1", "O2")}
+	f.Accounts = []api.MicroAccountFact{okStats("shop"), {Account: "shop2", Stats: api.MicroRequestFact{
+		State: v1.MicroRequestState_MICRO_REQUEST_STATE_ERROR, At: microT0}}}
+	f.Answered = append(f.Answered, api.MicroServiceFact{Account: "shop2", Name: "orders", Instances: instances("1", "O1")})
+	res := api.FinishMicro(&f, "")
+	if len(res.GetAccounts()) != 1 || res.GetAccounts()[0].GetAccount() != "K" ||
+		res.GetAccounts()[0].GetStats().GetState() != v1.MicroRequestState_MICRO_REQUEST_STATE_OK {
+		t.Errorf("two labels of K: %v", res.GetAccounts())
 	}
 }
