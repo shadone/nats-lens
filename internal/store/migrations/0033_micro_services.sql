@@ -7,18 +7,22 @@ CREATE TABLE micro_requests (
     account  VARCHAR NOT NULL,
     request  VARCHAR NOT NULL,
     state    VARCHAR NOT NULL,
-    replies  INTEGER NOT NULL,
-    error    VARCHAR
+    replies      INTEGER NOT NULL,
+    error        VARCHAR,
+    refused_at   TIMESTAMP,
+    retry_after  TIMESTAMP
 );
 CREATE UNIQUE INDEX micro_requests_key ON micro_requests (epoch, label, request);
-COMMENT ON TABLE micro_requests IS 'One row per account and micro service request sent in an epoch: STATS every epoch, INFO every subscriptions_interval, on the first epoch and when STATS names an instance no INFO described. An account listed under accounts with micro: false, or not listed, has no rows: its services were not asked.';
+COMMENT ON TABLE micro_requests IS 'One row per account and micro service request sent, or held after a refusal, in an epoch: STATS every epoch, INFO every subscriptions_interval, on the first epoch and when STATS names an instance no INFO described. An account listed under accounts with micro: false, or not listed, has no rows: its services were not asked.';
 COMMENT ON COLUMN micro_requests.epoch IS 'Epoch that sent the request (epochs.epoch).';
 COMMENT ON COLUMN micro_requests.label IS 'The account''s name under accounts in the configuration.';
 COMMENT ON COLUMN micro_requests.account IS 'Account as the servers name it (accounts.account; its public key in operator mode), from $SYS.REQ.USER.INFO on the account connection; the label when the user may not ask that or no answer came yet.';
 COMMENT ON COLUMN micro_requests.request IS 'INFO ($SRV.INFO) or STATS ($SRV.STATS).';
-COMMENT ON COLUMN micro_requests.state IS 'ok: at least one instance replied; no_responders: the server answered that nothing in the account listens, so the account has no micro service; timeout: no reply within the collect window; error: the request could not be made or answered (account connection not connected, a permissions violation on the request subject or the reply inbox, or only replies that did not decode).';
+COMMENT ON COLUMN micro_requests.state IS 'ok: at least one instance replied; no_responders: the server answered that nothing in the account listens, so the account has no micro service; timeout: no reply within the collect window; error: the request could not be made or answered (account connection not connected, a permissions violation on the request subject or the reply inbox, or only replies that did not decode); held: not sent, as the server refused it within the last 10 minutes on this connection (refused_at, retry_after), the refusal in error.';
 COMMENT ON COLUMN micro_requests.replies IS 'Replies that decoded: one per instance.';
-COMMENT ON COLUMN micro_requests.error IS 'Why the state is error, as the connection or server said it, or how many replies did not decode; NULL otherwise. A request the server refused is not sent again for 10 minutes: in between its row repeats the refusal with "(not sent: refused at <time>, asked again after <time>)" appended.';
+COMMENT ON COLUMN micro_requests.error IS 'Why the state is error, as the connection or server said it, or how many replies did not decode; for held, the server''s refusal as received; NULL otherwise.';
+COMMENT ON COLUMN micro_requests.refused_at IS 'For held: when the server refused the request (the start of the epoch that sent it), in UTC; NULL for the other states.';
+COMMENT ON COLUMN micro_requests.retry_after IS 'For held: from when the request is sent again (refused_at plus 10 minutes, or earlier when the entry''s connection is dialled again), in UTC; NULL for the other states.';
 
 CREATE TABLE micro_instances (
     epoch        BIGINT NOT NULL,

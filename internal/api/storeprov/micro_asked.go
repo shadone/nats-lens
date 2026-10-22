@@ -40,6 +40,23 @@ func tsParam(n int) string { return fmt.Sprintf("make_timestamp($%d::BIGINT)", n
 var microStates = map[string]v1.MicroRequestState{
 	"ok": v1.MicroRequestState_MICRO_REQUEST_STATE_OK, "no_responders": v1.MicroRequestState_MICRO_REQUEST_STATE_NO_RESPONDERS,
 	"timeout": v1.MicroRequestState_MICRO_REQUEST_STATE_TIMEOUT, "error": v1.MicroRequestState_MICRO_REQUEST_STATE_ERROR,
+	"held": v1.MicroRequestState_MICRO_REQUEST_STATE_HELD,
+}
+
+// microStateRank orders the requests of one account under two labels: an
+// ok request first, then the most telling failure: an error with its
+// reason, a held request with the refusal, a timeout, no responders.
+func microStateRank(col string) string {
+	return "CASE " + col + " WHEN 'ok' THEN 0 WHEN 'error' THEN 1 WHEN 'held' THEN 2 WHEN 'timeout' THEN 3 ELSE 4 END"
+}
+
+// utcPtr is a stored UTC timestamp, nil when NULL.
+func utcPtr(t sql.NullTime) *time.Time {
+	if !t.Valid {
+		return nil
+	}
+	u := t.Time.UTC()
+	return &u
 }
 
 // microAccounts reads the accounts asked in the epoch: those with a
@@ -54,14 +71,15 @@ func (p *Provider) microAccounts(ctx context.Context, e epochInfo) ([]api.MicroA
 	}
 	rows, err := p.db().QueryContext(ctx, `
 WITH st AS (
-  SELECT account, state, replies, error FROM micro_requests WHERE epoch = $1 AND request = 'STATS'
-  QUALIFY row_number() OVER (PARTITION BY account ORDER BY CASE state WHEN 'ok' THEN 0 WHEN 'error' THEN 1 WHEN 'timeout' THEN 2 ELSE 3 END, label) = 1
+  SELECT account, state, replies, error, refused_at, retry_after FROM micro_requests WHERE epoch = $1 AND request = 'STATS'
+  QUALIFY row_number() OVER (PARTITION BY account ORDER BY `+microStateRank("state")+`, label) = 1
 ), inf AS (
-  SELECT r.account, r.epoch, r.state, r.replies, r.error FROM micro_requests r
+  SELECT r.account, r.epoch, r.state, r.replies, r.error, r.refused_at, r.retry_after FROM micro_requests r
   WHERE r.epoch BETWEEN $2 AND $1 AND r.request = 'INFO' AND r.account IN (SELECT account FROM st)
-  QUALIFY row_number() OVER (PARTITION BY r.account ORDER BY r.epoch DESC, CASE r.state WHEN 'ok' THEN 0 WHEN 'error' THEN 1 WHEN 'timeout' THEN 2 ELSE 3 END, r.label) = 1
+  QUALIFY row_number() OVER (PARTITION BY r.account ORDER BY r.epoch DESC, `+microStateRank("r.state")+`, r.label) = 1
 )
-SELECT st.account, st.state, st.replies, coalesce(st.error, ''), inf.state, coalesce(inf.replies, 0), coalesce(inf.error, ''), ie.started_at
+SELECT st.account, st.state, st.replies, coalesce(st.error, ''), st.refused_at, st.retry_after,
+  inf.state, coalesce(inf.replies, 0), coalesce(inf.error, ''), inf.refused_at, inf.retry_after, ie.started_at
 FROM st LEFT JOIN inf USING (account) LEFT JOIN epochs ie ON ie.epoch = inf.epoch ORDER BY st.account`, e.epoch, lo)
 	if err != nil {
 		return nil, fmt.Errorf("micro accounts: %w", err)
@@ -72,13 +90,16 @@ FROM st LEFT JOIN inf USING (account) LEFT JOIN epochs ie ON ie.epoch = inf.epoc
 		var a api.MicroAccountFact
 		var state string
 		var infoState sql.NullString
-		var infoAt sql.NullTime
-		if err := rows.Scan(&a.Account, &state, &a.Stats.Replies, &a.Stats.Error, &infoState, &a.Info.Replies, &a.Info.Error, &infoAt); err != nil {
+		var infoAt, refused, retry, infoRefused, infoRetry sql.NullTime
+		if err := rows.Scan(&a.Account, &state, &a.Stats.Replies, &a.Stats.Error, &refused, &retry, &infoState, &a.Info.Replies, &a.Info.Error,
+			&infoRefused, &infoRetry, &infoAt); err != nil {
 			return nil, err
 		}
 		a.Stats.State, a.Stats.At = microStates[state], e.startedAt
+		a.Stats.RefusedAt, a.Stats.RetryAfter = utcPtr(refused), utcPtr(retry)
 		if infoState.Valid {
 			a.Info.State, a.Info.At = microStates[infoState.String], infoAt.Time.UTC()
+			a.Info.RefusedAt, a.Info.RetryAfter = utcPtr(infoRefused), utcPtr(infoRetry)
 		}
 		out = append(out, a)
 	}

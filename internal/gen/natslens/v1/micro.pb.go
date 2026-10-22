@@ -39,6 +39,10 @@ const (
 	// The request failed, a permissions violation among others; error says
 	// why.
 	MicroRequestState_MICRO_REQUEST_STATE_ERROR MicroRequestState = 4
+	// Not sent: the server refused it within the last 10 minutes on this
+	// connection, and nats-lens waits before asking again. error is the
+	// refusal as received; refused_at and retry_after say when.
+	MicroRequestState_MICRO_REQUEST_STATE_HELD MicroRequestState = 5
 )
 
 // Enum value maps for MicroRequestState.
@@ -49,6 +53,7 @@ var (
 		2: "MICRO_REQUEST_STATE_NO_RESPONDERS",
 		3: "MICRO_REQUEST_STATE_TIMEOUT",
 		4: "MICRO_REQUEST_STATE_ERROR",
+		5: "MICRO_REQUEST_STATE_HELD",
 	}
 	MicroRequestState_value = map[string]int32{
 		"MICRO_REQUEST_STATE_UNSPECIFIED":   0,
@@ -56,6 +61,7 @@ var (
 		"MICRO_REQUEST_STATE_NO_RESPONDERS": 2,
 		"MICRO_REQUEST_STATE_TIMEOUT":       3,
 		"MICRO_REQUEST_STATE_ERROR":         4,
+		"MICRO_REQUEST_STATE_HELD":          5,
 	}
 )
 
@@ -294,13 +300,18 @@ type MicroRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// How it ended; unspecified when not asked.
 	State MicroRequestState `protobuf:"varint,1,opt,name=state,proto3,enum=natslens.v1.MicroRequestState" json:"state,omitempty"`
-	// When the epoch that asked it started; unset when not asked.
+	// When the epoch that asked it (or held it) started; unset when not
+	// asked.
 	At *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=at,proto3" json:"at,omitempty"`
 	// Replies gathered: one per service instance.
 	Replies int32 `protobuf:"varint,3,opt,name=replies,proto3" json:"replies,omitempty"`
-	// Why it failed, as the client or server said; empty unless the state
-	// is error.
-	Error         string `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
+	// Why it failed, as the client or server said; for held, the server's
+	// refusal that holds it. Empty for the other states.
+	Error string `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
+	// For held: when the server refused the request, and from when it is
+	// sent again. Unset for the other states.
+	RefusedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=refused_at,json=refusedAt,proto3" json:"refused_at,omitempty"`
+	RetryAfter    *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=retry_after,json=retryAfter,proto3" json:"retry_after,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -361,6 +372,20 @@ func (x *MicroRequest) GetError() string {
 		return x.Error
 	}
 	return ""
+}
+
+func (x *MicroRequest) GetRefusedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.RefusedAt
+	}
+	return nil
+}
+
+func (x *MicroRequest) GetRetryAfter() *timestamppb.Timestamp {
+	if x != nil {
+		return x.RetryAfter
+	}
+	return nil
 }
 
 // An account in the page's scope: one with a service, or one nats-lens
@@ -1211,12 +1236,16 @@ const file_natslens_v1_micro_proto_rawDesc = "" +
 	"\x17GetMicroServicesRequest\x12\x16\n" +
 	"\x06system\x18\x01 \x01(\tR\x06system\x12,\n" +
 	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x18\n" +
-	"\aaccount\x18\x03 \x01(\tR\aaccount\"\xa0\x01\n" +
+	"\aaccount\x18\x03 \x01(\tR\aaccount\"\x98\x02\n" +
 	"\fMicroRequest\x124\n" +
 	"\x05state\x18\x01 \x01(\x0e2\x1e.natslens.v1.MicroRequestStateR\x05state\x12*\n" +
 	"\x02at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x02at\x12\x18\n" +
 	"\areplies\x18\x03 \x01(\x05R\areplies\x12\x14\n" +
-	"\x05error\x18\x04 \x01(\tR\x05error\"\x89\x02\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error\x129\n" +
+	"\n" +
+	"refused_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\trefusedAt\x12;\n" +
+	"\vretry_after\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"retryAfter\"\x89\x02\n" +
 	"\x11MicroAccountState\x12\x18\n" +
 	"\aaccount\x18\x01 \x01(\tR\aaccount\x12!\n" +
 	"\faccount_name\x18\x02 \x01(\tR\vaccountName\x12\x14\n" +
@@ -1297,13 +1326,14 @@ const file_natslens_v1_micro_proto_rawDesc = "" +
 	"\bservices\x18\x03 \x03(\v2\x19.natslens.v1.MicroServiceR\bservices\x12%\n" +
 	"\x0eservices_total\x18\x04 \x01(\x05R\rservicesTotal\x12:\n" +
 	"\baccounts\x18\x05 \x03(\v2\x1e.natslens.v1.MicroAccountStateR\baccounts\x12E\n" +
-	"\x10subscriptions_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x0fsubscriptionsAt*\xbb\x01\n" +
+	"\x10subscriptions_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x0fsubscriptionsAt*\xd9\x01\n" +
 	"\x11MicroRequestState\x12#\n" +
 	"\x1fMICRO_REQUEST_STATE_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16MICRO_REQUEST_STATE_OK\x10\x01\x12%\n" +
 	"!MICRO_REQUEST_STATE_NO_RESPONDERS\x10\x02\x12\x1f\n" +
 	"\x1bMICRO_REQUEST_STATE_TIMEOUT\x10\x03\x12\x1d\n" +
-	"\x19MICRO_REQUEST_STATE_ERROR\x10\x04*\xe8\x01\n" +
+	"\x19MICRO_REQUEST_STATE_ERROR\x10\x04\x12\x1c\n" +
+	"\x18MICRO_REQUEST_STATE_HELD\x10\x05*\xe8\x01\n" +
 	"\tMicroNote\x12\x1a\n" +
 	"\x16MICRO_NOTE_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bMICRO_NOTE_INSTANCE_MISSING\x10\x01\x12\x1d\n" +
@@ -1353,27 +1383,29 @@ var file_natslens_v1_micro_proto_depIdxs = []int32{
 	12, // 0: natslens.v1.GetMicroServicesRequest.range:type_name -> natslens.v1.TimeRange
 	0,  // 1: natslens.v1.MicroRequest.state:type_name -> natslens.v1.MicroRequestState
 	13, // 2: natslens.v1.MicroRequest.at:type_name -> google.protobuf.Timestamp
-	4,  // 3: natslens.v1.MicroAccountState.info:type_name -> natslens.v1.MicroRequest
-	4,  // 4: natslens.v1.MicroAccountState.stats:type_name -> natslens.v1.MicroRequest
-	13, // 5: natslens.v1.MicroInstance.started:type_name -> google.protobuf.Timestamp
-	13, // 6: natslens.v1.MicroMissingInstance.since:type_name -> google.protobuf.Timestamp
-	13, // 7: natslens.v1.MicroMissingInstance.last_seen:type_name -> google.protobuf.Timestamp
-	13, // 8: natslens.v1.MicroEndpoint.slow_since:type_name -> google.protobuf.Timestamp
-	6,  // 9: natslens.v1.MicroService.versions:type_name -> natslens.v1.MicroVersionCount
-	8,  // 10: natslens.v1.MicroService.missing:type_name -> natslens.v1.MicroMissingInstance
-	9,  // 11: natslens.v1.MicroService.endpoints:type_name -> natslens.v1.MicroEndpoint
-	1,  // 12: natslens.v1.MicroService.note:type_name -> natslens.v1.MicroNote
-	7,  // 13: natslens.v1.MicroService.instance_list:type_name -> natslens.v1.MicroInstance
-	2,  // 14: natslens.v1.MicroService.instance_source:type_name -> natslens.v1.MicroInstanceSource
-	13, // 15: natslens.v1.GetMicroServicesResponse.epoch_at:type_name -> google.protobuf.Timestamp
-	10, // 16: natslens.v1.GetMicroServicesResponse.services:type_name -> natslens.v1.MicroService
-	5,  // 17: natslens.v1.GetMicroServicesResponse.accounts:type_name -> natslens.v1.MicroAccountState
-	13, // 18: natslens.v1.GetMicroServicesResponse.subscriptions_at:type_name -> google.protobuf.Timestamp
-	19, // [19:19] is the sub-list for method output_type
-	19, // [19:19] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	13, // 3: natslens.v1.MicroRequest.refused_at:type_name -> google.protobuf.Timestamp
+	13, // 4: natslens.v1.MicroRequest.retry_after:type_name -> google.protobuf.Timestamp
+	4,  // 5: natslens.v1.MicroAccountState.info:type_name -> natslens.v1.MicroRequest
+	4,  // 6: natslens.v1.MicroAccountState.stats:type_name -> natslens.v1.MicroRequest
+	13, // 7: natslens.v1.MicroInstance.started:type_name -> google.protobuf.Timestamp
+	13, // 8: natslens.v1.MicroMissingInstance.since:type_name -> google.protobuf.Timestamp
+	13, // 9: natslens.v1.MicroMissingInstance.last_seen:type_name -> google.protobuf.Timestamp
+	13, // 10: natslens.v1.MicroEndpoint.slow_since:type_name -> google.protobuf.Timestamp
+	6,  // 11: natslens.v1.MicroService.versions:type_name -> natslens.v1.MicroVersionCount
+	8,  // 12: natslens.v1.MicroService.missing:type_name -> natslens.v1.MicroMissingInstance
+	9,  // 13: natslens.v1.MicroService.endpoints:type_name -> natslens.v1.MicroEndpoint
+	1,  // 14: natslens.v1.MicroService.note:type_name -> natslens.v1.MicroNote
+	7,  // 15: natslens.v1.MicroService.instance_list:type_name -> natslens.v1.MicroInstance
+	2,  // 16: natslens.v1.MicroService.instance_source:type_name -> natslens.v1.MicroInstanceSource
+	13, // 17: natslens.v1.GetMicroServicesResponse.epoch_at:type_name -> google.protobuf.Timestamp
+	10, // 18: natslens.v1.GetMicroServicesResponse.services:type_name -> natslens.v1.MicroService
+	5,  // 19: natslens.v1.GetMicroServicesResponse.accounts:type_name -> natslens.v1.MicroAccountState
+	13, // 20: natslens.v1.GetMicroServicesResponse.subscriptions_at:type_name -> google.protobuf.Timestamp
+	21, // [21:21] is the sub-list for method output_type
+	21, // [21:21] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_micro_proto_init() }

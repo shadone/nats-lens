@@ -100,8 +100,12 @@ Each point was decided in the session that built T1: proposed, not yet confirmed
   - The costs of the three-miss rule are measured and in `docs/design.md` and the leftovers.
 - **Final fix round (broad review).**
   - Refusals are compared by what was refused (publish to `$SRV.INFO` or `$SRV.STATS`, subscription to a reply inbox), not by the text, which names each epoch's inbox: a user without `_INBOX.>` was warned about every epoch.
-  - A refused request is held for 10 minutes per label, as nats-server logs every refused publish (about 2,880 lines a day per account at 30 seconds). `micro_requests` keeps its shape: a held request still has its row every epoch, state `error`, the refusal's text with "(not sent: refused at <time>, asked again after <time>)" appended; `replies` is 0. So an `error` row no longer always means a request was sent; T2 reads the latest row and shows the text as it does. On an upgrade the accounts already listed are asked by default; the docs say so and that `micro: false` stops it.
+  - A refused request is held for 10 minutes per label, as nats-server logs every refused publish (about 2,880 lines a day per account at 30 seconds). A held request still has its row every epoch (last round below). On an upgrade the accounts already listed are asked by default; the docs say so and that `micro: false` stops it.
   - The hourly sums pair a row with the newest previous row it may pair with: a subject that went from set to missing and back counted an increase twice.
+- **Last round (review of the final fix round).**
+  - A held request is data, not text: `micro_requests.state` `held`, `error` the server's refusal as received, new columns `refused_at` and `retry_after` (TIMESTAMP, UTC, NULL for the other states). A sent request keeps `ok`, `no_responders`, `timeout` and `error`. T2 reads the latest row per label and request; for `held` it shows `error` as the reason and may show `retry_after`.
+  - The hold ends when the entry's connection changes (a redial with new credentials).
+  - The docs say the server the entry's connection is on logs a refusal once per 10 minutes per entry and per request.
 
 ## T2 API, store and demo
 
@@ -168,6 +172,10 @@ Final review's fixes, decided in the session that fixed them, proposed, not yet 
 - **The slow start reads two hours.** Raw reports are read only for the span's last fast hour and next hour with requests, each with the hour before; an endpoint active for 30 hours, idle until the last hour and slow then took 8.7 to 9.5 s at 100 instances × 20 endpoints, now 0.37 to 0.40 s.
 - **Smaller fixes.** An endpoint row without its instance's stats row is left out rather than added to another service; a stats row stored twice counts its instance once; a name or ID token is a wildcard only when it is `*` or `>` as a whole, in Go and SQL alike; "never moves back" holds while the 7-day level stays the same.
 - **`MicroMissingInstance.server` (field 6).** The server of a still-subscribed instance's connection.
+
+Held requests (after T1's backoff, `fb611d1`), decided in the session that built it, proposed, not yet confirmed:
+
+- **`MICRO_REQUEST_STATE_HELD` (5)** with `MicroRequest.refused_at` (5) and `retry_after` (6): a refused request not sent again yet, its refusal in `error`. It is not ok (no answer, no missing instances) and ranks after an error and before a timeout when two labels share an account. The demo's `SUPPLIERS` is refused every 10 minutes and held in between; the store fixture alternates refused and held epochs.
 
 ## T3 UI
 

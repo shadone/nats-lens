@@ -38,7 +38,8 @@ func round1(v float64) float64 { return math.Round(v*10) / 10 }
 // example-global tells the board's story: orders' get endpoint ten times
 // its 7-day level since 08:12 and a duplicate order on create; pricing on
 // two versions, one instance restarted at 14:21 without a gap in the rate;
-// inventory healthy; SUPPLIERS asked and refused.
+// inventory healthy; SUPPLIERS asked and refused, its request held since
+// the refusal 5 minutes before.
 func TestGlobalMicroStory(t *testing.T) {
 	res := microOf(t, demo(t), fake.GlobalSystem, time.Time{})
 	var names []string
@@ -87,7 +88,10 @@ func TestGlobalMicroStory(t *testing.T) {
 	// By account: SUPPLIERS' key sorts before APP.
 	if len(res.GetAccounts()) != 2 || res.GetAccounts()[1].GetAccount() != fake.Account || !res.GetAccounts()[1].GetAsked() ||
 		res.GetAccounts()[1].GetStats().GetReplies() != 9 || res.GetAccounts()[0].GetAccount() != fake.SuppliersAccount ||
-		res.GetAccounts()[0].GetStats().GetState() != v1.MicroRequestState_MICRO_REQUEST_STATE_ERROR || res.GetAccounts()[0].GetServices() != 0 ||
+		res.GetAccounts()[0].GetStats().GetState() != v1.MicroRequestState_MICRO_REQUEST_STATE_HELD || res.GetAccounts()[0].GetServices() != 0 ||
+		res.GetAccounts()[0].GetStats().GetError() == "" ||
+		!res.GetAccounts()[0].GetStats().GetRefusedAt().AsTime().Equal(res.GetEpochAt().AsTime().Add(-5*time.Minute)) ||
+		!res.GetAccounts()[0].GetStats().GetRetryAfter().AsTime().Equal(res.GetEpochAt().AsTime().Add(5*time.Minute)) ||
 		res.GetAccounts()[0].GetAccountName() != "SUPPLIERS" {
 		t.Errorf("accounts = %v", res.GetAccounts())
 	}
@@ -184,5 +188,33 @@ func TestGlobalMicroConnectionsCountTheirSubscriptions(t *testing.T) {
 				t.Errorf("%s/%s on %s: at most %d subscriptions", s.GetName(), in.GetId(), in.GetServer(), n)
 			}
 		}
+	}
+}
+
+// SUPPLIERS' requests are refused, then held for 10 minutes, then sent
+// and refused again: the epochs alternate between one refusal and a run
+// of held requests that name it.
+func TestGlobalMicroRefusalAndHold(t *testing.T) {
+	c := demo(t)
+	states := map[v1.MicroRequestState]int{}
+	for m := 0; m < 30; m++ {
+		end := fake.FixedNow.Add(-time.Duration(m) * 30 * time.Second)
+		for _, a := range microOf(t, c, fake.GlobalSystem, end).GetAccounts() {
+			if a.GetAccount() != fake.SuppliersAccount {
+				continue
+			}
+			st := a.GetStats()
+			states[st.GetState()]++
+			if st.GetState() == v1.MicroRequestState_MICRO_REQUEST_STATE_HELD &&
+				(st.RefusedAt == nil || !st.GetRefusedAt().AsTime().Before(st.GetAt().AsTime()) || st.GetRetryAfter().AsTime().Sub(st.GetRefusedAt().AsTime()) != 10*time.Minute) {
+				t.Errorf("held %v", st)
+			}
+			if st.GetState() == v1.MicroRequestState_MICRO_REQUEST_STATE_ERROR && (st.RefusedAt != nil || st.GetError() == "") {
+				t.Errorf("refused %v", st)
+			}
+		}
+	}
+	if states[v1.MicroRequestState_MICRO_REQUEST_STATE_ERROR] == 0 || states[v1.MicroRequestState_MICRO_REQUEST_STATE_HELD] == 0 {
+		t.Errorf("states %v", states)
 	}
 }

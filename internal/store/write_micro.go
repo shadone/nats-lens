@@ -3,6 +3,7 @@ package store
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/nats-io/nats.go/micro"
 )
@@ -31,7 +32,6 @@ const microEndpointShape = `[{"account":"VARCHAR","service":"VARCHAR","instance_
 const microEndpointBatch = 5000
 
 var (
-	microRequestCols  = []string{"epoch", "label", "account", "request", "state", "replies", "error"}
 	microInstanceCols = []string{"epoch", "account", "service", "instance_id", "version", "description", "metadata", "endpoints"}
 	microStatsCols    = []string{"epoch", "account", "service", "instance_id", "version", "started"}
 )
@@ -51,6 +51,21 @@ func endpointData(d json.RawMessage) json.RawMessage {
 		return json.RawMessage(fmt.Sprintf(`{"truncated":true,"bytes":%d}`, len(d)))
 	}
 	return d
+}
+
+// microRequestInsert stores one micro_requests row; its times come as
+// Unix microseconds of UTC and are made into TIMESTAMP in SQL, so that no
+// session time zone shifts them.
+const microRequestInsert = `INSERT INTO micro_requests
+  (epoch, label, account, request, state, replies, error, refused_at, retry_after)
+VALUES (?, ?, ?, ?, ?, ?, ?, make_timestamp(?::BIGINT), make_timestamp(?::BIGINT))`
+
+// unixMicro is t as Unix microseconds, or NULL for the zero time.
+func unixMicro(t time.Time) any {
+	if t.IsZero() {
+		return nil
+	}
+	return t.UTC().UnixMicro()
 }
 
 // optString is s, or nil for an empty string: a value the service did
@@ -78,8 +93,8 @@ func (w *writer) writeMicro() {
 	var rows []microEndpointRow
 	for _, acc := range w.snap.Micro {
 		for _, a := range acc.Asked {
-			w.insert("micro_requests", microRequestCols, w.epoch, acc.Label, acc.Account, string(a.Request),
-				string(a.State), a.Replies, optText(a.Error))
+			w.exec(microRequestInsert, w.epoch, acc.Label, acc.Account, string(a.Request),
+				string(a.State), a.Replies, optText(a.Error), unixMicro(a.RefusedAt), unixMicro(a.RetryAfter))
 		}
 		for _, in := range acc.Infos {
 			eps := in.Endpoints
