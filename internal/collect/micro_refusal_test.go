@@ -126,3 +126,43 @@ func TestMicroOneAskPerAccount(t *testing.T) {
 			afterFirst-before, second.Stats().OutMsgs-afterFirst)
 	}
 }
+
+// A refused account lookup is not made again within ten minutes, and is
+// made again after them; the services are asked under the label meanwhile.
+func TestMicroLookupRetriedAfterRefusal(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a server")
+	}
+	url := startMicroServer(t)
+	startOrders(t, url, "1.4.2")
+	at := time.Now()
+	c := microCollector(2*time.Second, 5*time.Minute, &at, fixedConn("shop-label", connectAs(t, url, "shop-nolookup")))
+	m := c.Collect(context.Background()).Micro[0]
+	st := c.microAccounts["shop-label"]
+	if m.Account != "shop-label" || askedOf(m) != "INFO ok 1, STATS ok 1" || !st.lookupDeniedAt.Equal(at) {
+		t.Fatalf("first epoch: %s under %q, refused at %v", askedOf(m), m.Account, st.lookupDeniedAt)
+	}
+	first := at
+	at = at.Add(5 * time.Minute)
+	c.Collect(context.Background())
+	if !st.lookupDeniedAt.Equal(first) {
+		t.Errorf("asked again after 5 minutes: refused at %v", st.lookupDeniedAt)
+	}
+	at = at.Add(6 * time.Minute)
+	c.Collect(context.Background())
+	if !st.lookupDeniedAt.Equal(at) {
+		t.Errorf("not asked again after 11 minutes: refused at %v", st.lookupDeniedAt)
+	}
+}
+
+// A label no longer configured is forgotten.
+func TestMicroForgetsUnconfiguredLabels(t *testing.T) {
+	at := time.Now()
+	c := microCollector(100*time.Millisecond, 5*time.Minute, &at, AccountConn{Label: "old"})
+	c.Collect(context.Background())
+	c.SetAccountConns([]AccountConn{{Label: "new"}})
+	c.Collect(context.Background())
+	if _, ok := c.microAccounts["old"]; ok || len(c.microAccounts) != 1 {
+		t.Errorf("states %v", c.microAccounts)
+	}
+}

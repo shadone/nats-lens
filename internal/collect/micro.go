@@ -2,6 +2,7 @@ package collect
 
 import (
 	"context"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -92,8 +93,9 @@ type microAccount struct {
 	// servers' name for the account, empty until known.
 	resolvedOn *nats.Conn
 	account    string
-	// lookupDenied is set once the server refused the account lookup.
-	lookupDenied bool
+	// lookupDeniedAt is the start of the epoch whose account lookup the
+	// server last refused; zero when it did not.
+	lookupDeniedAt time.Time
 	// watch takes the refusals of the collector's requests on watchedOn.
 	watchedOn *nats.Conn
 	watch     *microWatch
@@ -121,6 +123,12 @@ func (c *Collector) askMicro(ctx context.Context, started time.Time) []MicroAcco
 		return nil
 	}
 	conns := *p
+	// Forget the labels no longer configured.
+	for label := range c.microAccounts {
+		if !slices.ContainsFunc(conns, func(ac AccountConn) bool { return ac.Label == label }) {
+			delete(c.microAccounts, label)
+		}
+	}
 	deadline := time.Now().Add(c.window)
 	out := make([]MicroAccount, len(conns))
 	states := make([]*microAccount, len(conns))
@@ -198,6 +206,9 @@ func (c *Collector) infoDue(st *microAccount, now time.Time) bool {
 	return c.subsInterval > 0 && now.Sub(st.infoAsked) >= c.subsInterval-subscriptionsSlack
 }
 
+// lookupRetry is how long after a refused account lookup it is made again.
+const lookupRetry = 10 * time.Minute
+
 // userInfoToken is the exchange token of the account lookup.
 const userInfoToken = "USER"
 
@@ -226,13 +237,14 @@ func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAcc
 		reqs[string(MicroInfo)] = MicroInfo.Subject()
 		st.infoAsked = started
 	}
-	lookUp := st.resolvedOn != nc && !st.lookupDenied
+	lookUp := st.resolvedOn != nc && (st.lookupDeniedAt.IsZero() || started.Before(st.lookupDeniedAt) ||
+		started.Sub(st.lookupDeniedAt) >= lookupRetry)
 	if lookUp {
 		reqs[userInfoToken] = userInfoSubject
 	}
 	got := exchange(ctx, nc, st.watch, reqs, deadline, microQuiet, st.answered, string(MicroStats), string(MicroInfo))
 	if lookUp {
-		c.resolveMicroAccount(ac.Label, st, nc, got[userInfoToken])
+		c.resolveMicroAccount(ac.Label, st, nc, got[userInfoToken], started)
 	}
 	statsAsked, stats := decodeStats(got[string(MicroStats)])
 	res.Stats = stats
