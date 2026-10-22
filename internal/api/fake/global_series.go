@@ -47,8 +47,9 @@ func globalGrowth(sp serverSpec) float64 {
 	return 0.25 * gib
 }
 
-// globalConns is the scenario's connection count now.
-const globalConns = 1142.0
+// globalConns is the scenario's connection count now: the clients' 1,142
+// and its two extra connections in SYS.
+const globalConns = 1144.0
 
 // globalSample returns a metric's value at fixed-frame time c.
 func globalSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (float64, bool) {
@@ -98,7 +99,7 @@ func globalSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (fl
 			return 0, false
 		}
 		v, _ := globalSample(sc, "cluster."+strings.TrimPrefix(metric, "server."), e, c)
-		return math.Round(v * float64(sp.conns) / globalConns), true
+		return math.Round(v * float64(sc.connsOn(sp)) / globalConns), true
 	case "server.mem_bytes":
 		return float64(sp.mem) + noise(metric+e.GetKey(), c)*12*mib, !globalDownAt(sp, c)
 	case "server.cpu_percent":

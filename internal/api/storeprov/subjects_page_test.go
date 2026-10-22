@@ -31,8 +31,9 @@ const (
 // pushes to deliver.mailer), orders-archive mirrors it, load-test has no
 // consumer, returns and returns-all overlap, catalog is sourced into
 // search, alerts is an interest stream with an ephemeral push consumer,
-// KV_flags has a watcher. APP's JetStream API takes 3 requests a second on
-// nats-0, 1% failing. SYS is the system account.
+// KV_flags has a watcher. APP's JetStream API takes 3 requests a second, 1%
+// failing, which nats-0 to nats-2 each report as the cluster's total. SYS
+// is the system account.
 //
 // The collection at 12: on nats-0 (CONNZ complete) two order-service
 // connections in queue group workers on orders.place, api-gateway's inbox
@@ -80,8 +81,17 @@ func subjectsStore(t *testing.T, last time.Time) *store.Store {
 		r.add("stream_stats", map[string]any{"epoch": e, "server_id": "S0", "account": "APP", "stream": "orders", "is_leader": true,
 			"leader": "nats-0", "messages": 1000 + 600*e, "bytes": 1 << 20, "last_seq": 1000 + 600*e,
 			"created": time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)})
-		r.add("account_stats", map[string]any{"epoch": e, "server_id": "S0", "account": "APP", "js_streams": 9,
-			"js_api_total": 900 * e, "js_api_errors": 9 * e})
+		// Every server reports the account's JetStream API total across
+		// the cluster: nats-0 and nats-1 the same; nats-2 lower from 12 on,
+		// as another server's restart took its share away.
+		for _, id := range []string{"S0", "S1", "S2"} {
+			total, errs := 900*e, 9*e
+			if id == "S2" && e >= 12 {
+				total, errs = total-5000, errs-50
+			}
+			r.add("account_stats", map[string]any{"epoch": e, "server_id": id, "account": "APP", "js_streams": 9,
+				"js_api_total": total, "js_api_errors": errs})
+		}
 	}
 	stream := func(name, retention, mirror string, subjects, sources []string, msgs int64) {
 		r.add("streams", map[string]any{"account": "APP", "stream": name, "first_epoch": 1, "last_epoch": subjEpochs})
@@ -112,6 +122,15 @@ func subjectsStore(t *testing.T, last time.Time) *store.Store {
 		r.add("consumer_stats", map[string]any{"epoch": int64(subjEpochs), "server_id": "S0", "account": "APP", "stream": stream,
 			"consumer": name, "is_leader": true, "leader": "nats-0"})
 	}
+	// The global account has an orders stream of its own.
+	r.add("stream_config", map[string]any{"server_id": "S1", "account": "$G", "stream": "orders", "first_epoch": 1, "last_epoch": subjEpochs,
+		"config_hash": "g", "replicas": 1, "retention": "limits", "subjects": []string{"orders.>"}})
+	r.add("stream_stats", map[string]any{"epoch": int64(subjEpochs), "server_id": "S1", "account": "$G", "stream": "orders",
+		"is_leader": true, "leader": "nats-1", "messages": 7, "bytes": 700})
+	r.add("consumer_config", map[string]any{"server_id": "S1", "account": "$G", "stream": "orders", "consumer": "g", "first_epoch": 1,
+		"last_epoch": subjEpochs, "config_hash": "c", "durable_name": "g"})
+	r.add("consumer_stats", map[string]any{"epoch": int64(subjEpochs), "server_id": "S1", "account": "$G", "stream": "orders",
+		"consumer": "g", "is_leader": true, "leader": "nats-1"})
 	consumer("orders", "projector", true, []string{"orders.created"}, "")
 	consumer("orders", "mailer", true, nil, "deliver.mailer")
 	consumer("returns", "refunds", true, nil, "")
@@ -255,7 +274,7 @@ func TestSubjectsFromStore(t *testing.T) {
 	if want := []string{"nats-0 true 12/12", "nats-1 true 3/3", "nats-2 true 10000/30000", "nats-3 true 1/1", "nats-4 false 0/0"}; !slices.Equal(servers, want) {
 		t.Errorf("servers %v, want %v", servers, want)
 	}
-	if res.GetAllCount() != 13 || res.GetNoConsumerCount() != 1 || res.GetOverlappingCount() != 2 || res.GetWideCount() != 1 || res.GetStoredCount() != 9 {
+	if res.GetAllCount() != 15 || res.GetNoConsumerCount() != 1 || res.GetOverlappingCount() != 2 || res.GetWideCount() != 1 || res.GetStoredCount() != 10 {
 		t.Errorf("counts all %d none %d overlap %d wide %d stored %d", res.GetAllCount(), res.GetNoConsumerCount(), res.GetOverlappingCount(),
 			res.GetWideCount(), res.GetStoredCount())
 	}
@@ -301,23 +320,41 @@ func TestMatchSubjectFromStore(t *testing.T) {
 		return must(c.MatchSubject(ctx, connect.NewRequest(&v1.MatchSubjectRequest{Account: account, Subject: subject})))
 	}
 	res := match("APP", "orders.place")
-	if len(res.GetMatches()) != 1 || !slices.Equal(res.GetMatches()[0].GetConsumers(), []string{"mailer"}) ||
-		!slices.Equal(res.GetMatches()[0].GetMirrors(), []string{"orders-archive"}) || len(res.GetSubscribers()) != 1 ||
-		res.GetSubscribers()[0].GetConnections() != 3 || res.GetSubscribers()[0].GetQueue() != "workers" {
+	if len(api.MatchedStreams(res)) != 1 || !slices.Equal(api.MatchedStreams(res)[0].GetConsumers(), []string{"mailer"}) ||
+		!slices.Equal(api.MatchedStreams(res)[0].GetMirrors(), []string{"orders-archive"}) || len(api.MatchedSubscribers(res)) != 1 ||
+		api.MatchedSubscribers(res)[0].GetConnections() != 3 || api.MatchedSubscribers(res)[0].GetQueue() != "workers" {
 		t.Errorf("orders.place = %v", res)
 	}
-	if res = match("APP", "orders.created"); !slices.Equal(res.GetMatches()[0].GetConsumers(), []string{"mailer", "projector"}) {
-		t.Errorf("orders.created = %v", res.GetMatches())
+	if res = match("APP", "orders.created"); !slices.Equal(api.MatchedStreams(res)[0].GetConsumers(), []string{"mailer", "projector"}) {
+		t.Errorf("orders.created = %v", api.MatchedStreams(res))
 	}
 	// audit-tap's > is in SYS; the unlisted connection's events.> is left out.
-	if res = match("APP", "events.x"); len(res.GetMatches()) != 0 || len(res.GetSubscribers()) != 0 {
+	if res = match("APP", "events.x"); len(api.MatchedStreams(res)) != 0 || len(api.MatchedSubscribers(res)) != 0 {
 		t.Errorf("events.x = %v", res)
 	}
-	if res = match("", "events.x"); len(res.GetSubscribers()) != 1 || res.GetSubscribers()[0].GetSubject() != ">" {
-		t.Errorf("every account = %v", res.GetSubscribers())
+	// Without a scope SYS answers only a $SYS. subject.
+	if res = match("", "events.x"); len(res.GetAccounts()) != 0 {
+		t.Errorf("every account = %v", res.GetAccounts())
 	}
-	if res = match("APP", "_INBOX.aaa.r1"); len(res.GetSubscribers()) != 1 || res.GetSubscribers()[0].GetClientNames()[0] != "api-gateway" {
-		t.Errorf("inbox = %v", res.GetSubscribers())
+	if res = match("", "$SYS.SERVER.x"); len(res.GetAccounts()) != 1 || !res.GetAccounts()[0].GetSystemAccount() ||
+		api.MatchedSubscribers(res)[0].GetSubject() != ">" {
+		t.Errorf("$SYS subject = %v", res.GetAccounts())
+	}
+	// Two accounts store orders: one group each, the global account's
+	// stream in its own.
+	res = match("", "orders.shipped")
+	var groups []string
+	for _, a := range res.GetAccounts() {
+		groups = append(groups, fmt.Sprintf("%s %d", a.GetAccount(), len(a.GetMatches())))
+	}
+	if !slices.Equal(groups, []string{"$G 1", "APP 1"}) {
+		t.Errorf("groups = %v", groups)
+	}
+	if res = match("APP", "$JS.API.INFO"); !res.GetAccounts()[0].GetJetstreamApi() {
+		t.Errorf("$JS.API.INFO = %v", res)
+	}
+	if res = match("APP", "_INBOX.aaa.r1"); len(api.MatchedSubscribers(res)) != 1 || api.MatchedSubscribers(res)[0].GetClientNames()[0] != "api-gateway" {
+		t.Errorf("inbox = %v", api.MatchedSubscribers(res))
 	}
 }
 
@@ -400,5 +437,38 @@ SELECT ?, 'S' || (i % 4), 'APP', CASE WHEN i % 3 = 0 THEN '_INBOX.' || i || '.*'
 	t.Logf("100,000 subscriptions: %d rows in %s", res.GetAllCount(), took)
 	if took > 10*time.Second || subjRow(res, "APP", api.InboxPattern).GetConnections() < 1000 {
 		t.Errorf("took %s, inbox %v", took, subjRow(res, "APP", api.InboxPattern))
+	}
+}
+
+// A server whose counter fell keeps the rate of its newest run: with
+// nats-2 alone, APP's API still reads 3 requests a second.
+func TestSubjectsAPIRateAfterCounterFell(t *testing.T) {
+	last := time.Date(2026, 10, 17, 14, 0, 0, 0, time.UTC)
+	p := subjectsProvider(t, last)
+	if _, err := p.St.DB().Exec(`DELETE FROM account_stats WHERE server_id <> 'S2'`); err != nil {
+		t.Fatal(err)
+	}
+	_, c := apitest.Serve(t, p)
+	res := must(c.GetSubjects(ctx, connect.NewRequest(&v1.GetSubjectsRequest{})))
+	if js := subjRow(res, "APP", api.JetStreamAPIPattern); js == nil || js.GetApiPerSecond() != 3 || js.GetApiErrorShare() != 0.01 {
+		t.Errorf("JetStream API = %v", js)
+	}
+}
+
+// An epoch whose SUBSZ asks all went unanswered does not hide the
+// collection before it.
+func TestSubjectsSkipsAnUnansweredCollection(t *testing.T) {
+	last := time.Date(2026, 10, 17, 14, 0, 0, 0, time.UTC)
+	p := subjectsProvider(t, last)
+	for _, id := range []string{"S0", "S1", "S2", "S3"} {
+		if _, err := p.St.DB().Exec(`INSERT INTO epoch_endpoints (epoch, server_id, endpoint, state) VALUES (?, ?, 'SUBSZ', 'missing')`,
+			subjEpochs, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, c := apitest.Serve(t, p)
+	res := must(c.GetSubjects(ctx, connect.NewRequest(&v1.GetSubjectsRequest{})))
+	if !res.GetSubscriptionsAt().AsTime().Equal(last.Add(-subjStep)) || subjRow(res, "APP", "orders.place") == nil {
+		t.Errorf("subscriptions at %v, want the collection at 12", res.GetSubscriptionsAt().AsTime())
 	}
 }

@@ -186,23 +186,52 @@ func TestGlobalMatchSubject(t *testing.T) {
 		return must(c.MatchSubject(ctx, connect.NewRequest(&v1.MatchSubjectRequest{System: fake.GlobalSystem, Account: account, Subject: subject})))
 	}
 	res := match(fake.Account, "order.events.created")
-	if len(res.GetMatches()) != 1 || res.GetMatches()[0].GetStream() != "order-events" || len(res.GetMatches()[0].GetConsumers()) != 4 ||
-		!slices.Equal(res.GetMatches()[0].GetMirrors(), []string{"order-archive"}) || len(res.GetSubscribers()) != 0 {
+	if len(api.MatchedStreams(res)) != 1 || api.MatchedStreams(res)[0].GetStream() != "order-events" || len(api.MatchedStreams(res)[0].GetConsumers()) != 4 ||
+		!slices.Equal(api.MatchedStreams(res)[0].GetMirrors(), []string{"order-archive"}) || len(api.MatchedSubscribers(res)) != 0 {
 		t.Errorf("order.events.created = %v", res)
 	}
 	res = match(fake.Account, "orders.place")
-	if len(res.GetMatches()) != 0 || len(res.GetSubscribers()) != 1 || res.GetSubscribers()[0].GetQueue() != "order-service" ||
-		res.GetSubscribers()[0].GetConnections() != 3 {
+	if len(api.MatchedStreams(res)) != 0 || len(api.MatchedSubscribers(res)) != 1 || api.MatchedSubscribers(res)[0].GetQueue() != "order-service" ||
+		api.MatchedSubscribers(res)[0].GetConnections() != 3 {
 		t.Errorf("orders.place = %v", res)
 	}
-	if res = match(fake.Account, "catalog.changes.item"); !slices.Equal(res.GetMatches()[0].GetSourcedBy(), []string{"search-index"}) {
+	if res = match(fake.Account, "catalog.changes.item"); !slices.Equal(api.MatchedStreams(res)[0].GetSourcedBy(), []string{"search-index"}) {
 		t.Errorf("catalog.changes.item = %v", res)
 	}
-	if res = match(fake.Account, "nothing.listens.here"); len(res.GetMatches()) != 0 || len(res.GetSubscribers()) != 0 || res.SubscriptionsAt == nil {
+	if res = match(fake.Account, "nothing.listens.here"); len(api.MatchedStreams(res)) != 0 || len(api.MatchedSubscribers(res)) != 0 || res.SubscriptionsAt == nil {
 		t.Errorf("nothing = %v", res)
 	}
-	// In every account the monitoring tool's > in SYS answers too.
-	if res = match("", "nothing.listens.here"); len(res.GetSubscribers()) != 1 || !strings.HasPrefix(res.GetSubscribers()[0].GetClientNames()[0], "ops-") {
+	// Without a scope the monitoring tool's > in SYS answers only a $SYS.
+	// subject.
+	if res = match("", "nothing.listens.here"); len(res.GetAccounts()) != 0 {
 		t.Errorf("every account = %v", res)
+	}
+	if res = match("", "$SYS.ACCOUNT.APP.CONNECT"); len(res.GetAccounts()) != 1 || !res.GetAccounts()[0].GetSystemAccount() ||
+		len(api.MatchedSubscribers(res)) != 2 || !strings.HasPrefix(api.MatchedSubscribers(res)[1].GetClientNames()[0], "ops-") {
+		t.Errorf("$SYS subject = %v", res)
+	}
+	if res = match("", "$JS.API.INFO"); len(res.GetAccounts()) != 1 || !res.GetAccounts()[0].GetJetstreamApi() {
+		t.Errorf("$JS.API subject = %v", res)
+	}
+}
+
+// example-global's connection counts agree: the answering servers' counts, the
+// Connections page with tooling, and the newest cluster.connections point.
+func TestGlobalConnectionCountsAgree(t *testing.T) {
+	c := demo(t)
+	sys := fake.GlobalSystem
+	var sum int64
+	servers := must(c.ListServers(ctx, connect.NewRequest(&v1.ListServersRequest{System: sys})))
+	for _, s := range servers.GetServers() {
+		// A server that did not answer keeps its last count.
+		if !slices.Contains(servers.GetMissing(), s.GetName()) {
+			sum += s.GetConnections()
+		}
+	}
+	all := must(c.ListConnections(ctx, connect.NewRequest(&v1.ListConnectionsRequest{System: sys, IncludeTooling: true})))
+	pts := must(c.GetTimeSeries(ctx, connect.NewRequest(&v1.GetTimeSeriesRequest{System: sys, Metric: "cluster.connections"}))).GetSeries().GetPoints()
+	last := pts[len(pts)-1].GetValue()
+	if sum != int64(all.GetTotalCount()) || float64(sum) != last {
+		t.Errorf("servers %d, connections with tooling %d, cluster.connections %v", sum, all.GetTotalCount(), last)
 	}
 }

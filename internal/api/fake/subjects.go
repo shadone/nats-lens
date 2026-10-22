@@ -303,7 +303,8 @@ func (p *Provider) MatchSubject(_ context.Context, req *v1.MatchSubjectRequest) 
 	if !ok {
 		return &api.MatchFacts{}, nil
 	}
-	f := &api.MatchFacts{Epoch: n, EpochAt: at, Streams: s.subjectStreams(at, r)}
+	f := &api.MatchFacts{Epoch: n, EpochAt: at, SystemAccount: p.sc.systemAccount(), Streams: s.subjectStreams(at, r),
+		JetStreamAccounts: []string{Account}}
 	if c, ok := s.subsCollection(at); ok {
 		subs, conns := s.subscriptionsAt(c)
 		f.SubscriptionsAt, f.Core = &c, api.CoreGroups(subs, conns)
