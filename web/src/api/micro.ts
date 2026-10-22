@@ -30,6 +30,9 @@ export interface MicroRequest {
   replies: number;
   /** The client's or server's text; "" unless the state is error. */
   error: string;
+  /** A refusal held by the collector: when the server refused, and after when it is asked again. */
+  refusedAt?: number;
+  againAfter?: number;
 }
 
 export interface MicroAccount {
@@ -64,6 +67,8 @@ export interface MicroMissing {
   since?: number;
   lastSeen?: number;
   connectionName: string;
+  /** The server of its connection when still subscribed; "" otherwise or when not found. */
+  server: string;
   /** Registered (its $SRV subscriptions still listed) but not answering. */
   stillSubscribed: boolean;
 }
@@ -148,9 +153,17 @@ const STATE: Record<PState, MicroRequestState> = {
   [PState.ERROR]: "error",
 };
 
+/** The collector's mark on a refusal it holds rather than send again. */
+const HELD = / \(not sent: refused at (\S+), asked again after (\S+)\)$/;
+
 function request(r: PRequest | undefined): MicroRequest {
   if (!r) return { state: "notAsked", replies: 0, error: "" };
-  return { state: STATE[r.state] ?? "notAsked", at: ms(r.at), replies: r.replies, error: r.error };
+  const out: MicroRequest = { state: STATE[r.state] ?? "notAsked", at: ms(r.at), replies: r.replies, error: r.error };
+  const held = r.error.match(HELD);
+  const refusedAt = held ? Date.parse(held[1]) : NaN;
+  const againAfter = held ? Date.parse(held[2]) : NaN;
+  if (held && !Number.isNaN(refusedAt) && !Number.isNaN(againAfter)) return { ...out, error: r.error.slice(0, held.index), refusedAt, againAfter };
+  return out;
 }
 
 export function microServices(r: GetMicroServicesResponse): MicroServices {
@@ -171,6 +184,7 @@ export function microServices(r: GetMicroServicesResponse): MicroServices {
         since: ms(m.since),
         lastSeen: ms(m.lastSeen),
         connectionName: m.connectionName,
+        server: m.server,
         stillSubscribed: m.stillSubscribed,
       })),
       requestsPerSecond: s.requestsPerSecond,

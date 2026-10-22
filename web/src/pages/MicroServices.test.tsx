@@ -125,14 +125,17 @@ describe("Micro services", () => {
       note: "missing",
       instances: 1,
       instanceList: [service().instanceList[0]],
-      missing: [{ id: "INV1", since: Date.parse("2026-10-17T10:05:00Z"), lastSeen: Date.parse("2026-10-17T10:04:30Z"), connectionName: "inventory-service", stillSubscribed: true }],
+      missing: [{ id: "INV1", since: Date.parse("2026-10-17T10:05:00Z"), lastSeen: Date.parse("2026-10-17T10:04:30Z"), connectionName: "inventory-service", server: "nats-eu-5", stillSubscribed: true }],
     });
     getMicro.mockResolvedValue(global({ services: [inv] }));
     renderApp(<MicroServices />, "/micro-services");
     await screen.findByRole("group", { name: "Services" });
     expect(card("inventory").querySelector(".mi-note")).toHaveTextContent("instance missing: INV1 since 10:05");
     const t = within(detail().getAllByRole("table")[1]);
-    expect(cells(t, "INV1")).toEqual(["– not known", "– not known", "inventory-service", "– not known", "missing since 10:05, last answered 10:04; still subscribed, so registered but not answering"]);
+    expect(cells(t, "INV1")).toEqual(["– not known", "– not known", "inventory-service", "nats-eu-5", "missing since 10:05, last answered 10:04; still subscribed, so registered but not answering"]);
+    // The server of a still-subscribed instance links as the others do, and so does its connection on it.
+    expect(within(rowOf(t, "INV1")).getByRole("link", { name: "nats-eu-5" })).toHaveAttribute("href", "/servers/nats-eu-5");
+    expect(within(rowOf(t, "INV1")).getByRole("link", { name: "inventory-service" })).toHaveAttribute("href", "/connections?name=inventory-service&server=nats-eu-5");
     expect(rowOf(t, "INV1")).toHaveClass("mi-warn");
   });
 

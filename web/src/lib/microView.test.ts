@@ -72,7 +72,7 @@ describe("microView cards", () => {
     expect(nt(noteOf(pricing(), accs, EPOCH_AT))).toEqual({ text: "mixed versions: 3 on 2.0.0, 1 on 1.9.3", warn: true });
     expect(nt(noteOf(service(), accs, EPOCH_AT))).toEqual({ text: "healthy", warn: false });
     expect(nt(noteOf(seenOnly(), accs, EPOCH_AT))).toEqual({ text: "list the account under `accounts` for versions, endpoints and timings", warn: false });
-    const missing = service({ note: "missing", instances: 1, missing: [{ id: "INV1", since: Date.parse("2026-10-17T10:05:00Z"), lastSeen: Date.parse("2026-10-17T10:04:30Z"), connectionName: "inventory-service", stillSubscribed: true }] });
+    const missing = service({ note: "missing", instances: 1, missing: [{ id: "INV1", since: Date.parse("2026-10-17T10:05:00Z"), lastSeen: Date.parse("2026-10-17T10:04:30Z"), connectionName: "inventory-service", server: "", stillSubscribed: true }] });
     expect(nt(noteOf(missing, accs, EPOCH_AT))).toEqual({ text: "instance missing: INV1 since 10:05", warn: true });
     const two = service({ note: "missing", missing: [{ ...missing.missing[0] }, { ...missing.missing[0], id: "INV2", since: Date.parse("2026-10-17T09:50:00Z") }] });
     expect(plain(noteOf(two, accs, EPOCH_AT).text)).toBe("2 instances missing since 09:50");
@@ -116,7 +116,7 @@ describe("microView endpoints and instances", () => {
   });
 
   it("says when an instance went missing, when it last answered, and that it is still registered", () => {
-    const m = { id: "INV1", since: Date.parse("2026-10-17T10:05:00Z"), lastSeen: Date.parse("2026-10-17T10:04:30Z"), connectionName: "inventory-service", stillSubscribed: true };
+    const m = { id: "INV1", since: Date.parse("2026-10-17T10:05:00Z"), lastSeen: Date.parse("2026-10-17T10:04:30Z"), connectionName: "inventory-service", server: "", stillSubscribed: true };
     expect(missingText(m, true, EPOCH_AT)).toBe("missing since 10:05, last answered 10:04; still subscribed, so registered but not answering");
     expect(missingText({ ...m, stillSubscribed: false }, false, EPOCH_AT)).toBe("missing since 10:05, last seen 10:04");
     expect(missingText({ ...m, lastSeen: Date.parse("2026-10-17T10:05:10Z"), stillSubscribed: false }, true, EPOCH_AT)).toBe("missing since 10:05");
@@ -259,5 +259,15 @@ describe("microView final review", () => {
 
   it("never says 0 instances missing", () => {
     expect(plain(noteOf(service({ note: "missing", missing: [] }), [], EPOCH_AT).text)).toBe("an instance missing");
+  });
+});
+
+describe("microView held refusals", () => {
+  const held = { state: "error" as const, replies: 0, error: 'nats: Permissions Violation for Publish to "$SRV.STATS"', refusedAt: Date.parse("2026-10-17T14:00:00Z"), againAfter: Date.parse("2026-10-17T14:10:00Z") };
+  it("says when a refused request is asked again", () => {
+    expect(noAnswerReason(held, EPOCH_AT)).toBe("refused; the account's user needs to publish on $SRV.INFO and $SRV.STATS and subscribe on _INBOX.>; asked again after 14:10");
+    expect(unansweredText(account({ services: 0, stats: held }), EPOCH_AT)).toBe(
+      'The server refused $SRV.STATS at 14:00 (nats: Permissions Violation for Publish to "$SRV.STATS"): the account\'s user needs to publish on $SRV.INFO and $SRV.STATS and subscribe on _INBOX.>. nats-lens asks again after 14:10.',
+    );
   });
 });
