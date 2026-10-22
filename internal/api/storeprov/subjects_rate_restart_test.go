@@ -83,9 +83,9 @@ func TestSubjectsAPIRateNoStart(t *testing.T) {
 	}
 }
 
-// The first-report rule reads each window server's whole history of
-// account reports: 14 days of epochs 30 seconds apart on 9 servers with
-// 20 accounts (7.3 million rows) stay well inside the call's time.
+// The rate reads the window and the hour before it, bounded by epoch, of
+// 14 days of epochs 30 seconds apart on 9 servers with 20 accounts (7.3
+// million rows), well inside the call's time.
 func TestSubjectsAPIRateLongHistory(t *testing.T) {
 	if testing.Short() {
 		t.Skip("scale test")

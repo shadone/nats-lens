@@ -253,6 +253,12 @@ func (p *Provider) jetStreamAccounts(ctx context.Context, epoch int64, account s
 // in between would make that jump read as requests.
 const apiSettle = 60 * time.Second
 
+// apiLookBack is how far before the rate window a server's report of an
+// account counts as an earlier report: a series with none in it is new,
+// and its first report in the window is left out. A series that returns
+// after a longer gap loses one report.
+const apiLookBack = time.Hour
+
 // jetStreamAPIs reads the accounts with JetStream use in the epoch (a
 // stream, or JetStream API requests) and their API requests per second
 // and error share over the api.RateSpan before the range's end. Every
@@ -263,28 +269,45 @@ const apiSettle = 60 * time.Second
 // restart takes its share away, starts a new run), and per account the
 // server with the highest rate (the first by ID on a tie), its error
 // share with it. A report that may still hold the server's own count
-// before the others' totals arrive is left out: the first report ever of
-// a server ID and account, and a report within apiSettle of the process
-// start (server_stats.start_time, else servers.start_time).
+// before the others' totals arrive is left out: the first report of a
+// server ID and account without one in the apiLookBack before the window,
+// and a report within apiSettle of the process start
+// (server_stats.start_time, else servers.start_time). The epochs of the
+// window and the look-back are read first, so the scans of account_stats
+// are bounded by epoch.
 func (p *Provider) jetStreamAPIs(ctx context.Context, epoch int64, r *v1.TimeRange, account string) ([]api.JetStreamAPIFact, error) {
 	_, end := span(r)
+	start := end.Add(-api.RateSpan)
+	var back, lo, hi sql.NullInt64
+	if err := p.db().QueryRowContext(ctx, `
+SELECT min(epoch) FILTER (WHERE started_at >= ?), min(epoch) FILTER (WHERE started_at >= ? AND started_at < ?),
+  max(epoch) FILTER (WHERE started_at >= ? AND started_at < ?)
+FROM epochs WHERE started_at >= ? AND started_at < ?`, start.Add(-apiLookBack), start, end, start, end, start.Add(-apiLookBack), end).
+		Scan(&back, &lo, &hi); err != nil {
+		return nil, fmt.Errorf("jetstream api epochs: %w", err)
+	}
+	if !lo.Valid {
+		lo, hi, back = sql.NullInt64{Int64: 1, Valid: true}, sql.NullInt64{Int64: 0, Valid: true}, sql.NullInt64{Int64: 1, Valid: true}
+	}
 	rows, err := p.db().QueryContext(ctx, `
-WITH used AS (`+jetStreamUse("$4")+`), win AS (
+WITH used AS (`+jetStreamUse("$2")+`), win AS (
   SELECT a.account, a.server_id, a.epoch, e.started_at AS t, a.js_api_total AS v, coalesce(a.js_api_errors, 0) AS err,
     coalesce(ss.start_time, sv.start_time) AS started
   FROM account_stats a JOIN epochs e USING (epoch)
   LEFT JOIN server_stats ss ON ss.epoch = a.epoch AND ss.server_id = a.server_id
   LEFT JOIN servers sv ON sv.server_id = a.server_id
-  WHERE e.started_at >= $2 AND e.started_at < $3 AND a.js_api_total IS NOT NULL AND a.account IN (SELECT account FROM used)
-), firsts AS (
-  -- Each series' first report ever, which may lie before the window.
-  SELECT f.account, f.server_id, min(f.epoch) AS epoch FROM account_stats f
-  WHERE f.server_id IN (SELECT DISTINCT server_id FROM win) AND f.js_api_total IS NOT NULL GROUP BY ALL
+  WHERE a.epoch BETWEEN $4 AND $5 AND e.started_at >= $6 AND e.started_at < $7 AND a.js_api_total IS NOT NULL
+    AND a.account IN (SELECT account FROM used)
+), earlier AS (
+  -- The series with a report in the look-back before the window.
+  SELECT DISTINCT account, server_id FROM account_stats
+  WHERE epoch >= $3 AND epoch < $4 AND js_api_total IS NOT NULL AND account IN (SELECT account FROM used)
 ), pts AS (
   SELECT w.account, w.server_id, w.t, w.v, w.err,
     CASE WHEN w.v < lag(w.v) OVER (PARTITION BY w.account, w.server_id ORDER BY w.t) THEN 1 ELSE 0 END AS fell
-  FROM win w JOIN firsts f ON f.account = w.account AND f.server_id = w.server_id
-  WHERE w.epoch > f.epoch AND (w.started IS NULL OR w.t >= w.started + INTERVAL '`+fmt.Sprint(int(apiSettle.Seconds()))+` seconds')
+  FROM win w LEFT JOIN earlier x ON x.account = w.account AND x.server_id = w.server_id
+  WHERE (x.account IS NOT NULL OR w.epoch > (SELECT min(f.epoch) FROM win f WHERE f.account = w.account AND f.server_id = w.server_id))
+    AND (w.started IS NULL OR w.t >= w.started + INTERVAL '`+fmt.Sprint(int(apiSettle.Seconds()))+` seconds')
 ), runs AS (
   SELECT *, sum(fell) OVER (PARTITION BY account, server_id ORDER BY t ROWS UNBOUNDED PRECEDING) AS run FROM pts
 ), per AS (
@@ -297,7 +320,8 @@ WITH used AS (`+jetStreamUse("$4")+`), win AS (
   SELECT account, total * 1000.0 / ms AS rate, total::DOUBLE AS total, errors::DOUBLE AS errors FROM newest
   QUALIFY row_number() OVER (PARTITION BY account ORDER BY total * 1000.0 / ms DESC, server_id) = 1
 )
-SELECT u.account, b.rate, b.total, b.errors FROM used u LEFT JOIN best b USING (account) ORDER BY u.account`, epoch, end.Add(-api.RateSpan), end, account)
+SELECT u.account, b.rate, b.total, b.errors FROM used u LEFT JOIN best b USING (account) ORDER BY u.account`,
+		epoch, account, back.Int64, lo.Int64, hi.Int64, start, end)
 	if err != nil {
 		return nil, fmt.Errorf("jetstream api: %w", err)
 	}
