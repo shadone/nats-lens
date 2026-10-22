@@ -35,6 +35,8 @@ func TestMicroInstanceOf(t *testing.T) {
 		{"$SRV.PING.orders.ABC.x", "", "", false},
 		{"SRV.PING.orders.ABC", "", "", false},
 		{"$SRV.PING..ABC", "", "", false},
+		// Only a whole token is a wildcard.
+		{"$SRV.PING.or*ders.A>B", "or*ders", "A>B", true},
 	} {
 		name, id, ok := api.MicroInstanceOf(c.subject)
 		if name != c.name || id != c.id || ok != c.ok {
@@ -542,11 +544,13 @@ func TestFinishMicroLongHangStaysMissing(t *testing.T) {
 	f := &api.MicroFacts{Epoch: 2, EpochAt: microT0, Accounts: []api.MicroAccountFact{okStats("APP")},
 		Answered:        []api.MicroServiceFact{{Account: "APP", Name: "orders", Instances: instances("1", "A")}},
 		SubscriptionsAt: &subsAt,
-		Seen:            []api.MicroServiceFact{{Account: "APP", Name: "orders", Instances: []api.MicroInstanceFact{{ID: "A"}, {ID: "B"}}}},
+		Seen: []api.MicroServiceFact{{Account: "APP", Name: "orders", Instances: []api.MicroInstanceFact{{ID: "A"},
+			{ID: "B", Connection: "order-service", Server: "n2"}}}},
 		Gone: []api.MicroGoneFact{{Account: "APP", Service: "orders", ID: "B", LastSeen: microT0.Add(-3 * time.Hour), Since: microT0.Add(-179 * time.Minute),
 			InstancesThen: 2, Absent: 300}},
 	}
-	if s := findService(api.FinishMicro(f, ""), "APP", "orders"); len(s.GetMissing()) != 1 || !s.GetMissing()[0].GetStillSubscribed() {
+	if s := findService(api.FinishMicro(f, ""), "APP", "orders"); len(s.GetMissing()) != 1 || !s.GetMissing()[0].GetStillSubscribed() ||
+		s.GetMissing()[0].GetServer() != "n2" {
 		t.Errorf("3-hour hang: %v", s.GetMissing())
 	}
 	f.Seen[0].Instances = f.Seen[0].Instances[:1]
@@ -664,5 +668,34 @@ func TestMicroSlowStartEpochHourFastSoFar(t *testing.T) {
 	cols = append(cols, api.MicroAverage{At: hour(2), Ms: 5})
 	if got := api.MicroSlowStart(hours, cols, 4, hour(2).Add(30*time.Second)); got == nil || !got.Equal(hour(1)) {
 		t.Errorf("epoch's hour fast so far: %v", got)
+	}
+}
+
+// A label-named account whose $SRV.STATS was not ok has no answers to
+// match; its instances that last answered within the hour are matched to
+// the key the subscriptions name, so the service is listed once, not as
+// the label's and the key's.
+func TestFinishMicroAliasAfterAFailedRequest(t *testing.T) {
+	subsAt := microT0.Add(-time.Minute)
+	f := &api.MicroFacts{Epoch: 2, EpochAt: microT0,
+		Accounts: []api.MicroAccountFact{{Account: "shop", Stats: api.MicroRequestFact{State: v1.MicroRequestState_MICRO_REQUEST_STATE_TIMEOUT,
+			At: microT0}}},
+		SubscriptionsAt: &subsAt,
+		Seen:            []api.MicroServiceFact{{Account: "AKEY", Name: "orders", Instances: []api.MicroInstanceFact{{ID: "O1"}, {ID: "O2"}}}},
+		Gone: []api.MicroGoneFact{
+			{Account: "shop", Service: "orders", ID: "O1", LastSeen: microT0.Add(-30 * time.Second), Since: microT0, InstancesThen: 3, Absent: 1},
+			{Account: "shop", Service: "orders", ID: "O2", LastSeen: microT0.Add(-30 * time.Second), Since: microT0, InstancesThen: 3, Absent: 1},
+			// Gone for good: not seen anywhere, so it decides nothing.
+			{Account: "shop", Service: "orders", ID: "O3", LastSeen: microT0.Add(-30 * time.Second), Since: microT0, InstancesThen: 3, Absent: 1},
+		},
+	}
+	res := api.FinishMicro(f, "")
+	if len(res.GetServices()) != 1 {
+		t.Fatalf("services %v", res.GetServices())
+	}
+	s := res.GetServices()[0]
+	if s.GetAccount() != "AKEY" || !s.GetAsked() || s.GetNote() != v1.MicroNote_MICRO_NOTE_NO_ANSWER ||
+		s.GetInstanceSource() != v1.MicroInstanceSource_MICRO_INSTANCE_SOURCE_SUBSCRIPTIONS || len(res.GetAccounts()) != 1 {
+		t.Errorf("service %v, accounts %v", s, res.GetAccounts())
 	}
 }
