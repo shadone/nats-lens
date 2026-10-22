@@ -217,8 +217,7 @@ func globalScenario() *scenario {
 		subs:       globalSubs(),
 		micro:      globalMicro(),
 		microAsked: []string{Account, SuppliersAccount},
-		// One collection's $SRV requests to APP timed out: a busy
-		// moment on the account connection's server.
+		// One collection's $SRV requests to APP timed out.
 		microTimeouts: []time.Time{fixed(11, 29, 56)},
 		// nats-lens's own connection to the system account, and a
 		// monitoring tool that listens to every system event.
