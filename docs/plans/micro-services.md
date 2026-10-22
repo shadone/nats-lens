@@ -158,6 +158,13 @@ Fix round 3 (third review), decided in the session that fixed it, proposed, not 
 - **The rules test covers the slow-collections query.** The fixture adds `search`, idle from 4 hours to an hour before last and then slow, so its span crosses idle hours (a fixed two-hour span fails the test), and both orders instances' `get` rows of the slow run's first collection lack a subject (pairing by `coalesce(subject, '')` fails it).
 - **`subjects` is sorted by subject**, as the store lists it.
 
+Final review's fixes, decided in the session that fixed them, proposed, not yet confirmed:
+
+- **Aliasing after a failed request.** A label-named account whose `$SRV.STATS` was not ok is matched to the key by its instances that last answered within the hour and are seen; before, it was listed twice (under the label, no answer, and under the key, seen only), flipping between epochs.
+- **The slow start reads two hours.** Raw reports are read only for the span's last fast hour and next hour with requests, each with the hour before; an endpoint active for 30 hours, idle until the last hour and slow then took 8.7 to 9.5 s at 100 instances × 20 endpoints, now 0.37 to 0.40 s.
+- **Smaller fixes.** An endpoint row without its instance's stats row is left out rather than added to another service; a stats row stored twice counts its instance once; a name or ID token is a wildcard only when it is `*` or `>` as a whole, in Go and SQL alike; "never moves back" holds while the 7-day level stays the same.
+- **`MicroMissingInstance.server` (field 6).** The server of a still-subscribed instance's connection.
+
 ## T3 UI
 
 - `/micro-services` under Messaging (remove `planned` in `nav.ts`), with the account scope.
@@ -174,6 +181,7 @@ Fix round 3 (third review), decided in the session that fixed it, proposed, not 
 
 Recorded as they come up; moved to `docs/plans/next.md` item 5 when the work merges.
 
+- A service with no answer in a collection shows no version or description; the last INFO within the hour could supply them.
 - Endpoint metadata and the service's custom stats (`data` in STATS replies) are stored but not shown.
 - With event capture on, an account connection that cannot connect still fails the system's setup (retried with backoff), so one bad entry under `accounts` stops collection; with capture off collection goes on. Whether the capture should keep going without that account is open.
 - A new instance whose first STATS reply comes in a later epoch than its start loses its activity before that reply in `micro_endpoint_hours`.
