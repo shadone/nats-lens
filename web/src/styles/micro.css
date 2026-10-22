@@ -4,8 +4,9 @@
    headers are written .tbl.mi-tbl tbody th[scope="row"] so that they
    outrank the shared rule of events.css. Colours are the design board's:
    the accent for a card's top edge and the chosen card's frame, the
-   warning tokens for a card or row that warns, the critical colour for errors above 1%. */
-.mi-notice{margin:0 0 12px;padding:10px 14px;border:1px solid var(--sev-info);border-radius:10px;background:var(--sev-info-bg);font-size:13px;color:var(--text);overflow-wrap:anywhere}
+   warning tokens for a card or row that warns, the critical colour for errors above 1%. Text breaks a word only when
+   the word (an account key, a long name) is wider than its box. */
+.mi-notice{margin:0 0 12px;padding:10px 14px;border:1px solid var(--sev-info);border-radius:10px;background:var(--sev-info-bg);font-size:13px;color:var(--text);overflow-wrap:break-word}
 .mi-notice.mi-notice-warn{border-color:var(--sev-warning);background:var(--sev-warning-bg)}
 .mi-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
 .mi-card{display:flex;flex-direction:column;align-items:stretch;gap:2px;min-width:0;margin:0;padding:16px 18px;text-align:left;font:inherit;color:var(--text);background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--accent);border-radius:14px;cursor:pointer}
@@ -14,10 +15,10 @@
 .mi-card:hover{border-left-color:var(--text-faint);border-right-color:var(--text-faint);border-bottom-color:var(--text-faint)}
 .mi-card.mi-card-on{border-left-color:var(--accent);border-right-color:var(--accent);border-bottom-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .mi-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.mi-card-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;min-width:0}
-.mi-name{font:600 16px var(--mono);overflow-wrap:anywhere;min-width:0}
-.mi-ver{flex:none;max-width:60%;font:12px var(--mono);color:var(--text-muted);text-align:right;overflow-wrap:anywhere}
-.mi-desc{font-size:13px;color:var(--text-2);overflow-wrap:anywhere}
+.mi-card-h{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;column-gap:10px;min-width:0}
+.mi-name{font:600 16px var(--mono);overflow-wrap:break-word;min-width:0;max-width:100%}
+.mi-ver{margin-left:auto;max-width:100%;font:12px var(--mono);color:var(--text-muted);text-align:right;overflow-wrap:break-word}
+.mi-desc{font-size:13px;color:var(--text-2);overflow-wrap:break-word}
 .mi-desc.mi-quiet{color:var(--text-muted)}
 .mi-acc{font:12px var(--mono);color:var(--text-2);overflow-wrap:anywhere}
 .mi-system{margin-left:6px;padding:0 5px;border:1px solid var(--border);border-radius:4px;font:11px var(--sans);color:var(--text-muted)}
@@ -26,10 +27,10 @@
 .mi-fig .mi-v{font:600 18px var(--mono)}
 .mi-fig .mi-k{font-size:12px;color:var(--text-muted)}
 .mi-crit{color:var(--sev-critical)}
-.mi-note{margin-top:10px;font-size:12px;color:var(--text-muted);overflow-wrap:anywhere}
+.mi-note{margin-top:10px;font-size:12px;color:var(--text-muted);overflow-wrap:break-word}
 .mi-note.mi-note-warn{color:var(--sev-warning);font-weight:500}
 .mi-detail{margin-top:20px;padding:4px 0 0;min-width:0;overflow:hidden}
-.mi-h2{margin:0;padding:12px 18px 0;font-size:16px;font-weight:600;overflow-wrap:anywhere}
+.mi-h2{margin:0;padding:12px 18px 0;font-size:16px;font-weight:600;overflow-wrap:break-word}
 .mi-h2 .mi-in{font-weight:400;color:var(--text-2)}
 .mi-h3{margin:0;padding:14px 18px 0;font:600 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
 .mi-detail .table-wrap{padding:0 8px;margin-top:6px}
@@ -46,11 +47,12 @@
 .mi-tbl tr.mi-warn > *{background:var(--sev-warning-bg)}
 .mi-tbl .mi-warn-text,.mi-warn-text{color:var(--sev-warning);font-weight:500}
 .mi-quiet{color:var(--text-muted)}
-.mi-seen{padding:8px 18px 4px;font-size:13px;color:var(--text-2);max-width:900px}
+.mi-seen{padding:8px 18px 4px;font-size:13px;color:var(--text-2);max-width:900px;overflow-wrap:break-word}
 .mi-seen p{margin:0 0 6px}
 .mi-foot{margin:0;padding:10px 20px 14px;font-size:12px;color:var(--text-muted)}
 .mi-detail > .table-wrap:last-child,.mi-detail > .mi-foot:last-child{padding-bottom:14px}
-.mi-note-foot{margin:14px 2px 0;max-width:900px;font-size:12px;color:var(--text-muted)}
+.mi-note-foot{margin:14px 2px 0;max-width:900px;font-size:12px;color:var(--text-muted);overflow-wrap:break-word}
+.mi-wrap{min-width:0;overflow-wrap:break-word}
 .mi-note-foot p{margin:0 0 4px}
 @media (max-width:1100px){
   .mi-cards{grid-template-columns:repeat(2,minmax(0,1fr))}

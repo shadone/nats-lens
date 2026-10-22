@@ -34,9 +34,15 @@ describe("micro.css", () => {
     expect(phone).toMatch(/\.mi-cards\{grid-template-columns:minmax\(0,1fr\)/);
   });
 
-  it("lets names, versions, notes and notices break inside their box", () => {
-    for (const cls of ["mi-name", "mi-ver", "mi-desc", "mi-note", "mi-notice"]) {
-      expect(css).toMatch(new RegExp(`\\.${cls}\\{[^}]*overflow-wrap:anywhere`));
+  it("breaks a word only when it is wider than its box, so a long account key or name never widens the page", () => {
+    for (const cls of ["mi-name", "mi-ver", "mi-desc", "mi-note", "mi-notice", "mi-note-foot", "mi-seen", "mi-h2", "mi-wrap"]) {
+      expect(css).toMatch(new RegExp(`\\.${cls}\\{[^}]*overflow-wrap:break-word`));
     }
+    expect(css).toMatch(/\.mi-wrap\{min-width:0;/);
+    expect(css).not.toMatch(/\.mi-(name|desc|note|notice)\{[^}]*overflow-wrap:anywhere/);
+  });
+
+  it("drops a card's version below its name when the two do not fit on a line", () => {
+    expect(css).toMatch(/\.mi-card-h\{display:flex;flex-wrap:wrap;/);
   });
 });

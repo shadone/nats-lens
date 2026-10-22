@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { useNavigate } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as requests from "../api/requests";
+import * as systems from "../api/systems";
 import { account, global, noCollection, none, orders, prod, service, SUPPLIERS } from "../test/fixtures/micro";
 import { renderApp } from "../test/render";
 import { MicroServices } from "./MicroServices";
@@ -12,10 +13,13 @@ vi.mock("../api/requests", () => ({
   getLensInfo: vi.fn(() => Promise.resolve({ identityMode: "request", version: "dev", cluster: "c", collectIntervalMs: 30_000, retentionMs: 0, live: true, demo: true })),
   getShellStatus: vi.fn(() => Promise.reject(new Error("no shell in this test"))),
 }));
+vi.mock("../api/systems", async (orig) => ({ ...(await orig<typeof import("../api/systems")>()), useAccounts: vi.fn(() => ({ data: undefined })) }));
 const getMicro = vi.mocked(requests.getMicroServices);
+const useAccounts = vi.mocked(systems.useAccounts);
 
 afterEach(() => {
   getMicro.mockReset();
+  useAccounts.mockImplementation(() => ({ data: undefined }) as ReturnType<typeof systems.useAccounts>);
 });
 
 function cards() {
@@ -110,9 +114,9 @@ describe("Micro services", () => {
     renderApp(<MicroServices />, "/micro-services?system=example-global");
     await screen.findByRole("group", { name: "Services" });
     const t = within(detail().getAllByRole("table")[1]);
-    expect(t.getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Instance", "Version", "Started", "Connection", "Server", "Note"]);
-    expect(cells(t, "ORD1")).toEqual(["1.4.2", "15 Oct 07:30", "order-service", "nats-eu-1", ""]);
-    expect(within(rowOf(t, "ORD1")).getByRole("link", { name: "order-service" })).toHaveAttribute("href", "/connections?name=order-service&system=example-global");
+    expect(t.getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Instance", "Version", "Started", "Connection", "Server"]);
+    expect(cells(t, "ORD1")).toEqual(["1.4.2", "15 Oct 07:30", "order-service", "nats-eu-1"]);
+    expect(within(rowOf(t, "ORD1")).getByRole("link", { name: "order-service" })).toHaveAttribute("href", "/connections?name=order-service&server=nats-eu-1&system=example-global");
     expect(within(rowOf(t, "ORD1")).getByRole("link", { name: "nats-eu-1" })).toHaveAttribute("href", "/servers/nats-eu-1?system=example-global");
   });
 
@@ -180,9 +184,9 @@ describe("Micro services", () => {
     expect(card("catalog")).toHaveTextContent("catalog seen in subscriptions only 2 instances – not asked req/s – not asked errors list the account under accounts for versions, endpoints and timings");
     expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("catalog service");
     expect(detail().getByText(/^nats-lens does not ask APP, so versions, endpoints and timings are not known\./)).toBeInTheDocument();
-    expect(detail().getByText(/^To see more, list APP under accounts/)).toBeInTheDocument();
+    expect(detail().getByText(/^To see more, list APP under/)).toHaveTextContent("To see more, list APP under accounts in the configuration");
     const t = within(detail().getByRole("table"));
-    expect(cells(t, "CAT0")).toEqual(["– not asked", "– not asked", "catalog-api", "nats-0", ""]);
+    expect(cells(t, "CAT0")).toEqual(["– not asked", "– not asked", "catalog-api", "nats-0"]);
   });
 
   it("names the account on each card when the services span accounts and the page is not scoped", async () => {
@@ -196,7 +200,9 @@ describe("Micro services", () => {
   it("says when no service is known and subscriptions were not collected", async () => {
     getMicro.mockResolvedValue(none());
     renderApp(<MicroServices />, "/micro-services?system=example-staging");
-    expect(await screen.findByText("No micro service known: no account is listed under accounts, and no subscription list within 24 hours before this collection.")).toBeInTheDocument();
+    expect(await screen.findByText((_, el) => el?.classList.contains("mi-wrap") === true)).toHaveTextContent(
+      "No micro service known: no account is listed under accounts, and no subscription list within 24 hours before this collection.",
+    );
     expect(screen.queryByText(/Subscriptions not collected/)).toBeNull();
   });
 
@@ -214,6 +220,48 @@ describe("Micro services", () => {
     await screen.findByRole("group", { name: "Services" });
     expect(card("inventory")).toHaveTextContent("2 instances – not observed req/s – not observed errors no answer to $SRV.STATS: no reply within the collect window");
     expect(detail().getByText("No endpoints known: none of its instances answered $SRV.STATS in this collection (no reply within the collect window).")).toBeInTheDocument();
+  });
+
+  it("names an account the response leaves unnamed from the header's account list", async () => {
+    useAccounts.mockImplementation(() => ({ data: [{ account: SUPPLIERS, name: "SUPPLIERS-LIST", isSystem: false }] }) as unknown as ReturnType<typeof systems.useAccounts>);
+    const d = global();
+    d.accounts[0] = { ...d.accounts[0], accountName: "" };
+    getMicro.mockResolvedValue(d);
+    renderApp(<MicroServices />, "/micro-services");
+    await screen.findByRole("group", { name: "Services" });
+    expect(screen.getAllByRole("note").find((n) => /asked, no answer/.test(n.textContent ?? ""))).toHaveTextContent(/^SUPPLIERS-LIST \(account ID /);
+  });
+
+  it("says a service of another account is not in the scoped one", async () => {
+    getMicro.mockResolvedValue(global({ services: [service({ account: "SHOP", name: "inventory" })], accounts: [account({ account: "SHOP", accountName: "Shop" })] }));
+    renderApp(<MicroServices />, "/micro-services?account=SHOP&service=APP%2Forders");
+    await screen.findByRole("group", { name: "Services" });
+    expect(screen.getByText("orders of APP is not in account Shop; showing inventory.")).toBeInTheDocument();
+  });
+
+  it("adds a Note column to the instances only when one is missing", async () => {
+    getMicro.mockResolvedValue(global());
+    renderApp(<MicroServices />, "/micro-services");
+    await screen.findByRole("group", { name: "Services" });
+    expect(within(detail().getAllByRole("table")[1]).queryByRole("columnheader", { name: "Note" })).toBeNull();
+  });
+
+  it("sets the configuration key accounts in mono", async () => {
+    getMicro.mockResolvedValue(prod());
+    renderApp(<MicroServices />, "/micro-services");
+    await screen.findByRole("group", { name: "Services" });
+    expect(card("catalog").querySelector(".mi-note .mono")).toHaveTextContent("accounts");
+    expect(detail().getByText(/^To see more/).querySelector(".mono")).toHaveTextContent("accounts");
+    expect(screen.getByText(/^Each account listed under/).querySelector(".mono")).toHaveTextContent("accounts");
+  });
+
+  it("words a share just above 1% so it agrees with its colour", async () => {
+    const s = service({ errorShare: 0.01004, endpoints: [{ ...service().endpoints[0], errorShare: 0.01004, errorsHigh: true }] });
+    getMicro.mockResolvedValue(global({ services: [s] }));
+    renderApp(<MicroServices />, "/micro-services");
+    await screen.findByRole("group", { name: "Services" });
+    expect(card("inventory").querySelector(".mi-crit")).toHaveTextContent(">1.0%");
+    expect(cells(within(detail().getAllByRole("table")[0]), "reserve")[4]).toBe(">1.0%");
   });
 
   it("never shows another account's services while the scoped ones load", async () => {
