@@ -52,7 +52,13 @@ type Account struct {
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`
 	TLS      TLS    `yaml:"tls"`
+	// Micro, when false, stops asking the account's micro services
+	// ($SRV.INFO and $SRV.STATS); unset asks them.
+	Micro *bool `yaml:"micro"`
 }
+
+// AsksMicro reports whether the account's micro services are asked.
+func (a Account) AsksMicro() bool { return a.Micro == nil || *a.Micro }
 
 // AccountPasswordEnv returns the environment variable read for an account's
 // password when the file does not set one: NATSLENS_ACCOUNT_<NAME>_PASSWORD,

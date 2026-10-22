@@ -8,8 +8,8 @@ The board's sample services (`orders`, `pricing`, `inventory`) fit the example s
 
 | Task | Status |
 |---|---|
-| T1 Collect micro service replies | not started |
-| T2 API, store and demo | in progress on `feat/micro-api`: the API, the shared rules, the demo and the store's seen level done; the store's asked level waits for T1's migration 0033 |
+| T1 Collect micro service replies | built on `feat/micro-collect`, awaiting review |
+| T2 API, store and demo | in progress on `feat/micro-api` (with `feat/micro-collect` merged in): the API, the shared rules, the demo and the store's seen level done; the store's asked level in progress |
 | T3 UI | not started |
 | T4 Feature docs and audit | not started |
 
@@ -53,6 +53,25 @@ Order of the cards: services with a warning note first, then by requests per sec
 - **Size.** A service with many instances and endpoints: one STATS reply per instance; measure 100 instances × 20 endpoints.
 - **Tests.** An in-process server with a service built on `github.com/nats-io/nats.go/micro` in an account: INFO and STATS stored, counters, two instances, an instance stopped (no reply), a user without `$SRV` permission (state recorded, the epoch not failed), the interval of INFO, the migration on a store with data, archive and rebuild.
 - **Docs.** `docs/design.md`, `monitoring-snapshots.md`, `event-capture.md` (the account connections now also ask `$SRV`), `running-nats-lens.md`, the README table list.
+
+### Where T1 departed from this plan
+
+Each point was decided in the session that built T1: proposed, not yet confirmed.
+
+- **A fourth table, `micro_stats`.** `$SRV.INFO` carries no `started`; `$SRV.STATS` does, with the version. `micro_stats` (`epoch`, `account`, `service`, `instance_id`, `version`, `started`) has one row per instance that answered STATS, so an instance without endpoints still counts as answering, and T2 reads an instance run from it. `micro_instances` has no `started`, and keeps the INFO endpoint list (name, subject, queue group, metadata) as JSON in `endpoints`.
+- **Subject and queue group from STATS.** The framework's STATS reply names each endpoint's subject and queue group, so `micro_endpoints` takes them from there and from the newest INFO only when STATS left them empty. `micro_endpoints.data` keeps the endpoint's custom stats (leftover: not shown).
+- **`micro_requests.label`.** Each row has the account's label from the configuration besides `account`, with a unique index on (`epoch`, `label`, `request`): two entries for one account would otherwise collide.
+- **The account's name.** `account` is the account as the servers name it (the public key in operator mode), from `$SYS.REQ.USER.INFO` asked once per connection with the first `$SRV` requests, so that it joins `subscriptions.account`; the label when the user may not ask or no answer came. With event capture on, the capture asks too: two small lookups per connection.
+- **Grants.** The README asks for publish on `$SRV.INFO` and `$SRV.STATS`, the only subjects sent, rather than `$SRV.>`; `$SRV.>` works too. The test cluster's scoped account user has them, and `TestMicroScopedUser` fails without either.
+- **The quiet period and the window.** A request ends 250 ms after its last reply: instances answer from their own subscription as the request arrives, a few milliseconds apart on one server and tens of milliseconds across routes. STATS, the INFO due by time, the account lookup and an INFO for a new instance share one window per account from the start of the requests, so the epoch takes no longer than the detail endpoints' window; an INFO for a new instance that finds no time left is asked again next epoch.
+- **`subscriptions_interval` 0.** SUBSZ is off then; INFO goes out only on the first epoch and for new instances.
+- **How a refusal is read.** nats.go reports a permissions violation only as the connection's last error. The collector flushes after subscribing the inbox and after each publish, so a violation has arrived by then, and takes the last error when it is new and names the request's subject. A refused inbox sends nothing. A refusal is state `error` with the server's text, as the plan's four states have no fifth; T2 can tell it by the text.
+- **No responders per request.** Each request has its own reply subject under one inbox, read through a callback subscription: a synchronous subscription's `NextMsg` turns the no responders status into an error without saying which request it answered.
+- **Undecodable and repeated replies.** A reply of another type or without service name and instance ID is counted; the request is `error` when nothing else decoded, else `ok` with "n of m replies did not decode" in `error`. A second reply of one instance is dropped.
+- **`natslens once`.** It opens a connection per asking account for its one epoch; an account that does not connect is recorded as "account connection not connected".
+- **Tables without `server_id`.** The four tables are a list of their own (`accountEpochTables`), swept and archived with the epoch tables; the store test that every epoch table has `server_id` does not apply to them.
+- **Sizes.** 100 instances × 20 endpoints on one server: 100 STATS replies, about 335 KB, and 100 INFO replies, about 175 KB, gathered within the 250 ms after the last reply, decoded in about 2 ms (`TestMicroManyInstances` in `internal/collect`); writing them adds about 40 ms to an epoch in memory (2,000 endpoint rows in JSON batches of 5,000, 100 rows each in `micro_instances` and `micro_stats`; `TestMicroManyInstances` in `internal/store`). At a 30-second interval that is 5.8 million endpoint rows a day.
+- **Docs beyond the list.** `natslens.example.yaml`, the README's grants table and permissions block, the coverage lines in `docs/features/README.md`, and `micro-services.md` (what is built, one STATS per account, the grants).
 
 ## T2 API, store and demo
 

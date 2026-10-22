@@ -80,6 +80,7 @@ func (a Account) LogValue() slog.Value {
 		slog.String("user", a.User),
 		slog.Bool("password_set", a.Password != ""),
 		slog.String("tls_ca", a.TLS.CA),
+		slog.Bool("micro", a.AsksMicro()),
 	)
 }
 

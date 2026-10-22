@@ -13,6 +13,11 @@ var epochTables = []string{
 	"consumer_stats", "consumer_replicas", "raft_stats", "subscriptions", "subscription_lists",
 }
 
+// accountEpochTables hold one row per epoch per account entity, asked
+// over the account connections: they are swept and archived by epoch like
+// epochTables, but describe no server.
+var accountEpochTables = []string{"micro_requests", "micro_instances", "micro_stats", "micro_endpoints"}
+
 // checkTables hold the checks' rows of an epoch: they are swept and
 // archived by epoch like epochTables, but describe no server.
 var checkTables = []string{"check_runs", "finding_transitions"}
@@ -62,7 +67,7 @@ SELECT coalesce(
 		return SweepResult{}, fmt.Errorf("sweep epochs: %w", err)
 	}
 	n, _ := res.RowsAffected()
-	for _, t := range append(append([]string{}, epochTables...), "check_runs") {
+	for _, t := range append(append(append([]string{}, epochTables...), accountEpochTables...), "check_runs") {
 		if _, err := tx.ExecContext(ctx, "DELETE FROM "+t+" WHERE epoch < ?", cutoff); err != nil {
 			return SweepResult{}, fmt.Errorf("sweep %s: %w", t, err)
 		}
