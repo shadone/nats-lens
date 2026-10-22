@@ -151,11 +151,12 @@ func TestSubjectsResponseWithinSizeLimit(t *testing.T) {
 	if size > api.MaxMessageBytes {
 		t.Fatalf("response is %d bytes, over the limit of %d", size, api.MaxMessageBytes)
 	}
-	r := res.GetRows()[0]
-	if len(r.GetPatterns()) != api.MaxRowPatterns || r.GetMorePatterns() != 10 {
-		t.Fatalf("a row lists %d subjects and counts %d more, want 20 and 10", len(r.GetPatterns()), r.GetMorePatterns())
+	i := slices.IndexFunc(res.GetRows(), func(r *v1.SubjectRow) bool { return r.GetStream() == "orders-0007" })
+	if i < 0 {
+		t.Fatal("no row for orders-0007")
 	}
-	if r.GetPatterns()[0] != "orders.region-00.warehouse-0000.>" && !strings.HasPrefix(r.GetPatterns()[0], "orders.region-00.") {
-		t.Fatalf("first subject %q, want the configuration's first", r.GetPatterns()[0])
+	r := res.GetRows()[i]
+	if want := streams[7].Subjects[:api.MaxRowPatterns]; !slices.Equal(r.GetPatterns(), want) || r.GetMorePatterns() != 10 {
+		t.Fatalf("orders-0007 lists %v and counts %d more, want the configuration's first 20, %v, and 10", r.GetPatterns(), r.GetMorePatterns(), want)
 	}
 }

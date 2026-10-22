@@ -21,8 +21,9 @@ const (
 	// MaxSubjectLength is the longest subject MatchSubject takes, in bytes.
 	MaxSubjectLength = 255
 	// MaxRowPatterns is the most subjects a stream row lists; the rest
-	// are counted in more_patterns, so MaxSubjectRows rows of streams
-	// with many subjects stay within MaxMessageBytes.
+	// are counted in more_patterns. It bounds the count, not the bytes:
+	// MaxSubjectRows rows of 20 subjects stay within MaxMessageBytes only
+	// while subjects average under about 48 bytes.
 	MaxRowPatterns = 20
 	// SubscriptionsMaxAge is how far before the epoch the subscription
 	// collection a page reads may lie.
@@ -509,8 +510,10 @@ func streamRow(s SubjectStreamFact, overlaps map[[2]string][]string, links strea
 // So an account's subjects are split by their first token, those with a
 // wildcard there (or no token left) compared with all the others, and
 // each group of one literal token split again by the next token. Each
-// pair of streams is compared once. 10,000 streams take milliseconds
-// instead of seconds.
+// pair of streams is compared once. 10,000 streams take milliseconds when
+// their subjects' first tokens are literal; when most start with a
+// wildcard, those are still compared pair by pair, and 10,000 take
+// seconds.
 func overlapsOf(streams []SubjectStreamFact) map[[2]string][]string {
 	type entry struct {
 		stream  int

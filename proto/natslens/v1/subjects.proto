@@ -149,8 +149,9 @@ message SubjectRow {
   // Whether the row's account is the system account.
   bool system_account = 23;
 
-  // A stream's subjects beyond the 20 in patterns, so 1,000 rows stay
-  // within a response's size limit.
+  // A stream's subjects beyond the 20 in patterns. It bounds the count,
+  // not the bytes: 1,000 rows of 20 subjects stay within a response's
+  // size limit only while subjects average under about 48 bytes.
   int32 more_patterns = 24;
 }
 

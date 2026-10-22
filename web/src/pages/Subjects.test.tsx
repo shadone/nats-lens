@@ -160,7 +160,9 @@ describe("Subjects", () => {
     getSubjects.mockResolvedValue({ ...global(), rows: [row({ patterns: ["a.1", "a.2"], morePatterns: 1204 })] });
     renderApp(<Subjects />, "/subjects");
     await screen.findByRole("region", { name: "Subject patterns" });
-    const more = table().getByText("+1,204 more");
+    const more = table().getByText((_, el) => el?.classList.contains("sj-more") === true);
+    expect(more).toHaveTextContent(/^\+1,204 more subjects$/);
+    expect(within(more).getByText("subjects")).toHaveClass("sr-only");
     expect(more.closest("th")?.querySelectorAll(".sj-pattern")).toHaveLength(2);
   });
 

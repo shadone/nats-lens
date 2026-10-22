@@ -97,7 +97,11 @@ function Patterns({ r }: { r: SubjectRow }) {
           {p}
         </span>
       ))}
-      {r.morePatterns > 0 && <span className="sj-more">+{fmtInt(r.morePatterns)} more</span>}
+      {r.morePatterns > 0 && (
+        <span className="sj-more">
+          +{fmtInt(r.morePatterns)} more<span className="sr-only"> subjects</span>
+        </span>
+      )}
     </>
   );
 }
