@@ -232,3 +232,29 @@ func TestMicroRefusedRequestBacksOff(t *testing.T) {
 		t.Errorf("not sent again after ten minutes: %+v", m.Asked)
 	}
 }
+
+// A hold on a refused request ends when the label's connection changes:
+// a redial with new credentials is asked at once, not after the hold.
+func TestMicroHoldEndsWithANewConnection(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a server")
+	}
+	url := startMicroServer(t)
+	startOrders(t, url, "1.4.2")
+	refused, permitted := connectAs(t, url, "shop-nosrv"), connectAs(t, url, "shop-asker")
+	var useRefused atomic.Bool
+	useRefused.Store(true)
+	at := time.Now()
+	c := microCollector(time.Second, 5*time.Minute, &at, AccountConn{Label: "SHOP", Conn: func() *nats.Conn {
+		if useRefused.Load() {
+			return refused
+		}
+		return permitted
+	}})
+	c.Collect(context.Background())
+	useRefused.Store(false)
+	at = at.Add(30 * time.Second)
+	if got := askedOf(c.Collect(context.Background()).Micro[0]); got != "INFO ok 1, STATS ok 1" {
+		t.Errorf("after the new connection: %s", got)
+	}
+}
