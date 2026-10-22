@@ -37,6 +37,7 @@ function EndpointRow({ s, e, epochAt }: { s: MicroService; e: MicroEndpoint; epo
     <tr className={e.slow ? "mi-warn" : undefined}>
       <th scope="row">{e.name}</th>
       <td className="mi-subj mi-subjs">
+        {e.subjects.length === 0 && <None words="no subject reported" />}
         {e.subjects.map((x, i) => (
           <span key={x} className="mi-subject">
             <Subject account={s.account} subject={x} />

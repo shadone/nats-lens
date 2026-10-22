@@ -242,3 +242,22 @@ describe("microView review round 3", () => {
     expect(unknownServiceText("/orders", "", (x) => x, "inventory")).toBe("No service orders in this collection; showing inventory.");
   });
 });
+
+describe("microView final review", () => {
+  it("chooses a service whose account has a slash, as service names cannot", () => {
+    const a = service({ account: "shop/eu", name: "inventory" });
+    const b = service({ account: "APP", name: "orders" });
+    expect(chooseService([b, a], serviceKey(a), "")).toEqual({ chosen: a, unknown: false });
+    expect(unknownServiceText("shop/eu/stock", "", (x) => x, "orders")).toBe("No service shop/eu/stock in this collection; showing orders.");
+    expect(unknownServiceText("shop/eu/stock", "APP", (x) => x, "orders")).toBe("stock of shop/eu is not in account APP; showing orders.");
+  });
+
+  it("names no empty service", () => {
+    expect(unknownServiceText("/", "", (x) => x, "orders")).toBe("No service named in the address is in this collection; showing orders.");
+    expect(unknownServiceText("APP/", "APP", (x) => x, "orders")).toBe("No service named in the address is in this collection; showing orders.");
+  });
+
+  it("never says 0 instances missing", () => {
+    expect(plain(noteOf(service({ note: "missing", missing: [] }), [], EPOCH_AT).text)).toBe("an instance missing");
+  });
+});

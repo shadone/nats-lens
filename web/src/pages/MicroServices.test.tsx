@@ -307,6 +307,14 @@ describe("Micro services", () => {
     expect(within(row).getAllByRole("link").map((a) => a.textContent)).toEqual(["orders.create", "orders.create.v2"]);
   });
 
+  it("shows a dash heard as no subject for an endpoint without subjects", async () => {
+    const s = service({ endpoints: [{ ...service().endpoints[0], subject: "", subjects: [] }] });
+    getMicro.mockResolvedValue(global({ services: [s] }));
+    renderApp(<MicroServices />, "/micro-services");
+    await screen.findByRole("group", { name: "Services" });
+    expect(cells(within(detail().getAllByRole("table")[0]), "reserve")[0]).toBe("– no subject reported");
+  });
+
   it("never shows another account's services while the scoped ones load", async () => {
     getMicro.mockImplementation(async (_s, _r, acc) => (acc === "APP" ? global() : new Promise(() => {})));
     renderApp(
