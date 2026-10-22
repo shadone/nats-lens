@@ -84,6 +84,17 @@ FROM st LEFT JOIN inf USING (account) LEFT JOIN epochs ie ON ie.epoch = inf.epoc
 	return out, rows.Err()
 }
 
+// subjOf is a micro_endpoints row's series subject: its subject; for a
+// row without one (STATS before INFO filled it in), the subject of the
+// instance's other rows of the name read with it when they all have one,
+// else none. So a row without a subject joins the series of the one
+// subject it can be, as the hourly rollup pairs a row without a subject
+// by name alone; two subjects of one name leave it a series of its own.
+const subjOf = `coalesce(x.subject,
+      CASE WHEN min(x.subject) OVER (PARTITION BY x.account, x.service, x.endpoint, x.instance_id)
+        = max(x.subject) OVER (PARTITION BY x.account, x.service, x.endpoint, x.instance_id)
+      THEN min(x.subject) OVER (PARTITION BY x.account, x.service, x.endpoint, x.instance_id) END, '')`
+
 // microPoints selects the endpoint reports of the instances that
 // answered the epoch ($1), of the epochs $2 to $3 that started in [$4,
 // $5) (microseconds): their counters and subject, with their instance's
@@ -94,7 +105,7 @@ FROM st LEFT JOIN inf USING (account) LEFT JOIN epochs ie ON ie.epoch = inf.epoc
 // instances, as a gone instance's run would count a restart twice.
 const microPoints = `
   SELECT x.account, x.service, x.endpoint, x.instance_id, s.started, ep.started_at AS t,
-    coalesce(x.subject, '') AS subj, x.num_requests AS r, x.num_errors AS er, x.processing_time_ns AS ns
+    ` + subjOf + ` AS subj, x.num_requests AS r, x.num_errors AS er, x.processing_time_ns AS ns
   FROM micro_endpoints x
   JOIN micro_stats s ON s.epoch = x.epoch AND s.account = x.account AND s.service = x.service AND s.instance_id = x.instance_id
   JOIN epochs ep ON ep.epoch = x.epoch
@@ -408,7 +419,7 @@ WITH v0(account, service, endpoint, f_us, to_us) AS (VALUES `+strings.Join(spans
 ), v AS (SELECT account, service, endpoint, make_timestamp(f_us) AS f, make_timestamp(to_us) AS upto FROM v0
 ), pts AS (
   SELECT x.account, x.service, x.endpoint, x.instance_id, s.started, ep.started_at AS t, v.f,
-    coalesce(x.subject, '') AS subj, x.num_requests AS r, x.num_errors AS er, x.processing_time_ns AS ns
+    `+subjOf+` AS subj, x.num_requests AS r, x.num_errors AS er, x.processing_time_ns AS ns
   FROM micro_endpoints x
   JOIN v ON v.account = x.account AND v.service = x.service AND v.endpoint = x.endpoint
   JOIN micro_stats s ON s.epoch = x.epoch AND s.account = x.account AND s.service = x.service AND s.instance_id = x.instance_id

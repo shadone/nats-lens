@@ -14,6 +14,7 @@ import (
 
 	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/api/apitest"
+	"github.com/shadone/nats-lens/internal/api/storeprov"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -308,4 +309,44 @@ func TestMicroServicesZoneIndependent(t *testing.T) {
 		}
 	}
 	setZone("UTC")
+}
+
+// An instance's first STATS replies came before INFO gave the endpoint its
+// subject: the rows without a subject and those with one are one series,
+// as the hourly rollup pairs them, so the rate is the instance's, not
+// twice it.
+func TestMicroSubjectFirstAppearing(t *testing.T) {
+	st := emptyStore(t)
+	r := rows{t, st}
+	last := time.Date(2026, 10, 17, 14, 0, 0, 0, time.UTC)
+	const n = 30
+	at := func(e int64) time.Time { return last.Add(-time.Duration(n-e) * 30 * time.Second) }
+	started := at(1).Add(-time.Hour)
+	for e := int64(1); e <= n; e++ {
+		if _, err := st.DB().Exec(`INSERT INTO epochs VALUES (?, ?, ?, 0, 1, 1, [], [], [], 0, false, [], NULL)`, e, at(e),
+			at(e).Add(time.Second)); err != nil {
+			t.Fatal(err)
+		}
+		r.add("micro_requests", map[string]any{"epoch": e, "label": "app", "account": "APP", "request": "STATS", "state": "ok", "replies": 1})
+		r.add("micro_stats", map[string]any{"epoch": e, "account": "APP", "service": "orders", "instance_id": "O1", "started": started})
+		// 10 requests a second at 2 ms; the subject from the 20th epoch on.
+		req := int64(at(e).Sub(started).Seconds() * 10)
+		cols := map[string]any{"epoch": e, "account": "APP", "service": "orders", "instance_id": "O1", "endpoint": "get", "num_requests": req,
+			"num_errors": 0, "processing_time_ns": req * 2_000_000, "average_processing_time_ns": 2_000_000}
+		if e >= 20 {
+			cols["subject"] = "orders.get"
+		}
+		r.add("micro_endpoints", cols)
+	}
+	clock := last.Add(30 * time.Second)
+	_, c := apitest.Serve(t, &storeprov.Provider{St: st, Interval: 30 * time.Second, Live: true, Clock: func() time.Time { return clock },
+		Retention: 14 * day})
+	res, err := c.GetMicroServices(ctx, connect.NewRequest(&v1.GetMicroServicesRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := res.Msg.GetServices()[0].GetEndpoints()[0]
+	if math.Abs(e.GetRequestsPerSecond()-10) > 0.01 || math.Abs(e.GetAverageMs()-2) > 0.001 {
+		t.Errorf("get: %.2f req/s at %.3f ms, want 10 at 2", e.GetRequestsPerSecond(), e.GetAverageMs())
+	}
 }
