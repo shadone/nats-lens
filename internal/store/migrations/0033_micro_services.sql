@@ -101,7 +101,7 @@ COMMENT ON TABLE micro_endpoint_hours IS 'Per hour, what each endpoint of a serv
 COMMENT ON COLUMN micro_endpoint_hours.hour IS 'Start of the hour, in UTC, of the epochs whose increases are summed (epochs.started_at truncated to the hour).';
 COMMENT ON COLUMN micro_endpoint_hours.account IS 'Account of the service, as micro_requests.account.';
 COMMENT ON COLUMN micro_endpoint_hours.service IS 'Service name.';
-COMMENT ON COLUMN micro_endpoint_hours.endpoint IS 'Endpoint name. Each STATS row is paired with the instance''s previous row of the same name and subject; two endpoints of one name with different subjects (in two groups) are summed into one row.';
+COMMENT ON COLUMN micro_endpoint_hours.endpoint IS 'Endpoint name. Each STATS row is paired with the instance''s previous row of the same name and subject, or of the same name when either has no subject; two endpoints of one name with different subjects (in two groups) are summed into one row.';
 COMMENT ON COLUMN micro_endpoint_hours.requests IS 'Requests the endpoint''s instances received in the hour.';
 COMMENT ON COLUMN micro_endpoint_hours.errors IS 'Requests the endpoint''s instances answered with an error in the hour.';
 COMMENT ON COLUMN micro_endpoint_hours.processing_time_ns IS 'Time the endpoint''s instances spent on requests in the hour, in nanoseconds; divided by requests it is the hour''s average time.';

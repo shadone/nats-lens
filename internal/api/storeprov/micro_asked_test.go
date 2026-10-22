@@ -14,6 +14,7 @@ import (
 
 	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/api/apitest"
+	"github.com/shadone/nats-lens/internal/api/storeprov"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -22,8 +23,7 @@ import (
 // at end: the window's increase over the instances of the epoch; the
 // level over the hourly rollup of the 7 days before the window; and, when
 // slow, the slow run's start from the rollup's hours up to the epoch's
-// hour and every instance's collections in the last fast hour and the
-// next.
+// hour and every instance's collections over api.MicroSlowSpan.
 func (f *mcFixture) expected(key string, epochAt, end time.Time) (api.MicroIncrease, *float64, *time.Time) {
 	from := end.Add(-api.RateSpan)
 	cur := map[string]bool{}
@@ -55,23 +55,23 @@ func (f *mcFixture) expected(key string, epochAt, end time.Time) (api.MicroIncre
 	if !api.MicroIsSlow(&avg, level) {
 		return w, level, nil
 	}
-	fast := api.MicroLastFastHour(upTo, *level)
-	if fast == nil {
-		return w, level, api.MicroSlowStart(upTo, nil, *level)
+	from, to, ok := api.MicroSlowSpan(upTo, *level, epochAt)
+	if !ok {
+		return w, level, api.MicroSlowStart(upTo, nil, *level, epochAt)
 	}
 	var near []api.MicroReport
 	for _, r := range f.reports[key] {
-		if !r.At.Before(fast.Add(-time.Hour)) && !r.At.After(epochAt) && r.At.Before(fast.Add(api.MicroSlowStartSpan)) {
+		if !r.At.Before(from.Add(-time.Hour)) && !r.At.After(epochAt) && r.At.Before(to) {
 			near = append(near, r)
 		}
 	}
 	var cols []api.MicroAverage
 	for _, c := range api.MicroCollectionAverages(api.MicroDeltas(near)) {
-		if !c.At.Before(*fast) {
+		if !c.At.Before(from) {
 			cols = append(cols, c)
 		}
 	}
-	return w, level, api.MicroSlowStart(upTo, cols, *level)
+	return w, level, api.MicroSlowStart(upTo, cols, *level, epochAt)
 }
 
 func closeEnough(a, b float64) bool { return math.Abs(a-b) <= 1e-9*math.Max(1, math.Abs(b)) }
@@ -89,7 +89,9 @@ func TestMicroServicesAskedFollowTheRules(t *testing.T) {
 	p, f := microConfProvider(t, last)
 	_, c := apitest.Serve(t, p)
 	checked := 0
-	for _, back := range []time.Duration{0, 5 * time.Minute, 10 * time.Minute, 70 * time.Minute, 110 * time.Minute, 3 * time.Hour, 20 * time.Hour} {
+	slowCreate := false
+	for _, back := range []time.Duration{0, 5 * time.Minute, 10 * time.Minute, 70 * time.Minute, 110 * time.Minute, 160 * time.Minute, 3 * time.Hour,
+		20 * time.Hour} {
 		end := last.Add(30*time.Second - back)
 		res, err := c.GetMicroServices(ctx, connect.NewRequest(&v1.GetMicroServicesRequest{
 			Range: &v1.TimeRange{Start: timestamppb.New(end.Add(-time.Hour)), End: timestamppb.New(end)}}))
@@ -100,6 +102,7 @@ func TestMicroServicesAskedFollowTheRules(t *testing.T) {
 		for _, s := range res.Msg.GetServices() {
 			for _, e := range s.GetEndpoints() {
 				w, level, since := f.expected(s.GetName()+"/"+e.GetName(), epochAt, end)
+				slowCreate = slowCreate || (e.GetName() == "create" && e.GetSlowSince() != nil)
 				var avg, share *float64
 				if w.Requests > 0 {
 					avg, share = ptrTo(w.ProcessingNs/w.Requests/1e6), ptrTo(w.Errors/w.Requests)
@@ -112,6 +115,9 @@ func TestMicroServicesAskedFollowTheRules(t *testing.T) {
 				checked++
 			}
 		}
+	}
+	if !slowCreate {
+		t.Error("create, on two subjects, is never slow: its slow run is not checked")
 	}
 	if checked < 20 {
 		t.Errorf("checked %d endpoints", checked)
@@ -303,4 +309,44 @@ func TestMicroServicesZoneIndependent(t *testing.T) {
 		}
 	}
 	setZone("UTC")
+}
+
+// An instance's first STATS replies came before INFO gave the endpoint its
+// subject: the rows without a subject and those with one are one series,
+// as the hourly rollup pairs them, so the rate is the instance's, not
+// twice it.
+func TestMicroSubjectFirstAppearing(t *testing.T) {
+	st := emptyStore(t)
+	r := rows{t, st}
+	last := time.Date(2026, 10, 17, 14, 0, 0, 0, time.UTC)
+	const n = 30
+	at := func(e int64) time.Time { return last.Add(-time.Duration(n-e) * 30 * time.Second) }
+	started := at(1).Add(-time.Hour)
+	for e := int64(1); e <= n; e++ {
+		if _, err := st.DB().Exec(`INSERT INTO epochs VALUES (?, ?, ?, 0, 1, 1, [], [], [], 0, false, [], NULL)`, e, at(e),
+			at(e).Add(time.Second)); err != nil {
+			t.Fatal(err)
+		}
+		r.add("micro_requests", map[string]any{"epoch": e, "label": "app", "account": "APP", "request": "STATS", "state": "ok", "replies": 1})
+		r.add("micro_stats", map[string]any{"epoch": e, "account": "APP", "service": "orders", "instance_id": "O1", "started": started})
+		// 10 requests a second at 2 ms; the subject from the 20th epoch on.
+		req := int64(at(e).Sub(started).Seconds() * 10)
+		cols := map[string]any{"epoch": e, "account": "APP", "service": "orders", "instance_id": "O1", "endpoint": "get", "num_requests": req,
+			"num_errors": 0, "processing_time_ns": req * 2_000_000, "average_processing_time_ns": 2_000_000}
+		if e >= 20 {
+			cols["subject"] = "orders.get"
+		}
+		r.add("micro_endpoints", cols)
+	}
+	clock := last.Add(30 * time.Second)
+	_, c := apitest.Serve(t, &storeprov.Provider{St: st, Interval: 30 * time.Second, Live: true, Clock: func() time.Time { return clock },
+		Retention: 14 * day})
+	res, err := c.GetMicroServices(ctx, connect.NewRequest(&v1.GetMicroServicesRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := res.Msg.GetServices()[0].GetEndpoints()[0]
+	if math.Abs(e.GetRequestsPerSecond()-10) > 0.01 || math.Abs(e.GetAverageMs()-2) > 0.001 {
+		t.Errorf("get: %.2f req/s at %.3f ms, want 10 at 2", e.GetRequestsPerSecond(), e.GetAverageMs())
+	}
 }

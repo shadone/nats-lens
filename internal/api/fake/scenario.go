@@ -99,6 +99,9 @@ type scenario struct {
 	// answers, any other is refused.
 	micro      []microSpec
 	microAsked []string
+	// microTimeouts are the epochs, in the fixed frame, whose $SRV
+	// requests to Account timed out.
+	microTimeouts []time.Time
 	// apiRate and apiErrors are the stream account's JetStream API
 	// requests per second and the share that failed.
 	apiRate, apiErrors float64

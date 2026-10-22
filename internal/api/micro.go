@@ -116,7 +116,10 @@ type MicroInstanceFact struct {
 // run (MicroSlowSince); FinishMicro keeps the start only when the
 // endpoint is slow.
 type MicroEndpointFact struct {
-	Name, Subject, QueueGroup    string
+	Name, Subject, QueueGroup string
+	// Subjects are every subject of the endpoint's name, in order; Subject
+	// is the first.
+	Subjects                     []string
 	Window                       MicroIncrease
 	LastError, LastErrorInstance string
 	LevelMs                      *float64
@@ -352,50 +355,72 @@ func MicroIsSlow(avgMs, levelMs *float64) bool {
 	return avgMs != nil && levelMs != nil && *avgMs >= MicroSlowFactor**levelMs && *avgMs >= *levelMs+MicroSlowMarginMs
 }
 
-// MicroLastFastHour is the newest hour, of an endpoint's hourly
-// averages up to the epoch's hour in time order, that is not slow against
-// the level; nil when every one is slow.
-func MicroLastFastHour(hours []MicroAverage, levelMs float64) *time.Time {
+// MicroSlowSpan is where a slow endpoint's run began, by its hourly
+// averages up to the epoch's hour in time order: after the last fast hour,
+// the newest hour before the epoch's that is not slow (the epoch's own
+// hour is partial and does not decide). The run's start lies between
+// that hour's start and the end of the next hour with requests after it
+// (the epoch's hour at the latest): idle hours between have no
+// collections. ok is false when no hour before the epoch's is fast.
+func MicroSlowSpan(hours []MicroAverage, levelMs float64, epochAt time.Time) (from, to time.Time, ok bool) {
+	epochHour := epochAt.UTC().Truncate(time.Hour)
 	for i := len(hours) - 1; i >= 0; i-- {
-		if !MicroIsSlow(&hours[i].Ms, &levelMs) {
-			at := hours[i].At
-			return &at
+		if !hours[i].At.Before(epochHour) || MicroIsSlow(&hours[i].Ms, &levelMs) {
+			continue
 		}
+		from, to = hours[i].At, hours[i].At.Add(time.Hour)
+		if i+1 < len(hours) {
+			to = hours[i+1].At.Add(time.Hour)
+		}
+		return from, to, true
 	}
-	return nil
+	return time.Time{}, time.Time{}, false
 }
 
-// MicroSlowStartSpan is how much of the collections from the last fast
-// hour on MicroSlowStart reads: that hour and the next.
-const MicroSlowStartSpan = 2 * time.Hour
-
-// MicroSlowStart is when a slow endpoint's current slow run began. The
-// hours decide first: the run began after the newest hour that is not
-// slow (MicroLastFastHour). Inside that hour and the next, the
-// collections' own averages (MicroCollectionAverages over the instances'
-// increases, up to the epoch) decide: the run starts at the first
-// collection after the last one that is not slow. cols are those
-// collections in time order. A brief fast spell inside a later slow hour
-// does not end the run. When every hour of the span is slow, the run
-// began at or before the first of them, which is returned.
-func MicroSlowStart(hours, cols []MicroAverage, levelMs float64) *time.Time {
+// MicroSlowStart is when a slow endpoint's current slow run began, from
+// its hourly averages up to the epoch's hour and its collections'
+// averages (MicroCollectionAverages over every instance, up to the
+// epoch) in MicroSlowSpan, in time order. When no hour before the epoch's
+// is fast, the run began at the first hour. Otherwise the run starts at
+// the first collection after the span's last collection that is not
+// slow, provided a slow one follows it; else at the start of the first
+// slow hour after the last fast one, else of the hour after it. A fast
+// collection after the span does not end the run. nil only without
+// hours.
+func MicroSlowStart(hours, cols []MicroAverage, levelMs float64, epochAt time.Time) *time.Time {
 	if len(hours) == 0 {
 		return nil
 	}
-	if MicroLastFastHour(hours, levelMs) == nil {
+	from, to, ok := MicroSlowSpan(hours, levelMs, epochAt)
+	if !ok {
 		at := hours[0].At
 		return &at
 	}
+	var span []MicroAverage
+	for _, c := range cols {
+		if !c.At.Before(from) && c.At.Before(to) && !c.At.After(epochAt) {
+			span = append(span, c)
+		}
+	}
 	last := -1
-	for i, c := range cols {
+	for i, c := range span {
 		if !MicroIsSlow(&c.Ms, &levelMs) {
 			last = i
 		}
 	}
-	if last+1 >= len(cols) {
-		return nil
+	for _, c := range span[last+1:] {
+		if MicroIsSlow(&c.Ms, &levelMs) {
+			at := span[last+1].At
+			return &at
+		}
 	}
-	at := cols[last+1].At
+	for _, h := range hours {
+		if h.At.After(from) && MicroIsSlow(&h.Ms, &levelMs) {
+			at := h.At
+			return &at
+		}
+	}
+	at := from.Add(time.Hour)
 	return &at
 }
 
@@ -584,7 +609,7 @@ func microServiceOf(m *microService, asked, statsOK bool, epochAt time.Time, sub
 	var insts []MicroInstanceFact
 	switch {
 	case m.answered != nil && len(m.answered.Instances) > 0:
-		s.Answered = true
+		s.Answered, s.InstanceSource = true, v1.MicroInstanceSource_MICRO_INSTANCE_SOURCE_ANSWERED
 		for _, in := range m.answered.Instances {
 			if sn, ok := seen[in.ID]; ok && in.Server == "" {
 				in.Connection, in.Server = sn.Connection, sn.Server
@@ -593,11 +618,15 @@ func microServiceOf(m *microService, asked, statsOK bool, epochAt time.Time, sub
 		}
 	case m.seen != nil:
 		insts = slices.Clone(m.seen.Instances)
+		s.InstanceSource = v1.MicroInstanceSource_MICRO_INSTANCE_SOURCE_SUBSCRIPTIONS
 	case asked && !statsOK:
 		for _, g := range m.gone {
 			if recent(g) {
 				insts = append(insts, MicroInstanceFact{ID: g.ID, Connection: g.Connection})
 			}
+		}
+		if len(insts) > 0 {
+			s.InstanceSource = v1.MicroInstanceSource_MICRO_INSTANCE_SOURCE_LAST_ANSWERED
 		}
 	}
 	slices.SortFunc(insts, func(a, b MicroInstanceFact) int { return cmp.Compare(a.ID, b.ID) })
@@ -706,7 +735,7 @@ func microMissing(gone []MicroGoneFact, current map[string]bool, seen map[string
 // share over the window's requests, the slow rule against the level, and
 // the slow run's start only when slow.
 func microEndpointOf(e MicroEndpointFact) *v1.MicroEndpoint {
-	x := &v1.MicroEndpoint{Name: e.Name, Subject: e.Subject, QueueGroup: e.QueueGroup, RequestsPerSecond: e.Window.PerSecond,
+	x := &v1.MicroEndpoint{Name: e.Name, Subject: e.Subject, Subjects: e.Subjects, QueueGroup: e.QueueGroup, RequestsPerSecond: e.Window.PerSecond,
 		LastError: e.LastError, LastErrorInstance: e.LastErrorInstance, LevelMs: e.LevelMs}
 	if e.Window.Requests > 0 {
 		x.AverageMs = ptrOf(e.Window.ProcessingNs / e.Window.Requests / 1e6)

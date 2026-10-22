@@ -163,6 +163,67 @@ func (MicroNote) EnumDescriptor() ([]byte, []int) {
 	return file_natslens_v1_micro_proto_rawDescGZIP(), []int{1}
 }
 
+// Where a service's instances come from.
+type MicroInstanceSource int32
+
+const (
+	// No instance: the service is listed for its missing ones.
+	MicroInstanceSource_MICRO_INSTANCE_SOURCE_UNSPECIFIED MicroInstanceSource = 0
+	// They answered the epoch's $SRV.STATS.
+	MicroInstanceSource_MICRO_INSTANCE_SOURCE_ANSWERED MicroInstanceSource = 1
+	// None answered: their $SRV subscriptions are in the subscription
+	// collection (an account not asked, or one asked that they did not
+	// answer).
+	MicroInstanceSource_MICRO_INSTANCE_SOURCE_SUBSCRIPTIONS MicroInstanceSource = 2
+	// The account's $SRV.STATS request was not ok and no subscription
+	// collection lists the service: those that last answered within the
+	// hour before the epoch.
+	MicroInstanceSource_MICRO_INSTANCE_SOURCE_LAST_ANSWERED MicroInstanceSource = 3
+)
+
+// Enum value maps for MicroInstanceSource.
+var (
+	MicroInstanceSource_name = map[int32]string{
+		0: "MICRO_INSTANCE_SOURCE_UNSPECIFIED",
+		1: "MICRO_INSTANCE_SOURCE_ANSWERED",
+		2: "MICRO_INSTANCE_SOURCE_SUBSCRIPTIONS",
+		3: "MICRO_INSTANCE_SOURCE_LAST_ANSWERED",
+	}
+	MicroInstanceSource_value = map[string]int32{
+		"MICRO_INSTANCE_SOURCE_UNSPECIFIED":   0,
+		"MICRO_INSTANCE_SOURCE_ANSWERED":      1,
+		"MICRO_INSTANCE_SOURCE_SUBSCRIPTIONS": 2,
+		"MICRO_INSTANCE_SOURCE_LAST_ANSWERED": 3,
+	}
+)
+
+func (x MicroInstanceSource) Enum() *MicroInstanceSource {
+	p := new(MicroInstanceSource)
+	*p = x
+	return p
+}
+
+func (x MicroInstanceSource) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (MicroInstanceSource) Descriptor() protoreflect.EnumDescriptor {
+	return file_natslens_v1_micro_proto_enumTypes[2].Descriptor()
+}
+
+func (MicroInstanceSource) Type() protoreflect.EnumType {
+	return &file_natslens_v1_micro_proto_enumTypes[2]
+}
+
+func (x MicroInstanceSource) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use MicroInstanceSource.Descriptor instead.
+func (MicroInstanceSource) EnumDescriptor() ([]byte, []int) {
+	return file_natslens_v1_micro_proto_rawDescGZIP(), []int{2}
+}
+
 // Request for the services built on the NATS micro framework in a system.
 type GetMicroServicesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -638,7 +699,7 @@ type MicroEndpoint struct {
 	// Endpoint name.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Subject the endpoint listens on, as $SRV.STATS reports it, else from
-	// the newest $SRV.INFO reply.
+	// the newest $SRV.INFO reply; the first of subjects.
 	Subject string `protobuf:"bytes,2,opt,name=subject,proto3" json:"subject,omitempty"`
 	// Queue group of the endpoint; empty for none.
 	QueueGroup string `protobuf:"bytes,3,opt,name=queue_group,json=queueGroup,proto3" json:"queue_group,omitempty"`
@@ -669,15 +730,19 @@ type MicroEndpoint struct {
 	// Whether the endpoint is slow: its average time is at least 3 times
 	// its level and at least 5 ms above it.
 	Slow bool `protobuf:"varint,10,opt,name=slow,proto3" json:"slow,omitempty"`
-	// When the current slow run began. The hours decide first: the run
-	// began after the newest hour, up to the epoch's, whose average is not
-	// slow; within that hour and the next, the collections' own averages
-	// over all instances decide: the first collection after the last one
-	// that is not slow. When every hour of the 7 days before the epoch is
-	// slow, the start of the first. Unset when the endpoint is not slow.
+	// When the current slow run began; set on every slow endpoint, unset
+	// otherwise. The run began after the newest hour before the epoch's
+	// whose average is not slow, at the first collection after that span's
+	// last fast one (over all instances), else at the first slow hour after
+	// it; docs/design.md (GetMicroServices) has the whole rule.
 	SlowSince *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=slow_since,json=slowSince,proto3" json:"slow_since,omitempty"`
 	// Whether the error share is above 1%.
-	ErrorsHigh    bool `protobuf:"varint,12,opt,name=errors_high,json=errorsHigh,proto3" json:"errors_high,omitempty"`
+	ErrorsHigh bool `protobuf:"varint,12,opt,name=errors_high,json=errorsHigh,proto3" json:"errors_high,omitempty"`
+	// Every subject the endpoint's instances listen on under this name, in
+	// order; subject is the first. More than one when instances, or one
+	// instance, have endpoints of this name on different subjects; the
+	// rates, times and errors cover them all.
+	Subjects      []string `protobuf:"bytes,13,rep,name=subjects,proto3" json:"subjects,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -796,6 +861,13 @@ func (x *MicroEndpoint) GetErrorsHigh() bool {
 	return false
 }
 
+func (x *MicroEndpoint) GetSubjects() []string {
+	if x != nil {
+		return x.Subjects
+	}
+	return nil
+}
+
 // A service built on the NATS micro framework: one name in one account.
 type MicroService struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -849,9 +921,11 @@ type MicroService struct {
 	InstanceList []*MicroInstance `protobuf:"bytes,17,rep,name=instance_list,json=instanceList,proto3" json:"instance_list,omitempty"`
 	// Whether an instance answered the epoch's $SRV.STATS; false when not
 	// asked.
-	Answered      bool `protobuf:"varint,18,opt,name=answered,proto3" json:"answered,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Answered bool `protobuf:"varint,18,opt,name=answered,proto3" json:"answered,omitempty"`
+	// Where instance_list and instances come from.
+	InstanceSource MicroInstanceSource `protobuf:"varint,19,opt,name=instance_source,json=instanceSource,proto3,enum=natslens.v1.MicroInstanceSource" json:"instance_source,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *MicroService) Reset() {
@@ -1010,6 +1084,13 @@ func (x *MicroService) GetAnswered() bool {
 	return false
 }
 
+func (x *MicroService) GetInstanceSource() MicroInstanceSource {
+	if x != nil {
+		return x.InstanceSource
+	}
+	return MicroInstanceSource_MICRO_INSTANCE_SOURCE_UNSPECIFIED
+}
+
 // The micro services of the range's newest epoch.
 type GetMicroServicesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1145,7 +1226,7 @@ const file_natslens_v1_micro_proto_rawDesc = "" +
 	"\x05since\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x127\n" +
 	"\tlast_seen\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\blastSeen\x12'\n" +
 	"\x0fconnection_name\x18\x04 \x01(\tR\x0econnectionName\x12)\n" +
-	"\x10still_subscribed\x18\x05 \x01(\bR\x0fstillSubscribed\"\x80\x04\n" +
+	"\x10still_subscribed\x18\x05 \x01(\bR\x0fstillSubscribed\"\x9c\x04\n" +
 	"\rMicroEndpoint\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\asubject\x18\x02 \x01(\tR\asubject\x12\x1f\n" +
@@ -1165,11 +1246,12 @@ const file_natslens_v1_micro_proto_rawDesc = "" +
 	"\n" +
 	"slow_since\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tslowSince\x12\x1f\n" +
 	"\verrors_high\x18\f \x01(\bR\n" +
-	"errorsHighB\x16\n" +
+	"errorsHigh\x12\x1a\n" +
+	"\bsubjects\x18\r \x03(\tR\bsubjectsB\x16\n" +
 	"\x14_requests_per_secondB\r\n" +
 	"\v_average_msB\x0e\n" +
 	"\f_error_shareB\v\n" +
-	"\t_level_ms\"\x8e\x06\n" +
+	"\t_level_ms\"\xd9\x06\n" +
 	"\fMicroService\x12\x18\n" +
 	"\aaccount\x18\x01 \x01(\tR\aaccount\x12!\n" +
 	"\faccount_name\x18\x02 \x01(\tR\vaccountName\x12\x12\n" +
@@ -1191,7 +1273,8 @@ const file_natslens_v1_micro_proto_rawDesc = "" +
 	"\x0esystem_account\x18\x0f \x01(\bR\rsystemAccount\x12'\n" +
 	"\x0fendpoints_total\x18\x10 \x01(\x05R\x0eendpointsTotal\x12?\n" +
 	"\rinstance_list\x18\x11 \x03(\v2\x1a.natslens.v1.MicroInstanceR\finstanceList\x12\x1a\n" +
-	"\banswered\x18\x12 \x01(\bR\bansweredB\x16\n" +
+	"\banswered\x18\x12 \x01(\bR\banswered\x12I\n" +
+	"\x0finstance_source\x18\x13 \x01(\x0e2 .natslens.v1.MicroInstanceSourceR\x0einstanceSourceB\x16\n" +
 	"\x14_requests_per_secondB\x0e\n" +
 	"\f_error_share\"\xc8\x02\n" +
 	"\x18GetMicroServicesResponse\x12\x14\n" +
@@ -1215,7 +1298,12 @@ const file_natslens_v1_micro_proto_rawDesc = "" +
 	"\x11MICRO_NOTE_ERRORS\x10\x04\x12\x18\n" +
 	"\x14MICRO_NOTE_NO_ANSWER\x10\x05\x12\x18\n" +
 	"\x14MICRO_NOTE_NOT_ASKED\x10\x06\x12\x16\n" +
-	"\x12MICRO_NOTE_HEALTHY\x10\aBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
+	"\x12MICRO_NOTE_HEALTHY\x10\a*\xb2\x01\n" +
+	"\x13MicroInstanceSource\x12%\n" +
+	"!MICRO_INSTANCE_SOURCE_UNSPECIFIED\x10\x00\x12\"\n" +
+	"\x1eMICRO_INSTANCE_SOURCE_ANSWERED\x10\x01\x12'\n" +
+	"#MICRO_INSTANCE_SOURCE_SUBSCRIPTIONS\x10\x02\x12'\n" +
+	"#MICRO_INSTANCE_SOURCE_LAST_ANSWERED\x10\x03BBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
 
 var (
 	file_natslens_v1_micro_proto_rawDescOnce sync.Once
@@ -1229,47 +1317,49 @@ func file_natslens_v1_micro_proto_rawDescGZIP() []byte {
 	return file_natslens_v1_micro_proto_rawDescData
 }
 
-var file_natslens_v1_micro_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_natslens_v1_micro_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_natslens_v1_micro_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_natslens_v1_micro_proto_goTypes = []any{
 	(MicroRequestState)(0),           // 0: natslens.v1.MicroRequestState
 	(MicroNote)(0),                   // 1: natslens.v1.MicroNote
-	(*GetMicroServicesRequest)(nil),  // 2: natslens.v1.GetMicroServicesRequest
-	(*MicroRequest)(nil),             // 3: natslens.v1.MicroRequest
-	(*MicroAccountState)(nil),        // 4: natslens.v1.MicroAccountState
-	(*MicroVersionCount)(nil),        // 5: natslens.v1.MicroVersionCount
-	(*MicroInstance)(nil),            // 6: natslens.v1.MicroInstance
-	(*MicroMissingInstance)(nil),     // 7: natslens.v1.MicroMissingInstance
-	(*MicroEndpoint)(nil),            // 8: natslens.v1.MicroEndpoint
-	(*MicroService)(nil),             // 9: natslens.v1.MicroService
-	(*GetMicroServicesResponse)(nil), // 10: natslens.v1.GetMicroServicesResponse
-	(*TimeRange)(nil),                // 11: natslens.v1.TimeRange
-	(*timestamppb.Timestamp)(nil),    // 12: google.protobuf.Timestamp
+	(MicroInstanceSource)(0),         // 2: natslens.v1.MicroInstanceSource
+	(*GetMicroServicesRequest)(nil),  // 3: natslens.v1.GetMicroServicesRequest
+	(*MicroRequest)(nil),             // 4: natslens.v1.MicroRequest
+	(*MicroAccountState)(nil),        // 5: natslens.v1.MicroAccountState
+	(*MicroVersionCount)(nil),        // 6: natslens.v1.MicroVersionCount
+	(*MicroInstance)(nil),            // 7: natslens.v1.MicroInstance
+	(*MicroMissingInstance)(nil),     // 8: natslens.v1.MicroMissingInstance
+	(*MicroEndpoint)(nil),            // 9: natslens.v1.MicroEndpoint
+	(*MicroService)(nil),             // 10: natslens.v1.MicroService
+	(*GetMicroServicesResponse)(nil), // 11: natslens.v1.GetMicroServicesResponse
+	(*TimeRange)(nil),                // 12: natslens.v1.TimeRange
+	(*timestamppb.Timestamp)(nil),    // 13: google.protobuf.Timestamp
 }
 var file_natslens_v1_micro_proto_depIdxs = []int32{
-	11, // 0: natslens.v1.GetMicroServicesRequest.range:type_name -> natslens.v1.TimeRange
+	12, // 0: natslens.v1.GetMicroServicesRequest.range:type_name -> natslens.v1.TimeRange
 	0,  // 1: natslens.v1.MicroRequest.state:type_name -> natslens.v1.MicroRequestState
-	12, // 2: natslens.v1.MicroRequest.at:type_name -> google.protobuf.Timestamp
-	3,  // 3: natslens.v1.MicroAccountState.info:type_name -> natslens.v1.MicroRequest
-	3,  // 4: natslens.v1.MicroAccountState.stats:type_name -> natslens.v1.MicroRequest
-	12, // 5: natslens.v1.MicroInstance.started:type_name -> google.protobuf.Timestamp
-	12, // 6: natslens.v1.MicroMissingInstance.since:type_name -> google.protobuf.Timestamp
-	12, // 7: natslens.v1.MicroMissingInstance.last_seen:type_name -> google.protobuf.Timestamp
-	12, // 8: natslens.v1.MicroEndpoint.slow_since:type_name -> google.protobuf.Timestamp
-	5,  // 9: natslens.v1.MicroService.versions:type_name -> natslens.v1.MicroVersionCount
-	7,  // 10: natslens.v1.MicroService.missing:type_name -> natslens.v1.MicroMissingInstance
-	8,  // 11: natslens.v1.MicroService.endpoints:type_name -> natslens.v1.MicroEndpoint
+	13, // 2: natslens.v1.MicroRequest.at:type_name -> google.protobuf.Timestamp
+	4,  // 3: natslens.v1.MicroAccountState.info:type_name -> natslens.v1.MicroRequest
+	4,  // 4: natslens.v1.MicroAccountState.stats:type_name -> natslens.v1.MicroRequest
+	13, // 5: natslens.v1.MicroInstance.started:type_name -> google.protobuf.Timestamp
+	13, // 6: natslens.v1.MicroMissingInstance.since:type_name -> google.protobuf.Timestamp
+	13, // 7: natslens.v1.MicroMissingInstance.last_seen:type_name -> google.protobuf.Timestamp
+	13, // 8: natslens.v1.MicroEndpoint.slow_since:type_name -> google.protobuf.Timestamp
+	6,  // 9: natslens.v1.MicroService.versions:type_name -> natslens.v1.MicroVersionCount
+	8,  // 10: natslens.v1.MicroService.missing:type_name -> natslens.v1.MicroMissingInstance
+	9,  // 11: natslens.v1.MicroService.endpoints:type_name -> natslens.v1.MicroEndpoint
 	1,  // 12: natslens.v1.MicroService.note:type_name -> natslens.v1.MicroNote
-	6,  // 13: natslens.v1.MicroService.instance_list:type_name -> natslens.v1.MicroInstance
-	12, // 14: natslens.v1.GetMicroServicesResponse.epoch_at:type_name -> google.protobuf.Timestamp
-	9,  // 15: natslens.v1.GetMicroServicesResponse.services:type_name -> natslens.v1.MicroService
-	4,  // 16: natslens.v1.GetMicroServicesResponse.accounts:type_name -> natslens.v1.MicroAccountState
-	12, // 17: natslens.v1.GetMicroServicesResponse.subscriptions_at:type_name -> google.protobuf.Timestamp
-	18, // [18:18] is the sub-list for method output_type
-	18, // [18:18] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	7,  // 13: natslens.v1.MicroService.instance_list:type_name -> natslens.v1.MicroInstance
+	2,  // 14: natslens.v1.MicroService.instance_source:type_name -> natslens.v1.MicroInstanceSource
+	13, // 15: natslens.v1.GetMicroServicesResponse.epoch_at:type_name -> google.protobuf.Timestamp
+	10, // 16: natslens.v1.GetMicroServicesResponse.services:type_name -> natslens.v1.MicroService
+	5,  // 17: natslens.v1.GetMicroServicesResponse.accounts:type_name -> natslens.v1.MicroAccountState
+	13, // 18: natslens.v1.GetMicroServicesResponse.subscriptions_at:type_name -> google.protobuf.Timestamp
+	19, // [19:19] is the sub-list for method output_type
+	19, // [19:19] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_micro_proto_init() }
@@ -1285,7 +1375,7 @@ func file_natslens_v1_micro_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_micro_proto_rawDesc), len(file_natslens_v1_micro_proto_rawDesc)),
-			NumEnums:      2,
+			NumEnums:      3,
 			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,

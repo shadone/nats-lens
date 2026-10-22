@@ -65,8 +65,9 @@ type exchanged struct {
 // replies. Once an instance not in known replies (a restart's new ID, or
 // a new instance), the known ones are waited for only until knownCap: the
 // later of microKnownGrace after that reply and half the time from the
-// start of the exchange to deadline, so that the INFO a new instance calls
-// for has the other half.
+// start of the exchange to deadline, but never later than a quarter of
+// that time (at least quiet) before deadline, which the INFO a new
+// instance calls for keeps.
 func exchange(ctx context.Context, nc *nats.Conn, w *microWatch, reqs map[string]string, deadline time.Time,
 	quiet time.Duration, known map[instanceKey]bool, identity ...string) map[string]*exchanged {
 	begun := time.Now()
@@ -223,9 +224,10 @@ func exchange(ctx context.Context, nc *nats.Conn, w *microWatch, reqs map[string
 				// waited for only until the cap, so that the INFO it
 				// calls for has time.
 				if !known[k] && knownCap.IsZero() {
-					knownCap = later(last.Add(microKnownGrace), begun.Add(deadline.Sub(begun)/2))
-					if knownCap.After(deadline) {
-						knownCap = deadline
+					window := deadline.Sub(begun)
+					knownCap = later(last.Add(microKnownGrace), begun.Add(window/2))
+					if latest := deadline.Add(-max(window/4, quiet)); knownCap.After(latest) {
+						knownCap = latest
 					}
 				}
 			}
