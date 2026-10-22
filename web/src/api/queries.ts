@@ -8,6 +8,7 @@ import { LIVE_REFRESH_MS, rangeKey, type RangeSpec } from "../lib/timeRange";
 import { useSystem } from "../lib/useSystem";
 import type { Entity } from "./model";
 import type { Matrix, MatrixFilter } from "./placementMatrix";
+import type { SubjectFilter } from "./subjects";
 import { reportedError } from "./errors";
 import * as api from "./requests";
 import { shellQuery } from "./shell";
@@ -231,6 +232,36 @@ export function useCapacity(spec: RangeSpec) {
     refetchInterval: refetch(spec),
     // The previous range's answer stands in while the next loads, never another system's.
     placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === sys ? prev : undefined),
+  });
+}
+
+/**
+ * The Subjects page: the range's newest collection, followed on a live
+ * range as Capacity is. The previous answer stands in while the next
+ * loads only for the same system and account, so a filter change keeps
+ * the pills' counts but no other account's rows show.
+ */
+export function useSubjects(spec: RangeSpec, account: string, filter: SubjectFilter) {
+  const sys = useSystem();
+  return useQuery({
+    queryKey: ["subjects", sys, rangeKey(spec), account, filter],
+    queryFn: ({ signal }) => api.getSubjects(sys, spec, account, filter, signal),
+    refetchInterval: refetch(spec),
+    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === sys && prevQuery.queryKey[3] === account ? prev : undefined),
+  });
+}
+
+/**
+ * What a message on subject would reach; "" asks nothing. No answer
+ * stands in for another subject's while the next loads.
+ */
+export function useMatchSubject(spec: RangeSpec, account: string, subject: string) {
+  const sys = useSystem();
+  return useQuery({
+    queryKey: ["matchSubject", sys, rangeKey(spec), account, subject],
+    queryFn: ({ signal }) => api.matchSubject(sys, spec, account, subject, signal),
+    refetchInterval: refetch(spec),
+    enabled: subject !== "",
   });
 }
 

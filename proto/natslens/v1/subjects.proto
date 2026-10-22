@@ -1,0 +1,340 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "google/protobuf/timestamp.proto";
+import "natslens/v1/common.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// Which rows a Subjects page lists.
+enum SubjectFilter {
+  // Every row.
+  SUBJECT_FILTER_UNSPECIFIED = 0;
+  // Rows of a stream, KV bucket or object store.
+  SUBJECT_FILTER_STORED = 1;
+  // Stream rows with no_consumer set.
+  SUBJECT_FILTER_NO_CONSUMER = 2;
+  // Stream rows with an overlap.
+  SUBJECT_FILTER_OVERLAPPING = 3;
+  // Subscription rows with wide set.
+  SUBJECT_FILTER_WIDE = 4;
+}
+
+// Request for where messages can go in a system: the stream subjects and
+// the client subscriptions of the range's newest epoch.
+message GetSubjectsRequest {
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 1;
+
+  // Range whose newest epoch is read. Unset means the last 24 hours up to
+  // now.
+  TimeRange range = 2;
+
+  // Account the page is scoped to; empty for every account.
+  string account = 3;
+
+  // Rows to list; the counts are over every row of the scope whatever
+  // the filter.
+  SubjectFilter filter = 4;
+}
+
+// What a Subjects row is.
+enum SubjectRowKind {
+  // Not set.
+  SUBJECT_ROW_KIND_UNSPECIFIED = 0;
+  // A stream.
+  SUBJECT_ROW_KIND_STREAM = 1;
+  // A KV bucket: a stream named KV_<bucket>.
+  SUBJECT_ROW_KIND_KEY_VALUE = 2;
+  // An object store: a stream named OBJ_<store>.
+  SUBJECT_ROW_KIND_OBJECT_STORE = 3;
+  // Client subscriptions on one subject.
+  SUBJECT_ROW_KIND_SUBSCRIPTION = 4;
+  // The account's subscriptions on _INBOX. subjects, folded into one row
+  // with the pattern _INBOX.>: reply inboxes.
+  SUBJECT_ROW_KIND_INBOX = 5;
+  // The account's JetStream API, $JS.API.>, which the servers answer.
+  SUBJECT_ROW_KIND_JETSTREAM_API = 6;
+}
+
+// One row of the Subjects page: a stream with its subjects, the client
+// subscriptions on one subject, an account's reply inboxes or its
+// JetStream API.
+message SubjectRow {
+  // Account as the servers report it.
+  string account = 1;
+
+  // Readable name of the account; empty when none is known.
+  string account_name = 2;
+
+  // What the row is.
+  SubjectRowKind kind = 3;
+
+  // A stream's subjects as its configuration lists them, the first 20
+  // (empty for a mirror); the one subject of a subscription row; _INBOX.>
+  // and $JS.API.> for those rows.
+  repeated string patterns = 4;
+
+  // Stream name; empty for the other kinds.
+  string stream = 5;
+
+  // Stream this stream mirrors; empty when not a mirror.
+  string mirror_of = 6;
+
+  // Streams that source from this stream, by name.
+  repeated string sourced_into = 7;
+
+  // Retention policy: limits, interest or workqueue; empty when not
+  // reported or not a stream.
+  string retention = 8;
+
+  // Messages the stream holds; unset when not reported or not a stream.
+  optional int64 messages = 9;
+
+  // The stream's durable consumers.
+  int32 durable_consumers = 10;
+
+  // The stream's ephemeral consumers; on a KV bucket these are watchers.
+  int32 ephemeral_consumers = 11;
+
+  // Client connections with a subscription on the row's subject (or, for
+  // the inbox row, on any _INBOX. subject); 0 for the other kinds.
+  int32 connections = 12;
+
+  // Queue group every subscription of the row shares; empty when they
+  // share none.
+  string queue = 13;
+
+  // Names of the connections: for a subscription or inbox row, those
+  // subscribed; for a stream row, those subscribed to the deliver
+  // subject of one of its push consumers. Distinct, in name order, at
+  // most 3; an unnamed connection has no name here.
+  repeated string client_names = 14;
+
+  // Distinct names beyond client_names.
+  int32 more_names = 15;
+
+  // Messages the stream stored per second: the increase of its leader's
+  // last sequence over the 15 minutes before the range's end, in the
+  // newest run of one leader and one creation time. Unset with fewer
+  // than two such reports and for the other kinds.
+  optional double stored_per_second = 16;
+
+  // JetStream API requests per second over the 15 minutes before the
+  // range's end. Every server reports the account's total for the whole
+  // cluster, so this is one server's increase, the highest, not a sum. Set
+  // on the JetStream API row only, and unset there when no server reported
+  // twice.
+  optional double api_per_second = 17;
+
+  // Share of those requests that failed, 0 to 1; unset with no request
+  // and on other rows.
+  optional double api_error_share = 18;
+
+  // Other streams of the account whose subjects overlap this stream's,
+  // wildcards included, by name.
+  repeated string overlaps = 19;
+
+  // A stream (not a KV bucket, object store or mirror) with no consumer
+  // that no other stream mirrors or sources.
+  bool no_consumer = 20;
+
+  // A subscription row whose subject ends in >.
+  bool wide = 21;
+
+  // Streams that mirror this stream, by name.
+  repeated string mirrored_by = 22;
+
+  // Whether the row's account is the system account.
+  bool system_account = 23;
+
+  // A stream's subjects beyond the 20 in patterns. It bounds the count,
+  // not the bytes: 1,000 rows of 20 subjects stay within a response's
+  // size limit only while subjects average under about 48 bytes.
+  int32 more_patterns = 24;
+}
+
+// One server's subscription list in the subscription collection.
+message SubszServer {
+  // Server name.
+  string server_name = 1;
+
+  // Whether the server answered SUBSZ in that collection. False: it was
+  // asked and did not answer, and total and listed are unset.
+  bool answered = 2;
+
+  // Local subscriptions the server's reply counted before the subsz
+  // limit (SUBSZ total; not num_subscriptions, which counts route
+  // interest too); unset when it did not answer.
+  optional int64 total = 3;
+
+  // Subscriptions its reply listed, at most the subsz limit; fewer than
+  // total when the list was cut. Unset when it did not answer.
+  optional int64 listed = 4;
+}
+
+// Where messages can go in the range's newest epoch, and what the
+// subscription collection at or before it listed.
+message GetSubjectsResponse {
+  // Epoch read; 0 when the range holds none, and then everything else is
+  // empty.
+  int64 epoch = 1;
+
+  // When the epoch started.
+  google.protobuf.Timestamp epoch_at = 2;
+
+  // When the subscription collection read started: the newest at or
+  // before the epoch and within 24 hours before it. Unset when there is
+  // none; then the page has no subscription and inbox rows, and stream
+  // rows name no connections.
+  google.protobuf.Timestamp subscriptions_at = 3;
+
+  // Rows the filter selects: rows with an overlap or no consumer first;
+  // then by account, the system account last; within an account,
+  // streams, KV buckets and object stores before the other rows; those
+  // by stored_per_second (unset last), most first, then pattern; the
+  // others by connections, most first, then pattern. At most 1,000.
+  repeated SubjectRow rows = 4;
+
+  // Rows the filter selects before the limit of 1,000.
+  int32 rows_total = 5;
+
+  // Rows of the scope, whatever the filter: every row, the stored ones,
+  // those without a consumer, the overlapping ones and the wide
+  // subscriptions.
+  int32 all_count = 6;
+  int32 stored_count = 7;
+  int32 no_consumer_count = 8;
+  int32 overlapping_count = 9;
+  int32 wide_count = 10;
+
+  // Servers asked for their subscription list in that collection, by
+  // name; empty without one.
+  repeated SubszServer subsz_servers = 11;
+
+  // Subscriptions of the servers' own clients (JetStream, system and
+  // account internal clients) left out of the rows: those whose
+  // connection is not in its server's CONNZ reply of the same epoch, when
+  // that reply came and listed every connection. Counted in the scope.
+  int64 server_subscriptions = 12;
+
+  // Subscriptions whose connection is not in its server's CONNZ reply of
+  // the same epoch when that reply was cut at the connz limit or did not
+  // come: left out, as their connection cannot be told from a server's
+  // own. Counted in the scope.
+  int64 unlisted_connection_subscriptions = 13;
+}
+
+// Request for what a message on one subject would reach.
+message MatchSubjectRequest {
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 1;
+
+  // Range whose newest epoch is read. Unset means the last 24 hours up to
+  // now.
+  TimeRange range = 2;
+
+  // Account the message is published in. Empty: the answer for each
+  // account where something matches, as if it were published there, the
+  // system account left out unless the subject starts with $SYS.. A
+  // message reaches only its own account (imports and exports are not
+  // followed).
+  string account = 3;
+
+  // The subject: a literal (no * or > token), no empty token, no white
+  // space or other control character, at most 255 bytes; anything else
+  // is invalid_argument.
+  string subject = 4;
+}
+
+// A stream of the account that stores a message on the subject.
+message SubjectMatch {
+  // Stream name.
+  string stream = 1;
+
+  // Stream, KV bucket or object store, by the name's prefix.
+  SubjectRowKind kind = 2;
+
+  // The stream subject that matched.
+  string pattern = 3;
+
+  // Durable consumers of the stream whose filter matches the subject (no
+  // filter matches all), by name.
+  repeated string consumers = 4;
+
+  // Ephemeral consumers of the stream whose filter matches the subject;
+  // on a KV bucket these are watchers.
+  int32 ephemeral_consumers = 5;
+
+  // Streams of the same account that mirror the stream, by name.
+  repeated string mirrors = 6;
+
+  // Streams of the same account that list the stream among their
+  // sources, by name (a source is stored by name only, without its
+  // account or filter).
+  repeated string sourced_by = 7;
+}
+
+// Client subscriptions of the account on one subject and queue that a
+// message on the subject reaches.
+message CoreMatch {
+  // The subscribed subject.
+  string subject = 1;
+
+  // Queue group; empty for none. A message reaches one connection of a
+  // queue group.
+  string queue = 2;
+
+  // Connections with such a subscription.
+  int32 connections = 3;
+
+  // Their names: distinct, in name order, at most 3.
+  repeated string client_names = 4;
+
+  // Distinct names beyond client_names.
+  int32 more_names = 5;
+}
+
+// What a message on the subject published in one account would reach.
+message MatchAccount {
+  // Account the message is published in.
+  string account = 1;
+
+  // Readable name of the account; empty when none is known.
+  string account_name = 2;
+
+  // Whether this is the system account.
+  bool system_account = 3;
+
+  // Streams of the account that store the message, by name.
+  repeated SubjectMatch matches = 4;
+
+  // Client subscriptions of the account it reaches, the servers' own and
+  // those of unlisted connections left out: by subject and queue.
+  repeated CoreMatch subscribers = 5;
+
+  // The subject is a JetStream API subject ($JS.API.) and the account
+  // uses JetStream: the servers answer it.
+  bool jetstream_api = 6;
+}
+
+// What a message on the subject would reach in the range's newest epoch.
+message MatchSubjectResponse {
+  // Epoch read; 0 when the range holds none, and then everything else is
+  // empty.
+  int64 epoch = 1;
+
+  // When the epoch started.
+  google.protobuf.Timestamp epoch_at = 2;
+
+  // With an account in the request, that account alone, also when
+  // nothing matches. Without one, each account where something matches,
+  // by account with the system account last; none when nothing matches.
+  repeated MatchAccount accounts = 3;
+
+  // When the subscription collection read started, as in
+  // GetSubjectsResponse; unset when there is none, and then no account
+  // has subscribers.
+  google.protobuf.Timestamp subscriptions_at = 4;
+}

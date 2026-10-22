@@ -25,6 +25,24 @@ const (
 	globalOlder   = "2.12.2"
 )
 
+// The order events of example-global: messages of orderMsgSize bytes that
+// order-events stores at orderEventsRate a second, 1.1 GiB a day, which its
+// mirror order-archive, made orderArchiveDays ago, grows by.
+const (
+	orderMsgSize     = 1200
+	orderEventsRate  = 1.1 * gib / orderMsgSize / 86400
+	orderArchiveDays = 48
+)
+
+// orderEventsCreated is when order-events was created, in the fixed frame:
+// orderEventsAge days ago, long enough to have reached its 30-day limit.
+const orderEventsAge = 77
+
+var orderEventsCreated = FixedNow.Add(-orderEventsAge * day)
+
+// orderMsgs is how many order events are stored in days.
+func orderMsgs(days float64) int64 { return int64(orderEventsRate * days * 86400) }
+
 // globalDown is when nats-us-4 stopped answering, in the fixed frame.
 var globalDown = fixed(9, 12, 5)
 
@@ -58,7 +76,12 @@ func globalServers() []serverSpec {
 		store float64
 	}{{61, 3, 35}, {64, 4, 37}, {61, 5, 36}, {61, 22, 41}, {61, 3, 33}, {61, 6, 36}, {61, 4, 38}, {61, 2, 29}, {61, 5, 39}}
 	for i, x := range eu {
-		out = append(out, globalServer("eu", i, x.conns, x.cpu, x.store))
+		sp := globalServer("eu", i, x.conns, x.cpu, x.store)
+		if i == 3 {
+			// More subscriptions than the collector keeps: its list is cut.
+			sp.subs = 14212
+		}
+		out = append(out, sp)
 	}
 	us := []struct {
 		conns int64
@@ -125,7 +148,10 @@ func globalScenario() *scenario {
 		servers: globalServers(),
 		streams: []streamSpec{
 			{name: "order-jobs", msgs: 182044, bytes: 230 * mib, perDay: 9 * mib, maxAge: 7 * day, maxMsgs: 1_000_000, consumers: []string{"resize-worker", "index-worker"}, peers: peers("eu-0", "eu-1", "eu-2")},
-			{name: "order-events", msgs: 9204411, bytes: 11.2 * gib, perDay: 310 * mib, maxAge: 30 * day, maxBytes: 64 * gib,
+			// At its 30-day age limit: it stores orderEventsRate messages a
+			// second and drops as many, so it does not grow.
+			{name: "order-events", msgs: orderMsgs(30), bytes: float64(orderMsgs(30)) * orderMsgSize,
+				maxAge: 30 * day, maxBytes: 64 * gib, storedRate: ptr(orderEventsRate), created: orderEventsCreated, lastSeq: orderMsgs(orderEventsAge),
 				consumers: []string{"order-projector", "email-sender", "analytics-aggregator", "invoice-renderer"}, peers: peers("eu-3", "eu-4", "eu-5")},
 			{name: "payment-events", msgs: 2210980, bytes: 2.6 * gib, perDay: 74 * mib, maxAge: 90 * day, held: 40 * day, consumers: []string{"ledger-writer", "fraud-scorer"}, peers: peers("eu-1", "eu-6", "eu-7")},
 			{name: "cart-events", msgs: 4120330, bytes: 1.9 * gib, perDay: 120 * mib, retention: "interest", maxAge: 14 * day, held: 3 * day, consumers: []string{"cart-abandon-notifier"}, peers: peers("eu-2", "eu-5", "eu-8")},
@@ -142,9 +168,14 @@ func globalScenario() *scenario {
 			// nats-ap-4 kept max_age 7d when the stream was edited to 3d.
 			{name: "customer-notifications", msgs: 1402200, bytes: 1.1 * gib, perDay: 36 * mib, maxAge: 3 * day, consumers: []string{"push-sender", "sms-sender"}, peers: peers("ap-2", "ap-3", "ap-4"),
 				disagrees: "nats-ap-4"},
-			// A mirror of order-events that keeps everything; stream-005 is
-			// muted while its retention is decided (globalSeedArchiveMute).
-			{name: "order-archive", msgs: 61200400, bytes: 52.4 * gib, perDay: 1.1 * gib, mirror: "order-events", held: 300 * day, consumers: []string{"archive-exporter"}, peers: peers("ap-2", "ap-5", "ap-1")},
+			// A mirror of order-events that keeps everything since it was
+			// made orderArchiveDays ago, so it grows by what order-events
+			// stores; stream-005 is muted while its retention is decided
+			// (globalSeedArchiveMute).
+			{name: "order-archive", msgs: orderMsgs(orderArchiveDays), bytes: float64(orderMsgs(orderArchiveDays)) * orderMsgSize,
+				perDay: orderEventsRate * 86400 * orderMsgSize, mirror: "order-events", held: orderArchiveDays * day, consumers: []string{"archive-exporter"},
+				created: FixedNow.Add(-orderArchiveDays * day), lastSeq: orderMsgs(orderEventsAge),
+				peers: peers("ap-2", "ap-5", "ap-1")},
 			// nats-us-3 came back from the upgrade without its replica.
 			{name: "return-requests", msgs: 84120, bytes: 96 * mib, perDay: 2 * mib, retention: "workqueue", maxAge: 7 * day, held: 2 * day, consumers: []string{"refund-issuer"}, peers: peers("us-6", "us-3", "us-8"),
 				missing: "nats-us-3"},
@@ -153,11 +184,23 @@ func globalScenario() *scenario {
 			{name: "basket-events", msgs: 220400, bytes: 180 * mib, perDay: 5 * mib, maxAge: day, peers: peers("eu-6", "eu-7", "eu-8"), leaderless: true},
 			// Sessions expire by their per-key TTL faster than new ones start
 			// since the weekend sale ended: the bucket shrinks.
-			{name: "KV_session-cache", msgs: 48210, bytes: 38 * mib, perDay: -1 * mib, ephemeral: 64, held: 9 * day, peers: peers("eu-0", "eu-3", "eu-6")},
+			{name: "KV_session-cache", msgs: 48210, bytes: 38 * mib, perDay: -1 * mib, ephemeral: 64, held: 9 * day, peers: peers("eu-0", "eu-3", "eu-6"),
+				storedRate: ptr(14.2), watchers: []string{"checkout-service", "api-gateway"}},
 			// Few flags that changed rarely until a release began writing
 			// flags per user (globalFlagsChange); its series bends there.
-			{name: "KV_feature-flags", msgs: 21200, bytes: globalFlagsNow, perDay: globalFlagsRate, ephemeral: 22, held: 200 * day, peers: peers("us-0", "us-5", "us-8")},
+			{name: "KV_feature-flags", msgs: 21200, bytes: globalFlagsNow, perDay: globalFlagsRate, ephemeral: 22, held: 200 * day, peers: peers("us-0", "us-5", "us-8"),
+				watchers: []string{"api-gateway", "checkout-service", "search-api", "order-service"}},
 			{name: "OBJ_product-images", msgs: 120400, bytes: 9.6 * gib, perDay: 80 * mib, held: 400 * day, peers: peers("ap-0", "ap-3", "ap-5")},
+			// Written by last week's checkout load test; nothing reads it.
+			{name: "checkout-load-test", subjects: []string{"loadtest.checkout.>"}, msgs: 1_250_000, bytes: 610 * mib, maxAge: 14 * day,
+				held: 6 * day, storedRate: ptr(0.0), peers: peers("eu-6", "eu-7", "eu-8")},
+			// Low-stock alerts, kept only while inventory-service listens
+			// through an ephemeral push consumer.
+			{name: "stock-alerts", retention: "interest", msgs: 3, bytes: 2 * kib, maxAge: day, held: 40 * time.Second, ephemeral: 1,
+				watchers: []string{"inventory-service"}, storedRate: ptr(0.6), peers: peers("eu-3", "eu-4", "eu-5")},
+			// A work queue its issuer keeps empty.
+			{name: "gift-card-jobs", subjects: []string{"jobs.gift-card.*"}, retention: "workqueue", maxAge: day, maxMsgs: 100_000,
+				consumers: []string{"gift-card-issuer"}, storedRate: ptr(0.2), peers: peers("eu-0", "eu-1", "eu-2")},
 		},
 		buckets: []bucketSpec{
 			// Listed with per-message TTLs and no other limit: its writers bound
@@ -171,6 +214,16 @@ func globalScenario() *scenario {
 			"api-gateway", "order-service", "checkout-service", "inventory-service", "shipping-service",
 			"search-api", "notification-worker", "label-printer",
 		},
+		subs: globalSubs(),
+		// nats-lens's own connection to the system account, and a
+		// monitoring tool that listens to every system event.
+		extraConns: []extraConn{
+			{server: "nats-us-0", name: "natslens-" + GlobalSystem, account: "SYS", ip: "10.30.9.40", user: "natslens", cid: 900,
+				subjects: []string{"$SYS.ACCOUNT.>", "$SYS.SERVER.>", api.InboxPrefix + "NATSLENSGLOBAL.*"}, since: fixed(9, 12, 4)},
+			{server: "nats-eu-0", name: "ops-monitor", account: "SYS", ip: "10.30.9.52", user: "ops-monitor", cid: 901, subjects: []string{">"}},
+		},
+		apiRate:       4.6,
+		apiErrors:     0.0013,
 		metaLeader:    "nats-eu-1",
 		auth:          globalAuth(),
 		links:         globalLinks(),

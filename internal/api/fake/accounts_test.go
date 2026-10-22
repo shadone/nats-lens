@@ -18,7 +18,8 @@ func accountsAndAuth(t *testing.T, system string) *v1.GetAccountsAndAuthResponse
 }
 
 // example-global runs in operator mode: APP with limits and a JWT without
-// expiry, the idle SUPPLIERS whose JWT expires in 12 days, SYS last; the
+// expiry, the idle SUPPLIERS whose JWT expires in 12 days, SYS last with
+// nats-lens's connection and a monitoring tool; the
 // revoked scale-terminal-07 and the timeouts from 203.0.113.12; nats-eu-0's
 // client certificate and the pos-terminal user JWT.
 func TestGlobalAccountsAndAuth(t *testing.T) {
@@ -31,11 +32,11 @@ func TestGlobalAccountsAndAuth(t *testing.T) {
 		accs = append(accs, fmt.Sprintf("%s %s %d %d/%d js %v %v %v", a.GetAccount()[:3], a.GetAccountName(), a.GetConnections(), a.GetConnLimit(),
 			a.GetDiskLimit(), a.GetJetstreamEnabled(), a.GetJwtExpires() != nil, a.GetIsSystem()))
 	}
-	want := []string{"APP  1142 2000/536870912000 js true false false", "ADS SUPPLIERS 0 50/0 js false true false", "SYS  0 -1/0 js false false true"}
+	want := []string{"APP  1142 2000/536870912000 js true false false", "ADS SUPPLIERS 0 50/0 js false true false", "SYS  2 -1/0 js false false true"}
 	if !slices.Equal(accs, want) {
 		t.Errorf("accounts %v, want %v", accs, want)
 	}
-	if app := res.GetAccounts()[0]; app.GetJsStorage() >= app.GetDiskLimit() || app.GetStreams() != 16 || app.GetImports() != 1 {
+	if app := res.GetAccounts()[0]; app.GetJsStorage() >= app.GetDiskLimit() || app.GetStreams() != 19 || app.GetImports() != 1 {
 		t.Errorf("APP = %v", app)
 	}
 	var logins []string

@@ -21,8 +21,8 @@ type authSpec struct {
 	// app is the lookup of the stream account (Account); nil when it was
 	// never looked up.
 	app *lookupSpec
-	// others are the accounts besides Account; they hold no connections
-	// and no streams.
+	// others are the accounts besides Account; they hold no streams, and
+	// no connections but the scenario's extra connections in them.
 	others []accountSpec
 	// failed are the clients that fail to log in again and again.
 	failed []failedLoginSpec
@@ -130,7 +130,12 @@ func eventUser(e *v1.Event) string {
 func (s scen) accounts(at time.Time) []api.AccountFact {
 	var conns, leafs int32
 	var subs int64
+	others := map[string]int32{}
 	for _, c := range s.connections(at) {
+		if c.GetAccount() != Account {
+			others[c.GetAccount()]++
+			continue
+		}
 		conns++
 		subs += c.GetSubscriptions()
 	}
@@ -156,7 +161,7 @@ func (s scen) accounts(at time.Time) []api.AccountFact {
 	out := []api.AccountFact{app}
 	if s.sc.auth != nil {
 		for _, o := range s.sc.auth.others {
-			out = append(out, api.AccountFact{Account: o.id, Name: o.name, IsSystem: o.system, Connections: ptr(int32(0)),
+			out = append(out, api.AccountFact{Account: o.id, Name: o.name, IsSystem: o.system, Connections: ptr(others[o.id]),
 				Leafnodes: ptr(int32(0)), Subscriptions: ptr(o.subs), JSStorage: ptr(int64(0)), JSMemory: ptr(int64(0)),
 				Streams: ptr(int32(0)), Details: s.details(o.lookup, at)})
 		}
@@ -304,7 +309,7 @@ func (s scen) userJWTs(at time.Time) []api.UserJWTFact {
 	}
 	counts := map[string]int32{}
 	for _, c := range s.connections(at) {
-		if _, ok := s.sc.auth.userJWTs[c.GetUser()]; ok {
+		if _, ok := s.sc.auth.userJWTs[c.GetUser()]; ok && c.GetAccount() == Account {
 			counts[c.GetUser()]++
 		}
 	}

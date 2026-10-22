@@ -24,6 +24,10 @@ const (
 	Healthz      Endpoint = "HEALTHZ"
 	Raftz        Endpoint = "RAFTZ"
 	Ipqueuesz    Endpoint = "IPQUEUESZ"
+	// Subsz is asked only in the epochs in which a subscription
+	// collection is due (Options.SubscriptionsInterval), alongside the
+	// detail endpoints.
+	Subsz Endpoint = "SUBSZ"
 )
 
 // DetailEndpoints are requested after discovery, in this order.
@@ -56,8 +60,16 @@ func (e Endpoint) Subject() string {
 	return "$SYS.REQ.SERVER.PING." + string(e)
 }
 
+// limits are the most entries a reply may list, per request.
+type limits struct {
+	// connz is the most connections asked of one server.
+	connz int
+	// subsz is the most subscriptions asked of one server.
+	subsz int
+}
+
 // requestBody is the options payload sent with the request for e.
-func (e Endpoint) requestBody(connzLimit int) []byte {
+func (e Endpoint) requestBody(l limits) []byte {
 	var v any
 	if acc, ok := e.raftzAccount(); ok {
 		b, _ := json.Marshal(server.RaftzOptions{AccountFilter: acc})
@@ -67,7 +79,12 @@ func (e Endpoint) requestBody(connzLimit int) []byte {
 	case Connz:
 		// auth adds the account and user name; subscription counts are
 		// always included, subscription lists are not requested.
-		v = server.ConnzOptions{Username: true, Limit: connzLimit, Sort: server.ByCid}
+		v = server.ConnzOptions{Username: true, Limit: l.connz, Sort: server.ByCid}
+	case Subsz:
+		// Each server lists its local subscriptions: those of its clients
+		// and of its own system, JetStream and account clients, not the
+		// interest its routes, gateways and leaf nodes carry.
+		v = server.SubszOptions{Subscriptions: true, Limit: l.subsz}
 	case Jsz:
 		v = server.JSzOptions{Accounts: true, Streams: true, Consumer: true, Config: true, RaftGroups: true}
 	case Healthz:
