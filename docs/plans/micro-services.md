@@ -10,7 +10,7 @@ The board's sample services (`orders`, `pricing`, `inventory`) fit the example s
 |---|---|
 | T1 Collect micro service replies | built on `feat/micro-collect`, awaiting review |
 | T2 API, store and demo | built on `feat/micro-api` (with `feat/micro-collect` merged in before T1's fix round), awaiting review; the level moves to T1's hourly rollup once it lands |
-| T3 UI | not started |
+| T3 UI | built on `feat/micro-ui` (from `feat/micro-api` at 6b80bd0), awaiting review |
 | T4 Feature docs and audit | not started |
 
 ## Rules for every step
@@ -112,6 +112,21 @@ Each point was decided in the session that built T2 and is proposed, not yet con
 - Links: an instance's connection to the Connections page, the endpoint subject to the Subjects page's tester (`/subjects?subject=` if that page reads it; else plain text).
 - Empty and partial states: no epoch, no service, an account asked without answer, no subscription collection.
 - Phone width, light and dark, accessibility as on the Subjects page.
+
+### Where T3 departed from this plan
+
+Each point was decided in the session that built T3: proposed, not yet confirmed.
+
+- **Instances under the endpoints.** The chosen service's card (below the service cards) has the board's endpoint table, then an Instances table: ID, version, start, connection (a link to Connections filtered by name, as on the Subjects page), server (a link to its page) and a note. A missing instance is a row in the warning colours: "missing since 10:05, last answered 10:04; still subscribed, so registered but not answering" (the last answer is left out when it falls in the same minute). The heading reads "orders endpoints", or "catalog service" for a service seen only. More than 100 instances or endpoints: "The first 100 of N … are listed."
+- **Endpoint subjects.** `?subject=` is now read by the Subjects page: it fills the tester's field once and the tester asks at once; typing drops the parameter. A literal endpoint subject links to `/subjects?account=<account>&subject=<subject>`; a subject with a wildcard (`orders.get.*`) is plain text, since the tester refuses wildcards.
+- **Card words.** The slow note follows the board, "orders.get slower than usual since 08:12", naming the first slow endpoint; errors "errors 2.4% on orders.create"; one missing instance "instance missing: `<id>` since 10:05", several "2 instances missing since 09:50" (the earliest); no answer "no answer to $SRV.STATS: " with the reason from the account's STATS request (refused, failed with the server's text, no reply within the collect window, no responders, or its instances did not reply while others did). A service seen only reads "seen in subscriptions only" in place of a description, dashes heard as "not asked" for req/s and errors, and the note "list the account under accounts for versions, endpoints and timings", not in the warning colours; its section says what the subscription list shows and that the account's user needs publish on `$SRV.INFO` and `$SRV.STATS` and subscribe on `_INBOX.>`.
+- **Numbers.** Requests per second with one decimal as on the board ("88.0"), "<0.1" below that; errors as on the Subjects page ("0%", "<0.1%", "2.4%"), so a share that is not zero never reads "0.0%"; average times "3.8 ms", "41 ms", "1.2 s". A service's errors above 1% are in the critical colour (the board's error state).
+- **The cards.** Buttons with `aria-pressed` in a group named "Services", chosen by click, Enter or Space, kept as `?service=` with a replaced history entry; no live region, as the change follows the user's own action. Three a row above 1,100 px, two down to 761 px, one at phone width. The top edge is the warning cell colour for a note that warns, the accent otherwise, and the border colour for a service seen only; the chosen card has an accent frame. The account is named on a card only when the page is not scoped and the services span more than one account, and then also in the section's heading ("in APP"). A `?service=` the list does not hold says "No service APP/shipping in this collection; showing orders."
+- **Asked accounts without an answer.** An asked account with no service listed whose STATS request was refused, failed or timed out gets a notice above the cards in the warning colours, with the server's text and the grants. One that had no responders is a footnote line ("Asked, with no service answering (no responders): …"). An asked account with services whose request failed is said on its cards.
+- **The footnote.** The board's "one request per service" is not what T1 does; it reads "Each account listed under accounts gets one $SRV.STATS request every collection and a $SRV.INFO request every few minutes; rates, times and errors cover the 15 minutes before the range's end", then the slow rule and the board's "instance missing" and "mixed versions" sentence, then lines for the subscription list's time, accounts with no responders and a cut list of services. It sits under the page, as on Subjects, not inside the endpoint card.
+- **No subscription collection.** A notice says so above the services of asked accounts; with nothing asked and no service, the empty state alone says it ("No micro service known: no account is listed under accounts, and no subscription list within 24 hours before this collection.").
+- **Account switch.** The previous answer stands in while the next loads only for the same system and account, as on Subjects.
+- **For T2.** An asked account with no service has no `account_name` in the response, so the demo's SUPPLIERS notice names the account by its key.
 
 ## T4 Feature docs and audit
 
