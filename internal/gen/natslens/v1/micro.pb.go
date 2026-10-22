@@ -730,12 +730,11 @@ type MicroEndpoint struct {
 	// Whether the endpoint is slow: its average time is at least 3 times
 	// its level and at least 5 ms above it.
 	Slow bool `protobuf:"varint,10,opt,name=slow,proto3" json:"slow,omitempty"`
-	// When the current slow run began. The hours decide first: the run
-	// began after the newest hour, up to the epoch's, whose average is not
-	// slow; within that hour and the next, the collections' own averages
-	// over all instances decide: the first collection after the last one
-	// that is not slow. When every hour of the 7 days before the epoch is
-	// slow, the start of the first. Unset when the endpoint is not slow.
+	// When the current slow run began; set on every slow endpoint, unset
+	// otherwise. The run began after the newest hour before the epoch's
+	// whose average is not slow, at the first collection after that span's
+	// last fast one (over all instances), else at the first slow hour after
+	// it; docs/design.md (GetMicroServices) has the whole rule.
 	SlowSince *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=slow_since,json=slowSince,proto3" json:"slow_since,omitempty"`
 	// Whether the error share is above 1%.
 	ErrorsHigh bool `protobuf:"varint,12,opt,name=errors_high,json=errorsHigh,proto3" json:"errors_high,omitempty"`
