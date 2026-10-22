@@ -84,7 +84,7 @@ func TestMicroRestartAsksInfoInTime(t *testing.T) {
 	m = c.Collect(context.Background()).Micro[0]
 	took := time.Since(start)
 	t.Logf("epoch 2 (%s): %s", took, askedOf(m))
-	if took > 1500*time.Millisecond {
+	if took > 1800*time.Millisecond {
 		t.Errorf("epoch 2 took %s of a 2s window: it waited for the old ID", took)
 	}
 	for _, r := range m.Asked {

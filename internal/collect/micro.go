@@ -151,7 +151,7 @@ func (c *Collector) askMicro(ctx context.Context, started time.Time) []MicroAcco
 		if nc := connOf(ac); st.key != "" && nc != nil && nc.IsConnected() {
 			asking[st.key] = ac.Label
 		}
-		known := c.microKnown[st.key]
+		known := knownSet(c.microKnown[st.key])
 		wg.Go(func() { out[i] = c.askAccount(ctx, ac, st, known, started, deadline) })
 	}
 	wg.Wait()
@@ -190,7 +190,7 @@ func (c *Collector) askMicro(ctx context.Context, started time.Time) []MicroAcco
 	for _, m := range kept {
 		for _, a := range m.Asked {
 			if a.Request == MicroStats && (a.State == MicroOK || a.State == MicroNoResponders) {
-				c.microKnown[m.Account] = instancesOf(m.Stats)
+				c.microKnown[m.Account] = nextKnown(c.microKnown[m.Account], m.Stats)
 			}
 		}
 	}
@@ -358,6 +358,36 @@ func (c *Collector) logRefusal(label string, st *microAccount, asked []MicroAske
 	case had && len(st.refused) == 0:
 		c.log.Info("micro service requests permitted again", "account", label)
 	}
+}
+
+// microKnownMisses is how many answered STATS in a row an instance may
+// miss and still be waited for: one late reply cut by the cap is not
+// forgotten at once, and a stopped instance holds up three epochs.
+const microKnownMisses = 3
+
+// nextKnown returns the known instances after an answered STATS: those
+// that answered with no misses, the others with one more, those that
+// missed microKnownMisses dropped.
+func nextKnown(prev map[instanceKey]int, stats []micro.Stats) map[instanceKey]int {
+	out := map[instanceKey]int{}
+	for k, n := range prev {
+		if n+1 < microKnownMisses {
+			out[k] = n + 1
+		}
+	}
+	for _, s := range stats {
+		out[instanceKey{s.Name, s.ID}] = 0
+	}
+	return out
+}
+
+// knownSet returns the instances of a known map.
+func knownSet(known map[instanceKey]int) map[instanceKey]bool {
+	out := make(map[instanceKey]bool, len(known))
+	for k := range known {
+		out[k] = true
+	}
+	return out
 }
 
 // instancesOf returns the instances of STATS replies.

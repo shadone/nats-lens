@@ -21,6 +21,18 @@ import (
 // times that and still keeps an epoch short.
 const microQuiet = 250 * time.Millisecond
 
+// microKnownGrace is the shortest time known instances are still waited
+// for after an instance not known replied.
+const microKnownGrace = time.Second
+
+// later returns the later of a and b.
+func later(a, b time.Time) time.Time {
+	if a.After(b) {
+		return a
+	}
+	return b
+}
+
 // The status header and value of the server's no responders reply.
 const (
 	statusHeader       = "Status"
@@ -50,9 +62,14 @@ type exchanged struct {
 // that LastError lost to a later error. The quiet period starts only once
 // every instance in known has replied to each request of identity, so an
 // instance known to answer is waited for until deadline however late it
-// replies, unless a reply from an instance not in known comes first.
+// replies. Once an instance not in known replies (a restart's new ID, or
+// a new instance), the known ones are waited for only until knownCap: the
+// later of microKnownGrace after that reply and half the time from the
+// start of the exchange to deadline, so that the INFO a new instance calls
+// for has the other half.
 func exchange(ctx context.Context, nc *nats.Conn, w *microWatch, reqs map[string]string, deadline time.Time,
 	quiet time.Duration, known map[instanceKey]bool, identity ...string) map[string]*exchanged {
+	begun := time.Now()
 	out := make(map[string]*exchanged, len(reqs))
 	for tok := range reqs {
 		out[tok] = &exchanged{}
@@ -146,11 +163,18 @@ func exchange(ctx context.Context, nc *nats.Conn, w *microWatch, reqs map[string
 		return false
 	}
 	var last time.Time
+	var knownCap time.Time // zero until an unknown instance replied
 	for {
 		if checkRefused() {
 			return out
 		}
+		if !knownCap.IsZero() && !time.Now().Before(knownCap) {
+			clear(outstanding)
+		}
 		wait := time.Until(deadline)
+		if len(outstanding) > 0 && !knownCap.IsZero() {
+			wait = min(wait, time.Until(knownCap))
+		}
 		if len(waiting) == 0 && len(outstanding) == 0 {
 			wait = min(wait, time.Until(last.Add(quiet)))
 		}
@@ -195,11 +219,14 @@ func exchange(ctx context.Context, nc *nats.Conn, w *microWatch, reqs map[string
 				k := instanceKey{id.Name, id.ID}
 				delete(left, k)
 				// An instance not known before is most often a restart
-				// whose old ID will not answer again: the request stops
-				// waiting for the known ones, so that the INFO it calls
-				// for has time.
-				if !known[k] {
-					clear(left)
+				// whose old ID will not answer again: the known ones are
+				// waited for only until the cap, so that the INFO it
+				// calls for has time.
+				if !known[k] && knownCap.IsZero() {
+					knownCap = later(last.Add(microKnownGrace), begun.Add(deadline.Sub(begun)/2))
+					if knownCap.After(deadline) {
+						knownCap = deadline
+					}
 				}
 			}
 			if len(left) == 0 {
