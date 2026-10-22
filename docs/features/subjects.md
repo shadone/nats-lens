@@ -108,7 +108,7 @@ The Subjects page shows where messages can go in a system: each stream with the 
 - **No delivered rate per subscription.** The servers count messages per subscription, and nats-lens stores that count, but the page does not show it yet.
 - **No message sampling.** nats-lens does not subscribe to application subjects to count them, as that would read application data and add load.
 - **No permission view.** Which users may publish or subscribe to a subject comes with [accounts-and-auth.md](accounts-and-auth.md), not here.
-- **No service endpoints.** This page does not show the `$SRV` replies nats-lens collects; endpoints come with [micro-services.md](micro-services.md). A service's endpoints appear here as its connections' queue subscriptions.
+- **No service endpoints.** The endpoints of services built on the micro framework, with their rates and times, are on the Micro services page ([micro-services.md](micro-services.md)), whose literal endpoint subjects open this page's tester. Here a service's endpoints appear as its connections' queue subscriptions, and its `$SRV` subscriptions as subscription rows.
 - **No imports and exports in the tester.** A message published in one account reaching a stream or subscriber of another through an import is not shown; each account is answered on its own.
 - **Sources by name only.** A stream's sources are matched by name within its own account, without their account or filter: a source from another account links to a same-named stream of the stream's own account.
 - **Subscription lists can be cut.** A server lists at most `subsz_limit` subscriptions per collection; which ones a cut list keeps is up to the server, so a cut list can miss subscribers.

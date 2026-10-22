@@ -107,7 +107,7 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 
 ## Planned
 
-- **More pages in the sidebar.** Micro services and Applications under Messaging; Users and auth under Cluster. Each appears once its page is built.
+- **More pages in the sidebar.** Applications under Messaging; Users and auth under Cluster. Each appears once its page is built.
 - **The account scope on more lists.** Streams, findings and events limited to the scoped account, each offering the scope once it applies it; system-wide tiles and charts stay system-wide and say "all accounts".
 - **A command bar.** Findings, events and prefixes such as `stream:` in the search ([command-bar.md](command-bar.md)).
 
