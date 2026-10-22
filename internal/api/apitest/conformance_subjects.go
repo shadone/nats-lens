@@ -229,13 +229,13 @@ func subjectsRows() []State {
 					continue
 				}
 				res := q.match(r.GetAccount(), literalOf(r.GetPatterns()[0]))
-				for _, m := range res.GetMatches() {
+				for _, m := range api.MatchedStreams(res) {
 					if m.GetStream() == r.GetStream() && m.GetPattern() == r.GetPatterns()[0] && len(m.GetConsumers()) > 0 &&
 						containsString(m.GetMirrors(), r.GetMirroredBy()[0]) {
 						return r.GetStream()
 					}
 				}
-				q.t.Errorf("%s: %s not matched: %v", q.System, r.GetStream(), res.GetMatches())
+				q.t.Errorf("%s: %s not matched: %v", q.System, r.GetStream(), api.MatchedStreams(res))
 				return ""
 			}
 			return ""
@@ -245,7 +245,7 @@ func subjectsRows() []State {
 				if r.GetKind() != v1.SubjectRowKind_SUBJECT_ROW_KIND_STREAM || len(r.GetSourcedInto()) == 0 || len(r.GetPatterns()) == 0 {
 					continue
 				}
-				for _, m := range q.match(r.GetAccount(), literalOf(r.GetPatterns()[0])).GetMatches() {
+				for _, m := range api.MatchedStreams(q.match(r.GetAccount(), literalOf(r.GetPatterns()[0]))) {
 					if m.GetStream() == r.GetStream() && containsString(m.GetSourcedBy(), r.GetSourcedInto()[0]) {
 						return r.GetStream()
 					}
@@ -259,7 +259,7 @@ func subjectsRows() []State {
 					literalOf(r.GetPatterns()[0]) != r.GetPatterns()[0] {
 					continue
 				}
-				for _, c := range q.match(r.GetAccount(), r.GetPatterns()[0]).GetSubscribers() {
+				for _, c := range api.MatchedSubscribers(q.match(r.GetAccount(), r.GetPatterns()[0])) {
 					if c.GetSubject() == r.GetPatterns()[0] && c.GetQueue() == r.GetQueue() && c.GetConnections() == r.GetConnections() {
 						return r.GetPatterns()[0]
 					}
@@ -271,7 +271,7 @@ func subjectsRows() []State {
 			for _, r := range q.subjects("", 0).GetRows() {
 				if storedRow(r) {
 					res := q.match(r.GetAccount(), "conformance.nobody.uses.this")
-					if len(res.GetMatches()) != 0 || len(res.GetSubscribers()) != 0 || res.GetEpoch() == 0 {
+					if len(api.MatchedStreams(res)) != 0 || len(api.MatchedSubscribers(res)) != 0 || res.GetEpoch() == 0 {
 						return ""
 					}
 					return r.GetAccount()
@@ -279,8 +279,81 @@ func subjectsRows() []State {
 			}
 			return ""
 		}},
+		{"the Subjects tester leaves the system account out of an answer without a scope, but for a $SYS. subject", func(q Q) string {
+			for _, r := range q.subjects("", 0).GetRows() {
+				if !r.GetSystemAccount() || r.GetKind() != v1.SubjectRowKind_SUBJECT_ROW_KIND_SUBSCRIPTION || r.GetPatterns()[0] != ">" {
+					continue
+				}
+				for _, a := range q.match("", "conformance.application.subject").GetAccounts() {
+					if a.GetSystemAccount() || a.GetAccount() == r.GetAccount() {
+						q.t.Errorf("%s: an application subject reaches %s", q.System, a.GetAccount())
+						return ""
+					}
+				}
+				for _, a := range q.match("", "$SYS.conformance").GetAccounts() {
+					if a.GetAccount() == r.GetAccount() && a.GetSystemAccount() {
+						for _, c := range a.GetSubscribers() {
+							if c.GetSubject() == ">" {
+								return r.GetAccount()
+							}
+						}
+					}
+				}
+				q.t.Errorf("%s: $SYS.conformance does not reach %s's >", q.System, r.GetAccount())
+				return ""
+			}
+			return ""
+		}},
+		{"the Subjects tester answers a $JS.API. subject with the account's JetStream API", func(q Q) string {
+			for _, r := range q.subjects("", 0).GetRows() {
+				if r.GetKind() != v1.SubjectRowKind_SUBJECT_ROW_KIND_JETSTREAM_API {
+					continue
+				}
+				res := q.match(r.GetAccount(), "$JS.API.INFO")
+				if len(res.GetAccounts()) != 1 || !res.GetAccounts()[0].GetJetstreamApi() {
+					q.t.Errorf("%s: $JS.API.INFO in %s: %v", q.System, r.GetAccount(), res)
+					return ""
+				}
+				return r.GetAccount()
+			}
+			return ""
+		}},
+		{"the Subjects tester groups an answer without a scope by account, each with something that matches, in every system", everySystem(func(q Q) string {
+			n := 0
+			for _, r := range q.subjects("", 0).GetRows() {
+				if r.GetKind() != v1.SubjectRowKind_SUBJECT_ROW_KIND_STREAM || len(r.GetPatterns()) == 0 {
+					continue
+				}
+				res := q.match("", literalOf(r.GetPatterns()[0]))
+				seen := map[string]bool{}
+				for i, a := range res.GetAccounts() {
+					if seen[a.GetAccount()] || len(a.GetMatches())+len(a.GetSubscribers()) == 0 && !a.GetJetstreamApi() {
+						q.t.Errorf("%s: group %v", q.System, a)
+						return ""
+					}
+					seen[a.GetAccount()] = true
+					for _, m := range a.GetMatches() {
+						if m.GetAccount() != a.GetAccount() {
+							q.t.Errorf("%s: %s's group holds %s", q.System, a.GetAccount(), m.GetAccount())
+						}
+					}
+					if i > 0 && res.GetAccounts()[i-1].GetSystemAccount() {
+						q.t.Errorf("%s: the system account is not last", q.System)
+					}
+				}
+				if !seen[r.GetAccount()] {
+					q.t.Errorf("%s: %s has no group for its own stream %s", q.System, r.GetAccount(), r.GetStream())
+					return ""
+				}
+				n = max(n, len(res.GetAccounts()))
+			}
+			if n == 0 {
+				return ""
+			}
+			return fmt.Sprintf("up to %d accounts", n)
+		})},
 		{"the Subjects tester refuses a subject that is not a literal, in every system", everySystem(func(q Q) string {
-			for _, s := range []string{"orders.*", "orders.>", "orders..x", ""} {
+			for _, s := range []string{"orders.*", "orders.>", "orders..x", "", "orders\x00x"} {
 				_, err := q.env.Client.MatchSubject(ctx, connect.NewRequest(&v1.MatchSubjectRequest{System: q.System, Subject: s}))
 				if connect.CodeOf(err) != connect.CodeInvalidArgument {
 					q.t.Errorf("%s %q: %v, want invalid_argument", q.System, s, err)

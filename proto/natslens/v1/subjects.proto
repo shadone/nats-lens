@@ -122,8 +122,10 @@ message SubjectRow {
   optional double stored_per_second = 16;
 
   // JetStream API requests per second over the 15 minutes before the
-  // range's end, summed over the servers; set on the JetStream API row
-  // only, and unset there when no server reported twice.
+  // range's end. Every server reports the account's total for the whole
+  // cluster, so this is one server's increase, the highest, not a sum. Set
+  // on the JetStream API row only, and unset there when no server reported
+  // twice.
   optional double api_per_second = 17;
 
   // Share of those requests that failed, 0 to 1; unset with no request
@@ -228,11 +230,16 @@ message MatchSubjectRequest {
   // now.
   TimeRange range = 2;
 
-  // Account the message is published in; empty for every account.
+  // Account the message is published in. Empty: the answer for each
+  // account where something matches, as if it were published there, the
+  // system account left out unless the subject starts with $SYS.. A
+  // message reaches only its own account (imports and exports are not
+  // followed).
   string account = 3;
 
   // The subject: a literal (no * or > token), no empty token, no white
-  // space, at most 255 bytes; anything else is invalid_argument.
+  // space or other control character, at most 255 bytes; anything else
+  // is invalid_argument.
   string subject = 4;
 }
 
@@ -255,13 +262,15 @@ message SubjectMatch {
   repeated string consumers = 5;
 
   // Ephemeral consumers of the stream whose filter matches the subject.
-  int32 ephemeral_consumers = 8;
+  int32 ephemeral_consumers = 6;
 
-  // Streams that mirror the stream, by name.
-  repeated string mirrors = 6;
+  // Streams of the same account that mirror the stream, by name.
+  repeated string mirrors = 7;
 
-  // Streams that source from the stream, by name.
-  repeated string sourced_by = 7;
+  // Streams of the same account that list the stream among their
+  // sources, by name (a source is stored by name only, without its
+  // account or filter).
+  repeated string sourced_by = 8;
 }
 
 // Client subscriptions on one subject and queue that a message on the
@@ -290,6 +299,29 @@ message CoreMatch {
   int32 more_names = 7;
 }
 
+// What a message on the subject published in one account would reach.
+message MatchAccount {
+  // Account the message is published in.
+  string account = 1;
+
+  // Readable name of the account; empty when none is known.
+  string account_name = 2;
+
+  // Whether this is the system account.
+  bool system_account = 3;
+
+  // Streams of the account that store the message, by name.
+  repeated SubjectMatch matches = 4;
+
+  // Client subscriptions of the account it reaches, the servers' own and
+  // those of unlisted connections left out: by subject and queue.
+  repeated CoreMatch subscribers = 5;
+
+  // The subject is a JetStream API subject ($JS.API.) and the account
+  // uses JetStream: the servers answer it.
+  bool jetstream_api = 6;
+}
+
 // What a message on the subject would reach in the range's newest epoch.
 message MatchSubjectResponse {
   // Epoch read; 0 when the range holds none, and then everything else is
@@ -299,15 +331,13 @@ message MatchSubjectResponse {
   // When the epoch started.
   google.protobuf.Timestamp epoch_at = 2;
 
-  // Streams that store the message, by account and name.
-  repeated SubjectMatch matches = 3;
-
-  // Client subscriptions it reaches, the servers' own left out: by
-  // account, subject and queue.
-  repeated CoreMatch subscribers = 4;
+  // With an account in the request, that account alone, also when
+  // nothing matches. Without one, each account where something matches,
+  // by account with the system account last; none when nothing matches.
+  repeated MatchAccount accounts = 3;
 
   // When the subscription collection read started, as in
-  // GetSubjectsResponse; unset when there is none, and then subscribers
-  // is empty.
-  google.protobuf.Timestamp subscriptions_at = 5;
+  // GetSubjectsResponse; unset when there is none, and then no account
+  // has subscribers.
+  google.protobuf.Timestamp subscriptions_at = 4;
 }

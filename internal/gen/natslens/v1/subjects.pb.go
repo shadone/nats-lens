@@ -278,8 +278,10 @@ type SubjectRow struct {
 	// than two such reports and for the other kinds.
 	StoredPerSecond *float64 `protobuf:"fixed64,16,opt,name=stored_per_second,json=storedPerSecond,proto3,oneof" json:"stored_per_second,omitempty"`
 	// JetStream API requests per second over the 15 minutes before the
-	// range's end, summed over the servers; set on the JetStream API row
-	// only, and unset there when no server reported twice.
+	// range's end. Every server reports the account's total for the whole
+	// cluster, so this is one server's increase, the highest, not a sum. Set
+	// on the JetStream API row only, and unset there when no server reported
+	// twice.
 	ApiPerSecond *float64 `protobuf:"fixed64,17,opt,name=api_per_second,json=apiPerSecond,proto3,oneof" json:"api_per_second,omitempty"`
 	// Share of those requests that failed, 0 to 1; unset with no request
 	// and on other rows.
@@ -744,10 +746,15 @@ type MatchSubjectRequest struct {
 	// Range whose newest epoch is read. Unset means the last 24 hours up to
 	// now.
 	Range *TimeRange `protobuf:"bytes,2,opt,name=range,proto3" json:"range,omitempty"`
-	// Account the message is published in; empty for every account.
+	// Account the message is published in. Empty: the answer for each
+	// account where something matches, as if it were published there, the
+	// system account left out unless the subject starts with $SYS.. A
+	// message reaches only its own account (imports and exports are not
+	// followed).
 	Account string `protobuf:"bytes,3,opt,name=account,proto3" json:"account,omitempty"`
 	// The subject: a literal (no * or > token), no empty token, no white
-	// space, at most 255 bytes; anything else is invalid_argument.
+	// space or other control character, at most 255 bytes; anything else
+	// is invalid_argument.
 	Subject       string `protobuf:"bytes,4,opt,name=subject,proto3" json:"subject,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -826,11 +833,13 @@ type SubjectMatch struct {
 	// filter matches all), by name.
 	Consumers []string `protobuf:"bytes,5,rep,name=consumers,proto3" json:"consumers,omitempty"`
 	// Ephemeral consumers of the stream whose filter matches the subject.
-	EphemeralConsumers int32 `protobuf:"varint,8,opt,name=ephemeral_consumers,json=ephemeralConsumers,proto3" json:"ephemeral_consumers,omitempty"`
-	// Streams that mirror the stream, by name.
-	Mirrors []string `protobuf:"bytes,6,rep,name=mirrors,proto3" json:"mirrors,omitempty"`
-	// Streams that source from the stream, by name.
-	SourcedBy     []string `protobuf:"bytes,7,rep,name=sourced_by,json=sourcedBy,proto3" json:"sourced_by,omitempty"`
+	EphemeralConsumers int32 `protobuf:"varint,6,opt,name=ephemeral_consumers,json=ephemeralConsumers,proto3" json:"ephemeral_consumers,omitempty"`
+	// Streams of the same account that mirror the stream, by name.
+	Mirrors []string `protobuf:"bytes,7,rep,name=mirrors,proto3" json:"mirrors,omitempty"`
+	// Streams of the same account that list the stream among their
+	// sources, by name (a source is stored by name only, without its
+	// account or filter).
+	SourcedBy     []string `protobuf:"bytes,8,rep,name=sourced_by,json=sourcedBy,proto3" json:"sourced_by,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1023,6 +1032,99 @@ func (x *CoreMatch) GetMoreNames() int32 {
 	return 0
 }
 
+// What a message on the subject published in one account would reach.
+type MatchAccount struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Account the message is published in.
+	Account string `protobuf:"bytes,1,opt,name=account,proto3" json:"account,omitempty"`
+	// Readable name of the account; empty when none is known.
+	AccountName string `protobuf:"bytes,2,opt,name=account_name,json=accountName,proto3" json:"account_name,omitempty"`
+	// Whether this is the system account.
+	SystemAccount bool `protobuf:"varint,3,opt,name=system_account,json=systemAccount,proto3" json:"system_account,omitempty"`
+	// Streams of the account that store the message, by name.
+	Matches []*SubjectMatch `protobuf:"bytes,4,rep,name=matches,proto3" json:"matches,omitempty"`
+	// Client subscriptions of the account it reaches, the servers' own and
+	// those of unlisted connections left out: by subject and queue.
+	Subscribers []*CoreMatch `protobuf:"bytes,5,rep,name=subscribers,proto3" json:"subscribers,omitempty"`
+	// The subject is a JetStream API subject ($JS.API.) and the account
+	// uses JetStream: the servers answer it.
+	JetstreamApi  bool `protobuf:"varint,6,opt,name=jetstream_api,json=jetstreamApi,proto3" json:"jetstream_api,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MatchAccount) Reset() {
+	*x = MatchAccount{}
+	mi := &file_natslens_v1_subjects_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MatchAccount) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MatchAccount) ProtoMessage() {}
+
+func (x *MatchAccount) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_subjects_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MatchAccount.ProtoReflect.Descriptor instead.
+func (*MatchAccount) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_subjects_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *MatchAccount) GetAccount() string {
+	if x != nil {
+		return x.Account
+	}
+	return ""
+}
+
+func (x *MatchAccount) GetAccountName() string {
+	if x != nil {
+		return x.AccountName
+	}
+	return ""
+}
+
+func (x *MatchAccount) GetSystemAccount() bool {
+	if x != nil {
+		return x.SystemAccount
+	}
+	return false
+}
+
+func (x *MatchAccount) GetMatches() []*SubjectMatch {
+	if x != nil {
+		return x.Matches
+	}
+	return nil
+}
+
+func (x *MatchAccount) GetSubscribers() []*CoreMatch {
+	if x != nil {
+		return x.Subscribers
+	}
+	return nil
+}
+
+func (x *MatchAccount) GetJetstreamApi() bool {
+	if x != nil {
+		return x.JetstreamApi
+	}
+	return false
+}
+
 // What a message on the subject would reach in the range's newest epoch.
 type MatchSubjectResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1031,22 +1133,21 @@ type MatchSubjectResponse struct {
 	Epoch int64 `protobuf:"varint,1,opt,name=epoch,proto3" json:"epoch,omitempty"`
 	// When the epoch started.
 	EpochAt *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=epoch_at,json=epochAt,proto3" json:"epoch_at,omitempty"`
-	// Streams that store the message, by account and name.
-	Matches []*SubjectMatch `protobuf:"bytes,3,rep,name=matches,proto3" json:"matches,omitempty"`
-	// Client subscriptions it reaches, the servers' own left out: by
-	// account, subject and queue.
-	Subscribers []*CoreMatch `protobuf:"bytes,4,rep,name=subscribers,proto3" json:"subscribers,omitempty"`
+	// With an account in the request, that account alone, also when
+	// nothing matches. Without one, each account where something matches,
+	// by account with the system account last; none when nothing matches.
+	Accounts []*MatchAccount `protobuf:"bytes,3,rep,name=accounts,proto3" json:"accounts,omitempty"`
 	// When the subscription collection read started, as in
-	// GetSubjectsResponse; unset when there is none, and then subscribers
-	// is empty.
-	SubscriptionsAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=subscriptions_at,json=subscriptionsAt,proto3" json:"subscriptions_at,omitempty"`
+	// GetSubjectsResponse; unset when there is none, and then no account
+	// has subscribers.
+	SubscriptionsAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=subscriptions_at,json=subscriptionsAt,proto3" json:"subscriptions_at,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
 
 func (x *MatchSubjectResponse) Reset() {
 	*x = MatchSubjectResponse{}
-	mi := &file_natslens_v1_subjects_proto_msgTypes[7]
+	mi := &file_natslens_v1_subjects_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1058,7 +1159,7 @@ func (x *MatchSubjectResponse) String() string {
 func (*MatchSubjectResponse) ProtoMessage() {}
 
 func (x *MatchSubjectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_subjects_proto_msgTypes[7]
+	mi := &file_natslens_v1_subjects_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1071,7 +1172,7 @@ func (x *MatchSubjectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MatchSubjectResponse.ProtoReflect.Descriptor instead.
 func (*MatchSubjectResponse) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_subjects_proto_rawDescGZIP(), []int{7}
+	return file_natslens_v1_subjects_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *MatchSubjectResponse) GetEpoch() int64 {
@@ -1088,16 +1189,9 @@ func (x *MatchSubjectResponse) GetEpochAt() *timestamppb.Timestamp {
 	return nil
 }
 
-func (x *MatchSubjectResponse) GetMatches() []*SubjectMatch {
+func (x *MatchSubjectResponse) GetAccounts() []*MatchAccount {
 	if x != nil {
-		return x.Matches
-	}
-	return nil
-}
-
-func (x *MatchSubjectResponse) GetSubscribers() []*CoreMatch {
-	if x != nil {
-		return x.Subscribers
+		return x.Accounts
 	}
 	return nil
 }
@@ -1188,10 +1282,10 @@ const file_natslens_v1_subjects_proto_rawDesc = "" +
 	"\x06stream\x18\x03 \x01(\tR\x06stream\x12\x18\n" +
 	"\apattern\x18\x04 \x01(\tR\apattern\x12\x1c\n" +
 	"\tconsumers\x18\x05 \x03(\tR\tconsumers\x12/\n" +
-	"\x13ephemeral_consumers\x18\b \x01(\x05R\x12ephemeralConsumers\x12\x18\n" +
-	"\amirrors\x18\x06 \x03(\tR\amirrors\x12\x1d\n" +
+	"\x13ephemeral_consumers\x18\x06 \x01(\x05R\x12ephemeralConsumers\x12\x18\n" +
+	"\amirrors\x18\a \x03(\tR\amirrors\x12\x1d\n" +
 	"\n" +
-	"sourced_by\x18\a \x03(\tR\tsourcedBy\"\xdc\x01\n" +
+	"sourced_by\x18\b \x03(\tR\tsourcedBy\"\xdc\x01\n" +
 	"\tCoreMatch\x12\x18\n" +
 	"\aaccount\x18\x01 \x01(\tR\aaccount\x12!\n" +
 	"\faccount_name\x18\x02 \x01(\tR\vaccountName\x12\x18\n" +
@@ -1200,13 +1294,19 @@ const file_natslens_v1_subjects_proto_rawDesc = "" +
 	"\vconnections\x18\x05 \x01(\x05R\vconnections\x12!\n" +
 	"\fclient_names\x18\x06 \x03(\tR\vclientNames\x12\x1d\n" +
 	"\n" +
-	"more_names\x18\a \x01(\x05R\tmoreNames\"\x99\x02\n" +
+	"more_names\x18\a \x01(\x05R\tmoreNames\"\x86\x02\n" +
+	"\fMatchAccount\x12\x18\n" +
+	"\aaccount\x18\x01 \x01(\tR\aaccount\x12!\n" +
+	"\faccount_name\x18\x02 \x01(\tR\vaccountName\x12%\n" +
+	"\x0esystem_account\x18\x03 \x01(\bR\rsystemAccount\x123\n" +
+	"\amatches\x18\x04 \x03(\v2\x19.natslens.v1.SubjectMatchR\amatches\x128\n" +
+	"\vsubscribers\x18\x05 \x03(\v2\x16.natslens.v1.CoreMatchR\vsubscribers\x12#\n" +
+	"\rjetstream_api\x18\x06 \x01(\bR\fjetstreamApi\"\xe1\x01\n" +
 	"\x14MatchSubjectResponse\x12\x14\n" +
 	"\x05epoch\x18\x01 \x01(\x03R\x05epoch\x125\n" +
-	"\bepoch_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\aepochAt\x123\n" +
-	"\amatches\x18\x03 \x03(\v2\x19.natslens.v1.SubjectMatchR\amatches\x128\n" +
-	"\vsubscribers\x18\x04 \x03(\v2\x16.natslens.v1.CoreMatchR\vsubscribers\x12E\n" +
-	"\x10subscriptions_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x0fsubscriptionsAt*\xa3\x01\n" +
+	"\bepoch_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\aepochAt\x125\n" +
+	"\baccounts\x18\x03 \x03(\v2\x19.natslens.v1.MatchAccountR\baccounts\x12E\n" +
+	"\x10subscriptions_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x0fsubscriptionsAt*\xa3\x01\n" +
 	"\rSubjectFilter\x12\x1e\n" +
 	"\x1aSUBJECT_FILTER_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15SUBJECT_FILTER_STORED\x10\x01\x12\x1e\n" +
@@ -1235,7 +1335,7 @@ func file_natslens_v1_subjects_proto_rawDescGZIP() []byte {
 }
 
 var file_natslens_v1_subjects_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_natslens_v1_subjects_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_natslens_v1_subjects_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_natslens_v1_subjects_proto_goTypes = []any{
 	(SubjectFilter)(0),            // 0: natslens.v1.SubjectFilter
 	(SubjectRowKind)(0),           // 1: natslens.v1.SubjectRowKind
@@ -1246,28 +1346,30 @@ var file_natslens_v1_subjects_proto_goTypes = []any{
 	(*MatchSubjectRequest)(nil),   // 6: natslens.v1.MatchSubjectRequest
 	(*SubjectMatch)(nil),          // 7: natslens.v1.SubjectMatch
 	(*CoreMatch)(nil),             // 8: natslens.v1.CoreMatch
-	(*MatchSubjectResponse)(nil),  // 9: natslens.v1.MatchSubjectResponse
-	(*TimeRange)(nil),             // 10: natslens.v1.TimeRange
-	(*timestamppb.Timestamp)(nil), // 11: google.protobuf.Timestamp
+	(*MatchAccount)(nil),          // 9: natslens.v1.MatchAccount
+	(*MatchSubjectResponse)(nil),  // 10: natslens.v1.MatchSubjectResponse
+	(*TimeRange)(nil),             // 11: natslens.v1.TimeRange
+	(*timestamppb.Timestamp)(nil), // 12: google.protobuf.Timestamp
 }
 var file_natslens_v1_subjects_proto_depIdxs = []int32{
-	10, // 0: natslens.v1.GetSubjectsRequest.range:type_name -> natslens.v1.TimeRange
+	11, // 0: natslens.v1.GetSubjectsRequest.range:type_name -> natslens.v1.TimeRange
 	0,  // 1: natslens.v1.GetSubjectsRequest.filter:type_name -> natslens.v1.SubjectFilter
 	1,  // 2: natslens.v1.SubjectRow.kind:type_name -> natslens.v1.SubjectRowKind
-	11, // 3: natslens.v1.GetSubjectsResponse.epoch_at:type_name -> google.protobuf.Timestamp
-	11, // 4: natslens.v1.GetSubjectsResponse.subscriptions_at:type_name -> google.protobuf.Timestamp
+	12, // 3: natslens.v1.GetSubjectsResponse.epoch_at:type_name -> google.protobuf.Timestamp
+	12, // 4: natslens.v1.GetSubjectsResponse.subscriptions_at:type_name -> google.protobuf.Timestamp
 	3,  // 5: natslens.v1.GetSubjectsResponse.rows:type_name -> natslens.v1.SubjectRow
 	4,  // 6: natslens.v1.GetSubjectsResponse.subsz_servers:type_name -> natslens.v1.SubszServer
-	10, // 7: natslens.v1.MatchSubjectRequest.range:type_name -> natslens.v1.TimeRange
-	11, // 8: natslens.v1.MatchSubjectResponse.epoch_at:type_name -> google.protobuf.Timestamp
-	7,  // 9: natslens.v1.MatchSubjectResponse.matches:type_name -> natslens.v1.SubjectMatch
-	8,  // 10: natslens.v1.MatchSubjectResponse.subscribers:type_name -> natslens.v1.CoreMatch
-	11, // 11: natslens.v1.MatchSubjectResponse.subscriptions_at:type_name -> google.protobuf.Timestamp
-	12, // [12:12] is the sub-list for method output_type
-	12, // [12:12] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	11, // 7: natslens.v1.MatchSubjectRequest.range:type_name -> natslens.v1.TimeRange
+	7,  // 8: natslens.v1.MatchAccount.matches:type_name -> natslens.v1.SubjectMatch
+	8,  // 9: natslens.v1.MatchAccount.subscribers:type_name -> natslens.v1.CoreMatch
+	12, // 10: natslens.v1.MatchSubjectResponse.epoch_at:type_name -> google.protobuf.Timestamp
+	9,  // 11: natslens.v1.MatchSubjectResponse.accounts:type_name -> natslens.v1.MatchAccount
+	12, // 12: natslens.v1.MatchSubjectResponse.subscriptions_at:type_name -> google.protobuf.Timestamp
+	13, // [13:13] is the sub-list for method output_type
+	13, // [13:13] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_subjects_proto_init() }
@@ -1284,7 +1386,7 @@ func file_natslens_v1_subjects_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_subjects_proto_rawDesc), len(file_natslens_v1_subjects_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   8,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

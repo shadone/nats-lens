@@ -256,8 +256,10 @@ func (c Config) Validate() error {
 	if c.SubscriptionsInterval.D() < 0 {
 		errs = append(errs, errors.New("subscriptions_interval must not be negative; 0 turns subscription collections off"))
 	}
-	if c.SubszLimit <= 0 || c.SubszLimit > MaxSubszLimit {
-		errs = append(errs, fmt.Errorf("subsz_limit must be positive and at most %d: every server's list arrives on one connection, "+
+	if c.SubszLimit <= 0 {
+		errs = append(errs, errors.New("subsz_limit must be positive"))
+	} else if c.SubszLimit > MaxSubszLimit {
+		errs = append(errs, fmt.Errorf("subsz_limit must be at most %d: every server's list arrives on one connection, "+
 			"which a server closes as a slow consumer past its max_pending", MaxSubszLimit))
 	}
 	if c.NATS.URL == "" {

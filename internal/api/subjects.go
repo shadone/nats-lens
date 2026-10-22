@@ -84,7 +84,8 @@ type SubjectConsumerFact struct {
 }
 
 // JetStreamAPIFact is an account's JetStream API over RateSpan before the
-// range's end, summed over the servers.
+// range's end: every server reports the cluster's total, so it is one
+// server's increase, the highest, not a sum.
 type JetStreamAPIFact struct {
 	Account string
 	// PerSecond is nil when no server reported twice; ErrorShare nil
@@ -292,7 +293,8 @@ func SubjectMatches(literal, pattern string) bool {
 func SubjectsOverlap(a, b string) bool { return natsserver.SubjectsCollide(a, b) }
 
 // ValidateLiteralSubject checks a subject MatchSubject takes: a literal
-// with no wildcard token, no empty token and no white space, at most
+// with no wildcard token, no empty token, no white space and no other
+// control character, at most
 // MaxSubjectLength bytes.
 func ValidateLiteralSubject(subject string) error {
 	if subject == "" {
@@ -307,8 +309,10 @@ func ValidateLiteralSubject(subject string) error {
 			return invalid("subject %q has an empty token", subject)
 		case t == "*" || t == ">":
 			return invalid("subject %q has a wildcard; give a literal subject", subject)
-		case strings.ContainsAny(t, " \t\r\n\f"):
+		case strings.ContainsAny(t, " \t\r\n\f\v"):
 			return invalid("subject %q has white space", subject)
+		case strings.ContainsFunc(t, func(r rune) bool { return r < 0x20 || r == 0x7f }):
+			return invalid("subject %q has a control character", subject)
 		}
 	}
 	return nil
@@ -556,31 +560,69 @@ func compareSubjectRows(a, b *v1.SubjectRow) int {
 }
 
 // MatchFacts are what a provider read for one MatchSubject: the epoch's
-// streams as for GetSubjects, and the subscription collection's groups by
-// account, subject and queue (CoreGroups), at least those whose subject
-// matches. FinishMatch keeps what matches.
+// streams as for GetSubjects, the accounts that use JetStream, and the
+// subscription collection's groups by account, subject and queue
+// (CoreGroups), at least those whose subject matches. FinishMatch keeps
+// what matches.
 type MatchFacts struct {
 	Epoch   int64
 	EpochAt time.Time
-	Streams []SubjectStreamFact
+	// SystemAccount is the system account's identifier; empty when not
+	// known.
+	SystemAccount string
+	Streams       []SubjectStreamFact
+	// JetStreamAccounts are the accounts with JetStream use, as
+	// SubjectsFacts.APIs lists them.
+	JetStreamAccounts []string
 	// SubscriptionsAt is nil without a subscription collection.
 	SubscriptionsAt *time.Time
 	Core            []SubscriptionGroup
 }
 
-// FinishMatch builds the tester's answer for a literal subject in the
-// account scope: each stream whose subject matches, with the first of its
+// JetStreamAPIPrefix starts every JetStream API subject.
+const JetStreamAPIPrefix = "$JS.API."
+
+// systemPrefix starts the system account's subjects.
+const systemPrefix = "$SYS."
+
+// FinishMatch builds the tester's answer for a literal subject. A message
+// reaches only the account it is published in: with an account, that
+// account alone; without one, each account where something matches, the
+// system account left out unless the subject starts with $SYS.. Per
+// account: each stream whose subject matches, with the first of its
 // subjects that does, its consumers whose filter matches, and the streams
-// that mirror or source it; and the subscription groups whose subject
-// matches.
+// of the account that mirror or source it; the subscription groups whose
+// subject matches; and whether the servers answer it as the account's
+// JetStream API.
 func FinishMatch(f *MatchFacts, account, subject string) *v1.MatchSubjectResponse {
 	if f == nil || f.Epoch == 0 {
 		return &v1.MatchSubjectResponse{}
 	}
 	res := &v1.MatchSubjectResponse{Epoch: f.Epoch, EpochAt: timestamppb.New(f.EpochAt)}
+	if f.SubscriptionsAt != nil {
+		res.SubscriptionsAt = timestamppb.New(*f.SubscriptionsAt)
+	}
+	reaches := func(acc string) bool {
+		if account != "" {
+			return acc == account
+		}
+		return acc != f.SystemAccount || f.SystemAccount == "" || strings.HasPrefix(subject, systemPrefix)
+	}
+	groups := map[string]*v1.MatchAccount{}
+	group := func(acc string) *v1.MatchAccount {
+		g := groups[acc]
+		if g == nil {
+			g = &v1.MatchAccount{Account: acc, SystemAccount: f.SystemAccount != "" && acc == f.SystemAccount}
+			groups[acc] = g
+		}
+		return g
+	}
+	if account != "" {
+		group(account)
+	}
 	var streams []SubjectStreamFact
 	for _, s := range f.Streams {
-		if inScope(account, s.Account) {
+		if reaches(s.Account) {
 			streams = append(streams, s)
 		}
 	}
@@ -607,23 +649,55 @@ func FinishMatch(f *MatchFacts, account, subject string) *v1.MatchSubjectRespons
 			}
 		}
 		slices.Sort(m.Consumers)
-		res.Matches = append(res.Matches, m)
+		g := group(s.Account)
+		g.Matches = append(g.Matches, m)
 	}
-	slices.SortFunc(res.Matches, func(a, b *v1.SubjectMatch) int {
-		return cmp.Or(cmp.Compare(a.GetAccount(), b.GetAccount()), cmp.Compare(a.GetStream(), b.GetStream()))
-	})
 	if f.SubscriptionsAt != nil {
-		res.SubscriptionsAt = timestamppb.New(*f.SubscriptionsAt)
 		core := slices.Clone(f.Core)
 		sortGroups(core)
-		for _, g := range core {
-			if !inScope(account, g.Account) || !SubjectMatches(subject, g.Subject) {
+		for _, cg := range core {
+			if !reaches(cg.Account) || !SubjectMatches(subject, cg.Subject) {
 				continue
 			}
-			c := &v1.CoreMatch{Account: g.Account, Subject: g.Subject, Queue: g.Queue, Connections: g.Connections}
-			c.ClientNames, c.MoreNames = cutNames(g.Names, g.NameCount)
-			res.Subscribers = append(res.Subscribers, c)
+			c := &v1.CoreMatch{Account: cg.Account, Subject: cg.Subject, Queue: cg.Queue, Connections: cg.Connections}
+			c.ClientNames, c.MoreNames = cutNames(cg.Names, cg.NameCount)
+			g := group(cg.Account)
+			g.Subscribers = append(g.Subscribers, c)
 		}
 	}
+	if strings.HasPrefix(subject, JetStreamAPIPrefix) {
+		for _, acc := range f.JetStreamAccounts {
+			if reaches(acc) {
+				group(acc).JetstreamApi = true
+			}
+		}
+	}
+	for _, g := range groups {
+		slices.SortFunc(g.Matches, func(a, b *v1.SubjectMatch) int { return cmp.Compare(a.GetStream(), b.GetStream()) })
+		res.Accounts = append(res.Accounts, g)
+	}
+	slices.SortFunc(res.Accounts, func(a, b *v1.MatchAccount) int {
+		return cmp.Or(compareBool(a.GetSystemAccount(), b.GetSystemAccount()), cmp.Compare(a.GetAccount(), b.GetAccount()))
+	})
 	return res
+}
+
+// MatchedStreams are the streams of every account of a tester's answer,
+// in its order.
+func MatchedStreams(res *v1.MatchSubjectResponse) []*v1.SubjectMatch {
+	var out []*v1.SubjectMatch
+	for _, a := range res.GetAccounts() {
+		out = append(out, a.GetMatches()...)
+	}
+	return out
+}
+
+// MatchedSubscribers are the subscribers of every account of a tester's
+// answer, in its order.
+func MatchedSubscribers(res *v1.MatchSubjectResponse) []*v1.CoreMatch {
+	var out []*v1.CoreMatch
+	for _, a := range res.GetAccounts() {
+		out = append(out, a.GetSubscribers()...)
+	}
+	return out
 }
