@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 
@@ -278,6 +279,56 @@ func TestGlobalOrderEventsAgreeWithTheirMirror(t *testing.T) {
 	for _, s := range must(c.GetCapacity(ctx, connect.NewRequest(&v1.GetCapacityRequest{System: sys}))).GetStreams() {
 		if s.GetStream() == "order-archive" && !near(s.GetBytesPerDay(), mirror.GetBytesPerDay()) {
 			t.Errorf("Capacity growth %v, Streams %v", s.GetBytesPerDay(), mirror.GetBytesPerDay())
+		}
+	}
+}
+
+// The stream details of order-events and order-archive follow the same
+// story: order-events was created long enough ago to reach its 30-day
+// limit, and order-archive, a mirror made 48 days ago, keeps its origin's
+// sequence numbers, so both end at the same last sequence and each holds
+// its messages before it.
+func TestGlobalOrderEventsDetails(t *testing.T) {
+	c := demo(t)
+	view := func(stream string) *v1.StreamServerView {
+		res := must(c.GetStream(ctx, connect.NewRequest(&v1.GetStreamRequest{System: fake.GlobalSystem, Account: fake.Account, Stream: stream})))
+		for _, v := range res.GetServers() {
+			if v.GetIsLeader() {
+				return v
+			}
+		}
+		t.Fatalf("%s has no leader view", stream)
+		return nil
+	}
+	o, m := view("order-events"), view("order-archive")
+	now := fake.FixedNow
+	if age := now.Sub(o.GetCreated().AsTime()); age < 30*24*time.Hour {
+		t.Errorf("order-events created %s ago, before its 30-day limit", age)
+	}
+	if age := now.Sub(m.GetCreated().AsTime()); age != 48*24*time.Hour {
+		t.Errorf("order-archive created %s ago, want 48 days", age)
+	}
+	if o.GetLastSeq() != m.GetLastSeq() || o.GetLastSeq()-o.GetFirstSeq()+1 != o.GetMessages() || m.GetLastSeq()-m.GetFirstSeq()+1 != m.GetMessages() ||
+		m.GetFirstSeq() >= o.GetFirstSeq() {
+		t.Errorf("order-events %d..%d (%d), order-archive %d..%d (%d)", o.GetFirstSeq(), o.GetLastSeq(), o.GetMessages(), m.GetFirstSeq(),
+			m.GetLastSeq(), m.GetMessages())
+	}
+}
+
+// The consumers of order-events and order-archive read positions inside
+// their stream's sequences: delivered at the stream's last sequence, the
+// ack floor below it by the acks pending.
+func TestGlobalOrderConsumerSequences(t *testing.T) {
+	c := demo(t)
+	for _, x := range [][2]string{{"order-events", "order-projector"}, {"order-events", "invoice-renderer"}, {"order-archive", "archive-exporter"}} {
+		s := must(c.GetStream(ctx, connect.NewRequest(&v1.GetStreamRequest{System: fake.GlobalSystem, Account: fake.Account, Stream: x[0]})))
+		d := must(c.GetConsumer(ctx, connect.NewRequest(&v1.GetConsumerRequest{System: fake.GlobalSystem, Account: fake.Account, Stream: x[0], Consumer: x[1]})))
+		sv := s.GetServers()[0]
+		for _, v := range d.GetServers() {
+			if v.GetDeliveredStreamSeq() != sv.GetLastSeq() || v.GetAckFloorStreamSeq() > v.GetDeliveredStreamSeq() || v.GetAckFloorStreamSeq() < sv.GetFirstSeq()-1 {
+				t.Errorf("%s/%s on %s: stream %d..%d, delivered %d, ack floor %d", x[0], x[1], v.GetServer(), sv.GetFirstSeq(), sv.GetLastSeq(),
+					v.GetDeliveredStreamSeq(), v.GetAckFloorStreamSeq())
+			}
 		}
 	}
 }
