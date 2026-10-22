@@ -160,9 +160,10 @@ func TestMicroIsSlow(t *testing.T) {
 	}
 }
 
-// The slow run starts after the newest hour that is not slow, at the
-// first collection after that hour's and the next's last fast one; a
-// brief fast spell inside a later slow hour does not end it.
+// The slow run starts after the newest hour before the epoch's that is
+// not slow, at the first collection after the last fast one of that hour
+// and the next hour with requests; a fast collection after that does not
+// end it.
 func TestMicroSlowStart(t *testing.T) {
 	hour := func(h int) time.Time { return microT0.Add(time.Duration(h) * time.Hour) }
 	avgs := func(step time.Duration, from time.Time, ms ...float64) []api.MicroAverage {
@@ -173,8 +174,9 @@ func TestMicroSlowStart(t *testing.T) {
 		return out
 	}
 	hours := avgs(time.Hour, hour(0), 4, 4, 30, 40, 40)
-	if f := api.MicroLastFastHour(hours, 4); f == nil || !f.Equal(hour(1)) {
-		t.Errorf("last fast hour = %v", f)
+	epoch := hour(4).Add(10 * time.Minute)
+	if from, to, ok := api.MicroSlowSpan(hours, 4, epoch); !ok || !from.Equal(hour(1)) || !to.Equal(hour(3)) {
+		t.Errorf("span = %v %v %v", from, to, ok)
 	}
 	// In hour 1 and 2: fast until 1:40, a slow blip at 1:20, slow from
 	// 1:45 but for one fast collection at 2:30 (hour 2 is slow overall).
@@ -189,20 +191,20 @@ func TestMicroSlowStart(t *testing.T) {
 		}
 		cols = append(cols, api.MicroAverage{At: hour(1).Add(time.Duration(m) * time.Minute), Ms: ms})
 	}
-	got := api.MicroSlowStart(hours, cols, 4)
+	got := api.MicroSlowStart(hours, cols, 4, epoch)
 	if got == nil || !got.Equal(hour(2).Add(35*time.Minute)) {
 		// The last fast collection of the two hours is 2:30.
 		t.Errorf("slow start = %v", got)
 	}
 	cols[18].Ms = 40 // 2:30 slow too: the run starts after 1:40
-	if got := api.MicroSlowStart(hours, cols, 4); got == nil || !got.Equal(hour(1).Add(45*time.Minute)) {
+	if got := api.MicroSlowStart(hours, cols, 4, epoch); got == nil || !got.Equal(hour(1).Add(45*time.Minute)) {
 		t.Errorf("slow start = %v", got)
 	}
 	allSlow := avgs(time.Hour, hour(0), 30, 40)
-	if got := api.MicroSlowStart(allSlow, nil, 4); got == nil || !got.Equal(hour(0)) {
+	if got := api.MicroSlowStart(allSlow, nil, 4, hour(1).Add(time.Minute)); got == nil || !got.Equal(hour(0)) {
 		t.Errorf("every hour slow: %v", got)
 	}
-	if got := api.MicroSlowStart(nil, nil, 4); got != nil {
+	if got := api.MicroSlowStart(nil, nil, 4, epoch); got != nil {
 		t.Errorf("no hours: %v", got)
 	}
 	// Collection averages sum the instances' deltas of one collection.
@@ -316,7 +318,7 @@ func TestFinishMicro(t *testing.T) {
 	}
 
 	o := findService(res, "APP", "orders")
-	if !o.GetAsked() || !o.GetAnswered() || o.GetInstances() != 3 || o.GetDescription() != "d" || !near(o.GetRequestsPerSecond(), 160) ||
+	if !o.GetAsked() || !o.GetAnswered() || o.GetInstanceSource() != v1.MicroInstanceSource_MICRO_INSTANCE_SOURCE_ANSWERED || o.GetInstances() != 3 || o.GetDescription() != "d" || !near(o.GetRequestsPerSecond(), 160) ||
 		!near(o.GetErrorShare(), 1.0/2000) || !slices.Equal(o.GetConnectionNames(), []string{"order-api", "order-service"}) {
 		t.Errorf("orders = %v", o)
 	}
@@ -369,7 +371,8 @@ func TestFinishMicro(t *testing.T) {
 	if c := findService(res, "PROD", "catalog"); c.GetAsked() || c.GetInstances() != 1 || len(c.GetMissing()) != 1 || c.GetMissing()[0].GetStillSubscribed() {
 		t.Errorf("catalog = %v", c)
 	}
-	if s := findService(res, "PROD", "search"); s.GetInstances() != 0 || len(s.GetMissing()) != 1 {
+	if s := findService(res, "PROD", "search"); s.GetInstances() != 0 || len(s.GetMissing()) != 1 ||
+		s.GetInstanceSource() != v1.MicroInstanceSource_MICRO_INSTANCE_SOURCE_UNSPECIFIED {
 		t.Errorf("search = %v", s)
 	}
 	if s := findService(res, "SYS", "sysmon"); !s.GetSystemAccount() {
@@ -486,13 +489,15 @@ func TestFinishMicroFailedStatsIsNotMissing(t *testing.T) {
 		},
 	}
 	s := findService(api.FinishMicro(f, ""), "APP", "orders")
-	if s == nil || s.GetNote() != v1.MicroNote_MICRO_NOTE_NO_ANSWER || len(s.GetMissing()) != 0 || s.GetInstances() != 2 {
+	if s == nil || s.GetNote() != v1.MicroNote_MICRO_NOTE_NO_ANSWER || len(s.GetMissing()) != 0 || s.GetInstances() != 2 ||
+		s.GetInstanceSource() != v1.MicroInstanceSource_MICRO_INSTANCE_SOURCE_LAST_ANSWERED {
 		t.Errorf("STATS timed out: %v", s)
 	}
 	f.SubscriptionsAt = &subsAt
 	f.Seen = []api.MicroServiceFact{{Account: "APP", Name: "orders", Instances: []api.MicroInstanceFact{{ID: "O1"}}}}
 	s = findService(api.FinishMicro(f, ""), "APP", "orders")
-	if s == nil || s.GetNote() != v1.MicroNote_MICRO_NOTE_NO_ANSWER || len(s.GetMissing()) != 0 {
+	if s == nil || s.GetNote() != v1.MicroNote_MICRO_NOTE_NO_ANSWER || len(s.GetMissing()) != 0 ||
+		s.GetInstanceSource() != v1.MicroInstanceSource_MICRO_INSTANCE_SOURCE_SUBSCRIPTIONS {
 		t.Errorf("STATS timed out, one seen: %v", s)
 	}
 }
@@ -594,5 +599,59 @@ func TestFinishMicroAliasNeedsEveryInstance(t *testing.T) {
 	if len(res.GetAccounts()) != 1 || res.GetAccounts()[0].GetAccount() != "K" ||
 		res.GetAccounts()[0].GetStats().GetState() != v1.MicroRequestState_MICRO_REQUEST_STATE_OK {
 		t.Errorf("two labels of K: %v", res.GetAccounts())
+	}
+}
+
+// An endpoint fast in hour 0, idle in hours 1 to 3 (no requests, no
+// hourly row), slow in hour 4, the epoch's: the run starts at hour 4.
+func TestMicroSlowStartAfterIdleHours(t *testing.T) {
+	hour := func(h int) time.Time { return microT0.Add(time.Duration(h) * time.Hour) }
+	hours := []api.MicroAverage{{At: hour(0), Ms: 4}, {At: hour(4), Ms: 40}}
+	var cols []api.MicroAverage
+	for m := 0; m < 60; m += 5 {
+		cols = append(cols, api.MicroAverage{At: hour(0).Add(time.Duration(m) * time.Minute), Ms: 4})
+	}
+	if from, to, ok := api.MicroSlowSpan(hours, 4, hour(4).Add(20*time.Minute)); !ok || !from.Equal(hour(0)) || !to.Equal(hour(5)) {
+		t.Errorf("span = %v %v %v", from, to, ok)
+	}
+	for m := 0; m <= 20; m += 5 {
+		cols = append(cols, api.MicroAverage{At: hour(4).Add(time.Duration(m) * time.Minute), Ms: 40})
+	}
+	if got := api.MicroSlowStart(hours, cols, 4, hour(4).Add(20*time.Minute)); got == nil || !got.Equal(hour(4)) {
+		t.Errorf("after idle hours: %v", got)
+	}
+	if got := api.MicroSlowStart(hours, cols[:12], 4, hour(4).Add(20*time.Minute)); got == nil || !got.Equal(hour(4)) {
+		t.Errorf("after idle hours, no collection of hour 4: %v", got)
+	}
+}
+
+// Hour 0 fast, hour 1 slow overall but its last collection fast, hour 2
+// slow: no slow collection follows the last fast one in hours 0 and 1, so
+// the run starts at hour 1, the first slow hour.
+func TestMicroSlowStartLastCollectionOfNextHourFast(t *testing.T) {
+	hour := func(h int) time.Time { return microT0.Add(time.Duration(h) * time.Hour) }
+	hours := []api.MicroAverage{{At: hour(0), Ms: 4}, {At: hour(1), Ms: 30}, {At: hour(2), Ms: 40}}
+	var cols []api.MicroAverage
+	for m := 0; m < 120; m += 5 {
+		ms := 4.0
+		if m >= 60 && m < 115 {
+			ms = 40
+		}
+		cols = append(cols, api.MicroAverage{At: hour(0).Add(time.Duration(m) * time.Minute), Ms: ms})
+	}
+	if got := api.MicroSlowStart(hours, cols, 4, hour(2).Add(30*time.Minute)); got == nil || !got.Equal(hour(1)) {
+		t.Errorf("last collection of the next hour fast: %v", got)
+	}
+}
+
+// The epoch's hour has begun with one fast collection while the window,
+// mostly in the hour before, is slow: the partial hour does not decide,
+// and the run starts at hour 1.
+func TestMicroSlowStartEpochHourFastSoFar(t *testing.T) {
+	hour := func(h int) time.Time { return microT0.Add(time.Duration(h) * time.Hour) }
+	hours := []api.MicroAverage{{At: hour(0), Ms: 4}, {At: hour(1), Ms: 40}, {At: hour(2), Ms: 5}}
+	cols := []api.MicroAverage{{At: hour(2), Ms: 5}}
+	if got := api.MicroSlowStart(hours, cols, 4, hour(2).Add(30*time.Second)); got == nil || !got.Equal(hour(1)) {
+		t.Errorf("epoch's hour fast so far: %v", got)
 	}
 }

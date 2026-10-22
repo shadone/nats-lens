@@ -14,6 +14,10 @@ const microLookback = time.Hour
 // row is paired with the instance's previous row of the same endpoint name
 // and subject, as one instance may have two endpoints of one name in
 // different groups; their increases are summed into the hour of the name.
+// When either row has no subject (one STATS without it before INFO
+// filled it in), the rows are paired by name alone. Two endpoints of one
+// name that both lack a subject cannot be told apart and are taken as one;
+// the micro framework always reports subjects.
 // An instance's rows are taken once per epoch even if they were stored
 // twice, so that a duplicate never multiplies an increase.
 // Arguments: the epoch, the hour, the lowest epoch of the lookback, the
@@ -48,7 +52,10 @@ d AS (
     p.num_requests IS NULL AS first,
     c.num_requests, c.num_errors, c.processing_time_ns,
     p.num_requests AS p_requests, p.num_errors AS p_errors, p.processing_time_ns AS p_time
-  FROM cur c LEFT JOIN prev p USING (account, service, instance_id, endpoint, subj))
+  FROM cur c LEFT JOIN prev p ON p.account = c.account AND p.service = c.service AND p.instance_id = c.instance_id
+    AND p.endpoint = c.endpoint AND (p.subj = c.subj OR p.subj = '' OR c.subj = '')
+  QUALIFY row_number() OVER (PARTITION BY c.account, c.service, c.instance_id, c.endpoint, c.subj
+    ORDER BY p.subj = c.subj DESC NULLS LAST, p.subj) = 1)
 SELECT make_timestamp($2::BIGINT), account, service, endpoint,
   sum(CASE WHEN whole THEN num_requests WHEN first THEN 0 ELSE num_requests - p_requests END),
   sum(CASE WHEN whole THEN num_errors WHEN first THEN 0 ELSE num_errors - p_errors END),
