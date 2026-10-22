@@ -84,4 +84,4 @@ COMMENT ON COLUMN micro_endpoints.num_errors IS 'Requests the endpoint answered 
 COMMENT ON COLUMN micro_endpoints.processing_time_ns IS 'Time the endpoint spent on its requests since the instance started, in nanoseconds.';
 COMMENT ON COLUMN micro_endpoints.average_processing_time_ns IS 'processing_time_ns divided by num_requests, as the instance reported it, in nanoseconds; 0 before the first request.';
 COMMENT ON COLUMN micro_endpoints.last_error IS 'Last error the endpoint returned; NULL when it has returned none.';
-COMMENT ON COLUMN micro_endpoints.data IS 'Custom stats the service attached to the endpoint, as JSON; NULL when it attached none.';
+COMMENT ON COLUMN micro_endpoints.data IS 'Custom stats the service attached to the endpoint, as JSON, up to 1 KB; more is stored as {"truncated": true, "bytes": <size>}. NULL when it attached none.';
