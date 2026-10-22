@@ -199,6 +199,7 @@ func (w *writer) writeServerView(v *collect.ServerView) {
 	w.writeIpqueues(v)
 	w.writeHealth(v)
 	w.writeConnections(v)
+	w.writeSubscriptions(v)
 	w.writeAccountStats(v)
 	w.writeJetStream(v)
 	w.writeRaft(v)

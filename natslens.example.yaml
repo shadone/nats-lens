@@ -5,6 +5,8 @@ data_dir: ./data         # holds natslens.duckdb
 retention: 14d           # epochs older than this are deleted
 server_forget_after: 1h  # how long a silent server is still expected
 connz_limit: 4096        # most connections stored per server per epoch
+subscriptions_interval: 5m  # shortest time between two subscription list collections; 0 turns them off
+subsz_limit: 10000       # most subscriptions stored per server per subscription collection; at most 100000
 shutdown_grace: 5s       # how long an epoch write may continue after a stop signal
 log_level: info          # debug, info, warn, error
 # Id of the one system this file describes, used in URLs, the API and

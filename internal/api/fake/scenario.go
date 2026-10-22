@@ -89,6 +89,14 @@ type scenario struct {
 	// links are how the servers connect; nil means routes only, one per
 	// pair of servers.
 	links *linkSpec
+	// subs are the subscriptions each client's connections hold, by client
+	// name; nil means the scenario collects no subscription lists.
+	subs map[string][]clientSub
+	// extraConns are connections besides the clients' in Account.
+	extraConns []extraConn
+	// apiRate and apiErrors are the stream account's JetStream API
+	// requests per second and the share that failed.
+	apiRate, apiErrors float64
 	// layout indexes the servers by cluster, built once.
 	layoutOnce sync.Once
 	layout     clusterLayout

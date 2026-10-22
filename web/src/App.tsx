@@ -27,6 +27,7 @@ import { Replay } from "./pages/Replay";
 import { Topology } from "./pages/Topology";
 import { Accounts } from "./pages/Accounts";
 import { Capacity } from "./pages/Capacity";
+import { Subjects } from "./pages/Subjects";
 import { NotFound } from "./pages/NotFound";
 
 /**
@@ -84,6 +85,7 @@ export function App() {
                 <Route path="/consumers/:account/:stream/:consumer" element={<ConsumerDetail />} />
                 <Route path="/servers" element={<Servers />} />
                 <Route path="/servers/:name" element={<ServerDetail />} />
+                <Route path="/subjects" element={<Subjects />} />
                 <Route path="/connections" element={<Connections />} />
                 <Route path="/kv-stores" element={<KvStores />} />
                 <Route path="/object-stores" element={<ObjectStores />} />

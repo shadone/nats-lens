@@ -58,6 +58,36 @@ type streamSpec struct {
 	// holds since; they are listed for a range whose newest epoch is
 	// before that time.
 	vanished []vanishedConsumer
+	// subjects are the stream's subjects; nil means its name with dots
+	// for dashes and .> (see subjectsOf).
+	subjects []string
+	// storedRate is the messages stored per second; nil means its growth
+	// in bytes over its mean message size.
+	storedRate *float64
+	// watchers are the clients whose connections subscribe to the deliver
+	// subjects of the ephemeral consumers, in turn; nil means the
+	// scenario's first client.
+	watchers []string
+	// created is when the stream was created, in the fixed frame; zero
+	// means 2026-10-02 08:30. lastSeq is its last sequence; zero means
+	// msgs, so that the first is 1.
+	created time.Time
+	lastSeq int64
+}
+
+// createdAt is when a stream was created, in the scenario.
+func (s scen) createdAt(sp streamSpec) time.Time {
+	if sp.created.IsZero() {
+		return s.on(2, 8, 30)
+	}
+	return sp.created.Add(s.shift)
+}
+
+// seqs are a stream's first and last sequence: the last, and the first
+// msgs before it.
+func (sp streamSpec) seqs() (first, last int64) {
+	last = cmp.Or(sp.lastSeq, sp.msgs)
+	return last - sp.msgs + 1, last
 }
 
 // vanishedConsumer is a durable that no server held from at, a time in
@@ -177,10 +207,13 @@ func (p *Provider) GetStream(_ context.Context, req *v1.GetStreamRequest) (*v1.G
 func (s scen) streamConfig(sp streamSpec) []*v1.ConfigValue {
 	l := s.sc.streamLimitsOf(sp)
 	pairs := [][2]string{
-		{"subjects", strings.ReplaceAll(sp.name, "-", ".") + ".>"}, {"retention", l.retention}, {"storage", l.storage},
+		{"retention", l.retention}, {"storage", l.storage},
 		{"replicas", fmt.Sprint(len(s.sc.peers(sp)))}, {"max_bytes", strconv.FormatInt(l.maxBytes, 10)},
 		{"max_msgs", strconv.FormatInt(l.maxMsgs, 10)}, {"max_age", checks.DurationText(l.maxAge)},
 		{"max_msgs_per_subject", strconv.FormatInt(l.perSubject, 10)}, {"discard", l.discard},
+	}
+	if subj := subjectsOf(sp); len(subj) > 0 {
+		pairs = append([][2]string{{"subjects", strings.Join(subj, ", ")}}, pairs...)
 	}
 	if l.mirror != "" {
 		pairs = append(pairs, [2]string{"mirror", l.mirror})
@@ -200,13 +233,14 @@ func (s scen) streamConfig(sp streamSpec) []*v1.ConfigValue {
 func (s scen) streamViews(sp streamSpec, at time.Time) []*v1.StreamServerView {
 	var out []*v1.StreamServerView
 	leader := s.streamLeaderAt(sp, at)
+	first, last := sp.seqs()
 	for _, name := range s.sc.peers(sp) {
 		if name == sp.missing || s.offline(name, at) {
 			continue
 		}
 		v := &v1.StreamServerView{
 			Server: name, IsLeader: name == leader, Current: true, Messages: ptr(sp.msgs), Bytes: ptr(int64(sp.bytes)),
-			FirstSeq: ptr(int64(1)), LastSeq: ptr(sp.msgs), Created: ts(s.on(2, 8, 30)), ConfigHash: "c4f1a0", Lag: followerLag(name == leader),
+			FirstSeq: ptr(first), LastSeq: ptr(last), Created: ts(s.createdAt(sp)), ConfigHash: "c4f1a0", Lag: followerLag(name == leader),
 		}
 		switch name {
 		case sp.behind:
@@ -349,14 +383,15 @@ func (s scen) consumerViews(sp streamSpec, c *v1.ConsumerSummary, at time.Time) 
 	var out []*v1.ConsumerServerView
 	dis := &v1.Disagreement{Field: "created"}
 	leader := s.consumerLeaderAt(sp, c.GetEntity().GetConsumer(), at)
+	_, last := sp.seqs()
 	for i, name := range peers {
 		if name == sp.missing || s.offline(name, at) {
 			// A server that does not report the stream reports no view.
 			continue
 		}
 		out = append(out, &v1.ConsumerServerView{
-			Server: name, IsLeader: name == leader, Current: !sp.leaderless, DeliveredStreamSeq: ptr(sp.msgs),
-			AckFloorStreamSeq: ptr(sp.msgs - c.GetNumAckPending()), Lag: followerLag(name == leader), Created: ts(created[i]), ConfigHash: "9e02b7",
+			Server: name, IsLeader: name == leader, Current: !sp.leaderless, DeliveredStreamSeq: ptr(last),
+			AckFloorStreamSeq: ptr(last - c.GetNumAckPending()), Lag: followerLag(name == leader), Created: ts(created[i]), ConfigHash: "9e02b7",
 		})
 		dis.Values = append(dis.Values, &v1.ServerValue{Server: name, Value: created[i].Format(time.RFC3339)})
 	}
