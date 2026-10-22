@@ -153,7 +153,9 @@ func (c *Collector) askMicro(ctx context.Context, started time.Time) []MicroAcco
 	}
 	wg.Wait()
 	// Two labels that turned out to name one account in this epoch keep
-	// the first label's answers only.
+	// the first label's answers only. Only an account the servers named
+	// counts, never a label standing in for one, and only a label that
+	// was asked over a connection.
 	kept := out[:0]
 	firstLabel := map[string]string{}
 	for i, m := range out {
@@ -161,17 +163,34 @@ func (c *Collector) askMicro(ctx context.Context, started time.Time) []MicroAcco
 			c.noteSameAccount(conns[i].Label, states[i], firstLabel[states[i].account])
 			continue
 		}
-		if first, ok := firstLabel[m.Account]; ok {
+		resolved := states[i].account
+		if first, ok := firstLabel[resolved]; ok && resolved != "" {
 			c.noteSameAccount(m.Label, states[i], first)
 			continue
 		}
-		firstLabel[m.Account] = m.Label
+		if resolved != "" && connected(m) {
+			firstLabel[resolved] = m.Label
+		}
 		c.noteSameAccount(m.Label, states[i], "")
 		kept = append(kept, m)
 	}
 	sort.Slice(kept, func(i, j int) bool { return kept[i].Label < kept[j].Label })
 	return kept
 }
+
+// connected reports whether the account's requests went out over a
+// connection.
+func connected(m MicroAccount) bool {
+	for _, a := range m.Asked {
+		if a.Error != notConnected {
+			return true
+		}
+	}
+	return false
+}
+
+// notConnected is the error of a request without a connection.
+const notConnected = "account connection not connected"
 
 // connOf returns the account connection's current connection, or nil.
 func connOf(ac AccountConn) *nats.Conn {
@@ -223,7 +242,7 @@ func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAcc
 			res.Account = st.account
 		}
 		for _, r := range asked(wantInfo) {
-			res.Asked = append(res.Asked, MicroAsked{Request: r, State: MicroError, Error: "account connection not connected"})
+			res.Asked = append(res.Asked, MicroAsked{Request: r, State: MicroError, Error: notConnected})
 		}
 		return res
 	}

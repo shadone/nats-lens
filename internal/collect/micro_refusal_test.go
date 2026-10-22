@@ -166,3 +166,25 @@ func TestMicroForgetsUnconfiguredLabels(t *testing.T) {
 		t.Errorf("states %v", c.microAccounts)
 	}
 }
+
+// A label that stands in for its account, unresolved and not connected,
+// does not hide a later label whose account the server names the same.
+func TestMicroUnresolvedLabelHidesNoAccount(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a server")
+	}
+	url := startMicroServer(t)
+	startOrders(t, url, "1.4.2")
+	at := time.Now()
+	c := microCollector(2*time.Second, 5*time.Minute, &at, AccountConn{Label: "SHOP"}, fixedConn("good", connectAs(t, url, "shop")))
+	for range 2 {
+		var got []string
+		for _, m := range c.Collect(context.Background()).Micro {
+			got = append(got, m.Label+"="+m.Account+" "+askedOf(m))
+		}
+		if s := strings.Join(got, "; "); !strings.Contains(s, "good=SHOP") || !strings.Contains(s, "STATS ok 1") {
+			t.Errorf("epoch: %s", s)
+		}
+		at = at.Add(30 * time.Second)
+	}
+}
