@@ -83,6 +83,8 @@ type MicroRequestFact struct {
 	At      time.Time
 	Replies int32
 	Error   string
+	// RefusedAt and RetryAfter are set for a held request only.
+	RefusedAt, RetryAfter *time.Time
 }
 
 // MicroServiceFact is one service, (account, name), as one source knows
@@ -597,6 +599,12 @@ func microAliased(f *MicroFacts) *MicroFacts {
 
 func microRequest(r MicroRequestFact) *v1.MicroRequest {
 	out := &v1.MicroRequest{State: r.State, Replies: r.Replies, Error: r.Error}
+	if r.RefusedAt != nil {
+		out.RefusedAt = timestamppb.New(*r.RefusedAt)
+	}
+	if r.RetryAfter != nil {
+		out.RetryAfter = timestamppb.New(*r.RetryAfter)
+	}
 	if r.State != v1.MicroRequestState_MICRO_REQUEST_STATE_UNSPECIFIED {
 		out.At = timestamppb.New(r.At)
 	}

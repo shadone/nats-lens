@@ -340,8 +340,8 @@ func (s scen) microAccounts(at time.Time) []api.MicroAccountFact {
 	for _, acc := range s.sc.microAsked {
 		a := api.MicroAccountFact{Account: acc}
 		if acc != Account {
-			a.Info = api.MicroRequestFact{State: v1.MicroRequestState_MICRO_REQUEST_STATE_ERROR, At: info, Error: microRequestError(api.SrvPrefix + "INFO")}
-			a.Stats = api.MicroRequestFact{State: v1.MicroRequestState_MICRO_REQUEST_STATE_ERROR, At: at, Error: microRequestError(api.SrvPrefix + "STATS")}
+			a.Info = s.refused(info, api.SrvPrefix+"INFO")
+			a.Stats = s.refused(at, api.SrvPrefix+"STATS")
 			out = append(out, a)
 			continue
 		}
@@ -379,6 +379,28 @@ func (s scen) okBefore(times []time.Time, asked bool) int32 {
 // epoch at scenario time t got no reply in the collect window.
 func (s scen) microTimedOut(t time.Time) bool {
 	return slices.ContainsFunc(s.sc.microTimeouts, func(c time.Time) bool { return c.Equal(s.clock(t)) })
+}
+
+// refusalEvery is how often a refused request is sent again: the
+// collector holds it for 10 minutes after the server refused it.
+const refusalEvery = 10 * time.Minute
+
+// refused is a request to subject at scenario time t in an account whose
+// user may not publish to $SRV.>: sent and refused (error) every
+// refusalEvery, 5 minutes after a multiple of it back from the newest
+// epoch, and held in between with the refusal that holds it. So the
+// newest epoch shows a held request refused 5 minutes before.
+func (s scen) refused(t time.Time, subject string) api.MicroRequestFact {
+	steps := int64(refusalEvery / sampleEvery)
+	i := int64(s.lastEpoch().Sub(t) / sampleEvery)
+	j := i + (steps/2-i%steps+steps)%steps
+	refusedAt := s.lastEpoch().Add(-time.Duration(j) * sampleEvery)
+	if j == i {
+		return api.MicroRequestFact{State: v1.MicroRequestState_MICRO_REQUEST_STATE_ERROR, At: t, Error: microRequestError(subject)}
+	}
+	retry := refusedAt.Add(refusalEvery)
+	return api.MicroRequestFact{State: v1.MicroRequestState_MICRO_REQUEST_STATE_HELD, At: t, Error: microRequestError(subject),
+		RefusedAt: &refusedAt, RetryAfter: &retry}
 }
 
 // microReplies is a request that gathered n replies at t: ok, or no
