@@ -14,6 +14,7 @@ import { replay, type Replay } from "./adapt-replay";
 import { topology } from "./topology";
 import { accountsAndAuth } from "./accounts";
 import { capacity } from "./capacity";
+import { microServices } from "./micro";
 import { FILTER_ENUM as SUBJECT_FILTER_ENUM, subjectMatches, subjects, type SubjectFilter } from "./subjects";
 import { lens } from "./client";
 import type {
@@ -225,6 +226,11 @@ export async function getCapacity(sys: string, spec: RangeSpec, signal?: AbortSi
 /** Where messages can go in the range's newest collection: stream subjects and client subscriptions of the account ("" for all). */
 export async function getSubjects(sys: string, spec: RangeSpec, account: string, filter: SubjectFilter, signal?: AbortSignal) {
   return subjects(await lens.getSubjects({ ...systemInit(sys), range: rangeInit(spec), account, filter: SUBJECT_FILTER_ENUM[filter] }, { signal }));
+}
+
+/** The services built on the NATS micro framework in the range's newest collection, of the account ("" for all). */
+export async function getMicroServices(sys: string, spec: RangeSpec, account: string, signal?: AbortSignal) {
+  return microServices(await lens.getMicroServices({ ...systemInit(sys), range: rangeInit(spec), account }, { signal }));
 }
 
 /** What a message on a literal subject would reach in the range's newest collection. */
