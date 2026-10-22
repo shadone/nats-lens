@@ -1,6 +1,6 @@
 // Subjects view models for tests: rows of the shop's account APP and the
 // system account as the demo's example-global has them.
-import type { CoreMatch, StreamMatch, SubjectMatches, SubjectRow, Subjects } from "../../api/subjects";
+import type { CoreMatch, MatchAccount, StreamMatch, SubjectMatches, SubjectRow, Subjects } from "../../api/subjects";
 
 export const EPOCH_AT = Date.parse("2026-10-21T12:00:00Z");
 export const SUBS_AT = Date.parse("2026-10-21T11:58:30Z");
@@ -75,6 +75,10 @@ export function coreMatch(o: Partial<CoreMatch> = {}): CoreMatch {
   return { account: "APP", accountName: "", subject: "orders.place", queue: "order-service", connections: 3, names: ["order-service"], moreNames: 0, ...o };
 }
 
+export function published(o: Partial<MatchAccount> = {}): MatchAccount {
+  return { account: "APP", accountName: "", systemAccount: false, streams: [], core: [], jetstreamApi: false, ...o };
+}
+
 export function matches(o: Partial<SubjectMatches> = {}): SubjectMatches {
-  return { collected: true, streams: [], core: [], subscriptionsAt: SUBS_AT, ...o };
+  return { collected: true, accounts: [], subscriptionsAt: SUBS_AT, ...o };
 }

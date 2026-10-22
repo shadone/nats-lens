@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as requests from "../api/requests";
 import type { SubjectMatches } from "../api/subjects";
-import { coreMatch, global, matches, noCollection, row, streamMatch } from "../test/fixtures/subjects";
+import { coreMatch, global, matches, noCollection, published, row, streamMatch } from "../test/fixtures/subjects";
 import { renderApp } from "../test/render";
 import { Subjects } from "./Subjects";
 
@@ -140,25 +140,32 @@ describe("Subjects", () => {
 });
 
 describe("Subjects tester", () => {
-  it("asks once the field is still and shows what the subject reaches, by account", async () => {
+  it("asks once the field is still and shows what the subject reaches, by the account it is published in", async () => {
     getSubjects.mockResolvedValue(global());
     matchSubject.mockImplementation(async (_s, _r, _a, subject) =>
       subject === "order.events.created"
-        ? matches({ streams: [streamMatch()], core: [coreMatch({ account: "SYS", subject: ">", queue: "", connections: 1, names: ["ops-monitor"] })] })
+        ? matches({
+            accounts: [
+              published({ streams: [streamMatch()] }),
+              published({ account: "SHOP", streams: [streamMatch({ account: "SHOP", stream: "shop-orders", consumers: [] })], core: [coreMatch({ account: "SHOP", queue: "", subject: ">", connections: 1, names: ["ops-monitor"] })] }),
+            ],
+          })
         : matches(),
     );
     renderApp(<Subjects />, "/subjects?system=example-global");
     await userEvent.type(field(), "order.events.created");
     const card = within(await screen.findByRole("region", { name: "Where this subject goes" }));
-    await card.findByRole("group", { name: "Account APP" });
+    await card.findByRole("group", { name: "Published in APP" });
     expect(card.getByText("order.events.created", { selector: ".sj-subject" })).toBeInTheDocument();
-    const app = within(card.getByRole("group", { name: "Account APP" }));
+    const app = within(card.getByRole("group", { name: "Published in APP" }));
+    expect(app.getByText("Published in")).toBeInTheDocument();
     expect(app.getByRole("link", { name: "order-events" })).toHaveAttribute("href", "/streams/APP/order-events?system=example-global");
     expect(app.getByRole("link", { name: "email-sender" })).toHaveAttribute("href", "/consumers/APP/order-events/email-sender?system=example-global");
     expect(app.getByRole("link", { name: "order-archive" })).toBeInTheDocument();
     expect(app.getByText(/^Core subscribers/).parentElement).toHaveTextContent("Core subscribers none");
-    const sys = within(card.getByRole("group", { name: "Account SYS" }));
-    expect(sys.getByText(/^Core subscribers/).parentElement).toHaveTextContent("Core subscribers 1 connection (ops-monitor) via >");
+    const shop = within(card.getByRole("group", { name: "Published in SHOP" }));
+    expect(shop.getByText("no consumer reads it")).toBeInTheDocument();
+    expect(shop.getByText(/^Core subscribers/).parentElement).toHaveTextContent("Core subscribers 1 connection (ops-monitor) via >");
     // The first letter is asked at once, then only the whole subject.
     const asked = matchSubject.mock.calls.map((c) => c[3]);
     expect(asked[asked.length - 1]).toBe("order.events.created");
@@ -166,18 +173,40 @@ describe("Subjects tester", () => {
     expect(matchSubject.mock.calls[0][0]).toBe("example-global");
   });
 
-  it("leaves the account out of the card when the page shows one account, and asks in it", async () => {
+  it("marks the system account and says when the account's JetStream API answers", async () => {
     getSubjects.mockResolvedValue(global());
-    matchSubject.mockResolvedValue(matches({ core: [coreMatch()] }));
+    matchSubject.mockResolvedValue(
+      matches({ accounts: [published({ jetstreamApi: true }), published({ account: "SYS", systemAccount: true, core: [coreMatch({ account: "SYS", queue: "", subject: "$SYS.>" })] })] }),
+    );
+    renderApp(<Subjects />, "/subjects");
+    await userEvent.type(field(), "x");
+    const card = within(await screen.findByRole("region", { name: "Where this subject goes" }));
+    const app = within(await card.findByRole("group", { name: "Published in APP" }));
+    expect(app.getByText("the account's JetStream API answers it")).toBeInTheDocument();
+    expect(within(card.getByRole("group", { name: "Published in SYS" })).getByText("system")).toBeInTheDocument();
+  });
+
+  it("leaves the account heading out when the page shows one account, and asks in it", async () => {
+    getSubjects.mockResolvedValue(global());
+    matchSubject.mockResolvedValue(matches({ accounts: [published({ core: [coreMatch()] })] }));
     renderApp(<Subjects />, "/subjects?account=APP");
     await userEvent.type(field(), "x");
     const card = within(await screen.findByRole("region", { name: "Where this subject goes" }));
     expect(await card.findByText(/one of 3 in queue group order-service/)).toBeInTheDocument();
-    expect(card.queryByText("Account")).toBeNull();
+    expect(card.queryByText("Published in")).toBeNull();
     expect(matchSubject.mock.calls[0][2]).toBe("APP");
   });
 
-  it("says when nothing reaches the subject, and when subscribers are not known", async () => {
+  it("says the scoped account's empty group reaches nothing", async () => {
+    getSubjects.mockResolvedValue(global());
+    matchSubject.mockResolvedValue(matches({ accounts: [published()] }));
+    renderApp(<Subjects />, "/subjects?account=APP");
+    await userEvent.type(field(), "x");
+    const card = within(await screen.findByRole("region", { name: "Where this subject goes" }));
+    expect(await within(card.getByRole("group", { name: "Published in APP" })).findByText("no stream stores it and no subscriber listens")).toBeInTheDocument();
+  });
+
+  it("says when nothing reaches the subject in any account, and when subscribers are not known", async () => {
     getSubjects.mockResolvedValue(global());
     matchSubject.mockResolvedValueOnce(matches());
     renderApp(<Subjects />, "/subjects");
@@ -203,7 +232,7 @@ describe("Subjects tester", () => {
     getSubjects.mockResolvedValue(global());
     let release: (m: SubjectMatches) => void = () => {};
     matchSubject.mockImplementation(async (_s, _r, _a, subject) =>
-      subject === "a" ? matches({ streams: [streamMatch({ stream: "first-answer" })] }) : new Promise<SubjectMatches>((r) => (release = r)),
+      subject === "a" ? matches({ accounts: [published({ streams: [streamMatch({ stream: "first-answer" })] })] }) : new Promise<SubjectMatches>((r) => (release = r)),
     );
     renderApp(<Subjects />, "/subjects");
     await userEvent.type(field(), "a");
@@ -213,7 +242,7 @@ describe("Subjects tester", () => {
     expect(card.queryByRole("link", { name: "first-answer" })).toBeNull();
     expect(card.getByText("Looking it up…")).toBeInTheDocument();
     await waitFor(() => expect(matchSubject.mock.calls.map((c) => c[3])).toContain("ab"));
-    await act(async () => release(matches({ streams: [streamMatch({ stream: "second-answer" })] })));
+    await act(async () => release(matches({ accounts: [published({ streams: [streamMatch({ stream: "second-answer" })] })] })));
     expect(await card.findByRole("link", { name: "second-answer" })).toBeInTheDocument();
   });
 

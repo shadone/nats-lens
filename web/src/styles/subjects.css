@@ -36,7 +36,7 @@
 .sj-tbl .sj-pattern{display:block;white-space:nowrap}
 .sj-tbl .sj-pattern + .sj-pattern{margin-top:3px}
 .sj-tbl .sj-account{font:12px var(--mono);color:var(--text-2);white-space:nowrap}
-.sj-tbl .sj-system{margin-left:6px;padding:0 5px;border:1px solid var(--border);border-radius:4px;font:11px var(--sans);color:var(--text-muted)}
+.sj-system{margin-left:6px;padding:0 5px;border:1px solid var(--border);border-radius:4px;font:11px var(--sans);color:var(--text-muted)}
 .sj-tbl .sj-stream{font:12px var(--mono);white-space:nowrap}
 .sj-tbl .sj-subs{min-width:220px;max-width:320px;white-space:normal}
 .sj-tbl .sj-rate{font-family:var(--mono)}

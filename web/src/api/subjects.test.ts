@@ -73,19 +73,34 @@ describe("subjects", () => {
 });
 
 describe("subjectMatches", () => {
-  it("reads the streams and subscribers a subject reaches", () => {
+  it("reads each account's streams, subscribers and JetStream API", () => {
     const m = subjectMatches(
       create(MatchSubjectResponseSchema, {
         epoch: 7n,
-        matches: [{ account: "APP", stream: "order-events", pattern: "order.events.>", consumers: ["a"], ephemeralConsumers: 2, mirrors: ["order-archive"], sourcedBy: ["s"] }],
-        subscribers: [{ account: "APP", subject: "orders.place", queue: "order-service", connections: 3, clientNames: ["order-service"], moreNames: 0 }],
+        accounts: [
+          {
+            account: "APP",
+            matches: [{ account: "APP", stream: "order-events", pattern: "order.events.>", consumers: ["a"], ephemeralConsumers: 2, mirrors: ["order-archive"], sourcedBy: ["s"] }],
+            subscribers: [{ account: "APP", subject: "orders.place", queue: "order-service", connections: 3, clientNames: ["order-service"], moreNames: 0 }],
+          },
+          { account: "SYS", accountName: "system", systemAccount: true, jetstreamApi: true },
+        ],
         subscriptionsAt: timestampFromMs(AT),
       }),
     );
     expect(m).toEqual({
       collected: true,
-      streams: [{ account: "APP", accountName: "", stream: "order-events", pattern: "order.events.>", consumers: ["a"], ephemeral: 2, mirrors: ["order-archive"], sourcedBy: ["s"] }],
-      core: [{ account: "APP", accountName: "", subject: "orders.place", queue: "order-service", connections: 3, names: ["order-service"], moreNames: 0 }],
+      accounts: [
+        {
+          account: "APP",
+          accountName: "",
+          systemAccount: false,
+          streams: [{ account: "APP", accountName: "", stream: "order-events", pattern: "order.events.>", consumers: ["a"], ephemeral: 2, mirrors: ["order-archive"], sourcedBy: ["s"] }],
+          core: [{ account: "APP", accountName: "", subject: "orders.place", queue: "order-service", connections: 3, names: ["order-service"], moreNames: 0 }],
+          jetstreamApi: false,
+        },
+        { account: "SYS", accountName: "system", systemAccount: true, streams: [], core: [], jetstreamApi: true },
+      ],
       subscriptionsAt: AT,
     });
   });
@@ -93,6 +108,7 @@ describe("subjectMatches", () => {
   it("reads no epoch as no collection and no subscription collection as unknown subscribers", () => {
     const m = subjectMatches(create(MatchSubjectResponseSchema, {}));
     expect(m.collected).toBe(false);
+    expect(m.accounts).toEqual([]);
     expect(m.subscriptionsAt).toBeUndefined();
   });
 });

@@ -1,6 +1,6 @@
 // The Subjects page in words: the filters, a row's subscribers and note,
 // the rates, the footnote and the tester's answer grouped by account.
-import type { CoreMatch, StreamMatch, SubjectFilter, SubjectMatches, SubjectRow, Subjects } from "../api/subjects";
+import type { CoreMatch, MatchAccount, StreamMatch, SubjectFilter, SubjectRow, Subjects } from "../api/subjects";
 import { fmtInt, hms } from "./format";
 
 export const SUBJECTS_SUBTITLE = "Where messages can go: stream subjects and client subscriptions, by subject pattern.";
@@ -9,6 +9,8 @@ export const SUBJECTS_FOOTNOTE =
   "NATS servers do not count messages per subject, so rates come from streams (sequence growth) and are shown only where a stream stores the subject. Subscriptions come from each server's subscription list, refreshed every few minutes rather than every collection to keep large systems cheap.";
 
 export const NOTHING_REACHED = "no stream stores it and no subscriber listens";
+
+export const NOTHING_NOT_COLLECTED = "no stream stores it; subscriptions were not collected, so subscribers are not known";
 
 /** The pills in board order, with the ?filter= value each writes. */
 export const FILTERS: { id: SubjectFilter; label: string; param: string }[] = [
@@ -181,29 +183,11 @@ export function invalidReason(message: string): string {
   return message.replace(/^invalid[ _]argument:\s*/i, "");
 }
 
-/** The tester's answer for one account. */
-export interface MatchGroup {
-  account: string;
-  accountName: string;
-  streams: StreamMatch[];
-  core: CoreMatch[];
-}
+export const JETSTREAM_API_ANSWERS = "the account's JetStream API answers it";
 
-/** The answer by account, in the order the accounts first appear: stream matches first, then subscribers. */
-export function matchGroups(m: SubjectMatches): MatchGroup[] {
-  const groups = new Map<string, MatchGroup>();
-  const group = (account: string, accountName: string) => {
-    let g = groups.get(account);
-    if (!g) {
-      g = { account, accountName, streams: [], core: [] };
-      groups.set(account, g);
-    }
-    if (!g.accountName && accountName) g.accountName = accountName;
-    return g;
-  };
-  for (const s of m.streams) group(s.account, s.accountName).streams.push(s);
-  for (const c of m.core) group(c.account, c.accountName).core.push(c);
-  return [...groups.values()];
+/** Whether a message published in the account reaches nothing. */
+export function reachesNothing(a: Pick<MatchAccount, "streams" | "core" | "jetstreamApi">): boolean {
+  return a.streams.length === 0 && a.core.length === 0 && !a.jetstreamApi;
 }
 
 /** "analytics, email-sender and 2 ephemeral", or "" for none. */

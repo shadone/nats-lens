@@ -5,7 +5,7 @@
 import { Code, ConnectError } from "@connectrpc/connect";
 import { Fragment } from "react";
 import type { StreamMatch, SubjectMatches } from "../api/subjects";
-import { consumersText, coreLead, invalidReason, matchGroups, NOTHING_REACHED } from "../lib/subjectsView";
+import { consumersText, coreLead, invalidReason, JETSTREAM_API_ANSWERS, NOTHING_NOT_COLLECTED, NOTHING_REACHED, reachesNothing } from "../lib/subjectsView";
 import { consumerPath, streamPath } from "../lib/view";
 import { AccountName } from "./AccountName";
 import { errorText, RLink } from "./common";
@@ -105,46 +105,55 @@ function StreamReach({ s }: { s: StreamMatch }) {
   );
 }
 
-/** What the card says, from the answer: by account, unless the page shows one. */
+function nothingText(m: SubjectMatches): string {
+  return m.subscriptionsAt === undefined ? NOTHING_NOT_COLLECTED : NOTHING_REACHED;
+}
+
+/**
+ * What the card says, from the server's groups: one per account the
+ * message is published in. A heading names the account unless the page
+ * shows one.
+ */
 function Reach({ m, scoped }: { m: SubjectMatches; scoped: boolean }) {
-  const groups = matchGroups(m);
-  if (groups.length === 0) {
-    return (
-      <p className="sj-reach-none">
-        {m.subscriptionsAt === undefined ? "no stream stores it; subscriptions were not collected, so subscribers are not known" : NOTHING_REACHED}
-      </p>
-    );
-  }
+  if (m.accounts.length === 0) return <p className="sj-reach-none">{nothingText(m)}</p>;
   return (
     <>
-      {groups.map((g) => (
-        <div key={g.account} className="sj-group" role="group" aria-label={`Account ${g.accountName || g.account}`}>
+      {m.accounts.map((g) => (
+        <div key={g.account} className="sj-group" role="group" aria-label={`Published in ${g.accountName || g.account}`}>
           {!scoped && (
             <div className="sj-group-h">
-              <span className="sj-k">Account</span> <AccountName id={g.account} name={g.accountName || undefined} />
+              <span className="sj-k">Published in</span> <AccountName id={g.account} name={g.accountName || undefined} />
+              {g.systemAccount && <span className="sj-system">system</span>}
             </div>
           )}
-          <div className="sj-chips">
-            {g.streams.map((s) => (
-              <StreamReach key={s.stream} s={s} />
-            ))}
-            {g.core.length > 0 ? (
-              <span className="sj-chip">
-                <span className="sj-k">Core subscribers</span>{" "}
-                {g.core.map((c, i) => (
-                  <Fragment key={`${c.subject}|${c.queue}`}>
-                    {i > 0 && "; "}
-                    {coreLead(c)}
-                    <Names names={c.names} more={c.moreNames} /> via <span className="mono">{c.subject}</span>
-                  </Fragment>
-                ))}
-              </span>
-            ) : (
-              <span className="sj-chip">
-                <span className="sj-k">Core subscribers</span> {m.subscriptionsAt === undefined ? "not collected" : "none"}
-              </span>
-            )}
-          </div>
+          {reachesNothing(g) ? (
+            <p className="sj-reach-none">{nothingText(m)}</p>
+          ) : (
+            <div className="sj-chips">
+              {g.streams.map((s) => (
+                <StreamReach key={s.stream} s={s} />
+              ))}
+              {g.jetstreamApi && (
+                <span className="sj-chip sj-chip-stream">{JETSTREAM_API_ANSWERS}</span>
+              )}
+              {g.core.length > 0 ? (
+                <span className="sj-chip">
+                  <span className="sj-k">Core subscribers</span>{" "}
+                  {g.core.map((c, i) => (
+                    <Fragment key={`${c.subject}|${c.queue}`}>
+                      {i > 0 && "; "}
+                      {coreLead(c)}
+                      <Names names={c.names} more={c.moreNames} /> via <span className="mono">{c.subject}</span>
+                    </Fragment>
+                  ))}
+                </span>
+              ) : (
+                <span className="sj-chip">
+                  <span className="sj-k">Core subscribers</span> {m.subscriptionsAt === undefined ? "not collected" : "none"}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       ))}
     </>
