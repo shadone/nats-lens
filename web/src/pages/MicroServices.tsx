@@ -10,7 +10,7 @@ import { AccountName } from "../components/AccountName";
 import { Empty, QueryView } from "../components/common";
 import { MicroCards } from "../components/MicroCards";
 import { MicroDetail } from "../components/MicroDetail";
-import { Ticks } from "../components/Ticks";
+import { Words } from "../components/Words";
 import { hms } from "../lib/format";
 import { chooseService, footLines, MICRO_FOOTNOTE, MICRO_SUBTITLE, NO_SUBSCRIPTIONS, noServiceText, serviceKey, unansweredText, unknownServiceText, withAccountNames } from "../lib/microView";
 import { usePageTitle } from "../lib/usePageTitle";
@@ -45,7 +45,7 @@ function Body({ d, scope, names }: { d: Micro; scope: string; names: Map<string,
   const idText = (id: string) => label(id, nameOf(id));
   const scopeLabel = scope ? idText(scope) : "";
   const param = params.get(SERVICE_PARAM);
-  const { chosen, unknown } = chooseService(d.services, param);
+  const { chosen, unknown } = chooseService(d.services, param, scope);
   const epochAt = d.epochAt ?? 0;
   const showAccount = scope === "" && new Set(d.services.map((s) => s.account)).size > 1;
   const unanswered = d.accounts.map((a) => ({ a, text: unansweredText(a) })).filter((x) => x.text);
@@ -65,7 +65,7 @@ function Body({ d, scope, names }: { d: Micro; scope: string; names: Map<string,
       {/* With nothing asked and no service, the empty state says it alone. */}
       {d.subscriptionsAt === undefined && (d.services.length > 0 || d.accounts.some((a) => a.asked)) && (
         <p className="mi-notice" role="note">
-          <b>Subscriptions not collected.</b> <Ticks text={NO_SUBSCRIPTIONS} />
+          <b>Subscriptions not collected.</b> <Words p={NO_SUBSCRIPTIONS} />
         </p>
       )}
       {unanswered.map(({ a, text }) => (
@@ -79,7 +79,7 @@ function Body({ d, scope, names }: { d: Micro; scope: string; names: Map<string,
       {d.services.length === 0 ? (
         <Empty>
           <span className="mi-wrap">
-            <Ticks text={noServiceText(d, scopeLabel)} />
+            <Words p={noServiceText(d, scopeLabel)} />
           </span>
         </Empty>
       ) : (
@@ -103,7 +103,7 @@ function Body({ d, scope, names }: { d: Micro; scope: string; names: Map<string,
       )}
       <div className="mi-note-foot">
         <p>
-          <Ticks text={MICRO_FOOTNOTE} />
+          <Words p={MICRO_FOOTNOTE} />
         </p>
         {footLines(d, accountText).map((l) => (
           <p key={l}>{l}</p>

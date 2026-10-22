@@ -4,7 +4,7 @@ import { useNavigate } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as requests from "../api/requests";
 import * as systems from "../api/systems";
-import { account, global, noCollection, none, orders, prod, service, SUPPLIERS } from "../test/fixtures/micro";
+import { account, global, noCollection, none, orders, prod, seenOnly, service, SUPPLIERS } from "../test/fixtures/micro";
 import { renderApp } from "../test/render";
 import { MicroServices } from "./MicroServices";
 
@@ -214,7 +214,7 @@ describe("Micro services", () => {
   });
 
   it("says why a chosen service of an asked account has no endpoints", async () => {
-    const s = service({ account: "SHOP", note: "noAnswer", answered: false, endpoints: [], requestsPerSecond: undefined, errorShare: undefined });
+    const s = service({ account: "SHOP", note: "noAnswer", answered: false, instanceSource: "lastAnswered", endpoints: [], requestsPerSecond: undefined, errorShare: undefined });
     getMicro.mockResolvedValue(global({ services: [s], accounts: [account({ account: "SHOP", services: 1, stats: { state: "timeout", replies: 0, error: "" } })] }));
     renderApp(<MicroServices />, "/micro-services");
     await screen.findByRole("group", { name: "Services" });
@@ -264,6 +264,47 @@ describe("Micro services", () => {
     await screen.findByRole("group", { name: "Services" });
     expect(card("inventory").querySelector(".mi-crit")).toHaveTextContent(">1.0%");
     expect(cells(within(detail().getAllByRole("table")[0]), "reserve")[4]).toBe(">1.0%");
+  });
+
+  it("heads instances from the subscription list as such, also in an asked account without an answer", async () => {
+    const s = service({ note: "noAnswer", answered: false, instanceSource: "subscriptions", endpoints: [], requestsPerSecond: undefined, errorShare: undefined });
+    getMicro.mockResolvedValue(global({ services: [s], accounts: [account({ services: 1, stats: { state: "timeout", replies: 0, error: "" } })] }));
+    renderApp(<MicroServices />, "/micro-services");
+    await screen.findByRole("group", { name: "Services" });
+    expect(detail().getByRole("heading", { level: 3 })).toHaveTextContent("Instances seen in the subscription list");
+  });
+
+  it("keeps backticks in server and client text as they are", async () => {
+    const s = service({ account: "SHOP", note: "noAnswer", answered: false, endpoints: [], requestsPerSecond: undefined, errorShare: undefined });
+    getMicro.mockResolvedValue(global({ services: [s], accounts: [account({ account: "SHOP", services: 1, stats: { state: "error", replies: 0, error: "nats: bad `x` reply" } })] }));
+    const { unmount } = renderApp(<MicroServices />, "/micro-services");
+    await screen.findByRole("group", { name: "Services" });
+    expect(card("inventory").querySelector(".mi-note")).toHaveTextContent("the request failed: nats: bad `x` reply");
+    unmount();
+    const d = prod();
+    d.services = [seenOnly({ connectionNames: ["cat`a`log"] })];
+    getMicro.mockResolvedValue(d);
+    renderApp(<MicroServices />, "/micro-services");
+    await screen.findByRole("group", { name: "Services" });
+    expect(screen.getByText(/^nats-lens does not ask/)).toHaveTextContent("on cat`a`log.");
+  });
+
+  it("reads a ?service= without an account part in the scoped account", async () => {
+    getMicro.mockResolvedValue(global({ services: [service({ account: "SHOP", name: "inventory" })], accounts: [account({ account: "SHOP", accountName: "Shop" })] }));
+    renderApp(<MicroServices />, "/micro-services?account=SHOP&service=orders");
+    await screen.findByRole("group", { name: "Services" });
+    expect(screen.getByText("No service orders in Shop in this collection; showing inventory.")).toBeInTheDocument();
+  });
+
+  it("lists every subject of an endpoint name, each literal one a link", async () => {
+    const s = service({ endpoints: [{ ...service().endpoints[0], name: "create", subject: "orders.create", subjects: ["orders.create", "orders.create.v2", "orders.*.v3"] }] });
+    getMicro.mockResolvedValue(global({ services: [s] }));
+    renderApp(<MicroServices />, "/micro-services?system=example-global");
+    await screen.findByRole("group", { name: "Services" });
+    const row = rowOf(within(detail().getAllByRole("table")[0]), "create");
+    expect(within(row).getAllByRole("cell")[0]).toHaveTextContent("orders.create, orders.create.v2, orders.*.v3");
+    expect(within(row).getByRole("link", { name: "orders.create.v2" })).toHaveAttribute("href", "/subjects?account=APP&subject=orders.create.v2&system=example-global");
+    expect(within(row).getAllByRole("link").map((a) => a.textContent)).toEqual(["orders.create", "orders.create.v2"]);
   });
 
   it("never shows another account's services while the scoped ones load", async () => {

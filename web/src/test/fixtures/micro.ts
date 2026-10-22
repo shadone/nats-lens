@@ -24,6 +24,7 @@ export function endpoint(o: Partial<MicroEndpoint> = {}): MicroEndpoint {
   return {
     name: "create",
     subject: "orders.create",
+    subjects: [o.subject ?? "orders.create"],
     queueGroup: "q",
     requestsPerSecond: 42.1,
     averageMs: 3.8,
@@ -60,6 +61,7 @@ export function service(o: Partial<MicroService> = {}): MicroService {
     note: "healthy",
     systemAccount: false,
     instanceList: [instance("INV0", { version: "0.9.1", connectionName: "inventory-service", server: "nats-eu-4" }), instance("INV1", { version: "0.9.1", connectionName: "inventory-service", server: "nats-eu-5" })],
+    instanceSource: "answered",
     answered: true,
     ...o,
   };
@@ -131,6 +133,7 @@ export function seenOnly(o: Partial<MicroService> = {}): MicroService {
     endpointsTotal: 0,
     connectionNames: ["catalog-api"],
     note: "notAsked",
+    instanceSource: "subscriptions",
     answered: false,
     instanceList: [instance("CAT0", { version: "", started: undefined, connectionName: "catalog-api", server: "nats-0" }), instance("CAT1", { version: "", started: undefined, connectionName: "catalog-api", server: "nats-1" })],
     ...o,

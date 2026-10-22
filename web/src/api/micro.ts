@@ -2,6 +2,7 @@
 // services page. The only file that reads its messages; a value the
 // server left unset stays undefined here, never 0.
 import {
+  MicroInstanceSource as PSource,
   MicroNote as PNote,
   MicroRequestState as PState,
   type GetMicroServicesResponse,
@@ -11,6 +12,14 @@ import { ms } from "./adapt-common";
 
 /** The card's note: the first that applies, as the server chose it. */
 export type MicroNoteKind = "missing" | "mixedVersions" | "slow" | "errors" | "noAnswer" | "notAsked" | "healthy";
+
+/**
+ * Where a service's instances come from: they answered the epoch's
+ * STATS; none answered and the subscription list holds them; or the
+ * account's STATS was not ok and no list holds them, so they are those
+ * that last answered within the hour. "none": only missing ones.
+ */
+export type MicroInstanceSource = "none" | "answered" | "subscriptions" | "lastAnswered";
 
 /** How a $SRV request ended; "notAsked" when the account was not asked. */
 export type MicroRequestState = "notAsked" | "ok" | "noResponders" | "timeout" | "error";
@@ -62,6 +71,8 @@ export interface MicroMissing {
 export interface MicroEndpoint {
   name: string;
   subject: string;
+  /** Every subject under this endpoint name, subject first; at least subject. */
+  subjects: string[];
   /** "" for none. */
   queueGroup: string;
   requestsPerSecond?: number;
@@ -96,6 +107,7 @@ export interface MicroService {
   note: MicroNoteKind;
   systemAccount: boolean;
   instanceList: MicroInstance[];
+  instanceSource: MicroInstanceSource;
   answered: boolean;
 }
 
@@ -119,6 +131,13 @@ const NOTE: Record<PNote, MicroNoteKind> = {
   [PNote.NO_ANSWER]: "noAnswer",
   [PNote.NOT_ASKED]: "notAsked",
   [PNote.HEALTHY]: "healthy",
+};
+
+const SOURCE: Record<PSource, MicroInstanceSource> = {
+  [PSource.UNSPECIFIED]: "none",
+  [PSource.ANSWERED]: "answered",
+  [PSource.SUBSCRIPTIONS]: "subscriptions",
+  [PSource.LAST_ANSWERED]: "lastAnswered",
 };
 
 const STATE: Record<PState, MicroRequestState> = {
@@ -159,6 +178,7 @@ export function microServices(r: GetMicroServicesResponse): MicroServices {
       endpoints: s.endpoints.map((e) => ({
         name: e.name,
         subject: e.subject,
+        subjects: e.subjects.length ? e.subjects : e.subject ? [e.subject] : [],
         queueGroup: e.queueGroup,
         requestsPerSecond: e.requestsPerSecond,
         averageMs: e.averageMs,
@@ -182,6 +202,7 @@ export function microServices(r: GetMicroServicesResponse): MicroServices {
         connectionName: i.connectionName,
         server: i.server,
       })),
+      instanceSource: SOURCE[s.instanceSource] ?? "none",
       answered: s.answered,
     })),
     servicesTotal: r.servicesTotal,

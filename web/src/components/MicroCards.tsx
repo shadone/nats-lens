@@ -5,7 +5,7 @@ import type { MicroAccount, MicroService } from "../api/micro";
 import { descriptionText, errorsText, noteOf, rateText, serviceErrorsHigh, serviceKey, versionText } from "../lib/microView";
 import { AccountName } from "./AccountName";
 import { Dash } from "./common";
-import { Ticks } from "./Ticks";
+import { Words } from "./Words";
 
 /** A value a service seen only cannot have: nats-lens did not ask it. */
 function NotAsked() {
@@ -80,7 +80,7 @@ function Card({
         </span>
       </span>{" "}
       <span className={`mi-note${note.warn ? " mi-note-warn" : ""}`}>
-        <Ticks text={note.text} />
+        <Words p={note.text} />
       </span>
     </button>
   );

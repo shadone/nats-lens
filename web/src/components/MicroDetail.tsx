@@ -3,11 +3,11 @@
 // with their connections and the missing ones, or, for a service seen
 // only in subscriptions, what is known and how to see more.
 import type { MicroAccount, MicroEndpoint, MicroService } from "../api/micro";
-import { cutText, errorsText, missingText, msText, noEndpointsText, rateText, seenOnlyText, slowText, whenText } from "../lib/microView";
+import { cutText, errorsText, instancesHeading, missingText, msText, noEndpointsText, rateText, seenOnlyText, slowText, whenText } from "../lib/microView";
 import { serverPath } from "../lib/view";
 import { Dash, RLink } from "./common";
 import { connectionPath } from "./SubjectsTable";
-import { Ticks } from "./Ticks";
+import { Words } from "./Words";
 
 const enc = encodeURIComponent;
 
@@ -36,8 +36,13 @@ function EndpointRow({ s, e, epochAt }: { s: MicroService; e: MicroEndpoint; epo
   return (
     <tr className={e.slow ? "mi-warn" : undefined}>
       <th scope="row">{e.name}</th>
-      <td className="mi-subj">
-        <Subject account={s.account} subject={e.subject} />
+      <td className="mi-subj mi-subjs">
+        {e.subjects.map((x, i) => (
+          <span key={x} className="mi-subject">
+            <Subject account={s.account} subject={x} />
+            {i < e.subjects.length - 1 && ", "}
+          </span>
+        ))}
       </td>
       <td className="mi-subj">{e.queueGroup || <None words="no queue group" />}</td>
       <td className="num">{e.requestsPerSecond === undefined ? <Dash /> : rateText(e.requestsPerSecond)}</td>
@@ -107,8 +112,7 @@ function Instances({ s, epochAt }: { s: MicroService; epochAt: number }) {
   const notes = s.missing.length > 0;
   return (
     <>
-      {/* Without an answer in this collection the server lists the instances that last answered within the hour. */}
-      <h3 className="mi-h3">{s.asked && !s.answered ? "Instances that last answered within the hour before this collection" : "Instances"}</h3>
+      <h3 className="mi-h3">{instancesHeading(s.instanceSource)}</h3>
       <div className="table-wrap scroll-cue">
         <table className="tbl mi-tbl mi-inst">
           <thead>
@@ -184,9 +188,9 @@ export function MicroDetail({
         <Endpoints s={s} accounts={accounts} epochAt={epochAt} />
       ) : (
         <div className="mi-seen">
-          {seenOnlyText(s, accountLabel).map((l) => (
-            <p key={l}>
-              <Ticks text={l} />
+          {seenOnlyText(s, accountLabel).map((l, i) => (
+            <p key={i}>
+              <Words p={l} />
             </p>
           ))}
         </div>

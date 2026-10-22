@@ -1,7 +1,7 @@
 // The Micro services page in words: the line under the title, the cards'
 // numbers and notes, the endpoint table's cells, the instances, the
 // accounts that were asked and did not answer, and the footnote.
-import type { MicroAccount, MicroEndpoint, MicroMissing, MicroRequest, MicroService, MicroServices } from "../api/micro";
+import type { MicroAccount, MicroEndpoint, MicroInstanceSource, MicroMissing, MicroRequest, MicroService, MicroServices } from "../api/micro";
 import { dayMonHm, fmtInt, hm, hms } from "./format";
 import { listText } from "./subjectsView";
 
@@ -10,8 +10,26 @@ export const MICRO_SUBTITLE = ["Services built on the NATS micro framework, foun
 
 export const MICRO_SUBTITLE_TEXT = `${MICRO_SUBTITLE[0]} ${MICRO_SUBTITLE[1]} ${MICRO_SUBTITLE[2]} ${MICRO_SUBTITLE[3]}${MICRO_SUBTITLE[4]}`;
 
-export const MICRO_FOOTNOTE =
-  "Each account listed under `accounts` gets one $SRV.STATS request every collection and a $SRV.INFO request every few minutes; rates, times and errors cover the 15 minutes before the range's end. An endpoint is slow when its average time is at least 3 times its 7-day level and at least 5 ms above it. A service instance that stops answering shows as “instance missing”, a version spread across instances as “mixed versions”.";
+/** A configuration key in a sentence, set in mono; never read from text. */
+export interface Key {
+  key: string;
+}
+
+/** A sentence in parts: text as it is, and keys. */
+export type Phrase = readonly (string | Key)[];
+
+const ACCOUNTS: Key = { key: "accounts" };
+
+/** A phrase as one string, each key in backticks; for tests and plain text. */
+export function plain(p: Phrase): string {
+  return p.map((x) => (typeof x === "string" ? x : `\`${x.key}\``)).join("");
+}
+
+export const MICRO_FOOTNOTE: Phrase = [
+  "Each account listed under ",
+  ACCOUNTS,
+  " gets one $SRV.STATS request every collection and a $SRV.INFO request every few minutes; rates, times and errors cover the 15 minutes before the range's end. An endpoint is slow when its average time is at least 3 times its 7-day level and at least 5 ms above it. A service instance that stops answering shows as “instance missing”, a version spread across instances as “mixed versions”.",
+];
 
 /** What the account's user needs for nats-lens to ask its services. */
 export const GRANTS = "publish on $SRV.INFO and $SRV.STATS and subscribe on _INBOX.>";
@@ -20,8 +38,11 @@ export const GRANTS = "publish on $SRV.INFO and $SRV.STATS and subscribe on _INB
 const NEEDS = `the account's user needs to ${GRANTS}`;
 
 /** The notice above the services when no subscription list was read. */
-export const NO_SUBSCRIPTIONS =
-  "No subscription list within 24 hours before this collection: only the services of accounts listed under `accounts` are shown, and instances name no connection.";
+export const NO_SUBSCRIPTIONS: Phrase = [
+  "No subscription list within 24 hours before this collection: only the services of accounts listed under ",
+  ACCOUNTS,
+  " are shown, and instances name no connection.",
+];
 
 const DAY = 86_400_000;
 
@@ -81,11 +102,13 @@ export function serviceKey(s: Pick<MicroService, "account" | "name">): string {
 }
 
 /**
- * The service ?service= names, else the first. unknown: the parameter
- * names a service the list does not hold.
+ * The service ?service= names, else the first. A name without an account
+ * part is looked for in the scoped account, or by name without a scope.
+ * unknown: the parameter names a service the list does not hold.
  */
-export function chooseService(services: MicroService[], param: string | null): { chosen?: MicroService; unknown: boolean } {
-  const named = param ? services.find((s) => serviceKey(s) === param) : undefined;
+export function chooseService(services: MicroService[], param: string | null, scope = ""): { chosen?: MicroService; unknown: boolean } {
+  const bare = param !== null && !param.includes("/");
+  const named = !param ? undefined : bare ? services.find((s) => s.name === param && (!scope || s.account === scope)) : services.find((s) => serviceKey(s) === param);
   return { chosen: named ?? services[0], unknown: !!param && !named };
 }
 
@@ -96,8 +119,10 @@ export function chooseService(services: MicroService[], param: string | null): {
  */
 export function unknownServiceText(param: string, scope: string, label: (id: string) => string, shown: string): string {
   const cut = param.indexOf("/");
-  const account = cut < 0 ? "" : param.slice(0, cut);
+  // No account part: the scoped account's.
+  const account = cut <= 0 ? scope : param.slice(0, cut);
   const name = cut < 0 ? param : param.slice(cut + 1);
+  if (!account) return `No service ${name} in this collection; showing ${shown}.`;
   if (scope && account !== scope) return `${name} of ${label(account)} is not in account ${label(scope)}; showing ${shown}.`;
   if (scope) return `No service ${name} in ${label(scope)} in this collection; showing ${shown}.`;
   return `No service ${param} in this collection; showing ${shown}.`;
@@ -147,12 +172,17 @@ export function noAnswerReason(stats: MicroRequest | undefined): string {
 }
 
 export interface CardNote {
-  text: string;
+  text: Phrase;
   warn: boolean;
 }
 
 /** The card's note, worded from the note the server chose. */
 export function noteOf(s: MicroService, accounts: MicroAccount[], ref: number): CardNote {
+  const n = noteWords(s, accounts, ref);
+  return { text: typeof n.text === "string" ? [n.text] : n.text, warn: n.warn };
+}
+
+function noteWords(s: MicroService, accounts: MicroAccount[], ref: number): { text: string | Phrase; warn: boolean } {
   switch (s.note) {
     case "missing": {
       const since = s.missing.map((m) => m.since).filter((t): t is number => t !== undefined);
@@ -177,7 +207,7 @@ export function noteOf(s: MicroService, accounts: MicroAccount[], ref: number): 
       return { text: `no answer to $SRV.STATS: ${noAnswerReason(a?.stats)}`, warn: true };
     }
     case "notAsked":
-      return { text: "list the account under `accounts` for versions, endpoints and timings", warn: false };
+      return { text: ["list the account under ", ACCOUNTS, " for versions, endpoints and timings"], warn: false };
     default:
       return { text: "healthy", warn: false };
   }
@@ -213,11 +243,11 @@ export function noEndpointsText(s: MicroService, accounts: MicroAccount[]): stri
 }
 
 /** For a service seen only: what is known and how to see more. */
-export function seenOnlyText(s: MicroService, accountLabel: string): string[] {
+export function seenOnlyText(s: MicroService, accountLabel: string): Phrase[] {
   const conns = s.connectionNames.length ? ` on ${listText(s.connectionNames)}${s.moreNames > 0 ? ` and ${plural(s.moreNames, "more connection")}` : ""}` : "";
   return [
-    `nats-lens does not ask ${accountLabel}, so versions, endpoints and timings are not known. The subscription list shows ${plural(s.instances, "instance")}${conns}.`,
-    `To see more, list ${accountLabel} under \`accounts\` in the configuration, with a user that may ${GRANTS}.`,
+    [`nats-lens does not ask ${accountLabel}, so versions, endpoints and timings are not known. The subscription list shows ${plural(s.instances, "instance")}${conns}.`],
+    [`To see more, list ${accountLabel} under `, ACCOUNTS, ` in the configuration, with a user that may ${GRANTS}.`],
   ];
 }
 
@@ -250,9 +280,16 @@ export function footLines(d: MicroServices, label: (a: MicroAccount) => string):
 }
 
 /** What the page says with no service. */
-export function noServiceText(d: MicroServices, scopeLabel: string): string {
+export function noServiceText(d: MicroServices, scopeLabel: string): Phrase {
   const where = scopeLabel ? ` in ${scopeLabel}` : "";
   if (d.subscriptionsAt === undefined && !d.accounts.some((a) => a.asked))
-    return `No micro service known${where}: no account is listed under \`accounts\`, and no subscription list within 24 hours before this collection.`;
-  return `No micro service${where} in this collection.`;
+    return [`No micro service known${where}: no account is listed under `, ACCOUNTS, ", and no subscription list within 24 hours before this collection."];
+  return [`No micro service${where} in this collection.`];
+}
+
+/** The heading over a service's instances, by where they come from. */
+export function instancesHeading(source: MicroInstanceSource): string {
+  if (source === "subscriptions") return "Instances seen in the subscription list";
+  if (source === "lastAnswered") return "Instances that last answered within the hour before this collection";
+  return "Instances";
 }
