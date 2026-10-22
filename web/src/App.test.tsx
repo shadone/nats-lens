@@ -167,11 +167,11 @@ describe("sidebar", () => {
   it("shows the built pages in their groups and hides the planned ones", async () => {
     renderApp(<App />, "/streams?system=example-global");
     const links = within(nav()).getAllByRole("link").map((a) => a.textContent?.replace(/\d+$/, ""));
-    expect(links).toEqual(["Fleet", "Overview", "Findings", "Subjects", "Connections", "Streams", "Consumers", "KV Stores", "Object Stores", "Placement", "Capacity", "Servers", "Events", "Replay", "Topology", "Accounts"]);
-    for (const planned of ["Micro services", "Applications", "Users & auth"]) {
+    expect(links).toEqual(["Fleet", "Overview", "Findings", "Subjects", "Micro services", "Connections", "Streams", "Consumers", "KV Stores", "Object Stores", "Placement", "Capacity", "Servers", "Events", "Replay", "Topology", "Accounts"]);
+    for (const planned of ["Applications", "Users & auth"]) {
       expect(within(nav()).queryByText(planned)).toBeNull();
     }
-    expect(within(nav()).getByText("Messaging").parentElement).toHaveTextContent("SubjectsConnections");
+    expect(within(nav()).getByText("Messaging").parentElement).toHaveTextContent("SubjectsMicro servicesConnections");
   });
 
   it("keeps the system and the range on every page link, the account only where it applies", async () => {
@@ -180,7 +180,7 @@ describe("sidebar", () => {
     for (const a of within(nav()).getAllByRole("link")) {
       const p = params(a.getAttribute("href"));
       const name = a.textContent?.replace(/\d+$/, "");
-      const scoped = ["Subjects", "Consumers", "Connections", "KV Stores", "Object Stores"].includes(name ?? "") ? "APP" : null;
+      const scoped = ["Subjects", "Micro services", "Consumers", "Connections", "KV Stores", "Object Stores"].includes(name ?? "") ? "APP" : null;
       expect([name, p.get("system"), p.get("range"), p.get("account")]).toEqual([name, "example-global", "6h", scoped]);
     }
   });
