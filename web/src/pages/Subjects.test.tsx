@@ -1,12 +1,22 @@
 import { Code, ConnectError } from "@connectrpc/connect";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useNavigate } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as requests from "../api/requests";
 import type { SubjectMatches } from "../api/subjects";
 import { coreMatch, global, matches, noCollection, published, row, streamMatch, sub } from "../test/fixtures/subjects";
 import { renderApp } from "../test/render";
 import { Subjects } from "./Subjects";
+
+function Go({ to }: { to: string }) {
+  const nav = useNavigate();
+  return (
+    <button type="button" onClick={() => nav(to)}>
+      go
+    </button>
+  );
+}
 
 vi.mock("../api/requests", () => ({
   getSubjects: vi.fn(),
@@ -395,6 +405,22 @@ describe("Subjects tester", () => {
     expect(field()).toHaveValue("orders.createx");
     expect(location()).not.toContain("subject=");
     expect(location()).toContain("account=APP");
+  });
+
+  it("takes a changed ?subject= into the field", async () => {
+    getSubjects.mockResolvedValue(global());
+    matchSubject.mockResolvedValue(matches({ accounts: [published()] }));
+    renderApp(
+      <>
+        <Go to="/subjects?subject=orders.cancel" />
+        <Subjects />
+      </>,
+      "/subjects?subject=orders.create",
+    );
+    expect(field()).toHaveValue("orders.create");
+    await userEvent.click(screen.getByRole("button", { name: "go" }));
+    expect(field()).toHaveValue("orders.cancel");
+    await waitFor(() => expect(matchSubject.mock.calls.map((c) => c[3])).toContain("orders.cancel"));
   });
 
   it("asks nothing for an empty or blank field", async () => {
