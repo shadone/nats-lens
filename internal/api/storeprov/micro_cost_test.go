@@ -16,7 +16,8 @@ import (
 
 // 100 instances x 20 endpoints of one service, a report every 30 s for
 // MICRO_COST_DAYS days (MICRO_COST_SLOW makes every endpoint slow in the
-// last hour); times GetMicroServices. Run with TZ=UTC: the setup casts
+// last hour; MICRO_COST_IDLE makes them active for the first 30 hours,
+// idle until the last hour and slow in it); times GetMicroServices. Run with TZ=UTC: the setup casts
 // times to TIMESTAMP in the session's zone.
 func TestMicroServicesCost(t *testing.T) {
 	days, _ := strconv.Atoi(os.Getenv("MICRO_COST_DAYS"))
@@ -45,7 +46,15 @@ func TestMicroServicesCost(t *testing.T) {
 		processing_time_ns, average_processing_time_ns)
 		SELECT e, 'APP', 'orders', 'I' || i, 'ep' || k, 'orders.ep' || k, 'q', e * 30, e, e * 30 * 4000000, 4000000
 		FROM range(1, ?) r(e), range(0, 100) s(i), range(0, 20) x(k)`, n+1)
-	if os.Getenv("MICRO_COST_SLOW") != "" {
+	if os.Getenv("MICRO_COST_IDLE") != "" {
+		// Active for the first 30 hours, idle (counters unchanged) until the
+		// last hour, then 10 times slower: the slow run's span crosses
+		// days of idle reports.
+		active, resume := int64(30*120), int64(n-120)
+		exec(`UPDATE micro_endpoints SET num_requests = (least(epoch, $1) + greatest(epoch - $2, 0)) * 30,
+			num_errors = least(epoch, $1) + greatest(epoch - $2, 0),
+			processing_time_ns = least(epoch, $1) * 30 * 4000000 + greatest(epoch - $2, 0) * 30 * 40000000`, active, resume)
+	} else if os.Getenv("MICRO_COST_SLOW") != "" {
 		r, err := db.Exec(`UPDATE micro_endpoints SET processing_time_ns = processing_time_ns + (epoch - $1) * 30 * 36000000 WHERE epoch > $1`, int64(n-120))
 		if err != nil {
 			t.Fatal(err)

@@ -17,6 +17,7 @@ import (
 	"github.com/shadone/nats-lens/internal/api/apitest"
 	"github.com/shadone/nats-lens/internal/api/storeprov"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"github.com/shadone/nats-lens/internal/store"
 )
 
 // expected applies api's Go rules to what the fixture wrote for one
@@ -363,5 +364,76 @@ func TestMicroSubjectFirstAppearing(t *testing.T) {
 	e := res.Msg.GetServices()[0].GetEndpoints()[0]
 	if math.Abs(e.GetRequestsPerSecond()-10) > 0.01 || math.Abs(e.GetAverageMs()-2) > 0.001 {
 		t.Errorf("get: %.2f req/s at %.3f ms, want 10 at 2", e.GetRequestsPerSecond(), e.GetAverageMs())
+	}
+}
+
+// A store with orders instances answering STATS every 5 minutes over 2
+// hours: each instance answers from its first to its last epoch (by
+// 5-minute steps back from last), with a stats row stored twice where
+// twice says so.
+func microStatsStore(t *testing.T, last time.Time, insts map[string][2]int, twice map[string]int) *store.Store {
+	t.Helper()
+	st := emptyStore(t)
+	r := rows{t, st}
+	const n = 24
+	at := func(e int) time.Time { return last.Add(-time.Duration(n-e) * 5 * time.Minute) }
+	for e := 1; e <= n; e++ {
+		if _, err := st.DB().Exec(`INSERT INTO epochs VALUES (?, ?, ?, 0, 1, 1, [], [], [], 0, false, [], NULL)`, e, at(e),
+			at(e).Add(time.Second)); err != nil {
+			t.Fatal(err)
+		}
+		r.add("micro_requests", map[string]any{"epoch": e, "label": "app", "account": "APP", "request": "STATS", "state": "ok", "replies": 1})
+		for id, span := range insts {
+			if e < n-span[0] || e > n-span[1] {
+				continue
+			}
+			for range 1 + map[bool]int{true: 1}[twice[id] == n-e] {
+				r.add("micro_stats", map[string]any{"epoch": e, "account": "APP", "service": "orders", "instance_id": id, "started": at(1)})
+			}
+		}
+	}
+	return st
+}
+
+// A stats row stored twice does not count its instance twice: A, B and C
+// answered until 30 minutes before last (B's last row twice), D replaced
+// one of them, so one instance is short and one is missing.
+func TestMicroGoneCountsInstancesOnce(t *testing.T) {
+	last := time.Date(2026, 10, 17, 14, 0, 0, 0, time.UTC)
+	// Epochs back from last: A always, B and C until 30 minutes before
+	// last (6 epochs back), D from 25 minutes before last.
+	st := microStatsStore(t, last, map[string][2]int{"A": {23, 0}, "B": {23, 6}, "C": {23, 6}, "D": {5, 0}}, map[string]int{"B": 6})
+	clock := last.Add(30 * time.Second)
+	_, c := apitest.Serve(t, &storeprov.Provider{St: st, Interval: 5 * time.Minute, Live: true, Clock: func() time.Time { return clock },
+		Retention: 14 * day})
+	res, err := c.GetMicroServices(ctx, connect.NewRequest(&v1.GetMicroServicesRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := res.Msg.GetServices()[0]
+	if s.GetInstances() != 2 || len(s.GetMissing()) != 1 {
+		t.Errorf("instances %d, missing %v", s.GetInstances(), s.GetMissing())
+	}
+}
+
+// An endpoint row of a service with no stats row in the epoch belongs to
+// no answered service: it is not added to another one.
+func TestMicroEndpointWithoutStatsIsLeftOut(t *testing.T) {
+	last := time.Date(2026, 10, 17, 14, 0, 0, 0, time.UTC)
+	st := microStatsStore(t, last, map[string][2]int{"A": {23, 0}}, nil)
+	r := rows{t, st}
+	for _, x := range []struct{ service, endpoint string }{{"orders", "get"}, {"ghost", "haunt"}} {
+		r.add("micro_endpoints", map[string]any{"epoch": 24, "account": "APP", "service": x.service, "instance_id": "A", "endpoint": x.endpoint,
+			"subject": x.service + "." + x.endpoint, "num_requests": 10, "num_errors": 0, "processing_time_ns": 10, "average_processing_time_ns": 1})
+	}
+	clock := last.Add(30 * time.Second)
+	_, c := apitest.Serve(t, &storeprov.Provider{St: st, Interval: 5 * time.Minute, Live: true, Clock: func() time.Time { return clock },
+		Retention: 14 * day})
+	res, err := c.GetMicroServices(ctx, connect.NewRequest(&v1.GetMicroServicesRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := res.Msg.GetServices()[0]; s.GetName() != "orders" || len(s.GetEndpoints()) != 1 || s.GetEndpoints()[0].GetName() != "get" {
+		t.Errorf("orders = %v", s)
 	}
 }
