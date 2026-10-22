@@ -127,7 +127,7 @@ WHERE started_at > (SELECT max(started_at) FROM ep) - INTERVAL 1 HOUR`); err != 
 		t.Fatal(err)
 	}
 	st := time.Now()
-	if _, err := db.Exec(microHoursQuery, last, lastAt.Truncate(time.Hour), last-120, lastAt.Add(-30*time.Second)); err != nil {
+	if _, err := db.Exec(microHoursQuery, last, lastAt.Truncate(time.Hour).UnixMicro(), last-120, lastAt.Add(-30*time.Second).UnixMicro()); err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("hourly sums of one epoch over an hour of rows: %s", time.Since(st).Round(time.Millisecond))

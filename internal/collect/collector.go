@@ -40,9 +40,10 @@ type Collector struct {
 	// asked; microAccounts what each label's requests left behind.
 	accountConns  atomic.Pointer[[]AccountConn]
 	microAccounts map[string]*microAccount
-	// microKnown are, per account, the instances that answered its last
-	// answered STATS.
-	microKnown map[string]map[instanceKey]bool
+	// microKnown are, per account, the instances the account's requests
+	// wait for, with the answered STATS each has missed in a row since it
+	// last answered.
+	microKnown map[string]map[instanceKey]int
 	now        func() time.Time
 }
 
@@ -77,7 +78,7 @@ func New(nc *nats.Conn, o Options) *Collector {
 		accountNames:  map[string]string{},
 		accountAsked:  map[string]time.Time{},
 		microAccounts: map[string]*microAccount{},
-		microKnown:    map[string]map[instanceKey]bool{},
+		microKnown:    map[string]map[instanceKey]int{},
 		now:           time.Now,
 	}
 	c.nc.Store(nc)
