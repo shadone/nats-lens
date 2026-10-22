@@ -11,7 +11,7 @@ The board's sample names come from a sketch of a real deployment. Use the exampl
 | T1 Collect subscription lists | built on `feat/subjects-collect`, awaiting review |
 | T2 API, store and demo | built on `feat/subjects-api` (with `feat/subjects-collect` merged in), awaiting review |
 | T3 UI | built on `feat/subjects-ui` (from `feat/subjects-api`), with T2's review round 2 merged; review round 1 fixed, awaiting review |
-| T4 Feature docs and audit | not started |
+| T4 Feature docs and audit | done on `feat/subjects-ui`: `subjects.md` shipped, the index, adjacent docs and `docs/plans/next.md`; audit clean |
 
 ## Rules for every step
 
