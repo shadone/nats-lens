@@ -3,18 +3,16 @@
    class, so the page's rules reach no other page; a test checks it. Row
    headers are written .tbl.mi-tbl tbody th[scope="row"] so that they
    outrank the shared rule of events.css. Colours are the design board's:
-   the accent for a card's top edge, the warning tokens for a card or row
-   that warns, the critical colour for errors above 1%. */
+   the accent for a card's top edge and the chosen card's frame, the
+   warning tokens for a card or row that warns, the critical colour for errors above 1%. */
 .mi-notice{margin:0 0 12px;padding:10px 14px;border:1px solid var(--sev-info);border-radius:10px;background:var(--sev-info-bg);font-size:13px;color:var(--text);overflow-wrap:anywhere}
 .mi-notice.mi-notice-warn{border-color:var(--sev-warning);background:var(--sev-warning-bg)}
 .mi-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
 .mi-card{display:flex;flex-direction:column;align-items:stretch;gap:2px;min-width:0;margin:0;padding:16px 18px;text-align:left;font:inherit;color:var(--text);background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--accent);border-radius:14px;cursor:pointer}
-.mi-card.mi-card-warn{border-top-color:var(--sev-warning)}
+.mi-card.mi-card-warn{border-top-color:var(--cell-warning)}
 .mi-card.mi-card-seen{border-top-color:var(--border)}
-.mi-card:hover{border-color:var(--text-faint)}
-.mi-card.mi-card-warn:hover{border-top-color:var(--sev-warning)}
-.mi-card.mi-card-on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-.mi-card.mi-card-on.mi-card-warn{border-top-color:var(--sev-warning)}
+.mi-card:hover{border-left-color:var(--text-faint);border-right-color:var(--text-faint);border-bottom-color:var(--text-faint)}
+.mi-card.mi-card-on{border-left-color:var(--accent);border-right-color:var(--accent);border-bottom-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .mi-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .mi-card-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;min-width:0}
 .mi-name{font:600 16px var(--mono);overflow-wrap:anywhere;min-width:0}
