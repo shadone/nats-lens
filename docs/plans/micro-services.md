@@ -136,6 +136,7 @@ Fix round 1 (review of T2), decided in the session that fixed it, proposed, not 
 - **The demo.** Connections count the subscriptions the demo lists for them where it collects subscription lists (elsewhere the counts stay as they were); the demo names its accounts as the store does (`SUPPLIERS`).
 - **Time zones.** Every time parameter of the micro queries is passed as microseconds and made a TIMESTAMP in SQL, as DuckDB compared a `time.Time` parameter in the session's zone in one query (the slow run's hours, 7 hours off in Los Angeles). `TestMicroServicesZoneIndependent` checks four zones. T1's `microHoursQuery` casts its hour and previous-epoch parameters with `::TIMESTAMP`, the same pattern; its owner should check it.
 - **The merges.** `feat/micro-collect` was merged again at T1's fix round 2 (`bd3b909`); its hours query now takes an instance's rows once per epoch, which the fixture's `fillHours` matches as it writes each row once.
+- **Endpoint series.** The rate window and the slow run's collections pair an instance's rows by endpoint name and subject, as T1's round 3 rollup does: one instance may have two endpoints of one name on two subjects. Merged at T1's fix round 3 (`39f9e34`).
 - **Proto.** Comments only: `MicroEndpoint.subject`, `last_error`, `level_ms`, `slow_since`; `MicroService.instances`, `missing`; `MicroMissingInstance.still_subscribed`; `MicroNote` `INSTANCE_MISSING` and `NO_ANSWER`. No field was added, renamed or renumbered.
 
 ## T3 UI
