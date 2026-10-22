@@ -69,7 +69,10 @@ func TestSubjectsAPIRateRestartedServer(t *testing.T) {
 // one server, the first by ID.
 func TestSubjectsAPIRateTie(t *testing.T) {
 	for range 10 {
-		pts := []apiPt{{11, "S0", 0, 0}, {12, "S0", 900, 9}, {13, "S0", 1800, 18}, {12, "S1", 0, 0}, {13, "S1", 900, 90}}
+		// S0's first report (10) lies before the window and S1's (11) in it:
+		// both keep two or more reports and read 3 a second.
+		pts := []apiPt{{10, "S0", 0, 0}, {11, "S0", 900, 9}, {12, "S0", 1800, 18}, {13, "S0", 2700, 27},
+			{11, "S1", 0, 0}, {12, "S1", 900, 0}, {13, "S1", 1800, 90}}
 		if js := apiRate(t, pts, nil); js.GetApiPerSecond() != 3 || js.GetApiErrorShare() != 0.01 {
 			t.Fatalf("rate %v share %v, want 3 and S0's 0.01", js.GetApiPerSecond(), js.GetApiErrorShare())
 		}
