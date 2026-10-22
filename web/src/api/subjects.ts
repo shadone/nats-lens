@@ -27,8 +27,10 @@ export interface SubjectRow {
   accountName: string;
   systemAccount: boolean;
   kind: SubjectKind;
-  /** Empty for a mirror. */
+  /** Empty for a mirror; a stream's first 20 subjects. */
   patterns: string[];
+  /** A stream's subjects beyond those in patterns. */
+  morePatterns: number;
   /** Empty for a row that is not a stream's. */
   stream: string;
   mirrorOf: string;
@@ -97,6 +99,7 @@ export function subjects(r: GetSubjectsResponse): Subjects {
       systemAccount: s.systemAccount,
       kind: KIND[s.kind] ?? "subscription",
       patterns: s.patterns,
+      morePatterns: s.morePatterns,
       stream: s.stream,
       mirrorOf: s.mirrorOf,
       mirroredBy: s.mirroredBy,

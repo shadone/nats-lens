@@ -12,6 +12,7 @@ export function row(o: Partial<SubjectRow> = {}): SubjectRow {
     systemAccount: false,
     kind: "stream",
     patterns: ["order.events.>"],
+    morePatterns: 0,
     stream: "order-events",
     mirrorOf: "",
     mirroredBy: [],

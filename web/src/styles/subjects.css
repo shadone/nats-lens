@@ -37,6 +37,7 @@
 .tbl.sj-tbl tbody th[scope="row"]{text-align:left;vertical-align:middle;white-space:normal;font:600 13px var(--mono);min-width:240px}
 .sj-tbl .sj-pattern{display:block;overflow-wrap:anywhere}
 .sj-tbl .sj-pattern + .sj-pattern{margin-top:3px}
+.sj-tbl .sj-more{display:block;margin-top:3px;font:12px var(--sans);color:var(--text-muted)}
 .sj-tbl .sj-account{font:12px var(--mono);color:var(--text-2);white-space:nowrap}
 .sj-system{margin-left:6px;padding:0 5px;border:1px solid var(--border);border-radius:4px;font:11px var(--sans);color:var(--text-muted)}
 .sj-tbl .sj-stream{font:12px var(--mono);white-space:nowrap}

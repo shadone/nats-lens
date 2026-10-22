@@ -156,6 +156,14 @@ describe("Subjects", () => {
     expect([...rowOf("c.d").querySelectorAll(".sj-name")].map((n) => n.textContent)).toEqual(["(api-gateway +1,201)"]);
   });
 
+  it("lists a stream's first subjects and counts the rest", async () => {
+    getSubjects.mockResolvedValue({ ...global(), rows: [row({ patterns: ["a.1", "a.2"], morePatterns: 1204 })] });
+    renderApp(<Subjects />, "/subjects");
+    await screen.findByRole("region", { name: "Subject patterns" });
+    const more = table().getByText("+1,204 more");
+    expect(more.closest("th")?.querySelectorAll(".sj-pattern")).toHaveLength(2);
+  });
+
   it("keeps each connection name with its comma in a box of its own", async () => {
     getSubjects.mockResolvedValue(global());
     renderApp(<Subjects />, "/subjects");

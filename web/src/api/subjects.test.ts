@@ -24,7 +24,7 @@ describe("subjects", () => {
         subscriptionsAt: timestampFromMs(AT - 90_000),
         rows: [
           { account: "APP", kind: SubjectRowKind.STREAM, patterns: ["a.>"], stream: "a", retention: "workqueue", messages: 0n, durableConsumers: 1, storedPerSecond: 0 },
-          { account: "APP", kind: SubjectRowKind.KEY_VALUE, patterns: ["$KV.b.>"], stream: "KV_b", ephemeralConsumers: 2, clientNames: ["x"], moreNames: 1, mirroredBy: ["m"] },
+          { account: "APP", kind: SubjectRowKind.KEY_VALUE, patterns: ["$KV.b.>"], morePatterns: 3, stream: "KV_b", ephemeralConsumers: 2, clientNames: ["x"], moreNames: 1, mirroredBy: ["m"] },
           { account: "SYS", kind: SubjectRowKind.SUBSCRIPTION, patterns: [">"], connections: 1, wide: true, systemAccount: true },
           { account: "APP", kind: SubjectRowKind.INBOX, patterns: ["_INBOX.>"], connections: 3 },
           { account: "APP", kind: SubjectRowKind.JETSTREAM_API, patterns: ["$JS.API.>"], apiPerSecond: 1.5, apiErrorShare: 0 },
@@ -46,7 +46,7 @@ describe("subjects", () => {
     expect(d.subscriptionsAt).toBe(AT - 90_000);
     expect(d.rows.map((r) => r.kind)).toEqual(["stream", "kv", "subscription", "inbox", "jsApi", "object"]);
     expect(d.rows[0]).toMatchObject({ messages: 0, storedPerSecond: 0, durable: 1, retention: "workqueue" });
-    expect(d.rows[1]).toMatchObject({ messages: undefined, storedPerSecond: undefined, ephemeral: 2, names: ["x"], moreNames: 1, mirroredBy: ["m"] });
+    expect(d.rows[1]).toMatchObject({ morePatterns: 3, messages: undefined, storedPerSecond: undefined, ephemeral: 2, names: ["x"], moreNames: 1, mirroredBy: ["m"] });
     expect(d.rows[2]).toMatchObject({ connections: 1, wide: true, systemAccount: true });
     expect(d.rows[4]).toMatchObject({ apiPerSecond: 1.5, apiErrorShare: 0 });
     expect(d.rows[3].apiPerSecond).toBeUndefined();
