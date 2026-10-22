@@ -24,18 +24,31 @@ const srvInstances = `
     AND ($2 = '' OR s.account = $2)
   GROUP BY ALL`
 
-// MicroServices reads the range's newest epoch's micro services. Without
-// the tables of the $SRV replies it reads the subscription collection
-// alone: the services seen in the newest collection at or before the
-// epoch (api.SeenMicro's rules, in SQL), and the instances seen in the
-// collections of the api.MicroMissingWindow before it and not in it.
+// MicroServices reads the range's newest epoch's micro services: the
+// accounts asked in it, the services that answered its $SRV.STATS with
+// their newest $SRV.INFO and their endpoints' rates, levels and slow runs,
+// the instances of those accounts gone in the api.MicroMissingWindow
+// before it; and from the newest subscription collection at or before the
+// epoch the services seen there (api.SeenMicro's rules, in SQL), with the
+// instances of the other accounts seen in the window's collections and
+// not in it. The number of queries is fixed; no stats row is read into Go.
 func (p *Provider) MicroServices(ctx context.Context, req *v1.GetMicroServicesRequest) (*api.MicroFacts, error) {
 	e, ok, err := p.latestEpoch(ctx, req.GetRange())
 	if err != nil || !ok {
 		return &api.MicroFacts{}, err
 	}
+	acc := req.GetAccount()
 	f := &api.MicroFacts{Epoch: e.epoch, EpochAt: e.startedAt}
 	if f.SystemAccount, err = p.systemAccount(ctx); err != nil {
+		return nil, err
+	}
+	if f.Accounts, err = p.microAccounts(ctx, e, acc); err != nil {
+		return nil, err
+	}
+	if f.Answered, err = p.microAnswered(ctx, e, req.GetRange(), acc); err != nil {
+		return nil, err
+	}
+	if f.Gone, err = p.goneAsked(ctx, e, acc); err != nil {
 		return nil, err
 	}
 	c, ok, err := p.subsCollection(ctx, e)
@@ -43,12 +56,14 @@ func (p *Provider) MicroServices(ctx context.Context, req *v1.GetMicroServicesRe
 		return f, err
 	}
 	f.SubscriptionsAt = &c.startedAt
-	if f.Seen, err = p.seenMicro(ctx, c.epoch, req.GetAccount()); err != nil {
+	if f.Seen, err = p.seenMicro(ctx, c.epoch, acc); err != nil {
 		return nil, err
 	}
-	if f.Gone, err = p.goneSeen(ctx, e, c.epoch, req.GetAccount()); err != nil {
+	gone, err := p.goneSeen(ctx, e, c.epoch, acc)
+	if err != nil {
 		return nil, err
 	}
+	f.Gone = append(f.Gone, gone...)
 	return f, nil
 }
 
@@ -81,8 +96,9 @@ ORDER BY i.account, i.service, i.id`, collection, account)
 	return out, rows.Err()
 }
 
-// goneSeen reads the instances seen in a subscription collection of the
-// api.MicroMissingWindow before the epoch and not in the newest one: each
+// goneSeen reads the instances of the accounts not asked in the epoch
+// seen in a subscription collection of the api.MicroMissingWindow before
+// it and not in the newest one: each
 // with its last collection, the next collection after it, its connection
 // then and the service's instances then. An instance last held on a
 // server whose list in the newest collection was cut at the limit or did
@@ -100,13 +116,14 @@ WITH cols AS (
   SELECT server_id FROM subscription_lists WHERE epoch = $1 AND listed >= total
 )
 SELECT l.account, l.service, l.id, c.started_at,
-  (SELECT min(n.started_at) FROM cols n WHERE n.epoch > l.epoch),
+  (SELECT min(n.started_at) FROM cols n WHERE n.epoch > l.epoch AND n.epoch <= $1),
   coalesce(cn.name, ''), (SELECT count(*) FROM i o WHERE o.epoch = l.epoch AND o.account = l.account AND o.service = l.service)
 FROM last l JOIN cols c ON c.epoch = l.epoch
 JOIN i ON i.epoch = l.epoch AND i.account = l.account AND i.service = l.service AND i.id = l.id
 LEFT JOIN connections cn ON cn.epoch = i.epoch AND cn.server_id = i.server_id AND cn.cid = i.cid
 WHERE i.server_id IN (SELECT server_id FROM complete)
-ORDER BY l.account, l.service, l.id`, collection, account, e.startedAt.Add(-api.MicroMissingWindow))
+  AND l.account NOT IN (SELECT account FROM micro_requests WHERE epoch = $4 AND request = 'STATS')
+ORDER BY l.account, l.service, l.id`, collection, account, e.startedAt.Add(-api.MicroMissingWindow), e.epoch)
 	if err != nil {
 		return nil, fmt.Errorf("gone micro instances: %w", err)
 	}
