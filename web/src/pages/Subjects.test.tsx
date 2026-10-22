@@ -381,6 +381,22 @@ describe("Subjects tester", () => {
     expect(await card.findByText("order-service", { selector: ".sj-name" })).toBeInTheDocument();
   });
 
+  it("fills the field from a link's ?subject= and asks for it at once, then drops the parameter once the field is edited", async () => {
+    getSubjects.mockResolvedValue(global());
+    matchSubject.mockResolvedValue(matches({ accounts: [published({ core: [coreMatch()] })] }));
+    renderApp(<Subjects />, "/subjects?system=example-global&account=APP&subject=orders.create");
+    expect(field()).toHaveValue("orders.create");
+    const card = within(await screen.findByRole("region", { name: "Where this subject goes" }));
+    expect(card.getByText("orders.create", { selector: ".sj-subject" })).toBeInTheDocument();
+    await waitFor(() => expect(matchSubject).toHaveBeenCalled());
+    expect(matchSubject.mock.calls[0].slice(2, 4)).toEqual(["APP", "orders.create"]);
+    expect(location()).toContain("subject=orders.create");
+    await userEvent.type(field(), "x");
+    expect(field()).toHaveValue("orders.createx");
+    expect(location()).not.toContain("subject=");
+    expect(location()).toContain("account=APP");
+  });
+
   it("asks nothing for an empty or blank field", async () => {
     getSubjects.mockResolvedValue(global());
     renderApp(<Subjects />, "/subjects");
