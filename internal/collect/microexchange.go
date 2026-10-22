@@ -40,10 +40,12 @@ type exchanged struct {
 // own reply subject under one fresh inbox, and gathers the replies until
 // deadline, or until every request has ended and no reply came for quiet.
 // A request ends with its first reply, a no responders status, or a
-// permissions violation. A violation arrives as an asynchronous -ERR; a
-// flush after each publish makes it arrive before the next step, and it
-// is read from nc.LastError by the subject it names.
-func exchange(ctx context.Context, nc *nats.Conn, reqs map[string]string, deadline time.Time,
+// permissions violation. A violation arrives as an asynchronous -ERR: a
+// flush after the subscription and after each publish makes the server's
+// answer arrive before the next step, nc.LastError then holds it, and w
+// receives it from the connection's error handler, which also catches one
+// that LastError lost to a later error.
+func exchange(ctx context.Context, nc *nats.Conn, w *microWatch, reqs map[string]string, deadline time.Time,
 	quiet time.Duration) map[string]*exchanged {
 	out := make(map[string]*exchanged, len(reqs))
 	for tok := range reqs {
@@ -57,7 +59,14 @@ func exchange(ctx context.Context, nc *nats.Conn, reqs map[string]string, deadli
 		}
 		return out
 	}
-	inbox := nc.NewInbox()
+	from, wake := w.mark()
+	refused := func(before error, subject string) error {
+		if v := newViolation(nc, before, subject); v != nil {
+			return v
+		}
+		return w.naming(from, subject)
+	}
+	inbox := nc.NewInbox() + microInboxMark
 	pattern := inbox + ".*"
 	before := nc.LastError()
 	// A callback rather than a synchronous subscription: NextMsg turns a
@@ -82,7 +91,7 @@ func exchange(ctx context.Context, nc *nats.Conn, reqs map[string]string, deadli
 	if err := flushUntil(nc, deadline); err != nil {
 		return failAll(err)
 	}
-	if v := newViolation(nc, before, pattern); v != nil {
+	if v := refused(before, pattern); v != nil {
 		// Replies could not arrive: nothing is sent.
 		return failAll(v)
 	}
@@ -90,6 +99,9 @@ func exchange(ctx context.Context, nc *nats.Conn, reqs map[string]string, deadli
 	for _, tok := range sortedKeys(reqs) {
 		subject := reqs[tok]
 		before := nc.LastError()
+		if subject == userInfoSubject {
+			w.lookingUp()
+		}
 		if err := nc.PublishRequest(subject, inbox+"."+tok, nil); err != nil {
 			out[tok].err = fmt.Errorf("publish %s: %w", subject, err)
 			continue
@@ -98,14 +110,32 @@ func exchange(ctx context.Context, nc *nats.Conn, reqs map[string]string, deadli
 			out[tok].err = err
 			continue
 		}
-		if v := newViolation(nc, before, subject); v != nil {
+		if v := refused(before, subject); v != nil {
 			out[tok].err = v
 			continue
 		}
 		waiting[tok] = true
 	}
+	// checkRefused ends the waiting requests that a refusal taken by w
+	// names; a refused inbox ends them all.
+	checkRefused := func() bool {
+		if v := w.naming(from, pattern); v != nil {
+			failAll(v)
+			return true
+		}
+		for tok := range waiting {
+			if v := w.naming(from, reqs[tok]); v != nil && len(out[tok].replies) == 0 {
+				out[tok].err = v
+				delete(waiting, tok)
+			}
+		}
+		return false
+	}
 	var last time.Time
 	for {
+		if checkRefused() {
+			return out
+		}
 		wait := time.Until(deadline)
 		if len(waiting) == 0 {
 			wait = min(wait, time.Until(last.Add(quiet)))
@@ -118,6 +148,8 @@ func exchange(ctx context.Context, nc *nats.Conn, reqs map[string]string, deadli
 		select {
 		case msg = <-msgs:
 		case <-timer.C:
+		case <-wake:
+			_, wake = w.mark()
 		case <-ctx.Done():
 		}
 		timer.Stop()

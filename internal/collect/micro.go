@@ -3,6 +3,7 @@ package collect
 import (
 	"context"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -93,6 +94,11 @@ type microAccount struct {
 	account    string
 	// lookupDenied is set once the server refused the account lookup.
 	lookupDenied bool
+	// watch takes the refusals of the collector's requests on watchedOn.
+	watchedOn *nats.Conn
+	watch     *microWatch
+	// refused holds each request's refusal as last logged.
+	refused map[MicroRequest]string
 }
 
 // SetAccountConns sets the account connections asked from the next epoch
@@ -115,7 +121,7 @@ func (c *Collector) askMicro(ctx context.Context, started time.Time) []MicroAcco
 	for i, ac := range conns {
 		st := c.microAccounts[ac.Label]
 		if st == nil {
-			st = &microAccount{endpoints: map[instanceKey][]micro.EndpointInfo{}}
+			st = &microAccount{endpoints: map[instanceKey][]micro.EndpointInfo{}, refused: map[MicroRequest]string{}}
 			c.microAccounts[ac.Label] = st
 		}
 		wg.Go(func() { out[i] = c.askAccount(ctx, ac, st, started, deadline) })
@@ -157,6 +163,11 @@ func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAcc
 		}
 		return res
 	}
+	if st.watchedOn != nc {
+		st.watch = newMicroWatch()
+		st.watch.install(nc)
+		st.watchedOn = nc
+	}
 	reqs := map[string]string{string(MicroStats): MicroStats.Subject()}
 	if wantInfo {
 		reqs[string(MicroInfo)] = MicroInfo.Subject()
@@ -166,7 +177,7 @@ func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAcc
 	if lookUp {
 		reqs[userInfoToken] = userInfoSubject
 	}
-	got := exchange(ctx, nc, reqs, deadline, microQuiet)
+	got := exchange(ctx, nc, st.watch, reqs, deadline, microQuiet)
 	if lookUp {
 		c.resolveMicroAccount(ac.Label, st, nc, got[userInfoToken])
 	}
@@ -184,7 +195,7 @@ func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAcc
 		// A new instance: ask INFO in the time left.
 		st.infoAsked = started
 		var a MicroAsked
-		a, infos = decodeInfos(exchange(ctx, nc, map[string]string{string(MicroInfo): MicroInfo.Subject()},
+		a, infos = decodeInfos(exchange(ctx, nc, st.watch, map[string]string{string(MicroInfo): MicroInfo.Subject()},
 			deadline, microQuiet)[string(MicroInfo)])
 		res.Asked = append(res.Asked, a)
 		describe(st, infos)
@@ -196,7 +207,43 @@ func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAcc
 		res.Account = st.account
 	}
 	sort.Slice(res.Asked, func(i, j int) bool { return res.Asked[i].Request < res.Asked[j].Request })
+	c.logRefusal(ac.Label, st, res.Asked)
 	return res
+}
+
+// logRefusal logs the account's refused requests once, and again only
+// when a request's refusal changes or every refusal has ended, rather
+// than every epoch. A request not sent this epoch keeps its last state.
+func (c *Collector) logRefusal(label string, st *microAccount, asked []MicroAsked) {
+	changed, had := false, len(st.refused) > 0
+	for _, a := range asked {
+		text := ""
+		if strings.Contains(strings.ToLower(a.Error), "permissions violation") {
+			text = a.Error
+		}
+		if st.refused[a.Request] == text {
+			continue
+		}
+		if text == "" {
+			delete(st.refused, a.Request)
+			continue
+		}
+		st.refused[a.Request] = text
+		changed = true
+	}
+	switch {
+	case changed:
+		var all []string
+		for _, r := range []MicroRequest{MicroInfo, MicroStats} {
+			if text := st.refused[r]; text != "" {
+				all = append(all, string(r)+": "+text)
+			}
+		}
+		c.log.Warn("micro service requests refused; the account user needs publish on $SRV.INFO and $SRV.STATS and subscribe on _INBOX.>",
+			"account", label, "err", strings.Join(all, "; "))
+	case had && len(st.refused) == 0:
+		c.log.Info("micro service requests permitted again", "account", label)
+	}
 }
 
 // asked lists the requests of an epoch: STATS, and INFO when due.
