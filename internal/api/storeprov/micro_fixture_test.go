@@ -49,6 +49,8 @@ type mcEndpoint struct {
 	ms                     func(t time.Time) float64
 	errors                 float64
 	lastError, lastBy      string
+	// idleFrom and idleTo bound when it gets no request; zero: never.
+	idleFrom, idleTo time.Time
 }
 
 // startedAt is the start time the instance reports at t.
@@ -91,6 +93,7 @@ type mcFixture struct {
 // whose I2 hung from 130 to 100 minutes before last, still subscribed,
 // and whose I1's stats were reset 7 minutes before last;
 // labels, subscribed and never answering. SUPPLIERS is asked and refused.
+// search (S1) is idle from 4 hours to an hour before last, then slow.
 // PROD is not asked: catalog, seen only. APP's requests an hour before
 // last timed out, its instances still subscribed.
 func microConfStore(t *testing.T, last time.Time) *mcFixture {
@@ -114,6 +117,8 @@ func microConfStore(t *testing.T, last time.Time) *mcFixture {
 			reset: last.Add(-7 * time.Minute)},
 		{account: "APP", service: "inventory", id: "I2", version: "0.9.1", desc: "Stock levels", server: "S1", cid: 13, conn: "inventory-service", started: old,
 			hungFrom: last.Add(-130 * time.Minute), hungTo: last.Add(-100 * time.Minute)},
+		{account: "APP", service: "search", id: "S1", version: "2.3.0", desc: "Product search", server: "S0", cid: 14, conn: "search-api",
+			started: old},
 		{account: "APP", service: "labels", id: "L1", server: "S1", cid: 9, conn: "label-printer", started: old, silent: true},
 		{account: "PROD", service: "catalog", id: "C1", server: "S0", cid: 11, conn: "catalog-api", started: old, silent: true},
 	}
@@ -139,6 +144,15 @@ func microConfStore(t *testing.T, last time.Time) *mcFixture {
 			}
 			return 9
 		}},
+		// Idle from 4 hours to an hour before last, then slow: the slow
+		// run's span crosses the idle hours.
+		{service: "search", name: "query", subject: "search.query", rate: 1, idleFrom: last.Add(-4 * time.Hour), idleTo: last.Add(-time.Hour),
+			ms: func(t time.Time) float64 {
+				if t.After(last.Add(-time.Hour)) {
+					return 40
+				}
+				return 2
+			}},
 		{service: "pricing", name: "quote", subject: "pricing.quote", rate: 20, errors: 0.001, ms: func(time.Time) float64 { return 2.1 }},
 		{service: "inventory", name: "stock", subject: "inventory.stock.get", rate: 3, ms: func(time.Time) float64 { return 1.6 }},
 	}
@@ -232,6 +246,9 @@ func microConfStore(t *testing.T, last time.Time) *mcFixture {
 				}
 				dt := t0.Sub(c.at).Seconds()
 				n := ep.rate * dt
+				if !ep.idleFrom.IsZero() && t0.After(ep.idleFrom) && !t0.After(ep.idleTo) {
+					n = 0
+				}
 				c.req += n
 				c.errs += n * ep.errors
 				c.ns += n * ep.ms(t0) * 1e6
@@ -256,9 +273,11 @@ func microConfStore(t *testing.T, last time.Time) *mcFixture {
 				if ep.lastError != "" && ep.lastBy == in.id {
 					cols["last_error"] = ep.lastError
 				}
-				if in.id == "P4" && t0.Equal(in.from.Add(2*time.Minute)) {
+				if (in.service == "orders" && ep.name == "get" && t0.Equal(last.Add(-55*time.Minute))) ||
+					(in.id == "P4" && t0.Equal(in.from.Add(2*time.Minute))) {
 					// P4's first STATS came before INFO gave its endpoint a
-					// subject: still one series.
+					// subject, and both orders instances' get rows of the slow
+					// run's first collection lack theirs: still one series.
 					delete(cols, "subject")
 				}
 				r.add("micro_endpoints", cols)
