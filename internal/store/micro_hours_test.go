@@ -87,3 +87,25 @@ func TestMicroEndpointHoursSwept(t *testing.T) {
 	wantRows(t, "hours kept", rowStrings(t, s.DB(), `SELECT strftime(hour, '%H') FROM micro_endpoint_hours ORDER BY hour`),
 		[]string{"23", "00"})
 }
+
+// A new start time under the same instance ID is a new run although no
+// counter fell: its counters count whole, not as an increase over the old
+// run's. The Go framework gives every start a new ID; another
+// implementation, or a clock that moved, may keep one.
+func TestMicroEndpointHoursNewStartSameID(t *testing.T) {
+	s := openMem(t)
+	ctx := context.Background()
+	h := time.Date(2026, 10, 16, 22, 0, 0, 0, time.UTC)
+	old := h.Add(-24 * time.Hour)
+	for i, in := range []hourInstance{
+		{"A", old, 5, 0, 5 * time.Millisecond},
+		{"A", old, 6, 0, 6 * time.Millisecond},
+		{"A", h.Add(40 * time.Second), 8, 1, 9 * time.Millisecond},
+	} {
+		if _, err := s.WriteSnapshot(ctx, hourSnapshot(t, h.Add(time.Duration(i)*30*time.Second), in)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	wantRows(t, "micro_endpoint_hours", rowStrings(t, s.DB(), `SELECT requests, errors, processing_time_ns, epochs
+FROM micro_endpoint_hours`), []string{"9|1|10000000|3"})
+}

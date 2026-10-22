@@ -50,7 +50,7 @@ type exchanged struct {
 // that LastError lost to a later error. The quiet period starts only once
 // every instance in known has replied to each request of identity, so an
 // instance known to answer is waited for until deadline however late it
-// replies.
+// replies, unless a reply from an instance not in known comes first.
 func exchange(ctx context.Context, nc *nats.Conn, w *microWatch, reqs map[string]string, deadline time.Time,
 	quiet time.Duration, known map[instanceKey]bool, identity ...string) map[string]*exchanged {
 	out := make(map[string]*exchanged, len(reqs))
@@ -192,7 +192,15 @@ func exchange(ctx context.Context, nc *nats.Conn, w *microWatch, reqs map[string
 		if left := outstanding[tok]; left != nil {
 			var id micro.ServiceIdentity
 			if json.Unmarshal(msg.Data, &id) == nil {
-				delete(left, instanceKey{id.Name, id.ID})
+				k := instanceKey{id.Name, id.ID}
+				delete(left, k)
+				// An instance not known before is most often a restart
+				// whose old ID will not answer again: the request stops
+				// waiting for the known ones, so that the INFO it calls
+				// for has time.
+				if !known[k] {
+					clear(left)
+				}
 			}
 			if len(left) == 0 {
 				delete(outstanding, tok)

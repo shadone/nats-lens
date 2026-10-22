@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -12,7 +15,8 @@ import (
 )
 
 // A connection whose first dial failed is dialled by keep with backoff
-// until it opens.
+// until it opens, with one warning before the first dial and one per
+// failed dial, and no error lines.
 func TestKeepDialsAConnectionWhoseFirstDialFailed(t *testing.T) {
 	s, err := server.NewServer(&server.Options{Host: "127.0.0.1", Port: -1, NoLog: true, NoSigs: true})
 	if err != nil {
@@ -24,7 +28,8 @@ func TestKeepDialsAConnectionWhoseFirstDialFailed(t *testing.T) {
 		t.Fatal("server not ready")
 	}
 	var dials atomic.Int32
-	ec := &eventConn{label: "t", log: quietLog(),
+	var buf bytes.Buffer
+	ec := &eventConn{label: "t", log: slog.New(slog.NewTextHandler(&buf, nil)),
 		backoff: redialBackoff{first: 20 * time.Millisecond, max: 100 * time.Millisecond, reset: time.Second},
 		dial: func() (*nats.Conn, error) {
 			if dials.Add(1) <= 2 {
@@ -49,4 +54,9 @@ func TestKeepDialsAConnectionWhoseFirstDialFailed(t *testing.T) {
 		t.Fatalf("not dialled again after %d dials", dials.Load())
 	}
 	nc.Close()
+	out := buf.String()
+	if strings.Count(out, "connection not open; dialling") != 1 || strings.Count(out, "connection not opened; dialling again") != 1 ||
+		strings.Contains(out, "level=ERROR") || strings.Contains(out, "connection closed") {
+		t.Errorf("log:\n%s", out)
+	}
 }
