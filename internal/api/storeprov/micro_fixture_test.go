@@ -92,7 +92,8 @@ type mcFixture struct {
 // counters fell 7 minutes before last without a new start time; inventory (I1, I2),
 // whose I2 hung from 130 to 100 minutes before last, still subscribed,
 // and whose I1's stats were reset 7 minutes before last;
-// labels, subscribed and never answering. SUPPLIERS is asked and refused.
+// labels, subscribed and never answering. SUPPLIERS is asked and refused,
+// every other epoch, its requests held in between.
 // search (S1) is idle from 4 hours to an hour before last, then slow.
 // PROD is not asked: catalog, seen only. APP's requests an hour before
 // last timed out, its instances still subscribed.
@@ -200,8 +201,14 @@ func microConfStore(t *testing.T, last time.Time) *mcFixture {
 			}
 			r.add("micro_requests", map[string]any{"epoch": e, "label": "app", "account": "APP", "request": req, "state": state,
 				"replies": answered["APP"]})
-			r.add("micro_requests", map[string]any{"epoch": e, "label": "suppliers", "account": "SUPPLIERS", "request": req, "state": "error",
-				"replies": 0, "error": `nats: Permissions Violation for Publish to "$SRV.` + req + `"`})
+			// Refused every other epoch and held in between, for the 10
+			// minutes after the refusal.
+			sup := map[string]any{"epoch": e, "label": "suppliers", "account": "SUPPLIERS", "request": req, "state": "error",
+				"replies": 0, "error": `nats: Permissions Violation for Publish to "$SRV.` + req + `"`}
+			if (mcEpochs-e)%2 == 0 && e > 1 {
+				sup["state"], sup["refused_at"], sup["retry_after"] = "held", t0.Add(-mcStep), t0.Add(-mcStep).Add(10*time.Minute)
+			}
+			r.add("micro_requests", sup)
 		}
 		listed := map[int64]bool{}
 		for _, in := range insts {

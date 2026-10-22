@@ -187,8 +187,9 @@ func TestMicroServicesAskedFromStore(t *testing.T) {
 	}
 	if len(m.GetAccounts()) != 3 || m.GetAccounts()[0].GetAccount() != "APP" || m.GetAccounts()[0].GetStats().GetReplies() != 8 ||
 		m.GetAccounts()[0].GetInfo().GetState() != v1.MicroRequestState_MICRO_REQUEST_STATE_OK || m.GetAccounts()[1].GetAccount() != "PROD" ||
-		m.GetAccounts()[1].GetAsked() || m.GetAccounts()[2].GetStats().GetState() != v1.MicroRequestState_MICRO_REQUEST_STATE_ERROR ||
-		m.GetAccounts()[2].GetStats().GetError() == "" {
+		m.GetAccounts()[1].GetAsked() || m.GetAccounts()[2].GetStats().GetState() != v1.MicroRequestState_MICRO_REQUEST_STATE_HELD ||
+		m.GetAccounts()[2].GetStats().GetError() == "" || !m.GetAccounts()[2].GetStats().GetRefusedAt().AsTime().Equal(last.Add(-5*time.Minute)) ||
+		!m.GetAccounts()[2].GetStats().GetRetryAfter().AsTime().Equal(last.Add(5*time.Minute)) {
 		t.Errorf("accounts = %v", m.GetAccounts())
 	}
 

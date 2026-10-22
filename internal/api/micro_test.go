@@ -699,3 +699,26 @@ func TestFinishMicroAliasAfterAFailedRequest(t *testing.T) {
 		t.Errorf("service %v, accounts %v", s, res.GetAccounts())
 	}
 }
+
+// A held request (refused, not sent again yet) is not ok: the service says
+// no answer, no instance is judged missing, and the account's request
+// carries the refusal and its times.
+func TestFinishMicroHeldRequest(t *testing.T) {
+	refused, retry := microT0.Add(-5*time.Minute), microT0.Add(5*time.Minute)
+	f := &api.MicroFacts{Epoch: 2, EpochAt: microT0,
+		Accounts: []api.MicroAccountFact{{Account: "APP", Stats: api.MicroRequestFact{State: v1.MicroRequestState_MICRO_REQUEST_STATE_HELD, At: microT0,
+			Error: "permissions violation", RefusedAt: &refused, RetryAfter: &retry}}},
+		Gone: []api.MicroGoneFact{{Account: "APP", Service: "orders", ID: "O1", LastSeen: microT0.Add(-10 * time.Minute), Since: refused,
+			InstancesThen: 2, Absent: 2}},
+	}
+	res := api.FinishMicro(f, "")
+	s := findService(res, "APP", "orders")
+	if s == nil || s.GetNote() != v1.MicroNote_MICRO_NOTE_NO_ANSWER || len(s.GetMissing()) != 0 {
+		t.Errorf("held: %v", s)
+	}
+	st := res.GetAccounts()[0].GetStats()
+	if st.GetState() != v1.MicroRequestState_MICRO_REQUEST_STATE_HELD || st.GetError() != "permissions violation" ||
+		!st.GetRefusedAt().AsTime().Equal(refused) || !st.GetRetryAfter().AsTime().Equal(retry) {
+		t.Errorf("held request %v", st)
+	}
+}

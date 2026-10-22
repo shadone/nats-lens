@@ -35,6 +35,10 @@ enum MicroRequestState {
   // The request failed, a permissions violation among others; error says
   // why.
   MICRO_REQUEST_STATE_ERROR = 4;
+  // Not sent: the server refused it within the last 10 minutes on this
+  // connection, and nats-lens waits before asking again. error is the
+  // refusal as received; refused_at and retry_after say when.
+  MICRO_REQUEST_STATE_HELD = 5;
 }
 
 // One $SRV request to an account.
@@ -42,15 +46,21 @@ message MicroRequest {
   // How it ended; unspecified when not asked.
   MicroRequestState state = 1;
 
-  // When the epoch that asked it started; unset when not asked.
+  // When the epoch that asked it (or held it) started; unset when not
+  // asked.
   google.protobuf.Timestamp at = 2;
 
   // Replies gathered: one per service instance.
   int32 replies = 3;
 
-  // Why it failed, as the client or server said; empty unless the state
-  // is error.
+  // Why it failed, as the client or server said; for held, the server's
+  // refusal that holds it. Empty for the other states.
   string error = 4;
+
+  // For held: when the server refused the request, and from when it is
+  // sent again. Unset for the other states.
+  google.protobuf.Timestamp refused_at = 5;
+  google.protobuf.Timestamp retry_after = 6;
 }
 
 // An account in the page's scope: one with a service, or one nats-lens
