@@ -21,6 +21,7 @@ nats-lens observes a NATS deployment: a Go collector takes snapshots and capture
 - `make build`: the web UI, then `bin/natslens` with it embedded.
 - `go test ./...` (`go test -short ./...` skips the in-process cluster tests); `go vet ./...`.
 - `cd web && npx tsc --noEmit && npm test`.
+- `TestReviewShellClientDeadline`, `TestRunTakesEpochsUntilCancelled` and `TestGoneAccountIsNotRecordedMissing` fail under machine load; rerun one alone before treating it as a failure.
 - `natslens demo`: the API and UI with a fixed scenario on 127.0.0.1:8080, without NATS.
 - `make dev-cluster`, `make load`, `make run-dev`: a local cluster, assets and traffic, and the collector against it.
 
@@ -29,6 +30,7 @@ nats-lens observes a NATS deployment: a Go collector takes snapshots and capture
 - Never mention a company, its services, clusters, hosts or incidents, or any private deployment in this repository. Examples use the online shop of `inventory.example.yaml` and `example.com`. Deployment configuration lives outside the repository; site-specific advice goes into a `checks.remediation_file`.
 - Migrations in `internal/store/migrations/` are append-only: never edit one that has been applied anywhere; the `migrations` table holds each file's checksum and natslens refuses to start on a mismatch. A new NOT NULL column on an archived table needs a default.
 - Proto changes take new field numbers; never reuse or renumber one. Run `make proto` and commit the generated code.
+- A `time.Time` passed to DuckDB is shifted by the session time zone, which follows the host's, wherever DuckDB cannot type it from a TIMESTAMP column: in arithmetic (`? - INTERVAL 1 HOUR`), as a function argument (`date_trunc('hour', ?)`), or in a subquery's or CTE's select list. Compare a column with the parameter directly (`col >= ?`), or pass Unix microseconds and build the time with `make_timestamp(?::BIGINT)`; test such a query with a non-UTC `TZ`.
 - Every check has a test in `internal/checks` with one entity that fails and one that does not.
 - Every user-facing change updates `docs/features/`: the capability doc and both sections of `docs/features/README.md` (the capabilities table and the coverage map). Then run the feature-docs skill's audit, `python3 <skill>/scripts/audit_feature_docs.py docs/features/ --map-refs require`; its `bad-status` warnings on `Status: planned` docs are expected, every other finding is fixed.
 
