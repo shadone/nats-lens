@@ -8,7 +8,7 @@ The board's sample services (`orders`, `pricing`, `inventory`) fit the example s
 
 | Task | Status |
 |---|---|
-| T1 Collect micro service replies | built on `feat/micro-collect`; fix round 1 done, awaiting its review |
+| T1 Collect micro service replies | built on `feat/micro-collect`; fix rounds 1 and 2 done, awaiting review |
 | T2 API, store and demo | not started |
 | T3 UI | not started |
 | T4 Feature docs and audit | not started |
@@ -79,8 +79,15 @@ Each point was decided in the session that built T1: proposed, not yet confirmed
   - A request waits for every instance that answered the account's last answered STATS before its quiet period starts, within the window. An instance that stopped makes the next epoch wait the whole window once. An instance never seen that answers more than 250 ms after the others is still missed until it once answers in time.
   - The micro requests start with the epoch, alongside discovery: a first epoch, whose discovery waits its whole window, took a window plus the quiet period before.
   - `micro_endpoints.data` keeps at most 1 KB; more is stored as `{"truncated": true, "bytes": n}`.
-  - A fifth table, `micro_endpoint_hours` (`hour`, `account`, `service`, `endpoint`, `requests`, `errors`, `processing_time_ns`, `epochs`, unique on the first four), for T2's 7-day level. Each epoch's write adds the increase of each STATS row over the instance's previous row within the hour before to the epoch's hour; a counter that fell or a new `started` counts whole, and an instance's first row counts its value only when it started after the previous epoch, so a service seen for the first time adds no history. Filled at write time rather than by the runner, so it is in the same transaction as its rows and an hour's rows are whole by the hour's final export; archived by hour, swept with the hours wholly before the window. At 7 days of 100 instances × 20 endpoints the median of hourly averages reads in 1 ms from it against 159 ms from `micro_endpoints` (2 ms with 50 services), adding one epoch's sums takes 18 ms, and `micro_endpoints` takes about 9 bytes a row on disk (`TestMicroSizeAtScale`, `MICRO_SIZE_DAYS=7`). Migration 0033 was changed in place, as it was applied nowhere outside this branch.
+  - A fifth table, `micro_endpoint_hours` (`hour`, `account`, `service`, `endpoint`, `requests`, `errors`, `processing_time_ns`, `epochs`, unique on the first four), for T2's 7-day level. Each epoch's write adds the increase of each STATS row over the instance's previous row within the hour before to the epoch's hour; a counter that fell or a new `started` counts whole, and an instance's first row counts its value only when it started after the previous epoch, so a service seen for the first time adds no history. Filled at write time rather than by the runner, so it is in the same transaction as its rows and an hour's rows are whole by the hour's final export; archived by hour, swept with the hours wholly before the window. At 7 days of 100 instances × 20 endpoints the median of hourly averages reads in 1 ms from it against 159 ms from `micro_endpoints` (2 ms with 50 services), adding one epoch's sums takes about 20 ms, and `micro_endpoints` takes about 9 bytes a row on disk (`TestMicroSizeAtScale`, `MICRO_SIZE_DAYS=7`). Migration 0033 was changed in place, as it was applied nowhere outside this branch.
   - A refused account lookup is asked again after 10 minutes instead of never; the collector forgets labels no longer configured.
+- **Fix round 2 (review of fix round 1).**
+  - A request stops waiting for the known instances once an instance it did not know replies: after a restart, STATS waited the whole window for the old ID and the INFO for the new one failed with "no time left to flush".
+  - One set of answers per account and epoch. Each label remembers the account its answers were last kept under, the label itself when its lookup is refused, so a refused label `APP` and an entry that resolves to `APP` are one account; the first label asked over a connection is kept. The hourly sums take an instance's rows once per epoch as a guard (an instance stored twice was counted four times).
+  - The instances a request waits for are kept per account, not per label, so a label standing in for another waits for the instances that answered under it.
+  - `keep` logs one warning per dial ("connection not open; dialling" for a connection that never opened, then one per failed dial with its error and the next wait) instead of a warning and an error each time.
+  - A label that asks for itself again after another asked for it is logged once.
+  - The new-start rule with an unchanged instance ID has a test: the Go framework gives every start a new ID, another implementation or a moved clock may not.
 
 ## T2 API, store and demo
 
@@ -113,3 +120,5 @@ Each point was decided in the session that built T1: proposed, not yet confirmed
 Recorded as they come up; moved to `docs/plans/next.md` item 5 when the work merges.
 
 - Endpoint metadata and the service's custom stats (`data` in STATS replies) are stored but not shown.
+- With event capture on, an account connection that cannot connect still fails the system's setup (retried with backoff), so one bad entry under `accounts` stops collection; with capture off collection goes on. Whether the capture should keep going without that account is open.
+- A new instance whose first STATS reply comes in a later epoch than its start loses its activity before that reply in `micro_endpoint_hours`.
