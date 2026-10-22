@@ -9,7 +9,7 @@ The board's sample services (`orders`, `pricing`, `inventory`) fit the example s
 | Task | Status |
 |---|---|
 | T1 Collect micro service replies | built on `feat/micro-collect`, awaiting review |
-| T2 API, store and demo | in progress on `feat/micro-api` (with `feat/micro-collect` merged in): the API, the shared rules, the demo and the store's seen level done; the store's asked level in progress |
+| T2 API, store and demo | built on `feat/micro-api` (with `feat/micro-collect` merged in before T1's fix round), awaiting review; the level moves to T1's hourly rollup once it lands |
 | T3 UI | not started |
 | T4 Feature docs and audit | not started |
 
@@ -100,7 +100,10 @@ Each point was decided in the session that built T2 and is proposed, not yet con
 - **Service order.** A note warns for instance missing, mixed versions, slow endpoint, errors and no answer; those first, then the system account's last, then by requests per second (unset last), name and account.
 - **The seen level in the store.** An instance last held on a server whose list in the newest collection was cut at the limit or did not come is not missing: its absence there says nothing. An instance on a connection CONNZ does not list still counts, without a connection name.
 - **The demo.** The instances run on existing client connections of `eu` servers: `orders` on `order-service`, `pricing` on `checkout-service` (no client is named for pricing), `inventory` on `inventory-service`, so the Connections and Accounts pages keep their counts. A `pricing` instance restarts in place at 14:21 on the same connection; an `inventory` instance hangs from 10:05 to 10:47, still subscribed. `SUPPLIERS` is asked and refused (a permissions violation), for "asked but no answer". `example-prod` runs `catalog` (on `catalog-api`) and `ledger` (on `ledger-service`), seen only. Every instance's nine `$SRV` subscriptions and its endpoints' subjects in queue group `q` are rows of the Subjects page.
-- **Conformance.** The Micro services rows are a table of their own (`apitest.MicroConformance`), run over the demo; they join the shared table once the store reads the `$SRV` replies.
+- **Conformance.** The Micro services rows are part of the shared table; the store runs them over a system of its own (`micro`, 26 hours of 5-minute epochs), as the demo has none with 7 days of history to spare.
+- **The store's asked level.** Every rule runs in SQL and Go reads one row per instance and per endpoint. The level groups each instance's reports by hour first (an hour's increase is its last report less the last report before it), so 7 days are grouped, not walked; the per-collection averages for the slow run's start are read only for endpoints that are slow. `TestMicroServicesAskedFollowTheRules` holds the SQL to api's Go rules over the same reports at seven page ends, with a restart under a new ID, a reset under the same ID, a hang and an earlier slow spell. The level still reads raw `micro_endpoints`; T1's review asks for an hourly rollup table (`micro_endpoint_hours` or similar), and `microLevels` should read it once it lands.
+- **Labels for accounts.** When the account lookup is refused, T1 records the configured label, which in operator mode is not the key the subscription collection names. `FinishMicro` reads an asked account none of whose services is seen under it, and whose answered instances are all seen under one other account, as that account, so a service is listed once.
+- **The merge.** `feat/micro-collect` was merged into `feat/micro-api` before T1's fix round was announced; that round's changes (the rollup table, one ask per account for two labels) still need merging, and the level query moving to the rollup.
 
 ## T3 UI
 
