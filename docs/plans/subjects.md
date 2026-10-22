@@ -8,9 +8,9 @@ The board's sample names come from a sketch of a real deployment. Use the exampl
 
 | Task | Status |
 |---|---|
-| T1 Collect subscription lists | built on `feat/subjects-collect`, awaiting review |
-| T2 API, store and demo | built on `feat/subjects-api` (with `feat/subjects-collect` merged in), awaiting review |
-| T3 UI | built on `feat/subjects-ui` (from `feat/subjects-api`), with T2's review round 3 merged; review rounds 1 to 3 fixed, awaiting review |
+| T1 Collect subscription lists | done on `feat/subjects-collect`, reviewed, and in the final review of the whole branch |
+| T2 API, store and demo | done on `feat/subjects-api` (with `feat/subjects-collect` merged in), reviewed in three rounds, and in the final review; its fixes below |
+| T3 UI | done on `feat/subjects-ui` (from `feat/subjects-api`, merged in up to its last round), reviewed in three rounds, and the final review's fixes below |
 | T4 Feature docs and audit | done on `feat/subjects-ui`: `subjects.md` shipped, the index, adjacent docs and `docs/plans/next.md`; audit clean |
 
 ## Rules for every step
@@ -136,6 +136,13 @@ Each point was decided in the session that built T3 and is proposed, not yet con
 - **The table's cells.** A row that is not a stream's (subscription, inbox, JetStream API) has a dash heard as "no stored rate" in Stored msgs/s; a stream without a known rate keeps "not observed". A pattern is plain text that can break at any character (`overflow-wrap:anywhere`), so a long token never overflows its column and a screen reader reads it as one subject; breaking only between tokens was tried in round 1 and dropped in round 2, as a long token overflowed and Chrome read the tokens with spaces between them. The column has room for short patterns: at 760 px or less the sticky column is a fixed 176 px (about 18 to 20 characters of the 13 px mono; the demo's patterns up to 20 characters stay whole, the 21- and 24-character ones wrap, at a hyphen where there is one); above 760 px it is at least 240 px (about 28 characters), and a longer pattern breaks inside the column instead of widening the table, as the round 2 `nowrap` rule did at 761 px, where the card is about 470 px wide. The trade-off: a pattern longer than the column breaks mid-word on a phone (decided in the session, proposed, not yet confirmed). A connection or queue group name is an inline box (`.sj-name`) that keeps the name, with its brackets, comma and "+N" (formatted as `1,201`), on one line unless it is wider than its box, in the table and the card; a plain `white-space:nowrap` would overflow a chip at phone width.
 - **Pills without a collection** show no counts.
 - **Pills.** The app's filter chips (as on Placement) rather than the board's round pills; the filter is `?filter=stored|no-consumer|overlapping|wide`.
+
+### Where the final review changed the plan
+
+Each point was decided in the session that fixed the final review's findings and is proposed, not yet confirmed.
+
+- **Overlap without comparing every pair.** `api.FinishSubjects` compared every pair of an account's streams in Go after the provider's query, outside its timeout: 10,000 streams took 11 seconds. `overlapsOf` now splits an account's subjects by their first token, compares those with a wildcard there (or no token left) with all the others, and splits each group of one literal token again by the next token, as two subjects overlap only when each token is equal or a wildcard on one side; each pair of streams is compared once. 10,000 streams take about 10 ms (`TestSubjectsOverlapManyStreams`, bound 200 ms), and a test holds the result to the plain pairwise rule on random mixes of literals, wildcards, KV-like names, mirrors and two accounts (`TestSubjectsOverlapMatchesPairwise`). KV buckets and object stores are not skipped by kind: the kind comes from the stream's name, and a stream named `KV_x` may hold any subjects; the token split already keeps `$KV.a.>` and `$KV.b.>` apart.
+- **At most 20 subjects per stream row.** `SubjectRow.more_patterns` (field 24) counts the rest, and the table shows "+N more" under the first 20; the tester reads every subject. 1,000 rows of streams with 30 subjects of about 35 bytes made a response of 1.08 MB, over the 1 MiB `MaxMessageBytes`; capped, it is 0.74 MB (`TestSubjectsResponseWithinSizeLimit`). The cap bounds the count, not the bytes: rows of 20 subjects of 255 bytes would still pass the limit; a byte budget per response would close that (in `docs/plans/next.md`).
 
 ## T4 Feature docs and audit
 
