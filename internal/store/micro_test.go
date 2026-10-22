@@ -267,7 +267,7 @@ func TestMigrationsFrom32OnAPopulatedDatabase(t *testing.T) {
 		t.Fatalf("new tables hold %d rows, %v", n, err)
 	}
 	for _, q := range []string{
-		`INSERT INTO micro_requests VALUES (1, 'APP', 'APP', 'STATS', 'ok', 1, NULL)`,
+		`INSERT INTO micro_requests VALUES (1, 'APP', 'APP', 'STATS', 'ok', 1, NULL, NULL, NULL)`,
 		`INSERT INTO micro_instances VALUES (1, 'APP', 'orders', 'ORD1', '1.4.2', NULL, NULL, '[]')`,
 		`INSERT INTO micro_stats VALUES (1, 'APP', 'orders', 'ORD1', '1.4.2', NULL)`,
 		`INSERT INTO micro_endpoints VALUES (1, 'APP', 'orders', 'ORD1', 'get', 'orders.get.*', 'q', 1, 0, 5, 5, NULL, NULL)`,
@@ -276,7 +276,7 @@ func TestMigrationsFrom32OnAPopulatedDatabase(t *testing.T) {
 			t.Fatalf("%s: %v", q, err)
 		}
 	}
-	if _, err := db.Exec(`INSERT INTO micro_requests VALUES (1, 'APP', 'APP', 'STATS', 'timeout', 0, NULL)`); err == nil {
+	if _, err := db.Exec(`INSERT INTO micro_requests VALUES (1, 'APP', 'APP', 'STATS', 'timeout', 0, NULL, NULL, NULL)`); err == nil {
 		t.Error("a second STATS row for one label and epoch was accepted")
 	}
 }
