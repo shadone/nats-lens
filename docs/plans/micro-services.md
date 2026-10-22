@@ -98,6 +98,10 @@ Each point was decided in the session that built T1: proposed, not yet confirmed
   - The cap on the wait for known instances is never later than a quarter of the window (at least the quiet period) before its end: a new instance replying late, with a stopped known one, left its INFO no time.
   - Endpoint rows are paired by name alone when either has no subject, so an endpoint whose subject first appears keeps its increase. Two endpoints of one name without subjects stay a known limit (a skipped test records it).
   - The costs of the three-miss rule are measured and in `docs/design.md` and the leftovers.
+- **Final fix round (broad review).**
+  - Refusals are compared by what was refused (publish to `$SRV.INFO` or `$SRV.STATS`, subscription to a reply inbox), not by the text, which names each epoch's inbox: a user without `_INBOX.>` was warned about every epoch.
+  - A refused request is held for 10 minutes per label, as nats-server logs every refused publish (about 2,880 lines a day per account at 30 seconds). `micro_requests` keeps its shape: a held request still has its row every epoch, state `error`, the refusal's text with "(not sent: refused at <time>, asked again after <time>)" appended; `replies` is 0. So an `error` row no longer always means a request was sent; T2 reads the latest row and shows the text as it does. On an upgrade the accounts already listed are asked by default; the docs say so and that `micro: false` stops it.
+  - The hourly sums pair a row with the newest previous row it may pair with: a subject that went from set to missing and back counted an increase twice.
 
 ## T2 API, store and demo
 
