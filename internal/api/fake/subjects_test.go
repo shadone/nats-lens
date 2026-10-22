@@ -314,3 +314,21 @@ func TestGlobalOrderEventsDetails(t *testing.T) {
 			m.GetLastSeq(), m.GetMessages())
 	}
 }
+
+// The consumers of order-events and order-archive read positions inside
+// their stream's sequences: delivered at the stream's last sequence, the
+// ack floor below it by the acks pending.
+func TestGlobalOrderConsumerSequences(t *testing.T) {
+	c := demo(t)
+	for _, x := range [][2]string{{"order-events", "order-projector"}, {"order-events", "invoice-renderer"}, {"order-archive", "archive-exporter"}} {
+		s := must(c.GetStream(ctx, connect.NewRequest(&v1.GetStreamRequest{System: fake.GlobalSystem, Account: fake.Account, Stream: x[0]})))
+		d := must(c.GetConsumer(ctx, connect.NewRequest(&v1.GetConsumerRequest{System: fake.GlobalSystem, Account: fake.Account, Stream: x[0], Consumer: x[1]})))
+		sv := s.GetServers()[0]
+		for _, v := range d.GetServers() {
+			if v.GetDeliveredStreamSeq() != sv.GetLastSeq() || v.GetAckFloorStreamSeq() > v.GetDeliveredStreamSeq() || v.GetAckFloorStreamSeq() < sv.GetFirstSeq()-1 {
+				t.Errorf("%s/%s on %s: stream %d..%d, delivered %d, ack floor %d", x[0], x[1], v.GetServer(), sv.GetFirstSeq(), sv.GetLastSeq(),
+					v.GetDeliveredStreamSeq(), v.GetAckFloorStreamSeq())
+			}
+		}
+	}
+}
