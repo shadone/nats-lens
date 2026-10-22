@@ -3,6 +3,7 @@
 // inboxes and per account's JetStream API, rows with a warning first.
 import { Fragment } from "react";
 import type { SubjectRow, Subjects } from "../api/subjects";
+import { fmtInt } from "../lib/format";
 import { cutText, isStored, note, rateText, subscribers } from "../lib/subjectsView";
 import { accountLabeller, streamPath } from "../lib/view";
 import { AccountName } from "./AccountName";
@@ -31,19 +32,18 @@ export function Names({ names, more }: { names: string[]; more: number }) {
   return (
     <span className="sj-names">
       {" "}
-      {names.length === 0 && `(+${more})`}
+      {names.length === 0 && `(+${fmtInt(more)})`}
       {names.map((n, i) => (
         <Fragment key={n}>
           {i > 0 && " "}
-          {/* A name breaks only when it is wider than its box; its brackets and comma stay with it. */}
+          {/* A name breaks only when it is wider than its box; its brackets, comma and "+N" stay with it. */}
           <span className="sj-name">
             {i === 0 && "("}
             <RLink to={connectionPath(n)}>{n}</RLink>
-            {i < last ? "," : more > 0 ? "" : ")"}
+            {i < last ? "," : more > 0 ? ` +${fmtInt(more)})` : ")"}
           </span>
         </Fragment>
       ))}
-      {names.length > 0 && more > 0 && ` +${more})`}
     </span>
   );
 }

@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as requests from "../api/requests";
 import type { SubjectMatches } from "../api/subjects";
-import { coreMatch, global, matches, noCollection, published, row, streamMatch } from "../test/fixtures/subjects";
+import { coreMatch, global, matches, noCollection, published, row, streamMatch, sub } from "../test/fixtures/subjects";
 import { renderApp } from "../test/render";
 import { Subjects } from "./Subjects";
 
@@ -144,12 +144,24 @@ describe("Subjects", () => {
     expect(within(rowOf("orders.place")).getByText("order-service", { selector: ".sj-name" })).toBeInTheDocument();
   });
 
+  it("counts connections without a name as (+N), and keeps a formatted +N in the last name's box", async () => {
+    getSubjects.mockResolvedValue({
+      ...global(),
+      rows: [sub("a.b", { connections: 4, names: [], moreNames: 4 }), sub("c.d", { connections: 1202, names: ["api-gateway"], moreNames: 1201 })],
+    });
+    renderApp(<Subjects />, "/subjects");
+    await screen.findByRole("region", { name: "Subject patterns" });
+    expect(cells("a.b")[2]).toBe("4 connections (+4)");
+    expect(cells("c.d")[2]).toBe("1,202 connections (api-gateway +1,201)");
+    expect([...rowOf("c.d").querySelectorAll(".sj-name")].map((n) => n.textContent)).toEqual(["(api-gateway +1,201)"]);
+  });
+
   it("keeps each connection name with its comma in a box of its own", async () => {
     getSubjects.mockResolvedValue(global());
     renderApp(<Subjects />, "/subjects");
     await screen.findByRole("region", { name: "Subject patterns" });
     const names = [...rowOf("$KV.feature-flags.>").querySelectorAll(".sj-names .sj-name")].map((n) => n.textContent);
-    expect(names).toEqual(["(api-gateway,", "checkout-service,", "order-service"]);
+    expect(names).toEqual(["(api-gateway,", "checkout-service,", "order-service +1)"]);
     expect(within(rowOf("orders.place")).getByText((_, el) => el?.className === "sj-name" && el.textContent === "(order-service)")).toBeInTheDocument();
   });
 
