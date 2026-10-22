@@ -318,10 +318,17 @@ func subjectsRows() []State {
 			}
 			return ""
 		}},
-		{"the Subjects tester groups an answer without a scope by account, each with something that matches, in every system", everySystem(func(q Q) string {
+		{"the Subjects tester groups an answer without a scope by account, each with something that matches, its streams of their kind, in every system", everySystem(func(q Q) string {
 			n := 0
-			for _, r := range q.subjects("", 0).GetRows() {
-				if r.GetKind() != v1.SubjectRowKind_SUBJECT_ROW_KIND_STREAM || len(r.GetPatterns()) == 0 {
+			rows := q.subjects("", 0).GetRows()
+			kinds := map[string]v1.SubjectRowKind{}
+			for _, r := range rows {
+				if r.GetStream() != "" {
+					kinds[r.GetAccount()+"/"+r.GetStream()] = r.GetKind()
+				}
+			}
+			for _, r := range rows {
+				if !storedRow(r) || len(r.GetPatterns()) == 0 {
 					continue
 				}
 				res := q.match("", literalOf(r.GetPatterns()[0]))
@@ -333,8 +340,8 @@ func subjectsRows() []State {
 					}
 					seen[a.GetAccount()] = true
 					for _, m := range a.GetMatches() {
-						if m.GetAccount() != a.GetAccount() {
-							q.t.Errorf("%s: %s's group holds %s", q.System, a.GetAccount(), m.GetAccount())
+						if k, ok := kinds[a.GetAccount()+"/"+m.GetStream()]; !ok || k != m.GetKind() {
+							q.t.Errorf("%s: %s's group holds %s of kind %v, the page has %v", q.System, a.GetAccount(), m.GetStream(), m.GetKind(), k)
 						}
 					}
 					if i > 0 && res.GetAccounts()[i-1].GetSystemAccount() {

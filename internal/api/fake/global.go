@@ -130,7 +130,9 @@ func globalScenario() *scenario {
 		servers: globalServers(),
 		streams: []streamSpec{
 			{name: "order-jobs", msgs: 182044, bytes: 230 * mib, perDay: 9 * mib, maxAge: 7 * day, maxMsgs: 1_000_000, consumers: []string{"resize-worker", "index-worker"}, peers: peers("eu-0", "eu-1", "eu-2")},
-			{name: "order-events", msgs: 9204411, bytes: 11.2 * gib, perDay: 310 * mib, maxAge: 30 * day, maxBytes: 64 * gib,
+			// It stores what its mirror order-archive grows by: 1.1 GiB a
+			// day of messages of about 900 bytes, 15.2 a second.
+			{name: "order-events", msgs: 9204411, bytes: 11.2 * gib, perDay: 310 * mib, maxAge: 30 * day, maxBytes: 64 * gib, storedRate: ptr(15.2),
 				consumers: []string{"order-projector", "email-sender", "analytics-aggregator", "invoice-renderer"}, peers: peers("eu-3", "eu-4", "eu-5")},
 			{name: "payment-events", msgs: 2210980, bytes: 2.6 * gib, perDay: 74 * mib, maxAge: 90 * day, held: 40 * day, consumers: []string{"ledger-writer", "fraud-scorer"}, peers: peers("eu-1", "eu-6", "eu-7")},
 			{name: "cart-events", msgs: 4120330, bytes: 1.9 * gib, perDay: 120 * mib, retention: "interest", maxAge: 14 * day, held: 3 * day, consumers: []string{"cart-abandon-notifier"}, peers: peers("eu-2", "eu-5", "eu-8")},

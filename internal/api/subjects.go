@@ -636,7 +636,7 @@ func FinishMatch(f *MatchFacts, account, subject string) *v1.MatchSubjectRespons
 			continue
 		}
 		key := [2]string{s.Account, s.Stream}
-		m := &v1.SubjectMatch{Account: s.Account, Stream: s.Stream, Pattern: s.Subjects[i], Mirrors: links.mirroredBy[key],
+		m := &v1.SubjectMatch{Stream: s.Stream, Kind: SubjectKind(s.Stream), Pattern: s.Subjects[i], Mirrors: links.mirroredBy[key],
 			SourcedBy: links.sourcedInto[key]}
 		for _, c := range s.Consumers {
 			if len(c.Filters) > 0 && !slices.ContainsFunc(c.Filters, func(p string) bool { return SubjectMatches(subject, p) }) {
@@ -659,7 +659,7 @@ func FinishMatch(f *MatchFacts, account, subject string) *v1.MatchSubjectRespons
 			if !reaches(cg.Account) || !SubjectMatches(subject, cg.Subject) {
 				continue
 			}
-			c := &v1.CoreMatch{Account: cg.Account, Subject: cg.Subject, Queue: cg.Queue, Connections: cg.Connections}
+			c := &v1.CoreMatch{Subject: cg.Subject, Queue: cg.Queue, Connections: cg.Connections}
 			c.ClientNames, c.MoreNames = cutNames(cg.Names, cg.NameCount)
 			g := group(cg.Account)
 			g.Subscribers = append(g.Subscribers, c)
