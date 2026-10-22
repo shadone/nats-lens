@@ -19,6 +19,9 @@ import { useTimeRange } from "../lib/useTimeRange";
 /** How long the subject field stays still before it is looked up. */
 export const SUBJECT_DEBOUNCE_MS = 300;
 
+/** The subject a link puts in the tester's field. */
+export const SUBJECT_PARAM = "subject";
+
 function FilterChip({ label, n, on, onClick }: { label: string; n?: number; on: boolean; onClick: () => void }) {
   return (
     <button type="button" className={`chip facet${on ? " on" : ""}`} aria-pressed={on} aria-label={n === undefined ? label : `${label} ${n}`} onClick={onClick}>
@@ -37,7 +40,22 @@ export function Subjects() {
   const q = useSubjects(spec, account, filter);
   const d = q.data;
 
-  const [typed, setTyped] = useState("");
+  // A link may fill the field once (?subject=, as the Micro services page
+  // links an endpoint); typing drops the parameter, so the address never
+  // names a subject the field no longer holds.
+  const [typed, setTypedState] = useState(() => params.get(SUBJECT_PARAM) ?? "");
+  const setTyped = (v: string) => {
+    setTypedState(v);
+    if (params.has(SUBJECT_PARAM))
+      setParams(
+        (p) => {
+          const n = new URLSearchParams(p);
+          n.delete(SUBJECT_PARAM);
+          return n;
+        },
+        { replace: true },
+      );
+  };
   const subject = typed.trim();
   const asked = useDebounced(subject, SUBJECT_DEBOUNCE_MS);
   const mq = useMatchSubject(spec, account, asked);
