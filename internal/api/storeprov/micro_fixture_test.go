@@ -127,6 +127,9 @@ func microConfStore(t *testing.T, last time.Time) *mcFixture {
 		}},
 		{service: "orders", name: "create", subject: "orders.create", rate: 2, errors: 0.01, lastError: "409 duplicate order id", lastBy: "O2",
 			ms: func(t time.Time) float64 { return 3 + 0.2*float64(t.Hour()%3) }},
+		// A second create endpoint on another subject: a series of its own
+		// within the endpoint.
+		{service: "orders", name: "create", subject: "orders.create.v2", rate: 1, ms: func(time.Time) float64 { return 9 }},
 		{service: "pricing", name: "quote", subject: "pricing.quote", rate: 20, errors: 0.001, ms: func(time.Time) float64 { return 2.1 }},
 		{service: "inventory", name: "stock", subject: "inventory.stock.get", rate: 3, ms: func(time.Time) float64 { return 1.6 }},
 	}
@@ -201,7 +204,7 @@ func microConfStore(t *testing.T, last time.Time) *mcFixture {
 				if ep.service != in.service || !in.runs(t0) || t0.Before(in.started) {
 					continue
 				}
-				k := in.id + "/" + ep.name
+				k := in.id + "/" + ep.name + "/" + ep.subject
 				c := acc[k]
 				if c == nil {
 					c = &counters{at: in.started}
@@ -231,7 +234,7 @@ func microConfStore(t *testing.T, last time.Time) *mcFixture {
 				if ep.service != in.service {
 					continue
 				}
-				c := acc[in.id+"/"+ep.name]
+				c := acc[in.id+"/"+ep.name+"/"+ep.subject]
 				req, errs, ns := int64(math.Floor(c.req)), int64(math.Floor(c.errs)), int64(math.Floor(c.ns))
 				cols := map[string]any{"epoch": e, "account": in.account, "service": in.service, "instance_id": in.id, "endpoint": ep.name,
 					"subject": ep.subject, "queue_group": "q", "num_requests": req, "num_errors": errs, "processing_time_ns": ns,
@@ -241,7 +244,8 @@ func microConfStore(t *testing.T, last time.Time) *mcFixture {
 				}
 				r.add("micro_endpoints", cols)
 				k := in.service + "/" + ep.name
-				f.reports[k] = append(f.reports[k], api.MicroReport{Instance: in.id, Started: in.startedAt(t0), At: t0, Requests: req, Errors: errs,
+				// One series per instance and subject.
+				f.reports[k] = append(f.reports[k], api.MicroReport{Instance: in.id + "|" + ep.subject, Started: in.startedAt(t0), At: t0, Requests: req, Errors: errs,
 					ProcessingNs: ns})
 			}
 		}
