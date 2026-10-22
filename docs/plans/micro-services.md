@@ -10,7 +10,7 @@ The board's sample services (`orders`, `pricing`, `inventory`) fit the example s
 |---|---|
 | T1 Collect micro service replies | built on `feat/micro-collect`; fix rounds 1 to 3 done, awaiting review |
 | T2 API, store and demo | built on `feat/micro-api` (with `feat/micro-collect` merged in, up to T1's fix round 3); fix round 1 done, awaiting its review |
-| T3 UI | built on `feat/micro-ui` (from `feat/micro-api` at 6b80bd0, merged again at e05f3b6 after T2's fix round 1); review round 1 fixed, awaiting its review |
+| T3 UI | built on `feat/micro-ui` (from `feat/micro-api` at 6b80bd0, merged again at e05f3b6 after T2's fix round 1 and checked against it); review round 1 fixed, awaiting its review |
 | T4 Feature docs and audit | not started |
 
 ## Rules for every step
@@ -163,6 +163,7 @@ Each point was decided in the session that built T3: proposed, not yet confirmed
 - **Account names and long words.** An account the response leaves unnamed takes its name from the header's account list (T2's fix round fills `account_name` everywhere; the fallback stays for an account named nowhere else). Text breaks a word only when it is wider than its box (`overflow-wrap:break-word`, with `min-width:0` on the empty state's text), so an unnamed 56-character account key or a long service name never widens the page at 390 px and names break at hyphens where they can; the review asked for `anywhere` on keys only, which needs each key in an element of its own, and `break-word` on the sentence has the same effect on a key while leaving other words whole.
 - **The configuration key** `accounts` is set in mono in the notes, the footnote and the empty state (backticks in `lib/microView.ts`, shown by `components/Ticks.tsx`). The grants are worded once: the card's no-answer reason, the endpoint section and the notice say "the account's user needs to publish on $SRV.INFO and $SRV.STATS and subscribe on _INBOX.>".
 - **`?subject=` on Subjects** is read whenever it changes, not only when the page opens.
+- **After T2's fix round 1.** A service of an asked account whose STATS request was not ok shows the instances that last answered within the hour; its Instances heading reads "Instances that last answered within the hour before this collection". Several missing instances still read "N instances missing since" the earliest of them; the slow start and level need no change in words.
 
 ## T4 Feature docs and audit
 
