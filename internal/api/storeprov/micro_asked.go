@@ -199,13 +199,15 @@ func microKey(account, service, endpoint string) string {
 	return account + "\x00" + service + "\x00" + endpoint
 }
 
-// microEndpoints reads the endpoints the epoch's STATS reported: subject
-// and queue group (the first any instance gave) and the first last error
+// microEndpoints reads the endpoints the epoch's STATS reported: every
+// subject of the name and the first, the queue group (the first any
+// instance gave) and the first last error
 // by instance ID.
 func (p *Provider) microEndpoints(ctx context.Context, e epochInfo) (microEndpointSet, error) {
 	set := microEndpointSet{byKey: map[string]*microEndpoint{}}
 	rows, err := p.db().QueryContext(ctx, `
-SELECT account, service, endpoint, coalesce(min(subject), ''), coalesce(min(queue_group), ''),
+SELECT account, service, endpoint, coalesce(min(subject), ''), coalesce(list(DISTINCT subject ORDER BY subject) FILTER (WHERE subject IS NOT NULL), []),
+  coalesce(min(queue_group), ''),
   coalesce(arg_min(last_error, instance_id) FILTER (WHERE coalesce(last_error, '') <> ''), ''),
   coalesce(min(instance_id) FILTER (WHERE coalesce(last_error, '') <> ''), '')
 FROM micro_endpoints WHERE epoch = $1 GROUP BY ALL ORDER BY 1, 2, 3`, e.epoch)
@@ -216,9 +218,11 @@ FROM micro_endpoints WHERE epoch = $1 GROUP BY ALL ORDER BY 1, 2, 3`, e.epoch)
 	for rows.Next() {
 		x := &microEndpoint{}
 		f := &x.fact
-		if err := rows.Scan(&x.account, &x.service, &f.Name, &f.Subject, &f.QueueGroup, &f.LastError, &f.LastErrorInstance); err != nil {
+		var subjects []any
+		if err := rows.Scan(&x.account, &x.service, &f.Name, &f.Subject, &subjects, &f.QueueGroup, &f.LastError, &f.LastErrorInstance); err != nil {
 			return set, err
 		}
+		f.Subjects = strs(subjects)
 		k := microKey(x.account, x.service, f.Name)
 		set.byKey[k] = x
 		set.order = append(set.order, k)
@@ -335,12 +339,14 @@ func valuesOf(slow []*microEndpoint, args []any, extra func(*microEndpoint) any,
 // microSlowStarts sets, for each slow endpoint, the start of its slow
 // run by api.MicroSlowStart: the hourly rollup's averages from
 // api.MicroLevelSpan before the epoch up to the epoch's hour, and, for an
-// endpoint with a fast hour, the collections' own averages over that hour
-// and the next (api.MicroSlowStartSpan), up to the epoch, of every
-// instance: each the sum of the increases between consecutive reports of
-// one instance and start time that end in it, an increase where a counter
-// fell left out (api.MicroDeltas). The walk is bounded by the span, and
-// raw reports are read for at most two hours per slow endpoint.
+// endpoint with a fast hour before the epoch's, the collections' own
+// averages over api.MicroSlowSpan (that hour through the next hour with
+// requests), up to the epoch, of every instance: each the sum of the
+// increases between consecutive reports of one instance, endpoint subject
+// and start time that end in it, an increase where a counter fell left
+// out (api.MicroDeltas). The walk is bounded by the 7 days; raw reports
+// are read only over each endpoint's span, two hours unless the endpoint
+// was idle in between.
 func (p *Provider) microSlowStarts(ctx context.Context, e epochInfo, eps microEndpointSet) error {
 	slow := slowEndpoints(eps)
 	if len(slow) == 0 {
@@ -371,33 +377,35 @@ WHERE h.hour >= `+tsParam(1)+` AND h.hour <= `+tsParam(2)+` AND h.requests > 0 O
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	fast := map[string]time.Time{}
-	var withFast []*microEndpoint
+	var withSpan []*microEndpoint
 	lo := e.startedAt
+	args = []any{int64(0), int64(0), us(e.startedAt)}
+	var spans []string
 	for _, x := range slow {
 		k := microKey(x.account, x.service, x.fact.Name)
-		if f := api.MicroLastFastHour(hours[k], *x.fact.LevelMs); f != nil {
-			fast[k] = *f
-			withFast = append(withFast, x)
-			lo = earliestTime(lo, *f)
-		} else {
-			x.fact.SlowSince = api.MicroSlowStart(hours[k], nil, *x.fact.LevelMs)
+		from, to, ok := api.MicroSlowSpan(hours[k], *x.fact.LevelMs, e.startedAt)
+		if !ok {
+			x.fact.SlowSince = api.MicroSlowStart(hours[k], nil, *x.fact.LevelMs, e.startedAt)
+			continue
 		}
+		withSpan = append(withSpan, x)
+		lo = earliestTime(lo, from)
+		n := len(args)
+		spans = append(spans, fmt.Sprintf("($%d, $%d, $%d, $%d::BIGINT, $%d::BIGINT)", n+1, n+2, n+3, n+4, n+5))
+		args = append(args, x.account, x.service, x.fact.Name, us(from), us(to))
 	}
-	if len(withFast) == 0 {
+	if len(withSpan) == 0 {
 		return nil
 	}
-	// The report before the hour gives the hour's first increase.
+	// The report before the span gives its first increase.
 	elo, ehi, ok, err := p.epochBounds(ctx, lo.Add(-api.MicroMissingWindow), e.startedAt.Add(time.Nanosecond))
 	if err != nil || !ok {
 		return err
 	}
-	values, args = valuesOf(withFast, []any{elo, ehi, us(e.startedAt)}, func(x *microEndpoint) any {
-		return fast[microKey(x.account, x.service, x.fact.Name)].UnixMicro()
-	}, "BIGINT")
+	args[0], args[1] = elo, ehi
 	rows, err = p.db().QueryContext(ctx, `
-WITH v0(account, service, endpoint, us) AS (VALUES `+values+`
-), v AS (SELECT account, service, endpoint, make_timestamp(us) AS f FROM v0
+WITH v0(account, service, endpoint, f_us, to_us) AS (VALUES `+strings.Join(spans, ", ")+`
+), v AS (SELECT account, service, endpoint, make_timestamp(f_us) AS f, make_timestamp(to_us) AS upto FROM v0
 ), pts AS (
   SELECT x.account, x.service, x.endpoint, x.instance_id, s.started, ep.started_at AS t, v.f,
     coalesce(x.subject, '') AS subj, x.num_requests AS r, x.num_errors AS er, x.processing_time_ns AS ns
@@ -406,7 +414,7 @@ WITH v0(account, service, endpoint, us) AS (VALUES `+values+`
   JOIN micro_stats s ON s.epoch = x.epoch AND s.account = x.account AND s.service = x.service AND s.instance_id = x.instance_id
   JOIN epochs ep ON ep.epoch = x.epoch
   WHERE x.epoch BETWEEN $1 AND $2 AND ep.started_at >= v.f - INTERVAL 1 HOUR AND ep.started_at <= `+tsParam(3)+`
-    AND ep.started_at < v.f + INTERVAL `+fmt.Sprint(int(api.MicroSlowStartSpan.Hours()))+` HOUR
+    AND ep.started_at < v.upto
 ), d AS (
   SELECT account, service, endpoint, t, f, r - lag(r) OVER w AS dr, er - lag(er) OVER w AS de, ns - lag(ns) OVER w AS dn
   FROM pts WINDOW w AS (PARTITION BY account, service, endpoint, instance_id, subj, started ORDER BY t)
@@ -431,9 +439,9 @@ WHERE t >= f AND dr >= 0 AND de >= 0 AND dn >= 0 GROUP BY ALL HAVING sum(dr) > 0
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	for _, x := range withFast {
+	for _, x := range withSpan {
 		k := microKey(x.account, x.service, x.fact.Name)
-		x.fact.SlowSince = api.MicroSlowStart(hours[k], cols[k], *x.fact.LevelMs)
+		x.fact.SlowSince = api.MicroSlowStart(hours[k], cols[k], *x.fact.LevelMs, e.startedAt)
 	}
 	return nil
 }

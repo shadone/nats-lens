@@ -22,8 +22,7 @@ import (
 // at end: the window's increase over the instances of the epoch; the
 // level over the hourly rollup of the 7 days before the window; and, when
 // slow, the slow run's start from the rollup's hours up to the epoch's
-// hour and every instance's collections in the last fast hour and the
-// next.
+// hour and every instance's collections over api.MicroSlowSpan.
 func (f *mcFixture) expected(key string, epochAt, end time.Time) (api.MicroIncrease, *float64, *time.Time) {
 	from := end.Add(-api.RateSpan)
 	cur := map[string]bool{}
@@ -55,23 +54,23 @@ func (f *mcFixture) expected(key string, epochAt, end time.Time) (api.MicroIncre
 	if !api.MicroIsSlow(&avg, level) {
 		return w, level, nil
 	}
-	fast := api.MicroLastFastHour(upTo, *level)
-	if fast == nil {
-		return w, level, api.MicroSlowStart(upTo, nil, *level)
+	from, to, ok := api.MicroSlowSpan(upTo, *level, epochAt)
+	if !ok {
+		return w, level, api.MicroSlowStart(upTo, nil, *level, epochAt)
 	}
 	var near []api.MicroReport
 	for _, r := range f.reports[key] {
-		if !r.At.Before(fast.Add(-time.Hour)) && !r.At.After(epochAt) && r.At.Before(fast.Add(api.MicroSlowStartSpan)) {
+		if !r.At.Before(from.Add(-time.Hour)) && !r.At.After(epochAt) && r.At.Before(to) {
 			near = append(near, r)
 		}
 	}
 	var cols []api.MicroAverage
 	for _, c := range api.MicroCollectionAverages(api.MicroDeltas(near)) {
-		if !c.At.Before(*fast) {
+		if !c.At.Before(from) {
 			cols = append(cols, c)
 		}
 	}
-	return w, level, api.MicroSlowStart(upTo, cols, *level)
+	return w, level, api.MicroSlowStart(upTo, cols, *level, epochAt)
 }
 
 func closeEnough(a, b float64) bool { return math.Abs(a-b) <= 1e-9*math.Max(1, math.Abs(b)) }
@@ -89,7 +88,9 @@ func TestMicroServicesAskedFollowTheRules(t *testing.T) {
 	p, f := microConfProvider(t, last)
 	_, c := apitest.Serve(t, p)
 	checked := 0
-	for _, back := range []time.Duration{0, 5 * time.Minute, 10 * time.Minute, 70 * time.Minute, 110 * time.Minute, 3 * time.Hour, 20 * time.Hour} {
+	slowCreate := false
+	for _, back := range []time.Duration{0, 5 * time.Minute, 10 * time.Minute, 70 * time.Minute, 110 * time.Minute, 160 * time.Minute, 3 * time.Hour,
+		20 * time.Hour} {
 		end := last.Add(30*time.Second - back)
 		res, err := c.GetMicroServices(ctx, connect.NewRequest(&v1.GetMicroServicesRequest{
 			Range: &v1.TimeRange{Start: timestamppb.New(end.Add(-time.Hour)), End: timestamppb.New(end)}}))
@@ -100,6 +101,7 @@ func TestMicroServicesAskedFollowTheRules(t *testing.T) {
 		for _, s := range res.Msg.GetServices() {
 			for _, e := range s.GetEndpoints() {
 				w, level, since := f.expected(s.GetName()+"/"+e.GetName(), epochAt, end)
+				slowCreate = slowCreate || (e.GetName() == "create" && e.GetSlowSince() != nil)
 				var avg, share *float64
 				if w.Requests > 0 {
 					avg, share = ptrTo(w.ProcessingNs/w.Requests/1e6), ptrTo(w.Errors/w.Requests)
@@ -112,6 +114,9 @@ func TestMicroServicesAskedFollowTheRules(t *testing.T) {
 				checked++
 			}
 		}
+	}
+	if !slowCreate {
+		t.Error("create, on two subjects, is never slow: its slow run is not checked")
 	}
 	if checked < 20 {
 		t.Errorf("checked %d endpoints", checked)
