@@ -3,6 +3,8 @@ package storeprov_test
 import (
 	"fmt"
 	"math"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,6 +35,8 @@ type mcInstance struct {
 	// reset is when its stats were reset: a new start time, counters from
 	// 0, the same ID.
 	reset time.Time
+	// fall is when its counters fell without a new start time.
+	fall time.Time
 	// silent instances never answer $SRV requests.
 	silent bool
 }
@@ -69,7 +73,10 @@ type mcFixture struct {
 	st      *store.Store
 	last    time.Time
 	reports map[string][]api.MicroReport
-	insts   []mcInstance
+	// hours are each endpoint's hourly averages as micro_endpoint_hours
+	// holds them, in hour order.
+	hours map[string][]api.MicroAverage
+	insts []mcInstance
 }
 
 // microConfStore writes the fixture. APP is asked: orders (O1 on nats-0,
@@ -77,7 +84,9 @@ type mcFixture struct {
 // hour) and 40 ms for 10 minutes 3 hours before last and from an hour
 // before last on, and whose create endpoint
 // fails 1% with O2's last error; pricing (P1, P2 on 2.0.0, P3 on 1.9.3),
-// whose P2 was replaced by P4 12 minutes before last; inventory (I1, I2),
+// whose P2 was replaced by P4, started 12 minutes before last on the same
+// connection while P2 answered until 3 minutes before last, and whose P1's
+// counters fell 7 minutes before last without a new start time; inventory (I1, I2),
 // whose I2 hung from 130 to 100 minutes before last, still subscribed,
 // and whose I1's stats were reset 7 minutes before last;
 // labels, subscribed and never answering. SUPPLIERS is asked and refused.
@@ -92,9 +101,10 @@ func microConfStore(t *testing.T, last time.Time) *mcFixture {
 	insts := []mcInstance{
 		{account: "APP", service: "orders", id: "O1", version: "1.4.2", desc: "Order intake and lookup", server: "S0", cid: 5, conn: "order-service", started: old},
 		{account: "APP", service: "orders", id: "O2", version: "1.4.2", desc: "Order intake and lookup", server: "S1", cid: 7, conn: "order-service", started: old},
-		{account: "APP", service: "pricing", id: "P1", version: "2.0.0", desc: "Price quotes", server: "S0", cid: 6, conn: "checkout-service", started: old},
+		{account: "APP", service: "pricing", id: "P1", version: "2.0.0", desc: "Price quotes", server: "S0", cid: 6, conn: "checkout-service", started: old,
+			fall: last.Add(-7 * time.Minute)},
 		{account: "APP", service: "pricing", id: "P2", version: "2.0.0", desc: "Price quotes", server: "S1", cid: 8, conn: "checkout-service", started: old,
-			to: last.Add(-12 * time.Minute)},
+			to: last.Add(-3 * time.Minute)},
 		{account: "APP", service: "pricing", id: "P3", version: "1.9.3", desc: "Price quotes", server: "S1", cid: 10, conn: "checkout-service", started: old},
 		{account: "APP", service: "pricing", id: "P4", version: "2.0.0", desc: "Price quotes", server: "S1", cid: 8, conn: "checkout-service",
 			started: last.Add(-12 * time.Minute), from: last.Add(-12 * time.Minute)},
@@ -162,9 +172,13 @@ func microConfStore(t *testing.T, last time.Time) *mcFixture {
 			r.add("micro_requests", map[string]any{"epoch": e, "label": "suppliers", "account": "SUPPLIERS", "request": req, "state": "error",
 				"replies": 0, "error": `nats: Permissions Violation for Publish to "$SRV.` + req + `"`})
 		}
+		listed := map[int64]bool{}
 		for _, in := range insts {
 			if subs && in.runs(t0) {
-				r.add("connections", map[string]any{"epoch": e, "server_id": in.server, "cid": in.cid, "name": in.conn, "account": in.account})
+				if !listed[in.cid] {
+					listed[in.cid] = true
+					r.add("connections", map[string]any{"epoch": e, "server_id": in.server, "cid": in.cid, "name": in.conn, "account": in.account})
+				}
 				sub := func(subject, queue string) {
 					cols := map[string]any{"epoch": e, "server_id": in.server, "account": in.account, "subject": subject, "cid": in.cid,
 						"subs": 1, "msgs": 0}
@@ -195,6 +209,9 @@ func microConfStore(t *testing.T, last time.Time) *mcFixture {
 				}
 				if !in.reset.IsZero() && c.at.Before(in.reset) && !t0.Before(in.reset) {
 					*c = counters{at: in.reset}
+				}
+				if !in.fall.IsZero() && c.at.Before(in.fall) && !t0.Before(in.fall) {
+					*c = counters{at: in.fall}
 				}
 				dt := t0.Sub(c.at).Seconds()
 				n := ep.rate * dt
@@ -229,7 +246,66 @@ func microConfStore(t *testing.T, last time.Time) *mcFixture {
 			}
 		}
 	}
+	f.fillHours(t, at(1))
 	return f
+}
+
+// fillHours writes micro_endpoint_hours as the store's writer fills it
+// for each epoch: per endpoint and hour, each instance's increase over its
+// previous report within the hour before; the whole value for a new run
+// (a counter that fell, a new start time) or for an instance that started
+// after the previous epoch; nothing for any other first report. hours
+// keeps the result for the tests.
+func (f *mcFixture) fillHours(t *testing.T, first time.Time) {
+	t.Helper()
+	type key struct {
+		hour              time.Time
+		service, endpoint string
+	}
+	type sum struct {
+		req, errs, ns int64
+		epochs        map[time.Time]bool
+	}
+	sums := map[key]*sum{}
+	for k, reps := range f.reports {
+		service, endpoint, _ := strings.Cut(k, "/")
+		last := map[string]api.MicroReport{}
+		for _, r := range reps {
+			p, ok := last[r.Instance]
+			if ok && r.At.Sub(p.At) > time.Hour {
+				ok = false
+			}
+			var dr, de, dn int64
+			switch {
+			case ok && (r.Requests < p.Requests || r.Errors < p.Errors || r.ProcessingNs < p.ProcessingNs || !r.Started.Equal(p.Started)),
+				!ok && r.At.After(first) && r.Started.After(r.At.Add(-mcStep)):
+				dr, de, dn = r.Requests, r.Errors, r.ProcessingNs
+			case ok:
+				dr, de, dn = r.Requests-p.Requests, r.Errors-p.Errors, r.ProcessingNs-p.ProcessingNs
+			}
+			last[r.Instance] = r
+			hk := key{r.At.Truncate(time.Hour), service, endpoint}
+			if sums[hk] == nil {
+				sums[hk] = &sum{epochs: map[time.Time]bool{}}
+			}
+			x := sums[hk]
+			x.req, x.errs, x.ns = x.req+dr, x.errs+de, x.ns+dn
+			x.epochs[r.At] = true
+		}
+	}
+	f.hours = map[string][]api.MicroAverage{}
+	r := rows{t, f.st}
+	for k, x := range sums {
+		r.add("micro_endpoint_hours", map[string]any{"hour": k.hour, "account": "APP", "service": k.service, "endpoint": k.endpoint,
+			"requests": x.req, "errors": x.errs, "processing_time_ns": x.ns, "epochs": len(x.epochs)})
+		if x.req > 0 {
+			hk := k.service + "/" + k.endpoint
+			f.hours[hk] = append(f.hours[hk], api.MicroAverage{At: k.hour, Ms: float64(x.ns) / float64(x.req) / 1e6})
+		}
+	}
+	for k := range f.hours {
+		slices.SortFunc(f.hours[k], func(a, b api.MicroAverage) int { return a.At.Compare(b.At) })
+	}
 }
 
 func microConfProvider(t *testing.T, last time.Time) (*storeprov.Provider, *mcFixture) {

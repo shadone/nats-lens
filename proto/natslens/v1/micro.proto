@@ -127,7 +127,8 @@ message MicroMissingInstance {
 
   // Whether its $SRV subscriptions are still in the subscription
   // collection, taken after it went missing: the instance is registered
-  // but does not answer. Asked accounts only.
+  // but does not answer. Asked accounts only. Such an instance stays
+  // missing for as long as the collection lists it, past the hour.
   bool still_subscribed = 5;
 }
 
@@ -136,7 +137,8 @@ message MicroEndpoint {
   // Endpoint name.
   string name = 1;
 
-  // Subject the endpoint listens on, from the newest $SRV.INFO reply.
+  // Subject the endpoint listens on, as $SRV.STATS reports it, else from
+  // the newest $SRV.INFO reply.
   string subject = 2;
 
   // Queue group of the endpoint; empty for none.
@@ -158,23 +160,29 @@ message MicroEndpoint {
   // request.
   optional double error_share = 6;
 
-  // The newest non-empty last error of the endpoint's instances, and the
-  // instance that reported it; empty when none did.
+  // A last error the endpoint's instances report in the epoch's
+  // $SRV.STATS, and the instance that reported it: the first by instance
+  // ID that reports one, as STATS gives a last error no time. Empty when
+  // none does.
   string last_error = 7;
   string last_error_instance = 8;
 
-  // The 7-day level: the median of the endpoint's hourly average times in
-  // the 7 days before the 15 minutes, in milliseconds. Unset with fewer
-  // than 24 hours that have an average.
+  // The 7-day level: the median of the endpoint's hourly average times,
+  // over all its instances whatever their IDs, of the hours that start at
+  // or after 7 days before the 15 minutes and end at or before them, in
+  // milliseconds. Unset with fewer than 24 hours that have an average.
   optional double level_ms = 9;
 
   // Whether the endpoint is slow: its average time is at least 3 times
   // its level and at least 5 ms above it.
   bool slow = 10;
 
-  // When the current slow run began: the first collection of the run of
-  // collections, each slow on its own, that ends at the newest slow one.
-  // Unset when the endpoint is not slow.
+  // When the current slow run began. The hours decide first: the run
+  // began after the newest hour, up to the epoch's, whose average is not
+  // slow; within that hour and the next, the collections' own averages
+  // over all instances decide: the first collection after the last one
+  // that is not slow. When every hour of the 7 days before the epoch is
+  // slow, the start of the first. Unset when the endpoint is not slow.
   google.protobuf.Timestamp slow_since = 11;
 
   // Whether the error share is above 1%.
@@ -186,8 +194,7 @@ message MicroEndpoint {
 enum MicroNote {
   // Not set.
   MICRO_NOTE_UNSPECIFIED = 0;
-  // An instance answered within the hour before the epoch and is not in
-  // it; missing names them.
+  // An instance is missing; missing names them.
   MICRO_NOTE_INSTANCE_MISSING = 1;
   // The instances report more than one version; versions counts them.
   MICRO_NOTE_MIXED_VERSIONS = 2;
@@ -196,7 +203,8 @@ enum MicroNote {
   // An endpoint's error share is above 1%: the first of endpoints.
   MICRO_NOTE_ERRORS = 4;
   // The account was asked and none of the service's instances answered
-  // $SRV.STATS: the account's state says how the request ended.
+  // $SRV.STATS: the account's state says how the request ended. A
+  // request that was not ok judges no instance missing.
   MICRO_NOTE_NO_ANSWER = 5;
   // The account is not asked: versions, endpoints and timings are not
   // known.
@@ -227,14 +235,18 @@ message MicroService {
   string description = 6;
 
   // Instances in the epoch: those that answered its $SRV.STATS when
-  // asked, else those with $SRV subscriptions in the subscription
-  // collection.
+  // asked; else those with $SRV subscriptions in the subscription
+  // collection; else, when the account's $SRV.STATS request was not ok,
+  // those that last answered within the hour.
   int32 instances = 7;
 
-  // Instances that answered (or were seen) within the hour before the
-  // epoch and are not in it, while their $SRV subscriptions are still
-  // listed or the service has fewer instances than when they were last
-  // seen; by ID.
+  // Instances gone from the epoch, by ID, judged only when the account's
+  // $SRV.STATS request was ok or the account is not asked. One still
+  // listed in the subscription collection (still_subscribed) is missing
+  // while it is listed. Others, gone within the hour before the epoch,
+  // when the service has fewer instances than when they were last seen:
+  // at most that shortfall, the most recently gone. In an asked account an
+  // instance must be absent from two ok requests.
   repeated MicroMissingInstance missing = 8;
 
   // Requests per second, the sum of the endpoints'; unset when no

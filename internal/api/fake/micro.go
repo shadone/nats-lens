@@ -234,11 +234,14 @@ func (s scen) microAnswered(at time.Time, r *v1.TimeRange) []api.MicroServiceFac
 			if e.lastError != "" && current[m.instances[e.lastErrorBy].id] {
 				x.LastError, x.LastErrorInstance = e.lastError, m.instances[e.lastErrorBy].id
 			}
+			// The level's hours, as the store's hourly rollup holds them:
+			// those that start at or after 7 days before the window and
+			// end at or before it, within the stored history.
 			var hourly []float64
-			levelEnd := s.clock(from)
-			for h := levelEnd.Add(-api.MicroLevelSpan).Truncate(time.Hour); h.Before(levelEnd); h = h.Add(time.Hour) {
-				if !h.Add(time.Hour).Before(s.clock(s.dataStart())) {
-					hourly = append(hourly, e.averageAt(h))
+			first := from.Add(-api.MicroLevelSpan)
+			for h := first.Truncate(time.Hour); !h.Add(time.Hour).After(from); h = h.Add(time.Hour) {
+				if !h.Before(first) && !h.Before(s.dataStart()) {
+					hourly = append(hourly, e.averageAt(s.clock(h)))
 				}
 			}
 			x.LevelMs = api.MicroLevel(hourly)
@@ -316,7 +319,7 @@ func (s scen) microGone(at time.Time, asked bool, subsAt *time.Time) []api.Micro
 				}
 				done[id] = true
 				out = append(out, api.MicroGoneFact{Account: Account, Service: m.name, ID: id, LastSeen: times[i], Since: times[i-1],
-					Connection: x.name, InstancesThen: int32(len(who[i]))})
+					Connection: x.name, InstancesThen: int32(len(who[i])), Absent: int32(i), FromSubscriptions: !asked})
 			}
 		}
 	}
