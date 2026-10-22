@@ -91,28 +91,33 @@ func TestSubjectsAPIRateStartFallback(t *testing.T) {
 	}
 }
 
-// Retention edge: a long-lived server whose history starts 20 epochs
-// before the range end (oldest kept epoch). Window 15 min = 30 epochs.
-// Expect the rate from what is kept.
+// The store's history begins inside the rate window (retention cut the
+// rest): the first kept report has none before it and is left out, and
+// the rest give the rate; with two epochs kept one report is left and
+// there is no rate.
 func TestSubjectsAPIRateRetentionEdge(t *testing.T) {
 	const n = 20
-	js := apiRate30(t, n, steady30(n), nil, nil, nil, "APP")
-	t.Logf("retention edge rate %v", js.GetApiPerSecond())
-	if js.GetApiPerSecond() != 3 {
+	if js := apiRate30(t, n, steady30(n), nil, nil, nil, "APP"); js.GetApiPerSecond() != 3 {
 		t.Errorf("rate %v", js.GetApiPerSecond())
 	}
-	// Only 2 epochs kept: first dropped, one left -> no rate.
-	js = apiRate30(t, 2, steady30(2), nil, nil, nil, "APP")
-	t.Logf("2 epochs kept: rate set %v %v", js.ApiPerSecond != nil, js.GetApiPerSecond())
+	if js := apiRate30(t, 2, steady30(2), nil, nil, nil, "APP"); js.ApiPerSecond != nil {
+		t.Errorf("2 epochs kept: rate %v, want none", js.GetApiPerSecond())
+	}
 }
 
-// A new account on long-lived servers: first report on each server is 0
-// (no requests yet), then real. Rate after a few epochs.
+// A new account on long-lived servers: each server's first report holds
+// only the requests it answered (7), the next the cluster's total, which
+// then grows 1 a second. The first report is left out, so the jump is
+// not read as requests.
 func TestSubjectsAPIRateNewAccount(t *testing.T) {
 	const n = 100
 	pts := steady30(n)
 	for e := int64(95); e <= n; e++ {
-		pts = append(pts, epochPt{e, "S0", "NEW", 30 * (e - 95)}, epochPt{e, "S1", "NEW", 30 * (e - 95)})
+		v := 50_000 + 30*(e-95)
+		if e == 95 {
+			v = 7
+		}
+		pts = append(pts, epochPt{e, "S0", "NEW", v}, epochPt{e, "S1", "NEW", v})
 		pts = append(pts, epochPt{e, "S1", "APP", 1_000_000 + 90*e})
 	}
 	js := apiRate30(t, n, pts, nil, nil, nil, "NEW")

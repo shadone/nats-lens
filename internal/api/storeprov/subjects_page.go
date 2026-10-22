@@ -296,7 +296,8 @@ WITH used AS (`+jetStreamUse("$2")+`), win AS (
   FROM account_stats a JOIN epochs e USING (epoch)
   LEFT JOIN server_stats ss ON ss.epoch = a.epoch AND ss.server_id = a.server_id
   LEFT JOIN servers sv ON sv.server_id = a.server_id
-  WHERE a.epoch BETWEEN $4 AND $5 AND a.js_api_total IS NOT NULL AND a.account IN (SELECT account FROM used)
+  WHERE a.epoch BETWEEN $4 AND $5 AND e.started_at >= $6 AND e.started_at < $7 AND a.js_api_total IS NOT NULL
+    AND a.account IN (SELECT account FROM used)
 ), earlier AS (
   -- The series with a report in the look-back before the window.
   SELECT DISTINCT account, server_id FROM account_stats
@@ -320,7 +321,7 @@ WITH used AS (`+jetStreamUse("$2")+`), win AS (
   QUALIFY row_number() OVER (PARTITION BY account ORDER BY total * 1000.0 / ms DESC, server_id) = 1
 )
 SELECT u.account, b.rate, b.total, b.errors FROM used u LEFT JOIN best b USING (account) ORDER BY u.account`,
-		epoch, account, back.Int64, lo.Int64, hi.Int64)
+		epoch, account, back.Int64, lo.Int64, hi.Int64, start, end)
 	if err != nil {
 		return nil, fmt.Errorf("jetstream api: %w", err)
 	}
