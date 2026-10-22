@@ -10,7 +10,7 @@ The board's sample names come from a sketch of a real deployment. Use the exampl
 |---|---|
 | T1 Collect subscription lists | built on `feat/subjects-collect`, awaiting review |
 | T2 API, store and demo | built on `feat/subjects-api` (with `feat/subjects-collect` merged in), awaiting review |
-| T3 UI | not started |
+| T3 UI | built on `feat/subjects-ui` (from `feat/subjects-api`), awaiting review; the tester's card waits for T2's per-account answer |
 | T4 Feature docs and audit | not started |
 
 ## Rules for every step
@@ -107,6 +107,20 @@ Each point was decided in the session that built T2 and is proposed, not yet con
 - Empty and partial states: no epoch, no subscription collection, a cut list, a subject that nothing matches, an invalid subject (the field says why).
 - Phone width: the table scrolls inside its card; the pills wrap.
 - Tests for the view functions (wording of subscribers and notes) and the page states.
+
+### Where T3 departed from this plan
+
+Each point was decided in the session that built T3 and is proposed, not yet confirmed.
+
+- **Patterns are not links.** The Stored in cell links the stream; a pattern linking to the same page would give a row two links to one place. The stream names in a note (overlaps, mirror of, sourced into, mirrored by) link to their streams.
+- **An account links to this page scoped to it.** No account page exists; the Account cell opens Subjects with `?account=` set, and is plain text once the page is scoped.
+- **Consumers link to the Consumers list.** "4 durable consumers" opens Consumers filtered to the stream, with ephemeral consumers shown when the stream has any; a connection name opens Connections filtered by that name, which includes tooling connections.
+- **The line under the title** reads "Where messages can go: stream subjects and client subscriptions, by subject pattern.", without the board's "service endpoints", which nothing collects yet (see Leftovers), and names the collection's time as Capacity does.
+- **A note for mirrored streams.** T2's `mirrored_by` gives a note "mirrored by `<stream>`", after "sourced into", for a stream with no other note.
+- **The tester card groups by account.** Each account where something matches has its own line ("Account APP") with its streams, their matching consumers, mirrors and sourcing streams, and its core subscribers; with a scope the account line is left out. A stream that no matching consumer reads shows "no consumer reads it" in the warning colours. A queue group reads "one of 3 in queue group `<q>`", other subscriptions "136 connections", each with its names and "via `<subject>`". With no subscription collection the card says subscribers are not known.
+- **The tester's timing.** The field asks 300 ms after the last keystroke (the first character at once, by `useDebounced`); while the answer for the subject in the field is not in, the card says "Looking it up…" and shows no earlier answer. A refused subject shows the server's reason under the field, without the `invalid argument:` prefix, and no card. The typed subject is not kept in the address.
+- **The footnote's text.** The board's "every epoch" reads "every collection", the word the UI uses. Each further fact is a line of its own: the collection's time, servers that did not answer, lists cut at the limit, the servers' own subscriptions left out, and subscriptions of unlisted connections left out. Without a subscription collection a notice above the table says "Subscriptions not collected" as well.
+- **Pills.** The app's filter chips (as on Placement) rather than the board's round pills; the filter is `?filter=stored|no-consumer|overlapping|wide`.
 
 ## T4 Feature docs and audit
 
