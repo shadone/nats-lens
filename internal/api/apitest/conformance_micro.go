@@ -2,6 +2,7 @@ package apitest
 
 import (
 	"fmt"
+	"math"
 	"slices"
 	"time"
 
@@ -96,7 +97,7 @@ func microRows() []State {
 			}
 			return ""
 		}},
-		{"a Micro services rate over an instance restart in the rate window", func(q Q) string {
+		{"a Micro services rate over an instance restart in the rate window, as before the restart", func(q Q) string {
 			res := q.micro(q.day(), "")
 			from := res.GetEpochAt().AsTime().Add(-api.RateSpan)
 			for _, s := range res.GetServices() {
@@ -104,16 +105,38 @@ func microRows() []State {
 					if in.GetStarted() == nil || !in.GetStarted().AsTime().After(from) {
 						continue
 					}
-					sum := 0.0
-					for _, e := range s.GetEndpoints() {
-						sum += e.GetRequestsPerSecond()
+					// The page before the restart: a gone instance's run
+					// counted with its replacement's would read high.
+					at := in.GetStarted().AsTime()
+					before := q.micro(&v1.TimeRange{Start: timestamppb.New(at.Add(-time.Hour)), End: timestamppb.New(at)}, s.GetAccount())
+					var b *v1.MicroService
+					for _, x := range before.GetServices() {
+						if x.GetName() == s.GetName() {
+							b = x
+						}
 					}
-					if s.GetRequestsPerSecond() <= 0 || !closeTo(sum, s.GetRequestsPerSecond()) {
-						q.t.Errorf("%s: %s restarted, rate %v, endpoints %v", q.System, s.GetName(), s.RequestsPerSecond, sum)
+					if b == nil || b.RequestsPerSecond == nil || math.Abs(s.GetRequestsPerSecond()/b.GetRequestsPerSecond()-1) > 0.1 {
+						q.t.Errorf("%s: %s restarted, rate %.2f, before %.2f", q.System, s.GetName(), s.GetRequestsPerSecond(), b.GetRequestsPerSecond())
 						return ""
 					}
-					return s.GetName() + " " + in.GetId()
+					return fmt.Sprintf("%s %s: %.1f, before %.1f", s.GetName(), in.GetId(), s.GetRequestsPerSecond(), b.GetRequestsPerSecond())
 				}
+			}
+			return ""
+		}},
+		{"a Micro services account with its readable name, on its services too", func(q Q) string {
+			res := q.micro(q.day(), "")
+			for _, a := range res.GetAccounts() {
+				if a.GetAccountName() == "" {
+					continue
+				}
+				for _, s := range res.GetServices() {
+					if s.GetAccount() == a.GetAccount() && s.GetAccountName() != a.GetAccountName() {
+						q.t.Errorf("%s: %s named %q, its service %s %q", q.System, a.GetAccount(), a.GetAccountName(), s.GetName(), s.GetAccountName())
+						return ""
+					}
+				}
+				return a.GetAccount() + " " + a.GetAccountName()
 			}
 			return ""
 		}},
