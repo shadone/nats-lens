@@ -163,7 +163,12 @@ export function serviceErrorsHigh(s: Pick<MicroService, "errorShare">): boolean 
 }
 
 function permissionRefused(r: MicroRequest): boolean {
-  return r.state === "error" && /permissions? violation/i.test(r.error);
+  return (r.state === "error" || r.state === "held") && /permissions? violation/i.test(r.error);
+}
+
+/** "; asked again after 14:34" for a held request, else "". */
+function againText(r: MicroRequest, ref: number): string {
+  return r.state === "held" && r.againAfter !== undefined ? `; asked again after ${whenText(r.againAfter, ref)}` : "";
 }
 
 /** Why a service's instances gave no answer to $SRV.STATS, from its account's request. */
@@ -171,7 +176,9 @@ export function noAnswerReason(stats: MicroRequest | undefined, ref = 0): string
   if (!stats) return "its instances did not reply";
   switch (stats.state) {
     case "error":
-      return (permissionRefused(stats) ? `refused; ${NEEDS}` : `the request failed: ${stats.error}`) + (stats.againAfter !== undefined ? `; asked again after ${whenText(stats.againAfter, ref)}` : "");
+      return permissionRefused(stats) ? `refused; ${NEEDS}` : `the request failed: ${stats.error}`;
+    case "held":
+      return (permissionRefused(stats) ? `refused; ${NEEDS}` : `refused: ${stats.error}`) + againText(stats, ref);
     case "timeout":
       return "no reply within the collect window";
     case "noResponders":
@@ -268,12 +275,15 @@ export function seenOnlyText(s: MicroService, accountLabel: string): Phrase[] {
 export function unansweredText(a: MicroAccount, ref = 0): string | undefined {
   if (!a.asked || a.services > 0) return undefined;
   const r = a.stats;
-  if (r.state === "error") {
-    // A held refusal: nats-lens does not send the request again until then.
+  if (r.state === "held") {
+    // nats-lens holds a refused request rather than send it again until then.
     const again = r.againAfter !== undefined ? ` nats-lens asks again after ${whenText(r.againAfter, ref)}.` : "";
     const at = r.refusedAt !== undefined ? ` at ${whenText(r.refusedAt, ref)}` : "";
-    if (permissionRefused(r)) return `The server refused $SRV.STATS${at} (${r.error}): ${NEEDS}.${again}`;
-    return `$SRV.STATS failed: ${r.error}.${again}`;
+    return `The server refused $SRV.STATS${at} (${r.error})${permissionRefused(r) ? `: ${NEEDS}` : ""}.${again}`;
+  }
+  if (r.state === "error") {
+    if (permissionRefused(r)) return `The server refused $SRV.STATS (${r.error}): ${NEEDS}.`;
+    return `$SRV.STATS failed: ${r.error}.`;
   }
   if (r.state === "timeout") return "No reply to $SRV.STATS came within the collect window.";
   return undefined;

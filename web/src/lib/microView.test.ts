@@ -263,7 +263,13 @@ describe("microView final review", () => {
 });
 
 describe("microView held refusals", () => {
-  const held = { state: "error" as const, replies: 0, error: 'nats: Permissions Violation for Publish to "$SRV.STATS"', refusedAt: Date.parse("2026-10-17T14:00:00Z"), againAfter: Date.parse("2026-10-17T14:10:00Z") };
+  it("says a held request that is not a permissions refusal as the server sent it", () => {
+    const other = { state: "held" as const, replies: 0, error: "nats: authorization violation", refusedAt: Date.parse("2026-10-17T14:00:00Z"), againAfter: Date.parse("2026-10-17T14:10:00Z") };
+    expect(noAnswerReason(other, EPOCH_AT)).toBe("refused: nats: authorization violation; asked again after 14:10");
+    expect(unansweredText(account({ services: 0, stats: other }), EPOCH_AT)).toBe("The server refused $SRV.STATS at 14:00 (nats: authorization violation). nats-lens asks again after 14:10.");
+  });
+
+  const held = { state: "held" as const, replies: 0, error: 'nats: Permissions Violation for Publish to "$SRV.STATS"', refusedAt: Date.parse("2026-10-17T14:00:00Z"), againAfter: Date.parse("2026-10-17T14:10:00Z") };
   it("says when a refused request is asked again", () => {
     expect(noAnswerReason(held, EPOCH_AT)).toBe("refused; the account's user needs to publish on $SRV.INFO and $SRV.STATS and subscribe on _INBOX.>; asked again after 14:10");
     expect(unansweredText(account({ services: 0, stats: held }), EPOCH_AT)).toBe(

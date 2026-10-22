@@ -21,16 +21,20 @@ export type MicroNoteKind = "missing" | "mixedVersions" | "slow" | "errors" | "n
  */
 export type MicroInstanceSource = "none" | "answered" | "subscriptions" | "lastAnswered";
 
-/** How a $SRV request ended; "notAsked" when the account was not asked. */
-export type MicroRequestState = "notAsked" | "ok" | "noResponders" | "timeout" | "error";
+/**
+ * How a $SRV request ended; "notAsked" when the account was not asked;
+ * "held" when nats-lens did not send it because the server refused it
+ * recently.
+ */
+export type MicroRequestState = "notAsked" | "ok" | "noResponders" | "timeout" | "error" | "held";
 
 export interface MicroRequest {
   state: MicroRequestState;
   at?: number;
   replies: number;
-  /** The client's or server's text; "" unless the state is error. */
+  /** The client's or server's text; the server's refusal when held; "" otherwise. */
   error: string;
-  /** A refusal held by the collector: when the server refused, and after when it is asked again. */
+  /** Held only: when the server refused, and after when nats-lens asks again. */
   refusedAt?: number;
   againAfter?: number;
 }
@@ -151,19 +155,12 @@ const STATE: Record<PState, MicroRequestState> = {
   [PState.NO_RESPONDERS]: "noResponders",
   [PState.TIMEOUT]: "timeout",
   [PState.ERROR]: "error",
+  [PState.HELD]: "held",
 };
-
-/** The collector's mark on a refusal it holds rather than send again. */
-const HELD = / \(not sent: refused at (\S+), asked again after (\S+)\)$/;
 
 function request(r: PRequest | undefined): MicroRequest {
   if (!r) return { state: "notAsked", replies: 0, error: "" };
-  const out: MicroRequest = { state: STATE[r.state] ?? "notAsked", at: ms(r.at), replies: r.replies, error: r.error };
-  const held = r.error.match(HELD);
-  const refusedAt = held ? Date.parse(held[1]) : NaN;
-  const againAfter = held ? Date.parse(held[2]) : NaN;
-  if (held && !Number.isNaN(refusedAt) && !Number.isNaN(againAfter)) return { ...out, error: r.error.slice(0, held.index), refusedAt, againAfter };
-  return out;
+  return { state: STATE[r.state] ?? "notAsked", at: ms(r.at), replies: r.replies, error: r.error, refusedAt: ms(r.refusedAt), againAfter: ms(r.retryAfter) };
 }
 
 export function microServices(r: GetMicroServicesResponse): MicroServices {

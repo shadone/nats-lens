@@ -56,28 +56,28 @@ describe("microServices", () => {
     expect(d.accounts[0].stats).toEqual({ state: "timeout", at: AT, replies: 0, error: "" });
     expect(d.accounts[0].info).toEqual({ state: "notAsked", replies: 0, error: "" });
   });
-  it("reads a held refusal into the server's text, when it was refused and when it is asked again", () => {
-    const held = 'nats: Permissions Violation for Publish to "$SRV.STATS" (not sent: refused at 2026-10-17T14:00:00Z, asked again after 2026-10-17T14:10:00Z)';
+  it("reads a held request with when it was refused and when it is asked again, apart from an error and a timeout", () => {
+    const refusal = 'nats: Permissions Violation for Publish to "$SRV.STATS"';
     const d = microServices(
       create(GetMicroServicesResponseSchema, {
         epoch: 7n,
         accounts: [
-          { account: "A", asked: true, stats: { state: MicroRequestState.ERROR, error: held } },
-          { account: "B", asked: true, stats: { state: MicroRequestState.ERROR, error: "nats: connection closed (x)" } },
+          {
+            account: "A",
+            asked: true,
+            stats: { state: MicroRequestState.HELD, at: timestampFromMs(AT), error: refusal, refusedAt: timestampFromMs(AT - 360_000), retryAfter: timestampFromMs(AT + 240_000) },
+          },
+          { account: "B", asked: true, stats: { state: MicroRequestState.ERROR, at: timestampFromMs(AT), error: refusal } },
+          { account: "C", asked: true, stats: { state: MicroRequestState.TIMEOUT, at: timestampFromMs(AT) } },
         ],
         services: [{ name: "inventory", missing: [{ id: "I1", server: "nats-eu-5", stillSubscribed: true }, { id: "I2" }] }],
       }),
     );
-    expect(d.accounts[0].stats).toEqual({
-      state: "error",
-      at: undefined,
-      replies: 0,
-      error: 'nats: Permissions Violation for Publish to "$SRV.STATS"',
-      refusedAt: Date.parse("2026-10-17T14:00:00Z"),
-      againAfter: Date.parse("2026-10-17T14:10:00Z"),
-    });
-    expect(d.accounts[1].stats.error).toBe("nats: connection closed (x)");
-    expect(d.accounts[1].stats.againAfter).toBeUndefined();
+    expect(d.accounts.map((a) => a.stats)).toEqual([
+      { state: "held", at: AT, replies: 0, error: refusal, refusedAt: AT - 360_000, againAfter: AT + 240_000 },
+      { state: "error", at: AT, replies: 0, error: refusal, refusedAt: undefined, againAfter: undefined },
+      { state: "timeout", at: AT, replies: 0, error: "", refusedAt: undefined, againAfter: undefined },
+    ]);
     expect(d.services[0].missing.map((m) => m.server)).toEqual(["nats-eu-5", ""]);
   });
 });
