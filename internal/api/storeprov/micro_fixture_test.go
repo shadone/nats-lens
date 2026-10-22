@@ -251,6 +251,8 @@ func microConfStore(t *testing.T, last time.Time) *mcFixture {
 }
 
 // fillHours writes micro_endpoint_hours as the store's writer fills it
+// (store.microHoursQuery, which also takes an instance's rows once per
+// epoch; the fixture writes each once)
 // for each epoch: per endpoint and hour, each instance's increase over its
 // previous report within the hour before; the whole value for a new run
 // (a counter that fell, a new start time) or for an instance that started

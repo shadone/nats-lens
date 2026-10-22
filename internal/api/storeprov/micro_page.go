@@ -108,7 +108,7 @@ func (p *Provider) goneSeen(ctx context.Context, e epochInfo, collection int64) 
 	rows, err := p.db().QueryContext(ctx, `
 WITH cols AS (
   SELECT x.epoch, x.started_at FROM epochs x
-  WHERE x.epoch <= $1 AND x.started_at >= $2
+  WHERE x.epoch <= $1 AND x.started_at >= `+tsParam(2)+`
     AND EXISTS (SELECT 1 FROM epoch_endpoints q WHERE q.epoch = x.epoch AND q.endpoint = 'SUBSZ' AND q.state = 'ok')
 ), i AS (`+srvInstances+`
 ), last AS (
@@ -123,7 +123,7 @@ FROM last l JOIN cols c ON c.epoch = l.epoch
 JOIN i ON i.epoch = l.epoch AND i.account = l.account AND i.service = l.service AND i.id = l.id
 LEFT JOIN connections cn ON cn.epoch = i.epoch AND cn.server_id = i.server_id AND cn.cid = i.cid
 WHERE i.server_id IN (SELECT server_id FROM complete)
-ORDER BY l.account, l.service, l.id`, collection, e.startedAt.Add(-api.MicroMissingWindow))
+ORDER BY l.account, l.service, l.id`, collection, us(e.startedAt.Add(-api.MicroMissingWindow)))
 	if err != nil {
 		return nil, fmt.Errorf("gone micro instances: %w", err)
 	}
