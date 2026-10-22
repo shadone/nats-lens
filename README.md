@@ -180,7 +180,7 @@ Configuration comes from defaults, then an optional YAML file (`-config`), then 
 | `events.churn.collapse` |                | `true`                  | A connect whose disconnect, with reason "Client Closed", follows within `pair_within` is not stored; one `client.churn` event per client name, client host, account and `window` counts such pairs. A disconnect for any other reason is always stored, with its connect. |
 | `events.churn.pair_within` |             | `10s`                   | How long a connect waits for its disconnect; a connect not closed by then is stored. At most `window`. |
 | `events.churn.window` |                  | `1m`                    | Span of one `client.churn` event. |
-| `accounts`            |                  |                         | JetStream accounts whose advisories are captured; see below. |
+| `accounts`            |                  |                         | Accounts whose advisories are captured and whose micro services are asked; see below. |
 | `inventory_file`      | `-inventory-file` |                        | YAML file of expected streams, consumers and buckets ([inventory.example.yaml](inventory.example.yaml)); read on every start. |
 | `checks.timeout`      |                  | `5s`                    | Longest one check's query may run; at most `interval`. |
 | `checks.disabled`     |                  |                         | Check codes that do not run; their findings resolve. |
@@ -207,6 +207,8 @@ The password has no flag, so that it never shows in the process list. A password
 
 JetStream advisories are published inside the account that owns the asset, so each account needs its own connection. Every entry in `accounts` takes `name` (the account name the servers use, for example `APP`), `url` (defaults to `nats.url`), `creds` or `user` and `password`, and `tls` (the CA defaults to `nats.tls.ca`; the client certificate is never inherited). When an account has a `user` and no password in the file, the password is read from `NATSLENS_ACCOUNT_<NAME>_PASSWORD`, with the name upper-cased and other characters replaced by `_`. The account connection asks `$SYS.REQ.USER.INFO` for the account's name as the servers use it, and events from it carry that name. Until it is known (just after connecting), and for the whole run when the user may not request it or may not receive the reply, they carry the configured `name` instead, so filter on both when the two differ.
 
+The same connection, one per account, asks the account's micro services: `$SRV.STATS` every epoch and `$SRV.INFO` on the first epoch, every `subscriptions_interval` and when STATS names an instance not yet described. `micro: false` on an entry turns this off for that account. Without event capture (`events.enabled: false`) `natslens run` still opens a connection for each account that asks, and `natslens once` one for its epoch. A refused or unanswered request is recorded in `micro_requests` and fails nothing.
+
 ### Several systems
 
 `systems` lists the NATS systems one natslens watches. Each entry takes `id` (as `system_id`; ids must differ), `name` (display name, default the id), `environment` (free text shown with the system) and its own `nats`, `accounts`, `inventory_file`, `kubernetes`, `retention`, `archive_retention`, `data_dir`, `archive_dir` and `duckdb_memory_limit`, with the same meaning and defaults as the top-level keys, except:
@@ -225,12 +227,12 @@ A file without `systems` is one system with the id `system_id` whose database an
 
 ### NATS permissions
 
-natslens only subscribes and makes requests; it never publishes to an application subject. Use a scoped user in the system account rather than the account's full user: a system account user without permissions may also send the `$SYS.REQ` calls that change servers (for example `$SYS.REQ.SERVER.<id>.RELOAD` or kick and lame duck requests). These are the minimal grants; `TestCollectWithScopedSysUser` and `TestCaptureWithScopedUsers` show they are enough, and each test fails when one is taken out.
+natslens only subscribes and makes requests; it never publishes to an application subject. Use a scoped user in the system account rather than the account's full user: a system account user without permissions may also send the `$SYS.REQ` calls that change servers (for example `$SYS.REQ.SERVER.<id>.RELOAD` or kick and lame duck requests). These are the minimal grants; `TestCollectWithScopedSysUser`, `TestCaptureWithScopedUsers` and `TestMicroScopedUser` show they are enough, and each test fails when one is taken out.
 
 | User | Publish | Subscribe | Used for |
 | ---- | ------- | --------- | -------- |
 | System account (`nats.creds`) | `$SYS.REQ.SERVER.PING.>`, `$SYS.REQ.ACCOUNT.PING.STATZ` | `$SYS.ACCOUNT.>`, `$SYS.SERVER.>`, `$JS.EVENT.ADVISORY.>`, `_INBOX.>` | Discovery and the detail requests of every epoch (replies arrive on `_INBOX.>`); connect, disconnect, auth error, lame duck and shutdown events; the advisories that concern no account |
-| Each account in `accounts` | `$SYS.REQ.USER.INFO` | `$JS.EVENT.>`, `$SYS.ACCOUNT.CLIENT.AUTH.ERR`, `_INBOX.>` | Stream and consumer advisories and metrics; account-scoped auth errors; the account name lookup and its reply |
+| Each account in `accounts` | `$SYS.REQ.USER.INFO`, `$SRV.INFO`, `$SRV.STATS` | `$JS.EVENT.>`, `$SYS.ACCOUNT.CLIENT.AUTH.ERR`, `_INBOX.>` | Stream and consumer advisories and metrics; account-scoped auth errors; the account name lookup; the micro service requests; their replies |
 
 In a NATS server configuration (with JWTs, set the same lists on the user with `nsc edit user --allow-pub ... --allow-sub ...`):
 
@@ -243,12 +245,12 @@ permissions: {
 
 ```
 permissions: {
-  publish:   { allow: ["$SYS.REQ.USER.INFO"] }
+  publish:   { allow: ["$SYS.REQ.USER.INFO", "$SRV.INFO", "$SRV.STATS"] }
   subscribe: { allow: ["$JS.EVENT.>", "$SYS.ACCOUNT.CLIENT.AUTH.ERR", "_INBOX.>"] }
 }
 ```
 
-An account user refused `$SYS.REQ.USER.INFO`, or its `_INBOX.>` reply, keeps the configured label for the run and logs one Info line; nothing else fails.
+An account user refused `$SYS.REQ.USER.INFO`, or its `_INBOX.>` reply, keeps the configured label for the run and logs one Info line; nothing else fails. An account user refused `$SRV.INFO` or `$SRV.STATS` gets the refusal recorded per epoch in `micro_requests` (state `error`, with the server's text); nothing else fails. An account with `micro: false` needs neither.
 
 ## Kubernetes
 
@@ -333,7 +335,7 @@ Tables follow one pattern. Identity tables hold one row per thing with the first
 | Epochs        | `epochs`, `epoch_endpoints`                                                                                                                                              |
 | Identity      | `servers`, `accounts`, `streams`, `consumers`, `raft_groups`                                                                                                             |
 | Configuration | `stream_config`, `consumer_config`                                                                                                                                       |
-| Stats         | `server_stats`, `routes`, `gateways`, `leafnodes`, `ipqueues`, `health`, `connections`, `account_stats`, `account_details`, `stream_stats`, `stream_replicas`, `consumer_stats`, `consumer_replicas`, `raft_stats`, `subscriptions`, `subscription_lists` |
+| Stats         | `server_stats`, `routes`, `gateways`, `leafnodes`, `ipqueues`, `health`, `connections`, `account_stats`, `account_details`, `stream_stats`, `stream_replicas`, `consumer_stats`, `consumer_replicas`, `raft_stats`, `subscriptions`, `subscription_lists`, `micro_requests`, `micro_instances`, `micro_stats`, `micro_endpoints` |
 | Events        | `events`                                                                                                                                                                 |
 | Checks        | `findings`, `finding_transitions`, `check_runs`                                                                                                                          |
 | Archive       | `archive_hours`                                                                                                                                                          |
@@ -346,6 +348,8 @@ Every event has a `kind`: `client.connect`, `client.disconnect`, `client.auth_er
 `account_details` holds one row per ACCOUNTZ lookup of an account: the name, the system flag, imports and exports, and from the account JWT its issue time, expiry and limits (-1 for no limit, NULL without a JWT). Each account is looked up at most every 10 minutes, so read the newest row at or before an epoch. `server_stats` holds each listener certificate's expiry from VARZ (`tls_cert_not_after`, `cluster_tls_cert_not_after` and the gateway, leaf node, websocket and MQTT ones), and `connections` whether the client presented a user JWT (`user_jwt`) and when it expires (`jwt_expires`), all from migration 0028 and NULL in rows from before it. No JWT is stored.
 
 `subscriptions` holds the servers' subscription lists (SUBSZ, migration 0032), only in the epochs that collected them, every `subscriptions_interval`: one row per server, account, subject, queue (NULL for none) and connection ID, with the number of subscriptions folded into it and the messages delivered to them. A server lists the subscriptions of its own clients and of its internal clients, not route, gateway or leaf node interest. `cid` joins `connections` of the same `epoch` and `server_id`; join on those three only, as SUBSZ names the global account `$G` where `connections.account` is empty. A cid with no connection row is one of the server's internal clients, a client CONNZ did not list, or any connection when CONNZ did not answer that server in that epoch. `subscription_lists` has one row per server that answered, with `total` (the server's local subscriptions before the limit, without route, gateway and leaf node interest) and `listed` (the ones in the reply, at most `subsz_limit`), so a cut list is visible.
+
+`micro_requests`, `micro_instances`, `micro_stats` and `micro_endpoints` hold what the micro services of the accounts under `accounts` answered (migration 0033). `micro_requests` has one row per epoch, account and request sent (`INFO` or `STATS`) with its `state`: `ok`, `no_responders` (the account has no service), `timeout` or `error` (the reason in `error`, for example the server's permissions violation); an account not asked has no rows. `micro_instances` holds each instance's INFO reply, only in the epochs that sent INFO: version, description, metadata and its endpoints as JSON. `micro_stats` holds one row per instance that answered STATS, with its version and `started`; `micro_endpoints` one row per instance and endpoint with `subject`, `queue_group`, `num_requests`, `num_errors`, `processing_time_ns`, `average_processing_time_ns`, `last_error` and custom stats in `data`. The counters count from `started`, so a later `started` is a new run that counts from 0 again. `account` is the account as the servers name it, or the entry's `name` when the user may not ask `$SYS.REQ.USER.INFO`; a value the service did not report is NULL.
 
 A server gets a new `server_id` on every restart; join on `servers` for the stable `server_name`. To compare configuration across servers at epoch E, read only the rows current at E (`first_epoch <= E AND last_epoch >= E`); rows of a restarted server end at its last report. Read the column comments with:
 

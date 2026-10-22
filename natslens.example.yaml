@@ -60,14 +60,19 @@ events:
     pair_within: 10s     # a connect closed by the client within this is collapsed with its disconnect
     window: 1m           # span of one client.churn event
 
-# JetStream accounts whose advisories are captured, each with its own
-# connection. url defaults to nats.url and tls.ca to nats.tls.ca. A password
-# not set here is read from NATSLENS_ACCOUNT_<NAME>_PASSWORD.
+# Accounts whose JetStream advisories are captured and whose micro services
+# are asked ($SRV.INFO and $SRV.STATS), each with its own connection. url
+# defaults to nats.url and tls.ca to nats.tls.ca. A password not set here is
+# read from NATSLENS_ACCOUNT_<NAME>_PASSWORD. The user publishes to
+# $SYS.REQ.USER.INFO, $SRV.INFO and $SRV.STATS and subscribes to $JS.EVENT.>,
+# $SYS.ACCOUNT.CLIENT.AUTH.ERR and _INBOX.>; micro: false stops asking the
+# account's micro services.
 accounts: []
 #  - name: APP
 #    creds: /etc/natslens/app.creds
 #  - name: OTHER
 #    url: nats://nats.example:4222
+#    micro: false
 #    user: other
 
 # Expected streams, consumers and buckets for the inventory checks; see
