@@ -9,6 +9,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 
+	"github.com/shadone/nats-lens/internal/collect"
 	"github.com/shadone/nats-lens/internal/config"
 	"github.com/shadone/nats-lens/internal/events"
 	"github.com/shadone/nats-lens/internal/natsconn"
@@ -21,10 +22,13 @@ var version = "dev"
 // startEvents records the start and any capture gap, opens the event
 // connections and starts the capture. Call the returned stop once to shut
 // the capture down: it drains the connections in parallel for at most one
-// flush interval, then writes the remaining events until deadline.
-func startEvents(ctx context.Context, cfg config.Config, st *store.Store, log *slog.Logger) (*events.Capture, func(deadline time.Time), error) {
+// flush interval, then writes the remaining events until deadline. The
+// account connections that ask micro services are returned for the
+// collector; they close with the capture.
+func startEvents(ctx context.Context, cfg config.Config, st *store.Store, log *slog.Logger) (*events.Capture,
+	func(deadline time.Time), []collect.AccountConn, error) {
 	if err := recordStart(ctx, st); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	return startCapture(ctx, cfg, st, log)
 }
@@ -70,7 +74,8 @@ func newEventsConn(capture *events.Capture, label string, c config.NATS, subscri
 
 // startCapture is startEvents without recording the start, so that a
 // system whose setup is tried again records its start once.
-func startCapture(ctx context.Context, cfg config.Config, st *store.Store, log *slog.Logger) (*events.Capture, func(deadline time.Time), error) {
+func startCapture(ctx context.Context, cfg config.Config, st *store.Store, log *slog.Logger) (*events.Capture,
+	func(deadline time.Time), []collect.AccountConn, error) {
 	capture := events.New(events.Options{
 		Writer: st, APIAudit: cfg.Events.APIAudit, AccountConnections: cfg.Events.AccountConnections,
 		FlushInterval: cfg.Events.FlushInterval.D(),
@@ -84,6 +89,8 @@ func startCapture(ctx context.Context, cfg config.Config, st *store.Store, log *
 	sysConn := cfg.NATS
 	sysConn.Name += "-events"
 	conns := []*eventConn{newConn("sys", sysConn, capture.SubscribeSys)}
+	// The account connections that capture advisories also ask the
+	// account's micro services: one connection per account.
 	for _, acc := range cfg.Accounts {
 		conns = append(conns, newConn(acc.Name, acc.Connection(cfg.NATS), func(nc *nats.Conn) error {
 			return capture.SubscribeAccount(acc.Name, nc)
@@ -96,7 +103,7 @@ func startCapture(ctx context.Context, cfg config.Config, st *store.Store, log *
 					nc.Close()
 				}
 			}
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 	}
 	if len(cfg.Accounts) == 0 {
@@ -125,5 +132,5 @@ func startCapture(ctx context.Context, cfg config.Config, st *store.Store, log *
 		capture.SetFinalDeadline(deadline)
 		cancel()
 		<-done
-	}, nil
+	}, microConns(cfg.Accounts, conns[1:]), nil
 }
