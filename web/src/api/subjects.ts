@@ -146,35 +146,57 @@ export interface CoreMatch {
   moreNames: number;
 }
 
-export interface SubjectMatches {
-  collected: boolean;
+/** What a message published in one account would reach. */
+export interface MatchAccount {
+  /** The account the message is published in. */
+  account: string;
+  accountName: string;
+  systemAccount: boolean;
   streams: StreamMatch[];
   core: CoreMatch[];
-  /** Undefined: no subscription collection, and core is empty. */
+  /** The subject is a $JS.API. one and the account uses JetStream. */
+  jetstreamApi: boolean;
+}
+
+export interface SubjectMatches {
+  collected: boolean;
+  /**
+   * With an account scope, that account alone, even when nothing matches;
+   * without one, each account where something matches, the system account
+   * last, and none when nothing matches anywhere.
+   */
+  accounts: MatchAccount[];
+  /** Undefined: no subscription collection, and no account lists core subscribers. */
   subscriptionsAt?: number;
 }
 
 export function subjectMatches(r: MatchSubjectResponse): SubjectMatches {
   return {
     collected: r.epoch !== 0n,
-    streams: r.matches.map((m) => ({
-      account: m.account,
-      accountName: m.accountName,
-      stream: m.stream,
-      pattern: m.pattern,
-      consumers: m.consumers,
-      ephemeral: m.ephemeralConsumers,
-      mirrors: m.mirrors,
-      sourcedBy: m.sourcedBy,
-    })),
-    core: r.subscribers.map((c) => ({
-      account: c.account,
-      accountName: c.accountName,
-      subject: c.subject,
-      queue: c.queue,
-      connections: c.connections,
-      names: c.clientNames,
-      moreNames: c.moreNames,
+    accounts: r.accounts.map((a) => ({
+      account: a.account,
+      accountName: a.accountName,
+      systemAccount: a.systemAccount,
+      streams: a.matches.map((m) => ({
+        account: m.account,
+        accountName: m.accountName,
+        stream: m.stream,
+        pattern: m.pattern,
+        consumers: m.consumers,
+        ephemeral: m.ephemeralConsumers,
+        mirrors: m.mirrors,
+        sourcedBy: m.sourcedBy,
+      })),
+      core: a.subscribers.map((c) => ({
+        account: c.account,
+        accountName: c.accountName,
+        subject: c.subject,
+        queue: c.queue,
+        connections: c.connections,
+        names: c.clientNames,
+        moreNames: c.moreNames,
+      })),
+      jetstreamApi: a.jetstreamApi,
     })),
     subscriptionsAt: ms(r.subscriptionsAt),
   };

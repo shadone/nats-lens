@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coreMatch, global, matches, row, streamMatch, sub } from "../test/fixtures/subjects";
+import { coreMatch, global, published, row, streamMatch, sub } from "../test/fixtures/subjects";
 import {
   consumersText,
   coreText,
@@ -7,8 +7,8 @@ import {
   footLines,
   invalidReason,
   listText,
-  matchGroups,
   note,
+  reachesNothing,
   noteText,
   rateText,
   shareText,
@@ -159,18 +159,11 @@ describe("cutText and invalidReason", () => {
 });
 
 describe("the tester's answer", () => {
-  it("groups the matches by account in the order they first appear", () => {
-    const m = matches({
-      streams: [streamMatch(), streamMatch({ account: "SHOP", accountName: "shop", stream: "s" })],
-      core: [coreMatch({ account: "SYS", subject: ">", queue: "", connections: 1 }), coreMatch()],
-    });
-    const g = matchGroups(m);
-    expect(g.map((x) => [x.account, x.accountName, x.streams.length, x.core.length])).toEqual([
-      ["APP", "", 1, 1],
-      ["SHOP", "shop", 1, 0],
-      ["SYS", "", 0, 1],
-    ]);
-    expect(matchGroups(matches())).toEqual([]);
+  it("says an account reaches nothing only without a stream, a subscriber or its JetStream API", () => {
+    expect(reachesNothing(published())).toBe(true);
+    expect(reachesNothing(published({ streams: [streamMatch()] }))).toBe(false);
+    expect(reachesNothing(published({ core: [coreMatch()] }))).toBe(false);
+    expect(reachesNothing(published({ jetstreamApi: true }))).toBe(false);
   });
 
   it("names the matching consumers and counts the ephemeral ones", () => {
