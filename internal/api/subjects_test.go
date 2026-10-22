@@ -67,7 +67,7 @@ func TestValidateLiteralSubject(t *testing.T) {
 		}
 	}
 	for _, bad := range []string{"", "orders.*", "orders.>", ">", "*", "orders..created", ".orders", "orders.", "orders created",
-		"orders.\tcreated", strings.Repeat("a", api.MaxSubjectLength+1)} {
+		"orders.\tcreated", "orders\vcreated", "a\x00b", "orders.\x1bcreated", "orders\x7f", strings.Repeat("a", api.MaxSubjectLength+1)} {
 		if err := api.ValidateLiteralSubject(bad); !errors.Is(err, api.ErrInvalid) {
 			t.Errorf("%q: %v, want invalid", bad, err)
 		}
@@ -444,42 +444,42 @@ func TestFinishMatch(t *testing.T) {
 		{Account: "OTHER", Subject: "orders.*", Connections: 1},
 	}}
 	res := api.FinishMatch(m, "APP", "orders.place")
-	if len(res.GetMatches()) != 1 {
-		t.Fatalf("matches = %v", res.GetMatches())
+	if len(api.MatchedStreams(res)) != 1 {
+		t.Fatalf("matches = %v", api.MatchedStreams(res))
 	}
-	o := res.GetMatches()[0]
+	o := api.MatchedStreams(res)[0]
 	if o.GetStream() != "orders" || o.GetPattern() != "orders.>" || !slices.Equal(o.GetConsumers(), []string{"mailer", "projector"}) ||
 		!slices.Equal(o.GetMirrors(), []string{"orders-archive"}) {
 		t.Errorf("orders = %v", o)
 	}
-	if len(res.GetSubscribers()) != 3 || res.GetSubscribers()[0].GetSubject() != ">" || res.GetSubscribers()[2].GetQueue() != "workers" ||
-		res.GetSubscribers()[1].GetMoreNames() != 1 {
-		t.Errorf("subscribers = %v", res.GetSubscribers())
+	if len(api.MatchedSubscribers(res)) != 3 || api.MatchedSubscribers(res)[0].GetSubject() != ">" || api.MatchedSubscribers(res)[2].GetQueue() != "workers" ||
+		api.MatchedSubscribers(res)[1].GetMoreNames() != 1 {
+		t.Errorf("subscribers = %v", api.MatchedSubscribers(res))
 	}
 	// A consumer whose filter does not match is left out; the source link.
 	res = api.FinishMatch(m, "", "jobs.other")
-	if len(res.GetMatches()) != 1 || len(res.GetMatches()[0].GetConsumers()) != 0 {
-		t.Errorf("jobs.other = %v", res.GetMatches())
+	if len(api.MatchedStreams(res)) != 1 || len(api.MatchedStreams(res)[0].GetConsumers()) != 0 {
+		t.Errorf("jobs.other = %v", api.MatchedStreams(res))
 	}
-	if res = api.FinishMatch(m, "", "jobs.resize"); !slices.Equal(res.GetMatches()[0].GetConsumers(), []string{"worker"}) {
-		t.Errorf("jobs.resize = %v", res.GetMatches())
+	if res = api.FinishMatch(m, "", "jobs.resize"); !slices.Equal(api.MatchedStreams(res)[0].GetConsumers(), []string{"worker"}) {
+		t.Errorf("jobs.resize = %v", api.MatchedStreams(res))
 	}
-	if res = api.FinishMatch(m, "", "catalog.item"); !slices.Equal(res.GetMatches()[0].GetSourcedBy(), []string{"search"}) {
-		t.Errorf("catalog.item = %v", res.GetMatches())
+	if res = api.FinishMatch(m, "", "catalog.item"); !slices.Equal(api.MatchedStreams(res)[0].GetSourcedBy(), []string{"search"}) {
+		t.Errorf("catalog.item = %v", api.MatchedStreams(res))
 	}
-	if res = api.FinishMatch(m, "", "alerts.low"); res.GetMatches()[0].GetEphemeralConsumers() != 1 {
-		t.Errorf("alerts.low = %v", res.GetMatches())
+	if res = api.FinishMatch(m, "", "alerts.low"); api.MatchedStreams(res)[0].GetEphemeralConsumers() != 1 {
+		t.Errorf("alerts.low = %v", api.MatchedStreams(res))
 	}
 	// Every account: both orders streams and OTHER's wildcard.
 	res = api.FinishMatch(m, "", "orders.place")
-	if len(res.GetMatches()) != 2 || len(res.GetSubscribers()) != 4 {
-		t.Errorf("every account: %v %v", res.GetMatches(), res.GetSubscribers())
+	if len(api.MatchedStreams(res)) != 2 || len(api.MatchedSubscribers(res)) != 4 {
+		t.Errorf("every account: %v %v", api.MatchedStreams(res), api.MatchedSubscribers(res))
 	}
 	// Nothing matches but the > subscription; without a collection no
 	// subscriber.
 	m.SubscriptionsAt = nil
 	res = api.FinishMatch(m, "APP", "nothing.here")
-	if len(res.GetMatches()) != 0 || len(res.GetSubscribers()) != 0 || res.SubscriptionsAt != nil || res.GetEpoch() != 10 {
+	if len(api.MatchedStreams(res)) != 0 || len(api.MatchedSubscribers(res)) != 0 || res.SubscriptionsAt != nil || res.GetEpoch() != 10 {
 		t.Errorf("nothing = %v", res)
 	}
 }

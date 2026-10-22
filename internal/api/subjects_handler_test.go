@@ -96,7 +96,7 @@ func TestMatchSubjectHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.matchIn.GetRange().GetEnd() == nil || len(res.Msg.GetMatches()) != 1 || res.Msg.GetMatches()[0].GetAccountName() != "shop" {
+	if p.matchIn.GetRange().GetEnd() == nil || len(api.MatchedStreams(res.Msg)) != 1 || api.MatchedStreams(res.Msg)[0].GetAccountName() != "shop" {
 		t.Errorf("response = %v", res.Msg)
 	}
 }
