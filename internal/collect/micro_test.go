@@ -253,6 +253,9 @@ func TestMicroInfoInterval(t *testing.T) {
 	if err := first.Stop(); err != nil {
 		t.Fatal(err)
 	}
+	// Stop does not flush: give its unsubscriptions time to reach the
+	// server, which under load they otherwise miss.
+	time.Sleep(300 * time.Millisecond)
 	at = at.Add(30 * time.Second)
 	m = c.Collect(ctx).Micro[0]
 	if got := askedOf(m); got != "STATS ok 1" || m.Stats[0].Version != "1.5.0" {
