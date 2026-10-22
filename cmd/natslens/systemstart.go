@@ -98,12 +98,7 @@ func (rt *systemRuntime) setup(ctx context.Context, col *collect.Collector) (*st
 	} else {
 		// Without event capture the account connections are opened here,
 		// only to ask the accounts' micro services.
-		conns, stop, err := startAccountConns(ctx, cfg, log)
-		if err != nil {
-			undo()
-			return nil, err
-		}
-		micro, s.stopAccounts = conns, stop
+		micro, s.stopAccounts = startAccountConns(ctx, cfg, log)
 	}
 	conn := newTrackedCollectorConn(cfg.NATS, s.capture, col, rt.status, log)
 	if err := conn.open(); err != nil {

@@ -19,7 +19,7 @@ import (
 // refusalConf is one server: SHOP has a user with the grants of event
 // capture only (no $SRV) and a full user that runs the service. These are
 // test-only credentials.
-const reviewConf = `
+const refusalConf = `
 server_name: micro-1
 listen: 127.0.0.1:%d
 accounts {
@@ -39,7 +39,7 @@ func refusalServer(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "s.conf")
-	if err := os.WriteFile(path, fmt.Appendf(nil, reviewConf, testcluster.FreePort(t), filepath.Join(dir, "js")), 0o600); err != nil {
+	if err := os.WriteFile(path, fmt.Appendf(nil, refusalConf, testcluster.FreePort(t), filepath.Join(dir, "js")), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	opts, err := server.ProcessConfigFile(path)
@@ -125,3 +125,31 @@ func TestMicroRefusalIsNoSubscriptionError(t *testing.T) {
 	}
 }
 
+
+// With event capture off, an account whose creds file is missing does not
+// stop the system: epochs are taken, the account's requests are recorded
+// as not connected, and another account is asked.
+func TestMicroBadAccountWithoutEvents(t *testing.T) {
+	url := refusalServer(t)
+	dir := t.TempDir()
+	accs := "  - { name: SHOP, creds: /nonexistent/shop.creds }\n  - { name: GOOD, user: shop, password: shop-test }\n"
+	stop := startRun(t, refusalConfig(t, dir, url, false, accs), nil)
+	time.Sleep(4500 * time.Millisecond)
+	if err := stop(); err != nil {
+		t.Fatal(err)
+	}
+	data := filepath.Join(dir, "data")
+	if n := refusalCount(t, data, `SELECT count(*) FROM epochs`); n == 0 {
+		t.Fatal("no epochs: an unusable account (events off) stops the whole system's collection")
+	}
+	if n := refusalCount(t, data, `SELECT count(*) FROM micro_requests WHERE label = 'SHOP'
+  AND (state <> 'error' OR error <> 'account connection not connected')`); n != 0 {
+		t.Errorf("%d SHOP requests not recorded as not connected", n)
+	}
+	if n := refusalCount(t, data, `SELECT count(*) FROM micro_requests WHERE label = 'SHOP'`); n == 0 {
+		t.Error("SHOP has no requests recorded")
+	}
+	if n := refusalCount(t, data, `SELECT count(*) FROM micro_requests WHERE label = 'GOOD' AND request = 'STATS' AND state = 'ok'`); n == 0 {
+		t.Error("GOOD was not asked")
+	}
+}

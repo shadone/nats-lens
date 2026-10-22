@@ -46,9 +46,13 @@ func newAccountConn(label string, c config.NATS, log *slog.Logger) *eventConn {
 
 // startAccountConns opens a connection for every account that asks its
 // micro services, for natslens run without event capture, which would
-// otherwise open them, and keeps each open. stop closes them.
+// otherwise open them, and keeps each open. An account that cannot be
+// dialled (a missing credentials file) is logged and dialled again with
+// the backoff of a closed connection; until then its requests are recorded
+// as not connected, and the other accounts and the system go on. stop
+// closes them.
 func startAccountConns(ctx context.Context, cfg config.Config, log *slog.Logger) (conns []collect.AccountConn,
-	stop func(), err error) {
+	stop func()) {
 	var accs []config.Account
 	var ecs []*eventConn
 	for _, a := range cfg.Accounts {
@@ -60,8 +64,7 @@ func startAccountConns(ctx context.Context, cfg config.Config, log *slog.Logger)
 	}
 	for _, ec := range ecs {
 		if err := ec.open(); err != nil {
-			closeAll(ecs)
-			return nil, nil, err
+			log.Error("account connection not opened; its micro services are not asked until it is", "account", ec.label, "err", err)
 		}
 	}
 	kctx, stopKeepers := context.WithCancel(ctx)
@@ -73,7 +76,7 @@ func startAccountConns(ctx context.Context, cfg config.Config, log *slog.Logger)
 		stopKeepers()
 		keepers.Wait()
 		closeAll(ecs)
-	}, nil
+	}
 }
 
 // onceAccountConns connects every account that asks its micro services
