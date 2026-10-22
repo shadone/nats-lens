@@ -362,10 +362,10 @@ func TestMicroFailures(t *testing.T) {
 			t.Errorf("snapshot error %q: a micro failure fails no epoch", e)
 		}
 	}
-	// A refused request is asked again in the next epoch; INFO is not due.
+	// A refused request is held in the next epoch; INFO is not due.
 	at = at.Add(30 * time.Second)
 	snap = c.Collect(context.Background())
-	if a := askedOf(snap.Micro[4]); snap.Micro[4].Label != "nosrv" || a != "STATS error 0" {
+	if a := askedOf(snap.Micro[4]); snap.Micro[4].Label != "nosrv" || a != "STATS held 0" {
 		t.Errorf("next epoch %s: %s", snap.Micro[4].Label, a)
 	}
 	// The connection that was not connected asks INFO once it is.

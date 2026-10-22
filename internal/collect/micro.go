@@ -2,7 +2,6 @@ package collect
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"sort"
 	"strings"
@@ -51,6 +50,9 @@ const (
 	// MicroError means the request could not be made or answered: no
 	// connection, a permissions violation, or only undecodable replies.
 	MicroError MicroState = "error"
+	// MicroHeld means the request was not sent: the server refused it
+	// within refusedRetry, and it is sent again after that.
+	MicroHeld MicroState = "held"
 )
 
 // MicroAsked records one request to one account.
@@ -59,8 +61,13 @@ type MicroAsked struct {
 	State   MicroState
 	// Replies are the replies that decoded.
 	Replies int
-	// Error is the reason of an error state, or what did not decode.
+	// Error is the reason of an error state, or what did not decode; for
+	// a held request the server's refusal as received.
 	Error string
+	// RefusedAt and RetryAfter are, for a held request, when the server
+	// refused it and when it is sent again; zero otherwise.
+	RefusedAt  time.Time
+	RetryAfter time.Time
 }
 
 // MicroAccount is what one account's micro services answered in an epoch.
@@ -223,7 +230,7 @@ func (c *Collector) askMicro(ctx context.Context, started time.Time) []MicroAcco
 func statsAnswered(m MicroAccount) bool {
 	for _, a := range m.Asked {
 		if a.Request == MicroStats {
-			return a.State != MicroError
+			return a.State != MicroError && a.State != MicroHeld
 		}
 	}
 	return false
@@ -288,11 +295,10 @@ type refusal struct {
 	text string
 }
 
-// asked is the record of request r not sent because of the refusal: an
-// error with the server's text and when it is sent again.
+// asked is the record of request r held because of the refusal: the
+// server's text, when it refused, and when the request is sent again.
 func (f refusal) asked(r MicroRequest) MicroAsked {
-	return MicroAsked{Request: r, State: MicroError, Error: fmt.Sprintf("%s (not sent: refused at %s, asked again after %s)",
-		f.text, f.at.UTC().Format(time.RFC3339), f.at.Add(refusedRetry).UTC().Format(time.RFC3339))}
+	return MicroAsked{Request: r, State: MicroHeld, Error: f.text, RefusedAt: f.at, RetryAfter: f.at.Add(refusedRetry)}
 }
 
 // held returns the refusal that keeps request r from being sent in an
