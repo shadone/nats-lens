@@ -125,20 +125,20 @@ export function subjects(r: GetSubjectsResponse): Subjects {
 }
 
 export interface StreamMatch {
+  /** The account of the group it is in, the one the message is published in. */
   account: string;
-  accountName: string;
   stream: string;
+  kind: "stream" | "kv" | "object";
   pattern: string;
   /** Durable consumers whose filter matches, by name. */
   consumers: string[];
+  /** Ephemeral consumers whose filter matches; on a KV bucket, watchers. */
   ephemeral: number;
   mirrors: string[];
   sourcedBy: string[];
 }
 
 export interface CoreMatch {
-  account: string;
-  accountName: string;
   subject: string;
   queue: string;
   connections: number;
@@ -178,9 +178,9 @@ export function subjectMatches(r: MatchSubjectResponse): SubjectMatches {
       accountName: a.accountName,
       systemAccount: a.systemAccount,
       streams: a.matches.map((m) => ({
-        account: m.account,
-        accountName: m.accountName,
+        account: a.account,
         stream: m.stream,
+        kind: m.kind === SubjectRowKind.KEY_VALUE ? ("kv" as const) : m.kind === SubjectRowKind.OBJECT_STORE ? ("object" as const) : ("stream" as const),
         pattern: m.pattern,
         consumers: m.consumers,
         ephemeral: m.ephemeralConsumers,
@@ -188,8 +188,6 @@ export function subjectMatches(r: MatchSubjectResponse): SubjectMatches {
         sourcedBy: m.sourcedBy,
       })),
       core: a.subscribers.map((c) => ({
-        account: c.account,
-        accountName: c.accountName,
         subject: c.subject,
         queue: c.queue,
         connections: c.connections,

@@ -68,11 +68,11 @@ export function noCollection(): Subjects {
 }
 
 export function streamMatch(o: Partial<StreamMatch> = {}): StreamMatch {
-  return { account: "APP", accountName: "", stream: "order-events", pattern: "order.events.>", consumers: ["email-sender", "order-projector"], ephemeral: 0, mirrors: ["order-archive"], sourcedBy: [], ...o };
+  return { account: "APP", stream: "order-events", kind: "stream", pattern: "order.events.>", consumers: ["email-sender", "order-projector"], ephemeral: 0, mirrors: ["order-archive"], sourcedBy: [], ...o };
 }
 
 export function coreMatch(o: Partial<CoreMatch> = {}): CoreMatch {
-  return { account: "APP", accountName: "", subject: "orders.place", queue: "order-service", connections: 3, names: ["order-service"], moreNames: 0, ...o };
+  return { subject: "orders.place", queue: "order-service", connections: 3, names: ["order-service"], moreNames: 0, ...o };
 }
 
 export function published(o: Partial<MatchAccount> = {}): MatchAccount {

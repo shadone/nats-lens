@@ -80,8 +80,8 @@ describe("subjectMatches", () => {
         accounts: [
           {
             account: "APP",
-            matches: [{ account: "APP", stream: "order-events", pattern: "order.events.>", consumers: ["a"], ephemeralConsumers: 2, mirrors: ["order-archive"], sourcedBy: ["s"] }],
-            subscribers: [{ account: "APP", subject: "orders.place", queue: "order-service", connections: 3, clientNames: ["order-service"], moreNames: 0 }],
+            matches: [{ stream: "order-events", kind: SubjectRowKind.KEY_VALUE, pattern: "order.events.>", consumers: ["a"], ephemeralConsumers: 2, mirrors: ["order-archive"], sourcedBy: ["s"] }],
+            subscribers: [{ subject: "orders.place", queue: "order-service", connections: 3, clientNames: ["order-service"], moreNames: 0 }],
           },
           { account: "SYS", accountName: "system", systemAccount: true, jetstreamApi: true },
         ],
@@ -95,8 +95,8 @@ describe("subjectMatches", () => {
           account: "APP",
           accountName: "",
           systemAccount: false,
-          streams: [{ account: "APP", accountName: "", stream: "order-events", pattern: "order.events.>", consumers: ["a"], ephemeral: 2, mirrors: ["order-archive"], sourcedBy: ["s"] }],
-          core: [{ account: "APP", accountName: "", subject: "orders.place", queue: "order-service", connections: 3, names: ["order-service"], moreNames: 0 }],
+          streams: [{ account: "APP", stream: "order-events", kind: "kv", pattern: "order.events.>", consumers: ["a"], ephemeral: 2, mirrors: ["order-archive"], sourcedBy: ["s"] }],
+          core: [{ subject: "orders.place", queue: "order-service", connections: 3, names: ["order-service"], moreNames: 0 }],
           jetstreamApi: false,
         },
         { account: "SYS", accountName: "system", systemAccount: true, streams: [], core: [], jetstreamApi: true },

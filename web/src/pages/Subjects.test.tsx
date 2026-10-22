@@ -147,7 +147,7 @@ describe("Subjects tester", () => {
         ? matches({
             accounts: [
               published({ streams: [streamMatch()] }),
-              published({ account: "SHOP", streams: [streamMatch({ account: "SHOP", stream: "shop-orders", consumers: [] })], core: [coreMatch({ account: "SHOP", queue: "", subject: ">", connections: 1, names: ["ops-monitor"] })] }),
+              published({ account: "SHOP", streams: [streamMatch({ account: "SHOP", stream: "shop-orders", consumers: [] })], core: [coreMatch({ queue: "", subject: ">", connections: 1, names: ["ops-monitor"] })] }),
             ],
           })
         : matches(),
@@ -176,7 +176,7 @@ describe("Subjects tester", () => {
   it("marks the system account and says when the account's JetStream API answers", async () => {
     getSubjects.mockResolvedValue(global());
     matchSubject.mockResolvedValue(
-      matches({ accounts: [published({ jetstreamApi: true }), published({ account: "SYS", systemAccount: true, core: [coreMatch({ account: "SYS", queue: "", subject: "$SYS.>" })] })] }),
+      matches({ accounts: [published({ jetstreamApi: true }), published({ account: "SYS", systemAccount: true, core: [coreMatch({ queue: "", subject: "$SYS.>" })] })] }),
     );
     renderApp(<Subjects />, "/subjects");
     await userEvent.type(field(), "x");
