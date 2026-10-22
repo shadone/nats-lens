@@ -2,6 +2,7 @@ package collect
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"sort"
 	"strings"
@@ -108,6 +109,8 @@ type microAccount struct {
 	// sameAs is the earlier label that asks this label's account for it,
 	// empty when this label asks.
 	sameAs string
+	// backoff holds the requests refused within refusedRetry.
+	backoff map[MicroRequest]refusal
 	// refused holds what each request was refused, as last logged.
 	refused map[MicroRequest]string
 }
@@ -151,7 +154,8 @@ func (c *Collector) askMicro(ctx context.Context, started time.Time) []MicroAcco
 	for i, ac := range conns {
 		st := c.microAccounts[ac.Label]
 		if st == nil {
-			st = &microAccount{endpoints: map[instanceKey][]micro.EndpointInfo{}, refused: map[MicroRequest]string{}}
+			st = &microAccount{endpoints: map[instanceKey][]micro.EndpointInfo{}, refused: map[MicroRequest]string{},
+				backoff: map[MicroRequest]refusal{}}
 			c.microAccounts[ac.Label] = st
 		}
 		states[i] = st
@@ -274,6 +278,45 @@ func (c *Collector) infoDue(st *microAccount, now time.Time) bool {
 	return c.subsInterval > 0 && now.Sub(st.infoAsked) >= c.subsInterval-subscriptionsSlack
 }
 
+// refusedRetry is how long a request the server refused is not sent
+// again for the account.
+const refusedRetry = 10 * time.Minute
+
+// refusal is a request the server refused, and when.
+type refusal struct {
+	at   time.Time
+	text string
+}
+
+// asked is the record of request r not sent because of the refusal: an
+// error with the server's text and when it is sent again.
+func (f refusal) asked(r MicroRequest) MicroAsked {
+	return MicroAsked{Request: r, State: MicroError, Error: fmt.Sprintf("%s (not sent: refused at %s, asked again after %s)",
+		f.text, f.at.UTC().Format(time.RFC3339), f.at.Add(refusedRetry).UTC().Format(time.RFC3339))}
+}
+
+// held returns the refusal that keeps request r from being sent in an
+// epoch started at now; a refusal older than refusedRetry, or after now
+// (the clock stepped back), holds nothing and is forgotten.
+func (st *microAccount) held(r MicroRequest, now time.Time) (refusal, bool) {
+	f, ok := st.backoff[r]
+	if !ok {
+		return refusal{}, false
+	}
+	if now.Before(f.at) || now.Sub(f.at) >= refusedRetry {
+		delete(st.backoff, r)
+		return refusal{}, false
+	}
+	return f, true
+}
+
+// noteRefusal starts the back-off of a request the server refused.
+func (st *microAccount) noteRefusal(a MicroAsked, at time.Time) {
+	if refusalKind(a.Error) != "" {
+		st.backoff[a.Request] = refusal{at: at, text: a.Error}
+	}
+}
+
 // lookupRetry is how long after a refused account lookup it is made again.
 const lookupRetry = 10 * time.Minute
 
@@ -303,8 +346,16 @@ func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAcc
 		st.watch.install(nc)
 		st.watchedOn = nc
 	}
-	reqs := map[string]string{string(MicroStats): MicroStats.Subject()}
-	if wantInfo {
+	// A request refused within refusedRetry is not sent again: every
+	// refused publish is an error in the server's log.
+	statsHeld, holdStats := st.held(MicroStats, started)
+	infoHeld, holdInfo := st.held(MicroInfo, started)
+	holdInfo = holdInfo && wantInfo
+	reqs := map[string]string{}
+	if !holdStats {
+		reqs[string(MicroStats)] = MicroStats.Subject()
+	}
+	if wantInfo && !holdInfo {
 		reqs[string(MicroInfo)] = MicroInfo.Subject()
 		st.infoAsked = started
 	}
@@ -313,26 +364,41 @@ func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAcc
 	if lookUp {
 		reqs[userInfoToken] = userInfoSubject
 	}
-	got := exchange(ctx, nc, st.watch, reqs, deadline, microQuiet, known, string(MicroStats), string(MicroInfo))
+	got := map[string]*exchanged{}
+	if len(reqs) > 0 {
+		got = exchange(ctx, nc, st.watch, reqs, deadline, microQuiet, known, string(MicroStats), string(MicroInfo))
+	}
 	if lookUp {
 		c.resolveMicroAccount(ac.Label, st, nc, got[userInfoToken], started)
 	}
-	statsAsked, stats := decodeStats(got[string(MicroStats)])
+	var statsAsked MicroAsked
+	var stats []micro.Stats
+	if holdStats {
+		statsAsked = statsHeld.asked(MicroStats)
+	} else {
+		statsAsked, stats = decodeStats(got[string(MicroStats)])
+		st.noteRefusal(statsAsked, started)
+	}
 	res.Stats = stats
 	var infos []micro.Info
-	if wantInfo {
+	switch {
+	case holdInfo:
+		res.Asked = append(res.Asked, infoHeld.asked(MicroInfo))
+	case wantInfo:
 		var a MicroAsked
 		a, infos = decodeInfos(got[string(MicroInfo)])
+		st.noteRefusal(a, started)
 		res.Asked = append(res.Asked, a)
 	}
 	pruneDescribed(st, statsAsked, stats)
 	describe(st, infos)
-	if !wantInfo && undescribed(st, stats) {
+	if _, held := st.held(MicroInfo, started); !wantInfo && !held && undescribed(st, stats) {
 		// A new instance: ask INFO in the time left.
 		st.infoAsked = started
 		var a MicroAsked
 		a, infos = decodeInfos(exchange(ctx, nc, st.watch, map[string]string{string(MicroInfo): MicroInfo.Subject()},
 			deadline, microQuiet, instancesOf(stats), string(MicroInfo))[string(MicroInfo)])
+		st.noteRefusal(a, started)
 		res.Asked = append(res.Asked, a)
 		describe(st, infos)
 	}
