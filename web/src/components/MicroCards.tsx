@@ -2,9 +2,10 @@
 // versions, description, instances, requests per second, errors and note.
 // The chosen card is pressed; choosing one shows its endpoints below.
 import type { MicroAccount, MicroService } from "../api/micro";
-import { descriptionText, noteOf, rateText, serviceErrorsHigh, serviceKey, shareText, versionText } from "../lib/microView";
+import { descriptionText, errorsText, noteOf, rateText, serviceErrorsHigh, serviceKey, versionText } from "../lib/microView";
 import { AccountName } from "./AccountName";
 import { Dash } from "./common";
+import { Ticks } from "./Ticks";
 
 /** A value a service seen only cannot have: nats-lens did not ask it. */
 function NotAsked() {
@@ -73,12 +74,14 @@ function Card({
         </span>{" "}
         <span className="mi-fig">
           <span className={`mi-v${serviceErrorsHigh(s) ? " mi-crit" : ""}`}>
-            <Figure v={s.errorShare === undefined ? undefined : shareText(s.errorShare)} asked={s.asked} />
+            <Figure v={s.errorShare === undefined ? undefined : errorsText(s.errorShare, serviceErrorsHigh(s))} asked={s.asked} />
           </span>{" "}
           <span className="mi-k">errors</span>
         </span>
       </span>{" "}
-      <span className={`mi-note${note.warn ? " mi-note-warn" : ""}`}>{note.text}</span>
+      <span className={`mi-note${note.warn ? " mi-note-warn" : ""}`}>
+        <Ticks text={note.text} />
+      </span>
     </button>
   );
 }

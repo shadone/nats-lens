@@ -3,9 +3,7 @@
 // accounts that were asked and did not answer, and the footnote.
 import type { MicroAccount, MicroEndpoint, MicroMissing, MicroRequest, MicroService, MicroServices } from "../api/micro";
 import { dayMonHm, fmtInt, hm, hms } from "./format";
-import { listText, shareText } from "./subjectsView";
-
-export { shareText };
+import { listText } from "./subjectsView";
 
 /** The line under the title, in three parts so the subjects can be set in mono. */
 export const MICRO_SUBTITLE = ["Services built on the NATS micro framework, found through", "$SRV.INFO", "and measured through", "$SRV.STATS", "."] as const;
@@ -13,10 +11,17 @@ export const MICRO_SUBTITLE = ["Services built on the NATS micro framework, foun
 export const MICRO_SUBTITLE_TEXT = `${MICRO_SUBTITLE[0]} ${MICRO_SUBTITLE[1]} ${MICRO_SUBTITLE[2]} ${MICRO_SUBTITLE[3]}${MICRO_SUBTITLE[4]}`;
 
 export const MICRO_FOOTNOTE =
-  "Each account listed under accounts gets one $SRV.STATS request every collection and a $SRV.INFO request every few minutes; rates, times and errors cover the 15 minutes before the range's end. An endpoint is slow when its average time is at least 3 times its 7-day level and at least 5 ms above it. A service instance that stops answering shows as “instance missing”, a version spread across instances as “mixed versions”.";
+  "Each account listed under `accounts` gets one $SRV.STATS request every collection and a $SRV.INFO request every few minutes; rates, times and errors cover the 15 minutes before the range's end. An endpoint is slow when its average time is at least 3 times its 7-day level and at least 5 ms above it. A service instance that stops answering shows as “instance missing”, a version spread across instances as “mixed versions”.";
 
 /** What the account's user needs for nats-lens to ask its services. */
 export const GRANTS = "publish on $SRV.INFO and $SRV.STATS and subscribe on _INBOX.>";
+
+/** The grants as a clause; the card's note, the endpoint section and the notice all say it so. */
+const NEEDS = `the account's user needs to ${GRANTS}`;
+
+/** The notice above the services when no subscription list was read. */
+export const NO_SUBSCRIPTIONS =
+  "No subscription list within 24 hours before this collection: only the services of accounts listed under `accounts` are shown, and instances name no connection.";
 
 const DAY = 86_400_000;
 
@@ -29,21 +34,38 @@ export function whenText(at: number, ref: number): string {
   return ref - at < DAY ? hm(at) : dayMonHm(at);
 }
 
-/** Requests per second: "161.7", "88.0", "<0.1", "0", "1,204". */
+const round1 = (v: number) => Math.round(v * 10) / 10;
+
+/** Requests per second, rounded before the format is chosen: "161.7", "88.0", "<0.1", "0", "1,000". */
 export function rateText(v: number): string {
   if (v === 0) return "0";
   if (v < 0.1) return "<0.1";
-  if (v < 1000) return v.toFixed(1);
-  return fmtInt(Math.round(v));
+  const r = round1(v);
+  return r < 1000 ? r.toFixed(1) : fmtInt(Math.round(v));
 }
 
-/** An average time: "3.8 ms", "41 ms", "<0.1 ms", "1.2 s". */
+/** An average time, rounded before the unit is chosen: "3.8 ms", "10 ms", "<0.1 ms", "1.0 s", "12 s". */
 export function msText(v: number): string {
   if (v === 0) return "0 ms";
   if (v < 0.1) return "<0.1 ms";
-  if (v < 10) return `${v.toFixed(1)} ms`;
-  if (v < 1000) return `${Math.round(v)} ms`;
-  return `${(v / 1000).toFixed(1)} s`;
+  if (round1(v) < 10) return `${round1(v).toFixed(1)} ms`;
+  if (Math.round(v) < 1000) return `${Math.round(v)} ms`;
+  const s = round1(v / 1000);
+  return s < 10 ? `${s.toFixed(1)} s` : `${fmtInt(Math.round(v / 1000))} s`;
+}
+
+/**
+ * An error share: "0%", "<0.1%", "0.4%", "2.4%", "12%". high is the
+ * server's above-1% flag; a flagged share that rounds to 1.0% reads
+ * ">1.0%", so the words never contradict the colour.
+ */
+export function errorsText(share: number, high: boolean): string {
+  const pct = share * 100;
+  if (pct === 0) return "0%";
+  if (pct < 0.1) return "<0.1%";
+  const r = round1(pct);
+  if (high && r <= 1) return ">1.0%";
+  return r < 10 ? `${r.toFixed(1)}%` : `${Math.round(pct)}%`;
 }
 
 /** "1.4.2", "2.0.0 / 1.9.3", "3.0 / 2.9 / 2.8 +1"; "" when no version is known. */
@@ -67,6 +89,31 @@ export function chooseService(services: MicroService[], param: string | null): {
   return { chosen: named ?? services[0], unknown: !!param && !named };
 }
 
+/**
+ * What the page says when ?service= names a service the list does not
+ * hold: that it belongs to another account than the scoped one, or that
+ * this collection has none of that name.
+ */
+export function unknownServiceText(param: string, scope: string, label: (id: string) => string, shown: string): string {
+  const cut = param.indexOf("/");
+  const account = cut < 0 ? "" : param.slice(0, cut);
+  const name = cut < 0 ? param : param.slice(cut + 1);
+  if (scope && account !== scope) return `${name} of ${label(account)} is not in account ${label(scope)}; showing ${shown}.`;
+  if (scope) return `No service ${name} in ${label(scope)} in this collection; showing ${shown}.`;
+  return `No service ${param} in this collection; showing ${shown}.`;
+}
+
+/**
+ * The response with each empty account name filled from names (account
+ * to name, as the header's account list has them); the response itself
+ * when nothing is filled.
+ */
+export function withAccountNames(d: MicroServices, names: Map<string, string>): MicroServices {
+  const fill = <T extends { account: string; accountName: string }>(x: T): T => (!x.accountName && names.get(x.account) ? { ...x, accountName: names.get(x.account)! } : x);
+  if (!d.services.some((s) => fill(s) !== s) && !d.accounts.some((a) => fill(a) !== a)) return d;
+  return { ...d, services: d.services.map(fill), accounts: d.accounts.map(fill) };
+}
+
 /** "Order intake and lookup", or what the card knows for a service seen only. */
 export function descriptionText(s: Pick<MicroService, "asked" | "description">): string {
   if (!s.asked) return "seen in subscriptions only";
@@ -87,7 +134,7 @@ export function noAnswerReason(stats: MicroRequest | undefined): string {
   if (!stats) return "its instances did not reply";
   switch (stats.state) {
     case "error":
-      return permissionRefused(stats) ? "refused; the account's user needs publish on $SRV.INFO and $SRV.STATS" : `the request failed: ${stats.error}`;
+      return permissionRefused(stats) ? `refused; ${NEEDS}` : `the request failed: ${stats.error}`;
     case "timeout":
       return "no reply within the collect window";
     case "noResponders":
@@ -123,14 +170,14 @@ export function noteOf(s: MicroService, accounts: MicroAccount[], ref: number): 
     case "errors": {
       const e = s.endpoints.find((x) => x.errorsHigh);
       if (!e || e.errorShare === undefined) return { text: "errors above 1% on an endpoint", warn: true };
-      return { text: `errors ${shareText(e.errorShare)} on ${s.name}.${e.name}`, warn: true };
+      return { text: `errors ${errorsText(e.errorShare, true)} on ${s.name}.${e.name}`, warn: true };
     }
     case "noAnswer": {
       const a = accounts.find((x) => x.account === s.account);
       return { text: `no answer to $SRV.STATS: ${noAnswerReason(a?.stats)}`, warn: true };
     }
     case "notAsked":
-      return { text: "list the account under accounts for versions, endpoints and timings", warn: false };
+      return { text: "list the account under `accounts` for versions, endpoints and timings", warn: false };
     default:
       return { text: "healthy", warn: false };
   }
@@ -170,7 +217,7 @@ export function seenOnlyText(s: MicroService, accountLabel: string): string[] {
   const conns = s.connectionNames.length ? ` on ${listText(s.connectionNames)}${s.moreNames > 0 ? ` and ${plural(s.moreNames, "more connection")}` : ""}` : "";
   return [
     `nats-lens does not ask ${accountLabel}, so versions, endpoints and timings are not known. The subscription list shows ${plural(s.instances, "instance")}${conns}.`,
-    `To see more, list ${accountLabel} under accounts in the configuration, with a user that may ${GRANTS}.`,
+    `To see more, list ${accountLabel} under \`accounts\` in the configuration, with a user that may ${GRANTS}.`,
   ];
 }
 
@@ -179,7 +226,7 @@ export function unansweredText(a: MicroAccount): string | undefined {
   if (!a.asked || a.services > 0) return undefined;
   const r = a.stats;
   if (r.state === "error") {
-    if (permissionRefused(r)) return `The server refused $SRV.STATS (${r.error}): the account's user needs to ${GRANTS}.`;
+    if (permissionRefused(r)) return `The server refused $SRV.STATS (${r.error}): ${NEEDS}.`;
     return `$SRV.STATS failed: ${r.error}.`;
   }
   if (r.state === "timeout") return "No reply to $SRV.STATS came within the collect window.";
@@ -206,6 +253,6 @@ export function footLines(d: MicroServices, label: (a: MicroAccount) => string):
 export function noServiceText(d: MicroServices, scopeLabel: string): string {
   const where = scopeLabel ? ` in ${scopeLabel}` : "";
   if (d.subscriptionsAt === undefined && !d.accounts.some((a) => a.asked))
-    return `No micro service known${where}: no account is listed under accounts, and no subscription list within 24 hours before this collection.`;
+    return `No micro service known${where}: no account is listed under \`accounts\`, and no subscription list within 24 hours before this collection.`;
   return `No micro service${where} in this collection.`;
 }

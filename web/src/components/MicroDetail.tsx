@@ -3,10 +3,11 @@
 // with their connections and the missing ones, or, for a service seen
 // only in subscriptions, what is known and how to see more.
 import type { MicroAccount, MicroEndpoint, MicroService } from "../api/micro";
-import { cutText, missingText, msText, noEndpointsText, rateText, seenOnlyText, shareText, slowText, whenText } from "../lib/microView";
+import { cutText, errorsText, missingText, msText, noEndpointsText, rateText, seenOnlyText, slowText, whenText } from "../lib/microView";
 import { serverPath } from "../lib/view";
 import { Dash, RLink } from "./common";
 import { connectionPath } from "./SubjectsTable";
+import { Ticks } from "./Ticks";
 
 const enc = encodeURIComponent;
 
@@ -41,7 +42,7 @@ function EndpointRow({ s, e, epochAt }: { s: MicroService; e: MicroEndpoint; epo
       <td className="mi-subj">{e.queueGroup || <None words="no queue group" />}</td>
       <td className="num">{e.requestsPerSecond === undefined ? <Dash /> : rateText(e.requestsPerSecond)}</td>
       <td className={`num${e.slow ? " mi-warn-text" : ""}`}>{e.averageMs === undefined ? <Dash /> : msText(e.averageMs)}</td>
-      <td className={`num${e.errorsHigh ? " mi-crit" : ""}`}>{e.errorShare === undefined ? <Dash /> : shareText(e.errorShare)}</td>
+      <td className={`num${e.errorsHigh ? " mi-crit" : ""}`}>{e.errorShare === undefined ? <Dash /> : errorsText(e.errorShare, e.errorsHigh)}</td>
       <td className="mi-err">
         {e.slow && <span className="mi-line mi-warn-text">{slowText(e, epochAt)}</span>}
         {e.lastError ? (
@@ -93,13 +94,17 @@ function Endpoints({ s, accounts, epochAt }: { s: MicroService; accounts: MicroA
   );
 }
 
-function Connection({ name }: { name: string }) {
-  return name ? <RLink to={connectionPath(name)}>{name}</RLink> : <None words="not found" />;
+/** The Connections list filtered by the connection's name and, when known, its server. */
+function Connection({ name, server }: { name: string; server?: string }) {
+  if (!name) return <None words="not found" />;
+  return <RLink to={server ? `${connectionPath(name)}&server=${enc(server)}` : connectionPath(name)}>{name}</RLink>;
 }
 
 function Instances({ s, epochAt }: { s: MicroService; epochAt: number }) {
   const cut = cutText(s.instanceList.length, s.instances, "instances");
   if (s.instanceList.length === 0 && s.missing.length === 0) return null;
+  // The Note column says only why an instance is missing.
+  const notes = s.missing.length > 0;
   return (
     <>
       <h3 className="mi-h3">Instances</h3>
@@ -112,7 +117,7 @@ function Instances({ s, epochAt }: { s: MicroService; epochAt: number }) {
               <th scope="col">Started</th>
               <th scope="col">Connection</th>
               <th scope="col">Server</th>
-              <th scope="col">Note</th>
+              {notes && <th scope="col">Note</th>}
             </tr>
           </thead>
           <tbody>
@@ -122,10 +127,10 @@ function Instances({ s, epochAt }: { s: MicroService; epochAt: number }) {
                 <td className="mi-subj">{i.version || <None words={s.asked ? "not reported" : "not asked"} />}</td>
                 <td className="mi-when">{i.started !== undefined ? whenText(i.started, epochAt) : <None words={s.asked ? "not reported" : "not asked"} />}</td>
                 <td className="mi-subj">
-                  <Connection name={i.connectionName} />
+                  <Connection name={i.connectionName} server={i.server} />
                 </td>
                 <td className="mi-subj">{i.server ? <RLink to={serverPath(i.server)}>{i.server}</RLink> : <None words="not found" />}</td>
-                <td className="mi-note-cell" />
+                {notes && <td className="mi-note-cell" />}
               </tr>
             ))}
             {s.missing.map((m) => (
@@ -179,7 +184,9 @@ export function MicroDetail({
       ) : (
         <div className="mi-seen">
           {seenOnlyText(s, accountLabel).map((l) => (
-            <p key={l}>{l}</p>
+            <p key={l}>
+              <Ticks text={l} />
+            </p>
           ))}
         </div>
       )}
