@@ -20,6 +20,10 @@ const (
 	MaxClientNames = 3
 	// MaxSubjectLength is the longest subject MatchSubject takes, in bytes.
 	MaxSubjectLength = 255
+	// MaxRowPatterns is the most subjects a stream row lists; the rest
+	// are counted in more_patterns, so MaxSubjectRows rows of streams
+	// with many subjects stay within MaxMessageBytes.
+	MaxRowPatterns = 20
 	// SubscriptionsMaxAge is how far before the epoch the subscription
 	// collection a page reads may lie.
 	SubscriptionsMaxAge = 24 * time.Hour
@@ -417,9 +421,10 @@ func FinishSubjects(f *SubjectsFacts, account string, filter v1.SubjectFilter) *
 			}
 		}
 	}
+	overlaps := overlapsOf(streams)
 	var rows []*v1.SubjectRow
 	for _, s := range streams {
-		rows = append(rows, streamRow(s, streams, links, deliver))
+		rows = append(rows, streamRow(s, overlaps, links, deliver))
 	}
 	if sf := f.Subscriptions; sf != nil {
 		for _, g := range sf.Groups {
@@ -468,12 +473,14 @@ func FinishSubjects(f *SubjectsFacts, account string, filter v1.SubjectFilter) *
 
 // streamRow is a stream's row: its subjects, consumers, the names of its
 // push consumers' subscribers, links and the notes' facts.
-func streamRow(s SubjectStreamFact, all []SubjectStreamFact, links streamLinks, deliver map[[2]string]SubscriptionGroup) *v1.SubjectRow {
+func streamRow(s SubjectStreamFact, overlaps map[[2]string][]string, links streamLinks, deliver map[[2]string]SubscriptionGroup) *v1.SubjectRow {
 	key := [2]string{s.Account, s.Stream}
 	r := &v1.SubjectRow{Account: s.Account, Kind: SubjectKind(s.Stream), Stream: s.Stream, MirrorOf: s.Mirror, Retention: s.Retention,
 		Messages: s.Messages, StoredPerSecond: s.StoredPerSecond, MirroredBy: links.mirroredBy[key], SourcedInto: links.sourcedInto[key]}
 	if s.Mirror == "" {
-		r.Patterns = slices.Clone(s.Subjects)
+		n := min(len(s.Subjects), MaxRowPatterns)
+		r.Patterns = slices.Clone(s.Subjects[:n])
+		r.MorePatterns = int32(len(s.Subjects) - n)
 	}
 	var names []string
 	for _, c := range s.Consumers {
@@ -487,31 +494,95 @@ func streamRow(s SubjectStreamFact, all []SubjectStreamFact, links streamLinks, 
 		}
 	}
 	r.ClientNames, r.MoreNames = cutNames(names, 0)
-	for _, o := range all {
-		if o.Account != s.Account || o.Stream == s.Stream || o.Mirror != "" || s.Mirror != "" {
-			continue
-		}
-		if overlapping(s.Subjects, o.Subjects) {
-			r.Overlaps = append(r.Overlaps, o.Stream)
-		}
-	}
-	slices.Sort(r.Overlaps)
+	r.Overlaps = overlaps[key]
 	// A mirror kept as a copy is read by none on purpose.
 	r.NoConsumer = r.Kind == v1.SubjectRowKind_SUBJECT_ROW_KIND_STREAM && s.Mirror == "" && len(s.Consumers) == 0 &&
 		len(r.MirroredBy) == 0 && len(r.SourcedInto) == 0
 	return r
 }
 
-// overlapping reports whether a subject of a overlaps one of b.
-func overlapping(a, b []string) bool {
-	for _, x := range a {
-		for _, y := range b {
-			if SubjectsOverlap(x, y) {
-				return true
-			}
+// overlapsOf finds, for each stream that is not a mirror, the other
+// non-mirror streams of its account with a subject that overlaps one of
+// its own, sorted by name. It gives what comparing every pair gives, but
+// compares a subject only with those that can overlap it: two subjects
+// overlap only when at each token they are equal or one is a wildcard.
+// So an account's subjects are split by their first token, those with a
+// wildcard there (or no token left) compared with all the others, and
+// each group of one literal token split again by the next token. Each
+// pair of streams is compared once. 10,000 streams take milliseconds
+// instead of seconds.
+func overlapsOf(streams []SubjectStreamFact) map[[2]string][]string {
+	type entry struct {
+		stream  int
+		subject string
+		tokens  []string
+	}
+	byAccount := map[string][]entry{}
+	for i, s := range streams {
+		if s.Mirror != "" {
+			continue
+		}
+		for _, subj := range s.Subjects {
+			byAccount[s.Account] = append(byAccount[s.Account], entry{i, subj, strings.Split(subj, ".")})
 		}
 	}
-	return false
+	seen := map[[2]int]bool{}
+	pairs := map[int][]int{}
+	check := func(x, y entry) {
+		if x.stream == y.stream {
+			return
+		}
+		k := [2]int{min(x.stream, y.stream), max(x.stream, y.stream)}
+		if seen[k] || !SubjectsOverlap(x.subject, y.subject) {
+			return
+		}
+		seen[k] = true
+		pairs[k[0]] = append(pairs[k[0]], k[1])
+		pairs[k[1]] = append(pairs[k[1]], k[0])
+	}
+	var split func(es []entry, d int)
+	split = func(es []entry, d int) {
+		if len(es) < 2 {
+			return
+		}
+		groups := map[string][]entry{}
+		var wild []entry
+		for _, e := range es {
+			if d >= len(e.tokens) || e.tokens[d] == "*" || e.tokens[d] == ">" {
+				wild = append(wild, e)
+				continue
+			}
+			groups[e.tokens[d]] = append(groups[e.tokens[d]], e)
+		}
+		for i, x := range wild {
+			for _, y := range wild[i+1:] {
+				check(x, y)
+			}
+			for _, g := range groups {
+				for _, y := range g {
+					check(x, y)
+				}
+			}
+		}
+		// Two different literal tokens never overlap.
+		for _, g := range groups {
+			split(g, d+1)
+		}
+	}
+	for _, es := range byAccount {
+		split(es, 0)
+	}
+	out := map[[2]string][]string{}
+	for i, others := range pairs {
+		s := streams[i]
+		names := make([]string, 0, len(others))
+		for _, o := range others {
+			names = append(names, streams[o].Stream)
+		}
+		slices.Sort(names)
+		out[[2]string{s.Account, s.Stream}] = names
+	}
+	return out
 }
 
 // SubjectFilterKeeps reports whether a filter keeps a row.

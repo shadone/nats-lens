@@ -240,9 +240,9 @@ type SubjectRow struct {
 	AccountName string `protobuf:"bytes,2,opt,name=account_name,json=accountName,proto3" json:"account_name,omitempty"`
 	// What the row is.
 	Kind SubjectRowKind `protobuf:"varint,3,opt,name=kind,proto3,enum=natslens.v1.SubjectRowKind" json:"kind,omitempty"`
-	// A stream's subjects as its configuration lists them (empty for a
-	// mirror); the one subject of a subscription row; _INBOX.> and
-	// $JS.API.> for those rows.
+	// A stream's subjects as its configuration lists them, the first 20
+	// (empty for a mirror); the one subject of a subscription row; _INBOX.>
+	// and $JS.API.> for those rows.
 	Patterns []string `protobuf:"bytes,4,rep,name=patterns,proto3" json:"patterns,omitempty"`
 	// Stream name; empty for the other kinds.
 	Stream string `protobuf:"bytes,5,opt,name=stream,proto3" json:"stream,omitempty"`
@@ -298,6 +298,9 @@ type SubjectRow struct {
 	MirroredBy []string `protobuf:"bytes,22,rep,name=mirrored_by,json=mirroredBy,proto3" json:"mirrored_by,omitempty"`
 	// Whether the row's account is the system account.
 	SystemAccount bool `protobuf:"varint,23,opt,name=system_account,json=systemAccount,proto3" json:"system_account,omitempty"`
+	// A stream's subjects beyond the 20 in patterns, so 1,000 rows stay
+	// within a response's size limit.
+	MorePatterns  int32 `protobuf:"varint,24,opt,name=more_patterns,json=morePatterns,proto3" json:"more_patterns,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -491,6 +494,13 @@ func (x *SubjectRow) GetSystemAccount() bool {
 		return x.SystemAccount
 	}
 	return false
+}
+
+func (x *SubjectRow) GetMorePatterns() int32 {
+	if x != nil {
+		return x.MorePatterns
+	}
+	return 0
 }
 
 // One server's subscription list in the subscription collection.
@@ -1186,7 +1196,7 @@ const file_natslens_v1_subjects_proto_rawDesc = "" +
 	"\x06system\x18\x01 \x01(\tR\x06system\x12,\n" +
 	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x18\n" +
 	"\aaccount\x18\x03 \x01(\tR\aaccount\x122\n" +
-	"\x06filter\x18\x04 \x01(\x0e2\x1a.natslens.v1.SubjectFilterR\x06filter\"\xf1\x06\n" +
+	"\x06filter\x18\x04 \x01(\x0e2\x1a.natslens.v1.SubjectFilterR\x06filter\"\x96\a\n" +
 	"\n" +
 	"SubjectRow\x12\x18\n" +
 	"\aaccount\x18\x01 \x01(\tR\aaccount\x12!\n" +
@@ -1215,7 +1225,8 @@ const file_natslens_v1_subjects_proto_rawDesc = "" +
 	"\x04wide\x18\x15 \x01(\bR\x04wide\x12\x1f\n" +
 	"\vmirrored_by\x18\x16 \x03(\tR\n" +
 	"mirroredBy\x12%\n" +
-	"\x0esystem_account\x18\x17 \x01(\bR\rsystemAccountB\v\n" +
+	"\x0esystem_account\x18\x17 \x01(\bR\rsystemAccount\x12#\n" +
+	"\rmore_patterns\x18\x18 \x01(\x05R\fmorePatternsB\v\n" +
 	"\t_messagesB\x14\n" +
 	"\x12_stored_per_secondB\x11\n" +
 	"\x0f_api_per_secondB\x12\n" +
