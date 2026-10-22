@@ -97,6 +97,9 @@ type microAccount struct {
 	// watch takes the refusals of the collector's requests on watchedOn.
 	watchedOn *nats.Conn
 	watch     *microWatch
+	// answered are the instances that answered the last STATS that was
+	// answered; the next requests wait for them before the quiet period.
+	answered map[instanceKey]bool
 	// sameAs is the earlier label that asks this label's account for it,
 	// empty when this label asks.
 	sameAs string
@@ -227,7 +230,7 @@ func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAcc
 	if lookUp {
 		reqs[userInfoToken] = userInfoSubject
 	}
-	got := exchange(ctx, nc, st.watch, reqs, deadline, microQuiet)
+	got := exchange(ctx, nc, st.watch, reqs, deadline, microQuiet, st.answered, string(MicroStats), string(MicroInfo))
 	if lookUp {
 		c.resolveMicroAccount(ac.Label, st, nc, got[userInfoToken])
 	}
@@ -240,13 +243,20 @@ func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAcc
 		res.Asked = append(res.Asked, a)
 	}
 	pruneDescribed(st, statsAsked, stats)
+	switch statsAsked.State {
+	case MicroOK, MicroNoResponders:
+		st.answered = map[instanceKey]bool{}
+		for _, s := range stats {
+			st.answered[instanceKey{s.Name, s.ID}] = true
+		}
+	}
 	describe(st, infos)
 	if !wantInfo && undescribed(st, stats) {
 		// A new instance: ask INFO in the time left.
 		st.infoAsked = started
 		var a MicroAsked
 		a, infos = decodeInfos(exchange(ctx, nc, st.watch, map[string]string{string(MicroInfo): MicroInfo.Subject()},
-			deadline, microQuiet)[string(MicroInfo)])
+			deadline, microQuiet, st.answered, string(MicroInfo))[string(MicroInfo)])
 		res.Asked = append(res.Asked, a)
 		describe(st, infos)
 	}
