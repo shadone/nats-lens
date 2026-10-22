@@ -474,7 +474,7 @@ func TestMicroManyInstances(t *testing.T) {
 	start = time.Now()
 	m = c.Collect(context.Background()).Micro[0]
 	t.Logf("STATS alone: %s, %d bytes received, %d replies", time.Since(start), asker.Stats().InBytes-in0, m.Asked[0].Replies)
-	x := exchange(context.Background(), asker, newMicroWatch(), map[string]string{"S": MicroStats.Subject()}, time.Now().Add(5*time.Second), microQuiet)
+	x := exchange(context.Background(), asker, newMicroWatch(), map[string]string{"S": MicroStats.Subject()}, time.Now().Add(5*time.Second), microQuiet, nil)
 	start = time.Now()
 	_, stats := decodeStats(x["S"])
 	t.Logf("decoding %d STATS replies took %s", len(stats), time.Since(start))
