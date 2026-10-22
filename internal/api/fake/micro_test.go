@@ -87,7 +87,8 @@ func TestGlobalMicroStory(t *testing.T) {
 	// By account: SUPPLIERS' key sorts before APP.
 	if len(res.GetAccounts()) != 2 || res.GetAccounts()[1].GetAccount() != fake.Account || !res.GetAccounts()[1].GetAsked() ||
 		res.GetAccounts()[1].GetStats().GetReplies() != 9 || res.GetAccounts()[0].GetAccount() != fake.SuppliersAccount ||
-		res.GetAccounts()[0].GetStats().GetState() != v1.MicroRequestState_MICRO_REQUEST_STATE_ERROR || res.GetAccounts()[0].GetServices() != 0 {
+		res.GetAccounts()[0].GetStats().GetState() != v1.MicroRequestState_MICRO_REQUEST_STATE_ERROR || res.GetAccounts()[0].GetServices() != 0 ||
+		res.GetAccounts()[0].GetAccountName() != "SUPPLIERS" {
 		t.Errorf("accounts = %v", res.GetAccounts())
 	}
 }
@@ -159,6 +160,28 @@ func TestGlobalMicroOnSubjectsPage(t *testing.T) {
 			if r := subjectRow(subjects, fake.Account, "$SRV.STATS."+s.GetName()+"."+in.GetId()); r == nil || r.GetConnections() != 1 ||
 				!slices.Equal(r.GetClientNames(), []string{in.GetConnectionName()}) {
 				t.Errorf("%s/%s: row %v", s.GetName(), in.GetId(), r)
+			}
+		}
+	}
+}
+
+// A connection's subscription count on the Connections page is what the
+// Subjects page lists for it: an instance's connection holds at least its
+// nine $SRV subscriptions and its endpoints'.
+func TestGlobalMicroConnectionsCountTheirSubscriptions(t *testing.T) {
+	c := demo(t)
+	// The most subscriptions a connection of a name holds on a server: an
+	// instance names its connection by name and server only.
+	most := map[string]int64{}
+	for _, x := range must(c.ListConnections(ctx, connect.NewRequest(&v1.ListConnectionsRequest{System: fake.GlobalSystem, IncludeTooling: true,
+		PageSize: 1000}))).GetConnections() {
+		k := x.GetServer() + "/" + x.GetName()
+		most[k] = max(most[k], x.GetSubscriptions())
+	}
+	for _, s := range microOf(t, c, fake.GlobalSystem, time.Time{}).GetServices() {
+		for _, in := range s.GetInstanceList() {
+			if n := most[in.GetServer()+"/"+in.GetConnectionName()]; n < int64(9+len(s.GetEndpoints())) {
+				t.Errorf("%s/%s on %s: at most %d subscriptions", s.GetName(), in.GetId(), in.GetServer(), n)
 			}
 		}
 	}

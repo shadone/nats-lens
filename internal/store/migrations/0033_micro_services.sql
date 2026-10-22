@@ -84,4 +84,25 @@ COMMENT ON COLUMN micro_endpoints.num_errors IS 'Requests the endpoint answered 
 COMMENT ON COLUMN micro_endpoints.processing_time_ns IS 'Time the endpoint spent on its requests since the instance started, in nanoseconds.';
 COMMENT ON COLUMN micro_endpoints.average_processing_time_ns IS 'processing_time_ns divided by num_requests, as the instance reported it, in nanoseconds; 0 before the first request.';
 COMMENT ON COLUMN micro_endpoints.last_error IS 'Last error the endpoint returned; NULL when it has returned none.';
-COMMENT ON COLUMN micro_endpoints.data IS 'Custom stats the service attached to the endpoint, as JSON; NULL when it attached none.';
+COMMENT ON COLUMN micro_endpoints.data IS 'Custom stats the service attached to the endpoint, as JSON, up to 1 KB; more is stored as {"truncated": true, "bytes": <size>}. NULL when it attached none.';
+
+CREATE TABLE micro_endpoint_hours (
+    hour                TIMESTAMP NOT NULL,
+    account             VARCHAR NOT NULL,
+    service             VARCHAR NOT NULL,
+    endpoint            VARCHAR NOT NULL,
+    requests            BIGINT NOT NULL,
+    errors              BIGINT NOT NULL,
+    processing_time_ns  BIGINT NOT NULL,
+    epochs              INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX micro_endpoint_hours_key ON micro_endpoint_hours (hour, account, service, endpoint);
+COMMENT ON TABLE micro_endpoint_hours IS 'Per hour, what each endpoint of a service did, summed over its instances: the increase of the micro_endpoints counters between each STATS row and the instance''s previous row within the hour before, added to the hour of the later row''s epoch as each epoch is written. A counter that fell or a new micro_stats.started is a new run, whose increase is its value. An instance''s first row counts its value when the instance started after the previous epoch, else nothing. Swept by hour with the oldest kept epoch and archived by hour.';
+COMMENT ON COLUMN micro_endpoint_hours.hour IS 'Start of the hour, in UTC, of the epochs whose increases are summed (epochs.started_at truncated to the hour).';
+COMMENT ON COLUMN micro_endpoint_hours.account IS 'Account of the service, as micro_requests.account.';
+COMMENT ON COLUMN micro_endpoint_hours.service IS 'Service name.';
+COMMENT ON COLUMN micro_endpoint_hours.endpoint IS 'Endpoint name. Each STATS row is paired with the instance''s previous row of the same name and subject; two endpoints of one name with different subjects (in two groups) are summed into one row.';
+COMMENT ON COLUMN micro_endpoint_hours.requests IS 'Requests the endpoint''s instances received in the hour.';
+COMMENT ON COLUMN micro_endpoint_hours.errors IS 'Requests the endpoint''s instances answered with an error in the hour.';
+COMMENT ON COLUMN micro_endpoint_hours.processing_time_ns IS 'Time the endpoint''s instances spent on requests in the hour, in nanoseconds; divided by requests it is the hour''s average time.';
+COMMENT ON COLUMN micro_endpoint_hours.epochs IS 'Epochs in the hour whose STATS the endpoint answered.';

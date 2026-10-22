@@ -72,6 +72,12 @@ SELECT coalesce(
 			return SweepResult{}, fmt.Errorf("sweep %s: %w", t, err)
 		}
 	}
+	// The hourly sums go with the hours wholly before the window; the
+	// hour the window starts in keeps its sum.
+	if _, err := tx.ExecContext(ctx, `DELETE FROM micro_endpoint_hours WHERE hour < date_trunc('hour', make_timestamp(?::BIGINT))`,
+		now.Add(-retention).UTC().UnixMicro()); err != nil {
+		return SweepResult{}, fmt.Errorf("sweep micro_endpoint_hours: %w", err)
+	}
 	for _, t := range rangeTables {
 		if _, err := tx.ExecContext(ctx, "DELETE FROM "+t+" WHERE last_epoch < ?", cutoff); err != nil {
 			return SweepResult{}, fmt.Errorf("sweep %s: %w", t, err)

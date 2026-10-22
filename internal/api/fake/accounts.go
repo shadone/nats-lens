@@ -333,3 +333,20 @@ func (sc *scenario) memoryStorage(stream string) bool {
 	}
 	return false
 }
+
+var _ api.AccountNamer = (*Provider)(nil)
+
+// AccountNames are the readable names of the scenario's accounts that have
+// one (SUPPLIERS in example-global), as the store reads them from its
+// accounts table; the handler fills account_name with them.
+func (p *Provider) AccountNames(context.Context) (map[string]string, error) {
+	out := map[string]string{}
+	if p.sc.auth != nil {
+		for _, o := range p.sc.auth.others {
+			if o.name != "" {
+				out[o.id] = o.name
+			}
+		}
+	}
+	return out, nil
+}

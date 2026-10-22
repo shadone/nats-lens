@@ -279,7 +279,8 @@ export type MicroMissingInstance = Message<"natslens.v1.MicroMissingInstance"> &
   /**
    * Whether its $SRV subscriptions are still in the subscription
    * collection, taken after it went missing: the instance is registered
-   * but does not answer. Asked accounts only.
+   * but does not answer. Asked accounts only. Such an instance stays
+   * missing for as long as the collection lists it, past the hour.
    *
    * @generated from field: bool still_subscribed = 5;
    */
@@ -307,7 +308,8 @@ export type MicroEndpoint = Message<"natslens.v1.MicroEndpoint"> & {
   name: string;
 
   /**
-   * Subject the endpoint listens on, from the newest $SRV.INFO reply.
+   * Subject the endpoint listens on, as $SRV.STATS reports it, else from
+   * the newest $SRV.INFO reply.
    *
    * @generated from field: string subject = 2;
    */
@@ -349,8 +351,10 @@ export type MicroEndpoint = Message<"natslens.v1.MicroEndpoint"> & {
   errorShare?: number | undefined;
 
   /**
-   * The newest non-empty last error of the endpoint's instances, and the
-   * instance that reported it; empty when none did.
+   * A last error the endpoint's instances report in the epoch's
+   * $SRV.STATS, and the instance that reported it: the first by instance
+   * ID that reports one, as STATS gives a last error no time. Empty when
+   * none does.
    *
    * @generated from field: string last_error = 7;
    */
@@ -362,9 +366,10 @@ export type MicroEndpoint = Message<"natslens.v1.MicroEndpoint"> & {
   lastErrorInstance: string;
 
   /**
-   * The 7-day level: the median of the endpoint's hourly average times in
-   * the 7 days before the 15 minutes, in milliseconds. Unset with fewer
-   * than 24 hours that have an average.
+   * The 7-day level: the median of the endpoint's hourly average times,
+   * over all its instances whatever their IDs, of the hours that start at
+   * or after 7 days before the 15 minutes and end at or before them, in
+   * milliseconds. Unset with fewer than 24 hours that have an average.
    *
    * @generated from field: optional double level_ms = 9;
    */
@@ -379,9 +384,12 @@ export type MicroEndpoint = Message<"natslens.v1.MicroEndpoint"> & {
   slow: boolean;
 
   /**
-   * When the current slow run began: the first collection of the run of
-   * collections, each slow on its own, that ends at the newest slow one.
-   * Unset when the endpoint is not slow.
+   * When the current slow run began. The hours decide first: the run
+   * began after the newest hour, up to the epoch's, whose average is not
+   * slow; within that hour and the next, the collections' own averages
+   * over all instances decide: the first collection after the last one
+   * that is not slow. When every hour of the 7 days before the epoch is
+   * slow, the start of the first. Unset when the endpoint is not slow.
    *
    * @generated from field: google.protobuf.Timestamp slow_since = 11;
    */
@@ -453,18 +461,22 @@ export type MicroService = Message<"natslens.v1.MicroService"> & {
 
   /**
    * Instances in the epoch: those that answered its $SRV.STATS when
-   * asked, else those with $SRV subscriptions in the subscription
-   * collection.
+   * asked; else those with $SRV subscriptions in the subscription
+   * collection; else, when the account's $SRV.STATS request was not ok,
+   * those that last answered within the hour.
    *
    * @generated from field: int32 instances = 7;
    */
   instances: number;
 
   /**
-   * Instances that answered (or were seen) within the hour before the
-   * epoch and are not in it, while their $SRV subscriptions are still
-   * listed or the service has fewer instances than when they were last
-   * seen; by ID.
+   * Instances gone from the epoch, by ID, judged only when the account's
+   * $SRV.STATS request was ok or the account is not asked. One still
+   * listed in the subscription collection (still_subscribed) is missing
+   * while it is listed. Others, gone within the hour before the epoch,
+   * when the service has fewer instances than when they were last seen:
+   * at most that shortfall, the most recently gone. In an asked account an
+   * instance must be absent from two ok requests.
    *
    * @generated from field: repeated natslens.v1.MicroMissingInstance missing = 8;
    */
@@ -683,8 +695,7 @@ export enum MicroNote {
   UNSPECIFIED = 0,
 
   /**
-   * An instance answered within the hour before the epoch and is not in
-   * it; missing names them.
+   * An instance is missing; missing names them.
    *
    * @generated from enum value: MICRO_NOTE_INSTANCE_MISSING = 1;
    */
@@ -713,7 +724,8 @@ export enum MicroNote {
 
   /**
    * The account was asked and none of the service's instances answered
-   * $SRV.STATS: the account's state says how the request ended.
+   * $SRV.STATS: the account's state says how the request ended. A
+   * request that was not ok judges no instance missing.
    *
    * @generated from enum value: MICRO_NOTE_NO_ANSWER = 5;
    */

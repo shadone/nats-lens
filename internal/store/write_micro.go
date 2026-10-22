@@ -36,6 +36,23 @@ var (
 	microStatsCols    = []string{"epoch", "account", "service", "instance_id", "version", "started"}
 )
 
+// maxEndpointData is the most bytes of an endpoint's custom stats stored;
+// nothing shows them yet, and a service may put anything there.
+const maxEndpointData = 1024
+
+// endpointData is an endpoint's custom stats as stored: nil for none, and
+// for more than maxEndpointData bytes an object that says how many there
+// were.
+func endpointData(d json.RawMessage) json.RawMessage {
+	switch {
+	case len(d) == 0 || string(d) == "null":
+		return nil
+	case len(d) > maxEndpointData:
+		return json.RawMessage(fmt.Sprintf(`{"truncated":true,"bytes":%d}`, len(d)))
+	}
+	return d
+}
+
 // optString is s, or nil for an empty string: a value the service did
 // not report.
 func optString(s string) *string {
@@ -82,10 +99,7 @@ func (w *writer) writeMicro() {
 				if e == nil {
 					continue
 				}
-				var data json.RawMessage
-				if len(e.Data) > 0 && string(e.Data) != "null" {
-					data = e.Data
-				}
+				data := endpointData(e.Data)
 				rows = append(rows, microEndpointRow{
 					Account: acc.Account, Service: s.Name, Instance: s.ID, Endpoint: e.Name,
 					Subject: optString(e.Subject), QueueGroup: optString(e.QueueGroup),

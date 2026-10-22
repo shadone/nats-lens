@@ -93,8 +93,7 @@ type MicroNote int32
 const (
 	// Not set.
 	MicroNote_MICRO_NOTE_UNSPECIFIED MicroNote = 0
-	// An instance answered within the hour before the epoch and is not in
-	// it; missing names them.
+	// An instance is missing; missing names them.
 	MicroNote_MICRO_NOTE_INSTANCE_MISSING MicroNote = 1
 	// The instances report more than one version; versions counts them.
 	MicroNote_MICRO_NOTE_MIXED_VERSIONS MicroNote = 2
@@ -103,7 +102,8 @@ const (
 	// An endpoint's error share is above 1%: the first of endpoints.
 	MicroNote_MICRO_NOTE_ERRORS MicroNote = 4
 	// The account was asked and none of the service's instances answered
-	// $SRV.STATS: the account's state says how the request ended.
+	// $SRV.STATS: the account's state says how the request ended. A
+	// request that was not ok judges no instance missing.
 	MicroNote_MICRO_NOTE_NO_ANSWER MicroNote = 5
 	// The account is not asked: versions, endpoints and timings are not
 	// known.
@@ -560,7 +560,8 @@ type MicroMissingInstance struct {
 	ConnectionName string `protobuf:"bytes,4,opt,name=connection_name,json=connectionName,proto3" json:"connection_name,omitempty"`
 	// Whether its $SRV subscriptions are still in the subscription
 	// collection, taken after it went missing: the instance is registered
-	// but does not answer. Asked accounts only.
+	// but does not answer. Asked accounts only. Such an instance stays
+	// missing for as long as the collection lists it, past the hour.
 	StillSubscribed bool `protobuf:"varint,5,opt,name=still_subscribed,json=stillSubscribed,proto3" json:"still_subscribed,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
@@ -636,7 +637,8 @@ type MicroEndpoint struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Endpoint name.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Subject the endpoint listens on, from the newest $SRV.INFO reply.
+	// Subject the endpoint listens on, as $SRV.STATS reports it, else from
+	// the newest $SRV.INFO reply.
 	Subject string `protobuf:"bytes,2,opt,name=subject,proto3" json:"subject,omitempty"`
 	// Queue group of the endpoint; empty for none.
 	QueueGroup string `protobuf:"bytes,3,opt,name=queue_group,json=queueGroup,proto3" json:"queue_group,omitempty"`
@@ -653,20 +655,26 @@ type MicroEndpoint struct {
 	// Share of the same requests that failed, 0 to 1; unset without a
 	// request.
 	ErrorShare *float64 `protobuf:"fixed64,6,opt,name=error_share,json=errorShare,proto3,oneof" json:"error_share,omitempty"`
-	// The newest non-empty last error of the endpoint's instances, and the
-	// instance that reported it; empty when none did.
+	// A last error the endpoint's instances report in the epoch's
+	// $SRV.STATS, and the instance that reported it: the first by instance
+	// ID that reports one, as STATS gives a last error no time. Empty when
+	// none does.
 	LastError         string `protobuf:"bytes,7,opt,name=last_error,json=lastError,proto3" json:"last_error,omitempty"`
 	LastErrorInstance string `protobuf:"bytes,8,opt,name=last_error_instance,json=lastErrorInstance,proto3" json:"last_error_instance,omitempty"`
-	// The 7-day level: the median of the endpoint's hourly average times in
-	// the 7 days before the 15 minutes, in milliseconds. Unset with fewer
-	// than 24 hours that have an average.
+	// The 7-day level: the median of the endpoint's hourly average times,
+	// over all its instances whatever their IDs, of the hours that start at
+	// or after 7 days before the 15 minutes and end at or before them, in
+	// milliseconds. Unset with fewer than 24 hours that have an average.
 	LevelMs *float64 `protobuf:"fixed64,9,opt,name=level_ms,json=levelMs,proto3,oneof" json:"level_ms,omitempty"`
 	// Whether the endpoint is slow: its average time is at least 3 times
 	// its level and at least 5 ms above it.
 	Slow bool `protobuf:"varint,10,opt,name=slow,proto3" json:"slow,omitempty"`
-	// When the current slow run began: the first collection of the run of
-	// collections, each slow on its own, that ends at the newest slow one.
-	// Unset when the endpoint is not slow.
+	// When the current slow run began. The hours decide first: the run
+	// began after the newest hour, up to the epoch's, whose average is not
+	// slow; within that hour and the next, the collections' own averages
+	// over all instances decide: the first collection after the last one
+	// that is not slow. When every hour of the 7 days before the epoch is
+	// slow, the start of the first. Unset when the endpoint is not slow.
 	SlowSince *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=slow_since,json=slowSince,proto3" json:"slow_since,omitempty"`
 	// Whether the error share is above 1%.
 	ErrorsHigh    bool `protobuf:"varint,12,opt,name=errors_high,json=errorsHigh,proto3" json:"errors_high,omitempty"`
@@ -805,13 +813,17 @@ type MicroService struct {
 	// The description most instances report; empty when none.
 	Description string `protobuf:"bytes,6,opt,name=description,proto3" json:"description,omitempty"`
 	// Instances in the epoch: those that answered its $SRV.STATS when
-	// asked, else those with $SRV subscriptions in the subscription
-	// collection.
+	// asked; else those with $SRV subscriptions in the subscription
+	// collection; else, when the account's $SRV.STATS request was not ok,
+	// those that last answered within the hour.
 	Instances int32 `protobuf:"varint,7,opt,name=instances,proto3" json:"instances,omitempty"`
-	// Instances that answered (or were seen) within the hour before the
-	// epoch and are not in it, while their $SRV subscriptions are still
-	// listed or the service has fewer instances than when they were last
-	// seen; by ID.
+	// Instances gone from the epoch, by ID, judged only when the account's
+	// $SRV.STATS request was ok or the account is not asked. One still
+	// listed in the subscription collection (still_subscribed) is missing
+	// while it is listed. Others, gone within the hour before the epoch,
+	// when the service has fewer instances than when they were last seen:
+	// at most that shortfall, the most recently gone. In an asked account an
+	// instance must be absent from two ok requests.
 	Missing []*MicroMissingInstance `protobuf:"bytes,8,rep,name=missing,proto3" json:"missing,omitempty"`
 	// Requests per second, the sum of the endpoints'; unset when no
 	// endpoint has a rate.

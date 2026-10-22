@@ -57,6 +57,7 @@ func (s *Store) writeSnapshot(ctx context.Context, snap *collect.Snapshot) (int6
 	}
 	w.writeAccountDetails()
 	w.writeMicro()
+	w.writeMicroHours()
 	for _, acc := range sortedKeys(snap.AccountNames) {
 		w.ids.account(acc, snap.AccountNames[acc], false)
 	}
