@@ -183,11 +183,16 @@ type MicroAverage struct {
 	Ms float64
 }
 
+// microToken reports whether a subject token can be a service name or
+// instance ID: not empty and not a wildcard token. A token that only
+// contains * or > is a literal in NATS, as the store's SQL takes it.
+func microToken(t string) bool { return t != "" && t != "*" && t != ">" }
+
 // MicroInstanceOf parses a $SRV.<verb>.<name>.<id> subject, verb PING,
 // INFO or STATS, into the service name and instance ID.
 func MicroInstanceOf(subject string) (name, id string, ok bool) {
 	t := strings.Split(subject, ".")
-	if len(t) != 4 || t[0]+"." != SrvPrefix || t[2] == "" || t[3] == "" || strings.ContainsAny(t[2]+t[3], "*>") {
+	if len(t) != 4 || t[0]+"." != SrvPrefix || !microToken(t[2]) || !microToken(t[3]) {
 		return "", "", false
 	}
 	switch t[1] {
@@ -514,7 +519,9 @@ func FinishMicro(f *MicroFacts, account string) *v1.GetMicroServicesResponse {
 // key the servers report: an asked account none of whose services is
 // seen under it, whose answered instances are all seen under one other
 // account (by service name and instance ID; one instance not seen, or
-// seen under a second account, and it stays as it is), is that account. Its
+// seen under a second account, and it stays as it is), is that account.
+// An account whose request was not ok has no answers: its instances that
+// last answered within the hour and are seen decide, under one account. Its
 // answered services, gone instances and requests move to it, so a
 // service is not listed twice, asked under the label and seen under the
 // key.
@@ -543,6 +550,25 @@ func microAliased(f *MicroFacts) *MicroFacts {
 			default:
 				bad[s.Account] = true
 			}
+		}
+	}
+	// An account without answers (its request was not ok) is matched by
+	// the instances that last answered within the hour; one not seen
+	// anywhere has left and decides nothing.
+	answered := map[string]bool{}
+	for _, s := range f.Answered {
+		answered[s.Account] = true
+	}
+	for _, g := range f.Gone {
+		if g.FromSubscriptions || answered[g.Account] || seenAcc[g.Account] || g.LastSeen.Before(f.EpochAt.Add(-MicroMissingWindow)) {
+			continue
+		}
+		switch k, ok := seenAt[[2]string{g.Service, g.ID}]; {
+		case !ok:
+		case alias[g.Account] == "" || alias[g.Account] == k:
+			alias[g.Account] = k
+		default:
+			bad[g.Account] = true
 		}
 	}
 	for a := range bad {
@@ -719,8 +745,12 @@ func microMissing(gone []MicroGoneFact, current map[string]bool, seen map[string
 	n := max(0, int(then-instances)-len(still))
 	var out []*v1.MicroMissingInstance
 	for i, g := range append(still, short[:min(n, len(short))]...) {
-		out = append(out, &v1.MicroMissingInstance{Id: g.ID, Since: timestamppb.New(g.Since), LastSeen: timestamppb.New(g.LastSeen),
-			ConnectionName: g.Connection, StillSubscribed: i < len(still)})
+		x := &v1.MicroMissingInstance{Id: g.ID, Since: timestamppb.New(g.Since), LastSeen: timestamppb.New(g.LastSeen),
+			ConnectionName: g.Connection, StillSubscribed: i < len(still)}
+		if x.StillSubscribed {
+			x.Server = seen[g.ID].Server
+		}
+		out = append(out, x)
 	}
 	slices.SortFunc(out, func(a, b *v1.MicroMissingInstance) int { return cmp.Compare(a.GetId(), b.GetId()) })
 	return out

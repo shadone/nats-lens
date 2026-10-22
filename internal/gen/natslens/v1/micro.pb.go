@@ -624,8 +624,11 @@ type MicroMissingInstance struct {
 	// but does not answer. Asked accounts only. Such an instance stays
 	// missing for as long as the collection lists it, past the hour.
 	StillSubscribed bool `protobuf:"varint,5,opt,name=still_subscribed,json=stillSubscribed,proto3" json:"still_subscribed,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Server of the connection that holds its $SRV subscriptions, for an
+	// instance still subscribed; empty otherwise or when not found.
+	Server        string `protobuf:"bytes,6,opt,name=server,proto3" json:"server,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *MicroMissingInstance) Reset() {
@@ -693,6 +696,13 @@ func (x *MicroMissingInstance) GetStillSubscribed() bool {
 	return false
 }
 
+func (x *MicroMissingInstance) GetServer() string {
+	if x != nil {
+		return x.Server
+	}
+	return ""
+}
+
 // One endpoint of a service, over its instances.
 type MicroEndpoint struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -734,7 +744,9 @@ type MicroEndpoint struct {
 	// otherwise. The run began after the newest hour before the epoch's
 	// whose average is not slow: at the first collection after the last fast
 	// one (over all instances) of that hour through the next hour with
-	// requests, or after that span when it ends fast; docs/design.md
+	// requests, or after that span when it ends fast. A fast collection read
+	// later does not move it back while the 7-day level stays the same; a
+	// new level can make another hour the last fast one. docs/design.md
 	// (GetMicroServices) has the whole rule.
 	SlowSince *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=slow_since,json=slowSince,proto3" json:"slow_since,omitempty"`
 	// Whether the error share is above 1%.
@@ -1221,13 +1233,14 @@ const file_natslens_v1_micro_proto_rawDesc = "" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x124\n" +
 	"\astarted\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\astarted\x12'\n" +
 	"\x0fconnection_name\x18\x04 \x01(\tR\x0econnectionName\x12\x16\n" +
-	"\x06server\x18\x05 \x01(\tR\x06server\"\xe5\x01\n" +
+	"\x06server\x18\x05 \x01(\tR\x06server\"\xfd\x01\n" +
 	"\x14MicroMissingInstance\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x120\n" +
 	"\x05since\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x127\n" +
 	"\tlast_seen\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\blastSeen\x12'\n" +
 	"\x0fconnection_name\x18\x04 \x01(\tR\x0econnectionName\x12)\n" +
-	"\x10still_subscribed\x18\x05 \x01(\bR\x0fstillSubscribed\"\x9c\x04\n" +
+	"\x10still_subscribed\x18\x05 \x01(\bR\x0fstillSubscribed\x12\x16\n" +
+	"\x06server\x18\x06 \x01(\tR\x06server\"\x9c\x04\n" +
 	"\rMicroEndpoint\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\asubject\x18\x02 \x01(\tR\asubject\x12\x1f\n" +
