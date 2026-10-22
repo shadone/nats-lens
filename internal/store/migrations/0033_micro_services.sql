@@ -18,7 +18,7 @@ COMMENT ON COLUMN micro_requests.account IS 'Account as the servers name it (acc
 COMMENT ON COLUMN micro_requests.request IS 'INFO ($SRV.INFO) or STATS ($SRV.STATS).';
 COMMENT ON COLUMN micro_requests.state IS 'ok: at least one instance replied; no_responders: the server answered that nothing in the account listens, so the account has no micro service; timeout: no reply within the collect window; error: the request could not be made or answered (account connection not connected, a permissions violation on the request subject or the reply inbox, or only replies that did not decode).';
 COMMENT ON COLUMN micro_requests.replies IS 'Replies that decoded: one per instance.';
-COMMENT ON COLUMN micro_requests.error IS 'Why the state is error, as the connection or server said it, or how many replies did not decode; NULL otherwise.';
+COMMENT ON COLUMN micro_requests.error IS 'Why the state is error, as the connection or server said it, or how many replies did not decode; NULL otherwise. A request the server refused is not sent again for 10 minutes: in between its row repeats the refusal with "(not sent: refused at <time>, asked again after <time>)" appended.';
 
 CREATE TABLE micro_instances (
     epoch        BIGINT NOT NULL,
