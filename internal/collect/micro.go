@@ -108,7 +108,7 @@ type microAccount struct {
 	// sameAs is the earlier label that asks this label's account for it,
 	// empty when this label asks.
 	sameAs string
-	// refused holds each request's refusal as last logged.
+	// refused holds what each request was refused, as last logged.
 	refused map[MicroRequest]string
 }
 
@@ -348,31 +348,33 @@ func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAcc
 }
 
 // logRefusal logs the account's refused requests once, and again only
-// when a request's refusal changes or every refusal has ended, rather
-// than every epoch. A request not sent this epoch keeps its last state.
+// when what a request is refused changes or every refusal has ended,
+// rather than every epoch. Refusals are compared by what was refused (the
+// publish to the request's subject, or the subscription to a reply
+// inbox), not by the server's text, which names each epoch's own inbox.
+// A request not sent this epoch keeps its last state.
 func (c *Collector) logRefusal(label string, st *microAccount, asked []MicroAsked) {
 	changed, had := false, len(st.refused) > 0
+	texts := map[MicroRequest]string{}
 	for _, a := range asked {
-		text := ""
-		if strings.Contains(strings.ToLower(a.Error), "permissions violation") {
-			text = a.Error
-		}
-		if st.refused[a.Request] == text {
+		kind := refusalKind(a.Error)
+		texts[a.Request] = a.Error
+		if st.refused[a.Request] == kind {
 			continue
 		}
-		if text == "" {
+		if kind == "" {
 			delete(st.refused, a.Request)
 			continue
 		}
-		st.refused[a.Request] = text
+		st.refused[a.Request] = kind
 		changed = true
 	}
 	switch {
 	case changed:
 		var all []string
 		for _, r := range []MicroRequest{MicroInfo, MicroStats} {
-			if text := st.refused[r]; text != "" {
-				all = append(all, string(r)+": "+text)
+			if st.refused[r] != "" && texts[r] != "" {
+				all = append(all, string(r)+": "+texts[r])
 			}
 		}
 		c.log.Warn("micro service requests refused; the account user needs publish on $SRV.INFO and $SRV.STATS and subscribe on _INBOX.>",
@@ -380,6 +382,25 @@ func (c *Collector) logRefusal(label string, st *microAccount, asked []MicroAske
 	case had && len(st.refused) == 0:
 		c.log.Info("micro service requests permitted again", "account", label)
 	}
+}
+
+// refusalKind names what a request's error says was refused: "publish
+// <subject>", "subscribe reply inbox", or "" for no permissions
+// violation.
+func refusalKind(text string) string {
+	lower := strings.ToLower(text)
+	if !strings.Contains(lower, "permissions violation") {
+		return ""
+	}
+	if strings.Contains(lower, "for subscription to") {
+		return "subscribe reply inbox"
+	}
+	for _, r := range []MicroRequest{MicroInfo, MicroStats} {
+		if strings.Contains(text, `"`+r.Subject()+`"`) {
+			return "publish " + r.Subject()
+		}
+	}
+	return "publish"
 }
 
 // microKnownMisses is how many answered STATS in a row an instance may
