@@ -10,7 +10,10 @@ import (
 // previous one.
 const microLookback = time.Hour
 
-// microHoursQuery adds the epoch's increases to micro_endpoint_hours.
+// microHoursQuery adds the epoch's increases to micro_endpoint_hours. A
+// row is paired with the instance's previous row of the same endpoint name
+// and subject, as one instance may have two endpoints of one name in
+// different groups; their increases are summed into the hour of the name.
 // An instance's rows are taken once per epoch even if they were stored
 // twice, so that a duplicate never multiplies an increase.
 // Arguments: the epoch, the hour, the lowest epoch of the lookback, the
@@ -22,13 +25,14 @@ WITH stats AS (
   SELECT epoch, account, service, instance_id, any_value(started) AS started
   FROM micro_stats WHERE epoch >= $3 AND epoch <= $1 GROUP BY ALL),
 cur AS (
-  SELECT e.account, e.service, e.instance_id, e.endpoint, any_value(e.num_requests) AS num_requests,
+  SELECT e.account, e.service, e.instance_id, e.endpoint, coalesce(e.subject, '') AS subj,
+    any_value(e.num_requests) AS num_requests,
     any_value(e.num_errors) AS num_errors, any_value(e.processing_time_ns) AS processing_time_ns, any_value(s.started) AS started
   FROM micro_endpoints e JOIN stats s USING (epoch, account, service, instance_id)
   WHERE e.epoch = $1
   GROUP BY ALL),
 prev AS (
-  SELECT e.account, e.service, e.instance_id, e.endpoint,
+  SELECT e.account, e.service, e.instance_id, e.endpoint, coalesce(e.subject, '') AS subj,
     arg_max(e.num_requests, e.epoch) AS num_requests, arg_max(e.num_errors, e.epoch) AS num_errors,
     arg_max(e.processing_time_ns, e.epoch) AS processing_time_ns, arg_max(s.started, e.epoch) AS started
   FROM micro_endpoints e JOIN stats s USING (epoch, account, service, instance_id)
@@ -44,7 +48,7 @@ d AS (
     p.num_requests IS NULL AS first,
     c.num_requests, c.num_errors, c.processing_time_ns,
     p.num_requests AS p_requests, p.num_errors AS p_errors, p.processing_time_ns AS p_time
-  FROM cur c LEFT JOIN prev p USING (account, service, instance_id, endpoint))
+  FROM cur c LEFT JOIN prev p USING (account, service, instance_id, endpoint, subj))
 SELECT make_timestamp($2::BIGINT), account, service, endpoint,
   sum(CASE WHEN whole THEN num_requests WHEN first THEN 0 ELSE num_requests - p_requests END),
   sum(CASE WHEN whole THEN num_errors WHEN first THEN 0 ELSE num_errors - p_errors END),
