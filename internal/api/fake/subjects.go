@@ -104,8 +104,14 @@ func (s scen) rateWindow(r *v1.TimeRange) bool {
 	return last.Sub(end.Add(-api.RateSpan)) > sampleEvery
 }
 
-// storedRate is a stream's stored messages per second.
-func storedRate(sp streamSpec) float64 {
+// storedRate is a stream's stored messages per second: a mirror's is its
+// origin's.
+func (sc *scenario) storedRate(sp streamSpec) float64 {
+	if sp.mirror != "" {
+		if o, err := sc.findStream(Account, sp.mirror); err == nil {
+			return sc.storedRate(o)
+		}
+	}
 	if sp.storedRate != nil {
 		return *sp.storedRate
 	}
@@ -126,7 +132,7 @@ func (s scen) subjectStreams(at time.Time, r *v1.TimeRange) []api.SubjectStreamF
 		x := api.SubjectStreamFact{Account: Account, Stream: sp.name, Retention: l.retention, Mirror: sp.mirror, Subjects: subjectsOf(sp),
 			Sources: sp.sources, Messages: ptr(sp.msgs)}
 		if rated {
-			x.StoredPerSecond = ptr(storedRate(sp))
+			x.StoredPerSecond = ptr(s.sc.storedRate(sp))
 		}
 		for _, c := range s.consumersAt(sp, at) {
 			x.Consumers = append(x.Consumers, api.SubjectConsumerFact{Name: c, Durable: true})

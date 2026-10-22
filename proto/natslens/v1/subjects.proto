@@ -243,60 +243,52 @@ message MatchSubjectRequest {
   string subject = 4;
 }
 
-// A stream that stores a message on the subject.
+// A stream of the account that stores a message on the subject.
 message SubjectMatch {
-  // Account as the servers report it.
-  string account = 1;
-
-  // Readable name of the account; empty when none is known.
-  string account_name = 2;
-
   // Stream name.
-  string stream = 3;
+  string stream = 1;
+
+  // Stream, KV bucket or object store, by the name's prefix.
+  SubjectRowKind kind = 2;
 
   // The stream subject that matched.
-  string pattern = 4;
+  string pattern = 3;
 
   // Durable consumers of the stream whose filter matches the subject (no
   // filter matches all), by name.
-  repeated string consumers = 5;
+  repeated string consumers = 4;
 
-  // Ephemeral consumers of the stream whose filter matches the subject.
-  int32 ephemeral_consumers = 6;
+  // Ephemeral consumers of the stream whose filter matches the subject;
+  // on a KV bucket these are watchers.
+  int32 ephemeral_consumers = 5;
 
   // Streams of the same account that mirror the stream, by name.
-  repeated string mirrors = 7;
+  repeated string mirrors = 6;
 
   // Streams of the same account that list the stream among their
   // sources, by name (a source is stored by name only, without its
   // account or filter).
-  repeated string sourced_by = 8;
+  repeated string sourced_by = 7;
 }
 
-// Client subscriptions on one subject and queue that a message on the
-// subject reaches.
+// Client subscriptions of the account on one subject and queue that a
+// message on the subject reaches.
 message CoreMatch {
-  // Account as the servers report it.
-  string account = 1;
-
-  // Readable name of the account; empty when none is known.
-  string account_name = 2;
-
   // The subscribed subject.
-  string subject = 3;
+  string subject = 1;
 
   // Queue group; empty for none. A message reaches one connection of a
   // queue group.
-  string queue = 4;
+  string queue = 2;
 
   // Connections with such a subscription.
-  int32 connections = 5;
+  int32 connections = 3;
 
   // Their names: distinct, in name order, at most 3.
-  repeated string client_names = 6;
+  repeated string client_names = 4;
 
   // Distinct names beyond client_names.
-  int32 more_names = 7;
+  int32 more_names = 5;
 }
 
 // What a message on the subject published in one account would reach.

@@ -64,3 +64,23 @@ func TestFinishMatchGroups(t *testing.T) {
 		t.Errorf("groups = %v", got)
 	}
 }
+
+// A match names its stream's kind, so a KV bucket or object store is not
+// taken for a stream without a consumer.
+func TestFinishMatchKind(t *testing.T) {
+	m := &api.MatchFacts{Epoch: 1, EpochAt: subjAt, Streams: []api.SubjectStreamFact{
+		{Account: "A", Stream: "orders", Subjects: []string{"orders.>"}},
+		{Account: "A", Stream: "KV_flags", Subjects: []string{"$KV.flags.>"}},
+		{Account: "A", Stream: "OBJ_files", Subjects: []string{"$O.files.C.>", "$O.files.M.>"}},
+	}}
+	for subject, want := range map[string]v1.SubjectRowKind{
+		"orders.x":       v1.SubjectRowKind_SUBJECT_ROW_KIND_STREAM,
+		"$KV.flags.dark": v1.SubjectRowKind_SUBJECT_ROW_KIND_KEY_VALUE,
+		"$O.files.M.abc": v1.SubjectRowKind_SUBJECT_ROW_KIND_OBJECT_STORE,
+	} {
+		got := api.MatchedStreams(api.FinishMatch(m, "A", subject))
+		if len(got) != 1 || got[0].GetKind() != want {
+			t.Errorf("%s: %v, want %v", subject, got, want)
+		}
+	}
+}
