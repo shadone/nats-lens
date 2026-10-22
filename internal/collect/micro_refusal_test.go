@@ -199,9 +199,9 @@ func TestMicroUnresolvedLabelHidesNoAccount(t *testing.T) {
 }
 
 // A refused request is not sent again for ten minutes: each epoch in
-// between records it as an error with the server's text and when it is
-// sent again, and the connection publishes nothing; after ten minutes it
-// is sent again.
+// between records it as held, with the server's text as received, when it
+// was refused and when it is sent again, and the connection publishes
+// nothing; after ten minutes it is sent again.
 func TestMicroRefusedRequestBacksOff(t *testing.T) {
 	if testing.Short() {
 		t.Skip("starts a server")
@@ -217,9 +217,9 @@ func TestMicroRefusedRequestBacksOff(t *testing.T) {
 		at = at.Add(30 * time.Second)
 		m := c.Collect(context.Background()).Micro[0]
 		for _, a := range m.Asked {
-			if a.State != MicroError || !strings.Contains(a.Error, `Permissions Violation for Publish to "`+a.Request.Subject()+`"`) ||
-				!strings.Contains(a.Error, "not sent: refused at") {
-				t.Errorf("held %s: %s %q", a.Request, a.State, a.Error)
+			if a.State != MicroHeld || !strings.HasSuffix(a.Error, `Permissions Violation for Publish to "`+a.Request.Subject()+`"`) ||
+				!a.RetryAfter.Equal(a.RefusedAt.Add(refusedRetry)) || a.RefusedAt.After(at) || at.Sub(a.RefusedAt) > refusedRetry {
+				t.Errorf("held %s: %s %q refused %v retry %v", a.Request, a.State, a.Error, a.RefusedAt, a.RetryAfter)
 			}
 		}
 	}
@@ -228,7 +228,7 @@ func TestMicroRefusedRequestBacksOff(t *testing.T) {
 	}
 	at = at.Add(refusedRetry)
 	m := c.Collect(context.Background()).Micro[0]
-	if nc.Stats().OutMsgs == sent || strings.Contains(askedOf(m)+m.Asked[0].Error, "not sent") {
+	if nc.Stats().OutMsgs == sent || strings.Contains(askedOf(m), "held") {
 		t.Errorf("not sent again after ten minutes: %+v", m.Asked)
 	}
 }
