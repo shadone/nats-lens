@@ -131,7 +131,7 @@ func TestMicroRefusalIsNoSubscriptionError(t *testing.T) {
 func TestMicroBadAccountWithoutEvents(t *testing.T) {
 	url := refusalServer(t)
 	dir := t.TempDir()
-	accs := "  - { name: SHOP, creds: /nonexistent/shop.creds }\n  - { name: GOOD, user: shop, password: shop-test }\n"
+	accs := "  - { name: BROKEN, creds: /nonexistent/shop.creds }\n  - { name: GOOD, user: shop, password: shop-test }\n"
 	stop := startRun(t, refusalConfig(t, dir, url, false, accs), nil)
 	time.Sleep(4500 * time.Millisecond)
 	if err := stop(); err != nil {
@@ -141,12 +141,12 @@ func TestMicroBadAccountWithoutEvents(t *testing.T) {
 	if n := refusalCount(t, data, `SELECT count(*) FROM epochs`); n == 0 {
 		t.Fatal("no epochs: an unusable account (events off) stops the whole system's collection")
 	}
-	if n := refusalCount(t, data, `SELECT count(*) FROM micro_requests WHERE label = 'SHOP'
+	if n := refusalCount(t, data, `SELECT count(*) FROM micro_requests WHERE label = 'BROKEN'
   AND (state <> 'error' OR error <> 'account connection not connected')`); n != 0 {
-		t.Errorf("%d SHOP requests not recorded as not connected", n)
+		t.Errorf("%d BROKEN requests not recorded as not connected", n)
 	}
-	if n := refusalCount(t, data, `SELECT count(*) FROM micro_requests WHERE label = 'SHOP'`); n == 0 {
-		t.Error("SHOP has no requests recorded")
+	if n := refusalCount(t, data, `SELECT count(*) FROM micro_requests WHERE label = 'BROKEN'`); n == 0 {
+		t.Error("BROKEN has no requests recorded")
 	}
 	if n := refusalCount(t, data, `SELECT count(*) FROM micro_requests WHERE label = 'GOOD' AND request = 'STATS' AND state = 'ok'`); n == 0 {
 		t.Error("GOOD was not asked")
