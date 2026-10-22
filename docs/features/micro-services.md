@@ -6,16 +6,16 @@
 
 ## What it does
 
-Planned; nothing here is built yet. Services built on the NATS micro framework announce themselves on `$SRV` subjects. nats-lens will find them through `$SRV.INFO`, measure them through `$SRV.STATS` every collect interval, and show each service with its instances, request rate and errors, and each endpoint with its subject, queue group, average processing time and last error. All scenarios below describe intended behaviour.
+Planned. Only the collection is built: nats-lens already asks and stores the replies (see [monitoring-snapshots.md](monitoring-snapshots.md)); the page and the API are not built. Services built on the NATS micro framework announce themselves on `$SRV` subjects. nats-lens finds them through `$SRV.INFO`, measures them through `$SRV.STATS` every collect interval, and will show each service with its instances, request rate and errors, and each endpoint with its subject, queue group, average processing time and last error. The scenarios below describe intended behaviour.
 
 ## Behavior and rules
 
-- **Discovery.** nats-lens sends `$SRV.INFO` to find the services and their endpoints.
-- **Stats every collection.** One `$SRV.STATS` request per service every collect interval gives each instance's request count, error count, processing time and last error.
+- **Discovery.** nats-lens sends `$SRV.INFO` to find the services and their endpoints, in the accounts listed under `accounts`, over each account's own connection.
+- **Stats every collection.** One `$SRV.STATS` request per account every collect interval gives each instance's request count, error count, processing time and last error.
 - **Services.** One card per service: name and version, description, instances, requests per second, errors and a note.
 - **Endpoints.** Per service, one row per endpoint: name, subject, queue group, requests per second, average time, error share and last error. An endpoint whose average time is far above its own 7-day level says so.
 - **Missing and mixed.** A service instance that stops answering shows as "instance missing"; versions that differ across instances as "mixed versions".
-- **New permissions.** The nats-lens user needs to publish to `$SRV.>` in the services' account and receive the replies; today's grants do not include it.
+- **Permissions.** The account user under `accounts` needs to publish to `$SRV.INFO` and `$SRV.STATS` in the services' account and receive the replies on `_INBOX.>`; the README's grants include them.
 
 ## Scenarios
 
