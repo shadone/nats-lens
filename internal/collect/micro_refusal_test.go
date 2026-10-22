@@ -90,3 +90,39 @@ func TestMicroRefusalLoggedOnce(t *testing.T) {
 		t.Errorf("end of the refusal logged %d times:\n%s", n, buf.String())
 	}
 }
+
+// Two labels whose connections are in one account: the account's answers
+// are kept once, under the first label, and from the next epoch on the
+// second label does not ask at all. A third label in another account is
+// asked as usual.
+func TestMicroOneAskPerAccount(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a server")
+	}
+	url := startMicroServer(t)
+	startOrders(t, url, "1.4.2")
+	second := connectAs(t, url, "shop")
+	before := second.Stats().OutMsgs
+	at := time.Now()
+	c := microCollector(2*time.Second, 5*time.Minute, &at,
+		fixedConn("first", connectAs(t, url, "shop")), fixedConn("second", second), fixedConn("other", connectAs(t, url, "empty")))
+	labels := func(ms []MicroAccount) string {
+		var out []string
+		for _, m := range ms {
+			out = append(out, m.Label+"="+m.Account)
+		}
+		return strings.Join(out, " ")
+	}
+	if got := labels(c.Collect(context.Background()).Micro); got != "first=SHOP other=EMPTY" {
+		t.Errorf("first epoch: %s", got)
+	}
+	afterFirst := second.Stats().OutMsgs
+	at = at.Add(30 * time.Second)
+	if got := labels(c.Collect(context.Background()).Micro); got != "first=SHOP other=EMPTY" {
+		t.Errorf("second epoch: %s", got)
+	}
+	if afterFirst == before || second.Stats().OutMsgs != afterFirst {
+		t.Errorf("the second label sent %d messages in the first epoch and %d in the second, want some and none",
+			afterFirst-before, second.Stats().OutMsgs-afterFirst)
+	}
+}

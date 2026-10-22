@@ -97,6 +97,9 @@ type microAccount struct {
 	// watch takes the refusals of the collector's requests on watchedOn.
 	watchedOn *nats.Conn
 	watch     *microWatch
+	// sameAs is the earlier label that asks this label's account for it,
+	// empty when this label asks.
+	sameAs string
 	// refused holds each request's refusal as last logged.
 	refused map[MicroRequest]string
 }
@@ -117,6 +120,10 @@ func (c *Collector) askMicro(ctx context.Context, started time.Time) []MicroAcco
 	conns := *p
 	deadline := time.Now().Add(c.window)
 	out := make([]MicroAccount, len(conns))
+	states := make([]*microAccount, len(conns))
+	// An account already asked under an earlier label over a connected
+	// connection is not asked again under a later one.
+	asking := map[string]bool{}
 	var wg sync.WaitGroup
 	for i, ac := range conns {
 		st := c.microAccounts[ac.Label]
@@ -124,11 +131,57 @@ func (c *Collector) askMicro(ctx context.Context, started time.Time) []MicroAcco
 			st = &microAccount{endpoints: map[instanceKey][]micro.EndpointInfo{}, refused: map[MicroRequest]string{}}
 			c.microAccounts[ac.Label] = st
 		}
+		states[i] = st
+		if st.account != "" && asking[st.account] {
+			continue
+		}
+		if nc := connOf(ac); st.account != "" && nc != nil && nc.IsConnected() {
+			asking[st.account] = true
+		}
 		wg.Go(func() { out[i] = c.askAccount(ctx, ac, st, started, deadline) })
 	}
 	wg.Wait()
-	sort.Slice(out, func(i, j int) bool { return out[i].Label < out[j].Label })
-	return out
+	// Two labels that turned out to name one account in this epoch keep
+	// the first label's answers only.
+	kept := out[:0]
+	firstLabel := map[string]string{}
+	for i, m := range out {
+		if m.Label == "" {
+			c.noteSameAccount(conns[i].Label, states[i], firstLabel[states[i].account])
+			continue
+		}
+		if first, ok := firstLabel[m.Account]; ok {
+			c.noteSameAccount(m.Label, states[i], first)
+			continue
+		}
+		firstLabel[m.Account] = m.Label
+		c.noteSameAccount(m.Label, states[i], "")
+		kept = append(kept, m)
+	}
+	sort.Slice(kept, func(i, j int) bool { return kept[i].Label < kept[j].Label })
+	return kept
+}
+
+// connOf returns the account connection's current connection, or nil.
+func connOf(ac AccountConn) *nats.Conn {
+	if ac.Conn == nil {
+		return nil
+	}
+	return ac.Conn()
+}
+
+// noteSameAccount logs once that label names the account first already
+// asks, and once when it no longer does; first is empty when label is
+// asked itself.
+func (c *Collector) noteSameAccount(label string, st *microAccount, first string) {
+	if st.sameAs == first {
+		return
+	}
+	if first != "" {
+		c.log.Info("two accounts entries name one account; its micro services are asked once, under the first",
+			"label", label, "first", first, "account", st.account)
+	}
+	st.sameAs = first
 }
 
 // infoDue reports whether an epoch started at now sends INFO by the
@@ -150,10 +203,7 @@ const userInfoToken = "USER"
 func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAccount, started, deadline time.Time) MicroAccount {
 	res := MicroAccount{Label: ac.Label, Account: ac.Label}
 	wantInfo := c.infoDue(st, started)
-	var nc *nats.Conn
-	if ac.Conn != nil {
-		nc = ac.Conn()
-	}
+	nc := connOf(ac)
 	if nc == nil || !nc.IsConnected() {
 		if st.account != "" {
 			res.Account = st.account
