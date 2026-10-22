@@ -2,7 +2,9 @@ package collect
 
 import (
 	"context"
+	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -91,8 +93,20 @@ type microAccount struct {
 	// servers' name for the account, empty until known.
 	resolvedOn *nats.Conn
 	account    string
-	// lookupDenied is set once the server refused the account lookup.
-	lookupDenied bool
+	// lookupDeniedAt is the start of the epoch whose account lookup the
+	// server last refused; zero when it did not.
+	lookupDeniedAt time.Time
+	// watch takes the refusals of the collector's requests on watchedOn.
+	watchedOn *nats.Conn
+	watch     *microWatch
+	// answered are the instances that answered the last STATS that was
+	// answered; the next requests wait for them before the quiet period.
+	answered map[instanceKey]bool
+	// sameAs is the earlier label that asks this label's account for it,
+	// empty when this label asks.
+	sameAs string
+	// refused holds each request's refusal as last logged.
+	refused map[MicroRequest]string
 }
 
 // SetAccountConns sets the account connections asked from the next epoch
@@ -109,20 +123,95 @@ func (c *Collector) askMicro(ctx context.Context, started time.Time) []MicroAcco
 		return nil
 	}
 	conns := *p
+	// Forget the labels no longer configured.
+	for label := range c.microAccounts {
+		if !slices.ContainsFunc(conns, func(ac AccountConn) bool { return ac.Label == label }) {
+			delete(c.microAccounts, label)
+		}
+	}
 	deadline := time.Now().Add(c.window)
 	out := make([]MicroAccount, len(conns))
+	states := make([]*microAccount, len(conns))
+	// An account already asked under an earlier label over a connected
+	// connection is not asked again under a later one.
+	asking := map[string]bool{}
 	var wg sync.WaitGroup
 	for i, ac := range conns {
 		st := c.microAccounts[ac.Label]
 		if st == nil {
-			st = &microAccount{endpoints: map[instanceKey][]micro.EndpointInfo{}}
+			st = &microAccount{endpoints: map[instanceKey][]micro.EndpointInfo{}, refused: map[MicroRequest]string{}}
 			c.microAccounts[ac.Label] = st
+		}
+		states[i] = st
+		if st.account != "" && asking[st.account] {
+			continue
+		}
+		if nc := connOf(ac); st.account != "" && nc != nil && nc.IsConnected() {
+			asking[st.account] = true
 		}
 		wg.Go(func() { out[i] = c.askAccount(ctx, ac, st, started, deadline) })
 	}
 	wg.Wait()
-	sort.Slice(out, func(i, j int) bool { return out[i].Label < out[j].Label })
-	return out
+	// Two labels that turned out to name one account in this epoch keep
+	// the first label's answers only. Only an account the servers named
+	// counts, never a label standing in for one, and only a label that
+	// was asked over a connection.
+	kept := out[:0]
+	firstLabel := map[string]string{}
+	for i, m := range out {
+		if m.Label == "" {
+			c.noteSameAccount(conns[i].Label, states[i], firstLabel[states[i].account])
+			continue
+		}
+		resolved := states[i].account
+		if first, ok := firstLabel[resolved]; ok && resolved != "" {
+			c.noteSameAccount(m.Label, states[i], first)
+			continue
+		}
+		if resolved != "" && connected(m) {
+			firstLabel[resolved] = m.Label
+		}
+		c.noteSameAccount(m.Label, states[i], "")
+		kept = append(kept, m)
+	}
+	sort.Slice(kept, func(i, j int) bool { return kept[i].Label < kept[j].Label })
+	return kept
+}
+
+// connected reports whether the account's requests went out over a
+// connection.
+func connected(m MicroAccount) bool {
+	for _, a := range m.Asked {
+		if a.Error != notConnected {
+			return true
+		}
+	}
+	return false
+}
+
+// notConnected is the error of a request without a connection.
+const notConnected = "account connection not connected"
+
+// connOf returns the account connection's current connection, or nil.
+func connOf(ac AccountConn) *nats.Conn {
+	if ac.Conn == nil {
+		return nil
+	}
+	return ac.Conn()
+}
+
+// noteSameAccount logs once that label names the account first already
+// asks, and once when it no longer does; first is empty when label is
+// asked itself.
+func (c *Collector) noteSameAccount(label string, st *microAccount, first string) {
+	if st.sameAs == first {
+		return
+	}
+	if first != "" {
+		c.log.Info("two accounts entries name one account; its micro services are asked once, under the first",
+			"label", label, "first", first, "account", st.account)
+	}
+	st.sameAs = first
 }
 
 // infoDue reports whether an epoch started at now sends INFO by the
@@ -136,6 +225,9 @@ func (c *Collector) infoDue(st *microAccount, now time.Time) bool {
 	return c.subsInterval > 0 && now.Sub(st.infoAsked) >= c.subsInterval-subscriptionsSlack
 }
 
+// lookupRetry is how long after a refused account lookup it is made again.
+const lookupRetry = 10 * time.Minute
+
 // userInfoToken is the exchange token of the account lookup.
 const userInfoToken = "USER"
 
@@ -144,31 +236,34 @@ const userInfoToken = "USER"
 func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAccount, started, deadline time.Time) MicroAccount {
 	res := MicroAccount{Label: ac.Label, Account: ac.Label}
 	wantInfo := c.infoDue(st, started)
-	var nc *nats.Conn
-	if ac.Conn != nil {
-		nc = ac.Conn()
-	}
+	nc := connOf(ac)
 	if nc == nil || !nc.IsConnected() {
 		if st.account != "" {
 			res.Account = st.account
 		}
 		for _, r := range asked(wantInfo) {
-			res.Asked = append(res.Asked, MicroAsked{Request: r, State: MicroError, Error: "account connection not connected"})
+			res.Asked = append(res.Asked, MicroAsked{Request: r, State: MicroError, Error: notConnected})
 		}
 		return res
+	}
+	if st.watchedOn != nc {
+		st.watch = newMicroWatch()
+		st.watch.install(nc)
+		st.watchedOn = nc
 	}
 	reqs := map[string]string{string(MicroStats): MicroStats.Subject()}
 	if wantInfo {
 		reqs[string(MicroInfo)] = MicroInfo.Subject()
 		st.infoAsked = started
 	}
-	lookUp := st.resolvedOn != nc && !st.lookupDenied
+	lookUp := st.resolvedOn != nc && (st.lookupDeniedAt.IsZero() || started.Before(st.lookupDeniedAt) ||
+		started.Sub(st.lookupDeniedAt) >= lookupRetry)
 	if lookUp {
 		reqs[userInfoToken] = userInfoSubject
 	}
-	got := exchange(ctx, nc, reqs, deadline, microQuiet)
+	got := exchange(ctx, nc, st.watch, reqs, deadline, microQuiet, st.answered, string(MicroStats), string(MicroInfo))
 	if lookUp {
-		c.resolveMicroAccount(ac.Label, st, nc, got[userInfoToken])
+		c.resolveMicroAccount(ac.Label, st, nc, got[userInfoToken], started)
 	}
 	statsAsked, stats := decodeStats(got[string(MicroStats)])
 	res.Stats = stats
@@ -179,13 +274,20 @@ func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAcc
 		res.Asked = append(res.Asked, a)
 	}
 	pruneDescribed(st, statsAsked, stats)
+	switch statsAsked.State {
+	case MicroOK, MicroNoResponders:
+		st.answered = map[instanceKey]bool{}
+		for _, s := range stats {
+			st.answered[instanceKey{s.Name, s.ID}] = true
+		}
+	}
 	describe(st, infos)
 	if !wantInfo && undescribed(st, stats) {
 		// A new instance: ask INFO in the time left.
 		st.infoAsked = started
 		var a MicroAsked
-		a, infos = decodeInfos(exchange(ctx, nc, map[string]string{string(MicroInfo): MicroInfo.Subject()},
-			deadline, microQuiet)[string(MicroInfo)])
+		a, infos = decodeInfos(exchange(ctx, nc, st.watch, map[string]string{string(MicroInfo): MicroInfo.Subject()},
+			deadline, microQuiet, st.answered, string(MicroInfo))[string(MicroInfo)])
 		res.Asked = append(res.Asked, a)
 		describe(st, infos)
 	}
@@ -196,7 +298,43 @@ func (c *Collector) askAccount(ctx context.Context, ac AccountConn, st *microAcc
 		res.Account = st.account
 	}
 	sort.Slice(res.Asked, func(i, j int) bool { return res.Asked[i].Request < res.Asked[j].Request })
+	c.logRefusal(ac.Label, st, res.Asked)
 	return res
+}
+
+// logRefusal logs the account's refused requests once, and again only
+// when a request's refusal changes or every refusal has ended, rather
+// than every epoch. A request not sent this epoch keeps its last state.
+func (c *Collector) logRefusal(label string, st *microAccount, asked []MicroAsked) {
+	changed, had := false, len(st.refused) > 0
+	for _, a := range asked {
+		text := ""
+		if strings.Contains(strings.ToLower(a.Error), "permissions violation") {
+			text = a.Error
+		}
+		if st.refused[a.Request] == text {
+			continue
+		}
+		if text == "" {
+			delete(st.refused, a.Request)
+			continue
+		}
+		st.refused[a.Request] = text
+		changed = true
+	}
+	switch {
+	case changed:
+		var all []string
+		for _, r := range []MicroRequest{MicroInfo, MicroStats} {
+			if text := st.refused[r]; text != "" {
+				all = append(all, string(r)+": "+text)
+			}
+		}
+		c.log.Warn("micro service requests refused; the account user needs publish on $SRV.INFO and $SRV.STATS and subscribe on _INBOX.>",
+			"account", label, "err", strings.Join(all, "; "))
+	case had && len(st.refused) == 0:
+		c.log.Info("micro service requests permitted again", "account", label)
+	}
 }
 
 // asked lists the requests of an epoch: STATS, and INFO when due.

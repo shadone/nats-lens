@@ -91,16 +91,18 @@ func (c *Collector) Collect(ctx context.Context) *Snapshot {
 	snap := NewSnapshot(c.now().UTC())
 	known := c.tracker.Known(snap.StartedAt)
 
+	// The account connections ask their micro services from the start of
+	// the epoch, alongside discovery and the detail endpoints, each
+	// account within one collect window. An epoch whose other requests end
+	// early still waits for the micro requests' quiet period.
+	var microDone sync.WaitGroup
+	microDone.Go(func() { snap.Micro = c.askMicro(ctx, snap.StartedAt) })
+
 	// Discovery: stop early once every known server has answered.
 	c.request(ctx, snap, Statsz, allNames(known))
 	if len(snap.Servers) == 0 {
 		snap.Errors = append(snap.Errors, "no server answered "+Statsz.Subject())
 	}
-
-	// The account connections ask their micro services alongside the
-	// detail endpoints, within one window, so the epoch takes no longer.
-	var microDone sync.WaitGroup
-	microDone.Go(func() { snap.Micro = c.askMicro(ctx, snap.StartedAt) })
 
 	// Detail endpoints run in parallel, each with its own window, and stop
 	// early once every discovered server has answered.
