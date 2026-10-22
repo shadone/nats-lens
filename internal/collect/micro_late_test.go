@@ -62,3 +62,37 @@ func TestMicroWaitsForKnownInstances(t *testing.T) {
 		t.Errorf("collect took %s: it waited past the known instances", took)
 	}
 }
+
+// An instance restarts with a new ID: the epoch that sees it asks INFO
+// of the new instance in time, rather than waiting the whole window for
+// the old ID first.
+func TestMicroRestartAsksInfoInTime(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a server")
+	}
+	url := startMicroServer(t)
+	a := startOrders(t, url, "1.0.0")
+	startOrders(t, url, "1.0.0")
+	at := time.Now()
+	c := microCollector(2*time.Second, 5*time.Minute, &at, fixedConn("SHOP", connectAs(t, url, "shop")))
+	m := c.Collect(context.Background()).Micro[0]
+	t.Logf("epoch 1: %s", askedOf(m))
+	_ = a.Stop()
+	startOrders(t, url, "1.0.1")
+	at = at.Add(30 * time.Second)
+	start := time.Now()
+	m = c.Collect(context.Background()).Micro[0]
+	took := time.Since(start)
+	t.Logf("epoch 2 (%s): %s", took, askedOf(m))
+	if took > 1500*time.Millisecond {
+		t.Errorf("epoch 2 took %s of a 2s window: it waited for the old ID", took)
+	}
+	for _, r := range m.Asked {
+		if r.State != MicroOK {
+			t.Errorf("after a restart: %s %s %q", r.Request, r.State, r.Error)
+		}
+	}
+	at = at.Add(30 * time.Second)
+	m = c.Collect(context.Background()).Micro[0]
+	t.Logf("epoch 3: %s", askedOf(m))
+}
