@@ -442,3 +442,24 @@ func TestFinishMicroCaps(t *testing.T) {
 			len(b.GetInstanceList()), b.GetInstances(), b.GetConnectionNames(), b.GetMoreNames())
 	}
 }
+
+// An account recorded under its configured label, as when its lookup was
+// refused, is the account the subscription collection shows for its
+// instances: one service, asked, not two.
+func TestFinishMicroLabelIsTheSeenAccount(t *testing.T) {
+	const key = "ADKEYOFTHESHOPACCOUNT"
+	f := &api.MicroFacts{Epoch: 1, EpochAt: microT0,
+		Accounts: []api.MicroAccountFact{{Account: "shop", Stats: api.MicroRequestFact{State: v1.MicroRequestState_MICRO_REQUEST_STATE_OK, At: microT0}}},
+		Answered: []api.MicroServiceFact{{Account: "shop", Name: "orders", Instances: instances("1", "O1", "O2")}},
+		Seen: []api.MicroServiceFact{{Account: key, Name: "orders", Instances: []api.MicroInstanceFact{{ID: "O1", Connection: "order-service"},
+			{ID: "O2"}}}},
+	}
+	res := api.FinishMicro(f, "")
+	if len(res.GetServices()) != 1 || res.GetServices()[0].GetAccount() != key || !res.GetServices()[0].GetAnswered() ||
+		res.GetServices()[0].GetConnectionNames()[0] != "order-service" || len(res.GetAccounts()) != 1 || !res.GetAccounts()[0].GetAsked() {
+		t.Errorf("response = %v", res)
+	}
+	if s := api.FinishMicro(f, key); len(s.GetServices()) != 1 {
+		t.Errorf("scoped to the key: %v", s)
+	}
+}
