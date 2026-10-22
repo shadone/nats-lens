@@ -387,6 +387,7 @@ func FinishMicro(f *MicroFacts, account string) *v1.GetMicroServicesResponse {
 	if f == nil || f.Epoch == 0 {
 		return &v1.GetMicroServicesResponse{}
 	}
+	f = microAliased(f)
 	res := &v1.GetMicroServicesResponse{Epoch: f.Epoch, EpochAt: timestamppb.New(f.EpochAt)}
 	if f.SubscriptionsAt != nil {
 		res.SubscriptionsAt = timestamppb.New(*f.SubscriptionsAt)
@@ -455,6 +456,65 @@ func FinishMicro(f *MicroFacts, account string) *v1.GetMicroServicesResponse {
 		return cmp.Or(compareBool(a.GetSystemAccount(), b.GetSystemAccount()), cmp.Compare(a.GetAccount(), b.GetAccount()))
 	})
 	return res
+}
+
+// microAliased names each asked account as the subscription collection
+// does. When the collector cannot look up an account, it records the
+// account's configured label, which in operator mode is not the account
+// key the servers report: an asked account none of whose services is
+// seen under it, whose answered instances are all seen under one other
+// account (by service name and instance ID), is that account. Its
+// answered services, gone instances and requests move to it, so a
+// service is not listed twice, asked under the label and seen under the
+// key.
+func microAliased(f *MicroFacts) *MicroFacts {
+	seenAt := map[[2]string]string{}
+	seenAcc := map[string]bool{}
+	for _, s := range f.Seen {
+		seenAcc[s.Account] = true
+		for _, in := range s.Instances {
+			seenAt[[2]string{s.Name, in.ID}] = s.Account
+		}
+	}
+	alias := map[string]string{}
+	bad := map[string]bool{}
+	for _, s := range f.Answered {
+		if seenAcc[s.Account] {
+			continue
+		}
+		for _, in := range s.Instances {
+			k, ok := seenAt[[2]string{s.Name, in.ID}]
+			switch {
+			case !ok:
+			case alias[s.Account] == "" || alias[s.Account] == k:
+				alias[s.Account] = k
+			default:
+				bad[s.Account] = true
+			}
+		}
+	}
+	for a := range bad {
+		delete(alias, a)
+	}
+	if len(alias) == 0 {
+		return f
+	}
+	to := func(a string) string { return cmp.Or(alias[a], a) }
+	g := *f
+	g.Accounts, g.Answered, g.Gone = nil, nil, nil
+	for _, a := range f.Accounts {
+		a.Account = to(a.Account)
+		g.Accounts = append(g.Accounts, a)
+	}
+	for _, s := range f.Answered {
+		s.Account = to(s.Account)
+		g.Answered = append(g.Answered, s)
+	}
+	for _, x := range f.Gone {
+		x.Account = to(x.Account)
+		g.Gone = append(g.Gone, x)
+	}
+	return &g
 }
 
 func microRequest(r MicroRequestFact) *v1.MicroRequest {
