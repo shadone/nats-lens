@@ -125,7 +125,6 @@ func TestMicroRefusalIsNoSubscriptionError(t *testing.T) {
 	}
 }
 
-
 // With event capture off, an account whose creds file is missing does not
 // stop the system: epochs are taken, the account's requests are recorded
 // as not connected, and another account is asked.
@@ -151,5 +150,29 @@ func TestMicroBadAccountWithoutEvents(t *testing.T) {
 	}
 	if n := refusalCount(t, data, `SELECT count(*) FROM micro_requests WHERE label = 'GOOD' AND request = 'STATS' AND state = 'ok'`); n == 0 {
 		t.Error("GOOD was not asked")
+	}
+}
+
+// Two entries under accounts for one account store its instances and
+// endpoints once per epoch, under the first entry.
+func TestMicroTwoLabelsOneAccount(t *testing.T) {
+	url := refusalServer(t)
+	dir := t.TempDir()
+	accs := "  - { name: SHOP, user: shop, password: shop-test }\n  - { name: SHOP-2, user: shop, password: shop-test }\n"
+	if err := run(context.Background(), []string{"once", "-config", refusalConfig(t, dir, url, false, accs), "-log-level", "error"}); err != nil {
+		t.Fatal(err)
+	}
+	data := filepath.Join(dir, "data")
+	dups := refusalCount(t, data, `SELECT count(*) FROM (SELECT epoch, account, service, instance_id, endpoint, count(*) n
+FROM micro_endpoints GROUP BY ALL HAVING n > 1)`)
+	stats := refusalCount(t, data, `SELECT count(*) FROM micro_stats`)
+	if stats != 1 {
+		t.Errorf("micro_stats rows %d for one instance", stats)
+	}
+	if n := refusalCount(t, data, `SELECT count(*) FROM micro_requests WHERE label <> 'SHOP'`); n != 0 {
+		t.Errorf("%d requests stored under the second entry", n)
+	}
+	if dups > 0 {
+		t.Errorf("%d (epoch, account, service, instance, endpoint) keys stored more than once", dups)
 	}
 }
