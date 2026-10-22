@@ -37,7 +37,10 @@ accounts {
       subscribe: { allow: ["_INBOX.>"] } } },
     { user: shop-noinbox, password: shop-noinbox-test, permissions: {
       publish: { allow: ["$SYS.REQ.USER.INFO", "$SRV.>"] },
-      subscribe: { deny: ["_INBOX.>"] } } }
+      subscribe: { deny: ["_INBOX.>"] } } },
+    { user: shop-nolookup, password: shop-nolookup-test, permissions: {
+      publish: { allow: ["$SRV.>"] },
+      subscribe: { allow: ["_INBOX.>"] } } }
   ] }
   EMPTY { users: [ { user: empty, password: empty-test } ] }
 }
@@ -449,6 +452,12 @@ func TestMicroManyInstances(t *testing.T) {
 			}
 		}
 		t.Cleanup(func() { _ = svc.Stop() })
+	}
+	// Every service's subscriptions reach the server before it is asked.
+	for _, nc := range conns {
+		if err := nc.Flush(); err != nil {
+			t.Fatal(err)
+		}
 	}
 	asker := connectAs(t, url, "shop")
 	at := time.Now()
