@@ -9,6 +9,7 @@ import {
   listText,
   note,
   reachesNothing,
+  readers,
   noteText,
   rateText,
   shareText,
@@ -141,8 +142,8 @@ describe("footLines", () => {
     expect(footLines(d)[1]).toBe("a and b did not answer for their subscription list; their subscriptions are missing.");
   });
 
-  it("says subscriptions were not collected, and nothing about servers", () => {
-    expect(footLines({ ...global(), subscriptionsAt: undefined })).toEqual(["Subscriptions not collected within 24 hours before this collection, so streams name no connections."]);
+  it("says nothing without a subscription collection, which the notice above the table says", () => {
+    expect(footLines({ ...global(), subscriptionsAt: undefined })).toEqual([]);
   });
 });
 
@@ -170,6 +171,19 @@ describe("the tester's answer", () => {
     expect(consumersText(streamMatch())).toBe("email-sender and order-projector");
     expect(consumersText(streamMatch({ consumers: ["a"], ephemeral: 2 }))).toBe("a and 2 ephemeral");
     expect(consumersText(streamMatch({ consumers: [], ephemeral: 0 }))).toBe("");
+    expect(consumersText(streamMatch({ kind: "kv", consumers: [], ephemeral: 22 }))).toBe("22 watchers");
+    expect(consumersText(streamMatch({ kind: "kv", consumers: ["d"], ephemeral: 1 }))).toBe("d and 1 watcher");
+  });
+
+  it("warns that nobody reads a matching stream only when it is a stream that nothing copies", () => {
+    const none = { consumers: [], ephemeral: 0, mirrors: [], sourcedBy: [] };
+    expect(readers(streamMatch(none))).toEqual({ label: "no consumer reads it", ephemeral: "", warn: true });
+    expect(readers(streamMatch({ ...none, mirrors: ["m"] }))).toEqual({ label: "no consumer", ephemeral: "", warn: false });
+    expect(readers(streamMatch({ ...none, sourcedBy: ["s"] }))).toEqual({ label: "no consumer", ephemeral: "", warn: false });
+    expect(readers(streamMatch({ ...none, kind: "kv" }))).toEqual({ label: "no watcher", ephemeral: "", warn: false });
+    expect(readers(streamMatch({ ...none, kind: "object" }))).toEqual({ label: "no consumer", ephemeral: "", warn: false });
+    expect(readers(streamMatch({ ...none, kind: "kv", ephemeral: 3 }))).toEqual({ label: "then read by", ephemeral: "3 watchers", warn: false });
+    expect(readers(streamMatch({ consumers: ["a"], ephemeral: 2 }))).toEqual({ label: "then consumers", ephemeral: "2 ephemeral", warn: false });
   });
 
   it("counts a queue group once and every other connection", () => {

@@ -6,7 +6,10 @@ import { fmtInt, hms } from "./format";
 export const SUBJECTS_SUBTITLE = "Where messages can go: stream subjects and client subscriptions, by subject pattern.";
 
 export const SUBJECTS_FOOTNOTE =
-  "NATS servers do not count messages per subject, so rates come from streams (sequence growth) and are shown only where a stream stores the subject. Subscriptions come from each server's subscription list, refreshed every few minutes rather than every collection to keep large systems cheap.";
+  "NATS servers do not count messages per subject, so rates come from streams (sequence growth) and are shown only where a stream stores the subject.";
+
+/** The footnote's second sentence, shown only when a subscription collection was read. */
+export const SUBSCRIPTIONS_FOOTNOTE = "Subscriptions come from each server's subscription list, refreshed every few minutes rather than every collection to keep large systems cheap.";
 
 export const NOTHING_REACHED = "no stream stores it and no subscriber listens";
 
@@ -43,6 +46,8 @@ export function isStored(r: Pick<SubjectRow, "kind">): boolean {
 /** A row's subscribers: the words before the names, the connection names and how many more there are. */
 export interface Subscribers {
   lead: string;
+  /** The queue group every subscription shares, after the lead; "" for none. */
+  queue: string;
   names: string[];
   more: number;
   /** The lead counts the stream's consumers, so it can open them. */
@@ -63,14 +68,14 @@ function consumerWords(r: SubjectRow): string {
  * order-service" on a subscription; "server" on the JetStream API.
  */
 export function subscribers(r: SubjectRow): Subscribers {
-  if (r.kind === "jsApi") return { lead: "server", names: [], more: 0, consumers: false };
+  if (r.kind === "jsApi") return { lead: "server", queue: "", names: [], more: 0, consumers: false };
   if (isStored(r)) {
     const lead = consumerWords(r);
-    return { lead, names: r.names, more: r.moreNames, consumers: lead !== "none" };
+    return { lead, queue: "", names: r.names, more: r.moreNames, consumers: lead !== "none" };
   }
-  if (r.connections === 0) return { lead: "none", names: [], more: 0, consumers: false };
-  const lead = plural(r.connections, "connection") + (r.queue ? ` in queue group ${r.queue}` : "");
-  return { lead, names: r.names, more: r.moreNames, consumers: false };
+  if (r.connections === 0) return { lead: "none", queue: "", names: [], more: 0, consumers: false };
+  const lead = plural(r.connections, "connection") + (r.queue ? " in queue group" : "");
+  return { lead, queue: r.queue, names: r.names, more: r.moreNames, consumers: false };
 }
 
 /** "(a, b, c +2)", or "" without names. */
@@ -82,7 +87,8 @@ export function namesText(names: string[], more: number): string {
 export function subscribersText(r: SubjectRow): string {
   const s = subscribers(r);
   const names = namesText(s.names, s.more);
-  return names ? `${s.lead} ${names}` : s.lead;
+  const lead = s.queue ? `${s.lead} ${s.queue}` : s.lead;
+  return names ? `${lead} ${names}` : lead;
 }
 
 /** A row's note: words, then stream names (shown as links), then words; warn marks the row. */
@@ -159,7 +165,7 @@ export function rateText(v: number | undefined): string | undefined {
 export function footLines(d: Subjects): string[] {
   const lines: string[] = [];
   if (d.subscriptionsAt === undefined) {
-    lines.push("Subscriptions not collected within 24 hours before this collection, so streams name no connections.");
+    // The notice above the table says so.
     return lines;
   }
   lines.push(`Subscriptions as of ${hms(d.subscriptionsAt)} UTC.`);
@@ -190,17 +196,51 @@ export function reachesNothing(a: Pick<MatchAccount, "streams" | "core" | "jetst
   return a.streams.length === 0 && a.core.length === 0 && !a.jetstreamApi;
 }
 
-/** "analytics, email-sender and 2 ephemeral", or "" for none. */
+/** "2 ephemeral", or on a KV bucket "22 watchers"; "" for none. */
+function ephemeralText(s: StreamMatch): string {
+  if (s.ephemeral === 0) return "";
+  return s.kind === "kv" ? plural(s.ephemeral, "watcher") : `${fmtInt(s.ephemeral)} ephemeral`;
+}
+
+/** "analytics, email-sender and 2 ephemeral", "22 watchers" on a KV bucket, or "" for none. */
 export function consumersText(s: StreamMatch): string {
   const parts = [...s.consumers];
-  if (s.ephemeral > 0) parts.push(`${fmtInt(s.ephemeral)} ephemeral`);
+  const eph = ephemeralText(s);
+  if (eph) parts.push(eph);
   return listText(parts);
+}
+
+/** Who reads a matching stream: the chip's label, the ephemeral consumers in words, and whether nobody reading it is a warning. */
+export interface Readers {
+  label: string;
+  ephemeral: string;
+  warn: boolean;
+}
+
+/**
+ * A stream read by consumers: "then consumers"; a KV bucket: "then read
+ * by". Nobody reading warns only on a stream that no mirror or sourcing
+ * stream copies, as the table's "without a consumer" does.
+ */
+export function readers(s: StreamMatch): Readers {
+  const eph = ephemeralText(s);
+  if (s.consumers.length > 0 || eph) return { label: s.kind === "kv" ? "then read by" : "then consumers", ephemeral: eph, warn: false };
+  if (s.kind === "kv") return { label: "no watcher", ephemeral: "", warn: false };
+  if (s.kind === "object") return { label: "no consumer", ephemeral: "", warn: false };
+  const copied = s.mirrors.length > 0 || s.sourcedBy.length > 0;
+  return { label: copied ? "no consumer" : "no consumer reads it", ephemeral: "", warn: !copied };
+}
+
+/** "one of 3 in queue group", "136 connections", with the queue group apart so it can stay on one line. */
+export function coreParts(c: CoreMatch): { lead: string; queue: string } {
+  if (c.queue) return { lead: c.connections > 1 ? `one of ${fmtInt(c.connections)} in queue group` : "1 connection in queue group", queue: c.queue };
+  return { lead: plural(c.connections, "connection"), queue: "" };
 }
 
 /** "one of 3 in queue group order-service", "136 connections". */
 export function coreLead(c: CoreMatch): string {
-  if (c.queue) return c.connections > 1 ? `one of ${fmtInt(c.connections)} in queue group ${c.queue}` : `1 connection in queue group ${c.queue}`;
-  return plural(c.connections, "connection");
+  const p = coreParts(c);
+  return p.queue ? `${p.lead} ${p.queue}` : p.lead;
 }
 
 export function coreText(c: CoreMatch): string {

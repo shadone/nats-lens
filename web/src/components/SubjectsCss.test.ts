@@ -37,7 +37,14 @@ describe("subjects.css at a phone width", () => {
 
   it("keeps the pattern column in view and lets a long pattern break inside it", () => {
     expect(phone).toMatch(/\.tbl\.sj-tbl tbody th\[scope="row"\]\{position:sticky;[^}]*max-width:150px/);
-    expect(phone).toMatch(/\.sj-tbl \.sj-pattern\{white-space:normal;overflow-wrap:break-word\}/);
+    expect(phone).toMatch(/\.sj-tbl \.sj-pattern\{white-space:normal\}/);
+    expect(phone).toMatch(/\.sj-tbl \.sj-tok\{display:inline-block;white-space:nowrap\}/);
+  });
+
+  it("keeps a pattern on one line above phone width", () => {
+    const wide = css.slice(0, css.indexOf("@media (max-width:760px)"));
+    expect(wide).toMatch(/\.sj-tbl \.sj-pattern\{display:block;white-space:nowrap\}/);
+    expect(wide).not.toMatch(/\.sj-tok/);
   });
 
   it("keeps a warning row's colour on its sticky first cell", () => {

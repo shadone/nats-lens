@@ -10,7 +10,7 @@ import { Empty, QueryView } from "../components/common";
 import { ReachCard, refusal, SubjectField } from "../components/SubjectTester";
 import { SubjectsTable } from "../components/SubjectsTable";
 import { hms } from "../lib/format";
-import { FILTERS, footLines, SUBJECTS_FOOTNOTE, SUBJECTS_SUBTITLE, subjectFilter } from "../lib/subjectsView";
+import { FILTERS, footLines, SUBJECTS_FOOTNOTE, SUBSCRIPTIONS_FOOTNOTE, SUBJECTS_SUBTITLE, subjectFilter } from "../lib/subjectsView";
 import { useDebounced } from "../lib/useDebounced";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useAccountScope } from "../lib/useSystem";
@@ -75,12 +75,12 @@ export function Subjects() {
       <div className="filters sj-filters">
         <div className="grp" role="group" aria-label="Filter">
           {FILTERS.map((f) => (
-            <FilterChip key={f.id} label={f.label} n={d?.counts[f.id]} on={filter === f.id} onClick={() => setFilter(f.id)} />
+            <FilterChip key={f.id} label={f.label} n={d?.collected ? d.counts[f.id] : undefined} on={filter === f.id} onClick={() => setFilter(f.id)} />
           ))}
         </div>
         <SubjectField value={typed} onChange={setTyped} why={why} />
       </div>
-      {subject !== "" && !why && (mq.data?.collected ?? true) && (
+      {subject !== "" && !why && (
         <ReachCard subject={subject} answer={current && !mq.isPending ? mq.data : undefined} error={failed} scoped={account !== ""} />
       )}
       <QueryView q={q} what="subjects">
@@ -89,16 +89,20 @@ export function Subjects() {
             <>
               {r.subscriptionsAt === undefined && (
                 <p className="sj-missing" role="note">
-                  <b>Subscriptions not collected.</b> No subscription list within 24 hours before this collection: the table lists stream subjects and the JetStream API only.
+                  <b>Subscriptions not collected.</b> No subscription list within 24 hours before this collection: the table lists stream subjects and the JetStream API only, and streams name no connections.
                 </p>
               )}
               <SubjectsTable
                 d={r}
                 scoped={account !== ""}
+                filterParam={FILTERS.find((f) => f.id === filter)?.param ?? ""}
                 empty={filter === "all" ? "No stream or subscription in this collection." : `No pattern matches “${FILTERS.find((f) => f.id === filter)!.label}” in this collection.`}
               />
               <div className="sj-note-foot">
-                <p>{SUBJECTS_FOOTNOTE}</p>
+                <p>
+                  {SUBJECTS_FOOTNOTE}
+                  {r.subscriptionsAt !== undefined && ` ${SUBSCRIPTIONS_FOOTNOTE}`}
+                </p>
                 {footLines(r).map((l) => (
                   <p key={l}>{l}</p>
                 ))}

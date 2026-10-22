@@ -67,9 +67,9 @@ describe("Subjects", () => {
     expect(table().getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Pattern", "Account", "Stored in", "Subscribers", "Stored msgs/s", "Note"]);
     expect(cells("order.events.>")).toEqual(["APP", "order-events", "4 durable consumers", "2.88", "mirrored by order-archive"]);
     expect(cells("$KV.feature-flags.>")).toEqual(["APP", "KV_feature-flags", "22 watchers (api-gateway, checkout-service, order-service +1)", "0.04", ""]);
-    expect(cells("orders.place")).toEqual(["APP", "", "3 connections in queue group order-service (order-service)", "– not observed", ""]);
-    expect(cells("$JS.API.>")).toEqual(["APP", "", "server", "– not observed", "JetStream API: 3.1 req/s, 0.2% errors"]);
-    expect(cells(">")).toEqual(["SYSsystem", "", "1 connection (ops-monitor)", "– not observed", "receives every message in the account"]);
+    expect(cells("orders.place")).toEqual(["APP", "", "3 connections in queue group order-service (order-service)", "– no stored rate", ""]);
+    expect(cells("$JS.API.>")).toEqual(["APP", "", "server", "– no stored rate", "JetStream API: 3.1 req/s, 0.2% errors"]);
+    expect(cells(">")).toEqual(["SYSsystem", "", "1 connection (ops-monitor)", "– no stored rate", "receives every message in the account"]);
 
     const r = within(rowOf("order.events.>"));
     expect(r.getByRole("link", { name: "order-events" })).toHaveAttribute("href", "/streams/APP/order-events?system=example-global");
@@ -130,12 +130,47 @@ describe("Subjects", () => {
     expect(screen.getByText(/^1,006 subscriptions of the servers' own clients/)).toBeInTheDocument();
   });
 
+  it("keeps the filter on an account's link", async () => {
+    getSubjects.mockResolvedValue(global());
+    renderApp(<Subjects />, "/subjects?filter=stored");
+    await screen.findByRole("region", { name: "Subject patterns" });
+    expect(within(rowOf("order.events.>")).getByRole("link", { name: "APP" })).toHaveAttribute("href", "/subjects?account=APP&filter=stored");
+  });
+
+  it("keeps a queue group's name on one line", async () => {
+    getSubjects.mockResolvedValue(global());
+    renderApp(<Subjects />, "/subjects");
+    await screen.findByRole("region", { name: "Subject patterns" });
+    expect(within(rowOf("orders.place")).getByText("order-service", { selector: ".sj-nobr" })).toBeInTheDocument();
+  });
+
+  it("breaks a pattern only between its tokens, by spans the stylesheet lays out at phone width", async () => {
+    getSubjects.mockResolvedValue(global());
+    const { container } = renderApp(<Subjects />, "/subjects");
+    await screen.findByRole("region", { name: "Subject patterns" });
+    const p = rowOf("$KV.feature-flags.>").querySelector(".sj-pattern")!;
+    expect([...p.querySelectorAll(".sj-tok")].map((t) => t.textContent)).toEqual(["$KV.", "feature-flags.", ">"]);
+    expect(container.querySelector("wbr")).toBeNull();
+  });
+
+  it("shows no counts on the pills when the range holds no collection", async () => {
+    getSubjects.mockResolvedValue(noCollection());
+    renderApp(<Subjects />, "/subjects");
+    await screen.findByText("No collection in this range.");
+    expect(screen.getByRole("button", { name: "All patterns" })).toHaveTextContent(/^All patterns$/);
+    expect(screen.queryByRole("button", { name: "All patterns 0" })).toBeNull();
+  });
+
   it("says subscriptions were not collected, and still lists the streams", async () => {
     getSubjects.mockResolvedValue({ ...global(), subscriptionsAt: undefined, servers: [], rows: [row({ durable: 2 })] });
     renderApp(<Subjects />, "/subjects");
     expect(await screen.findByRole("note")).toHaveTextContent(/^Subscriptions not collected\./);
     expect(cells("order.events.>")[2]).toBe("2 durable consumers");
     expect(screen.queryByText(/^Subscriptions as of/)).toBeNull();
+    // Once, in the notice: not again in the footnote, which leaves out how subscription lists are read.
+    const page = document.body.textContent ?? "";
+    expect(page.match(/not collected/gi)).toHaveLength(1);
+    expect(page).not.toMatch(/refreshed every few minutes/);
   });
 });
 
@@ -147,7 +182,7 @@ describe("Subjects tester", () => {
         ? matches({
             accounts: [
               published({ streams: [streamMatch()] }),
-              published({ account: "SHOP", streams: [streamMatch({ account: "SHOP", stream: "shop-orders", consumers: [] })], core: [coreMatch({ queue: "", subject: ">", connections: 1, names: ["ops-monitor"] })] }),
+              published({ account: "SHOP", streams: [streamMatch({ account: "SHOP", stream: "shop-orders", consumers: [], mirrors: [] })], core: [coreMatch({ queue: "", subject: ">", connections: 1, names: ["ops-monitor"] })] }),
             ],
           })
         : matches(),
@@ -192,7 +227,7 @@ describe("Subjects tester", () => {
     renderApp(<Subjects />, "/subjects?account=APP");
     await userEvent.type(field(), "x");
     const card = within(await screen.findByRole("region", { name: "Where this subject goes" }));
-    expect(await card.findByText(/one of 3 in queue group order-service/)).toBeInTheDocument();
+    expect(await card.findByText((_, el) => el?.classList.contains("sj-chip") === true && /one of 3 in queue group order-service/.test(el.textContent ?? ""))).toBeInTheDocument();
     expect(card.queryByText("Published in")).toBeNull();
     expect(matchSubject.mock.calls[0][2]).toBe("APP");
   });
@@ -222,7 +257,8 @@ describe("Subjects tester", () => {
     matchSubject.mockRejectedValue(new ConnectError('invalid argument: subject "order.*" has a wildcard; give a literal subject', Code.InvalidArgument));
     renderApp(<Subjects />, "/subjects");
     await userEvent.type(field(), "order.*");
-    expect(await screen.findByRole("alert")).toHaveTextContent('subject "order.*" has a wildcard; give a literal subject');
+    expect(await screen.findByText('subject "order.*" has a wildcard; give a literal subject')).toHaveAttribute("aria-live", "polite");
+    expect(screen.queryByRole("alert")).toBeNull();
     expect(field()).toHaveAttribute("aria-invalid", "true");
     expect(field()).toHaveAccessibleDescription('subject "order.*" has a wildcard; give a literal subject');
     expect(screen.queryByRole("region", { name: "Where this subject goes" })).toBeNull();
@@ -244,6 +280,72 @@ describe("Subjects tester", () => {
     await waitFor(() => expect(matchSubject.mock.calls.map((c) => c[3])).toContain("ab"));
     await act(async () => release(matches({ accounts: [published({ streams: [streamMatch({ stream: "second-answer" })] })] })));
     expect(await card.findByRole("link", { name: "second-answer" })).toBeInTheDocument();
+  });
+
+  it("words a KV bucket's watchers and does not warn when a bucket, an object store or a copied stream has no reader", async () => {
+    getSubjects.mockResolvedValue(global());
+    matchSubject.mockResolvedValue(
+      matches({
+        accounts: [
+          published({
+            streams: [
+              streamMatch({ stream: "KV_flags", kind: "kv", consumers: [], ephemeral: 22, mirrors: [] }),
+              streamMatch({ stream: "KV_cache", kind: "kv", consumers: [], ephemeral: 0, mirrors: [] }),
+              streamMatch({ stream: "OBJ_images", kind: "object", consumers: [], ephemeral: 0, mirrors: [] }),
+              streamMatch({ stream: "order-events", consumers: [], ephemeral: 0, mirrors: ["order-archive"] }),
+              streamMatch({ stream: "basket-events", consumers: [], ephemeral: 0, mirrors: [], sourcedBy: [] }),
+            ],
+          }),
+        ],
+      }),
+    );
+    const { container } = renderApp(<Subjects />, "/subjects");
+    await userEvent.type(field(), "x");
+    const card = within(await screen.findByRole("region", { name: "Where this subject goes" }));
+    await card.findByRole("link", { name: "KV_flags" });
+    const chips = [...container.querySelectorAll(".sj-reach .sj-chip:not(.sj-chip-stream)")].map((c) => [c.textContent, c.classList.contains("sj-chip-warn")]);
+    expect(chips).toEqual([
+      ["then read by 22 watchers", false],
+      ["no watcher", false],
+      ["no consumer", false],
+      ["no consumer", false],
+      ["Mirror order-archive", false],
+      ["no consumer reads it", true],
+      ["Core subscribers none", false],
+    ]);
+  });
+
+  it("announces each answer through one live region that stays while the card does", async () => {
+    getSubjects.mockResolvedValue(global());
+    let release: (m: SubjectMatches) => void = () => {};
+    matchSubject.mockImplementation(() => new Promise<SubjectMatches>((r) => (release = r)));
+    const { container } = renderApp(<Subjects />, "/subjects");
+    await userEvent.type(field(), "x");
+    await screen.findByText("Looking it up…");
+    const live = container.querySelector(".sj-reach [aria-live=polite]");
+    expect(live).toHaveTextContent("Looking it up…");
+    await act(async () => release(matches()));
+    await screen.findByText("no stream stores it and no subscriber listens");
+    expect(container.querySelector(".sj-reach [aria-live=polite]")).toBe(live);
+    expect(within(container.querySelector(".sj-reach")! as HTMLElement).queryByRole("status")).toBeNull();
+  });
+
+  it("says the range holds no collection in the card", async () => {
+    getSubjects.mockResolvedValue(noCollection());
+    matchSubject.mockResolvedValue({ collected: false, accounts: [] });
+    renderApp(<Subjects />, "/subjects");
+    await userEvent.type(field(), "x");
+    const card = within(await screen.findByRole("region", { name: "Where this subject goes" }));
+    expect(await card.findByText("No collection in this range.")).toBeInTheDocument();
+  });
+
+  it("keeps a core match's queue group on one line", async () => {
+    getSubjects.mockResolvedValue(global());
+    matchSubject.mockResolvedValue(matches({ accounts: [published({ core: [coreMatch()] })] }));
+    renderApp(<Subjects />, "/subjects");
+    await userEvent.type(field(), "x");
+    const card = within(await screen.findByRole("region", { name: "Where this subject goes" }));
+    expect(await card.findByText("order-service", { selector: ".sj-nobr" })).toBeInTheDocument();
   });
 
   it("asks nothing for an empty or blank field", async () => {
