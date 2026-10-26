@@ -67,7 +67,7 @@ The account checks turn what the Accounts page shows into findings, so that an o
 
 - **Given** `example-global`'s `SUPPLIERS`, whose account JWT expires in 12 days
 - **When** nats-lens collects
-- **Then** `account-003` fires as a warning, with "SUPPLIERS: account JWT expires" followed by the date and "in 12.0 days"
+- **Then** `account-003` fires as a warning, with "SUPPLIERS: account JWT expires" followed by the date and "in 12 days"
 - **And** it turns critical 3 days before the expiry
 
 ### A user's credentials run out

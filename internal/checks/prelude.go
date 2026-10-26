@@ -47,18 +47,24 @@ package checks
 //     before e started (api.AccountDetailsMaxAge, the Accounts page's
 //     rule; an older lookup reads as not looked up yet), with title, the
 //     account's readable name, else its identifier.
-//   - expiry_text(t, now) writes "expires 2026-11-08 09:00 UTC, in 12.0
-//     days" or "expired 2026-10-20 09:00 UTC, 3.0 days ago"; span_text(iv)
-//     writes the span as days, hours or minutes.
+//   - expiry_text(t, now) writes "expires 2026-11-08 09:00 UTC, in 12
+//     days" or "expired 2026-10-20 09:00 UTC, 1 day ago"; span_text(iv)
+//     writes the span in minutes below an hour, in hours to a tenth below
+//     a day and in days to a tenth, the unit chosen after rounding (23 h
+//     58 m is 1 day), whole numbers without ".0" and 1 in the singular.
 const Prelude = `CREATE OR REPLACE TEMP MACRO account_lookups(ep) AS TABLE
 SELECT d.*, coalesce(nullif(nullif(a.account_name, ''), a.account), nullif(nullif(d.account_name, ''), a.account), a.account) AS title
 FROM account_details d JOIN accounts a ON a.account = d.account AND a.first_epoch <= ep AND a.last_epoch >= ep
 WHERE d.epoch <= ep AND d.looked_up_at >= (SELECT started_at FROM epochs WHERE epoch = ep) - INTERVAL 24 HOUR
 QUALIFY row_number() OVER (PARTITION BY d.account ORDER BY d.epoch DESC, d.looked_up_at DESC) = 1;
+CREATE OR REPLACE TEMP MACRO unit_text(x, one, many) AS
+    CASE WHEN x = trunc(x) THEN CAST(CAST(x AS BIGINT) AS VARCHAR) ELSE CAST(x AS VARCHAR) END
+    || ' ' || CASE WHEN x = 1 THEN one ELSE many END;
 CREATE OR REPLACE TEMP MACRO span_text(iv) AS CASE
-    WHEN epoch(iv) >= 86400 THEN CAST(round(epoch(iv) / 86400, 1) AS VARCHAR) || ' days'
-    WHEN epoch(iv) >= 3600 THEN CAST(round(epoch(iv) / 3600, 1) AS VARCHAR) || ' hours'
-    ELSE CAST(CAST(round(epoch(iv) / 60) AS BIGINT) AS VARCHAR) || ' minutes'
+    WHEN round(epoch(iv) / 60) < 1 THEN 'less than a minute'
+    WHEN round(epoch(iv) / 60) < 60 THEN unit_text(round(epoch(iv) / 60), 'minute', 'minutes')
+    WHEN round(epoch(iv) / 3600, 1) < 24 THEN unit_text(round(epoch(iv) / 3600, 1), 'hour', 'hours')
+    ELSE unit_text(round(epoch(iv) / 86400, 1), 'day', 'days')
 END;
 CREATE OR REPLACE TEMP MACRO expiry_text(t, now) AS CASE
     WHEN t IS NULL THEN NULL

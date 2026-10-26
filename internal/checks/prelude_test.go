@@ -128,3 +128,27 @@ func TestPlannedDownUsesReceivedAt(t *testing.T) {
 		t.Fatalf("planned_down = %v", got)
 	}
 }
+
+// span_text picks its unit after rounding, writes whole numbers without
+// ".0" and 1 in the singular.
+func TestSpanText(t *testing.T) {
+	f := newFx(t)
+	for _, c := range []struct {
+		secs int64
+		want string
+	}{
+		{29, "less than a minute"},
+		{60, "1 minute"},
+		{90, "2 minutes"},
+		{59*60 + 50, "1 hour"},
+		{150 * 60, "2.5 hours"},
+		{23*3600 + 58*60, "1 day"},
+		{36 * 3600, "1.5 days"},
+		{12 * 86400, "12 days"},
+	} {
+		got := f.macroRows(1, "SELECT span_text(to_seconds("+strconv.FormatInt(c.secs, 10)+"))")
+		if len(got) != 1 || got[0] != c.want {
+			t.Errorf("span_text(%ds) = %v, want %q", c.secs, got, c.want)
+		}
+	}
+}

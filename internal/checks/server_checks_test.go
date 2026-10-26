@@ -487,9 +487,9 @@ func TestCertificateExpiry(t *testing.T) {
 		if len(r) != 3 {
 			t.Fatalf("%s: %s, want nats-0, nats-2, nats-4", zone, rowsText(r))
 		}
-		want(t, r["nats-0"], "warning", "nats-0: cluster certificate expires 2026-10-27 09:00 UTC, in 10.0 days; "+
-			"client certificate expires 2026-10-30 09:00 UTC, in 13.0 days.")
-		want(t, r["nats-2"], "critical", "nats-2: gateway certificate expires 2026-10-19 09:00 UTC, in 2.0 days; client certificate")
+		want(t, r["nats-0"], "warning", "nats-0: cluster certificate expires 2026-10-27 09:00 UTC, in 10 days; "+
+			"client certificate expires 2026-10-30 09:00 UTC, in 13 days.")
+		want(t, r["nats-2"], "critical", "nats-2: gateway certificate expires 2026-10-19 09:00 UTC, in 2 days; client certificate")
 		want(t, r["nats-4"], "warning", "mqtt certificate expires", "(as VARZ reported it at 2026-10-16 10:00 UTC)")
 		if v := r["nats-0"].Value; v == nil || *v != 10 {
 			t.Errorf("%s: nats-0 value = %v, want 10", zone, v)
@@ -497,5 +497,5 @@ func TestCertificateExpiry(t *testing.T) {
 	})
 	// An expired certificate is critical.
 	f.exec(`UPDATE server_stats SET tls_cert_not_after = ? WHERE epoch = 3 AND server_id = 'S1'`, t0.Add(-time.Hour))
-	want(t, f.eval("server-016", 3)["nats-1"], "critical", "client certificate expired 2026-10-17 08:00 UTC, 1.0 hours ago")
+	want(t, f.eval("server-016", 3)["nats-1"], "critical", "client certificate expired 2026-10-17 08:00 UTC, 1 hour ago")
 }
