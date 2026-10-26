@@ -37,7 +37,12 @@ func (p *Provider) Applications(_ context.Context, req *v1.GetApplicationsReques
 		}
 		f.Connections = append(f.Connections, x)
 	}
-	f.EventsCaptured, f.Events = appEvents(p.events(s), at)
+	evs := p.events(s)
+	f.EventsCaptured, f.Events = appEvents(evs, at)
+	// Capture stopped in the day by the Accounts and auth page's rule.
+	capture := &api.AccountsFacts{EpochAt: at, WindowStart: at.Add(-api.ApplicationDay)}
+	captureGaps(capture, evs)
+	f.CaptureGaps = capture.CaptureGaps
 	f.Traffic = s.appTraffic(at)
 	f.Findings = current(p.findings(s), req.GetRange())
 	return f, nil

@@ -37,7 +37,7 @@ func TestDemoProdApplications(t *testing.T) {
 	c := demo(t)
 	res := demoApps(t, c, fake.Cluster, fake.FixedNow, "", false)
 	if res.GetEpoch() == 0 || res.GetApplicationsTotal() != 10 || res.GetConnectionsTotal() != 187 || res.GetToolingHidden() != 0 ||
-		!res.GetEventsCaptured() || res.GetConnzCut() {
+		!res.GetEventsCaptured() || res.GetConnzCut() || res.GetCaptureGaps() {
 		t.Fatalf("prod: epoch %d, %d applications, %d connections, %d hidden", res.GetEpoch(), res.GetApplicationsTotal(),
 			res.GetConnectionsTotal(), res.GetToolingHidden())
 	}
@@ -122,6 +122,11 @@ func TestDemoStagingApplications(t *testing.T) {
 		t.Errorf("staging over the last hour: epoch %d", res.GetEpoch())
 	}
 	day := must(c.GetApplications(ctx, connect.NewRequest(&v1.GetApplicationsRequest{System: fake.StagingSystem})))
+	// Its system events connection lost its server for 50 seconds four
+	// hours before it stopped: the 24-hour counts may be low.
+	if !day.GetCaptureGaps() || !day.GetEventsCaptured() {
+		t.Errorf("staging: capture gaps %v", day.GetCaptureGaps())
+	}
 	if day.GetEpoch() == 0 || len(day.GetApplications()) == 0 {
 		t.Errorf("staging over the day: epoch %d, %d applications", day.GetEpoch(), len(day.GetApplications()))
 	}
