@@ -14,7 +14,9 @@ import (
 // loopback counts as tooling (checks.loopback_is_tooling and the guard's
 // decision stored with the epoch; an epoch without one counts as on).
 // checks.include_tooling does not apply: hiding tooling only changes what
-// is shown.
+// is shown. On connections and events a tooling name is matched against the
+// whole connection name; on the hourly rollup (client_app_hours) against
+// the application, the name before "@", as the rollup keeps no other.
 
 // loopbackAddrs are the client addresses of a loopback connection.
 var loopbackAddrs = []string{"127.0.0.1", "::1"}
