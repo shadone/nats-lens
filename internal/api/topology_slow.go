@@ -18,6 +18,28 @@ const (
 	slowLinkReferences = 2
 )
 
+// markSlowTwice marks a route slow when markSlowRoutes finds it slow both
+// in routes, the epoch's pairs, and in earlier, the pairs of the
+// collection before; so one spike in one collection marks nothing. A pair
+// the earlier collection did not report, or reported without a round
+// trip, is not slow, nor is any pair when earlier is empty (no earlier
+// collection). Each collection is judged by the full rule on its own
+// pairs, so an earlier collection with only some servers' routes is
+// judged on those.
+func markSlowTwice(routes, earlier []*v1.TopologyRoute) {
+	markSlowRoutes(routes)
+	markSlowRoutes(earlier)
+	slowBefore := map[[2]string]bool{}
+	for _, r := range earlier {
+		if r.GetSlow() {
+			slowBefore[pairOf(r.GetServerA(), r.GetServerB())] = true
+		}
+	}
+	for _, r := range routes {
+		r.Slow = r.GetSlow() && slowBefore[pairOf(r.GetServerA(), r.GetServerB())]
+	}
+}
+
 // markSlowRoutes marks the slow routes of each cluster, by the round trip
 // of the pairs that report one:
 //
@@ -44,26 +66,6 @@ const (
 // group of fewer than half far from the rest is slow; an even split,
 // jitter, zones under 2 ms apart, 2 servers alone and pairs all alike are
 // never slow.
-// markSlowTwice marks a route slow when markSlowRoutes finds it slow both
-// in routes, the epoch's pairs, and in earlier, the pairs of the
-// collection before; so one spike in one collection marks nothing. A pair
-// the earlier collection did not report, or reported without a round
-// trip, is not slow, nor is any pair when earlier is empty (no earlier
-// collection).
-func markSlowTwice(routes, earlier []*v1.TopologyRoute) {
-	markSlowRoutes(routes)
-	markSlowRoutes(earlier)
-	slowBefore := map[[2]string]bool{}
-	for _, r := range earlier {
-		if r.GetSlow() {
-			slowBefore[pairOf(r.GetServerA(), r.GetServerB())] = true
-		}
-	}
-	for _, r := range routes {
-		r.Slow = r.GetSlow() && slowBefore[pairOf(r.GetServerA(), r.GetServerB())]
-	}
-}
-
 func markSlowRoutes(routes []*v1.TopologyRoute) {
 	byCluster := map[string][]*v1.TopologyRoute{}
 	for _, r := range routes {
