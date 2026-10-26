@@ -124,7 +124,7 @@ Decided in the session that built T3; proposed, not yet confirmed.
 - **The sub-line under an application** is its connection count, its pod count where the names give pods, and its accounts when the page is not scoped and the rows span more than one account; the board's description line has no source. Its findings follow as links, a muted one marked "(muted)".
 - **Pods lists the client addresses where no name gives a pod,** set apart in a quieter colour and named "client addresses" for screen readers, as the owner's decision on "Runs on" asks for both. Two pod names or one address show; the rest open behind a "+N more" disclosure, and a count the server did not list reads "N not listed".
 - **Servers are chips with the server's name and the application's connections on it,** at most three, the rest behind a disclosure: the board's numbered chips do not fit 23 servers.
-- **The reconnect count links to the Events page only for an application whose connections carry its own name** (no pod in the names). The Events page filters by the whole connection name, so `resize-worker` would match none of `resize-worker@<pod>`; such a count stays plain text. See "API gaps".
+- **The reconnect count links to the Events page only when every connection is named exactly as the application** (`connection_names` is the application's name alone and `more_names` is 0, since T2's fix round 2). The Events page filters by the whole connection name, so `resize-worker@<pod>` or an empty pod `foo@` would find nothing; such a count stays plain text when no `client-004` finding is there to link to.
 - **The application links to the Connections page with `?name=`,** which matches names that contain it, so `order-service` also lists an `order-service-v2`; a tooling row adds `tooling=1`. `(unnamed)` links nowhere.
 - **A row with an unmuted finding has the warning background,** as rows that warn do on the Micro services page; reconnects above 0 are in the warning colour.
 - **Library** shows one version, or "mixed" in the warning colour with each version and its connections beneath. **Pending** shows the sum, and "max" of one connection beneath it when the application has more than one connection and the sum is above 0.
@@ -137,11 +137,17 @@ Decided in the session that built T3; proposed, not yet confirmed.
 - **Tooling toggle** in the address as `?tooling=1`, as on the Connections page, replacing the history entry; the previous answer stands in while the other answer loads, since the system and account are the same.
 - **Width.** The table's cells have 8 px side padding and its headers wrap, so the ten columns fit 1440 px with the sidebar for the demo's systems; at phone width the table scrolls in its own box.
 
+- **Following T2's fix rounds** (merged into `feat/apps-ui`):
+  - A partial collection gets a warning notice naming the servers that did not answer ("nats-1 did not answer in this collection: its connections are not counted, and the counts, the spread and the traffic cover the servers that answered"), or, with none named, saying that part of the collection did not answer. The line under the title adds "over the servers that answered". The Spread card says it counts only the servers that answered and never says what a restart moves, also with one server left.
+  - Event capture that stopped within the 24 hours (`capture_gaps`) gets an info notice; the Last 24 h card reads "at least N" for each count and a reconnect cell "≥N", spoken as "at least N". Events not captured at all keep their own notice and dashes.
+  - The no-traffic note no longer gives a cause ("the hourly rollup holds none"), and the cut-list notice says the cut connections' traffic is not counted rather than "missing".
+  - The footnote's reconnect sentence says the count pairs per connection name, so a rolling deploy is not a reconnect.
+  - A library with neither language nor version no longer arrives; "library not reported" is gone from the words.
+
 ### API gaps seen while building T3
 
 - The Events page filters by an exact connection name: no link can show the reconnect events of an application whose names carry pods. A prefix or application filter on `ListEvents` would let every reconnect count link there.
 - The Connections page's name filter is "contains": no exact or application filter.
-- The response does not say whether an application's connection names are the application name itself. A name `foo@` (nothing after the "@") gives no pod, so `foo` with no pods links its reconnects to `/events?client=foo`, which finds none of the `foo@` connections. A field on `Application` saying every name equals the application (or the distinct names, as `MicroService.connection_names` lists them) would let the page link only then; the page keeps the link for now (raised in the review of T3, open).
 - Each row's slow consumers, stale connections and short-lived connections of the last 24 hours are in the response but not on the board's table; the page shows only their sums in the Last 24 h card.
 
 ## T4 Feature docs and audit
