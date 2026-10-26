@@ -202,10 +202,6 @@ func (s scen) connections(at time.Time) []*v1.Connection {
 			if !e.since.IsZero() {
 				since = latest(start, e.since.Add(s.shift))
 			}
-			if !e.since.IsZero() && e.since.Add(s.shift).After(at) {
-				// Not connected yet.
-				continue
-			}
 			moved := s.trafficBetween(since, at)
 			in, outm := 52000+int64(math.Round(extraIn*moved)), 31000+int64(math.Round(extraOut*moved))
 			out = append(out, &v1.Connection{
@@ -237,6 +233,15 @@ func (s scen) countSubscriptions(at time.Time, conns []*v1.Connection) {
 	for _, x := range conns {
 		x.Subscriptions = ptr(n[x.GetKey()])
 	}
+}
+
+// totalConns is the client connections of every server.
+func (sc *scenario) totalConns() int64 {
+	var n int64
+	for _, sp := range sc.servers {
+		n += sc.connsOn(sp)
+	}
+	return n
 }
 
 // connsOn is the client connections a server holds: the clients' and the

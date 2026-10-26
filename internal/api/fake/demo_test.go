@@ -37,7 +37,7 @@ func TestDemoListsThreeSystems(t *testing.T) {
 	}
 	prod, global, staging := res.GetSystems()[0], res.GetSystems()[1], res.GetSystems()[2]
 
-	if prod.GetServers() != 3 || prod.GetServersAnswering() != 3 || prod.GetClusters() != 1 || prod.GetStreams() != 13 || prod.GetConnections() != 182 ||
+	if prod.GetServers() != 3 || prod.GetServersAnswering() != 3 || prod.GetClusters() != 1 || prod.GetStreams() != 13 || prod.GetConnections() != 187 ||
 		prod.GetCollection() != v1.CollectionState_COLLECTION_STATE_DEMO || prod.GetStatus() != v1.Status_STATUS_CRITICAL ||
 		prod.GetWorstFinding().GetCheckCode() != "consumer-010" {
 		t.Errorf("prod = %v", prod)

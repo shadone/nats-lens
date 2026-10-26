@@ -89,7 +89,19 @@ func prodFindings(s scen) []*v1.Finding {
 		return resolvedFinding("server-002", "Healthz not ok", critical, serverRef(server), since, end,
 			server+" healthz unavailable (503): JetStream stream 'APP > "+stream+"' is not current (+2 more).")
 	}
-	out := []*v1.Finding{c010, c009, c002, s005, s005kv, s006,
+	// callback-dispatcher's last three stale connections (prodCallbackDrops)
+	// fall within client-004's 10 minutes from the collection after the
+	// third.
+	c004 := finding("client-004", "Client reconnecting repeatedly", warning, firing, clientRef("callback-dispatcher"),
+		s.at(14, 26, 26), s.at(14, 26, 26),
+		"3 reconnects in the last 10m (nats-0, nats-1): Stale Connection; the last at "+s.at(14, 26, 10).UTC().Format("15:04:05")+" UTC.")
+	c004.Value = &v1.FindingValue{Name: "reconnects", Display: "3", Number: ptr(3.0),
+		Basis: "the smaller of the disconnects not asked for by the client or caused by a server stopping, and the connects, of " +
+			"the connection name within the lookback"}
+	c004.Cause = &v1.EventRef{Id: s.sc.eventID("client.disconnect", fixed(14, 26, 10)), Time: ts(s.at(14, 26, 10)), Kind: "client.disconnect",
+		Summary: "callback-dispatcher disconnected from nats-1: Stale Connection"}
+
+	out := []*v1.Finding{c010, c009, c002, s005, s005kv, s006, c004,
 		shortLived("stock-poller", s.at(12, 48, 0), 21, []string{"10.20.4.31"}, []string{"nats-0", "nats-1"}),
 		resolvedFinding("consumer-001", "Consumer quorum lost", critical,
 			consumerRef("order-jobs", "job-cache-projector"), s.at(9, 15, 0), s.at(9, 45, 0),
