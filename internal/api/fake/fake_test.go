@@ -327,8 +327,8 @@ func TestConnectionsAndFleetFollowTheEpoch(t *testing.T) {
 	if r := conns(at(9, 17, 0), "nats-0"); r.GetEpoch() == 0 || r.GetTotalCount() != 0 {
 		t.Errorf("nats-0 at 09:17: epoch %d, %d connections, want none", r.GetEpoch(), r.GetTotalCount())
 	}
-	if r := conns(at(9, 17, 0), "nats-1"); r.GetTotalCount() != 44 {
-		t.Errorf("nats-1 at 09:17: %d connections, want 44", r.GetTotalCount())
+	if r := conns(at(9, 17, 0), "nats-1"); r.GetTotalCount() != 43 {
+		t.Errorf("nats-1 at 09:17: %d connections, want 43 (the unnamed script connects at 10:05)", r.GetTotalCount())
 	}
 	if r := conns(fake.FixedNow.Add(-40*24*time.Hour), ""); r.GetEpoch() != 0 || r.GetTotalCount() != 0 || len(r.GetConnections()) != 0 {
 		t.Errorf("before the history: epoch %d, %d connections", r.GetEpoch(), r.GetTotalCount())
@@ -342,7 +342,7 @@ func TestConnectionsAndFleetFollowTheEpoch(t *testing.T) {
 			if partial, fewer := s.GetFreshness().GetPartial(), s.GetServersAnswering() < s.GetServers(); partial != fewer {
 				t.Errorf("..%s: partial %v, %d of %d answering", end.Format("15:04"), partial, s.GetServersAnswering(), s.GetServers())
 			}
-			if want := map[bool]int64{true: 87, false: 187}[s.GetServersAnswering() < s.GetServers()]; end.Equal(at(9, 17, 0)) && s.GetConnections() != want {
+			if want := map[bool]int64{true: 85, false: 187}[s.GetServersAnswering() < s.GetServers()]; end.Equal(at(9, 17, 0)) && s.GetConnections() != want {
 				t.Errorf("..09:17: %d connections, want %d", s.GetConnections(), want)
 			}
 		}
@@ -370,8 +370,8 @@ func TestServersAndAccountsFollowTheEpoch(t *testing.T) {
 		t.Errorf("overview nats-0 at 09:17 = %v", o.GetServers()[0])
 	}
 	acc := must(c.ListAccounts(ctx, connect.NewRequest(&v1.ListAccountsRequest{System: fake.Cluster, Range: r}))).GetAccounts()
-	if len(acc) != 1 || acc[0].GetConnections() != 87 {
-		t.Errorf("accounts at 09:17 = %v, want 87 connections", acc)
+	if len(acc) != 1 || acc[0].GetConnections() != 85 {
+		t.Errorf("accounts at 09:17 = %v, want 85 connections", acc)
 	}
 	live := &v1.TimeRange{Start: timestamppb.New(fake.FixedNow.Add(-time.Hour)), End: timestamppb.New(fake.FixedNow)}
 	acc = must(c.ListAccounts(ctx, connect.NewRequest(&v1.ListAccountsRequest{System: fake.StagingSystem, Range: live}))).GetAccounts()

@@ -32,7 +32,7 @@ func (p *Provider) SystemSummary(_ context.Context, req *v1.ListSystemsRequest) 
 		for _, sp := range p.sc.servers {
 			if !s.downAt(sp, at) {
 				answering++
-				conns += p.sc.connsOn(sp)
+				conns += p.sc.connsOn(sp, s.clock(at))
 			}
 			if sp.cluster != "" {
 				clusters[sp.cluster] = true
