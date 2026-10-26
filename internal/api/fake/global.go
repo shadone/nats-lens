@@ -214,6 +214,13 @@ func globalScenario() *scenario {
 			"api-gateway", "order-service", "checkout-service", "inventory-service", "shipping-service",
 			"search-api", "notification-worker", "label-printer",
 		},
+		// shipping-service in ap has not taken the new client library yet.
+		library: func(sp serverSpec, client string) (string, string) {
+			if client == "shipping-service" && sp.cluster == "ap" {
+				return "nats.js", "2.29.3"
+			}
+			return "", ""
+		},
 		subs:       globalSubs(),
 		micro:      globalMicro(),
 		microAsked: []string{Account, SuppliersAccount},

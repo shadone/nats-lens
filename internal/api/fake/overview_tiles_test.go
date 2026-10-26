@@ -34,7 +34,7 @@ func overviewTiles(t *testing.T, sys string) map[string]*v1.Tile {
 func TestProdTiles(t *testing.T) {
 	tiles := overviewTiles(t, "example-prod")
 	want := map[string]float64{"servers": 3, "meta_leader": 2, "streams": 8, "kv": 3, "object_stores": 2, "consumers": 13,
-		"accounts": 1, "clients": 182}
+		"accounts": 1, "clients": 187}
 	for id, v := range want {
 		if tiles[id].Value == nil || tiles[id].GetValue() != v {
 			t.Errorf("tile %s = %v, want %v", id, tiles[id].Value, v)
@@ -50,8 +50,8 @@ func TestProdTiles(t *testing.T) {
 			t.Errorf("tile %s status %v, want %v", id, got, st)
 		}
 	}
-	if got := tiles["clients"].GetSubtitle(); got != "8 apps · 7 slow" {
-		t.Errorf("clients subtitle = %q, want 8 apps and the 7 slow consumer events", got)
+	if got := tiles["clients"].GetSubtitle(); got != "9 apps · 7 slow" {
+		t.Errorf("clients subtitle = %q, want 9 apps (resize-worker's pods one of them) and the 7 slow consumer events", got)
 	}
 	if s := tiles["storage"]; s.GetLimit() != 150*(1<<30) || s.GetValueSuffix() != "of 150 GiB" {
 		t.Errorf("storage = %v", s)

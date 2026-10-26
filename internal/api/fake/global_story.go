@@ -223,7 +223,7 @@ func globalEvents(s scen, fs []*v1.Finding) []*v1.Event {
 		at := slow[i].Add(s.shift)
 		out = append(out, &v1.Event{Time: ts(at), Source: srcNATS, Kind: "client.disconnect", Type: "CLIENT.DISCONNECT", Severity: warning,
 			Server: "nats-us-3", Account: Account, ClientName: "label-printer", ClientHost: fmt.Sprintf("10.30.3.%d", 20+i%6),
-			Summary: "label-printer disconnected: Slow Consumer (Write Deadline)"})
+			Reason: "Slow Consumer (Write Deadline)", Summary: "label-printer disconnected: Slow Consumer (Write Deadline)"})
 	}
 	out = append(out,
 		findingEvent("server-009:nats-us-3", firing, s.at(13, 41, 0), "finding.firing", "nats-us-3: 4 slow consumers in the last 15m"),
