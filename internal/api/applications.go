@@ -81,9 +81,9 @@ type ApplicationFacts struct {
 	// Epoch is the range's newest epoch; 0 when the range holds none.
 	Epoch   int64
 	EpochAt time.Time
-	// Partial is whether the epoch is partial, and Missing the servers it
-	// expected that did not answer.
-	Partial bool
+	// Missing are the servers whose connections the epoch does not know:
+	// their CONNZ request failed, or they answered nothing. The page is
+	// partial when there is one.
 	Missing []string
 	// Connections are the epoch's client connections, tooling marked.
 	Connections []AppConnectionFact
@@ -186,7 +186,8 @@ func FinishApplications(f *ApplicationFacts, account string, includeTooling bool
 		return &v1.GetApplicationsResponse{}
 	}
 	res := &v1.GetApplicationsResponse{Epoch: f.Epoch, EpochAt: timestamppb.New(f.EpochAt), ConnzCut: f.ConnzCut,
-		EventsCaptured: f.EventsCaptured, CaptureGaps: f.EventsCaptured && f.CaptureGaps, Partial: f.Partial, Missing: slices.Sorted(slices.Values(f.Missing))}
+		EventsCaptured: f.EventsCaptured, CaptureGaps: f.EventsCaptured && f.CaptureGaps, Partial: len(f.Missing) > 0,
+		Missing: slices.Compact(slices.Sorted(slices.Values(f.Missing)))}
 	in := func(acc string) bool { return account == "" || AccountOf(acc) == account }
 	groups := map[string]*appGroup{}
 	for _, c := range f.Connections {
@@ -278,7 +279,7 @@ func FinishApplications(f *ApplicationFacts, account string, includeTooling bool
 	res.ApplicationsTotal = int32(len(apps))
 	res.Spread, res.Libraries, res.LastDay = summarize(apps, f.EventsCaptured)
 	// The missing servers' connections are not known.
-	res.Spread.Concentrated = res.Spread.GetConcentrated() && !f.Partial
+	res.Spread.Concentrated = res.Spread.GetConcentrated() && !res.GetPartial()
 	for _, a := range apps {
 		res.ConnectionsTotal += a.GetConnections()
 	}
