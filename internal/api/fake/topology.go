@@ -204,7 +204,7 @@ func (s scen) routeRows(at time.Time) []api.TopologyRouteRow {
 // routes, no earlier than api.TopologyEarliestEarlier and within the
 // history; nil when there is none.
 func (s scen) earlierRoutes(at time.Time) *api.TopologyEarlier {
-	bound := api.TopologyEarliestEarlier(at, sampleEvery)
+	bound, _ := api.TopologyEarliestEarlier(at, sampleEvery)
 	for t := at.Add(-sampleEvery); !t.Before(bound) && !t.Before(s.dataStart()); t = t.Add(-sampleEvery) {
 		if rows := s.routeRows(t); len(rows) > 0 {
 			return &api.TopologyEarlier{Epoch: s.epochNumber(t), At: t, Routes: rows}

@@ -360,3 +360,17 @@ func TestTopologySlowTwiceFromStore(t *testing.T) {
 		}
 	}
 }
+
+// With the collect interval unknown the store reads no earlier collection,
+// so nothing is slow.
+func TestTopologyUnknownIntervalFromStore(t *testing.T) {
+	last := time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)
+	_, c := apitest.Serve(t, &storeprov.Provider{St: topologyStore(t, last), Live: true,
+		Clock: func() time.Time { return last.Add(30 * time.Second) }})
+	res := must(c.GetTopology(ctx, connect.NewRequest(&v1.GetTopologyRequest{})))
+	for _, r := range res.GetRoutes() {
+		if r.GetSlow() {
+			t.Errorf("%s-%s slow with the interval unknown", r.GetServerA(), r.GetServerB())
+		}
+	}
+}

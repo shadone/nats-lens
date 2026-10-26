@@ -29,7 +29,8 @@ func topologyRoutes(f *TopologyFacts, servers []TopologyServerFact) []*v1.Topolo
 	}
 	out := pairRoutes(f.Routes, clusterOf, answered)
 	var earlier []*v1.TopologyRoute
-	if e := f.Earlier; e != nil && e.At.Before(f.EpochAt) && !e.At.Before(TopologyEarliestEarlier(f.EpochAt, f.Interval)) {
+	bound, known := TopologyEarliestEarlier(f.EpochAt, f.Interval)
+	if e := f.Earlier; e != nil && known && e.At.Before(f.EpochAt) && !e.At.Before(bound) {
 		earlier = pairRoutes(e.Routes, clusterOf, nil)
 	}
 	markSlowTwice(out, earlier)

@@ -89,3 +89,53 @@ func TestTopologySlowLinkSpike(t *testing.T) {
 		t.Errorf("slow twice: slow %v, want s0-s1", got)
 	}
 }
+
+// Each collection is judged by the full rule on its own rows: where every
+// pair of the earlier collection took 4 ms, nothing was slow there, so
+// nothing is slow now.
+func TestTopologyEarlierJudgedByItsOwnRule(t *testing.T) {
+	e := cluster(5, 4)
+	for i := range e.Routes {
+		e.Routes[i].RTT = ms(4)
+	}
+	if got := slowOnce(withEarlier(cluster(5, 4), 30*time.Second, e)); len(got) != 0 {
+		t.Errorf("slow %v, want none", got)
+	}
+}
+
+// An earlier collection with only some servers' routes is judged on those
+// rows: each pair reported by one end only is still the same pair.
+func TestTopologyEarlierPairsMatchInEitherDirection(t *testing.T) {
+	e := cluster(5, 4)
+	for i := range e.Routes {
+		e.Routes[i].Server, e.Routes[i].Remote = e.Routes[i].Remote, e.Routes[i].Server
+	}
+	if got := slowOnce(withEarlier(cluster(5, 4), 30*time.Second, e)); len(got) != 4 {
+		t.Errorf("slow %v, want 4", got)
+	}
+	half := cluster(5, 4)
+	half.Routes = slices.DeleteFunc(half.Routes, func(r api.TopologyRouteRow) bool { return r.Server > r.Remote })
+	if got := slowOnce(withEarlier(cluster(5, 4), 30*time.Second, half)); len(got) != 4 {
+		t.Errorf("earlier from one end of each pair: slow %v, want 4", got)
+	}
+}
+
+// An earlier collection that did not start before the epoch is no
+// earlier collection.
+func TestTopologyEarlierNotBeforeTheEpoch(t *testing.T) {
+	if got := slowOnce(withEarlier(cluster(5, 4), 0, cluster(5, 4))); len(got) != 0 {
+		t.Errorf("slow %v, want none", got)
+	}
+}
+
+// With the collect interval unknown no collection counts as the one
+// before, however close, so nothing is slow.
+func TestTopologyUnknownIntervalNothingSlow(t *testing.T) {
+	for _, back := range []time.Duration{30 * time.Second, 48 * time.Hour} {
+		f := cluster(5, 4)
+		f.Interval = 0
+		if got := slowOnce(withEarlier(f, back, cluster(5, 4))); len(got) != 0 {
+			t.Errorf("interval unknown, earlier %v back: slow %v, want none", back, got)
+		}
+	}
+}
