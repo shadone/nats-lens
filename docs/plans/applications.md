@@ -9,7 +9,7 @@ The board's sample names come from a sketch of a real deployment, and its footno
 | Task | Status |
 |---|---|
 | T1 Hourly traffic rollup and the tooling rule | built on `feat/apps-rollup`, under review |
-| T2 API, store and demo | not started |
+| T2 API, store and demo | built on `feat/apps-api`, under review |
 | T3 UI | not started |
 | T4 Feature docs and audit | not started |
 
@@ -85,6 +85,21 @@ Decided in the session that built T1; proposed, not yet confirmed.
 - Conformance rows in `apitest` for the store fixture and the demo alike: grouping at "@", unnamed, instances by pod and by connection, tooling hidden and included, the 24-hour counts, the rollup's points, a past range.
 - Docs: `docs/design.md`, `demo-mode.md`.
 
+### Where T2 departed from this plan
+
+Decided in the session that built T2; proposed, not yet confirmed.
+
+- **Traffic is the 24 whole hours before the epoch's hour.** The epoch's own hour is partial and would read as a drop at the end of the sparkline; the page lags by up to an hour instead. The totals sum the set hours.
+- **Reconnects pair per application.** Drops and connects are summed over every name of the application before the smaller is taken, so a pod that drops and its replacement that connects count as a reconnect; `client-004` pairs per name. Names seen only in events count for their application, a pod gone by the epoch among them.
+- **The event window is `time`,** after the start of the 24 hours and at or before the epoch, as Replay counts reconnects; the checks window by `received_at`. The four counts are unset when no event is stored up to the epoch (`events_captured` in the response), as the Accounts and auth page does.
+- **"Open client finding" is an unmuted firing one.** A muted finding is listed on its row, marked, and does not lift the row. A finding matches when `ApplicationOf` of its entity key is the application, which covers `client-001`'s key, the whole names of `client-002` to `client-005`, and names seen only in events.
+- **Tooling rows.** An application is `tooling` when every connection of it is; one with both kinds lists only the others while tooling is hidden. Events and rollup rows follow the same rule: tooling ones count only with `include_tooling`.
+- **Account scope.** An empty account reads as `$G`, on connections, events and rollup rows alike; `accounts` names it `$G`.
+- **More in the response than planned:** each row's client addresses (at most 10, with the total), as the owner's decision on "Runs on" asks the page to show them; the in and out totals in messages and bytes; `events_captured`. The summaries are messages of their own (`ApplicationSpread`, `LibraryUse`, `ApplicationsLastDay`), counted over every application before the limit.
+- **A pod is the part between the first "@" and the next,** as `client-001` splits it.
+- **Demo.** The demo's connection counters now grow at the rates its hourly traffic sums (they were fixed), and its go clients report go 1.54.0 (they reported nats.js's 3.0.2). `example-prod` holds 100 of its 187 connections on `nats-0` (61, 60 and 61 of 182 before), with `resize-worker`'s four pods and an unnamed script as extra connections; the Connections page, the Overview's clients tile (now 9 applications, counted from the connections), `ListAccounts`, the connection series, the restart reconnects among the events and the finding counts changed with it, and their tests say so. `example-global`'s `label-printer` slow consumer disconnects now carry their reason, which the 24-hour counts read.
+- **Measurement** (`TestApplicationsSize`, laptop): the store's read for 4,096 connections of 500 applications, with a day of 30-second epochs, 20,000 client events and 14 days of the rollup, takes about 25 ms, and `FinishApplications` 4 ms.
+
 ## T3 UI
 
 - `/applications` under Messaging (remove `planned` in `nav.ts`), with the account scope.
@@ -103,4 +118,5 @@ Decided in the session that built T1; proposed, not yet confirmed.
 Recorded as they come up; moved to `docs/plans/next.md` item 5 when the work merges.
 
 - "Runs on": the watcher would list client pods and store namespace, owner workload, node and IP (deferred by the owner, 2026-10-26).
+- `example-prod`'s slow consumers exist only as counters (the Overview's clients tile says 7) without disconnect events, so its Applications page counts none and its Events page lists none. Adding the events would make `client-004` fire for `media-worker` during the upgrade, which the demo's findings would then need (seen while building T2).
 - The writer inserts connections one row at a time: 4,096 connections take 2 to 4.5 s of an epoch's write on a laptop. Batching them as JSON, as `subscriptions` are, would cut that (seen while measuring T1; not part of it).
