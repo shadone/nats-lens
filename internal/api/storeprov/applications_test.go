@@ -249,3 +249,30 @@ func TestStoreApplicationsReconnectsPairAcrossAccounts(t *testing.T) {
 		}
 	}
 }
+
+// The page is partial when a server's connections are not known: its
+// CONNZ request failed, or it answered nothing. Another endpoint failing
+// (JSZ) leaves the connections whole.
+func TestStoreApplicationsPartialFollowsConnz(t *testing.T) {
+	p := appsProvider(t, appsLast)
+	c := appsClient(t, p)
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := p.St.DB().Exec(q, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	exec(`UPDATE epoch_endpoints SET state = 'error', error = 'timeout' WHERE epoch = ? AND server_id = 'S1' AND endpoint = 'JSZ'`, appsE3)
+	exec(`UPDATE epochs SET partial = true, endpoint_failures = 1 WHERE epoch = ?`, appsE3)
+	res := appsPage(t, c, appsLast.Add(time.Minute), "", false)
+	if res.GetPartial() || len(res.GetMissing()) != 0 || !res.GetSpread().GetConcentrated() {
+		t.Errorf("JSZ failing alone: partial %v, missing %v, spread %v", res.GetPartial(), res.GetMissing(), res.GetSpread())
+	}
+	r := rows{t, p.St}
+	r.add("epoch_endpoints", map[string]any{"epoch": appsE3, "server_id": "S2", "endpoint": "CONNZ", "state": "missing"})
+	r.add("epoch_endpoints", map[string]any{"epoch": appsE3, "server_id": "S0", "endpoint": "CONNZ", "state": "ok"})
+	res = appsPage(t, c, appsLast.Add(time.Minute), "", false)
+	if !res.GetPartial() || !slices.Equal(res.GetMissing(), []string{"nats-2"}) || res.GetSpread().GetConcentrated() {
+		t.Errorf("CONNZ failing on nats-2: partial %v, missing %v, spread %v", res.GetPartial(), res.GetMissing(), res.GetSpread())
+	}
+}

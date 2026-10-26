@@ -27,7 +27,10 @@ func (p *Provider) Applications(ctx context.Context, req *v1.GetApplicationsRequ
 	if err != nil || !ok {
 		return &api.ApplicationFacts{}, err
 	}
-	f := &api.ApplicationFacts{Epoch: e.epoch, EpochAt: e.startedAt, Partial: e.partial, Missing: e.missing}
+	f := &api.ApplicationFacts{Epoch: e.epoch, EpochAt: e.startedAt}
+	if f.Missing, err = p.connzMissing(ctx, e); err != nil {
+		return nil, err
+	}
 	rule, err := p.toolingAt(ctx, e.epoch)
 	if err != nil {
 		return nil, err
@@ -58,6 +61,29 @@ SELECT EXISTS (SELECT 1 FROM server_stats WHERE epoch = $1 AND connz_total IS NO
 		return nil, err
 	}
 	return f, nil
+}
+
+// connzMissing are the servers whose connections the epoch does not
+// know: those whose CONNZ request did not end ok (epoch_endpoints), and
+// those that answered nothing (epochs.missing_names). A failure of another
+// endpoint leaves the connections whole.
+func (p *Provider) connzMissing(ctx context.Context, e epochInfo) ([]string, error) {
+	rows, err := p.db().QueryContext(ctx, `
+SELECT DISTINCT s.server_name FROM epoch_endpoints x JOIN servers s USING (server_id)
+WHERE x.epoch = ? AND x.endpoint = 'CONNZ' AND x.state <> 'ok'`, e.epoch)
+	if err != nil {
+		return nil, fmt.Errorf("applications connz: %w", err)
+	}
+	defer rows.Close()
+	out := append([]string{}, e.missing...)
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			return nil, err
+		}
+		out = append(out, n)
+	}
+	return out, rows.Err()
 }
 
 // accountIn is the condition "the account column col is in the scope"

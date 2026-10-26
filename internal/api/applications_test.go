@@ -334,7 +334,7 @@ func TestFinishApplicationsReconnectsPairPerName(t *testing.T) {
 // On a partial epoch the missing servers' connections are not known, so
 // the spread does not say one server holds most of them.
 func TestFinishApplicationsPartialEpochSpread(t *testing.T) {
-	f := &api.ApplicationFacts{Epoch: 1, EpochAt: appT0, Partial: true, Missing: []string{"nats-0"}, Connections: []api.AppConnectionFact{
+	f := &api.ApplicationFacts{Epoch: 1, EpochAt: appT0, Missing: []string{"nats-0"}, Connections: []api.AppConnectionFact{
 		appConn("nats-1", 1, "a", "10.0.0.1"), appConn("nats-1", 2, "a", "10.0.0.2"), appConn("nats-2", 3, "a", "10.0.0.3"),
 	}}
 	res := api.FinishApplications(f, "", false)
@@ -342,7 +342,7 @@ func TestFinishApplicationsPartialEpochSpread(t *testing.T) {
 		!slices.Equal(res.GetMissing(), []string{"nats-0"}) {
 		t.Errorf("partial: spread %v, partial %v, missing %v", sp, res.GetPartial(), res.GetMissing())
 	}
-	f.Partial, f.Missing = false, nil
+	f.Missing = nil
 	if sp := api.FinishApplications(f, "", false).GetSpread(); !sp.GetConcentrated() {
 		t.Errorf("whole: spread %v", sp)
 	}

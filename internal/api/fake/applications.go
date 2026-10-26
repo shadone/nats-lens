@@ -22,7 +22,8 @@ func (p *Provider) Applications(_ context.Context, req *v1.GetApplicationsReques
 	if !ok {
 		return &api.ApplicationFacts{}, nil
 	}
-	f := &api.ApplicationFacts{Epoch: epoch, EpochAt: at, Partial: s.anyDown(at)}
+	// A server down has no CONNZ; the demo's CONNZ never fails otherwise.
+	f := &api.ApplicationFacts{Epoch: epoch, EpochAt: at}
 	for _, sp := range s.sc.servers {
 		if s.downAt(sp, at) {
 			f.Missing = append(f.Missing, sp.name)
