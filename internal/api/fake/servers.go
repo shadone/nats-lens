@@ -3,6 +3,7 @@ package fake
 import (
 	"context"
 	"fmt"
+	"math"
 	"slices"
 	"strings"
 	"time"
@@ -180,16 +181,17 @@ func (s scen) connections(at time.Time) []*v1.Connection {
 		start := s.started(sp)
 		for i := range sp.conns {
 			name := s.sc.clients[int(i)%len(s.sc.clients)]
-			lang := "nats.js"
-			if name == "media-worker" || name == "video-transcoder" || name == "label-printer" {
-				lang = "go"
-			}
+			lang, version := s.sc.libraryOf(sp, name)
+			since := start.Add(time.Duration(i) * 7 * time.Second)
+			rin, rout := connRate(name, i)
+			moved := s.trafficBetween(since, at)
+			in, outm := 1000+i*311+int64(math.Round(rin*moved)), 2000+i*577+int64(math.Round(rout*moved))
 			out = append(out, &v1.Connection{
-				Key: fmt.Sprintf("%s/%d", sp.name, 100+i), Server: sp.name, Cid: 100 + i, Name: name, Lang: lang, Version: "3.0.2", Account: Account, User: s.sc.userOf(fmt.Sprintf("%s/%d", sp.name, 100+i)),
-				Ip: fmt.Sprintf("10.20.%d.%d", 1+i%4, 10+i), Port: ptr(int32(40000 + i)), StartTime: ts(start.Add(time.Duration(i) * 7 * time.Second)),
+				Key: fmt.Sprintf("%s/%d", sp.name, 100+i), Server: sp.name, Cid: 100 + i, Name: name, Lang: lang, Version: version, Account: Account, User: s.sc.userOf(fmt.Sprintf("%s/%d", sp.name, 100+i)),
+				Ip: fmt.Sprintf("10.20.%d.%d", 1+i%4, 10+i), Port: ptr(int32(40000 + i)), StartTime: ts(since),
 				LastActivity: ts(s.now.Add(-time.Duration(i%30) * time.Second)), Rtt: dur(time.Duration(300+i*13) * time.Microsecond),
-				PendingBytes: ptr((i % 9) * 128), InMsgs: ptr(1000 + i*311), OutMsgs: ptr(2000 + i*577), InBytes: ptr((1000 + i*311) * 900),
-				OutBytes: ptr((2000 + i*577) * 900), Stalls: ptr(i % 23 / 22), Subscriptions: ptr(3 + i%7),
+				PendingBytes: ptr((i % 9) * 128), InMsgs: ptr(in), OutMsgs: ptr(outm), InBytes: ptr(in * clientMsgBytes),
+				OutBytes: ptr(outm * clientMsgBytes), Stalls: ptr(i % 23 / 22), Subscriptions: ptr(3 + i%7),
 			})
 		}
 		for _, e := range s.sc.extraConns {
@@ -200,12 +202,18 @@ func (s scen) connections(at time.Time) []*v1.Connection {
 			if !e.since.IsZero() {
 				since = latest(start, e.since.Add(s.shift))
 			}
+			if !e.since.IsZero() && e.since.Add(s.shift).After(at) {
+				// Not connected yet.
+				continue
+			}
+			moved := s.trafficBetween(since, at)
+			in, outm := 52000+int64(math.Round(extraIn*moved)), 31000+int64(math.Round(extraOut*moved))
 			out = append(out, &v1.Connection{
-				Key: fmt.Sprintf("%s/%d", sp.name, e.cid), Server: sp.name, Cid: e.cid, Name: e.name, Lang: "go", Version: "1.54.0",
+				Key: fmt.Sprintf("%s/%d", sp.name, e.cid), Server: sp.name, Cid: e.cid, Name: e.name, Lang: "go", Version: goVersion,
 				Account: e.account, User: e.user, Ip: e.ip, Port: ptr(int32(51000 + e.cid)), StartTime: ts(since), LastActivity: ts(s.now.Add(-time.Second)),
-				Rtt: dur(410 * time.Microsecond), PendingBytes: ptr(int64(0)), InMsgs: ptr(int64(52000)), OutMsgs: ptr(int64(31000)),
-				InBytes: ptr(int64(52000 * 700)), OutBytes: ptr(int64(31000 * 300)), Stalls: ptr(int64(0)), Subscriptions: ptr(int64(len(e.subjects))),
-				Tooling: strings.HasPrefix(e.name, "natslens-"),
+				Rtt: dur(410 * time.Microsecond), PendingBytes: ptr(int64(0)), InMsgs: ptr(in), OutMsgs: ptr(outm),
+				InBytes: ptr(in * extraInMsgBytes), OutBytes: ptr(outm * extraOutMsgBytes), Stalls: ptr(int64(0)), Subscriptions: ptr(int64(len(e.subjects))),
+				Tooling: toolingClient(e.name, e.ip),
 			})
 		}
 	}

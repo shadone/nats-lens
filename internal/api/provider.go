@@ -106,6 +106,14 @@ type Provider interface {
 	// orders and cuts them with FinishMicro. A range without an epoch gives
 	// facts with Epoch 0.
 	MicroServices(ctx context.Context, req *v1.GetMicroServicesRequest) (*MicroFacts, error)
+	// Applications reads the client connections of the range's newest
+	// epoch with their tooling marked, whether a server's list was cut, the
+	// client events of the ApplicationDay before it counted by name
+	// (AppEventFact), the hourly traffic of its TrafficHours and the findings
+	// firing at it; it may leave out what lies outside the request's
+	// account. The handler groups, counts and orders them with
+	// FinishApplications. A range without an epoch gives facts with Epoch 0.
+	Applications(ctx context.Context, req *v1.GetApplicationsRequest) (*ApplicationFacts, error)
 	ListServers(ctx context.Context, req *v1.ListServersRequest) (*v1.ListServersResponse, error)
 	GetServer(ctx context.Context, req *v1.GetServerRequest) (*v1.GetServerResponse, error)
 	ListConnections(ctx context.Context, req *v1.ListConnectionsRequest) (*v1.ListConnectionsResponse, error)
