@@ -192,7 +192,7 @@ describe("Applications", () => {
     getApps.mockResolvedValue(prod({ applications: [app({ traffic: six }), resizer({ traffic: hours((i) => (i === 20 || i < 18 ? undefined : [3, 1])) })] }));
     renderApp(<Applications />, "/applications");
     await screen.findByRole("table");
-    expect(screen.getByRole("note")).toHaveTextContent("Traffic is measured for 6 of the 24 hours before this collection's hour; the hours without a measurement are gaps in the lines, not zeros.");
+    expect(screen.getByRole("note")).toHaveTextContent("No application has all 24 hours before this collection's hour measured; the most any has is 6. The hours without a measurement are gaps in the lines, not zeros.");
     const spark = within(row("order-service")).getByRole("img");
     expect(spark).toHaveAccessibleName("order-service messages in and out, the 24 hours to 14:00 UTC: 60 in (5.86 KiB), 30 out (2.93 KiB); 6 of 24 hours measured");
     expect(spark.querySelectorAll("polyline.ap-spark-in")).toHaveLength(1);
