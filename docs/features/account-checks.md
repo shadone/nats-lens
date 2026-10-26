@@ -12,11 +12,11 @@ The account checks turn what the Accounts page shows into findings, so that an o
 
 ### `account-001` Account near its connection limit
 
-- **Problem:** the account's client connections come close to the connection limit of its account JWT. At the limit the servers refuse every new connection of the account, so a service that restarts or scales out cannot connect.
-- **Fires when:** the client connections, summed over the servers that answered in the collection as on the Accounts page, are at `warn_ratio` of the limit or more.
+- **Problem:** the account's connections come close to the connection limit of its account JWT. At the limit the servers refuse new client connections of the account, so a service that restarts or scales out cannot connect.
+- **Fires when:** the connections, counted as nats-server counts them, are at `warn_ratio` of the limit or more. A server refuses a new client when its own clients and leaf node connections of the account, plus the client connections the other servers report, reach the limit; each server counts only its own leaf nodes. So the count is the client connections summed over the servers that answered in the collection, plus the leaf node connections of the server that holds the most of them, which the detail names: "APP: 93 of 100 connections (93.0%): 85 client connections and 8 leaf node connections on nats-0, which counts its own leaf nodes against the limit."
 - **Severity:** warning. Critical at `crit_ratio` of the limit or more.
 - **Thresholds:** `warn_ratio` 0.9, `crit_ratio` 1 (at the limit).
-- **Left out:** an account without a JWT (config mode), without a limit (-1) or with a limit of 0, an account the collection does not list, and one whose newest lookup is more than 24 hours older than the collection. Leaf node connections do not count against this limit.
+- **Left out:** an account without a JWT (config mode), without a limit (-1) or with a limit of 0, an account the collection does not list, and one whose newest lookup is more than 24 hours older than the collection.
 
 ### `account-002` Account near its JetStream disk limit
 
@@ -44,7 +44,7 @@ The account checks turn what the Accounts page shows into findings, so that an o
 
 ## Behavior and rules
 
-- **The Accounts page's data.** The checks read the same numbers the Accounts page shows for the collection: connections summed over the servers, disk use the largest any server reports, and the account's newest lookup at or before the collection.
+- **The Accounts page's data.** The checks read the same numbers the Accounts page shows for the collection: connections summed over the servers, disk use the largest any server reports, and the account's newest lookup at or before the collection. `account-001` adds the leaf node connections of one server, as nats-server counts them; the page's Connections cell and its bar count client connections only, so with leaf nodes the finding can fire below the page's share.
 - **A lookup counts for 24 hours.** Limits and the account JWT come from an ACCOUNTZ lookup, each account at most every 10 minutes. A lookup more than 24 hours older than the collection, which the page reads as "not looked up yet", fires no `account-001`, `account-002` or `account-003` finding.
 - **Expiry is measured from the collection.** "Within 14 days" counts from the start of the collection, in UTC, whatever the time zone of the host.
 - **The value says how close.** `account-001` and `account-002` return the share of the limit (0.95 is 95%); `account-003` and `account-004` the days until the soonest expiry, negative once expired.
@@ -55,7 +55,7 @@ The account checks turn what the Accounts page shows into findings, so that an o
 
 - **Given** the account `APP`, whose JWT allows 2,000 connections, with 1,200 on `nats-0` and 800 on `nats-1`
 - **When** nats-lens collects
-- **Then** `account-001` fires as critical for `APP`, with the detail "APP: 2000 of 2000 client connections (100.0%); at the limit, new connections are refused."
+- **Then** `account-001` fires as critical for `APP`, with the detail "APP: 2000 of 2000 client connections (100.0%); at the limit, new client connections are refused."
 
 ### An account's disk use nears its limit
 
@@ -91,7 +91,7 @@ The account checks turn what the Accounts page shows into findings, so that an o
 
 ## Not supported / out of scope
 
-- **No other account limits.** Leaf node, subscription, payload, JetStream memory, stream and consumer limits are not checked.
+- **No other account limits.** The leaf node limit, subscription, payload, JetStream memory, stream and consumer limits are not checked.
 - **No config-mode limits.** Without an account JWT nats-lens knows no account limit.
 - **No bearer user JWTs.** The server reports a bearer JWT empty, so its expiry is not known.
 - **No link to the Accounts page.** An account finding names the account; it does not open the Accounts page.

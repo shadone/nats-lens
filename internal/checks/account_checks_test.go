@@ -77,9 +77,25 @@ func TestAccountConnectionLimit(t *testing.T) {
 	f.accountStats(3, "S0", "GONE", m{"conns": 20})
 	f.lookup(3, "GONE", now, m{"limit_connections": int64(10)})
 
-	r := f.fires("account-001", 3, "NEAR", "FULL", "OLD")
+	// Leaf nodes count on the server that holds them: nats-0 counts its 8
+	// with every server's clients, 85 + 8 of 100. LEAFSUM's leaf nodes
+	// spread over two servers: 80 + 6, though their sum would reach 92.
+	f.server("S0", "nats-0", 1, 3, t0.Add(-48*time.Hour), "2.15.0")
+	f.server("S1", "nats-1", 1, 3, t0.Add(-48*time.Hour), "2.15.0")
+	f.account("LEAF", "", 1, 3)
+	f.accountStats(3, "S0", "LEAF", m{"conns": 40, "leafnodes": 8})
+	f.accountStats(3, "S1", "LEAF", m{"conns": 45, "leafnodes": 3})
+	f.lookup(3, "LEAF", now, m{"limit_connections": int64(100)})
+	f.account("LEAFSUM", "", 1, 3)
+	f.accountStats(3, "S0", "LEAFSUM", m{"conns": 40, "leafnodes": 6})
+	f.accountStats(3, "S1", "LEAFSUM", m{"conns": 40, "leafnodes": 6})
+	f.lookup(3, "LEAFSUM", now, m{"limit_connections": int64(100)})
+
+	r := f.fires("account-001", 3, "NEAR", "FULL", "OLD", "LEAF")
+	want(t, r["LEAF"], "warning", "LEAF: 93 of 100 connections (93.0%): 85 client connections and 8 leaf node connections on nats-0, "+
+		"which counts its own leaf nodes against the limit.")
 	want(t, r["NEAR"], "warning", "name-NEAR: 90 of 100 client connections (90.0%).")
-	want(t, r["FULL"], "critical", "50 of 50 client connections (100.0%); at the limit, new connections are refused.")
+	want(t, r["FULL"], "critical", "50 of 50 client connections (100.0%); at the limit, new client connections are refused.")
 	want(t, r["OLD"], "critical", "10 of 10")
 	if v := r["NEAR"].Value; v == nil || *v != 0.9 {
 		t.Errorf("NEAR value = %v, want 0.9", v)
@@ -88,7 +104,7 @@ func TestAccountConnectionLimit(t *testing.T) {
 		t.Errorf("FULL related config = %v", r["FULL"].RelatedConfig)
 	}
 	r = f.eval("account-001", 3, map[string]string{"warn_ratio": "0.5", "crit_ratio": "0.95"})
-	if len(r) != 4 || r["OK"].Severity != "warning" || r["NEAR"].Severity != "warning" {
+	if len(r) != 6 || r["OK"].Severity != "warning" || r["NEAR"].Severity != "warning" {
 		t.Fatalf("with warn_ratio 0.5: %s", rowsText(r))
 	}
 }
