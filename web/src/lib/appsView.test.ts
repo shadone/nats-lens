@@ -92,6 +92,10 @@ describe("appsView", () => {
     );
     expect(trafficLabel(app({ name: "x", traffic: hours(() => undefined) }))).toBe("x messages in and out, the 24 hours to 14:00 UTC: not measured");
     expect(trafficLabel(app({ name: "x", inMsgs: 1, outMsgs: 2, inBytes: 3, outBytes: 4 }))).toBe("x messages in and out, the 24 hours to 14:00 UTC: 1 in (3 B), 2 out (4 B)");
+    // A direction the rollup left unset is not measured, never 0.
+    expect(trafficLabel(app({ name: "x", inMsgs: 1, outMsgs: undefined, inBytes: undefined, outBytes: undefined }))).toBe(
+      "x messages in and out, the 24 hours to 14:00 UTC: 1 in, out not measured",
+    );
   });
 
   it("notes partial traffic only when no row has all 24 hours", () => {

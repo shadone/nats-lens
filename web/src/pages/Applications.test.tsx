@@ -210,6 +210,15 @@ describe("Applications", () => {
     expect(within(row("order-service")).getAllByRole("cell")[8]).toHaveTextContent("not measured");
   });
 
+  it("shows a dash for a direction of traffic that was not measured, never 0", async () => {
+    getApps.mockResolvedValue(prod({ applications: [app({ inMsgs: 1200, outMsgs: undefined, outBytes: undefined })] }));
+    renderApp(<Applications />, "/applications");
+    await screen.findByRole("table");
+    const cell = within(row("order-service")).getAllByRole("cell")[8];
+    expect(cell.querySelector(".ap-small")).toHaveTextContent("1,200 / – not measured");
+    expect(within(cell).getByRole("img")).toHaveAccessibleName(/: 1,200 in \([^)]*\), out not measured$/);
+  });
+
   it("names the accounts on each row when the rows span accounts and the page is not scoped", async () => {
     getApps.mockResolvedValue(prod({ applications: [app(), app({ name: "ops-monitor", accounts: [{ account: "SYS", accountName: "" }] })] }));
     const { unmount } = renderApp(<Applications />, "/applications");

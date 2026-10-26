@@ -176,12 +176,29 @@ function ReconnectsCell({ a }: { a: Application }) {
   );
 }
 
+/** A message count, or a dash for a direction the rollup did not measure. */
+function Measured({ v }: { v: number | undefined }) {
+  if (v !== undefined) return <>{fmtInt(v)}</>;
+  return (
+    <span>
+      <span aria-hidden="true">–</span>
+      <span className="sr-only">{" not measured"}</span>
+    </span>
+  );
+}
+
 function TrafficCell({ a }: { a: Application }) {
   return (
     <td className="ap-traffic">
       <TrafficSpark hours={a.traffic} label={trafficLabel(a)} />
       <span className="ap-small" aria-hidden="true">
-        {a.inMsgs === undefined && a.outMsgs === undefined ? "not measured" : `${fmtInt(a.inMsgs ?? 0)} / ${fmtInt(a.outMsgs ?? 0)}`}
+        {a.inMsgs === undefined && a.outMsgs === undefined ? (
+          "not measured"
+        ) : (
+          <>
+            <Measured v={a.inMsgs} /> / <Measured v={a.outMsgs} />
+          </>
+        )}
       </span>
     </td>
   );
