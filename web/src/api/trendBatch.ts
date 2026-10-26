@@ -1,7 +1,8 @@
 // Several series over one range in one GetTimeSeriesBatch call, and the
 // slice of one series in the shape a single query has, so that each chart
 // shows its own data, error and loading state.
-import { keepPreviousData, useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { keepSameSystem } from "./placeholder";
 import { LIVE_REFRESH_MS, rangeKey, type RangeSpec } from "../lib/timeRange";
 import { useSystem } from "../lib/useSystem";
 import { lens } from "./client";
@@ -68,7 +69,7 @@ export function useTrends(spec: RangeSpec, queries: TrendQuery[]) {
     queryKey: ["trends", sys, rangeKey(spec), qs.map(trendKey)],
     queryFn: ({ signal }) => getTrends(sys, spec, qs, signal),
     refetchInterval: spec.kind === "live" ? LIVE_REFRESH_MS : false,
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
     enabled: qs.length > 0,
   });
 }

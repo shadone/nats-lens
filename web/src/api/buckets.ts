@@ -1,6 +1,7 @@
 // KV buckets and object stores of one system: requests, view models and
 // hooks. Every hook keys on the page's system and account scope.
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { keepSameSystem } from "./placeholder";
 import type { KeyValueStore, ObjectStore } from "../gen/natslens/v1/buckets_pb";
 import { rangeKey, type RangeSpec } from "../lib/timeRange";
 import { useSystem } from "../lib/useSystem";
@@ -105,7 +106,7 @@ export function useKeyValueStores(spec: RangeSpec, account: string) {
     queryKey: ["kvStores", sys, rangeKey(spec), account],
     queryFn: ({ signal }) => listKeyValueStores(sys, spec, account, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
   });
 }
 
@@ -116,6 +117,6 @@ export function useObjectStores(spec: RangeSpec, account: string) {
     queryKey: ["objectStores", sys, rangeKey(spec), account],
     queryFn: ({ signal }) => listObjectStores(sys, spec, account, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
   });
 }
