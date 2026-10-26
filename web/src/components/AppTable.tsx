@@ -152,7 +152,8 @@ function PendingCell({ a }: { a: Application }) {
   );
 }
 
-function ReconnectsCell({ a }: { a: Application }) {
+/** atLeast: event capture stopped within the 24 hours, so the count is a lower bound. */
+function ReconnectsCell({ a, atLeast }: { a: Application; atLeast: boolean }) {
   if (a.reconnects === undefined)
     return (
       <td className="num">
@@ -163,14 +164,23 @@ function ReconnectsCell({ a }: { a: Application }) {
   const f = reconnectFinding(a);
   const to = a.reconnects > 0 ? (f ? findingPath(f.id) : eventsLink(a)) : undefined;
   const text = fmtInt(a.reconnects);
+  const spoken = atLeast ? `at least ${text}` : text;
+  const shown = atLeast ? (
+    <>
+      <span className="sr-only">at least </span>
+      <span aria-hidden="true">≥{text}</span>
+    </>
+  ) : (
+    text
+  );
   return (
     <td className={`num${a.reconnects > 0 ? " ap-warn-text" : " ap-quiet"}`}>
       {to ? (
-        <RLink to={to} aria-label={f ? `${text}, see ${f.checkCode}` : `${text}, see the events of ${a.name}`}>
-          {text}
+        <RLink to={to} aria-label={f ? `${spoken}, see ${f.checkCode}` : `${spoken}, see the events of ${a.name}`}>
+          {shown}
         </RLink>
       ) : (
-        text
+        shown
       )}
     </td>
   );
@@ -204,7 +214,18 @@ function TrafficCell({ a }: { a: Application }) {
   );
 }
 
-export function AppTable({ rows, showAccount, label }: { rows: Application[]; showAccount: boolean; label: (id: string, name?: string) => string }) {
+export function AppTable({
+  rows,
+  showAccount,
+  label,
+  atLeast = false,
+}: {
+  rows: Application[];
+  showAccount: boolean;
+  label: (id: string, name?: string) => string;
+  /** Event capture stopped within the 24 hours: reconnect counts are lower bounds. */
+  atLeast?: boolean;
+}) {
   const [sort, by] = useSort();
   // Own keys only: ?sort=__proto__ must not reach the prototype.
   const value = sort && Object.hasOwn(APP_SORT, sort.key) ? APP_SORT[sort.key] : undefined;
@@ -242,7 +263,7 @@ export function AppTable({ rows, showAccount, label }: { rows: Application[]; sh
                 <Num v={a.subscriptions} />
               </td>
               <PendingCell a={a} />
-              <ReconnectsCell a={a} />
+              <ReconnectsCell a={a} atLeast={atLeast} />
               <TrafficCell a={a} />
             </tr>
           ))}

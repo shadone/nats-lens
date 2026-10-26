@@ -10,7 +10,7 @@ import { useAccounts } from "../api/systems";
 import { AppCards } from "../components/AppCards";
 import { AppTable } from "../components/AppTable";
 import { Empty, QueryView } from "../components/common";
-import { APPS_FOOTNOTE, CONNZ_CUT, emptyText, NO_EVENTS, subtitleText, TOOLING_PARAM, toolingHiddenText, trafficNote } from "../lib/appsView";
+import { APPS_FOOTNOTE, CAPTURE_GAPS, CONNZ_CUT, emptyText, NO_EVENTS, partialText, subtitleText, TOOLING_PARAM, toolingHiddenText, trafficNote } from "../lib/appsView";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useAccountScope } from "../lib/useSystem";
 import { useTimeRange } from "../lib/useTimeRange";
@@ -25,6 +25,16 @@ function Body({ d, includeTooling, scope, names }: { d: Apps; includeTooling: bo
   const note = trafficNote(d.applications);
   return (
     <>
+      {d.partial && (
+        <p className="ap-notice ap-notice-warn" role="note">
+          <b>Partial collection.</b> {partialText(d.missing)}
+        </p>
+      )}
+      {d.eventsCaptured && d.captureGaps && d.applications.length > 0 && (
+        <p className="ap-notice" role="note">
+          <b>Event capture stopped.</b> {CAPTURE_GAPS}
+        </p>
+      )}
       {d.connzCut && (
         <p className="ap-notice ap-notice-warn" role="note">
           <b>Connection list cut.</b> {CONNZ_CUT}
@@ -48,7 +58,7 @@ function Body({ d, includeTooling, scope, names }: { d: Apps; includeTooling: bo
               {note}
             </p>
           )}
-          <AppTable rows={d.applications} showAccount={showAccount} label={(id, name) => label(id, name || nameOf(id))} />
+          <AppTable rows={d.applications} showAccount={showAccount} label={(id, name) => label(id, name || nameOf(id))} atLeast={d.eventsCaptured && d.captureGaps} />
         </>
       )}
       <div className="ap-foot">

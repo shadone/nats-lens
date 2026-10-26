@@ -12,7 +12,7 @@ export function AppCards({ d }: { d: Applications }) {
         <h2 className="ap-label" id="ap-spread">
           Spread
         </h2>
-        <p className="ap-card-text">{spreadText(d.spread)}</p>
+        <p className="ap-card-text">{spreadText(d.spread, d.partial)}</p>
       </section>
       <section className="card ap-card" aria-labelledby="ap-libs">
         <h2 className="ap-label" id="ap-libs">
@@ -29,6 +29,7 @@ export function AppCards({ d }: { d: Applications }) {
             {figures.map((f, i) => (
               <span key={f.label}>
                 <span className="ap-fig">
+                  {d.captureGaps && f.value !== undefined && "at least "}
                   <span className="ap-v">{f.value === undefined ? "–" : fmtInt(f.value)}</span> {f.label}
                   {i < figures.length - 1 && <span aria-hidden="true"> ·</span>}
                   {i < figures.length - 1 && <span className="sr-only">,</span>}

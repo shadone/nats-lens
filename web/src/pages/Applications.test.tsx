@@ -200,6 +200,48 @@ describe("Applications", () => {
     expect(within(row("resize-worker")).getByRole("img").querySelectorAll("polyline.ap-spark-in")).toHaveLength(2);
   });
 
+  it("names the servers that did not answer and drops the restart sentence on a partial collection", async () => {
+    getApps.mockResolvedValue(prod({ partial: true, missing: ["nats-1"], spread: { server: "nats-0", connections: 28, total: 40, servers: 2, concentrated: false } }));
+    renderApp(<Applications />, "/applications");
+    await screen.findByRole("table");
+    expect(screen.getAllByRole("note")[0]).toHaveTextContent(
+      "Partial collection. nats-1 did not answer in this collection: its connections are not counted, and the counts, the spread and the traffic cover the servers that answered.",
+    );
+    const spread = screen.getByRole("region", { name: "Spread" });
+    expect(spread).toHaveTextContent("nats-0 serves 28 of 40 connections on 2 servers, counting only the servers that answered.");
+    expect(spread).not.toHaveTextContent(/restart/);
+    expect(spread.classList.contains("ap-card-info")).toBe(false);
+    expect(screen.getByText(/^Client connections grouped/)).toHaveTextContent(/over the servers that answered\.$/);
+  });
+
+  it("reads the 24-hour counts as lower bounds when event capture stopped within the 24 hours", async () => {
+    getApps.mockResolvedValue(prod({ captureGaps: true }));
+    renderApp(<Applications />, "/applications");
+    await screen.findByRole("table");
+    expect(screen.getAllByRole("note")[0]).toHaveTextContent(/^Event capture stopped\. Event capture stopped for part of these 24 hours/);
+    expect(screen.getByRole("region", { name: "Last 24 h" })).toHaveTextContent("at least 0 slow consumers ·, at least 6 stale connections ·, at least 1 application reconnecting");
+    const cell = within(row("callback-dispatcher")).getAllByRole("cell")[7];
+    expect(cell).toHaveTextContent("at least ≥6");
+    expect(within(cell).getByRole("link")).toHaveAccessibleName("at least 6, see client-004");
+  });
+
+  it("says nothing of capture gaps when capture ran throughout", async () => {
+    getApps.mockResolvedValue(prod());
+    renderApp(<Applications />, "/applications");
+    await screen.findByRole("table");
+    expect(screen.queryByText(/Event capture stopped/)).toBeNull();
+    expect(within(row("callback-dispatcher")).getAllByRole("cell")[7]).toHaveTextContent(/^6$/);
+  });
+
+  it("says in the footnote that reconnects pair per connection name", async () => {
+    getApps.mockResolvedValue(prod());
+    renderApp(<Applications />, "/applications");
+    await screen.findByRole("table");
+    expect(screen.getByText(/^Reconnects follow/)).toHaveTextContent(
+      "Reconnects follow client-004's rule per connection name over the 24 hours before the collection, summed over the application's names: a pod that drops and a new pod that connects, as in a rolling deploy, are not a reconnect.",
+    );
+  });
+
   it("says in the footnote that each sparkline has its own scale", async () => {
     getApps.mockResolvedValue(prod());
     renderApp(<Applications />, "/applications");

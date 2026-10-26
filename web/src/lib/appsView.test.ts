@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { segments } from "../charts/TrafficSpark";
-import { app, dispatcher, hours, prod, resizer } from "../test/fixtures/applications";
+import { app, dispatcher, hours, noCollection, prod, resizer } from "../test/fixtures/applications";
 import {
   APP_SORT,
   connectionsLink,
@@ -8,11 +8,13 @@ import {
   emptyText,
   eventsLink,
   libraryCell,
+  partialText,
   librariesText,
   mixedText,
   reconnectFinding,
   spreadText,
   subLine,
+  subtitleText,
   trafficLabel,
   trafficNote,
 } from "./appsView";
@@ -34,11 +36,35 @@ describe("appsView", () => {
     expect(spreadText({ server: "", connections: 0, total: 0, servers: 0, concentrated: false })).toBe("No connection to spread.");
   });
 
+  it("says the spread covers the servers that answered on a partial collection, and never what a restart moves", () => {
+    expect(spreadText({ server: "nats-0", connections: 40, total: 60, servers: 2, concentrated: false }, true)).toBe(
+      "nats-0 serves 40 of 60 connections on 2 servers, counting only the servers that answered.",
+    );
+    expect(spreadText({ server: "nats-0", connections: 40, total: 40, servers: 1, concentrated: false }, true)).toBe(
+      "Every counted connection is on nats-0; the servers that did not answer are not counted.",
+    );
+  });
+
+  it("names the servers that did not answer, or says only that part of the collection did not", () => {
+    expect(partialText(["nats-1"])).toBe("nats-1 did not answer in this collection: its connections are not counted, and the counts, the spread and the traffic cover the servers that answered.");
+    expect(partialText(["nats-1", "nats-2"])).toBe("nats-1 and nats-2 did not answer in this collection: their connections are not counted, and the counts, the spread and the traffic cover the servers that answered.");
+    expect(partialText(["a", "b", "c"])).toMatch(/^a, b and c did not answer/);
+    expect(partialText([])).toBe("Part of this collection did not answer, so connections can be missing: the counts and the spread cover what answered.");
+  });
+
+  it("says in the line under the title that a partial collection counts the servers that answered", () => {
+    expect(subtitleText(prod({ partial: true, missing: ["nats-1"] }))).toBe(
+      "Client connections grouped by the application in their name. 51 connections, 3 applications, in the collection of 14:29:56 UTC, over the servers that answered.",
+    );
+    expect(subtitleText(prod())).toMatch(/in the collection of 14:29:56 UTC\.$/);
+    expect(subtitleText(noCollection())).toBe("Client connections grouped by the application in their name. In the newest collection of the range.");
+  });
+
   it("lists the libraries by the applications that use them, the rest counted", () => {
     expect(librariesText(prod().libraries)).toBe("nats.js 3.0.2 in 2 applications, go 1.54.0 in 1.");
     const many = ["1", "2", "3", "4", "5", "6"].map((v) => ({ lang: "go", version: `1.${v}`, applications: 1 }));
     expect(librariesText(many)).toBe("go 1.1 in 1 application, go 1.2 in 1, go 1.3 in 1, go 1.4 in 1, and 2 other versions.");
-    expect(librariesText([{ lang: "", version: "", applications: 2 }])).toBe("library not reported in 2 applications.");
+    expect(librariesText([{ lang: "", version: "1.2", applications: 2 }])).toBe("unknown library 1.2 in 2 applications.");
     expect(librariesText([])).toBe("No library reported.");
   });
 
@@ -64,10 +90,14 @@ describe("appsView", () => {
     expect(connectionsLink(app({ name: "(unnamed)" }))).toBeUndefined();
   });
 
-  it("links reconnects to the Events page only where the connections carry the application's own name", () => {
+  it("links reconnects to the Events page only where every connection is named exactly as the application", () => {
     expect(eventsLink(app({ name: "label printer" }))).toBe("/events?client=label%20printer");
     expect(eventsLink(resizer())).toBeUndefined();
-    expect(eventsLink(app({ name: "(unnamed)" }))).toBeUndefined();
+    expect(eventsLink(app({ name: "(unnamed)", connectionNames: [] }))).toBeUndefined();
+    // An empty pod gives no pod, but the name is not the application's.
+    expect(eventsLink(app({ name: "foo", connectionNames: ["foo@"] }))).toBeUndefined();
+    expect(eventsLink(app({ name: "foo", connectionNames: ["foo"], moreNames: 1 }))).toBeUndefined();
+    expect(eventsLink(app({ name: "foo", connectionNames: ["foo", "foo@"] }))).toBeUndefined();
   });
 
   it("links reconnects to the unmuted client-004 finding before a muted one", () => {
@@ -110,7 +140,7 @@ describe("appsView", () => {
       "No application has all 24 hours before this collection's hour measured; the most any has is 12. The hours without a measurement are gaps in the lines, not zeros.",
     );
     expect(trafficNote([app({ traffic: six }), resizer()])).toBeUndefined();
-    expect(trafficNote([app({ traffic: hours(() => undefined) })])).toBe("No traffic measured in the 24 hours before this collection's hour: the hourly rollup holds none.");
+    expect(trafficNote([app({ traffic: hours(() => undefined) })])).toBe("No traffic measured in the 24 hours before this collection's hour.");
     expect(trafficNote([])).toBeUndefined();
   });
 
