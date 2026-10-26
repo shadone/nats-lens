@@ -490,8 +490,11 @@ type Application struct {
 	// smaller of the disconnects for a reason other than "Client Closed"
 	// and "Server Shutdown", and the connects (those folded into
 	// client.churn events included). A drop under one name and a connect
-	// under another, as in a rolling deploy, do not pair. Unset when no
-	// event was captured up to the epoch.
+	// under another, as in a rolling deploy, do not pair. A name pairs
+	// across accounts, as client-004 pairs it: a page scoped to an account
+	// counts every name of the application with an event in that account,
+	// whatever account its other events are in. Unset when no event was
+	// captured up to the epoch.
 	Reconnects_24H *int32 `protobuf:"varint,13,opt,name=reconnects_24h,json=reconnects24h,proto3,oneof" json:"reconnects_24h,omitempty"`
 	// Disconnects in the same 24 hours whose reason contains "slow
 	// consumer" (client-003); unset when no event was captured.
@@ -766,7 +769,7 @@ type ApplicationSpread struct {
 	Servers int32 `protobuf:"varint,4,opt,name=servers,proto3" json:"servers,omitempty"`
 	// Whether the server holds more than half of the connections and the
 	// applications use more than one server: a restart of it moves most
-	// clients at once. False on a partial epoch, whose missing servers'
+	// clients at once. False on a partial page, whose missing servers'
 	// connections are not known.
 	Concentrated  bool `protobuf:"varint,5,opt,name=concentrated,proto3" json:"concentrated,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1001,12 +1004,14 @@ type GetApplicationsResponse struct {
 	// Whether any event was captured up to the epoch; the 24-hour counts
 	// are unset when not.
 	EventsCaptured bool `protobuf:"varint,11,opt,name=events_captured,json=eventsCaptured,proto3" json:"events_captured,omitempty"`
-	// Whether the epoch is partial: a server or an endpoint did not answer.
-	// The connections of a server that did not answer are not counted, so
-	// spread.concentrated is false.
+	// Whether the page is partial: missing names a server, whose
+	// connections the epoch does not know, so spread.concentrated is false.
+	// A failure of another endpoint (JSZ, for example) leaves the page
+	// whole, unlike the freshness's partial.
 	Partial bool `protobuf:"varint,12,opt,name=partial,proto3" json:"partial,omitempty"`
-	// Servers the epoch expected that did not answer, sorted, as
-	// ListServers names them.
+	// Servers whose connections the epoch does not know, sorted: their
+	// CONNZ request did not end ok, or they answered nothing (as
+	// ListServers' missing names them).
 	Missing []string `protobuf:"bytes,13,rep,name=missing,proto3" json:"missing,omitempty"`
 	// Whether event capture, while it ran, stopped for part of the 24 hours
 	// before the epoch (nats-lens stopped, or a connection that captures

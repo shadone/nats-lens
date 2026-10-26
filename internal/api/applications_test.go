@@ -334,7 +334,7 @@ func TestFinishApplicationsReconnectsPairPerName(t *testing.T) {
 // On a partial epoch the missing servers' connections are not known, so
 // the spread does not say one server holds most of them.
 func TestFinishApplicationsPartialEpochSpread(t *testing.T) {
-	f := &api.ApplicationFacts{Epoch: 1, EpochAt: appT0, Partial: true, Missing: []string{"nats-0"}, Connections: []api.AppConnectionFact{
+	f := &api.ApplicationFacts{Epoch: 1, EpochAt: appT0, Missing: []string{"nats-0"}, Connections: []api.AppConnectionFact{
 		appConn("nats-1", 1, "a", "10.0.0.1"), appConn("nats-1", 2, "a", "10.0.0.2"), appConn("nats-2", 3, "a", "10.0.0.3"),
 	}}
 	res := api.FinishApplications(f, "", false)
@@ -342,7 +342,7 @@ func TestFinishApplicationsPartialEpochSpread(t *testing.T) {
 		!slices.Equal(res.GetMissing(), []string{"nats-0"}) {
 		t.Errorf("partial: spread %v, partial %v, missing %v", sp, res.GetPartial(), res.GetMissing())
 	}
-	f.Partial, f.Missing = false, nil
+	f.Missing = nil
 	if sp := api.FinishApplications(f, "", false).GetSpread(); !sp.GetConcentrated() {
 		t.Errorf("whole: spread %v", sp)
 	}
@@ -393,6 +393,33 @@ func TestFinishApplicationsConnectionNames(t *testing.T) {
 		a := appByName(res, c.app)
 		if !slices.Equal(a.GetConnectionNames(), c.names) || a.GetMoreNames() != c.more {
 			t.Errorf("%s: names %v, %d more", c.app, a.GetConnectionNames(), a.GetMoreNames())
+		}
+	}
+}
+
+// client-004 pairs a name's drops and connects across accounts: a page
+// scoped to one account counts the name's reconnects when the name has an
+// event in that account, beside its finding.
+func TestFinishApplicationsReconnectsPairAcrossAccounts(t *testing.T) {
+	f := &api.ApplicationFacts{Epoch: 1, EpochAt: appT0, EventsCaptured: true, Connections: []api.AppConnectionFact{
+		{Server: "nats-0", CID: 1, Name: "x", Account: "A"}, {Server: "nats-0", CID: 2, Name: "x", Account: "B"},
+		{Server: "nats-0", CID: 3, Name: "y", Account: "A"},
+	}, Events: []api.AppEventFact{
+		{Name: "x", Account: "A", Drops: 3, Stale: 3}, {Name: "x", Account: "B", Connects: 3},
+		// y's events are all in B.
+		{Name: "y", Account: "B", Drops: 2, Connects: 2},
+	}}
+	for _, c := range []struct {
+		scope  string
+		x, y   int32
+		xStale int32
+	}{{"", 3, 2, 3}, {"A", 3, 0, 3}, {"B", 3, -1, 0}} {
+		res := api.FinishApplications(f, c.scope, false)
+		if x := appByName(res, "x"); x.GetReconnects_24H() != c.x || x.GetStale_24H() != c.xStale {
+			t.Errorf("scope %q: x %d reconnects, %d stale", c.scope, x.GetReconnects_24H(), x.GetStale_24H())
+		}
+		if y := appByName(res, "y"); (c.y < 0) != (y == nil) || (y != nil && y.GetReconnects_24H() != c.y) {
+			t.Errorf("scope %q: y %v", c.scope, y)
 		}
 	}
 }

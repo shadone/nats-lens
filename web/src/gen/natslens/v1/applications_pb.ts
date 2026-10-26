@@ -361,8 +361,11 @@ export type Application = Message<"natslens.v1.Application"> & {
    * smaller of the disconnects for a reason other than "Client Closed"
    * and "Server Shutdown", and the connects (those folded into
    * client.churn events included). A drop under one name and a connect
-   * under another, as in a rolling deploy, do not pair. Unset when no
-   * event was captured up to the epoch.
+   * under another, as in a rolling deploy, do not pair. A name pairs
+   * across accounts, as client-004 pairs it: a page scoped to an account
+   * counts every name of the application with an event in that account,
+   * whatever account its other events are in. Unset when no event was
+   * captured up to the epoch.
    *
    * @generated from field: optional int32 reconnects_24h = 13;
    */
@@ -516,7 +519,7 @@ export type ApplicationSpread = Message<"natslens.v1.ApplicationSpread"> & {
   /**
    * Whether the server holds more than half of the connections and the
    * applications use more than one server: a restart of it moves most
-   * clients at once. False on a partial epoch, whose missing servers'
+   * clients at once. False on a partial page, whose missing servers'
    * connections are not known.
    *
    * @generated from field: bool concentrated = 5;
@@ -694,17 +697,19 @@ export type GetApplicationsResponse = Message<"natslens.v1.GetApplicationsRespon
   eventsCaptured: boolean;
 
   /**
-   * Whether the epoch is partial: a server or an endpoint did not answer.
-   * The connections of a server that did not answer are not counted, so
-   * spread.concentrated is false.
+   * Whether the page is partial: missing names a server, whose
+   * connections the epoch does not know, so spread.concentrated is false.
+   * A failure of another endpoint (JSZ, for example) leaves the page
+   * whole, unlike the freshness's partial.
    *
    * @generated from field: bool partial = 12;
    */
   partial: boolean;
 
   /**
-   * Servers the epoch expected that did not answer, sorted, as
-   * ListServers names them.
+   * Servers whose connections the epoch does not know, sorted: their
+   * CONNZ request did not end ok, or they answered nothing (as
+   * ListServers' missing names them).
    *
    * @generated from field: repeated string missing = 13;
    */

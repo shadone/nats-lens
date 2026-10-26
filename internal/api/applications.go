@@ -81,9 +81,9 @@ type ApplicationFacts struct {
 	// Epoch is the range's newest epoch; 0 when the range holds none.
 	Epoch   int64
 	EpochAt time.Time
-	// Partial is whether the epoch is partial, and Missing the servers it
-	// expected that did not answer.
-	Partial bool
+	// Missing are the servers whose connections the epoch does not know:
+	// their CONNZ request failed, or they answered nothing. The page is
+	// partial when there is one.
 	Missing []string
 	// Connections are the epoch's client connections, tooling marked.
 	Connections []AppConnectionFact
@@ -167,9 +167,9 @@ type appGroup struct {
 	conns           []AppConnectionFact
 	tooling         bool
 	slow, stale, sl int32
-	// names are the drops and connects of each connection name, which
-	// pair per name as client-004 pairs them.
-	names    map[string]*[2]int32
+	// rec are the reconnects of the application's names, each paired as
+	// client-004 pairs it.
+	rec      int32
 	traffic  map[time.Time]*v1.HourTraffic
 	findings []*v1.FindingRef
 	unmuted  bool
@@ -186,7 +186,8 @@ func FinishApplications(f *ApplicationFacts, account string, includeTooling bool
 		return &v1.GetApplicationsResponse{}
 	}
 	res := &v1.GetApplicationsResponse{Epoch: f.Epoch, EpochAt: timestamppb.New(f.EpochAt), ConnzCut: f.ConnzCut,
-		EventsCaptured: f.EventsCaptured, CaptureGaps: f.EventsCaptured && f.CaptureGaps, Partial: f.Partial, Missing: slices.Sorted(slices.Values(f.Missing))}
+		EventsCaptured: f.EventsCaptured, CaptureGaps: f.EventsCaptured && f.CaptureGaps, Partial: len(f.Missing) > 0,
+		Missing: slices.Compact(slices.Sorted(slices.Values(f.Missing)))}
 	in := func(acc string) bool { return account == "" || AccountOf(acc) == account }
 	groups := map[string]*appGroup{}
 	for _, c := range f.Connections {
@@ -200,27 +201,41 @@ func FinishApplications(f *ApplicationFacts, account string, includeTooling bool
 		name := ApplicationOf(c.Name)
 		g := groups[name]
 		if g == nil {
-			g = &appGroup{name: name, tooling: true, traffic: map[time.Time]*v1.HourTraffic{}, names: map[string]*[2]int32{}}
+			g = &appGroup{name: name, tooling: true, traffic: map[time.Time]*v1.HourTraffic{}}
 			groups[name] = g
 		}
 		g.conns = append(g.conns, c)
 		g.tooling = g.tooling && c.Tooling
 	}
+	// Drops and connects pair per name across accounts, as client-004
+	// pairs them; a scoped page counts a name with an event in its scope.
+	type pair struct {
+		drops, connects int32
+		inScope         bool
+	}
+	pairs := map[string]*pair{}
 	for _, e := range f.Events {
-		g := groups[ApplicationOf(e.Name)]
-		if g == nil || !in(e.Account) || (e.Tooling && !includeTooling) {
+		if e.Tooling && !includeTooling {
 			continue
 		}
-		n := g.names[e.Name]
-		if n == nil {
-			n = &[2]int32{}
-			g.names[e.Name] = n
+		p := pairs[e.Name]
+		if p == nil {
+			p = &pair{}
+			pairs[e.Name] = p
 		}
-		n[0], n[1] = n[0]+e.Drops, n[1]+e.Connects
-		g.slow += e.Slow
-		g.stale += e.Stale
-		g.sl += e.ShortLived
+		p.drops, p.connects, p.inScope = p.drops+e.Drops, p.connects+e.Connects, p.inScope || in(e.Account)
+		if g := groups[ApplicationOf(e.Name)]; g != nil && in(e.Account) {
+			g.slow += e.Slow
+			g.stale += e.Stale
+			g.sl += e.ShortLived
+		}
 	}
+	for name, p := range pairs {
+		if g := groups[ApplicationOf(name)]; g != nil && p.inScope {
+			g.rec += min(p.drops, p.connects)
+		}
+	}
+
 	for _, t := range f.Traffic {
 		g := groups[t.App]
 		if g == nil || !in(t.Account) || (t.Tooling && !includeTooling) {
@@ -264,7 +279,7 @@ func FinishApplications(f *ApplicationFacts, account string, includeTooling bool
 	res.ApplicationsTotal = int32(len(apps))
 	res.Spread, res.Libraries, res.LastDay = summarize(apps, f.EventsCaptured)
 	// The missing servers' connections are not known.
-	res.Spread.Concentrated = res.Spread.GetConcentrated() && !f.Partial
+	res.Spread.Concentrated = res.Spread.GetConcentrated() && !res.GetPartial()
 	for _, a := range apps {
 		res.ConnectionsTotal += a.GetConnections()
 	}
@@ -341,11 +356,7 @@ func (g *appGroup) application(hours []time.Time, events bool) *v1.Application {
 		a.RttP50 = durationpb.New(medianDuration(rtts))
 	}
 	if events {
-		var rec int32
-		for _, n := range g.names {
-			rec += min(n[0], n[1])
-		}
-		a.Reconnects_24H, a.SlowConsumers_24H, a.Stale_24H, a.ShortLived_24H = ptrTo(rec), ptrTo(g.slow), ptrTo(g.stale), ptrTo(g.sl)
+		a.Reconnects_24H, a.SlowConsumers_24H, a.Stale_24H, a.ShortLived_24H = ptrTo(g.rec), ptrTo(g.slow), ptrTo(g.stale), ptrTo(g.sl)
 	}
 	for _, h := range hours {
 		t := g.traffic[h]

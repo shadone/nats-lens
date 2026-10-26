@@ -106,6 +106,9 @@ Decided in the session that built T2; proposed, not yet confirmed.
   - A connection that reports neither library language nor version counts for no library.
   - Conformance rows for a partial epoch, capture that stopped, no captured event, and a muted client finding that does not lift its row; the demo's `example-global` has `client-001` on `shipping-service` (its `ap` instances at 140 ms), muted.
 - **Fix round 2:** each row carries its connection names as `MicroService` does (`connection_names`, distinct, sorted, at most 3, an unnamed connection left out, and `more_names`, fields 26 and 27; the coordinator asked for `connection_names_total`, and the Micro services field names were followed instead), so the UI can tell an application whose connections are all named exactly like it, which the Events page's exact name filter finds, from one named with pods or an empty pod.
+- **Fix round 3:**
+  - `partial` and `missing` follow CONNZ, not `epochs.partial`: `missing` names the servers whose CONNZ request did not end ok and those that answered nothing, and the page is partial when it names one. A failed JSZ alone leaves the page whole, and a server that answered VARZ but not CONNZ is named.
+  - Reconnects pair per name across accounts, as `client-004` does; a page scoped to an account counts each name of the application that has an event in that account. A name whose events all lie in other accounts does not count there. The store reads the day's events for every account.
 - **Measurement** (`TestApplicationsSize`, laptop): the store's read for 4,096 connections of 500 applications, with a day of 30-second epochs, 20,000 client events and 14 days of the rollup, takes about 25 ms, and `FinishApplications` 4 ms.
 
 ## T3 UI
