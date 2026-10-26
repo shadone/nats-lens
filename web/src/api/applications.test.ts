@@ -12,6 +12,7 @@ describe("applications", () => {
   it("reads an empty response as no collection", () => {
     const d = applications(create(GetApplicationsResponseSchema, {}));
     expect(d.collected).toBe(false);
+    expect([d.partial, d.missing, d.captureGaps]).toEqual([false, [], false]);
     expect(d.applications).toEqual([]);
     expect(d.spread).toEqual({ server: "", connections: 0, total: 0, servers: 0, concentrated: false });
     expect(d.lastDay).toEqual({ slowConsumers: undefined, stale: undefined, reconnecting: undefined });
@@ -50,15 +51,22 @@ describe("applications", () => {
             inMsgs24h: 3_558_520n,
             findings: [{ id: "client-004:callback-dispatcher", checkCode: "client-004", severity: Severity.WARNING, muted: true, entityKey: "callback-dispatcher" }],
             traffic: [{ hour: timestampFromMs(HOUR), inMsgs: 0n, outMsgs: 12n }],
+            connectionNames: ["callback-dispatcher"],
+            moreNames: 2,
           },
         ],
         spread: { server: "nats-0", connections: 100, total: 187, servers: 3, concentrated: true },
         libraries: [{ lang: "nats.js", version: "3.0.2", applications: 6 }],
         lastDay: { slowConsumers: 0, stale: 6, reconnecting: 1 },
+        partial: true,
+        missing: ["nats-1"],
+        captureGaps: true,
       }),
     );
     const a = d.applications[0];
+    expect([d.partial, d.missing, d.captureGaps]).toEqual([true, ["nats-1"], true]);
     expect(a.rttMs).toBeCloseTo(0.69, 6);
+    expect([a.connectionNames, a.moreNames]).toEqual([["callback-dispatcher"], 2]);
     expect([a.subscriptions, a.pendingBytes, a.reconnects, a.stale, a.inMsgs]).toEqual([0, 0, 6, 0, 3_558_520]);
     expect(a.findings).toEqual([{ id: "client-004:callback-dispatcher", checkCode: "client-004", checkName: "", severity: "warning", muted: true, entityKey: "callback-dispatcher" }]);
     expect(a.traffic[0]).toEqual({ hour: HOUR, inMsgs: 0, outMsgs: 12, inBytes: undefined, outBytes: undefined });

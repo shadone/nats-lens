@@ -51,6 +51,8 @@ export function app(o: Partial<Application> = {}): Application {
     tooling: false,
     addresses: ["10.20.2.107", "10.20.2.11", "10.20.2.19"],
     addressesTotal: 13,
+    connectionNames: [o.name ?? "order-service"],
+    moreNames: 0,
     ...o,
   };
 }
@@ -90,6 +92,8 @@ export function resizer(o: Partial<Application> = {}): Application {
     pendingBytesMax: 0,
     addresses: ["10.20.6.21", "10.20.6.22", "10.20.6.23", "10.20.6.24"],
     addressesTotal: 4,
+    connectionNames: ["resize-worker@resize-worker-6c9d4-7d9fq", "resize-worker@resize-worker-6c9d4-k2p4m", "resize-worker@resize-worker-6c9d4-m8w2z"],
+    moreNames: 1,
     traffic: hours((i) => [300 + i, 100 + i]),
     ...o,
   });
@@ -112,6 +116,9 @@ export function prod(o: Partial<Applications> = {}): Applications {
     lastDay: { slowConsumers: 0, stale: 6, reconnecting: 1 },
     connzCut: false,
     eventsCaptured: true,
+    partial: false,
+    missing: [],
+    captureGaps: false,
     ...o,
   };
 }
@@ -128,5 +135,8 @@ export function noCollection(): Applications {
     lastDay: {},
     connzCut: false,
     eventsCaptured: false,
+    partial: false,
+    missing: [],
+    captureGaps: false,
   };
 }

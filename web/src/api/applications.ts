@@ -72,6 +72,10 @@ export interface Application {
   /** At most 10, sorted. */
   addresses: string[];
   addressesTotal: number;
+  /** Distinct connection names, sorted, at most 3; an unnamed connection has none here. */
+  connectionNames: string[];
+  /** Distinct names beyond connectionNames. */
+  moreNames: number;
 }
 
 export interface AppSpread {
@@ -108,6 +112,12 @@ export interface Applications {
   lastDay: AppsLastDay;
   connzCut: boolean;
   eventsCaptured: boolean;
+  /** A server or an endpoint did not answer: the connections of a server that did not answer are not counted. */
+  partial: boolean;
+  /** The servers that did not answer, sorted. */
+  missing: string[];
+  /** Event capture stopped for part of the 24 hours: the 24-hour counts are lower bounds. */
+  captureGaps: boolean;
 }
 
 /** A duration in milliseconds with its fraction: a round trip of 0.69 ms must not read as 1 ms. */
@@ -146,6 +156,8 @@ export function applications(r: GetApplicationsResponse): Applications {
       tooling: a.tooling,
       addresses: a.addresses,
       addressesTotal: a.addressesTotal,
+      connectionNames: a.connectionNames,
+      moreNames: a.moreNames,
     })),
     applicationsTotal: r.applicationsTotal,
     connectionsTotal: r.connectionsTotal,
@@ -155,5 +167,8 @@ export function applications(r: GetApplicationsResponse): Applications {
     lastDay: { slowConsumers: r.lastDay?.slowConsumers, stale: r.lastDay?.stale, reconnecting: r.lastDay?.reconnecting },
     connzCut: r.connzCut,
     eventsCaptured: r.eventsCaptured,
+    partial: r.partial,
+    missing: r.missing,
+    captureGaps: r.captureGaps,
   };
 }
