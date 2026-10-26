@@ -1,6 +1,6 @@
 # Micro services build plan
 
-Working plan for the Micro services page (`docs/features/micro-services.md`, board `Micro.dc.html` of the design canvas). Everything here was proposed by the planning session of 2026-10-22 and is not yet confirmed by the owner. When a task lands, its lasting content moves into `docs/features/micro-services.md`, `docs/features/event-capture.md` (the account connections), `docs/features/monitoring-snapshots.md` and `docs/design.md`; this file then only tracks status.
+Working plan for the Micro services page (`docs/features/micro-services.md`, board `Micro.dc.html` of the design canvas). Everything here was proposed by the planning session of 2026-10-22; the owner confirmed it on 2026-10-26, except one point he changed, still to be built ([design.md](../design.md#owner-review-of-proposed-decisions-2026-10-26)): an `accounts` entry that cannot connect with event capture on no longer stops the system's start. When a task lands, its lasting content moves into `docs/features/micro-services.md`, `docs/features/event-capture.md` (the account connections), `docs/features/monitoring-snapshots.md` and `docs/design.md`; this file then only tracks status.
 
 The board's sample services (`orders`, `pricing`, `inventory`) fit the example shop; use the shop of `inventory.example.yaml` and the demo's systems, and no name from any other board.
 
@@ -56,7 +56,7 @@ Order of the cards: services with a warning note first, then by requests per sec
 
 ### Where T1 departed from this plan
 
-Each point was decided in the session that built T1: proposed, not yet confirmed.
+Each point was decided in the session that built T1 and confirmed by the owner on 2026-10-26.
 
 - **A fourth table, `micro_stats`.** `$SRV.INFO` carries no `started`; `$SRV.STATS` does, with the version. `micro_stats` (`epoch`, `account`, `service`, `instance_id`, `version`, `started`) has one row per instance that answered STATS, so an instance without endpoints still counts as answering, and T2 reads an instance run from it. `micro_instances` has no `started`, and keeps the INFO endpoint list (name, subject, queue group, metadata) as JSON in `endpoints`.
 - **Subject and queue group from STATS.** The framework's STATS reply names each endpoint's subject and queue group, so `micro_endpoints` takes them from there and from the newest INFO only when STATS left them empty. `micro_endpoints.data` keeps the endpoint's custom stats (leftover: not shown).
@@ -123,7 +123,7 @@ Each point was decided in the session that built T1: proposed, not yet confirmed
 
 ### Where T2 departed from this plan
 
-Each point was decided in the session that built T2 and is proposed, not yet confirmed.
+Each point was decided in the session that built T2 and confirmed by the owner on 2026-10-26.
 
 - **The missing rule.** "Its connection is still listed" would warn after an in-process restart (a new ID on the same connection) and say nothing a count cannot. An instance gone within the hour is missing when its `$SRV` subscriptions are still in a subscription collection taken after it went missing (asked accounts: registered, not answering), or when the service has fewer instances now than in the collection that last listed it. A rolling restart is therefore not missing; a scale-down is, for the hour, as the plan says. `MicroMissingInstance.still_subscribed` replaces a "connection listed" field.
 - **The rate.** Per instance of the epoch, its newest run (one instance ID and start time, no counter falling) with two reports in the 15 minutes, increase over the run's time, summed. A gone instance is left out, so a restart is not counted twice; an instance with one report so far adds nothing yet.
@@ -139,7 +139,7 @@ Each point was decided in the session that built T2 and is proposed, not yet con
 - **Labels for accounts.** When the account lookup is refused, T1 records the configured label, which in operator mode is not the key the subscription collection names. `FinishMicro` reads an asked account none of whose services is seen under it, and whose answered instances are all seen under one other account, as that account, so a service is listed once.
 - **The merges.** `feat/micro-collect` was merged into `feat/micro-api` before T1's fix round was announced, and again at its fix round 1 (`c1ab9dc`), which brought the rollup table.
 
-Fix round 1 (review of T2), decided in the session that fixed it, proposed, not yet confirmed:
+Fix round 1 (review of T2), decided in the session that fixed it, confirmed by the owner on 2026-10-26:
 
 - **The level and the slow run cover every instance.** The level reads T1's hourly rollup (`micro_endpoint_hours`, whole hours from 7 days before the window to the window); the slow run's start is found by hour first (after the newest hour, up to the epoch's, that is not slow), then by collection within that hour and the next, over every instance (`api.MicroLastFastHour`, `api.MicroSlowStart`). This replaces the run of slow collections walked back over 7 days of raw reports: a brief fast spell inside a later slow hour no longer ends the run, and when all 7 days are slow the run starts at the first hour. 13 to 17 s became about 0.3 s for 20 slow endpoints of 100 instances over 7 days.
 - **No account filter in the store.** Every account is read and `FinishMicro` scopes after matching labels to keys; aliasing needs every answered instance seen under one key.
@@ -151,29 +151,29 @@ Fix round 1 (review of T2), decided in the session that fixed it, proposed, not 
 - **Endpoint series.** The rate window and the slow run's collections pair an instance's rows by endpoint name and subject, as T1's round 3 rollup does: one instance may have two endpoints of one name on two subjects. Merged at T1's fix round 3 (`39f9e34`).
 - **Proto.** Comments only: `MicroEndpoint.subject`, `last_error`, `level_ms`, `slow_since`; `MicroService.instances`, `missing`; `MicroMissingInstance.still_subscribed`; `MicroNote` `INSTANCE_MISSING` and `NO_ANSWER`. No field was added, renamed or renumbered.
 
-Fix round 2 (second review), decided in the session that fixed it, proposed, not yet confirmed:
+Fix round 2 (second review), decided in the session that fixed it, confirmed by the owner on 2026-10-26:
 
 - **A slow endpoint always has a start.** `api.MicroSlowSpan` reads collections from the newest fast hour before the epoch's (the epoch's partial hour no longer decides) through the next hour with requests after it, not a fixed two hours, so idle hours between are crossed. The run starts at the first collection after the span's last fast one when a slow one follows; else at the first slow hour after the fast hour, else the hour after it; when no hour before the epoch's is fast, at the first hour. A fast collection after the span does not end the run.
 - **`MicroEndpoint.subjects` (field 13).** Every subject of the endpoint's name, sorted by subject; `subject` is the first.
 - **`MicroService.instance_source` (field 19, enum `MicroInstanceSource`).** Says where `instance_list` came from: answered, seen in subscriptions, or last answered within the hour.
 - **The demo** times out `APP`'s `$SRV` requests at 11:29:56, its instances still subscribed; the store fixture does the same an hour before last.
 - **The fixture** spans 30 hours, and orders' second create endpoint on `orders.create.v2` is slow from 3 hours to 150 minutes before last, so the subject pairing of the slow run is tested.
-- **A subject that first appears** (after T1's round 4): a row without a subject joins the series of the one subject the instance's other rows of the name have, in the rate window and the slow run, as the rollup pairs it by name alone; with two subjects it stays a series of its own. `TestMicroSubjectFirstAppearing` (doubled rate before) and P4's first report in the fixture hold it. Proposed, not yet confirmed.
+- **A subject that first appears** (after T1's round 4): a row without a subject joins the series of the one subject the instance's other rows of the name have, in the rate window and the slow run, as the rollup pairs it by name alone; with two subjects it stays a series of its own. `TestMicroSubjectFirstAppearing` (doubled rate before) and P4's first report in the fixture hold it.
 
-Fix round 3 (third review), decided in the session that fixed it, proposed, not yet confirmed:
+Fix round 3 (third review), decided in the session that fixed it, confirmed by the owner on 2026-10-26:
 
 - **The slow start never moves back.** When the span (`api.MicroSlowSpan`) ends with a fast collection, or holds none, the run starts at the first collection after it: the span's end, or the epoch when that is earlier. Round 2's fallback to the first slow hour moved the start 55 minutes earlier when a fast collection was the span's last (a blip at 1:50 gave 1:55, at 1:55 gave 1:00); "the first hour" remains only when no hour before the epoch's is fast.
 - **The rules test covers the slow-collections query.** The fixture adds `search`, idle from 4 hours to an hour before last and then slow, so its span crosses idle hours (a fixed two-hour span fails the test), and both orders instances' `get` rows of the slow run's first collection lack a subject (pairing by `coalesce(subject, '')` fails it).
 - **`subjects` is sorted by subject**, as the store lists it.
 
-Final review's fixes, decided in the session that fixed them, proposed, not yet confirmed:
+Final review's fixes, decided in the session that fixed them, confirmed by the owner on 2026-10-26:
 
 - **Aliasing after a failed request.** A label-named account whose `$SRV.STATS` was not ok is matched to the key by its instances that last answered within the hour and are seen; before, it was listed twice (under the label, no answer, and under the key, seen only), flipping between epochs.
 - **The slow start reads two hours.** Raw reports are read only for the span's last fast hour and next hour with requests, each with the hour before; an endpoint active for 30 hours, idle until the last hour and slow then took 8.7 to 9.5 s at 100 instances × 20 endpoints, now 0.37 to 0.40 s.
 - **Smaller fixes.** An endpoint row without its instance's stats row is left out rather than added to another service; a stats row stored twice counts its instance once; a name or ID token is a wildcard only when it is `*` or `>` as a whole, in Go and SQL alike; "never moves back" holds while the 7-day level stays the same.
 - **`MicroMissingInstance.server` (field 6).** The server of a still-subscribed instance's connection.
 
-Held requests (after T1's backoff, `fb611d1`), decided in the session that built it, proposed, not yet confirmed:
+Held requests (after T1's backoff, `fb611d1`), decided in the session that built it, confirmed by the owner on 2026-10-26:
 
 - **`MICRO_REQUEST_STATE_HELD` (5)** with `MicroRequest.refused_at` (5) and `retry_after` (6): a refused request not sent again yet, its refusal in `error`. It is not ok (no answer, no missing instances) and ranks after an error and before a timeout when two labels share an account. The demo's `SUPPLIERS` is refused every 10 minutes and held in between; the store fixture alternates refused and held epochs.
 
@@ -187,7 +187,7 @@ Held requests (after T1's backoff, `fb611d1`), decided in the session that built
 
 ### Where T3 departed from this plan
 
-Each point was decided in the session that built T3: proposed, not yet confirmed.
+Each point was decided in the session that built T3 and confirmed by the owner on 2026-10-26.
 
 - **Instances under the endpoints.** The chosen service's card (below the service cards) has the board's endpoint table, then an Instances table: ID, version, start, connection (a link to Connections filtered by its name and server), server (a link to its page) and, when an instance is missing, a note. A missing instance is a row in the warning colours: "missing since 10:05, last answered 10:04; still subscribed, so registered but not answering" (the last answer is left out when it falls in the same minute). The heading reads "orders endpoints", or "catalog service" for a service seen only. More than 100 instances or endpoints: "The first 100 of N … are listed."
 - **Endpoint subjects.** `?subject=` is now read by the Subjects page: it fills the tester's field whenever it changes and the tester asks at once; typing drops the parameter. A literal endpoint subject links to `/subjects?account=<account>&subject=<subject>`; a subject with a wildcard (`orders.get.*`) is plain text, since the tester refuses wildcards.
@@ -202,7 +202,7 @@ Each point was decided in the session that built T3: proposed, not yet confirmed
 - **The configuration key** `accounts` is set in mono in the notes, the footnote and the empty state (a key part of a phrase in `lib/microView.ts`, shown by `components/Words.tsx`; text is never searched for backticks). The grants are worded once: the card's no-answer reason, the endpoint section and the notice say "the account's user needs to publish on $SRV.INFO and $SRV.STATS and subscribe on _INBOX.>".
 - **`?subject=` on Subjects** is read whenever it changes, not only when the page opens.
 - **After T2's fix round 1.** Several missing instances still read "N instances missing since" the earliest of them; the slow start and level need no change in words.
-- **Review round 2, after T2's fix round 2.** The Instances heading follows `instance_source`: "Instances" (answered), "Instances seen in the subscription list", "Instances that last answered within the hour before this collection". The configuration key `accounts` is a part of its own in a phrase (`components/Words.tsx`), so backticks in server and client text are shown as they are. A `?service=` without an account part is read in the scoped account ("No service orders in Shop in this collection; …"). An endpoint name with several subjects lists them all, comma-separated, each literal one a link to the tester. On Subjects, Back after typing over a linked subject empties the field, as the typed subject was never in the address (the review asked to keep or change; changed; proposed, not yet confirmed).
+- **Review round 2, after T2's fix round 2.** The Instances heading follows `instance_source`: "Instances" (answered), "Instances seen in the subscription list", "Instances that last answered within the hour before this collection". The configuration key `accounts` is a part of its own in a phrase (`components/Words.tsx`), so backticks in server and client text are shown as they are. A `?service=` without an account part is read in the scoped account ("No service orders in Shop in this collection; …"). An endpoint name with several subjects lists them all, comma-separated, each literal one a link to the tester. On Subjects, Back after typing over a linked subject empties the field, as the typed subject was never in the address (the review asked to keep or change; changed).
 - **Final review.** `?service=` is split at its last slash: the micro framework allows only letters, digits, `-` and `_` in a service name, while an account's name may hold a slash. An endpoint without subjects shows a dash heard as "no subject reported". `?service=/` reads "No service named in the address is in this collection; …", and a missing note without a missing list "an instance missing".
 
 ## T4 Feature docs and audit
@@ -215,7 +215,7 @@ Recorded as they come up; moved to `docs/plans/next.md` item 5 when the work mer
 
 - A service with no answer in a collection shows no version or description; the last INFO within the hour could supply them.
 - Endpoint metadata and the service's custom stats (`data` in STATS replies) are stored but not shown.
-- With event capture on, an account connection that cannot connect still fails the system's setup (retried with backoff), so one bad entry under `accounts` stops collection; with capture off collection goes on. Whether the capture should keep going without that account is open.
+- With event capture on, an account connection that cannot connect still fails the system's setup (retried with backoff), so one bad entry under `accounts` stops collection; with capture off collection goes on. The owner decided on 2026-10-26 that the system starts and collects without it, logging the entry, showing it as not connected and retrying it with backoff; still to be built ([design.md](../design.md#owner-review-of-proposed-decisions-2026-10-26)).
 - A new instance whose first STATS reply comes in a later epoch than its start loses its activity before that reply in `micro_endpoint_hours`.
 - When the entry asking for an account loses its connection during the requests, the account has no answers in that epoch; another entry of the account could ask in the time left.
 - In operator mode an entry whose account lookup is refused cannot be matched with another entry of the same account, and both are stored.
