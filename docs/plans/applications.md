@@ -151,7 +151,7 @@ Decided in the session that built T3; proposed, not yet confirmed.
 
 - The Events page filters by an exact connection name: no link can show the reconnect events of an application whose names carry pods. A prefix or application filter on `ListEvents` would let every reconnect count link there.
 - The Connections page's name filter is "contains": no exact or application filter.
-- Each row's slow consumers, stale connections and short-lived connections of the last 24 hours are in the response but not on the board's table; the page shows only their sums in the Last 24 h card.
+- Each row's slow consumers, stale connections and short-lived connections of the last 24 hours are in the response but not on the board's table; the page sums the slow consumers and stale connections in the Last 24 h card, and the short-lived counts are in the API only.
 
 ## T4 Feature docs and audit
 
@@ -165,4 +165,4 @@ Recorded as they come up; moved to `docs/plans/next.md` item 5 when the work mer
 - `example-prod`'s slow consumers exist only as counters (the Overview's clients tile says 7) without disconnect events, so its Applications page counts none and its Events page lists none. Adding the events would make `client-004` fire for `media-worker` during the upgrade, which the demo's findings would then need (seen while building T2).
 - The writer inserts connections one row at a time: 4,096 connections take 2 to 4.5 s of an epoch's write on a laptop. Batching them as JSON, as `subscriptions` are, would cut that (seen while measuring T1; not part of it).
 - `example-prod` holds 100 of its connections on `nats-0` in every range, also five days before the upgrade that put them there, so its Spread card speaks for a range before the upgrade too (seen while writing T4).
-- The API gaps seen while building T3 (above): a prefix or application filter on `ListEvents` would let every reconnect count link to its events; the Connections page has no exact or application name filter; the per-row slow consumer, stale and short-lived counts are in the response but not on the page.
+- The API gaps seen while building T3 (above): a prefix or application filter on `ListEvents` would let every reconnect count link to its events; the Connections page has no exact or application name filter; the per-row slow consumer, stale and short-lived counts are in the response but not on the page, which sums only the slow consumers and stale connections.
