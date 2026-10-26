@@ -36,7 +36,7 @@ The Applications page groups the client connections of a system by the applicati
 - **At most 500 applications.** The API lists the first 500 in the page's order, with the total; the line under the title adds "the first 500 listed". The summaries count every application before the limit.
 - **Phone width.** The cards stack in one column, and the table scrolls sideways in its own box.
 - **The footnote** gives the "@" rule, what instances and pods count, that tooling is left out, where the traffic comes from and what it loses, how reconnects pair, and that each sparkline has its own scale.
-- **Decisions.** The owner decided on 2026-10-26 to defer "Runs on" and to back the 24 hours of traffic with an hourly rollup. The other rules of this page were proposed by the sessions that built it, not yet confirmed.
+- **Decisions.** The owner decided on 2026-10-26 to defer "Runs on" and to back the 24 hours of traffic with an hourly rollup. The owner confirmed the other rules of this page on 2026-10-26.
 
 ## Scenarios
 
