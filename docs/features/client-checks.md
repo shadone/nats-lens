@@ -60,7 +60,7 @@ The client checks judge the applications connected to NATS: whether their round 
 - **By name, not by connection.** A connection ID changes with every reconnect, so client findings are keyed by connection name. `client-001` uses the part before "@"; the other four use the whole name.
 - **Tooling connections are left out.** nats-lens's own connections and, by default, clients from 127.0.0.1 or ::1 do not count, with the loopback guard described in [checks.md](checks.md). The Connections page marks them "tooling".
 - **Events feed three of the checks.** `client-003`, `client-004` and `client-005` read the connect, disconnect and `client.churn` events, so they need event capture (on by default in `natslens run`). `client-005` also needs `events.churn.collapse`, on by default.
-- **Per application.** The [Applications](applications.md) page lists each application's client findings on its row, and counts its reconnects of the last 24 hours by `client-004`'s rule, its slow consumer disconnects as `client-003` counts them, and its short-lived connections as `client-005` counts them.
+- **Per application.** The [Applications](applications.md) page lists each application's client findings on its row, and counts its reconnects of the last 24 hours by `client-004`'s rule, its slow consumer disconnects as `client-003` counts them; the API also counts its short-lived connections as `client-005` counts them.
 
 ## Scenarios
 
