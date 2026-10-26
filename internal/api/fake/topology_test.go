@@ -9,6 +9,7 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/api/fake"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"github.com/shadone/nats-lens/internal/gen/natslens/v1/natslensv1connect"
@@ -220,5 +221,43 @@ func TestPastServerRoutesAgreeWithTopology(t *testing.T) {
 		if !remotes[n] {
 			t.Errorf("topology pairs nats-us-0 with %s, the Server page lists no route", n)
 		}
+	}
+}
+
+// The demo gives the collection before the epoch as the store does, and
+// the slow rule needs both: nats-eu-3's routes are slow when the earlier
+// collection measured them slow too, not when they were fast there (a
+// spike in the newest collection only). The first collection, with none
+// before it, is a conformance row.
+func TestGlobalTopologySlowTwice(t *testing.T) {
+	p := fake.Demo(false)[1].Provider
+	day := &v1.TimeRange{Start: timestamppb.New(fake.FixedNow.Add(-24 * time.Hour)), End: timestamppb.New(fake.FixedNow)}
+	f, err := p.Topology(ctx, &v1.GetTopologyRequest{Range: day})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e := f.Earlier; e == nil || e.Epoch != f.Epoch-1 || !e.At.Equal(f.EpochAt.Add(-30*time.Second)) || len(e.Routes) == 0 {
+		t.Fatalf("earlier = %+v, want epoch %d 30s before", f.Earlier, f.Epoch-1)
+	}
+	slowOf := func(f *api.TopologyFacts) []string {
+		var out []string
+		for _, r := range api.FinishTopology(f).GetRoutes() {
+			if r.GetSlow() {
+				out = append(out, r.GetServerA()+"-"+r.GetServerB())
+			}
+		}
+		return out
+	}
+	if got := slowOf(f); len(got) != 8 {
+		t.Errorf("slow in both: %v, want nats-eu-3's 8", got)
+	}
+	for i, r := range f.Earlier.Routes {
+		if r.Server == "nats-eu-3" || r.Remote == "nats-eu-3" {
+			fast := 400 * time.Microsecond
+			f.Earlier.Routes[i].RTT = &fast
+		}
+	}
+	if got := slowOf(f); len(got) != 0 {
+		t.Errorf("slow in the newest collection only: %v, want none", got)
 	}
 }

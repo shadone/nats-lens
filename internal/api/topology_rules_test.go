@@ -32,9 +32,11 @@ func cluster(n int, slowMS float64) *api.TopologyFacts {
 	return f
 }
 
+// slowRoutes are the slow pairs of f, its routes measured the same in the
+// collection before.
 func slowRoutes(f *api.TopologyFacts) []string {
 	var out []string
-	for _, r := range api.FinishTopology(f).GetRoutes() {
+	for _, r := range api.FinishTopology(measuredTwice(f)).GetRoutes() {
 		if r.GetSlow() {
 			out = append(out, r.GetServerA()+"-"+r.GetServerB())
 		}

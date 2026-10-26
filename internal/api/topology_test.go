@@ -181,6 +181,13 @@ func route(server, remote string, rtt float64, account string) api.TopologyRoute
 	return api.TopologyRouteRow{Server: server, Remote: remote, Cluster: "eu", RTT: ms(rtt), Pending: i64(1), Account: account}
 }
 
+// measuredTwice gives f an earlier collection one interval before with
+// the same routes, so the slow rule's two collections agree.
+func measuredTwice(f *api.TopologyFacts) *api.TopologyFacts {
+	f.Earlier = &api.TopologyEarlier{Epoch: f.Epoch - 1, At: f.EpochAt.Add(-f.Interval), Routes: slices.Clone(f.Routes)}
+	return f
+}
+
 // Routes pair by server: the highest RTT, pending summed, the pool and
 // the pinned accounts; a pair the other end does not list is one-sided
 // only when that end answered ROUTEZ.
@@ -238,7 +245,7 @@ func TestTopologySlowRoute(t *testing.T) {
 			f.Routes = append(f.Routes, route(a, b, rtt, ""))
 		}
 	}
-	res := api.FinishTopology(f)
+	res := api.FinishTopology(measuredTwice(f))
 	var slow []string
 	for i, r := range res.GetRoutes() {
 		if r.GetSlow() {
@@ -259,7 +266,7 @@ func TestTopologySlowRoute(t *testing.T) {
 			f.Routes[i].RTT = ms(0.1)
 		}
 	}
-	for _, r := range api.FinishTopology(f).GetRoutes() {
+	for _, r := range api.FinishTopology(measuredTwice(f)).GetRoutes() {
 		if r.GetSlow() {
 			t.Errorf("%v slow under 1 ms", r)
 		}

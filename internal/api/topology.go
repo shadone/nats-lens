@@ -58,6 +58,31 @@ type TopologyFacts struct {
 	// Drops are counted over the window before the epoch, by the store in
 	// SQL and by the demo with CountTopologyDrops.
 	Drops TopologyDrops
+	// Earlier is the collection the slow rule compares the epoch with;
+	// nil when there is none.
+	Earlier *TopologyEarlier
+}
+
+// TopologyEarlier is the collection before the epoch that the slow rule
+// reads: the newest one before it with route rows, started no earlier
+// than TopologyEarliestEarlier. A route is slow only when both this
+// collection and the epoch measure it slow.
+type TopologyEarlier struct {
+	Epoch  int64
+	At     time.Time
+	Routes []TopologyRouteRow
+}
+
+// TopologyEarliestEarlier is the earliest start of the collection the slow
+// rule compares an epoch that started at epochAt with: TopologyGapIntervals
+// collect intervals before it, as for drops. False when the interval is
+// not known: then no collection counts as the one before, and no route is
+// slow.
+func TopologyEarliestEarlier(epochAt time.Time, interval time.Duration) (time.Time, bool) {
+	if interval <= 0 {
+		return time.Time{}, false
+	}
+	return epochAt.Add(-TopologyGapIntervals * interval), true
 }
 
 // TopologyServerFact is one server expected in the epoch.
