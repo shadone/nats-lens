@@ -65,18 +65,19 @@ spec:
             capabilities:
               drop: ["ALL"]
           # Small enough for a laptop cluster and a small system. For a production
-          # cluster, or a system with hundreds of leaf nodes, raise them, for
-          # example to 500m CPU and 2Gi memory (DuckDB takes 60% of the memory
-          # limit), keeping limits equal to requests on GKE Autopilot;
-          # k8s/examples/gke-iap shows the patch.
+          # cluster, a system with hundreds of leaf nodes or several systems,
+          # raise them, for example to 500m CPU and 2Gi memory (DuckDB takes 60%
+          # of the memory limit; see the README, Memory size), keeping limits
+          # equal to requests on GKE Autopilot; k8s/examples/gke-iap shows the
+          # patch.
           resources:
             requests:
               cpu: 100m
-              memory: 256Mi
+              memory: 512Mi
               ephemeral-storage: 1Gi
             limits:
               cpu: 100m
-              memory: 256Mi
+              memory: 512Mi
               ephemeral-storage: 1Gi
           # A missing database is rebuilt from the archive before the API
           # listens, which can take minutes.
