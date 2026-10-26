@@ -365,8 +365,12 @@ type Finding struct {
 	// When the condition began, where the check knows it (a creation time, a
 	// process start); unset otherwise. since is when nats-lens first saw it.
 	ConditionSince *timestamppb.Timestamp `protobuf:"bytes,18,opt,name=condition_since,json=conditionSince,proto3" json:"condition_since,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// The check warns of something that will expire, a certificate or a JWT
+	// (its category is expiry). Within a severity such a finding ranks after
+	// every other finding, so it never heads an outage.
+	Expiry        bool `protobuf:"varint,19,opt,name=expiry,proto3" json:"expiry,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Finding) Reset() {
@@ -523,6 +527,13 @@ func (x *Finding) GetConditionSince() *timestamppb.Timestamp {
 		return x.ConditionSince
 	}
 	return nil
+}
+
+func (x *Finding) GetExpiry() bool {
+	if x != nil {
+		return x.Expiry
+	}
+	return false
 }
 
 // One change of a finding's state.
@@ -1431,7 +1442,7 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\x0egrowth_per_day\x18\v \x01(\x01H\x00R\fgrowthPerDay\x88\x01\x01\x12\x1d\n" +
 	"\n" +
 	"end_reason\x18\f \x01(\tR\tendReasonB\x11\n" +
-	"\x0f_growth_per_day\"\xcc\x06\n" +
+	"\x0f_growth_per_day\"\xe4\x06\n" +
 	"\aFinding\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -1454,7 +1465,8 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\x05cause\x18\x0f \x01(\v2\x15.natslens.v1.EventRefR\x05cause\x12%\n" +
 	"\x04mute\x18\x10 \x01(\v2\x11.natslens.v1.MuteR\x04mute\x122\n" +
 	"\x15transitions_last_hour\x18\x11 \x01(\x05R\x13transitionsLastHour\x12C\n" +
-	"\x0fcondition_since\x18\x12 \x01(\v2\x1a.google.protobuf.TimestampR\x0econditionSince\"\xde\x01\n" +
+	"\x0fcondition_since\x18\x12 \x01(\v2\x1a.google.protobuf.TimestampR\x0econditionSince\x12\x16\n" +
+	"\x06expiry\x18\x13 \x01(\bR\x06expiry\"\xde\x01\n" +
 	"\x11FindingTransition\x12\x1d\n" +
 	"\n" +
 	"finding_id\x18\x01 \x01(\tR\tfindingId\x12.\n" +

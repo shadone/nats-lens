@@ -1,7 +1,6 @@
 package storeprov
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -13,6 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/shadone/nats-lens/internal/api"
+	"github.com/shadone/nats-lens/internal/checks"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"github.com/shadone/nats-lens/internal/store"
 )
@@ -77,7 +77,7 @@ func (p *Provider) findingProto(f store.Finding, causes map[int64]*v1.EventRef) 
 		Id: f.ID, CheckCode: f.CheckCode, Severity: severityOfText[f.Severity], State: stateOf(f),
 		Entity: entityRef(f.EntityType, f.EntityKey), Since: ts(f.Since), TransitionedAt: ts(f.TransitionedAt),
 		ResolvedAt: ts(f.ResolvedAt), Detail: f.Detail, RelatedConfigSource: f.RelatedSource, ConditionSince: tsp(f.ConditionSince),
-		TransitionsLastHour: int32(f.TransitionsLastHour), Cause: causes[f.CauseEventID],
+		TransitionsLastHour: int32(f.TransitionsLastHour), Cause: causes[f.CauseEventID], Expiry: checks.IsExpiry(f.CheckCode),
 	}
 	var marked []string
 	if p.Checks != nil {
@@ -167,18 +167,10 @@ func severityRank(s v1.Severity) int {
 	return 3
 }
 
-// sortWorstFirst orders findings unmuted first, then by severity, then the
-// longest firing first, then by ID.
+// sortWorstFirst orders findings worst first by api.CompareWorst: an
+// expiry finding after the other findings of its severity.
 func sortWorstFirst(fs []*v1.Finding) {
-	slices.SortStableFunc(fs, func(a, b *v1.Finding) int {
-		return cmp.Or(
-			cmp.Compare(boolRank(a.GetState() == v1.FindingState_FINDING_STATE_RESOLVED), boolRank(b.GetState() == v1.FindingState_FINDING_STATE_RESOLVED)),
-			cmp.Compare(boolRank(a.GetMute() != nil), boolRank(b.GetMute() != nil)),
-			cmp.Compare(severityRank(a.GetSeverity()), severityRank(b.GetSeverity())),
-			a.GetSince().AsTime().Compare(b.GetSince().AsTime()),
-			cmp.Compare(a.GetId(), b.GetId()),
-		)
-	})
+	slices.SortStableFunc(fs, api.CompareWorst)
 }
 
 func boolRank(b bool) int {

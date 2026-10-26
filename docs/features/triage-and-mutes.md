@@ -11,7 +11,7 @@ The Findings page lists the findings of the time range, filtered by severity, st
 ## Behavior and rules
 
 - **What a finding is.** The page says it: "A finding is one failing check for one entity."
-- **Order.** Unmuted findings first, then by severity, then the ones firing longest. 50 per page.
+- **Order.** Unmuted findings first, then by severity; within a severity, expiry findings (`account-003`, `account-004`, `server-016`) after the others, so a credential that expires soon never heads an outage; then the ones firing longest. 50 per page.
 - **Filters.** Severity (all, critical, warning, info); state: Firing (the default), Flapping, Resolved, or All; "Include muted" (on by default); and a check code. With the default filters and nothing firing, the page says "All clear: no finding fires in this range."
 - **A row.** Severity (or muted), check code and name, a FLAPPING, CHANGED or RESOLVED tag where it applies, the entity, the detail, and since when it fires (or when it resolved). On a muted row, the time column shows "until <date> <time>" and "in <duration>", and a line reads "Muted by <name>:" followed by the reason and "Expires <time> UTC." An accepted row is marked Accepted instead of Muted, its time column shows "review on <date>" and "in <duration>", and its line reads "Accepted by <name>: <reason>. Review on <date>."
 - **Past ranges.** For a range that ends in the past, the findings are shown as they stood at its end, with the mutes in force then.

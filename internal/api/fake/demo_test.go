@@ -43,12 +43,12 @@ func TestDemoListsThreeSystems(t *testing.T) {
 		t.Errorf("prod = %v", prod)
 	}
 	// Muted: server-005 on two servers, stream-005 on order-archive and
-	// client-001 on shipping-service. The worst finding is the warning
-	// firing longest: pos-terminal's user JWT, within 14 days of its
-	// expiry for 9 days.
+	// client-001 on shipping-service. The worst finding is nats-us-4's
+	// outage: the expiry warnings that fire longer (account-003,
+	// account-004) rank after it.
 	if global.GetServers() != 24 || global.GetServersAnswering() != 23 || global.GetClusters() != 3 ||
 		global.GetCollection() != v1.CollectionState_COLLECTION_STATE_DEMO || global.GetStatus() != v1.Status_STATUS_WARNING ||
-		global.GetWorstFinding().GetCheckCode() != "account-004" || global.GetTally().GetMuted() != 4 || !global.GetFreshness().GetPartial() {
+		global.GetWorstFinding().GetCheckCode() != "server-001" || global.GetTally().GetMuted() != 4 || !global.GetFreshness().GetPartial() {
 		t.Errorf("global = %v", global)
 	}
 	if staging.GetCollection() != v1.CollectionState_COLLECTION_STATE_CONNECTION_CLOSED || !strings.Contains(staging.GetCollectionError(), "authorization") ||

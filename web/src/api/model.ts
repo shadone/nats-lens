@@ -85,6 +85,8 @@ export interface Finding {
   cause?: { id: string; time?: number; kind: string; summary: string };
   mute?: Mute;
   transitionsLastHour: number;
+  /** The check warns of an expiry (a certificate or a JWT): it ranks after other findings of its severity. */
+  expiry?: boolean;
 }
 
 export interface Transition {
