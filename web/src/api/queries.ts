@@ -220,7 +220,7 @@ export function useAccountsAndAuth(spec: RangeSpec) {
     queryFn: ({ signal }) => api.getAccountsAndAuth(sys, spec, signal),
     refetchInterval: refetch(spec),
     // The previous range's answer stands in while the next loads, never another system's.
-    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === sys ? prev : undefined),
+    placeholderData: keepSameSystem(sys),
   });
 }
 
@@ -232,7 +232,7 @@ export function useCapacity(spec: RangeSpec) {
     queryFn: ({ signal }) => api.getCapacity(sys, spec, signal),
     refetchInterval: refetch(spec),
     // The previous range's answer stands in while the next loads, never another system's.
-    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === sys ? prev : undefined),
+    placeholderData: keepSameSystem(sys),
   });
 }
 
@@ -248,7 +248,7 @@ export function useSubjects(spec: RangeSpec, account: string, filter: SubjectFil
     queryKey: ["subjects", sys, rangeKey(spec), account, filter],
     queryFn: ({ signal }) => api.getSubjects(sys, spec, account, filter, signal),
     refetchInterval: refetch(spec),
-    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === sys && prevQuery.queryKey[3] === account ? prev : undefined),
+    placeholderData: keepSameSystem(sys, { 3: account }),
   });
 }
 
@@ -263,7 +263,7 @@ export function useMicroServices(spec: RangeSpec, account: string) {
     queryKey: ["microServices", sys, rangeKey(spec), account],
     queryFn: ({ signal }) => api.getMicroServices(sys, spec, account, signal),
     refetchInterval: refetch(spec),
-    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === sys && prevQuery.queryKey[3] === account ? prev : undefined),
+    placeholderData: keepSameSystem(sys, { 3: account }),
   });
 }
 
@@ -279,7 +279,7 @@ export function useApplications(spec: RangeSpec, account: string, includeTooling
     queryKey: ["applications", sys, rangeKey(spec), account, includeTooling],
     queryFn: ({ signal }) => api.getApplications(sys, spec, account, includeTooling, signal),
     refetchInterval: refetch(spec),
-    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === sys && prevQuery.queryKey[3] === account ? prev : undefined),
+    placeholderData: keepSameSystem(sys, { 3: account }),
   });
 }
 
