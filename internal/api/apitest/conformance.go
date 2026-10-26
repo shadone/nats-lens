@@ -734,7 +734,7 @@ func Conformance() []State {
 			}
 			return ""
 		}},
-	}, slices.Concat(replayRows(), topologyRows(), accountsRows(), capacityRows(), subjectsRows(), microRows())...)
+	}, slices.Concat(replayRows(), topologyRows(), accountsRows(), capacityRows(), subjectsRows(), microRows(), applicationsRows())...)
 }
 
 // RunConformance checks every row of the table against env: each must be

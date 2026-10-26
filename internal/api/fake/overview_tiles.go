@@ -61,9 +61,13 @@ func (s scen) overviewTiles(r *v1.TimeRange, maxPoints int32, servers []*v1.Serv
 		// The demo's connections are all in one account.
 		accounts.Subtitle = fmt.Sprintf("most connections: %s (%.0f)", Account, clients.GetValue())
 	}
+	// The applications of the epoch's connections, tooling and unnamed
+	// ones left out, as the store counts them.
 	apps := map[string]bool{}
-	for _, c := range s.sc.clients {
-		apps[strings.SplitN(c, "@", 2)[0]] = true
+	for _, c := range s.connections(s.epochTime(r)) {
+		if app, _, _ := strings.Cut(c.GetName(), "@"); app != "" && !c.GetTooling() {
+			apps[app] = true
+		}
 	}
 	clients.Subtitle = api.ClientsSubtitle(clients.Value, len(apps), api.SumPoints(s.series("cluster.slow_consumers", sys, r, maxPoints)))
 

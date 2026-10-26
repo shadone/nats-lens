@@ -99,7 +99,7 @@ func globalSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (fl
 			return 0, false
 		}
 		v, _ := globalSample(sc, "cluster."+strings.TrimPrefix(metric, "server."), e, c)
-		return math.Round(v * float64(sc.connsOn(sp)) / globalConns), true
+		return math.Round(v * float64(sc.connsOn(sp, c)) / globalConns), true
 	case "server.mem_bytes":
 		return float64(sp.mem) + noise(metric+e.GetKey(), c)*12*mib, !globalDownAt(sp, c)
 	case "server.cpu_percent":

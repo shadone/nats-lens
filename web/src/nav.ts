@@ -28,7 +28,7 @@ export const NAV: NavItem[] = [
   { path: "/findings", label: "Findings", group: "", icon: "M9 3 16 15H2Z M9 8v3 M9 13v.5", badge: "findings" },
   { path: "/subjects", label: "Subjects", group: "Messaging", icon: "M3 5h12 M3 9h8 M3 13h5 M13 11l3 2-3 2", accountScope: true },
   { path: "/micro-services", label: "Micro services", group: "Messaging", icon: "M3 3h5v5H3Z M10 10h5v5h-5Z M8 5.5h4.5V10", accountScope: true },
-  { path: "/applications", label: "Applications", group: "Messaging", icon: "M5 5a2 2 0 1 0 0 .1 M13 5a2 2 0 1 0 0 .1 M9 13a2 2 0 1 0 0 .1 M6 6.5l2 5 M12 6.5l-2 5", planned: true },
+  { path: "/applications", label: "Applications", group: "Messaging", icon: "M5 5a2 2 0 1 0 0 .1 M13 5a2 2 0 1 0 0 .1 M9 13a2 2 0 1 0 0 .1 M6 6.5l2 5 M12 6.5l-2 5", accountScope: true },
   { path: "/connections", label: "Connections", group: "Messaging", icon: "M2 9h4 M12 9h4 M6 6h6v6H6Z", accountScope: true },
   { path: "/streams", label: "Streams", group: "JetStream", icon: "M2 6c3-3 5 3 8 0s4-1 6 0 M2 12c3-3 5 3 8 0s4-1 6 0" },
   { path: "/consumers", label: "Consumers", group: "JetStream", icon: "M3 9h8 M8 5l4 4-4 4 M14 4v10", accountScope: true },

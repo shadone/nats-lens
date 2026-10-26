@@ -22,6 +22,11 @@ var accountEpochTables = []string{"micro_requests", "micro_instances", "micro_st
 // archived by epoch like epochTables, but describe no server.
 var checkTables = []string{"check_runs", "finding_transitions"}
 
+// hourTables hold sums per hour, filled as each epoch is written; they are
+// swept with the hours wholly before the retention window and archived by
+// hour.
+var hourTables = []string{"micro_endpoint_hours", "client_app_hours"}
+
 // rangeTables hold rows that cover a range of epochs and are swept by last_epoch.
 var rangeTables = []string{
 	"servers", "accounts", "streams", "consumers", "raft_groups", "stream_config", "consumer_config",
@@ -74,9 +79,11 @@ SELECT coalesce(
 	}
 	// The hourly sums go with the hours wholly before the window; the
 	// hour the window starts in keeps its sum.
-	if _, err := tx.ExecContext(ctx, `DELETE FROM micro_endpoint_hours WHERE hour < date_trunc('hour', make_timestamp(?::BIGINT))`,
-		now.Add(-retention).UTC().UnixMicro()); err != nil {
-		return SweepResult{}, fmt.Errorf("sweep micro_endpoint_hours: %w", err)
+	for _, t := range hourTables {
+		if _, err := tx.ExecContext(ctx, "DELETE FROM "+t+" WHERE hour < date_trunc('hour', make_timestamp(?::BIGINT))",
+			now.Add(-retention).UTC().UnixMicro()); err != nil {
+			return SweepResult{}, fmt.Errorf("sweep %s: %w", t, err)
+		}
 	}
 	for _, t := range rangeTables {
 		if _, err := tx.ExecContext(ctx, "DELETE FROM "+t+" WHERE last_epoch < ?", cutoff); err != nil {

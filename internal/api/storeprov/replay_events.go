@@ -250,11 +250,10 @@ func (p *Provider) replayReconnects(ctx context.Context, f *api.ReplayFacts, _ m
 		return nil
 	}
 	var n sql.NullInt64
+	tooling, args := p.eventToolingSQL("e.client_name", "e.client_host")
 	err := p.db().QueryRowContext(ctx, `
 WITH t AS (
-    SELECT e.kind, e.client_name, e.reason, e.raw,
-        (list_contains(?::VARCHAR[], coalesce(e.client_name, ''))
-         OR (? AND coalesce(e.client_host, '') IN ('127.0.0.1', '::1') AND coalesce(x.loopback_tooling, true))) AS tooling
+    SELECT e.kind, e.client_name, e.reason, e.raw, `+tooling+` AS tooling
     FROM events e ASOF LEFT JOIN epochs x ON e.time >= x.started_at
     WHERE e.kind IN ('client.disconnect', 'client.connect', 'client.churn') AND e.time >= ? AND e.time <= ?
 ),
@@ -267,7 +266,7 @@ connects AS (
     FROM t WHERE kind IN ('client.connect', 'client.churn') AND NOT tooling GROUP BY client_name
 )
 SELECT sum(least(d.n, c.n)) FROM drops d JOIN connects c ON c.client_name IS NOT DISTINCT FROM d.client_name`,
-		append([]string{}, p.ToolingNames...), !p.LoopbackNotTooling, f.A, f.B).Scan(&n)
+		append(args, f.A, f.B)...).Scan(&n)
 	if err != nil {
 		return fmt.Errorf("replay reconnects: %w", err)
 	}

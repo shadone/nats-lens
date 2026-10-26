@@ -151,7 +151,7 @@ func TestArchiveRoundTrip(t *testing.T) {
 		switch table {
 		case "events":
 			where = `received_at < '2026-10-17 00:00:00'`
-		case "micro_endpoint_hours":
+		case "micro_endpoint_hours", "client_app_hours":
 			where = `hour < '2026-10-17 00:00:00'`
 		case "servers", "accounts", "streams", "consumers", "raft_groups", "stream_config", "consumer_config", "mutes", "findings":
 			where = "true"

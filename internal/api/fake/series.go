@@ -112,7 +112,7 @@ func prodSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (floa
 	case "cluster.servers_up":
 		return serversUp(sc, c), true
 	case "cluster.connections":
-		return traffic(metric, c, 168, 14, 0.72, 182), true
+		return traffic(metric, c, 168, 14, 0.72, float64(sc.totalConns(c))), true
 	case "cluster.in_msgs_rate":
 		return traffic(metric, c, 1180, 260, 0.55, 1240), true
 	case "cluster.out_msgs_rate":
@@ -133,6 +133,10 @@ func prodSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (floa
 			return 0, false
 		}
 		v, _ := prodSample(sc, "cluster."+strings.TrimPrefix(metric, "server."), e, c)
+		if sp, ok := sc.server(e.GetKey()); ok && metric == "server.connections" {
+			// Each server's share of the connections.
+			return math.Round(v * float64(sc.connsOn(sp, c)) / float64(sc.totalConns(c))), true
+		}
 		return math.Round(v / 3), true
 	case "server.mem_bytes":
 		return 412*mib + noise(metric+e.GetKey(), c)*40*mib, !down(e.GetKey(), c)

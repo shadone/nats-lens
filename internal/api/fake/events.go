@@ -172,6 +172,7 @@ func prodEvents(s scen, fs []*v1.Finding) []*v1.Event {
 	}
 	out = append(out, prodRoutine(s)...)
 	out = append(out, prodPending(s)...)
+	out = append(out, prodCallbackReconnects(s)...)
 	out = append(out, restartReconnects(s, map[string]time.Time{"nats-0": s.at(9, 16, 2), "nats-1": s.at(9, 29, 5), "nats-2": s.at(9, 41, 10)})...)
 	slices.SortStableFunc(out, func(a, b *v1.Event) int { return b.GetTime().AsTime().Compare(a.GetTime().AsTime()) })
 	return out
@@ -229,6 +230,39 @@ func prodRoutine(s scen) []*v1.Event {
 				Server: "nats-0", Account: "SYS", ClientName: "NATS CLI Version 0.2.2", ClientHost: "127.0.0.1",
 				Summary: "NATS CLI Version 0.2.2 " + strings.TrimPrefix(kind, "client.") + " from 127.0.0.1"})
 		}
+	}
+	return out
+}
+
+// prodCallbackDrops are the fixed-frame times and servers of
+// callback-dispatcher's stale connections in example-prod's last day: it
+// stops answering pings while it drains a burst of callbacks, and comes
+// back 4 seconds later. The last three fire client-004.
+var prodCallbackDrops = []struct {
+	at     time.Time
+	server string
+}{
+	{fixed(6, 42, 10), "nats-0"}, {fixed(8, 5, 30), "nats-1"}, {fixed(12, 15, 20), "nats-2"},
+	{fixed(14, 19, 40), "nats-0"}, {fixed(14, 22, 50), "nats-0"}, {fixed(14, 26, 10), "nats-1"},
+}
+
+// prodCallbackHost is the address of callback-dispatcher's reconnecting
+// connection.
+const prodCallbackHost = "10.20.3.16"
+
+// prodCallbackReconnects are callback-dispatcher's six reconnects: each a
+// stale connection's disconnect and a connect to the same server.
+func prodCallbackReconnects(s scen) []*v1.Event {
+	var out []*v1.Event
+	for _, d := range prodCallbackDrops {
+		at := s.at(d.at.Hour(), d.at.Minute(), d.at.Second())
+		out = append(out,
+			&v1.Event{Time: ts(at), Source: srcNATS, Kind: "client.disconnect", Type: "CLIENT.DISCONNECT", Server: d.server, Account: Account,
+				ClientName: "callback-dispatcher", ClientHost: prodCallbackHost, Reason: api.StaleReason,
+				Summary: "callback-dispatcher disconnected from " + d.server + ": " + api.StaleReason},
+			&v1.Event{Time: ts(at.Add(4 * time.Second)), Source: srcNATS, Kind: "client.connect", Type: "CLIENT.CONNECT", Server: d.server,
+				Account: Account, ClientName: "callback-dispatcher", ClientHost: prodCallbackHost,
+				Summary: "callback-dispatcher connected to " + d.server + " from " + prodCallbackHost})
 	}
 	return out
 }

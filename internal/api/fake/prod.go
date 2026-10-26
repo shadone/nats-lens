@@ -18,9 +18,12 @@ func prodScenario() *scenario {
 	return &scenario{
 		cluster: Cluster,
 		servers: []serverSpec{
-			prodServer("nats-0", "NDQ4ZFAKE0SERVER0", "NB71FAKE0OLDPROCESS", 9, 18, 0, 61),
-			prodServer("nats-1", "NC2XFAKE1SERVER1", "NA09FAKE1OLDPROCESS", 9, 31, 2, 60),
-			prodServer("nats-2", "NE5KFAKE2SERVER2", "NF33FAKE2OLDPROCESS", 9, 44, 21, 61),
+			// The clients that left nats-1 and nats-2 during the upgrade
+			// stayed on nats-0, which came back first: it holds most of
+			// them.
+			prodServer("nats-0", "NDQ4ZFAKE0SERVER0", "NB71FAKE0OLDPROCESS", 9, 18, 0, 98),
+			prodServer("nats-1", "NC2XFAKE1SERVER1", "NA09FAKE1OLDPROCESS", 9, 31, 2, 42),
+			prodServer("nats-2", "NE5KFAKE2SERVER2", "NF33FAKE2OLDPROCESS", 9, 44, 21, 42),
 		},
 		streams: []streamSpec{
 			{name: "order-jobs", msgs: 48211, bytes: 61.2 * mib, perDay: 2.1 * mib, maxAge: 7 * day, maxMsgs: 1_000_000, held: 4*day + 6*time.Hour,
@@ -58,6 +61,17 @@ func prodScenario() *scenario {
 		clients: []string{
 			"media-worker", "order-service", "analytics-worker", "ledger-service", "api-gateway",
 			"catalog-api", "callback-dispatcher", "video-transcoder",
+		},
+		// resize-worker names each pod's connection; one pod waited for a
+		// node until 11:22 (prodPending). A script connects without a
+		// name.
+		extraConns: []extraConn{
+			{server: "nats-0", name: "resize-worker@resize-worker-6c9d4-7d9fq", account: Account, ip: "10.20.6.21", user: "resize-worker", cid: 950},
+			{server: "nats-0", name: "resize-worker@resize-worker-6c9d4-k2p4m", account: Account, ip: "10.20.6.22", user: "resize-worker", cid: 951},
+			{server: "nats-1", name: "resize-worker@resize-worker-6c9d4-m8w2z", account: Account, ip: "10.20.6.23", user: "resize-worker", cid: 952},
+			{server: "nats-2", name: "resize-worker@resize-worker-6c9d4-x2k4l", account: Account, ip: "10.20.6.24", user: "resize-worker", cid: 953,
+				since: fixed(11, 22, 30)},
+			{server: "nats-1", name: "", account: Account, ip: "10.20.5.17", user: "order-service", cid: 954, since: fixed(10, 5, 0)},
 		},
 		subs:          prodSubs(),
 		micro:         prodMicro(),

@@ -267,6 +267,22 @@ export function useMicroServices(spec: RangeSpec, account: string) {
 }
 
 /**
+ * The Applications page: the range's newest collection. The previous
+ * answer stands in while the next loads only for the same system and
+ * account, so a switch never shows another account's applications; a
+ * change of the tooling toggle keeps it.
+ */
+export function useApplications(spec: RangeSpec, account: string, includeTooling: boolean) {
+  const sys = useSystem();
+  return useQuery({
+    queryKey: ["applications", sys, rangeKey(spec), account, includeTooling],
+    queryFn: ({ signal }) => api.getApplications(sys, spec, account, includeTooling, signal),
+    refetchInterval: refetch(spec),
+    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === sys && prevQuery.queryKey[3] === account ? prev : undefined),
+  });
+}
+
+/**
  * What a message on subject would reach; "" asks nothing. No answer
  * stands in for another subject's while the next loads.
  */

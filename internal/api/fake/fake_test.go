@@ -53,7 +53,7 @@ func TestOverviewReproducesTheReferenceScenario(t *testing.T) {
 		t.Fatalf("range = %v", o.GetRange())
 	}
 	tl := o.GetTally()
-	if tl.GetCritical() != 1 || tl.GetWarning() != 3 || tl.GetInfo() != 1 || tl.GetMuted() != 2 || tl.GetFlapping() != 1 || tl.GetResolved_24H() != 8 {
+	if tl.GetCritical() != 1 || tl.GetWarning() != 4 || tl.GetInfo() != 1 || tl.GetMuted() != 2 || tl.GetFlapping() != 1 || tl.GetResolved_24H() != 8 {
 		t.Fatalf("tally = %v", tl)
 	}
 	w := o.GetWorstFinding()
@@ -66,7 +66,7 @@ func TestOverviewReproducesTheReferenceScenario(t *testing.T) {
 	if len(o.GetTiles()) != 9 || len(o.GetWindows()) != 1 || !o.GetWindows()[0].GetStart().AsTime().Equal(at(9, 16, 1)) {
 		t.Fatalf("%d tiles, windows %v", len(o.GetTiles()), o.GetWindows())
 	}
-	want := map[string]float64{"servers": 3, "clients": 182, "meta_leader": 2, "consumers": 13}
+	want := map[string]float64{"servers": 3, "clients": 187, "meta_leader": 2, "consumers": 13}
 	for _, tile := range o.GetTiles() {
 		if v, ok := want[tile.GetId()]; ok && tile.GetValue() != v {
 			t.Errorf("tile %s = %v, want %v", tile.GetId(), tile.GetValue(), v)
@@ -82,13 +82,13 @@ func TestListFindingsFiltersAndPages(t *testing.T) {
 	list := func(req *v1.ListFindingsRequest) *v1.ListFindingsResponse {
 		return must(c.ListFindings(ctx, connect.NewRequest(req)))
 	}
-	if got := list(&v1.ListFindingsRequest{}); got.GetTotalCount() != 5 || got.GetFindings()[0].GetCheckCode() != "consumer-010" {
+	if got := list(&v1.ListFindingsRequest{}); got.GetTotalCount() != 6 || got.GetFindings()[0].GetCheckCode() != "consumer-010" {
 		t.Fatalf("default: %d, first %s", got.GetTotalCount(), got.GetFindings()[0].GetCheckCode())
 	}
 	all := list(&v1.ListFindingsRequest{IncludeMuted: true})
 	// Muted last: stream-006 under its mute, stream-005 on
 	// KV_customer-config under its acceptance.
-	if all.GetTotalCount() != 7 || all.GetFindings()[5].GetMute().GetMutedBy() != "denis" || !all.GetFindings()[6].GetMute().GetAccepted() {
+	if all.GetTotalCount() != 8 || all.GetFindings()[6].GetMute().GetMutedBy() != "denis" || !all.GetFindings()[7].GetMute().GetAccepted() {
 		t.Fatalf("with muted: %v", all.GetFindings())
 	}
 	res := list(&v1.ListFindingsRequest{States: []v1.FindingState{v1.FindingState_FINDING_STATE_RESOLVED}})
@@ -110,7 +110,7 @@ func TestListFindingsFiltersAndPages(t *testing.T) {
 			break
 		}
 	}
-	if len(seen) != 7 {
+	if len(seen) != 8 {
 		t.Fatalf("paged %v", seen)
 	}
 	_, err := c.ListFindings(ctx, connect.NewRequest(&v1.ListFindingsRequest{PageToken: "%%%"}))
@@ -143,7 +143,7 @@ func TestMuteRoundTrip(t *testing.T) {
 		t.Fatalf("mute = %v", m)
 	}
 	tl := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{}))).GetTally()
-	if tl.GetWarning() != 2 || tl.GetMuted() != 3 {
+	if tl.GetWarning() != 3 || tl.GetMuted() != 3 {
 		t.Fatalf("tally after mute = %v", tl)
 	}
 	if n := len(must(c.ListMutes(ctx, connect.NewRequest(&v1.ListMutesRequest{}))).GetMutes()); n != 3 {
@@ -153,7 +153,7 @@ func TestMuteRoundTrip(t *testing.T) {
 	if un.GetUnmutedAt() == nil || un.GetUnmutedBy() != "op" {
 		t.Fatalf("unmuted = %v", un)
 	}
-	if tl := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{}))).GetTally(); tl.GetWarning() != 3 || tl.GetMuted() != 2 {
+	if tl := must(c.GetOverview(ctx, connect.NewRequest(&v1.GetOverviewRequest{}))).GetTally(); tl.GetWarning() != 4 || tl.GetMuted() != 2 {
 		t.Fatalf("tally after unmute = %v", tl)
 	}
 	_, err := c.UnmuteFinding(ctx, connect.NewRequest(&v1.UnmuteFindingRequest{MuteId: m.GetId(), UnmutedBy: "op"}))
@@ -327,8 +327,8 @@ func TestConnectionsAndFleetFollowTheEpoch(t *testing.T) {
 	if r := conns(at(9, 17, 0), "nats-0"); r.GetEpoch() == 0 || r.GetTotalCount() != 0 {
 		t.Errorf("nats-0 at 09:17: epoch %d, %d connections, want none", r.GetEpoch(), r.GetTotalCount())
 	}
-	if r := conns(at(9, 17, 0), "nats-1"); r.GetTotalCount() != 60 {
-		t.Errorf("nats-1 at 09:17: %d connections, want 60", r.GetTotalCount())
+	if r := conns(at(9, 17, 0), "nats-1"); r.GetTotalCount() != 43 {
+		t.Errorf("nats-1 at 09:17: %d connections, want 43 (the unnamed script connects at 10:05)", r.GetTotalCount())
 	}
 	if r := conns(fake.FixedNow.Add(-40*24*time.Hour), ""); r.GetEpoch() != 0 || r.GetTotalCount() != 0 || len(r.GetConnections()) != 0 {
 		t.Errorf("before the history: epoch %d, %d connections", r.GetEpoch(), r.GetTotalCount())
@@ -342,7 +342,7 @@ func TestConnectionsAndFleetFollowTheEpoch(t *testing.T) {
 			if partial, fewer := s.GetFreshness().GetPartial(), s.GetServersAnswering() < s.GetServers(); partial != fewer {
 				t.Errorf("..%s: partial %v, %d of %d answering", end.Format("15:04"), partial, s.GetServersAnswering(), s.GetServers())
 			}
-			if want := map[bool]int64{true: 121, false: 182}[s.GetServersAnswering() < s.GetServers()]; end.Equal(at(9, 17, 0)) && s.GetConnections() != want {
+			if want := map[bool]int64{true: 85, false: 187}[s.GetServersAnswering() < s.GetServers()]; end.Equal(at(9, 17, 0)) && s.GetConnections() != want {
 				t.Errorf("..09:17: %d connections, want %d", s.GetConnections(), want)
 			}
 		}
@@ -350,7 +350,7 @@ func TestConnectionsAndFleetFollowTheEpoch(t *testing.T) {
 }
 
 // Servers and accounts read the range's newest epoch too: at 09:17 nats-0
-// is down, so it is missing, not present, and its 61 connections are not
+// is down, so it is missing, not present, and its 100 connections are not
 // counted; before 09:18 its summary is the process it restarted from.
 // Without an epoch in the range the account's counts are unset.
 func TestServersAndAccountsFollowTheEpoch(t *testing.T) {
@@ -370,8 +370,8 @@ func TestServersAndAccountsFollowTheEpoch(t *testing.T) {
 		t.Errorf("overview nats-0 at 09:17 = %v", o.GetServers()[0])
 	}
 	acc := must(c.ListAccounts(ctx, connect.NewRequest(&v1.ListAccountsRequest{System: fake.Cluster, Range: r}))).GetAccounts()
-	if len(acc) != 1 || acc[0].GetConnections() != 121 {
-		t.Errorf("accounts at 09:17 = %v, want 121 connections", acc)
+	if len(acc) != 1 || acc[0].GetConnections() != 85 {
+		t.Errorf("accounts at 09:17 = %v, want 85 connections", acc)
 	}
 	live := &v1.TimeRange{Start: timestamppb.New(fake.FixedNow.Add(-time.Hour)), End: timestamppb.New(fake.FixedNow)}
 	acc = must(c.ListAccounts(ctx, connect.NewRequest(&v1.ListAccountsRequest{System: fake.StagingSystem, Range: live}))).GetAccounts()
