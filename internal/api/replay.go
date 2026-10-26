@@ -235,8 +235,7 @@ const (
 
 // EventsFailover is how soon an events connection must reconnect for its
 // disconnect to be a failover, not a loss of capture: no gap step, no
-// count unset, though advisories sent in those seconds may be missing
-// (proposed, not yet confirmed).
+// count unset, though advisories sent in those seconds may be missing.
 const EventsFailover = 10 * time.Second
 
 // EventsConnectionGaps are the times the connections that capture events

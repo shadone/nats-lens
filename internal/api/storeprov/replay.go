@@ -98,8 +98,7 @@ func (p *Provider) replayEpochs(ctx context.Context, f *api.ReplayFacts, _ map[s
 // same name and started after A and at or before B, as server-004 pairs
 // them, with what each process held and the old one led. The new process
 // must also have been collected by B: one first collected after B is
-// read as a stop that answered again after B (proposed, not yet
-// confirmed).
+// read as a stop that answered again after B.
 func (p *Provider) replayRestarts(ctx context.Context, f *api.ReplayFacts, names map[string]string) error {
 	rows, err := p.db().QueryContext(ctx, `
 WITH procs AS (

@@ -103,8 +103,7 @@ func uniqueEvidence(ev []*v1.ReplayEvidence) []*v1.ReplayEvidence {
 
 // capEvidence keeps at most n of a step's evidence, in time order: the
 // step's own evidence first (collections, findings, announcements, pod
-// events), then elections, which leaders_taken counts in full
-// (proposed, not yet confirmed).
+// events), then elections, which leaders_taken counts in full.
 func capEvidence(ev []*v1.ReplayEvidence, n int) []*v1.ReplayEvidence {
 	if len(ev) <= n {
 		return ev
@@ -141,8 +140,7 @@ func leaderCounts(by map[string]int) []*v1.ReplayLeaderCount {
 
 // distinctLabels tells apart evidence of one step whose labels are the
 // same, as a folded step's often are: such labels begin with their time,
-// and a finding's that still repeat end with its entity (proposed, not
-// yet confirmed).
+// and a finding's that still repeat end with its entity.
 func distinctLabels(ev []*v1.ReplayEvidence) []*v1.ReplayEvidence {
 	relabel := func(ev []*v1.ReplayEvidence, f func(e *v1.ReplayEvidence) string) []*v1.ReplayEvidence {
 		n := map[string]int{}
@@ -245,8 +243,7 @@ func (b *replayBuilder) gapCause(kind string, r v1.ReplayUnobservedReason) *why 
 }
 
 // cutCause is the read limit as a cause when it cut the rows at or
-// before B: a read that reached past B read every row of A to B
-// (proposed, not yet confirmed).
+// before B: a read that reached past B read every row of A to B.
 func (b *replayBuilder) cutCause(cut bool, until time.Time) *why {
 	if !cut || until.After(b.f.B) {
 		return nil
@@ -257,7 +254,7 @@ func (b *replayBuilder) cutCause(cut bool, until time.Time) *why {
 // counts are the response's numbers and why each unset one is unset: a
 // count stays unset when what it counts was not observed, and then has
 // one entry naming the first cause that applies, in the order checked
-// here (proposed, not yet confirmed).
+// here.
 func (b *replayBuilder) counts() (*v1.ReplayCounts, []*v1.ReplayUnobserved) {
 	f, c := b.f, &v1.ReplayCounts{}
 	var unobserved []*v1.ReplayUnobserved
@@ -309,10 +306,9 @@ func (b *replayBuilder) counts() (*v1.ReplayCounts, []*v1.ReplayUnobserved) {
 
 	// Event capture over A to B: events stored up to B, nats-lens running
 	// and every connection that captures events connected (collections do
-	// not tell, as events come on connections of their own; proposed, not
-	// yet confirmed); the counts from the event rows also need the read
-	// limit not to have cut them before B, the reconnects (read by a query
-	// of their own) do not.
+	// not tell, as events come on connections of their own); the counts
+	// from the event rows also need the read limit not to have cut them
+	// before B, the reconnects (read by a query of their own) do not.
 	events := first(cause(!f.EventsCaptured, R(v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_EVENTS_NOT_CAPTURED)),
 		b.gapCause(GapCollector, v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_COLLECTOR_GAP),
 		b.gapCause(GapEvents, v1.ReplayUnobservedReason_REPLAY_UNOBSERVED_REASON_EVENTS_CONNECTION_LOST))
