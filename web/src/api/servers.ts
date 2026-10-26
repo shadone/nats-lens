@@ -1,7 +1,8 @@
 // Servers of one system: requests, view models and hooks for the Servers
 // page and a server's own page. Every hook keys on the page's system.
 import type { Duration } from "@bufbuild/protobuf/wkt";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { keepSameSystem } from "./placeholder";
 import { EntityType } from "../gen/natslens/v1/common_pb";
 import type { GetServerResponse, ListServersResponse, ServerSummary } from "../gen/natslens/v1/servers_pb";
 import type { Series as PSeries } from "../gen/natslens/v1/timeseries_pb";
@@ -179,7 +180,7 @@ export function useServerList(spec: RangeSpec) {
     queryKey: ["serverList", sys, rangeKey(spec)],
     queryFn: ({ signal }) => listServerRows(sys, spec, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
   });
 }
 
@@ -198,7 +199,7 @@ export function useBandSeries(spec: RangeSpec, metric: string, serverName?: stri
     queryKey: ["bandSeries", sys, rangeKey(spec), metric, serverName ?? "", maxPoints],
     queryFn: ({ signal }) => getBandSeries(sys, spec, metric, serverName, maxPoints, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
   });
 }
 
@@ -208,7 +209,7 @@ export function useServerEvents(spec: RangeSpec, name: string, pageSize = 6) {
     queryKey: ["serverEvents", sys, rangeKey(spec), name, pageSize],
     queryFn: ({ signal }) => listServerEvents(sys, spec, name, pageSize, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
   });
 }
 

@@ -1,7 +1,8 @@
 // The Overview cockpit's requests, view models and hooks: band series for
 // the trends, the busiest consumers, the streams with their placement and
 // the current findings. Every hook keys on the page's system.
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { keepSameSystem } from "./placeholder";
 import { ConsumerSort } from "../gen/natslens/v1/consumers_pb";
 import type { StreamSummary as PStream } from "../gen/natslens/v1/streams_pb";
 import type { Series as PSeries } from "../gen/natslens/v1/timeseries_pb";
@@ -68,7 +69,7 @@ export function useBusiestConsumers(spec: RangeSpec, account: string, limit = 6)
     queryKey: ["busiestConsumers", sys, rangeKey(spec), account, limit],
     queryFn: ({ signal }) => listBusiestConsumers(sys, spec, account, limit, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
   });
 }
 
@@ -105,7 +106,7 @@ export function useStreamPlacement(spec: RangeSpec, account: string) {
     queryKey: ["streamPlacement", sys, rangeKey(spec), account],
     queryFn: ({ signal }) => listStreamPlacement(sys, spec, account, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
   });
 }
 
@@ -119,6 +120,6 @@ export function useCurrentFindings(spec: RangeSpec) {
     queryKey: ["currentFindings", sys, rangeKey(spec)],
     queryFn: ({ signal }) => listFindings(sys, spec, { includeMuted: true, pageSize: CURRENT_FINDINGS_LIMIT }, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
   });
 }
