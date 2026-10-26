@@ -49,7 +49,6 @@ describe("appsView", () => {
     expect(partialText(["nats-1"])).toBe("nats-1 did not answer in this collection: its connections are not counted, and the counts, the spread and the traffic cover the servers that answered.");
     expect(partialText(["nats-1", "nats-2"])).toBe("nats-1 and nats-2 did not answer in this collection: their connections are not counted, and the counts, the spread and the traffic cover the servers that answered.");
     expect(partialText(["a", "b", "c"])).toMatch(/^a, b and c did not answer/);
-    expect(partialText([])).toBe("Part of this collection did not answer, so connections can be missing: the counts and the spread cover what answered.");
   });
 
   it("says in the line under the title that a partial collection counts the servers that answered", () => {

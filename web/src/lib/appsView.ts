@@ -177,9 +177,8 @@ export function trafficNote(rows: Application[]): string | undefined {
   return `No application has all ${len} hours before this collection's hour measured; the most any has is ${most}. The hours without a measurement are gaps in the lines, not zeros.`;
 }
 
-/** The notice for a partial collection: the servers that did not answer, or only that part of it did not. */
+/** The notice for a partial collection: the servers whose connections it does not know; at least one. */
 export function partialText(missing: string[]): string {
-  if (missing.length === 0) return "Part of this collection did not answer, so connections can be missing: the counts and the spread cover what answered.";
   const names = missing.length === 1 ? missing[0] : `${missing.slice(0, -1).join(", ")} and ${missing[missing.length - 1]}`;
   return `${names} did not answer in this collection: ${missing.length === 1 ? "its" : "their"} connections are not counted, and the counts, the spread and the traffic cover the servers that answered.`;
 }
@@ -217,6 +216,6 @@ export const APPS_FOOTNOTE = [
   "Instances count pods (the part of the name after the “@”) where the name gives one, and connections otherwise. Pods lists those pod names, or the client addresses where no name gives a pod.",
   "Tooling connections, nats-lens's own or clients from a loopback address, are left out unless included.",
   "Messages in and out are the 24 whole hours before the collection's hour, from the hourly rollup; a connection that closed between two collections loses its last interval, and a gap is an hour without a measurement.",
-  "Reconnects follow client-004's rule per connection name over the 24 hours before the collection, summed over the application's names: a pod that drops and a new pod that connects, as in a rolling deploy, are not a reconnect.",
+  "Reconnects follow client-004's rule per connection name over the 24 hours before the collection, summed over the application's names: a pod that drops and a new pod that connects, as in a rolling deploy, are not a reconnect. A name pairs its events across accounts, so a page scoped to an account counts each name with an event in that account, whatever account its other events are in.",
   "Each sparkline is scaled to its own row's busiest hour, in or out, so two rows' lines do not compare; the numbers beneath them do.",
 ] as const;
