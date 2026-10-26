@@ -135,6 +135,12 @@ export function hoursSet(t: AppHour[]): number {
   return t.filter((h) => h.inMsgs !== undefined || h.outMsgs !== undefined).length;
 }
 
+/** "1,200 in (1.17 KiB)"; "in not measured" when the rollup left it unset, never 0. */
+function direction(what: "in" | "out", msgs: number | undefined, bytes: number | undefined): string {
+  if (msgs === undefined) return `${what} not measured`;
+  return bytes === undefined ? `${fmtInt(msgs)} ${what}` : `${fmtInt(msgs)} ${what} (${fmtBytes(bytes)})`;
+}
+
 /**
  * The sparkline's accessible name: what it shows, the hours, the totals,
  * and how many hours were measured when not all.
@@ -146,7 +152,7 @@ export function trafficLabel(a: Pick<Application, "name" | "traffic" | "inMsgs" 
   const span = `the ${a.traffic.length} hours to ${hm(end)} UTC`;
   const set = hoursSet(a.traffic);
   if (set === 0) return `${what}, ${span}: not measured`;
-  const totals = `${fmtInt(a.inMsgs ?? 0)} in (${fmtBytes(a.inBytes ?? 0)}), ${fmtInt(a.outMsgs ?? 0)} out (${fmtBytes(a.outBytes ?? 0)})`;
+  const totals = `${direction("in", a.inMsgs, a.inBytes)}, ${direction("out", a.outMsgs, a.outBytes)}`;
   const hours = set < a.traffic.length ? `; ${set} of ${a.traffic.length} hours measured` : "";
   return `${what}, ${span}: ${totals}${hours}`;
 }
