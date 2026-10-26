@@ -16,7 +16,8 @@ type routeEnd struct {
 }
 
 // topologyRoutes pairs the epoch's routes by server and marks the slow
-// ones.
+// ones: those slow by markSlowRoutes in the epoch and in the earlier
+// collection.
 func topologyRoutes(f *TopologyFacts, servers []TopologyServerFact) []*v1.TopologyRoute {
 	clusterOf := map[string]string{}
 	for _, s := range servers {
@@ -26,9 +27,27 @@ func topologyRoutes(f *TopologyFacts, servers []TopologyServerFact) []*v1.Topolo
 	for _, n := range f.Answered[EndpointRoutez] {
 		answered[n] = true
 	}
+	out := pairRoutes(f.Routes, clusterOf, answered)
+	var earlier []*v1.TopologyRoute
+	if e := f.Earlier; e != nil && e.At.Before(f.EpochAt) && !e.At.Before(TopologyEarliestEarlier(f.EpochAt, f.Interval)) {
+		earlier = pairRoutes(e.Routes, clusterOf, nil)
+	}
+	markSlowTwice(out, earlier)
+	slices.SortFunc(out, func(a, b *v1.TopologyRoute) int {
+		return cmp.Or(compareBool(b.GetSlow(), a.GetSlow()),
+			cmp.Compare(b.GetRtt().AsDuration(), a.GetRtt().AsDuration()),
+			cmp.Compare(a.GetCluster(), b.GetCluster()),
+			cmp.Compare(a.GetServerA(), b.GetServerA()), cmp.Compare(a.GetServerB(), b.GetServerB()))
+	})
+	return out
+}
+
+// pairRoutes pairs one collection's routes by server; answered names the
+// servers whose ROUTEZ answered, for one-sided pairs.
+func pairRoutes(rows []TopologyRouteRow, clusterOf map[string]string, answered map[string]bool) []*v1.TopologyRoute {
 	byPair := map[[2]string]*v1.TopologyRoute{}
 	ends := map[[2]string]map[string]*routeEnd{}
-	for _, r := range f.Routes {
+	for _, r := range rows {
 		if r.Remote == "" || r.Remote == r.Server {
 			continue
 		}
@@ -79,12 +98,5 @@ func topologyRoutes(f *TopologyFacts, servers []TopologyServerFact) []*v1.Topolo
 		slices.Sort(t.PinnedAccounts)
 		out = append(out, t)
 	}
-	markSlowRoutes(out)
-	slices.SortFunc(out, func(a, b *v1.TopologyRoute) int {
-		return cmp.Or(compareBool(b.GetSlow(), a.GetSlow()),
-			cmp.Compare(b.GetRtt().AsDuration(), a.GetRtt().AsDuration()),
-			cmp.Compare(a.GetCluster(), b.GetCluster()),
-			cmp.Compare(a.GetServerA(), b.GetServerA()), cmp.Compare(a.GetServerB(), b.GetServerB()))
-	})
 	return out
 }

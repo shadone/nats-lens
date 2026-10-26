@@ -417,7 +417,11 @@ type TopologyRoute struct {
 	// group is slow, and a route inside it is slow at 2 ms or more and 3
 	// times the median of at least 2 of the group's routes that touch
 	// neither of its servers. A cluster split into groups of similar size,
-	// or of two servers, has nothing slow.
+	// or of two servers, has nothing slow. A route is slow only when the
+	// epoch and the collection before it (the newest earlier one with
+	// routes, at most 3 collect intervals earlier) both measure it slow;
+	// without such a collection, or when that one did not measure the
+	// pair, it is not slow.
 	Slow bool `protobuf:"varint,9,opt,name=slow,proto3" json:"slow,omitempty"`
 	// The ends that report the pair, by name.
 	ReportedBy    []string `protobuf:"bytes,10,rep,name=reported_by,json=reportedBy,proto3" json:"reported_by,omitempty"`
