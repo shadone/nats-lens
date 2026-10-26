@@ -42,7 +42,30 @@ package checks
 //     tooling(name, ip) is tooling_at for the epoch checked, for events.
 //   - gap_text(names, whys) writes " (may be on nats-0, which did not
 //     answer)" for the not-ready servers that may hold a missing asset.
-const Prelude = `CREATE OR REPLACE TEMP MACRO tooling_at(name, ip, e) AS
+//   - account_lookups(e) is a table of the newest account_details row of
+//     each account epoch e lists, at or before e and read at most 24 hours
+//     before e started (api.AccountDetailsMaxAge, the Accounts page's
+//     rule; an older lookup reads as not looked up yet), with title, the
+//     account's readable name, else its identifier.
+//   - expiry_text(t, now) writes "expires 2026-11-08 09:00 UTC, in 12.0
+//     days" or "expired 2026-10-20 09:00 UTC, 3.0 days ago"; span_text(iv)
+//     writes the span as days, hours or minutes.
+const Prelude = `CREATE OR REPLACE TEMP MACRO account_lookups(ep) AS TABLE
+SELECT d.*, coalesce(nullif(nullif(a.account_name, ''), a.account), nullif(nullif(d.account_name, ''), a.account), a.account) AS title
+FROM account_details d JOIN accounts a ON a.account = d.account AND a.first_epoch <= ep AND a.last_epoch >= ep
+WHERE d.epoch <= ep AND d.looked_up_at >= (SELECT started_at FROM epochs WHERE epoch = ep) - INTERVAL 24 HOUR
+QUALIFY row_number() OVER (PARTITION BY d.account ORDER BY d.epoch DESC, d.looked_up_at DESC) = 1;
+CREATE OR REPLACE TEMP MACRO span_text(iv) AS CASE
+    WHEN epoch(iv) >= 86400 THEN CAST(round(epoch(iv) / 86400, 1) AS VARCHAR) || ' days'
+    WHEN epoch(iv) >= 3600 THEN CAST(round(epoch(iv) / 3600, 1) AS VARCHAR) || ' hours'
+    ELSE CAST(CAST(round(epoch(iv) / 60) AS BIGINT) AS VARCHAR) || ' minutes'
+END;
+CREATE OR REPLACE TEMP MACRO expiry_text(t, now) AS CASE
+    WHEN t IS NULL THEN NULL
+    WHEN t <= now THEN 'expired ' || strftime(t, '%Y-%m-%d %H:%M UTC') || ', ' || span_text(now - t) || ' ago'
+    ELSE 'expires ' || strftime(t, '%Y-%m-%d %H:%M UTC') || ', in ' || span_text(t - now)
+END;
+CREATE OR REPLACE TEMP MACRO tooling_at(name, ip, e) AS
     coalesce(getvariable('exclude_tooling') AND (list_contains(getvariable('tooling_names'), name)
         OR (getvariable('loopback_setting')
             AND CASE WHEN e = getvariable('epoch') THEN getvariable('loopback_now')
