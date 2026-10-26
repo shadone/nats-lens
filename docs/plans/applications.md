@@ -8,10 +8,10 @@ The board's sample names come from a sketch of a real deployment, and its footno
 
 | Task | Status |
 |---|---|
-| T1 Hourly traffic rollup and the tooling rule | built on `feat/apps-rollup`, under review |
-| T2 API, store and demo | built on `feat/apps-api`, under review |
-| T3 UI | built on `feat/apps-ui`, under review |
-| T4 Feature docs and audit | not started |
+| T1 Hourly traffic rollup and the tooling rule | done on `feat/apps-rollup`, reviewed |
+| T2 API, store and demo | done on `feat/apps-api`, reviewed, with fix rounds 1 to 3 |
+| T3 UI | done on `feat/apps-ui`, reviewed, with fix rounds 1 to 4 (T2's fix rounds merged in) |
+| T4 Feature docs and audit | done on `feat/apps-ui`: `applications.md` shipped, the README, adjacent docs and `docs/plans/next.md` items 4 and 5 |
 
 ## Decisions of the owner (2026-10-26)
 
@@ -164,3 +164,5 @@ Recorded as they come up; moved to `docs/plans/next.md` item 5 when the work mer
 - "Runs on": the watcher would list client pods and store namespace, owner workload, node and IP (deferred by the owner, 2026-10-26).
 - `example-prod`'s slow consumers exist only as counters (the Overview's clients tile says 7) without disconnect events, so its Applications page counts none and its Events page lists none. Adding the events would make `client-004` fire for `media-worker` during the upgrade, which the demo's findings would then need (seen while building T2).
 - The writer inserts connections one row at a time: 4,096 connections take 2 to 4.5 s of an epoch's write on a laptop. Batching them as JSON, as `subscriptions` are, would cut that (seen while measuring T1; not part of it).
+- `example-prod` holds 100 of its connections on `nats-0` in every range, also five days before the upgrade that put them there, so its Spread card speaks for a range before the upgrade too (seen while writing T4).
+- The API gaps seen while building T3 (above): a prefix or application filter on `ListEvents` would let every reconnect count link to its events; the Connections page has no exact or application name filter; the per-row slow consumer, stale and short-lived counts are in the response but not on the page.
