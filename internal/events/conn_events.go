@@ -203,6 +203,16 @@ func (c *Capture) connHandlers(label string, redial bool) []nats.Option {
 	}
 }
 
+// NotOpened records that the connection label could not be opened, as
+// collector.not_connected, so that its events count as not captured until
+// it connects; a connection dialled with RedialHandlers then records
+// collector.reconnected.
+func (c *Capture) NotOpened(label string, err error) {
+	reason := err.Error()
+	c.Record(c.collectorEvent("collector.not_connected", label, nil, reason,
+		fmt.Sprintf("collector connection %s not opened: %s; events are not captured", label, reason)))
+}
+
 func (c *Capture) collectorEvent(kind, label string, nc *nats.Conn, reason, summary string) Event {
 	now := c.now().UTC()
 	server := ""
