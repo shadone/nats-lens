@@ -1,6 +1,6 @@
 # Replay build plan
 
-Working plan for the Replay page (`docs/features/replay.md`, board `Replay.dc.html` of the design canvas). Everything here was proposed by the planning session of 2026-10-19 and is not yet confirmed by the owner. When a task lands, its lasting content moves into `docs/features/replay.md` and `docs/design.md`; this file then only tracks status.
+Working plan for the Replay page (`docs/features/replay.md`, board `Replay.dc.html` of the design canvas). Everything here was proposed by the planning session of 2026-10-19; the owner confirmed it on 2026-10-26. When a task lands, its lasting content moves into `docs/features/replay.md` and `docs/design.md`; this file then only tracks status.
 
 The board's sample names come from a private deployment. Use the example shop of `inventory.example.yaml` and the demo's systems instead.
 
@@ -43,7 +43,7 @@ Not backed, so not shown: "from disk"; why a server restarted beyond the k8s eve
 
 ## Where T1 departed from this plan
 
-Decided in the session that built T1, not confirmed.
+Decided in the session that built T1, confirmed by the owner on 2026-10-26.
 
 - Matching is shared, not per provider: providers return the raw events (`api.ReplayEventKinds`, from A minus the restart window to the lookahead), and `FinishReplay` matches announcements, pod events and elections to restarts and stops, and adds a gone asset's findings from the transitions. `FinishReplay(facts)` takes everything from `ReplayFacts`, which also carries `Until`, `RestartWindow`, `Collected`, `EventsCaptured`, `LeadersAtA`, `MetaLeaderAtA` and `GoneRead`.
 - Counts: `streams_gone_without_delete` and `consumers_gone_without_delete` leave out assets with a holder not answering at B, which `assets_unknown_at_b` counts. Gone counts need `GoneRead` (the demo reads no gone assets yet, so they stay unset there); event counts need a stored event up to B; `findings_raised` counts warning and critical findings that fired.
@@ -64,7 +64,7 @@ Decided in the session that built T1, not confirmed.
 
 ## Where T2 departed from this plan
 
-Decided in the session that built T2, not confirmed.
+Decided in the session that built T2, confirmed by the owner on 2026-10-26.
 
 - The demo's leaders come from leader spells in the scenario, which agree with its election events: the leaders at A (streams and durables), the meta leader at A (`example-prod`'s was `nats-1` until 09:30:11) and what each restarted or stopped process led. Every page reads the leader at the range's epoch from the same spells; a leader that does not answer hands the lead to the first peer that does, and `leader_since` is when that lead began (review round 1).
 - Gone durables are a stream's `vanished` list, time-aware on Consumers, Placement and the stream detail; `example-prod`'s `analytics-aggregator` is one too, so its delete is a gone asset with a delete event. Restart asset counts leave out ephemeral consumers: the demo does not say which server holds them.
@@ -77,11 +77,11 @@ Decided in the session that built T2, not confirmed.
 - An `invalid_argument` message reads "invalid argument: A is older than …" because every RPC's `ErrInvalid` wraps the same way; left as it is.
 - The conformance rows read each system's newest Kubernetes window of the last day, else the last 2 hours. The store runs them over the Replay fixture as a third system, with pod events that stretch its window and assets at its A and B. The counts row also checks leader elections against the elections among the evidence and quorum reports against the advisories the quorum steps take in. A row for every system checks that every leader the placement matrix and the server list name answered in that range's collection; the store's conformance fixture gained the VARZ rows of servers that answer JSZ.
 - Left for later (`docs/plans/next.md`): the demo lists findings in their present state for a past range.
-- Review round 2 (decided in the session, not confirmed): the demo's leaders change only at an election event; a leaders' history is built once per scenario, and where the scenario writes no election within 90 s of a leader stopping, the demo elects the first answering replica (a consumer its stream's new leader) and writes the election as an event; `leader_since` is that election or the process start. Every unset count names its cause in `GetReplayResponse.unobserved` (the order per count is in the proto); `complete_until` stays when the read reached past B, as steps after B may be missing, while no count is unset. The event counts follow event capture: no event up to B, nats-lens not running, or a connection that captures events without a server or closed (a gap step of kind events), not the collections. The pool count needs every upgraded node's pool. The demo reads a window's events over the store's span.
+- Review round 2 (decided in the session, confirmed by the owner on 2026-10-26): the demo's leaders change only at an election event; a leaders' history is built once per scenario, and where the scenario writes no election within 90 s of a leader stopping, the demo elects the first answering replica (a consumer its stream's new leader) and writes the election as an event; `leader_since` is that election or the process start. Every unset count names its cause in `GetReplayResponse.unobserved` (the order per count is in the proto); `complete_until` stays when the read reached past B, as steps after B may be missing, while no count is unset. The event counts follow event capture: no event up to B, nats-lens not running, or a connection that captures events without a server or closed (a gap step of kind events), not the collections. The pool count needs every upgraded node's pool. The demo reads a window's events over the store's span.
 
 ## Where T3 departed from this plan
 
-Decided in the session that built T3, not confirmed. The UI section of `docs/design.md` has the full rules.
+Decided in the session that built T3, confirmed by the owner on 2026-10-26. The UI section of `docs/design.md` has the full rules.
 
 - An unset count is not a tile with "—": the observed counts are tiles, a zero one quieter, and the unobserved ones are named in one "Not observed: …" line, with the reason a gap of each kind (`gap_kind`, field added for this), a system without a Kubernetes watch or the read limit gives.
 - The URL is written once a handle is released or a moving key let go, not while it moves; the replay is asked for once A and B have rested for 300 ms, and at once after a change of system. The answer kept while the next loads is the same system's only, dimmed under "Loading …; below is the earlier choice, …".

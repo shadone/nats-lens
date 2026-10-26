@@ -1,6 +1,6 @@
 # Phase 1 build plan
 
-Working plan for phase 1: several NATS systems in one nats-lens, the new UI shell, the overview cockpit, events and finding detail, servers for 20+ servers, KV and object store pages. Each task is built by a fresh implementer and checked by a fresh reviewer. Decisions marked "proposed" are the planning session's, not yet confirmed by the owner.
+Working plan for phase 1: several NATS systems in one nats-lens, the new UI shell, the overview cockpit, events and finding detail, servers for 20+ servers, KV and object store pages. Each task is built by a fresh implementer and checked by a fresh reviewer. Decisions marked "proposed" were the planning session's; the owner had confirmed them all by 2026-10-26.
 
 When a task lands, its lasting content moves into `docs/features/`, `docs/design.md` or the README; this file then only tracks status.
 
@@ -95,7 +95,7 @@ Every task updates the README sections and `docs/features/` docs it changes, and
   1. Stores open in parallel, each with its own rebuild. On first open each system data dir gets `system.json` (`{"id": ...}`); a marker with another id refuses the start; a legacy dir without one is adopted. Warn when `<data_dir>/natslens.duckdb` exists and no system uses it.
   2. Per system: its own `collect.Tracker`, `collectorConn`, `runner.Runner`, `checks.Engine` (sharing the global `checks.Set`), `events.Capture`, k8s watcher (own kubeconfig and context) and `archive.Archiver`; logs carry `system`.
   3. DuckDB `memory_limit` = global budget / N unless set per system; `threads` = `max(2, GOMAXPROCS/N)` per store (proposed).
-  4. `/readyz` answers once every store is open and the API serves; NATS being unreachable never affects readiness; a store that fails to open fails the start (proposed). Before any system starts, one check of every system's marker and files refuses the start naming every broken system; after it, a connection or setup failure isolates its system (`connection_closed`, logged, tried again) and never stops the others (proposed in the T3 review round, not yet confirmed). Each runtime exposes `CollectionStatus {state: starting|collecting|not_connected|connection_closed, last_error, since, last_epoch_at}`, fed by `collectorConn`, wired into `api.Systems.Status`.
+  4. `/readyz` answers once every store is open and the API serves; NATS being unreachable never affects readiness; a store that fails to open fails the start. Before any system starts, one check of every system's marker and files refuses the start naming every broken system; after it, a connection or setup failure isolates its system (`connection_closed`, logged, tried again) and never stops the others. Each runtime exposes `CollectionStatus {state: starting|collecting|not_connected|connection_closed, last_error, since, last_epoch_at}`, fed by `collectorConn`, wired into `api.Systems.Status`.
   5. One shutdown deadline for all systems; they stop in parallel; each writes its own `state.json`; stores close after the API's `wait()`.
   6. `once` runs one epoch per system or only `-system ID`; `sql` and `checks run` take `-system` with `-config`.
 - **Tests:** two in-process clusters (`internal/testcluster`), two systems, 2 epochs: each database holds only its own `servers.server_name`; `ListServers{system:a}` returns A's servers. A legacy config opens an existing `data_dir/natslens.duckdb` in place. The existing shutdown and WAL recovery tests pass unchanged. Failing cases: system B unreachable, A still stores epochs, `/readyz` 200, B is `not_connected`; a marker mismatch or two systems sharing an archive dir refuses the start.
@@ -202,7 +202,7 @@ Every task updates the README sections and `docs/features/` docs it changes, and
 
 - Done: the header's "not collecting", "collection" in the UI, one page heading, singular tile suffixes, real check codes in the web fixtures, the Overview leftovers, the placement square contrast, the phone axis, varied demo backlogs, the backend test gaps, `ListStreams` `limit`, and one chart component.
 
-## Decisions (proposed, not yet confirmed)
+## Decisions (confirmed on 2026-10-26)
 
 1. An empty `system` in an API call means the default system (the first configured).
 2. A single-system config's id comes from an optional top-level `system_id`, default `default`.

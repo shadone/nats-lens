@@ -1,6 +1,6 @@
 # Topology build plan
 
-Working plan for the Topology page (`docs/features/topology.md`, board `Topology.dc.html` of the design canvas). Everything here was proposed by the planning session of 2026-10-20 and is not yet confirmed by the owner. When a task lands, its lasting content moves into `docs/features/topology.md` and `docs/design.md`; this file then only tracks status.
+Working plan for the Topology page (`docs/features/topology.md`, board `Topology.dc.html` of the design canvas). Everything here was proposed by the planning session of 2026-10-20; the owner confirmed it on 2026-10-26, except two points he changed, still to be built ([design.md](../design.md#owner-review-of-proposed-decisions-2026-10-26)): a route is slow only when the last two collections both measured it slow, and the base deployment's memory goes from 256 MiB to 512 MiB. When a task lands, its lasting content moves into `docs/features/topology.md` and `docs/design.md`; this file then only tracks status.
 
 The board's sample names (`acme-prod`, `eu-west`, `store-0417`, `RETAIL`, `IOT`) come from a sketch. Use the example shop of `inventory.example.yaml` and the demo's systems instead.
 
@@ -73,7 +73,7 @@ Unset means not reported; counts of drops are unset when no two consecutive answ
 
 ## Where T1 departed from this plan
 
-Each departure was made by the session that built T1: proposed, not yet confirmed.
+Each departure was made by the session that built T1 and confirmed by the owner on 2026-10-26.
 
 - **Durations, not nanoseconds.** Round trips are `google.protobuf.Duration` (`rtt_max`, `rtt_median`, `rtt`), as `RouteView.rtt` and the rest of the API carry them, not `int64 rtt_ns`.
 - **Gateways from outbound rows.** Every gateway connection is one server's outbound and another's inbound, so connections, round trips and drops are read from the outbound rows only (pending bytes from both); counting both directions would count one disconnect twice and give twice the expected connections. `expected` stays one outbound per server of either cluster that answered GATEWAYZ.
@@ -92,7 +92,7 @@ Each departure was made by the session that built T1: proposed, not yet confirme
 
 - **Fix round 3** (from the third review). Slow routes are judged only against a core of more than half the cluster's measured servers, with seeded split and jitter cases in the matrix. A duplicate leaf row sends its connection to the row-by-row count, so it cannot hide a gap. The memory figures above were measured again.
 
-- **Fix round 4** (from the final review). The slow rule by groups of near servers (the Slow route row above), with uneven and even splits and unreported pairs run over 200 seeds of jitter, each giving the same result on every seed; a cluster of 30 servers is judged in under a millisecond. The plan's departure in fix round 3 (the core) is replaced by it. Its review found that a server reporting no round trip at all leaves the measured servers, so an even split with one such server is judged for that collection; documented, not changed (proposed, not yet confirmed).
+- **Fix round 4** (from the final review). The slow rule by groups of near servers (the Slow route row above), with uneven and even splits and unreported pairs run over 200 seeds of jitter, each giving the same result on every seed; a cluster of 30 servers is judged in under a millisecond. The plan's departure in fix round 3 (the core) is replaced by it. Its review found that a server reporting no round trip at all leaves the measured servers, so an even split with one such server is judged for that collection; documented, not changed.
 
 ### Leftovers of T1
 
@@ -100,10 +100,10 @@ Moved to item 5 of `docs/plans/next.md` (Topology), with those of T2.
 
 ## Where T2 departed from this plan
 
-Each departure was made by the session that built T2: proposed, not yet confirmed.
+Each departure was made by the session that built T2 and confirmed by the owner on 2026-10-26.
 
 - **The heading.** The header's "Topology" is the page's one heading, as on every sidebar page; the page starts with the muted line ("3 clusters joined by gateways, 30 leaf node sites at the edge, in the collection of 05:22:17 UTC."). A single cluster reads "One cluster, example-prod, of 3 servers".
-- **The dash.** Unset values use the app's en dash (–, read out as "not observed"), as every other page does, not the em dash (—) of the board and of this plan's first version; in a row not connected it reads "not connected", in a row of unknown state "state unknown". Decided in the session that built T2 and kept by the coordinator of the build; proposed, not yet confirmed by the owner.
+- **The dash.** Unset values use the app's en dash (–, read out as "not observed"), as every other page does, not the em dash (—) of the board and of this plan's first version; in a row not connected it reads "not connected", in a row of unknown state "state unknown". Decided in the session that built T2 and kept by the coordinator of the build; confirmed by the owner on 2026-10-26.
 - **Gateway label.** "gateway 84 ms" is the median round trip; the highest is in the title and screen reader text with the connections and the drops in 1 and 24 hours. "· 4 of 6 up" is added and the line drawn in the warning colour when connections are down, as for a drop in the last hour.
 - **Far pairs.** A gateway between clusters not next to each other is a bracket under the boxes, rather than the board's single diagonal; four clusters need up to three of them.
 - **Leaf node boxes.** The number is the sites seen (connected now and not connected), with "· N not connected" or "· all connected". In the grid layout the box sits inside the cluster box.
