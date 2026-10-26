@@ -54,6 +54,11 @@ func TestStoreApplications(t *testing.T) {
 	if res.GetEpoch() != appsE3 || !res.GetEpochAt().AsTime().Equal(appsLast) || !res.GetConnzCut() || !res.GetEventsCaptured() || res.GetPartial() || len(res.GetMissing()) != 0 {
 		t.Fatalf("epoch %d at %v, cut %v, events %v", res.GetEpoch(), res.GetEpochAt().AsTime(), res.GetConnzCut(), res.GetEventsCaptured())
 	}
+	// Capture stopped for a minute 10 hours before: the counts are kept,
+	// flagged as lower bounds.
+	if !res.GetCaptureGaps() {
+		t.Errorf("capture gaps not reported")
+	}
 	want := []string{"resize-worker", "callback-dispatcher", "order-service", "(unnamed)", "ops-monitor"}
 	if got := names(res); !slices.Equal(got, want) || res.GetApplicationsTotal() != 5 || res.GetConnectionsTotal() != 15 || res.GetToolingHidden() != 2 {
 		t.Fatalf("applications %v (%d), %d connections, %d hidden", got, res.GetApplicationsTotal(), res.GetConnectionsTotal(), res.GetToolingHidden())
@@ -184,6 +189,10 @@ func TestStoreApplicationsPastRange(t *testing.T) {
 	}
 	if h := cd.GetTraffic()[23].GetHour().AsTime(); !h.Equal(e2.Truncate(time.Hour).Add(-time.Hour)) || cd.GetInMsgs_24H() != 220 || cd.GetTraffic()[1].InMsgs != nil || cd.GetTraffic()[2].GetInMsgs() != 10 {
 		t.Errorf("callback-dispatcher then: last hour %v, in %d", h, cd.GetInMsgs_24H())
+	}
+	// 27 hours before last the capture had no gap yet.
+	if first := appsPage(t, c, appsLast.Add(-26*time.Hour+time.Minute), "", false); first.GetEpoch() != appsE1 || first.GetCaptureGaps() {
+		t.Errorf("E1: epoch %d, capture gaps %v", first.GetEpoch(), first.GetCaptureGaps())
 	}
 	// Before E1 there is no epoch.
 	if res := appsPage(t, c, appsLast.Add(-27*time.Hour), "", false); res.GetEpoch() != 0 || len(res.GetApplications()) != 0 {

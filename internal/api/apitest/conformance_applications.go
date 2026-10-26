@@ -127,6 +127,19 @@ func applicationsRows() []State {
 			unset := slices.ContainsFunc(a.GetTraffic(), func(h *v1.HourTraffic) bool { return h.InMsgs == nil && h.OutBytes == nil })
 			return unset && a.InMsgs_24H != nil && trafficSound(res.GetEpochAt().AsTime(), a)
 		})},
+		{"an Applications page whose event capture stopped in the 24 hours: counts kept, flagged", func(q Q) string {
+			res := q.apps(q.day(), "", false)
+			if !res.GetCaptureGaps() {
+				return ""
+			}
+			if !res.GetEventsCaptured() || res.GetLastDay().Reconnecting == nil || slices.ContainsFunc(res.GetApplications(), func(a *v1.Application) bool {
+				return a.Reconnects_24H == nil
+			}) {
+				q.t.Errorf("%s: capture gaps without counts: %v", q.System, res.GetLastDay())
+				return ""
+			}
+			return fmt.Sprintf("%d applications", len(res.GetApplications()))
+		}},
 		{"one server holding most connections, more than one used", func(q Q) string {
 			sp := q.apps(q.day(), "", false).GetSpread()
 			if sp.GetConcentrated() && 2*sp.GetConnections() > sp.GetTotal() && sp.GetServers() > 1 {

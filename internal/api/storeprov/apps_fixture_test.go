@@ -187,6 +187,13 @@ func appsStore(t *testing.T, last time.Time) *store.Store {
 		r.add("events", map[string]any{"id": 100 + i, "time": when, "received_at": when, "source": "sys", "kind": e.kind,
 			"client_name": e.name, "account": e.account, "client_host": e.host, "reason": e.reason, "summary": e.kind + " " + e.name, "raw": raw})
 	}
+	// The connection that captures system events lost its server for a
+	// minute 10 hours before last.
+	for i, kind := range []string{"collector.disconnected", "collector.reconnected"} {
+		when := last.Add(-10*time.Hour + time.Duration(i)*time.Minute)
+		r.add("events", map[string]any{"id": 90 + i, "time": when, "received_at": when, "source": "collector", "kind": kind,
+			"summary": kind + " sys", "raw": `{"connection":"sys"}`})
+	}
 	hour := last.Truncate(time.Hour)
 	for _, h := range appsHours() {
 		r.add("client_app_hours", map[string]any{"hour": hour.Add(-time.Duration(h.back) * time.Hour), "account": h.account, "app": h.app,

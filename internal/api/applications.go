@@ -90,8 +90,10 @@ type ApplicationFacts struct {
 	// ConnzCut is whether a server's connection list in the epoch was cut
 	// at the connz limit.
 	ConnzCut bool
-	// EventsCaptured is whether any event is stored up to the epoch.
-	EventsCaptured bool
+	// EventsCaptured is whether any event is stored up to the epoch;
+	// CaptureGaps whether capture, while it ran, stopped for part of the
+	// ApplicationDay before it, by the Accounts and auth page's rule.
+	EventsCaptured, CaptureGaps bool
 	// Events are the client events of the ApplicationDay before the epoch
 	// counted by connection name, account and tooling.
 	Events []AppEventFact
@@ -184,7 +186,7 @@ func FinishApplications(f *ApplicationFacts, account string, includeTooling bool
 		return &v1.GetApplicationsResponse{}
 	}
 	res := &v1.GetApplicationsResponse{Epoch: f.Epoch, EpochAt: timestamppb.New(f.EpochAt), ConnzCut: f.ConnzCut,
-		EventsCaptured: f.EventsCaptured, Partial: f.Partial, Missing: slices.Sorted(slices.Values(f.Missing))}
+		EventsCaptured: f.EventsCaptured, CaptureGaps: f.EventsCaptured && f.CaptureGaps, Partial: f.Partial, Missing: slices.Sorted(slices.Values(f.Missing))}
 	in := func(acc string) bool { return account == "" || AccountOf(acc) == account }
 	groups := map[string]*appGroup{}
 	for _, c := range f.Connections {
