@@ -71,10 +71,11 @@ func TestStoreApplications(t *testing.T) {
 		rw.GetSubscriptions() != 18 || rw.GetPendingBytes() != 300 || rw.GetPendingBytesMax() != 300 {
 		t.Errorf("resize-worker: servers %v, rtt %v, subs %d, pending %d", servers, rw.GetRttP50().AsDuration(), rw.GetSubscriptions(), rw.GetPendingBytes())
 	}
-	// Its events: a slow consumer drop of rw-a and a stale drop of rw-old,
-	// a pod gone by the epoch, with two connects.
-	if rw.GetReconnects_24H() != 2 || rw.GetSlowConsumers_24H() != 1 || rw.GetStale_24H() != 1 || rw.GetShortLived_24H() != 0 {
-		t.Errorf("resize-worker 24h: %v %v %v %v", rw.Reconnects_24H, rw.SlowConsumers_24H, rw.Stale_24H, rw.ShortLived_24H)
+	// Its events: a slow consumer drop of rw-a, which came back, and a
+	// stale drop of rw-old, a pod gone by the epoch, whose replacement rw-b
+	// connected: drops and connects pair per name, so one reconnect.
+	if rw.GetReconnects_24H() != 1 || rw.GetSlowConsumers_24H() != 1 || rw.GetStale_24H() != 1 || rw.GetShortLived_24H() != 0 {
+		t.Errorf("resize-worker 24h: %d %d %d %d", rw.GetReconnects_24H(), rw.GetSlowConsumers_24H(), rw.GetStale_24H(), rw.GetShortLived_24H())
 	}
 	if len(rw.GetFindings()) != 1 || rw.GetFindings()[0].GetId() != "client-002:resize-worker@rw-c" || rw.GetFindings()[0].GetMuted() {
 		t.Errorf("resize-worker findings %v", rw.GetFindings())

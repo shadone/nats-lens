@@ -77,7 +77,9 @@ type appsEvent struct {
 // appsEvents are the client events of the store. In the 24 hours before
 // last: callback-dispatcher dropped six times as a stale connection and
 // came back each time; resize-worker dropped once as a slow consumer
-// (rw-a) and once stale (rw-old, a pod gone by E3) and came back twice;
+// (rw-a, which came back) and once stale (rw-old, a pod gone by E3, whose
+// replacement rw-b connected: no reconnect, as drops and connects pair
+// per name);
 // order-service's servers shut down (not reconnects) and it opened 12
 // short-lived connections; nats-cli reconnected 3 times from a loopback
 // address; natslens-apps reconnected; ops-monitor in SYS dropped and came

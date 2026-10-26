@@ -205,9 +205,9 @@ func TestFinishApplicationsDayAndTraffic(t *testing.T) {
 		appConn("nats-0", 2, "callback-dispatcher@b", "10.0.0.2"),
 		appConn("nats-1", 3, "media-worker", "10.0.0.3"),
 	}, Events: []api.AppEventFact{
-		// Drops of one pod and connects of another pair within the
-		// application.
-		{Name: "callback-dispatcher@a", Account: "APP", Drops: 6, Stale: 6},
+		// Pod a dropped and came back six times; pod b's connects pair
+		// with no drop of its own.
+		{Name: "callback-dispatcher@a", Account: "APP", Drops: 6, Connects: 6, Stale: 6},
 		{Name: "callback-dispatcher@b", Account: "APP", Connects: 9, ShortLived: 2},
 		{Name: "media-worker", Account: "APP", Drops: 3, Slow: 3},
 		// An application without a connection in the epoch is no row.
@@ -300,5 +300,33 @@ func TestCountClientEvent(t *testing.T) {
 	}
 	if f.Drops != 3 || f.Connects != 7 || f.Slow != 1 || f.Stale != 1 || f.ShortLived != 6 {
 		t.Errorf("%+v", f)
+	}
+}
+
+// A rolling deploy drops every old pod and connects every new one under
+// other names: client-004 pairs per name, so that is no reconnect. Two
+// unrelated unnamed scripts, one only dropping and one only connecting,
+// do not pair either; a name that drops and comes back does.
+func TestFinishApplicationsReconnectsPairPerName(t *testing.T) {
+	f := &api.ApplicationFacts{Epoch: 1, EpochAt: appT0, EventsCaptured: true, Connections: []api.AppConnectionFact{
+		appConn("nats-0", 1, "svc@new-0", "10.0.0.1"),
+		appConn("nats-0", 2, "", "10.0.0.2"),
+	}}
+	for i := range 10 {
+		f.Events = append(f.Events, api.AppEventFact{Name: fmt.Sprintf("svc@old-%d", i), Account: "APP", Drops: 1},
+			api.AppEventFact{Name: fmt.Sprintf("svc@new-%d", i), Account: "APP", Connects: 1})
+	}
+	f.Events = append(f.Events, api.AppEventFact{Name: "", Account: "APP", Drops: 2}, api.AppEventFact{Name: "@script-b", Account: "APP", Connects: 2},
+		// The same name in two accounts is one name, as client-004 groups it.
+		api.AppEventFact{Name: "svc@old-3", Account: "OPS", Connects: 1})
+	res := api.FinishApplications(f, "", false)
+	if svc := appByName(res, "svc"); svc.GetReconnects_24H() != 1 {
+		t.Errorf("svc after a rolling deploy: %d reconnects, want 1 (svc@old-3)", svc.GetReconnects_24H())
+	}
+	if un := appByName(res, api.UnnamedApplication); un.GetReconnects_24H() != 0 {
+		t.Errorf("unnamed scripts: %d reconnects", un.GetReconnects_24H())
+	}
+	if res.GetLastDay().GetReconnecting() != 1 {
+		t.Errorf("reconnecting %d", res.GetLastDay().GetReconnecting())
 	}
 }
