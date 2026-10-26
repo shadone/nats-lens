@@ -22,7 +22,7 @@ func TestDemoUsesRealChecks(t *testing.T) {
 	entityOf := map[v1.EntityType]string{
 		v1.EntityType_ENTITY_TYPE_SERVER: "server", v1.EntityType_ENTITY_TYPE_STREAM: "stream",
 		v1.EntityType_ENTITY_TYPE_CONSUMER: "consumer", v1.EntityType_ENTITY_TYPE_CLIENT: "client",
-		v1.EntityType_ENTITY_TYPE_SYSTEM: "system",
+		v1.EntityType_ENTITY_TYPE_SYSTEM: "system", v1.EntityType_ENTITY_TYPE_ACCOUNT: "account",
 	}
 	scenarios := map[string]*scenario{Cluster: prodScenario(), GlobalSystem: globalScenario(), StagingSystem: stagingScenario()}
 	var inForce, ended int
