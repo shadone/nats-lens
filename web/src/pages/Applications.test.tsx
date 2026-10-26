@@ -228,8 +228,21 @@ describe("Applications", () => {
     expect(screen.getAllByRole("note")[0]).toHaveTextContent(/^Event capture stopped\. Event capture stopped for part of these 24 hours/);
     expect(screen.getByRole("region", { name: "Last 24 h" })).toHaveTextContent("at least 0 slow consumers ·, at least 6 stale connections ·, at least 1 application reconnecting");
     const cell = within(row("callback-dispatcher")).getAllByRole("cell")[7];
-    expect(cell).toHaveTextContent("at least ≥6");
+    expect(cell).toHaveTextContent("≥6at least 6");
     expect(within(cell).getByRole("link")).toHaveAccessibleName("at least 6, see client-004");
+  });
+
+  it("names a plain reconnect cell under capture gaps with its number, not only \"at least\"", async () => {
+    getApps.mockResolvedValue(
+      prod({ captureGaps: true, applications: [app({ reconnects: 0 }), app({ name: "five", reconnects: 5, connectionNames: ["five@a", "five@b"] })] }),
+    );
+    renderApp(<Applications />, "/applications");
+    await screen.findByRole("table");
+    const zero = within(row("order-service")).getAllByRole("cell")[7];
+    const five = within(row("five")).getAllByRole("cell")[7];
+    expect(within(five).queryByRole("link")).toBeNull();
+    expect(zero).toHaveAccessibleName("at least 0");
+    expect(five).toHaveAccessibleName("at least 5");
   });
 
   it("says nothing of capture gaps when capture ran throughout", async () => {

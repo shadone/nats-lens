@@ -167,8 +167,8 @@ function ReconnectsCell({ a, atLeast }: { a: Application; atLeast: boolean }) {
   const spoken = atLeast ? `at least ${text}` : text;
   const shown = atLeast ? (
     <>
-      <span className="sr-only">at least </span>
       <span aria-hidden="true">≥{text}</span>
+      <span className="sr-only">at least {text}</span>
     </>
   ) : (
     text
