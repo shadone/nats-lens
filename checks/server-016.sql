@@ -50,7 +50,10 @@ varz AS (
     WHERE ee.endpoint = 'VARZ' AND ee.state = 'ok' AND ee.epoch <= getvariable('epoch')
       AND e.started_at >= getvariable('epoch_time') - INTERVAL 24 HOUR
       AND (s.server_name IN (SELECT name FROM names) OR ee.epoch = getvariable('epoch'))
-    QUALIFY row_number() OVER (PARTITION BY s.server_name ORDER BY ee.epoch DESC) = 1
+    -- Two processes of one name in one epoch: the newer process, then the
+    -- larger server ID, so the choice does not depend on scan order.
+    QUALIFY row_number() OVER (PARTITION BY s.server_name
+        ORDER BY ee.epoch DESC, coalesce(ss.start_time, s.start_time) DESC NULLS LAST, ee.server_id DESC) = 1
 ),
 certs AS (
     SELECT server_name, epoch, started_at, 'client' AS listener, 'tls_cert_not_after' AS field,
