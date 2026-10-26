@@ -21,18 +21,23 @@ export function countsText(d: Pick<Applications, "connectionsTotal" | "applicati
   return d.applications.length < d.applicationsTotal ? `${base}; the first ${fmtInt(d.applications.length)} listed` : base;
 }
 
-/** "nats.js 3.0.2"; "go" without a version; "library not reported" without either. */
+/** "nats.js 3.0.2"; "go" without a version; "unknown library 1.2" without a language. */
 export function libraryName(l: Pick<AppLibrary, "lang" | "version">): string {
-  if (!l.lang && !l.version) return "library not reported";
   return [l.lang || "unknown library", l.version].filter(Boolean).join(" ");
 }
 
 /**
  * The Spread card. A concentrated spread says what a restart does; any
- * other says which server serves the most.
+ * other says which server serves the most. On a partial collection the
+ * connections of the servers that did not answer are not known, so it
+ * says what it counts and nothing of a restart.
  */
-export function spreadText(s: AppSpread): string {
+export function spreadText(s: AppSpread, partial = false): string {
   if (s.total === 0 || !s.server) return "No connection to spread.";
+  if (partial) {
+    if (s.servers === 1) return `Every counted connection is on ${s.server}; the servers that did not answer are not counted.`;
+    return `${s.server} serves ${fmtInt(s.connections)} of ${plural(s.total, "connection")} on ${fmtInt(s.servers)} servers, counting only the servers that answered.`;
+  }
   if (s.servers === 1) return `Every connection is on ${s.server}: a restart of it moves all ${plural(s.total, "connection")} at once.`;
   const serves = `${s.server} serves ${fmtInt(s.connections)} of ${plural(s.total, "connection")} on ${fmtInt(s.servers)} servers.`;
   return s.concentrated ? `${serves} A restart of ${s.server} moves ${fmtInt(s.connections)} of ${fmtInt(s.total)} connections at once.` : `${serves} No server holds more than half.`;
@@ -91,12 +96,12 @@ export function reconnectFinding(a: Pick<Application, "findings">) {
 }
 
 /**
- * The Events page link for an application's reconnects: only where its
- * connections carry the application's own name, since the Events page
+ * The Events page link for an application's reconnects: only where every
+ * connection is named exactly as the application, since the Events page
  * filters by the whole connection name.
  */
-export function eventsLink(a: Pick<Application, "name" | "podsTotal">): string | undefined {
-  if (a.name === UNNAMED || a.name === "" || a.podsTotal > 0) return undefined;
+export function eventsLink(a: Pick<Application, "name" | "connectionNames" | "moreNames">): string | undefined {
+  if (a.name === UNNAMED || a.name === "" || a.moreNames > 0 || a.connectionNames.length !== 1 || a.connectionNames[0] !== a.name) return undefined;
   return `/events?client=${encodeURIComponent(a.name)}`;
 }
 
@@ -168,15 +173,25 @@ export function trafficNote(rows: Application[]): string | undefined {
   if (withHours.some((a) => hoursSet(a.traffic) === a.traffic.length)) return undefined;
   const len = Math.max(...withHours.map((a) => a.traffic.length));
   const most = Math.max(...withHours.map((a) => hoursSet(a.traffic)));
-  if (most === 0) return `No traffic measured in the ${len} hours before this collection's hour: the hourly rollup holds none.`;
+  if (most === 0) return `No traffic measured in the ${len} hours before this collection's hour.`;
   return `No application has all ${len} hours before this collection's hour measured; the most any has is ${most}. The hours without a measurement are gaps in the lines, not zeros.`;
 }
+
+/** The notice for a partial collection: the servers that did not answer, or only that part of it did not. */
+export function partialText(missing: string[]): string {
+  if (missing.length === 0) return "Part of this collection did not answer, so connections can be missing: the counts and the spread cover what answered.";
+  const names = missing.length === 1 ? missing[0] : `${missing.slice(0, -1).join(", ")} and ${missing[missing.length - 1]}`;
+  return `${names} did not answer in this collection: ${missing.length === 1 ? "its" : "their"} connections are not counted, and the counts, the spread and the traffic cover the servers that answered.`;
+}
+
+/** The notice for event capture that stopped within the 24 hours: the counts are lower bounds. */
+export const CAPTURE_GAPS = "Event capture stopped for part of these 24 hours, so reconnects, slow consumers and stale connections can be low: each count is at least what it says.";
 
 /** The notice for the no-event state: the 24-hour counts are not known. */
 export const NO_EVENTS = "No event captured up to this collection, so reconnects, slow consumers and stale connections of the last 24 hours are not known.";
 
 /** The notice for a cut connection list. */
-export const CONNZ_CUT = "A server's connection list in this collection was cut at the collector's connz limit: its other connections are not counted here, and their traffic is missing.";
+export const CONNZ_CUT = "A server's connection list in this collection was cut at the collector's connz limit: its other connections are not counted here, nor their traffic.";
 
 /** "1 tooling connection hidden: …", as the Connections page says it. */
 export function toolingHiddenText(n: number): string {
@@ -194,13 +209,14 @@ export function emptyText(d: Pick<Applications, "toolingHidden">, includeTooling
 export function subtitleText(d: Applications | undefined): string {
   const lead = "Client connections grouped by the application in their name.";
   if (!d?.collected || d.epochAt === undefined) return `${lead} In the newest collection of the range.`;
-  return `${lead} ${countsText(d)}, in the collection of ${hms(d.epochAt)} UTC.`;
+  return `${lead} ${countsText(d)}, in the collection of ${hms(d.epochAt)} UTC${d.partial ? ", over the servers that answered" : ""}.`;
 }
 
 export const APPS_FOOTNOTE = [
   "An application is the connection name before the first “@”; a connection without a name, or with nothing before the “@”, is (unnamed).",
   "Instances count pods (the part of the name after the “@”) where the name gives one, and connections otherwise. Pods lists those pod names, or the client addresses where no name gives a pod.",
   "Tooling connections, nats-lens's own or clients from a loopback address, are left out unless included.",
-  "Messages in and out are the 24 whole hours before the collection's hour, from the hourly rollup; a connection that closed between two collections loses its last interval, and a gap is an hour without a measurement. Reconnects follow client-004's rule over the 24 hours before the collection.",
+  "Messages in and out are the 24 whole hours before the collection's hour, from the hourly rollup; a connection that closed between two collections loses its last interval, and a gap is an hour without a measurement.",
+  "Reconnects follow client-004's rule per connection name over the 24 hours before the collection, summed over the application's names: a pod that drops and a new pod that connects, as in a rolling deploy, are not a reconnect.",
   "Each sparkline is scaled to its own row's busiest hour, in or out, so two rows' lines do not compare; the numbers beneath them do.",
 ] as const;
