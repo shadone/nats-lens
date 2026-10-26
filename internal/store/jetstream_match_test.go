@@ -22,6 +22,9 @@ var jsServers = []struct{ id, name string }{{"NSERVER'0", "nats-0"}, {"NSERVER1"
 // oddStream is a stream name that needs quoting in SQL and escaping in JSON.
 const oddStream = `odd "name" 'q' \ back`
 
+// quotedAccount is an account identifier that needs quoting in SQL.
+const quotedAccount = `ACC 'q" \`
+
 var (
 	jsNanos   = time.Date(2026, 10, 16, 23, 17, 46, 123456789, time.FixedZone("IST", 5*3600+1800))
 	jsPre1970 = time.Date(1969, 12, 31, 23, 59, 59, 999999999, time.UTC)
@@ -45,7 +48,8 @@ func peerList(name, group string, holders ...string) *server.ClusterInfo {
 
 // jsScenarioView is server i's JSZ at epoch e:
 //
-//   - orders, R3 on all three servers with consumers worker and audit. Its
+//   - orders, R3 on all three servers, each reporting another creation time,
+//     with consumers worker and audit. Its
 //     description changes on nats-0 in epoch 3 and reverts in 4; worker's ack
 //     wait changes everywhere in 5; audit is created again on nats-2 in 5
 //     with the same configuration.
@@ -55,7 +59,8 @@ func peerList(name, group string, holders ...string) *server.ClusterInfo {
 //     again in 5.
 //   - mirror, R2 on nats-0 and nats-1 without a leader, with a mirror error,
 //     sources (one null), placement, an offline, pending replica and a null one.
-//   - plain, on nats-2 only, without configuration.
+//   - plain, on nats-2 only, without configuration, with a creation time in
+//     epoch 1 only.
 //   - nats-1 lists orders a second time with another configuration, which
 //     the writer keeps out and notes. nats-1 does not answer in epoch 3.
 //   - with bulk, nats-2 also holds bulk, R1, with more consumers than one
@@ -86,7 +91,7 @@ func jsScenarioView(i int, e int64, bulk bool) *collect.ServerView {
 	if i == 2 && e >= 5 {
 		auditCreated = t0.Add(-time.Minute)
 	}
-	orders := server.StreamDetail{Name: "orders", Created: t0.Add(-48 * time.Hour), Cluster: peerList(srv.name, "S-orders", all...),
+	orders := server.StreamDetail{Name: "orders", Created: t0.Add(-48*time.Hour + time.Duration(i)*time.Second), Cluster: peerList(srv.name, "S-orders", all...),
 		Config: ordersCfg(desc),
 		State: server.StreamState{Msgs: 100 + uint64(e), Bytes: 1 << 20, FirstSeq: 1, LastSeq: 100 + uint64(e),
 			FirstTime: t0.Add(-48 * time.Hour), LastTime: t0, NumSubjects: 3, Consumers: 2},
@@ -154,8 +159,12 @@ line "two"`},
 	}
 
 	if i == 2 {
-		app.Streams = append(app.Streams, server.StreamDetail{Name: "plain", Cluster: peerList(srv.name, "S-plain", "nats-2"),
-			State: server.StreamState{Msgs: 5}})
+		var plainCreated time.Time
+		if e == 1 {
+			plainCreated = t0
+		}
+		app.Streams = append(app.Streams, server.StreamDetail{Name: "plain", Created: plainCreated,
+			Cluster: peerList(srv.name, "S-plain", "nats-2"), State: server.StreamState{Msgs: 5}})
 		if bulk && e <= 2 {
 			s := server.StreamDetail{Name: "bulk", Created: t0, Config: &server.StreamConfig{Name: "bulk", Replicas: 1}}
 			for j := range jsonBatch + 3 {
@@ -172,10 +181,40 @@ line "two"`},
 	}
 }
 
-// writeJSScenario writes the scenario's epochs to the store at path with
-// write as the JetStream writer, the identity tables included, and
-// returns the notes of every epoch.
-func writeJSScenario(t *testing.T, path string, bulk bool, write func(*writer, *collect.ServerView)) []string {
+// writeJSScenario writes the scenario's epochs to the store at path, with
+// the row-at-a-time JetStream and identity writes when byRow and the JSON
+// batches otherwise, and returns the notes of every epoch.
+// jsScenarioIdents records the accounts and raft groups server i reports
+// at epoch e besides its JSZ: APP's name differs between servers (nats-1
+// first, and nats-2's while nats-1 is missing in epoch 3), only nats-2 in
+// epoch 1 marks SYS as the system account, an account whose identifier needs
+// quoting gains a name in epoch 5, and a raft group seen only in RAFTZ in
+// epoch 4 learns its stream in 5.
+func jsScenarioIdents(w *writer, i int, e int64) {
+	names := []string{"AAPP", "APP", "APP"}
+	if e >= 3 {
+		names[2] = "app-renamed"
+	}
+	w.ids.account("AAPP", names[i], false)
+	w.ids.account("SYS", "SYS", i == 2 && e == 1)
+	if i == 0 {
+		quoted := quotedAccount
+		name := quoted
+		if e >= 5 {
+			name = "quoted"
+		}
+		w.ids.account(quoted, name, false)
+	}
+	w.ids.raftGroup("_meta_")
+	if e == 4 {
+		w.ids.raftGroup("S-raft-only")
+	}
+	if e == 5 && i == 1 {
+		w.ids.raftAsset("S-raft-only", "AAPP", "raft-only", "")
+	}
+}
+
+func writeJSScenario(t *testing.T, path string, bulk bool, byRow bool) []string {
 	t.Helper()
 	ctx := context.Background()
 	s, err := OpenPath(ctx, path)
@@ -195,11 +234,22 @@ func writeJSScenario(t *testing.T, path string, bulk bool, write func(*writer, *
 		w.warned = map[assetKey]bool{}
 		w.log = slog.New(slog.DiscardHandler)
 		for i := range jsServers {
-			if v := jsScenarioView(i, e, bulk); v != nil {
-				write(w, v)
+			v := jsScenarioView(i, e, bulk)
+			if v == nil {
+				continue
 			}
+			if byRow {
+				w.writeJetStreamByRow(v)
+			} else {
+				w.writeJetStream(v)
+			}
+			jsScenarioIdents(w, i, e)
 		}
-		w.writeIdents()
+		if byRow {
+			w.writeIdentsByRow()
+		} else {
+			w.writeIdents()
+		}
 		w.closeStatements()
 		if w.err != nil {
 			_ = tx.Rollback()
@@ -216,7 +266,7 @@ func writeJSScenario(t *testing.T, path string, bulk bool, write func(*writer, *
 
 var jsTables = []string{
 	"stream_stats", "stream_replicas", "consumer_stats", "consumer_replicas", "stream_config", "consumer_config",
-	"streams", "consumers", "raft_groups",
+	"accounts", "streams", "consumers", "raft_groups",
 }
 
 // TestJetStreamRowsMatchRowByRow writes the scenario's epochs once with
@@ -230,8 +280,8 @@ func TestJetStreamRowsMatchRowByRow(t *testing.T) {
 	dir := t.TempDir()
 	bulk := !testing.Short()
 	ref, got := filepath.Join(dir, "by-row.duckdb"), filepath.Join(dir, "batch.duckdb")
-	refNotes := writeJSScenario(t, ref, bulk, (*writer).writeJetStreamByRow)
-	gotNotes := writeJSScenario(t, got, bulk, (*writer).writeJetStream)
+	refNotes := writeJSScenario(t, ref, bulk, true)
+	gotNotes := writeJSScenario(t, got, bulk, false)
 	if !slices.Equal(refNotes, gotNotes) || len(gotNotes) != len(jsEpochs)-1 {
 		t.Errorf("notes = %q, want %q (one per epoch nats-1 answers)", gotNotes, refNotes)
 	}
@@ -266,6 +316,40 @@ func TestJetStreamRowsMatchRowByRow(t *testing.T) {
 	}
 	checkJSRuns(t, s)
 	checkJSValues(t, s)
+	checkJSIdents(t, s)
+}
+
+// checkJSIdents compares the identity rows with the scenario's.
+func checkJSIdents(t *testing.T, s *Store) {
+	t.Helper()
+	db := s.DB()
+	for _, c := range []struct {
+		q    string
+		args []any
+	}{
+		{`SELECT count(*) FROM accounts WHERE account = 'AAPP' AND account_name = 'APP' AND NOT is_system
+  AND first_epoch = 1 AND last_epoch = 7`, nil},
+		{`SELECT count(*) FROM accounts WHERE account = 'SYS' AND is_system AND last_epoch = 7`, nil},
+		{`SELECT count(*) FROM accounts WHERE account = ? AND account_name = 'quoted' AND first_epoch = 1`, []any{quotedAccount}},
+		{`SELECT count(*) FROM streams WHERE stream = 'orders' AND created = ?::TIMESTAMP AND first_epoch = 1 AND last_epoch = 7`,
+			[]any{t0.Add(-48 * time.Hour).Format("2006-01-02 15:04:05")}},
+		{`SELECT count(*) FROM streams WHERE stream = ? AND created = ?::TIMESTAMP AND first_epoch = 1 AND last_epoch = 7`,
+			[]any{oddStream, jsNanos.UTC().Truncate(time.Microsecond).Format("2006-01-02 15:04:05.000000")}},
+		{`SELECT count(*) FROM streams WHERE stream = 'plain' AND created = ?::TIMESTAMP AND last_epoch = 7`,
+			[]any{t0.Format("2006-01-02 15:04:05")}},
+		{`SELECT count(*) FROM consumers WHERE consumer = 'audit' AND created = ?::TIMESTAMP AND last_epoch = 7`,
+			[]any{t0.Add(-time.Hour).Format("2006-01-02 15:04:05")}},
+		{`SELECT count(*) FROM consumers WHERE consumer = 'edge' AND stream = ? AND first_epoch = 1 AND last_epoch = 7`, []any{oddStream}},
+		{`SELECT count(*) FROM raft_groups WHERE group_id = '_meta_' AND kind = 'meta' AND account IS NULL AND last_epoch = 7`, nil},
+		{`SELECT count(*) FROM raft_groups WHERE group_id = 'S-raft-only' AND kind = 'stream' AND account = 'AAPP'
+  AND stream = 'raft-only' AND consumer IS NULL AND first_epoch = 4 AND last_epoch = 5`, nil},
+		{`SELECT count(*) FROM raft_groups WHERE group_id = 'C-worker' AND kind = 'consumer' AND stream = 'orders'
+  AND consumer = 'worker' AND last_epoch = 7`, nil},
+	} {
+		if n := count(t, db, c.q, c.args...); n != 1 {
+			t.Errorf("%d rows, want 1: %s %v", n, c.q, c.args)
+		}
+	}
 }
 
 // checkJSRuns compares the configuration runs with the scenario's.
