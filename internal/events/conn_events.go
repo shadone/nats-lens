@@ -30,8 +30,11 @@ type connWatch struct {
 	loggedAt time.Time // last reconnect error logged
 	timer    *time.Timer
 	// redial is a connection dialled again after nats.go closed the one
-	// before: its first connect is a reconnect.
+	// before, or after a first dial that opened none: its first connect is
+	// a reconnect.
 	redial bool
+	// neverOpened is a redial whose earlier dials opened no connection.
+	neverOpened bool
 }
 
 // setServer records the connected server and returns the last known one;
@@ -109,7 +112,7 @@ func (w *connWatch) reconnectFailed(nc *nats.Conn, err error) {
 // server for NotConnectedAfter, also one that never connected, is recorded
 // as collector.not_connected.
 func (c *Capture) ConnHandlers(label string) []nats.Option {
-	return c.connHandlers(label, false)
+	return c.connHandlers(label, false, false)
 }
 
 // RedialHandlers are ConnHandlers for a connection dialled again after
@@ -117,21 +120,35 @@ func (c *Capture) ConnHandlers(label string) []nats.Option {
 // recorded once as collector.reconnected; a redial that never connects
 // records none.
 func (c *Capture) RedialHandlers(label string) []nats.Option {
-	return c.connHandlers(label, true)
+	return c.connHandlers(label, true, false)
 }
 
-func (c *Capture) connHandlers(label string, redial bool) []nats.Option {
-	w := &connWatch{c: c, label: label, log: c.o.Log.With("connection", label), redial: redial}
+// FirstOpenHandlers are RedialHandlers for a connection whose earlier
+// dials opened no connection (see NotOpened): its first connect is
+// recorded as collector.reconnected with the reason "connected after the
+// first dial failed".
+func (c *Capture) FirstOpenHandlers(label string) []nats.Option {
+	return c.connHandlers(label, true, true)
+}
+
+func (c *Capture) connHandlers(label string, redial, neverOpened bool) []nats.Option {
+	w := &connWatch{c: c, label: label, log: c.o.Log.With("connection", label), redial: redial, neverOpened: neverOpened}
 	return []nats.Option{
 		nats.ConnectHandler(func(nc *nats.Conn) {
 			to := w.setServer(nc)
 			// With RetryOnFailedConnect the first connect after failed
 			// attempts comes here, not to the reconnect handler.
 			w.mu.Lock()
-			failed, redial := w.lastErr != nil || w.timer != nil, w.redial
+			failed, redial, neverOpened := w.lastErr != nil || w.timer != nil, w.redial, w.neverOpened
 			w.redial = false
 			w.mu.Unlock()
 			w.disarm()
+			if redial && neverOpened {
+				w.log.Info("nats connected after the first dial failed", "server", to)
+				c.Record(c.collectorEvent("collector.reconnected", label, nc, "connected after the first dial failed",
+					fmt.Sprintf("collector connection %s connected to %s after its first dial failed", label, orDash(to))))
+				return
+			}
 			if redial {
 				w.log.Info("nats connected after the connection was dialled again", "server", to)
 				c.Record(c.collectorEvent("collector.reconnected", label, nc, "dialled again after the connection closed",
@@ -205,7 +222,7 @@ func (c *Capture) connHandlers(label string, redial bool) []nats.Option {
 
 // NotOpened records that the connection label could not be opened, as
 // collector.not_connected, so that its events count as not captured until
-// it connects; a connection dialled with RedialHandlers then records
+// it connects; a connection dialled with FirstOpenHandlers then records
 // collector.reconnected.
 func (c *Capture) NotOpened(label string, err error) {
 	reason := err.Error()

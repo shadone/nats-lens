@@ -115,8 +115,8 @@ func TestAccountConnectionCapturesOnceItOpens(t *testing.T) {
 		t.Error("no stream advisory captured after the account connection opened")
 	}
 	if n := refusalCount(t, data, `SELECT count(*) FROM events WHERE kind = 'collector.reconnected'
-  AND json_extract_string(raw, '$.connection') = 'SHOP'`); n != 1 {
-		t.Errorf("%d collector.reconnected events for SHOP, want 1", n)
+  AND json_extract_string(raw, '$.connection') = 'SHOP' AND reason = 'connected after the first dial failed'`); n != 1 {
+		t.Errorf("%d collector.reconnected events for SHOP with the first-dial reason, want 1", n)
 	}
 	if n := refusalCount(t, data, `SELECT count(*) FROM micro_requests WHERE label = 'SHOP' AND request = 'STATS' AND state = 'ok'`); n == 0 {
 		t.Error("SHOP was not asked after its connection opened")
