@@ -25,7 +25,7 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 - **Memory.** DuckDB may use `duckdb_memory_limit`, by default 60% of the container's memory limit, or 1 GiB outside a container. Several systems share it, each with its own database.
 - **The Kubernetes manifests.** `k8s/base` creates the namespace `nats-lens`, a service account with read-only roles, a volume, the Deployment and the Service, and expects two Secrets with the NATS credentials. `k8s/components/gke-iap` adds IAP, a load balancer health check on `/healthz`, a NetworkPolicy and a Managed Prometheus scrape of `/metrics`. Two overlays to copy: `k8s/examples/basic`, reached by `kubectl port-forward` only, and `k8s/examples/gke-iap`, behind IAP on an existing Gateway.
 - **One replica.** DuckDB has one writer, so the Deployment runs one replica with the `Recreate` strategy, and the database and the archive share a volume. The pod prefers a node without a NATS server, so draining a NATS node does not also take nats-lens away. It runs as non-root on a read-only root filesystem.
-- **Out-of-the-box limits.** The base asks for 100m CPU and 512 MiB of memory with a 5 GiB volume (a laptop cluster or a small system); the `gke-iap` example asks for 500m, 2 GiB and 20 GiB as a starting point for production. Reading the Topology of a system with 1,000 leaf node sites takes up to about 450 MB in the process, more when servers' LEAFZ answers failed during the day, so a system with hundreds of leaf node sites, or several systems in one process, needs more. The README's [Memory size](../../README.md#memory-size) table gives a memory limit per size of system; its figures are proposed, not yet confirmed.
+- **Out-of-the-box limits.** The base asks for 100m CPU and 512 MiB of memory with a 5 GiB volume (a laptop cluster or a small system); the `gke-iap` example asks for 500m, 2 GiB and 20 GiB as a starting point for production. Reading the Topology of a system with 1,000 leaf node sites takes up to about 450 MB in the process, more when servers' LEAFZ answers failed during the day, so a system with hundreds of leaf node sites is estimated to need more, and several systems in one process need more. The README's [Memory size](../../README.md#memory-size) table gives a memory limit per size of system; its figures are proposed, not yet confirmed.
 
 ## Scenarios
 
@@ -60,9 +60,9 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 ### Size the pod's memory
 
 - **Surfaces:** `cli`
-- **Given** one system deployed from the base manifests, whose pod asks for 512 MiB with limits equal to requests
+- **Given** one system deployed from `k8s/examples/basic`, whose pod asks for 512 MiB with limits equal to requests
 - **When** nats-lens starts
-- **Then** its log line `duckdb memory limit` shows 322122547 bytes, 60% of 512 MiB, and for a system with hundreds of leaf node sites I raise the pod's memory as the README's [Memory size](../../README.md#memory-size) table proposes
+- **Then** its log line `duckdb memory limit` shows `"bytes":322122547`, 60% of 512 MiB
 
 ## Not supported / out of scope
 
