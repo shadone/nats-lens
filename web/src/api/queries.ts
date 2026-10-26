@@ -1,8 +1,11 @@
 // TanStack Query hooks over requests.ts. Every hook reads the page's system
 // with useSystem(), sends it, and keys on it as the second key element, so
-// two systems never share a cache entry. A live range refetches on the
-// collector's interval; a fixed range never changes and is not refetched.
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+// two systems never share a cache entry; a previous answer stands in while
+// the next key loads only for the same system (keepSameSystem). A live
+// range refetches on the collector's interval; a fixed range never
+// changes and is not refetched.
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepSameSystem } from "./placeholder";
 import { useMemo } from "react";
 import { LIVE_REFRESH_MS, rangeKey, type RangeSpec } from "../lib/timeRange";
 import { useSystem } from "../lib/useSystem";
@@ -30,7 +33,7 @@ export function useOverview(spec: RangeSpec) {
     queryKey: ["overview", sys, rangeKey(spec)],
     queryFn: ({ signal }) => api.getOverview(sys, spec, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
   });
 }
 
@@ -40,7 +43,7 @@ export function useFindings(spec: RangeSpec, f: api.FindingFilter) {
     queryKey: ["findings", sys, rangeKey(spec), { ...f, entity: entityKey(f.entity) }],
     queryFn: ({ signal }) => api.listFindings(sys, spec, f, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
   });
 }
 
@@ -58,7 +61,7 @@ export function useMutes(includeInactive: boolean, pageToken = "") {
   return useQuery({
     queryKey: ["mutes", sys, includeInactive, pageToken],
     queryFn: ({ signal }) => api.listMutes(sys, includeInactive, pageToken, signal),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
   });
 }
 
@@ -98,7 +101,7 @@ export function useTimeline(spec: RangeSpec, entity?: Entity) {
     queryKey: ["timeline", sys, rangeKey(spec), entityKey(entity)],
     queryFn: ({ signal }) => api.getTimeline(sys, spec, entity, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
   });
 }
 
@@ -109,7 +112,7 @@ export function useEvents(spec: RangeSpec, f: api.EventFilter) {
     queryFn: ({ signal }) => api.listEvents(sys, spec, f, signal),
     // Only the newest page follows live data; older pages are keyset pages.
     refetchInterval: f.pageToken ? false : refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
   });
 }
 
@@ -129,7 +132,7 @@ export function useStreams(spec: RangeSpec, includeKv = false) {
     queryKey: ["streams", sys, rangeKey(spec), includeKv],
     queryFn: ({ signal }) => api.listStreams(sys, spec, includeKv, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
   });
 }
 
@@ -148,7 +151,7 @@ export function useStreamNames(spec: RangeSpec) {
     queryFn: async ({ signal }) => (await api.listStreams(sys, spec, false, signal)).streams.map((s) => s.entity),
     refetchInterval: false,
     staleTime: FILTER_NAMES_STALE_MS,
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
   });
 }
 
@@ -164,10 +167,11 @@ export function useStream(spec: RangeSpec, account: string, stream: string) {
 export function useConsumers(spec: RangeSpec, f: { account?: string; stream?: string; includeEphemeral?: boolean }) {
   const sys = useSystem();
   return useQuery({
-    queryKey: ["consumers", sys, rangeKey(spec), f],
+    // The account has its own key position, so no other account's rows stand in.
+    queryKey: ["consumers", sys, rangeKey(spec), f.account ?? "", f],
     queryFn: ({ signal }) => api.listConsumers(sys, spec, f, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys, { 3: f.account ?? "" }),
   });
 }
 
@@ -182,9 +186,10 @@ export function useConsumer(spec: RangeSpec, account: string, stream: string, na
 
 /**
  * The placement matrix of a range; enabled false leaves it unread. A new
- * range shows the previous range's data while it loads; with keepFor set,
- * only when the previous query was asked with the same keepFor, so keepFor
- * names everything the kept data must share (system, page range, choice).
+ * range shows the previous range's data of the same system while it
+ * loads; with keepFor set, only when the previous query was asked with
+ * the same keepFor, so keepFor names everything the kept data must share
+ * (system, page range, choice).
  */
 export function usePlacement(spec: RangeSpec, filter: MatrixFilter, enabled = true, keepFor?: string) {
   const sys = useSystem();
@@ -192,10 +197,7 @@ export function usePlacement(spec: RangeSpec, filter: MatrixFilter, enabled = tr
     queryKey: keepFor === undefined ? ["placement", sys, rangeKey(spec), filter] : ["placement", sys, rangeKey(spec), filter, keepFor],
     queryFn: ({ signal }) => api.getPlacement(sys, spec, filter, signal),
     refetchInterval: refetch(spec),
-    placeholderData:
-      keepFor === undefined
-        ? keepPreviousData
-        : (prev, prevQuery) => (prevQuery?.queryKey[4] === keepFor ? prev : undefined),
+    placeholderData: keepSameSystem(sys, keepFor === undefined ? {} : { 4: keepFor }),
     enabled,
   });
 }
@@ -207,7 +209,7 @@ export function useTopology(spec: RangeSpec) {
     queryKey: ["topology", sys, rangeKey(spec)],
     queryFn: ({ signal }) => api.getTopology(sys, spec, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
   });
 }
 
@@ -219,7 +221,7 @@ export function useAccountsAndAuth(spec: RangeSpec) {
     queryFn: ({ signal }) => api.getAccountsAndAuth(sys, spec, signal),
     refetchInterval: refetch(spec),
     // The previous range's answer stands in while the next loads, never another system's.
-    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === sys ? prev : undefined),
+    placeholderData: keepSameSystem(sys),
   });
 }
 
@@ -231,7 +233,7 @@ export function useCapacity(spec: RangeSpec) {
     queryFn: ({ signal }) => api.getCapacity(sys, spec, signal),
     refetchInterval: refetch(spec),
     // The previous range's answer stands in while the next loads, never another system's.
-    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === sys ? prev : undefined),
+    placeholderData: keepSameSystem(sys),
   });
 }
 
@@ -247,7 +249,7 @@ export function useSubjects(spec: RangeSpec, account: string, filter: SubjectFil
     queryKey: ["subjects", sys, rangeKey(spec), account, filter],
     queryFn: ({ signal }) => api.getSubjects(sys, spec, account, filter, signal),
     refetchInterval: refetch(spec),
-    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === sys && prevQuery.queryKey[3] === account ? prev : undefined),
+    placeholderData: keepSameSystem(sys, { 3: account }),
   });
 }
 
@@ -262,7 +264,7 @@ export function useMicroServices(spec: RangeSpec, account: string) {
     queryKey: ["microServices", sys, rangeKey(spec), account],
     queryFn: ({ signal }) => api.getMicroServices(sys, spec, account, signal),
     refetchInterval: refetch(spec),
-    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === sys && prevQuery.queryKey[3] === account ? prev : undefined),
+    placeholderData: keepSameSystem(sys, { 3: account }),
   });
 }
 
@@ -278,7 +280,7 @@ export function useApplications(spec: RangeSpec, account: string, includeTooling
     queryKey: ["applications", sys, rangeKey(spec), account, includeTooling],
     queryFn: ({ signal }) => api.getApplications(sys, spec, account, includeTooling, signal),
     refetchInterval: refetch(spec),
-    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === sys && prevQuery.queryKey[3] === account ? prev : undefined),
+    placeholderData: keepSameSystem(sys, { 3: account }),
   });
 }
 
@@ -302,17 +304,18 @@ export function useServers(spec: RangeSpec) {
     queryKey: ["servers", sys, rangeKey(spec)],
     queryFn: ({ signal }) => api.listServers(sys, spec, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
   });
 }
 
 export function useConnections(spec: RangeSpec, f: api.ConnectionFilter) {
   const sys = useSystem();
   return useQuery({
-    queryKey: ["connections", sys, rangeKey(spec), f],
+    // The account has its own key position, so no other account's rows stand in.
+    queryKey: ["connections", sys, rangeKey(spec), f.account ?? "", f],
     queryFn: ({ signal }) => api.listConnections(sys, spec, f, signal),
     refetchInterval: f.pageToken ? false : refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys, { 3: f.account ?? "" }),
   });
 }
 
@@ -322,7 +325,7 @@ export function useSeries(spec: RangeSpec, metric: string, entity: Entity | unde
     queryKey: ["series", sys, rangeKey(spec), metric, entityKey(entity), maxPoints],
     queryFn: ({ signal }) => api.getSeries(sys, spec, metric, entity, maxPoints, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
   });
 }
 
