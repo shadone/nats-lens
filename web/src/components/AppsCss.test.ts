@@ -28,4 +28,10 @@ describe("apps.css", () => {
     expect(wide).toMatch(/\.ap-cards\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
     expect(phone).toMatch(/\.ap-cards\{grid-template-columns:minmax\(0,1fr\)/);
   });
+
+  it("keeps every word of a card breakable, so the three cards never widen the page between the phone and desktop layouts", () => {
+    const cardRules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter((m) => /\.ap-(card|fig|label|v)\b/.test(m[1]));
+    expect(cardRules.length).toBeGreaterThan(3);
+    expect(cardRules.filter((m) => /white-space:nowrap/.test(m[2])).map((m) => m[1].trim())).toEqual([]);
+  });
 });
