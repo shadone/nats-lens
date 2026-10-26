@@ -231,3 +231,46 @@ func TestClientAppHoursMigrationOnAStoreWithData(t *testing.T) {
 		"2026-10-16 22|APP|orders-api|false|30|30|30|30|1",
 	})
 }
+
+// A connection from ::1 is a loopback connection as one from 127.0.0.1 is.
+func TestClientAppHoursIPv6Loopback(t *testing.T) {
+	s := openMem(t)
+	h := time.Date(2026, 10, 16, 22, 0, 0, 0, time.UTC)
+	cli := func(n int64) appConn {
+		return appConn{server: 0, cid: 2, name: "nats-cli", ip: "::1", account: "APP", start: h.Add(-time.Hour), in: n, out: n, inB: n, outB: n}
+	}
+	writeAll(t, s, appSnapshot(t, h.Add(10*time.Minute), cli(5)), appSnapshot(t, h.Add(10*time.Minute+30*time.Second), cli(8)))
+	wantRows(t, "client_app_hours", rowStrings(t, s.DB(), appHoursRows), []string{
+		"2026-10-16 22|APP|nats-cli|true|3|3|3|3|1",
+	})
+}
+
+// A fall of out_bytes alone, the other counters rising, makes the row
+// count whole.
+func TestClientAppHoursOutBytesFell(t *testing.T) {
+	s := openMem(t)
+	h := time.Date(2026, 10, 16, 22, 0, 0, 0, time.UTC)
+	conn := func(n, outB int64) appConn {
+		return appConn{server: 0, cid: 1, name: "orders-api@pod-a", ip: "10.0.0.1", account: "APP", start: h.Add(-time.Hour),
+			in: n, out: n, inB: n, outB: outB}
+	}
+	writeAll(t, s, appSnapshot(t, h.Add(10*time.Minute), conn(100, 500)),
+		appSnapshot(t, h.Add(10*time.Minute+30*time.Second), conn(110, 40)))
+	wantRows(t, "client_app_hours", rowStrings(t, s.DB(), appHoursRows), []string{
+		"2026-10-16 22|APP|orders-api|false|110|110|110|40|1",
+	})
+}
+
+// A connection whose start time is exactly the previous epoch's start did
+// not start after it: its first row counts nothing.
+func TestClientAppHoursStartAtPreviousEpoch(t *testing.T) {
+	s := openMem(t)
+	h := time.Date(2026, 10, 16, 22, 0, 0, 0, time.UTC)
+	prev := h.Add(10 * time.Minute)
+	other := appConn{server: 1, cid: 9, name: "billing", ip: "10.0.0.9", account: "APP", start: h.Add(-time.Hour), in: 1, out: 1, inB: 1, outB: 1}
+	conn := appConn{server: 0, cid: 1, name: "orders-api@pod-a", ip: "10.0.0.1", account: "APP", start: prev, in: 7, out: 7, inB: 7, outB: 7}
+	writeAll(t, s, appSnapshot(t, prev, other), appSnapshot(t, prev.Add(30*time.Second), other, conn))
+	wantRows(t, "client_app_hours", rowStrings(t, s.DB(), appHoursRows), []string{
+		"2026-10-16 22|APP|billing|false|0|0|0|0|1",
+	})
+}
