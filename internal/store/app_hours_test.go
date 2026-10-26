@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -273,4 +274,21 @@ func TestClientAppHoursStartAtPreviousEpoch(t *testing.T) {
 	wantRows(t, "client_app_hours", rowStrings(t, s.DB(), appHoursRows), []string{
 		"2026-10-16 22|APP|billing|false|0|0|0|0|1",
 	})
+}
+
+// A failed lookback names the rollup it was for.
+func TestLookbackErrorNamesTheRollup(t *testing.T) {
+	s := openMem(t)
+	tx, err := s.DB().Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	w := newWriter(context.Background(), tx, 1, appSnapshot(t, time.Date(2026, 10, 16, 22, 0, 0, 0, time.UTC)))
+	w.lookback("client app", appLookback)
+	if w.err == nil || !strings.HasPrefix(w.err.Error(), "client app hours lookback: ") {
+		t.Errorf("lookback error = %v, want one that starts with %q", w.err, "client app hours lookback: ")
+	}
 }

@@ -73,6 +73,6 @@ func (w *writer) writeAppHours() {
 	if !conns || w.err != nil {
 		return
 	}
-	lo, prevStart := w.lookback(appLookback)
+	lo, prevStart := w.lookback("client app", appLookback)
 	w.exec(appHoursQuery, w.epoch, w.snap.StartedAt.UTC().Truncate(time.Hour).UnixMicro(), lo, prevStart)
 }
