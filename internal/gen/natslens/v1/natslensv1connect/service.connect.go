@@ -85,6 +85,9 @@ const (
 	// LensServiceGetMicroServicesProcedure is the fully-qualified name of the LensService's
 	// GetMicroServices RPC.
 	LensServiceGetMicroServicesProcedure = "/natslens.v1.LensService/GetMicroServices"
+	// LensServiceGetApplicationsProcedure is the fully-qualified name of the LensService's
+	// GetApplications RPC.
+	LensServiceGetApplicationsProcedure = "/natslens.v1.LensService/GetApplications"
 	// LensServiceListServersProcedure is the fully-qualified name of the LensService's ListServers RPC.
 	LensServiceListServersProcedure = "/natslens.v1.LensService/ListServers"
 	// LensServiceGetServerProcedure is the fully-qualified name of the LensService's GetServer RPC.
@@ -183,6 +186,13 @@ type LensServiceClient interface {
 	// nats-lens asks, else from their $SRV subscriptions in the subscription
 	// collection; with rates, average times and the slow rule per endpoint.
 	GetMicroServices(context.Context, *connect.Request[v1.GetMicroServicesRequest]) (*connect.Response[v1.GetMicroServicesResponse], error)
+	// The client applications of the range's newest epoch: its
+	// connections grouped by the name before the first "@", with their
+	// instances, servers, libraries and round trip times, the reconnects,
+	// slow consumers and stale connections of the 24 hours before it from
+	// the events, the client findings, and the hourly traffic from the
+	// rollup.
+	GetApplications(context.Context, *connect.Request[v1.GetApplicationsRequest]) (*connect.Response[v1.GetApplicationsResponse], error)
 	// Servers by name with version, uptime and role.
 	ListServers(context.Context, *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error)
 	// One server with endpoint outcomes and process lifetimes.
@@ -374,6 +384,13 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		getApplications: connect.NewClient[v1.GetApplicationsRequest, v1.GetApplicationsResponse](
+			httpClient,
+			baseURL+LensServiceGetApplicationsProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetApplications")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		listServers: connect.NewClient[v1.ListServersRequest, v1.ListServersResponse](
 			httpClient,
 			baseURL+LensServiceListServersProcedure,
@@ -478,6 +495,7 @@ type lensServiceClient struct {
 	getSubjects        *connect.Client[v1.GetSubjectsRequest, v1.GetSubjectsResponse]
 	matchSubject       *connect.Client[v1.MatchSubjectRequest, v1.MatchSubjectResponse]
 	getMicroServices   *connect.Client[v1.GetMicroServicesRequest, v1.GetMicroServicesResponse]
+	getApplications    *connect.Client[v1.GetApplicationsRequest, v1.GetApplicationsResponse]
 	listServers        *connect.Client[v1.ListServersRequest, v1.ListServersResponse]
 	getServer          *connect.Client[v1.GetServerRequest, v1.GetServerResponse]
 	listConnections    *connect.Client[v1.ListConnectionsRequest, v1.ListConnectionsResponse]
@@ -599,6 +617,11 @@ func (c *lensServiceClient) MatchSubject(ctx context.Context, req *connect.Reque
 // GetMicroServices calls natslens.v1.LensService.GetMicroServices.
 func (c *lensServiceClient) GetMicroServices(ctx context.Context, req *connect.Request[v1.GetMicroServicesRequest]) (*connect.Response[v1.GetMicroServicesResponse], error) {
 	return c.getMicroServices.CallUnary(ctx, req)
+}
+
+// GetApplications calls natslens.v1.LensService.GetApplications.
+func (c *lensServiceClient) GetApplications(ctx context.Context, req *connect.Request[v1.GetApplicationsRequest]) (*connect.Response[v1.GetApplicationsResponse], error) {
+	return c.getApplications.CallUnary(ctx, req)
 }
 
 // ListServers calls natslens.v1.LensService.ListServers.
@@ -723,6 +746,13 @@ type LensServiceHandler interface {
 	// nats-lens asks, else from their $SRV subscriptions in the subscription
 	// collection; with rates, average times and the slow rule per endpoint.
 	GetMicroServices(context.Context, *connect.Request[v1.GetMicroServicesRequest]) (*connect.Response[v1.GetMicroServicesResponse], error)
+	// The client applications of the range's newest epoch: its
+	// connections grouped by the name before the first "@", with their
+	// instances, servers, libraries and round trip times, the reconnects,
+	// slow consumers and stale connections of the 24 hours before it from
+	// the events, the client findings, and the hourly traffic from the
+	// rollup.
+	GetApplications(context.Context, *connect.Request[v1.GetApplicationsRequest]) (*connect.Response[v1.GetApplicationsResponse], error)
 	// Servers by name with version, uptime and role.
 	ListServers(context.Context, *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error)
 	// One server with endpoint outcomes and process lifetimes.
@@ -910,6 +940,13 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	lensServiceGetApplicationsHandler := connect.NewUnaryHandler(
+		LensServiceGetApplicationsProcedure,
+		svc.GetApplications,
+		connect.WithSchema(lensServiceMethods.ByName("GetApplications")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	lensServiceListServersHandler := connect.NewUnaryHandler(
 		LensServiceListServersProcedure,
 		svc.ListServers,
@@ -1033,6 +1070,8 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceMatchSubjectHandler.ServeHTTP(w, r)
 		case LensServiceGetMicroServicesProcedure:
 			lensServiceGetMicroServicesHandler.ServeHTTP(w, r)
+		case LensServiceGetApplicationsProcedure:
+			lensServiceGetApplicationsHandler.ServeHTTP(w, r)
 		case LensServiceListServersProcedure:
 			lensServiceListServersHandler.ServeHTTP(w, r)
 		case LensServiceGetServerProcedure:
@@ -1150,6 +1189,10 @@ func (UnimplementedLensServiceHandler) MatchSubject(context.Context, *connect.Re
 
 func (UnimplementedLensServiceHandler) GetMicroServices(context.Context, *connect.Request[v1.GetMicroServicesRequest]) (*connect.Response[v1.GetMicroServicesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetMicroServices is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetApplications(context.Context, *connect.Request[v1.GetApplicationsRequest]) (*connect.Response[v1.GetApplicationsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetApplications is not implemented"))
 }
 
 func (UnimplementedLensServiceHandler) ListServers(context.Context, *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error) {
