@@ -126,3 +126,46 @@ func TestDemoStagingApplications(t *testing.T) {
 		t.Errorf("staging over the day: epoch %d, %d applications", day.GetEpoch(), len(day.GetApplications()))
 	}
 }
+
+// A connection that connected during the day is not listed before it
+// connected, on the Connections page, in the server counts and on the
+// Applications page: resize-worker's x2k4l pod connected at 11:22 on
+// nats-2, the unnamed script at 10:05 on nats-1.
+func TestDemoLateConnectionsAreNotListedBefore(t *testing.T) {
+	c := demo(t)
+	rng := func(end time.Time) *v1.TimeRange {
+		return &v1.TimeRange{Start: timestamppb.New(end.Add(-time.Hour)), End: timestamppb.New(end)}
+	}
+	for _, x := range []struct {
+		end            time.Time
+		pod, unnamed   bool
+		total, onNats1 int64
+	}{
+		{at(5, 0, 0), false, false, 185, 43},
+		{at(10, 30, 0), false, true, 186, 44},
+		{at(12, 0, 0), true, true, 187, 44},
+	} {
+		when := x.end.Format("15:04")
+		list := must(c.ListConnections(ctx, connect.NewRequest(&v1.ListConnectionsRequest{System: fake.Cluster, Range: rng(x.end), PageSize: 1000})))
+		pod := false
+		for _, cn := range list.GetConnections() {
+			pod = pod || cn.GetName() == "resize-worker@resize-worker-6c9d4-x2k4l"
+		}
+		apps := demoApps(t, c, fake.Cluster, x.end, "", false)
+		unnamed := demoApp(apps, api.UnnamedApplication) != nil
+		if pod != x.pod || unnamed != x.unnamed || int64(list.GetTotalCount()) != x.total || int64(apps.GetConnectionsTotal()) != x.total {
+			t.Errorf("..%s: x2k4l %v, unnamed %v, %d connections listed, %d on the Applications page", when, pod, unnamed,
+				list.GetTotalCount(), apps.GetConnectionsTotal())
+		}
+		var total int64
+		for _, sv := range must(c.ListServers(ctx, connect.NewRequest(&v1.ListServersRequest{System: fake.Cluster, Range: rng(x.end)}))).GetServers() {
+			total += sv.GetConnections()
+			if sv.GetName() == "nats-1" && sv.GetConnections() != x.onNats1 {
+				t.Errorf("..%s: nats-1 counts %d connections, want %d", when, sv.GetConnections(), x.onNats1)
+			}
+		}
+		if total != x.total {
+			t.Errorf("..%s: the servers count %d connections, want %d", when, total, x.total)
+		}
+	}
+}
