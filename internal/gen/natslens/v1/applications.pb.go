@@ -472,7 +472,8 @@ type Application struct {
 	// The accounts the connections use, sorted.
 	Accounts []*ApplicationAccount `protobuf:"bytes,7,rep,name=accounts,proto3" json:"accounts,omitempty"`
 	// The client library versions, most connections first, then by language
-	// and version; more than one is mixed.
+	// and version; more than one is mixed. Connections that report neither
+	// language nor version are left out.
 	Libraries []*LibraryCount `protobuf:"bytes,8,rep,name=libraries,proto3" json:"libraries,omitempty"`
 	// Median round trip time over the connections that report one (the mean
 	// of the middle two of an even count); unset when none does.
@@ -484,11 +485,13 @@ type Application struct {
 	// largest of one connection; unset when none reports it.
 	PendingBytes    *int64 `protobuf:"varint,11,opt,name=pending_bytes,json=pendingBytes,proto3,oneof" json:"pending_bytes,omitempty"`
 	PendingBytesMax *int64 `protobuf:"varint,12,opt,name=pending_bytes_max,json=pendingBytesMax,proto3,oneof" json:"pending_bytes_max,omitempty"`
-	// Reconnects in the 24 hours before the epoch by client-004's rule over
-	// the application's names: the smaller of the disconnects for a reason
-	// other than "Client Closed" and "Server Shutdown", and the connects
-	// (those folded into client.churn events included). Unset when no event
-	// was captured up to the epoch.
+	// Reconnects in the 24 hours before the epoch by client-004's rule,
+	// summed over the application's connection names: per name, the
+	// smaller of the disconnects for a reason other than "Client Closed"
+	// and "Server Shutdown", and the connects (those folded into
+	// client.churn events included). A drop under one name and a connect
+	// under another, as in a rolling deploy, do not pair. Unset when no
+	// event was captured up to the epoch.
 	Reconnects_24H *int32 `protobuf:"varint,13,opt,name=reconnects_24h,json=reconnects24h,proto3,oneof" json:"reconnects_24h,omitempty"`
 	// Disconnects in the same 24 hours whose reason contains "slow
 	// consumer" (client-003); unset when no event was captured.
@@ -741,7 +744,8 @@ type ApplicationSpread struct {
 	Servers int32 `protobuf:"varint,4,opt,name=servers,proto3" json:"servers,omitempty"`
 	// Whether the server holds more than half of the connections and the
 	// applications use more than one server: a restart of it moves most
-	// clients at once.
+	// clients at once. False on a partial epoch, whose missing servers'
+	// connections are not known.
 	Concentrated  bool `protobuf:"varint,5,opt,name=concentrated,proto3" json:"concentrated,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -964,7 +968,8 @@ type GetApplicationsResponse struct {
 	Spread *ApplicationSpread `protobuf:"bytes,7,opt,name=spread,proto3" json:"spread,omitempty"`
 	// Client library versions by the applications that use them, most
 	// applications first, then by language and version; over every
-	// application before the limit.
+	// application before the limit. A connection that reports neither
+	// language nor version counts for none.
 	Libraries []*LibraryUse `protobuf:"bytes,8,rep,name=libraries,proto3" json:"libraries,omitempty"`
 	// The 24-hour counts, over every application before the limit.
 	LastDay *ApplicationsLastDay `protobuf:"bytes,9,opt,name=last_day,json=lastDay,proto3" json:"last_day,omitempty"`
@@ -974,8 +979,20 @@ type GetApplicationsResponse struct {
 	// Whether any event was captured up to the epoch; the 24-hour counts
 	// are unset when not.
 	EventsCaptured bool `protobuf:"varint,11,opt,name=events_captured,json=eventsCaptured,proto3" json:"events_captured,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Whether the epoch is partial: a server or an endpoint did not answer.
+	// The connections of a server that did not answer are not counted, so
+	// spread.concentrated is false.
+	Partial bool `protobuf:"varint,12,opt,name=partial,proto3" json:"partial,omitempty"`
+	// Servers the epoch expected that did not answer, sorted, as
+	// ListServers names them.
+	Missing []string `protobuf:"bytes,13,rep,name=missing,proto3" json:"missing,omitempty"`
+	// Whether event capture, while it ran, stopped for part of the 24 hours
+	// before the epoch (nats-lens stopped, or a connection that captures
+	// events was lost), as on the Accounts and auth page: the 24-hour
+	// counts are then lower bounds. False when events_captured is false.
+	CaptureGaps   bool `protobuf:"varint,14,opt,name=capture_gaps,json=captureGaps,proto3" json:"capture_gaps,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetApplicationsResponse) Reset() {
@@ -1085,6 +1102,27 @@ func (x *GetApplicationsResponse) GetEventsCaptured() bool {
 	return false
 }
 
+func (x *GetApplicationsResponse) GetPartial() bool {
+	if x != nil {
+		return x.Partial
+	}
+	return false
+}
+
+func (x *GetApplicationsResponse) GetMissing() []string {
+	if x != nil {
+		return x.Missing
+	}
+	return nil
+}
+
+func (x *GetApplicationsResponse) GetCaptureGaps() bool {
+	if x != nil {
+		return x.CaptureGaps
+	}
+	return false
+}
+
 var File_natslens_v1_applications_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_applications_proto_rawDesc = "" +
@@ -1188,7 +1226,7 @@ const file_natslens_v1_applications_proto_rawDesc = "" +
 	"\freconnecting\x18\x03 \x01(\x05H\x02R\freconnecting\x88\x01\x01B\x11\n" +
 	"\x0f_slow_consumersB\b\n" +
 	"\x06_staleB\x0f\n" +
-	"\r_reconnecting\"\x99\x04\n" +
+	"\r_reconnecting\"\xf0\x04\n" +
 	"\x17GetApplicationsResponse\x12\x14\n" +
 	"\x05epoch\x18\x01 \x01(\x03R\x05epoch\x125\n" +
 	"\bepoch_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\aepochAt\x12<\n" +
@@ -1201,7 +1239,10 @@ const file_natslens_v1_applications_proto_rawDesc = "" +
 	"\blast_day\x18\t \x01(\v2 .natslens.v1.ApplicationsLastDayR\alastDay\x12\x1b\n" +
 	"\tconnz_cut\x18\n" +
 	" \x01(\bR\bconnzCut\x12'\n" +
-	"\x0fevents_captured\x18\v \x01(\bR\x0eeventsCapturedBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
+	"\x0fevents_captured\x18\v \x01(\bR\x0eeventsCaptured\x12\x18\n" +
+	"\apartial\x18\f \x01(\bR\apartial\x12\x18\n" +
+	"\amissing\x18\r \x03(\tR\amissing\x12!\n" +
+	"\fcapture_gaps\x18\x0e \x01(\bR\vcaptureGapsBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
 
 var (
 	file_natslens_v1_applications_proto_rawDescOnce sync.Once
