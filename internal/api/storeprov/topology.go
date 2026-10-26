@@ -3,6 +3,7 @@ package storeprov
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -11,8 +12,9 @@ import (
 )
 
 // Topology reads the range's newest epoch: its servers, their ROUTEZ,
-// GATEWAYZ and LEAFZ outcomes and rows, and the drops of the 24 hours
-// before, counted in SQL (topology_drops.go).
+// GATEWAYZ and LEAFZ outcomes and rows, the routes of the collection
+// before it for the slow rule, and the drops of the 24 hours before,
+// counted in SQL (topology_drops.go).
 // Leaf rows in which the reporting server is the spoke (its own uplink to
 // a hub) are not sites of this system and are left out.
 func (p *Provider) Topology(ctx context.Context, req *v1.GetTopologyRequest) (*api.TopologyFacts, error) {
@@ -23,7 +25,8 @@ func (p *Provider) Topology(ctx context.Context, req *v1.GetTopologyRequest) (*a
 	f := &api.TopologyFacts{Epoch: e.epoch, EpochAt: e.startedAt, Interval: p.Interval,
 		Answered: map[string][]string{}, Unanswered: map[string][]string{}}
 	steps := []func(context.Context, *api.TopologyFacts) error{
-		p.topologyServers, p.topologyEndpoints, p.topologyRoutes, p.topologyGateways, p.topologyLeafs, p.topologyDrops,
+		p.topologyServers, p.topologyEndpoints, p.topologyRoutes, p.topologyEarlier, p.topologyGateways, p.topologyLeafs,
+		p.topologyDrops,
 	}
 	for _, step := range steps {
 		if err := step(ctx, f); err != nil {
@@ -112,28 +115,65 @@ ORDER BY 1`, f.Epoch, api.EndpointRoutez, api.EndpointGatewayz, api.EndpointLeaf
 	return rows.Err()
 }
 
-// topologyRoutes reads the epoch's routes; the remote is named by the
-// row, else by its server ID.
+// topologyRoutes reads the epoch's routes.
 func (p *Provider) topologyRoutes(ctx context.Context, f *api.TopologyFacts) error {
+	var err error
+	f.Routes, err = p.routeRows(ctx, f.Epoch)
+	return err
+}
+
+// topologyEarlier reads the collection the slow rule compares the epoch
+// with: the newest epoch before it with route rows that started no
+// earlier than api.TopologyEarliestEarlier, and its routes; none when the
+// collect interval is not known. The start is compared with the column
+// directly, so the session time zone does not shift it.
+func (p *Provider) topologyEarlier(ctx context.Context, f *api.TopologyFacts) error {
+	bound, known := api.TopologyEarliestEarlier(f.EpochAt, p.Interval)
+	if !known {
+		return nil
+	}
+	var e api.TopologyEarlier
+	err := p.db().QueryRowContext(ctx, `
+SELECT e.epoch, e.started_at FROM epochs e
+WHERE e.epoch < ? AND e.started_at >= ? AND e.started_at < ? AND EXISTS (SELECT 1 FROM routes r WHERE r.epoch = e.epoch)
+ORDER BY e.epoch DESC LIMIT 1`, f.Epoch, bound, f.EpochAt).Scan(&e.Epoch, &e.At)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("topology earlier collection: %w", err)
+	}
+	e.At = e.At.UTC()
+	if e.Routes, err = p.routeRows(ctx, e.Epoch); err != nil {
+		return err
+	}
+	f.Earlier = &e
+	return nil
+}
+
+// routeRows reads an epoch's routes; the remote is named by the row,
+// else by its server ID.
+func (p *Provider) routeRows(ctx context.Context, epoch int64) ([]api.TopologyRouteRow, error) {
 	rows, err := p.db().QueryContext(ctx, `
 SELECT s.server_name, coalesce(s.cluster, ''), coalesce(nullif(r.remote_name, ''), rs.server_name, r.remote_id, ''),
   r.rtt_ns, r.pending_bytes, coalesce(r.account, '')
 FROM routes r JOIN servers s USING (server_id) LEFT JOIN servers rs ON rs.server_id = r.remote_id
-WHERE r.epoch = ?`, f.Epoch)
+WHERE r.epoch = ?`, epoch)
 	if err != nil {
-		return fmt.Errorf("topology routes: %w", err)
+		return nil, fmt.Errorf("topology routes: %w", err)
 	}
 	defer rows.Close()
+	var out []api.TopologyRouteRow
 	for rows.Next() {
 		var r api.TopologyRouteRow
 		var rtt, pending sql.NullInt64
 		if err := rows.Scan(&r.Server, &r.Cluster, &r.Remote, &rtt, &pending, &r.Account); err != nil {
-			return err
+			return nil, err
 		}
 		r.RTT, r.Pending = durPtr(rtt), int64Ptr(pending)
-		f.Routes = append(f.Routes, r)
+		out = append(out, r)
 	}
-	return rows.Err()
+	return out, rows.Err()
 }
 
 // topologyGateways reads the epoch's gateway rows, both directions.
