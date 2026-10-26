@@ -491,6 +491,12 @@ func TestCertificateExpiry(t *testing.T) {
 			"client certificate expires 2026-10-30 09:00 UTC, in 13 days.")
 		want(t, r["nats-2"], "critical", "nats-2: gateway certificate expires 2026-10-19 09:00 UTC, in 2 days; client certificate")
 		want(t, r["nats-4"], "warning", "mqtt certificate expires", "(as VARZ reported it at 2026-10-16 10:00 UTC)")
+		// Every listener certificate is a related setting, also one later
+		// than warn_within.
+		if rc := r["nats-0"].RelatedConfig; len(rc) != 3 || rc["cluster.tls_cert_not_after"] != "2026-10-27 09:00:00 UTC" ||
+			rc["gateway.tls_cert_not_after"] != "2026-12-16 09:00:00 UTC" || r["nats-0"].RelatedSource != "nats-0" {
+			t.Errorf("%s: nats-0 related config %v from %q", zone, rc, r["nats-0"].RelatedSource)
+		}
 		if v := r["nats-0"].Value; v == nil || *v != 10 {
 			t.Errorf("%s: nats-0 value = %v, want 10", zone, v)
 		}

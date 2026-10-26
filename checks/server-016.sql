@@ -28,7 +28,8 @@ remediation: >-
   describe certificate -n <namespace>`) and why it did not renew; a renewed secret is read on a configuration reload
   (`nats-server --signal reload`, or the config reloader sidecar of the Helm chart) or a restart. Renewing a
   cluster, gateway or leaf node certificate on one server at a time keeps the routes up.
-related_config: [tls.cert_file]
+related_config: [tls_cert_not_after, cluster.tls_cert_not_after, gateway.tls_cert_not_after, leaf.tls_cert_not_after,
+  websocket.tls_cert_not_after, mqtt.tls_cert_not_after]
 value_name: days until the certificate expires
 value_basis: from the collection's start to the soonest expiry among the server's listener certificates, negative once expired
 */
@@ -52,12 +53,20 @@ varz AS (
     QUALIFY row_number() OVER (PARTITION BY s.server_name ORDER BY ee.epoch DESC) = 1
 ),
 certs AS (
-    SELECT server_name, epoch, started_at, 'client' AS listener, tls_cert_not_after AS not_after FROM varz
-    UNION ALL SELECT server_name, epoch, started_at, 'cluster', cluster_tls_cert_not_after FROM varz
-    UNION ALL SELECT server_name, epoch, started_at, 'gateway', gateway_tls_cert_not_after FROM varz
-    UNION ALL SELECT server_name, epoch, started_at, 'leafnode', leafnode_tls_cert_not_after FROM varz
-    UNION ALL SELECT server_name, epoch, started_at, 'websocket', websocket_tls_cert_not_after FROM varz
-    UNION ALL SELECT server_name, epoch, started_at, 'mqtt', mqtt_tls_cert_not_after FROM varz
+    SELECT server_name, epoch, started_at, 'client' AS listener, 'tls_cert_not_after' AS field,
+        tls_cert_not_after AS not_after FROM varz
+    UNION ALL SELECT server_name, epoch, started_at, 'cluster', 'cluster.tls_cert_not_after', cluster_tls_cert_not_after FROM varz
+    UNION ALL SELECT server_name, epoch, started_at, 'gateway', 'gateway.tls_cert_not_after', gateway_tls_cert_not_after FROM varz
+    UNION ALL SELECT server_name, epoch, started_at, 'leafnode', 'leaf.tls_cert_not_after', leafnode_tls_cert_not_after FROM varz
+    UNION ALL SELECT server_name, epoch, started_at, 'websocket', 'websocket.tls_cert_not_after', websocket_tls_cert_not_after
+        FROM varz
+    UNION ALL SELECT server_name, epoch, started_at, 'mqtt', 'mqtt.tls_cert_not_after', mqtt_tls_cert_not_after FROM varz
+),
+-- Every listener certificate of the server, for the related settings.
+expiries AS (
+    SELECT server_name, json_group_object(field, strftime(not_after, '%Y-%m-%d %H:%M:%S UTC')) AS related_config
+    FROM certs WHERE not_after IS NOT NULL
+    GROUP BY server_name
 ),
 soon AS (
     SELECT * FROM certs
@@ -79,5 +88,6 @@ SELECT
                 THEN ' (as VARZ reported it at ' || strftime(started_at, '%Y-%m-%d %H:%M UTC') || ')' ELSE '' END
         || '.' AS detail,
     round(epoch(soonest - getvariable('epoch_time')) / 86400, 2) AS value,
+    x.related_config,
     server_name AS related_source
-FROM per_server
+FROM per_server JOIN expiries x USING (server_name)

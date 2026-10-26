@@ -136,6 +136,7 @@ The server checks judge each NATS server on its own: whether it answers, whether
 - **Fires when:** a certificate VARZ reports expires within `warn_within` of the collection, or has expired. One finding per server; the detail names every listener whose certificate expires within `warn_within`, soonest first, such as "nats-0: client certificate expires 2026-10-29 09:00 UTC, in 12 days."
 - **Severity:** warning. Critical within `crit_within`, or once expired.
 - **Thresholds:** `warn_within` 14d, `crit_within` 3d.
+- **Related settings:** the expiry of every listener certificate the server reports, under its VARZ field name (`tls_cert_not_after`, `cluster.tls_cert_not_after`, and so on), read from that server.
 - **Left out:** a listener without TLS, or whose certificate comes from a certificate store, since VARZ reports no expiry for it. A server that did not answer VARZ in the collection keeps the certificates of its newest answer within 24 hours, as on the Accounts page, and its detail says when VARZ reported them; an older answer is not read.
 
 ## Behavior and rules
