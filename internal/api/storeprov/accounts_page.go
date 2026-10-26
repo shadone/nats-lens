@@ -180,7 +180,10 @@ WITH names AS (
     JOIN server_stats ss ON ss.epoch = ee.epoch AND ss.server_id = ee.server_id
     WHERE ee.endpoint = 'VARZ' AND ee.state = 'ok' AND ee.epoch <= $1 AND e.started_at >= $2
       AND (s.server_name IN (SELECT name FROM names) OR ee.epoch = $1)
-    QUALIFY row_number() OVER (PARTITION BY s.server_name ORDER BY ee.epoch DESC) = 1
+    -- Two processes of one name in one epoch: the newer process, then the
+    -- larger server ID, so the choice does not depend on scan order.
+    QUALIFY row_number() OVER (PARTITION BY s.server_name
+        ORDER BY ee.epoch DESC, coalesce(ss.start_time, s.start_time) DESC NULLS LAST, ee.server_id DESC) = 1
 )
 SELECT name, CASE WHEN epoch < $1 THEN started_at END, tls_cert_not_after, cluster_tls_cert_not_after, gateway_tls_cert_not_after,
     leafnode_tls_cert_not_after, websocket_tls_cert_not_after, mqtt_tls_cert_not_after

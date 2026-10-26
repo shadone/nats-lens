@@ -505,3 +505,32 @@ func TestCertificateExpiry(t *testing.T) {
 	f.exec(`UPDATE server_stats SET tls_cert_not_after = ? WHERE epoch = 3 AND server_id = 'S1'`, t0.Add(-time.Hour))
 	want(t, f.eval("server-016", 3)["nats-1"], "critical", "client certificate expired 2026-10-17 08:00 UTC, 1 hour ago")
 }
+
+// Two processes of one server name both answered VARZ in the epoch (the
+// old one shutting down, the new one up): the newer process's certificates
+// are read, whatever order the rows were written in and though the older
+// process has the larger server ID.
+func TestCertificateExpiryTwoProcesses(t *testing.T) {
+	for _, oldFirst := range []bool{true, false} {
+		f := newFx(t)
+		f.epochAt(1, t0, []string{"nats-0"})
+		f.server("Z-OLD", "nats-0", 1, 1, t0.Add(-48*time.Hour), "2.15.0")
+		f.server("A-NEW", "nats-0", 1, 1, t0.Add(-time.Minute), "2.15.0")
+		procs := []struct {
+			id    string
+			start time.Time
+			cert  time.Time
+		}{{"Z-OLD", t0.Add(-48 * time.Hour), t0.Add(2 * 24 * time.Hour)}, {"A-NEW", t0.Add(-time.Minute), t0.Add(10 * 24 * time.Hour)}}
+		if !oldFirst {
+			procs[0], procs[1] = procs[1], procs[0]
+		}
+		for _, p := range procs {
+			f.row("epoch_endpoints", m{"epoch": 1, "server_id": p.id, "endpoint": "VARZ", "state": "ok"})
+			f.stats(1, p.id, m{"start_time": p.start, "tls_cert_not_after": p.cert})
+		}
+		for range 5 {
+			r := f.fires("server-016", 1, "nats-0")
+			want(t, r["nats-0"], "warning", "client certificate expires 2026-10-27 09:00 UTC, in 10 days.")
+		}
+	}
+}
