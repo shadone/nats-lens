@@ -19,6 +19,8 @@ const appLookback = time.Hour
 // traffic before this epoch was never seen. A connection's rows are taken
 // once per epoch even if stored twice, so that a duplicate never
 // multiplies an increase.
+// The counters are coalesced to 0 only as a guard: the writer always stores
+// them as int64 from CONNZ, never NULL.
 // Arguments: the epoch, the hour, the lowest epoch of the lookback, the
 // previous epoch's start (NULL without one); times are Unix microseconds
 // of UTC, made into TIMESTAMP in SQL, so that no session time zone shifts
