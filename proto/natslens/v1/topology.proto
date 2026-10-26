@@ -139,7 +139,11 @@ message TopologyRoute {
   // group is slow, and a route inside it is slow at 2 ms or more and 3
   // times the median of at least 2 of the group's routes that touch
   // neither of its servers. A cluster split into groups of similar size,
-  // or of two servers, has nothing slow.
+  // or of two servers, has nothing slow. A route is slow only when the
+  // epoch and the collection before it (the newest earlier one with
+  // routes, at most 3 collect intervals earlier) both measure it slow;
+  // without such a collection, or when that one did not measure the
+  // pair, it is not slow.
   bool slow = 9;
 
   // The ends that report the pair, by name.

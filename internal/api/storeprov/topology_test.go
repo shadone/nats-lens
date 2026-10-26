@@ -48,6 +48,8 @@ func topoAt(last time.Time, e int64) time.Time {
 //     nats-eu-4 in epoch 11 only (1 drop); and nats-eu-0's own uplink to
 //     a hub, which is no site. nats-eu-4's ROUTEZ failed in the newest
 //     epoch.
+//   - Routes (topologyRoutesAt) in epochs 1, 3, 5, 9, 10, 11 and 12 only,
+//     nats-eu-4's slow in each but 9.
 func topologyStore(t *testing.T, last time.Time) *store.Store {
 	t.Helper()
 	st := emptyStore(t)
@@ -135,8 +137,19 @@ func topologyStore(t *testing.T, last time.Time) *store.Store {
 	// An inbound gateway row: its pending bytes count.
 	r.add("gateways", map[string]any{"epoch": topoEpochs, "server_id": "U0", "gateway": "eu", "direction": "inbound", "cid": 40,
 		"rtt_ns": int64(81 * time.Millisecond), "pending_bytes": 100})
+	for _, e := range []int64{1, 3, 5, 9, 10, 11, topoEpochs} {
+		topologyRoutesAt(r, e, e != 9)
+	}
+	return st
+}
+
+// topologyRoutesAt writes the routes of epoch e of the topology fixture:
+// between all eu servers, one pooled and, between nats-eu-0 and
+// nats-eu-1, one for APP, at 0.4 ms, nats-eu-4's at 4 ms when slow; and
+// nats-us-0's to nats-us-1 at 6 ms.
+func topologyRoutesAt(r rows, e int64, slow bool) {
 	route := func(from, to string, rtt time.Duration, account string) {
-		r.add("routes", map[string]any{"epoch": topoEpochs, "server_id": from, "rid": 1, "remote_name": to, "rtt_ns": int64(rtt),
+		r.add("routes", map[string]any{"epoch": e, "server_id": from, "rid": 1, "remote_name": to, "rtt_ns": int64(rtt),
 			"pending_bytes": 0, "account": account})
 	}
 	eu := []string{"E0", "E1", "E2", "E3", "E4"}
@@ -146,7 +159,7 @@ func topologyStore(t *testing.T, last time.Time) *store.Store {
 				continue
 			}
 			rtt := 400 * time.Microsecond
-			if a == "E4" || b == "E4" {
+			if slow && (a == "E4" || b == "E4") {
 				rtt = 4 * time.Millisecond
 			}
 			route(a, "nats-eu-"+b[1:], rtt, "")
@@ -156,7 +169,6 @@ func topologyStore(t *testing.T, last time.Time) *store.Store {
 		}
 	}
 	route("U0", "nats-us-1", 6*time.Millisecond, "")
-	return st
 }
 
 // topologySingle is one cluster of three servers with routes and nothing
@@ -301,5 +313,50 @@ func TestTopologySingleClusterFromStore(t *testing.T) {
 	if len(res.GetClusters()) != 1 || len(res.GetRoutes()) != 3 || len(res.GetGateways()) != 0 || len(res.GetLeafnodes()) != 0 ||
 		res.GetClusters()[0].GetLeafnodesConnected() != 0 || res.DropsWindowStart == nil {
 		t.Errorf("single = %v", res)
+	}
+}
+
+// A route is slow only when the shown epoch and the collection before it
+// with routes, at most 3 intervals earlier, both measure it slow.
+func TestTopologySlowTwiceFromStore(t *testing.T) {
+	last := time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)
+	st := topologyStore(t, last)
+	clock := last.Add(30 * time.Second)
+	cases := []struct {
+		epoch int64
+		why   string
+		slow  bool
+	}{
+		{1, "the first collection, none before it", false},
+		{3, "slow in 3 and in 1, the newest earlier epoch with routes, 2 intervals before", true},
+		{5, "the earlier epoch with routes, 3, is more than 3 intervals before", false},
+		{10, "slow in 10 only: in 9 nats-eu-4 was not slow", false},
+		{11, "slow in 11 and 10", true},
+		{topoEpochs, "slow in 12 and 11", true},
+	}
+	for _, c := range cases {
+		at := topoAt(last, c.epoch)
+		res := topology(t, st, clock, &v1.TimeRange{Start: timestamppb.New(at), End: timestamppb.New(at.Add(time.Second))})
+		if res.GetEpoch() != c.epoch {
+			t.Fatalf("epoch %d, want %d", res.GetEpoch(), c.epoch)
+		}
+		var slow, far []string
+		for _, r := range res.GetRoutes() {
+			if r.GetServerB() != "nats-eu-4" {
+				continue
+			}
+			if r.GetRtt().AsDuration() == 4*time.Millisecond {
+				far = append(far, r.GetServerA())
+			}
+			if r.GetSlow() {
+				slow = append(slow, r.GetServerA())
+			}
+		}
+		if c.epoch != 9 && len(far) != 4 {
+			t.Errorf("epoch %d: %d routes at 4 ms, want 4", c.epoch, len(far))
+		}
+		if want := map[bool]int{true: 4, false: 0}[c.slow]; len(slow) != want {
+			t.Errorf("epoch %d (%s): slow %v, want %d", c.epoch, c.why, slow, want)
+		}
 	}
 }

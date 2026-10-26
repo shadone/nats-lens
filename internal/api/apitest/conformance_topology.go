@@ -91,6 +91,37 @@ func topologyRows() []State {
 			}
 			return ""
 		}},
+		{"a Topology route slow in the day that is not slow in the first collection, which has none before it", func(q Q) string {
+			info := must(q.env.Client.GetLensInfo(ctx, connect.NewRequest(&v1.GetLensInfoRequest{System: q.System}))).of(q.t)
+			if info.GetHistoryStart() == nil {
+				return ""
+			}
+			start := info.GetHistoryStart().AsTime()
+			step := info.GetCollectInterval().AsDuration()
+			if step <= 0 {
+				step = 30 * time.Second
+			}
+			slow := map[string]bool{}
+			for _, r := range q.topology().GetRoutes() {
+				if r.GetSlow() {
+					slow[r.GetServerA()+"-"+r.GetServerB()] = true
+				}
+			}
+			r := &v1.TimeRange{Start: timestamppb.New(start), End: timestamppb.New(start.Add(step))}
+			res := must(q.env.Client.GetTopology(ctx, connect.NewRequest(&v1.GetTopologyRequest{System: q.System, Range: r}))).of(q.t)
+			for _, rt := range res.GetRoutes() {
+				if rt.GetSlow() {
+					q.t.Errorf("system %q: %s-%s slow in the first collection", q.System, rt.GetServerA(), rt.GetServerB())
+					return ""
+				}
+			}
+			for _, rt := range res.GetRoutes() {
+				if pair := rt.GetServerA() + "-" + rt.GetServerB(); slow[pair] && rt.GetRtt() != nil {
+					return pair + " at " + start.Format(time.RFC3339)
+				}
+			}
+			return ""
+		}},
 		{"a Topology leaf node whose drops are unset: no two consecutive collections cover it",
 			topologyLeaf(func(l *v1.TopologyLeafnode) bool { return l.GetConnected() && l.Drops_24H == nil })},
 		{"a single-cluster Topology with routes only", func(q Q) string {

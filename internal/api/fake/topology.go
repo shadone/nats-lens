@@ -178,6 +178,41 @@ func (s scen) gatewayTarget(sp serverSpec, cluster string, c time.Time) (serverS
 	return pref, moved
 }
 
+// routeRows are the routes at the scenario time at between the answering
+// servers of each cluster.
+func (s scen) routeRows(at time.Time) []api.TopologyRouteRow {
+	var out []api.TopologyRouteRow
+	for _, sp := range s.sc.servers {
+		if s.downAt(sp, at) {
+			continue
+		}
+		for _, x := range s.sc.servers {
+			if x.cluster != sp.cluster || x.name == sp.name || s.downAt(x, at) {
+				continue
+			}
+			for _, acc := range s.sc.routeAccounts() {
+				out = append(out, api.TopologyRouteRow{Server: sp.name, Remote: x.name, Cluster: sp.cluster,
+					RTT: ptr(s.sc.routeRTT(sp.name, x.name)), Pending: ptr(int64(0)), Account: acc})
+			}
+		}
+	}
+	return out
+}
+
+// earlierRoutes is the collection the slow rule compares the epoch at at
+// with, as the store finds it: the newest collection before it with
+// routes, no earlier than api.TopologyEarliestEarlier and within the
+// history; nil when there is none.
+func (s scen) earlierRoutes(at time.Time) *api.TopologyEarlier {
+	bound := api.TopologyEarliestEarlier(at, sampleEvery)
+	for t := at.Add(-sampleEvery); !t.Before(bound) && !t.Before(s.dataStart()); t = t.Add(-sampleEvery) {
+		if rows := s.routeRows(t); len(rows) > 0 {
+			return &api.TopologyEarlier{Epoch: s.epochNumber(t), At: t, Routes: rows}
+		}
+	}
+	return nil
+}
+
 // timesIn counts the times in (from, to].
 func timesIn(ts []time.Time, from, to time.Time) int {
 	n := 0
@@ -359,16 +394,9 @@ func (p *Provider) Topology(_ context.Context, req *v1.GetTopologyRequest) (*api
 		for _, e := range []string{api.EndpointRoutez, api.EndpointGatewayz, api.EndpointLeafz} {
 			f.Answered[e] = append(f.Answered[e], sp.name)
 		}
-		for _, x := range p.sc.servers {
-			if x.cluster != sp.cluster || x.name == sp.name || s.downAt(x, at) {
-				continue
-			}
-			for _, acc := range p.sc.routeAccounts() {
-				f.Routes = append(f.Routes, api.TopologyRouteRow{Server: sp.name, Remote: x.name, Cluster: sp.cluster,
-					RTT: ptr(p.sc.routeRTT(sp.name, x.name)), Pending: ptr(int64(0)), Account: acc})
-			}
-		}
 	}
+	f.Routes = s.routeRows(at)
+	f.Earlier = s.earlierRoutes(at)
 	f.Gateways, f.Leafnodes = s.gatewayRows(at), s.leafRows(at)
 	// The collections of the drop window, oldest first, sharing rows and
 	// answers between collections where nothing changed.
