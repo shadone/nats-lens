@@ -48,21 +48,33 @@ func recordStart(ctx context.Context, st *store.Store) error {
 
 // newEventsConn is one connection that captures events. It retries a
 // failed first connect instead of stopping the collector; the capture
-// records each state change, and a redial after nats.go closed it as
-// collector.reconnected once it connects, so that the time without events
-// ends.
+// records each state change, and a redial after nats.go closed it, or
+// after its first dial failed, as collector.reconnected once it connects,
+// so that the time without events ends.
 func newEventsConn(capture *events.Capture, label string, c config.NATS, subscribe func(*nats.Conn) error, log *slog.Logger) *eventConn {
-	dialled := false
+	// dialled: a dial was made; opened: one returned a connection that
+	// subscribed.
+	dialled, opened := false, false
 	return &eventConn{
-		label: label, subscribe: subscribe, log: log,
+		label: label, log: log,
+		subscribe: func(nc *nats.Conn) error {
+			if err := subscribe(nc); err != nil {
+				return err
+			}
+			opened = true
+			return nil
+		},
 		dial: func() (*nats.Conn, error) {
 			handlers := capture.ConnHandlers(label)
-			if dialled {
+			switch {
+			case opened:
 				handlers = capture.RedialHandlers(label)
+			case dialled:
+				handlers = capture.FirstOpenHandlers(label)
 			}
 			dialled = true
 			opts := append(handlers, nats.RetryOnFailedConnect(true))
-			nc, err := natsconn.Connect(c, log.With("connection", label), opts...)
+			nc, err := dialEvents(c, log.With("connection", label), opts...)
 			if err != nil {
 				return nil, fmt.Errorf("%s events connection: %w", label, err)
 			}
@@ -71,6 +83,10 @@ func newEventsConn(capture *events.Capture, label string, c config.NATS, subscri
 		reopened: func(*nats.Conn) { log.Info("events connection dialled again", "connection", label) },
 	}
 }
+
+// dialEvents opens an events connection; a variable so that tests can
+// fail a dial.
+var dialEvents = natsconn.Connect
 
 // startCapture is startEvents without recording the start, so that a
 // system whose setup is tried again records its start once.
@@ -96,14 +112,18 @@ func startCapture(ctx context.Context, cfg config.Config, st *store.Store, log *
 			return capture.SubscribeAccount(acc.Name, nc)
 		}))
 	}
-	for _, ec := range conns {
+	if err := conns[0].open(); err != nil {
+		return nil, nil, nil, err
+	}
+	// An account connection that cannot be opened (a missing credentials
+	// file) does not stop the system: it is recorded as not connected and
+	// keep dials it with backoff; its capture and micro requests start when
+	// it opens.
+	for _, ec := range conns[1:] {
 		if err := ec.open(); err != nil {
-			for _, open := range conns {
-				if nc := open.current(); nc != nil {
-					nc.Close()
-				}
-			}
-			return nil, nil, nil, err
+			log.Error("account connection not opened; its events are not captured and its micro services not asked until it is",
+				"account", ec.label, "err", err)
+			capture.NotOpened(ec.label, err)
 		}
 	}
 	if len(cfg.Accounts) == 0 {
