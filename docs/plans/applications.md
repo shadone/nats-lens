@@ -141,10 +141,10 @@ Decided in the session that built T3; proposed, not yet confirmed.
 - **Width.** The table's cells have 8 px side padding and its headers wrap, so the ten columns fit 1440 px with the sidebar for the demo's systems; at phone width the table scrolls in its own box.
 
 - **Following T2's fix rounds** (merged into `feat/apps-ui`):
-  - A partial collection gets a warning notice naming the servers that did not answer ("nats-1 did not answer in this collection: its connections are not counted, and the counts, the spread and the traffic cover the servers that answered"), or, with none named, saying that part of the collection did not answer. The line under the title adds "over the servers that answered". The Spread card says it counts only the servers that answered and never says what a restart moves, also with one server left.
+  - A partial collection gets a warning notice naming the servers that did not answer ("nats-1 did not answer in this collection: its connections are not counted, and the counts, the spread and the traffic cover the servers that answered"). Since T2's fix round 3 the page is partial exactly when a server is missing, so the notice shows only when `missing` names one; the wording for "part of the collection did not answer" with no server named is removed rather than kept as a guard, since it can no longer be true. The line under the title adds "over the servers that answered". The Spread card says it counts only the servers that answered and never says what a restart moves, also with one server left.
   - Event capture that stopped within the 24 hours (`capture_gaps`) gets an info notice; the Last 24 h card reads "at least N" for each count and a reconnect cell "≥N", spoken as "at least N". Events not captured at all keep their own notice and dashes.
   - The no-traffic note no longer gives a cause ("the hourly rollup holds none"), and the cut-list notice says the cut connections' traffic is not counted rather than "missing".
-  - The footnote's reconnect sentence says the count pairs per connection name, so a rolling deploy is not a reconnect.
+  - The footnote's reconnect sentence says the count pairs per connection name, so a rolling deploy is not a reconnect, and that a name pairs its events across accounts, so a scoped page counts each name with an event in that account.
   - A library with neither language nor version no longer arrives; "library not reported" is gone from the words.
 
 ### API gaps seen while building T3
