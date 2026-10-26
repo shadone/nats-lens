@@ -185,11 +185,17 @@ func (s scen) connections(at time.Time) []*v1.Connection {
 			since := start.Add(time.Duration(i) * 7 * time.Second)
 			rin, rout := connRate(name, i)
 			moved := s.trafficBetween(since, at)
+			rtt := time.Duration(300+i*13) * time.Microsecond
+			if s.sc.rtt != nil {
+				if d := s.sc.rtt(sp, name); d > 0 {
+					rtt = d + time.Duration(i*13)*time.Microsecond
+				}
+			}
 			in, outm := 1000+i*311+int64(math.Round(rin*moved)), 2000+i*577+int64(math.Round(rout*moved))
 			out = append(out, &v1.Connection{
 				Key: fmt.Sprintf("%s/%d", sp.name, 100+i), Server: sp.name, Cid: 100 + i, Name: name, Lang: lang, Version: version, Account: Account, User: s.sc.userOf(fmt.Sprintf("%s/%d", sp.name, 100+i)),
 				Ip: fmt.Sprintf("10.20.%d.%d", 1+i%4, 10+i), Port: ptr(int32(40000 + i)), StartTime: ts(since),
-				LastActivity: ts(s.now.Add(-time.Duration(i%30) * time.Second)), Rtt: dur(time.Duration(300+i*13) * time.Microsecond),
+				LastActivity: ts(s.now.Add(-time.Duration(i%30) * time.Second)), Rtt: dur(rtt),
 				PendingBytes: ptr((i % 9) * 128), InMsgs: ptr(in), OutMsgs: ptr(outm), InBytes: ptr(in * clientMsgBytes),
 				OutBytes: ptr(outm * clientMsgBytes), Stalls: ptr(i % 23 / 22), Subscriptions: ptr(3 + i%7),
 			})

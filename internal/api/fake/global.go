@@ -214,6 +214,14 @@ func globalScenario() *scenario {
 			"api-gateway", "order-service", "checkout-service", "inventory-service", "shipping-service",
 			"search-api", "notification-worker", "label-printer",
 		},
+		// shipping-service in ap runs at the carrier's site, far from the
+		// servers.
+		rtt: func(sp serverSpec, client string) time.Duration {
+			if client == "shipping-service" && sp.cluster == "ap" {
+				return 140 * time.Millisecond
+			}
+			return 0
+		},
 		// shipping-service in ap has not taken the new client library yet.
 		library: func(sp serverSpec, client string) (string, string) {
 			if client == "shipping-service" && sp.cluster == "ap" {
@@ -248,7 +256,7 @@ func globalScenario() *scenario {
 		sample:        globalSample,
 		slowEvents:    globalSlowEvents(),
 		mutes: func() []*storedMute {
-			return []*storedMute{globalSeedMute(), globalSeedEndedAcceptance(), globalSeedArchiveMute()}
+			return []*storedMute{globalSeedMute(), globalSeedEndedAcceptance(), globalSeedArchiveMute(), globalSeedClientMute()}
 		},
 		consumer:    globalConsumer,
 		created:     globalCreated,
@@ -355,6 +363,18 @@ func globalSeedArchiveMute() *storedMute {
 		Reason:    "Retention of the order archive is decided with finance by mid-November.",
 		MutedBy:   "ops@example.com",
 		CreatedAt: ts(s.on(15, 10, 0)), ExpiresAt: ts(time.Date(2026, 11, 14, 0, 0, 0, 0, time.UTC).Add(s.shift)),
+	}}
+}
+
+// globalSeedClientMute mutes client-001 on shipping-service: its ap
+// instances run at the carrier's site.
+func globalSeedClientMute() *storedMute {
+	s := scen{now: FixedNow}
+	return &storedMute{relative: true, m: &v1.Mute{
+		Id: "4", CheckCode: "client-001", Entity: clientRef("shipping-service"),
+		Reason:    "The ap instances run at the carrier's site; 140 ms is expected there.",
+		MutedBy:   "ops@example.com",
+		CreatedAt: ts(s.on(16, 9, 30)), ExpiresAt: ts(s.on(31, 0, 0)),
 	}}
 }
 

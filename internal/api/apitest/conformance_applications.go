@@ -87,6 +87,46 @@ func applicationsRows() []State {
 			}
 			return ""
 		}},
+		{"a muted client finding listed on its row, which it does not lift", func(q Q) string {
+			apps := q.apps(q.day(), "", false).GetApplications()
+			unmuted := func(a *v1.Application) bool {
+				return slices.ContainsFunc(a.GetFindings(), func(f *v1.FindingRef) bool { return !f.GetMuted() })
+			}
+			for i, a := range apps {
+				if len(a.GetFindings()) == 0 || unmuted(a) {
+					continue
+				}
+				for _, b := range apps[:i] {
+					if !unmuted(b) && b.GetConnections() < a.GetConnections() {
+						q.t.Errorf("%s: %s (%d) after %s (%d)", q.System, a.GetName(), a.GetConnections(), b.GetName(), b.GetConnections())
+						return ""
+					}
+				}
+				if slices.ContainsFunc(apps[i+1:], unmuted) {
+					q.t.Errorf("%s: an unmuted finding after %s", q.System, a.GetName())
+					return ""
+				}
+				return a.GetName() + " " + a.GetFindings()[0].GetId()
+			}
+			return ""
+		}},
+		{"an Applications page before any event was captured: the 24-hour counts unset", func(q Q) string {
+			for _, end := range []time.Time{q.env.Now, q.env.Now.Add(-5 * 24 * time.Hour)} {
+				res := q.apps(&v1.TimeRange{Start: timestamppb.New(end.Add(-24 * time.Hour)), End: timestamppb.New(end)}, "", false)
+				if res.GetEpoch() == 0 || res.GetEventsCaptured() || len(res.GetApplications()) == 0 {
+					continue
+				}
+				d := res.GetLastDay()
+				if res.GetCaptureGaps() || d.SlowConsumers != nil || d.Stale != nil || d.Reconnecting != nil || slices.ContainsFunc(res.GetApplications(), func(a *v1.Application) bool {
+					return a.Reconnects_24H != nil || a.SlowConsumers_24H != nil || a.Stale_24H != nil || a.ShortLived_24H != nil
+				}) {
+					q.t.Errorf("%s: counts set without events: %v", q.System, d)
+					return ""
+				}
+				return res.GetEpochAt().AsTime().Format(time.RFC3339)
+			}
+			return ""
+		}},
 		{"an application that reconnected in the 24 hours, with its client-004 finding", application(func(_ *v1.GetApplicationsResponse, a *v1.Application) bool {
 			return a.GetReconnects_24H() > 0 && a.GetStale_24H() > 0 && slices.ContainsFunc(a.GetFindings(), func(f *v1.FindingRef) bool {
 				return f.GetCheckCode() == "client-004"

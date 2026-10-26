@@ -101,6 +101,10 @@ func TestStoreApplications(t *testing.T) {
 		t.Errorf("callback-dispatcher: in %d, findings %v", cd.GetInMsgs_24H(), cd.GetFindings())
 	}
 	os := appNamed(res, "order-service")
+	// Its muted client-001 is listed and does not lift it.
+	if len(os.GetFindings()) != 1 || !os.GetFindings()[0].GetMuted() || os.GetFindings()[0].GetCheckCode() != "client-001" {
+		t.Errorf("order-service findings %v", os.GetFindings())
+	}
 	if os.GetReconnects_24H() != 0 || os.GetShortLived_24H() != 12 || os.GetInMsgs_24H() != 50 || os.GetInstances() != 5 {
 		t.Errorf("order-service: reconnects %d, short-lived %d, in %d", os.GetReconnects_24H(), os.GetShortLived_24H(), os.GetInMsgs_24H())
 	}

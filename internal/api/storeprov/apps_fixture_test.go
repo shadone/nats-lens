@@ -5,7 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/shadone/nats-lens/internal/api/storeprov"
+	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"github.com/shadone/nats-lens/internal/store"
 )
 
@@ -150,7 +153,8 @@ func appsHours() []appsHour {
 // last. nats-2's connection list in E3 was cut at the connz limit.
 // Findings: client-003 on resize-worker@rw-gone fired at E1 and resolved
 // at E2; client-002 on resize-worker@rw-c fires from E2; client-004 on
-// callback-dispatcher fires at E3.
+// callback-dispatcher and client-001 on order-service fire at E3, the
+// latter muted (appsProvider).
 func appsStore(t *testing.T, last time.Time) *store.Store {
 	t.Helper()
 	st := emptyStore(t)
@@ -209,7 +213,8 @@ func appsStore(t *testing.T, last time.Time) *store.Store {
 	for i, runs := range [][]store.CheckRun{
 		{finding("client-003", "resize-worker@rw-gone"), none("client-002"), none("client-004")},
 		{none("client-003"), finding("client-002", "resize-worker@rw-c"), none("client-004")},
-		{none("client-003"), finding("client-002", "resize-worker@rw-c"), finding("client-004", "callback-dispatcher")},
+		{none("client-003"), finding("client-002", "resize-worker@rw-c"), finding("client-004", "callback-dispatcher"),
+			finding("client-001", "order-service")},
 	} {
 		if _, err := st.ApplyCheckRuns(ctx, appsE1+int64(i), runs); err != nil {
 			t.Fatal(err)
@@ -218,10 +223,17 @@ func appsStore(t *testing.T, last time.Time) *store.Store {
 	return st
 }
 
-// appsProvider serves appsStore with its clock 30 seconds after last.
+// appsProvider serves appsStore with its clock 30 seconds after last, with
+// client-001 on order-service muted.
 func appsProvider(t *testing.T, last time.Time) *storeprov.Provider {
 	t.Helper()
 	clock := last.Add(30 * time.Second)
-	return &storeprov.Provider{St: appsStore(t, last), Interval: 5 * time.Minute, Live: true, Clock: func() time.Time { return clock },
+	p := &storeprov.Provider{St: appsStore(t, last), Interval: 5 * time.Minute, Live: true, Clock: func() time.Time { return clock },
 		Retention: 14 * day, ToolingNames: appsTooling}
+	if _, err := p.MuteFinding(ctx, &v1.MuteFindingRequest{CheckCode: "client-001",
+		Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_CLIENT, Key: "order-service"}, Reason: "Its office instances are far away.",
+		MutedBy: "ops@example.com", ExpiresAt: timestamppb.New(clock.Add(24 * time.Hour))}); err != nil {
+		t.Fatal(err)
+	}
+	return p
 }
