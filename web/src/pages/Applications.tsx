@@ -25,7 +25,8 @@ function Body({ d, includeTooling, scope, names }: { d: Apps; includeTooling: bo
   const note = trafficNote(d.applications);
   return (
     <>
-      {d.partial && (
+      {/* The page is partial exactly when a server is missing; the notice names them. */}
+      {d.missing.length > 0 && (
         <p className="ap-notice ap-notice-warn" role="note">
           <b>Partial collection.</b> {partialText(d.missing)}
         </p>

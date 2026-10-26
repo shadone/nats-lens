@@ -214,6 +214,13 @@ describe("Applications", () => {
     expect(screen.getByText(/^Client connections grouped/)).toHaveTextContent(/over the servers that answered\.$/);
   });
 
+  it("shows no partial notice without a server named, since only a missing server makes the page partial", async () => {
+    getApps.mockResolvedValue(prod({ partial: true, missing: [] }));
+    renderApp(<Applications />, "/applications");
+    await screen.findByRole("table");
+    expect(screen.queryByText(/Partial collection/)).toBeNull();
+  });
+
   it("reads the 24-hour counts as lower bounds when event capture stopped within the 24 hours", async () => {
     getApps.mockResolvedValue(prod({ captureGaps: true }));
     renderApp(<Applications />, "/applications");
@@ -238,7 +245,7 @@ describe("Applications", () => {
     renderApp(<Applications />, "/applications");
     await screen.findByRole("table");
     expect(screen.getByText(/^Reconnects follow/)).toHaveTextContent(
-      "Reconnects follow client-004's rule per connection name over the 24 hours before the collection, summed over the application's names: a pod that drops and a new pod that connects, as in a rolling deploy, are not a reconnect.",
+      "Reconnects follow client-004's rule per connection name over the 24 hours before the collection, summed over the application's names: a pod that drops and a new pod that connects, as in a rolling deploy, are not a reconnect. A name pairs its events across accounts, so a page scoped to an account counts each name with an event in that account, whatever account its other events are in.",
     );
   });
 
