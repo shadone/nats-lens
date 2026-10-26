@@ -2,7 +2,7 @@
 code: account-003
 name: Account JWT expires soon
 entity: account
-category: health
+category: expiry
 severity: warning
 severity_rule: critical once expired, or when it expires within crit_within
 kind: operational

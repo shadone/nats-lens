@@ -2,7 +2,7 @@
 code: server-016
 name: TLS certificate expires soon
 entity: server
-category: health
+category: expiry
 severity: warning
 severity_rule: critical once a certificate expired, or when one expires within crit_within
 kind: operational

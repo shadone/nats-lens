@@ -2,7 +2,7 @@
 code: account-004
 name: User JWTs expire soon
 entity: account
-category: clients
+category: expiry
 severity: warning
 severity_rule: critical once a user JWT expired, or when one expires within crit_within
 kind: operational

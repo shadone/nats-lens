@@ -32,9 +32,11 @@ function parentOf(e: Entity | undefined): CauseGroup["parent"] {
 }
 
 /**
- * The unmuted firing findings in groups, worst severity first and then the
- * largest group; and the muted ones, in the order given. Resolved findings
- * are left out.
+ * The unmuted firing findings in groups, worst severity first, then a group
+ * with a finding that is not an expiry before one of expiries only (as the
+ * API ranks findings, so a credential expiring soon never heads an outage),
+ * then the largest group; and the muted ones, in the order given. Resolved
+ * findings are left out.
  */
 export function groupCauses(findings: Finding[]): { groups: CauseGroup[]; muted: Finding[] } {
   const live = findings.filter((f) => f.state !== "resolved");
@@ -58,7 +60,18 @@ export function groupCauses(findings: Finding[]): { groups: CauseGroup[]; muted:
   }
   const groups = [...byKey.values()]
     .map((g, i) => ({ g, i }))
-    .sort((a, b) => SEV_ORDER[a.g.severity] - SEV_ORDER[b.g.severity] || b.g.findings.length - a.g.findings.length || a.i - b.i)
+    .sort(
+      (a, b) =>
+        SEV_ORDER[a.g.severity] - SEV_ORDER[b.g.severity] ||
+        Number(onlyExpiry(a.g)) - Number(onlyExpiry(b.g)) ||
+        b.g.findings.length - a.g.findings.length ||
+        a.i - b.i,
+    )
     .map((x) => x.g);
   return { groups, muted };
+}
+
+/** Whether every finding of the group warns of an expiry. */
+function onlyExpiry(g: CauseGroup): boolean {
+  return g.findings.every((f) => f.expiry);
 }
