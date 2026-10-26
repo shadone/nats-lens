@@ -52,13 +52,17 @@ func recordStart(ctx context.Context, st *store.Store) error {
 // after its first dial failed, as collector.reconnected once it connects,
 // so that the time without events ends.
 func newEventsConn(capture *events.Capture, label string, c config.NATS, subscribe func(*nats.Conn) error, log *slog.Logger) *eventConn {
-	dialled := false
+	// dialled: a dial was made; opened: one returned a connection.
+	dialled, opened := false, false
 	return &eventConn{
 		label: label, subscribe: subscribe, log: log,
 		dial: func() (*nats.Conn, error) {
 			handlers := capture.ConnHandlers(label)
-			if dialled {
+			switch {
+			case opened:
 				handlers = capture.RedialHandlers(label)
+			case dialled:
+				handlers = capture.FirstOpenHandlers(label)
 			}
 			dialled = true
 			opts := append(handlers, nats.RetryOnFailedConnect(true))
@@ -66,6 +70,7 @@ func newEventsConn(capture *events.Capture, label string, c config.NATS, subscri
 			if err != nil {
 				return nil, fmt.Errorf("%s events connection: %w", label, err)
 			}
+			opened = true
 			return nc, nil
 		},
 		reopened: func(*nats.Conn) { log.Info("events connection dialled again", "connection", label) },
