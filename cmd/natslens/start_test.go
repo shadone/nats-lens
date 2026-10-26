@@ -177,13 +177,16 @@ func TestMissingFiles(t *testing.T) {
 	if err == nil {
 		t.Fatal("no error")
 	}
-	for _, want := range []string{"nats.tls.ca", "accounts[APP].creds", "kubernetes.kubeconfig"} {
+	for _, want := range []string{"nats.tls.ca", "kubernetes.kubeconfig"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error does not name %s: %v", want, err)
 		}
 	}
 	if strings.Contains(err.Error(), "nats.creds") {
 		t.Errorf("present file named: %v", err)
+	}
+	if strings.Contains(err.Error(), "accounts[") {
+		t.Errorf("an account file named: %v", err)
 	}
 	err = missingFiles(sys, false)
 	if err == nil || !strings.Contains(err.Error(), "nats.tls.ca") ||
@@ -209,9 +212,9 @@ accounts: [{ name: APP, creds: %s }]
 	return conf
 }
 
-// Account files are read only by the event connections of natslens run:
-// once starts with one missing, with events on or off; run with events
-// refuses it.
+// An account file that is missing refuses no start: once starts with
+// one missing, with events on or off. run is covered by
+// TestRunWithEventsStartsWithoutABadAccount.
 func TestStartCheckOnlyChecksFilesTheCommandReads(t *testing.T) {
 	if testing.Short() {
 		t.Skip("starts a NATS server")
@@ -223,10 +226,5 @@ func TestStartCheckOnlyChecksFilesTheCommandReads(t *testing.T) {
 		if err := run(ctx, []string{"once", "-config", conf, "-log-level", "error"}); err != nil {
 			t.Errorf("once with events %s: %v", events, err)
 		}
-	}
-	conf := writeAccountConfig(t, t.TempDir(), c.URL(0), "true")
-	err := run(ctx, []string{"run", "-config", conf, "-log-level", "error"})
-	if err == nil || !strings.Contains(err.Error(), "accounts[APP].creds") {
-		t.Errorf("run with events: err = %v, want the account creds refused", err)
 	}
 }
