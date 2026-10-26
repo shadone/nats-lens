@@ -104,7 +104,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] What nats-lens is, the problem it solves, and its nouns (overview.md)
 
 **Collection**
-- [x] One snapshot of every server per interval, partial collections kept, account details, the expiry of account JWTs, user JWTs and listener certificates, subscription lists every few minutes, and the replies of micro services in the listed accounts (monitoring-snapshots.md)
+- [x] One snapshot of every server per interval, partial collections kept, account details, the expiry of account JWTs, user JWTs and listener certificates, subscription lists every few minutes, the replies of micro services in the listed accounts, and each client application's traffic per hour (monitoring-snapshots.md)
 - [x] NATS advisories and system events, short-lived connections folded into `client.churn` and flagged by `client-005` when frequent, and account connections that also ask micro services (event-capture.md)
 - [x] Kubernetes pod, node and client-pod events on the same clock, with node upgrade and drain windows (kubernetes-context.md)
 - [x] Retention, the hourly Parquet archive, and the rebuild from it (history-and-archive.md)
