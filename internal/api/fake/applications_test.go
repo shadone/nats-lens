@@ -169,3 +169,16 @@ func TestDemoLateConnectionsAreNotListedBefore(t *testing.T) {
 		}
 	}
 }
+
+// At 09:17 nats-0 was down: example-prod's page is partial, names it, and
+// its spread does not speak although nats-1 holds most of the rest.
+func TestDemoPartialEpochApplications(t *testing.T) {
+	res := demoApps(t, demo(t), fake.Cluster, at(9, 17, 0), "", false)
+	if !res.GetPartial() || !slices.Equal(res.GetMissing(), []string{"nats-0"}) || res.GetSpread().GetConcentrated() ||
+		res.GetSpread().GetServer() != "nats-1" {
+		t.Errorf("09:17: partial %v, missing %v, spread %v", res.GetPartial(), res.GetMissing(), res.GetSpread())
+	}
+	if now := demoApps(t, demo(t), fake.Cluster, fake.FixedNow, "", false); now.GetPartial() || len(now.GetMissing()) != 0 {
+		t.Errorf("now: partial %v, missing %v", now.GetPartial(), now.GetMissing())
+	}
+}

@@ -51,7 +51,7 @@ func names(res *v1.GetApplicationsResponse) []string {
 func TestStoreApplications(t *testing.T) {
 	c := appsClient(t, appsProvider(t, appsLast))
 	res := appsPage(t, c, appsLast.Add(time.Minute), "", false)
-	if res.GetEpoch() != appsE3 || !res.GetEpochAt().AsTime().Equal(appsLast) || !res.GetConnzCut() || !res.GetEventsCaptured() {
+	if res.GetEpoch() != appsE3 || !res.GetEpochAt().AsTime().Equal(appsLast) || !res.GetConnzCut() || !res.GetEventsCaptured() || res.GetPartial() || len(res.GetMissing()) != 0 {
 		t.Fatalf("epoch %d at %v, cut %v, events %v", res.GetEpoch(), res.GetEpochAt().AsTime(), res.GetConnzCut(), res.GetEventsCaptured())
 	}
 	want := []string{"resize-worker", "callback-dispatcher", "order-service", "(unnamed)", "ops-monitor"}
@@ -168,6 +168,10 @@ func TestStoreApplicationsPastRange(t *testing.T) {
 	res := appsPage(t, c, e2.Add(time.Minute), "", false)
 	if res.GetEpoch() != appsE2 || res.GetConnzCut() || !slices.Equal(names(res), []string{"resize-worker", "callback-dispatcher"}) {
 		t.Fatalf("past: epoch %d, cut %v, %v", res.GetEpoch(), res.GetConnzCut(), names(res))
+	}
+	// nats-2 did not answer: nats-0's two of three do not speak.
+	if sp := res.GetSpread(); !res.GetPartial() || !slices.Equal(res.GetMissing(), []string{"nats-2"}) || sp.GetConcentrated() || sp.GetConnections() != 2 {
+		t.Errorf("past: partial %v, missing %v, spread %v", res.GetPartial(), res.GetMissing(), sp)
 	}
 	rw, cd := res.GetApplications()[0], res.GetApplications()[1]
 	if rw.GetInstances() != 2 || len(rw.GetFindings()) != 1 {

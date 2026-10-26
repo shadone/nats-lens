@@ -22,7 +22,12 @@ func (p *Provider) Applications(_ context.Context, req *v1.GetApplicationsReques
 	if !ok {
 		return &api.ApplicationFacts{}, nil
 	}
-	f := &api.ApplicationFacts{Epoch: epoch, EpochAt: at}
+	f := &api.ApplicationFacts{Epoch: epoch, EpochAt: at, Partial: s.anyDown(at)}
+	for _, sp := range s.sc.servers {
+		if s.downAt(sp, at) {
+			f.Missing = append(f.Missing, sp.name)
+		}
+	}
 	for _, c := range s.connections(at) {
 		x := api.AppConnectionFact{Server: c.GetServer(), CID: c.GetCid(), Name: c.GetName(), Account: c.GetAccount(), IP: c.GetIp(),
 			Lang: c.GetLang(), Version: c.GetVersion(), Subscriptions: c.Subscriptions, PendingBytes: c.PendingBytes, Tooling: c.GetTooling()}
