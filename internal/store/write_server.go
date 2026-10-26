@@ -152,6 +152,9 @@ func (w *writer) writeServerStats(v *collect.ServerView) {
 		metaCluster, metaLeader, metaSize, metaQuorum, metaPending = m.Name, m.Leader, m.Size, m.QuorumNeeded, m.Pending
 		offline, notCurrent := 0, 0
 		for _, r := range m.Replicas {
+			if r == nil {
+				continue
+			}
 			if r.Offline {
 				offline++
 			}

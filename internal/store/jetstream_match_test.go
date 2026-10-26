@@ -54,7 +54,7 @@ func peerList(name, group string, holders ...string) *server.ClusterInfo {
 //     consumer without configuration. It is gone in epoch 4 and created
 //     again in 5.
 //   - mirror, R2 on nats-0 and nats-1 without a leader, with a mirror error,
-//     sources, placement, and an offline, pending replica.
+//     sources (one null), placement, an offline, pending replica and a null one.
 //   - plain, on nats-2 only, without configuration.
 //   - nats-1 lists orders a second time with another configuration, which
 //     the writer keeps out and notes. nats-1 does not answer in epoch 3.
@@ -139,7 +139,7 @@ line "two"`},
 	if i < 2 {
 		mirrorCI := peerList(srv.name, "S-mirror", "nats-0", "nats-1")
 		mirrorCI.Leader, mirrorCI.LeaderSince = "", nil
-		mirrorCI.Replicas = append(mirrorCI.Replicas, &server.PeerInfo{Name: "nats-9", Offline: true, Pending: true, Lag: math.MaxUint64, Active: -time.Second})
+		mirrorCI.Replicas = append(mirrorCI.Replicas, nil, &server.PeerInfo{Name: "nats-9", Offline: true, Pending: true, Lag: math.MaxUint64, Active: -time.Second})
 		app.Streams = append(app.Streams, server.StreamDetail{Name: "mirror", Created: t0.Add(-time.Hour), Cluster: mirrorCI,
 			Config: &server.StreamConfig{Name: "mirror", Retention: server.InterestPolicy, Storage: server.FileStorage,
 				Replicas: 2, Mirror: &server.StreamSource{Name: "orders"},
@@ -376,7 +376,7 @@ FROM stream_stats WHERE epoch = 1 AND stream = 'mirror' AND server_id = 'NSERVER
 		&mirrorErr, &lag, &maxLag, &srcCount, &leader, &since); err != nil {
 		t.Fatal(err)
 	}
-	if mirrorErr != `no "responders"` || lag != above53 || maxLag != above53 || srcCount != 3 || leader != "" || since != nil {
+	if mirrorErr != `no "responders"` || lag != above53 || maxLag != above53 || srcCount != 2 || leader != "" || since != nil {
 		t.Errorf("mirror stats = %q %d %d %d %q %v", mirrorErr, lag, maxLag, srcCount, leader, since)
 	}
 	var replicas, pending, offline int
