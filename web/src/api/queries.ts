@@ -167,10 +167,11 @@ export function useStream(spec: RangeSpec, account: string, stream: string) {
 export function useConsumers(spec: RangeSpec, f: { account?: string; stream?: string; includeEphemeral?: boolean }) {
   const sys = useSystem();
   return useQuery({
-    queryKey: ["consumers", sys, rangeKey(spec), f],
+    // The account has its own key position, so no other account's rows stand in.
+    queryKey: ["consumers", sys, rangeKey(spec), f.account ?? "", f],
     queryFn: ({ signal }) => api.listConsumers(sys, spec, f, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepSameSystem(sys),
+    placeholderData: keepSameSystem(sys, { 3: f.account ?? "" }),
   });
 }
 
@@ -310,10 +311,11 @@ export function useServers(spec: RangeSpec) {
 export function useConnections(spec: RangeSpec, f: api.ConnectionFilter) {
   const sys = useSystem();
   return useQuery({
-    queryKey: ["connections", sys, rangeKey(spec), f],
+    // The account has its own key position, so no other account's rows stand in.
+    queryKey: ["connections", sys, rangeKey(spec), f.account ?? "", f],
     queryFn: ({ signal }) => api.listConnections(sys, spec, f, signal),
     refetchInterval: f.pageToken ? false : refetch(spec),
-    placeholderData: keepSameSystem(sys),
+    placeholderData: keepSameSystem(sys, { 3: f.account ?? "" }),
   });
 }
 
