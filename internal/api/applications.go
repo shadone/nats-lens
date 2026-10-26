@@ -157,13 +157,16 @@ func CountClientEvent(f *AppEventFact, kind, reason string, churnConnects int32)
 
 // appGroup gathers one application's facts.
 type appGroup struct {
-	name                             string
-	conns                            []AppConnectionFact
-	tooling                          bool
-	drops, connects, slow, stale, sl int32
-	traffic                          map[time.Time]*v1.HourTraffic
-	findings                         []*v1.FindingRef
-	unmuted                          bool
+	name            string
+	conns           []AppConnectionFact
+	tooling         bool
+	slow, stale, sl int32
+	// names are the drops and connects of each connection name, which
+	// pair per name as client-004 pairs them.
+	names    map[string]*[2]int32
+	traffic  map[time.Time]*v1.HourTraffic
+	findings []*v1.FindingRef
+	unmuted  bool
 }
 
 // FinishApplications builds the page from the facts: the connections in
@@ -191,7 +194,7 @@ func FinishApplications(f *ApplicationFacts, account string, includeTooling bool
 		name := ApplicationOf(c.Name)
 		g := groups[name]
 		if g == nil {
-			g = &appGroup{name: name, tooling: true, traffic: map[time.Time]*v1.HourTraffic{}}
+			g = &appGroup{name: name, tooling: true, traffic: map[time.Time]*v1.HourTraffic{}, names: map[string]*[2]int32{}}
 			groups[name] = g
 		}
 		g.conns = append(g.conns, c)
@@ -202,8 +205,12 @@ func FinishApplications(f *ApplicationFacts, account string, includeTooling bool
 		if g == nil || !in(e.Account) || (e.Tooling && !includeTooling) {
 			continue
 		}
-		g.drops += e.Drops
-		g.connects += e.Connects
+		n := g.names[e.Name]
+		if n == nil {
+			n = &[2]int32{}
+			g.names[e.Name] = n
+		}
+		n[0], n[1] = n[0]+e.Drops, n[1]+e.Connects
 		g.slow += e.Slow
 		g.stale += e.Stale
 		g.sl += e.ShortLived
@@ -316,7 +323,11 @@ func (g *appGroup) application(hours []time.Time, events bool) *v1.Application {
 		a.RttP50 = durationpb.New(medianDuration(rtts))
 	}
 	if events {
-		a.Reconnects_24H, a.SlowConsumers_24H, a.Stale_24H, a.ShortLived_24H = ptrTo(min(g.drops, g.connects)), ptrTo(g.slow), ptrTo(g.stale), ptrTo(g.sl)
+		var rec int32
+		for _, n := range g.names {
+			rec += min(n[0], n[1])
+		}
+		a.Reconnects_24H, a.SlowConsumers_24H, a.Stale_24H, a.ShortLived_24H = ptrTo(rec), ptrTo(g.slow), ptrTo(g.stale), ptrTo(g.sl)
 	}
 	for _, h := range hours {
 		t := g.traffic[h]
