@@ -1,6 +1,6 @@
 # Micro services build plan
 
-Working plan for the Micro services page (`docs/features/micro-services.md`, board `Micro.dc.html` of the design canvas). Everything here was proposed by the planning session of 2026-10-22; the owner confirmed it on 2026-10-26, except one point the owner changed, still to be built ([design.md](../design.md#owner-review-of-proposed-decisions-2026-10-26)): an `accounts` entry that cannot connect with event capture on no longer stops the system's start. When a task lands, its lasting content moves into `docs/features/micro-services.md`, `docs/features/event-capture.md` (the account connections), `docs/features/monitoring-snapshots.md` and `docs/design.md`; this file then only tracks status.
+Working plan for the Micro services page (`docs/features/micro-services.md`, board `Micro.dc.html` of the design canvas). Everything here was proposed by the planning session of 2026-10-22; the owner confirmed it on 2026-10-26, except one point the owner changed, since built ([design.md](../design.md#owner-review-of-proposed-decisions-2026-10-26)): an `accounts` entry that cannot connect with event capture on no longer stops the system's start. When a task lands, its lasting content moves into `docs/features/micro-services.md`, `docs/features/event-capture.md` (the account connections), `docs/features/monitoring-snapshots.md` and `docs/design.md`; this file then only tracks status.
 
 The board's sample services (`orders`, `pricing`, `inventory`) fit the example shop; use the shop of `inventory.example.yaml` and the demo's systems, and no name from any other board.
 
@@ -215,7 +215,7 @@ Recorded as they come up; moved to `docs/plans/next.md` item 5 when the work mer
 
 - A service with no answer in a collection shows no version or description; the last INFO within the hour could supply them.
 - Endpoint metadata and the service's custom stats (`data` in STATS replies) are stored but not shown.
-- With event capture on, an account connection that cannot connect still fails the system's setup (retried with backoff), so one bad entry under `accounts` stops collection; with capture off collection goes on. The owner decided on 2026-10-26 that the system starts and collects without it, logging the entry, showing it as not connected and retrying it with backoff; still to be built ([design.md](../design.md#owner-review-of-proposed-decisions-2026-10-26)).
+- Done: with event capture on, an account connection that cannot connect no longer fails the system's setup. As the owner decided on 2026-10-26, the system starts and collects without it, logging the entry, recording it as not connected and dialling it again with backoff ([design.md](../design.md#owner-review-of-proposed-decisions-2026-10-26)).
 - A new instance whose first STATS reply comes in a later epoch than its start loses its activity before that reply in `micro_endpoint_hours`.
 - When the entry asking for an account loses its connection during the requests, the account has no answers in that epoch; another entry of the account could ask in the time left.
 - In operator mode an entry whose account lookup is refused cannot be matched with another entry of the same account, and both are stored.

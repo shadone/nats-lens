@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/shadone/nats-lens/internal/config"
@@ -13,12 +14,19 @@ import (
 // every broken system, so that a start shows all of them at once. A
 // failure after this check (a connection, a file that later breaks)
 // isolates its system instead of stopping the others.
-// withEvents is whether the command opens the event connections and the
-// Kubernetes watcher (natslens run with events.enabled): only then are the
-// account files and the kubeconfig read.
-func checkSystems(systems []config.System, withEvents bool) error {
+// withEvents is whether the command starts the Kubernetes watcher
+// (natslens run with events.enabled): only then is the kubeconfig read.
+// A missing file of an entry under accounts refuses no start, as an
+// account that cannot connect does not stop its system; each is logged as
+// a warning naming the system, the entry and the file, whether or not the
+// command dials the account.
+func checkSystems(systems []config.System, withEvents bool, log *slog.Logger) error {
 	var errs []error
 	for _, sys := range systems {
+		for _, m := range missingAccountFiles(sys) {
+			log.Warn("account file missing: the account cannot connect until the file can be read",
+				"system", sys.ID, "account", m.account, "file", m.key, "path", m.path, "err", m.err)
+		}
 		if err := checkMarker(sys); err != nil {
 			errs = append(errs, err)
 		}
@@ -34,8 +42,7 @@ func checkSystems(systems []config.System, withEvents bool) error {
 
 // missingFiles lists the files the system's configuration names that
 // cannot be read and the command reads: the nats credentials and TLS
-// files and the inventory file always, the account files and the
-// kubeconfig withEvents.
+// files and the inventory file always, the kubeconfig withEvents.
 func missingFiles(sys config.System, withEvents bool) error {
 	var errs []error
 	need := func(key, path string) {
@@ -48,27 +55,56 @@ func missingFiles(sys config.System, withEvents bool) error {
 			_ = f.Close()
 		}
 	}
-	natsFiles := func(prefix string, n config.NATS) {
-		need(prefix+".creds", n.Creds)
-		need(prefix+".tls.ca", n.TLS.CA)
-		need(prefix+".tls.cert", n.TLS.Cert)
-		need(prefix+".tls.key", n.TLS.Key)
+	for _, f := range natsFiles(sys.NATS) {
+		need("nats."+f.key, f.path)
 	}
-	natsFiles("nats", sys.NATS)
 	need("inventory_file", sys.InventoryFile)
-	if !withEvents {
-		return errors.Join(errs...)
+	if withEvents && sys.Kubernetes.Enabled {
+		need("kubernetes.kubeconfig", sys.Kubernetes.Kubeconfig)
 	}
+	return errors.Join(errs...)
+}
+
+// natsFile is a file a connection's settings name.
+type natsFile struct{ key, path string }
+
+// natsFiles lists the files of c that are set, keyed as in the
+// configuration.
+func natsFiles(c config.NATS) []natsFile {
+	var out []natsFile
+	for _, f := range []natsFile{{"creds", c.Creds}, {"tls.ca", c.TLS.CA}, {"tls.cert", c.TLS.Cert}, {"tls.key", c.TLS.Key}} {
+		if f.path != "" {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+// missingAccountFile is a file of an entry under accounts that cannot be
+// opened.
+type missingAccountFile struct {
+	account, key, path string
+	err                error
+}
+
+// missingAccountFiles lists the files of the system's accounts entries
+// that cannot be opened. A CA the entry inherits from nats is checked
+// there, not here.
+func missingAccountFiles(sys config.System) []missingAccountFile {
+	var out []missingAccountFile
 	for _, a := range sys.Accounts {
-		// The CA a connection inherits from nats is reported there.
 		c := a.Connection(sys.NATS)
 		if a.TLS.CA == "" {
 			c.TLS.CA = ""
 		}
-		natsFiles("accounts["+a.Name+"]", c)
+		for _, f := range natsFiles(c) {
+			fh, err := os.Open(f.path)
+			if err != nil {
+				out = append(out, missingAccountFile{account: a.Name, key: "accounts[" + a.Name + "]." + f.key, path: f.path, err: err})
+				continue
+			}
+			_ = fh.Close()
+		}
 	}
-	if sys.Kubernetes.Enabled {
-		need("kubernetes.kubeconfig", sys.Kubernetes.Kubeconfig)
-	}
-	return errors.Join(errs...)
+	return out
 }
