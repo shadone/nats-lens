@@ -1,7 +1,6 @@
 package store
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/shadone/nats-lens/internal/collect"
@@ -77,14 +76,5 @@ SELECT %d, %s, cid, kind, type, name, lang, version, account, authorized_user, i
     make_timestamp(start_time), make_timestamp(last_activity), rtt_ns, pending_bytes, in_msgs, out_msgs,
     in_bytes, out_bytes, stalls, subscriptions, tls_version, name_tag, user_jwt, make_timestamp(jwt_expires)
 `+fromJSON(connectionShape), w.epoch, sqlString(v.Info.ID))
-	for len(rows) > 0 && w.err == nil {
-		n := min(len(rows), connectionBatch)
-		b, err := json.Marshal(rows[:n])
-		if err != nil {
-			w.fail(fmt.Errorf("connections: %w", err))
-			return
-		}
-		w.exec(q, string(b))
-		rows = rows[n:]
-	}
+	writeJSON(w, "connections", q, rows, connectionBatch)
 }

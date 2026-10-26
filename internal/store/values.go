@@ -71,7 +71,7 @@ func enum(v any) string {
 
 // configHash identifies a configuration. The creation time is left out, so
 // that replicas built at different times do not show as a configuration
-// difference; configVersion compares the creation time on its own.
+// difference; writeConfigVersions compares the creation time on its own.
 func configHash(cfg any) string {
 	b, _ := json.Marshal(cfg)
 	sum := sha256.Sum256(b)
