@@ -30,7 +30,7 @@ func muteProto(m store.Mute) *v1.Mute {
 		Accepted: m.Accepted, GrowthPerDay: m.GrowthPerDay, EndReason: m.EndReason,
 	}
 	if m.EntityType != "" {
-		out.Entity = &v1.EntityRef{Type: entityTypeOf(m.EntityType), Key: m.EntityKey}
+		out.Entity = entityRef(m.EntityType, m.EntityKey)
 	}
 	return out
 }
