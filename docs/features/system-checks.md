@@ -82,5 +82,5 @@ These system checks are not built. Each line says what it would detect and what 
 ## Not supported / out of scope
 
 - **No supercluster-wide checks.** Gateways between clusters are not judged yet; see the planned server checks and [topology.md](topology.md).
-- **No account-level checks.** No check reports on an account as a whole yet; see [accounts-and-auth.md](accounts-and-auth.md).
+- **Accounts are judged elsewhere.** An account's limits and JWTs are the account checks; see [account-checks.md](account-checks.md).
 - **No check on the Kubernetes watcher's health.** Watch gaps are recorded as events, not findings.
