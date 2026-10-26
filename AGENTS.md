@@ -12,7 +12,7 @@ nats-lens observes a NATS deployment: a Go collector takes snapshots and capture
 | `internal/checks`, `checks/*.sql` | The check engine and one SQL file per check |
 | `internal/api` | The Connect service; `storeprov` reads the store, `fake` serves `natslens demo` |
 | `proto/natslens/v1` | The API; generated code in `internal/gen` and `web/src/gen` (`make proto`) |
-| `web/` | React 19, TypeScript and Vite UI, built into `internal/webui/dist` |
+| `web/` | React 19, TypeScript and Vite UI, built into `internal/webui/dist`; requests and query hooks in `web/src/api/`, view rules in `web/src/lib/` |
 | `k8s/` | Kustomize base, a GKE component and example overlays |
 | `scripts/` | Local 3-node dev cluster and load generator |
 
@@ -22,12 +22,12 @@ nats-lens observes a NATS deployment: a Go collector takes snapshots and capture
 - `go test ./...` (`go test -short ./...` skips the in-process cluster tests); `go vet ./...`.
 - `cd web && npx tsc --noEmit && npm test`.
 - `TestReviewShellClientDeadline`, `TestRunTakesEpochsUntilCancelled` and `TestGoneAccountIsNotRecordedMissing` fail under machine load; rerun one alone before treating it as a failure.
-- `natslens demo`: the API and UI with a fixed scenario on 127.0.0.1:8080, without NATS.
+- `natslens demo`: the API and UI with a fixed scenario on 127.0.0.1:8080, without NATS. With `-fixed`, the default "Last 24h" range fails ("range.start must be before range.end"); open pages with explicit `from` and `to`.
 - `make dev-cluster`, `make load`, `make run-dev`: a local cluster, assets and traffic, and the collector against it.
 
 ## Rules
 
-- Never mention a company, its services, clusters, hosts or incidents, or any private deployment in this repository. Examples use the online shop of `inventory.example.yaml` and `example.com`. Deployment configuration lives outside the repository; site-specific advice goes into a `checks.remediation_file`.
+- Never mention a company, its services, clusters, hosts or incidents, or any private deployment in this repository. Examples use the online shop of `inventory.example.yaml` and `example.com`. The design canvas boards' sample names and footnotes come from a real deployment: build pages with the demo's names, never the board's. Deployment configuration lives outside the repository; site-specific advice goes into a `checks.remediation_file`.
 - Migrations in `internal/store/migrations/` are append-only: never edit one that has been applied anywhere; the `migrations` table holds each file's checksum and natslens refuses to start on a mismatch. A new NOT NULL column on an archived table needs a default.
 - Proto changes take new field numbers; never reuse or renumber one. Run `make proto` and commit the generated code.
 - A `time.Time` passed to DuckDB is shifted by the session time zone, which follows the host's, wherever DuckDB cannot type it from a TIMESTAMP column: in arithmetic (`? - INTERVAL 1 HOUR`), as a function argument (`date_trunc('hour', ?)`), or in a subquery's or CTE's select list. Compare a column with the parameter directly (`col >= ?`), or pass Unix microseconds and build the time with `make_timestamp(?::BIGINT)`; test such a query with a non-UTC `TZ`.
