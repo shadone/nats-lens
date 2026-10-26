@@ -14,7 +14,6 @@
 .ap-card.ap-card-info{border-left:4px solid var(--sev-info)}
 .ap-label{margin:0;font:600 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
 .ap-card-text{margin:4px 0 0;font-size:14px;color:var(--text);overflow-wrap:break-word}
-.ap-fig{white-space:nowrap}
 .ap-fig .ap-v{font:600 14px var(--mono)}
 .ap-quiet{color:var(--text-muted)}
 .ap-wrap{min-width:0;overflow-wrap:break-word}
