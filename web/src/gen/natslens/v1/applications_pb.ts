@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/applications.proto.
  */
 export const file_natslens_v1_applications: GenFile = /*@__PURE__*/
-  fileDesc("Ch5uYXRzbGVucy92MS9hcHBsaWNhdGlvbnMucHJvdG8SC25hdHNsZW5zLnYxInkKFkdldEFwcGxpY2F0aW9uc1JlcXVlc3QSDgoGc3lzdGVtGAEgASgJEiUKBXJhbmdlGAIgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEg8KB2FjY291bnQYAyABKAkSFwoPaW5jbHVkZV90b29saW5nGAQgASgIIjIKC1NlcnZlckNvdW50Eg4KBnNlcnZlchgBIAEoCRITCgtjb25uZWN0aW9ucxgCIAEoBSJCCgxMaWJyYXJ5Q291bnQSDAoEbGFuZxgBIAEoCRIPCgd2ZXJzaW9uGAIgASgJEhMKC2Nvbm5lY3Rpb25zGAMgASgFIjsKEkFwcGxpY2F0aW9uQWNjb3VudBIPCgdhY2NvdW50GAEgASgJEhQKDGFjY291bnRfbmFtZRgCIAEoCSKMAQoKRmluZGluZ1JlZhIKCgJpZBgBIAEoCRISCgpjaGVja19jb2RlGAIgASgJEhIKCmNoZWNrX25hbWUYAyABKAkSJwoIc2V2ZXJpdHkYBCABKA4yFS5uYXRzbGVucy52MS5TZXZlcml0eRINCgVtdXRlZBgFIAEoCBISCgplbnRpdHlfa2V5GAYgASgJIscBCgtIb3VyVHJhZmZpYxIoCgRob3VyGAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIUCgdpbl9tc2dzGAIgASgDSACIAQESFQoIb3V0X21zZ3MYAyABKANIAYgBARIVCghpbl9ieXRlcxgEIAEoA0gCiAEBEhYKCW91dF9ieXRlcxgFIAEoA0gDiAEBQgoKCF9pbl9tc2dzQgsKCV9vdXRfbXNnc0ILCglfaW5fYnl0ZXNCDAoKX291dF9ieXRlcyKyBwoLQXBwbGljYXRpb24SDAoEbmFtZRgBIAEoCRITCgtjb25uZWN0aW9ucxgCIAEoBRIRCglpbnN0YW5jZXMYAyABKAUSDAoEcG9kcxgEIAMoCRISCgpwb2RzX3RvdGFsGAUgASgFEikKB3NlcnZlcnMYBiADKAsyGC5uYXRzbGVucy52MS5TZXJ2ZXJDb3VudBIxCghhY2NvdW50cxgHIAMoCzIfLm5hdHNsZW5zLnYxLkFwcGxpY2F0aW9uQWNjb3VudBIsCglsaWJyYXJpZXMYCCADKAsyGS5uYXRzbGVucy52MS5MaWJyYXJ5Q291bnQSKgoHcnR0X3A1MBgJIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIaCg1zdWJzY3JpcHRpb25zGAogASgDSACIAQESGgoNcGVuZGluZ19ieXRlcxgLIAEoA0gBiAEBEh4KEXBlbmRpbmdfYnl0ZXNfbWF4GAwgASgDSAKIAQESGwoOcmVjb25uZWN0c18yNGgYDSABKAVIA4gBARIfChJzbG93X2NvbnN1bWVyc18yNGgYDiABKAVIBIgBARIWCglzdGFsZV8yNGgYDyABKAVIBYgBARIcCg9zaG9ydF9saXZlZF8yNGgYECABKAVIBogBARIpCghmaW5kaW5ncxgRIAMoCzIXLm5hdHNsZW5zLnYxLkZpbmRpbmdSZWYSKQoHdHJhZmZpYxgSIAMoCzIYLm5hdHNsZW5zLnYxLkhvdXJUcmFmZmljEhgKC2luX21zZ3NfMjRoGBMgASgDSAeIAQESGQoMb3V0X21zZ3NfMjRoGBQgASgDSAiIAQESGQoMaW5fYnl0ZXNfMjRoGBUgASgDSAmIAQESGgoNb3V0X2J5dGVzXzI0aBgWIAEoA0gKiAEBEg8KB3Rvb2xpbmcYFyABKAgSEQoJYWRkcmVzc2VzGBggAygJEhcKD2FkZHJlc3Nlc190b3RhbBgZIAEoBUIQCg5fc3Vic2NyaXB0aW9uc0IQCg5fcGVuZGluZ19ieXRlc0IUChJfcGVuZGluZ19ieXRlc19tYXhCEQoPX3JlY29ubmVjdHNfMjRoQhUKE19zbG93X2NvbnN1bWVyc18yNGhCDAoKX3N0YWxlXzI0aEISChBfc2hvcnRfbGl2ZWRfMjRoQg4KDF9pbl9tc2dzXzI0aEIPCg1fb3V0X21zZ3NfMjRoQg8KDV9pbl9ieXRlc18yNGhCEAoOX291dF9ieXRlc18yNGgibgoRQXBwbGljYXRpb25TcHJlYWQSDgoGc2VydmVyGAEgASgJEhMKC2Nvbm5lY3Rpb25zGAIgASgFEg0KBXRvdGFsGAMgASgFEg8KB3NlcnZlcnMYBCABKAUSFAoMY29uY2VudHJhdGVkGAUgASgIIkEKCkxpYnJhcnlVc2USDAoEbGFuZxgBIAEoCRIPCgd2ZXJzaW9uGAIgASgJEhQKDGFwcGxpY2F0aW9ucxgDIAEoBSKPAQoTQXBwbGljYXRpb25zTGFzdERheRIbCg5zbG93X2NvbnN1bWVycxgBIAEoBUgAiAEBEhIKBXN0YWxlGAIgASgFSAGIAQESGQoMcmVjb25uZWN0aW5nGAMgASgFSAKIAQFCEQoPX3Nsb3dfY29uc3VtZXJzQggKBl9zdGFsZUIPCg1fcmVjb25uZWN0aW5nIpEDChdHZXRBcHBsaWNhdGlvbnNSZXNwb25zZRINCgVlcG9jaBgBIAEoAxIsCghlcG9jaF9hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoMYXBwbGljYXRpb25zGAMgAygLMhgubmF0c2xlbnMudjEuQXBwbGljYXRpb24SGgoSYXBwbGljYXRpb25zX3RvdGFsGAQgASgFEhkKEWNvbm5lY3Rpb25zX3RvdGFsGAUgASgFEhYKDnRvb2xpbmdfaGlkZGVuGAYgASgFEi4KBnNwcmVhZBgHIAEoCzIeLm5hdHNsZW5zLnYxLkFwcGxpY2F0aW9uU3ByZWFkEioKCWxpYnJhcmllcxgIIAMoCzIXLm5hdHNsZW5zLnYxLkxpYnJhcnlVc2USMgoIbGFzdF9kYXkYCSABKAsyIC5uYXRzbGVucy52MS5BcHBsaWNhdGlvbnNMYXN0RGF5EhEKCWNvbm56X2N1dBgKIAEoCBIXCg9ldmVudHNfY2FwdHVyZWQYCyABKAhCQlpAZ2l0aHViLmNvbS9zaGFkb25lL25hdHMtbGVucy9pbnRlcm5hbC9nZW4vbmF0c2xlbnMvdjE7bmF0c2xlbnN2MWIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common]);
+  fileDesc("Ch5uYXRzbGVucy92MS9hcHBsaWNhdGlvbnMucHJvdG8SC25hdHNsZW5zLnYxInkKFkdldEFwcGxpY2F0aW9uc1JlcXVlc3QSDgoGc3lzdGVtGAEgASgJEiUKBXJhbmdlGAIgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEg8KB2FjY291bnQYAyABKAkSFwoPaW5jbHVkZV90b29saW5nGAQgASgIIjIKC1NlcnZlckNvdW50Eg4KBnNlcnZlchgBIAEoCRITCgtjb25uZWN0aW9ucxgCIAEoBSJCCgxMaWJyYXJ5Q291bnQSDAoEbGFuZxgBIAEoCRIPCgd2ZXJzaW9uGAIgASgJEhMKC2Nvbm5lY3Rpb25zGAMgASgFIjsKEkFwcGxpY2F0aW9uQWNjb3VudBIPCgdhY2NvdW50GAEgASgJEhQKDGFjY291bnRfbmFtZRgCIAEoCSKMAQoKRmluZGluZ1JlZhIKCgJpZBgBIAEoCRISCgpjaGVja19jb2RlGAIgASgJEhIKCmNoZWNrX25hbWUYAyABKAkSJwoIc2V2ZXJpdHkYBCABKA4yFS5uYXRzbGVucy52MS5TZXZlcml0eRINCgVtdXRlZBgFIAEoCBISCgplbnRpdHlfa2V5GAYgASgJIscBCgtIb3VyVHJhZmZpYxIoCgRob3VyGAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIUCgdpbl9tc2dzGAIgASgDSACIAQESFQoIb3V0X21zZ3MYAyABKANIAYgBARIVCghpbl9ieXRlcxgEIAEoA0gCiAEBEhYKCW91dF9ieXRlcxgFIAEoA0gDiAEBQgoKCF9pbl9tc2dzQgsKCV9vdXRfbXNnc0ILCglfaW5fYnl0ZXNCDAoKX291dF9ieXRlcyKyBwoLQXBwbGljYXRpb24SDAoEbmFtZRgBIAEoCRITCgtjb25uZWN0aW9ucxgCIAEoBRIRCglpbnN0YW5jZXMYAyABKAUSDAoEcG9kcxgEIAMoCRISCgpwb2RzX3RvdGFsGAUgASgFEikKB3NlcnZlcnMYBiADKAsyGC5uYXRzbGVucy52MS5TZXJ2ZXJDb3VudBIxCghhY2NvdW50cxgHIAMoCzIfLm5hdHNsZW5zLnYxLkFwcGxpY2F0aW9uQWNjb3VudBIsCglsaWJyYXJpZXMYCCADKAsyGS5uYXRzbGVucy52MS5MaWJyYXJ5Q291bnQSKgoHcnR0X3A1MBgJIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIaCg1zdWJzY3JpcHRpb25zGAogASgDSACIAQESGgoNcGVuZGluZ19ieXRlcxgLIAEoA0gBiAEBEh4KEXBlbmRpbmdfYnl0ZXNfbWF4GAwgASgDSAKIAQESGwoOcmVjb25uZWN0c18yNGgYDSABKAVIA4gBARIfChJzbG93X2NvbnN1bWVyc18yNGgYDiABKAVIBIgBARIWCglzdGFsZV8yNGgYDyABKAVIBYgBARIcCg9zaG9ydF9saXZlZF8yNGgYECABKAVIBogBARIpCghmaW5kaW5ncxgRIAMoCzIXLm5hdHNsZW5zLnYxLkZpbmRpbmdSZWYSKQoHdHJhZmZpYxgSIAMoCzIYLm5hdHNsZW5zLnYxLkhvdXJUcmFmZmljEhgKC2luX21zZ3NfMjRoGBMgASgDSAeIAQESGQoMb3V0X21zZ3NfMjRoGBQgASgDSAiIAQESGQoMaW5fYnl0ZXNfMjRoGBUgASgDSAmIAQESGgoNb3V0X2J5dGVzXzI0aBgWIAEoA0gKiAEBEg8KB3Rvb2xpbmcYFyABKAgSEQoJYWRkcmVzc2VzGBggAygJEhcKD2FkZHJlc3Nlc190b3RhbBgZIAEoBUIQCg5fc3Vic2NyaXB0aW9uc0IQCg5fcGVuZGluZ19ieXRlc0IUChJfcGVuZGluZ19ieXRlc19tYXhCEQoPX3JlY29ubmVjdHNfMjRoQhUKE19zbG93X2NvbnN1bWVyc18yNGhCDAoKX3N0YWxlXzI0aEISChBfc2hvcnRfbGl2ZWRfMjRoQg4KDF9pbl9tc2dzXzI0aEIPCg1fb3V0X21zZ3NfMjRoQg8KDV9pbl9ieXRlc18yNGhCEAoOX291dF9ieXRlc18yNGgibgoRQXBwbGljYXRpb25TcHJlYWQSDgoGc2VydmVyGAEgASgJEhMKC2Nvbm5lY3Rpb25zGAIgASgFEg0KBXRvdGFsGAMgASgFEg8KB3NlcnZlcnMYBCABKAUSFAoMY29uY2VudHJhdGVkGAUgASgIIkEKCkxpYnJhcnlVc2USDAoEbGFuZxgBIAEoCRIPCgd2ZXJzaW9uGAIgASgJEhQKDGFwcGxpY2F0aW9ucxgDIAEoBSKPAQoTQXBwbGljYXRpb25zTGFzdERheRIbCg5zbG93X2NvbnN1bWVycxgBIAEoBUgAiAEBEhIKBXN0YWxlGAIgASgFSAGIAQESGQoMcmVjb25uZWN0aW5nGAMgASgFSAKIAQFCEQoPX3Nsb3dfY29uc3VtZXJzQggKBl9zdGFsZUIPCg1fcmVjb25uZWN0aW5nIskDChdHZXRBcHBsaWNhdGlvbnNSZXNwb25zZRINCgVlcG9jaBgBIAEoAxIsCghlcG9jaF9hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoMYXBwbGljYXRpb25zGAMgAygLMhgubmF0c2xlbnMudjEuQXBwbGljYXRpb24SGgoSYXBwbGljYXRpb25zX3RvdGFsGAQgASgFEhkKEWNvbm5lY3Rpb25zX3RvdGFsGAUgASgFEhYKDnRvb2xpbmdfaGlkZGVuGAYgASgFEi4KBnNwcmVhZBgHIAEoCzIeLm5hdHNsZW5zLnYxLkFwcGxpY2F0aW9uU3ByZWFkEioKCWxpYnJhcmllcxgIIAMoCzIXLm5hdHNsZW5zLnYxLkxpYnJhcnlVc2USMgoIbGFzdF9kYXkYCSABKAsyIC5uYXRzbGVucy52MS5BcHBsaWNhdGlvbnNMYXN0RGF5EhEKCWNvbm56X2N1dBgKIAEoCBIXCg9ldmVudHNfY2FwdHVyZWQYCyABKAgSDwoHcGFydGlhbBgMIAEoCBIPCgdtaXNzaW5nGA0gAygJEhQKDGNhcHR1cmVfZ2FwcxgOIAEoCEJCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common]);
 
 /**
  * Request for the client applications of a system: the connections of the
@@ -319,7 +319,8 @@ export type Application = Message<"natslens.v1.Application"> & {
 
   /**
    * The client library versions, most connections first, then by language
-   * and version; more than one is mixed.
+   * and version; more than one is mixed. Connections that report neither
+   * language nor version are left out.
    *
    * @generated from field: repeated natslens.v1.LibraryCount libraries = 8;
    */
@@ -355,11 +356,13 @@ export type Application = Message<"natslens.v1.Application"> & {
   pendingBytesMax?: bigint | undefined;
 
   /**
-   * Reconnects in the 24 hours before the epoch by client-004's rule over
-   * the application's names: the smaller of the disconnects for a reason
-   * other than "Client Closed" and "Server Shutdown", and the connects
-   * (those folded into client.churn events included). Unset when no event
-   * was captured up to the epoch.
+   * Reconnects in the 24 hours before the epoch by client-004's rule,
+   * summed over the application's connection names: per name, the
+   * smaller of the disconnects for a reason other than "Client Closed"
+   * and "Server Shutdown", and the connects (those folded into
+   * client.churn events included). A drop under one name and a connect
+   * under another, as in a rolling deploy, do not pair. Unset when no
+   * event was captured up to the epoch.
    *
    * @generated from field: optional int32 reconnects_24h = 13;
    */
@@ -495,7 +498,8 @@ export type ApplicationSpread = Message<"natslens.v1.ApplicationSpread"> & {
   /**
    * Whether the server holds more than half of the connections and the
    * applications use more than one server: a restart of it moves most
-   * clients at once.
+   * clients at once. False on a partial epoch, whose missing servers'
+   * connections are not known.
    *
    * @generated from field: bool concentrated = 5;
    */
@@ -641,7 +645,8 @@ export type GetApplicationsResponse = Message<"natslens.v1.GetApplicationsRespon
   /**
    * Client library versions by the applications that use them, most
    * applications first, then by language and version; over every
-   * application before the limit.
+   * application before the limit. A connection that reports neither
+   * language nor version counts for none.
    *
    * @generated from field: repeated natslens.v1.LibraryUse libraries = 8;
    */
@@ -669,6 +674,33 @@ export type GetApplicationsResponse = Message<"natslens.v1.GetApplicationsRespon
    * @generated from field: bool events_captured = 11;
    */
   eventsCaptured: boolean;
+
+  /**
+   * Whether the epoch is partial: a server or an endpoint did not answer.
+   * The connections of a server that did not answer are not counted, so
+   * spread.concentrated is false.
+   *
+   * @generated from field: bool partial = 12;
+   */
+  partial: boolean;
+
+  /**
+   * Servers the epoch expected that did not answer, sorted, as
+   * ListServers names them.
+   *
+   * @generated from field: repeated string missing = 13;
+   */
+  missing: string[];
+
+  /**
+   * Whether event capture, while it ran, stopped for part of the 24 hours
+   * before the epoch (nats-lens stopped, or a connection that captures
+   * events was lost), as on the Accounts and auth page: the 24-hour
+   * counts are then lower bounds. False when events_captured is false.
+   *
+   * @generated from field: bool capture_gaps = 14;
+   */
+  captureGaps: boolean;
 };
 
 /**

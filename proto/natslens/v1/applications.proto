@@ -124,7 +124,8 @@ message Application {
   repeated ApplicationAccount accounts = 7;
 
   // The client library versions, most connections first, then by language
-  // and version; more than one is mixed.
+  // and version; more than one is mixed. Connections that report neither
+  // language nor version are left out.
   repeated LibraryCount libraries = 8;
 
   // Median round trip time over the connections that report one (the mean
@@ -140,11 +141,13 @@ message Application {
   optional int64 pending_bytes = 11;
   optional int64 pending_bytes_max = 12;
 
-  // Reconnects in the 24 hours before the epoch by client-004's rule over
-  // the application's names: the smaller of the disconnects for a reason
-  // other than "Client Closed" and "Server Shutdown", and the connects
-  // (those folded into client.churn events included). Unset when no event
-  // was captured up to the epoch.
+  // Reconnects in the 24 hours before the epoch by client-004's rule,
+  // summed over the application's connection names: per name, the
+  // smaller of the disconnects for a reason other than "Client Closed"
+  // and "Server Shutdown", and the connects (those folded into
+  // client.churn events included). A drop under one name and a connect
+  // under another, as in a rolling deploy, do not pair. Unset when no
+  // event was captured up to the epoch.
   optional int32 reconnects_24h = 13;
 
   // Disconnects in the same 24 hours whose reason contains "slow
@@ -201,7 +204,8 @@ message ApplicationSpread {
 
   // Whether the server holds more than half of the connections and the
   // applications use more than one server: a restart of it moves most
-  // clients at once.
+  // clients at once. False on a partial epoch, whose missing servers'
+  // connections are not known.
   bool concentrated = 5;
 }
 
@@ -258,7 +262,8 @@ message GetApplicationsResponse {
 
   // Client library versions by the applications that use them, most
   // applications first, then by language and version; over every
-  // application before the limit.
+  // application before the limit. A connection that reports neither
+  // language nor version counts for none.
   repeated LibraryUse libraries = 8;
 
   // The 24-hour counts, over every application before the limit.
@@ -271,4 +276,19 @@ message GetApplicationsResponse {
   // Whether any event was captured up to the epoch; the 24-hour counts
   // are unset when not.
   bool events_captured = 11;
+
+  // Whether the epoch is partial: a server or an endpoint did not answer.
+  // The connections of a server that did not answer are not counted, so
+  // spread.concentrated is false.
+  bool partial = 12;
+
+  // Servers the epoch expected that did not answer, sorted, as
+  // ListServers names them.
+  repeated string missing = 13;
+
+  // Whether event capture, while it ran, stopped for part of the 24 hours
+  // before the epoch (nats-lens stopped, or a connection that captures
+  // events was lost), as on the Accounts and auth page: the 24-hour
+  // counts are then lower bounds. False when events_captured is false.
+  bool capture_gaps = 14;
 }
