@@ -225,7 +225,7 @@ describe("Applications", () => {
     getApps.mockResolvedValue(prod({ captureGaps: true }));
     renderApp(<Applications />, "/applications");
     await screen.findByRole("table");
-    expect(screen.getAllByRole("note")[0]).toHaveTextContent(/^Event capture stopped\. Event capture stopped for part of these 24 hours/);
+    expect(screen.getAllByRole("note")[0]).toHaveTextContent(/^Event capture stopped for part of these 24 hours\. Reconnects, slow consumers and stale connections can be low/);
     expect(screen.getByRole("region", { name: "Last 24 h" })).toHaveTextContent("at least 0 slow consumers ·, at least 6 stale connections ·, at least 1 application reconnecting");
     const cell = within(row("callback-dispatcher")).getAllByRole("cell")[7];
     expect(cell).toHaveTextContent("≥6at least 6");

@@ -33,7 +33,7 @@ function Body({ d, includeTooling, scope, names }: { d: Apps; includeTooling: bo
       )}
       {d.eventsCaptured && d.captureGaps && d.applications.length > 0 && (
         <p className="ap-notice" role="note">
-          <b>Event capture stopped.</b> {CAPTURE_GAPS}
+          <b>Event capture stopped for part of these 24 hours.</b> {CAPTURE_GAPS}
         </p>
       )}
       {d.connzCut && (
