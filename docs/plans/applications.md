@@ -8,7 +8,7 @@ The board's sample names come from a sketch of a real deployment, and its footno
 
 | Task | Status |
 |---|---|
-| T1 Hourly traffic rollup and the tooling rule | not started |
+| T1 Hourly traffic rollup and the tooling rule | built on `feat/apps-rollup`, under review |
 | T2 API, store and demo | not started |
 | T3 UI | not started |
 | T4 Feature docs and audit | not started |
@@ -60,6 +60,19 @@ Order: applications with an open client finding first, then by connections, desc
 - **Size.** Measure the write cost for 4,096 connections on 3 servers, and the read of 24 hours for 500 applications.
 - **Tests.** Increases over two epochs, a reconnect (new cid), a counter that fell, a connection's first row, the hour boundary, a gap of more than three intervals, loopback, the migration on a store with data, archive and rebuild, a non-UTC `TZ`.
 
+### Where T1 departed from this plan
+
+Decided in the session that built T1; proposed, not yet confirmed.
+
+- **A name with nothing before the "@"** (`@pod-1`) is `(unnamed)` too, not an application with an empty name.
+- **A row that adds nothing is not written.** A connection's first row that does not count (it started before the previous epoch) does not count in `epochs` and makes no row, so an hour in which no connection could be measured reads unset, not 0, as the page's rule asks.
+- **A counter that fell makes all four count whole,** for that connection in that epoch, as `micro_endpoint_hours` does for a new run.
+- **Gaps.** Rows up to an hour apart pair, and the whole increase goes to the later row's hour, also across an hour boundary; rows more than an hour apart do not pair, and the later row follows the first-row rule. The test covers 5 minutes (more than three intervals), 55 minutes across the hour, and 80 minutes.
+- **The tooling rule's copies.** Besides the Connections page, the clients tile and Replay's reconnects, the routine events (`storeprov/routine.go`) had a fourth copy; all four use `storeprov/tooling.go`. The check engine's prelude macros stay as they are: they read the engine's reserved variables and the decision being made, which the pages do not have.
+- **Loopback per row, decision at read time.** `client_app_hours.loopback` marks the connections from a loopback address; the rows do not know the loopback decision. T2 has to choose which decision applies to the 24 hours: the proposal is the page's epoch's, for every hour, as the Connections page judges its epoch.
+- **The lookback query is shared** with `micro_endpoint_hours` (`writer.lookback`).
+- **Measurements** (`TestClientAppHoursSize`, laptop): the rollup's query for 4,096 connections on 3 servers takes 15 to 40 ms; a whole epoch write of those connections takes 2 to 4.5 s, nearly all of it the connection rows' one-by-one inserts, before T1 as after. The 24 hours of 500 applications in two accounts read in 1 to 3 ms from 14 days of rows.
+
 ## T2 API, store and demo
 
 `proto/natslens/v1/applications.proto`, RPC `GetApplications(GetApplicationsRequest) returns (GetApplicationsResponse)`.
@@ -90,3 +103,4 @@ Order: applications with an open client finding first, then by connections, desc
 Recorded as they come up; moved to `docs/plans/next.md` item 5 when the work merges.
 
 - "Runs on": the watcher would list client pods and store namespace, owner workload, node and IP (deferred by the owner, 2026-10-26).
+- The writer inserts connections one row at a time: 4,096 connections take 2 to 4.5 s of an epoch's write on a laptop. Batching them as JSON, as `subscriptions` are, would cut that (seen while measuring T1; not part of it).
