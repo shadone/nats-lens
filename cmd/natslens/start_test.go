@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -225,6 +227,52 @@ func TestStartCheckOnlyChecksFilesTheCommandReads(t *testing.T) {
 		conf := writeAccountConfig(t, t.TempDir(), c.URL(0), events)
 		if err := run(ctx, []string{"once", "-config", conf, "-log-level", "error"}); err != nil {
 			t.Errorf("once with events %s: %v", events, err)
+		}
+	}
+}
+
+// A missing file of an accounts entry refuses no start; the start check
+// warns once per such file, naming the system, the entry and the file,
+// with event capture on or off.
+func TestStartCheckWarnsOfMissingAccountFiles(t *testing.T) {
+	dir := t.TempDir()
+	present := filepath.Join(dir, "present")
+	if err := os.WriteFile(present, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	missingCreds, missingCert := filepath.Join(dir, "app.creds"), filepath.Join(dir, "app.crt")
+	sys := config.System{ID: "shop-prod", DataDir: filepath.Join(dir, "data"),
+		Accounts: []config.Account{
+			{Name: "APP", Creds: missingCreds},
+			{Name: "BILLING", TLS: config.TLS{Cert: missingCert, Key: present}},
+			{Name: "OK", Creds: present},
+		},
+	}
+	for _, withEvents := range []bool{true, false} {
+		var buf bytes.Buffer
+		log := slog.New(slog.NewTextHandler(&buf, nil))
+		if err := checkSystems([]config.System{sys}, withEvents, log); err != nil {
+			t.Fatalf("events %t: refused: %v", withEvents, err)
+		}
+		lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+		var warned []string
+		for _, l := range lines {
+			if strings.Contains(l, "level=WARN") && strings.Contains(l, "account file missing") {
+				warned = append(warned, l)
+			}
+		}
+		if len(warned) != 2 {
+			t.Fatalf("events %t: %d warnings, want 2:\n%s", withEvents, len(warned), buf.String())
+		}
+		for i, want := range [][]string{
+			{"system=shop-prod", "account=APP", "file=accounts[APP].creds", "path=" + missingCreds},
+			{"system=shop-prod", "account=BILLING", "file=accounts[BILLING].tls.cert", "path=" + missingCert},
+		} {
+			for _, w := range want {
+				if !strings.Contains(warned[i], w) {
+					t.Errorf("events %t: warning %q lacks %q", withEvents, warned[i], w)
+				}
+			}
 		}
 	}
 }
