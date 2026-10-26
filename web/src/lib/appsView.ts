@@ -184,7 +184,7 @@ export function partialText(missing: string[]): string {
 }
 
 /** The notice for event capture that stopped within the 24 hours: the counts are lower bounds. */
-export const CAPTURE_GAPS = "Event capture stopped for part of these 24 hours, so reconnects, slow consumers and stale connections can be low: each count is at least what it says.";
+export const CAPTURE_GAPS = "Reconnects, slow consumers and stale connections can be low: each count is at least what it says.";
 
 /** The notice for the no-event state: the 24-hour counts are not known. */
 export const NO_EVENTS = "No event captured up to this collection, so reconnects, slow consumers and stale connections of the last 24 hours are not known.";
