@@ -97,7 +97,13 @@ describe("appsView", () => {
   it("notes partial traffic only when no row has all 24 hours", () => {
     const six = hours((i) => (i >= 18 ? [1, 1] : undefined));
     expect(trafficNote([app({ traffic: six }), resizer({ traffic: six })])).toBe(
-      "Traffic is measured for 6 of the 24 hours before this collection's hour; the hours without a measurement are gaps in the lines, not zeros.",
+      "No application has all 24 hours before this collection's hour measured; the most any has is 6. The hours without a measurement are gaps in the lines, not zeros.",
+    );
+    // Two rows whose hours together cover the day, neither of them all of it.
+    const early = hours((i) => (i < 12 ? [1, 1] : undefined));
+    const late = hours((i) => (i >= 12 ? [1, 1] : undefined));
+    expect(trafficNote([app({ traffic: early }), resizer({ traffic: late })])).toBe(
+      "No application has all 24 hours before this collection's hour measured; the most any has is 12. The hours without a measurement are gaps in the lines, not zeros.",
     );
     expect(trafficNote([app({ traffic: six }), resizer()])).toBeUndefined();
     expect(trafficNote([app({ traffic: hours(() => undefined) })])).toBe("No traffic measured in the 24 hours before this collection's hour: the hourly rollup holds none.");

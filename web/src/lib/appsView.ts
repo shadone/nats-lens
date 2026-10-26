@@ -152,19 +152,18 @@ export function trafficLabel(a: Pick<Application, "name" | "traffic" | "inMsgs" 
 }
 
 /**
- * The note above the table when the rollup measured fewer than the 24
- * hours for every application; undefined when some row has them all or
- * no row has traffic hours.
+ * The note above the table when no row has all of its hours measured;
+ * undefined when some row has them all or no row has traffic hours. It
+ * reports the most hours any one row has measured.
  */
 export function trafficNote(rows: Application[]): string | undefined {
   const withHours = rows.filter((a) => a.traffic.length > 0);
   if (withHours.length === 0) return undefined;
+  if (withHours.some((a) => hoursSet(a.traffic) === a.traffic.length)) return undefined;
   const len = Math.max(...withHours.map((a) => a.traffic.length));
-  const covered = new Set<number>();
-  for (const a of withHours) a.traffic.forEach((h, i) => (h.inMsgs !== undefined || h.outMsgs !== undefined) && covered.add(i));
-  if (covered.size >= len) return undefined;
-  if (covered.size === 0) return `No traffic measured in the ${len} hours before this collection's hour: the hourly rollup holds none.`;
-  return `Traffic is measured for ${covered.size} of the ${len} hours before this collection's hour; the hours without a measurement are gaps in the lines, not zeros.`;
+  const most = Math.max(...withHours.map((a) => hoursSet(a.traffic)));
+  if (most === 0) return `No traffic measured in the ${len} hours before this collection's hour: the hourly rollup holds none.`;
+  return `No application has all ${len} hours before this collection's hour measured; the most any has is ${most}. The hours without a measurement are gaps in the lines, not zeros.`;
 }
 
 /** The notice for the no-event state: the 24-hour counts are not known. */
