@@ -31,7 +31,7 @@ const HOOKS: [string, H, boolean][] = [
   ["useEvents", (s) => q.useEvents(s, A), false],
   ["useStreams", (s) => q.useStreams(s), false],
   ["useStreamNames", (s) => q.useStreamNames(s), false],
-  ["useConsumers", (s) => q.useConsumers(s, {}), false],
+  ["useConsumers", (s, a) => q.useConsumers(s, { account: a }), true],
   ["usePlacement", (s) => q.usePlacement(s, "all"), false],
   ["usePlacement keepFor", (s) => q.usePlacement(s, "all", true, "k"), false],
   ["useTopology", (s) => q.useTopology(s), false],
@@ -41,7 +41,7 @@ const HOOKS: [string, H, boolean][] = [
   ["useMicroServices", (s, a) => q.useMicroServices(s, a), true],
   ["useApplications", (s, a) => q.useApplications(s, a, false), true],
   ["useServers", (s) => q.useServers(s), false],
-  ["useConnections", (s) => q.useConnections(s, A), false],
+  ["useConnections", (s, a) => q.useConnections(s, { account: a }), true],
   ["useSeries", (s) => q.useSeries(s, "m", undefined), false],
   ["useKeyValueStores", (s, a) => buckets.useKeyValueStores(s, a), true],
   ["useObjectStores", (s, a) => buckets.useObjectStores(s, a), true],
@@ -56,7 +56,10 @@ const HOOKS: [string, H, boolean][] = [
   ["useTrends", (s) => trend.useTrends(s, [{ metric: "m" }] as never), false],
 ];
 
-function setup(hook: H) {
+/** Hooks whose key holds no range, so a range change asks nothing new. */
+const NO_RANGE = new Set(["useMutes", "useReplay"]);
+
+function setup(hook: H, account = "APP") {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={qc}>
@@ -65,7 +68,7 @@ function setup(hook: H) {
   );
   const r = renderHook(
     ({ spec, account }: { spec: RangeSpec; account: string }) => ({ q: hook(spec, account), navigate: useNavigate() }),
-    { wrapper, initialProps: { spec: day, account: "APP" } },
+    { wrapper, initialProps: { spec: day, account } },
   );
   // Seed every query in the cache with a sentinel answer.
   act(() => {
@@ -92,11 +95,10 @@ describe.each(HOOKS)("%s", (name, hook, hasAccount) => {
     act(() => result.current.navigate("/"));
     await waitFor(() => expect(result.current.q.data).toBeUndefined());
   });
-  it("keeps on range change in same system", async () => {
+  it.skipIf(NO_RANGE.has(name))("keeps on range change in same system", async () => {
     const { result, rerender } = setup(hook);
     await waitFor(() => expect(result.current.q.data).toBeDefined());
     rerender({ spec: hour, account: "APP" });
-    if (name === "useMutes" || name === "useReplay") return;
     expect(result.current.q.data).toBeDefined();
   });
   it.runIf(hasAccount)("drops on account change", async () => {
@@ -104,5 +106,42 @@ describe.each(HOOKS)("%s", (name, hook, hasAccount) => {
     await waitFor(() => expect(result.current.q.data).toBeDefined());
     rerender({ spec: day, account: "SYS" });
     expect(result.current.q.data).toBeUndefined();
+  });
+});
+
+describe.each(HOOKS.filter(([, , hasAccount]) => hasAccount))("%s from all accounts", (_, hook) => {
+  it("drops on a change from all accounts to one", async () => {
+    const { result, rerender } = setup(hook, "");
+    await waitFor(() => expect(result.current.q.data).toBeDefined());
+    rerender({ spec: day, account: "APP" });
+    expect(result.current.q.data).toBeUndefined();
+  });
+});
+
+describe("usePlacement keepFor", () => {
+  function setupKeep(keepFor: string | undefined) {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={["/?system=shop-prod"]}>{children}</MemoryRouter>
+      </QueryClientProvider>
+    );
+    const r = renderHook(({ k }: { k: string | undefined }) => q.usePlacement(day, "all", true, k), { wrapper, initialProps: { k: keepFor } });
+    act(() => {
+      for (const query of qc.getQueryCache().findAll()) qc.setQueryData(query.queryKey, { sentinel: true });
+    });
+    return r;
+  }
+  it("drops on a change of keepFor", async () => {
+    const { result, rerender } = setupKeep("a");
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    rerender({ k: "b" });
+    expect(result.current.data).toBeUndefined();
+  });
+  it("drops when a call without keepFor is followed by one with it", async () => {
+    const { result, rerender } = setupKeep(undefined);
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    rerender({ k: "b" });
+    expect(result.current.data).toBeUndefined();
   });
 });
