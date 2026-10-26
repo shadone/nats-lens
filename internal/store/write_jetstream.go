@@ -110,14 +110,16 @@ func (w *writer) gatherStream(b *jsRows, v *collect.ServerView, account string, 
 			row.MirrorError = m.Error.Description
 		}
 	}
-	if len(s.Sources) > 0 {
-		var maxLag uint64
-		for _, src := range s.Sources {
-			if src != nil && src.Lag > maxLag {
-				maxLag = src.Lag
-			}
+	var sources int
+	var maxLag uint64
+	for _, src := range s.Sources {
+		if src != nil {
+			sources++
+			maxLag = max(maxLag, src.Lag)
 		}
-		row.SourcesCount, row.SourcesMaxLag = len(s.Sources), i64(maxLag)
+	}
+	if sources > 0 {
+		row.SourcesCount, row.SourcesMaxLag = sources, i64(maxLag)
 	}
 	b.streams = append(b.streams, row)
 	b.streamReplicas = append(b.streamReplicas, replicasOf(s.Cluster, account, s.Name, "")...)
@@ -166,13 +168,18 @@ func (w *writer) gatherConsumer(b *jsRows, v *collect.ServerView, account, strea
 	b.consumerReplicas = append(b.consumerReplicas, replicasOf(c.Cluster, account, stream, c.Name)...)
 }
 
-// replicaCounts summarises the peers a server lists for an asset.
+// replicaCounts summarises the peers a server lists for an asset; a null
+// entry is skipped, as it is for the replica rows.
 func replicaCounts(ci *server.ClusterInfo) (reported, current, offline any) {
 	if ci == nil {
 		return nil, nil, nil
 	}
-	c, o := 0, 0
+	n, c, o := 0, 0, 0
 	for _, r := range ci.Replicas {
+		if r == nil {
+			continue
+		}
+		n++
 		if r.Current {
 			c++
 		}
@@ -180,7 +187,7 @@ func replicaCounts(ci *server.ClusterInfo) (reported, current, offline any) {
 			o++
 		}
 	}
-	return len(ci.Replicas), c, o
+	return n, c, o
 }
 
 // isLeader reports whether the reporting server leads the asset. Without

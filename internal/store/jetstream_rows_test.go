@@ -104,14 +104,17 @@ func (w *writer) writeStreamByRow(v *collect.ServerView, account string, s *serv
 	} else {
 		vals = append(vals, nil, nil, nil)
 	}
-	if len(s.Sources) > 0 {
-		var maxLag uint64
-		for _, src := range s.Sources {
-			if src != nil && src.Lag > maxLag {
-				maxLag = src.Lag
-			}
+	// Null sources are not counted, since the fix for null list entries.
+	var sources int
+	var maxLag uint64
+	for _, src := range s.Sources {
+		if src != nil {
+			sources++
+			maxLag = max(maxLag, src.Lag)
 		}
-		vals = append(vals, len(s.Sources), i64(maxLag))
+	}
+	if sources > 0 {
+		vals = append(vals, sources, i64(maxLag))
 	} else {
 		vals = append(vals, nil, nil)
 	}
