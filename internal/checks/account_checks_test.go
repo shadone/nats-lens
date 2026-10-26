@@ -198,8 +198,8 @@ func TestAccountJWTExpiry(t *testing.T) {
 		if fmt.Sprint(got) != fmt.Sprint(wantSev) {
 			t.Fatalf("%s: got %s, want %v", zone, rowsText(r), wantSev)
 		}
-		want(t, r["D13"], "warning", "D13: account JWT expires 2026-10-30 09:00 UTC, in 13.0 days.")
-		want(t, r["PAST"], "critical", "account JWT expired 2026-10-16 09:00 UTC, 1.0 days ago.")
+		want(t, r["D13"], "warning", "D13: account JWT expires 2026-10-30 09:00 UTC, in 13 days.")
+		want(t, r["PAST"], "critical", "account JWT expired 2026-10-16 09:00 UTC, 1 day ago.")
 		want(t, r["FLAG"], "critical", "account JWT expired, as the server reports it.")
 		if v := r["D13"].Value; v == nil || *v != 13 {
 			t.Errorf("%s: D13 value = %v, want 13", zone, v)
@@ -245,9 +245,9 @@ func TestUserJWTExpiry(t *testing.T) {
 		if len(r) != 2 {
 			t.Fatalf("%s: %s, want SHOP and MANY", zone, rowsText(r))
 		}
-		want(t, r["SHOP"], "critical", "SHOP: user ops expires 2026-10-19 09:00 UTC, in 2.0 days (1 connection); "+
-			"user pos-terminal expires 2026-10-22 09:00 UTC, in 5.0 days (3 connections).")
-		want(t, r["MANY"], "critical", "user u0 expires 2026-10-17 19:00 UTC, in 10.0 hours (1 connection)", "user u4",
+		want(t, r["SHOP"], "critical", "SHOP: user ops expires 2026-10-19 09:00 UTC, in 2 days (1 connection); "+
+			"user pos-terminal expires 2026-10-22 09:00 UTC, in 5 days (3 connections).")
+		want(t, r["MANY"], "critical", "user u0 expires 2026-10-17 19:00 UTC, in 10 hours (1 connection)", "user u4",
 			"; and 2 more users.")
 		if v := r["SHOP"].Value; v == nil || *v != 2 {
 			t.Errorf("%s: SHOP value = %v, want 2", zone, v)

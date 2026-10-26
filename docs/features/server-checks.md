@@ -133,7 +133,7 @@ The server checks judge each NATS server on its own: whether it answers, whether
 ### `server-016` TLS certificate expires soon
 
 - **Problem:** the TLS certificate of one of the server's listeners (client, cluster, gateway, leaf node, websocket, MQTT) expires soon or has expired. Once it expires, clients, routes, gateways or leaf nodes that verify it can no longer connect through that listener.
-- **Fires when:** a certificate VARZ reports expires within `warn_within` of the collection, or has expired. One finding per server; the detail names every listener whose certificate expires within `warn_within`, soonest first, such as "nats-0: client certificate expires 2026-10-29 09:00 UTC, in 12.0 days."
+- **Fires when:** a certificate VARZ reports expires within `warn_within` of the collection, or has expired. One finding per server; the detail names every listener whose certificate expires within `warn_within`, soonest first, such as "nats-0: client certificate expires 2026-10-29 09:00 UTC, in 12 days."
 - **Severity:** warning. Critical within `crit_within`, or once expired.
 - **Thresholds:** `warn_within` 14d, `crit_within` 3d.
 - **Left out:** a listener without TLS, or whose certificate comes from a certificate store, since VARZ reports no expiry for it. A server that did not answer VARZ in the collection keeps the certificates of its newest answer within 24 hours, as on the Accounts page, and its detail says when VARZ reported them; an older answer is not read.

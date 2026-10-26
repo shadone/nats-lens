@@ -118,13 +118,13 @@ func globalFindings(s scen) []*v1.Finding {
 	supExp, posExp := FixedNow.Add(12*day+s.shift), FixedNow.Add(5*day+s.shift)
 	supJWT := finding("account-003", "Account JWT expires soon", warning, firing, accountRef(SuppliersAccount),
 		supExp.Add(-14*day), supExp.Add(-14*day),
-		"SUPPLIERS: account JWT expires "+supExp.Format("2006-01-02 15:04")+" UTC, in 12.0 days.")
+		"SUPPLIERS: account JWT expires "+supExp.Format("2006-01-02 15:04")+" UTC, in 12 days.")
 	supJWT.Value = &v1.FindingValue{Name: "days until the account JWT expires", Display: "12", Number: ptr(12.0),
 		Basis: "from the collection's start to the JWT's expiry, negative once expired; empty when only the server's expired flag says so"}
 	supJWT.RelatedConfig = cfg([][2]string{{"exp", supExp.Format("2006-01-02 15:04:05") + " UTC"}})
 	posJWT := finding("account-004", "User JWTs expire soon", warning, firing, accountRef(Account),
 		posExp.Add(-14*day), posExp.Add(-14*day),
-		"APP: user pos-terminal expires "+posExp.Format("2006-01-02 15:04")+" UTC, in 5.0 days (3 connections).")
+		"APP: user pos-terminal expires "+posExp.Format("2006-01-02 15:04")+" UTC, in 5 days (3 connections).")
 	posJWT.Value = &v1.FindingValue{Name: "days until a user JWT expires", Display: "5", Number: ptr(5.0),
 		Basis: "from the collection's start to the soonest user JWT expiry among the account's connections, negative once expired"}
 
