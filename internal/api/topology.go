@@ -75,13 +75,14 @@ type TopologyEarlier struct {
 
 // TopologyEarliestEarlier is the earliest start of the collection the slow
 // rule compares an epoch that started at epochAt with: TopologyGapIntervals
-// collect intervals before it, as for drops; the zero time when the
-// interval is not known.
-func TopologyEarliestEarlier(epochAt time.Time, interval time.Duration) time.Time {
+// collect intervals before it, as for drops. False when the interval is
+// not known: then no collection counts as the one before, and no route is
+// slow.
+func TopologyEarliestEarlier(epochAt time.Time, interval time.Duration) (time.Time, bool) {
 	if interval <= 0 {
-		return time.Time{}
+		return time.Time{}, false
 	}
-	return epochAt.Add(-TopologyGapIntervals * interval)
+	return epochAt.Add(-TopologyGapIntervals * interval), true
 }
 
 // TopologyServerFact is one server expected in the epoch.

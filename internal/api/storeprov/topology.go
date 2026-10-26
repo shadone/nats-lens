@@ -124,15 +124,19 @@ func (p *Provider) topologyRoutes(ctx context.Context, f *api.TopologyFacts) err
 
 // topologyEarlier reads the collection the slow rule compares the epoch
 // with: the newest epoch before it with route rows that started no
-// earlier than api.TopologyEarliestEarlier, and its routes. The start is
-// compared with the column directly, so the session time zone does not
-// shift it.
+// earlier than api.TopologyEarliestEarlier, and its routes; none when the
+// collect interval is not known. The start is compared with the column
+// directly, so the session time zone does not shift it.
 func (p *Provider) topologyEarlier(ctx context.Context, f *api.TopologyFacts) error {
+	bound, known := api.TopologyEarliestEarlier(f.EpochAt, p.Interval)
+	if !known {
+		return nil
+	}
 	var e api.TopologyEarlier
 	err := p.db().QueryRowContext(ctx, `
 SELECT e.epoch, e.started_at FROM epochs e
 WHERE e.epoch < ? AND e.started_at >= ? AND e.started_at < ? AND EXISTS (SELECT 1 FROM routes r WHERE r.epoch = e.epoch)
-ORDER BY e.epoch DESC LIMIT 1`, f.Epoch, api.TopologyEarliestEarlier(f.EpochAt, p.Interval), f.EpochAt).Scan(&e.Epoch, &e.At)
+ORDER BY e.epoch DESC LIMIT 1`, f.Epoch, bound, f.EpochAt).Scan(&e.Epoch, &e.At)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil
 	}
