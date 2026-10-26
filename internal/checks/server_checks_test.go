@@ -1,6 +1,7 @@
 package checks
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -453,4 +454,48 @@ func TestConditionSince(t *testing.T) {
 	if got := r["APP/jobs/w"].ConditionSince; got == nil || !got.Equal(t0.Add(-2*time.Hour)) {
 		t.Errorf("consumer-009 condition since %v", got)
 	}
+}
+
+func TestCertificateExpiry(t *testing.T) {
+	f := newFx(t)
+	names := []string{"nats-0", "nats-1", "nats-2", "nats-3", "nats-4", "nats-5"}
+	f.lookupEpochs(names, "nats-4", "nats-5")
+	const d = 24 * time.Hour
+	varz := func(epoch int64, id string, cols m) {
+		f.row("epoch_endpoints", m{"epoch": epoch, "server_id": id, "endpoint": "VARZ", "state": "ok"})
+		f.stats(epoch, id, cols)
+	}
+	for i, name := range names {
+		f.server(fmt.Sprintf("S%d", i), name, 1, 3, t0.Add(-48*time.Hour), "2.15.0")
+	}
+	varz(3, "S0", m{"tls_cert_not_after": t0.Add(13 * d), "cluster_tls_cert_not_after": t0.Add(10 * d),
+		"gateway_tls_cert_not_after": t0.Add(60 * d)})
+	varz(3, "S1", m{"tls_cert_not_after": t0.Add(15 * d), "leafnode_tls_cert_not_after": t0.Add(14*d + time.Hour)})
+	varz(3, "S2", m{"tls_cert_not_after": t0.Add(14*d - time.Hour), "gateway_tls_cert_not_after": t0.Add(2 * d)})
+	varz(2, "S3", m{}) // no TLS
+	// nats-4 last answered VARZ 23 hours ago and keeps its finding; nats-5
+	// 25 hours ago, which is too old.
+	varz(2, "S4", m{"mqtt_tls_cert_not_after": t0.Add(5 * d)})
+	varz(1, "S5", m{"tls_cert_not_after": t0.Add(5 * d)})
+	// nats-3 did not answer VARZ in the epoch: its stats row of the epoch
+	// is not read for certificates, its newest VARZ answer is.
+	f.row("epoch_endpoints", m{"epoch": 3, "server_id": "S3", "endpoint": "VARZ", "state": "missing"})
+	f.stats(3, "S3", m{"tls_cert_not_after": t0.Add(d)})
+
+	inZones(t, f, func(zone string) {
+		r := f.eval("server-016", 3)
+		if len(r) != 3 {
+			t.Fatalf("%s: %s, want nats-0, nats-2, nats-4", zone, rowsText(r))
+		}
+		want(t, r["nats-0"], "warning", "nats-0: cluster certificate expires 2026-10-27 09:00 UTC, in 10.0 days; "+
+			"client certificate expires 2026-10-30 09:00 UTC, in 13.0 days.")
+		want(t, r["nats-2"], "critical", "nats-2: gateway certificate expires 2026-10-19 09:00 UTC, in 2.0 days; client certificate")
+		want(t, r["nats-4"], "warning", "mqtt certificate expires", "(as VARZ reported it at 2026-10-16 10:00 UTC)")
+		if v := r["nats-0"].Value; v == nil || *v != 10 {
+			t.Errorf("%s: nats-0 value = %v, want 10", zone, v)
+		}
+	})
+	// An expired certificate is critical.
+	f.exec(`UPDATE server_stats SET tls_cert_not_after = ? WHERE epoch = 3 AND server_id = 'S1'`, t0.Add(-time.Hour))
+	want(t, f.eval("server-016", 3)["nats-1"], "critical", "client certificate expired 2026-10-17 08:00 UTC, 1.0 hours ago")
 }
