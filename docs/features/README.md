@@ -85,7 +85,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Placement](placement.md) | `ui`, `api` | partial — how long a state other than a leader's has lasted, and a playbook link, are not built |
 | [Replay](replay.md) | `ui`, `api` | partial — "Replay this window" links and a replica catch-up step are not built |
 | [Topology](topology.md) | `ui`, `api` | shipped |
-| [Applications](applications.md) | `ui`, `api` | planned |
+| [Applications](applications.md) | `ui`, `api` | shipped |
 | [Capacity and retention](capacity.md) | `ui`, `api` | shipped |
 | [Subjects](subjects.md) | `ui`, `api` | shipped |
 | [Accounts and auth](accounts-and-auth.md) | `ui`, `api` | shipped |
@@ -135,7 +135,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [~] Every stream and durable consumer on every server in one matrix, with filters, a moment to compare with and a side panel — how long most states have lasted and a playbook link are not built (placement.md)
 - [~] What changed between two moments A and B, in order, with counts, gone assets, evidence links, a shared link and an incident log — "Replay this window" links and a replica catch-up step are not built (replay.md)
 - [x] How the servers connect: routes, gateways and leaf node sites, with round trips, drops counted from the collections, slow routes and sites not connected (topology.md)
-- [ ] Clients grouped by application (applications.md)
+- [x] Client connections grouped by the application in their name: instances, pods, servers, library, round trip, reconnects and 24 hours of traffic per application, with the spread over the servers, the libraries in use and the last day (applications.md)
 - [x] What each stream keeps, what bounds it, and when disks fill, with an unbounded stream accepted as by design (capacity.md)
 - [x] Where messages can go: each stream with its subjects and readers, client subscriptions by subject, reply inboxes and the JetStream API, filters with counts, and a tester that says what a message on a subject would reach in each account (subjects.md)
 - [x] Accounts with their limits, imports, exports and JWT expiry, the failed logins of 24 hours, and the certificates and JWTs that expire within 30 days (accounts-and-auth.md)
