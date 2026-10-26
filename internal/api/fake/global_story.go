@@ -109,7 +109,11 @@ func globalFindings(s scen) []*v1.Finding {
 	archive := s.unboundedFinding("order-archive", s.on(1, 8, 30))
 	flags := s.unboundedFinding("KV_feature-flags", s.on(1, 8, 30))
 
-	return []*v1.Finding{us4, offline[0], offline[1], labels, slow, backlog, full, config, absent, archive, flags,
+	// shipping-service in ap runs at the carrier's site, 140 ms away;
+	// muted as expected (globalSeedClientMute).
+	rtt := s.clientRTT("shipping-service", s.on(16, 9, 0))
+
+	return []*v1.Finding{us4, offline[0], offline[1], labels, slow, backlog, full, config, absent, archive, flags, rtt,
 		vanished("restock-alerts"), vanished("stock-audit-export"),
 		version("nats-ap-4"), version("nats-ap-5"),
 		restarted("nats-us-1", 8, 46, 10), restarted("nats-us-2", 8, 58, 30), restarted("nats-us-3", 9, 6, 40),
@@ -223,7 +227,7 @@ func globalEvents(s scen, fs []*v1.Finding) []*v1.Event {
 		at := slow[i].Add(s.shift)
 		out = append(out, &v1.Event{Time: ts(at), Source: srcNATS, Kind: "client.disconnect", Type: "CLIENT.DISCONNECT", Severity: warning,
 			Server: "nats-us-3", Account: Account, ClientName: "label-printer", ClientHost: fmt.Sprintf("10.30.3.%d", 20+i%6),
-			Summary: "label-printer disconnected: Slow Consumer (Write Deadline)"})
+			Reason: "Slow Consumer (Write Deadline)", Summary: "label-printer disconnected: Slow Consumer (Write Deadline)"})
 	}
 	out = append(out,
 		findingEvent("server-009:nats-us-3", firing, s.at(13, 41, 0), "finding.firing", "nats-us-3: 4 slow consumers in the last 15m"),

@@ -2,6 +2,8 @@ package fake
 
 import (
 	"cmp"
+	"fmt"
+	"math"
 	"slices"
 	"time"
 
@@ -89,7 +91,19 @@ func prodFindings(s scen) []*v1.Finding {
 		return resolvedFinding("server-002", "Healthz not ok", critical, serverRef(server), since, end,
 			server+" healthz unavailable (503): JetStream stream 'APP > "+stream+"' is not current (+2 more).")
 	}
-	out := []*v1.Finding{c010, c009, c002, s005, s005kv, s006,
+	// callback-dispatcher's last three stale connections (prodCallbackDrops)
+	// fall within client-004's 10 minutes from the collection after the
+	// third.
+	c004 := finding("client-004", "Client reconnecting repeatedly", warning, firing, clientRef("callback-dispatcher"),
+		s.at(14, 26, 26), s.at(14, 26, 26),
+		"3 reconnects in the last 10m (nats-0, nats-1): Stale Connection; the last at "+s.at(14, 26, 10).UTC().Format("15:04:05")+" UTC.")
+	c004.Value = &v1.FindingValue{Name: "reconnects", Display: "3", Number: ptr(3.0),
+		Basis: "the smaller of the disconnects not asked for by the client or caused by a server stopping, and the connects, of " +
+			"the connection name within the lookback"}
+	c004.Cause = &v1.EventRef{Id: s.sc.eventID("client.disconnect", fixed(14, 26, 10)), Time: ts(s.at(14, 26, 10)), Kind: "client.disconnect",
+		Summary: "callback-dispatcher disconnected from nats-1: Stale Connection"}
+
+	out := []*v1.Finding{c010, c009, c002, s005, s005kv, s006, c004,
 		shortLived("stock-poller", s.at(12, 48, 0), 21, []string{"10.20.4.31"}, []string{"nats-0", "nats-1"}),
 		resolvedFinding("consumer-001", "Consumer quorum lost", critical,
 			consumerRef("order-jobs", "job-cache-projector"), s.at(9, 15, 0), s.at(9, 45, 0),
@@ -186,4 +200,30 @@ func tally(all []*v1.Finding, r *v1.TimeRange) *v1.FindingTally {
 		}
 	}
 	return t
+}
+
+// clientRTT is client-001's finding on a client, as its query words it
+// from the connections of the newest epoch: those above 100ms of all the
+// client's, and the worst.
+func (s scen) clientRTT(client string, since time.Time) *v1.Finding {
+	var total, slow int
+	var worst *v1.Connection
+	for _, c := range s.connections(s.lastEpoch()) {
+		if c.GetName() != client || c.GetRtt() == nil {
+			continue
+		}
+		total++
+		if c.GetRtt().AsDuration() > 100*time.Millisecond {
+			slow++
+		}
+		if worst == nil || c.GetRtt().AsDuration() > worst.GetRtt().AsDuration() {
+			worst = c
+		}
+	}
+	ms := math.Round(float64(worst.GetRtt().AsDuration())/1e5) / 10
+	f := finding("client-001", "High client round trip time", warning, firing, clientRef(client), since, since,
+		fmt.Sprintf("%d of %d connections above 100ms; worst %.1fms on %s cid %d from %s.", slow, total, ms, worst.GetServer(), worst.GetCid(), worst.GetIp()))
+	f.Value = &v1.FindingValue{Name: "worst round trip time, ms", Display: fmt.Sprintf("%.1f", ms), Number: ptr(ms),
+		Basis: "largest RTT among the client's connections in the collection"}
+	return f
 }

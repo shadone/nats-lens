@@ -3,6 +3,7 @@ syntax = "proto3";
 package natslens.v1;
 
 import "natslens/v1/accounts.proto";
+import "natslens/v1/applications.proto";
 import "natslens/v1/buckets.proto";
 import "natslens/v1/capacity.proto";
 import "natslens/v1/consumers.proto";
@@ -158,6 +159,16 @@ service LensService {
   // nats-lens asks, else from their $SRV subscriptions in the subscription
   // collection; with rates, average times and the slow rule per endpoint.
   rpc GetMicroServices(GetMicroServicesRequest) returns (GetMicroServicesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // The client applications of the range's newest epoch: its
+  // connections grouped by the name before the first "@", with their
+  // instances, servers, libraries and round trip times, the reconnects,
+  // slow consumers and stale connections of the 24 hours before it from
+  // the events, the client findings, and the hourly traffic from the
+  // rollup.
+  rpc GetApplications(GetApplicationsRequest) returns (GetApplicationsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 

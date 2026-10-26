@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/shadone/nats-lens/internal/api"
-	"github.com/shadone/nats-lens/internal/checks"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -263,16 +262,15 @@ GROUP BY ALL`, epoch, epoch)
 // the connection name up to an "@", nats-lens's own connections left out
 // by the rule the client checks use.
 func (p *Provider) appsAt(ctx context.Context, epoch int64) (int, error) {
-	stored, err := checks.StoredLoopback(ctx, p.db(), epoch)
+	rule, err := p.toolingAt(ctx, epoch)
 	if err != nil {
 		return 0, err
 	}
-	names := append([]string{}, p.ToolingNames...)
+	tooling, args := rule.sql("c.name", "c.ip")
 	var n int
 	err = p.db().QueryRowContext(ctx, `
 SELECT count(DISTINCT split_part(c.name, '@', 1)) FROM connections c
 WHERE c.epoch = ? AND coalesce(c.name, '') <> '' AND split_part(c.name, '@', 1) <> ''
-  AND NOT (list_contains(?::VARCHAR[], c.name) OR (? AND coalesce(c.ip, '') IN ('127.0.0.1', '::1')))`,
-		epoch, names, !p.LoopbackNotTooling && stored).Scan(&n)
+  AND NOT `+tooling, append([]any{epoch}, args...)...).Scan(&n)
 	return n, err
 }

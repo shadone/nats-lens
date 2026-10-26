@@ -26,7 +26,7 @@ func tsAt(h, m, s int) *timestamppb.Timestamp { return timestamppb.New(at(h, m, 
 func TestListEventsPagesNewestFirst(t *testing.T) {
 	c := client(t)
 	first := must(c.ListEvents(ctx, connect.NewRequest(&v1.ListEventsRequest{PageSize: 15})))
-	if first.GetTotalCount() != 1164 || first.GetEvents()[0].GetId() != "1164" || !first.GetEvents()[0].GetTime().AsTime().Equal(at(14, 28, 0)) {
+	if first.GetTotalCount() != 1176 || first.GetEvents()[0].GetId() != "1176" || !first.GetEvents()[0].GetTime().AsTime().Equal(at(14, 28, 0)) {
 		t.Fatalf("total %d, first %v", first.GetTotalCount(), first.GetEvents()[0])
 	}
 	deleted := must(c.ListEvents(ctx, connect.NewRequest(&v1.ListEventsRequest{Kinds: []string{"consumer.deleted"}}))).GetEvents()
@@ -53,7 +53,7 @@ func TestListEventsPagesNewestFirst(t *testing.T) {
 			break
 		}
 	}
-	if len(seen) != 1164 {
+	if len(seen) != 1176 {
 		t.Fatalf("paged %d events", len(seen))
 	}
 	filters := map[string]struct {
@@ -63,9 +63,11 @@ func TestListEventsPagesNewestFirst(t *testing.T) {
 		"kubernetes": {&v1.ListEventsRequest{Sources: []v1.EventSource{v1.EventSource_EVENT_SOURCE_KUBERNETES}}, 27},
 		"kind":       {&v1.ListEventsRequest{Kinds: []string{"consumer.deleted"}}, 1},
 		"stream":     {&v1.ListEventsRequest{Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/order-jobs"}}, 89},
-		// Its delete, and its reconnects as each server restarted.
-		"client":        {&v1.ListEventsRequest{ClientName: "analytics-worker"}, 49},
-		"last 5 hours":  {&v1.ListEventsRequest{Range: &v1.TimeRange{Start: tsAt(9, 30, 0)}}, 357},
+		// Its delete, and its reconnects as each server restarted: 12 of
+		// its connections on nats-0, 5 on each of the others.
+		"client": {&v1.ListEventsRequest{ClientName: "analytics-worker"}, 45},
+		// With callback-dispatcher's four reconnects after 09:30.
+		"last 5 hours":  {&v1.ListEventsRequest{Range: &v1.TimeRange{Start: tsAt(9, 30, 0)}}, 309},
 		"server nats-2": {&v1.ListEventsRequest{Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SERVER, Key: "nats-2"}, Kinds: []string{"k8s.pod.killing", "k8s.pod.started"}}, 2},
 	}
 	for name, f := range filters {
@@ -142,14 +144,14 @@ func TestServersAndConnections(t *testing.T) {
 		t.Fatalf("unknown server: %v", err)
 	}
 	conns := must(c.ListConnections(ctx, connect.NewRequest(&v1.ListConnectionsRequest{PageSize: 100})))
-	if conns.GetTotalCount() != 182 || len(conns.GetConnections()) != 100 || conns.GetNextPageToken() == "" {
+	if conns.GetTotalCount() != 187 || len(conns.GetConnections()) != 100 || conns.GetNextPageToken() == "" {
 		t.Fatalf("connections: %d total, %d on page", conns.GetTotalCount(), len(conns.GetConnections()))
 	}
 	rest := must(c.ListConnections(ctx, connect.NewRequest(&v1.ListConnectionsRequest{PageSize: 100, PageToken: conns.GetNextPageToken()})))
-	if len(rest.GetConnections()) != 82 || rest.GetNextPageToken() != "" {
+	if len(rest.GetConnections()) != 87 || rest.GetNextPageToken() != "" {
 		t.Fatalf("second page: %d, token %q", len(rest.GetConnections()), rest.GetNextPageToken())
 	}
-	if n := must(c.ListConnections(ctx, connect.NewRequest(&v1.ListConnectionsRequest{Server: "nats-1"}))).GetTotalCount(); n != 60 {
+	if n := must(c.ListConnections(ctx, connect.NewRequest(&v1.ListConnectionsRequest{Server: "nats-1"}))).GetTotalCount(); n != 44 {
 		t.Fatalf("nats-1 connections = %d", n)
 	}
 	if n := must(c.ListConnections(ctx, connect.NewRequest(&v1.ListConnectionsRequest{NameContains: "video"}))).GetTotalCount(); n == 0 {
@@ -160,7 +162,7 @@ func TestServersAndConnections(t *testing.T) {
 func TestTimeSeries(t *testing.T) {
 	c := client(t)
 	s := must(c.GetTimeSeries(ctx, connect.NewRequest(&v1.GetTimeSeriesRequest{Metric: "cluster.connections", MaxPoints: 96}))).GetSeries()
-	if len(s.GetPoints()) != 96 || s.GetPoints()[95].GetValue() != 182 || s.GetStep().AsDuration() != 15*time.Minute || s.GetMin() >= s.GetMax() {
+	if len(s.GetPoints()) != 96 || s.GetPoints()[95].GetValue() != 187 || s.GetStep().AsDuration() != 15*time.Minute || s.GetMin() >= s.GetMax() {
 		t.Fatalf("series: %d points, step %v, min %v max %v", len(s.GetPoints()), s.GetStep().AsDuration(), s.GetMin(), s.GetMax())
 	}
 	pend := must(c.GetTimeSeries(ctx, connect.NewRequest(&v1.GetTimeSeriesRequest{

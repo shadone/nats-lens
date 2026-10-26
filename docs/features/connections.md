@@ -17,6 +17,7 @@ The Connections page lists the client connections of the newest collection in th
 - **Tooling is hidden.** nats-lens's own connections and clients from 127.0.0.1 or ::1 are hidden, and a note counts them: "N tooling connections hidden: nats-lens's own, or clients from a loopback address." "Include tooling" shows them, marked "tooling". A name filter also shows the tooling connections it matches, and says so. When `checks.loopback_is_tooling` is false, or the loopback guard has turned the loopback rule off ([checks.md](checks.md)), loopback clients are listed like any other client.
 - **Pages stay on one collection.** Paging keeps the collection of the first page, so new collections do not shift the pages. A page token whose collection has been removed by retention is refused, and the first page must be read again.
 - **Stored connections only.** nats-lens stores at most `connz_limit` (4096) connections per server per collection; a server with more shows only those.
+- **Grouped by application.** The [Applications](applications.md) page groups these connections by the application in their name, and each application's name links here with the name filter.
 
 ## Scenarios
 
@@ -46,10 +47,6 @@ The Connections page lists the client connections of the newest collection in th
 - **When** I call `ListConnections` with a server filter
 - **Then** I receive that server's connections with the number of tooling connections hidden, and a page token for the next page
 - **And** `servers` names every server seen in the range, not only the one I filtered by
-
-## Planned
-
-- **Grouped by application.** A page of clients grouped by the service in their connection name is planned in [applications.md](applications.md).
 
 ## Not supported / out of scope
 

@@ -94,6 +94,14 @@ type scenario struct {
 	subs map[string][]clientSub
 	// extraConns are connections besides the clients' in Account.
 	extraConns []extraConn
+	// library, when set, gives the client library of a client's
+	// connections on a server; an empty language falls back to libraryOf's
+	// default.
+	library func(sp serverSpec, client string) (lang, version string)
+	// rtt, when set, gives the round trip of a client's connections on a
+	// server, before each connection's own few microseconds; zero means
+	// the default.
+	rtt func(sp serverSpec, client string) time.Duration
 	// micro are the micro services the clients run in Account, and
 	// microAsked the accounts nats-lens asks with $SRV requests: Account
 	// answers, any other is refused.

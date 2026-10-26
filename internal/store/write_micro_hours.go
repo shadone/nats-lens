@@ -82,20 +82,28 @@ func (w *writer) writeMicroHours() {
 		return
 	}
 	start := w.snap.StartedAt.UTC()
-	var lo int64
-	var prevStart any
+	lo, prevStart := w.lookback("micro", microLookback)
+	w.exec(microHoursQuery, w.epoch, start.Truncate(time.Hour).UnixMicro(), lo, prevStart)
+}
+
+// lookback returns the lowest epoch that started within d before this
+// epoch (this epoch when none did) and the previous epoch's start in Unix
+// microseconds of UTC, nil without a previous epoch: the bounds of the
+// hourly sums' pairing. rollup names the sums in an error.
+func (w *writer) lookback(rollup string, d time.Duration) (lo int64, prevStart any) {
+	start := w.snap.StartedAt.UTC()
 	if err := w.tx.QueryRowContext(w.ctx, `SELECT coalesce(min(epoch), ?) FROM epochs WHERE started_at >= ? AND epoch < ?`,
-		w.epoch, start.Add(-microLookback), w.epoch).Scan(&lo); err != nil {
-		w.fail(fmt.Errorf("micro lookback: %w", err))
-		return
+		w.epoch, start.Add(-d), w.epoch).Scan(&lo); err != nil {
+		w.fail(fmt.Errorf("%s hours lookback: %w", rollup, err))
+		return 0, nil
 	}
 	if w.prevEpoch > 0 {
 		var t time.Time
 		if err := w.tx.QueryRowContext(w.ctx, `SELECT started_at FROM epochs WHERE epoch = ?`, w.prevEpoch).Scan(&t); err != nil {
-			w.fail(fmt.Errorf("previous epoch start: %w", err))
-			return
+			w.fail(fmt.Errorf("%s hours previous epoch start: %w", rollup, err))
+			return 0, nil
 		}
 		prevStart = t.UTC().UnixMicro()
 	}
-	w.exec(microHoursQuery, w.epoch, start.Truncate(time.Hour).UnixMicro(), lo, prevStart)
+	return lo, prevStart
 }

@@ -15,6 +15,7 @@ import { topology } from "./topology";
 import { accountsAndAuth } from "./accounts";
 import { capacity } from "./capacity";
 import { microServices } from "./micro";
+import { applications } from "./applications";
 import { FILTER_ENUM as SUBJECT_FILTER_ENUM, subjectMatches, subjects, type SubjectFilter } from "./subjects";
 import { lens } from "./client";
 import type {
@@ -231,6 +232,11 @@ export async function getSubjects(sys: string, spec: RangeSpec, account: string,
 /** The services built on the NATS micro framework in the range's newest collection, of the account ("" for all). */
 export async function getMicroServices(sys: string, spec: RangeSpec, account: string, signal?: AbortSignal) {
   return microServices(await lens.getMicroServices({ ...systemInit(sys), range: rangeInit(spec), account }, { signal }));
+}
+
+/** The client applications of the range's newest collection, of the account ("" for all); tooling ones only when asked. */
+export async function getApplications(sys: string, spec: RangeSpec, account: string, includeTooling: boolean, signal?: AbortSignal) {
+  return applications(await lens.getApplications({ ...systemInit(sys), range: rangeInit(spec), account, includeTooling }, { signal }));
 }
 
 /** What a message on a literal subject would reach in the range's newest collection. */

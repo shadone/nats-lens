@@ -88,6 +88,10 @@ func stagingEvents(s scen, _ []*v1.Finding) []*v1.Event {
 		collector(stop, "collector.connection_closed", "sys", "nats: authorization violation", "collector connection sys closed: "),
 		collector(stop, "collector.connection_closed", Account, "nats: authorization violation", "collector connection APP closed: "),
 		collector(stop.Add(-2*time.Second), "collector.disconnected", "collector", "nats: authorization violation", "collector connection collector lost server nats-1: "),
+		// Four hours before, the connection that captures system events lost
+		// its server for 50 seconds: capture stopped meanwhile.
+		collector(stop.Add(-4*time.Hour), "collector.disconnected", "sys", "EOF", "collector connection sys lost server nats-2: "),
+		collector(stop.Add(-4*time.Hour+50*time.Second), "collector.reconnected", "sys", "", "collector connection sys reconnected to nats-0"),
 	}
 	// Routine reconnects every 17 minutes, from the start of the history.
 	for k := range int((stagingStop.Sub(stagingStart) - time.Minute) / (17 * time.Minute)) {

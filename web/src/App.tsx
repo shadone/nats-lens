@@ -29,6 +29,7 @@ import { Accounts } from "./pages/Accounts";
 import { Capacity } from "./pages/Capacity";
 import { Subjects } from "./pages/Subjects";
 import { MicroServices } from "./pages/MicroServices";
+import { Applications } from "./pages/Applications";
 import { NotFound } from "./pages/NotFound";
 
 /**
@@ -88,6 +89,7 @@ export function App() {
                 <Route path="/servers/:name" element={<ServerDetail />} />
                 <Route path="/subjects" element={<Subjects />} />
                 <Route path="/micro-services" element={<MicroServices />} />
+                <Route path="/applications" element={<Applications />} />
                 <Route path="/connections" element={<Connections />} />
                 <Route path="/kv-stores" element={<KvStores />} />
                 <Route path="/object-stores" element={<ObjectStores />} />

@@ -85,7 +85,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Placement](placement.md) | `ui`, `api` | partial — how long a state other than a leader's has lasted, and a playbook link, are not built |
 | [Replay](replay.md) | `ui`, `api` | partial — "Replay this window" links and a replica catch-up step are not built |
 | [Topology](topology.md) | `ui`, `api` | shipped |
-| [Applications](applications.md) | `ui`, `api` | planned |
+| [Applications](applications.md) | `ui`, `api` | shipped |
 | [Capacity and retention](capacity.md) | `ui`, `api` | shipped |
 | [Subjects](subjects.md) | `ui`, `api` | shipped |
 | [Accounts and auth](accounts-and-auth.md) | `ui`, `api` | shipped |
@@ -104,7 +104,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] What nats-lens is, the problem it solves, and its nouns (overview.md)
 
 **Collection**
-- [x] One snapshot of every server per interval, partial collections kept, account details, the expiry of account JWTs, user JWTs and listener certificates, subscription lists every few minutes, and the replies of micro services in the listed accounts (monitoring-snapshots.md)
+- [x] One snapshot of every server per interval, partial collections kept, account details, the expiry of account JWTs, user JWTs and listener certificates, subscription lists every few minutes, the replies of micro services in the listed accounts, and each client application's traffic per hour (monitoring-snapshots.md)
 - [x] NATS advisories and system events, short-lived connections folded into `client.churn` and flagged by `client-005` when frequent, and account connections that also ask micro services (event-capture.md)
 - [x] Kubernetes pod, node and client-pod events on the same clock, with node upgrade and drain windows (kubernetes-context.md)
 - [x] Retention, the hourly Parquet archive, and the rebuild from it (history-and-archive.md)
@@ -135,7 +135,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [~] Every stream and durable consumer on every server in one matrix, with filters, a moment to compare with and a side panel — how long most states have lasted and a playbook link are not built (placement.md)
 - [~] What changed between two moments A and B, in order, with counts, gone assets, evidence links, a shared link and an incident log — "Replay this window" links and a replica catch-up step are not built (replay.md)
 - [x] How the servers connect: routes, gateways and leaf node sites, with round trips, drops counted from the collections, slow routes and sites not connected (topology.md)
-- [ ] Clients grouped by application (applications.md)
+- [x] Client connections grouped by the application in their name: instances, pods, servers, library, round trip, reconnects and 24 hours of traffic per application, with the spread over the servers, the libraries in use and the last day (applications.md)
 - [x] What each stream keeps, what bounds it, and when disks fill, with an unbounded stream accepted as by design (capacity.md)
 - [x] Where messages can go: each stream with its subjects and readers, client subscriptions by subject, reply inboxes and the JetStream API, filters with counts, and a tester that says what a message on a subject would reach in each account (subjects.md)
 - [x] Accounts with their limits, imports, exports and JWT expiry, the failed logins of 24 hours, and the certificates and JWTs that expire within 30 days (accounts-and-auth.md)
@@ -149,4 +149,4 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Findings and collector health at `/metrics` for Prometheus alerting (metrics-and-alerting.md)
 - [x] `run`, `once` for every system or one, configuration, health and readiness, the Kubernetes manifests (running-nats-lens.md)
 - [x] Read-only SQL on a stopped database with `natslens sql`, one system at a time (sql-access.md)
-- [x] Three fixed systems without NATS with `natslens demo`, whose findings are the real checks, with a node pool upgrade to replay, links of a supercluster to draw from `GetTopology`, accounts and failed logins from `GetAccountsAndAuth`, the stores and streams of the Capacity page from `GetCapacity`, and which show every state real data shows, tested against the store with one table of states (demo-mode.md)
+- [x] Three fixed systems without NATS with `natslens demo`, whose findings are the real checks, with a node pool upgrade to replay, links of a supercluster to draw from `GetTopology`, accounts and failed logins from `GetAccountsAndAuth`, the stores and streams of the Capacity page from `GetCapacity`, the client applications from `GetApplications`, and which show every state real data shows, tested against the store with one table of states (demo-mode.md)

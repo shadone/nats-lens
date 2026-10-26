@@ -1,0 +1,65 @@
+/* Applications: the notices, the three summary cards, the table and its
+   sparkline, and the footnote. Every rule names an ap- class, so the
+   page's rules reach no other page; a test checks it. Row headers are
+   written .tbl.ap-tbl tbody th[scope="row"] so that they outrank the
+   shared rule of events.css. Colours are the design board's: the info
+   tokens for a concentrated spread, the accent for messages in, the
+   muted text for messages out, the warning tokens for a row with an open
+   finding and for reconnects. The table scrolls in its own box at phone
+   width; the page never does. */
+.ap-notice{margin:0 0 12px;padding:10px 14px;border:1px solid var(--sev-info);border-radius:10px;background:var(--sev-info-bg);font-size:13px;color:var(--text);overflow-wrap:break-word}
+.ap-notice.ap-notice-warn{border-color:var(--sev-warning);background:var(--sev-warning-bg)}
+.ap-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0 0 16px}
+.ap-card{min-width:0;margin:0;padding:16px 18px}
+.ap-card.ap-card-info{border-left:4px solid var(--sev-info)}
+.ap-label{margin:0;font:600 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
+.ap-card-text{margin:4px 0 0;font-size:14px;color:var(--text);overflow-wrap:break-word}
+.ap-fig .ap-v{font:600 14px var(--mono)}
+.ap-quiet{color:var(--text-muted)}
+.ap-wrap{min-width:0;overflow-wrap:break-word}
+.ap-table{margin-top:4px}
+.tbl.ap-tbl th,.tbl.ap-tbl td{padding-left:8px;padding-right:8px}
+.tbl.ap-tbl thead th{white-space:normal;vertical-align:bottom}
+.tbl.ap-tbl thead th .sort-btn{text-align:inherit}
+.tbl.ap-tbl td{vertical-align:middle;font-size:13px}
+.tbl.ap-tbl tbody th[scope="row"]{text-align:left;vertical-align:middle;font:13px var(--sans);white-space:normal;min-width:140px;max-width:240px}
+.ap-tbl .ap-name{font:600 13px var(--mono);overflow-wrap:anywhere}
+.ap-tbl .ap-tag{margin-left:6px;padding:0 5px;border:1px solid var(--border);border-radius:4px;font:11px var(--sans);color:var(--text-muted)}
+.ap-tbl .ap-sub{display:block;margin-top:2px;font:12px var(--sans);color:var(--text-muted)}
+.ap-tbl .ap-findings{display:flex;flex-direction:column;gap:2px;margin-top:4px}
+.ap-tbl .ap-finding{font:500 12px var(--sans)}
+.ap-tbl .ap-finding.ap-sev-critical{color:var(--sev-critical)}
+.ap-tbl .ap-finding.ap-sev-warning{color:var(--sev-warning)}
+.ap-tbl .ap-finding.ap-sev-muted{color:var(--text-muted);font-weight:400}
+.ap-tbl .ap-few{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+.tbl.ap-tbl td.ap-servers{min-width:160px}
+.ap-tbl .ap-servers .ap-few{flex-direction:row;flex-wrap:wrap;gap:4px;max-width:176px}
+.ap-tbl .ap-servers .ap-more{flex-basis:100%}
+.ap-tbl .ap-servers .ap-more[open]{display:flex;flex-wrap:wrap;gap:4px}
+.ap-tbl .ap-servers .ap-more[open] > summary{flex-basis:100%}
+.ap-tbl .ap-item{display:block}
+.ap-tbl .ap-servers .ap-item{display:inline-block}
+.tbl.ap-tbl td.ap-places{font:11px var(--mono);white-space:nowrap}
+.tbl.ap-tbl td.ap-places.ap-addrs{color:var(--text-2)}
+.ap-tbl .ap-more summary{cursor:pointer;font:12px var(--sans);color:var(--accent-text)}
+.ap-tbl .ap-more summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ap-tbl .ap-chip{display:inline-block;padding:1px 4px;border-radius:5px;background:var(--ok-cell);color:var(--text);font:10.5px var(--mono);white-space:nowrap;border-bottom:0}
+.ap-tbl .ap-chip .ap-chip-n{color:var(--text-2);font-weight:600}
+.tbl.ap-tbl td.ap-lib{font:12px var(--mono);white-space:nowrap}
+.ap-tbl .ap-mixed{font-weight:600;color:var(--sev-warning)}
+.ap-tbl .ap-lib-line{display:block;font-size:11px}
+.ap-tbl .ap-small{display:block;font:11px var(--mono);color:var(--text-muted);white-space:nowrap}
+.ap-tbl .ap-warn-text{color:var(--sev-warning);font-weight:600}
+.ap-tbl tr.ap-warn > *{background:var(--sev-warning-bg)}
+.ap-tbl .ap-traffic{min-width:150px}
+.ap-spark{display:block;width:140px;height:24px}
+.ap-spark .ap-spark-in{fill:none;stroke:var(--accent);stroke-width:1.5;stroke-linejoin:round}
+.ap-spark circle.ap-spark-in{fill:var(--accent);stroke:none}
+.ap-spark .ap-spark-out{fill:none;stroke:var(--text-muted);stroke-width:1.2;stroke-dasharray:3 2}
+.ap-spark circle.ap-spark-out{fill:var(--text-muted);stroke:none}
+.ap-spark .ap-spark-none{stroke:var(--border)}
+.ap-foot{margin:14px 2px 0;max-width:900px;font-size:12px;color:var(--text-muted);overflow-wrap:break-word}
+.ap-foot p{margin:0 0 4px}
+@media (max-width:760px){
+  .ap-cards{grid-template-columns:minmax(0,1fr);gap:12px}
+}
