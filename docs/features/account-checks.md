@@ -13,7 +13,7 @@ The account checks turn what the Accounts page shows into findings, so that an o
 ### `account-001` Account near its connection limit
 
 - **Problem:** the account's connections come close to the connection limit of its account JWT. At the limit the servers refuse new client connections of the account, so a service that restarts or scales out cannot connect.
-- **Fires when:** the connections, counted as nats-server counts them, are at `warn_ratio` of the limit or more. A server refuses a new client when its own clients and leaf node connections of the account, plus the client connections the other servers report, reach the limit; each server counts only its own leaf nodes. So the count is the client connections summed over the servers that answered in the collection, plus the leaf node connections of the server that holds the most of them, which the detail names: "APP: 93 of 100 connections (93.0%): 85 client connections and 8 leaf node connections on nats-0, which counts its own leaf nodes against the limit."
+- **Fires when:** the connections, counted as nats-server counts them, are at `warn_ratio` of the limit or more. A server refuses a new client when its own clients and leaf node connections of the account, plus the client connections the other servers report, reach the limit; each server counts only its own leaf nodes. So the count is the client connections summed over the servers that answered in the collection, plus the leaf node connections of the server that holds the most of them, which the detail names: "APP: 93 of 100 connections (93.0%): 85 client connections and 8 leaf node connections on nats-0, which counts its own leaf nodes against the limit." At the limit only that server refuses, and the detail says so ("at the limit, nats-0 refuses new client connections of the account"); without leaf nodes every server refuses. A server whose count goes over the limit, as when another server reports more clients, closes its newest connections of the account, clients and leaf nodes alike, so a leaf node site can drop when clients grow elsewhere.
 - **Severity:** warning. Critical at `crit_ratio` of the limit or more.
 - **Thresholds:** `warn_ratio` 0.9, `crit_ratio` 1 (at the limit).
 - **Left out:** an account without a JWT (config mode), without a limit (-1) or with a limit of 0, an account the collection does not list, and one whose newest lookup is more than 24 hours older than the collection.
@@ -56,7 +56,7 @@ The account checks turn what the Accounts page shows into findings, so that an o
 
 - **Given** the account `APP`, whose JWT allows 2,000 connections, with 1,200 on `nats-0` and 800 on `nats-1`
 - **When** nats-lens collects
-- **Then** `account-001` fires as critical for `APP`, with the detail "APP: 2000 of 2000 client connections (100.0%); at the limit, new client connections are refused."
+- **Then** `account-001` fires as critical for `APP`, with the detail "APP: 2000 of 2000 client connections (100.0%); at the limit, every server refuses new client connections of the account."
 
 ### An account's disk use nears its limit
 

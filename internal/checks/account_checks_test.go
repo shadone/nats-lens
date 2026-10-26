@@ -95,7 +95,7 @@ func TestAccountConnectionLimit(t *testing.T) {
 	want(t, r["LEAF"], "warning", "LEAF: 93 of 100 connections (93.0%): 85 client connections and 8 leaf node connections on nats-0, "+
 		"which counts its own leaf nodes against the limit.")
 	want(t, r["NEAR"], "warning", "name-NEAR: 90 of 100 client connections (90.0%).")
-	want(t, r["FULL"], "critical", "50 of 50 client connections (100.0%); at the limit, new client connections are refused.")
+	want(t, r["FULL"], "critical", "50 of 50 client connections (100.0%); at the limit, every server refuses new client connections of the account.")
 	want(t, r["OLD"], "critical", "10 of 10")
 	if v := r["NEAR"].Value; v == nil || *v != 0.9 {
 		t.Errorf("NEAR value = %v, want 0.9", v)
@@ -256,4 +256,28 @@ func TestUserJWTExpiry(t *testing.T) {
 	r := f.eval("account-004", 2, map[string]string{"crit_within": "1d", "warn_within": "16d"})
 	want(t, r["SHOP"], "warning")
 	want(t, r["OTHER"], "warning", "OTHER: user edge expires", "user batch expires")
+}
+
+// An account whose connections are all leaf nodes on one server, at the
+// limit: only that server refuses, and the detail names it. A tie in leaf
+// nodes names one server by name, the same every time. (A reviewer's case.)
+func TestAccountLeafNodesAtLimit(t *testing.T) {
+	f := newFx(t)
+	f.lookupEpochs([]string{"nats-0", "nats-1"})
+	now := t0.Add(time.Second)
+	f.server("S0", "nats-0", 1, 3, t0.Add(-48*time.Hour), "2.15.0")
+	f.server("S1", "nats-1", 1, 3, t0.Add(-48*time.Hour), "2.15.0")
+	f.account("LEAFONLY", "", 1, 3)
+	f.accountStats(3, "S0", "LEAFONLY", m{"leafnodes": 10})
+	f.accountStats(3, "S1", "LEAFONLY", m{"conns": 0})
+	f.lookup(3, "LEAFONLY", now, m{"limit_connections": int64(10)})
+	f.account("TIE", "", 1, 3)
+	f.accountStats(3, "S0", "TIE", m{"conns": 4, "leafnodes": 3})
+	f.accountStats(3, "S1", "TIE", m{"conns": 4, "leafnodes": 3})
+	f.lookup(3, "TIE", now, m{"limit_connections": int64(12)})
+	r := f.fires("account-001", 3, "LEAFONLY", "TIE")
+	want(t, r["TIE"], "warning", "TIE: 11 of 12 connections (91.7%): 8 client connections and 3 leaf node connections on nats-1, "+
+		"which counts its own leaf nodes against the limit.")
+	want(t, r["LEAFONLY"], "critical", "LEAFONLY: 10 of 10 connections (100.0%): 0 client connections and 10 leaf node connections "+
+		"on nats-0, which counts its own leaf nodes against the limit; at the limit, nats-0 refuses new client connections of the account.")
 }
