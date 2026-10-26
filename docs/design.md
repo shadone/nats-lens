@@ -587,3 +587,27 @@ Denis reviewed the nine most consequential proposed decisions on 2026-10-17. The
 Churn collapse (connections the client closes within 10 s stored as one `client.churn` per name per minute) is kept, with Denis's note: "i am not against that but it sounds odd to have such short lived connections, it is likely an indicator of a problem somewhere". Follow-up: make short-lived connections visible as a possible problem rather than only routine noise (see `docs/plans/next.md`).
 
 Follow-up done: `client-005` "Short-lived connections" fires for a connection name whose connects folded into `client.churn` events reach 20 within 10 minutes, at warning severity; folding and the routine status of `client.churn` stay as they are, so the finding is what makes the pattern visible. A firing finding keeps firing while the count stays at or above `resolve_ratio` (0.8) of the threshold, as `server-011` does, so a client near 2 a minute does not flap as one-minute summaries enter and leave the window. The threshold of 20 in 10 minutes, the warning severity and the `resolve_ratio` of 0.8 are proposed, not yet confirmed. Also proposed, not yet confirmed: the detail lists at most five client hosts and counts the rest, and the demo shows the finding for `stock-poller` in `example-prod` (from 12:48, after it began to open a connection per poll) while the churn of its other clients stays below the threshold.
+
+## Owner review of proposed decisions, 2026-10-26
+
+Denis answered twelve questions on the proposed decisions on 2026-10-26, and confirmed the rest as a batch.
+
+Confirmed as proposed:
+
+- Account lookups: each account at most every 10 minutes, at most 32 per collection, all lookups of a collection in one window.
+- Kubernetes: `safe-to-evict: "false"`, with limits equal to the requests on Autopilot.
+- `iap_audience` is required beyond loopback unless `allow_unauthenticated` is set; the CSP with hashes, nosniff and no-referrer; JWTs removed from `raw` at any depth.
+- The store keeps the claims of account and user JWTs, never the JWT.
+- `govulncheck` stays a manual step (`make vuln`), with no CI job.
+- Capacity acceptance is a mute of one entity, offered for `stream-005` only, and ends early when the week's growth changes by more than half of max(recorded, 1 MiB/day), a purge included.
+- A stream limit counts as reached at 95% for age and 99% for messages and bytes.
+- A certificate, account JWT or user JWT is expiring soon within 30 days.
+- An application is the connection name before the first "@" (`(unnamed)` when nothing is before it), one per name across accounts.
+
+Changed, to be built:
+
+- Micro services and event capture: an `accounts` entry that cannot connect no longer stops the system's start. The system starts and collects without it; the entry is logged, shown as not connected, and retried with backoff.
+- Memory: the base deployment's memory goes from 256 MiB to 512 MiB, and the running docs get a sizing table (Topology peaks near 450 MB for a day of 1,000 leaf node sites).
+- Topology's slow links: a route is slow only when the last two collections both measured it slow (over 2 ms, or 3 times the median nearest round trip), so one spike cannot mark it.
+
+Every other decision marked "proposed, not yet confirmed" in `docs/`, the code comments and the check files as of commit `2e6f67a` is confirmed as written.
