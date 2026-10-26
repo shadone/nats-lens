@@ -58,8 +58,9 @@ var appsConnsE3 = []appsConn{
 	{"S1", 15, "nats-cli", "", "127.0.0.1", "go", "1.54.0", 1, 0, 0},
 }
 
-// appsConnsE2 are the connections three hours before: resize-worker had
-// two pods.
+// appsConnsE2 are the connections three hours before, when nats-2 did
+// not answer: resize-worker had two pods, and nats-0 holds two of the
+// three connections.
 var appsConnsE2 = []appsConn{
 	{"S0", 1, "resize-worker@rw-a", "APP", "10.1.0.1", "go", "1.54.0", 2, 4, 0},
 	{"S1", 3, "resize-worker@rw-c", "APP", "10.1.0.3", "go", "1.54.0", 3, 4, 0},
@@ -161,6 +162,10 @@ func appsStore(t *testing.T, last time.Time) *store.Store {
 	at := map[int64]time.Time{appsE1: last.Add(-26 * time.Hour), appsE2: last.Add(-3 * time.Hour), appsE3: last}
 	for e := appsE1; e <= appsE3; e++ {
 		r.epoch(e, at[e], "S0", "S1", "S2")
+	}
+	// nats-2 did not answer E2.
+	if _, err := st.DB().Exec(`UPDATE epochs SET partial = true, missing_names = ['nats-2'] WHERE epoch = ?`, appsE2); err != nil {
+		t.Fatal(err)
 	}
 	write := func(e int64, cs []appsConn) {
 		for _, c := range cs {

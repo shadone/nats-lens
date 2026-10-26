@@ -24,7 +24,7 @@ func (p *Provider) Applications(ctx context.Context, req *v1.GetApplicationsRequ
 	if err != nil || !ok {
 		return &api.ApplicationFacts{}, err
 	}
-	f := &api.ApplicationFacts{Epoch: e.epoch, EpochAt: e.startedAt}
+	f := &api.ApplicationFacts{Epoch: e.epoch, EpochAt: e.startedAt, Partial: e.partial, Missing: e.missing}
 	rule, err := p.toolingAt(ctx, e.epoch)
 	if err != nil {
 		return nil, err

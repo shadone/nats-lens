@@ -134,6 +134,23 @@ func applicationsRows() []State {
 			}
 			return ""
 		}},
+		{"an Applications page of a partial epoch: the missing servers named, the spread silent", func(q Q) string {
+			for h := range 24 {
+				end := q.env.Now.Add(-time.Duration(h) * time.Hour)
+				for _, back := range []time.Duration{0, 17 * time.Minute, 43 * time.Minute} {
+					e := end.Add(-back)
+					res := q.apps(&v1.TimeRange{Start: timestamppb.New(e.Add(-time.Hour)), End: timestamppb.New(e)}, "", false)
+					if res.GetPartial() && res.GetSpread().GetConcentrated() {
+						q.t.Errorf("%s at %v: partial and concentrated", q.System, res.GetEpochAt().AsTime())
+						return ""
+					}
+					if res.GetPartial() && len(res.GetMissing()) > 0 && res.GetSpread().GetServers() > 1 && 2*res.GetSpread().GetConnections() > res.GetSpread().GetTotal() {
+						return fmt.Sprintf("%v missing at %s", res.GetMissing(), res.GetEpochAt().AsTime().Format(time.RFC3339))
+					}
+				}
+			}
+			return ""
+		}},
 		{"tooling connections hidden, and listed marked when included", func(q Q) string {
 			hid := q.apps(q.day(), "", false)
 			if hid.GetToolingHidden() == 0 || slices.ContainsFunc(hid.GetApplications(), (*v1.Application).GetTooling) {
