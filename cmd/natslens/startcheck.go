@@ -17,13 +17,14 @@ import (
 // withEvents is whether the command starts the Kubernetes watcher
 // (natslens run with events.enabled): only then is the kubeconfig read.
 // A missing file of an entry under accounts refuses no start, as an
-// account that cannot connect is dialled again while the system collects;
-// each is logged as a warning naming the system, the entry and the file.
+// account that cannot connect does not stop its system; each is logged as
+// a warning naming the system, the entry and the file, whether or not the
+// command dials the account.
 func checkSystems(systems []config.System, withEvents bool, log *slog.Logger) error {
 	var errs []error
 	for _, sys := range systems {
 		for _, m := range missingAccountFiles(sys) {
-			log.Warn("account file missing: the account is not connected and is dialled again until the file can be read",
+			log.Warn("account file missing: the account cannot connect until the file can be read",
 				"system", sys.ID, "account", m.account, "file", m.key, "path", m.path, "err", m.err)
 		}
 		if err := checkMarker(sys); err != nil {
