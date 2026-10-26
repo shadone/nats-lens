@@ -58,7 +58,7 @@ func (b *replayBuilder) k8s() {
 
 // windowText names the Kubernetes window a step at t lies in; empty
 // when none does. The body of a Kubernetes step never repeats its event's
-// summary, which its evidence shows (proposed, not yet confirmed).
+// summary, which its evidence shows.
 func (b *replayBuilder) windowText(t time.Time) string {
 	for _, w := range b.f.Windows {
 		if !t.Before(w.GetStart().AsTime()) && !t.After(w.GetEnd().AsTime()) {
@@ -179,8 +179,7 @@ func (b *replayBuilder) leaders() {
 	prev := b.metaElections()
 	var metas []*v1.Event
 	for _, e := range b.f.Events {
-		// An election that keeps the leader changes nothing: no step
-		// (proposed, not yet confirmed).
+		// An election that keeps the leader changes nothing: no step.
 		if p, ok := prev[e.GetId()]; ok && e.GetKind() == "meta.leader_elected" && p != e.GetServer() {
 			metas = append(metas, e)
 		}
@@ -289,7 +288,7 @@ func (b *replayBuilder) gapStep(g ReplayGap) *draft {
 	switch {
 	case g.Event != nil && open:
 		// The event's summary names the gap's end, after B: the step
-		// says only what lies up to B (proposed, not yet confirmed).
+		// says only what lies up to B.
 		e := eventEvidence(g.Event)
 		e.Label = since + " since " + clockText(g.Start) + " (" + g.Event.GetKind() + ")"
 		d.evidence = append(d.evidence, e)

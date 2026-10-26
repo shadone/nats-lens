@@ -1,6 +1,6 @@
 # Applications build plan
 
-Working plan for the Applications page (`docs/features/applications.md`, board `Services.dc.html` of the design canvas). The owner chose on 2026-10-26 to defer "Runs on" and to back the 24-hour traffic with an hourly rollup; everything else here was proposed by the planning session of 2026-10-26 and is not yet confirmed. When a task lands, its lasting content moves into `docs/features/applications.md`, `docs/features/monitoring-snapshots.md` and `docs/design.md`; this file then only tracks status.
+Working plan for the Applications page (`docs/features/applications.md`, board `Services.dc.html` of the design canvas). The owner chose on 2026-10-26 to defer "Runs on" and to back the 24-hour traffic with an hourly rollup; everything else here was proposed by the planning session of 2026-10-26, and the owner confirmed it that day. When a task lands, its lasting content moves into `docs/features/applications.md`, `docs/features/monitoring-snapshots.md` and `docs/design.md`; this file then only tracks status.
 
 The board's sample names come from a sketch of a real deployment, and its footnote names a hosting product. Use the example shop of `inventory.example.yaml` and the demo's systems (`example-global`, `example-prod`, `example-staging`) instead; no name from the board goes into the repository.
 
@@ -62,7 +62,7 @@ Order: applications with an open client finding first, then by connections, desc
 
 ### Where T1 departed from this plan
 
-Decided in the session that built T1; proposed, not yet confirmed.
+Decided in the session that built T1 and confirmed by the owner on 2026-10-26.
 
 - **A name with nothing before the "@"** (`@pod-1`) is `(unnamed)` too, not an application with an empty name.
 - **A row that adds nothing is not written.** A connection's first row that does not count (it started before the previous epoch) does not count in `epochs` and makes no row, so an hour in which no connection could be measured reads unset, not 0, as the page's rule asks.
@@ -87,7 +87,7 @@ Decided in the session that built T1; proposed, not yet confirmed.
 
 ### Where T2 departed from this plan
 
-Decided in the session that built T2; proposed, not yet confirmed.
+Decided in the session that built T2 and confirmed by the owner on 2026-10-26.
 
 - **Traffic is the 24 whole hours before the epoch's hour.** The epoch's own hour is partial and would read as a drop at the end of the sparkline; the page lags by up to an hour instead. The totals sum the set hours.
 - **Reconnects** (changed in fix round 1): per connection name the smaller of drops and connects, as `client-004` pairs them, summed over the application's names. Names seen only in events count for their application, a pod gone by the epoch among them.
@@ -122,7 +122,7 @@ Decided in the session that built T2; proposed, not yet confirmed.
 
 ### Where T3 departed from this plan
 
-Decided in the session that built T3; proposed, not yet confirmed.
+Decided in the session that built T3 and confirmed by the owner on 2026-10-26.
 
 - **The sub-line under an application** is its connection count, its pod count where the names give pods, and its accounts when the page is not scoped and the rows span more than one account; the board's description line has no source. Its findings follow as links, a muted one marked "(muted)".
 - **Pods lists the client addresses where no name gives a pod,** set apart in a quieter colour and named "client addresses" for screen readers, as the owner's decision on "Runs on" asks for both. Two pod names or one address show; the rest open behind a "+N more" disclosure, and a count the server did not list reads "N not listed".
