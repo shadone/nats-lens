@@ -43,27 +43,7 @@ var transitionState = map[string]v1.FindingState{
 }
 
 // entityRef builds the API reference of a finding's entity.
-func entityRef(typ, key string) *v1.EntityRef {
-	t := entityTypeOf(typ)
-	parts := strings.Split(key, "/")
-	switch {
-	case t == v1.EntityType_ENTITY_TYPE_SYSTEM:
-		return &v1.EntityRef{Type: t}
-	case (t == v1.EntityType_ENTITY_TYPE_STREAM && len(parts) == 2) || (t == v1.EntityType_ENTITY_TYPE_CONSUMER && len(parts) == 3) ||
-		t == v1.EntityType_ENTITY_TYPE_SERVER:
-		anys := make([]any, len(parts))
-		for i, x := range parts {
-			anys[i] = x
-		}
-		if t == v1.EntityType_ENTITY_TYPE_SERVER {
-			anys = []any{key}
-		}
-		return refOf(t, anys)
-	case t == v1.EntityType_ENTITY_TYPE_ACCOUNT:
-		return &v1.EntityRef{Type: t, Key: key, Name: key, Account: key}
-	}
-	return &v1.EntityRef{Type: t, Key: key, Name: key}
-}
+func entityRef(typ, key string) *v1.EntityRef { return api.EntityRefOf(entityTypeOf(typ), key) }
 
 // formatValue writes a check's number without float noise.
 func formatValue(v float64) string {
