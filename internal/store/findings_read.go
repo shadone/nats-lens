@@ -210,7 +210,7 @@ func (s *Store) applyMutes(ctx context.Context, now time.Time, fs []Finding) err
 // first, or nil. A mute for the finding's entity wins over one for the
 // whole check; among those for the entity an acceptance wins over a plain
 // mute, so the finding reads as accepted while both apply; otherwise the
-// newest wins (proposed, not yet confirmed).
+// newest wins.
 func muteFor(mutes []Mute, f Finding) *Mute {
 	if !f.Firing() {
 		return nil

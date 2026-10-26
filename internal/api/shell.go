@@ -26,7 +26,7 @@ const (
 	// that names none.
 	defaultInterval = 30 * time.Second
 	// badgeWait is the longest a call waits for a system's badge summary
-	// when none is kept (proposed, not yet confirmed).
+	// when none is kept.
 	badgeWait = 500 * time.Millisecond
 	// DefaultShellTimeout bounds the system's part of GetShellStatus.
 	DefaultShellTimeout = 10 * time.Second

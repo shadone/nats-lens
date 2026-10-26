@@ -1,6 +1,6 @@
 # Accounts and auth build plan
 
-Working plan for the Accounts and auth page (`docs/features/accounts-and-auth.md`, board `Accounts.dc.html` of the design canvas). Everything here was proposed by the planning session of 2026-10-20 and is not yet confirmed by the owner. When a task lands, its lasting content moves into `docs/features/accounts-and-auth.md` and `docs/design.md`; this file then only tracks status.
+Working plan for the Accounts and auth page (`docs/features/accounts-and-auth.md`, board `Accounts.dc.html` of the design canvas). Everything here was proposed by the planning session of 2026-10-20; the owner confirmed it on 2026-10-26. When a task lands, its lasting content moves into `docs/features/accounts-and-auth.md` and `docs/design.md`; this file then only tracks status.
 
 The board's sample names come from a sketch. Use the example shop of `inventory.example.yaml` and the demo's systems instead.
 
@@ -54,7 +54,7 @@ Not backed, so not shown: permission violations; client certificates (CONNZ give
 
 ### Where T1 departed from this plan
 
-Each point was decided in the session that built T1: proposed, not yet confirmed.
+Each point was decided in the session that built T1 and confirmed by the owner on 2026-10-26.
 
 - **Two migrations.** `0027_account_details.sql` creates `account_details`; `0028_cert_and_jwt_expiry.sql` adds the `server_stats` certificate columns and the `connections` JWT columns. `account_details` also has a unique index on (`epoch`, `account`), as the small tables of 0012 do.
 - **Limit column names.** `limit_connections`, `limit_leafnodes`, `limit_subscriptions`, `limit_data`, `limit_payload`, `limit_js_disk`, `limit_js_memory`, `limit_js_streams`, `limit_js_consumers`. A limit the JWT leaves out reads as 0, which is what the JWT means: the JWT library omits zero values, and 0 JetStream disk and memory means JetStream is not enabled for the account. Streams and consumers are the exception, below.
@@ -87,7 +87,7 @@ Each point was decided in the session that built T1: proposed, not yet confirmed
 
 ### Where T2 departed from this plan
 
-Each point was decided in the session that built T2: proposed, not yet confirmed.
+Each point was decided in the session that built T2 and confirmed by the owner on 2026-10-26.
 
 - **APP keeps its identifier.** Switching `APP` to an account public key on every demo page would change every stream, consumer and finding key of `example-global` (`fake.Account` is one constant that every scenario and many tests share), so only `SUPPLIERS` has a key (`fake.SuppliersAccount`); `APP` and `SYS` keep their names as identifiers. Operator mode reads true because one identifier is a key, the rule of the table above.
 - **No disk limit in config mode.** `account_stats.js_reserved_storage` is the sum of the streams' `max_bytes` reservations (nats-server's `reservedStorage`), not the account's JetStream limit, so the plan's "the JetStream reservation is the disk limit" would show a stream setting as a limit. `disk_limit` is set from the account JWT only; config mode leaves it unset. Config-mode account limits would need JetStream account info, which nothing collects.
@@ -113,7 +113,7 @@ Each point was decided in the session that built T2: proposed, not yet confirmed
 
 ### Where T3 departed from this plan
 
-Each point was decided in the session that built T3: proposed, not yet confirmed.
+Each point was decided in the session that built T3 and confirmed by the owner on 2026-10-26.
 
 - **The header line names the collection.** As on Topology: "Operator mode · 3 accounts · names from the account JWTs, in the collection of 19:49:18 UTC." Without a collection: "No collection in this range." and no cards.
 - **Account links.** An account name (in the table, under a failed login, in an expiring row) opens the Connections list scoped to it (`/connections?account=`), the target the search already uses for an account; no new route.

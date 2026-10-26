@@ -7,7 +7,7 @@ export const SYSTEM_KEY_INDEX = 1;
  * placeholderData that keeps the previous answer while the next key loads
  * only when the previous query was for the same system, and for the same
  * value at each position of also (for example { 3: account }); otherwise
- * nothing stands in. Proposed, not yet confirmed: every system-scoped
+ * nothing stands in. Every system-scoped
  * hook keys its system at SYSTEM_KEY_INDEX.
  */
 export function keepSameSystem(sys: string, also: Record<number, unknown> = {}) {

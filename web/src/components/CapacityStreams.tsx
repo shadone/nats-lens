@@ -132,8 +132,7 @@ interface Saved {
  * one shown at the save arrives; that answer is then shown, whatever it says
  * (the acceptance may have ended elsewhere in the meantime). On a fixed range
  * the answers apply the mutes in force at the range's end, before the
- * acceptance, so there the saved acceptance stays for the table's life
- * (proposed, not yet confirmed).
+ * acceptance, so there the saved acceptance stays for the table's life.
  */
 export function withAccepted(rows: CapacityStream[], saved: Record<string, Saved>, answeredAt: number, live: boolean): CapacityStream[] {
   return rows.map((s) => {
