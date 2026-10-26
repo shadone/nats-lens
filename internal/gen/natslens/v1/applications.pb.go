@@ -522,8 +522,16 @@ type Application struct {
 	Addresses []string `protobuf:"bytes,24,rep,name=addresses,proto3" json:"addresses,omitempty"`
 	// Distinct client addresses, before the limit of 10.
 	AddressesTotal int32 `protobuf:"varint,25,opt,name=addresses_total,json=addressesTotal,proto3" json:"addresses_total,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Names of the connections, as MicroService names them: distinct, in
+	// name order, at most 3; an unnamed connection has no name here. One
+	// name equal to the application's, with more_names 0, means every
+	// connection is named exactly so (no "@"), so the Events page's exact
+	// name filter finds all of its events.
+	ConnectionNames []string `protobuf:"bytes,26,rep,name=connection_names,json=connectionNames,proto3" json:"connection_names,omitempty"`
+	// Distinct names beyond connection_names.
+	MoreNames     int32 `protobuf:"varint,27,opt,name=more_names,json=moreNames,proto3" json:"more_names,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Application) Reset() {
@@ -727,6 +735,20 @@ func (x *Application) GetAddresses() []string {
 func (x *Application) GetAddressesTotal() int32 {
 	if x != nil {
 		return x.AddressesTotal
+	}
+	return 0
+}
+
+func (x *Application) GetConnectionNames() []string {
+	if x != nil {
+		return x.ConnectionNames
+	}
+	return nil
+}
+
+func (x *Application) GetMoreNames() int32 {
+	if x != nil {
+		return x.MoreNames
 	}
 	return 0
 }
@@ -1165,7 +1187,8 @@ const file_natslens_v1_applications_proto_rawDesc = "" +
 	"\t_out_msgsB\v\n" +
 	"\t_in_bytesB\f\n" +
 	"\n" +
-	"_out_bytes\"\xd6\t\n" +
+	"_out_bytes\"\xa0\n" +
+	"\n" +
 	"\vApplication\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vconnections\x18\x02 \x01(\x05R\vconnections\x12\x1c\n" +
@@ -1196,7 +1219,10 @@ const file_natslens_v1_applications_proto_rawDesc = "" +
 	"R\voutBytes24h\x88\x01\x01\x12\x18\n" +
 	"\atooling\x18\x17 \x01(\bR\atooling\x12\x1c\n" +
 	"\taddresses\x18\x18 \x03(\tR\taddresses\x12'\n" +
-	"\x0faddresses_total\x18\x19 \x01(\x05R\x0eaddressesTotalB\x10\n" +
+	"\x0faddresses_total\x18\x19 \x01(\x05R\x0eaddressesTotal\x12)\n" +
+	"\x10connection_names\x18\x1a \x03(\tR\x0fconnectionNames\x12\x1d\n" +
+	"\n" +
+	"more_names\x18\x1b \x01(\x05R\tmoreNamesB\x10\n" +
 	"\x0e_subscriptionsB\x10\n" +
 	"\x0e_pending_bytesB\x14\n" +
 	"\x12_pending_bytes_maxB\x11\n" +

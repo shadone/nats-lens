@@ -367,3 +367,32 @@ func TestFinishApplicationsSkipsAnEmptyLibrary(t *testing.T) {
 		t.Errorf("summary: %v", l)
 	}
 }
+
+// Each row names its connections as the Micro services page does: an
+// application named only exactly so tells apart from one with pods or an
+// empty pod.
+func TestFinishApplicationsConnectionNames(t *testing.T) {
+	f := &api.ApplicationFacts{Epoch: 1, EpochAt: appT0, Connections: []api.AppConnectionFact{
+		appConn("nats-0", 1, "order-service", "10.0.0.1"), appConn("nats-1", 2, "order-service", "10.0.0.2"),
+		appConn("nats-0", 3, "foo@", "10.0.0.3"),
+		appConn("nats-0", 4, "rw@d", "10.0.0.4"), appConn("nats-0", 5, "rw@a", "10.0.0.5"), appConn("nats-0", 6, "rw@c", "10.0.0.6"),
+		appConn("nats-0", 7, "rw@b", "10.0.0.7"), appConn("nats-0", 8, "rw@a", "10.0.0.8"),
+		appConn("nats-0", 9, "", "10.0.0.9"), appConn("nats-0", 10, "@z", "10.0.0.10"),
+	}}
+	res := api.FinishApplications(f, "", false)
+	for _, c := range []struct {
+		app   string
+		names []string
+		more  int32
+	}{
+		{"order-service", []string{"order-service"}, 0},
+		{"foo", []string{"foo@"}, 0},
+		{"rw", []string{"rw@a", "rw@b", "rw@c"}, 1},
+		{api.UnnamedApplication, []string{"@z"}, 0},
+	} {
+		a := appByName(res, c.app)
+		if !slices.Equal(a.GetConnectionNames(), c.names) || a.GetMoreNames() != c.more {
+			t.Errorf("%s: names %v, %d more", c.app, a.GetConnectionNames(), a.GetMoreNames())
+		}
+	}
+}
