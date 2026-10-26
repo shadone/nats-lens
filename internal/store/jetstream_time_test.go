@@ -70,7 +70,8 @@ func jszView(id, name string, peers []string, n, perStream int, at time.Time, co
 // store. It times the write without configurations (stats and replica
 // rows only) and with them; the difference is the configuration versions.
 // The first round with configurations starts every version, later rounds
-// extend them.
+// extend them. The identity rows (streams, consumers, raft_groups) are
+// timed apart.
 func TestJetStreamWriteTime(t *testing.T) {
 	if testing.Short() {
 		t.Skip("timing")
@@ -99,16 +100,19 @@ func TestJetStreamWriteTime(t *testing.T) {
 			for _, v := range views {
 				w.writeJetStream(v)
 			}
-			w.closeStatements()
 			took := time.Since(began)
+			began = time.Now()
+			w.writeIdents()
+			w.closeStatements()
+			idents := time.Since(began)
 			if w.err != nil {
 				t.Fatal(w.err)
 			}
 			if err := tx.Commit(); err != nil {
 				t.Fatal(err)
 			}
-			t.Logf("configs %v, round %d: %d streams and %d consumers on %d servers written in %v",
-				configs, round, streams, streams*perStream, len(peers), took)
+			t.Logf("configs %v, round %d: %d streams and %d consumers on %d servers written in %v, their identity rows in %v",
+				configs, round, streams, streams*perStream, len(peers), took, idents)
 		}
 		db := s.DB()
 		want := map[string]int{
