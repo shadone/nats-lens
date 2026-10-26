@@ -2,6 +2,8 @@ package fake
 
 import (
 	"cmp"
+	"fmt"
+	"math"
 	"slices"
 	"time"
 
@@ -198,4 +200,30 @@ func tally(all []*v1.Finding, r *v1.TimeRange) *v1.FindingTally {
 		}
 	}
 	return t
+}
+
+// clientRTT is client-001's finding on a client, as its query words it
+// from the connections of the newest epoch: those above 100ms of all the
+// client's, and the worst.
+func (s scen) clientRTT(client string, since time.Time) *v1.Finding {
+	var total, slow int
+	var worst *v1.Connection
+	for _, c := range s.connections(s.lastEpoch()) {
+		if c.GetName() != client || c.GetRtt() == nil {
+			continue
+		}
+		total++
+		if c.GetRtt().AsDuration() > 100*time.Millisecond {
+			slow++
+		}
+		if worst == nil || c.GetRtt().AsDuration() > worst.GetRtt().AsDuration() {
+			worst = c
+		}
+	}
+	ms := math.Round(float64(worst.GetRtt().AsDuration())/1e5) / 10
+	f := finding("client-001", "High client round trip time", warning, firing, clientRef(client), since, since,
+		fmt.Sprintf("%d of %d connections above 100ms; worst %.1fms on %s cid %d from %s.", slow, total, ms, worst.GetServer(), worst.GetCid(), worst.GetIp()))
+	f.Value = &v1.FindingValue{Name: "worst round trip time, ms", Display: fmt.Sprintf("%.1f", ms), Number: ptr(ms),
+		Basis: "largest RTT among the client's connections in the collection"}
+	return f
 }

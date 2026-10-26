@@ -14,7 +14,8 @@ import (
 // newest epoch's connections with the epoch's tooling rule, whether a
 // server's list was cut at the connz limit, the client events of the
 // api.ApplicationDay before the epoch counted by name, account and the
-// tooling rule of each event's epoch, the hourly traffic of
+// tooling rule of each event's epoch, whether event capture stopped in
+// that day (captureGaps), the hourly traffic of
 // api.TrafficHours, and the findings firing at the epoch. The traffic's
 // loopback rows count as tooling by the page's epoch's loopback decision,
 // for every hour. A request's account is applied in SQL as well as in
@@ -24,7 +25,7 @@ func (p *Provider) Applications(ctx context.Context, req *v1.GetApplicationsRequ
 	if err != nil || !ok {
 		return &api.ApplicationFacts{}, err
 	}
-	f := &api.ApplicationFacts{Epoch: e.epoch, EpochAt: e.startedAt}
+	f := &api.ApplicationFacts{Epoch: e.epoch, EpochAt: e.startedAt, Partial: e.partial, Missing: e.missing}
 	rule, err := p.toolingAt(ctx, e.epoch)
 	if err != nil {
 		return nil, err
@@ -34,10 +35,17 @@ func (p *Provider) Applications(ctx context.Context, req *v1.GetApplicationsRequ
 		return nil, err
 	}
 	if err := p.db().QueryRowContext(ctx, `
-SELECT EXISTS (SELECT 1 FROM server_stats WHERE epoch = $1 AND connz_total IS NOT NULL AND connz_returned < connz_total),
-  EXISTS (SELECT 1 FROM events WHERE time <= `+tsParam(2)+`)`, e.epoch, us(e.startedAt)).Scan(&f.ConnzCut, &f.EventsCaptured); err != nil {
+SELECT EXISTS (SELECT 1 FROM server_stats WHERE epoch = $1 AND connz_total IS NOT NULL AND connz_returned < connz_total)`,
+		e.epoch).Scan(&f.ConnzCut); err != nil {
 		return nil, fmt.Errorf("applications epoch: %w", err)
 	}
+	// Whether events were captured, and stopped for part of the day, by the
+	// Accounts and auth page's rule.
+	capture := &api.AccountsFacts{EpochAt: e.startedAt, WindowStart: e.startedAt.Add(-api.ApplicationDay)}
+	if err := p.captureGaps(ctx, capture); err != nil {
+		return nil, err
+	}
+	f.EventsCaptured, f.CaptureGaps = capture.EventsCaptured, capture.CaptureGaps
 	if f.Events, err = p.appEvents(ctx, e.startedAt, acc); err != nil {
 		return nil, err
 	}

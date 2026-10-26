@@ -109,7 +109,11 @@ func globalFindings(s scen) []*v1.Finding {
 	archive := s.unboundedFinding("order-archive", s.on(1, 8, 30))
 	flags := s.unboundedFinding("KV_feature-flags", s.on(1, 8, 30))
 
-	return []*v1.Finding{us4, offline[0], offline[1], labels, slow, backlog, full, config, absent, archive, flags,
+	// shipping-service in ap runs at the carrier's site, 140 ms away;
+	// muted as expected (globalSeedClientMute).
+	rtt := s.clientRTT("shipping-service", s.on(16, 9, 0))
+
+	return []*v1.Finding{us4, offline[0], offline[1], labels, slow, backlog, full, config, absent, archive, flags, rtt,
 		vanished("restock-alerts"), vanished("stock-audit-export"),
 		version("nats-ap-4"), version("nats-ap-5"),
 		restarted("nats-us-1", 8, 46, 10), restarted("nats-us-2", 8, 58, 30), restarted("nats-us-3", 9, 6, 40),

@@ -5,7 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/shadone/nats-lens/internal/api/storeprov"
+	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"github.com/shadone/nats-lens/internal/store"
 )
 
@@ -58,8 +61,9 @@ var appsConnsE3 = []appsConn{
 	{"S1", 15, "nats-cli", "", "127.0.0.1", "go", "1.54.0", 1, 0, 0},
 }
 
-// appsConnsE2 are the connections three hours before: resize-worker had
-// two pods.
+// appsConnsE2 are the connections three hours before, when nats-2 did
+// not answer: resize-worker had two pods, and nats-0 holds two of the
+// three connections.
 var appsConnsE2 = []appsConn{
 	{"S0", 1, "resize-worker@rw-a", "APP", "10.1.0.1", "go", "1.54.0", 2, 4, 0},
 	{"S1", 3, "resize-worker@rw-c", "APP", "10.1.0.3", "go", "1.54.0", 3, 4, 0},
@@ -77,7 +81,9 @@ type appsEvent struct {
 // appsEvents are the client events of the store. In the 24 hours before
 // last: callback-dispatcher dropped six times as a stale connection and
 // came back each time; resize-worker dropped once as a slow consumer
-// (rw-a) and once stale (rw-old, a pod gone by E3) and came back twice;
+// (rw-a, which came back) and once stale (rw-old, a pod gone by E3, whose
+// replacement rw-b connected: no reconnect, as drops and connects pair
+// per name);
 // order-service's servers shut down (not reconnects) and it opened 12
 // short-lived connections; nats-cli reconnected 3 times from a loopback
 // address; natslens-apps reconnected; ops-monitor in SYS dropped and came
@@ -147,7 +153,8 @@ func appsHours() []appsHour {
 // last. nats-2's connection list in E3 was cut at the connz limit.
 // Findings: client-003 on resize-worker@rw-gone fired at E1 and resolved
 // at E2; client-002 on resize-worker@rw-c fires from E2; client-004 on
-// callback-dispatcher fires at E3.
+// callback-dispatcher and client-001 on order-service fire at E3, the
+// latter muted (appsProvider).
 func appsStore(t *testing.T, last time.Time) *store.Store {
 	t.Helper()
 	st := emptyStore(t)
@@ -159,6 +166,10 @@ func appsStore(t *testing.T, last time.Time) *store.Store {
 	at := map[int64]time.Time{appsE1: last.Add(-26 * time.Hour), appsE2: last.Add(-3 * time.Hour), appsE3: last}
 	for e := appsE1; e <= appsE3; e++ {
 		r.epoch(e, at[e], "S0", "S1", "S2")
+	}
+	// nats-2 did not answer E2.
+	if _, err := st.DB().Exec(`UPDATE epochs SET partial = true, missing_names = ['nats-2'] WHERE epoch = ?`, appsE2); err != nil {
+		t.Fatal(err)
 	}
 	write := func(e int64, cs []appsConn) {
 		for _, c := range cs {
@@ -180,6 +191,13 @@ func appsStore(t *testing.T, last time.Time) *store.Store {
 		r.add("events", map[string]any{"id": 100 + i, "time": when, "received_at": when, "source": "sys", "kind": e.kind,
 			"client_name": e.name, "account": e.account, "client_host": e.host, "reason": e.reason, "summary": e.kind + " " + e.name, "raw": raw})
 	}
+	// The connection that captures system events lost its server for a
+	// minute 10 hours before last.
+	for i, kind := range []string{"collector.disconnected", "collector.reconnected"} {
+		when := last.Add(-10*time.Hour + time.Duration(i)*time.Minute)
+		r.add("events", map[string]any{"id": 90 + i, "time": when, "received_at": when, "source": "collector", "kind": kind,
+			"summary": kind + " sys", "raw": `{"connection":"sys"}`})
+	}
 	hour := last.Truncate(time.Hour)
 	for _, h := range appsHours() {
 		r.add("client_app_hours", map[string]any{"hour": hour.Add(-time.Duration(h.back) * time.Hour), "account": h.account, "app": h.app,
@@ -195,7 +213,8 @@ func appsStore(t *testing.T, last time.Time) *store.Store {
 	for i, runs := range [][]store.CheckRun{
 		{finding("client-003", "resize-worker@rw-gone"), none("client-002"), none("client-004")},
 		{none("client-003"), finding("client-002", "resize-worker@rw-c"), none("client-004")},
-		{none("client-003"), finding("client-002", "resize-worker@rw-c"), finding("client-004", "callback-dispatcher")},
+		{none("client-003"), finding("client-002", "resize-worker@rw-c"), finding("client-004", "callback-dispatcher"),
+			finding("client-001", "order-service")},
 	} {
 		if _, err := st.ApplyCheckRuns(ctx, appsE1+int64(i), runs); err != nil {
 			t.Fatal(err)
@@ -204,10 +223,17 @@ func appsStore(t *testing.T, last time.Time) *store.Store {
 	return st
 }
 
-// appsProvider serves appsStore with its clock 30 seconds after last.
+// appsProvider serves appsStore with its clock 30 seconds after last, with
+// client-001 on order-service muted.
 func appsProvider(t *testing.T, last time.Time) *storeprov.Provider {
 	t.Helper()
 	clock := last.Add(30 * time.Second)
-	return &storeprov.Provider{St: appsStore(t, last), Interval: 5 * time.Minute, Live: true, Clock: func() time.Time { return clock },
+	p := &storeprov.Provider{St: appsStore(t, last), Interval: 5 * time.Minute, Live: true, Clock: func() time.Time { return clock },
 		Retention: 14 * day, ToolingNames: appsTooling}
+	if _, err := p.MuteFinding(ctx, &v1.MuteFindingRequest{CheckCode: "client-001",
+		Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_CLIENT, Key: "order-service"}, Reason: "Its office instances are far away.",
+		MutedBy: "ops@example.com", ExpiresAt: timestamppb.New(clock.Add(24 * time.Hour))}); err != nil {
+		t.Fatal(err)
+	}
+	return p
 }
