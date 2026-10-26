@@ -347,3 +347,23 @@ func TestFinishApplicationsPartialEpochSpread(t *testing.T) {
 		t.Errorf("whole: spread %v", sp)
 	}
 }
+
+// A connection that reports no library is no library: it neither lists
+// nor makes its application mixed.
+func TestFinishApplicationsSkipsAnEmptyLibrary(t *testing.T) {
+	f := &api.ApplicationFacts{Epoch: 1, EpochAt: appT0, Connections: []api.AppConnectionFact{
+		appConn("nats-0", 1, "a", "10.0.0.1"),
+		{Server: "nats-0", CID: 2, Name: "a", Account: "APP"},
+		{Server: "nats-0", CID: 3, Name: "b", Account: "APP"},
+	}}
+	res := api.FinishApplications(f, "", false)
+	if l := appByName(res, "a").GetLibraries(); len(l) != 1 || l[0].GetConnections() != 1 {
+		t.Errorf("a: %v", l)
+	}
+	if l := appByName(res, "b").GetLibraries(); len(l) != 0 {
+		t.Errorf("b: %v", l)
+	}
+	if l := res.GetLibraries(); len(l) != 1 || l[0].GetLang() != "go" || l[0].GetApplications() != 1 {
+		t.Errorf("summary: %v", l)
+	}
+}

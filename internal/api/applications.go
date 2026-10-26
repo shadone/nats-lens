@@ -295,7 +295,10 @@ func (g *appGroup) application(hours []time.Time, events bool) *v1.Application {
 		}
 		accounts[AccountOf(c.Account)] = true
 		servers[c.Server]++
-		libs[[2]string{c.Lang, c.Version}]++
+		if c.Lang != "" || c.Version != "" {
+			// A connection that reports no library is no library.
+			libs[[2]string{c.Lang, c.Version}]++
+		}
 		if c.RTT != nil {
 			rtts = append(rtts, *c.RTT)
 		}
