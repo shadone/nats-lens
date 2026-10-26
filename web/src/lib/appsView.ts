@@ -202,4 +202,5 @@ export const APPS_FOOTNOTE = [
   "Instances count pods (the part of the name after the “@”) where the name gives one, and connections otherwise. Pods lists those pod names, or the client addresses where no name gives a pod.",
   "Tooling connections, nats-lens's own or clients from a loopback address, are left out unless included.",
   "Messages in and out are the 24 whole hours before the collection's hour, from the hourly rollup; a connection that closed between two collections loses its last interval, and a gap is an hour without a measurement. Reconnects follow client-004's rule over the 24 hours before the collection.",
+  "Each sparkline is scaled to its own row's busiest hour, in or out, so two rows' lines do not compare; the numbers beneath them do.",
 ] as const;

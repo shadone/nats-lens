@@ -200,6 +200,15 @@ describe("Applications", () => {
     expect(within(row("resize-worker")).getByRole("img").querySelectorAll("polyline.ap-spark-in")).toHaveLength(2);
   });
 
+  it("says in the footnote that each sparkline has its own scale", async () => {
+    getApps.mockResolvedValue(prod());
+    renderApp(<Applications />, "/applications");
+    await screen.findByRole("table");
+    expect(screen.getByText(/^Each sparkline is scaled to its own row's busiest hour/)).toHaveTextContent(
+      "Each sparkline is scaled to its own row's busiest hour, in or out, so two rows' lines do not compare; the numbers beneath them do.",
+    );
+  });
+
   it("shows a dashed baseline and says not measured for an application without traffic", async () => {
     getApps.mockResolvedValue(prod({ applications: [app({ traffic: hours(() => undefined) })] }));
     renderApp(<Applications />, "/applications");

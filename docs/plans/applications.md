@@ -121,6 +121,7 @@ Decided in the session that built T3; proposed, not yet confirmed.
 - **A row with an unmuted finding has the warning background,** as rows that warn do on the Micro services page; reconnects above 0 are in the warning colour.
 - **Library** shows one version, or "mixed" in the warning colour with each version and its connections beneath. **Pending** shows the sum, and "max" of one connection beneath it when the application has more than one connection and the sum is above 0.
 - **The round trip keeps its fraction:** `durationMs` of the protobuf runtime rounds to whole milliseconds, so 0.69 ms read as "1 ms"; the page reads the duration itself. The Connections page still rounds (`adapt-entities.ts`, `rttMs: dur(c.rtt)`), outside this task.
+- **Each sparkline has its own scale,** its row's busiest hour in or out; the footnote says so.
 - **Messages in and out:** the sparkline draws in as a solid accent line and out as a dashed muted line on one scale; an hour without a measurement breaks the line, a lone measured hour is a dot, and no measured hour is a dashed baseline. The message totals stand beneath it; the accessible name gives the hours, both totals with their bytes, and "N of 24 hours measured" when not all were.
 - **Partial traffic** is said once above the table when no row has all 24 hours measured, with the most hours any one row has ("No application has all 24 hours ... measured; the most any has is 6."); a row's own gaps are in its sparkline's name. Rows that together cover the day but none of them alone still get the note.
 - **Cards.** The Spread card has the info edge when the spread is concentrated; otherwise it says "No server holds more than half", and with one server that a restart moves all connections. Client libraries names at most four versions and counts the rest. Last 24 h says "N applications reconnecting", and "Not known" when no event was captured.
@@ -132,6 +133,7 @@ Decided in the session that built T3; proposed, not yet confirmed.
 
 - The Events page filters by an exact connection name: no link can show the reconnect events of an application whose names carry pods. A prefix or application filter on `ListEvents` would let every reconnect count link there.
 - The Connections page's name filter is "contains": no exact or application filter.
+- The response does not say whether an application's connection names are the application name itself. A name `foo@` (nothing after the "@") gives no pod, so `foo` with no pods links its reconnects to `/events?client=foo`, which finds none of the `foo@` connections. A field on `Application` saying every name equals the application (or the distinct names, as `MicroService.connection_names` lists them) would let the page link only then; the page keeps the link for now (raised in the review of T3, open).
 - Each row's slow consumers, stale connections and short-lived connections of the last 24 hours are in the response but not on the board's table; the page shows only their sums in the Last 24 h card.
 
 ## T4 Feature docs and audit
