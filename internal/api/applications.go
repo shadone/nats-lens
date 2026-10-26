@@ -310,6 +310,13 @@ func (g *appGroup) application(hours []time.Time, events bool) *v1.Application {
 			a.PendingBytesMax = ptrTo(max(a.GetPendingBytesMax(), *c.PendingBytes))
 		}
 	}
+	var names []string
+	for _, c := range g.conns {
+		if c.Name != "" {
+			names = append(names, c.Name)
+		}
+	}
+	a.ConnectionNames, a.MoreNames = cutNames(names, 0)
 	a.Instances = int32(len(pods) + len(podless))
 	a.PodsTotal = int32(len(pods))
 	a.Pods = firstSorted(pods, MaxApplicationPods)

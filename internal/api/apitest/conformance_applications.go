@@ -61,12 +61,26 @@ func applicationsRows() []State {
 			for _, s := range a.GetServers() {
 				n += s.GetConnections()
 			}
-			return a.GetPodsTotal() > 1 && slices.IsSorted(a.GetPods()) && a.GetInstances() >= a.GetPodsTotal() && a.GetConnections() >= a.GetInstances() &&
+			return a.GetPodsTotal() > 1 && slices.IsSorted(a.GetPods()) && int32(len(a.GetConnectionNames()))+a.GetMoreNames() >= a.GetPodsTotal() && a.GetInstances() >= a.GetPodsTotal() && a.GetConnections() >= a.GetInstances() &&
 				len(a.GetServers()) > 1 && n == a.GetConnections()
 		})},
 		{"an application whose connections are its instances: no pod in their name", application(func(_ *v1.GetApplicationsResponse, a *v1.Application) bool {
 			return a.GetPodsTotal() == 0 && a.GetConnections() > 1 && a.GetInstances() == a.GetConnections() && a.GetName() != api.UnnamedApplication
 		})},
+		{"an application named exactly so, and its connection names under it in every row", func(q Q) string {
+			found := ""
+			for _, a := range q.apps(q.day(), "", false).GetApplications() {
+				names := a.GetConnectionNames()
+				if len(names) > api.MaxClientNames || !slices.IsSorted(names) || slices.ContainsFunc(names, func(n string) bool { return n == "" || api.ApplicationOf(n) != a.GetName() }) {
+					q.t.Errorf("%s: %s names %v", q.System, a.GetName(), names)
+					return ""
+				}
+				if found == "" && len(names) == 1 && names[0] == a.GetName() && a.GetMoreNames() == 0 && a.GetConnections() > 1 {
+					found = a.GetName()
+				}
+			}
+			return found
+		}},
 		{"the (unnamed) application", application(func(_ *v1.GetApplicationsResponse, a *v1.Application) bool {
 			return a.GetName() == api.UnnamedApplication && a.GetConnections() > 0
 		})},
