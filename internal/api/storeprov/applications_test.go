@@ -231,3 +231,48 @@ func TestStoreApplicationsAnyTimeZone(t *testing.T) {
 	}
 	setZone("UTC")
 }
+
+// A name that drops in one account and connects in another reconnects, as
+// client-004 pairs it, also on a page scoped to one of the accounts.
+func TestStoreApplicationsReconnectsPairAcrossAccounts(t *testing.T) {
+	p := appsProvider(t, appsLast)
+	r := rows{t, p.St}
+	for i, e := range []struct{ kind, account, reason string }{{"client.disconnect", "APP", "Read Error"}, {"client.connect", "OPS", ""}} {
+		when := appsLast.Add(-time.Hour + time.Duration(i)*time.Second)
+		r.add("events", map[string]any{"id": 80 + i, "time": when, "received_at": when, "source": "sys", "kind": e.kind,
+			"client_name": "resize-worker@rw-c", "account": e.account, "client_host": "10.1.0.3", "reason": e.reason, "summary": e.kind})
+	}
+	c := appsClient(t, p)
+	for _, scope := range []string{"", "APP"} {
+		if rw := appNamed(appsPage(t, c, appsLast.Add(time.Minute), scope, false), "resize-worker"); rw.GetReconnects_24H() != 2 {
+			t.Errorf("scope %q: resize-worker %d reconnects, want 2 (rw-a, and rw-c across accounts)", scope, rw.GetReconnects_24H())
+		}
+	}
+}
+
+// The page is partial when a server's connections are not known: its
+// CONNZ request failed, or it answered nothing. Another endpoint failing
+// (JSZ) leaves the connections whole.
+func TestStoreApplicationsPartialFollowsConnz(t *testing.T) {
+	p := appsProvider(t, appsLast)
+	c := appsClient(t, p)
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := p.St.DB().Exec(q, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	exec(`UPDATE epoch_endpoints SET state = 'error', error = 'timeout' WHERE epoch = ? AND server_id = 'S1' AND endpoint = 'JSZ'`, appsE3)
+	exec(`UPDATE epochs SET partial = true, endpoint_failures = 1 WHERE epoch = ?`, appsE3)
+	res := appsPage(t, c, appsLast.Add(time.Minute), "", false)
+	if res.GetPartial() || len(res.GetMissing()) != 0 || !res.GetSpread().GetConcentrated() {
+		t.Errorf("JSZ failing alone: partial %v, missing %v, spread %v", res.GetPartial(), res.GetMissing(), res.GetSpread())
+	}
+	r := rows{t, p.St}
+	r.add("epoch_endpoints", map[string]any{"epoch": appsE3, "server_id": "S2", "endpoint": "CONNZ", "state": "missing"})
+	r.add("epoch_endpoints", map[string]any{"epoch": appsE3, "server_id": "S0", "endpoint": "CONNZ", "state": "ok"})
+	res = appsPage(t, c, appsLast.Add(time.Minute), "", false)
+	if !res.GetPartial() || !slices.Equal(res.GetMissing(), []string{"nats-2"}) || res.GetSpread().GetConcentrated() {
+		t.Errorf("CONNZ failing on nats-2: partial %v, missing %v, spread %v", res.GetPartial(), res.GetMissing(), res.GetSpread())
+	}
+}
