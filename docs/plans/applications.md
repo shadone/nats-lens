@@ -10,7 +10,7 @@ The board's sample names come from a sketch of a real deployment, and its footno
 |---|---|
 | T1 Hourly traffic rollup and the tooling rule | built on `feat/apps-rollup`, under review |
 | T2 API, store and demo | built on `feat/apps-api`, under review |
-| T3 UI | not started |
+| T3 UI | built on `feat/apps-ui`, under review |
 | T4 Feature docs and audit | not started |
 
 ## Decisions of the owner (2026-10-26)
@@ -108,6 +108,31 @@ Decided in the session that built T2; proposed, not yet confirmed.
 - Sorting by any column, kept in the address.
 - Empty and partial states: no epoch, no application, tooling only, a cut list, less than 24 hours of rollup.
 - Phone width, light and dark, accessibility as on the Micro services page; the previous answer stands in only for the same system and account.
+
+### Where T3 departed from this plan
+
+Decided in the session that built T3; proposed, not yet confirmed.
+
+- **The sub-line under an application** is its connection count, its pod count where the names give pods, and its accounts when the page is not scoped and the rows span more than one account; the board's description line has no source. Its findings follow as links, a muted one marked "(muted)".
+- **Pods lists the client addresses where no name gives a pod,** set apart in a quieter colour and named "client addresses" for screen readers, as the owner's decision on "Runs on" asks for both. Two pod names or one address show; the rest open behind a "+N more" disclosure, and a count the server did not list reads "N not listed".
+- **Servers are chips with the server's name and the application's connections on it,** at most three, the rest behind a disclosure: the board's numbered chips do not fit 23 servers.
+- **The reconnect count links to the Events page only for an application whose connections carry its own name** (no pod in the names). The Events page filters by the whole connection name, so `resize-worker` would match none of `resize-worker@<pod>`; such a count stays plain text. See "API gaps".
+- **The application links to the Connections page with `?name=`,** which matches names that contain it, so `order-service` also lists an `order-service-v2`; a tooling row adds `tooling=1`. `(unnamed)` links nowhere.
+- **A row with an unmuted finding has the warning background,** as rows that warn do on the Micro services page; reconnects above 0 are in the warning colour.
+- **Library** shows one version, or "mixed" in the warning colour with each version and its connections beneath. **Pending** shows the sum, and "max" of one connection beneath it when the application has more than one connection and the sum is above 0.
+- **The round trip keeps its fraction:** `durationMs` of the protobuf runtime rounds to whole milliseconds, so 0.69 ms read as "1 ms"; the page reads the duration itself. The Connections page still rounds (`adapt-entities.ts`, `rttMs: dur(c.rtt)`), outside this task.
+- **Messages in and out:** the sparkline draws in as a solid accent line and out as a dashed muted line on one scale; an hour without a measurement breaks the line, a lone measured hour is a dot, and no measured hour is a dashed baseline. The message totals stand beneath it; the accessible name gives the hours, both totals with their bytes, and "N of 24 hours measured" when not all were.
+- **Partial traffic** is said once above the table when no row has all 24 hours ("Traffic is measured for 6 of the 24 hours ..."); a row's own gaps are in its sparkline's name.
+- **Cards.** The Spread card has the info edge when the spread is concentrated; otherwise it says "No server holds more than half", and with one server that a restart moves all connections. Client libraries names at most four versions and counts the rest. Last 24 h says "N applications reconnecting", and "Not known" when no event was captured.
+- **Notices:** a cut connz list (warning), events not captured (info), the tooling hidden line as on the Connections page; the empty state says when only tooling connections are in the scope. The line under the title adds "the first 500 listed" when the list was cut.
+- **Tooling toggle** in the address as `?tooling=1`, as on the Connections page, replacing the history entry; the previous answer stands in while the other answer loads, since the system and account are the same.
+- **Width.** The table's cells have 8 px side padding and its headers wrap, so the ten columns fit 1440 px with the sidebar for the demo's systems; at phone width the table scrolls in its own box.
+
+### API gaps seen while building T3
+
+- The Events page filters by an exact connection name: no link can show the reconnect events of an application whose names carry pods. A prefix or application filter on `ListEvents` would let every reconnect count link there.
+- The Connections page's name filter is "contains": no exact or application filter.
+- Each row's slow consumers, stale connections and short-lived connections of the last 24 hours are in the response but not on the board's table; the page shows only their sums in the Last 24 h card.
 
 ## T4 Feature docs and audit
 
