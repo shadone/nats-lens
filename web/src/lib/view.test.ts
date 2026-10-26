@@ -5,7 +5,7 @@ import { EntityType } from "../gen/natslens/v1/common_pb";
 import { ConsumerSummarySchema } from "../gen/natslens/v1/consumers_pb";
 import { StreamSummarySchema } from "../gen/natslens/v1/streams_pb";
 import { consumer, stream } from "../api/adapt-entities";
-import { accountLabel, accountLabeller, consumerCount, entityKeyLabel, isTrouble, withAccountName } from "./view";
+import { accountLabel, accountLabeller, consumerCount, entityKeyLabel, entityName, isTrouble, withAccountName } from "./view";
 
 describe("account names", () => {
   const id = "ACJQEXMPEXAMPLEAPPACCOUNTKEYQQQQQQQQQQQQQQQQQQQQQQQQQQQQ";
@@ -18,6 +18,13 @@ describe("account names", () => {
     expect(c.entity.account).toBe(id);
     expect(entityKeyLabel(c.entity)).toBe("APP/jobs/worker");
     expect(accountLabel(c.entity.account, c.entity.accountName)).toBe("APP");
+  });
+  it("names an account entity by its readable name, else its ID", () => {
+    const acc: Entity = { kind: "account", key: id, name: id, account: id, accountName: "SUPPLIERS", stream: "", consumer: "", server: "" };
+    expect(entityName(acc)).toBe("SUPPLIERS");
+    expect(entityName({ ...acc, accountName: undefined })).toBe(id);
+    // Other entities keep their own name.
+    expect(entityName({ kind: "stream", key: `${id}/jobs`, name: "jobs", account: id, accountName: "APP", stream: "jobs", consumer: "", server: "" })).toBe("jobs");
   });
   it("falls back to the ID without a name", () => {
     expect(accountLabel(id)).toBe(id);

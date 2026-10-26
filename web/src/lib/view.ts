@@ -150,8 +150,11 @@ export function withAccountName<T extends AccountRef>(e: T, refs: (AccountRef | 
   return found ? { ...e, accountName: found.accountName } : e;
 }
 
-/** Display name of an entity: the consumer, stream, server or key. */
+/** Display name of an entity: the consumer, stream, server or key; an
+ * account by its readable name, else its ID, as the API names an account
+ * entity by its ID. */
 export function entityName(e: Entity | undefined): string {
   if (!e) return "";
+  if (e.kind === "account") return e.accountName || e.name || e.key;
   return e.name || e.consumer || e.stream || e.server || e.key;
 }

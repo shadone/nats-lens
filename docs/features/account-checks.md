@@ -6,7 +6,7 @@
 
 ## What it does
 
-The account checks turn what the Accounts page shows into findings, so that an operator hears about an account before it hits a limit or a credential expires: client connections near the connection limit of the account JWT, JetStream disk use near its disk limit, an account JWT that expires soon, and user JWTs of the account's connections that expire soon. An account finding is keyed by the account identifier (the account public key in operator mode), and its detail starts with the account's readable name. There are 4 account checks, `account-001` to `account-004`. The expiry of the servers' own TLS certificates is `server-016` in [server-checks.md](server-checks.md). The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
+The account checks turn what the Accounts page shows into findings, so that an operator hears about an account before it hits a limit or a credential expires: client connections near the connection limit of the account JWT, JetStream disk use near its disk limit, an account JWT that expires soon, and user JWTs of the account's connections that expire soon. An account finding is keyed by the account identifier (the account public key in operator mode); the Findings list, the finding page and the mute dialog name it by the account's readable name when it has one, and its detail starts with that name. There are 4 account checks, `account-001` to `account-004`. The expiry of the servers' own TLS certificates is `server-016` in [server-checks.md](server-checks.md). The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
 
 ## The checks
 
