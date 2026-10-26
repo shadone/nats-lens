@@ -105,6 +105,7 @@ Decided in the session that built T2; proposed, not yet confirmed.
   - `capture_gaps` (field 14) says, by the Accounts and auth page's rule, that event capture stopped for part of the 24 hours. The counts stay set as lower bounds rather than unset: unsetting would hide the reconnects and slow consumers that were seen, and the UI can say the counts may be low. A boolean as on the Accounts page, not the gap's span.
   - A connection that reports neither library language nor version counts for no library.
   - Conformance rows for a partial epoch, capture that stopped, no captured event, and a muted client finding that does not lift its row; the demo's `example-global` has `client-001` on `shipping-service` (its `ap` instances at 140 ms), muted.
+- **Fix round 2:** each row carries its connection names as `MicroService` does (`connection_names`, distinct, sorted, at most 3, an unnamed connection left out, and `more_names`, fields 26 and 27; the coordinator asked for `connection_names_total`, and the Micro services field names were followed instead), so the UI can tell an application whose connections are all named exactly like it, which the Events page's exact name filter finds, from one named with pods or an empty pod.
 - **Measurement** (`TestApplicationsSize`, laptop): the store's read for 4,096 connections of 500 applications, with a day of 30-second epochs, 20,000 client events and 14 days of the rollup, takes about 25 ms, and `FinishApplications` 4 ms.
 
 ## T3 UI
