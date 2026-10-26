@@ -39,6 +39,17 @@ describe("groupCauses", () => {
     expect(groups.map((g) => g.checkCodes[0])).toEqual(["server-001", "account-004"]);
   });
 
+  it("ranks a critical expiry as any critical card, by its size", () => {
+    const server: Entity = { kind: "server", key: "nats-us-4", name: "nats-us-4", account: "", stream: "", consumer: "", server: "nats-us-4" };
+    const acc = (k: string): Entity => ({ kind: "account", key: k, name: k, account: k, stream: "", consumer: "", server: "" });
+    const { groups } = groupCauses([
+      f("s1", "server-001", server, { severity: "critical" }),
+      f("e1", "account-003", acc("APP"), { severity: "critical", expiry: true }),
+      f("e2", "account-003", acc("SHOP"), { severity: "critical", expiry: true }),
+    ]);
+    expect(groups.map((g) => g.checkCodes[0])).toEqual(["account-003", "server-001"]);
+  });
+
   it("makes one group of four consumer-009 findings on one stream", () => {
     const fs = ["resize-worker", "thumb-worker", "job-cache-projector", "audit-writer"].map((n) => f(`c9:${n}`, "consumer-009", consumerEnt("order-jobs", n)));
     const { groups, muted } = groupCauses(fs);

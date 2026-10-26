@@ -9,16 +9,17 @@ import (
 
 // CompareWorst orders findings worst first, as every list and headline
 // ranks them: firing before resolved, unmuted before muted, then by
-// severity; within a severity a finding that is not an expiry (its
+// severity; among warnings a finding that is not an expiry warning (its
 // check's category is expiry, Finding.expiry) before one that is, so a
-// credential that expires soon never heads an outage of the same
-// severity; then the longest firing first, then by ID.
+// credential that expires soon never heads an outage; then the longest
+// firing first, then by ID. A critical expiry (expired, or within days)
+// ranks as any critical finding.
 func CompareWorst(a, b *v1.Finding) int {
 	return cmp.Or(
 		cmp.Compare(rankOf(a.GetState() == v1.FindingState_FINDING_STATE_RESOLVED), rankOf(b.GetState() == v1.FindingState_FINDING_STATE_RESOLVED)),
 		cmp.Compare(rankOf(a.GetMute() != nil), rankOf(b.GetMute() != nil)),
 		cmp.Compare(severityOrder(a.GetSeverity()), severityOrder(b.GetSeverity())),
-		cmp.Compare(rankOf(a.GetExpiry()), rankOf(b.GetExpiry())),
+		cmp.Compare(rankOf(expiryWarning(a)), rankOf(expiryWarning(b))),
 		sinceOf(a).Compare(sinceOf(b)),
 		cmp.Compare(a.GetId(), b.GetId()),
 	)
@@ -43,4 +44,10 @@ func severityOrder(s v1.Severity) int {
 		return 2
 	}
 	return 3
+}
+
+// expiryWarning reports whether f is an expiry finding at warning, which
+// ranks after the other warnings.
+func expiryWarning(f *v1.Finding) bool {
+	return f.GetExpiry() && f.GetSeverity() == v1.Severity_SEVERITY_WARNING
 }
