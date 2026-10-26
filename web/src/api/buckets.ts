@@ -99,24 +99,24 @@ function refetch(spec: RangeSpec) {
   return spec.kind === "live" ? LIVE_REFRESH_MS : false;
 }
 
-/** The KV buckets of the page's system in the account ("" for all). */
+/** The KV buckets of the page's system in the account ("" for all); no other account's stand in while they load. */
 export function useKeyValueStores(spec: RangeSpec, account: string) {
   const sys = useSystem();
   return useQuery({
     queryKey: ["kvStores", sys, rangeKey(spec), account],
     queryFn: ({ signal }) => listKeyValueStores(sys, spec, account, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepSameSystem(sys),
+    placeholderData: keepSameSystem(sys, { 3: account }),
   });
 }
 
-/** The object stores of the page's system in the account ("" for all). */
+/** The object stores of the page's system in the account ("" for all); no other account's stand in while they load. */
 export function useObjectStores(spec: RangeSpec, account: string) {
   const sys = useSystem();
   return useQuery({
     queryKey: ["objectStores", sys, rangeKey(spec), account],
     queryFn: ({ signal }) => listObjectStores(sys, spec, account, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepSameSystem(sys),
+    placeholderData: keepSameSystem(sys, { 3: account }),
   });
 }

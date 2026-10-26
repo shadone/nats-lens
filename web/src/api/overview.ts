@@ -62,14 +62,14 @@ export async function listBusiestConsumers(sys: string, spec: RangeSpec, account
   return r.consumers.map((c) => ({ ...consumer(c), deliveredPerSecond: c.deliveredPerSecond }));
 }
 
-/** The consumers with the highest delivery rate at the range's end, fastest first. */
+/** The consumers with the highest delivery rate at the range's end, fastest first; no other account's stand in while they load. */
 export function useBusiestConsumers(spec: RangeSpec, account: string, limit = 6) {
   const sys = useSystem();
   return useQuery({
     queryKey: ["busiestConsumers", sys, rangeKey(spec), account, limit],
     queryFn: ({ signal }) => listBusiestConsumers(sys, spec, account, limit, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepSameSystem(sys),
+    placeholderData: keepSameSystem(sys, { 3: account }),
   });
 }
 
@@ -99,14 +99,14 @@ export async function listStreamPlacement(
   };
 }
 
-/** The streams of the newest collection with one placement square per replica. */
+/** The streams of the newest collection with one placement square per replica; no other account's stand in while they load. */
 export function useStreamPlacement(spec: RangeSpec, account: string) {
   const sys = useSystem();
   return useQuery({
     queryKey: ["streamPlacement", sys, rangeKey(spec), account],
     queryFn: ({ signal }) => listStreamPlacement(sys, spec, account, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepSameSystem(sys),
+    placeholderData: keepSameSystem(sys, { 3: account }),
   });
 }
 
