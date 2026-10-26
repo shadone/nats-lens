@@ -2,6 +2,7 @@
 // of the range the moments are picked on. Every hook keys on the page's
 // system.
 import { useQuery } from "@tanstack/react-query";
+import { keepSameSystem } from "./placeholder";
 import { LIVE_REFRESH_MS, rangeKey, type RangeSpec } from "../lib/timeRange";
 import { useDebounced } from "../lib/useDebounced";
 import { useSystem } from "../lib/useSystem";
@@ -43,7 +44,7 @@ export function useReplay(a: number | undefined, b: number | undefined) {
     queryKey: ["replay", sys, m.a, m.b],
     queryFn: ({ signal }) => api.getReplay(sys, m.a!, m.b!, signal),
     enabled: m.a !== undefined && m.b !== undefined,
-    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === sys ? prev : undefined),
+    placeholderData: keepSameSystem(sys),
     refetchOnWindowFocus: false,
   });
 }
