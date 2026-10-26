@@ -22,12 +22,15 @@ description: >-
   ("maximum account active connections exceeded"). Each server counts only its own leaf nodes, so the count is the
   client connections summed over the servers that answered in the collection plus the leaf node connections of the
   server that holds the most of them, the first server to refuse. At the limit a service that restarts or scales out
-  cannot connect. Read from the account's newest lookup within the last 24 hours, as on the Accounts page; an
-  account without a JWT (config mode), without a limit (-1) or not looked up within 24 hours is not reported.
+  cannot connect. A server whose count goes over the limit, as when another server reports more clients, closes its
+  newest connections of the account, clients and leaf nodes alike, until it is back at the limit. Read from the
+  account's newest lookup within the last 24 hours, as on the Accounts page; an account without a JWT (config mode),
+  without a limit (-1) or not looked up within 24 hours is not reported.
 remediation: >-
   Find which clients hold the connections: the Connections page filtered to the account, grouped by name, and the
   leaf node connections of the server the detail names. A client that opens a connection per request or leaks
-  connections fills the limit by itself; fix it first. If the load is real, raise the limit in the account JWT
+  connections fills the limit by itself; fix it first. Over the limit a server closes its newest connections of the
+  account, leaf nodes included, so a leaf node site can drop when clients grow elsewhere. If the load is real, raise the limit in the account JWT
   (`nsc edit account <name> --conns <n>`, then push the account JWT to the resolver with `nsc push`).
 related_config: [conn]
 value_name: connection limit share
@@ -65,7 +68,9 @@ SELECT
             || ', which counts its own leaf nodes against the limit'
         ELSE used || ' of ' || limit_connections || ' client connections (' || round(100 * ratio, 1) || '%)'
     END
-        || CASE WHEN used >= limit_connections THEN '; at the limit, new client connections are refused.' ELSE '.' END
+        || CASE WHEN used < limit_connections THEN '.'
+                WHEN leafs > 0 THEN '; at the limit, ' || leaf_server || ' refuses new client connections of the account.'
+                ELSE '; at the limit, every server refuses new client connections of the account.' END
         AS detail,
     round(ratio, 4) AS value,
     json_object('conn', CAST(limit_connections AS VARCHAR)) AS related_config
