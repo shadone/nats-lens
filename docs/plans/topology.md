@@ -1,6 +1,6 @@
 # Topology build plan
 
-Working plan for the Topology page (`docs/features/topology.md`, board `Topology.dc.html` of the design canvas). Everything here was proposed by the planning session of 2026-10-20; the owner confirmed it on 2026-10-26, except two points he changed, still to be built ([design.md](../design.md#owner-review-of-proposed-decisions-2026-10-26)): a route is slow only when the last two collections both measured it slow, and the base deployment's memory goes from 256 MiB to 512 MiB. When a task lands, its lasting content moves into `docs/features/topology.md` and `docs/design.md`; this file then only tracks status.
+Working plan for the Topology page (`docs/features/topology.md`, board `Topology.dc.html` of the design canvas). Everything here was proposed by the planning session of 2026-10-20; the owner confirmed it on 2026-10-26, except two points the owner changed, still to be built ([design.md](../design.md#owner-review-of-proposed-decisions-2026-10-26)): a route is slow only when the last two collections both measured it slow, and the base deployment's memory goes from 256 MiB to 512 MiB. When a task lands, its lasting content moves into `docs/features/topology.md` and `docs/design.md`; this file then only tracks status.
 
 The board's sample names (`acme-prod`, `eu-west`, `store-0417`, `RETAIL`, `IOT`) come from a sketch. Use the example shop of `inventory.example.yaml` and the demo's systems instead.
 
