@@ -8,29 +8,6 @@ import (
 	"github.com/shadone/nats-lens/internal/collect"
 )
 
-var connectionCols = []string{
-	"epoch", "server_id", "cid", "kind", "type", "name", "lang", "version", "account", "authorized_user",
-	"ip", "port", "start_time", "last_activity", "rtt_ns", "pending_bytes", "in_msgs", "out_msgs",
-	"in_bytes", "out_bytes", "stalls", "subscriptions", "tls_version", "name_tag", "user_jwt", "jwt_expires",
-}
-
-func (w *writer) writeConnections(v *collect.ServerView) {
-	if v.Connz == nil {
-		return
-	}
-	for _, c := range v.Connz.Conns {
-		if c.NameTag != "" {
-			// CONNZ gives the account's name tag with each connection.
-			w.ids.account(c.Account, c.NameTag, false)
-		}
-		j, hasJWT := v.UserJWTs[c.Cid]
-		w.insert("connections", connectionCols, w.epoch, v.Info.ID, i64(c.Cid), c.Kind, c.Type, c.Name, c.Lang,
-			c.Version, c.Account, c.AuthorizedUser, c.IP, c.Port, ts(c.Start), ts(c.LastActivity), durNS(c.RTT),
-			c.Pending, c.InMsgs, c.OutMsgs, c.InBytes, c.OutBytes, c.Stalls, int64(c.NumSubs), c.TLSVersion, c.NameTag,
-			hasJWT, ts(j.Expires))
-	}
-}
-
 var accountStatsCols = []string{
 	"epoch", "server_id", "account", "conns", "leafnodes", "total_conns", "subscriptions",
 	"sent_msgs", "sent_bytes", "received_msgs", "received_bytes", "slow_consumers",
