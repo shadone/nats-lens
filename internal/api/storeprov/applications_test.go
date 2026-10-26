@@ -51,8 +51,13 @@ func names(res *v1.GetApplicationsResponse) []string {
 func TestStoreApplications(t *testing.T) {
 	c := appsClient(t, appsProvider(t, appsLast))
 	res := appsPage(t, c, appsLast.Add(time.Minute), "", false)
-	if res.GetEpoch() != appsE3 || !res.GetEpochAt().AsTime().Equal(appsLast) || !res.GetConnzCut() || !res.GetEventsCaptured() {
+	if res.GetEpoch() != appsE3 || !res.GetEpochAt().AsTime().Equal(appsLast) || !res.GetConnzCut() || !res.GetEventsCaptured() || res.GetPartial() || len(res.GetMissing()) != 0 {
 		t.Fatalf("epoch %d at %v, cut %v, events %v", res.GetEpoch(), res.GetEpochAt().AsTime(), res.GetConnzCut(), res.GetEventsCaptured())
+	}
+	// Capture stopped for a minute 10 hours before: the counts are kept,
+	// flagged as lower bounds.
+	if !res.GetCaptureGaps() {
+		t.Errorf("capture gaps not reported")
 	}
 	want := []string{"resize-worker", "callback-dispatcher", "order-service", "(unnamed)", "ops-monitor"}
 	if got := names(res); !slices.Equal(got, want) || res.GetApplicationsTotal() != 5 || res.GetConnectionsTotal() != 15 || res.GetToolingHidden() != 2 {
@@ -71,10 +76,11 @@ func TestStoreApplications(t *testing.T) {
 		rw.GetSubscriptions() != 18 || rw.GetPendingBytes() != 300 || rw.GetPendingBytesMax() != 300 {
 		t.Errorf("resize-worker: servers %v, rtt %v, subs %d, pending %d", servers, rw.GetRttP50().AsDuration(), rw.GetSubscriptions(), rw.GetPendingBytes())
 	}
-	// Its events: a slow consumer drop of rw-a and a stale drop of rw-old,
-	// a pod gone by the epoch, with two connects.
-	if rw.GetReconnects_24H() != 2 || rw.GetSlowConsumers_24H() != 1 || rw.GetStale_24H() != 1 || rw.GetShortLived_24H() != 0 {
-		t.Errorf("resize-worker 24h: %v %v %v %v", rw.Reconnects_24H, rw.SlowConsumers_24H, rw.Stale_24H, rw.ShortLived_24H)
+	// Its events: a slow consumer drop of rw-a, which came back, and a
+	// stale drop of rw-old, a pod gone by the epoch, whose replacement rw-b
+	// connected: drops and connects pair per name, so one reconnect.
+	if rw.GetReconnects_24H() != 1 || rw.GetSlowConsumers_24H() != 1 || rw.GetStale_24H() != 1 || rw.GetShortLived_24H() != 0 {
+		t.Errorf("resize-worker 24h: %d %d %d %d", rw.GetReconnects_24H(), rw.GetSlowConsumers_24H(), rw.GetStale_24H(), rw.GetShortLived_24H())
 	}
 	if len(rw.GetFindings()) != 1 || rw.GetFindings()[0].GetId() != "client-002:resize-worker@rw-c" || rw.GetFindings()[0].GetMuted() {
 		t.Errorf("resize-worker findings %v", rw.GetFindings())
@@ -95,6 +101,10 @@ func TestStoreApplications(t *testing.T) {
 		t.Errorf("callback-dispatcher: in %d, findings %v", cd.GetInMsgs_24H(), cd.GetFindings())
 	}
 	os := appNamed(res, "order-service")
+	// Its muted client-001 is listed and does not lift it.
+	if len(os.GetFindings()) != 1 || !os.GetFindings()[0].GetMuted() || os.GetFindings()[0].GetCheckCode() != "client-001" {
+		t.Errorf("order-service findings %v", os.GetFindings())
+	}
 	if os.GetReconnects_24H() != 0 || os.GetShortLived_24H() != 12 || os.GetInMsgs_24H() != 50 || os.GetInstances() != 5 {
 		t.Errorf("order-service: reconnects %d, short-lived %d, in %d", os.GetReconnects_24H(), os.GetShortLived_24H(), os.GetInMsgs_24H())
 	}
@@ -168,6 +178,10 @@ func TestStoreApplicationsPastRange(t *testing.T) {
 	if res.GetEpoch() != appsE2 || res.GetConnzCut() || !slices.Equal(names(res), []string{"resize-worker", "callback-dispatcher"}) {
 		t.Fatalf("past: epoch %d, cut %v, %v", res.GetEpoch(), res.GetConnzCut(), names(res))
 	}
+	// nats-2 did not answer: nats-0's two of three do not speak.
+	if sp := res.GetSpread(); !res.GetPartial() || !slices.Equal(res.GetMissing(), []string{"nats-2"}) || sp.GetConcentrated() || sp.GetConnections() != 2 {
+		t.Errorf("past: partial %v, missing %v, spread %v", res.GetPartial(), res.GetMissing(), sp)
+	}
 	rw, cd := res.GetApplications()[0], res.GetApplications()[1]
 	if rw.GetInstances() != 2 || len(rw.GetFindings()) != 1 {
 		t.Errorf("resize-worker then: %d instances, findings %v", rw.GetInstances(), rw.GetFindings())
@@ -179,6 +193,10 @@ func TestStoreApplicationsPastRange(t *testing.T) {
 	}
 	if h := cd.GetTraffic()[23].GetHour().AsTime(); !h.Equal(e2.Truncate(time.Hour).Add(-time.Hour)) || cd.GetInMsgs_24H() != 220 || cd.GetTraffic()[1].InMsgs != nil || cd.GetTraffic()[2].GetInMsgs() != 10 {
 		t.Errorf("callback-dispatcher then: last hour %v, in %d", h, cd.GetInMsgs_24H())
+	}
+	// 27 hours before last the capture had no gap yet.
+	if first := appsPage(t, c, appsLast.Add(-26*time.Hour+time.Minute), "", false); first.GetEpoch() != appsE1 || first.GetCaptureGaps() {
+		t.Errorf("E1: epoch %d, capture gaps %v", first.GetEpoch(), first.GetCaptureGaps())
 	}
 	// Before E1 there is no epoch.
 	if res := appsPage(t, c, appsLast.Add(-27*time.Hour), "", false); res.GetEpoch() != 0 || len(res.GetApplications()) != 0 {

@@ -61,12 +61,26 @@ func applicationsRows() []State {
 			for _, s := range a.GetServers() {
 				n += s.GetConnections()
 			}
-			return a.GetPodsTotal() > 1 && slices.IsSorted(a.GetPods()) && a.GetInstances() >= a.GetPodsTotal() && a.GetConnections() >= a.GetInstances() &&
+			return a.GetPodsTotal() > 1 && slices.IsSorted(a.GetPods()) && int32(len(a.GetConnectionNames()))+a.GetMoreNames() >= a.GetPodsTotal() && a.GetInstances() >= a.GetPodsTotal() && a.GetConnections() >= a.GetInstances() &&
 				len(a.GetServers()) > 1 && n == a.GetConnections()
 		})},
 		{"an application whose connections are its instances: no pod in their name", application(func(_ *v1.GetApplicationsResponse, a *v1.Application) bool {
 			return a.GetPodsTotal() == 0 && a.GetConnections() > 1 && a.GetInstances() == a.GetConnections() && a.GetName() != api.UnnamedApplication
 		})},
+		{"an application named exactly so, and its connection names under it in every row", func(q Q) string {
+			found := ""
+			for _, a := range q.apps(q.day(), "", false).GetApplications() {
+				names := a.GetConnectionNames()
+				if len(names) > api.MaxClientNames || !slices.IsSorted(names) || slices.ContainsFunc(names, func(n string) bool { return n == "" || api.ApplicationOf(n) != a.GetName() }) {
+					q.t.Errorf("%s: %s names %v", q.System, a.GetName(), names)
+					return ""
+				}
+				if found == "" && len(names) == 1 && names[0] == a.GetName() && a.GetMoreNames() == 0 && a.GetConnections() > 1 {
+					found = a.GetName()
+				}
+			}
+			return found
+		}},
 		{"the (unnamed) application", application(func(_ *v1.GetApplicationsResponse, a *v1.Application) bool {
 			return a.GetName() == api.UnnamedApplication && a.GetConnections() > 0
 		})},
@@ -84,6 +98,46 @@ func applicationsRows() []State {
 				if !f.GetMuted() && api.ApplicationOf(f.GetEntityKey()) == a.GetName() && f.GetId() == f.GetCheckCode()+":"+f.GetEntityKey() {
 					return a.GetName() + " " + f.GetId()
 				}
+			}
+			return ""
+		}},
+		{"a muted client finding listed on its row, which it does not lift", func(q Q) string {
+			apps := q.apps(q.day(), "", false).GetApplications()
+			unmuted := func(a *v1.Application) bool {
+				return slices.ContainsFunc(a.GetFindings(), func(f *v1.FindingRef) bool { return !f.GetMuted() })
+			}
+			for i, a := range apps {
+				if len(a.GetFindings()) == 0 || unmuted(a) {
+					continue
+				}
+				for _, b := range apps[:i] {
+					if !unmuted(b) && b.GetConnections() < a.GetConnections() {
+						q.t.Errorf("%s: %s (%d) after %s (%d)", q.System, a.GetName(), a.GetConnections(), b.GetName(), b.GetConnections())
+						return ""
+					}
+				}
+				if slices.ContainsFunc(apps[i+1:], unmuted) {
+					q.t.Errorf("%s: an unmuted finding after %s", q.System, a.GetName())
+					return ""
+				}
+				return a.GetName() + " " + a.GetFindings()[0].GetId()
+			}
+			return ""
+		}},
+		{"an Applications page before any event was captured: the 24-hour counts unset", func(q Q) string {
+			for _, end := range []time.Time{q.env.Now, q.env.Now.Add(-5 * 24 * time.Hour)} {
+				res := q.apps(&v1.TimeRange{Start: timestamppb.New(end.Add(-24 * time.Hour)), End: timestamppb.New(end)}, "", false)
+				if res.GetEpoch() == 0 || res.GetEventsCaptured() || len(res.GetApplications()) == 0 {
+					continue
+				}
+				d := res.GetLastDay()
+				if res.GetCaptureGaps() || d.SlowConsumers != nil || d.Stale != nil || d.Reconnecting != nil || slices.ContainsFunc(res.GetApplications(), func(a *v1.Application) bool {
+					return a.Reconnects_24H != nil || a.SlowConsumers_24H != nil || a.Stale_24H != nil || a.ShortLived_24H != nil
+				}) {
+					q.t.Errorf("%s: counts set without events: %v", q.System, d)
+					return ""
+				}
+				return res.GetEpochAt().AsTime().Format(time.RFC3339)
 			}
 			return ""
 		}},
@@ -127,10 +181,40 @@ func applicationsRows() []State {
 			unset := slices.ContainsFunc(a.GetTraffic(), func(h *v1.HourTraffic) bool { return h.InMsgs == nil && h.OutBytes == nil })
 			return unset && a.InMsgs_24H != nil && trafficSound(res.GetEpochAt().AsTime(), a)
 		})},
+		{"an Applications page whose event capture stopped in the 24 hours: counts kept, flagged", func(q Q) string {
+			res := q.apps(q.day(), "", false)
+			if !res.GetCaptureGaps() {
+				return ""
+			}
+			if !res.GetEventsCaptured() || res.GetLastDay().Reconnecting == nil || slices.ContainsFunc(res.GetApplications(), func(a *v1.Application) bool {
+				return a.Reconnects_24H == nil
+			}) {
+				q.t.Errorf("%s: capture gaps without counts: %v", q.System, res.GetLastDay())
+				return ""
+			}
+			return fmt.Sprintf("%d applications", len(res.GetApplications()))
+		}},
 		{"one server holding most connections, more than one used", func(q Q) string {
 			sp := q.apps(q.day(), "", false).GetSpread()
 			if sp.GetConcentrated() && 2*sp.GetConnections() > sp.GetTotal() && sp.GetServers() > 1 {
 				return fmt.Sprintf("%s %d of %d", sp.GetServer(), sp.GetConnections(), sp.GetTotal())
+			}
+			return ""
+		}},
+		{"an Applications page of a partial epoch: the missing servers named, the spread silent", func(q Q) string {
+			for h := range 24 {
+				end := q.env.Now.Add(-time.Duration(h) * time.Hour)
+				for _, back := range []time.Duration{0, 17 * time.Minute, 43 * time.Minute} {
+					e := end.Add(-back)
+					res := q.apps(&v1.TimeRange{Start: timestamppb.New(e.Add(-time.Hour)), End: timestamppb.New(e)}, "", false)
+					if res.GetPartial() && res.GetSpread().GetConcentrated() {
+						q.t.Errorf("%s at %v: partial and concentrated", q.System, res.GetEpochAt().AsTime())
+						return ""
+					}
+					if res.GetPartial() && len(res.GetMissing()) > 0 && res.GetSpread().GetServers() > 1 && 2*res.GetSpread().GetConnections() > res.GetSpread().GetTotal() {
+						return fmt.Sprintf("%v missing at %s", res.GetMissing(), res.GetEpochAt().AsTime().Format(time.RFC3339))
+					}
+				}
 			}
 			return ""
 		}},

@@ -205,9 +205,9 @@ func TestFinishApplicationsDayAndTraffic(t *testing.T) {
 		appConn("nats-0", 2, "callback-dispatcher@b", "10.0.0.2"),
 		appConn("nats-1", 3, "media-worker", "10.0.0.3"),
 	}, Events: []api.AppEventFact{
-		// Drops of one pod and connects of another pair within the
-		// application.
-		{Name: "callback-dispatcher@a", Account: "APP", Drops: 6, Stale: 6},
+		// Pod a dropped and came back six times; pod b's connects pair
+		// with no drop of its own.
+		{Name: "callback-dispatcher@a", Account: "APP", Drops: 6, Connects: 6, Stale: 6},
 		{Name: "callback-dispatcher@b", Account: "APP", Connects: 9, ShortLived: 2},
 		{Name: "media-worker", Account: "APP", Drops: 3, Slow: 3},
 		// An application without a connection in the epoch is no row.
@@ -300,5 +300,99 @@ func TestCountClientEvent(t *testing.T) {
 	}
 	if f.Drops != 3 || f.Connects != 7 || f.Slow != 1 || f.Stale != 1 || f.ShortLived != 6 {
 		t.Errorf("%+v", f)
+	}
+}
+
+// A rolling deploy drops every old pod and connects every new one under
+// other names: client-004 pairs per name, so that is no reconnect. Two
+// unrelated unnamed scripts, one only dropping and one only connecting,
+// do not pair either; a name that drops and comes back does.
+func TestFinishApplicationsReconnectsPairPerName(t *testing.T) {
+	f := &api.ApplicationFacts{Epoch: 1, EpochAt: appT0, EventsCaptured: true, Connections: []api.AppConnectionFact{
+		appConn("nats-0", 1, "svc@new-0", "10.0.0.1"),
+		appConn("nats-0", 2, "", "10.0.0.2"),
+	}}
+	for i := range 10 {
+		f.Events = append(f.Events, api.AppEventFact{Name: fmt.Sprintf("svc@old-%d", i), Account: "APP", Drops: 1},
+			api.AppEventFact{Name: fmt.Sprintf("svc@new-%d", i), Account: "APP", Connects: 1})
+	}
+	f.Events = append(f.Events, api.AppEventFact{Name: "", Account: "APP", Drops: 2}, api.AppEventFact{Name: "@script-b", Account: "APP", Connects: 2},
+		// The same name in two accounts is one name, as client-004 groups it.
+		api.AppEventFact{Name: "svc@old-3", Account: "OPS", Connects: 1})
+	res := api.FinishApplications(f, "", false)
+	if svc := appByName(res, "svc"); svc.GetReconnects_24H() != 1 {
+		t.Errorf("svc after a rolling deploy: %d reconnects, want 1 (svc@old-3)", svc.GetReconnects_24H())
+	}
+	if un := appByName(res, api.UnnamedApplication); un.GetReconnects_24H() != 0 {
+		t.Errorf("unnamed scripts: %d reconnects", un.GetReconnects_24H())
+	}
+	if res.GetLastDay().GetReconnecting() != 1 {
+		t.Errorf("reconnecting %d", res.GetLastDay().GetReconnecting())
+	}
+}
+
+// On a partial epoch the missing servers' connections are not known, so
+// the spread does not say one server holds most of them.
+func TestFinishApplicationsPartialEpochSpread(t *testing.T) {
+	f := &api.ApplicationFacts{Epoch: 1, EpochAt: appT0, Partial: true, Missing: []string{"nats-0"}, Connections: []api.AppConnectionFact{
+		appConn("nats-1", 1, "a", "10.0.0.1"), appConn("nats-1", 2, "a", "10.0.0.2"), appConn("nats-2", 3, "a", "10.0.0.3"),
+	}}
+	res := api.FinishApplications(f, "", false)
+	if sp := res.GetSpread(); sp.GetConcentrated() || sp.GetServer() != "nats-1" || sp.GetConnections() != 2 || !res.GetPartial() ||
+		!slices.Equal(res.GetMissing(), []string{"nats-0"}) {
+		t.Errorf("partial: spread %v, partial %v, missing %v", sp, res.GetPartial(), res.GetMissing())
+	}
+	f.Partial, f.Missing = false, nil
+	if sp := api.FinishApplications(f, "", false).GetSpread(); !sp.GetConcentrated() {
+		t.Errorf("whole: spread %v", sp)
+	}
+}
+
+// A connection that reports no library is no library: it neither lists
+// nor makes its application mixed.
+func TestFinishApplicationsSkipsAnEmptyLibrary(t *testing.T) {
+	f := &api.ApplicationFacts{Epoch: 1, EpochAt: appT0, Connections: []api.AppConnectionFact{
+		appConn("nats-0", 1, "a", "10.0.0.1"),
+		{Server: "nats-0", CID: 2, Name: "a", Account: "APP"},
+		{Server: "nats-0", CID: 3, Name: "b", Account: "APP"},
+	}}
+	res := api.FinishApplications(f, "", false)
+	if l := appByName(res, "a").GetLibraries(); len(l) != 1 || l[0].GetConnections() != 1 {
+		t.Errorf("a: %v", l)
+	}
+	if l := appByName(res, "b").GetLibraries(); len(l) != 0 {
+		t.Errorf("b: %v", l)
+	}
+	if l := res.GetLibraries(); len(l) != 1 || l[0].GetLang() != "go" || l[0].GetApplications() != 1 {
+		t.Errorf("summary: %v", l)
+	}
+}
+
+// Each row names its connections as the Micro services page does: an
+// application named only exactly so tells apart from one with pods or an
+// empty pod.
+func TestFinishApplicationsConnectionNames(t *testing.T) {
+	f := &api.ApplicationFacts{Epoch: 1, EpochAt: appT0, Connections: []api.AppConnectionFact{
+		appConn("nats-0", 1, "order-service", "10.0.0.1"), appConn("nats-1", 2, "order-service", "10.0.0.2"),
+		appConn("nats-0", 3, "foo@", "10.0.0.3"),
+		appConn("nats-0", 4, "rw@d", "10.0.0.4"), appConn("nats-0", 5, "rw@a", "10.0.0.5"), appConn("nats-0", 6, "rw@c", "10.0.0.6"),
+		appConn("nats-0", 7, "rw@b", "10.0.0.7"), appConn("nats-0", 8, "rw@a", "10.0.0.8"),
+		appConn("nats-0", 9, "", "10.0.0.9"), appConn("nats-0", 10, "@z", "10.0.0.10"),
+	}}
+	res := api.FinishApplications(f, "", false)
+	for _, c := range []struct {
+		app   string
+		names []string
+		more  int32
+	}{
+		{"order-service", []string{"order-service"}, 0},
+		{"foo", []string{"foo@"}, 0},
+		{"rw", []string{"rw@a", "rw@b", "rw@c"}, 1},
+		{api.UnnamedApplication, []string{"@z"}, 0},
+	} {
+		a := appByName(res, c.app)
+		if !slices.Equal(a.GetConnectionNames(), c.names) || a.GetMoreNames() != c.more {
+			t.Errorf("%s: names %v, %d more", c.app, a.GetConnectionNames(), a.GetMoreNames())
+		}
 	}
 }

@@ -81,13 +81,19 @@ type ApplicationFacts struct {
 	// Epoch is the range's newest epoch; 0 when the range holds none.
 	Epoch   int64
 	EpochAt time.Time
+	// Partial is whether the epoch is partial, and Missing the servers it
+	// expected that did not answer.
+	Partial bool
+	Missing []string
 	// Connections are the epoch's client connections, tooling marked.
 	Connections []AppConnectionFact
 	// ConnzCut is whether a server's connection list in the epoch was cut
 	// at the connz limit.
 	ConnzCut bool
-	// EventsCaptured is whether any event is stored up to the epoch.
-	EventsCaptured bool
+	// EventsCaptured is whether any event is stored up to the epoch;
+	// CaptureGaps whether capture, while it ran, stopped for part of the
+	// ApplicationDay before it, by the Accounts and auth page's rule.
+	EventsCaptured, CaptureGaps bool
 	// Events are the client events of the ApplicationDay before the epoch
 	// counted by connection name, account and tooling.
 	Events []AppEventFact
@@ -157,13 +163,16 @@ func CountClientEvent(f *AppEventFact, kind, reason string, churnConnects int32)
 
 // appGroup gathers one application's facts.
 type appGroup struct {
-	name                             string
-	conns                            []AppConnectionFact
-	tooling                          bool
-	drops, connects, slow, stale, sl int32
-	traffic                          map[time.Time]*v1.HourTraffic
-	findings                         []*v1.FindingRef
-	unmuted                          bool
+	name            string
+	conns           []AppConnectionFact
+	tooling         bool
+	slow, stale, sl int32
+	// names are the drops and connects of each connection name, which
+	// pair per name as client-004 pairs them.
+	names    map[string]*[2]int32
+	traffic  map[time.Time]*v1.HourTraffic
+	findings []*v1.FindingRef
+	unmuted  bool
 }
 
 // FinishApplications builds the page from the facts: the connections in
@@ -177,7 +186,7 @@ func FinishApplications(f *ApplicationFacts, account string, includeTooling bool
 		return &v1.GetApplicationsResponse{}
 	}
 	res := &v1.GetApplicationsResponse{Epoch: f.Epoch, EpochAt: timestamppb.New(f.EpochAt), ConnzCut: f.ConnzCut,
-		EventsCaptured: f.EventsCaptured}
+		EventsCaptured: f.EventsCaptured, CaptureGaps: f.EventsCaptured && f.CaptureGaps, Partial: f.Partial, Missing: slices.Sorted(slices.Values(f.Missing))}
 	in := func(acc string) bool { return account == "" || AccountOf(acc) == account }
 	groups := map[string]*appGroup{}
 	for _, c := range f.Connections {
@@ -191,7 +200,7 @@ func FinishApplications(f *ApplicationFacts, account string, includeTooling bool
 		name := ApplicationOf(c.Name)
 		g := groups[name]
 		if g == nil {
-			g = &appGroup{name: name, tooling: true, traffic: map[time.Time]*v1.HourTraffic{}}
+			g = &appGroup{name: name, tooling: true, traffic: map[time.Time]*v1.HourTraffic{}, names: map[string]*[2]int32{}}
 			groups[name] = g
 		}
 		g.conns = append(g.conns, c)
@@ -202,8 +211,12 @@ func FinishApplications(f *ApplicationFacts, account string, includeTooling bool
 		if g == nil || !in(e.Account) || (e.Tooling && !includeTooling) {
 			continue
 		}
-		g.drops += e.Drops
-		g.connects += e.Connects
+		n := g.names[e.Name]
+		if n == nil {
+			n = &[2]int32{}
+			g.names[e.Name] = n
+		}
+		n[0], n[1] = n[0]+e.Drops, n[1]+e.Connects
 		g.slow += e.Slow
 		g.stale += e.Stale
 		g.sl += e.ShortLived
@@ -250,6 +263,8 @@ func FinishApplications(f *ApplicationFacts, account string, includeTooling bool
 	})
 	res.ApplicationsTotal = int32(len(apps))
 	res.Spread, res.Libraries, res.LastDay = summarize(apps, f.EventsCaptured)
+	// The missing servers' connections are not known.
+	res.Spread.Concentrated = res.Spread.GetConcentrated() && !f.Partial
 	for _, a := range apps {
 		res.ConnectionsTotal += a.GetConnections()
 	}
@@ -280,7 +295,10 @@ func (g *appGroup) application(hours []time.Time, events bool) *v1.Application {
 		}
 		accounts[AccountOf(c.Account)] = true
 		servers[c.Server]++
-		libs[[2]string{c.Lang, c.Version}]++
+		if c.Lang != "" || c.Version != "" {
+			// A connection that reports no library is no library.
+			libs[[2]string{c.Lang, c.Version}]++
+		}
 		if c.RTT != nil {
 			rtts = append(rtts, *c.RTT)
 		}
@@ -292,6 +310,13 @@ func (g *appGroup) application(hours []time.Time, events bool) *v1.Application {
 			a.PendingBytesMax = ptrTo(max(a.GetPendingBytesMax(), *c.PendingBytes))
 		}
 	}
+	var names []string
+	for _, c := range g.conns {
+		if c.Name != "" {
+			names = append(names, c.Name)
+		}
+	}
+	a.ConnectionNames, a.MoreNames = cutNames(names, 0)
 	a.Instances = int32(len(pods) + len(podless))
 	a.PodsTotal = int32(len(pods))
 	a.Pods = firstSorted(pods, MaxApplicationPods)
@@ -316,7 +341,11 @@ func (g *appGroup) application(hours []time.Time, events bool) *v1.Application {
 		a.RttP50 = durationpb.New(medianDuration(rtts))
 	}
 	if events {
-		a.Reconnects_24H, a.SlowConsumers_24H, a.Stale_24H, a.ShortLived_24H = ptrTo(min(g.drops, g.connects)), ptrTo(g.slow), ptrTo(g.stale), ptrTo(g.sl)
+		var rec int32
+		for _, n := range g.names {
+			rec += min(n[0], n[1])
+		}
+		a.Reconnects_24H, a.SlowConsumers_24H, a.Stale_24H, a.ShortLived_24H = ptrTo(rec), ptrTo(g.slow), ptrTo(g.stale), ptrTo(g.sl)
 	}
 	for _, h := range hours {
 		t := g.traffic[h]
