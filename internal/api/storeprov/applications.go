@@ -15,11 +15,13 @@ import (
 // server's list was cut at the connz limit, the client events of the
 // api.ApplicationDay before the epoch counted by name, account and the
 // tooling rule of each event's epoch, whether event capture stopped in
-// that day (captureGaps), the hourly traffic of
-// api.TrafficHours, and the findings firing at the epoch. The traffic's
-// loopback rows count as tooling by the page's epoch's loopback decision,
-// for every hour. A request's account is applied in SQL as well as in
-// api.FinishApplications. The number of queries is fixed.
+// that day (captureGaps), the hourly traffic of api.TrafficHours, and the
+// findings firing at the epoch. The traffic's loopback rows count as
+// tooling by the page's epoch's loopback decision, for every hour. A
+// request's account is applied in SQL to the connections and the traffic
+// as well as in api.FinishApplications; the events are read for every
+// account, as a name's drops and connects pair across accounts. The
+// number of queries is fixed.
 func (p *Provider) Applications(ctx context.Context, req *v1.GetApplicationsRequest) (*api.ApplicationFacts, error) {
 	e, ok, err := p.latestEpoch(ctx, req.GetRange())
 	if err != nil || !ok {
@@ -46,7 +48,7 @@ SELECT EXISTS (SELECT 1 FROM server_stats WHERE epoch = $1 AND connz_total IS NO
 		return nil, err
 	}
 	f.EventsCaptured, f.CaptureGaps = capture.EventsCaptured, capture.CaptureGaps
-	if f.Events, err = p.appEvents(ctx, e.startedAt, acc); err != nil {
+	if f.Events, err = p.appEvents(ctx, e.startedAt); err != nil {
 		return nil, err
 	}
 	if f.Traffic, err = p.appTraffic(ctx, e.startedAt, rule, acc); err != nil {
@@ -107,10 +109,12 @@ ORDER BY s.server_name, c.cid`, epoch, account, account)
 
 // appEvents counts the client events of the api.ApplicationDay before
 // at by name, account and tooling, as api.CountClientEvent does: one
-// event's tooling by its own epoch's rule (eventToolingSQL).
-func (p *Provider) appEvents(ctx context.Context, at time.Time, account string) ([]api.AppEventFact, error) {
+// event's tooling by its own epoch's rule (eventToolingSQL). It reads
+// every account whatever the page's scope: a name's drops and connects
+// pair across accounts, as client-004 pairs them.
+func (p *Provider) appEvents(ctx context.Context, at time.Time) ([]api.AppEventFact, error) {
 	tooling, targs := p.eventToolingSQL("e.client_name", "e.client_host")
-	args := append(targs, us(at.Add(-api.ApplicationDay)), us(at), account, account)
+	args := append(targs, us(at.Add(-api.ApplicationDay)), us(at))
 	rows, err := p.db().QueryContext(ctx, `
 WITH t AS (
   SELECT e.kind, coalesce(e.client_name, '') AS name, coalesce(e.account, '') AS account, coalesce(e.reason, '') AS reason,
@@ -118,7 +122,7 @@ WITH t AS (
     `+tooling+` AS tooling
   FROM events e ASOF LEFT JOIN epochs x ON e.time >= x.started_at
   WHERE e.kind IN ('client.disconnect', 'client.connect', 'client.churn')
-    AND e.time > `+usParam+` AND e.time <= `+usParam+` AND `+accountIn("e.account")+`
+    AND e.time > `+usParam+` AND e.time <= `+usParam+`
 )
 SELECT name, account, tooling,
   count(*) FILTER (WHERE kind = 'client.disconnect' AND reason NOT IN ('Client Closed', 'Server Shutdown')),

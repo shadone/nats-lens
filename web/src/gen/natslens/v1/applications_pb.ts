@@ -361,8 +361,11 @@ export type Application = Message<"natslens.v1.Application"> & {
    * smaller of the disconnects for a reason other than "Client Closed"
    * and "Server Shutdown", and the connects (those folded into
    * client.churn events included). A drop under one name and a connect
-   * under another, as in a rolling deploy, do not pair. Unset when no
-   * event was captured up to the epoch.
+   * under another, as in a rolling deploy, do not pair. A name pairs
+   * across accounts, as client-004 pairs it: a page scoped to an account
+   * counts every name of the application with an event in that account,
+   * whatever account its other events are in. Unset when no event was
+   * captured up to the epoch.
    *
    * @generated from field: optional int32 reconnects_24h = 13;
    */
