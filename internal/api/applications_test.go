@@ -396,3 +396,30 @@ func TestFinishApplicationsConnectionNames(t *testing.T) {
 		}
 	}
 }
+
+// client-004 pairs a name's drops and connects across accounts: a page
+// scoped to one account counts the name's reconnects when the name has an
+// event in that account, beside its finding.
+func TestFinishApplicationsReconnectsPairAcrossAccounts(t *testing.T) {
+	f := &api.ApplicationFacts{Epoch: 1, EpochAt: appT0, EventsCaptured: true, Connections: []api.AppConnectionFact{
+		{Server: "nats-0", CID: 1, Name: "x", Account: "A"}, {Server: "nats-0", CID: 2, Name: "x", Account: "B"},
+		{Server: "nats-0", CID: 3, Name: "y", Account: "A"},
+	}, Events: []api.AppEventFact{
+		{Name: "x", Account: "A", Drops: 3, Stale: 3}, {Name: "x", Account: "B", Connects: 3},
+		// y's events are all in B.
+		{Name: "y", Account: "B", Drops: 2, Connects: 2},
+	}}
+	for _, c := range []struct {
+		scope  string
+		x, y   int32
+		xStale int32
+	}{{"", 3, 2, 3}, {"A", 3, 0, 3}, {"B", 3, -1, 0}} {
+		res := api.FinishApplications(f, c.scope, false)
+		if x := appByName(res, "x"); x.GetReconnects_24H() != c.x || x.GetStale_24H() != c.xStale {
+			t.Errorf("scope %q: x %d reconnects, %d stale", c.scope, x.GetReconnects_24H(), x.GetStale_24H())
+		}
+		if y := appByName(res, "y"); (c.y < 0) != (y == nil) || (y != nil && y.GetReconnects_24H() != c.y) {
+			t.Errorf("scope %q: y %v", c.scope, y)
+		}
+	}
+}

@@ -490,8 +490,11 @@ type Application struct {
 	// smaller of the disconnects for a reason other than "Client Closed"
 	// and "Server Shutdown", and the connects (those folded into
 	// client.churn events included). A drop under one name and a connect
-	// under another, as in a rolling deploy, do not pair. Unset when no
-	// event was captured up to the epoch.
+	// under another, as in a rolling deploy, do not pair. A name pairs
+	// across accounts, as client-004 pairs it: a page scoped to an account
+	// counts every name of the application with an event in that account,
+	// whatever account its other events are in. Unset when no event was
+	// captured up to the epoch.
 	Reconnects_24H *int32 `protobuf:"varint,13,opt,name=reconnects_24h,json=reconnects24h,proto3,oneof" json:"reconnects_24h,omitempty"`
 	// Disconnects in the same 24 hours whose reason contains "slow
 	// consumer" (client-003); unset when no event was captured.
