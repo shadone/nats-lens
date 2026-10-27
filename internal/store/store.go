@@ -29,9 +29,9 @@ type Store struct {
 	db  *sql.DB
 	mu  sync.Mutex
 	log *slog.Logger
-	// warned holds the conflicting duplicates already logged; written
-	// under mu by WriteSnapshot.
-	warned map[assetKey]bool
+	// warned holds the asset warnings already logged; written under mu by
+	// WriteSnapshot.
+	warned map[warning]bool
 }
 
 // SetLogger sets where the store reports data it skipped; the default is

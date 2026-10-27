@@ -104,7 +104,6 @@ func writeSchedule(t *testing.T, path string, sched []scheduledEpoch, write func
 		}
 		w := newWriter(ctx, tx, ep.epoch, collect.NewSnapshot(t0))
 		w.prevEpoch = ep.prev
-		w.warned = map[assetKey]bool{}
 		w.log = slog.New(slog.DiscardHandler)
 		for _, v := range ep.views {
 			write(w, v)

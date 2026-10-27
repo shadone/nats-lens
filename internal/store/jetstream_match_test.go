@@ -232,7 +232,6 @@ func writeJSScenario(t *testing.T, path string, bulk bool, byRow bool) []string 
 		}
 		w := newWriter(ctx, tx, e, collect.NewSnapshot(t0))
 		w.prevEpoch = prev
-		w.warned = map[assetKey]bool{}
 		w.log = slog.New(slog.DiscardHandler)
 		for i := range jsServers {
 			v := jsScenarioView(i, e, bulk)
