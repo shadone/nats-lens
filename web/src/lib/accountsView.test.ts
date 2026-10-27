@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { account, EPOCH_AT, expiring, global, login, prod, SUPPLIERS } from "../test/fixtures/accounts";
 import {
+  connectionsUsed,
   connLimitText,
   diskLimitText,
   diskStateText,
@@ -13,6 +14,7 @@ import {
   isIdle,
   jetStreamOff,
   jwtCell,
+  leafNodeParts,
   limitBar,
   limitBarText,
   memoryOnly,
@@ -305,5 +307,24 @@ describe("seenAtText", () => {
     // Under 24 hours back but on the previous UTC day: 13:20 alone would read as after a 10:00 collection.
     expect(seenAtText(expiring({ seenAt: Date.parse("2026-10-16T13:20:00Z") }), Date.parse("2026-10-17T10:00:00Z"))).toBe("read at 16 Oct 13:20 UTC; no answer from the server since");
     expect(seenAtText(expiring({ server: "nats-us-4" }), EPOCH_AT)).toBeUndefined();
+  });
+});
+
+describe("connections against the limit", () => {
+  it("counts the clients and the leaf nodes of the server that holds the most, as account-001 does", () => {
+    expect(connectionsUsed(account("APP", { connections: 85, leafnodes: 11, limitLeafnodes: 8, limitLeafnodesServer: "nats-0" }))).toBe(93);
+    expect(connectionsUsed(account("APP", { connections: 85 }))).toBe(85);
+    expect(connectionsUsed(account("APP", { connections: undefined, limitLeafnodes: 3 }))).toBeUndefined();
+  });
+
+  it("names the leaf nodes counted and their server under the count, and all of them when more are elsewhere", () => {
+    expect(leafNodeParts(account("APP", { leafnodes: 11, limitLeafnodes: 8, limitLeafnodesServer: "nats-0" }))).toEqual([
+      "includes 8 leaf nodes on nats-0",
+      "11 leaf nodes in all",
+    ]);
+    expect(leafNodeParts(account("APP", { leafnodes: 1, limitLeafnodes: 1, limitLeafnodesServer: "nats-2" }))).toEqual(["includes 1 leaf node on nats-2"]);
+    expect(leafNodeParts(account("APP", { leafnodes: 0, limitLeafnodes: 0 }))).toBeUndefined();
+    // A server that does not say which server holds them: the leaf nodes as before.
+    expect(leafNodeParts(account("APP", { leafnodes: 3, limitLeafnodes: undefined }))).toEqual(["3 leaf nodes"]);
   });
 });

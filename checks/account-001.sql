@@ -26,8 +26,8 @@ description: >-
   certificates. At the limit a service that restarts or scales out cannot connect. A server whose count goes over the
   limit, as when another server reports more clients, closes its newest connections of the account, clients and leaf
   nodes alike, until it is back at the limit. Read from the account's newest lookup within the last 24 hours, as on the
-  Accounts page; an account without a JWT (config mode), without a limit (-1) or not looked up within 24 hours is not
-  reported.
+  Accounts page, whose Connections cell shows the same count; an account without a JWT (config mode), without a limit
+  (-1) or not looked up within 24 hours is not reported.
 remediation: >-
   Find which clients hold the connections: the Connections page filtered to the account, grouped by name, and the
   leaf node connections of the server the detail names. A client that opens a connection per request or leaks

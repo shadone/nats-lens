@@ -84,9 +84,17 @@ type AccountFact struct {
 	Account, Name string
 	IsSystem      bool
 	// Connections, Leafnodes and Subscriptions are summed over the
-	// servers; nil when no server reported them.
+	// servers, one process per server name; nil when no server reported
+	// them.
 	Connections, Leafnodes *int32
 	Subscriptions          *int64
+	// LimitLeafnodes are the leaf node connections of the server that
+	// holds the most, LimitLeafnodesServer, which nats-server counts
+	// against the connection limit with every server's clients (see
+	// checks.AccountConnectionsSQL); nil as Connections, the server empty
+	// without leaf nodes.
+	LimitLeafnodes       *int32
+	LimitLeafnodesServer string
 	// JSStorage and JSMemory are the largest any server reports.
 	JSStorage, JSMemory *int64
 	// Streams is the distinct streams of the account; nil when not known.
@@ -162,7 +170,11 @@ func FinishAccounts(f *AccountsFacts) *v1.GetAccountsAndAuthResponse {
 	for _, a := range f.Accounts {
 		res.OperatorMode = res.OperatorMode || IsAccountKey(a.Account)
 		row := &v1.AccountRow{Account: a.Account, AccountName: a.Name, IsSystem: a.IsSystem, Connections: a.Connections,
-			Leafnodes: a.Leafnodes, Subscriptions: a.Subscriptions, JsStorage: a.JSStorage, JsMemory: a.JSMemory, Streams: a.Streams}
+			Leafnodes: a.Leafnodes, Subscriptions: a.Subscriptions, JsStorage: a.JSStorage, JsMemory: a.JSMemory, Streams: a.Streams,
+			LimitLeafnodes: a.LimitLeafnodes}
+		if a.LimitLeafnodes != nil && *a.LimitLeafnodes > 0 {
+			row.LimitLeafnodesServer = a.LimitLeafnodesServer
+		}
 		if d := f.detailsOf(a); d != nil {
 			row.DetailsKnown, row.DetailsAt, row.HasJwt, row.Expired = true, timestamppb.New(d.At), d.HasJWT, d.Expired
 			row.Imports, row.Exports = ptrTo(d.Imports), ptrTo(d.Exports)
