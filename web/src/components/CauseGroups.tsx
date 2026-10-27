@@ -36,7 +36,7 @@ function nounOf(fs: Finding[]): string {
  * "2 consumers on 2 streams", "3 servers". A parent is named only when
  * every entity has it.
  */
-function whereLine(g: CauseGroup) {
+function whereLine(g: CauseGroup, label: (id: string, name?: string) => string) {
   const n = g.findings.length;
   const noun = nounOf(g.findings);
   const first = g.findings[0].entity;
@@ -46,10 +46,10 @@ function whereLine(g: CauseGroup) {
         {n} {noun} on stream <RLink to={streamPath(first.account, first.stream)}>{g.parent.name}</RLink>
       </>
     );
-  if (g.parent?.kind === "account")
+  if (g.parent?.kind === "account" && first)
     return (
       <>
-        {n} {noun} in account <span className="mono">{g.parent.name}</span>
+        {n} {noun} in account <span className="mono">{label(first.account, first.accountName)}</span>
       </>
     );
   if (!g.parent && g.findings.every((f) => f.entity?.kind === "consumer"))
@@ -154,7 +154,7 @@ function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void 
         <h3>{names.join(" · ")}</h3>
         {g.cause && g.checkCodes.length > 1 && <span className="lbl">one cause</span>}
       </div>
-      <p className="cg-where">{whereLine(g)}</p>
+      <p className="cg-where">{whereLine(g, accounts)}</p>
       {g.cause && <CauseLine cause={g.cause} />}
       <ul className="cg-list">
         {shown.map((f) => (
@@ -215,7 +215,8 @@ function MutedStrip({ muted }: { muted: Finding[] }) {
 
 export function CauseGroups({ groups, muted, onMute }: { groups: CauseGroup[]; muted: Finding[]; onMute: (f: Finding) => void }) {
   if (groups.length === 0 && muted.length === 0) return null;
-  const label = accountLabeller([...groups.flatMap((g) => g.findings), ...muted].flatMap((f) => (f.entity?.kind === "account" ? [f.entity] : [])));
+  // Every account the cards name: account entities and the accounts of streams and consumers.
+  const label = accountLabeller([...groups.flatMap((g) => g.findings), ...muted].flatMap((f) => (f.entity?.account ? [f.entity] : [])));
   return (
     <AccountLabelContext.Provider value={label}>
       <section className="causes" aria-labelledby="causes-h">
