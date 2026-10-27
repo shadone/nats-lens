@@ -44,7 +44,8 @@ The account checks turn what the Accounts page shows into findings, so that an o
 
 ## Behavior and rules
 
-- **The Accounts page's data.** The checks read the same numbers the Accounts page shows for the collection: connections summed over the servers, disk use the largest any server reports, and the account's newest lookup at or before the collection. `account-001` adds the leaf node connections of one server, as nats-server counts them; the page's Connections cell and its bar count client connections only, so with leaf nodes the finding can fire below the page's share.
+- **The Accounts page's data.** The checks read the same numbers the Accounts page shows for the collection: connections summed over the servers with the leaf node connections of the server that holds the most, disk use the largest any server reports, and the account's newest lookup at or before the collection. `account-001` and the page's Connections cell read one shared query, so the finding fires exactly when the page's share reaches 90%.
+- **One process per server name.** Of two processes of one server name in the collection, the old one shutting down and the new one up, `account-001` counts only the later started, as `server-016` reads certificates: the name's clients count once and it is named once among the servers that refuse.
 - **A lookup counts for 24 hours.** Limits and the account JWT come from an ACCOUNTZ lookup, each account at most every 10 minutes. A lookup more than 24 hours older than the collection, which the page reads as "not looked up yet", fires no `account-001`, `account-002` or `account-003` finding.
 - **Expiry is measured from the collection.** "Within 14 days" counts from the start of the collection, in UTC, whatever the time zone of the host.
 - **Expiry warnings never head an outage.** `account-003`, `account-004` and `server-016` have the category `expiry`: their warnings rank after every other warning, in the Findings list, the systems list's and the Overview's worst finding and the cause cards, so `example-global` is headed by `nats-us-4`'s outage, not by a JWT that expires in 5 days. They still fire and alert as warnings. A critical expiry, expired or within 3 days, ranks as any critical finding. `account-001` and `account-002` rank as any other finding.
@@ -57,6 +58,13 @@ The account checks turn what the Accounts page shows into findings, so that an o
 - **Given** the account `APP`, whose JWT allows 2,000 connections, with 1,200 on `nats-0` and 800 on `nats-1`
 - **When** nats-lens collects
 - **Then** `account-001` fires as critical for `APP`, with the detail "APP: 2000 of 2000 client connections (100.0%); at the limit, every server refuses new client connections of the account."
+
+### A server restarts during a collection
+
+- **Given** the account `APP`, whose JWT allows 62 connections, and two processes of `nats-0` in one collection: the old one, shutting down, reports 30 client connections and 5 leaf nodes; the new one 20 and 2; `nats-1` reports 40 client connections
+- **When** nats-lens collects
+- **Then** `account-001` fires as critical with "APP: 62 of 62 connections (100.0%): 60 client connections and 2 leaf node connections on nats-0, which counts its own leaf nodes against the limit; at the limit, nats-0 refuses new client connections of the account."
+- **And** the Accounts page shows "62 of 62" for `APP`
 
 ### An account's disk use nears its limit
 
