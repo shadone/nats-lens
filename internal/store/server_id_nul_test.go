@@ -25,7 +25,7 @@ func TestServerIDWithNUL(t *testing.T) {
 			Connz: &server.Connz{ID: id, Conns: []*server.ConnInfo{{Cid: 1, Account: "APP"}}},
 			Subsz: &server.Subsz{ID: id, Total: 1, Subs: []server.SubDetail{{Account: "APP", Subject: "a", Cid: 1}}},
 			Jsz: &server.JSInfo{AccountDetails: []*server.AccountDetail{{Id: "APP", Streams: []server.StreamDetail{{
-				Name: "s", Created: t0, Config: &server.StreamConfig{Name: "s"},
+				Name: "s", Created: t0, Config: &server.StreamConfig{Name: "s", Storage: server.FileStorage},
 				Cluster: &server.ClusterInfo{Leader: "nats-0", Replicas: []*server.PeerInfo{{Name: "nats-1"}}},
 				Consumer: []*server.ConsumerInfo{{Stream: "s", Name: "c", Created: t0, Config: &server.ConsumerConfig{Durable: "c"},
 					Cluster: &server.ClusterInfo{Leader: "nats-0", Replicas: []*server.PeerInfo{{Name: "nats-1"}}}}},
