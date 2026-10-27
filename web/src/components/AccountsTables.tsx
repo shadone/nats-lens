@@ -7,6 +7,7 @@ import { dayMonHm, fmtBytes, fmtInt, isoDate, shortWhen } from "../lib/format";
 import {
   accountTitle,
   connectionsUsed,
+  connLimitBar,
   connLimitText,
   EVENTS_NOT_CAPTURED_TEXT,
   diskLimitText,
@@ -147,7 +148,7 @@ function ConnectionsCell({ a }: { a: AccountRow }) {
   const used = connectionsUsed(a);
   if (used === undefined) return <Unset why="not reported" />;
   const of = connLimitText(a.connLimit);
-  const bar = limitBar(used, a.connLimit);
+  const bar = connLimitBar(used, a.connLimit);
   const leafs = leafNodeParts(a);
   return (
     <>
