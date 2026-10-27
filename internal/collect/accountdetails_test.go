@@ -202,3 +202,23 @@ func TestSumTiersOverflowIsNoLimit(t *testing.T) {
 		t.Errorf("disk %d streams %d, want -1", got.Disk, got.Streams)
 	}
 }
+
+// An account lookup whose imports, exports and JWT carry an export type
+// and a latency sampling rate this version does not know keeps the
+// account's details: the lookup decodes into its own types, which hold no
+// enum field.
+func TestAccountDetailsWithUnknownExportType(t *testing.T) {
+	b := accountzReply(`{"account_name":"APP","is_system":false,
+		"imports":[{"account":"OTHER","subject":"y.>","type":"future"}],
+		"exports":[{"subject":"x.>","type":"future","response_type":"future"}],
+		"decoded_jwt":{"name":"shop","iat":1760000000,"nats":{
+			"exports":[{"subject":"x.>","type":"future","service_latency":{"sampling":"future","results":"r"}}],
+			"imports":[{"subject":"y.>","type":"future"}],"limits":{"conn":5}}}}`)
+	d, ok := accountDetailsFromReply(b, "APP", lookupAt)
+	if !ok {
+		t.Fatal("account details lost")
+	}
+	if d.Name != "shop" || d.Imports != 1 || d.Exports != 1 || !d.HasJWT || d.Limits.Connections != 5 {
+		t.Errorf("details = %+v", d)
+	}
+}
