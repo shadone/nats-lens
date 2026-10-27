@@ -256,6 +256,11 @@ describe("Accounts' warnings beyond colour", () => {
     expect(conns.firstElementChild).toHaveTextContent("93 of 100");
     expect(within(conns).getByRole("img")).toHaveAccessibleName("Connections: 93% of the limit");
     expect(conns).toHaveTextContent("includes 8 leaf nodes on nats-0 · 11 leaf nodes in all");
+    // The dot is kept on one line with the part after it, so no line ends with it.
+    expect([...conns.querySelectorAll("small:not(.ac-limit-note) .ac-nw")].map((e) => e.textContent)).toEqual([
+      "includes 8 leaf nodes on nats-0",
+      "· 11 leaf nodes in all",
+    ]);
   });
 
   it("says a warning count's share in words, and nothing below 80%", async () => {
