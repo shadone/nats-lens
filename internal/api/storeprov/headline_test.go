@@ -84,9 +84,8 @@ func TestCompareWorstOrder(t *testing.T) {
 	}
 }
 
-// With only expiry warnings and an outage that is
-// muted, the headline is the expiry (the muted one does not head), and a
-// critical expiry heads a warning outage in the systems list and Overview.
+// A critical expiry heads a warning outage that fires longer, in the
+// systems list and the Overview, and GetFinding marks it expiry.
 func TestCriticalExpiryHeadsWarningOutage(t *testing.T) {
 	st := fixtureStore(t)
 	set, err := checks.Load(config.Checks{})
