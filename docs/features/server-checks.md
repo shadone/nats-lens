@@ -6,7 +6,7 @@
 
 ## What it does
 
-The server checks judge each NATS server on its own: whether it answers, whether its health endpoint and JetStream are ready, whether it restarted, whether its store or memory is filling, and whether its clients are slow, stalled, churning or going stale. A server finding is keyed by the server's stable name, so it survives the server's restarts. There are 15 server checks, `server-001` to `server-015`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
+The server checks judge each NATS server on its own: whether it answers, whether its health endpoint and JetStream are ready, whether it restarted, whether its store or memory is filling, whether its clients are slow, stalled, churning or going stale, and whether a TLS certificate of its listeners expires soon. A server finding is keyed by the server's stable name, so it survives the server's restarts. There are 16 server checks, `server-001` to `server-016`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
 
 ## The checks
 
@@ -130,6 +130,15 @@ The server checks judge each NATS server on its own: whether it answers, whether
 - **Thresholds:** lookback 15m.
 - **Left out:** growth across a restart.
 
+### `server-016` TLS certificate expires soon
+
+- **Problem:** the TLS certificate of one of the server's listeners (client, cluster, gateway, leaf node, websocket, MQTT) expires soon or has expired. Once it expires, clients, routes, gateways or leaf nodes that verify it can no longer connect through that listener.
+- **Fires when:** a certificate VARZ reports expires within `warn_within` of the collection, or has expired. One finding per server; the detail names every listener whose certificate expires within `warn_within`, soonest first, such as "nats-0: client certificate expires 2026-10-29 09:00 UTC, in 12 days."
+- **Severity:** warning. Critical within `crit_within`, or once expired.
+- **Thresholds:** `warn_within` 14d, `crit_within` 3d.
+- **Related settings:** the expiry of every listener certificate the server reports, under its VARZ field name (`tls_cert_not_after`, `cluster.tls_cert_not_after`, and so on), read from that server.
+- **Left out:** a listener without TLS, or whose certificate comes from a certificate store, since VARZ reports no expiry for it. A server that did not answer VARZ in the collection keeps the certificates of its newest answer within 24 hours, as on the Accounts page, and its detail says when VARZ reported them; an older answer is not read.
+
 ## Behavior and rules
 
 - **Keyed by server name.** A server finding belongs to the server's name, so a restart does not start a new finding.
@@ -164,6 +173,12 @@ The server checks judge each NATS server on its own: whether it answers, whether
 - **When** the forecast says it is full in two days
 - **Then** `server-014` "JetStream store full soon" is critical, with the growth per day and the time left ("full in 2 days", or in hours when under a day) in the detail
 
+### A certificate is about to expire
+
+- **Given** `nats-0`'s cluster certificate expires in 2 days and its client certificate in 12 days
+- **When** nats-lens collects
+- **Then** `server-016` "TLS certificate expires soon" is critical for `nats-0`, naming the cluster certificate first and then the client certificate, each with its date and the days left
+
 ### Tune the store warning
 
 - **Surfaces:** `cli`
@@ -183,7 +198,6 @@ These server checks are not built. Each line says what it would detect and what 
 - **Connections near `max_connections`.** A server holds most of the connections it allows. Needs: the open connections and `max_connections` from VARZ, stored today.
 - **JetStream API error rate.** A server's share of JetStream API calls that fail is high. Needs: the API totals and errors from JSZ, stored today per server and per account.
 - **Internal queue backlog.** A server's internal queues hold a growing backlog. Needs: IPQUEUESZ, stored today.
-- **TLS certificate expiry.** A listener's certificate expires within a set number of days. Needs: the certificate expiry that VARZ reports per listener (`tls_cert_not_after`, for the client, cluster, gateway, leaf node, MQTT and websocket listeners in nats-server 2.15). nats-lens does not store these fields yet.
 - **CPU saturated.** A server's CPU stays near the number of cores it may use. Needs: CPU, cores and `GOMAXPROCS` from VARZ, stored today.
 - **OCSP peer rejected.** A server rejected a peer's certificate by OCSP. Needs: the `$SYS.SERVER.*.OCSP.PEER.CONN.REJECT` events, which nats-lens does not subscribe to yet.
 

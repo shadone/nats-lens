@@ -1,16 +1,22 @@
 // Finding pieces: the entity line and a row of the findings list.
+import { createContext, useContext } from "react";
 import type { Entity, Finding } from "../api/model";
 import { fmtDuration, isoDate, isoMinute, shortWhen } from "../lib/format";
 import { muteBy, reviewOn, sentence } from "../lib/muteView";
-import { entityName, entityPath, findingPath, findingTag, streamPath } from "../lib/view";
+import { accountLabel, entityName, entityPath, findingPath, findingTag, streamPath } from "../lib/view";
 import { RLink } from "./common";
 import { Sev, StateTag } from "./Severity";
 
+/** How a list labels its accounts (accountLabeller of its entities), so
+ * two accounts of one name read apart; one account alone reads by name. */
+export const AccountLabelContext = createContext<(id: string, name?: string) => string>(accountLabel);
+
 /** "consumer on stream stream", with links. */
-export function EntityLine({ e, small }: { e?: Entity; small?: boolean }) {
+export function EntityLine({ e, small, label }: { e?: Entity; small?: boolean; label?: (id: string, name?: string) => string }) {
+  const listLabel = useContext(AccountLabelContext);
   if (!e) return <span>system</span>;
   const path = entityPath(e);
-  const name = entityName(e);
+  const name = entityName(e, label ?? listLabel);
   const main = path ? <RLink to={path}>{name}</RLink> : <span>{name}</span>;
   if (e.kind !== "consumer") return main;
   const on = small ? <small>on</small> : <span>on stream</span>;
@@ -22,7 +28,7 @@ export function EntityLine({ e, small }: { e?: Entity; small?: boolean }) {
 }
 
 /** One row of the findings list; a muted or accepted one shows who muted or accepted it and why. */
-export function FindingRow({ f, end, rangeStart }: { f: Finding; end: number; rangeStart?: number }) {
+export function FindingRow({ f, end, rangeStart, label }: { f: Finding; end: number; rangeStart?: number; label?: (id: string, name?: string) => string }) {
   const tag = findingTag(f, rangeStart);
   const m = f.mute;
   const since = f.since ?? end;
@@ -39,7 +45,7 @@ export function FindingRow({ f, end, rangeStart }: { f: Finding; end: number; ra
         {(tag === "FLAPPING" || tag === "RESOLVED" || tag === "CHANGED") && <StateTag tag={tag} />}
         <br />
         <span className="e">
-          <EntityLine e={f.entity} small />
+          <EntityLine e={f.entity} small label={label} />
         </span>
       </span>
       <span className="d">{f.detail}</span>

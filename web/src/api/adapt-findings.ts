@@ -66,6 +66,7 @@ export function finding(f: PFinding): Finding {
       : undefined,
     mute: mute(f.mute),
     transitionsLastHour: f.transitionsLastHour,
+    ...(f.expiry ? { expiry: true } : {}),
   };
 }
 

@@ -92,7 +92,7 @@ var (
 	codePattern  = regexp.MustCompile(`^([a-z]+)-(\d{3})$`)
 	namePattern  = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 	varPattern   = regexp.MustCompile(`getvariable\(\s*'([^']*)'\s*\)`)
-	categories   = map[string]bool{"health": true, "agreement": true, "inventory": true, "consumers": true, "storage": true, "clients": true, "change": true, "engine": true}
+	categories   = map[string]bool{"health": true, "agreement": true, "inventory": true, "consumers": true, "storage": true, "clients": true, "change": true, "engine": true, CategoryExpiry: true}
 	severities   = map[string]bool{"info": true, "warning": true, "critical": true}
 	units        = map[string]bool{UnitCount: true, UnitRatio: true, UnitBytes: true, UnitDuration: true}
 	reservedVars = map[string]bool{"epoch": true, "epoch_time": true, "prev_epoch": true, "window_start": true, "window_epoch": true, "lookback": true, "lookback_text": true, "restart_window": true, "exclude_tooling": true, "tooling_names": true, "loopback_setting": true, "loopback_now": true}
