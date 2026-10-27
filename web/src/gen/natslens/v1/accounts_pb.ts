@@ -413,8 +413,8 @@ export type GetAccountsAndAuthResponse = Message<"natslens.v1.GetAccountsAndAuth
   operatorMode: boolean;
 
   /**
-   * Accounts: the system account last, the others by connections, most
-   * first, then by account name. At most 500.
+   * Accounts: the system account last, the others by connections plus
+   * limit_leafnodes, most first, then by account name. At most 500.
    *
    * @generated from field: repeated natslens.v1.AccountRow accounts = 4;
    */

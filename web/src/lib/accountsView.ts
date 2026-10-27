@@ -51,10 +51,10 @@ function cmpStr(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-/** The server's order, kept on the page: the system account last, the others by connections, most first, then by name. */
+/** The server's order, kept on the page: the system account last, the others by the connections the cell shows (connectionsUsed), most first, then by name. */
 export function compareAccounts(a: AccountRow, b: AccountRow): number {
   if (a.isSystem !== b.isSystem) return a.isSystem ? 1 : -1;
-  const c = (b.connections ?? 0) - (a.connections ?? 0);
+  const c = (connectionsUsed(b) ?? 0) - (connectionsUsed(a) ?? 0);
   if (c !== 0) return c;
   return cmpStr(accountTitle(a), accountTitle(b)) || cmpStr(a.account, b.account);
 }

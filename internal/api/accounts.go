@@ -259,9 +259,11 @@ func (l *expiringList) add(epochAt time.Time, e *v1.Expiring, expires *time.Time
 }
 
 // compareAccountRows puts the system account last and the others by
-// connections, most first (unknown as none), then by name.
+// connections against the limit (clients plus limit_leafnodes, as the
+// page's cell shows them), most first (unknown as none), then by name.
 func compareAccountRows(a, b *v1.AccountRow) int {
-	return cmp.Or(compareBool(a.GetIsSystem(), b.GetIsSystem()), cmp.Compare(b.GetConnections(), a.GetConnections()),
+	used := func(r *v1.AccountRow) int32 { return r.GetConnections() + r.GetLimitLeafnodes() }
+	return cmp.Or(compareBool(a.GetIsSystem(), b.GetIsSystem()), cmp.Compare(used(b), used(a)),
 		cmp.Compare(cmp.Or(a.GetAccountName(), a.GetAccount()), cmp.Or(b.GetAccountName(), b.GetAccount())),
 		cmp.Compare(a.GetAccount(), b.GetAccount()))
 }
