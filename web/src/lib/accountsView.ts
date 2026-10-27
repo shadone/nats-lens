@@ -51,10 +51,10 @@ function cmpStr(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-/** The server's order, kept on the page: the system account last, the others by connections, most first, then by name. */
+/** The server's order, kept on the page: the system account last, the others by the connections the cell shows (connectionsUsed), most first, then by name. */
 export function compareAccounts(a: AccountRow, b: AccountRow): number {
   if (a.isSystem !== b.isSystem) return a.isSystem ? 1 : -1;
-  const c = (b.connections ?? 0) - (a.connections ?? 0);
+  const c = (connectionsUsed(b) ?? 0) - (connectionsUsed(a) ?? 0);
   if (c !== 0) return c;
   return cmpStr(accountTitle(a), accountTitle(b)) || cmpStr(a.account, b.account);
 }
@@ -76,26 +76,67 @@ export interface LimitBar {
   pct: number;
   /** The real share of the limit in percent, above 100 over the limit. */
   share: number;
-  /** ok below 80%, warn from 80% up to the limit, crit over it. */
+  /** ok below 80%, warn from 80% up to the limit, crit over it (connLimitBar: from the limit). */
   tone: "ok" | "warn" | "crit";
 }
 
-export function limitBar(used: number | undefined, limit: number | undefined): LimitBar | undefined {
+/** A bar against a limit, critical over it as the JetStream disk bar is, or from it with critAtLimit (connLimitBar). */
+export function limitBar(used: number | undefined, limit: number | undefined, critAtLimit = false): LimitBar | undefined {
   if (used === undefined || limit === undefined || limit <= 0) return undefined;
   const share = (used * 100) / limit;
-  const tone = used > limit ? "crit" : share >= LIMIT_WARN * 100 ? "warn" : "ok";
+  const crit = critAtLimit ? used >= limit : used > limit;
+  const tone = crit ? "crit" : share >= LIMIT_WARN * 100 ? "warn" : "ok";
   return { pct: Math.min(100, Math.max(0, share)), share, tone };
 }
 
-/** The bar's words, also its non-colour cue: "82% of the limit", "150% of the limit, over the limit". */
+/**
+ * The connection bar: critical at the limit, the owner's decision of
+ * 2026-10-27, since nats-server refuses new clients there and account-001
+ * is critical there.
+ */
+export function connLimitBar(used: number | undefined, limit: number | undefined): LimitBar | undefined {
+  return limitBar(used, limit, true);
+}
+
+/** The bar's words, also its non-colour cue: "82% of the limit", "100% of the limit, at the limit", "150% of the limit, over the limit". */
 export function limitBarText(bar: LimitBar): string {
   return limitBarParts(bar).join(", ");
 }
 
-/** The bar's words in parts, each kept on one line: ["150% of the limit", "over the limit"]. */
+/** The bar's words in parts, each kept on one line: ["150% of the limit", "over the limit"], ["100% of the limit", "at the limit"]. */
 export function limitBarParts(bar: LimitBar): string[] {
   const pct = `${fmtInt(Math.floor(bar.share))}% of the limit`;
-  return bar.tone === "crit" ? [pct, "over the limit"] : [pct];
+  if (bar.tone !== "crit") return [pct];
+  return [pct, bar.share > 100 ? "over the limit" : "at the limit"];
+}
+
+/**
+ * The connections counted against the limit, as nats-server and
+ * account-001 count them: every server's client connections plus the leaf
+ * nodes of the server that holds the most, which refuses first. Undefined
+ * when the clients were not reported.
+ */
+export function connectionsUsed(a: AccountRow): number | undefined {
+  if (a.connections === undefined) return undefined;
+  return a.connections + (a.limitLeafnodes ?? 0);
+}
+
+/**
+ * The line under the connection count, in parts: ["includes 8 leaf nodes on
+ * nats-0", "11 leaf nodes in all"] when leaf nodes on other servers are not
+ * counted, ["3 leaf nodes"] when the server holding the most is not known;
+ * undefined without leaf nodes.
+ */
+export function leafNodeParts(a: AccountRow): string[] | undefined {
+  const all = a.leafnodes ?? 0;
+  const counted = a.limitLeafnodes ?? 0;
+  if (counted > 0) {
+    const parts = [`includes ${plural(counted, "leaf node")}${a.limitLeafnodesServer ? ` on ${a.limitLeafnodesServer}` : ""}`];
+    if (all > counted) parts.push(`${plural(all, "leaf node")} in all`);
+    return parts;
+  }
+  if (a.limitLeafnodes === undefined && all > 0) return [plural(all, "leaf node")];
+  return undefined;
 }
 
 /** "of 2,000", "of unlimited", or undefined without a limit. */

@@ -21,11 +21,13 @@ description: >-
   node connections of the account, plus the client connections the other servers report for it, reach the limit
   ("maximum account active connections exceeded"). Each server counts only its own leaf nodes, so the count is the
   client connections summed over the servers that answered in the collection plus the leaf node connections of the
-  server that holds the most of them, the first server to refuse. At the limit a service that restarts or scales out
-  cannot connect. A server whose count goes over the limit, as when another server reports more clients, closes its
-  newest connections of the account, clients and leaf nodes alike, until it is back at the limit. Read from the
-  account's newest lookup within the last 24 hours, as on the Accounts page; an account without a JWT (config mode),
-  without a limit (-1) or not looked up within 24 hours is not reported.
+  server that holds the most of them, the first server to refuse. Two processes of one server name in the
+  collection (the old one shutting down, the new one up) both count, as nats-server keeps their connections apart
+  until the old one shuts down; the server is named once among those that refuse. At the limit a service that restarts or scales out cannot connect. A server whose count goes over the
+  limit, as when another server reports more clients, closes its newest connections of the account, clients and leaf
+  nodes alike, until it is back at the limit. Read from the account's newest lookup within the last 24 hours, as on the
+  Accounts page, whose Connections cell shows the same count; an account without a JWT (config mode), without a limit
+  (-1) or not looked up within 24 hours is not reported.
 remediation: >-
   Find which clients hold the connections: the Connections page filtered to the account, grouped by name, and the
   leaf node connections of the server the detail names. A client that opens a connection per request or leaks
@@ -38,19 +40,21 @@ value_basis: >-
   client connections summed over the servers of the collection, plus the leaf node connections of the server with the
   most, divided by the account JWT's connection limit
 */
+-- Each account's share on each server process, and its connections as
+-- nats-server counts them (account_servers and
+-- account_connections, which the Accounts page reads too): every server's
+-- clients and the leaf nodes of the server with the most, which reaches the
+-- limit first.
 WITH per_server AS (
-    SELECT st.account, coalesce(s.server_name, st.server_id) AS server_name, coalesce(st.conns, 0) AS conns,
-        coalesce(st.leafnodes, 0) AS leafs
-    FROM account_stats st LEFT JOIN servers s USING (server_id)
-    WHERE st.epoch = getvariable('epoch') AND (st.conns IS NOT NULL OR st.leafnodes IS NOT NULL)
+    SELECT account, server_name, coalesce(conns, 0) AS conns, coalesce(leafnodes, 0) AS leafs
+    FROM account_servers(getvariable('epoch'))
+    WHERE conns IS NOT NULL OR leafnodes IS NOT NULL
 ),
--- nats-server counts its own leaf nodes and every server's clients, so the
--- server with the most leaf nodes of the account reaches the limit first.
 st AS (
-    SELECT account, sum(conns)::BIGINT AS clients, max(leafs)::BIGINT AS leafs,
-        arg_max(server_name, (leafs, server_name)) AS leaf_server
-    FROM per_server
-    GROUP BY account
+    SELECT account, coalesce(clients, 0) AS clients, coalesce(limit_leafnodes, 0) AS leafs,
+        limit_leafnodes_server AS leaf_server
+    FROM account_connections(getvariable('epoch'))
+    WHERE clients IS NOT NULL OR limit_leafnodes IS NOT NULL
 ),
 cur AS (
     SELECT d.account, d.title, d.limit_connections, st.clients, st.leafs, st.leaf_server, st.clients + st.leafs AS used,
@@ -60,9 +64,9 @@ cur AS (
 ),
 -- The servers that refuse a new client: each whose own leaf nodes, with
 -- every server's clients, reach the limit; every server once the clients
--- alone reach it.
+-- alone reach it. Two processes of one name are named once.
 refusing AS (
-    SELECT c.account, list(p.server_name ORDER BY p.server_name) AS servers
+    SELECT c.account, list_sort(list_distinct(list(p.server_name))) AS servers
     FROM cur c JOIN per_server p USING (account)
     WHERE c.clients + p.leafs >= c.limit_connections
     GROUP BY c.account

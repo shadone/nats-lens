@@ -83,10 +83,17 @@ type AccountsFacts struct {
 type AccountFact struct {
 	Account, Name string
 	IsSystem      bool
-	// Connections, Leafnodes and Subscriptions are summed over the
-	// servers; nil when no server reported them.
+	// Connections, Leafnodes and Subscriptions are summed over the server
+	// processes; nil when no server reported them.
 	Connections, Leafnodes *int32
 	Subscriptions          *int64
+	// LimitLeafnodes are the leaf node connections of the server that
+	// holds the most, LimitLeafnodesServer, which nats-server counts
+	// against the connection limit with every server's clients (see
+	// checks.AccountConnectionsSQL); nil as Connections, the server empty
+	// without leaf nodes.
+	LimitLeafnodes       *int32
+	LimitLeafnodesServer string
 	// JSStorage and JSMemory are the largest any server reports.
 	JSStorage, JSMemory *int64
 	// Streams is the distinct streams of the account; nil when not known.
@@ -162,7 +169,11 @@ func FinishAccounts(f *AccountsFacts) *v1.GetAccountsAndAuthResponse {
 	for _, a := range f.Accounts {
 		res.OperatorMode = res.OperatorMode || IsAccountKey(a.Account)
 		row := &v1.AccountRow{Account: a.Account, AccountName: a.Name, IsSystem: a.IsSystem, Connections: a.Connections,
-			Leafnodes: a.Leafnodes, Subscriptions: a.Subscriptions, JsStorage: a.JSStorage, JsMemory: a.JSMemory, Streams: a.Streams}
+			Leafnodes: a.Leafnodes, Subscriptions: a.Subscriptions, JsStorage: a.JSStorage, JsMemory: a.JSMemory, Streams: a.Streams,
+			LimitLeafnodes: a.LimitLeafnodes}
+		if a.LimitLeafnodes != nil && *a.LimitLeafnodes > 0 {
+			row.LimitLeafnodesServer = a.LimitLeafnodesServer
+		}
 		if d := f.detailsOf(a); d != nil {
 			row.DetailsKnown, row.DetailsAt, row.HasJwt, row.Expired = true, timestamppb.New(d.At), d.HasJWT, d.Expired
 			row.Imports, row.Exports = ptrTo(d.Imports), ptrTo(d.Exports)
@@ -248,9 +259,11 @@ func (l *expiringList) add(epochAt time.Time, e *v1.Expiring, expires *time.Time
 }
 
 // compareAccountRows puts the system account last and the others by
-// connections, most first (unknown as none), then by name.
+// connections against the limit (clients plus limit_leafnodes, as the
+// page's cell shows them), most first (unknown as none), then by name.
 func compareAccountRows(a, b *v1.AccountRow) int {
-	return cmp.Or(compareBool(a.GetIsSystem(), b.GetIsSystem()), cmp.Compare(b.GetConnections(), a.GetConnections()),
+	used := func(r *v1.AccountRow) int32 { return r.GetConnections() + r.GetLimitLeafnodes() }
+	return cmp.Or(compareBool(a.GetIsSystem(), b.GetIsSystem()), cmp.Compare(used(b), used(a)),
 		cmp.Compare(cmp.Or(a.GetAccountName(), a.GetAccount()), cmp.Or(b.GetAccountName(), b.GetAccount())),
 		cmp.Compare(a.GetAccount(), b.GetAccount()))
 }

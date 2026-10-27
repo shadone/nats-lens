@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/accounts.proto.
  */
 export const file_natslens_v1_accounts: GenFile = /*@__PURE__*/
-  fileDesc("ChpuYXRzbGVucy92MS9hY2NvdW50cy5wcm90bxILbmF0c2xlbnMudjEiUgoZR2V0QWNjb3VudHNBbmRBdXRoUmVxdWVzdBIOCgZzeXN0ZW0YASABKAkSJQoFcmFuZ2UYAiABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2UimAUKCkFjY291bnRSb3cSDwoHYWNjb3VudBgBIAEoCRIUCgxhY2NvdW50X25hbWUYAiABKAkSEQoJaXNfc3lzdGVtGAMgASgIEhgKC2Nvbm5lY3Rpb25zGAQgASgFSACIAQESFgoJbGVhZm5vZGVzGAUgASgFSAGIAQESGgoNc3Vic2NyaXB0aW9ucxgGIAEoA0gCiAEBEhcKCmpzX3N0b3JhZ2UYByABKANIA4gBARIWCglqc19tZW1vcnkYCCABKANIBIgBARIUCgdzdHJlYW1zGAkgASgFSAWIAQESFwoKY29ubl9saW1pdBgKIAEoA0gGiAEBEhcKCmRpc2tfbGltaXQYCyABKANIB4gBARIUCgdpbXBvcnRzGAwgASgFSAiIAQESFAoHZXhwb3J0cxgNIAEoBUgJiAEBEhUKDWRldGFpbHNfa25vd24YDiABKAgSLwoLand0X2V4cGlyZXMYDyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg8KB2hhc19qd3QYECABKAgSDwoHZXhwaXJlZBgRIAEoCBIuCgpkZXRhaWxzX2F0GBIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIeChFqZXRzdHJlYW1fZW5hYmxlZBgTIAEoCEgKiAEBQg4KDF9jb25uZWN0aW9uc0IMCgpfbGVhZm5vZGVzQhAKDl9zdWJzY3JpcHRpb25zQg0KC19qc19zdG9yYWdlQgwKCl9qc19tZW1vcnlCCgoIX3N0cmVhbXNCDQoLX2Nvbm5fbGltaXRCDQoLX2Rpc2tfbGltaXRCCgoIX2ltcG9ydHNCCgoIX2V4cG9ydHNCFAoSX2pldHN0cmVhbV9lbmFibGVkIpkBCgtGYWlsZWRMb2dpbhIMCgR1c2VyGAEgASgJEgwKBGhvc3QYAiABKAkSDgoGcmVhc29uGAMgASgJEg8KB2FjY291bnQYBCABKAkSFAoMYWNjb3VudF9uYW1lGAUgASgJEg0KBWNvdW50GAYgASgDEigKBGxhc3QYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIooCCghFeHBpcmluZxInCgRraW5kGAEgASgOMhkubmF0c2xlbnMudjEuRXhwaXJpbmdLaW5kEg4KBnNlcnZlchgCIAEoCRIQCghsaXN0ZW5lchgDIAEoCRIPCgdhY2NvdW50GAQgASgJEhQKDGFjY291bnRfbmFtZRgFIAEoCRIMCgR1c2VyGAYgASgJEisKB2V4cGlyZXMYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg8KB2V4cGlyZWQYCCABKAgSEwoLY29ubmVjdGlvbnMYCSABKAUSKwoHc2Vlbl9hdBgKIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAigAQKGkdldEFjY291bnRzQW5kQXV0aFJlc3BvbnNlEg0KBWVwb2NoGAEgASgDEiwKCGVwb2NoX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIVCg1vcGVyYXRvcl9tb2RlGAMgASgIEikKCGFjY291bnRzGAQgAygLMhcubmF0c2xlbnMudjEuQWNjb3VudFJvdxIWCg5hY2NvdW50c190b3RhbBgFIAEoBRIvCg1mYWlsZWRfbG9naW5zGAYgAygLMhgubmF0c2xlbnMudjEuRmFpbGVkTG9naW4SIQoZZmFpbGVkX2xvZ2luX2dyb3Vwc190b3RhbBgHIAEoBRIbChNmYWlsZWRfbG9naW5zX3RvdGFsGAggASgDEj4KGmZhaWxlZF9sb2dpbnNfd2luZG93X3N0YXJ0GAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIUCgxjYXB0dXJlX2dhcHMYCiABKAgSJwoIZXhwaXJpbmcYCyADKAsyFS5uYXRzbGVucy52MS5FeHBpcmluZxIUCgxleHBpcmVfbGF0ZXIYDCABKAUSFAoMbmV2ZXJfZXhwaXJlGA0gASgFEhYKDmV4cGlyaW5nX3RvdGFsGA4gASgFEhcKD2V2ZW50c19jYXB0dXJlZBgPIAEoCCqOAQoMRXhwaXJpbmdLaW5kEh0KGUVYUElSSU5HX0tJTkRfVU5TUEVDSUZJRUQQABIkCiBFWFBJUklOR19LSU5EX1NFUlZFUl9DRVJUSUZJQ0FURRABEh0KGUVYUElSSU5HX0tJTkRfQUNDT1VOVF9KV1QQAhIaChZFWFBJUklOR19LSU5EX1VTRVJfSldUEANCQlpAZ2l0aHViLmNvbS9zaGFkb25lL25hdHMtbGVucy9pbnRlcm5hbC9nZW4vbmF0c2xlbnMvdjE7bmF0c2xlbnN2MWIGcHJvdG8z", [file_google_protobuf_timestamp, file_natslens_v1_common]);
+  fileDesc("ChpuYXRzbGVucy92MS9hY2NvdW50cy5wcm90bxILbmF0c2xlbnMudjEiUgoZR2V0QWNjb3VudHNBbmRBdXRoUmVxdWVzdBIOCgZzeXN0ZW0YASABKAkSJQoFcmFuZ2UYAiABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2Ui6gUKCkFjY291bnRSb3cSDwoHYWNjb3VudBgBIAEoCRIUCgxhY2NvdW50X25hbWUYAiABKAkSEQoJaXNfc3lzdGVtGAMgASgIEhgKC2Nvbm5lY3Rpb25zGAQgASgFSACIAQESFgoJbGVhZm5vZGVzGAUgASgFSAGIAQESGgoNc3Vic2NyaXB0aW9ucxgGIAEoA0gCiAEBEhcKCmpzX3N0b3JhZ2UYByABKANIA4gBARIWCglqc19tZW1vcnkYCCABKANIBIgBARIUCgdzdHJlYW1zGAkgASgFSAWIAQESFwoKY29ubl9saW1pdBgKIAEoA0gGiAEBEhcKCmRpc2tfbGltaXQYCyABKANIB4gBARIUCgdpbXBvcnRzGAwgASgFSAiIAQESFAoHZXhwb3J0cxgNIAEoBUgJiAEBEhUKDWRldGFpbHNfa25vd24YDiABKAgSLwoLand0X2V4cGlyZXMYDyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg8KB2hhc19qd3QYECABKAgSDwoHZXhwaXJlZBgRIAEoCBIuCgpkZXRhaWxzX2F0GBIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIeChFqZXRzdHJlYW1fZW5hYmxlZBgTIAEoCEgKiAEBEhwKD2xpbWl0X2xlYWZub2RlcxgUIAEoBUgLiAEBEh4KFmxpbWl0X2xlYWZub2Rlc19zZXJ2ZXIYFSABKAlCDgoMX2Nvbm5lY3Rpb25zQgwKCl9sZWFmbm9kZXNCEAoOX3N1YnNjcmlwdGlvbnNCDQoLX2pzX3N0b3JhZ2VCDAoKX2pzX21lbW9yeUIKCghfc3RyZWFtc0INCgtfY29ubl9saW1pdEINCgtfZGlza19saW1pdEIKCghfaW1wb3J0c0IKCghfZXhwb3J0c0IUChJfamV0c3RyZWFtX2VuYWJsZWRCEgoQX2xpbWl0X2xlYWZub2RlcyKZAQoLRmFpbGVkTG9naW4SDAoEdXNlchgBIAEoCRIMCgRob3N0GAIgASgJEg4KBnJlYXNvbhgDIAEoCRIPCgdhY2NvdW50GAQgASgJEhQKDGFjY291bnRfbmFtZRgFIAEoCRINCgVjb3VudBgGIAEoAxIoCgRsYXN0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCKKAgoIRXhwaXJpbmcSJwoEa2luZBgBIAEoDjIZLm5hdHNsZW5zLnYxLkV4cGlyaW5nS2luZBIOCgZzZXJ2ZXIYAiABKAkSEAoIbGlzdGVuZXIYAyABKAkSDwoHYWNjb3VudBgEIAEoCRIUCgxhY2NvdW50X25hbWUYBSABKAkSDAoEdXNlchgGIAEoCRIrCgdleHBpcmVzGAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgdleHBpcmVkGAggASgIEhMKC2Nvbm5lY3Rpb25zGAkgASgFEisKB3NlZW5fYXQYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIoAEChpHZXRBY2NvdW50c0FuZEF1dGhSZXNwb25zZRINCgVlcG9jaBgBIAEoAxIsCghlcG9jaF9hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFQoNb3BlcmF0b3JfbW9kZRgDIAEoCBIpCghhY2NvdW50cxgEIAMoCzIXLm5hdHNsZW5zLnYxLkFjY291bnRSb3cSFgoOYWNjb3VudHNfdG90YWwYBSABKAUSLwoNZmFpbGVkX2xvZ2lucxgGIAMoCzIYLm5hdHNsZW5zLnYxLkZhaWxlZExvZ2luEiEKGWZhaWxlZF9sb2dpbl9ncm91cHNfdG90YWwYByABKAUSGwoTZmFpbGVkX2xvZ2luc190b3RhbBgIIAEoAxI+ChpmYWlsZWRfbG9naW5zX3dpbmRvd19zdGFydBgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFAoMY2FwdHVyZV9nYXBzGAogASgIEicKCGV4cGlyaW5nGAsgAygLMhUubmF0c2xlbnMudjEuRXhwaXJpbmcSFAoMZXhwaXJlX2xhdGVyGAwgASgFEhQKDG5ldmVyX2V4cGlyZRgNIAEoBRIWCg5leHBpcmluZ190b3RhbBgOIAEoBRIXCg9ldmVudHNfY2FwdHVyZWQYDyABKAgqjgEKDEV4cGlyaW5nS2luZBIdChlFWFBJUklOR19LSU5EX1VOU1BFQ0lGSUVEEAASJAogRVhQSVJJTkdfS0lORF9TRVJWRVJfQ0VSVElGSUNBVEUQARIdChlFWFBJUklOR19LSU5EX0FDQ09VTlRfSldUEAISGgoWRVhQSVJJTkdfS0lORF9VU0VSX0pXVBADQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_timestamp, file_natslens_v1_common]);
 
 /**
  * Request for the accounts of a system, its failed logins and what expires
@@ -75,15 +75,17 @@ export type AccountRow = Message<"natslens.v1.AccountRow"> & {
   isSystem: boolean;
 
   /**
-   * Client connections, summed over the servers; unset when no server
-   * reported the account's statistics.
+   * Client connections, summed over the servers (both processes when two
+   * of one server name answered in the collection, as nats-server counts
+   * both); unset when no server reported the account's statistics.
    *
    * @generated from field: optional int32 connections = 4;
    */
   connections?: number | undefined;
 
   /**
-   * Leaf node connections, summed over the servers; unset as connections.
+   * Leaf node connections, summed over the servers as connections; unset
+   * as connections.
    *
    * @generated from field: optional int32 leafnodes = 5;
    */
@@ -199,6 +201,25 @@ export type AccountRow = Message<"natslens.v1.AccountRow"> & {
    * @generated from field: optional bool jetstream_enabled = 19;
    */
   jetstreamEnabled?: boolean | undefined;
+
+  /**
+   * Leaf node connections of the server process that holds the most of
+   * the account's, which nats-server counts against conn_limit with every
+   * server's client connections: connections plus these are the account's
+   * connections against the limit, as account-001 counts them. That server
+   * refuses first. Unset as connections.
+   *
+   * @generated from field: optional int32 limit_leafnodes = 20;
+   */
+  limitLeafnodes?: number | undefined;
+
+  /**
+   * The server that holds limit_leafnodes, the larger name on a tie; empty
+   * when limit_leafnodes is 0 or unset.
+   *
+   * @generated from field: string limit_leafnodes_server = 21;
+   */
+  limitLeafnodesServer: string;
 };
 
 /**
@@ -392,8 +413,8 @@ export type GetAccountsAndAuthResponse = Message<"natslens.v1.GetAccountsAndAuth
   operatorMode: boolean;
 
   /**
-   * Accounts: the system account last, the others by connections, most
-   * first, then by account name. At most 500.
+   * Accounts: the system account last, the others by connections plus
+   * limit_leafnodes, most first, then by account name. At most 500.
    *
    * @generated from field: repeated natslens.v1.AccountRow accounts = 4;
    */

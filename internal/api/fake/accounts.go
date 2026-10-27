@@ -139,9 +139,17 @@ func (s scen) accounts(at time.Time) []api.AccountFact {
 		conns++
 		subs += c.GetSubscriptions()
 	}
+	// limitLeafs are the leaf nodes of the server that holds the most, the
+	// larger name on a tie, as the store counts them against the limit.
+	var limitLeafs int32
+	var limitServer string
 	for _, sp := range s.sc.servers {
 		if !s.downAt(sp, at) {
-			leafs += s.leafCount(sp, at)
+			n := s.leafCount(sp, at)
+			leafs += n
+			if n > 0 && (n > limitLeafs || n == limitLeafs && sp.name > limitServer) {
+				limitLeafs, limitServer = n, sp.name
+			}
 		}
 	}
 	var disk, mem int64
@@ -154,7 +162,8 @@ func (s scen) accounts(at time.Time) []api.AccountFact {
 		}
 	}
 	app := api.AccountFact{Account: Account, Connections: ptr(conns), Leafnodes: ptr(leafs), Subscriptions: ptr(subs),
-		JSStorage: ptr(disk), JSMemory: ptr(mem), Streams: ptr(int32(len(s.sc.streams)))}
+		JSStorage: ptr(disk), JSMemory: ptr(mem), Streams: ptr(int32(len(s.sc.streams))), LimitLeafnodes: ptr(limitLeafs),
+		LimitLeafnodesServer: limitServer}
 	if a := s.sc.auth; a != nil {
 		app.Details = s.details(a.app, at)
 	}
@@ -162,7 +171,7 @@ func (s scen) accounts(at time.Time) []api.AccountFact {
 	if s.sc.auth != nil {
 		for _, o := range s.sc.auth.others {
 			out = append(out, api.AccountFact{Account: o.id, Name: o.name, IsSystem: o.system, Connections: ptr(others[o.id]),
-				Leafnodes: ptr(int32(0)), Subscriptions: ptr(o.subs), JSStorage: ptr(int64(0)), JSMemory: ptr(int64(0)),
+				Leafnodes: ptr(int32(0)), LimitLeafnodes: ptr(int32(0)), Subscriptions: ptr(o.subs), JSStorage: ptr(int64(0)), JSMemory: ptr(int64(0)),
 				Streams: ptr(int32(0)), Details: s.details(o.lookup, at)})
 		}
 	}

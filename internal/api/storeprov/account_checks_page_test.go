@@ -39,10 +39,22 @@ func TestAccountChecksMatchAccountsPage(t *testing.T) {
 	add(key("O"), "OLD", 10, 0, map[string]any{"limit_connections": 10, "jwt_expires": last.Add(2 * day)}, 2,
 		last.Add(-time.Hour+time.Second))
 
+	// LEAF reaches 90% only with nats-0's leaf nodes: 5 clients and 4 of
+	// its leaf nodes of 10; the leaf node of nats-1 is not counted.
+	add(key("L"), "LEAF", 5, 0, map[string]any{"limit_connections": 10, "limit_js_disk": -1}, 3, last.Add(time.Second))
+	r.add("account_stats", map[string]any{"epoch": 3, "server_id": "S1", "account": key("L"), "conns": 0, "leafnodes": 1})
+	if _, err := st.DB().Exec(`UPDATE account_stats SET leafnodes = 4 WHERE epoch = 3 AND server_id = 'S0' AND account = ?`, key("L")); err != nil {
+		t.Fatal(err)
+	}
+
 	res := accountsOf(t, st, last.Add(30*time.Second), nil)
 	page := map[string][]string{}
 	for _, a := range res.GetAccounts() {
-		if a.ConnLimit != nil && a.GetConnLimit() > 0 && float64(a.GetConnections())/float64(a.GetConnLimit()) >= 0.9 {
+		if a.GetAccount() == key("L") && (a.GetLimitLeafnodes() != 4 || a.GetLimitLeafnodesServer() != "nats-0") {
+			t.Errorf("LEAF: %d leaf nodes counted on %q, want 4 on nats-0", a.GetLimitLeafnodes(), a.GetLimitLeafnodesServer())
+		}
+		used := float64(a.GetConnections() + a.GetLimitLeafnodes())
+		if a.ConnLimit != nil && a.GetConnLimit() > 0 && used/float64(a.GetConnLimit()) >= 0.9 {
 			page["account-001"] = append(page["account-001"], a.GetAccount())
 		}
 		if a.DiskLimit != nil && a.GetDiskLimit() > 0 && float64(a.GetJsStorage())/float64(a.GetDiskLimit()) >= 0.9 {
