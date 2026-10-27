@@ -23,6 +23,11 @@ describe("account names", () => {
     const acc: Entity = { kind: "account", key: id, name: id, account: id, accountName: "SUPPLIERS", stream: "", consumer: "", server: "" };
     expect(entityName(acc)).toBe("SUPPLIERS");
     expect(entityName({ ...acc, accountName: undefined })).toBe(id);
+    // A list's labeller tells two accounts of one name apart.
+    const other: Entity = { ...acc, key: "AXOTHER", account: "AXOTHER" };
+    const label = accountLabeller([acc, other]);
+    expect(entityName(acc, label)).toBe("SUPPLIERS (ACJQ…)");
+    expect(entityName(other, label)).toBe("SUPPLIERS (AXOT…)");
     // Other entities keep their own name.
     expect(entityName({ kind: "stream", key: `${id}/jobs`, name: "jobs", account: id, accountName: "APP", stream: "jobs", consumer: "", server: "" })).toBe("jobs");
   });
