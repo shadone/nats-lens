@@ -145,7 +145,14 @@ func (w *writer) writeServerStats(v *collect.ServerView) {
 	}
 	var connzTotal, connzReturned any
 	if v.Connz != nil {
-		connzTotal, connzReturned = v.Connz.Total, len(v.Connz.Conns)
+		// A null entry is not counted: it has no connections row.
+		returned := 0
+		for _, c := range v.Connz.Conns {
+			if c != nil {
+				returned++
+			}
+		}
+		connzTotal, connzReturned = v.Connz.Total, returned
 	}
 	var metaCluster, metaLeader, metaSize, metaQuorum, metaPending, metaOffline, metaNotCurrent any
 	if m := j.meta; m != nil {
