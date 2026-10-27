@@ -114,24 +114,50 @@ func (w *writer) unhashed(v *collect.ServerView, key assetKey, cfg any, err erro
 
 // unknownNotes notes, in the epoch's errors, each value of a stream or
 // consumer configuration that the server's JSZ reply sent and this
-// nats-server version does not know: one note per field and value, with
-// how many configurations held it and what is stored for them.
+// nats-server version does not know: one note per field, value and what
+// became of the configurations that held it, with how many there were. A
+// configuration is stored only when every unknown value it holds encodes
+// (a deliver policy as "undefined"); when one does not, every note for it
+// says it is not stored.
 func (w *writer) unknownNotes(v *collect.ServerView) {
 	type group struct {
 		kind, field, value, encoded string
 	}
-	counts := map[group]int{}
-	var order []group
-	for _, u := range v.Status[collect.Jsz].Unknown {
+	type held struct {
+		kind, field string
+		u           collect.UnknownValue
+	}
+	unknown := v.Status[collect.Jsz].Unknown
+	// The configurations, by the path of their "config" object, and
+	// whether each is stored.
+	stored := map[string]bool{}
+	var fields []held
+	var configs []string
+	for _, u := range unknown {
 		f := u.Field()
-		var g group
+		var h held
 		switch {
 		case strings.HasPrefix(f, "account_details[].stream_detail[].consumer_detail[].config."):
-			g = group{"consumer", strings.TrimPrefix(f, "account_details[].stream_detail[].consumer_detail[]."), u.Value, u.Encoded}
+			h = held{"consumer", strings.TrimPrefix(f, "account_details[].stream_detail[].consumer_detail[]."), u}
 		case strings.HasPrefix(f, "account_details[].stream_detail[].config."):
-			g = group{"stream", strings.TrimPrefix(f, "account_details[].stream_detail[]."), u.Value, u.Encoded}
+			h = held{"stream", strings.TrimPrefix(f, "account_details[].stream_detail[]."), u}
 		default:
 			continue
+		}
+		cfg := configPath(u.Path)
+		if _, ok := stored[cfg]; !ok {
+			stored[cfg] = true
+		}
+		stored[cfg] = stored[cfg] && u.Encoded != ""
+		fields = append(fields, h)
+		configs = append(configs, cfg)
+	}
+	counts := map[group]int{}
+	var order []group
+	for i, h := range fields {
+		g := group{h.kind, h.field, h.u.Value, ""}
+		if stored[configs[i]] {
+			g.encoded = h.u.Encoded
 		}
 		if counts[g] == 0 {
 			order = append(order, g)
@@ -141,19 +167,25 @@ func (w *writer) unknownNotes(v *collect.ServerView) {
 	for _, g := range order {
 		n := counts[g]
 		what := g.kind + "s"
+		outcome := "their configurations are not stored"
 		if n == 1 {
-			what = g.kind
-		}
-		stored := "their configurations are not stored"
-		if n == 1 {
-			stored = "its configuration is not stored"
+			what, outcome = g.kind, "its configuration is not stored"
 		}
 		if g.encoded != "" {
-			stored = fmt.Sprintf("stored as %s", g.encoded)
+			outcome = fmt.Sprintf("stored as %s", g.encoded)
 		}
 		w.notes = append(w.notes, fmt.Sprintf("%s sent %s %s %s, which this nats-server version does not know, for %d %s; %s",
-			v.Info.Name, g.kind, g.field, g.value, n, what, stored))
+			v.Info.Name, g.kind, g.field, g.value, n, what, outcome))
 	}
+}
+
+// configPath is the path of the configuration object that holds the
+// field at path: everything before its last ".config.".
+func configPath(path string) string {
+	if i := strings.LastIndex(path, ".config."); i >= 0 {
+		return path[:i]
+	}
+	return path
 }
 
 // strs returns a non-nil copy so that an empty list is stored as [] and not NULL.
