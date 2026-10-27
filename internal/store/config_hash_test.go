@@ -1,8 +1,11 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/nats-io/nats-server/v2/server"
@@ -45,5 +48,33 @@ func TestConfigThatDoesNotEncodeIsNotStored(t *testing.T) {
 		if got := count(t, db, c.q); got != c.want {
 			t.Errorf("%s = %d, want %d", c.q, got, c.want)
 		}
+	}
+}
+
+// TestConfigThatDoesNotEncodeIsLoggedOnce writes three epochs with a
+// stream configuration that does not encode, and a conflicting repeated
+// report of another stream, and requires one log line for each.
+func TestConfigThatDoesNotEncodeIsLoggedOnce(t *testing.T) {
+	s := openMem(t)
+	var buf bytes.Buffer
+	s.SetLogger(slog.New(slog.NewTextHandler(&buf, nil)))
+	for range 3 {
+		snap := collect.NewSnapshot(t0)
+		other := server.StreamDetail{Name: "other", Created: t0, Config: &server.StreamConfig{Name: "other", Storage: server.FileStorage}}
+		changed := other
+		changed.Config = &server.StreamConfig{Name: "other", Storage: server.FileStorage, Description: "again"}
+		snap.Servers["N1"] = &collect.ServerView{Info: server.ServerInfo{ID: "N1", Name: "nats-0"},
+			Jsz: &server.JSInfo{AccountDetails: []*server.AccountDetail{{Id: "APP", Streams: []server.StreamDetail{
+				{Name: "bad", Created: t0, Config: &server.StreamConfig{Name: "bad"}}, other, changed}}}}}
+		snap.FinishedAt = t0
+		if _, err := s.WriteSnapshot(context.Background(), snap); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n := strings.Count(buf.String(), "does not encode as JSON"); n != 1 {
+		t.Errorf("%d log lines for the configuration that does not encode, want 1:\n%s", n, buf.String())
+	}
+	if n := strings.Count(buf.String(), "conflicting duplicate"); n != 1 {
+		t.Errorf("%d log lines for the conflicting duplicate, want 1:\n%s", n, buf.String())
 	}
 }

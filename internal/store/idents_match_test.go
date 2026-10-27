@@ -90,7 +90,6 @@ func writeIdentEpochs(t *testing.T, path string, byRow [3]bool) {
 		}
 		w := newWriter(ctx, tx, e, collect.NewSnapshot(t0))
 		w.prevEpoch = prev
-		w.warned = map[assetKey]bool{}
 		w.log = slog.New(slog.DiscardHandler)
 		fillIdents(w, e)
 		if byRow[i] {

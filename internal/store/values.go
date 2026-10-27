@@ -95,10 +95,15 @@ func repeatHash(hash string, err error) string {
 }
 
 // unhashed notes, in the epoch's errors, a configuration that does not
-// encode as JSON; the writers store no configuration version for it.
+// encode as JSON, and logs it once per process; the writers store no
+// configuration version for it.
 func (w *writer) unhashed(v *collect.ServerView, key assetKey, err error) {
 	w.notes = append(w.notes, fmt.Sprintf("%s reported %s with a configuration that does not encode as JSON (%v); its configuration is not stored",
 		v.Info.Name, key, err))
+	if w.firstWarning(warnUnhashed, key) {
+		w.log.Warn("configuration does not encode as JSON, not stored; logged once per process",
+			"server", v.Info.Name, "asset", key.String(), "error", err)
+	}
 }
 
 // strs returns a non-nil copy so that an empty list is stored as [] and not NULL.

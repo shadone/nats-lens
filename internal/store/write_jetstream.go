@@ -234,6 +234,28 @@ func filterSubjects(cfg *server.ConsumerConfig) []string {
 	return append(out, cfg.FilterSubjects...)
 }
 
+// warning is a kind of warning about an asset, logged once per process.
+type warning struct {
+	kind  string
+	asset assetKey
+}
+
+const (
+	warnConflict = "conflicting duplicate"
+	warnUnhashed = "configuration does not encode"
+)
+
+// firstWarning reports whether the warning of kind about key is not yet
+// logged in this process, and records it.
+func (w *writer) firstWarning(kind string, key assetKey) bool {
+	k := warning{kind, key}
+	if w.warned[k] {
+		return false
+	}
+	w.warned[k] = true
+	return true
+}
+
 // assetKey identifies one server's report of a stream (consumer empty) or
 // consumer within an epoch.
 type assetKey struct {
@@ -261,8 +283,7 @@ func (w *writer) repeated(v *collect.ServerView, key assetKey, hash string) bool
 	if first != hash && !w.noted[key] {
 		w.noted[key] = true
 		w.notes = append(w.notes, fmt.Sprintf("%s reported %s twice with different configuration; kept the first", v.Info.Name, key))
-		if !w.warned[key] {
-			w.warned[key] = true
+		if w.firstWarning(warnConflict, key) {
 			w.log.Warn("conflicting duplicate in JSZ; logged once per process", "server", v.Info.Name, "asset", key.String())
 		}
 	}
