@@ -75,9 +75,9 @@ func (w *writer) writeConnections(v *collect.ServerView) {
 	q := fmt.Sprintf(`INSERT INTO connections (epoch, server_id, cid, kind, type, name, lang, version, account,
     authorized_user, ip, port, start_time, last_activity, rtt_ns, pending_bytes, in_msgs, out_msgs, in_bytes,
     out_bytes, stalls, subscriptions, tls_version, name_tag, user_jwt, jwt_expires)
-SELECT %d, %s, cid, kind, type, name, lang, version, account, authorized_user, ip, port,
+SELECT %d, ?::VARCHAR, cid, kind, type, name, lang, version, account, authorized_user, ip, port,
     make_timestamp(start_time), make_timestamp(last_activity), rtt_ns, pending_bytes, in_msgs, out_msgs,
     in_bytes, out_bytes, stalls, subscriptions, tls_version, name_tag, user_jwt, make_timestamp(jwt_expires)
-`+fromJSON(connectionShape), w.epoch, sqlString(v.Info.ID))
-	writeJSON(w, "connections", q, rows, connectionBatch)
+`+fromJSON(connectionShape), w.epoch)
+	writeJSON(w, "connections", q, rows, connectionBatch, v.Info.ID)
 }

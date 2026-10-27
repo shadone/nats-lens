@@ -1,7 +1,6 @@
 package store
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 
@@ -87,16 +86,7 @@ func (w *writer) writeSubscriptions(v *collect.ServerView) {
 		w.epoch, v.Info.ID, int64(sz.Total), int64(len(sz.Subs)))
 	rows := foldSubscriptions(sz.Subs)
 	q := fmt.Sprintf(`INSERT INTO subscriptions (epoch, server_id, account, subject, queue, cid, subs, msgs)
-SELECT %d, %s, account, subject, queue, cid, subs, msgs
-FROM (SELECT unnest(from_json(?::VARCHAR, '%s'), recursive := true))`, w.epoch, sqlString(v.Info.ID), subscriptionShape)
-	for len(rows) > 0 && w.err == nil {
-		n := min(len(rows), subscriptionBatch)
-		b, err := json.Marshal(rows[:n])
-		if err != nil {
-			w.fail(fmt.Errorf("subscriptions: %w", err))
-			return
-		}
-		w.exec(q, string(b))
-		rows = rows[n:]
-	}
+SELECT %d, ?::VARCHAR, account, subject, queue, cid, subs, msgs
+`+fromJSON(subscriptionShape), w.epoch)
+	writeJSON(w, "subscriptions", q, rows, subscriptionBatch, v.Info.ID)
 }
