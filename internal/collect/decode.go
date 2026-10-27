@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/nats-io/nats-server/v2/server"
 )
@@ -31,32 +32,38 @@ var ErrNoServerInfo = errors.New("reply has no server info")
 
 // decodeReply decodes one enveloped reply. A reply that carries an API
 // error returns the server info with the error, so the caller still knows
-// which server answered.
-func decodeReply[T any](b []byte) (server.ServerInfo, T, error) {
+// which server answered. Values an enum field refuses are left out of the
+// data and returned, with paths within the data (decodeTolerant).
+func decodeReply[T any](b []byte) (server.ServerInfo, T, []UnknownValue, error) {
 	var r reply[T]
 	var zero T
-	if err := json.Unmarshal(b, &r); err != nil {
-		return server.ServerInfo{}, zero, fmt.Errorf("decode reply: %w", err)
+	unknown, err := decodeTolerant(b, &r)
+	if err != nil {
+		return server.ServerInfo{}, zero, nil, fmt.Errorf("decode reply: %w", err)
 	}
 	if r.Server == nil || r.Server.ID == "" {
-		return server.ServerInfo{}, zero, ErrNoServerInfo
+		return server.ServerInfo{}, zero, nil, ErrNoServerInfo
 	}
 	if r.Error != nil {
-		return *r.Server, zero, fmt.Errorf("server error %d: %s", r.Error.Code, r.Error.Description)
+		return *r.Server, zero, nil, fmt.Errorf("server error %d: %s", r.Error.Code, r.Error.Description)
 	}
-	return *r.Server, r.Data, nil
+	for i := range unknown {
+		unknown[i].Path = strings.TrimPrefix(unknown[i].Path, "data.")
+	}
+	return *r.Server, r.Data, unknown, nil
 }
 
 // decodeStatsz decodes a STATSZ reply, which is not enveloped.
-func decodeStatsz(b []byte) (server.ServerInfo, *server.ServerStats, error) {
+func decodeStatsz(b []byte) (server.ServerInfo, *server.ServerStats, []UnknownValue, error) {
 	var m server.ServerStatsMsg
-	if err := json.Unmarshal(b, &m); err != nil {
-		return server.ServerInfo{}, nil, fmt.Errorf("decode statsz: %w", err)
+	unknown, err := decodeTolerant(b, &m)
+	if err != nil {
+		return server.ServerInfo{}, nil, nil, fmt.Errorf("decode statsz: %w", err)
 	}
 	if m.Server.ID == "" {
-		return server.ServerInfo{}, nil, ErrNoServerInfo
+		return server.ServerInfo{}, nil, nil, ErrNoServerInfo
 	}
-	return m.Server, &m.Stats, nil
+	return m.Server, &m.Stats, unknown, nil
 }
 
 // Apply decodes a reply for e and stores it on the matching server view,
@@ -64,9 +71,10 @@ func decodeStatsz(b []byte) (server.ServerInfo, *server.ServerStats, error) {
 func (snap *Snapshot) Apply(e Endpoint, b []byte) error {
 	orig := e
 	var (
-		info server.ServerInfo
-		err  error
-		set  func(v *ServerView)
+		info    server.ServerInfo
+		unknown []UnknownValue
+		err     error
+		set     func(v *ServerView)
 	)
 	if _, ok := e.raftzAccount(); ok {
 		e = Raftz
@@ -74,56 +82,56 @@ func (snap *Snapshot) Apply(e Endpoint, b []byte) error {
 	switch e {
 	case Statsz:
 		var st *server.ServerStats
-		info, st, err = decodeStatsz(b)
+		info, st, unknown, err = decodeStatsz(b)
 		set = func(v *ServerView) { v.Statsz = st }
 	case Varz:
 		var d *server.Varz
-		info, d, err = decodeReply[*server.Varz](b)
+		info, d, unknown, err = decodeReply[*server.Varz](b)
 		set = func(v *ServerView) { v.Varz = d }
 	case Connz:
 		var d *server.Connz
-		info, d, err = decodeReply[*server.Connz](b)
+		info, d, unknown, err = decodeReply[*server.Connz](b)
 		jwts := takeUserJWTs(d)
 		set = func(v *ServerView) { v.Connz, v.UserJWTs = d, jwts }
 	case Routez:
 		var d *server.Routez
-		info, d, err = decodeReply[*server.Routez](b)
+		info, d, unknown, err = decodeReply[*server.Routez](b)
 		set = func(v *ServerView) { v.Routez = d }
 	case Gatewayz:
 		var d *server.Gatewayz
-		info, d, err = decodeReply[*server.Gatewayz](b)
+		info, d, unknown, err = decodeReply[*server.Gatewayz](b)
 		set = func(v *ServerView) { v.Gatewayz = d }
 	case Leafz:
 		var d *server.Leafz
-		info, d, err = decodeReply[*server.Leafz](b)
+		info, d, unknown, err = decodeReply[*server.Leafz](b)
 		set = func(v *ServerView) { v.Leafz = d }
 	case Accountz:
 		var d *server.Accountz
-		info, d, err = decodeReply[*server.Accountz](b)
+		info, d, unknown, err = decodeReply[*server.Accountz](b)
 		set = func(v *ServerView) { v.Accountz = d }
 	case AccountStatz:
 		var d *server.AccountStatz
-		info, d, err = decodeReply[*server.AccountStatz](b)
+		info, d, unknown, err = decodeReply[*server.AccountStatz](b)
 		set = func(v *ServerView) { v.AccountStatz = d }
 	case Jsz:
 		var d *server.JSInfo
-		info, d, err = decodeReply[*server.JSInfo](b)
+		info, d, unknown, err = decodeReply[*server.JSInfo](b)
 		set = func(v *ServerView) { v.Jsz = d }
 	case Healthz:
 		var d *server.HealthStatus
-		info, d, err = decodeReply[*server.HealthStatus](b)
+		info, d, unknown, err = decodeReply[*server.HealthStatus](b)
 		set = func(v *ServerView) { v.Healthz = d }
 	case Raftz:
 		var d RaftzStatus
-		info, d, err = decodeReply[RaftzStatus](b)
+		info, d, unknown, err = decodeReply[RaftzStatus](b)
 		set = func(v *ServerView) { v.Raftz = mergeRaftz(v.Raftz, d) }
 	case Ipqueuesz:
 		var d server.IpqueueszStatus
-		info, d, err = decodeReply[server.IpqueueszStatus](b)
+		info, d, unknown, err = decodeReply[server.IpqueueszStatus](b)
 		set = func(v *ServerView) { v.Ipqueuesz = d }
 	case Subsz:
 		var d *server.Subsz
-		info, d, err = decodeReply[*server.Subsz](b)
+		info, d, unknown, err = decodeReply[*server.Subsz](b)
 		set = func(v *ServerView) { v.Subsz = d }
 	default:
 		return fmt.Errorf("unknown endpoint %s", e)
@@ -137,7 +145,7 @@ func (snap *Snapshot) Apply(e Endpoint, b []byte) error {
 		return nil
 	}
 	set(v)
-	v.Status[orig] = EndpointStatus{State: StateOK}
+	v.Status[orig] = EndpointStatus{State: StateOK, Unknown: unknown}
 	return nil
 }
 

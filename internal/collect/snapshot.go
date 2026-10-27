@@ -23,6 +23,10 @@ const (
 type EndpointStatus struct {
 	State State
 	Error string
+	// Unknown are the values of a reply that decoded only with them left
+	// out: values of enum fields that this nats-server version does not
+	// know, as a newer server can send.
+	Unknown []UnknownValue
 }
 
 // ServerView is everything one server reported in one epoch. Fields are nil
