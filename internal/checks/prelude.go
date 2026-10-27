@@ -52,7 +52,14 @@ package checks
 //     writes the span in minutes below an hour, in hours to a tenth below
 //     a day and in days to a tenth, the unit chosen after rounding (23 h
 //     58 m is 1 day), whole numbers without ".0" and 1 in the singular.
-const Prelude = `CREATE OR REPLACE TEMP MACRO account_lookups(ep) AS TABLE
+//   - account_servers(e) and account_connections(e) are the queries of
+//     AccountServersSQL and AccountConnectionsSQL for epoch e: each
+//     account's share on each server, one process per server name, and
+//     its connections as nats-server counts them against the limit.
+var Prelude = "CREATE OR REPLACE TEMP MACRO account_servers(ep) AS TABLE " + AccountServersSQL("ep") + ";\n" +
+	"CREATE OR REPLACE TEMP MACRO account_connections(ep) AS TABLE " + AccountConnectionsSQL("ep") + ";\n" + prelude
+
+const prelude = `CREATE OR REPLACE TEMP MACRO account_lookups(ep) AS TABLE
 SELECT d.*, coalesce(nullif(nullif(a.account_name, ''), a.account), nullif(nullif(d.account_name, ''), a.account), a.account) AS title
 FROM account_details d JOIN accounts a ON a.account = d.account AND a.first_epoch <= ep AND a.last_epoch >= ep
 WHERE d.epoch <= ep AND d.looked_up_at >= (SELECT started_at FROM epochs WHERE epoch = ep) - INTERVAL 24 HOUR

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/shadone/nats-lens/internal/api"
+	"github.com/shadone/nats-lens/internal/checks"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -32,17 +33,21 @@ func (p *Provider) AccountsAndAuth(ctx context.Context, req *v1.GetAccountsAndAu
 
 // accountFacts reads the accounts ListAccounts lists for the epoch:
 // connections, leaf nodes and subscriptions summed over the servers'
-// STATZ shares, JetStream use the largest any server reports (each
+// STATZ shares, one process per server name (checks.AccountConnectionsSQL,
+// as account-001 counts), JetStream use the largest any server reports (each
 // reports the account total), distinct streams, and the lookup of the
 // newest epoch up to this one, when it was read at most
 // AccountDetailsMaxAge before the epoch started. A lookup is read after
 // its epoch's collection started, so its time is later than the epoch's.
 func (p *Provider) accountFacts(ctx context.Context, f *api.AccountsFacts) error {
 	rows, err := p.db().QueryContext(ctx, `
-WITH st AS (
-    SELECT account, sum(conns)::BIGINT AS conns, sum(leafnodes)::BIGINT AS leafs, sum(subscriptions)::BIGINT AS subs,
-        max(js_storage) AS js_storage, max(js_memory) AS js_memory, max(js_streams) AS js_streams
+WITH cn AS (`+checks.AccountConnectionsSQL("$1")+`
+), js AS (
+    SELECT account, max(js_storage) AS js_storage, max(js_memory) AS js_memory, max(js_streams) AS js_streams
     FROM account_stats WHERE epoch = $1 GROUP BY account
+), st AS (
+    SELECT account, cn.clients AS conns, cn.leafnodes AS leafs, cn.subscriptions AS subs, js.js_storage, js.js_memory, js.js_streams
+    FROM js LEFT JOIN cn USING (account)
 ), ss AS (
     SELECT account, count(DISTINCT stream) AS n FROM stream_stats WHERE epoch = $1 GROUP BY account
 ), d AS (

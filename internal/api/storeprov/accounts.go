@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/shadone/nats-lens/internal/checks"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
 // ListAccounts lists the accounts the newest epoch of the range reported,
-// ordered by account. Connections add up each server's share from STATZ.
+// ordered by account. Connections add up each server's share from STATZ,
+// one process per server name (checks.AccountConnectionsSQL).
 // Streams and consumers are counted from the JSZ detail; without detail,
 // a JSZ count of zero is zero and any other count is unknown, since the
 // servers count each replica.
@@ -24,9 +26,10 @@ func (p *Provider) ListAccounts(ctx context.Context, req *v1.ListAccountsRequest
 		return p.accountsSeen(ctx, req.GetRange())
 	}
 	rows, err := p.db().QueryContext(ctx, `
-WITH st AS (
-    SELECT account, sum(conns)::BIGINT AS conns, max(js_streams) AS js_streams, max(js_consumers) AS js_consumers
-    FROM account_stats WHERE epoch = $1 GROUP BY account
+WITH cn AS (`+checks.AccountConnectionsSQL("$1")+`
+), st AS (
+    SELECT account, cn.clients AS conns, max(js_streams) AS js_streams, max(js_consumers) AS js_consumers
+    FROM account_stats LEFT JOIN cn USING (account) WHERE epoch = $1 GROUP BY account, cn.clients
 ), ss AS (
     SELECT account, count(DISTINCT stream) AS n FROM stream_stats WHERE epoch = $1 GROUP BY account
 ), cs AS (
