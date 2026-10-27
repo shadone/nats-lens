@@ -145,6 +145,15 @@ func TestSpanText(t *testing.T) {
 		{23*3600 + 58*60, "1 day"},
 		{36 * 3600, "1.5 days"},
 		{12 * 86400, "12 days"},
+		// A reviewer's edges of each unit.
+		{0, "less than a minute"},
+		{30, "1 minute"},
+		{59*60 + 29, "59 minutes"},
+		{59*60 + 30, "1 hour"},
+		{23*3600 + 56*60 + 59, "23.9 hours"},
+		{23*3600 + 57*60, "1 day"},
+		{47*3600 + 57*60, "2 days"},
+		{400 * 86400, "400 days"},
 	} {
 		got := f.macroRows(1, "SELECT span_text(to_seconds("+strconv.FormatInt(c.secs, 10)+"))")
 		if len(got) != 1 || got[0] != c.want {
