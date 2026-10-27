@@ -76,26 +76,38 @@ export interface LimitBar {
   pct: number;
   /** The real share of the limit in percent, above 100 over the limit. */
   share: number;
-  /** ok below 80%, warn from 80% up to the limit, crit over it. */
+  /** ok below 80%, warn from 80% up to the limit, crit over it (connLimitBar: from the limit). */
   tone: "ok" | "warn" | "crit";
 }
 
-export function limitBar(used: number | undefined, limit: number | undefined): LimitBar | undefined {
+/** A bar against a limit, critical over it as the JetStream disk bar is, or from it with critAtLimit (connLimitBar). */
+export function limitBar(used: number | undefined, limit: number | undefined, critAtLimit = false): LimitBar | undefined {
   if (used === undefined || limit === undefined || limit <= 0) return undefined;
   const share = (used * 100) / limit;
-  const tone = used > limit ? "crit" : share >= LIMIT_WARN * 100 ? "warn" : "ok";
+  const crit = critAtLimit ? used >= limit : used > limit;
+  const tone = crit ? "crit" : share >= LIMIT_WARN * 100 ? "warn" : "ok";
   return { pct: Math.min(100, Math.max(0, share)), share, tone };
 }
 
-/** The bar's words, also its non-colour cue: "82% of the limit", "150% of the limit, over the limit". */
+/**
+ * The connection bar: critical at the limit, the owner's decision of
+ * 2026-10-27, since nats-server refuses new clients there and account-001
+ * is critical there.
+ */
+export function connLimitBar(used: number | undefined, limit: number | undefined): LimitBar | undefined {
+  return limitBar(used, limit, true);
+}
+
+/** The bar's words, also its non-colour cue: "82% of the limit", "100% of the limit, at the limit", "150% of the limit, over the limit". */
 export function limitBarText(bar: LimitBar): string {
   return limitBarParts(bar).join(", ");
 }
 
-/** The bar's words in parts, each kept on one line: ["150% of the limit", "over the limit"]. */
+/** The bar's words in parts, each kept on one line: ["150% of the limit", "over the limit"], ["100% of the limit", "at the limit"]. */
 export function limitBarParts(bar: LimitBar): string[] {
   const pct = `${fmtInt(Math.floor(bar.share))}% of the limit`;
-  return bar.tone === "crit" ? [pct, "over the limit"] : [pct];
+  if (bar.tone !== "crit") return [pct];
+  return [pct, bar.share > 100 ? "over the limit" : "at the limit"];
 }
 
 /**

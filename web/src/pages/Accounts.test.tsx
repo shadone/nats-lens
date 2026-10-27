@@ -263,6 +263,17 @@ describe("Accounts' warnings beyond colour", () => {
     ]);
   });
 
+  it("colours the connection bar critical at exactly the limit and says at the limit", async () => {
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValue({ ...prod(), operatorMode: true, accounts: [account("APP", { connections: 50, connLimit: 50, hasJwt: true })] });
+    renderApp(<Accounts />, "/accounts");
+    await screen.findByRole("region", { name: "Accounts and limits" });
+    const conns = cells(bodyRows("Accounts and limits")[0])[1];
+    expect(within(conns).getByRole("img")).toHaveAccessibleName("Connections: 100% of the limit, at the limit");
+    expect(within(conns).getByRole("img").firstElementChild).toHaveClass("ac-bar-crit");
+    expect(conns).toHaveTextContent("50 of 50100% of the limit, at the limit");
+    expect(conns.firstElementChild).toHaveClass("ac-crit");
+  });
+
   it("says a warning count's share in words, and nothing below 80%", async () => {
     vi.mocked(requests.getAccountsAndAuth).mockResolvedValue(global());
     renderApp(<Accounts />, "/accounts");

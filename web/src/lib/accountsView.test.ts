@@ -15,6 +15,7 @@ import {
   jetStreamOff,
   jwtCell,
   leafNodeParts,
+  connLimitBar,
   limitBar,
   limitBarText,
   memoryOnly,
@@ -100,6 +101,11 @@ describe("limitBar", () => {
 
   it("stops at a full bar over the limit, keeps the real share, and is critical", () => {
     expect(limitBar(2500, 2000)).toEqual({ pct: 100, share: 125, tone: "crit" });
+  });
+
+  it("keeps the disk bar in the warning colour at exactly the limit", () => {
+    expect(limitBar(500 * GIB, 500 * GIB)?.tone).toBe("warn");
+    expect(limitBarText(limitBar(500 * GIB, 500 * GIB)!)).toBe("100% of the limit");
   });
 
   it("words the share, and says when it is over the limit", () => {
@@ -331,5 +337,27 @@ describe("connections against the limit", () => {
     expect(leafNodeParts(account("APP", { leafnodes: 0, limitLeafnodes: 0 }))).toBeUndefined();
     // A server that does not say which server holds them: the leaf nodes as before.
     expect(leafNodeParts(account("APP", { leafnodes: 3, limitLeafnodes: undefined }))).toEqual(["3 leaf nodes"]);
+  });
+});
+
+describe("connLimitBar", () => {
+  it("is the warning colour at 99% of the connection limit", () => {
+    expect(connLimitBar(1980, 2000)).toEqual({ pct: 99, share: 99, tone: "warn" });
+    expect(limitBarText(connLimitBar(1980, 2000)!)).toBe("99% of the limit");
+  });
+
+  it("is critical at exactly the limit, where nats-server refuses new clients, and says so", () => {
+    expect(connLimitBar(2000, 2000)).toEqual({ pct: 100, share: 100, tone: "crit" });
+    expect(limitBarText(connLimitBar(2000, 2000)!)).toBe("100% of the limit, at the limit");
+  });
+
+  it("is critical over the limit and says over the limit", () => {
+    expect(connLimitBar(2500, 2000)).toEqual({ pct: 100, share: 125, tone: "crit" });
+    expect(limitBarText(connLimitBar(2500, 2000)!)).toBe("125% of the limit, over the limit");
+  });
+
+  it("draws no bar without a limit above 0", () => {
+    expect(connLimitBar(12, -1)).toBeUndefined();
+    expect(connLimitBar(12, undefined)).toBeUndefined();
   });
 });
