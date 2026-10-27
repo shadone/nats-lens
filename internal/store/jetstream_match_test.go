@@ -189,7 +189,8 @@ line "two"`},
 // first, and nats-2's while nats-1 is missing in epoch 3), only nats-2 in
 // epoch 1 marks SYS as the system account, an account whose identifier needs
 // quoting gains a name in epoch 5, and a raft group seen only in RAFTZ in
-// epoch 4 learns its stream in 5.
+// epoch 4 learns its stream in 5 and keeps it when RAFTZ alone reports it
+// again in 7.
 func jsScenarioIdents(w *writer, i int, e int64) {
 	names := []string{"AAPP", "APP", "APP"}
 	if e >= 3 {
@@ -206,7 +207,7 @@ func jsScenarioIdents(w *writer, i int, e int64) {
 		w.ids.account(quoted, name, false)
 	}
 	w.ids.raftGroup("_meta_")
-	if e == 4 {
+	if e == 4 || e == 7 {
 		w.ids.raftGroup("S-raft-only")
 	}
 	if e == 5 && i == 1 {
@@ -342,7 +343,7 @@ func checkJSIdents(t *testing.T, s *Store) {
 		{`SELECT count(*) FROM consumers WHERE consumer = 'edge' AND stream = ? AND first_epoch = 1 AND last_epoch = 7`, []any{oddStream}},
 		{`SELECT count(*) FROM raft_groups WHERE group_id = '_meta_' AND kind = 'meta' AND account IS NULL AND last_epoch = 7`, nil},
 		{`SELECT count(*) FROM raft_groups WHERE group_id = 'S-raft-only' AND kind = 'stream' AND account = 'AAPP'
-  AND stream = 'raft-only' AND consumer IS NULL AND first_epoch = 4 AND last_epoch = 5`, nil},
+  AND stream = 'raft-only' AND consumer IS NULL AND first_epoch = 4 AND last_epoch = 7`, nil},
 		{`SELECT count(*) FROM raft_groups WHERE group_id = 'C-worker' AND kind = 'consumer' AND stream = 'orders'
   AND consumer = 'worker' AND last_epoch = 7`, nil},
 	} {
