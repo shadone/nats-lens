@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // UnknownValue is a value a reply sent for a field whose type in this
@@ -43,13 +44,14 @@ func (u UnknownValue) Field() string {
 var unmarshalerType = reflect.TypeFor[json.Unmarshaler]()
 
 // decodeTolerant decodes b into target, which must be a pointer. When the
-// plain decode fails, each value that a field of a nats-server enum type
-// (any non-struct type with its own UnmarshalJSON) refuses is taken out
-// and the reply is decoded again; the field then holds -1 (the largest
-// value for an unsigned type), which no such enum knows, so it encodes as
-// an error and never as a known value. Fields of other kinds are left at
-// their zero value. A reply that still does not decode returns the first
-// error.
+// plain decode fails, each value that an enum field refuses is taken out
+// and the reply is decoded again. An enum field is one of an integer type
+// with its own UnmarshalJSON, as nats-server's retention, storage and
+// policy types are; a value it refuses may be an unknown name, a number or
+// null. The field then holds -1 (the largest value for an unsigned type),
+// which no such enum knows. A value that a field of another kind refuses
+// is not taken out, so such a reply still does not decode and returns the
+// first error. The unknown values are returned in the order of the reply.
 func decodeTolerant(b []byte, target any) ([]UnknownValue, error) {
 	err := json.Unmarshal(b, target)
 	if err == nil {
@@ -61,9 +63,9 @@ func decodeTolerant(b []byte, target any) ([]UnknownValue, error) {
 	if dec.Decode(&tree) != nil {
 		return nil, err
 	}
-	var found []unknownAt
-	dropUnknown(tree, reflect.TypeOf(target).Elem(), nil, &found)
-	if len(found) == 0 {
+	var w walker
+	w.drop(tree, reflect.TypeOf(target).Elem())
+	if len(w.found) == 0 {
 		return nil, err
 	}
 	cleaned, merr := json.Marshal(tree)
@@ -76,12 +78,12 @@ func decodeTolerant(b []byte, target any) ([]UnknownValue, error) {
 		tv.SetZero()
 		return nil, err
 	}
-	out := make([]UnknownValue, 0, len(found))
-	for _, f := range found {
+	sort.SliceStable(w.found, func(i, j int) bool { return lessSteps(w.found[i].steps, w.found[j].steps) })
+	out := make([]UnknownValue, 0, len(w.found))
+	for _, f := range w.found {
 		markUnknown(tv, f.steps)
 		out = append(out, UnknownValue{Path: pathString(f.steps), Value: f.value})
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
 	return out, nil
 }
 
@@ -98,6 +100,25 @@ type step struct {
 type unknownAt struct {
 	steps []step
 	value string
+}
+
+// lessSteps orders two paths as the reply lists them: list positions by
+// number, field names and map keys as text.
+func lessSteps(a, b []step) bool {
+	for i := 0; i < len(a) && i < len(b); i++ {
+		x, y := a[i], b[i]
+		switch {
+		case x.kind != y.kind:
+			return x.kind < y.kind
+		case x.index != y.index:
+			return x.index < y.index
+		case x.name != y.name:
+			return x.name < y.name
+		case x.key != y.key:
+			return x.key < y.key
+		}
+	}
+	return len(a) < len(b)
 }
 
 func pathString(steps []step) string {
@@ -118,33 +139,43 @@ func pathString(steps []step) string {
 	return b.String()
 }
 
-// dropUnknown walks node, a value decoded into any, along t, the type it
-// is decoded into, and deletes from its object each value an enum field
-// refuses, recording where it was.
-func dropUnknown(node any, t reflect.Type, at []step, found *[]unknownAt) {
+// walker deletes refused enum values from a value decoded into any. at is
+// the path to the node being walked, shared and copied only for a find.
+type walker struct {
+	at    []step
+	found []unknownAt
+}
+
+// drop walks node along t, the type it is decoded into, skipping the
+// parts whose type holds no enum field.
+func (w *walker) drop(node any, t reflect.Type) {
 	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
+	}
+	if !typeInfo(t).holdsEnum {
+		return
 	}
 	switch t.Kind() {
 	case reflect.Struct:
 		obj, ok := node.(map[string]any)
-		if !ok || reflect.PointerTo(t).Implements(unmarshalerType) {
+		if !ok {
 			return
 		}
-		fields := jsonFields(t)
+		fields := typeInfo(t).fields
 		for key, val := range obj {
 			f, ok := fields.lookup(key)
 			if !ok {
 				continue
 			}
-			here := append(append([]step{}, at...), step{kind: reflect.Struct, field: f.index, name: f.name})
+			w.at = append(w.at, step{kind: reflect.Struct, field: f.index, name: f.name})
 			if refused(val, f.typ) {
 				raw, _ := json.Marshal(val)
-				*found = append(*found, unknownAt{steps: here, value: string(raw)})
+				w.found = append(w.found, unknownAt{steps: append([]step(nil), w.at...), value: string(raw)})
 				delete(obj, key)
-				continue
+			} else {
+				w.drop(val, f.typ)
 			}
-			dropUnknown(val, f.typ, here, found)
+			w.at = w.at[:len(w.at)-1]
 		}
 	case reflect.Slice, reflect.Array:
 		list, ok := node.([]any)
@@ -152,7 +183,9 @@ func dropUnknown(node any, t reflect.Type, at []step, found *[]unknownAt) {
 			return
 		}
 		for i, val := range list {
-			dropUnknown(val, t.Elem(), append(append([]step{}, at...), step{kind: reflect.Slice, index: i}), found)
+			w.at = append(w.at, step{kind: reflect.Slice, index: i})
+			w.drop(val, t.Elem())
+			w.at = w.at[:len(w.at)-1]
 		}
 	case reflect.Map:
 		obj, ok := node.(map[string]any)
@@ -160,18 +193,32 @@ func dropUnknown(node any, t reflect.Type, at []step, found *[]unknownAt) {
 			return
 		}
 		for key, val := range obj {
-			dropUnknown(val, t.Elem(), append(append([]step{}, at...), step{kind: reflect.Map, key: key}), found)
+			w.at = append(w.at, step{kind: reflect.Map, key: key})
+			w.drop(val, t.Elem())
+			w.at = w.at[:len(w.at)-1]
 		}
 	}
 }
 
-// refused reports whether val is a value that t, an enum type with its
-// own UnmarshalJSON, does not accept. Other types are never refused here.
-func refused(val any, t reflect.Type) bool {
-	for t.Kind() == reflect.Pointer {
-		t = t.Elem()
+// isEnum reports whether t is an enum type: an integer type with its own
+// UnmarshalJSON.
+func isEnum(t reflect.Type) bool {
+	switch t.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return reflect.PointerTo(t).Implements(unmarshalerType)
 	}
-	if val == nil || t.Kind() == reflect.Struct || !reflect.PointerTo(t).Implements(unmarshalerType) {
+	return false
+}
+
+// refused reports whether val is a value that t, an enum type, does not
+// accept. A null for a pointer field is accepted: it leaves the pointer nil.
+func refused(val any, t reflect.Type) bool {
+	pointer := false
+	for t.Kind() == reflect.Pointer {
+		t, pointer = t.Elem(), true
+	}
+	if !isEnum(t) || (val == nil && pointer) {
 		return false
 	}
 	raw, err := json.Marshal(val)
@@ -182,7 +229,7 @@ func refused(val any, t reflect.Type) bool {
 }
 
 // markUnknown sets the field at steps, below v, to the value no enum
-// knows. A field of a kind other than an integer keeps its zero value.
+// knows.
 func markUnknown(v reflect.Value, steps []step) {
 	for v.Kind() == reflect.Pointer {
 		if v.IsNil() {
@@ -239,29 +286,87 @@ type jsonField struct {
 	typ   reflect.Type
 }
 
-type fieldSet []jsonField
+// fieldSet holds a struct's fields by JSON name, and by the name in
+// lower case for the match encoding/json makes when the case differs.
+type fieldSet struct {
+	exact, folded map[string]jsonField
+}
 
-// lookup finds the field a JSON key decodes into: an exact name first,
-// then one that differs only in case, as encoding/json matches.
 func (fs fieldSet) lookup(key string) (jsonField, bool) {
-	for _, f := range fs {
-		if f.name == key {
-			return f, true
-		}
+	if f, ok := fs.exact[key]; ok {
+		return f, true
 	}
-	for _, f := range fs {
-		if strings.EqualFold(f.name, key) {
-			return f, true
-		}
+	f, ok := fs.folded[strings.ToLower(key)]
+	return f, ok
+}
+
+// typeFacts is what the walk needs to know of a type, kept per type.
+type typeFacts struct {
+	fields fieldSet
+	// holdsEnum is whether a value of the type can hold an enum field.
+	holdsEnum bool
+}
+
+var typeCache sync.Map // reflect.Type -> *typeFacts
+
+// typeInfo returns the facts of t, a type that is not a pointer.
+func typeInfo(t reflect.Type) *typeFacts {
+	if f, ok := typeCache.Load(t); ok {
+		return f.(*typeFacts)
 	}
-	return jsonField{}, false
+	f := &typeFacts{holdsEnum: holdsEnum(t, map[reflect.Type]bool{})}
+	if t.Kind() == reflect.Struct {
+		fs := fieldSet{exact: map[string]jsonField{}, folded: map[string]jsonField{}}
+		for _, jf := range jsonFields(t) {
+			fs.exact[jf.name] = jf
+			if _, dup := fs.folded[strings.ToLower(jf.name)]; !dup {
+				fs.folded[strings.ToLower(jf.name)] = jf
+			}
+		}
+		f.fields = fs
+	}
+	actual, _ := typeCache.LoadOrStore(t, f)
+	return actual.(*typeFacts)
+}
+
+// holdsEnum reports whether a value of t can hold an enum field, below
+// any depth; visiting guards the types being looked at against cycles.
+func holdsEnum(t reflect.Type, visiting map[reflect.Type]bool) bool {
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if isEnum(t) {
+		return true
+	}
+	if visiting[t] {
+		return false
+	}
+	visiting[t] = true
+	defer delete(visiting, t)
+	switch t.Kind() {
+	case reflect.Struct:
+		if reflect.PointerTo(t).Implements(unmarshalerType) {
+			return false
+		}
+		for _, f := range jsonFields(t) {
+			if holdsEnum(f.typ, visiting) {
+				return true
+			}
+		}
+	case reflect.Slice, reflect.Array, reflect.Map:
+		if reflect.PointerTo(t).Implements(unmarshalerType) {
+			return false
+		}
+		return holdsEnum(t.Elem(), visiting)
+	}
+	return false
 }
 
 // jsonFields lists the fields encoding/json decodes into for struct type t,
 // with the fields of untagged embedded structs promoted; a shallower field
 // hides a deeper one of the same name.
-func jsonFields(t reflect.Type) fieldSet {
-	var out fieldSet
+func jsonFields(t reflect.Type) []jsonField {
+	var out []jsonField
 	seen := map[string]bool{}
 	type level struct {
 		t     reflect.Type
