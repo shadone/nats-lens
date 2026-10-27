@@ -310,7 +310,8 @@ type EntityRef struct {
 	Key string `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
 	// Short name to show, for example the consumer name without its stream.
 	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	// Account of a stream or consumer.
+	// Account of a stream or consumer, or the account itself for an account
+	// entity (equal to key).
 	Account string `protobuf:"bytes,4,opt,name=account,proto3" json:"account,omitempty"`
 	// Stream of a stream or of a consumer.
 	Stream string `protobuf:"bytes,5,opt,name=stream,proto3" json:"stream,omitempty"`

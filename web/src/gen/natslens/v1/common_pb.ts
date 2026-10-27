@@ -50,7 +50,8 @@ export type EntityRef = Message<"natslens.v1.EntityRef"> & {
   name: string;
 
   /**
-   * Account of a stream or consumer.
+   * Account of a stream or consumer, or the account itself for an account
+   * entity (equal to key).
    *
    * @generated from field: string account = 4;
    */

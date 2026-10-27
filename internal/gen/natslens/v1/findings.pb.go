@@ -366,8 +366,9 @@ type Finding struct {
 	// process start); unset otherwise. since is when nats-lens first saw it.
 	ConditionSince *timestamppb.Timestamp `protobuf:"bytes,18,opt,name=condition_since,json=conditionSince,proto3" json:"condition_since,omitempty"`
 	// The check warns of something that will expire, a certificate or a JWT
-	// (its category is expiry). Within a severity such a finding ranks after
-	// every other finding, so it never heads an outage.
+	// (its category is expiry). Such a finding at warning ranks after every
+	// other warning, so it never heads an outage; at critical it ranks as
+	// any critical finding.
 	Expiry        bool `protobuf:"varint,19,opt,name=expiry,proto3" json:"expiry,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
