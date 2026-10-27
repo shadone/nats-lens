@@ -57,6 +57,15 @@ cur AS (
         (st.clients + st.leafs) / d.limit_connections AS ratio
     FROM account_lookups(getvariable('epoch')) d JOIN st USING (account)
     WHERE d.has_jwt AND d.limit_connections > 0
+),
+-- The servers that refuse a new client: each whose own leaf nodes, with
+-- every server's clients, reach the limit; every server once the clients
+-- alone reach it.
+refusing AS (
+    SELECT c.account, list(p.server_name ORDER BY p.server_name) AS servers
+    FROM cur c JOIN per_server p USING (account)
+    WHERE c.clients + p.leafs >= c.limit_connections
+    GROUP BY c.account
 )
 SELECT
     account AS entity_key,
@@ -69,10 +78,17 @@ SELECT
         ELSE used || ' of ' || limit_connections || ' client connections (' || round(100 * ratio, 1) || '%)'
     END
         || CASE WHEN used < limit_connections THEN '.'
-                WHEN leafs > 0 THEN '; at the limit, ' || leaf_server || ' refuses new client connections of the account.'
-                ELSE '; at the limit, every server refuses new client connections of the account.' END
+                WHEN clients >= limit_connections THEN '; at the limit, every server refuses new client connections of the account.'
+                ELSE '; at the limit, ' || CASE
+                        WHEN len(r.servers) = 1 THEN r.servers[1]
+                        WHEN len(r.servers) <= 3 THEN array_to_string(r.servers[1:-2], ', ') || ' and ' || r.servers[-1]
+                        ELSE array_to_string(r.servers[1:3], ', ') || ' and ' || (len(r.servers) - 3)
+                            || CASE WHEN len(r.servers) = 4 THEN ' more server' ELSE ' more servers' END
+                    END
+                    || CASE WHEN len(r.servers) = 1 THEN ' refuses' ELSE ' refuse' END
+                    || ' new client connections of the account.' END
         AS detail,
     round(ratio, 4) AS value,
     json_object('conn', CAST(limit_connections AS VARCHAR)) AS related_config
-FROM cur
+FROM cur LEFT JOIN refusing r USING (account)
 WHERE ratio >= getvariable('warn_ratio')

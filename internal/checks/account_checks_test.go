@@ -281,3 +281,48 @@ func TestAccountLeafNodesAtLimit(t *testing.T) {
 	want(t, r["LEAFONLY"], "critical", "LEAFONLY: 10 of 10 connections (100.0%): 0 client connections and 10 leaf node connections "+
 		"on nats-0, which counts its own leaf nodes against the limit; at the limit, nats-0 refuses new client connections of the account.")
 }
+
+// Each server refuses when every server's clients plus its own leaf nodes
+// reach the limit: every server once the clients alone reach it, else the
+// servers whose leaf nodes bring them to it. (A reviewer's cases.)
+func TestAccountServersThatRefuse(t *testing.T) {
+	f := newFx(t)
+	f.lookupEpochs([]string{"nats-0", "nats-1"})
+	now := t0.Add(time.Second)
+	f.server("S0", "nats-0", 1, 3, t0.Add(-48*time.Hour), "2.15.0")
+	f.server("S1", "nats-1", 1, 3, t0.Add(-48*time.Hour), "2.15.0")
+	f.account("FULLC", "", 1, 3)
+	f.accountStats(3, "S0", "FULLC", m{"conns": 50, "leafnodes": 3})
+	f.accountStats(3, "S1", "FULLC", m{"conns": 50})
+	f.lookup(3, "FULLC", now, m{"limit_connections": int64(100)})
+	f.account("TWO", "", 1, 3)
+	f.accountStats(3, "S0", "TWO", m{"conns": 45, "leafnodes": 5})
+	f.accountStats(3, "S1", "TWO", m{"conns": 46, "leafnodes": 4})
+	f.lookup(3, "TWO", now, m{"limit_connections": int64(95)})
+	r := f.fires("account-001", 3, "FULLC", "TWO")
+	want(t, r["FULLC"], "critical", "; at the limit, every server refuses new client connections of the account.")
+	want(t, r["TWO"], "critical", "96 of 95 connections", "; at the limit, nats-0 and nats-1 refuse new client connections of the account.")
+}
+
+// Three servers that refuse are named; past three the rest are counted.
+func TestAccountServersThatRefuseNamesAFew(t *testing.T) {
+	for _, n := range []int{3, 4, 5} {
+		f := newFx(t)
+		var names []string
+		for i := range n {
+			names = append(names, fmt.Sprintf("nats-%d", i))
+		}
+		f.lookupEpochs(names)
+		f.account("MANY", "", 1, 3)
+		for i, name := range names {
+			id := fmt.Sprintf("S%d", i)
+			f.server(id, name, 1, 3, t0.Add(-48*time.Hour), "2.15.0")
+			f.accountStats(3, id, "MANY", m{"conns": 10, "leafnodes": 5})
+		}
+		f.lookup(3, "MANY", t0.Add(time.Second), m{"limit_connections": int64(10*n + 5)})
+		r := f.fires("account-001", 3, "MANY")
+		tail := map[int]string{3: "nats-0, nats-1 and nats-2 refuse", 4: "nats-0, nats-1, nats-2 and 1 more server refuse",
+			5: "nats-0, nats-1, nats-2 and 2 more servers refuse"}[n]
+		want(t, r["MANY"], "critical", "; at the limit, "+tail+" new client connections of the account.")
+	}
+}
