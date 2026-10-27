@@ -244,6 +244,36 @@ describe("Accounts' warnings beyond colour", () => {
     expect(conns.firstElementChild).toHaveClass("ac-crit");
   });
 
+  it("counts the leaf nodes of the server that holds the most against the connection limit, and names them under the count", async () => {
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValue({
+      ...prod(),
+      operatorMode: true,
+      accounts: [account("APP", { connections: 85, leafnodes: 11, limitLeafnodes: 8, limitLeafnodesServer: "nats-0", connLimit: 100, hasJwt: true })],
+    });
+    renderApp(<Accounts />, "/accounts");
+    await screen.findByRole("region", { name: "Accounts and limits" });
+    const conns = cells(bodyRows("Accounts and limits")[0])[1];
+    expect(conns.firstElementChild).toHaveTextContent("93 of 100");
+    expect(within(conns).getByRole("img")).toHaveAccessibleName("Connections: 93% of the limit");
+    expect(conns).toHaveTextContent("includes 8 leaf nodes on nats-0 · 11 leaf nodes in all");
+    // The dot is kept on one line with the part after it, so no line ends with it.
+    expect([...conns.querySelectorAll("small:not(.ac-limit-note) .ac-nw")].map((e) => e.textContent)).toEqual([
+      "includes 8 leaf nodes on nats-0",
+      "· 11 leaf nodes in all",
+    ]);
+  });
+
+  it("colours the connection bar critical at exactly the limit and says at the limit", async () => {
+    vi.mocked(requests.getAccountsAndAuth).mockResolvedValue({ ...prod(), operatorMode: true, accounts: [account("APP", { connections: 50, connLimit: 50, hasJwt: true })] });
+    renderApp(<Accounts />, "/accounts");
+    await screen.findByRole("region", { name: "Accounts and limits" });
+    const conns = cells(bodyRows("Accounts and limits")[0])[1];
+    expect(within(conns).getByRole("img")).toHaveAccessibleName("Connections: 100% of the limit, at the limit");
+    expect(within(conns).getByRole("img").firstElementChild).toHaveClass("ac-bar-crit");
+    expect(conns).toHaveTextContent("50 of 50100% of the limit, at the limit");
+    expect(conns.firstElementChild).toHaveClass("ac-crit");
+  });
+
   it("says a warning count's share in words, and nothing below 80%", async () => {
     vi.mocked(requests.getAccountsAndAuth).mockResolvedValue(global());
     renderApp(<Accounts />, "/accounts");

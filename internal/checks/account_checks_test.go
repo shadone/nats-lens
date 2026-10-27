@@ -326,3 +326,43 @@ func TestAccountServersThatRefuseNamesAFew(t *testing.T) {
 		want(t, r["MANY"], "critical", "; at the limit, "+tail+" new client connections of the account.")
 	}
 }
+
+// Two processes of one server name answered in the epoch (the old one
+// shutting down, the new one up): nats-server keeps each process's
+// connections apart, by server ID, until that process shuts down, so both
+// shares count, and each process counts its own leaf nodes. nats-0 is named
+// once among the servers that refuse, though both of its processes do:
+// 10 + 10 + 40 clients, with 5 and 4 leaf nodes against 64.
+func TestAccountConnectionLimitTwoProcesses(t *testing.T) {
+	for _, oldFirst := range []bool{true, false} {
+		f := newFx(t)
+		f.lookupEpochs([]string{"nats-0", "nats-1"})
+		f.server("Z-OLD", "nats-0", 3, 3, t0.Add(-48*time.Hour), "2.15.0")
+		f.server("A-NEW", "nats-0", 3, 3, t0.Add(-time.Minute), "2.15.0")
+		f.server("S1", "nats-1", 1, 3, t0.Add(-48*time.Hour), "2.15.0")
+		procs := []struct {
+			id           string
+			start        time.Time
+			conns, leafs int
+		}{{"Z-OLD", t0.Add(-48 * time.Hour), 10, 5}, {"A-NEW", t0.Add(-time.Minute), 10, 4}}
+		if !oldFirst {
+			procs[0], procs[1] = procs[1], procs[0]
+		}
+		for _, a := range []string{"DUP", "DUPNEAR"} {
+			f.account(a, "", 1, 3)
+			for _, p := range procs {
+				f.accountStats(3, p.id, a, m{"conns": p.conns, "leafnodes": p.leafs})
+			}
+			f.accountStats(3, "S1", a, m{"conns": 40, "leafnodes": 0})
+		}
+		for _, p := range procs {
+			f.stats(3, p.id, m{"start_time": p.start})
+		}
+		f.lookup(3, "DUP", t0.Add(time.Second), m{"limit_connections": int64(64)})
+		f.lookup(3, "DUPNEAR", t0.Add(time.Second), m{"limit_connections": int64(70)})
+		r := f.fires("account-001", 3, "DUP", "DUPNEAR")
+		want(t, r["DUP"], "critical", "DUP: 65 of 64 connections (101.6%): 60 client connections and 5 leaf node connections on nats-0, "+
+			"which counts its own leaf nodes against the limit; at the limit, nats-0 refuses new client connections of the account.")
+		want(t, r["DUPNEAR"], "warning", "DUPNEAR: 65 of 70 connections (92.9%)")
+	}
+}

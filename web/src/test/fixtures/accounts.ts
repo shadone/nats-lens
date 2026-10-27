@@ -17,6 +17,8 @@ export function account(id: string, o: Partial<AccountRow> = {}): AccountRow {
     isSystem: false,
     connections: 0,
     leafnodes: 0,
+    limitLeafnodes: 0,
+    limitLeafnodesServer: "",
     subscriptions: 0,
     jsStorage: 0,
     jsMemory: 0,

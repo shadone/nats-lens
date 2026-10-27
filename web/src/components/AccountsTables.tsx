@@ -6,6 +6,8 @@ import type { AccountRow, AccountsAndAuth, Expiring } from "../api/accounts";
 import { dayMonHm, fmtBytes, fmtInt, isoDate, shortWhen } from "../lib/format";
 import {
   accountTitle,
+  connectionsUsed,
+  connLimitBar,
   connLimitText,
   EVENTS_NOT_CAPTURED_TEXT,
   diskLimitText,
@@ -16,6 +18,7 @@ import {
   importsExports,
   diskStateText,
   jwtCell,
+  leafNodeParts,
   limitBar,
   limitBarParts,
   limitBarText,
@@ -61,14 +64,23 @@ function Nw({ children }: { children: ReactNode }) {
   return <span className="ac-nw">{children}</span>;
 }
 
-/** Parts joined by sep, each kept on one line. */
+/**
+ * Parts joined by sep, each kept on one line. A separator that starts with
+ * a space (" · ") keeps its mark on the line of the part after it, so a
+ * line breaks at that space and never ends with the dot; ", " and "; "
+ * break after their space as text does.
+ */
 function Parts({ parts, sep }: { parts: string[]; sep: string }) {
+  const leads = sep.startsWith(" ");
   return (
     <>
       {parts.map((p, k) => (
         <span key={p}>
-          {k > 0 && sep}
-          <Nw>{p}</Nw>
+          {k > 0 && (leads ? " " : sep)}
+          <Nw>
+            {leads && k > 0 ? `${sep.trimStart()}` : ""}
+            {p}
+          </Nw>
         </span>
       ))}
     </>
@@ -127,20 +139,29 @@ function AccountCell({ a }: { a: AccountRow }) {
   );
 }
 
+/**
+ * The connections as nats-server counts them against the limit: every
+ * server's clients plus the leaf nodes of the server that holds the most,
+ * named under the count, so a bar at 100% and account-001 agree.
+ */
 function ConnectionsCell({ a }: { a: AccountRow }) {
-  if (a.connections === undefined) return <Unset why="not reported" />;
+  const used = connectionsUsed(a);
+  if (used === undefined) return <Unset why="not reported" />;
   const of = connLimitText(a.connLimit);
-  const bar = limitBar(a.connections, a.connLimit);
+  const bar = connLimitBar(used, a.connLimit);
+  const leafs = leafNodeParts(a);
   return (
     <>
       <div className={barTone(bar)}>
-        {fmtInt(a.connections)}
+        {fmtInt(used)}
         {of && <span className="ac-of"> {of}</span>}
       </div>
       {bar && <Bar bar={bar} label="Connections" />}
-      {(a.leafnodes ?? 0) > 0 && <small>
-          <Nw>{a.leafnodes === 1 ? "1 leaf node" : `${fmtInt(a.leafnodes!)} leaf nodes`}</Nw>
-        </small>}
+      {leafs && (
+        <small>
+          <Parts parts={leafs} sep=" · " />
+        </small>
+      )}
     </>
   );
 }

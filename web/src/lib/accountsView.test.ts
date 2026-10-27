@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { account, EPOCH_AT, expiring, global, login, prod, SUPPLIERS } from "../test/fixtures/accounts";
 import {
+  connectionsUsed,
   connLimitText,
   diskLimitText,
   diskStateText,
@@ -13,6 +14,8 @@ import {
   isIdle,
   jetStreamOff,
   jwtCell,
+  leafNodeParts,
+  connLimitBar,
   limitBar,
   limitBarText,
   memoryOnly,
@@ -54,6 +57,11 @@ describe("orderAccounts", () => {
     expect(orderAccounts(rows).map((a) => a.account)).toEqual(["C", "A", "B", "D", "SYS"]);
   });
 
+  it("sorts by the connections the cell shows: clients plus the leaf nodes counted against the limit", () => {
+    const rows = [account("CLIENTS", { connections: 30 }), account("LEAFS", { connections: 20, leafnodes: 15, limitLeafnodes: 15, limitLeafnodesServer: "nats-0" })];
+    expect(orderAccounts(rows).map((a) => a.account)).toEqual(["LEAFS", "CLIENTS"]);
+  });
+
   it("sorts by the readable name, and by code unit as the server does", () => {
     const rows = [account("AKEY2", { accountName: "beta" }), account("AKEY1", { accountName: "Zulu" }), account("AKEY3", { accountName: "" })];
     expect(orderAccounts(rows).map((a) => a.account)).toEqual(["AKEY3", "AKEY1", "AKEY2"]);
@@ -93,6 +101,11 @@ describe("limitBar", () => {
 
   it("stops at a full bar over the limit, keeps the real share, and is critical", () => {
     expect(limitBar(2500, 2000)).toEqual({ pct: 100, share: 125, tone: "crit" });
+  });
+
+  it("keeps the disk bar in the warning colour at exactly the limit", () => {
+    expect(limitBar(500 * GIB, 500 * GIB)?.tone).toBe("warn");
+    expect(limitBarText(limitBar(500 * GIB, 500 * GIB)!)).toBe("100% of the limit");
   });
 
   it("words the share, and says when it is over the limit", () => {
@@ -305,5 +318,46 @@ describe("seenAtText", () => {
     // Under 24 hours back but on the previous UTC day: 13:20 alone would read as after a 10:00 collection.
     expect(seenAtText(expiring({ seenAt: Date.parse("2026-10-16T13:20:00Z") }), Date.parse("2026-10-17T10:00:00Z"))).toBe("read at 16 Oct 13:20 UTC; no answer from the server since");
     expect(seenAtText(expiring({ server: "nats-us-4" }), EPOCH_AT)).toBeUndefined();
+  });
+});
+
+describe("connections against the limit", () => {
+  it("counts the clients and the leaf nodes of the server that holds the most, as account-001 does", () => {
+    expect(connectionsUsed(account("APP", { connections: 85, leafnodes: 11, limitLeafnodes: 8, limitLeafnodesServer: "nats-0" }))).toBe(93);
+    expect(connectionsUsed(account("APP", { connections: 85 }))).toBe(85);
+    expect(connectionsUsed(account("APP", { connections: undefined, limitLeafnodes: 3 }))).toBeUndefined();
+  });
+
+  it("names the leaf nodes counted and their server under the count, and all of them when more are elsewhere", () => {
+    expect(leafNodeParts(account("APP", { leafnodes: 11, limitLeafnodes: 8, limitLeafnodesServer: "nats-0" }))).toEqual([
+      "includes 8 leaf nodes on nats-0",
+      "11 leaf nodes in all",
+    ]);
+    expect(leafNodeParts(account("APP", { leafnodes: 1, limitLeafnodes: 1, limitLeafnodesServer: "nats-2" }))).toEqual(["includes 1 leaf node on nats-2"]);
+    expect(leafNodeParts(account("APP", { leafnodes: 0, limitLeafnodes: 0 }))).toBeUndefined();
+    // A server that does not say which server holds them: the leaf nodes as before.
+    expect(leafNodeParts(account("APP", { leafnodes: 3, limitLeafnodes: undefined }))).toEqual(["3 leaf nodes"]);
+  });
+});
+
+describe("connLimitBar", () => {
+  it("is the warning colour at 99% of the connection limit", () => {
+    expect(connLimitBar(1980, 2000)).toEqual({ pct: 99, share: 99, tone: "warn" });
+    expect(limitBarText(connLimitBar(1980, 2000)!)).toBe("99% of the limit");
+  });
+
+  it("is critical at exactly the limit, where nats-server refuses new clients, and says so", () => {
+    expect(connLimitBar(2000, 2000)).toEqual({ pct: 100, share: 100, tone: "crit" });
+    expect(limitBarText(connLimitBar(2000, 2000)!)).toBe("100% of the limit, at the limit");
+  });
+
+  it("is critical over the limit and says over the limit", () => {
+    expect(connLimitBar(2500, 2000)).toEqual({ pct: 100, share: 125, tone: "crit" });
+    expect(limitBarText(connLimitBar(2500, 2000)!)).toBe("125% of the limit, over the limit");
+  });
+
+  it("draws no bar without a limit above 0", () => {
+    expect(connLimitBar(12, -1)).toBeUndefined();
+    expect(connLimitBar(12, undefined)).toBeUndefined();
   });
 });

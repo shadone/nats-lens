@@ -147,10 +147,12 @@ type AccountRow struct {
 	AccountName string `protobuf:"bytes,2,opt,name=account_name,json=accountName,proto3" json:"account_name,omitempty"`
 	// Whether this is the system account.
 	IsSystem bool `protobuf:"varint,3,opt,name=is_system,json=isSystem,proto3" json:"is_system,omitempty"`
-	// Client connections, summed over the servers; unset when no server
-	// reported the account's statistics.
+	// Client connections, summed over the servers (both processes when two
+	// of one server name answered in the collection, as nats-server counts
+	// both); unset when no server reported the account's statistics.
 	Connections *int32 `protobuf:"varint,4,opt,name=connections,proto3,oneof" json:"connections,omitempty"`
-	// Leaf node connections, summed over the servers; unset as connections.
+	// Leaf node connections, summed over the servers as connections; unset
+	// as connections.
 	Leafnodes *int32 `protobuf:"varint,5,opt,name=leafnodes,proto3,oneof" json:"leafnodes,omitempty"`
 	// Subscriptions, summed over the servers; unset as connections.
 	Subscriptions *int64 `protobuf:"varint,6,opt,name=subscriptions,proto3,oneof" json:"subscriptions,omitempty"`
@@ -193,8 +195,17 @@ type AccountRow struct {
 	// account. False: JetStream is disabled for the account. Unset as
 	// conn_limit.
 	JetstreamEnabled *bool `protobuf:"varint,19,opt,name=jetstream_enabled,json=jetstreamEnabled,proto3,oneof" json:"jetstream_enabled,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Leaf node connections of the server process that holds the most of
+	// the account's, which nats-server counts against conn_limit with every
+	// server's client connections: connections plus these are the account's
+	// connections against the limit, as account-001 counts them. That server
+	// refuses first. Unset as connections.
+	LimitLeafnodes *int32 `protobuf:"varint,20,opt,name=limit_leafnodes,json=limitLeafnodes,proto3,oneof" json:"limit_leafnodes,omitempty"`
+	// The server that holds limit_leafnodes, the larger name on a tie; empty
+	// when limit_leafnodes is 0 or unset.
+	LimitLeafnodesServer string `protobuf:"bytes,21,opt,name=limit_leafnodes_server,json=limitLeafnodesServer,proto3" json:"limit_leafnodes_server,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *AccountRow) Reset() {
@@ -358,6 +369,20 @@ func (x *AccountRow) GetJetstreamEnabled() bool {
 		return *x.JetstreamEnabled
 	}
 	return false
+}
+
+func (x *AccountRow) GetLimitLeafnodes() int32 {
+	if x != nil && x.LimitLeafnodes != nil {
+		return *x.LimitLeafnodes
+	}
+	return 0
+}
+
+func (x *AccountRow) GetLimitLeafnodesServer() string {
+	if x != nil {
+		return x.LimitLeafnodesServer
+	}
+	return ""
 }
 
 // Failed logins of one user from one address for one reason.
@@ -605,8 +630,8 @@ type GetAccountsAndAuthResponse struct {
 	// Whether the system runs in operator mode: an account identifier of
 	// the epoch is an account public key.
 	OperatorMode bool `protobuf:"varint,3,opt,name=operator_mode,json=operatorMode,proto3" json:"operator_mode,omitempty"`
-	// Accounts: the system account last, the others by connections, most
-	// first, then by account name. At most 500.
+	// Accounts: the system account last, the others by connections plus
+	// limit_leafnodes, most first, then by account name. At most 500.
 	Accounts []*AccountRow `protobuf:"bytes,4,rep,name=accounts,proto3" json:"accounts,omitempty"`
 	// Accounts before the limit of 500.
 	AccountsTotal int32 `protobuf:"varint,5,opt,name=accounts_total,json=accountsTotal,proto3" json:"accounts_total,omitempty"`
@@ -788,7 +813,7 @@ const file_natslens_v1_accounts_proto_rawDesc = "" +
 	"\x1anatslens/v1/accounts.proto\x12\vnatslens.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\"a\n" +
 	"\x19GetAccountsAndAuthRequest\x12\x16\n" +
 	"\x06system\x18\x01 \x01(\tR\x06system\x12,\n" +
-	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\"\xed\x06\n" +
+	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\"\xe5\a\n" +
 	"\n" +
 	"AccountRow\x12\x18\n" +
 	"\aaccount\x18\x01 \x01(\tR\aaccount\x12!\n" +
@@ -816,7 +841,9 @@ const file_natslens_v1_accounts_proto_rawDesc = "" +
 	"\n" +
 	"details_at\x18\x12 \x01(\v2\x1a.google.protobuf.TimestampR\tdetailsAt\x120\n" +
 	"\x11jetstream_enabled\x18\x13 \x01(\bH\n" +
-	"R\x10jetstreamEnabled\x88\x01\x01B\x0e\n" +
+	"R\x10jetstreamEnabled\x88\x01\x01\x12,\n" +
+	"\x0flimit_leafnodes\x18\x14 \x01(\x05H\vR\x0elimitLeafnodes\x88\x01\x01\x124\n" +
+	"\x16limit_leafnodes_server\x18\x15 \x01(\tR\x14limitLeafnodesServerB\x0e\n" +
 	"\f_connectionsB\f\n" +
 	"\n" +
 	"_leafnodesB\x10\n" +
@@ -832,7 +859,8 @@ const file_natslens_v1_accounts_proto_rawDesc = "" +
 	"\b_importsB\n" +
 	"\n" +
 	"\b_exportsB\x14\n" +
-	"\x12_jetstream_enabled\"\xd0\x01\n" +
+	"\x12_jetstream_enabledB\x12\n" +
+	"\x10_limit_leafnodes\"\xd0\x01\n" +
 	"\vFailedLogin\x12\x12\n" +
 	"\x04user\x18\x01 \x01(\tR\x04user\x12\x12\n" +
 	"\x04host\x18\x02 \x01(\tR\x04host\x12\x16\n" +

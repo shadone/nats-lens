@@ -23,8 +23,9 @@ describe("accountsAndAuth", () => {
         operatorMode: true,
         eventsCaptured: true,
         accounts: [
-          { account: "APP", connections: 0, subscriptions: 12n, connLimit: -1n, diskLimit: 0n, jetstreamEnabled: true, detailsKnown: true, hasJwt: true },
+          { account: "APP", connections: 0, limitLeafnodes: 0, subscriptions: 12n, connLimit: -1n, diskLimit: 0n, jetstreamEnabled: true, detailsKnown: true, hasJwt: true },
           { account: "SYS", isSystem: true },
+          { account: "LEAF", connections: 5, leafnodes: 6, limitLeafnodes: 4, limitLeafnodesServer: "nats-1" },
         ],
         accountsTotal: 2,
         failedLogins: [{ user: "", host: "203.0.113.12", reason: "Authentication Timeout", count: 96n, last: timestampFromMs(AT - 1000) }],
@@ -38,7 +39,10 @@ describe("accountsAndAuth", () => {
     );
     expect(d.collected).toBe(true);
     expect(d.epochAt).toBe(AT);
-    const [app, sys] = d.accounts;
+    const [app, sys, leaf] = d.accounts;
+    expect(app.limitLeafnodes).toBe(0);
+    expect(sys.limitLeafnodes).toBeUndefined();
+    expect(leaf).toMatchObject({ connections: 5, leafnodes: 6, limitLeafnodes: 4, limitLeafnodesServer: "nats-1" });
     expect(app).toMatchObject({ connections: 0, subscriptions: 12, connLimit: -1, diskLimit: 0, jetstreamEnabled: true, detailsKnown: true, hasJwt: true });
     expect(app.jsStorage).toBeUndefined();
     expect(app.jwtExpires).toBeUndefined();
