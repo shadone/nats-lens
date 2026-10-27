@@ -63,14 +63,23 @@ function Nw({ children }: { children: ReactNode }) {
   return <span className="ac-nw">{children}</span>;
 }
 
-/** Parts joined by sep, each kept on one line. */
+/**
+ * Parts joined by sep, each kept on one line. A separator that starts with
+ * a space (" · ") keeps its mark on the line of the part after it, so a
+ * line breaks at that space and never ends with the dot; ", " and "; "
+ * break after their space as text does.
+ */
 function Parts({ parts, sep }: { parts: string[]; sep: string }) {
+  const leads = sep.startsWith(" ");
   return (
     <>
       {parts.map((p, k) => (
         <span key={p}>
-          {k > 0 && sep}
-          <Nw>{p}</Nw>
+          {k > 0 && (leads ? " " : sep)}
+          <Nw>
+            {leads && k > 0 ? `${sep.trimStart()}` : ""}
+            {p}
+          </Nw>
         </span>
       ))}
     </>
