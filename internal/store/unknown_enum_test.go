@@ -196,3 +196,40 @@ func TestUnknownValueNotesNameWhatIsStored(t *testing.T) {
 		t.Errorf("%d notes, want 9 (5 stream fields, 4 consumer fields), none per asset:\n%s", len(notes), all)
 	}
 }
+
+// TestUnknownNoteFollowsTheConfiguration gives consumer catalog-writer an
+// unknown deliver policy and an unknown ack policy. Its configuration is
+// not stored, as the ack policy does not encode, so the deliver policy's
+// note says so too rather than "stored as undefined".
+func TestUnknownNoteFollowsTheConfiguration(t *testing.T) {
+	b, err := os.ReadFile("../collect/testdata/jsz-nats-1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var r map[string]any
+	if err := json.Unmarshal(b, &r); err != nil {
+		t.Fatal(err)
+	}
+	streams := r["data"].(map[string]any)["account_details"].([]any)[0].(map[string]any)["stream_detail"].([]any)
+	cfg := streams[3].(map[string]any)["consumer_detail"].([]any)[0].(map[string]any)["config"].(map[string]any)
+	cfg["deliver_policy"], cfg["ack_policy"] = "future", "future"
+	if b, err = json.Marshal(r); err != nil {
+		t.Fatal(err)
+	}
+	s := openMem(t)
+	snap := collect.NewSnapshot(t0)
+	mustApply(t, snap, collect.Jsz, b)
+	snap.FinishedAt = t0
+	if _, err := s.WriteSnapshot(context.Background(), snap); err != nil {
+		t.Fatal(err)
+	}
+	if got := count(t, s.DB(), `SELECT count(*) FROM consumer_config WHERE consumer = 'catalog-writer'`); got != 0 {
+		t.Fatalf("catalog-writer's configuration stored %d times, want none", got)
+	}
+	want := `nats-1 sent consumer config.deliver_policy "future", which this nats-server version does not know, for 1 consumer; its configuration is not stored`
+	if got := count(t, s.DB(), `SELECT count(*) FROM epochs WHERE list_contains(errors, ?)`, want); got != 1 {
+		var notes string
+		_ = s.DB().QueryRow(`SELECT string_agg(array_to_string(errors, ' | '), ' || ') FROM epochs`).Scan(&notes)
+		t.Errorf("no note %q; notes: %s", want, notes)
+	}
+}
