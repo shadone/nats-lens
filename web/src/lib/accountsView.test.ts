@@ -56,6 +56,11 @@ describe("orderAccounts", () => {
     expect(orderAccounts(rows).map((a) => a.account)).toEqual(["C", "A", "B", "D", "SYS"]);
   });
 
+  it("sorts by the connections the cell shows: clients plus the leaf nodes counted against the limit", () => {
+    const rows = [account("CLIENTS", { connections: 30 }), account("LEAFS", { connections: 20, leafnodes: 15, limitLeafnodes: 15, limitLeafnodesServer: "nats-0" })];
+    expect(orderAccounts(rows).map((a) => a.account)).toEqual(["LEAFS", "CLIENTS"]);
+  });
+
   it("sorts by the readable name, and by code unit as the server does", () => {
     const rows = [account("AKEY2", { accountName: "beta" }), account("AKEY1", { accountName: "Zulu" }), account("AKEY3", { accountName: "" })];
     expect(orderAccounts(rows).map((a) => a.account)).toEqual(["AKEY3", "AKEY1", "AKEY2"]);

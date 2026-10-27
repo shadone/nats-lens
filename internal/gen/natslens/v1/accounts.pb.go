@@ -630,8 +630,8 @@ type GetAccountsAndAuthResponse struct {
 	// Whether the system runs in operator mode: an account identifier of
 	// the epoch is an account public key.
 	OperatorMode bool `protobuf:"varint,3,opt,name=operator_mode,json=operatorMode,proto3" json:"operator_mode,omitempty"`
-	// Accounts: the system account last, the others by connections, most
-	// first, then by account name. At most 500.
+	// Accounts: the system account last, the others by connections plus
+	// limit_leafnodes, most first, then by account name. At most 500.
 	Accounts []*AccountRow `protobuf:"bytes,4,rep,name=accounts,proto3" json:"accounts,omitempty"`
 	// Accounts before the limit of 500.
 	AccountsTotal int32 `protobuf:"varint,5,opt,name=accounts_total,json=accountsTotal,proto3" json:"accounts_total,omitempty"`

@@ -55,6 +55,23 @@ func TestFinishAccountsOrderAndMode(t *testing.T) {
 	}
 }
 
+// The order counts the leaf nodes counted against the limit with the
+// clients, as the page's Connections cell shows them, so that the 500
+// listed are the fullest by that count.
+func TestFinishAccountsOrderCountsLeafNodes(t *testing.T) {
+	f := &api.AccountsFacts{Epoch: 7, EpochAt: accEpochAt, Accounts: []api.AccountFact{
+		{Account: "clients", Connections: i32(30), LimitLeafnodes: i32(0)},
+		{Account: "leafs", Connections: i32(20), Leafnodes: i32(15), LimitLeafnodes: i32(15), LimitLeafnodesServer: "nats-0"},
+	}}
+	var got []string
+	for _, a := range api.FinishAccounts(f).GetAccounts() {
+		got = append(got, a.GetAccount())
+	}
+	if want := []string{"leafs", "clients"}; !slices.Equal(got, want) {
+		t.Errorf("order %v, want %v", got, want)
+	}
+}
+
 // At most 500 accounts are listed, with the total.
 func TestFinishAccountsLimit(t *testing.T) {
 	f := &api.AccountsFacts{Epoch: 1, EpochAt: accEpochAt}

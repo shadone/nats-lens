@@ -196,8 +196,8 @@ message GetAccountsAndAuthResponse {
   // the epoch is an account public key.
   bool operator_mode = 3;
 
-  // Accounts: the system account last, the others by connections, most
-  // first, then by account name. At most 500.
+  // Accounts: the system account last, the others by connections plus
+  // limit_leafnodes, most first, then by account name. At most 500.
   repeated AccountRow accounts = 4;
 
   // Accounts before the limit of 500.
