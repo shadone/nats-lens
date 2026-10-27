@@ -62,14 +62,18 @@ func replicasOf(ci *server.ClusterInfo, account, stream, consumer string) []repl
 }
 
 func (w *writer) gatherStream(b *jsRows, v *collect.ServerView, account string, s *server.StreamDetail) {
-	if w.repeated(v, assetKey{server: v.Info.ID, account: account, stream: s.Name}, configHash(s.Config)+" "+s.Created.UTC().String()) {
+	key := assetKey{server: v.Info.ID, account: account, stream: s.Name}
+	hash, hashErr := configHash(s.Config)
+	if w.repeated(v, key, repeatHash(hash, hashErr)+" "+s.Created.UTC().String()) {
 		return
 	}
 	w.ids.stream(account, s.Name, s.Created)
 	if s.Cluster != nil && s.Cluster.RaftGroup != "" {
 		w.ids.raftAsset(s.Cluster.RaftGroup, account, s.Name, "")
 	}
-	if cfg := s.Config; cfg != nil {
+	if cfg := s.Config; cfg != nil && hashErr != nil {
+		w.unhashed(v, key, hashErr)
+	} else if cfg != nil {
 		var mirror any
 		if cfg.Mirror != nil {
 			mirror = cfg.Mirror.Name
@@ -86,7 +90,7 @@ func (w *writer) gatherStream(b *jsRows, v *collect.ServerView, account string, 
 			plCluster, plTags = cfg.Placement.Cluster, strs(cfg.Placement.Tags)
 		}
 		b.streamConfigs = append(b.streamConfigs, streamConfigRow{
-			Account: account, Stream: s.Name, ConfigHash: configHash(cfg), Created: unixMicro(s.Created),
+			Account: account, Stream: s.Name, ConfigHash: hash, Created: unixMicro(s.Created),
 			Description: cfg.Description, Subjects: strs(cfg.Subjects), Retention: enum(cfg.Retention),
 			Storage: enum(cfg.Storage), Replicas: int64(cfg.Replicas), MaxConsumers: int64(cfg.MaxConsumers),
 			MaxMsgs: cfg.MaxMsgs, MaxBytes: cfg.MaxBytes, MaxAgeNS: cfg.MaxAge.Nanoseconds(),
@@ -126,16 +130,20 @@ func (w *writer) gatherStream(b *jsRows, v *collect.ServerView, account string, 
 }
 
 func (w *writer) gatherConsumer(b *jsRows, v *collect.ServerView, account, stream string, c *server.ConsumerInfo) {
-	if w.repeated(v, assetKey{server: v.Info.ID, account: account, stream: stream, consumer: c.Name}, configHash(c.Config)+" "+c.Created.UTC().String()) {
+	key := assetKey{server: v.Info.ID, account: account, stream: stream, consumer: c.Name}
+	hash, hashErr := configHash(c.Config)
+	if w.repeated(v, key, repeatHash(hash, hashErr)+" "+c.Created.UTC().String()) {
 		return
 	}
 	w.ids.consumer(account, stream, c.Name, c.Created)
 	if c.Cluster != nil && c.Cluster.RaftGroup != "" {
 		w.ids.raftAsset(c.Cluster.RaftGroup, account, stream, c.Name)
 	}
-	if cfg := c.Config; cfg != nil {
+	if cfg := c.Config; cfg != nil && hashErr != nil {
+		w.unhashed(v, key, hashErr)
+	} else if cfg != nil {
 		b.consumerConfigs = append(b.consumerConfigs, consumerConfigRow{
-			Account: account, Stream: stream, Consumer: c.Name, ConfigHash: configHash(cfg),
+			Account: account, Stream: stream, Consumer: c.Name, ConfigHash: hash,
 			Created: unixMicro(c.Created), DurableName: cfg.Durable, Description: cfg.Description,
 			DeliverPolicy: enum(cfg.DeliverPolicy), AckPolicy: enum(cfg.AckPolicy),
 			AckWaitNS: cfg.AckWait.Nanoseconds(), MaxDeliver: int64(cfg.MaxDeliver), BackoffNS: durs(cfg.BackOff),

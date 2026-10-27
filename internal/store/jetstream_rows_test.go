@@ -54,14 +54,18 @@ var replicaCols = []string{
 }
 
 func (w *writer) writeStreamByRow(v *collect.ServerView, account string, s *server.StreamDetail) {
-	if w.repeated(v, assetKey{server: v.Info.ID, account: account, stream: s.Name}, configHash(s.Config)+" "+s.Created.UTC().String()) {
+	key := assetKey{server: v.Info.ID, account: account, stream: s.Name}
+	hash, hashErr := configHash(s.Config)
+	if w.repeated(v, key, repeatHash(hash, hashErr)+" "+s.Created.UTC().String()) {
 		return
 	}
 	w.ids.stream(account, s.Name, s.Created)
 	if s.Cluster != nil && s.Cluster.RaftGroup != "" {
 		w.ids.raftAsset(s.Cluster.RaftGroup, account, s.Name, "")
 	}
-	if cfg := s.Config; cfg != nil {
+	if cfg := s.Config; cfg != nil && hashErr != nil {
+		w.unhashed(v, key, hashErr)
+	} else if cfg != nil {
 		var mirror any
 		if cfg.Mirror != nil {
 			mirror = cfg.Mirror.Name
@@ -79,7 +83,7 @@ func (w *writer) writeStreamByRow(v *collect.ServerView, account string, s *serv
 		}
 		w.configVersionByRow("stream_config",
 			[]string{"server_id", "account", "stream"}, []any{v.Info.ID, account, s.Name},
-			configHash(cfg), s.Created, streamConfigCols, []any{
+			hash, s.Created, streamConfigCols, []any{
 				ts(s.Created), cfg.Description, strs(cfg.Subjects), enum(cfg.Retention), enum(cfg.Storage),
 				cfg.Replicas, cfg.MaxConsumers, cfg.MaxMsgs, cfg.MaxBytes, cfg.MaxAge.Nanoseconds(), cfg.MaxMsgsPer,
 				int64(cfg.MaxMsgSize), enum(cfg.Discard), cfg.Duplicates.Nanoseconds(), mirror, sources,
@@ -142,17 +146,21 @@ var consumerStatsCols = []string{
 }
 
 func (w *writer) writeConsumerByRow(v *collect.ServerView, account, stream string, c *server.ConsumerInfo) {
-	if w.repeated(v, assetKey{server: v.Info.ID, account: account, stream: stream, consumer: c.Name}, configHash(c.Config)+" "+c.Created.UTC().String()) {
+	key := assetKey{server: v.Info.ID, account: account, stream: stream, consumer: c.Name}
+	hash, hashErr := configHash(c.Config)
+	if w.repeated(v, key, repeatHash(hash, hashErr)+" "+c.Created.UTC().String()) {
 		return
 	}
 	w.ids.consumer(account, stream, c.Name, c.Created)
 	if c.Cluster != nil && c.Cluster.RaftGroup != "" {
 		w.ids.raftAsset(c.Cluster.RaftGroup, account, stream, c.Name)
 	}
-	if cfg := c.Config; cfg != nil {
+	if cfg := c.Config; cfg != nil && hashErr != nil {
+		w.unhashed(v, key, hashErr)
+	} else if cfg != nil {
 		w.configVersionByRow("consumer_config",
 			[]string{"server_id", "account", "stream", "consumer"}, []any{v.Info.ID, account, stream, c.Name},
-			configHash(cfg), c.Created, consumerConfigCols, []any{
+			hash, c.Created, consumerConfigCols, []any{
 				ts(c.Created), cfg.Durable, cfg.Description, enum(cfg.DeliverPolicy), enum(cfg.AckPolicy),
 				cfg.AckWait.Nanoseconds(), cfg.MaxDeliver, durs(cfg.BackOff), filterSubjects(cfg),
 				enum(cfg.ReplayPolicy), cfg.MaxWaiting, cfg.MaxAckPending, cfg.MaxRequestBatch,

@@ -22,7 +22,7 @@ const jszWithNulls = `{
     "name": "orders", "created": "2026-10-16T23:00:00Z",
     "cluster": {"name": "example-dev", "raft_group": "S-orders", "leader": "nats-0",
       "replicas": [null, {"name": "nats-1", "current": true, "peer": "p1"}]},
-    "config": {"name": "orders", "subjects": ["orders.>"], "sources": [null, {"name": "legacy"}]},
+    "config": {"name": "orders", "storage": "file", "subjects": ["orders.>"], "sources": [null, {"name": "legacy"}]},
     "sources": [null, {"name": "legacy", "lag": 4}],
     "state": {"messages": 1},
     "consumer_detail": [null, {"stream_name": "orders", "name": "worker", "created": "2026-10-16T23:00:00Z",
