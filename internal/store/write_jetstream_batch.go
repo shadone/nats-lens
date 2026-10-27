@@ -269,8 +269,10 @@ var (
 // configuration changed, is new, or the server reported nothing for the
 // asset in between (server missing, JSZ missing, asset gone and back). A
 // run therefore never covers an epoch in which the server did not report
-// the configuration. A key whose row already reaches this epoch is left
-// as it is.
+// the configuration. A key with any run that already ends at this epoch
+// is left as it is. The row-at-a-time write looked at the latest run only;
+// the two differ only when an epoch is written after a newer one, which
+// WriteSnapshot cannot do, as its epochs come from a sequence.
 //
 // The rows go to a staging table, as DuckDB cannot bind parameters in an
 // UPDATE ... FROM: the staging INSERT binds the server ID, and the UPDATE
