@@ -54,8 +54,8 @@ package checks
 //     58 m is 1 day), whole numbers without ".0" and 1 in the singular.
 //   - account_servers(e) and account_connections(e) are the queries of
 //     AccountServersSQL and AccountConnectionsSQL for epoch e: each
-//     account's share on each server, one process per server name, and
-//     its connections as nats-server counts them against the limit.
+//     account's share on each server process, and its connections as
+//     nats-server counts them against the limit.
 var Prelude = "CREATE OR REPLACE TEMP MACRO account_servers(ep) AS TABLE " + AccountServersSQL("ep") + ";\n" +
 	"CREATE OR REPLACE TEMP MACRO account_connections(ep) AS TABLE " + AccountConnectionsSQL("ep") + ";\n" + prelude
 

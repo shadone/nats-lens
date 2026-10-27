@@ -75,9 +75,9 @@ export type AccountRow = Message<"natslens.v1.AccountRow"> & {
   isSystem: boolean;
 
   /**
-   * Client connections, summed over the servers, one process per server
-   * name (the later started when two answered in the collection); unset
-   * when no server reported the account's statistics.
+   * Client connections, summed over the servers (both processes when two
+   * of one server name answered in the collection, as nats-server counts
+   * both); unset when no server reported the account's statistics.
    *
    * @generated from field: optional int32 connections = 4;
    */
@@ -203,8 +203,8 @@ export type AccountRow = Message<"natslens.v1.AccountRow"> & {
   jetstreamEnabled?: boolean | undefined;
 
   /**
-   * Leaf node connections of the server that holds the most of the
-   * account's, which nats-server counts against conn_limit with every
+   * Leaf node connections of the server process that holds the most of
+   * the account's, which nats-server counts against conn_limit with every
    * server's client connections: connections plus these are the account's
    * connections against the limit, as account-001 counts them. That server
    * refuses first. Unset as connections.
