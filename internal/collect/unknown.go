@@ -20,6 +20,10 @@ type UnknownValue struct {
 	Path string
 	// Value is the JSON the reply sent, for example `"future"`.
 	Value string
+	// Encoded is how nats-server encodes the value the field holds in its
+	// place, such as `"undefined"` for a deliver policy, or empty when
+	// it refuses to, as it does for most enums.
+	Encoded string
 }
 
 // Field is the path without list positions, the same for every stream or
@@ -81,8 +85,13 @@ func decodeTolerant(b []byte, target any) ([]UnknownValue, error) {
 	sort.SliceStable(w.found, func(i, j int) bool { return lessSteps(w.found[i].steps, w.found[j].steps) })
 	out := make([]UnknownValue, 0, len(w.found))
 	for _, f := range w.found {
-		markUnknown(tv, f.steps)
-		out = append(out, UnknownValue{Path: pathString(f.steps), Value: f.value})
+		u := UnknownValue{Path: pathString(f.steps), Value: f.value}
+		if fv := markUnknown(tv, f.steps); fv.IsValid() {
+			if enc, err := json.Marshal(fv.Interface()); err == nil {
+				u.Encoded = string(enc)
+			}
+		}
+		out = append(out, u)
 	}
 	return out, nil
 }
@@ -229,8 +238,8 @@ func refused(val any, t reflect.Type) bool {
 }
 
 // markUnknown sets the field at steps, below v, to the value no enum
-// knows.
-func markUnknown(v reflect.Value, steps []step) {
+// knows, and returns it; the zero Value when it is not reached.
+func markUnknown(v reflect.Value, steps []step) reflect.Value {
 	for v.Kind() == reflect.Pointer {
 		if v.IsNil() {
 			v.Set(reflect.New(v.Type().Elem()))
@@ -244,7 +253,7 @@ func markUnknown(v reflect.Value, steps []step) {
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 			v.SetUint(math.MaxUint64 >> (64 - v.Type().Bits()))
 		}
-		return
+		return v
 	}
 	s, rest := steps[0], steps[1:]
 	switch s.kind {
@@ -258,25 +267,80 @@ func markUnknown(v reflect.Value, steps []step) {
 			}
 			v = v.Field(i)
 		}
-		markUnknown(v, rest)
+		return markUnknown(v, rest)
 	case reflect.Slice:
 		if s.index < v.Len() {
-			markUnknown(v.Index(s.index), rest)
+			return markUnknown(v.Index(s.index), rest)
 		}
 	case reflect.Map:
 		if v.Type().Key().Kind() != reflect.String {
-			return
+			return reflect.Value{}
 		}
 		k := reflect.ValueOf(s.key).Convert(v.Type().Key())
 		cur := v.MapIndex(k)
 		if !cur.IsValid() {
-			return
+			return reflect.Value{}
 		}
 		cp := reflect.New(cur.Type()).Elem()
 		cp.Set(cur)
-		markUnknown(cp, rest)
+		got := markUnknown(cp, rest)
 		v.SetMapIndex(k, cp)
+		if got.IsValid() {
+			// The map holds a copy; got is the copy's field, equal in value.
+			return got
+		}
 	}
+	return reflect.Value{}
+}
+
+// HoldsUnknown reports whether v, a decoded value such as a stream
+// configuration, holds an enum field that a reply's unknown value was
+// taken out of (decodeTolerant).
+func HoldsUnknown(v any) bool {
+	return holdsUnknown(reflect.ValueOf(v))
+}
+
+func holdsUnknown(v reflect.Value) bool {
+	for v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface {
+		if v.IsNil() {
+			return false
+		}
+		v = v.Elem()
+	}
+	t := v.Type()
+	if isEnum(t) {
+		switch t.Kind() {
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			return v.Uint() == math.MaxUint64>>(64-t.Bits())
+		default:
+			return v.Int() == -1
+		}
+	}
+	if !typeInfo(t).holdsEnum {
+		return false
+	}
+	switch t.Kind() {
+	case reflect.Struct:
+		for _, f := range typeInfo(t).fields.exact {
+			fv, err := v.FieldByIndexErr(f.index)
+			if err == nil && holdsUnknown(fv) {
+				return true
+			}
+		}
+	case reflect.Slice, reflect.Array:
+		for i := range v.Len() {
+			if holdsUnknown(v.Index(i)) {
+				return true
+			}
+		}
+	case reflect.Map:
+		for it := v.MapRange(); it.Next(); {
+			if holdsUnknown(it.Value()) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // jsonField is a struct field as encoding/json names it.

@@ -31,6 +31,7 @@ func (w *writer) writeJetStream(v *collect.ServerView) {
 		}
 	}
 	w.flushJetStream(v.Info.ID, &b)
+	w.unknownNotes(v)
 }
 
 // clusterOf is the cluster part of a stream_stats or consumer_stats row.
@@ -72,7 +73,7 @@ func (w *writer) gatherStream(b *jsRows, v *collect.ServerView, account string, 
 		w.ids.raftAsset(s.Cluster.RaftGroup, account, s.Name, "")
 	}
 	if cfg := s.Config; cfg != nil && hashErr != nil {
-		w.unhashed(v, key, hashErr)
+		w.unhashed(v, key, cfg, hashErr)
 	} else if cfg != nil {
 		var mirror any
 		if cfg.Mirror != nil {
@@ -140,7 +141,7 @@ func (w *writer) gatherConsumer(b *jsRows, v *collect.ServerView, account, strea
 		w.ids.raftAsset(c.Cluster.RaftGroup, account, stream, c.Name)
 	}
 	if cfg := c.Config; cfg != nil && hashErr != nil {
-		w.unhashed(v, key, hashErr)
+		w.unhashed(v, key, cfg, hashErr)
 	} else if cfg != nil {
 		b.consumerConfigs = append(b.consumerConfigs, consumerConfigRow{
 			Account: account, Stream: stream, Consumer: c.Name, ConfigHash: hash,

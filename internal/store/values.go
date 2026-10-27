@@ -96,13 +96,63 @@ func repeatHash(hash string, err error) string {
 
 // unhashed notes, in the epoch's errors, a configuration that does not
 // encode as JSON, and logs it once per process; the writers store no
-// configuration version for it.
-func (w *writer) unhashed(v *collect.ServerView, key assetKey, err error) {
+// configuration version for it. A configuration that does not encode
+// because it holds a value the server sent and this nats-server version
+// does not know gets no note of its own: unknownNotes writes one per
+// server, field and value, and the collector logs it.
+func (w *writer) unhashed(v *collect.ServerView, key assetKey, cfg any, err error) {
+	if collect.HoldsUnknown(cfg) {
+		return
+	}
 	w.notes = append(w.notes, fmt.Sprintf("%s reported %s with a configuration that does not encode as JSON (%v); its configuration is not stored",
 		v.Info.Name, key, err))
 	if w.firstWarning(warnUnhashed, key) {
 		w.log.Warn("configuration does not encode as JSON, not stored; logged once per process",
 			"server", v.Info.Name, "asset", key.String(), "error", err)
+	}
+}
+
+// unknownNotes notes, in the epoch's errors, each value of a stream or
+// consumer configuration that the server's JSZ reply sent and this
+// nats-server version does not know: one note per field and value, with
+// how many configurations held it and what is stored for them.
+func (w *writer) unknownNotes(v *collect.ServerView) {
+	type group struct {
+		kind, field, value, encoded string
+	}
+	counts := map[group]int{}
+	var order []group
+	for _, u := range v.Status[collect.Jsz].Unknown {
+		f := u.Field()
+		var g group
+		switch {
+		case strings.HasPrefix(f, "account_details[].stream_detail[].consumer_detail[].config."):
+			g = group{"consumer", strings.TrimPrefix(f, "account_details[].stream_detail[].consumer_detail[]."), u.Value, u.Encoded}
+		case strings.HasPrefix(f, "account_details[].stream_detail[].config."):
+			g = group{"stream", strings.TrimPrefix(f, "account_details[].stream_detail[]."), u.Value, u.Encoded}
+		default:
+			continue
+		}
+		if counts[g] == 0 {
+			order = append(order, g)
+		}
+		counts[g]++
+	}
+	for _, g := range order {
+		n := counts[g]
+		what := g.kind + "s"
+		if n == 1 {
+			what = g.kind
+		}
+		stored := "their configurations are not stored"
+		if n == 1 {
+			stored = "its configuration is not stored"
+		}
+		if g.encoded != "" {
+			stored = fmt.Sprintf("stored as %s", g.encoded)
+		}
+		w.notes = append(w.notes, fmt.Sprintf("%s sent %s %s %s, which this nats-server version does not know, for %d %s; %s",
+			v.Info.Name, g.kind, g.field, g.value, n, what, stored))
 	}
 }
 
