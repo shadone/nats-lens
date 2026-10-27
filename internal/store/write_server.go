@@ -191,6 +191,9 @@ func (w *writer) writeRoutes(v *collect.ServerView) {
 		return
 	}
 	for _, r := range v.Routez.Routes {
+		if r == nil {
+			continue
+		}
 		w.insert("routes", routeCols, w.epoch, v.Info.ID, i64(r.Rid), r.RemoteID, r.RemoteName, r.DidSolicit,
 			r.IsConfigured, r.IP, r.Port, ts(r.Start), ts(r.LastActivity), durNS(r.RTT), r.Pending,
 			r.InMsgs, r.OutMsgs, r.InBytes, r.OutBytes, int64(r.NumSubs), r.Account, r.Compression)
@@ -239,6 +242,9 @@ func (w *writer) writeLeafnodes(v *collect.ServerView) {
 		return
 	}
 	for _, l := range v.Leafz.Leafs {
+		if l == nil {
+			continue
+		}
 		w.insert("leafnodes", leafCols, w.epoch, v.Info.ID, i64(l.ID), l.Name, l.IsSpoke, l.Account, l.IP, l.Port,
 			durNS(l.RTT), l.InMsgs, l.OutMsgs, l.InBytes, l.OutBytes, int64(l.NumSubs), l.Compression)
 	}

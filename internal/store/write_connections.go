@@ -55,6 +55,9 @@ func (w *writer) writeConnections(v *collect.ServerView) {
 	}
 	rows := make([]connectionRow, 0, len(v.Connz.Conns))
 	for _, c := range v.Connz.Conns {
+		if c == nil {
+			continue
+		}
 		if c.NameTag != "" {
 			// CONNZ gives the account's name tag with each connection.
 			w.ids.account(c.Account, c.NameTag, false)
