@@ -234,13 +234,16 @@ func TestStagingNameClash(t *testing.T) {
 	sn := collect.NewSnapshot(t0)
 	sn.Servers["N1"] = &collect.ServerView{Info: server.ServerInfo{ID: "N1", Name: "n1"},
 		Jsz: &server.JSInfo{AccountDetails: []*server.AccountDetail{{Id: "A", Streams: []server.StreamDetail{{
-			Name: "s", Created: t0, Config: &server.StreamConfig{Name: "s"}}}}}}}
+			Name: "s", Created: t0, Config: &server.StreamConfig{Name: "s", Storage: server.FileStorage}}}}}}}
 	sn.FinishedAt = t0.Add(time.Second)
 	if _, err := s.WriteSnapshot(ctx, sn); err != nil {
 		t.Fatal(err)
 	}
 	if n := count(t, s.DB(), `SELECT count(*) FROM main.stage_stream_config WHERE x = 42`); n != 1 {
 		t.Errorf("main.stage_stream_config rows = %d, want 1", n)
+	}
+	if n := count(t, s.DB(), `SELECT count(*) FROM stream_config`); n != 1 {
+		t.Errorf("stream_config rows = %d, want 1", n)
 	}
 }
 
