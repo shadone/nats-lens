@@ -9,10 +9,10 @@ import (
 // answered ACCSTATZ (30 clients of the account) and then went away; the new
 // process answered only JSZ, so its account_stats row has NULL conns and
 // leafnodes. nats-server's other servers hold the old process's 30 clients
-// in their remote count until its shutdown event, so the account's count is
-// 30 + 40 = 70. The rule picks the newer process among every process with
-// any account_stats row (JSZ included) and drops the old one's STATZ share.
-func TestReviewNewerProcessJSZOnlyDropsOldStatz(t *testing.T) {
+// in their remote count until its shutdown event, so both processes count
+// and account-001 reads 30 + 40 = 70 of 70, not 40 from the new process
+// alone.
+func TestReviewRestartMidCollectionCountsBothProcesses(t *testing.T) {
 	f := newFx(t)
 	f.lookupEpochs([]string{"nats-0", "nats-1"})
 	f.server("Z-OLD", "nats-0", 3, 3, t0.Add(-48*time.Hour), "2.15.0")

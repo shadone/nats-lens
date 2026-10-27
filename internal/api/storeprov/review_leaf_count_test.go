@@ -8,9 +8,9 @@ import (
 // Reviewer case: nats-0 restarted in the collection; the old process
 // answered ACCSTATZ with 30 clients of APP, the new process only JSZ (NULL
 // conns). nats-server still counts the old process's 30 clients (strack is
-// keyed by server ID), so the page should show 70; the shared rule drops
-// the old process because the new one reported an account at all.
-func TestReviewAccountsPageNewerProcessJSZOnly(t *testing.T) {
+// keyed by server ID), so both processes count and the page shows 70, not
+// the new process's share alone.
+func TestReviewAccountsPageRestartCountsBothProcesses(t *testing.T) {
 	last := time.Date(2026, 10, 26, 9, 0, 0, 0, time.UTC)
 	st := emptyStore(t)
 	r := rows{t, st}
