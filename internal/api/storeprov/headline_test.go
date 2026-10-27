@@ -20,7 +20,8 @@ import (
 // An expiry warning that fires longer than an outage of the same severity
 // does not head it: the owner's decision of 2026-10-27 for the headline of
 // the systems list and the Overview. That the Findings list also puts
-// server-001 first is this session's reading, proposed, not yet confirmed.
+// server-001 first is the session's reading, which the owner confirmed on
+// 2026-10-27.
 func TestExpiryWarningDoesNotHeadAnOutage(t *testing.T) {
 	st := fixtureStore(t)
 	set, err := checks.Load(config.Checks{})
