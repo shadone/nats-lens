@@ -1,6 +1,6 @@
 // Findings: every finding in the range by severity and state, worst first,
 // and the mutes with who set them, why and until when.
-import { useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
 import type { Entity, FindingState, Mute, SeverityLevel } from "../api/model";
 import { useFindings, useMutes } from "../api/queries";
@@ -31,7 +31,11 @@ type Label = (id: string, name?: string) => string;
 
 /** The accounts of the listed entities, labelled apart where two share a name. */
 function labelOf(es: (Entity | undefined)[]): Label {
-  return accountLabeller(es.filter((e): e is Entity => e?.kind === "account"));
+  return accountLabeller(accountsOf(es));
+}
+
+function accountsOf(es: (Entity | undefined)[]): Entity[] {
+  return es.filter((e): e is Entity => e?.kind === "account");
 }
 
 function liftName(m: Mute, label?: Label): string {
@@ -71,12 +75,19 @@ function MuteRow({ m, now, onLift, label }: { m: Mute; now: number; onLift: (m: 
   );
 }
 
-function Mutes() {
+/**
+ * The mutes list. others are the accounts the findings list shows, and
+ * onAccounts receives the mutes' accounts, so that one labeller over both
+ * lists names an account the same in each.
+ */
+function Mutes({ others, onAccounts }: { others: Entity[]; onAccounts: (es: Entity[]) => void }) {
   const [inactive, setInactive] = useState(false);
   const [lifting, setLifting] = useState<Mute>();
   const pager = usePager([useSystem(), String(inactive)].join("|"));
   const q = useMutes(inactive, pager.token);
   const now = Date.now();
+  const own = useMemo(() => accountsOf(q.data?.items.map((m) => m.entity) ?? []), [q.data]);
+  useEffect(() => onAccounts(own), [own, onAccounts]);
   return (
     <Section
       title="Mutes"
@@ -89,7 +100,7 @@ function Mutes() {
     >
       <QueryView q={q} what="mutes">
         {(page) => {
-          const label = labelOf(page.items.map((x) => x.entity));
+          const label = labelOf([...page.items.map((x) => x.entity), ...others]);
           return page.items.length ? (
             <div className="card others mutes-list">
               {page.items.map((m) => (
@@ -119,6 +130,7 @@ export function Findings() {
   const muted = params.get("muted") !== "0";
   const check = params.get("check") ?? "";
   const [checkText, setCheckText] = useState(check);
+  const [muteAccounts, setMuteAccounts] = useState<Entity[]>([]);
   const pager = usePager([useSystem(), sev.join(), stateId, muted, check, rangeKey(spec)].join("|"));
   const q = useFindings(spec, {
     severities: sev,
@@ -179,7 +191,7 @@ export function Findings() {
       </div>
       <QueryView q={q} what="findings">
         {(page) => {
-          const label = labelOf(page.items.map((x) => x.entity));
+          const label = labelOf([...page.items.map((x) => x.entity), ...muteAccounts]);
           return (
             <div className="card others">
               {page.items.length === 0 ? (
@@ -192,7 +204,7 @@ export function Findings() {
           );
         }}
       </QueryView>
-      <Mutes />
+      <Mutes others={accountsOf(q.data?.items.map((f) => f.entity) ?? [])} onAccounts={setMuteAccounts} />
     </>
   );
 }
