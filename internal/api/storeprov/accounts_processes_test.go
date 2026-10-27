@@ -50,10 +50,11 @@ func twoProcessStore(t *testing.T, last time.Time, oldFirst bool) *store.Store {
 	return st
 }
 
-// Two processes of one server name in the collection: the Accounts page and
-// ListAccounts sum the newer process's share with the other servers', as
-// account-001 counts, not both processes'.
-func TestAccountsAndAuthConnectionsOfNewerProcess(t *testing.T) {
+// Two processes of one server name in the collection: nats-server keeps
+// their connections apart until the old one shuts down, so the Accounts
+// page and ListAccounts sum both shares, as account-001 counts, and the old
+// process's 5 leaf nodes are the most on one process.
+func TestAccountsAndAuthConnectionsOfTwoProcesses(t *testing.T) {
 	last := time.Date(2026, 10, 26, 9, 0, 0, 0, time.UTC)
 	for _, oldFirst := range []bool{true, false} {
 		st := twoProcessStore(t, last, oldFirst)
@@ -62,18 +63,18 @@ func TestAccountsAndAuthConnectionsOfNewerProcess(t *testing.T) {
 			t.Fatalf("accounts %v", res.GetAccounts())
 		}
 		a := res.GetAccounts()[0]
-		if a.GetLimitLeafnodes() != 2 || a.GetLimitLeafnodesServer() != "nats-0" {
-			t.Errorf("old first %v: %d leaf nodes counted on %q, want 2 on nats-0", oldFirst, a.GetLimitLeafnodes(), a.GetLimitLeafnodesServer())
+		if a.GetLimitLeafnodes() != 5 || a.GetLimitLeafnodesServer() != "nats-0" {
+			t.Errorf("old first %v: %d leaf nodes counted on %q, want 5 on nats-0", oldFirst, a.GetLimitLeafnodes(), a.GetLimitLeafnodesServer())
 		}
-		if a.GetConnections() != 60 || a.GetLeafnodes() != 2 || a.GetSubscriptions() != 600 {
-			t.Errorf("old first %v: connections %d, leaf nodes %d, subscriptions %d; want 60, 2, 600", oldFirst,
+		if a.GetConnections() != 90 || a.GetLeafnodes() != 7 || a.GetSubscriptions() != 900 {
+			t.Errorf("old first %v: connections %d, leaf nodes %d, subscriptions %d; want 90, 7, 900", oldFirst,
 				a.GetConnections(), a.GetLeafnodes(), a.GetSubscriptions())
 		}
 		now := last.Add(30 * time.Second)
 		_, c := apitest.Serve(t, &storeprov.Provider{St: st, Interval: 30 * time.Second, Live: true, Clock: func() time.Time { return now }})
 		ls := must(c.ListAccounts(ctx, connect.NewRequest(&v1.ListAccountsRequest{})))
-		if len(ls.GetAccounts()) != 1 || ls.GetAccounts()[0].GetConnections() != 60 {
-			t.Errorf("old first %v: ListAccounts %v, want 60 connections", oldFirst, ls.GetAccounts())
+		if len(ls.GetAccounts()) != 1 || ls.GetAccounts()[0].GetConnections() != 90 {
+			t.Errorf("old first %v: ListAccounts %v, want 90 connections", oldFirst, ls.GetAccounts())
 		}
 	}
 }

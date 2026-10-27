@@ -83,9 +83,8 @@ type AccountsFacts struct {
 type AccountFact struct {
 	Account, Name string
 	IsSystem      bool
-	// Connections, Leafnodes and Subscriptions are summed over the
-	// servers, one process per server name; nil when no server reported
-	// them.
+	// Connections, Leafnodes and Subscriptions are summed over the server
+	// processes; nil when no server reported them.
 	Connections, Leafnodes *int32
 	Subscriptions          *int64
 	// LimitLeafnodes are the leaf node connections of the server that

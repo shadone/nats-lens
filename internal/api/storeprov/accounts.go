@@ -10,8 +10,8 @@ import (
 )
 
 // ListAccounts lists the accounts the newest epoch of the range reported,
-// ordered by account. Connections add up each server's share from STATZ,
-// one process per server name (checks.AccountConnectionsSQL).
+// ordered by account. Connections add up each server process's share from
+// STATZ (checks.AccountConnectionsSQL).
 // Streams and consumers are counted from the JSZ detail; without detail,
 // a JSZ count of zero is zero and any other count is unknown, since the
 // servers count each replica.

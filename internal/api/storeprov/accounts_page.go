@@ -33,8 +33,8 @@ func (p *Provider) AccountsAndAuth(ctx context.Context, req *v1.GetAccountsAndAu
 
 // accountFacts reads the accounts ListAccounts lists for the epoch:
 // connections, leaf nodes and subscriptions summed over the servers'
-// STATZ shares, one process per server name, with the leaf nodes of the
-// server that holds the most (checks.AccountConnectionsSQL, as account-001
+// STATZ shares, with the leaf nodes of the server process that holds the
+// most (checks.AccountConnectionsSQL, as account-001
 // counts), JetStream use the largest any server reports (each
 // reports the account total), distinct streams, and the lookup of the
 // newest epoch up to this one, when it was read at most

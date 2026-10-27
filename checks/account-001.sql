@@ -21,9 +21,9 @@ description: >-
   node connections of the account, plus the client connections the other servers report for it, reach the limit
   ("maximum account active connections exceeded"). Each server counts only its own leaf nodes, so the count is the
   client connections summed over the servers that answered in the collection plus the leaf node connections of the
-  server that holds the most of them, the first server to refuse. Of two processes of one server name in the
-  collection (the old one shutting down, the new one up), only the later started is counted, as server-016 reads
-  certificates. At the limit a service that restarts or scales out cannot connect. A server whose count goes over the
+  server that holds the most of them, the first server to refuse. Two processes of one server name in the
+  collection (the old one shutting down, the new one up) both count, as nats-server keeps their connections apart
+  until the old one shuts down; the server is named once among those that refuse. At the limit a service that restarts or scales out cannot connect. A server whose count goes over the
   limit, as when another server reports more clients, closes its newest connections of the account, clients and leaf
   nodes alike, until it is back at the limit. Read from the account's newest lookup within the last 24 hours, as on the
   Accounts page, whose Connections cell shows the same count; an account without a JWT (config mode), without a limit
@@ -40,8 +40,8 @@ value_basis: >-
   client connections summed over the servers of the collection, plus the leaf node connections of the server with the
   most, divided by the account JWT's connection limit
 */
--- Each account's share on each server, one process per server name, and
--- its connections as nats-server counts them (account_servers and
+-- Each account's share on each server process, and its connections as
+-- nats-server counts them (account_servers and
 -- account_connections, which the Accounts page reads too): every server's
 -- clients and the leaf nodes of the server with the most, which reaches the
 -- limit first.
@@ -64,9 +64,9 @@ cur AS (
 ),
 -- The servers that refuse a new client: each whose own leaf nodes, with
 -- every server's clients, reach the limit; every server once the clients
--- alone reach it.
+-- alone reach it. Two processes of one name are named once.
 refusing AS (
-    SELECT c.account, list(p.server_name ORDER BY p.server_name) AS servers
+    SELECT c.account, list_sort(list_distinct(list(p.server_name))) AS servers
     FROM cur c JOIN per_server p USING (account)
     WHERE c.clients + p.leafs >= c.limit_connections
     GROUP BY c.account
