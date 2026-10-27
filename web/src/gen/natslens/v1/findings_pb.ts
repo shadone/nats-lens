@@ -315,8 +315,9 @@ export type Finding = Message<"natslens.v1.Finding"> & {
 
   /**
    * The check warns of something that will expire, a certificate or a JWT
-   * (its category is expiry). Within a severity such a finding ranks after
-   * every other finding, so it never heads an outage.
+   * (its category is expiry). Such a finding at warning ranks after every
+   * other warning, so it never heads an outage; at critical it ranks as
+   * any critical finding.
    *
    * @generated from field: bool expiry = 19;
    */

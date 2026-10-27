@@ -148,7 +148,7 @@ func severityRank(s v1.Severity) int {
 }
 
 // sortWorstFirst orders findings worst first by api.CompareWorst: an
-// expiry finding after the other findings of its severity.
+// expiry warning after the other warnings.
 func sortWorstFirst(fs []*v1.Finding) {
 	slices.SortStableFunc(fs, api.CompareWorst)
 }
