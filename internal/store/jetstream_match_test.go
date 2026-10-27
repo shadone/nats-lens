@@ -166,7 +166,7 @@ line "two"`},
 		app.Streams = append(app.Streams, server.StreamDetail{Name: "plain", Created: plainCreated,
 			Cluster: peerList(srv.name, "S-plain", "nats-2"), State: server.StreamState{Msgs: 5}})
 		if bulk && e <= 2 {
-			s := server.StreamDetail{Name: "bulk", Created: t0, Config: &server.StreamConfig{Name: "bulk", Replicas: 1}}
+			s := server.StreamDetail{Name: "bulk", Created: t0, Config: &server.StreamConfig{Name: "bulk", Storage: server.FileStorage, Replicas: 1}}
 			for j := range jsonBatch + 3 {
 				s.Consumer = append(s.Consumer, &server.ConsumerInfo{Stream: "bulk", Name: fmt.Sprintf("b-%d", j),
 					Created: t0.Add(time.Duration(j) * time.Microsecond), Delivered: server.SequenceInfo{Consumer: uint64(j)},
