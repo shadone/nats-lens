@@ -78,7 +78,11 @@ func (w *writer) writeAccountStats(v *collect.ServerView) {
 		if d := r.detail; d != nil {
 			consumers := 0
 			for _, s := range d.Streams {
-				consumers += len(s.Consumer)
+				for _, c := range s.Consumer {
+					if c != nil {
+						consumers++
+					}
+				}
 			}
 			vals = append(vals, i64(d.Memory), i64(d.Store), i64(d.ReservedMemory), i64(d.ReservedStore),
 				i64(d.API.Total), i64(d.API.Errors), len(d.Streams), consumers)
