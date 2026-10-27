@@ -98,6 +98,35 @@ export function limitBarParts(bar: LimitBar): string[] {
   return bar.tone === "crit" ? [pct, "over the limit"] : [pct];
 }
 
+/**
+ * The connections counted against the limit, as nats-server and
+ * account-001 count them: every server's client connections plus the leaf
+ * nodes of the server that holds the most, which refuses first. Undefined
+ * when the clients were not reported.
+ */
+export function connectionsUsed(a: AccountRow): number | undefined {
+  if (a.connections === undefined) return undefined;
+  return a.connections + (a.limitLeafnodes ?? 0);
+}
+
+/**
+ * The line under the connection count, in parts: ["includes 8 leaf nodes on
+ * nats-0", "11 leaf nodes in all"] when leaf nodes on other servers are not
+ * counted, ["3 leaf nodes"] when the server holding the most is not known;
+ * undefined without leaf nodes.
+ */
+export function leafNodeParts(a: AccountRow): string[] | undefined {
+  const all = a.leafnodes ?? 0;
+  const counted = a.limitLeafnodes ?? 0;
+  if (counted > 0) {
+    const parts = [`includes ${plural(counted, "leaf node")}${a.limitLeafnodesServer ? ` on ${a.limitLeafnodesServer}` : ""}`];
+    if (all > counted) parts.push(`${plural(all, "leaf node")} in all`);
+    return parts;
+  }
+  if (a.limitLeafnodes === undefined && all > 0) return [plural(all, "leaf node")];
+  return undefined;
+}
+
 /** "of 2,000", "of unlimited", or undefined without a limit. */
 export function connLimitText(limit: number | undefined): string | undefined {
   if (limit === undefined) return undefined;

@@ -62,6 +62,9 @@ func TestAccountsAndAuthConnectionsOfNewerProcess(t *testing.T) {
 			t.Fatalf("accounts %v", res.GetAccounts())
 		}
 		a := res.GetAccounts()[0]
+		if a.GetLimitLeafnodes() != 2 || a.GetLimitLeafnodesServer() != "nats-0" {
+			t.Errorf("old first %v: %d leaf nodes counted on %q, want 2 on nats-0", oldFirst, a.GetLimitLeafnodes(), a.GetLimitLeafnodesServer())
+		}
 		if a.GetConnections() != 60 || a.GetLeafnodes() != 2 || a.GetSubscriptions() != 600 {
 			t.Errorf("old first %v: connections %d, leaf nodes %d, subscriptions %d; want 60, 2, 600", oldFirst,
 				a.GetConnections(), a.GetLeafnodes(), a.GetSubscriptions())

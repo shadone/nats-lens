@@ -30,11 +30,13 @@ message AccountRow {
   // Whether this is the system account.
   bool is_system = 3;
 
-  // Client connections, summed over the servers; unset when no server
-  // reported the account's statistics.
+  // Client connections, summed over the servers, one process per server
+  // name (the later started when two answered in the collection); unset
+  // when no server reported the account's statistics.
   optional int32 connections = 4;
 
-  // Leaf node connections, summed over the servers; unset as connections.
+  // Leaf node connections, summed over the servers as connections; unset
+  // as connections.
   optional int32 leafnodes = 5;
 
   // Subscriptions, summed over the servers; unset as connections.
@@ -91,6 +93,17 @@ message AccountRow {
   // account. False: JetStream is disabled for the account. Unset as
   // conn_limit.
   optional bool jetstream_enabled = 19;
+
+  // Leaf node connections of the server that holds the most of the
+  // account's, which nats-server counts against conn_limit with every
+  // server's client connections: connections plus these are the account's
+  // connections against the limit, as account-001 counts them. That server
+  // refuses first. Unset as connections.
+  optional int32 limit_leafnodes = 20;
+
+  // The server that holds limit_leafnodes, the larger name on a tie; empty
+  // when limit_leafnodes is 0 or unset.
+  string limit_leafnodes_server = 21;
 }
 
 // Failed logins of one user from one address for one reason.

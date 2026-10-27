@@ -9,8 +9,14 @@ export interface AccountRow {
   account: string;
   accountName: string;
   isSystem: boolean;
+  /** Client connections, summed over the servers. */
   connections?: number;
+  /** Leaf node connections, summed over the servers. */
   leafnodes?: number;
+  /** The leaf nodes of the server that holds the most, which nats-server counts against connLimit with every server's clients. */
+  limitLeafnodes?: number;
+  /** The server that holds limitLeafnodes; empty without leaf nodes. */
+  limitLeafnodesServer: string;
   subscriptions?: number;
   jsStorage?: number;
   jsMemory?: number;
@@ -99,6 +105,8 @@ export function accountsAndAuth(r: GetAccountsAndAuthResponse): AccountsAndAuth 
       isSystem: a.isSystem,
       connections: a.connections,
       leafnodes: a.leafnodes,
+      limitLeafnodes: a.limitLeafnodes,
+      limitLeafnodesServer: a.limitLeafnodesServer,
       subscriptions: optN(a.subscriptions),
       jsStorage: optN(a.jsStorage),
       jsMemory: optN(a.jsMemory),

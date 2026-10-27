@@ -111,6 +111,14 @@ func accountsRows() []State {
 			return a.GetDetailsKnown() && a.GetHasJwt() && a.DiskLimit != nil && a.GetDiskLimit() == 0 && a.JetstreamEnabled != nil &&
 				!a.GetJetstreamEnabled()
 		})},
+		{"an account with leaf nodes: those of the server that holds the most counted against the limit, with that server", accountRow(func(_ *v1.GetAccountsAndAuthResponse, a *v1.AccountRow) bool {
+			return a.GetLeafnodes() > 0 && a.LimitLeafnodes != nil && a.GetLimitLeafnodes() > 0 && a.GetLimitLeafnodes() <= a.GetLeafnodes() &&
+				a.GetLimitLeafnodesServer() != ""
+		})},
+		{"an account without leaf nodes counts none against the limit and names no server", accountRow(func(_ *v1.GetAccountsAndAuthResponse, a *v1.AccountRow) bool {
+			return a.Connections != nil && a.Leafnodes != nil && a.GetLeafnodes() == 0 && a.LimitLeafnodes != nil && a.GetLimitLeafnodes() == 0 &&
+				a.GetLimitLeafnodesServer() == ""
+		})},
 		{"an idle account: no connections, leaf nodes or streams", accountRow(func(_ *v1.GetAccountsAndAuthResponse, a *v1.AccountRow) bool {
 			return !a.GetIsSystem() && a.Connections != nil && a.GetConnections() == 0 && a.Leafnodes != nil && a.GetLeafnodes() == 0 &&
 				a.Streams != nil && a.GetStreams() == 0

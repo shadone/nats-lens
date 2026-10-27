@@ -33,8 +33,9 @@ func (p *Provider) AccountsAndAuth(ctx context.Context, req *v1.GetAccountsAndAu
 
 // accountFacts reads the accounts ListAccounts lists for the epoch:
 // connections, leaf nodes and subscriptions summed over the servers'
-// STATZ shares, one process per server name (checks.AccountConnectionsSQL,
-// as account-001 counts), JetStream use the largest any server reports (each
+// STATZ shares, one process per server name, with the leaf nodes of the
+// server that holds the most (checks.AccountConnectionsSQL, as account-001
+// counts), JetStream use the largest any server reports (each
 // reports the account total), distinct streams, and the lookup of the
 // newest epoch up to this one, when it was read at most
 // AccountDetailsMaxAge before the epoch started. A lookup is read after
@@ -46,7 +47,8 @@ WITH cn AS (`+checks.AccountConnectionsSQL("$1")+`
     SELECT account, max(js_storage) AS js_storage, max(js_memory) AS js_memory, max(js_streams) AS js_streams
     FROM account_stats WHERE epoch = $1 GROUP BY account
 ), st AS (
-    SELECT account, cn.clients AS conns, cn.leafnodes AS leafs, cn.subscriptions AS subs, js.js_storage, js.js_memory, js.js_streams
+    SELECT account, cn.clients AS conns, cn.leafnodes AS leafs, cn.subscriptions AS subs, js.js_storage, js.js_memory, js.js_streams,
+        cn.limit_leafnodes, cn.limit_leafnodes_server
     FROM js LEFT JOIN cn USING (account)
 ), ss AS (
     SELECT account, count(DISTINCT stream) AS n FROM stream_stats WHERE epoch = $1 GROUP BY account
@@ -56,6 +58,7 @@ WITH cn AS (`+checks.AccountConnectionsSQL("$1")+`
 )
 SELECT a.account, coalesce(nullif(a.account_name, a.account), nullif(d.account_name, a.account), ''),
     a.is_system OR coalesce(d.is_system, false), st.conns, st.leafs, st.subs, st.js_storage, st.js_memory, ss.n, st.js_streams,
+    st.limit_leafnodes, coalesce(st.limit_leafnodes_server, ''),
     d.looked_up_at, d.has_jwt, d.expired, d.imports, d.exports, d.jwt_expires, d.limit_connections, d.limit_js_disk, d.limit_js_memory
 FROM accounts a LEFT JOIN st USING (account) LEFT JOIN ss USING (account) LEFT JOIN d USING (account)
 WHERE a.first_epoch <= $1 AND a.last_epoch >= $1
@@ -72,13 +75,13 @@ ORDER BY a.account`, f.Epoch, f.EpochAt.Add(-api.AccountDetailsMaxAge))
 			at, expires                        sql.NullTime
 			hasJWT, expired                    sql.NullBool
 			imports, exports, connLimit, limit sql.NullInt64
-			memLimit                           sql.NullInt64
+			memLimit, limitLeafs               sql.NullInt64
 		)
 		if err := rows.Scan(&a.Account, &a.Name, &a.IsSystem, &conns, &leafs, &subs, &disk, &mem, &streams, &jsStreams,
-			&at, &hasJWT, &expired, &imports, &exports, &expires, &connLimit, &limit, &memLimit); err != nil {
+			&limitLeafs, &a.LimitLeafnodesServer, &at, &hasJWT, &expired, &imports, &exports, &expires, &connLimit, &limit, &memLimit); err != nil {
 			return err
 		}
-		a.Connections, a.Leafnodes = int32Of(conns), int32Of(leafs)
+		a.Connections, a.Leafnodes, a.LimitLeafnodes = int32Of(conns), int32Of(leafs), int32Of(limitLeafs)
 		a.Subscriptions, a.JSStorage, a.JSMemory = int64Ptr(subs), int64Ptr(disk), int64Ptr(mem)
 		a.Streams = jsCount(streams, jsStreams)
 		if at.Valid {
