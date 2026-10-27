@@ -45,7 +45,7 @@ func (s *Store) writeSnapshot(ctx context.Context, snap *collect.Snapshot) (int6
 	w := newWriter(ctx, tx, epoch, snap)
 	w.log = s.logger()
 	if s.warned == nil {
-		s.warned = map[assetKey]bool{}
+		s.warned = map[warning]bool{}
 	}
 	w.warned = s.warned
 	if err := tx.QueryRowContext(ctx, `SELECT coalesce(max(epoch), 0) FROM epochs`).Scan(&w.prevEpoch); err != nil {
@@ -92,8 +92,8 @@ type writer struct {
 	seen  map[assetKey]string
 	noted map[assetKey]bool
 	notes []string
-	// warned is the store's set of conflicts already logged.
-	warned map[assetKey]bool
+	// warned is the store's set of asset warnings already logged.
+	warned map[warning]bool
 	log    *slog.Logger
 	// prevEpoch is the newest epoch stored before this one, 0 when none.
 	prevEpoch int64
@@ -102,7 +102,8 @@ type writer struct {
 
 func newWriter(ctx context.Context, tx *sql.Tx, epoch int64, snap *collect.Snapshot) *writer {
 	return &writer{ctx: ctx, tx: tx, epoch: epoch, snap: snap, stmts: map[string]*sql.Stmt{}, ids: newIdents(),
-		seen: map[assetKey]string{}, noted: map[assetKey]bool{}, log: slog.Default()}
+		seen: map[assetKey]string{}, noted: map[assetKey]bool{}, warned: map[warning]bool{},
+		log: slog.Default()}
 }
 
 func (w *writer) fail(err error) {

@@ -4,9 +4,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"math"
 	"strings"
 	"time"
+
+	"github.com/shadone/nats-lens/internal/collect"
 )
 
 // i64 converts a counter to BIGINT; the driver rejects uint64 values above
@@ -71,11 +74,36 @@ func enum(v any) string {
 
 // configHash identifies a configuration. The creation time is left out, so
 // that replicas built at different times do not show as a configuration
-// difference; configVersion compares the creation time on its own.
-func configHash(cfg any) string {
-	b, _ := json.Marshal(cfg)
+// difference; writeConfigVersions compares the creation time on its own.
+func configHash(cfg any) (string, error) {
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return "", err
+	}
 	sum := sha256.Sum256(b)
-	return hex.EncodeToString(sum[:12])
+	return hex.EncodeToString(sum[:12]), nil
+}
+
+// repeatHash is the configuration's part of the key repeated compares: its
+// hash, or the error for one that does not encode, so that two such
+// reports compare by their errors and not as equal configurations.
+func repeatHash(hash string, err error) string {
+	if err != nil {
+		return "no hash: " + err.Error()
+	}
+	return hash
+}
+
+// unhashed notes, in the epoch's errors, a configuration that does not
+// encode as JSON, and logs it once per process; the writers store no
+// configuration version for it.
+func (w *writer) unhashed(v *collect.ServerView, key assetKey, err error) {
+	w.notes = append(w.notes, fmt.Sprintf("%s reported %s with a configuration that does not encode as JSON (%v); its configuration is not stored",
+		v.Info.Name, key, err))
+	if w.firstWarning(warnUnhashed, key) {
+		w.log.Warn("configuration does not encode as JSON, not stored; logged once per process",
+			"server", v.Info.Name, "asset", key.String(), "error", err)
+	}
 }
 
 // strs returns a non-nil copy so that an empty list is stored as [] and not NULL.
