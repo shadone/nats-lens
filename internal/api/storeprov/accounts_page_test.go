@@ -345,3 +345,35 @@ func TestAccountsAndAuthConfigMode(t *testing.T) {
 		t.Errorf("expiring %v, later %d, never %d", res.GetExpiring(), res.GetExpireLater(), res.GetNeverExpire())
 	}
 }
+
+// Two processes of one server name both answered VARZ in the epoch: the
+// page reads the newer process's certificates, whatever order the rows
+// were written in and though the older process has the larger server ID.
+func TestAccountsAndAuthCertificateOfNewerProcess(t *testing.T) {
+	last := time.Date(2026, 10, 26, 9, 0, 0, 0, time.UTC)
+	for _, oldFirst := range []bool{true, false} {
+		st := emptyStore(t)
+		r := rows{t, st}
+		procs := []struct {
+			id    string
+			start time.Time
+			cert  time.Time
+		}{{"Z-OLD", last.Add(-48 * time.Hour), last.Add(2 * day)}, {"A-NEW", last.Add(-time.Minute), last.Add(10 * day)}}
+		if !oldFirst {
+			procs[0], procs[1] = procs[1], procs[0]
+		}
+		r.epoch(1, last)
+		for _, p := range procs {
+			r.add("servers", map[string]any{"server_id": p.id, "server_name": "nats-0", "first_epoch": 1, "last_epoch": 1,
+				"first_seen_at": last, "last_seen_at": last, "start_time": p.start})
+			r.add("epoch_endpoints", map[string]any{"epoch": 1, "server_id": p.id, "endpoint": "VARZ", "state": "ok"})
+			r.add("server_stats", map[string]any{"epoch": 1, "server_id": p.id, "start_time": p.start, "tls_cert_not_after": p.cert})
+		}
+		for range 5 {
+			res := accountsOf(t, st, last.Add(30*time.Second), nil)
+			if len(res.GetExpiring()) != 1 || !res.GetExpiring()[0].GetExpires().AsTime().Equal(last.Add(10*day)) {
+				t.Fatalf("old first %v: expiring %v, want nats-0's newer certificate in 10 days", oldFirst, res.GetExpiring())
+			}
+		}
+	}
+}

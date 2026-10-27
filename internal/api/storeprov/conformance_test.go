@@ -299,8 +299,8 @@ func TestStoreConformance(t *testing.T) {
 			Interval: 30 * time.Second, Live: true, Clock: at, Retention: 14 * 24 * time.Hour}},
 		{Ref: &v1.SystemRef{Id: "topology-single", Name: "topology-single"}, Provider: &storeprov.Provider{St: topologySingle(t, clock.Add(-30*time.Second)),
 			Interval: 30 * time.Second, Live: true, Clock: at, Retention: 14 * 24 * time.Hour}},
-		{Ref: &v1.SystemRef{Id: "accounts", Name: "accounts"}, Provider: &storeprov.Provider{St: accountsStore(t, clock.Add(-30*time.Second), false),
-			Interval: 30 * time.Second, Live: true, Clock: at, Retention: 14 * 24 * time.Hour}},
+		{Ref: &v1.SystemRef{Id: "accounts", Name: "accounts"}, Provider: &storeprov.Provider{St: accountsHeadlineStore(t, clock.Add(-30*time.Second), set),
+			Interval: 30 * time.Second, Live: true, Checks: set, Clock: at, Retention: 14 * 24 * time.Hour}},
 		{Ref: &v1.SystemRef{Id: "accounts-config", Name: "accounts-config"}, Provider: &storeprov.Provider{St: accountsConfigStore(t, clock.Add(-30*time.Second)),
 			Interval: 30 * time.Second, Live: true, Clock: at, Retention: 14 * 24 * time.Hour}},
 		{Ref: &v1.SystemRef{Id: "capacity", Name: "capacity"}, Provider: capacityProvider(t, clock.Add(-30*time.Second))},
@@ -318,5 +318,42 @@ func TestStoreConformance(t *testing.T) {
 		MutedBy: "ops@example.com", ExpiresAt: timestamppb.New(clock.Add(180 * 24 * time.Hour))})); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{System: "accounts", CheckCode: "account-004",
+		Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_ACCOUNT, Key: keySuppliers}, Reason: "Credentials renewed this week.", MutedBy: "ops",
+		ExpiresAt: timestamppb.New(clock.Add(24 * time.Hour))})); err != nil {
+		t.Fatal(err)
+	}
 	apitest.RunConformance(t, apitest.Env{Client: c, Systems: []string{"main", "closed", "replay", "topology", "topology-single", "accounts", "accounts-config", "capacity", "subjects", "micro", "apps"}, Now: clock})
+}
+
+// accountsHeadlineStore is accountsStore with the findings its data
+// fires that the headline rows read: SUPPLIERS' account JWT, 12 days from
+// expiry, a warning since the first epoch, and nats-2, missing now, a
+// warning since the second, which ranks first though it fires for less
+// long.
+func accountsHeadlineStore(t *testing.T, last time.Time, set *checks.Set) *store.Store {
+	t.Helper()
+	st := accountsStore(t, last, false)
+	// accountsStore numbers its events by hand; finding events take the
+	// sequence's next numbers.
+	if _, err := st.DB().Exec(`SELECT nextval('event_seq') FROM range(100)`); err != nil {
+		t.Fatal(err)
+	}
+	for epoch := int64(1); epoch <= 3; epoch++ {
+		var runs []store.CheckRun
+		for _, c := range set.Checks() {
+			run := store.CheckRun{Code: c.Code, EntityType: c.Entity, Status: store.RunOK}
+			switch {
+			case c.Code == "account-003":
+				run.Rows = []store.FindingRow{{EntityKey: keySuppliers, Severity: "warning", Detail: "SUPPLIERS: account JWT expires in 12 days."}}
+			case c.Code == "server-001" && epoch >= 2:
+				run.Rows = []store.FindingRow{{EntityKey: "nats-2", Severity: "warning", Detail: "nats-2 answered no monitoring request."}}
+			}
+			runs = append(runs, run)
+		}
+		if _, err := st.ApplyCheckRuns(ctx, epoch, runs); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return st
 }

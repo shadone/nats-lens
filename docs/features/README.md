@@ -47,7 +47,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | epoch | One snapshot of the whole system: every server's monitoring reports, taken once per collect interval and stored in one transaction. These docs and the UI call it a **collection** (for example "the newest collection of the range"); the API, the database and the configuration call it an epoch (`Freshness.epoch`, the `epochs` table). |
 | asset | A JetStream object a server holds: a stream, a consumer, a KV bucket or an object store. A KV bucket is the stream `KV_<bucket>` and an object store the stream `OBJ_<bucket>`. |
 | check | One rule that nats-lens evaluates after every epoch, with a code such as `stream-001`, a severity and thresholds. |
-| finding | One check failing for one entity (a server, stream, consumer, client or the whole system). A finding fires, can change severity, and resolves. |
+| finding | One check failing for one entity (a server, account, stream, consumer, client or the whole system). A finding fires, can change severity, and resolves. |
 | event | One thing that happened at a moment: a NATS advisory or system event, a Kubernetes change, a finding transition, or a record of the collector itself. |
 | inventory | The optional file that lists the assets each account must have, with the settings that must have a given value. |
 | mute | A decision to hide one check's findings, for one entity or for every entity, with a reason and an end time. |
@@ -64,6 +64,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [History and archive](history-and-archive.md) | `ui`, `cli` | shipped |
 | [Checks and findings](checks.md) | `ui`, `api`, `cli` | partial — accepting a finding is built for one entity; related entities, a check everywhere and a review list are planned |
 | [Server checks](server-checks.md) | `ui`, `cli` | shipped |
+| [Account checks](account-checks.md) | `ui`, `cli` | shipped |
 | [Stream checks](stream-checks.md) | `ui`, `cli` | shipped |
 | [Consumer checks](consumer-checks.md) | `ui`, `cli` | shipped |
 | [Client checks](client-checks.md) | `ui`, `cli` | shipped |
@@ -112,7 +113,8 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 
 **Checks**
 - [~] Findings, severities, restarts, thresholds, remediation file, mutes, and one entity's finding accepted until a review date — accepting related entities or a check everywhere is planned (checks.md)
-- [x] Server checks `server-001` to `server-015` (server-checks.md)
+- [x] Server checks `server-001` to `server-016` (server-checks.md)
+- [x] Account checks `account-001` to `account-004`: connection and disk limits, account and user JWT expiry (account-checks.md)
 - [x] Stream, KV bucket and object store checks `stream-001` to `stream-014` (stream-checks.md)
 - [x] Consumer checks `consumer-001` to `consumer-013` (consumer-checks.md)
 - [x] Client checks `client-001` to `client-005` (client-checks.md)

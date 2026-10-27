@@ -89,7 +89,7 @@ func (s scen) timelineRows(r *v1.TimeRange, bucket time.Duration, entity *v1.Ent
 		}
 		row := &v1.TimelineRow{Key: spec.code, CheckCode: spec.code, CheckName: spec.name, Severity: spec.sev, Cells: make([]v1.Status, n)}
 		if t := entity.GetType(); t != v1.EntityType_ENTITY_TYPE_UNSPECIFIED && t != v1.EntityType_ENTITY_TYPE_SYSTEM {
-			row.Entity = entity
+			row.Entity = api.EntityRefOf(entity.GetType(), entity.GetKey())
 			row.Key = spec.code + ":" + entity.GetKey()
 		}
 		failed := false

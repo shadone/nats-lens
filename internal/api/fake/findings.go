@@ -1,12 +1,13 @@
 package fake
 
 import (
-	"cmp"
 	"fmt"
 	"math"
 	"slices"
 	"time"
 
+	"github.com/shadone/nats-lens/internal/api"
+	"github.com/shadone/nats-lens/internal/checks"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -143,14 +144,10 @@ func (p *Provider) findings(s scen) []*v1.Finding {
 		}
 	}
 	p.mu.Unlock()
-	slices.SortStableFunc(all, func(a, b *v1.Finding) int {
-		return cmp.Or(
-			cmp.Compare(boolRank(a.GetState() == resolved), boolRank(b.GetState() == resolved)),
-			cmp.Compare(boolRank(a.GetMute() != nil), boolRank(b.GetMute() != nil)),
-			cmp.Compare(severityRank(a.GetSeverity()), severityRank(b.GetSeverity())),
-			a.GetSince().AsTime().Compare(b.GetSince().AsTime()),
-		)
-	})
+	for _, f := range all {
+		f.Expiry = checks.IsExpiry(f.GetCheckCode())
+	}
+	slices.SortStableFunc(all, api.CompareWorst)
 	return all
 }
 

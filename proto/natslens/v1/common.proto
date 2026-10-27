@@ -78,7 +78,8 @@ message EntityRef {
   // Short name to show, for example the consumer name without its stream.
   string name = 3;
 
-  // Account of a stream or consumer.
+  // Account of a stream or consumer, or the account itself for an account
+  // entity (equal to key).
   string account = 4;
 
   // Stream of a stream or of a consumer.

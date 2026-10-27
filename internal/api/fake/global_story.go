@@ -113,7 +113,22 @@ func globalFindings(s scen) []*v1.Finding {
 	// muted as expected (globalSeedClientMute).
 	rtt := s.clientRTT("shipping-service", s.on(16, 9, 0))
 
-	return []*v1.Finding{us4, offline[0], offline[1], labels, slow, backlog, full, config, absent, archive, flags, rtt,
+	// SUPPLIERS' account JWT and pos-terminal's user JWT (globalAuth)
+	// fired when they came within 14 days of their expiry.
+	supExp, posExp := FixedNow.Add(12*day+s.shift), FixedNow.Add(5*day+s.shift)
+	supJWT := finding("account-003", "Account JWT expires soon", warning, firing, accountRef(SuppliersAccount),
+		supExp.Add(-14*day), supExp.Add(-14*day),
+		"SUPPLIERS: account JWT expires "+supExp.Format("2006-01-02 15:04")+" UTC, in 12 days.")
+	supJWT.Value = &v1.FindingValue{Name: "days until the account JWT expires", Display: "12", Number: ptr(12.0),
+		Basis: "from the collection's start to the JWT's expiry, negative once expired; empty when only the server's expired flag says so"}
+	supJWT.RelatedConfig = cfg([][2]string{{"exp", supExp.Format("2006-01-02 15:04:05") + " UTC"}})
+	posJWT := finding("account-004", "User JWTs expire soon", warning, firing, accountRef(Account),
+		posExp.Add(-14*day), posExp.Add(-14*day),
+		"APP: user pos-terminal expires "+posExp.Format("2006-01-02 15:04")+" UTC, in 5 days (3 connections).")
+	posJWT.Value = &v1.FindingValue{Name: "days until a user JWT expires", Display: "5", Number: ptr(5.0),
+		Basis: "from the collection's start to the soonest user JWT expiry among the account's connections, negative once expired"}
+
+	return []*v1.Finding{us4, offline[0], offline[1], labels, slow, backlog, full, config, absent, archive, flags, rtt, supJWT, posJWT,
 		vanished("restock-alerts"), vanished("stock-audit-export"),
 		version("nats-ap-4"), version("nats-ap-5"),
 		restarted("nats-us-1", 8, 46, 10), restarted("nats-us-2", 8, 58, 30), restarted("nats-us-3", 9, 6, 40),
@@ -381,5 +396,8 @@ func globalRows(*scenario) []rowSpec {
 			[]span{{day(14, 10, 0), open}}},
 		{"stream-005", "Stream without any limit", info, []*v1.EntityRef{streamRef("order-archive"), streamRef("KV_feature-flags")},
 			[]span{{day(1, 8, 30), open}}},
+		{"account-003", "Account JWT expires soon", warning, []*v1.EntityRef{accountRef(SuppliersAccount)},
+			[]span{{day(15, 14, 30), open}}},
+		{"account-004", "User JWTs expire soon", warning, []*v1.EntityRef{accountRef(Account)}, []span{{day(8, 14, 30), open}}},
 	}
 }

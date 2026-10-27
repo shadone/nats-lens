@@ -80,4 +80,30 @@ describe("Findings with acceptances", () => {
     expect(row).not.toHaveTextContent("Lifted");
     expect(screen.getByRole("button", { name: "Lift mute of stream-006 for KV_customer-config…" })).toHaveTextContent(/^Lift…$/);
   });
+
+  it("names an account finding and its mute by the account's name, not its key", async () => {
+    const key = "ADSUPPLIERSFAKEACCOUNTKEYEXAMPLEGLOBAL7Q2M4XKV3WPJ6RT5NH";
+    const entity = { kind: "account" as const, key, name: key, account: key, accountName: "SUPPLIERS", stream: "", consumer: "", server: "" };
+    const mute = acceptance({ id: "m4", accepted: false, checkCode: "account-003", entity, expiresAt: Date.now() + 86_400_000 });
+    m.listFindings.mockResolvedValue(page([{ ...finding(mute), id: `account-003:${key}`, checkCode: "account-003", checkName: "Account JWT expires soon" }]));
+    m.listMutes.mockResolvedValue(page([mute]));
+    renderApp(<Findings />, "/findings");
+    expect(await screen.findByRole("button", { name: "Lift mute of account-003 for SUPPLIERS…" })).toBeInTheDocument();
+    expect(screen.getAllByText("SUPPLIERS").length).toBeGreaterThan(0);
+    expect(screen.queryByText(key)).toBeNull();
+  });
+
+  it("tells two accounts of one name apart, and says how the list is ordered", async () => {
+    const a = "ADSUPPLIERSFAKEACCOUNTKEYEXAMPLEGLOBAL7Q2M4XKV3WPJ6RT5NH";
+    const b = "AXSUPPLIERSOTHERACCOUNTKEYEXAMPLEGLOBAL7Q2M4XKV3WPJ6RT5N";
+    const ent = (key: string) => ({ kind: "account" as const, key, name: key, account: key, accountName: "SUPPLIERS", stream: "", consumer: "", server: "" });
+    const base = finding(acceptance({ entity: ent(a) }));
+    const row = (key: string): Finding => ({ ...base, mute: undefined, entity: ent(key), id: `account-003:${key}`, checkCode: "account-003" });
+    m.listFindings.mockResolvedValue(page([row(a), row(b)]));
+    m.listMutes.mockResolvedValue(page<Mute>([]));
+    renderApp(<Findings />, "/findings");
+    expect(await screen.findByText("SUPPLIERS (ADSU…)")).toBeInTheDocument();
+    expect(screen.getByText("SUPPLIERS (AXSU…)")).toBeInTheDocument();
+    expect(screen.getByText(/expiry warnings after the other warnings/)).toBeInTheDocument();
+  });
 });

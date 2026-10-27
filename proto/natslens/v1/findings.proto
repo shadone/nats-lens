@@ -155,6 +155,12 @@ message Finding {
   // When the condition began, where the check knows it (a creation time, a
   // process start); unset otherwise. since is when nats-lens first saw it.
   google.protobuf.Timestamp condition_since = 18;
+
+  // The check warns of something that will expire, a certificate or a JWT
+  // (its category is expiry). Such a finding at warning ranks after every
+  // other warning, so it never heads an outage; at critical it ranks as
+  // any critical finding.
+  bool expiry = 19;
 }
 
 // One change of a finding's state.

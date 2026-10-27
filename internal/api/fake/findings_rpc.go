@@ -140,7 +140,7 @@ func (p *Provider) MuteFinding(_ context.Context, req *v1.MuteFindingRequest) (*
 	s := p.scen()
 	now := s.now
 	m := &v1.Mute{
-		Id: "", CheckCode: req.GetCheckCode(), Entity: req.GetEntity(), Reason: req.GetReason(),
+		Id: "", CheckCode: req.GetCheckCode(), Entity: muteEntity(req.GetEntity()), Reason: req.GetReason(),
 		MutedBy: req.GetMutedBy(), CreatedAt: ts(now), ExpiresAt: req.GetExpiresAt(), Accepted: req.GetAccept(),
 	}
 	if m.Accepted && req.GetEntity().GetType() == v1.EntityType_ENTITY_TYPE_STREAM {
@@ -203,4 +203,13 @@ func (p *Provider) ListMutes(_ context.Context, req *v1.ListMutesRequest) (*v1.L
 		res.Mutes = append(res.Mutes, m.view(s))
 	}
 	return res, nil
+}
+
+// muteEntity is a mute's entity as the store keeps it, type and key, and
+// returns it, built by api.EntityRefOf; nil for a mute of every entity.
+func muteEntity(e *v1.EntityRef) *v1.EntityRef {
+	if e == nil || (e.GetType() == v1.EntityType_ENTITY_TYPE_UNSPECIFIED && e.GetKey() == "") {
+		return nil
+	}
+	return api.EntityRefOf(e.GetType(), e.GetKey())
 }
