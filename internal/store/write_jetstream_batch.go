@@ -186,9 +186,10 @@ const consumerConfigShape = `[{"account":"VARCHAR","stream":"VARCHAR","consumer"
 // jsonBatch is the most rows one statement carries.
 const jsonBatch = 5000
 
-// writeJSON runs q once per batch of rows, with the batch as its one
-// parameter: a JSON array that q unnests with fromJSON.
-func writeJSON[T any](w *writer, table, q string, rows []T, batch int) {
+// writeJSON runs q once per batch of rows, with args and then the batch as
+// its parameters: the batch is a JSON array that q unnests with fromJSON,
+// its last parameter.
+func writeJSON[T any](w *writer, table, q string, rows []T, batch int, args ...any) {
 	for len(rows) > 0 && w.err == nil {
 		n := min(len(rows), batch)
 		b, err := json.Marshal(rows[:n])
@@ -196,7 +197,7 @@ func writeJSON[T any](w *writer, table, q string, rows []T, batch int) {
 			w.fail(fmt.Errorf("%s: %w", table, err))
 			return
 		}
-		w.exec(q, string(b))
+		w.exec(q, append(args[:len(args):len(args)], string(b))...)
 		rows = rows[n:]
 	}
 }
@@ -213,7 +214,9 @@ func unixMicroPtr(t *time.Time) any {
 // and a lookup per configuration took about 7 ms per stream of two
 // consumers on each server holding it (TestJetStreamWriteTime).
 func (w *writer) flushJetStream(serverID string, b *jsRows) {
-	head := fmt.Sprintf("%d, %s", w.epoch, sqlString(serverID))
+	// The server ID is a parameter: a NUL byte in it would end a string
+	// literal in DuckDB's parser.
+	head := fmt.Sprintf("%d, ?::VARCHAR", w.epoch)
 	writeJSON(w, "stream_stats", `INSERT INTO stream_stats (epoch, server_id, account, stream, created, messages, bytes,
     first_seq, last_seq, first_ts, last_ts, num_subjects, num_deleted, consumer_count, cluster, raft_group, leader,
     leader_since, is_leader, replicas_reported, replicas_current, replicas_offline, mirror_lag, mirror_active_ns,
@@ -222,11 +225,11 @@ SELECT `+head+`, account, stream, make_timestamp(created), messages, bytes, firs
     make_timestamp(first_ts), make_timestamp(last_ts), num_subjects, num_deleted, consumer_count, cluster, raft_group,
     leader, make_timestamp(leader_since), is_leader, replicas_reported, replicas_current, replicas_offline, mirror_lag,
     mirror_active_ns, mirror_error, sources_count, sources_max_lag
-`+fromJSON(streamStatsShape), b.streams, jsonBatch)
+`+fromJSON(streamStatsShape), b.streams, jsonBatch, serverID)
 	writeJSON(w, "stream_replicas", `INSERT INTO stream_replicas (epoch, server_id, account, stream, peer_name, peer_id,
     current, offline, active_ns, lag, pending)
 SELECT `+head+`, account, stream, peer_name, peer_id, current, offline, active_ns, lag, pending
-`+fromJSON(`[{"account":"VARCHAR","stream":"VARCHAR",`+replicaShape), b.streamReplicas, jsonBatch)
+`+fromJSON(`[{"account":"VARCHAR","stream":"VARCHAR",`+replicaShape), b.streamReplicas, jsonBatch, serverID)
 	writeJSON(w, "consumer_stats", `INSERT INTO consumer_stats (epoch, server_id, account, stream, consumer, created,
     delivered_consumer_seq, delivered_stream_seq, delivered_last_active, ack_floor_consumer_seq, ack_floor_stream_seq,
     ack_floor_last_active, num_ack_pending, num_redelivered, num_waiting, num_pending, push_bound, paused, cluster,
@@ -236,11 +239,11 @@ SELECT `+head+`, account, stream, consumer, make_timestamp(created), delivered_c
     make_timestamp(ack_floor_last_active), num_ack_pending, num_redelivered, num_waiting, num_pending, push_bound,
     paused, cluster, raft_group, leader, make_timestamp(leader_since), is_leader, replicas_reported,
     replicas_current, replicas_offline, make_timestamp(reported_at)
-`+fromJSON(consumerStatsShape), b.consumers, jsonBatch)
+`+fromJSON(consumerStatsShape), b.consumers, jsonBatch, serverID)
 	writeJSON(w, "consumer_replicas", `INSERT INTO consumer_replicas (epoch, server_id, account, stream, consumer,
     peer_name, peer_id, current, offline, active_ns, lag, pending)
 SELECT `+head+`, account, stream, consumer, peer_name, peer_id, current, offline, active_ns, lag, pending
-`+fromJSON(`[{"account":"VARCHAR","stream":"VARCHAR","consumer":"VARCHAR",`+replicaShape), b.consumerReplicas, jsonBatch)
+`+fromJSON(`[{"account":"VARCHAR","stream":"VARCHAR","consumer":"VARCHAR",`+replicaShape), b.consumerReplicas, jsonBatch, serverID)
 
 	writeConfigVersions(w, streamConfig, serverID, b.streamConfigs)
 	writeConfigVersions(w, consumerConfig, serverID, b.consumerConfigs)
@@ -270,7 +273,9 @@ var (
 // as it is.
 //
 // The rows go to a staging table, as DuckDB cannot bind parameters in an
-// UPDATE ... FROM; the epochs and the server are literals. One server
+// UPDATE ... FROM: the staging INSERT binds the server ID, and the UPDATE
+// and the INSERT from the staging table join on its server_id column, with
+// only the epochs as literals. One server
 // reports each of its assets once per epoch (repeated), so the staged keys
 // are unique.
 func writeConfigVersions[T any](w *writer, t configTable, serverID string, rows []T) {
@@ -279,7 +284,7 @@ func writeConfigVersions[T any](w *writer, t configTable, serverID string, rows 
 	}
 	stage := "stage_" + t.name
 	all := append(append(append([]string{"server_id"}, t.keys...), "first_epoch", "last_epoch", "config_hash"), t.cols...)
-	sel := []string{sqlString(serverID)}
+	sel := []string{"?::VARCHAR"}
 	sel = append(sel, t.keys...)
 	sel = append(sel, fmt.Sprint(w.epoch), fmt.Sprint(w.epoch), "config_hash")
 	for _, c := range t.cols {
@@ -299,7 +304,7 @@ func writeConfigVersions[T any](w *writer, t configTable, serverID string, rows 
 	keys := strings.Join(t.keys, ", ")
 	w.exec(fmt.Sprintf(`CREATE OR REPLACE TEMP TABLE %s AS SELECT %s FROM %s LIMIT 0`, stage, cols, t.name))
 	writeJSON(w, t.name, fmt.Sprintf("INSERT INTO %s (%s)\nSELECT %s\n", stage, cols, strings.Join(sel, ", "))+
-		fromJSON(t.shape), rows, jsonBatch)
+		fromJSON(t.shape), rows, jsonBatch, serverID)
 	w.exec(fmt.Sprintf(`UPDATE %[1]s SET last_epoch = %[2]d
 FROM (
     SELECT server_id, %[4]s, first_epoch FROM (
