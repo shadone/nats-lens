@@ -92,4 +92,18 @@ describe("Findings with acceptances", () => {
     expect(screen.getAllByText("SUPPLIERS").length).toBeGreaterThan(0);
     expect(screen.queryByText(key)).toBeNull();
   });
+
+  it("tells two accounts of one name apart, and says how the list is ordered", async () => {
+    const a = "ADSUPPLIERSFAKEACCOUNTKEYEXAMPLEGLOBAL7Q2M4XKV3WPJ6RT5NH";
+    const b = "AXSUPPLIERSOTHERACCOUNTKEYEXAMPLEGLOBAL7Q2M4XKV3WPJ6RT5N";
+    const ent = (key: string) => ({ kind: "account" as const, key, name: key, account: key, accountName: "SUPPLIERS", stream: "", consumer: "", server: "" });
+    const base = finding(acceptance({ entity: ent(a) }));
+    const row = (key: string): Finding => ({ ...base, mute: undefined, entity: ent(key), id: `account-003:${key}`, checkCode: "account-003" });
+    m.listFindings.mockResolvedValue(page([row(a), row(b)]));
+    m.listMutes.mockResolvedValue(page<Mute>([]));
+    renderApp(<Findings />, "/findings");
+    expect(await screen.findByText("SUPPLIERS (ADSU…)")).toBeInTheDocument();
+    expect(screen.getByText("SUPPLIERS (AXSU…)")).toBeInTheDocument();
+    expect(screen.getByText(/expiry warnings after the other warnings/)).toBeInTheDocument();
+  });
 });

@@ -151,10 +151,11 @@ export function withAccountName<T extends AccountRef>(e: T, refs: (AccountRef | 
 }
 
 /** Display name of an entity: the consumer, stream, server or key; an
- * account by its readable name, else its ID, as the API names an account
- * entity by its ID. */
-export function entityName(e: Entity | undefined): string {
+ * account by label, its readable name or else its ID by default, as the
+ * API names an account entity by its ID. A list passes
+ * accountLabeller(its entities), so two accounts of one name read apart. */
+export function entityName(e: Entity | undefined, label: (id: string, name?: string) => string = accountLabel): string {
   if (!e) return "";
-  if (e.kind === "account") return e.accountName || e.name || e.key;
+  if (e.kind === "account") return label(e.account || e.key, e.accountName);
   return e.name || e.consumer || e.stream || e.server || e.key;
 }

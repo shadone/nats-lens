@@ -2,7 +2,7 @@
 // and the mutes with who set them, why and until when.
 import { useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
-import type { FindingState, Mute, SeverityLevel } from "../api/model";
+import type { Entity, FindingState, Mute, SeverityLevel } from "../api/model";
 import { useFindings, useMutes } from "../api/queries";
 import { Empty, QueryView, Section } from "../components/common";
 import { Pager, usePager } from "../components/EntityParts";
@@ -10,7 +10,7 @@ import { EntityLine, FindingRow } from "../components/FindingParts";
 import { UnmuteDialog } from "../components/MuteDialog";
 import { Sev } from "../components/Severity";
 import { fmtDuration, isoMinute } from "../lib/format";
-import { entityName } from "../lib/view";
+import { accountLabeller, entityName } from "../lib/view";
 import { endedByLens, muteActive, muteBy, reviewOn, sentence } from "../lib/muteView";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useSystem } from "../lib/useSystem";
@@ -27,11 +27,18 @@ const STATES: { id: string; label: string; states: FindingState[] }[] = [
 ];
 
 /** The lift button's name, with the check and what it covers: "End acceptance of stream-005 for order-archive…". */
-function liftName(m: Mute): string {
-  return `${m.accepted ? "End acceptance" : "Lift mute"} of ${m.checkCode} for ${entityName(m.entity) || "every entity"}…`;
+type Label = (id: string, name?: string) => string;
+
+/** The accounts of the listed entities, labelled apart where two share a name. */
+function labelOf(es: (Entity | undefined)[]): Label {
+  return accountLabeller(es.filter((e): e is Entity => e?.kind === "account"));
 }
 
-function MuteRow({ m, now, onLift }: { m: Mute; now: number; onLift: (m: Mute) => void }) {
+function liftName(m: Mute, label?: Label): string {
+  return `${m.accepted ? "End acceptance" : "Lift mute"} of ${m.checkCode} for ${entityName(m.entity, label) || "every entity"}…`;
+}
+
+function MuteRow({ m, now, onLift, label }: { m: Mute; now: number; onLift: (m: Mute) => void; label?: Label }) {
   const active = muteActive(m, now);
   const ended = endedByLens(m);
   return (
@@ -41,14 +48,14 @@ function MuteRow({ m, now, onLift }: { m: Mute; now: number; onLift: (m: Mute) =
       </span>
       <span className="code">{m.checkCode}</span>
       <span>
-        <span className="e">{m.entity ? <EntityLine e={m.entity} small /> : "every entity"}</span>
+        <span className="e">{m.entity ? <EntityLine e={m.entity} small label={label} /> : "every entity"}</span>
       </span>
       <span className="s">
         {m.expiresAt !== undefined && (active ? `${m.accepted ? "review" : "ends"} in ${fmtDuration(m.expiresAt - now)}` : `ended ${isoMinute(m.unmutedAt ?? m.expiresAt)}`)}
         {active && (
           <>
             <br />
-            <button type="button" className="btn" onClick={() => onLift(m)} aria-label={liftName(m)}>
+            <button type="button" className="btn" onClick={() => onLift(m)} aria-label={liftName(m, label)}>
               {m.accepted ? "End…" : "Lift…"}
             </button>
           </>
@@ -81,11 +88,12 @@ function Mutes() {
       }
     >
       <QueryView q={q} what="mutes">
-        {(page) =>
-          page.items.length ? (
+        {(page) => {
+          const label = labelOf(page.items.map((x) => x.entity));
+          return page.items.length ? (
             <div className="card others mutes-list">
               {page.items.map((m) => (
-                <MuteRow key={m.id} m={m} now={now} onLift={setLifting} />
+                <MuteRow key={m.id} m={m} now={now} onLift={setLifting} label={label} />
               ))}
               {(page.nextPageToken || pager.page > 1) && (
                 <Pager page={pager.page} next={page.nextPageToken} onNext={() => pager.next(page.nextPageToken)} onPrev={pager.prev} total={page.totalCount} shown={page.items.length} />
@@ -93,8 +101,8 @@ function Mutes() {
             </div>
           ) : (
             <Empty>No mutes{inactive ? "" : " in effect"}.</Empty>
-          )
-        }
+          );
+        }}
       </QueryView>
       <UnmuteDialog mute={lifting} onClose={() => setLifting(undefined)} />
     </Section>
@@ -137,7 +145,7 @@ export function Findings() {
   return (
     <>
       <div className="page-h">
-        <span className="aside">A finding is one failing check for one entity. Unmuted first, then by severity, then the longest firing.</span>
+        <span className="aside">A finding is one failing check for one entity. Unmuted first, then by severity, expiry warnings after the other warnings, then the longest firing.</span>
       </div>
       <div className="filters">
         <div className="grp" role="group" aria-label="Severity">
@@ -170,16 +178,19 @@ export function Findings() {
         </form>
       </div>
       <QueryView q={q} what="findings">
-        {(page) => (
-          <div className="card others">
-            {page.items.length === 0 ? (
-              <Empty>{stateId === "open" && sev.length === 0 && !check ? "All clear: no finding fires in this range." : "No findings match these filters."}</Empty>
-            ) : (
-              page.items.map((f) => <FindingRow key={f.id} f={f} end={end} rangeStart={start} />)
-            )}
-            <Pager page={pager.page} next={page.nextPageToken} onNext={() => pager.next(page.nextPageToken)} onPrev={pager.prev} total={page.totalCount} shown={page.items.length} />
-          </div>
-        )}
+        {(page) => {
+          const label = labelOf(page.items.map((x) => x.entity));
+          return (
+            <div className="card others">
+              {page.items.length === 0 ? (
+                <Empty>{stateId === "open" && sev.length === 0 && !check ? "All clear: no finding fires in this range." : "No findings match these filters."}</Empty>
+              ) : (
+                page.items.map((f) => <FindingRow key={f.id} f={f} end={end} rangeStart={start} label={label} />)
+              )}
+              <Pager page={pager.page} next={page.nextPageToken} onNext={() => pager.next(page.nextPageToken)} onPrev={pager.prev} total={page.totalCount} shown={page.items.length} />
+            </div>
+          );
+        }}
       </QueryView>
       <Mutes />
     </>

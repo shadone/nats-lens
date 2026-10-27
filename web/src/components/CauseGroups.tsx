@@ -1,12 +1,13 @@
 // The Overview's cause cards: unmuted firing findings grouped by their cause
 // event, else by check and parent entity, with the entities, open and
 // mute; and a strip of the muted findings with their reasons.
+import { useContext } from "react";
 import type { Entity, Finding } from "../api/model";
 import type { CauseGroup } from "../lib/causeGroups";
 import { hms } from "../lib/format";
-import { entityName, entityPath, eventPath, findingPath, streamPath } from "../lib/view";
+import { accountLabeller, entityName, entityPath, eventPath, findingPath, streamPath } from "../lib/view";
 import { RLink } from "./common";
-import { EntityLine } from "./FindingParts";
+import { AccountLabelContext, EntityLine } from "./FindingParts";
 import { Sev } from "./Severity";
 
 /** Entities listed in a card before "N more". */
@@ -71,9 +72,11 @@ function whereLine(g: CauseGroup) {
 }
 
 function EntityLink({ e }: { e?: Entity }) {
+  const label = useContext(AccountLabelContext);
   if (!e) return <span>system</span>;
   const path = entityPath(e);
-  return path ? <RLink to={path}>{entityName(e)}</RLink> : <span>{entityName(e)}</span>;
+  const name = entityName(e, label);
+  return path ? <RLink to={path}>{name}</RLink> : <span>{name}</span>;
 }
 
 function Actions({ f, onMute, label }: { f: Finding; onMute: (f: Finding) => void; label: string }) {
@@ -99,14 +102,14 @@ function CauseLine({ cause }: { cause: NonNullable<CauseGroup["cause"]> }) {
   );
 }
 
-function findingLabel(f: Finding): string {
-  return `${f.checkCode} on ${entityName(f.entity) || "system"}`;
+function findingLabel(f: Finding, label: (id: string, name?: string) => string): string {
+  return `${f.checkCode} on ${entityName(f.entity, label) || "system"}`;
 }
 
 /** One finding: the code row with the name, the detail and cause, the entity beside, the buttons. */
 function SingleCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void }) {
   const f = g.findings[0];
-  const label = findingLabel(f);
+  const label = findingLabel(f, useContext(AccountLabelContext));
   return (
     <article className={`card cg one ${g.severity}`} aria-label={`${f.checkName}: 1 finding`}>
       <div className="cg-main">
@@ -136,6 +139,7 @@ function SingleCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void
 }
 
 function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void }) {
+  const accounts = useContext(AccountLabelContext);
   const n = g.findings.length;
   if (n === 1) return <SingleCard g={g} onMute={onMute} />;
   const names = [...new Set(g.findings.map((f) => f.checkName))];
@@ -160,7 +164,7 @@ function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void 
               {g.checkCodes.length > 1 && <small className="code"> {f.checkCode}</small>}
             </span>
             <span className="cg-d">{f.detail}</span>
-            <Actions f={f} onMute={onMute} label={findingLabel(f)} />
+            <Actions f={f} onMute={onMute} label={findingLabel(f, accounts)} />
           </li>
         ))}
         {n > shown.length && (
@@ -175,6 +179,7 @@ function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void 
 
 /** Muted findings by reason: “reason” by who, then each finding. */
 function MutedStrip({ muted }: { muted: Finding[] }) {
+  const accounts = useContext(AccountLabelContext);
   const byReason = new Map<string, Finding[]>();
   for (const f of muted) {
     const k = `${f.mute?.reason ?? ""}\u0000${f.mute?.mutedBy ?? ""}`;
@@ -196,7 +201,7 @@ function MutedStrip({ muted }: { muted: Finding[] }) {
                 <span key={f.id}>
                   {i > 0 && ", "}
                   <RLink to={findingPath(f.id)}>
-                    {f.checkCode} {entityName(f.entity) || "system"}
+                    {f.checkCode} {entityName(f.entity, accounts) || "system"}
                   </RLink>
                 </span>
               ))}
@@ -210,15 +215,18 @@ function MutedStrip({ muted }: { muted: Finding[] }) {
 
 export function CauseGroups({ groups, muted, onMute }: { groups: CauseGroup[]; muted: Finding[]; onMute: (f: Finding) => void }) {
   if (groups.length === 0 && muted.length === 0) return null;
+  const label = accountLabeller([...groups.flatMap((g) => g.findings), ...muted].flatMap((f) => (f.entity?.kind === "account" ? [f.entity] : [])));
   return (
-    <section className="causes" aria-labelledby="causes-h">
-      <h2 id="causes-h" className="sr-only">
-        Findings
-      </h2>
-      {groups.map((g) => (
-        <CauseCard key={g.key} g={g} onMute={onMute} />
-      ))}
-      {muted.length > 0 && <MutedStrip muted={muted} />}
-    </section>
+    <AccountLabelContext.Provider value={label}>
+      <section className="causes" aria-labelledby="causes-h">
+        <h2 id="causes-h" className="sr-only">
+          Findings
+        </h2>
+        {groups.map((g) => (
+          <CauseCard key={g.key} g={g} onMute={onMute} />
+        ))}
+        {muted.length > 0 && <MutedStrip muted={muted} />}
+      </section>
+    </AccountLabelContext.Provider>
   );
 }
