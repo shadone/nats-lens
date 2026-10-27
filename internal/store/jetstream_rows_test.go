@@ -31,6 +31,7 @@ func (w *writer) writeJetStreamByRow(v *collect.ServerView) {
 			}
 		}
 	}
+	w.unknownNotes(v)
 }
 
 // clusterCols returns cluster, raft_group, leader, leader_since, is_leader.
@@ -64,7 +65,7 @@ func (w *writer) writeStreamByRow(v *collect.ServerView, account string, s *serv
 		w.ids.raftAsset(s.Cluster.RaftGroup, account, s.Name, "")
 	}
 	if cfg := s.Config; cfg != nil && hashErr != nil {
-		w.unhashed(v, key, hashErr)
+		w.unhashed(v, key, cfg, hashErr)
 	} else if cfg != nil {
 		var mirror any
 		if cfg.Mirror != nil {
@@ -156,7 +157,7 @@ func (w *writer) writeConsumerByRow(v *collect.ServerView, account, stream strin
 		w.ids.raftAsset(c.Cluster.RaftGroup, account, stream, c.Name)
 	}
 	if cfg := c.Config; cfg != nil && hashErr != nil {
-		w.unhashed(v, key, hashErr)
+		w.unhashed(v, key, cfg, hashErr)
 	} else if cfg != nil {
 		w.configVersionByRow("consumer_config",
 			[]string{"server_id", "account", "stream", "consumer"}, []any{v.Info.ID, account, stream, c.Name},

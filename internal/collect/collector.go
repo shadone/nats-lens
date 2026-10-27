@@ -44,7 +44,10 @@ type Collector struct {
 	// wait for, with the answered STATS each has missed in a row since it
 	// last answered.
 	microKnown map[string]map[instanceKey]int
-	now        func() time.Time
+	// unknownLogged are the unknown reply values already logged, by
+	// server, endpoint, field and value (logUnknownValues).
+	unknownLogged map[unknownKey]bool
+	now           func() time.Time
 }
 
 // Options configure a Collector.
@@ -150,6 +153,7 @@ func (c *Collector) Collect(ctx context.Context) *Snapshot {
 	c.forgetUnlistedAccounts(snap)
 	snap.AccountNames = c.listedAccountNames(snap)
 	c.logUndecodedJWTs(snap)
+	c.logUnknownValues(snap)
 	asked := append(append([]Endpoint{Statsz}, detail...), accountRaftz(newAccounts)...)
 	if allJsz(snap) {
 		// Every server answered JSZ, so an account of the previous epoch
