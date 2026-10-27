@@ -1,9 +1,13 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"log/slog"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -96,5 +100,99 @@ func TestUnknownEnumValuesKeepTheRestOfJSZ(t *testing.T) {
 		if got := count(t, db, c.q, args...); got != c.want {
 			t.Errorf("%s = %d, want %d", c.q, got, c.want)
 		}
+	}
+}
+
+// TestUnknownValueNotesPerServerAndField gives every consumer of nats-1's
+// JSZ reply an ack policy this version does not know. Each epoch gets one
+// note for the field and value, not one per consumer, and no warning per
+// consumer is logged; a configuration that does not encode for another
+// reason keeps its own note.
+func TestUnknownValueNotesPerServerAndField(t *testing.T) {
+	b, err := os.ReadFile("../collect/testdata/jsz-nats-1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var r map[string]any
+	if err := json.Unmarshal(b, &r); err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for _, a := range r["data"].(map[string]any)["account_details"].([]any) {
+		ss, _ := a.(map[string]any)["stream_detail"].([]any)
+		for _, s := range ss {
+			cs, _ := s.(map[string]any)["consumer_detail"].([]any)
+			for _, c := range cs {
+				c.(map[string]any)["config"].(map[string]any)["ack_policy"] = "future"
+				n++
+			}
+		}
+	}
+	b, err = json.Marshal(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := openMem(t)
+	var logs bytes.Buffer
+	s.SetLogger(slog.New(slog.NewTextHandler(&logs, nil)))
+	for i := range 2 {
+		start := t0.Add(time.Duration(i) * 30 * time.Second)
+		snap := collect.NewSnapshot(start)
+		mustApply(t, snap, collect.Jsz, b)
+		snap.FinishedAt = start
+		if _, err := s.WriteSnapshot(context.Background(), snap); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want := fmt.Sprintf(`nats-1 sent consumer config.ack_policy "future", which this nats-server version does not know, for %d consumers; their configurations are not stored`, n)
+	if got := count(t, s.DB(), `SELECT sum(len(errors)) FROM epochs`); got != 2 {
+		t.Errorf("%d notes over 2 epochs, want 2", got)
+	}
+	if got := count(t, s.DB(), `SELECT count(*) FROM epochs WHERE errors = [?]`, want); got != 2 {
+		var notes string
+		_ = s.DB().QueryRow(`SELECT string_agg(array_to_string(errors, ' | '), ' || ') FROM epochs`).Scan(&notes)
+		t.Errorf("epochs with the note %q: %d, want 2; notes: %s", want, got, notes)
+	}
+	if strings.Contains(logs.String(), "does not encode") {
+		t.Errorf("a warning per consumer was logged:\n%s", logs.String())
+	}
+}
+
+// TestUnknownValueNotesNameWhatIsStored reads the notes of the reply with
+// unknown values in every field kind: one per field and value, the
+// deliver policy's saying it is stored as "undefined".
+func TestUnknownValueNotesNameWhatIsStored(t *testing.T) {
+	s := openMem(t)
+	snap := collect.NewSnapshot(t0)
+	mustApply(t, snap, collect.Jsz, jszWithUnknownValues(t))
+	snap.FinishedAt = t0
+	if _, err := s.WriteSnapshot(context.Background(), snap); err != nil {
+		t.Fatal(err)
+	}
+	var notes []string
+	rows, err := s.DB().Query(`SELECT unnest(errors) FROM epochs`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		notes = append(notes, n)
+	}
+	all := strings.Join(notes, "\n")
+	for _, w := range []string{
+		`nats-1 sent stream config.retention "future", which this nats-server version does not know, for 1 stream; its configuration is not stored`,
+		`nats-1 sent consumer config.ack_policy "future", which this nats-server version does not know, for 1 consumer; its configuration is not stored`,
+		`nats-1 sent consumer config.deliver_policy "future", which this nats-server version does not know, for 1 consumer; stored as "undefined"`,
+	} {
+		if !strings.Contains(all, w) {
+			t.Errorf("notes lack %q:\n%s", w, all)
+		}
+	}
+	if len(notes) != 9 || strings.Contains(all, "does not encode") {
+		t.Errorf("%d notes, want 9 (5 stream fields, 4 consumer fields), none per asset:\n%s", len(notes), all)
 	}
 }
