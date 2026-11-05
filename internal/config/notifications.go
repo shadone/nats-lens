@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
+
+	"go.yaml.in/yaml/v3"
 )
 
 // Notifications configures the channels findings are sent to. It is shared
@@ -98,10 +101,32 @@ func (c *Channel) UnmarshalYAML(unmarshal func(any) error) error {
 	type plain Channel
 	p := plain(DefaultChannel())
 	if err := unmarshal(&p); err != nil {
-		return err
+		return channelKeyError(err, p.Name)
 	}
 	*c = Channel(p)
 	return nil
+}
+
+// unknownField is the decoder's text for an unknown key of a channel,
+// which names the local type plain.
+var unknownField = regexp.MustCompile(`field (\S+) not found in type config\.plain`)
+
+// channelKeyError rewords the decoder's unknown keys as "unknown key K in
+// notifications channel N".
+func channelKeyError(err error, name string) error {
+	var te *yaml.TypeError
+	if !errors.As(err, &te) {
+		return err
+	}
+	where := "notifications channel " + name
+	if name == "" {
+		where = "a notifications channel without a name"
+	}
+	out := &yaml.TypeError{Errors: make([]string, len(te.Errors))}
+	for i, e := range te.Errors {
+		out.Errors[i] = unknownField.ReplaceAllString(e, "unknown key $1 in "+where)
+	}
+	return out
 }
 
 // DefaultChannel is a channel with every default and no name, type or
@@ -165,7 +190,7 @@ func CheckChannelURL(raw string) error {
 }
 
 func loopbackHost(h string) bool {
-	if h == "localhost" {
+	if strings.EqualFold(h, "localhost") {
 		return true
 	}
 	ip := net.ParseIP(h)
