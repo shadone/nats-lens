@@ -1,7 +1,7 @@
 /* Data history: the summary, the coverage boxes, the gap strip and the
    gaps, uses and archive cards. Every rule names a dh- class, so the
-   page's table rules reach no other page; a test checks it. The hatch of
-   a time without collections is .dh-hatch. */
+   page's table rules reach no other page; a test checks it.
+   The hatch of a time without collections is .gap-hatch, in history-notes.css. */
 .dh-summary{margin:4px 0 0;font:12.5px/1.6 var(--mono);color:var(--text-2)}
 .dh-summary .dh-warn{color:var(--sev-warning);font-weight:600}
 .dh-summary .dh-dot{color:var(--text-muted)}
@@ -23,7 +23,6 @@
 .dh-either{white-space:nowrap}
 .dh-epoch{display:block;font:12px var(--mono)}
 .dh-swatch{display:inline-block;width:10px;height:10px;margin-right:7px;border-radius:2px;border:1px solid var(--border);vertical-align:-1px}
-.dh-hatch{background:repeating-linear-gradient(135deg,var(--surface-2) 0 3px,var(--text-muted) 3px 4px)}
 .dh-strip-wrap{padding:4px 20px 12px}
 .dh-strip{position:relative;height:14px;border-radius:3px;background:var(--accent-soft);border:1px solid var(--border);overflow:hidden}
 .dh-seg{position:absolute;top:0;bottom:0;min-width:4px}
