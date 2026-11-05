@@ -1,11 +1,11 @@
 // The Events page's feed: routine events hidden, repeats folded, facets
 // and the histogram, plus the probe behind the "N new" pill and the
 // events around a finding's start. Every hook keys on the page's system.
-import { serverNow } from "../lib/clock";
 import { useQuery } from "@tanstack/react-query";
 import { keepSameSystem } from "./placeholder";
 import { timestampFromMs } from "@bufbuild/protobuf/wkt";
 import type { Event as PEvent, ListEventsResponse } from "../gen/natslens/v1/events_pb";
+import { serverNow } from "../lib/clock";
 import { LIVE_REFRESH_MS, presetMs, rangeKey, type RangeSpec } from "../lib/timeRange";
 import { useSystem } from "../lib/useSystem";
 import { ms, sourceEnum } from "./adapt-common";

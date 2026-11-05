@@ -1,9 +1,9 @@
 // The header's time range: preset, span and live freshness, with a panel
 // for presets, a custom range and live mode. Times are UTC.
-import { serverNow } from "../lib/clock";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { errorInfo } from "../api/errors";
 import type { Freshness } from "../api/model";
+import { serverNow } from "../lib/clock";
 import { dayMonHm, fmtDuration, sinceText } from "../lib/format";
 import { PRESETS, pauseRange, rangeLabel, resolveRange, resumeLive, type RangeSpec } from "../lib/timeRange";
 import { useNow, useTimeRange } from "../lib/useTimeRange";

@@ -1,7 +1,6 @@
 // Overview: the cockpit. A status line, the system's numbers, the findings
 // grouped by cause, the trends, what happened in lanes, the busiest
 // consumers and the streams with their placement.
-import { serverNow } from "../lib/clock";
 import { useState } from "react";
 import type { Finding } from "../api/model";
 import { CURRENT_FINDINGS_LIMIT, useBusiestConsumers, useCurrentFindings, useStreamPlacement } from "../api/overview";
@@ -16,6 +15,7 @@ import { StreamPlacementCard } from "../components/StreamPlacementCard";
 import { OverviewTiles } from "../components/OverviewTiles";
 import { Trends } from "../components/Trends";
 import { groupCauses } from "../lib/causeGroups";
+import { serverNow } from "../lib/clock";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useAccountScope } from "../lib/useSystem";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";

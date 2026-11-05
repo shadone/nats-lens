@@ -1,7 +1,6 @@
 // Replay: what changed between two moments A and B, and in what order. A
 // and B live in the URL beside the range and the system; the page picks
 // them on the range's status strip and tells the story GetReplay returns.
-import { serverNow } from "../lib/clock";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useSearchParams } from "react-router";
 import type { Replay as ReplayData } from "../api/adapt-replay";
@@ -12,6 +11,7 @@ import { ReplayCounts } from "../components/ReplayCounts";
 import { ReplayGone } from "../components/ReplayGone";
 import { ReplayScrubber } from "../components/ReplayScrubber";
 import { ReplaySteps } from "../components/ReplaySteps";
+import { serverNow } from "../lib/clock";
 import { dayMonHm } from "../lib/format";
 import { SYSTEM_PARAM, ACCOUNT_PARAM } from "../lib/globalQuery";
 import { logFileName, replayLog } from "../lib/replayLog";

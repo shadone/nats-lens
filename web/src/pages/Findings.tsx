@@ -1,6 +1,5 @@
 // Findings: every finding in the range by severity and state, worst first,
 // and the mutes with who set them, why and until when.
-import { serverNow } from "../lib/clock";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
 import type { Entity, FindingState, Mute, SeverityLevel } from "../api/model";
@@ -10,6 +9,7 @@ import { Pager, usePager } from "../components/EntityParts";
 import { EntityLine, FindingRow } from "../components/FindingParts";
 import { UnmuteDialog } from "../components/MuteDialog";
 import { Sev } from "../components/Severity";
+import { serverNow } from "../lib/clock";
 import { fmtDuration, isoMinute } from "../lib/format";
 import { accountLabeller, entityName } from "../lib/view";
 import { endedByLens, muteActive, muteBy, reviewOn, sentence } from "../lib/muteView";
