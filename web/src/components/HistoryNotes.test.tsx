@@ -35,7 +35,7 @@ it("replaces a misleading fresh start in a finding row", () => {
   expect(screen.getByText("already true when nats-lens started")).toBeInTheDocument();
 });
 it("gives a Capacity card the shared countdown and history link", () => {
-  renderApp(<HistoryContext.Provider value={young}><ServerCards servers={[{ name: "nats-1", cluster: "shop", reported: true, used: 20, limit: 100, findingCode: "" }]} withoutJetstream={0} /></HistoryContext.Provider>);
+  renderApp(<HistoryContext.Provider value={young}><ServerCards servers={[{ name: "nats-1", cluster: "shop", reported: true, used: 20, limit: 100, findingCode: "", findingId: "" }]} withoutJetstream={0} /></HistoryContext.Provider>);
   expect(screen.getByText(/needs 6 h of history; 5 h 29 min to go/)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: /needs 6 h/ })).toHaveAttribute("href", expect.stringContaining("/data-history"));
 });
