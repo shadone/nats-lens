@@ -23,17 +23,18 @@ thresholds:
       thresholds, so a bucket near a threshold does not flap.
 description: >-
   A KV bucket keeps more than one revision per key (history), holds on average min_revisions or more of them per key
-  and min_bytes or more in all, and has no byte limit (max_bytes), so it grows by its history times its keys. Read
-  from the leader's report. A bucket with a TTL is bounded in time but still multiplies every live key by its
-  history. Not reported: a bucket whose max_bytes the inventory gives (-1 included, as a decision to leave it
+  and min_bytes or more in all, and has no byte limit (max_bytes). Its size is bounded only by its keys times its
+  history, and the keys are not bounded; the check fires on the size and the revisions per key the bucket has
+  reached, not on a growth rate. Read from the leader's report. A bucket with a TTL is bounded in time but still
+  keeps the full history of every key written within it. Not reported: a bucket whose max_bytes the inventory gives (-1 included, as a decision to leave it
   unbounded). A bucket with neither a TTL nor a byte limit is stream-005's, which names its history, and this check
   is then quiet for it. A firing finding keeps firing down to resolve_ratio of the thresholds, and through a
   collection without a leader report within the lookback.
 remediation: >-
   Decide whether readers need the old revisions: `nats kv history <bucket> <key>` shows them. If not, lower the
-  history (`nats stream edit KV_<bucket> --max-msgs-per-subject 1`, or the bucket's definition); the server then
-  removes the older revisions. If they are needed, set a byte limit (`nats stream edit KV_<bucket> --max-bytes 1GiB`,
-  or `--max-bucket-size` when the bucket is created) so the bucket cannot fill its servers' store; at the limit the
+  history (`nats kv edit <bucket> --history 1`, or the bucket's definition); the server then removes the older
+  revisions. If they are needed, set a byte limit (`nats kv edit <bucket> --max-bucket-size 1GiB`, or the bucket's
+  definition) so the bucket cannot fill its servers' store; at the limit the
   oldest revisions are removed first. Or declare the bucket's max_bytes in the inventory and mute the finding.
 related_config: [min_revisions, min_bytes, resolve_ratio, max_bytes, max_msgs_per_subject]
 suppressed_by: [stream-005]

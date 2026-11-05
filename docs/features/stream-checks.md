@@ -139,7 +139,7 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 - **Severity:** warning.
 - **Thresholds:** lookback 5m, `max_lag` 10000, `resolve_ratio` 0.8 (proposed, not yet confirmed).
 - **Resolves when:** the lag falls below `resolve_ratio` of `max_lag`; a collection without a leader report keeps the finding, as for `stream-015`.
-- **Left out:** a lag that falls. Sources that stopped hearing from their stream, and source errors, are not stored (see Planned).
+- **Left out:** a lag that falls. A source that stopped hearing from its stream keeps the lag it last had, so it is not detected while that lag is below `max_lag`: when each source was last seen and its errors are not stored (see Planned).
 
 ### `stream-017` Mirror error
 
@@ -161,7 +161,7 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 
 ### `stream-019` KV bucket history without a byte limit
 
-- **Problem:** a KV bucket keeps several revisions of every key and has no byte limit, so it grows by its history times its keys. A TTL bounds how long a revision lives, but not how many keys hold their full history.
+- **Problem:** a KV bucket keeps several revisions of every key and has no byte limit, so its size is bounded only by its keys times its history, and its keys are not bounded. A TTL bounds how long a revision lives, but not how many keys hold their full history. The check fires on the size and revisions per key reached, not on a growth rate.
 - **Fires when:** the bucket's history is above 1, its `max_bytes` is not set, and its leader reports on average `min_revisions` or more messages per key (messages divided by keys) and `min_bytes` or more in all.
 - **Severity:** info.
 - **Thresholds:** `min_revisions` 5, `min_bytes` 100 MiB, `resolve_ratio` 0.8, lookback 10m (proposed, not yet confirmed).
