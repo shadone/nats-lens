@@ -107,3 +107,20 @@ func TestSingleReplicaPlacementTags(t *testing.T) {
 	r := f.fires("stream-018", 2, "APP/order-cache")
 	want(t, r["APP/order-cache"], "info", "in cluster lens of 3 JetStream servers with tags ssd;")
 }
+
+// Tags match as nats-server places a stream: without case, a leading !
+// excludes servers with the tag, and a server tagged !jetstream takes no
+// stream.
+func TestSingleReplicaTagRules(t *testing.T) {
+	f := newFx(t)
+	f.streamLensCluster()
+	f.exec(`UPDATE servers SET tags = ['ssd']`)
+	for _, c := range []struct{ name, tags string }{{"upper", "['SSD']"}, {"mixed", "['Ssd']"}, {"plain", "['ssd']"},
+		{"not-hdd", "['!hdd']"}, {"not-ssd", "['!ssd']"}} {
+		f.streamAsset("S0", c.name, 1, 2, m{"replicas": 1})
+		f.exec(fmt.Sprintf(`UPDATE stream_config SET placement_tags = %s WHERE stream = '%s'`, c.tags, c.name))
+	}
+	f.fires("stream-018", 2, "APP/upper", "APP/mixed", "APP/plain", "APP/not-hdd")
+	f.exec(`UPDATE servers SET tags = ['ssd', '!jetstream'] WHERE server_name = 'nats-2'`)
+	f.fires("stream-018", 2)
+}
