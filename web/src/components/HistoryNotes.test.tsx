@@ -20,6 +20,7 @@ describe("range history notes and chart gaps", () => {
     expect(screen.getByRole("img", { name: /No data 17:50:44–17:53:44 UTC: nats-lens was not running/ })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /nats-lens was not running yet/ })).toBeInTheDocument();
     expect(container.querySelectorAll("rect.dh-chart-gap")).toHaveLength(3);
+    expect(Number(screen.getByRole("img", { name: /No data 17:50:44–17:53:44 UTC/ }).getAttribute("width"))).toBeGreaterThanOrEqual(1.5);
     expect(container.querySelector("rect.dh-chart-gap title")).toHaveTextContent("No data");
   });
 });
