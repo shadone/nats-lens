@@ -80,3 +80,11 @@ func (s *Store) LastDeliveryFinished(ctx context.Context, channel string) (time.
 	}
 	return at.Time.UTC(), nil
 }
+
+// NotificationEpochSent prevents a second successful batch before another
+// collection, including when the collector is disconnected or after a restart.
+func (s *Store) NotificationEpochSent(ctx context.Context, channel string) (bool, error) {
+	var sent bool
+	err := s.db.QueryRowContext(ctx, `SELECT coalesce((SELECT max(finished_at) FROM notify_outbox WHERE channel=? AND state='delivered') >= (SELECT max(started_at) FROM epochs), false)`, channel).Scan(&sent)
+	return sent, err
+}
