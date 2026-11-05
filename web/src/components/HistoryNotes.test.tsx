@@ -63,3 +63,7 @@ it("still links an unavailable Capacity rate when calendar history exceeds six h
   renderApp(<HistoryContext.Provider value={{ ...young, historyStart: young.start }}><ServerCards servers={[{ name: "nats-1", cluster: "shop", reported: true, used: 20, limit: 100, findingCode: "", findingId: "" }]} withoutJetstream={0} /></HistoryContext.Provider>);
   expect(screen.getByRole("link", { name: /not enough history for a rate/ })).toHaveAttribute("href", expect.stringContaining("/data-history"));
 });
+it("names the shorter history behind the Overview message-rate chart", () => {
+  renderApp(<HistoryContext.Provider value={{ ...young, gaps: [] }}><TrendChart title="Messages" start={young.start} end={NOW} layers={[]} /></HistoryContext.Provider>);
+  expect(screen.getByText("over 31 min")).toBeInTheDocument();
+});
