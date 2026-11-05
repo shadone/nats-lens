@@ -31,8 +31,9 @@ description: >-
   not take the traffic as fast as it comes. nats-server holds the backlog in memory and does not cap it: unlike a
   client, a route or gateway is not closed at max_pending, which serves here only as the scale. Messages on the link
   arrive late, and the server's memory grows with the backlog (server-008). A write that takes longer than the write
-  deadline counts the link as a slow consumer (server-009), and the server retries the write; it closes the link only when
-  nothing could be written by the deadline.
+  deadline counts the link as a slow consumer (server-009); by default the server retries the write and closes the
+  link only when nothing could be written by the deadline, while `write_timeout: close` in the cluster or gateway
+  block makes it close the link at once.
 remediation: >-
   The detail names the connections and how much each holds. Compare with the other end: `nats server report routes`
   or `nats server report gateways` with the system user, and the Topology page's pending bytes and round trips. A
