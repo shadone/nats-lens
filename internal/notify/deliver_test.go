@@ -2,6 +2,7 @@ package notify
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -106,5 +107,93 @@ func TestDeliveryOutcomes(t *testing.T) {
 				t.Fatalf("%+v", rows)
 			}
 		})
+	}
+}
+
+func TestDeliveryCrashAfterSuccess(t *testing.T) {
+	e := newEnv(t)
+	var keys, bodies []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		keys = append(keys, r.Header.Get("Idempotency-Key"))
+		bodies = append(bodies, string(b))
+		w.WriteHeader(204)
+	}))
+	defer srv.Close()
+	ch := channel("ops")
+	ch.URL = srv.URL
+	queueDelivery(t, e.st, r0, 1, 1)
+	rows, at, err := e.st.DeliveryBatch(context.Background(), "ops", r0, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, _ := Decode(rows[0].Message)
+	b := Batch{SystemID: "example-prod", SentAt: at, Key: fmt.Sprintf("example-prod:ops:%d:%d", rows[0].ID, rows[0].ID), Messages: []Message{m}}
+	s := NewSender(ch, "")
+	defer s.Close()
+	if r := s.Send(context.Background(), b); r.Outcome != Delivered {
+		t.Fatal(r)
+	}
+	// Simulate a crash by omitting FinishDelivery after the successful response.
+	queueDelivery(t, e.st, r0.Add(time.Second), 2, 1)
+	d := &Delivery{Store: e.st, SystemID: "example-prod", Clock: func() time.Time { return r0.Add(time.Minute) }}
+	if _, err := d.Step(context.Background(), ch); err != nil {
+		t.Fatal(err)
+	}
+	if keys[0] != keys[1] || bodies[0] != bodies[1] {
+		t.Fatal("crash changed batch identity or body")
+	}
+}
+
+func TestDeliveryCancellationAndStoreLock(t *testing.T) {
+	e := newEnv(t)
+	started := make(chan struct{})
+	release := make(chan struct{})
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { close(started); <-release }))
+	defer srv.Close()
+	ch := channel("ops")
+	ch.URL = srv.URL
+	queueDelivery(t, e.st, r0, 1, 1)
+	d := &Delivery{Store: e.st, SystemID: "example-prod", Channels: []config.Channel{ch}}
+	stop, cancelStop := context.WithCancel(context.Background())
+	defer cancelStop()
+	requests, cancelRequest := context.WithCancel(context.Background())
+	defer cancelRequest()
+	done := make(chan struct{})
+	go func() { d.Run(stop, requests); close(done) }()
+	<-started
+	cancelStop()
+	select {
+	case <-done:
+		t.Fatal("in-flight request did not get shutdown grace")
+	case <-time.After(20 * time.Millisecond):
+	}
+	lockCtx, cancelLock := context.WithTimeout(context.Background(), time.Second)
+	defer cancelLock()
+	if err := e.st.ApplyNotify(lockCtx, store.NotifyChange{}); err != nil {
+		t.Fatalf("HTTP held write lock: %v", err)
+	}
+	cancelRequest()
+	close(release)
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("request did not cancel")
+	}
+	rows, _ := e.st.OutboxRows(context.Background(), "ops")
+	if rows[0].State != "pending" || rows[0].Attempts != 0 {
+		t.Fatalf("cancelled batch changed: %+v", rows)
+	}
+	// Restart delivers the same pending rows to the now-working receiver.
+	good := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(204) }))
+	defer good.Close()
+	ch.URL = good.URL
+	if _, err := d.Step(context.Background(), ch); err != nil {
+		t.Fatal(err)
+	}
+	rows, _ = e.st.OutboxRows(context.Background(), "ops")
+	if rows[0].State != "delivered" {
+		t.Fatal(rows)
 	}
 }
