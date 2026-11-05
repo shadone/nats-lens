@@ -29,8 +29,8 @@ describe("the server's clock", () => {
     expect(Math.abs(start - (FIXED - DAY))).toBeLessThan(1000);
   });
 
-  it("stands still under natslens demo -fixed, so an hour later Last 1h still starts before its now", async () => {
-    vi.mocked(lens.getLensInfo).mockResolvedValue({ now: timestampFromMs(FIXED), demo: true, live: false } as never);
+  it("stands still when the server says its now is fixed, so an hour later Last 1h still starts before it", async () => {
+    vi.mocked(lens.getLensInfo).mockResolvedValue({ now: timestampFromMs(FIXED), nowFixed: true, demo: true } as never);
     await syncClock();
     const later = Date.now() + 3_600_000;
     vi.spyOn(Date, "now").mockReturnValue(later);
@@ -38,13 +38,22 @@ describe("the server's clock", () => {
     expect(Number(rangeInit({ kind: "live", preset: "1h" }).start!.seconds) * 1000).toBe(FIXED - 3_600_000);
   });
 
-  it("moves on for the demo shifted to now", async () => {
-    vi.mocked(lens.getLensInfo).mockResolvedValue({ now: timestampFromMs(FIXED), demo: true, live: true } as never);
+  it("moves on when the server's now is not fixed, even for a demo that is not live", async () => {
+    vi.mocked(lens.getLensInfo).mockResolvedValue({ now: timestampFromMs(FIXED), nowFixed: false, demo: true, live: false } as never);
     await syncClock();
     const later = Date.now() + 3_600_000;
     vi.spyOn(Date, "now").mockReturnValue(later);
     expect(Math.abs(serverNow() - (FIXED + 3_600_000))).toBeLessThan(1000);
   });
+
+  it("gives up on a server that does not answer, leaving the browser's clock", async () => {
+    vi.mocked(lens.getLensInfo).mockImplementation(
+      (_req, opts) => new Promise((_, reject) => opts?.signal?.addEventListener("abort", () => reject(new Error("aborted")))) as never,
+    );
+    await expect(syncClock(undefined, 50)).rejects.toThrow();
+    expect(vi.mocked(lens.getLensInfo).mock.calls[0][1]).toMatchObject({ timeoutMs: 50 });
+    expect(Math.abs(serverNow() - Date.now())).toBeLessThan(1000);
+  }, 1000);
 
   it("shows the shell once the server's now is read", async () => {
     vi.mocked(lens.getLensInfo).mockResolvedValue({ now: timestampFromMs(FIXED) } as never);
