@@ -142,3 +142,36 @@ func TestUnnamedConnectionsPartialCollection(t *testing.T) {
 	firing(w)
 	w.fires("client-007", 40)
 }
+
+// The hold through partial collections ends: the 10th partial collection
+// in a row without an unnamed connection resolves the finding, as when
+// connz_limit is below the client count or a server never answers again.
+func TestUnnamedConnectionsPartialHoldEnds(t *testing.T) {
+	names := []string{"nats-0", "nats-1", "nats-2"}
+	build := func(lastUnnamed int64) *fx {
+		f := newFx(t)
+		f.epochs(1, 30, names...)
+		for e := int64(31); e <= 40; e++ {
+			f.epoch(e, names, "nats-2")
+		}
+		f.unnamedConn(lastUnnamed, "S0", 1, nil, "10.0.0.5", time.Hour, nil)
+		f.row("findings", m{"id": "client-007:(unnamed)", "check_code": "client-007", "entity_type": "client", "entity_key": "(unnamed)",
+			"severity": "info", "state": "firing", "last_transition": "firing", "since": at(20), "since_epoch": 20,
+			"transitioned_at": at(20), "last_seen_epoch": 39, "updated_epoch": 39, "detail": "x"})
+		return f
+	}
+	// Epochs 31 to 40 are partial and empty: the 10th resolves.
+	build(30).fires("client-007", 40)
+	// An unnamed connection in epoch 31: 9 empty partial ones follow, held.
+	build(31).fires("client-007", 40, "(unnamed)")
+	// A connz_limit cut that never ends counts as partial too.
+	f := newFx(t)
+	f.cluster(40)
+	for e := int64(31); e <= 40; e++ {
+		f.stats(e, "S0", m{"connz_total": 5000, "connz_returned": 4096})
+	}
+	f.row("findings", m{"id": "client-007:(unnamed)", "check_code": "client-007", "entity_type": "client", "entity_key": "(unnamed)",
+		"severity": "info", "state": "firing", "last_transition": "firing", "since": at(20), "since_epoch": 20,
+		"transitioned_at": at(20), "last_seen_epoch": 39, "updated_epoch": 39, "detail": "x"})
+	f.fires("client-007", 40)
+}

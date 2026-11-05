@@ -20,7 +20,7 @@ description: >-
   users, addresses, client libraries and servers, which help find them. A firing finding stays while any unnamed
   connection is connected, of any age, so a client that reconnects does not resolve and fire again, and through a
   collection that may lack connections (a server did not answer, its CONNZ failed or its list was cut at
-  connz_limit). MQTT clients are left out: MQTT has no NATS connection name, so they could never be named.
+  connz_limit), up to the 10th such collection in a row without an unnamed connection, which resolves it. MQTT clients are left out: MQTT has no NATS connection name, so they could never be named.
 remediation: >-
   Give every client a connection name, ideally `service@pod` (in Kubernetes, the pod name from the downward API):
   the client checks then report per service, and a mute covers its pods. In nats.go set `nats.Name(...)`, in
@@ -39,12 +39,24 @@ WITH c AS (
     WHERE c.epoch = getvariable('epoch') AND coalesce(split_part(c.name, '@', 1), '') = ''
       AND lower(coalesce(c.type, 'nats')) <> 'mqtt' AND NOT tooling_at(c.name, c.ip, c.epoch)
 ),
--- The collection may lack connections: a server did not answer, its CONNZ
--- failed, or its list was cut at connz_limit.
+-- The last 10 collections: whether each may lack connections (a server
+-- did not answer, its CONNZ failed, or its list was cut at connz_limit),
+-- and whether it had an unnamed connection.
+recent AS (
+    SELECT e.epoch,
+        len(e.missing_names) > 0
+        OR EXISTS (SELECT 1 FROM epoch_endpoints p WHERE p.epoch = e.epoch AND p.endpoint = 'CONNZ' AND p.state <> 'ok')
+        OR EXISTS (SELECT 1 FROM server_stats st WHERE st.epoch = e.epoch AND st.connz_returned < st.connz_total) AS partial,
+        EXISTS (SELECT 1 FROM connections u WHERE u.epoch = e.epoch AND coalesce(split_part(u.name, '@', 1), '') = ''
+            AND lower(coalesce(u.type, 'nats')) <> 'mqtt' AND NOT tooling_at(u.name, u.ip, u.epoch)) AS unnamed
+    FROM (SELECT epoch, missing_names FROM epochs WHERE epoch <= getvariable('epoch') ORDER BY epoch DESC LIMIT 10) e
+),
+-- A partial collection keeps a firing finding, unless it is the 10th
+-- partial collection in a row without an unnamed connection.
 partial AS (
-    SELECT EXISTS (SELECT 1 FROM epochs WHERE epoch = getvariable('epoch') AND len(missing_names) > 0)
-        OR EXISTS (SELECT 1 FROM epoch_endpoints WHERE epoch = getvariable('epoch') AND endpoint = 'CONNZ' AND state <> 'ok')
-        OR EXISTS (SELECT 1 FROM server_stats WHERE epoch = getvariable('epoch') AND connz_returned < connz_total) AS yes
+    SELECT coalesce(bool_or(partial AND epoch = getvariable('epoch')), false)
+        AND NOT (count(*) = 10 AND bool_and(partial AND NOT unnamed)) AS yes
+    FROM recent
 ),
 -- Once firing at the previous epoch, any unnamed connection keeps it.
 firing AS (
