@@ -272,3 +272,50 @@ All choices here are proposed, not yet confirmed. N4 merges M T1 `b7b5131` as a 
 - Final `go vet ./internal/notify ./internal/store`: PASS. Feature-doc audit with `--map-refs require`: 0 errors, only expected planned-status warnings for data-history and mobile. `git diff --check`: PASS. HTTP tests use local httptest receivers; no configured external destination was contacted.
 - Broader `go test ./internal/notify ./internal/store -count=1 -coverprofile=/tmp/n4-coverage.out`: notification package passed; store package reached the aggregate 10-minute timeout while `TestRebuildKeepsTheBaselinedCopyOfAnAcceptance` was running (22 seconds in that test), with no assertion failure reported. The full store suite is not claimed as passed. The test active at timeout passed independently: `go test ./internal/store -run '^TestRebuildKeepsTheBaselinedCopyOfAnAcceptance$' -count=1 -timeout=2m` (10.523 seconds).
 - Parent-owned fresh read-only review and integration remain pending. The prerequisite M T1 review is separate; no approval is claimed here.
+
+### T4 first review fix: released episode resolution
+
+Proposed, not yet confirmed. The isolated fix starts at parent `d073334`, which
+contains mobile T1 reviewed backend `c45ad0b`. It integrates N4 candidate
+`deb34dc` without its older backend merge. Backend integration is satisfied;
+parent-owned fresh notification review remains pending, with no approval claimed.
+
+- Review reproduced an acknowledged flapping episode released, reconciled past
+  its quiet end, then actually resolved: no resolved message was queued. The
+  acknowledgement input excludes releases behind the channel cursor.
+- Append `0038_notify_acknowledged.sql` after the parent's highest migration,
+  `0037`; `0035`, `0036` and `0037` remain untouched. A boolean on each
+  `notify_state` row remembers acknowledgement of that known episode after
+  release, expiry, history retention and restart. Existing history/outbox rows
+  cannot provide durable memory because they are swept. The marker follows the
+  channel's state lifecycle, resets on episode changes, and is not archived.
+- Backfill uses only matching episode history created by the channel's cursor.
+  New channels, removal/re-addition and rebuild retain normal baseline behavior.
+  Only actual resolves of known acknowledged episodes bypass the flapping hold;
+  other flapping, mute, filter, gap and severity behavior remains in force.
+- ASVS 1.2.4 / 15.4.3: the marker uses the existing parameterized JSON writes and
+  locked reconcile transaction; it adds no actor, note, destination or log input.
+
+First-review fix verification:
+
+- RED on integrated candidate: independent `TestReviewAckReleasedEpisodeResolveWhileFlapping`
+  and ported `TestAcknowledgementReleasedEpisodeResolveWhileFlapping` both got
+  no message instead of resolved. With the fix removed via Go overlay, that
+  regression and both `TestAcknowledgementEndedFlappingDiskRestart` variants
+  (release and expiry) fail at the missing actual resolve. All pass with the fix.
+- `TZ=America/Los_Angeles GOCACHE=/tmp/n4-review-gocache go test -race ./internal/notify -count=1`:
+  PASS (30.327s), including delivery, gap, rebuild and payload tests. The sandbox
+  initially prohibited httptest loopback listeners; the permitted local-listener
+  rerun passed. Final strengthened new-channel assertions also pass in the
+  targeted race run of the three new acknowledgement regressions.
+- `TZ=America/Los_Angeles GOCACHE=/tmp/n4-review-gocache go test -race ./internal/store -run 'Ack|Notif|TestMigrationsMatchGolden' -count=1 -timeout=10m`:
+  PASS (12.768s), including the new real-store upgrade backfill test.
+- All five supplied independent acknowledgement probes plus the original
+  released-episode probe pass under the corrected checkout-specific overlay,
+  non-UTC. `go vet ./internal/notify ./internal/store` passes. Feature-doc audit
+  with `--map-refs require`: zero errors, only the two expected planned-status
+  warnings. `git diff --check` passes.
+- The current parent `develop` at `88eaed8` still ends migrations at `0037`,
+  confirming `0038` is the next number. No full store suite was run in this fix
+  round, and none is claimed. Backfill can recover only retained history; it
+  cannot reconstruct acknowledgements already deleted before upgrading.
