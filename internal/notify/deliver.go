@@ -44,6 +44,15 @@ func (d *Delivery) step(ctx context.Context, ch config.Channel, s *Sender) (time
 		return time.Second, err
 	}
 	head := rows[0]
+	if head.Attempts == 0 && d.Interval > 0 {
+		finished, err := d.Store.LastDeliveryFinished(ctx, ch.Name)
+		if err != nil {
+			return time.Second, err
+		}
+		if due := finished.Add(d.Interval); !finished.IsZero() && due.After(now) {
+			return due.Sub(now), nil
+		}
+	}
 	if head.NextAttemptAt.After(now) {
 		return head.NextAttemptAt.Sub(now), nil
 	}
@@ -67,7 +76,7 @@ func (d *Delivery) step(ctx context.Context, ch config.Channel, s *Sender) (time
 		wait = min(wait*2, 10*time.Minute)
 	}
 	if (result.Status == 429 || result.Status == 503) && result.RetryAfter > 0 {
-		wait = min(result.RetryAfter, 10*time.Minute)
+		wait = max(wait, min(result.RetryAfter, 10*time.Minute))
 	}
 	switch result.Outcome {
 	case Delivered:

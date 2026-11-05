@@ -69,3 +69,14 @@ func (s *Store) FinishDelivery(ctx context.Context, channel string, first, last 
 	_, err := s.db.ExecContext(ctx, `UPDATE notify_outbox SET state=?,attempts=attempts+1,last_status=?,last_error=?,finished_at=?,delivered_at=?,next_attempt_at=? WHERE channel=? AND id BETWEEN ? AND ? AND state='pending'`, state, status, fmt.Sprintf("%s, HTTP %d", state, status), finished, delivered, scheduled, channel, first, last)
 	return err
 }
+
+// LastDeliveryFinished returns the channel's latest terminal batch outcome.
+// It bounds the normal send rate across process restarts as well as in memory.
+func (s *Store) LastDeliveryFinished(ctx context.Context, channel string) (time.Time, error) {
+	var at sql.NullTime
+	err := s.db.QueryRowContext(ctx, `SELECT max(finished_at) FROM notify_outbox WHERE channel=? AND state <> 'pending'`, channel).Scan(&at)
+	if err != nil || !at.Valid {
+		return time.Time{}, err
+	}
+	return at.Time.UTC(), nil
+}
