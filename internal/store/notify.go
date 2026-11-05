@@ -12,7 +12,7 @@ import (
 
 // notifyTables hold the notifier's state and outbox. They are not
 // archived, and SweepNotifications, not Sweep, removes their rows.
-var notifyTables = []string{"notify_channels", "notify_state", "notify_outbox"}
+var notifyTables = []string{"notify_channels", "notify_state", "notify_outbox", "notify_delivery_rate"}
 
 // States of a notify_state row.
 const (
@@ -29,7 +29,7 @@ const (
 )
 
 // OutboxKeep is the longest a delivered, refused or failed outbox row is
-// kept; a shorter retention keeps it for retention only.
+// kept after its terminal outcome; shorter retention has a one-hour floor.
 const OutboxKeep = 7 * 24 * time.Hour
 
 // NotifyChannel is one row of notify_channels.
@@ -402,8 +402,9 @@ type NotifySweep struct {
 }
 
 // SweepNotifications removes, in one transaction, delivered, refused and
-// failed outbox rows created before now minus the shorter of OutboxKeep
-// and retention, notify_state rows of findings that no longer exist, and
+// failed outbox rows finished before now minus the shorter of OutboxKeep
+// and retention (at least one hour for reporting), notify_state rows of
+// findings that no longer exist, and
 // every row of a channel not in keep (its notify_channels and
 // notify_state rows and its outbox rows, pending ones included, as no
 // channel is left to send them to).
@@ -422,7 +423,8 @@ func (s *Store) SweepNotifications(ctx context.Context, now time.Time, retention
 	if retention > 0 && retention < age {
 		age = retention
 	}
-	r, err := tx.ExecContext(ctx, `DELETE FROM notify_outbox WHERE state <> 'pending' AND created_at < ?`, now.Add(-age).UTC())
+	age = max(age, time.Hour)
+	r, err := tx.ExecContext(ctx, `DELETE FROM notify_outbox WHERE state <> 'pending' AND coalesce(finished_at, delivered_at, created_at) < ?`, now.Add(-age).UTC())
 	if err != nil {
 		return res, fmt.Errorf("sweep outbox: %w", err)
 	}
@@ -438,7 +440,8 @@ func (s *Store) SweepNotifications(ctx context.Context, now time.Time, retention
 	const gone = `channel NOT IN (SELECT unnest(from_json(?::VARCHAR, '["VARCHAR"]')))`
 	rows, err := tx.QueryContext(ctx, `SELECT channel FROM notify_channels WHERE `+gone+`
 UNION SELECT channel FROM notify_state WHERE `+gone+`
-UNION SELECT channel FROM notify_outbox WHERE `+gone+` ORDER BY 1`, kept, kept, kept)
+UNION SELECT channel FROM notify_outbox WHERE `+gone+`
+UNION SELECT channel FROM notify_delivery_rate WHERE `+gone+` ORDER BY 1`, kept, kept, kept, kept)
 	if err != nil {
 		return res, fmt.Errorf("sweep notify channels: %w", err)
 	}
