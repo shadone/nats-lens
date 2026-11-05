@@ -82,7 +82,13 @@ func (h *Handler) GetShellStatus(ctx context.Context, req *connect.Request[v1.Ge
 			}
 		}
 	}
-	res.SystemKnown, res.DefaultSystem, res.Systems = known, d.Ref.GetId(), <-badges
+	systems := <-badges
+	if ctx.Err() != nil {
+		// The badges gave up waiting when the caller's time ran out; the
+		// call ends as any call past its deadline does.
+		return nil, h.codeOf(procedure, ctx.Err())
+	}
+	res.SystemKnown, res.DefaultSystem, res.Systems = known, d.Ref.GetId(), systems
 	return connect.NewResponse(res), nil
 }
 
