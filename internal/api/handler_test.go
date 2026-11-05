@@ -157,7 +157,18 @@ func TestLensInfo(t *testing.T) {
 	if !m.GetNow().AsTime().Equal(fake.FixedNow) {
 		t.Fatalf("now = %v, want the fixed demo's %v", m.GetNow(), fake.FixedNow)
 	}
-	v := &iap.Verifier{Audience: aud, Keys: iaptest.New("k1")}
+	if !m.GetNowFixed() {
+		t.Fatal("now_fixed = false under -fixed, want true: the UI's clock would move past the fixed now")
+	}
+	_, c = apitest.ServeHandler(t, &api.Handler{Systems: api.One(api.DefaultSystemID, api.DefaultSystemID, fake.New(true))})
+	info, err = c.GetLensInfo(context.Background(), connect.NewRequest(&v1.GetLensInfoRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Msg.GetNowFixed() || time.Since(info.Msg.GetNow().AsTime()) > time.Minute {
+		t.Fatalf("live demo: now_fixed = %v, now = %v; want false and the wall clock", info.Msg.GetNowFixed(), info.Msg.GetNow())
+	}
+	v :=&iap.Verifier{Audience: aud, Keys: iaptest.New("k1")}
 	_, c = apitest.ServeHandler(t, &api.Handler{Systems: api.One(api.DefaultSystemID, api.DefaultSystemID, fake.New(false)), IAP: v})
 	// Reading the info needs no assertion, so the UI can ask before a mute.
 	info, err = c.GetLensInfo(context.Background(), connect.NewRequest(&v1.GetLensInfoRequest{}))

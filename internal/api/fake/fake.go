@@ -164,7 +164,7 @@ func inRange(t time.Time, r *v1.TimeRange) bool {
 // retention.
 func (p *Provider) Info(context.Context) (*v1.GetLensInfoResponse, error) {
 	return &v1.GetLensInfoResponse{Cluster: p.sc.cluster, CollectInterval: dur(30 * time.Second),
-		Retention: dur(14 * 24 * time.Hour), Live: p.live, Demo: true, HistoryStart: ts(p.scen().dataStart())}, nil
+		Retention: dur(14 * 24 * time.Hour), Live: p.live, Demo: true, NowFixed: !p.live, HistoryStart: ts(p.scen().dataStart())}, nil
 }
 
 // freshness describes the newest epoch inside the range.

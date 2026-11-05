@@ -152,7 +152,10 @@ type GetLensInfoResponse struct {
 	// wall clock, or the scenario's own time for `natslens demo -fixed`,
 	// which does not move. The UI reads its "now" from it, so that its live
 	// ranges start before the server's now.
-	Now           *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=now,proto3" json:"now,omitempty"`
+	Now *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=now,proto3" json:"now,omitempty"`
+	// True when the server's now stands still, as under `natslens demo
+	// -fixed`; the client then stops its clock at `now`.
+	NowFixed      bool `protobuf:"varint,12,opt,name=now_fixed,json=nowFixed,proto3" json:"now_fixed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -264,13 +267,20 @@ func (x *GetLensInfoResponse) GetNow() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *GetLensInfoResponse) GetNowFixed() bool {
+	if x != nil {
+		return x.NowFixed
+	}
+	return false
+}
+
 var File_natslens_v1_info_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_info_proto_rawDesc = "" +
 	"\n" +
 	"\x16natslens/v1/info.proto\x12\vnatslens.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\",\n" +
 	"\x12GetLensInfoRequest\x12\x16\n" +
-	"\x06system\x18\x01 \x01(\tR\x06system\"\xd8\x03\n" +
+	"\x06system\x18\x01 \x01(\tR\x06system\"\xf5\x03\n" +
 	"\x13GetLensInfoResponse\x12>\n" +
 	"\ridentity_mode\x18\x01 \x01(\x0e2\x19.natslens.v1.IdentityModeR\fidentityMode\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x18\n" +
@@ -284,7 +294,8 @@ const file_natslens_v1_info_proto_rawDesc = "" +
 	"\vsystem_name\x18\n" +
 	" \x01(\tR\n" +
 	"systemName\x12,\n" +
-	"\x03now\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\x03now*_\n" +
+	"\x03now\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\x03now\x12\x1b\n" +
+	"\tnow_fixed\x18\f \x01(\bR\bnowFixed*_\n" +
 	"\fIdentityMode\x12\x1d\n" +
 	"\x19IDENTITY_MODE_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11IDENTITY_MODE_IAP\x10\x01\x12\x19\n" +
