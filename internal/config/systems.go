@@ -312,3 +312,13 @@ func systemsLogValue(systems []SystemConfig) slog.Value {
 	}
 	return slog.GroupValue(attrs...)
 }
+
+// systemIDs lists the ids of the configured systems.
+func (c Config) systemIDs() []string {
+	systems := c.ResolvedSystems()
+	out := make([]string, len(systems))
+	for i, s := range systems {
+		out[i] = s.ID
+	}
+	return out
+}

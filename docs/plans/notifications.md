@@ -8,15 +8,17 @@ Examples use the online shop of `inventory.example.yaml`, the demo's systems (`e
 
 ## Open questions for the owner
 
-1. **Alert delivery in scope, with two channel types.** Proposed: a generic webhook with a documented JSON body, and a Slack-compatible incoming webhook (a `text` message). No e-mail, no paging-service API, no user templates in this version. Recommended: yes; a receiver that needs another shape can transform the documented JSON, and the leftovers keep the rest.
-2. **A new channel, or a database rebuilt from the archive, starts from a baseline.** Proposed: on its first run for a channel, nats-lens records the findings firing then without sending one message each, and sends one "nats-lens now notifies this channel: 3 findings firing" message with a link to Findings. Recommended: yes; the other choice is a burst of one message per open finding each time a channel is added or a database is lost.
-3. **Which severities by default.** Proposed: `min_severity: warning`, so a channel receives warning and critical findings and never info unless it asks. Recommended: yes, as info findings are notices, not trouble (`isTrouble`).
+Each was answered by the session that built T1 as recommended below: proposed, not yet confirmed by the owner.
+
+1. **Alert delivery in scope, with two channel types.** Proposed: a generic webhook with a documented JSON body, and a Slack-compatible incoming webhook (a `text` message). No e-mail, no paging-service API, no user templates in this version. Recommended: yes; a receiver that needs another shape can transform the documented JSON, and the leftovers keep the rest. Answered so: webhook and Slack-compatible channels only (proposed, not yet confirmed).
+2. **A new channel, or a database rebuilt from the archive, starts from a baseline.** Proposed: on its first run for a channel, nats-lens records the findings firing then without sending one message each, and sends one "nats-lens now notifies this channel: 3 findings firing" message with a link to Findings. Recommended: yes; the other choice is a burst of one message per open finding each time a channel is added or a database is lost. Answered so: one summary of what is firing (proposed, not yet confirmed); T2 builds it.
+3. **Which severities by default.** Proposed: `min_severity: warning`, so a channel receives warning and critical findings and never info unless it asks. Recommended: yes, as info findings are notices, not trouble (`isTrouble`). Answered so: `min_severity` defaults to `warning` (proposed, not yet confirmed).
 
 ## Status
 
 | Task | Status |
 |---|---|
-| T1 Configuration, message formats and `natslens notify test` | planned |
+| T1 Configuration, message formats and `natslens notify test` | built on `feat/notify-config`, awaiting review |
 | T2 Notification state and outbox | planned |
 | T3 Delivery, retries, metrics and the delivery check | planned |
 | T4 Acknowledgements in notifications | planned; needs `docs/plans/mobile.md` T1 merged |
@@ -88,6 +90,55 @@ No database and no API in this task: what a channel is, what it receives, and a 
 - **`natslens notify test`.** `cmd/natslens/notify.go`, dispatched from `main.go` beside `run`, `once`, `sql`, `checks` and `demo`: `natslens notify test -config natslens.yaml [-channel ops-webhook] [-system example-prod]` sends one batch with a single message of kind `test` ("nats-lens test message from example-prod") to each channel or the one named, and prints "ops-webhook (hooks.example.com): delivered, HTTP 204" or the failure without the URL. It opens no database and no NATS connection, so it works beside a running `natslens run`. Exit status 1 when any channel failed.
 - **Tests.** Config: every refusal above; defaults; a file that cannot be read is a warning, not a refusal; redaction. Formats: golden files for each kind and both types, a message without a link, the Slack cut at 10. Send: an `httptest` server for 204, 500, 429 with `Retry-After`, a redirect, a timeout; captured `slog` output and returned errors never contain the URL's path or query or the token. `notify test`: one good and one failing channel, the exit status, the printed lines.
 - **Docs.** `natslens.example.yaml` gains the block, commented; the README is T5's.
+
+### Webhook body, version 1
+
+Built in T1 (`internal/notify/webhook.go`), pinned by `internal/notify/testdata/webhook-*.json`, one file per kind plus `webhook-variants.json` (an acceptance, an ended acceptance, a severity that fell to info) and `webhook-no-link.json`. T5 moves this into the README. A field that is unset is left out; a value of 0 is written. Times are RFC 3339 in UTC, to the second. A change a receiver could trip over (a field removed, renamed or retyped) takes a new `version`; a new field does not.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `version` | number | `1` |
+| `sent_at` | time | When the batch was built |
+| `system.id`, `system.name` | string | The system the findings belong to; `name` is left out when it is not set |
+| `nats_lens_version` | string | nats-lens's version, as in `User-Agent: natslens/<version>` |
+| `notifications[]` | array | The messages, in the order they were queued |
+| `.kind` | string | `firing`, `changed`, `resolved`, `flapping`, `muted`, `reminder`, `acknowledged`, or `test` from `natslens notify test` |
+| `.reason` | string | Why, when the kind alone does not say: `mute ended`, `acceptance ended`, `severity now info` |
+| `.finding_id` | string | `<check code>:<entity key>`, as the API spells it |
+| `.check_code`, `.check_name`, `.category` | string | The check |
+| `.severity` | string | `info`, `warning` or `critical`, as the finding stands |
+| `.previous_severity` | string | The severity the channel was last sent, on `changed` and on a `resolved` with `severity now info` |
+| `.entity_type`, `.entity_key` | string | The entity, as in the API |
+| `.entity_name` | string | The entity's readable name, when it has one |
+| `.detail` | string | The finding's detail |
+| `.since` | time | When the episode began |
+| `.condition_since` | time | When the condition began, when the check knows |
+| `.transitioned_at` | time | The finding's latest transition |
+| `.resolved_at` | time | On `resolved` from a resolve |
+| `.flapping` | boolean | `true` while the finding flaps; left out otherwise |
+| `.value` | number | The check's value, when it reports one |
+| `.mute.accepted`, `.mute.by`, `.mute.reason`, `.mute.until`, `.mute.end_reason` | | The mute or acceptance, on `muted` and on a `firing` whose mute ended; `until` is an acceptance's review date; `end_reason` is set when nats-lens ended an acceptance |
+| `.link` | string | `<ui_url>/findings/<finding id, path-escaped>?system=<id>`; the test message links the system's Findings page; left out without `ui_url` |
+| `.dedup_key` | string | `<system>:<finding id>:<episode start epoch>:<kind>:<epoch>`, the same each time the message is sent; the test message's is `<system>:test:<Unix microseconds>` |
+
+Headers: `Content-Type: application/json`, `User-Agent: natslens/<version>`, `Authorization: Bearer <token>` with a token, `Idempotency-Key: <batch key>`. A Slack channel's request has neither `Authorization` nor `Idempotency-Key`.
+
+### Where T1 departed from this plan
+
+Each point was decided in the session that built T1: proposed, not yet confirmed.
+
+- **Check codes and categories are refused at the check load, not in `internal/config`.** `internal/config` does not know the check files, as with `checks.disabled`; `notify.CheckFilters` runs after `loadChecks` in `natslens run`, `natslens once` and `natslens notify test`, and stops each of them. A category is known when a loaded check has it.
+- **Start warnings only in `natslens run`.** `once` and `notify test` send nothing on a schedule, so only `run` warns of a URL file, token file or variable it cannot read (naming the channel, the key and the file or variable) and of a missing `ui_url`. `notify test` prints the same text as its result.
+- **A URL in a file or a variable is checked at each attempt.** The `https` (or loopback `http`, `localhost` in any case) rule applies to a plain `url` at the start and to one read from `url_file` or `url_env` at each attempt; a failure names the key and the file, never the URL.
+- **Outcomes.** A URL or token that cannot be read is a `retry` outcome, so T3 counts it as a failure and retries it until `give_up_after`, as the file can be fixed without a restart. A redirect (3xx) is `refused`. `Retry-After` is read on every retried status (5xx, 408, 429), seconds or an HTTP date, held to at most 24 hours (`notify.MaxRetryAfter`) so a huge value cannot overflow; T3 caps it at 10 minutes. `natslens notify test` words a retry outcome as `failed` ("broken (hooks.example.com): failed, HTTP 500").
+- **Each sender builds its own transport**, not a copy of `http.DefaultTransport`: proxy from the environment, TLS verified against the system roots and at least 1.2, dial and TLS handshake timeouts. `Sender.Close` closes its idle connections, for T3's shutdown.
+- **Error texts are scrubbed as well as unwrapped.** Besides unwrapping a `*url.Error`, the sender removes the URL, its user information, path, query and path segments, and the token from any error text it returns.
+- **The Slack text has a header line.** `nats-lens, Production (example-prod):` names the system before the message lines, as a channel can receive several systems. A line reads `CRITICAL firing: stream-001 <check name>: <entity> (<detail>) <link|open>`; what happened follows the severity (`changed from warning`, `resolved, severity now info`, `muted by alice@example.com until 2026-11-05 21:30 UTC (migration tonight)`, `accepted by ...`, `still firing since ...`). The entity is its readable name, else its key. Slack's `&`, `<` and `>` are escaped in every text, so a detail cannot make a link or a mention. Line breaks and tabs in every text taken from a finding, a mute or the configuration become spaces, so a detail from NATS cannot forge a line of its own; each such text is cut to 300 runes ending in "…" (`notify.SlackMaxField`), and the whole text to 30,000 bytes (`notify.SlackMaxText`, under Slack's 40,000 characters), the lines beyond it counted on the "and N more" line. Neither body escapes HTML characters in JSON.
+- **`kinds: []` means every kind,** as the other empty lists mean everything; `test` is not selectable and always sent.
+- **The test message.** Kind `test`, detail "nats-lens test message from example-prod", a link to the system's Findings page with `ui_url`. Without `-system`, a channel's test names the first system of its `systems`, else the first configured system; `-system` names that system for every channel, whether or not the channel's filter takes it. `notify test` validates the whole file (`Config.Validate`) besides the channels.
+- **Model additions.** `Batch` carries `Key` (the `Idempotency-Key`) and `UIURL` (for the Slack text's link to Findings); `Message.Mute` is a `notify.Mute` with `Accepted`, `By`, `Reason`, `Until` and `EndReason`. `config.Channel.Accepts` (severity, system, check, excluded check, category) and `config.Channel.Sends` (kind) hold the filters for T2.
+- **No `baseline` kind yet.** The one summary message of open question 2 is T2's: it adds the kind to `notify.Kinds` (not to `config.ChannelKinds`, so `kinds` cannot drop it), golden files for both bodies and a row in the table above.
+- **The starting line** shows a channel's `url` as scheme and host, and `url_set`, `url_file_set`, `url_env_set`, `bearer_token_file_set` and `bearer_token_env_set`; the file paths and variable names are not printed there. `Channel` also redacts its `url` in `%v`, `%#v`, JSON and YAML, as `NATS` and `Account` do in the first three. An unknown key in a channel reads "unknown key bogus in notifications channel ops-chat".
 
 ## T2 Notification state and outbox
 

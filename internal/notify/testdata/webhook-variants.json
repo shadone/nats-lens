@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "sent_at": "2026-11-05T09:32:00Z",
+  "system": {
+    "id": "example-prod",
+    "name": "Production"
+  },
+  "nats_lens_version": "1.4.0",
+  "notifications": [
+    {
+      "kind": "muted",
+      "finding_id": "stream-001:APP/order-jobs",
+      "check_code": "stream-001",
+      "check_name": "Stream without a leader",
+      "category": "health",
+      "severity": "critical",
+      "entity_type": "stream",
+      "entity_key": "APP/order-jobs",
+      "entity_name": "shop/order-jobs",
+      "detail": "no leader for 2m",
+      "since": "2026-11-05T09:30:00Z",
+      "transitioned_at": "2026-11-05T09:30:00Z",
+      "mute": {
+        "accepted": true,
+        "by": "bob@example.com",
+        "reason": "by design",
+        "until": "2026-12-05T09:30:00Z"
+      },
+      "link": "https://nats-lens.example.com/findings/stream-001:APP%2Forder-jobs?system=example-prod",
+      "dedup_key": "example-prod:stream-001:APP/order-jobs:41230:muted:41230"
+    },
+    {
+      "kind": "firing",
+      "reason": "acceptance ended",
+      "finding_id": "stream-001:APP/order-jobs",
+      "check_code": "stream-001",
+      "check_name": "Stream without a leader",
+      "category": "health",
+      "severity": "critical",
+      "entity_type": "stream",
+      "entity_key": "APP/order-jobs",
+      "entity_name": "shop/order-jobs",
+      "detail": "no leader for 2m",
+      "since": "2026-11-05T09:30:00Z",
+      "condition_since": "2026-11-05T09:28:00Z",
+      "transitioned_at": "2026-11-05T09:30:00Z",
+      "value": 0,
+      "mute": {
+        "accepted": true,
+        "by": "bob@example.com",
+        "until": "2026-11-05T09:30:00Z",
+        "end_reason": "growth above the accepted rate"
+      },
+      "link": "https://nats-lens.example.com/findings/stream-001:APP%2Forder-jobs?system=example-prod",
+      "dedup_key": "example-prod:stream-001:APP/order-jobs:41230:firing:41230"
+    },
+    {
+      "kind": "resolved",
+      "reason": "severity now info",
+      "finding_id": "stream-001:APP/order-jobs",
+      "check_code": "stream-001",
+      "check_name": "Stream without a leader",
+      "category": "health",
+      "severity": "info",
+      "previous_severity": "warning",
+      "entity_type": "stream",
+      "entity_key": "APP/order-jobs",
+      "entity_name": "shop/order-jobs",
+      "detail": "leader elected",
+      "since": "2026-11-05T09:30:00Z",
+      "transitioned_at": "2026-11-05T09:32:00Z",
+      "link": "https://nats-lens.example.com/findings/stream-001:APP%2Forder-jobs?system=example-prod",
+      "dedup_key": "example-prod:stream-001:APP/order-jobs:41230:resolved:41234"
+    }
+  ]
+}
