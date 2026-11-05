@@ -13,17 +13,17 @@ thresholds:
       How long the answering servers must report more than one API level in every collection before the finding
       fires; a firing finding resolves once no collection of the last min_duration was mixed.
 description: >-
-  In every collection for at least min_duration, the JetStream servers of one JetStream domain that answered
-  reported more than one JetStream API level. A client's request for a newer API feature, such as a stream or consumer setting that came
-  with a later nats-server release, then works or fails depending on the server that handles it, and a replica on an
-  older server may not apply the setting. A server that reports level 0 runs a release before levels were
-  reported. A collection in which a server is restarting, within checks.restart_window of its start, does not count,
-  so a rolling upgrade that keeps moving does not fire; one that stops half-way does, min_duration after its last
-  restart; an upgrade whose restarts are more than about 40 minutes apart (restart_window plus min_duration) fires
-  between them. The condition must hold from a collection that started between min_duration and twice min_duration
-  ago, so a long gap in collection does not count as held. Servers whose versions differ but share one API level do not fire; server-005 reports every version
-  that differs from the majority, at info. A firing finding resolves once no collection of the last min_duration was
-  mixed.
+  In every collection for at least min_duration, the JetStream servers of one JetStream domain that answered reported
+  more than one JetStream API level. A client's request for a newer API feature, such as a stream or consumer setting
+  that came with a later nats-server release, then works or fails depending on the server that handles it, and a replica
+  on an older server may not apply the setting. A server that reports level 0 runs a release before levels were
+  reported. A collection in which a server is restarting, within checks.restart_window of its start, does not count, so
+  a rolling upgrade that keeps moving does not fire; one that stops half-way does, min_duration after its last restart;
+  an upgrade whose restarts are more than about 40 minutes apart (restart_window plus min_duration) fires between them.
+  The condition must hold from a collection that started between min_duration and twice min_duration ago, so a long gap
+  in collection does not count as held. Servers whose versions differ but share one API level do not fire; server-005
+  reports every version that differs from the majority, at info. A firing finding resolves once no collection of the
+  last min_duration was mixed.
 remediation: >-
   Finish the upgrade so that every server runs the same nats-server release: `nats server list` with the system user
   shows each server's version. In Kubernetes the StatefulSet updates one pod at a time; check `kubectl rollout status
