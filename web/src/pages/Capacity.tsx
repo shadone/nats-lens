@@ -1,11 +1,13 @@
 // Capacity: what each stream keeps and what bounds it, and how full each
 // server's JetStream file store is and when it fills, in the range's newest
 // collection, with growth over the whole range.
+import { useGrowthWait } from "../api/historyNotes";
 import { useCapacity } from "../api/queries";
 import { ServerCards } from "../components/CapacityServers";
 import { StreamsTable } from "../components/CapacityStreams";
 import { Empty, QueryView } from "../components/common";
-import { CAPACITY_SUBTITLE, headerLine } from "../lib/capacityView";
+import { HistoryLink } from "../components/HistoryNote";
+import { CAPACITY_SUBTITLE, hasRate, headerLine } from "../lib/capacityView";
 import { hms } from "../lib/format";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useSystem } from "../lib/useSystem";
@@ -17,6 +19,7 @@ export function Capacity() {
   const system = useSystem();
   const q = useCapacity(spec);
   const d = q.data;
+  const wait = useGrowthWait(spec);
   return (
     <>
       <div className="page-h">
@@ -24,7 +27,12 @@ export function Capacity() {
           {CAPACITY_SUBTITLE}{" "}
           {d?.collected && d.epochAt !== undefined ? (
             <>
-              {headerLine(d)}, in the collection of <span className="mono">{hms(d.epochAt)} UTC</span>.
+              {headerLine(d, wait)}, in the collection of <span className="mono">{hms(d.epochAt)} UTC</span>.{!hasRate(d) && (
+                <>
+                  {" "}
+                  <HistoryLink />
+                </>
+              )}
             </>
           ) : (
             "In the newest collection of the range."
@@ -35,7 +43,7 @@ export function Capacity() {
         {(r) =>
           r.collected ? (
             <>
-              <ServerCards servers={r.servers} withoutJetstream={r.serversWithoutJetstream} />
+              <ServerCards servers={r.servers} withoutJetstream={r.serversWithoutJetstream} wait={wait} />
               <StreamsTable key={system} d={r} answeredAt={q.dataUpdatedAt} live={spec.kind === "live"} />
             </>
           ) : (

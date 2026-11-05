@@ -1,9 +1,11 @@
 // Streams: every stream of the newest epoch in the range, worst first.
 import { useSearchParams } from "react-router";
+import { useGrowthWait } from "../api/historyNotes";
 import { useStreams } from "../api/queries";
 import { MiniLine } from "../charts/MiniLine";
 import { Dash, Empty, QueryView, RLink, Num } from "../components/common";
 import { HealthIcon } from "../components/Severity";
+import { HistoryLink } from "../components/HistoryNote";
 import { fmtBytes, fmtGrowth } from "../lib/format";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useTimeRange } from "../lib/useTimeRange";
@@ -16,10 +18,19 @@ export function Streams() {
   const kv = params.get("kv") === "1";
   const { spec } = useTimeRange();
   const q = useStreams(spec, kv);
+  const wait = useGrowthWait(spec);
   return (
     <>
       <div className="page-h">
-        <span className="aside">As the leader reports them in the newest collection of the range. Growth covers the whole range, scaled to a day.</span>
+        <span className="aside">
+          As the leader reports them in the newest collection of the range. Growth covers the whole range, scaled to a day.
+          {wait && (
+            <>
+              {" "}
+              No growth yet: it {wait}. <HistoryLink />
+            </>
+          )}
+        </span>
         <div className="right">
           <label className="check chip">
             <input
@@ -98,7 +109,7 @@ export function Streams() {
                           <td className="num">
                             <MiniLine points={s.bytes7d?.points ?? []} level={s.status} label={`${s.entity.stream} bytes`} period="last 7 days" fmt={fmtBytes} />
                           </td>
-                          <td className="num"><Num v={s.bytesPerDay} fmt={fmtGrowth} /></td>
+                          <td className="num" title={s.bytesPerDay === undefined && wait ? `Growth ${wait}` : undefined}><Num v={s.bytesPerDay} fmt={fmtGrowth} /></td>
                           <td className="mono">{s.findingCodes.join(", ")}</td>
                         </tr>
                       );

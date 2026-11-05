@@ -6,12 +6,13 @@ import { clusterGroups, growthLine, storeFindingText, storeTone, storeUse } from
 import { fmtInt } from "../lib/format";
 import { findingPath, serverPath } from "../lib/view";
 import { RLink } from "./common";
+import { HistoryLink } from "./HistoryNote";
 import { Sev } from "./Severity";
 
-function ServerCard({ s }: { s: ServerStore }) {
+function ServerCard({ s, wait }: { s: ServerStore; wait?: string }) {
   const use = storeUse(s);
   const tone = storeTone(s);
-  const growth = growthLine(s);
+  const growth = growthLine(s, wait);
   return (
     <section className="card cap-server" aria-label={`Server ${s.name}`}>
       <div className="cap-server-h">
@@ -34,7 +35,17 @@ function ServerCard({ s }: { s: ServerStore }) {
               <div className={`cap-bar-fill${use.pct > 0 ? " cap-bar-some" : ""}${tone ? ` cap-bar-${tone}` : ""}`} style={{ width: `${use.pct}%` }} />
             </div>
           )}
-          {growth && <p className="cap-growth">{growth}</p>}
+          {growth && (
+            <p className="cap-growth">
+              {growth}
+              {s.perDay === undefined && (
+                <>
+                  {" "}
+                  <HistoryLink />
+                </>
+              )}
+            </p>
+          )}
         </>
       )}
       {s.findingId && (
@@ -49,7 +60,7 @@ function ServerCard({ s }: { s: ServerStore }) {
   );
 }
 
-export function ServerCards({ servers, withoutJetstream }: { servers: ServerStore[]; withoutJetstream: number }) {
+export function ServerCards({ servers, withoutJetstream, wait }: { servers: ServerStore[]; withoutJetstream: number; wait?: string }) {
   const groups = clusterGroups(servers);
   const named = groups.length > 1;
   return (
@@ -60,7 +71,7 @@ export function ServerCards({ servers, withoutJetstream }: { servers: ServerStor
           {named && <h2 className="cap-cluster">{g.cluster ? `Cluster ${g.cluster}` : "No cluster reported"}</h2>}
           <div className="cap-cards">
             {g.servers.map((s) => (
-              <ServerCard key={s.name} s={s} />
+              <ServerCard key={s.name} s={s} wait={wait} />
             ))}
           </div>
         </section>

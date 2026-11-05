@@ -73,9 +73,13 @@ export function storeTone(s: ServerStore): "warn" | "crit" | undefined {
   return s.findingSeverity === "critical" ? "crit" : s.findingSeverity === "warning" ? "warn" : undefined;
 }
 
-/** When the store fills at the card's growth, in words; empty when the card has a rate but no limit. */
-export function timeToFull(s: ServerStore): string {
-  if (s.perDay === undefined) return "not enough history for a rate (6 hours needed)";
+/**
+ * When the store fills at the card's growth, in words; empty when the card
+ * has a rate but no limit. Without a rate, wait says how long the range's
+ * history still needs ("needs 6 h of history; 5 h 29 min to go").
+ */
+export function timeToFull(s: ServerStore, wait?: string): string {
+  if (s.perDay === undefined) return wait ? `no growth rate yet: ${wait}` : "not enough history for a rate (6 hours needed)";
   if (s.perDay <= 0) return "not growing";
   if (s.daysToFull === undefined) return "";
   if (s.daysToFull > 5 * YEAR_DAYS) return "full in more than 5 years at this rate";
@@ -83,9 +87,9 @@ export function timeToFull(s: ServerStore): string {
 }
 
 /** "+17 MiB/day · full in more than 5 years at this rate"; undefined for a card not reported. */
-export function growthLine(s: ServerStore): string | undefined {
+export function growthLine(s: ServerStore, wait?: string): string | undefined {
   if (!s.reported) return undefined;
-  const ttf = timeToFull(s);
+  const ttf = timeToFull(s, wait);
   if (s.perDay === undefined) return ttf;
   return [`${fmtGrowth(s.perDay)}/day`, ttf].filter(Boolean).join(" · ");
 }
@@ -261,10 +265,10 @@ export function hasRate(d: Capacity): boolean {
   return d.servers.some((s) => s.perDay !== undefined) || d.streams.some((s) => s.bytesPerDay !== undefined);
 }
 
-/** The header line: what the page covers, and since when growth is read, or that no rate exists yet. */
-export function headerLine(d: Capacity): string {
+/** The header line: what the page covers, and since when growth is read, or that no rate exists yet and, with wait, how long it needs. */
+export function headerLine(d: Capacity, wait?: string): string {
   const parts = [`${fmtInt(d.streamsTotal)} ${d.streamsTotal === 1 ? "stream" : "streams"}`, `${fmtInt(d.servers.length)} ${d.servers.length === 1 ? "store" : "stores"}`];
-  if (!hasRate(d)) parts.push("no growth rate yet (6 hours of history needed)");
+  if (!hasRate(d)) parts.push(wait ? `no growth rate yet: ${wait}` : "no growth rate yet (6 hours of history needed)");
   else if (d.growthFrom !== undefined) parts.push(`growth from ${isoMinute(d.growthFrom)} UTC`);
   return parts.join(" · ");
 }
