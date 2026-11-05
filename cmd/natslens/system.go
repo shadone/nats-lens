@@ -17,6 +17,7 @@ import (
 	"github.com/shadone/nats-lens/internal/config"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"github.com/shadone/nats-lens/internal/natsconn"
+	"github.com/shadone/nats-lens/internal/notify"
 	"github.com/shadone/nats-lens/internal/runner"
 	"github.com/shadone/nats-lens/internal/store"
 )
@@ -72,6 +73,31 @@ func (rt *systemRuntime) provider(set *checks.Set) *storeprov.Provider {
 	return &storeprov.Provider{St: rt.st, Interval: rt.cfg.Interval.D(), Retention: rt.sys.Retention.D(), Live: true, Checks: set,
 		ToolingNames: rt.sys.ToolingNames(), LoopbackNotTooling: !rt.cfg.Checks.LoopbackTooling(),
 		ClientPods: rt.sys.Kubernetes.ClientPodsPattern(), Kubernetes: rt.sys.Kubernetes.Enabled}
+}
+
+// notifier queues the system's notifications in its store.
+func (rt *systemRuntime) notifier(set *checks.Set) *notify.Reconciler {
+	return &notify.Reconciler{Store: rt.st, SystemID: rt.sys.ID, SystemName: rt.sys.Name, Channels: rt.cfg.Notifications.Channels,
+		Checks: set, Retention: rt.cfg.Retention.D(), Log: rt.log}
+}
+
+// notifyHooks are the runner's notification hooks for cmd. Only
+// natslens run notifies: the next run after a once sends the difference
+// between what each channel was told and the findings then. The sweep
+// runs also without channels, so that the rows of channels removed from
+// the file go, and a channel added again later starts from a baseline.
+func (rt *systemRuntime) notifyHooks(cmd string, set *checks.Set) (notifyFn func(context.Context, int64) error, sweep func(context.Context, time.Time) error) {
+	if cmd != "run" {
+		return nil, nil
+	}
+	rec := rt.notifier(set)
+	if len(rt.cfg.Notifications.Channels) > 0 {
+		notifyFn = func(ctx context.Context, epoch int64) error {
+			_, err := rec.Reconcile(ctx, epoch)
+			return err
+		}
+	}
+	return notifyFn, rec.Sweep
 }
 
 // registry lists the systems for the API in configuration order; the
@@ -192,6 +218,12 @@ func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, d
 		log.Warn("retention is shorter than the growth review of acceptances reads; acceptances record no growth and never end early",
 			"retention", ret.String(), "needed", api.AcceptRetention.String())
 	}
+	// The archive exports in run only; its start bounds how long a closed
+	// hour may wait for export (system-008).
+	var archiveSince time.Time
+	if cmd != "once" {
+		archiveSince = time.Now()
+	}
 	r := &runner.Runner{
 		Collector: col,
 		Store:     st,
@@ -205,10 +237,12 @@ func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, d
 		ShutdownGrace: cfg.ShutdownGrace.D(),
 		// The checks of an epoch get half an interval, so that they never
 		// delay the next epoch.
-		Checks:    &checks.Engine{Set: set, Log: log, Budget: cfg.Interval.D() / 2, ToolingNames: rt.sys.ToolingNames()},
+		Checks: &checks.Engine{Set: set, Log: log, Budget: cfg.Interval.D() / 2, ToolingNames: rt.sys.ToolingNames(),
+			ArchiveSince: archiveSince},
 		Connected: connected,
 		Stored:    func(_ int64, startedAt time.Time) { rt.status.epoch(startedAt) },
 	}
+	r.Notify, r.NotifySweep = rt.notifyHooks(cmd, set)
 	if cmd == "once" {
 		_, err := r.Once(ctx)
 		if err != nil {

@@ -41,14 +41,6 @@ func containsEpoch(es []int64, e int64) bool {
 	return false
 }
 
-func span(from, to int64) []int64 {
-	var out []int64
-	for e := from; e <= to; e++ {
-		out = append(out, e)
-	}
-	return out
-}
-
 // A route missing for min_epochs collections fires for the server that
 // lacks it; the peer that lists its route does not.
 func TestRouteMissing(t *testing.T) {

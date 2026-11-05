@@ -1,0 +1,3 @@
+{
+  "text": "nats-lens, Production (example-prod):\nCRITICAL accepted by bob@example.com until 2026-12-05 09:30 UTC (by design): stream-001 Stream without a leader: shop/order-jobs (no leader for 2m) <https://nats-lens.example.com/findings/stream-001:APP%2Forder-jobs?system=example-prod|open>\nCRITICAL firing, acceptance ended: stream-001 Stream without a leader: shop/order-jobs (no leader for 2m) <https://nats-lens.example.com/findings/stream-001:APP%2Forder-jobs?system=example-prod|open>\nINFO resolved, severity now info: stream-001 Stream without a leader: shop/order-jobs (leader elected) <https://nats-lens.example.com/findings/stream-001:APP%2Forder-jobs?system=example-prod|open>"
+}
