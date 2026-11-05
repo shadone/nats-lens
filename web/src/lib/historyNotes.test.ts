@@ -4,7 +4,7 @@ const H = 3_600_000;
 const end = Date.parse("2026-10-17T14:30:00Z");
 describe("history words on range pages", () => {
   it("explains a young history without shortening the requested range", () => {
-    expect(historyNote(end - 31 * 60_000, end - 24 * H, end, 30_000, true)).toBe("31 min of history: you asked for the last 1 d; nats-lens started at 13:59 UTC.");
+    expect(historyNote(end - 31 * 60_000, end - 24 * H, end, 30_000, true)).toBe("31 min of history: you asked for the last 24 h; nats-lens started at 13:59 UTC.");
     expect(rangeCoverageText(end - 31 * 60_000, end - 24 * H, end)).toBe("over 31 min");
   });
   it("says nothing when history covers the range or differs by at most an interval", () => {
