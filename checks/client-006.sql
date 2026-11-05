@@ -26,7 +26,9 @@ description: >-
   server, so the pods of one deployment sharing a credential are one finding; the Accounts page lists the same
   events by user, address and reason. A client that gave no user is grouped as (no user), one that gave a token
   (which nats-server reports as [REDACTED]) as (token); nkey and JWT users appear as their public keys. An event
-  without an account counts as $G. The check needs event capture: without it nats-lens sees no failed login and the
+  without an account, or with $G or N/A, which nats-server's server-wide event names for a client refused before it
+  got an account, is keyed (unknown account); only the account-scoped event (from auth callout) names the account
+  the client tried. The check needs event capture: without it nats-lens sees no failed login and the
   check stays quiet. A firing finding stays until the count falls below resolve_ratio of min_failed_logins.
 remediation: >-
   nats-server gives every refused login the reason "Authentication Failure" ("Proxy Not Trusted" or "Proxy
@@ -34,8 +36,8 @@ remediation: >-
   expired ones. Find the client from the addresses and client names in the detail and give it valid credentials,
   or stop it if it should no longer run. `nats server request connections --filter-state closed --filter-user
   <user>` lists the refused connections the servers still keep, with their address, name and library; in operator
-  mode `nats auth user info <user> <account>`, with the user and account of the finding, shows whether the user's
-  JWT is revoked or expired. Failures without a user from addresses you do not know are often a port scanner, or a
+  mode, when the finding names an account, `nats auth user info <user> <account>` shows whether the user's JWT is
+  revoked or expired; with an unknown account, look the user up in each account it may belong to. Failures without a user from addresses you do not know are often a port scanner, or a
   load balancer or HTTP health check that probes the client port: point the probe at the monitoring port's
   /healthz instead. The Accounts page lists the failed logins of the last 24 hours by user, address and reason.
 related_config: [min_failed_logins, resolve_ratio, lookback]
@@ -45,7 +47,7 @@ value_basis: client.auth_error events of the user in the account within the look
 WITH e AS (
     SELECT id, time, received_at,
         CASE WHEN client_user = '[REDACTED]' THEN '(token)' ELSE coalesce(nullif(client_user, ''), '(no user)') END AS u,
-        coalesce(nullif(account, ''), '$G') AS acc, nullif(client_host, '') AS host,
+        CASE WHEN coalesce(account, '') IN ('', '$G', 'N/A') THEN '(unknown account)' ELSE account END AS acc, nullif(client_host, '') AS host,
         nullif(client_name, '') AS name, coalesce(nullif(reason, ''), 'no reason') AS reason, nullif(server_name, '') AS server
     FROM events
     WHERE kind = 'client.auth_error' AND received_at > getvariable('window_start') AND received_at <= getvariable('epoch_time')
@@ -73,7 +75,7 @@ SELECT
         || CASE WHEN round(n * 3600.0 / epoch(getvariable('lookback'))) < 1 THEN ' (less than 1 an hour)'
             ELSE ' (about ' || round(n * 3600.0 / epoch(getvariable('lookback')))::BIGINT || ' an hour)' END
         || CASE u WHEN '(no user)' THEN ' without a user' WHEN '(token)' THEN ' with a token' ELSE ' as ' || u END
-        || ' in account ' || acc
+        || CASE WHEN acc = '(unknown account)' THEN ' in an unknown account' ELSE ' in account ' || acc END
         || ' from '
         || CASE
             WHEN coalesce(len(hosts), 0) = 0 THEN 'an unknown address'
