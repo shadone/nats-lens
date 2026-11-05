@@ -69,9 +69,21 @@ func archiveDirSet(cfg config.Config, id string) bool {
 
 // provider reads the system's store for the API.
 func (rt *systemRuntime) provider(set *checks.Set) *storeprov.Provider {
-	return &storeprov.Provider{St: rt.st, Interval: rt.cfg.Interval.D(), Retention: rt.sys.Retention.D(), Live: true, Checks: set,
+	p := &storeprov.Provider{St: rt.st, Interval: rt.cfg.Interval.D(), Retention: rt.sys.Retention.D(), Live: true, Checks: set,
 		ToolingNames: rt.sys.ToolingNames(), LoopbackNotTooling: !rt.cfg.Checks.LoopbackTooling(),
 		ClientPods: rt.sys.Kubernetes.ClientPodsPattern(), Kubernetes: rt.sys.Kubernetes.Enabled}
+	if rt.arch != nil {
+		p.ArchiveStatus = rt.archiveState
+	}
+	return p
+}
+
+// archiveState is the archiver's status for the API.
+func (rt *systemRuntime) archiveState() api.ArchiveState {
+	s := rt.arch.Status()
+	return api.ArchiveState{Enabled: true, Location: rt.cfg.ResolvedArchiveDir(), Retention: rt.cfg.ArchiveRetention.D(),
+		OldestHour: s.OldestHour, NewestHour: s.NewestHour, Hours: int32(s.Hours), LastExportAt: s.LastExportAt,
+		NewestFinal: s.NewestFinal, LastError: s.LastError, LastErrorAt: s.LastErrorAt, ListedAt: s.ListedAt}
 }
 
 // registry lists the systems for the API in configuration order; the
