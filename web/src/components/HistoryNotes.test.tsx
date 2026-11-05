@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { renderApp } from "../test/render";
 import { describe, expect, it } from "vitest";
 import { HistoryContext, HistoryNote } from "./HistoryNote";
 import { TrendChart } from "./TrendChart";
@@ -8,7 +8,7 @@ import { NOW, staging } from "../test/fixtures/history";
 describe("range history notes and chart gaps", () => {
   it("keeps system, range and account on the history link", () => {
     const d = staging();
-    render(<MemoryRouter initialEntries={["/?system=example-staging&range=24h&account=APP"]}><HistoryContext.Provider value={{ historyStart: d.historyStart, start: d.rangeStart, end: NOW, intervalMs: 30_000, live: true }}><HistoryNote /></HistoryContext.Provider></MemoryRouter>);
+    renderApp(<HistoryContext.Provider value={{ historyStart: d.historyStart, start: d.rangeStart, end: NOW, intervalMs: 30_000, live: true }}><HistoryNote /></HistoryContext.Provider>, "/?system=example-staging&range=24h&account=APP");
     const link = screen.getByRole("link", { name: "Data history" });
     expect(link.getAttribute("href")).toContain("system=example-staging");
     expect(link.getAttribute("href")).toContain("account=APP");
@@ -22,4 +22,26 @@ describe("range history notes and chart gaps", () => {
     expect(container.querySelectorAll("rect.dh-chart-gap")).toHaveLength(3);
     expect(container.querySelector("rect.dh-chart-gap title")).toHaveTextContent("No data");
   });
+});
+
+import { FindingRow } from "./FindingParts";
+import { OverviewTiles } from "./OverviewTiles";
+import { ServerCards } from "./CapacityServers";
+import type { Finding, Tile } from "../api/model";
+const young = { start: NOW - 86_400_000, end: NOW, live: true, historyStart: NOW - 31 * 60_000 };
+it("replaces a misleading fresh start in a finding row", () => {
+  const f = { id: "f1", checkCode: "server-007", checkName: "Store high", severity: "warning", state: "firing", since: young.historyStart, detail: "High store" } as Finding;
+  renderApp(<HistoryContext.Provider value={young}><FindingRow f={f} end={NOW} /></HistoryContext.Provider>);
+  expect(screen.getByText("already true when nats-lens started")).toBeInTheDocument();
+});
+it("gives a Capacity card the shared countdown and history link", () => {
+  renderApp(<HistoryContext.Provider value={young}><ServerCards servers={[{ name: "nats-1", cluster: "shop", reported: true, used: 20, limit: 100, findingCode: "" }]} withoutJetstream={0} /></HistoryContext.Provider>);
+  expect(screen.getByText(/needs 6 h of history; 5 h 29 min to go/)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /needs 6 h/ })).toHaveAttribute("href", expect.stringContaining("/data-history"));
+});
+it("names the shorter coverage and missing growth on Overview storage", () => {
+  const tile = { id: "storage", label: "Storage", unit: "bytes", status: "ok", value: 20, subtitle: "no rate yet" } as Tile;
+  renderApp(<HistoryContext.Provider value={young}><OverviewTiles tiles={[tile]} windows={[]} start={young.start} end={NOW} /></HistoryContext.Provider>);
+  expect(screen.getByText(/over 31 min/)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /needs 6 h of history; 5 h 29 min to go/ })).toBeInTheDocument();
 });

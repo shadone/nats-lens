@@ -1,3 +1,5 @@
+import { atHistoryStart } from "../lib/historyView";
+import { HistoryLink } from "../components/HistoryNote";
 // One finding: its headline, when the condition began and when nats-lens
 // first saw it, each server's copy of its stream or consumer, what to do,
 // what happened around its start, the entity's timeline, the finding's
@@ -27,11 +29,7 @@ import { entityName, entityPath, eventPath, findingTag, serverPath, streamPath }
  * started: its condition began before the oldest stored epoch, or it was
  * first seen within a minute after it.
  */
-export function atHistoryStart(f: Finding, historyStart: number | undefined): boolean {
-  if (historyStart === undefined || f.since === undefined || f.state === "resolved") return false;
-  if (f.conditionSince !== undefined && f.conditionSince < historyStart) return true;
-  return f.since >= historyStart && f.since - historyStart < 60_000;
-}
+export { atHistoryStart } from "../lib/historyView";
 
 /** "Condition since X · first seen by nats-lens Y", and how many others share it. */
 function When({ f, spec, historyStart }: { f: Finding; spec: RangeSpec; historyStart?: number }) {
@@ -46,7 +44,7 @@ function When({ f, spec, historyStart }: { f: Finding; spec: RangeSpec; historyS
       ) : (
         <>First seen by nats-lens {seen}</>
       )}
-      {atHistoryStart(f, historyStart) && ", already true when nats-lens started"}
+      {atHistoryStart(f, historyStart) && <> , <HistoryLink>already true when nats-lens started</HistoryLink></>}
       {others > 0 && (
         <>
           {" · "}
@@ -162,12 +160,12 @@ function Around({ f, end, historyStart }: { f: Finding; end: number; historyStar
       className="fd-around"
     >
       {beforeHistory ? (
-        <p className="muted-note">nats-lens has no history before {isoMinute(historyStart!)} UTC, so it cannot say what happened then.</p>
+        <p className="muted-note">nats-lens has no history before {isoMinute(historyStart!)} UTC, so it cannot say what happened then. <HistoryLink /></p>
       ) : (
         <QueryView q={q} what="the events around the start">
           {(d) => (
             <>
-              {historyStart !== undefined && t - AROUND_MS < historyStart && <p className="muted-note">nats-lens has no history before {isoMinute(historyStart)} UTC.</p>}
+              {historyStart !== undefined && t - AROUND_MS < historyStart && <p className="muted-note">nats-lens has no history before {isoMinute(historyStart)} UTC. <HistoryLink /></p>}
               {d.items.length === 0 ? (
                 <Empty>No events worth reading in these 20 minutes.</Empty>
               ) : (
