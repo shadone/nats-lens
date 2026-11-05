@@ -239,24 +239,6 @@ func (w *writer) writeGateways(v *collect.ServerView) {
 	}
 }
 
-var leafCols = []string{
-	"epoch", "server_id", "lid", "name", "is_spoke", "account", "ip", "port", "rtt_ns",
-	"in_msgs", "out_msgs", "in_bytes", "out_bytes", "subscriptions", "compression",
-}
-
-func (w *writer) writeLeafnodes(v *collect.ServerView) {
-	if v.Leafz == nil {
-		return
-	}
-	for _, l := range v.Leafz.Leafs {
-		if l == nil {
-			continue
-		}
-		w.insert("leafnodes", leafCols, w.epoch, v.Info.ID, i64(l.ID), l.Name, l.IsSpoke, l.Account, l.IP, l.Port,
-			durNS(l.RTT), l.InMsgs, l.OutMsgs, l.InBytes, l.OutBytes, int64(l.NumSubs), l.Compression)
-	}
-}
-
 var ipqueueCols = []string{"epoch", "server_id", "queue", "pending", "in_progress"}
 
 func (w *writer) writeIpqueues(v *collect.ServerView) {
