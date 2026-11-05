@@ -98,6 +98,38 @@ checks:
 #    server-007: {warn_ratio: 0.8, crit_ratio: 0.95}
 #    consumer-002: {lookback: 1h}
 
+# Channels findings are sent to, shared by every system.
+# `natslens notify test -config FILE [-channel NAME]` sends each channel one
+# test message and prints the result. A channel takes exactly one of url,
+# url_file and url_env. The URL of a Slack-compatible webhook is itself a
+# secret: keep it in a file or a variable. Files are read at every delivery
+# attempt, so a rotated Kubernetes Secret applies without a restart. A file
+# that cannot be read does not stop the start; the start logs a warning and
+# the channel's deliveries fail while it cannot be read. Logs name a
+# channel's host only. An unknown key, system id, check code, category,
+# severity or kind stops the start.
+# notifications:
+#   ui_url: https://nats-lens.example.com   # for the links in messages; none without it
+#   channels:
+#     - name: ops-webhook        # ^[a-z0-9][a-z0-9-]{0,62}$; a metric label
+#       type: webhook            # webhook (JSON body) or slack (Slack-compatible text)
+#       url_file: /var/run/secrets/natslens/ops-webhook-url
+#       bearer_token_file: /var/run/secrets/natslens/ops-webhook-token  # or bearer_token_env; webhook only
+#       min_severity: warning    # info, warning or critical (default warning)
+#       systems: [example-prod]  # system ids; empty: every system
+#       checks: []               # check codes; empty: every check
+#       exclude_checks: [server-005]
+#       categories: []           # check categories; empty: every category
+#       kinds: [firing, changed, resolved, flapping, muted, reminder, acknowledged]  # empty: every kind
+#       repeat_every: 0          # send a finding still firing again after this long; 0: never, else at least 1h
+#       timeout: 10s             # one request; at most 60s
+#       give_up_after: 24h       # how long a message is retried
+#     - name: ops-chat
+#       type: slack
+#       url_env: NATSLENS_OPS_CHAT_URL
+#       min_severity: critical
+#     # url: https://hooks.example.com/in   # a plain url, for one that holds no secret: https, or http on a loopback host
+
 # Kubernetes watcher in `natslens run`: Events, NATS pods and nodes, read
 # only, stored as events with source k8s. Needs events.enabled.
 kubernetes:
