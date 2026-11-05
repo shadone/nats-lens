@@ -87,6 +87,13 @@ func slackLine(m Message) string {
 		}
 		return line
 	}
+	if m.Kind == KindBaseline {
+		line := slackEscape.Replace(field(m.Detail))
+		if m.Link != "" {
+			line += " <" + m.Link + "|Findings>"
+		}
+		return line
+	}
 	var sb strings.Builder
 	sb.WriteString(slackEscape.Replace(strings.ToUpper(field(m.Severity))))
 	sb.WriteString(" ")
