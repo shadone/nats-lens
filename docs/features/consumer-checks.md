@@ -118,7 +118,7 @@ The consumer checks judge each JetStream consumer: whether it keeps quorum, whet
 
 - **Problem:** a durable consumer reads slower than its stream ages messages out, or has stopped: a message it has not read or not acknowledged is close to the stream's `max_age`, and the stream will remove it unread.
 - **Fires when:** the consumer's oldest unread message has used `warn_ratio` of `max_age`, and over the lookback that message's age fell by less than a tenth of the time that passed, so the consumer is not catching up. The detail gives the age, the share of `max_age`, when the message leaves the stream, the age at the start of the lookback, the messages waiting and the unacknowledged ones, and whether the consumer is paused.
-- **How the age is found:** a message was published no later than the first collection in which the stream leader's last sequence reached it, so its age is known to a collection interval. The message is the one after the ack floor while messages are unacknowledged (the newest delivered one when that one has left the stream), or the one after the delivered sequence while only undelivered messages wait (the stream's first message when that one has left). For a consumer with a filter, whose next sequences may not match it, the age is a lower bound: the newest delivered message's while messages are unacknowledged, otherwise the time since the backlog began (the first collection since the delivered sequence last moved in which messages waited). Collections before the stored history, or older than the longest `max_age` plus the lookback, are not read: a message that old reads younger, never older.
+- **How the age is found:** a message was published no later than the start of the first collection in which the stream leader's last sequence reached it, so its age is known to a collection interval; it may read a few seconds older, as a collection starts before the servers answer. For a consumer without a filter on a stream without deleted sequences (`num_deleted` 0), the message is the one after the ack floor while messages are unacknowledged, or the one after the delivered sequence while only undelivered messages wait (the stream's first message when that one has left), and the detail says "about". Otherwise the age is a lower bound and the detail says "at least": the newest delivered message's while messages are unacknowledged, else the time since the backlog began (the first collection since the delivered sequence last moved in which messages waited). That covers a filter, whose next sequences may not match it; deleted sequences after the consumer's position (a KV overwrite, a purge by subject, a work queue), which can be far older than its next message; and a message after the ack floor that has left the stream. With the lower bound, a stuck unacknowledged message of a consumer that keeps delivering newer ones is not seen. Each stream's history is read back to its own `max_age` plus the lookback only: a message older than that, or than the stored history, reads younger. An age never reads older, except when sequences were deleted after the consumer's position while it waited.
 - **Severity:** warning; critical once the message has used `critical_ratio` of `max_age`.
 - **Thresholds:** lookback 10m, `warn_ratio` 0.8, `critical_ratio` 0.95, `resolve_ratio` 0.7: a firing finding stays until the message has used less than 0.7 of `max_age`, or the consumer catches up. These values are proposed, not yet confirmed.
 - **Left out:** streams without `max_age`, ephemeral and ordered consumers, and a consumer without a leader report, or whose stream has none, in the collection or over less than half the lookback.
@@ -127,26 +127,26 @@ The consumer checks judge each JetStream consumer: whether it keeps quorum, whet
 ### `consumer-015` Pull requests at max_waiting
 
 - **Problem:** a pull consumer holds as many waiting pull requests as `max_waiting` allows. The server refuses every new fetch with "409 Exceeded MaxWaiting", or drops it without an answer for a client that asked for heartbeats, so a worker that starts or reconnects gets nothing.
-- **Fires when:** the leader's waiting pull requests (`num_waiting`, counted after the server drops expired ones) reach `warn_ratio` of `max_waiting` in each of the last `min_epochs` collections.
+- **Fires when:** the leader's waiting pull requests (`num_waiting`, counted after the server drops expired ones) reach `warn_ratio` of `max_waiting` while messages wait (`num_pending` above 0), in each of the last `min_epochs` collections. With nothing waiting a full queue is no finding: idle workers that each hold a long fetch are the usual pull pattern, and a refused fetch would have got nothing.
 - **Severity:** warning.
-- **Thresholds:** `warn_ratio` 1, `min_epochs` 2, `resolve_ratio` 0.9: a firing finding stays until the waiting requests fall below 0.9 of `max_waiting`, so a queue at the limit does not flap. These values are proposed, not yet confirmed.
-- **Left out:** push consumers, paused consumers, followers' reports (only the leader holds pull requests), and a consumer created again within the collections counted.
-- **The limit cannot be changed in place.** nats-server refuses an update of `max_waiting`, so the remediation suggests fewer concurrent fetches or shorter expiries first, and a new durable created by start time for a larger limit.
+- **Thresholds:** `warn_ratio` 1, `min_epochs` 2, `resolve_ratio` 0.9: a firing finding stays until the waiting requests fall below 0.9 of `max_waiting`, so a queue at the limit does not flap, or until no message waits; `min_max_waiting` 2. These values are proposed, not yet confirmed.
+- **Left out:** consumers with `max_waiting` below `min_max_waiting` (with 1, one worker's fetch fills it), push consumers, paused consumers, followers' reports (only the leader holds pull requests), and a consumer created again within the collections counted.
+- **The limit cannot be changed in place.** nats-server refuses an update of `max_waiting`, so the remediation suggests fewer concurrent fetches or shorter expiries first, and a new durable created by start time for a larger limit. A queue that is full by design is muted with that reason.
 
 ### `consumer-016` Single replica on a replicated stream
 
 - **Problem:** a durable consumer is configured with one replica while its stream has more. Its position and acknowledgements are on one server: while that server restarts the consumer delivers nothing, although the stream keeps its quorum, and if the server loses its disk the durable loses its position.
-- **Fires when:** every current configuration of the consumer says `num_replicas` 1, the stream's configuration says more, and a server reports the consumer in this collection. The detail names the server that holds it.
+- **Fires when:** every current configuration of the consumer says `num_replicas` 1, the stream has limits retention and more replicas, and a server reports the consumer in this collection. The detail names the server that holds it.
 - **Severity:** info, proposed, not yet confirmed: some durables are kept at one replica on purpose, for throughput, and can be muted with that reason.
 - **Thresholds:** none.
-- **Left out:** consumers with `num_replicas` 0, which take the stream's count; ephemeral and ordered consumers; internal `JS_` consumers of mirrors and sources; consumers whose servers report different replica counts, which `consumer-008` reports.
+- **Left out:** consumers of work-queue and interest streams, which nats-server runs at the stream's replica count whatever their configuration says; consumers with `num_replicas` 0, which take the stream's count; ephemeral and ordered consumers; internal `JS_` consumers of mirrors and sources; consumers whose servers report different replica counts, which `consumer-008` reports.
 
 ### `consumer-017` Consumer paused for a long time
 
 - **Problem:** a consumer stays paused past a set duration. It delivers nothing until its pause ends or someone resumes it, so its backlog grows and its messages may leave the stream unread (`consumer-014`).
 - **Fires when:** the consumer has been paused for longer than `max_paused`. The pause counts from the first `consumer.paused` event since the consumer last ran, or from the first collection since then in which it reports paused, whichever is earlier. The consumer last ran in the newest collection in which it reported running, or at its newest `consumer.resumed` event, if that is later. A pause extended with a new end is one pause. The detail gives the start, the duration, the pause end from the consumer's configuration, and the messages waiting; the finding names the `consumer.paused` event when there is one.
 - **Severity:** warning while messages wait for the consumer; info while none wait, or no leader reports how many.
-- **Thresholds:** `max_paused` 2h, proposed, not yet confirmed.
+- **Thresholds:** `max_paused` 2h, proposed, not yet confirmed. A pause on a schedule, such as a consumer that runs only at night, is by design: its finding is muted with that reason.
 - **Left out:** no paused consumer. The leader's report is read, or any replica's when no leader reports. A consumer created again starts a new pause.
 
 ## Behavior and rules
@@ -194,7 +194,7 @@ The consumer checks judge each JetStream consumer: whether it keeps quorum, whet
 ### Workers hold every pull slot
 
 - **Given** the pull consumer `resize-worker` with `max_waiting: 512`, and 600 worker goroutines that each fetch with a long expiry
-- **When** nats-lens sees 512 waiting pull requests in two collections in a row
+- **When** nats-lens sees 512 waiting pull requests in two collections in a row, with messages waiting
 - **Then** `consumer-015` fires, and its detail says that new fetches are refused
 - **And** the finding stays while 461 or more requests wait, and resolves below that
 
