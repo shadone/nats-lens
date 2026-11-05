@@ -9,7 +9,9 @@ description: >-
   A durable consumer is configured with one replica (num_replicas 1) while its stream has more. The consumer's
   state, its delivered position and acknowledgements, is kept on one server only: while that server restarts the
   consumer delivers nothing, although its stream keeps its quorum, and if the server loses its disk the durable
-  loses its position. A consumer with replicas 0 takes the stream's count and is not reported. Ephemeral and
+  loses its position. Only streams with limits retention are judged: nats-server runs a consumer of a work-queue
+  or interest stream at the stream's replica count whatever its configuration says. A consumer with replicas 0
+  takes the stream's count and is not reported. Ephemeral and
   ordered consumers (one replica by design) and internal JS_ consumers of mirrors and sources are left out.
 remediation: >-
   If the durable must survive a server restart without a pause, give it the stream's replica count: `nats consumer
@@ -19,10 +21,14 @@ related_config: [replicas]
 value_name: stream replicas
 value_basis: the stream's configured replica count; the consumer has one
 */
+-- nats-server gives a consumer of a work-queue or interest stream the
+-- stream's replica count whatever its configuration says, so only limits
+-- streams can hold a durable at one replica.
 WITH scfg AS (
     SELECT account, stream, max(replicas) AS r FROM stream_config
     WHERE first_epoch <= getvariable('epoch') AND last_epoch >= getvariable('epoch')
     GROUP BY account, stream
+    HAVING bool_and(retention = 'limits')
 ),
 -- Every current configuration of the consumer says one replica; servers
 -- that disagree are consumer-008's.

@@ -53,3 +53,16 @@ func TestSingleReplicaDisagreementLeftOut(t *testing.T) {
 	f.consumerStats(1, "S0", "jobs", "scaling", m{"is_leader": true})
 	f.fires("consumer-016", 1)
 }
+
+// nats-server runs a consumer of a work-queue or interest stream at the
+// stream's replica count, so a configuration of 1 there is not reported.
+func TestSingleReplicaRetention(t *testing.T) {
+	f := newFx(t)
+	f.cluster(2)
+	for stream, retention := range map[string]string{"wq": "workqueue", "seen": "interest", "log": "limits"} {
+		f.streamConfig("S0", stream, 1, 2, m{"retention": retention})
+		f.consumerConfig("S0", stream, "w", 1, 2, m{"replicas": 1})
+		f.consumerStats(2, "S0", stream, "w", m{"is_leader": true, "leader": "nats-0"})
+	}
+	f.fires("consumer-016", 2, "APP/log/w")
+}
