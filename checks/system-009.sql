@@ -17,8 +17,10 @@ description: >-
   connection fell behind and the client library discarded messages as a slow consumer. Checks and pages that read
   events (leader elections, lame duck and shutdown announcements, deleted consumers, client disconnects) may then
   miss what those messages said, and a restart may read as a crash. A slow consumer discards an unknown number of
-  messages; each such report counts as one, so the count is a lower bound. The finding resolves once the lookback
-  holds no more than max_dropped.
+  messages; each such report counts as one, so the count is a lower bound. A slow consumer on the collector's own
+  connection, which carries monitoring replies rather than events, is left out; system-007 sees the replies it cost.
+  Events that could not be stored before a shutdown deadline are counted at the shutdown, so the finding fires for up
+  to the lookback after the restart. The finding resolves once the lookback holds no more than max_dropped.
 remediation: >-
   The events of kind `collector.messages_dropped` say when and why. A full queue means nats-lens cannot decode and
   store events as fast as they arrive: give it more CPU (its pod may be throttled), or turn off `events.api_audit`,
@@ -34,7 +36,9 @@ value_basis: >-
 WITH dropped AS (
     SELECT received_at, summary, TRY_CAST(json_extract_string(raw, '$.dropped') AS BIGINT) AS n
     FROM events
-    WHERE kind = 'collector.messages_dropped'
+    -- A slow consumer on the collector's own connection loses monitoring
+    -- replies, which system-007 counts, not events.
+    WHERE kind = 'collector.messages_dropped' AND coalesce(json_extract_string(raw, '$.connection'), '') <> 'collector'
       AND received_at > getvariable('window_start') AND received_at <= getvariable('epoch_time')
 ),
 total AS (
