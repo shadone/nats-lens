@@ -454,6 +454,13 @@ To try a change to a check on a copy of a database: `natslens checks run -data-d
 | stream-012 | Stream configuration differs from the inventory | warning | `inventory` against the leader's configuration |
 | stream-013 | Stream configuration changed | info | `stream.updated` events with the client, 1h |
 | stream-014 | Stream disappeared | critical with a delete event; info or warning while a server that held it is away | a stream reported within 1h (or since its server went away) that no server reports, not in the inventory |
+| stream-015 | Mirror lagging | warning | leader's `mirror_lag` above 10000 in every report of 5m without falling, or `mirror_active_ns` above 2m, or never heard from its origin in two reports; held down to 0.8; a mirror error is stream-017's |
+| stream-016 | Source lagging | warning | leader's `sources_max_lag` above 10000 in every report of 5m without falling; held down to 0.8 |
+| stream-017 | Mirror error | warning | leader's `mirror_error` in at least 2 of the last 4 epochs |
+| stream-018 | Single replica in a cluster | info | `stream_config.replicas` of 1 where 3 or more expected JetStream servers in its cluster and domain match its placement tags; not for replicas the inventory gives |
+| stream-019 | KV bucket history without a byte limit | info | `KV_` stream with history above 1 and no `max_bytes`, at least 5 messages per key and 100 MiB from the leader's `stream_stats`; held down to 0.8; not while stream-005 reports it |
+| stream-020 | Stream without a consumer | warning when a work-queue stream holds messages or an interest stream dropped some; info otherwise | leader's consumer count of 0 in every report of 10m, created before; not for a stream another stream mirrors or sources |
+| stream-021 | Many deleted messages inside a stream | info | leader's `num_deleted` at least 1000000 and half of the sequence range; held down to 0.8 |
 | consumer-001 | Consumer quorum lost | critical | as stream-001 |
 | consumer-002 | Consumer backlog growing | warning | leader's `num_pending` and delivered increases over 30m, growing in both halves |
 | consumer-003 | Ack pending near max_ack_pending | warning 80% with messages waiting ("pool saturated" at the limit); critical when at the limit with no acknowledgement or delivery for ack_wait | leader's `num_ack_pending`, `num_pending`, ack floor and delivered sequence |
