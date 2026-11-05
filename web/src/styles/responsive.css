@@ -15,8 +15,6 @@
   .range .span{font-size:11px;letter-spacing:-.01em}
   .live{font-size:11px}
   .live .dotsep{display:none}
-  .range{margin-left:0;width:100%;order:5}
-  .range .span{flex:1;overflow:hidden;text-overflow:ellipsis}
   .frow{grid-template-columns:auto minmax(0,1fr);gap:4px 10px;padding:12px 14px}
   .frow .t{grid-column:1 / -1}
   .frow .e,.frow .d,.mute-why{grid-column:1 / -1}

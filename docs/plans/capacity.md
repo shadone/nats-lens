@@ -165,7 +165,7 @@ Each point was decided by the session that built T3 and confirmed by the owner o
 
 ## T4 Feature docs and audit
 
-`capacity.md` to `Status: shipped` (or `partial`), with its rules, scenarios and Not supported list, and its "Time to full uses the checks' rule" line replaced by the rule built; "No account disk limits yet" rewritten (operator-mode limits are collected now, the page does not show them). `triage-and-mutes.md` and `checks.md`: accepted findings as shipped for one entity, the rest still planned. `stream-checks.md` (the `stream-005` remediation). `docs/features/README.md` table and coverage map. `demo-mode.md`. The audit, `python3 /Users/denis/dev/info.ddenis/dotfiles/agent-rules/packs/ddenis-core/skills/feature-docs/scripts/audit_feature_docs.py docs/features/ --map-refs require`; leftovers into `docs/plans/next.md`.
+`capacity.md` to `Status: shipped` (or `partial`), with its rules, scenarios and Not supported list, and its "Time to full uses the checks' rule" line replaced by the rule built; "No account disk limits yet" rewritten (operator-mode limits are collected now, the page does not show them). `triage-and-mutes.md` and `checks.md`: accepted findings as shipped for one entity, the rest still planned. `stream-checks.md` (the `stream-005` remediation). `docs/features/README.md` table and coverage map. `demo-mode.md`. The audit, `python3 <skill>/scripts/audit_feature_docs.py docs/features/ --map-refs require`; leftovers into `docs/plans/next.md`.
 
 ### Final fix round (UI review and broad final review)
 
