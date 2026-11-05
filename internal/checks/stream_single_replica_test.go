@@ -6,9 +6,9 @@ import (
 	"time"
 )
 
-// lensCluster stores nats-0..2 (S0..S2) in cluster lens; epoch 2 has
+// streamLensCluster stores nats-0..2 (S0..S2) in cluster lens; epoch 2 has
 // nats-1 missing.
-func (f *fx) lensCluster() {
+func (f *fx) streamLensCluster() {
 	f.epoch(1, three)
 	f.epoch(2, three, "nats-1")
 	for i, name := range three {
@@ -25,25 +25,25 @@ func (f *fx) lensCluster() {
 	f.exec(`UPDATE servers SET cluster = 'lens'`)
 }
 
-// asset stores an asset's configuration run on server id and its identity.
-func (f *fx) asset(id, stream string, first, last int64, cols m) {
+// streamAsset stores an asset's configuration run on server id and its identity.
+func (f *fx) streamAsset(id, stream string, first, last int64, cols m) {
 	f.streamConfig(id, stream, first, last, cols)
 	f.row("streams", m{"account": "APP", "stream": stream, "first_epoch": first, "last_epoch": last})
 }
 
 func TestSingleReplica(t *testing.T) {
 	f := newFx(t)
-	f.lensCluster()
+	f.streamLensCluster()
 	r1 := m{"replicas": 1}
-	f.asset("S0", "order-cache", 1, 2, r1)
-	f.asset("S0", "OBJ_image-input", 1, 2, r1)
-	f.asset("S0", "KV_worker-presence", 1, 2, r1)
-	f.asset("S0", "order-archive", 1, 2, merge(r1, m{"mirror": "order-events"}))
-	f.asset("S0", "order-jobs", 1, 2, nil)
+	f.streamAsset("S0", "order-cache", 1, 2, r1)
+	f.streamAsset("S0", "OBJ_image-input", 1, 2, r1)
+	f.streamAsset("S0", "KV_worker-presence", 1, 2, r1)
+	f.streamAsset("S0", "order-archive", 1, 2, merge(r1, m{"mirror": "order-events"}))
+	f.streamAsset("S0", "order-jobs", 1, 2, nil)
 	// The only server of this one is missing in epoch 2.
-	f.asset("S1", "media-cache", 1, 1, r1)
+	f.streamAsset("S1", "media-cache", 1, 1, r1)
 	// This one's server answers in epoch 2 without it: it is gone.
-	f.asset("S2", "old-cache", 1, 1, r1)
+	f.streamAsset("S2", "old-cache", 1, 1, r1)
 	f.row("inventory", m{"account": "APP", "kind": "kv", "name": "worker-presence", "stream": "KV_worker-presence",
 		"replicas": 1, "source": "inventory.yaml", "loaded_at": t0})
 	r := f.fires("stream-018", 2, "APP/order-cache", "APP/OBJ_image-input", "APP/order-archive", "APP/media-cache")
@@ -62,14 +62,14 @@ func TestSingleReplica(t *testing.T) {
 	g := newFx(t)
 	g.epoch(1, []string{"nats-0"})
 	g.server("S0", "nats-0", 1, 1, t0.Add(-time.Hour), "2.15.0")
-	g.asset("S0", "order-cache", 1, 1, r1)
+	g.streamAsset("S0", "order-cache", 1, 1, r1)
 	g.fires("stream-018", 1)
 	g.exec(`UPDATE servers SET cluster = 'lens'`)
 	g.fires("stream-018", 1)
 	// The inventory may name the account by its readable name, and a
 	// replicas other than 1 there leaves the difference to stream-012.
 	f.row("accounts", m{"account": "ACC1", "account_name": "SHOP", "is_system": false, "first_epoch": 1, "last_epoch": 2})
-	f.asset("S0", "order-tmp", 1, 2, r1)
+	f.streamAsset("S0", "order-tmp", 1, 2, r1)
 	f.exec(`UPDATE stream_config SET account = 'ACC1' WHERE stream = 'order-tmp'`)
 	f.exec(`UPDATE streams SET account = 'ACC1' WHERE stream = 'order-tmp'`)
 	f.row("inventory", m{"account": "SHOP", "kind": "stream", "name": "order-tmp", "stream": "order-tmp",

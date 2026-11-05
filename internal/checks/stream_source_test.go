@@ -19,9 +19,9 @@ func TestSourceLagging(t *testing.T) {
 		src(e, "fine", 10000, 1)
 		src(e, "keeps", 8500, 2)
 		// A mirror has no sources; its lag is stream-015's.
-		f.mirrorAt(e, "order-archive", 90000+e, 0, nil)
+		f.streamMirrorAt(e, "order-archive", 90000+e, 0, nil)
 	}
-	f.firingAt("stream-016", "APP/keeps", 10)
+	f.streamFiringAt("stream-016", "APP/keeps", 10)
 	r := f.fires("stream-016", 11, "APP/search-index", "APP/keeps")
 	want(t, r["APP/search-index"], "warning",
 		"Leader nats-0: the most lagging of its 2 sources (catalog-changes, price-changes) is 31100 messages behind, not catching up over the last 5m (30100 at its start).")
