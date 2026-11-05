@@ -146,3 +146,27 @@ func TestOldestUnreadNotJudged(t *testing.T) {
 	f.exec(`UPDATE consumer_stats SET created = ? WHERE consumer = 'renewed' AND epoch >= 195`, at(195))
 	f.fires("consumer-014", 200)
 }
+
+// A filtered consumer's backlog older than its stream's window (max_age
+// plus the lookback) is dated at the window's first collection: its
+// history before that is not read, even beside a stream with a long
+// max_age.
+func TestOldestUnreadWindowBound(t *testing.T) {
+	f := newFx(t)
+	f.cluster(200)
+	f.expiryStream(200)
+	f.streamConfig("S0", "archive", 1, 200, m{"max_age_ns": int64(30 * 24 * time.Hour)})
+	f.consumerConfig("S0", "archive", "reader", 1, 200, nil)
+	f.consumerConfig("S0", "events", "stalled", 1, 200, nil)
+	f.exec(`UPDATE consumer_config SET filter_subjects = ['events.eu'] WHERE consumer = 'stalled'`)
+	for e := int64(1); e <= 200; e++ {
+		f.streamStats(e, "S0", "archive", m{"is_leader": true, "last_seq": 10 * e, "first_seq": 1, "first_ts": at(1)})
+		f.consumerStats(e, "S0", "archive", "reader", m{"is_leader": true, "delivered_stream_seq": 10 * e,
+			"ack_floor_stream_seq": 10 * e, "num_ack_pending": 0, "num_pending": 0})
+		f.consumerStats(e, "S0", "events", "stalled", m{"is_leader": true, "delivered_stream_seq": 5,
+			"ack_floor_stream_seq": 5, "num_ack_pending": 0, "num_pending": 10*e - 5})
+	}
+	r := f.fires("consumer-014", 200, "APP/events/stalled")
+	// The window starts 1h10m before collection 200, at collection 61.
+	want(t, r["APP/events/stalled"], "critical", "at least 1.2 hours old, 117% of max_age 1h")
+}
