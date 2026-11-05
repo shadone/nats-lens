@@ -3,6 +3,8 @@ package checks
 import (
 	"testing"
 	"time"
+
+	"github.com/shadone/nats-lens/internal/store"
 )
 
 // failEndpoint records that server id left endpoint unanswered in epochs.
@@ -103,4 +105,30 @@ func TestCollectionsIncompleteResolves(t *testing.T) {
 	g.failEndpoint("S1", "RAFTZ", "missing", "", span(1, 7)...)
 	g.firingSystem("system-007", 60)
 	g.fires("system-007", 61)
+}
+
+// The store's notes in a collection's errors, such as a value a newer
+// server sent, are no failure: a newer server noted in every collection
+// does not make the collections incomplete.
+func TestCollectionsIncompleteLeavesStoreNotesOut(t *testing.T) {
+	f := newFx(t)
+	f.cluster(61)
+	f.exec(`UPDATE epochs SET errors = [?]`, store.NotePrefix+`nats-0 sent stream config.retention "foo", which this nats-server version does not know, for 1 stream; stored as "foo"`)
+	f.fires("system-007", 61)
+	f.exec(`UPDATE epochs SET partial = true, errors = list_append(errors, 'publish JSZ: nats: timeout') WHERE epoch > 40`)
+	r := f.fires("system-007", 61, "")
+	want(t, r[""], "warning", "nats-lens failed itself in 21 (publish JSZ: nats: timeout)")
+}
+
+// A server that announced lame duck or shutdown leaves requests
+// unanswered on its way out; those do not count, so a rolling restart of
+// many servers does not add up.
+func TestCollectionsIncompleteLeavesAnnouncedServersOut(t *testing.T) {
+	f := newFx(t)
+	f.cluster(61)
+	f.event(1, at(30).Add(-10*time.Second), "server.lameduck", m{"source": "sys", "server_name": "nats-1"})
+	f.failEndpoint("S1", "RAFTZ", "missing", "", span(30, 49)...)
+	f.fires("system-007", 61)
+	f.exec(`DELETE FROM events`)
+	f.fires("system-007", 61, "")
 }

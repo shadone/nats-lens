@@ -61,10 +61,10 @@ The system checks judge what belongs to no single server: the JetStream meta gro
 ### `system-007` Collections often incomplete
 
 - **Problem:** many of nats-lens's recent collections missed replies, so the checks judge on incomplete data: a finding that needs the missing replies can be missed, or resolve and fire again.
-- **Fires when:** at least `warn_share` of the collections in the lookback were incomplete: a server that answered left a monitoring request unanswered or answered it with an error, or nats-lens itself failed during the collection (a request it could not publish, a reply it could not read). The detail names the three requests that failed most, per server, with the latest error, and the share. A firing finding stays until the share falls below `resolve_ratio` of `warn_share`.
+- **Fires when:** at least `warn_share` of the collections in the lookback were incomplete: a server that answered left a monitoring request unanswered or answered it with an error, or nats-lens itself failed during the collection (a request it could not publish, a reply it could not read). The notes nats-lens adds to a collection's errors, such as a value a newer nats-server sent, are not failures and do not count. The detail names the three requests that failed most, per server, with the latest error, and the share. A firing finding stays until the share falls below `resolve_ratio` of `warn_share`.
 - **Severity:** warning (proposed, not yet confirmed).
 - **Thresholds:** lookback 30m, `warn_share` 0.25, `min_collections` 10, `resolve_ratio` 0.5 (proposed, not yet confirmed).
-- **Left out:** servers that answered nothing, which `server-001` reports; the replies of a server within `checks.restart_window` of its start; a lookback with fewer than `min_collections` collections, after a short history or a gap.
+- **Left out:** servers that answered nothing, which `server-001` reports; the replies of a server within `checks.restart_window` of its start, or after it announced lame duck mode or shutdown within `checks.restart_window`, so a rolling restart does not add up; a lookback with fewer than `min_collections` collections, after a short history or a gap.
 
 ### `system-008` Archive export behind
 
