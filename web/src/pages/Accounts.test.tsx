@@ -298,7 +298,7 @@ describe("Accounts on the first collection", () => {
   it("says no failed logins since the history starts, not in 24 hours", async () => {
     vi.mocked(requests.getAccountsAndAuth).mockResolvedValue({ ...prod(), failedLoginsWindowStart: EPOCH_AT });
     renderApp(<Accounts />, "/accounts");
-    expect(await screen.findByText("No failed logins since 17 Oct 14:30 UTC.")).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "No failed logins since 17 Oct 14:30 UTC." })).toHaveAttribute("href", expect.stringContaining("/data-history"));
     expect(screen.queryByText("No failed logins in these 24 hours.")).toBeNull();
   });
 
