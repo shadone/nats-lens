@@ -309,6 +309,7 @@ export const CLOCK_TIMEOUT_MS = 3_000;
 export async function syncClock(signal?: AbortSignal, timeoutMs = CLOCK_TIMEOUT_MS): Promise<number | null> {
   const ctl = new AbortController();
   const stop = () => ctl.abort();
+  if (signal?.aborted) stop();
   signal?.addEventListener("abort", stop);
   const timer = setTimeout(stop, timeoutMs);
   try {
