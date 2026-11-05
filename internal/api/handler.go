@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"github.com/shadone/nats-lens/internal/gen/natslens/v1/natslensv1connect"
@@ -165,6 +166,7 @@ func (h *Handler) GetLensInfo(ctx context.Context, req *connect.Request[v1.GetLe
 			return nil, err
 		}
 		res.System, res.SystemName = s.Ref.GetId(), s.Ref.GetName()
+		res.Now = timestamppb.New(s.Provider.Now())
 		res.Version, res.IdentityMode = h.Version, v1.IdentityMode_IDENTITY_MODE_REQUEST
 		if h.IAP != nil {
 			res.IdentityMode = v1.IdentityMode_IDENTITY_MODE_IAP

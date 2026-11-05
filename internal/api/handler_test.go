@@ -153,6 +153,10 @@ func TestLensInfo(t *testing.T) {
 		m.GetCollectInterval().AsDuration() != 30*time.Second || m.GetRetention().AsDuration() != 14*24*time.Hour || !m.GetDemo() {
 		t.Fatalf("info without IAP = %v", m)
 	}
+	// The UI's live ranges end at this now, so -fixed reports its own time.
+	if !m.GetNow().AsTime().Equal(fake.FixedNow) {
+		t.Fatalf("now = %v, want the fixed demo's %v", m.GetNow(), fake.FixedNow)
+	}
 	v := &iap.Verifier{Audience: aud, Keys: iaptest.New("k1")}
 	_, c = apitest.ServeHandler(t, &api.Handler{Systems: api.One(api.DefaultSystemID, api.DefaultSystemID, fake.New(false)), IAP: v})
 	// Reading the info needs no assertion, so the UI can ask before a mute.
