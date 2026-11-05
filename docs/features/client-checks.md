@@ -2,11 +2,11 @@
 
 - **Surfaces:** `ui`, `cli`
 - **Status:** shipped
-- **Related:** [checks.md](checks.md), [server-checks.md](server-checks.md), [connections.md](connections.md), [event-capture.md](event-capture.md), [applications.md](applications.md)
+- **Related:** [checks.md](checks.md), [server-checks.md](server-checks.md), [account-checks.md](account-checks.md), [connections.md](connections.md), [event-capture.md](event-capture.md), [applications.md](applications.md), [accounts-and-auth.md](accounts-and-auth.md)
 
 ## What it does
 
-The client checks judge the applications connected to NATS: whether their round trip time is high, whether the server queues bytes they cannot read fast enough, whether they were disconnected as slow consumers, whether they keep reconnecting, and whether they open connections that last only seconds. A client finding is keyed by connection name rather than by connection, so it survives reconnects and covers every instance that uses the name. Clients without a name are grouped as `(unnamed)`. There are 5 client checks, `client-001` to `client-005`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
+The client checks judge the applications connected to NATS: whether their round trip time is high, whether the server queues bytes they cannot read fast enough, whether they were disconnected as slow consumers, whether they keep reconnecting, whether they open connections that last only seconds, whether a client keeps failing to log in, whether connections go without a name, and whether an application uses an old client library. A client finding is keyed by connection name rather than by connection, so it survives reconnects and covers every instance that uses the name; `client-006` is keyed by the user a client logs in as. Clients without a name are grouped as `(unnamed)`. There are 8 client checks, `client-001` to `client-008`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
 
 ## The checks
 
@@ -55,12 +55,55 @@ The client checks judge the applications connected to NATS: whether their round 
 - **Keyed by:** the whole connection name, so instances that share a name are merged.
 - **Left out:** connections that stay open longer than `events.churn.pair_within` (a job that connects for minutes at a time), connections that end for another reason, and tooling connections unless `checks.include_tooling` is set.
 
+### `client-006` Repeated authentication errors
+
+- **Problem:** the servers keep refusing the login of one user: a client retries with credentials that are wrong, revoked or expired, so it never connects and its work does not get done. A client that retries every minute shows up here and on the Accounts page's failed logins before anyone notices that it never connected.
+- **Fires when:** the `client.auth_error` events of the user within the lookback reach `min_failed_logins`, from any address and server. The detail gives the count, the rate per hour, the addresses (five, then how many more), the servers, the reasons, the time of the last one and the client names the clients gave, for example "16 failed logins in the last 15m (about 64 an hour) as label-printer from 10.20.4.31, 10.20.4.32 (nats-0, nats-1): Authentication Failure; the last at 09:18:00 UTC. Client names: label-printer@lp-a, label-printer@lp-b." The finding links the last event.
+- **Severity:** warning.
+- **Thresholds:** lookback 15m, `min_failed_logins` 15, `resolve_ratio` 0.8. 15 in 15 minutes is the rate of 60 an hour at which the Accounts page marks a group of failed logins. A firing finding stays firing while the count is at or above `resolve_ratio` of `min_failed_logins` (12), and resolves below it, so a client that retries at about the threshold's rate does not flap. Proposed, not yet confirmed.
+- **Keyed by:** the user the client gave, as the Accounts page groups failed logins, so the pods of one deployment that share a credential are one finding and a pod that restarts with a new address keeps it. A client that gave no user is grouped as `(no user)`, with its addresses in the detail. The Accounts page also splits by address and reason; the check does not, so a new pod's address neither starts a finding nor splits the count.
+- **Reasons:** nats-server gives every refused login the reason "Authentication Failure" ("Proxy Not Trusted" or "Proxy Required" with proxy authentication), so the finding cannot say whether the credentials were wrong, revoked or expired. A client that gives up waiting for authentication ("Authentication Timeout") sends no authentication error event and does not count.
+- **Needs event capture.** Without it nats-lens stores no `client.auth_error` event and the check stays quiet; it cannot tell "no failed login" from "not captured". The Accounts page says which it is.
+- **Left out:** tooling connections, unless `checks.include_tooling` is set: a port-forwarded `nats` CLI with a mistyped password is an operator's typo, not a client problem. Proposed, not yet confirmed.
+
+### `client-007` Unnamed connections
+
+- **Problem:** connections without a name make every other client check less useful: the client checks, the Applications page and the Events page group clients by their name, so unnamed clients are merged into one `(unnamed)` entry, and a finding for it cannot say which service it is about.
+- **Fires when:** a connection without a name, or with nothing before the "@" (the Applications page's `(unnamed)`), has been connected for `min_age` or longer in this collection. The detail counts the unnamed connections and those connected for `min_age`, and names their accounts, users, addresses, client libraries (five of each, then how many more) and servers, for example "3 connections without a name, 1 connected for 10m or longer; accounts $G, APP, user alice, from 10.0.0.5, 10.0.0.6, 10.0.0.7, go 1.54.0, nats.js 3.0.2 (nats-0, nats-1, nats-2)." A connection without an account counts as `$G`.
+- **Severity:** info.
+- **Thresholds:** `min_age` 10m, so a short script or a one-off CLI call does not fire. Once firing, the finding stays while any unnamed connection is connected, however young, so a client that reconnects does not resolve and fire again; it resolves in the first collection without one. Proposed, not yet confirmed.
+- **Keyed by:** `(unnamed)`, one finding for every unnamed connection of the system, so the Applications page lists it on the `(unnamed)` row.
+- **Left out:** tooling connections, unless `checks.include_tooling` is set, so a port-forwarded CLI without a name does not count. A connection without a start time is counted but never old enough to fire.
+
+### `client-008` Outdated client library
+
+- **Problem:** an application uses a client library older than the minimum set for its language. An old library misses fixes in reconnect handling, JetStream and security.
+- **Fires when:** within the lookback, a connection of the application reported a library language with a minimum and a version below it. The version is compared by its first three numbers, so 2.10.0 is newer than 2.9.0 and 1.37.0-beta.1 counts as 1.37.0. The detail describes the newest collection within the lookback that had such a connection: how many of the application's connections used an old library then, which libraries with their minimums, and the servers, for example "2 of 3 connections use a client library older than its minimum: go 1.31.0 (minimum 1.37.0) (nats-0, nats-1)." When that collection is older than the one checked, the detail starts "In the collection of 09:54:30 UTC".
+- **Severity:** info.
+- **Thresholds:** lookback 1h, and a minimum per language as a version threshold (one to three numbers joined by dots):
+
+  | Threshold | Language the client sends | Library | Default |
+  | --- | --- | --- | --- |
+  | `min_go` | `go` | nats.go | 1.37.0 |
+  | `min_nats_js` | `nats.js` | nats.js on Node.js | 2.28.0 |
+  | `min_python` | `python3` | nats.py | 2.9.0 |
+  | `min_java` | `java` | jnats | 2.20.0 |
+  | `min_dotnet` | `.NET` | NATS.Net | 2.5.0 |
+  | `min_rust` | `rust` | async-nats | 0.37.0 |
+  | `min_c` | `C` | nats.c | 3.9.0 |
+
+  Each default is the release line that was current on 1 November 2024, two years before the defaults were set; the newest releases then were nats.go 1.55.0, nats.js 3.4.0, nats.py 2.16.0, jnats 2.26.4, NATS.Net 3.3.2, async-nats 0.51.0 and nats.c 3.14.0. A minimum of 0 turns a language off. Proposed, not yet confirmed.
+- **Resolves:** a lookback after the last old connection of the application is gone, so an upgraded application resolves within the hour and a job that connects with an old library now and then does not flap.
+- **Keyed by:** the application, the connection name before the first "@", as the Applications page groups it; a client without a name is `(unnamed)`.
+- **Left out:** languages without a minimum (`nats.deno`, `nats.ws`, the older NATS.Client for .NET, which sends `C#`, and others), connections without a version or whose version does not start with a number, and tooling connections unless `checks.include_tooling` is set: nats-lens's own connections and a port-forwarded CLI are not applications to upgrade.
+
 ## Behavior and rules
 
-- **By name, not by connection.** A connection ID changes with every reconnect, so client findings are keyed by connection name. `client-001` uses the part before "@"; the other four use the whole name.
+- **By name, not by connection.** A connection ID changes with every reconnect, so client findings are keyed by connection name. `client-001` and `client-008` use the part before "@" (the application); `client-002` to `client-005` use the whole name; `client-007` is one finding, `(unnamed)`. `client-006` is keyed by the user a client logs in as, since a client that fails to log in is known by its credentials.
 - **Tooling connections are left out.** nats-lens's own connections and, by default, clients from 127.0.0.1 or ::1 do not count, with the loopback guard described in [checks.md](checks.md). The Connections page marks them "tooling".
-- **Events feed three of the checks.** `client-003`, `client-004` and `client-005` read the connect, disconnect and `client.churn` events, so they need event capture (on by default in `natslens run`). `client-005` also needs `events.churn.collapse`, on by default.
-- **Per application.** The [Applications](applications.md) page lists each application's client findings on its row, and counts its reconnects of the last 24 hours by `client-004`'s rule, its slow consumer disconnects as `client-003` counts them; the API also counts its short-lived connections as `client-005` counts them.
+- **Events feed four of the checks.** `client-003`, `client-004` and `client-005` read the connect, disconnect and `client.churn` events, and `client-006` the `client.auth_error` events, so they need event capture (on by default in `natslens run`); without it they stay quiet. `client-005` also needs `events.churn.collapse`, on by default.
+- **One problem, one finding.** A refused login also ends with a `client.disconnect` whose reason is "Authentication Failure", but no `client.connect`, so it does not count as a reconnect for `client-004` unless other clients of the same name connect in the same 10 minutes. `account-004` warns before the user JWTs of connected clients expire; once a JWT has expired, its client is refused and counts for `client-006`. `client-007` and `client-008` are info: the Applications page shows the `(unnamed)` row and each application's library too, and the findings make them part of the review of findings.
+- **Per application.** The [Applications](applications.md) page lists each application's client findings on its row (`client-007` on the `(unnamed)` row; `client-006` only where a user has an application's name), and counts its reconnects of the last 24 hours by `client-004`'s rule, its slow consumer disconnects as `client-003` counts them; the API also counts its short-lived connections as `client-005` counts them.
 
 ## Scenarios
 
@@ -90,6 +133,36 @@ The client checks judge the applications connected to NATS: whether their round 
 - **Then** the Events page hides its `client.churn` events as routine
 - **And** `client-005` fires for `stock-poller`, with the count, the rate, its host and the servers in the detail
 
+### A revoked client keeps retrying
+
+- **Given** a client logging in as `label-printer`, whose credentials were revoked, retrying about once a minute from two pods, `10.20.4.31` and `10.20.4.32`, on `nats-0` and `nats-1`
+- **When** nats-lens collects
+- **Then** `client-006` fires once, for `label-printer`, with the count in the last 15 minutes, about 64 an hour, both addresses, both servers, the reason "Authentication Failure" and the client names
+- **When** the client gets valid credentials and stops failing
+- **Then** the finding resolves once fewer than 12 failed logins are left in the last 15 minutes
+
+### A service connects without a name
+
+- **Given** a service that connects with nats.go and gives no connection name, connected for an hour from `10.0.0.5` as user `alice` in account `APP`
+- **When** nats-lens collects
+- **Then** `client-007` fires at info for `(unnamed)`, with the account, the user, the address, the library and the server in the detail
+- **And** the Applications page lists the finding on the `(unnamed)` row
+
+### An application runs an old library
+
+- **Given** `resize-worker` with three pods, two on nats.go 1.31.0 and one on 1.54.0
+- **When** nats-lens collects
+- **Then** `client-008` fires at info for `resize-worker`: "2 of 3 connections use a client library older than its minimum: go 1.31.0 (minimum 1.37.0)", with the servers
+- **When** the two pods are upgraded
+- **Then** the finding resolves an hour after the last old connection was seen
+
+### Follow my own upgrade policy
+
+- **Surfaces:** `cli`
+- **Given** a team that supports only the newest nats.js line
+- **When** I set `checks.thresholds.client-008.min_nats_js: "3.0"` and `min_python: "0"`, and restart nats-lens
+- **Then** applications on nats.js 2.x fire `client-008`, and python clients are not judged
+
 ### Count tooling as clients
 
 - **Surfaces:** `cli`
@@ -101,12 +174,9 @@ The client checks judge the applications connected to NATS: whether their round 
 
 These client checks are not built. Each line says what it would detect and what data it needs.
 
-- **Account connection limit near its maximum.** An account holds most of the connections its limit allows, so new clients will be refused. Needs: the account's connection limit, which nats-lens stores from ACCOUNTZ in `account_details` (from the account JWT, each account at most every 10 minutes), and the current connections per account, which it stores every collection. Only the check is missing.
-- **Repeated authentication errors.** One user or address fails to log in again and again, for example with revoked credentials. Needs: the `client.auth_error` events, stored today.
-- **Permission violations (deny-listed subjects).** A client publishes or subscribes to a subject it may not use. nats-server publishes no event for a permission violation; it only logs it and sends the error to the client. nats-lens cannot see it without the server log.
-- **Old TLS version.** A client connects with an outdated TLS version. Needs: the TLS version per connection from CONNZ, stored today.
-- **Unnamed connections.** Connections without a name make every other client check less useful. Needs: the connection name from CONNZ, stored today.
-- **Outdated client library.** A client uses a library version older than a set minimum. Needs: the client library and version from CONNZ, stored today.
+- **Permission violations (deny-listed subjects).** A client publishes or subscribes to a subject it may not use. nats-server publishes no event for a permission violation; it only logs it and sends the error to the client. Needs: the server log, which nats-lens does not read, or an advisory from a later nats-server.
+
+Built since this list was written: "Account connection limit near its maximum" is `account-001` ([account-checks.md](account-checks.md)); "Repeated authentication errors" is `client-006`; "Unnamed connections" is `client-007`; "Outdated client library" is `client-008`.
 
 ## Not supported / out of scope
 
@@ -114,3 +184,4 @@ These client checks are not built. Each line says what it would detect and what 
 - **No log reading.** nats-lens does not read server or client logs, so errors that appear only there are invisible to it.
 - **No disconnecting of clients.** nats-lens never kicks a client.
 - **Only stored connections count.** A server with more connections than `connz_limit` (4096) is judged on the connections nats-lens stored.
+- **No old TLS version check.** nats-server refuses a `min_version` below TLS 1.2 and offers nothing older, so a client cannot connect with TLS 1.0 or 1.1, and TLS 1.2 is not a problem in itself; nats-lens stores each connection's TLS version from CONNZ. A connection whose TLS ends at a load balancer in front of the servers shows no TLS version at all. Dropped from the planned checks by the session that built `client-006` to `client-008`; proposed, not yet confirmed.
