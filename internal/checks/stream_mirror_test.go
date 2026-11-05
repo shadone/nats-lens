@@ -48,7 +48,9 @@ func TestMirrorLagging(t *testing.T) {
 		f.streamStats(e, "S0", "order-jobs", m{"leader": "nats-0", "is_leader": true})
 	}
 	f.streamMirrorAt(11, "unheard", 0, 3*time.Minute, nil)
-	f.streamMirrorAt(11, "never", 0, -1, nil)
+	// Never heard in the two newest reports, under a leader elected a day ago.
+	f.streamMirrorAt(10, "never", 0, -1, m{"leader_since": t0.Add(-24 * time.Hour)})
+	f.streamMirrorAt(11, "never", 0, -1, m{"leader_since": t0.Add(-24 * time.Hour)})
 	r := f.fires("stream-015", 11, "APP/order-archive", "APP/KV_stock-copy", "APP/unheard", "APP/never")
 	want(t, r["APP/order-archive"], "warning", "Mirror of order-events on leader nats-0: 51000 messages behind",
 		"not catching up over the last 5m (41000 at its start)")
@@ -56,12 +58,15 @@ func TestMirrorLagging(t *testing.T) {
 		t.Errorf("value = %v", r["APP/order-archive"].Value)
 	}
 	want(t, r["APP/unheard"], "warning", "nothing received from its origin for 3 minutes")
-	want(t, r["APP/never"], "warning", "has never heard from its origin")
-	// A mirror created within max_inactive has not had time to hear.
+	want(t, r["APP/never"], "warning", "has never heard from its origin since its leader was elected at 09:00:00 UTC.")
+	// A leader elected within max_inactive has not had time to hear, even
+	// in two reports.
 	g := newFx(t)
-	g.cluster(1)
-	g.streamMirrorAt(1, "new", 0, -1, m{"created": at(1).Add(-time.Minute)})
-	g.fires("stream-015", 1)
+	g.cluster(2)
+	for e := int64(1); e <= 2; e++ {
+		g.streamMirrorAt(e, "new", 0, -1, m{"leader_since": at(2).Add(-time.Minute)})
+	}
+	g.fires("stream-015", 2)
 	// A lower max_lag catches the steady one.
 	if r := f.eval("stream-015", 11, map[string]string{"max_lag": "9999"}); len(r) != 5 {
 		t.Fatalf("max_lag 9999: %s", rowsText(r))
@@ -94,4 +99,27 @@ func TestMirrorLaggingResolve(t *testing.T) {
 	want(t, r["APP/keeps"], "warning", "9000 messages behind.")
 	want(t, r["APP/away"], "warning", "50000 messages behind (no leader report in this collection)")
 	want(t, r["APP/quiet"], "warning", "nothing received from its origin for 2 minutes")
+}
+
+// A new mirror leader reports that it never heard from the origin until
+// its copy of the origin starts: one such report after a leader change is
+// not a finding.
+func TestMirrorLeaderChangeIsNotNeverHeard(t *testing.T) {
+	f := newFx(t)
+	f.cluster(11)
+	f.streamConfig("S0", "order-archive", 1, 11, m{"mirror": "order-events"})
+	for e := int64(1); e <= 10; e++ {
+		f.streamMirrorAt(e, "order-archive", 0, 500*time.Millisecond, nil)
+	}
+	f.streamMirrorAt(11, "order-archive", 0, -1, m{"leader_since": at(11).Add(-2 * time.Second)})
+	f.fires("stream-015", 11)
+	// Nor one under a leader elected long ago: it needs two reports.
+	g := newFx(t)
+	g.cluster(11)
+	g.streamConfig("S0", "order-archive", 1, 11, m{"mirror": "order-events"})
+	for e := int64(1); e <= 10; e++ {
+		g.streamMirrorAt(e, "order-archive", 0, 500*time.Millisecond, nil)
+	}
+	g.streamMirrorAt(11, "order-archive", 0, -1, nil)
+	g.fires("stream-015", 11)
 }
