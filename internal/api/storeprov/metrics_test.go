@@ -216,4 +216,12 @@ func TestNotificationMetrics(t *testing.T) {
 			t.Errorf("missing %s", want)
 		}
 	}
+	if _, err := st.DB().ExecContext(ctx, `DELETE FROM notify_outbox WHERE state='pending'`); err != nil {
+		t.Fatal(err)
+	}
+	body = scrape(t, srv.URL+"/metrics")
+	if strings.Contains(body, `nats_lens_notifications_oldest_pending_seconds{system="default",channel="ops"}`) {
+		t.Fatal("age exported with nothing pending")
+	}
+
 }

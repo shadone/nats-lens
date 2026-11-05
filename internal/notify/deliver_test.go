@@ -1,11 +1,15 @@
 package notify
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -269,5 +273,163 @@ func TestDeliveryWaitsForNextEpoch(t *testing.T) {
 	}
 	if calls != 2 {
 		t.Fatal("new epoch did not release next batch")
+	}
+}
+
+func TestDeliveryBackoffCapAndNotDue(t *testing.T) {
+	e := newEnv(t)
+	now := r0
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls++; w.WriteHeader(500) }))
+	defer srv.Close()
+	ch := channel("ops")
+	ch.URL = srv.URL
+	queueDelivery(t, e.st, r0, 1, 1)
+	d := &Delivery{Store: e.st, SystemID: "example-prod", Clock: func() time.Time { return now }}
+	for i, seconds := range []int{10, 20, 40, 80, 160, 320, 600, 600} {
+		wait, err := d.Step(context.Background(), ch)
+		if err != nil || wait != time.Duration(seconds)*time.Second {
+			t.Fatalf("attempt %d wait=%s err=%v", i, wait, err)
+		}
+		if _, err := d.Step(context.Background(), ch); err != nil {
+			t.Fatal(err)
+		}
+		if calls != i+1 {
+			t.Fatal("retried before due")
+		}
+		now = now.Add(wait)
+	}
+}
+
+func TestDeliverySecretsNotPersistedOrLogged(t *testing.T) {
+	e := newEnv(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(500)
+		io.WriteString(w, "receiver-private-body")
+	}))
+	defer srv.Close()
+	ch := channel("ops")
+	ch.URL = srv.URL + "/private-path?key=private-query"
+	ch.BearerTokenEnv = "DELIVERY_TEST_TOKEN"
+	t.Setenv(ch.BearerTokenEnv, "private-bearer")
+	var logs bytes.Buffer
+	queueDelivery(t, e.st, r0, 1, 1)
+	d := &Delivery{Store: e.st, SystemID: "example-prod", Clock: func() time.Time { return r0 }, Log: slog.New(slog.NewTextHandler(&logs, nil))}
+	if _, err := d.Step(context.Background(), ch); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := e.st.OutboxRows(context.Background(), "ops")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, secret := range []string{"private-path", "private-query", "private-bearer", "receiver-private-body"} {
+		if strings.Contains(fmt.Sprint(rows)+logs.String(), secret) {
+			t.Fatalf("leaked %s", secret)
+		}
+	}
+	// An unreadable rotated secret is a retry, not a fatal start or refusal.
+	ch.URL = ""
+	ch.URLFile = filepath.Join(t.TempDir(), "missing-url")
+	d.Clock = func() time.Time { return r0.Add(10 * time.Second) }
+	if _, err := d.Step(context.Background(), ch); err != nil {
+		t.Fatal(err)
+	}
+	rows, _ = e.st.OutboxRows(context.Background(), "ops")
+	if rows[0].State != "pending" || rows[0].Attempts != 2 || rows[0].LastStatus != 0 {
+		t.Fatal(rows)
+	}
+}
+
+func TestDeliverySurvivesDatabaseReopen(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "outbox.duckdb")
+	st, err := store.OpenPath(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	var keys []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		keys = append(keys, r.Header.Get("Idempotency-Key"))
+		if calls == 1 {
+			w.WriteHeader(500)
+		} else {
+			w.WriteHeader(204)
+		}
+	}))
+	defer srv.Close()
+	ch := channel("ops")
+	ch.URL = srv.URL
+	queueDelivery(t, st, r0, 1, 1)
+	d := &Delivery{Store: st, SystemID: "example-prod", Clock: func() time.Time { return r0 }}
+	if _, err := d.Step(ctx, ch); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+	st, err = store.OpenPath(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	d = &Delivery{Store: st, SystemID: "example-prod", Clock: func() time.Time { return r0.Add(5 * time.Second) }}
+	if wait, err := d.Step(ctx, ch); err != nil || wait != 5*time.Second || calls != 1 {
+		t.Fatalf("reopened retry wait=%s calls=%d err=%v", wait, calls, err)
+	}
+	d.Clock = func() time.Time { return r0.Add(10 * time.Second) }
+	if _, err := d.Step(ctx, ch); err != nil {
+		t.Fatal(err)
+	}
+	rows, _ := st.OutboxRows(ctx, "ops")
+	if rows[0].State != "delivered" || rows[0].Attempts != 2 || keys[0] != keys[1] {
+		t.Fatal(rows, keys)
+	}
+}
+
+func TestDeliveryChannelsIndependent(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	slowStarted := make(chan struct{})
+	healthySent := make(chan struct{})
+	release := make(chan struct{})
+	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { close(slowStarted); <-release }))
+	defer slow.Close()
+	defer close(release)
+	good := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { close(healthySent); w.WriteHeader(204) }))
+	defer good.Close()
+	queueDelivery(t, e.st, r0, 1, 1)
+	if _, err := e.st.DB().ExecContext(ctx, `UPDATE notify_outbox SET channel='healthy'`); err != nil {
+		t.Fatal(err)
+	}
+	queueDelivery(t, e.st, r0, 2, 1)
+	ch := channel("ops")
+	ch.URL = slow.URL
+	other := channel("healthy")
+	other.URL = good.URL
+	stop, cancel := context.WithCancel(ctx)
+	defer cancel()
+	requests, cancelRequests := context.WithCancel(ctx)
+	defer cancelRequests()
+	d := &Delivery{Store: e.st, SystemID: "example-prod", Channels: []config.Channel{ch, other}}
+	done := make(chan struct{})
+	go func() { d.Run(stop, requests); close(done) }()
+	select {
+	case <-slowStarted:
+	case <-time.After(time.Second):
+		t.Fatal("slow channel did not start")
+	}
+	select {
+	case <-healthySent:
+	case <-time.After(time.Second):
+		t.Fatal("slow channel blocked healthy channel")
+	}
+	cancel()
+	cancelRequests()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("workers did not stop")
 	}
 }
