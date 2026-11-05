@@ -424,6 +424,13 @@ To try a change to a check on a copy of a database: `natslens checks run -data-d
 | server-014 | JetStream store full soon | warning 14d, critical 3d | `js_storage` growth over 6h per process, the smaller of the two halves' slopes |
 | server-015 | Stale connections | info | `stale_connections`, 15m, per process |
 | server-016 | TLS certificate expires soon | warning 14d, critical 3d or expired | the six `*_tls_cert_not_after` columns of `server_stats`; a server that did not answer VARZ keeps its newest answer within 24h |
+| server-017 | Route missing | warning; critical without a route to any peer | `routes` of servers whose ROUTEZ answered against the peers of their cluster that answered, 3 epochs in a row |
+| server-018 | Bytes queued on a route or gateway | warning from 25% of `max_pending`, critical from 50% | `routes.pending_bytes` and `gateways.pending_bytes` in 3 epochs in a row; held down to half the level |
+| server-019 | Gateway missing | warning; critical when no server of the cluster has the gateway | outbound `gateways` against the remote clusters the cluster had one to within 24h, 2 epochs in a row |
+| server-020 | Connections near max_connections | warning 80%, critical 95% | `connections` against the process's newest `max_connections`; held down to 90% of the level |
+| server-021 | JetStream API errors high | warning | `js_api_errors` growth within 15m, at least 100 and half of `js_api_total`'s growth, 2 epochs in a row, per process; suppressed by server-003 |
+| server-022 | Internal queue backlog | warning | `ipqueues.pending` at least 1000 in one queue in 3 epochs in a row |
+| server-023 | CPU saturated | warning | `cpu_percent` at least 90% of the smaller of `cores` and `gomaxprocs` in every epoch for 5m, per process |
 | system-001 | Check failed to run | warning, critical after 10 epochs of the same failure | the engine's own runs |
 | system-002 | No JetStream meta leader | critical | `meta_leader` of the clustered servers, or the leader seeing more peers offline than its quorum allows |
 | system-003 | JetStream meta leader changing often | warning above 4 in 15m | `meta.leader_elected` events and the leader per epoch; one hand-over within two intervals after each step-down not counted |
