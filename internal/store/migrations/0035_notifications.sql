@@ -56,6 +56,7 @@ CREATE TABLE notify_outbox (
     delivered_at     TIMESTAMP,
     last_status      INTEGER,
     last_error       VARCHAR,
+    UNIQUE (channel, dedup_key),
     CHECK (state IN ('pending', 'delivered', 'refused', 'failed'))
 );
 COMMENT ON TABLE notify_outbox IS 'One row per message queued for a channel, in the order it is to be sent (id). A restart loses none: pending rows are sent by the next natslens run. Delivered, refused and failed rows are deleted by the retention sweep once older than 7 days or than retention, whichever is shorter.';
@@ -65,7 +66,7 @@ COMMENT ON COLUMN notify_outbox.created_at IS 'Start time of the epoch whose rec
 COMMENT ON COLUMN notify_outbox.epoch IS 'Epoch whose reconcile queued the message (epochs.epoch).';
 COMMENT ON COLUMN notify_outbox.kind IS 'Message kind: firing, changed, resolved, flapping, muted, reminder or baseline.';
 COMMENT ON COLUMN notify_outbox.finding_id IS 'Finding the message is about (findings.id); NULL for a baseline message.';
-COMMENT ON COLUMN notify_outbox.dedup_key IS 'The message''s dedup_key: system, finding ID, episode start epoch, kind and epoch, the same at every attempt.';
+COMMENT ON COLUMN notify_outbox.dedup_key IS 'The message''s dedup_key: system, finding ID, episode start epoch, kind and epoch, the same at every attempt; unique per channel, so a message is never queued twice for one channel.';
 COMMENT ON COLUMN notify_outbox.message IS 'The message as JSON (notify.Message) without its link, which is built when it is sent so that a changed notifications.ui_url applies. Holds no secret.';
 COMMENT ON COLUMN notify_outbox.state IS 'pending: not yet delivered; delivered: a 2xx answer; refused: a 4xx other than 408 and 429; failed: given up after the channel''s give_up_after.';
 COMMENT ON COLUMN notify_outbox.attempts IS 'Requests made with the message so far.';
