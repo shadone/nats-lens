@@ -95,7 +95,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Command bar](command-bar.md) | `ui` | partial — search by name is shipped; findings, events and prefixes are planned |
 | [On call on the phone](mobile.md) | `ui` | planned |
 | [Data history](data-history.md) | `ui`, `api` | partial — range notes and bounded chart gaps; margins planned |
-| [Notifications](notifications.md) | `api`, `cli` | planned |
+| [Notifications](notifications.md) | `api`, `cli` | partial — webhook and Slack delivery includes acknowledgements and resolved hand-backs; full guide deferred |
 
 ## Feature coverage by area
 
@@ -121,7 +121,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Client checks `client-001` to `client-008`, among them repeated authentication errors, unnamed connections and outdated client libraries (client-checks.md)
 - [x] System checks `system-001` to `system-010`: the meta group, mixed API levels, and nats-lens's own check runs, collections, archive exports, event capture and notification delivery, with a full hour of failure reporting through retention sweeps (system-checks.md)
 - [x] The inventory of assets that must exist (inventory.md)
-- [ ] Findings sent to a channel such as a webhook (notifications.md)
+- [~] Findings and acknowledgement notes sent to webhook and Slack-compatible channels, preserving resolves after hand-back; full notification guide deferred (notifications.md)
 
 **Web UI**
 - [x] Sidebar, system switcher, header with account scope and search, the global time range (cut to fit a narrow window) on the server's clock and the theme menu, all fed by one status call per system (navigation.md)
