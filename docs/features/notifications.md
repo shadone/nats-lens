@@ -13,7 +13,7 @@ nats-lens sends findings to configured webhook and Slack-compatible channels. Ac
 - **Channels in the configuration file.** Each channel has a destination (for example a webhook URL) and the severities it receives.
 - **Firing and resolved.** A channel receives a message when a finding fires or changes severity, and when it resolves, with the check, entity, detail and a link to the finding's page.
 - **Mutes are honoured.** A muted finding sends nothing while the mute is in force.
-- **Flapping is held back.** A flapping finding sends one message that says it flaps, not one per transition.
+- **Flapping is held back.** A flapping finding sends one message that says it flaps, not one per transition. A known acknowledged episode still sends its actual resolve after release or expiry, including after restart. Later unacknowledged episodes keep the flapping hold.
 - **Failures are visible.** A message that cannot be delivered is retried, and repeated failures show in nats-lens's own health metrics.
 - **Acknowledgements keep the finding visible.** An acknowledgement of a finding in a channel's view sends the actor and note, with a quiet end or “until resolved”. Findings outside the view send no acknowledgement.
 - **Quiet limits repeated messages.** Quiet suppresses reminders and downward severity changes, including a fall below the channel's severity threshold. Rising severity and actual resolves still send.
@@ -52,6 +52,14 @@ nats-lens sends findings to configured webhook and Slack-compatible channels. Ac
 - **When** the operator releases the acknowledgement or its quiet expires
 - **Then** the channel receives one reminder with reason “acknowledgement quiet ended”
 - **And** restarting nats-lens does not replay that reminder or an unchanged acknowledgement
+
+### An acknowledged flapping episode resolves after hand-back
+
+- **Surfaces:** `api`, `cli`
+- **Given** a channel knows an acknowledged firing episode that is flapping
+- **When** quiet ends, nats-lens restarts, and the same episode resolves while still marked as flapping
+- **Then** the channel receives one resolved message
+- **And** a later unacknowledged episode keeps the ordinary flapping hold
 
 ## Not supported / out of scope
 
