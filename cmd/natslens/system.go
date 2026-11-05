@@ -17,6 +17,7 @@ import (
 	"github.com/shadone/nats-lens/internal/config"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"github.com/shadone/nats-lens/internal/natsconn"
+	"github.com/shadone/nats-lens/internal/notify"
 	"github.com/shadone/nats-lens/internal/runner"
 	"github.com/shadone/nats-lens/internal/store"
 )
@@ -72,6 +73,12 @@ func (rt *systemRuntime) provider(set *checks.Set) *storeprov.Provider {
 	return &storeprov.Provider{St: rt.st, Interval: rt.cfg.Interval.D(), Retention: rt.sys.Retention.D(), Live: true, Checks: set,
 		ToolingNames: rt.sys.ToolingNames(), LoopbackNotTooling: !rt.cfg.Checks.LoopbackTooling(),
 		ClientPods: rt.sys.Kubernetes.ClientPodsPattern(), Kubernetes: rt.sys.Kubernetes.Enabled}
+}
+
+// notifier queues the system's notifications in its store.
+func (rt *systemRuntime) notifier(set *checks.Set) *notify.Reconciler {
+	return &notify.Reconciler{Store: rt.st, SystemID: rt.sys.ID, SystemName: rt.sys.Name, Channels: rt.cfg.Notifications.Channels,
+		Checks: set, Retention: rt.cfg.Retention.D(), Log: rt.log}
 }
 
 // registry lists the systems for the API in configuration order; the
@@ -208,6 +215,16 @@ func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, d
 		Checks:    &checks.Engine{Set: set, Log: log, Budget: cfg.Interval.D() / 2, ToolingNames: rt.sys.ToolingNames()},
 		Connected: connected,
 		Stored:    func(_ int64, startedAt time.Time) { rt.status.epoch(startedAt) },
+	}
+	// Only natslens run notifies: the next run after a once sends the
+	// difference between what each channel was told and the findings then.
+	if cmd == "run" && len(cfg.Notifications.Channels) > 0 {
+		rec := rt.notifier(set)
+		r.Notify = func(ctx context.Context, epoch int64) error {
+			_, err := rec.Reconcile(ctx, epoch)
+			return err
+		}
+		r.NotifySweep = rec.Sweep
 	}
 	if cmd == "once" {
 		_, err := r.Once(ctx)

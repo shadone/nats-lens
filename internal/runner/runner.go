@@ -42,6 +42,14 @@ type Runner struct {
 	// Connected, when set, reports whether the collector's connection has
 	// a server; Run skips epochs while it has none.
 	Connected func() bool
+	// Notify, when set, is called with each epoch whose checks were
+	// applied, after the acceptance review; it queues the epoch's
+	// notifications. A failure is logged, and the next epoch's call sends
+	// the difference.
+	Notify func(ctx context.Context, epoch int64) error
+	// NotifySweep, when set, runs with each retention sweep; it removes
+	// old sent notifications.
+	NotifySweep func(ctx context.Context, now time.Time) error
 }
 
 func (r *Runner) logger() *slog.Logger {
@@ -163,6 +171,18 @@ func (r *Runner) check(ctx context.Context, epoch int64) {
 	if res.Firing+res.Changed+res.Resolved > 0 {
 		r.logger().Info("findings changed", "epoch", epoch, "firing", res.Firing, "changed", res.Changed, "resolved", res.Resolved)
 	}
+	r.review(ctx, epoch)
+	if r.Notify == nil || ctx.Err() != nil {
+		return
+	}
+	if err := r.Notify(ctx, epoch); err != nil && ctx.Err() == nil {
+		r.logger().Error("notifications not queued", "epoch", epoch, "err", err)
+	}
+}
+
+// review runs the growth review of acceptances for the epoch and logs
+// what it did.
+func (r *Runner) review(ctx context.Context, epoch int64) {
 	rev, err := ReviewAcceptances(ctx, r.Store, epoch, r.Interval)
 	if err != nil {
 		if ctx.Err() == nil {
@@ -188,6 +208,11 @@ func (r *Runner) sweep(ctx context.Context) {
 	}
 	if res.Epochs > 0 || res.Events > 0 {
 		r.logger().Info("retention sweep", "deleted_epochs", res.Epochs, "deleted_events", res.Events, "oldest_kept", res.Cutoff)
+	}
+	if r.NotifySweep != nil {
+		if err := r.NotifySweep(ctx, time.Now()); err != nil {
+			r.logger().Error("notifications sweep failed", "err", err)
+		}
 	}
 }
 
