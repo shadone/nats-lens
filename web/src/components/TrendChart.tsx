@@ -1,3 +1,5 @@
+import { usePageHistory } from "./HistoryNote";
+import { rangeCoverageText } from "../lib/historyView";
 // A small chart over the range with any mix of layers: lines (solid or
 // dashed), filled bands between two edges (a min-max band, or one layer of
 // a stacked area) and bars. The y axis starts at zero, or with floor "data"
@@ -68,6 +70,9 @@ export function yDomain(all: number[], floor: "zero" | "data"): [number, number]
 }
 
 export function TrendChart({ title, now, summary, start, end, stepMs = 0, layers, floor = "zero", loading, error }: Props) {
+  const h = usePageHistory();
+  const coverage = ["Messages", "Bytes", "Connections"].includes(title) ? rangeCoverageText(h?.historyStart, start, end) : undefined;
+  summary = [summary, coverage].filter(Boolean).join(" · ") || undefined;
   const all = layers.flatMap(values);
   const empty = all.length === 0;
   const [lo, hi] = yDomain(all, floor);
