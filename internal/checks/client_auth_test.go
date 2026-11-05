@@ -35,17 +35,17 @@ func TestRepeatedAuthErrors(t *testing.T) {
 			host, srv, pod = "10.20.4.32", "nats-1", "lp-b"
 		}
 		f.authError(int64(i+1), at(12).Add(time.Duration(i)*50*time.Second), "label-printer", host, "label-printer@"+pod,
-			srv, "User Authentication Revoked")
+			srv, "Authentication Failure")
 	}
 	// stock-poller: 14, one short of 15.
 	for i := range 14 {
 		f.authError(int64(100+i), at(20).Add(time.Duration(i)*30*time.Second), "stock-poller", "10.0.0.6", "stock-poller", "nats-2",
-			"Authorization Violation")
+			"Authentication Failure")
 	}
 	r := f.fires("client-006", 40, "label-printer")
 	want(t, r["label-printer"], "warning",
 		"16 failed logins in the last 15m (about 64 an hour) as label-printer from 10.20.4.31, 10.20.4.32 (nats-0, nats-1): "+
-			"User Authentication Revoked; the last at 09:18:00 UTC. Client names: label-printer@lp-a, label-printer@lp-b.")
+			"Authentication Failure; the last at 09:18:00 UTC. Client names: label-printer@lp-a, label-printer@lp-b.")
 	if got := r["label-printer"]; got.Value == nil || *got.Value != 16 || got.CauseEventID != 16 {
 		t.Errorf("value %v, cause %d; want 16 and the latest event, 16", got.Value, got.CauseEventID)
 	}
@@ -63,7 +63,7 @@ func TestRepeatedAuthErrorsNeedEvents(t *testing.T) {
 	f.fires("client-006", 40)
 	for i := range 20 {
 		f.event(int64(i+1), at(30), "client.disconnect", m{"source": "sys", "client_user": "alice", "client_host": "10.0.0.5",
-			"reason": "Authorization Violation"})
+			"reason": "Authentication Failure"})
 	}
 	f.fires("client-006", 40)
 }
@@ -74,16 +74,16 @@ func TestRepeatedAuthErrorsLookbackBoundary(t *testing.T) {
 	f := newFx(t)
 	f.cluster(40)
 	start := at(40).Add(-15 * time.Minute)
-	f.authError(1, start, "alice", "10.0.0.5", "", "nats-0", "Authorization Violation")
+	f.authError(1, start, "alice", "10.0.0.5", "", "nats-0", "Authentication Failure")
 	for i := range 14 {
-		f.authError(int64(i+2), start.Add(time.Duration(i+1)*time.Minute), "alice", "10.0.0.5", "", "nats-0", "Authorization Violation")
+		f.authError(int64(i+2), start.Add(time.Duration(i+1)*time.Minute), "alice", "10.0.0.5", "", "nats-0", "Authentication Failure")
 	}
 	f.fires("client-006", 40)
-	f.authError(20, at(40), "alice", "10.0.0.5", "", "nats-0", "Authorization Violation")
+	f.authError(20, at(40), "alice", "10.0.0.5", "", "nats-0", "Authentication Failure")
 	r := f.fires("client-006", 40, "alice")
-	want(t, r["alice"], "warning", "15 failed logins", "as alice from 10.0.0.5 (nats-0): Authorization Violation; the last at 09:19:30 UTC.")
+	want(t, r["alice"], "warning", "15 failed logins", "as alice from 10.0.0.5 (nats-0): Authentication Failure; the last at 09:19:30 UTC.")
 	// A later event (received after the epoch started) is left for the next epoch.
-	f.authError(21, at(40).Add(time.Second), "alice", "10.0.0.5", "", "nats-0", "Authorization Violation")
+	f.authError(21, at(40).Add(time.Second), "alice", "10.0.0.5", "", "nats-0", "Authentication Failure")
 	if got := f.eval("client-006", 40); got["alice"].Value == nil || *got["alice"].Value != 15 {
 		t.Errorf("an event after the epoch counted: %v", rowsText(got))
 	}
@@ -96,13 +96,13 @@ func TestRepeatedAuthErrorsToolingAndNoUser(t *testing.T) {
 	f := newFx(t)
 	f.cluster(40)
 	for i := range 20 {
-		f.authError(int64(i+1), at(30), "natslens", "10.0.0.1", "natslens-events", "nats-0", "Authorization Violation")
-		f.authError(int64(i+101), at(30), "alice", "127.0.0.1", "NATS CLI Version 0.5.0", "nats-0", "Authorization Violation")
+		f.authError(int64(i+1), at(30), "natslens", "10.0.0.1", "natslens-events", "nats-0", "Authentication Failure")
+		f.authError(int64(i+101), at(30), "alice", "127.0.0.1", "NATS CLI Version 0.5.0", "nats-0", "Authentication Failure")
 	}
 	for i := range 16 {
-		reason := "Authorization Violation"
+		reason := "Authentication Failure"
 		if i == 0 {
-			reason = "Authentication Timeout"
+			reason = "Proxy Required"
 		}
 		f.authError(int64(i+201), at(31), "", "10.9.0."+string(rune('a'+i)), "", "nats-2", reason)
 	}
@@ -111,7 +111,7 @@ func TestRepeatedAuthErrorsToolingAndNoUser(t *testing.T) {
 		t.Fatalf("client-006 returned %v, want (no user) only", rowsText(r))
 	}
 	want(t, r["(no user)"], "warning", "16 failed logins", "without a user from ",
-		" and 11 more addresses (nats-2): Authentication Timeout, Authorization Violation;")
+		" and 11 more addresses (nats-2): Authentication Failure, Proxy Required;")
 	if got := evalTooling(t, f, "client-006", 40, config.Checks{IncludeTooling: true}); len(got) != 3 {
 		t.Errorf("with tooling: %v", rowsText(got))
 	}
@@ -136,7 +136,7 @@ func TestRepeatedAuthErrorsHysteresis(t *testing.T) {
 	add := func(user string, n int) {
 		for range n {
 			id++
-			f.authError(id, at(30), user, "10.0.0.5", "", "nats-0", "Authorization Violation")
+			f.authError(id, at(30), user, "10.0.0.5", "", "nats-0", "Authentication Failure")
 		}
 	}
 	add("alice", 12)
