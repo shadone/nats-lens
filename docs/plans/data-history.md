@@ -19,7 +19,7 @@ The three open questions above are answered as recommended by the session that b
 | T1 API, store and demo | reviewed and merged at `5183027`; see "Where T1 departed from this plan" |
 | T2 The Data history page | reviewed and merged at `0f06480`; see "Where T2 departed from this plan" |
 | T3 History notes on the other pages | reviewed canonical tip `79183fb`, merged at `88eaed8`; includes bounded chart-history fixes |
-| T4 Feature docs and audit | built, awaiting fresh read-only review before integration |
+| T4 Feature docs and audit | independently reviewed and merged at `4b03bc7`; audit: 0 errors, 2 expected planned-status warnings |
 
 ## Rules for every step
 
