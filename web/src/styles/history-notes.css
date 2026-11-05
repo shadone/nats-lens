@@ -1,0 +1,16 @@
+/* What the other pages say about the history behind them. .hn-note is the
+   line under the header when the range starts before the history.
+   .gap-hatch is the hatch of a time without collections, shared with the
+   Data history strip, and .gap-layer lays hatched stretches over a chart's
+   svg, which .gap-wrap holds. Every rule names an hn- or gap- class; a
+   test checks it. */
+.hn-note{margin:14px 0 0;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);font-size:13px;color:var(--text-2);overflow-wrap:anywhere}
+.hn-wait{color:var(--text-muted)}
+.gap-hatch{background:repeating-linear-gradient(135deg,var(--surface-2) 0 3px,var(--text-muted) 3px 4px)}
+.gap-wrap{position:relative;margin-top:8px}
+/* Every chart's svg sits 8px below its title (.tc-svg, .mbox and .chart
+   svg.spark). In a flex column the svg's margin does not pass through
+   the wrapper, so the wrapper takes it and the layer covers the svg alone. */
+.gap-wrap > svg{margin-top:0!important}
+.gap-layer{position:absolute;inset:0;pointer-events:none}
+.gap-seg{position:absolute;top:0;bottom:0;min-width:3px;opacity:.75;pointer-events:auto}

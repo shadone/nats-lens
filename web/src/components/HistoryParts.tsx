@@ -114,7 +114,7 @@ function GapRow({ g, rangeEnd, live }: { g: HistoryGap; rangeEnd: number; live: 
   return (
     <tr className={isHatched(g) ? "dh-hatched-row" : undefined}>
       <th scope="row">
-        <span className={`dh-swatch${isHatched(g) ? " dh-hatch" : ""}`} aria-hidden="true" />
+        <span className={`dh-swatch${isHatched(g) ? " gap-hatch" : ""}`} aria-hidden="true" />
         {gapLabel(g.kind)}
         {detail && <small>{detail}</small>}
       </th>
@@ -151,7 +151,7 @@ export function GapStrip({ d, live }: { d: DataHistory; live: boolean }) {
     <div className="dh-strip-wrap">
       <div className="dh-strip" role="img" aria-label={name}>
         {segs.map((s) => (
-          <span key={gapKey(s.gap)} className="dh-seg dh-hatch" style={{ left: `${s.left}%`, width: `${s.width}%` }} title={gapName(s.gap, d.rangeEnd, live)} />
+          <span key={gapKey(s.gap)} className="dh-seg gap-hatch" style={{ left: `${s.left}%`, width: `${s.width}%` }} title={gapName(s.gap, d.rangeEnd, live)} />
         ))}
       </div>
       <div className="dh-strip-ends" aria-hidden="true">
