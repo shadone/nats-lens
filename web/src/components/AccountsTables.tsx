@@ -36,6 +36,7 @@ import {
 } from "../lib/accountsView";
 import { serverPath } from "../lib/view";
 import { Num, RLink } from "./common";
+import { HistoryLink } from "./HistoryNote";
 
 /** A dash for a value that is not there, with the reason for screen readers. */
 function Unset({ why }: { why: string }) {
@@ -310,7 +311,11 @@ export function FailedLoginsCard({ d }: { d: AccountsAndAuth }) {
         <div className="ac-notes">
           {cut && <p>{cut}</p>}
           {d.failedLogins.length > 0 && <p className="ac-text">A client retrying with revoked credentials every minute shows up here before anyone notices it never connected.</p>}
-          {short && d.failedLogins.length > 0 && <p>The history starts at {since}, so fewer than 24 hours are counted.</p>}
+          {short && d.failedLogins.length > 0 && (
+            <p>
+              The history starts at {since}, so fewer than 24 hours are counted. <HistoryLink />
+            </p>
+          )}
           {d.captureGaps && <p className="ac-gap">Event capture stopped for part of {short ? "this window" : "these 24 hours"}, so the counts can be low.</p>}
         </div>
       )}

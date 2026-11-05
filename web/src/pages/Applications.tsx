@@ -5,24 +5,27 @@
 // Connections page.
 import { useSearchParams } from "react-router";
 import type { Applications as Apps } from "../api/applications";
-import { useApplications } from "../api/queries";
+import { useApplications, useLensInfo } from "../api/queries";
 import { useAccounts } from "../api/systems";
 import { AppCards } from "../components/AppCards";
 import { AppTable } from "../components/AppTable";
 import { Empty, QueryView } from "../components/common";
-import { APPS_FOOTNOTE, CAPTURE_GAPS, CONNZ_CUT, emptyText, NO_EVENTS, partialText, subtitleText, TOOLING_PARAM, toolingHiddenText, trafficNote } from "../lib/appsView";
+import { HistoryLink } from "../components/HistoryNote";
+import { serverNow } from "../lib/clock";
+import { APPS_FOOTNOTE, appsHistoryText, CAPTURE_GAPS, CONNZ_CUT, emptyText, NO_EVENTS, partialText, subtitleText, TOOLING_PARAM, toolingHiddenText, trafficNote } from "../lib/appsView";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useAccountScope } from "../lib/useSystem";
 import { useTimeRange } from "../lib/useTimeRange";
 import { accountLabeller } from "../lib/view";
 
-function Body({ d, includeTooling, scope, names }: { d: Apps; includeTooling: boolean; scope: string; names: Map<string, string> }) {
+function Body({ d, includeTooling, scope, names, historyStart }: { d: Apps; includeTooling: boolean; scope: string; names: Map<string, string>; historyStart?: number }) {
   const accounts = d.applications.flatMap((a) => a.accounts);
   const named = accounts.map((x) => ({ account: x.account, accountName: x.accountName || names.get(x.account) || "" }));
   const label = accountLabeller(named);
   const nameOf = (id: string) => named.find((x) => x.account === id && x.accountName)?.accountName || names.get(id) || undefined;
   const showAccount = scope === "" && new Set(accounts.map((x) => x.account)).size > 1;
   const note = trafficNote(d.applications);
+  const history = d.applications.length > 0 ? appsHistoryText(historyStart, d.epochAt, serverNow()) : undefined;
   return (
     <>
       {/* The page is partial exactly when a server is missing; the notice names them. */}
@@ -54,6 +57,11 @@ function Body({ d, includeTooling, scope, names }: { d: Apps; includeTooling: bo
       ) : (
         <>
           <AppCards d={d} />
+          {history && (
+            <p className="ap-notice" role="note">
+              {history} <HistoryLink />
+            </p>
+          )}
           {note && (
             <p className="ap-notice" role="note">
               {note}
@@ -78,6 +86,7 @@ export function Applications() {
   const [account] = useAccountScope();
   const tooling = params.get(TOOLING_PARAM) === "1";
   const q = useApplications(spec, account, tooling);
+  const historyStart = useLensInfo().data?.historyStart;
   // The header's account list names an account the response leaves unnamed.
   const listed = useAccounts(spec).data;
   const names = new Map((listed ?? []).filter((a) => a.name).map((a) => [a.account, a.name]));
@@ -102,7 +111,7 @@ export function Applications() {
         </label>
       </div>
       <QueryView q={q} what="applications">
-        {(d) => (d.collected ? <Body d={d} includeTooling={tooling} scope={account} names={names} /> : <Empty>No collection in this range.</Empty>)}
+        {(d) => (d.collected ? <Body d={d} includeTooling={tooling} scope={account} names={names} historyStart={historyStart} /> : <Empty>No collection in this range.</Empty>)}
       </QueryView>
     </>
   );

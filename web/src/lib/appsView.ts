@@ -4,6 +4,9 @@
 import type { AppHour, AppLibrary, Application, Applications, AppSpread, AppsLastDay, LibraryUse } from "../api/applications";
 import type { SortValue } from "./sort";
 import { fmtBytes, fmtInt, hm, hms } from "./format";
+import { whenText } from "./historyView";
+
+const HOUR = 3_600_000;
 
 /** The name the server gives connections without an application. */
 export const UNNAMED = "(unnamed)";
@@ -175,6 +178,18 @@ export function trafficNote(rows: Application[]): string | undefined {
   const most = Math.max(...withHours.map((a) => hoursSet(a.traffic)));
   if (most === 0) return `No traffic measured in the ${len} hours before this collection's hour.`;
   return `No application has all ${len} hours before this collection's hour measured; the most any has is ${most}. The hours without a measurement are gaps in the lines, not zeros.`;
+}
+
+/**
+ * The note when the history begins inside the 24 hours before the
+ * collection's hour: "The history begins at 13:47 UTC: the hours before
+ * it have no measurement." Undefined when the history covers them.
+ */
+export function appsHistoryText(historyStart: number | undefined, epochAt: number | undefined, now: number): string | undefined {
+  if (historyStart === undefined || epochAt === undefined) return undefined;
+  const windowStart = Math.floor(epochAt / HOUR) * HOUR - 24 * HOUR;
+  if (historyStart <= windowStart) return undefined;
+  return `The history begins at ${whenText(historyStart, now)}: the hours before it have no measurement.`;
 }
 
 /** The notice for a partial collection: the servers whose connections it does not know; at least one. */

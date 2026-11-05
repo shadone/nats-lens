@@ -335,3 +335,14 @@ describe("Applications", () => {
     expect(screen.getByRole("table")).toBeInTheDocument();
   });
 });
+
+describe("Applications with a short history", () => {
+  it("says the hours before the history have no measurement, with a link to Data history", async () => {
+    getApps.mockResolvedValue(prod());
+    const d = prod();
+    vi.mocked(requests.getLensInfo).mockResolvedValueOnce({ identityMode: "request", version: "dev", cluster: "c", collectIntervalMs: 30_000, retentionMs: 0, live: true, demo: true, historyStart: d.epochAt! - 3 * 3_600_000 });
+    renderApp(<Applications />, "/applications");
+    const note = await screen.findByText(/^The history begins at .*: the hours before it have no measurement\.$/);
+    expect(within(note).getByRole("link", { name: "Data history" })).toHaveAttribute("href", "/data-history");
+  });
+});
