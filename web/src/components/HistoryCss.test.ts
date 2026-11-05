@@ -45,3 +45,9 @@ describe("history.css at a narrow width", () => {
     expect(css).toMatch(/\.dh-box \.mb-t\{white-space:normal\}/);
   });
 });
+
+describe("history.css strip", () => {
+  it("keeps a short gap visible on a long range", () => {
+    expect(css).toMatch(/\.dh-seg\{[^}]*min-width:4px/);
+  });
+});
