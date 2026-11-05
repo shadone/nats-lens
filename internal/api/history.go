@@ -243,12 +243,12 @@ func historyGaps(f *HistoryFacts) (hatched, listed []historyGap) {
 	}
 	listed = slices.DeleteFunc(listed, func(g historyGap) bool { return !inRange(g) })
 	slices.SortStableFunc(listed, func(a, b historyGap) int { return a.start.Compare(b.start) })
-	// A gap still open at the range's end has no end, as the events after
-	// the range are not read.
+	// A gap still open at the range's end has no end and no collection
+	// after it, as what follows the range is not part of it.
 	for _, gs := range [][]historyGap{hatched, listed} {
 		for i := range gs {
-			if gs[i].end.After(f.End) {
-				gs[i].end = time.Time{}
+			if gs[i].end.IsZero() || gs[i].end.After(f.End) {
+				gs[i].end, gs[i].afterEpoch, gs[i].afterAt = time.Time{}, 0, time.Time{}
 			}
 		}
 	}
