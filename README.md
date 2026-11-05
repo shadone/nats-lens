@@ -424,6 +424,13 @@ To try a change to a check on a copy of a database: `natslens checks run -data-d
 | server-014 | JetStream store full soon | warning 14d, critical 3d | `js_storage` growth over 6h per process, the smaller of the two halves' slopes |
 | server-015 | Stale connections | info | `stale_connections`, 15m, per process |
 | server-016 | TLS certificate expires soon | warning 14d, critical 3d or expired | the six `*_tls_cert_not_after` columns of `server_stats`; a server that did not answer VARZ keeps its newest answer within 24h |
+| server-017 | Route missing | warning; critical without a route to any peer | `routes` of servers whose ROUTEZ answered against the peers of their cluster that answered, 3 epochs in a row |
+| server-018 | Bytes queued on a route or gateway | warning from 25% of `max_pending`, critical from 50% | `routes.pending_bytes` and `gateways.pending_bytes` in 3 epochs in a row; held down to half the level |
+| server-019 | Gateway missing | warning; critical when no server of the cluster has the gateway | outbound `gateways` against the remote clusters the cluster had a gateway to or from within 24h and that still connects in or has servers answering, 2 epochs in a row; restarting servers left out |
+| server-020 | Connections near max_connections | warning 80%, critical 95% | `connections` against the process's newest `max_connections`, 2 epochs in a row; held down to 90% of the level |
+| server-021 | JetStream API errors high | warning | `js_api_errors` growth within 15m, at least 100 and half of `js_api_total`'s growth, 2 epochs in a row, per process; suppressed by server-003 |
+| server-022 | Internal queue backlog | warning | `ipqueues.pending` at least 10000 in one queue in 3 epochs in a row; restarting servers left out |
+| server-023 | CPU saturated | warning | `cpu_percent` at least 90% of the smaller of `cores` and `gomaxprocs` in 80% of the epochs of 5m (at least 5), per process; a gap over three intervals ends a run, restarting servers left out |
 | system-001 | Check failed to run | warning, critical after 10 epochs of the same failure | the engine's own runs |
 | system-002 | No JetStream meta leader | critical | `meta_leader` of the clustered servers, or the leader seeing more peers offline than its quorum allows |
 | system-003 | JetStream meta leader changing often | warning above 4 in 15m | `meta.leader_elected` events and the leader per epoch; one hand-over within two intervals after each step-down not counted |
@@ -447,6 +454,13 @@ To try a change to a check on a copy of a database: `natslens checks run -data-d
 | stream-012 | Stream configuration differs from the inventory | warning | `inventory` against the leader's configuration |
 | stream-013 | Stream configuration changed | info | `stream.updated` events with the client, 1h |
 | stream-014 | Stream disappeared | critical with a delete event; info or warning while a server that held it is away | a stream reported within 1h (or since its server went away) that no server reports, not in the inventory |
+| stream-015 | Mirror lagging | warning | leader's `mirror_lag` above 10000 in every report of 5m without falling, or `mirror_active_ns` above 2m, or never heard from its origin in two reports; held down to 0.8; a mirror error is stream-017's |
+| stream-016 | Source lagging | warning | leader's `sources_max_lag` above 10000 in every report of 5m without falling; held down to 0.8 |
+| stream-017 | Mirror error | warning | leader's `mirror_error` in at least 2 of the last 4 epochs |
+| stream-018 | Single replica in a cluster | info | `stream_config.replicas` of 1 where 3 or more expected JetStream servers in its cluster and domain match its placement tags; not for replicas the inventory gives |
+| stream-019 | KV bucket history without a byte limit | info | `KV_` stream with history above 1 and no `max_bytes`, at least 5 messages per key and 100 MiB from the leader's `stream_stats`; held down to 0.8; not while stream-005 reports it |
+| stream-020 | Stream without a consumer | warning when a work-queue stream holds messages or an interest stream dropped some; info otherwise | leader's consumer count of 0 in every report of 10m, created before; not for a stream another stream mirrors or sources |
+| stream-021 | Many deleted messages inside a stream | info | leader's `num_deleted` at least 1000000 and half of the sequence range; held down to 0.8 |
 | consumer-001 | Consumer quorum lost | critical | as stream-001 |
 | consumer-002 | Consumer backlog growing | warning | leader's `num_pending` and delivered increases over 30m, growing in both halves |
 | consumer-003 | Ack pending near max_ack_pending | warning 80% with messages waiting ("pool saturated" at the limit); critical when at the limit with no acknowledgement or delivery for ack_wait | leader's `num_ack_pending`, `num_pending`, ack floor and delivered sequence |
