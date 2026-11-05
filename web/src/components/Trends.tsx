@@ -5,7 +5,9 @@
 // same OneLine, InOut and Band.
 import type { Point, Unit } from "../api/model";
 import type { TrendSeries } from "../api/overview";
+import { useChartGaps } from "../api/historyNotes";
 import { pickTrend, useTrends, type TrendQuery, type TrendSlice } from "../api/trendBatch";
+import type { ChartGaps } from "../lib/historyNotes";
 import { bucketLabel, type RangeSpec } from "../lib/timeRange";
 import { bandEdges, bandText, inOutText, lastValue, minMaxText, stack, total } from "../lib/trends";
 import { fmtValue } from "../lib/units";
@@ -17,6 +19,8 @@ export interface Frame {
   spec: RangeSpec;
   start: number;
   end: number;
+  /** The range's times without collections, hatched on every chart. */
+  gaps?: ChartGaps;
 }
 
 function state(...qs: TrendSlice[]) {
@@ -42,6 +46,7 @@ export function OneLine({ f, q, title, label }: { f: Frame; q: TrendSlice; title
       summary={minMaxText(s, unit)}
       start={f.start}
       end={f.end}
+      gaps={f.gaps}
       stepMs={s?.stepMs}
       layers={[{ kind: "line", label, style: { tone: "accent" }, points: pts(s) }]}
       {...state(q)}
@@ -58,6 +63,7 @@ function SlowConsumers({ f, q }: { f: Frame; q: TrendSlice }) {
       now={sum === undefined ? undefined : `${fmtValue(sum, "count")} in range`}
       start={f.start}
       end={f.end}
+      gaps={f.gaps}
       stepMs={s?.stepMs}
       layers={[{ kind: "bars", label: s?.stepMs ? `events per ${bucketLabel(s.stepMs)}` : "events", style: { tone: "warn" }, points: pts(s) }]}
       {...state(q)}
@@ -75,6 +81,7 @@ export function InOut({ f, title, qi, qo }: { f: Frame; title: string; qi: Trend
       summary={Number.isFinite(max) ? `max ${fmtValue(max, unit)}` : undefined}
       start={f.start}
       end={f.end}
+      gaps={f.gaps}
       stepMs={qi.data?.stepMs ?? qo.data?.stepMs}
       layers={[
         { kind: "line", label: "in", style: { tone: "accent" }, points: pts(qi.data) },
@@ -101,6 +108,7 @@ export function Band({ f, q, title, floor = "zero" }: { f: Frame; q: TrendSlice;
       summary={minMaxText(s, unit)}
       start={f.start}
       end={f.end}
+      gaps={f.gaps}
       stepMs={s?.stepMs}
       layers={layers}
       floor={floor}
@@ -121,6 +129,7 @@ function Assets({ f, qr, qs }: { f: Frame; qr: TrendSlice; qs: TrendSlice }) {
       summary={top === undefined ? undefined : `max ${fmtValue(top, "count")} in all`}
       start={f.start}
       end={f.end}
+      gaps={f.gaps}
       stepMs={qr.data?.stepMs}
       layers={[
         { kind: "band", label: "replicated", style: { tone: "accent", edge: true }, points: st.lower },
@@ -147,7 +156,7 @@ export const TREND_QUERIES: TrendQuery[] = [
 ].map((metric) => ({ metric }));
 
 export function Trends({ spec, start, end }: Frame) {
-  const f = { spec, start, end };
+  const f = { spec, start, end, gaps: useChartGaps(spec) };
   const b = useTrends(spec, TREND_QUERIES);
   useReportStale(b);
   const t = (metric: string) => pickTrend(b, TREND_QUERIES, { metric });

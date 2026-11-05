@@ -1,5 +1,6 @@
 // The five metric boxes of a server's page: CPU, memory, connections,
 // messages in and out, slow consumers.
+import { useChartGaps } from "../api/historyNotes";
 import type { Level } from "../api/model";
 import { useBandSeries, type ServerInfo } from "../api/servers";
 import { fmtBytes, fmtCount, fmtInt } from "../lib/format";
@@ -47,6 +48,7 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
   const outNow = down ? null : (newest(msgOut.series?.points) ?? null);
   const slowNow = down ? null : (newest(slow.series?.points) ?? null);
   const slowRange = s.slowConsumersInRange;
+  const gaps = useChartGaps(spec);
   return (
     <div className="sd-tiles">
       <MetricBox
@@ -60,6 +62,7 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
         note={downNote}
         start={start}
         end={end}
+        gaps={gaps}
       />
       <MetricBox
         title="Memory"
@@ -70,6 +73,7 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
         note={downNote}
         start={start}
         end={end}
+        gaps={gaps}
       />
       <MetricBox
         title="Connections"
@@ -82,6 +86,7 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
         note={downNote ?? (limit !== undefined ? `limit ${fmtInt(limit)}` : undefined)}
         start={start}
         end={end}
+        gaps={gaps}
       />
       <MetricBox
         title="Messages"
@@ -95,6 +100,7 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
         note={downNote ?? (outNow !== null ? `out ${rate(outNow)}, dashed` : undefined)}
         start={start}
         end={end}
+        gaps={gaps}
       />
       <MetricBox
         title="Slow consumers"
@@ -107,6 +113,7 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
         note={downNote ?? (slowRange === undefined ? undefined : slowRange === 0 ? "none in range" : "per bucket on the chart")}
         start={start}
         end={end}
+        gaps={gaps}
       />
     </div>
   );
