@@ -198,6 +198,7 @@ These server checks are not built. Each line says what it would detect and what 
 - **Connections near `max_connections`.** A server holds most of the connections it allows. Needs: the open connections and `max_connections` from VARZ, stored today.
 - **JetStream API error rate.** A server's share of JetStream API calls that fail is high. Needs: the API totals and errors from JSZ, stored today per server and per account.
 - **Internal queue backlog.** A server's internal queues hold a growing backlog. Needs: IPQUEUESZ, stored today.
+- **JetStream API requests queued.** A server holds many JetStream API requests that wait to be processed, as JSZ's meta `pending` counts them (the routed API requests and info requests queued on the server, not meta group operations). Needs: `meta_pending` from JSZ, stored today per server and collection.
 - **CPU saturated.** A server's CPU stays near the number of cores it may use. Needs: CPU, cores and `GOMAXPROCS` from VARZ, stored today.
 - **OCSP peer rejected.** A server rejected a peer's certificate by OCSP. Needs: the `$SYS.SERVER.*.OCSP.PEER.CONN.REJECT` events, which nats-lens does not subscribe to yet.
 
