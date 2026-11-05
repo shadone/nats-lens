@@ -21,7 +21,7 @@ const target: AcceptTarget = {
 
 const NOW = Date.parse("2026-10-21T14:30:00Z");
 const DAY = 86_400_000;
-const form: AcceptForm = { reason: "Order history is kept for audits", review: "3mo", reviewDate: "", name: "denis" };
+const form: AcceptForm = { reason: "Order history is kept for audits", review: "3mo", reviewDate: "", name: "alice" };
 
 describe("reviewDateOf", () => {
   it("adds calendar months, a year of 364 days, inside the server's 365,, or the end of a chosen UTC day", () => {
@@ -82,13 +82,13 @@ describe("AcceptDialog", () => {
     expect(screen.getByLabelText("Review date")).toHaveValue("3mo");
     expect(screen.getByText(/Between a day and 364 days from now; dates are UTC\./)).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText("Reason"), "Order history is kept for audits");
-    await userEvent.type(screen.getByLabelText("Your name"), "denis");
+    await userEvent.type(screen.getByLabelText("Your name"), "alice");
     fireEvent.change(screen.getByLabelText("Review date"), { target: { value: "1y" } });
     const before = Date.now();
     await userEvent.click(screen.getByRole("button", { name: "Accept as by design" }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     const req = muteFinding.mock.calls[0][1];
-    expect(req).toMatchObject({ checkCode: "stream-005", reason: "Order history is kept for audits", mutedBy: "denis", accept: true });
+    expect(req).toMatchObject({ checkCode: "stream-005", reason: "Order history is kept for audits", mutedBy: "alice", accept: true });
     expect(req.entity?.key).toBe("APP/order-archive");
     expect(req.expiresAt - before).toBeGreaterThanOrEqual(364 * DAY);
     expect(req.expiresAt - before).toBeLessThan(364 * DAY + 60_000);
@@ -121,7 +121,7 @@ describe("AcceptDialog", () => {
     const onClose = vi.fn();
     renderApp(<AcceptDialog target={target} onClose={onClose} />);
     await userEvent.type(screen.getByLabelText("Reason"), "kept");
-    await userEvent.type(screen.getByLabelText("Your name"), "denis");
+    await userEvent.type(screen.getByLabelText("Your name"), "alice");
     await userEvent.click(screen.getByRole("button", { name: "Accept as by design" }));
     expect(await screen.findByText(/365 days ahead/)).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();

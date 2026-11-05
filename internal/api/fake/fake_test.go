@@ -88,7 +88,7 @@ func TestListFindingsFiltersAndPages(t *testing.T) {
 	all := list(&v1.ListFindingsRequest{IncludeMuted: true})
 	// Muted last: stream-006 under its mute, stream-005 on
 	// KV_customer-config under its acceptance.
-	if all.GetTotalCount() != 8 || all.GetFindings()[6].GetMute().GetMutedBy() != "denis" || !all.GetFindings()[7].GetMute().GetAccepted() {
+	if all.GetTotalCount() != 8 || all.GetFindings()[6].GetMute().GetMutedBy() != "alice" || !all.GetFindings()[7].GetMute().GetAccepted() {
 		t.Fatalf("with muted: %v", all.GetFindings())
 	}
 	res := list(&v1.ListFindingsRequest{States: []v1.FindingState{v1.FindingState_FINDING_STATE_RESOLVED}})
