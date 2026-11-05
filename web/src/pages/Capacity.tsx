@@ -26,7 +26,7 @@ export function Capacity() {
           {CAPACITY_SUBTITLE}{" "}
           {d?.collected && d.epochAt !== undefined ? (
             <>
-              {headerLine(d, missing)}, {missing && !hasRate(d) && <><HistoryLink>{missing}</HistoryLink>, </>}in the collection of <span className="mono">{hms(d.epochAt)} UTC</span>.
+              {!hasRate(d) && !missing ? <HistoryLink>{headerLine(d)}</HistoryLink> : headerLine(d, missing)}, {missing && !hasRate(d) && <><HistoryLink>{missing}</HistoryLink>, </>}in the collection of <span className="mono">{hms(d.epochAt)} UTC</span>.
             </>
           ) : (
             "In the newest collection of the range."
