@@ -9,11 +9,10 @@ import type { HistoryGap } from "../api/history";
 
 /** Share the page key for normal charts; wider fixed windows share a bounded
  * domain key (seven-day live charts use the stable 7d key, never a ticking key). */
-function chartRange(spec: RangeSpec, start: number, end: number, pageEnd: number): RangeSpec {
+function chartRange(spec: RangeSpec, start: number, end: number): RangeSpec {
   if (spec.kind === "fixed") {
     return start >= spec.from && end <= spec.to ? spec : { kind: "fixed", from: start, to: end };
   }
-  if (Math.abs(end - pageEnd) > 1000) return { kind: "fixed", from: start, to: end };
   const span = Math.max(end - start, presetMs(spec.preset));
   const preset = PRESETS.find((p) => p.ms >= span);
   return preset ? { kind: "live", preset: preset.id } : { kind: "fixed", from: start, to: end };
@@ -22,7 +21,7 @@ function chartRange(spec: RangeSpec, start: number, end: number, pageEnd: number
 function QueriedGaps({ start, end, width, height }: Frame) {
   const { spec } = useTimeRange();
   const h = usePageHistory();
-  const q = useDataHistory(chartRange(spec, start, end, h?.end ?? end));
+  const q = useDataHistory(chartRange(spec, start, end));
   useReportStale(q);
   const d = q.data;
   return <>
