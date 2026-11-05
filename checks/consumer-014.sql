@@ -34,11 +34,11 @@ description: >-
   Otherwise, and when the message after the ack floor has left the stream, the age is a lower bound and reads "at
   least": the newest delivered message's while messages are unacknowledged, else the time since the backlog began
   (the earliest collection with the same delivered sequence in which messages waited, found among every 64th
-  collection and then the 64 before; a backlog that emptied by deletion or age and filled again without a
-  delivery counts as one). In that case a stuck
-  unacknowledged message of a consumer that keeps delivering newer ones is not seen. History before the stored
-  collections, or older than the stream's own max_age and the lookback, is not read, so a message that old reads
-  younger; an age never reads older unless sequences were deleted after the consumer's position while it waited.
+  collection and then the 64 before, after the newest collection in which no message waited). In that case a
+  stuck unacknowledged message of a consumer that keeps delivering newer ones is not seen. History before the
+  stored collections, or older than the stream's own max_age and the lookback, is not read, so a message that
+  old reads younger. An age reads older only when sequences after the consumer's position were deleted, or when
+  messages that waited left the stream (deleted or aged out) while newer ones kept the backlog from emptying.
   A firing finding stays until the message has used less than resolve_ratio of max_age, or the consumer catches
   up. Ephemeral and ordered consumers are left out, and so is a consumer without a leader report, or whose stream
   has none, in this collection, or with such reports over less than half the lookback.
@@ -161,15 +161,14 @@ reached AS (
 ),
 -- The backlog's start, where the next sequence does not date the oldest
 -- unread message: the earliest leader row of the same creation with the
--- delivered sequence of the judged collection and messages waiting. As
--- nothing was delivered since, a message that waited then still waits, so
--- any such row bounds the publication; the earliest found is used. It is
--- searched like the dating of a sequence: every 64th collection first, then
--- the 64 collections before the one found (or before the collection
--- judged, when none was), so the cost per consumer does not grow with its
--- history. A row the search skips can only make the start later and the age
--- younger. A backlog that emptied without a delivery, its messages deleted
--- or aged out, and filled again counts as one.
+-- delivered sequence of the judged collection and messages waiting, after
+-- the newest collection in which no message waited. As nothing was
+-- delivered since, a message that waited then still waits, so any such row
+-- bounds the publication; the earliest found is used. It is searched like
+-- the dating of a sequence: every 64th collection first, then the 64
+-- collections before the one found (or before the collection judged, when
+-- none was), so the cost per consumer does not grow with its history. A row
+-- the search skips can only make the start later and the age younger.
 bpts AS (
     SELECT account, stream, consumer, lo, created, epoch, delivered_stream_seq AS d
     FROM target WHERE backlog_start
@@ -183,14 +182,44 @@ bcoarse AS (
      AND z.delivered_stream_seq = p.d AND z.num_pending > 0
     GROUP BY p.account, p.stream, p.consumer, p.lo, p.created, p.epoch, p.d
 ),
-backlog AS (
-    SELECT c.account, c.stream, c.consumer, c.epoch, min(z.epoch) AS start_epoch
+bfirst AS (
+    SELECT c.account, c.stream, c.consumer, c.epoch, any_value(c.created) AS created, any_value(c.d) AS d,
+        min(z.epoch) AS start_epoch
     FROM bcoarse c, (VALUES (0), (1)) b(k)
     JOIN consumer_leader_stats z ON z.account = c.account AND z.stream = c.stream AND z.consumer = c.consumer
      AND z.epoch // 64 = c.hi // 64 - b.k
     WHERE z.epoch > c.hi - 64 AND z.epoch <= c.hi AND z.epoch >= c.lo AND z.created IS NOT DISTINCT FROM c.created
       AND z.delivered_stream_seq = c.d AND z.num_pending > 0
     GROUP BY c.account, c.stream, c.consumer, c.epoch
+),
+-- The newest collection after that start in which the same consumer had no
+-- message waiting: the backlog emptied there, its messages deleted or aged
+-- out, and the one waiting now came later.
+bempty AS (
+    SELECT f.account, f.stream, f.consumer, f.epoch, max(z.epoch) AS empty
+    FROM bfirst f JOIN consumer_leader_stats z
+      ON z.account = f.account AND z.stream = f.stream AND z.consumer = f.consumer AND z.num_pending = 0
+     AND z.created IS NOT DISTINCT FROM f.created AND z.epoch > f.start_epoch AND z.epoch < f.epoch
+    WHERE z.epoch > (SELECT min(start_epoch) FROM bfirst)
+    GROUP BY f.account, f.stream, f.consumer, f.epoch
+),
+-- The first row with messages waiting after the backlog emptied, within the
+-- three blocks of 64 collections from it; a consumer whose leader did not
+-- report in that span is not judged.
+brefill AS (
+    SELECT g.account, g.stream, g.consumer, g.epoch, min(z.epoch) AS start_epoch
+    FROM bempty g JOIN bfirst f USING (account, stream, consumer, epoch), (VALUES (0), (1), (2)) b(k)
+    JOIN consumer_leader_stats z ON z.account = g.account AND z.stream = g.stream AND z.consumer = g.consumer
+     AND z.epoch // 64 = g.empty // 64 + b.k
+    WHERE z.epoch > g.empty AND z.epoch <= g.epoch AND z.created IS NOT DISTINCT FROM f.created
+      AND z.delivered_stream_seq = f.d AND z.num_pending > 0
+    GROUP BY g.account, g.stream, g.consumer, g.epoch
+),
+backlog AS (
+    SELECT f.account, f.stream, f.consumer, f.epoch,
+        CASE WHEN g.empty IS NULL THEN f.start_epoch ELSE r.start_epoch END AS start_epoch
+    FROM bfirst f LEFT JOIN bempty g USING (account, stream, consumer, epoch)
+    LEFT JOIN brefill r USING (account, stream, consumer, epoch)
 ),
 bounded AS (
     SELECT t.*, CASE
