@@ -135,3 +135,50 @@ func TestSweepNotificationsAge(t *testing.T) {
 		t.Errorf("channel removed: %+v", res)
 	}
 }
+
+// A reconcile reads the mutes in force at the epoch and those that ended
+// since the oldest channel's last reconcile, not the mutes that ended
+// before it.
+func TestNotifyInputReadsRecentMutes(t *testing.T) {
+	ctx := context.Background()
+	s := openMem(t)
+	last, at := t0, t0.Add(time.Minute)
+	addEpoch(t, s, 1, last)
+	addEpoch(t, s, 2, at)
+	if err := s.ApplyNotify(ctx, NotifyChange{Channels: []NotifyChannel{{Name: "ops", BaselinedAt: last, BaselinedEpoch: 1,
+		ReconciledAt: last, ReconciledEpoch: 1}}}); err != nil {
+		t.Fatal(err)
+	}
+	mk := func(reason string, created, expires time.Time) Mute {
+		t.Helper()
+		m, err := s.CreateMute(ctx, Mute{CheckCode: "stream-001", Reason: reason, MutedBy: "alice@example.com", CreatedAt: created, ExpiresAt: expires})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return m
+	}
+	mk("expired long ago", last.Add(-48*time.Hour), last.Add(-24*time.Hour))
+	lifted := mk("lifted long ago", last.Add(-48*time.Hour), at.Add(time.Hour))
+	if _, err := s.UnmuteMute(ctx, lifted.ID, "bob@example.com", last.Add(-time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	mk("expired since the last reconcile", last.Add(-time.Hour), last.Add(30*time.Second))
+	ended := mk("lifted since the last reconcile", last.Add(-time.Hour), at.Add(time.Hour))
+	if _, err := s.UnmuteMute(ctx, ended.ID, "bob@example.com", last.Add(10*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	mk("in force", last.Add(-time.Hour), at.Add(time.Hour))
+	mk("created after the epoch", at.Add(time.Second), at.Add(time.Hour))
+	in, err := s.NotifyInput(ctx, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, m := range in.Mutes {
+		got = append(got, m.Reason)
+	}
+	want := []string{"in force", "lifted since the last reconcile", "expired since the last reconcile"}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("mutes read %q, want %q", got, want)
+	}
+}

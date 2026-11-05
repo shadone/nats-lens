@@ -88,7 +88,9 @@ type NotifyInput struct {
 	At    time.Time
 	// Findings by ID.
 	Findings map[string]Finding
-	// Mutes are every mute, newest first, ended ones included.
+	// Mutes are, newest first, the mutes in force at At and those that
+	// ended after the oldest channel's ReconciledAt and by At: all a
+	// reconcile reads.
 	Mutes []Mute
 	// Channels by name.
 	Channels map[string]NotifyChannel
@@ -126,7 +128,10 @@ WHERE state = 'firing' OR flapping OR id IN (SELECT finding_id FROM notify_state
 	if err := rows.Err(); err != nil {
 		return in, err
 	}
-	all, _, err := s.ListMutes(ctx, at, true, 1<<30, 0)
+	if in.Channels, err = s.NotifyChannels(ctx); err != nil {
+		return in, err
+	}
+	all, err := s.notifyMutes(ctx, at, mutesSince(at, in.Channels))
 	if err != nil {
 		return in, fmt.Errorf("notify mutes: %w", err)
 	}
@@ -140,9 +145,6 @@ WHERE state = 'firing' OR flapping OR id IN (SELECT finding_id FROM notify_state
 	for _, f := range fs {
 		f.Mute = muteFor(active, f)
 		in.Findings[f.ID] = f
-	}
-	if in.Channels, err = s.NotifyChannels(ctx); err != nil {
-		return in, err
 	}
 	srows, err := s.db.QueryContext(ctx, `SELECT channel, finding_id, since_epoch, severity, state, sent_at, epoch FROM notify_state`)
 	if err != nil {
@@ -491,4 +493,41 @@ func nextIDs(ctx context.Context, tx *sql.Tx, seq string, n int) ([]int64, error
 	}
 	slices.Sort(out)
 	return out, nil
+}
+
+// mutesSince is the oldest time a reconcile at at asks whether a mute
+// ended after: the earliest ReconciledAt of the channels, at when none is
+// older.
+func mutesSince(at time.Time, chans map[string]NotifyChannel) time.Time {
+	since := at
+	for _, c := range chans {
+		if c.ReconciledAt.Before(since) {
+			since = c.ReconciledAt
+		}
+	}
+	return since
+}
+
+// notifyMutes returns, newest first, the mutes created by at that still
+// applied after since: those in force at at, and those that ended in
+// (since, at]. Older mutes are history no reconcile reads, and the table
+// is never swept.
+func (s *Store) notifyMutes(ctx context.Context, at, since time.Time) ([]Mute, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT `+muteCols+` FROM mutes
+WHERE created_at <= make_timestamp(?::BIGINT) AND expires_at > make_timestamp(?::BIGINT)
+  AND (unmuted_at IS NULL OR unmuted_at > make_timestamp(?::BIGINT))
+ORDER BY id DESC`, at.UnixMicro(), since.UnixMicro(), since.UnixMicro())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Mute
+	for rows.Next() {
+		m, err := scanMute(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
 }
