@@ -18,13 +18,20 @@ thresholds:
     default: "0.9"
     unit: ratio
     description: A firing finding stays until the waiting pull requests fall below this share of max_waiting.
+  - name: min_max_waiting
+    default: "2"
+    unit: count
+    description: Consumers whose max_waiting is below this are left out; with 1, one worker's fetch fills it.
 description: >-
   A pull consumer holds as many waiting pull requests as max_waiting allows (num_waiting, leader's view, which
-  nats-server counts after it drops expired requests), in each of the last min_epochs collections. While the
+  nats-server counts after it drops expired requests) while messages wait for it (num_pending above 0), in each
+  of the last min_epochs collections. While the
   queue is full the server answers every new fetch with "409 Exceeded MaxWaiting", or drops it silently for a
   client that asked for heartbeats, so a worker that starts or reconnects gets nothing. A firing finding stays
-  until the count falls below resolve_ratio of max_waiting, so a queue that hovers at the limit does not flap.
-  Paused consumers are left out, as their requests wait by design.
+  until the count falls below resolve_ratio of max_waiting, so a queue that hovers at the limit does not flap,
+  or until no message waits. With nothing waiting a full queue is no finding: N idle workers that each hold a
+  long fetch on max_waiting N are the usual pull pattern, and a refused fetch would have got nothing. Consumers
+  with max_waiting below min_max_waiting and paused consumers, whose requests wait by design, are left out.
 remediation: >-
   Each idle fetch with an expiry holds a slot until it expires, so the usual causes are more workers than
   max_waiting, or clients that fetch with long expiries in many goroutines. Count the workers of the service
@@ -32,8 +39,8 @@ remediation: >-
   waiting requests. Use fewer concurrent fetches per worker or shorter expiries. nats-server cannot change
   max_waiting on an existing consumer: a larger limit means a new durable (`nats consumer add <stream>
   <consumer> --pull --max-waiting <n>`), created with deliver_policy by_start_time so that it does not replay the
-  stream.
-related_config: [max_waiting, warn_ratio, resolve_ratio]
+  stream. If the queue is full by design, mute the finding with that reason.
+related_config: [max_waiting, warn_ratio, resolve_ratio, min_max_waiting]
 value_name: waiting pull requests share of max_waiting
 value_basis: num_waiting divided by max_waiting, leader's view
 */
@@ -46,6 +53,7 @@ cfg AS (
     FROM consumer_config k
     WHERE k.first_epoch <= getvariable('epoch') AND k.last_epoch >= getvariable('epoch')
       AND coalesce(k.deliver_subject, '') = '' AND k.max_waiting > 0
+      AND k.max_waiting >= getvariable('min_max_waiting')
 ),
 cur AS (
     SELECT c.account, c.stream, c.consumer, c.created, c.num_waiting, c.num_pending, k.max_waiting, s.server_name
@@ -53,16 +61,18 @@ cur AS (
     JOIN cfg k USING (server_id, account, stream, consumer)
     JOIN servers s USING (server_id)
     WHERE c.epoch = getvariable('epoch') AND c.num_waiting IS NOT NULL AND NOT coalesce(c.paused, false)
+      AND c.num_pending > 0
 ),
 -- Collections of the last min_epochs in which the same consumer (same
--- creation time) was at warn_ratio of the limit on its leader.
+-- creation time) was at warn_ratio of the limit on its leader with messages
+-- waiting.
 full_runs AS (
     SELECT c.account, c.stream, c.consumer, count(*) AS n
     FROM cur c JOIN consumer_leader_stats x
       ON x.account = c.account AND x.stream = c.stream AND x.consumer = c.consumer
      AND x.created IS NOT DISTINCT FROM c.created
     WHERE x.epoch IN (SELECT epoch FROM last)
-      AND x.num_waiting >= getvariable('warn_ratio') * c.max_waiting
+      AND x.num_waiting >= getvariable('warn_ratio') * c.max_waiting AND x.num_pending > 0
     GROUP BY c.account, c.stream, c.consumer
 ),
 firing AS (
@@ -71,10 +81,12 @@ firing AS (
 )
 SELECT
     c.account || '/' || c.stream || '/' || c.consumer AS entity_key,
-    c.num_waiting || ' pull requests waiting of max_waiting ' || c.max_waiting
+    c.num_waiting || CASE WHEN c.num_waiting = 1 THEN ' pull request' ELSE ' pull requests' END
+        || ' waiting of max_waiting ' || c.max_waiting
         || CASE WHEN c.num_waiting >= c.max_waiting THEN ': new fetches are refused'
             ELSE ', close to the limit' END
-        || '; ' || coalesce(c.num_pending, 0) || ' messages waiting.' AS detail,
+        || '; ' || c.num_pending || CASE WHEN c.num_pending = 1 THEN ' message' ELSE ' messages' END
+        || ' waiting.' AS detail,
     round(c.num_waiting / c.max_waiting, 4) AS value,
     json_object('max_waiting', CAST(c.max_waiting AS VARCHAR)) AS related_config,
     c.server_name AS related_source
