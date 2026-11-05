@@ -33,7 +33,9 @@ description: >-
   consumer's position (a KV overwrite, a purge by subject, a work queue) can be far older than its next message.
   Otherwise, and when the message after the ack floor has left the stream, the age is a lower bound and reads "at
   least": the newest delivered message's while messages are unacknowledged, else the time since the backlog began
-  (the first collection since the delivered sequence last moved in which messages waited). In that case a stuck
+  (the earliest collection with the same delivered sequence in which messages waited, found among every 64th
+  collection and then the 64 before; a backlog that emptied by deletion or age and filled again without a
+  delivery counts as one). In that case a stuck
   unacknowledged message of a consumer that keeps delivering newer ones is not seen. History before the stored
   collections, or older than the stream's own max_age and the lookback, is not read, so a message that old reads
   younger; an age never reads older unless sequences were deleted after the consumer's position while it waited.
@@ -157,44 +159,38 @@ reached AS (
     WHERE s.is_leader AND s.epoch > c.hi - 64 AND s.epoch <= c.hi AND s.last_seq >= c.seq AND s.epoch >= c.lo
     GROUP BY c.account, c.stream, c.epoch, c.seq
 ),
--- The backlog's start for a filtered consumer with nothing unacknowledged:
--- the first leader row after the newest one with no backlog, another
--- delivered sequence or another creation. Its oldest unread message
--- already waited then. Each consumer's history in the stream's window is
--- read once for both judged collections; a backlog older than the window
--- starts at its first row.
+-- The backlog's start, where the next sequence does not date the oldest
+-- unread message: the earliest leader row of the same creation with the
+-- delivered sequence of the judged collection and messages waiting. As
+-- nothing was delivered since, a message that waited then still waits, so
+-- any such row bounds the publication; the earliest found is used. It is
+-- searched like the dating of a sequence: every 64th collection first, then
+-- the 64 collections before the one found (or before the collection
+-- judged, when none was), so the cost per consumer does not grow with its
+-- history. A row the search skips can only make the start later and the age
+-- younger. A backlog that emptied without a delivery, its messages deleted
+-- or aged out, and filled again counts as one.
 bpts AS (
-    SELECT account, stream, consumer, any_value(lo) AS lo, any_value(created) AS created,
-        max(epoch) FILTER (WHERE is_now) AS e_now, any_value(delivered_stream_seq) FILTER (WHERE is_now) AS d_now,
-        max(epoch) FILTER (WHERE NOT is_now) AS e_then, any_value(delivered_stream_seq) FILTER (WHERE NOT is_now) AS d_then
+    SELECT account, stream, consumer, lo, created, epoch, delivered_stream_seq AS d
     FROM target WHERE backlog_start
-    GROUP BY account, stream, consumer
 ),
-bhist AS (
-    SELECT b.*, z.epoch AS ze, coalesce(z.num_pending, 0) = 0 OR z.created IS DISTINCT FROM b.created AS gone,
-        z.delivered_stream_seq AS zd
-    FROM bpts b JOIN consumer_leader_stats z
-      ON z.account = b.account AND z.stream = b.stream AND z.consumer = b.consumer AND z.epoch >= b.lo
-    WHERE z.epoch >= (SELECT coalesce(min(lo), 0) FROM bpts) AND z.epoch <= getvariable('epoch')
-),
-breaks AS (
-    SELECT account, stream, consumer, any_value(e_now) AS e_now, any_value(e_then) AS e_then,
-        max(ze) FILTER (WHERE ze < e_now AND (gone OR zd IS DISTINCT FROM d_now)) AS brk_now,
-        max(ze) FILTER (WHERE ze < e_then AND (gone OR zd IS DISTINCT FROM d_then)) AS brk_then
-    FROM bhist GROUP BY account, stream, consumer
-),
-starts AS (
-    SELECT h.account, h.stream, h.consumer,
-        min(h.ze) FILTER (WHERE h.ze > coalesce(b.brk_now, 0) AND h.ze <= b.e_now) AS s_now,
-        min(h.ze) FILTER (WHERE h.ze > coalesce(b.brk_then, 0) AND h.ze <= b.e_then) AS s_then,
-        any_value(b.e_now) AS e_now, any_value(b.e_then) AS e_then
-    FROM bhist h JOIN breaks b USING (account, stream, consumer)
-    GROUP BY h.account, h.stream, h.consumer
+bcoarse AS (
+    SELECT p.account, p.stream, p.consumer, p.lo, p.created, p.epoch, p.d,
+        coalesce(min(z.epoch), any_value(p.epoch)) AS hi
+    FROM bpts p LEFT JOIN consumer_leader_stats z
+      ON z.account = p.account AND z.stream = p.stream AND z.consumer = p.consumer AND z.epoch % 64 = 0
+     AND z.epoch >= p.lo AND z.epoch <= p.epoch AND z.created IS NOT DISTINCT FROM p.created
+     AND z.delivered_stream_seq = p.d AND z.num_pending > 0
+    GROUP BY p.account, p.stream, p.consumer, p.lo, p.created, p.epoch, p.d
 ),
 backlog AS (
-    SELECT account, stream, consumer, e_now AS epoch, s_now AS start_epoch FROM starts WHERE e_now IS NOT NULL
-    UNION ALL
-    SELECT account, stream, consumer, e_then, s_then FROM starts WHERE e_then IS NOT NULL
+    SELECT c.account, c.stream, c.consumer, c.epoch, min(z.epoch) AS start_epoch
+    FROM bcoarse c, (VALUES (0), (1)) b(k)
+    JOIN consumer_leader_stats z ON z.account = c.account AND z.stream = c.stream AND z.consumer = c.consumer
+     AND z.epoch // 64 = c.hi // 64 - b.k
+    WHERE z.epoch > c.hi - 64 AND z.epoch <= c.hi AND z.epoch >= c.lo AND z.created IS NOT DISTINCT FROM c.created
+      AND z.delivered_stream_seq = c.d AND z.num_pending > 0
+    GROUP BY c.account, c.stream, c.consumer, c.epoch
 ),
 bounded AS (
     SELECT t.*, CASE
