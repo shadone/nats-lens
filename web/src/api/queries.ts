@@ -244,6 +244,9 @@ export function useDataHistory(spec: RangeSpec) {
     queryKey: ["data-history", sys, rangeKey(spec)],
     queryFn: ({ signal }) => api.getDataHistory(sys, spec, signal),
     refetchInterval: refetch(spec),
+    // Later chart mounts reuse the settled answer until the next live refresh.
+    staleTime: spec.kind === "live" ? LIVE_REFRESH_MS : Infinity,
+
     // The previous range's answer stands in while the next loads, never another system's.
     placeholderData: keepSameSystem(sys),
   });

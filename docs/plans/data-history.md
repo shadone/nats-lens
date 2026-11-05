@@ -18,7 +18,7 @@ The three open questions above are answered as recommended by the session that b
 |---|---|
 | T1 API, store and demo | built on `feat/data-history-api`, not yet reviewed; see "Where T1 departed from this plan" |
 | T2 The Data history page | built on `feat/data-history-page`, not yet reviewed; see "Where T2 departed from this plan" |
-| T3 History notes on the other pages | planned |
+| T3 History notes on the other pages | implemented on `t3/history-notes-other-pages`; parent review pending |
 | T4 Feature docs and audit | planned |
 
 ## Rules for every step
@@ -155,6 +155,17 @@ What `docs/features/data-history.md` plans outside the page, each linking to Dat
 - **Links.** "not enough history" and similar words on Capacity, Accounts (a 24-hour window cut by the history start), Applications (hours before the history), Replay ("A is before the history starts") and the finding page link to `/data-history` with the global query.
 - **Files:** `App.tsx`, `components/HistoryNote.tsx` (new), `components/TrendChart.tsx`, `charts/SeriesChart.tsx`, `components/OverviewTiles.tsx`, `pages/Overview.tsx`, `components/CauseGroups.tsx`, `pages/Findings.tsx`, `pages/FindingDetail.tsx` (the link only), `pages/Streams.tsx`, `lib/capacityView.ts`, `components/CapacityServers.tsx`, `lib/accountsView.ts`, `lib/replayView.ts`, `lib/historyView.ts`, `styles/history.css`. Tests for each note's words and its absence when the history covers the range; a chart test with a gap and with the time before history.
 - **Browser check:** `example-staging` on the Overview, Capacity and a server page at 360 and 1280 px: the note, the hatched 3 minutes and the time before history are drawn and named.
+
+### T3 implementation notes
+
+- Prerequisite: first merged D2 tip `f06dd13d3799d92778f31cf3ec386ca6a55a700d`, then its reviewed tip `91484430ad3a71197f2fae4c3b48a4713efd60e1`, keeping its commits separate. The parent integrated that D2 tip into `develop` at `0f064807ad97d85f6279fd5f52dc7fbc2b1f58fc`. Merge later D2 fixes before integration if any appear.
+- The layout reads the shell's cached LensInfo for the note and shares its history facts with the page. Mounted charts subscribe to one system/range history cache; later mounts reuse its settled answer until the 30-second live refresh. Pages without charts make no hatching request.
+- Trend charts and series sparklines reuse T2's gap labels and clipping. Very short gaps have a minimum visible mark of 1.5 chart units, clipped at the axis end; this visual minimum is proposed, not yet confirmed. Only times without collections and before-history are hatched, with native tooltips and accessible names. Overview and the seven-day stream series keep their requested axes. A chart wider than the page query extends its before-history hatch from LensInfo, without an extra call.
+- Growth wording is shared by Capacity's header, cards, and stream rows, Streams tooltips, and Overview storage. Short live ranges ask for a six-hour range; fixed ranges name their available span instead of promising a countdown. This wording is proposed, not yet confirmed.
+- Findings rows and single/grouped cause cards reuse the finding-detail history-start rule. Missing-history links preserve the global query, including the originating account even though Data history itself is system-wide; this link behavior is proposed, not yet confirmed.
+- Browser checks: fixed demo `example-staging`, Overview, Capacity, and `nats-0` at 360 and 1280 px have no horizontal overflow. Overview/server hatches name the three-minute restart and before-history interval; Capacity has no charts and makes no hatching request. T3 preview opened, but its snapshot timed out twice; the documented agent-browser fallback supplied screenshots and accessibility trees.
+- Validation after merging reviewed D2: `npx tsc --noEmit`, `npm test` (121 files, 1,247 passed, 24 skipped), and `npm run build` passed. The feature-doc audit reports no errors and only the expected planned-status warnings on mobile and notifications. Regression tests failed with the relevant implementation removed and passed when restored. Final production-demo browser checks made one shared history request on Overview/server and none on Capacity, at both widths. Parent read-only review remains pending.
+- Minimal capability/index updates describe the shipped T3 behavior. T4's cross-capability documentation and design consolidation remain planned, as do forecast margins. No acknowledgements backend or D2 page implementation is included in T3.
 
 ## T4 Feature docs and audit
 

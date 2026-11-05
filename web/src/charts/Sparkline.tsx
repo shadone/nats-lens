@@ -1,5 +1,6 @@
 // The tile sparkline of the reference: area and line for the primary
 // series, a dashed line for the second, shaded windows behind.
+import { HistoryGaps } from "./HistoryGaps";
 import type { Level, Point, Window } from "../api/model";
 import { chartName, rangeText } from "./chartLabel";
 
@@ -39,6 +40,7 @@ export function Sparkline({ points, points2, status, windows, start, end, label,
   if (points.length === 0) {
     return (
       <svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, undefined, period, note)}>
+        <HistoryGaps start={start} end={end} width={W} height={H} />
         <line x1="0" x2={W} y1={H - 3} y2={H - 3} style={{ stroke: "var(--border)" }} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
       </svg>
     );
@@ -60,6 +62,7 @@ export function Sparkline({ points, points2, status, windows, start, end, label,
   const span = end - start || 1;
   return (
     <svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, current, period, note)}>
+      <HistoryGaps start={start} end={end} width={W} height={H} />
       {windows.map((w) => {
         const x0 = Math.max(0, ((w.start - start) / span) * W);
         const x1 = Math.min(W, ((w.end - start) / span) * W);
