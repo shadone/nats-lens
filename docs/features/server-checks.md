@@ -160,9 +160,9 @@ The server checks judge each NATS server on its own: whether it answers, whether
 
 - **Problem:** the server has no outbound gateway to a remote cluster of the supercluster, so its messages for that cluster wait until the gateway comes back.
 - **Fires when:** the server's cluster had a gateway to or from a remote cluster within the lookback, and the server has no outbound gateway to it, in each of the last `min_epochs` collections in which it answered GATEWAYZ. A firing finding stays while the gateway is missing in the newest collection. The detail names the remote clusters and how many servers of the cluster have a gateway to each, such as "us-0 has no outbound gateway to cluster eu (1 of 2 servers of us have one)."
-- **Severity:** warning. Critical when no server of the cluster that answered GATEWAYZ has an outbound gateway to that cluster, while the remote cluster still connects in.
+- **Severity:** warning. Critical when no server of the cluster that answered GATEWAYZ has an outbound gateway to that cluster, while the remote cluster still connects in or its servers answer.
 - **Thresholds:** lookback 24h, as the Topology page keeps a pair of clusters for a day; `min_epochs` 2 (both proposed, not yet confirmed).
-- **Left out:** a server whose GATEWAYZ did not answer, which also breaks the run, and a server that is restarting (within `checks.restart_window`), as its gateways connect some time after it answers. A remote cluster removed: when no server of the cluster has an inbound gateway from it in each of the last `min_epochs` collections, while they answer GATEWAYZ, it is no longer judged, so a cluster removed on purpose fires nothing (proposed, not yet confirmed). The same holds for a remote cluster cut off in both directions; its servers are then missing for `server-001`. GATEWAYZ lists only connected gateways, not the configured ones, so a remote cluster never connected within the lookback is not known. Inbound gateways are not judged themselves. A drop and reconnect between two collections, which the Topology page counts as a drop when the connection ID changed.
+- **Left out:** a server whose GATEWAYZ did not answer, which also breaks the run, and a server that is restarting (within `checks.restart_window`), as its gateways connect some time after it answers. A remote cluster removed: when, in each of the last `min_epochs` collections, no server of the cluster has an inbound gateway from it while they answer GATEWAYZ, and none of the remote cluster's own servers answers, it is no longer judged, so a cluster removed on purpose fires nothing (proposed, not yet confirmed). A remote cluster whose servers still answer stays judged, so a gateway cut in both directions by a firewall, a closed port or a load balancer keeps firing. A remote cluster nats-lens does not see itself, as one watched by another collector, and cut in both directions is taken as removed: only `server-001` may then show it, if nats-lens ever saw its servers. GATEWAYZ lists only connected gateways, not the configured ones, so a remote cluster never connected within the lookback is not known. Inbound gateways are not judged themselves. A drop and reconnect between two collections, which the Topology page counts as a drop when the connection ID changed.
 
 ### `server-020` Connections near max_connections
 
@@ -254,9 +254,15 @@ The server checks judge each NATS server on its own: whether it answers, whether
 
 ### A remote cluster is removed on purpose
 
-- **Given** cluster `eu` is taken out of the supercluster, so no gateway joins `us` and `eu` in either direction while the servers of `us` answer
+- **Given** cluster `eu` is taken out of the supercluster, so no gateway joins `us` and `eu` in either direction, its servers no longer answer, and the servers of `us` do
 - **When** nats-lens collects twice
 - **Then** `server-019` fires nothing for the servers of `us`
+
+### A gateway is cut in both directions
+
+- **Given** a firewall rule cuts the gateways between `us` and `eu` in both directions, and the servers of both clusters still answer
+- **When** nats-lens collects twice
+- **Then** `server-019` is critical for every server of both clusters
 
 ### A busy server
 
