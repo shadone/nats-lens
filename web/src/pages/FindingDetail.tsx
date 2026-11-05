@@ -12,26 +12,17 @@ import { Empty, KV, QueryView, RLink, Remediation, Section } from "../components
 import { EventRow } from "../components/EventRow";
 import { FindingEvidence } from "../components/FindingEvidence";
 import { EntityLine } from "../components/FindingParts";
+import { HistoryLink } from "../components/HistoryNote";
 import { MuteDialog, UnmuteDialog } from "../components/MuteDialog";
 import { Sev, StateTag } from "../components/Severity";
 import { StatusTimeline } from "../components/StatusTimeline";
 import { fmtDuration, fmtGrowth, isoMinute, isoSecond } from "../lib/format";
+import { atHistoryStart } from "../lib/historyNotes";
 import { baselineText, muteBy, reviewOn, sentence } from "../lib/muteView";
 import { writeRange, type RangeSpec } from "../lib/timeRange";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
 import { entityName, entityPath, eventPath, findingTag, serverPath, streamPath } from "../lib/view";
-
-/**
- * A firing finding whose condition was already true when nats-lens
- * started: its condition began before the oldest stored epoch, or it was
- * first seen within a minute after it.
- */
-export function atHistoryStart(f: Finding, historyStart: number | undefined): boolean {
-  if (historyStart === undefined || f.since === undefined || f.state === "resolved") return false;
-  if (f.conditionSince !== undefined && f.conditionSince < historyStart) return true;
-  return f.since >= historyStart && f.since - historyStart < 60_000;
-}
 
 /** "Condition since X · first seen by nats-lens Y", and how many others share it. */
 function When({ f, spec, historyStart }: { f: Finding; spec: RangeSpec; historyStart?: number }) {
@@ -46,7 +37,11 @@ function When({ f, spec, historyStart }: { f: Finding; spec: RangeSpec; historyS
       ) : (
         <>First seen by nats-lens {seen}</>
       )}
-      {atHistoryStart(f, historyStart) && ", already true when nats-lens started"}
+      {atHistoryStart(f, historyStart) && (
+        <>
+          , already true when nats-lens started (<HistoryLink />)
+        </>
+      )}
       {others > 0 && (
         <>
           {" · "}
@@ -162,12 +157,18 @@ function Around({ f, end, historyStart }: { f: Finding; end: number; historyStar
       className="fd-around"
     >
       {beforeHistory ? (
-        <p className="muted-note">nats-lens has no history before {isoMinute(historyStart!)} UTC, so it cannot say what happened then.</p>
+        <p className="muted-note">
+          nats-lens has no history before {isoMinute(historyStart!)} UTC, so it cannot say what happened then. <HistoryLink />
+        </p>
       ) : (
         <QueryView q={q} what="the events around the start">
           {(d) => (
             <>
-              {historyStart !== undefined && t - AROUND_MS < historyStart && <p className="muted-note">nats-lens has no history before {isoMinute(historyStart)} UTC.</p>}
+              {historyStart !== undefined && t - AROUND_MS < historyStart && (
+                <p className="muted-note">
+                  nats-lens has no history before {isoMinute(historyStart)} UTC. <HistoryLink />
+                </p>
+              )}
               {d.items.length === 0 ? (
                 <Empty>No events worth reading in these 20 minutes.</Empty>
               ) : (

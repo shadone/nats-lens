@@ -8,7 +8,8 @@ import type { ConsumerServerView, Entity, Finding, Timeline } from "../api/model
 import * as requests from "../api/requests";
 import { EventSchema, EventSource, ListEventsResponseSchema } from "../gen/natslens/v1/events_pb";
 import { renderApp } from "../test/render";
-import { FindingDetail, atHistoryStart } from "./FindingDetail";
+import { atHistoryStart } from "../lib/historyNotes";
+import { FindingDetail } from "./FindingDetail";
 
 vi.mock("../api/requests", async (orig) => ({
   ...(await orig<typeof import("../api/requests")>()),
@@ -133,8 +134,10 @@ describe("FindingDetail times", () => {
     show();
     const when = await screen.findByText(/Condition since/);
     expect(when).toHaveTextContent("Condition since 2026-10-13 08:03 UTC · first seen by nats-lens 2026-10-17 08:19 UTC, already true when nats-lens started");
+    expect(within(when).getByRole("link", { name: "Data history" })).toHaveAttribute("href", "/data-history");
     // The window around the start lies before the history.
-    expect(await screen.findByText(/nats-lens has no history before 2026-10-17 08:19 UTC/)).toBeInTheDocument();
+    const before = await screen.findByText(/nats-lens has no history before 2026-10-17 08:19 UTC/);
+    expect(within(before).getByRole("link", { name: "Data history" })).toBeInTheDocument();
     expect(listEvents).not.toHaveBeenCalled();
     expect(screen.queryByText(/10 minutes either side/)).toBeNull();
   });
