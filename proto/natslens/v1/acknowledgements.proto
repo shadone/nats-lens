@@ -1,0 +1,110 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// A person's word that they work on one episode of a firing finding, with
+// a note for the team and a quiet time.
+//
+// An acknowledgement is not a mute: the finding stays shown and counted
+// where it is. It is in force while the finding fires in the episode it
+// was made for and nobody ended it; a resolve ends it, and the finding
+// firing again is a new episode it does not cover. A new acknowledgement
+// of the same episode replaces the one before it.
+message Acknowledgement {
+  // Acknowledgement ID.
+  string id = 1;
+
+  // Finding acknowledged.
+  string finding_id = 2;
+
+  // What the person wrote; empty when they wrote nothing.
+  string note = 3;
+
+  // Who acknowledged it: the email of the verified IAP user when the
+  // server is configured for IAP, otherwise the name the request gave.
+  string acked_by = 4;
+
+  // When it was made.
+  google.protobuf.Timestamp created_at = 5;
+
+  // When its quiet ends; unset for a quiet until the finding resolves.
+  // While the quiet holds, /metrics exports nats_lens_finding_acknowledged
+  // for the finding.
+  google.protobuf.Timestamp quiet_until = 6;
+
+  // Whether the quiet holds at the time the finding is read for (now, or
+  // a past range's end): the acknowledgement is in force and quiet_until
+  // is unset or after that time.
+  bool quiet = 7;
+
+  // When a person ended it or a newer acknowledgement replaced it; unset
+  // otherwise, also after its episode ended.
+  google.protobuf.Timestamp ended_at = 8;
+
+  // Who ended it: the person who handed it back, or who made the
+  // acknowledgement that replaced it.
+  string ended_by = 9;
+
+  // "released" when a person handed it back, "replaced" when a newer
+  // acknowledgement of the same episode took its place; empty while not
+  // ended.
+  string end_reason = 10;
+}
+
+// Request to acknowledge a firing finding's current episode.
+message AcknowledgeFindingRequest {
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 1;
+
+  // Finding ID. A resolved finding is failed_precondition, an unknown one
+  // not_found.
+  string finding_id = 2;
+
+  // A note for the team, at most 500 characters; may be empty.
+  string note = 3;
+
+  // How long the quiet lasts, from now: at least 30 minutes and at most 24
+  // hours, in whole seconds. Exactly one of quiet_for and until_resolved
+  // is set.
+  google.protobuf.Duration quiet_for = 4;
+
+  // Quiet until the finding resolves.
+  bool until_resolved = 5;
+
+  // Who acknowledges it, at most 256 characters. Required when the server
+  // is not configured for IAP; ignored when it is, and the verified IAP
+  // user is recorded instead.
+  string acked_by = 6;
+}
+
+// The acknowledgement made.
+message AcknowledgeFindingResponse {
+  // The acknowledgement.
+  Acknowledgement acknowledgement = 1;
+}
+
+// Request to hand back an acknowledgement in force.
+message EndAcknowledgementRequest {
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 1;
+
+  // Acknowledgement ID. One already ended, or whose episode is over, is
+  // failed_precondition.
+  string id = 2;
+
+  // Who ends it, at most 256 characters. Required when the server is not
+  // configured for IAP; ignored when it is, and the verified IAP user is
+  // recorded instead.
+  string ended_by = 3;
+}
+
+// The ended acknowledgement.
+message EndAcknowledgementResponse {
+  // The acknowledgement with ended_at set and end_reason "released".
+  Acknowledgement acknowledgement = 1;
+}

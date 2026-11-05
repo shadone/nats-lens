@@ -94,6 +94,9 @@ func (p *Provider) tally(ctx context.Context, r *v1.TimeRange, cur []*v1.Finding
 		if f.GetState() == v1.FindingState_FINDING_STATE_FLAPPING {
 			t.Flapping++
 		}
+		if f.GetAcknowledgement() != nil {
+			t.Acknowledged++
+		}
 		switch {
 		case f.GetMute() != nil:
 			t.Muted++

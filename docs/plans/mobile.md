@@ -14,7 +14,7 @@ Examples use the online shop of `inventory.example.yaml`, the demo's systems (`e
 
 | Task | Status |
 |---|---|
-| T1 Acknowledgements: store, API, metrics and demo | planned |
+| T1 Acknowledgements: store, API, metrics and demo | built on `feat/acknowledgements`, awaiting review |
 | T2 `GetOnCall`: one call for the phone card | planned |
 | T3 The phone layout, the acknowledge dialog and the marks | planned |
 | T4 Feature docs, deep links in the README and audit | planned |
@@ -56,6 +56,26 @@ Not backed, so not shown: "what may happen next if nothing is done" from the fea
 - **Demo.** `fake` keeps acknowledgements in memory as it keeps mutes. Seeded: in `example-prod`, `consumer-010` on `order-archive`'s `analytics-aggregator` (critical, firing since the node upgrade) acknowledged by `alice@example.com` with "Recreating the durable; the worker's drain fix is in review", quiet 2 hours; in `example-global`, an acknowledgement ended by a later one (`replaced`). `fake_test.go`'s counts change with it.
 - **Conformance rows** (`apitest/conformance_oncall.go`, one line in `conformance.go`): a finding with an acknowledgement in force, quiet and not quiet; an ended one does not show on its finding; the tally's `acknowledged`; an acknowledgement of a resolved finding refused; both providers.
 - **Tests.** Normalize: note of 501 characters, a quiet of 29 minutes and 25 hours, `until_resolved` with `quiet_for`; identity with and without IAP; a new episode leaves the old acknowledgement out; `replaced`; the event's summary; the metric only while quiet and its cap; the archive round trip and an old archive; the sweep. Store tests under a non-UTC `TZ`.
+
+### Where T1 departed from this plan
+
+Each point was decided in the session that built T1: proposed, not yet confirmed.
+
+- **Migration `0037_acknowledgements.sql`, not 0036.** 0036 is the notification delivery migration of `docs/plans/notifications.md` T3, which reached `develop` first; the branch has `develop` merged, so 0036 is below it and the order is right. The runner applies only files numbered above the database's highest version, so 0037 must never merge before 0036.
+- **`archive_hours.ack_changes` is a fingerprint, not a count:** `bit_xor(hash(id, ended_at)) >> 1` over the table. The retention sweep deletes acknowledgements, so a count of rows plus ended ones could fall and rise back between two exports and miss a change; the fingerprint changes with every acknowledgement made, ended or swept. Hours exported before 0037, and hours a rebuild loaded, have NULL, so the newest is exported again once.
+- **The old archive check.** An archive written before 0037 has no `acknowledgements` files and a `state.json` without `max_ack_id` (the field is new in `archive.State`). `TestRebuildBeforeAcknowledgements` exports a store with no acknowledgement, removes `max_ack_id` from the state, rebuilds, and finds no acknowledgement, NULL `ack_changes` and the sequence starting at 1. An acknowledgement the sweep deleted comes back from older hours' files on a rebuild; the next sweep deletes it again.
+- **The sweep's end of an episode.** An acknowledgement goes when it was ended before the window, when its finding is gone, when its finding resolved in the same episode before the window, or when the finding fires in a later episode that began before the window. The last is an upper bound on when the old episode ended (its resolve may already be swept), so an acknowledgement can stay one episode longer, never go early.
+- **The episode's end writes nothing.** A resolve or a new episode does not set `ended_at`; the acknowledgement stops matching when findings are read, and `end_reason` is only `released` or `replaced`. `EndAcknowledgement` of one whose episode is over is failed_precondition, as of one already ended.
+- **The messages are in a new file, `proto/natslens/v1/acknowledgements.proto`** (`Acknowledgement`, the two requests and responses), imported by `findings.proto` and `service.proto`; the RPCs are in `service.proto`. Field numbers as planned: `Finding.acknowledgement = 20`, `FindingTally.acknowledged = 7`.
+- **The request.** Exactly one of `quiet_for` and `until_resolved`; `quiet_for` is truncated to whole seconds; the note is trimmed and may be empty.
+- **`quiet` is read at the time the acknowledgement was chosen for**: now, or a past range's end, where the finding carries the acknowledgement in force then. `/metrics` reads at now.
+- **A resolve ends an acknowledgement, even for a blip.** A finding that resolves for one collection and fires again starts a new episode, which the old acknowledgement does not cover; a flapping finding needs a new acknowledgement after each resolve.
+- **Replacing gives no conflict signal.** A new acknowledgement ends the one before it whoever made that one, and nothing warns the person replaced; T3 shows the replaced one as "replaced by X" (its `ended_by`) so the team sees who took over.
+- **The tally's `acknowledged` counts muted findings too**, as `flapping` does.
+- **The event.** Stored with the summary "<code> acknowledged by alice@example.com: <note>" and `raw.detail` "acknowledged by alice@example.com: <note>"; the API words it "<entity>: acknowledged by …" as it words transitions. It reaches the API as an event with a `transition` whose state is unspecified (it carries the finding, the severity and the detail), so the UI shows no badge for it yet. The timeline's finding lane takes `finding.acknowledged` beside the transitions.
+- **Metrics.** `nats_lens_finding_acknowledged` is written only while the quiet holds (value 1) and is absent otherwise, which is what the `unless on(...)` rule needs; `nats_lens_findings_acknowledged` counts the firing findings whose quiet holds, muted or not, every entity counted. Both are in `storeprov/metrics.go`; `internal/api/metrics.go` (the time series list) needed no change.
+- **The demo writes no `finding.acknowledged` event**: adding one to a scenario's event list renumbers its event IDs, which the demo's tests and links pin. example-global's acknowledgement is on `consumer-002` for `label-printer` on `shipping-updates`: bob@example.com's, replaced by carol@example.com's, whose 30 minutes of quiet are over. An acknowledgement made through the API in live mode stays on its finding as the scenario moves: the episode is kept in the fixed frame.
+- **One conformance row writes**: "an acknowledgement handed back does not show on its finding" acknowledges a finding without one and hands it back.
 
 ## T2 `GetOnCall`: one call for the phone card
 

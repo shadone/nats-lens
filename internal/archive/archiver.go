@@ -72,13 +72,15 @@ type ManifestFile struct {
 	Rows  int64  `json:"rows"`
 }
 
-// State records the highest epoch number, event ID and mute ID at an
+// State records the highest epoch number, event ID, mute ID and
+// acknowledgement ID (0 in a state written before acknowledgements) at an
 // export tick and at shutdown, so that a rebuild never hands out a number
 // the lost database had already used before then.
 type State struct {
 	MaxEpoch   int64     `json:"max_epoch"`
 	MaxEventID int64     `json:"max_event_id"`
 	MaxMuteID  int64     `json:"max_mute_id"`
+	MaxAckID   int64     `json:"max_ack_id"`
 	WrittenAt  time.Time `json:"written_at"`
 }
 
@@ -238,13 +240,14 @@ func (a *Archiver) removeUnlisted(ctx context.Context, hour time.Time, m Manifes
 	}
 }
 
-// WriteState records the highest epoch number, event ID and mute ID.
+// WriteState records the highest epoch number, event ID, mute ID and
+// acknowledgement ID.
 func (a *Archiver) WriteState(ctx context.Context, now time.Time) error {
 	ids, err := a.Store.MaxIDs(ctx)
 	if err != nil {
 		return fmt.Errorf("read highest IDs: %w", err)
 	}
-	return a.putJSON(ctx, StateRelPath, State{MaxEpoch: ids.Epoch, MaxEventID: ids.Event, MaxMuteID: ids.Mute, WrittenAt: now.UTC()})
+	return a.putJSON(ctx, StateRelPath, State{MaxEpoch: ids.Epoch, MaxEventID: ids.Event, MaxMuteID: ids.Mute, MaxAckID: ids.Ack, WrittenAt: now.UTC()})
 }
 
 // putJSON stages v as JSON and puts it at rel.
@@ -334,7 +337,7 @@ func (a *Archiver) Rebuild(ctx context.Context, now time.Time) error {
 	if err := a.readJSON(ctx, StateRelPath, &st); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("state: %w", err)
 	}
-	if err := a.Store.Rebuild(ctx, hours, store.MaxIDs{Epoch: st.MaxEpoch, Event: st.MaxEventID, Mute: st.MaxMuteID}, now); err != nil {
+	if err := a.Store.Rebuild(ctx, hours, store.MaxIDs{Epoch: st.MaxEpoch, Event: st.MaxEventID, Mute: st.MaxMuteID, Ack: st.MaxAckID}, now); err != nil {
 		return err
 	}
 	a.Log.Info("database rebuilt from archive", "hours", len(hours), "since", from,

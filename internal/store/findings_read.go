@@ -40,6 +40,10 @@ type Finding struct {
 	// Mute is the active mute that covers the finding at the time of the
 	// read; nil when none does. Resolved findings carry none.
 	Mute *Mute
+	// Ack is the acknowledgement of the finding's current episode in force
+	// at the time of the read; nil when none is. Resolved findings carry
+	// none.
+	Ack *Ack
 }
 
 // Firing reports whether the finding fires.
@@ -115,8 +119,9 @@ func scanFinding(row interface{ Scan(...any) error }) (Finding, error) {
 	return f, nil
 }
 
-// Findings returns the findings that match q, with the mutes active at now
-// applied, ordered by ID. Sorting for display and paging are the caller's.
+// Findings returns the findings that match q, with the mutes and the
+// acknowledgements in force at now applied, ordered by ID. Sorting for
+// display and paging are the caller's.
 func (s *Store) Findings(ctx context.Context, now time.Time, q FindingQuery) ([]Finding, error) {
 	var where []string
 	var args []any
@@ -174,10 +179,14 @@ func (s *Store) Findings(ctx context.Context, now time.Time, q FindingQuery) ([]
 	if err := s.applyMutes(ctx, now, out); err != nil {
 		return nil, err
 	}
+	if err := s.applyAcksAt(ctx, now, out); err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 
-// Finding returns one finding by ID with the mute active at now.
+// Finding returns one finding by ID with the mute and the acknowledgement
+// in force at now.
 func (s *Store) Finding(ctx context.Context, id string, now time.Time) (Finding, error) {
 	f, err := scanFinding(s.db.QueryRowContext(ctx, `SELECT `+findingCols+` FROM findings WHERE id = ?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
@@ -188,6 +197,9 @@ func (s *Store) Finding(ctx context.Context, id string, now time.Time) (Finding,
 	}
 	one := []Finding{f}
 	if err := s.applyMutes(ctx, now, one); err != nil {
+		return Finding{}, err
+	}
+	if err := s.applyAcksAt(ctx, now, one); err != nil {
 		return Finding{}, err
 	}
 	return one[0], nil
@@ -246,6 +258,9 @@ type FindingTally struct {
 	Muted int
 	// Flapping counts firing findings that flap, muted or not.
 	Flapping int
+	// Acknowledged counts firing findings with an acknowledgement in
+	// force, muted or not; they are counted above as well.
+	Acknowledged int
 	// Resolved24h counts resolve transitions in the 24 hours up to now.
 	Resolved24h int
 }
@@ -263,6 +278,9 @@ func (s *Store) Tally(ctx context.Context, now time.Time) (FindingTally, error) 
 		}
 		if f.Flapping {
 			t.Flapping++
+		}
+		if f.Ack != nil {
+			t.Acknowledged++
 		}
 		switch {
 		case f.Mute != nil:

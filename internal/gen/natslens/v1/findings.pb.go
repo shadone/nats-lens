@@ -369,9 +369,12 @@ type Finding struct {
 	// (its category is expiry). Such a finding at warning ranks after every
 	// other warning, so it never heads an outage; at critical it ranks as
 	// any critical finding.
-	Expiry        bool `protobuf:"varint,19,opt,name=expiry,proto3" json:"expiry,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Expiry bool `protobuf:"varint,19,opt,name=expiry,proto3" json:"expiry,omitempty"`
+	// The acknowledgement of the current episode in force; unset when none
+	// is, and always for a resolved finding.
+	Acknowledgement *Acknowledgement `protobuf:"bytes,20,opt,name=acknowledgement,proto3" json:"acknowledgement,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *Finding) Reset() {
@@ -537,6 +540,13 @@ func (x *Finding) GetExpiry() bool {
 	return false
 }
 
+func (x *Finding) GetAcknowledgement() *Acknowledgement {
+	if x != nil {
+		return x.Acknowledgement
+	}
+	return nil
+}
+
 // One change of a finding's state.
 type FindingTransition struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -633,7 +643,10 @@ type FindingTally struct {
 	// Findings that fire now and are flapping, muted or not.
 	Flapping int32 `protobuf:"varint,5,opt,name=flapping,proto3" json:"flapping,omitempty"`
 	// Findings that resolved in the 24 hours before the range's end.
-	Resolved_24H  int32 `protobuf:"varint,6,opt,name=resolved_24h,json=resolved24h,proto3" json:"resolved_24h,omitempty"`
+	Resolved_24H int32 `protobuf:"varint,6,opt,name=resolved_24h,json=resolved24h,proto3" json:"resolved_24h,omitempty"`
+	// Findings that fire now with an acknowledgement in force, muted or not;
+	// they are counted above as well.
+	Acknowledged  int32 `protobuf:"varint,7,opt,name=acknowledged,proto3" json:"acknowledged,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -706,6 +719,13 @@ func (x *FindingTally) GetFlapping() int32 {
 func (x *FindingTally) GetResolved_24H() int32 {
 	if x != nil {
 		return x.Resolved_24H
+	}
+	return 0
+}
+
+func (x *FindingTally) GetAcknowledged() int32 {
+	if x != nil {
+		return x.Acknowledged
 	}
 	return 0
 }
@@ -1416,7 +1436,7 @@ var File_natslens_v1_findings_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\n" +
-	"\x1anatslens/v1/findings.proto\x12\vnatslens.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\"z\n" +
+	"\x1anatslens/v1/findings.proto\x12\vnatslens.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\"natslens/v1/acknowledgements.proto\x1a\x18natslens/v1/common.proto\"z\n" +
 	"\fFindingValue\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\adisplay\x18\x02 \x01(\tR\adisplay\x12\x1b\n" +
@@ -1443,7 +1463,7 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\x0egrowth_per_day\x18\v \x01(\x01H\x00R\fgrowthPerDay\x88\x01\x01\x12\x1d\n" +
 	"\n" +
 	"end_reason\x18\f \x01(\tR\tendReasonB\x11\n" +
-	"\x0f_growth_per_day\"\xe4\x06\n" +
+	"\x0f_growth_per_day\"\xac\a\n" +
 	"\aFinding\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -1467,21 +1487,23 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\x04mute\x18\x10 \x01(\v2\x11.natslens.v1.MuteR\x04mute\x122\n" +
 	"\x15transitions_last_hour\x18\x11 \x01(\x05R\x13transitionsLastHour\x12C\n" +
 	"\x0fcondition_since\x18\x12 \x01(\v2\x1a.google.protobuf.TimestampR\x0econditionSince\x12\x16\n" +
-	"\x06expiry\x18\x13 \x01(\bR\x06expiry\"\xde\x01\n" +
+	"\x06expiry\x18\x13 \x01(\bR\x06expiry\x12F\n" +
+	"\x0facknowledgement\x18\x14 \x01(\v2\x1c.natslens.v1.AcknowledgementR\x0facknowledgement\"\xde\x01\n" +
 	"\x11FindingTransition\x12\x1d\n" +
 	"\n" +
 	"finding_id\x18\x01 \x01(\tR\tfindingId\x12.\n" +
 	"\x04time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12/\n" +
 	"\x05state\x18\x03 \x01(\x0e2\x19.natslens.v1.FindingStateR\x05state\x121\n" +
 	"\bseverity\x18\x04 \x01(\x0e2\x15.natslens.v1.SeverityR\bseverity\x12\x16\n" +
-	"\x06detail\x18\x05 \x01(\tR\x06detail\"\xad\x01\n" +
+	"\x06detail\x18\x05 \x01(\tR\x06detail\"\xd1\x01\n" +
 	"\fFindingTally\x12\x1a\n" +
 	"\bcritical\x18\x01 \x01(\x05R\bcritical\x12\x18\n" +
 	"\awarning\x18\x02 \x01(\x05R\awarning\x12\x12\n" +
 	"\x04info\x18\x03 \x01(\x05R\x04info\x12\x14\n" +
 	"\x05muted\x18\x04 \x01(\x05R\x05muted\x12\x1a\n" +
 	"\bflapping\x18\x05 \x01(\x05R\bflapping\x12!\n" +
-	"\fresolved_24h\x18\x06 \x01(\x05R\vresolved24h\"\xf5\x02\n" +
+	"\fresolved_24h\x18\x06 \x01(\x05R\vresolved24h\x12\"\n" +
+	"\facknowledged\x18\a \x01(\x05R\facknowledged\"\xf5\x02\n" +
 	"\x13ListFindingsRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x121\n" +
 	"\x06states\x18\x02 \x03(\x0e2\x19.natslens.v1.FindingStateR\x06states\x125\n" +
@@ -1580,7 +1602,8 @@ var file_natslens_v1_findings_proto_goTypes = []any{
 	(Severity)(0),                 // 18: natslens.v1.Severity
 	(*ConfigValue)(nil),           // 19: natslens.v1.ConfigValue
 	(*EventRef)(nil),              // 20: natslens.v1.EventRef
-	(*TimeRange)(nil),             // 21: natslens.v1.TimeRange
+	(*Acknowledgement)(nil),       // 21: natslens.v1.Acknowledgement
+	(*TimeRange)(nil),             // 22: natslens.v1.TimeRange
 }
 var file_natslens_v1_findings_proto_depIdxs = []int32{
 	16, // 0: natslens.v1.Mute.entity:type_name -> natslens.v1.EntityRef
@@ -1598,26 +1621,27 @@ var file_natslens_v1_findings_proto_depIdxs = []int32{
 	20, // 12: natslens.v1.Finding.cause:type_name -> natslens.v1.EventRef
 	2,  // 13: natslens.v1.Finding.mute:type_name -> natslens.v1.Mute
 	17, // 14: natslens.v1.Finding.condition_since:type_name -> google.protobuf.Timestamp
-	17, // 15: natslens.v1.FindingTransition.time:type_name -> google.protobuf.Timestamp
-	0,  // 16: natslens.v1.FindingTransition.state:type_name -> natslens.v1.FindingState
-	18, // 17: natslens.v1.FindingTransition.severity:type_name -> natslens.v1.Severity
-	21, // 18: natslens.v1.ListFindingsRequest.range:type_name -> natslens.v1.TimeRange
-	0,  // 19: natslens.v1.ListFindingsRequest.states:type_name -> natslens.v1.FindingState
-	18, // 20: natslens.v1.ListFindingsRequest.severities:type_name -> natslens.v1.Severity
-	16, // 21: natslens.v1.ListFindingsRequest.entity:type_name -> natslens.v1.EntityRef
-	3,  // 22: natslens.v1.ListFindingsResponse.findings:type_name -> natslens.v1.Finding
-	3,  // 23: natslens.v1.GetFindingResponse.finding:type_name -> natslens.v1.Finding
-	4,  // 24: natslens.v1.GetFindingResponse.transitions:type_name -> natslens.v1.FindingTransition
-	16, // 25: natslens.v1.MuteFindingRequest.entity:type_name -> natslens.v1.EntityRef
-	17, // 26: natslens.v1.MuteFindingRequest.expires_at:type_name -> google.protobuf.Timestamp
-	2,  // 27: natslens.v1.MuteFindingResponse.mute:type_name -> natslens.v1.Mute
-	2,  // 28: natslens.v1.UnmuteFindingResponse.mute:type_name -> natslens.v1.Mute
-	2,  // 29: natslens.v1.ListMutesResponse.mutes:type_name -> natslens.v1.Mute
-	30, // [30:30] is the sub-list for method output_type
-	30, // [30:30] is the sub-list for method input_type
-	30, // [30:30] is the sub-list for extension type_name
-	30, // [30:30] is the sub-list for extension extendee
-	0,  // [0:30] is the sub-list for field type_name
+	21, // 15: natslens.v1.Finding.acknowledgement:type_name -> natslens.v1.Acknowledgement
+	17, // 16: natslens.v1.FindingTransition.time:type_name -> google.protobuf.Timestamp
+	0,  // 17: natslens.v1.FindingTransition.state:type_name -> natslens.v1.FindingState
+	18, // 18: natslens.v1.FindingTransition.severity:type_name -> natslens.v1.Severity
+	22, // 19: natslens.v1.ListFindingsRequest.range:type_name -> natslens.v1.TimeRange
+	0,  // 20: natslens.v1.ListFindingsRequest.states:type_name -> natslens.v1.FindingState
+	18, // 21: natslens.v1.ListFindingsRequest.severities:type_name -> natslens.v1.Severity
+	16, // 22: natslens.v1.ListFindingsRequest.entity:type_name -> natslens.v1.EntityRef
+	3,  // 23: natslens.v1.ListFindingsResponse.findings:type_name -> natslens.v1.Finding
+	3,  // 24: natslens.v1.GetFindingResponse.finding:type_name -> natslens.v1.Finding
+	4,  // 25: natslens.v1.GetFindingResponse.transitions:type_name -> natslens.v1.FindingTransition
+	16, // 26: natslens.v1.MuteFindingRequest.entity:type_name -> natslens.v1.EntityRef
+	17, // 27: natslens.v1.MuteFindingRequest.expires_at:type_name -> google.protobuf.Timestamp
+	2,  // 28: natslens.v1.MuteFindingResponse.mute:type_name -> natslens.v1.Mute
+	2,  // 29: natslens.v1.UnmuteFindingResponse.mute:type_name -> natslens.v1.Mute
+	2,  // 30: natslens.v1.ListMutesResponse.mutes:type_name -> natslens.v1.Mute
+	31, // [31:31] is the sub-list for method output_type
+	31, // [31:31] is the sub-list for method input_type
+	31, // [31:31] is the sub-list for extension type_name
+	31, // [31:31] is the sub-list for extension extendee
+	0,  // [0:31] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_findings_proto_init() }
@@ -1625,6 +1649,7 @@ func file_natslens_v1_findings_proto_init() {
 	if File_natslens_v1_findings_proto != nil {
 		return
 	}
+	file_natslens_v1_acknowledgements_proto_init()
 	file_natslens_v1_common_proto_init()
 	file_natslens_v1_findings_proto_msgTypes[0].OneofWrappers = []any{}
 	file_natslens_v1_findings_proto_msgTypes[1].OneofWrappers = []any{}

@@ -51,6 +51,14 @@ type Provider interface {
 	// ErrFailedPrecondition for one that no longer applies.
 	UnmuteFinding(ctx context.Context, req *v1.UnmuteFindingRequest) (*v1.Mute, error)
 	ListMutes(ctx context.Context, req *v1.ListMutesRequest) (*v1.ListMutesResponse, error)
+	// AcknowledgeFinding stores an acknowledgement of the finding's
+	// current episode; the handler has checked the note and the quiet and
+	// set acked_by. ErrNotFound for an unknown finding,
+	// ErrFailedPrecondition for one that does not fire.
+	AcknowledgeFinding(ctx context.Context, req *v1.AcknowledgeFindingRequest) (*v1.Acknowledgement, error)
+	// EndAcknowledgement hands an acknowledgement back; ErrNotFound for
+	// an unknown ID, ErrFailedPrecondition for one no longer in force.
+	EndAcknowledgement(ctx context.Context, req *v1.EndAcknowledgementRequest) (*v1.Acknowledgement, error)
 	GetStatusTimeline(ctx context.Context, req *v1.GetStatusTimelineRequest) (*v1.GetStatusTimelineResponse, error)
 	ListEvents(ctx context.Context, req *v1.ListEventsRequest) (*v1.ListEventsResponse, error)
 	GetEvent(ctx context.Context, req *v1.GetEventRequest) (*v1.GetEventResponse, error)
