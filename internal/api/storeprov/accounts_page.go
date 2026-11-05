@@ -159,11 +159,11 @@ func (p *Provider) captureGaps(ctx context.Context, f *api.AccountsFacts) error 
 		f.CaptureGaps = stopped
 		return nil
 	}
-	rf := &api.ReplayFacts{A: f.WindowStart, B: f.EpochAt}
-	if err := p.eventsConnectionGaps(ctx, rf); err != nil {
+	gaps, err := p.eventsConnectionGaps(ctx, f.WindowStart, f.EpochAt)
+	if err != nil {
 		return err
 	}
-	for _, g := range rf.Gaps {
+	for _, g := range gaps {
 		if !g.Start.After(f.EpochAt) && (g.End.IsZero() || g.End.After(f.WindowStart)) {
 			f.CaptureGaps = true
 		}
