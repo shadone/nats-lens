@@ -10,12 +10,15 @@ thresholds:
     default: "2"
     unit: count
     description: >-
-      Consecutive collections in which the leader must report the error before the finding fires; one failed attempt
-      during an election of the origin's leader is retried by the server within seconds.
+      Leader reports with the error, among the last twice min_epochs collections, before the finding fires; one failed
+      attempt during an election of the origin's leader is retried by the server within seconds. The server clears the
+      error at each retry, so a broken mirror shows it in some collections and not in others.
 description: >-
-  The leader of a mirror reports an error for it in each of the last min_epochs collections, for example when the
-  origin stream is gone, was renamed, or is out of reach of the mirror's account. While the error lasts the mirror
-  copies nothing. A firing finding stays until a leader report in the last min_epochs collections shows no error.
+  The leader of a mirror reports an error for it in at least min_epochs of the last twice min_epochs collections,
+  for example when the origin stream is gone, was renamed, or is out of reach of the mirror's account. The server
+  clears the error each time it tries again, so a mirror that keeps failing shows the error in some collections and
+  not in others. While the error lasts the mirror copies nothing. A firing finding stays while any leader report in
+  the last twice min_epochs collections has the error.
 remediation: >-
   The detail gives the server's error. Run `nats stream info <mirror>` for the Mirror section and
   `nats stream info <origin>` in the origin's account or domain: an origin that was deleted must be created again or
@@ -26,7 +29,7 @@ related_config: [min_epochs]
 */
 WITH last AS (
     SELECT epoch FROM epochs WHERE epoch <= getvariable('epoch') ORDER BY epoch DESC
-    LIMIT CAST(getvariable('min_epochs') AS INTEGER)
+    LIMIT CAST(2 * getvariable('min_epochs') AS INTEGER)
 ),
 firing AS (
     SELECT entity_key FROM findings
@@ -40,7 +43,8 @@ lead AS (
     QUALIFY row_number() OVER (PARTITION BY ss.account, ss.stream, ss.epoch ORDER BY ss.server_id) = 1
 ),
 win AS (
-    SELECT account, stream, count(error) AS failing, arg_max_null(error, epoch) AS error, max(epoch) AS last_epoch,
+    SELECT account, stream, count(error) AS failing, arg_max(error, epoch) AS error,
+        arg_max_null(error, epoch) IS NULL AS newest_clean, max(epoch) AS last_epoch,
         arg_max(server_name, epoch) AS leader
     FROM lead GROUP BY account, stream
 ),
@@ -53,6 +57,7 @@ origin AS (
 SELECT
     w.account || '/' || w.stream AS entity_key,
     'Leader ' || w.leader || ' reports the mirror of ' || coalesce(o.origin, 'its origin') || ' failing: ' || w.error
+        || CASE WHEN w.newest_clean THEN ' (not in the newest report; the server clears it when it tries again)' ELSE '' END
         || CASE WHEN w.last_epoch < getvariable('epoch') THEN ' (no leader report in this collection)' ELSE '' END
         || '.' AS detail,
     json_object('mirror', o.origin) AS related_config,

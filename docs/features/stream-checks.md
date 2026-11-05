@@ -126,11 +126,11 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 ### `stream-015` Mirror lagging
 
 - **Problem:** a mirror stays behind its origin, or has stopped hearing from it. Readers of the mirror see old data, and a mirror kept for recovery is missing the newest messages.
-- **Fires when:** every leader report within the lookback, covering at least half of it, has the mirror more than `max_lag` messages behind, and the lag did not fall over the window; or the mirror has received nothing from its origin, not even the heartbeat the origin sends every second, for more than `max_inactive`; or the two newest leader reports say it never heard from its origin and its leader was elected more than `max_inactive` ago. A new leader reports that it never heard until its copy of the origin starts, which takes seconds, or longer while the origin has no leader, so one such report after a leader change is not a finding.
+- **Fires when:** every leader report within the lookback, covering at least half of it, has the mirror more than `max_lag` messages behind, and the lag did not fall over the window; or the mirror has received nothing from its origin, not even the heartbeat the origin sends every second, for more than `max_inactive`; or the two newest leader reports say it never heard from its origin, and its leader was elected, the stream created and the leader's server started more than `max_inactive` ago. A new leader, or a restarted server, reports that it never heard until its copy of the origin starts, which takes seconds, or longer while the origin has no leader, so such a report after a leader change or a restart is not a finding.
 - **Severity:** warning.
 - **Thresholds:** lookback 5m, `max_lag` 10000, `max_inactive` 2m, `resolve_ratio` 0.8 (proposed, not yet confirmed).
 - **Resolves when:** the lag falls below `resolve_ratio` of `max_lag` and the time without data below `resolve_ratio` of `max_inactive`. A collection without a leader report keeps the finding as it was, as long as a leader report is within the lookback.
-- **Left out:** a mirror whose lag falls, such as one catching up after a restart or a new mirror copying an old origin. A mirror whose newest leader report has an error, which is `stream-017`'s, also in the collections before `stream-017` has seen it `min_epochs` times.
+- **Left out:** a mirror whose lag falls, such as one catching up after a restart or a new mirror copying an old origin. A mirror with an error in either of its two newest leader reports, which is `stream-017`'s, also in the collections before `stream-017` has seen it `min_epochs` times; a firing `stream-015` finding stays out of this rule until `stream-017` fires for the mirror.
 
 ### `stream-016` Source lagging
 
@@ -144,10 +144,10 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 ### `stream-017` Mirror error
 
 - **Problem:** a mirror reports an error, for example because its origin is gone or out of its account's reach. It copies nothing while the error lasts.
-- **Fires when:** the mirror's leader reports an error in each of the last `min_epochs` collections. The detail gives the server's error text.
+- **Fires when:** the mirror's leader reports an error in at least `min_epochs` of the last twice `min_epochs` collections. The server clears the error each time it tries again, so a mirror that keeps failing shows it in some collections and not in others. The detail gives the server's error text, and says so when the newest report does not have it.
 - **Severity:** warning.
 - **Thresholds:** `min_epochs` 2 (proposed, not yet confirmed).
-- **Resolves when:** a leader report in the last `min_epochs` collections shows no error.
+- **Resolves when:** no leader report in the last twice `min_epochs` collections has an error.
 - **Left out:** a follower's report, as only the leader runs the mirror.
 
 ### `stream-018` Single replica in a cluster
@@ -189,8 +189,8 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 ## Behavior and rules
 
 - **Leader's view first.** Checks of contents and growth (`stream-002` to `stream-006`, `stream-012`, `stream-019` to `stream-021`) read the leader's report, because followers report at slightly different moments. The mirror and source checks (`stream-015` to `stream-017`) read only the leader, as only the leader runs the mirror or the sources.
-- **New stream checks do not flap.** `stream-015`, `stream-016`, `stream-019`, `stream-020` and `stream-021` read whether their finding was firing in the previous collection: a firing finding keeps firing down to `resolve_ratio` (0.8) of the thresholds, or until the condition clearly ends, and through a collection without a leader report as long as one is within the lookback. A finding that is not firing needs the full threshold in the current collection. `stream-015` needs two leader reports for a mirror that never heard from its origin, `stream-017` needs the error in `min_epochs` collections in a row, and `stream-018` keeps an asset's last configuration while its only server is not ready.
-- **One problem, one finding.** `stream-015` is quiet for a mirror whose newest leader report has an error, which is `stream-017`'s; `stream-019` is quiet for a bucket while `stream-005` reports it; `stream-020` is quiet for a stream while `consumer-010` or `consumer-013` reports one of its consumers missing; `stream-018` leaves an asset whose inventory entry gives other replicas to `stream-012`.
+- **New stream checks do not flap.** `stream-015`, `stream-016`, `stream-019`, `stream-020` and `stream-021` read whether their finding was firing in the previous collection: a firing finding keeps firing down to `resolve_ratio` (0.8) of the thresholds, or until the condition clearly ends, and through a collection without a leader report as long as one is within the lookback. A finding that is not firing needs the full threshold in the current collection. `stream-015` needs two leader reports for a mirror that never heard from its origin, `stream-017` needs the error in `min_epochs` of the last twice `min_epochs` collections, and `stream-018` keeps an asset's last configuration while its only server is not ready.
+- **One problem, one finding.** `stream-015` is quiet for a mirror with an error in either of its two newest leader reports, which is `stream-017`'s; `stream-019` is quiet for a bucket while `stream-005` reports it; `stream-020` is quiet for a stream while `consumer-010` or `consumer-013` reports one of its consumers missing; `stream-018` leaves an asset whose inventory entry gives other replicas to `stream-012`.
 - **Agreement checks compare every server.** `stream-007`, `stream-008` and `stream-010` leave out servers that restarted within `restart_window`; `stream-009` leaves out an unhealthy server's view under the conditions in its section; `stream-014` counts a restarting holder as one that may still hold the asset.
 - **Missing assets are weighed against their holders.** `stream-011` and `stream-014` look at the servers that held the asset when it was last reported, so a server that is away does not make an asset read as deleted.
 - **KV buckets and object stores count as streams.** Their findings name the stream `KV_<bucket>` or `OBJ_<bucket>`, and `stream-005`, `stream-018`, `stream-019` and `stream-021` name them "KV bucket" or "Object store" in the detail.
@@ -228,7 +228,7 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 - **Given** `order-archive` mirrors `order-events`, and `order-events` is deleted
 - **When** nats-lens collects while the mirror's leader reports "stream not found"
 - **Then** `stream-015` "Mirror lagging" stays quiet for it, though the mirror no longer hears from its origin
-- **When** nats-lens collects a second time in a row with the error
+- **When** the leader reports the error again within the next three collections (the server clears it at each retry, so it can skip one)
 - **Then** `stream-017` "Mirror error" is a warning for `APP/order-archive` with that error
 
 ### A mirror falls behind and catches up
