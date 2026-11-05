@@ -114,15 +114,25 @@ describe("DataHistory", () => {
       gap({ kind: "noCollections", start: NOW - 5 * HOUR, end: NOW - 5 * HOUR + 5 * 60_000, beforeEpoch: "73401", afterEpoch: "73411" }),
       gap({ kind: "notConnected", start: NOW - 6 * HOUR }),
     ];
+    d.rangeEnd = NOW - HOUR;
     m.getDataHistory.mockResolvedValue(d);
-    renderApp(<DataHistory />, "/data-history?from=2026-11-05T00:00:00Z&to=2026-11-05T22:47:18Z");
+    renderApp(<DataHistory />, "/data-history?from=2026-11-05T00:00:00Z&to=2026-11-05T21:47:18Z");
     await screen.findByRole("region", { name: "Gaps" });
     const rows = bodyRows("Gaps");
     expect(rows[0]).toHaveTextContent(/^Kubernetes not watchedcollections went on20:47:1820:51:184 min/);
     // Collections without their times are named, not linked.
     expect(rows[1]).toHaveTextContent("No collections17:47:1817:52:185 minbefore: collection 73401after: collection 73411");
     expect(within(rows[1]).queryByRole("link")).toBeNull();
-    expect(rows[2]).toHaveTextContent("after the rangeat least 6 h");
+    expect(rows[2]).toHaveTextContent("after the rangeat least 5 h");
+  });
+
+  it("reads a fixed range that ends at now as following now, with the times' zone in the headers", async () => {
+    m.getDataHistory.mockResolvedValue(staging());
+    renderApp(<DataHistory />, "/data-history?from=2026-11-04T22:47:18Z&to=2026-11-05T22:47:18Z");
+    await screen.findByRole("region", { name: "Gaps" });
+    expect(card("Gaps").getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Kind", "From (UTC)", "To (UTC)", "Length", "Collections either side", "Event"]);
+    expect(bodyRows("Gaps")[1]).toHaveTextContent("still now3 h so far");
+    expect(card("Gaps").getByText("No data from 19:47:14 UTC until now: nats-lens could not reach NATS")).toBeInTheDocument();
   });
 
   it("says how many gaps of each class it shows when the server cut them", async () => {
