@@ -110,3 +110,24 @@ func TestLinkPendingGap(t *testing.T) {
 	f.fires("server-018", 2)
 	f.fires("server-018", 4)
 }
+
+// nats-server does not close a route at max_pending, so a backlog can pass
+// it: the value goes above 1. An inbound gateway is named by where it
+// comes from.
+func TestLinkPendingAboveMaxAndInbound(t *testing.T) {
+	f := newFx(t)
+	f.routed(4, three, nil)
+	for e := int64(1); e <= 4; e++ {
+		for _, id := range []string{"R0", "R1", "R2"} {
+			f.stats(e, id, m{"max_pending": 1000})
+		}
+		f.row("gateways", m{"epoch": e, "server_id": "R1", "gateway": "eu", "direction": "inbound", "cid": 8, "pending_bytes": 400})
+	}
+	f.exec(`UPDATE routes SET pending_bytes = 5000 WHERE server_id = 'R0' AND remote_name = 'nats-1' AND epoch >= 2`)
+	r := f.fires("server-018", 4, "nats-0", "nats-1")
+	if v := r["nats-0"].Value; v == nil || *v != 5 {
+		t.Errorf("value %v", v)
+	}
+	want(t, r["nats-0"], "critical", "(500%)")
+	want(t, r["nats-1"], "warning", "on the inbound gateway from eu (40%)")
+}

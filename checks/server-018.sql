@@ -4,7 +4,7 @@ name: Bytes queued on a route or gateway
 entity: server
 category: health
 severity: warning
-severity_rule: critical at or above crit_ratio of max_pending, close to where the server drops the connection
+severity_rule: critical at or above crit_ratio of max_pending, a larger backlog held in the server's memory
 kind: operational
 thresholds:
   - name: warn_ratio
@@ -28,15 +28,18 @@ thresholds:
 description: >-
   Bytes wait to be written on one of the server's route or gateway connections, at or above warn_ratio of the
   server's max_pending, in each of the last min_epochs collections: the remote end or the network between them does
-  not take the traffic as fast as it comes. At max_pending the server closes the connection as a slow consumer
-  (server-009), which drops the traffic between the servers until it reconnects.
+  not take the traffic as fast as it comes. nats-server holds the backlog in memory and does not cap it: unlike a
+  client, a route or gateway is not closed at max_pending, which serves here only as the scale. Messages on the link
+  arrive late, and the server's memory grows with the backlog (server-008). A write that takes longer than the write
+  deadline counts the link as a slow consumer (server-009), and the server retries the write; it closes the link only when
+  nothing could be written by the deadline.
 remediation: >-
   The detail names the connections and how much each holds. Compare with the other end: `nats server report routes`
   or `nats server report gateways` with the system user, and the Topology page's pending bytes and round trips. A
   backlog on every link of one server points at that server (its CPU, `nats server report cpu`); one on a single link
   at the network between the two, or at the remote server. A gateway backlog during a burst between regions can be
   normal; one that lasts minutes is not. Route compression (`compression: s2_auto` in the cluster block) lowers the
-  bytes on a slow link. Raising max_pending only delays the slow consumer disconnect.
+  bytes on a slow link. Raising max_pending changes only the scale of this check, not what the server does.
 related_config: [warn_ratio, crit_ratio, min_epochs, resolve_ratio, max_pending]
 value_name: share of max_pending queued
 value_basis: the largest pending bytes of one route or gateway connection divided by the server's max_pending
@@ -52,7 +55,7 @@ links AS (
     FROM routes WHERE epoch IN (SELECT epoch FROM last) AND pending_bytes IS NOT NULL
     GROUP BY ALL
     UNION ALL
-    SELECT epoch, server_id, direction || ' gateway to ' || gateway, max(pending_bytes)
+    SELECT epoch, server_id, CASE direction WHEN 'inbound' THEN 'inbound gateway from ' ELSE direction || ' gateway to ' END || gateway, max(pending_bytes)
     FROM gateways WHERE epoch IN (SELECT epoch FROM last) AND pending_bytes IS NOT NULL
     GROUP BY ALL
 ),
