@@ -260,3 +260,33 @@ func TestDataHistoryFourteenDays(t *testing.T) {
 		t.Errorf("read took %v", took)
 	}
 }
+
+// A gap still open at the range's end has neither an end nor a
+// collection after it: both lie outside the range.
+func TestDataHistoryGapOpenAtRangeEnd(t *testing.T) {
+	st := emptyStore(t)
+	now := historyClock
+	r := rows{t, st}
+	r.server("S0", "nats-0")
+	n := int64(0)
+	for e := now.Add(-10 * time.Hour); !e.After(now); e = e.Add(time.Minute) {
+		if e.After(now.Add(-6*time.Hour)) && e.Before(now.Add(-2*time.Hour)) {
+			continue
+		}
+		n++
+		r.epoch(n, e, "S0")
+	}
+	if err := st.WriteEvents(ctx, []events.Event{{Time: now.Add(-6 * time.Hour), ReceivedAt: now.Add(-2 * time.Hour),
+		Source: events.SourceCollector, Kind: "collector.gap", Summary: "gap", Raw: json.RawMessage(`{}`)}}); err != nil {
+		t.Fatal(err)
+	}
+	read := historyClient(t, &storeprov.Provider{St: st, Interval: time.Minute, Live: true, Clock: func() time.Time { return now }})
+	res := read(&v1.TimeRange{Start: timestamppb.New(now.Add(-8 * time.Hour)), End: timestamppb.New(now.Add(-3 * time.Hour))})
+	if len(res.GetGaps()) != 1 {
+		t.Fatalf("gaps %v", res.GetGaps())
+	}
+	if g := res.GetGaps()[0]; g.GetKind() != v1.HistoryGapKind_HISTORY_GAP_KIND_NOT_RUNNING || g.GetEnd() != nil ||
+		g.GetAfterEpoch() != 0 || g.GetAfterEpochAt() != nil || g.GetBeforeEpoch() == 0 {
+		t.Errorf("gap open at the range's end: %v", g)
+	}
+}
