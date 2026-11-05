@@ -143,7 +143,7 @@ The server checks judge each NATS server on its own: whether it answers, whether
 
 - **Problem:** the server holds no route to another server of its cluster, so messages and interest do not pass directly between the two, and subscribers on one miss what publishers on the other send.
 - **Fires when:** the server's ROUTEZ lists no route to a server of the same cluster, by name or server ID, while both answered, in each of the last `min_epochs` collections. A firing finding stays while the route is missing in the newest collection and resolves in the first collection that lists it again. One finding per server; the detail names every peer without a route, such as "nats-0 has no route to nats-2, while both answered."
-- **Severity:** warning. Critical when the server has no route to any other server of its cluster that answered.
+- **Severity:** warning. Critical when the server has no route to any other server of its cluster that answered. In a cluster of two servers each has one peer, so any lost route is critical: the two servers then pass nothing to each other (proposed, not yet confirmed).
 - **Thresholds:** `min_epochs` 3 (proposed, not yet confirmed).
 - **Left out:** a peer that did not answer, which is `server-001`'s, and a server whose ROUTEZ did not answer, as its list is not whole; either breaks the run of collections. Servers that report no cluster. A restarted peer counts by name, so a route to its new process is a route. The number of pooled routes per peer is not checked: a server with one route of a pool to a peer has a route.
 
