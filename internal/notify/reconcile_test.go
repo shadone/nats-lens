@@ -311,10 +311,9 @@ func TestFlapping(t *testing.T) {
 	e := newEnv(t, channel("ops"))
 	e.step(time.Minute)
 	var all []string
-	for i := range 4 {
+	for range 4 {
 		all = append(all, kinds(e.step(time.Minute, f(quorum, "APP/order-jobs", "critical"))["ops"])...)
 		all = append(all, kinds(e.step(time.Minute)["ops"])...)
-		_ = i
 	}
 	// The fourth resolve makes it flap: its message is the flapping one.
 	want := []string{"firing " + jobs, "resolved " + jobs, "firing " + jobs, "resolved " + jobs, "firing " + jobs, "resolved " + jobs,
