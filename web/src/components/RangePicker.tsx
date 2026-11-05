@@ -24,33 +24,46 @@ export function fromLocalInput(v: string): number {
  * range too), fixed for a fixed range, not collecting while the collector's
  * connection to NATS is down or no collector writes, no data without any
  * collection, stale when the newest collection is older than three collect
- * intervals, otherwise live with the collection's age.
+ * intervals, otherwise live with the collection's age. The title starts with
+ * the whole text, which a narrow header cuts with an ellipsis.
  */
-export function Freshness({ spec, freshness, error }: { spec: RangeSpec; freshness?: Freshness; error?: unknown }) {
+export function Freshness({ spec, freshness, error, id }: { spec: RangeSpec; freshness?: Freshness; error?: unknown; id?: string }) {
   const now = useNow(1000, spec.kind === "live");
   if (error) {
     const i = errorInfo(error);
     return (
-      <span className="live offline" title={`The status call failed: ${i.code}. ${i.hint}`}>
+      <span className="live offline" id={id} title={`offline: the status call failed: ${i.code}. ${i.hint}`}>
         offline
       </span>
     );
   }
-  if (spec.kind === "fixed") return <span className="live paused">fixed</span>;
-  const title = freshness?.epochAt !== undefined ? `Newest collection ${freshness.epoch}${freshness.partial ? ", partial" : ""}` : undefined;
+  if (spec.kind === "fixed")
+    return (
+      <span className="live paused" id={id} title="fixed">
+        fixed
+      </span>
+    );
+  const newest = freshness?.epochAt !== undefined ? `Newest collection ${freshness.epoch}${freshness.partial ? ", partial" : ""}` : undefined;
+  const title = (text: string) => (newest ? `${text}. ${newest}` : text);
   if (freshness && !freshness.collecting) {
     const since = freshness.notCollectingSince;
+    const text = `not collecting${since !== undefined ? ` ${sinceText(since, now)}` : ""}`;
     return (
-      <span className="live stale" title={title}>
-        not collecting{since !== undefined && ` ${sinceText(since, now)}`}
+      <span className="live stale" id={id} title={title(text)}>
+        {text}
       </span>
     );
   }
-  if (!freshness || freshness.epochAt === undefined) return <span className="live stale">no data</span>;
+  if (!freshness || freshness.epochAt === undefined)
+    return (
+      <span className="live stale" id={id} title="no data">
+        no data
+      </span>
+    );
   const age = Math.max(0, now - freshness.epochAt);
   const label = !freshness.live ? "not collecting" : age > 3 * freshness.intervalMs ? "stale" : "live";
   return (
-    <span className={`live${label === "live" ? "" : " stale"}`} title={title}>
+    <span className={`live${label === "live" ? "" : " stale"}`} id={id} title={title(`${label} · ${fmtDuration(age)}`)}>
       {label}
       <span className="dotsep"> ·</span> {fmtDuration(age)}
     </span>
@@ -61,6 +74,7 @@ export function RangePicker({ freshness, error }: { freshness?: Freshness; error
   const { spec, setSpec } = useTimeRange();
   const [open, setOpen] = useState(false);
   const panelId = useId();
+  const freshId = useId();
   const wrap = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -130,7 +144,7 @@ export function RangePicker({ freshness, error }: { freshness?: Freshness; error
         <button ref={trigger} type="button" className="preset" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen((o) => !o)}>
           {rangeLabel(spec)}
         </button>
-        <span className="span">
+        <span className="span" title={`${dayMonHm(r.start)} – ${dayMonHm(r.end)} UTC`}>
           {dayMonHm(r.start)} – {dayMonHm(r.end)}
           <span className="tz"> UTC</span>
         </span>
@@ -138,9 +152,10 @@ export function RangePicker({ freshness, error }: { freshness?: Freshness; error
           type="button"
           className="live-btn"
           aria-label={spec.kind === "live" ? "Live: pause at the current range" : "Fixed range: go live"}
+          aria-describedby={freshId}
           onClick={() => setSpec(spec.kind === "live" ? pauseRange(spec, Date.now()) : resumeLive(spec))}
         >
-          <Freshness spec={spec} freshness={freshness} error={error} />
+          <Freshness spec={spec} freshness={freshness} error={error} id={freshId} />
         </button>
       </div>
       {open && (

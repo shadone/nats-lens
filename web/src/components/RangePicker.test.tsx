@@ -21,6 +21,16 @@ describe("RangePicker URL state", () => {
     expect(screen.getByText(/16 Oct 09:00 – 16 Oct 10:00/)).toBeInTheDocument();
   });
 
+  it("holds the whole range and freshness in a tooltip and the live button's description, as a narrow header cuts them", () => {
+    const stopped = { epoch: "7", epochAt: Date.parse("2026-10-14T07:58:00Z"), partial: false, live: true, intervalMs: 30_000, collecting: false, notCollectingSince: Date.parse("2026-10-14T08:00:00Z") };
+    const { unmount } = renderApp(<RangePicker freshness={stopped} />, "/?from=2026-10-16T09:00:00Z&to=2026-10-16T10:00:00Z");
+    expect(screen.getByText(/16 Oct 09:00 – 16 Oct 10:00/)).toHaveAttribute("title", "16 Oct 09:00 – 16 Oct 10:00 UTC");
+    expect(screen.getByRole("button", { name: "Fixed range: go live" })).toHaveAccessibleDescription("fixed");
+    unmount();
+    renderApp(<RangePicker freshness={stopped} />, "/");
+    expect(screen.getByRole("button", { name: "Live: pause at the current range" })).toHaveAccessibleDescription("not collecting since 14 Oct 08:00");
+  });
+
   it("refuses a custom range that ends before it starts", async () => {
     renderApp(<RangePicker />, "/");
     await userEvent.click(screen.getByRole("button", { name: "Last 24h" }));
