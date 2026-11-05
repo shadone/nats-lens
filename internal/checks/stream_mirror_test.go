@@ -58,7 +58,7 @@ func TestMirrorLagging(t *testing.T) {
 		t.Errorf("value = %v", r["APP/order-archive"].Value)
 	}
 	want(t, r["APP/unheard"], "warning", "nothing received from its origin for 3 minutes")
-	want(t, r["APP/never"], "warning", "has never heard from its origin since its leader was elected at 09:00:00 UTC.")
+	want(t, r["APP/never"], "warning", "has never heard from its origin since 08:00:00 UTC, when its leader was elected or its server started.")
 	// A leader elected within max_inactive has not had time to hear, even
 	// in two reports.
 	g := newFx(t)
@@ -122,4 +122,18 @@ func TestMirrorLeaderChangeIsNotNeverHeard(t *testing.T) {
 	}
 	g.streamMirrorAt(11, "order-archive", 0, -1, nil)
 	g.fires("stream-015", 11)
+}
+
+// An R1 mirror whose server restarted reports that it never heard from its
+// origin until its copy starts again; the server's start time counts like
+// a leader election.
+func TestMirrorServerRestartIsNotNeverHeard(t *testing.T) {
+	f := newFx(t)
+	f.epochs(1, 11, "nats-0")
+	f.server("S0", "nats-0", 1, 11, at(10).Add(-30*time.Second), "2.15.0")
+	f.streamConfig("S0", "order-archive", 1, 11, m{"mirror": "order-events", "replicas": 1})
+	for e := int64(10); e <= 11; e++ {
+		f.streamMirrorAt(e, "order-archive", 0, -1, m{"leader_since": t0.Add(-24 * time.Hour)})
+	}
+	f.fires("stream-015", 11)
 }
