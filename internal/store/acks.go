@@ -30,6 +30,9 @@ type Ack struct {
 	EndedAt   time.Time
 	EndedBy   string
 	EndReason string
+	// ReadAt is the time a read chose it for its finding at: now, or a
+	// past range's end. Zero on a row not read for a finding.
+	ReadAt time.Time
 }
 
 // End reasons of an acknowledgement.
@@ -283,6 +286,7 @@ func (s *Store) applyAcksAt(ctx context.Context, t time.Time, fs []Finding) erro
 		for j := len(as) - 1; j >= 0; j-- {
 			if as[j].matches(fs[i]) && as[j].InForceAt(t) {
 				a := as[j]
+				a.ReadAt = t
 				fs[i].Ack = &a
 				break
 			}

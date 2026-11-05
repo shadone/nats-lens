@@ -37,8 +37,9 @@ message Acknowledgement {
   // for the finding.
   google.protobuf.Timestamp quiet_until = 6;
 
-  // Whether the quiet holds at the time of the read: the acknowledgement
-  // is in force and quiet_until is unset or ahead.
+  // Whether the quiet holds at the time the finding is read for (now, or
+  // a past range's end): the acknowledgement is in force and quiet_until
+  // is unset or after that time.
   bool quiet = 7;
 
   // When a person ended it or a newer acknowledgement replaced it; unset

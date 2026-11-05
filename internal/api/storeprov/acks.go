@@ -13,11 +13,11 @@ import (
 )
 
 // ackProto converts a stored acknowledgement; quiet says whether its quiet
-// holds at now.
-func ackProto(a store.Ack, now time.Time) *v1.Acknowledgement {
+// holds at at.
+func ackProto(a store.Ack, at time.Time) *v1.Acknowledgement {
 	return &v1.Acknowledgement{
 		Id: strconv.FormatInt(a.ID, 10), FindingId: a.FindingID, Note: a.Note, AckedBy: a.AckedBy,
-		CreatedAt: ts(a.CreatedAt), QuietUntil: ts(a.QuietUntil), Quiet: a.QuietAt(now),
+		CreatedAt: ts(a.CreatedAt), QuietUntil: ts(a.QuietUntil), Quiet: a.QuietAt(at),
 		EndedAt: ts(a.EndedAt), EndedBy: a.EndedBy, EndReason: a.EndReason,
 	}
 }
