@@ -49,7 +49,7 @@ func TestSingleReplica(t *testing.T) {
 	r := f.fires("stream-018", 2, "APP/order-cache", "APP/OBJ_image-input", "APP/order-archive", "APP/media-cache")
 	want(t, r["APP/order-cache"], "info",
 		"Stream order-cache has 1 replica, on nats-0, in cluster lens of 3 JetStream servers; its messages are lost with that server's disk.")
-	want(t, r["APP/OBJ_image-input"], "warning", "Object store image-input has 1 replica", "its objects are lost")
+	want(t, r["APP/OBJ_image-input"], "info", "Object store image-input has 1 replica", "its objects are lost")
 	want(t, r["APP/order-archive"], "info", "it mirrors order-events, which holds the data")
 	want(t, r["APP/media-cache"], "info", "on nats-1", "(that server is not ready now)")
 	if v := r["APP/order-cache"].Value; v == nil || *v != 3 {
@@ -77,4 +77,33 @@ func TestSingleReplica(t *testing.T) {
 	if r := f.eval("stream-018", 2); len(r) != 4 {
 		t.Fatalf("declared under the readable name: %s", rowsText(r))
 	}
+}
+
+// A cluster scaled from three servers to one: the two removed servers are
+// no longer expected, though they were seen within the day.
+func TestSingleReplicaScaledDown(t *testing.T) {
+	f := newFx(t)
+	f.epoch(1, []string{"nats-0"})
+	for i, name := range three {
+		f.server(fmt.Sprintf("S%d", i), name, 1, 1, t0.Add(-time.Hour), "2.15.0")
+	}
+	f.exec(`UPDATE servers SET cluster = 'lens'`)
+	f.exec(`UPDATE servers SET last_seen_at = ? WHERE server_name <> 'nats-0'`, t0.Add(-3*time.Hour))
+	f.streamAsset("S0", "order-cache", 1, 1, m{"replicas": 1})
+	f.fires("stream-018", 1)
+}
+
+// A stream pinned by placement tags counts only the servers that carry
+// them.
+func TestSingleReplicaPlacementTags(t *testing.T) {
+	f := newFx(t)
+	f.streamLensCluster()
+	f.exec(`UPDATE servers SET tags = ['ssd'] WHERE server_name = 'nats-0'`)
+	f.exec(`UPDATE servers SET tags = ['ssd', 'eu'] WHERE server_name <> 'nats-0'`)
+	f.streamAsset("S0", "order-cache", 1, 2, m{"replicas": 1})
+	f.streamAsset("S0", "eu-cache", 1, 2, m{"replicas": 1})
+	f.exec(`UPDATE stream_config SET placement_tags = ['ssd'] WHERE stream = 'order-cache'`)
+	f.exec(`UPDATE stream_config SET placement_tags = ['eu'] WHERE stream = 'eu-cache'`)
+	r := f.fires("stream-018", 2, "APP/order-cache")
+	want(t, r["APP/order-cache"], "info", "in cluster lens of 3 JetStream servers with tags ssd;")
 }

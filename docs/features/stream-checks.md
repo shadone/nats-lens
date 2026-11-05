@@ -153,11 +153,11 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 ### `stream-018` Single replica in a cluster
 
 - **Problem:** a stream, KV bucket or object store has one replica in a cluster that could hold three, so losing that one server's disk loses its data, and while the server is down the asset is unavailable.
-- **Fires when:** the asset's configuration has one replica and its cluster has `min_servers` or more JetStream servers, counted by name among those seen within the last day.
-- **Severity:** info. Warning for an object store, whose objects are often the only copy. Info, with a note, for a mirror, whose origin holds the data.
-- **Thresholds:** `min_servers` 3 (proposed, not yet confirmed, as are the severities).
+- **Fires when:** the asset's configuration has one replica and `min_servers` or more JetStream servers could hold its replicas: servers the collection expects (those that answered and those missing but recently seen), in the asset's cluster and domain, carrying every placement tag of the asset. A cluster scaled down stops counting the removed servers once the collection no longer expects them.
+- **Severity:** info, object stores and mirrors included; a mirror's detail says that its origin holds the data.
+- **Thresholds:** `min_servers` 3 (proposed, not yet confirmed, as is the severity).
 - **Resolves when:** the replicas are raised. While the asset's only server is not ready (restarting, missing, JetStream not ready), the configuration it reported last is kept, so a restart does not resolve and fire the finding again.
-- **Left out:** an asset whose replicas the inventory gives: one replica there is by design, another number is `stream-012`'s. A stream on a server without a cluster.
+- **Left out:** an asset whose replicas the inventory gives: one replica there is by design, another number is `stream-012`'s. A stream on a server without a cluster. A stream pinned by placement tags to fewer than `min_servers` servers.
 
 ### `stream-019` KV bucket history without a byte limit
 
