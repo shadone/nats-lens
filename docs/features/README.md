@@ -116,7 +116,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Server checks `server-001` to `server-016` (server-checks.md)
 - [x] Account checks `account-001` to `account-004`: connection and disk limits, account and user JWT expiry (account-checks.md)
 - [x] Stream, KV bucket and object store checks `stream-001` to `stream-014` (stream-checks.md)
-- [x] Consumer checks `consumer-001` to `consumer-013` (consumer-checks.md)
+- [x] Consumer checks `consumer-001` to `consumer-017`, among them the oldest unread message about to expire, pull requests at `max_waiting`, a single-replica durable on a replicated stream and a long pause (consumer-checks.md)
 - [x] Client checks `client-001` to `client-005` (client-checks.md)
 - [x] System checks `system-001` to `system-003` (system-checks.md)
 - [x] The inventory of assets that must exist (inventory.md)
