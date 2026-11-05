@@ -22,10 +22,13 @@ const (
 )
 
 // stagingStop is when the collector's connection closed, and stagingStart
-// when its first epoch was stored, in the fixed frame.
+// when its first epoch was stored, in the fixed frame. stagingDown is the
+// time nats-lens was not running, two hours before the close: from its
+// last epoch to its restart, when it collected at once.
 var (
 	stagingStop  = FixedNow.Add(-stagingStale)
 	stagingStart = FixedNow.Add(-stagingHistory)
+	stagingDown  = hole{from: fixed(9, 33, 26), to: fixed(9, 36, 26)}
 )
 
 // stagingScenario is example-staging.
@@ -55,6 +58,8 @@ func stagingScenario() *scenario {
 		links:           stagingLinks(),
 		stale:           stagingStale,
 		history:         stagingHistory,
+		noEpochs:        []hole{stagingDown},
+		retention:       14 * 24 * time.Hour,
 		collection:      v1.CollectionState_COLLECTION_STATE_CONNECTION_CLOSED,
 		collectionError: "nats: authorization violation",
 		errorSince:      stagingStop,
@@ -93,6 +98,16 @@ func stagingEvents(s scen, _ []*v1.Finding) []*v1.Event {
 		collector(stop.Add(-4*time.Hour), "collector.disconnected", "sys", "EOF", "collector connection sys lost server nats-2: "),
 		collector(stop.Add(-4*time.Hour+50*time.Second), "collector.reconnected", "sys", "", "collector connection sys reconnected to nats-0"),
 	}
+	// nats-lens was restarted two hours before the close and was down for
+	// three minutes; at its start it recorded the gap since its last
+	// epoch.
+	from, to := stagingDown.from.Add(s.shift), stagingDown.to.Add(s.shift)
+	out = append(out,
+		&v1.Event{Time: ts(to), ReceivedAt: ts(to), Source: v1.EventSource_EVENT_SOURCE_COLLECTOR, Kind: "collector.started",
+			Summary: "collector started, version " + Version, Raw: `{"version":"` + Version + `"}`},
+		&v1.Event{Time: ts(from), ReceivedAt: ts(to), Source: v1.EventSource_EVENT_SOURCE_COLLECTOR, Kind: "collector.gap",
+			Reason: "collector not running", Summary: "no capture for 3m0s, from " + from.Format(time.RFC3339) + " to " + to.Format(time.RFC3339),
+			Raw: `{"from":"` + from.Format(time.RFC3339) + `","to":"` + to.Format(time.RFC3339) + `","seconds":180}`})
 	// Routine reconnects every 17 minutes, from the start of the history.
 	for k := range int((stagingStop.Sub(stagingStart) - time.Minute) / (17 * time.Minute)) {
 		kind, typ := "client.connect", "CLIENT.CONNECT"

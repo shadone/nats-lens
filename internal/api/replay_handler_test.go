@@ -84,9 +84,9 @@ func TestGetReplayClampsBToNow(t *testing.T) {
 
 func TestGetReplayRefusesAOlderThanRetention(t *testing.T) {
 	_, c := apitest.Serve(t, fake.New(false))
-	a := fake.FixedNow.Add(-15 * 24 * time.Hour)
+	a := fake.FixedNow.Add(-31 * 24 * time.Hour)
 	_, err := c.GetReplay(context.Background(), replayRequest(a, a.Add(time.Hour)))
-	if connect.CodeOf(err) != connect.CodeInvalidArgument || !strings.Contains(err.Error(), "A is older than retention (14d)") {
+	if connect.CodeOf(err) != connect.CodeInvalidArgument || !strings.Contains(err.Error(), "A is older than retention (30d)") {
 		t.Errorf("err = %v", err)
 	}
 }

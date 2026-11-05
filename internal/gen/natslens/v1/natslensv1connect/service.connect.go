@@ -77,6 +77,9 @@ const (
 	LensServiceGetAccountsAndAuthProcedure = "/natslens.v1.LensService/GetAccountsAndAuth"
 	// LensServiceGetCapacityProcedure is the fully-qualified name of the LensService's GetCapacity RPC.
 	LensServiceGetCapacityProcedure = "/natslens.v1.LensService/GetCapacity"
+	// LensServiceGetDataHistoryProcedure is the fully-qualified name of the LensService's
+	// GetDataHistory RPC.
+	LensServiceGetDataHistoryProcedure = "/natslens.v1.LensService/GetDataHistory"
 	// LensServiceGetSubjectsProcedure is the fully-qualified name of the LensService's GetSubjects RPC.
 	LensServiceGetSubjectsProcedure = "/natslens.v1.LensService/GetSubjects"
 	// LensServiceMatchSubjectProcedure is the fully-qualified name of the LensService's MatchSubject
@@ -172,6 +175,10 @@ type LensServiceClient interface {
 	// JetStream file store is and when it fills at its growth over the
 	// range.
 	GetCapacity(context.Context, *connect.Request[v1.GetCapacityRequest]) (*connect.Response[v1.GetCapacityResponse], error)
+	// What nats-lens holds of the system: where the history starts, the
+	// collections and gaps of the range, the retention, the archive's state,
+	// and how much history each use has.
+	GetDataHistory(context.Context, *connect.Request[v1.GetDataHistoryRequest]) (*connect.Response[v1.GetDataHistoryResponse], error)
 	// Where messages can go in the range's newest epoch: each stream with
 	// its subjects, consumers and stored rate, the client subscriptions of
 	// the newest subscription collection at or before it by subject, the
@@ -363,6 +370,13 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		getDataHistory: connect.NewClient[v1.GetDataHistoryRequest, v1.GetDataHistoryResponse](
+			httpClient,
+			baseURL+LensServiceGetDataHistoryProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetDataHistory")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		getSubjects: connect.NewClient[v1.GetSubjectsRequest, v1.GetSubjectsResponse](
 			httpClient,
 			baseURL+LensServiceGetSubjectsProcedure,
@@ -492,6 +506,7 @@ type lensServiceClient struct {
 	getTopology        *connect.Client[v1.GetTopologyRequest, v1.GetTopologyResponse]
 	getAccountsAndAuth *connect.Client[v1.GetAccountsAndAuthRequest, v1.GetAccountsAndAuthResponse]
 	getCapacity        *connect.Client[v1.GetCapacityRequest, v1.GetCapacityResponse]
+	getDataHistory     *connect.Client[v1.GetDataHistoryRequest, v1.GetDataHistoryResponse]
 	getSubjects        *connect.Client[v1.GetSubjectsRequest, v1.GetSubjectsResponse]
 	matchSubject       *connect.Client[v1.MatchSubjectRequest, v1.MatchSubjectResponse]
 	getMicroServices   *connect.Client[v1.GetMicroServicesRequest, v1.GetMicroServicesResponse]
@@ -602,6 +617,11 @@ func (c *lensServiceClient) GetAccountsAndAuth(ctx context.Context, req *connect
 // GetCapacity calls natslens.v1.LensService.GetCapacity.
 func (c *lensServiceClient) GetCapacity(ctx context.Context, req *connect.Request[v1.GetCapacityRequest]) (*connect.Response[v1.GetCapacityResponse], error) {
 	return c.getCapacity.CallUnary(ctx, req)
+}
+
+// GetDataHistory calls natslens.v1.LensService.GetDataHistory.
+func (c *lensServiceClient) GetDataHistory(ctx context.Context, req *connect.Request[v1.GetDataHistoryRequest]) (*connect.Response[v1.GetDataHistoryResponse], error) {
+	return c.getDataHistory.CallUnary(ctx, req)
 }
 
 // GetSubjects calls natslens.v1.LensService.GetSubjects.
@@ -732,6 +752,10 @@ type LensServiceHandler interface {
 	// JetStream file store is and when it fills at its growth over the
 	// range.
 	GetCapacity(context.Context, *connect.Request[v1.GetCapacityRequest]) (*connect.Response[v1.GetCapacityResponse], error)
+	// What nats-lens holds of the system: where the history starts, the
+	// collections and gaps of the range, the retention, the archive's state,
+	// and how much history each use has.
+	GetDataHistory(context.Context, *connect.Request[v1.GetDataHistoryRequest]) (*connect.Response[v1.GetDataHistoryResponse], error)
 	// Where messages can go in the range's newest epoch: each stream with
 	// its subjects, consumers and stored rate, the client subscriptions of
 	// the newest subscription collection at or before it by subject, the
@@ -919,6 +943,13 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	lensServiceGetDataHistoryHandler := connect.NewUnaryHandler(
+		LensServiceGetDataHistoryProcedure,
+		svc.GetDataHistory,
+		connect.WithSchema(lensServiceMethods.ByName("GetDataHistory")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	lensServiceGetSubjectsHandler := connect.NewUnaryHandler(
 		LensServiceGetSubjectsProcedure,
 		svc.GetSubjects,
@@ -1064,6 +1095,8 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceGetAccountsAndAuthHandler.ServeHTTP(w, r)
 		case LensServiceGetCapacityProcedure:
 			lensServiceGetCapacityHandler.ServeHTTP(w, r)
+		case LensServiceGetDataHistoryProcedure:
+			lensServiceGetDataHistoryHandler.ServeHTTP(w, r)
 		case LensServiceGetSubjectsProcedure:
 			lensServiceGetSubjectsHandler.ServeHTTP(w, r)
 		case LensServiceMatchSubjectProcedure:
@@ -1177,6 +1210,10 @@ func (UnimplementedLensServiceHandler) GetAccountsAndAuth(context.Context, *conn
 
 func (UnimplementedLensServiceHandler) GetCapacity(context.Context, *connect.Request[v1.GetCapacityRequest]) (*connect.Response[v1.GetCapacityResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetCapacity is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetDataHistory(context.Context, *connect.Request[v1.GetDataHistoryRequest]) (*connect.Response[v1.GetDataHistoryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetDataHistory is not implemented"))
 }
 
 func (UnimplementedLensServiceHandler) GetSubjects(context.Context, *connect.Request[v1.GetSubjectsRequest]) (*connect.Response[v1.GetSubjectsResponse], error) {

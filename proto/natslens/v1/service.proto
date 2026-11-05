@@ -9,6 +9,7 @@ import "natslens/v1/capacity.proto";
 import "natslens/v1/consumers.proto";
 import "natslens/v1/events.proto";
 import "natslens/v1/findings.proto";
+import "natslens/v1/history.proto";
 import "natslens/v1/info.proto";
 import "natslens/v1/micro.proto";
 import "natslens/v1/overview.proto";
@@ -136,6 +137,13 @@ service LensService {
   // JetStream file store is and when it fills at its growth over the
   // range.
   rpc GetCapacity(GetCapacityRequest) returns (GetCapacityResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // What nats-lens holds of the system: where the history starts, the
+  // collections and gaps of the range, the retention, the archive's state,
+  // and how much history each use has.
+  rpc GetDataHistory(GetDataHistoryRequest) returns (GetDataHistoryResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 

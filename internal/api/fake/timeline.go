@@ -100,6 +100,11 @@ func (s scen) timelineRows(r *v1.TimeRange, bucket time.Duration, entity *v1.Ent
 			if !b0.Before(s.dataEnd()) || !b1.After(s.dataStart()) {
 				row.Cells[i] = v1.Status_STATUS_NO_DATA
 			}
+			// No check ran inside a time without collections.
+			if s.withinHole(b0, b1) {
+				row.Cells[i] = v1.Status_STATUS_NO_DATA
+				continue
+			}
 			for _, sp := range spec.spans {
 				if sp.from.Add(s.shift).Before(b1) && sp.to.Add(s.shift).After(b0) {
 					row.Cells[i], failed = statusOf(spec.sev), true
