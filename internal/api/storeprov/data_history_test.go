@@ -137,7 +137,7 @@ func TestDataHistoryFromStore(t *testing.T) {
 		for _, g := range res.GetGaps() {
 			got = append(got, gapLine(g))
 		}
-		if !slices.Equal(got, want) || res.GetGapsTotal() != int32(len(want)) {
+		if !slices.Equal(got, want) || res.GetGapsTotal() != 4 || res.GetListedGapsTotal() != 3 {
 			t.Fatalf("%s: gaps\n%v\nwant\n%v", zone, got, want)
 		}
 		gs := res.GetGaps()

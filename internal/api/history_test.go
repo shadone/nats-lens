@@ -247,3 +247,33 @@ func TestCollectorConnectionGaps(t *testing.T) {
 		t.Errorf("gaps %+v", gs)
 	}
 }
+
+// The times without collections and the listed gaps are cut at 200 each,
+// with a total each: a flapping events connection cannot push a time
+// without collections out.
+func TestDataHistoryGapsCutPerClass(t *testing.T) {
+	f := hFacts()
+	f.Start = hNow.Add(-24 * time.Hour)
+	f.HistoryStart = hAt(8, 0)
+	f.Collections = []api.ReplayGap{noCollections(hAt(9, 0), hAt(9, 10), 1, 2)}
+	for i := range 250 {
+		at := hAt(10, 0).Add(time.Duration(i) * 30 * time.Second)
+		f.Events = append(f.Events, hEvent(fmt.Sprint(2*i), "collector.disconnected", at, at, `{"connection":"sys"}`),
+			hEvent(fmt.Sprint(2*i+1), "collector.reconnected", at.Add(15*time.Second), at, `{"connection":"sys"}`))
+	}
+	res := api.FinishDataHistory(f)
+	var hatched, listed int
+	for _, g := range res.GetGaps() {
+		if g.GetKind() == v1.HistoryGapKind_HISTORY_GAP_KIND_EVENTS_NOT_CAPTURED {
+			listed++
+		} else {
+			hatched++
+		}
+	}
+	if hatched != 2 || listed != api.MaxHistoryGaps || res.GetGapsTotal() != 2 || res.GetListedGapsTotal() != 250 {
+		t.Errorf("%d hatched of %d, %d listed of %d", hatched, res.GetGapsTotal(), listed, res.GetListedGapsTotal())
+	}
+	if !slices.IsSortedFunc(res.GetGaps(), func(a, b *v1.HistoryGap) int { return b.GetStart().AsTime().Compare(a.GetStart().AsTime()) }) {
+		t.Error("gaps not newest first")
+	}
+}

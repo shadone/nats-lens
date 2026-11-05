@@ -14,8 +14,9 @@ import (
 
 // Data history limits.
 const (
-	// MaxHistoryGaps is the most gaps a response lists; gaps_total counts
-	// them all.
+	// MaxHistoryGaps is the most gaps a response lists of each class:
+	// the times without collections with the time before the history
+	// (gaps_total counts them all), and the others (listed_gaps_total).
 	MaxHistoryGaps = 200
 	// HistoryEventsLookback is how long before the range a provider reads
 	// the collector events, so that a gap that began before the range is
@@ -119,7 +120,7 @@ func (g historyGap) endOr(open time.Time) time.Time {
 }
 
 // FinishDataHistory applies the gap kinds, their order and merge, the
-// coverage of the range, the uses table and the 200-row cut.
+// coverage of the range, the uses table and the 200-row cut of each class.
 func FinishDataHistory(f *HistoryFacts) *v1.GetDataHistoryResponse {
 	res := &v1.GetDataHistoryResponse{
 		HistoryStart: tsOrNil(f.HistoryStart), NewestEpochAt: tsOrNil(f.NewestEpochAt), EventsStart: tsOrNil(f.EventsStart),
@@ -130,15 +131,18 @@ func FinishDataHistory(f *HistoryFacts) *v1.GetDataHistoryResponse {
 	}
 	hatched, listed := historyGaps(f)
 	res.Coverage = historyCoverage(f, hatched)
-	all := append(hatched, listed...)
 	if before, ok := beforeHistory(f); ok {
-		all = append(all, before)
+		hatched = append(hatched, before)
 	}
-	slices.SortStableFunc(all, func(a, b historyGap) int {
-		return cmp.Or(b.start.Compare(a.start), int(a.kind-b.kind))
-	})
-	res.GapsTotal = int32(len(all))
-	for _, g := range all[:min(len(all), MaxHistoryGaps)] {
+	// Each class is cut on its own, so that many short events gaps never
+	// push a time without collections out.
+	newestFirst := func(a, b historyGap) int { return cmp.Or(b.start.Compare(a.start), int(a.kind-b.kind)) }
+	slices.SortStableFunc(hatched, newestFirst)
+	slices.SortStableFunc(listed, newestFirst)
+	res.GapsTotal, res.ListedGapsTotal = int32(len(hatched)), int32(len(listed))
+	all := append(hatched[:min(len(hatched), MaxHistoryGaps)], listed[:min(len(listed), MaxHistoryGaps)]...)
+	slices.SortStableFunc(all, newestFirst)
+	for _, g := range all {
 		res.Gaps = append(res.Gaps, g.message())
 	}
 	res.Uses = HistoryUses(f)

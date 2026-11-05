@@ -189,10 +189,14 @@ message GetDataHistoryResponse {
   // What the range holds.
   HistoryCoverage coverage = 7;
 
-  // The gaps that overlap the range, newest first, at most 200.
+  // The gaps that overlap the range, newest first: at most 200 of the
+  // times without collections and before the history (the kinds charts
+  // hatch), and at most 200 of the others, each the newest.
   repeated HistoryGap gaps = 8;
 
-  // All gaps that overlap the range.
+  // All times without collections and before the history that overlap
+  // the range: not running, not connected, no collections, before
+  // history.
   int32 gaps_total = 9;
 
   // The archive.
@@ -201,8 +205,13 @@ message GetDataHistoryResponse {
   // What uses the history.
   repeated HistoryUse uses = 11;
 
-  // Firing findings that were already true when nats-lens started: their
-  // condition began before the history start, or they were first seen
-  // within a minute after it.
+  // Firing findings already true at the history start, the oldest stored
+  // collection (after the retention sweep, the oldest kept): their
+  // condition began before it, or they were first seen within a minute
+  // after it.
   int32 findings_at_start = 12;
+
+  // All gaps of the other kinds that overlap the range: events not
+  // captured and Kubernetes not watched.
+  int32 listed_gaps_total = 13;
 }

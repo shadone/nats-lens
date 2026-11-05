@@ -629,18 +629,26 @@ type GetDataHistoryResponse struct {
 	CollectInterval *durationpb.Duration `protobuf:"bytes,6,opt,name=collect_interval,json=collectInterval,proto3" json:"collect_interval,omitempty"`
 	// What the range holds.
 	Coverage *HistoryCoverage `protobuf:"bytes,7,opt,name=coverage,proto3" json:"coverage,omitempty"`
-	// The gaps that overlap the range, newest first, at most 200.
+	// The gaps that overlap the range, newest first: at most 200 of the
+	// times without collections and before the history (the kinds charts
+	// hatch), and at most 200 of the others, each the newest.
 	Gaps []*HistoryGap `protobuf:"bytes,8,rep,name=gaps,proto3" json:"gaps,omitempty"`
-	// All gaps that overlap the range.
+	// All times without collections and before the history that overlap
+	// the range: not running, not connected, no collections, before
+	// history.
 	GapsTotal int32 `protobuf:"varint,9,opt,name=gaps_total,json=gapsTotal,proto3" json:"gaps_total,omitempty"`
 	// The archive.
 	Archive *ArchiveState `protobuf:"bytes,10,opt,name=archive,proto3" json:"archive,omitempty"`
 	// What uses the history.
 	Uses []*HistoryUse `protobuf:"bytes,11,rep,name=uses,proto3" json:"uses,omitempty"`
-	// Firing findings that were already true when nats-lens started: their
-	// condition began before the history start, or they were first seen
-	// within a minute after it.
+	// Firing findings already true at the history start, the oldest stored
+	// collection (after the retention sweep, the oldest kept): their
+	// condition began before it, or they were first seen within a minute
+	// after it.
 	FindingsAtStart int32 `protobuf:"varint,12,opt,name=findings_at_start,json=findingsAtStart,proto3" json:"findings_at_start,omitempty"`
+	// All gaps of the other kinds that overlap the range: events not
+	// captured and Kubernetes not watched.
+	ListedGapsTotal int32 `protobuf:"varint,13,opt,name=listed_gaps_total,json=listedGapsTotal,proto3" json:"listed_gaps_total,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -759,6 +767,13 @@ func (x *GetDataHistoryResponse) GetFindingsAtStart() int32 {
 	return 0
 }
 
+func (x *GetDataHistoryResponse) GetListedGapsTotal() int32 {
+	if x != nil {
+		return x.ListedGapsTotal
+	}
+	return 0
+}
+
 var File_natslens_v1_history_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_history_proto_rawDesc = "" +
@@ -814,7 +829,7 @@ const file_natslens_v1_history_proto_rawDesc = "" +
 	"\x03has\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\x03has\x12\x16\n" +
 	"\x06enough\x18\x05 \x01(\bR\x06enough\x127\n" +
 	"\tenough_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\benoughAt\x12\x14\n" +
-	"\x05never\x18\a \x01(\bR\x05never\"\xb2\x05\n" +
+	"\x05never\x18\a \x01(\bR\x05never\"\xde\x05\n" +
 	"\x16GetDataHistoryResponse\x12?\n" +
 	"\rhistory_start\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\fhistoryStart\x12B\n" +
 	"\x0fnewest_epoch_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\rnewestEpochAt\x12=\n" +
@@ -829,7 +844,8 @@ const file_natslens_v1_history_proto_rawDesc = "" +
 	"\aarchive\x18\n" +
 	" \x01(\v2\x19.natslens.v1.ArchiveStateR\aarchive\x12+\n" +
 	"\x04uses\x18\v \x03(\v2\x17.natslens.v1.HistoryUseR\x04uses\x12*\n" +
-	"\x11findings_at_start\x18\f \x01(\x05R\x0ffindingsAtStart*\x99\x02\n" +
+	"\x11findings_at_start\x18\f \x01(\x05R\x0ffindingsAtStart\x12*\n" +
+	"\x11listed_gaps_total\x18\r \x01(\x05R\x0flistedGapsTotal*\x99\x02\n" +
 	"\x0eHistoryGapKind\x12 \n" +
 	"\x1cHISTORY_GAP_KIND_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cHISTORY_GAP_KIND_NOT_RUNNING\x10\x01\x12\"\n" +
