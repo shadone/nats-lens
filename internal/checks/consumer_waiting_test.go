@@ -63,8 +63,8 @@ func TestPullRequestsAtMaxWaitingHysteresis(t *testing.T) {
 	}
 	for name, waiting := range map[string]int64{"holding": 461, "dropped": 460, "new": 470} {
 		f.consumerConfig("S0", "jobs", name, 1, 3, nil)
-		f.consumerStats(2, "S0", "jobs", name, m{"is_leader": true, "num_waiting": 512})
-		f.consumerStats(3, "S0", "jobs", name, m{"is_leader": true, "num_waiting": waiting})
+		f.consumerStats(2, "S0", "jobs", name, m{"is_leader": true, "num_waiting": 512, "num_pending": 7})
+		f.consumerStats(3, "S0", "jobs", name, m{"is_leader": true, "num_waiting": waiting, "num_pending": 7})
 	}
 	firing("APP/jobs/holding")
 	firing("APP/jobs/dropped")
@@ -83,4 +83,28 @@ func TestPullRequestsAtMaxWaitingWithoutLeader(t *testing.T) {
 	f.consumerStats(2, "S0", "jobs", "worker", m{"is_leader": false, "leader": ""})
 	f.consumerStats(2, "S1", "jobs", "worker", m{"is_leader": false, "leader": ""})
 	f.fires("consumer-015", 2)
+}
+
+// A full queue with nothing waiting is idle workers holding their fetches,
+// and a max_waiting of 1 is full with one worker's fetch: neither is a
+// finding. With messages waiting, two of two fires.
+func TestPullRequestsAtMaxWaitingByDesign(t *testing.T) {
+	f := newFx(t)
+	f.cluster(3)
+	for _, c := range []struct {
+		name             string
+		max, wait, ready int64
+	}{{"exclusive", 1, 1, 5}, {"idle", 2, 2, 0}, {"pair", 2, 2, 5}} {
+		f.consumerConfig("S0", "jobs", c.name, 1, 3, m{"max_waiting": c.max})
+		for e := int64(1); e <= 3; e++ {
+			f.consumerStats(e, "S0", "jobs", c.name, m{"is_leader": true, "num_waiting": c.wait, "num_pending": c.ready})
+		}
+	}
+	r := f.fires("consumer-015", 3, "APP/jobs/pair")
+	want(t, r["APP/jobs/pair"], "warning", "2 pull requests waiting of max_waiting 2: new fetches are refused; 5 messages waiting.")
+	r = f.eval("consumer-015", 3, map[string]string{"min_max_waiting": "1"})
+	want(t, r["APP/jobs/exclusive"], "warning", "1 pull request waiting of max_waiting 1: new fetches are refused")
+	if _, ok := r["APP/jobs/idle"]; ok {
+		t.Errorf("idle fired: %s", r["APP/jobs/idle"].Detail)
+	}
 }
