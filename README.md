@@ -430,7 +430,7 @@ To try a change to a check on a copy of a database: `natslens checks run -data-d
 | server-020 | Connections near max_connections | warning 80%, critical 95% | `connections` against the process's newest `max_connections`, 2 epochs in a row; held down to 90% of the level |
 | server-021 | JetStream API errors high | warning | `js_api_errors` growth within 15m, at least 100 and half of `js_api_total`'s growth, 2 epochs in a row, per process; suppressed by server-003 |
 | server-022 | Internal queue backlog | warning | `ipqueues.pending` at least 1000 in one queue in 3 epochs in a row |
-| server-023 | CPU saturated | warning | `cpu_percent` at least 90% of the smaller of `cores` and `gomaxprocs` in every epoch for 5m, per process |
+| server-023 | CPU saturated | warning | `cpu_percent` at least 90% of the smaller of `cores` and `gomaxprocs` in 80% of the epochs of 5m (at least 5), per process; a gap over three intervals ends a run, restarting servers left out |
 | system-001 | Check failed to run | warning, critical after 10 epochs of the same failure | the engine's own runs |
 | system-002 | No JetStream meta leader | critical | `meta_leader` of the clustered servers, or the leader seeing more peers offline than its quorum allows |
 | system-003 | JetStream meta leader changing often | warning above 4 in 15m | `meta.leader_elected` events and the leader per epoch; one hand-over within two intervals after each step-down not counted |
