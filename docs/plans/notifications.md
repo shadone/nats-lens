@@ -20,7 +20,7 @@ Each was answered by the session that built T1 as recommended below: proposed, n
 |---|---|
 | T1 Configuration, message formats and `natslens notify test` | built on `feat/notify-config`, awaiting review |
 | T2 Notification state and outbox | built on `feat/notify-outbox`, awaiting review |
-| T3 Delivery, retries, metrics and the delivery check | planned |
+| T3 Delivery, retries, metrics and the delivery check | built in isolated T3 checkout, awaiting parent review |
 | T4 Acknowledgements in notifications | planned; needs `docs/plans/mobile.md` T1 merged |
 | T5 Feature docs, design and audit | planned |
 
@@ -234,3 +234,15 @@ Conflicts that rule out other pairings: every task that changes `service.proto`,
 ## Leftovers
 
 Not in this plan, most valuable first: message templates; a paging-service channel with its own API; e-mail; a channel per finding owner (by account or stream prefix); a Notifications section in the UI listing channels and their last deliveries; quiet hours per channel; grouping by cause card instead of by epoch.
+
+### Where T3 departed from this plan
+
+Proposed, not yet confirmed:
+
+- Migration `0036` adds durable batch boundaries and `sent_at`, plus a terminal outcome time. A crash after a receiver's 2xx reuses the same batch and key even if later epochs appended messages. Last-hour metrics and the delivery check use outcome time, so a message queued yesterday but refused now counts now.
+- Slack delivery selects up to 100 durable rows and uses T1's ten-message cut line with a Findings link. This preserves the plan's burst summary rather than sending ten-row chunks as separate requests.
+- Successful and terminal batches wait one collection interval before the channel's next batch; retry waits use persisted next-attempt times. Idle channels poll once per second. Channels have independent workers under one system delivery runner, so a slow channel cannot block healthy channels.
+- Delivery starts before NATS connection setup and only for `run`. Its in-flight context is cancelled at the signal's existing `shutdown_grace`; cancellation leaves rows pending, with no new attempts counted. It adds no shutdown allowance.
+- The next free delivery check is `system-010`. Its capability doc and the two feature-index sections are updated under the task's explicit exception to T5 file ownership. Global notification and metrics documentation remains T5's.
+- `internal/api/fake/remediation.go` already loads remediation dynamically, so no edit or ordering dependency on mobile M T2 was needed. Demo has no outbox and the delivery check does not fire.
+- ASVS 1.2.4 / 15.4.3: parameterized short store writes; no store lock across HTTP. ASVS 13.3.1: persisted outcomes and logs omit receiver error text, response bodies and secret destinations; T1 rereads secrets per attempt.
