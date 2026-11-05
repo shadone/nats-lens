@@ -5,15 +5,19 @@ import (
 	"time"
 )
 
-// Connections at 80% of max_connections warn, at 95% are critical; one
-// below the level does not fire.
+// Connections at 80% of max_connections in two collections warn, at 95%
+// are critical; one collection, or one connection below the level, does
+// not fire.
 func TestConnectionsNearMax(t *testing.T) {
 	f := newFx(t)
-	f.cluster(1)
-	f.stats(1, "S0", m{"connections": 800, "max_connections": 1000})
-	f.stats(1, "S1", m{"connections": 950, "max_connections": 1000})
-	f.stats(1, "S2", m{"connections": 799, "max_connections": 1000})
-	r := f.fires("server-020", 1, "nats-0", "nats-1")
+	f.cluster(2)
+	for e := int64(1); e <= 2; e++ {
+		f.stats(e, "S0", m{"connections": 800, "max_connections": 1000})
+		f.stats(e, "S1", m{"connections": 950, "max_connections": 1000})
+		f.stats(e, "S2", m{"connections": 799, "max_connections": 1000})
+	}
+	f.fires("server-020", 1)
+	r := f.fires("server-020", 2, "nats-0", "nats-1")
 	want(t, r["nats-0"], "warning", "nats-0 holds 800 client connections of max_connections 1000 (80%).")
 	want(t, r["nats-1"], "critical", "(95%)")
 }
@@ -51,4 +55,18 @@ func TestConnectionsNearMaxResolve(t *testing.T) {
 	f.fires("server-020", 2, "nats-0")
 	f.exec(`UPDATE findings SET last_seen_epoch = 2`)
 	f.fires("server-020", 3)
+}
+
+// A limit of 0 or none reported is left out; a server above its limit is
+// critical.
+func TestConnectionsNearMaxNoLimit(t *testing.T) {
+	f := newFx(t)
+	f.cluster(3)
+	for e := int64(2); e <= 3; e++ {
+		f.stats(e, "S0", m{"connections": 10, "max_connections": 0})
+		f.stats(e, "S1", m{"connections": 10})
+		f.stats(e, "S2", m{"connections": 70000, "max_connections": 65536})
+	}
+	r := f.fires("server-020", 3, "nats-2")
+	want(t, r["nats-2"], "critical", "(106.8%)")
 }
