@@ -29,6 +29,7 @@ vi.mock("./client", () => {
       getLensInfo: ok(),
       getShellStatus: ok(),
       getAccountsAndAuth: ok(),
+      getDataHistory: ok(),
     },
   };
 });
@@ -59,6 +60,7 @@ function AllHooks() {
   q.useLensInfo();
   q.useShellStatus();
   q.useAccountsAndAuth(live);
+  q.useDataHistory(live);
   return null;
 }
 
@@ -81,6 +83,7 @@ const METHODS = [
   "getLensInfo",
   "getShellStatus",
   "getAccountsAndAuth",
+  "getDataHistory",
 ] as const;
 
 function setup(route: string) {
@@ -107,7 +110,7 @@ describe("query keys and the system", () => {
     const qc = setup("/?system=sys-a");
     await waitFor(() => METHODS.forEach((m) => expect(lens[m]).toHaveBeenCalled()));
     const keys = qc.getQueryCache().getAll().map((x) => x.queryKey);
-    expect(keys.length).toBe(19);
+    expect(keys.length).toBe(20);
     for (const k of keys) expect(k, JSON.stringify(k)).toContain("sys-a");
     for (const m of METHODS) expect(lastSystem(m), m).toBe("sys-a");
   });
@@ -119,7 +122,7 @@ describe("query keys and the system", () => {
     act(() => navigate("/?system=sys-b"));
     await waitFor(() => METHODS.forEach((m) => expect(lastSystem(m), m).toBe("sys-b")));
     const keys = qc.getQueryCache().getAll().map((x) => x.queryKey);
-    expect(keys.filter((k) => k.includes("sys-b")).length).toBe(19);
+    expect(keys.filter((k) => k.includes("sys-b")).length).toBe(20);
   });
 
   it("keys a page without ?system= on the empty system and sends none", async () => {
