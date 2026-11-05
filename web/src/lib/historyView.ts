@@ -2,7 +2,8 @@
 // be tested on their own: spans, times, gap labels, the uses of history,
 // the archive and the summary line.
 import { isHatched, type ArchiveState, type DataHistory, type GapKind, type HistoryCoverage, type HistoryGap, type HistoryUse } from "../api/history";
-import { dayMonHm, eventWhen, fmtInt, hm, isoDate, isoMinute } from "./format";
+import { serverNow } from "./clock";
+import { dayMon, dayMonHm, eventWhen, fmtInt, hm, hms, isoDate, isoMinute } from "./format";
 
 const SEC = 1000;
 const MIN = 60 * SEC;
@@ -24,6 +25,7 @@ function unit(n: number, short: string, long: string, plural = `${long}s`, asLon
  * "5 h 29 min", "6 h", "13 d 6 h", "30 d"; long: "13 days 6 hours".
  */
 export function spanText(ms: number, long = false): string {
+  if (ms > 0 && ms < SEC / 2) return "<1 s";
   const s = Math.max(0, Math.round(ms / SEC));
   const d = Math.floor(s / 86400);
   const h = Math.floor((s % 86400) / 3600);
@@ -68,24 +70,45 @@ export function gapDetail(g: HistoryGap): string | undefined {
   return undefined;
 }
 
-/** The end of a gap: its time, else "still now" on a live range, "after the range" on a fixed one. */
-export function gapEndText(g: HistoryGap, rangeEnd: number, live: boolean): string {
+/** Whether a range follows now: a live one, or a fixed one that ends at or after now. */
+export function followsNow(rangeEnd: number, live: boolean, now: number): boolean {
+  return live || rangeEnd >= now;
+}
+
+/** The end of a gap: its time, else "still now" on a range that follows now, "after the range" on one that ended. */
+export function gapEndText(g: HistoryGap, rangeEnd: number, live: boolean, now = serverNow()): string {
   if (g.end !== undefined) return gapTime(g.end, rangeEnd);
-  return live ? "still now" : "after the range";
+  return followsNow(rangeEnd, live, now) ? "still now" : "after the range";
 }
 
 /** How long a gap lasted; an open one up to the range's end, "so far" or "at least". */
-export function gapLengthText(g: HistoryGap, rangeEnd: number, live: boolean): string | undefined {
+export function gapLengthText(g: HistoryGap, rangeEnd: number, live: boolean, now = serverNow()): string | undefined {
   if (g.start === undefined) return undefined;
   if (g.end !== undefined) return spanText(g.end - g.start);
   const span = spanText(Math.max(0, rangeEnd - g.start));
-  return live ? `${span} so far` : `at least ${span}`;
+  return followsNow(rangeEnd, live, now) ? `${span} so far` : `at least ${span}`;
 }
 
-/** "No data 17:50:44–17:53:44: nats-lens was not running", the name of a hatched stretch. */
-export function gapName(g: HistoryGap, rangeEnd: number, live: boolean): string {
-  const from = g.start === undefined ? "" : gapTime(g.start, rangeEnd);
-  return `No data ${from}–${gapEndText(g, rangeEnd, live)} UTC: ${gapLabel(g.kind)}`;
+/** 17:50:44, or 16 Oct 14:30:00 with the day. */
+function stretchTime(at: number, withDay: boolean): string {
+  return withDay ? `${dayMon(at)} ${hms(at)}` : hms(at);
+}
+
+/**
+ * The name of a hatched stretch: "No data 17:50:44–17:53:44 UTC: nats-lens
+ * was not running", both ends with the day when either is a day or more
+ * from the range's end; an open one "No data from 11:29:56 UTC until now: …".
+ */
+export function gapName(g: HistoryGap, rangeEnd: number, live: boolean, now = serverNow()): string {
+  const far = (t: number | undefined) => t !== undefined && Math.abs(rangeEnd - t) >= DAY;
+  const withDay = far(g.start) || far(g.end);
+  const from = g.start === undefined ? "" : stretchTime(g.start, withDay);
+  const label = gapLabel(g.kind);
+  if (g.end === undefined) {
+    const until = followsNow(rangeEnd, live, now) ? "now" : "after the range";
+    return from ? `No data from ${from} UTC until ${until}: ${label}` : `No data until ${until}: ${label}`;
+  }
+  return `No data ${from}–${stretchTime(g.end, withDay)} UTC: ${label}`;
 }
 
 /** "Showing 200 of 243 times without collections", for each class of gap cut at 200. */
@@ -136,11 +159,11 @@ export function coveredShare(c: HistoryCoverage): number | undefined {
   return Math.max(0, 1 - c.withoutData / (c.to - c.from));
 }
 
-/** "66%"; never "100%" with a gap, never "0%" with any data. */
-export function shareText(share: number, withoutData: number): string {
+/** "66%"; never "100%" with a gap, never "0%" with any data: a share above 0 or any collection. */
+export function shareText(share: number, withoutData: number, epochs = 0): string {
   if (withoutData === 0) return "100%";
   const p = share * 100;
-  if (p > 0 && p < 1) return "<1%";
+  if (p < 1 && (p > 0 || epochs > 0)) return "<1%";
   return `${Math.min(99, Math.floor(p))}%`;
 }
 
@@ -186,6 +209,7 @@ export type UseTone = "ok" | "warn" | "muted";
 export function enoughState(u: HistoryUse, retention: number | undefined, now: number): { text: string; tone: UseTone } {
   if (u.enough) return { text: "enough", tone: "ok" };
   if (u.never) return { text: retention === undefined ? "never with this retention" : `never with retention ${spanText(retention)}`, tone: "warn" };
+  if (u.enoughAt !== undefined && u.enoughAt <= now) return { text: "enough", tone: "ok" };
   if (u.enoughAt !== undefined) return { text: `enough at ${whenText(u.enoughAt, now)}`, tone: "muted" };
   return { text: "not within this range", tone: "muted" };
 }
