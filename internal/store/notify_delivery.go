@@ -56,7 +56,10 @@ func (s *Store) FinishDelivery(ctx context.Context, channel string, first, last 
 		return err
 	}
 	defer s.mu.Unlock()
-	var finished, delivered, scheduled any
+	var finished, delivered, scheduled, lastError any
+	if state != OutboxDelivered {
+		lastError = fmt.Sprintf("%s, HTTP %d", state, status)
+	}
 	if state != OutboxPending {
 		finished = at.UTC()
 	}
@@ -66,7 +69,7 @@ func (s *Store) FinishDelivery(ctx context.Context, channel string, first, last 
 	if !next.IsZero() {
 		scheduled = next.UTC()
 	}
-	_, err := s.db.ExecContext(ctx, `UPDATE notify_outbox SET state=?,attempts=attempts+1,last_status=?,last_error=?,finished_at=?,delivered_at=?,next_attempt_at=? WHERE channel=? AND id BETWEEN ? AND ? AND state='pending'`, state, status, fmt.Sprintf("%s, HTTP %d", state, status), finished, delivered, scheduled, channel, first, last)
+	_, err := s.db.ExecContext(ctx, `UPDATE notify_outbox SET state=?,attempts=attempts+1,last_status=?,last_error=?,finished_at=?,delivered_at=?,next_attempt_at=? WHERE channel=? AND id BETWEEN ? AND ? AND state='pending'`, state, status, lastError, finished, delivered, scheduled, channel, first, last)
 	return err
 }
 
