@@ -149,9 +149,9 @@ type GetLensInfoResponse struct {
 	// Display name of that system.
 	SystemName string `protobuf:"bytes,10,opt,name=system_name,json=systemName,proto3" json:"system_name,omitempty"`
 	// The server's present, the moment a range without an end ends at: the
-	// wall clock, or the scenario's own time for `natslens demo -fixed`.
-	// The UI reads its "now" from it, so that its live ranges end where the
-	// server's do.
+	// wall clock, or the scenario's own time for `natslens demo -fixed`,
+	// which does not move. The UI reads its "now" from it, so that its live
+	// ranges start before the server's now.
 	Now           *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=now,proto3" json:"now,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

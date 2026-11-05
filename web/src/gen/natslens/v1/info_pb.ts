@@ -115,9 +115,9 @@ export type GetLensInfoResponse = Message<"natslens.v1.GetLensInfoResponse"> & {
 
   /**
    * The server's present, the moment a range without an end ends at: the
-   * wall clock, or the scenario's own time for `natslens demo -fixed`.
-   * The UI reads its "now" from it, so that its live ranges end where the
-   * server's do.
+   * wall clock, or the scenario's own time for `natslens demo -fixed`,
+   * which does not move. The UI reads its "now" from it, so that its live
+   * ranges start before the server's now.
    *
    * @generated from field: google.protobuf.Timestamp now = 11;
    */
