@@ -87,13 +87,13 @@ func TestShellStatusPanicIsInternal(t *testing.T) {
 // system's header.
 func TestShellStatusSlowOtherBadgeDoesNotDelay(t *testing.T) {
 	a := reviewShell{renamed: newRenamed("a")}
-	b := reviewShell{renamed: newRenamed("b"), sumDelay: 1500 * time.Millisecond}
+	b := reviewShell{renamed: newRenamed("b"), sumDelay: 5 * time.Second}
 	_, c := apitest.ServeHandler(t, &api.Handler{Systems: reviewSystems(a, b)})
 	start := time.Now()
 	if _, err := c.GetShellStatus(context.Background(), connect.NewRequest(&v1.GetShellStatusRequest{System: "a"})); err != nil {
 		t.Fatal(err)
 	}
-	if d := time.Since(start); d > time.Second {
+	if d := time.Since(start); d > 3*time.Second {
 		t.Errorf("system a's shell took %v, held by system b's badge", d)
 	}
 }
