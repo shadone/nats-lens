@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "sent_at": "2026-11-05T09:32:00Z",
+  "system": {
+    "id": "example-prod",
+    "name": "Production"
+  },
+  "nats_lens_version": "1.4.0",
+  "notifications": [
+    {
+      "kind": "baseline",
+      "detail": "nats-lens now notifies this channel: 3 findings firing",
+      "firing_count": 3,
+      "link": "https://nats-lens.example.com/findings?system=example-prod",
+      "dedup_key": "example-prod:baseline:41230"
+    }
+  ]
+}

@@ -6,7 +6,7 @@
 
 ## What it does
 
-The stream checks judge each JetStream stream: whether its replicas keep quorum and stay current, whether it nears or will soon reach its limits, whether the servers that hold it agree about it, whether it matches the inventory, and whether it disappeared. A KV bucket and an object store are streams (`KV_<bucket>`, `OBJ_<bucket>`), so these checks cover them too. A stream finding is keyed by `account/stream`. There are 14 stream checks, `stream-001` to `stream-014`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
+The stream checks judge each JetStream stream: whether its replicas keep quorum and stay current, whether it nears or will soon reach its limits, whether the servers that hold it agree about it, whether it matches the inventory, and whether it disappeared. They also judge how a stream is kept: whether a mirror or a sourcing stream keeps up with its origin, whether a single replica holds data a cluster could spread, whether a KV bucket's history grows without a bound, whether a work-queue or interest stream has a consumer, and whether deleted messages pile up inside a stream. A KV bucket and an object store are streams (`KV_<bucket>`, `OBJ_<bucket>`), so these checks cover them too. A stream finding is keyed by `account/stream`. There are 21 stream checks, `stream-001` to `stream-021`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
 
 ## The checks
 
@@ -123,12 +123,78 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 - **Thresholds:** lookback 1h.
 - **Left out:** assets in the inventory, which `stream-011` reports.
 
+### `stream-015` Mirror lagging
+
+- **Problem:** a mirror stays behind its origin, or has stopped hearing from it. Readers of the mirror see old data, and a mirror kept for recovery is missing the newest messages.
+- **Fires when:** every leader report within the lookback, covering at least half of it, has the mirror more than `max_lag` messages behind, and the lag did not fall over the window; or the mirror has received nothing from its origin, not even the heartbeat the origin sends every second, for more than `max_inactive`; or the two newest leader reports say it never heard from its origin, and its leader was elected, the stream created and the leader's server started more than `max_inactive` ago. A new leader, or a restarted server, reports that it never heard until its copy of the origin starts, which takes seconds, or longer while the origin has no leader, so such a report after a leader change or a restart is not a finding.
+- **Severity:** warning.
+- **Thresholds:** lookback 5m, `max_lag` 10000, `max_inactive` 2m, `resolve_ratio` 0.8 (proposed, not yet confirmed).
+- **Resolves when:** the lag falls below `resolve_ratio` of `max_lag` and the time without data below `resolve_ratio` of `max_inactive`. A collection without a leader report keeps the finding as it was, as long as a leader report is within the lookback.
+- **Left out:** a mirror whose lag falls, such as one catching up after a restart or a new mirror copying an old origin. A mirror with an error in either of its two newest leader reports, which is `stream-017`'s, also in the collections before `stream-017` has seen it `min_epochs` times; a firing `stream-015` finding stays out of this rule until `stream-017` fires for the mirror.
+
+### `stream-016` Source lagging
+
+- **Problem:** a stream that sources other streams stays behind one of them, so it lacks their newest messages.
+- **Fires when:** every leader report within the lookback, covering at least half of it, has the largest lag across the stream's sources above `max_lag`, and that lag did not fall over the window. The servers report the largest lag, not which source has it; the detail lists the sources.
+- **Severity:** warning.
+- **Thresholds:** lookback 5m, `max_lag` 10000, `resolve_ratio` 0.8 (proposed, not yet confirmed).
+- **Resolves when:** the lag falls below `resolve_ratio` of `max_lag`; a collection without a leader report keeps the finding, as for `stream-015`.
+- **Left out:** a lag that falls. A source that stopped hearing from its stream keeps the lag it last had, so it is not detected while that lag is below `max_lag`: when each source was last seen and its errors are not stored (see Planned).
+
+### `stream-017` Mirror error
+
+- **Problem:** a mirror reports an error, for example because its origin is gone or out of its account's reach. It copies nothing while the error lasts.
+- **Fires when:** the mirror's leader reports an error in at least `min_epochs` of the last twice `min_epochs` collections. The server clears the error each time it tries again, so a mirror that keeps failing shows it in some collections and not in others. The detail gives the server's error text, and says so when the newest report does not have it.
+- **Severity:** warning.
+- **Thresholds:** `min_epochs` 2 (proposed, not yet confirmed).
+- **Resolves when:** no leader report in the last twice `min_epochs` collections has an error.
+- **Left out:** a follower's report, as only the leader runs the mirror.
+- **Not seen:** an error that shows in fewer than `min_epochs` of every twice `min_epochs` collections, such as one in every fourth or fifth. `stream-015` then reports the mirror only when it has not heard from its origin or is lagging.
+
+### `stream-018` Single replica in a cluster
+
+- **Problem:** a stream, KV bucket or object store has one replica in a cluster that could hold three, so losing that one server's disk loses its data, and while the server is down the asset is unavailable.
+- **Fires when:** the asset's configuration has one replica and `min_servers` or more JetStream servers could hold its replicas: servers the collection expects, in the asset's cluster and domain, that its placement tags allow, as nats-server matches them: without case, a tag with a leading `!` rules out the servers that carry it, and a server tagged `!jetstream` takes no stream. The collection expects the servers that answered, those that stopped answering within `server_forget_after` (1h by default), and the route and JetStream meta group peers that the answering servers report. A cluster scaled down therefore stops counting a removed server an hour after it last answered, or, while the others still list it as a meta group peer, once it is removed with `nats server raft peer-remove`.
+- **Severity:** info, object stores and mirrors included; a mirror's detail says that its origin holds the data.
+- **Thresholds:** `min_servers` 3 (proposed, not yet confirmed, as is the severity).
+- **Resolves when:** the replicas are raised. While the asset's only server is not ready (restarting, missing, JetStream not ready), the configuration it reported last is kept, so a restart does not resolve and fire the finding again.
+- **Left out:** an asset whose replicas the inventory gives: one replica there is by design, another number is `stream-012`'s. A stream on a server without a cluster. A stream pinned by placement tags to fewer than `min_servers` servers.
+
+### `stream-019` KV bucket history without a byte limit
+
+- **Problem:** a KV bucket keeps several revisions of every key and has no byte limit, so its size is bounded only by its keys times its history, and its keys are not bounded. A TTL bounds how long a revision lives, but not how many keys hold their full history. The check fires on the size and revisions per key reached, not on a growth rate.
+- **Fires when:** the bucket's history is above 1, its `max_bytes` is not set, and its leader reports on average `min_revisions` or more messages per key (messages divided by keys) and `min_bytes` or more in all.
+- **Severity:** info.
+- **Thresholds:** `min_revisions` 5, `min_bytes` 100 MiB, `resolve_ratio` 0.8, lookback 10m (proposed, not yet confirmed).
+- **Resolves when:** the revisions per key or the size fall below `resolve_ratio` of their threshold, or the bucket gets a byte limit. A collection without a leader report keeps the finding while a leader report is within the lookback.
+- **Left out:** a bucket whose `max_bytes` the inventory gives, `-1` included, as a decision to leave it unbounded. The check is quiet while `stream-005` reports the bucket (no TTL and no byte limit), whose detail names the history.
+
+### `stream-020` Stream without a consumer
+
+- **Problem:** a work-queue or interest stream has no consumer. A work-queue stream keeps every message until a consumer takes it, so messages pile up until a limit stops publishes or drops them. An interest stream with no consumer stores nothing: the server acknowledges each publish and drops the message.
+- **Fires when:** every leader report within the lookback, covering at least half of it, counts no consumer on the stream, and the stream was created before the lookback began.
+- **Severity:** warning when a work-queue stream holds messages, or when an interest stream's last sequence rose within the lookback (messages were dropped). Info otherwise (proposed, not yet confirmed).
+- **Thresholds:** lookback 10m (proposed, not yet confirmed).
+- **Resolves when:** a leader report within the lookback counts a consumer. A collection without a leader report keeps the finding.
+- **Left out:** limits streams, KV buckets and object stores. A stream while `consumer-010` or `consumer-013` reports one of its consumers missing, as that finding names the consumer to bring back. A stream that a stream in the store mirrors or sources, matched by name in any account: the copying stream reads it through a consumer the servers do not count, as nats-server 2.12.5 and 2.15.0 create it as a direct consumer without storage (only a durable named in the source's configuration, an option 2.15.0 has and 2.12.5 does not, is counted). An interest stream read only by consumers that clients create on demand and that go away when idle is not left out: it fires between their visits by design, as messages published then are dropped.
+
+### `stream-021` Many deleted messages inside a stream
+
+- **Problem:** the stream holds many deleted messages between its first and last sequence (interior deletes). Every replica keeps a record of the gaps in memory and carries it in the snapshots a replica catches up from. Many of them usually mean one old message holds the start of the stream open: an unacknowledged work item, or a KV key not written since.
+- **Fires when:** the leader reports `min_deleted` or more interior deletes, and they are `min_deleted_ratio` or more of the sequence range (messages plus interior deletes). The detail gives the age of the oldest message.
+- **Severity:** info.
+- **Thresholds:** `min_deleted` 1000000, `min_deleted_ratio` 0.5, `resolve_ratio` 0.8, lookback 10m (proposed, not yet confirmed).
+- **Resolves when:** the deletes or their share fall below `resolve_ratio` of their threshold. A collection without a leader report keeps the finding while a leader report is within the lookback.
+- **Left out:** a follower's count.
+
 ## Behavior and rules
 
-- **Leader's view first.** Checks of contents and growth (`stream-002` to `stream-006`, `stream-012`) read the leader's report, because followers report at slightly different moments.
+- **Leader's view first.** Checks of contents and growth (`stream-002` to `stream-006`, `stream-012`, `stream-019` to `stream-021`) read the leader's report, because followers report at slightly different moments. The mirror and source checks (`stream-015` to `stream-017`) read only the leader, as only the leader runs the mirror or the sources.
+- **New stream checks do not flap.** `stream-015`, `stream-016`, `stream-019`, `stream-020` and `stream-021` read whether their finding was firing in the previous collection: a firing finding keeps firing down to `resolve_ratio` (0.8) of the thresholds, or until the condition clearly ends, and through a collection without a leader report as long as one is within the lookback. A finding that is not firing needs the full threshold in the current collection. `stream-015` needs two leader reports for a mirror that never heard from its origin, `stream-017` needs the error in `min_epochs` of the last twice `min_epochs` collections, and `stream-018` keeps an asset's last configuration while its only server is not ready.
+- **One problem, one finding.** `stream-015` is quiet for a mirror with an error in either of its two newest leader reports, which is `stream-017`'s; `stream-019` is quiet for a bucket while `stream-005` reports it; `stream-020` is quiet for a stream while `consumer-010` or `consumer-013` reports one of its consumers missing; `stream-018` leaves an asset whose inventory entry gives other replicas to `stream-012`.
 - **Agreement checks compare every server.** `stream-007`, `stream-008` and `stream-010` leave out servers that restarted within `restart_window`; `stream-009` leaves out an unhealthy server's view under the conditions in its section; `stream-014` counts a restarting holder as one that may still hold the asset.
 - **Missing assets are weighed against their holders.** `stream-011` and `stream-014` look at the servers that held the asset when it was last reported, so a server that is away does not make an asset read as deleted.
-- **KV buckets and object stores count as streams.** Their findings name the stream `KV_<bucket>` or `OBJ_<bucket>`, and `stream-005` names them "KV bucket" or "Object store" in the detail.
+- **KV buckets and object stores count as streams.** Their findings name the stream `KV_<bucket>` or `OBJ_<bucket>`, and `stream-005`, `stream-018`, `stream-019` and `stream-021` name them "KV bucket" or "Object store" in the detail.
 
 ## Scenarios
 
@@ -158,18 +224,54 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 - **When** nats-lens starts with that inventory
 - **Then** `stream-005` does not report `order-archive`
 
+### A mirror loses its origin
+
+- **Given** `order-archive` mirrors `order-events`, and `order-events` is deleted
+- **When** nats-lens collects while the mirror's leader reports "stream not found"
+- **Then** `stream-015` "Mirror lagging" stays quiet for it, though the mirror no longer hears from its origin
+- **When** the leader reports the error again within the next three collections (the server clears it at each retry, so it can skip one)
+- **Then** `stream-017` "Mirror error" is a warning for `APP/order-archive` with that error
+
+### A mirror falls behind and catches up
+
+- **Given** the mirror `order-archive` is 40000 messages behind `order-events`, and its lag grows for 5 minutes
+- **When** nats-lens collects
+- **Then** `stream-015` is a warning, and its detail gives the lag now and at the start of the window
+- **When** the mirror catches up and its lag falls below 8000, 0.8 of `max_lag`
+- **Then** the finding resolves
+
+### A bucket kept on one server
+
+- **Given** the KV bucket `worker-presence` has one replica in a cluster of three JetStream servers, and the inventory does not give its replicas
+- **When** nats-lens collects
+- **Then** `stream-018` "Single replica in a cluster" is info for `APP/KV_worker-presence`, naming the server that holds it
+- **And** while that server restarts the finding stays, and its detail says the server is not ready
+
+### A work queue nobody consumes
+
+- **Given** the work-queue stream `order-callbacks` holds 50 messages and its consumer was deleted by a client more than 10 minutes ago, and the inventory does not list the consumer
+- **When** nats-lens collects
+- **Then** `stream-020` "Stream without a consumer" is a warning, saying the messages wait and nothing removes them
+- **And** for an interest stream in the same state that clients publish to, the detail says the server drops each message
+
+### A bucket keeps every revision
+
+- **Given** the KV bucket `stock-levels` has history 10, a TTL of 48 hours, no byte limit, 1000 keys and 8000 messages in 200 MiB
+- **When** nats-lens collects
+- **Then** `stream-019` is info with 8 revisions per key as its value
+
+### One old message holds a work queue open
+
+- **Given** the work-queue stream `media-windows` kept one unacknowledged message from three days ago while 4 million later ones were acknowledged
+- **When** nats-lens collects
+- **Then** `stream-021` "Many deleted messages inside a stream" is info, and its detail says the oldest message is 3 days old
+
 ## Planned
 
 These stream checks are not built. Each line says what it would detect and what data it needs.
 
-- **Mirror lagging.** A mirror stays many messages behind its origin, or has not been active for a while. Needs: the mirror lag and last activity from JSZ, stored today.
-- **Source lagging.** A stream's sources fall behind. Needs: the largest source lag from JSZ, stored today.
-- **Mirror error.** A mirror reports an error, for example when its origin is gone. Needs: the mirror error from JSZ, stored today.
-- **Single replica in a cluster.** A stream, KV bucket or object store has one replica while the cluster has three or more JetStream servers, so one server loss loses its data. Needs: the replicas setting and the meta group size, stored today. An object store without replicas is the case that matters most, as its objects are often the only copy.
-- **KV bucket history setting.** A KV bucket keeps a long history per key without a byte limit, so it grows by history times keys. Needs: the bucket's `max_msgs_per_subject` and `max_bytes`, stored today.
-- **Stream without a consumer.** A work-queue or interest stream has no consumer, so its messages are never removed. Needs: the consumer count from JSZ, stored today.
-- **Many deleted messages.** A stream holds many interior deletes, which cost memory and disk. Needs: the deleted count from JSZ, stored today.
-- **Oldest message expires unread.** A stream's `max_age` removes messages before its slowest consumer reads them. Needs: the stream's first sequence and time and each consumer's ack floor, stored today. The stream page plans the same view per consumer ([streams.md](streams.md)).
+- **Oldest message expires unread.** A stream's `max_age` removes messages before its slowest consumer reads them. Not built as a stream check: the consumer side of it, a consumer whose oldest waiting message ages out of the stream, is planned in [consumer-checks.md](consumer-checks.md) and would report the same problem per consumer. Telling from the stored data that messages were already removed unread does not work either: a filtered consumer's ack floor stays at the last message it matched, so once the stream removes later messages on other subjects the floor is below the stream's first sequence, though the consumer missed nothing. The stream page plans the same view per consumer ([streams.md](streams.md)).
+- **Source not seen, source error.** A source that stopped hearing from its stream, or that reports an error, as `stream-015` and `stream-017` report for a mirror. Needs: each source's last activity and error from JSZ, which the collector reads but does not store (only the number of sources and the largest lag are stored); new columns on `stream_stats`, such as the longest time since a source was seen and the first source error, would hold them.
 
 ## Not supported / out of scope
 

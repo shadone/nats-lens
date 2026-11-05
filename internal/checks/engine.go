@@ -29,6 +29,10 @@ type Engine struct {
 	// system, which the client checks leave out; nil means the Set's.
 	// Engines of several systems share one Set and each sets its own.
 	ToolingNames []string
+	// ArchiveSince is when the process began exporting hours to the
+	// archive, read by the checks as archive_since; zero when it does
+	// not export.
+	ArchiveSince time.Time
 	// only, when set, limits a run to these codes; for tests.
 	only map[string]bool
 	// loopbackWarned is set once the loopback guard was logged; the
@@ -116,6 +120,10 @@ FROM epochs WHERE epoch = ?`, epoch, epoch).Scan(&at, &prev)
 	}
 	at = at.UTC()
 	tooling := e.tooling()
+	archiveSince := "NULL::TIMESTAMP"
+	if !e.ArchiveSince.IsZero() {
+		archiveSince = tsLit(e.ArchiveSince)
+	}
 	loopback, _, err := LoopbackDecision(ctx, conn, epoch, tooling)
 	if err != nil {
 		return nil, false, err
@@ -135,6 +143,7 @@ FROM epochs WHERE epoch = ?`, epoch, epoch).Scan(&at, &prev)
 		"tooling_names":    listLiteral(tooling),
 		"loopback_setting": strconv.FormatBool(e.Set.loopbackTooling),
 		"loopback_now":     strconv.FormatBool(loopback),
+		"archive_since":    archiveSince,
 	}); err != nil {
 		return nil, false, err
 	}
