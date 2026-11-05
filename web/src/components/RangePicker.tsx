@@ -24,8 +24,9 @@ export function fromLocalInput(v: string): number {
  * range too), fixed for a fixed range, not collecting while the collector's
  * connection to NATS is down or no collector writes, no data without any
  * collection, stale when the newest collection is older than three collect
- * intervals, otherwise live with the collection's age. The title starts with
- * the whole text, which a narrow header cuts with an ellipsis.
+ * intervals, otherwise live with the collection's age. A narrow header cuts
+ * the longer texts with an ellipsis, so their title starts with the whole
+ * text; "fixed" and "no data" are short enough to stay whole.
  */
 export function Freshness({ spec, freshness, error, id }: { spec: RangeSpec; freshness?: Freshness; error?: unknown; id?: string }) {
   const now = useNow(1000, spec.kind === "live");
@@ -37,12 +38,7 @@ export function Freshness({ spec, freshness, error, id }: { spec: RangeSpec; fre
       </span>
     );
   }
-  if (spec.kind === "fixed")
-    return (
-      <span className="live paused" id={id} title="fixed">
-        fixed
-      </span>
-    );
+  if (spec.kind === "fixed") return <span className="live paused" id={id}>fixed</span>;
   const newest = freshness?.epochAt !== undefined ? `Newest collection ${freshness.epoch}${freshness.partial ? ", partial" : ""}` : undefined;
   const title = (text: string) => (newest ? `${text}. ${newest}` : text);
   if (freshness && !freshness.collecting) {
@@ -54,12 +50,7 @@ export function Freshness({ spec, freshness, error, id }: { spec: RangeSpec; fre
       </span>
     );
   }
-  if (!freshness || freshness.epochAt === undefined)
-    return (
-      <span className="live stale" id={id} title="no data">
-        no data
-      </span>
-    );
+  if (!freshness || freshness.epochAt === undefined) return <span className="live stale" id={id}>no data</span>;
   const age = Math.max(0, now - freshness.epochAt);
   const label = !freshness.live ? "not collecting" : age > 3 * freshness.intervalMs ? "stale" : "live";
   return (
