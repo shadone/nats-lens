@@ -62,19 +62,49 @@ SELECT (SELECT first FROM h), (SELECT max(started_at) FROM epochs), (SELECT min(
 }
 
 // historyEvents reads the collector events of HistoryEventKinds from
-// HistoryEventsLookback before the range to its end, and the
-// collector.gap and collector.k8s_gap events that began earlier and ended
-// in or after the range, with their raw payload, in time order.
+// HistoryEventsLookback before the range to its end; the collector.gap and
+// collector.k8s_gap events that began earlier and ended in or after the
+// range; and the losses still open at the start of that read: for each
+// connection the loss that began it, as Replay's events read finds them
+// (for the collector's own connection only not_connected and
+// connection_closed), and the collector.k8s_not_watching that no
+// collector.k8s_gap or collector.started followed. With their raw payload,
+// in time order.
 func (p *Provider) historyEvents(ctx context.Context, start, end time.Time) ([]*v1.Event, error) {
+	from := start.Add(-api.HistoryEventsLookback)
 	kinds := api.HistoryEventKinds
-	args := []any{end, start.Add(-api.HistoryEventsLookback), start}
+	args := []any{from, end, from, start}
 	for _, k := range kinds {
 		args = append(args, k)
 	}
-	rows, err := p.db().QueryContext(ctx, `SELECT `+eventCols+`, coalesce(e.raw::VARCHAR, '') FROM events e
-WHERE e.source = 'collector' AND e.time <= ?
-  AND (e.time >= ? OR (e.kind IN ('collector.gap', 'collector.k8s_gap') AND e.received_at >= ?))
-  AND e.kind IN (?`+strings.Repeat(", ?", len(kinds)-1)+`)
+	rows, err := p.db().QueryContext(ctx, `
+WITH s AS (
+  SELECT e.*, coalesce(json_extract_string(e.raw, '$.connection'), '') AS conn FROM events e
+  WHERE e.source = 'collector' AND e.time < ? AND e.kind IN ('collector.started', 'collector.disconnected', 'collector.not_connected',
+      'collector.connection_closed', 'collector.reconnected', 'collector.k8s_not_watching', 'collector.k8s_gap')
+),
+open_conn AS (
+  SELECT * FROM s
+  WHERE s.kind IN ('collector.disconnected', 'collector.not_connected', 'collector.connection_closed') AND s.conn <> ''
+    AND (s.conn <> 'collector' OR s.kind <> 'collector.disconnected')
+    AND s.time > coalesce((SELECT max(time) FROM s r WHERE r.kind = 'collector.started' OR (r.kind = 'collector.reconnected' AND r.conn = s.conn)),
+        TIMESTAMP '1970-01-01')
+  QUALIFY row_number() OVER (PARTITION BY s.conn ORDER BY s.time, s.id) = 1
+),
+open_k8s AS (
+  SELECT * FROM s
+  WHERE s.kind = 'collector.k8s_not_watching'
+    AND s.time > coalesce((SELECT max(time) FROM s r WHERE r.kind IN ('collector.started', 'collector.k8s_gap')), TIMESTAMP '1970-01-01')
+  QUALIFY row_number() OVER (ORDER BY s.time, s.id) = 1
+),
+e AS (
+  SELECT * EXCLUDE (conn) FROM open_conn
+  UNION ALL SELECT * EXCLUDE (conn) FROM open_k8s
+  UNION ALL SELECT * FROM events e WHERE e.source = 'collector' AND e.time <= ?
+    AND (e.time >= ? OR (e.kind IN ('collector.gap', 'collector.k8s_gap') AND e.received_at >= ?))
+    AND e.kind IN (?`+strings.Repeat(", ?", len(kinds)-1)+`)
+)
+SELECT `+eventCols+`, coalesce(e.raw::VARCHAR, '') FROM e
 ORDER BY e.time, e.id`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("data history events: %w", err)
