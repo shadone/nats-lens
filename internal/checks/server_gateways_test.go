@@ -68,12 +68,13 @@ func TestGatewayMissingNotAnswering(t *testing.T) {
 	f.fires("server-019", 5)
 }
 
-// A remote cluster removed on purpose: no gateway in either direction for
-// min_epochs collections, while the servers answer, makes it gone, so
-// nothing fires.
+// A remote cluster removed on purpose: no gateway from it and none of its
+// servers answering for min_epochs collections, while the cluster's own
+// servers answer, makes it gone, so nothing fires.
 func TestGatewayMissingRemovedCluster(t *testing.T) {
 	f := newFx(t)
 	f.supercluster(10, map[string][]int64{"us-0": span(6, 10), "us-1": span(6, 10), "eu-0": span(6, 10)})
+	f.exec(`DELETE FROM epoch_endpoints WHERE server_id = 'E0' AND epoch >= 6`)
 	for e := int64(6); e <= 10; e++ {
 		f.fires("server-019", e)
 	}
@@ -82,6 +83,7 @@ func TestGatewayMissingRemovedCluster(t *testing.T) {
 	for _, failed := range []bool{false, true} {
 		g := newFx(t)
 		g.supercluster(8, map[string][]int64{"us-0": span(6, 8), "us-1": span(6, 8), "eu-0": span(6, 8)})
+		g.exec(`DELETE FROM epoch_endpoints WHERE server_id = 'E0' AND epoch >= 6`)
 		if failed {
 			g.exec(`UPDATE epoch_endpoints SET state = 'error' WHERE server_id = 'U1' AND epoch = 7`)
 			g.exec(`UPDATE epoch_endpoints SET state = 'error' WHERE server_id = 'U0' AND epoch = 7`)
@@ -135,4 +137,17 @@ func TestGatewayMissingAfterRestart(t *testing.T) {
 	f.fires("server-019", 25)
 	// at(26) is 10.5 minutes after the start, past restart_window.
 	f.fires("server-019", 27, "us-0")
+}
+
+// A gateway cut in both directions while the remote cluster's servers
+// still answer is a partition, not a removal: it keeps firing, critical,
+// on both sides.
+func TestGatewayMissingPartition(t *testing.T) {
+	f := newFx(t)
+	f.supercluster(12, map[string][]int64{"us-0": span(5, 12), "us-1": span(5, 12), "eu-0": span(5, 12)})
+	f.fires("server-019", 5)
+	for e := int64(6); e <= 12; e++ {
+		r := f.fires("server-019", e, "us-0", "us-1", "eu-0")
+		want(t, r["eu-0"], "critical", "eu-0 has no outbound gateway to cluster us (no server of eu has one).")
+	}
 }
