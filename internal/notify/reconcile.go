@@ -241,7 +241,7 @@ func (d *decider) baseline() {
 // told records that the channel now knows the finding in state.
 func (d *decider) told(f store.Finding, state string) {
 	d.upserts = append(d.upserts, store.NotifyState{Channel: d.ch.Name, FindingID: f.ID, SinceEpoch: f.SinceEpoch,
-		Severity: f.Severity, State: state, SentAt: d.in.At, Epoch: d.in.Epoch})
+		Severity: f.Severity, State: state, SentAt: d.in.At, Epoch: d.in.Epoch, Acknowledged: d.episodeAcknowledged(f)})
 }
 
 func (d *decider) forget(id string) {
@@ -282,9 +282,15 @@ func (d *decider) compare() {
 		if !opening {
 			d.one(fp, st, told)
 		}
-		if n > 0 && told && len(d.upserts) == before && len(d.deletes) == deleted {
-			st.SentAt, st.Epoch = d.in.At, d.in.Epoch
-			d.upserts = append(d.upserts, st)
+		if told && len(d.upserts) == before && len(d.deletes) == deleted {
+			remember := fp != nil && st.SinceEpoch == fp.SinceEpoch && !st.Acknowledged && d.episodeAcknowledged(*fp)
+			if n > 0 || remember {
+				if n > 0 {
+					st.SentAt, st.Epoch = d.in.At, d.in.Epoch
+				}
+				st.Acknowledged = st.Acknowledged || remember
+				d.upserts = append(d.upserts, st)
+			}
 		}
 	}
 }
@@ -292,7 +298,8 @@ func (d *decider) compare() {
 // one decides for one finding: f is nil when the finding is gone from the
 // store; told says whether st holds what the channel was told.
 func (d *decider) one(f *store.Finding, st store.NotifyState, told bool) {
-	quiet, quietEnded, acknowledged := d.ackQuiet(f)
+	quiet, quietEnded := d.ackQuiet(f)
+	acknowledged := f != nil && told && st.SinceEpoch == f.SinceEpoch && d.episodeAcknowledged(*f)
 	// An actual resolve of an acknowledged episode is never held by flapping.
 	if f != nil && f.Flapping && d.eligible(*f) && (f.Firing() || !acknowledged) {
 		if told && f.SinceEpoch == st.SinceEpoch && quiet && config.SeverityRank(f.Severity) > config.SeverityRank(st.Severity) {
@@ -389,9 +396,24 @@ func (d *decider) sendQuietEnded(f *store.Finding, st store.NotifyState, state s
 	}
 }
 
+// episodeAcknowledged is scoped to the channel's known episode. Unlike the
+// bounded acknowledgement input and outbox, notify_state lasts until the
+// channel closes this episode; told must not transfer it to a later episode.
+func (d *decider) episodeAcknowledged(f store.Finding) bool {
+	if st, ok := d.states[f.ID]; ok && st.SinceEpoch == f.SinceEpoch && st.Acknowledged {
+		return true
+	}
+	for _, a := range d.in.Acks[f.ID] {
+		if a.SinceEpoch == f.SinceEpoch {
+			return true
+		}
+	}
+	return false
+}
+
 // ackQuiet derives quiet from durable episode-scoped history, not SentAt: a rise
 // or acknowledgement message must not erase a quiet-end event across a restart.
-func (d *decider) ackQuiet(f *store.Finding) (quiet, ended, acknowledged bool) {
+func (d *decider) ackQuiet(f *store.Finding) (quiet, ended bool) {
 	if f == nil {
 		return
 	}
@@ -399,7 +421,6 @@ func (d *decider) ackQuiet(f *store.Finding) (quiet, ended, acknowledged bool) {
 		if a.SinceEpoch != f.SinceEpoch {
 			continue
 		}
-		acknowledged = true
 		if a.QuietAt(d.in.At) && f.Firing() {
 			quiet = true
 		}
