@@ -149,6 +149,7 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 - **Thresholds:** `min_epochs` 2 (proposed, not yet confirmed).
 - **Resolves when:** no leader report in the last twice `min_epochs` collections has an error.
 - **Left out:** a follower's report, as only the leader runs the mirror.
+- **Not seen:** an error that shows in fewer than `min_epochs` of every twice `min_epochs` collections, such as one in every fourth or fifth. `stream-015` then reports the mirror only when it has not heard from its origin or is lagging.
 
 ### `stream-018` Single replica in a cluster
 

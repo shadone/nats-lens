@@ -34,8 +34,9 @@ remediation: >-
 related_config: [min_servers, inventory_file]
 value_name: JetStream servers it could be placed on
 value_basis: >-
-  JetStream servers the collection expects in the stream's cluster and domain that carry every placement tag of the
-  stream
+  JetStream servers the collection expects in the stream's cluster and domain that could hold a replica: they carry
+  every required placement tag of the stream and none of its "!" tags (compared without case), and are not tagged
+  "!jetstream"
 */
 WITH nr AS (
     SELECT server_name FROM not_ready(getvariable('epoch'))
