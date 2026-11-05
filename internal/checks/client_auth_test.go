@@ -159,7 +159,9 @@ func TestRepeatedAuthErrorsHysteresis(t *testing.T) {
 
 // A user is counted per account: the same user name failing 8 times in
 // each of two accounts fires nothing, 15 times in one fires for that
-// account only. An event without an account counts as $G.
+// account only. An event without an account, or with the $G or N/A that
+// nats-server's server-wide event names for a client refused before it
+// got an account, is keyed (unknown account).
 func TestRepeatedAuthErrorsPerAccount(t *testing.T) {
 	f := newFx(t)
 	f.cluster(40)
@@ -174,10 +176,12 @@ func TestRepeatedAuthErrorsPerAccount(t *testing.T) {
 	add("B", "app", 8)
 	f.fires("client-006", 40)
 	add("A", "app", 7)
-	add("", "svc", 15)
-	r := f.fires("client-006", 40, "app in A", "svc in $G")
+	add("", "svc", 5)
+	add("$G", "svc", 5)
+	add("N/A", "svc", 5)
+	r := f.fires("client-006", 40, "app in A", "svc in (unknown account)")
 	want(t, r["app in A"], "warning", "15 failed logins", "as app in account A from 10.1.0.1")
-	want(t, r["svc in $G"], "warning", "as svc in account $G")
+	want(t, r["svc in (unknown account)"], "warning", "as svc in an unknown account from 10.1.0.1")
 }
 
 // nats-server reports a client that logged in with a token as the user
