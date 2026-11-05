@@ -64,6 +64,8 @@ func sample(kind Kind) Message {
 		m.DedupKey = DedupKey("example-prod", m.FindingID, 41230, kind, 41350)
 	case KindAcknowledged:
 		m.Severity = "warning"
+	case KindBaseline:
+		return BaselineMessage("example-prod", 3, 41230).WithLink(uiURL, "example-prod")
 	case KindTest:
 		return TestBatch("example-prod", "Production", "1.4.0", uiURL, t0).Messages[0]
 	}
@@ -239,7 +241,7 @@ func TestWebhookTimesAndUnset(t *testing.T) {
 func TestKindsMatchConfig(t *testing.T) {
 	var got []string
 	for _, k := range Kinds {
-		if k != KindTest {
+		if k != KindTest && k != KindBaseline {
 			got = append(got, string(k))
 		}
 	}
@@ -324,5 +326,31 @@ func TestSlackLimits(t *testing.T) {
 	last := lines[len(lines)-1]
 	if shown := len(lines) - 2; !strings.HasPrefix(last, fmt.Sprintf("and %d more: <", 10-shown)) || shown < 1 || shown == 10 {
 		t.Errorf("%d lines shown, last %q", shown, last)
+	}
+}
+
+// An outbox row stores a message without its link; decoding it and adding
+// the link for a ui_url gives the message back, times in UTC.
+func TestEncodeDecode(t *testing.T) {
+	for _, k := range Kinds {
+		m := sample(k)
+		m.Since = m.Since.In(time.FixedZone("IST", 5*3600+1800))
+		b, err := m.Encode()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if bytes.Contains(b, []byte("nats-lens.example.com")) {
+			t.Errorf("%s: encoded message has a link: %s", k, b)
+		}
+		got, err := Decode(b)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got = got.WithLink(uiURL, "example-prod")
+		wb, _ := WebhookBody(batch(got))
+		want, _ := WebhookBody(batch(m))
+		if !bytes.Equal(wb, want) {
+			t.Errorf("%s: after encode and decode\n%s\nwant\n%s", k, wb, want)
+		}
 	}
 }
