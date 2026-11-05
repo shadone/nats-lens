@@ -202,7 +202,7 @@ The retention sweep keeps the current episode of every finding it keeps (from it
 
 ### Codes
 
-Codes are `<entity>-<NNN>`, prefixed by the entity a finding is about, not by a topic: `server-`, `account-`, `stream-`, `consumer-`, `client-`, and `system-` for the meta group and the engine. There are 82 checks: 81 SQL files and the built-in `system-001`. Account findings are keyed by the account identifier (the public key in operator mode), and their detail starts with the readable name. The inventory checks are `stream-011`, `stream-012`, `consumer-010` and `consumer-011` (a missing KV bucket or object store is its stream, `KV_<bucket>`, `OBJ_<bucket>`). Client findings are keyed by connection name across connections (`(unnamed)` without one), so a mute or a finding survives reconnects; the detail names the server and cid.
+Codes are `<entity>-<NNN>`, prefixed by the entity a finding is about, not by a topic: `server-`, `account-`, `stream-`, `consumer-`, `client-`, and `system-` for the meta group and the engine. There are 83 checks: 82 SQL files and the built-in `system-001`. Account findings are keyed by the account identifier (the public key in operator mode), and their detail starts with the readable name. The inventory checks are `stream-011`, `stream-012`, `consumer-010` and `consumer-011` (a missing KV bucket or object store is its stream, `KV_<bucket>`, `OBJ_<bucket>`). Client findings are keyed by connection name across connections (`(unnamed)` without one), so a mute or a finding survives reconnects; the detail names the server and cid.
 
 The set covers:
 

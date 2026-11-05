@@ -20,7 +20,7 @@ Each was answered by the session that built T1 as recommended below: proposed, n
 |---|---|
 | T1 Configuration, message formats and `natslens notify test` | built on `feat/notify-config`, awaiting review |
 | T2 Notification state and outbox | built on `feat/notify-outbox`, awaiting review |
-| T3 Delivery, retries, metrics and the delivery check | planned |
+| T3 Delivery, retries, metrics and the delivery check | built in isolated T3 checkout, awaiting parent review |
 | T4 Acknowledgements in notifications | planned; needs `docs/plans/mobile.md` T1 merged |
 | T5 Feature docs, design and audit | planned |
 
@@ -146,7 +146,7 @@ Each point was decided in the session that built T1: proposed, not yet confirmed
 The notifier decides what to send after each check run, by comparing what each channel should know with what it was last told, and queues the messages in the database so that a restart loses none.
 
 - **Why a comparison, not a cursor over transitions.** A mute set or lifted between two epochs is no transition; neither is the end of an acceptance or a severity that falls below a channel's `min_severity`. Comparing the channel's view at the epoch with `notify_state` covers transitions, mutes, filters and flapping with one rule, and it needs no cursor: the engine writes at most one transition per finding per epoch, and the notifier runs after every check run, so it misses no state a check run left.
-- **Migration `0035_notifications.sql`** (built as 0035, and `docs/plans/mobile.md` T1 takes 0036: see "Where T2 departed"; if another branch lands a migration first, both take the next free numbers before they merge, as neither will have been applied anywhere):
+- **Migration `0035_notifications.sql`** (built as 0035, and `docs/plans/mobile.md` T1 takes 0037: see "Where T2 departed"; if another branch lands a migration first, both take the next free numbers before they merge, as neither will have been applied anywhere):
   - `notify_state`: one row per (channel, finding) a channel was told about: `channel`, `finding_id`, `since_epoch` (the episode), `severity` sent, `state` sent (`firing`, `flapping`), `sent_at`, `epoch`. A row is deleted once its `resolved` or `muted` message is queued.
   - `notify_channels`: one row per channel name with `baselined_at`, so a new channel (or a rebuilt database) is recognised (open question 2).
   - `notify_outbox`: one row per message: `id` (from a sequence), `channel`, `created_at`, `epoch`, `kind`, `finding_id`, `dedup_key`, `message` (JSON, the T1 `Message` without the link, which is built at sending so a changed `ui_url` applies), `state` (`pending`, `delivered`, `refused`, `failed`), `attempts`, `next_attempt_at`, `delivered_at`, `last_status` (HTTP status), `last_error` (stripped of the URL).
@@ -161,7 +161,7 @@ The notifier decides what to send after each check run, by comparing what each c
 
 Each point was decided in the session that built T2: proposed, not yet confirmed.
 
-- **Migration 0035, not 0036.** The migration runner applies only the files numbered above the database's highest version, so a lower number merged after a higher one is skipped on every database that already has the higher. T2 was built first and took 0035, and `docs/plans/mobile.md` T1 now takes 0036 (both plans updated).
+- **Migration 0035, not 0036.** The migration runner applies only the files numbered above the database's highest version, so a lower number merged after a higher one is skipped on every database that already has the higher. T2 was built first and took 0035, and `docs/plans/mobile.md` T1 now takes 0037 because T3 delivery takes 0036 (both plans updated; proposed, not yet confirmed).
 - **`notify_channels` has `baselined_epoch`, `reconciled_at` and `reconciled_epoch`** besides `baselined_at`. A reconcile of an epoch at or before `reconciled_epoch` changes nothing for the channel (`store.ErrNotifyReconciled` guards the write), so an epoch reconciled twice queues its messages once. `reconciled_at` bounds the "mute ended" search: a `firing` message is given the reason `mute ended` (or `acceptance ended`, with the mute's or acceptance's fields) when a mute that covered the finding ended after the channel's previous reconcile and by this epoch's start, and after the episode began. A finding muted from its first epoch to its last sends nothing, resolve included; one whose mute ended long before it fires again names no mute.
 - **Columns named `epoch`.** `notify_state.epoch` and `notify_outbox.epoch` keep the plan's names; `TestSweepCoversEveryEpochTable` lists the notify tables as swept by `SweepNotifications`, and `TestEveryTableArchivedOrExempt` lists them as exempt, with the reason.
 - **Mutes at the epoch's start.** A finding's mute is the one in force at the epoch's `started_at` (`Mute.ActiveAt`), as `FindingsAt` reads it, not at the wall clock: a mute created between two epochs applies from the next one, and an acceptance the growth review ends at the epoch's time is already ended in the same epoch's reconcile.
@@ -223,7 +223,7 @@ Three plans are built together: this one, `docs/plans/data-history.md` (D) and `
 | Wave | Run together | Shared files and how they are kept apart |
 |---|---|---|
 | 1 | D T1, N T1 | D T1: proto, `internal/api`, `storeprov`, `fake`, `apitest`, `internal/archive`, `cmd/natslens/system.go`, `store.go`. N T1: `internal/config`, `internal/notify` (new), `cmd/natslens/main.go`, `notify.go`. No file in common. |
-| 2 | D T2, M T1, N T2 | D T2 is web only. M T1: `findings.proto`, `service.proto`, `internal/api`, `storeprov`, `fake`, `apitest`, `internal/store` (acknowledgements, `archive.go`, `retention.go`), migration 0036. N T2: `internal/store/notify.go`, migration 0035, `internal/runner/runner.go`, `cmd/natslens/system.go`, `internal/notify`. M T1 and N T2 share only `internal/store/migrations/` (different files, fixed numbers) and one line each in `migration_golden_test.go`, which the second to merge adds beside the first. |
+| 2 | D T2, M T1, N T2 | D T2 is web only. M T1: `findings.proto`, `service.proto`, `internal/api`, `storeprov`, `fake`, `apitest`, `internal/store` (acknowledgements, `archive.go`, `retention.go`), migration 0037. N T2: `internal/store/notify.go`, migration 0035, `internal/runner/runner.go`, `cmd/natslens/system.go`, `internal/notify`. M T1 and N T2 share only `internal/store/migrations/` (different files, fixed numbers) and one line each in `migration_golden_test.go`, which the second to merge adds beside the first. |
 | 3 | D T3, M T2, N T3 | D T3 is web only. M T2: `oncall.proto`, `service.proto`, `provider.go`, `handler.go`, `storeprov`, `fake`, `apitest`. N T3: `internal/notify`, `internal/api/metrics.go`, `storeprov/metrics.go`, `checks/`, `internal/checks`, `cmd/natslens`. If N T3 needs `fake/remediation.go`, it merges after M T2. N T3 also waits for `feat/checks-system` to merge, or takes the next free code at its own merge. |
 | 4 | M T3, N T4, D T4 | M T3 is web only. N T4: `internal/notify`, `internal/store/notify.go`. D T4: docs only. |
 | 5 | N T5 | docs |
@@ -234,3 +234,17 @@ Conflicts that rule out other pairings: every task that changes `service.proto`,
 ## Leftovers
 
 Not in this plan, most valuable first: message templates; a paging-service channel with its own API; e-mail; a channel per finding owner (by account or stream prefix); a Notifications section in the UI listing channels and their last deliveries; quiet hours per channel; grouping by cause card instead of by epoch.
+
+### Where T3 departed from this plan
+
+Proposed, not yet confirmed:
+
+- Migration `0036` remains delivery’s migration; mobile acknowledgements reserve `0037`. Only this isolated, unapplied delivery migration is extended in this review round; applied migrations remain unchanged. It adds durable batch boundaries and `sent_at`, plus a terminal outcome time. A crash after a receiver's 2xx reuses the same batch and key even if later epochs appended messages. A random database incarnation prefixes batch keys: reopening preserves it, while a Parquet rebuild creates a different identity. Existing T2 stores receive an identity during migration without losing pending rows. The identity contains no secrets. Last-hour metrics and the delivery check use outcome time, so a message queued yesterday but refused now counts now.
+- Slack delivery selects up to 100 durable rows and uses T1's ten-message cut line with a Findings link. This preserves the plan's burst summary rather than sending ten-row chunks as separate requests.
+- Successful and terminal batches wait one collection interval before the channel's next batch, using per-channel watermarks independent of outbox retention across restarts. Terminal rows expire from outcome time, after the shorter of seven days and retention with a minimum one-hour reporting window. Watermarks survive longer collection intervals and sweeps between collections, and are removed when their channel is removed. A successful batch also blocks a new batch until the next stored collection; retries of an existing failing batch remain eligible. Retry waits use persisted next-attempt times; Retry-After can extend, never shorten, exponential backoff. Idle channels poll once per second. Channels have independent workers under one system delivery runner, so a slow channel cannot block healthy channels.
+- Delivery starts before NATS connection setup and only for `run`. Its in-flight context is cancelled at the signal's existing `shutdown_grace`; cancellation leaves rows pending, with no new attempts counted. It adds no shutdown allowance.
+- The next free delivery check is `system-010`. Its capability doc and the two feature-index sections are updated under the task's explicit exception to T5 file ownership. Global notification and metrics documentation remains T5's.
+- `internal/api/fake/remediation.go` already loads remediation dynamically, so no edit or ordering dependency on mobile M T2 was needed. Demo has no outbox and the delivery check does not fire.
+- ASVS 1.2.4 / 15.4.3: parameterized short store writes; no store lock across HTTP. ASVS 13.3.1: persisted outcomes and logs omit receiver error text, response bodies and secret destinations; T1 rereads secrets per attempt.
+
+T3 also retains T1's configured-only destinations, verified TLS and redirect refusal (ASVS 13.2.4, 12.3.2), and per-channel timeouts and bounded retries (13.2.6). Persisted failure descriptions are generic (16.5.1); receivers may use long-lived webhook credentials as authorized in T1 rather than the short-lived service identities recommended by 13.2.1. Proposed, not yet confirmed.

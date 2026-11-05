@@ -12,7 +12,7 @@ func (f *fx) cpu(n int64, id string, percent func(e int64) float64) {
 	}
 }
 
-func steady(p float64) func(int64) float64 { return func(int64) float64 { return p } }
+func steadyCPU(p float64) func(int64) float64 { return func(int64) float64 { return p } }
 
 // A server at 90% of its usable cores (GOMAXPROCS 4 of 8) in at least 80%
 // of the collections of 5 minutes fires, once it has answered over all of
@@ -20,14 +20,14 @@ func steady(p float64) func(int64) float64 { return func(int64) float64 { return
 func TestCPUSaturated(t *testing.T) {
 	f := newFx(t)
 	f.cluster(13)
-	f.cpu(13, "S0", steady(360))
+	f.cpu(13, "S0", steadyCPU(360))
 	f.cpu(13, "S1", func(e int64) float64 {
 		if e == 2 {
 			return 100
 		}
 		return 380
 	})
-	f.cpu(13, "S2", steady(359.9))
+	f.cpu(13, "S2", steadyCPU(359.9))
 	// At epoch 10 the 5 minutes begin before the first collection.
 	f.fires("server-023", 10)
 	r := f.fires("server-023", 11, "nats-0", "nats-1")
@@ -61,7 +61,7 @@ func TestCPUSaturatedShare(t *testing.T) {
 	}
 	f := newFx(t)
 	f.cluster(11)
-	f.cpu(11, "S0", steady(400))
+	f.cpu(11, "S0", steadyCPU(400))
 	if got := f.eval("server-023", 11, map[string]string{"min_samples": "12"}); len(got) != 0 {
 		t.Errorf("min_samples 12: %s", rowsText(got))
 	}
@@ -76,7 +76,7 @@ func TestCPUSaturatedRestartAndGaps(t *testing.T) {
 	f.server("B0", "nats-0", 7, 30, at(7), "2.15.0")
 	f.server("S1", "nats-1", 1, 30, at(1), "2.15.0")
 	f.server("S2", "nats-2", 1, 30, at(1), "2.15.0")
-	f.cpu(6, "A0", steady(400))
+	f.cpu(6, "A0", steadyCPU(400))
 	for e := int64(7); e <= 30; e++ {
 		f.stats(e, "B0", m{"cpu_percent": 400, "cores": 8, "gomaxprocs": 4})
 	}
@@ -107,12 +107,12 @@ func TestCPUSaturatedGap(t *testing.T) {
 	f.fires("server-023", 100)
 	g := newFx(t)
 	g.cluster(13)
-	g.cpu(13, "S0", steady(400))
+	g.cpu(13, "S0", steadyCPU(400))
 	g.exec(`DELETE FROM server_stats WHERE epoch BETWEEN 5 AND 8`)
 	g.fires("server-023", 13)
 	h := newFx(t)
 	h.cluster(13)
-	h.cpu(13, "S0", steady(400))
+	h.cpu(13, "S0", steadyCPU(400))
 	h.exec(`DELETE FROM server_stats WHERE epoch BETWEEN 5 AND 6`)
 	h.fires("server-023", 13, "nats-0")
 }
