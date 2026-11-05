@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { Route, Routes, useLocation } from "react-router";
 import { Header } from "./components/Header";
+import { HistoryNote } from "./components/HistoryNote";
 import { Sidebar } from "./components/Sidebar";
 import { StaleProvider } from "./components/StaleContext";
 import { Landing, SystemGate } from "./components/SystemGate";
@@ -69,6 +70,8 @@ export function App() {
               no rows, filters or page tokens of the one before. */}
           <StaleProvider key={`${pathname}|${system}`}>
             <SystemGate>
+              {/* Under the header on every page that reads a range; see HistoryNote. */}
+              <HistoryNote />
               <Routes>
                 <Route
                   path="/"
