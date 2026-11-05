@@ -64,6 +64,7 @@ func sample(kind Kind) Message {
 		m.DedupKey = DedupKey("example-prod", m.FindingID, 41230, kind, 41350)
 	case KindAcknowledged:
 		m.Severity = "warning"
+		m.Acknowledgement = &Acknowledgement{By: "alice@example.com", Note: "Checking quorum", QuietUntil: tLocal.Add(time.Hour)}
 	case KindBaseline:
 		return BaselineMessage("example-prod", 3, 41230).WithLink(uiURL, "example-prod")
 	case KindTest:
@@ -353,4 +354,33 @@ func TestEncodeDecode(t *testing.T) {
 			t.Errorf("%s: after encode and decode\n%s\nwant\n%s", k, wb, want)
 		}
 	}
+}
+
+func TestAcknowledgementBodiesUntilResolved(t *testing.T) {
+	m := sample(KindAcknowledged)
+	m.Acknowledgement = &Acknowledgement{By: "operator\n<!here>", Note: "Investigating\n<https://example.com|link> & quorum", UntilResolved: true}
+	wb, err := WebhookBody(batch(m))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var body struct {
+		Notifications []struct{ Acknowledgement map[string]any }
+	}
+	if err := json.Unmarshal(wb, &body); err != nil {
+		t.Fatal(err)
+	}
+	a := body.Notifications[0].Acknowledgement
+	if a["until_resolved"] != true || a["by"] != m.Acknowledgement.By || a["note"] != m.Acknowledgement.Note {
+		t.Fatalf("ack: %v", a)
+	}
+	if _, ok := a["quiet_until"]; ok {
+		t.Fatalf("zero quiet_until: %s", wb)
+	}
+	text := slackText(t, batch(m))
+	if strings.Count(text, "\n") != 1 || strings.Contains(text, "<!") || !strings.Contains(text, "quiet until resolved") || !strings.Contains(text, "&lt;https://example.com|link&gt; &amp; quorum") {
+		t.Fatal(text)
+	}
+	golden(t, "webhook-acknowledged-until-resolved.json", wb)
+	sb, _ := SlackBody(batch(m))
+	golden(t, "slack-acknowledged-until-resolved.json", sb)
 }

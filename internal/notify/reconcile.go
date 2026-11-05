@@ -16,10 +16,11 @@ import (
 
 // Reasons a message gives when its kind alone does not say why.
 const (
-	ReasonMuteEnded       = "mute ended"
-	ReasonAcceptanceEnded = "acceptance ended"
-	ReasonFlappingEnded   = "flapping ended"
-	ReasonFiltersChanged  = "no longer selected by the channel"
+	ReasonAcknowledgementQuietEnded = "acknowledgement quiet ended"
+	ReasonMuteEnded                 = "mute ended"
+	ReasonAcceptanceEnded           = "acceptance ended"
+	ReasonFlappingEnded             = "flapping ended"
+	ReasonFiltersChanged            = "no longer selected by the channel"
 )
 
 // ReasonSeverityNow is the reason of a resolved message for a finding
@@ -240,7 +241,7 @@ func (d *decider) baseline() {
 // told records that the channel now knows the finding in state.
 func (d *decider) told(f store.Finding, state string) {
 	d.upserts = append(d.upserts, store.NotifyState{Channel: d.ch.Name, FindingID: f.ID, SinceEpoch: f.SinceEpoch,
-		Severity: f.Severity, State: state, SentAt: d.in.At, Epoch: d.in.Epoch})
+		Severity: f.Severity, State: state, SentAt: d.in.At, Epoch: d.in.Epoch, Acknowledged: d.episodeAcknowledged(f)})
 }
 
 func (d *decider) forget(id string) {
@@ -256,14 +257,60 @@ func (d *decider) compare() {
 		if ok {
 			fp = &f
 		}
-		d.one(fp, st, told)
+		// Acknowledgements are events, separate from the delivered severity baseline.
+		before := len(d.upserts)
+		deleted := len(d.deletes)
+		n := 0
+		opening := fp != nil && (!told || st.SinceEpoch != fp.SinceEpoch)
+		if opening {
+			d.one(fp, st, told)
+		}
+		if fp != nil && d.inView(*fp) {
+			for _, a := range d.in.Acks[id] {
+				if a.SinceEpoch != fp.SinceEpoch || !a.CreatedAt.After(d.prev.ReconciledAt) {
+					continue
+				}
+				a := a
+				d.send(fp, KindAcknowledged, "", func(m *Message) {
+					m.Acknowledgement = &Acknowledgement{By: a.AckedBy, Note: a.Note, QuietUntil: a.QuietUntil, UntilResolved: a.QuietUntil.IsZero()}
+					// Multiple replacements can fall in one epoch: each note has its own key.
+					m.DedupKey += fmt.Sprintf(":%d", a.ID)
+				})
+				n++
+			}
+		}
+		if !opening {
+			d.one(fp, st, told)
+		}
+		if told && len(d.upserts) == before && len(d.deletes) == deleted {
+			remember := fp != nil && st.SinceEpoch == fp.SinceEpoch && !st.Acknowledged && d.episodeAcknowledged(*fp)
+			if n > 0 || remember {
+				if n > 0 {
+					st.SentAt, st.Epoch = d.in.At, d.in.Epoch
+				}
+				st.Acknowledged = st.Acknowledged || remember
+				d.upserts = append(d.upserts, st)
+			}
+		}
 	}
 }
 
 // one decides for one finding: f is nil when the finding is gone from the
 // store; told says whether st holds what the channel was told.
 func (d *decider) one(f *store.Finding, st store.NotifyState, told bool) {
-	if f != nil && f.Flapping && d.eligible(*f) {
+	quiet, quietEnded := d.ackQuiet(f)
+	acknowledged := f != nil && told && st.SinceEpoch == f.SinceEpoch && d.episodeAcknowledged(*f)
+	// An actual resolve of an acknowledged episode is never held by flapping.
+	if f != nil && f.Flapping && d.eligible(*f) && (f.Firing() || !acknowledged) {
+		if told && f.SinceEpoch == st.SinceEpoch && quiet && config.SeverityRank(f.Severity) > config.SeverityRank(st.Severity) {
+			d.send(f, KindChanged, "", func(m *Message) { m.PreviousSeverity = st.Severity })
+			d.told(*f, store.NotifyFlapping)
+			return
+		}
+		if told && f.SinceEpoch == st.SinceEpoch && quietEnded {
+			d.sendQuietEnded(f, st, store.NotifyFlapping)
+			return
+		}
 		switch {
 		case told && st.State == store.NotifyFlapping:
 			// Held back while it flaps.
@@ -299,6 +346,10 @@ func (d *decider) one(f *store.Finding, st store.NotifyState, told bool) {
 	case !d.filtersPass(*f):
 		d.send(f, KindResolved, ReasonFiltersChanged, func(m *Message) { m.DedupKey = d.episodeKey(f.ID, st, KindResolved) })
 		d.forget(f.ID)
+	case quietEnded && f.SinceEpoch == st.SinceEpoch:
+		d.sendQuietEnded(f, st, store.NotifyFiring)
+	case quiet && f.SinceEpoch == st.SinceEpoch && config.SeverityRank(f.Severity) < config.SeverityRank(st.Severity):
+		// Keep the severity the channel knows until quiet ends.
 	case !d.severityPasses(f.Severity):
 		d.send(f, KindResolved, ReasonSeverityNow(f.Severity), func(m *Message) {
 			m.PreviousSeverity = st.Severity
@@ -320,10 +371,70 @@ func (d *decider) one(f *store.Finding, st store.NotifyState, told bool) {
 	case f.Severity != st.Severity:
 		d.send(f, KindChanged, "", func(m *Message) { m.PreviousSeverity = st.Severity })
 		d.told(*f, store.NotifyFiring)
-	case d.ch.RepeatEvery.D() > 0 && !d.in.At.Before(st.SentAt.Add(d.ch.RepeatEvery.D())):
+	case !quiet && d.ch.RepeatEvery.D() > 0 && !d.in.At.Before(st.SentAt.Add(d.ch.RepeatEvery.D())):
 		d.send(f, KindReminder, "", nil)
 		d.told(*f, store.NotifyFiring)
 	}
+}
+
+// sendQuietEnded always reports the quiet end for the known firing episode.
+// A simultaneous rise still gets changed; a fall below the channel threshold
+// also closes the receiver's incident after the reminder.
+func (d *decider) sendQuietEnded(f *store.Finding, st store.NotifyState, state string) {
+	if config.SeverityRank(f.Severity) > config.SeverityRank(st.Severity) {
+		d.send(f, KindChanged, "", func(m *Message) { m.PreviousSeverity = st.Severity })
+	}
+	d.send(f, KindReminder, ReasonAcknowledgementQuietEnded, nil)
+	if !d.severityPasses(f.Severity) {
+		d.send(f, KindResolved, ReasonSeverityNow(f.Severity), func(m *Message) {
+			m.PreviousSeverity = st.Severity
+			m.DedupKey = d.episodeKey(f.ID, st, KindResolved)
+		})
+		d.forget(f.ID)
+	} else {
+		d.told(*f, state)
+	}
+}
+
+// episodeAcknowledged is scoped to the channel's known episode. Unlike the
+// bounded acknowledgement input and outbox, notify_state lasts until the
+// channel closes this episode; told must not transfer it to a later episode.
+func (d *decider) episodeAcknowledged(f store.Finding) bool {
+	if st, ok := d.states[f.ID]; ok && st.SinceEpoch == f.SinceEpoch && st.Acknowledged {
+		return true
+	}
+	for _, a := range d.in.Acks[f.ID] {
+		if a.SinceEpoch == f.SinceEpoch {
+			return true
+		}
+	}
+	return false
+}
+
+// ackQuiet derives quiet from durable episode-scoped history, not SentAt: a rise
+// or acknowledgement message must not erase a quiet-end event across a restart.
+func (d *decider) ackQuiet(f *store.Finding) (quiet, ended bool) {
+	if f == nil {
+		return
+	}
+	for _, a := range d.in.Acks[f.ID] {
+		if a.SinceEpoch != f.SinceEpoch {
+			continue
+		}
+		if a.QuietAt(d.in.At) && f.Firing() {
+			quiet = true
+		}
+		end := a.QuietUntil
+		if !a.EndedAt.IsZero() && (end.IsZero() || a.EndedAt.Before(end)) {
+			end = a.EndedAt
+		}
+		if !end.IsZero() && end.After(d.prev.ReconciledAt) && !end.After(d.in.At) {
+			ended = true
+		}
+	}
+	// A replacement that extends quiet is not a quiet end.
+	ended = ended && !quiet
+	return
 }
 
 // episodeKey is the dedup key of a message about the episode the channel

@@ -52,6 +52,9 @@ type NotifyState struct {
 	State  string
 	SentAt time.Time
 	Epoch  int64
+	// Acknowledged remembers an acknowledgement of SinceEpoch while this
+	// channel knows it, including after release, expiry and history retention.
+	Acknowledged bool
 }
 
 // NotifyKey names a notify_state row.
@@ -82,7 +85,7 @@ type OutboxRow struct {
 
 // NotifyInput is what a reconcile reads: the epoch, the findings that
 // fire, flap or are known to a channel, with the mutes in force at the
-// epoch's start applied, every mute, and the notifier's state.
+// epoch's start applied, mute and acknowledgement history, and the notifier's state.
 type NotifyInput struct {
 	Epoch int64
 	At    time.Time
@@ -92,6 +95,8 @@ type NotifyInput struct {
 	// ended after the oldest channel's ReconciledAt and by At: all a
 	// reconcile reads.
 	Mutes []Mute
+	// Acks includes current acknowledgements and changes since the oldest reconcile.
+	Acks map[string][]Ack
 	// Channels by name.
 	Channels map[string]NotifyChannel
 	// States by channel, then finding ID.
@@ -136,6 +141,16 @@ WHERE state = 'firing' OR flapping OR id IN (SELECT finding_id FROM notify_state
 		return in, fmt.Errorf("notify mutes: %w", err)
 	}
 	in.Mutes = all
+	// ASVS 1.2.4: times are bound parameters; make_timestamp avoids session-zone shifts.
+	acks, err := s.acks(ctx, `created_at <= make_timestamp(?::BIGINT) AND
+(ended_at IS NULL OR ended_at > make_timestamp(?::BIGINT))`, at.UnixMicro(), mutesSince(at, in.Channels).UnixMicro())
+	if err != nil {
+		return in, fmt.Errorf("notify acknowledgements: %w", err)
+	}
+	in.Acks = map[string][]Ack{}
+	for _, a := range acks {
+		in.Acks[a.FindingID] = append(in.Acks[a.FindingID], a)
+	}
 	var active []Mute
 	for _, m := range all {
 		if m.ActiveAt(at) {
@@ -146,13 +161,13 @@ WHERE state = 'firing' OR flapping OR id IN (SELECT finding_id FROM notify_state
 		f.Mute = muteFor(active, f)
 		in.Findings[f.ID] = f
 	}
-	srows, err := s.db.QueryContext(ctx, `SELECT channel, finding_id, since_epoch, severity, state, sent_at, epoch FROM notify_state`)
+	srows, err := s.db.QueryContext(ctx, `SELECT channel, finding_id, since_epoch, severity, state, sent_at, epoch, acknowledged FROM notify_state`)
 	if err != nil {
 		return in, fmt.Errorf("notify state: %w", err)
 	}
 	for srows.Next() {
 		var st NotifyState
-		if err := srows.Scan(&st.Channel, &st.FindingID, &st.SinceEpoch, &st.Severity, &st.State, &st.SentAt, &st.Epoch); err != nil {
+		if err := srows.Scan(&st.Channel, &st.FindingID, &st.SinceEpoch, &st.Severity, &st.State, &st.SentAt, &st.Epoch, &st.Acknowledged); err != nil {
 			srows.Close()
 			return in, err
 		}
@@ -219,17 +234,18 @@ type NotifyChange struct {
 var ErrNotifyReconciled = errors.New("channel already reconciled for the epoch")
 
 type jsonNotifyState struct {
-	Channel    string `json:"channel"`
-	FindingID  string `json:"finding_id"`
-	SinceEpoch int64  `json:"since_epoch"`
-	Severity   string `json:"severity"`
-	State      string `json:"state"`
-	SentAt     string `json:"sent_at"`
-	Epoch      int64  `json:"epoch"`
+	Channel      string `json:"channel"`
+	FindingID    string `json:"finding_id"`
+	SinceEpoch   int64  `json:"since_epoch"`
+	Severity     string `json:"severity"`
+	State        string `json:"state"`
+	SentAt       string `json:"sent_at"`
+	Epoch        int64  `json:"epoch"`
+	Acknowledged bool   `json:"acknowledged"`
 }
 
 const notifyStateShape = `[{"channel":"VARCHAR","finding_id":"VARCHAR","since_epoch":"BIGINT","severity":"VARCHAR",` +
-	`"state":"VARCHAR","sent_at":"TIMESTAMP","epoch":"BIGINT"}]`
+	`"state":"VARCHAR","sent_at":"TIMESTAMP","epoch":"BIGINT","acknowledged":"BOOLEAN"}]`
 
 type jsonOutbox struct {
 	ID        int64   `json:"id"`
@@ -294,13 +310,13 @@ ON CONFLICT (channel) DO UPDATE SET reconciled_at = excluded.reconciled_at, reco
 		rows := make([]jsonNotifyState, len(ch.Upserts))
 		for i, u := range ch.Upserts {
 			rows[i] = jsonNotifyState{Channel: u.Channel, FindingID: u.FindingID, SinceEpoch: u.SinceEpoch, Severity: u.Severity,
-				State: u.State, SentAt: microText(u.SentAt), Epoch: u.Epoch}
+				State: u.State, SentAt: microText(u.SentAt), Epoch: u.Epoch, Acknowledged: u.Acknowledged}
 		}
 		for b := range slices.Chunk(rows, batchRows) {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO notify_state (channel, finding_id, since_epoch, severity, state, sent_at, epoch)
-SELECT channel, finding_id, since_epoch, severity, state, sent_at, epoch `+fromJSON(notifyStateShape)+`
+			if _, err := tx.ExecContext(ctx, `INSERT INTO notify_state (channel, finding_id, since_epoch, severity, state, sent_at, epoch, acknowledged)
+SELECT channel, finding_id, since_epoch, severity, state, sent_at, epoch, acknowledged `+fromJSON(notifyStateShape)+`
 ON CONFLICT (channel, finding_id) DO UPDATE SET since_epoch = excluded.since_epoch, severity = excluded.severity,
-    state = excluded.state, sent_at = excluded.sent_at, epoch = excluded.epoch`, jsonList(b)); err != nil {
+    state = excluded.state, sent_at = excluded.sent_at, epoch = excluded.epoch, acknowledged = excluded.acknowledged`, jsonList(b)); err != nil {
 				return fmt.Errorf("write notify state: %w", err)
 			}
 		}

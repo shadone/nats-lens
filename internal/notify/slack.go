@@ -133,6 +133,19 @@ func slackWhat(m Message) string {
 				what += " (" + field(mu.Reason) + ")"
 			}
 		}
+	case KindAcknowledged:
+		if a := m.Acknowledgement; a != nil {
+			// ASVS 1.2.3: actor and note use the same bounded, escaped text path as findings.
+			what = "acknowledged by " + field(a.By)
+			if a.UntilResolved {
+				what += ", quiet until resolved"
+			} else if !a.QuietUntil.IsZero() {
+				what += ", quiet until " + slackTime(a.QuietUntil)
+			}
+			if a.Note != "" {
+				what += " (" + field(a.Note) + ")"
+			}
+		}
 	case KindReminder:
 		what = "still firing"
 		if !m.Since.IsZero() {
