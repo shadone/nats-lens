@@ -100,3 +100,20 @@ func TestConsumerPausedAfterResume(t *testing.T) {
 	}
 	f.fires("consumer-017", 41)
 }
+
+// pause_until is read with its offset and fraction, and shown in UTC.
+func TestConsumerPausedUntilOffset(t *testing.T) {
+	f := newFx(t)
+	f.cluster(41)
+	for name, until := range map[string]string{"z": "2026-10-17T12:00:00Z", "frac": "2026-10-17T12:00:00.123456789Z",
+		"off": "2026-10-17T14:00:00+02:00"} {
+		for e := int64(1); e <= 41; e++ {
+			f.consumerStats(e, "S0", "jobs", name, m{"is_leader": true, "paused": true, "num_pending": 3})
+		}
+		f.consumerConfig("S0", "jobs", name, 1, 41, m{"config": `{"pause_until":"` + until + `"}`})
+	}
+	r := f.eval("consumer-017", 41, map[string]string{"max_paused": "10m"})
+	for _, k := range []string{"APP/jobs/z", "APP/jobs/frac", "APP/jobs/off"} {
+		want(t, r[k], "warning", "the pause ends 2026-10-17 12:00 UTC, in 2.7 hours")
+	}
+}
