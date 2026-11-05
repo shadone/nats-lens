@@ -81,7 +81,7 @@ func (rt *systemRuntime) provider(set *checks.Set) *storeprov.Provider {
 // archiveState is the archiver's status for the API.
 func (rt *systemRuntime) archiveState() api.ArchiveState {
 	s := rt.arch.Status()
-	return api.ArchiveState{Enabled: true, Location: rt.cfg.ResolvedArchiveDir(), Retention: rt.cfg.ArchiveRetention.D(),
+	return api.ArchiveState{Enabled: true, Location: archive.LocationText(rt.cfg.ResolvedArchiveDir()), Retention: rt.cfg.ArchiveRetention.D(),
 		OldestHour: s.OldestHour, NewestHour: s.NewestHour, Hours: int32(s.Hours), LastExportAt: s.LastExportAt,
 		NewestFinal: s.NewestFinal, LastError: s.LastError, LastErrorAt: s.LastErrorAt, ListedAt: s.ListedAt}
 }
