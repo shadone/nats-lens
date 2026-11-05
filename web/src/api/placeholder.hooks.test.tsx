@@ -37,6 +37,7 @@ const HOOKS: [string, H, boolean][] = [
   ["useTopology", (s) => q.useTopology(s), false],
   ["useAccountsAndAuth", (s) => q.useAccountsAndAuth(s), false],
   ["useCapacity", (s) => q.useCapacity(s), false],
+  ["useDataHistory", (s) => q.useDataHistory(s), false],
   ["useSubjects", (s, a) => q.useSubjects(s, a, A), true],
   ["useMicroServices", (s, a) => q.useMicroServices(s, a), true],
   ["useApplications", (s, a) => q.useApplications(s, a, false), true],
