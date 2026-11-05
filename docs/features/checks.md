@@ -6,7 +6,7 @@
 
 ## What it does
 
-After every collection, nats-lens runs its checks against what it just stored. Each check looks for one kind of problem, such as a stream that lost quorum, a consumer whose backlog keeps growing, or a server whose disk fills in three days. It reports every entity where it finds that problem. Each report is a **finding**: one check failing for one server, account, stream, consumer, client or for the whole system. A finding stays open while the problem lasts and resolves on its own when the problem goes away. nats-lens ships 55 checks. You can tune their thresholds, turn single checks off, add your own remediation text, and mute findings you have decided to live with, or accept one entity's finding as by design until a review date.
+After every collection, nats-lens runs its checks against what it just stored. Each check looks for one kind of problem, such as a stream that lost quorum, a consumer whose backlog keeps growing, or a server whose disk fills in three days. It reports every entity where it finds that problem. Each report is a **finding**: one check failing for one server, account, stream, consumer, client or for the whole system. A finding stays open while the problem lasts and resolves on its own when the problem goes away. nats-lens ships 62 checks. You can tune their thresholds, turn single checks off, add your own remediation text, and mute findings you have decided to live with, or accept one entity's finding as by design until a review date.
 
 ## Behavior and rules
 
