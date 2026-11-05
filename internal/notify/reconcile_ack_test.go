@@ -283,3 +283,112 @@ func TestAcknowledgementReleasedEpisodeResolveWhileFlapping(t *testing.T) {
 	}
 	expect(t, "actual resolve of acknowledged episode", e.reconcile()["ops"], "resolved "+jobs)
 }
+
+// Released history falls behind NotifyInput's cursor; expired/replaced history
+// can also disappear in retention. The channel must still close its known
+// episode, even after reopening the database, without remembering other episodes.
+func TestAcknowledgementEndedFlappingDiskRestart(t *testing.T) {
+	for _, ending := range []string{"release", "expiry"} {
+		t.Run(ending, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "notify.duckdb")
+			st, err := store.OpenPath(context.Background(), path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			e := envOn(t, st, "example-prod", channel("ops"))
+			t.Cleanup(func() { _ = e.st.Close() })
+			x := f(quorum, "APP/order-jobs", "critical")
+			e.step(0, x)
+			quiet := time.Duration(0)
+			if ending == "expiry" {
+				quiet = 3 * time.Minute
+			}
+			a := ack(t, e, time.Second, quiet)
+			expect(t, "ack", e.step(time.Minute, x)["ops"], "acknowledged "+jobs)
+			flap := func(fires ...fire) map[string][]Message {
+				e.apply(time.Minute, fires...)
+				if _, err := e.st.DB().Exec(`UPDATE findings SET flapping = true WHERE id = ?`, jobs); err != nil {
+					t.Fatal(err)
+				}
+				return e.reconcile()
+			}
+			x.sev = "warning"
+			expect(t, "flapping starts with quiet downward change", flap(x)["ops"], "flapping "+jobs)
+			x.sev = "info"
+			expect(t, "quiet downward change below threshold", flap(x)["ops"])
+			x.sev = "warning"
+			if ending == "release" {
+				if _, err := e.st.EndAck(context.Background(), a.ID, "operator", e.at.Add(time.Second)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			expect(t, "quiet end", flap(x)["ops"], "reminder "+jobs+" (acknowledgement quiet ended)")
+			expect(t, "cursor advances past release", flap(x)["ops"])
+			// Simulate history retention independently of finding retention.
+			if _, err := e.st.DB().Exec(`DELETE FROM acknowledgements`); err != nil {
+				t.Fatal(err)
+			}
+			if err := e.st.Close(); err != nil {
+				t.Fatal(err)
+			}
+			e.st, err = store.OpenPath(context.Background(), path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			e.rec = &Reconciler{Store: e.st, SystemID: "example-prod", Checks: testChecks(t), Channels: []config.Channel{channel("ops"), channel("new")}}
+			got := flap()
+			expect(t, "actual resolve after restart", got["ops"], "resolved "+jobs)
+			expect(t, "new channel never knew resolved episode", got["new"], "baseline")
+			got = flap()
+			expect(t, "resolve once", got["ops"])
+			expect(t, "new channel has no resolve", got["new"])
+			// A different episode gets the ordinary flapping hold, for both
+			// the old channel and a channel never told of the acknowledged one.
+			got = flap(x)
+			for _, name := range []string{"ops", "new"} {
+				expect(t, "new episode "+name, got[name], "flapping "+jobs)
+			}
+			got = flap()
+			for _, name := range []string{"ops", "new"} {
+				expect(t, "unacknowledged resolve held "+name, got[name])
+			}
+			e.apply(time.Minute)
+			if _, err := e.st.DB().Exec(`UPDATE findings SET flapping = false WHERE id = ?`, jobs); err != nil {
+				t.Fatal(err)
+			}
+			got = e.reconcile()
+			for _, name := range []string{"ops", "new"} {
+				expect(t, "normal resolve "+name, got[name], "resolved "+jobs)
+			}
+		})
+	}
+}
+
+func TestAcknowledgementMemoryRemovedWithChannel(t *testing.T) {
+	e := newEnv(t, channel("ops"))
+	x := f(quorum, "APP/order-jobs", "warning")
+	e.step(0, x)
+	a := ack(t, e, time.Second, 0)
+	e.step(time.Minute, x)
+	if _, err := e.st.EndAck(context.Background(), a.ID, "operator", e.at.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	e.step(time.Minute, x)
+	if _, err := e.st.SweepNotifications(context.Background(), e.at, time.Hour, nil); err != nil {
+		t.Fatal(err)
+	}
+	// The acknowledgement is older than the new baseline and must not give
+	// the re-added channel the removed channel's durable memory.
+	e.seen = 0
+	expect(t, "re-added baseline", e.step(time.Minute, x)["ops"], "baseline")
+	e.apply(time.Minute, x)
+	if _, err := e.st.DB().Exec(`UPDATE findings SET flapping = true WHERE id = ?`, jobs); err != nil {
+		t.Fatal(err)
+	}
+	expect(t, "ordinary flap", e.reconcile()["ops"], "flapping "+jobs)
+	e.apply(time.Minute)
+	if _, err := e.st.DB().Exec(`UPDATE findings SET flapping = true WHERE id = ?`, jobs); err != nil {
+		t.Fatal(err)
+	}
+	expect(t, "removed memory does not bypass hold", e.reconcile()["ops"])
+}
