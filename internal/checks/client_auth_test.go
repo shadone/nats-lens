@@ -7,12 +7,22 @@ import (
 	"github.com/shadone/nats-lens/internal/config"
 )
 
-// authError stores a client.auth_error event received at when, as event
-// capture stores one: the user, address, name and reason of the client.
+// authError stores a client.auth_error event of account APP received at
+// when, as event capture stores one: the user, address, name and reason of
+// the client.
 func (f *fx) authError(id int64, when time.Time, user, host, name, server, reason string) {
+	f.t.Helper()
+	f.authErrorIn(id, when, "APP", user, host, name, server, reason)
+}
+
+// authErrorIn is authError in another account; "" stores none.
+func (f *fx) authErrorIn(id int64, when time.Time, account, user, host, name, server, reason string) {
 	f.t.Helper()
 	cols := m{"source": "sys", "type": "io.nats.server.advisory.v1.client_disconnect", "client_host": host,
 		"server_name": server, "reason": reason}
+	if account != "" {
+		cols["account"] = account
+	}
 	if user != "" {
 		cols["client_user"] = user
 	}
@@ -42,11 +52,11 @@ func TestRepeatedAuthErrors(t *testing.T) {
 		f.authError(int64(100+i), at(20).Add(time.Duration(i)*30*time.Second), "stock-poller", "10.0.0.6", "stock-poller", "nats-2",
 			"Authentication Failure")
 	}
-	r := f.fires("client-006", 40, "label-printer")
-	want(t, r["label-printer"], "warning",
-		"16 failed logins in the last 15m (about 64 an hour) as label-printer from 10.20.4.31, 10.20.4.32 (nats-0, nats-1): "+
+	r := f.fires("client-006", 40, "label-printer in APP")
+	want(t, r["label-printer in APP"], "warning",
+		"16 failed logins in the last 15m (about 64 an hour) as label-printer in account APP from 10.20.4.31, 10.20.4.32 (nats-0, nats-1): "+
 			"Authentication Failure; the last at 09:18:00 UTC. Client names: label-printer@lp-a, label-printer@lp-b.")
-	if got := r["label-printer"]; got.Value == nil || *got.Value != 16 || got.CauseEventID != 16 {
+	if got := r["label-printer in APP"]; got.Value == nil || *got.Value != 16 || got.CauseEventID != 16 {
 		t.Errorf("value %v, cause %d; want 16 and the latest event, 16", got.Value, got.CauseEventID)
 	}
 	if got := f.eval("client-006", 40, map[string]string{"min_failed_logins": "14"}); len(got) != 2 {
@@ -80,11 +90,11 @@ func TestRepeatedAuthErrorsLookbackBoundary(t *testing.T) {
 	}
 	f.fires("client-006", 40)
 	f.authError(20, at(40), "alice", "10.0.0.5", "", "nats-0", "Authentication Failure")
-	r := f.fires("client-006", 40, "alice")
-	want(t, r["alice"], "warning", "15 failed logins", "as alice from 10.0.0.5 (nats-0): Authentication Failure; the last at 09:19:30 UTC.")
+	r := f.fires("client-006", 40, "alice in APP")
+	want(t, r["alice in APP"], "warning", "15 failed logins", "as alice in account APP from 10.0.0.5 (nats-0): Authentication Failure; the last at 09:19:30 UTC.")
 	// A later event (received after the epoch started) is left for the next epoch.
 	f.authError(21, at(40).Add(time.Second), "alice", "10.0.0.5", "", "nats-0", "Authentication Failure")
-	if got := f.eval("client-006", 40); got["alice"].Value == nil || *got["alice"].Value != 15 {
+	if got := f.eval("client-006", 40); got["alice in APP"].Value == nil || *got["alice in APP"].Value != 15 {
 		t.Errorf("an event after the epoch counted: %v", rowsText(got))
 	}
 }
@@ -108,9 +118,9 @@ func TestRepeatedAuthErrorsToolingAndNoUser(t *testing.T) {
 	}
 	r := evalTooling(t, f, "client-006", 40, config.Checks{})
 	if len(r) != 1 {
-		t.Fatalf("client-006 returned %v, want (no user) only", rowsText(r))
+		t.Fatalf("client-006 returned %v, want (no user) in APP only", rowsText(r))
 	}
-	want(t, r["(no user)"], "warning", "16 failed logins", "without a user from ",
+	want(t, r["(no user) in APP"], "warning", "16 failed logins", "without a user in account APP from ",
 		" and 11 more addresses (nats-2): Authentication Failure, Proxy Required;")
 	if got := evalTooling(t, f, "client-006", 40, config.Checks{IncludeTooling: true}); len(got) != 3 {
 		t.Errorf("with tooling: %v", rowsText(got))
@@ -125,7 +135,7 @@ func TestRepeatedAuthErrorsHysteresis(t *testing.T) {
 	f := newFx(t)
 	f.cluster(40)
 	firingAt := func(user string, epoch int64) {
-		f.row("findings", m{"id": "client-006:" + user, "check_code": "client-006", "entity_type": "client", "entity_key": user,
+		f.row("findings", m{"id": "client-006:" + user + " in APP", "check_code": "client-006", "entity_type": "client", "entity_key": user + " in APP",
 			"severity": "warning", "state": "firing", "last_transition": "firing", "since": at(20), "since_epoch": 20,
 			"transitioned_at": at(20), "last_seen_epoch": epoch, "updated_epoch": epoch, "detail": "x"})
 	}
@@ -143,6 +153,41 @@ func TestRepeatedAuthErrorsHysteresis(t *testing.T) {
 	add("bob", 11)
 	add("carol", 14)
 	add("dave", 14)
-	r := f.fires("client-006", 40, "alice")
-	want(t, r["alice"], "warning", "12 failed logins")
+	r := f.fires("client-006", 40, "alice in APP")
+	want(t, r["alice in APP"], "warning", "12 failed logins")
+}
+
+// A user is counted per account: the same user name failing 8 times in
+// each of two accounts fires nothing, 15 times in one fires for that
+// account only. An event without an account counts as $G.
+func TestRepeatedAuthErrorsPerAccount(t *testing.T) {
+	f := newFx(t)
+	f.cluster(40)
+	id := int64(0)
+	add := func(account, user string, n int) {
+		for range n {
+			id++
+			f.authErrorIn(id, at(30), account, user, "10.1.0.1", "", "nats-0", "Authentication Failure")
+		}
+	}
+	add("A", "app", 8)
+	add("B", "app", 8)
+	f.fires("client-006", 40)
+	add("A", "app", 7)
+	add("", "svc", 15)
+	r := f.fires("client-006", 40, "app in A", "svc in $G")
+	want(t, r["app in A"], "warning", "15 failed logins", "as app in account A from 10.1.0.1")
+	want(t, r["svc in $G"], "warning", "as svc in account $G")
+}
+
+// nats-server reports a client that logged in with a token as the user
+// "[REDACTED]"; the finding names it (token).
+func TestRepeatedAuthErrorsToken(t *testing.T) {
+	f := newFx(t)
+	f.cluster(40)
+	for i := range 15 {
+		f.authError(int64(i+1), at(30), "[REDACTED]", "10.0.0.9", "", "nats-0", "Authentication Failure")
+	}
+	r := f.fires("client-006", 40, "(token) in APP")
+	want(t, r["(token) in APP"], "warning", "15 failed logins", "with a token in account APP from 10.0.0.9")
 }
