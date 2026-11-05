@@ -54,6 +54,7 @@ describe("Freshness when the collector stopped", () => {
     expect(el).toHaveTextContent(/^not collecting since 11:30$/);
     expect(el).toHaveClass("stale");
     expect(screen.queryByText(/stale|no data/)).toBeNull();
+    expect(el).toHaveAttribute("title", "not collecting since 11:30. Newest collection 9");
   });
 
   it("says not collecting, not no data, when the range holds no collection", () => {
