@@ -118,7 +118,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Stream, KV bucket and object store checks `stream-001` to `stream-014` (stream-checks.md)
 - [x] Consumer checks `consumer-001` to `consumer-013` (consumer-checks.md)
 - [x] Client checks `client-001` to `client-005` (client-checks.md)
-- [x] System checks `system-001` to `system-003` (system-checks.md)
+- [x] System checks `system-001` to `system-009`: the meta group, mixed API levels, and nats-lens's own check runs, collections, archive exports and event capture (system-checks.md)
 - [x] The inventory of assets that must exist (inventory.md)
 - [ ] Findings sent to a channel such as a webhook (notifications.md)
 
