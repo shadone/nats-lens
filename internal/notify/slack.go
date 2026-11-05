@@ -10,35 +10,69 @@ import (
 // counted on a last line.
 const SlackMaxLines = 10
 
+// SlackMaxField is the most runes of one text taken from a finding or a
+// mute (a detail, an entity, a reason); a longer one is cut and ends in
+// "…".
+const SlackMaxField = 300
+
+// SlackMaxText is the most bytes of the whole text, well under the
+// 40,000 characters Slack takes; message lines beyond it are counted on
+// the last line instead.
+const SlackMaxText = 30000
+
 // slackEscape escapes the three characters Slack's text format gives a
 // meaning to.
 var slackEscape = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
 
+// slackOneLine turns line breaks and tabs into spaces, so that a text
+// taken from NATS cannot start a line of its own.
+var slackOneLine = strings.NewReplacer("\r\n", " ", "\r", " ", "\n", " ", "\t", " ", " ", " ", " ", " ")
+
+// field is s on one line, cut to SlackMaxField runes. It is escaped when
+// the line is put together.
+func field(s string) string {
+	s = slackOneLine.Replace(s)
+	if r := []rune(s); len(r) > SlackMaxField {
+		s = string(r[:SlackMaxField-1]) + "…"
+	}
+	return s
+}
+
 // SlackBody is the batch as a Slack-compatible incoming webhook body: a
 // text with a header line naming the system, then one line per message,
-// at most SlackMaxLines.
+// at most SlackMaxLines and SlackMaxText bytes.
 func SlackBody(b Batch) ([]byte, error) {
-	lines := []string{slackHeader(b)}
+	header := slackHeader(b)
+	var lines []string
+	size := len(header)
 	for i, m := range b.Messages {
 		if i == SlackMaxLines {
-			more := fmt.Sprintf("and %d more", len(b.Messages)-SlackMaxLines)
-			if l := FindingsLink(b.UIURL, b.SystemID); l != "" {
-				more += ": <" + l + "|Findings>"
-			}
-			lines = append(lines, more)
 			break
 		}
-		lines = append(lines, slackLine(m))
+		l := slackLine(m)
+		// Room is kept for the line that counts the rest.
+		if len(lines) > 0 && size+1+len(l) > SlackMaxText-200 {
+			break
+		}
+		lines = append(lines, l)
+		size += 1 + len(l)
+	}
+	if rest := len(b.Messages) - len(lines); rest > 0 {
+		more := fmt.Sprintf("and %d more", rest)
+		if l := FindingsLink(b.UIURL, b.SystemID); l != "" {
+			more += ": <" + l + "|Findings>"
+		}
+		lines = append(lines, more)
 	}
 	return marshal(struct {
 		Text string `json:"text"`
-	}{strings.Join(lines, "\n")})
+	}{strings.Join(append([]string{header}, lines...), "\n")})
 }
 
 func slackHeader(b Batch) string {
-	name := b.SystemID
+	name := field(b.SystemID)
 	if b.SystemName != "" && b.SystemName != b.SystemID {
-		name = b.SystemName + " (" + b.SystemID + ")"
+		name = field(b.SystemName) + " (" + name + ")"
 	}
 	return "nats-lens, " + slackEscape.Replace(name) + ":"
 }
@@ -47,20 +81,20 @@ func slackHeader(b Batch) string {
 // check, the entity, the detail and the link.
 func slackLine(m Message) string {
 	if m.Kind == KindTest {
-		line := "TEST " + slackEscape.Replace(m.Detail)
+		line := "TEST " + slackEscape.Replace(field(m.Detail))
 		if m.Link != "" {
 			line += " <" + m.Link + "|open>"
 		}
 		return line
 	}
 	var sb strings.Builder
-	sb.WriteString(strings.ToUpper(m.Severity))
+	sb.WriteString(slackEscape.Replace(strings.ToUpper(field(m.Severity))))
 	sb.WriteString(" ")
 	sb.WriteString(slackEscape.Replace(slackWhat(m)))
 	sb.WriteString(": ")
-	sb.WriteString(slackEscape.Replace(m.CheckCode + " " + m.CheckName + ": " + entityText(m)))
+	sb.WriteString(slackEscape.Replace(field(m.CheckCode) + " " + field(m.CheckName) + ": " + entityText(m)))
 	if m.Detail != "" {
-		sb.WriteString(" (" + slackEscape.Replace(m.Detail) + ")")
+		sb.WriteString(" (" + slackEscape.Replace(field(m.Detail)) + ")")
 	}
 	if m.Link != "" {
 		sb.WriteString(" <" + m.Link + "|open>")
@@ -70,11 +104,11 @@ func slackLine(m Message) string {
 
 // slackWhat words the kind, with the reason after a comma.
 func slackWhat(m Message) string {
-	what := string(m.Kind)
+	what := field(string(m.Kind))
 	switch m.Kind {
 	case KindChanged:
 		if m.PreviousSeverity != "" {
-			what = "changed from " + m.PreviousSeverity
+			what = "changed from " + field(m.PreviousSeverity)
 		}
 	case KindMuted:
 		if mu := m.Mute; mu != nil {
@@ -83,13 +117,13 @@ func slackWhat(m Message) string {
 				what = "accepted"
 			}
 			if mu.By != "" {
-				what += " by " + mu.By
+				what += " by " + field(mu.By)
 			}
 			if !mu.Until.IsZero() {
 				what += " until " + slackTime(mu.Until)
 			}
 			if mu.Reason != "" {
-				what += " (" + mu.Reason + ")"
+				what += " (" + field(mu.Reason) + ")"
 			}
 		}
 	case KindReminder:
@@ -99,7 +133,7 @@ func slackWhat(m Message) string {
 		}
 	}
 	if m.Reason != "" {
-		what += ", " + m.Reason
+		what += ", " + field(m.Reason)
 	}
 	return what
 }
@@ -109,7 +143,7 @@ func slackTime(t time.Time) string { return t.UTC().Format("2006-01-02 15:04 UTC
 // entityText is the entity's readable name, or its key without one.
 func entityText(m Message) string {
 	if m.EntityName != "" {
-		return m.EntityName
+		return field(m.EntityName)
 	}
-	return m.EntityKey
+	return field(m.EntityKey)
 }

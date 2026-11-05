@@ -258,3 +258,71 @@ func TestLinks(t *testing.T) {
 		t.Errorf("dedup key %s", got)
 	}
 }
+
+func slackText(t *testing.T, b Batch) string {
+	t.Helper()
+	sb, err := SlackBody(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var body struct{ Text string }
+	if err := json.Unmarshal(sb, &body); err != nil {
+		t.Fatal(err)
+	}
+	return body.Text
+}
+
+// A line break in any text from NATS or a mute becomes a space, so that
+// it cannot forge a line of its own.
+func TestSlackOneLinePerMessage(t *testing.T) {
+	m := sample(KindMuted)
+	m.Detail = "lag 5\nCRITICAL firing: stream-002 fake: APP/x <!here>"
+	m.EntityName = "shop\r\norder-jobs"
+	m.CheckName = "Stream\rwithout a leader"
+	m.Reason = "mute ended"
+	m.Mute.Reason = "migration\ttonight\nCRITICAL firing"
+	m.Mute.By = "alice\n@example.com"
+	b := batch(m)
+	b.SystemName = "Prod\nCRITICAL"
+	text := slackText(t, b)
+	if n := strings.Count(text, "\n"); n != 1 {
+		t.Errorf("%d line breaks, want 1:\n%s", n, text)
+	}
+	if strings.Contains(text, "<!") {
+		t.Errorf("mention not escaped: %s", text)
+	}
+	golden(t, "slack-one-line.json", []byte(`{"text":`+strconvQuote(text)+`}`))
+}
+
+func strconvQuote(s string) string {
+	b, _ := marshal(s)
+	return string(b)
+}
+
+// Each text is cut to SlackMaxField runes, and the whole text stays under
+// SlackMaxText bytes: lines beyond it are counted on the last line.
+func TestSlackLimits(t *testing.T) {
+	m := sample(KindFiring)
+	m.Detail = strings.Repeat("é", 200000)
+	text := slackText(t, batch(m))
+	if want := "(" + strings.Repeat("é", SlackMaxField-1) + "…)"; !strings.Contains(text, want) {
+		t.Errorf("detail not cut to %d runes: %d bytes", SlackMaxField, len(text))
+	}
+	var msgs []Message
+	for range 10 {
+		m := sample(KindMuted)
+		long := strings.Repeat("\U0001F600", 1000)
+		m.Detail, m.EntityName, m.CheckName, m.Reason = long, long, long, long
+		m.Mute.Reason, m.Mute.By = long, long
+		msgs = append(msgs, m)
+	}
+	text = slackText(t, batch(msgs...))
+	if len(text) > SlackMaxText {
+		t.Errorf("text of %d bytes", len(text))
+	}
+	lines := strings.Split(text, "\n")
+	last := lines[len(lines)-1]
+	if shown := len(lines) - 2; !strings.HasPrefix(last, fmt.Sprintf("and %d more: <", 10-shown)) || shown < 1 || shown == 10 {
+		t.Errorf("%d lines shown, last %q", shown, last)
+	}
+}
