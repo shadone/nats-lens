@@ -209,3 +209,28 @@ func TestOldestUnreadFloorGone(t *testing.T) {
 	r := f.fires("consumer-014", 200, "APP/events/worker")
 	want(t, r["APP/events/worker"], "warning", "The oldest unread message is at least 50 minutes old")
 }
+
+// A filtered consumer stalled at the same delivered sequence whose backlog
+// emptied (its messages aged out) and filled again: the backlog starts at
+// the refill, collection 180, not at its first backlog in collection 1.
+func TestOldestUnreadRefilledBacklog(t *testing.T) {
+	f := newFx(t)
+	f.cluster(200)
+	f.expiryStream(200)
+	f.consumerConfig("S0", "events", "refill", 1, 200, nil)
+	f.exec(`UPDATE consumer_config SET filter_subjects = ['events.eu'] WHERE consumer = 'refill'`)
+	for e := int64(1); e <= 200; e++ {
+		p := int64(3)
+		switch {
+		case e > 100 && e < 180:
+			p = 0
+		case e >= 180:
+			p = e - 179
+		}
+		f.consumerStats(e, "S0", "events", "refill", m{"is_leader": true, "delivered_stream_seq": 500,
+			"ack_floor_stream_seq": 500, "num_ack_pending": 0, "num_pending": p})
+	}
+	f.fires("consumer-014", 200)
+	r := f.eval("consumer-014", 200, map[string]string{"warn_ratio": "0.1", "resolve_ratio": "0.05"})
+	want(t, r["APP/events/refill"], "warning", "at least 10 minutes old, 17% of max_age 1h")
+}
