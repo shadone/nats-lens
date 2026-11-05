@@ -4,7 +4,10 @@
 import type { Series, Window } from "../api/model";
 import { useReportStale } from "../components/StaleContext";
 import { errorText } from "../components/common";
+import { useChartGaps } from "../api/historyNotes";
 import { dayMonHm, hms } from "../lib/format";
+import type { ChartGaps } from "../lib/historyNotes";
+import { useTimeRange } from "../lib/useTimeRange";
 import { fmtValue } from "../lib/units";
 import { Sparkline } from "./Sparkline";
 
@@ -19,9 +22,11 @@ interface Props {
   error?: string;
   /** When the series was last loaded. */
   updatedAt?: number;
+  /** The range's times without collections, hatched over the chart. */
+  gaps?: ChartGaps;
 }
 
-export function SeriesChart({ title, series, start, end, windows = [], loading, error, updatedAt }: Props) {
+export function SeriesChart({ title, series, start, end, windows = [], loading, error, updatedAt, gaps }: Props) {
   const pts = series?.points ?? [];
   const latest = pts.length ? pts[pts.length - 1].value : undefined;
   const fmt = (v: number | undefined) => (v === undefined ? "–" : fmtValue(v, series?.unit ?? "count"));
@@ -36,7 +41,7 @@ export function SeriesChart({ title, series, start, end, windows = [], loading, 
       {error && !series ? (
         <p className="muted-note">Could not load: {error}</p>
       ) : (
-        <Sparkline points={pts} status="ok" windows={windows} start={start} end={end} label={title} current={latest === undefined ? undefined : fmt(latest)} note={asOf} />
+        <Sparkline points={pts} status="ok" windows={windows} start={start} end={end} label={title} current={latest === undefined ? undefined : fmt(latest)} note={asOf} gaps={gaps} />
       )}
       <div className="chart-f mono">
         <span>{dayMonHm(start)}</span>
@@ -58,8 +63,12 @@ interface QueryLike {
   refetch: () => unknown;
 }
 
-/** A chart for a series query; a failed refresh also joins the page's banner. */
+/**
+ * A chart over the page's range for a series query, with the range's
+ * hatched gaps; a failed refresh also joins the page's banner.
+ */
 export function QuerySeriesChart({ q, ...rest }: { q: QueryLike; title: string; start: number; end: number; windows?: Window[] }) {
   useReportStale(q);
-  return <SeriesChart {...rest} series={q.data} loading={q.isPending} error={q.error ? errorText(q.error) : undefined} updatedAt={q.dataUpdatedAt} />;
+  const gaps = useChartGaps(useTimeRange().spec);
+  return <SeriesChart {...rest} gaps={gaps} series={q.data} loading={q.isPending} error={q.error ? errorText(q.error) : undefined} updatedAt={q.dataUpdatedAt} />;
 }

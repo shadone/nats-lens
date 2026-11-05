@@ -17,6 +17,7 @@ import type { Level, Series, Window } from "../api/model";
 import { rangeText } from "../charts/chartLabel";
 import { Sparkline } from "../charts/Sparkline";
 import { dayMonHm, hm } from "../lib/format";
+import type { ChartGaps } from "../lib/historyNotes";
 import { isTrouble } from "../lib/view";
 
 const DAY = 86_400_000;
@@ -63,6 +64,8 @@ export interface MetricBoxProps {
    * value is a name, such as the meta leader, which no min and max describe.
    */
   track?: boolean;
+  /** The range's times without collections, hatched over the chart. */
+  gaps?: ChartGaps;
 }
 
 /** An (i) button that shows a description on hover, focus or click. */
@@ -202,6 +205,7 @@ export function MetricBox(p: MetricBoxProps) {
           end={p.end}
           label={p.title}
           current={p.valueText ?? (value === undefined ? undefined : p.fmt(value))}
+          gaps={p.gaps}
         />
       )}
       {track && <RangeTrack title={p.title} min={min} max={max} value={value} fmt={p.fmt} status={status} period={period} since={since} noCurrent={p.value === null} />}

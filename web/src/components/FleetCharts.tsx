@@ -2,6 +2,7 @@
 // with the median and the busiest server, total connections, and messages
 // in and out with out dashed. They are the Overview's trend charts: the y
 // axis starts at zero, except memory's, which spans its data.
+import { useChartGaps } from "../api/historyNotes";
 import { SERVERS_QUERIES, useServersTrends } from "../api/servers";
 import { pickTrend } from "../api/trendBatch";
 import type { RangeSpec } from "../lib/timeRange";
@@ -9,7 +10,7 @@ import { useReportStale } from "./StaleContext";
 import { Band, InOut, OneLine } from "./Trends";
 
 export function FleetCharts({ spec, start, end }: { spec: RangeSpec; start: number; end: number }) {
-  const f = { spec, start, end };
+  const f = { spec, start, end, gaps: useChartGaps(spec) };
   const b = useServersTrends(spec);
   useReportStale(b);
   const t = (metric: string) => pickTrend(b, SERVERS_QUERIES, { metric });

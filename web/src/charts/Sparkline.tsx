@@ -1,7 +1,9 @@
 // The tile sparkline of the reference: area and line for the primary
 // series, a dashed line for the second, shaded windows behind.
 import type { Level, Point, Window } from "../api/model";
+import type { ChartGaps } from "../lib/historyNotes";
 import { chartName, rangeText } from "./chartLabel";
+import { WithGaps } from "./GapLayer";
 
 const W = 200;
 const H = 40;
@@ -22,6 +24,8 @@ interface Props {
   current?: string;
   /** Appended to the accessible name, for example "as of 14:30:05 UTC". */
   note?: string;
+  /** The range's times without collections, hatched over the chart. */
+  gaps?: ChartGaps;
 }
 
 /** x by time over [start, end], y scaled to the shared min and max. */
@@ -34,7 +38,15 @@ export function sparkPoints(a: Point[], start: number, end: number, mn: number, 
   });
 }
 
-export function Sparkline({ points, points2, status, windows, start, end, label, current, note }: Props) {
+export function Sparkline(p: Props) {
+  return (
+    <WithGaps gaps={p.gaps} start={p.start} end={p.end}>
+      <SparkSvg {...p} />
+    </WithGaps>
+  );
+}
+
+function SparkSvg({ points, points2, status, windows, start, end, label, current, note }: Props) {
   const period = rangeText(start, end);
   if (points.length === 0) {
     return (

@@ -237,13 +237,19 @@ export function useCapacity(spec: RangeSpec) {
   });
 }
 
-/** The Data history page: the history and the range's gaps, followed on a live range as Capacity is. */
+/**
+ * The Data history page, and the gaps other pages' charts hatch: the
+ * history and the range's gaps, followed on a live range as Capacity is.
+ * Fresh for a refresh interval, so the charts that mount after the page's
+ * first answer read it from the cache rather than asking again.
+ */
 export function useDataHistory(spec: RangeSpec) {
   const sys = useSystem();
   return useQuery({
     queryKey: ["data-history", sys, rangeKey(spec)],
     queryFn: ({ signal }) => api.getDataHistory(sys, spec, signal),
     refetchInterval: refetch(spec),
+    staleTime: LIVE_REFRESH_MS,
     // The previous range's answer stands in while the next loads, never another system's.
     placeholderData: keepSameSystem(sys),
   });
@@ -365,8 +371,8 @@ export function useLastData(since: number | undefined, intervalMs: number) {
  * The shell's status query, with a failure of the system's own part, which
  * the response reports beside the systems, as the query's error.
  */
-function useShellQuery() {
-  const status = useQuery(shellQuery(useSystem()));
+function useShellQuery(passive: boolean) {
+  const status = useQuery({ ...shellQuery(useSystem()), enabled: !passive });
   const e = status.data?.error;
   const error = useMemo(() => (e ? reportedError(e.code, e.message) : null), [e?.code, e?.message]);
   return error ? { ...status, error } : status;
@@ -376,10 +382,13 @@ function useShellQuery() {
  * The shell's status of the page's system. A failure of the system's own
  * part is the status's error, as a failed call's would be. While the collector does not
  * collect and the last two intervals hold no collection, the servers and
- * the newest collection come from the last data before the stop.
+ * the newest collection come from the last data before the stop. A
+ * passive reader never asks for the status itself, only reads what the
+ * shell's own reader holds: a second asking reader would ask again when
+ * it mounts.
  */
-export function useShellStatus() {
-  const status = useShellQuery();
+export function useShellStatus({ passive = false }: { passive?: boolean } = {}) {
+  const status = useShellQuery(passive);
   const f = status.data?.freshness;
   const stopped = f && !f.collecting && f.epochAt === undefined ? f.notCollectingSince : undefined;
   const last = useLastData(stopped, f?.intervalMs || LIVE_REFRESH_MS).data;
