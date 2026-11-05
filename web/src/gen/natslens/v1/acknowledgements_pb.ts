@@ -73,8 +73,9 @@ export type Acknowledgement = Message<"natslens.v1.Acknowledgement"> & {
   quietUntil?: Timestamp | undefined;
 
   /**
-   * Whether the quiet holds at the time of the read: the acknowledgement
-   * is in force and quiet_until is unset or ahead.
+   * Whether the quiet holds at the time the finding is read for (now, or
+   * a past range's end): the acknowledgement is in force and quiet_until
+   * is unset or after that time.
    *
    * @generated from field: bool quiet = 7;
    */

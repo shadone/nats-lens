@@ -48,8 +48,9 @@ type Acknowledgement struct {
 	// While the quiet holds, /metrics exports nats_lens_finding_acknowledged
 	// for the finding.
 	QuietUntil *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=quiet_until,json=quietUntil,proto3" json:"quiet_until,omitempty"`
-	// Whether the quiet holds at the time of the read: the acknowledgement
-	// is in force and quiet_until is unset or ahead.
+	// Whether the quiet holds at the time the finding is read for (now, or
+	// a past range's end): the acknowledgement is in force and quiet_until
+	// is unset or after that time.
 	Quiet bool `protobuf:"varint,7,opt,name=quiet,proto3" json:"quiet,omitempty"`
 	// When a person ended it or a newer acknowledgement replaced it; unset
 	// otherwise, also after its episode ended.
