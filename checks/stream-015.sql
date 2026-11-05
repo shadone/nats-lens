@@ -29,7 +29,8 @@ description: >-
   messages behind, and the lag did not fall over the window, so a mirror that catches up after a restart or a new
   mirror copying an old origin is not reported. Not hearing: the mirror received nothing, not even the origin's
   heartbeat, for more than max_inactive. A firing finding keeps firing down to resolve_ratio of the thresholds, and
-  through a collection without a leader report within the lookback. A mirror that reports an error is stream-017's.
+  through a collection without a leader report within the lookback. While stream-017 reports an error for the
+  mirror, this check is quiet for it.
 remediation: >-
   Run `nats stream info <mirror>` and read the Mirror section: Lag, Last Seen and Error. A mirror that has not been
   seen for long has lost its path to the origin: check that the origin exists (`nats stream info <origin>`, in the
@@ -38,6 +39,7 @@ remediation: >-
   cannot keep up: look at the mirror leader's CPU and disk, and at the origin's publish rate. The mirror restarts its
   copy by itself; `nats stream cluster step-down <mirror>` moves it to another leader, which starts it again.
 related_config: [max_lag, max_inactive, resolve_ratio, lookback]
+suppressed_by: [stream-017]
 value_name: messages behind
 value_basis: the mirror's lag behind its origin in the newest leader report
 */
