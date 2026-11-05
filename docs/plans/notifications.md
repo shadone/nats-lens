@@ -19,7 +19,7 @@ Each was answered by the session that built T1 as recommended below: proposed, n
 | Task | Status |
 |---|---|
 | T1 Configuration, message formats and `natslens notify test` | built on `feat/notify-config`, awaiting review |
-| T2 Notification state and outbox | planned |
+| T2 Notification state and outbox | built on `feat/notify-outbox`, awaiting review |
 | T3 Delivery, retries, metrics and the delivery check | planned |
 | T4 Acknowledgements in notifications | planned; needs `docs/plans/mobile.md` T1 merged |
 | T5 Feature docs, design and audit | planned |
@@ -102,8 +102,8 @@ Built in T1 (`internal/notify/webhook.go`), pinned by `internal/notify/testdata/
 | `system.id`, `system.name` | string | The system the findings belong to; `name` is left out when it is not set |
 | `nats_lens_version` | string | nats-lens's version, as in `User-Agent: natslens/<version>` |
 | `notifications[]` | array | The messages, in the order they were queued |
-| `.kind` | string | `firing`, `changed`, `resolved`, `flapping`, `muted`, `reminder`, `acknowledged`, or `test` from `natslens notify test` |
-| `.reason` | string | Why, when the kind alone does not say: `mute ended`, `acceptance ended`, `severity now info` |
+| `.kind` | string | `firing`, `changed`, `resolved`, `flapping`, `muted`, `reminder`, `acknowledged`, `baseline` (the one message a channel gets when nats-lens starts notifying it, about no finding), or `test` from `natslens notify test` |
+| `.reason` | string | Why, when the kind alone does not say: `mute ended`, `acceptance ended`, `flapping ended`, `severity now info` (or `severity now warning` for a channel with `min_severity: critical`), `no longer selected by the channel` |
 | `.finding_id` | string | `<check code>:<entity key>`, as the API spells it |
 | `.check_code`, `.check_name`, `.category` | string | The check |
 | `.severity` | string | `info`, `warning` or `critical`, as the finding stands |
@@ -118,8 +118,9 @@ Built in T1 (`internal/notify/webhook.go`), pinned by `internal/notify/testdata/
 | `.flapping` | boolean | `true` while the finding flaps; left out otherwise |
 | `.value` | number | The check's value, when it reports one |
 | `.mute.accepted`, `.mute.by`, `.mute.reason`, `.mute.until`, `.mute.end_reason` | | The mute or acceptance, on `muted` and on a `firing` whose mute ended; `until` is an acceptance's review date; `end_reason` is set when nats-lens ended an acceptance |
-| `.link` | string | `<ui_url>/findings/<finding id, path-escaped>?system=<id>`; the test message links the system's Findings page; left out without `ui_url` |
-| `.dedup_key` | string | `<system>:<finding id>:<episode start epoch>:<kind>:<epoch>`, the same each time the message is sent; the test message's is `<system>:test:<Unix microseconds>` |
+| `.firing_count` | number | On `baseline`: the findings in the channel's view when it started, 0 included |
+| `.link` | string | `<ui_url>/findings/<finding id, path-escaped>?system=<id>`; the baseline and test messages link the system's Findings page; left out without `ui_url` |
+| `.dedup_key` | string | `<system>:<finding id>:<episode start epoch>:<kind>:<epoch>`, the same each time the message is sent; the baseline message's is `<system>:baseline:<epoch>`, the test message's `<system>:test:<Unix microseconds>` |
 
 Headers: `Content-Type: application/json`, `User-Agent: natslens/<version>`, `Authorization: Bearer <token>` with a token, `Idempotency-Key: <batch key>`. A Slack channel's request has neither `Authorization` nor `Idempotency-Key`.
 
@@ -145,7 +146,7 @@ Each point was decided in the session that built T1: proposed, not yet confirmed
 The notifier decides what to send after each check run, by comparing what each channel should know with what it was last told, and queues the messages in the database so that a restart loses none.
 
 - **Why a comparison, not a cursor over transitions.** A mute set or lifted between two epochs is no transition; neither is the end of an acceptance or a severity that falls below a channel's `min_severity`. Comparing the channel's view at the epoch with `notify_state` covers transitions, mutes, filters and flapping with one rule, and it needs no cursor: the engine writes at most one transition per finding per epoch, and the notifier runs after every check run, so it misses no state a check run left.
-- **Migration `0036_notifications.sql`** (0035 is taken by `docs/plans/mobile.md` T1; if another branch lands a migration first, both take the next free numbers before they merge, as neither will have been applied anywhere):
+- **Migration `0035_notifications.sql`** (built as 0035, and `docs/plans/mobile.md` T1 takes 0036: see "Where T2 departed"; if another branch lands a migration first, both take the next free numbers before they merge, as neither will have been applied anywhere):
   - `notify_state`: one row per (channel, finding) a channel was told about: `channel`, `finding_id`, `since_epoch` (the episode), `severity` sent, `state` sent (`firing`, `flapping`), `sent_at`, `epoch`. A row is deleted once its `resolved` or `muted` message is queued.
   - `notify_channels`: one row per channel name with `baselined_at`, so a new channel (or a rebuilt database) is recognised (open question 2).
   - `notify_outbox`: one row per message: `id` (from a sequence), `channel`, `created_at`, `epoch`, `kind`, `finding_id`, `dedup_key`, `message` (JSON, the T1 `Message` without the link, which is built at sending so a changed `ui_url` applies), `state` (`pending`, `delivered`, `refused`, `failed`), `attempts`, `next_attempt_at`, `delivered_at`, `last_status` (HTTP status), `last_error` (stripped of the URL).
@@ -155,6 +156,31 @@ The notifier decides what to send after each check run, by comparing what each c
 - **Retention.** `Store.SweepNotifications` (in `internal/store/notify.go`, called from `Runner.sweep`, so `retention.go` is not touched): delivered, refused and failed outbox rows older than 7 days or than `retention`, whichever is shorter; `notify_state` rows of findings the sweep removed; `notify_channels` rows of channels no longer configured (logged).
 - **Tests.** A finding that fires, changes severity up, down within the channel's range and below it, and resolves, each giving the right message once; a mute set while firing (`muted`), lifted while firing (`firing`, "mute ended"); an acceptance ended by the growth review (its `end_reason`); a finding muted for its whole episode sends nothing, not even its resolve; flapping: one message, then held, then the difference when it stops; reminders at `repeat_every` and not before; filters by system, check, excluded check, category and severity; a new channel and a store without `notify_state` (a rebuild) get the baseline only; the notifier stopped for 10 epochs then run once sends the net difference; a run of 3,000 findings firing at once is reconciled in one transaction (measure it and say how long it took). Store tests under `TZ=America/Los_Angeles`.
 - **Docs.** Only this file's departures; T5 moves them.
+
+### Where T2 departed from this plan
+
+Each point was decided in the session that built T2: proposed, not yet confirmed.
+
+- **Migration 0035, not 0036.** The migration runner applies only the files numbered above the database's highest version, so a lower number merged after a higher one is skipped on every database that already has the higher. T2 was built first and took 0035, and `docs/plans/mobile.md` T1 now takes 0036 (both plans updated).
+- **`notify_channels` has `baselined_epoch`, `reconciled_at` and `reconciled_epoch`** besides `baselined_at`. A reconcile of an epoch at or before `reconciled_epoch` changes nothing for the channel (`store.ErrNotifyReconciled` guards the write), so an epoch reconciled twice queues its messages once. `reconciled_at` bounds the "mute ended" search: a `firing` message is given the reason `mute ended` (or `acceptance ended`, with the mute's or acceptance's fields) when a mute that covered the finding ended after the channel's previous reconcile and by this epoch's start, and after the episode began. A finding muted from its first epoch to its last sends nothing, resolve included; one whose mute ended long before it fires again names no mute.
+- **Columns named `epoch`.** `notify_state.epoch` and `notify_outbox.epoch` keep the plan's names; `TestSweepCoversEveryEpochTable` lists the notify tables as swept by `SweepNotifications`, and `TestEveryTableArchivedOrExempt` lists them as exempt, with the reason.
+- **Mutes at the epoch's start.** A finding's mute is the one in force at the epoch's `started_at` (`Mute.ActiveAt`), as `FindingsAt` reads it, not at the wall clock: a mute created between two epochs applies from the next one, and an acceptance the growth review ends at the epoch's time is already ended in the same epoch's reconcile.
+- **Hooks are two functions.** `Runner.Notify(ctx, epoch) error` runs after the acceptance review of an epoch whose checks were applied, also when the review failed; `Runner.NotifySweep(ctx, now) error` runs after a retention sweep that worked. `natslens run` sets both when `notifications.channels` is not empty (`systemRuntime.notifier`); `natslens once` sets neither. A channel whose `systems` leaves the system out gets no rows in that system's store, not even a baseline.
+- **The reconcile's rules for the cases the table leaves open:**
+  - Episode changed between two reconciles (the finding resolved and fired again while no reconcile ran): `resolved` with the old episode's dedup key, then `firing` for the new one, kept in that order in the batch.
+  - Filter no longer takes a finding the channel was told of (the file changed between two runs): `resolved` with the reason `no longer selected by the channel`.
+  - Severity below `min_severity`: the reason is `severity now <severity>`, so `severity now warning` for a channel at `critical`.
+  - Flapping ends: one message for the difference: `firing` with the reason `flapping ended` when it fires in the view, else `resolved`, `muted` or `resolved` with `severity now ...`. A flapping finding the channel was told of is sent `muted` at once when a mute covers it.
+  - Finding gone from the store while the channel knew it (the notifier did not run for longer than retention): `resolved` built from `notify_state`, with the check's code, name and category and the entity key; the entity type and detail are left out.
+  - A kind left out by the channel's `kinds` is not queued, but `notify_state` moves as if it were, so it is not queued again at the next epoch.
+  - Reminders: a reminder is due once `repeat_every` has passed since the epoch of the last message about the finding to the channel (`sent_at` is the epoch's start, not the wall clock).
+- **Baseline.** Kind `baseline` in `notify.Kinds` (not in `config.ChannelKinds`, so `kinds` cannot leave it out), with `firing_count`, the detail "nats-lens now notifies this channel: 3 findings firing" ("no findings", "1 finding"), and the dedup key `<system>:baseline:<epoch>`; sent also with no finding firing, so a new channel's receiver sees it work. The Slack line is the detail and `<link|Findings>`. Golden files `webhook-baseline.json` and `slack-baseline.json`. The baseline records firing findings in the view as `firing`, or `flapping` when they flap, so a flapping finding sends no flapping message after it.
+- **Outbox form of a message.** `notify.Message` has JSON tags (snake case, `omitzero` times) for `notify_outbox.message`; `Message.Encode` drops the link, `notify.Decode` reads it, and `Message.WithLink(ui_url, system)` builds the link at sending (the Findings page for a message about no finding).
+- **Outbox IDs.** Taken from `notify_outbox_seq` in one query per reconcile (`nextval` over `range(n)`), sorted and given to the rows in their queued order, so a channel's messages are sent in that order; an ID is never reused after a sweep, which T3's `Idempotency-Key` relies on.
+- **Sweep of a removed channel** removes its `notify_channels` and `notify_state` rows and its outbox rows, pending ones included (logged with their count), as no channel is left to send them to.
+- **Entity names.** `entity_name` is the key with the account ID replaced by the account's readable name (from `accounts`), for streams and consumers, and the name of an account entity; left out when the account has no other name.
+- **Measured.** 3,000 findings firing at once, two channels (4,000 outbox and state rows): the reconcile took about 70 ms, and the 3,000 resolves of the next epoch about 95 ms with the check run applied, on the development laptop (`TestManyFindingsAtOnce`).
+- **Tests.** `internal/notify/reconcile_test.go` against a real store: the lifecycle (firing, changed up and down, below the range, back into it, resolved), mutes set and lifted, a check mute that runs out, a mute for the whole episode, an acceptance ended by the review, flapping (one message, held, the difference when it ends, also when it ends resolved), reminders, every filter and kinds, a filter changed across a restart, a channel added later, a store rebuilt from the archive (`rebuild_test.go`), a restart, 10 epochs without a reconcile, the order, two systems, entity names, an epoch reconciled twice, the sweep, a finding lost from the store. `internal/store/notify_test.go` checks the times written and read and the sweep's age boundary. Both pass under `TZ=Asia/Kolkata` and `TZ=America/Los_Angeles`; a time parameter put into arithmetic in the sweep fails `TestSweepNotifications` under `TZ=America/Los_Angeles`.
 
 ## T3 Delivery, retries, metrics and the delivery check
 
@@ -194,7 +220,7 @@ Three plans are built together: this one, `docs/plans/data-history.md` (D) and `
 | Wave | Run together | Shared files and how they are kept apart |
 |---|---|---|
 | 1 | D T1, N T1 | D T1: proto, `internal/api`, `storeprov`, `fake`, `apitest`, `internal/archive`, `cmd/natslens/system.go`, `store.go`. N T1: `internal/config`, `internal/notify` (new), `cmd/natslens/main.go`, `notify.go`. No file in common. |
-| 2 | D T2, M T1, N T2 | D T2 is web only. M T1: `findings.proto`, `service.proto`, `internal/api`, `storeprov`, `fake`, `apitest`, `internal/store` (acknowledgements, `archive.go`, `retention.go`), migration 0035. N T2: `internal/store/notify.go`, migration 0036, `internal/runner/runner.go`, `cmd/natslens/system.go`, `internal/notify`. M T1 and N T2 share only `internal/store/migrations/` (different files, fixed numbers) and one line each in `migration_golden_test.go`, which the second to merge adds beside the first. |
+| 2 | D T2, M T1, N T2 | D T2 is web only. M T1: `findings.proto`, `service.proto`, `internal/api`, `storeprov`, `fake`, `apitest`, `internal/store` (acknowledgements, `archive.go`, `retention.go`), migration 0036. N T2: `internal/store/notify.go`, migration 0035, `internal/runner/runner.go`, `cmd/natslens/system.go`, `internal/notify`. M T1 and N T2 share only `internal/store/migrations/` (different files, fixed numbers) and one line each in `migration_golden_test.go`, which the second to merge adds beside the first. |
 | 3 | D T3, M T2, N T3 | D T3 is web only. M T2: `oncall.proto`, `service.proto`, `provider.go`, `handler.go`, `storeprov`, `fake`, `apitest`. N T3: `internal/notify`, `internal/api/metrics.go`, `storeprov/metrics.go`, `checks/`, `internal/checks`, `cmd/natslens`. If N T3 needs `fake/remediation.go`, it merges after M T2. N T3 also waits for `feat/checks-system` to merge, or takes the next free code at its own merge. |
 | 4 | M T3, N T4, D T4 | M T3 is web only. N T4: `internal/notify`, `internal/store/notify.go`. D T4: docs only. |
 | 5 | N T5 | docs |
