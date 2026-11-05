@@ -2,6 +2,7 @@
 //
 // Live: ?range=1h|6h|24h|7d (24h when absent); the end follows now.
 // Fixed: ?from=<ISO>&to=<ISO>; both ends stay where they are.
+import { serverNow } from "./clock";
 
 export type Preset = "1h" | "6h" | "24h" | "7d";
 
@@ -37,7 +38,7 @@ const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?Z$/;
  * What is wrong with the range a link gives, or undefined when nothing is.
  * A link with a problem shows the default range and says why.
  */
-export function rangeProblem(params: URLSearchParams, now = Date.now()): string | undefined {
+export function rangeProblem(params: URLSearchParams, now = serverNow()): string | undefined {
   const from = params.get("from");
   const to = params.get("to");
   if (from !== null || to !== null) {
@@ -56,7 +57,7 @@ export function rangeProblem(params: URLSearchParams, now = Date.now()): string 
 }
 
 /** Reads the range from URL parameters; a range with a problem gives the default. */
-export function parseRange(params: URLSearchParams, now = Date.now()): RangeSpec {
+export function parseRange(params: URLSearchParams, now = serverNow()): RangeSpec {
   if (rangeProblem(params, now)) return { kind: "live", preset: DEFAULT_PRESET };
   const from = params.get("from");
   const to = params.get("to");

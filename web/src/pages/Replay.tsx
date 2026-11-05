@@ -1,6 +1,7 @@
 // Replay: what changed between two moments A and B, and in what order. A
 // and B live in the URL beside the range and the system; the page picks
 // them on the range's status strip and tells the story GetReplay returns.
+import { serverNow } from "../lib/clock";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useSearchParams } from "react-router";
 import type { Replay as ReplayData } from "../api/adapt-replay";
@@ -97,7 +98,7 @@ export function Replay() {
 
   /** The absolute link to this A–B over a fixed range, which the page also switches to. */
   const shareUrl = (m: Moments) => {
-    const at = Date.now();
+    const at = serverNow();
     const p = shareParams(params, spec, m, at);
     if (system && !p.has(SYSTEM_PARAM)) p.set(SYSTEM_PARAM, system);
     p.delete(ACCOUNT_PARAM);

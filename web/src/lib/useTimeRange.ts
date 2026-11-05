@@ -1,6 +1,7 @@
 // The global time range from the URL, with setters that keep other
 // parameters, and a clock for live ranges. Links take the range from
 // useGlobalQuery, with the system and the account.
+import { serverNow } from "./clock";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { parseRange, rangeProblem, resolveRange, writeRange, type RangeSpec } from "./timeRange";
@@ -36,10 +37,10 @@ export function useTimeRange() {
 
 /** Now, ticking every interval while enabled. */
 export function useNow(intervalMs = 1000, enabled = true): number {
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(() => serverNow());
   useEffect(() => {
     if (!enabled) return;
-    const t = setInterval(() => setNow(Date.now()), intervalMs);
+    const t = setInterval(() => setNow(serverNow()), intervalMs);
     return () => clearInterval(t);
   }, [intervalMs, enabled]);
   return now;

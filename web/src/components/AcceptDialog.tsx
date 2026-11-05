@@ -1,6 +1,7 @@
 // Accept one entity's finding as by design: a reason, a review date, and who
 // accepted it. The server records the entity's growth and ends the
 // acceptance early when it changes.
+import { serverNow } from "../lib/clock";
 import { useId, useState, type FormEvent } from "react";
 import { identityNeed, rememberName, rememberedName, type IdentityNeed } from "../api/identity";
 import type { Entity, Mute } from "../api/model";
@@ -59,13 +60,13 @@ function AcceptBody({
   const mute = useMuteFinding({ awaitRefetch: false });
   // The system of the page when the dialog opened; the body mounts on open.
   const [system] = useState(useSystem());
-  const [opened] = useState(() => Date.now());
+  const [opened] = useState(() => serverNow());
   useBusy(mute.isPending, onBusy);
   const set = (k: keyof AcceptForm) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const submit = (ev: FormEvent) => {
     ev.preventDefault();
-    const now = Date.now();
+    const now = serverNow();
     const errs = validateAccept(form, now, askName);
     setErrors(errs);
     if (hasErrors(errs)) return;

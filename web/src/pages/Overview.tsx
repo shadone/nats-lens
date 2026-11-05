@@ -1,6 +1,7 @@
 // Overview: the cockpit. A status line, the system's numbers, the findings
 // grouped by cause, the trends, what happened in lanes, the busiest
 // consumers and the streams with their placement.
+import { serverNow } from "../lib/clock";
 import { useState } from "react";
 import type { Finding } from "../api/model";
 import { CURRENT_FINDINGS_LIMIT, useBusiestConsumers, useCurrentFindings, useStreamPlacement } from "../api/overview";
@@ -108,7 +109,7 @@ export function Overview() {
   return (
     <>
       <StaleBanner q={q} />
-      <StatusLine tally={o.tally} freshness={o.freshness} live={spec.kind === "live"} now={Date.now()} />
+      <StatusLine tally={o.tally} freshness={o.freshness} live={spec.kind === "live"} now={serverNow()} />
       <section className="sec" aria-label="Health">
         {o.tiles.length ? <OverviewTiles tiles={o.tiles} windows={o.windows} start={start} end={end} /> : <Empty>No collection stored in this range yet.</Empty>}
       </section>
