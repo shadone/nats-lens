@@ -67,3 +67,11 @@ it("names the shorter history behind the Overview message-rate chart", () => {
   renderApp(<HistoryContext.Provider value={{ ...young, gaps: [] }}><TrendChart title="Messages" start={young.start} end={NOW} layers={[]} /></HistoryContext.Provider>);
   expect(screen.getByText("over 31 min")).toBeInTheDocument();
 });
+it("hatches all time before history when a chart spans more than the page query", () => {
+  const d = staging();
+  const start = NOW - 7 * 86_400_000;
+  render(<HistoryContext.Provider value={{ start: d.rangeStart, end: NOW, live: true, gaps: d.gaps, historyStart: d.historyStart }}><SeriesChart title="Bytes, 7 days" start={start} end={NOW} /></HistoryContext.Provider>);
+  const gap = screen.getByRole("img", { name: /nats-lens was not running yet/ });
+  expect(gap).toHaveAttribute("x", "0");
+  expect(Number(gap.getAttribute("width"))).toBeGreaterThan(180);
+});
