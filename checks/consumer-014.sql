@@ -24,18 +24,22 @@ description: >-
   A durable consumer of a stream with max_age has a message it has not read or not acknowledged that has used
   warn_ratio of max_age, and is not catching up: over the lookback that message's age fell by less than a tenth
   of the time that passed. Unless the consumer acknowledges it in time, the stream removes it unread. A message is
-  dated by the stream's history: it was published no later than the first collection in which the stream's last
-  sequence (leader's view) reached it, so the age is exact to a collection interval. The message is the one after
-  the ack floor while messages are unacknowledged (the newest delivered one when that one has left the stream),
-  or the one after the delivered sequence while only undelivered messages wait (the stream's first message when
-  that one has left). For a consumer with a filter, whose next sequences may not match it, the age is a lower
-  bound: the newest delivered message's while messages are unacknowledged, else the time since the backlog
-  began (the first collection since the delivered sequence last moved in which messages waited). History before
-  the stored collections, or older than the stream's own max_age and the lookback, is not read, so a message that old
-  reads younger, never older. A firing finding stays until the message has used less than resolve_ratio of
-  max_age, or the consumer catches up. Ephemeral and ordered consumers are left out, and so is a consumer without
-  a leader report, or whose stream has none, in this collection, or with such reports over less than half the
-  lookback.
+  dated by the stream's history: it was published no later than the start of the first collection in which the
+  stream's last sequence (leader's view) reached it, so the age is exact to a collection interval, and may read a
+  few seconds older, as a collection starts before the servers answer. The message is the one after the ack floor
+  while messages are unacknowledged, or the one after the delivered sequence while only undelivered messages wait
+  (the stream's first message when that one has left), and the age reads "about". That holds only for a
+  consumer without a filter on a stream without deleted sequences (num_deleted 0): a deleted sequence after the
+  consumer's position (a KV overwrite, a purge by subject, a work queue) can be far older than its next message.
+  Otherwise, and when the message after the ack floor has left the stream, the age is a lower bound and reads "at
+  least": the newest delivered message's while messages are unacknowledged, else the time since the backlog began
+  (the first collection since the delivered sequence last moved in which messages waited). In that case a stuck
+  unacknowledged message of a consumer that keeps delivering newer ones is not seen. History before the stored
+  collections, or older than the stream's own max_age and the lookback, is not read, so a message that old reads
+  younger; an age never reads older unless sequences were deleted after the consumer's position while it waited.
+  A firing finding stays until the message has used less than resolve_ratio of max_age, or the consumer catches
+  up. Ephemeral and ordered consumers are left out, and so is a consumer without a leader report, or whose stream
+  has none, in this collection, or with such reports over less than half the lookback.
 remediation: >-
   The consumer reads slower than its stream ages messages out, or has stopped. If it has stopped, see consumer-006
   and consumer-003; a paused consumer (consumer-017) can be resumed with `nats consumer resume <stream>
@@ -93,7 +97,8 @@ lead AS (
 -- With the stream leader's row of the same collection.
 paired AS (
     SELECT l.*, s.first_seq, s.first_ts, s.created AS stream_created,
-        l.epoch = getvariable('epoch') AS is_now
+        l.epoch = getvariable('epoch') AS is_now,
+        l.unfiltered AND coalesce(s.num_deleted, 0) = 0 AS exact
     FROM lead l JOIN stream_stats s ON s.epoch = l.epoch AND s.account = l.account AND s.stream = l.stream AND s.is_leader
 ),
 -- The newest and the oldest pair of the lookback are judged.
@@ -103,20 +108,25 @@ pts AS (
        OR p.epoch = (SELECT min(y.epoch) FROM paired y WHERE y.account = p.account AND y.stream = p.stream AND y.consumer = p.consumer)
 ),
 -- The stream sequence whose publish time bounds the oldest unread
--- message's, or the time itself where no sequence does.
+-- message's, or the time itself where no sequence does. The sequence after
+-- the consumer's position is its next message only without a filter and
+-- without deleted sequences in the stream (num_deleted, which does not say
+-- where they are); otherwise the bounds that hold anyway are taken, which
+-- read "at least".
 target AS (
     SELECT p.*, CASE
-        WHEN coalesce(p.num_ack_pending, 0) > 0 AND p.unfiltered AND p.ack_floor_stream_seq + 1 >= p.first_seq
+        WHEN coalesce(p.num_ack_pending, 0) > 0 AND p.exact AND p.ack_floor_stream_seq + 1 >= p.first_seq
             THEN p.ack_floor_stream_seq + 1
         WHEN coalesce(p.num_ack_pending, 0) > 0 THEN p.delivered_stream_seq
-        WHEN coalesce(p.num_pending, 0) > 0 AND p.unfiltered AND p.delivered_stream_seq + 1 > p.first_seq
+        WHEN coalesce(p.num_pending, 0) > 0 AND p.exact AND p.delivered_stream_seq + 1 > p.first_seq
             THEN p.delivered_stream_seq + 1
     END AS seq,
     CASE
-        WHEN coalesce(p.num_ack_pending, 0) = 0 AND coalesce(p.num_pending, 0) > 0 AND p.unfiltered
+        WHEN coalesce(p.num_ack_pending, 0) = 0 AND coalesce(p.num_pending, 0) > 0 AND p.exact
          AND p.delivered_stream_seq + 1 <= p.first_seq THEN p.first_ts
     END AS first_time,
-    coalesce(p.num_ack_pending, 0) = 0 AND coalesce(p.num_pending, 0) > 0 AND NOT p.unfiltered AS backlog_start
+    coalesce(p.num_ack_pending, 0) = 0 AND coalesce(p.num_pending, 0) > 0 AND NOT p.exact AS backlog_start,
+    p.exact AND (coalesce(p.num_ack_pending, 0) = 0 OR p.ack_floor_stream_seq + 1 >= p.first_seq) AS about
     FROM pts p
     WHERE coalesce(p.num_ack_pending, 0) > 0 OR coalesce(p.num_pending, 0) > 0
 ),
@@ -217,7 +227,7 @@ judged AS (
 SELECT
     entity_key,
     CASE WHEN ratio >= getvariable('critical_ratio') THEN 'critical' ELSE 'warning' END AS severity,
-    'The oldest unread message is ' || CASE WHEN unfiltered THEN 'about ' ELSE 'at least ' END || span_text(age)
+    'The oldest unread message is ' || CASE WHEN about THEN 'about ' ELSE 'at least ' END || span_text(age)
         || ' old, ' || CAST(round(100 * ratio) AS BIGINT) || '% of max_age ' || ns_text(max_age_ns) || ': '
         || CASE WHEN published_by + max_age <= started_at THEN 'it is due to leave the stream now'
             ELSE 'it leaves the stream by ' || strftime(published_by + max_age, '%Y-%m-%d %H:%M UTC') || ', in '
