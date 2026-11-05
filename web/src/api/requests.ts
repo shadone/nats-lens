@@ -1,9 +1,9 @@
 // Calls to the API: builds requests from view-model filters and adapts the
 // responses. Pages call these through the hooks in queries.ts.
-import { serverNow, setServerNow } from "../lib/clock";
 import type { MessageInitShape } from "@bufbuild/protobuf";
 import { durationFromMs, timestampFromMs } from "@bufbuild/protobuf/wkt";
 import type { TimeRangeSchema } from "../gen/natslens/v1/common_pb";
+import { serverNow, setServerNow } from "../lib/clock";
 import { bucketFor, presetMs, resolveRange, type RangeSpec } from "../lib/timeRange";
 import { entityKindEnum, ms, n, series, severityEnum, sourceEnum } from "./adapt-common";
 import { consumer, consumerDetail, connection, overview, server, stream, streamDetail } from "./adapt-entities";

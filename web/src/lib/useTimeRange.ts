@@ -1,9 +1,9 @@
 // The global time range from the URL, with setters that keep other
 // parameters, and a clock for live ranges. Links take the range from
 // useGlobalQuery, with the system and the account.
-import { serverNow } from "./clock";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
+import { serverNow } from "./clock";
 import { parseRange, rangeProblem, resolveRange, writeRange, type RangeSpec } from "./timeRange";
 
 export function useTimeRange() {
