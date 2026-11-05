@@ -123,7 +123,7 @@ Three plans are built together: this one (D), `docs/plans/notifications.md` (N) 
 | Wave | Run together | Shared files and how they are kept apart |
 |---|---|---|
 | 1 | D T1, N T1 | D T1: proto, `internal/api`, `storeprov`, `fake`, `apitest`, `internal/archive`, `cmd/natslens/system.go`, `store.go`. N T1: `internal/config`, `internal/notify` (new), `cmd/natslens/main.go`, `notify.go`. No file in common. |
-| 2 | D T2, M T1, N T2 | D T2 is web only (`nav.ts`, `App.tsx`, `requests.ts`, `queries.ts`, new files). M T1 and N T2 are server only and share no file but the migrations directory (0035 and 0036) and one line each in `migration_golden_test.go`. |
+| 2 | D T2, M T1, N T2 | D T2 is web only (`nav.ts`, `App.tsx`, `requests.ts`, `queries.ts`, new files). M T1 and N T2 are server only and share no file but the migrations directory (0035 for N T2, 0036 for N T3 delivery, and 0037 reserved for M T1; proposed, not yet confirmed) and one line each in `migration_golden_test.go`. |
 | 3 | D T3, M T2, N T3 | D T3 is web only. M T2 and N T3 are server only; see `docs/plans/notifications.md`. |
 | 4 | M T3, N T4, D T4 | M T3 changes `CauseGroups.tsx`, `Findings.tsx`, `FindingDetail.tsx`, `App.tsx`, `requests.ts` and `queries.ts` after D T2 and D T3 changed them. D T4 is docs only. |
 | 5 | N T5 | docs |
