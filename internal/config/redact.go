@@ -163,3 +163,6 @@ func (n Notifications) LogValue() slog.Value {
 	}
 	return slog.GroupValue(attrs...)
 }
+
+// MarshalYAML writes the channel with its URL reduced to scheme and host.
+func (c Channel) MarshalYAML() (any, error) { return c.redacted(), nil }

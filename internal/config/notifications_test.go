@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"go.yaml.in/yaml/v3"
 )
 
 const notifySystems = `
@@ -258,5 +260,56 @@ func TestRedactChannelURL(t *testing.T) {
 		if got := RedactChannelURL(in); got != want {
 			t.Errorf("%q: got %q, want %q", in, got, want)
 		}
+	}
+}
+
+// localhost is a loopback host in any case.
+func TestLocalhostAnyCase(t *testing.T) {
+	for _, u := range []string{"http://LOCALHOST:9000/x", "http://LocalHost/x"} {
+		if err := CheckChannelURL(u); err != nil {
+			t.Errorf("%s refused: %v", u, err)
+		}
+	}
+}
+
+// Writing the configuration as YAML hides a channel's URL path, query and
+// user information, as the starting line does.
+func TestChannelYAMLRedacted(t *testing.T) {
+	cfg := Default()
+	ch := DefaultChannel()
+	ch.Name, ch.Type = "ops-chat", ChannelSlack
+	ch.URL = "https://user:PW0SECRET@hooks.example.com/services/" + secretPath + "?sig=" + secretQuery
+	cfg.Notifications.Channels = []Channel{ch}
+	for _, v := range []any{cfg, &cfg, cfg.Notifications, ch, &ch} {
+		b, err := yaml.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, part := range []string{secretPath, secretQuery, "PW0SECRET", "/services/"} {
+			if strings.Contains(string(b), part) {
+				t.Errorf("%T as YAML holds %q:\n%s", v, part, b)
+			}
+		}
+		if !strings.Contains(string(b), "url: https://hooks.example.com:") && !strings.Contains(string(b), "url: https://hooks.example.com\n") {
+			t.Errorf("%T as YAML lacks the host:\n%s", v, b)
+		}
+	}
+}
+
+// An unknown key names the key and the channel, not the decoder's type.
+func TestChannelUnknownKeyError(t *testing.T) {
+	body := "notifications:\n  channels:\n    - name: ops-chat\n      type: slack\n      url_env: X\n      bogus: 1\n    - type: slack\n      url_env: Y\n      extra: 2\n"
+	_, err := LoadFile(writeFile(t, body), Default())
+	if err == nil {
+		t.Fatal("unknown keys accepted")
+	}
+	for _, want := range []string{"line 6: unknown key bogus in notifications channel ops-chat",
+		"line 9: unknown key extra in a notifications channel without a name"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error lacks %q: %v", want, err)
+		}
+	}
+	if strings.Contains(err.Error(), "config.plain") {
+		t.Errorf("error names the decoder's type: %v", err)
 	}
 }
