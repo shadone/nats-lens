@@ -76,6 +76,11 @@ func archiveTables() []archiveTable {
 	// alone ties.
 	out = append(out, archiveTable{name: "mutes", key: []string{"id"}, latest: "unmuted_at DESC NULLS LAST, growth_per_day IS NULL",
 		columns: []string{"NULL::DOUBLE AS growth_per_day"}})
+	// Acknowledgements are written whole with every hour, as mutes are,
+	// and a rebuild keeps each one's newest copy: the ended one once
+	// ended. One the retention sweep deleted comes back from older hours'
+	// files on a rebuild, and the next sweep deletes it again.
+	out = append(out, archiveTable{name: "acknowledgements", key: []string{"id"}, latest: "ended_at DESC NULLS LAST"})
 	// Findings are the current state of every check, updated after every
 	// epoch: like mutes, every hour holds the whole table, and a rebuild
 	// keeps each finding's copy with the highest updated_epoch. Their
@@ -114,9 +119,10 @@ type PendingHour struct {
 // they are pending when never exported, exported only provisionally, or
 // when their epoch or event count differs from the exported one (a late
 // event or epoch). The newest hour also counts as changed when a mute was
-// created or lifted since its export: every hour holds the whole mutes
-// table, and a rebuild loads the newest hour, so only that one has to carry
-// the current mutes. Later hours are open: they are pending provisionally
+// created or lifted, or an acknowledgement made, ended or swept, since its
+// export: every hour holds the whole mutes and acknowledgements tables, and
+// a rebuild loads the newest hour, so only that one has to carry the
+// current ones. Later hours are open: they are pending provisionally
 // when provisionalEvery is positive, their counts changed, and their last
 // export is at least provisionalEvery before now. All bounds are hour
 // starts except now.
@@ -140,6 +146,7 @@ FROM counts c LEFT JOIN archive_hours a ON a.hour = c.h
 WHERE a.hour IS NULL
    OR a.epochs IS DISTINCT FROM c.epochs OR a.events IS DISTINCT FROM c.events
    OR (c.h = (SELECT max(h) FROM counts) AND a.mute_changes IS DISTINCT FROM (`+muteChanges+`))
+   OR (c.h = (SELECT max(h) FROM counts) AND a.ack_changes IS DISTINCT FROM (`+ackChanges+`))
    OR (c.h < ? AND NOT coalesce(a.final, false))
 ORDER BY c.h`, from.UTC(), from.UTC(), from.UTC(), closedBefore.UTC(), closedBefore.UTC())
 	if err != nil {
@@ -202,10 +209,11 @@ type ExportedFile struct {
 // HourExport is what ExportHour wrote for one hour.
 type HourExport struct {
 	Files []ExportedFile
-	// Epochs and Events are the hour's epoch and event counts, and
+	// Epochs and Events are the hour's epoch and event counts,
 	// MuteChanges the mutes plus lifted mutes plus acceptances with a
-	// growth, read in the same transaction as the files.
-	Epochs, Events, MuteChanges int64
+	// growth, and AckChanges the acknowledgements' fingerprint, read in
+	// the same transaction as the files.
+	Epochs, Events, MuteChanges, AckChanges int64
 }
 
 // muteChanges counts mutes, lifted mutes and acceptances with a growth.
@@ -213,6 +221,12 @@ type HourExport struct {
 // grows with every mute created or lifted and every baseline the review
 // writes, and the hour of a baseline is exported again.
 const muteChanges = `SELECT count(*) + count(unmuted_at) + count(growth_per_day) FROM mutes`
+
+// ackChanges is a fingerprint of the acknowledgements: it changes when one
+// is made, ended or swept. A count would not do, as the retention sweep
+// deletes acknowledgements and a sweep and a new one could cancel out.
+// The hash fills 64 bits; the shift makes it fit a BIGINT.
+const ackChanges = `SELECT coalesce(bit_xor(hash(id, ended_at)), 0) >> 1 FROM acknowledgements`
 
 // Rows returns the rows written across all files.
 func (e HourExport) Rows() int64 {
@@ -263,6 +277,9 @@ func (s *Store) ExportHour(ctx context.Context, hour time.Time, path func(table 
 	if err := tx.QueryRowContext(ctx, muteChanges).Scan(&out.MuteChanges); err != nil {
 		return out, fmt.Errorf("count mute changes: %w", err)
 	}
+	if err := tx.QueryRowContext(ctx, ackChanges).Scan(&out.AckChanges); err != nil {
+		return out, fmt.Errorf("fingerprint acknowledgements: %w", err)
+	}
 	return out, tx.Commit()
 }
 
@@ -279,12 +296,13 @@ func (s *Store) MarkExported(ctx context.Context, hour time.Time, e HourExport, 
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	_, err = s.db.ExecContext(ctx, `INSERT INTO archive_hours (hour, rows, files, exported_at, epochs, events, final, table_rows, mute_changes)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	_, err = s.db.ExecContext(ctx, `INSERT INTO archive_hours (hour, rows, files, exported_at, epochs, events, final, table_rows, mute_changes,
+    ack_changes)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (hour) DO UPDATE SET rows = excluded.rows, files = excluded.files, exported_at = excluded.exported_at,
     epochs = excluded.epochs, events = excluded.events, final = excluded.final, table_rows = excluded.table_rows,
-    mute_changes = excluded.mute_changes`,
-		hour.UTC(), e.Rows(), len(e.Files), at.UTC(), e.Epochs, e.Events, final, string(tableRows), e.MuteChanges)
+    mute_changes = excluded.mute_changes, ack_changes = excluded.ack_changes`,
+		hour.UTC(), e.Rows(), len(e.Files), at.UTC(), e.Epochs, e.Events, final, string(tableRows), e.MuteChanges, e.AckChanges)
 	return err
 }
 
@@ -299,16 +317,17 @@ func (s *Store) ParquetRows(ctx context.Context, path string) (int64, error) {
 // MaxIDs are the highest numbers handed out by the sequences a rebuild
 // restarts.
 type MaxIDs struct {
-	Epoch, Event, Mute int64
+	Epoch, Event, Mute, Ack int64
 }
 
-// MaxIDs returns the highest epoch number, event ID and mute ID stored, 0
-// when none.
+// MaxIDs returns the highest epoch number, event ID, mute ID and
+// acknowledgement ID stored, 0 when none.
 func (s *Store) MaxIDs(ctx context.Context) (MaxIDs, error) {
 	var m MaxIDs
 	err := s.db.QueryRowContext(ctx, `SELECT (SELECT coalesce(max(epoch), 0) FROM epochs),
-    (SELECT coalesce(max(id), 0) FROM events), (SELECT coalesce(max(id), 0) FROM mutes)`).
-		Scan(&m.Epoch, &m.Event, &m.Mute)
+    (SELECT coalesce(max(id), 0) FROM events), (SELECT coalesce(max(id), 0) FROM mutes),
+    (SELECT coalesce(max(id), 0) FROM acknowledgements)`).
+		Scan(&m.Epoch, &m.Event, &m.Mute, &m.Ack)
 	return m, err
 }
 
@@ -323,7 +342,8 @@ type RebuildHour struct {
 // transaction and records the hours as exported. Rows of identity and
 // configuration tables appear once per hour they were touched; the copy
 // with the highest last_epoch is kept; of a mute, the newest copy (the
-// lifted one once it was lifted). The epoch, event and mute sequences
+// lifted one once it was lifted), and of an acknowledgement the ended one
+// once ended. The epoch, event, mute and acknowledgement sequences
 // continue after the highest loaded numbers, or after those in min when
 // they are higher (the archive's record of numbers handed out after its
 // last full hour).
@@ -381,6 +401,9 @@ func (s *Store) Rebuild(ctx context.Context, hours map[time.Time]RebuildHour, mi
 		return err
 	}
 	if err := restartSequence(ctx, tx, "mute_seq", fmt.Sprintf("SELECT greatest(coalesce(max(id), 0), %d) + 1 FROM mutes", min.Mute)); err != nil {
+		return err
+	}
+	if err := restartSequence(ctx, tx, "ack_seq", fmt.Sprintf("SELECT greatest(coalesce(max(id), 0), %d) + 1 FROM acknowledgements", min.Ack)); err != nil {
 		return err
 	}
 	for h, rh := range hours {

@@ -46,8 +46,9 @@ type SweepResult struct {
 // Sweep deletes epochs that started before now minus retention, with every
 // row that belongs only to them (check runs and finding transitions
 // included, except the current episode of every finding kept), resolved
-// findings last changed before them, and events received before then, in
-// one transaction.
+// findings last changed before them, acknowledgements that ended, or whose
+// episode ended, before then, and events received before then, in one
+// transaction.
 func (s *Store) Sweep(ctx context.Context, now time.Time, retention time.Duration) (SweepResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -94,6 +95,11 @@ SELECT coalesce(
 	// oldest kept epoch; a firing one stays however old it is.
 	if _, err := tx.ExecContext(ctx, `DELETE FROM findings WHERE state = 'resolved' AND updated_epoch < ?`, cutoff); err != nil {
 		return SweepResult{}, fmt.Errorf("sweep findings: %w", err)
+	}
+	// An acknowledgement goes once it, or its episode, ended before the
+	// window.
+	if err := sweepAcks(ctx, tx, now.Add(-retention)); err != nil {
+		return SweepResult{}, err
 	}
 	// Transitions go with their epoch, except the current episode of every
 	// finding still kept: from its latest firing transition on, so that a
