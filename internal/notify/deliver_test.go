@@ -197,3 +197,47 @@ func TestDeliveryCancellationAndStoreLock(t *testing.T) {
 		t.Fatal(rows)
 	}
 }
+
+func TestDeliveryRateSurvivesRestart(t *testing.T) {
+	e := newEnv(t)
+	now := r0
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls++; w.WriteHeader(204) }))
+	defer srv.Close()
+	ch := channel("ops")
+	ch.URL = srv.URL
+	queueDelivery(t, e.st, r0, 1, 101)
+	makeDelivery := func() *Delivery {
+		return &Delivery{Store: e.st, SystemID: "example-prod", Interval: time.Minute, Clock: func() time.Time { return now }}
+	}
+	if _, err := makeDelivery().Step(context.Background(), ch); err != nil {
+		t.Fatal(err)
+	}
+	rows, _ := e.st.OutboxRows(context.Background(), "ops")
+	if rows[99].State != "delivered" || rows[100].State != "pending" {
+		t.Fatal("batch must stop at 100")
+	}
+	if wait, err := makeDelivery().Step(context.Background(), ch); err != nil || wait != time.Minute || calls != 1 {
+		t.Fatalf("restart bypassed rate: wait=%s calls=%d err=%v", wait, calls, err)
+	}
+	now = now.Add(time.Minute)
+	if _, err := makeDelivery().Step(context.Background(), ch); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 {
+		t.Fatal(calls)
+	}
+}
+
+func TestDeliveryRetryAfterDoesNotShortenBackoff(t *testing.T) {
+	e := newEnv(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Header().Set("Retry-After", "1"); w.WriteHeader(503) }))
+	defer srv.Close()
+	ch := channel("ops")
+	ch.URL = srv.URL
+	queueDelivery(t, e.st, r0, 1, 1)
+	d := &Delivery{Store: e.st, SystemID: "example-prod", Clock: func() time.Time { return r0 }}
+	if wait, err := d.Step(context.Background(), ch); err != nil || wait != 10*time.Second {
+		t.Fatalf("wait=%s err=%v", wait, err)
+	}
+}
