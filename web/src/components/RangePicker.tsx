@@ -1,5 +1,6 @@
 // The header's time range: preset, span and live freshness, with a panel
 // for presets, a custom range and live mode. Times are UTC.
+import { serverNow } from "../lib/clock";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { errorInfo } from "../api/errors";
 import type { Freshness } from "../api/model";
@@ -119,7 +120,7 @@ export function RangePicker({ freshness, error }: { freshness?: Freshness; error
     if (!Number.isFinite(f) || !Number.isFinite(t)) return setErr("Enter both times.");
     if (f >= t) return setErr("The start must be before the end.");
     if (t - f > 30 * 86_400_000) return setErr("At most 30 days.");
-    if (f > Date.now()) return setErr("The range lies in the future.");
+    if (f > serverNow()) return setErr("The range lies in the future.");
     setSpec({ kind: "fixed", from: f, to: t }, { push: true });
     close();
   };
@@ -138,7 +139,7 @@ export function RangePicker({ freshness, error }: { freshness?: Freshness; error
           type="button"
           className="live-btn"
           aria-label={spec.kind === "live" ? "Live: pause at the current range" : "Fixed range: go live"}
-          onClick={() => setSpec(spec.kind === "live" ? pauseRange(spec, Date.now()) : resumeLive(spec))}
+          onClick={() => setSpec(spec.kind === "live" ? pauseRange(spec, serverNow()) : resumeLive(spec))}
         >
           <Freshness spec={spec} freshness={freshness} error={error} />
         </button>

@@ -1,5 +1,6 @@
 // Mute a finding's check, for its entity or for every entity, with a
 // reason and an expiry; and lift a mute.
+import { serverNow } from "../lib/clock";
 import { useEffect, useId, useState, type FormEvent } from "react";
 import { identityNeed, rememberName, rememberedName, type IdentityNeed } from "../api/identity";
 import type { Finding, Mute } from "../api/model";
@@ -66,7 +67,7 @@ function MuteBody({ finding, need, onClose, onBusy }: { finding: Finding; need: 
 
   const submit = (ev: FormEvent) => {
     ev.preventDefault();
-    const now = Date.now();
+    const now = serverNow();
     const errs = validateMute(form, now, askName);
     setErrors(errs);
     if (hasErrors(errs)) return;

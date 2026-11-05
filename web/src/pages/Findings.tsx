@@ -1,5 +1,6 @@
 // Findings: every finding in the range by severity and state, worst first,
 // and the mutes with who set them, why and until when.
+import { serverNow } from "../lib/clock";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
 import type { Entity, FindingState, Mute, SeverityLevel } from "../api/model";
@@ -85,7 +86,7 @@ function Mutes({ others, onAccounts }: { others: Entity[]; onAccounts: (es: Enti
   const [lifting, setLifting] = useState<Mute>();
   const pager = usePager([useSystem(), String(inactive)].join("|"));
   const q = useMutes(inactive, pager.token);
-  const now = Date.now();
+  const now = serverNow();
   const own = useMemo(() => accountsOf(q.data?.items.map((m) => m.entity) ?? []), [q.data]);
   useEffect(() => onAccounts(own), [own, onAccounts]);
   return (
