@@ -124,7 +124,7 @@ func TestUpgradeFromVersion9(t *testing.T) {
 		`DROP TABLE subscriptions`, `DROP TABLE subscription_lists`,
 		`DROP TABLE micro_requests`, `DROP TABLE micro_instances`, `DROP TABLE micro_stats`, `DROP TABLE micro_endpoints`,
 		`DROP TABLE micro_endpoint_hours`, `DROP TABLE client_app_hours`,
-		`DROP TABLE notify_channels`, `DROP TABLE notify_state`, `DROP TABLE notify_outbox`, `DROP SEQUENCE notify_outbox_seq`,
+		`DROP TABLE notify_channels`, `DROP TABLE notify_state`, `DROP TABLE notify_outbox`, `DROP TABLE notify_identity`, `DROP TABLE notify_delivery_rate`, `DROP SEQUENCE notify_outbox_seq`,
 		`DELETE FROM migrations WHERE version >= 10`,
 		`CREATE TABLE m2 AS SELECT version, name, applied_at FROM migrations`,
 		`DROP TABLE migrations`,
