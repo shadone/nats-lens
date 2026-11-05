@@ -211,3 +211,49 @@ func TestAcknowledgementKindExcluded(t *testing.T) {
 	expect(t, "quiet still applies", e.step(time.Minute, x)["ops"])
 	expect(t, "end still applies", e.step(time.Hour, x)["ops"], "reminder "+jobs+" (acknowledgement quiet ended)")
 }
+
+func TestAcknowledgementViewEntryAndThresholdEnd(t *testing.T) {
+	e := newEnv(t, channel("ops"))
+	x := f(quorum, "APP/order-jobs", "info")
+	e.step(0, x)
+	ack(t, e, time.Second, time.Hour)
+	expect(t, "out-of-view ack", e.step(time.Minute, x)["ops"])
+	x.sev = "critical"
+	expect(t, "entry does not replay old note", e.step(time.Minute, x)["ops"], "firing "+jobs)
+	x.sev = "info"
+	expect(t, "quiet retains known incident", e.step(time.Minute, x)["ops"])
+	expect(t, "quiet end closes below threshold", e.step(time.Hour, x)["ops"], "reminder "+jobs+" (acknowledgement quiet ended)", "resolved "+jobs+" (severity now info)")
+	expect(t, "threshold exit once", e.step(time.Minute, x)["ops"])
+}
+
+func TestAcknowledgementEpochCutoffAndChannelCursor(t *testing.T) {
+	e := newEnv(t, channel("ops"))
+	x := f(quorum, "APP/order-jobs", "warning")
+	e.step(0, x)
+	a := ack(t, e, 2*time.Minute, time.Hour)
+	expect(t, "future ack not read", e.step(time.Minute, x)["ops"])
+	// Another channel starts at this epoch; neither channel should miss a later note.
+	e.rec.Channels = append(e.rec.Channels, channel("chat"))
+	got := e.step(time.Minute, x)
+	expect(t, "created at epoch inclusive", got["ops"], "acknowledged "+jobs)
+	expect(t, "new channel only baseline", got["chat"], "baseline")
+	next := ack(t, e, time.Second, 0)
+	got = e.step(time.Minute, x)
+	for _, name := range []string{"ops", "chat"} {
+		expect(t, name, got[name], "acknowledged "+jobs)
+	}
+	if got["ops"][0].DedupKey == DedupKey("example-prod", jobs, a.SinceEpoch, KindAcknowledged, e.epoch) || a.ID == next.ID {
+		t.Fatal("acknowledgement ID missing from dedup key")
+	}
+	expect(t, "unchanged on both channels", e.step(time.Minute, x)["ops"])
+}
+
+func TestAcknowledgementQuietEndWithRise(t *testing.T) {
+	e := newEnv(t, channel("ops"))
+	x := f(quorum, "APP/order-jobs", "warning")
+	e.step(0, x)
+	ack(t, e, time.Second, time.Hour)
+	e.step(time.Minute, x)
+	x.sev = "critical"
+	expect(t, "rise and expiry both sent", e.step(time.Hour, x)["ops"], "changed "+jobs, "reminder "+jobs+" (acknowledgement quiet ended)")
+}
