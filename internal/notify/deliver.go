@@ -65,7 +65,11 @@ func (d *Delivery) step(ctx context.Context, ch config.Channel, s *Sender) (time
 	if head.NextAttemptAt.After(now) {
 		return head.NextAttemptAt.Sub(now), nil
 	}
-	b := Batch{SystemID: d.SystemID, SystemName: d.SystemName, Version: d.Version, UIURL: d.UIURL, SentAt: at, Key: fmt.Sprintf("%s:%s:%d:%d", d.SystemID, ch.Name, head.ID, rows[len(rows)-1].ID)}
+	incarnation, err := d.Store.NotificationIncarnation(ctx)
+	if err != nil {
+		return time.Second, err
+	}
+	b := Batch{SystemID: d.SystemID, SystemName: d.SystemName, Version: d.Version, UIURL: d.UIURL, SentAt: at, Key: fmt.Sprintf("%s:%s:%s:%d:%d", incarnation, d.SystemID, ch.Name, head.ID, rows[len(rows)-1].ID)}
 	for _, r := range rows {
 		m, err := Decode(r.Message)
 		if err != nil {

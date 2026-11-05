@@ -91,3 +91,11 @@ func (s *Store) NotificationEpochSent(ctx context.Context, channel string) (bool
 	err := s.db.QueryRowContext(ctx, `SELECT coalesce((SELECT max(finished_at) FROM notify_outbox WHERE channel=? AND state='delivered') >= (SELECT max(started_at) FROM epochs), false)`, channel).Scan(&sent)
 	return sent, err
 }
+
+// NotificationIncarnation identifies this database, not its archived NATS data.
+// It survives a reopen; a rebuild creates a fresh random, non-secret identity.
+func (s *Store) NotificationIncarnation(ctx context.Context) (string, error) {
+	var id string
+	err := s.db.QueryRowContext(ctx, `SELECT incarnation::VARCHAR FROM notify_identity WHERE singleton`).Scan(&id)
+	return id, err
+}

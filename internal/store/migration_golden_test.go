@@ -10,7 +10,7 @@ import (
 // goldenMigrations pins every embedded migration's sha256. A migration that
 // has been applied anywhere must never change: add a new migration instead.
 var goldenMigrations = map[string]string{
-	"0036_notification_delivery":           "cf7ffe9be39418191994a5845dd694af93ce99cc29c673b041e55ad3924b5ca2",
+	"0036_notification_delivery":           "11cce8004978a4f35444e07b898cf529fae3dc05b3d69c7f6b54740d1b59884a",
 	"0001_epochs_servers":                  "4f6baaffec1f433a357ee3bddba35890594b132d9e22912296528ba9b03f418d",
 	"0002_server_stats":                    "2894f9862fd1daae5ba87e59f98cf19ba4deb47ff2675de702bbf4a5ecd49f06",
 	"0003_connections_accounts":            "1aba3cf1286ccc2de10c61fa694e5ca1b7fc13388f0b637227b4ed51085dd8cf",

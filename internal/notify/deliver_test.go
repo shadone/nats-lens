@@ -135,7 +135,11 @@ func TestDeliveryCrashAfterSuccess(t *testing.T) {
 		t.Fatal(err)
 	}
 	m, _ := Decode(rows[0].Message)
-	b := Batch{SystemID: "example-prod", SentAt: at, Key: fmt.Sprintf("example-prod:ops:%d:%d", rows[0].ID, rows[0].ID), Messages: []Message{m}}
+	incarnation, err := e.st.NotificationIncarnation(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := Batch{SystemID: "example-prod", SentAt: at, Key: fmt.Sprintf("%s:example-prod:ops:%d:%d", incarnation, rows[0].ID, rows[0].ID), Messages: []Message{m}}
 	s := NewSender(ch, "")
 	defer s.Close()
 	if r := s.Send(context.Background(), b); r.Outcome != Delivered {
