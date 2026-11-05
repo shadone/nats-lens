@@ -101,3 +101,65 @@ func (s System) LogValue() slog.Value {
 		slog.Int64("duckdb_memory_limit", s.DuckDBMemoryLimit),
 	)
 }
+
+// channelFields has the fields of Channel without its methods, so that
+// formatting it does not call String again.
+type channelFields Channel
+
+// redacted reduces the URL to its scheme and host; the files and
+// variables only name where a secret is, so they stay.
+func (c Channel) redacted() channelFields {
+	if c.URL != "" {
+		c.URL = RedactChannelURL(c.URL)
+	}
+	return channelFields(c)
+}
+
+// String prints the channel with its URL reduced to scheme and host, for
+// %v, %+v and %s.
+func (c Channel) String() string { return fmt.Sprintf("%+v", c.redacted()) }
+
+// GoString is String for %#v.
+func (c Channel) GoString() string {
+	return strings.Replace(fmt.Sprintf("%#v", c.redacted()), "config.channelFields", "config.Channel", 1)
+}
+
+// MarshalJSON writes the channel with its URL reduced to scheme and host.
+func (c Channel) MarshalJSON() ([]byte, error) { return json.Marshal(c.redacted()) }
+
+// LogValue logs the channel with its URL reduced to scheme and host and
+// each secret source shown as set or not.
+func (c Channel) LogValue() slog.Value {
+	attrs := []slog.Attr{
+		slog.String("type", c.Type),
+		slog.String("min_severity", c.MinSeverity),
+		slog.Bool("url_set", c.URL != ""),
+		slog.Bool("url_file_set", c.URLFile != ""),
+		slog.Bool("url_env_set", c.URLEnv != ""),
+		slog.Bool("bearer_token_file_set", c.BearerTokenFile != ""),
+		slog.Bool("bearer_token_env_set", c.BearerTokenEnv != ""),
+	}
+	if c.URL != "" {
+		attrs = append(attrs, slog.String("url", RedactChannelURL(c.URL)))
+	}
+	attrs = append(attrs,
+		slog.Any("systems", c.Systems),
+		slog.Any("checks", c.Checks),
+		slog.Any("exclude_checks", c.ExcludeChecks),
+		slog.Any("categories", c.Categories),
+		slog.Any("kinds", c.Kinds),
+		slog.String("repeat_every", c.RepeatEvery.String()),
+		slog.String("timeout", c.Timeout.String()),
+		slog.String("give_up_after", c.GiveUpAfter.String()),
+	)
+	return slog.GroupValue(attrs...)
+}
+
+// LogValue logs the notifications block, each channel under its name.
+func (n Notifications) LogValue() slog.Value {
+	attrs := []slog.Attr{slog.String("ui_url", n.UIURL)}
+	for _, c := range n.Channels {
+		attrs = append(attrs, slog.Any(c.Name, c.LogValue()))
+	}
+	return slog.GroupValue(attrs...)
+}
