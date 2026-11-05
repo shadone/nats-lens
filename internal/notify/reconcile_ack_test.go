@@ -257,3 +257,29 @@ func TestAcknowledgementQuietEndWithRise(t *testing.T) {
 	x.sev = "critical"
 	expect(t, "rise and expiry both sent", e.step(time.Hour, x)["ops"], "changed "+jobs, "reminder "+jobs+" (acknowledgement quiet ended)")
 }
+
+func TestAcknowledgementReleasedEpisodeResolveWhileFlapping(t *testing.T) {
+	e := newEnv(t, channel("ops"))
+	x := f(quorum, "APP/order-jobs", "warning")
+	e.step(0, x)
+	a := ack(t, e, time.Second, 0)
+	e.step(time.Minute, x)
+	e.apply(time.Minute, x)
+	if _, err := e.st.DB().Exec(`UPDATE findings SET flapping=true WHERE id=?`, jobs); err != nil {
+		t.Fatal(err)
+	}
+	e.reconcile()
+	if _, err := e.st.EndAck(context.Background(), a.ID, "operator", e.at.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	e.apply(time.Minute, x)
+	if _, err := e.st.DB().Exec(`UPDATE findings SET flapping=true WHERE id=?`, jobs); err != nil {
+		t.Fatal(err)
+	}
+	expect(t, "release while flapping", e.reconcile()["ops"], "reminder "+jobs+" (acknowledgement quiet ended)")
+	e.apply(time.Minute)
+	if _, err := e.st.DB().Exec(`UPDATE findings SET flapping=true WHERE id=?`, jobs); err != nil {
+		t.Fatal(err)
+	}
+	expect(t, "actual resolve of acknowledged episode", e.reconcile()["ops"], "resolved "+jobs)
+}
