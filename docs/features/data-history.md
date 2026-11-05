@@ -44,5 +44,4 @@ Data history shows what nats-lens holds of a system. Range pages name a history 
 
 - **No backfill.** nats-lens cannot collect for a time when it was not running.
 - **No history from the archive in the UI.** Hours older than `retention` are in the archive only ([history-and-archive.md](history-and-archive.md)).
-
 - **No forecast margins.** Forecast confidence margins remain planned.
