@@ -2,6 +2,7 @@ package notify
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -128,4 +129,85 @@ func TestAcknowledgementBaselineAndFlapping(t *testing.T) {
 		t.Fatal(err)
 	}
 	expect(t, "acknowledged resolve during flap", e.reconcile()["ops"], "resolved "+jobs)
+}
+
+func TestAcknowledgementNewEpisodeInGap(t *testing.T) {
+	e := newEnv(t, channel("ops"))
+	x := f(quorum, "APP/order-jobs", "warning")
+	e.step(0, x)
+	e.apply(time.Minute)
+	e.apply(time.Minute, x)
+	ack(t, e, time.Second, 0)
+	e.apply(time.Minute, x)
+	got := e.reconcile()["ops"]
+	if len(got) != 3 {
+		t.Fatalf("new acknowledged episode lost a message: %v", kinds(got))
+	}
+	counts := map[Kind]int{}
+	for _, m := range got {
+		counts[m.Kind]++
+	}
+	if counts[KindAcknowledged] != 1 || counts[KindResolved] != 1 || counts[KindFiring] != 1 {
+		t.Fatal(kinds(got))
+	}
+}
+
+func TestAcknowledgementRisingWhileFlapping(t *testing.T) {
+	e := newEnv(t, channel("ops"))
+	x := f(quorum, "APP/order-jobs", "warning")
+	e.step(0, x)
+	ack(t, e, time.Second, 0)
+	e.step(time.Minute, x)
+	e.apply(time.Minute, x)
+	if _, err := e.st.DB().Exec(`UPDATE findings SET flapping=true WHERE id=?`, jobs); err != nil {
+		t.Fatal(err)
+	}
+	e.reconcile()
+	x.sev = "critical"
+	e.apply(time.Minute, x)
+	if _, err := e.st.DB().Exec(`UPDATE findings SET flapping=true WHERE id=?`, jobs); err != nil {
+		t.Fatal(err)
+	}
+	expect(t, "quiet rise overrides flapping hold", e.reconcile()["ops"], "changed "+jobs)
+}
+
+func TestAcknowledgementDiskRestart(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "notify.duckdb")
+	st, err := store.OpenPath(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := envOn(t, st, "example-prod", channel("ops"))
+	x := f(quorum, "APP/order-jobs", "warning")
+	e.step(0, x)
+	a := ack(t, e, time.Second, time.Hour)
+	got := e.step(time.Minute, x)["ops"]
+	if len(got) != 1 || got[0].Acknowledgement == nil || got[0].Acknowledgement.By != a.AckedBy || got[0].Acknowledgement.Note != a.Note || !got[0].Acknowledgement.QuietUntil.Equal(a.QuietUntil) {
+		t.Fatalf("payload: %+v", got)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+	st, err = store.OpenPath(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	e.st, e.rec.Store = st, st
+	expect(t, "restart does not duplicate", e.step(time.Minute, x)["ops"])
+	expect(t, "restart keeps quiet end", e.step(time.Hour, x)["ops"], "reminder "+jobs+" (acknowledgement quiet ended)")
+	expect(t, "reconcile same epoch", e.reconcile()["ops"])
+}
+
+func TestAcknowledgementKindExcluded(t *testing.T) {
+	c := channel("ops")
+	c.Kinds = []string{"firing", "reminder", "resolved", "changed"}
+	e := newEnv(t, c)
+	x := f(quorum, "APP/order-jobs", "critical")
+	e.step(0, x)
+	ack(t, e, time.Second, time.Hour)
+	expect(t, "kind excluded", e.step(time.Minute, x)["ops"])
+	x.sev = "warning"
+	expect(t, "quiet still applies", e.step(time.Minute, x)["ops"])
+	expect(t, "end still applies", e.step(time.Hour, x)["ops"], "reminder "+jobs+" (acknowledgement quiet ended)")
 }
