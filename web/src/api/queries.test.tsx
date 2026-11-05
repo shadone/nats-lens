@@ -172,6 +172,13 @@ describe("live refetch", () => {
     const query = qc.getQueryCache().find({ queryKey: ["accounts-and-auth", "sys-a"], exact: false });
     expect(query?.observers[0]?.options.refetchInterval).toBe(30_000);
   });
+
+  it("refetches the Data history page every 30 seconds in a live range", async () => {
+    const qc = setup("/?system=sys-a");
+    await waitFor(() => expect(lens.getDataHistory).toHaveBeenCalled());
+    const query = qc.getQueryCache().find({ queryKey: ["data-history", "sys-a"], exact: false });
+    expect(query?.observers[0]?.options.refetchInterval).toBe(30_000);
+  });
 });
 
 it("shares a settled history answer with charts mounted later on the same page", async () => {

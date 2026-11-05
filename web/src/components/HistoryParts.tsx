@@ -88,7 +88,7 @@ export function CoverageBoxes({ d }: { d: DataHistory }) {
       <Box
         title="Covered"
         description="The share of the covered span with collections. The covered span starts at the later of the range start and the history start."
-        value={share === undefined || c.withoutData === undefined ? undefined : shareText(share, c.withoutData)}
+        value={share === undefined || c.withoutData === undefined ? undefined : shareText(share, c.withoutData, c.epochs)}
         note={started ? `${span}, from the history start` : span}
       />
     </div>
@@ -136,6 +136,11 @@ function GapRow({ g, rangeEnd, live }: { g: HistoryGap; rangeEnd: number; live: 
   );
 }
 
+/** A gap's key: two hatched gaps never share a kind and a start. */
+function gapKey(g: HistoryGap): string {
+  return `${g.kind}|${g.start ?? ""}|${g.eventId}`;
+}
+
 /** The range with its hatched gaps, oldest left. */
 export function GapStrip({ d, live }: { d: DataHistory; live: boolean }) {
   const segs = stripSegments(d);
@@ -145,8 +150,8 @@ export function GapStrip({ d, live }: { d: DataHistory; live: boolean }) {
   return (
     <div className="dh-strip-wrap">
       <div className="dh-strip" role="img" aria-label={name}>
-        {segs.map((s, i) => (
-          <span key={i} className="dh-seg dh-hatch" style={{ left: `${s.left}%`, width: `${s.width}%` }} title={gapName(s.gap, d.rangeEnd, live)} />
+        {segs.map((s) => (
+          <span key={gapKey(s.gap)} className="dh-seg dh-hatch" style={{ left: `${s.left}%`, width: `${s.width}%` }} title={gapName(s.gap, d.rangeEnd, live)} />
         ))}
       </div>
       <div className="dh-strip-ends" aria-hidden="true">
@@ -155,8 +160,8 @@ export function GapStrip({ d, live }: { d: DataHistory; live: boolean }) {
       </div>
       {n > 0 && (
         <ul className="sr-only">
-          {segs.map((s, i) => (
-            <li key={i}>{gapName(s.gap, d.rangeEnd, live)}</li>
+          {segs.map((s) => (
+            <li key={gapKey(s.gap)}>{gapName(s.gap, d.rangeEnd, live)}</li>
           ))}
         </ul>
       )}
@@ -177,8 +182,8 @@ export function GapsCard({ d, live }: { d: DataHistory; live: boolean }) {
             <thead>
               <tr>
                 <th scope="col">Kind</th>
-                <th scope="col">From</th>
-                <th scope="col">To</th>
+                <th scope="col">From (UTC)</th>
+                <th scope="col">To (UTC)</th>
                 <th scope="col">Length</th>
                 <th scope="col">Collections either side</th>
                 <th scope="col">Event</th>
