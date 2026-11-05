@@ -1,3 +1,5 @@
+import { HistoryLink, usePageHistory } from "../components/HistoryNote";
+import { historySpan, spanText } from "../lib/historyView";
 // Applications: the client connections of the range's newest collection
 // grouped by the application in their name, with three summary cards,
 // a table that sorts by any column (kept in the address as ?sort=) and a
@@ -17,6 +19,8 @@ import { useTimeRange } from "../lib/useTimeRange";
 import { accountLabeller } from "../lib/view";
 
 function Body({ d, includeTooling, scope, names }: { d: Apps; includeTooling: boolean; scope: string; names: Map<string, string> }) {
+  const h = usePageHistory();
+  const covered = h && historySpan(h.historyStart, h.end - 86_400_000, h.end);
   const accounts = d.applications.flatMap((a) => a.accounts);
   const named = accounts.map((x) => ({ account: x.account, accountName: x.accountName || names.get(x.account) || "" }));
   const label = accountLabeller(named);
@@ -25,6 +29,7 @@ function Body({ d, includeTooling, scope, names }: { d: Apps; includeTooling: bo
   const note = trafficNote(d.applications);
   return (
     <>
+      {covered !== undefined && covered < 86_400_000 && <p className="ap-notice" role="note"><HistoryLink>{spanText(covered)} of the last 24 h have history; hours before nats-lens started are missing.</HistoryLink></p>}
       {/* The page is partial exactly when a server is missing; the notice names them. */}
       {d.missing.length > 0 && (
         <p className="ap-notice ap-notice-warn" role="note">

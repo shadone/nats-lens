@@ -44,7 +44,7 @@ function When({ f, spec, historyStart }: { f: Finding; spec: RangeSpec; historyS
       ) : (
         <>First seen by nats-lens {seen}</>
       )}
-      {atHistoryStart(f, historyStart) && <> , <HistoryLink>already true when nats-lens started</HistoryLink></>}
+      {atHistoryStart(f, historyStart) && <>, <HistoryLink>already true when nats-lens started</HistoryLink></>}
       {others > 0 && (
         <>
           {" · "}

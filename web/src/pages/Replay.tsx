@@ -1,3 +1,4 @@
+import { HistoryLink } from "../components/HistoryNote";
 // Replay: what changed between two moments A and B, and in what order. A
 // and B live in the URL beside the range and the system; the page picks
 // them on the range's status strip and tells the story GetReplay returns.
@@ -146,7 +147,7 @@ export function Replay() {
           {notes.length > 0 && (
             <div className="rp-notes card" role="note">
               {notes.map((n) => (
-                <p key={n}>{n}</p>
+                <p key={n}>{n.startsWith("A is before the history") ? <HistoryLink>{n}</HistoryLink> : n}</p>
               ))}
             </div>
           )}

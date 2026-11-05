@@ -1,3 +1,4 @@
+import { HistoryLink, useGrowthHistoryNote } from "./HistoryNote";
 // The Capacity page's streams table: what each stream keeps, what bounds
 // it, how much it holds, the limit it reaches next, and the decision on an
 // unbounded one, with the button that accepts it as by design.
@@ -143,6 +144,7 @@ export function withAccepted(rows: CapacityStream[], saved: Record<string, Saved
 
 /** answeredAt: when the answer d was fetched (the query's dataUpdatedAt); live: whether the page's range follows now. */
 export function StreamsTable({ d, answeredAt, live }: { d: Capacity; answeredAt: number; live: boolean }) {
+  const missing = useGrowthHistoryNote();
   const [accepting, setAccepting] = useState<CapacityStream>();
   const [saved, setSaved] = useState<Record<string, Saved>>({});
   // The row whose acceptance was just saved: its button is gone, so focus moves to its stream link.
@@ -202,7 +204,7 @@ export function StreamsTable({ d, answeredAt, live }: { d: Capacity; answeredAt:
                         <Num v={sizeTimesR(s)} fmt={fmtBytes} />
                       </td>
                       <td className="num cap-rate">
-                        <Num v={perDay} fmt={fmtGrowth} />
+                        {perDay === undefined && missing ? <HistoryLink>{missing}</HistoryLink> : <Num v={perDay} fmt={fmtGrowth} />}
                       </td>
                       <td className={next.crit ? "cap-crit" : undefined}>{next.text}</td>
                       <td className="cap-status">

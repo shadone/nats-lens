@@ -262,9 +262,9 @@ export function hasRate(d: Capacity): boolean {
 }
 
 /** The header line: what the page covers, and since when growth is read, or that no rate exists yet. */
-export function headerLine(d: Capacity): string {
+export function headerLine(d: Capacity, missing?: string): string {
   const parts = [`${fmtInt(d.streamsTotal)} ${d.streamsTotal === 1 ? "stream" : "streams"}`, `${fmtInt(d.servers.length)} ${d.servers.length === 1 ? "store" : "stores"}`];
-  if (!hasRate(d)) parts.push("no growth rate yet (6 hours of history needed)");
+  if (!hasRate(d) && !missing) parts.push("no growth rate yet (6 hours of history needed)");
   else if (d.growthFrom !== undefined) parts.push(`growth from ${isoMinute(d.growthFrom)} UTC`);
   return parts.join(" · ");
 }
