@@ -45,3 +45,16 @@ it("names the shorter coverage and missing growth on Overview storage", () => {
   expect(screen.getByText(/over 31 min/)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: /needs 6 h of history; 5 h 29 min to go/ })).toBeInTheDocument();
 });
+
+import { CauseGroups } from "./CauseGroups";
+import { groupCauses } from "../lib/causeGroups";
+it("marks both single and grouped cause cards with the same finding rule", () => {
+  const fs = ["a", "b"].map((id) => ({ id, checkCode: "server-007", checkName: "Store high", severity: "warning", state: "firing", since: young.historyStart, detail: "High store" } as Finding));
+  const { groups, muted } = groupCauses(fs);
+  renderApp(<HistoryContext.Provider value={young}><CauseGroups groups={groups} muted={muted} onMute={() => {}} /></HistoryContext.Provider>);
+  expect(screen.getAllByText("already true when nats-lens started")).toHaveLength(2);
+});
+it("omits a history note when the range is covered", () => {
+  renderApp(<HistoryContext.Provider value={{ ...young, historyStart: young.start }}><HistoryNote /></HistoryContext.Provider>);
+  expect(screen.queryByRole("note")).not.toBeInTheDocument();
+});
