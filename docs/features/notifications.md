@@ -1,12 +1,12 @@
 # Notifications
 
 - **Surfaces:** `api`, `cli`
-- **Status:** planned
+- **Status:** partial — webhook and Slack delivery includes acknowledgements; the full notification guide is deferred
 - **Related:** [metrics-and-alerting.md](metrics-and-alerting.md), [checks.md](checks.md), [triage-and-mutes.md](triage-and-mutes.md), [mobile.md](mobile.md), [design.md](../design.md)
 
 ## What it does
 
-Planned; nothing here is built yet. nats-lens will send findings to a channel, such as a webhook, when they fire and when they resolve, for deployments that have no Prometheus-based alerting. Today findings reach an alerting system only through `/metrics` ([metrics-and-alerting.md](metrics-and-alerting.md)), and the design keeps alert delivery out of the first release. All scenarios below describe intended behaviour.
+nats-lens sends findings to configured webhook and Slack-compatible channels. Acknowledgements carry the actor, note, and quiet time to the channel where the finding appears. The broader notification guide remains incomplete.
 
 ## Behavior and rules
 
@@ -15,6 +15,10 @@ Planned; nothing here is built yet. nats-lens will send findings to a channel, s
 - **Mutes are honoured.** A muted finding sends nothing while the mute is in force.
 - **Flapping is held back.** A flapping finding sends one message that says it flaps, not one per transition.
 - **Failures are visible.** A message that cannot be delivered is retried, and repeated failures show in nats-lens's own health metrics.
+- **Acknowledgements keep the finding visible.** An acknowledgement of a finding in a channel's view sends the actor and note, with a quiet end or “until resolved”. Findings outside the view send no acknowledgement.
+- **Quiet limits repeated messages.** Quiet suppresses reminders and downward severity changes, including a fall below the channel's severity threshold. Rising severity and actual resolves still send.
+- **Quiet ends once.** Expiry or release sends a reminder with reason “acknowledgement quiet ended” if the known finding still fires, even with regular reminders disabled. A finding below the severity threshold also leaves the view with a resolved message.
+- **Replacements and gaps.** Each replacement sends its note. A replacement that extends quiet does not send a quiet-ended reminder. After a gap, the channel receives the current episode's acknowledgement notes and at most one quiet-ended reminder. An unchanged acknowledgement does not replay after restart.
 
 ## Scenarios
 
@@ -32,6 +36,22 @@ Planned; nothing here is built yet. nats-lens will send findings to a channel, s
 - **Given** a finding muted with `MuteFinding` until tomorrow
 - **When** it changes severity
 - **Then** no channel receives a message
+
+### Acknowledge a finding in a channel
+
+- **Surfaces:** `api`, `cli`
+- **Given** a channel knows a firing finding
+- **When** an operator acknowledges that episode through the API
+- **Then** the channel receives the stored actor, note, and quiet time
+- **And** quiet suppresses reminders and downward severity changes while rises and actual resolves still send
+
+### Hand a finding back
+
+- **Surfaces:** `api`, `cli`
+- **Given** an acknowledgement quiets a finding in a channel's view and regular reminders are disabled
+- **When** the operator releases the acknowledgement or its quiet expires
+- **Then** the channel receives one reminder with reason “acknowledgement quiet ended”
+- **And** restarting nats-lens does not replay that reminder or an unchanged acknowledgement
 
 ## Not supported / out of scope
 
