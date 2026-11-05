@@ -56,7 +56,7 @@ export function OverviewTiles({ tiles, windows, start, end }: { tiles: Tile[]; w
           track={!t.valueText}
           fmt={(v) => fmtValue(v, t.unit)}
           status={tileStatus(t)}
-          note={<>{tileNote(t)}{coverage && ["clients", "connections", "messages", "message_rate", "storage"].includes(t.id) && ` · ${coverage}`}{t.id === "storage" && growth && <> · <HistoryLink>{growth}</HistoryLink></>}</>}
+          note={<>{tileNote(t)}{coverage && ["clients", "storage"].includes(t.id) && ` · ${coverage}`}{t.id === "storage" && growth && <> · <HistoryLink>{growth}</HistoryLink></>}</>}
           start={start}
           end={end}
           windows={windows}

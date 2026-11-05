@@ -13,7 +13,7 @@ function ServerCard({ s }: { s: ServerStore }) {
   const use = storeUse(s);
   const tone = storeTone(s);
   const missing = useGrowthHistoryNote();
-  const growth = s.perDay === undefined && s.reported && missing ? <HistoryLink>{missing}</HistoryLink> : growthLine(s);
+  const growth = s.perDay === undefined && s.reported ? <HistoryLink>{missing ?? growthLine(s)}</HistoryLink> : growthLine(s);
   return (
     <section className="card cap-server" aria-label={`Server ${s.name}`}>
       <div className="cap-server-h">
