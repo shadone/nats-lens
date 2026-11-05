@@ -50,26 +50,92 @@ func TestMetaGroupBehindLeavesOfflinePeersOut(t *testing.T) {
 	f.fires("system-004", 16)
 }
 
-// Pending meta operations above max_pending (100) count; 100 does not.
-func TestMetaGroupBehindPending(t *testing.T) {
+// JSZ's meta pending counts the JetStream API requests queued on the
+// server, not meta group operations behind: it does not count.
+func TestMetaGroupBehindIgnoresPending(t *testing.T) {
 	f := newFx(t)
-	f.metaCluster(16, func(e int64, i int) m {
-		switch i {
-		case 2:
-			return m{"meta_pending": 340}
-		case 1:
-			return m{"meta_pending": 100}
+	f.metaCluster(16, func(e int64, i int) m { return m{"meta_pending": 5000} })
+	f.fires("system-004", 16)
+}
+
+// A collection without the meta leader's own report (its JSZ timed out,
+// or no server claimed the lead during an election) is unknown: it does
+// not break the hold, so the finding still fires.
+func TestMetaGroupBehindLeaderReportMissing(t *testing.T) {
+	f := newFx(t)
+	f.metaCluster(40, func(e int64, i int) m {
+		if i == 0 {
+			return m{"meta_peers_not_current": 1}
 		}
 		return nil
 	})
-	r := f.fires("system-004", 16, "")
-	want(t, r[""], "warning", "meta operations pending on nats-2 340 (more than 100)")
-	if v := r[""].Value; v == nil || *v != 340 {
-		t.Errorf("value %v, want 340", v)
-	}
+	f.exec(`DELETE FROM server_stats WHERE server_id = 'S0' AND epoch IN (8, 20, 32)`)
+	f.exec(`UPDATE server_stats SET meta_leader = '' WHERE epoch = 38`)
+	f.fires("system-004", 19, "")
+	r := f.fires("system-004", 40, "")
+	want(t, r[""], "warning", "every collection for at least 5 minutes")
+	// Nor does it count towards resolving: a firing finding whose recent
+	// collections are all unknown stays.
 	g := newFx(t)
-	g.metaCluster(16, func(e int64, i int) m { return m{"meta_pending": 100} })
-	g.fires("system-004", 16)
+	g.metaCluster(30, func(e int64, i int) m {
+		if i == 0 && e <= 18 {
+			return m{"meta_peers_not_current": 1}
+		}
+		return nil
+	})
+	g.exec(`DELETE FROM server_stats WHERE server_id = 'S0' AND epoch > 18`)
+	g.firingSystem("system-004", 29)
+	r = g.fires("system-004", 30, "")
+	want(t, r[""], "warning", "was behind at 09:08:30 UTC")
+}
+
+// A server new to nats-lens joins and catches up the meta group: the
+// collections within checks.restart_window of its first one do not count.
+func TestMetaGroupBehindNewServerJoining(t *testing.T) {
+	f := newFx(t)
+	f.metaCluster(40, func(e int64, i int) m {
+		if i == 0 && e >= 5 && e <= 24 {
+			return m{"meta_peers_not_current": 1}
+		}
+		return nil
+	})
+	f.metaFourth(40, func(e int64) m { return m{"meta_cluster_size": 4, "meta_leader": "nats-0"} })
+	f.exec(`UPDATE servers SET first_epoch = 5, first_seen_at = ? WHERE server_id = 'S3'`, at(5))
+	f.exec(`DELETE FROM server_stats WHERE server_id = 'S3' AND epoch < 5`)
+	for e := int64(5); e <= 40; e++ {
+		f.fires("system-004", e)
+	}
+	// A server present when nats-lens started is no newcomer.
+	g := newFx(t)
+	g.metaCluster(20, func(e int64, i int) m {
+		if i == 0 {
+			return m{"meta_peers_not_current": 1}
+		}
+		return nil
+	})
+	g.fires("system-004", 20, "")
+}
+
+// Behind on both sides of a gap of three hours is not behind for every
+// collection of 5 minutes: the hold needs a collection that started
+// between min_duration and twice min_duration ago.
+func TestMetaGroupBehindAcrossLongGap(t *testing.T) {
+	f := newFx(t)
+	f.metaCluster(5, func(e int64, i int) m {
+		if i == 0 {
+			return m{"meta_peers_not_current": 1}
+		}
+		return nil
+	})
+	f.epochAt(6, at(5).Add(3*time.Hour), three)
+	for i, id := range []string{"S0", "S1", "S2"} {
+		cols := m{"meta_cluster_size": 3, "meta_leader": "nats-0", "meta_peers_offline": 0, "meta_peers_not_current": 0}
+		if i == 0 {
+			cols["meta_peers_not_current"] = 1
+		}
+		f.stats(6, id, cols)
+	}
+	f.fires("system-004", 6)
 }
 
 // A server that restarts catches up the meta group first: the
@@ -80,9 +146,6 @@ func TestMetaGroupBehindDuringRestart(t *testing.T) {
 	f.metaCluster(30, func(e int64, i int) m {
 		if i == 0 && e >= 8 && e <= 20 {
 			return m{"meta_peers_not_current": 1}
-		}
-		if i == 1 && e >= 8 && e <= 20 {
-			return m{"meta_pending": 5000}
 		}
 		return nil
 	})
@@ -101,7 +164,7 @@ func TestMetaGroupBehindAfterGap(t *testing.T) {
 	f.epochAt(6, at(5).Add(time.Hour), three)
 	for i, id := range []string{"S0", "S1", "S2"} {
 		f.row("epoch_endpoints", m{"epoch": 6, "server_id": id, "endpoint": "JSZ", "state": "ok"})
-		cols := m{"meta_cluster_size": 3, "meta_leader": "nats-0", "meta_pending": 0, "meta_peers_offline": 0, "meta_peers_not_current": 0}
+		cols := m{"meta_cluster_size": 3, "meta_leader": "nats-0", "meta_peers_offline": 0, "meta_peers_not_current": 0}
 		if i == 0 {
 			cols["meta_peers_not_current"] = 1
 		}
@@ -135,7 +198,7 @@ func TestMetaGroupBehindSingleServer(t *testing.T) {
 	f.epochs(1, 16, "nats-0")
 	f.server("S0", "nats-0", 1, 16, t0.Add(-time.Hour), "2.15.0")
 	for e := int64(1); e <= 16; e++ {
-		f.stats(e, "S0", m{"meta_pending": 500})
+		f.stats(e, "S0", m{"meta_peers_not_current": 1})
 	}
 	f.fires("system-004", 16)
 }

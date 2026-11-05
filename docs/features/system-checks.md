@@ -37,10 +37,10 @@ The system checks judge what belongs to no single server: the JetStream meta gro
 ### `system-004` JetStream meta group falling behind
 
 - **Problem:** the meta group does not keep up. Creating, updating and deleting streams and consumers is slow or times out, and a server that is not current cannot take over as meta leader.
-- **Fires when:** in every collection for at least `min_duration`, the meta leader sees peers that answer but are not current, or a server has more than `max_pending` meta operations not yet applied. Only the leader's view of its peers counts, as a follower does not track the other followers. A firing finding resolves once no collection of the last `min_duration` was behind.
+- **Fires when:** in every collection for at least `min_duration`, the meta leader sees peers that answer but are not current: they have not stored the meta group's latest operations. Only the leader's view of its peers counts, as a follower does not track the other followers. The hold must start from a collection between `min_duration` and twice `min_duration` ago, so behind on both sides of a long gap in collection does not fire. A collection without the leader's own report (its JSZ timed out, or no server claimed the lead during an election) is unknown: it neither breaks the hold nor counts towards resolving. A firing finding resolves once no collection of the last `min_duration` was behind.
 - **Severity:** warning (proposed, not yet confirmed).
-- **Thresholds:** `max_pending` 100, `min_duration` 5m (proposed, not yet confirmed).
-- **Left out:** offline peers, which `server-001` and `system-002` report; collections in which a server is restarting, within `checks.restart_window` of its start, as a restarted server catches up the meta group first; servers without a clustered meta group. `server-012` reports a raft group, the meta group among them, that one server keeps catching up; this check reports the meta group as its leader sees it.
+- **Thresholds:** `min_duration` 5m (proposed, not yet confirmed).
+- **Left out:** offline peers, which `server-001` and `system-002` report; collections in which a server is restarting, within `checks.restart_window` of its start, or in which a server new to nats-lens joined within `checks.restart_window`, as such a server catches up the meta group first; JSZ's meta `pending`, which counts the JetStream API requests queued on a server, not meta operations behind; servers without a clustered meta group. `server-012` reports a raft group, the meta group among them, that one server keeps catching up; this check reports the meta group as its leader sees it.
 
 ### `system-005` JetStream meta group size differs from the servers
 
