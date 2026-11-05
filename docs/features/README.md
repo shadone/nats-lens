@@ -123,7 +123,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [ ] Findings sent to a channel such as a webhook (notifications.md)
 
 **Web UI**
-- [x] Sidebar, system switcher, header with account scope and search, the global time range and the theme menu, all fed by one status call per system (navigation.md)
+- [x] Sidebar, system switcher, header with account scope and search, the global time range (cut to fit a narrow window) and the theme menu, all fed by one status call per system (navigation.md)
 - [x] Overview: status line, nine metric boxes with descriptions, cause cards and muted findings, trends, timeline lanes with the status timeline, busiest consumers, streams with placement, several series in one API call (overview-page.md)
 - [x] Servers for 20 or more servers: data points, charts across servers, a map of every server, a grouped list; server pages with metric boxes, placement, limits and recent events (servers.md)
 - [x] Streams list and stream detail; replica placement in the API only (streams.md)
