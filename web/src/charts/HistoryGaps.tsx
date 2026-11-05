@@ -28,7 +28,7 @@ function GapMarks({ start, end, width, height, gaps, live }: Frame & { gaps: His
     <defs><pattern id={id} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" className="dh-gap-bg" /><line x1="0" y1="0" x2="0" y2="6" className="dh-gap-line" /></pattern></defs>
     {segments.map((s, i) => {
       const name = gapName(s.gap, end, live);
-      return <rect className="dh-chart-gap" key={i} x={s.left / 100 * width} y="0" width={s.width / 100 * width} height={height} fill={`url(#${id})`} role="img" aria-label={name}><title>{name}</title></rect>;
+      return <rect className="dh-chart-gap" key={i} x={s.left / 100 * width} y="0" width={Math.min(width - s.left / 100 * width, Math.max(1.5, s.width / 100 * width))} height={height} fill={`url(#${id})`} role="img" aria-label={name}><title>{name}</title></rect>;
     })}
   </g>;
 }
