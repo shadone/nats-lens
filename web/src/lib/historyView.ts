@@ -2,7 +2,7 @@
 // be tested on their own: spans, times, gap labels, the uses of history,
 // the archive and the summary line.
 import { isHatched, type ArchiveState, type DataHistory, type GapKind, type HistoryCoverage, type HistoryGap, type HistoryUse } from "../api/history";
-import { eventWhen, fmtInt, hm, isoDate, isoMinute } from "./format";
+import { dayMonHm, eventWhen, fmtInt, hm, isoDate, isoMinute } from "./format";
 
 const SEC = 1000;
 const MIN = 60 * SEC;
@@ -122,6 +122,12 @@ export function stripSegments(d: Pick<DataHistory, "gaps" | "rangeStart" | "rang
 
 function round(v: number): number {
   return Math.round(v * 100) / 100;
+}
+
+/** The strip's two ends: "13:47" and "now", or with the day over a day or more. */
+export function stripEnds(d: Pick<DataHistory, "rangeStart" | "rangeEnd">, live: boolean): [string, string] {
+  const fmt = d.rangeEnd - d.rangeStart >= DAY ? dayMonHm : hm;
+  return [fmt(d.rangeStart), live ? "now" : fmt(d.rangeEnd)];
 }
 
 /** The share of the covered span with collections; undefined without history in the range. */

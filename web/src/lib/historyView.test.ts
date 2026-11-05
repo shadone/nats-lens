@@ -18,6 +18,7 @@ import {
   retentionLine,
   shareText,
   spanText,
+  stripEnds,
   stripSegments,
   summaryParts,
   whenText,
@@ -131,11 +132,20 @@ describe("gaps", () => {
   });
 });
 
+describe("stripEnds", () => {
+  it("labels the ends with times under a day, with days from a day, and now on a live range", () => {
+    expect(stripEnds({ rangeStart: NOW - 6 * HOUR, rangeEnd: NOW }, false)).toEqual(["16:47", "22:47"]);
+    expect(stripEnds({ rangeStart: NOW - 30 * DAY, rangeEnd: NOW }, false)).toEqual(["6 Oct 22:47", "5 Nov 22:47"]);
+    expect(stripEnds({ rangeStart: NOW - DAY, rangeEnd: NOW }, true)).toEqual(["4 Nov 22:47", "now"]);
+  });
+});
+
 describe("coverage", () => {
   it("gives the share with collections, never 100% with a gap or 0% with data", () => {
     expect(shareText(coveredShare(staging().coverage)!, 10_984_000)).toBe("66%");
     expect(shareText(1, 0)).toBe("100%");
     expect(shareText(0.9999, 1000)).toBe("99%");
+    expect(shareText(1, 1)).toBe("99%");
     expect(shareText(0.004, 1000)).toBe("<1%");
   });
 
