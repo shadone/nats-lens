@@ -11,19 +11,24 @@ function QueriedGaps({ start, end, width, height }: Frame) {
   const q = useDataHistory(spec);
   const h = usePageHistory();
   // Placeholder data can belong to an earlier range. Clip to this chart's full axis.
-  return <GapMarks start={start} end={end} width={width} height={height} gaps={q.data?.gaps ?? []} live={h?.live ?? false} />;
+  return <GapMarks start={start} end={end} width={width} height={height} gaps={q.data?.gaps ?? []} historyStart={h?.historyStart} live={h?.live ?? false} />;
 }
 interface Frame { start: number; end: number; width: number; height: number }
 
 export function HistoryGaps(props: Frame) {
   const h = usePageHistory();
   if (!h) return null;
-  return h.gaps ? <GapMarks {...props} gaps={h.gaps} live={h.live} /> : <QueriedGaps {...props} />;
+  return h.gaps ? <GapMarks {...props} gaps={h.gaps} historyStart={h.historyStart} live={h.live} /> : <QueriedGaps {...props} />;
 }
 
-function GapMarks({ start, end, width, height, gaps, live }: Frame & { gaps: HistoryGap[]; live: boolean }) {
+function GapMarks({ start, end, width, height, gaps, live, historyStart }: Frame & { gaps: HistoryGap[]; live: boolean; historyStart?: number }) {
   const id = useId();
-  const segments = stripSegments({ gaps, rangeStart: start, rangeEnd: end }).filter((s) => s.width > 0);
+  // A fixed seven-day chart may begin before the page query. LensInfo's
+  // history start covers that unobserved prefix without another request.
+  const shown = historyStart !== undefined && historyStart > start
+    ? [...gaps.filter((g) => g.kind !== "beforeHistory"), { kind: "beforeHistory" as const, start, end: historyStart, eventId: "", connection: "" }]
+    : gaps;
+  const segments = stripSegments({ gaps: shown, rangeStart: start, rangeEnd: end }).filter((s) => s.width > 0);
   return <g>
     <defs><pattern id={id} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" className="dh-gap-bg" /><line x1="0" y1="0" x2="0" y2="6" className="dh-gap-line" /></pattern></defs>
     {segments.map((s, i) => {
