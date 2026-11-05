@@ -22,7 +22,7 @@ nats-lens observes a NATS deployment: a Go collector takes snapshots and capture
 - `go test ./...` (`go test -short ./...` skips the in-process cluster tests); `go vet ./...`.
 - `cd web && npx tsc --noEmit && npm test`.
 - `TestReviewShellClientDeadline`, `TestRunTakesEpochsUntilCancelled` and `TestGoneAccountIsNotRecordedMissing` fail under machine load; rerun one alone before treating it as a failure.
-- `natslens demo`: the API and UI with a fixed scenario on 127.0.0.1:8080, without NATS. With `-fixed`, the default "Last 24h" range fails ("range.start must be before range.end"); open pages with explicit `from` and `to`.
+- `natslens demo`: the API and UI with a fixed scenario on 127.0.0.1:8080, without NATS. With `-fixed` it serves 2026-10-17 14:30 UTC, and the UI's live ranges end there.
 - `make dev-cluster`, `make load`, `make run-dev`: a local cluster, assets and traffic, and the collector against it.
 
 ## Rules
