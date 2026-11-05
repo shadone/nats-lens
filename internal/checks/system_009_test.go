@@ -52,3 +52,15 @@ func TestEventMessagesDroppedSlowConsumer(t *testing.T) {
 	r := f.fires("system-009", 1, "")
 	want(t, r[""], "warning", "dropped at least 4 event messages")
 }
+
+// A slow consumer on the collector's own connection loses monitoring
+// replies, not events: it is left out.
+func TestEventMessagesDroppedLeavesCollectorConnectionOut(t *testing.T) {
+	f := newFx(t)
+	f.epochAt(1, t0.Add(time.Hour), three)
+	f.dropped(1, t0.Add(30*time.Minute), 0)
+	f.exec(`UPDATE events SET raw = json_object('connection', 'collector', 'reason', 'nats: slow consumer, messages dropped')`)
+	f.fires("system-009", 1)
+	f.exec(`UPDATE events SET raw = json_object('connection', 'sys', 'reason', 'nats: slow consumer, messages dropped')`)
+	f.fires("system-009", 1, "")
+}

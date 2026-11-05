@@ -77,10 +77,10 @@ The system checks judge what belongs to no single server: the JetStream meta gro
 ### `system-009` Event messages dropped
 
 - **Problem:** nats-lens received event messages and could not store them, so checks and pages that read events (leader elections, lame duck and shutdown announcements, deleted consumers, client disconnects) may miss what those messages said.
-- **Fires when:** the `collector.messages_dropped` events received within the lookback count more than `max_dropped` messages. A slow consumer report on an events connection carries no count and counts as one, and the detail then says "at least". The detail gives the latest event's summary. The finding resolves once the lookback holds no more than `max_dropped`.
+- **Fires when:** the `collector.messages_dropped` events received within the lookback count more than `max_dropped` messages. A slow consumer report on an events connection carries no count and counts as one, and the detail then says "at least": the count is a lower bound. Events that could not be stored before a shutdown deadline are counted at the shutdown, so the finding fires for up to the lookback after the restart. The detail gives the latest event's summary. The finding resolves once the lookback holds no more than `max_dropped`.
 - **Severity:** warning (proposed, not yet confirmed).
 - **Thresholds:** lookback 1h, `max_dropped` 0 (proposed, not yet confirmed).
-- **Left out:** times when events were not captured at all (`collector.not_connected`, a stopped nats-lens); those are gaps, not dropped messages, and Replay and the Accounts page show them.
+- **Left out:** a slow consumer on the collector's own connection, which carries monitoring replies rather than events (`system-007` sees the replies it cost); times when events were not captured at all (`collector.not_connected`, a stopped nats-lens); those are gaps, not dropped messages, and Replay and the Accounts page show them.
 
 ## Behavior and rules
 
