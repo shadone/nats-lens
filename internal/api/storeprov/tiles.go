@@ -186,7 +186,10 @@ func (p *Provider) epochFacts(ctx context.Context, epoch int64) (epochFacts, err
 	}
 	f.behindRan = runs > 0
 	// Connections as the Accounts page and account-001 count them: clients
-	// plus the leaf nodes of the server that holds the most.
+	// plus the leaf nodes of the server that holds the most. The name and
+	// the system flag come from accounts alone, where the page also reads
+	// account_details: the writer merges each lookup's name and is_system
+	// into accounts, so the two agree for any store nats-lens wrote.
 	err = p.db().QueryRowContext(ctx, `
 SELECT name, n FROM (
     SELECT coalesce(ac.account_name, cn.account) AS name, cn.account,
