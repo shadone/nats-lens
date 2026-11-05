@@ -76,3 +76,27 @@ describe("tileStatus", () => {
     expect(tileStatus(tile({ id: "streams", value: 3, status: "warning" }))).toBe("warning");
   });
 });
+
+describe("OverviewTiles with a short history", () => {
+  const history = { historyStart: END - 31 * 60_000, intervalMs: 30_000, live: true, now: END };
+
+  it("adds the span of history to the range tiles only", () => {
+    render(
+      <OverviewTiles
+        tiles={[tile({ id: "clients", label: "Clients", value: 16, subtitle: "3 apps · 0 slow" }), tile({ id: "servers", label: "Servers", value: 3, subtitle: "v2.12.2" })]}
+        windows={[]}
+        start={START}
+        end={END}
+        history={history}
+      />,
+    );
+    expect(screen.getByText("3 apps · 0 slow · over 31 min")).toBeInTheDocument();
+    expect(screen.getByText("v2.12.2")).toBeInTheDocument();
+  });
+
+  it("does not say storage growth waits when the server already gives one", () => {
+    render(<OverviewTiles tiles={[tile({ id: "storage", label: "Storage", unit: "bytes", value: 6, subtitle: "all replicas · +30 MiB/day" })]} windows={[]} start={START} end={END} history={history} />);
+    expect(screen.getByText("all replicas · +30 MiB/day · over 31 min")).toBeInTheDocument();
+    expect(screen.queryByText(/needs 6 h/)).toBeNull();
+  });
+});
