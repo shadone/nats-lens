@@ -1,3 +1,5 @@
+import { create } from "@bufbuild/protobuf";
+import { GetDataHistoryResponseSchema } from "../gen/natslens/v1/history_pb";
 // Every query hook keys on the system of the page and sends it.
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, waitFor } from "@testing-library/react";
@@ -177,4 +179,20 @@ describe("live refetch", () => {
     const query = qc.getQueryCache().find({ queryKey: ["data-history", "sys-a"], exact: false });
     expect(query?.observers[0]?.options.refetchInterval).toBe(30_000);
   });
+});
+
+it("shares a settled history answer with charts mounted later on the same page", async () => {
+  vi.mocked(lens.getDataHistory).mockReset();
+  vi.mocked(lens.getDataHistory).mockResolvedValue(create(GetDataHistoryResponseSchema));
+  function Chart() { q.useDataHistory(live); return null; }
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  function Frame({ second }: { second: boolean }) {
+    return <QueryClientProvider client={qc}><MemoryRouter><Chart />{second && <Chart />}</MemoryRouter></QueryClientProvider>;
+  }
+  const r = render(<Frame second={false} />);
+  await waitFor(() => expect(qc.isFetching()).toBe(0));
+  expect(lens.getDataHistory).toHaveBeenCalledTimes(1);
+  r.rerender(<Frame second />);
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
+  expect(lens.getDataHistory).toHaveBeenCalledTimes(1);
 });

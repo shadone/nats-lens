@@ -104,8 +104,8 @@ export function Overview() {
   const [muting, setMuting] = useState<Finding>();
   if (!q.data) return q.error ? <ErrorBox error={q.error} retry={() => q.refetch()} what="the overview" /> : <Loading what="the overview" />;
   const o = q.data;
-  const start = o.range?.start ?? fallback.start;
-  const end = o.range?.end ?? fallback.end;
+  const start = fallback.start;
+  const end = fallback.end;
   return (
     <>
       <StaleBanner q={q} />

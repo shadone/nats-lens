@@ -94,7 +94,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Micro services](micro-services.md) | `ui`, `api` | shipped |
 | [Command bar](command-bar.md) | `ui` | partial — search by name is shipped; findings, events and prefixes are planned |
 | [On call on the phone](mobile.md) | `ui` | planned |
-| [Data history](data-history.md) | `ui`, `api` | planned |
+| [Data history](data-history.md) | `ui`, `api` | partial — range notes and chart gaps; margins planned |
 | [Notifications](notifications.md) | `api`, `cli` | planned |
 
 ## Feature coverage by area
@@ -146,7 +146,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Services built on the NATS micro framework: a card per service with its versions, instances, rate, errors and a note, its endpoints with their slow spells and last errors, its instances with the missing ones, asked in the listed accounts and seen in subscriptions in all (micro-services.md)
 - [~] Search and jump to anything from one box — findings, events and prefixes are planned (command-bar.md)
 - [ ] A finding on the phone, for the person on call (mobile.md)
-- [ ] What history exists and where it has gaps (data-history.md)
+- [~] Range history notes, chart gaps, and growth requirements; margins planned (data-history.md)
 
 **Operations**
 - [x] Findings and collector health at `/metrics` for Prometheus alerting (metrics-and-alerting.md)

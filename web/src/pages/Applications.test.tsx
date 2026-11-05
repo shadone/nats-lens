@@ -335,3 +335,11 @@ describe("Applications", () => {
     expect(screen.getByRole("table")).toBeInTheDocument();
   });
 });
+
+import { HistoryContext } from "../components/HistoryNote";
+it("explains the missing hours of its 24-hour traffic window with a history link", async () => {
+  getApps.mockResolvedValue(prod());
+  const end = Date.parse("2026-10-17T14:30:00Z");
+  renderApp(<HistoryContext.Provider value={{ start: end - 3_600_000, end, live: true, historyStart: end - 31 * 60_000 }}><Applications /></HistoryContext.Provider>, "/applications?system=example-staging&range=1h");
+  expect(await screen.findByRole("link", { name: /31 min of the last 24 h/ })).toHaveAttribute("href", expect.stringContaining("range=1h"));
+});
