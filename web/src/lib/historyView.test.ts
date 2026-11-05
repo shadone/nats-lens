@@ -39,6 +39,11 @@ describe("spanText", () => {
     expect(spanText(30 * DAY)).toBe("30 d");
   });
 
+  it("says under a second, never 0 s, for a span above 0", () => {
+    expect(spanText(400)).toBe("<1 s");
+    expect(spanText(0)).toBe("0 s");
+  });
+
   it("writes days and hours out in the long form", () => {
     expect(spanText(13 * DAY + 6 * HOUR, true)).toBe("13 days 6 hours");
     expect(spanText(DAY + HOUR, true)).toBe("1 day 1 hour");
@@ -99,18 +104,35 @@ describe("gaps", () => {
 
   it("ends an open gap still now on a live range and after the range on a fixed one", () => {
     const open = gap({ kind: "notConnected", start: NOW - 3 * HOUR });
-    expect(gapEndText(open, NOW, true)).toBe("still now");
-    expect(gapEndText(open, NOW, false)).toBe("after the range");
-    expect(gapLengthText(open, NOW, true)).toBe("3 h so far");
-    expect(gapLengthText(open, NOW, false)).toBe("at least 3 h");
+    expect(gapEndText(open, NOW, true, NOW)).toBe("still now");
+    expect(gapEndText(open, NOW - HOUR, false, NOW)).toBe("after the range");
+    expect(gapLengthText(open, NOW, true, NOW)).toBe("3 h so far");
+    expect(gapLengthText(open, NOW - HOUR, false, NOW)).toBe("at least 2 h");
+    expect(gapName(open, NOW, true, NOW)).toBe("No data from 19:47:18 UTC until now: nats-lens could not reach NATS");
+    expect(gapName(open, NOW - HOUR, false, NOW)).toBe("No data from 19:47:18 UTC until after the range: nats-lens could not reach NATS");
+  });
+
+  it("reads a fixed range that ends at or after now as one that follows now", () => {
+    const open = gap({ kind: "notConnected", start: NOW - 3 * HOUR });
+    expect(gapEndText(open, NOW, false, NOW)).toBe("still now");
+    expect(gapEndText(open, NOW + HOUR, false, NOW)).toBe("still now");
+    expect(gapLengthText(open, NOW, false, NOW)).toBe("3 h so far");
+    expect(gapName(open, NOW, false, NOW)).toMatch(/until now:/);
   });
 
   it("gives a closed gap its end and length, with the date a day before the range end", () => {
     const g = gap({ kind: "notRunning", start: Date.parse("2026-11-05T17:50:44Z"), end: Date.parse("2026-11-05T17:53:44Z") });
-    expect(gapEndText(g, NOW, true)).toBe("17:53:44");
-    expect(gapLengthText(g, NOW, true)).toBe("3 min");
-    expect(gapName(g, NOW, true)).toBe("No data 17:50:44–17:53:44 UTC: nats-lens was not running");
-    expect(gapEndText(gap({ end: Date.parse("2026-11-01T10:32:51Z") }), NOW, false)).toBe("1 Nov 10:32");
+    expect(gapEndText(g, NOW, true, NOW)).toBe("17:53:44");
+    expect(gapLengthText(g, NOW, true, NOW)).toBe("3 min");
+    expect(gapName(g, NOW, true, NOW)).toBe("No data 17:50:44–17:53:44 UTC: nats-lens was not running");
+    expect(gapEndText(gap({ end: Date.parse("2026-11-01T10:32:51Z") }), NOW, false, NOW)).toBe("1 Nov 10:32");
+  });
+
+  it("names both ends of a stretch in one format, with seconds and the day when either needs it", () => {
+    const g = gap({ kind: "notRunning", start: Date.parse("2026-10-16T14:30:00Z"), end: Date.parse("2026-11-05T05:30:00Z") });
+    expect(gapName(g, NOW, true, NOW)).toBe("No data 16 Oct 14:30:00–5 Nov 05:30:00 UTC: nats-lens was not running");
+    const old = gap({ kind: "noCollections", start: Date.parse("2026-11-01T10:27:51Z") });
+    expect(gapName(old, NOW, true, NOW)).toBe("No data from 1 Nov 10:27:51 UTC until now: No collections");
   });
 
   it("counts each class that was cut at 200 apart", () => {
@@ -147,6 +169,8 @@ describe("coverage", () => {
     expect(shareText(0.9999, 1000)).toBe("99%");
     expect(shareText(1, 1)).toBe("99%");
     expect(shareText(0.004, 1000)).toBe("<1%");
+    expect(shareText(0, 1000, 5)).toBe("<1%");
+    expect(shareText(0, 1000, 0)).toBe("0%");
   });
 
   it("has no share without history in the range", () => {
@@ -172,6 +196,11 @@ describe("uses", () => {
     const never = use({ id: "accept_review", needs: 8 * DAY + HOUR, has: 2 * DAY, enough: false, never: true });
     expect(enoughState(never, 7 * DAY, NOW)).toEqual({ text: "never with retention 7 d", tone: "warn" });
     expect(enoughState(use({ enough: false }), 7 * DAY, NOW)).toEqual({ text: "not within this range", tone: "muted" });
+  });
+
+  it("says enough once the time it named has passed", () => {
+    expect(enoughState(use({ enough: false, enoughAt: NOW - MIN }), 7 * DAY, NOW)).toEqual({ text: "enough", tone: "ok" });
+    expect(enoughState(use({ enough: false, enoughAt: NOW }), 7 * DAY, NOW)).toEqual({ text: "enough", tone: "ok" });
   });
 
   it("says has none without history", () => {
