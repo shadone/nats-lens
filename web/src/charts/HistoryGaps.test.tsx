@@ -55,6 +55,7 @@ it.each([false, true])("does not reuse another range's open outage while the nex
   r.rerender(<r.Frame b={NOW} p={{ ...p, end: NOW }} url={url(old)} />);
   await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
   expect(screen.queryByRole("img", { name: /No collections/ })).not.toBeInTheDocument();
+  expect(screen.getByRole("status")).toHaveTextContent("History gaps loading");
   if (fail) {
     await act(async () => reject(new Error("history unavailable")));
     expect(screen.queryByRole("img", { name: /No collections/ })).not.toBeInTheDocument();
