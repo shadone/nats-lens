@@ -80,6 +80,9 @@ const (
 	UnitRatio    = "ratio"
 	UnitBytes    = "bytes"
 	UnitDuration = "duration"
+	// UnitVersion is a dotted version such as 1.37.0, at most three
+	// numbers; the query reads it as text.
+	UnitVersion = "version"
 )
 
 // Entity types a check can report on, as the mutes table and the API spell
@@ -94,7 +97,7 @@ var (
 	varPattern   = regexp.MustCompile(`getvariable\(\s*'([^']*)'\s*\)`)
 	categories   = map[string]bool{"health": true, "agreement": true, "inventory": true, "consumers": true, "storage": true, "clients": true, "change": true, "engine": true, CategoryExpiry: true}
 	severities   = map[string]bool{"info": true, "warning": true, "critical": true}
-	units        = map[string]bool{UnitCount: true, UnitRatio: true, UnitBytes: true, UnitDuration: true}
+	units        = map[string]bool{UnitCount: true, UnitRatio: true, UnitBytes: true, UnitDuration: true, UnitVersion: true}
 	reservedVars = map[string]bool{"epoch": true, "epoch_time": true, "prev_epoch": true, "window_start": true, "window_epoch": true, "lookback": true, "lookback_text": true, "restart_window": true, "exclude_tooling": true, "tooling_names": true, "loopback_setting": true, "loopback_now": true}
 )
 
@@ -221,18 +224,22 @@ func (c *Check) validate() error {
 	return nil
 }
 
-// Value is a threshold value ready for the query: a number, or a duration
-// for UnitDuration.
+// Value is a threshold value ready for the query: a number, a duration
+// for UnitDuration, or a version for UnitVersion.
 type Value struct {
 	Number   float64
 	Duration time.Duration
+	Version  string
 	Unit     string
 }
 
 // literal is the value as a DuckDB literal.
 func (v Value) literal() string {
-	if v.Unit == UnitDuration {
+	switch v.Unit {
+	case UnitDuration:
 		return fmt.Sprintf("INTERVAL '%d microseconds'", v.Duration.Microseconds())
+	case UnitVersion:
+		return "'" + v.Version + "'"
 	}
 	return strconv.FormatFloat(v.Number, 'g', -1, 64) + "::DOUBLE"
 }
@@ -243,6 +250,8 @@ func (v Value) String() string {
 		return DurationText(v.Duration)
 	case UnitBytes:
 		return formatBytes(v.Number)
+	case UnitVersion:
+		return v.Version
 	}
 	return strconv.FormatFloat(v.Number, 'g', -1, 64)
 }
@@ -263,11 +272,19 @@ func formatBytes(n float64) string {
 
 // parseValue reads a threshold value in its unit: a number for count and
 // ratio (a ratio is between 0 and 1), a number with an optional KiB, MiB,
-// GiB or TiB suffix for bytes, and a duration ("90s", "15m", "2d").
+// GiB or TiB suffix for bytes, a duration ("90s", "15m", "2d"), and one to
+// three numbers joined by dots for a version ("1.37.0"; "0" is below every
+// version).
 func parseValue(unit, s string) (Value, error) {
 	s = strings.TrimSpace(s)
 	v := Value{Unit: unit}
 	switch unit {
+	case UnitVersion:
+		if !versionPattern.MatchString(s) {
+			return v, fmt.Errorf("%q is not a version such as 1.37.0", s)
+		}
+		v.Version = s
+		return v, nil
 	case UnitDuration:
 		d, err := config.ParseDuration(s)
 		if err != nil || d.D() < 0 {
@@ -297,6 +314,8 @@ func parseValue(unit, s string) (Value, error) {
 	v.Number = f
 	return v, nil
 }
+
+var versionPattern = regexp.MustCompile(`^[0-9]{1,9}(\.[0-9]{1,9}){0,2}$`)
 
 var decimalPattern = regexp.MustCompile(`^[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?$`)
 
