@@ -1,3 +1,5 @@
+import { usePageHistory } from "./HistoryNote";
+import { atHistoryStart } from "../lib/historyView";
 // The Overview's cause cards: unmuted firing findings grouped by their cause
 // event, else by check and parent entity, with the entities, open and
 // mute; and a strip of the muted findings with their reasons.
@@ -110,6 +112,7 @@ function findingLabel(f: Finding, label: (id: string, name?: string) => string):
 function SingleCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void }) {
   const f = g.findings[0];
   const label = findingLabel(f, useContext(AccountLabelContext));
+  const known = atHistoryStart(f, usePageHistory()?.historyStart);
   return (
     <article className={`card cg one ${g.severity}`} aria-label={`${f.checkName}: 1 finding`}>
       <div className="cg-main">
@@ -119,6 +122,7 @@ function SingleCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void
           <h3>{f.checkName}</h3>
         </div>
         <p className="cg-d">{f.detail}</p>
+        {known && <p className="cg-d">already true when nats-lens started</p>}
         {g.cause && <CauseLine cause={g.cause} />}
       </div>
       <div className="cg-side">
@@ -140,6 +144,7 @@ function SingleCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void
 
 function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void }) {
   const accounts = useContext(AccountLabelContext);
+  const historyStart = usePageHistory()?.historyStart;
   const n = g.findings.length;
   if (n === 1) return <SingleCard g={g} onMute={onMute} />;
   const names = [...new Set(g.findings.map((f) => f.checkName))];
@@ -163,7 +168,7 @@ function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void 
               <EntityLink e={f.entity} />
               {g.checkCodes.length > 1 && <small className="code"> {f.checkCode}</small>}
             </span>
-            <span className="cg-d">{f.detail}</span>
+            <span className="cg-d">{f.detail}{atHistoryStart(f, historyStart) && <small> · <span>already true when nats-lens started</span></small>}</span>
             <Actions f={f} onMute={onMute} label={findingLabel(f, accounts)} />
           </li>
         ))}
