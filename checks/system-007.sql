@@ -26,8 +26,10 @@ description: >-
   request unanswered or answered it with an error, or nats-lens itself failed during the collection (a request it
   could not publish, a reply it could not read). The checks judge each collection on what it holds, so findings
   that need the missing replies can be missed, or resolve and fire again. Servers that answered nothing are left
-  out, as server-001 reports them, and so are the replies of a server within checks.restart_window of its start. A
-  firing finding stays until the share falls below resolve_ratio of warn_share.
+  out, as server-001 reports them, and so are the replies of a server within checks.restart_window of its start or
+  after it announced lame duck or shutdown. The notes the store adds to a collection's errors (values a newer server
+  sent, a configuration not stored) are no failure and do not count. A firing finding stays until the share falls
+  below resolve_ratio of warn_share.
 remediation: >-
   The detail names the servers and requests that failed most. A request that runs out of time on a busy server
   (often JSZ, CONNZ or RAFTZ on a server with many streams, consumers or connections) needs a longer collect window:
@@ -40,16 +42,28 @@ value_name: percent of collections incomplete
 value_basis: incomplete collections in the lookback over all collections in it, servers that answered nothing left out
 */
 WITH win AS (
-    SELECT epoch, errors FROM epochs WHERE epoch BETWEEN getvariable('window_epoch') AND getvariable('epoch')
+    -- The store adds its notes (values a newer server sent, a configuration
+    -- not stored) to the errors with the prefix "note: "; they are no
+    -- failure of the collection.
+    SELECT epoch, started_at, finished_at, list_filter(errors, x -> NOT starts_with(x, 'note: ')) AS errors
+    FROM epochs WHERE epoch BETWEEN getvariable('window_epoch') AND getvariable('epoch')
 ),
 restarting_now AS (
     SELECT epoch, server_id FROM restarting(getvariable('window_epoch'), getvariable('epoch'))
+),
+-- A server that announced lame duck or shutdown within restart_window
+-- before the collection ended is going away on purpose.
+announced AS (
+    SELECT DISTINCT w.epoch, ev.server_name
+    FROM win w JOIN events ev ON ev.kind IN ('server.lameduck', 'server.shutdown')
+     AND ev.received_at > w.started_at - getvariable('restart_window') AND ev.received_at <= w.finished_at
 ),
 failures AS (
     SELECT ee.epoch, s.server_name, ee.endpoint, ee.state, ee.error
     FROM epoch_endpoints ee JOIN servers s USING (server_id)
     WHERE ee.epoch IN (SELECT epoch FROM win) AND ee.state <> 'ok'
       AND NOT EXISTS (SELECT 1 FROM restarting_now r WHERE r.epoch = ee.epoch AND r.server_id = ee.server_id)
+      AND NOT EXISTS (SELECT 1 FROM announced a WHERE a.epoch = ee.epoch AND a.server_name = s.server_name)
 ),
 judged AS (
     SELECT w.epoch, len(w.errors) > 0 AS collector_failed,
