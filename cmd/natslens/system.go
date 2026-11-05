@@ -81,6 +81,25 @@ func (rt *systemRuntime) notifier(set *checks.Set) *notify.Reconciler {
 		Checks: set, Retention: rt.cfg.Retention.D(), Log: rt.log}
 }
 
+// notifyHooks are the runner's notification hooks for cmd. Only
+// natslens run notifies: the next run after a once sends the difference
+// between what each channel was told and the findings then. The sweep
+// runs also without channels, so that the rows of channels removed from
+// the file go, and a channel added again later starts from a baseline.
+func (rt *systemRuntime) notifyHooks(cmd string, set *checks.Set) (notifyFn func(context.Context, int64) error, sweep func(context.Context, time.Time) error) {
+	if cmd != "run" {
+		return nil, nil
+	}
+	rec := rt.notifier(set)
+	if len(rt.cfg.Notifications.Channels) > 0 {
+		notifyFn = func(ctx context.Context, epoch int64) error {
+			_, err := rec.Reconcile(ctx, epoch)
+			return err
+		}
+	}
+	return notifyFn, rec.Sweep
+}
+
 // registry lists the systems for the API in configuration order; the
 // first is the default.
 func registry(rts []*systemRuntime, set *checks.Set) api.Systems {
@@ -216,16 +235,7 @@ func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, d
 		Connected: connected,
 		Stored:    func(_ int64, startedAt time.Time) { rt.status.epoch(startedAt) },
 	}
-	// Only natslens run notifies: the next run after a once sends the
-	// difference between what each channel was told and the findings then.
-	if cmd == "run" && len(cfg.Notifications.Channels) > 0 {
-		rec := rt.notifier(set)
-		r.Notify = func(ctx context.Context, epoch int64) error {
-			_, err := rec.Reconcile(ctx, epoch)
-			return err
-		}
-		r.NotifySweep = rec.Sweep
-	}
+	r.Notify, r.NotifySweep = rt.notifyHooks(cmd, set)
 	if cmd == "once" {
 		_, err := r.Once(ctx)
 		if err != nil {
