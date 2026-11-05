@@ -261,6 +261,45 @@ func TestDataHistoryFourteenDays(t *testing.T) {
 	}
 }
 
+// A loss of an events connection and a Kubernetes watch failure that
+// began long before the range and never ended are gaps of the range.
+func TestDataHistoryOldOpenLosses(t *testing.T) {
+	st := emptyStore(t)
+	now := historyClock
+	r := rows{t, st}
+	r.server("S0", "nats-0")
+	n := int64(0)
+	for e := now.Add(-72 * time.Hour); !e.After(now); e = e.Add(5 * time.Minute) {
+		n++
+		r.epoch(n, e, "S0")
+	}
+	ev := func(when time.Time, kind, conn string) events.Event {
+		return events.Event{Time: when, ReceivedAt: when, Source: events.SourceCollector, Kind: kind, Summary: kind,
+			Raw: json.RawMessage(`{"connection":"` + conn + `"}`)}
+	}
+	if err := st.WriteEvents(ctx, []events.Event{
+		ev(now.Add(-71*time.Hour), "collector.started", ""),
+		ev(now.Add(-70*time.Hour), "collector.k8s_not_watching", ""),
+		ev(now.Add(-61*time.Hour), "collector.disconnected", "APP"),
+		ev(now.Add(-61*time.Hour+time.Minute), "collector.reconnected", "APP"),
+		ev(now.Add(-60*time.Hour), "collector.disconnected", "sys"),
+		ev(now.Add(-59*time.Hour), "collector.disconnected", "sys"),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	read := historyClient(t, &storeprov.Provider{St: st, Interval: 5 * time.Minute, Live: true, Retention: 14 * 24 * time.Hour,
+		Clock: func() time.Time { return now }})
+	res := read(lastDay(now))
+	var got []string
+	for _, g := range res.GetGaps() {
+		got = append(got, gapLine(g)+" "+g.GetStart().AsTime().Format("01-02"))
+	}
+	want := []string{"HISTORY_GAP_KIND_EVENTS_NOT_CAPTURED 02:00:30-open 10-15", "HISTORY_GAP_KIND_KUBERNETES_NOT_WATCHED 16:00:30-open 10-14"}
+	if !slices.Equal(got, want) || res.GetListedGapsTotal() != 2 {
+		t.Errorf("gaps %v (listed total %d), want %v", got, res.GetListedGapsTotal(), want)
+	}
+}
+
 // A gap still open at the range's end has neither an end nor a
 // collection after it: both lie outside the range.
 func TestDataHistoryGapOpenAtRangeEnd(t *testing.T) {
