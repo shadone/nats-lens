@@ -262,6 +262,7 @@ func globalScenario() *scenario {
 		mutes: func() []*storedMute {
 			return []*storedMute{globalSeedMute(), globalSeedEndedAcceptance(), globalSeedArchiveMute(), globalSeedClientMute()}
 		},
+		acks:        globalSeedAcks,
 		consumer:    globalConsumer,
 		created:     globalCreated,
 		transitions: globalTransitions,
@@ -380,6 +381,25 @@ func globalSeedClientMute() *storedMute {
 		MutedBy:   "ops@example.com",
 		CreatedAt: ts(s.on(16, 9, 30)), ExpiresAt: ts(s.on(31, 0, 0)),
 	}}
+}
+
+// globalSeedAcks acknowledge consumer-002 on label-printer twice: the
+// second replaced the first, and its 30 minutes of quiet have run out.
+func globalSeedAcks() []*storedAck {
+	s := scen{now: FixedNow}
+	id := "consumer-002:" + Account + "/shipping-updates/label-printer"
+	since := s.at(13, 40, 0)
+	return []*storedAck{
+		{relative: true, since: since, a: &v1.Acknowledgement{
+			Id: "1", FindingId: id, Note: "Looking at the label printers' pool", AckedBy: "bob@example.com",
+			CreatedAt: ts(s.at(13, 45, 0)), QuietUntil: ts(s.at(14, 15, 0)),
+			EndedAt: ts(s.at(13, 50, 0)), EndedBy: "carol@example.com", EndReason: "replaced",
+		}},
+		{relative: true, since: since, a: &v1.Acknowledgement{
+			Id: "2", FindingId: id, Note: "Scaled label-printer to 4 replicas; backlog draining", AckedBy: "carol@example.com",
+			CreatedAt: ts(s.at(13, 50, 0)), QuietUntil: ts(s.at(14, 20, 0)),
+		}},
+	}
 }
 
 func globalSeedMute() *storedMute {

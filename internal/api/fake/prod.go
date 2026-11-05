@@ -91,6 +91,7 @@ func prodScenario() *scenario {
 		sample:        prodSample,
 		slowEvents:    prodSlowConsumerEvents,
 		mutes:         func() []*storedMute { return []*storedMute{prodSeedMute(), prodSeedAcceptance()} },
+		acks:          func() []*storedAck { return []*storedAck{prodSeedAck()} },
 		transitions:   prodTransitions,
 		consumer:      prodConsumer,
 		created:       prodCreated,
@@ -164,6 +165,17 @@ func prodSeedAcceptance() *storedMute {
 		Reason:    "Customer records are kept for the account's life.",
 		MutedBy:   "ops@example.com",
 		CreatedAt: ts(s.on(3, 9, 0)), ExpiresAt: ts(s.on(3, 9, 0).AddDate(0, 6, 0)),
+	}}
+}
+
+// prodSeedAck acknowledges consumer-010 on analytics-aggregator, missing
+// since the node upgrade, with a quiet of two hours.
+func prodSeedAck() *storedAck {
+	s := scen{now: FixedNow}
+	return &storedAck{relative: true, since: s.at(9, 31, 7), a: &v1.Acknowledgement{
+		Id: "1", FindingId: "consumer-010:" + Account + "/order-archive/analytics-aggregator",
+		Note:    "Recreating the durable; the worker's drain fix is in review",
+		AckedBy: "alice@example.com", CreatedAt: ts(s.at(13, 35, 0)), QuietUntil: ts(s.at(15, 35, 0)),
 	}}
 }
 
