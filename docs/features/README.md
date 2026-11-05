@@ -113,7 +113,8 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 
 **Checks**
 - [~] Findings, severities, restarts, thresholds, remediation file, mutes, and one entity's finding accepted until a review date — accepting related entities or a check everywhere is planned (checks.md)
-- [x] Server checks `server-001` to `server-016` (server-checks.md)
+- [x] Server checks `server-001` to `server-023`, routes, gateways, the connection limit, JetStream API errors, internal queues and CPU among them (server-checks.md)
+- [ ] Server checks for slow routes, leaf node disconnects and OCSP rejections (server-checks.md)
 - [x] Account checks `account-001` to `account-004`: connection and disk limits, account and user JWT expiry (account-checks.md)
 - [x] Stream, KV bucket and object store checks `stream-001` to `stream-014` (stream-checks.md)
 - [x] Consumer checks `consumer-001` to `consumer-013` (consumer-checks.md)
