@@ -117,7 +117,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [ ] Server checks for slow routes, leaf node disconnects, queued JetStream API requests and OCSP rejections (server-checks.md)
 - [x] Account checks `account-001` to `account-004`: connection and disk limits, account and user JWT expiry (account-checks.md)
 - [x] Stream, KV bucket and object store checks `stream-001` to `stream-021`, mirrors, sources, single replicas, KV history, streams without a consumer and interior deletes among them; source activity and errors are planned (stream-checks.md)
-- [x] Consumer checks `consumer-001` to `consumer-013` (consumer-checks.md)
+- [x] Consumer checks `consumer-001` to `consumer-017`, among them the oldest unread message about to expire, pull requests at `max_waiting`, a single-replica durable on a replicated stream and a long pause (consumer-checks.md)
 - [x] Client checks `client-001` to `client-008`, among them repeated authentication errors, unnamed connections and outdated client libraries (client-checks.md)
 - [x] System checks `system-001` to `system-009`: the meta group, mixed API levels, and nats-lens's own check runs, collections, archive exports and event capture (system-checks.md)
 - [x] The inventory of assets that must exist (inventory.md)
