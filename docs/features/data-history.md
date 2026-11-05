@@ -11,7 +11,7 @@ Data history shows what nats-lens holds of a system. Range pages name a history 
 ## Behavior and rules
 
 - **History begins here.** When the chosen range starts more than one collection interval before the oldest collection, a note names the available span and links to Data history. Charts keep the full requested time axis, including the time before history.
-- **Gaps are drawn.** Trend and series charts hatch times without collections and the time before history, with a tooltip and accessible name. Event-capture and Kubernetes-watch gaps leave the collection charts unhatched. Charts on the same page share the cached history request; a page without charts makes no history request for hatching.
+- **Gaps are drawn.** Trend and series charts hatch times without collections and the time before history, with a tooltip and accessible name. Event-capture and Kubernetes-watch gaps leave the collection charts unhatched. Charts share cached history by system and time window, including fixed seven-day charts when the page shows one hour. Gap marks stop at the range actually observed; switching ranges shows “History gaps loading” while waiting for that range’s history. Failed history reads say “History gaps unavailable”. A positive-duration gap remains visible even on a 30-day chart. A page without charts makes no history request for hatching.
 - **Growth needs history.** Capacity, Streams, and the Overview storage tile share the six-hour requirement. A live range long enough for growth counts down the missing history. A shorter range asks for at least six hours; a fixed range names its available history. Forecast margins remain planned.
 - **Findings say what they know.** A finding whose start nats-lens cannot know says "already true when nats-lens started", never a fresh start time.
 - **Tiles for the range.** Overview message and connection trends, connections tiles, and storage name the shorter history behind the range. Missing-history words on Capacity, Accounts, Applications, Replay, and finding details link to Data history with the global query.
@@ -32,6 +32,21 @@ Data history shows what nats-lens holds of a system. Range pages name a history 
 - **Given** nats-lens was stopped for three minutes an hour ago
 - **When** I look at a chart that covers that hour
 - **Then** the three minutes are hatched and labelled as a gap
+
+### Keep gaps tied to the chart’s observed range
+
+- **Surfaces:** `ui`
+- **Given** a stream’s seven-day chart includes a restart five hours ago
+- **When** I change the page between one hour and 24 hours
+- **Then** the seven-day chart shows the same restart in both views
+- **And** a delayed or failed history read never extends an earlier range’s open gap into a later range
+
+### See a short gap on a long range
+
+- **Surfaces:** `ui`
+- **Given** a 30-day range contains a 60-second gap
+- **When** I look at its chart
+- **Then** the gap has a visible hatch and an accessible name
 
 ### Ask where the history starts
 
