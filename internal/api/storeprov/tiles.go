@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/shadone/nats-lens/internal/api"
+	"github.com/shadone/nats-lens/internal/checks"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -75,7 +76,7 @@ func (p *Provider) tiles(ctx context.Context, r *v1.TimeRange, maxPoints int32, 
 
 	accounts := tile(api.TileAccounts, api.LastPoint(get["cluster.accounts"]), count, "cluster.accounts")
 	if now.busiestAccount != "" {
-		accounts.Subtitle = fmt.Sprintf("most connections: %s (%d)", now.busiestAccount, now.busiestConns)
+		accounts.Subtitle = api.AccountsSubtitle(now.busiestAccount, now.busiestConns)
 	}
 
 	clients := tile(api.TileClients, api.LastPoint(get["cluster.connections"]), count, "cluster.connections")
@@ -184,11 +185,15 @@ func (p *Provider) epochFacts(ctx context.Context, epoch int64) (epochFacts, err
 		return f, err
 	}
 	f.behindRan = runs > 0
+	// Connections as the Accounts page and account-001 count them: clients
+	// plus the leaf nodes of the server that holds the most.
 	err = p.db().QueryRowContext(ctx, `
-SELECT coalesce(any_value(ac.account_name), a.account), sum(a.conns)::BIGINT AS n
-FROM account_stats a LEFT JOIN accounts ac USING (account)
-WHERE a.epoch = ? AND NOT coalesce(ac.is_system, false)
-GROUP BY a.account HAVING sum(a.conns) > 0 ORDER BY n DESC, 1 LIMIT 1`, epoch).Scan(&f.busiestAccount, &f.busiestConns)
+SELECT name, n FROM (
+    SELECT coalesce(ac.account_name, cn.account) AS name, cn.account,
+        (coalesce(cn.clients, 0) + coalesce(cn.limit_leafnodes, 0))::BIGINT AS n
+    FROM (`+checks.AccountConnectionsSQL("?")+`) cn LEFT JOIN accounts ac USING (account)
+    WHERE NOT coalesce(ac.is_system, false))
+WHERE n > 0 ORDER BY n DESC, name, account LIMIT 1`, epoch).Scan(&f.busiestAccount, &f.busiestConns)
 	if err != nil && !isNoRows(err) {
 		return f, err
 	}

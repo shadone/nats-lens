@@ -1,6 +1,7 @@
 package api
 
 import (
+	"cmp"
 	"fmt"
 	"strings"
 
@@ -72,6 +73,32 @@ func ConsumersSubtitle(value *float64, ran bool, behind int) string {
 		return ""
 	}
 	return fmt.Sprintf("%d behind", behind)
+}
+
+// AccountsSubtitle names the account with the most connections, for
+// example "most connections: APP (93)".
+func AccountsSubtitle(name string, conns int64) string {
+	return fmt.Sprintf("most connections: %s (%d)", name, conns)
+}
+
+// BusiestAccount is the account other than the system account with the
+// most connections as the Accounts page counts them, Connections plus
+// LimitLeafnodes, the first by name of a tie; empty when none has one.
+func BusiestAccount(accounts []AccountFact) (name string, conns int64) {
+	for _, a := range accounts {
+		var n int64
+		if a.Connections != nil {
+			n += int64(*a.Connections)
+		}
+		if a.LimitLeafnodes != nil {
+			n += int64(*a.LimitLeafnodes)
+		}
+		an := cmp.Or(a.Name, a.Account)
+		if !a.IsSystem && n > 0 && (n > conns || n == conns && an < name) {
+			name, conns = an, n
+		}
+	}
+	return name, conns
 }
 
 // ClientsSubtitle names the applications and the slow consumer events in
