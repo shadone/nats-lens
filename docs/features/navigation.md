@@ -2,7 +2,7 @@
 
 - **Surfaces:** `ui`, `api`
 - **Status:** shipped
-- **Related:** [overview-page.md](overview-page.md), [history-and-archive.md](history-and-archive.md), [command-bar.md](command-bar.md), [multiple-systems.md](multiple-systems.md), [mobile.md](mobile.md), [design.md](../design.md)
+- **Related:** [data-history.md](data-history.md), [overview-page.md](overview-page.md), [history-and-archive.md](history-and-archive.md), [command-bar.md](command-bar.md), [multiple-systems.md](multiple-systems.md), [mobile.md](mobile.md), [design.md](../design.md)
 
 ## What it does
 
@@ -10,7 +10,9 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 
 ## Behavior and rules
 
-- **The sidebar.** It shows the nats-lens mark (a link to the Overview), the system switcher, and the pages in groups: Fleet, Overview and Findings at the top; Messaging with Subjects, Micro services, Applications and Connections; JetStream with Streams, Consumers, KV Stores, Object Stores, Placement and Capacity; Cluster with Servers, Events, Replay, Topology and Accounts. A detail page marks the page it belongs to, so a stream's page marks Streams. Pages that are not built yet are not listed.
+- **Short history.** Range pages show a note below the header when the range begins more than one collect interval before history starts. It names the available span and links to Data history, preserving the system, range, and originating account query. Data history itself is system-wide. Fleet and Data history do not repeat this note.
+
+- **The sidebar.** It shows the nats-lens mark (a link to the Overview), the system switcher, and the pages in groups: Fleet, Overview and Findings at the top; Messaging with Subjects, Micro services, Applications and Connections; JetStream with Streams, Consumers, KV Stores, Object Stores, Placement and Capacity; Cluster with Servers, Events, Replay, Topology, Accounts and Data history. A detail page marks the page it belongs to, so a stream's page marks Streams. Pages that are not built yet are not listed.
 - **Badges.** Findings carries the number of unmuted firing findings. The badge has the shape of the worst of them: filled for critical, outlined for warning, dashed for info, and a screen reader hears "Findings, 3 firing, worst critical". Without a firing finding there is no badge. Fleet carries the number of systems that are not OK (critical, warning, not collecting, summary unavailable or no data), shaped by the worst; a system whose only findings are info is OK and not counted, and a screen reader hears "Fleet, 2 not OK, worst critical"; it counts over the last 24 hours whatever range the page shows. With every system OK there is no badge. The Fleet badge can trail the Fleet cards by up to two collect intervals: nats-lens keeps each system's badge state for one interval and serves it once more while it reads it again. A system whose first state takes longer than half a second to read is left out of the count until a later refresh has it.
 - **Collapse.** "Collapse" at the foot of the sidebar shrinks it to a rail of icons, with the badges on the icons; the choice is kept in the browser. The rail shows the system as its initials, with the name as a tooltip, and they open the same system menu.
 - **The system switcher.** It names the system, with its environment, the number of servers ("3 servers", or "2 of 3 servers" while some do not answer) and "demo" in demo mode. With several systems it opens a menu of them; picking one opens the same list page on that system (from a stream's page, Streams), keeping the range and leaving the account scope. "All systems" opens Fleet. With one system it is no menu.
@@ -118,6 +120,13 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 - **More pages in the sidebar.** Users and auth under Cluster, once its page is built.
 - **The account scope on more lists.** Streams, findings and events limited to the scoped account, each offering the scope once it applies it; system-wide tiles and charts stay system-wide and say "all accounts".
 - **A command bar.** Findings, events and prefixes such as `stream:` in the search ([command-bar.md](command-bar.md)).
+
+### Follow a short-history note
+
+- **Surfaces:** `ui`
+- **Given** the chosen system has 31 minutes of history and the page shows the last 24 hours
+- **When** I follow the note’s Data history link
+- **Then** Data history opens for the same system and range
 
 ## Not supported / out of scope
 

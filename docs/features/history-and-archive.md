@@ -10,6 +10,8 @@ nats-lens keeps its collections, events and findings in an embedded DuckDB datab
 
 ## Behavior and rules
 
+- **Archive state in the UI.** [Data history](data-history.md) shows the archive’s latest known hours, bounds, listing time, export state, and export error. The listing refreshes at most once an hour after a successful export; later exports update its known hours. Before the first listing, the hours read “not listed yet”. Selecting a past range does not rewind the archive state.
+
 - **Retention.** Once an hour, nats-lens deletes the collections and events older than `retention`, together with the findings' transitions and check runs of those collections. Mutes are never deleted. A finding that is still firing keeps its current episode, so it still says when it started even after the collection it started in is gone.
 - **The database lives in `data_dir`.** The file is `natslens.duckdb` in `data_dir` (`./data` by default). DuckDB lets one process open the file while it is written, so `natslens sql` and `natslens checks run` work only while no collector holds it.
 - **Hourly Parquet files.** For every table, an hour's rows go to `archive_dir/<table>/date=YYYY-MM-DD/hour=HH.<export>.parquet` (`archive_dir` defaults to `data_dir/archive`). A manifest per hour, written last, lists exactly the files of that export with their row counts. A crash during an export therefore leaves the previous manifest and its files intact.
@@ -22,7 +24,7 @@ nats-lens keeps its collections, events and findings in an embedded DuckDB datab
 - **Rebuild at start.** When the database file is missing, or holds no collection and no event, and the archive has complete hours inside the retention window, nats-lens rebuilds the database from them before it serves anything. It loads only hours with a manifest, and stops when a file's row count differs from its manifest. It writes the new database beside the old name and renames it into place only when the load succeeded, so a failed rebuild is tried again on the next start.
 - **A damaged database is kept.** When DuckDB cannot replay the database's write-ahead log, nats-lens renames the file and its log to `<name>.corrupt-<UTC time>`, rebuilds from the archive, logs an error and records a `collector.database_recovered` event that names the kept files. It never deletes them.
 - **Past ranges show the past.** When the UI's time range ends in the past, the findings and statuses are rebuilt from the stored transitions as they stood at the end of the range, with the mutes in force then.
-- **Where history begins.** A finding first seen within a minute of the oldest stored collection says "first seen when nats-lens history begins", because its condition may be older than nats-lens's history.
+- **Where history begins.** An unresolved finding whose condition predates history, or which was first seen within a minute after history starts, says "already true when nats-lens started".
 
 ## Scenarios
 
@@ -56,6 +58,13 @@ nats-lens keeps its collections, events and findings in an embedded DuckDB datab
 - **When** I set `archive_retention: 365d`
 - **Then** nats-lens removes archived hours only once they are older than a year
 - **And** `archive_retention: 7d` with `retention: 14d` stops the start with an error, as a rebuild would miss hours
+
+### Inspect the latest archive state
+
+- **Surfaces:** `ui`
+- **Given** the archive has listed its hours and completed a provisional export
+- **When** I open Data history with a past range
+- **Then** its archive card names the latest known hours and export, including that the newest hour was provisional
 
 ## Not supported / out of scope
 
