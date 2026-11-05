@@ -214,7 +214,7 @@ The set covers:
 - Storage: server store above a share of its limit, store full soon, stream near its message or byte limit, stream reaching its byte limit soon, stream without any limit, one replica in a cluster of three or more (`stream-018`), a KV bucket's history without a byte limit (`stream-019`), many interior deletes (`stream-021`).
 - Clients: slow consumer disconnects, stalled clients, high pending bytes, high round trip time, connection churn, stale connections, a client reconnecting repeatedly, short-lived connections (`client-005`), repeated authentication errors (`client-006`), unnamed connections (`client-007`), an outdated client library (`client-008`), a server near its `max_connections` (`server-020`).
 - Change: server restarted, version differs from the majority, configuration reloaded, stream configuration changed (from events).
-- nats-lens itself: a check failed to run (`system-001`), collections often incomplete (`system-007`), archive export behind (`system-008`), event messages dropped (`system-009`).
+- nats-lens itself: a check failed to run (`system-001`), collections often incomplete (`system-007`), archive export behind (`system-008`), event messages dropped (`system-009`), notifications not delivered (`system-010`).
 - Accounts and credentials: an account near its JWT's connection or JetStream disk limit, an account JWT or the user JWTs of its connections expiring soon (`account-001` to `account-004`), and a server's listener TLS certificate expiring soon (`server-016`).
 
 What the set merges or measures differently:

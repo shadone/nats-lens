@@ -440,6 +440,7 @@ To try a change to a check on a copy of a database: `natslens checks run -data-d
 | system-007 | Collections often incomplete | warning | `epoch_endpoints` not ok for answering servers or collector errors in at least 25% of 30m's epochs (10 or more); resolves below half of that |
 | system-008 | Archive export behind | warning | a closed hour with epochs or events and no final `archive_hours` row for over 1h after the hour or the process start; not in `natslens once` |
 | system-009 | Event messages dropped | warning | `collector.messages_dropped` events within 1h, those of the collector's own connection left out; a lower bound |
+| system-010 | Notifications not delivered | warning; critical for a recent refusal or give-up | `notify_outbox`: a channel with a notification pending longer than `pending_for` (10m), or one refused or given up within 1h; names channels, never a URL |
 | stream-001 | Stream quorum lost | critical | the leader most reporters name and its online replicas, or too few reporters when it does not report, 2 epochs; restarting servers left out only while the rest form a majority |
 | stream-002 | Stream replica offline | warning; info while the replica's server restarts or announced its shutdown | the leader's `stream_replicas` |
 | stream-003 | Stream replica lagging | warning | the leader's replica lag above 1000 operations |
