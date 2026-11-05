@@ -120,7 +120,8 @@ func scanFinding(row interface{ Scan(...any) error }) (Finding, error) {
 }
 
 // Findings returns the findings that match q, with the mutes and the
-// acknowledgements in force at now applied, ordered by ID. Sorting for display and paging are the caller's.
+// acknowledgements in force at now applied, ordered by ID. Sorting for
+// display and paging are the caller's.
 func (s *Store) Findings(ctx context.Context, now time.Time, q FindingQuery) ([]Finding, error) {
 	var where []string
 	var args []any

@@ -33,10 +33,10 @@ func severityValue(s v1.Severity) float64 {
 }
 
 // WriteMetrics writes the Prometheus metrics: every firing finding with
-// its mute, severity, flapping and acknowledgement quiet as separate series of one identity
-// (code, entity type, entity key), so that a change of severity or a mute
-// does not start a new series; per-check counts; counts by severity; and
-// the health of the collector and the checks.
+// its mute, severity, flapping and acknowledgement quiet as separate
+// series of one identity (code, entity type, entity key), so that a change
+// of severity or a mute does not start a new series; per-check counts;
+// counts by severity; and the health of the collector and the checks.
 func (p *Provider) WriteMetrics(ctx context.Context, m *api.Exposition) error {
 	now := p.Now()
 	fs, err := p.St.Findings(ctx, now, store.FindingQuery{FiringOnly: true})
