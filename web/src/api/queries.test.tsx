@@ -196,3 +196,24 @@ it("shares a settled history answer with charts mounted later on the same page",
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
   expect(lens.getDataHistory).toHaveBeenCalledTimes(1);
 });
+
+it("does not lend history facts from a previous range to a pending or failing range", async () => {
+  const read = vi.mocked(lens.getDataHistory);
+  read.mockReset();
+  read.mockResolvedValueOnce(create(GetDataHistoryResponseSchema));
+  let reject!: (error: Error) => void;
+  read.mockImplementationOnce(() => new Promise((_yes, no) => { reject = no; }));
+  let result: ReturnType<typeof q.useDataHistory>;
+  function Probe({ spec }: { spec: import("../lib/timeRange").RangeSpec }) { result = q.useDataHistory(spec); return null; }
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  function Frame({ spec }: { spec: import("../lib/timeRange").RangeSpec }) {
+    return <QueryClientProvider client={qc}><MemoryRouter><Probe spec={spec} /></MemoryRouter></QueryClientProvider>;
+  }
+  const r = render(<Frame spec={live} />);
+  await waitFor(() => expect(result!.data).toBeDefined());
+  r.rerender(<Frame spec={{ kind: "live", preset: "24h" }} />);
+  expect(result!.data).toBeUndefined();
+  await act(async () => reject(new Error("unavailable")));
+  await waitFor(() => expect(result!.isError).toBe(true));
+  expect(result!.data).toBeUndefined();
+});
