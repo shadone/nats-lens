@@ -71,3 +71,20 @@ func TestJetStreamAPIErrorsResolve(t *testing.T) {
 	}
 	f.fires("server-021", 31, "nats-0")
 }
+
+// An old process's many errors do not count against the new one, whose
+// counters start again at its restart.
+func TestJetStreamAPIErrorsOldProcess(t *testing.T) {
+	f := newFx(t)
+	f.epochs(1, 12, three...)
+	f.server("S0", "nats-0", 1, 6, at(1), "2.15.0")
+	f.server("S9", "nats-0", 7, 12, at(7), "2.15.0")
+	for e := int64(1); e <= 6; e++ {
+		f.stats(e, "S0", m{"js_api_total": 100000 + e, "js_api_errors": 90000 + e})
+	}
+	for e := int64(7); e <= 12; e++ {
+		f.stats(e, "S9", m{"js_api_total": (e - 7) * 50, "js_api_errors": 0})
+	}
+	f.fires("server-021", 8)
+	f.fires("server-021", 12)
+}

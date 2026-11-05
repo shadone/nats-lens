@@ -140,3 +140,20 @@ func TestRouteMissingThreshold(t *testing.T) {
 	}
 	f.fires("server-017", 5)
 }
+
+// A restarted peer whose routes form two collections late fires nothing:
+// the gap is shorter than min_epochs.
+func TestRouteMissingAfterPeerRestart(t *testing.T) {
+	f := newFx(t)
+	cut := map[[2]string][]int64{}
+	for _, a := range three {
+		for _, b := range three {
+			if a != b && (a == "nats-2" || b == "nats-2") {
+				cut[[2]string{a, b}] = span(4, 5)
+			}
+		}
+	}
+	f.routed(6, three, cut)
+	f.fires("server-017", 5)
+	f.fires("server-017", 6)
+}
