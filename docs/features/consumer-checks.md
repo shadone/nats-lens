@@ -6,7 +6,7 @@
 
 ## What it does
 
-The consumer checks judge each JetStream consumer: whether it keeps quorum, whether its backlog grows, whether its workers keep up with acknowledgements and redeliveries, whether delivery has stopped, whether the servers agree about it, whether it matches the inventory, and whether a durable consumer disappeared. A consumer finding is keyed by `account/stream/consumer`. There are 13 consumer checks, `consumer-001` to `consumer-013`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
+The consumer checks judge each JetStream consumer: whether it keeps quorum, whether its backlog grows, whether its workers keep up with acknowledgements and redeliveries, whether delivery has stopped, whether its oldest unread message is about to leave the stream, whether fetches are refused, whether it stays paused, whether the servers agree about it, whether it matches the inventory, whether it keeps its state on one server, and whether a durable consumer disappeared. A consumer finding is keyed by `account/stream/consumer`. There are 17 consumer checks, `consumer-001` to `consumer-017`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
 
 ## The checks
 
@@ -114,10 +114,46 @@ The consumer checks judge each JetStream consumer: whether it keeps quorum, whet
 - **Thresholds:** lookback 1h.
 - **Left out:** internal consumers (`JS_` names of mirrors and sources), ephemeral and ordered consumers, durables with an inactive threshold (the server removes those by design), and durables in the inventory, which `consumer-010` reports.
 
+### `consumer-014` Oldest unread message about to expire
+
+- **Problem:** a durable consumer reads slower than its stream ages messages out, or has stopped: a message it has not read or not acknowledged is close to the stream's `max_age`, and the stream will remove it unread.
+- **Fires when:** the consumer's oldest unread message has used `warn_ratio` of `max_age`, and over the lookback that message's age fell by less than a tenth of the time that passed, so the consumer is not catching up. The detail gives the age, the share of `max_age`, when the message leaves the stream, the age at the start of the lookback, the messages waiting and the unacknowledged ones, and whether the consumer is paused.
+- **How the age is found:** a message was published no later than the first collection in which the stream leader's last sequence reached it, so its age is known to a collection interval. The message is the one after the ack floor while messages are unacknowledged (the newest delivered one when that one has left the stream), or the one after the delivered sequence while only undelivered messages wait (the stream's first message when that one has left). For a consumer with a filter, whose next sequences may not match it, the age is a lower bound: the newest delivered message's while messages are unacknowledged, otherwise the time since the backlog began (the first collection since the delivered sequence last moved in which messages waited). Collections before the stored history, or older than the longest `max_age` plus the lookback, are not read: a message that old reads younger, never older.
+- **Severity:** warning; critical once the message has used `critical_ratio` of `max_age`.
+- **Thresholds:** lookback 10m, `warn_ratio` 0.8, `critical_ratio` 0.95, `resolve_ratio` 0.7: a firing finding stays until the message has used less than 0.7 of `max_age`, or the consumer catches up. These values are proposed, not yet confirmed.
+- **Left out:** streams without `max_age`, ephemeral and ordered consumers, and a consumer without a leader report, or whose stream has none, in the collection or over less than half the lookback.
+- **Not the stream's view:** a stream-side check would judge the stream's oldest message against `max_age`, whoever reads it. `consumer-014` judges one consumer's read position, names that consumer, and stays quiet for a consumer that is catching up, even on a stream whose oldest message is about to expire.
+
+### `consumer-015` Pull requests at max_waiting
+
+- **Problem:** a pull consumer holds as many waiting pull requests as `max_waiting` allows. The server refuses every new fetch with "409 Exceeded MaxWaiting", or drops it without an answer for a client that asked for heartbeats, so a worker that starts or reconnects gets nothing.
+- **Fires when:** the leader's waiting pull requests (`num_waiting`, counted after the server drops expired ones) reach `warn_ratio` of `max_waiting` in each of the last `min_epochs` collections.
+- **Severity:** warning.
+- **Thresholds:** `warn_ratio` 1, `min_epochs` 2, `resolve_ratio` 0.9: a firing finding stays until the waiting requests fall below 0.9 of `max_waiting`, so a queue at the limit does not flap. These values are proposed, not yet confirmed.
+- **Left out:** push consumers, paused consumers, followers' reports (only the leader holds pull requests), and a consumer created again within the collections counted.
+- **The limit cannot be changed in place.** nats-server refuses an update of `max_waiting`, so the remediation suggests fewer concurrent fetches or shorter expiries first, and a new durable created by start time for a larger limit.
+
+### `consumer-016` Single replica on a replicated stream
+
+- **Problem:** a durable consumer is configured with one replica while its stream has more. Its position and acknowledgements are on one server: while that server restarts the consumer delivers nothing, although the stream keeps its quorum, and if the server loses its disk the durable loses its position.
+- **Fires when:** every current configuration of the consumer says `num_replicas` 1, the stream's configuration says more, and a server reports the consumer in this collection. The detail names the server that holds it.
+- **Severity:** info, proposed, not yet confirmed: some durables are kept at one replica on purpose, for throughput, and can be muted with that reason.
+- **Thresholds:** none.
+- **Left out:** consumers with `num_replicas` 0, which take the stream's count; ephemeral and ordered consumers; internal `JS_` consumers of mirrors and sources; consumers whose servers report different replica counts, which `consumer-008` reports.
+
+### `consumer-017` Consumer paused for a long time
+
+- **Problem:** a consumer stays paused past a set duration. It delivers nothing until its pause ends or someone resumes it, so its backlog grows and its messages may leave the stream unread (`consumer-014`).
+- **Fires when:** the consumer has been paused for longer than `max_paused`. The pause counts from the first `consumer.paused` event since the consumer last ran, or from the first collection since then in which it reports paused, whichever is earlier. The consumer last ran in the newest collection in which it reported running, or at its newest `consumer.resumed` event, if that is later. A pause extended with a new end is one pause. The detail gives the start, the duration, the pause end from the consumer's configuration, and the messages waiting; the finding names the `consumer.paused` event when there is one.
+- **Severity:** warning while messages wait for the consumer; info while none wait, or no leader reports how many.
+- **Thresholds:** `max_paused` 2h, proposed, not yet confirmed.
+- **Left out:** no paused consumer. The leader's report is read, or any replica's when no leader reports. A consumer created again starts a new pause.
+
 ## Behavior and rules
 
-- **The leader's view for the backlog.** nats-server tracks `num_pending`, waiting pull requests and push interest on the leader only, so `consumer-002`, `consumer-003`, `consumer-004`, `consumer-006` and `consumer-007` read the leader's report. Followers' values for these fields are not observed.
-- **Paused consumers are quiet where it matters.** `consumer-006` and `consumer-007` leave out a consumer that is paused.
+- **The leader's view for the backlog.** nats-server tracks `num_pending`, waiting pull requests and push interest on the leader only, so `consumer-002`, `consumer-003`, `consumer-004`, `consumer-006`, `consumer-007`, `consumer-014` and `consumer-015` read the leader's report. Followers' values for these fields are not observed.
+- **Paused consumers are quiet where it matters.** `consumer-006`, `consumer-007` and `consumer-015` leave out a consumer that is paused; `consumer-017` reports the pause itself once it lasts. `consumer-014` still judges a paused consumer, as its messages expire all the same, and says in its detail that it is paused.
+- **A firing finding resolves below a lower mark.** `consumer-014` and `consumer-015` keep a firing finding down to `resolve_ratio`, read from the finding's state at the previous collection, so a value that hovers at the threshold does not flap.
 - **Never restart first.** The remediations of `consumer-010` and `consumer-013` tell the reader to recreate a missing durable from its previous configuration with `deliver_policy: by_start_time` before restarting the service that owns it.
 
 ## Scenarios
@@ -148,16 +184,38 @@ The consumer checks judge each JetStream consumer: whether it keeps quorum, whet
 - **When** the server sends a `consumer.max_deliveries` advisory
 - **Then** `consumer-005` fires, and the event on the Events page names the stream sequence of the message
 
+### A consumer falls behind on a stream with max_age
+
+- **Given** `order-callbacks` keeps messages for 1 day, and `callback-delivery` reads it slower than messages arrive
+- **When** its oldest unacknowledged message is 20 hours old, and was 19 hours 50 minutes old 10 minutes before
+- **Then** `consumer-014` fires as a warning, with the time the message leaves the stream
+- **And** it is critical once the message is older than 95% of a day, about 22.8 hours
+
+### Workers hold every pull slot
+
+- **Given** the pull consumer `resize-worker` with `max_waiting: 512`, and 600 worker goroutines that each fetch with a long expiry
+- **When** nats-lens sees 512 waiting pull requests in two collections in a row
+- **Then** `consumer-015` fires, and its detail says that new fetches are refused
+- **And** the finding stays while 461 or more requests wait, and resolves below that
+
+### A durable kept on one server
+
+- **Given** `order-events` has 3 replicas and the durable `invoice-renderer` was created with `--replicas 1`
+- **When** nats-lens collects
+- **Then** `consumer-016` reports it at info, naming the server that holds it
+
+### A pause outlives the maintenance
+
+- **Given** someone ran `nats consumer pause order-jobs resize-worker` for a database migration, and messages keep arriving
+- **When** the consumer is still paused 2 hours later
+- **Then** `consumer-017` fires as a warning, starting at the `consumer.paused` event and naming it
+- **And** it resolves once the consumer is resumed
+
 ## Planned
 
 These consumer checks are not built. Each line says what it would detect and what data it needs.
 
-- **Oldest unread message about to expire.** A consumer drains slower than its oldest waiting message ages out of the stream, so messages would be dropped unread. Needs: the stream's `max_age` and first message time and the consumer's ack floor, stored today.
-- **Waiting pull requests at their limit.** A pull consumer has as many waiting requests as `max_waiting` allows, so new fetches are refused. Needs: `num_waiting` and `max_waiting`, stored today.
-- **Single replica on a replicated stream.** A durable has one replica while its stream has three, so it loses its state with one server. Needs: the consumer's and the stream's replicas, stored today.
-- **Paused for a long time.** A consumer stays paused past a set duration. Needs: the paused state and the `consumer.paused` and `consumer.resumed` events, stored today.
-- **Backoff longer than max_deliver allows.** A consumer's `backoff` list has more steps than `max_deliver`, or `ack_wait` is shorter than the first backoff step. Needs: the consumer configuration, stored today.
-- **Acknowledgements slower than ack_wait.** Workers take longer to acknowledge than `ack_wait`. Needs: per-message acknowledgement times, which NATS reports only as sampled acknowledgements on consumers with a sample frequency set. Without sampling the data does not exist.
+- **Acknowledgements slower than ack_wait.** Workers take longer to acknowledge than `ack_wait`. Needs: the time from a message's first delivery to its acknowledgement. nats-lens captures `consumer.ack_sampled` events, with an acknowledgement time and a delivery count, for consumers with a sample frequency set, but nats-server measures that time from the latest delivery: an acknowledgement that arrives after `ack_wait`, once the message was redelivered, is measured from the redelivery and looks fast. Many redeliveries (`consumer-004`) and `consumer.max_deliveries` events (`consumer-005`) show the effect, not its cause.
 
 ## Not supported / out of scope
 
@@ -165,3 +223,4 @@ These consumer checks are not built. Each line says what it would detect and wha
 - **No message content.** nats-lens names the stream sequence of a message that reached `max_deliver`; it does not fetch the message.
 - **No consumer update events.** nats-server sends no advisory for a consumer update, so no check reports who changed a consumer.
 - **No recreation of consumers.** nats-lens never creates, edits or deletes a consumer.
+- **No check of backoff against max_deliver.** nats-server refuses a consumer whose `backoff` list has more steps than `max_deliver`, and with a `backoff` list it sets `ack_wait` to the first step, so neither mismatch can exist on a running consumer.
