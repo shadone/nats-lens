@@ -6,7 +6,7 @@
 
 ## What it does
 
-The system checks judge what belongs to no single server: the JetStream meta group, which places and changes every stream and consumer, the JetStream servers as a whole, and nats-lens's own health (its check engine, its collections, its archive and its event capture). A system finding has no entity key; it is about the whole system. There are 9 system checks, `system-001` to `system-009`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
+The system checks judge what belongs to no single server: the JetStream meta group, which places and changes every stream and consumer, the JetStream servers as a whole, and nats-lens's own health (its check engine, its collections, its archive, its event capture and its notification delivery). A system finding has no entity key; it is about the whole system. There are 10 system checks, `system-001` to `system-010`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
 
 ## The checks
 
@@ -90,6 +90,14 @@ The system checks judge what belongs to no single server: the JetStream meta gro
 - **Held conditions do not flap.** `system-004`, `system-005` and `system-006` fire only when their condition held in every collection for `min_duration`, and a firing finding resolves only after `min_duration` without it. A collection with a restarting server counts as clean, so a rolling restart or upgrade does not fire them.
 - **nats-lens judges itself.** `system-007` to `system-009` are about nats-lens, not NATS: their remediations name nats-lens's own settings (`timeout`, `archive_dir`, `data_dir`, `events.api_audit`) as well as `nats` commands. They colour no Overview tile; `system-001` to `system-006` colour the Servers tile ([overview-page.md](overview-page.md)).
 
+### `system-010` Notifications not delivered
+
+- **Problem:** a configured channel cannot receive findings.
+- **Fires when:** a message has waited longer than `pending_for`, or a channel refused or gave up a message in the last hour. The detail names the channels, their oldest pending age and their latest HTTP status, without a URL.
+- **Severity:** warning for old pending messages; critical for recent refusals or give-ups (proposed, not yet confirmed).
+- **Thresholds:** `pending_for` 10m (proposed, not yet confirmed).
+- **Left out:** systems without queued notifications. A failing channel cannot report itself; use another channel or the notification metrics.
+
 ## Scenarios
 
 ### A check query times out
@@ -156,6 +164,14 @@ The system checks judge what belongs to no single server: the JetStream meta gro
 - **Given** nats-lens dropped 1,200 event messages at 10:10 because its queue was full
 - **When** it runs the checks within the following hour
 - **Then** `system-009` "Event messages dropped" fires as a warning with the count and the event's summary
+
+### A notification receiver stops accepting messages
+
+- **Given** a channel with a message pending for more than 10 minutes
+- **When** nats-lens runs the checks
+- **Then** `system-010` "Notifications not delivered" fires as a warning, naming the channel
+- **And** a refusal or give-up in the last hour raises it to critical
+- **And** the finding resolves when no message is overdue and no refusal or give-up remains in the last hour
 
 ### Mute a system finding
 
