@@ -51,6 +51,7 @@ type Archiver struct {
 	Log   *slog.Logger
 
 	lastPrune time.Time
+	status    status
 }
 
 // Manifest lists the files of one exported hour. It is written after the
@@ -101,14 +102,17 @@ func (a *Archiver) Run(ctx context.Context, every time.Duration) {
 // Tick exports the pending hours and writes the state object.
 func (a *Archiver) Tick(ctx context.Context, now time.Time) error {
 	_, err := a.Export(ctx, now)
-	return errors.Join(err, a.WriteState(ctx, now))
+	err = errors.Join(err, a.WriteState(ctx, now))
+	a.status.failed(err, now)
+	return err
 }
 
 // Export exports pending hours inside the retention window, oldest first,
 // at most MaxHoursPerTick of them, and returns how many it exported: closed
 // hours not exported yet or whose rows changed since, and the open hour
 // provisionally. Re-exporting an hour overwrites its files. After a
-// successful export it prunes hours past ArchiveRetention.
+// successful export it lists the manifests, at most once an hour, and
+// prunes hours past ArchiveRetention.
 func (a *Archiver) Export(ctx context.Context, now time.Time) (int, error) {
 	closedBefore := now.Add(-a.Grace).UTC().Truncate(time.Hour)
 	from := now.Add(-a.Retention).UTC().Truncate(time.Hour).Add(time.Hour)
@@ -164,6 +168,7 @@ func (a *Archiver) ExportHour(ctx context.Context, hour time.Time, final bool, n
 	if err := a.Store.MarkExported(ctx, hour, exp, final, now); err != nil {
 		return fmt.Errorf("mark %s exported: %w", tag, err)
 	}
+	a.status.exported(hour, final, now)
 	a.removeUnlisted(ctx, hour, m, id)
 	a.Log.Info("hour archived", "hour", hour.UTC(), "final", final, "files", len(exp.Files), "rows", exp.Rows())
 	return nil

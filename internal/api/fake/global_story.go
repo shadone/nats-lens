@@ -360,6 +360,13 @@ func globalEvents(s scen, fs []*v1.Finding) []*v1.Event {
 			Summary: fmt.Sprintf("search-api connected and disconnected %d times in 1 min (each closed by the client within 10 s)", 2+k%4),
 		})
 	}
+	// Three days before, the Kubernetes API refused the watch for four
+	// minutes.
+	k8sFrom, k8sTo := s.on(14, 3, 10), s.on(14, 3, 14)
+	out = append(out, &v1.Event{Time: ts(k8sFrom), ReceivedAt: ts(k8sTo), Source: v1.EventSource_EVENT_SOURCE_COLLECTOR,
+		Kind: "collector.k8s_gap", Reason: "the server is currently unable to handle the request",
+		Summary: "kubernetes pods not watched for 4m0s, from " + k8sFrom.Format(time.RFC3339) + " to " + k8sTo.Format(time.RFC3339),
+		Raw:     `{"source":"pods","from":"` + k8sFrom.Format(time.RFC3339) + `","to":"` + k8sTo.Format(time.RFC3339) + `","seconds":240}`})
 	out = append(out, globalRoutineEvents(s)...)
 	out = append(out, restartReconnects(s, map[string]time.Time{"nats-us-1": s.at(8, 44, 5), "nats-us-2": s.at(8, 56, 20), "nats-us-3": s.at(9, 4, 50)})...)
 	slices.SortStableFunc(out, func(a, b *v1.Event) int { return b.GetTime().AsTime().Compare(a.GetTime().AsTime()) })

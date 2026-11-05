@@ -17,6 +17,7 @@ func prodServer(name, id, oldID string, h, m, s int, conns int64) serverSpec {
 func prodScenario() *scenario {
 	return &scenario{
 		cluster: Cluster,
+		archive: demoArchive(90, 90),
 		servers: []serverSpec{
 			// The clients that left nats-1 and nats-2 during the upgrade
 			// stayed on nats-0, which came back first: it holds most of

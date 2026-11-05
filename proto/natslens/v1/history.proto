@@ -1,0 +1,217 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "natslens/v1/common.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// Request for what nats-lens holds of a system and where it has gaps.
+message GetDataHistoryRequest {
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 1;
+
+  // Range whose coverage and gaps are read. Unset means the last 24 hours
+  // up to now.
+  TimeRange range = 2;
+}
+
+// Kind of a time nats-lens knows nothing, or only part, of.
+enum HistoryGapKind {
+  // Not set.
+  HISTORY_GAP_KIND_UNSPECIFIED = 0;
+  // nats-lens was not running: a collector.gap, from its from to its to.
+  HISTORY_GAP_KIND_NOT_RUNNING = 1;
+  // nats-lens could not reach NATS: the collector's own connection, from
+  // collector.not_connected or collector.connection_closed to its next
+  // collector.reconnected or collector.started.
+  HISTORY_GAP_KIND_NOT_CONNECTED = 2;
+  // No collection for more than three collect intervals, without either
+  // of the kinds above over that time.
+  HISTORY_GAP_KIND_NO_COLLECTIONS = 3;
+  // A connection that captures events was lost for 10 seconds or more;
+  // collections went on.
+  HISTORY_GAP_KIND_EVENTS_NOT_CAPTURED = 4;
+  // Kubernetes was not watched: a collector.k8s_gap, or from a
+  // collector.k8s_not_watching that no collector.k8s_gap followed yet.
+  HISTORY_GAP_KIND_KUBERNETES_NOT_WATCHED = 5;
+  // The range before the history starts.
+  HISTORY_GAP_KIND_BEFORE_HISTORY = 6;
+}
+
+// One gap. Gaps of the first three kinds are times without collections,
+// from the history start on: gaps of those kinds that overlap or touch are
+// one gap, of the first kind in the enum's order among them, with the
+// collections either side of its no-collections part.
+message HistoryGap {
+  HistoryGapKind kind = 1;
+
+  // Start of the gap, which may be before the range.
+  google.protobuf.Timestamp start = 2;
+
+  // End of the gap; unset while it is open at the range's end.
+  google.protobuf.Timestamp end = 3;
+
+  // The collection before the gap; 0 when not known.
+  int64 before_epoch = 4;
+
+  // The collection after the gap; 0 when not known or none followed.
+  int64 after_epoch = 5;
+
+  // ID of the collector event behind the gap; empty for no collections
+  // and before history. For gaps merged into one, the event of the kind
+  // that labels it.
+  string event_id = 6;
+
+  // The connection lost, for events not captured.
+  string connection = 7;
+
+  // Start of before_epoch; unset when it is 0.
+  google.protobuf.Timestamp before_epoch_at = 8;
+
+  // Start of after_epoch; unset when it is 0.
+  google.protobuf.Timestamp after_epoch_at = 9;
+}
+
+// What the range holds. Without history in the range, covered_from,
+// covered_to and without_data are unset.
+message HistoryCoverage {
+  // The later of the range start and the history start.
+  google.protobuf.Timestamp covered_from = 1;
+
+  // The range end.
+  google.protobuf.Timestamp covered_to = 2;
+
+  // Collections that started in the range.
+  int64 epochs = 3;
+
+  // The covered span divided by the collect interval configured now.
+  int64 expected_epochs = 4;
+
+  // Collections in the range that missed a server.
+  int64 partial_epochs = 5;
+
+  // The time without collections within the covered span: the sum of the
+  // gaps of the first three kinds.
+  google.protobuf.Duration without_data = 6;
+}
+
+// The archive's state as the archiver last saw it.
+message ArchiveState {
+  // Whether an archiver writes the archive in this process.
+  bool enabled = 1;
+
+  // The archive directory.
+  string location = 2;
+
+  // How long archived hours are kept; unset when every hour is kept.
+  google.protobuf.Duration archive_retention = 3;
+
+  // Oldest archived hour; unset before the first listing or with none.
+  google.protobuf.Timestamp oldest_hour = 4;
+
+  // Newest archived hour; unset before the first listing or with none.
+  google.protobuf.Timestamp newest_hour = 5;
+
+  // Hours with a manifest.
+  int32 hours = 6;
+
+  // When the newest export finished; unset before the first.
+  google.protobuf.Timestamp last_export_at = 7;
+
+  // Whether the newest hour was exported after it closed, rather than
+  // provisionally.
+  bool newest_final = 8;
+
+  // The newest export error since the last export that succeeded; empty
+  // when there is none.
+  string last_error = 9;
+
+  // When the archiver last listed its manifests; unset before the first
+  // listing.
+  google.protobuf.Timestamp listed_at = 10;
+
+  // When last_error happened; unset without one.
+  google.protobuf.Timestamp last_error_at = 11;
+}
+
+// One use of the history: what it needs, what the system has, and when it
+// will have enough.
+message HistoryUse {
+  // Stable ID: growth, forecast:<check>, lookback:<check>, accept_review,
+  // day or replay.
+  string id = 1;
+
+  // The check, for forecast and lookback uses.
+  string check_code = 2;
+
+  // How much history the use needs.
+  google.protobuf.Duration needs = 3;
+
+  // How much it has: the covered span of the range for growth, the
+  // history now for the others. Unset without history.
+  google.protobuf.Duration has = 4;
+
+  // Whether has is at least needs.
+  bool enough = 5;
+
+  // When it will have enough; unset when enough, never, or not within the
+  // range (a range shorter than the need, or one that ended).
+  google.protobuf.Timestamp enough_at = 6;
+
+  // Whether the retention is shorter than the need.
+  bool never = 7;
+}
+
+// What nats-lens holds of the system: the history and its gaps in the
+// range, the retention, the archive and what uses the history.
+message GetDataHistoryResponse {
+  // Start of the oldest stored collection; unset before the first.
+  google.protobuf.Timestamp history_start = 1;
+
+  // Start of the newest stored collection; unset before the first.
+  google.protobuf.Timestamp newest_epoch_at = 2;
+
+  // Time of the oldest stored event; unset without events.
+  google.protobuf.Timestamp events_start = 3;
+
+  // How long collections and events are kept; unset when kept forever.
+  google.protobuf.Duration retention = 4;
+
+  // Now minus the retention: the sweep, hourly, keeps what is newer.
+  google.protobuf.Timestamp retention_from = 5;
+
+  // Time between collections.
+  google.protobuf.Duration collect_interval = 6;
+
+  // What the range holds.
+  HistoryCoverage coverage = 7;
+
+  // The gaps that overlap the range, newest first: at most 200 of the
+  // times without collections and before the history (the kinds charts
+  // hatch), and at most 200 of the others, each the newest.
+  repeated HistoryGap gaps = 8;
+
+  // All times without collections and before the history that overlap
+  // the range: not running, not connected, no collections, before
+  // history.
+  int32 gaps_total = 9;
+
+  // The archive.
+  ArchiveState archive = 10;
+
+  // What uses the history.
+  repeated HistoryUse uses = 11;
+
+  // Firing findings already true at the history start, the oldest stored
+  // collection (after the retention sweep, the oldest kept): their
+  // condition began before it, or they were first seen within a minute
+  // after it.
+  int32 findings_at_start = 12;
+
+  // All gaps of the other kinds that overlap the range: events not
+  // captured and Kubernetes not watched.
+  int32 listed_gaps_total = 13;
+}

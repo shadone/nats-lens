@@ -114,6 +114,13 @@ type Provider interface {
 	// account. The handler groups, counts and orders them with
 	// FinishApplications. A range without an epoch gives facts with Epoch 0.
 	Applications(ctx context.Context, req *v1.GetApplicationsRequest) (*ApplicationFacts, error)
+	// DataHistory reads the history and event starts, the range's
+	// collections and gaps (CollectionGaps), the collector events of
+	// HistoryEventKinds around the range, the archive's state, the checks'
+	// lookbacks and the findings already true at the history start; the
+	// handler applies the gap rules, the coverage and the uses table with
+	// FinishDataHistory.
+	DataHistory(ctx context.Context, req *v1.GetDataHistoryRequest) (*HistoryFacts, error)
 	ListServers(ctx context.Context, req *v1.ListServersRequest) (*v1.ListServersResponse, error)
 	GetServer(ctx context.Context, req *v1.GetServerRequest) (*v1.GetServerResponse, error)
 	ListConnections(ctx context.Context, req *v1.ListConnectionsRequest) (*v1.ListConnectionsResponse, error)
