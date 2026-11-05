@@ -31,7 +31,7 @@ description: >-
   that one has left). For a consumer with a filter, whose next sequences may not match it, the age is a lower
   bound: the newest delivered message's while messages are unacknowledged, else the time since the backlog
   began (the first collection since the delivered sequence last moved in which messages waited). History before
-  the stored collections, or older than the longest max_age and the lookback, is not read, so a message that old
+  the stored collections, or older than the stream's own max_age and the lookback, is not read, so a message that old
   reads younger, never older. A firing finding stays until the message has used less than resolve_ratio of
   max_age, or the consumer catches up. Ephemeral and ordered consumers are left out, and so is a consumer without
   a leader report, or whose stream has none, in this collection, or with such reports over less than half the
@@ -48,12 +48,22 @@ related_config: [warn_ratio, critical_ratio, resolve_ratio, max_age]
 value_name: share of max_age used by the oldest unread message
 value_basis: estimated age of the consumer's oldest unread message divided by the stream's max_age, leader's views
 */
-WITH scfg AS (
+WITH scfg0 AS (
     SELECT account, stream, max(max_age_ns) AS max_age_ns, any_value(subjects) AS subjects
     FROM stream_config
     WHERE first_epoch <= getvariable('epoch') AND last_epoch >= getvariable('epoch')
     GROUP BY account, stream
     HAVING max(max_age_ns) > 0
+),
+-- lo is the first collection of the stream's own window, its max_age and
+-- the lookback: older history is not read, so that a stream with a long
+-- max_age does not widen the scan of the others. A message older than
+-- that is dated at the window's first collection, which is still past its
+-- max_age.
+scfg AS (
+    SELECT s.*, coalesce((SELECT min(x.epoch) FROM epochs x WHERE x.started_at >= getvariable('epoch_time')
+        - getvariable('lookback') - to_microseconds(CAST(s.max_age_ns // 1000 AS BIGINT))), 0) AS lo
+    FROM scfg0 s
 ),
 ccfg AS (
     SELECT account, stream, consumer, any_value(filter_subjects) AS filter_subjects
@@ -63,7 +73,7 @@ ccfg AS (
     HAVING bool_and(coalesce(durable_name, '') <> '')
 ),
 cand AS (
-    SELECT k.*, s.max_age_ns,
+    SELECT k.*, s.max_age_ns, s.lo,
         coalesce(len(k.filter_subjects), 0) = 0
             OR list_sort(k.filter_subjects) = list_sort(coalesce(s.subjects, []::VARCHAR[])) AS unfiltered,
         to_microseconds(CAST(s.max_age_ns // 1000 AS BIGINT)) AS max_age
@@ -74,7 +84,7 @@ now_created AS (
 ),
 -- The consumer's leader rows in the lookback, of its current creation.
 lead AS (
-    SELECT c.*, e.started_at, k.unfiltered, k.max_age, k.max_age_ns
+    SELECT c.*, e.started_at, k.unfiltered, k.max_age, k.max_age_ns, k.lo
     FROM consumer_leader_stats c JOIN epochs e USING (epoch) JOIN cand k USING (account, stream, consumer)
     JOIN now_created n ON n.account = c.account AND n.stream = c.stream AND n.consumer = c.consumer
      AND n.created IS NOT DISTINCT FROM c.created
@@ -115,24 +125,18 @@ target AS (
 -- its publication. Found in two steps that keep the joins small: every
 -- 64th collection first, then the 64 collections before the one found
 -- (or before the collection judged, when none was). A missing report can
--- only make the time later and the age younger. Collections older than the
--- longest max_age and the lookback are not read: a message older than
--- that is dated at the first collection read, which is still past its
--- max_age.
-lo AS (
-    SELECT coalesce(min(x.epoch), 0) AS epoch FROM epochs x WHERE x.started_at >= getvariable('epoch_time')
-        - getvariable('lookback') - (SELECT to_microseconds(CAST(max(max_age_ns) // 1000 AS BIGINT)) FROM cand)
-),
+-- only make the time later and the age younger. Only the stream's window
+-- from lo is read.
 seqs AS (
-    SELECT DISTINCT account, stream, stream_created, epoch, seq FROM target WHERE seq IS NOT NULL
+    SELECT DISTINCT account, stream, stream_created, epoch, seq, lo FROM target WHERE seq IS NOT NULL
 ),
 coarse AS (
-    SELECT q.account, q.stream, q.stream_created, q.epoch, q.seq, coalesce(min(s.epoch), any_value(q.epoch)) AS hi
+    SELECT q.account, q.stream, q.stream_created, q.epoch, q.seq, q.lo, coalesce(min(s.epoch), any_value(q.epoch)) AS hi
     FROM seqs q LEFT JOIN stream_stats s
       ON s.account = q.account AND s.stream = q.stream AND s.created IS NOT DISTINCT FROM q.stream_created
-     AND s.is_leader AND s.epoch % 64 = 0 AND s.epoch <= q.epoch AND s.last_seq >= q.seq
-     AND s.epoch >= (SELECT epoch FROM lo)
-    GROUP BY q.account, q.stream, q.stream_created, q.epoch, q.seq
+     AND s.is_leader AND s.epoch % 64 = 0 AND s.epoch <= q.epoch AND s.last_seq >= q.seq AND s.epoch >= q.lo
+    WHERE s.epoch IS NULL OR s.epoch >= (SELECT min(lo) FROM seqs)
+    GROUP BY q.account, q.stream, q.stream_created, q.epoch, q.seq, q.lo
 ),
 reached AS (
     SELECT c.account, c.stream, c.epoch, c.seq, min(e.started_at) AS first_at
@@ -140,31 +144,47 @@ reached AS (
     JOIN stream_stats s ON s.account = c.account AND s.stream = c.stream
      AND s.created IS NOT DISTINCT FROM c.stream_created AND s.epoch // 64 = c.hi // 64 - b.d
     JOIN epochs e ON e.epoch = s.epoch
-    WHERE s.is_leader AND s.epoch > c.hi - 64 AND s.epoch <= c.hi AND s.last_seq >= c.seq
-      AND s.epoch >= (SELECT epoch FROM lo)
+    WHERE s.is_leader AND s.epoch > c.hi - 64 AND s.epoch <= c.hi AND s.last_seq >= c.seq AND s.epoch >= c.lo
     GROUP BY c.account, c.stream, c.epoch, c.seq
 ),
 -- The backlog's start for a filtered consumer with nothing unacknowledged:
 -- the first leader row after the newest one with no backlog, another
 -- delivered sequence or another creation. Its oldest unread message
--- already waited then.
+-- already waited then. Each consumer's history in the stream's window is
+-- read once for both judged collections; a backlog older than the window
+-- starts at its first row.
+bpts AS (
+    SELECT account, stream, consumer, any_value(lo) AS lo, any_value(created) AS created,
+        max(epoch) FILTER (WHERE is_now) AS e_now, any_value(delivered_stream_seq) FILTER (WHERE is_now) AS d_now,
+        max(epoch) FILTER (WHERE NOT is_now) AS e_then, any_value(delivered_stream_seq) FILTER (WHERE NOT is_now) AS d_then
+    FROM target WHERE backlog_start
+    GROUP BY account, stream, consumer
+),
+bhist AS (
+    SELECT b.*, z.epoch AS ze, coalesce(z.num_pending, 0) = 0 OR z.created IS DISTINCT FROM b.created AS gone,
+        z.delivered_stream_seq AS zd
+    FROM bpts b JOIN consumer_leader_stats z
+      ON z.account = b.account AND z.stream = b.stream AND z.consumer = b.consumer AND z.epoch >= b.lo
+    WHERE z.epoch >= (SELECT coalesce(min(lo), 0) FROM bpts) AND z.epoch <= getvariable('epoch')
+),
 breaks AS (
-    SELECT t.account, t.stream, t.consumer, t.epoch, max(z.epoch) AS brk
-    FROM target t JOIN consumer_leader_stats z
-      ON z.account = t.account AND z.stream = t.stream AND z.consumer = t.consumer AND z.epoch < t.epoch
-    WHERE t.backlog_start
-      AND (coalesce(z.num_pending, 0) = 0 OR z.delivered_stream_seq IS DISTINCT FROM t.delivered_stream_seq
-        OR z.created IS DISTINCT FROM t.created)
-    GROUP BY t.account, t.stream, t.consumer, t.epoch
+    SELECT account, stream, consumer, any_value(e_now) AS e_now, any_value(e_then) AS e_then,
+        max(ze) FILTER (WHERE ze < e_now AND (gone OR zd IS DISTINCT FROM d_now)) AS brk_now,
+        max(ze) FILTER (WHERE ze < e_then AND (gone OR zd IS DISTINCT FROM d_then)) AS brk_then
+    FROM bhist GROUP BY account, stream, consumer
+),
+starts AS (
+    SELECT h.account, h.stream, h.consumer,
+        min(h.ze) FILTER (WHERE h.ze > coalesce(b.brk_now, 0) AND h.ze <= b.e_now) AS s_now,
+        min(h.ze) FILTER (WHERE h.ze > coalesce(b.brk_then, 0) AND h.ze <= b.e_then) AS s_then,
+        any_value(b.e_now) AS e_now, any_value(b.e_then) AS e_then
+    FROM bhist h JOIN breaks b USING (account, stream, consumer)
+    GROUP BY h.account, h.stream, h.consumer
 ),
 backlog AS (
-    SELECT t.account, t.stream, t.consumer, t.epoch, min(x.epoch) AS start_epoch
-    FROM target t LEFT JOIN breaks b USING (account, stream, consumer, epoch)
-    JOIN consumer_leader_stats x
-      ON x.account = t.account AND x.stream = t.stream AND x.consumer = t.consumer
-     AND x.epoch > coalesce(b.brk, 0) AND x.epoch <= t.epoch
-    WHERE t.backlog_start
-    GROUP BY t.account, t.stream, t.consumer, t.epoch
+    SELECT account, stream, consumer, e_now AS epoch, s_now AS start_epoch FROM starts WHERE e_now IS NOT NULL
+    UNION ALL
+    SELECT account, stream, consumer, e_then, s_then FROM starts WHERE e_then IS NOT NULL
 ),
 bounded AS (
     SELECT t.*, CASE
