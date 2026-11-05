@@ -25,12 +25,12 @@ afterEach(() => {
 describe("Capacity acceptance focus", () => {
   it("leaves keyboard focus inside the table after saving, not on the page body", async () => {
     getCapacity.mockResolvedValue(prod());
-    muteFinding.mockResolvedValue(acceptance({ reason: "Kept for audits", mutedBy: "denis", expiresAt: Date.parse("2027-01-21T12:00:00Z") }));
+    muteFinding.mockResolvedValue(acceptance({ reason: "Kept for audits", mutedBy: "alice", expiresAt: Date.parse("2027-01-21T12:00:00Z") }));
     renderApp(<Capacity />, "/capacity");
     await userEvent.click(await screen.findByRole("button", { name: "Accept order-archive as by design…" }));
     const dlg = within(screen.getByRole("dialog"));
     await userEvent.type(dlg.getByLabelText("Reason"), "Kept for audits");
-    await userEvent.type(dlg.getByLabelText("Your name"), "denis");
+    await userEvent.type(dlg.getByLabelText("Your name"), "alice");
     await userEvent.click(dlg.getByRole("button", { name: "Accept as by design" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(document.activeElement).not.toBe(document.body);
