@@ -69,15 +69,41 @@ func (s *Store) FinishDelivery(ctx context.Context, channel string, first, last 
 	if !next.IsZero() {
 		scheduled = next.UTC()
 	}
-	_, err := s.db.ExecContext(ctx, `UPDATE notify_outbox SET state=?,attempts=attempts+1,last_status=?,last_error=?,finished_at=?,delivered_at=?,next_attempt_at=? WHERE channel=? AND id BETWEEN ? AND ? AND state='pending'`, state, status, lastError, finished, delivered, scheduled, channel, first, last)
-	return err
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	result, err := tx.ExecContext(ctx, `UPDATE notify_outbox SET state=?,attempts=attempts+1,last_status=?,last_error=?,finished_at=?,delivered_at=?,next_attempt_at=? WHERE channel=? AND id BETWEEN ? AND ? AND state='pending'`, state, status, lastError, finished, delivered, scheduled, channel, first, last)
+	if err != nil {
+		return err
+	}
+	changed, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if changed > 0 && state != OutboxPending {
+		// This watermark outlives retained outcomes, even for very long intervals.
+		// Record the current collection, not the epoch that queued an old message.
+		_, err = tx.ExecContext(ctx, `INSERT INTO notify_delivery_rate (channel,last_finished_at,last_success_epoch)
+   VALUES (?,make_timestamp(?::BIGINT),CASE WHEN ? THEN (SELECT max(epoch) FROM epochs) ELSE NULL END)
+   ON CONFLICT (channel) DO UPDATE SET last_finished_at=excluded.last_finished_at,
+   last_success_epoch=coalesce(excluded.last_success_epoch,notify_delivery_rate.last_success_epoch)`, channel, at.UnixMicro(), state == OutboxDelivered)
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 // LastDeliveryFinished returns the channel's latest terminal batch outcome.
 // It bounds the normal send rate across process restarts as well as in memory.
 func (s *Store) LastDeliveryFinished(ctx context.Context, channel string) (time.Time, error) {
 	var at sql.NullTime
-	err := s.db.QueryRowContext(ctx, `SELECT max(finished_at) FROM notify_outbox WHERE channel=? AND state <> 'pending'`, channel).Scan(&at)
+	err := s.db.QueryRowContext(ctx, `SELECT last_finished_at FROM notify_delivery_rate WHERE channel=?`, channel).Scan(&at)
+	if err == sql.ErrNoRows {
+		return time.Time{}, nil
+	}
 	if err != nil || !at.Valid {
 		return time.Time{}, err
 	}
@@ -88,7 +114,7 @@ func (s *Store) LastDeliveryFinished(ctx context.Context, channel string) (time.
 // collection, including when the collector is disconnected or after a restart.
 func (s *Store) NotificationEpochSent(ctx context.Context, channel string) (bool, error) {
 	var sent bool
-	err := s.db.QueryRowContext(ctx, `SELECT coalesce((SELECT max(finished_at) FROM notify_outbox WHERE channel=? AND state='delivered') >= (SELECT max(started_at) FROM epochs), false)`, channel).Scan(&sent)
+	err := s.db.QueryRowContext(ctx, `SELECT coalesce((SELECT last_success_epoch FROM notify_delivery_rate WHERE channel=?) >= coalesce((SELECT max(epoch) FROM epochs),0), false)`, channel).Scan(&sent)
 	return sent, err
 }
 
