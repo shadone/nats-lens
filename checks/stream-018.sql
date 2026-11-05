@@ -15,12 +15,14 @@ thresholds:
 description: >-
   A stream, KV bucket or object store has one replica while min_servers or more JetStream servers could hold its
   replicas, so losing that one server's disk loses its messages, and while that server is down the stream is
-  unavailable. The servers counted are those the collection expects (the servers that answered and those missing but
-  recently seen, as for not_ready), in the stream's cluster and domain, and carrying every placement tag of the
-  stream. A mirror is reported too; its detail says that its origin holds the data. Not reported: an asset whose
-  replicas the inventory gives (one replica there is by design; another number is stream-012's), and a stream on a
-  server without a cluster. While the stream's only server is not ready, its last configuration is kept, so a
-  restart does not resolve and fire the finding again.
+  unavailable. The servers counted are those the collection expects (those that answered, those that stopped
+  answering within server_forget_after, and the route and JetStream meta peers the answering servers report), in the
+  stream's cluster and domain, that its placement tags allow as nats-server matches them: without case, a tag with a
+  leading ! rules out servers that carry it, and a server tagged !jetstream takes no stream. A mirror is reported
+  too; its detail says that its origin holds the data. Not reported: an asset whose replicas the inventory gives
+  (one replica there is by design; another number is stream-012's), and a stream on a server without a cluster.
+  While the stream's only server is not ready, its last configuration is kept, so a restart does not resolve and
+  fire the finding again.
 remediation: >-
   If the data matters, raise the replicas: `nats stream edit <stream> --replicas 3`, for a KV bucket
   `nats kv edit <bucket> --replicas 3`, for an object store `nats object edit <bucket> --replicas 3`, or change the
@@ -50,19 +52,31 @@ cfg AS (
                AND c.last_epoch = (SELECT st.last_epoch FROM streams st WHERE st.account = c.account AND st.stream = c.stream)))
     QUALIFY row_number() OVER (PARTITION BY c.account, c.stream ORDER BY c.last_epoch DESC, s.server_name) = 1
 ),
--- The servers the collection expects, each by its newest process.
+-- The servers the collection expects, each by its newest process, with
+-- their tags in lower case as nats-server compares them; a server tagged
+-- !jetstream takes no stream.
 newest AS (
-    SELECT server_name, jetstream, cluster, coalesce(domain, '') AS domain, coalesce(tags, []) AS tags
+    SELECT server_name, jetstream, cluster, coalesce(domain, '') AS domain,
+        list_transform(coalesce(tags, []), x -> lower(trim(x))) AS tags
     FROM servers
     WHERE list_contains((SELECT expected_names FROM epochs WHERE epoch = getvariable('epoch')), server_name)
     QUALIFY row_number() OVER (PARTITION BY server_name ORDER BY last_epoch DESC, server_id DESC) = 1
 ),
 members AS (
-    SELECT * FROM newest WHERE jetstream AND coalesce(cluster, '') <> ''
+    SELECT * FROM newest WHERE jetstream AND coalesce(cluster, '') <> '' AND NOT list_contains(tags, '!jetstream')
 ),
+-- Each placement tag of a stream, and whether it excludes.
+stags AS (
+    SELECT account, stream, lower(trim(CASE WHEN starts_with(t, '!') THEN t[2:] ELSE t END)) AS tag,
+        starts_with(t, '!') AS exclude
+    FROM (SELECT account, stream, trim(unnest(tags)) AS t FROM cfg)
+),
+-- A server can hold the stream when no tag rules it out: a tag it lacks,
+-- or an excluding tag it carries.
 sized AS (
     SELECT c.*, (SELECT count(*) FROM members z WHERE z.cluster = c.cluster AND z.domain = c.domain
-                 AND list_has_all(z.tags, c.tags)) AS servers
+                 AND NOT EXISTS (SELECT 1 FROM stags s WHERE s.account = c.account AND s.stream = c.stream
+                                 AND list_contains(z.tags, s.tag) = s.exclude)) AS servers
     FROM cfg c WHERE c.replicas = 1 AND coalesce(c.cluster, '') <> ''
 ),
 -- Assets whose replicas the inventory gives; the inventory names the
