@@ -110,23 +110,39 @@ target AS (
     FROM pts p
     WHERE coalesce(p.num_ack_pending, 0) > 0 OR coalesce(p.num_pending, 0) > 0
 ),
--- When each sequence was first reported: the first collection in which the
+-- When a sequence was first reported: the first collection in which the
 -- stream's last sequence (leader's view) reached it, a time no earlier than
--- its publication. The key orders by last sequence, then collection, so
--- the join finds the smallest last sequence at or above a sequence and the
--- earliest collection that reported it. A leader that reported a lower last
--- sequence for a while can only make the time later, the age younger.
--- Collections older than the longest max_age and the lookback are not
--- read: a message older than that is dated at the first collection read,
--- which is still past its max_age.
+-- its publication. Found in two steps that keep the joins small: every
+-- 64th collection first, then the 64 collections before the one found
+-- (or before the collection judged, when none was). A missing report can
+-- only make the time later and the age younger. Collections older than the
+-- longest max_age and the lookback are not read: a message older than
+-- that is dated at the first collection read, which is still past its
+-- max_age.
+lo AS (
+    SELECT coalesce(min(x.epoch), 0) AS epoch FROM epochs x WHERE x.started_at >= getvariable('epoch_time')
+        - getvariable('lookback') - (SELECT to_microseconds(CAST(max(max_age_ns) // 1000 AS BIGINT)) FROM cand)
+),
+seqs AS (
+    SELECT DISTINCT account, stream, stream_created, epoch, seq FROM target WHERE seq IS NOT NULL
+),
+coarse AS (
+    SELECT q.account, q.stream, q.stream_created, q.epoch, q.seq, coalesce(min(s.epoch), any_value(q.epoch)) AS hi
+    FROM seqs q LEFT JOIN stream_stats s
+      ON s.account = q.account AND s.stream = q.stream AND s.created IS NOT DISTINCT FROM q.stream_created
+     AND s.is_leader AND s.epoch % 64 = 0 AND s.epoch <= q.epoch AND s.last_seq >= q.seq
+     AND s.epoch >= (SELECT epoch FROM lo)
+    GROUP BY q.account, q.stream, q.stream_created, q.epoch, q.seq
+),
 reached AS (
-    SELECT s.account, s.stream, coalesce(s.created, TIMESTAMP 'epoch') AS created,
-        CAST(s.last_seq AS HUGEINT) * 4294967296 + s.epoch AS k, e.started_at AS first_at
-    FROM stream_stats s JOIN epochs e USING (epoch)
-    WHERE s.is_leader AND s.epoch <= getvariable('epoch') AND s.last_seq IS NOT NULL
-      AND (s.account, s.stream) IN (SELECT account, stream FROM cand)
-      AND s.epoch >= (SELECT coalesce(min(x.epoch), 0) FROM epochs x WHERE x.started_at >= getvariable('epoch_time')
-          - getvariable('lookback') - (SELECT to_microseconds(CAST(max(max_age_ns) // 1000 AS BIGINT)) FROM cand))
+    SELECT c.account, c.stream, c.epoch, c.seq, min(e.started_at) AS first_at
+    FROM coarse c, (VALUES (0), (1)) b(d)
+    JOIN stream_stats s ON s.account = c.account AND s.stream = c.stream
+     AND s.created IS NOT DISTINCT FROM c.stream_created AND s.epoch // 64 = c.hi // 64 - b.d
+    JOIN epochs e ON e.epoch = s.epoch
+    WHERE s.is_leader AND s.epoch > c.hi - 64 AND s.epoch <= c.hi AND s.last_seq >= c.seq
+      AND s.epoch >= (SELECT epoch FROM lo)
+    GROUP BY c.account, c.stream, c.epoch, c.seq
 ),
 -- The backlog's start for a filtered consumer with nothing unacknowledged:
 -- the first leader row after the newest one with no backlog, another
@@ -157,8 +173,7 @@ bounded AS (
         WHEN t.backlog_start THEN (SELECT e.started_at FROM epochs e WHERE e.epoch = g.start_epoch)
     END AS published_by
     FROM target t LEFT JOIN backlog g USING (account, stream, consumer, epoch)
-    ASOF LEFT JOIN reached h ON h.account = t.account AND h.stream = t.stream
-     AND h.created = coalesce(t.stream_created, TIMESTAMP 'epoch') AND h.k >= CAST(t.seq AS HUGEINT) * 4294967296
+    LEFT JOIN reached h USING (account, stream, epoch, seq)
 ),
 aged AS (
     SELECT *, started_at - published_by AS age FROM bounded WHERE published_by IS NOT NULL
