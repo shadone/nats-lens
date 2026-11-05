@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
 import type { Entity, FindingState, Mute, SeverityLevel } from "../api/model";
-import { useFindings, useMutes } from "../api/queries";
+import { useFindings, useLensInfo, useMutes } from "../api/queries";
 import { Empty, QueryView, Section } from "../components/common";
 import { Pager, usePager } from "../components/EntityParts";
 import { EntityLine, FindingRow } from "../components/FindingParts";
@@ -126,6 +126,7 @@ export function Findings() {
   const [params, setParams] = useSearchParams();
   const { spec } = useTimeRange();
   const { start, end } = useResolvedRange(spec);
+  const historyStart = useLensInfo().data?.historyStart;
   const sev = (params.get("sev") ?? "").split(",").filter((s): s is SeverityLevel => SEVERITIES.includes(s as SeverityLevel));
   const stateId = STATES.find((s) => s.id === params.get("state"))?.id ?? "open";
   const muted = params.get("muted") !== "0";
@@ -198,7 +199,7 @@ export function Findings() {
               {page.items.length === 0 ? (
                 <Empty>{stateId === "open" && sev.length === 0 && !check ? "All clear: no finding fires in this range." : "No findings match these filters."}</Empty>
               ) : (
-                page.items.map((f) => <FindingRow key={f.id} f={f} end={end} rangeStart={start} label={label} />)
+                page.items.map((f) => <FindingRow key={f.id} f={f} end={end} rangeStart={start} label={label} historyStart={historyStart} />)
               )}
               <Pager page={pager.page} next={page.nextPageToken} onNext={() => pager.next(page.nextPageToken)} onPrev={pager.prev} total={page.totalCount} shown={page.items.length} />
             </div>

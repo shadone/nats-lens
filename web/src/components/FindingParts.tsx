@@ -2,6 +2,8 @@
 import { createContext, useContext } from "react";
 import type { Entity, Finding } from "../api/model";
 import { fmtDuration, isoDate, isoMinute, shortWhen } from "../lib/format";
+import { atHistoryStart } from "../lib/historyNotes";
+import { whenText } from "../lib/historyView";
 import { muteBy, reviewOn, sentence } from "../lib/muteView";
 import { accountLabel, entityName, entityPath, findingPath, findingTag, streamPath } from "../lib/view";
 import { RLink } from "./common";
@@ -27,8 +29,25 @@ export function EntityLine({ e, small, label }: { e?: Entity; small?: boolean; l
   );
 }
 
-/** One row of the findings list; a muted or accepted one shows who muted or accepted it and why. */
-export function FindingRow({ f, end, rangeStart, label }: { f: Finding; end: number; rangeStart?: number; label?: (id: string, name?: string) => string }) {
+/**
+ * One row of the findings list; a muted or accepted one shows who muted or
+ * accepted it and why. A finding already true when the history begins
+ * says so in place of its first-seen time, which would read as fresh.
+ */
+export function FindingRow({
+  f,
+  end,
+  rangeStart,
+  label,
+  historyStart,
+}: {
+  f: Finding;
+  end: number;
+  rangeStart?: number;
+  label?: (id: string, name?: string) => string;
+  /** Where the history begins; without it no row is marked. */
+  historyStart?: number;
+}) {
   const tag = findingTag(f, rangeStart);
   const m = f.mute;
   const since = f.since ?? end;
@@ -62,6 +81,12 @@ export function FindingRow({ f, end, rangeStart, label }: { f: Finding; end: num
           )}
           <br />
           in {fmtDuration(m.expiresAt - end)}
+        </span>
+      ) : atHistoryStart(f, historyStart) ? (
+        <span className="s" title={`Already true when the history begins, at ${whenText(historyStart!, end)}: nats-lens cannot know when it started.`}>
+          already true
+          <br />
+          when the history begins
         </span>
       ) : (
         <span className="s">

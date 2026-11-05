@@ -2,7 +2,7 @@
 // table, disagreements, findings and events for one entity.
 import { useState, type ReactNode } from "react";
 import type { ConsumerSummary, Disagreement, Entity } from "../api/model";
-import { useEvents, useFindings } from "../api/queries";
+import { useEvents, useFindings, useLensInfo } from "../api/queries";
 import { fmtDuration, fmtInt } from "../lib/format";
 import { consumerPath } from "../lib/view";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
@@ -171,6 +171,7 @@ export function EntityFindings({ entity }: { entity: Entity }) {
   const { spec } = useTimeRange();
   const { start, end } = useResolvedRange(spec);
   const q = useFindings(spec, { entity, includeMuted: true });
+  const historyStart = useLensInfo().data?.historyStart;
   return (
     <Section title="Findings" aside="Firing now for this entity, worst first.">
       <QueryView q={q} what="findings">
@@ -178,7 +179,7 @@ export function EntityFindings({ entity }: { entity: Entity }) {
           p.items.length ? (
             <div className="card others">
               {p.items.map((f) => (
-                <FindingRow key={f.id} f={f} end={end} rangeStart={start} />
+                <FindingRow key={f.id} f={f} end={end} rangeStart={start} historyStart={historyStart} />
               ))}
             </div>
           ) : (
