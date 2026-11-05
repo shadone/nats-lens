@@ -1,3 +1,3 @@
 {
-  "text": "nats-lens, Production (example-prod):\nWARNING acknowledged: stream-001 Stream without a leader: shop/order-jobs (no leader for 2m) <https://nats-lens.example.com/findings/stream-001:APP%2Forder-jobs?system=example-prod|open>"
+  "text": "nats-lens, Production (example-prod):\nWARNING acknowledged by alice@example.com, quiet until 2026-11-05 10:32 UTC (Checking quorum): stream-001 Stream without a leader: shop/order-jobs (no leader for 2m) <https://nats-lens.example.com/findings/stream-001:APP%2Forder-jobs?system=example-prod|open>"
 }
