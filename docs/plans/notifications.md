@@ -21,7 +21,7 @@ Each was answered by the session that built T1 as recommended below: proposed, n
 | T1 Configuration, message formats and `natslens notify test` | built on `feat/notify-config`, awaiting review |
 | T2 Notification state and outbox | built on `feat/notify-outbox`, awaiting review |
 | T3 Delivery, retries, metrics and the delivery check | built in isolated T3 checkout, awaiting parent review |
-| T4 Acknowledgements in notifications | planned; needs `docs/plans/mobile.md` T1 merged |
+| T4 Acknowledgements in notifications | built in isolated N4 checkout with prerequisite `b7b5131`; awaiting parent fresh read-only review |
 | T5 Feature docs, design and audit | planned |
 
 ## Rules for every step
@@ -248,3 +248,26 @@ Proposed, not yet confirmed:
 - ASVS 1.2.4 / 15.4.3: parameterized short store writes; no store lock across HTTP. ASVS 13.3.1: persisted outcomes and logs omit receiver error text, response bodies and secret destinations; T1 rereads secrets per attempt.
 
 T3 also retains T1's configured-only destinations, verified TLS and redirect refusal (ASVS 13.2.4, 12.3.2), and per-channel timeouts and bounded retries (13.2.6). Persisted failure descriptions are generic (16.5.1); receivers may use long-lived webhook credentials as authorized in T1 rather than the short-lived service identities recommended by 13.2.1. Proposed, not yet confirmed.
+
+
+### Where T4 departed from this plan
+
+All choices here are proposed, not yet confirmed. N4 merges M T1 `b7b5131` as a separate prerequisite merge; neither review is self-approved.
+
+- The existing notification baseline means last queued, not HTTP-delivered. Acknowledgements use each channel's last reconciled epoch time, not its finding's last message time. Baseline records existing acknowledgements without sending notes. The first subsequent reconcile sends only notes created in `(last reconcile, epoch start]` for the current episode that is in view then. A newly opened episode sends firing before its acknowledgement notes. Resolved or out-of-view episodes do not replay their historical notes.
+- Every replacement in that interval sends its own note, even when it was replaced or released during a gap. Acknowledged dedup keys append the acknowledgement ID to the existing key, so multiple notes in one epoch stay distinct. An unchanged acknowledgement is not sent each epoch or on restart. No migration is needed; 0035, 0036, and 0037 are unchanged.
+- Quiet is episode-scoped and independent of the severity last queued. A suppressed fall keeps that severity baseline. A replacement that extends quiet suppresses the earlier quiet-ended reminder. Expiry or release gives one quiet-ended reminder if the known finding still fires, regardless of repeat_every. A fall below min_severity stays silent during quiet, then sends the quiet-ended reminder followed by a severity-based resolved message to close the channel's incident. A simultaneous rise sends changed before the reminder. Mute/filter exits retain their normal behavior.
+- Acknowledgement notes can arrive while a finding flaps. During quiet a rise still sends changed, and an actual resolve of an acknowledged episode sends resolved even while its flapping flag remains set. Other flapping behavior stays as built in N2.
+- The webhook adds `acknowledgement.by`, `.note`, `.quiet_until` or `.until_resolved` to version 1; Slack words and escapes the same fields. The actor comes solely from the existing API-stored acknowledgement. ASVS 1.2.4: bound SQL parameters; 1.2.3: JSON encoding and bounded escaped Slack text; 14.2.1/14.2.3: notes are message-body data only for configured channels; 16.2.5: queue logs contain counts, never actor/note text. No new sender or identity input is introduced.
+- Only the minimal notification capability doc and both index sections are updated here as AGENTS.md requires. The global N5 docs pass, M T2 GetOnCall, and phone UI remain deferred to their owners.
+
+
+### T4 verification evidence
+
+- RED `bf98c79`: `go test ./internal/notify -run TestAcknowledgement -count=1` compiled and failed on missing acknowledged messages, reminders during quiet, downward severity exits, missing quiet-ended reminders, and a flapping resolve. GREEN `8e96662` ran the same target successfully.
+- RED `5eef51a`: `TestAcknowledgementNewEpisodeInGap` failed with only resolved/firing and no acknowledgement for the current episode. GREEN `9bdf0d0` preserved that note after the new firing.
+- RED `f5a1ac1`: `TestAcknowledgementViewEntryAndThresholdEnd` and `TestAcknowledgementQuietEndWithRise` failed on missing quiet-ended reminder and missing simultaneous changed message. GREEN `4f8f65d` ran the acknowledgement target successfully.
+- Final `go test ./internal/notify -count=1 -coverprofile=/tmp/n4-notify-final.out`: PASS, 93.4% statement coverage. Both payload formats have finite-quiet and until-resolved golden fixtures; encode/decode and Slack escaping checks pass.
+- `TZ=America/Los_Angeles go test ./internal/notify ./internal/store -run 'Acknowledgement|Ack|Notify' -count=1`: PASS against real stores. Final `TZ=America/Los_Angeles go test -race ./internal/notify -run TestAcknowledgement -count=1`: PASS. `TZ=Asia/Kolkata go test -race ./internal/store -run 'Ack|Notify' -count=1`: PASS. The full notification race suite also passed before the final quiet-end boundary fix.
+- Final `go vet ./internal/notify ./internal/store`: PASS. Feature-doc audit with `--map-refs require`: 0 errors, only expected planned-status warnings for data-history and mobile. `git diff --check`: PASS. HTTP tests use local httptest receivers; no configured external destination was contacted.
+- Parent-owned fresh read-only review and integration remain pending. The prerequisite M T1 review is separate; no approval is claimed here.
