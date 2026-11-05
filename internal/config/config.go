@@ -82,6 +82,8 @@ type Config struct {
 	InventoryFile string `yaml:"inventory_file"`
 	// Checks tunes the checks run after every epoch.
 	Checks Checks `yaml:"checks"`
+	// Notifications configures the channels findings are sent to.
+	Notifications Notifications `yaml:"notifications"`
 	// Kubernetes configures the optional Kubernetes watcher.
 	Kubernetes Kubernetes `yaml:"kubernetes"`
 	// SystemID names the one system of a configuration without Systems;
@@ -290,6 +292,7 @@ func (c Config) Validate() error {
 	}
 	errs = append(errs, validateAccounts(c.Accounts)...)
 	errs = append(errs, c.validateSystems()...)
+	errs = append(errs, c.Notifications.validate(c.systemIDs())...)
 	if c.Checks.Timeout.D() <= 0 || c.Checks.Timeout.D() > c.Interval.D() {
 		errs = append(errs, errors.New("checks.timeout must be positive and at most interval"))
 	}
@@ -339,6 +342,7 @@ func (c Config) LogValue() slog.Value {
 		slog.Any("checks_disabled", c.Checks.Disabled),
 		slog.Any("checks_thresholds", c.Checks.Thresholds),
 		slog.String("checks_remediation_file", c.Checks.RemediationFile),
+		slog.Any("notifications", c.Notifications.LogValue()),
 		slog.Bool("kubernetes", c.Kubernetes.Enabled),
 		slog.Any("kubernetes_namespaces", c.Kubernetes.Namespaces),
 		slog.String("kubernetes_kubeconfig", c.Kubernetes.Kubeconfig),
