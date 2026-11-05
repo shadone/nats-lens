@@ -266,7 +266,7 @@ export function historySpan(historyStart: number | undefined, start: number, end
 
 export function historyNote(historyStart: number | undefined, start: number, end: number, intervalMs: number, live: boolean): string | undefined {
   if (historyStart === undefined || historyStart - start <= intervalMs) return undefined;
-  const asked = live ? `the last ${spanText(end - start)}` : `${whenText(start, end)} to ${whenText(end, end)}`;
+  const asked = live ? `the last ${end - start === DAY ? "24 h" : spanText(end - start)}` : `${whenText(start, end)} to ${whenText(end, end)}`;
   return `${spanText(historySpan(historyStart, start, end)!)} of history: you asked for ${asked}; nats-lens started at ${whenText(historyStart, end)}.`;
 }
 
