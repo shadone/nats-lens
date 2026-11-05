@@ -43,7 +43,8 @@ func (p *Provider) DataHistory(ctx context.Context, req *v1.GetDataHistoryReques
 
 // historyCounts reads the oldest and newest collections, the oldest
 // event, the range's collections and partial ones, and the firing
-// findings already true at the history start (the finding page's rule).
+// findings already true at the history start (the finding page's rule,
+// with HistoryStartSlack).
 func (p *Provider) historyCounts(ctx context.Context, f *api.HistoryFacts) error {
 	var first, last, events sql.NullTime
 	err := p.db().QueryRowContext(ctx, `
@@ -52,8 +53,8 @@ SELECT (SELECT first FROM h), (SELECT max(started_at) FROM epochs), (SELECT min(
     (SELECT count(*) FROM epochs WHERE started_at >= ? AND started_at < ?),
     (SELECT count(*) FROM epochs WHERE started_at >= ? AND started_at < ? AND partial),
     (SELECT count(*) FROM findings, h WHERE state = 'firing'
-        AND (condition_since < h.first OR (since >= h.first AND since < h.first + INTERVAL 1 MINUTE)))`,
-		f.Start, f.End, f.Start, f.End).Scan(&first, &last, &events, &f.Epochs, &f.PartialEpochs, &f.FindingsAtStart)
+        AND (condition_since < h.first OR (since >= h.first AND epoch_us(since) < epoch_us(h.first) + ?)))`,
+		f.Start, f.End, f.Start, f.End, api.HistoryStartSlack.Microseconds()).Scan(&first, &last, &events, &f.Epochs, &f.PartialEpochs, &f.FindingsAtStart)
 	if err != nil {
 		return fmt.Errorf("data history counts: %w", err)
 	}
