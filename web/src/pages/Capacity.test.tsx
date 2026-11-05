@@ -133,28 +133,28 @@ describe("Capacity", () => {
   it("shows the row as accepted after saving, without waiting for a new answer", async () => {
     getCapacity.mockResolvedValueOnce(prod());
     getCapacity.mockImplementation(() => new Promise(() => {}));
-    const m = acceptance({ reason: "Order history is kept for audits", mutedBy: "denis", expiresAt: Date.parse("2027-01-21T12:00:00Z") });
+    const m = acceptance({ reason: "Order history is kept for audits", mutedBy: "alice", expiresAt: Date.parse("2027-01-21T12:00:00Z") });
     muteFinding.mockResolvedValue(m);
     renderApp(<Capacity />, "/capacity");
     await userEvent.click(await screen.findByRole("button", { name: "Accept order-archive as by design…" }));
     const dlg = within(screen.getByRole("dialog"));
     expect(dlg.getByText(/^Accepts/)).toHaveTextContent("Accepts stream-005 Stream without any limit for order-archive");
     await userEvent.type(dlg.getByLabelText("Reason"), "Order history is kept for audits");
-    await userEvent.type(dlg.getByLabelText("Your name"), "denis");
+    await userEvent.type(dlg.getByLabelText("Your name"), "alice");
     await userEvent.click(dlg.getByRole("button", { name: "Accept as by design" }));
-    await waitFor(() => expect(cellTexts("order-archive")[5]).toBe("BY DESIGNAccepted by denis: Order history is kept for audits. Review on 2027-01-21.stream-005"));
+    await waitFor(() => expect(cellTexts("order-archive")[5]).toBe("BY DESIGNAccepted by alice: Order history is kept for audits. Review on 2027-01-21.stream-005"));
     expect(muteFinding.mock.calls[0][1]).toMatchObject({ checkCode: "stream-005", accept: true, entity: { kind: "stream", key: "APP/order-archive" } });
     expect(within(row("order-archive")).queryByRole("button")).toBeNull();
   });
 
   it("shows the next answer after the save, whatever it says", async () => {
     getCapacity.mockResolvedValue(prod());
-    muteFinding.mockResolvedValue(acceptance({ reason: "Kept", mutedBy: "denis" }));
+    muteFinding.mockResolvedValue(acceptance({ reason: "Kept", mutedBy: "alice" }));
     renderApp(<Capacity />, "/capacity");
     await userEvent.click(await screen.findByRole("button", { name: "Accept order-archive as by design…" }));
     const dlg = within(screen.getByRole("dialog"));
     await userEvent.type(dlg.getByLabelText("Reason"), "Kept");
-    await userEvent.type(dlg.getByLabelText("Your name"), "denis");
+    await userEvent.type(dlg.getByLabelText("Your name"), "alice");
     await userEvent.click(dlg.getByRole("button", { name: "Accept as by design" }));
     await waitFor(() => expect(getCapacity).toHaveBeenCalledTimes(2));
     // The answer fetched after the save still says awaiting (the acceptance ended elsewhere): it is shown.
@@ -163,28 +163,28 @@ describe("Capacity", () => {
 
   it("keeps the saved acceptance on a fixed range, whose answers apply the mutes of its end", async () => {
     getCapacity.mockResolvedValue(prod());
-    muteFinding.mockResolvedValue(acceptance({ reason: "Kept", mutedBy: "denis" }));
+    muteFinding.mockResolvedValue(acceptance({ reason: "Kept", mutedBy: "alice" }));
     renderApp(<Capacity />, "/capacity?from=2026-10-20T00:00:00Z&to=2026-10-21T00:00:00Z");
     await userEvent.click(await screen.findByRole("button", { name: "Accept order-archive as by design…" }));
     const dlg = within(screen.getByRole("dialog"));
     await userEvent.type(dlg.getByLabelText("Reason"), "Kept");
-    await userEvent.type(dlg.getByLabelText("Your name"), "denis");
+    await userEvent.type(dlg.getByLabelText("Your name"), "alice");
     await userEvent.click(dlg.getByRole("button", { name: "Accept as by design" }));
     await waitFor(() => expect(getCapacity).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await new Promise((r) => setTimeout(r, 50));
-    expect(cellTexts("order-archive")[5]).toMatch(/^BY DESIGNAccepted by denis: Kept\./);
+    expect(cellTexts("order-archive")[5]).toMatch(/^BY DESIGNAccepted by alice: Kept\./);
   });
 
   it("moves focus to the accepted row's stream, as its button is gone", async () => {
     getCapacity.mockResolvedValueOnce(prod());
     getCapacity.mockImplementation(() => new Promise(() => {}));
-    muteFinding.mockResolvedValue(acceptance({ reason: "Kept for audits", mutedBy: "denis" }));
+    muteFinding.mockResolvedValue(acceptance({ reason: "Kept for audits", mutedBy: "alice" }));
     renderApp(<Capacity />, "/capacity");
     await userEvent.click(await screen.findByRole("button", { name: "Accept order-archive as by design…" }));
     const dlg = within(screen.getByRole("dialog"));
     await userEvent.type(dlg.getByLabelText("Reason"), "Kept for audits");
-    await userEvent.type(dlg.getByLabelText("Your name"), "denis");
+    await userEvent.type(dlg.getByLabelText("Your name"), "alice");
     await userEvent.click(dlg.getByRole("button", { name: "Accept as by design" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(table().getByRole("link", { name: "order-archive" })));

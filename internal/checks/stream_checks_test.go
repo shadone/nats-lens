@@ -366,11 +366,11 @@ func TestStreamConfigChanged(t *testing.T) {
 	f := newFx(t)
 	f.cluster(200)
 	f.event(1, at(150), "stream.updated", m{"account": "APP", "stream": "jobs", "client_name": "nack"})
-	f.event(2, at(180), "stream.updated", m{"account": "APP", "stream": "jobs", "client_name": "denis-laptop",
+	f.event(2, at(180), "stream.updated", m{"account": "APP", "stream": "jobs", "client_name": "alice-laptop",
 		"client_host": "10.1.2.3"})
 	f.event(3, at(10), "stream.updated", m{"account": "APP", "stream": "old", "client_name": "nack"})
 	r := f.fires("stream-013", 200, "APP/jobs")
-	want(t, r["APP/jobs"], "info", "Updated 2 times in the last 1h, the last at 10:29:30 UTC by denis-laptop (10.1.2.3)")
+	want(t, r["APP/jobs"], "info", "Updated 2 times in the last 1h, the last at 10:29:30 UTC by alice-laptop (10.1.2.3)")
 	if r["APP/jobs"].CauseEventID != 2 {
 		t.Errorf("cause = %d", r["APP/jobs"].CauseEventID)
 	}
@@ -552,14 +552,14 @@ func TestStreamDisappeared(t *testing.T) {
 	f.streamStats(1, "S2", "on-missing", m{})
 	f.exec(`DELETE FROM stream_stats WHERE stream = 'on-missing' AND server_id = 'S0'`)
 	f.inventory("stream", "listed", "listed", "", nil)
-	f.event(3, at(2).Add(time.Second), "stream.deleted", m{"account": "APP", "stream": "KV_bucket", "client_name": "denis"})
+	f.event(3, at(2).Add(time.Second), "stream.deleted", m{"account": "APP", "stream": "KV_bucket", "client_name": "alice"})
 	f.epoch(3, three, "nats-2")
 	for _, id := range []string{"S0", "S1"} {
 		f.row("epoch_endpoints", m{"epoch": 3, "server_id": id, "endpoint": "JSZ", "state": "ok"})
 	}
 	r := f.fires("stream-014", 3, "APP/gone", "APP/KV_bucket", "APP/on-missing")
 	want(t, r["APP/on-missing"], "warning", "may be on nats-2, which did not answer")
-	want(t, r["APP/KV_bucket"], "critical", "KV bucket bucket (stream KV_bucket) was last reported by nats-0 at", "Deleted 2026-10-17 09:00:31 UTC by denis")
+	want(t, r["APP/KV_bucket"], "critical", "KV bucket bucket (stream KV_bucket) was last reported by nats-0 at", "Deleted 2026-10-17 09:00:31 UTC by alice")
 	want(t, r["APP/gone"], "critical", "No delete event recorded")
 }
 

@@ -171,7 +171,7 @@ func prodSeedMute() *storedMute {
 	return &storedMute{relative: true, m: &v1.Mute{
 		Id: "1", CheckCode: "stream-006", Entity: streamRef("audit-archive"),
 		Reason:    "Retention cut to 90d is in review; growth after the backfill is expected.",
-		MutedBy:   "denis",
+		MutedBy:   "alice",
 		CreatedAt: ts(s.at(12, 0, 0)), ExpiresAt: ts(s.on(24, 12, 0)),
 	}}
 }
