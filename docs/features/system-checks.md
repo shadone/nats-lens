@@ -72,7 +72,7 @@ The system checks judge what belongs to no single server: the JetStream meta gro
 - **Fires when:** a closed hour that holds collections or events has waited longer than `max_delay` for its export, counted from the end of the hour, or from the start of nats-lens when that is later. The detail names the oldest hour waiting, how many later closed hours wait too, and the time of the last export. The finding resolves once every closed hour is exported.
 - **Severity:** warning (proposed, not yet confirmed).
 - **Thresholds:** `max_delay` 1h (proposed, not yet confirmed).
-- **Left out:** the open hour, which is exported provisionally; `natslens once`, which does not export, and `natslens checks`, which judges a stored database without an archiver. An hour exported only provisionally before it closed still waits.
+- **Left out:** the open hour, which is exported provisionally; `natslens once`, which does not export, and `natslens checks`, which judges a stored database without an archiver. An hour exported only provisionally before it closed still waits, and so do hours exported before the archive recorded whether an export was final (migration `0014`): they are exported again once after an upgrade, and the wait for them counts from the start of nats-lens. Not seen: a failed export again of an hour already exported as closed, such as one whose late events changed it; the hour stays in the archive as first exported.
 
 ### `system-009` Event messages dropped
 
@@ -88,7 +88,7 @@ The system checks judge what belongs to no single server: the JetStream meta gro
 - **Checks rotate.** The order of the checks moves by one every collection, so when the budget runs out, a different check is left out each time.
 - **System findings carry no entity.** In the UI they read as "system". A mute of a system finding, for "This entity" or for every entity of the check, covers the whole system.
 - **Held conditions do not flap.** `system-004`, `system-005` and `system-006` fire only when their condition held in every collection for `min_duration`, and a firing finding resolves only after `min_duration` without it. A collection with a restarting server counts as clean, so a rolling restart or upgrade does not fire them.
-- **nats-lens judges itself.** `system-007` to `system-009` are about nats-lens, not NATS: their remediations name nats-lens's own settings (`timeout`, `archive_dir`, `data_dir`, `events.api_audit`) as well as `nats` commands.
+- **nats-lens judges itself.** `system-007` to `system-009` are about nats-lens, not NATS: their remediations name nats-lens's own settings (`timeout`, `archive_dir`, `data_dir`, `events.api_audit`) as well as `nats` commands. They colour no Overview tile; `system-001` to `system-006` colour the Servers tile ([overview-page.md](overview-page.md)).
 
 ## Scenarios
 
