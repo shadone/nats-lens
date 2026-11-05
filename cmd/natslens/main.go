@@ -12,6 +12,8 @@
 //	natslens checks run [-config FILE] [-system ID] [-data-dir DIR]
 //	                                            evaluate the checks on a database no collector has open
 //	natslens demo [-listen ADDR]                serve the API with a fixed scenario, without NATS
+//	natslens notify test -config FILE [-channel NAME] [-system ID]
+//	                                            send a test message to each notification channel, or one
 //
 // natslens run also serves the API and UI on -listen (default
 // 127.0.0.1:8080).
@@ -52,7 +54,7 @@ func main() {
 
 func run(ctx context.Context, args []string) error {
 	cmd := "run"
-	if len(args) > 0 && (args[0] == "run" || args[0] == "once" || args[0] == "sql" || args[0] == "demo" || args[0] == "checks") {
+	if len(args) > 0 && (args[0] == "run" || args[0] == "once" || args[0] == "sql" || args[0] == "demo" || args[0] == "checks" || args[0] == "notify") {
 		cmd, args = args[0], args[1:]
 	}
 	if cmd == "sql" {
@@ -63,6 +65,9 @@ func run(ctx context.Context, args []string) error {
 	}
 	if cmd == "demo" {
 		return runDemo(ctx, args)
+	}
+	if cmd == "notify" {
+		return runNotifyCmd(ctx, args, os.Stdout)
 	}
 
 	var only string
@@ -103,6 +108,9 @@ func runConfig(ctx context.Context, cmd string, cfg config.Config, only string, 
 	}
 	set, err := loadChecks(cfg)
 	if err != nil {
+		return err
+	}
+	if err := checkNotifications(cfg, set, cmd, log); err != nil {
 		return err
 	}
 	warnUnusedDatabase(cfg, log)
