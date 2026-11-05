@@ -24,8 +24,8 @@ remediation: >-
   A pause is set on purpose, by a person or a service, for example during maintenance of what the consumer writes
   to. Find out who paused it: the Events page shows the consumer.paused event and, with events.api_audit on, the
   API call that paused it.
-  If the reason is gone, resume it: `nats consumer resume <stream> <consumer>`. A consumer that stays paused by
-  design can be muted with that reason.
+  If the reason is gone, resume it: `nats consumer resume <stream> <consumer>`. A pause on a schedule, such as a
+  consumer that runs only at night and is paused in between, is by design: mute the finding with that reason.
 related_config: [max_paused]
 value_name: hours paused
 value_basis: time since the pause began
@@ -83,7 +83,7 @@ began AS (
 ),
 until AS (
     SELECT k.account, k.stream, k.consumer,
-        arg_max(TRY_CAST(k.config->>'pause_until' AS TIMESTAMP), s.is_leader) AS pause_until
+        arg_max(timezone('UTC', TRY_CAST(k.config->>'pause_until' AS TIMESTAMPTZ)), s.is_leader) AS pause_until
     FROM consumer_config k
     JOIN consumer_stats s ON s.server_id = k.server_id AND s.account = k.account AND s.stream = k.stream
      AND s.consumer = k.consumer AND s.epoch = getvariable('epoch')
