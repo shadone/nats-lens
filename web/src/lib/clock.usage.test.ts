@@ -9,7 +9,7 @@ const sources = import.meta.glob<string>(["../**/*.ts", "../**/*.tsx", "!../**/*
   eager: true,
 });
 
-/** Files and how many Date.now() calls each may hold, with why. */
+/** Files and how many Date.now() or new Date() calls each may hold, with why. */
 const ALLOWED: Record<string, number> = {
   // The clock itself: the browser's clock plus the server's offset.
   "./clock.ts": 2,
@@ -28,7 +28,7 @@ describe("the UI's now", () => {
   it("calls Date.now() only where the browser's own clock is meant", () => {
     const found: Record<string, number> = {};
     for (const [path, text] of Object.entries(sources)) {
-      const n = text.split("Date.now(").length - 1;
+      const n = text.match(/\bDate\s*\.\s*now\s*\(|new Date\(\s*\)/g)?.length ?? 0;
       if (n > 0) found[path] = n;
     }
     expect(found).toEqual(ALLOWED);
