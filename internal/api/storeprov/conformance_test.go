@@ -307,6 +307,12 @@ func TestStoreConformance(t *testing.T) {
 		{Ref: &v1.SystemRef{Id: "subjects", Name: "subjects"}, Provider: subjectsProvider(t, clock.Add(-30*time.Second))},
 		{Ref: &v1.SystemRef{Id: "micro", Name: "micro"}, Provider: microConf},
 		{Ref: &v1.SystemRef{Id: "apps", Name: "apps"}, Provider: appsProvider(t, clock.Add(-30*time.Second))},
+		{Ref: &v1.SystemRef{Id: "history", Name: "history"}, Provider: &storeprov.Provider{St: historyStore(t, clock), Interval: 30 * time.Second,
+			Live: true, Clock: at, Retention: 14 * 24 * time.Hour, ArchiveStatus: func() api.ArchiveState {
+				hour := clock.Truncate(time.Hour)
+				return api.ArchiveState{Location: "/var/lib/natslens/archive", Retention: 90 * 24 * time.Hour, OldestHour: hour.Add(-3 * time.Hour),
+					NewestHour: hour, Hours: 4, LastExportAt: clock.Add(-time.Minute), ListedAt: hour.Add(5 * time.Minute)}
+			}}},
 	}})
 	if _, err := c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{System: "main", CheckCode: "stream-007",
 		Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/payments"}, Reason: "Update in review.", MutedBy: "ops",
@@ -323,7 +329,7 @@ func TestStoreConformance(t *testing.T) {
 		ExpiresAt: timestamppb.New(clock.Add(24 * time.Hour))})); err != nil {
 		t.Fatal(err)
 	}
-	apitest.RunConformance(t, apitest.Env{Client: c, Systems: []string{"main", "closed", "replay", "topology", "topology-single", "accounts", "accounts-config", "capacity", "subjects", "micro", "apps"}, Now: clock})
+	apitest.RunConformance(t, apitest.Env{Client: c, Systems: []string{"main", "closed", "replay", "topology", "topology-single", "accounts", "accounts-config", "capacity", "subjects", "micro", "apps", "history"}, Now: clock})
 }
 
 // accountsHeadlineStore is accountsStore with the findings its data
