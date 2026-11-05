@@ -16,10 +16,10 @@ The three open questions above are answered as recommended by the session that b
 
 | Task | Status |
 |---|---|
-| T1 API, store and demo | built on `feat/data-history-api`, not yet reviewed; see "Where T1 departed from this plan" |
-| T2 The Data history page | built on `feat/data-history-page`, not yet reviewed; see "Where T2 departed from this plan" |
-| T3 History notes on the other pages | implemented on `t3/history-notes-other-pages`; parent review pending |
-| T4 Feature docs and audit | planned |
+| T1 API, store and demo | reviewed and merged at `5183027`; see "Where T1 departed from this plan" |
+| T2 The Data history page | reviewed and merged at `0f06480`; see "Where T2 departed from this plan" |
+| T3 History notes on the other pages | reviewed canonical tip `79183fb`, merged at `88eaed8`; includes bounded chart-history fixes |
+| T4 Feature docs and audit | built, awaiting fresh read-only review before integration |
 
 ## Rules for every step
 
@@ -164,12 +164,12 @@ What `docs/features/data-history.md` plans outside the page, each linking to Dat
 - Growth wording is shared by Capacity's header, cards, and stream rows, Streams tooltips, and Overview storage. Short live ranges ask for a six-hour range; fixed ranges name their available span instead of promising a countdown. This wording is proposed, not yet confirmed.
 - Findings rows and single/grouped cause cards reuse the finding-detail history-start rule. Missing-history links preserve the global query, including the originating account even though Data history itself is system-wide; this link behavior is proposed, not yet confirmed.
 - Browser checks: fixed demo `example-staging`, Overview, Capacity, and `nats-0` at 360 and 1280 px have no horizontal overflow. Overview/server hatches name the three-minute restart and before-history interval; Capacity has no charts and makes no hatching request. T3 preview opened, but its snapshot timed out twice; the documented agent-browser fallback supplied screenshots and accessibility trees.
-- Validation after merging reviewed D2: `npx tsc --noEmit`, `npm test` (121 files, 1,247 passed, 24 skipped), and `npm run build` passed. The feature-doc audit reports no errors and only the expected planned-status warnings on mobile and notifications. Regression tests failed with the relevant implementation removed and passed when restored. Final production-demo browser checks made one shared history request on Overview/server and none on Capacity, at both widths. Parent read-only review remains pending.
-- Minimal capability/index updates describe the shipped T3 behavior. T4's cross-capability documentation and design consolidation remain planned, as do forecast margins. No acknowledgements backend or D2 page implementation is included in T3.
+- Validation after merging reviewed D2: `npx tsc --noEmit`, `npm test` (121 files, 1,247 passed, 24 skipped), and `npm run build` passed. The feature-doc audit reports no errors and only the expected planned-status warnings on mobile and notifications. Regression tests failed with the relevant implementation removed and passed when restored. Final production-demo browser checks made one shared history request on Overview/server and none on Capacity, at both widths. That implementation and its subsequent fix round were reviewed and merged at `88eaed8` (canonical tip `79183fb`).
+- Minimal capability/index updates describe the shipped T3 behavior. T4 consolidates the cross-capability documentation and design below; forecast margins remain deferred. No acknowledgements backend or D2 page implementation is included in T3.
 
 ### T3 first review fix round
 
-- Integrated only canonical candidate `bcfd42b8301f998cac57aea791d3ade0a2314ada` with the reviewed D2 parent `0f06480` in the isolated `t3/data-history-gap-range-fixes` checkout. No sibling checkout or duplicate native D3 implementation was used. Fresh parent-assigned read-only review is still required.
+- Integrated only canonical candidate `bcfd42b8301f998cac57aea791d3ade0a2314ada` with the reviewed D2 parent `0f06480` in the isolated `t3/data-history-gap-range-fixes` checkout. No sibling checkout or duplicate native D3 implementation was used. The canonical fix round was subsequently reviewed and merged at `88eaed8` (tip `79183fb`).
 - **Finding 1:** chart domains choose bounded shared history windows. Page-range charts reuse their key; the stream’s seven-day chart uses `live:7d` or a fixed window ending at the chart end. Same-window later mounts reuse the settled answer. Live clocks ticking in separate renders keep one stable cache key. Fleet has its own status strips, with no collection-history overlay; Capacity has no chart-history request. This window selection is proposed, not yet confirmed.
 - **Finding 2:** history has no cross-range placeholders. Each hatch is clipped to its answer’s observed bounds; an unset end cannot extend beyond that answer. Pending reads show “History gaps loading”; failed reads show “History gaps unavailable”, and retained same-key answers remain bounded. These status words are proposed, not yet confirmed.
 - **Finding 3:** shared strip geometry retains full precision after clipping and drops only nonpositive intervals. A 60-second gap on a 30-day range survives to the chart’s minimum mark. The Data history page’s existing strip/name tests still pass.
@@ -179,7 +179,11 @@ What `docs/features/data-history.md` plans outside the page, each linking to Dat
 
 ## T4 Feature docs and audit
 
-`data-history.md` to `Status: shipped` (or `partial`), with the rules and scenarios as built, open question 1's answer, and the margin under Not supported or Planned; `history-and-archive.md` (the page shows the archive's state), `navigation.md` (the page in the sidebar, the history note), `overview-page.md`, `capacity.md`, `triage-and-mutes.md` (the notes), `replay.md` (the shared gap rule), `demo-mode.md` (staging's story, the retention per system). `docs/design.md`: the RPC under "RPCs", the gap kinds and their order, the archive status from the archiver and why not `archive_hours`, the page under "UI", each marked proposed, not yet confirmed. `docs/features/README.md`: the table row and the coverage line ("[x] What history exists, where it has gaps, what the archive holds and how much history each forecast has (data-history.md)"). The audit, `python3 <skill>/scripts/audit_feature_docs.py docs/features/ --map-refs require`; leftovers into `docs/plans/next.md`.
+Built, awaiting fresh read-only review before integration. The capability docs describe the merged T1–T3 behavior: Data history’s coverage, six gap kinds and independent newest-200 limits, history requirements, archive state, navigation, chart overlays, growth explanations, finding-start notes, Replay’s shared rules, and per-system demo retention. Both feature-index sections reflect the same scope. Forecast margins and per-server missing-answer gaps remain unbuilt; chart hatches omit older gaps past the cap without a notice. Fleet has no collection-history overlay; no claim is made that its status buckets resolve the three-minute restart.
+
+`docs/design.md` records the RPC, shared gap rules, archiver-owned status, and UI choices as proposed, not yet confirmed. The three owner questions above remain proposed, not yet confirmed. Relevant deferred work is recorded in `docs/plans/next.md`; notifications N5 and mobile M4 remain outside T4.
+
+Evidence: source inspection of the merged API, store, archiver, demo and UI, including the canonical T3 window/cache, loading/error, and minimum-gap fixes. Documentation-only validation: the feature-doc audit with `--map-refs require` reports zero errors and two expected `bad-status` warnings (mobile and notifications). No executable behavior changes, so no code RED/GREEN cycle applies to T4; T1–T3’s recorded regression evidence remains above.
 
 ## Order with the other phase 3 plans
 
