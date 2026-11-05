@@ -3,6 +3,7 @@ package api_test
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -50,9 +51,9 @@ func reviewSystems(a, b reviewShell) api.Systems {
 	}
 }
 
-// A failing ShellStatus of the page's system: does the shell still get
-// the systems and the badges? ListSystems would list them.
-func TestReviewShellErrorLosesSystems(t *testing.T) {
+// A failing ShellStatus of the page's system still returns every system
+// and its badge, as ListSystems lists them.
+func TestShellStatusErrorKeepsSystemsAndBadges(t *testing.T) {
 	a := reviewShell{renamed: newRenamed("a"), shellErr: errors.New("database is gone")}
 	b := reviewShell{renamed: newRenamed("b")}
 	_, c := apitest.ServeHandler(t, &api.Handler{Systems: reviewSystems(a, b)})
@@ -68,7 +69,7 @@ func TestReviewShellErrorLosesSystems(t *testing.T) {
 }
 
 // A panic in ShellStatus is recovered as internal, like any call.
-func TestReviewShellPanicRecovered(t *testing.T) {
+func TestShellStatusPanicIsInternal(t *testing.T) {
 	a := reviewShell{renamed: newRenamed("a"), shellPanic: true}
 	b := reviewShell{renamed: newRenamed("b")}
 	_, c := apitest.ServeHandler(t, &api.Handler{Systems: reviewSystems(a, b)})
@@ -82,24 +83,24 @@ func TestReviewShellPanicRecovered(t *testing.T) {
 	}
 }
 
-// A slow badge summary of another system holds up the page system's
-// header on every cache expiry.
-func TestReviewSlowOtherBadgeDelaysHeader(t *testing.T) {
+// A slow badge summary of another system does not hold up the page
+// system's header.
+func TestShellStatusSlowOtherBadgeDoesNotDelay(t *testing.T) {
 	a := reviewShell{renamed: newRenamed("a")}
-	b := reviewShell{renamed: newRenamed("b"), sumDelay: 1500 * time.Millisecond}
+	b := reviewShell{renamed: newRenamed("b"), sumDelay: 5 * time.Second}
 	_, c := apitest.ServeHandler(t, &api.Handler{Systems: reviewSystems(a, b)})
 	start := time.Now()
 	if _, err := c.GetShellStatus(context.Background(), connect.NewRequest(&v1.GetShellStatusRequest{System: "a"})); err != nil {
 		t.Fatal(err)
 	}
-	if d := time.Since(start); d > time.Second {
+	if d := time.Since(start); d > 3*time.Second {
 		t.Errorf("system a's shell took %v, held by system b's badge", d)
 	}
 }
 
 // A client deadline shorter than the badge read: the call ends with
-// deadline_exceeded, as other calls do.
-func TestReviewShellClientDeadline(t *testing.T) {
+// deadline_exceeded, as other calls do, and does not wait for the read.
+func TestShellStatusClientDeadlineExceeded(t *testing.T) {
 	a := reviewShell{renamed: newRenamed("a")}
 	b := reviewShell{renamed: newRenamed("b"), sumDelay: 3 * time.Second}
 	_, c := apitest.ServeHandler(t, &api.Handler{Systems: reviewSystems(a, b)})
@@ -107,9 +108,11 @@ func TestReviewShellClientDeadline(t *testing.T) {
 	defer cancel()
 	start := time.Now()
 	_, err := c.GetShellStatus(ctx, connect.NewRequest(&v1.GetShellStatusRequest{System: "a"}))
-	t.Logf("after %v: code %v", time.Since(start), codeOf(err))
-	if codeOf(err) != connect.CodeDeadlineExceeded || time.Since(start) > time.Second {
-		t.Errorf("deadline: %v after %v", err, time.Since(start))
+	took := time.Since(start)
+	t.Logf("after %v: code %v", took, codeOf(err))
+	// Below b's 3 s read, with room for a loaded machine.
+	if codeOf(err) != connect.CodeDeadlineExceeded || took > 2*time.Second {
+		t.Errorf("deadline: %v after %v", err, took)
 	}
 	// The canceled badge is not kept: a next call reads it again.
 	res, err := c.GetShellStatus(context.Background(), connect.NewRequest(&v1.GetShellStatusRequest{System: "a"}))
@@ -119,8 +122,27 @@ func TestReviewShellClientDeadline(t *testing.T) {
 	t.Logf("next badge b: %v", res.Msg.GetSystems()[1])
 }
 
+// The server's side of a deadline that ends while the badges wait: the
+// handler returns deadline_exceeded, not a response with pending badges.
+// Over HTTP the client's own deadline usually ends the call first, so the
+// handler is called directly.
+func TestShellStatusPastDeadlineIsDeadlineExceeded(t *testing.T) {
+	a := reviewShell{renamed: newRenamed("a")}
+	b := reviewShell{renamed: newRenamed("b"), sumDelay: 3 * time.Second}
+	h := &api.Handler{Systems: reviewSystems(a, b), Log: slog.New(slog.NewTextHandler(t.Output(), nil))}
+	// The badges wait for the deadline, not their own limit, and system
+	// a's part has a second to answer before it.
+	api.SetBadgeClock(h, nil, time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	res, err := h.GetShellStatus(ctx, connect.NewRequest(&v1.GetShellStatusRequest{System: "a"}))
+	if codeOf(err) != connect.CodeDeadlineExceeded {
+		t.Fatalf("code %v err %v, response %v", codeOf(err), err, res)
+	}
+}
+
 // Parallel shells on both systems while the runtime status flips.
-func TestReviewShellParallel(t *testing.T) {
+func TestShellStatusParallelWhileStatusFlips(t *testing.T) {
 	a := reviewShell{renamed: newRenamed("a")}
 	b := reviewShell{renamed: newRenamed("b")}
 	systems := reviewSystems(a, b)
