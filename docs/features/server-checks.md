@@ -167,9 +167,9 @@ The server checks judge each NATS server on its own: whether it answers, whether
 ### `server-020` Connections near max_connections
 
 - **Problem:** the server holds most of the client connections its `max_connections` allows. At the limit it refuses every new client connection with "maximum connections exceeded".
-- **Fires when:** the server's client connections are at least `warn_ratio` of its `max_connections`. A firing finding stays while the share is at least `resolve_ratio` of `warn_ratio`.
+- **Fires when:** the server's client connections are at least `warn_ratio` of its `max_connections` in each of the last `min_epochs` collections. A firing finding stays while the share is at least `resolve_ratio` of `warn_ratio`.
 - **Severity:** warning. Critical at or above `crit_ratio`.
-- **Thresholds:** `warn_ratio` 0.8, `crit_ratio` 0.95, `resolve_ratio` 0.9 (proposed, not yet confirmed).
+- **Thresholds:** `warn_ratio` 0.8, `crit_ratio` 0.95, `min_epochs` 2, `resolve_ratio` 0.9 (proposed, not yet confirmed). `max_connections` can be reloaded without a restart.
 - **Related settings:** `max_connections`, read from the server.
 - **Left out:** a server without a limit (`max_connections` 0), and a process that never reported one in VARZ; a collection whose VARZ failed keeps the process's newest value. An account's connection limit is `account-001`'s.
 
