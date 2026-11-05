@@ -50,9 +50,9 @@ func reviewSystems(a, b reviewShell) api.Systems {
 	}
 }
 
-// A failing ShellStatus of the page's system: does the shell still get
-// the systems and the badges? ListSystems would list them.
-func TestReviewShellErrorLosesSystems(t *testing.T) {
+// A failing ShellStatus of the page's system still returns every system
+// and its badge, as ListSystems lists them.
+func TestShellStatusErrorKeepsSystemsAndBadges(t *testing.T) {
 	a := reviewShell{renamed: newRenamed("a"), shellErr: errors.New("database is gone")}
 	b := reviewShell{renamed: newRenamed("b")}
 	_, c := apitest.ServeHandler(t, &api.Handler{Systems: reviewSystems(a, b)})
@@ -68,7 +68,7 @@ func TestReviewShellErrorLosesSystems(t *testing.T) {
 }
 
 // A panic in ShellStatus is recovered as internal, like any call.
-func TestReviewShellPanicRecovered(t *testing.T) {
+func TestShellStatusPanicIsInternal(t *testing.T) {
 	a := reviewShell{renamed: newRenamed("a"), shellPanic: true}
 	b := reviewShell{renamed: newRenamed("b")}
 	_, c := apitest.ServeHandler(t, &api.Handler{Systems: reviewSystems(a, b)})
@@ -82,9 +82,9 @@ func TestReviewShellPanicRecovered(t *testing.T) {
 	}
 }
 
-// A slow badge summary of another system holds up the page system's
-// header on every cache expiry.
-func TestReviewSlowOtherBadgeDelaysHeader(t *testing.T) {
+// A slow badge summary of another system does not hold up the page
+// system's header.
+func TestShellStatusSlowOtherBadgeDoesNotDelay(t *testing.T) {
 	a := reviewShell{renamed: newRenamed("a")}
 	b := reviewShell{renamed: newRenamed("b"), sumDelay: 1500 * time.Millisecond}
 	_, c := apitest.ServeHandler(t, &api.Handler{Systems: reviewSystems(a, b)})
@@ -99,7 +99,7 @@ func TestReviewSlowOtherBadgeDelaysHeader(t *testing.T) {
 
 // A client deadline shorter than the badge read: the call ends with
 // deadline_exceeded, as other calls do.
-func TestReviewShellClientDeadline(t *testing.T) {
+func TestShellStatusClientDeadlineExceeded(t *testing.T) {
 	a := reviewShell{renamed: newRenamed("a")}
 	b := reviewShell{renamed: newRenamed("b"), sumDelay: 3 * time.Second}
 	_, c := apitest.ServeHandler(t, &api.Handler{Systems: reviewSystems(a, b)})
@@ -120,7 +120,7 @@ func TestReviewShellClientDeadline(t *testing.T) {
 }
 
 // Parallel shells on both systems while the runtime status flips.
-func TestReviewShellParallel(t *testing.T) {
+func TestShellStatusParallelWhileStatusFlips(t *testing.T) {
 	a := reviewShell{renamed: newRenamed("a")}
 	b := reviewShell{renamed: newRenamed("b")}
 	systems := reviewSystems(a, b)
