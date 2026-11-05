@@ -9,6 +9,7 @@ import { Pager, usePager } from "../components/EntityParts";
 import { EntityLine, FindingRow } from "../components/FindingParts";
 import { UnmuteDialog } from "../components/MuteDialog";
 import { Sev } from "../components/Severity";
+import { serverNow } from "../lib/clock";
 import { fmtDuration, isoMinute } from "../lib/format";
 import { accountLabeller, entityName } from "../lib/view";
 import { endedByLens, muteActive, muteBy, reviewOn, sentence } from "../lib/muteView";
@@ -85,7 +86,7 @@ function Mutes({ others, onAccounts }: { others: Entity[]; onAccounts: (es: Enti
   const [lifting, setLifting] = useState<Mute>();
   const pager = usePager([useSystem(), String(inactive)].join("|"));
   const q = useMutes(inactive, pager.token);
-  const now = Date.now();
+  const now = serverNow();
   const own = useMemo(() => accountsOf(q.data?.items.map((m) => m.entity) ?? []), [q.data]);
   useEffect(() => onAccounts(own), [own, onAccounts]);
   return (

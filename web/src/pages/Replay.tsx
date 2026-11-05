@@ -11,6 +11,7 @@ import { ReplayCounts } from "../components/ReplayCounts";
 import { ReplayGone } from "../components/ReplayGone";
 import { ReplayScrubber } from "../components/ReplayScrubber";
 import { ReplaySteps } from "../components/ReplaySteps";
+import { serverNow } from "../lib/clock";
 import { dayMonHm } from "../lib/format";
 import { SYSTEM_PARAM, ACCOUNT_PARAM } from "../lib/globalQuery";
 import { logFileName, replayLog } from "../lib/replayLog";
@@ -97,7 +98,7 @@ export function Replay() {
 
   /** The absolute link to this A–B over a fixed range, which the page also switches to. */
   const shareUrl = (m: Moments) => {
-    const at = Date.now();
+    const at = serverNow();
     const p = shareParams(params, spec, m, at);
     if (system && !p.has(SYSTEM_PARAM)) p.set(SYSTEM_PARAM, system);
     p.delete(ACCOUNT_PARAM);

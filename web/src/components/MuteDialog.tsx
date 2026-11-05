@@ -4,6 +4,7 @@ import { useEffect, useId, useState, type FormEvent } from "react";
 import { identityNeed, rememberName, rememberedName, type IdentityNeed } from "../api/identity";
 import type { Finding, Mute } from "../api/model";
 import { useLensInfo, useMuteFinding, useUnmuteFinding } from "../api/queries";
+import { serverNow } from "../lib/clock";
 import { isoDate, isoMinute } from "../lib/format";
 import { useSystem } from "../lib/useSystem";
 import { EXPIRY_PRESETS, MAX_REASON, expiryOf, hasErrors, validateMute, type MuteErrors, type MuteForm } from "../lib/muteForm";
@@ -66,7 +67,7 @@ function MuteBody({ finding, need, onClose, onBusy }: { finding: Finding; need: 
 
   const submit = (ev: FormEvent) => {
     ev.preventDefault();
-    const now = Date.now();
+    const now = serverNow();
     const errs = validateMute(form, now, askName);
     setErrors(errs);
     if (hasErrors(errs)) return;

@@ -15,6 +15,7 @@ import { StreamPlacementCard } from "../components/StreamPlacementCard";
 import { OverviewTiles } from "../components/OverviewTiles";
 import { Trends } from "../components/Trends";
 import { groupCauses } from "../lib/causeGroups";
+import { serverNow } from "../lib/clock";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useAccountScope } from "../lib/useSystem";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
@@ -108,7 +109,7 @@ export function Overview() {
   return (
     <>
       <StaleBanner q={q} />
-      <StatusLine tally={o.tally} freshness={o.freshness} live={spec.kind === "live"} now={Date.now()} />
+      <StatusLine tally={o.tally} freshness={o.freshness} live={spec.kind === "live"} now={serverNow()} />
       <section className="sec" aria-label="Health">
         {o.tiles.length ? <OverviewTiles tiles={o.tiles} windows={o.windows} start={start} end={end} /> : <Empty>No collection stored in this range yet.</Empty>}
       </section>

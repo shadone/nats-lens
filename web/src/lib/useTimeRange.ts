@@ -3,6 +3,7 @@
 // useGlobalQuery, with the system and the account.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
+import { serverNow } from "./clock";
 import { parseRange, rangeProblem, resolveRange, writeRange, type RangeSpec } from "./timeRange";
 
 export function useTimeRange() {
@@ -36,10 +37,10 @@ export function useTimeRange() {
 
 /** Now, ticking every interval while enabled. */
 export function useNow(intervalMs = 1000, enabled = true): number {
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(() => serverNow());
   useEffect(() => {
     if (!enabled) return;
-    const t = setInterval(() => setNow(Date.now()), intervalMs);
+    const t = setInterval(() => setNow(serverNow()), intervalMs);
     return () => clearInterval(t);
   }, [intervalMs, enabled]);
   return now;
