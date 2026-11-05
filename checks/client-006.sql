@@ -27,13 +27,13 @@ description: >-
   grouped as (no user). The check needs event capture: without it nats-lens sees no failed login and the check
   stays quiet. A firing finding stays until the count falls below resolve_ratio of min_failed_logins.
 remediation: >-
-  The reason in the detail says why the login failed: "User Authentication Revoked" (the user JWT was revoked in
-  its account), "User Authentication Expired" (the user JWT or its credentials expired), "Authorization Violation"
-  (a wrong password, token or nkey, or a user the server does not know). Find the client from the addresses and
-  client names in the detail and give it valid credentials, or stop it if it should no longer run. `nats server request connections --filter-state closed --filter-user
-  <user>` lists the refused connections the servers still remember, with their address, name and reason; in
-  operator mode `nats auth user info <user> <account>` shows the user from the operator's store. The Accounts page lists the failed logins of the last 24 hours by user, address
-  and reason.
+  nats-server gives every refused login the reason "Authentication Failure" ("Proxy Not Trusted" or "Proxy
+  Required" when proxy authentication is configured), so the detail cannot tell wrong credentials from revoked or
+  expired ones. Find the client from the addresses and client names in the detail and give it valid credentials,
+  or stop it if it should no longer run. `nats server request connections --filter-state closed --filter-user
+  <user>` lists the refused connections the servers still keep, with their address, name and library; in operator
+  mode `nats auth user info <user> <account>` shows whether the user's JWT is revoked or expired. The Accounts page
+  lists the failed logins of the last 24 hours by user, address and reason.
 related_config: [min_failed_logins, resolve_ratio, lookback]
 value_name: failed logins
 value_basis: client.auth_error events of the user within the lookback, on every server
