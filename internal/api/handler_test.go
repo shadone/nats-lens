@@ -150,7 +150,7 @@ func TestLensInfo(t *testing.T) {
 	}
 	m := info.Msg
 	if m.GetIdentityMode() != v1.IdentityMode_IDENTITY_MODE_REQUEST || m.GetVersion() != "v1.2.3" || m.GetCluster() != fake.Cluster ||
-		m.GetCollectInterval().AsDuration() != 30*time.Second || m.GetRetention().AsDuration() != 14*24*time.Hour || !m.GetDemo() {
+		m.GetCollectInterval().AsDuration() != 30*time.Second || m.GetRetention().AsDuration() != 30*24*time.Hour || !m.GetDemo() {
 		t.Fatalf("info without IAP = %v", m)
 	}
 	// The UI's live ranges end at this now, so -fixed reports its own time.

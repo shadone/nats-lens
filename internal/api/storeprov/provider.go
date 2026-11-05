@@ -51,6 +51,9 @@ type Provider struct {
 	// (kubernetes.enabled); without it Replay leaves the node counts
 	// unset.
 	Kubernetes bool
+	// ArchiveStatus reports the archiver's state for Data history; nil
+	// when no archiver runs, as in natslens once and natslens sql.
+	ArchiveStatus func() api.ArchiveState
 
 	podCache podNameCache
 }

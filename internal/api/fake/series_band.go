@@ -36,8 +36,14 @@ func countIn(times []time.Time, c time.Time) float64 {
 }
 
 // value is a metric's value at fixed-frame time c: the counts that follow
-// from the scenario's streams and consumers, else the scenario's sample.
+// from the scenario's streams and consumers, else the scenario's sample;
+// none inside the scenario's noEpochs.
 func (sc *scenario) value(metric string, e *v1.EntityRef, c time.Time) (float64, bool) {
+	for _, h := range sc.noEpochs {
+		if c.After(h.from) && c.Before(h.to) {
+			return 0, false
+		}
+	}
 	switch metric {
 	case "cluster.streams", "cluster.kv_buckets", "cluster.object_stores":
 		n := 0.0

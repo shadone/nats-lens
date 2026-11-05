@@ -3,13 +3,10 @@ package storeprov
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
-	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
 // replayEvents reads the events Replay tells, from ReplayReadFrom to
@@ -105,139 +102,23 @@ func (p *Provider) replayLeaders(ctx context.Context, f *api.ReplayFacts, names 
 	return nil
 }
 
-// replayGaps reads the times without collections (no epoch for more than
-// ReplayEpochReach intervals, the series rule, leading and trailing gaps
-// included) and the collector's gap events that overlap A to B.
+// replayGaps reads the times without collections that overlap A to B,
+// and the collector's gap events and the lost events connections from
+// ReplayReadFrom to B.
 func (p *Provider) replayGaps(ctx context.Context, f *api.ReplayFacts, _ map[string]string) error {
-	reach := api.ReplayEpochReach * p.Interval
-	rows, err := p.db().QueryContext(ctx, `
-SELECT epoch, started_at FROM (SELECT epoch, started_at FROM epochs WHERE started_at < ? ORDER BY epoch DESC LIMIT 1)
-UNION ALL SELECT epoch, started_at FROM epochs WHERE started_at >= ? AND started_at <= ?
-UNION ALL SELECT epoch, started_at FROM (SELECT epoch, started_at FROM epochs WHERE started_at > ? ORDER BY epoch LIMIT 1)
-ORDER BY epoch`, f.A.Add(-reach), f.A.Add(-reach), f.B, f.B)
-	if err != nil {
-		return fmt.Errorf("replay gaps: %w", err)
-	}
-	type ep struct {
-		n  int64
-		at time.Time
-	}
-	var eps []ep
-	for rows.Next() {
-		var e ep
-		if err := rows.Scan(&e.n, &e.at); err != nil {
-			rows.Close()
-			return err
-		}
-		e.at = e.at.UTC()
-		eps = append(eps, e)
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return err
-	}
-	f.Gaps = append(f.Gaps, collectionGaps(f.A, f.B, reach, func(yield func(int64, time.Time) bool) {
-		for _, e := range eps {
-			if !yield(e.n, e.at) {
-				return
-			}
-		}
-	})...)
-	evs, err := p.db().QueryContext(ctx, `SELECT `+eventCols+`, e.received_at FROM events e
-WHERE e.kind IN ('collector.gap', 'collector.k8s_gap') AND e.time <= ? AND e.received_at >= ? ORDER BY e.time, e.id`, f.B, api.ReplayReadFrom(f))
-	if err != nil {
-		return fmt.Errorf("replay collector gaps: %w", err)
-	}
-	defer evs.Close()
-	for evs.Next() {
-		var end time.Time
-		ev, err := scanEvent(evs, &end)
-		if err != nil {
-			return err
-		}
-		g := api.ReplayGap{Kind: api.GapCollector, Start: ev.GetTime().AsTime(), End: end.UTC(), Event: ev}
-		if ev.GetKind() == "collector.k8s_gap" {
-			g.Kind = api.GapKubernetes
-		}
-		f.Gaps = append(f.Gaps, g)
-	}
-	if err := evs.Err(); err != nil {
-		return err
-	}
-	return p.eventsConnectionGaps(ctx, f)
-}
-
-// eventsConnectionGaps reads the times the connections that capture
-// events were lost, up to B: for each such connection still lost at
-// ReadFrom the failure that began it, and every state change of those
-// connections and every collector.started from ReadFrom to B. The
-// collector's own connection is left out in the query.
-func (p *Provider) eventsConnectionGaps(ctx context.Context, f *api.ReplayFacts) error {
 	from := api.ReplayReadFrom(f)
-	rows, err := p.db().QueryContext(ctx, `
-WITH s AS (
-  SELECT e.*, coalesce(json_extract_string(e.raw, '$.connection'), '') AS conn FROM events e
-  WHERE e.kind = 'collector.started'
-     OR (e.kind IN ('collector.disconnected', 'collector.not_connected', 'collector.connection_closed', 'collector.reconnected')
-         AND coalesce(json_extract_string(e.raw, '$.connection'), '') NOT IN ('', 'collector'))
-),
-open AS (
-  SELECT * FROM s
-  WHERE s.kind IN ('collector.disconnected', 'collector.not_connected', 'collector.connection_closed') AND s.time < ?
-    AND s.time > coalesce((SELECT max(time) FROM s r WHERE (r.kind = 'collector.started' OR (r.kind = 'collector.reconnected' AND r.conn = s.conn))
-        AND r.time < ?), TIMESTAMP '1970-01-01')
-  QUALIFY row_number() OVER (PARTITION BY s.conn ORDER BY s.time, s.id) = 1
-)
-SELECT `+eventCols+`, e.conn FROM (SELECT * FROM open UNION ALL SELECT * FROM s WHERE s.time >= ? AND s.time <= ?) e
-ORDER BY e.time, e.id`, from, from, from, f.B)
-	if err != nil {
-		return fmt.Errorf("replay events connections: %w", err)
-	}
-	defer rows.Close()
-	var evs []*v1.Event
-	for rows.Next() {
-		var conn string
-		ev, err := scanEvent(rows, &conn)
+	for _, read := range []func() ([]api.ReplayGap, error){
+		func() ([]api.ReplayGap, error) { return p.collectionGaps(ctx, f.A, f.B) },
+		func() ([]api.ReplayGap, error) { return p.collectorGaps(ctx, from, f.B) },
+		func() ([]api.ReplayGap, error) { return p.eventsConnectionGaps(ctx, from, f.B) },
+	} {
+		gs, err := read()
 		if err != nil {
 			return err
 		}
-		raw, _ := json.Marshal(map[string]string{"connection": conn})
-		ev.Raw = string(raw)
-		evs = append(evs, ev)
+		f.Gaps = append(f.Gaps, gs...)
 	}
-	if err := rows.Err(); err != nil {
-		return err
-	}
-	f.Gaps = append(f.Gaps, api.EventsConnectionGaps(evs)...)
 	return nil
-}
-
-// collectionGaps finds the gaps longer than reach between the epochs (in
-// order, the last before A minus reach and the first after B included)
-// that overlap A to B: before the first epoch from A, between epochs, and
-// after the last, open when no epoch followed.
-func collectionGaps(a, b time.Time, reach time.Duration, epochs func(func(int64, time.Time) bool)) []api.ReplayGap {
-	var out []api.ReplayGap
-	var prev int64
-	var prevAt time.Time
-	for n, at := range epochs {
-		from := prevAt
-		if prev == 0 {
-			from = a
-		}
-		if at.Sub(from) > reach && at.After(a) && from.Before(b) {
-			out = append(out, api.ReplayGap{Kind: api.GapCollections, Start: from, End: at, BeforeEpoch: prev, BeforeAt: prevAt,
-				AfterEpoch: n, AfterAt: at})
-		}
-		prev, prevAt = n, at
-	}
-	switch {
-	case prev == 0:
-		out = append(out, api.ReplayGap{Kind: api.GapCollections, Start: a})
-	case b.Sub(prevAt) > reach && prevAt.Before(b):
-		out = append(out, api.ReplayGap{Kind: api.GapCollections, Start: prevAt, BeforeEpoch: prev, BeforeAt: prevAt})
-	}
-	return out
 }
 
 // replayReconnects counts the client reconnects between A and B as

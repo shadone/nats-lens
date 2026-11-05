@@ -21,12 +21,12 @@ const replayRestartWindow = 10 * time.Minute
 // transitions, the windows, the gone assets of scenario.gone and the
 // times without collections and events. Leaders at A, the meta leader's
 // included, come from the scenario's leaders' history (leaders.go). A
-// older than the demo's 14 days of retention is refused.
+// older than the system's retention is refused.
 func (p *Provider) Replay(_ context.Context, req *v1.GetReplayRequest) (*api.ReplayFacts, error) {
 	s := p.scen()
 	a, b := req.GetA().AsTime().UTC(), req.GetB().AsTime().UTC()
-	if a.Before(s.now.Add(-14 * 24 * time.Hour)) {
-		return nil, fmt.Errorf("%w: A is older than retention (14d); Replay reads the database only", api.ErrInvalid)
+	if ret := s.sc.retentionOr(); a.Before(s.now.Add(-ret)) {
+		return nil, fmt.Errorf("%w: A is older than retention (%dd); Replay reads the database only", api.ErrInvalid, ret/(24*time.Hour))
 	}
 	f := &api.ReplayFacts{A: a, B: b, Until: earliest(s.now, b.Add(api.ReplayLookahead)), Interval: sampleEvery,
 		RestartWindow: replayRestartWindow, HistoryStart: s.dataStart(), Kubernetes: s.sc.kubernetes}
@@ -60,7 +60,21 @@ func (p *Provider) Replay(_ context.Context, req *v1.GetReplayRequest) (*api.Rep
 			f.Gone = append(f.Gone, s.sc.gone(s, f)...)
 		}
 	}
-	f.Gaps = s.replayGaps(a, b)
+	f.Gaps = append(s.replayGaps(a, b), s.holeGaps(a, b)...)
+	// The collector's gap events, as the store reads them: begun by B and
+	// ended after ReadFrom.
+	for i := len(all) - 1; i >= 0; i-- {
+		e := all[i]
+		if (e.GetKind() != "collector.gap" && e.GetKind() != "collector.k8s_gap") || e.GetTime().AsTime().After(b) ||
+			e.GetReceivedAt().AsTime().Before(f.ReadFrom) {
+			continue
+		}
+		g := api.ReplayGap{Kind: api.GapCollector, Start: e.GetTime().AsTime(), End: e.GetReceivedAt().AsTime(), Event: e}
+		if e.GetKind() == "collector.k8s_gap" {
+			g.Kind = api.GapKubernetes
+		}
+		f.Gaps = append(f.Gaps, g)
+	}
 	// The times the connections that capture events were lost, as the
 	// store reads them from the connection events up to B.
 	var conns []*v1.Event
