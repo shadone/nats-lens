@@ -21,7 +21,9 @@ description: >-
   A stream that sources other streams stays behind one of them (leader's view; only the leader runs the sources).
   Every leader report within the lookback, covering at least half of it, has the largest lag across its sources above
   max_lag, and that lag did not fall over the window, so a stream that catches up after a restart, or a new source
-  copying an old stream, is not reported. The servers report the largest lag, not which source has it. A firing
+  copying an old stream, is not reported. The servers report the largest lag, not which source has it. A source that
+  stopped hearing from its stream keeps the lag it last had, so a stopped source is not detected unless that lag is
+  above max_lag; nats-lens does not store when each source was last seen or its error. A firing
   finding keeps firing until the lag falls below resolve_ratio of max_lag, and through a collection without a leader
   report within the lookback.
 remediation: >-
