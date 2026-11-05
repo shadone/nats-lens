@@ -14,7 +14,7 @@
 .cg-k{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .cg-k .code{font:500 12px var(--mono);color:var(--text-muted)}
 .cg h3{margin:0;font:600 15.5px/1.3 var(--sans)}
-.cg-where,.cg-cause,.cg-ent{margin:4px 0 0;color:var(--text-2);overflow-wrap:anywhere}
+.cg-where,.cg-cause,.cg-ent,.cg-start{margin:4px 0 0;color:var(--text-2);overflow-wrap:anywhere}
 .cg-cause code{font:12px var(--mono)}
 .cg-d{color:var(--text-2);margin:5px 0 0;overflow-wrap:anywhere}
 .cg-btns{display:flex;gap:8px;flex-wrap:wrap}

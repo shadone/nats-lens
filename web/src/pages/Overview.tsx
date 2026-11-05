@@ -4,7 +4,8 @@
 import { useState } from "react";
 import type { Finding } from "../api/model";
 import { CURRENT_FINDINGS_LIMIT, useBusiestConsumers, useCurrentFindings, useStreamPlacement } from "../api/overview";
-import { useOverview, useTimeline } from "../api/queries";
+import { useChartGaps } from "../api/historyNotes";
+import { useLensInfo, useOverview, useTimeline } from "../api/queries";
 import { BusiestConsumers } from "../components/BusiestConsumers";
 import { CauseGroups } from "../components/CauseGroups";
 import { Empty, ErrorBox, Loading, QueryView, RLink, StaleBanner } from "../components/common";
@@ -23,13 +24,14 @@ import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
 function Causes({ onMute }: { onMute: (f: Finding) => void }) {
   const { spec } = useTimeRange();
   const q = useCurrentFindings(spec);
+  const historyStart = useLensInfo().data?.historyStart;
   if (!q.data) return q.error ? <ErrorBox error={q.error} retry={() => q.refetch()} what="findings" /> : null;
   const { groups, muted } = groupCauses(q.data.items);
   const cut = q.data.totalCount > q.data.items.length;
   return (
     <>
       <StaleBanner q={q} />
-      <CauseGroups groups={groups} muted={muted} onMute={onMute} />
+      <CauseGroups groups={groups} muted={muted} onMute={onMute} historyStart={historyStart} now={serverNow()} />
       {cut && (
         <p className="muted-note">
           The cards read the first {CURRENT_FINDINGS_LIMIT} of {q.data.totalCount} findings.
@@ -102,16 +104,28 @@ export function Overview() {
   const q = useOverview(spec);
   const fallback = useResolvedRange(spec);
   const [muting, setMuting] = useState<Finding>();
+  const gaps = useChartGaps(spec);
+  const info = useLensInfo().data;
   if (!q.data) return q.error ? <ErrorBox error={q.error} retry={() => q.refetch()} what="the overview" /> : <Loading what="the overview" />;
   const o = q.data;
   const start = o.range?.start ?? fallback.start;
   const end = o.range?.end ?? fallback.end;
+  const now = serverNow();
+  const stoppedAt = o.freshness && !o.freshness.collecting ? o.freshness.notCollectingSince : undefined;
+  const history = info && {
+    historyStart: info.historyStart,
+    intervalMs: info.collectIntervalMs,
+    live: spec.kind === "live",
+    now,
+    stoppedAt,
+    lastDataAt: stoppedAt === undefined ? undefined : o.freshness?.epochAt,
+  };
   return (
     <>
       <StaleBanner q={q} />
-      <StatusLine tally={o.tally} freshness={o.freshness} live={spec.kind === "live"} now={serverNow()} />
+      <StatusLine tally={o.tally} freshness={o.freshness} live={spec.kind === "live"} now={now} />
       <section className="sec" aria-label="Health">
-        {o.tiles.length ? <OverviewTiles tiles={o.tiles} windows={o.windows} start={start} end={end} /> : <Empty>No collection stored in this range yet.</Empty>}
+        {o.tiles.length ? <OverviewTiles tiles={o.tiles} windows={o.windows} start={start} end={end} gaps={gaps} history={history} /> : <Empty>No collection stored in this range yet.</Empty>}
       </section>
       <Causes onMute={setMuting} />
       <section className="sec">

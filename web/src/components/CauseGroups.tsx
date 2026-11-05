@@ -1,13 +1,17 @@
 // The Overview's cause cards: unmuted firing findings grouped by their cause
 // event, else by check and parent entity, with the entities, open and
-// mute; and a strip of the muted findings with their reasons.
+// mute; and a strip of the muted findings with their reasons. A card says
+// when its findings were already true when the history begins, as their
+// first-seen time would read as fresh.
 import { useContext } from "react";
 import type { Entity, Finding } from "../api/model";
 import type { CauseGroup } from "../lib/causeGroups";
 import { hms } from "../lib/format";
+import { atHistoryStart, atStartText } from "../lib/historyNotes";
 import { accountLabeller, entityName, entityPath, eventPath, findingPath, streamPath } from "../lib/view";
 import { RLink } from "./common";
 import { AccountLabelContext, EntityLine } from "./FindingParts";
+import { HistoryLink } from "./HistoryNote";
 import { Sev } from "./Severity";
 
 /** Entities listed in a card before "N more". */
@@ -106,8 +110,26 @@ function findingLabel(f: Finding, label: (id: string, name?: string) => string):
   return `${f.checkCode} on ${entityName(f.entity, label) || "system"}`;
 }
 
+/** Where the history begins, for the cards' marks, and now for its words. */
+interface HistoryAt {
+  historyStart?: number;
+  now: number;
+}
+
+/** "Already true when the history begins, at 13:47 UTC." with a link, or "3 of 4 were …"; nothing when none was. */
+function AtStart({ findings, h }: { findings: Finding[]; h: HistoryAt }) {
+  if (h.historyStart === undefined) return null;
+  const n = findings.filter((f) => atHistoryStart(f, h.historyStart)).length;
+  if (n === 0) return null;
+  return (
+    <p className="cg-start">
+      {atStartText(n, findings.length, h.historyStart, h.now)} <HistoryLink />
+    </p>
+  );
+}
+
 /** One finding: the code row with the name, the detail and cause, the entity beside, the buttons. */
-function SingleCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void }) {
+function SingleCard({ g, onMute, h }: { g: CauseGroup; onMute: (f: Finding) => void; h: HistoryAt }) {
   const f = g.findings[0];
   const label = findingLabel(f, useContext(AccountLabelContext));
   return (
@@ -120,6 +142,7 @@ function SingleCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void
         </div>
         <p className="cg-d">{f.detail}</p>
         {g.cause && <CauseLine cause={g.cause} />}
+        <AtStart findings={g.findings} h={h} />
       </div>
       <div className="cg-side">
         <p className="cg-ent">
@@ -138,10 +161,10 @@ function SingleCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void
   );
 }
 
-function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void }) {
+function CauseCard({ g, onMute, h }: { g: CauseGroup; onMute: (f: Finding) => void; h: HistoryAt }) {
   const accounts = useContext(AccountLabelContext);
   const n = g.findings.length;
-  if (n === 1) return <SingleCard g={g} onMute={onMute} />;
+  if (n === 1) return <SingleCard g={g} onMute={onMute} h={h} />;
   const names = [...new Set(g.findings.map((f) => f.checkName))];
   const shown = g.findings.slice(0, SHOWN);
   return (
@@ -156,6 +179,7 @@ function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void 
       </div>
       <p className="cg-where">{whereLine(g, accounts)}</p>
       {g.cause && <CauseLine cause={g.cause} />}
+      <AtStart findings={g.findings} h={h} />
       <ul className="cg-list">
         {shown.map((f) => (
           <li key={f.id}>
@@ -213,7 +237,20 @@ function MutedStrip({ muted }: { muted: Finding[] }) {
   );
 }
 
-export function CauseGroups({ groups, muted, onMute }: { groups: CauseGroup[]; muted: Finding[]; onMute: (f: Finding) => void }) {
+export function CauseGroups({
+  groups,
+  muted,
+  onMute,
+  historyStart,
+  now = 0,
+}: {
+  groups: CauseGroup[];
+  muted: Finding[];
+  onMute: (f: Finding) => void;
+  /** Where the history begins; without it no card is marked. */
+  historyStart?: number;
+  now?: number;
+}) {
   if (groups.length === 0 && muted.length === 0) return null;
   // Every account the cards name: account entities and the accounts of streams and consumers.
   const label = accountLabeller([...groups.flatMap((g) => g.findings), ...muted].flatMap((f) => (f.entity?.account ? [f.entity] : [])));
@@ -224,7 +261,7 @@ export function CauseGroups({ groups, muted, onMute }: { groups: CauseGroup[]; m
           Findings
         </h2>
         {groups.map((g) => (
-          <CauseCard key={g.key} g={g} onMute={onMute} />
+          <CauseCard key={g.key} g={g} onMute={onMute} h={{ historyStart, now }} />
         ))}
         {muted.length > 0 && <MutedStrip muted={muted} />}
       </section>
