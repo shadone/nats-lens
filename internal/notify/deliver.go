@@ -44,6 +44,15 @@ func (d *Delivery) step(ctx context.Context, ch config.Channel, s *Sender) (time
 		return time.Second, err
 	}
 	head := rows[0]
+	if head.Attempts == 0 {
+		sent, err := d.Store.NotificationEpochSent(ctx, ch.Name)
+		if err != nil {
+			return time.Second, err
+		}
+		if sent {
+			return time.Second, nil
+		}
+	}
 	if head.Attempts == 0 && d.Interval > 0 {
 		finished, err := d.Store.LastDeliveryFinished(ctx, ch.Name)
 		if err != nil {
