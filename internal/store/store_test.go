@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 )
@@ -149,8 +150,9 @@ func TestSweep(t *testing.T) {
 // table cannot outlive the retention window unnoticed.
 func TestSweepCoversEveryEpochTable(t *testing.T) {
 	s := openMem(t)
+	// The notify tables are swept by SweepNotifications.
 	swept := map[string]bool{"epochs": true}
-	for _, x := range append(append(append(append([]string{}, epochTables...), accountEpochTables...), rangeTables...), checkTables...) {
+	for _, x := range slices.Concat(epochTables, accountEpochTables, rangeTables, checkTables, notifyTables) {
 		swept[x] = true
 	}
 	rows, err := s.DB().Query(`SELECT DISTINCT c.table_name FROM duckdb_columns() c
@@ -199,9 +201,12 @@ func TestSweepKeepsMutes(t *testing.T) {
 // archiveExempt lists the tables the archive does not export, with the
 // reason.
 var archiveExempt = map[string]string{
-	"archive_hours": "records what was exported; a rebuild writes it from the loaded files",
-	"migrations":    "migration bookkeeping; a new database applies the migrations itself",
-	"inventory":     "loaded from inventory_file on every start",
+	"archive_hours":   "records what was exported; a rebuild writes it from the loaded files",
+	"migrations":      "migration bookkeeping; a new database applies the migrations itself",
+	"inventory":       "loaded from inventory_file on every start",
+	"notify_channels": "what was sent to a receiver is not what NATS showed; after a rebuild every channel starts from a new baseline",
+	"notify_state":    "what was sent to a receiver is not what NATS showed; after a rebuild every channel starts from a new baseline",
+	"notify_outbox":   "what was sent to a receiver is not what NATS showed; after a rebuild every channel starts from a new baseline",
 }
 
 // Every table is archived or listed as exempt, so that a new table is not
