@@ -12,12 +12,12 @@ Examples use the online shop of `inventory.example.yaml` and the demo's systems 
 
 ## Status
 
-The three open questions above are answered as recommended by the session that built T1: proposed, not yet confirmed. T1 builds on answer 1 (the "before history" gap kind) and leaves the margin out (answer 2); answer 3 is T2's.
+The three open questions above are answered as recommended by the session that built T1: proposed, not yet confirmed. T1 builds on answer 1 (the "before history" gap kind) and leaves the margin out (answer 2); T2 puts the page where answer 3 says.
 
 | Task | Status |
 |---|---|
 | T1 API, store and demo | built on `feat/data-history-api`, not yet reviewed; see "Where T1 departed from this plan" |
-| T2 The Data history page | planned |
+| T2 The Data history page | built on `feat/data-history-page`, not yet reviewed; see "Where T2 departed from this plan" |
 | T3 History notes on the other pages | planned |
 | T4 Feature docs and audit | planned |
 
@@ -127,6 +127,21 @@ The review found one issue and four smaller points; the session that built T1 de
 - Data: `requests.getDataHistory`, `web/src/api/history.ts` (the only reader of its messages; unset stays undefined), `useDataHistory()` keyed by system and range, refetched every 30 seconds on a live range, keeping the previous answer only for the same system, as `useCapacity`. Words in `web/src/lib/historyView.ts` with tests (gap labels, lengths, the uses' words, the summary line).
 - Styles in `web/src/styles/history.css`, every rule on a `dh-` class, checked by `web/src/components/HistoryCss.test.ts` as `CapacityCss.test.ts` does; imported from `index.css`. Phone width: boxes two to a row, the table scrolls inside its card.
 - Browser check: in `natslens demo`, at 360, 761, 1000 and 1280 px on the three systems, `document.documentElement.scrollWidth` equals `clientWidth` (the design's rule), and the page's screenshots at 360 and 1280 px are looked at.
+
+### Where T2 departed from this plan
+
+Each choice below was made by the session that built T2: proposed, not yet confirmed.
+
+- **Files.** The cards are in `web/src/components/HistoryParts.tsx`; the page, `web/src/pages/DataHistory.tsx`, only places them. The test fixtures are `web/src/test/fixtures/history.ts`. `requests.getDataHistory` passes the range it sent (`rangeStart`, `rangeEnd` on the view model), so the strip spans exactly the range the answer describes. `isHatched` and `HATCHED_KINDS` in `web/src/api/history.ts` pick the kinds charts hatch, for T3.
+- **Coverage boxes without a chart.** `MetricBox` always draws a sparkline and a range track, which a count does not have; the four boxes use its look (`card mbox`, the title with (i), the value, the note) without them. "Time without data" is titled "Without data", so the title fits beside the value. The covered share is the covered span less the time without data, never "100%" with a gap and never "0%" with data ("<1%"). Without history in the range the boxes give way to "No collection in this range: nats-lens holds nothing of it."
+- **The summary line.** While the shell says the collector does not collect, the line starts "History since" in place of "Collecting since", and "not collecting since 19:47 UTC" follows in the warning colour. The oldest event is added ("events from 13:50 UTC") when it differs from the history start by more than an interval. Without a history it reads "No collection stored yet". A time on now's UTC day is "13:47 UTC", any other "2026-10-22 09:00 UTC".
+- **Open gaps.** "still now" on a live range and on a fixed range that ends at or after now; on one that ended, "after the range", as the API leaves the end unset also for a gap that ends after the range. The length of an open gap reads "3 h so far" or "at least 3 h". A use whose `enough_at` has passed reads "enough".
+- **The gaps table.** Collections either side read "before: collection 487, 17:50:44" and "after: …", each linked to Placement over the hour that ends a second after it (Replay's `rangeEndingAt`); a collection without its time is named, not linked. The event links to `/events?id=`. The cut is said per class: "Showing 200 of 243 times without collections, the newest." and "Showing 200 of 230 times without events or Kubernetes, the newest."
+- **The strip.** Only the hatched kinds are drawn, oldest left, with `.dh-hatch` (the hatch T3 can share) and each stretch's title and screen reader text "No data 17:50:44–17:53:44 UTC: nats-lens was not running" (both ends with the day when either is a day or more from the range's end; an open one "No data from 11:29:56 UTC until now: …"); a stretch is at least 4 px wide. Its ends read times, or day and time over a day or more, and "now" on a live range.
+- **What uses history.** A table of use, needs, has and enough, the plan's sentence as each row's title ("needs 1 d; has 9 h; enough at 2026-11-06 13:47 UTC"). A use that is not enough and has no `enough_at` and is not `never` reads "not within this range" (growth on a short or ended range). The uses are named: growth "Growth per day", `forecast:server-014` "Store forecast", `forecast:stream-006` "Stream forecast", `lookback:<check>` "Check <check>", `accept_review` "Growth review of accepted findings", `day` "The last 24 hours", `replay` "Replay"; an unknown ID shows as it is.
+- **Retention and archive in one card.** Its line under the title is the database's retention ("Collections and events are kept for 14 days: the hourly sweep removes what is older than 2026-10-22 22:47 UTC."); then location, hours, kept, last export and when the hours were listed, the error in the warning colour. Hours before the first listing read "not listed yet". Without an archive: "No archive: `archive_dir` is not set for this system, so nothing is archived." The note on what the archive holds is shown with or without one.
+- **Findings at the start** reads "1 finding was already true when the history begins, at 13:47 UTC." with a link to Findings, or "No finding was already true …", as `findings_at_start` counts at the oldest kept collection, which after the retention sweep is not when nats-lens started.
+- **Browser check.** In `natslens demo`, `scrollWidth` equalled `clientWidth` at 360, 761, 1000 and 1280 px for example-staging (last 24 h, and a fixed day before its history), example-prod (last 24 h), example-global (last 24 h, 7 days and a fixed 30 days).
 
 ## T3 History notes on the other pages
 
