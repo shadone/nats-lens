@@ -68,7 +68,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Stream checks](stream-checks.md) | `ui`, `cli` | shipped |
 | [Consumer checks](consumer-checks.md) | `ui`, `cli` | shipped |
 | [Client checks](client-checks.md) | `ui`, `cli` | shipped |
-| [System checks](system-checks.md) | `ui`, `cli` | shipped |
+| [System checks](system-checks.md) | `ui`, `cli` | shipped — includes notification delivery health |
 | [Inventory](inventory.md) | `ui`, `cli` | shipped |
 | [Navigation, time range and theme](navigation.md) | `ui`, `api` | shipped |
 | [Overview page](overview-page.md) | `ui`, `api` | shipped — tile links, cause evidence, a shared hover and more lanes are planned |
@@ -119,7 +119,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Stream, KV bucket and object store checks `stream-001` to `stream-021`, mirrors, sources, single replicas, KV history, streams without a consumer and interior deletes among them; source activity and errors are planned (stream-checks.md)
 - [x] Consumer checks `consumer-001` to `consumer-013` (consumer-checks.md)
 - [x] Client checks `client-001` to `client-008`, among them repeated authentication errors, unnamed connections and outdated client libraries (client-checks.md)
-- [x] System checks `system-001` to `system-009`: the meta group, mixed API levels, and nats-lens's own check runs, collections, archive exports and event capture (system-checks.md)
+- [x] System checks `system-001` to `system-010`: the meta group, mixed API levels, and nats-lens's own check runs, collections, archive exports, event capture and notification delivery (system-checks.md)
 - [x] The inventory of assets that must exist (inventory.md)
 - [ ] Findings sent to a channel such as a webhook (notifications.md)
 
