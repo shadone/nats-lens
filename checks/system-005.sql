@@ -18,9 +18,12 @@ description: >-
   Such a server is not a voting member of the meta group, or does not know its current peers, for example after a
   peer was removed by hand while its server kept running, or after a server joined with a stale state. Servers that
   do not answer are server-001's and are not counted; servers are compared within their JetStream domain. A
-  collection in which a server is restarting, within checks.restart_window of its start, does not count, as a
-  restarted server reports its meta group late. A firing finding resolves once no collection of the last min_duration
-  differed.
+  collection in which a server is restarting, within checks.restart_window of its start, or in which a server new to
+  nats-lens joined within restart_window, does not count, as such a server reports its meta group late. A collection
+  in which no server of any domain reports itself as meta leader is unknown: it neither breaks the hold nor counts
+  towards resolving. The condition must hold from a collection that started between min_duration and twice
+  min_duration ago, so a long gap in collection does not count as held. A firing finding resolves once no collection
+  of the last min_duration differed.
 remediation: >-
   `nats server report jetstream` with the system user lists the meta group's peers as the leader sees them; compare
   it with `nats server list`. A server missing from the meta group was removed with `nats server raft peer-remove`
@@ -30,23 +33,27 @@ remediation: >-
   stopped, as it otherwise forms a group of its own.
 related_config: [min_duration]
 */
-WITH lo AS (
-    SELECT coalesce(max(epoch), getvariable('epoch') + 1) AS epoch FROM epochs
-    WHERE started_at <= getvariable('epoch_time') - getvariable('min_duration')
-),
-win AS (
+WITH cand AS (
     SELECT epoch, started_at FROM epochs
-    WHERE epoch BETWEEN (SELECT epoch FROM lo) AND getvariable('epoch')
+    WHERE started_at >= getvariable('epoch_time') - 2 * getvariable('min_duration') AND epoch <= getvariable('epoch')
 ),
-restarting_now AS (
-    SELECT epoch, server_id FROM restarting((SELECT epoch FROM lo), getvariable('epoch'))
+-- Servers whose reports do not count: restarted within restart_window, or
+-- new to nats-lens (first of their name, after its first collection)
+-- within restart_window.
+excused AS (
+    SELECT epoch, server_id FROM restarting((SELECT coalesce(min(epoch), getvariable('epoch')) FROM cand), getvariable('epoch'))
+    UNION
+    SELECT c.epoch, s.server_id FROM cand c JOIN servers s ON s.first_epoch <= c.epoch AND s.last_epoch >= c.epoch
+    WHERE s.first_seen_at > c.started_at - getvariable('restart_window')
+      AND s.first_epoch > (SELECT min(epoch) FROM epochs)
+      AND NOT EXISTS (SELECT 1 FROM servers p WHERE p.server_name = s.server_name AND p.first_epoch < s.first_epoch)
 ),
 rows AS (
     SELECT st.epoch, coalesce(s.domain, '') AS domain, s.server_name, coalesce(st.meta_leader, '') AS leader,
         st.meta_cluster_size AS size
     FROM server_stats st JOIN servers s USING (server_id)
-    WHERE st.epoch IN (SELECT epoch FROM win) AND st.js_enabled AND st.meta_cluster_size IS NOT NULL
-      AND NOT EXISTS (SELECT 1 FROM restarting_now r WHERE r.epoch = st.epoch AND r.server_id = st.server_id)
+    WHERE st.epoch IN (SELECT epoch FROM cand) AND st.js_enabled AND st.meta_cluster_size IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM excused x WHERE x.epoch = st.epoch AND x.server_id = st.server_id)
 ),
 -- The leader most servers of the domain name, and its own view of the size.
 leaders AS (
@@ -65,15 +72,27 @@ groups AS (
 bad_groups AS (
     SELECT * FROM groups WHERE answering > leader_size OR len(differing) > 0
 ),
+-- A collection without any leader's own report is unknown.
 judged AS (
-    SELECT w.epoch, w.started_at,
-        NOT EXISTS (SELECT 1 FROM restarting_now r WHERE r.epoch = w.epoch)
-            AND EXISTS (SELECT 1 FROM bad_groups g WHERE g.epoch = w.epoch) AS bad
-    FROM win w
+    SELECT c.epoch, c.started_at,
+        NOT EXISTS (SELECT 1 FROM excused x WHERE x.epoch = c.epoch)
+            AND EXISTS (SELECT 1 FROM bad_groups g WHERE g.epoch = c.epoch) AS bad
+    FROM cand c WHERE EXISTS (SELECT 1 FROM groups g WHERE g.epoch = c.epoch)
 ),
-firing AS (
-    SELECT 1 FROM findings
-    WHERE check_code = 'system-005' AND state = 'firing' AND last_seen_epoch = getvariable('prev_epoch')
+lo AS (
+    SELECT max(epoch) AS epoch FROM judged WHERE started_at <= getvariable('epoch_time') - getvariable('min_duration')
+),
+held AS (
+    SELECT * FROM judged WHERE epoch >= (SELECT epoch FROM lo)
+),
+recent AS (
+    SELECT * FROM judged WHERE started_at > getvariable('epoch_time') - getvariable('min_duration')
+),
+fires AS (
+    SELECT (SELECT count(*) FROM held) >= 2 AND (SELECT bool_and(bad) FROM held) AS new,
+        EXISTS (SELECT 1 FROM findings WHERE check_code = 'system-005' AND state = 'firing'
+                AND last_seen_epoch = getvariable('prev_epoch'))
+            AND (coalesce((SELECT bool_or(bad) FROM recent), false) OR NOT EXISTS (SELECT 1 FROM recent)) AS kept
 ),
 newest AS (
     SELECT * FROM judged WHERE bad ORDER BY epoch DESC LIMIT 1
@@ -93,11 +112,8 @@ SELECT
     '' AS entity_key,
     CASE WHEN n.epoch = getvariable('epoch') THEN '' ELSE 'At ' || strftime(n.started_at, '%H:%M:%S') || ' UTC: ' END
         || t.text
-        || CASE WHEN (SELECT bool_and(bad) FROM judged)
+        || CASE WHEN f.new
             THEN ' It has differed in every collection for at least ' || span_text(getvariable('min_duration')) || '.'
             ELSE ' The finding resolves once no collection of the last ' || span_text(getvariable('min_duration')) || ' differs.' END AS detail
-FROM newest n, texts t
-WHERE (SELECT count(*) FROM judged) >= 2 AND (
-    (SELECT bool_and(bad) FROM judged)
-    OR (EXISTS (SELECT 1 FROM firing) AND (SELECT bool_or(bad) FROM judged WHERE started_at > getvariable('epoch_time') - getvariable('min_duration')))
-)
+FROM newest n, texts t, fires f
+WHERE coalesce(f.new, false) OR f.kept

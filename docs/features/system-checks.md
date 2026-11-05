@@ -45,10 +45,10 @@ The system checks judge what belongs to no single server: the JetStream meta gro
 ### `system-005` JetStream meta group size differs from the servers
 
 - **Problem:** a JetStream server is not a voting member of the meta group, or does not know its current peers, for example after a peer was removed by hand while its server kept running, or after a server joined with a stale state.
-- **Fires when:** in every collection for at least `min_duration`, more JetStream servers answer than the meta group has peers in the meta leader's view, or an answering JetStream server reports a meta group of another size than the leader. The detail names each server that differs, with the size and leader it reports. A firing finding resolves once no collection of the last `min_duration` differed.
+- **Fires when:** in every collection for at least `min_duration`, more JetStream servers answer than the meta group has peers in the meta leader's view, or an answering JetStream server reports a meta group of another size than the leader. The detail names each server that differs, with the size and leader it reports. As with `system-004`, the hold must start between `min_duration` and twice `min_duration` ago, and a collection in which no server reports itself as meta leader is unknown, neither breaking the hold nor counting towards resolving. A firing finding resolves once no collection of the last `min_duration` differed.
 - **Severity:** warning (proposed, not yet confirmed).
 - **Thresholds:** `min_duration` 10m (proposed, not yet confirmed).
-- **Left out:** servers that do not answer, which `server-001` reports, also when the meta group still lists them as peers; servers without a clustered meta group; a restarting server's own report, and every collection in which a server is restarting. Servers are compared within their JetStream domain, so a leaf node domain with its own meta group is no fault.
+- **Left out:** servers that do not answer, which `server-001` reports, also when the meta group still lists them as peers; servers without a clustered meta group; a restarting server's own report and that of a server new to nats-lens within `checks.restart_window` of its first collection, and every collection in which one is. Servers are compared within their JetStream domain, so a leaf node domain with its own meta group is no fault.
 
 ### `system-006` Mixed JetStream API levels
 

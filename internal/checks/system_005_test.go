@@ -104,3 +104,48 @@ func TestMetaGroupSizeResolves(t *testing.T) {
 	f.exec(`UPDATE findings SET last_seen_epoch = 50`)
 	f.fires("system-005", 51)
 }
+
+// A collection in which no server reports itself as meta leader is
+// unknown: it does not break the hold.
+func TestMetaGroupSizeLeaderReportMissing(t *testing.T) {
+	f := newFx(t)
+	f.metaCluster(26, func(e int64, i int) m { return m{"meta_cluster_size": 2} })
+	f.exec(`UPDATE server_stats SET meta_leader = '' WHERE epoch IN (10, 18)`)
+	f.exec(`DELETE FROM server_stats WHERE server_id = 'S0' AND epoch = 22`)
+	r := f.fires("system-005", 26, "")
+	want(t, r[""], "warning", "every collection for at least 10 minutes")
+}
+
+// Differing on both sides of a gap of three hours does not count as
+// held.
+func TestMetaGroupSizeAcrossLongGap(t *testing.T) {
+	f := newFx(t)
+	f.metaCluster(5, func(e int64, i int) m { return m{"meta_cluster_size": 2} })
+	f.epochAt(6, at(5).Add(3*time.Hour), three)
+	for _, id := range []string{"S0", "S1", "S2"} {
+		f.stats(6, id, m{"meta_cluster_size": 2, "meta_leader": "nats-0"})
+	}
+	f.fires("system-005", 6)
+}
+
+// A server new to nats-lens joins: for restart_window its own report may
+// lag, and those collections do not count.
+func TestMetaGroupSizeNewServerJoining(t *testing.T) {
+	f := newFx(t)
+	f.metaCluster(50, nil)
+	f.metaFourth(50, func(e int64) m {
+		if e < 25 {
+			return m{"meta_cluster_size": 1, "meta_leader": "nats-3"}
+		}
+		return m{"meta_cluster_size": 4, "meta_leader": "nats-0"}
+	})
+	f.exec(`UPDATE server_stats SET meta_cluster_size = 4 WHERE server_id <> 'S3' AND epoch >= 25`)
+	f.exec(`UPDATE servers SET first_epoch = 5, first_seen_at = ? WHERE server_id = 'S3'`, at(5))
+	f.exec(`DELETE FROM server_stats WHERE server_id = 'S3' AND epoch < 5`)
+	// With min_duration at 5 minutes, the 10 minutes of the join would fire.
+	for e := int64(5); e <= 50; e++ {
+		if r := f.eval("system-005", e, map[string]string{"min_duration": "5m"}); len(r) != 0 {
+			t.Fatalf("epoch %d: %s", e, rowsText(r))
+		}
+	}
+}
