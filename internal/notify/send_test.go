@@ -302,3 +302,17 @@ func TestScrub(t *testing.T) {
 }
 
 var urlErr = url.Error{Op: "Post", URL: "https://hooks.example.com/services/" + pathSecret, Err: errors.New("connection refused")}
+
+// A Retry-After too large for a time.Duration in seconds is held to a day,
+// not wrapped round to a negative wait.
+func TestRetryAfterClamped(t *testing.T) {
+	now := time.Date(2026, 11, 5, 9, 30, 0, 0, time.UTC)
+	for _, v := range []string{"9223372036854775807", "86401", "100000000000"} {
+		if d := retryAfter(v, now); d != MaxRetryAfter {
+			t.Errorf("%s: %s, want %s", v, d, MaxRetryAfter)
+		}
+	}
+	if d := retryAfter(now.Add(400*24*time.Hour).Format(http.TimeFormat), now); d != MaxRetryAfter {
+		t.Errorf("far date: %s", d)
+	}
+}
