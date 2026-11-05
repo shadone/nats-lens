@@ -386,7 +386,7 @@ Capacity (`/capacity`) reads `GetCapacity` through `useCapacity`, keyed by syste
 
 The UI handler serves files from the embedded UI; a GET for a path that names no file and whose last element has no dot gets `index.html`, and a missing asset is a 404.
 
-Visual design: Denis chose option A (light, calm, one mint-teal accent, IBM Plex Sans for labels and IBM Plex Mono for every value, code and timestamp), and asked for a dark theme too. The dark theme and two parts of option B are in the reference mockup `docs/ui-reference/reference.html`: severity badges that differ by shape as well as colour, and a zoomed timeline with Kubernetes events above the time axis and NATS events below. Every colour is a CSS custom property with a light and a dark value; the theme follows the system unless the viewer picks one. Fonts are self-hosted and the UI makes no third-party requests.
+Visual design: the owner chose option A (light, calm, one mint-teal accent, IBM Plex Sans for labels and IBM Plex Mono for every value, code and timestamp), and asked for a dark theme too. The dark theme and two parts of option B are in the reference mockup `docs/ui-reference/reference.html`: severity badges that differ by shape as well as colour, and a zoomed timeline with Kubernetes events above the time axis and NATS events below. Every colour is a CSS custom property with a light and a dark value; the theme follows the system unless the viewer picks one. Fonts are self-hosted and the UI makes no third-party requests.
 
 What we take from Synadia Insights: the checks-over-time grid, the event feed with remediation and the related configuration values, monospace numbers, colour only for status.
 
@@ -577,7 +577,7 @@ High availability, write actions towards NATS, alert delivery (findings are expo
 
 ## Owner review of proposed decisions, 2026-10-17
 
-Denis reviewed the nine most consequential proposed decisions on 2026-10-17. These are now confirmed:
+The owner reviewed the nine most consequential proposed decisions on 2026-10-17. These are now confirmed:
 
 - Routine events are hidden by default ("Worth reading"); mutating or failed `api.audit` records are always shown; repeats within 10 minutes fold.
 - Info findings are notices, never trouble (`isTrouble`).
@@ -588,13 +588,13 @@ Denis reviewed the nine most consequential proposed decisions on 2026-10-17. The
 - `/metrics` is exempt from the host allowlist; alerting goes through Prometheus rules on it.
 - Servers "Needs attention": not answering, a warning or critical finding, a minority version, or store at 60% or more.
 
-Churn collapse (connections the client closes within 10 s stored as one `client.churn` per name per minute) is kept, with Denis's note: "i am not against that but it sounds odd to have such short lived connections, it is likely an indicator of a problem somewhere". Follow-up: make short-lived connections visible as a possible problem rather than only routine noise (see `docs/plans/next.md`).
+Churn collapse (connections the client closes within 10 s stored as one `client.churn` per name per minute) is kept, with the owner's note: "i am not against that but it sounds odd to have such short lived connections, it is likely an indicator of a problem somewhere". Follow-up: make short-lived connections visible as a possible problem rather than only routine noise (see `docs/plans/next.md`).
 
 Follow-up done: `client-005` "Short-lived connections" fires for a connection name whose connects folded into `client.churn` events reach 20 within 10 minutes, at warning severity; folding and the routine status of `client.churn` stay as they are, so the finding is what makes the pattern visible. A firing finding keeps firing while the count stays at or above `resolve_ratio` (0.8) of the threshold, as `server-011` does, so a client near 2 a minute does not flap as one-minute summaries enter and leave the window. The threshold of 20 in 10 minutes, the warning severity and the `resolve_ratio` of 0.8 are proposed, not yet confirmed. Also proposed, not yet confirmed: the detail lists at most five client hosts and counts the rest, and the demo shows the finding for `stock-poller` in `example-prod` (from 12:48, after it began to open a connection per poll) while the churn of its other clients stays below the threshold. The owner confirmed these on 2026-10-26 (see "Owner review of proposed decisions, 2026-10-26").
 
 ## Owner review of proposed decisions, 2026-10-26
 
-Denis answered twelve questions on the proposed decisions on 2026-10-26, and confirmed the rest as a batch.
+The owner answered twelve questions on the proposed decisions on 2026-10-26, and confirmed the rest as a batch.
 
 Confirmed as proposed:
 
