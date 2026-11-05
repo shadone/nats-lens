@@ -15,6 +15,7 @@ import { replay, type Replay } from "./adapt-replay";
 import { topology } from "./topology";
 import { accountsAndAuth } from "./accounts";
 import { capacity } from "./capacity";
+import { dataHistory } from "./history";
 import { microServices } from "./micro";
 import { applications } from "./applications";
 import { FILTER_ENUM as SUBJECT_FILTER_ENUM, subjectMatches, subjects, type SubjectFilter } from "./subjects";
@@ -243,6 +244,14 @@ export async function getApplications(sys: string, spec: RangeSpec, account: str
 /** What a message on a literal subject would reach in the range's newest collection. */
 export async function matchSubject(sys: string, spec: RangeSpec, account: string, subject: string, signal?: AbortSignal) {
   return subjectMatches(await lens.matchSubject({ ...systemInit(sys), range: rangeInit(spec), account, subject }, { signal }));
+}
+
+/** What nats-lens holds of the system: its history, the range's coverage and gaps, the archive and what uses the history. */
+export async function getDataHistory(sys: string, spec: RangeSpec, signal?: AbortSignal) {
+  const now = serverNow();
+  const range = rangeInit(spec, now);
+  const sent = resolveRange(spec, now);
+  return dataHistory(await lens.getDataHistory({ ...systemInit(sys), range }, { signal }), sent);
 }
 
 /** The accounts of the range's newest collection, the failed logins of the 24 hours before it, and what expires soon. */

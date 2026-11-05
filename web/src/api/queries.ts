@@ -237,6 +237,18 @@ export function useCapacity(spec: RangeSpec) {
   });
 }
 
+/** The Data history page: the history and the range's gaps, followed on a live range as Capacity is. */
+export function useDataHistory(spec: RangeSpec) {
+  const sys = useSystem();
+  return useQuery({
+    queryKey: ["data-history", sys, rangeKey(spec)],
+    queryFn: ({ signal }) => api.getDataHistory(sys, spec, signal),
+    refetchInterval: refetch(spec),
+    // The previous range's answer stands in while the next loads, never another system's.
+    placeholderData: keepSameSystem(sys),
+  });
+}
+
 /**
  * The Subjects page: the range's newest collection, followed on a live
  * range as Capacity is. The previous answer stands in while the next
