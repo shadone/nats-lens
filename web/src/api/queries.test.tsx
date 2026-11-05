@@ -171,3 +171,18 @@ describe("live refetch", () => {
     expect(query?.observers[0]?.options.refetchInterval).toBe(30_000);
   });
 });
+
+it("shares a settled history answer with charts mounted later on the same page", async () => {
+  vi.mocked(lens.getDataHistory).mockClear();
+  function Chart() { q.useDataHistory(live); return null; }
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  function Frame({ second }: { second: boolean }) {
+    return <QueryClientProvider client={qc}><MemoryRouter><Chart />{second && <Chart />}</MemoryRouter></QueryClientProvider>;
+  }
+  const r = render(<Frame second={false} />);
+  await waitFor(() => expect(qc.isFetching()).toBe(0));
+  expect(lens.getDataHistory).toHaveBeenCalledTimes(1);
+  r.rerender(<Frame second />);
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
+  expect(lens.getDataHistory).toHaveBeenCalledTimes(1);
+});
