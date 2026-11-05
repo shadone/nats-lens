@@ -24,6 +24,7 @@ import {
   retentionLine,
   shareText,
   spanText,
+  stripEnds,
   stripSegments,
   whenText,
 } from "../lib/historyView";
@@ -138,6 +139,7 @@ function GapRow({ g, rangeEnd, live }: { g: HistoryGap; rangeEnd: number; live: 
 /** The range with its hatched gaps, oldest left. */
 export function GapStrip({ d, live }: { d: DataHistory; live: boolean }) {
   const segs = stripSegments(d);
+  const ends = stripEnds(d, live);
   const n = segs.length;
   const name = n === 0 ? "The range, with collections all through" : `The range, with ${n} ${n === 1 ? "time" : "times"} without collections hatched`;
   return (
@@ -148,8 +150,8 @@ export function GapStrip({ d, live }: { d: DataHistory; live: boolean }) {
         ))}
       </div>
       <div className="dh-strip-ends" aria-hidden="true">
-        <span>{gapTime(d.rangeStart, d.rangeEnd)}</span>
-        <span>{live ? "now" : gapTime(d.rangeEnd, d.rangeEnd)}</span>
+        <span>{ends[0]}</span>
+        <span>{ends[1]}</span>
       </div>
       {n > 0 && (
         <ul className="sr-only">
