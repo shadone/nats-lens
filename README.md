@@ -440,6 +440,7 @@ To try a change to a check on a copy of a database: `natslens checks run -data-d
 | system-007 | Collections often incomplete | warning | `epoch_endpoints` not ok for answering servers or collector errors in at least 25% of 30m's epochs (10 or more); resolves below half of that |
 | system-008 | Archive export behind | warning | a closed hour with epochs or events and no final `archive_hours` row for over 1h after the hour or the process start; not in `natslens once` |
 | system-009 | Event messages dropped | warning | `collector.messages_dropped` events within 1h, those of the collector's own connection left out; a lower bound |
+| system-010 | Notifications not delivered | warning; critical for a recent refusal or give-up | `notify_outbox`: a channel with a notification pending longer than `pending_for` (10m), or one refused or given up within 1h; names channels, never a URL |
 | stream-001 | Stream quorum lost | critical | the leader most reporters name and its online replicas, or too few reporters when it does not report, 2 epochs; restarting servers left out only while the rest form a majority |
 | stream-002 | Stream replica offline | warning; info while the replica's server restarts or announced its shutdown | the leader's `stream_replicas` |
 | stream-003 | Stream replica lagging | warning | the leader's replica lag above 1000 operations |
@@ -474,6 +475,10 @@ To try a change to a check on a copy of a database: `natslens checks run -data-d
 | consumer-011 | Consumer configuration differs from the inventory | warning | `inventory` against the leader's configuration |
 | consumer-012 | Consumer missing on an assigned server | warning | leader's peers that answered JSZ without the consumer and are not restarting |
 | consumer-013 | Durable consumer disappeared | critical with a consumer.deleted event; warning after its stream's delete; info or warning while a server that held it is away | a durable reported within 1h (or since its server went away) that no server reports while its stream is there; not internal, ephemeral, expiring or in the inventory |
+| consumer-014 | Oldest unread message about to expire | warning at 0.8 of the stream's `max_age`, critical at 0.95; a firing finding resolves below 0.7 | the leader's ack floor or delivered sequence, dated by the first collection whose stream last sequence reached it (a lower bound for filtered consumers), not getting younger over 10m; durables only; each stream's history read back to its own `max_age` |
+| consumer-015 | Pull requests at max_waiting | warning | leader's `num_waiting` at `max_waiting` with messages waiting, in 2 epochs in a row; a firing finding resolves below 0.9 or after 2 epochs with nothing waiting; `max_waiting` below 2, push and paused consumers left out |
+| consumer-016 | Single replica on a replicated stream | info | a durable whose `consumer_config.replicas` is 1 on a limits stream with more |
+| consumer-017 | Consumer paused for a long time | warning with messages waiting, else info | paused longer than 2h, from the first `consumer.paused` event or paused collection since it last ran or was resumed |
 | client-001 | High client round trip time | warning | `connections.rtt_ns` above 100ms on one client (server, pod and address, else cid) in 2 epochs in a row, by service (the connection name before "@") |
 | client-002 | High pending bytes | warning | `connections.pending_bytes` above 4 MiB, by connection name |
 | client-003 | Slow consumer disconnects | warning | `client.disconnect` events with a slow consumer reason, 30m |

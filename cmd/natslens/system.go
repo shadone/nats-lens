@@ -135,6 +135,12 @@ func registry(rts []*systemRuntime, set *checks.Set) api.Systems {
 // the same deadline.
 func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, deadline func() time.Time) (err error) {
 	cfg, st, log := rt.cfg, rt.st, rt.log
+	if cmd == "run" && len(cfg.Notifications.Channels) > 0 {
+		stop := startNotificationDelivery(ctx, &notify.Delivery{Store: st, SystemID: rt.sys.ID,
+			SystemName: rt.sys.Name, Version: version, UIURL: cfg.Notifications.UIURL,
+			Channels: cfg.Notifications.Channels, Interval: cfg.Interval.D(), Log: log}, cfg.ShutdownGrace.D())
+		defer stop()
+	}
 	tracker := collect.NewTracker(cfg.ServerForgetAfter.D())
 	seen, err := st.LastSeenServers(ctx)
 	if err != nil {
