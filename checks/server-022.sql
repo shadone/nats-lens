@@ -7,9 +7,11 @@ severity: warning
 kind: operational
 thresholds:
   - name: min_pending
-    default: "1000"
+    default: "10000"
     unit: count
-    description: Items waiting in one internal queue at or above which it counts.
+    description: >-
+      Items waiting in one internal queue at or above which it counts; items being processed (in_progress) are not
+      counted.
   - name: min_epochs
     default: "3"
     unit: count
@@ -41,11 +43,16 @@ WITH last AS (
     LIMIT CAST(getvariable('min_epochs') AS INTEGER)
 ),
 -- IPQUEUESZ lists only queues that are not empty, so a queue the answer
--- leaves out held nothing.
+-- leaves out held nothing. A process that restarts or recovers (its
+-- JetStream not ready, raft groups catching up) fills its queues while it
+-- catches up and is not judged.
 answered AS (
     SELECT ee.epoch, s.server_id, s.server_name
     FROM epoch_endpoints ee JOIN servers s USING (server_id)
     WHERE ee.epoch IN (SELECT epoch FROM last) AND ee.endpoint = 'IPQUEUESZ' AND ee.state = 'ok'
+      AND (ee.epoch, ee.server_id) NOT IN (
+          SELECT (epoch, server_id) FROM restarting((SELECT min(epoch) FROM last), getvariable('epoch'))
+          UNION SELECT (epoch, server_id) FROM recovering((SELECT min(epoch) FROM last), getvariable('epoch')))
 ),
 queues AS (
     SELECT a.epoch, a.server_name, q.queue, max(q.pending) AS pending
