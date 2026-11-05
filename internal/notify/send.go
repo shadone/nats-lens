@@ -35,7 +35,7 @@ func (o Outcome) String() string {
 	case Delivered:
 		return "delivered"
 	case Retry:
-		return "failed, will retry"
+		return "failed"
 	case Refused:
 		return "refused"
 	}
@@ -58,7 +58,7 @@ type Result struct {
 }
 
 // String is the result in words: "delivered, HTTP 204", "refused, HTTP
-// 404", "failed, will retry: no answer within 10s".
+// 404", "failed: no answer within 10s".
 func (r Result) String() string {
 	s := r.Outcome.String()
 	if r.Status != 0 {
