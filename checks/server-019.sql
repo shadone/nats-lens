@@ -4,7 +4,7 @@ name: Gateway missing
 entity: server
 category: health
 severity: warning
-severity_rule: critical when no server of the cluster that answered GATEWAYZ has an outbound gateway to that cluster
+severity_rule: critical when no server of the cluster that answered GATEWAYZ has an outbound gateway to that cluster, while the remote cluster still connects in
 kind: operational
 lookback: 24h
 thresholds:
@@ -15,43 +15,70 @@ thresholds:
       Consecutive collections the gateway must be missing, with the server answering GATEWAYZ, before the finding
       fires. A firing finding stays while the gateway is missing in the newest collection.
 description: >-
-  The server has no outbound gateway to a remote cluster that a server of its cluster had one to within the
+  The server has no outbound gateway to a remote cluster that its cluster had a gateway to or from within the
   lookback, in each of the last min_epochs collections in which it answered GATEWAYZ. Every server of a supercluster
   keeps one outbound gateway to each remote cluster; without it, the server's messages for that cluster have to wait
   for the gateway to come back. GATEWAYZ lists only connected gateways and NATS sends no event for a gateway
   disconnect, so a remote cluster is known from the gateways seen within the lookback, and a drop shorter than one
-  collect interval is not seen.
+  collect interval is not seen. A remote cluster from which no server of the cluster has an inbound gateway in each
+  of the last min_epochs collections, while they answer GATEWAYZ, is taken as removed and no longer judged, so a
+  cluster removed on purpose fires nothing; a cluster cut off in both directions is then server-001's for its
+  servers. A server that is restarting (restart_window) is not judged, as its gateways connect some time after it
+  answers.
 remediation: >-
   The detail names the remote clusters. With the system user, `nats server report gateways` lists each server's
-  gateways, and the Topology page shows the pairs of clusters and their drops. When the whole remote cluster is
-  missing, check that its servers run and that the gateway port (7222 by default) is reachable from this cluster: a
-  load balancer, firewall rule or DNS name in the `gateway.gateways` URLs of the NATS configuration. When only this
-  server lacks the gateway, look in its log for "Error connecting to gateway". A remote cluster removed on purpose
-  stays known for the lookback; mute the finding until then.
+  gateways, and the Topology page shows the pairs of clusters and their drops. When no server of the cluster
+  reaches the remote cluster while it still connects in, check that the gateway port (7222 by default) of the
+  remote cluster is reachable from this cluster: a load balancer, firewall rule or DNS name in the
+  `gateway.gateways` URLs of the NATS configuration. When only this server lacks the gateway, look in its log for
+  "Error connecting to gateway".
 related_config: [lookback, min_epochs, gateway.gateways]
 value_name: remote clusters without a gateway
-value_basis: remote clusters of the server's cluster seen within the lookback, without an outbound gateway from this server
+value_basis: remote clusters of the server's cluster seen within the lookback and not removed, without an outbound gateway from this server
 */
 WITH last AS (
     SELECT epoch FROM epochs WHERE epoch <= getvariable('epoch') ORDER BY epoch DESC
     LIMIT CAST(getvariable('min_epochs') AS INTEGER)
 ),
--- The remote clusters each cluster had an outbound gateway to within the
--- lookback.
-known AS (
+-- The remote clusters each cluster had a gateway to or from within the
+-- lookback; an inbound gateway is named by the cluster it comes from.
+seen AS (
     SELECT DISTINCT s.cluster, g.gateway
     FROM gateways g JOIN servers s USING (server_id)
-    WHERE g.direction = 'outbound' AND g.cid IS NOT NULL
+    WHERE g.cid IS NOT NULL
       AND g.epoch >= getvariable('window_epoch') AND g.epoch <= getvariable('epoch')
       AND coalesce(s.cluster, '') <> '' AND g.gateway <> s.cluster
 ),
 -- The processes whose GATEWAYZ answered, so whose list of gateways is
 -- whole.
-reporters AS (
+answered AS (
     SELECT ee.epoch, s.server_id, s.server_name, s.cluster
     FROM epoch_endpoints ee JOIN servers s USING (server_id)
     WHERE ee.epoch IN (SELECT epoch FROM last) AND ee.endpoint = 'GATEWAYZ' AND ee.state = 'ok'
       AND coalesce(s.cluster, '') <> ''
+),
+-- A remote cluster is gone, as when it was removed on purpose, when in each
+-- of the last min_epochs collections servers of the cluster answered and none
+-- of them had a gateway from it.
+inbound AS (
+    SELECT DISTINCT a.epoch, a.cluster, g.gateway
+    FROM answered a JOIN gateways g ON g.epoch = a.epoch AND g.server_id = a.server_id
+    WHERE g.direction = 'inbound' AND g.cid IS NOT NULL
+),
+gone AS (
+    SELECT k.cluster, k.gateway FROM seen k
+    WHERE (SELECT count(DISTINCT a.epoch) FROM answered a WHERE a.cluster = k.cluster) >= getvariable('min_epochs')
+      AND NOT EXISTS (SELECT 1 FROM inbound i WHERE i.cluster = k.cluster AND i.gateway = k.gateway)
+),
+known AS (
+    SELECT * FROM seen WHERE (cluster, gateway) NOT IN (SELECT (cluster, gateway) FROM gone)
+),
+-- A restarting process is not judged: its gateways may connect only some
+-- time after it answers.
+reporters AS (
+    SELECT a.* FROM answered a
+    WHERE (a.epoch, a.server_id) NOT IN (
+        SELECT (epoch, server_id) FROM restarting((SELECT min(epoch) FROM last), getvariable('epoch')))
 ),
 up AS (
     SELECT DISTINCT r.epoch, r.server_name, g.gateway
