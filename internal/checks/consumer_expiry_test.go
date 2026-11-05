@@ -234,3 +234,42 @@ func TestOldestUnreadRefilledBacklog(t *testing.T) {
 	r := f.eval("consumer-014", 200, map[string]string{"warn_ratio": "0.1", "resolve_ratio": "0.05"})
 	want(t, r["APP/events/refill"], "warning", "at least 10 minutes old, 17% of max_age 1h")
 }
+
+// stalledFiltered stores a filtered consumer of events stalled at
+// delivered sequence 500, whose messages waiting in collection e are
+// pending(e); a negative value leaves the collection without a leader row.
+func (f *fx) stalledFiltered(name string, n int64, pending func(e int64) int64) {
+	f.consumerConfig("S0", "events", name, 1, n, nil)
+	f.exec(`UPDATE consumer_config SET filter_subjects = ['events.eu'] WHERE consumer = ?`, name)
+	for e := int64(1); e <= n; e++ {
+		if p := pending(e); p >= 0 {
+			f.consumerStats(e, "S0", "events", name, m{"is_leader": true, "delivered_stream_seq": 500,
+				"ack_floor_stream_seq": 500, "num_ack_pending": 0, "num_pending": p})
+		}
+	}
+}
+
+// One collection with no message waiting, as a new leader may report, does
+// not restart the age of a stalled backlog; two in a row do.
+func TestOldestUnreadSingleEmptyCollection(t *testing.T) {
+	f := newFx(t)
+	f.cluster(400)
+	f.expiryStream(400)
+	f.stalledFiltered("glitch", 400, func(e int64) int64 {
+		if e == 300 {
+			return 0
+		}
+		return 3
+	})
+	f.stalledFiltered("emptied", 400, func(e int64) int64 {
+		if e == 300 || e == 301 {
+			return 0
+		}
+		return 3
+	})
+	r := f.fires("consumer-014", 400, "APP/events/glitch", "APP/events/emptied")
+	// The window starts 1h10m before collection 400.
+	want(t, r["APP/events/glitch"], "critical", "at least 1.2 hours old, 117% of max_age 1h")
+	// The backlog starts at 302, after the two empty collections.
+	want(t, r["APP/events/emptied"], "warning", "at least 49 minutes old, 82% of max_age 1h")
+}
