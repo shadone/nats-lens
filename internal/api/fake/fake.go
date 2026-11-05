@@ -160,11 +160,11 @@ func inRange(t time.Time, r *v1.TimeRange) bool {
 	return !t.Before(r.GetStart().AsTime()) && t.Before(r.GetEnd().AsTime())
 }
 
-// Info describes the demo: its cluster, a 30 s interval and 14 days of
+// Info describes the demo: its cluster, a 30 s interval and the system's
 // retention.
 func (p *Provider) Info(context.Context) (*v1.GetLensInfoResponse, error) {
 	return &v1.GetLensInfoResponse{Cluster: p.sc.cluster, CollectInterval: dur(30 * time.Second),
-		Retention: dur(14 * 24 * time.Hour), Live: p.live, Demo: true, NowFixed: !p.live, HistoryStart: ts(p.scen().dataStart())}, nil
+		Retention: dur(p.sc.retentionOr()), Live: p.live, Demo: true, NowFixed: !p.live, HistoryStart: ts(p.scen().dataStart())}, nil
 }
 
 // freshness describes the newest epoch inside the range.
@@ -185,13 +185,17 @@ func (s scen) freshness(r *v1.TimeRange) *v1.Freshness {
 // epochBefore is the newest epoch inside the range: the last epoch before
 // its end that is not before its start, and its number. Epochs lie every
 // 30 seconds back from the newest (lastEpoch) to the start of the history,
-// numbered from 1 there, so no two epochs share a number.
+// numbered from 1 there, so no two epochs share a number; none lies inside
+// one of the scenario's noEpochs.
 func (s scen) epochBefore(r *v1.TimeRange) (time.Time, int64, bool) {
 	last := s.lastEpoch()
 	end := r.GetEnd().AsTime()
 	at := last
 	if !last.Before(end) {
 		at = last.Add(-(last.Sub(end)/sampleEvery + 1) * sampleEvery)
+	}
+	if h, ok := s.holeAt(at); ok {
+		at = h.from
 	}
 	if at.Before(r.GetStart().AsTime()) || at.Before(s.dataStart()) {
 		return time.Time{}, 0, false

@@ -472,3 +472,15 @@ func (h *Handler) MatchSubject(ctx context.Context, req *connect.Request[v1.Matc
 		return FinishMatch(f, m.GetAccount(), m.GetSubject()), nil
 	})
 }
+
+func (h *Handler) GetDataHistory(ctx context.Context, req *connect.Request[v1.GetDataHistoryRequest]) (*connect.Response[v1.GetDataHistoryResponse], error) {
+	return call(ctx, h, "GetDataHistory", req.Msg, func(p Provider, m *v1.GetDataHistoryRequest) error {
+		return withRange(p, &m.Range)
+	}, func(s System, ctx context.Context, m *v1.GetDataHistoryRequest) (*v1.GetDataHistoryResponse, error) {
+		f, err := s.Provider.DataHistory(ctx, m)
+		if err != nil {
+			return nil, err
+		}
+		return FinishDataHistory(f), nil
+	})
+}

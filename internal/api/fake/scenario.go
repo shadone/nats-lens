@@ -31,6 +31,14 @@ type scenario struct {
 	// history is how long before now the stored history begins; zero
 	// means defaultHistory, older than any range.
 	history time.Duration
+	// noEpochs are the times without collections inside the history, in
+	// the fixed frame; nil means none.
+	noEpochs []hole
+	// retention is how long collections and events are kept; zero means
+	// defaultHistory.
+	retention time.Duration
+	// archive is the archive's state; nil means no archiver.
+	archive func(s scen) api.ArchiveState
 	// serverDown reports whether a server was down at fixed-frame time
 	// c, as its series draw it, so that an epoch then missed it and lists
 	// none of its connections; nil means never.
