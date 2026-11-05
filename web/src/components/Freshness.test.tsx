@@ -29,7 +29,7 @@ describe("Freshness", () => {
 
   it("says fixed for a fixed range, and offline over it when the status call fails", () => {
     const { rerender } = render(<Freshness spec={{ kind: "fixed", from: 0, to: 1 }} freshness={fresh(4_000)} />);
-    expect(screen.getByText("fixed")).toBeInTheDocument();
+    expect(screen.getByText("fixed")).not.toHaveAttribute("title");
     rerender(<Freshness spec={{ kind: "fixed", from: 0, to: 1 }} freshness={fresh(4_000)} error={new Error("x")} />);
     expect(screen.getByText("offline")).toHaveClass("offline");
   });
@@ -54,6 +54,7 @@ describe("Freshness when the collector stopped", () => {
     expect(el).toHaveTextContent(/^not collecting since 11:30$/);
     expect(el).toHaveClass("stale");
     expect(screen.queryByText(/stale|no data/)).toBeNull();
+    expect(el).toHaveAttribute("title", "not collecting since 11:30. Newest collection 9");
   });
 
   it("says not collecting, not no data, when the range holds no collection", () => {
@@ -63,6 +64,6 @@ describe("Freshness when the collector stopped", () => {
 
   it("says no data only when no collection exists and the collector collects", () => {
     render(<Freshness spec={live} freshness={{ ...fresh(0), epoch: "0", epochAt: undefined }} />);
-    expect(screen.getByText("no data")).toBeInTheDocument();
+    expect(screen.getByText("no data")).not.toHaveAttribute("title");
   });
 });
