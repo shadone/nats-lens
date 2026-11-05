@@ -43,16 +43,15 @@ WITH last AS (
     LIMIT CAST(getvariable('min_epochs') AS INTEGER)
 ),
 -- IPQUEUESZ lists only queues that are not empty, so a queue the answer
--- leaves out held nothing. A process that restarts or recovers (its
--- JetStream not ready, raft groups catching up) fills its queues while it
--- catches up and is not judged.
+-- leaves out held nothing. A process that restarted within restart_window
+-- fills its queues while it catches up and is not judged; one that recovers
+-- later, a follower stuck catching up among them, is.
 answered AS (
     SELECT ee.epoch, s.server_id, s.server_name
     FROM epoch_endpoints ee JOIN servers s USING (server_id)
     WHERE ee.epoch IN (SELECT epoch FROM last) AND ee.endpoint = 'IPQUEUESZ' AND ee.state = 'ok'
       AND (ee.epoch, ee.server_id) NOT IN (
-          SELECT (epoch, server_id) FROM restarting((SELECT min(epoch) FROM last), getvariable('epoch'))
-          UNION SELECT (epoch, server_id) FROM recovering((SELECT min(epoch) FROM last), getvariable('epoch')))
+          SELECT (epoch, server_id) FROM restarting((SELECT min(epoch) FROM last), getvariable('epoch')))
 ),
 queues AS (
     SELECT a.epoch, a.server_name, q.queue, max(q.pending) AS pending

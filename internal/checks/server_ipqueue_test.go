@@ -77,7 +77,8 @@ func TestIpqueueBacklogResolve(t *testing.T) {
 }
 
 // A process that restarted fills its queues while it catches up: it is not
-// judged while restarting, nor while its raft groups catch up.
+// judged while restarting. One whose raft groups catch up without a
+// restart, as a follower stuck behind, is judged.
 func TestIpqueueBacklogAfterRestart(t *testing.T) {
 	f := newFx(t)
 	f.epochs(1, 8, three...)
@@ -96,9 +97,10 @@ func TestIpqueueBacklogAfterRestart(t *testing.T) {
 		if e >= 4 && e <= 6 {
 			f.row("ipqueues", m{"epoch": e, "server_id": "S9", "queue": "RAFT apply", "pending": 30000, "in_progress": 0})
 		}
-		// nats-1 did not restart, but its raft groups catch up.
+		// nats-1 did not restart; its raft groups catch up.
 		f.row("ipqueues", m{"epoch": e, "server_id": "S1", "queue": "RAFT apply", "pending": 30000, "in_progress": 0})
 		f.row("raft_stats", m{"epoch": e, "server_id": "S1", "group_id": "G1", "catching_up": true})
 	}
-	f.fires("server-022", 6)
+	r := f.fires("server-022", 6, "nats-1")
+	want(t, r["nats-1"], "warning", `"RAFT apply" holds 30000 items`)
 }
