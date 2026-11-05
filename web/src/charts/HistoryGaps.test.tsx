@@ -85,3 +85,13 @@ it("bounds retained live data on a failed refresh and tells the reader history i
   expect(Number(mark.getAttribute("x")) + Number(mark.getAttribute("width"))).toBeLessThan(200);
   expect(mark).not.toHaveAttribute("aria-label", expect.stringContaining("until now"));
 });
+it("keeps a stable shared key when page and chart clocks tick in separate renders", async () => {
+  read.mockResolvedValue({ ...staging(), gaps: [] });
+  const p = { start: NOW - DAY, end: NOW, live: true };
+  const r = setup(p.start, NOW, p, "/?range=24h");
+  await waitFor(() => expect(r.qc.isFetching()).toBe(0));
+  r.rerender(<r.Frame p={{ ...p, start: p.start + 30_000, end: NOW + 30_000 }} />);
+  r.rerender(<r.Frame a={p.start + 30_000} b={NOW + 30_000} p={{ ...p, start: p.start + 30_000, end: NOW + 30_000 }} />);
+  expect(read).toHaveBeenCalledTimes(1);
+  expect(r.qc.getQueryCache().getAll()).toHaveLength(1);
+});
