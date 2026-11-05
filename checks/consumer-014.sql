@@ -34,7 +34,8 @@ description: >-
   Otherwise, and when the message after the ack floor has left the stream, the age is a lower bound and reads "at
   least": the newest delivered message's while messages are unacknowledged, else the time since the backlog began
   (the earliest collection with the same delivered sequence in which messages waited, found among every 64th
-  collection and then the 64 before, after the newest collection in which no message waited). In that case a
+  collection and then the 64 before, after the newest two collections in a row in which no message waited; one
+  such collection alone, as a new leader may report, does not restart the age). In that case a
   stuck unacknowledged message of a consumer that keeps delivering newer ones is not seen. History before the
   stored collections, or older than the stream's own max_age and the lookback, is not read, so a message that
   old reads younger. An age reads older only when sequences after the consumer's position were deleted, or when
@@ -162,7 +163,7 @@ reached AS (
 -- The backlog's start, where the next sequence does not date the oldest
 -- unread message: the earliest leader row of the same creation with the
 -- delivered sequence of the judged collection and messages waiting, after
--- the newest collection in which no message waited. As nothing was
+-- the newest two collections in a row in which no message waited. As nothing was
 -- delivered since, a message that waited then still waits, so any such row
 -- bounds the publication; the earliest found is used. It is searched like
 -- the dating of a sequence: every 64th collection first, then the 64
@@ -192,16 +193,23 @@ bfirst AS (
       AND z.delivered_stream_seq = c.d AND z.num_pending > 0
     GROUP BY c.account, c.stream, c.consumer, c.epoch
 ),
--- The newest collection after that start in which the same consumer had no
--- message waiting: the backlog emptied there, its messages deleted or aged
--- out, and the one waiting now came later.
-bempty AS (
-    SELECT f.account, f.stream, f.consumer, f.epoch, max(z.epoch) AS empty
+-- The newest collection after that start that ends two collections in a
+-- row in which the same consumer's leader reported no message waiting: the
+-- backlog emptied there, its messages deleted or aged out, and the one
+-- waiting now came later. One such collection alone, as a new leader may
+-- report, does not restart the age.
+bzero AS (
+    SELECT f.account, f.stream, f.consumer, f.epoch, z.epoch AS ze
     FROM bfirst f JOIN consumer_leader_stats z
       ON z.account = f.account AND z.stream = f.stream AND z.consumer = f.consumer AND z.num_pending = 0
-     AND z.created IS NOT DISTINCT FROM f.created AND z.epoch > f.start_epoch AND z.epoch < f.epoch
-    WHERE z.epoch > (SELECT min(start_epoch) FROM bfirst)
-    GROUP BY f.account, f.stream, f.consumer, f.epoch
+     AND z.created IS NOT DISTINCT FROM f.created AND z.epoch >= f.start_epoch AND z.epoch < f.epoch
+    WHERE z.epoch >= (SELECT min(start_epoch) FROM bfirst)
+),
+bempty AS (
+    SELECT a.account, a.stream, a.consumer, a.epoch, max(a.ze) AS empty
+    FROM bzero a JOIN bzero b ON b.account = a.account AND b.stream = a.stream AND b.consumer = a.consumer
+     AND b.epoch = a.epoch AND b.ze = a.ze - 1
+    GROUP BY a.account, a.stream, a.consumer, a.epoch
 ),
 -- The first row with messages waiting after the backlog emptied, within the
 -- three blocks of 64 collections from it; a consumer whose leader did not
