@@ -139,14 +139,12 @@ export function stripSegments(d: Pick<DataHistory, "gaps" | "rangeStart" | "rang
     .map((g) => {
       const left = pct(g.start!);
       const right = pct(g.end ?? d.rangeEnd);
-      return { gap: g, left: round(left), width: round(right - left) };
+      return { gap: g, left, width: right - left };
     })
+    .filter((s) => s.width > 0)
     .reverse();
 }
 
-function round(v: number): number {
-  return Math.round(v * 100) / 100;
-}
 
 /** The strip's two ends: "13:47" and "now", or with the day over a day or more. */
 export function stripEnds(d: Pick<DataHistory, "rangeStart" | "rangeEnd">, live: boolean): [string, string] {
