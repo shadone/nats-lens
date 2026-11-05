@@ -53,10 +53,10 @@ The system checks judge what belongs to no single server: the JetStream meta gro
 ### `system-006` Mixed JetStream API levels
 
 - **Problem:** the servers implement different JetStream API levels. A request for a newer API feature, such as a stream or consumer setting that came with a later release, then works or fails depending on the server that handles it.
-- **Fires when:** the answering JetStream servers report more than one API level in every collection for at least `min_duration`. The detail lists the servers per level; level 0 reads "none reported", a release before API levels. A firing finding resolves once no collection of the last `min_duration` was mixed.
+- **Fires when:** the answering JetStream servers of one JetStream domain report more than one API level in every collection for at least `min_duration`, the hold starting between `min_duration` and twice `min_duration` ago. The detail names the domain, when it has one, and lists the servers per level; level 0 reads "none reported", a release before API levels. A firing finding resolves once no collection of the last `min_duration` was mixed.
 - **Severity:** warning (proposed, not yet confirmed).
 - **Thresholds:** `min_duration` 30m (proposed, not yet confirmed).
-- **Left out:** collections in which a server is restarting, so a rolling upgrade that keeps moving does not fire, while one that stops half-way fires `min_duration` after its last restart's `checks.restart_window`; servers with JetStream disabled. Versions that differ but share one API level do not fire; `server-005` reports every version other than the majority's, at info.
+- **Left out:** collections in which a server is restarting, so a rolling upgrade that keeps moving does not fire, while one that stops half-way fires `min_duration` after its last restart's `checks.restart_window`, and an upgrade whose restarts are more than about 40 minutes apart (`checks.restart_window` plus `min_duration`) fires between them; servers with JetStream disabled. Versions that differ but share one API level do not fire; `server-005` reports every version other than the majority's, at info.
 
 ### `system-007` Collections often incomplete
 

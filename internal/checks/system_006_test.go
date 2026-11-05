@@ -109,7 +109,41 @@ func TestMixedAPILevelsResolves(t *testing.T) {
 	})
 	f.firingSystem("system-006", 129)
 	r := f.fires("system-006", 130, "")
-	want(t, r[""], "warning", "At 09:35:00 UTC the JetStream servers reported 2 API levels", "resolves once")
+	want(t, r[""], "warning", "At 09:35:00 UTC: The JetStream servers reported 2 API levels", "resolves once")
 	f.exec(`UPDATE findings SET last_seen_epoch = 130`)
 	f.fires("system-006", 131)
+}
+
+// Levels are compared within a JetStream domain: a leaf node domain on
+// another release is no mix, while a mix inside a domain names it.
+func TestMixedAPILevelsByDomain(t *testing.T) {
+	f := newFx(t)
+	f.metaCluster(61, func(e int64, i int) m {
+		if i == 2 {
+			return m{"js_api_level": 2}
+		}
+		return nil
+	})
+	f.exec(`UPDATE servers SET domain = 'hub' WHERE server_id IN ('S0', 'S1')`)
+	f.exec(`UPDATE servers SET domain = 'leaf' WHERE server_id = 'S2'`)
+	f.fires("system-006", 61)
+	f.exec(`UPDATE servers SET domain = 'hub' WHERE server_id = 'S2'`)
+	r := f.fires("system-006", 61, "")
+	want(t, r[""], "warning", "In JetStream domain hub, the JetStream servers report 2 API levels: level 2 on nats-2; level 1 on nats-0, nats-1.")
+}
+
+// Mixed on both sides of a gap of three hours does not count as held.
+func TestMixedAPILevelsAcrossLongGap(t *testing.T) {
+	f := newFx(t)
+	f.metaCluster(5, func(e int64, i int) m {
+		if i == 2 {
+			return m{"js_api_level": 2}
+		}
+		return nil
+	})
+	f.epochAt(6, at(5).Add(3*time.Hour), three)
+	for i, id := range []string{"S0", "S1", "S2"} {
+		f.stats(6, id, m{"js_api_level": 1 + i/2})
+	}
+	f.fires("system-006", 6)
 }

@@ -429,7 +429,7 @@ To try a change to a check on a copy of a database: `natslens checks run -data-d
 | system-003 | JetStream meta leader changing often | warning above 4 in 15m | `meta.leader_elected` events and the leader per epoch; one hand-over within two intervals after each step-down not counted |
 | system-004 | JetStream meta group falling behind | warning | the meta leader's `meta_peers_not_current` less `meta_peers_offline`, in every epoch for 5m; epochs with a restarting or newly joined server count as clean, epochs without the leader's report as unknown |
 | system-005 | JetStream meta group size differs from the servers | warning | the leader's `meta_cluster_size` against the answering JetStream servers of its domain and their own sizes, in every epoch for 10m |
-| system-006 | Mixed JetStream API levels | warning | more than one `js_api_level` among the answering servers in every epoch for 30m; epochs with a restarting server count as clean |
+| system-006 | Mixed JetStream API levels | warning | more than one `js_api_level` among the answering servers of one JetStream domain in every epoch for 30m; epochs with a restarting server count as clean |
 | system-007 | Collections often incomplete | warning | `epoch_endpoints` not ok for answering servers or collector errors in at least 25% of 30m's epochs (10 or more); resolves below half of that |
 | system-008 | Archive export behind | warning | a closed hour with epochs or events and no final `archive_hours` row for over 1h after the hour or the process start; not in `natslens once` |
 | system-009 | Event messages dropped | warning | `collector.messages_dropped` events within 1h |
