@@ -261,7 +261,11 @@ func (d *decider) compare() {
 		before := len(d.upserts)
 		deleted := len(d.deletes)
 		n := 0
-		if fp != nil && d.inView(*fp) && (!told || st.SinceEpoch == fp.SinceEpoch) {
+		opening := fp != nil && (!told || st.SinceEpoch != fp.SinceEpoch)
+		if opening {
+			d.one(fp, st, told)
+		}
+		if fp != nil && d.inView(*fp) {
 			for _, a := range d.in.Acks[id] {
 				if a.SinceEpoch != fp.SinceEpoch || !a.CreatedAt.After(d.prev.ReconciledAt) {
 					continue
@@ -275,7 +279,9 @@ func (d *decider) compare() {
 				n++
 			}
 		}
-		d.one(fp, st, told)
+		if !opening {
+			d.one(fp, st, told)
+		}
 		if n > 0 && told && len(d.upserts) == before && len(d.deletes) == deleted {
 			st.SentAt, st.Epoch = d.in.At, d.in.Epoch
 			d.upserts = append(d.upserts, st)
