@@ -192,10 +192,10 @@ The server checks judge each NATS server on its own: whether it answers, whether
 ### `server-023` CPU saturated
 
 - **Problem:** the server process uses nearly all the CPU it may use, so it answers clients, routes and raft heartbeats late.
-- **Fires when:** the process used at least `busy_ratio` of its usable cores, the smaller of the cores it sees and its GOMAXPROCS, in every collection for `min_duration`. A firing finding stays while the CPU is at least `resolve_ratio` of that level. The detail reads like "nats-0 used 3.6 of 4 usable cores (90%) and has been at least 90% busy for 5 minutes (8 cores, GOMAXPROCS 4)."
+- **Fires when:** the process used at least `busy_ratio` of its usable cores, the smaller of the cores it sees and its GOMAXPROCS, in at least `busy_share` of its collections within `min_duration`, and at least `min_samples` of them, so one calm sample does not reset it. The process must have answered from the start of `min_duration` to now, with no gap of more than three collect intervals (the median gap between collections). A firing finding stays while `busy_share` of the collections are at least `resolve_ratio` of that level. The detail reads like "nats-0 used 3.6 of 4 usable cores (90%); 11 of the 11 collections in the last 5 minutes were at least 90% busy (8 cores, GOMAXPROCS 4)."
 - **Severity:** warning.
-- **Thresholds:** `busy_ratio` 0.9, `min_duration` 5m, `resolve_ratio` 0.8 (proposed, not yet confirmed).
-- **Left out:** a server that reports neither its cores nor GOMAXPROCS. A collection without a CPU value is skipped, not read as calm; a restart starts a new run. A container CPU limit below GOMAXPROCS: the process is throttled before it reaches the level, so the check fires late or not at all. nats-server built with Go 1.25 or later sets GOMAXPROCS to the limit.
+- **Thresholds:** `busy_ratio` 0.9, `min_duration` 5m, `busy_share` 0.8, `min_samples` 5, `resolve_ratio` 0.8 (proposed, not yet confirmed).
+- **Left out:** a server that reports neither its cores nor GOMAXPROCS. A collection without a CPU value is skipped, not read as calm. A restarting process (within `checks.restart_window`) is not judged, and a new process needs `min_duration` of its own collections. A container CPU limit below GOMAXPROCS: the process is throttled before it reaches the level, so the check fires late or not at all. nats-server built with Go 1.25 or later sets GOMAXPROCS to the limit.
 
 ## Behavior and rules
 
@@ -260,10 +260,10 @@ The server checks judge each NATS server on its own: whether it answers, whether
 
 ### A busy server
 
-- **Given** `nats-0` runs with GOMAXPROCS 4 and has used at least 3.6 cores in every collection for five minutes
+- **Given** `nats-0` runs with GOMAXPROCS 4 and has used at least 3.6 cores in 10 of the 11 collections of the last five minutes
 - **When** nats-lens collects
-- **Then** `server-023` "CPU saturated" fires as a warning for `nats-0`, with the cores it used and how long it has been busy
-- **And** it stays firing while the CPU stays at or above 72% of the four cores, and resolves below that
+- **Then** `server-023` "CPU saturated" fires as a warning for `nats-0`, with the cores it used and how many collections were busy
+- **And** it stays firing while 80% of the collections of five minutes are at or above 72% of the four cores, and resolves below that
 
 ### Tune the store warning
 
