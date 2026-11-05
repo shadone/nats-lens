@@ -63,4 +63,8 @@ message GetLensInfoResponse {
   // which does not move. The UI reads its "now" from it, so that its live
   // ranges start before the server's now.
   google.protobuf.Timestamp now = 11;
+
+  // True when the server's now stands still, as under `natslens demo
+  // -fixed`; the client then stops its clock at `now`.
+  bool now_fixed = 12;
 }
