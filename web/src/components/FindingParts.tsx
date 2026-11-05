@@ -1,3 +1,5 @@
+import { usePageHistory } from "./HistoryNote";
+import { atHistoryStart } from "../lib/historyView";
 // Finding pieces: the entity line and a row of the findings list.
 import { createContext, useContext } from "react";
 import type { Entity, Finding } from "../api/model";
@@ -29,6 +31,7 @@ export function EntityLine({ e, small, label }: { e?: Entity; small?: boolean; l
 
 /** One row of the findings list; a muted or accepted one shows who muted or accepted it and why. */
 export function FindingRow({ f, end, rangeStart, label }: { f: Finding; end: number; rangeStart?: number; label?: (id: string, name?: string) => string }) {
+  const known = atHistoryStart(f, usePageHistory()?.historyStart);
   const tag = findingTag(f, rangeStart);
   const m = f.mute;
   const since = f.since ?? end;
@@ -63,7 +66,7 @@ export function FindingRow({ f, end, rangeStart, label }: { f: Finding; end: num
           <br />
           in {fmtDuration(m.expiresAt - end)}
         </span>
-      ) : (
+      ) : known ? <span className="s">already true when nats-lens started</span> : (
         <span className="s">
           {f.state === "resolved" && f.resolvedAt !== undefined ? "resolved " : "since "}
           {shortWhen(f.state === "resolved" && f.resolvedAt !== undefined ? f.resolvedAt : since, end)}

@@ -1,5 +1,5 @@
 // Every system-scoped hook of web/src/api: a switch of system drops the
-// previous answer, a range change keeps it, and an account-scoped hook
+// previous answer, most hooks keep it on a range change, and an account-scoped hook
 // drops it on a change of account. The lens never answers, so only the
 // seeded answers are ever shown.
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -96,11 +96,12 @@ describe.each(HOOKS)("%s", (name, hook, hasAccount) => {
     act(() => result.current.navigate("/"));
     await waitFor(() => expect(result.current.q.data).toBeUndefined());
   });
-  it.skipIf(NO_RANGE.has(name))("keeps on range change in same system", async () => {
+  it.skipIf(NO_RANGE.has(name))(name === "useDataHistory" ? "drops history on range change in same system" : "keeps on range change in same system", async () => {
     const { result, rerender } = setup(hook);
     await waitFor(() => expect(result.current.q.data).toBeDefined());
     rerender({ spec: hour, account: "APP" });
-    expect(result.current.q.data).toBeDefined();
+    if (name === "useDataHistory") expect(result.current.q.data).toBeUndefined();
+    else expect(result.current.q.data).toBeDefined();
   });
   it.runIf(hasAccount)("drops on account change", async () => {
     const { result, rerender } = setup(hook);

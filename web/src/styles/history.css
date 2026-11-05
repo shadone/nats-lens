@@ -53,3 +53,10 @@
   .dh-kv{grid-template-columns:minmax(0,1fr);gap:2px}
   .dh-kv dd{margin-bottom:6px}
 }
+
+.dh-note{margin:0 0 14px;color:var(--text-2);font-size:13px;overflow-wrap:anywhere}
+.dh-gap-bg{fill:var(--surface-2)}
+.dh-gap-line{stroke:var(--text-muted);stroke-width:1}
+.dh-chart-gap{opacity:.65}
+
+.dh-chart-status { fill: var(--text-muted); font-size: 7px; }
