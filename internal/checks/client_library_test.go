@@ -93,3 +93,20 @@ func TestOutdatedClientLibraryTooling(t *testing.T) {
 		t.Errorf("with tooling: %v", rowsText(got))
 	}
 }
+
+// A version that does not start with a number ("dev", " 1.2.0") is not
+// judged and does not stop the check for the other applications; nats.py
+// without package metadata reports 0.0.0, which is not judged either.
+func TestOutdatedClientLibraryUnknownVersions(t *testing.T) {
+	f := newFx(t)
+	f.cluster(40)
+	f.libConn(40, "S0", 1, "good-old", "10.0.0.1", "go", "1.10.0")
+	f.libConn(40, "S0", 2, "dev-build", "10.0.0.2", "go", "dev")
+	f.libConn(40, "S0", 3, "unknown-build", "10.0.0.3", "go", "unknown")
+	f.libConn(40, "S0", 4, "spaced", "10.0.0.4", "go", " 1.2.0")
+	f.libConn(40, "S0", 5, "py-no-metadata", "10.0.0.5", "python3", "0.0.0")
+	f.libConn(40, "S0", 6, "py-old", "10.0.0.6", "python3", "2.1.0")
+	f.libConn(40, "S0", 7, "huge", "10.0.0.7", "go", "12345678901.0.0")
+	f.libConn(40, "S0", 8, "go-zero", "10.0.0.8", "go", "0.0.0")
+	f.fires("client-008", 40, "good-old", "py-old", "go-zero")
+}

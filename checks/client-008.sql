@@ -38,7 +38,9 @@ thresholds:
 description: >-
   Connections of this application used a client library older than the minimum set for its language within the
   lookback. The language and version are what the client sends in its CONNECT and the servers report in CONNZ;
-  the version is compared by its first three numbers, so 1.37.0-beta.1 counts as 1.37.0. Languages without a
+  the version is compared by its first three numbers, so 1.37.0-beta.1 counts as 1.37.0. A version that does not start
+  with a number (dev, unknown) and nats.py's 0.0.0, which a build without package metadata reports, are unknown and
+  not judged. Languages without a
   minimum (nats.deno, nats.ws, the older NATS.Client for .NET, which sends C#, and others) and connections without
   a version are not judged. The defaults are the release lines that were current two years before they were set,
   in November 2026. Grouped by application, the connection name before the first "@", as the Applications page
@@ -65,11 +67,14 @@ WITH c AS (
       AND NOT tooling_at(c.name, c.ip, c.epoch)
 ),
 -- Each language and version once: its minimum, and both as lists of three
--- numbers, which compare element by element.
+-- numbers, which compare element by element. A version that does not start
+-- with a number, and nats.py's 0.0.0 (a build without package metadata),
+-- is unknown: have is NULL, and the version is not judged.
 libs AS (
     SELECT lang, version, minimum,
-        list_resize(list_transform(string_split(regexp_extract(version, '^v?([0-9]{1,9}(\.[0-9]{1,9}){0,2})', 1), '.'),
-            x -> CAST(x AS BIGINT)), 3, 0) AS have,
+        CASE WHEN regexp_matches(version, '^v?[0-9]') AND NOT (lang = 'python3' AND version = '0.0.0')
+            THEN list_resize(list_transform(string_split(regexp_extract(version, '^v?([0-9]{1,9}(\.[0-9]{1,9}){0,2})', 1), '.'),
+                x -> TRY_CAST(x AS BIGINT)), 3, 0) END AS have,
         list_resize(list_transform(string_split(minimum, '.'), x -> CAST(x AS BIGINT)), 3, 0) AS need
     FROM (
         SELECT DISTINCT lang, version,
@@ -83,13 +88,13 @@ libs AS (
                 WHEN 'C' THEN getvariable('min_c')
             END AS minimum
         FROM c
-        WHERE regexp_matches(coalesce(version, ''), '^v?[0-9]')
+        WHERE version IS NOT NULL
     )
     WHERE minimum IS NOT NULL
 ),
 old AS (
     SELECT c.*, l.minimum FROM c JOIN libs l ON l.lang = c.lang AND l.version = c.version
-    WHERE l.have < l.need
+    WHERE l.have IS NOT NULL AND len(list_filter(l.have, x -> x IS NULL)) = 0 AND l.have < l.need
 ),
 latest AS (
     SELECT app, max(epoch) AS epoch FROM old GROUP BY app

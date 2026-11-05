@@ -92,9 +92,10 @@ The client checks judge the applications connected to NATS: whether their round 
   | `min_rust` | `rust` | async-nats | 0.37.0 |
   | `min_c` | `C` | nats.c | 3.9.0 |
 
-  Each default is the release line that was current on 1 November 2024, two years before the defaults were set; the newest releases then were nats.go 1.55.0, nats.js 3.4.0, nats.py 2.16.0, jnats 2.26.4, NATS.Net 3.3.2, async-nats 0.51.0 and nats.c 3.14.0. A minimum of 0 turns a language off. Proposed, not yet confirmed.
+  Each default is the release line that was current on 1 November 2024, two years before the defaults were set; the newest releases now are nats.go 1.55.0, nats.js 3.4.0, nats.py 2.16.0, jnats 2.26.4, NATS.Net 3.3.2, async-nats 0.51.0 and nats.c 3.14.0. A minimum of 0 turns a language off. Proposed, not yet confirmed.
 - **Resolves:** a lookback after the last old connection of the application is gone, so an upgraded application resolves within the hour and a job that connects with an old library now and then does not flap.
 - **Keyed by:** the application, the connection name before the first "@", as the Applications page groups it; a client without a name is `(unnamed)`.
+- **Unknown versions.** A version that does not start with a number (`dev`, `unknown`, or one with a leading space) is unknown and not judged, and does not stop the check for other applications. So is nats.py's `0.0.0`, which a build without package metadata reports. Proposed, not yet confirmed.
 - **Left out:** languages without a minimum (`nats.deno`, `nats.ws`, the older NATS.Client for .NET, which sends `C#`, and others), connections without a version or whose version does not start with a number, and tooling connections unless `checks.include_tooling` is set: nats-lens's own connections and a port-forwarded CLI are not applications to upgrade.
 
 ## Behavior and rules
