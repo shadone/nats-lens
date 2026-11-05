@@ -170,3 +170,42 @@ func TestOldestUnreadWindowBound(t *testing.T) {
 	// The window starts 1h10m before collection 200, at collection 61.
 	want(t, r["APP/events/stalled"], "critical", "at least 1.2 hours old, 117% of max_age 1h")
 }
+
+// Deleted sequences after the consumer's position (a KV overwrite, a purge
+// by subject, a work queue) can make the sequence after it much older than
+// its next message. With num_deleted above 0 the check takes the bounds that
+// hold anyway: here the backlog's start, 10.5 minutes ago, not the deleted
+// sequence 501 (gone, so the stream's first message stands in, about
+// an hour old).
+func TestOldestUnreadDeletedSequences(t *testing.T) {
+	f := newFx(t)
+	f.cluster(200)
+	f.expiryStream(200)
+	f.exec(`UPDATE stream_stats SET num_deleted = 900 WHERE stream = 'events'`)
+	f.consumerConfig("S0", "events", "stalled", 1, 200, nil)
+	for e := int64(1); e <= 200; e++ {
+		p := int64(0)
+		if e > 178 {
+			p = 3
+		}
+		f.consumerStats(e, "S0", "events", "stalled", m{"is_leader": true, "delivered_stream_seq": 500,
+			"ack_floor_stream_seq": 500, "num_ack_pending": 0, "num_pending": p})
+	}
+	f.fires("consumer-014", 200)
+}
+
+// When the message after the ack floor has left the stream, the newest
+// delivered message bounds the age, which then reads "at least".
+func TestOldestUnreadFloorGone(t *testing.T) {
+	f := newFx(t)
+	f.cluster(200)
+	f.expiryStream(200)
+	f.consumerConfig("S0", "events", "worker", 1, 200, nil)
+	for e := int64(1); e <= 200; e++ {
+		d := 10 * (e - 100)
+		f.consumerStats(e, "S0", "events", "worker", m{"is_leader": true, "delivered_stream_seq": d,
+			"ack_floor_stream_seq": 50, "num_ack_pending": 5, "num_pending": 10*e - d})
+	}
+	r := f.fires("consumer-014", 200, "APP/events/worker")
+	want(t, r["APP/events/worker"], "warning", "The oldest unread message is at least 50 minutes old")
+}
