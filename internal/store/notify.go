@@ -82,7 +82,7 @@ type OutboxRow struct {
 
 // NotifyInput is what a reconcile reads: the epoch, the findings that
 // fire, flap or are known to a channel, with the mutes in force at the
-// epoch's start applied, every mute, and the notifier's state.
+// epoch's start applied, mute and acknowledgement history, and the notifier's state.
 type NotifyInput struct {
 	Epoch int64
 	At    time.Time

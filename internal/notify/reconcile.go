@@ -301,8 +301,7 @@ func (d *decider) one(f *store.Finding, st store.NotifyState, told bool) {
 			return
 		}
 		if told && f.SinceEpoch == st.SinceEpoch && quietEnded {
-			d.send(f, KindReminder, ReasonAcknowledgementQuietEnded, nil)
-			d.told(*f, store.NotifyFlapping)
+			d.sendQuietEnded(f, st, store.NotifyFlapping)
 			return
 		}
 		switch {
@@ -340,6 +339,8 @@ func (d *decider) one(f *store.Finding, st store.NotifyState, told bool) {
 	case !d.filtersPass(*f):
 		d.send(f, KindResolved, ReasonFiltersChanged, func(m *Message) { m.DedupKey = d.episodeKey(f.ID, st, KindResolved) })
 		d.forget(f.ID)
+	case quietEnded && f.SinceEpoch == st.SinceEpoch:
+		d.sendQuietEnded(f, st, store.NotifyFiring)
 	case quiet && f.SinceEpoch == st.SinceEpoch && config.SeverityRank(f.Severity) < config.SeverityRank(st.Severity):
 		// Keep the severity the channel knows until quiet ends.
 	case !d.severityPasses(f.Severity):
@@ -348,7 +349,7 @@ func (d *decider) one(f *store.Finding, st store.NotifyState, told bool) {
 			m.DedupKey = d.episodeKey(f.ID, st, KindResolved)
 		})
 		d.forget(f.ID)
-	case wasFlapping && !quietEnded:
+	case wasFlapping:
 		d.send(f, KindFiring, ReasonFlappingEnded, nil)
 		d.told(*f, store.NotifyFiring)
 	case f.SinceEpoch != st.SinceEpoch:
@@ -360,15 +361,31 @@ func (d *decider) one(f *store.Finding, st store.NotifyState, told bool) {
 		closed.DedupKey = d.episodeKey(f.ID, st, KindResolved)
 		d.msgs = append(d.msgs, queued{msgs: []Message{closed, d.message(*f, KindFiring)}})
 		d.told(*f, store.NotifyFiring)
-	case quietEnded:
-		d.send(f, KindReminder, ReasonAcknowledgementQuietEnded, nil)
-		d.told(*f, store.NotifyFiring)
 	case f.Severity != st.Severity:
 		d.send(f, KindChanged, "", func(m *Message) { m.PreviousSeverity = st.Severity })
 		d.told(*f, store.NotifyFiring)
 	case !quiet && d.ch.RepeatEvery.D() > 0 && !d.in.At.Before(st.SentAt.Add(d.ch.RepeatEvery.D())):
 		d.send(f, KindReminder, "", nil)
 		d.told(*f, store.NotifyFiring)
+	}
+}
+
+// sendQuietEnded always reports the quiet end for the known firing episode.
+// A simultaneous rise still gets changed; a fall below the channel threshold
+// also closes the receiver's incident after the reminder.
+func (d *decider) sendQuietEnded(f *store.Finding, st store.NotifyState, state string) {
+	if config.SeverityRank(f.Severity) > config.SeverityRank(st.Severity) {
+		d.send(f, KindChanged, "", func(m *Message) { m.PreviousSeverity = st.Severity })
+	}
+	d.send(f, KindReminder, ReasonAcknowledgementQuietEnded, nil)
+	if !d.severityPasses(f.Severity) {
+		d.send(f, KindResolved, ReasonSeverityNow(f.Severity), func(m *Message) {
+			m.PreviousSeverity = st.Severity
+			m.DedupKey = d.episodeKey(f.ID, st, KindResolved)
+		})
+		d.forget(f.ID)
+	} else {
+		d.told(*f, state)
 	}
 }
 
