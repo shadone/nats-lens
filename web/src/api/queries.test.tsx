@@ -1,3 +1,5 @@
+import { create } from "@bufbuild/protobuf";
+import { GetDataHistoryResponseSchema } from "../gen/natslens/v1/history_pb";
 // Every query hook keys on the system of the page and sends it.
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, waitFor } from "@testing-library/react";
@@ -173,7 +175,8 @@ describe("live refetch", () => {
 });
 
 it("shares a settled history answer with charts mounted later on the same page", async () => {
-  vi.mocked(lens.getDataHistory).mockClear();
+  vi.mocked(lens.getDataHistory).mockReset();
+  vi.mocked(lens.getDataHistory).mockResolvedValue(create(GetDataHistoryResponseSchema));
   function Chart() { q.useDataHistory(live); return null; }
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   function Frame({ second }: { second: boolean }) {
