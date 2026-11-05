@@ -34,6 +34,10 @@ func TestNotifyAcknowledgementMemoryUpgrade(t *testing.T) {
 VALUES (1, 'stream-001:APP/jobs', 'stream-001', 'stream', 'APP/jobs', 1, 'operator', ?, ?, 'released')`, at, at); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := db.Exec(`INSERT INTO notify_outbox (id,channel,created_at,epoch,kind,finding_id,dedup_key,message)
+VALUES (1,'known',?,2,'acknowledged','stream-001:APP/jobs','example-prod:stream-001:APP/jobs:1:acknowledged:2:1','{}')`, at); err != nil {
+		t.Fatal(err)
+	}
 	if err := migrate(ctx, db); err != nil {
 		t.Fatal(err)
 	}

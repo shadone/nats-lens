@@ -403,8 +403,16 @@ func (d *decider) episodeAcknowledged(f store.Finding) bool {
 	if st, ok := d.states[f.ID]; ok && st.SinceEpoch == f.SinceEpoch && st.Acknowledged {
 		return true
 	}
+	// The input is shared across channels and bounded by the oldest cursor.
+	// Only an acknowledgement in this channel's current view can add memory:
+	// an in-force note (including at baseline), or a note this reconcile tells
+	// the channel about, even if created and ended between its two epochs.
+	if !d.inView(f) {
+		return false
+	}
 	for _, a := range d.in.Acks[f.ID] {
-		if a.SinceEpoch == f.SinceEpoch {
+		if a.SinceEpoch == f.SinceEpoch && (a.InForceAt(d.in.At) ||
+			(d.prev.Name != "" && a.CreatedAt.After(d.prev.ReconciledAt))) {
 			return true
 		}
 	}
