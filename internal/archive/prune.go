@@ -10,16 +10,18 @@ import (
 	"github.com/shadone/nats-lens/internal/store"
 )
 
-// pruneEvery is how often Export looks for hours past ArchiveRetention.
+// pruneEvery is how often Export lists the manifests and looks for hours
+// past ArchiveRetention.
 const pruneEvery = time.Hour
 
-// prune removes every archived hour that ended more than ArchiveRetention
-// before now: first its data files of every export, then its manifest, so
-// that an interrupted prune leaves a manifest the next prune finds again.
-// Such an hour is older than the database retention, so no rebuild loads
-// it. A zero ArchiveRetention keeps every hour.
+// prune lists the manifests and removes every archived hour that ended
+// more than ArchiveRetention before now: first its data files of every
+// export, then its manifest, so that an interrupted prune leaves a
+// manifest the next prune finds again. Such an hour is older than the
+// database retention, so no rebuild loads it. A zero ArchiveRetention
+// keeps every hour. The hours left are the archive's Status.
 func (a *Archiver) prune(ctx context.Context, now time.Time) error {
-	if a.ArchiveRetention <= 0 || (!a.lastPrune.IsZero() && now.Sub(a.lastPrune) < pruneEvery) {
+	if !a.lastPrune.IsZero() && now.Sub(a.lastPrune) < pruneEvery {
 		return nil
 	}
 	rels, err := a.Dest.List(ctx, manifestDir+"/")
@@ -28,9 +30,19 @@ func (a *Archiver) prune(ctx context.Context, now time.Time) error {
 	}
 	cutoff := now.Add(-a.ArchiveRetention)
 	pruned := 0
+	var kept []time.Time
+	var newest time.Time
+	var newestRel string
 	for _, rel := range rels {
 		hour, ok := parseManifestRelPath(rel)
-		if !ok || hour.Add(time.Hour).After(cutoff) {
+		if !ok {
+			continue
+		}
+		if a.ArchiveRetention <= 0 || hour.Add(time.Hour).After(cutoff) {
+			kept = append(kept, hour)
+			if hour.After(newest) {
+				newest, newestRel = hour, rel
+			}
 			continue
 		}
 		for _, table := range store.ArchiveTableNames() {
@@ -52,6 +64,13 @@ func (a *Archiver) prune(ctx context.Context, now time.Time) error {
 		pruned++
 	}
 	a.lastPrune = now
+	// The newest manifest says whether its hour was exported after it
+	// closed; one that cannot be read counts as provisional.
+	var m Manifest
+	if newestRel != "" && a.readJSON(ctx, newestRel, &m) != nil {
+		m.Final = false
+	}
+	a.status.listed(now, kept, m.Final)
 	if pruned > 0 {
 		a.Log.Info("archive hours pruned", "hours", pruned, "older_than", cutoff.UTC())
 	}
