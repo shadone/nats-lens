@@ -218,6 +218,12 @@ func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, d
 		log.Warn("retention is shorter than the growth review of acceptances reads; acceptances record no growth and never end early",
 			"retention", ret.String(), "needed", api.AcceptRetention.String())
 	}
+	// The archive exports in run only; its start bounds how long a closed
+	// hour may wait for export (system-008).
+	var archiveSince time.Time
+	if cmd != "once" {
+		archiveSince = time.Now()
+	}
 	r := &runner.Runner{
 		Collector: col,
 		Store:     st,
@@ -231,7 +237,8 @@ func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, d
 		ShutdownGrace: cfg.ShutdownGrace.D(),
 		// The checks of an epoch get half an interval, so that they never
 		// delay the next epoch.
-		Checks:    &checks.Engine{Set: set, Log: log, Budget: cfg.Interval.D() / 2, ToolingNames: rt.sys.ToolingNames()},
+		Checks: &checks.Engine{Set: set, Log: log, Budget: cfg.Interval.D() / 2, ToolingNames: rt.sys.ToolingNames(),
+			ArchiveSince: archiveSince},
 		Connected: connected,
 		Stored:    func(_ int64, startedAt time.Time) { rt.status.epoch(startedAt) },
 	}
