@@ -96,6 +96,7 @@ The system checks judge what belongs to no single server: the JetStream meta gro
 - **Fires when:** a message has waited longer than `pending_for`, or a channel refused or gave up a message in the last hour. The detail names the channels, their oldest pending age and their latest HTTP status, without a URL.
 - **Severity:** warning for old pending messages; critical for recent refusals or give-ups (proposed, not yet confirmed).
 - **Thresholds:** `pending_for` 10m (proposed, not yet confirmed).
+- **Reporting window:** a refusal or give-up remains visible for the full hour after the outcome, including after a retention sweep. Queue age does not shorten this window (proposed, not yet confirmed).
 - **Left out:** systems without queued notifications. A failing channel cannot report itself; use another channel or the notification metrics.
 
 ## Scenarios
@@ -188,3 +189,10 @@ Every system check planned earlier is built. A check of the Kubernetes watcher's
 - **No supercluster-wide checks.** Gateways between clusters are not judged yet; see the planned server checks and [topology.md](topology.md).
 - **Accounts are judged elsewhere.** An account's limits and JWTs are the account checks; see [account-checks.md](account-checks.md).
 - **No check on the Kubernetes watcher's health.** Watch gaps are recorded as events, not findings.
+
+### A retention sweep follows a fresh delivery failure
+
+- **Given** a channel gives up a message queued eight days ago
+- **When** a retention sweep runs one second after the failure
+- **Then** `system-010` still reports the failure as critical for the hour after the outcome
+- **And** the notification metrics still count the recent failure
