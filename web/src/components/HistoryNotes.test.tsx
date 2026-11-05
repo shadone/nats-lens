@@ -59,3 +59,7 @@ it("omits a history note when the range is covered", () => {
   renderApp(<HistoryContext.Provider value={{ ...young, historyStart: young.start }}><HistoryNote /></HistoryContext.Provider>);
   expect(screen.queryByRole("note")).not.toBeInTheDocument();
 });
+it("still links an unavailable Capacity rate when calendar history exceeds six hours", () => {
+  renderApp(<HistoryContext.Provider value={{ ...young, historyStart: young.start }}><ServerCards servers={[{ name: "nats-1", cluster: "shop", reported: true, used: 20, limit: 100, findingCode: "", findingId: "" }]} withoutJetstream={0} /></HistoryContext.Provider>);
+  expect(screen.getByRole("link", { name: /not enough history for a rate/ })).toHaveAttribute("href", expect.stringContaining("/data-history"));
+});
