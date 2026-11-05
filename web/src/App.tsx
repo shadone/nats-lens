@@ -2,6 +2,7 @@
 // the account scope from the URL; the sidebar's pages are listed in nav.ts.
 import { useEffect, useRef } from "react";
 import { Route, Routes, useLocation } from "react-router";
+import { PageHistoryProvider } from "./components/HistoryNote";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
 import { StaleProvider } from "./components/StaleContext";
@@ -69,6 +70,7 @@ export function App() {
               no rows, filters or page tokens of the one before. */}
           <StaleProvider key={`${pathname}|${system}`}>
             <SystemGate>
+              <PageHistoryProvider>
               <Routes>
                 <Route
                   path="/"
@@ -102,6 +104,7 @@ export function App() {
                 <Route path="/data-history" element={<DataHistory />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </PageHistoryProvider>
             </SystemGate>
           </StaleProvider>
         </main>

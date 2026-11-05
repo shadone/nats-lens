@@ -1,3 +1,5 @@
+import { HistoryLink, useGrowthHistoryNote, usePageHistory } from "./HistoryNote";
+import { rangeCoverageText } from "../lib/historyView";
 // The Overview's nine tiles as metric boxes: the API's description behind
 // (i), the value top right, the chart and the window's range track. A
 // tile's limit goes in the note, never on the track. A value the API did
@@ -36,6 +38,9 @@ export function tileStatus(t: Tile): Level {
 }
 
 export function OverviewTiles({ tiles, windows, start, end }: { tiles: Tile[]; windows: Window[]; start: number; end: number }) {
+  const h = usePageHistory();
+  const coverage = rangeCoverageText(h?.historyStart, start, end);
+  const growth = useGrowthHistoryNote();
   return (
     <div className="ov-tiles">
       {tiles.map((t) => (
@@ -51,7 +56,7 @@ export function OverviewTiles({ tiles, windows, start, end }: { tiles: Tile[]; w
           track={!t.valueText}
           fmt={(v) => fmtValue(v, t.unit)}
           status={tileStatus(t)}
-          note={tileNote(t) || undefined}
+          note={<>{tileNote(t)}{coverage && ["clients", "storage"].includes(t.id) && ` · ${coverage}`}{t.id === "storage" && growth && <> · <HistoryLink>{growth}</HistoryLink></>}</>}
           start={start}
           end={end}
           windows={windows}

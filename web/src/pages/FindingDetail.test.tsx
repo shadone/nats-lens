@@ -133,6 +133,7 @@ describe("FindingDetail times", () => {
     show();
     const when = await screen.findByText(/Condition since/);
     expect(when).toHaveTextContent("Condition since 2026-10-13 08:03 UTC · first seen by nats-lens 2026-10-17 08:19 UTC, already true when nats-lens started");
+    expect(screen.getByRole("link", { name: "already true when nats-lens started" })).toHaveAttribute("href", expect.stringContaining("/data-history"));
     // The window around the start lies before the history.
     expect(await screen.findByText(/nats-lens has no history before 2026-10-17 08:19 UTC/)).toBeInTheDocument();
     expect(listEvents).not.toHaveBeenCalled();

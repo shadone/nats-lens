@@ -1,3 +1,4 @@
+import { HistoryLink } from "./HistoryNote";
 // The Accounts page's three cards: the accounts with their limits, the
 // failed logins of the 24 hours before the collection, and what expires
 // soon.
@@ -258,7 +259,7 @@ export function FailedLoginsCard({ d }: { d: AccountsAndAuth }) {
       {!d.eventsCaptured ? (
         <p className="ac-empty">{EVENTS_NOT_CAPTURED_TEXT}</p>
       ) : d.failedLogins.length === 0 ? (
-        <p className="ac-empty">{short ? `No failed logins since ${since}.` : "No failed logins in these 24 hours."}</p>
+        <p className="ac-empty">{short ? <HistoryLink>{`No failed logins since ${since}.`}</HistoryLink> : "No failed logins in these 24 hours."}</p>
       ) : (
         <div className="table-wrap scroll-cue">
           <table className="tbl">
@@ -310,7 +311,7 @@ export function FailedLoginsCard({ d }: { d: AccountsAndAuth }) {
         <div className="ac-notes">
           {cut && <p>{cut}</p>}
           {d.failedLogins.length > 0 && <p className="ac-text">A client retrying with revoked credentials every minute shows up here before anyone notices it never connected.</p>}
-          {short && d.failedLogins.length > 0 && <p>The history starts at {since}, so fewer than 24 hours are counted.</p>}
+          {short && d.failedLogins.length > 0 && <p><HistoryLink>The history starts at {since}, so fewer than 24 hours are counted.</HistoryLink></p>}
           {d.captureGaps && <p className="ac-gap">Event capture stopped for part of {short ? "this window" : "these 24 hours"}, so the counts can be low.</p>}
         </div>
       )}

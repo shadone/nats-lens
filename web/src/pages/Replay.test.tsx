@@ -315,3 +315,11 @@ describe("Replay", () => {
     expect(requests.getReplay).toHaveBeenCalledWith("example-prod", T("2026-10-17T09:14:00Z"), T("2026-10-17T09:50:00Z"), expect.anything());
   });
 });
+
+it("links an A before history to Data history while keeping the global fixed range", async () => {
+  vi.mocked(requests.getReplay).mockImplementation(async (sys, a, b) => ({ ...story(sys, a, b), historyStart: a + 60_000 }));
+  renderApp(<Replay />, `/replay?system=example-staging&${FIXED}&${AB}`);
+  const link = await screen.findByRole("link", { name: /^A is before the history starts/ });
+  expect(link).toHaveAttribute("href", expect.stringContaining("/data-history?from="));
+  expect(link).toHaveAttribute("href", expect.stringContaining("system=example-staging"));
+});

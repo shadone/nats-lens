@@ -1,3 +1,4 @@
+import { HistoryLink, useGrowthHistoryNote } from "./HistoryNote";
 // The Capacity page's server cards: each server's JetStream file store, how
 // full it is, its growth and when it fills, and the finding that fires for
 // it.
@@ -11,7 +12,8 @@ import { Sev } from "./Severity";
 function ServerCard({ s }: { s: ServerStore }) {
   const use = storeUse(s);
   const tone = storeTone(s);
-  const growth = growthLine(s);
+  const missing = useGrowthHistoryNote();
+  const growth = s.perDay === undefined && s.reported ? <HistoryLink>{missing ?? growthLine(s)}</HistoryLink> : growthLine(s);
   return (
     <section className="card cap-server" aria-label={`Server ${s.name}`}>
       <div className="cap-server-h">

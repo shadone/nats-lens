@@ -244,8 +244,11 @@ export function useDataHistory(spec: RangeSpec) {
     queryKey: ["data-history", sys, rangeKey(spec)],
     queryFn: ({ signal }) => api.getDataHistory(sys, spec, signal),
     refetchInterval: refetch(spec),
-    // The previous range's answer stands in while the next loads, never another system's.
-    placeholderData: keepSameSystem(sys),
+    // Later chart mounts reuse the settled answer until the next live refresh.
+    staleTime: spec.kind === "live" ? LIVE_REFRESH_MS : Infinity,
+
+    // Gaps open at one range end say nothing about a different range.
+    // Keep cached answers only for this exact system and range key.
   });
 }
 

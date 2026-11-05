@@ -1,3 +1,4 @@
+import type { Finding } from "../api/model";
 // The Data history page's wording and order, apart from React so they can
 // be tested on their own: spans, times, gap labels, the uses of history,
 // the archive and the summary line.
@@ -138,14 +139,12 @@ export function stripSegments(d: Pick<DataHistory, "gaps" | "rangeStart" | "rang
     .map((g) => {
       const left = pct(g.start!);
       const right = pct(g.end ?? d.rangeEnd);
-      return { gap: g, left: round(left), width: round(right - left) };
+      return { gap: g, left, width: right - left };
     })
+    .filter((s) => s.width > 0)
     .reverse();
 }
 
-function round(v: number): number {
-  return Math.round(v * 100) / 100;
-}
 
 /** The strip's two ends: "13:47" and "now", or with the day over a day or more. */
 export function stripEnds(d: Pick<DataHistory, "rangeStart" | "rangeEnd">, live: boolean): [string, string] {
@@ -281,3 +280,37 @@ export function summaryParts(d: Pick<DataHistory, "historyStart" | "eventsStart"
   if (d.eventsStart !== undefined && Math.abs(d.eventsStart - d.historyStart) > slack) out.push(`events from ${whenText(d.eventsStart, now)}`);
   return out;
 }
+
+/** The observed span inside a requested range, without treating the unobserved time as zero. */
+export function historySpan(historyStart: number | undefined, start: number, end: number): number | undefined {
+  return historyStart === undefined ? undefined : Math.max(0, end - Math.max(start, historyStart));
+}
+
+export function historyNote(historyStart: number | undefined, start: number, end: number, intervalMs: number, live: boolean): string | undefined {
+  if (historyStart === undefined || historyStart - start <= intervalMs) return undefined;
+  const asked = live ? `the last ${end - start === DAY ? "24 h" : spanText(end - start)}` : `${whenText(start, end)} to ${whenText(end, end)}`;
+  return `${spanText(historySpan(historyStart, start, end)!)} of history: you asked for ${asked}; nats-lens started at ${whenText(historyStart, end)}.`;
+}
+
+export function rangeCoverageText(historyStart: number | undefined, start: number, end: number): string | undefined {
+  if (historyStart === undefined || historyStart <= start) return undefined;
+  return `over ${spanText(historySpan(historyStart, start, end)!)}`;
+}
+
+/** A fixed/short range cannot gain history by waiting. Never promise a countdown for it. */
+export function growthHistoryNote(historyStart: number | undefined, start: number, end: number, live: boolean): string | undefined {
+  const needs = 6 * HOUR;
+  const has = historySpan(historyStart, start, end);
+  if (has === undefined) return "needs 6 h of history";
+  if (has >= needs) return undefined;
+  if (end - start < needs) return "needs 6 h of history; choose a range of at least 6 h";
+  if (!live) return `needs 6 h of history; ${spanText(has)} in this fixed range`;
+  return `needs 6 h of history; ${spanText(needs - has)} to go`;
+}
+
+export function atHistoryStart(f: Finding, historyStart: number | undefined): boolean {
+  if (historyStart === undefined || f.since === undefined || f.state === "resolved") return false;
+  if (f.conditionSince !== undefined && f.conditionSince < historyStart) return true;
+  return f.since >= historyStart && f.since - historyStart < 60_000;
+}
+
