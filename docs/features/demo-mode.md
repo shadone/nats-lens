@@ -2,13 +2,15 @@
 
 - **Surfaces:** `ui`, `api`, `cli`
 - **Status:** shipped
-- **Related:** [overview.md](overview.md), [running-nats-lens.md](running-nats-lens.md), [overview-page.md](overview-page.md), [multiple-systems.md](multiple-systems.md), [design.md](../design.md)
+- **Related:** [data-history.md](data-history.md), [overview.md](overview.md), [running-nats-lens.md](running-nats-lens.md), [overview-page.md](overview-page.md), [multiple-systems.md](multiple-systems.md), [design.md](../design.md)
 
 ## What it does
 
 `natslens demo` serves the web UI and the API with three fixed systems, without NATS and without a database. `example-prod`, the default, is a three-server cluster a few hours after a Kubernetes node upgrade restarted all three servers. `example-global` is a supercluster of 24 servers in the clusters `eu`, `us` and `ap`, joined by gateways, after a node upgrade left one server down. `example-staging` has been watched for nine hours and has stopped collecting: its credentials were rejected three hours ago. The demo is for seeing what nats-lens shows before connecting it to a real system, and for working on the UI without a cluster.
 
 ## Behavior and rules
+
+- **Data history examples.** `example-staging` has nine hours of history, a three-minute collector restart about five hours before now, and a collector connection closed three hours before now. Collections and series omit the restart interval. It has 14-day database retention and no archive. `example-prod` and `example-global` have 30-day database retention; their archive examples keep hours for 90 days, holding 90 and 30 days respectively. `example-global` also has a five-minute collection gap and a four-minute Kubernetes-watch gap. Data history lists these gaps and history requirements, and charts hatch collection losses; Fleet keeps its separate status strips.
 
 - **No NATS, no database.** The demo answers every API call from built-in scenarios; nothing is collected or stored on disk.
 - **Three systems.** `ListSystems` lists `example-prod`, `example-global` and `example-staging` in that order, and a call without a `system` reads `example-prod`. Each system has its own servers, streams, consumers, findings, events, timeline and series, and its own mutes.
@@ -106,6 +108,14 @@
 - **Given** the demo is running
 - **When** I mute a finding with a reason and my name
 - **Then** the finding shows as muted until the mute ends, I lift it, or I stop the demo
+
+### Compare the demo histories
+
+- **Surfaces:** `ui`, `api`
+- **Given** the demo serves its three systems
+- **When** I open Data history on staging, then production
+- **Then** staging reports nine hours of history, gaps, 14-day retention, and no archive
+- **And** production reports 30-day retention and an archive kept for 90 days
 
 ## Not supported / out of scope
 

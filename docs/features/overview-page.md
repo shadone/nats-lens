@@ -2,13 +2,15 @@
 
 - **Surfaces:** `ui`, `api`
 - **Status:** shipped
-- **Related:** [navigation.md](navigation.md), [triage-and-mutes.md](triage-and-mutes.md), [checks.md](checks.md), [kubernetes-context.md](kubernetes-context.md), [events.md](events.md), [streams.md](streams.md), [consumers.md](consumers.md), [design.md](../design.md)
+- **Related:** [data-history.md](data-history.md), [navigation.md](navigation.md), [triage-and-mutes.md](triage-and-mutes.md), [checks.md](checks.md), [kubernetes-context.md](kubernetes-context.md), [events.md](events.md), [streams.md](streams.md), [consumers.md](consumers.md), [design.md](../design.md)
 
 ## What it does
 
 The Overview answers "is anything wrong, and what happened?" on one page. A one-line status leads, then the system's nine key numbers, the findings that fire grouped by cause, trends over the range, what happened in lanes on one clock, the busiest consumers, and the streams with their replica placement. Everything on it follows the global time range.
 
 ## Behavior and rules
+
+- **History behind the figures.** A short-history note links to Data history. Trend and tile charts retain the requested axis and hatch collection gaps and time before history, with the limits described in [data-history.md](data-history.md). Message and connection trends, the Clients tile, and Storage name the shorter span. Storage explains missing growth with the six-hour requirement; unresolved cause cards identify findings already true at the history start.
 
 - **The status line.** One line: "Serving normally" while nothing fires or only info findings fire, "Needs attention" when a warning fires, "Critical findings" when a critical one fires; muted findings do not count. In a live range it reads "Not collecting · last data 11:29" while the collector's connection to NATS is down, or just "Not collecting" without a collection in the range, since the header already says since when; "Not collecting" when no collector writes or the newest collection is older than three collect intervals; and "No data yet" without a collection. Beside it, one badge per severity with the number of unmuted findings firing, worst first ("1 CRITICAL", "2 WARNING"). It does not repeat what the cards say.
 - **Nine tiles.** Servers (answering out of expected, with the versions and the shortest uptime), Meta leader (the server more than half of the servers name, with the leader changes in the range), Streams (with how many of them are replicated and how many have a replica behind its leader; KV buckets and object stores not counted), KV Stores (with the buckets on one replica; "1 bucket", "2 buckets", and likewise for durables and connections), Object Stores, Consumers (durable, with how many have a growing backlog once `consumer-002` has run), Accounts (with the account other than the system account that has the most connections, counted as the Accounts page counts them: client connections plus the leaf nodes counted against the connection limit, so the tile names the account the page lists first, the first by name of a tie; proposed, not yet confirmed), Clients (connections, with the number of applications, or "no named connections" when the servers list none, and the slow consumer events in the range) and Storage (JetStream storage across all replicas, with the share of the servers' combined limit and the growth per day; with no limit when any server does not report its own).
@@ -102,6 +104,13 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 - **One hover across charts.** Hovering a point marks the same moment in every chart and in the lanes. Dragging over the lanes zooms in, and a click on a mark tells its story.
 - **More lanes.** Servers (restarts, lame duck), leaders (meta, streams, consumers) and clients (connects, drops) as lanes of their own.
 - **Findings by account.** The cause cards follow the account scope.
+
+### Read an Overview with short history
+
+- **Surfaces:** `ui`
+- **Given** the system has only 31 minutes of history
+- **When** I open the Overview over 24 hours
+- **Then** the charts keep the full range with time before history hatched, and Storage explains how much history growth needs
 
 ## Not supported / out of scope
 
