@@ -213,8 +213,10 @@ func TestClientAppHoursMigrationOnAStoreWithData(t *testing.T) {
 			in: n, out: n, inB: n, outB: n}
 	}
 	writeAll(t, s, appSnapshot(t, h.Add(10*time.Minute), conn(100)))
-	// Undo migration 0034 by hand: the store as the version before wrote it.
-	for _, q := range []string{`DROP TABLE client_app_hours`, `DELETE FROM migrations WHERE version >= 34`} {
+	// Undo migrations 0034 and later by hand: the store as the version
+	// before wrote it.
+	for _, q := range []string{`DROP TABLE client_app_hours`, `DROP TABLE notify_channels`, `DROP TABLE notify_state`,
+		`DROP TABLE notify_outbox`, `DROP SEQUENCE notify_outbox_seq`, `DELETE FROM migrations WHERE version >= 34`} {
 		if _, err := s.DB().Exec(q); err != nil {
 			t.Fatalf("%s: %v", q, err)
 		}
