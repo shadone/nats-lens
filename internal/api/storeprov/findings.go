@@ -85,6 +85,15 @@ func (p *Provider) findingProto(f store.Finding, causes map[int64]*v1.EventRef) 
 	if f.Mute != nil {
 		out.Mute = muteProto(*f.Mute)
 	}
+	if f.Ack != nil {
+		// Quiet as at the time it was chosen for: a past range's end
+		// shows the quiet then.
+		at := p.Now()
+		if !f.Ack.ReadAt.IsZero() && f.Ack.ReadAt.Before(at) {
+			at = f.Ack.ReadAt
+		}
+		out.Acknowledgement = ackProto(*f.Ack, at)
+	}
 	return out
 }
 

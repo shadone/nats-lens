@@ -22,7 +22,8 @@ func (s *Store) ResolvedBetween(ctx context.Context, from, to time.Time) (int, e
 // value and cause from the newest transition before to, since from the
 // start of that episode, resolved_at when that transition resolved it,
 // and the flapping count of the hour before to. Related configuration
-// comes from the finding's current row. Mutes active at to are applied.
+// comes from the finding's current row. Mutes active at to are applied, and
+// acknowledgements in force at to of the episode it rebuilds.
 // A finding that fired, resolved and fired again in the range appears
 // once, in the state of its newest episode.
 func (s *Store) FindingsAt(ctx context.Context, from, to time.Time) ([]Finding, error) {
@@ -108,7 +109,10 @@ ORDER BY l.finding_id`, from.UTC(), from.UTC(), to.UTC(), to.UTC(), to.Add(-Flap
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	return out, s.applyMutesAt(ctx, to, out)
+	if err := s.applyMutesAt(ctx, to, out); err != nil {
+		return nil, err
+	}
+	return out, s.applyAcksAt(ctx, to, out)
 }
 
 // applyMutesAt sets Mute on every firing finding a mute active at t

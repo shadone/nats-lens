@@ -33,10 +33,10 @@ func severityValue(s v1.Severity) float64 {
 }
 
 // WriteMetrics writes the Prometheus metrics: every firing finding with
-// its mute, severity and flapping as separate series of one identity
-// (code, entity type, entity key), so that a change of severity or a mute
-// does not start a new series; per-check counts; counts by severity; and
-// the health of the collector and the checks.
+// its mute, severity, flapping and acknowledgement quiet as separate
+// series of one identity (code, entity type, entity key), so that a change
+// of severity or a mute does not start a new series; per-check counts;
+// counts by severity; and the health of the collector and the checks.
 func (p *Provider) WriteMetrics(ctx context.Context, m *api.Exposition) error {
 	now := p.Now()
 	fs, err := p.St.Findings(ctx, now, store.FindingQuery{FiringOnly: true})
@@ -60,16 +60,20 @@ func (p *Provider) WriteMetrics(ctx context.Context, m *api.Exposition) error {
 		muted    bool
 		severity float64
 		flapping bool
+		quiet    bool
 	}
 	var shown []series
 	perCode := map[string]int{}
 	omitted := map[string]int{}
 	unmuted := map[string]int{}
 	maxSev := map[string]float64{}
-	muted := 0
+	muted, quiet := 0, 0
 	bySeverity := map[string]int{"critical": 0, "warning": 0, "info": 0}
 	for _, f := range protos {
 		code, sev := f.GetCheckCode(), severityValue(f.GetSeverity())
+		if f.GetAcknowledgement().GetQuiet() {
+			quiet++
+		}
 		if f.GetMute() != nil {
 			muted++
 		} else {
@@ -91,6 +95,7 @@ func (p *Provider) WriteMetrics(ctx context.Context, m *api.Exposition) error {
 			muted:    f.GetMute() != nil,
 			severity: sev,
 			flapping: f.GetState() == v1.FindingState_FINDING_STATE_FLAPPING,
+			quiet:    f.GetAcknowledgement().GetQuiet(),
 		})
 	}
 	m.Family("nats_lens_finding", "gauge", "1 for each firing finding, muted or not; at most "+fmt.Sprint(MaxFindingSeries)+" unmuted entities per check, the worst then by key.")
@@ -108,6 +113,12 @@ func (p *Provider) WriteMetrics(ctx context.Context, m *api.Exposition) error {
 			v = 1
 		}
 		m.Sample("nats_lens_finding_flapping", v, s.labels...)
+	}
+	m.Family("nats_lens_finding_acknowledged", "gauge", "1 for a firing finding while an acknowledgement's quiet holds; absent otherwise. Exported for the findings that have nats_lens_finding.")
+	for _, s := range shown {
+		if s.quiet {
+			m.Sample("nats_lens_finding_acknowledged", 1, s.labels...)
+		}
 	}
 	codes := make([]string, 0, len(unmuted))
 	for c := range unmuted {
@@ -137,6 +148,8 @@ func (p *Provider) WriteMetrics(ctx context.Context, m *api.Exposition) error {
 	}
 	m.Family("nats_lens_findings_muted", "gauge", "Firing findings an active mute covers.")
 	m.Sample("nats_lens_findings_muted", float64(muted))
+	m.Family("nats_lens_findings_acknowledged", "gauge", "Firing findings, muted or not, while an acknowledgement's quiet holds; every entity counted.")
+	m.Sample("nats_lens_findings_acknowledged", float64(quiet))
 
 	if err := p.writeNotifications(ctx, m, now); err != nil {
 		return err

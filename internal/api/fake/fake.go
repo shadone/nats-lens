@@ -28,8 +28,8 @@ import (
 // FixedNow is the scenario's present in fixed mode.
 var FixedNow = time.Date(2026, 10, 17, 14, 30, 0, 0, time.UTC)
 
-// Provider is the fake api.Provider for one scenario. Mutes created
-// through the API are kept in memory.
+// Provider is the fake api.Provider for one scenario. Mutes and
+// acknowledgements created through the API are kept in memory.
 type Provider struct {
 	sc    *scenario
 	live  bool
@@ -38,6 +38,9 @@ type Provider struct {
 	mu     sync.Mutex
 	mutes  []*storedMute
 	nextID int
+	acks   []*storedAck
+	// nextAckID is the ID the next acknowledgement gets.
+	nextAckID int
 }
 
 var _ api.Provider = (*Provider)(nil)
@@ -47,10 +50,14 @@ var _ api.Provider = (*Provider)(nil)
 func New(live bool) *Provider { return newProvider(prodScenario(), live) }
 
 func newProvider(sc *scenario, live bool) *Provider {
-	p := &Provider{sc: sc, live: live, clock: time.Now, nextID: 1}
+	p := &Provider{sc: sc, live: live, clock: time.Now, nextID: 1, nextAckID: 1}
 	if sc.mutes != nil {
 		p.mutes = sc.mutes()
 		p.nextID += len(p.mutes)
+	}
+	if sc.acks != nil {
+		p.acks = sc.acks()
+		p.nextAckID += len(p.acks)
 	}
 	return p
 }

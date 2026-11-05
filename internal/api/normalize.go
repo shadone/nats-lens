@@ -37,6 +37,11 @@ const (
 	// date, from now.
 	MinAcceptLength = 24 * time.Hour
 	MaxAcceptLength = 365 * 24 * time.Hour
+	// MaxNoteLength bounds an acknowledgement's note; MinAckQuiet and
+	// MaxAckQuiet its quiet time.
+	MaxNoteLength = 500
+	MinAckQuiet   = 30 * time.Minute
+	MaxAckQuiet   = 24 * time.Hour
 )
 
 func invalid(format string, args ...any) error {
@@ -233,6 +238,55 @@ func normalizeUnmute(req *v1.UnmuteFindingRequest, user string) error {
 	}
 	var err error
 	req.UnmutedBy, err = text("unmuted_by", req.GetUnmutedBy(), MaxNameLength)
+	return err
+}
+
+// normalizeAck checks an acknowledgement request: a finding, a note of at
+// most MaxNoteLength characters, and either a quiet of MinAckQuiet to
+// MaxAckQuiet, truncated to whole seconds, or until resolved. user is the
+// verified IAP user when the server is configured for IAP, and empty
+// otherwise; it replaces the name in the request.
+func normalizeAck(req *v1.AcknowledgeFindingRequest, user string) error {
+	if req.GetFindingId() == "" {
+		return invalid("finding_id is required")
+	}
+	req.Note = strings.TrimSpace(req.GetNote())
+	if utf8.RuneCountInString(req.Note) > MaxNoteLength {
+		return invalid("note is longer than %d characters", MaxNoteLength)
+	}
+	switch {
+	case req.GetUntilResolved() && req.GetQuietFor() != nil:
+		return invalid("quiet_for and until_resolved are exclusive")
+	case req.GetUntilResolved():
+	case req.GetQuietFor() == nil:
+		return invalid("quiet_for or until_resolved is required")
+	default:
+		if err := req.GetQuietFor().CheckValid(); err != nil {
+			return invalid("quiet_for: %v", err)
+		}
+		d := req.GetQuietFor().AsDuration().Truncate(time.Second)
+		if d < MinAckQuiet || d > MaxAckQuiet {
+			return invalid("quiet_for must be from %s to %s", MinAckQuiet, MaxAckQuiet)
+		}
+		req.QuietFor = durationpb.New(d)
+	}
+	if user != "" {
+		req.AckedBy = user
+	}
+	var err error
+	req.AckedBy, err = text("acked_by", req.GetAckedBy(), MaxNameLength)
+	return err
+}
+
+func normalizeEndAck(req *v1.EndAcknowledgementRequest, user string) error {
+	if req.GetId() == "" {
+		return invalid("id is required")
+	}
+	if user != "" {
+		req.EndedBy = user
+	}
+	var err error
+	req.EndedBy, err = text("ended_by", req.GetEndedBy(), MaxNameLength)
 	return err
 }
 

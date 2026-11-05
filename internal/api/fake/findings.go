@@ -142,6 +142,7 @@ func (p *Provider) findings(s scen) []*v1.Finding {
 				break
 			}
 		}
+		f.Acknowledgement = p.ackFor(s, f)
 	}
 	p.mu.Unlock()
 	for _, f := range all {
@@ -184,6 +185,9 @@ func tally(all []*v1.Finding, r *v1.TimeRange) *v1.FindingTally {
 		}
 		if f.GetState() == flapping {
 			t.Flapping++
+		}
+		if f.GetAcknowledgement() != nil {
+			t.Acknowledged++
 		}
 		switch {
 		case f.GetMute() != nil:
