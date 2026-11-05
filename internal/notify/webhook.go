@@ -42,6 +42,7 @@ type webhookNotice struct {
 	Flapping         bool         `json:"flapping,omitempty"`
 	Value            *float64     `json:"value,omitempty"`
 	Mute             *webhookMute `json:"mute,omitempty"`
+	FiringCount      *int         `json:"firing_count,omitempty"`
 	Link             string       `json:"link,omitempty"`
 	DedupKey         string       `json:"dedup_key"`
 }
@@ -78,7 +79,7 @@ func WebhookBody(b Batch) ([]byte, error) {
 			EntityType: m.EntityType, EntityKey: m.EntityKey, EntityName: m.EntityName, Detail: m.Detail,
 			Since: timeText(m.Since), ConditionSince: timeText(m.ConditionSince),
 			TransitionedAt: timeText(m.TransitionedAt), ResolvedAt: timeText(m.ResolvedAt),
-			Flapping: m.Flapping, Value: m.Value, Link: m.Link, DedupKey: m.DedupKey,
+			Flapping: m.Flapping, Value: m.Value, FiringCount: m.FiringCount, Link: m.Link, DedupKey: m.DedupKey,
 		}
 		if mu := m.Mute; mu != nil {
 			n.Mute = &webhookMute{Accepted: mu.Accepted, By: mu.By, Reason: mu.Reason, Until: timeText(mu.Until), EndReason: mu.EndReason}
