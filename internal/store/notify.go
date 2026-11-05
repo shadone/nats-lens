@@ -92,6 +92,8 @@ type NotifyInput struct {
 	// ended after the oldest channel's ReconciledAt and by At: all a
 	// reconcile reads.
 	Mutes []Mute
+	// Acks includes current acknowledgements and changes since the oldest reconcile.
+	Acks map[string][]Ack
 	// Channels by name.
 	Channels map[string]NotifyChannel
 	// States by channel, then finding ID.
@@ -136,6 +138,16 @@ WHERE state = 'firing' OR flapping OR id IN (SELECT finding_id FROM notify_state
 		return in, fmt.Errorf("notify mutes: %w", err)
 	}
 	in.Mutes = all
+	// ASVS 1.2.4: times are bound parameters; make_timestamp avoids session-zone shifts.
+	acks, err := s.acks(ctx, `created_at <= make_timestamp(?::BIGINT) AND
+(ended_at IS NULL OR ended_at > make_timestamp(?::BIGINT))`, at.UnixMicro(), mutesSince(at, in.Channels).UnixMicro())
+	if err != nil {
+		return in, fmt.Errorf("notify acknowledgements: %w", err)
+	}
+	in.Acks = map[string][]Ack{}
+	for _, a := range acks {
+		in.Acks[a.FindingID] = append(in.Acks[a.FindingID], a)
+	}
 	var active []Mute
 	for _, m := range all {
 		if m.ActiveAt(at) {
