@@ -58,3 +58,5 @@
 .dh-gap-bg{fill:var(--surface-2)}
 .dh-gap-line{stroke:var(--text-muted);stroke-width:1}
 .dh-chart-gap{opacity:.65}
+
+.dh-chart-status { fill: var(--text-muted); font-size: 7px; }
