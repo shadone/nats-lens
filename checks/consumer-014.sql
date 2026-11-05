@@ -211,10 +211,10 @@ bempty AS (
      AND b.epoch = a.epoch AND b.ze = a.ze - 1
     GROUP BY a.account, a.stream, a.consumer, a.epoch
 ),
--- The first row with messages waiting after the backlog emptied, within the
--- three blocks of 64 collections from it; a consumer whose leader did not
--- report in that span is not judged.
-brefill AS (
+-- The first row with messages waiting after the backlog emptied: searched
+-- within the three blocks of 64 collections from it, and, when the leader
+-- did not report there, among all rows after it.
+bnear AS (
     SELECT g.account, g.stream, g.consumer, g.epoch, min(z.epoch) AS start_epoch
     FROM bempty g JOIN bfirst f USING (account, stream, consumer, epoch), (VALUES (0), (1), (2)) b(k)
     JOIN consumer_leader_stats z ON z.account = g.account AND z.stream = g.stream AND z.consumer = g.consumer
@@ -222,6 +222,19 @@ brefill AS (
     WHERE z.epoch > g.empty AND z.epoch <= g.epoch AND z.created IS NOT DISTINCT FROM f.created
       AND z.delivered_stream_seq = f.d AND z.num_pending > 0
     GROUP BY g.account, g.stream, g.consumer, g.epoch
+),
+bfar AS (
+    SELECT g.account, g.stream, g.consumer, g.epoch, min(z.epoch) AS start_epoch
+    FROM bempty g JOIN bfirst f USING (account, stream, consumer, epoch)
+    JOIN consumer_leader_stats z ON z.account = g.account AND z.stream = g.stream AND z.consumer = g.consumer
+    WHERE z.epoch > g.empty AND z.epoch <= g.epoch AND z.created IS NOT DISTINCT FROM f.created
+      AND z.delivered_stream_seq = f.d AND z.num_pending > 0
+      AND NOT EXISTS (SELECT 1 FROM bnear n WHERE n.account = g.account AND n.stream = g.stream
+          AND n.consumer = g.consumer AND n.epoch = g.epoch)
+    GROUP BY g.account, g.stream, g.consumer, g.epoch
+),
+brefill AS (
+    SELECT * FROM bnear UNION ALL SELECT * FROM bfar
 ),
 backlog AS (
     SELECT f.account, f.stream, f.consumer, f.epoch,

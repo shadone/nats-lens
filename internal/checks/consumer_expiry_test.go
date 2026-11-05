@@ -273,3 +273,24 @@ func TestOldestUnreadSingleEmptyCollection(t *testing.T) {
 	// The backlog starts at 302, after the two empty collections.
 	want(t, r["APP/events/emptied"], "warning", "at least 49 minutes old, 82% of max_age 1h")
 }
+
+// A leader that did not report for longer than the three blocks of 64
+// collections after the backlog emptied: the refill is still found, on a
+// stream whose max_age keeps the empty collections in the window.
+func TestOldestUnreadRefillAfterLongGap(t *testing.T) {
+	f := newFx(t)
+	f.cluster(400)
+	f.expiryStream(400)
+	f.exec(`UPDATE stream_config SET max_age_ns = ? WHERE stream = 'events'`, int64(30*24*time.Hour))
+	f.stalledFiltered("gap", 400, func(e int64) int64 {
+		switch {
+		case e == 99 || e == 100:
+			return 0
+		case e > 100 && e < 350:
+			return -1
+		}
+		return 3
+	})
+	r := f.eval("consumer-014", 400, map[string]string{"warn_ratio": "0.0001", "resolve_ratio": "0.00005"})
+	want(t, r["APP/events/gap"], "warning", "at least 25 minutes old")
+}
