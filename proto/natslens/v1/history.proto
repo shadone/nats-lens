@@ -87,7 +87,7 @@ message HistoryCoverage {
   // Collections that started in the range.
   int64 epochs = 3;
 
-  // The covered span divided by the collect interval.
+  // The covered span divided by the collect interval configured now.
   int64 expected_epochs = 4;
 
   // Collections in the range that missed a server.
