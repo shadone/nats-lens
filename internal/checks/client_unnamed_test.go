@@ -28,7 +28,7 @@ func TestUnnamedConnections(t *testing.T) {
 	f.unnamedConn(40, "S2", 4, "order-service@os-1", "10.0.0.8", time.Hour, m{"account": "APP"})
 	r := f.fires("client-007", 40, "(unnamed)")
 	want(t, r["(unnamed)"], "info", "3 connections without a name, 1 connected for 10m or longer; accounts $G, APP, user alice, "+
-		"from 10.0.0.5, 10.0.0.6, 10.0.0.7, go 1.54.0, nats.js 3.0.2 (nats-0, nats-1, nats-2).")
+		"from 10.0.0.5 (APP), 10.0.0.6 (APP), 10.0.0.7 ($G), go 1.54.0, nats.js 3.0.2 (nats-0, nats-1, nats-2).")
 	if v := r["(unnamed)"].Value; v == nil || *v != 3 {
 		t.Errorf("value %v, want 3", v)
 	}
@@ -88,4 +88,57 @@ func TestUnnamedConnectionsHysteresis(t *testing.T) {
 	// At epoch 41 the finding was last seen at 39, not the previous epoch.
 	f.unnamedConn(41, "S0", 1, nil, "10.0.0.5", time.Minute, nil)
 	f.fires("client-007", 41)
+}
+
+// An MQTT client has no NATS connection name, so it is left out; a
+// websocket client can set one and counts.
+func TestUnnamedConnectionsLeaveOutMQTT(t *testing.T) {
+	f := newFx(t)
+	f.cluster(40)
+	f.unnamedConn(40, "S0", 1, nil, "10.0.0.5", time.Hour, m{"type": "mqtt", "kind": "Client"})
+	f.fires("client-007", 40)
+	f.unnamedConn(40, "S0", 2, nil, "10.0.0.6", time.Hour, m{"type": "websocket", "kind": "Client"})
+	r := f.fires("client-007", 40, "(unnamed)")
+	want(t, r["(unnamed)"], "info", "1 connection without a name, 1 connected for 10m or longer;", "from 10.0.0.6 (nats-0).")
+}
+
+// A firing finding is kept through a collection that may have missed the
+// unnamed connections: a server did not answer, its CONNZ failed, or its
+// list was cut at connz_limit. A whole collection without one resolves it.
+func TestUnnamedConnectionsPartialCollection(t *testing.T) {
+	firing := func(f *fx) {
+		f.row("findings", m{"id": "client-007:(unnamed)", "check_code": "client-007", "entity_type": "client", "entity_key": "(unnamed)",
+			"severity": "info", "state": "firing", "last_transition": "firing", "since": at(20), "since_epoch": 20,
+			"transitioned_at": at(20), "last_seen_epoch": 39, "updated_epoch": 39, "detail": "x"})
+	}
+	names := []string{"nats-0", "nats-1", "nats-2"}
+	// nats-2 did not answer in epoch 40.
+	f := newFx(t)
+	f.epochs(1, 39, names...)
+	f.epoch(40, names, "nats-2")
+	firing(f)
+	r := f.fires("client-007", 40, "(unnamed)")
+	want(t, r["(unnamed)"], "info", "No connection without a name in this collection, which lacks some servers' connections.")
+	// CONNZ of nats-1 answered with an error.
+	g := newFx(t)
+	g.cluster(40)
+	g.exec(`UPDATE epoch_endpoints SET endpoint = 'CONNZ', state = 'error' WHERE epoch = 40 AND server_id = 'S1'`)
+	firing(g)
+	g.fires("client-007", 40, "(unnamed)")
+	// nats-0's list was cut at connz_limit.
+	h := newFx(t)
+	h.cluster(40)
+	h.stats(40, "S0", m{"connz_total": 5000, "connz_returned": 4096})
+	firing(h)
+	h.fires("client-007", 40, "(unnamed)")
+	// Not firing before: a partial collection starts nothing.
+	k := newFx(t)
+	k.epochs(1, 39, names...)
+	k.epoch(40, names, "nats-2")
+	k.fires("client-007", 40)
+	// A whole collection without one resolves it.
+	w := newFx(t)
+	w.cluster(40)
+	firing(w)
+	w.fires("client-007", 40)
 }

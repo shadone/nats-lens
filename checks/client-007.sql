@@ -18,7 +18,9 @@ description: >-
   their connection name, so unnamed clients are merged into one (unnamed) entry and a finding cannot say which
   service it is about. One finding for every such connection, keyed (unnamed); the detail names their accounts,
   users, addresses, client libraries and servers, which help find them. A firing finding stays while any unnamed
-  connection is connected, of any age, so a client that reconnects does not resolve and fire again.
+  connection is connected, of any age, so a client that reconnects does not resolve and fire again, and through a
+  collection that may lack connections (a server did not answer, its CONNZ failed or its list was cut at
+  connz_limit). MQTT clients are left out: MQTT has no NATS connection name, so they could never be named.
 remediation: >-
   Give every client a connection name, ideally `service@pod` (in Kubernetes, the pod name from the downward API):
   the client checks then report per service, and a mute covers its pods. In nats.go set `nats.Name(...)`, in
@@ -35,7 +37,14 @@ WITH c AS (
         c.start_time
     FROM connections c JOIN servers s USING (server_id)
     WHERE c.epoch = getvariable('epoch') AND coalesce(split_part(c.name, '@', 1), '') = ''
-      AND NOT tooling_at(c.name, c.ip, c.epoch)
+      AND lower(coalesce(c.type, 'nats')) <> 'mqtt' AND NOT tooling_at(c.name, c.ip, c.epoch)
+),
+-- The collection may lack connections: a server did not answer, its CONNZ
+-- failed, or its list was cut at connz_limit.
+partial AS (
+    SELECT EXISTS (SELECT 1 FROM epochs WHERE epoch = getvariable('epoch') AND len(missing_names) > 0)
+        OR EXISTS (SELECT 1 FROM epoch_endpoints WHERE epoch = getvariable('epoch') AND endpoint = 'CONNZ' AND state <> 'ok')
+        OR EXISTS (SELECT 1 FROM server_stats WHERE epoch = getvariable('epoch') AND connz_returned < connz_total) AS yes
 ),
 -- Once firing at the previous epoch, any unnamed connection keeps it.
 firing AS (
@@ -49,12 +58,14 @@ agg AS (
         list(DISTINCT account ORDER BY account) AS accounts,
         list(DISTINCT u ORDER BY u) FILTER (WHERE u IS NOT NULL) AS users,
         list(DISTINCT ip ORDER BY ip) FILTER (WHERE ip IS NOT NULL) AS ips,
+        list(DISTINCT ip || ' (' || account || ')' ORDER BY ip || ' (' || account || ')') FILTER (WHERE ip IS NOT NULL) AS ip_accounts,
         list(DISTINCT lib ORDER BY lib) FILTER (WHERE lib IS NOT NULL) AS libs,
         list(DISTINCT server_name ORDER BY server_name) AS servers
     FROM c
 )
 SELECT
     '(unnamed)' AS entity_key,
+    CASE WHEN total = 0 THEN 'No connection without a name in this collection, which lacks some servers'' connections.' ELSE
     total || CASE WHEN total = 1 THEN ' connection' ELSE ' connections' END || ' without a name, '
         || aged || ' connected for ' || ns_text(epoch(getvariable('min_age')) * 1e9) || ' or longer; '
         || CASE WHEN len(accounts) = 1 THEN 'account ' ELSE 'accounts ' END
@@ -63,11 +74,13 @@ SELECT
             ELSE CASE WHEN len(users) = 1 THEN ', user ' ELSE ', users ' END || array_to_string(users[1:5], ', ')
                 || CASE WHEN len(users) > 5 THEN ' and ' || (len(users) - 5) || ' more' ELSE '' END END
         || CASE WHEN coalesce(len(ips), 0) = 0 THEN ''
+            WHEN len(accounts) > 1 THEN ', from ' || array_to_string(ip_accounts[1:5], ', ')
+                || CASE WHEN len(ip_accounts) > 5 THEN ' and ' || (len(ip_accounts) - 5) || ' more addresses' ELSE '' END
             ELSE ', from ' || array_to_string(ips[1:5], ', ')
                 || CASE WHEN len(ips) > 5 THEN ' and ' || (len(ips) - 5) || ' more addresses' ELSE '' END END
         || CASE WHEN coalesce(len(libs), 0) = 0 THEN ''
             ELSE ', ' || array_to_string(libs[1:5], ', ') || CASE WHEN len(libs) > 5 THEN ' and ' || (len(libs) - 5) || ' more' ELSE '' END END
-        || ' (' || array_to_string(servers, ', ') || ').' AS detail,
+        || ' (' || array_to_string(servers, ', ') || ').' END AS detail,
     total AS value
-FROM agg
-WHERE aged > 0 OR (total > 0 AND EXISTS (SELECT 1 FROM firing))
+FROM agg, partial p
+WHERE aged > 0 OR (EXISTS (SELECT 1 FROM firing) AND (total > 0 OR p.yes))
