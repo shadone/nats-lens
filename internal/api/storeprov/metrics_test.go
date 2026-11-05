@@ -2,6 +2,7 @@ package storeprov_test
 
 import (
 	"fmt"
+ "context"
 	"io"
 	"strings"
 	"testing"
@@ -198,4 +199,15 @@ func writeMetrics(t *testing.T, p *storeprov.Provider) string {
 		t.Fatal(err)
 	}
 	return sb.String()
+}
+
+func TestNotificationMetrics(t *testing.T) {
+ st,set,_:=findingsStore(t)
+ ctx:=context.Background()
+ for i,state:=range []string{"pending","delivered","refused","failed"} {
+  if _,err:=st.DB().ExecContext(ctx,`INSERT INTO notify_outbox(id,channel,created_at,epoch,kind,dedup_key,message,state,finished_at) VALUES (?, 'ops', ?, 1, 'baseline', ?, '{}', ?, ?)`,i+1,now.Add(-2*time.Hour),fmt.Sprint(i),state,now.Add(-time.Minute));err!=nil{t.Fatal(err)}
+ }
+ srv,_:=apitest.Serve(t,&storeprov.Provider{St:st,Checks:set,Clock:func()time.Time{return now}})
+ body:=scrape(t,srv.URL+"/metrics")
+ for _,want:=range []string{`nats_lens_notifications_pending{system="default",channel="ops"} 1`,`nats_lens_notifications_delivered_last_hour{system="default",channel="ops"} 1`,`nats_lens_notifications_failed_last_hour{system="default",channel="ops"} 2`,`nats_lens_notifications_oldest_pending_seconds{system="default",channel="ops"} 7200`} {if !strings.Contains(body,want+"\n"){t.Errorf("missing %s",want)}}
 }
