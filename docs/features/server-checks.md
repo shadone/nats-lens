@@ -159,10 +159,10 @@ The server checks judge each NATS server on its own: whether it answers, whether
 ### `server-019` Gateway missing
 
 - **Problem:** the server has no outbound gateway to a remote cluster of the supercluster, so its messages for that cluster wait until the gateway comes back.
-- **Fires when:** a server of the server's cluster had an outbound gateway to a remote cluster within the lookback, and the server has none to it, in each of the last `min_epochs` collections in which it answered GATEWAYZ. A firing finding stays while the gateway is missing in the newest collection. The detail names the remote clusters and how many servers of the cluster have a gateway to each, such as "us-0 has no outbound gateway to cluster eu (1 of 2 servers of us have one)."
-- **Severity:** warning. Critical when no server of the cluster that answered GATEWAYZ has an outbound gateway to that cluster.
+- **Fires when:** the server's cluster had a gateway to or from a remote cluster within the lookback, and the server has no outbound gateway to it, in each of the last `min_epochs` collections in which it answered GATEWAYZ. A firing finding stays while the gateway is missing in the newest collection. The detail names the remote clusters and how many servers of the cluster have a gateway to each, such as "us-0 has no outbound gateway to cluster eu (1 of 2 servers of us have one)."
+- **Severity:** warning. Critical when no server of the cluster that answered GATEWAYZ has an outbound gateway to that cluster, while the remote cluster still connects in.
 - **Thresholds:** lookback 24h, as the Topology page keeps a pair of clusters for a day; `min_epochs` 2 (both proposed, not yet confirmed).
-- **Left out:** a server whose GATEWAYZ did not answer, which also breaks the run. A remote cluster with no outbound gateway from the cluster within the lookback: GATEWAYZ lists only connected gateways, not the configured ones, so a remote cluster removed on purpose fires for up to a day, and one never connected is not known. Inbound gateways. A drop and reconnect between two collections, which the Topology page counts as a drop when the connection ID changed.
+- **Left out:** a server whose GATEWAYZ did not answer, which also breaks the run, and a server that is restarting (within `checks.restart_window`), as its gateways connect some time after it answers. A remote cluster removed: when no server of the cluster has an inbound gateway from it in each of the last `min_epochs` collections, while they answer GATEWAYZ, it is no longer judged, so a cluster removed on purpose fires nothing (proposed, not yet confirmed). The same holds for a remote cluster cut off in both directions; its servers are then missing for `server-001`. GATEWAYZ lists only connected gateways, not the configured ones, so a remote cluster never connected within the lookback is not known. Inbound gateways are not judged themselves. A drop and reconnect between two collections, which the Topology page counts as a drop when the connection ID changed.
 
 ### `server-020` Connections near max_connections
 
@@ -248,9 +248,15 @@ The server checks judge each NATS server on its own: whether it answers, whether
 
 ### A remote cluster is unreachable
 
-- **Given** a supercluster whose clusters `us` and `eu` were joined by gateways an hour ago, and no server of `us` has an outbound gateway to `eu` in the last two collections
+- **Given** a supercluster whose clusters `us` and `eu` were joined by gateways an hour ago, and no server of `us` has an outbound gateway to `eu` in the last two collections, while `eu` still connects in to `us`
 - **When** nats-lens collects
 - **Then** `server-019` "Gateway missing" is critical for every server of `us`, each detail ending "(no server of us has one)"
+
+### A remote cluster is removed on purpose
+
+- **Given** cluster `eu` is taken out of the supercluster, so no gateway joins `us` and `eu` in either direction while the servers of `us` answer
+- **When** nats-lens collects twice
+- **Then** `server-019` fires nothing for the servers of `us`
 
 ### A busy server
 
