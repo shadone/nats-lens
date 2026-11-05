@@ -154,7 +154,7 @@ export type HistoryCoverage = Message<"natslens.v1.HistoryCoverage"> & {
   epochs: bigint;
 
   /**
-   * The covered span divided by the collect interval.
+   * The covered span divided by the collect interval configured now.
    *
    * @generated from field: int64 expected_epochs = 4;
    */

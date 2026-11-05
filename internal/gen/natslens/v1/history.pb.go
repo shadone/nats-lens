@@ -285,7 +285,7 @@ type HistoryCoverage struct {
 	CoveredTo *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=covered_to,json=coveredTo,proto3" json:"covered_to,omitempty"`
 	// Collections that started in the range.
 	Epochs int64 `protobuf:"varint,3,opt,name=epochs,proto3" json:"epochs,omitempty"`
-	// The covered span divided by the collect interval.
+	// The covered span divided by the collect interval configured now.
 	ExpectedEpochs int64 `protobuf:"varint,4,opt,name=expected_epochs,json=expectedEpochs,proto3" json:"expected_epochs,omitempty"`
 	// Collections in the range that missed a server.
 	PartialEpochs int64 `protobuf:"varint,5,opt,name=partial_epochs,json=partialEpochs,proto3" json:"partial_epochs,omitempty"`
