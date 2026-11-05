@@ -204,7 +204,7 @@ it("does not lend history facts from a previous range to a pending or failing ra
   let reject!: (error: Error) => void;
   read.mockImplementationOnce(() => new Promise((_yes, no) => { reject = no; }));
   let result: ReturnType<typeof q.useDataHistory>;
-  function Probe({ spec }: { spec: import("../lib/timeRange").RangeSpec }) { result = q.useDataHistory(spec); return null; }
+  function Probe({ spec }: { spec: import("../lib/timeRange").RangeSpec }) { result = q.useDataHistory(spec); return <span>{result.isError ? "failed" : result.data ? "loaded" : "pending"}</span>; }
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   function Frame({ spec }: { spec: import("../lib/timeRange").RangeSpec }) {
     return <QueryClientProvider client={qc}><MemoryRouter><Probe spec={spec} /></MemoryRouter></QueryClientProvider>;

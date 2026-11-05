@@ -247,8 +247,8 @@ export function useDataHistory(spec: RangeSpec) {
     // Later chart mounts reuse the settled answer until the next live refresh.
     staleTime: spec.kind === "live" ? LIVE_REFRESH_MS : Infinity,
 
-    // The previous range's answer stands in while the next loads, never another system's.
-    placeholderData: keepSameSystem(sys),
+    // Gaps open at one range end say nothing about a different range.
+    // Keep cached answers only for this exact system and range key.
   });
 }
 
