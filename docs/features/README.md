@@ -146,7 +146,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Services built on the NATS micro framework: a card per service with its versions, instances, rate, errors and a note, its endpoints with their slow spells and last errors, its instances with the missing ones, asked in the listed accounts and seen in subscriptions in all (micro-services.md)
 - [~] Search and jump to anything from one box — findings, events and prefixes are planned (command-bar.md)
 - [ ] A finding on the phone, for the person on call (mobile.md)
-- [x] Range history notes, chart gaps, and growth requirements; margins planned (data-history.md)
+- [~] Range history notes, chart gaps, and growth requirements; margins planned (data-history.md)
 
 **Operations**
 - [x] Findings and collector health at `/metrics` for Prometheus alerting (metrics-and-alerting.md)
