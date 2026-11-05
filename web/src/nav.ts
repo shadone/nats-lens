@@ -41,6 +41,7 @@ export const NAV: NavItem[] = [
   { path: "/replay", label: "Replay", group: "Cluster", icon: "M3.5 9a5.5 5.5 0 1 0 1.6-3.9 M3 3v3h3 M9 6v3.2l2.2 1.6" },
   { path: "/topology", label: "Topology", group: "Cluster", icon: "M4 5a2 2 0 1 0 0 .1 M14 5a2 2 0 1 0 0 .1 M9 14a2 2 0 1 0 0 .1 M6 5h6 M5 7l3 5 M13 7l-3 5" },
   { path: "/accounts", label: "Accounts", group: "Cluster", icon: "M9 8a3 3 0 1 0 0-.1 M3 16c1-3 3.5-4.5 6-4.5s5 1.5 6 4.5" },
+  { path: "/data-history", label: "Data history", group: "Cluster", icon: "M3 5c0-1.1 2.7-2 6-2s6 .9 6 2-2.7 2-6 2-6-.9-6-2Z M3 5v8c0 1.1 2.7 2 6 2s6-.9 6-2V5 M3 9c0 1.1 2.7 2 6 2s6-.9 6-2" },
   { path: "/users", label: "Users & auth", group: "Cluster", icon: "M6 8V6a3 3 0 0 1 6 0v2 M4 8h10v7H4Z", planned: true },
 ];
 
