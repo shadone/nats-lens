@@ -176,8 +176,12 @@ func unwrapURLError(err error) error {
 	return err
 }
 
-// retryAfter reads a Retry-After value: seconds or an HTTP date. 0 when
-// it is absent, does not parse or is in the past.
+// MaxRetryAfter is the longest Retry-After read; a longer one is held to
+// it, so that a huge value cannot overflow the wait.
+const MaxRetryAfter = 24 * time.Hour
+
+// retryAfter reads a Retry-After value: seconds or an HTTP date, at most
+// MaxRetryAfter. 0 when it is absent, does not parse or is in the past.
 func retryAfter(v string, now time.Time) time.Duration {
 	if v == "" {
 		return 0
@@ -186,10 +190,10 @@ func retryAfter(v string, now time.Time) time.Duration {
 		if n < 0 {
 			return 0
 		}
-		return time.Duration(n) * time.Second
+		return time.Duration(min(n, int(MaxRetryAfter/time.Second))) * time.Second
 	}
 	if t, err := http.ParseTime(v); err == nil && t.After(now) {
-		return t.Sub(now)
+		return min(t.Sub(now), MaxRetryAfter)
 	}
 	return 0
 }
