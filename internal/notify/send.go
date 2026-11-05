@@ -3,6 +3,7 @@ package notify
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -85,17 +86,35 @@ type Sender struct {
 // NewSender returns the channel's sender. version is nats-lens's, for the
 // User-Agent.
 func NewSender(ch config.Channel, version string) *Sender {
-	tr := http.DefaultTransport.(*http.Transport).Clone()
 	return &Sender{
 		ch: ch, version: version, now: time.Now,
 		client: &http.Client{
-			Transport: tr,
+			Transport: newTransport(),
 			Timeout:   ch.Timeout.D(),
 			// A redirect could carry the token to another host.
 			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 		},
 	}
 }
+
+// newTransport is a transport of its own per sender, with the proxy from
+// the environment and TLS verified against the system roots.
+func newTransport() *http.Transport {
+	return &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
+		TLSClientConfig:       &tls.Config{MinVersion: tls.VersionTLS12},
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          4,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: time.Second,
+	}
+}
+
+// Close closes the sender's idle connections; a request in flight is
+// not affected.
+func (s *Sender) Close() { s.client.CloseIdleConnections() }
 
 // Channel is the sender's channel.
 func (s *Sender) Channel() config.Channel { return s.ch }

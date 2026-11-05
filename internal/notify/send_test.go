@@ -2,6 +2,7 @@ package notify
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -314,5 +316,44 @@ func TestRetryAfterClamped(t *testing.T) {
 	}
 	if d := retryAfter(now.Add(400*24*time.Hour).Format(http.TimeFormat), now); d != MaxRetryAfter {
 		t.Errorf("far date: %s", d)
+	}
+}
+
+// Each sender has a transport of its own that takes the proxy from the
+// environment, verifies TLS against the system roots and allows no TLS
+// older than 1.2.
+func TestSenderTransport(t *testing.T) {
+	s := NewSender(fileChannel(t, config.ChannelWebhook, "https://hooks.example.com/in"), "1.4.0")
+	tr, ok := s.client.Transport.(*http.Transport)
+	if !ok || tr == http.DefaultTransport {
+		t.Fatalf("transport %T is not a transport of its own", s.client.Transport)
+	}
+	// http.ProxyFromEnvironment reads the environment once per process, so
+	// the function itself is compared.
+	if tr.Proxy == nil || reflect.ValueOf(tr.Proxy).Pointer() != reflect.ValueOf(http.ProxyFromEnvironment).Pointer() {
+		t.Error("the proxy is not taken from the environment")
+	}
+	if c := tr.TLSClientConfig; c == nil || c.InsecureSkipVerify || c.MinVersion < tls.VersionTLS12 || c.RootCAs != nil {
+		t.Errorf("tls config %+v", c)
+	}
+	if tr.TLSHandshakeTimeout <= 0 || tr.DialContext == nil {
+		t.Errorf("no handshake timeout or dialer")
+	}
+}
+
+// A receiver whose certificate the system roots do not sign is refused
+// for retry, and Close leaves the sender usable.
+func TestSenderVerifiesTLS(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(204) }))
+	defer srv.Close()
+	s := NewSender(fileChannel(t, config.ChannelWebhook, srv.URL+"/services/"+pathSecret), "1.4.0")
+	r := s.Send(context.Background(), batch(sample(KindFiring)))
+	checkResult(t, r, Retry, 0)
+	if r.Err == nil || !strings.Contains(r.Err.Error(), "certificate") {
+		t.Errorf("err %v", r.Err)
+	}
+	s.Close()
+	if r := s.Send(context.Background(), batch(sample(KindFiring))); r.Outcome != Retry {
+		t.Errorf("after Close: %v", r)
 	}
 }
