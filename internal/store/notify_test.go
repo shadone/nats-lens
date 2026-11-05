@@ -182,3 +182,24 @@ func TestNotifyInputReadsRecentMutes(t *testing.T) {
 		t.Errorf("mutes read %q, want %q", got, want)
 	}
 }
+
+// A dedup key is queued once per channel: a second row with it fails the
+// whole change; another channel may hold the same key.
+func TestOutboxDedupKeyUniquePerChannel(t *testing.T) {
+	ctx := context.Background()
+	s := openMem(t)
+	addEpoch(t, s, 1, t0)
+	row := func(ch string) OutboxRow {
+		return OutboxRow{Channel: ch, CreatedAt: t0, Epoch: 1, Kind: "firing", FindingID: "stream-001:APP/jobs",
+			DedupKey: "example-prod:stream-001:APP/jobs:1:firing:1", Message: json.RawMessage(`{}`)}
+	}
+	if err := s.ApplyNotify(ctx, NotifyChange{Outbox: []OutboxRow{row("ops"), row("chat")}}); err != nil {
+		t.Fatalf("one key in two channels: %v", err)
+	}
+	if err := s.ApplyNotify(ctx, NotifyChange{Outbox: []OutboxRow{row("ops")}}); err == nil {
+		t.Error("a key queued twice for one channel")
+	}
+	if n := count(t, s.DB(), `SELECT count(*) FROM notify_outbox`); n != 2 {
+		t.Errorf("%d rows", n)
+	}
+}
