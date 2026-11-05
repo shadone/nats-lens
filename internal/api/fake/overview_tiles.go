@@ -58,8 +58,9 @@ func (s scen) overviewTiles(r *v1.TimeRange, maxPoints int32, servers []*v1.Serv
 	clients := tile(api.TileClients, "cluster.connections", api.LastPoint, cnt)
 	clients.ValueSuffix = api.CountSuffix(clients.Value, "conn")
 	if clients.Value != nil {
-		// The demo's connections are all in one account.
-		accounts.Subtitle = fmt.Sprintf("most connections: %s (%.0f)", Account, clients.GetValue())
+		if name, n := api.BusiestAccount(s.accounts(s.epochTime(r))); name != "" {
+			accounts.Subtitle = api.AccountsSubtitle(name, n)
+		}
 	}
 	// The applications of the epoch's connections, tooling and unnamed
 	// ones left out, as the store counts them.
