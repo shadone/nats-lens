@@ -124,7 +124,8 @@ describe("Accounts", () => {
     await screen.findByRole("region", { name: "Failed logins, 24 h" });
     const c = card("Failed logins, 24 h");
     expect(c.getByText("Event capture stopped for part of this window, so the counts can be low.")).toBeInTheDocument();
-    expect(c.getByText("The history starts at 17 Oct 11:30 UTC, so fewer than 24 hours are counted.")).toBeInTheDocument();
+    const short = c.getByText("The history starts at 17 Oct 11:30 UTC, so fewer than 24 hours are counted.");
+    expect(within(short).getByRole("link", { name: "Data history" })).toHaveAttribute("href", "/data-history");
   });
 
   it("lists what expires soonest with how long is left", async () => {

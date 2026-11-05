@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectionNotes, stepNotes, unobservedText, whenFormat } from "./replayView";
+import { beforeHistoryNote, collectionNotes, stepNotes, unobservedText, whenFormat } from "./replayView";
 
 const base = { stepsTruncated: true, stepsOmitted: 0 };
 
@@ -47,5 +47,14 @@ describe("a lost events connection", () => {
     expect(unobservedText({ count: "clientReconnects", reason: "events_connection_lost", from: at("09:40:00") }, fmt)).toBe(
       "no events captured: an events connection was lost 09:40:00–still at B",
     );
+  });
+});
+
+describe("beforeHistoryNote", () => {
+  it("is the note the page links to Data history, and only when A is before the history", () => {
+    const r = { a: Date.parse("2026-10-17T08:00:00Z"), historyStart: Date.parse("2026-10-17T08:30:00Z") };
+    expect(beforeHistoryNote(r)).toBe(collectionNotes({ ...r, epochAAt: 1, epochBAt: 1 })[0]);
+    expect(beforeHistoryNote({ ...r, a: r.historyStart })).toBeUndefined();
+    expect(beforeHistoryNote({ ...r, historyStart: undefined })).toBeUndefined();
   });
 });

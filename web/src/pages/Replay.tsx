@@ -7,6 +7,7 @@ import type { Replay as ReplayData } from "../api/adapt-replay";
 import { useLensInfo } from "../api/queries";
 import { useReplay, useReplayStrip, useSettledMoments } from "../api/replay";
 import { ErrorBox, Loading, errorText } from "../components/common";
+import { HistoryLink } from "../components/HistoryNote";
 import { ReplayCounts } from "../components/ReplayCounts";
 import { ReplayGone } from "../components/ReplayGone";
 import { ReplayScrubber } from "../components/ReplayScrubber";
@@ -16,7 +17,7 @@ import { dayMonHm } from "../lib/format";
 import { SYSTEM_PARAM, ACCOUNT_PARAM } from "../lib/globalQuery";
 import { logFileName, replayLog } from "../lib/replayLog";
 import { A_PARAM, B_PARAM, momentIso, resolveMoments, shareParams, writeMoments, type Moments } from "../lib/replayUrl";
-import { collectionNotes, stepNotes, whenFormat } from "../lib/replayView";
+import { beforeHistoryNote, collectionNotes, stepNotes, whenFormat } from "../lib/replayView";
 import { pauseRange } from "../lib/timeRange";
 import { useGlobalQuery } from "../lib/useGlobalQuery";
 import { usePageTitle } from "../lib/usePageTitle";
@@ -135,6 +136,7 @@ export function Replay() {
   } else {
     const shown = { a: data.a, b: data.b };
     const notes = collectionNotes(data);
+    const before = beforeHistoryNote(data);
     body = (
       <>
         {!current && (
@@ -146,7 +148,15 @@ export function Replay() {
           {notes.length > 0 && (
             <div className="rp-notes card" role="note">
               {notes.map((n) => (
-                <p key={n}>{n}</p>
+                <p key={n}>
+                  {n}
+                  {n === before && (
+                    <>
+                      {" "}
+                      <HistoryLink />
+                    </>
+                  )}
+                </p>
               ))}
             </div>
           )}
