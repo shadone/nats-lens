@@ -26,9 +26,10 @@ description: >-
   server, so the pods of one deployment sharing a credential are one finding; the Accounts page lists the same
   events by user, address and reason. A client that gave no user is grouped as (no user), one that gave a token
   (which nats-server reports as [REDACTED]) as (token); nkey and JWT users appear as their public keys. An event
-  without an account, or with $G or N/A, which nats-server's server-wide event names for a client refused before it
-  got an account, is keyed (unknown account); only the account-scoped event (from auth callout) names the account
-  the client tried. The check needs event capture: without it nats-lens sees no failed login and the
+  without an account, or with N/A, is keyed (unknown account). nats-server's server-wide event names $G for a client
+  refused before it got an account; in operator mode (an account of the collection is named by a public key) $G is
+  no account and is keyed (unknown account) too, while in config mode it is the real global account and stays $G.
+  Only the account-scoped event (from auth callout) names the account the client tried. The check needs event capture: without it nats-lens sees no failed login and the
   check stays quiet. A firing finding stays until the count falls below resolve_ratio of min_failed_logins.
 remediation: >-
   nats-server gives every refused login the reason "Authentication Failure" ("Proxy Not Trusted" or "Proxy
@@ -44,10 +45,17 @@ related_config: [min_failed_logins, resolve_ratio, lookback]
 value_name: failed logins
 value_basis: client.auth_error events of the user in the account within the lookback, on every server
 */
-WITH e AS (
+-- Operator mode: an account of the epoch is named by a public key (56
+-- characters starting with A, api.IsAccountKey). There $G is no account.
+WITH operator AS (
+    SELECT EXISTS (SELECT 1 FROM accounts WHERE first_epoch <= getvariable('epoch') AND last_epoch >= getvariable('epoch')
+        AND length(account) = 56 AND starts_with(account, 'A')) AS yes
+),
+e AS (
     SELECT id, time, received_at,
         CASE WHEN client_user = '[REDACTED]' THEN '(token)' ELSE coalesce(nullif(client_user, ''), '(no user)') END AS u,
-        CASE WHEN coalesce(account, '') IN ('', '$G', 'N/A') THEN '(unknown account)' ELSE account END AS acc, nullif(client_host, '') AS host,
+        CASE WHEN coalesce(account, '') IN ('', 'N/A') OR (account = '$G' AND (SELECT yes FROM operator))
+            THEN '(unknown account)' ELSE account END AS acc, nullif(client_host, '') AS host,
         nullif(client_name, '') AS name, coalesce(nullif(reason, ''), 'no reason') AS reason, nullif(server_name, '') AS server
     FROM events
     WHERE kind = 'client.auth_error' AND received_at > getvariable('window_start') AND received_at <= getvariable('epoch_time')

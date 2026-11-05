@@ -159,12 +159,13 @@ func TestRepeatedAuthErrorsHysteresis(t *testing.T) {
 
 // A user is counted per account: the same user name failing 8 times in
 // each of two accounts fires nothing, 15 times in one fires for that
-// account only. An event without an account, or with the $G or N/A that
-// nats-server's server-wide event names for a client refused before it
-// got an account, is keyed (unknown account).
+// account only. In operator mode an event without an account, or with the
+// $G or N/A that nats-server's server-wide event names for a client
+// refused before it got an account, is keyed (unknown account).
 func TestRepeatedAuthErrorsPerAccount(t *testing.T) {
 	f := newFx(t)
 	f.cluster(40)
+	f.operatorAccount(40)
 	id := int64(0)
 	add := func(account, user string, n int) {
 		for range n {
@@ -194,4 +195,39 @@ func TestRepeatedAuthErrorsToken(t *testing.T) {
 	}
 	r := f.fires("client-006", 40, "(token) in APP")
 	want(t, r["(token) in APP"], "warning", "15 failed logins", "with a token in account APP from 10.0.0.9")
+}
+
+// operatorKey is an account public key, which puts a system in operator
+// mode.
+const operatorKey = "ADSUPPLIERSFAKEACCOUNTKEYEXAMPLEGLOBAL7Q2M4XKV3WPJ6RT5NH"
+
+// operatorAccount stores an account named by a public key, reported from
+// epoch 1 to last.
+func (f *fx) operatorAccount(last int64) {
+	f.t.Helper()
+	f.row("accounts", m{"account": operatorKey, "account_name": "SUPPLIERS", "is_system": false, "first_epoch": 1, "last_epoch": last})
+}
+
+// In config mode $G is the real global account, where users live when no
+// accounts are configured: it stays the account. An empty account and N/A
+// are unknown in both modes; an account key seen only before the epoch
+// does not make the epoch operator mode.
+func TestRepeatedAuthErrorsGlobalAccountInConfigMode(t *testing.T) {
+	f := newFx(t)
+	f.cluster(40)
+	f.row("accounts", m{"account": "APP", "account_name": "APP", "is_system": false, "first_epoch": 1, "last_epoch": 40})
+	f.operatorAccount(30)
+	id := int64(0)
+	add := func(account, user string, n int) {
+		for range n {
+			id++
+			f.authErrorIn(id, at(35), account, user, "10.1.0.1", "", "nats-0", "Authentication Failure")
+		}
+	}
+	add("$G", "svc", 15)
+	add("", "ops", 8)
+	add("N/A", "ops", 8)
+	r := f.fires("client-006", 40, "svc in $G", "ops in (unknown account)")
+	want(t, r["svc in $G"], "warning", "as svc in account $G from 10.1.0.1")
+	want(t, r["ops in (unknown account)"], "warning", "16 failed logins", "as ops in an unknown account")
 }
