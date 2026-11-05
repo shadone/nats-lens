@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/info.proto.
  */
 export const file_natslens_v1_info: GenFile = /*@__PURE__*/
-  fileDesc("ChZuYXRzbGVucy92MS9pbmZvLnByb3RvEgtuYXRzbGVucy52MSIkChJHZXRMZW5zSW5mb1JlcXVlc3QSDgoGc3lzdGVtGAEgASgJIsACChNHZXRMZW5zSW5mb1Jlc3BvbnNlEjAKDWlkZW50aXR5X21vZGUYASABKA4yGS5uYXRzbGVucy52MS5JZGVudGl0eU1vZGUSDwoHdmVyc2lvbhgCIAEoCRIPCgdjbHVzdGVyGAMgASgJEjMKEGNvbGxlY3RfaW50ZXJ2YWwYBCABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SLAoJcmV0ZW50aW9uGAUgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEgwKBGxpdmUYBiABKAgSDAoEZGVtbxgHIAEoCBIxCg1oaXN0b3J5X3N0YXJ0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIOCgZzeXN0ZW0YCSABKAkSEwoLc3lzdGVtX25hbWUYCiABKAkqXwoMSWRlbnRpdHlNb2RlEh0KGUlERU5USVRZX01PREVfVU5TUEVDSUZJRUQQABIVChFJREVOVElUWV9NT0RFX0lBUBABEhkKFUlERU5USVRZX01PREVfUkVRVUVTVBACQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_duration, file_google_protobuf_timestamp]);
+  fileDesc("ChZuYXRzbGVucy92MS9pbmZvLnByb3RvEgtuYXRzbGVucy52MSIkChJHZXRMZW5zSW5mb1JlcXVlc3QSDgoGc3lzdGVtGAEgASgJIukCChNHZXRMZW5zSW5mb1Jlc3BvbnNlEjAKDWlkZW50aXR5X21vZGUYASABKA4yGS5uYXRzbGVucy52MS5JZGVudGl0eU1vZGUSDwoHdmVyc2lvbhgCIAEoCRIPCgdjbHVzdGVyGAMgASgJEjMKEGNvbGxlY3RfaW50ZXJ2YWwYBCABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SLAoJcmV0ZW50aW9uGAUgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEgwKBGxpdmUYBiABKAgSDAoEZGVtbxgHIAEoCBIxCg1oaXN0b3J5X3N0YXJ0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIOCgZzeXN0ZW0YCSABKAkSEwoLc3lzdGVtX25hbWUYCiABKAkSJwoDbm93GAsgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCpfCgxJZGVudGl0eU1vZGUSHQoZSURFTlRJVFlfTU9ERV9VTlNQRUNJRklFRBAAEhUKEUlERU5USVRZX01PREVfSUFQEAESGQoVSURFTlRJVFlfTU9ERV9SRVFVRVNUEAJCQlpAZ2l0aHViLmNvbS9zaGFkb25lL25hdHMtbGVucy9pbnRlcm5hbC9nZW4vbmF0c2xlbnMvdjE7bmF0c2xlbnN2MWIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp]);
 
 /**
  * Request for facts about this nats-lens instance.
@@ -112,6 +112,16 @@ export type GetLensInfoResponse = Message<"natslens.v1.GetLensInfoResponse"> & {
    * @generated from field: string system_name = 10;
    */
   systemName: string;
+
+  /**
+   * The server's present, the moment a range without an end ends at: the
+   * wall clock, or the scenario's own time for `natslens demo -fixed`.
+   * The UI reads its "now" from it, so that its live ranges end where the
+   * server's do.
+   *
+   * @generated from field: google.protobuf.Timestamp now = 11;
+   */
+  now?: Timestamp | undefined;
 };
 
 /**
