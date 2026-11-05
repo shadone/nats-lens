@@ -2,7 +2,7 @@
 
 - **Surfaces:** `ui`, `api`
 - **Status:** shipped
-- **Related:** [streams.md](streams.md), [stream-checks.md](stream-checks.md), [server-checks.md](server-checks.md), [checks.md](checks.md), [triage-and-mutes.md](triage-and-mutes.md), [kv-and-object-stores.md](kv-and-object-stores.md)
+- **Related:** [data-history.md](data-history.md), [streams.md](streams.md), [stream-checks.md](stream-checks.md), [server-checks.md](server-checks.md), [checks.md](checks.md), [triage-and-mutes.md](triage-and-mutes.md), [kv-and-object-stores.md](kv-and-object-stores.md)
 
 ## What it does
 
@@ -10,9 +10,11 @@ The Capacity page shows what each stream keeps, what bounds it, and when the dis
 
 ## Behavior and rules
 
-- **The newest collection of the range.** The page reads the newest collection at or before the end of the range, and names it in the line under the header with the number of streams and stores and since when growth is read ("growth from 2026-10-20 12:00 UTC"), or "no growth rate yet (6 hours of history needed)" when no card or row has a rate. Growth covers the whole range, as on the Streams page. Without a collection the page says "No collection in this range." and nothing else.
+- **Missing growth history.** The header, server cards, and stream rows explain the six-hour requirement and link to Data history. A live range of at least six hours counts down the missing history. A shorter range asks for a range of at least six hours; a fixed range names its available span. The page draws no collection-history chart overlay. Forecast confidence margins are not shown.
+
+- **The newest collection of the range.** The page reads the newest collection at or before the end of the range, and names it in the line under the header with the number of streams and stores and since when growth is read ("growth from 2026-10-20 12:00 UTC"), or an explanation of the history needed when no card or row has a rate. Growth covers the whole range, as on the Streams page. Without a collection the page says "No collection in this range." and nothing else.
 - **One card per server.** "JetStream file store", the use, the limit and the share ("244 MiB of 50 GiB · 0.5%") and a bar. A server whose limit is unset or 0 shows its use and "no limit reported", without a bar. A server that did not answer in the collection reads "not reported in this collection". Servers without JetStream get no card; a line counts them. With more than one cluster, the cards are grouped under each cluster's name. Order: the soonest full first as the card words it (two cards that read alike, such as "full in more than 5 years", tie), then the fullest, then by name, so stores that fill alike keep their order between refreshes.
-- **Growth and time to full.** The card's growth is the store's growth per day over the range (Theil-Sen, the median of the slopes between pairs of points, so a one-off restore or purge moves it little), and the time to full is the free space divided by that growth: "full in 9 days", "full in 6 months", "full in 3 years", "full in more than 5 years at this rate"; "not growing" at 0 or below; "not enough history for a rate (6 hours needed)" under 6 hours of data. This is the Streams page's growth rule, not the checks' rule (the smaller of two halves' slopes over 6 hours), so a store that grows by day and stands still by night keeps a rate all day.
+- **Growth and time to full.** The card's growth is the store's growth per day over the range (Theil-Sen, the median of the slopes between pairs of points, so a one-off restore or purge moves it little), and the time to full is the free space divided by that growth: "full in 9 days", "full in 6 months", "full in 3 years", "full in more than 5 years at this rate"; "not growing" at 0 or below; an explanation of the missing history under 6 hours of data. This is the Streams page's growth rule, not the checks' rule (the smaller of two halves' slopes over 6 hours), so a store that grows by day and stands still by night keeps a rate all day.
 - **The store's finding.** When `server-014` (store full soon) or `server-007` (store usage high) fires, the card names it with its severity and links it: "store full soon: 14 days by server-014" gives the check's own days, by its own rule, beside the page's. The bar takes the finding's colour, warning or critical; without a finding it is the accent.
 - **One row per stream.** KV buckets (`KV_`) and object stores (`OBJ_`) are rows too. The name links to the stream's page. Under it: the replicas and the kind, such as "R3 · limits · 48,211 msgs", "R3 · interest", "R3 · work queue", "R3 · mirror of order-events", "R3 · sources 2 streams", "R3 · KV · 1 per key" (its history), "R3 · object store", with "memory" for memory storage. With more than one account, the account is named under it.
 - **Bounded by.** The limits that are set, in the order age, messages, bytes, per subject: "7 days, 1M msgs", "8 GiB", "100M msgs per subject"; "nothing (keeps all)" without one. A KV bucket or object store reads "TTL 48 h", "keys (no TTL)" or "64 MiB, no TTL", and "per-key TTLs allowed" when its writers may set TTLs. An age under 3 days is written in hours ("24 h").
@@ -76,6 +78,13 @@ The Capacity page shows what each stream keeps, what bounds it, and when the dis
 - **Account disk limits as a bound.** An account's JetStream limits, collected now in operator mode, as a bound and an account card.
 - **Object counts.** The number of objects in an object store.
 - **Memory stores.** A card for each server's memory store.
+
+### Choose a range long enough for growth
+
+- **Surfaces:** `ui`
+- **Given** the system has enough history but the page shows the last hour
+- **When** I inspect an unset growth rate
+- **Then** the page asks for a range of at least six hours and links to Data history
 
 ## Not supported / out of scope
 

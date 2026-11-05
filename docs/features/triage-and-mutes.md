@@ -2,13 +2,15 @@
 
 - **Surfaces:** `ui`, `api`
 - **Status:** shipped
-- **Related:** [checks.md](checks.md), [overview-page.md](overview-page.md), [events.md](events.md), [metrics-and-alerting.md](metrics-and-alerting.md), [mobile.md](mobile.md)
+- **Related:** [data-history.md](data-history.md), [checks.md](checks.md), [overview-page.md](overview-page.md), [events.md](events.md), [metrics-and-alerting.md](metrics-and-alerting.md), [mobile.md](mobile.md)
 
 ## What it does
 
 The Findings page lists the findings of the time range, filtered by severity, state and check, and below them the mutes with who set them, why and until when. A finding's own page explains it: what fails in the check's own words, since when the condition holds and since when nats-lens has seen it, how many other entities share it, each server's copy of a stream or consumer, what to do, the related settings with their values, what happened around its start, every check of the same entity on a status timeline, and the finding's transitions. From a cause card on the Overview or a finding's page, an operator can mute a finding with a reason and an end; from a finding's page or the Findings page's mutes list, an operator can lift a mute early. A stream's `stream-005` finding can also be accepted as by design from the Capacity page, with a reason and a review date ([capacity.md](capacity.md)); an accepted finding reads as accepted wherever it shows.
 
 ## Behavior and rules
+
+- **History limits on findings.** Unresolved Findings rows and Overview cause cards say “already true when nats-lens started” under the finding page’s history-start rule. Finding details link the history-start wording and missing-history explanations around the start to Data history with the global query. This wording does not establish when the condition actually began.
 
 - **What a finding is.** The page says it: "A finding is one failing check for one entity."
 - **Order.** Unmuted findings first, then by severity; among warnings, expiry warnings (`account-003`, `account-004`, `server-016`) after the others, so a credential that expires soon never heads an outage, while a critical expiry ranks as any critical finding; then the ones firing longest. 50 per page.
