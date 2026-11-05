@@ -201,12 +201,14 @@ func TestSweepKeepsMutes(t *testing.T) {
 // archiveExempt lists the tables the archive does not export, with the
 // reason.
 var archiveExempt = map[string]string{
-	"archive_hours":   "records what was exported; a rebuild writes it from the loaded files",
-	"migrations":      "migration bookkeeping; a new database applies the migrations itself",
-	"inventory":       "loaded from inventory_file on every start",
-	"notify_channels": "what was sent to a receiver is not what NATS showed; after a rebuild every channel starts from a new baseline",
-	"notify_state":    "what was sent to a receiver is not what NATS showed; after a rebuild every channel starts from a new baseline",
-	"notify_outbox":   "what was sent to a receiver is not what NATS showed; after a rebuild every channel starts from a new baseline",
+	"notify_identity":      "local database incarnation; a rebuild must generate a different delivery identity",
+	"notify_delivery_rate": "local delivery watermarks; an archive rebuild starts a new baseline",
+	"archive_hours":        "records what was exported; a rebuild writes it from the loaded files",
+	"migrations":           "migration bookkeeping; a new database applies the migrations itself",
+	"inventory":            "loaded from inventory_file on every start",
+	"notify_channels":      "what was sent to a receiver is not what NATS showed; after a rebuild every channel starts from a new baseline",
+	"notify_state":         "what was sent to a receiver is not what NATS showed; after a rebuild every channel starts from a new baseline",
+	"notify_outbox":        "what was sent to a receiver is not what NATS showed; after a rebuild every channel starts from a new baseline",
 }
 
 // Every table is archived or listed as exempt, so that a new table is not
