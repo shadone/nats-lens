@@ -158,7 +158,7 @@ What `docs/features/data-history.md` plans outside the page, each linking to Dat
 
 ### T3 implementation notes
 
-- Prerequisite: merged committed D2 tip `f06dd13d3799d92778f31cf3ec386ca6a55a700d`, keeping its commits separate. Merge later D2 review fixes before integration if that branch advances.
+- Prerequisite: first merged D2 tip `f06dd13d3799d92778f31cf3ec386ca6a55a700d`, then its reviewed tip `91484430ad3a71197f2fae4c3b48a4713efd60e1`, keeping its commits separate. The parent integrated that D2 tip into `develop` at `0f064807ad97d85f6279fd5f52dc7fbc2b1f58fc`. Merge later D2 fixes before integration if any appear.
 - The layout reads the shell's cached LensInfo for the note and shares its history facts with the page. Mounted charts subscribe to one system/range history cache; later mounts reuse its settled answer until the 30-second live refresh. Pages without charts make no hatching request.
 - Trend charts and series sparklines reuse T2's gap labels and clipping. Very short gaps have a minimum visible mark of 1.5 chart units, clipped at the axis end; this visual minimum is proposed, not yet confirmed. Only times without collections and before-history are hatched, with native tooltips and accessible names. Overview and the seven-day stream series keep their requested axes.
 - Growth wording is shared by Capacity's header, cards, and stream rows, Streams tooltips, and Overview storage. Short live ranges ask for a six-hour range; fixed ranges name their available span instead of promising a countdown. This wording is proposed, not yet confirmed.
