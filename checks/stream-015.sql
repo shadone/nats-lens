@@ -28,9 +28,12 @@ description: >-
   Behind: every leader report within the lookback, covering at least half of it, has the mirror more than max_lag
   messages behind, and the lag did not fall over the window, so a mirror that catches up after a restart or a new
   mirror copying an old origin is not reported. Not hearing: the mirror received nothing, not even the origin's
-  heartbeat, for more than max_inactive. A firing finding keeps firing down to resolve_ratio of the thresholds, and
-  through a collection without a leader report within the lookback. While stream-017 reports an error for the
-  mirror, this check is quiet for it.
+  heartbeat, for more than max_inactive; or it has never heard from its origin in the two newest leader reports and
+  its leader was elected more than max_inactive ago (a new leader reports that it never heard until its copy of the
+  origin starts, which takes seconds, longer while the origin has no leader). A firing finding keeps firing down to
+  resolve_ratio of the thresholds, and through a collection without a leader report within the lookback. A mirror
+  whose newest leader report has an error is left to stream-017, also before stream-017 has seen it for min_epochs
+  collections.
 remediation: >-
   Run `nats stream info <mirror>` and read the Mirror section: Lag, Last Seen and Error. A mirror that has not been
   seen for long has lost its path to the origin: check that the origin exists (`nats stream info <origin>`, in the
@@ -47,21 +50,27 @@ WITH firing AS (
     SELECT entity_key FROM findings
     WHERE check_code = 'stream-015' AND state = 'firing' AND last_seen_epoch = getvariable('prev_epoch')
 ),
--- The leader's reports within the lookback; only the leader runs the
--- mirror, and a follower reports no mirror lag.
+-- The leader's reports within the lookback, newest first; only the leader
+-- runs the mirror, and a follower reports no mirror lag.
 lead AS (
     SELECT ss.account, ss.stream, ss.epoch, e.started_at AS ts, s.server_name, ss.mirror_lag AS lag,
-        ss.mirror_active_ns AS active_ns, ss.created
+        ss.mirror_active_ns AS active_ns, coalesce(ss.leader_since, ss.created) AS leading_since,
+        nullif(ss.mirror_error, '') AS error
     FROM stream_stats ss JOIN epochs e USING (epoch) JOIN servers s USING (server_id)
     WHERE ss.epoch BETWEEN getvariable('window_epoch') AND getvariable('epoch') AND ss.is_leader
       AND ss.mirror_lag IS NOT NULL
     QUALIFY row_number() OVER (PARTITION BY ss.account, ss.stream, ss.epoch ORDER BY ss.server_id) = 1
 ),
+ranked AS (
+    SELECT *, row_number() OVER (PARTITION BY account, stream ORDER BY epoch DESC) AS rn FROM lead
+),
 win AS (
     SELECT account, stream, count(*) AS n, min(lag) AS min_lag, arg_min(lag, epoch) AS first_lag,
         arg_max(lag, epoch) AS lag, arg_max(active_ns, epoch) AS active_ns, max(epoch) AS last_epoch,
-        arg_max(server_name, epoch) AS leader, arg_max(created, epoch) AS created, epoch(max(ts) - min(ts)) AS span_s
-    FROM lead GROUP BY account, stream
+        arg_max(server_name, epoch) AS leader, arg_max(leading_since, epoch) AS leading_since,
+        bool_or(error IS NOT NULL) FILTER (WHERE rn = 1) AS has_error,
+        count(*) FILTER (WHERE rn <= 2 AND active_ns < 0) AS never_reports, epoch(max(ts) - min(ts)) AS span_s
+    FROM ranked GROUP BY account, stream
 ),
 origin AS (
     SELECT account, stream, arg_max(mirror, last_epoch) AS origin
@@ -72,9 +81,10 @@ origin AS (
 judged AS (
     SELECT w.*, o.origin, w.account || '/' || w.stream AS entity_key,
         (w.account || '/' || w.stream) IN (SELECT entity_key FROM firing) AS was_firing,
-        coalesce(w.active_ns < 0 AND w.created < getvariable('epoch_time') - getvariable('max_inactive'), false)
+        coalesce(w.never_reports = 2 AND w.leading_since < getvariable('epoch_time') - getvariable('max_inactive'), false)
             AS never_heard
     FROM win w LEFT JOIN origin o USING (account, stream)
+    WHERE NOT coalesce(w.has_error, false)
 ),
 flagged AS (
     SELECT *,
@@ -82,9 +92,10 @@ flagged AS (
              ELSE last_epoch = getvariable('epoch') AND n >= 2 AND min_lag > getvariable('max_lag') AND lag >= first_lag
                   AND span_s >= epoch(getvariable('lookback')) / 2
         END AS behind,
-        never_heard OR CASE WHEN was_firing
-             THEN active_ns / 1e9 >= getvariable('resolve_ratio') * epoch(getvariable('max_inactive'))
-             ELSE last_epoch = getvariable('epoch') AND active_ns / 1e9 > epoch(getvariable('max_inactive'))
+        CASE WHEN was_firing
+             THEN active_ns < 0 OR active_ns / 1e9 >= getvariable('resolve_ratio') * epoch(getvariable('max_inactive'))
+             ELSE last_epoch = getvariable('epoch')
+                  AND (never_heard OR active_ns / 1e9 > epoch(getvariable('max_inactive')))
         END AS unheard
     FROM judged
 )
@@ -95,7 +106,8 @@ SELECT
             CASE WHEN behind THEN lag || ' messages behind'
                 || CASE WHEN was_firing THEN '' ELSE ', not catching up over the last ' || getvariable('lookback_text')
                     || ' (' || first_lag || ' at its start)' END END,
-            CASE WHEN never_heard THEN 'has never heard from its origin'
+            CASE WHEN unheard AND active_ns < 0 THEN 'has never heard from its origin'
+                    || coalesce(' since its leader was elected at ' || strftime(leading_since, '%H:%M:%S UTC'), '')
                  WHEN unheard THEN 'nothing received from its origin for '
                     || span_text(to_microseconds(CAST(active_ns // 1000 AS BIGINT))) END
         ], x -> x IS NOT NULL), '; ')

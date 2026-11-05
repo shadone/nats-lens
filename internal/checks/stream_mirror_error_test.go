@@ -80,3 +80,27 @@ func TestMirrorErrorSuppressesLagging(t *testing.T) {
 		t.Errorf("stream-017 = %v, want APP/order-archive only", got["stream-017"])
 	}
 }
+
+// In the first collection of an error stream-017 waits for min_epochs;
+// stream-015 does not fire meanwhile only to be suppressed in the next.
+func TestMirrorErrorFirstCollection(t *testing.T) {
+	f := newFx(t)
+	f.cluster(12)
+	f.streamConfig("S0", "order-archive", 1, 12, m{"mirror": "order-events"})
+	for e := int64(1); e <= 12; e++ {
+		if e < 11 {
+			f.streamMirrorAt(e, "order-archive", 0, time.Second, nil)
+		} else {
+			f.streamMirrorAt(e, "order-archive", 0, 5*time.Minute, m{"mirror_error": "stream not found"})
+		}
+	}
+	for _, e := range []int64{11, 12} {
+		got := f.streamEvalWith(e, "stream-015", "stream-017")
+		if len(got["stream-015"]) != 0 {
+			t.Errorf("epoch %d: stream-015 = %s", e, rowsText(got["stream-015"]))
+		}
+	}
+	if got := f.streamEvalWith(12, "stream-017"); len(got["stream-017"]) != 1 {
+		t.Errorf("stream-017 = %s", rowsText(got["stream-017"]))
+	}
+}
