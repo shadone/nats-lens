@@ -241,3 +241,33 @@ func TestDeliveryRetryAfterDoesNotShortenBackoff(t *testing.T) {
 		t.Fatalf("wait=%s err=%v", wait, err)
 	}
 }
+
+func TestDeliveryWaitsForNextEpoch(t *testing.T) {
+	e := newEnv(t)
+	e.apply(0)
+	now := r0
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls++; w.WriteHeader(204) }))
+	defer srv.Close()
+	ch := channel("ops")
+	ch.URL = srv.URL
+	queueDelivery(t, e.st, r0, 1, 101)
+	d := &Delivery{Store: e.st, SystemID: "example-prod", Interval: time.Minute, Clock: func() time.Time { return now }}
+	if _, err := d.Step(context.Background(), ch); err != nil {
+		t.Fatal(err)
+	}
+	now = now.Add(2 * time.Minute)
+	if _, err := d.Step(context.Background(), ch); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatal("second successful batch in the same epoch")
+	}
+	e.apply(2 * time.Minute)
+	if _, err := d.Step(context.Background(), ch); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 {
+		t.Fatal("new epoch did not release next batch")
+	}
+}
