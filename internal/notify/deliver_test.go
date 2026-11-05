@@ -72,6 +72,9 @@ func TestDeliveryRetriesDurableBatch(t *testing.T) {
 		}
 	}
 	rows, _ := e.st.OutboxRows(context.Background(), "ops")
+	if rows[0].LastError != "" {
+		t.Fatalf("delivered row kept an error: %q", rows[0].LastError)
+	}
 	if rows[0].State != "delivered" || rows[1].Attempts != 0 {
 		t.Fatalf("order %+v", rows)
 	}
