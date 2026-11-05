@@ -115,7 +115,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [~] Findings, severities, restarts, thresholds, remediation file, mutes, and one entity's finding accepted until a review date — accepting related entities or a check everywhere is planned (checks.md)
 - [x] Server checks `server-001` to `server-016` (server-checks.md)
 - [x] Account checks `account-001` to `account-004`: connection and disk limits, account and user JWT expiry (account-checks.md)
-- [x] Stream, KV bucket and object store checks `stream-001` to `stream-014` (stream-checks.md)
+- [x] Stream, KV bucket and object store checks `stream-001` to `stream-021`, mirrors, sources, single replicas, KV history, streams without a consumer and interior deletes among them; source activity and errors are planned (stream-checks.md)
 - [x] Consumer checks `consumer-001` to `consumer-013` (consumer-checks.md)
 - [x] Client checks `client-001` to `client-008`, among them repeated authentication errors, unnamed connections and outdated client libraries (client-checks.md)
 - [x] System checks `system-001` to `system-003` (system-checks.md)
