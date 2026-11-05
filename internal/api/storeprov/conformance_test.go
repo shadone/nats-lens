@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/shadone/nats-lens/internal/api"
@@ -327,6 +328,16 @@ func TestStoreConformance(t *testing.T) {
 	if _, err := c.MuteFinding(ctx, connect.NewRequest(&v1.MuteFindingRequest{System: "accounts", CheckCode: "account-004",
 		Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_ACCOUNT, Key: keySuppliers}, Reason: "Credentials renewed this week.", MutedBy: "ops",
 		ExpiresAt: timestamppb.New(clock.Add(24 * time.Hour))})); err != nil {
+		t.Fatal(err)
+	}
+	// server-001 on nats-4 is acknowledged now, quiet for an hour;
+	// stream-002 on payments 32 minutes ago, quiet for 30 minutes.
+	if _, err := c.AcknowledgeFinding(ctx, connect.NewRequest(&v1.AcknowledgeFindingRequest{System: "main", FindingId: "server-001:nats-4",
+		Note: "Node replaced; watching nats-4 rejoin.", QuietFor: durationpb.New(time.Hour), AckedBy: "alice@example.com"})); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.Acknowledge(ctx, store.Ack{FindingID: "stream-002:APP/payments", AckedBy: "bob@example.com", Note: "Looking at nats-2.",
+		CreatedAt: clock.Add(-32 * time.Minute), QuietUntil: clock.Add(-2 * time.Minute)}); err != nil {
 		t.Fatal(err)
 	}
 	apitest.RunConformance(t, apitest.Env{Client: c, Systems: []string{"main", "closed", "replay", "topology", "topology-single", "accounts", "accounts-config", "capacity", "subjects", "micro", "apps", "history"}, Now: clock})
