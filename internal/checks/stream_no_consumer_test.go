@@ -80,3 +80,22 @@ func TestStreamWithoutConsumerResolve(t *testing.T) {
 	r := f.fires("stream-020", 21, "APP/keeps", "APP/away")
 	want(t, r["APP/away"], "warning", "5 messages wait", "(no leader report in this collection)")
 }
+
+// A stream that another stream mirrors or sources is read through a
+// consumer the servers do not count, so it is not reported.
+func TestStreamWithoutConsumerCopied(t *testing.T) {
+	f := newFx(t)
+	f.cluster(21)
+	f.streamConfig("S0", "order-events", 1, 21, m{"retention": "interest"})
+	f.streamConfig("S0", "order-callbacks", 1, 21, m{"retention": "workqueue"})
+	f.streamConfig("S0", "media-windows", 1, 21, m{"retention": "workqueue"})
+	f.streamConfig("S1", "order-archive", 1, 21, m{"mirror": "order-events"})
+	f.streamConfig("S1", "callback-audit", 1, 21, nil)
+	f.exec(`UPDATE stream_config SET sources = ['order-callbacks'] WHERE stream = 'callback-audit'`)
+	for e := int64(1); e <= 21; e++ {
+		f.streamLeaderAt(e, "order-events", m{"last_seq": 100 + e})
+		f.streamLeaderAt(e, "order-callbacks", m{"messages": 5})
+		f.streamLeaderAt(e, "media-windows", m{"messages": 5})
+	}
+	f.fires("stream-020", 21, "APP/media-windows")
+}

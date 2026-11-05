@@ -15,6 +15,10 @@ description: >-
   consumer takes them, so they pile up until a limit stops publishes or drops them. An interest stream with no
   consumer stores nothing: the server acknowledges every publish and drops the message. Not reported while
   consumer-010 or consumer-013 reports a consumer of the stream missing, as that finding names the one to bring back.
+  Not reported either: a stream that a stream in the store mirrors or sources, matched by name in any account. The
+  copying stream reads it through a consumer that the servers do not count: nats-server 2.12.5 and 2.15.0 create it
+  as a direct consumer without storage. Only a durable named in the source's configuration is counted, an option
+  2.15.0 has and 2.12.5 does not.
   A firing finding stays until a leader report within the lookback counts a consumer, also through a collection
   without a leader report.
 remediation: >-
@@ -23,11 +27,21 @@ remediation: >-
   client that deleted one). Start that service or create its durable (`nats consumer add <stream> <name>`, or its NACK
   resource). Until then, publishes to an interest stream are lost; for a work-queue stream, check how close it is to
   its limits (stream-004). A stream that has lost its purpose can be removed with `nats stream rm` once nobody
-  publishes to it.
+  publishes to it. An interest stream read only by consumers that clients create when they need them, and that go
+  away when idle, fires between their visits by design: messages published then are dropped.
 */
 WITH firing AS (
     SELECT entity_key FROM findings
     WHERE check_code = 'stream-020' AND state = 'firing' AND last_seen_epoch = getvariable('prev_epoch')
+),
+-- Streams that a stream in the store mirrors or sources: their copying
+-- consumer is not counted in consumer_count.
+copied AS (
+    SELECT mirror AS name FROM stream_config
+    WHERE last_epoch >= getvariable('window_epoch') AND first_epoch <= getvariable('epoch') AND coalesce(mirror, '') <> ''
+    UNION
+    SELECT unnest(sources) AS name FROM stream_config
+    WHERE last_epoch >= getvariable('window_epoch') AND first_epoch <= getvariable('epoch')
 ),
 -- A consumer of the stream that consumer-010 or consumer-013 reports
 -- missing says more than this check.
@@ -61,6 +75,7 @@ judged AS (
     SELECT w.*, c.retention, (w.account || '/' || w.stream) IN (SELECT entity_key FROM firing) AS was_firing
     FROM win w JOIN cfg c USING (account, stream)
     WHERE c.retention IN ('workqueue', 'interest')
+      AND w.stream NOT IN (SELECT name FROM copied WHERE name IS NOT NULL)
       AND NOT EXISTS (SELECT 1 FROM named_missing x WHERE starts_with(x.entity_key, w.account || '/' || w.stream || '/'))
 )
 SELECT

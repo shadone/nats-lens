@@ -175,7 +175,7 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 - **Severity:** warning when a work-queue stream holds messages, or when an interest stream's last sequence rose within the lookback (messages were dropped). Info otherwise (proposed, not yet confirmed).
 - **Thresholds:** lookback 10m (proposed, not yet confirmed).
 - **Resolves when:** a leader report within the lookback counts a consumer. A collection without a leader report keeps the finding.
-- **Left out:** limits streams, KV buckets and object stores. A stream while `consumer-010` or `consumer-013` reports one of its consumers missing, as that finding names the consumer to bring back.
+- **Left out:** limits streams, KV buckets and object stores. A stream while `consumer-010` or `consumer-013` reports one of its consumers missing, as that finding names the consumer to bring back. A stream that a stream in the store mirrors or sources, matched by name in any account: the copying stream reads it through a consumer the servers do not count, as nats-server 2.12.5 and 2.15.0 create it as a direct consumer without storage (only a durable named in the source's configuration, an option 2.15.0 has and 2.12.5 does not, is counted). An interest stream read only by consumers that clients create on demand and that go away when idle is not left out: it fires between their visits by design, as messages published then are dropped.
 
 ### `stream-021` Many deleted messages inside a stream
 
