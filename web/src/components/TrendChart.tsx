@@ -4,6 +4,7 @@
 // spans the data's own range with a margin. A gap in the data
 // of more than two steps breaks the line, since a bucket without data has
 // no point. The legend draws each layer's own mark.
+import { HistoryGaps } from "../charts/HistoryGaps";
 import type { Point } from "../api/model";
 import { chartName, rangeText } from "../charts/chartLabel";
 import { dayMonHm } from "../lib/format";
@@ -86,6 +87,7 @@ export function TrendChart({ title, now, summary, start, end, stepMs = 0, layers
         <p className="muted-note">Could not load: {error}</p>
       ) : (
         <svg className="tc-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(title, now, rangeText(start, end), summary)}>
+          <HistoryGaps start={start} end={end} width={W} height={H} />
           <line x1="0" x2={W} y1={H - 1} y2={H - 1} className="tc-axis" vectorEffect="non-scaling-stroke" />
           {layers.map((l, li) => {
             if (l.kind === "band") {
