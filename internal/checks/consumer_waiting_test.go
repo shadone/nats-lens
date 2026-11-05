@@ -1,8 +1,12 @@
 package checks
 
 import (
+	"context"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/shadone/nats-lens/internal/config"
 )
 
 // consumer-015: a pull consumer's waiting requests at max_waiting in two
@@ -106,5 +110,45 @@ func TestPullRequestsAtMaxWaitingByDesign(t *testing.T) {
 	want(t, r["APP/jobs/exclusive"], "warning", "1 pull request waiting of max_waiting 1: new fetches are refused")
 	if _, ok := r["APP/jobs/idle"]; ok {
 		t.Errorf("idle fired: %s", r["APP/jobs/idle"].Detail)
+	}
+}
+
+// Run through the engine collection by collection, so that each
+// collection sees the finding the previous one left: a busy consumer at
+// the limit whose backlog touches 0 for one collection keeps its finding;
+// one with no message waiting for min_epochs (2) collections resolves.
+func TestPullRequestsAtMaxWaitingEmptyBacklog(t *testing.T) {
+	f := newFx(t)
+	f.cluster(6)
+	for name, pend := range map[string][]int64{"busy": {7, 7, 0, 7, 7, 7}, "drained": {7, 7, 0, 0, 7, 7}} {
+		f.consumerConfig("S0", "jobs", name, 1, 6, nil)
+		for e := int64(1); e <= 6; e++ {
+			f.consumerStats(e, "S0", "jobs", name, m{"is_leader": true, "num_waiting": 512, "num_pending": pend[e-1]})
+		}
+	}
+	set, err := Load(config.Checks{Timeout: config.Duration(10 * time.Second)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := &Engine{Set: set, only: map[string]bool{"consumer-015": true}}
+	got := map[string][]string{}
+	for ep := int64(1); ep <= 6; ep++ {
+		if _, err := e.Run(context.Background(), f.st, ep); err != nil {
+			t.Fatal(err)
+		}
+		for _, name := range []string{"busy", "drained"} {
+			var state string
+			err := f.st.DB().QueryRow(`SELECT coalesce(max(CASE WHEN state = 'firing' AND last_seen_epoch = ? THEN 'F' END), '-')
+  FROM findings WHERE check_code = 'consumer-015' AND entity_key = ?`, ep, "APP/jobs/"+name).Scan(&state)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got[name] = append(got[name], state)
+		}
+	}
+	for name, want := range map[string]string{"busy": "-FFFFF", "drained": "-FF--F"} {
+		if g := strings.Join(got[name], ""); g != want {
+			t.Errorf("%s firing by collection %s, want %s", name, g, want)
+		}
 	}
 }
