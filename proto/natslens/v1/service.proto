@@ -3,6 +3,7 @@ syntax = "proto3";
 package natslens.v1;
 
 import "natslens/v1/accounts.proto";
+import "natslens/v1/acknowledgements.proto";
 import "natslens/v1/applications.proto";
 import "natslens/v1/buckets.proto";
 import "natslens/v1/capacity.proto";
@@ -33,8 +34,9 @@ option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natsl
 // first configured. An unknown system is invalid_argument, except in
 // GetShellStatus.
 //
-// Every call reads the tool's own database. MuteFinding and UnmuteFinding
-// are the only writes, and they write only to that database.
+// Every call reads the tool's own database. MuteFinding, UnmuteFinding,
+// AcknowledgeFinding and EndAcknowledgement are the only writes, and they
+// write only to that database.
 service LensService {
   // Identity mode, version, cluster, collect interval and retention of this
   // instance.
@@ -62,6 +64,13 @@ service LensService {
 
   // Lifts a mute before its expiry.
   rpc UnmuteFinding(UnmuteFindingRequest) returns (UnmuteFindingResponse);
+
+  // Acknowledges a firing finding's current episode: who works on it, a
+  // note and a quiet time. Also written as a finding.acknowledged event.
+  rpc AcknowledgeFinding(AcknowledgeFindingRequest) returns (AcknowledgeFindingResponse);
+
+  // Hands back an acknowledgement in force.
+  rpc EndAcknowledgement(EndAcknowledgementRequest) returns (EndAcknowledgementResponse);
 
   // Mutes, active or all.
   rpc ListMutes(ListMutesRequest) returns (ListMutesResponse) {

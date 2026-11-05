@@ -85,6 +85,9 @@ func (p *Provider) findingProto(f store.Finding, causes map[int64]*v1.EventRef) 
 	if f.Mute != nil {
 		out.Mute = muteProto(*f.Mute)
 	}
+	if f.Ack != nil {
+		out.Acknowledgement = ackProto(*f.Ack, p.Now())
+	}
 	return out
 }
 

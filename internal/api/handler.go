@@ -26,9 +26,10 @@ type Handler struct {
 	// Systems are the systems served; the first is the default.
 	Systems Systems
 	Log     *slog.Logger
-	// IAP, when set, verifies the IAP assertion of every mute and unmute
-	// call and records its email as the user. When nil, the IAP headers
-	// are ignored and the request names the user.
+	// IAP, when set, verifies the IAP assertion of every write (mute,
+	// unmute, acknowledge, end acknowledgement) and records its email as
+	// the user. When nil, the IAP headers are ignored and the request
+	// names the user.
 	IAP *iap.Verifier
 	// Version is the nats-lens version GetLensInfo reports.
 	Version string
@@ -235,6 +236,32 @@ func (h *Handler) UnmuteFinding(ctx context.Context, req *connect.Request[v1.Unm
 	}, func(s System, ctx context.Context, m *v1.UnmuteFindingRequest) (*v1.UnmuteFindingResponse, error) {
 		mute, err := s.Provider.UnmuteFinding(ctx, m)
 		return &v1.UnmuteFindingResponse{Mute: mute}, err
+	})
+}
+
+func (h *Handler) AcknowledgeFinding(ctx context.Context, req *connect.Request[v1.AcknowledgeFindingRequest]) (*connect.Response[v1.AcknowledgeFindingResponse], error) {
+	user, err := h.user(ctx, req.Header())
+	if err != nil {
+		return nil, h.codeOf("AcknowledgeFinding", err)
+	}
+	return call(ctx, h, "AcknowledgeFinding", req.Msg, func(_ Provider, m *v1.AcknowledgeFindingRequest) error {
+		return normalizeAck(m, user)
+	}, func(s System, ctx context.Context, m *v1.AcknowledgeFindingRequest) (*v1.AcknowledgeFindingResponse, error) {
+		a, err := s.Provider.AcknowledgeFinding(ctx, m)
+		return &v1.AcknowledgeFindingResponse{Acknowledgement: a}, err
+	})
+}
+
+func (h *Handler) EndAcknowledgement(ctx context.Context, req *connect.Request[v1.EndAcknowledgementRequest]) (*connect.Response[v1.EndAcknowledgementResponse], error) {
+	user, err := h.user(ctx, req.Header())
+	if err != nil {
+		return nil, h.codeOf("EndAcknowledgement", err)
+	}
+	return call(ctx, h, "EndAcknowledgement", req.Msg, func(_ Provider, m *v1.EndAcknowledgementRequest) error {
+		return normalizeEndAck(m, user)
+	}, func(s System, ctx context.Context, m *v1.EndAcknowledgementRequest) (*v1.EndAcknowledgementResponse, error) {
+		a, err := s.Provider.EndAcknowledgement(ctx, m)
+		return &v1.EndAcknowledgementResponse{Acknowledgement: a}, err
 	})
 }
 

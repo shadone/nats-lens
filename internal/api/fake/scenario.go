@@ -71,6 +71,8 @@ type scenario struct {
 	slowEvents []time.Time
 	// mutes are the mutes the system starts with.
 	mutes func() []*storedMute
+	// acks are the acknowledgements the system starts with.
+	acks func() []*storedAck
 	// transitions, when set, returns a finding's transitions newest
 	// first; nil means a firing and, once resolved, a resolve.
 	transitions func(s scen, f *v1.Finding) []*v1.FindingTransition

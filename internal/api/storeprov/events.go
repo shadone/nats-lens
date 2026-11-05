@@ -306,11 +306,12 @@ func (p *Provider) GetEvent(ctx context.Context, req *v1.GetEventRequest) (*v1.G
 }
 
 // laneKinds are the NATS events worth drawing on the timeline; findingKinds
-// the finding transitions, which have a limit of their own so that a burst
-// of findings cannot push the NATS events out of the lane.
+// the finding transitions and acknowledgements, which have a limit of
+// their own so that a burst of findings cannot push the NATS events out of
+// the lane.
 var (
 	laneKinds    = api.NATSLaneKinds
-	findingKinds = []string{"finding.firing", "finding.changed", "finding.resolved"}
+	findingKinds = []string{"finding.firing", "finding.changed", "finding.resolved", store.AckEventKind}
 )
 
 // laneEvents reads the newest laneLimit events of the kinds in the range,

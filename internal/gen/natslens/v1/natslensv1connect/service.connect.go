@@ -47,6 +47,12 @@ const (
 	// LensServiceUnmuteFindingProcedure is the fully-qualified name of the LensService's UnmuteFinding
 	// RPC.
 	LensServiceUnmuteFindingProcedure = "/natslens.v1.LensService/UnmuteFinding"
+	// LensServiceAcknowledgeFindingProcedure is the fully-qualified name of the LensService's
+	// AcknowledgeFinding RPC.
+	LensServiceAcknowledgeFindingProcedure = "/natslens.v1.LensService/AcknowledgeFinding"
+	// LensServiceEndAcknowledgementProcedure is the fully-qualified name of the LensService's
+	// EndAcknowledgement RPC.
+	LensServiceEndAcknowledgementProcedure = "/natslens.v1.LensService/EndAcknowledgement"
 	// LensServiceListMutesProcedure is the fully-qualified name of the LensService's ListMutes RPC.
 	LensServiceListMutesProcedure = "/natslens.v1.LensService/ListMutes"
 	// LensServiceGetStatusTimelineProcedure is the fully-qualified name of the LensService's
@@ -137,6 +143,11 @@ type LensServiceClient interface {
 	MuteFinding(context.Context, *connect.Request[v1.MuteFindingRequest]) (*connect.Response[v1.MuteFindingResponse], error)
 	// Lifts a mute before its expiry.
 	UnmuteFinding(context.Context, *connect.Request[v1.UnmuteFindingRequest]) (*connect.Response[v1.UnmuteFindingResponse], error)
+	// Acknowledges a firing finding's current episode: who works on it, a
+	// note and a quiet time. Also written as a finding.acknowledged event.
+	AcknowledgeFinding(context.Context, *connect.Request[v1.AcknowledgeFindingRequest]) (*connect.Response[v1.AcknowledgeFindingResponse], error)
+	// Hands back an acknowledgement in force.
+	EndAcknowledgement(context.Context, *connect.Request[v1.EndAcknowledgementRequest]) (*connect.Response[v1.EndAcknowledgementResponse], error)
 	// Mutes, active or all.
 	ListMutes(context.Context, *connect.Request[v1.ListMutesRequest]) (*connect.Response[v1.ListMutesResponse], error)
 	// Worst state per check per time bucket, with event lanes.
@@ -277,6 +288,18 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			httpClient,
 			baseURL+LensServiceUnmuteFindingProcedure,
 			connect.WithSchema(lensServiceMethods.ByName("UnmuteFinding")),
+			connect.WithClientOptions(opts...),
+		),
+		acknowledgeFinding: connect.NewClient[v1.AcknowledgeFindingRequest, v1.AcknowledgeFindingResponse](
+			httpClient,
+			baseURL+LensServiceAcknowledgeFindingProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("AcknowledgeFinding")),
+			connect.WithClientOptions(opts...),
+		),
+		endAcknowledgement: connect.NewClient[v1.EndAcknowledgementRequest, v1.EndAcknowledgementResponse](
+			httpClient,
+			baseURL+LensServiceEndAcknowledgementProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("EndAcknowledgement")),
 			connect.WithClientOptions(opts...),
 		),
 		listMutes: connect.NewClient[v1.ListMutesRequest, v1.ListMutesResponse](
@@ -493,6 +516,8 @@ type lensServiceClient struct {
 	getFinding         *connect.Client[v1.GetFindingRequest, v1.GetFindingResponse]
 	muteFinding        *connect.Client[v1.MuteFindingRequest, v1.MuteFindingResponse]
 	unmuteFinding      *connect.Client[v1.UnmuteFindingRequest, v1.UnmuteFindingResponse]
+	acknowledgeFinding *connect.Client[v1.AcknowledgeFindingRequest, v1.AcknowledgeFindingResponse]
+	endAcknowledgement *connect.Client[v1.EndAcknowledgementRequest, v1.EndAcknowledgementResponse]
 	listMutes          *connect.Client[v1.ListMutesRequest, v1.ListMutesResponse]
 	getStatusTimeline  *connect.Client[v1.GetStatusTimelineRequest, v1.GetStatusTimelineResponse]
 	listEvents         *connect.Client[v1.ListEventsRequest, v1.ListEventsResponse]
@@ -552,6 +577,16 @@ func (c *lensServiceClient) MuteFinding(ctx context.Context, req *connect.Reques
 // UnmuteFinding calls natslens.v1.LensService.UnmuteFinding.
 func (c *lensServiceClient) UnmuteFinding(ctx context.Context, req *connect.Request[v1.UnmuteFindingRequest]) (*connect.Response[v1.UnmuteFindingResponse], error) {
 	return c.unmuteFinding.CallUnary(ctx, req)
+}
+
+// AcknowledgeFinding calls natslens.v1.LensService.AcknowledgeFinding.
+func (c *lensServiceClient) AcknowledgeFinding(ctx context.Context, req *connect.Request[v1.AcknowledgeFindingRequest]) (*connect.Response[v1.AcknowledgeFindingResponse], error) {
+	return c.acknowledgeFinding.CallUnary(ctx, req)
+}
+
+// EndAcknowledgement calls natslens.v1.LensService.EndAcknowledgement.
+func (c *lensServiceClient) EndAcknowledgement(ctx context.Context, req *connect.Request[v1.EndAcknowledgementRequest]) (*connect.Response[v1.EndAcknowledgementResponse], error) {
+	return c.endAcknowledgement.CallUnary(ctx, req)
 }
 
 // ListMutes calls natslens.v1.LensService.ListMutes.
@@ -714,6 +749,11 @@ type LensServiceHandler interface {
 	MuteFinding(context.Context, *connect.Request[v1.MuteFindingRequest]) (*connect.Response[v1.MuteFindingResponse], error)
 	// Lifts a mute before its expiry.
 	UnmuteFinding(context.Context, *connect.Request[v1.UnmuteFindingRequest]) (*connect.Response[v1.UnmuteFindingResponse], error)
+	// Acknowledges a firing finding's current episode: who works on it, a
+	// note and a quiet time. Also written as a finding.acknowledged event.
+	AcknowledgeFinding(context.Context, *connect.Request[v1.AcknowledgeFindingRequest]) (*connect.Response[v1.AcknowledgeFindingResponse], error)
+	// Hands back an acknowledgement in force.
+	EndAcknowledgement(context.Context, *connect.Request[v1.EndAcknowledgementRequest]) (*connect.Response[v1.EndAcknowledgementResponse], error)
 	// Mutes, active or all.
 	ListMutes(context.Context, *connect.Request[v1.ListMutesRequest]) (*connect.Response[v1.ListMutesResponse], error)
 	// Worst state per check per time bucket, with event lanes.
@@ -850,6 +890,18 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		LensServiceUnmuteFindingProcedure,
 		svc.UnmuteFinding,
 		connect.WithSchema(lensServiceMethods.ByName("UnmuteFinding")),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceAcknowledgeFindingHandler := connect.NewUnaryHandler(
+		LensServiceAcknowledgeFindingProcedure,
+		svc.AcknowledgeFinding,
+		connect.WithSchema(lensServiceMethods.ByName("AcknowledgeFinding")),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceEndAcknowledgementHandler := connect.NewUnaryHandler(
+		LensServiceEndAcknowledgementProcedure,
+		svc.EndAcknowledgement,
+		connect.WithSchema(lensServiceMethods.ByName("EndAcknowledgement")),
 		connect.WithHandlerOptions(opts...),
 	)
 	lensServiceListMutesHandler := connect.NewUnaryHandler(
@@ -1069,6 +1121,10 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceMuteFindingHandler.ServeHTTP(w, r)
 		case LensServiceUnmuteFindingProcedure:
 			lensServiceUnmuteFindingHandler.ServeHTTP(w, r)
+		case LensServiceAcknowledgeFindingProcedure:
+			lensServiceAcknowledgeFindingHandler.ServeHTTP(w, r)
+		case LensServiceEndAcknowledgementProcedure:
+			lensServiceEndAcknowledgementHandler.ServeHTTP(w, r)
 		case LensServiceListMutesProcedure:
 			lensServiceListMutesHandler.ServeHTTP(w, r)
 		case LensServiceGetStatusTimelineProcedure:
@@ -1158,6 +1214,14 @@ func (UnimplementedLensServiceHandler) MuteFinding(context.Context, *connect.Req
 
 func (UnimplementedLensServiceHandler) UnmuteFinding(context.Context, *connect.Request[v1.UnmuteFindingRequest]) (*connect.Response[v1.UnmuteFindingResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.UnmuteFinding is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) AcknowledgeFinding(context.Context, *connect.Request[v1.AcknowledgeFindingRequest]) (*connect.Response[v1.AcknowledgeFindingResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.AcknowledgeFinding is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) EndAcknowledgement(context.Context, *connect.Request[v1.EndAcknowledgementRequest]) (*connect.Response[v1.EndAcknowledgementResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.EndAcknowledgement is not implemented"))
 }
 
 func (UnimplementedLensServiceHandler) ListMutes(context.Context, *connect.Request[v1.ListMutesRequest]) (*connect.Response[v1.ListMutesResponse], error) {
