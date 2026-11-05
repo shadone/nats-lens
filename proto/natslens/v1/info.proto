@@ -57,4 +57,14 @@ message GetLensInfoResponse {
 
   // Display name of that system.
   string system_name = 10;
+
+  // The server's present, the moment a range without an end ends at: the
+  // wall clock, or the scenario's own time for `natslens demo -fixed`,
+  // which does not move. The UI reads its "now" from it, so that its live
+  // ranges start before the server's now.
+  google.protobuf.Timestamp now = 11;
+
+  // True when the server's now stands still, as under `natslens demo
+  // -fixed`; the client then stops its clock at `now`.
+  bool now_fixed = 12;
 }

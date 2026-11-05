@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { keepSameSystem } from "./placeholder";
 import { timestampFromMs } from "@bufbuild/protobuf/wkt";
 import type { Event as PEvent, ListEventsResponse } from "../gen/natslens/v1/events_pb";
+import { serverNow } from "../lib/clock";
 import { LIVE_REFRESH_MS, presetMs, rangeKey, type RangeSpec } from "../lib/timeRange";
 import { useSystem } from "../lib/useSystem";
 import { ms, sourceEnum } from "./adapt-common";
@@ -113,7 +114,7 @@ export function eventFeed(r: ListEventsResponse, start: number, end: number): Ev
 }
 
 /** One page of the feed, with facets and the histogram. */
-export async function listEventFeed(sys: string, spec: RangeSpec, f: FeedFilter, signal?: AbortSignal, now = Date.now()): Promise<EventFeed> {
+export async function listEventFeed(sys: string, spec: RangeSpec, f: FeedFilter, signal?: AbortSignal, now = serverNow()): Promise<EventFeed> {
   const start = spec.kind === "live" ? now - presetMs(spec.preset) : spec.from;
   const end = spec.kind === "live" ? now : spec.to;
   const r = await lens.listEvents(

@@ -5,6 +5,7 @@ import { useId, useState, type FormEvent } from "react";
 import { identityNeed, rememberName, rememberedName, type IdentityNeed } from "../api/identity";
 import type { Entity, Mute } from "../api/model";
 import { useLensInfo, useMuteFinding } from "../api/queries";
+import { serverNow } from "../lib/clock";
 import { isoDate } from "../lib/format";
 import { MAX_REASON, MAX_REVIEW_AHEAD, MIN_REVIEW_AHEAD, REVIEW_PRESETS, hasErrors, reviewDateOf, validateAccept, type AcceptErrors, type AcceptForm } from "../lib/muteForm";
 import { useSystem } from "../lib/useSystem";
@@ -59,13 +60,13 @@ function AcceptBody({
   const mute = useMuteFinding({ awaitRefetch: false });
   // The system of the page when the dialog opened; the body mounts on open.
   const [system] = useState(useSystem());
-  const [opened] = useState(() => Date.now());
+  const [opened] = useState(() => serverNow());
   useBusy(mute.isPending, onBusy);
   const set = (k: keyof AcceptForm) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const submit = (ev: FormEvent) => {
     ev.preventDefault();
-    const now = Date.now();
+    const now = serverNow();
     const errs = validateAccept(form, now, askName);
     setErrors(errs);
     if (hasErrors(errs)) return;

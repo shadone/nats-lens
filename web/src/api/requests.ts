@@ -3,8 +3,9 @@
 import type { MessageInitShape } from "@bufbuild/protobuf";
 import { durationFromMs, timestampFromMs } from "@bufbuild/protobuf/wkt";
 import type { TimeRangeSchema } from "../gen/natslens/v1/common_pb";
+import { serverNow, setServerNow } from "../lib/clock";
 import { bucketFor, presetMs, resolveRange, type RangeSpec } from "../lib/timeRange";
-import { entityKindEnum, n, series, severityEnum, sourceEnum } from "./adapt-common";
+import { entityKindEnum, ms, n, series, severityEnum, sourceEnum } from "./adapt-common";
 import { consumer, consumerDetail, connection, overview, server, stream, streamDetail } from "./adapt-entities";
 import { event, finding, findingStateEnum, mute, timeline, transition } from "./adapt-findings";
 import { lensInfo } from "./adapt-info";
@@ -41,7 +42,7 @@ export function systemInit(sys: string): { system?: string } {
 }
 
 /** A live range leaves the end unset, so the server reads up to its now. */
-export function rangeInit(spec: RangeSpec, now = Date.now()): RangeInit {
+export function rangeInit(spec: RangeSpec, now = serverNow()): RangeInit {
   if (spec.kind === "live") return { start: timestampFromMs(now - presetMs(spec.preset)) };
   return { start: timestampFromMs(spec.from), end: timestampFromMs(spec.to) };
 }
@@ -131,7 +132,7 @@ export async function unmuteFinding(sys: string, muteId: string, unmutedBy: stri
 
 /** The status timeline; includeOk adds the checks that were OK in every bucket. */
 export async function getTimeline(sys: string, spec: RangeSpec, entity: Entity | undefined, signal?: AbortSignal, includeOk = false) {
-  const { start, end } = resolveRange(spec, Date.now());
+  const { start, end } = resolveRange(spec, serverNow());
   const r = await lens.getStatusTimeline(
     { ...systemInit(sys), range: rangeInit(spec), bucket: durationFromMs(bucketFor(end - start)), entity: entityInit(entity), includeOk },
     { signal },
@@ -296,6 +297,33 @@ export async function getLensInfo(sys: string, signal?: AbortSignal) {
   return lensInfo(await lens.getLensInfo({ ...systemInit(sys) }, { signal }));
 }
 
+/** How long the shell waits for the server's now before it uses the browser's clock. */
+export const CLOCK_TIMEOUT_MS = 3_000;
+
+/**
+ * Sets the UI's clock from the server's now and returns that now; a server
+ * that reports none, or does not answer within timeoutMs, leaves the
+ * browser's clock. With `now_fixed` the server's now does not move, so the
+ * clock stops.
+ */
+export async function syncClock(signal?: AbortSignal, timeoutMs = CLOCK_TIMEOUT_MS): Promise<number | null> {
+  const ctl = new AbortController();
+  const stop = () => ctl.abort();
+  if (signal?.aborted) stop();
+  signal?.addEventListener("abort", stop);
+  const timer = setTimeout(stop, timeoutMs);
+  try {
+    const r = await lens.getLensInfo({}, { signal: ctl.signal, timeoutMs });
+    const at = ms(r.now);
+    // The receive time is the browser's own clock, which the offset is taken from.
+    if (at !== undefined) setServerNow(at, Date.now(), r.nowFixed);
+    return at ?? null;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", stop);
+  }
+}
+
 /**
  * What the shell needs on every page: freshness, the servers and the
  * findings tally of the system, and every system's badge. Without start
@@ -315,7 +343,7 @@ export const LAST_DATA_LOOKBACK_MS = 2 * 86_400_000;
  * most LAST_DATA_LOOKBACK_MS back, so a long outage never asks for weeks.
  */
 export async function getLastData(sys: string, since: number, intervalMs: number, signal?: AbortSignal) {
-  const start = Math.max(since - 3 * intervalMs, Date.now() - LAST_DATA_LOOKBACK_MS);
+  const start = Math.max(since - 3 * intervalMs, serverNow() - LAST_DATA_LOOKBACK_MS);
   const s = await getShellStatus(sys, start, signal);
   return { freshness: s.freshness, servers: s.servers };
 }

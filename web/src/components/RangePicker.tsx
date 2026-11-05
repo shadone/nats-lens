@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { errorInfo } from "../api/errors";
 import type { Freshness } from "../api/model";
+import { serverNow } from "../lib/clock";
 import { dayMonHm, fmtDuration, sinceText } from "../lib/format";
 import { PRESETS, pauseRange, rangeLabel, resolveRange, resumeLive, type RangeSpec } from "../lib/timeRange";
 import { useNow, useTimeRange } from "../lib/useTimeRange";
@@ -124,7 +125,7 @@ export function RangePicker({ freshness, error }: { freshness?: Freshness; error
     if (!Number.isFinite(f) || !Number.isFinite(t)) return setErr("Enter both times.");
     if (f >= t) return setErr("The start must be before the end.");
     if (t - f > 30 * 86_400_000) return setErr("At most 30 days.");
-    if (f > Date.now()) return setErr("The range lies in the future.");
+    if (f > serverNow()) return setErr("The range lies in the future.");
     setSpec({ kind: "fixed", from: f, to: t }, { push: true });
     close();
   };
@@ -144,7 +145,7 @@ export function RangePicker({ freshness, error }: { freshness?: Freshness; error
           className="live-btn"
           aria-label={spec.kind === "live" ? "Live: pause at the current range" : "Fixed range: go live"}
           aria-describedby={freshId}
-          onClick={() => setSpec(spec.kind === "live" ? pauseRange(spec, Date.now()) : resumeLive(spec))}
+          onClick={() => setSpec(spec.kind === "live" ? pauseRange(spec, serverNow()) : resumeLive(spec))}
         >
           <Freshness spec={spec} freshness={freshness} error={error} id={freshId} />
         </button>
