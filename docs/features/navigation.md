@@ -10,6 +10,8 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 
 ## Behavior and rules
 
+- **Phone finding links.** The [phone finding card](mobile.md) uses the same finding URL as desktop. Alert-label links resolve query parameters into that URL.
+
 - **Short history.** Range pages show a note below the header when the range begins more than one collect interval before history starts. It names the available span and links to Data history, preserving the system, range, and originating account query. Data history itself is system-wide. Fleet and Data history do not repeat this note.
 
 - **The sidebar.** It shows the nats-lens mark (a link to the Overview), the system switcher, and the pages in groups: Fleet, Overview and Findings at the top; Messaging with Subjects, Micro services, Applications and Connections; JetStream with Streams, Consumers, KV Stores, Object Stores, Placement and Capacity; Cluster with Servers, Events, Replay, Topology, Accounts and Data history. A detail page marks the page it belongs to, so a stream's page marks Streams. Pages that are not built yet are not listed.
