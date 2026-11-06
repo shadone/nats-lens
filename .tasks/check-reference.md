@@ -65,3 +65,43 @@ Screenshots in `/tmp`: `checkref-final-catalog-360.png`, `checkref-final-creatio
 All 88 checks have check-specific authored reference content sourced from the existing headers and feature docs; no authored check page is missing. API tests enforce count, built-ins, nonempty reference, defaults, overrides, disabled/unavailable/demo states, unknown-system rejection, no private remediation leakage, and system isolation. UI tests cover unknown code, links, keyboard controls, errors/retry, configuration distinctions and clearing another system's settings during a switch.
 
 Task-owned synthetic demo processes and fallback browser are stopped after verification. Final working tree contains only this evidence update before its commit.
+
+## R2 implementation on the current parent
+
+Integrated candidate `93e6aea1d06820de94a861275639326e57b29761` (original base `345f405c178307d7187c23bd5d85edd31760ef2d`) by `git cherry-pick 345f405..93e6aea1d06820de94a861275639326e57b29761` onto `e99c72f4b71f74e8e52b25cb8b2792bc195c4deb`. All eleven commits applied without conflict, ending at `eda763c`. The approved parent remains an ancestor. Storage and Events changes are preserved; the complete frontend run below includes their tests.
+
+Proposed, not yet confirmed: keep every labelled authored reference paragraph, including numeric lists, rather than risk dropping holding or resolution behavior. The reference extractor now does this. `client-007` retains young reconnected clients, partial-collection explanations, resolution on the tenth consecutive partial collection without an unnamed client, and immediate resolution after a complete collection without one. The numeric default remains separately visible.
+
+`stream-008` describes differing metadata and boundary/count comparisons without inferring rebuild history, message identity or guaranteed repair. Its description, remediation and authored feature reference qualify the evidence. The scenario uses reported timestamps and matching counters rather than an assumed rebuild. The related creation-metadata audit covered `consumer-009`, its authored reference, and demo findings, timeline, events and creation-source helpers. No `stream-008` demo finding exists. The consumer demo already reuses shipped guidance; its existing regression passes. The separate `stream-007` configuration demo is outside these creation-metadata fixes and was left unchanged.
+
+### R2 runtime RED and removed-fix verification
+
+- Before production edits, ran `GOCACHE=/tmp/nats-lens-checkref-go-cache go test ./docs ./internal/checks -run 'TestReferenceRetainsEveryAuthoredParagraph|TestReferenceClient007RetentionAndResolution|TestReferenceStream008DoesNotInferHistory|TestStreamCreationReferenceDoesNotInferCauseOrPromiseRepair' -count=1`. Runtime RED for every omitted Thresholds paragraph, the missing client holding/resolution behavior, and unsupported stream claims. Log: `/tmp/checkref-r2-red.log`. Committed the executed regressions as `2d95bd5`.
+- Ran `GOCACHE=/tmp/nats-lens-checkref-go-cache go test ./docs ./internal/checks -run 'TestReference|TestStreamCreationReference|TestCreationReference' -count=1`: GREEN. Fix committed as `6c6021c`.
+- A Python `try/finally` restored only `docs/check_reference.go`, `checks/stream-008.sql`, and `docs/features/stream-checks.md` to integration commit `eda763c`, ran the exact first command again, observed exit 1 for both findings, restored the fixed files in `finally`, then reran it with exit 0. Logs: `/tmp/checkref-r2-removed-red.log`, `/tmp/checkref-r2-restored-green.log`.
+- Broad extraction coverage compares every labelled paragraph in all embedded check references against the output. Rendered frontend regressions read shipped authored source and assert full `client-007` rules alongside concise meaning and numeric defaults, plus qualified `stream-008` meaning. HTTP regression checks that client behavior reaches the real catalog response.
+
+### R2 final checks
+
+- `GOCACHE=/tmp/nats-lens-checkref-go-cache go test ./docs ./internal/api ./internal/checks ./internal/api/fake -run 'TestReference|TestStreamCreationReference|TestCreationReference|TestCheckCatalog|TestCreationFinding' -count=1`: all four packages pass, including the final authored-doc adjustment.
+- `GOCACHE=/tmp/nats-lens-checkref-go-cache go test ./docs ./internal/api -run 'TestReference|TestCheckCatalog' -coverpkg=./docs,./internal/checkref -count=1`: docs reports 100%; API exercises combined reference/catalog coverage at 98.2%.
+- `GOCACHE=/tmp/nats-lens-checkref-go-cache go test ./internal/checks -run 'TestStreamAgreement|TestConsumerAgreement|TestUnnamed' -count=1`: pass, 16.515s; includes client partial holding and its bounded end.
+- `cd web && npx tsc --noEmit && npm test -- src/pages/Checks.test.tsx`: pass, 12 tests.
+- `cd web && npm test`: first full run had one timeout waiting for the existing catalog-route link (1 failed, 1,422 passed, 24 skipped). The focused file passed before and after. `cd web && npm test -- --maxWorkers=2` then passed all 142 files: 1,423 tests passed, 24 existing skips, 65.03s. No timeout or production change was made to conceal the first run.
+- `GOCACHE=/tmp/nats-lens-checkref-go-cache go vet ./docs ./internal/checkref ./internal/api ./internal/api/fake ./internal/checks`: pass.
+- `GOCACHE=/tmp/nats-lens-checkref-go-cache make build`: pass; existing Vite size warning and harmless denied module-stat-cache write warning. After the final doc-only adjustment, `GOCACHE=/tmp/nats-lens-checkref-go-cache go build -o bin/natslens ./cmd/natslens` also passed.
+- `python3 /Users/denis/.codex/plugins/cache/ddenis/ddenis-core/0.4.0/skills/feature-docs/scripts/audit_feature_docs.py docs/features/ --map-refs require`: clean, 39 capability docs, both index sections updated. `git diff --check`: clean.
+- All 85 detection SQL bodies after `*/` are byte-identical to the candidate. `stream-008` threshold metadata is byte-identical as well. The `stream-008`, `consumer-009` and `server-009` bodies also match original base `345f405`. Stream body SHA256: `9e8f8cb54e43b79e7bfc022393464daef63a18ce0b620a9b930a3ae7c7764331`.
+- `git diff 93e6aea1d06820de94a861275639326e57b29761 -- proto internal/gen web/src/gen internal/store/migrations` is empty. Proto/generated code was not changed or regenerated; no migration was edited.
+
+### R2 synthetic browser and limits
+
+Built fixed demo only: `bin/natslens demo -fixed -listen 127.0.0.1:18457`. No live NATS, port 18900, private configuration/database, external board, installation, push or deployment. Existing installed node_modules were copied from the main checkout; no package installation ran.
+
+T3 preview attempted first (`preview_status`, `preview_open`, `preview_navigate`). `preview_snapshot` failed twice at the same step with raw error: `Preview snapshot failed: Preview automation snapshot timed out after 15000ms.` Used the installed agent-browser skill and `checkref-r2` session after those failures.
+
+`python3 /tmp/checkref-r2-browser.py` passed nine page/width combinations: `client-007`, `stream-008`, `consumer-009`, each at 360/761/1280 CSS px. Document width equals viewport; no main-content element overflows. Client holding and resolution rules render fully. Stream message-identity limitation and qualified repair guidance render. No unsupported rebuild, identical-message or guaranteed-resynchronisation claim appears. Demo configuration is labelled; finding links keep system and range. Catalog count remains 88. Browser errors are empty. An initial script assertion used an unknown account filter, which the shell removed; corrected the verification to test the requested system/range without that unrelated invalid filter.
+
+Screenshots: `/tmp/checkref-r2-{client-007,stream-008,consumer-009}-{360,761,1280}.png`. Visually inspected the client 360 px and stream 761 px full-page captures. Task-owned fallback browser and T3 tab are closed; fixed demo stopped.
+
+No heavy Go suite or `TestBudgetRotates` rerun: its independently established identical base/candidate failure remains outside scope. Fresh R2 read-only review belongs to the parent; no reviewer was spawned and this implementation does not self-approve.
