@@ -5,6 +5,10 @@ import { useCheckDefinitions } from "../api/checks";
 import { Empty, KV, QueryView, Remediation, RLink, Section } from "../components/common";
 import { usePageTitle } from "../lib/usePageTitle";
 
+function meaning(c: CheckDefinition) {
+  return c.reference.find(s => s.title === "Meaning")?.text ?? c.description;
+}
+
 function ConfigurationNote({ state }: { state: string }) {
   return <p className="muted-note">{state === "configured"
     ? "Configured values belong to the selected system now. They do not reconstruct settings at the selected historical range. Reference rules describe shipped defaults."
@@ -33,7 +37,7 @@ export function Checks() {
         {rows.length ? <ul className="check-catalog">{rows.map(c => <li key={c.code} className="card">
           <RLink to={`/checks/${encodeURIComponent(c.code)}`}><span className="code">{c.code}</span><h2>{c.name}</h2></RLink>
           <p className="check-meta">{c.entity} · {c.category} · {c.severity}{c.severityRule ? ", varies by rule" : ""}{c.disabled === true ? " · Disabled" : c.disabled === false ? " · Enabled" : ""}</p>
-          <p>{c.description}</p>
+          <Remediation text={meaning(c)} />
         </li>)}</ul> : <Empty>No checks match. Change the search or entity filter.</Empty>}
       </>;
     }}</QueryView>
@@ -45,9 +49,9 @@ function Definition({ c, catalog }: { c: CheckDefinition; catalog: ListCheckDefi
   return <article className="check-reference">
     <div className="page-h"><h1>{c.name}</h1><span className="aside code">{c.code}</span></div>
     <p className="check-meta">{c.entity} · {c.category} · {c.kind} · Default severity: {c.severity}</p>
-    <Section title="What it means"><Remediation text={c.description} /></Section>
+    <Section title="What it means"><Remediation text={meaning(c)} /></Section>
     <Section title="When it fires and what the evidence establishes" aside="Reference rules use shipped defaults. Compare named thresholds with the values below.">
-      {c.reference.map((section, i) => <div className="check-paragraph" key={i}><h3>{section.title}</h3><Remediation text={section.text} /></div>)}
+      {c.reference.filter(section => section.title !== "Meaning").map((section, i) => <div className="check-paragraph" key={i}><h3>{section.title}</h3><Remediation text={section.text} /></div>)}
       {c.severityRule && <div className="check-paragraph"><h3>Severity rule</h3><Remediation text={c.severityRule} /></div>}
       {c.valueName && <div className="check-paragraph"><h3>Finding value</h3><Remediation text={`${c.valueName}${c.valueBasis ? `: ${c.valueBasis}` : ""}`} /></div>}
       {c.suppressedBy.length > 0 && <p>Suppressed for the same entity while {c.suppressedBy.map((code,i) => <span key={code}>{i > 0 ? ", " : ""}<RLink to={`/checks/${code}`}>{code}</RLink></span>)} fires.</p>}

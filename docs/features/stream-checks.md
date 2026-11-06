@@ -49,7 +49,7 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 - **Severity:** info.
 - **Thresholds:** none.
 - **Left out:** a stream the inventory declares unbounded on purpose, with `max_age: 0` and `max_bytes: -1` both given. A KV bucket that the inventory lists and that allows per-key TTLs (`allow_msg_ttl`), whose writers bound its keys. A bucket that allows per-key TTLs but is not in the inventory is still reported, and its detail says that nats-lens cannot see whether its writers set TTLs.
-- **What to do:** set `max_age` or `max_bytes`; for a stream that keeps everything on purpose, declare it in the inventory, mute the finding, or accept it as by design with a review date on the Capacity page ([capacity.md](capacity.md)), and watch `server-014` for the date the store fills.
+- **What to do:** set `max_age` or `max_bytes`; for a stream that keeps everything on purpose, declare it in the inventory, mute the finding, or accept it as by design with a review date on the [Capacity page](capacity.md), and watch `server-014` for the date the store fills.
 
 ### `stream-006` Stream reaches its byte limit soon
 
@@ -113,7 +113,7 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 - **Fires when:** a `stream.updated` advisory arrived within the lookback.
 - **Severity:** info.
 - **Thresholds:** lookback 1h.
-- **Left out:** streams of accounts whose advisories nats-lens does not capture (see [event-capture.md](event-capture.md)).
+- **Left out:** streams of accounts whose advisories nats-lens does not capture (see [event capture coverage](event-capture.md)).
 
 ### `stream-014` Stream disappeared
 

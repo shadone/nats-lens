@@ -7,18 +7,20 @@ import (
 	"strings"
 )
 
-//go:embed features/*-checks.md
+//go:embed features/*-checks.md features/topology.md
 var checkDocs embed.FS
 
 // ReferenceSection is a plain paragraph with a label. Backticks mark code spans.
 type ReferenceSection struct{ Title, Text string }
 
 var checkHeading = regexp.MustCompile("^### `([a-z]+-[0-9]{3})` ")
+var documentLink = regexp.MustCompile(`\[([^]]+)\]\([^)]+\)`)
+
 var referenceBullet = regexp.MustCompile(`^- \*\*([^*]+):\*\* (.*)$`)
 
 // CheckReferences reads only the per-check sections, excluding duplicated
-// descriptions and threshold lists. These documents remain the source of
-// firing rules and limitations; no second authored catalog is maintained.
+// threshold lists. These documents remain the source of
+// meaning, firing rules and limitations; no second authored catalog is maintained.
 func CheckReferences() map[string][]ReferenceSection {
 	out := map[string][]ReferenceSection{}
 	entries, _ := checkDocs.ReadDir("features")
@@ -37,14 +39,26 @@ func CheckReferences() map[string][]ReferenceSection {
 				continue
 			}
 			m := referenceBullet.FindStringSubmatch(line)
-			if m == nil || m[1] == "Problem" || m[1] == "Thresholds" {
+			if m == nil || m[1] == "Thresholds" {
 				continue
 			}
 			title := m[1]
+			if title == "Problem" {
+				title = "Meaning"
+			}
 			if title == "Left out" {
 				title = "Limitations"
 			}
-			out[code] = append(out[code], ReferenceSection{Title: title, Text: m[2]})
+			out[code] = append(out[code], ReferenceSection{Title: title, Text: documentLink.ReplaceAllString(m[2], "$1")})
+		}
+	}
+	// Slow routes share Topology's classifier. Include its canonical explanation
+	// so the check page is complete without duplicating the authored rule.
+	topology, _ := checkDocs.ReadFile("features/topology.md")
+	const slowPrefix = "- **Slow routes.** "
+	for _, line := range strings.Split(string(topology), "\n") {
+		if text, ok := strings.CutPrefix(line, slowPrefix); ok {
+			out["server-025"] = append(out["server-025"], ReferenceSection{Title: "Route classification", Text: documentLink.ReplaceAllString(text, "$1")})
 		}
 	}
 	return out
