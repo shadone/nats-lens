@@ -105,3 +105,47 @@ T3 preview attempted first (`preview_status`, `preview_open`, `preview_navigate`
 Screenshots: `/tmp/checkref-r2-{client-007,stream-008,consumer-009}-{360,761,1280}.png`. Visually inspected the client 360 px and stream 761 px full-page captures. Task-owned fallback browser and T3 tab are closed; fixed demo stopped.
 
 No heavy Go suite or `TestBudgetRotates` rerun: its independently established identical base/candidate failure remains outside scope. Fresh R2 read-only review belongs to the parent; no reviewer was spawned and this implementation does not self-approve.
+
+## R2P2 complete reference extraction
+
+Integrated requested candidate `9a7d8f82d7d99ee00b0c0f3682cd77994e0ce9b4` by `git merge --ff-only` into this worktree at parent `e99c72f4b71f74e8e52b25cb8b2792bc195c4deb`. The parent remains an ancestor. The first sandboxed merge could not write Git's external worktree metadata; the authorized escalation succeeded. No merge, reset or rewrite of the existing parent was needed.
+
+Proposed, not yet confirmed: treat headings and new labels as reference section boundaries; retain every other line in the current section. Both `**Label:**` and `**Label.**` are recognized. Continuations, blank paragraph breaks, tables and unlabelled caveats survive; a block that starts without a label receives an Additional context section. The UI preserves newline layout. The reference remains plain text with code spans, including the source table's pipe-separated rows, rather than a Markdown renderer.
+
+The independent oracle audits **88 checks / 494 nonblank source lines** without using any production heading, bullet or link regex. It strips source label delimiters, checks every remaining line against reference text, and requires all 88 checks. Literal regressions separately pin meaningful caveats. The old preservation test shared the production regex; it is replaced. Frontend source fixtures also stop using that restrictive regex; new rendering cases use independent literal payloads.
+
+### Exhaustive dropped-content findings
+
+The pre-fix oracle identified 17 missing source lines:
+
+- `client-006`: changed user/account key and re-mute guidance; event-capture prerequisite and the inability to distinguish absent failures from absent capture.
+- `client-007`: Applications still counts MQTT clients although this check excludes them. Existing holding/resolution content remains intact.
+- `client-008`: all nine table lines (header, separator and seven language rows), the following paragraph (release-line context and minimum 0 disabling behavior), and unknown-version rules including nats.py `0.0.0`.
+- `consumer-015`: `max_waiting` cannot be changed in place; fewer concurrent fetches/shorter expiry first, new durable by start time for a larger limit, mute a deliberately full queue.
+- `server-025`: proposal caveat for warning severity, endpoint attribution, evidence and identity.
+- `server-026`: proposal caveat for system identity, warning severity, two-collection absence, three-drop hour, 24-hour sighting, per-identity expiry and eligibility.
+
+No other nonblank per-check source line is absent after the fix. The shared slow-route classification remains present. The previous `stream-008` and consumer creation-metadata qualifications and demo guidance remain unchanged.
+
+### Runtime evidence and checks
+
+- Before production edits: `GOCACHE=/tmp/nats-lens-checkref-go-cache go test ./docs -run 'TestReferenceRetains|TestReferenceLiteral' -count=1 -v` compiled, executed and failed for the omissions above. RED checkpoint `4238b2c`; same tests pass after general extractor fix `33e611a`.
+- Removed-fix proof: Python `try/finally` temporarily replaced only `docs/check_reference.go` with candidate `9a7d8f8` and ran `GOCACHE=/tmp/nats-lens-checkref-go-cache go test ./docs ./internal/api -run 'TestReferenceRetains|TestReferenceLiteral|TestCheckCatalogHTTP' -count=1 -v`. Exit 1 exposes missing source lines and HTTP payload content. Finally restores the fix; identical command exits 0. Logs: `/tmp/checkref-r2p2-removed-red.log`, `/tmp/checkref-r2p2-restored-green.log`.
+- `GOCACHE=/tmp/nats-lens-checkref-go-cache go test ./docs ./internal/api ./internal/checks ./internal/api/fake -run 'TestReference|TestStreamCreationReference|TestCreationReference|TestCheckCatalog|TestCreationFinding' -count=1`: all four packages pass; retains the prior R1/R2 claims/retention assertions and configuration/private-remediation isolation tests.
+- `GOCACHE=/tmp/nats-lens-checkref-go-cache go test ./docs ./internal/api -run 'TestReference|TestCheckCatalog' -coverpkg=./docs,./internal/checkref -count=1`: pass, 97.4% and 96.9% combined statement coverage for the respective runs.
+- `cd web && npx tsc --noEmit && npm test -- src/pages/Checks.test.tsx`: pass, 17 tests. A new fixture initially needed protobuf `$typeName` fields; corrected before this passing run. No dependency install.
+- `cd web && npm test -- --maxWorkers=2`: all 142 files pass, 1,428 tests pass, 24 existing skips (66.77 seconds). `cd web && npx tsc --noEmit` passes after the fixture-helper cleanup too.
+- `GOCACHE=/tmp/nats-lens-checkref-go-cache go vet ./docs ./internal/checkref ./internal/api ./internal/api/fake ./internal/checks`: pass.
+- `GOCACHE=/tmp/nats-lens-checkref-go-cache make build`: pass, existing Vite size and denied module-stat-cache-write warnings only.
+- `python3 /Users/denis/.codex/plugins/cache/ddenis/ddenis-core/0.4.0/skills/feature-docs/scripts/audit_feature_docs.py docs/features/ --map-refs require`: clean, 39 capability docs. Both index sections reflect complete paragraph preservation. `git diff --check`: clean.
+- Python compared every one of the 85 SQL bodies after `*/` against candidate `9a7d8f8`; all match. The entire `checks/` diff is empty, so every threshold block matches too. `git diff 9a7d8f8 -- proto internal/gen web/src/gen internal/store/migrations` is empty.
+
+### Synthetic browser and limits
+
+Only `bin/natslens demo -fixed -listen 127.0.0.1:18458` is used. No live port 18900, private config/database, board, push, install, deployment or worker change. Existing node_modules were copied from the main checkout. The first local listener attempt was sandbox-denied; the explicitly synthetic listener ran through authorized escalation.
+
+T3 preview first: status, open and navigate; snapshot failed twice with identical raw error: `Preview snapshot failed: Preview automation snapshot timed out after 15000ms.` Read the installed agent-browser skill and CLI core guide, then used isolated fallback session `checkref-r2p2`.
+
+`python3 /tmp/checkref-r2p2-browser.py`: checks `client-006`, `client-007`, `client-008`, `consumer-015`, `server-025`, `server-026` and `stream-008` at 360/761/1280 CSS px. Every recovered caveat renders alongside concise meaning. No horizontal document or main-element overflow; newline preservation is active; finding links keep system/range. Stream history/repair qualifications remain. The script also requests the real synthetic demo's HTTP catalog and checks all recovered content and 88 definitions. Initial verification-script errors (JSON decoding, async-eval wrapping, counting titles as part of reference content) were corrected; no production change was made for them. A first browser URL used nonexistent system `default`; verification uses the demo's `example-prod`.
+
+Mobile screenshot `/tmp/checkref-r2p2-client-008-360.png` visually inspected. Browser log `/tmp/checkref-r2p2-browser.log`. Task-owned demo and browser are stopped after checks. Heavy full Go and `TestBudgetRotates` are not rerun; the independently established base failure remains outside scope. Root commissions fresh R3; no review agent spawned and no self-approval.
