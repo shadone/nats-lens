@@ -187,3 +187,12 @@ describe("Overview series requests", () => {
     expect(lens.getTimeSeries).not.toHaveBeenCalled();
   });
 });
+
+it("distinguishes the system summary from detailed range trends", async () => {
+  mock(quiet);
+  renderApp(<Overview />);
+  expect(await screen.findByRole("heading", { name: "System summary" })).toBeInTheDocument();
+  expect(screen.getByText(/Latest available counts and reports/)).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Detailed trends" })).toBeInTheDocument();
+  expect(screen.getByText(/Traffic rates, event totals, server spread, and replica counts/)).toBeInTheDocument();
+});

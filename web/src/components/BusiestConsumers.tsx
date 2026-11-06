@@ -16,7 +16,7 @@ const rate = (v: number) => fmtValue(v, "per_second");
 const perSec = (v: number) => (Math.abs(v) >= 10 ? fmtCount(v) : v.toFixed(2));
 
 function Spark({ c, q, start, end }: { c: ConsumerRate; q: TrendSlice; start: number; end: number }) {
-  return <MiniLine points={q.data?.points ?? []} level="ok" label={`${c.entity.consumer} delivered per second`} period={rangeText(start, end)} fmt={rate} />;
+  return <MiniLine frame={{start,end,stepMs:q.data?.stepMs}} points={q.data?.points ?? []} level="ok" label={`${c.entity.consumer} delivered per second`} period={rangeText(start, end)} fmt={rate} />;
 }
 
 const SPARK_METRIC = "consumer.delivered_rate";

@@ -8,6 +8,8 @@ import type { Level, Tile, Window } from "../api/model";
 import { tileValue, fmtValue } from "../lib/units";
 import { MetricBox } from "./MetricBox";
 
+const destinations: Record<string, string> = { servers: "/servers", meta_leader: "/servers", streams: "/streams", kv: "/kv-stores", object_stores: "/object-stores", consumers: "/consumers", accounts: "/accounts", clients: "/connections", storage: "/capacity" };
+
 function join(...parts: string[]): string {
   return parts.filter(Boolean).join(" ");
 }
@@ -49,13 +51,18 @@ export function OverviewTiles({ tiles, windows, start, end }: { tiles: Tile[]; w
         <MetricBox
           key={t.id}
           title={t.label}
+          to={destinations[t.id]}
+          valueLabel={t.id === "meta_leader" ? "Newest leader · chart: changes per bucket" : t.id === "storage" ? "Newest storage reports" : "Latest count bucket"}
           description={t.description ?? ""}
           series={t.series}
           series2={t.series2}
-          value={t.valueText ? undefined : (t.value ?? null)}
-          valueText={tileText(t)}
+          value={t.id === "meta_leader" ? null : t.valueText ? undefined : (t.value ?? null)}
+          valueText={t.id === "meta_leader" ? (t.valueText || "Unknown") : tileText(t)}
           // A name has no min and max: the chart shows its changes, without a track.
-          track={!t.valueText}
+          track={t.id !== "meta_leader" && !t.valueText}
+          bucketNote={t.id === "meta_leader" ? "Total leader changes in bucket; leader name is from the newest collection" : undefined}
+          sampleFmt={t.id === "meta_leader" ? v => `${v} leader ${v === 1 ? "change" : "changes"}` : undefined}
+          seriesLabels={t.id === "meta_leader" ? ["changes", "changes"] : undefined}
           fmt={(v) => fmtValue(v, t.unit)}
           status={tileStatus(t)}
           note={<>{tileNote(t)}{coverage && ["clients", "storage"].includes(t.id) && ` · ${coverage}`}{t.id === "storage" && growth && <> · <HistoryLink>{growth}</HistoryLink></>}</>}

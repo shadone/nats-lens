@@ -72,7 +72,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [System checks](system-checks.md) | `ui`, `cli` | shipped — includes notification delivery health through retention sweeps |
 | [Inventory](inventory.md) | `ui`, `cli` | shipped |
 | [Navigation, time range and theme](navigation.md) | `ui`, `api` | shipped — history navigation, canonical and encoded alert-label links, compact live-range labels, and browser-locale popover dates |
-| [Overview page](overview-page.md) | `ui`, `api` | shipped — acknowledgement marks, phone ordering, history notes and chart gaps; tile links, cause evidence, a shared hover and more lanes are planned |
+| [Overview page](overview-page.md) | `ui`, `api` | shipped — acknowledgement marks, phone ordering, history notes and chart gaps; chart navigation, time/value inspection with stable touch selection and bucket descriptions and summary/detail explanations and explicit unknown leaders and contained metric tips; cause evidence, a shared hover and more lanes are planned |
 | [Servers](servers.md) | `ui`, `api` | shipped — responsive detail cards with a separate full-width recent-events row |
 | [Streams](streams.md) | `ui`, `api` | shipped — replica placement is in the API only |
 | [Consumers](consumers.md) | `ui`, `api` | shipped — delivery rate and busiest-first order are in the API only |
@@ -126,7 +126,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 
 **Web UI**
 - [x] Sidebar, system switcher, header with account scope and search, the global time range (cut to fit a narrow window) on the server's clock and the theme menu, short-history navigation, all fed by one status call per system; compact live-range labels, browser-locale popover dates, and encoded alert-label links (navigation.md)
-- [x] Overview: status line, nine metric boxes with descriptions, cause cards with acknowledgements and muted findings, phone ordering, trends, timeline lanes with the status timeline, busiest consumers, streams with placement, history notes and chart gaps (overview-page.md)
+- [x] Overview: status line, nine linked metric boxes with descriptions and bucket and consumer-mini-chart inspection with stable touch selection, summary/detail explanations, unknown leaders and contained tips, cause cards with acknowledgements and muted findings, phone ordering, trends, timeline lanes with the status timeline, busiest consumers, streams with placement, history notes and chart gaps (overview-page.md)
 - [x] Servers for 20 or more servers: data points, charts across servers, a map of every server, a grouped list; server pages with metric boxes, responsive placement and limits cards, and a full-width recent-events row (servers.md)
 - [x] Streams list and stream detail; replica placement in the API only (streams.md)
 - [x] Consumers list and consumer detail, a stream filter that is not polled; delivery rate and busiest-first order in the API only (consumers.md)

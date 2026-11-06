@@ -1,3 +1,5 @@
+import { ChartInspection } from "../charts/ChartInspection";
+import { RLink } from "./common";
 import { usePageHistory } from "./HistoryNote";
 import { rangeCoverageText } from "../lib/historyView";
 // A small chart over the range with any mix of layers: lines (solid or
@@ -20,11 +22,14 @@ const MIN_MARK = 3;
 
 export type Layer =
   | { kind: "line"; label: string; style: MarkStyle; points: Point[] }
-  | { kind: "band"; label: string; style: MarkStyle; points: EdgePoint[] }
+  | { kind: "band"; stacked?: boolean; label: string; style: MarkStyle; points: EdgePoint[] }
   | { kind: "bars"; label: string; style: MarkStyle; points: Point[] };
 
 interface Props {
   title: string;
+  to?: string;
+  bucketNote?: string;
+  fmt?: (value: number) => string;
   /** The current value as text; absent when nothing was observed. */
   now?: string;
   /** What the chart's range was, for the footer and the accessible name: "min 14, max 20". */
@@ -69,7 +74,7 @@ export function yDomain(all: number[], floor: "zero" | "data"): [number, number]
   return [lo, max === lo ? lo + 1 : max];
 }
 
-export function TrendChart({ title, now, summary, start, end, stepMs = 0, layers, floor = "zero", loading, error }: Props) {
+export function TrendChart({ title, to, bucketNote, fmt = String, now, summary, start, end, stepMs = 0, layers, floor = "zero", loading, error }: Props) {
   const h = usePageHistory();
   const coverage = ["Messages", "Bytes", "Connections"].includes(title) ? rangeCoverageText(h?.historyStart, start, end) : undefined;
   summary = [summary, coverage].filter(Boolean).join(" · ") || undefined;
@@ -83,14 +88,15 @@ export function TrendChart({ title, now, summary, start, end, stepMs = 0, layers
   const legend: LegendItem[] = layers.map((l) => ({ label: l.label, kind: l.kind, style: l.style }));
   const shown = loading && empty ? "…" : (now ?? "–");
   return (
-    <div className="card tc">
+    <div className={`card tc${to ? " chart-linked" : ""}`}>
       <div className="tc-h">
-        <span className="lbl">{title}</span>
+        {to ? <RLink to={to} className="lbl chart-link">{title}</RLink> : <span className="lbl">{title}</span>}
         <b className="mono">{shown}</b>
       </div>
       {error && empty ? (
         <p className="muted-note">Could not load: {error}</p>
       ) : (
+        <ChartInspection label={title} start={start} end={end} stepMs={stepMs || undefined} bucketNote={bucketNote} series={layers.map(l => ({ label: l.label, points: l.kind === "band" ? l.points.map(p => ({ time: p.time, text: l.stacked ? fmt(p.high - p.low) : `${fmt(p.low)} to ${fmt(p.high)}` })) : l.points.map(p => ({ time: p.time, text: fmt(p.value) })) }))}>
         <svg className="tc-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(title, now, rangeText(start, end), summary)}>
           <HistoryGaps start={start} end={end} width={W} height={H} />
           <line x1="0" x2={W} y1={H - 1} y2={H - 1} className="tc-axis" vectorEffect="non-scaling-stroke" />
@@ -134,6 +140,7 @@ export function TrendChart({ title, now, summary, start, end, stepMs = 0, layers
             );
           })}
         </svg>
+        </ChartInspection>
       )}
       <ChartHistoryNotice start={start} end={end} />
       <div className="tc-f mono" aria-hidden="true">

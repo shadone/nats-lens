@@ -10,6 +10,12 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 
 ## Behavior and rules
 
+- **Summary and detail.** "System summary" labels the compact cards. Counts come from the latest available bucket, Storage uses newest server reports, and Meta leader names the newest collection's leader above a chart of changes per bucket. "Detailed trends" adds traffic rates, event totals, server spread, and replica counts over the selected range. Both sections retain useful history; the summary is not a claim that every figure comes from one snapshot.
+
+- **Inspect chart values.** Compact and expanded charts show UTC bucket times and formatted values on hover or touch. Touch keeps the selected bucket when the chart receives focus. Focus a chart and use arrow keys, Home, or End for the same readout; Escape or blur dismisses it. Missing buckets say "No sample" without interpolation. Bucket descriptions distinguish last counts, mean rates, event totals, and server-band aggregation. The busiest-consumer mini charts use the same inspector. Multiple lines have separate labels, bands show lower and upper bounds, and stacked areas show each component's count. The Meta leader chart reports leader changes per bucket; it does not infer the leader's historical name. Without a majority naming the newest leader, its headline reads "Unknown"; the range total stays in the subtitle.
+
+- **Chart destinations.** Tile and trend headers link to the relevant list. The link covers the box outside chart inspection and other controls. Metric explanations open within the card width, including the second column on phones. Links keep the system and range, and the account on destinations that apply account scope.
+
 - **Acknowledged findings.** Cause cards show the [acknowledgement mark](mobile.md), and the status line counts acknowledged findings. At phone width, cause cards precede the health tiles.
 
 - **History behind the figures.** A short-history note links to Data history. Trend and tile charts retain the requested axis and hatch collection gaps and time before history, with the limits described in [data-history.md](data-history.md). Message and connection trends, the Clients tile, and Storage name the shorter span. Storage explains missing growth with the six-hour requirement; unresolved cause cards identify findings already true at the history start.
@@ -34,6 +40,30 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 
 - **Acknowledged trouble stays visible.** Cause cards show the current acknowledgement's author, time, note, and quiet state. The status line counts acknowledged firing findings, including muted ones. Acknowledging leaves severity counts unchanged; muting still removes a finding from unmuted status. On phones, the status line and cause cards precede the two-column health tiles and timeline.
 ## Scenarios
+
+### Understand the two chart sections
+
+- **Surfaces:** `ui`
+- **Given** Overview shows its compact cards and expanded charts
+- **When** I read the section labels and measurement captions
+- **Then** System summary identifies latest count buckets, newest storage reports, and the newest meta leader
+- **And** Detailed trends explains the traffic, event, server spread, and replica-count history
+
+### Inspect a chart bucket
+
+- **Surfaces:** `ui`
+- **Given** a chart has samples separated by missing buckets
+- **When** I hover, touch, or focus the chart and move with arrow keys
+- **Then** the readout names the bucket's UTC time and each series with its unit
+- **And** a missing bucket says "No sample" rather than carrying the previous value forward
+
+### Open a chart's area
+
+- **Surfaces:** `ui`
+- **Given** Overview shows Streams and Clients for a selected system and range
+- **When** I activate a chart header by pointer or keyboard
+- **Then** Streams opens Streams and Clients opens Connections with the same system and range
+- **And** Connections keeps the account scope, and info buttons remain independent
 
 ### Start the day
 
@@ -102,7 +132,6 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 
 ## Planned
 
-- **Tiles link to their pages.** A box opens the page of its area.
 - **Cause evidence.** A table of the affected assets per server in a cause card, "Copy nats CLI check" and "Accept as known…" ([checks.md](checks.md)).
 - **One hover across charts.** Hovering a point marks the same moment in every chart and in the lanes. Dragging over the lanes zooms in, and a click on a mark tells its story.
 - **More lanes.** Servers (restarts, lame duck), leaders (meta, streams, consumers) and clients (connects, drops) as lanes of their own.

@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { renderApp as render } from "../test/render";
+import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { Tile } from "../api/model";
 import { OverviewTiles, tileStatus, tileText } from "./OverviewTiles";
@@ -75,4 +76,18 @@ describe("tileStatus", () => {
     expect(tileStatus(tile({ id: "accounts", value: undefined, status: "nodata" }))).toBe("nodata");
     expect(tileStatus(tile({ id: "streams", value: 3, status: "warning" }))).toBe("warning");
   });
+});
+
+it("identifies the headline's measurement instead of calling every tile a snapshot", () => {
+  render(<OverviewTiles tiles={[tile({ value: 3 }), tile({ id: "meta_leader", label: "Meta leader", valueText: "nats-1" }), tile({ id: "storage", label: "Storage", unit: "bytes", value: 40 })]} windows={[]} start={START} end={END} />);
+  expect(screen.getByText("Latest count bucket")).toBeInTheDocument();
+  expect(screen.getByText("Newest leader · chart: changes per bucket")).toBeInTheDocument();
+  expect(screen.getByText("Newest storage reports")).toBeInTheDocument();
+});
+
+it("never presents a leader-change total as the meta leader when no majority names one", () => {
+  const { container } = render(<OverviewTiles tiles={[tile({ id: "meta_leader", label: "Meta leader", value: 2, subtitle: "2 leader changes in range", series: series([0, 2], 0, 2) })]} windows={[]} start={START} end={END} />);
+  expect(screen.getByText("Unknown")).toBeInTheDocument();
+  expect(screen.getByText("2 leader changes in range")).toBeInTheDocument();
+  expect(container.querySelector(".mb-range")).toBeNull();
 });
