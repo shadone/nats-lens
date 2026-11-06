@@ -117,15 +117,19 @@ func DecodeSys(subject string, data []byte, received time.Time) (Event, error) {
 			ev.Time = ev.ReceivedAt
 		}
 		ev.ServerName = firstNonEmpty(m.Server.Name, m.Server.ID, toks[2])
-		// The server includes full DER and subject/issuer DNs. Keep only a
-		// fingerprint from peer: it correlates certificates without storing
-		// their contents or private identities, including future peer fields.
-		var payload map[string]json.RawMessage
-		if err := json.Unmarshal(raw, &payload); err != nil {
-			return Event{}, err
+		// ASVS 1.5.3, 14.2.4: reconstruct from the same typed decode that
+		// supplies the event. Replacing one raw key misses case aliases and
+		// duplicates accepted by encoding/json, including nested unknown data.
+		// Explicit OCSP fields keep certificate contents and future fields out;
+		// other event kinds retain their existing unknown-field capture.
+		ev.Raw, err = cleanRaw(mustJSON(map[string]any{
+			"type": m.Type, "id": m.ID, "timestamp": m.Time,
+			"server": m.Server, "kind": m.Kind, "reason": m.Reason,
+			"peer": map[string]string{"fingerprint": m.Peer.Fingerprint},
+		}))
+		if err != nil {
+			return Event{}, fmt.Errorf("%s: %w", subject, err)
 		}
-		payload["peer"] = mustJSON(map[string]string{"fingerprint": m.Peer.Fingerprint})
-		ev.Raw = mustJSON(payload)
 		ev.Summary = fmt.Sprintf("server %s rejected an OCSP peer connection (%s): %s", ev.ServerName, orDash(m.Kind), orDash(m.Reason))
 	case len(toks) == 4 && toks[1] == "SERVER" && (toks[3] == "LAMEDUCK" || toks[3] == "SHUTDOWN"):
 		var si server.ServerInfo

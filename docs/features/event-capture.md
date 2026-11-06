@@ -24,7 +24,7 @@ Between two collections a lot can happen that a snapshot never sees: a leader el
 - **Account names on events.** An account connection asks `$SYS.REQ.USER.INFO` for the account name the servers use. Until it knows that name, or for the whole run when the user may not ask, its events carry the account `name` from the configuration.
 - **The account connections also ask micro services.** The connection of each account under `accounts` also sends `$SRV.INFO` and `$SRV.STATS` for the collection (see [monitoring-snapshots.md](monitoring-snapshots.md)), unless the account sets `micro: false`; nats-lens opens one connection per account for both. With event capture off (`events.enabled: false`), `natslens run` still opens a connection for each account that asks, subscribed to nothing but the replies. `natslens once` opens one connection per asking account for its one collection and records one that does not connect as not connected. A refused `$SRV` request is recorded with the collection and logged once, and is no `collector.subscription_error` event; it is not sent again for 10 minutes, so the server the entry's connection is on logs each refusal once per 10 minutes per entry and per request (two entries for one account log twice; INFO and STATS each when both are refused). An account listed for its advisories before nats-lens asked micro services is asked too after an upgrade; `micro: false` stops it. The Micro services page shows what these requests return ([micro-services.md](micro-services.md)).
 - **OCSP peer rejections.** The system account subscription records `$SYS.SERVER.*.OCSP.PEER.CONN.REJECT` as `server.ocsp_peer_rejected`, with the emitting server, peer kind, reason, and event time. A missing or implausibly future event time uses receipt time. The event carries no account or authenticated client identity. Only the final rejection counts; chain-link status events are not captured by this subscription. [Server checks](server-checks.md) describes the warning it raises.
-- **Privacy of payloads.** nats-lens keeps the raw payload of each event, with every user JWT removed. OCSP rejection payloads retain only the fingerprint from the peer certificate object; certificate bytes, subject, issuer, and future peer fields are omitted.
+- **Privacy of payloads.** nats-lens keeps the raw payload of each event, with every user JWT removed. OCSP rejection payloads retain known event and server fields and only the fingerprint from the peer certificate object. Certificate bytes, subject, issuer, and unknown OCSP fields are omitted, including those in mixed-case or duplicate payload keys. Other events retain unknown fields.
 - **Same retention as collections.** Events are kept for `retention` (14 days by default), by the time they were received, and archived hourly ([history-and-archive.md](history-and-archive.md)).
 
 ## Scenarios
@@ -81,7 +81,7 @@ Between two collections a lot can happen that a snapshot never sees: a leader el
 - **Given** the system account user has the documented event subscription grants
 - **When** a server rejects a TLS peer connection through OCSP verification
 - **Then** nats-lens stores a `server.ocsp_peer_rejected` event with its server, peer kind, reason, and certificate fingerprint
-- **And** the stored payload omits certificate contents and subject and issuer identities
+- **And** the stored payload omits certificate contents, subject and issuer identities, and unknown OCSP fields, even with mixed-case or duplicate keys
 
 ## Not supported / out of scope
 
