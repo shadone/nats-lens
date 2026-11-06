@@ -40,10 +40,12 @@ export function Pager({ page, next, onNext, onPrev, total, shown, newer = "Previ
   newer?: string;
   older?: string;
 }) {
+  const count = `${fmtInt(shown)} shown of ${fmtInt(total)}`;
+  if (page <= 1 && !next) return <p className="pager">{count}</p>;
   return (
     <nav className="pager" aria-label="Pagination">
       <span>
-        {fmtInt(shown)} shown of {fmtInt(total)} · page {page}
+        {count} · page {page}
       </span>
       <span className="btns">
         <button type="button" className="btn" onClick={onPrev} disabled={page <= 1}>
