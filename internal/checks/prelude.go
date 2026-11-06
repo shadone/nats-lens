@@ -180,5 +180,5 @@ CREATE OR REPLACE TEMP MACRO gap_text(names, whys) AS CASE
     WHEN names IS NULL OR len(names) = 0 THEN ''
     WHEN len(names) = 1 THEN ' (may be on ' || names[1] || ', which ' || whys[1] || ')'
     ELSE ' (may be on ' || array_to_string(names, ', ') || ': '
-        || array_to_string(list_transform(list_zip(names, whys), x -> x[1] || ' ' || x[2]), '; ') || ')'
+        || array_to_string(list_transform(list_zip(names, whys), lambda x: x[1] || ' ' || x[2]), '; ') || ')'
 END`

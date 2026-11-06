@@ -56,7 +56,7 @@ facts AS (
     FROM gone g
 )
 SELECT f.account, f.stream, f.consumer, f.with_it, coalesce(f.stream_holders, f.consumer_holders) AS holders,
-    list_filter(coalesce(f.stream_holders, f.consumer_holders), n -> NOT list_contains(ok.names, n)) AS not_answering,
+    list_filter(coalesce(f.stream_holders, f.consumer_holders), lambda n: NOT list_contains(ok.names, n)) AS not_answering,
     f.last_epoch, x.started_at,
     -- The delete event, as consumer-013's cause: the newest
     -- consumer.deleted of the consumer, else the newest stream.deleted of
