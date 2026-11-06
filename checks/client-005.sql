@@ -59,11 +59,16 @@ server_lists AS (
     FROM servers WHERE coalesce(server, '') <> ''
     GROUP BY name
 ),
--- Names whose finding fired at the previous epoch keep firing down to
--- resolve_ratio of the threshold.
+-- Names firing at this check's last successful execution keep firing down
+-- to resolve_ratio. Errors and skipped collections leave that state intact.
+-- Exclude state updated at or after the requested epoch when reading history.
 firing AS (
     SELECT entity_key FROM findings
-    WHERE check_code = 'client-005' AND state = 'firing' AND last_seen_epoch = getvariable('prev_epoch')
+    WHERE check_code = 'client-005' AND state = 'firing' AND updated_epoch < getvariable('epoch')
+      AND last_seen_epoch = (
+          SELECT max(epoch) FROM check_runs
+          WHERE check_code = 'client-005' AND status = 'ok' AND epoch < getvariable('epoch')
+      )
 ),
 -- Summaries of one flush share received_at; of those, the highest id was
 -- written last.

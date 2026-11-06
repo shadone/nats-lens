@@ -129,6 +129,7 @@ func TestShortLivedConnectionsHysteresis(t *testing.T) {
 			"severity": "warning", "state": "firing", "last_transition": "firing", "since": at(20), "since_epoch": 20,
 			"transitioned_at": at(20), "last_seen_epoch": epoch, "updated_epoch": epoch, "detail": "x"})
 	}
+	f.row("check_runs", m{"epoch": 39, "check_code": "client-005", "status": "ok", "rows": 2, "duration_ms": 0})
 	firingAt("stock-poller", 39)
 	firingAt("catalog-api", 39)
 	firingAt("report-builder", 38)

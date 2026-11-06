@@ -54,6 +54,7 @@ The client checks judge the applications connected to NATS: whether their round 
 - **Thresholds:** lookback 10m, `min_short_connections` 20, `resolve_ratio` 0.8. A firing finding stays firing while the count is at or above `resolve_ratio` of `min_short_connections` (16), and resolves below it, so a client near the threshold does not flap.
 - **Keyed by:** the whole connection name, so instances that share a name are merged.
 - **Left out:** connections that stay open longer than `events.churn.pair_within` (a job that connects for minutes at a time), connections that end for another reason, and tooling connections unless `checks.include_tooling` is set.
+- **Missed evaluations:** after an error or a collection skipped for budget, hysteresis uses this check's last successful evaluation. Disabling the check resolves its findings; re-enabling needs the full firing threshold.
 
 ### `client-006` Repeated authentication errors
 
@@ -135,6 +136,15 @@ The client checks judge the applications connected to NATS: whether their round 
 - **When** nats-lens collects
 - **Then** the Events page hides its `client.churn` events as routine
 - **And** `client-005` fires for `stock-poller`, with the count, the rate, its host and the servers in the detail
+
+### Short-lived connections remain near the threshold after a skipped check
+
+- **Given** `client-005` fires for `order-sync`, then cannot run for two collections
+- **When** the next successful evaluation counts 16 short-lived connections in 10 minutes, with the default thresholds
+- **Then** the finding stays firing, including after nats-lens restarts
+- **And** a different name with 16 connections has no finding
+- **When** the connections leave the lookback
+- **Then** the finding resolves
 
 ### A revoked client keeps retrying
 
