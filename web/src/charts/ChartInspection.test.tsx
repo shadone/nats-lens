@@ -81,3 +81,11 @@ it("gives the Overview consumer mini chart the same time inspector", () => {
   fireEvent.keyDown(screen.getByRole("slider", { name: "Inspect worker delivered" }), { key: "Home" });
   expect(screen.getByRole("tooltip")).toHaveTextContent("2/s");
 });
+it("keeps the touched bucket when the browser subsequently focuses the chart", () => {
+  render(<Sparkline {...spark} />);
+  const cursor = screen.getByRole("slider");
+  vi.spyOn(cursor, "getBoundingClientRect").mockReturnValue({ left: 10, width: 100 } as DOMRect);
+  fireEvent.pointerDown(cursor, { clientX: 95, pointerType: "touch" });
+  fireEvent.focus(cursor);
+  expect(screen.getByRole("tooltip")).toHaveTextContent("8%");
+});
