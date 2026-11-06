@@ -463,3 +463,48 @@ func TestDataHistorySampleWindowsAndGappedGrowth(t *testing.T) {
 		}
 	}
 }
+
+// Restart phase and small jitter must not leave mature bounded windows
+// permanently short. Has remains the exact span of samples inside each window.
+func TestDataHistoryBoundedBoundaryBracket(t *testing.T) {
+	st := emptyStore(t)
+	r := rows{t, st}
+	r.server("S0", "nats-0")
+	now := historyClock
+	// Over an hour of collection, then a phase change eighteen seconds ago.
+	for i := int64(0); i <= 140; i++ {
+		at := now.Add(-70 * time.Minute).Add(time.Duration(i) * 30 * time.Second)
+		if i < 140 {
+			at = at.Add(-18*time.Second + time.Duration(i%3)*time.Millisecond)
+		}
+		r.epoch(i+1, at, "S0")
+	}
+	set, err := checks.Load(config.Checks{Thresholds: map[string]map[string]string{
+		"server-014": {"lookback": "5m"}, "stream-006": {"lookback": "10m"}, "consumer-002": {"lookback": "30m"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := &storeprov.Provider{St: st, Checks: set, Interval: 30 * time.Second, Clock: func() time.Time { return now }}
+	for _, zone := range []string{"UTC", "Asia/Kolkata", "America/Los_Angeles"} {
+		if _, err := st.DB().Exec(`SET GLOBAL TimeZone = '` + zone + `'`); err != nil {
+			t.Fatal(err)
+		}
+		f, err := p.DataHistory(ctx, &v1.GetDataHistoryRequest{Range: lastDay(now)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		seen := map[string]bool{}
+		for _, u := range api.FinishDataHistory(f).GetUses() {
+			seen[u.GetId()] = true
+			if u.GetId() == "forecast:server-014" || u.GetId() == "forecast:stream-006" {
+				if !u.GetEnough() || u.GetHas().AsDuration() >= u.GetNeeds().AsDuration() || u.GetHas().AsDuration() < u.GetNeeds().AsDuration()-30*time.Second {
+					t.Errorf("%s: mature phase-shifted window: %v", zone, u)
+				}
+			}
+		}
+		if seen["lookback:consumer-002"] {
+			t.Errorf("%s: mature 30m check still listed short", zone)
+		}
+	}
+}

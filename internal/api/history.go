@@ -77,7 +77,12 @@ type HistoryWindow struct {
 }
 
 // HistorySamples are the bounds of actual collections within a use window.
-type HistorySamples struct{ First, Last time.Time }
+type HistorySamples struct {
+	First, Last time.Time
+	// Before is an observed collection immediately before the lower bound,
+	// read only for bounded uses and at most one configured interval away.
+	Before time.Time
+}
 
 // HistoryUseWindows bounds each use's read independently of the selected range.
 func HistoryUseWindows(f *HistoryFacts) []HistoryWindow {
@@ -419,7 +424,8 @@ func HistoryUses(f *HistoryFacts) []*v1.HistoryUse {
 }
 
 // historyUse reports a global sample span, which can contain gaps. Enough
-// means that span reaches the target, not that an entity's algorithm can run.
+// means the global target has sample evidence, not that an entity's algorithm
+// can run. Bounded uses may bracket their lower boundary without padding Has.
 func historyUse(f *HistoryFacts, id, code string, needs time.Duration) *v1.HistoryUse {
 	u := &v1.HistoryUse{Id: id, CheckCode: code, Needs: durationpb.New(needs)}
 	u.Never = f.Retention > 0 && f.Retention < needs
@@ -428,12 +434,24 @@ func historyUse(f *HistoryFacts, id, code string, needs time.Duration) *v1.Histo
 		return u
 	}
 	has := max(sample.Last.Sub(sample.First), 0)
-	u.Has, u.Enough = durationpb.New(has), has >= needs && !u.Never
+	u.Has = durationpb.New(has)
+	valid := has > 0 && !sample.Last.After(f.Now)
+	u.Enough = valid && has >= needs && !u.Never
+	// Proposed, not yet confirmed: a discrete bounded window can establish
+	// its edge with actual samples each within one interval of the boundary.
+	// Neither the predecessor nor tolerance changes Has or fills internal gaps.
+	if !u.Enough && !u.Never && valid && id != "growth" && f.Interval > 0 && f.Interval < needs &&
+		!f.NewestEpochAt.IsZero() && !f.NewestEpochAt.After(f.Now) && sample.Last.Equal(f.NewestEpochAt) {
+		lo := f.NewestEpochAt.Add(-needs)
+		u.Enough = !sample.Before.IsZero() && sample.Before.Before(lo) &&
+			!sample.Before.Before(lo.Add(-f.Interval)) && !sample.First.Before(lo) &&
+			sample.First.Sub(lo) <= f.Interval
+	}
 	// A forecast/check window follows the latest collection. Its lookback is a
 	// target, not a promise to compute a rate (min_span and entity rules differ).
 	// Only expanding reads can predict a time, conditional on new collections.
 	expanding := id == "growth" && f.End.Sub(f.Start) > needs && !f.End.Before(f.Now.Add(-f.Interval))
-	if !u.Enough && !u.Never && expanding && f.Interval > 0 && !sample.Last.Before(f.Now.Add(-f.Interval)) {
+	if !u.Enough && !u.Never && expanding && valid && !f.NewestEpochAt.After(f.Now) && f.Interval > 0 && !sample.Last.Before(f.Now.Add(-f.Interval)) {
 		u.EnoughAt = timestamppb.New(f.Now.Add(needs - has))
 	}
 	return u

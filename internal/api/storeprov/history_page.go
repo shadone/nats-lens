@@ -134,14 +134,20 @@ func (p *Provider) historySamples(ctx context.Context, f *api.HistoryFacts) erro
 	var values []string
 	var args []any
 	for _, w := range windows {
-		values = append(values, "(?, make_timestamp(?::BIGINT), make_timestamp(?::BIGINT))")
-		args = append(args, w.ID, w.Start.UnixMicro(), w.End.UnixMicro())
+		edge := w.Start
+		if w.ID != "growth" && f.Interval > 0 && f.Interval < w.End.Sub(w.Start)-time.Microsecond {
+			edge = edge.Add(-f.Interval)
+		}
+		values = append(values, "(?, make_timestamp(?::BIGINT), make_timestamp(?::BIGINT), make_timestamp(?::BIGINT))")
+		args = append(args, w.ID, w.Start.UnixMicro(), w.End.UnixMicro(), edge.UnixMicro())
 	}
 	// ASVS 1.2.4: only fixed SQL fragments are joined; every value is bound.
 	// Unix microseconds avoid DuckDB session-time-zone shifts in VALUES.
-	rows, err := p.db().QueryContext(ctx, `WITH windows(id, lo, hi) AS (VALUES `+strings.Join(values, ",")+`)
- SELECT w.id,min(e.started_at),max(e.started_at) FROM windows w LEFT JOIN epochs e
- ON e.started_at >= w.lo AND e.started_at < w.hi GROUP BY w.id`, args...)
+	rows, err := p.db().QueryContext(ctx, `WITH windows(id, lo, hi, edge) AS (VALUES `+strings.Join(values, ",")+`)
+ SELECT w.id,min(e.started_at) FILTER (WHERE e.started_at >= w.lo),
+ max(e.started_at) FILTER (WHERE e.started_at >= w.lo),
+ max(e.started_at) FILTER (WHERE e.started_at < w.lo) FROM windows w LEFT JOIN epochs e
+ ON e.started_at >= w.edge AND e.started_at < w.hi GROUP BY w.id`, args...)
 	if err != nil {
 		return fmt.Errorf("data history sample spans: %w", err)
 	}
@@ -149,12 +155,12 @@ func (p *Provider) historySamples(ctx context.Context, f *api.HistoryFacts) erro
 	f.Samples = map[string]api.HistorySamples{}
 	for rows.Next() {
 		var id string
-		var first, last sql.NullTime
-		if err := rows.Scan(&id, &first, &last); err != nil {
+		var first, last, before sql.NullTime
+		if err := rows.Scan(&id, &first, &last, &before); err != nil {
 			return err
 		}
 		if first.Valid {
-			f.Samples[id] = api.HistorySamples{First: first.Time, Last: last.Time}
+			f.Samples[id] = api.HistorySamples{First: first.Time, Last: last.Time, Before: before.Time}
 		}
 	}
 	return rows.Err()

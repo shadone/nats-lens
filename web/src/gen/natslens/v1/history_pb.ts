@@ -315,8 +315,10 @@ export type HistoryUse = Message<"natslens.v1.HistoryUse"> & {
   has?: Duration | undefined;
 
   /**
-   * Whether has is at least needs within retention. This is global span
-   * availability, not algorithm eligibility or complete coverage.
+   * Global sample availability within retention, not algorithm eligibility or
+   * complete coverage. Growth requires has >= needs. Other uses may bracket
+   * the lower window boundary with actual samples each within one collection
+   * interval of it, while has remains the exact in-window sample span.
    *
    * @generated from field: bool enough = 5;
    */

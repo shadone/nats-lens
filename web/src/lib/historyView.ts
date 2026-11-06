@@ -206,7 +206,8 @@ export type UseTone = "ok" | "warn" | "muted";
 
 /** Global sample availability; a passed prediction never proves collection continued. */
 export function enoughState(u: HistoryUse, retention: number | undefined, now: number): { text: string; tone: UseTone } {
-  if (u.enough) return { text: "sample span available", tone: "ok" };
+  if (u.enough) return { text: u.has !== undefined && u.needs !== undefined && u.has < u.needs
+    ? "window boundary sampled" : "sample span available", tone: "ok" };
   if (u.never) return { text: retention === undefined ? "target exceeds retention" : `target exceeds retention ${spanText(retention)}`, tone: "warn" };
   if (u.enoughAt !== undefined && u.enoughAt <= now) return { text: "awaiting collections", tone: "muted" };
   if (u.enoughAt !== undefined) return { text: `at earliest ${whenText(u.enoughAt, now)}, if collections continue`, tone: "muted" };

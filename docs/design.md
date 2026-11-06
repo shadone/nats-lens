@@ -696,3 +696,15 @@ The owner confirmed on 2026-10-27 every decision proposed in the account checks 
 - The session's reading of the owner's headline decision: the rule also orders the Findings list, the findings of a server, stream or consumer page and the Overview's cause cards, and a critical expiry ranks as any critical finding (see "Status and findings").
 - The epoch write's JSON batches carry at most 5,000 rows per statement (connections, the stats, replica and configuration version rows of streams and consumers, and the identity rows; `docs/plans/next.md`, item 5).
 - A stream or consumer configuration that does not encode as JSON is skipped instead of failing the epoch: no configuration version is stored for it, its stats are written, the epoch's errors note it and it is logged once per process and asset. Every note the store adds to `epochs.errors` starts `note: ` (`store.NotePrefix`), so it is told apart from the collector's own failures (proposed, not yet confirmed).
+
+## Bounded history sample boundaries
+
+Proposed, not yet confirmed: bounded Data history uses can establish their lower
+window boundary with actual collections on either side, each within one configured
+collection interval. The interval must be positive and shorter than the window;
+the window must contain two distinct samples and end at the latest stored collection.
+The separate predecessor is never added to the displayed in-window sample span.
+This avoids permanently short rolling windows after a collection phase change
+without crediting calendar age or elapsed time after collection stops. It describes
+global sample availability, including possible internal gaps, rather than continuous
+coverage or entity algorithm eligibility. Growth retains its strict measured span.
