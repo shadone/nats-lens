@@ -52,6 +52,7 @@ export function OverviewTiles({ tiles, windows, start, end }: { tiles: Tile[]; w
           key={t.id}
           title={t.label}
           to={destinations[t.id]}
+          valueLabel={t.id === "meta_leader" ? "Newest leader · chart: changes per bucket" : t.id === "storage" ? "Newest storage reports" : "Latest count bucket"}
           description={t.description ?? ""}
           series={t.series}
           series2={t.series2}

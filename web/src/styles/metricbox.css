@@ -46,3 +46,11 @@
 
 .card:has(.chart-readout){position:relative;z-index:10}
 .chart-inspection{cursor:crosshair}
+
+.mb-context{font-size:10.5px;color:var(--text-muted);margin-top:4px;overflow-wrap:anywhere}
+
+.mbox .mb-h{flex-wrap:wrap}
+.mbox .mb-h .lbl{max-width:100%}
+.mbox .mb-v{max-width:100%;flex-wrap:wrap;white-space:normal}
+.mbox .mb-v b{overflow-wrap:anywhere;min-width:0}
+.mbox .mb-note{overflow-wrap:anywhere}
