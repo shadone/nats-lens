@@ -23,8 +23,8 @@ describe("range header feedback", () => {
     await userEvent.click(screen.getByRole("button", { name: "Custom" }));
     const format = new Intl.DateTimeFormat(locale, { year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC", calendar: "gregory" });
     const bounds = within(screen.getByRole("group", { name: "Selected range" }));
-    expect(screen.getByRole("textbox", { name: "From" })).toHaveValue(format.format(Date.parse("2026-10-16T09:00:00Z")));
-    expect(screen.getByRole("textbox", { name: "To" })).toHaveValue(format.format(Date.parse("2026-10-16T10:00:00Z")));
+    expect(screen.getByLabelText("From")).toHaveValue(format.format(Date.parse("2026-10-16T09:00:00Z")));
+    expect(screen.getByLabelText("To")).toHaveValue(format.format(Date.parse("2026-10-16T10:00:00Z")));
     expect(bounds.getByText(format.format(Date.parse("2026-10-16T09:00:00Z")))).toBeInTheDocument();
   });
 
