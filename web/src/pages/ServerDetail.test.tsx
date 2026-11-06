@@ -108,7 +108,7 @@ describe("ServerDetail on example-global", () => {
     expect(Array.from(cards.children)).toEqual([where, routes, limits]);
     expect(cards.nextElementSibling).toContainElement(recent);
     expect(within(recent).getByRole("heading", { level: 2, name: "Recent events" })).toBeInTheDocument();
-    expect(await within(recent).findByRole("link", { name: "label-printer reconnected" })).toHaveAttribute("href", expect.stringContaining("/events/2"));
+    expect(await within(recent).findByRole("link", { name: "label-printer reconnected" })).toHaveAttribute("href", "/events?id=2");
   });
 
   it("asks for the server's events with routine ones hidden and repeats folded", async () => {
