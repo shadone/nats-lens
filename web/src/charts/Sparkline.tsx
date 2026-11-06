@@ -2,7 +2,7 @@
 // series, a dashed line for the second, shaded windows behind.
 import { usePageHistory } from "../components/HistoryNote";
 import type { ServerHistoryGap } from "../api/history";
-import { HistoryGaps } from "./HistoryGaps";
+import { ChartHistoryNotice, HistoryGaps } from "./HistoryGaps";
 import type { Level, Point, Window } from "../api/model";
 import { chartName, rangeText } from "./chartLabel";
 
@@ -43,10 +43,10 @@ export function Sparkline({ points, points2, status, windows, start, end, label,
   const period = rangeText(start, end);
   if (points.length === 0) {
     return (
-      <svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, undefined, period, note)}>
+      <><svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, undefined, period, note)}>
         <HistoryGaps start={start} end={end} width={W} height={H} />
         <line x1="0" x2={W} y1={H - 3} y2={H - 3} style={{ stroke: "var(--border)" }} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-      </svg>
+      </svg><ChartHistoryNotice start={start} end={end}/></>
     );
   }
   const all = points.concat(points2 ?? []).map((p) => p.value);
@@ -63,7 +63,7 @@ export function Sparkline({ points, points2, status, windows, start, end, label,
   const col = sparkColour(status);
   const span = end - start || 1;
   return (
-    <svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, current, period, note)}>
+    <><svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, current, period, note)}>
       <HistoryGaps start={start} end={end} width={W} height={H} />
       {windows.map((w) => {
         const x0 = Math.max(0, ((w.start - start) / span) * W);
@@ -84,7 +84,7 @@ export function Sparkline({ points, points2, status, windows, start, end, label,
         />)
       )}
       {runs.map((run, i) => <polyline key={i} points={sparkPoints(run, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: col }} strokeWidth="1.6" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />)}
-    </svg>
+    </svg><ChartHistoryNotice start={start} end={end}/></>
   );
 }
 

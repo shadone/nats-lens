@@ -728,9 +728,13 @@ type GetDataHistoryResponse struct {
 	ListedGapsTotal int32 `protobuf:"varint,13,opt,name=listed_gaps_total,json=listedGapsTotal,proto3" json:"listed_gaps_total,omitempty"`
 	// Recorded missing reports for request.server only, oldest first. Adjacent
 	// intervals with the same reason merge. Never included in global coverage.
-	ServerGaps    []*ServerHistoryGap `protobuf:"bytes,14,rep,name=server_gaps,json=serverGaps,proto3" json:"server_gaps,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	ServerGaps []*ServerHistoryGap `protobuf:"bytes,14,rep,name=server_gaps,json=serverGaps,proto3" json:"server_gaps,omitempty"`
+	// Newest omitted collection/before-history gap, only when gaps_total exceeds
+	// the returned hatched list. Lets a moving chart check actual overlap with
+	// an omitted interval without treating 200 returned gaps as truncation.
+	NewestOmittedCollectionGap *HistoryGap `protobuf:"bytes,15,opt,name=newest_omitted_collection_gap,json=newestOmittedCollectionGap,proto3" json:"newest_omitted_collection_gap,omitempty"`
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *GetDataHistoryResponse) Reset() {
@@ -861,6 +865,13 @@ func (x *GetDataHistoryResponse) GetServerGaps() []*ServerHistoryGap {
 	return nil
 }
 
+func (x *GetDataHistoryResponse) GetNewestOmittedCollectionGap() *HistoryGap {
+	if x != nil {
+		return x.NewestOmittedCollectionGap
+	}
+	return nil
+}
+
 var File_natslens_v1_history_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_history_proto_rawDesc = "" +
@@ -921,7 +932,7 @@ const file_natslens_v1_history_proto_rawDesc = "" +
 	"\x03has\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\x03has\x12\x16\n" +
 	"\x06enough\x18\x05 \x01(\bR\x06enough\x127\n" +
 	"\tenough_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\benoughAt\x12\x14\n" +
-	"\x05never\x18\a \x01(\bR\x05never\"\x9e\x06\n" +
+	"\x05never\x18\a \x01(\bR\x05never\"\xfa\x06\n" +
 	"\x16GetDataHistoryResponse\x12?\n" +
 	"\rhistory_start\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\fhistoryStart\x12B\n" +
 	"\x0fnewest_epoch_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\rnewestEpochAt\x12=\n" +
@@ -939,7 +950,8 @@ const file_natslens_v1_history_proto_rawDesc = "" +
 	"\x11findings_at_start\x18\f \x01(\x05R\x0ffindingsAtStart\x12*\n" +
 	"\x11listed_gaps_total\x18\r \x01(\x05R\x0flistedGapsTotal\x12>\n" +
 	"\vserver_gaps\x18\x0e \x03(\v2\x1d.natslens.v1.ServerHistoryGapR\n" +
-	"serverGaps*\x99\x02\n" +
+	"serverGaps\x12Z\n" +
+	"\x1dnewest_omitted_collection_gap\x18\x0f \x01(\v2\x17.natslens.v1.HistoryGapR\x1anewestOmittedCollectionGap*\x99\x02\n" +
 	"\x0eHistoryGapKind\x12 \n" +
 	"\x1cHISTORY_GAP_KIND_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cHISTORY_GAP_KIND_NOT_RUNNING\x10\x01\x12\"\n" +
@@ -1008,11 +1020,12 @@ var file_natslens_v1_history_proto_depIdxs = []int32{
 	5,  // 28: natslens.v1.GetDataHistoryResponse.archive:type_name -> natslens.v1.ArchiveState
 	6,  // 29: natslens.v1.GetDataHistoryResponse.uses:type_name -> natslens.v1.HistoryUse
 	3,  // 30: natslens.v1.GetDataHistoryResponse.server_gaps:type_name -> natslens.v1.ServerHistoryGap
-	31, // [31:31] is the sub-list for method output_type
-	31, // [31:31] is the sub-list for method input_type
-	31, // [31:31] is the sub-list for extension type_name
-	31, // [31:31] is the sub-list for extension extendee
-	0,  // [0:31] is the sub-list for field type_name
+	2,  // 31: natslens.v1.GetDataHistoryResponse.newest_omitted_collection_gap:type_name -> natslens.v1.HistoryGap
+	32, // [32:32] is the sub-list for method output_type
+	32, // [32:32] is the sub-list for method input_type
+	32, // [32:32] is the sub-list for extension type_name
+	32, // [32:32] is the sub-list for extension extendee
+	0,  // [0:32] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_history_proto_init() }

@@ -34,3 +34,17 @@ it("queries a non-preset chart's exact domain so omissions outside it do not pro
  expect(read.mock.calls[0][1]).toEqual({kind:"fixed",from:NOW-H/2,to:NOW});
  expect(screen.queryByRole("note",{name:/Collection gap limit/})).not.toBeInTheDocument();
 });
+
+it("does not warn when retained omission evidence is outside the moving chart",async()=>{
+ read.mockResolvedValue({...staging(),rangeStart:NOW-H,rangeEnd:NOW,gaps:[],gapsTotal:43,newestOmittedCollectionGap:gap({start:NOW-H,end:NOW-H+1000})});
+ renderApp(<Charts start={NOW-H+2000} end={NOW+2000}/>,"/?range=24h");
+ await waitFor(()=>expect(read).toHaveBeenCalledTimes(1));
+ await waitFor(()=>expect(screen.queryByText("History gaps loading")).not.toBeInTheDocument());
+ expect(screen.queryByRole("note",{name:/Collection gap limit/})).not.toBeInTheDocument();
+});
+it("reads an exact fixed chart domain even inside a larger selected range",async()=>{
+ read.mockResolvedValue({...staging(),rangeStart:NOW-H,rangeEnd:NOW,gaps:[],gapsTotal:0});
+ renderApp(<Charts/>,`/?from=${new Date(NOW-24*H).toISOString()}&to=${new Date(NOW).toISOString()}`);
+ await waitFor(()=>expect(read).toHaveBeenCalledTimes(1));
+ expect(read.mock.calls[0][1]).toEqual({kind:"fixed",from:NOW-H,to:NOW});
+});
