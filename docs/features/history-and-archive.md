@@ -6,7 +6,7 @@
 
 ## What it does
 
-nats-lens keeps its collections, events and findings in an embedded DuckDB database for `retention` (14 days by default). Every hour it also writes that hour's rows to Parquet files in an archive directory, which keeps them for `archive_retention` (90 days by default). The database is a cache of the archive: when the database file is lost, nats-lens rebuilds it from the archive at start.
+nats-lens keeps its collections, events and findings in an embedded DuckDB database for `retention` (14 days by default). Every hour it also writes that hour's rows to Parquet files in an archive directory, which keeps them for `archive_retention` (90 days by default). When the database file is lost, nats-lens rebuilds from successful manifested exports at start. Unexported activity is not recoverable from the archive.
 
 ## Behavior and rules
 
@@ -15,7 +15,7 @@ nats-lens keeps its collections, events and findings in an embedded DuckDB datab
 - **Retention.** Once an hour, nats-lens deletes the collections and events older than `retention`, together with the findings' transitions and check runs of those collections. Mutes are never deleted. A finding that is still firing keeps its current episode, so it still says when it started even after the collection it started in is gone.
 - **The database lives in `data_dir`.** The file is `natslens.duckdb` in `data_dir` (`./data` by default). DuckDB lets one process open the file while it is written, so `natslens sql` and `natslens checks run` work only while no collector holds it.
 - **Hourly Parquet files.** For every table, an hour's rows go to `archive_dir/<table>/date=YYYY-MM-DD/hour=HH.<export>.parquet` (`archive_dir` defaults to `data_dir/archive`). A manifest per hour, written last, lists exactly the files of that export with their row counts. A crash during an export therefore leaves the previous manifest and its files intact.
-- **The open hour is written early.** nats-lens writes the hour that is still open provisionally every `archive_provisional_every` (5 minutes), and again once the hour has closed. A lost database therefore loses at most about five minutes of history.
+- **The open hour is written early.** nats-lens writes the hour that is still open provisionally every `archive_provisional_every` (5 minutes), and again once the hour has closed. Recovery reaches the latest successful manifested export; disabled, failed or delayed exports can leave a larger gap.
 - **Late rows are written again.** An hour whose rows change after it was exported, such as an event that arrived late, is exported again. Hours missed while nats-lens was down are caught up, at most six hours per collect interval, so catching up never delays a collection. A closed hour that still waits for its export an hour after it ended, or after nats-lens started, raises `system-008` ([system-checks.md](system-checks.md)); a failed export is also logged as "archive export failed".
 - **Mutes and findings in every hour.** Every hour holds the whole `findings` table and the whole `mutes` table as they were at its export. When a mute is created or lifted, nats-lens exports the newest hour again, so the newest hour always carries the current mutes.
 - **Archive retention.** After a successful export, at most once an hour, nats-lens removes the archived hours that ended more than `archive_retention` ago: their data files first, then their manifest. `0` keeps every hour. nats-lens refuses an `archive_retention` shorter than `retention`, because a rebuild must find every hour the database holds.

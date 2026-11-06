@@ -27,6 +27,7 @@ nats-lens observes a NATS deployment: a Go collector takes snapshots and capture
 ## Rules
 
 - Never mention a company, its services, clusters, hosts or incidents, or any private deployment in this repository. Examples use the online shop of `inventory.example.yaml` and `example.com`. The design canvas boards' sample names and footnotes come from a real deployment: build pages with the demo's names, never the board's. Deployment configuration lives outside the repository; site-specific advice goes into a `checks.remediation_file`.
+- Before database recovery, follow [the recovery procedure](docs/operations/database-recovery.md); test repairs on disposable copies and preserve a verified rollback generation.
 - Migrations in `internal/store/migrations/` are append-only: never edit one that has been applied anywhere; the `migrations` table holds each file's checksum and natslens refuses to start on a mismatch. A new NOT NULL column on an archived table needs a default.
 - Proto changes take new field numbers; never reuse or renumber one. Run `make proto` and commit the generated code.
 - A `time.Time` passed to DuckDB is shifted by the session time zone, which follows the host's, wherever DuckDB cannot type it from a TIMESTAMP column: in arithmetic (`? - INTERVAL 1 HOUR`), as a function argument (`date_trunc('hour', ?)`), or in a subquery's or CTE's select list. Compare a column with the parameter directly (`col >= ?`), or pass Unix microseconds and build the time with `make_timestamp(?::BIGINT)`; test such a query with a non-UTC `TZ`.
