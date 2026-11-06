@@ -162,3 +162,18 @@ func TestMetaGroupsDownBridgeElectionsCannotClaimPhysicalCount(t *testing.T) {
 		t.Fatalf("unresolved elections certified: %s", rowsText(r))
 	}
 }
+
+func TestMetaGroupsAbsentMembershipRetainsLegacyLeaderEvidence(t *testing.T) {
+	f := metaGroupsFixture(t, 8, func(g string, e int64) string {
+		if g == "orders" {
+			return ""
+		}
+		return "shipping-0"
+	})
+	f.exec(`DELETE FROM raft_stats`)
+	// Without membership, this could be a rolling restart in one group. One
+	// empty reply alongside healthy replies cannot certify a leaderless group.
+	if r := f.eval("system-002", 8); len(r) != 0 {
+		t.Fatalf("absent membership certifies a leaderless subset: %s", rowsText(r))
+	}
+}
