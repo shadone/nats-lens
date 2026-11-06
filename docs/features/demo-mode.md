@@ -75,6 +75,7 @@
 - **Given** the demo is running with `-fixed`
 - **When** I call `GetTopology` for `example-global`
 - **Then** it lists the clusters `ap`, `eu` and `us` with `nats-us-4` missing, the `ap`-`us` gateway first with 3 drops in the last hour from `nats-ap-1`, `nats-eu-3`'s routes first as slow, and `pickup-0417` first among 30 leaf node sites, not connected, with 17 drops and its last hub `nats-eu-1`
+- **And** the fixed global scenario does not show `server-026`: its missing expected hub prevents the complete observation coverage that [leaf-site findings](server-checks.md) require
 
 ### See who fails to log in
 
