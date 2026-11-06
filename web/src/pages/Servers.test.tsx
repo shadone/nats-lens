@@ -134,19 +134,35 @@ describe("Servers on example-global", () => {
     expect(screen.getByText("24 servers in 3 clusters · meta leader nats-eu-1")).toBeInTheDocument();
   });
 
-  it("distinguishes slow-client disconnects from JetStream backlog and keeps global scope on its Consumers link", async () => {
+  it("distinguishes slow-consumer detections from JetStream backlog and keeps global scope on its Consumers link", async () => {
     const r = global();
     for (const server of r.servers) server.slowConsumersInRange = 0n;
     serve(r);
     renderApp(<Servers />, "/servers?range=1h&system=example-global&account=SHOP");
-    const title = await screen.findByText("Slow-client disconnects, 1 h");
+    const title = await screen.findByText("Slow-consumer detections, 1 h");
     const card = title.closest(".dp")! as HTMLElement;
     expect(card.querySelector(".dp-v")).toHaveTextContent("0");
-    expect(card).toHaveTextContent("Clients disconnected as slow during the selected range.");
-    expect(within(card).getByRole("img", { name: /^Slow-client disconnects per range, peak none$/ })).toBeInTheDocument();
+    expect(card).toHaveTextContent("Server slow-consumer counter increases during the selected range.");
+    expect(within(card).getByRole("img", { name: /^Slow-consumer detections per range, peak none$/ })).toBeInTheDocument();
+    expect(card).toHaveTextContent("Covers clients, routes, gateways and leaf connections; retries can count without a disconnect.");
+    expect(card).toHaveTextContent("Not unique clients or JetStream pending messages.");
+    expect(card).not.toHaveTextContent("Clients disconnected as slow");
     const target = new URL(within(card).getByRole("link", { name: "Consumers" }).getAttribute("href")!, "http://example.com");
     expect(target.pathname).toBe("/consumers");
     expect(Object.fromEntries(target.searchParams)).toEqual({ range: "1h", system: "example-global", account: "SHOP" });
+  });
+
+  it("preserves aggregate detections without inferring their connection type", async () => {
+    // The API only supplies the aggregate: neither source nor unique clients can be inferred.
+    const r = global();
+    for (const server of r.servers) server.slowConsumersInRange = 0n;
+    r.servers[0].slowConsumersInRange = 7n;
+    serve(r);
+    renderApp(<Servers />, "/servers");
+    const title = await screen.findByText("Slow-consumer detections, 24 h");
+    const card = title.closest(".dp")! as HTMLElement;
+    expect(card.querySelector(".dp-v")).toHaveTextContent("7");
+    expect(card).toHaveTextContent("retries can count without a disconnect");
   });
 
   it("names the busiest server in the CPU chart's legend", async () => {
