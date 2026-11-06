@@ -34,7 +34,7 @@ describe("Header", () => {
       systemKnown: true,
     });
     renderApp(<Header />, "/streams?range=6h&system=example-prod");
-    await waitFor(() => expect(document.querySelector(".live")).toHaveTextContent(/^live · \ds$/));
+    await waitFor(() => expect(document.querySelector(".live")).toHaveTextContent(/^live$/));
     expect(m.getShellStatus).toHaveBeenCalledWith("example-prod", undefined, expect.anything());
     expect(m.getOverview).not.toHaveBeenCalled();
   });

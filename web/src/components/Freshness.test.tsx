@@ -8,15 +8,17 @@ const live = { kind: "live", preset: "24h" } as const;
 const fresh = (ageMs: number, liveCollector = true): FreshnessModel => ({ epoch: "9", epochAt: Date.now() - ageMs, partial: false, live: liveCollector, intervalMs: 30_000, collecting: true });
 
 describe("Freshness", () => {
-  it("says live with the age of the newest epoch", () => {
+  it("says live with the age available on demand", () => {
     render(<Freshness spec={live} freshness={fresh(4_000)} />);
-    expect(screen.getByText(/live/)).toHaveTextContent("live · 4s");
+    expect(screen.getByText(/live/)).toHaveTextContent(/^live$/);
+    expect(screen.getByText(/live/)).toHaveAttribute("title", "live · 4s. Newest collection 9");
   });
 
   it("says stale after three collect intervals", () => {
     render(<Freshness spec={live} freshness={fresh(95_000)} />);
     const el = screen.getByText(/stale/);
-    expect(el).toHaveTextContent("stale · 1m");
+    expect(el).toHaveTextContent(/^stale$/);
+    expect(el).toHaveAttribute("title", "stale · 1m. Newest collection 9");
     expect(el).toHaveClass("stale");
   });
 
