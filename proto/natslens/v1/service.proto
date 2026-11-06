@@ -13,6 +13,7 @@ import "natslens/v1/findings.proto";
 import "natslens/v1/history.proto";
 import "natslens/v1/info.proto";
 import "natslens/v1/micro.proto";
+import "natslens/v1/oncall.proto";
 import "natslens/v1/overview.proto";
 import "natslens/v1/placement.proto";
 import "natslens/v1/replay.proto";
@@ -56,6 +57,11 @@ service LensService {
 
   // One finding with its transitions.
   rpc GetFinding(GetFindingRequest) returns (GetFindingResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Current finding, affected assets, and the episode's Replay story.
+  rpc GetOnCall(GetOnCallRequest) returns (GetOnCallResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 

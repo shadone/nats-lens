@@ -44,6 +44,8 @@ type Provider interface {
 	ShellStatus(ctx context.Context, req *v1.GetShellStatusRequest) (*v1.GetShellStatusResponse, error)
 	ListFindings(ctx context.Context, req *v1.ListFindingsRequest) (*v1.ListFindingsResponse, error)
 	GetFinding(ctx context.Context, req *v1.GetFindingRequest) (*v1.GetFindingResponse, error)
+	// OnCall reads the card's present facts. The handler reads and finishes Replay.
+	OnCall(ctx context.Context, req *v1.GetOnCallRequest) (*OnCallFacts, error)
 	// MuteFinding stores a mute; the handler has checked the reason, the
 	// expiry and set muted_by.
 	MuteFinding(ctx context.Context, req *v1.MuteFindingRequest) (*v1.Mute, error)
