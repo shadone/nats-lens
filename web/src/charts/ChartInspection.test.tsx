@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ChartInspection } from "./ChartInspection";
 import { HistoryContext } from "../components/HistoryNote";
+import { MiniLine } from "./MiniLine";
 import { Sparkline } from "./Sparkline";
 import { TrendChart } from "../components/TrendChart";
 
@@ -67,4 +68,16 @@ it("does not turn a missing collection into a known bucket sample", () => {
   fireEvent.keyDown(cursor, { key: "ArrowRight" });
   expect(screen.getByRole("tooltip")).toHaveTextContent("Not collected");
   expect(screen.getByRole("tooltip")).toHaveTextContent("No sample");
+});
+it("describes aggregation and inspects legacy series without assuming epoch alignment", () => {
+  render(<Sparkline {...spark} start={123} end={2123} points={[{ time: 123, value: 9 }, { time: 1123, value: 6 }]} stepMs={undefined} bucketNote="Mean rate in bucket" />);
+  fireEvent.keyDown(screen.getByRole("slider"), { key: "Home" });
+  expect(screen.getByRole("tooltip")).toHaveTextContent("9%");
+  expect(screen.getByRole("tooltip")).toHaveTextContent("Mean rate in bucket");
+});
+
+it("gives the Overview consumer mini chart the same time inspector", () => {
+  render(<MiniLine points={points} level="ok" label="worker delivered" period="range" fmt={v => `${v}/s`} frame={{start:0,end:5000,stepMs:1000}} />);
+  fireEvent.keyDown(screen.getByRole("slider", { name: "Inspect worker delivered" }), { key: "Home" });
+  expect(screen.getByRole("tooltip")).toHaveTextContent("2/s");
 });
