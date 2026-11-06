@@ -8,10 +8,10 @@ export function headline(f: Finding, count: number): string {
 }
 export function rightNow(n: OnCallNow): string {
   const clauses: string[] = [];
-  if (n.openWindow) clauses.push(n.openWindow.label);
+  if (n.openWindow) clauses.push(`recent Kubernetes events: ${n.openWindow.label}`);
   if (n.serversAnswering !== undefined) clauses.push(`${n.serversAnswering}${n.serversExpected !== undefined ? ` of ${n.serversExpected}` : ""} servers answer`);
-  if (n.deliveredPerSecond !== undefined) clauses.push(`consumers deliver ${rate(n.deliveredPerSecond)} msgs/s`);
-  if (n.streamMsgsPerSecond !== undefined) clauses.push(`streams receive ${rate(n.streamMsgsPerSecond)} msgs/s`);
+  if (n.deliveredPerSecond !== undefined) clauses.push(`reporting consumers deliver ${rate(n.deliveredPerSecond)} msgs/s`);
+  if (n.streamMsgsPerSecond !== undefined) clauses.push(`reporting streams receive ${rate(n.streamMsgsPerSecond)} msgs/s`);
   return clauses.length ? `${clauses.join("; ")}.` : "Present observations are not reported.";
 }
 function rate(n: number) { return n.toLocaleString("en-US", { maximumFractionDigits: 1 }); }
@@ -20,7 +20,7 @@ export function assetStatus(a: Pick<OnCallAsset, "replicas" | "online" | "leader
   const placement = a.online !== undefined ? `${a.online}${a.replicas !== undefined ? ` of ${a.replicas}` : ""} online` : a.replicas !== undefined ? `Online count not reported · ${a.replicas} configured replicas` : "Placement not reported";
   return `${placement}${a.leader ? ` · leader ${a.leader}` : ""}`;
 }
-export function contextText(w?: { label: string }): string { return w ? `During a ${w.label}` : ""; }
+export function contextText(w?: { label: string }): string { return w ? `Observed Kubernetes window: ${w.label}` : ""; }
 export function storyNote(shown: number, total: number, note: string): string { return [shown < total ? `Showing ${shown} of ${total} steps.` : "", note].filter(Boolean).join(" "); }
 // ASVS 1.2.2: allow only HTTPS for a configured external destination.
 export function safePlaybook(url: string): string | undefined {

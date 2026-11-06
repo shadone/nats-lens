@@ -38,7 +38,7 @@ export function OnCallFinding({ allDetails }: { allDetails: ReactNode }) {
           <p>{f.detail}</p>
           <p className="oc-time">{f.state === "resolved" ? `Resolved${f.resolvedAt !== undefined ? ` ${isoMinute(f.resolvedAt)} UTC` : ""}. Present observations describe now.` : since !== undefined ? `Since ${isoMinute(since)} UTC (${fmtDuration(Math.max(0, serverNow() - since))})` : "Start not reported"}</p>
           {known && <p><HistoryLink>already true when nats-lens started</HistoryLink></p>}
-          {d.contextWindow && <p className="oc-context">{contextText(d.contextWindow)}</p>}
+          {d.contextWindow && <p className="oc-context">{contextText(d.contextWindow)}. Inferred from observed events.</p>}
           <h2 className="oc-heading">Affected assets</h2>
           <ul className="oc-assets">{d.assets.map(a => <li key={a.findingId}>
             <RLink to={findingPath(a.findingId)}>{entityName(a.entity) || "system"}{a.entity?.kind === "consumer" && ` on ${a.entity.stream}`}</RLink><span>{assetStatus(a)}</span>
