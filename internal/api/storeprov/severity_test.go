@@ -22,3 +22,9 @@ func TestInternalConsumerDeleteIsRoutine(t *testing.T) {
 		}
 	}
 }
+
+func TestOCSPRejectionSeverity(t *testing.T) {
+	if got := severityOf("server.ocsp_peer_rejected", "client not OCSP valid", ""); got != v1.Severity_SEVERITY_WARNING {
+		t.Errorf("OCSP rejection severity = %s, want warning", got)
+	}
+}
