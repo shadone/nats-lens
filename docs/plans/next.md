@@ -26,7 +26,7 @@ Phase 1 is complete on `develop` (see `phase-1.md`). This note is the starting p
 
 ## Next work, most valuable first
 
-Data history T1–T3 are reviewed and merged (`5183027`, `0f06480`, canonical `79183fb` merged at `88eaed8`); T4 consolidates their docs and awaits fresh read-only review. Its owner-facing choices remain proposed, not yet confirmed. Existing relevant leftovers, in order: forecast margins; archive size per table and day; reading archive-only hours into the UI; per-server missing-answer gaps on server charts; a Fleet history-start column. The chart overlay also inherits the newest-200 collection-gap cap without a truncation notice, so older gaps can be absent; a notice or full chart-gap coverage remains unresolved. These are deferred, not shipped behavior.
+Data history T1–T3 are reviewed and merged (`5183027`, `0f06480`, canonical `79183fb` merged at `88eaed8`); T4 was independently reviewed and merged at `4b03bc7`. Its owner-facing choices remain proposed, not yet confirmed. Existing relevant leftovers, in order: forecast margins; archive size per table and day; reading archive-only hours into the UI; per-server missing-answer gaps on server charts; a Fleet history-start column. The chart overlay also inherits the newest-200 collection-gap cap without a truncation notice, so older gaps can be absent; a notice or full chart-gap coverage remains unresolved. These are deferred, not shipped behavior.
 
 1. **Short-lived connections as a signal.** Done: `client-005` fires for a name with 20 or more short-lived connections in 10 minutes; folding and the routine status of `client.churn` stay (see `docs/features/client-checks.md`).
 2. **One conformance table for the store and the demo.** Done: `apitest.Conformance` runs against a store fixture and the demo; `example-global` gained disagreeing, missing and leaderless replicas, a paused consumer and one without a rate, and changed findings, and the demo's growth is the store's Theil-Sen slope (see `docs/features/demo-mode.md`). Left: a server without JetStream, and the stopped or starting collection states, are not in the demo.
@@ -37,7 +37,11 @@ Data history T1–T3 are reviewed and merged (`5183027`, `0f06480`, canonical `7
 
 ## Notification follow-ups
 
-Proposed, not yet confirmed. Direct webhook and Slack-compatible delivery is documented in [Notifications](../features/notifications.md). Remaining work includes message templates, e-mail, paging-service APIs, routing by finding owner, a channel-status UI, per-channel quiet hours, and grouping by cause instead of collection. Prometheus acknowledgement exclusions, metric reference rows, deep links and playbook guidance remain assigned to [mobile T4](mobile.md); notification quiet does not change the README's mute-only finding rules.
+Proposed, not yet confirmed. Direct webhook and Slack-compatible delivery is documented in [Notifications](../features/notifications.md). Remaining work includes message templates, e-mail, paging-service APIs, routing by finding owner, a channel-status UI, per-channel quiet hours, and grouping by cause instead of collection. [Mobile T4](mobile.md) builds the acknowledgement exclusions, metric reference rows, encoded deep links, and playbook guidance; its fresh read-only fact-check passed and it awaits parent review and integration.
+
+## Mobile progress on 2026-11-06
+
+M1 merged at `d073334`; reviewed M2 tip `9edad8f` merged at `0d0c9f7`. M3 candidate `85cc838` awaits fresh review. M4 docs are built against that candidate in an isolated checkout; the fresh read-only fact-check passed and parent review remains; a later M3 fix needs reconciliation before integration. Choices remain proposed, not yet confirmed. Deferred: consequence predictions, desktop story and present observations, dedicated Servers/Streams/Replay phone layouts, an acknowledged filter, bulk acknowledgement, and push notifications. Data-history forecast margins and its other recorded leftovers remain deferred.
 
 ## How the work was run
 

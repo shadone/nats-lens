@@ -108,4 +108,4 @@ nats-lens sends findings to configured webhook and Slack-compatible channels. Ac
 - **No templates, e-mail or paging-service API.** Receivers can transform the documented webhook JSON. Slack-compatible delivery sends plain text.
 - **No notification UI or quiet hours.** Channels are configured in YAML; there is no channel status page or per-channel quiet schedule.
 - **No exactly-once delivery or archive recovery of the queue.** Receivers must deduplicate retries. A rebuilt database starts a baseline instead of restoring pending deliveries.
-- **No automatic Prometheus quieting from these notification rules.** Notification quiet applies to channels. Prometheus alert rules must explicitly exclude quiet acknowledgements; the README's finding rules exclude mutes only.
+- **Separate Prometheus quiet rules.** Notification quiet applies to channels. The README's finding rules explicitly exclude quiet acknowledgements through their metric; notification delivery does not alter a deployment's Prometheus rules ([metrics-and-alerting.md](metrics-and-alerting.md)).
