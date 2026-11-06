@@ -30,3 +30,7 @@
   .oc-row-mark{grid-column:1 / -1}
   .oc-page .rem{overflow-wrap:anywhere}
 }
+
+.oc-warning{font-weight:600;margin-bottom:12px}
+.oc-steps{padding-left:20px;margin:0}
+.oc-steps li{padding:4px 0 10px 4px;overflow-wrap:anywhere}

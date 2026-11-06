@@ -265,7 +265,7 @@ function MuteSection({ m }: { m: Mute }) {
 }
 
 export function FindingDetail() {
-  return usePhone() ? <OnCallFinding /> : <DesktopFindingDetail />;
+  return usePhone() ? <OnCallFinding allDetails={<DesktopFindingDetail acknowledgements={false} />} /> : <DesktopFindingDetail />;
 }
 
 export function DesktopFindingDetail({ acknowledgements = true }: { acknowledgements?: boolean }) {

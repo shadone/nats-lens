@@ -26,3 +26,17 @@ export function storyNote(shown: number, total: number, note: string): string { 
 export function safePlaybook(url: string): string | undefined {
   try { return new URL(url).protocol === "https:" ? url : undefined; } catch { return undefined; }
 }
+/** Keep the check's words; split sentence boundaries only outside inline code. */
+export function remediationParts(text: string): { warning: string; steps: string[] } {
+  const parts: string[] = [];
+  let start = 0, code = false;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === "`") code = !code;
+    if (!code && /[.!?]/.test(text[i]) && /^\s+[A-Z0-9]/.test(text.slice(i + 1))) {
+      parts.push(text.slice(start, i + 1).trim()); start = i + 1;
+    }
+  }
+  const tail = text.slice(start).trim();
+  if (tail) parts.push(tail);
+  return { warning: parts[0] ?? "", steps: parts.slice(1) };
+}
