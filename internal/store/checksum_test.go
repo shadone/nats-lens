@@ -70,10 +70,25 @@ func TestMissingChecksumsBackfilled(t *testing.T) {
 // except the newest, which is returned as the pending one.
 func openAllButLast(t *testing.T) (*sql.DB, []migration) {
 	t.Helper()
+	return openBeforeMigration(t, 0)
+}
+
+// openBeforeMigration pins an upgrade fixture to the migration it exercises;
+// version 0 selects the newest migration for generic checksum tests.
+func openBeforeMigration(t *testing.T, version int) (*sql.DB, []migration) {
+	t.Helper()
 	ctx := context.Background()
 	all, err := loadMigrations()
 	if err != nil {
 		t.Fatal(err)
+	}
+	if version > 0 {
+		for i, m := range all {
+			if m.version > version {
+				all = all[:i]
+				break
+			}
+		}
 	}
 	db, err := sql.Open("duckdb", filepath.Join(t.TempDir(), "db.duckdb"))
 	if err != nil {
