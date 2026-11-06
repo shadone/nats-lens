@@ -37,7 +37,7 @@ Data history T1–T3 are reviewed and merged (`5183027`, `0f06480`, canonical `7
 
 ## Notification follow-ups
 
-Proposed, not yet confirmed. Direct webhook and Slack-compatible delivery is documented in [Notifications](../features/notifications.md). Remaining work includes message templates, e-mail, paging-service APIs, routing by finding owner, a channel-status UI, per-channel quiet hours, and grouping by cause instead of collection. [Mobile T4](mobile.md) builds the acknowledgement exclusions, metric reference rows, encoded deep links, and playbook guidance; its original and final fresh read-only fact-checks passed; parent integration waits for M3 approval.
+Proposed, not yet confirmed. Direct webhook and Slack-compatible delivery is documented in [Notifications](../features/notifications.md). Remaining work includes message templates, e-mail, paging-service APIs, routing by finding owner, a channel-status UI, per-channel quiet hours, and grouping by cause instead of collection. [Mobile T4](mobile.md) builds the acknowledgement exclusions, metric reference rows, encoded deep links, and playbook guidance; its original and final fresh read-only fact-checks passed; M3 was approved and merged at `2cfcd33`, and the reviewed M4 docs were integrated through `526b12f`.
 
 ## Mobile progress on 2026-11-06
 
@@ -63,3 +63,7 @@ Made in the session that built them, each also written in `docs/design.md` or th
 The owner runs a collector against two real clusters outside the repository. On one of them a Kubernetes controller opened and closed a connection about 12 times a minute all day, all of it folded into routine `client.churn` events; that is what `client-005` now flags. Short-lived CronJob connections that last minutes are not folded, as intended.
 
 
+
+## Phase 3 completion on 2026-11-06
+
+Data history T1–T4, Notifications T1–T5 and Mobile T1–T4 are reviewed and integrated on local `develop`. Mobile UI tip `6d65057` merged at `2cfcd33`; final docs integrated through `526b12f`. The remaining items in each plan are explicitly deferred follow-ups. Full Go tests passed before the final web-only integration; the merged web suite has 1,309 passing tests and 24 existing skips, TypeScript and build pass, and the feature audit is clean across 39 docs. Nothing was pushed or deployed.
