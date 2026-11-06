@@ -1,6 +1,7 @@
 import { create, fromJson } from "@bufbuild/protobuf";
 import { timestampFromMs } from "@bufbuild/protobuf/wkt";
 import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { lens } from "../api/client";
@@ -116,6 +117,7 @@ describe("ServerDetail on example-global", () => {
     const tile = about.closest(".mbox")! as HTMLElement;
     expect(within(tile).getByRole("link", { name: "Consumers" })).toHaveAttribute("href", "/consumers");
     expect(tile).toHaveTextContent("For JetStream backlog, see Consumers.");
+    await userEvent.click(about);
     expect(tile).toHaveTextContent("Server slow-consumer counter increases during the selected range.");
     expect(tile).toHaveTextContent("Covers clients, routes, gateways and leaf connections; retries can count without a disconnect.");
     expect(tile).toHaveTextContent("Not unique clients or JetStream pending messages.");
