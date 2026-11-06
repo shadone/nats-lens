@@ -26,9 +26,7 @@ func TestFatalSystemIsolationAndReadiness(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if testfatal.Prepare(t, path) {
-		return
-	}
+	testfatal.Prepare(t, path)
 	c := testcluster.Start(t, 1)
 	port := testcluster.FreePort(t)
 	regCh := make(chan api.Systems, 1)
