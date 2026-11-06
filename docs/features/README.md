@@ -78,7 +78,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Consumers](consumers.md) | `ui`, `api` | shipped — delivery rate and busiest-first order are in the API only |
 | [Connections](connections.md) | `ui`, `api` | shipped — single-page results omit pagination controls |
 | [Events](events.md) | `ui`, `api` | shipped — OCSP peer rejections are NATS warnings |
-| [Triage and mutes](triage-and-mutes.md) | `ui`, `api` | shipped — single-page list counts, spaced finding facts and actions, acknowledgements beside mutes, and history-start explanations |
+| [Triage and mutes](triage-and-mutes.md) | `ui`, `api` | shipped — single-page Findings counts, spaced finding facts and actions, acknowledgements beside mutes, and history-start explanations |
 | [Metrics and alerting](metrics-and-alerting.md) | `api` | shipped — acknowledgement quiet metrics and exclusions |
 | [Running nats-lens](running-nats-lens.md) | `api`, `cli` | shipped — shared IAP identity for mutes and acknowledgements |
 | [SQL access](sql-access.md) | `cli` | shipped |
