@@ -44,7 +44,7 @@ export function ChartInspection({ label, start, end, stepMs, bucketNote, series,
   return <div className="chart-inspection" role="slider" tabIndex={0} aria-label={`Inspect ${label}`} aria-valuemin={start} aria-valuemax={end} aria-valuenow={selected ?? start} aria-valuetext={selected === undefined ? "Focus, then use arrow keys to inspect time and values" : text} aria-describedby={selected === undefined ? undefined : id}
     onPointerMove={e => move(e.clientX, e.currentTarget)} onPointerDown={e => move(e.clientX, e.currentTarget)}
     onPointerLeave={e => { if (e.pointerType !== "touch") setCursor(undefined); }}
-    onFocus={() => setCursor(start)} onBlur={() => setCursor(undefined)}
+    onFocus={() => setCursor(current => current ?? start)} onBlur={() => setCursor(undefined)}
     onKeyDown={e => {
       const current = selected ?? start;
       const next = e.key === "Home" ? start : e.key === "End" ? end : e.key === "ArrowRight" || e.key === "ArrowUp" ? current + step : e.key === "ArrowLeft" || e.key === "ArrowDown" ? current - step : undefined;
