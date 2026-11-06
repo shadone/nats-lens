@@ -18,8 +18,10 @@
 .range > *{padding:7px 10px;border-right:1px solid var(--border-soft);white-space:nowrap}
 .range > *:last-child{border-right:0}
 .range .preset{font-weight:600}
+.range.compact{grid-template-columns:auto minmax(0,max-content)}
+.range-summary{font:12px/1.5 var(--mono);color:var(--text-2);overflow-wrap:anywhere}
 .range .span{min-width:0;overflow:hidden;text-overflow:ellipsis;font:12px var(--mono);color:var(--text-2)}
-.live{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px var(--mono);color:var(--accent-text)}
+.live{display:block;padding-left:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px var(--mono);color:var(--accent-text)}
 .live:before{content:"";display:inline-block;vertical-align:1px;margin-right:7px;width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--live-ring)}
 
 /* a button that opens a menu */

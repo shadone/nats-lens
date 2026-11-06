@@ -1,5 +1,5 @@
-// The header's time range: preset, span and live freshness, with a panel
-// for presets, a custom range and live mode. Times are UTC.
+// The header's range label and collection state, with exact bounds and
+// custom dates in the panel. Dates follow the browser locale; times are UTC.
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { errorInfo } from "../api/errors";
 import type { Freshness } from "../api/model";
@@ -25,7 +25,7 @@ export function fromLocalInput(v: string): number {
  * range too), fixed for a fixed range, not collecting while the collector's
  * connection to NATS is down or no collector writes, no data without any
  * collection, stale when the newest collection is older than three collect
- * intervals, otherwise live with the collection's age. A narrow header cuts
+ * intervals, otherwise live. Age is available in the tooltip. A narrow header cuts
  * the longer texts with an ellipsis, so their title starts with the whole
  * text; "fixed" and "no data" are short enough to stay whole.
  */
@@ -57,7 +57,6 @@ export function Freshness({ spec, freshness, error, id }: { spec: RangeSpec; fre
   return (
     <span className={`live${label === "live" ? "" : " stale"}`} id={id} title={title(`${label} · ${fmtDuration(age)}`)}>
       {label}
-      <span className="dotsep"> ·</span> {fmtDuration(age)}
     </span>
   );
 }
@@ -72,6 +71,8 @@ export function RangePicker({ freshness, error }: { freshness?: Freshness; error
   const trigger = useRef<HTMLButtonElement>(null);
   const now = useNow(30_000, spec.kind === "live");
   const r = resolveRange(spec, now);
+  const locale = navigator.language;
+  const dateFormat = new Intl.DateTimeFormat([...navigator.languages], { dateStyle: "short", timeStyle: "short", timeZone: "UTC" });
   const [from, setFrom] = useState(toLocalInput(r.start));
   const [to, setTo] = useState(toLocalInput(r.end));
   const [err, setErr] = useState("");
@@ -132,14 +133,14 @@ export function RangePicker({ freshness, error }: { freshness?: Freshness; error
 
   return (
     <div className="range-wrap" ref={wrap}>
-      <div className="range">
+      <div className={`range${spec.kind === "live" ? " compact" : ""}`}>
         <button ref={trigger} type="button" className="preset" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen((o) => !o)}>
           {rangeLabel(spec)}
         </button>
-        <span className="span" title={`${dayMonHm(r.start)} – ${dayMonHm(r.end)} UTC`}>
+        {spec.kind === "fixed" && <span className="span" title={`${dayMonHm(r.start)} – ${dayMonHm(r.end)} UTC`}>
           {dayMonHm(r.start)} – {dayMonHm(r.end)}
           <span className="tz"> UTC</span>
-        </span>
+        </span>}
         <button
           type="button"
           className="live-btn"
@@ -152,6 +153,12 @@ export function RangePicker({ freshness, error }: { freshness?: Freshness; error
       </div>
       {open && (
         <div className="range-panel card" id={panelId} role="dialog" aria-label="Time range" ref={panel} tabIndex={-1} onKeyDown={onPanelKey}>
+          <div className="range-summary" role="group" aria-label="Selected range">
+            <time dateTime={new Date(r.start).toISOString()}>{dateFormat.format(r.start)}</time>
+            {" – "}
+            <time dateTime={new Date(r.end).toISOString()}>{dateFormat.format(r.end)}</time>
+            {" UTC"}
+          </div>
           <div className="lbl">Live</div>
           <div className="preset-row">
             {PRESETS.map((p) => (
@@ -173,11 +180,11 @@ export function RangePicker({ freshness, error }: { freshness?: Freshness; error
             <div className="lbl">Custom, UTC</div>
             <label>
               From
-              <input type="datetime-local" value={from} onChange={(e) => setFrom(e.target.value)} required />
+              <input type="datetime-local" lang={locale} value={from} onChange={(e) => setFrom(e.target.value)} required />
             </label>
             <label>
               To
-              <input type="datetime-local" value={to} onChange={(e) => setTo(e.target.value)} required />
+              <input type="datetime-local" lang={locale} value={to} onChange={(e) => setTo(e.target.value)} required />
             </label>
             {err && (
               <p className="field-err" role="alert">
