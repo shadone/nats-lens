@@ -15,6 +15,9 @@ func TestCreationReferenceDoesNotInferCauseOrPromiseRepair(t *testing.T) {
 	if strings.Contains(c.Description, "a replica was rebuilt") || strings.Contains(c.Remediation, "so the replicas resynchronise") {
 		t.Fatal("creation timestamps cannot establish a rebuild or guarantee step-down repairs it")
 	}
+	if !strings.Contains(c.Description, "position_ahead_tolerance_ratio of the leader's position") {
+		t.Error("ahead ratio must be a share of the leader position")
+	}
 	for _, word := range []string{"currentness", "configuration", "captured"} {
 		if !strings.Contains(c.Remediation, word) {
 			t.Errorf("remediation lacks %q evidence", word)
