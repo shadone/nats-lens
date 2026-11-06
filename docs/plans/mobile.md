@@ -16,7 +16,7 @@ Examples use the online shop of `inventory.example.yaml`, the demo's systems (`e
 |---|---|
 | T1 Acknowledgements: store, API, metrics and demo | built on `feat/acknowledgements`, awaiting review |
 | T2 `GetOnCall`: one call for the phone card | built, pending review |
-| T3 The phone layout, the acknowledge dialog and the marks | planned |
+| T3 The phone layout, the acknowledge dialog and the marks | built in isolated checkout, awaiting fresh parent review |
 | T4 Feature docs, deep links in the README and audit | planned |
 
 ## Rules for every step
@@ -114,6 +114,18 @@ The implementation's choices are proposed, not yet confirmed.
 - **Files:** `pages/FindingDetail.tsx`, `components/OnCallFinding.tsx`, `components/AckDialog.tsx`, `lib/onCallView.ts` (headline, right-now sentence, context, steps' cut words), `lib/usePhone.ts`, `lib/muteForm.ts`, `api/oncall.ts`, `api/finding.ts`, `api/adapt-findings.ts`, `requests.ts`, `queries.ts`, `App.tsx` (the label route), `components/CauseGroups.tsx`, `pages/Findings.tsx`, `components/StatusLine.tsx`, `styles/oncall.css` (every rule on an `oc-` class, checked by `components/OnCallCss.test.ts` as `CapacityCss.test.ts` does), `styles/app-responsive.css`, `index.css`.
 - **Tests.** `onCallView` words for each fact present and absent; the dialog's refusals (note too long), its default, its identity line both ways; the card renders at phone width and the desktop page above it (a `matchMedia` mock); the label route with a space, a slash and a colon in the key; the marks on the cause card and the Findings row.
 - **Browser check.** In `natslens demo` with agent-browser at 360 and 390 px: open `example-prod`'s `consumer-010` from its label link, acknowledge it, see the mark on the Overview; `document.documentElement.scrollWidth` equals `clientWidth` on the three pages; "I'm on it" stays in view while the card scrolls; screenshots at 360 px are looked at.
+
+### Where T3 departed from this plan
+
+Each point was decided in the session that built T3: proposed, not yet confirmed.
+
+- The acknowledgement response patches the current finding and on-call caches before refetch. The UI waits for a successful write before showing the receipt; a failed write never claims ownership. Invalidation is limited to the captured system.
+- The section retains a replacement or hand-back receipt during the current visit. The API has no acknowledgement-history list; a reload reads the current episode's acknowledgement, and Events retains acknowledgement events. No server contract was added in T3.
+- A missing label lookup replaces the route with the check's Findings list and passes the explanatory message as navigation state. A real `not_found` response and an empty finding response take this path; other failures keep their API error.
+- The right-now sentence names reporting consumers and streams; the context names an observed Kubernetes window, not an active upgrade. This carries the corrected M2 semantics through the UI.
+- The phone remediation separates the opening sentence from subsequent sentences without changing the check's wording or splitting inline code.
+- The browser check tried T3 Preview first. Its snapshot step failed twice with `Preview snapshot failed: Preview automation snapshot timed out after 15000ms.` The check continued in an isolated agent-browser session. The demo listens only on the task's unused loopback port, 18483.
+- T3 updates the mobile capability, both feature-index sections, and short adjacent cross-references to meet AGENTS.md. The full M4 docs and README work remain separate. Existing history and notification content is preserved.
 
 ## T4 Feature docs, deep links in the README and audit
 
