@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Acknowledgement, Finding } from "../api/model";
 import { serverNow } from "../lib/clock";
 import { isoMinute } from "../lib/format";
@@ -15,31 +15,24 @@ export function AcknowledgementMark({ acknowledgement: a, now = serverNow() }: {
 }
 /** One action owner per finding tree. A successful save focuses the receipt
  * after the native dialog has restored its opener's focus. */
-export function FindingAcknowledgement({ finding: f, phone = false, onOpenReady }: { finding: Finding; phone?: boolean; onOpenReady?: (open: () => void) => void }) {
+export function FindingAcknowledgement({ finding: f, phone = false, renderHead }: { finding: Finding; phone?: boolean; renderHead?: (open: () => void) => ReactNode }) {
   const [dialog, setDialog] = useState<"ack" | "release">();
-  const [saved, setSaved] = useState<Acknowledgement>();
   const [previous, setPrevious] = useState<Acknowledgement>();
   const [focusVersion, setFocusVersion] = useState(0);
   const section = useRef<HTMLElement>(null);
-  // Local receipt only bridges the refetch; future episode/state reads remain
-  // authoritative. The cache receives the same saved response before this.
-  const a = f.acknowledgement;
-  const current = a ?? (saved && saved.endedAt === undefined && f.state !== "resolved" ? saved : undefined);
+  const current = f.acknowledgement;
   const open = () => setDialog("ack");
-  useEffect(() => { onOpenReady?.(open); }, [onOpenReady]);
   useEffect(() => {
     if (focusVersion) section.current?.focus({ preventScroll: false });
   }, [focusVersion]);
-  // Once a newer server response arrives, relinquish the local bridge. The
-  // caller remounts this component on ID/system changes.
-  useEffect(() => { if (a?.id === saved?.id || f.state === "resolved") setSaved(undefined); }, [a, f.state, saved?.id]);
   const completed = (next: Acknowledgement) => {
     if (current && current.id !== next.id) setPrevious({ ...current, endedAt: next.createdAt, endedBy: next.ackedBy, endReason: "replaced", quiet: false });
     else if (next.endedAt !== undefined) setPrevious(next);
-    setSaved(next); setFocusVersion(n => n + 1);
+    setFocusVersion(n => n + 1);
   };
   const shown = current || previous;
   return <>
+    {renderHead?.(open)}
     <section className="oc-ack sec card box-card" aria-label="Acknowledgement" tabIndex={-1} ref={section}>
       <h2 className="oc-heading">Acknowledgement</h2>
       <div aria-live="polite" aria-atomic="true">
@@ -48,7 +41,7 @@ export function FindingAcknowledgement({ finding: f, phone = false, onOpenReady 
       </div>
       {f.state !== "resolved" && <div className="oc-actions">
         {current ? <><button type="button" className="btn" onClick={open}>Update…</button><button type="button" className="btn" onClick={() => setDialog("release")}>Hand back…</button></> :
-          !phone && <button type="button" className="btn" onClick={open}>Acknowledge…</button>}
+          !phone && !renderHead && <button type="button" className="btn" onClick={open}>Acknowledge…</button>}
       </div>}
     </section>
     {phone && f.state !== "resolved" && <div className="oc-sticky"><button type="button" className="btn p oc-primary" onClick={open}>{current ? "Update acknowledgement…" : "I'm on it"}</button></div>}
