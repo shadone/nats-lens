@@ -151,7 +151,7 @@ describe("DataHistory", () => {
     expect(card("Gaps").queryByRole("table")).toBeNull();
   });
 
-  it("lists what uses history, with what it needs, has and when it has enough", async () => {
+  it("lists measured availability without countdowns for stopped collection", async () => {
     const d = staging();
     d.uses.push(use({ id: "day", needs: 24 * HOUR, has: undefined, enough: false }));
     m.getDataHistory.mockResolvedValue(d);
@@ -159,13 +159,13 @@ describe("DataHistory", () => {
     await screen.findByRole("region", { name: "What uses history" });
     const rows = bodyRows("What uses history");
     expect(rows.map((r) => r.textContent)).toEqual([
-      "Growth per dayStreams, Capacity, the storage tile; over the range6 h9 henough",
-      "Store forecastserver-014: when a server's store fills6 h9 henough",
-      "Check server-019its lookback1 d9 henough at 2026-11-06 13:47 UTC",
-      "Growth review of accepted findings8 days and an hour, kept as long8 d 1 h9 henough at 2026-11-13 14:47 UTC",
-      "The last 24 hoursApplications traffic, failed logins (Accounts), drops (Topology)1 d– not observednot within this range",
+      "Growth per dayStreams, Capacity, the storage tile; over the range6 h5 h 59 minsample span short or unavailable",
+      "Store forecastserver-014: when a server's store fills6 h5 h 59 minsample span short or unavailable",
+      "Check server-019its lookback1 d5 h 59 minsample span short or unavailable",
+      "Growth review of accepted findings8 days and an hour, kept as long8 d 1 h5 h 59 minsample span short or unavailable",
+      "The last 24 hoursApplications traffic, failed logins (Accounts), drops (Topology)1 d– not observedsample span short or unavailable",
     ]);
-    expect(rows[2]).toHaveAttribute("title", "needs 1 d; has 9 h; enough at 2026-11-06 13:47 UTC");
+    expect(rows[2]).toHaveAttribute("title", "needs 1 d; has 5 h 59 min; sample span short or unavailable");
   });
 
   it("marks a use the retention can never serve", async () => {
@@ -176,7 +176,7 @@ describe("DataHistory", () => {
     renderApp(<DataHistory />, "/data-history");
     await screen.findByRole("region", { name: "What uses history" });
     const cell = within(bodyRows("What uses history")[0]).getAllByRole("cell")[2];
-    expect(cell).toHaveTextContent("never with retention 7 d");
+    expect(cell).toHaveTextContent("target exceeds retention 7 d");
     expect(cell).toHaveClass("dh-warn");
   });
 

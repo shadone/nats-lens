@@ -10,7 +10,7 @@ The Capacity page shows what each stream keeps, what bounds it, and when the dis
 
 ## Behavior and rules
 
-- **Missing growth history.** The header, server cards, and stream rows explain the six-hour requirement and link to Data history. A live range of at least six hours counts down the missing history. A shorter range asks for a range of at least six hours; a fixed range names its available span. The page draws no collection-history chart overlay. Forecast confidence margins are not shown.
+- **Missing growth history.** The header, server cards, and stream rows explain the six-hour requirement and link to Data history. Missing figures require samples spanning six hours and explain that entity measurements may be missing. A shorter range asks for at least six hours. The age of retained history never supplies a countdown. The page draws no collection-history chart overlay. Forecast confidence margins are not shown.
 
 - **The newest collection of the range.** The page reads the newest collection at or before the end of the range, and names it in the line under the header with the number of streams and stores and since when growth is read ("growth from 2026-10-20 12:00 UTC"), or an explanation of the history needed when no card or row has a rate. Growth covers the whole range, as on the Streams page. Without a collection the page says "No collection in this range." and nothing else.
 - **One card per server.** "JetStream file store", the use, the limit and the share ("244 MiB of 50 GiB · 0.5%") and a bar. A server whose limit is unset or 0 shows its use and "no limit reported", without a bar. A server that did not answer in the collection reads "not reported in this collection". Servers without JetStream get no card; a line counts them. With more than one cluster, the cards are grouped under each cluster's name. Order: the soonest full first as the card words it (two cards that read alike, such as "full in more than 5 years", tie), then the fullest, then by name, so stores that fill alike keep their order between refreshes.
@@ -64,7 +64,7 @@ The Capacity page shows what each stream keeps, what bounds it, and when the dis
 - **Surfaces:** `ui`
 - **Given** `example-staging` has under 6 hours of collections
 - **When** I open Capacity
-- **Then** every card reads "not enough history for a rate (6 hours needed)" and every /day cell an en dash
+- **Then** every card explains that growth needs samples spanning six hours, and every /day cell shows an en dash
 
 ### Ask the API when a stream is full
 

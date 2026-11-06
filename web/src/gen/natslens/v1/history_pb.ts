@@ -278,8 +278,7 @@ export const ArchiveStateSchema: GenMessage<ArchiveState> = /*@__PURE__*/
   messageDesc(file_natslens_v1_history, 3);
 
 /**
- * One use of the history: what it needs, what the system has, and when it
- * will have enough.
+ * Global collection availability for a use; not per-entity readiness.
  *
  * @generated from message natslens.v1.HistoryUse
  */
@@ -300,30 +299,32 @@ export type HistoryUse = Message<"natslens.v1.HistoryUse"> & {
   checkCode: string;
 
   /**
-   * How much history the use needs.
+   * Target span: growth minimum, configured check lookback, or history window.
    *
    * @generated from field: google.protobuf.Duration needs = 3;
    */
   needs?: Duration | undefined;
 
   /**
-   * How much it has: the covered span of the range for growth, the
-   * history now for the others. Unset without history.
+   * Span between actual collections in the selected range for growth, or
+   * in the use window ending at the latest collection for other uses. May
+   * contain gaps and missing entity data. Unset without samples.
    *
    * @generated from field: google.protobuf.Duration has = 4;
    */
   has?: Duration | undefined;
 
   /**
-   * Whether has is at least needs.
+   * Whether has is at least needs within retention. This is global span
+   * availability, not algorithm eligibility or complete coverage.
    *
    * @generated from field: bool enough = 5;
    */
   enough: boolean;
 
   /**
-   * When it will have enough; unset when enough, never, or not within the
-   * range (a range shorter than the need, or one that ended).
+   * Earliest target time if collection continues; only for a fresh, growing
+   * selected range. Passing this time does not establish availability.
    *
    * @generated from field: google.protobuf.Timestamp enough_at = 6;
    */

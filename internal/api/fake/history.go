@@ -179,6 +179,13 @@ func (p *Provider) DataHistory(_ context.Context, req *v1.GetDataHistoryRequest)
 	start, end := req.GetRange().GetStart().AsTime().UTC(), req.GetRange().GetEnd().AsTime().UTC()
 	f := &api.HistoryFacts{Start: start, End: end, Now: s.now, Interval: sampleEvery, Retention: s.sc.retentionOr(),
 		HistoryStart: s.dataStart(), NewestEpochAt: s.lastEpoch(), Lookbacks: checkLookbacks()}
+	f.Samples = map[string]api.HistorySamples{}
+	for _, w := range api.HistoryUseWindows(f) {
+		first, last := s.epochFrom(w.Start), s.epochAtOrBefore(w.End.Add(-time.Nanosecond))
+		if !first.IsZero() && !last.IsZero() && !last.Before(first) {
+			f.Samples[w.ID] = api.HistorySamples{First: first, Last: last}
+		}
+	}
 	f.Epochs, f.PartialEpochs = s.epochCounts(start, end)
 	f.Collections = api.CollectionGaps(start, end, api.ReplayEpochReach*sampleEvery, s.epochPairs(start, end))
 	if s.sc.archive != nil {

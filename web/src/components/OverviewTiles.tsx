@@ -1,4 +1,4 @@
-import { HistoryLink, useGrowthHistoryNote, usePageHistory } from "./HistoryNote";
+import { HistoryLink, usePageHistory } from "./HistoryNote";
 import { rangeCoverageText } from "../lib/historyView";
 // The Overview's nine tiles as metric boxes: the API's description behind
 // (i), the value top right, the chart and the window's range track. A
@@ -40,7 +40,9 @@ export function tileStatus(t: Tile): Level {
 export function OverviewTiles({ tiles, windows, start, end }: { tiles: Tile[]; windows: Window[]; start: number; end: number }) {
   const h = usePageHistory();
   const coverage = rangeCoverageText(h?.historyStart, start, end);
-  const growth = useGrowthHistoryNote();
+  // Tile growth is conveyed in its subtitle, without typed readiness facts.
+  // Keep this guidance neutral rather than infer missing data from retained age.
+  const growth = "Growth uses samples spanning 6 h; entity measurements determine the rate.";
   return (
     <div className="ov-tiles">
       {tiles.map((t) => (

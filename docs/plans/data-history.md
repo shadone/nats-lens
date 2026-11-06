@@ -200,6 +200,16 @@ Three plans are built together: this one (D), `docs/plans/notifications.md` (N) 
 
 D T1 runs alone among the tasks that change `service.proto`, `provider.go`, `handler.go`, the fake provider or `apitest/conformance.go` (M T1, M T2). D T2 and M T3 both change `App.tsx`, `nav.ts` (D only), `requests.ts` and `queries.ts`; D T3 and M T3 both change `CauseGroups.tsx`, `Findings.tsx` and `FindingDetail.tsx`: in that order. `docs/design.md`, `docs/features/README.md` and the README are changed only by the docs tasks, one at a time: D T4, then N T5, then M T4.
 
+## Sample availability correction
+
+Proposed, not yet confirmed. Uses measure the first-to-last stored collection span in each bounded window, through one additional batch query (four queries total). Growth uses the selected range; system uses end at the latest stored collection. Retained age and time after collection stops add no sample span. The demo supplies the same facts. No schema or forecast algorithm changes are needed.
+
+These rules supersede the elapsed-history and unconditional countdown rules above. Check rows retain their configured lookbacks as targets, independently for each check. A target is not `min_span`: server and stream forecasts also require their own measurements, valid positive slopes in both halves, current observations, and the server process boundary. A global sample span cannot establish those facts. Gaps remain usable when the actual algorithms allow them. Acceptance review still needs paired baseline buckets; day totals and Replay still work with partial history, with gaps shown separately.
+
+The UI says “sample span available”, with an explicit qualification about gaps and entity measurements. Only a fresh, expanding growth range longer than six hours can offer an earliest target time conditional on future collections. A stopped collector or an ended/short range gives no countdown. A passed prediction never turns into availability without a fresh API result. Missing-growth notes outside Data history cannot infer readiness from LensInfo's oldest retained timestamp and show the six-hour sample requirement instead.
+
+Synthetic evidence uses only APP/catalog-changes. A retained old epoch followed by a long gap and nine recent epochs has a four-minute sample span and an unset stream growth result. The 24-hour coverage remains nine of 2,880 expected collections, with 23 hours 55 minutes without data. Tests cover windows before, inside, and after gaps, a valid growth result across a gap, stopped collection, interval changes, distinct forecast lookbacks/minimum-span overrides, no samples, retention, and non-UTC DuckDB sessions. Parent-owned fresh read-only review is required before integration.
+
 ## Leftovers
 
 Not in this plan, most valuable first: a margin on each forecast; the archive's size per table and day (the destination lists names, not sizes); reading archived hours into the UI for a range older than the retention; gaps of one server (a server that did not answer) on the server's charts; a Fleet column with each system's history start.
