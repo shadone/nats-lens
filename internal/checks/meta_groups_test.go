@@ -78,3 +78,81 @@ func TestMetaGroupsIndependentAdvisoriesNotCombined(t *testing.T) {
 		t.Fatalf("three advisories per group combined: %s", rowsText(r))
 	}
 }
+
+func TestMetaGroupsLabelsDoNotSplitMembership(t *testing.T) {
+	f := metaGroupsFixture(t, 8, func(g string, e int64) string { return "orders-0" })
+	// Relabel every server differently, then make their RAFT membership overlap.
+	// Neither labels nor the leader's cluster name establish another group.
+	f.exec(`UPDATE servers SET domain = server_id, cluster = server_id`)
+	f.exec(`UPDATE raft_stats SET peers = '{"shared":{"name":"orders-0"}}'`)
+	if r := f.eval("system-003", 8, map[string]string{"max_changes": "0"}); len(r) != 0 {
+		t.Fatalf("one physical group split by labels: %s", rowsText(r))
+	}
+	if r := f.eval("system-002", 8); len(r) != 0 {
+		t.Fatalf("one healthy physical group: %s", rowsText(r))
+	}
+}
+
+func TestMetaGroupsQuorumEvidenceAndUnknown(t *testing.T) {
+	f := metaGroupsFixture(t, 2, func(g string, e int64) string { return g + "-0" })
+	f.exec(`UPDATE server_stats SET meta_peers_offline = meta_cluster_size WHERE server_id IN ('orders-0','shipping-0') AND epoch = 1`)
+	r := f.eval("system-002", 1)
+	want(t, r[""], "critical", "meta leader orders-0 sees 3", "meta leader shipping-0 sees 5")
+	f.exec(`UPDATE server_stats SET meta_peers_offline = NULL, meta_leader = NULL WHERE epoch = 2`)
+	if r := f.eval("system-002", 2); len(r) != 0 {
+		t.Fatalf("missing facts treated as leaderless: %s", rowsText(r))
+	}
+}
+
+func TestMetaGroupsHistoryAndValue(t *testing.T) {
+	f := metaGroupsFixture(t, 12, func(g string, e int64) string { return fmt.Sprintf("%s-%d", g, e%2) })
+	r := f.eval("system-003", 12)
+	want(t, r[""], "warning", "Meta group [orders-0", "Meta group [shipping-0")
+	if v := r[""].Value; v == nil || *v != 11 {
+		t.Fatalf("value must be largest group count, not sum: %v", v)
+	}
+	if r := f.eval("system-003", 4); len(r) != 0 {
+		t.Fatalf("history borrowed future changes: %s", rowsText(r))
+	}
+	// Facts first obtained after the historical evaluation must not scope it.
+	f.exec(`DELETE FROM raft_stats WHERE epoch < 5`)
+	r = f.eval("system-003", 4, map[string]string{"max_changes": "0"})
+	if len(r) > 0 && !strings.Contains(r[""].Detail, "identity unknown") {
+		t.Fatalf("future group identity leaked: %s", rowsText(r))
+	}
+}
+
+func TestMetaGroupsJSZAttachmentIsUnambiguous(t *testing.T) {
+	f := metaGroupsFixture(t, 8, func(g string, e int64) string {
+		if g == "orders" {
+			return fmt.Sprintf("orders-%d", e%2)
+		}
+		return g + "-0"
+	})
+	// Orders-2 has only JSZ, and is absent from the other reporters' peer lists.
+	f.exec(`DELETE FROM raft_stats WHERE server_id = 'orders-2'`)
+	f.exec(`UPDATE raft_stats SET peers = '{"orders-peer-0":{"name":"orders-0"},"orders-peer-1":{"name":"orders-1"}}' WHERE server_id LIKE 'orders-%'`)
+	r := f.eval("system-003", 8)
+	want(t, r[""], "warning", "Meta group [orders-0, orders-1, orders-2]", "changed 7 times")
+}
+
+func TestMetaGroupsUnscopedAdvisoriesDoNotInventAGroup(t *testing.T) {
+	for _, flap := range []bool{false, true} {
+		f := metaGroupsFixture(t, 8, func(g string, e int64) string {
+			if flap && g == "orders" {
+				return fmt.Sprintf("orders-%d", e%2)
+			}
+			return g + "-0"
+		})
+		for i := int64(1); i <= 6; i++ {
+			f.event(i, at(i+1), "meta.leader_elected", m{"server_name": fmt.Sprintf("unresolved-%d", i), "source": "sys"})
+		}
+		r := f.eval("system-003", 8)
+		if !flap && len(r) != 0 {
+			t.Fatalf("unscoped advisories combined: %s", rowsText(r))
+		}
+		if flap {
+			want(t, r[""], "warning", "changed 7 times", "unresolved group identity were not counted")
+		}
+	}
+}
