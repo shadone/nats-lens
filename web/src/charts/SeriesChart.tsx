@@ -36,7 +36,7 @@ export function SeriesChart({ title, series, start, end, windows = [], loading, 
       {error && !series ? (
         <p className="muted-note">Could not load: {error}</p>
       ) : (
-        <Sparkline points={pts} status="ok" windows={windows} start={start} end={end} label={title} current={latest === undefined ? undefined : fmt(latest)} note={asOf} />
+        <Sparkline bucketNote={series?.unit === "count" ? "Last count in bucket" : "Mean value in bucket"} stepMs={series?.stepMs} fmt={v => fmtValue(v, series?.unit ?? "count")} points={pts} status="ok" windows={windows} start={start} end={end} label={title} current={latest === undefined ? undefined : fmt(latest)} note={asOf} />
       )}
       <div className="chart-f mono">
         <span>{dayMonHm(start)}</span>

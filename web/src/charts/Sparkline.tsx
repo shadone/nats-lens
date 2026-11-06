@@ -1,5 +1,6 @@
 // The tile sparkline of the reference: area and line for the primary
 // series, a dashed line for the second, shaded windows behind.
+import { ChartInspection } from "./ChartInspection";
 import { usePageHistory } from "../components/HistoryNote";
 import type { ServerHistoryGap } from "../api/history";
 import { ChartHistoryNotice, HistoryGaps } from "./HistoryGaps";
@@ -15,6 +16,10 @@ export function sparkColour(status: Level): string {
 
 interface Props {
   points: Point[];
+  stepMs?: number;
+  bucketNote?: string;
+  fmt?: (value: number) => string;
+  labels?: [string, string];
   points2?: Point[];
   status: Level;
   windows: Window[];
@@ -37,7 +42,14 @@ export function sparkPoints(a: Point[], start: number, end: number, mn: number, 
   });
 }
 
-export function Sparkline({ points, points2, status, windows, start, end, label, current, note }: Props) {
+export function Sparkline({ stepMs, bucketNote, fmt = String, labels = ["value", "second series"], points, points2, status, windows, start, end, label, current, note }: Props) {
+  return <ChartInspection label={label} start={start} end={end} stepMs={stepMs} bucketNote={bucketNote} series={[
+    { label: labels[0], points: points.map(p => ({ time: p.time, text: fmt(p.value) })) },
+    ...(points2 ? [{ label: labels[1], points: points2.map(p => ({ time: p.time, text: fmt(p.value) })) }] : []),
+  ]}><SparkDrawing points={points} points2={points2} status={status} windows={windows} start={start} end={end} label={label} current={current} note={note} /></ChartInspection>;
+}
+
+function SparkDrawing({ points, points2, status, windows, start, end, label, current, note }: Props) {
   const history = usePageHistory();
   const gaps = history?.serverGaps ?? [];
   const period = rangeText(start, end);

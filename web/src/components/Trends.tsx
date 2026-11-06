@@ -15,6 +15,8 @@ import { TrendChart, type Layer } from "./TrendChart";
 
 export interface Frame {
   spec: RangeSpec;
+  /** Overview supplies destinations; other callers retain their existing headers. */
+  chartLinks?: boolean;
   start: number;
   end: number;
 }
@@ -38,7 +40,10 @@ export function OneLine({ f, q, title, label }: { f: Frame; q: TrendSlice; title
   return (
     <TrendChart
       title={title}
+      fmt={v => fmtValue(v, unit)}
+      to={f.chartLinks ? ({ Servers: "/servers", Connections: "/connections", Messages: "/servers", Bytes: "/servers", CPU: "/servers", Memory: "/servers" } as Record<string, string>)[title] : undefined}
       now={fmt(lastValue(s?.points), unit)}
+      bucketNote={unit === "count" ? "Last count in bucket" : "Mean value in bucket"}
       summary={minMaxText(s, unit)}
       start={f.start}
       end={f.end}
@@ -54,7 +59,10 @@ function SlowConsumers({ f, q }: { f: Frame; q: TrendSlice }) {
   const sum = total(s?.points);
   return (
     <TrendChart
+      fmt={v => `${fmtValue(v, "count")} events`}
+      bucketNote="Total events in bucket"
       title="Slow consumers"
+      to={f.chartLinks ? "/connections" : undefined}
       now={sum === undefined ? undefined : `${fmtValue(sum, "count")} in range`}
       start={f.start}
       end={f.end}
@@ -71,6 +79,9 @@ export function InOut({ f, title, qi, qo }: { f: Frame; title: string; qi: Trend
   return (
     <TrendChart
       title={title}
+      fmt={v => fmtValue(v, unit)}
+      to={f.chartLinks ? ({ Servers: "/servers", Connections: "/connections", Messages: "/servers", Bytes: "/servers", CPU: "/servers", Memory: "/servers" } as Record<string, string>)[title] : undefined}
+      bucketNote="Mean rates in bucket"
       now={inOutText(lastValue(qi.data?.points), lastValue(qo.data?.points), unit)}
       summary={Number.isFinite(max) ? `max ${fmtValue(max, unit)}` : undefined}
       start={f.start}
@@ -97,6 +108,9 @@ export function Band({ f, q, title, floor = "zero" }: { f: Frame; q: TrendSlice;
   return (
     <TrendChart
       title={title}
+      fmt={v => fmtValue(v, unit)}
+      to={f.chartLinks ? ({ Servers: "/servers", Connections: "/connections", Messages: "/servers", Bytes: "/servers", CPU: "/servers", Memory: "/servers" } as Record<string, string>)[title] : undefined}
+      bucketNote="Mean median and busiest-server values; bounds are observed server extremes"
       now={text.now}
       summary={minMaxText(s, unit)}
       start={f.start}
@@ -116,15 +130,18 @@ function Assets({ f, qr, qs }: { f: Frame; qr: TrendSlice; qs: TrendSlice }) {
   const top = st.upper.length ? Math.max(...st.upper.map((p) => p.high)) : undefined;
   return (
     <TrendChart
+      fmt={v => fmtValue(v, "count")}
+      bucketNote="Last counts in bucket; stacked components shown separately"
       title="Assets"
+      to={f.chartLinks ? "/placement" : undefined}
       now={r === undefined && one === undefined ? undefined : `${fmt(r, "count") ?? "–"} replicated, ${fmt(one, "count") ?? "–"} single`}
       summary={top === undefined ? undefined : `max ${fmtValue(top, "count")} in all`}
       start={f.start}
       end={f.end}
       stepMs={qr.data?.stepMs}
       layers={[
-        { kind: "band", label: "replicated", style: { tone: "accent", edge: true }, points: st.lower },
-        { kind: "band", label: "one replica", style: { tone: "warn", edge: true }, points: st.upper },
+        { kind: "band", stacked: true, label: "replicated", style: { tone: "accent", edge: true }, points: st.lower },
+        { kind: "band", stacked: true, label: "one replica", style: { tone: "warn", edge: true }, points: st.upper },
       ]}
       {...state(qr, qs)}
     />
@@ -147,7 +164,7 @@ export const TREND_QUERIES: TrendQuery[] = [
 ].map((metric) => ({ metric }));
 
 export function Trends({ spec, start, end }: Frame) {
-  const f = { spec, start, end };
+  const f = { spec, start, end, chartLinks: true };
   const b = useTrends(spec, TREND_QUERIES);
   useReportStale(b);
   const t = (metric: string) => pickTrend(b, TREND_QUERIES, { metric });

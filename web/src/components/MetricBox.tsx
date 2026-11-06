@@ -12,6 +12,7 @@
 // series whose min equals its max. A series that begins more than a bucket
 // and a half after the window's start says "since HH:MM UTC" in place of
 // the window, as the history is younger than the range.
+import { RLink } from "./common";
 import { useId, useState, type ReactNode } from "react";
 import type { Level, Series, Window } from "../api/model";
 import { rangeText } from "../charts/chartLabel";
@@ -38,6 +39,10 @@ export function sinceText(since: number, end: number): string {
 
 export interface MetricBoxProps {
   title: string;
+  /** Optional destination; leaves the chart and info button independently interactive. */
+  to?: string;
+  /** Describes the headline measurement separately from the history below. */
+  valueLabel?: string;
   /** What the metric measures, shown behind the (i) button. */
   description: string;
   series?: Series;
@@ -63,6 +68,10 @@ export interface MetricBoxProps {
    * value is a name, such as the meta leader, which no min and max describe.
    */
   track?: boolean;
+  /** Historical sample formatting, independently of a text headline. */
+  bucketNote?: string;
+  sampleFmt?: (value: number) => string;
+  seriesLabels?: [string, string];
 }
 
 /** An (i) button that shows a description on hover, focus or click. */
@@ -174,10 +183,10 @@ export function MetricBox(p: MetricBoxProps) {
   const first = seriesSince(p.series, p.start);
   const since = first === undefined ? undefined : sinceText(first, p.end);
   return (
-    <div className={`card mbox${alert}`}>
+    <div className={`card mbox${alert}${p.to ? " chart-linked" : ""}`}>
       <div className="mb-h">
         <span className="lbl">
-          <span className="mb-t">{p.title}</span>
+          {p.to ? <RLink to={p.to} className="mb-t chart-link">{p.title}</RLink> : <span className="mb-t">{p.title}</span>}
           <InfoTip label={p.title} text={p.description} />
         </span>
         <span className="mb-v">
@@ -185,6 +194,7 @@ export function MetricBox(p: MetricBoxProps) {
           <b className="mono">{shown}</b>
         </span>
       </div>
+      {p.valueLabel && <div className="mb-context">{p.valueLabel}</div>}
       {p.error && p.series && (
         <span className="mb-stale" title={p.error}>
           refresh failed
@@ -195,6 +205,10 @@ export function MetricBox(p: MetricBoxProps) {
       ) : (
         <Sparkline
           points={pts}
+          stepMs={p.series?.stepMs}
+          bucketNote={p.bucketNote ?? (p.series?.unit === "count" ? "Last count in bucket" : "Mean value in bucket")}
+          fmt={p.sampleFmt ?? p.fmt}
+          labels={p.seriesLabels}
           points2={p.series2?.points}
           status={status}
           windows={p.windows ?? []}
