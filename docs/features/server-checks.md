@@ -1,12 +1,12 @@
 # Server checks
 
-- **Surfaces:** `ui`, `cli`
+- **Surfaces:** `ui`, `api`, `cli`
 - **Status:** shipped
 - **Related:** [checks.md](checks.md), [system-checks.md](system-checks.md), [client-checks.md](client-checks.md), [servers.md](servers.md), [monitoring-snapshots.md](monitoring-snapshots.md)
 
 ## What it does
 
-The server checks judge each NATS server on its own: whether it answers, whether its health endpoint and JetStream are ready, whether it restarted, whether its store or memory is filling, whether its clients are slow, stalled, churning or going stale or fill its connection limit, whether a TLS certificate of its listeners expires soon, whether its routes and gateways are all there and keep up, and whether its CPU, internal queues or JetStream API are overloaded, and whether it rejected an OCSP peer connection. A server finding is keyed by the server's stable name, so it survives the server's restarts. There are 24 server checks, `server-001` to `server-024`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
+The server checks judge each NATS server on its own: whether it answers, whether its health endpoint and JetStream are ready, whether it restarted, whether its store or memory is filling, whether its clients are slow, stalled, churning or going stale or fill its connection limit, whether a TLS certificate of its listeners expires soon, whether its routes and gateways are all there and keep up, and whether its CPU, internal queues or JetStream API are overloaded, and whether it rejected an OCSP peer connection. A server finding is keyed by the server's stable name, so it survives the server's restarts. There are 25 server checks, `server-001` to `server-025`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
 
 ## The checks
 
@@ -205,6 +205,17 @@ The finding links to the latest rejection event and counts distinct event IDs pe
 
 Read the emitting server's TLS and OCSP logs and identify the peer by the certificate fingerprint retained in the event. The failing certificate can be another link in the peer's chain. Check revocation, validity, responder reachability, and clocks before replacing certificates or restoring access. Keep verification enabled.
 
+### `server-025` Slow routes
+
+- **Fires when:** a route pair touching the server is slow by [Topology's rule](topology.md) in two eligible collections. Both endpoints receive a warning; the finding does not identify which endpoint is responsible. An ordinary peer of a slow server can therefore have this finding too.
+- **Evidence:** the peer names, each pair's current round trip, the two collection numbers, and a value counting the slow pairs touching the server.
+- **Eligibility:** the previous collection is the newest earlier one with stored route rows, within three collect intervals. Each collection is judged independently, by cluster. An unknown interval, an absent pair or an unreported/zero round trip cannot prove sustained slowness. A missing ROUTEZ answer contributes no observations; another server's report can still measure the pair.
+- **Identity:** pairs use stable server names, across pooled and pinned connections and process replacements. A restart does not manufacture an RTT observation; two actual measurements can establish slowness even across a restart. Route IDs and process counters are not compared.
+- **Tuning:** disabled checks, remediation extensions and mutes work as for other checks. The classifier's constants are shared with Topology and have no independent thresholds.
+- **Remediation:** compare the named peers' latency, packet loss, CPU, scheduling and network paths with the other servers. A warning establishes a slow pair, not its cause.
+
+The warning severity, attribution to both endpoints, evidence and name-based identity are proposed, not yet confirmed.
+
 ## Behavior and rules
 
 - **Keyed by server name.** A server finding belongs to the server's name, so a restart does not start a new finding.
@@ -286,11 +297,19 @@ Read the emitting server's TLS and OCSP logs and identify the peer by the certif
 - **When** I set `checks.thresholds.server-007: {warn_ratio: 0.85, crit_ratio: 0.95}`
 - **Then** `server-007` fires from 85% and is critical from 95%
 
+### Find sustained slow routes
+
+- **Surfaces:** `ui`, `api`, `cli`
+- **Given** a cluster of five servers with one route pair at 4 ms and all other pairs at 0.4 ms
+- **When** two eligible collections report those measurements
+- **Then** Topology marks the pair slow and `server-025` warns on both endpoint servers, naming the peer and round trip
+- **And** the other three servers have no slow-route finding
+- **And** one spike, an even split between zones, two servers alone, or an unknown collection interval fires nothing
+
 ## Planned
 
 These server checks are not built. Each line says what it would detect and what it needs.
 
-- **Slow route round trip.** The round trip time of a route stays far above the cluster's others. Needs: the Topology page's slow route rule (relative to the cluster's typical round trip, never under 2 ms, slow in two collections in a row) shared with a check. The rule is Go code in the API, which the SQL checks cannot call; a check with its own SQL rule, such as a fixed threshold, would call other routes slow than the page does. It needs the rule moved where both can use it, as `checks.AccountConnectionsSQL` is shared, or a check the engine computes in Go. The round trips themselves are stored in ROUTEZ every collection.
 - **Leaf node disconnects.** A leaf node site that was connected is gone, or reconnects repeatedly. Needs: the Topology page's drop rule shared with a check (it is kept twice, in Go for the demo and in SQL for the store; a check would be a third copy), and a decision on the finding's entity: a site is a remote server nats-lens does not observe, and it moves between hubs, so a finding about it belongs neither to an observed server nor to one hub. The data, LEAFZ, is stored every collection. NATS publishes no leaf node disconnect event (its leaf node connect event is for internal use only), so only drops that span a collection can be seen.
 - **JetStream API requests queued.** A server holds many JetStream API requests that wait to be processed, as JSZ's meta `pending` counts them (the routed API requests and info requests queued on the server, not meta group operations). Needs: `meta_pending` from JSZ, stored today per server and collection.
 
