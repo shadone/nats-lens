@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -13,7 +15,7 @@ import (
 
 const LeafHealthCode = "server-026"
 
-const leafUnknownSuffix = " Current leaf observation coverage is uncertain; retaining earlier evidence until collection coverage establishes recovery."
+const leafUnknownSuffix = " Current leaf observation coverage is uncertain; retaining earlier evidence until collection coverage establishes recovery or the last observation leaves the 24h window."
 
 func leafHealthCheck() *Check {
 	return &Check{Code: LeafHealthCode, Name: "Leaf node disconnects or repeated reconnects", Entity: "system", Category: "health", Severity: "warning", Kind: "operational", builtin: true,
@@ -27,7 +29,8 @@ func leafHealthCheck() *Check {
 // leaves DuckDB. All timestamps are compared directly to columns (host TZ safe).
 func (e *Engine) leafHealth(ctx context.Context, conn *sql.Conn, epoch int64, at time.Time) ([]store.FindingRow, error) {
 	if e.Interval <= 0 {
-		return carryLeafHealth(ctx, conn, epoch)
+		held, err := carryLeafHealth(ctx, conn, epoch, at)
+		return leafHealthRows(held, true), err
 	}
 	rows, err := conn.QueryContext(ctx, `
 WITH ep AS (SELECT epoch, started_at FROM epochs WHERE started_at>=? AND epoch<=?),
@@ -95,42 +98,93 @@ ORDER BY ev.site,ev.account`, at.Add(-24*time.Hour), epoch, (3 * e.Interval).Mic
 		if absent.Bool {
 			state = "absent for at least two fully observed collections; " + state
 		}
-		details = append(details, fmt.Sprintf("%q (account %q): %s; last observed at %s UTC (collection %d)", site.String, account.String, state, lastAt.Time.UTC().Format("2006-01-02 15:04:05"), last.Int64))
+		details = append(details, fmt.Sprintf("%q (account %q): %s; last observed at %s UTC (collection %d)", site.String, account.String, state, lastAt.Time.UTC().Format("2006-01-02 15:04:05.999999999"), last.Int64))
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 	rows.Close()
+	unknown := false
 	if !eligible {
-		held, err := carryLeafHealth(ctx, conn, epoch)
-		if err != nil || len(held) > 0 || !recent {
-			return held, err
+		held, err := carryLeafHealth(ctx, conn, epoch, at)
+		if err != nil {
+			return nil, err
 		}
+		unknown = len(held) > 0
+		// Keep each original evidence timestamp. Fresh evidence for another site
+		// must neither renew an old site's age nor disappear behind a carried row.
+		details = mergeLeafEvidence(details, held)
 	}
-
-	if len(details) == 0 {
-		return nil, nil
-	}
-	value := float64(len(details))
-	return []store.FindingRow{{EntityKey: "", Severity: "warning", Value: &value, Detail: "Leaf sites: " + strings.Join(details, "; ") + ". Observations do not identify a responsible hub."}}, nil
+	return leafHealthRows(details, unknown), nil
 }
 
-// Carry the immediately previous firing system finding through uncertainty.
-// Fresh confirmed evidence may still fire when no earlier warning exists.
-func carryLeafHealth(ctx context.Context, conn *sql.Conn, epoch int64) ([]store.FindingRow, error) {
+func leafHealthRows(details []string, unknown bool) []store.FindingRow {
+	if len(details) == 0 {
+		return nil
+	}
+	value := float64(len(details))
+	detail := "Leaf sites: " + strings.Join(details, "; ") + ". Observations do not identify a responsible hub."
+	if unknown {
+		detail += leafUnknownSuffix
+	}
+	return []store.FindingRow{{EntityKey: "", Severity: "warning", Value: &value, Detail: detail}}
+}
+
+// The code-owned detail is durable per-site evidence in the existing schema.
+// Match quoted strings (including escaped quotes/semicolons) and require a full
+// round trip before using it. Unknown formats fail the check, not resolve it.
+// The observation timestamp is never the finding's refreshed last_seen_epoch.
+var leafEvidencePattern = regexp.MustCompile(`("(?:[^"\\]|\\.)*" \(account "(?:[^"\\]|\\.)*"\)): (?:absent for at least two fully observed collections; )?[0-9]+ observed drops in 1h; last observed at ([0-9:. -]+) UTC \(collection [0-9]+\)`)
+
+func mergeLeafEvidence(fresh, held []string) []string {
+	byIdentity := make(map[string]string, len(fresh)+len(held))
+	for _, entries := range [][]string{held, fresh} {
+		for _, entry := range entries {
+			byIdentity[leafEvidencePattern.FindStringSubmatch(entry)[1]] = entry
+		}
+	}
+	keys := make([]string, 0, len(byIdentity))
+	for key := range byIdentity {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	result := make([]string, 0, len(keys))
+	for _, key := range keys {
+		result = append(result, byIdentity[key])
+	}
+	return result
+}
+
+// Carry only from this check's latest successful execution before epoch.
+// Disabled checks resolve in the store, so re-enabling cannot revive carry.
+// Mutable current/future finding state is deliberately excluded, as for churn.
+func carryLeafHealth(ctx context.Context, conn *sql.Conn, epoch int64, at time.Time) ([]string, error) {
 	var detail string
-	var value sql.NullFloat64
-	err := conn.QueryRowContext(ctx, `SELECT detail,value FROM findings WHERE check_code=? AND state='firing'
- AND last_seen_epoch=(SELECT max(epoch) FROM epochs WHERE epoch<?)`, LeafHealthCode, epoch).Scan(&detail, &value)
+	err := conn.QueryRowContext(ctx, `SELECT detail FROM findings WHERE check_code=? AND state='firing'
+ AND updated_epoch<? AND last_seen_epoch=(SELECT max(epoch) FROM check_runs
+ WHERE check_code=? AND status='ok' AND epoch<?)`, LeafHealthCode, epoch, LeafHealthCode, epoch).Scan(&detail)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	var v *float64
-	if value.Valid {
-		v = &value.Float64
+	body := strings.TrimSuffix(strings.TrimSuffix(detail, leafUnknownSuffix), ". Observations do not identify a responsible hub.")
+	body = strings.TrimPrefix(body, "Leaf sites: ")
+	matches := leafEvidencePattern.FindAllStringSubmatch(body, -1)
+	all, kept := make([]string, 0, len(matches)), make([]string, 0, len(matches))
+	for _, match := range matches {
+		all = append(all, match[0])
+		observed, err := time.Parse("2006-01-02 15:04:05", match[2])
+		if err != nil {
+			return nil, fmt.Errorf("leaf evidence timestamp: %w", err)
+		}
+		if !observed.Before(at.Add(-24*time.Hour)) && !observed.After(at) {
+			kept = append(kept, match[0])
+		}
 	}
-	return []store.FindingRow{{EntityKey: "", Severity: "warning", Value: v, Detail: strings.TrimSuffix(detail, leafUnknownSuffix) + leafUnknownSuffix}}, nil
+	if len(all) == 0 || strings.Join(all, "; ") != body {
+		return nil, fmt.Errorf("unrecognized stored leaf evidence")
+	}
+	return kept, nil
 }
