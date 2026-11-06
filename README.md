@@ -189,7 +189,7 @@ Configuration comes from defaults, then an optional YAML file (`-config`), then 
 | `checks.loopback_is_tooling` |          | `true`                  | Clients connected from 127.0.0.1 or ::1 are tooling. When such clients are more than 60% of the connections that are not nats-lens's own over the last 10 epochs (a sidecar that makes inbound traffic look local), they are not, until the share falls below 40%; natslens logs it once. An epoch with fewer than 3 such connections keeps the previous decision. |
 | `checks.restart_window` |                | `10m`                   | How long a restarted server counts as restarting: checks that judge the cluster leave its own reports out, and a planned restart is reported at info. |
 | `checks.thresholds`   |                  |                         | Threshold overrides: check code to threshold name to value; see [Checks](#checks). |
-| `checks.remediation_file` |             |                         | YAML file of extra remediation text per check code, appended to the check's own after a `---` line. Plain text in which `backticks` mark code; no other Markdown. Read at start only: restart natslens to apply a change (in Kubernetes, a changed ConfigMap needs a rollout). An unknown code stops the start. See [Checks](#checks). |
+| `checks.remediation_file` |             |                         | YAML file mapping check codes to extra text or `{text, playbook}` with an HTTPS playbook URL. The text appends to the check's own after a `---` line. Plain text in which `backticks` mark code; no other Markdown. Read at start only: restart natslens to apply a change (in Kubernetes, a changed ConfigMap needs a rollout). An unknown code stops the start. See [Checks](#checks). |
 | `notifications.ui_url` | | none | Absolute HTTP or HTTPS UI base URL for message links; absent means no links. Shared across systems. |
 | `notifications.channels` | | none | Shared list of webhook or Slack-compatible receivers; no channels means no direct delivery. |
 | `notifications.channels[].name` | | required | Unique lowercase letters, digits and `-`, at most 63, starting with a letter or digit; identifies the channel in logs and metrics. |
@@ -367,7 +367,7 @@ Tables follow one pattern. Identity tables hold one row per thing with the first
 | Events        | `events`                                                                                                                                                                 |
 | Checks        | `findings`, `finding_transitions`, `check_runs`                                                                                                                          |
 | Archive       | `archive_hours`                                                                                                                                                          |
-| Operators     | `mutes`, `inventory`                                                                                                                                                     |
+| Operators     | `mutes`, `acknowledgements`, `inventory`                                                                                                                                                     |
 
 Every event has a `kind`: `client.connect`, `client.disconnect`, `client.auth_error`, `account.connections` (only with `events.account_connections`), `server.lameduck`, `server.shutdown`, `server.out_of_storage`, `server.removed`, `stream.created`, `stream.updated`, `stream.deleted`, `stream.leader_elected`, `stream.quorum_lost`, `consumer.created`, `consumer.deleted`, `consumer.leader_elected`, `consumer.quorum_lost`, `consumer.max_deliveries`, `consumer.nak`, `consumer.terminated`, `consumer.paused`, `consumer.resumed`, `consumer.ack_sampled`, `meta.leader_elected`, `jetstream.api_limit_reached`, `api.audit` (only with `events.api_audit`), `collector.gap`, `collector.started`, `collector.disconnected`, `collector.reconnected`, `collector.not_connected`, `collector.connection_closed`, `collector.subscription_error`, `collector.messages_dropped` and `collector.database_recovered`, among others. `raw` holds the payload with user JWTs removed.
 
@@ -406,11 +406,13 @@ checks:
 The remediations describe the general case. To add your own advice (a runbook link, the team that owns a stream, how your deployment declares streams), point `checks.remediation_file` at a YAML file that maps a check code to text; the API and the UI show that text after the check's own remediation, below a `---` line. The text is plain, with `backticks` around code as in the checks' own remediations. The file is read at start only, so restart natslens after a change (in Kubernetes, a changed ConfigMap needs a rollout), and an unknown code stops the start:
 
 ```yaml
-consumer-010: >-
-  Runbook: https://runbooks.example.com/nats/missing-durable. The order team owns
-  the order-jobs consumers.
+consumer-010:
+  text: Recreate the durable from the declared configuration; the order team owns it.
+  playbook: https://runbooks.example.com/nats/missing-durable
 stream-011: Streams are declared in the platform repository; recreate them from there.
 ```
+
+An entry can keep the plain-string form or pair non-empty `text` with `playbook`. The phone card offers the playbook as a separate link. A playbook must be an HTTPS URL with a host, without credentials or control characters; an invalid entry stops startup.
 
 To try a change to a check on a copy of a database: `natslens checks run -data-dir DIR [-epoch N]`. To read the findings: `natslens sql -data-dir DIR "SELECT id, severity, state, since, detail FROM findings WHERE state = 'firing'"`.
 
@@ -638,6 +640,8 @@ Every firing finding has three series with one identity, `system`, `code`, `enti
 | `nats_lens_finding` | identity, `muted` (`true` or `false`) | 1 for each firing finding, muted or not; at most 50 unmuted entities per check, the worst first and then by entity key, so the set is stable; muted findings are always exported |
 | `nats_lens_finding_severity` | identity | Severity of the finding: 1 info, 2 warning, 3 critical |
 | `nats_lens_finding_flapping` | identity | 1 while the finding flaps |
+| `nats_lens_finding_acknowledged` | identity | 1 while acknowledgement quiet holds; absent otherwise; exported only for findings selected by the same entity cap |
+| `nats_lens_findings_acknowledged` | | Firing findings whose acknowledgement quiet holds, muted or not, every entity counted |
 | `nats_lens_finding_series_omitted` | `code` | Findings of a check left out of the three series by the cap |
 | `nats_lens_findings_by_check` | `code` | Firing, unmuted findings of a check, every entity counted |
 | `nats_lens_findings_by_check_max_severity` | `code` | Highest severity among them |
@@ -668,7 +672,7 @@ resource "google_monitoring_alert_policy" "nats_lens_critical_finding" {
   conditions {
     display_name = "A critical, unmuted nats-lens finding"
     condition_prometheus_query_language {
-      query               = "nats_lens_finding_severity{namespace=\"nats-lens\"} >= 3 unless on(system, code, entity_type, entity_key) nats_lens_finding{namespace=\"nats-lens\", muted=\"true\"}"
+      query               = "nats_lens_finding_severity{namespace=\"nats-lens\"} >= 3 unless on(system, code, entity_type, entity_key) nats_lens_finding{namespace=\"nats-lens\", muted=\"true\"} unless on(system, code, entity_type, entity_key) nats_lens_finding_acknowledged{namespace=\"nats-lens\"}"
       duration            = "120s"
       evaluation_interval = "60s"
     }
@@ -678,7 +682,7 @@ resource "google_monitoring_alert_policy" "nats_lens_critical_finding" {
 
   documentation {
     subject   = "nats-lens finding on ${var.project}"
-    content   = "Open /findings in nats-lens; mute the finding there if it is expected."
+    content   = "Open [Findings](https://nats-lens.example.com/findings). To open one finding, use /findings/by-labels?system=<encoded system>&code=<encoded code>&entity_key=<encoded entity_key> on that host; URL-encode each label value. Labels: system=$${metric.label.system}, code=$${metric.label.code}, entity_key=$${metric.label.entity_key}."
     mime_type = "text/markdown"
   }
 }
@@ -691,16 +695,19 @@ groups:
   - name: nats-lens
     rules:
       - alert: NatsLensCriticalFinding
-        expr: nats_lens_finding_severity >= 3 unless on(system, code, entity_type, entity_key) nats_lens_finding{muted="true"}
+        expr: nats_lens_finding_severity >= 3 unless on(system, code, entity_type, entity_key) nats_lens_finding{muted="true"} unless on(system, code, entity_type, entity_key) nats_lens_finding_acknowledged
         for: 2m
         labels: {severity: critical}
         annotations:
           summary: "nats-lens {{ $labels.code }} on {{ $labels.entity_key }} in {{ $labels.system }}"
-          description: "Open /findings in nats-lens; mute it there if it is expected."
+          description: "Open the finding; acknowledge it while investigating or mute it if it is expected."
+          link: "https://nats-lens.example.com/findings/by-labels?system={{ $labels.system | urlquery }}&code={{ $labels.code | urlquery }}&entity_key={{ $labels.entity_key | urlquery }}"
       - alert: NatsLensWarningFinding
-        expr: nats_lens_finding_severity == 2 unless on(system, code, entity_type, entity_key) nats_lens_finding{muted="true"}
+        expr: nats_lens_finding_severity == 2 unless on(system, code, entity_type, entity_key) nats_lens_finding{muted="true"} unless on(system, code, entity_type, entity_key) nats_lens_finding_acknowledged
         for: 15m
         labels: {severity: warning}
+        annotations:
+          link: "https://nats-lens.example.com/findings/by-labels?system={{ $labels.system | urlquery }}&code={{ $labels.code | urlquery }}&entity_key={{ $labels.entity_key | urlquery }}"
       - alert: NatsLensNotCollecting
         expr: nats_lens_last_epoch_age_seconds > 180 or absent(nats_lens_last_epoch_age_seconds)
         for: 5m
@@ -730,4 +737,6 @@ groups:
           summary: "nats-lens cannot read its data of {{ $labels.system }}; its findings are missing from /metrics"
 ```
 
-The finding rules above exclude mutes only; they do not exclude quiet acknowledgements. Notification channels apply their own [quiet rules](docs/features/notifications.md). A mute in the UI makes the finding rules stop matching, so the alert closes; the finding's series stay, marked `muted="true"`. Beyond 50 entities of one check, alert on `nats_lens_findings_by_check_max_severity` instead.
+The finding rules above exclude mutes and acknowledgements while their quiet holds. Acknowledging keeps the finding visible and counted at its severity; quiet expiry resumes alert eligibility without ending the acknowledgement. Notification channels apply their own [quiet rules](docs/features/notifications.md). A mute in the UI makes the finding rules stop matching, so the alert closes; the finding's series stay, marked `muted="true"`. Beyond 50 entities of one check, alert on `nats_lens_findings_by_check_max_severity` instead.
+
+Finding links use `/findings/<id>?system=<id>` on every screen. The label route resolves the existing finding, then opens that URL; at 760 px and below it shows the [phone card](docs/features/mobile.md). URL-encode every query value: `+` must be `%2B`, a space can be `+` or `%20`, `/` is `%2F`, and `:` is `%3A`. For example, the demo durable opens at [the label link for analytics-aggregator](https://nats-lens.example.com/findings/by-labels?system=example-prod&code=consumer-010&entity_key=APP%2Forder-archive%2Fanalytics-aggregator). Replace the host with the deployment's UI address. The Cloud Monitoring documentation gives the same route as a construction instruction because [Cloud Monitoring documentation variables](https://docs.cloud.google.com/monitoring/alerts/doc-variables) offer substitutions without a documented URL-encoding operation. A missing finding opens Findings filtered to its check with an explanation; other API failures remain errors.

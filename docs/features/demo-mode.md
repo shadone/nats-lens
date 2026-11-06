@@ -38,6 +38,7 @@
 - **Mutes in memory.** Mutes and lifts made in the demo work. A demo mute keeps its chosen end and stops applying when it expires or is lifted; mutes live in memory only and are gone when the demo stops. The mute dialog asks for a name, as without IAP. An acceptance made on the Capacity page works the same way: the row reads BY DESIGN, its finding counts as muted, and the demo records the stream's growth from its scenario; the demo does not end acceptances when growth changes, so only the seeded one on `KV_feature-flags` shows an end by nats-lens.
 - **Address.** `-listen` sets the address (`127.0.0.1:8080` by default), and `-allowed-host` the Host names the API accepts.
 
+- **On-call story and acknowledgements.** `example-prod`'s `consumer-010` for `analytics-aggregator` on `order-archive` has Alice's acknowledgement with 2 hours of quiet and a note about recreating the durable. Its phone card includes the observed upgrade window, Replay steps, reported sibling delivery, and an HTTPS playbook. `example-global`'s `consumer-002` for `label-printer` on `shipping-updates` has Carol's replacement of Bob's acknowledgement; Carol's 30-minute quiet expired. Only the current acknowledgement appears after loading a finding. Demo acknowledgements and hand-backs work in memory and disappear when the process stops. The seeded scenario writes no acknowledgement events. `example-staging` has no recent present observations.
 ## Scenarios
 
 ### See nats-lens without a cluster
@@ -125,8 +126,16 @@
 - **When** I run `natslens demo`
 - **Then** the demo reads no channel configuration and sends no notifications
 
+### Read the on-call demo story
+
+- **Surfaces:** `ui`, `api`
+- **Given** the demo serves `example-prod`
+- **When** an operator opens the missing `analytics-aggregator` finding on a phone or requests `GetOnCall`
+- **Then** the card includes Alice's acknowledgement, the episode story, and the playbook
+- **And** staging's card leaves present observations unset instead of showing zero
+
 ## Not supported / out of scope
 
 - **No other scenarios.** The demo has three built-in systems; it cannot load a recorded database, and its systems cannot be configured.
 - **No collection.** The demo never connects to NATS.
-- **No persistence.** Mutes made in the demo are lost when it stops.
+- **No persistence.** Mutes and acknowledgements made in the demo are lost when it stops.
