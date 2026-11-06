@@ -186,3 +186,23 @@ WHERE stream = 'catalog-changes' AND first_epoch <= 2 AND last_epoch >= 2`); n !
 		t.Errorf("a new creation time should start a new run, rows = %d", n)
 	}
 }
+
+// Absent snapshot lists are empty lists in storage, including when the driver
+// distinguishes a typed nil slice (SQL NULL) from a non-nil empty slice.
+func TestSnapshotAbsentListsAreEmpty(t *testing.T) {
+	s := openMem(t)
+	snap := collect.NewSnapshot(t0)
+	snap.FinishedAt = t0
+	epoch, err := s.WriteSnapshot(context.Background(), snap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var empty bool
+	if err := s.DB().QueryRow(`SELECT expected_names = [] AND observed_names = []
+    AND missing_names = [] AND errors = [] FROM epochs WHERE epoch = ?`, epoch).Scan(&empty); err != nil {
+		t.Fatal(err)
+	}
+	if !empty {
+		t.Fatal("absent snapshot lists were not stored as empty lists")
+	}
+}
