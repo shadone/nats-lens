@@ -27,7 +27,7 @@ it("shows the check's Findings list with an honest swept-finding message", async
 it("handles a real not_found response as a swept finding and preserves other API errors", async () => {
   m.getFinding.mockRejectedValue(new ConnectError("unknown finding", Code.NotFound)); show("APP%2Fgone");
   expect(await screen.findByText("No finding of consumer-010 for APP/gone; it may have resolved and been swept.")).toBeInTheDocument();
-  expect(screen.getByTestId("location")).toHaveTextContent("/findings?check=consumer-010&system=example-prod");
+  expect(Object.fromEntries(new URLSearchParams(screen.getByTestId("location").textContent!.split("?")[1]))).toEqual({ check: "consumer-010", system: "example-prod" });
 });
 it("does not claim a network failure is a swept finding", async () => {
   m.getFinding.mockRejectedValue(new ConnectError("offline", Code.Unavailable)); show("APP%2Fgone");

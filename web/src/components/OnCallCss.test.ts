@@ -34,4 +34,3 @@ describe("oncall.css", () => {
     expect(read("../styles/index.css")).toContain('@import "./oncall.css";');
   });
 });
-

@@ -12,10 +12,10 @@ One read-only call returns a finding with the facts needed for an on-call card. 
 
 - **One finding URL.** A finding link opens a phone card at 760 px and below. Above that width, the desktop sections retain their layout. “All details” opens those sections below the phone card, with tables scrolling within their boxes.
 - **Phone card.** The card shows severity, system, start, headline, context, affected assets, “Right now”, and “What happened”. The story links to Replay with the same start and end. “What to do” keeps the check's wording, with the opening sentence emphasized and subsequent sentences listed as steps. An HTTPS playbook opens from its own link. Missing observations say “not reported”; zero remains zero. Rates name reporting consumers and streams. Kubernetes windows describe observed events, without asserting that an upgrade is active. History-start and missing-history explanations link to Data history.
-- **Acknowledging.** “I'm on it” stays at the foot of the phone screen while the card scrolls. Desktop offers “Acknowledge…” beside Mute. The dialog accepts an optional note of up to 500 characters and quiet for 30 minutes, 2 hours by default, or until resolved. It uses the same name and verified IAP identity rule as mutes. A saved acknowledgement appears before refetch finishes, and focus moves to its section. Failed saves keep the dialog open with an announced error.
-- **Updating and handing back.** An active acknowledgement offers “Update…” and “Hand back…”. Updating replaces the previous acknowledgement. Handing back allows alerts to resume. The page shows who replaced or handed back the acknowledgement during that visit. Quiet expiry leaves ownership in place. Resolve ends ownership for that episode.
+- **Acknowledging.** “I'm on it” stays at the foot of the phone screen while the card scrolls. Desktop offers “Acknowledge…” beside Mute. The dialog accepts an optional note of up to 500 characters and quiet for 30 minutes, 2 hours by default, or until resolved. It uses the same name and verified IAP identity rule as mutes. A saved acknowledgement appears before refetch finishes when the current episode has not been superseded by a read or another write, and focus moves to its section. Failed saves keep the dialog open with an announced error.
+- **Updating and handing back.** An active acknowledgement offers “Update…” and “Hand back…”. Updating replaces the previous acknowledgement. Handing back allows alerts to resume. The page shows who replaced or handed back the acknowledgement during that visit to the same system, finding, and episode. Resolving or changing the episode clears visit receipts. Quiet expiry leaves ownership in place. Resolve ends ownership for that episode.
 - **Team marks.** Overview cause cards and Findings rows show the author, creation time, note, and quiet end while quiet holds. The Overview status line counts acknowledged findings. Acknowledging leaves the finding visible and counted at its severity.
-- **Alert labels.** `/findings/by-labels` reads `system`, `code`, and `entity_key` from query parameters. It decodes spaces, literal plus signs, slashes, and colons, then replaces the route with the existing finding's URL. A missing finding opens Findings for the check with a message that it may have resolved and been swept. Other API failures remain errors.
+- **Alert labels.** `/findings/by-labels` reads `system`, `code`, and `entity_key` from query parameters. It decodes spaces, literal plus signs, slashes, and colons, then replaces the route with the existing finding's URL. A missing finding opens Findings for the check with a message that it may have resolved and been swept. Both destinations retain the global range, system, and account query, while label-routing and unknown parameters are removed. Other API failures remain errors.
 - **Overview order on phones.** The status line and cause cards precede health tiles. Tiles use two columns; the timeline follows them.
 
 - **Current episode.** The card returns the finding's current state, mute, acknowledgement, and up to 100 transitions of its episode. An acknowledgement from an earlier episode does not apply.
@@ -43,6 +43,7 @@ One read-only call returns a finding with the facts needed for an on-call card. 
 - **When** the person updates it or hands it back
 - **Then** the page shows who replaced or handed it back during the visit
 - **And** an expired quiet end does not itself remove ownership
+- **And** the receipt clears when the episode resolves or the visit changes system, finding, or episode
 
 ### Follow a link built from alert labels
 
@@ -51,6 +52,7 @@ One read-only call returns a finding with the facts needed for an on-call card. 
 - **When** the person opens the label link
 - **Then** the existing finding opens on its canonical URL
 - **And** a missing finding opens its check's Findings list with an explanation
+- **And** both destinations retain the global time range, system, and account
 
 ### Read the current episode
 
