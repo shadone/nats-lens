@@ -34,3 +34,15 @@ it("does not claim a network failure is a swept finding", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent("offline");
   expect(screen.queryByText(/may have resolved and been swept/)).toBeNull();
 });
+
+for (const outcome of ["found", "missing", "not_found"] as const) it(`preserves global query on ${outcome} label lookup without leaking routing or unknown parameters`, async () => {
+  if (outcome === "missing") m.getFinding.mockResolvedValue({ finding: undefined, transitions: [] });
+  if (outcome === "not_found") m.getFinding.mockRejectedValue(new ConnectError("gone", Code.NotFound));
+  const entity = "APP/订单 archive/worker:v2+blue";
+  show(`${encodeURIComponent(entity)}&range=6h&account=APP&entity_type=consumer&unknown=discard&check=stale`);
+  if (outcome === "found") await screen.findByText("Existing finding");
+  else await screen.findByText(`No finding of consumer-010 for ${entity}; it may have resolved and been swept.`);
+  const url = new URL(screen.getByTestId("location").textContent!, "http://example.com");
+  expect(Object.fromEntries(url.searchParams)).toEqual({ range: "6h", account: "APP", system: "example-prod", ...(outcome === "found" ? {} : { check: "consumer-010" }) });
+  expect(m.getFinding.mock.calls[0][1]).toBe(`consumer-010:${entity}`);
+});
