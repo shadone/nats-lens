@@ -410,3 +410,8 @@ export function useSaveAcknowledgement() {
     },
   });
 }
+
+export function useOnCall(id: string) {
+  const sys = useSystem();
+  return useQuery({ queryKey: ["oncall", sys, id], queryFn: ({ signal }) => api.getOnCall(sys, id, signal), refetchInterval: LIVE_REFRESH_MS });
+}

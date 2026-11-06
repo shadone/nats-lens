@@ -1,3 +1,4 @@
+import { AcknowledgementMark } from "./Acknowledgement";
 import { usePageHistory } from "./HistoryNote";
 import { atHistoryStart } from "../lib/historyView";
 // The Overview's cause cards: unmuted firing findings grouped by their cause
@@ -122,6 +123,7 @@ function SingleCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void
           <h3>{f.checkName}</h3>
         </div>
         <p className="cg-d">{f.detail}</p>
+        <AcknowledgementMark acknowledgement={f.acknowledgement} />
         {known && <p className="cg-d">already true when nats-lens started</p>}
         {g.cause && <CauseLine cause={g.cause} />}
       </div>
@@ -169,6 +171,7 @@ function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void 
               {g.checkCodes.length > 1 && <small className="code"> {f.checkCode}</small>}
             </span>
             <span className="cg-d">{f.detail}{atHistoryStart(f, historyStart) && <small> · <span>already true when nats-lens started</span></small>}</span>
+            <AcknowledgementMark acknowledgement={f.acknowledgement} />
             <Actions f={f} onMute={onMute} label={findingLabel(f, accounts)} />
           </li>
         ))}
