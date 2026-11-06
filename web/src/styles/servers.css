@@ -96,8 +96,9 @@
 
 /* a server's own page */
 .sd-tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:14px}
-.sd-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:14px}
-.sd-card{padding:14px 16px;min-width:0}
+.sd-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px;margin-top:14px}
+.sd-events-row{margin-top:12px;min-width:0}
+.sd-card{padding:14px 16px;min-width:0;overflow-wrap:anywhere}
 .sd-card h2{margin:0 0 10px}
 .sd-dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;margin:0;font-size:12.5px}
 .sd-dl dt{color:var(--text-muted)}
@@ -125,6 +126,6 @@
 }
 .sd-ep .bad{color:var(--sev-critical)}
 .dp-n .mono{white-space:nowrap}
-.sd-dl .nowrap{white-space:nowrap}
+.sd-dl .nowrap{white-space:normal}
 .sd-cards{align-items:start}
 .srv-note{color:var(--sev-info)}

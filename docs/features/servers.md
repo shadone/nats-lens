@@ -30,6 +30,7 @@ The Servers page shows a system's servers at a glance, built for 20 servers or m
 - **The server page.**
   - The header names the cluster in the breadcrumb, and the role, version, uptime and start time in one line, or "did not answer in the newest collection".
   - **Metric boxes** for CPU, memory, connections, messages (in as the value and line, out dashed with its current rate in the note) and slow consumers. Each has a title with an (i) button describing the metric, the current value at the top right, a line chart over the range, and a track with the window's lowest value on the left, its highest on the right and a dot at the current value. The ends are the window's own lowest and highest values; a current value outside them puts the dot at the nearer end. When the value did not change the track reads "steady at N all window"; without a series there is no track and the box reads "no data for the window"; without a current value the track has no dot and reads "no current value". A configured limit, such as the connection limit, is in the note under the track. Health colours the value and the dot, with a word only when it is not ok: CPU at 60% of a core or more is "high", connections at 80% of the limit or more are "near limit", and slow consumers in the range mark the box. A server that did not answer shows no current value, only its history.
+  - Placement, routes and limits share a responsive row. **Recent events** spans the full width below them. Long names, tags and event summaries wrap within their cards.
   - **Where it runs:** the pod and namespace with its restarts in the range, the node (or "not scheduled"), when the pod was scheduled, and the zone from an `az:` tag. Hidden when nats-lens does not watch Kubernetes.
   - **Routes:** the route count with the slowest route's remote server and round trip, bytes waiting on routes when there are any, gateways, leaf nodes and the meta leader in the server's view.
   - **Limits and settings:** maximum payload, maximum pending, write deadline, ping interval with the unanswered pings after which a connection closes, JetStream file and memory limits, the connection limit, and the tags. A setting whose value differs from the value most servers have is marked "differs from most servers", and a line counts them. The time the configuration was loaded closes the card.
@@ -119,6 +120,13 @@ Server detail charts mark recorded missing answers and missing STATSZ/VARZ metri
 - **Given** `nats-ap-3` with a maximum payload of 8 MiB where the others have 1 MiB
 - **When** I open its page
 - **Then** "Limits and settings" marks the maximum payload "differs from most servers" and says "1 setting differs from most servers."
+
+### Read server details on a narrow screen
+
+- **Surfaces:** `ui`
+- **Given** a server with long names, tags and event summaries
+- **When** I open its page at a narrow or wide window size
+- **Then** the information cards fit the window, and Recent events follows them in a separate full-width row with wrapping text
 
 ### Open a server without the Kubernetes watcher
 
