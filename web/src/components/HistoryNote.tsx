@@ -18,6 +18,9 @@ export interface PageHistory {
   gaps?: HistoryGap[];
   serverGaps?: ServerHistoryGap[];
   gapsStatus?: string;
+  gapsTotal?: number;
+  newestOmittedCollectionGap?: HistoryGap;
+  gapServer?: string;
 }
 export const HistoryContext = createContext<PageHistory | undefined>(undefined);
 export const usePageHistory = () => useContext(HistoryContext);
@@ -60,7 +63,7 @@ export function ServerChartHistory({ server, children }: { server: string; child
   useReportStale(q);
   const d = q.data;
   const status = q.error ? "History gaps unavailable" : q.isPending ? "History gaps loading" : undefined;
-  return <HistoryContext.Provider value={h && { ...h, start: d?.rangeStart ?? h.start, end: d?.rangeEnd ?? h.end, gaps: d?.gaps ?? [], serverGaps: d?.serverGaps ?? [], gapsStatus: status }}>
+  return <HistoryContext.Provider value={h && { ...h, start: d?.rangeStart ?? h.start, end: d?.rangeEnd ?? h.end, gaps: d?.gaps ?? [], serverGaps: d?.serverGaps ?? [], gapsTotal: d?.gapsTotal, newestOmittedCollectionGap: d?.newestOmittedCollectionGap, gapServer: server, gapsStatus: status }}>
     {status && <p className="dh-note" role="status">{status}</p>}
     <p className="dh-note">Server hatches mark recorded missing answers or missing STATSZ/VARZ metrics reports, at collection intervals. They do not establish server downtime.</p>
     {children}

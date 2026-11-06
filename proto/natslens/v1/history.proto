@@ -235,4 +235,9 @@ message GetDataHistoryResponse {
   // Recorded missing reports for request.server only, oldest first. Adjacent
   // intervals with the same reason merge. Never included in global coverage.
   repeated ServerHistoryGap server_gaps = 14;
+
+  // Newest omitted collection/before-history gap, only when gaps_total exceeds
+  // the returned hatched list. Lets a moving chart check actual overlap with
+  // an omitted interval without treating 200 returned gaps as truncation.
+  HistoryGap newest_omitted_collection_gap = 15;
 }

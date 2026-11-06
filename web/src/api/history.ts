@@ -73,6 +73,7 @@ export interface ServerHistoryGap { start: number; end: number; reason: string }
 
 export interface DataHistory {
   serverGaps?: ServerHistoryGap[];
+  newestOmittedCollectionGap?: HistoryGap;
   /** The range the request asked for. */
   rangeStart: number;
   rangeEnd: number;
@@ -150,6 +151,7 @@ export function dataHistory(r: GetDataHistoryResponse, range: { start: number; e
       withoutData: dur(c?.withoutData),
     },
     gaps: r.gaps.map(gap),
+    newestOmittedCollectionGap: r.newestOmittedCollectionGap ? gap(r.newestOmittedCollectionGap) : undefined,
     serverGaps: r.serverGaps.map(g => ({ start: ms(g.start)!, end: ms(g.end)!, reason: g.reason })),
     gapsTotal: r.gapsTotal,
     listedGapsTotal: r.listedGapsTotal,

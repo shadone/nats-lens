@@ -182,6 +182,9 @@ func FinishDataHistory(f *HistoryFacts) *v1.GetDataHistoryResponse {
 	slices.SortStableFunc(hatched, newestFirst)
 	slices.SortStableFunc(listed, newestFirst)
 	res.GapsTotal, res.ListedGapsTotal = int32(len(hatched)), int32(len(listed))
+	if len(hatched) > MaxHistoryGaps {
+		res.NewestOmittedCollectionGap = hatched[MaxHistoryGaps].message()
+	}
 	all := slices.Concat(hatched[:min(len(hatched), MaxHistoryGaps)], listed[:min(len(listed), MaxHistoryGaps)])
 	slices.SortStableFunc(all, newestFirst)
 	for _, g := range all {
