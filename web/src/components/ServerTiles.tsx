@@ -1,12 +1,12 @@
 // The server metric boxes: CPU, memory, JetStream file storage, connections,
-// messages in and out, and slow consumers.
+// messages in and out, and slow-client disconnects.
 import type { Level } from "../api/model";
 import { useBandSeries, type ServerInfo } from "../api/servers";
 import { fmtBytes, fmtCount, fmtInt } from "../lib/format";
 import { storageLimit, storageReading } from "../lib/serverStorage";
 import { storePct, STORE_ATTENTION_PCT } from "../lib/servers";
 import type { RangeSpec } from "../lib/timeRange";
-import { errorText } from "./common";
+import { errorText, RLink } from "./common";
 import { MetricBox } from "./MetricBox";
 import { useReportStale } from "./StaleContext";
 
@@ -114,14 +114,14 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
         end={end}
       />
       <MetricBox
-        title="Slow consumers"
-        description="Clients the server dropped as slow consumers: the increase of its counter per bucket, per process. A restart's first collection adds nothing."
+        title="Slow-client disconnects"
+        description="Clients disconnected as slow during the selected range: the increase of the server’s counter per bucket, per process. A restart’s first collection adds nothing. JetStream pending messages are a separate backlog."
         {...slow}
         value={slowNow}
         fmt={(v) => fmtInt(v)}
         status={(slowRange ?? 0) > 0 ? "warning" : "ok"}
         stateWord={slowRange ? `${fmtInt(slowRange)} in range` : undefined}
-        note={downNote ?? (slowRange === undefined ? undefined : slowRange === 0 ? "none in range" : "per bucket on the chart")}
+        note={<>{downNote ?? (slowRange === undefined ? "not reported" : slowRange === 0 ? "none in range" : "per bucket on the chart")}. For JetStream backlog, see <RLink to="/consumers">Consumers</RLink>.</>}
         start={start}
         end={end}
       />
