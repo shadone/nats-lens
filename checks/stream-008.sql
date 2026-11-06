@@ -27,19 +27,23 @@ thresholds:
     unit: ratio
     description: The ahead tolerance as a share of the leader's position, when that is more; replies are read apart.
 description: >-
-  The servers that hold the stream report different creation times for it. When their contents agree (a replica's
-  last sequence and message count at most position_tolerance, or position_tolerance_ratio of the leader's value if
-  that is more, behind the leader and at most position_ahead_tolerance, or position_ahead_tolerance_ratio of the
-  leader's value if that is more, ahead of it, its first sequence within the tolerance, current or not), a replica
-  was rebuilt at another time (a server restore or a peer replaced) and holds the same messages as the others.
-  When the contents differ as well, in two collections in a row, one replica may hold a stream that was deleted and
-  created again under the same name. A replica behind by more than the tolerance in two collections warns even while it
-  catches up, but only here, where the creation times differ. Servers that restarted within restart_window are left out.
+  The servers that hold the stream report different creation timestamps. This is a metadata disagreement,
+  not proof of a restore, rebuild, recreation or unhealthy replica. Sequence boundaries and message counts
+  agree when a replica's last sequence and count are at most position_tolerance, or position_tolerance_ratio
+  of the leader's value if that is more, behind it, and at most position_ahead_tolerance, or
+  position_ahead_tolerance_ratio of the leader's value if that is more, ahead. Its first sequence must be within
+  position_tolerance, or position_tolerance_ratio of the leader's first sequence if that is more.
+  Currentness does not change this comparison. Differences beyond these tolerances in two collections raise
+  a warning, including a replica that is catching up. Servers that restarted within restart_window are left out.
+  Matching boundaries and counts do not prove identical messages or explain the timestamp difference.
 remediation: >-
-  The detail names the servers on each creation time and whether their contents agree. While they agree, no action
-  is needed: the replicas were built at different times. When they differ, look on the Events page for the
-  stream.deleted and stream.created events around the newer time and the client that made them, and step the
-  stream leader down (`nats stream cluster step-down <stream>`) so the replicas resynchronise.
+  Compare the reported timestamps with first and last sequences, message counts, replica currentness and lag,
+  and configuration across servers. Inspect captured stream.created and stream.deleted lifecycle events
+  around the reported times, and server logs if available. Matching boundaries and counts do not prove identical
+  messages; timestamps alone do not prove a restore or rebuild. Missing captured events do not rule out a
+  lifecycle change. Investigate persistent position, count or configuration differences before planning any
+  intervention. A leader step-down does not guarantee repair; do not delete or recreate a stream based only
+  on this metadata finding, as that can lose messages.
 value_name: distinct creation times
 value_basis: creation times the servers report
 */

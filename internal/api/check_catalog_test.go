@@ -52,7 +52,18 @@ func TestCheckCatalogHTTP(t *testing.T) {
 			t.Errorf("incomplete or duplicate reference: %+v", d)
 		}
 		seen[d.Code] = true
-		if d.Code == "consumer-009" && (strings.Contains(d.Description, "a replica was rebuilt") || strings.Contains(d.Remediation, "so the replicas resynchronise")) {
+		if d.Code == "client-007" {
+			var reference string
+			for _, section := range d.Reference {
+				reference += section.Text + "\n"
+			}
+			for _, rule := range []string{"however young", "CONNZ failed", "10th such collection in a row", "resolves at once in a whole collection"} {
+				if !strings.Contains(reference, rule) {
+					t.Errorf("catalog lost client-007 rule %q", rule)
+				}
+			}
+		}
+		if (d.Code == "consumer-009" || d.Code == "stream-008") && (strings.Contains(d.Description, "a replica was rebuilt") || strings.Contains(d.Remediation, "so the replicas resynchronise")) {
 			t.Error("creation timestamps presented as a proven cause or guaranteed repair")
 		}
 	}

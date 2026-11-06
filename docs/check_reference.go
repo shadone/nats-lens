@@ -18,8 +18,8 @@ var documentLink = regexp.MustCompile(`\[([^]]+)\]\([^)]+\)`)
 
 var referenceBullet = regexp.MustCompile(`^- \*\*([^*]+):\*\* (.*)$`)
 
-// CheckReferences reads only the per-check sections, excluding duplicated
-// threshold lists. These documents remain the source of
+// CheckReferences reads all labelled per-check paragraphs, including threshold
+// prose that can explain retention and resolution. These documents are the source of
 // meaning, firing rules and limitations; no second authored catalog is maintained.
 func CheckReferences() map[string][]ReferenceSection {
 	out := map[string][]ReferenceSection{}
@@ -39,7 +39,7 @@ func CheckReferences() map[string][]ReferenceSection {
 				continue
 			}
 			m := referenceBullet.FindStringSubmatch(line)
-			if m == nil || m[1] == "Thresholds" {
+			if m == nil {
 				continue
 			}
 			title := m[1]
