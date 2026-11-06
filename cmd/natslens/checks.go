@@ -91,7 +91,7 @@ func runChecksCmd(ctx context.Context, args []string, out io.Writer) error {
 		if err != nil {
 			return err
 		}
-		return runChecksOnce(ctx, set, sys.ToolingNames(), filepath.Join(dir, store.FileName), *epoch, out)
+		return runChecksOnce(ctx, set, sys.ToolingNames(), filepath.Join(dir, store.FileName), *epoch, out, cfg.Interval.D())
 	}
 	return errors.New(usage)
 }
@@ -137,7 +137,7 @@ func orDash(s string) string {
 // runChecksOnce evaluates every check for one epoch of a database no
 // collector holds, read-only, and prints what fails. It stores nothing.
 // tooling are the nats-lens connection names of the database's system.
-func runChecksOnce(ctx context.Context, set *checks.Set, tooling []string, path string, epoch int64, out io.Writer) error {
+func runChecksOnce(ctx context.Context, set *checks.Set, tooling []string, path string, epoch int64, out io.Writer, interval time.Duration) error {
 	if _, err := os.Stat(path); err != nil {
 		return err
 	}
@@ -160,7 +160,7 @@ func runChecksOnce(ctx context.Context, set *checks.Set, tooling []string, path 
 			return errors.New("the database holds no epoch")
 		}
 	}
-	runs, err := (&checks.Engine{Set: set, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), ToolingNames: tooling}).Evaluate(ctx, db, epoch)
+	runs, err := (&checks.Engine{Set: set, Interval: interval, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), ToolingNames: tooling}).Evaluate(ctx, db, epoch)
 	if err != nil {
 		return err
 	}

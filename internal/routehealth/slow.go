@@ -1,6 +1,7 @@
-package api
+package routehealth
 
 import (
+	"context"
 	"maps"
 	"slices"
 	"time"
@@ -26,9 +27,13 @@ const (
 // collection). Each collection is judged by the full rule on its own
 // pairs, so an earlier collection with only some servers' routes is
 // judged on those.
-func markSlowTwice(routes, earlier []*v1.TopologyRoute) {
-	markSlowRoutes(routes)
-	markSlowRoutes(earlier)
+func markSlowTwice(ctx context.Context, routes, earlier []*v1.TopologyRoute) error {
+	if err := markSlowRoutesContext(ctx, routes); err != nil {
+		return err
+	}
+	if err := markSlowRoutesContext(ctx, earlier); err != nil {
+		return err
+	}
 	slowBefore := map[[2]string]bool{}
 	for _, r := range earlier {
 		if r.GetSlow() {
@@ -38,6 +43,7 @@ func markSlowTwice(routes, earlier []*v1.TopologyRoute) {
 	for _, r := range routes {
 		r.Slow = r.GetSlow() && slowBefore[pairOf(r.GetServerA(), r.GetServerB())]
 	}
+	return ctx.Err()
 }
 
 // markSlowRoutes marks the slow routes of each cluster, by the round trip
@@ -66,7 +72,7 @@ func markSlowTwice(routes, earlier []*v1.TopologyRoute) {
 // group of fewer than half far from the rest is slow; an even split,
 // jitter, zones under 2 ms apart, 2 servers alone and pairs all alike are
 // never slow.
-func markSlowRoutes(routes []*v1.TopologyRoute) {
+func markSlowRoutesContext(ctx context.Context, routes []*v1.TopologyRoute) error {
 	byCluster := map[string][]*v1.TopologyRoute{}
 	for _, r := range routes {
 		r.Slow = false
@@ -75,11 +81,14 @@ func markSlowRoutes(routes []*v1.TopologyRoute) {
 		}
 	}
 	for _, rs := range byCluster {
-		markSlowInCluster(rs)
+		if err := markSlowInCluster(ctx, rs); err != nil {
+			return err
+		}
 	}
+	return ctx.Err()
 }
 
-func markSlowInCluster(rs []*v1.TopologyRoute) {
+func markSlowInCluster(ctx context.Context, rs []*v1.TopologyRoute) error {
 	rtt := func(r *v1.TopologyRoute) time.Duration { return r.GetRtt().AsDuration() }
 	fastest := map[string]time.Duration{}
 	for _, r := range rs {
@@ -120,7 +129,7 @@ func markSlowInCluster(rs []*v1.TopologyRoute) {
 		}
 	}
 	if 2*largest <= len(fastest) {
-		return
+		return ctx.Err()
 	}
 	in := func(s string) bool { return find(s) == group }
 	// A server outside the group is slow when a pair measures it against
@@ -132,6 +141,9 @@ func markSlowInCluster(rs []*v1.TopologyRoute) {
 		}
 	}
 	for _, r := range rs {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		a, b := r.GetServerA(), r.GetServerB()
 		if !in(a) || !in(b) {
 			r.Slow = slow[a] || slow[b]
@@ -147,4 +159,5 @@ func markSlowInCluster(rs []*v1.TopologyRoute) {
 		d := rtt(r)
 		r.Slow = len(ds) >= slowLinkReferences && d >= slowRouteFloor && d >= slowRouteFactor*medianDuration(ds)
 	}
+	return ctx.Err()
 }

@@ -3,12 +3,12 @@ package storeprov
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"github.com/shadone/nats-lens/internal/routehealth"
 )
 
 // Topology reads the range's newest epoch: its servers, their ROUTEZ,
@@ -128,52 +128,13 @@ func (p *Provider) topologyRoutes(ctx context.Context, f *api.TopologyFacts) err
 // collect interval is not known. The start is compared with the column
 // directly, so the session time zone does not shift it.
 func (p *Provider) topologyEarlier(ctx context.Context, f *api.TopologyFacts) error {
-	bound, known := api.TopologyEarliestEarlier(f.EpochAt, p.Interval)
-	if !known {
-		return nil
-	}
-	var e api.TopologyEarlier
-	err := p.db().QueryRowContext(ctx, `
-SELECT e.epoch, e.started_at FROM epochs e
-WHERE e.epoch < ? AND e.started_at >= ? AND e.started_at < ? AND EXISTS (SELECT 1 FROM routes r WHERE r.epoch = e.epoch)
-ORDER BY e.epoch DESC LIMIT 1`, f.Epoch, bound, f.EpochAt).Scan(&e.Epoch, &e.At)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("topology earlier collection: %w", err)
-	}
-	e.At = e.At.UTC()
-	if e.Routes, err = p.routeRows(ctx, e.Epoch); err != nil {
-		return err
-	}
-	f.Earlier = &e
-	return nil
+	var err error
+	f.Earlier, err = routehealth.ReadEarlier(ctx, p.db(), f.Epoch, f.EpochAt, p.Interval)
+	return err
 }
 
-// routeRows reads an epoch's routes; the remote is named by the row,
-// else by its server ID.
 func (p *Provider) routeRows(ctx context.Context, epoch int64) ([]api.TopologyRouteRow, error) {
-	rows, err := p.db().QueryContext(ctx, `
-SELECT s.server_name, coalesce(s.cluster, ''), coalesce(nullif(r.remote_name, ''), rs.server_name, r.remote_id, ''),
-  r.rtt_ns, r.pending_bytes, coalesce(r.account, '')
-FROM routes r JOIN servers s USING (server_id) LEFT JOIN servers rs ON rs.server_id = r.remote_id
-WHERE r.epoch = ?`, epoch)
-	if err != nil {
-		return nil, fmt.Errorf("topology routes: %w", err)
-	}
-	defer rows.Close()
-	var out []api.TopologyRouteRow
-	for rows.Next() {
-		var r api.TopologyRouteRow
-		var rtt, pending sql.NullInt64
-		if err := rows.Scan(&r.Server, &r.Cluster, &r.Remote, &rtt, &pending, &r.Account); err != nil {
-			return nil, err
-		}
-		r.RTT, r.Pending = durPtr(rtt), int64Ptr(pending)
-		out = append(out, r)
-	}
-	return out, rows.Err()
+	return routehealth.ReadRows(ctx, p.db(), epoch)
 }
 
 // topologyGateways reads the epoch's gateway rows, both directions.

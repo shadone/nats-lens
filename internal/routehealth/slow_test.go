@@ -1,6 +1,7 @@
-package api
+package routehealth
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"slices"
@@ -29,7 +30,7 @@ func slowCluster(n int, rtt func(a, b int) time.Duration) []*v1.TopologyRoute {
 }
 
 func slowOf(rs []*v1.TopologyRoute) []string {
-	markSlowRoutes(rs)
+	_ = markSlowRoutesContext(context.Background(), rs)
 	var out []string
 	for _, r := range rs {
 		if r.GetSlow() {
