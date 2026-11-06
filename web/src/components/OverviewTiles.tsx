@@ -56,10 +56,10 @@ export function OverviewTiles({ tiles, windows, start, end }: { tiles: Tile[]; w
           description={t.description ?? ""}
           series={t.series}
           series2={t.series2}
-          value={t.valueText ? undefined : (t.value ?? null)}
-          valueText={tileText(t)}
+          value={t.id === "meta_leader" ? null : t.valueText ? undefined : (t.value ?? null)}
+          valueText={t.id === "meta_leader" ? (t.valueText || "Unknown") : tileText(t)}
           // A name has no min and max: the chart shows its changes, without a track.
-          track={!t.valueText}
+          track={t.id !== "meta_leader" && !t.valueText}
           bucketNote={t.id === "meta_leader" ? "Total leader changes in bucket; leader name is from the newest collection" : undefined}
           sampleFmt={t.id === "meta_leader" ? v => `${v} leader ${v === 1 ? "change" : "changes"}` : undefined}
           seriesLabels={t.id === "meta_leader" ? ["changes", "changes"] : undefined}
