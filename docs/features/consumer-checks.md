@@ -76,11 +76,12 @@ The consumer checks judge each JetStream consumer: whether it keeps quorum, whet
 
 ### `consumer-009` Consumer creation time differs across servers
 
-- **Problem:** the servers report different creation times for the consumer. When the delivered and acknowledged positions agree, a replica was rebuilt at another time and holds the same state. When they differ too, the consumer may have been deleted and created again with one replica keeping the old one.
+- **Problem:** the servers report different creation timestamps for the consumer. Timestamps alone do not prove a restore, rebuild, recreation or unhealthy replica. Matching delivered and acknowledged positions do not establish identical state or explain the difference.
 - **Fires when:** the creation times differ. The positions agree when a replica is at most `position_tolerance` (or `position_tolerance_ratio` of the leader's position, if that is more) behind the leader and at most `position_ahead_tolerance` (or `position_ahead_tolerance_ratio`, if that is more) ahead of it, current or not.
 - **Severity:** info. Warning when the positions differ as well, in this collection and the previous one. A replica behind by more than the tolerance in two collections warns even while it catches up, but only here, where the creation times differ.
 - **Thresholds:** `position_tolerance` 100, `position_tolerance_ratio` 0.01, `position_ahead_tolerance` 10, `position_ahead_tolerance_ratio` 0.001.
 - **Left out:** servers that restarted within `checks.restart_window` (10 minutes by default).
+- **Next steps:** compare delivered and acknowledged positions, replica currentness and lag, and configuration. Inspect captured `consumer.created` and `consumer.deleted` lifecycle events and available server logs. Missing events do not rule out a change. A leader step-down does not guarantee repair; deletion or recreation based only on this metadata can lose the durable's position or replay messages.
 
 ### `consumer-010` Expected consumer missing
 
