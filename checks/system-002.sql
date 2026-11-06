@@ -17,7 +17,8 @@ remediation: >-
   pods are down at once, check that the PodDisruptionBudget allows only one eviction at a time.
 */
 WITH cur AS (
-    SELECT s.server_name, g.group_key, g.label, st.meta_leader, st.meta_cluster_size,
+    SELECT s.server_name, g.group_key, g.label,
+        (g.group_key = '' AND g.membership_observed) AS unresolved_membership, st.meta_leader, st.meta_cluster_size,
         st.meta_quorum_needed, st.meta_peers_offline
     FROM server_stats st JOIN servers s USING (server_id) JOIN meta_check_groups g USING (server_id)
     WHERE st.epoch = getvariable('epoch') AND st.js_enabled AND st.meta_cluster_size > 1
@@ -26,10 +27,11 @@ no_leader AS (
     SELECT group_key, label || ': None of the ' || count(*) || ' clustered JetStream servers ('
         || array_to_string(list(server_name ORDER BY server_name), ', ') || ') reports a meta leader.' AS detail
     FROM cur
-    -- For unknown membership, report only the explicit empty-leader replies;
-    -- another process's healthy or missing reply cannot mask that evidence.
-    WHERE group_key <> '' OR meta_leader = ''
-    GROUP BY group_key, label
+    -- Observed but unresolved membership cannot let another process mask an
+    -- empty reply. With no membership at all, retain the legacy aggregate:
+    -- one empty reply during a rolling restart is not a leaderless group.
+    WHERE NOT unresolved_membership OR meta_leader = ''
+    GROUP BY group_key, label, unresolved_membership
     HAVING count(*) > 0 AND count(*) FILTER (WHERE coalesce(meta_leader, '') <> '') = 0
         AND count(meta_leader) = count(*)
 ),

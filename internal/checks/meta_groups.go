@@ -103,6 +103,12 @@ func prepareMetaGroups(ctx context.Context, conn *sql.Conn, lo, hi int64) error 
 			peerNames[peer] = p.Name
 		}
 	}
+	membershipObserved := map[string]bool{}
+	for _, o := range obs {
+		if len(configs[o.peers.String]) > 0 {
+			membershipObserved[o.id] = true
+		}
+	}
 	proven := map[string]bool{}
 	unresolved := map[string]map[string]bool{}
 	for _, o := range obs {
@@ -187,13 +193,14 @@ func prepareMetaGroups(ctx context.Context, conn *sql.Conn, lo, hi int64) error 
 		}
 	}
 	type mapping struct {
-		ID    string `json:"id"`
-		Group string `json:"group_key"`
-		Label string `json:"label"`
+		ID                 string `json:"id"`
+		Group              string `json:"group_key"`
+		Label              string `json:"label"`
+		MembershipObserved bool   `json:"membership_observed"`
 	}
 	data := []mapping{}
 	for id, key := range ids {
-		data = append(data, mapping{id, key, labels[key]})
+		data = append(data, mapping{id, key, labels[key], membershipObserved[id]})
 	}
 	encoded, err := json.Marshal(data)
 	if err != nil {
@@ -201,7 +208,7 @@ func prepareMetaGroups(ctx context.Context, conn *sql.Conn, lo, hi int64) error 
 	}
 	// ASVS 1.2.4: stored names and membership stay bound data, never SQL text.
 	_, err = conn.ExecContext(ctx, `CREATE OR REPLACE TEMP TABLE meta_check_groups AS
- SELECT x.id AS server_id, x.group_key, x.label FROM
- (SELECT unnest(from_json(?::JSON, '[{"id":"VARCHAR","group_key":"VARCHAR","label":"VARCHAR"}]')) AS x)`, string(encoded))
+ SELECT x.id AS server_id, x.group_key, x.label, x.membership_observed FROM
+ (SELECT unnest(from_json(?::JSON, '[{"id":"VARCHAR","group_key":"VARCHAR","label":"VARCHAR","membership_observed":"BOOLEAN"}]')) AS x)`, string(encoded))
 	return err
 }
