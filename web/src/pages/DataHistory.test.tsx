@@ -168,6 +168,16 @@ describe("DataHistory", () => {
     expect(rows[2]).toHaveAttribute("title", "needs 1 d; has 5 h 59 min; sample span short or unavailable");
   });
 
+  it("keeps the exact sample span when a bounded window has boundary evidence", async () => {
+    const d = staging();
+    d.uses = [use({ id: "forecast:server-014", needs: 5 * 60_000, has: 4 * 60_000 + 42_000, enough: true })];
+    m.getDataHistory.mockResolvedValue(d);
+    renderApp(<DataHistory />, "/data-history");
+    await screen.findByRole("region", { name: "What uses history" });
+    expect(bodyRows("What uses history")[0]).toHaveTextContent("5 min4 min 42 swindow boundary sampled");
+    expect(card("What uses history").getByText(/the displayed span stays exact/)).toBeInTheDocument();
+  });
+
   it("marks a use the retention can never serve", async () => {
     const d = staging();
     d.retention = 7 * 24 * HOUR;

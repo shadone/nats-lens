@@ -190,6 +190,8 @@ describe("uses", () => {
   });
 
   it("words enough, not yet and never", () => {
+    expect(enoughState(use({ id: "forecast:server-014", needs: 5 * MIN, has: 4 * MIN + 42_000 }), 14 * DAY, NOW))
+      .toEqual({ text: "window boundary sampled", tone: "ok" });
     expect(historyUseLine(use(), 14 * DAY, NOW)).toBe("needs 6 h; has 9 h; sample span available");
     const notYet = use({ has: 31 * MIN, enough: false, enoughAt: Date.parse("2026-11-05T15:02:00Z") });
     expect(historyUseLine(notYet, 14 * DAY, Date.parse("2026-11-05T09:33:00Z"))).toBe("needs 6 h; has 31 min; at earliest 15:02 UTC, if collections continue");
