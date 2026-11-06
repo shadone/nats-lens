@@ -31,3 +31,9 @@ func withRemediation(fs []*v1.Finding) {
 		}
 	}
 }
+
+// demoPlaybooks belongs to the demo's own remediation, outside deployment
+// configuration. The production provider reads checks.remediation_file.
+var demoPlaybooks = map[string]string{
+	"consumer-010": "https://runbooks.example.com/nats/durable-missing",
+}

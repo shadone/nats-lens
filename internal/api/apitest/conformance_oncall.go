@@ -73,3 +73,46 @@ func oncallRows() []State {
 		}},
 	}
 }
+
+// cardRows are shared observations of the real store and the demo.
+func cardRows() []State {
+	card := func(test func(*v1.GetOnCallResponse) bool) func(Q) string {
+		return func(q Q) string {
+			fs := append(q.findings(), q.findings(v1.FindingState_FINDING_STATE_RESOLVED)...)
+			for _, f := range fs {
+				got := must(q.env.Client.GetOnCall(ctx, connect.NewRequest(&v1.GetOnCallRequest{System: q.System, FindingId: f.Id}))).of(q.t)
+				if got.GetFinding().GetId() != f.Id || len(got.Assets) > 10 || len(got.Steps) > 12 {
+					q.t.Fatalf("invalid card: %v", got)
+				}
+				if test(got) {
+					return f.Id
+				}
+			}
+			return ""
+		}
+	}
+	return []State{
+		{"an on-call card with a context window", card(func(c *v1.GetOnCallResponse) bool { return c.ContextWindow != nil })},
+		{"an on-call card without a context window", card(func(c *v1.GetOnCallResponse) bool { return c.ContextWindow == nil })},
+		{"an on-call asset with observed replicas online", card(func(c *v1.GetOnCallResponse) bool {
+			for _, a := range c.Assets {
+				if a.Replicas != nil && a.Online != nil {
+					return true
+				}
+			}
+			return false
+		})},
+		{"an on-call asset whose online count was not reported", card(func(c *v1.GetOnCallResponse) bool {
+			for _, a := range c.Assets {
+				if a.Online == nil {
+					return true
+				}
+			}
+			return false
+		})},
+		{"an on-call story cut to twelve steps with its total", card(func(c *v1.GetOnCallResponse) bool { return len(c.Steps) == 12 && c.StepsTotal > 12 })},
+		{"a resolved on-call finding ends its story at resolve", card(func(c *v1.GetOnCallResponse) bool {
+			return c.Finding.State == v1.FindingState_FINDING_STATE_RESOLVED && c.Finding.ResolvedAt.AsTime().Equal(c.StoryB.AsTime()) && c.Finding.Acknowledgement == nil
+		})},
+	}
+}
