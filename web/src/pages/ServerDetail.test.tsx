@@ -98,6 +98,19 @@ describe("ServerDetail on example-global", () => {
     expect(routes).toHaveTextContent("5, slowest to nats-ap-5 0.47 ms");
   });
 
+  it("reads the three information cards before a separate recent-events row", async () => {
+    show(ap3(), "nats-ap-3");
+    const where = await screen.findByRole("region", { name: "Where it runs" });
+    const routes = screen.getByRole("region", { name: "Routes" });
+    const limits = screen.getByRole("region", { name: "Limits and settings" });
+    const recent = screen.getByRole("region", { name: "Recent events" });
+    const cards = where.parentElement!;
+    expect(Array.from(cards.children)).toEqual([where, routes, limits]);
+    expect(cards.nextElementSibling).toContainElement(recent);
+    expect(within(recent).getByRole("heading", { level: 2, name: "Recent events" })).toBeInTheDocument();
+    expect(await within(recent).findByRole("link", { name: "label-printer reconnected" })).toHaveAttribute("href", "/events?id=2");
+  });
+
   it("asks for the server's events with routine ones hidden and repeats folded", async () => {
     show(ap3(), "nats-ap-3");
     await screen.findByRole("region", { name: "Recent events" });
