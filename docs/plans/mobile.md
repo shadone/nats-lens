@@ -16,7 +16,7 @@ Examples use the online shop of `inventory.example.yaml`, the demo's systems (`e
 |---|---|
 | T1 Acknowledgements: store, API, metrics and demo | built on `feat/acknowledgements`, awaiting review |
 | T2 `GetOnCall`: one call for the phone card | built, pending review |
-| T3 The phone layout, the acknowledge dialog and the marks | planned |
+| T3 The phone layout, the acknowledge dialog and the marks | built in isolated checkout, awaiting fresh parent review |
 | T4 Feature docs, deep links in the README and audit | planned |
 
 ## Rules for every step
@@ -115,6 +115,29 @@ The implementation's choices are proposed, not yet confirmed.
 - **Tests.** `onCallView` words for each fact present and absent; the dialog's refusals (note too long), its default, its identity line both ways; the card renders at phone width and the desktop page above it (a `matchMedia` mock); the label route with a space, a slash and a colon in the key; the marks on the cause card and the Findings row.
 - **Browser check.** In `natslens demo` with agent-browser at 360 and 390 px: open `example-prod`'s `consumer-010` from its label link, acknowledge it, see the mark on the Overview; `document.documentElement.scrollWidth` equals `clientWidth` on the three pages; "I'm on it" stays in view while the card scrolls; screenshots at 360 px are looked at.
 
+### Where T3 departed from this plan
+
+Each point was decided in the session that built T3: proposed, not yet confirmed.
+
+- The acknowledgement response patches the current finding and on-call caches before refetch only when their captured firing episode still matches and the cache revision is unchanged, or when the returned acknowledgement is strictly newer than the existing one. An intervening resolve, new episode, release, or newer acknowledgement wins. The UI waits for a successful write before showing the receipt; a failed write never claims ownership. Invalidation is limited to the captured system.
+- The section retains a replacement or hand-back receipt during the current visit to the same system, finding, and episode; resolving clears the receipt. The API has no acknowledgement-history list; a reload reads the current episode's acknowledgement, and Events retains acknowledgement events. No server contract was added in T3.
+- Both label-route destinations retain the existing global-query provider's range, system, and account; label-routing and unknown parameters do not propagate. A missing label lookup replaces the route with the check's Findings list and passes the explanatory message as navigation state. A real `not_found` response and an empty finding response take this path; other failures keep their API error.
+- The right-now sentence names reporting consumers and streams; the context names an observed Kubernetes window, not an active upgrade. This carries the corrected M2 semantics through the UI.
+- The phone remediation separates the opening sentence from subsequent sentences without changing the check's wording or splitting inline code.
+- The browser check tried T3 Preview first. Its snapshot step failed twice with `Preview snapshot failed: Preview automation snapshot timed out after 15000ms.` The check continued in an isolated agent-browser session. The demo listens only on the task's unused loopback port, 18483.
+- T3 updates the mobile capability, both feature-index sections, and short adjacent cross-references to meet AGENTS.md. The full M4 docs and README work remain separate. Existing history and notification content is preserved.
+
+### First M3 review fix verification
+
+- Integrated candidate `85cc838` onto parent `0d0c9f7` in the isolated task checkout. M4 candidate `1661c03` remains separate.
+- Before the fixes, 13 regression cases failed for label-query loss, delayed acknowledgement responses, and visit receipts crossing episodes or systems. The same cases pass with the fixes. Additional divergent-cache-episode and concurrent-response-order tests each failed before their corresponding fix and passed after it.
+- The final web run passes 130 files and 1,309 tests, with 24 existing skips. TypeScript and the production web build pass. The feature-doc audit with `--map-refs require` is clean across 39 capabilities. No backend code changed; this task does not repeat the parent's Go verification.
+- T3 Preview reached the label redirect, then its snapshot failed twice with `Preview snapshot failed: Preview automation snapshot timed out after 15000ms.` An isolated agent-browser session checked the task's loopback UI on port 18486 and demo on 18485.
+- Browser checks confirm global-query retention and Unicode, literal-plus, slash, and colon decoding on label fallback; request-name save, replacement and hand-back receipts; native Escape and opener focus; saved-receipt focus; and a bottom-aligned sticky action at phone width. The phone page has equal scroll and client widths at 360, 390, and 760 px; the desktop tree loads at 761 and 1280 px, with equal widths at 1280 px.
+- A temporary browser harness using the production cache hook and acknowledgement component verifies delayed response after resolve with a stalled refetch, same-episode hand-back receipt retention, and clearing after refire at 360, 390, and 1280 px. All three widths pass. The temporary harness is removed from the checkout.
+- Remaining pre-existing boundary issue: the desktop finding's configuration section reports scroll width 776 at client width 761. An exported original `85cc838` candidate on port 18487 reproduces the same measurement. No layout changes were made in this fix round.
+- M4 wording must limit visit receipts to the same system, finding, and episode, clearing on resolve; qualify immediate acknowledgement display when newer cached state supersedes the response; and describe global-query retention on both label-route destinations. These refinements are proposed, not yet confirmed.
+
 ## T4 Feature docs, deep links in the README and audit
 
 - `docs/features/mobile.md` to `Status: shipped` (or `partial`), with the rules and scenarios as built and "what may happen next" under Not supported or Planned. `triage-and-mutes.md` (acknowledgements beside mutes, "Acknowledging is not muting"), `metrics-and-alerting.md` (the two new metric families, the rules' new `unless`), `navigation.md` (the phone layout of the finding page, the label route), `overview-page.md`, `events.md` (`finding.acknowledged`), `checks.md` (the remediation file's `playbook`), `demo-mode.md`.
@@ -141,3 +164,13 @@ M T1 and M T2 each run alone among the tasks that change `service.proto`, `provi
 ## Leftovers
 
 Not in this plan, most valuable first: "what may happen next" from a `consequence` key in the check headers; the story and the right-now sentence on the desktop finding page; phone layouts for the Servers, Streams and Replay pages; an "acknowledged" filter on the Findings page; acknowledging several findings of one cause card at once; a push notification from the page (the feature doc rules it out for now).
+
+### Additional M3 breakpoint verification before fresh R2 review
+
+- Integrated candidate `c5051c8` onto parent `0d0c9f7` in the isolated implementation checkout. The global-query redirect, originating-episode/newer-state cache guards, and system/finding/episode visit receipts remain intact.
+- Proposed, not yet confirmed: finding-detail related settings use one label/value pair per row, with wrapping labels. The four-column inherited `.ex .cfg .kv` rule computed to `108px 0px 108px 0px` in the narrow desktop card; its second label and value escaped the card. No global overflow suppression is used. Evidence tables retain their local scroll.
+- Browser regression: at 761 px, removing the fix and waiting for Vite's CSS update produced `document.documentElement.scrollWidth = 776`, `clientWidth = 761`; restoring it produced `761 / 761`, with tracks `108px 83.5px`. The original initial measurement was 775 / 761. This establishes the candidate failure without asserting anything about the parent baseline.
+- T3 Preview navigation/evaluation worked, but screenshot capture twice returned `Preview automation snapshot timed out after 15000ms.` Used the documented agent-browser fallback against this checkout's Vite server and a dedicated fixed demo, without changing any other checkout or shared demo state.
+- Detail (including expanded All details), Overview, and Findings passed document-width equality at 360, 390, 760, 761, 768, 1000, and 1280 px, both with seeded ownership and a saved long Unicode author/note. The phone tree renders at 760; desktop renders at 761. A long handed-back receipt also passed at 360 and 760; save/hand-back focused the acknowledgement, retained its polite live region, and kept the phone action at viewport bottom. Screenshots of 360, 760, 761, active ownership, ended receipt, and RED/GREEN settings were inspected. Evidence is in `/private/tmp/m3-responsive-*.png` and matrix JSON files for the parent review session.
+- Verification: 46 targeted M3 tests pass; full web suite 1309 passed, 24 skipped; TypeScript/production build pass (Vite bundle-size warning); feature-doc audit clean for 39 docs. No Go tests run because the parent is verifying Go. No jsdom CSS snapshot test added: it cannot detect grid layout or document overflow; the fix-removal browser measurement is the regression check.
+- M4 candidate `1661c03` remains untouched and awaiting integration. Its final docs must retain these conditions: visit receipts belong to one system/finding/episode and clear on resolve; immediate saved-state display requires the current matching episode and no superseding newer state; label redirects preserve the global query context. Fresh R2 review is owned by the parent task.
