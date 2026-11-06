@@ -391,3 +391,27 @@ export function useShellStatus() {
   const data = { ...status.data, servers: last.servers, freshness: { ...f, epoch: lf.epoch, epochAt: lf.epochAt, ageMs: lf.ageMs, partial: lf.partial } };
   return { ...status, data };
 }
+
+/** A saved acknowledgement appears immediately in both current detail caches.
+ * Refetch only this system, including its tallies and acknowledgement event. */
+export function useSaveAcknowledgement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { system: string } & ({ action: "ack"; input: api.AckInput } | { action: "release"; id: string; endedBy: string })) =>
+      v.action === "ack" ? api.acknowledgeFinding(v.system, v.input) : api.endAcknowledgement(v.system, v.id, v.endedBy),
+    onSuccess: async (a, v) => {
+      const filter = { predicate: (q: { queryKey: readonly unknown[] }) => q.queryKey[1] === v.system };
+      await qc.cancelQueries(filter);
+      for (const key of ["finding", "oncall"]) {
+        qc.setQueryData([key, v.system, a.findingId], (d: { finding?: import("./model").Finding } | undefined) =>
+          d ? { ...d, finding: d.finding ? { ...d.finding, acknowledgement: a.endedAt === undefined ? a : undefined } : undefined } : d);
+      }
+      void qc.invalidateQueries(filter);
+    },
+  });
+}
+
+export function useOnCall(id: string) {
+  const sys = useSystem();
+  return useQuery({ queryKey: ["oncall", sys, id], queryFn: ({ signal }) => api.getOnCall(sys, id, signal), refetchInterval: LIVE_REFRESH_MS });
+}
