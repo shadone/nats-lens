@@ -145,7 +145,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] KV buckets and object stores as their own pages, with placement and missing buckets (kv-and-object-stores.md)
 - [x] Services built on the NATS micro framework: a card per service with its versions, instances, rate, errors and a note, its endpoints with their slow spells and last errors, its instances with the missing ones, asked in the listed accounts and seen in subscriptions in all (micro-services.md)
 - [~] Search and jump to anything from one box — findings, events and prefixes are planned (command-bar.md)
-- [x] A phone finding card with present facts, episode story, playbook, acknowledgements, team marks, and alert-label links (mobile.md)
+- [x] A phone finding card with observed facts, reporting rates, episode story, playbook, acknowledgements, team marks, and alert-label links (mobile.md)
 - [~] History coverage, gap lists, archive state, history requirements and bounded chart hatches; margins and per-server gaps not built (data-history.md)
 
 **Operations**
