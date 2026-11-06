@@ -31,7 +31,7 @@ function Body({ finding, need, handBack, onClose, onSaved, onBusy }: { finding: 
     if (Object.keys(errs).length) { queueMicrotask(() => ref.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus()); return; }
     if (need.askName) rememberName(form.name.trim());
     const who = need.askName ? form.name.trim() : "";
-    const value = handBack ? { system, action: "release" as const, id: finding.acknowledgement!.id, endedBy: who } : { system, action: "ack" as const, input: { findingId: finding.id, note: form.note.trim(), ackedBy: who, quietMs: ACK_QUIET.find(q => q.id === form.quiet)?.ms, untilResolved: form.quiet === "resolved" } };
+    const value = handBack ? { system, episodeSince: finding.since, action: "release" as const, id: finding.acknowledgement!.id, endedBy: who } : { system, episodeSince: finding.since, action: "ack" as const, input: { findingId: finding.id, note: form.note.trim(), ackedBy: who, quietMs: ACK_QUIET.find(q => q.id === form.quiet)?.ms, untilResolved: form.quiet === "resolved" } };
     save.mutate(value, { onSuccess: a => { onClose(); onSaved(a); } });
   };
   const desc = (k: keyof AckErrors) => errors[k] ? `${ids}-${k}-err` : undefined;
