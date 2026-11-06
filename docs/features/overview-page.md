@@ -10,6 +10,8 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 
 ## Behavior and rules
 
+- **Inspect chart values.** Compact and expanded charts show UTC bucket times and formatted values on hover or touch. Focus a chart and use arrow keys, Home, or End for the same readout; Escape or blur dismisses it. Missing buckets say "No sample" without interpolation. Multiple lines have separate labels, bands show lower and upper bounds, and stacked areas show each component's count. The Meta leader chart reports leader changes per bucket; it does not infer the leader's historical name.
+
 - **Chart destinations.** Tile and trend headers link to the relevant list. The link covers the box outside chart inspection and other controls. Links keep the system and range, and the account on destinations that apply account scope.
 
 - **Acknowledged findings.** Cause cards show the [acknowledgement mark](mobile.md), and the status line counts acknowledged findings. At phone width, cause cards precede the health tiles.
@@ -36,6 +38,14 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 
 - **Acknowledged trouble stays visible.** Cause cards show the current acknowledgement's author, time, note, and quiet state. The status line counts acknowledged firing findings, including muted ones. Acknowledging leaves severity counts unchanged; muting still removes a finding from unmuted status. On phones, the status line and cause cards precede the two-column health tiles and timeline.
 ## Scenarios
+
+### Inspect a chart bucket
+
+- **Surfaces:** `ui`
+- **Given** a chart has samples separated by missing buckets
+- **When** I hover, touch, or focus the chart and move with arrow keys
+- **Then** the readout names the bucket's UTC time and each series with its unit
+- **And** a missing bucket says "No sample" rather than carrying the previous value forward
 
 ### Open a chart's area
 

@@ -40,6 +40,7 @@ export function OneLine({ f, q, title, label }: { f: Frame; q: TrendSlice; title
   return (
     <TrendChart
       title={title}
+      fmt={v => fmtValue(v, unit)}
       to={f.chartLinks ? ({ Servers: "/servers", Connections: "/connections", Messages: "/servers", Bytes: "/servers", CPU: "/servers", Memory: "/servers" } as Record<string, string>)[title] : undefined}
       now={fmt(lastValue(s?.points), unit)}
       summary={minMaxText(s, unit)}
@@ -57,6 +58,7 @@ function SlowConsumers({ f, q }: { f: Frame; q: TrendSlice }) {
   const sum = total(s?.points);
   return (
     <TrendChart
+      fmt={v => `${fmtValue(v, "count")} events`}
       title="Slow consumers"
       to={f.chartLinks ? "/connections" : undefined}
       now={sum === undefined ? undefined : `${fmtValue(sum, "count")} in range`}
@@ -75,6 +77,7 @@ export function InOut({ f, title, qi, qo }: { f: Frame; title: string; qi: Trend
   return (
     <TrendChart
       title={title}
+      fmt={v => fmtValue(v, unit)}
       to={f.chartLinks ? ({ Servers: "/servers", Connections: "/connections", Messages: "/servers", Bytes: "/servers", CPU: "/servers", Memory: "/servers" } as Record<string, string>)[title] : undefined}
       now={inOutText(lastValue(qi.data?.points), lastValue(qo.data?.points), unit)}
       summary={Number.isFinite(max) ? `max ${fmtValue(max, unit)}` : undefined}
@@ -102,6 +105,7 @@ export function Band({ f, q, title, floor = "zero" }: { f: Frame; q: TrendSlice;
   return (
     <TrendChart
       title={title}
+      fmt={v => fmtValue(v, unit)}
       to={f.chartLinks ? ({ Servers: "/servers", Connections: "/connections", Messages: "/servers", Bytes: "/servers", CPU: "/servers", Memory: "/servers" } as Record<string, string>)[title] : undefined}
       now={text.now}
       summary={minMaxText(s, unit)}
@@ -122,6 +126,7 @@ function Assets({ f, qr, qs }: { f: Frame; qr: TrendSlice; qs: TrendSlice }) {
   const top = st.upper.length ? Math.max(...st.upper.map((p) => p.high)) : undefined;
   return (
     <TrendChart
+      fmt={v => fmtValue(v, "count")}
       title="Assets"
       to={f.chartLinks ? "/placement" : undefined}
       now={r === undefined && one === undefined ? undefined : `${fmt(r, "count") ?? "–"} replicated, ${fmt(one, "count") ?? "–"} single`}
@@ -130,8 +135,8 @@ function Assets({ f, qr, qs }: { f: Frame; qr: TrendSlice; qs: TrendSlice }) {
       end={f.end}
       stepMs={qr.data?.stepMs}
       layers={[
-        { kind: "band", label: "replicated", style: { tone: "accent", edge: true }, points: st.lower },
-        { kind: "band", label: "one replica", style: { tone: "warn", edge: true }, points: st.upper },
+        { kind: "band", stacked: true, label: "replicated", style: { tone: "accent", edge: true }, points: st.lower },
+        { kind: "band", stacked: true, label: "one replica", style: { tone: "warn", edge: true }, points: st.upper },
       ]}
       {...state(qr, qs)}
     />

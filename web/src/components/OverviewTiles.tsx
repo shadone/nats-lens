@@ -59,6 +59,8 @@ export function OverviewTiles({ tiles, windows, start, end }: { tiles: Tile[]; w
           valueText={tileText(t)}
           // A name has no min and max: the chart shows its changes, without a track.
           track={!t.valueText}
+          sampleFmt={t.id === "meta_leader" ? v => `${v} leader changes` : undefined}
+          seriesLabels={t.id === "meta_leader" ? ["changes", "changes"] : undefined}
           fmt={(v) => fmtValue(v, t.unit)}
           status={tileStatus(t)}
           note={<>{tileNote(t)}{coverage && ["clients", "storage"].includes(t.id) && ` · ${coverage}`}{t.id === "storage" && growth && <> · <HistoryLink>{growth}</HistoryLink></>}</>}

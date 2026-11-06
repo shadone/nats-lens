@@ -1,5 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { ChartInspection } from "./ChartInspection";
+import { HistoryContext } from "../components/HistoryNote";
 import { Sparkline } from "./Sparkline";
 import { TrendChart } from "../components/TrendChart";
 
@@ -39,4 +41,30 @@ describe("chart inspection", () => {
     expect(screen.getByRole("tooltip")).toHaveTextContent("changes: 2 leader changes");
     expect(screen.getByRole("tooltip")).toHaveTextContent("other: 7 leader changes");
   });
+});
+
+it("uses pointer position for hover and touch, clamps edges and dismisses on blur", () => {
+  render(<Sparkline {...spark} />);
+  const cursor = screen.getByRole("slider");
+  vi.spyOn(cursor, "getBoundingClientRect").mockReturnValue({ left: 10, width: 100 } as DOMRect);
+  fireEvent.pointerMove(cursor, { clientX: 35 });
+  expect(screen.getByRole("tooltip")).toHaveTextContent("4%");
+  fireEvent.pointerDown(cursor, { clientX: 95, pointerType: "touch" });
+  expect(screen.getByRole("tooltip")).toHaveTextContent("8%");
+  fireEvent.keyDown(cursor, { key: "End" });
+  expect(cursor).toHaveAttribute("aria-valuenow", "5000");
+  fireEvent.keyDown(cursor, { key: "ArrowRight" });
+  expect(cursor).toHaveAttribute("aria-valuenow", "5000");
+  fireEvent.blur(cursor);
+  expect(screen.queryByRole("tooltip")).toBeNull();
+});
+it("does not turn a missing collection into a known bucket sample", () => {
+  render(<HistoryContext.Provider value={{ start: 0, end: 5000, live: false, gaps: [{ kind: "notRunning", start: 1000, end: 2000, eventId: "", connection: "" }] }}>
+    <ChartInspection label="Connections" start={0} end={5000} stepMs={1000} series={[{ label: "open", points: [{ time: 1000, text: "4" }] }]}><svg /></ChartInspection>
+  </HistoryContext.Provider>);
+  const cursor = screen.getByRole("slider");
+  fireEvent.keyDown(cursor, { key: "Home" });
+  fireEvent.keyDown(cursor, { key: "ArrowRight" });
+  expect(screen.getByRole("tooltip")).toHaveTextContent("Not collected");
+  expect(screen.getByRole("tooltip")).toHaveTextContent("No sample");
 });
