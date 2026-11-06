@@ -77,7 +77,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Streams](streams.md) | `ui`, `api` | shipped — replica placement is in the API only |
 | [Consumers](consumers.md) | `ui`, `api` | shipped — delivery rate and busiest-first order are in the API only |
 | [Connections](connections.md) | `ui`, `api` | shipped — single-page results omit pagination controls |
-| [Events](events.md) | `ui`, `api` | shipped — selectable event text; OCSP peer rejections are NATS warnings |
+| [Events](events.md) | `ui`, `api` | shipped — selectable text, contextual empty results and pagination across pages; OCSP peer rejections are NATS warnings |
 | [Triage and mutes](triage-and-mutes.md) | `ui`, `api` | shipped — single-page Findings counts, spaced finding facts and actions, acknowledgements beside mutes, and history-start explanations |
 | [Metrics and alerting](metrics-and-alerting.md) | `api` | shipped — acknowledgement quiet metrics and exclusions |
 | [Running nats-lens](running-nats-lens.md) | `api`, `cli` | shipped — shared IAP identity for mutes and acknowledgements |
@@ -131,7 +131,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Streams list and stream detail; replica placement in the API only (streams.md)
 - [x] Consumers list and consumer detail, a stream filter that is not polled; delivery rate and busiest-first order in the API only (consumers.md)
 - [x] Client connections of the newest collection, the server filter's choices sent with them, and pagination only when another page exists (connections.md)
-- [x] Every event, including acknowledgement saves, filtered by source, kind, entity and client, with selectable types and summaries across feeds (events.md)
+- [x] Every event, including acknowledgement saves, filtered by source, kind, entity and client, with selectable text, contextual empty results and pagination across pages (events.md)
 - [x] Events worth reading first: routine events hidden, repeats folded, counts per source and server, a histogram, new events behind a pill; OCSP peer rejections are NATS warnings (events.md)
 - [ ] A configurable routine rule; subject and where columns (events.md)
 - [x] Findings, finding detail with server copies, start times and events around the start, mutes, accepted findings read as accepted, acknowledgements apart from mutes, and history-start explanations with spaced finding facts and action buttons; single-page results omit pagination controls (triage-and-mutes.md)
