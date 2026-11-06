@@ -94,7 +94,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [KV and object stores](kv-and-object-stores.md) | `ui`, `api` | shipped |
 | [Micro services](micro-services.md) | `ui`, `api` | shipped |
 | [Command bar](command-bar.md) | `ui` | partial — search by name is shipped; findings, events and prefixes are planned |
-| [On call on the phone](mobile.md) | `ui`, `api` | partial — phone triage and acknowledgements built; predictions and other dedicated phone pages deferred |
+| [On call on the phone](mobile.md) | `ui`, `api` | partial — phone triage, scoped acknowledgements, retained label context, and contained settings built; predictions and other dedicated phone pages deferred |
 | [Data history](data-history.md) | `ui`, `api` | partial — page, range notes and bounded chart gaps; forecast margins and per-server gaps not built |
 | [Notifications](notifications.md) | `api`, `cli` | shipped — channel quiet distinct from Prometheus exclusions |
 
@@ -146,7 +146,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] KV buckets and object stores as their own pages, with placement and missing buckets (kv-and-object-stores.md)
 - [x] Services built on the NATS micro framework: a card per service with its versions, instances, rate, errors and a note, its endpoints with their slow spells and last errors, its instances with the missing ones, asked in the listed accounts and seen in subscriptions in all (micro-services.md)
 - [~] Search and jump to anything from one box — findings, events and prefixes are planned (command-bar.md)
-- [~] A finding on the phone with observed facts, episode story, playbook, and acknowledgement note; predictions and other phone pages deferred (mobile.md)
+- [~] A finding on the phone with observed facts, episode story, playbook, scoped acknowledgement receipts, retained label context, and contained settings; predictions and other phone pages deferred (mobile.md)
 - [~] History coverage, gap lists, archive state, history requirements and bounded chart hatches; margins and per-server gaps not built (data-history.md)
 
 **Operations**
