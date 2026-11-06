@@ -93,7 +93,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [KV and object stores](kv-and-object-stores.md) | `ui`, `api` | shipped |
 | [Micro services](micro-services.md) | `ui`, `api` | shipped |
 | [Command bar](command-bar.md) | `ui` | partial — search by name is shipped; findings, events and prefixes are planned |
-| [On call on the phone — episode-scoped receipts and label-link context](mobile.md) | `ui`, `api` | shipped |
+| [On call on the phone — episode-scoped receipts, label-link context, and contained detail settings](mobile.md) | `ui`, `api` | shipped |
 | [Data history](data-history.md) | `ui`, `api` | partial — page, range notes and bounded chart gaps; forecast margins and per-server gaps not built |
 | [Notifications](notifications.md) | `api`, `cli` | shipped |
 
@@ -145,7 +145,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] KV buckets and object stores as their own pages, with placement and missing buckets (kv-and-object-stores.md)
 - [x] Services built on the NATS micro framework: a card per service with its versions, instances, rate, errors and a note, its endpoints with their slow spells and last errors, its instances with the missing ones, asked in the listed accounts and seen in subscriptions in all (micro-services.md)
 - [~] Search and jump to anything from one box — findings, events and prefixes are planned (command-bar.md)
-- [x] A phone finding card with observed facts, reporting rates, episode story, playbook, acknowledgements, team marks, and alert-label links retaining global context (mobile.md)
+- [x] A phone finding card with observed facts, reporting rates, episode story, playbook, acknowledgements, team marks, contained detail settings, and alert-label links retaining global context (mobile.md)
 - [~] History coverage, gap lists, archive state, history requirements and bounded chart hatches; margins and per-server gaps not built (data-history.md)
 
 **Operations**
