@@ -36,6 +36,15 @@ function assertGlobal(link: HTMLElement, path: string) {
 }
 
 describe("check reference routes", () => {
+  it("uses the concise authored meaning in the catalog and detail", async () => {
+    const data=response();
+    data.definitions[0]!.reference.unshift({$typeName:"natslens.v1.CheckReferenceSection",title:"Meaning",text:"Reported creation timestamps differ; cause is unproven."});
+    api.listCheckDefinitions.mockResolvedValue(data);
+    detail();
+    expect(await screen.findByText("Reported creation timestamps differ; cause is unproven.")).toBeInTheDocument();
+    expect(screen.queryByText(definition.description)).not.toBeInTheDocument();
+  });
+
   it("opens the catalog route", async () => {
     renderApp(<App />, "/checks?system=example-prod&range=6h");
     expect(await screen.findByRole("heading", { name: "Checks", level: 1 })).toBeInTheDocument();
