@@ -1,5 +1,5 @@
 // The server metric boxes: CPU, memory, JetStream file storage, connections,
-// messages in and out, and slow-client disconnects.
+// messages in and out, and slow-consumer detections.
 import type { Level } from "../api/model";
 import { useBandSeries, type ServerInfo } from "../api/servers";
 import { fmtBytes, fmtCount, fmtInt } from "../lib/format";
@@ -114,8 +114,8 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
         end={end}
       />
       <MetricBox
-        title="Slow-client disconnects"
-        description="Clients disconnected as slow during the selected range: the increase of the server’s counter per bucket, per process. A restart’s first collection adds nothing. JetStream pending messages are a separate backlog."
+        title="Slow-consumer detections"
+        description="Server slow-consumer counter increases during the selected range. Covers clients, routes, gateways and leaf connections; retries can count without a disconnect. Not unique clients or JetStream pending messages. The chart shows increases per bucket, per process. A restart’s first collection adds nothing."
         {...slow}
         value={slowNow}
         fmt={(v) => fmtInt(v)}
