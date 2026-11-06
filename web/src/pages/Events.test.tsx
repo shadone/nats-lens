@@ -6,6 +6,7 @@ import { lens } from "../api/client";
 import { EntityType } from "../gen/natslens/v1/common_pb";
 import { EventSchema, EventSource, ListEventsResponseSchema } from "../gen/natslens/v1/events_pb";
 import { renderApp } from "../test/render";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { Events } from "./Events";
 
@@ -55,7 +56,7 @@ function lastRequest() {
 }
 
 describe("Events", () => {
-  beforeEach(() => listEvents.mockReset());
+  beforeEach(() => { listEvents.mockReset(); });
   afterEach(() => vi.useRealTimers());
 
   it("asks for what is worth reading by default: routine hidden, repeats folded", async () => {
@@ -275,6 +276,29 @@ describe("Events", () => {
     await vi.waitFor(() => expect(lastRequest().clientName).toBe("catalog-api"));
     expect(screen.getByRole("searchbox", { name: "Client connection name" })).toHaveValue("catalog-api");
     expect(screen.getByRole("searchbox", { name: "Kinds, comma separated" })).toHaveValue("client.disconnect");
+  });
+
+
+  it("shows an error instead of asserting an empty result after a failed refresh", async () => {
+    function Refresh() {
+      const qc = useQueryClient();
+      return <button onClick={() => { void qc.invalidateQueries({ queryKey: ["eventFeed"] }); }}>Refresh feed</button>;
+    }
+    listEvents.mockResolvedValueOnce(zero()).mockRejectedValue(new Error("Synthetic refresh failed"));
+    renderApp(<><Events /><Refresh /></>, "/events?client=checkout-worker");
+    await screen.findByRole("region", { name: "No events match these filters" });
+    fireEvent.click(screen.getByRole("button", { name: "Refresh feed" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Synthetic refresh failed");
+    expect(screen.queryByRole("region", { name: "No events match these filters" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+
+  it("retains routine context and the routine counter when the histogram is all zero", async () => {
+    listEvents.mockResolvedValue(zero({ routineHidden: 8 }));
+    renderApp(<Events />, "/events?client=checkout-worker");
+    expect(await screen.findByRole("region", { name: "Matching events are hidden as routine" })).toHaveTextContent("8 matching events");
+    expect(screen.getByRole("region", { name: "Hidden as routine" })).toHaveTextContent("8");
+    expect(screen.queryByRole("img", { name: /Events over the range/ })).not.toBeInTheDocument();
   });
 
 });
