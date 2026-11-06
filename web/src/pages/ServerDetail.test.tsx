@@ -60,6 +60,43 @@ describe("ServerDetail on example-global", () => {
     expect(screen.getByText("limit 65,536")).toBeInTheDocument();
   });
 
+  it("charts JetStream file bytes and shows the current storage with its own configured limit", async () => {
+    const r = ap3();
+    r.server!.jsStorageBytes = 1n << 20n;
+    r.server!.jsMaxStorageBytes = 2n << 20n;
+    m.getTimeSeries.mockImplementation(async (req) => create(GetTimeSeriesResponseSchema, {
+      series: { metric: req.metric, unit: Unit.BYTES, points: req.metric === "server.js_storage_bytes" ? points([0, 1 << 20]) : [], min: 0, max: 1 << 20 },
+    }));
+    show(r, "nats-ap-3");
+    const about = await screen.findByRole("button", { name: "About JetStream file storage" });
+    const tile = about.closest(".mbox")!;
+    expect(tile).toHaveTextContent("1 MiB / 2 MiB");
+    expect(tile).toHaveTextContent("50% of configured limit");
+    expect(tile).toHaveTextContent("Filesystem used and capacity are not collected");
+    expect(await within(tile as HTMLElement).findByRole("img", { name: /^JetStream file storage, current 1 MiB, min 0 B, max 1 MiB/ })).toBeInTheDocument();
+    expect(m.getTimeSeries.mock.calls.filter(([req]) => req.metric === "server.js_storage_bytes")).toHaveLength(1);
+    const req = m.getTimeSeries.mock.calls.find(([req]) => req.metric === "server.js_storage_bytes")![0];
+    expect(req.entity).toMatchObject({ name: "nats-ap-3", server: "nats-ap-3" });
+  });
+
+  it.each([
+    ["unknown limit", true, 0n, undefined, "0 B · limit unknown"],
+    ["missing bytes", true, undefined, 2n << 20n, "not reported · limit 2 MiB"],
+    ["down", false, 1n << 20n, 2n << 20n, "did not answer"],
+  ] as const)("keeps storage %s distinct from zero", async (_case, present, used, limit, expected) => {
+    const r = ap3();
+    r.server!.present = present;
+    r.server!.jsStorageBytes = used;
+    r.server!.jsMaxStorageBytes = limit;
+    show(r, "nats-ap-3");
+    const about = await screen.findByRole("button", { name: "About JetStream file storage" });
+    const tile = about.closest(".mbox")!;
+    await waitFor(() => expect(tile.querySelector(".mb-v")).not.toHaveTextContent("…"));
+    expect(tile.querySelector(".mb-v")).toHaveTextContent(present && used !== undefined ? "0 B" : "–");
+    expect(tile).toHaveTextContent(expected);
+    expect(tile).not.toHaveTextContent("% of configured limit");
+  });
+
   it("marks the setting that differs from most servers", async () => {
     show(ap3(), "nats-ap-3");
     const limits = await screen.findByRole("region", { name: "Limits and settings" });
