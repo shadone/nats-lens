@@ -28,15 +28,13 @@ func TestReferenceSelfContainedPlainText(t *testing.T) {
 	}
 }
 
-// Every authored check paragraph can carry behavior, even a Thresholds paragraph.
-// Compare with the embedded source so future summarisation cannot silently lose it.
+// Audit every source line within a check block. This oracle deliberately uses
+// Markdown delimiters, not the production heading/bullet regexes. It includes
+// unlabelled paragraphs, table rows and continuations as well as labelled text.
 func TestReferenceRetainsEveryAuthoredParagraph(t *testing.T) {
 	refs := CheckReferences()
-	entries, err := checkDocs.ReadDir("features")
-	if err != nil {
-		t.Fatal(err)
-	}
-	checked := 0
+	entries, _ := checkDocs.ReadDir("features")
+	codes, lines := map[string]bool{}, 0
 	for _, entry := range entries {
 		b, err := checkDocs.ReadFile("features/" + entry.Name())
 		if err != nil {
@@ -46,33 +44,65 @@ func TestReferenceRetainsEveryAuthoredParagraph(t *testing.T) {
 		for _, line := range strings.Split(string(b), "\n") {
 			if strings.HasPrefix(line, "##") {
 				code = ""
-				if m := checkHeading.FindStringSubmatch(line); m != nil {
-					code = m[1]
+				parts := strings.Split(line, "`")
+				if strings.HasPrefix(line, "### `") && len(parts) >= 3 {
+					if _, ok := refs[parts[1]]; ok {
+						code = parts[1]
+						codes[code] = true
+					}
 				}
 				continue
 			}
-			if code == "" {
+			if code == "" || strings.TrimSpace(line) == "" {
 				continue
 			}
-			m := referenceBullet.FindStringSubmatch(line)
-			if m == nil {
-				continue
+			want := strings.TrimSpace(line)
+			if strings.HasPrefix(want, "- **") {
+				_, rest, ok := strings.Cut(want[4:], "**")
+				if !ok {
+					t.Fatalf("unclosed source label: %s", line)
+				}
+				want = strings.TrimSpace(rest)
 			}
-			want := documentLink.ReplaceAllString(m[2], "$1")
-			found := false
+			// Strip document destinations independently; the UI keeps their label.
+			for strings.Contains(want, "](") {
+				start := strings.Index(want, "[")
+				mid := strings.Index(want[start:], "](") + start
+				end := strings.Index(want[mid:], ")") + mid
+				want = want[:start] + want[start+1:mid] + want[end+1:]
+			}
+			var got string
 			for _, section := range refs[code] {
-				if section.Text == want {
-					found = true
-				}
+				got += section.Text + " "
 			}
-			if !found {
-				t.Errorf("%s lost authored %s paragraph: %s", code, m[1], want)
+			if !strings.Contains(strings.Join(strings.Fields(got), " "), strings.Join(strings.Fields(want), " ")) {
+				t.Errorf("%s lost source content: %s", code, want)
 			}
-			checked++
+			lines++
 		}
 	}
-	if checked < 400 {
-		t.Fatalf("only checked %d paragraphs", checked)
+	if len(codes) != 88 || lines < 400 {
+		t.Fatalf("audit covered %d checks / %d lines", len(codes), lines)
+	}
+	t.Logf("audited %d checks / %d substantive source lines", len(codes), lines)
+}
+
+func TestReferenceLiteralPrerequisitesAndExclusions(t *testing.T) {
+	for code, rules := range map[string][]string{
+		"client-006":   {"mute set on the old key no longer applies, so mute the new key again", "Without it nats-lens stores no `client.auth_error` event", "cannot tell \"no failed login\" from \"not captured\""},
+		"client-007":   {"row still counts MQTT clients"},
+		"client-008":   {"So is nats.py's `0.0.0`", "unknown and not judged", "A minimum of 0 turns a language off", "`min_python` | `python3` | nats.py | 2.9.0"},
+		"consumer-015": {"nats-server refuses an update of `max_waiting`", "A queue that is full by design is muted with that reason"},
+	} {
+		var text string
+		for _, section := range CheckReferences()[code] {
+			text += section.Text + "\n"
+		}
+		for _, rule := range rules {
+			if !strings.Contains(text, rule) {
+				t.Errorf("%s lost %q", code, rule)
+			}
+		}
 	}
 }
 
