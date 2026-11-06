@@ -419,7 +419,11 @@ export function useSaveAcknowledgement() {
         const q = qc.getQueryCache().find({ queryKey: key, exact: true });
         const before = q && snapshots?.get(q.queryHash);
         const f = (q?.state.data as { finding?: import("./model").Finding } | undefined)?.finding;
-        if (!q || !before || !f || q.state.dataUpdateCount !== before.revision ||
+        // A strictly later server acknowledgement may advance existing ownership.
+        // An absent acknowledgement after a read/release remains authoritative.
+        const advancesAck = a.endedAt === undefined && f?.acknowledgement !== undefined &&
+          (a.createdAt ?? -Infinity) > (f.acknowledgement.createdAt ?? Infinity);
+        if (!q || !before || !f || (q.state.dataUpdateCount !== before.revision && !advancesAck) ||
             f.id !== before.finding.id || f.since === undefined || f.since !== before.finding.since ||
             f.state !== before.finding.state || f.state === "resolved" || f.state === "unknown" ||
             (f.acknowledgement?.createdAt ?? -Infinity) > (a.createdAt ?? -Infinity) ||
