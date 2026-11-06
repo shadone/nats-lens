@@ -98,6 +98,8 @@ The server checks judge each NATS server on its own: whether it answers, whether
 - **Thresholds:** lookback 10m, `min_new` 50, `churn_ratio` 0.5, `min_epochs` 2, `resolve_ratio` 0.8.
 - **Left out:** tooling connections, from the client list in the detail only. The count itself comes from the server's connection counter and includes them.
 
+- **Missed evaluations:** after an error or a collection skipped for budget, hysteresis uses this check's last successful evaluation. Disabling the check resolves its findings. Re-enabling needs the full thresholds in each of the last `min_epochs` collections.
+
 ### `server-012` Raft groups catching up for too long
 
 - **Problem:** one or more raft groups on the server are still catching up with their leader. A replica that is catching up does not count towards its group's quorum.
@@ -289,6 +291,15 @@ The warning severity, attribution to both endpoints, evidence and name-based ide
 - **When** nats-lens collects
 - **Then** `server-023` "CPU saturated" fires as a warning for `nats-0`, with the cores it used and how many collections were busy
 - **And** it stays firing while 80% of the collections of five minutes are at or above 72% of the four cores, and resolves below that
+
+### Connection churn remains near the thresholds after a skipped check
+
+- **Given** `server-011` fires for `nats-0`, then cannot run for two collections
+- **When** the next successful evaluation counts 45 accepted connections against 10 open connections, with the default thresholds
+- **Then** the finding stays firing, including after nats-lens restarts
+- **And** another server that never fired needs the full thresholds to fire
+- **When** the accepted connections leave the lookback
+- **Then** the finding resolves
 
 ### Tune the store warning
 

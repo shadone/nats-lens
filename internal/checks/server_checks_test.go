@@ -415,7 +415,8 @@ func TestConnectionChurnHysteresisAndClients(t *testing.T) {
 		f.stats(e, "S1", m{"total_connections": 1000 + 9*e/4, "connections": 10})
 		f.stats(e, "S2", m{"total_connections": 1000 + 9*e/4, "connections": 10})
 	}
-	// nats-1 fired at the previous epoch; nats-2 did not.
+	// nats-1 fired at the previous successful execution; nats-2 did not.
+	f.row("check_runs", m{"epoch": 29, "check_code": "server-011", "status": "ok", "rows": 1, "duration_ms": 0})
 	f.row("findings", m{"id": "server-011:nats-1", "check_code": "server-011", "entity_type": "server", "entity_key": "nats-1",
 		"severity": "warning", "state": "firing", "last_transition": "firing", "since": at(20), "since_epoch": 20,
 		"transitioned_at": at(20), "last_seen_epoch": 29, "updated_epoch": 29, "detail": "x"})

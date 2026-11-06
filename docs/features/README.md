@@ -63,12 +63,12 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Event capture](event-capture.md) | `ui`, `api`, `cli` | shipped — includes OCSP peer rejections with only known fields and peer fingerprints retained |
 | [Kubernetes context](kubernetes-context.md) | `ui`, `cli` | shipped |
 | [History and archive](history-and-archive.md) | `ui`, `cli` | shipped — archive state visible in Data history |
-| [Checks and findings](checks.md) | `ui`, `api`, `cli` | partial — 87 checks; accepting a finding is built for one entity; related entities, a check everywhere and a review list are planned |
-| [Server checks](server-checks.md) | `ui`, `api`, `cli` | shipped — includes OCSP peer rejections and sustained slow route pairs |
+| [Checks and findings](checks.md) | `ui`, `api`, `cli` | partial — 87 checks; churn hysteresis survives missed evaluations; accepting a finding is built for one entity; related entities, a check everywhere and a review list are planned |
+| [Server checks](server-checks.md) | `ui`, `api`, `cli` | shipped — includes OCSP peer rejections, sustained slow route pairs and churn hysteresis across missed evaluations |
 | [Account checks](account-checks.md) | `ui`, `cli` | shipped |
 | [Stream checks](stream-checks.md) | `ui`, `cli` | shipped — includes per-source silence and errors |
 | [Consumer checks](consumer-checks.md) | `ui`, `cli` | shipped |
-| [Client checks](client-checks.md) | `ui`, `cli` | shipped |
+| [Client checks](client-checks.md) | `ui`, `cli` | shipped — short-lived connection hysteresis survives missed evaluations |
 | [System checks](system-checks.md) | `ui`, `cli` | shipped — includes notification delivery health through retention sweeps |
 | [Inventory](inventory.md) | `ui`, `cli` | shipped |
 | [Navigation, time range and theme](navigation.md) | `ui`, `api` | shipped — history navigation, canonical finding links, and encoded alert-label links |
@@ -113,13 +113,13 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [~] Several NATS systems in one nats-lens, with a system switcher, the Fleet page and its badge, and the shell's status of every system in one call — a cluster switcher inside a supercluster is planned (multiple-systems.md)
 
 **Checks**
-- [~] 87 checks, findings, severities, restarts, thresholds, remediation text and HTTPS playbooks, mutes, and one entity's finding accepted until a review date — accepting related entities or a check everywhere is planned (checks.md)
-- [x] Server checks `server-001` to `server-025`, routes, gateways, the connection limit, JetStream API errors, internal queues, CPU, OCSP peer rejections and sustained slow route pairs among them (server-checks.md)
+- [~] 87 checks, findings, severities, restarts, thresholds, churn hysteresis across missed evaluations, remediation text and HTTPS playbooks, mutes, and one entity's finding accepted until a review date — accepting related entities or a check everywhere is planned (checks.md)
+- [x] Server checks `server-001` to `server-025`, routes, gateways, the connection limit, JetStream API errors, internal queues, CPU, OCSP peer rejections, sustained slow route pairs and churn hysteresis across missed evaluations among them (server-checks.md)
 - [ ] Server checks for leaf node disconnects and queued JetStream API requests (server-checks.md)
 - [x] Account checks `account-001` to `account-004`: connection and disk limits, account and user JWT expiry (account-checks.md)
 - [x] Stream, KV bucket and object store checks `stream-001` to `stream-023`, mirrors, sources, single replicas, KV history, streams without a consumer and interior deletes among them; per-source silence and errors (stream-checks.md)
 - [x] Consumer checks `consumer-001` to `consumer-017`, among them the oldest unread message about to expire, pull requests at `max_waiting`, a single-replica durable on a replicated stream and a long pause (consumer-checks.md)
-- [x] Client checks `client-001` to `client-008`, among them repeated authentication errors, unnamed connections and outdated client libraries (client-checks.md)
+- [x] Client checks `client-001` to `client-008`, among them repeated authentication errors, unnamed connections, outdated client libraries and short-lived connection hysteresis across missed evaluations (client-checks.md)
 - [x] System checks `system-001` to `system-010`: the meta group, mixed API levels, and nats-lens's own check runs, collections, archive exports, event capture and notification delivery, with a full hour of failure reporting through retention sweeps (system-checks.md)
 - [x] The inventory of assets that must exist (inventory.md)
 - [x] Findings sent to webhook and Slack-compatible channels, with baselines, mutes, flapping, channel acknowledgement quiet, retries and destination tests (notifications.md)
