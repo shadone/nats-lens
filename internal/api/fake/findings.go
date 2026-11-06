@@ -66,8 +66,7 @@ func prodFindings(s scen) []*v1.Finding {
 		"nats-0 2026-08-12T10:02:11Z; nats-1, nats-2 2026-10-17T09:38:44Z. Delivered and acknowledged positions differ: "+
 			"nats-0 delivered 40112 ack floor 40096, nats-1 delivered 48207 ack floor 48190, nats-2 delivered 48207 ack floor 48188.")
 	c009.Value = &v1.FindingValue{Name: "distinct creation times", Display: "2", Number: ptr(2.0), Basis: "creation times the servers report"}
-	c009.Remediation = "Compare the consumer on each server (`nats consumer info order-jobs resize-worker --server nats-0`). " +
-		"If nats-0 holds the old copy, step the consumer leader down so the replicas resynchronise."
+	c009.Remediation = shippedCheckGuidance()["consumer-009"]
 
 	c002 := finding("consumer-002", "Consumer backlog growing", warning, flapping,
 		consumerRef("media-windows", "media-chunk-pool"), s.at(11, 0, 0), s.at(14, 12, 0),
