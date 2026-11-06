@@ -16,8 +16,8 @@ Examples use the online shop of `inventory.example.yaml`, the demo's systems (`e
 |---|---|
 | T1 Acknowledgements: store, API, metrics and demo | reviewed and merged at `d073334` |
 | T2 `GetOnCall`: one call for the phone card | reviewed tip `9edad8f`, merged at `0d0c9f7` |
-| T3 The phone layout, the acknowledge dialog and the marks | candidate `6d65057decbfcd676730a8c6b7981f7f482c532e`, awaiting fresh R2 review; merged only in the isolated T4 checkout for fact-checking |
-| T4 Feature docs, deep links in the README and audit | built and reconciled in the isolated T4 checkout; original and final fresh read-only fact-checks passed; awaiting M3 R2 approval and parent integration |
+| T3 The phone layout, the acknowledge dialog and the marks | independently approved tip `6d65057`, merged at `2cfcd33` |
+| T4 Feature docs, deep links in the README and audit | independently reviewed and integrated through `526b12f`; audit: 39 docs, 0 errors, 0 warnings |
 
 ## Rules for every step
 
@@ -184,3 +184,7 @@ Not in this plan, most valuable first: "what may happen next" from a `consequenc
 - Detail (including expanded All details), Overview, and Findings passed document-width equality at 360, 390, 760, 761, 768, 1000, and 1280 px, both with seeded ownership and a saved long Unicode author/note. The phone tree renders at 760; desktop renders at 761. A long handed-back receipt also passed at 360 and 760; save/hand-back focused the acknowledgement, retained its polite live region, and kept the phone action at viewport bottom. Screenshots of 360, 760, 761, active ownership, ended receipt, and RED/GREEN settings were inspected. Evidence is in `/private/tmp/m3-responsive-*.png` and matrix JSON files for the parent review session.
 - Verification: 46 targeted M3 tests pass; full web suite 1309 passed, 24 skipped; TypeScript/production build pass (Vite bundle-size warning); feature-doc audit clean for 39 docs. No Go tests run because the parent is verifying Go. No jsdom CSS snapshot test added: it cannot detect grid layout or document overflow; the fix-removal browser measurement is the regression check.
 - M4 candidate `1661c03` remains untouched and awaiting integration. Its final docs must retain these conditions: visit receipts belong to one system/finding/episode and clear on resolve; immediate saved-state display requires the current matching episode and no superseding newer state; label redirects preserve the global query context. Fresh R2 review is owned by the parent task.
+
+## Final integration on 2026-11-06
+
+M3 fresh R2 review approved `6d65057` without blockers; it is merged at `2cfcd33`. The three reviewed M4 docs-only commits were applied through `526b12f`, preserving the UI fixes. On the integrated tree, 1,309 web tests pass (24 existing skips), TypeScript and production build pass, and all 39 capability docs audit with zero errors or warnings. Browser review covers Detail, Overview and Findings at 360, 390, 760, 761, 768, 1000 and 1280 pixels. Full Go verification passed at `0d0c9f7` (16 packages, 8 without tests); subsequent changes affect only web code and documentation. The known Vite large-bundle warning remains. Nothing was pushed or deployed. Agent choices remain proposed, not yet confirmed.
