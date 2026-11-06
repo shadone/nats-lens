@@ -167,7 +167,7 @@ describe("sidebar", () => {
   it("shows the built pages in their groups and hides the planned ones", async () => {
     renderApp(<App />, "/streams?system=example-global");
     const links = within(nav()).getAllByRole("link").map((a) => a.textContent?.replace(/\d+$/, ""));
-    expect(links).toEqual(["Fleet", "Overview", "Findings", "Subjects", "Micro services", "Applications", "Connections", "Streams", "Consumers", "KV Stores", "Object Stores", "Placement", "Capacity", "Servers", "Events", "Replay", "Topology", "Accounts", "Data history"]);
+    expect(links).toEqual(["Fleet", "Overview", "Findings", "Checks", "Subjects", "Micro services", "Applications", "Connections", "Streams", "Consumers", "KV Stores", "Object Stores", "Placement", "Capacity", "Servers", "Events", "Replay", "Topology", "Accounts", "Data history"]);
     for (const planned of ["Users & auth"]) {
       expect(within(nav()).queryByText(planned)).toBeNull();
     }
@@ -180,7 +180,7 @@ describe("sidebar", () => {
     for (const a of within(nav()).getAllByRole("link")) {
       const p = params(a.getAttribute("href"));
       const name = a.textContent?.replace(/\d+$/, "");
-      const scoped = ["Subjects", "Micro services", "Applications", "Consumers", "Connections", "KV Stores", "Object Stores"].includes(name ?? "") ? "APP" : null;
+      const scoped = ["Checks", "Subjects", "Micro services", "Applications", "Consumers", "Connections", "KV Stores", "Object Stores"].includes(name ?? "") ? "APP" : null;
       expect([name, p.get("system"), p.get("range"), p.get("account")]).toEqual([name, "example-global", "6h", scoped]);
     }
   });
