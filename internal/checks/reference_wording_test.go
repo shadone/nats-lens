@@ -24,3 +24,21 @@ func TestCreationReferenceDoesNotInferCauseOrPromiseRepair(t *testing.T) {
 		}
 	}
 }
+
+func TestStreamCreationReferenceDoesNotInferCauseOrPromiseRepair(t *testing.T) {
+	s, err := Load(config.Checks{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, _ := s.Lookup("stream-008")
+	for _, claim := range []string{"was rebuilt", "holds the same messages", "so the replicas resynchronise", "no action is needed"} {
+		if strings.Contains(c.Description+c.Remediation, claim) {
+			t.Errorf("unsupported creation metadata claim %q", claim)
+		}
+	}
+	for _, evidence := range []string{"currentness", "configuration", "captured", "do not prove identical messages", "does not guarantee repair"} {
+		if !strings.Contains(c.Description+c.Remediation, evidence) {
+			t.Errorf("stream guidance lacks %q", evidence)
+		}
+	}
+}
