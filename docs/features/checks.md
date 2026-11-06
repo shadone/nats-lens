@@ -10,6 +10,11 @@ After every collection, nats-lens runs its checks against what it just stored. E
 
 ## Behavior and rules
 
+- **Browse the reference.** `/checks` lists all 88 shipped checks, including the three built-in checks. Search matches code, name, category and meaning; the entity filter narrows the list. Each `/checks/:code` page explains meaning, firing and severity rules, evidence, limitations, default thresholds and investigation steps. An unknown code shows “Check not found” and a catalog link.
+- **Open from an investigation.** Finding details and expanded check-associated event findings link to the check reference. Reference links preserve the selected system, range and account context. The reference covers all accounts. Its findings link carries the system and range into the existing findings filter.
+- **Defaults and effective settings stay distinct.** `ListCheckDefinitions` serves the shipped reference and the selected system's current enabled state, thresholds, lookback, restart window and timeout when configuration is available. These values do not reconstruct historical configuration. An unavailable configuration leaves effective values and enabled state unknown; the demo explicitly serves defaults only. Reference prose describes shipped defaults. Private remediation extensions and playbook links do not appear in the catalog; they remain on that system's findings.
+
+
 - **Notifications.** `natslens run` sends findings to configured webhook and Slack-compatible channels, following the filters and delivery rules in [notifications.md](notifications.md).
 
 - **One finding per check and entity.** A finding has a check code (for example `stream-001`), an entity, a severity, a one-line detail and, where the check measures something, a value with its name, such as "replicas online". Client findings are keyed by connection name (for `client-001`, the part of the name before "@"), so a finding survives reconnects.
@@ -32,6 +37,31 @@ After every collection, nats-lens runs its checks against what it just stored. E
 - **Accept one entity's finding as by design.** An acceptance is a mute of one entity's finding (`MuteFinding` with `accept`) with a review date, between a day and 365 days ahead, as its end, and the same reason and author rules. It reads as muted everywhere mutes are read, and as accepted in the UI ([triage-and-mutes.md](triage-and-mutes.md)); the Capacity page accepts `stream-005` ([capacity.md](capacity.md)). For a stream or a server, nats-lens records the entity's growth over the last week (the median, over the last day, of the change since a week earlier divided by 7, so daily and weekly patterns cancel), and after each check run ends the acceptance when that growth now differs by more than half of the recorded rate, or of 1 MiB a day when that is larger, recording "growth changed from … to …" as the reason. An entity with under about 8 days of history gets its baseline recorded later, the first time it can be measured. A purge or a restore changes the week's growth and also ends it, so the finding returns for a new decision. At the review date the acceptance ends as a mute does. The review needs a `retention` of at least 8 days and an hour; with less, acceptances record no growth and end only at their review date, and nats-lens logs a warning at start.
 
 ## Scenarios
+
+### Browse a check without a finding
+
+- **Surfaces:** `ui`, `api`
+- **Given** no finding has fired for a check
+- **When** I browse Checks or request `ListCheckDefinitions` for the selected system
+- **Then** the reference still includes that check, its default thresholds, firing rules, limitations and next steps
+- **And** the catalog includes all 88 checks, including the three built-in checks
+
+### Keep configuration in its system
+
+- **Surfaces:** `ui`, `api`
+- **Given** one system disables a check and overrides its threshold while another uses defaults
+- **When** I switch systems on a reference page
+- **Then** the page reads the selected system's values and never shows the previous system's values as its own
+- **And** a demo or unavailable configuration does not claim a check is enabled or supply effective values
+
+### Follow a check reference link
+
+- **Surfaces:** `ui`
+- **Given** a finding or expanded event with an associated finding
+- **When** I follow its Check reference link
+- **Then** I reach that check's page with the same system and time range
+- **And** an unknown code shows “Check not found” with a link to browse all checks
+
 
 ### A problem raises a finding and resolves it
 

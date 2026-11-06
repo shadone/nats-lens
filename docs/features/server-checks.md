@@ -76,9 +76,9 @@ The server checks judge each NATS server on its own: whether it answers, whether
 
 ### `server-009` Slow consumers
 
-- **Problem:** the server closed or flagged connections that could not read their messages fast enough.
+- **Problem:** the server closed or flagged connections that could not read their messages fast enough. The aggregate `slow_consumers` includes clients, routes, gateways and leaf connections. Retries may increment it without a disconnect; it does not measure JetStream consumer backlog.
 - **Fires when:** the server's slow consumer counter rose within the lookback, counted per server process.
-- **Severity:** warning. Critical when a route, gateway or leaf node was a slow consumer, as that drops traffic between servers.
+- **Severity:** warning. Critical when the route, gateway or leaf slow consumer counters grow, indicating pressure on traffic between servers.
 - **Thresholds:** lookback 15m.
 - **Left out:** growth across a restart: a new process starts the count again. `client-003` names the clients.
 
@@ -201,11 +201,14 @@ The server checks judge each NATS server on its own: whether it answers, whether
 
 ### `server-024` OCSP peer rejected
 
-A warning fires when the server reports a final TLS peer connection rejection by Online Certificate Status Protocol (OCSP) verification in the last 15 minutes. A chain-link status event alone does not count. The event can describe an inbound client or a leaf connection; it does not establish that the certificate was revoked. Responder failures can also prevent verification.
+- **Fires when:** the server reports a final TLS peer connection rejection by Online Certificate Status Protocol (OCSP) verification in the last 15 minutes. A chain-link status event alone does not count. The event can describe an inbound client or a leaf connection; it does not establish that the certificate was revoked. Responder failures can also prevent verification.
 
-The finding links to the latest rejection event and counts distinct event IDs per server process. Both the event time and receipt time must fall in the lookback. The finding resolves once the window is empty, without a counter or a second collection of failures. It keeps the event's captured server name across a restart or a missing snapshot, and uses the server ID when the event has no name. Event-only servers can raise findings too. Without live event capture, missed rejections cannot be recovered.
+- **Evidence:** the finding links to the latest rejection event and counts distinct event IDs per server process. Both the event time and receipt time must fall in the lookback. The finding resolves once the window is empty, without a counter or a second collection of failures. It keeps the event's captured server name across a restart or a missing snapshot, and uses the server ID when the event has no name. Event-only servers can raise findings too. Without live event capture, missed rejections cannot be recovered.
+- **Severity:** warning.
+- **Thresholds:** lookback 15m.
+- **Left out:** chain-link status events without a final peer rejection; rejections outside the event-time or receipt-time lookback.
 
-Read the emitting server's TLS and OCSP logs and identify the peer by the certificate fingerprint retained in the event. The failing certificate can be another link in the peer's chain. Check revocation, validity, responder reachability, and clocks before replacing certificates or restoring access. Keep verification enabled.
+- **Next steps:** read the emitting server's TLS and OCSP logs and identify the peer by the certificate fingerprint retained in the event. The failing certificate can be another link in the peer's chain. Check revocation, validity, responder reachability, and clocks before replacing certificates or restoring access. Keep verification enabled.
 
 ### `server-025` Slow routes
 

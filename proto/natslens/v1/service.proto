@@ -7,6 +7,7 @@ import "natslens/v1/acknowledgements.proto";
 import "natslens/v1/applications.proto";
 import "natslens/v1/buckets.proto";
 import "natslens/v1/capacity.proto";
+import "natslens/v1/checks.proto";
 import "natslens/v1/consumers.proto";
 import "natslens/v1/events.proto";
 import "natslens/v1/findings.proto";
@@ -39,6 +40,11 @@ option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natsl
 // AcknowledgeFinding and EndAcknowledgement are the only writes, and they
 // write only to that database.
 service LensService {
+  // All shipped check references with configuration from the selected system.
+  rpc ListCheckDefinitions(ListCheckDefinitionsRequest) returns (ListCheckDefinitionsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
   // Identity mode, version, cluster, collect interval and retention of this
   // instance.
   rpc GetLensInfo(GetLensInfoRequest) returns (GetLensInfoResponse) {

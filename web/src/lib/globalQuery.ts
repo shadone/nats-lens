@@ -28,7 +28,7 @@ export function withGlobal(to: string, global: string): string {
   const params = new URLSearchParams(own ?? "");
   const g = new URLSearchParams(global);
   const otherSystem = params.has(SYSTEM_PARAM) && params.get(SYSTEM_PARAM) !== g.get(SYSTEM_PARAM);
-  const scoped = !otherSystem && navFor(path)?.accountScope === true;
+  const scoped = !otherSystem && (navFor(path)?.accountScope === true || navFor(path)?.preserveAccount === true);
   g.forEach((v, k) => {
     if (params.has(k) || (k === ACCOUNT_PARAM && !scoped)) return;
     params.set(k, v);

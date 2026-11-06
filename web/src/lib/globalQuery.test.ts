@@ -48,3 +48,9 @@ describe("withGlobal", () => {
     expect(withGlobal("/streams", "")).toBe("/streams");
   });
 });
+
+
+it("carries reference account context without leaking it to another system", () => {
+  expect(withGlobal("/checks/consumer-009","?range=6h&system=a&account=APP")).toBe("/checks/consumer-009?range=6h&system=a&account=APP");
+  expect(withGlobal("/checks?system=b","?range=6h&system=a&account=APP")).toBe("/checks?system=b&range=6h");
+});

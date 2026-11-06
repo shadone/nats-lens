@@ -33,6 +33,9 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
+	// LensServiceListCheckDefinitionsProcedure is the fully-qualified name of the LensService's
+	// ListCheckDefinitions RPC.
+	LensServiceListCheckDefinitionsProcedure = "/natslens.v1.LensService/ListCheckDefinitions"
 	// LensServiceGetLensInfoProcedure is the fully-qualified name of the LensService's GetLensInfo RPC.
 	LensServiceGetLensInfoProcedure = "/natslens.v1.LensService/GetLensInfo"
 	// LensServiceGetOverviewProcedure is the fully-qualified name of the LensService's GetOverview RPC.
@@ -132,6 +135,8 @@ const (
 
 // LensServiceClient is a client for the natslens.v1.LensService service.
 type LensServiceClient interface {
+	// All shipped check references with configuration from the selected system.
+	ListCheckDefinitions(context.Context, *connect.Request[v1.ListCheckDefinitionsRequest]) (*connect.Response[v1.ListCheckDefinitionsResponse], error)
 	// Identity mode, version, cluster, collect interval and retention of this
 	// instance.
 	GetLensInfo(context.Context, *connect.Request[v1.GetLensInfoRequest]) (*connect.Response[v1.GetLensInfoResponse], error)
@@ -254,6 +259,13 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 	baseURL = strings.TrimRight(baseURL, "/")
 	lensServiceMethods := v1.File_natslens_v1_service_proto.Services().ByName("LensService").Methods()
 	return &lensServiceClient{
+		listCheckDefinitions: connect.NewClient[v1.ListCheckDefinitionsRequest, v1.ListCheckDefinitionsResponse](
+			httpClient,
+			baseURL+LensServiceListCheckDefinitionsProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("ListCheckDefinitions")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		getLensInfo: connect.NewClient[v1.GetLensInfoRequest, v1.GetLensInfoResponse](
 			httpClient,
 			baseURL+LensServiceGetLensInfoProcedure,
@@ -521,44 +533,50 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 
 // lensServiceClient implements LensServiceClient.
 type lensServiceClient struct {
-	getLensInfo        *connect.Client[v1.GetLensInfoRequest, v1.GetLensInfoResponse]
-	getOverview        *connect.Client[v1.GetOverviewRequest, v1.GetOverviewResponse]
-	listFindings       *connect.Client[v1.ListFindingsRequest, v1.ListFindingsResponse]
-	getFinding         *connect.Client[v1.GetFindingRequest, v1.GetFindingResponse]
-	getOnCall          *connect.Client[v1.GetOnCallRequest, v1.GetOnCallResponse]
-	muteFinding        *connect.Client[v1.MuteFindingRequest, v1.MuteFindingResponse]
-	unmuteFinding      *connect.Client[v1.UnmuteFindingRequest, v1.UnmuteFindingResponse]
-	acknowledgeFinding *connect.Client[v1.AcknowledgeFindingRequest, v1.AcknowledgeFindingResponse]
-	endAcknowledgement *connect.Client[v1.EndAcknowledgementRequest, v1.EndAcknowledgementResponse]
-	listMutes          *connect.Client[v1.ListMutesRequest, v1.ListMutesResponse]
-	getStatusTimeline  *connect.Client[v1.GetStatusTimelineRequest, v1.GetStatusTimelineResponse]
-	listEvents         *connect.Client[v1.ListEventsRequest, v1.ListEventsResponse]
-	getEvent           *connect.Client[v1.GetEventRequest, v1.GetEventResponse]
-	listStreams        *connect.Client[v1.ListStreamsRequest, v1.ListStreamsResponse]
-	getStream          *connect.Client[v1.GetStreamRequest, v1.GetStreamResponse]
-	listConsumers      *connect.Client[v1.ListConsumersRequest, v1.ListConsumersResponse]
-	getConsumer        *connect.Client[v1.GetConsumerRequest, v1.GetConsumerResponse]
-	getPlacement       *connect.Client[v1.GetPlacementRequest, v1.GetPlacementResponse]
-	getReplay          *connect.Client[v1.GetReplayRequest, v1.GetReplayResponse]
-	getTopology        *connect.Client[v1.GetTopologyRequest, v1.GetTopologyResponse]
-	getAccountsAndAuth *connect.Client[v1.GetAccountsAndAuthRequest, v1.GetAccountsAndAuthResponse]
-	getCapacity        *connect.Client[v1.GetCapacityRequest, v1.GetCapacityResponse]
-	getDataHistory     *connect.Client[v1.GetDataHistoryRequest, v1.GetDataHistoryResponse]
-	getSubjects        *connect.Client[v1.GetSubjectsRequest, v1.GetSubjectsResponse]
-	matchSubject       *connect.Client[v1.MatchSubjectRequest, v1.MatchSubjectResponse]
-	getMicroServices   *connect.Client[v1.GetMicroServicesRequest, v1.GetMicroServicesResponse]
-	getApplications    *connect.Client[v1.GetApplicationsRequest, v1.GetApplicationsResponse]
-	listServers        *connect.Client[v1.ListServersRequest, v1.ListServersResponse]
-	getServer          *connect.Client[v1.GetServerRequest, v1.GetServerResponse]
-	listConnections    *connect.Client[v1.ListConnectionsRequest, v1.ListConnectionsResponse]
-	listSystems        *connect.Client[v1.ListSystemsRequest, v1.ListSystemsResponse]
-	getShellStatus     *connect.Client[v1.GetShellStatusRequest, v1.GetShellStatusResponse]
-	listAccounts       *connect.Client[v1.ListAccountsRequest, v1.ListAccountsResponse]
-	listKeyValueStores *connect.Client[v1.ListKeyValueStoresRequest, v1.ListKeyValueStoresResponse]
-	listObjectStores   *connect.Client[v1.ListObjectStoresRequest, v1.ListObjectStoresResponse]
-	listMetrics        *connect.Client[v1.ListMetricsRequest, v1.ListMetricsResponse]
-	getTimeSeries      *connect.Client[v1.GetTimeSeriesRequest, v1.GetTimeSeriesResponse]
-	getTimeSeriesBatch *connect.Client[v1.GetTimeSeriesBatchRequest, v1.GetTimeSeriesBatchResponse]
+	listCheckDefinitions *connect.Client[v1.ListCheckDefinitionsRequest, v1.ListCheckDefinitionsResponse]
+	getLensInfo          *connect.Client[v1.GetLensInfoRequest, v1.GetLensInfoResponse]
+	getOverview          *connect.Client[v1.GetOverviewRequest, v1.GetOverviewResponse]
+	listFindings         *connect.Client[v1.ListFindingsRequest, v1.ListFindingsResponse]
+	getFinding           *connect.Client[v1.GetFindingRequest, v1.GetFindingResponse]
+	getOnCall            *connect.Client[v1.GetOnCallRequest, v1.GetOnCallResponse]
+	muteFinding          *connect.Client[v1.MuteFindingRequest, v1.MuteFindingResponse]
+	unmuteFinding        *connect.Client[v1.UnmuteFindingRequest, v1.UnmuteFindingResponse]
+	acknowledgeFinding   *connect.Client[v1.AcknowledgeFindingRequest, v1.AcknowledgeFindingResponse]
+	endAcknowledgement   *connect.Client[v1.EndAcknowledgementRequest, v1.EndAcknowledgementResponse]
+	listMutes            *connect.Client[v1.ListMutesRequest, v1.ListMutesResponse]
+	getStatusTimeline    *connect.Client[v1.GetStatusTimelineRequest, v1.GetStatusTimelineResponse]
+	listEvents           *connect.Client[v1.ListEventsRequest, v1.ListEventsResponse]
+	getEvent             *connect.Client[v1.GetEventRequest, v1.GetEventResponse]
+	listStreams          *connect.Client[v1.ListStreamsRequest, v1.ListStreamsResponse]
+	getStream            *connect.Client[v1.GetStreamRequest, v1.GetStreamResponse]
+	listConsumers        *connect.Client[v1.ListConsumersRequest, v1.ListConsumersResponse]
+	getConsumer          *connect.Client[v1.GetConsumerRequest, v1.GetConsumerResponse]
+	getPlacement         *connect.Client[v1.GetPlacementRequest, v1.GetPlacementResponse]
+	getReplay            *connect.Client[v1.GetReplayRequest, v1.GetReplayResponse]
+	getTopology          *connect.Client[v1.GetTopologyRequest, v1.GetTopologyResponse]
+	getAccountsAndAuth   *connect.Client[v1.GetAccountsAndAuthRequest, v1.GetAccountsAndAuthResponse]
+	getCapacity          *connect.Client[v1.GetCapacityRequest, v1.GetCapacityResponse]
+	getDataHistory       *connect.Client[v1.GetDataHistoryRequest, v1.GetDataHistoryResponse]
+	getSubjects          *connect.Client[v1.GetSubjectsRequest, v1.GetSubjectsResponse]
+	matchSubject         *connect.Client[v1.MatchSubjectRequest, v1.MatchSubjectResponse]
+	getMicroServices     *connect.Client[v1.GetMicroServicesRequest, v1.GetMicroServicesResponse]
+	getApplications      *connect.Client[v1.GetApplicationsRequest, v1.GetApplicationsResponse]
+	listServers          *connect.Client[v1.ListServersRequest, v1.ListServersResponse]
+	getServer            *connect.Client[v1.GetServerRequest, v1.GetServerResponse]
+	listConnections      *connect.Client[v1.ListConnectionsRequest, v1.ListConnectionsResponse]
+	listSystems          *connect.Client[v1.ListSystemsRequest, v1.ListSystemsResponse]
+	getShellStatus       *connect.Client[v1.GetShellStatusRequest, v1.GetShellStatusResponse]
+	listAccounts         *connect.Client[v1.ListAccountsRequest, v1.ListAccountsResponse]
+	listKeyValueStores   *connect.Client[v1.ListKeyValueStoresRequest, v1.ListKeyValueStoresResponse]
+	listObjectStores     *connect.Client[v1.ListObjectStoresRequest, v1.ListObjectStoresResponse]
+	listMetrics          *connect.Client[v1.ListMetricsRequest, v1.ListMetricsResponse]
+	getTimeSeries        *connect.Client[v1.GetTimeSeriesRequest, v1.GetTimeSeriesResponse]
+	getTimeSeriesBatch   *connect.Client[v1.GetTimeSeriesBatchRequest, v1.GetTimeSeriesBatchResponse]
+}
+
+// ListCheckDefinitions calls natslens.v1.LensService.ListCheckDefinitions.
+func (c *lensServiceClient) ListCheckDefinitions(ctx context.Context, req *connect.Request[v1.ListCheckDefinitionsRequest]) (*connect.Response[v1.ListCheckDefinitionsResponse], error) {
+	return c.listCheckDefinitions.CallUnary(ctx, req)
 }
 
 // GetLensInfo calls natslens.v1.LensService.GetLensInfo.
@@ -753,6 +771,8 @@ func (c *lensServiceClient) GetTimeSeriesBatch(ctx context.Context, req *connect
 
 // LensServiceHandler is an implementation of the natslens.v1.LensService service.
 type LensServiceHandler interface {
+	// All shipped check references with configuration from the selected system.
+	ListCheckDefinitions(context.Context, *connect.Request[v1.ListCheckDefinitionsRequest]) (*connect.Response[v1.ListCheckDefinitionsResponse], error)
 	// Identity mode, version, cluster, collect interval and retention of this
 	// instance.
 	GetLensInfo(context.Context, *connect.Request[v1.GetLensInfoRequest]) (*connect.Response[v1.GetLensInfoResponse], error)
@@ -871,6 +891,13 @@ type LensServiceHandler interface {
 // and JSON codecs. They also support gzip compression.
 func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
 	lensServiceMethods := v1.File_natslens_v1_service_proto.Services().ByName("LensService").Methods()
+	lensServiceListCheckDefinitionsHandler := connect.NewUnaryHandler(
+		LensServiceListCheckDefinitionsProcedure,
+		svc.ListCheckDefinitions,
+		connect.WithSchema(lensServiceMethods.ByName("ListCheckDefinitions")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	lensServiceGetLensInfoHandler := connect.NewUnaryHandler(
 		LensServiceGetLensInfoProcedure,
 		svc.GetLensInfo,
@@ -1135,6 +1162,8 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 	)
 	return "/natslens.v1.LensService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case LensServiceListCheckDefinitionsProcedure:
+			lensServiceListCheckDefinitionsHandler.ServeHTTP(w, r)
 		case LensServiceGetLensInfoProcedure:
 			lensServiceGetLensInfoHandler.ServeHTTP(w, r)
 		case LensServiceGetOverviewProcedure:
@@ -1219,6 +1248,10 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 
 // UnimplementedLensServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedLensServiceHandler struct{}
+
+func (UnimplementedLensServiceHandler) ListCheckDefinitions(context.Context, *connect.Request[v1.ListCheckDefinitionsRequest]) (*connect.Response[v1.ListCheckDefinitionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListCheckDefinitions is not implemented"))
+}
 
 func (UnimplementedLensServiceHandler) GetLensInfo(context.Context, *connect.Request[v1.GetLensInfoRequest]) (*connect.Response[v1.GetLensInfoResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetLensInfo is not implemented"))
