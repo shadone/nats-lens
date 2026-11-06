@@ -6,7 +6,7 @@
 
 ## What it does
 
-The Servers page shows a system's servers at a glance, built for 20 servers or more: a row of data points, charts across all servers, a map with one square per server, and a list grouped by cluster with the servers that need attention first. A server's own page shows five metric boxes, where it runs, its routes, its limits and settings, its recent events, the monitoring requests it answered, its findings and each process lifetime. Together they answer: which servers answer, which restarted, which is the meta leader, which is configured or versioned apart, and which one is short of storage or under load.
+The Servers page shows a system's servers at a glance, built for 20 servers or more: a row of data points, charts across all servers, a map with one square per server, and a list grouped by cluster with the servers that need attention first. A server's own page shows six metric boxes, where it runs, its routes, its limits and settings, its recent events, the monitoring requests it answered, its findings and each process lifetime. Together they answer: which servers answer, which restarted, which is the meta leader, which is configured or versioned apart, and which one is short of storage or under load.
 
 ## Behavior and rules
 
@@ -17,7 +17,7 @@ The Servers page shows a system's servers at a glance, built for 20 servers or m
   - **Versions:** how many versions run, a bar split by version, and each version with its count (with more than four, the fourth onwards as "other versions"). The legend draws each version's swatch.
   - **Restarts:** the restarts in the range ("Restarts, 24 h" for a live range), a strip with a tick at each restart, and the servers that restarted.
   - **JetStream store:** the median use of the store limit across servers, a track with the range from the emptiest to the fullest server and a tick at the median, and the fullest server.
-  - **Slow consumers:** the slow consumers counted in the range across servers, a bar per bucket of `cluster.slow_consumers`, and the server with the most.
+  - **Slow-consumer detections:** increases of the servers’ slow-consumer counters during the selected range. These cover clients, routes, gateways and leaf connections. Write-timeout retries can increment the counter without a disconnect; the total is not a count of unique clients. A strip shows each bucket of `cluster.slow_consumers` and names the server with the most. Its accessible label also calls these detections. JetStream pending messages are a separate backlog; a Consumers link opens that page with the global system, time range and account scope preserved.
 - **Charts across servers.** The same charts as the Overview's trends: CPU and memory are drawn as a band from the lowest to the highest server, with the median as a line and the busiest server (the highest mean over the range) dashed and named with its value ("busiest: nats-ap-2, 64.1%"); connections as the total; messages in and out per second, with out dashed. Each chart starts at zero, except Memory, which spans its own range with a small margin; its legend draws its own marks, its value is the newest bucket's median ("6.7% median") or total, and it states its minimum and maximum.
 - **Every server.** One square per server, grouped by cluster, coloured by a metric chosen with the "Colour by" buttons: CPU, memory, connections, store used, leaders or version. CPU and store used have fixed bins (under 10%, 10 to 30%, 30 to 60%, 60% or more); memory, connections and leaders split the spread between the smallest and largest server into quarters; version gives each version its own colour, the most common first, and with more than four versions the fourth onwards share "other versions". A percentage is binned as it is shown, so "60%" is in "60% or more", and the relative scales use only the servers that answered. The meta leader is outlined; a server that did not answer is dashed and has no fill; a server that did not report the value has no colour. Hovering or focusing a square names the server and its value; a click opens the server. The legend draws each swatch, including "did not answer", "not reported" and "meta leader" when they occur. The colours are defined for the light and the dark theme.
 - **The list.**
@@ -26,10 +26,12 @@ The Servers page shows a system's servers at a glance, built for 20 servers or m
   - "Needs attention" is shown by default. A server needs attention when it did not answer, a warning or critical finding fires on it (info and muted ones do not count), its healthz is not ok, its version is not the one most servers run, or its store is at 60% of its limit or more. The State column names each reason ("did not answer · warning finding", "version 2.12.2", "store 71%"). An info finding is shown there too, as a notice after the reasons ("ok · info finding"), and a server with only an info finding is listed after the servers with a reason.
   - "All" shows every server, six per cluster (twenty in a flat list) with "Show N more".
   - A filter matches the name, the version or a tag.
-  - Columns: server, state, role, version, uptime, CPU, memory, connections, leaders (stream and consumer leaders on the server), store with a bar and its percentage, and tags. A server that did not answer shows "–" for the numbers of the newest collection, its leaders included.
+  - Columns: server, state, role, version, uptime, CPU, memory, connections, leaders (stream and consumer leaders on the server), JetStream file storage with stored bytes, a positive configured limit when reported, and a bar with its percentage, and tags. A server that did not answer shows "–" for the numbers of the newest collection, its leaders included.
+- **Storage meaning.** List storage values cover the whole server, regardless of account scope, and include local replica copies. They are not unique application data or filesystem use. Filesystem used bytes and capacity are not collected. Zero stored bytes remain visible; missing bytes read "not reported", and a missing or nonpositive limit reads "limit unknown". A server without JetStream reads "no JetStream"; a server that did not answer reads "did not answer". Percentages use only answering servers with a positive limit and reported bytes.
 - **The server page.**
   - The header names the cluster in the breadcrumb, and the role, version, uptime and start time in one line, or "did not answer in the newest collection".
-  - **Metric boxes** for CPU, memory, connections, messages (in as the value and line, out dashed with its current rate in the note) and slow consumers. Each has a title with an (i) button describing the metric, the current value at the top right, a line chart over the range, and a track with the window's lowest value on the left, its highest on the right and a dot at the current value. The ends are the window's own lowest and highest values; a current value outside them puts the dot at the nearer end. When the value did not change the track reads "steady at N all window"; without a series there is no track and the box reads "no data for the window"; without a current value the track has no dot and reads "no current value". A configured limit, such as the connection limit, is in the note under the track. Health colours the value and the dot, with a word only when it is not ok: CPU at 60% of a core or more is "high", connections at 80% of the limit or more are "near limit", and slow consumers in the range mark the box. A server that did not answer shows no current value, only its history.
+  - **Metric boxes** for CPU, memory, JetStream file storage, connections, messages (in as the value and line, out dashed with its current rate in the note) and slow-consumer detections. Each has a title with an (i) button describing the metric, the current value at the top right, a line chart over the range, and a track with the window's lowest value on the left, its highest on the right and a dot at the current value. The ends are the window's own lowest and highest values; a current value outside them puts the dot at the nearer end. When the value did not change the track reads "steady at N all window"; without a series there is no track and the box reads "no data for the window"; without a current value the track has no dot and reads "no current value". A configured limit, such as the connection limit, is in the note under the track. Health colours the value and the dot, with a word only when it is not ok: CPU at 60% of a core or more is "high", connections at 80% of the limit or more are "near limit", and slow-consumer detections in the range mark the box. The detections box also links to Consumers for JetStream backlog. A server that did not answer shows no current value, only its history.
+  - **JetStream file storage:** the current file bytes and the positive configured limit from the newest collection, a history chart of bucket averages, and the percentage of that limit when both values are reported. No current value is borrowed from history or an older limit. JSZ supplies storage, with VARZ as fallback. Bucket averages use available storage samples; the existing server and STATSZ/VARZ hatches do not identify every storage-only missing report. The card explains that filesystem used bytes and capacity are not collected. Metric descriptions open below their header on focus or click, stay inside the card width, and close with Escape. History follows the stable server name across process restarts; navigating to another server clears the previous server’s series while the new series loads.
   - Placement, routes and limits share a responsive row. **Recent events** spans the full width below them. Long names, tags and event summaries wrap within their cards.
   - **Where it runs:** the pod and namespace with its restarts in the range, the node (or "not scheduled"), when the pod was scheduled, and the zone from an `az:` tag. Hidden when nats-lens does not watch Kubernetes.
   - **Routes:** the route count with the slowest route's remote server and round trip, bytes waiting on routes when there are any, gateways, leaf nodes and the meta leader in the server's view.
@@ -50,6 +52,38 @@ The Servers page shows a system's servers at a glance, built for 20 servers or m
 Server detail charts mark recorded missing answers and missing STATSZ/VARZ metrics reports with bounded hatches. These do not establish downtime. See [Data history](data-history.md).
 
 ## Scenarios
+
+### Distinguish detections from JetStream backlog
+
+- **Surfaces:** `ui`
+- **Given** the servers report zero slow-consumer detections during the selected range and a JetStream consumer has pending messages
+- **When** I open Servers or a server page
+- **Then** the metric is labelled "Slow-consumer detections" and explains counter increases across connection types, including retries without a disconnect
+- **And** its Consumers link opens JetStream backlog with the global system, time range and account scope preserved
+
+### Read an aggregate without inferring client disconnects
+
+- **Surfaces:** `ui`
+- **Given** a server reports seven slow-consumer counter increases, from clients or other connection types
+- **When** I open Servers
+- **Then** the total shows seven detections and does not identify seven unique clients or seven disconnects
+- **And** the server page explains the same counter meaning and separates it from JetStream pending messages
+
+### Read storage without a configured limit
+
+- **Surfaces:** `ui`
+- **Given** an answering server reports zero JetStream file bytes and no positive storage limit
+- **When** I show all servers
+- **Then** its storage cell reads "0 B · limit unknown" and shows no percentage bar
+
+
+### Read one server’s storage history
+
+- **Surfaces:** `ui`
+- **Given** a server reports 1 MiB of JetStream file bytes and a 2 MiB configured limit in the newest collection
+- **When** I open its page
+- **Then** the storage box shows 1 MiB, "1 MiB / 2 MiB", "50% of configured limit", and its history in bytes
+- **And** missing current bytes show no current value even when historical points or older limits exist
 
 ### Find the server that restarted
 

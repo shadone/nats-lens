@@ -87,6 +87,8 @@
 .srv-tbl td.warn{color:var(--sev-warning);font-weight:600}
 .srv-tbl td.tags{font-size:11.5px;color:var(--text-2)}
 .srv-store{white-space:nowrap}
+.srv-storage-value{display:block;font-family:var(--mono);font-size:11.5px}
+.srv-storage-meter{display:block;margin-top:4px;font-size:11px;color:var(--text-2)}
 .srv-store .srv-bar{display:inline-block;width:64px;height:5px;border-radius:3px;background:var(--track);vertical-align:middle;margin-right:8px}
 .srv-store .srv-bar span{display:block;height:5px;border-radius:3px;background:var(--accent)}
 .srv-store .srv-bar span.warn{background:var(--cell-warning)}
@@ -95,7 +97,7 @@
 .srv-foot{margin-top:8px}
 
 /* a server's own page */
-.sd-tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:14px}
+.sd-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
 .sd-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px;margin-top:14px}
 .sd-events-row{margin-top:12px;min-width:0}
 .sd-card{padding:14px 16px;min-width:0;overflow-wrap:anywhere}
@@ -114,10 +116,11 @@
 .sd-ep{margin:12px 0 0;font-size:12.5px}
 
 @media (max-width:1100px){
-  .dp-row,.sd-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .dp-row{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .sd-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media (max-width:760px){
-  .dp-row,.sd-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dp-row{grid-template-columns:repeat(2,minmax(0,1fr))}
   .srv-tools input[type="search"]{min-width:0;flex:1 1 100%}
   .srv-tools .aside{margin-left:0}
   .sg-groups{gap:14px 24px}
@@ -130,3 +133,12 @@
 .sd-dl .nowrap{white-space:normal}
 .sd-cards{align-items:start}
 .srv-note{color:var(--sev-info)}
+
+/* Keep long metric names and focus/touch descriptions inside each server tile. */
+.sd-tiles .mbox{position:relative;min-width:0}
+.sd-tiles .mb-h{position:relative;flex-wrap:wrap}
+.sd-tiles .mb-h .lbl{flex:1 1 100%}
+.sd-tiles .mb-t{white-space:normal;overflow-wrap:anywhere}
+.sd-tiles .infotip{position:static}
+.sd-tiles .infotip-t{top:100%;left:0;right:0;width:auto;max-width:none;overflow-wrap:anywhere}
+.sd-tiles .mb-note{overflow-wrap:anywhere}
