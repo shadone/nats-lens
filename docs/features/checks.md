@@ -10,6 +10,8 @@ After every collection, nats-lens runs its checks against what it just stored. E
 
 ## Behavior and rules
 
+- **Notifications.** `natslens run` sends findings to configured webhook and Slack-compatible channels, following the filters and delivery rules in [notifications.md](notifications.md).
+
 - **One finding per check and entity.** A finding has a check code (for example `stream-001`), an entity, a severity, a one-line detail and, where the check measures something, a value with its name, such as "replicas online". Client findings are keyed by connection name (for `client-001`, the part of the name before "@"), so a finding survives reconnects.
 - **Three severities.** `critical` means messages are at risk now, for example quorum is lost or a durable consumer disappeared. `warning` means something will break or is degrading. `info` means something worth knowing, such as a restart, a version difference or a stream without limits. A check has a default severity, and many checks raise or lower it by rule; for example, server store usage is a warning from 75% and critical from 90%.
 - **Findings start, change and resolve by themselves.** A newly failing entity starts a finding as **firing**. A severity change is recorded as **changed**. When the check no longer reports the entity, the finding is **resolved**. Every step is kept as a transition with the time of its collection, and every transition is also an event.
@@ -106,7 +108,6 @@ After every collection, nats-lens runs its checks against what it just stored. E
 
 - **Accept more than one entity.** Acceptance of the same finding on related entities (for example every consumer of one stream), or of the check everywhere, and accepted findings listed together under "Review accepted findings". Mutes stay for short-term silencing.
 - **One cause, one card.** Findings of one check that share a cause, such as four consumers of one stream with the same creation-time difference, are grouped into one item on the Overview.
-- **Notifications.** Sending firing and resolved findings to a channel is planned in [notifications.md](notifications.md).
 - **More checks.** Each check catalogue lists its planned checks.
 
 ## Not supported / out of scope

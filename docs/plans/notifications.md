@@ -2,7 +2,7 @@
 
 Working plan for Notifications (`docs/features/notifications.md`). The owner decided on 2026-11-05 to build it ("all good important points, lets implement"); every choice below was proposed by the planning session of 2026-11-05 and is not yet confirmed. When a task lands, its lasting content moves into `docs/features/notifications.md`, `docs/features/metrics-and-alerting.md`, `docs/design.md` and the README; this file then only tracks status.
 
-This changes the design. `docs/design.md` lists "alert delivery (findings are exposed as Prometheus metrics)" under "Out of scope for the first release", and its Overview table says "the tool delivers no alerts itself". T5 rewrites both (see T5). Read-only towards NATS stays true: the notifier reads nats-lens's own database and sends HTTP requests to the configured channels, nothing else.
+T5 reconciles the design and public documentation with direct webhook and Slack-compatible delivery. Read-only towards NATS stays true: the notifier reads nats-lens's own database and sends HTTP requests to configured channels.
 
 Examples use the online shop of `inventory.example.yaml`, the demo's systems (`example-prod`, `example-global`, `example-staging`), `hooks.example.com` for a receiver and `nats-lens.example.com` for the UI.
 
@@ -18,11 +18,11 @@ Each was answered by the session that built T1 as recommended below: proposed, n
 
 | Task | Status |
 |---|---|
-| T1 Configuration, message formats and `natslens notify test` | built on `feat/notify-config`, awaiting review |
-| T2 Notification state and outbox | built on `feat/notify-outbox`, awaiting review |
-| T3 Delivery, retries, metrics and the delivery check | built in isolated T3 checkout, awaiting parent review |
-| T4 Acknowledgements in notifications | built in isolated N4 checkout with prerequisite `b7b5131`; awaiting parent fresh read-only review |
-| T5 Feature docs, design and audit | planned |
+| T1 Configuration, message formats and `natslens notify test` | merged in `c40ec0d` (`feat/notify-config`) |
+| T2 Notification state and outbox | merged in `adf75ef` (`feat/notify-outbox`) |
+| T3 Delivery, retries, metrics and the delivery check | merged delivery head `f027860`, integrated with the sibling consumer branch by `3e97594` |
+| T4 Acknowledgements in notifications | candidate `a4f5eaee68817c930487ba07e15d8354a27f7385` approved by fresh third review and merged in `b179dc3c216045bf37ff4b891b63c02333b5c2e7` |
+| T5 Feature docs, design and audit | built in isolated docs checkout; fresh read-only review approved, awaiting parent integration |
 
 ## Rules for every step
 
@@ -209,9 +209,9 @@ After `docs/plans/mobile.md` T1 has merged (its table and `Finding.acknowledgeme
 ## T5 Feature docs, design and audit
 
 - `docs/features/notifications.md` to `Status: shipped` (or `partial`), with the rules and scenarios as built, `natslens notify test`, and a Not supported list (no templates, no e-mail, no paging-service API, no delivery while nats-lens is down).
-- `docs/features/metrics-and-alerting.md`: "nats-lens does not send alerts itself" becomes "besides `/metrics`, nats-lens can send findings to channels"; the new metric families.
+- `docs/features/metrics-and-alerting.md`: direct notification channels alongside `/metrics`, with four delivery gauges.
 - `docs/features/system-checks.md` (the new check), `running-nats-lens.md` (the `notify` command, egress to the receivers: a NetworkPolicy that limits egress must allow them), `demo-mode.md` (no channels in the demo).
-- `docs/design.md`, proposed edits: in "Overview", the Alerting row reads "Findings exported at `/metrics`, and sent to configured channels (webhook, Slack-compatible)"; "Out of scope for the first release" drops "alert delivery (findings are exposed as Prometheus metrics)" and adds "notification templates, e-mail and paging-service channels"; a new section "Notifications" under "Checks" (the comparison with `notify_state`, the outbox, at-least-once with dedup keys, the baseline, why it is not archived, secrets read at each attempt and never logged, the delivery check); "Shutdown" gains the in-flight request; the decisions marked proposed, not yet confirmed.
+- `docs/design.md`, proposed edits: the Overview includes direct webhook and Slack-compatible delivery; the out-of-scope list retains notification templates, e-mail and paging-service channels; a new section "Notifications" under "Checks" (the comparison with `notify_state`, the outbox, at-least-once with dedup keys, the baseline, why it is not archived, secrets read at each attempt and never logged, the delivery check); "Shutdown" gains the in-flight request; the decisions marked proposed, not yet confirmed.
 - README: the `notifications.*` rows of the configuration table, the webhook body field by field with an example, `natslens notify test`, the metric rows, and an alert rule `NatsLensNotificationsStuck` on `nats_lens_notifications_oldest_pending_seconds > 600`.
 - `docs/features/README.md`: the table row and the coverage line ("[x] Findings sent to webhook and Slack-compatible channels, with mutes, flapping and retries (notifications.md)").
 - The audit, `python3 <skill>/scripts/audit_feature_docs.py docs/features/ --map-refs require`; leftovers into `docs/plans/next.md`.
@@ -384,3 +384,36 @@ Second-review verification (all commands run in this isolated checkout):
 - `GOCACHE=/tmp/n4-review-gocache go vet ./internal/notify ./internal/store`:
   PASS. Feature-doc audit with `--map-refs require`: zero errors, only the expected
   planned-mobile warning. `git diff --check`: PASS.
+
+### T5 documentation evidence
+
+Proposed, not yet confirmed. The docs-only implementation starts at `7a0734d`,
+which includes Data history D1–D4 and the acknowledgement backend. Prerequisite
+merge `1af92ef` integrates approved N4 candidate `a4f5eae` for fact-checking in
+this checkout; it is separate from the T5 documentation commit. The parent merged the same approved candidate in `b179dc3`; its notification
+and store code match the inspected prerequisite. Any later N4 review fix must be reconciled before
+integrating these docs.
+
+- Updated the notification capability, both feature-index sections, delivery metrics,
+  system-010, receiver egress, destination testing, demo behavior, the design and
+  README reference. The overview's obsolete planned-notifications statement is removed.
+- Source checks cover channel validation/defaults, reconciliation and acknowledgement
+  rules, delivery/outbox/rebuild behavior, webhook golden bodies, command dispatch,
+  the metrics provider and `system-010.sql`. Numeric zero values remain in payloads.
+- README finding rules exclude mutes only. Prometheus acknowledgement exclusions,
+  global acknowledgement metric reference rows, deep links and playbook guidance
+  remain M4's work; M4 and D4 statuses are unchanged.
+- Feature-doc audit with `--map-refs require`: 0 errors, one expected `planned`
+  mobile warning. No implementation tests are needed for this docs-only change.
+- Fresh read-only review found one stale planned-delivery statement in
+  `docs/features/checks.md`. T5 replaces it with the shipped behavior and link.
+  No other material finding was reported.
+- Final fresh read-only review: APPROVE, no remaining findings. Prior I1 is fixed;
+  the reviewer confirms source agreement and preservation of Data history, the
+  83-check count and M4/D4 scope.
+- README JSON validation: the full firing body matches its golden fixture; all
+  eight other kind excerpts match fixture fields, with the runtime acknowledgement
+  ID appended to its key. Scope verification confirms every changed file is
+  Markdown and the Data history design sections and index entries are preserved.
+- T5 is built and reviewed, awaiting parent integration. The parent records
+  completion after merge; no self-approval is claimed.

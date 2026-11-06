@@ -82,14 +82,6 @@ The system checks judge what belongs to no single server: the JetStream meta gro
 - **Thresholds:** lookback 1h, `max_dropped` 0 (proposed, not yet confirmed).
 - **Left out:** a slow consumer on the collector's own connection, which carries monitoring replies rather than events (`system-007` sees the replies it cost); times when events were not captured at all (`collector.not_connected`, a stopped nats-lens); those are gaps, not dropped messages, and Replay and the Accounts page show them.
 
-## Behavior and rules
-
-- **A failed check is not silence.** Because `system-001` fires whenever a check fails, a check that cannot run never looks like a check that found nothing. The `/metrics` endpoint also exports `nats_lens_check_failing` per check.
-- **Checks rotate.** The order of the checks moves by one every collection, so when the budget runs out, a different check is left out each time.
-- **System findings carry no entity.** In the UI they read as "system". A mute of a system finding, for "This entity" or for every entity of the check, covers the whole system.
-- **Held conditions do not flap.** `system-004`, `system-005` and `system-006` fire only when their condition held in every collection for `min_duration`, and a firing finding resolves only after `min_duration` without it. A collection with a restarting server counts as clean, so a rolling restart or upgrade does not fire them.
-- **nats-lens judges itself.** `system-007` to `system-009` are about nats-lens, not NATS: their remediations name nats-lens's own settings (`timeout`, `archive_dir`, `data_dir`, `events.api_audit`) as well as `nats` commands. They colour no Overview tile; `system-001` to `system-006` colour the Servers tile ([overview-page.md](overview-page.md)).
-
 ### `system-010` Notifications not delivered
 
 - **Problem:** a configured channel cannot receive findings.
@@ -97,7 +89,15 @@ The system checks judge what belongs to no single server: the JetStream meta gro
 - **Severity:** warning for old pending messages; critical for recent refusals or give-ups (proposed, not yet confirmed).
 - **Thresholds:** `pending_for` 10m (proposed, not yet confirmed).
 - **Reporting window:** a refusal or give-up remains visible for the full hour after the outcome, including after a retention sweep. Queue age does not shorten this window (proposed, not yet confirmed).
-- **Left out:** systems without queued notifications. A failing channel cannot report itself; use another channel or the notification metrics.
+- **Left out:** systems without queued notifications. A failing channel cannot report itself; use another channel or the [notification metrics](metrics-and-alerting.md).
+
+## Behavior and rules
+
+- **A failed check is not silence.** Because `system-001` fires whenever a check fails, a check that cannot run never looks like a check that found nothing. The `/metrics` endpoint also exports `nats_lens_check_failing` per check.
+- **Checks rotate.** The order of the checks moves by one every collection, so when the budget runs out, a different check is left out each time.
+- **System findings carry no entity.** In the UI they read as "system". A mute of a system finding, for "This entity" or for every entity of the check, covers the whole system.
+- **Held conditions do not flap.** `system-004`, `system-005` and `system-006` fire only when their condition held in every collection for `min_duration`, and a firing finding resolves only after `min_duration` without it. A collection with a restarting server counts as clean, so a rolling restart or upgrade does not fire them.
+- **nats-lens judges itself.** `system-007` to `system-010` are about nats-lens, not NATS: their remediations name nats-lens's own settings (`timeout`, `archive_dir`, `data_dir`, `events.api_audit`, notification channels) as well as `nats` commands. They colour no Overview tile; `system-001` to `system-006` colour the Servers tile ([overview-page.md](overview-page.md)).
 
 ## Scenarios
 
@@ -180,6 +180,13 @@ The system checks judge what belongs to no single server: the JetStream meta gro
 - **When** I mute it for "This entity: system"
 - **Then** the mute is stored and the finding reads as muted
 
+### A retention sweep follows a fresh delivery failure
+
+- **Given** a channel gives up a message queued eight days ago
+- **When** a retention sweep runs one second after the failure
+- **Then** `system-010` still reports the failure as critical for the hour after the outcome
+- **And** the notification metrics still count the recent failure
+
 ## Planned
 
 Every system check planned earlier is built. A check of the Kubernetes watcher's health is out of scope, below.
@@ -189,10 +196,3 @@ Every system check planned earlier is built. A check of the Kubernetes watcher's
 - **No supercluster-wide checks.** Gateways between clusters are not judged yet; see the planned server checks and [topology.md](topology.md).
 - **Accounts are judged elsewhere.** An account's limits and JWTs are the account checks; see [account-checks.md](account-checks.md).
 - **No check on the Kubernetes watcher's health.** Watch gaps are recorded as events, not findings.
-
-### A retention sweep follows a fresh delivery failure
-
-- **Given** a channel gives up a message queued eight days ago
-- **When** a retention sweep runs one second after the failure
-- **Then** `system-010` still reports the failure as critical for the hour after the outcome
-- **And** the notification metrics still count the recent failure

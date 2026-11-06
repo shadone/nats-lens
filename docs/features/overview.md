@@ -2,7 +2,7 @@
 
 - **Surfaces:** `ui`, `api`, `cli`
 - **Status:** shipped
-- **Related:** [README.md](README.md), [design.md](../design.md), [monitoring-snapshots.md](monitoring-snapshots.md), [checks.md](checks.md), [overview-page.md](overview-page.md)
+- **Related:** [README.md](README.md), [design.md](../design.md), [monitoring-snapshots.md](monitoring-snapshots.md), [checks.md](checks.md), [notifications.md](notifications.md), [overview-page.md](overview-page.md)
 
 ## What it does
 
@@ -72,7 +72,7 @@ NATS on its own is a black box to most of the people who run it. The servers ans
 
 - **One system per process.** Watching several systems from one nats-lens is planned ([multiple-systems.md](multiple-systems.md)). Today each system needs its own nats-lens.
 - **No write actions towards NATS.** nats-lens tells a person what to do; it never does it.
-- **No alert delivery of its own.** Findings reach an alerting system through `/metrics` ([metrics-and-alerting.md](metrics-and-alerting.md)). Notifications are planned ([notifications.md](notifications.md)).
+- **No paging schedules or custom message templates.** Findings reach alerting systems through `/metrics` ([metrics-and-alerting.md](metrics-and-alerting.md)) or configured webhook and Slack-compatible channels ([notifications.md](notifications.md)).
 - **No authentication of its own.** nats-lens expects an identity-aware proxy in front of it when it is reachable beyond localhost ([running-nats-lens.md](running-nats-lens.md)).
 - **No per-subject traffic.** NATS servers do not report message rates per subject, so nats-lens cannot show them ([subjects.md](subjects.md)).
 - **No high availability.** nats-lens runs as one replica, because its embedded database has one writer.

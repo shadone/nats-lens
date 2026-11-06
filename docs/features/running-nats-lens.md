@@ -2,7 +2,7 @@
 
 - **Surfaces:** `api`, `cli`
 - **Status:** shipped
-- **Related:** [monitoring-snapshots.md](monitoring-snapshots.md), [history-and-archive.md](history-and-archive.md), [metrics-and-alerting.md](metrics-and-alerting.md), [kubernetes-context.md](kubernetes-context.md), [demo-mode.md](demo-mode.md), [design.md](../design.md)
+- **Related:** [monitoring-snapshots.md](monitoring-snapshots.md), [history-and-archive.md](history-and-archive.md), [metrics-and-alerting.md](metrics-and-alerting.md), [notifications.md](notifications.md), [kubernetes-context.md](kubernetes-context.md), [demo-mode.md](demo-mode.md), [design.md](../design.md)
 
 ## What it does
 
@@ -11,6 +11,8 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 ## Behavior and rules
 
 - **Commands.** `natslens run` (also `natslens` alone) runs until SIGTERM or SIGINT. `natslens once` stores one collection of every system, or of the one `-system ID` names, runs the checks on it and exits, without events, archive or API. `natslens sql`, `natslens checks` and `natslens demo` are described in [sql-access.md](sql-access.md), [checks.md](checks.md) and [demo-mode.md](demo-mode.md).
+- **Test notifications.** `natslens notify test` reads the configured channels and sends test messages without opening a database or connecting to NATS ([notifications.md](notifications.md)). Only `run` schedules finding delivery; `once`, `checks run` and `demo` send no finding notifications.
+- **Receiver access.** Notification delivery needs DNS and outbound HTTPS to configured receivers. A NetworkPolicy that restricts egress must allow those destinations, including when copying the GKE component.
 - **Where settings come from.** Defaults first, then the file named by `-config`, then flags. The project's `natslens.example.yaml` lists every key. nats-lens checks the whole configuration at start and stops with every error it found, for example "timeout must be less than a third of interval: an epoch can take three collect windows".
 - **Credentials stay out of the process list.** The system account password has no flag. nats-lens reads it from the file, or from `NATSLENS_NATS_PASSWORD` when `nats.user` is set and the file has none. An account with a `user` and no password in the file reads it from `NATSLENS_ACCOUNT_<NAME>_PASSWORD`, with the account name upper-cased and every character other than A-Z and 0-9 replaced by `_`. A credentials file (`nats.creds`) or TLS client certificates work instead. nats-lens never logs credentials. A password written into `-nats-url` does show in the process list.
 - **Logs.** nats-lens writes JSON logs to standard error, at `log_level` (`info` by default). The start line lists the settings, among them `connz_limit`, `subscriptions_interval` and `subsz_limit`.
@@ -21,7 +23,7 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 - **Behind IAP.** With `iap_audience` set to the backend service's audience, mutes and lifts need a valid signed IAP assertion, and nats-lens records its user. Reads never need one.
 - **Safe responses.** Every response carries a Content-Security-Policy that allows the page's own files, its inline theme script and styles by their SHA-256 hashes, and `data:` images, and forbids framing; plus `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`. The UI makes no third-party requests and hosts its own fonts.
 - **Health and readiness.** `/healthz` answers while the process serves. `/readyz` answers ok once every system's database is open (any rebuild from the archive has finished) and the API serves. Readiness does not follow collection, so the UI stays reachable while NATS is down; a collector that stopped shows in the UI header and in the `nats_lens_last_epoch_age_seconds` metric. During a rebuild at start, neither endpoint answers yet.
-- **Stopping.** On SIGTERM or SIGINT, a running collection write may finish for up to `shutdown_grace` (5 seconds), the last events are written until `shutdown_grace` plus `events.flush_interval`, and the API gives calls in progress 5 seconds. Several systems stop at the same time within the same bounds. The process manager's stop timeout must be longer than `shutdown_grace + events.flush_interval + 2s` or 5 seconds, whichever is longer, plus a second or two to exit; with the defaults, at least 10 seconds.
+- **Stopping.** On SIGTERM or SIGINT, a running collection write may finish for up to `shutdown_grace` (5 seconds), an in-flight notification request gets the same `shutdown_grace` before cancellation, leaving its batch pending; the last events are written until `shutdown_grace` plus `events.flush_interval`, and the API gives calls in progress 5 seconds. Several systems stop at the same time within the same bounds. The process manager's stop timeout must be longer than `shutdown_grace + events.flush_interval + 2s` or 5 seconds, whichever is longer, plus a second or two to exit; with the defaults, at least 10 seconds.
 - **Memory.** DuckDB may use `duckdb_memory_limit`, by default 60% of the container's memory limit, or 1 GiB outside a container. Several systems share it, each with its own database.
 - **The Kubernetes manifests.** `k8s/base` creates the namespace `nats-lens`, a service account with read-only roles, a volume, the Deployment and the Service, and expects two Secrets with the NATS credentials. `k8s/components/gke-iap` adds IAP, a load balancer health check on `/healthz`, a NetworkPolicy and a Managed Prometheus scrape of `/metrics`. Two overlays to copy: `k8s/examples/basic`, reached by `kubectl port-forward` only, and `k8s/examples/gke-iap`, behind IAP on an existing Gateway.
 - **One replica.** DuckDB has one writer, so the Deployment runs one replica with the `Recreate` strategy, and the database and the archive share a volume. The pod prefers a node without a NATS server, so draining a NATS node does not also take nats-lens away. It runs as non-root on a read-only root filesystem.
@@ -64,11 +66,18 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 - **When** nats-lens starts
 - **Then** its log line `duckdb memory limit` shows `"bytes":322122547`, 60% of 512 MiB
 
+### Allow a notification receiver
+
+- **Surfaces:** `cli`
+- **Given** a channel destination is configured and a NetworkPolicy limits the pod's egress
+- **When** the policy allows DNS and HTTPS to that receiver and I run `natslens notify test`
+- **Then** the command reports whether the receiver accepts the test without requiring a stopped collector
+
 ## Not supported / out of scope
 
 - **No high availability.** One replica at a time; a second would not get the database.
 - **No authentication of its own.** Use an identity-aware proxy, or keep the API on loopback or behind a NetworkPolicy.
 - **No TLS on the API listener.** The API speaks plain HTTP (and HTTP/2 without TLS for gRPC); TLS ends at the proxy or load balancer.
-- **No configuration reload.** nats-lens reads its configuration, inventory and remediation file at start; a change needs a restart.
+- **No configuration reload.** nats-lens reads its configuration, inventory and remediation file at start; a change needs a restart. Notification secret files are read at each delivery attempt, so rotating their contents needs no restart.
 - **The `basic` overlay needs an enforcing CNI.** Without NetworkPolicy enforcement any pod can reach the API and mute findings.
 - **No Helm chart.** The manifests are kustomize only.
