@@ -42,7 +42,7 @@ export function OverviewTiles({ tiles, windows, start, end }: { tiles: Tile[]; w
   const coverage = rangeCoverageText(h?.historyStart, start, end);
   // Tile growth is conveyed in its subtitle, without typed readiness facts.
   // Keep this guidance neutral rather than infer missing data from retained age.
-  const growth = "Growth uses samples spanning 6 h; entity measurements determine the rate.";
+  const growth = h ? "Growth uses samples spanning 6 h; entity measurements determine the rate." : undefined;
   return (
     <div className="ov-tiles">
       {tiles.map((t) => (
