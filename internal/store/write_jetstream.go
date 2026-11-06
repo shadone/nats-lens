@@ -104,7 +104,7 @@ func (w *writer) gatherStream(b *jsRows, v *collect.ServerView, account string, 
 	}
 
 	st := s.State
-	row := streamStatsRow{Account: account, Stream: s.Name, Created: unixMicro(s.Created),
+	row := streamStatsRow{SourceConfigKnown: s.Config != nil, Account: account, Stream: s.Name, Created: unixMicro(s.Created),
 		Messages: i64(st.Msgs), Bytes: i64(st.Bytes), FirstSeq: i64(st.FirstSeq), LastSeq: i64(st.LastSeq),
 		FirstTS: unixMicro(st.FirstTime), LastTS: unixMicro(st.LastTime), NumSubjects: int64(st.NumSubjects),
 		NumDeleted: int64(st.NumDeleted), ConsumerCount: int64(st.Consumers),
@@ -126,6 +126,7 @@ func (w *writer) gatherStream(b *jsRows, v *collect.ServerView, account string, 
 	if sources > 0 {
 		row.SourcesCount, row.SourcesMaxLag = sources, i64(maxLag)
 	}
+	gatherSources(b, account, s, row.IsLeader)
 	b.streams = append(b.streams, row)
 	b.streamReplicas = append(b.streamReplicas, replicasOf(s.Cluster, account, s.Name, "")...)
 }

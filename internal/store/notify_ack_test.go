@@ -7,7 +7,7 @@ import (
 )
 
 func TestNotifyAcknowledgementMemoryUpgrade(t *testing.T) {
-	db, all := openAllButLast(t)
+	db, all := openBeforeMigration(t, 38)
 	ctx := context.Background()
 	at := t0.Add(123456 * time.Microsecond)
 	for _, name := range []string{"known", "older-cursor", "different-episode", "no-history"} {

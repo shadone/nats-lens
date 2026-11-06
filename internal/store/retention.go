@@ -9,7 +9,7 @@ import (
 // epochTables hold one row per epoch per entity and are swept by epoch.
 var epochTables = []string{
 	"epoch_endpoints", "server_stats", "routes", "gateways", "leafnodes", "ipqueues", "health",
-	"connections", "account_stats", "account_details", "stream_stats", "stream_replicas",
+	"connections", "account_stats", "account_details", "stream_stats", "stream_source_stats", "stream_replicas",
 	"consumer_stats", "consumer_replicas", "raft_stats", "subscriptions", "subscription_lists",
 }
 
