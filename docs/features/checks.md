@@ -110,6 +110,14 @@ After every collection, nats-lens runs its checks against what it just stored. E
 - **One cause, one card.** Findings of one check that share a cause, such as four consumers of one stream with the same creation-time difference, are grouped into one item on the Overview.
 - **More checks.** Each check catalogue lists its planned checks.
 
+### Open a configured playbook
+
+- **Surfaces:** `cli`, `ui`
+- **Given** a remediation entry pairs non-empty `text` with an HTTPS `playbook` URL
+- **When** nats-lens starts and an operator opens the phone finding card
+- **Then** the extra text follows the check's remediation and “Open the playbook” links to the configured URL
+- **And** a non-HTTPS URL, missing host, credentials, or control characters stop startup
+
 ## Not supported / out of scope
 
 - **No custom checks without a rebuild.** The checks are built into the binary. Adding a check means adding a SQL file and building nats-lens again.

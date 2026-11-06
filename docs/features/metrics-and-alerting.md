@@ -19,6 +19,8 @@ Besides sending findings to configured [notification channels](notifications.md)
 - **Notification delivery.** Per system and channel, four gauges report delivered messages and terminal failures in the last hour, pending messages, and the oldest pending age (absent with nothing pending). Refused or given-up messages count from the outcome time, including after a retention sweep. `system-010` reports notification delivery failures ([system-checks.md](system-checks.md)).
 - **Example rules.** The project README gives seven Prometheus rules (a critical finding, a warning finding, a collector that stopped collecting, checks that stopped running, a failing check, a system whose metrics cannot be read, and stuck notification delivery) and one Cloud Monitoring alert policy, for the critical finding; it says the other rules translate the same way.
 
+- **Acknowledgement quiet.** `nats_lens_finding_acknowledged` is 1 with the finding identity labels only while quiet holds, and absent otherwise. It follows the same selected entity set as the three finding series. `nats_lens_findings_acknowledged` counts every firing finding whose quiet holds, including muted findings, without that cap. These metrics measure quiet, while the UI acknowledgement tally also counts acknowledgements whose quiet expired.
+- **Quiet-aware finding rules.** Both README finding rules and its Cloud Monitoring query add `unless on(system, code, entity_type, entity_key) nats_lens_finding_acknowledged` after excluding mutes. Prometheus annotations URL-encode the labels and link to the finding through the label route. Cloud Monitoring documentation explains constructing the same route.
 ## Scenarios
 
 ### Page on a critical finding
@@ -52,8 +54,15 @@ Besides sending findings to configured [notification channels](notifications.md)
 - **Then** the rule matches that system and channel
 - **And** the age series disappears when no messages remain pending
 
+### Quiet an acknowledged alert
+
+- **Given** Prometheus evaluates a README finding rule for an unmuted firing finding
+- **When** an acknowledgement quiets that episode
+- **Then** the acknowledgement series appears and the finding rule stops matching
+- **And** when quiet ends, the series disappears and the rule can match again, with its configured waiting period
+
 ## Not supported / out of scope
 
-- **No automatic quieting by the example rules.** The README's finding rules exclude mutes; they do not exclude quiet acknowledgements. Channel quiet rules are described in [notifications.md](notifications.md).
+- **No automatic quieting of aggregate alerts.** Per-finding exclusions need the identity labels. A deployment alerting on aggregate counts must choose its own quiet policy.
 - **No raw NATS metrics.** `/metrics` exports findings and nats-lens's health, not every server, stream or consumer number. A NATS Prometheus exporter is the tool for those.
 - **No alert rules shipped as resources.** The rules are examples in the README; a deployment writes its own.

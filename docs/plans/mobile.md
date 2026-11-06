@@ -14,10 +14,10 @@ Examples use the online shop of `inventory.example.yaml`, the demo's systems (`e
 
 | Task | Status |
 |---|---|
-| T1 Acknowledgements: store, API, metrics and demo | built on `feat/acknowledgements`, awaiting review |
-| T2 `GetOnCall`: one call for the phone card | built, pending review |
-| T3 The phone layout, the acknowledge dialog and the marks | built in isolated checkout, awaiting fresh parent review |
-| T4 Feature docs, deep links in the README and audit | planned |
+| T1 Acknowledgements: store, API, metrics and demo | reviewed and merged at `d073334` |
+| T2 `GetOnCall`: one call for the phone card | reviewed tip `9edad8f`, merged at `0d0c9f7` |
+| T3 The phone layout, the acknowledge dialog and the marks | candidate `85cc8381eb4c4644737148b9ba78438c23d3b4e5`, awaiting fresh review; merged only in the isolated T4 checkout for fact-checking |
+| T4 Feature docs, deep links in the README and audit | built in the isolated T4 checkout; fresh read-only fact-check passed, awaiting parent review and integration |
 
 ## Rules for every step
 
@@ -145,6 +145,12 @@ Each point was decided in the session that built T3: proposed, not yet confirmed
 - `docs/design.md`: acknowledgements under "API" (a record apart from mutes and why, the episode rule, the event, the metric, archived as mutes are), `GetOnCall` under "RPCs", "The mute and acknowledgement calls are the only writes", the phone layout and `usePhone()` under "UI", each marked proposed, not yet confirmed.
 - `docs/features/README.md`: the table row and the coverage line ("[x] A finding on the phone for the person on call, with what is wrong now, what led to it, and an acknowledgement with a note for the team (mobile.md)"), and the Terms table gains "acknowledgement".
 - The audit, `python3 <skill>/scripts/audit_feature_docs.py docs/features/ --map-refs require`; leftovers into `docs/plans/next.md`.
+
+### T4 documentation reconciliation
+
+Built against M1/M2 and the M3 candidate above. Choices remain proposed, not yet confirmed. The capability and both index sections distinguish phone triage from deferred predictions and other phone pages. README examples encode all three alert labels, exclude acknowledgement quiet, retain `NatsLensNotificationsStuck`, and document text/HTTPS playbook entries. The design records acknowledgements apart from mutes, their episode and archive rules, read-only `GetOnCall`, and current-visit receipt limits. Data-history T4 and notification T5 completion records remain historical evidence, including their audit counts at the time. A later M3 review fix must be reconciled before final integration.
+
+Verification: 39 capability docs, 0 audit errors, 0 warnings (`--map-refs require`); `git diff --check` clean. Ruby parsed the README's 7 alert rules and both remediation forms. Go's standard template parser accepted all annotations; both finding links round-tripped every label with spaces, literal plus signs, slashes, and colons. Both finding expressions match the intended comparison and two identity exclusions. `promtool` is unavailable, so this is a structural expression check, not a full PromQL parser check. The notification-stuck rule block and D4/N5 plan records match the parent byte for byte. A fresh read-only reviewer passed the final factual diff without blocking findings. No code tests ran for this docs-only task.
 
 ## Order with the other phase 3 plans
 

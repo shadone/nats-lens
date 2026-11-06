@@ -32,6 +32,7 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 - **Several series in one call.** `GetTimeSeriesBatch` reads up to 32 `GetTimeSeries` queries, each a metric, an entity and optionally its own `max_points`, over one range resolved once, so every series ends at the same instant. Results come in query order. A query that `GetTimeSeries` would refuse as `invalid_argument` or `not_found` gets the error text in its result and the others are served; any other failure fails the call, as do zero queries or more than 32. The call may take 40 seconds, each query 30 within them, which keeps it under the web's 45-second call timeout; a query that takes longer than its 30 seconds fails the whole call as `deadline_exceeded`. The Overview reads its trends in one such call and the busiest consumers' sparklines in another, so a chart whose query is refused (unknown metric or entity) shows its own error while the others draw.
 - **Tiles in the API.** `GetOverview` returns each tile with a one-sentence `description` for its tooltip. A tile whose value is a name sets `value_text`: the Meta leader tile names the leader there, and its `value` is the number of leader changes in the range. The meta leader is the server more than half of the expected servers report (the answering ones when none is expected), the rule `cluster.meta_leader_changes` uses; without such a majority `value_text` is empty.
 
+- **Acknowledged trouble stays visible.** Cause cards show the current acknowledgement's author, time, note, and quiet state. The status line counts acknowledged firing findings, including muted ones. Acknowledging leaves severity counts unchanged; muting still removes a finding from unmuted status. On phones, the status line and cause cards precede the two-column health tiles and timeline.
 ## Scenarios
 
 ### Start the day
@@ -113,6 +114,14 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 - **Given** the system has only 31 minutes of history
 - **When** I open the Overview over 24 hours
 - **Then** the charts keep the full range with time before history hatched, and Storage explains how much history growth needs
+
+### See who is investigating
+
+- **Surfaces:** `ui`
+- **Given** an unmuted critical finding has an acknowledgement
+- **When** an operator opens Overview
+- **Then** its cause card shows the acknowledgement and the status line counts it
+- **And** the finding still contributes to the critical status
 
 ## Not supported / out of scope
 

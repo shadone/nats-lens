@@ -1,7 +1,7 @@
 # On call on the phone
 
 - **Surfaces:** `ui`, `api`
-- **Status:** shipped
+- **Status:** partial — phone triage and acknowledgements are built; consequence predictions and dedicated layouts for other pages are deferred
 - **Related:** [triage-and-mutes.md](triage-and-mutes.md), [checks.md](checks.md), [replay.md](replay.md), [mobile plan](../plans/mobile.md)
 
 ## What it does
@@ -97,6 +97,8 @@ One read-only call returns a finding with the facts needed for an on-call card. 
 
 ## Not supported / out of scope
 
-- The acknowledgement section does not load a list of earlier acknowledgements after a page reload. Acknowledgement events remain in Events.
+- The acknowledgement section keeps only a replacement or hand-back receipt from the current visit. The API has no acknowledgement-history list. Reloading reads the current episode's acknowledgement; it does not reconstruct those receipts. Stored acknowledgement events can be read in Events within retention; the seeded demo writes none.
+- Dedicated phone layouts for Servers, Streams, and Replay are deferred. Their existing layouts remain.
+- No acknowledged-only Findings filter or acknowledgement of several findings at once is available.
 - No prediction of what follows a finding is available.
 - No native app, push notification, or action on NATS is part of the card.
