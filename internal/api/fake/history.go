@@ -193,6 +193,27 @@ func (p *Provider) DataHistory(_ context.Context, req *v1.GetDataHistoryRequest)
 			f.Samples[w.ID] = api.HistorySamples{First: first, Last: last, Before: before}
 		}
 	}
+	// Same bounded collection evidence as the stored provider, across restarts.
+	for _, sp := range s.sc.servers {
+		if sp.name != req.GetServer() {
+			continue
+		}
+		for at := s.epochFrom(start.Add(-sampleEvery)); !at.IsZero() && at.Before(end); at = s.epochFrom(at.Add(sampleEvery)) {
+			if !s.downAt(sp, at) {
+				continue
+			}
+			from, to := latest(start, at), earliest(end, at.Add(sampleEvery))
+			if !to.After(from) {
+				continue
+			}
+			n := len(f.ServerGaps)
+			if n > 0 && f.ServerGaps[n-1].End.AsTime().Equal(from) {
+				f.ServerGaps[n-1].End = ts(to)
+			} else {
+				f.ServerGaps = append(f.ServerGaps, &v1.ServerHistoryGap{Start: ts(from), End: ts(to), Reason: "Server did not answer"})
+			}
+		}
+	}
 	f.Epochs, f.PartialEpochs = s.epochCounts(start, end)
 	f.Collections = api.CollectionGaps(start, end, api.ReplayEpochReach*sampleEvery, s.epochPairs(start, end))
 	if s.sc.archive != nil {

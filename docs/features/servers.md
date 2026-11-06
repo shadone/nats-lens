@@ -46,6 +46,8 @@ The Servers page shows a system's servers at a glance, built for 20 servers or m
   - when the configuration was loaded or last reloaded.
 - **Unobserved is a dash.** A number nats-lens did not observe shows "–" and no colour, never 0. A limit a server did not report, such as every VARZ limit stored before nats-lens recorded them, is unset in the API.
 
+Server detail charts mark recorded missing answers and missing STATSZ/VARZ metrics reports with bounded hatches. These do not establish downtime. See [Data history](data-history.md).
+
 ## Scenarios
 
 ### Find the server that restarted

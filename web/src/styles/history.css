@@ -60,3 +60,5 @@
 .dh-chart-gap{opacity:.65}
 
 .dh-chart-status { fill: var(--text-muted); font-size: 7px; }
+
+.dh-chart-server-gap{opacity:.85;stroke:var(--sev-warning);stroke-width:.6}

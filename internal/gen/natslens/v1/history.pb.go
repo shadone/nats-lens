@@ -104,7 +104,10 @@ type GetDataHistoryRequest struct {
 	System string `protobuf:"bytes,1,opt,name=system,proto3" json:"system,omitempty"`
 	// Range whose coverage and gaps are read. Unset means the last 24 hours
 	// up to now.
-	Range         *TimeRange `protobuf:"bytes,2,opt,name=range,proto3" json:"range,omitempty"`
+	Range *TimeRange `protobuf:"bytes,2,opt,name=range,proto3" json:"range,omitempty"`
+	// Optional server name across process restarts. Adds recorded missing reports;
+	// global coverage and collection gaps remain system-wide.
+	Server        string `protobuf:"bytes,3,opt,name=server,proto3" json:"server,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -151,6 +154,13 @@ func (x *GetDataHistoryRequest) GetRange() *TimeRange {
 		return x.Range
 	}
 	return nil
+}
+
+func (x *GetDataHistoryRequest) GetServer() string {
+	if x != nil {
+		return x.Server
+	}
+	return ""
 }
 
 // One gap. Gaps of the first three kinds are times without collections,
@@ -275,6 +285,70 @@ func (x *HistoryGap) GetAfterEpochAt() *timestamppb.Timestamp {
 	return nil
 }
 
+// A recorded missing report at a collection, bounded to at most one collect
+// interval and the next collection. This does not establish server downtime.
+type ServerHistoryGap struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Start *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=start,proto3" json:"start,omitempty"`
+	// Always set; no inference beyond the observed collection interval.
+	End *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=end,proto3" json:"end,omitempty"`
+	// Server did not answer, or neither STATSZ nor VARZ supplied metrics.
+	Reason        string `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerHistoryGap) Reset() {
+	*x = ServerHistoryGap{}
+	mi := &file_natslens_v1_history_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerHistoryGap) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerHistoryGap) ProtoMessage() {}
+
+func (x *ServerHistoryGap) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_history_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerHistoryGap.ProtoReflect.Descriptor instead.
+func (*ServerHistoryGap) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_history_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ServerHistoryGap) GetStart() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Start
+	}
+	return nil
+}
+
+func (x *ServerHistoryGap) GetEnd() *timestamppb.Timestamp {
+	if x != nil {
+		return x.End
+	}
+	return nil
+}
+
+func (x *ServerHistoryGap) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
 // What the range holds. Without history in the range, covered_from,
 // covered_to and without_data are unset.
 type HistoryCoverage struct {
@@ -298,7 +372,7 @@ type HistoryCoverage struct {
 
 func (x *HistoryCoverage) Reset() {
 	*x = HistoryCoverage{}
-	mi := &file_natslens_v1_history_proto_msgTypes[2]
+	mi := &file_natslens_v1_history_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -310,7 +384,7 @@ func (x *HistoryCoverage) String() string {
 func (*HistoryCoverage) ProtoMessage() {}
 
 func (x *HistoryCoverage) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_history_proto_msgTypes[2]
+	mi := &file_natslens_v1_history_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -323,7 +397,7 @@ func (x *HistoryCoverage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HistoryCoverage.ProtoReflect.Descriptor instead.
 func (*HistoryCoverage) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_history_proto_rawDescGZIP(), []int{2}
+	return file_natslens_v1_history_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *HistoryCoverage) GetCoveredFrom() *timestamppb.Timestamp {
@@ -402,7 +476,7 @@ type ArchiveState struct {
 
 func (x *ArchiveState) Reset() {
 	*x = ArchiveState{}
-	mi := &file_natslens_v1_history_proto_msgTypes[3]
+	mi := &file_natslens_v1_history_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -414,7 +488,7 @@ func (x *ArchiveState) String() string {
 func (*ArchiveState) ProtoMessage() {}
 
 func (x *ArchiveState) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_history_proto_msgTypes[3]
+	mi := &file_natslens_v1_history_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -427,7 +501,7 @@ func (x *ArchiveState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArchiveState.ProtoReflect.Descriptor instead.
 func (*ArchiveState) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_history_proto_rawDescGZIP(), []int{3}
+	return file_natslens_v1_history_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ArchiveState) GetEnabled() bool {
@@ -537,7 +611,7 @@ type HistoryUse struct {
 
 func (x *HistoryUse) Reset() {
 	*x = HistoryUse{}
-	mi := &file_natslens_v1_history_proto_msgTypes[4]
+	mi := &file_natslens_v1_history_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -549,7 +623,7 @@ func (x *HistoryUse) String() string {
 func (*HistoryUse) ProtoMessage() {}
 
 func (x *HistoryUse) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_history_proto_msgTypes[4]
+	mi := &file_natslens_v1_history_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -562,7 +636,7 @@ func (x *HistoryUse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HistoryUse.ProtoReflect.Descriptor instead.
 func (*HistoryUse) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_history_proto_rawDescGZIP(), []int{4}
+	return file_natslens_v1_history_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *HistoryUse) GetId() string {
@@ -652,13 +726,16 @@ type GetDataHistoryResponse struct {
 	// All gaps of the other kinds that overlap the range: events not
 	// captured and Kubernetes not watched.
 	ListedGapsTotal int32 `protobuf:"varint,13,opt,name=listed_gaps_total,json=listedGapsTotal,proto3" json:"listed_gaps_total,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Recorded missing reports for request.server only, oldest first. Adjacent
+	// intervals with the same reason merge. Never included in global coverage.
+	ServerGaps    []*ServerHistoryGap `protobuf:"bytes,14,rep,name=server_gaps,json=serverGaps,proto3" json:"server_gaps,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetDataHistoryResponse) Reset() {
 	*x = GetDataHistoryResponse{}
-	mi := &file_natslens_v1_history_proto_msgTypes[5]
+	mi := &file_natslens_v1_history_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -670,7 +747,7 @@ func (x *GetDataHistoryResponse) String() string {
 func (*GetDataHistoryResponse) ProtoMessage() {}
 
 func (x *GetDataHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_natslens_v1_history_proto_msgTypes[5]
+	mi := &file_natslens_v1_history_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -683,7 +760,7 @@ func (x *GetDataHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDataHistoryResponse.ProtoReflect.Descriptor instead.
 func (*GetDataHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_natslens_v1_history_proto_rawDescGZIP(), []int{5}
+	return file_natslens_v1_history_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetDataHistoryResponse) GetHistoryStart() *timestamppb.Timestamp {
@@ -777,14 +854,22 @@ func (x *GetDataHistoryResponse) GetListedGapsTotal() int32 {
 	return 0
 }
 
+func (x *GetDataHistoryResponse) GetServerGaps() []*ServerHistoryGap {
+	if x != nil {
+		return x.ServerGaps
+	}
+	return nil
+}
+
 var File_natslens_v1_history_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_history_proto_rawDesc = "" +
 	"\n" +
-	"\x19natslens/v1/history.proto\x12\vnatslens.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\"]\n" +
+	"\x19natslens/v1/history.proto\x12\vnatslens.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\"u\n" +
 	"\x15GetDataHistoryRequest\x12\x16\n" +
 	"\x06system\x18\x01 \x01(\tR\x06system\x12,\n" +
-	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\"\xa2\x03\n" +
+	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x16\n" +
+	"\x06server\x18\x03 \x01(\tR\x06server\"\xa2\x03\n" +
 	"\n" +
 	"HistoryGap\x12/\n" +
 	"\x04kind\x18\x01 \x01(\x0e2\x1b.natslens.v1.HistoryGapKindR\x04kind\x120\n" +
@@ -798,7 +883,11 @@ const file_natslens_v1_history_proto_rawDesc = "" +
 	"connection\x18\a \x01(\tR\n" +
 	"connection\x12B\n" +
 	"\x0fbefore_epoch_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\rbeforeEpochAt\x12@\n" +
-	"\x0eafter_epoch_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\fafterEpochAt\"\xb1\x02\n" +
+	"\x0eafter_epoch_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\fafterEpochAt\"\x8a\x01\n" +
+	"\x10ServerHistoryGap\x120\n" +
+	"\x05start\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x05start\x12,\n" +
+	"\x03end\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x03end\x12\x16\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reason\"\xb1\x02\n" +
 	"\x0fHistoryCoverage\x12=\n" +
 	"\fcovered_from\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\vcoveredFrom\x129\n" +
 	"\n" +
@@ -832,7 +921,7 @@ const file_natslens_v1_history_proto_rawDesc = "" +
 	"\x03has\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\x03has\x12\x16\n" +
 	"\x06enough\x18\x05 \x01(\bR\x06enough\x127\n" +
 	"\tenough_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\benoughAt\x12\x14\n" +
-	"\x05never\x18\a \x01(\bR\x05never\"\xde\x05\n" +
+	"\x05never\x18\a \x01(\bR\x05never\"\x9e\x06\n" +
 	"\x16GetDataHistoryResponse\x12?\n" +
 	"\rhistory_start\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\fhistoryStart\x12B\n" +
 	"\x0fnewest_epoch_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\rnewestEpochAt\x12=\n" +
@@ -848,7 +937,9 @@ const file_natslens_v1_history_proto_rawDesc = "" +
 	" \x01(\v2\x19.natslens.v1.ArchiveStateR\aarchive\x12+\n" +
 	"\x04uses\x18\v \x03(\v2\x17.natslens.v1.HistoryUseR\x04uses\x12*\n" +
 	"\x11findings_at_start\x18\f \x01(\x05R\x0ffindingsAtStart\x12*\n" +
-	"\x11listed_gaps_total\x18\r \x01(\x05R\x0flistedGapsTotal*\x99\x02\n" +
+	"\x11listed_gaps_total\x18\r \x01(\x05R\x0flistedGapsTotal\x12>\n" +
+	"\vserver_gaps\x18\x0e \x03(\v2\x1d.natslens.v1.ServerHistoryGapR\n" +
+	"serverGaps*\x99\x02\n" +
 	"\x0eHistoryGapKind\x12 \n" +
 	"\x1cHISTORY_GAP_KIND_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cHISTORY_GAP_KIND_NOT_RUNNING\x10\x01\x12\"\n" +
@@ -871,53 +962,57 @@ func file_natslens_v1_history_proto_rawDescGZIP() []byte {
 }
 
 var file_natslens_v1_history_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_natslens_v1_history_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_natslens_v1_history_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_natslens_v1_history_proto_goTypes = []any{
 	(HistoryGapKind)(0),            // 0: natslens.v1.HistoryGapKind
 	(*GetDataHistoryRequest)(nil),  // 1: natslens.v1.GetDataHistoryRequest
 	(*HistoryGap)(nil),             // 2: natslens.v1.HistoryGap
-	(*HistoryCoverage)(nil),        // 3: natslens.v1.HistoryCoverage
-	(*ArchiveState)(nil),           // 4: natslens.v1.ArchiveState
-	(*HistoryUse)(nil),             // 5: natslens.v1.HistoryUse
-	(*GetDataHistoryResponse)(nil), // 6: natslens.v1.GetDataHistoryResponse
-	(*TimeRange)(nil),              // 7: natslens.v1.TimeRange
-	(*timestamppb.Timestamp)(nil),  // 8: google.protobuf.Timestamp
-	(*durationpb.Duration)(nil),    // 9: google.protobuf.Duration
+	(*ServerHistoryGap)(nil),       // 3: natslens.v1.ServerHistoryGap
+	(*HistoryCoverage)(nil),        // 4: natslens.v1.HistoryCoverage
+	(*ArchiveState)(nil),           // 5: natslens.v1.ArchiveState
+	(*HistoryUse)(nil),             // 6: natslens.v1.HistoryUse
+	(*GetDataHistoryResponse)(nil), // 7: natslens.v1.GetDataHistoryResponse
+	(*TimeRange)(nil),              // 8: natslens.v1.TimeRange
+	(*timestamppb.Timestamp)(nil),  // 9: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),    // 10: google.protobuf.Duration
 }
 var file_natslens_v1_history_proto_depIdxs = []int32{
-	7,  // 0: natslens.v1.GetDataHistoryRequest.range:type_name -> natslens.v1.TimeRange
+	8,  // 0: natslens.v1.GetDataHistoryRequest.range:type_name -> natslens.v1.TimeRange
 	0,  // 1: natslens.v1.HistoryGap.kind:type_name -> natslens.v1.HistoryGapKind
-	8,  // 2: natslens.v1.HistoryGap.start:type_name -> google.protobuf.Timestamp
-	8,  // 3: natslens.v1.HistoryGap.end:type_name -> google.protobuf.Timestamp
-	8,  // 4: natslens.v1.HistoryGap.before_epoch_at:type_name -> google.protobuf.Timestamp
-	8,  // 5: natslens.v1.HistoryGap.after_epoch_at:type_name -> google.protobuf.Timestamp
-	8,  // 6: natslens.v1.HistoryCoverage.covered_from:type_name -> google.protobuf.Timestamp
-	8,  // 7: natslens.v1.HistoryCoverage.covered_to:type_name -> google.protobuf.Timestamp
-	9,  // 8: natslens.v1.HistoryCoverage.without_data:type_name -> google.protobuf.Duration
-	9,  // 9: natslens.v1.ArchiveState.archive_retention:type_name -> google.protobuf.Duration
-	8,  // 10: natslens.v1.ArchiveState.oldest_hour:type_name -> google.protobuf.Timestamp
-	8,  // 11: natslens.v1.ArchiveState.newest_hour:type_name -> google.protobuf.Timestamp
-	8,  // 12: natslens.v1.ArchiveState.last_export_at:type_name -> google.protobuf.Timestamp
-	8,  // 13: natslens.v1.ArchiveState.listed_at:type_name -> google.protobuf.Timestamp
-	8,  // 14: natslens.v1.ArchiveState.last_error_at:type_name -> google.protobuf.Timestamp
-	9,  // 15: natslens.v1.HistoryUse.needs:type_name -> google.protobuf.Duration
-	9,  // 16: natslens.v1.HistoryUse.has:type_name -> google.protobuf.Duration
-	8,  // 17: natslens.v1.HistoryUse.enough_at:type_name -> google.protobuf.Timestamp
-	8,  // 18: natslens.v1.GetDataHistoryResponse.history_start:type_name -> google.protobuf.Timestamp
-	8,  // 19: natslens.v1.GetDataHistoryResponse.newest_epoch_at:type_name -> google.protobuf.Timestamp
-	8,  // 20: natslens.v1.GetDataHistoryResponse.events_start:type_name -> google.protobuf.Timestamp
-	9,  // 21: natslens.v1.GetDataHistoryResponse.retention:type_name -> google.protobuf.Duration
-	8,  // 22: natslens.v1.GetDataHistoryResponse.retention_from:type_name -> google.protobuf.Timestamp
-	9,  // 23: natslens.v1.GetDataHistoryResponse.collect_interval:type_name -> google.protobuf.Duration
-	3,  // 24: natslens.v1.GetDataHistoryResponse.coverage:type_name -> natslens.v1.HistoryCoverage
-	2,  // 25: natslens.v1.GetDataHistoryResponse.gaps:type_name -> natslens.v1.HistoryGap
-	4,  // 26: natslens.v1.GetDataHistoryResponse.archive:type_name -> natslens.v1.ArchiveState
-	5,  // 27: natslens.v1.GetDataHistoryResponse.uses:type_name -> natslens.v1.HistoryUse
-	28, // [28:28] is the sub-list for method output_type
-	28, // [28:28] is the sub-list for method input_type
-	28, // [28:28] is the sub-list for extension type_name
-	28, // [28:28] is the sub-list for extension extendee
-	0,  // [0:28] is the sub-list for field type_name
+	9,  // 2: natslens.v1.HistoryGap.start:type_name -> google.protobuf.Timestamp
+	9,  // 3: natslens.v1.HistoryGap.end:type_name -> google.protobuf.Timestamp
+	9,  // 4: natslens.v1.HistoryGap.before_epoch_at:type_name -> google.protobuf.Timestamp
+	9,  // 5: natslens.v1.HistoryGap.after_epoch_at:type_name -> google.protobuf.Timestamp
+	9,  // 6: natslens.v1.ServerHistoryGap.start:type_name -> google.protobuf.Timestamp
+	9,  // 7: natslens.v1.ServerHistoryGap.end:type_name -> google.protobuf.Timestamp
+	9,  // 8: natslens.v1.HistoryCoverage.covered_from:type_name -> google.protobuf.Timestamp
+	9,  // 9: natslens.v1.HistoryCoverage.covered_to:type_name -> google.protobuf.Timestamp
+	10, // 10: natslens.v1.HistoryCoverage.without_data:type_name -> google.protobuf.Duration
+	10, // 11: natslens.v1.ArchiveState.archive_retention:type_name -> google.protobuf.Duration
+	9,  // 12: natslens.v1.ArchiveState.oldest_hour:type_name -> google.protobuf.Timestamp
+	9,  // 13: natslens.v1.ArchiveState.newest_hour:type_name -> google.protobuf.Timestamp
+	9,  // 14: natslens.v1.ArchiveState.last_export_at:type_name -> google.protobuf.Timestamp
+	9,  // 15: natslens.v1.ArchiveState.listed_at:type_name -> google.protobuf.Timestamp
+	9,  // 16: natslens.v1.ArchiveState.last_error_at:type_name -> google.protobuf.Timestamp
+	10, // 17: natslens.v1.HistoryUse.needs:type_name -> google.protobuf.Duration
+	10, // 18: natslens.v1.HistoryUse.has:type_name -> google.protobuf.Duration
+	9,  // 19: natslens.v1.HistoryUse.enough_at:type_name -> google.protobuf.Timestamp
+	9,  // 20: natslens.v1.GetDataHistoryResponse.history_start:type_name -> google.protobuf.Timestamp
+	9,  // 21: natslens.v1.GetDataHistoryResponse.newest_epoch_at:type_name -> google.protobuf.Timestamp
+	9,  // 22: natslens.v1.GetDataHistoryResponse.events_start:type_name -> google.protobuf.Timestamp
+	10, // 23: natslens.v1.GetDataHistoryResponse.retention:type_name -> google.protobuf.Duration
+	9,  // 24: natslens.v1.GetDataHistoryResponse.retention_from:type_name -> google.protobuf.Timestamp
+	10, // 25: natslens.v1.GetDataHistoryResponse.collect_interval:type_name -> google.protobuf.Duration
+	4,  // 26: natslens.v1.GetDataHistoryResponse.coverage:type_name -> natslens.v1.HistoryCoverage
+	2,  // 27: natslens.v1.GetDataHistoryResponse.gaps:type_name -> natslens.v1.HistoryGap
+	5,  // 28: natslens.v1.GetDataHistoryResponse.archive:type_name -> natslens.v1.ArchiveState
+	6,  // 29: natslens.v1.GetDataHistoryResponse.uses:type_name -> natslens.v1.HistoryUse
+	3,  // 30: natslens.v1.GetDataHistoryResponse.server_gaps:type_name -> natslens.v1.ServerHistoryGap
+	31, // [31:31] is the sub-list for method output_type
+	31, // [31:31] is the sub-list for method input_type
+	31, // [31:31] is the sub-list for extension type_name
+	31, // [31:31] is the sub-list for extension extendee
+	0,  // [0:31] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_history_proto_init() }
@@ -932,7 +1027,7 @@ func file_natslens_v1_history_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_history_proto_rawDesc), len(file_natslens_v1_history_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -112,6 +112,7 @@ func HistoryUseWindows(f *HistoryFacts) []HistoryWindow {
 // turns them into the response, so that the store and the demo apply the
 // same rules.
 type HistoryFacts struct {
+	ServerGaps []*v1.ServerHistoryGap
 	// Start and End are the range; Now the provider's present.
 	Start, End, Now time.Time
 	// Interval is the collect interval; Retention how long collections
@@ -164,7 +165,7 @@ func (g historyGap) endOr(open time.Time) time.Time {
 // coverage of the range, the uses table and the 200-row cut of each class.
 func FinishDataHistory(f *HistoryFacts) *v1.GetDataHistoryResponse {
 	res := &v1.GetDataHistoryResponse{
-		HistoryStart: tsOrNil(f.HistoryStart), NewestEpochAt: tsOrNil(f.NewestEpochAt), EventsStart: tsOrNil(f.EventsStart),
+		ServerGaps: f.ServerGaps, HistoryStart: tsOrNil(f.HistoryStart), NewestEpochAt: tsOrNil(f.NewestEpochAt), EventsStart: tsOrNil(f.EventsStart),
 		CollectInterval: durationpb.New(f.Interval), Archive: archiveState(f.Archive), FindingsAtStart: f.FindingsAtStart,
 	}
 	if f.Retention > 0 {

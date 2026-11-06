@@ -42,6 +42,12 @@ func (p *Provider) DataHistory(ctx context.Context, req *v1.GetDataHistoryReques
 	if err := p.historySamples(ctx, f); err != nil {
 		return nil, err
 	}
+	if req.GetServer() != "" {
+		f.ServerGaps, err = p.serverHistoryGaps(ctx, req.GetServer(), start, end)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return f, nil
 }
 

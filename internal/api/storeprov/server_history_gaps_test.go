@@ -75,3 +75,41 @@ func TestServerHistoryMissingReports(t *testing.T) {
 		})
 	}
 }
+
+func TestServerHistorySparseUnknownAndScopes(t *testing.T) {
+	st := emptyStore(t)
+	r := rows{t, st}
+	r.server("s", "nats-0")
+	for i, offset := range []time.Duration{0, 5 * time.Minute, 6 * time.Minute} {
+		r.epoch(int64(i+1), t0.Add(offset))
+	}
+	if _, err := st.DB().Exec("UPDATE epochs SET missing_names=['nats-0'] WHERE epoch IN (1,3)"); err != nil {
+		t.Fatal(err)
+	}
+	// Only one failed source is not evidence that both sources failed.
+	r.add("epoch_endpoints", map[string]any{"epoch": 2, "server_id": "s", "endpoint": "VARZ", "state": "error"})
+	p := &storeprov.Provider{St: st, Interval: 30 * time.Second, Clock: func() time.Time { return t0.Add(10 * time.Minute) }}
+	rg := &v1.TimeRange{Start: timestamppb.New(t0.Add(-time.Hour)), End: timestamppb.New(t0.Add(10 * time.Minute))}
+	for _, name := range []string{"nats-0", "nats-1", "", "nats-0' OR true --"} {
+		f, err := p.DataHistory(ctx, &v1.GetDataHistoryRequest{Range: rg, Server: name})
+		if err != nil {
+			t.Fatal(err)
+		}
+		gs := api.FinishDataHistory(f).GetServerGaps()
+		if name != "nats-0" {
+			if len(gs) != 0 {
+				t.Errorf("scope %q leaked gaps", name)
+			}
+			continue
+		}
+		if len(gs) != 2 {
+			t.Fatalf("gaps=%v", gs)
+		}
+		for i, offset := range []time.Duration{0, 6 * time.Minute} {
+			g := gs[i]
+			if !g.GetStart().AsTime().Equal(t0.Add(offset)) || !g.GetEnd().AsTime().Equal(t0.Add(offset+30*time.Second)) {
+				t.Errorf("unbounded sparse gap: %v", g)
+			}
+		}
+	}
+}

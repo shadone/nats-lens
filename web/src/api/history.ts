@@ -69,7 +69,10 @@ export interface HistoryUse {
   never: boolean;
 }
 
+export interface ServerHistoryGap { start: number; end: number; reason: string }
+
 export interface DataHistory {
+  serverGaps?: ServerHistoryGap[];
   /** The range the request asked for. */
   rangeStart: number;
   rangeEnd: number;
@@ -147,6 +150,7 @@ export function dataHistory(r: GetDataHistoryResponse, range: { start: number; e
       withoutData: dur(c?.withoutData),
     },
     gaps: r.gaps.map(gap),
+    serverGaps: r.serverGaps.map(g => ({ start: ms(g.start)!, end: ms(g.end)!, reason: g.reason })),
     gapsTotal: r.gapsTotal,
     listedGapsTotal: r.listedGapsTotal,
     archive: {

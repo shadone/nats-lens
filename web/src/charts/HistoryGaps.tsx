@@ -5,7 +5,7 @@ import { gapName, stripSegments } from "../lib/historyView";
 import { useTimeRange } from "../lib/useTimeRange";
 import { PRESETS, presetMs, type RangeSpec } from "../lib/timeRange";
 import { useReportStale } from "../components/StaleContext";
-import type { HistoryGap } from "../api/history";
+import type { HistoryGap, ServerHistoryGap } from "../api/history";
 
 /** Share the page key for normal charts; wider fixed windows share a bounded
  * domain key (seven-day live charts use the stable 7d key, never a ticking key). */
@@ -34,10 +34,10 @@ interface Frame { start: number; end: number; width: number; height: number }
 export function HistoryGaps(props: Frame) {
   const h = usePageHistory();
   if (!h) return null;
-  return h.gaps ? <GapMarks {...props} gaps={h.gaps} observedStart={h.start} observedEnd={h.end} historyStart={h.historyStart} live={h.live} /> : <QueriedGaps {...props} />;
+  return h.gaps ? <GapMarks {...props} gaps={h.gaps} observedStart={h.start} observedEnd={h.end} historyStart={h.historyStart} live={h.live} serverGaps={h.serverGaps} /> : <QueriedGaps {...props} />;
 }
 
-function GapMarks({ start, end, width, height, gaps, live, historyStart, observedStart, observedEnd }: Frame & { gaps: HistoryGap[]; live: boolean; historyStart?: number; observedStart?: number; observedEnd?: number }) {
+function GapMarks({ start, end, width, height, gaps, live, historyStart, observedStart, observedEnd, serverGaps = [] }: Frame & { serverGaps?: ServerHistoryGap[]; gaps: HistoryGap[]; live: boolean; historyStart?: number; observedStart?: number; observedEnd?: number }) {
   const id = useId();
   // Preserve the answer's observation bounds. An unset end means open at
   // THAT range end, not open through any later chart end or refresh failure.
@@ -55,6 +55,14 @@ function GapMarks({ start, end, width, height, gaps, live, historyStart, observe
   const segments = stripSegments({ gaps: shown, rangeStart: start, rangeEnd: end }).filter((s) => s.width > 0);
   return <g>
     <defs><pattern id={id} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" className="dh-gap-bg" /><line x1="0" y1="0" x2="0" y2="6" className="dh-gap-line" /></pattern></defs>
+    {serverGaps.map((g, i) => {
+      const from = Math.max(start, observedStart ?? start, g.start);
+      const to = Math.min(end, observedEnd ?? end, g.end);
+      if (to <= from || end <= start) return null;
+      const x = (from - start) / (end - start) * width;
+      const limit = (Math.min(end, observedEnd ?? end) - start) / (end - start) * width;
+      return <rect key={`server-${i}`} className="dh-chart-server-gap" x={x} y="0" width={Math.min(limit - x, Math.max(1.5, (to-from)/(end-start)*width))} height={height} fill={`url(#${id})`} role="img" aria-label={g.reason}><title>{g.reason}</title></rect>;
+    })}
     {segments.map((s, i) => {
       const name = gapName(s.gap, end, live);
       const limit = s.gap.kind === "beforeHistory" ? width : Math.min(1, ((observedEnd ?? end) - start) / (end - start)) * width;

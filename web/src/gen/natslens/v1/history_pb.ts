@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/history.proto.
  */
 export const file_natslens_v1_history: GenFile = /*@__PURE__*/
-  fileDesc("ChluYXRzbGVucy92MS9oaXN0b3J5LnByb3RvEgtuYXRzbGVucy52MSJOChVHZXREYXRhSGlzdG9yeVJlcXVlc3QSDgoGc3lzdGVtGAEgASgJEiUKBXJhbmdlGAIgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlIsUCCgpIaXN0b3J5R2FwEikKBGtpbmQYASABKA4yGy5uYXRzbGVucy52MS5IaXN0b3J5R2FwS2luZBIpCgVzdGFydBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJwoDZW5kGAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIUCgxiZWZvcmVfZXBvY2gYBCABKAMSEwoLYWZ0ZXJfZXBvY2gYBSABKAMSEAoIZXZlbnRfaWQYBiABKAkSEgoKY29ubmVjdGlvbhgHIAEoCRIzCg9iZWZvcmVfZXBvY2hfYXQYCCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjIKDmFmdGVyX2Vwb2NoX2F0GAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCLlAQoPSGlzdG9yeUNvdmVyYWdlEjAKDGNvdmVyZWRfZnJvbRgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKY292ZXJlZF90bxgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDgoGZXBvY2hzGAMgASgDEhcKD2V4cGVjdGVkX2Vwb2NocxgEIAEoAxIWCg5wYXJ0aWFsX2Vwb2NocxgFIAEoAxIvCgx3aXRob3V0X2RhdGEYBiABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24imAMKDEFyY2hpdmVTdGF0ZRIPCgdlbmFibGVkGAEgASgIEhAKCGxvY2F0aW9uGAIgASgJEjQKEWFyY2hpdmVfcmV0ZW50aW9uGAMgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEi8KC29sZGVzdF9ob3VyGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIvCgtuZXdlc3RfaG91chgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDQoFaG91cnMYBiABKAUSMgoObGFzdF9leHBvcnRfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhQKDG5ld2VzdF9maW5hbBgIIAEoCBISCgpsYXN0X2Vycm9yGAkgASgJEi0KCWxpc3RlZF9hdBgKIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASMQoNbGFzdF9lcnJvcl9hdBgLIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAizAEKCkhpc3RvcnlVc2USCgoCaWQYASABKAkSEgoKY2hlY2tfY29kZRgCIAEoCRIoCgVuZWVkcxgDIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhImCgNoYXMYBCABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SDgoGZW5vdWdoGAUgASgIEi0KCWVub3VnaF9hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDQoFbmV2ZXIYByABKAgivQQKFkdldERhdGFIaXN0b3J5UmVzcG9uc2USMQoNaGlzdG9yeV9zdGFydBgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASMwoPbmV3ZXN0X2Vwb2NoX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIwCgxldmVudHNfc3RhcnQYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiwKCXJldGVudGlvbhgEIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIyCg5yZXRlbnRpb25fZnJvbRgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASMwoQY29sbGVjdF9pbnRlcnZhbBgGIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIuCghjb3ZlcmFnZRgHIAEoCzIcLm5hdHNsZW5zLnYxLkhpc3RvcnlDb3ZlcmFnZRIlCgRnYXBzGAggAygLMhcubmF0c2xlbnMudjEuSGlzdG9yeUdhcBISCgpnYXBzX3RvdGFsGAkgASgFEioKB2FyY2hpdmUYCiABKAsyGS5uYXRzbGVucy52MS5BcmNoaXZlU3RhdGUSJQoEdXNlcxgLIAMoCzIXLm5hdHNsZW5zLnYxLkhpc3RvcnlVc2USGQoRZmluZGluZ3NfYXRfc3RhcnQYDCABKAUSGQoRbGlzdGVkX2dhcHNfdG90YWwYDSABKAUqmQIKDkhpc3RvcnlHYXBLaW5kEiAKHEhJU1RPUllfR0FQX0tJTkRfVU5TUEVDSUZJRUQQABIgChxISVNUT1JZX0dBUF9LSU5EX05PVF9SVU5OSU5HEAESIgoeSElTVE9SWV9HQVBfS0lORF9OT1RfQ09OTkVDVEVEEAISIwofSElTVE9SWV9HQVBfS0lORF9OT19DT0xMRUNUSU9OUxADEigKJEhJU1RPUllfR0FQX0tJTkRfRVZFTlRTX05PVF9DQVBUVVJFRBAEEisKJ0hJU1RPUllfR0FQX0tJTkRfS1VCRVJORVRFU19OT1RfV0FUQ0hFRBAFEiMKH0hJU1RPUllfR0FQX0tJTkRfQkVGT1JFX0hJU1RPUlkQBkJCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common]);
+  fileDesc("ChluYXRzbGVucy92MS9oaXN0b3J5LnByb3RvEgtuYXRzbGVucy52MSJeChVHZXREYXRhSGlzdG9yeVJlcXVlc3QSDgoGc3lzdGVtGAEgASgJEiUKBXJhbmdlGAIgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEg4KBnNlcnZlchgDIAEoCSLFAgoKSGlzdG9yeUdhcBIpCgRraW5kGAEgASgOMhsubmF0c2xlbnMudjEuSGlzdG9yeUdhcEtpbmQSKQoFc3RhcnQYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEicKA2VuZBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFAoMYmVmb3JlX2Vwb2NoGAQgASgDEhMKC2FmdGVyX2Vwb2NoGAUgASgDEhAKCGV2ZW50X2lkGAYgASgJEhIKCmNvbm5lY3Rpb24YByABKAkSMwoPYmVmb3JlX2Vwb2NoX2F0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIyCg5hZnRlcl9lcG9jaF9hdBgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAidgoQU2VydmVySGlzdG9yeUdhcBIpCgVzdGFydBgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASJwoDZW5kGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIOCgZyZWFzb24YAyABKAki5QEKD0hpc3RvcnlDb3ZlcmFnZRIwCgxjb3ZlcmVkX2Zyb20YASABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCmNvdmVyZWRfdG8YAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg4KBmVwb2NocxgDIAEoAxIXCg9leHBlY3RlZF9lcG9jaHMYBCABKAMSFgoOcGFydGlhbF9lcG9jaHMYBSABKAMSLwoMd2l0aG91dF9kYXRhGAYgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uIpgDCgxBcmNoaXZlU3RhdGUSDwoHZW5hYmxlZBgBIAEoCBIQCghsb2NhdGlvbhgCIAEoCRI0ChFhcmNoaXZlX3JldGVudGlvbhgDIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIvCgtvbGRlc3RfaG91chgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLwoLbmV3ZXN0X2hvdXIYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg0KBWhvdXJzGAYgASgFEjIKDmxhc3RfZXhwb3J0X2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIUCgxuZXdlc3RfZmluYWwYCCABKAgSEgoKbGFzdF9lcnJvchgJIAEoCRItCglsaXN0ZWRfYXQYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjEKDWxhc3RfZXJyb3JfYXQYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIswBCgpIaXN0b3J5VXNlEgoKAmlkGAEgASgJEhIKCmNoZWNrX2NvZGUYAiABKAkSKAoFbmVlZHMYAyABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SJgoDaGFzGAQgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEg4KBmVub3VnaBgFIAEoCBItCgllbm91Z2hfYXQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEg0KBW5ldmVyGAcgASgIIvEEChZHZXREYXRhSGlzdG9yeVJlc3BvbnNlEjEKDWhpc3Rvcnlfc3RhcnQYASABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjMKD25ld2VzdF9lcG9jaF9hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASMAoMZXZlbnRzX3N0YXJ0GAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIsCglyZXRlbnRpb24YBCABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SMgoOcmV0ZW50aW9uX2Zyb20YBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjMKEGNvbGxlY3RfaW50ZXJ2YWwYBiABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SLgoIY292ZXJhZ2UYByABKAsyHC5uYXRzbGVucy52MS5IaXN0b3J5Q292ZXJhZ2USJQoEZ2FwcxgIIAMoCzIXLm5hdHNsZW5zLnYxLkhpc3RvcnlHYXASEgoKZ2Fwc190b3RhbBgJIAEoBRIqCgdhcmNoaXZlGAogASgLMhkubmF0c2xlbnMudjEuQXJjaGl2ZVN0YXRlEiUKBHVzZXMYCyADKAsyFy5uYXRzbGVucy52MS5IaXN0b3J5VXNlEhkKEWZpbmRpbmdzX2F0X3N0YXJ0GAwgASgFEhkKEWxpc3RlZF9nYXBzX3RvdGFsGA0gASgFEjIKC3NlcnZlcl9nYXBzGA4gAygLMh0ubmF0c2xlbnMudjEuU2VydmVySGlzdG9yeUdhcCqZAgoOSGlzdG9yeUdhcEtpbmQSIAocSElTVE9SWV9HQVBfS0lORF9VTlNQRUNJRklFRBAAEiAKHEhJU1RPUllfR0FQX0tJTkRfTk9UX1JVTk5JTkcQARIiCh5ISVNUT1JZX0dBUF9LSU5EX05PVF9DT05ORUNURUQQAhIjCh9ISVNUT1JZX0dBUF9LSU5EX05PX0NPTExFQ1RJT05TEAMSKAokSElTVE9SWV9HQVBfS0lORF9FVkVOVFNfTk9UX0NBUFRVUkVEEAQSKwonSElTVE9SWV9HQVBfS0lORF9LVUJFUk5FVEVTX05PVF9XQVRDSEVEEAUSIwofSElTVE9SWV9HQVBfS0lORF9CRUZPUkVfSElTVE9SWRAGQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common]);
 
 /**
  * Request for what nats-lens holds of a system and where it has gaps.
@@ -36,6 +36,14 @@ export type GetDataHistoryRequest = Message<"natslens.v1.GetDataHistoryRequest">
    * @generated from field: natslens.v1.TimeRange range = 2;
    */
   range?: TimeRange | undefined;
+
+  /**
+   * Optional server name across process restarts. Adds recorded missing reports;
+   * global coverage and collection gaps remain system-wide.
+   *
+   * @generated from field: string server = 3;
+   */
+  server: string;
 };
 
 /**
@@ -126,6 +134,40 @@ export const HistoryGapSchema: GenMessage<HistoryGap> = /*@__PURE__*/
   messageDesc(file_natslens_v1_history, 1);
 
 /**
+ * A recorded missing report at a collection, bounded to at most one collect
+ * interval and the next collection. This does not establish server downtime.
+ *
+ * @generated from message natslens.v1.ServerHistoryGap
+ */
+export type ServerHistoryGap = Message<"natslens.v1.ServerHistoryGap"> & {
+  /**
+   * @generated from field: google.protobuf.Timestamp start = 1;
+   */
+  start?: Timestamp | undefined;
+
+  /**
+   * Always set; no inference beyond the observed collection interval.
+   *
+   * @generated from field: google.protobuf.Timestamp end = 2;
+   */
+  end?: Timestamp | undefined;
+
+  /**
+   * Server did not answer, or neither STATSZ nor VARZ supplied metrics.
+   *
+   * @generated from field: string reason = 3;
+   */
+  reason: string;
+};
+
+/**
+ * Describes the message natslens.v1.ServerHistoryGap.
+ * Use `create(ServerHistoryGapSchema)` to create a new message.
+ */
+export const ServerHistoryGapSchema: GenMessage<ServerHistoryGap> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_history, 2);
+
+/**
  * What the range holds. Without history in the range, covered_from,
  * covered_to and without_data are unset.
  *
@@ -181,7 +223,7 @@ export type HistoryCoverage = Message<"natslens.v1.HistoryCoverage"> & {
  * Use `create(HistoryCoverageSchema)` to create a new message.
  */
 export const HistoryCoverageSchema: GenMessage<HistoryCoverage> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_history, 2);
+  messageDesc(file_natslens_v1_history, 3);
 
 /**
  * The archive's state as the archiver last saw it.
@@ -275,7 +317,7 @@ export type ArchiveState = Message<"natslens.v1.ArchiveState"> & {
  * Use `create(ArchiveStateSchema)` to create a new message.
  */
 export const ArchiveStateSchema: GenMessage<ArchiveState> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_history, 3);
+  messageDesc(file_natslens_v1_history, 4);
 
 /**
  * Global collection availability for a use; not per-entity readiness.
@@ -345,7 +387,7 @@ export type HistoryUse = Message<"natslens.v1.HistoryUse"> & {
  * Use `create(HistoryUseSchema)` to create a new message.
  */
 export const HistoryUseSchema: GenMessage<HistoryUse> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_history, 4);
+  messageDesc(file_natslens_v1_history, 5);
 
 /**
  * What nats-lens holds of the system: the history and its gaps in the
@@ -452,6 +494,14 @@ export type GetDataHistoryResponse = Message<"natslens.v1.GetDataHistoryResponse
    * @generated from field: int32 listed_gaps_total = 13;
    */
   listedGapsTotal: number;
+
+  /**
+   * Recorded missing reports for request.server only, oldest first. Adjacent
+   * intervals with the same reason merge. Never included in global coverage.
+   *
+   * @generated from field: repeated natslens.v1.ServerHistoryGap server_gaps = 14;
+   */
+  serverGaps: ServerHistoryGap[];
 };
 
 /**
@@ -459,7 +509,7 @@ export type GetDataHistoryResponse = Message<"natslens.v1.GetDataHistoryResponse
  * Use `create(GetDataHistoryResponseSchema)` to create a new message.
  */
 export const GetDataHistoryResponseSchema: GenMessage<GetDataHistoryResponse> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_history, 5);
+  messageDesc(file_natslens_v1_history, 6);
 
 /**
  * Kind of a time nats-lens knows nothing, or only part, of.
