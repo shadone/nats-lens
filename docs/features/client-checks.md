@@ -70,6 +70,8 @@ The client checks judge the applications connected to NATS: whether their round 
 
 ### `client-007` Unnamed connections
 
+- **Reference:** the check page includes the complete holding and resolution rules below alongside the numeric `min_age` default.
+
 - **Problem:** connections without a name make every other client check less useful: the client checks, the Applications page and the Events page group clients by their name, so unnamed clients are merged into one `(unnamed)` entry, and a finding for it cannot say which service it is about.
 - **Fires when:** a connection without a name, or with nothing before the "@" (the Applications page's `(unnamed)`), has been connected for `min_age` or longer in this collection. The detail counts the unnamed connections and those connected for `min_age`, and names their accounts, users, addresses, client libraries (five of each, then how many more) and servers, for example "3 connections without a name, 1 connected for 10m or longer; accounts $G, APP, user alice, from 10.0.0.5 (APP), 10.0.0.6 (APP), 10.0.0.7 ($G), go 1.54.0, nats.js 3.0.2 (nats-0, nats-1, nats-2)." With more than one account, each address is paired with its account. A connection without an account counts as `$G`.
 - **Severity:** info.

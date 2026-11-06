@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+const clientReference = readFileSync("../docs/features/client-checks.md", "utf8");
+const streamReference = readFileSync("../docs/features/stream-checks.md", "utf8");
 import { create } from "@bufbuild/protobuf";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -40,7 +43,39 @@ function SwitchSystem() {
   return <button onClick={() => navigate("/checks/consumer-009?system=example-staging&range=6h")}>Switch test system</button>;
 }
 
+// Use shipped authored paragraphs rather than a shortened mock of the rules.
+function authoredReference(source: string, code: string) {
+  const body = source.split(`### \`${code}\``)[1]!.split("\n### ")[0]!;
+  return [...body.matchAll(/^- \*\*([^*]+):\*\* (.*)$/gm)].map(([, title, text]) => ({
+    $typeName: "natslens.v1.CheckReferenceSection" as const, title: title === "Problem" ? "Meaning" : title === "Left out" ? "Limitations" : title!, text: text!,
+  }));
+}
+
 describe("check reference routes", () => {
+  it("renders full client-007 holding and resolution rules alongside concise meaning and numeric defaults", async () => {
+    const data = response();
+    data.definitions = [create(CheckDefinitionSchema, { ...definition, code: "client-007", name: "Unnamed connections", entity: "client", reference: authoredReference(clientReference, "client-007"), thresholds: [{$typeName: "natslens.v1.CheckThreshold", name: "min_age", defaultValue: "10m", unit: "duration", description: "Minimum connected age before firing."}] })];
+    api.listCheckDefinitions.mockResolvedValue(data);
+    detail("client-007");
+    await screen.findByRole("heading", {name: "Unnamed connections", level: 1});
+    const rules = screen.getByRole("heading", {name: "Thresholds", level: 3}).parentElement!;
+    for (const rule of ["however young", "CONNZ failed", "connz_limit", "10th such collection in a row", "resolves at once in a whole collection"]) {
+      expect(rules).toHaveTextContent(rule);
+    }
+    expect(screen.getByText("10m")).toBeInTheDocument();
+  });
+
+  it("renders qualified stream-008 meaning without inferring rebuild history or message identity", async () => {
+    const data = response();
+    data.definitions = [create(CheckDefinitionSchema, { ...definition, code: "stream-008", reference: authoredReference(streamReference, "stream-008") })];
+    api.listCheckDefinitions.mockResolvedValue(data);
+    detail("stream-008");
+    await screen.findByText(/Matching sequence boundaries and message counts do not prove identical messages/);
+    expect(document.body).not.toHaveTextContent("a replica was rebuilt");
+    expect(document.body).not.toHaveTextContent("holds the same messages");
+    expect(document.body).toHaveTextContent("leader step-down does not guarantee repair");
+  });
+
   it("uses the concise authored meaning in the detail", async () => {
     const data=response();
     data.definitions[0]!.reference.unshift({$typeName:"natslens.v1.CheckReferenceSection",title:"Meaning",text:"Reported creation timestamps differ; cause is unproven."});

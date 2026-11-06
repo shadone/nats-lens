@@ -69,11 +69,12 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 
 ### `stream-008` Stream creation time differs across servers
 
-- **Problem:** the servers report different creation times for the stream. When the contents agree, a replica was rebuilt at another time and holds the same messages. When they differ too, one replica may hold a stream that was deleted and created again under the same name.
-- **Fires when:** the creation times differ. The contents agree when a replica's last sequence and message count are at most `position_tolerance` (or `position_tolerance_ratio` of the leader's value, if that is more) behind the leader, at most `position_ahead_tolerance` (or `position_ahead_tolerance_ratio`, if that is more) ahead of it, and its first sequence is within `position_tolerance` (or `position_tolerance_ratio` of the leader's first sequence, if that is more). Every replica is compared with the leader, whether it is current or not.
-- **Severity:** info. Warning when the contents differ as well, in this collection and the previous one. A replica behind by more than the tolerance in two collections warns even while it catches up, but only here, where the creation times differ.
+- **Problem:** the servers report different creation timestamps for the stream. This metadata disagreement does not prove a restore, rebuild, recreation or unhealthy replica. Matching sequence boundaries and message counts do not prove identical messages or explain the timestamp difference.
+- **Fires when:** the creation times differ. Sequence boundaries and message counts agree when a replica's last sequence and message count are at most `position_tolerance` (or `position_tolerance_ratio` of the leader's value, if that is more) behind the leader, at most `position_ahead_tolerance` (or `position_ahead_tolerance_ratio`, if that is more) ahead of it, and its first sequence is within `position_tolerance` (or `position_tolerance_ratio` of the leader's first sequence, if that is more). Every replica is compared with the leader, whether it is current or not.
+- **Severity:** info. Warning when the sequence boundaries or message counts differ beyond tolerance as well, in this collection and the previous one. A replica behind by more than the tolerance in two collections warns even while it catches up, but only here, where the creation times differ.
 - **Thresholds:** `position_tolerance` 100, `position_tolerance_ratio` 0.01, `position_ahead_tolerance` 10, `position_ahead_tolerance_ratio` 0.001.
 - **Left out:** servers that restarted within `checks.restart_window` (10 minutes by default).
+- **Next steps:** compare timestamps, sequence boundaries, counts, replica currentness, lag and configuration across servers. Inspect captured `stream.created` and `stream.deleted` events and available server logs. Missing captured events do not rule out a lifecycle change. Investigate persistent differences before an intervention: leader step-down does not guarantee repair, and deleting or recreating a stream can lose messages.
 
 ### `stream-009` Stream peer set differs across servers
 
@@ -225,11 +226,12 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 - **Then** `stream-001` fires as critical for `APP/order-jobs`, and its detail lists each reporting server's view of the leader
 - **And** it resolves once a leader with a quorum is back
 
-### A replica was rebuilt
+### Creation timestamps differ while boundaries and counts agree
 
-- **Given** the replica of `order-jobs` on `nats-1` was rebuilt five days after the others, and holds the same messages
+- **Given** the replica of `order-jobs` on `nats-1` reports a creation timestamp five days after the others, with matching first and last sequences and message counts
 - **When** nats-lens collects
-- **Then** `stream-008` is info, and its detail names the servers on each creation time and says their contents agree
+- **Then** `stream-008` is info, and its detail names the servers on each creation time and says their contents agree under the check's boundary and count comparison
+- **And** the reference explains that this does not establish message identity or rebuild history
 
 ### A cleanup job deletes a stream
 
