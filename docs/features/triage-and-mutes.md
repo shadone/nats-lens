@@ -31,6 +31,8 @@ The Findings page lists the findings of the time range, filtered by severity, st
 - **The mutes list.** Mutes in force by default; "Include ended" adds lifted and expired ones. Each shows Muted, Accepted, Lifted, Ended or Expired, the check, the entity or "every entity", when it ends (an acceptance: "review in <duration>") or ended, and "Muted by … on …: reason" (or "Accepted by …", with the review date), with who lifted it. An acceptance in force has "End…" in place of "Lift…"; each button's accessible name names the check and the entity ("End acceptance of stream-005 for order-archive…"). An acceptance that ended early is marked Ended, never Lifted: one a person ended reads "Ended <time> by <name>.", and one nats-lens ended reads "Ended by nats-lens: growth changed from +2.0 KiB/day to +516 KiB/day over the last 7 days (+1.6 MiB in the last day)."
 - **Mutes apply when findings are read.** A mute does not stop the check. When it ends, the finding counts again if the condition still holds.
 
+- **Acknowledgements beside mutes.** An acknowledgement records who is investigating one finding's current firing episode. It leaves the finding visible, counted at its severity, and eligible for the Findings badge. A mute hides the finding from those counts. “Acknowledge…” on desktop and “I'm on it” on the [phone card](mobile.md) accept an optional note of at most 500 characters, with 30 minutes, 2 hours, or until-resolved quiet. Quiet expiry resumes alert eligibility but keeps the acknowledgement. Resolve or a later firing episode stops it applying. “Update…” replaces it; “Hand back…” releases it. The verified IAP user or request name identifies the author, as for mutes. The API also accepts quiet durations from 30 minutes through 24 hours.
+- **Acknowledgement visibility.** Overview cards, Findings rows, and finding details show the current acknowledgement. The Overview counts acknowledged firing findings, including muted ones. The finding page keeps replacement and hand-back receipts only during the current visit. Reading a past range selects the acknowledgement in force at its end.
 ## Scenarios
 
 ### Look at everything that flaps
@@ -106,10 +108,26 @@ The Findings page lists the findings of the time range, filtered by severity, st
 - **Accept from the finding.** "Accept as by design…" on the finding page and the Findings page, and a "Review accepted findings" list.
 - **Accepted apart from muted.** An Overview tally that counts accepted findings apart from muted ones.
 
+### Acknowledge without hiding trouble
+
+- **Surfaces:** `ui`, `api`
+- **Given** an unmuted firing finding
+- **When** an operator acknowledges it with a note and 2 hours of quiet
+- **Then** it remains visible and counted at its severity, with the author and note
+- **And** quiet expiry permits alerts again while the acknowledgement remains until release, replacement, or the episode ends
+
+### Reject an acknowledgement outside a firing episode
+
+- **Surfaces:** `api`
+- **Given** a resolved finding
+- **When** a client calls `AcknowledgeFinding`
+- **Then** the API refuses it with failed_precondition
+- **And** an unknown finding is refused with not_found
+
 ## Not supported / out of scope
 
 - **No mute without an end.** Every mute ends within 90 days.
 - **No editing a mute.** A mute's reason or end cannot be changed; lift it and mute again.
 - **No mute of several checks at once.** A mute covers one check.
-- **No assignment or acknowledgement.** Findings have no owner or "I'm on it" state yet ([mobile.md](mobile.md)).
+- **No acknowledgement-history list.** The finding page reads the current episode's acknowledgement. Replacement and hand-back receipts last only for the current visit; stored acknowledgement events remain readable within event retention.
 - **No sign-in of its own.** Without IAP, the name in a mute is whatever the person types.

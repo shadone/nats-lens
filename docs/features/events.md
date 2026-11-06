@@ -29,6 +29,7 @@ The Events page lists the events of the time range, newest first: NATS advisorie
 - **Facets and histogram.** With `include_facets`, the response counts the events per source and per server, each dimension without its own filter, and the events of the range with no filter. With `histogram_buckets` (at most 120; the page asks for 48), it counts warnings, other events and routine events in equal buckets over the range, routine events included even when hidden.
 - **Old requests unchanged.** A request without these flags gets the same response as before they existed.
 
+- **Acknowledgement events.** Saving an acknowledgement writes a non-routine `finding.acknowledged` event in the same transaction. Events and the finding timeline can show its author and note. Acknowledgement events are records of saves, not a list of release or replacement receipts; those receipts in finding details last only for the current visit.
 ## Scenarios
 
 ### Find who deleted a consumer
@@ -102,6 +103,13 @@ The Events page lists the events of the time range, newest first: NATS advisorie
 
 - **Change what counts as routine.** Routine is a fixed rule today; a configurable rule and a link to it are planned.
 - **Subject and where.** Columns for the subject an event concerns and where it happened (server or namespace).
+
+### Read an acknowledgement event
+
+- **Given** an operator saves an acknowledgement in a stored system
+- **When** another operator reads Events in that time range
+- **Then** a `finding.acknowledged` event records the author and note
+- **And** the event is not hidden as routine
 
 ## Not supported / out of scope
 
