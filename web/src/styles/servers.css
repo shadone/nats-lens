@@ -135,9 +135,9 @@
 
 /* Keep long metric names and focus/touch descriptions inside each server tile. */
 .sd-tiles .mbox{position:relative;min-width:0}
-.sd-tiles .mb-h{flex-wrap:wrap}
+.sd-tiles .mb-h{position:relative;flex-wrap:wrap}
 .sd-tiles .mb-h .lbl{flex:1 1 100%}
 .sd-tiles .mb-t{white-space:normal;overflow-wrap:anywhere}
 .sd-tiles .infotip{position:static}
-.sd-tiles .infotip-t{left:12px;right:12px;width:auto;max-width:none;overflow-wrap:anywhere}
+.sd-tiles .infotip-t{top:100%;left:0;right:0;width:auto;max-width:none;overflow-wrap:anywhere}
 .sd-tiles .mb-note{overflow-wrap:anywhere}
