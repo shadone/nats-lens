@@ -134,6 +134,21 @@ describe("Servers on example-global", () => {
     expect(screen.getByText("24 servers in 3 clusters · meta leader nats-eu-1")).toBeInTheDocument();
   });
 
+  it("distinguishes slow-client disconnects from JetStream backlog and keeps global scope on its Consumers link", async () => {
+    const r = global();
+    for (const server of r.servers) server.slowConsumersInRange = 0n;
+    serve(r);
+    renderApp(<Servers />, "/servers?range=1h&system=example-global&account=SHOP");
+    const title = await screen.findByText("Slow-client disconnects, 1 h");
+    const card = title.closest(".dp")! as HTMLElement;
+    expect(card.querySelector(".dp-v")).toHaveTextContent("0");
+    expect(card).toHaveTextContent("Clients disconnected as slow during the selected range.");
+    expect(within(card).getByRole("img", { name: /^Slow-client disconnects per range, peak none$/ })).toBeInTheDocument();
+    const target = new URL(within(card).getByRole("link", { name: "Consumers" }).getAttribute("href")!, "http://example.com");
+    expect(target.pathname).toBe("/consumers");
+    expect(Object.fromEntries(target.searchParams)).toEqual({ range: "1h", system: "example-global", account: "SHOP" });
+  });
+
   it("names the busiest server in the CPU chart's legend", async () => {
     serve(global());
     renderApp(<Servers />, "/servers");
