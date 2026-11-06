@@ -87,6 +87,8 @@
 .srv-tbl td.warn{color:var(--sev-warning);font-weight:600}
 .srv-tbl td.tags{font-size:11.5px;color:var(--text-2)}
 .srv-store{white-space:nowrap}
+.srv-storage-value{display:block;font-family:var(--mono);font-size:11.5px}
+.srv-storage-meter{display:block;margin-top:4px;font-size:11px;color:var(--text-2)}
 .srv-store .srv-bar{display:inline-block;width:64px;height:5px;border-radius:3px;background:var(--track);vertical-align:middle;margin-right:8px}
 .srv-store .srv-bar span{display:block;height:5px;border-radius:3px;background:var(--accent)}
 .srv-store .srv-bar span.warn{background:var(--cell-warning)}
