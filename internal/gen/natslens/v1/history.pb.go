@@ -507,8 +507,7 @@ func (x *ArchiveState) GetLastErrorAt() *timestamppb.Timestamp {
 	return nil
 }
 
-// One use of the history: what it needs, what the system has, and when it
-// will have enough.
+// Global collection availability for a use; not per-entity readiness.
 type HistoryUse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Stable ID: growth, forecast:<check>, lookback:<check>, accept_review,
@@ -516,15 +515,17 @@ type HistoryUse struct {
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// The check, for forecast and lookback uses.
 	CheckCode string `protobuf:"bytes,2,opt,name=check_code,json=checkCode,proto3" json:"check_code,omitempty"`
-	// How much history the use needs.
+	// Target span: growth minimum, configured check lookback, or history window.
 	Needs *durationpb.Duration `protobuf:"bytes,3,opt,name=needs,proto3" json:"needs,omitempty"`
-	// How much it has: the covered span of the range for growth, the
-	// history now for the others. Unset without history.
+	// Span between actual collections in the selected range for growth, or
+	// in the use window ending at the latest collection for other uses. May
+	// contain gaps and missing entity data. Unset without samples.
 	Has *durationpb.Duration `protobuf:"bytes,4,opt,name=has,proto3" json:"has,omitempty"`
-	// Whether has is at least needs.
+	// Whether has is at least needs within retention. This is global span
+	// availability, not algorithm eligibility or complete coverage.
 	Enough bool `protobuf:"varint,5,opt,name=enough,proto3" json:"enough,omitempty"`
-	// When it will have enough; unset when enough, never, or not within the
-	// range (a range shorter than the need, or one that ended).
+	// Earliest target time if collection continues; only for a fresh, growing
+	// selected range. Passing this time does not establish availability.
 	EnoughAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=enough_at,json=enoughAt,proto3" json:"enough_at,omitempty"`
 	// Whether the retention is shorter than the need.
 	Never         bool `protobuf:"varint,7,opt,name=never,proto3" json:"never,omitempty"`

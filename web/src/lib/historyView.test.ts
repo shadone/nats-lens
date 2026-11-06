@@ -190,21 +190,21 @@ describe("uses", () => {
   });
 
   it("words enough, not yet and never", () => {
-    expect(historyUseLine(use(), 14 * DAY, NOW)).toBe("needs 6 h; has 9 h; enough");
+    expect(historyUseLine(use(), 14 * DAY, NOW)).toBe("needs 6 h; has 9 h; sample span available");
     const notYet = use({ has: 31 * MIN, enough: false, enoughAt: Date.parse("2026-11-05T15:02:00Z") });
-    expect(historyUseLine(notYet, 14 * DAY, Date.parse("2026-11-05T09:33:00Z"))).toBe("needs 6 h; has 31 min; enough at 15:02 UTC");
+    expect(historyUseLine(notYet, 14 * DAY, Date.parse("2026-11-05T09:33:00Z"))).toBe("needs 6 h; has 31 min; at earliest 15:02 UTC, if collections continue");
     const never = use({ id: "accept_review", needs: 8 * DAY + HOUR, has: 2 * DAY, enough: false, never: true });
-    expect(enoughState(never, 7 * DAY, NOW)).toEqual({ text: "never with retention 7 d", tone: "warn" });
-    expect(enoughState(use({ enough: false }), 7 * DAY, NOW)).toEqual({ text: "not within this range", tone: "muted" });
+    expect(enoughState(never, 7 * DAY, NOW)).toEqual({ text: "target exceeds retention 7 d", tone: "warn" });
+    expect(enoughState(use({ enough: false }), 7 * DAY, NOW)).toEqual({ text: "sample span short or unavailable", tone: "muted" });
   });
 
-  it("says enough once the time it named has passed", () => {
-    expect(enoughState(use({ enough: false, enoughAt: NOW - MIN }), 7 * DAY, NOW)).toEqual({ text: "enough", tone: "ok" });
-    expect(enoughState(use({ enough: false, enoughAt: NOW }), 7 * DAY, NOW)).toEqual({ text: "enough", tone: "ok" });
+  it("does not infer readiness when a prediction has passed", () => {
+    expect(enoughState(use({ enough: false, enoughAt: NOW - MIN }), 7 * DAY, NOW)).toEqual({ text: "awaiting collections", tone: "muted" });
+    expect(enoughState(use({ enough: false, enoughAt: NOW }), 7 * DAY, NOW)).toEqual({ text: "awaiting collections", tone: "muted" });
   });
 
   it("says has none without history", () => {
-    expect(historyUseLine(use({ has: undefined, enough: false }), 7 * DAY, NOW)).toBe("needs 6 h; has none; not within this range");
+    expect(historyUseLine(use({ has: undefined, enough: false }), 7 * DAY, NOW)).toBe("needs 6 h; has none; sample span short or unavailable");
   });
 });
 

@@ -204,16 +204,16 @@ export function historyUseLabel(u: Pick<HistoryUse, "id" | "checkCode">): UseLab
 
 export type UseTone = "ok" | "warn" | "muted";
 
-/** Whether a use has enough history, and when it will: "enough", "enough at 15:02 UTC", "never with retention 7 d". */
+/** Global sample availability; a passed prediction never proves collection continued. */
 export function enoughState(u: HistoryUse, retention: number | undefined, now: number): { text: string; tone: UseTone } {
-  if (u.enough) return { text: "enough", tone: "ok" };
-  if (u.never) return { text: retention === undefined ? "never with this retention" : `never with retention ${spanText(retention)}`, tone: "warn" };
-  if (u.enoughAt !== undefined && u.enoughAt <= now) return { text: "enough", tone: "ok" };
-  if (u.enoughAt !== undefined) return { text: `enough at ${whenText(u.enoughAt, now)}`, tone: "muted" };
-  return { text: "not within this range", tone: "muted" };
+  if (u.enough) return { text: "sample span available", tone: "ok" };
+  if (u.never) return { text: retention === undefined ? "target exceeds retention" : `target exceeds retention ${spanText(retention)}`, tone: "warn" };
+  if (u.enoughAt !== undefined && u.enoughAt <= now) return { text: "awaiting collections", tone: "muted" };
+  if (u.enoughAt !== undefined) return { text: `at earliest ${whenText(u.enoughAt, now)}, if collections continue`, tone: "muted" };
+  return { text: "sample span short or unavailable", tone: "muted" };
 }
 
-/** "needs 6 h; has 31 min; enough at 15:02 UTC" */
+/** The target and actual sample spans, with conditional availability. */
 export function historyUseLine(u: HistoryUse, retention: number | undefined, now: number): string {
   const needs = u.needs === undefined ? "needs –" : `needs ${spanText(u.needs)}`;
   const has = u.has === undefined ? "has none" : `has ${spanText(u.has)}`;
@@ -297,15 +297,12 @@ export function rangeCoverageText(historyStart: number | undefined, start: numbe
   return `over ${spanText(historySpan(historyStart, start, end)!)}`;
 }
 
-/** A fixed/short range cannot gain history by waiting. Never promise a countdown for it. */
-export function growthHistoryNote(historyStart: number | undefined, start: number, end: number, live: boolean): string | undefined {
-  const needs = 6 * HOUR;
-  const has = historySpan(historyStart, start, end);
-  if (has === undefined) return "needs 6 h of history";
-  if (has >= needs) return undefined;
-  if (end - start < needs) return "needs 6 h of history; choose a range of at least 6 h";
-  if (!live) return `needs 6 h of history; ${spanText(has)} in this fixed range`;
-  return `needs 6 h of history; ${spanText(needs - has)} to go`;
+/** Oldest-retained time cannot predict when an entity will have usable samples. */
+export function growthHistoryNote(_historyStart: number | undefined, start: number, end: number, _live: boolean): string | undefined {
+  // The oldest retained timestamp says nothing about samples for this
+  // entity. Only the growth result can establish that a slope exists.
+  if (end - start < 6 * HOUR) return "needs 6 h of history; choose a range of at least 6 h";
+  return "needs samples spanning 6 h; entity data may be missing";
 }
 
 export function atHistoryStart(f: Finding, historyStart: number | undefined): boolean {

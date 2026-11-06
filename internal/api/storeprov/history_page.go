@@ -11,9 +11,10 @@ import (
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
-// DataHistory reads the facts of Data history in three queries, none per
+// DataHistory reads the facts of Data history in four queries, none per
 // epoch: the history and its counts, the range's times without
-// collections, and the collector events around the range.
+// collections, the collector events around the range, and bounded sample
+// spans for uses.
 func (p *Provider) DataHistory(ctx context.Context, req *v1.GetDataHistoryRequest) (*api.HistoryFacts, error) {
 	start, end := span(req.GetRange())
 	f := &api.HistoryFacts{Start: start, End: end, Now: p.Now(), Interval: p.Interval, Retention: p.Retention}
@@ -36,6 +37,9 @@ func (p *Provider) DataHistory(ctx context.Context, req *v1.GetDataHistoryReques
 		return nil, err
 	}
 	if f.Events, err = p.historyEvents(ctx, start, end); err != nil {
+		return nil, err
+	}
+	if err := p.historySamples(ctx, f); err != nil {
 		return nil, err
 	}
 	return f, nil
@@ -122,4 +126,36 @@ ORDER BY e.time, e.id`, args...)
 		out = append(out, ev)
 	}
 	return out, rows.Err()
+}
+
+// historySamples reads all use windows in one batch, not one query per entity.
+func (p *Provider) historySamples(ctx context.Context, f *api.HistoryFacts) error {
+	windows := api.HistoryUseWindows(f)
+	var values []string
+	var args []any
+	for _, w := range windows {
+		values = append(values, "(?, make_timestamp(?::BIGINT), make_timestamp(?::BIGINT))")
+		args = append(args, w.ID, w.Start.UnixMicro(), w.End.UnixMicro())
+	}
+	// ASVS 1.2.4: only fixed SQL fragments are joined; every value is bound.
+	// Unix microseconds avoid DuckDB session-time-zone shifts in VALUES.
+	rows, err := p.db().QueryContext(ctx, `WITH windows(id, lo, hi) AS (VALUES `+strings.Join(values, ",")+`)
+ SELECT w.id,min(e.started_at),max(e.started_at) FROM windows w LEFT JOIN epochs e
+ ON e.started_at >= w.lo AND e.started_at < w.hi GROUP BY w.id`, args...)
+	if err != nil {
+		return fmt.Errorf("data history sample spans: %w", err)
+	}
+	defer rows.Close()
+	f.Samples = map[string]api.HistorySamples{}
+	for rows.Next() {
+		var id string
+		var first, last sql.NullTime
+		if err := rows.Scan(&id, &first, &last); err != nil {
+			return err
+		}
+		if first.Valid {
+			f.Samples[id] = api.HistorySamples{First: first.Time, Last: last.Time}
+		}
+	}
+	return rows.Err()
 }

@@ -210,7 +210,7 @@ export function GapsCard({ d, live }: { d: DataHistory; live: boolean }) {
 
 export function UsesCard({ d, now }: { d: DataHistory; now: number }) {
   return (
-    <Card title="What uses history" sub="How much history each figure needs, how much this system has, and when it will have enough." className="dh-uses">
+    <Card title="What uses history" sub="Global collection sample spans, which may contain gaps. Growth uses the selected range; other windows end at the latest collection. Entity measurements and algorithm rules still determine each result. Forecast targets are configured lookbacks; rates may use shorter spans when their minimum span and slope rules pass. Acceptance review needs its baseline buckets; daily totals can be incomplete, and Replay only visits stored moments." className="dh-uses">
       {d.uses.length === 0 ? (
         <p className="dh-empty">Nothing reported.</p>
       ) : (
@@ -219,9 +219,9 @@ export function UsesCard({ d, now }: { d: DataHistory; now: number }) {
             <thead>
               <tr>
                 <th scope="col">Use</th>
-                <th scope="col">Needs</th>
-                <th scope="col">Has</th>
-                <th scope="col">Enough</th>
+                <th scope="col">Target span</th>
+                <th scope="col">Sample span</th>
+                <th scope="col">Availability</th>
               </tr>
             </thead>
             <tbody>

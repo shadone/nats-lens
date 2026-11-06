@@ -69,6 +69,40 @@ type ArchiveState struct {
 	ListedAt time.Time
 }
 
+// HistoryWindow bounds the global epoch samples for one use. It describes
+// availability only, never an entity's measurements or algorithm eligibility.
+type HistoryWindow struct {
+	ID         string
+	Start, End time.Time
+}
+
+// HistorySamples are the bounds of actual collections within a use window.
+type HistorySamples struct{ First, Last time.Time }
+
+// HistoryUseWindows bounds each use's read independently of the selected range.
+func HistoryUseWindows(f *HistoryFacts) []HistoryWindow {
+	// System uses end at the latest stored collection, as the check engine
+	// does. Include that sample; time passing after collection stops adds nothing.
+	at := f.NewestEpochAt
+	if at.IsZero() || at.After(f.Now) {
+		at = f.Now
+	}
+	end := at.Add(time.Microsecond)
+	out := []HistoryWindow{{"growth", f.Start, f.End}, {"accept_review", at.Add(-AcceptRetention), end},
+		{"day", at.Add(-HistoryDay), end}, {"replay", at.Add(-MaxReplaySpan), end}}
+	for _, l := range f.Lookbacks {
+		if l.Lookback <= 0 {
+			continue
+		}
+		id := "lookback:" + l.Code
+		if slices.Contains(HistoryForecastChecks, l.Code) {
+			id = "forecast:" + l.Code
+		}
+		out = append(out, HistoryWindow{id, at.Add(-l.Lookback), end})
+	}
+	return out
+}
+
 // HistoryFacts are what a provider read for Data history; FinishDataHistory
 // turns them into the response, so that the store and the demo apply the
 // same rules.
@@ -96,6 +130,8 @@ type HistoryFacts struct {
 	Archive ArchiveState
 	// Lookbacks are the checks' windows.
 	Lookbacks []CheckLookback
+	// Samples bounds the actual epochs in each HistoryUseWindow; missing means no samples.
+	Samples map[string]HistorySamples
 	// FindingsAtStart counts the firing findings already true when
 	// nats-lens started.
 	FindingsAtStart int32
@@ -352,24 +388,10 @@ func historyCoverage(f *HistoryFacts, hatched []historyGap) *v1.HistoryCoverage 
 	return c
 }
 
-// HistoryUses is the uses table: growth over the covered span of the
-// range, the forecasts and the checks still short of their lookback, the
-// growth review of acceptances, the 24-hour pages and Replay over the
-// history now.
+// HistoryUses compares each use's target with its bounded global sample span.
 func HistoryUses(f *HistoryFacts) []*v1.HistoryUse {
 	var out []*v1.HistoryUse
-	// Growth reads the covered span of the range, which grows only while
-	// the range follows now.
-	growth := &v1.HistoryUse{Id: "growth", Needs: durationpb.New(MinGrowthSpan)}
-	if !f.HistoryStart.IsZero() && f.HistoryStart.Before(f.End) {
-		from := latest(f.Start, f.HistoryStart)
-		has := f.End.Sub(from)
-		growth.Has, growth.Enough = durationpb.New(has), has >= MinGrowthSpan
-		live := !f.End.Before(f.Now.Add(-f.Interval))
-		if !growth.Enough && live && f.End.Sub(f.Start) >= MinGrowthSpan {
-			growth.EnoughAt = timestamppb.New(from.Add(MinGrowthSpan))
-		}
-	}
+	growth := historyUse(f, "growth", "", MinGrowthSpan)
 	out = append(out, growth)
 	lookbacks := map[string]time.Duration{}
 	for _, l := range f.Lookbacks {
@@ -396,19 +418,23 @@ func HistoryUses(f *HistoryFacts) []*v1.HistoryUse {
 	return append(out, historyUse(f, "replay", "", MaxReplaySpan))
 }
 
-// historyUse is a use that reads the history now: it has the time since
-// the history start, is enough at the history start plus its need, and
-// never with a retention shorter than the need.
+// historyUse reports a global sample span, which can contain gaps. Enough
+// means that span reaches the target, not that an entity's algorithm can run.
 func historyUse(f *HistoryFacts, id, code string, needs time.Duration) *v1.HistoryUse {
 	u := &v1.HistoryUse{Id: id, CheckCode: code, Needs: durationpb.New(needs)}
 	u.Never = f.Retention > 0 && f.Retention < needs
-	if f.HistoryStart.IsZero() {
+	sample, ok := f.Samples[id]
+	if !ok || sample.First.IsZero() || sample.Last.IsZero() {
 		return u
 	}
-	has := max(f.Now.Sub(f.HistoryStart), 0)
+	has := max(sample.Last.Sub(sample.First), 0)
 	u.Has, u.Enough = durationpb.New(has), has >= needs && !u.Never
-	if !u.Enough && !u.Never {
-		u.EnoughAt = timestamppb.New(f.HistoryStart.Add(needs))
+	// A forecast/check window follows the latest collection. Its lookback is a
+	// target, not a promise to compute a rate (min_span and entity rules differ).
+	// Only expanding reads can predict a time, conditional on new collections.
+	expanding := id == "growth" && f.End.Sub(f.Start) > needs && !f.End.Before(f.Now.Add(-f.Interval))
+	if !u.Enough && !u.Never && expanding && f.Interval > 0 && !sample.Last.Before(f.Now.Add(-f.Interval)) {
+		u.EnoughAt = timestamppb.New(f.Now.Add(needs - has))
 	}
 	return u
 }
