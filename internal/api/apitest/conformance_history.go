@@ -144,10 +144,16 @@ func historyRows() []State {
 			return fmt.Sprintf("%d gaps", checked)
 		}},
 		State{"a history use without enough history yet", historyUse(func(u *v1.HistoryUse) bool {
-			return !u.GetEnough() && !u.GetNever() && u.GetEnoughAt() != nil && u.GetHas() != nil
+			// Review reads a bounded window at the newest collection. Its
+			// missing span does not support a wall-clock countdown.
+			return u.GetId() == "accept_review" && u.GetNeeds().AsDuration() == api.AcceptRetention &&
+				u.GetHas() != nil && u.GetHas().AsDuration() > 0 && u.GetHas().AsDuration() < u.GetNeeds().AsDuration() &&
+				!u.GetEnough() && !u.GetNever() && u.GetEnoughAt() == nil
 		})},
 		State{"a history use with enough history", historyUse(func(u *v1.HistoryUse) bool {
-			return u.GetId() == "growth" && u.GetEnough() && u.GetEnoughAt() == nil
+			return u.GetId() == "growth" && u.GetNeeds().AsDuration() == api.MinGrowthSpan &&
+				u.GetHas() != nil && u.GetHas().AsDuration() >= api.MinGrowthSpan &&
+				u.GetEnough() && !u.GetNever() && u.GetEnoughAt() == nil
 		})},
 		State{"history uses describe global sample availability in every system", everySystem(func(q Q) string {
 			res := q.history(q.day())
