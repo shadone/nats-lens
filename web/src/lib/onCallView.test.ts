@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assetStatus, contextText, headline, rightNow, storyNote, safePlaybook } from "./onCallView";
+import { assetStatus, contextText, headline, rightNow, storyNote, safePlaybook, remediationParts } from "./onCallView";
 import type { Finding } from "../api/model";
 const f = { checkName: "Consumer quorum lost", entity: { kind: "consumer", name: "worker", consumer: "worker", stream: "order-jobs" } } as Finding;
 describe("on-call words follow observed facts", () => {
@@ -31,4 +31,10 @@ describe("on-call words follow observed facts", () => {
     expect(safePlaybook("javascript:alert(1)")).toBeUndefined();
     expect(safePlaybook("https://runbooks.example.com/nats")).toBe("https://runbooks.example.com/nats");
   });
+});
+
+it("separates the remediation warning from subsequent steps without cutting inline code", () => {
+  expect(remediationParts("Do not restart first. Recreate with `nats consumer add`. Then check delivery.")).toEqual({ warning: "Do not restart first.", steps: ["Recreate with `nats consumer add`.", "Then check delivery."] });
+  expect(remediationParts("Inspect `config.v2` first")).toEqual({ warning: "Inspect `config.v2` first", steps: [] });
+  expect(remediationParts("")).toEqual({ warning: "", steps: [] });
 });

@@ -80,3 +80,9 @@ it("uses a refetched resolve to end ownership rather than reviving a local saved
   await screen.findByText(/Resolved.*Present observations/);
   expect(screen.queryByRole("button", { name: "Update…" })).toBeNull();
 });
+it("keeps grouped cause-card acknowledgement inside the detail column", () => {
+  const f = { ...onCallFinding, acknowledgement: ack };
+  const { container } = renderApp(<CauseGroups groups={[{ key: "group", findings: [f, { ...f, id: "other", acknowledgement: undefined }], severity: "critical", checkCodes: [f.checkCode], parentCount: 1 }]} muted={[]} onMute={() => {}} />);
+  const row = container.querySelector(".cg-list li")!;
+  expect(row.children).toHaveLength(3); expect(row.querySelector(".cg-d .oc-mark")).not.toBeNull();
+});
