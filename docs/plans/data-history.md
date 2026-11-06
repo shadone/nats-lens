@@ -4,6 +4,10 @@ Working plan for Data history (`docs/features/data-history.md`). The owner decid
 
 Examples use the online shop of `inventory.example.yaml` and the demo's systems (`example-prod`, `example-global`, `example-staging`).
 
+## Integrated status on 2026-11-06
+
+T1–T4 are reviewed and integrated; T4 merged at `4b03bc7`. Later readiness corrections merged at `216945e` and `2d75ab0`. Server-chart missing-report gaps and collection-gap truncation notices merged at `e6a903f` (reviewed tip `e4cfa92`). These supersede the earlier review-stage limits below; those records retain their original validation scope. [Next steps](next.md) holds the current validation priorities. Forecast margins, archive sizes, archive-only UI reads, and the Fleet history-start column remain deferred.
+
 ## Open questions for the owner
 
 1. **Charts before the history starts.** The feature doc plans charts that show only the stored history, with "Show the full 24 h anyway". Proposed instead: every chart spans the range asked for, and the time before the history starts is hatched and labelled "nats-lens was not running yet", like any other gap; no toggle. Recommended: yes, as the Overview's trends share one time axis and a hover, and a chart that starts where its data starts hides how short the history is.
@@ -220,4 +224,4 @@ On the merged tree, non-UTC API/store/demo history and conformance tests, 59 aff
 
 ## Leftovers
 
-Not in this plan, most valuable first: a margin on each forecast; the archive's size per table and day (the destination lists names, not sizes); reading archived hours into the UI for a range older than the retention; gaps of one server (a server that did not answer) on the server's charts; a Fleet column with each system's history start.
+Not in this plan, most valuable first: a margin on each forecast; the archive's size per table and day (the destination lists names, not sizes); reading archived hours into the UI for a range older than the retention; a Fleet column with each system's history start.
