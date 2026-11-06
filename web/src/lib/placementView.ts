@@ -75,7 +75,7 @@ export function meaning(a: MatrixAsset, c: MatrixCell): string {
   const parts: string[] = [];
   if (c.differs.includes("created")) {
     parts.push(
-      `This server records another creation time for the ${what} than most servers do: its copy was created again, for example when the replica was rebuilt or the ${what} deleted and added back.`,
+      `This server records another creation time for the ${what} than most servers do. This alone does not prove a restore, rebuild or recreation. Compare positions, currentness, configuration and captured lifecycle events.`,
     );
   }
   if (c.differs.includes("config_hash")) parts.push(`This server holds another configuration of the ${what} than most servers do: an update did not reach it.`);

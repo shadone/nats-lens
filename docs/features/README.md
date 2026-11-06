@@ -67,7 +67,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Server checks](server-checks.md) | `ui`, `api`, `cli` | shipped — includes OCSP peer rejections, sustained slow route pairs, system-level leaf-site health with bounded evidence retention and churn hysteresis across missed evaluations |
 | [Account checks](account-checks.md) | `ui`, `cli` | shipped |
 | [Stream checks](stream-checks.md) | `ui`, `cli` | shipped — includes per-source silence and errors |
-| [Consumer checks](consumer-checks.md) | `ui`, `cli` | shipped |
+| [Consumer checks](consumer-checks.md) | `ui`, `cli` | shipped — creation-time differences do not establish cause or replica health |
 | [Client checks](client-checks.md) | `ui`, `cli` | shipped — short-lived connection hysteresis survives missed evaluations |
 | [System checks](system-checks.md) | `ui`, `cli` | shipped — includes notification delivery health through retention sweeps |
 | [Inventory](inventory.md) | `ui`, `cli` | shipped |
@@ -118,7 +118,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [ ] Server checks for queued JetStream API requests (server-checks.md)
 - [x] Account checks `account-001` to `account-004`: connection and disk limits, account and user JWT expiry (account-checks.md)
 - [x] Stream, KV bucket and object store checks `stream-001` to `stream-023`, mirrors, sources, single replicas, KV history, streams without a consumer and interior deletes among them; per-source silence and errors (stream-checks.md)
-- [x] Consumer checks `consumer-001` to `consumer-017`, among them the oldest unread message about to expire, pull requests at `max_waiting`, a single-replica durable on a replicated stream and a long pause (consumer-checks.md)
+- [x] Consumer checks `consumer-001` to `consumer-017`, among them the oldest unread message about to expire, pull requests at `max_waiting`, a single-replica durable on a replicated stream and a long pause; creation timestamps alone do not prove cause or health (consumer-checks.md)
 - [x] Client checks `client-001` to `client-008`, among them repeated authentication errors, unnamed connections, outdated client libraries and short-lived connection hysteresis across missed evaluations (client-checks.md)
 - [x] System checks `system-001` to `system-010`: the meta group, mixed API levels, and nats-lens's own check runs, collections, archive exports, event capture and notification delivery, with a full hour of failure reporting through retention sweeps (system-checks.md)
 - [x] The inventory of assets that must exist (inventory.md)
