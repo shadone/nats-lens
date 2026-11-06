@@ -5,6 +5,7 @@ import { Fragment, useState } from "react";
 import type { ServerRow } from "../api/servers";
 import { fmtBytes, fmtCount, fmtDuration, fmtInt } from "../lib/format";
 import { attentionReasons, groupByCluster, isFlat, leaders, matchesText, median, serverNotes, storePct, STORE_ATTENTION_PCT } from "../lib/servers";
+import { storageReading } from "../lib/serverStorage";
 import { serverPath } from "../lib/view";
 import { Dash, Num, RLink } from "./common";
 
@@ -45,13 +46,17 @@ function StateCell({ reasons, notes, present }: { reasons: string[]; notes: stri
 
 function StoreCell({ s }: { s: ServerRow }) {
   const p = storePct(s);
-  if (p === undefined) return <td><Dash /></td>;
   return (
-    <td className="srv-store" title={s.jsStorageBytes !== undefined && s.jsMaxStorageBytes ? `${fmtBytes(s.jsStorageBytes)} of ${fmtBytes(s.jsMaxStorageBytes)}` : undefined}>
-      <span className="srv-bar" aria-hidden="true">
-        <span className={p >= STORE_ATTENTION_PCT ? "warn" : undefined} style={{ width: `${Math.min(100, p).toFixed(0)}%` }} />
-      </span>
-      <span className="mono">{Math.round(p)}%</span>
+    <td className="srv-store">
+      <span className="srv-storage-value">{storageReading(s)}</span>
+      {p !== undefined && (
+        <span className="srv-storage-meter" role="img" aria-label={`${Math.round(p)}% of configured JetStream limit`}>
+          <span className="srv-bar" aria-hidden="true">
+            <span className={p >= STORE_ATTENTION_PCT ? "warn" : undefined} style={{ width: `${Math.min(100, p).toFixed(0)}%` }} />
+          </span>
+          <span className="mono">{Math.round(p)}%</span>
+        </span>
+      )}
     </td>
   );
 }
@@ -75,7 +80,7 @@ function Row({ s, majority }: { s: ServerRow; majority?: string }) {
       <td className="num" title={s.present && lead !== undefined ? `${s.streamLeaders ?? "–"} stream, ${s.consumerLeaders ?? "–"} consumer` : undefined}>
         {s.present ? <Num v={lead} /> : <Dash />}
       </td>
-      {s.present ? <StoreCell s={s} /> : <td><Dash /></td>}
+      <StoreCell s={s} />
       <td className="mono tags">{s.tags.join(", ") || <Dash />}</td>
     </tr>
   );
@@ -121,7 +126,7 @@ export function ServerList({ servers, majority }: { servers: ServerRow[]; majori
                 <th scope="col" className="num">Memory</th>
                 <th scope="col" className="num">Conns</th>
                 <th scope="col" className="num">Leaders</th>
-                <th scope="col">Store</th>
+                <th scope="col">JetStream file storage</th>
                 <th scope="col">Tags</th>
               </tr>
             </thead>
@@ -161,7 +166,7 @@ export function ServerList({ servers, majority }: { servers: ServerRow[]; majori
           </table>
         </div>
       )}
-      <p className="muted-note srv-foot">Leaders are the stream and consumer leaders on the server.</p>
+      <p className="muted-note srv-foot">Storage includes each server’s local replica copies; limits are configured JetStream limits. Filesystem used and capacity are not collected. Values cover the whole server, regardless of account scope. Leaders are stream and consumer leaders.</p>
     </section>
   );
 }

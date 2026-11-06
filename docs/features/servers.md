@@ -26,7 +26,8 @@ The Servers page shows a system's servers at a glance, built for 20 servers or m
   - "Needs attention" is shown by default. A server needs attention when it did not answer, a warning or critical finding fires on it (info and muted ones do not count), its healthz is not ok, its version is not the one most servers run, or its store is at 60% of its limit or more. The State column names each reason ("did not answer · warning finding", "version 2.12.2", "store 71%"). An info finding is shown there too, as a notice after the reasons ("ok · info finding"), and a server with only an info finding is listed after the servers with a reason.
   - "All" shows every server, six per cluster (twenty in a flat list) with "Show N more".
   - A filter matches the name, the version or a tag.
-  - Columns: server, state, role, version, uptime, CPU, memory, connections, leaders (stream and consumer leaders on the server), store with a bar and its percentage, and tags. A server that did not answer shows "–" for the numbers of the newest collection, its leaders included.
+  - Columns: server, state, role, version, uptime, CPU, memory, connections, leaders (stream and consumer leaders on the server), JetStream file storage with stored bytes, a positive configured limit when reported, and a bar with its percentage, and tags. A server that did not answer shows "–" for the numbers of the newest collection, its leaders included.
+- **Storage meaning.** List storage values cover the whole server, regardless of account scope, and include local replica copies. They are not unique application data or filesystem use. Filesystem used bytes and capacity are not collected. Zero stored bytes remain visible; missing bytes read "not reported", and a missing or nonpositive limit reads "limit unknown". A server without JetStream reads "no JetStream"; a server that did not answer reads "did not answer". Percentages use only answering servers with a positive limit and reported bytes.
 - **The server page.**
   - The header names the cluster in the breadcrumb, and the role, version, uptime and start time in one line, or "did not answer in the newest collection".
   - **Metric boxes** for CPU, memory, connections, messages (in as the value and line, out dashed with its current rate in the note) and slow consumers. Each has a title with an (i) button describing the metric, the current value at the top right, a line chart over the range, and a track with the window's lowest value on the left, its highest on the right and a dot at the current value. The ends are the window's own lowest and highest values; a current value outside them puts the dot at the nearer end. When the value did not change the track reads "steady at N all window"; without a series there is no track and the box reads "no data for the window"; without a current value the track has no dot and reads "no current value". A configured limit, such as the connection limit, is in the note under the track. Health colours the value and the dot, with a word only when it is not ok: CPU at 60% of a core or more is "high", connections at 80% of the limit or more are "near limit", and slow consumers in the range mark the box. A server that did not answer shows no current value, only its history.
@@ -49,6 +50,14 @@ The Servers page shows a system's servers at a glance, built for 20 servers or m
 Server detail charts mark recorded missing answers and missing STATSZ/VARZ metrics reports with bounded hatches. These do not establish downtime. See [Data history](data-history.md).
 
 ## Scenarios
+
+### Read storage without a configured limit
+
+- **Surfaces:** `ui`
+- **Given** an answering server reports zero JetStream file bytes and no positive storage limit
+- **When** I show all servers
+- **Then** its storage cell reads "0 B · limit unknown" and shows no percentage bar
+
 
 ### Find the server that restarted
 
