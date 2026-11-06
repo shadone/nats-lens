@@ -42,6 +42,8 @@ const (
 	LensServiceListFindingsProcedure = "/natslens.v1.LensService/ListFindings"
 	// LensServiceGetFindingProcedure is the fully-qualified name of the LensService's GetFinding RPC.
 	LensServiceGetFindingProcedure = "/natslens.v1.LensService/GetFinding"
+	// LensServiceGetOnCallProcedure is the fully-qualified name of the LensService's GetOnCall RPC.
+	LensServiceGetOnCallProcedure = "/natslens.v1.LensService/GetOnCall"
 	// LensServiceMuteFindingProcedure is the fully-qualified name of the LensService's MuteFinding RPC.
 	LensServiceMuteFindingProcedure = "/natslens.v1.LensService/MuteFinding"
 	// LensServiceUnmuteFindingProcedure is the fully-qualified name of the LensService's UnmuteFinding
@@ -139,6 +141,8 @@ type LensServiceClient interface {
 	ListFindings(context.Context, *connect.Request[v1.ListFindingsRequest]) (*connect.Response[v1.ListFindingsResponse], error)
 	// One finding with its transitions.
 	GetFinding(context.Context, *connect.Request[v1.GetFindingRequest]) (*connect.Response[v1.GetFindingResponse], error)
+	// Current finding, affected assets, and the episode's Replay story.
+	GetOnCall(context.Context, *connect.Request[v1.GetOnCallRequest]) (*connect.Response[v1.GetOnCallResponse], error)
 	// Mutes a check, or a check for one entity, until an expiry.
 	MuteFinding(context.Context, *connect.Request[v1.MuteFindingRequest]) (*connect.Response[v1.MuteFindingResponse], error)
 	// Lifts a mute before its expiry.
@@ -275,6 +279,13 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			httpClient,
 			baseURL+LensServiceGetFindingProcedure,
 			connect.WithSchema(lensServiceMethods.ByName("GetFinding")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		getOnCall: connect.NewClient[v1.GetOnCallRequest, v1.GetOnCallResponse](
+			httpClient,
+			baseURL+LensServiceGetOnCallProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetOnCall")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
@@ -514,6 +525,7 @@ type lensServiceClient struct {
 	getOverview        *connect.Client[v1.GetOverviewRequest, v1.GetOverviewResponse]
 	listFindings       *connect.Client[v1.ListFindingsRequest, v1.ListFindingsResponse]
 	getFinding         *connect.Client[v1.GetFindingRequest, v1.GetFindingResponse]
+	getOnCall          *connect.Client[v1.GetOnCallRequest, v1.GetOnCallResponse]
 	muteFinding        *connect.Client[v1.MuteFindingRequest, v1.MuteFindingResponse]
 	unmuteFinding      *connect.Client[v1.UnmuteFindingRequest, v1.UnmuteFindingResponse]
 	acknowledgeFinding *connect.Client[v1.AcknowledgeFindingRequest, v1.AcknowledgeFindingResponse]
@@ -567,6 +579,11 @@ func (c *lensServiceClient) ListFindings(ctx context.Context, req *connect.Reque
 // GetFinding calls natslens.v1.LensService.GetFinding.
 func (c *lensServiceClient) GetFinding(ctx context.Context, req *connect.Request[v1.GetFindingRequest]) (*connect.Response[v1.GetFindingResponse], error) {
 	return c.getFinding.CallUnary(ctx, req)
+}
+
+// GetOnCall calls natslens.v1.LensService.GetOnCall.
+func (c *lensServiceClient) GetOnCall(ctx context.Context, req *connect.Request[v1.GetOnCallRequest]) (*connect.Response[v1.GetOnCallResponse], error) {
+	return c.getOnCall.CallUnary(ctx, req)
 }
 
 // MuteFinding calls natslens.v1.LensService.MuteFinding.
@@ -745,6 +762,8 @@ type LensServiceHandler interface {
 	ListFindings(context.Context, *connect.Request[v1.ListFindingsRequest]) (*connect.Response[v1.ListFindingsResponse], error)
 	// One finding with its transitions.
 	GetFinding(context.Context, *connect.Request[v1.GetFindingRequest]) (*connect.Response[v1.GetFindingResponse], error)
+	// Current finding, affected assets, and the episode's Replay story.
+	GetOnCall(context.Context, *connect.Request[v1.GetOnCallRequest]) (*connect.Response[v1.GetOnCallResponse], error)
 	// Mutes a check, or a check for one entity, until an expiry.
 	MuteFinding(context.Context, *connect.Request[v1.MuteFindingRequest]) (*connect.Response[v1.MuteFindingResponse], error)
 	// Lifts a mute before its expiry.
@@ -877,6 +896,13 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		LensServiceGetFindingProcedure,
 		svc.GetFinding,
 		connect.WithSchema(lensServiceMethods.ByName("GetFinding")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceGetOnCallHandler := connect.NewUnaryHandler(
+		LensServiceGetOnCallProcedure,
+		svc.GetOnCall,
+		connect.WithSchema(lensServiceMethods.ByName("GetOnCall")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
@@ -1117,6 +1143,8 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceListFindingsHandler.ServeHTTP(w, r)
 		case LensServiceGetFindingProcedure:
 			lensServiceGetFindingHandler.ServeHTTP(w, r)
+		case LensServiceGetOnCallProcedure:
+			lensServiceGetOnCallHandler.ServeHTTP(w, r)
 		case LensServiceMuteFindingProcedure:
 			lensServiceMuteFindingHandler.ServeHTTP(w, r)
 		case LensServiceUnmuteFindingProcedure:
@@ -1206,6 +1234,10 @@ func (UnimplementedLensServiceHandler) ListFindings(context.Context, *connect.Re
 
 func (UnimplementedLensServiceHandler) GetFinding(context.Context, *connect.Request[v1.GetFindingRequest]) (*connect.Response[v1.GetFindingResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetFinding is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetOnCall(context.Context, *connect.Request[v1.GetOnCallRequest]) (*connect.Response[v1.GetOnCallResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetOnCall is not implemented"))
 }
 
 func (UnimplementedLensServiceHandler) MuteFinding(context.Context, *connect.Request[v1.MuteFindingRequest]) (*connect.Response[v1.MuteFindingResponse], error) {

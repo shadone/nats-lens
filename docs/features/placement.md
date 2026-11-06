@@ -104,7 +104,7 @@ The Placement page, under JetStream in the sidebar, shows every stream and durab
 - **No placement for core NATS subscriptions.** Only JetStream assets have a placement.
 - **Ephemeral and ordered consumers are not in the matrix**, nor consumers the inventory expects that no server reports; the Consumers list shows them.
 - **How long a state has lasted** is known only for the leader (its tenure) and for a copy with another creation time; for any other state, compare with an earlier time. nats-lens does not search back for when a state began.
-- **No playbook link.** "Step down leader" copies the command; nats-lens has no playbook to link. Site-specific advice belongs in a remediation file ([checks.md](checks.md)).
+- **No playbook link.** "Step down leader" copies the command; this panel does not show the [on-call card](mobile.md)'s configured playbook link. Site-specific advice belongs in a remediation file ([checks.md](checks.md)).
 - **An offline replica that sends no report is missing from the asset's page.** The matrix shows such a replica offline, from the leader's list; the server list of the stream's or consumer's page (and `GetStream`, `GetConsumer`) lists only the servers that report the asset, so the replica is not there.
 - **Two servers can show as leader on the asset's page.** When two servers each claim to lead an asset, the matrix names one leader and draws the other as disagreeing; the server list of the stream's or consumer's page shows each server's own claim, so both read as leader.
 - **One server's own view by hand.** The `nats` command shows the asset as its leader reports it, not as the selected server does.

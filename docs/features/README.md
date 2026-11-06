@@ -93,7 +93,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [KV and object stores](kv-and-object-stores.md) | `ui`, `api` | shipped |
 | [Micro services](micro-services.md) | `ui`, `api` | shipped |
 | [Command bar](command-bar.md) | `ui` | partial — search by name is shipped; findings, events and prefixes are planned |
-| [On call on the phone](mobile.md) | `ui` | planned |
+| [On call on the phone](mobile.md) | `api` | partial — card API built; phone layout and acknowledge dialog planned |
 | [Data history](data-history.md) | `ui`, `api` | partial — range notes and bounded chart gaps; margins planned |
 | [Notifications](notifications.md) | `api`, `cli` | planned |
 
@@ -145,7 +145,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] KV buckets and object stores as their own pages, with placement and missing buckets (kv-and-object-stores.md)
 - [x] Services built on the NATS micro framework: a card per service with its versions, instances, rate, errors and a note, its endpoints with their slow spells and last errors, its instances with the missing ones, asked in the listed accounts and seen in subscriptions in all (micro-services.md)
 - [~] Search and jump to anything from one box — findings, events and prefixes are planned (command-bar.md)
-- [ ] A finding on the phone, for the person on call (mobile.md)
+- [~] One on-call card API with present facts, episode story, and playbook; phone layout planned (mobile.md)
 - [~] Range history notes, observed chart gaps across time windows, and growth requirements; margins planned (data-history.md)
 
 **Operations**
