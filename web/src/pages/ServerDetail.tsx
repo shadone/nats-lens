@@ -55,6 +55,8 @@ export function ServerDetail() {
                 <WhereItRuns info={d} />
                 <Routes info={d} />
                 <LimitsCard info={d} />
+              </div>
+              <div className="sd-events-row">
                 <RecentEvents name={name} spec={spec} end={end} />
               </div>
               <EndpointsAnswered info={d} />

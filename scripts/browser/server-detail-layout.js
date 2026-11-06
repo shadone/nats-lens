@@ -1,5 +1,6 @@
 // Run this expression with preview_evaluate on the synthetic demo server page
 // at 360, 761 and 1280 CSS pixels, after its recent events have loaded.
+// Fallback: agent-browser --session server-detail-row eval --stdin < this-file
 // Set window.serverDetailLongContent = true first to stress wrapping.
 (() => {
   const region = (id) => document.getElementById(id)?.closest('section');
@@ -8,6 +9,21 @@
   if (!recent || cards.length < 2) throw new Error('Open a populated demo server detail first');
   if (window.serverDetailLongContent) {
     const token = 'synthetic'.repeat(40);
+    if (!recent.querySelector('.sd-recent')) {
+      const list = document.createElement('ol');
+      list.className = 'sd-recent';
+      const row = document.createElement('li');
+      const time = document.createElement('span');
+      time.className = 't';
+      time.textContent = '1m ago';
+      const summary = document.createElement('span');
+      const link = document.createElement('a');
+      link.href = '/events?id=synthetic-layout-fixture';
+      summary.append(link);
+      row.append(time, summary);
+      list.append(row);
+      recent.querySelector('h2').after(list);
+    }
     document.querySelectorAll('.sd-dl dd, .sd-recent li a').forEach((el) => {
       // Keep link semantics intact; change only text in this synthetic browser fixture.
       const target = el.querySelector('a') || el;
