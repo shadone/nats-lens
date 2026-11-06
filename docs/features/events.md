@@ -12,14 +12,15 @@ The Events page lists the events of the time range, newest first: NATS advisorie
 
 - **Worth reading first.** The page opens on "Worth reading": routine events are hidden and repeats are folded. "Everything" shows every event, one row each. Each choice shows its number of events, which follows the source and server filters.
 - **Hidden as routine.** While routine events are hidden, a line above the list reads "Hidden as routine:" with their number and the groups the API names (at most 10, largest first, each with its count), and "Show them" switches to "Everything".
-- **Histogram.** Bars over the range count warnings (warning and critical events) on top, other notable events below them, and routine events at the bottom. In "Worth reading" the bars are scaled to warnings and notable events, and routine events stand faint behind them. The legend draws each bar. A bar's title gives its time and its three counts.
+- **Empty results.** An empty feed explains the selected system, range, client and other active event filters before the facets. It distinguishes hidden routine events, no filter matches, and no captured events in the selected system and range. It offers "Show routine events" when routine events are hidden, and "Clear client filter" when a client is selected. Clearing the client preserves the system, account, range and other filters, synchronizes the visible client field, and returns to page one. Connections describes snapshots; Events describes captured history. A connection may predate capture, or its events may fall outside the range; an empty feed does not establish either cause. Loading, failed requests and previous-filter placeholders do not claim an empty result. A failed refresh of an empty result shows the error and Retry.
+- **Histogram.** The page omits a histogram whose counts are all zero. Bars over the range count warnings (warning and critical events) on top, other notable events below them, and routine events at the bottom. In "Worth reading" the bars are scaled to warnings and notable events, and routine events stand faint behind them. The legend draws each bar. A bar's title gives its time and its three counts.
 - **OCSP rejection warnings.** `server.ocsp_peer_rejected` appears as a non-routine NATS warning, filtered by its emitting server. Its raw peer object contains only the certificate fingerprint; it names no account, client, stream, or consumer.
 - **Four sources, with counts.** NATS, Kubernetes, Findings and Collector, each with its number of events. With none chosen ("All"), every source is shown; several can be chosen at once.
 - **Servers, with counts.** The busiest 8 servers with their numbers of events, then "N more" for the rest. Choosing a server filters the list to the events it reported; choosing it again clears it. The servers are not offered while a stream or consumer filters the list.
 - **Filters.** Kinds as a comma-separated list (for example `consumer.deleted, stream.deleted`), and a client connection name. Links from a server, stream or consumer page add that entity as a filter; a stream or consumer filter shows with "Clear". A stream or consumer filter also matches events that carry the account's readable name instead of its ID.
 - **Folded rows.** In "Worth reading", repeats of one thing are one row with the count and the time they span, such as "×5 in 6 min"; "×5" when they share one time. Opening a folded row shows the number of repeats and the time of the first. Finding events fold only with the same finding, and Kubernetes events only with the same object, so five stuck pods are five rows.
 - **New events wait.** On a live range's first page, the list stays as it was read. Every 30 seconds nats-lens counts the matching events that arrived since, and shows them as an "N new" pill, which a screen reader announces; pressing it reloads the list.
-- **Newest first, by time.** The list shows 50 rows per page; "Newer" and "Older" move through the pages by time, and the pager names only the page. Going back to the first page shows it as it was read.
+- **Newest first, by time.** The list shows 50 rows per page; "Newer" and "Older" move through the pages by time, and the pager names only the page. The first page omits the pager when no older page exists. Later pages keep "Newer", including an empty last page. Going back to the first page shows it as it was read.
 - **One row per event or fold.** A row shows the time, the source, a badge for finding events (NEW, CHANGED, RESOLVED; the demo also shows FLAPPING), the event's type or kind, its summary, and the repeats of a folded row.
 - **Open an event.** Opening a row shows the findings it raised (each with severity, code, name, value, remediation and related settings), its fields (kind, server, account, stream, consumer, client, client host, reason, repeats and first time of a folded row, time and receive time), "Raw payload" with the stored JSON, and "Link to this event".
 - **One event on top.** A link with `?id=` shows that event, opened, above the list.
@@ -99,6 +100,32 @@ The Events page lists the events of the time range, newest first: NATS advisorie
 - **Given** I read the first page of a live range
 - **When** three more matching events arrive
 - **Then** the list stays where it is and a "3 new" pill appears; pressing it reloads the list with them
+
+### Follow a connection with no matching event history
+
+- **Surfaces:** `ui`
+- **Given** the client name `media-worker` is selected and no captured events match it in the range
+- **When** I open Events from Connections
+- **Then** the empty state names the client and range above the facets and explains the difference between snapshots and captured history
+- **And** an all-zero histogram and a first-page pager without an older page are absent
+- **When** I press "Clear client filter"
+- **Then** the client filter and visible client field clear, while the system, account, range and other filters stay selected
+
+### Reveal an empty feed's hidden routine events
+
+- **Surfaces:** `ui`
+- **Given** only routine events match the active filters and Worth reading is selected
+- **When** I open Events
+- **Then** the empty state explains that matching events are hidden and offers "Show routine events"
+- **And** the routine counter stays visible and the page does not claim that no events were captured
+
+### Read a range without captured events
+
+- **Surfaces:** `ui`
+- **Given** no captured events exist in the selected system and range
+- **When** Events finishes loading successfully
+- **Then** the page says "No events captured in this range", names the scope and suggests a wider range
+- **And** a failed request shows an error with Retry instead of claiming the range is empty
 
 ## Planned
 
