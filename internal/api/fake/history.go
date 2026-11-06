@@ -183,7 +183,14 @@ func (p *Provider) DataHistory(_ context.Context, req *v1.GetDataHistoryRequest)
 	for _, w := range api.HistoryUseWindows(f) {
 		first, last := s.epochFrom(w.Start), s.epochAtOrBefore(w.End.Add(-time.Nanosecond))
 		if !first.IsZero() && !last.IsZero() && !last.Before(first) {
-			f.Samples[w.ID] = api.HistorySamples{First: first, Last: last}
+			var before time.Time
+			if w.ID != "growth" && f.Interval > 0 && f.Interval < w.End.Sub(w.Start)-time.Microsecond {
+				before = s.epochAtOrBefore(w.Start.Add(-time.Microsecond))
+				if before.Before(w.Start.Add(-f.Interval)) {
+					before = time.Time{}
+				}
+			}
+			f.Samples[w.ID] = api.HistorySamples{First: first, Last: last, Before: before}
 		}
 	}
 	f.Epochs, f.PartialEpochs = s.epochCounts(start, end)

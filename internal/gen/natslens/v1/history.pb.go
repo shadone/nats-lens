@@ -521,8 +521,10 @@ type HistoryUse struct {
 	// in the use window ending at the latest collection for other uses. May
 	// contain gaps and missing entity data. Unset without samples.
 	Has *durationpb.Duration `protobuf:"bytes,4,opt,name=has,proto3" json:"has,omitempty"`
-	// Whether has is at least needs within retention. This is global span
-	// availability, not algorithm eligibility or complete coverage.
+	// Global sample availability within retention, not algorithm eligibility or
+	// complete coverage. Growth requires has >= needs. Other uses may bracket
+	// the lower window boundary with actual samples each within one collection
+	// interval of it, while has remains the exact in-window sample span.
 	Enough bool `protobuf:"varint,5,opt,name=enough,proto3" json:"enough,omitempty"`
 	// Earliest target time if collection continues; only for a fresh, growing
 	// selected range. Passing this time does not establish availability.

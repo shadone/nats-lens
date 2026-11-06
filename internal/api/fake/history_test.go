@@ -9,6 +9,7 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/api/fake"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
@@ -106,5 +107,28 @@ func TestDemoDataHistoryProdAndGlobal(t *testing.T) {
 	}
 	if !slices.Equal(global, want) {
 		t.Errorf("global gaps\n%v\nwant\n%v", global, want)
+	}
+}
+
+// Demo and store expose the same exact in-window span and separate observed
+// predecessor. The growth range must never receive an edge allowance.
+func TestDemoDataHistoryBoundaryEvidence(t *testing.T) {
+	p := fake.New(false)
+	f, err := p.DataHistory(ctx, &v1.GetDataHistoryRequest{Range: &v1.TimeRange{Start: timestamppb.New(fake.FixedNow.Add(-time.Hour)), End: timestamppb.New(fake.FixedNow)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, w := range api.HistoryUseWindows(f) {
+		sample := f.Samples[w.ID]
+		if sample.First.Before(w.Start) || !sample.Last.Before(w.End) {
+			t.Fatalf("sample outside window: %s %v", w.ID, sample)
+		}
+		if w.ID == "growth" {
+			if !sample.Before.IsZero() {
+				t.Fatal("growth has predecessor")
+			}
+		} else if sample.Before.IsZero() || !sample.Before.Before(w.Start) || w.Start.Sub(sample.Before) > f.Interval {
+			t.Fatalf("%s: boundary predecessor %v", w.ID, sample)
+		}
 	}
 }

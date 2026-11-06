@@ -189,6 +189,11 @@ func TestDataHistoryUses(t *testing.T) {
 	if u.GetEnough() || !u.GetEnoughAt().AsTime().Equal(hNow.Add(api.MinGrowthSpan-last.Sub(first))) {
 		t.Error(u)
 	}
+	f.NewestEpochAt = hNow.Add(time.Second)
+	if u := uses(f)["growth"]; u.GetEnoughAt() != nil {
+		t.Error("future collection clock", u)
+	}
+	f.NewestEpochAt = last
 	f.End = hNow.Add(-time.Hour)
 	if u := uses(f)["growth"]; u.GetEnoughAt() != nil {
 		t.Error(u)
@@ -275,5 +280,65 @@ func TestDataHistoryGapsCutPerClass(t *testing.T) {
 	}
 	if !slices.IsSortedFunc(res.GetGaps(), func(a, b *v1.HistoryGap) int { return b.GetStart().AsTime().Compare(a.GetStart().AsTime()) }) {
 		t.Error("gaps not newest first")
+	}
+}
+
+func TestDataHistoryBoundaryEvidence(t *testing.T) {
+	const need = 5 * time.Minute
+	const interval = 30 * time.Second
+	lo := hNow.Add(-need)
+	for _, tc := range []struct {
+		name                string
+		first, last, before time.Time
+		interval, retention time.Duration
+		enough              bool
+	}{
+		{"exact", lo, hNow, time.Time{}, interval, 0, true},
+		{"phase", lo.Add(18 * time.Second), hNow, lo.Add(-12 * time.Second), interval, 0, true},
+		{"exact tolerance", lo.Add(interval), hNow, lo.Add(-interval), interval, 0, true},
+		{"past tolerance", lo.Add(interval + time.Microsecond), hNow, lo.Add(-time.Microsecond), interval, 0, false},
+		{"old bracket", lo.Add(time.Second), hNow, lo.Add(-interval - time.Microsecond), interval, 0, false},
+		{"new collector", lo.Add(time.Second), hNow, time.Time{}, interval, 0, false},
+		{"large gap at boundary", lo.Add(2 * time.Minute), hNow, lo.Add(-time.Second), interval, 0, false},
+		{"one sample", hNow, hNow, lo.Add(-time.Second), interval, 0, false},
+		{"reversed", hNow, lo, time.Time{}, interval, 0, false},
+		{"missing interval", lo.Add(time.Second), hNow, lo.Add(-time.Second), 0, 0, false},
+		{"interval equals window", lo.Add(time.Second), hNow, lo.Add(-time.Second), need, 0, false},
+		{"interval exceeds window", lo.Add(time.Second), hNow, lo.Add(-time.Second), 2 * need, 0, false},
+		{"retention", lo.Add(time.Second), hNow, lo.Add(-time.Second), interval, need - time.Second, false},
+		{"future sample", lo, hNow.Add(time.Second), lo.Add(-time.Second), interval, 0, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := hFacts()
+			f.NewestEpochAt = hNow
+			f.Interval = tc.interval
+			f.Retention = tc.retention
+			f.Lookbacks = []api.CheckLookback{{Code: "server-014", Lookback: need}}
+			f.Samples = map[string]api.HistorySamples{"forecast:server-014": {First: tc.first, Last: tc.last, Before: tc.before}}
+			u := uses(f)["forecast:server-014"]
+			if u.GetEnough() != tc.enough || u.GetHas().AsDuration() != max(tc.last.Sub(tc.first), 0) || u.GetEnoughAt() != nil {
+				t.Fatal(u)
+			}
+			// Wall-clock time cannot lengthen a stopped collector's sample span.
+			f.Now = hNow.Add(time.Hour)
+			if got := uses(f)["forecast:server-014"]; got.GetEnough() != tc.enough && tc.name != "future sample" {
+				t.Fatal(got)
+			}
+		})
+	}
+	// Growth has no boundary allowance, nor a countdown from zero/future span.
+	for _, sample := range []api.HistorySamples{
+		{First: hNow.Add(-api.MinGrowthSpan + time.Second), Last: hNow, Before: hNow.Add(-api.MinGrowthSpan - time.Second)},
+		{First: hNow, Last: hNow}, {First: lo, Last: hNow.Add(time.Second)},
+	} {
+		f := hFacts()
+		f.Samples = map[string]api.HistorySamples{"growth": sample}
+		u := uses(f)["growth"]
+		if u.GetEnough() {
+			t.Fatal(u)
+		}
+		if (sample.First.Equal(sample.Last) || sample.Last.After(f.Now)) && u.GetEnoughAt() != nil {
+			t.Fatal(u)
+		}
 	}
 }

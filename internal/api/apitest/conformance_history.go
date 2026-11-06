@@ -162,8 +162,14 @@ func historyRows() []State {
 				wantNeeds := map[string]time.Duration{"growth": api.MinGrowthSpan, "accept_review": api.AcceptRetention,
 					"day": api.HistoryDay, "replay": api.MaxReplaySpan}[u.GetId()]
 				never := res.GetRetention().AsDuration() > 0 && res.GetRetention().AsDuration() < needs
+				// Boundary evidence stays provider-internal. The wire contract permits
+				// only bounded uses to fall short by at most one configured interval.
+				interval := res.GetCollectInterval().AsDuration()
+				allowedEdge := u.GetId() != "growth" && interval > 0 && interval < needs && has > 0 && has >= needs-interval
+				invalidEnough := u.GetEnough() && (u.GetHas() == nil || never || (has < needs && !allowedEdge))
+				missingEnough := !u.GetEnough() && u.GetHas() != nil && has >= needs && has > 0 && !never
 				if needs <= 0 || (wantNeeds > 0 && needs != wantNeeds) || has < 0 ||
-					u.GetNever() != never || u.GetEnough() != (u.GetHas() != nil && has >= needs && !never) ||
+					u.GetNever() != never || invalidEnough || missingEnough ||
 					(u.GetEnoughAt() != nil && (u.GetId() != "growth" || u.GetEnough() || never || u.GetHas() == nil ||
 						res.GetNewestEpochAt().AsTime().Before(q.env.Now.Add(-res.GetCollectInterval().AsDuration())))) {
 					q.t.Errorf("system %q: inconsistent global availability %v, retention %v", q.System, u, res.GetRetention())
