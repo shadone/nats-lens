@@ -1,7 +1,9 @@
 package api_test
 
 import (
+	"encoding/json"
 	"fmt"
+	"google.golang.org/protobuf/encoding/protojson"
 	"slices"
 	"testing"
 	"time"
@@ -340,5 +342,36 @@ func TestDataHistoryBoundaryEvidence(t *testing.T) {
 		if (sample.First.Equal(sample.Last) || sample.Last.After(f.Now)) && u.GetEnoughAt() != nil {
 			t.Fatal(u)
 		}
+	}
+}
+
+func TestDataHistoryNewestOmittedCollectionGap(t *testing.T) {
+	f := hFacts()
+	f.Start = hNow.Add(-24 * time.Hour)
+	f.HistoryStart = f.Start
+	for i := range 201 {
+		from := f.Start.Add(time.Duration(i) * 5 * time.Minute)
+		f.Collections = append(f.Collections, noCollections(from, from.Add(2*time.Minute), int64(2*i+1), int64(2*i+2)))
+	}
+	raw, err := protojson.Marshal(api.FinishDataHistory(f))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out map[string]json.RawMessage
+	if err = json.Unmarshal(raw, &out); err != nil {
+		t.Fatal(err)
+	}
+	if len(out["newestOmittedCollectionGap"]) == 0 {
+		t.Fatalf("no omitted-gap boundary in %s", raw)
+	}
+	f.Collections = f.Collections[1:]
+	raw, err = protojson.Marshal(api.FinishDataHistory(f))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out = map[string]json.RawMessage{}
+	_ = json.Unmarshal(raw, &out)
+	if len(out["newestOmittedCollectionGap"]) != 0 {
+		t.Fatal("exactly 200 must not claim omissions")
 	}
 }

@@ -1,6 +1,8 @@
 // The tile sparkline of the reference: area and line for the primary
 // series, a dashed line for the second, shaded windows behind.
-import { HistoryGaps } from "./HistoryGaps";
+import { usePageHistory } from "../components/HistoryNote";
+import type { ServerHistoryGap } from "../api/history";
+import { ChartHistoryNotice, HistoryGaps } from "./HistoryGaps";
 import type { Level, Point, Window } from "../api/model";
 import { chartName, rangeText } from "./chartLabel";
 
@@ -36,13 +38,15 @@ export function sparkPoints(a: Point[], start: number, end: number, mn: number, 
 }
 
 export function Sparkline({ points, points2, status, windows, start, end, label, current, note }: Props) {
+  const history = usePageHistory();
+  const gaps = history?.serverGaps ?? [];
   const period = rangeText(start, end);
   if (points.length === 0) {
     return (
-      <svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, undefined, period, note)}>
+      <><svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, undefined, period, note)}>
         <HistoryGaps start={start} end={end} width={W} height={H} />
         <line x1="0" x2={W} y1={H - 3} y2={H - 3} style={{ stroke: "var(--border)" }} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-      </svg>
+      </svg><ChartHistoryNotice start={start} end={end}/></>
     );
   }
   const all = points.concat(points2 ?? []).map((p) => p.value);
@@ -55,30 +59,44 @@ export function Sparkline({ points, points2, status, windows, start, end, label,
     mx = mn + 1;
     if (mn !== 0) mn = mn - 1;
   }
-  const p = sparkPoints(points, start, end, mn, mx);
-  const first = p[0].split(",")[0];
-  const last = p[p.length - 1].split(",")[0];
+  const runs = splitServerPoints(points, gaps);
   const col = sparkColour(status);
   const span = end - start || 1;
   return (
-    <svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, current, period, note)}>
+    <><svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, current, period, note)}>
       <HistoryGaps start={start} end={end} width={W} height={H} />
       {windows.map((w) => {
         const x0 = Math.max(0, ((w.start - start) / span) * W);
         const x1 = Math.min(W, ((w.end - start) / span) * W);
         return x1 > x0 ? <rect key={w.start} x={x0.toFixed(1)} y="0" width={(x1 - x0).toFixed(1)} height={H} style={{ fill: "var(--upgrade-fill)" }} /> : null;
       })}
-      {!flatZero && <polygon points={`${first},${H} ${p.join(" ")} ${last},${H}`} style={{ fill: col, fillOpacity: 0.1 }} />}
+      {!flatZero && runs.map((run, i) => {
+        const p = sparkPoints(run, start, end, mn, mx);
+        return <polygon key={i} points={`${p[0].split(",")[0]},${H} ${p.join(" ")} ${p[p.length-1].split(",")[0]},${H}`} style={{ fill: col, fillOpacity: 0.1 }} />;
+      })}
       {points2 && points2.length > 0 && (
-        <polyline
-          points={sparkPoints(points2, start, end, mn, mx).join(" ")}
+        splitServerPoints(points2, gaps).map((run, i) => <polyline key={i}
+          points={sparkPoints(run, start, end, mn, mx).join(" ")}
           style={{ fill: "none", stroke: "var(--text-muted)" }}
           strokeWidth="1.2"
           strokeDasharray="3 2"
           vectorEffect="non-scaling-stroke"
-        />
+        />)
       )}
-      <polyline points={p.join(" ")} style={{ fill: "none", stroke: col }} strokeWidth="1.6" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-    </svg>
+      {runs.map((run, i) => <polyline key={i} points={sparkPoints(run, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: col }} strokeWidth="1.6" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />)}
+    </svg><ChartHistoryNotice start={start} end={end}/></>
   );
+}
+
+/** A bucket can hold data alongside a missing report. Keep the point but
+ * never connect across recorded missing intervals. */
+export function splitServerPoints(points: Point[], gaps: ServerHistoryGap[]): Point[][] {
+  const runs: Point[][] = [];
+  for (const p of points) {
+    const run = runs[runs.length - 1];
+    const prev = run?.[run.length - 1];
+    if (!prev || gaps.some(g => g.start < p.time && g.end > prev.time)) runs.push([p]);
+    else run.push(p);
+  }
+  return runs;
 }

@@ -248,11 +248,11 @@ export async function matchSubject(sys: string, spec: RangeSpec, account: string
 }
 
 /** What nats-lens holds of the system: its history, the range's coverage and gaps, the archive and what uses the history. */
-export async function getDataHistory(sys: string, spec: RangeSpec, signal?: AbortSignal) {
+export async function getDataHistory(sys: string, spec: RangeSpec, signal?: AbortSignal, server = "") {
   const now = serverNow();
   const range = rangeInit(spec, now);
   const sent = resolveRange(spec, now);
-  return dataHistory(await lens.getDataHistory({ ...systemInit(sys), range }, { signal }), sent);
+  return dataHistory(await lens.getDataHistory({ ...systemInit(sys), range, server }, { signal }), sent);
 }
 
 /** The accounts of the range's newest collection, the failed logins of the 24 hours before it, and what expires soon. */

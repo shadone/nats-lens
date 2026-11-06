@@ -238,11 +238,11 @@ export function useCapacity(spec: RangeSpec) {
 }
 
 /** The Data history page: the history and the range's gaps, followed on a live range as Capacity is. */
-export function useDataHistory(spec: RangeSpec) {
+export function useDataHistory(spec: RangeSpec, server = "") {
   const sys = useSystem();
   return useQuery({
-    queryKey: ["data-history", sys, rangeKey(spec)],
-    queryFn: ({ signal }) => api.getDataHistory(sys, spec, signal),
+    queryKey: ["data-history", sys, rangeKey(spec), server],
+    queryFn: ({ signal }) => api.getDataHistory(sys, spec, signal, server),
     refetchInterval: refetch(spec),
     // Later chart mounts reuse the settled answer until the next live refresh.
     staleTime: spec.kind === "live" ? LIVE_REFRESH_MS : Infinity,
