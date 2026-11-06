@@ -152,6 +152,9 @@ The consumer checks judge each JetStream consumer: whether it keeps quorum, whet
 
 ## Behavior and rules
 
+- **Demo guidance agrees with the reference.** The demo's `consumer-009` finding uses the shipped investigation guidance. It does not promise that a leader step-down repairs differing timestamps.
+
+
 - **The leader's view for the backlog.** nats-server tracks `num_pending`, waiting pull requests and push interest on the leader only, so `consumer-002`, `consumer-003`, `consumer-004`, `consumer-006`, `consumer-007`, `consumer-014` and `consumer-015` read the leader's report. Followers' values for these fields are not observed.
 - **Paused consumers are quiet where it matters.** `consumer-006`, `consumer-007` and `consumer-015` leave out a consumer that is paused; `consumer-017` reports the pause itself once it lasts. `consumer-014` still judges a paused consumer, as its messages expire all the same, and says in its detail that it is paused.
 - **A firing finding resolves below a lower mark.** `consumer-014` and `consumer-015` keep a firing finding down to `resolve_ratio`, read from the finding's state at the previous collection, so a value that hovers at the threshold does not flap.

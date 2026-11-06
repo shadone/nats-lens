@@ -116,7 +116,7 @@ func prodConsumer(s scen, c *v1.ConsumerSummary) {
 }
 
 // prodCreated gives resize-worker the creation time disagreement of
-// finding consumer-009: nats-0 kept the old copy.
+// finding consumer-009: nats-0 reports an earlier timestamp.
 func prodCreated(s scen, _, consumer string) ([]time.Time, bool) {
 	if consumer != "resize-worker" {
 		return nil, false
