@@ -21,7 +21,7 @@ Each was answered by the session that built T1 as recommended below: proposed, n
 | T1 Configuration, message formats and `natslens notify test` | built on `feat/notify-config`, awaiting review |
 | T2 Notification state and outbox | built on `feat/notify-outbox`, awaiting review |
 | T3 Delivery, retries, metrics and the delivery check | built in isolated T3 checkout, awaiting parent review |
-| T4 Acknowledgements in notifications | planned; needs `docs/plans/mobile.md` T1 merged |
+| T4 Acknowledgements in notifications | built in isolated N4 checkout with prerequisite `b7b5131`; awaiting parent fresh read-only review |
 | T5 Feature docs, design and audit | planned |
 
 ## Rules for every step
@@ -248,3 +248,139 @@ Proposed, not yet confirmed:
 - ASVS 1.2.4 / 15.4.3: parameterized short store writes; no store lock across HTTP. ASVS 13.3.1: persisted outcomes and logs omit receiver error text, response bodies and secret destinations; T1 rereads secrets per attempt.
 
 T3 also retains T1's configured-only destinations, verified TLS and redirect refusal (ASVS 13.2.4, 12.3.2), and per-channel timeouts and bounded retries (13.2.6). Persisted failure descriptions are generic (16.5.1); receivers may use long-lived webhook credentials as authorized in T1 rather than the short-lived service identities recommended by 13.2.1. Proposed, not yet confirmed.
+
+
+### Where T4 departed from this plan
+
+All choices here are proposed, not yet confirmed. N4 merges M T1 `b7b5131` as a separate prerequisite merge; neither review is self-approved.
+
+- The existing notification baseline means last queued, not HTTP-delivered. Acknowledgements use each channel's last reconciled epoch time, not its finding's last message time. Baseline records existing acknowledgements without sending notes. The first subsequent reconcile sends only notes created in `(last reconcile, epoch start]` for the current episode that is in view then. A newly opened episode sends firing before its acknowledgement notes. Resolved or out-of-view episodes do not replay their historical notes.
+- Every replacement in that interval sends its own note, even when it was replaced or released during a gap. Acknowledged dedup keys append the acknowledgement ID to the existing key, so multiple notes in one epoch stay distinct. An unchanged acknowledgement is not sent each epoch or on restart. No migration is needed; 0035, 0036, and 0037 are unchanged.
+- Quiet is episode-scoped and independent of the severity last queued. A suppressed fall keeps that severity baseline. A replacement that extends quiet suppresses the earlier quiet-ended reminder. Expiry or release gives one quiet-ended reminder if the known finding still fires, regardless of repeat_every. A fall below min_severity stays silent during quiet, then sends the quiet-ended reminder followed by a severity-based resolved message to close the channel's incident. A simultaneous rise sends changed before the reminder. Mute/filter exits retain their normal behavior.
+- Acknowledgement notes can arrive while a finding flaps. During quiet a rise still sends changed, and an actual resolve of an acknowledged episode sends resolved even while its flapping flag remains set. Other flapping behavior stays as built in N2.
+- The webhook adds `acknowledgement.by`, `.note`, `.quiet_until` or `.until_resolved` to version 1; Slack words and escapes the same fields. The actor comes solely from the existing API-stored acknowledgement. ASVS 1.2.4: bound SQL parameters; 1.2.3: JSON encoding and bounded escaped Slack text; 14.2.1/14.2.3: notes are message-body data only for configured channels; 16.2.5: queue logs contain counts, never actor/note text. No new sender or identity input is introduced.
+- Only the minimal notification capability doc and both index sections are updated here as AGENTS.md requires. The global N5 docs pass, M T2 GetOnCall, and phone UI remain deferred to their owners.
+
+
+### T4 verification evidence
+
+- RED `bf98c79`: `go test ./internal/notify -run TestAcknowledgement -count=1` compiled and failed on missing acknowledged messages, reminders during quiet, downward severity exits, missing quiet-ended reminders, and a flapping resolve. GREEN `8e96662` ran the same target successfully.
+- RED `5eef51a`: `TestAcknowledgementNewEpisodeInGap` failed with only resolved/firing and no acknowledgement for the current episode. GREEN `9bdf0d0` preserved that note after the new firing.
+- RED `f5a1ac1`: `TestAcknowledgementViewEntryAndThresholdEnd` and `TestAcknowledgementQuietEndWithRise` failed on missing quiet-ended reminder and missing simultaneous changed message. GREEN `4f8f65d` ran the acknowledgement target successfully.
+- Final `go test ./internal/notify -count=1 -coverprofile=/tmp/n4-notify-final.out`: PASS, 93.4% statement coverage. Both payload formats have finite-quiet and until-resolved golden fixtures; encode/decode and Slack escaping checks pass.
+- `TZ=America/Los_Angeles go test ./internal/notify ./internal/store -run 'Acknowledgement|Ack|Notify' -count=1`: PASS against real stores. Final `TZ=America/Los_Angeles go test -race ./internal/notify -run TestAcknowledgement -count=1`: PASS. `TZ=Asia/Kolkata go test -race ./internal/store -run 'Ack|Notify' -count=1`: PASS. The full notification race suite also passed before the final quiet-end boundary fix.
+- Final `go vet ./internal/notify ./internal/store`: PASS. Feature-doc audit with `--map-refs require`: 0 errors, only expected planned-status warnings for data-history and mobile. `git diff --check`: PASS. HTTP tests use local httptest receivers; no configured external destination was contacted.
+- Broader `go test ./internal/notify ./internal/store -count=1 -coverprofile=/tmp/n4-coverage.out`: notification package passed; store package reached the aggregate 10-minute timeout while `TestRebuildKeepsTheBaselinedCopyOfAnAcceptance` was running (22 seconds in that test), with no assertion failure reported. The full store suite is not claimed as passed. The test active at timeout passed independently: `go test ./internal/store -run '^TestRebuildKeepsTheBaselinedCopyOfAnAcceptance$' -count=1 -timeout=2m` (10.523 seconds).
+- Parent-owned fresh read-only review and integration remain pending. The prerequisite M T1 review is separate; no approval is claimed here.
+
+### T4 first review fix: released episode resolution
+
+Proposed, not yet confirmed. The isolated fix starts at parent `d073334`, which
+contains mobile T1 reviewed backend `c45ad0b`. It integrates N4 candidate
+`deb34dc` without its older backend merge. Backend integration is satisfied;
+parent-owned fresh notification review remains pending, with no approval claimed.
+
+- Review reproduced an acknowledged flapping episode released, reconciled past
+  its quiet end, then actually resolved: no resolved message was queued. The
+  acknowledgement input excludes releases behind the channel cursor.
+- Append `0038_notify_acknowledged.sql` after the parent's highest migration,
+  `0037`; `0035`, `0036` and `0037` remain untouched. A boolean on each
+  `notify_state` row remembers acknowledgement of that known episode after
+  release, expiry, history retention and restart. Existing history/outbox rows
+  cannot provide durable memory because they are swept. The marker follows the
+  channel's state lifecycle, resets on episode changes, and is not archived.
+- Backfill uses only matching episode history created by the channel's cursor.
+  New channels, removal/re-addition and rebuild retain normal baseline behavior.
+  Only actual resolves of known acknowledged episodes bypass the flapping hold;
+  other flapping, mute, filter, gap and severity behavior remains in force.
+- ASVS 1.2.4 / 15.4.3: the marker uses the existing parameterized JSON writes and
+  locked reconcile transaction; it adds no actor, note, destination or log input.
+
+First-review fix verification:
+
+- RED on integrated candidate: independent `TestReviewAckReleasedEpisodeResolveWhileFlapping`
+  and ported `TestAcknowledgementReleasedEpisodeResolveWhileFlapping` both got
+  no message instead of resolved. With the fix removed via Go overlay, that
+  regression and both `TestAcknowledgementEndedFlappingDiskRestart` variants
+  (release and expiry) fail at the missing actual resolve. All pass with the fix.
+- `TZ=America/Los_Angeles GOCACHE=/tmp/n4-review-gocache go test -race ./internal/notify -count=1`:
+  PASS (30.327s), including delivery, gap, rebuild and payload tests. The sandbox
+  initially prohibited httptest loopback listeners; the permitted local-listener
+  rerun passed. Final strengthened new-channel assertions also pass in the
+  targeted race run of the three new acknowledgement regressions.
+- `TZ=America/Los_Angeles GOCACHE=/tmp/n4-review-gocache go test -race ./internal/store -run 'Ack|Notif|TestMigrationsMatchGolden' -count=1 -timeout=10m`:
+  PASS (12.768s), including the new real-store upgrade backfill test.
+- All five supplied independent acknowledgement probes plus the original
+  released-episode probe pass under the corrected checkout-specific overlay,
+  non-UTC. `go vet ./internal/notify ./internal/store` passes. Feature-doc audit
+  with `--map-refs require`: zero errors, only the two expected planned-status
+  warnings. `git diff --check` passes.
+- The current parent `develop` at `88eaed8` still ends migrations at `0037`,
+  confirming `0038` is the next number. No full store suite was run in this fix
+  round, and none is claimed. Backfill can recover only retained history; it
+  cannot reconstruct acknowledgements already deleted before upgrading.
+
+### T4 second review fix: channel isolation and upgrade evidence
+
+Proposed, not yet confirmed. This isolated checkout integrates `426e247` onto
+`88eaed8`; the feature-index conflict preserves D3's data-history row and N4's
+notification row. Reviewed mobile backend `c45ad0b` is an ancestor. No parent
+checkout, deployment, receiver, or remote is changed. Fresh third review remains
+parent-owned and pending; this implementation does not approve itself.
+
+- The independent second review reproduces two failures: an inactive channel's
+  old cursor exposes released history to a channel baselined later, and 0038's
+  original backfill grants that same memory from creation time alone.
+- Runtime acquisition requires the finding in this channel's view and either an
+  acknowledgement in force at the epoch or a note created after this channel's
+  previous reconcile. Baseline only takes in-force acknowledgements. Ended notes
+  sent during a reconcile gap still count. Quiet expiry does not end the
+  acknowledgement. Existing durable memory remains episode-scoped across
+  release, expiry, restart and retention; forgetting a state clears its memory.
+- The parent ends at migration 0037. Only isolated, unapplied 0038 is revised;
+  0035–0037 are unchanged. Upgrade inference no longer treats the reconcile
+  cursor as proof of visibility. A baseline proves visibility at its time. For a
+  later state observation, a retained firing, changed, reminder or acknowledged
+  message must prove visibility of the same channel, finding and episode while
+  the acknowledgement was in force. A retained acknowledged or quiet-ended
+  message at the saved observation also proves knowledge after release.
+- A saved flapping observation alone is insufficient: it can describe a resolve
+  held while flapping. Older messages cannot prove uninterrupted visibility
+  across filter or mute exits and re-entry. Ambiguous upgrade history stays
+  false. If the proving message or acknowledgement was swept before upgrade,
+  the migration cannot recover that memory. The runtime marker remains durable
+  after upgrade and does not depend on retained outbox/history rows.
+- ASVS 1.2.4 / 2.3.1 / 2.3.3: static migration queries and existing bound runtime
+  writes preserve per-channel ordering and the atomic reconcile transaction.
+  No new receiver, actor, secret, log field, or network operation is introduced.
+
+Second-review verification (all commands run in this isolated checkout):
+
+- RED `f33dcc2`: `TZ=America/Los_Angeles GOCACHE=/tmp/n4-review-gocache go test -overlay=/tmp/n4-second-isolation-current.json ./internal/notify ./internal/store -run TestSecondReview -count=1`
+  compiles and fails both independent probes on the integrated candidate. The
+  overlay only corrects the supplied overlay's checkout paths. Both tests are
+  also ported into the repository. The identical command is GREEN after the fix
+  (notify 0.869s, store 0.716s).
+- With the integrated candidate's reconcile restored through
+  `/tmp/n4-second-reviewed-runtime.json`, the new isolation, baseline release
+  boundaries and filter-reentry tests fail; original independent acknowledgement
+  probes and the released/restart regressions pass. With `deb34dc`'s reconcile
+  restored through `/tmp/n4-second-original-deb.json`, the original independent
+  released-episode regression and both restart variants fail on missing resolve.
+  These tests all pass with the final implementation.
+- RED `5ad3a85`: `TZ=America/Los_Angeles GOCACHE=/tmp/n4-review-gocache go test ./internal/store -run TestNotifyAcknowledgementUpgradeEvidence -count=1`
+  fails `active-history-without-view-evidence` before the conservative refinement.
+  GREEN uses the full acknowledgement/migration target after `b677853`.
+- Final `TZ=America/Los_Angeles GOCACHE=/tmp/n4-review-gocache go test -race -overlay=/tmp/n4-third-original-current.json ./internal/notify -count=1 -coverprofile=/tmp/n4-second-final-coverage.out`:
+  PASS (24.757s), 93.9% statement coverage. This includes all original independent
+  probes, delivery, restart, sweep, rebuild, dedup, gap, replacement, new-episode,
+  channel-baseline and filter tests. The sandbox denied a local httptest listener;
+  the rerun with local-listener permission passed without external requests.
+- Final `TZ=America/Los_Angeles GOCACHE=/tmp/n4-review-gocache go test -race ./internal/store -run 'Ack|Notif|TestMigrationsMatchGolden' -count=1 -timeout=10m`:
+  PASS (12.996s), including populated upgrades, retained-message evidence,
+  missing evidence, separate channel/episode keys, repeated migration, and
+  inclusive creation/exclusive release at baseline. No full store suite was run
+  or is claimed as passed in this round.
+- `GOCACHE=/tmp/n4-review-gocache go vet ./internal/notify ./internal/store`:
+  PASS. Feature-doc audit with `--map-refs require`: zero errors, only the expected
+  planned-mobile warning. `git diff --check`: PASS.
