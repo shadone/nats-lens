@@ -22,7 +22,7 @@ Each was answered by the session that built T1 as recommended below: proposed, n
 | T2 Notification state and outbox | merged in `adf75ef` (`feat/notify-outbox`) |
 | T3 Delivery, retries, metrics and the delivery check | merged delivery head `f027860`, integrated with the sibling consumer branch by `3e97594` |
 | T4 Acknowledgements in notifications | candidate `a4f5eaee68817c930487ba07e15d8354a27f7385` approved by fresh third review and merged in `b179dc3c216045bf37ff4b891b63c02333b5c2e7` |
-| T5 Feature docs, design and audit | built in isolated docs checkout; fresh read-only review approved, awaiting parent integration |
+| T5 Feature docs, design and audit | independently reviewed and integrated at `21a7eaa`; audit: 0 errors, 1 expected planned-mobile warning |
 
 ## Rules for every step
 
