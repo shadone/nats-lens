@@ -43,7 +43,7 @@ func TestConfigThatDoesNotEncodeIsNotStored(t *testing.T) {
 		{`SELECT count(*) FROM stream_config WHERE stream = 'good'`, 1},
 		{`SELECT count(*) FROM stream_stats`, 2},
 		{`SELECT count(*) FROM consumer_stats`, 1},
-		{`SELECT len(list_filter(errors, x -> x LIKE '%does not encode as JSON%')) FROM epochs WHERE epoch = ` + fmt.Sprint(epoch), 2},
+		{`SELECT len(list_filter(errors, lambda x: x LIKE '%does not encode as JSON%')) FROM epochs WHERE epoch = ` + fmt.Sprint(epoch), 2},
 	} {
 		if got := count(t, db, c.q); got != c.want {
 			t.Errorf("%s = %d, want %d", c.q, got, c.want)

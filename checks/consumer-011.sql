@@ -56,7 +56,7 @@ diff AS (
                 || array_to_string(list_sort(i.filter_subjects), ', ') || '])' END,
         CASE WHEN i.replicas IS NOT NULL AND i.replicas <> o.effective_replicas
             THEN 'replicas ' || o.effective_replicas || ' (inventory ' || i.replicas || ')' END
-    ], x -> x IS NOT NULL) AS differ,
+    ], lambda x: x IS NOT NULL) AS differ,
     json_object('ack_wait', ns_text(i.ack_wait_ns), 'max_deliver', CAST(i.max_deliver AS VARCHAR),
         'max_ack_pending', CAST(i.max_ack_pending AS VARCHAR), 'filter_subjects', array_to_string(i.filter_subjects, ', '),
         'replicas', CAST(i.replicas AS VARCHAR)) AS expected

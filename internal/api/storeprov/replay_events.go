@@ -161,7 +161,7 @@ SELECT sum(least(d.n, c.n)) FROM drops d JOIN connects c ON c.client_name IS NOT
 // the node at the top of the payload give it.
 func nodeOfEvent(alias string) string {
 	raw := alias + "raw"
-	return `coalesce(` + raw + `->>'node', CASE WHEN ` + raw + `->'object'->>'kind' = 'Node' THEN ` + raw + `->'object'->>'name' END)`
+	return `coalesce(json_extract_string(` + raw + `, '$.node'), CASE WHEN json_extract_string(` + raw + `, '$.object.kind') = 'Node' THEN json_extract_string(` + raw + `, '$.object.name') END)`
 }
 
 // replayNodes counts the nodes upgraded and drained between A and B and
