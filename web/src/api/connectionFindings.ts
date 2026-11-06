@@ -15,6 +15,9 @@ export function useConnectionFindings(spec: RangeSpec, epoch: string | undefined
     queryFn: ({ signal }) => listFindings(system, spec, {
       includeMuted: true, pageSize: 500, states: ["firing", "changed", "flapping", "resolved"],
     }, signal),
+    // Page transitions briefly disable the batch while placeholder rows show.
+    // Re-enabling the same collection reuses it; invalidation still applies mutes.
+    staleTime: spec.kind === "live" ? LIVE_REFRESH_MS : Infinity,
     refetchInterval: spec.kind === "live" ? LIVE_REFRESH_MS : false,
   });
 }
