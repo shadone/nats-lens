@@ -45,6 +45,7 @@ type Check struct {
 	Thresholds    []Threshold `yaml:"thresholds"`
 	Description   string      `yaml:"description"`
 	Remediation   string      `yaml:"remediation"`
+	Playbook      string      `yaml:"-"`
 	RelatedConfig []string    `yaml:"related_config"`
 	// ValueName says what the value column measures, with its unit, for
 	// example "replicas online"; empty when the check returns no value or
