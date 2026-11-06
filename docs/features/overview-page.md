@@ -10,6 +10,8 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 
 ## Behavior and rules
 
+- **Acknowledged findings.** Cause cards show the [acknowledgement mark](mobile.md), and the status line counts acknowledged findings. At phone width, cause cards precede the health tiles.
+
 - **History behind the figures.** A short-history note links to Data history. Trend and tile charts retain the requested axis and hatch collection gaps and time before history, with the limits described in [data-history.md](data-history.md). Message and connection trends, the Clients tile, and Storage name the shorter span. Storage explains missing growth with the six-hour requirement; unresolved cause cards identify findings already true at the history start.
 
 - **The status line.** One line: "Serving normally" while nothing fires or only info findings fire, "Needs attention" when a warning fires, "Critical findings" when a critical one fires; muted findings do not count. In a live range it reads "Not collecting · last data 11:29" while the collector's connection to NATS is down, or just "Not collecting" without a collection in the range, since the header already says since when; "Not collecting" when no collector writes or the newest collection is older than three collect intervals; and "No data yet" without a collection. Beside it, one badge per severity with the number of unmuted findings firing, worst first ("1 CRITICAL", "2 WARNING"). It does not repeat what the cards say.
