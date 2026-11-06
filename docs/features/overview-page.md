@@ -10,6 +10,8 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 
 ## Behavior and rules
 
+- **Summary and detail.** "System summary" labels the compact cards. Counts come from the latest available bucket, Storage uses newest server reports, and Meta leader names the newest collection's leader above a chart of changes per bucket. "Detailed trends" adds traffic rates, event totals, server spread, and replica counts over the selected range. Both sections retain useful history; the summary is not a claim that every figure comes from one snapshot.
+
 - **Inspect chart values.** Compact and expanded charts show UTC bucket times and formatted values on hover or touch. Focus a chart and use arrow keys, Home, or End for the same readout; Escape or blur dismisses it. Missing buckets say "No sample" without interpolation. Multiple lines have separate labels, bands show lower and upper bounds, and stacked areas show each component's count. The Meta leader chart reports leader changes per bucket; it does not infer the leader's historical name.
 
 - **Chart destinations.** Tile and trend headers link to the relevant list. The link covers the box outside chart inspection and other controls. Links keep the system and range, and the account on destinations that apply account scope.
@@ -38,6 +40,14 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 
 - **Acknowledged trouble stays visible.** Cause cards show the current acknowledgement's author, time, note, and quiet state. The status line counts acknowledged firing findings, including muted ones. Acknowledging leaves severity counts unchanged; muting still removes a finding from unmuted status. On phones, the status line and cause cards precede the two-column health tiles and timeline.
 ## Scenarios
+
+### Understand the two chart sections
+
+- **Surfaces:** `ui`
+- **Given** Overview shows its compact cards and expanded charts
+- **When** I read the section labels and measurement captions
+- **Then** System summary identifies latest count buckets, newest storage reports, and the newest meta leader
+- **And** Detailed trends explains the traffic, event, server spread, and replica-count history
 
 ### Inspect a chart bucket
 

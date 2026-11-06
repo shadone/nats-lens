@@ -41,6 +41,8 @@ export interface MetricBoxProps {
   title: string;
   /** Optional destination; leaves the chart and info button independently interactive. */
   to?: string;
+  /** Describes the headline measurement separately from the history below. */
+  valueLabel?: string;
   /** What the metric measures, shown behind the (i) button. */
   description: string;
   series?: Series;
@@ -191,6 +193,7 @@ export function MetricBox(p: MetricBoxProps) {
           <b className="mono">{shown}</b>
         </span>
       </div>
+      {p.valueLabel && <div className="mb-context">{p.valueLabel}</div>}
       {p.error && p.series && (
         <span className="mb-stale" title={p.error}>
           refresh failed

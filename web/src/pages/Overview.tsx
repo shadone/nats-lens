@@ -112,14 +112,17 @@ export function Overview() {
       <div className="ov-phone-order">
       <StatusLine tally={o.tally} freshness={o.freshness} live={spec.kind === "live"} now={serverNow()} />
       <section className="sec ov-health" aria-label="Health">
+        <div className="sec-h"><h2>System summary</h2></div>
+        <p className="muted-note">Latest available counts and reports, with history over the selected range.</p>
         {o.tiles.length ? <OverviewTiles tiles={o.tiles} windows={o.windows} start={start} end={end} /> : <Empty>No collection stored in this range yet.</Empty>}
       </section>
       <div className="ov-causes"><Causes onMute={setMuting} /></div>
       <div className="ov-rest">
       <section className="sec">
         <div className="sec-h">
-          <h2>Trends</h2>
+          <h2>Detailed trends</h2>
         </div>
+        <p className="muted-note">Traffic rates, event totals, server spread, and replica counts over the selected range. Hover or touch a chart to inspect a bucket, or focus it and use arrow keys.</p>
         <Trends spec={spec} start={start} end={end} />
       </section>
       <Story end={end} />
