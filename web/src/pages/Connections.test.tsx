@@ -1,13 +1,13 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useNavigate } from "react-router";
-import { describe, expect, it, vi } from "vitest";
-import type { Connection } from "../api/model";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Connection, Finding } from "../api/model";
 import * as requests from "../api/requests";
 import { renderApp } from "../test/render";
 import { Connections } from "./Connections";
 
-vi.mock("../api/requests", () => ({ listConnections: vi.fn(), listServers: vi.fn(), getLensInfo: vi.fn(() => new Promise(() => {})) }));
+vi.mock("../api/requests", () => ({ listConnections: vi.fn(), listFindings: vi.fn(), listServers: vi.fn(), getLensInfo: vi.fn(() => new Promise(() => {})) }));
 
 const conn = (cid: string, name: string, tooling: boolean): Connection => ({
   key: `nats-0/${cid}`, server: "nats-0", cid, name, lang: "go", version: "1", account: "ACJQ1234", accountName: "APP",
@@ -77,5 +77,73 @@ describe("Connections server filter", () => {
     expect(select).toHaveValue("nats-1");
     expect(vi.mocked(requests.listConnections).mock.calls.at(-1)?.[2]).toMatchObject({ server: "nats-1" });
     expect(requests.listServers).not.toHaveBeenCalled();
+  });
+});
+
+const finding = (code: string, key: string, state: Finding["state"] = "firing"): Finding => ({
+  id: `${code}:${key}`, checkCode: code, checkName: "Client check", severity: "warning", state,
+  entity: { kind: "client", key, name: key, account: "", stream: "", consumer: "", server: "" },
+  detail: "", remediation: "", relatedConfig: [], relatedConfigSource: "", transitionsLastHour: 0,
+});
+beforeEach(() => {
+  vi.mocked(requests.listFindings).mockReset().mockResolvedValue({ items: [], nextPageToken: "", totalCount: 0 });
+});
+
+describe("Connections finding discovery", () => {
+  const names = ["orders-service@orders-service-a", "orders-service@orders-service-b", "orders-service-extra@orders-service-extra-a"];
+  beforeEach(() => {
+    vi.mocked(requests.listConnections).mockResolvedValue({
+      items: names.map((name, i) => ({ ...conn(String(i), name, false), rttMs: 180 })),
+      nextPageToken: "", totalCount: 3, epoch: "7", toolingHidden: 0, servers: [],
+    });
+  });
+  it("links service RTT findings from every pod but full-name findings only from that name, in one bounded call", async () => {
+    vi.mocked(requests.listFindings).mockResolvedValue({ items: [finding("client-001", "orders-service"), finding("client-002", names[0])], nextPageToken: "", totalCount: 2 });
+    renderApp(<Connections />, "/connections?system=shop&range=6h&account=APP");
+    const links = await screen.findAllByRole("link", { name: /client-001.*Firing/ });
+    expect(links).toHaveLength(2);
+    expect(await screen.findAllByRole("link", { name: /client-002.*Firing/ })).toHaveLength(1);
+    const url = new URL(links[0].getAttribute("href")!, "http://example.com");
+    expect(url.pathname).toBe("/findings/client-001%3Aorders-service");
+    expect(url.searchParams.get("system")).toBe("shop");
+    expect(url.searchParams.get("range")).toBe("6h");
+    expect(url.searchParams.get("account")).toBe("APP");
+    expect(screen.getByText("No matching finding")).toBeInTheDocument();
+    expect(requests.listFindings).toHaveBeenCalledTimes(1);
+    expect(requests.listFindings).toHaveBeenCalledWith("shop", expect.anything(), expect.objectContaining({ includeMuted: true, pageSize: 500, states: ["firing", "changed", "flapping", "resolved"] }), expect.anything());
+    links[0].focus();
+    await userEvent.keyboard("{Enter}");
+    expect(screen.getByTestId("location").textContent).toContain("/findings/client-001%3Aorders-service");
+  });
+  it("labels resolved and muted findings without reporting them as firing", async () => {
+    const muted = { ...finding("client-001", "orders-service", "changed"), mute: { id: "m" } } as Finding;
+    vi.mocked(requests.listFindings).mockResolvedValue({ items: [muted, finding("client-002", names[0], "resolved")], nextPageToken: "", totalCount: 2 });
+    renderApp(<Connections />);
+    expect(await screen.findAllByRole("link", { name: /client-001.*Changed.*Muted/ })).toHaveLength(2);
+    expect(await screen.findByRole("link", { name: /client-002.*Resolved/ })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Firing/ })).not.toBeInTheDocument();
+  });
+  it.each(["loading", "error", "truncated"])("keeps missing finding state unknown when %s", async state => {
+    if (state === "loading") vi.mocked(requests.listFindings).mockImplementation(() => new Promise(() => {}));
+    if (state === "error") vi.mocked(requests.listFindings).mockRejectedValue(new Error("unavailable"));
+    if (state === "truncated") vi.mocked(requests.listFindings).mockResolvedValue({ items: [], nextPageToken: "more", totalCount: 501 });
+    renderApp(<Connections />);
+    await screen.findByRole("link", { name: names[0] });
+    await waitFor(() => expect(screen.getAllByText(/Unknown/)).toHaveLength(3));
+    expect(screen.queryByText("No matching finding")).not.toBeInTheDocument();
+    expect(screen.getByText(/persistent.*collections/i)).toBeInTheDocument();
+  });
+  it("does not carry findings across systems, ranges or newest collections", async () => {
+    let go: ReturnType<typeof useNavigate> = () => {};
+    function Nav() { go = useNavigate(); return null; }
+    vi.mocked(requests.listFindings).mockResolvedValueOnce({ items: [finding("client-001", "orders-service")], nextPageToken: "", totalCount: 1 }).mockImplementation(() => new Promise(() => {}));
+    renderApp(<><Connections /><Nav /></>, "/connections?system=a&range=1h");
+    await screen.findAllByRole("link", { name: /client-001.*Firing/ });
+    act(() => go("/connections?system=b&range=1h"));
+    await waitFor(() => expect(requests.listFindings).toHaveBeenLastCalledWith("b", expect.anything(), expect.anything(), expect.anything()));
+    expect(screen.queryByRole("link", { name: /client-001/ })).not.toBeInTheDocument();
+    act(() => go("/connections?system=b&range=6h"));
+    await waitFor(() => expect(requests.listFindings).toHaveBeenCalledTimes(3));
+    expect(screen.queryByRole("link", { name: /client-001/ })).not.toBeInTheDocument();
   });
 });
