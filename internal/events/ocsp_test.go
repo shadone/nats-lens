@@ -18,7 +18,7 @@ const ocspSubject = "$SYS.SERVER.S0.OCSP.PEER.CONN.REJECT"
 func ocspPayload(t *testing.T) []byte {
 	return marshal(t, server.OCSPPeerRejectEventMsg{
 		TypedEvent: typed(server.OCSPPeerRejectEventMsgType), Kind: "Client",
-		Server: server.ServerInfo{ID: "S0", Name: "nats-0"}, Reason: "client peer verification failed",
+		Server: server.ServerInfo{ID: "S0", Name: "nats-0"}, Reason: "client not OCSP valid",
 		Peer: certidp.CertInfo{Subject: "private identity", Issuer: "private issuer", Fingerprint: "abc123", Raw: []byte("certificate bytes")},
 	})
 }
@@ -32,7 +32,7 @@ func TestOCSPDecode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ev.Kind != "server.ocsp_peer_rejected" || ev.Source != SourceSys || ev.Type != server.OCSPPeerRejectEventMsgType || ev.ServerName != "nats-0" || ev.Account != "" || ev.id != "x" || !ev.Time.Equal(recv.Add(-time.Second)) || ev.Reason != "client peer verification failed" {
+	if ev.Kind != "server.ocsp_peer_rejected" || ev.Source != SourceSys || ev.Type != server.OCSPPeerRejectEventMsgType || ev.ServerName != "nats-0" || ev.Account != "" || ev.id != "x" || !ev.Time.Equal(recv.Add(-time.Second)) || ev.Reason != "client not OCSP valid" {
 		t.Fatalf("event: %+v", ev)
 	}
 	if ev.ClientName != "" || ev.ClientUser != "" || !strings.Contains(ev.Summary, "Client") {
@@ -89,5 +89,15 @@ func TestOCSPDecodeBoundaries(t *testing.T) {
 	m["server"] = map[string]any{"id": "S1", "name": "other"}
 	if _, err := DecodeSys(ocspSubject, marshal(t, m), recv); err == nil {
 		t.Error("accepted mismatched server ID")
+	}
+}
+
+func TestOCSPCapturedOnce(t *testing.T) {
+	c := New(Options{Writer: &flakyWriter{}, Log: quiet()})
+	cor, seen := newCorrelator(), map[string]time.Time{}
+	in := incoming{sys: true, subject: ocspSubject, data: ocspPayload(t), at: recv}
+	first, second := c.handle(cor, seen, in), c.handle(cor, seen, in)
+	if len(first) != 1 || first[0].Kind != "server.ocsp_peer_rejected" || len(second) != 0 {
+		t.Fatalf("first=%v second=%v", first, second)
 	}
 }
