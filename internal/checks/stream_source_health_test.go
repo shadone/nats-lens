@@ -17,8 +17,10 @@ func TestSourceHealthChecks(t *testing.T) {
 		f.streamConfig("S0", s, 1, 12, nil)
 	}
 	for e := int64(1); e <= 12; e++ {
+		f.streamStats(e, "S1", "idle", m{"is_leader": false, "leader": "nats-0", "source_config_known": true})
+		f.sourceAt(e, "idle", "a", int64(-1), "follower error", m{"server_id": "S1"})
 		for _, s := range streams {
-			cols := m{"leader": "nats-0", "is_leader": true, "leader_since": t0.Add(-time.Hour), "created": t0.Add(-time.Hour)}
+			cols := m{"leader": "nats-0", "is_leader": true, "source_config_known": true, "leader_since": t0.Add(-time.Hour), "created": t0.Add(-time.Hour)}
 			if s == "new" {
 				cols["leader_since"] = at(11)
 			}
@@ -54,14 +56,15 @@ func TestSourceHealthChecks(t *testing.T) {
 			f.sourceAt(e, s, id, active, err, sc)
 		}
 	}
+	f.exec(`UPDATE stream_source_stats SET config=json_object('name','orders','external',json_object('api','$JS.eu.API','deliver','deliver.eu'),'filter_subject','orders.eu.>') WHERE stream='error'`)
 	r := f.fires("stream-022", 12, "APP/silent", "APP/never")
 	want(t, r["APP/silent"], "warning", "orders", "not heard")
 	want(t, r["APP/never"], "warning", "never heard")
 	r = f.fires("stream-023", 12, "APP/error")
-	want(t, r["APP/error"], "warning", "stream not found")
+	want(t, r["APP/error"], "warning", "stream not found", "$JS.eu.API", "orders.eu.>")
 	// Replay must not use future reports or configuration.
 	f.fires("stream-023", 1)
-	f.fires("stream-022", 1, "APP/silent")
+	f.fires("stream-022", 1, "APP/silent", "APP/error", "APP/once")
 }
 
 func TestSourceHealthHysteresisAndMissingReports(t *testing.T) {
@@ -72,7 +75,7 @@ func TestSourceHealthHysteresisAndMissingReports(t *testing.T) {
 	}
 	for e := int64(1); e <= 12; e++ {
 		for _, s := range []string{"hold", "clear", "unknown", "removed", "newleader", "restart", "newstream"} {
-			cols := m{"leader": "nats-0", "is_leader": true, "leader_since": t0.Add(-time.Hour), "created": t0.Add(-time.Hour)}
+			cols := m{"leader": "nats-0", "is_leader": true, "source_config_known": true, "leader_since": t0.Add(-time.Hour), "created": t0.Add(-time.Hour)}
 			if e == 12 && s == "removed" {
 				f.streamStats(e, "S0", s, cols)
 				continue
@@ -114,15 +117,80 @@ func TestSourceHealthHysteresisAndMissingReports(t *testing.T) {
 		f.stats(e, "S1", m{"start_time": at(11)})
 	}
 	for _, s := range []string{"hold", "clear", "unknown", "removed"} {
-		f.streamFiringAt("stream-023", "APP/"+s, 11)
+		f.sourceFiring("stream-023", s, "a", 11)
 	}
 	f.fires("stream-023", 12, "APP/hold")
 	f.fires("stream-022", 12)
 	// Silence holds to 80%, but a healthy heartbeat resolves it.
 	f.exec(`UPDATE stream_source_stats SET active_ns=100000000000 WHERE stream='hold' AND epoch=12`)
 	f.exec(`UPDATE stream_source_stats SET error=NULL`)
-	f.streamFiringAt("stream-022", "APP/hold", 11)
+	f.sourceFiring("stream-022", "hold", "a", 11)
 	f.fires("stream-022", 12, "APP/hold")
 	f.exec(`UPDATE stream_source_stats SET active_ns=1000000000 WHERE stream='hold' AND epoch=12`)
 	f.fires("stream-022", 12)
+}
+
+func (f *fx) sourceFiring(code, stream, id string, e int64) {
+	f.streamFiringAt(code, "APP/"+stream, e)
+	f.exec(`UPDATE findings SET related_config=json_object('source_ids', ?, 'created_us', ?::VARCHAR) WHERE id=?`, id, t0.Add(-time.Hour).UnixMicro(), code+":APP/"+stream)
+}
+
+func TestSourceHealthIdentityAndContinuity(t *testing.T) {
+	f := newFx(t)
+	f.cluster(12)
+	for _, s := range []string{"mixed", "replacement", "readded", "reborn", "gap"} {
+		f.streamConfig("S0", s, 1, 12, nil)
+	}
+	for e := int64(1); e <= 12; e++ {
+		for _, s := range []string{"mixed", "replacement", "readded", "reborn", "gap"} {
+			if s == "gap" && e == 12 {
+				continue
+			}
+			created := t0.Add(-time.Hour)
+			if s == "reborn" && e == 12 {
+				created = at(12)
+			}
+			f.streamStats(e, "S0", s, m{"is_leader": true, "source_config_known": true, "leader": "nats-0", "created": created, "leader_since": t0.Add(-time.Hour)})
+			if s == "readded" && e == 11 {
+				continue
+			}
+			id := "a"
+			active := int64(-1)
+			if s == "replacement" {
+				active = int64(100 * time.Second)
+				if e == 12 {
+					id = "b"
+				}
+			}
+			f.sourceAt(e, s, id, active, nil, nil)
+			if s == "mixed" {
+				f.sourceAt(e, s, "b", int64(-1), "origin missing", nil)
+			}
+		}
+	}
+	f.sourceFiring("stream-022", "replacement", "a", 11)
+	f.sourceFiring("stream-022", "reborn", "a", 11)
+	f.sourceFiring("stream-022", "gap", "a", 11)
+	f.fires("stream-022", 12, "APP/mixed", "APP/gap")
+	f.fires("stream-023", 12, "APP/mixed")
+}
+
+func TestSourceHealthMissingConfiguration(t *testing.T) {
+	f := newFx(t)
+	f.cluster(12)
+	f.streamConfig("S0", "unknown", 1, 11, nil)
+	f.streamConfig("S0", "empty", 1, 12, nil)
+	for e := int64(1); e <= 12; e++ {
+		for _, s := range []string{"unknown", "empty"} {
+			f.streamStats(e, "S0", s, m{"is_leader": true, "leader": "nats-0", "created": t0.Add(-time.Hour), "source_config_known": s == "empty" || e < 12})
+			if e < 12 {
+				f.sourceAt(e, s, "a", int64(-1), "origin missing", nil)
+			}
+		}
+	}
+	f.sourceFiring("stream-023", "unknown", "a", 11)
+	f.sourceFiring("stream-023", "empty", "a", 11)
+	// A missing configuration is unknown, while a known empty source list
+	// authoritatively removes the old source.
+	f.fires("stream-023", 12, "APP/unknown")
 }

@@ -6,7 +6,7 @@
 
 ## What it does
 
-The stream checks judge each JetStream stream: whether its replicas keep quorum and stay current, whether it nears or will soon reach its limits, whether the servers that hold it agree about it, whether it matches the inventory, and whether it disappeared. They also judge how a stream is kept: whether a mirror or a sourcing stream keeps up with its origin, whether a single replica holds data a cluster could spread, whether a KV bucket's history grows without a bound, whether a work-queue or interest stream has a consumer, and whether deleted messages pile up inside a stream. A KV bucket and an object store are streams (`KV_<bucket>`, `OBJ_<bucket>`), so these checks cover them too. A stream finding is keyed by `account/stream`. There are 21 stream checks, `stream-001` to `stream-021`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
+The stream checks judge each JetStream stream: whether its replicas keep quorum and stay current, whether it nears or will soon reach its limits, whether the servers that hold it agree about it, whether it matches the inventory, and whether it disappeared. They also judge how a stream is kept: whether a mirror or a sourcing stream keeps up with its origin, whether a single replica holds data a cluster could spread, whether a KV bucket's history grows without a bound, whether a work-queue or interest stream has a consumer, and whether deleted messages pile up inside a stream. A KV bucket and an object store are streams (`KV_<bucket>`, `OBJ_<bucket>`), so these checks cover them too. A stream finding is keyed by `account/stream`. There are 23 stream checks, `stream-001` to `stream-023`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
 
 ## The checks
 
@@ -135,11 +135,11 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 ### `stream-016` Source lagging
 
 - **Problem:** a stream that sources other streams stays behind one of them, so it lacks their newest messages.
-- **Fires when:** every leader report within the lookback, covering at least half of it, has the largest lag across the stream's sources above `max_lag`, and that lag did not fall over the window. The servers report the largest lag, not which source has it; the detail lists the sources.
+- **Fires when:** every leader report within the lookback, covering at least half of it, has the largest lag across the stream's sources above `max_lag`, and that lag did not fall over the window. This check uses the largest lag across the reported sources; the detail lists their names.
 - **Severity:** warning.
 - **Thresholds:** lookback 5m, `max_lag` 10000, `resolve_ratio` 0.8 (proposed, not yet confirmed).
 - **Resolves when:** the lag falls below `resolve_ratio` of `max_lag`; a collection without a leader report keeps the finding, as for `stream-015`.
-- **Left out:** a lag that falls. A source that stopped hearing from its stream keeps the lag it last had, so it is not detected while that lag is below `max_lag`: when each source was last seen and its errors are not stored (see Planned).
+- **Left out:** a lag that falls. A silent source keeps the lag it last had, so this check does not detect silence below `max_lag`. `stream-022` reports silence and `stream-023` reports source errors.
 
 ### `stream-017` Mirror error
 
@@ -187,9 +187,29 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 - **Resolves when:** the deletes or their share fall below `resolve_ratio` of their threshold. A collection without a leader report keeps the finding while a leader report is within the lookback.
 - **Left out:** a follower's count.
 
+### `stream-022` Source not seen
+
+- **Problem:** a source stops receiving data and heartbeats from its origin, even when its last reported lag is zero.
+- **Fires when:** the leader reports activity older than `max_inactive`, after grace for stream creation, server start, and leader election. A source that has never heard from its origin needs two newest reports saying so and observations spanning `max_inactive`.
+- **Severity:** warning.
+- **Thresholds:** lookback 5m, `max_inactive` 2m, `resolve_ratio` 0.8 (proposed, not yet confirmed). Keep the lookback longer than `max_inactive` to cover the required never-heard observation span.
+- **Resolves when:** activity falls below 0.8 of `max_inactive`. A firing source holds its last known silence through missing runtime or leader reports within the lookback. Removing or changing the source ends its history. A missing configuration stays unknown; an observed empty source list removes the old sources.
+- **Left out:** idle sources receiving heartbeats, mirrors, and a source with any error report inside the lookback. Other silent sources in the same stream remain visible. A configured source without an attributable runtime report cannot start a finding.
+- **Detail:** each silent source's name, external prefixes, filter or transforms, and configuration ID, with its last activity or never-heard state. Sources sharing an origin name remain distinct.
+
+### `stream-023` Source error
+
+- **Problem:** a source cannot establish its copy from an origin, for example because the origin is missing or account permissions prevent access.
+- **Fires when:** the source reports errors in at least `min_epochs` of the last twice `min_epochs` collections inside the lookback. A new finding needs a current runtime report and grace after creation, server start, leader election, and first observation of this source configuration.
+- **Severity:** warning.
+- **Thresholds:** lookback 5m, `min_epochs` 2, `grace` 2m (proposed, not yet confirmed). Keep the lookback longer than `grace` and enough collections to include `min_epochs` errors.
+- **Resolves when:** the recent collection window has no errors. NATS clears errors at each retry, so one clean report does not resolve the finding. Missing reports retain recent errors only within that window and the lookback.
+- **Left out:** mirrors, follower reports, removed source configurations, and ambiguous runtime matches. A different source cannot inherit a firing source's history.
+- **Detail:** each failing source's name, external prefixes, filter or transforms, configuration ID, and reported error. Read the source and origin's stream info, account permissions, external prefixes, and links before considering a configuration change. NATS retries automatically.
+
 ## Behavior and rules
 
-- **Leader's view first.** Checks of contents and growth (`stream-002` to `stream-006`, `stream-012`, `stream-019` to `stream-021`) read the leader's report, because followers report at slightly different moments. The mirror and source checks (`stream-015` to `stream-017`) read only the leader, as only the leader runs the mirror or the sources.
+- **Leader's view first.** Checks of contents and growth (`stream-002` to `stream-006`, `stream-012`, `stream-019` to `stream-021`) read the leader's report, because followers report at slightly different moments. The mirror and source checks (`stream-015` to `stream-017`, `stream-022`, and `stream-023`) read only the leader, as only the leader runs the mirror or the sources.
 - **New stream checks do not flap.** `stream-015`, `stream-016`, `stream-019`, `stream-020` and `stream-021` read whether their finding was firing in the previous collection: a firing finding keeps firing down to `resolve_ratio` (0.8) of the thresholds, or until the condition clearly ends, and through a collection without a leader report as long as one is within the lookback. A finding that is not firing needs the full threshold in the current collection. `stream-015` needs two leader reports for a mirror that never heard from its origin, `stream-017` needs the error in `min_epochs` of the last twice `min_epochs` collections, and `stream-018` keeps an asset's last configuration while its only server is not ready.
 - **One problem, one finding.** `stream-015` is quiet for a mirror with an error in either of its two newest leader reports, which is `stream-017`'s; `stream-019` is quiet for a bucket while `stream-005` reports it; `stream-020` is quiet for a stream while `consumer-010` or `consumer-013` reports one of its consumers missing; `stream-018` leaves an asset whose inventory entry gives other replicas to `stream-012`.
 - **Agreement checks compare every server.** `stream-007`, `stream-008` and `stream-010` leave out servers that restarted within `restart_window`; `stream-009` leaves out an unhealthy server's view under the conditions in its section; `stream-014` counts a restarting holder as one that may still hold the asset.
@@ -266,12 +286,27 @@ The stream checks judge each JetStream stream: whether its replicas keep quorum 
 - **When** nats-lens collects
 - **Then** `stream-021` "Many deleted messages inside a stream" is info, and its detail says the oldest message is 3 days old
 
+### An idle source and a silent source
+
+- **Given** `order-search` sources `order-events` and `catalog-changes`, and nobody publishes to either origin
+- **When** `order-events` keeps sending heartbeats but `catalog-changes` reports no activity for more than 2 minutes after the creation, server-start, and election grace
+- **Then** `stream-022` warns for `APP/order-search` and identifies only `catalog-changes`
+- **And** a configured source without a runtime report does not count as never heard
+
+### A source retries an error
+
+- **Given** `order-search` has observed a source configuration for more than 2 minutes, and its creation, server start, and leader election also precede that grace
+- **When** its leader reports an origin error in two of four collections, clearing it between retries
+- **Then** `stream-023` warns with the source identity and error
+- **And** `stream-022` stays quiet for that source while another silent source in the same stream can still warn
+- **When** four collections pass without the error, or the source is removed
+- **Then** the error finding resolves
+
 ## Planned
 
 These stream checks are not built. Each line says what it would detect and what data it needs.
 
-- **Oldest message expires unread.** A stream's `max_age` removes messages before its slowest consumer reads them. Not built as a stream check: the consumer side of it, a consumer whose oldest waiting message ages out of the stream, is planned in [consumer-checks.md](consumer-checks.md) and would report the same problem per consumer. Telling from the stored data that messages were already removed unread does not work either: a filtered consumer's ack floor stays at the last message it matched, so once the stream removes later messages on other subjects the floor is below the stream's first sequence, though the consumer missed nothing. The stream page plans the same view per consumer ([streams.md](streams.md)).
-- **Source not seen, source error.** A source that stopped hearing from its stream, or that reports an error, as `stream-015` and `stream-017` report for a mirror. Needs: each source's last activity and error from JSZ, which the collector reads but does not store (only the number of sources and the largest lag are stored); new columns on `stream_stats`, such as the longest time since a source was seen and the first source error, would hold them.
+- **Oldest message expires unread.** A stream's `max_age` removes messages before its slowest consumer reads them. Not built as a stream check: the consumer side, a consumer whose oldest waiting message approaches expiry, is built as `consumer-014` in [consumer-checks.md](consumer-checks.md) and reports the risk per consumer. Telling from the stored data that messages were already removed unread does not work either: a filtered consumer's ack floor stays at the last message it matched, so once the stream removes later messages on other subjects the floor is below the stream's first sequence, though the consumer missed nothing. The stream page plans the same view per consumer ([streams.md](streams.md)).
 
 ## Not supported / out of scope
 

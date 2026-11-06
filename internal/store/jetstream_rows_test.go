@@ -47,7 +47,7 @@ var streamStatsCols = []string{
 	"first_ts", "last_ts", "num_subjects", "num_deleted", "consumer_count",
 	"cluster", "raft_group", "leader", "leader_since", "is_leader",
 	"replicas_reported", "replicas_current", "replicas_offline",
-	"mirror_lag", "mirror_active_ns", "mirror_error", "sources_count", "sources_max_lag",
+	"mirror_lag", "mirror_active_ns", "mirror_error", "sources_count", "sources_max_lag", "source_config_known",
 }
 
 var replicaCols = []string{
@@ -123,6 +123,7 @@ func (w *writer) writeStreamByRow(v *collect.ServerView, account string, s *serv
 	} else {
 		vals = append(vals, nil, nil)
 	}
+	vals = append(vals, s.Config != nil)
 	w.insert("stream_stats", streamStatsCols, vals...)
 
 	if s.Cluster != nil {
