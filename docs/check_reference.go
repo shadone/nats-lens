@@ -16,10 +16,10 @@ type ReferenceSection struct{ Title, Text string }
 var checkHeading = regexp.MustCompile("^### `([a-z]+-[0-9]{3})` ")
 var documentLink = regexp.MustCompile(`\[([^]]+)\]\([^)]+\)`)
 
-var referenceBullet = regexp.MustCompile(`^- \*\*([^*]+):\*\* (.*)$`)
+var referenceBullet = regexp.MustCompile(`^- \*\*([^*]+)[:.]\*\*(?: (.*))?$`)
 
-// CheckReferences reads all labelled per-check paragraphs, including threshold
-// prose that can explain retention and resolution. These documents are the source of
+// CheckReferences reads every per-check paragraph, including continuation lines
+// and tables that can explain prerequisites, exclusions, retention and resolution. These documents are the source of
 // meaning, firing rules and limitations; no second authored catalog is maintained.
 func CheckReferences() map[string][]ReferenceSection {
 	out := map[string][]ReferenceSection{}
@@ -39,17 +39,28 @@ func CheckReferences() map[string][]ReferenceSection {
 				continue
 			}
 			m := referenceBullet.FindStringSubmatch(line)
-			if m == nil {
+			if m != nil {
+				title := m[1]
+				if title == "Problem" {
+					title = "Meaning"
+				}
+				if title == "Left out" {
+					title = "Limitations"
+				}
+				out[code] = append(out[code], ReferenceSection{Title: title, Text: documentLink.ReplaceAllString(m[2], "$1")})
 				continue
 			}
-			title := m[1]
-			if title == "Problem" {
-				title = "Meaning"
+			// Keep the whole block, including unlabelled paragraphs and indented
+			// continuations. A new label or heading, rather than a newline, ends
+			// a section. This also retains tables inside Thresholds paragraphs.
+			if len(out[code]) == 0 {
+				if strings.TrimSpace(line) == "" {
+					continue
+				}
+				out[code] = append(out[code], ReferenceSection{Title: "Additional context"})
 			}
-			if title == "Left out" {
-				title = "Limitations"
-			}
-			out[code] = append(out[code], ReferenceSection{Title: title, Text: documentLink.ReplaceAllString(m[2], "$1")})
+			last := &out[code][len(out[code])-1]
+			last.Text += "\n" + documentLink.ReplaceAllString(strings.TrimSpace(line), "$1")
 		}
 	}
 	// Slow routes share Topology's classifier. Include its canonical explanation
@@ -60,6 +71,12 @@ func CheckReferences() map[string][]ReferenceSection {
 		if text, ok := strings.CutPrefix(line, slowPrefix); ok {
 			out["server-025"] = append(out["server-025"], ReferenceSection{Title: "Route classification", Text: documentLink.ReplaceAllString(text, "$1")})
 		}
+	}
+	for code, sections := range out {
+		for i := range sections {
+			sections[i].Text = strings.TrimSpace(sections[i].Text)
+		}
+		out[code] = sections
 	}
 	return out
 }
