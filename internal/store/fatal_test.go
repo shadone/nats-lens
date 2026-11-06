@@ -2,54 +2,25 @@ package store
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	duckdb "github.com/duckdb/duckdb-go/v2"
+	"github.com/shadone/nats-lens/internal/testfatal"
 )
 
 // Separate processes exercise the pinned engine's WAL replay/shutdown boundary.
 // Only disposable synthetic data is used; this says nothing about other files.
 func TestFatalEngineContainment(t *testing.T) {
-	if mode := os.Getenv("NATSLENS_FATAL_FIXTURE"); mode != "" {
-		db, err := sql.Open("duckdb", os.Getenv("NATSLENS_FATAL_PATH"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer db.Close()
-		queries := []string{"SELECT 1"}
-		if mode == "create" {
-			queries = []string{
-				`CREATE TABLE fatal_fixture(epoch BIGINT, server_id VARCHAR, endpoint VARCHAR, state VARCHAR NOT NULL)`,
-				`CREATE UNIQUE INDEX fatal_fixture_key ON fatal_fixture(epoch,server_id,endpoint)`,
-				`INSERT INTO fatal_fixture SELECT i,'server-a','STATSZ','ok' FROM range(1,1751)t(i)`,
-				`CHECKPOINT`,
-				`INSERT INTO fatal_fixture SELECT i,'server-a','STATSZ','ok' FROM range(1751,2049)t(i)`,
-				`PRAGMA disable_checkpoint_on_shutdown`,
-			}
-		}
-		for _, q := range queries {
-			if _, err := db.Exec(q); err != nil {
-				t.Fatal(err)
-			}
-		}
+	path := filepath.Join(t.TempDir(), "synthetic.duckdb")
+	if testfatal.Prepare(t, path) {
 		return
 	}
-	path := filepath.Join(t.TempDir(), "synthetic.duckdb")
-	for _, mode := range []string{"create", "replay"} {
-		cmd := exec.Command(os.Args[0], "-test.run=^TestFatalEngineContainment$")
-		cmd.Env = append(os.Environ(), "NATSLENS_FATAL_FIXTURE="+mode, "NATSLENS_FATAL_PATH="+path)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("fixture %s: %v: %s", mode, err, out)
-		}
-	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	st, err := OpenPath(ctx, path)
