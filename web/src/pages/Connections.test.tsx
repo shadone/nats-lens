@@ -107,7 +107,7 @@ describe("Connections finding discovery", () => {
     expect(url.pathname).toBe("/findings/client-001%3Aorders-service");
     expect(url.searchParams.get("system")).toBe("shop");
     expect(url.searchParams.get("range")).toBe("6h");
-    expect(url.searchParams.get("account")).toBe("APP");
+    expect(url.searchParams.has("account")).toBe(false);
     expect(screen.getByText("No matching finding")).toBeInTheDocument();
     expect(requests.listFindings).toHaveBeenCalledTimes(1);
     expect(requests.listFindings).toHaveBeenCalledWith("shop", expect.anything(), expect.objectContaining({ includeMuted: true, pageSize: 500, states: ["firing", "changed", "flapping", "resolved"] }), expect.anything());

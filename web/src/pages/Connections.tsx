@@ -2,6 +2,7 @@
 // server and connection ID, filtered by server, account and name.
 import { useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
+import { connectionFindings, useConnectionFindings } from "../api/connectionFindings";
 import { useConnections } from "../api/queries";
 import { Dash, Empty, QueryView, RLink, Num } from "../components/common";
 import { Pager, usePager } from "../components/EntityParts";
@@ -11,7 +12,7 @@ import { useSystem } from "../lib/useSystem";
 import { rangeKey } from "../lib/timeRange";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
 import { AccountName } from "../components/AccountName";
-import { accountLabeller, serverPath } from "../lib/view";
+import { accountLabeller, findingPath, serverPath } from "../lib/view";
 
 export function Connections() {
   usePageTitle("Connections");
@@ -28,6 +29,8 @@ export function Connections() {
   // A name filter shows the tooling connections it matches: whoever types
   // a name looks for that connection.
   const q = useConnections(spec, { server, account, nameContains: name, includeTooling: tooling || name !== "", pageSize: 100, pageToken: pager.token });
+  const findings = useConnectionFindings(spec, q.isPlaceholderData ? undefined : q.data?.epoch);
+  const findingData = !q.isPlaceholderData && !findings.error ? findings.data : undefined;
   // The server filter's options come with the connections: every server
   // seen in the range, whatever the filters. The chosen server stays on
   // offer while they load, when the call fails, or when the range lacks it.
@@ -54,6 +57,9 @@ export function Connections() {
       <div className="page-h">
         <span className="aside">Client connections in the newest collection of the range.</span>
       </div>
+      <p className="muted-note">Findings show state at the range’s end, including resolved and muted findings. RTT is from the newest collection. A high RTT needs to be persistent across collections before the RTT check fires; a single sample may have no finding.</p>
+      {findings.error && <p className="muted-note" role="status">Finding status is unknown: could not load findings. <button className="btn" onClick={() => void findings.refetch()}>Retry findings</button></p>}
+      {findingData && (findingData.nextPageToken || findingData.totalCount > findingData.items.length) && <p className="muted-note" role="status">Finding results are incomplete. Unmatched connections have unknown status. <RLink to="/findings">Browse findings</RLink></p>}
       <div className="filters">
         <label className="grp">
           <span className="lbl">Server</span>
@@ -96,6 +102,7 @@ export function Connections() {
                 <thead>
                   <tr>
                     <th scope="col">Name</th>
+                    <th scope="col">Findings in range</th>
                     <th scope="col">Server / CID</th>
                     <th scope="col">Client</th>
                     <th scope="col">Account, user</th>
@@ -134,6 +141,14 @@ export function Connections() {
                             tooling<span className="sr-only">: nats-lens's own connection, or a client from a loopback address</span>
                           </small>
                         )}
+                      </td>
+                      <td>
+                        {!findingData ? <span>Unknown{findings.isPending ? " (loading)" : ""}</span> : (() => {
+                          const matches = connectionFindings(findingData.items, c.name);
+                          if (!matches.length) return <span>{findingData.nextPageToken || findingData.totalCount > findingData.items.length ? "Unknown (incomplete)" : "No matching finding"}</span>;
+                          // ASVS 1.2.1 / 1.2.2: React escapes labels; findingPath encodes the ID.
+                          return matches.map(f => <small key={f.id}><RLink to={findingPath(f.id)} title={f.checkName}>{f.checkCode} · {f.state[0].toUpperCase() + f.state.slice(1)}{f.mute ? " · Muted" : ""}</RLink></small>);
+                        })()}
                       </td>
                       <td className="mono">
                         <RLink to={serverPath(c.server)}>{c.server}</RLink> / {c.cid}
