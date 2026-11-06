@@ -25,7 +25,7 @@ These come from real incidents on JetStream clusters in Kubernetes and are the a
 | API | Connect (connectrpc.com) with protobuf in this repo | Typed end to end; the API is private between the binary and its own UI |
 | UI | React and TypeScript built with Vite, embedded into the Go binary | One deployable; Node only at build time |
 | Auth | None in the tool; deploy behind IAP or a similar proxy | An identity-aware proxy already decides who may pass; the tool verifies its signed header for mutes |
-| Alerting | Findings exported at `/metrics`; alert rules in the deployment's Prometheus or Cloud Monitoring | The deployment has an alerting system already; the tool delivers no alerts itself |
+| Alerting | Findings exported at `/metrics`, and sent to configured webhook and Slack-compatible channels | Deployments can use Prometheus rules, Cloud Monitoring or direct channels; notification choices are proposed, not yet confirmed |
 | Deployment | One replica on GKE with `Recreate` and a PVC, preferring a node without a NATS server pod | DuckDB has one writer |
 
 One process, `natslens run`, collects, captures events, runs the checks, archives, and serves the API and the UI, because DuckDB lets one process hold a database file. It does so for every configured system, each with a database of its own.
@@ -121,6 +121,7 @@ Events follow the same retention as epochs, by receive time.
 Shutdown is bounded by `shutdown_grace` plus `events.flush_interval` from the signal, and that sum plus a margin to exit is the only figure the stop timeout needs:
 
 - the last epoch write gets `shutdown_grace`;
+- in parallel, notification delivery stops scheduling attempts; an in-flight request gets until `shutdown_grace` from the signal before cancellation, leaving its batch pending;
 - in parallel the event connections drain together for at most one flush interval, and the last events are written in batches of 500 until the deadline, with a `collector.messages_dropped` event counting any that do not fit;
 - an interrupted archive export is waited for until the same deadline;
 - the last `state.json` write may take 2 seconds past it;
@@ -269,6 +270,24 @@ The inventory file lists per account the streams (with their durable consumers),
 
 An operator can mute a check, or a check on one entity, with a reason and an expiry. Muted findings still record but are shown apart and do not alert. A mute without an expiry is not allowed. An operator can also accept one entity's finding as by design, with a reason and a review date; an acceptance is a kind of mute (see "Accepted findings" under the API).
 
+### Notifications
+
+Notification design choices in this section are proposed, not yet confirmed. The implemented behavior is documented in [Notifications](features/notifications.md); the [README](../README.md#notifications) holds configuration and the versioned webhook contract.
+
+Only `natslens run` reconciles and delivers findings. After a check run, the reconciler compares each channel's selected, unmuted firing findings with its `notify_state`. The comparison queues messages and advances state in one transaction. This state describes the channel's queued view; it does not wait for HTTP success. A `kinds` filter drops messages without withholding state changes. `once` and `checks run` do not queue notifications; a later `run` compares the resulting view instead of replaying every stored transition. Notification delivery starts before NATS connection setup, so pending messages can retry while NATS is unavailable.
+
+Each channel's first reconciliation establishes a baseline: the selected firing findings become known, and one summary carries their count. No individual opening messages are queued. Removing a channel removes its state and queue during a sweep; adding it again establishes a baseline. Notification state, outbox rows, rate watermarks and database identity are local delivery state, excluded from Parquet. Reopening a database preserves them. A rebuild creates a fresh baseline and does not recover pending deliveries. This avoids replaying old incidents to a receiver after a rebuild.
+
+Each system has independent delivery workers per channel. The worker pins the oldest batch of at most 100 rows, its boundaries and timestamp before HTTP. A pending head prevents later messages overtaking it; another channel keeps delivering. A successful batch requires another stored collection before the next batch. After a terminal outcome, the channel also waits one collection interval. Durable watermarks preserve these limits across restarts and retention sweeps.
+
+Delivery is at least once. A crash after a receiver's 2xx but before the outcome write can repeat the request. The webhook `Idempotency-Key` contains a random database incarnation, system, channel and first and last outbox IDs. Reopening preserves the incarnation; rebuilding creates a different one so reused row IDs cannot collide with old batches. Message deduplication keys name the system, finding episode, kind and reconciliation epoch; acknowledgement replacements also carry their acknowledgement ID. Receivers should scope message keys to the channel and batch incarnation when deduplicating across rebuilds. Slack-compatible requests have no idempotency header.
+
+A 2xx succeeds. Network failures, timeouts, 5xx, 408 and 429 retry with exponential waits from 10 seconds to 10 minutes. A `Retry-After` on 429 or 503 can extend that wait up to 10 minutes. Other responses, including redirects, are terminal refusals. A still-failing batch becomes failed after `give_up_after`, measured from its oldest queued row. Pending rows survive restart. Terminal rows expire after the shorter of seven days and system retention, with at least one hour after the outcome for reporting. The four notification gauges count messages, and last-hour outcomes use completion time. `system-010` warns about messages pending longer than `pending_for` (10 minutes) and becomes critical for a refusal or give-up in the last hour. Another channel or external metrics must report a failed receiver.
+
+Mutes and acceptances close a channel's known view with `muted`. An eligible finding re-enters when coverage ends. Flapping sends one notice and holds ordinary transitions until flapping ends. Acknowledgements send the actor, note and quiet time only while the finding is in that channel's view. Quiet suppresses reminders and severity decreases, including a fall below the channel threshold; rises and actual resolves still send. A channel remembers that its known episode was acknowledged, so a flapping resolve still sends after release, expiry or restart. That memory does not transfer to a later episode or another channel. Upgrades restore it only from provable channel-local history; ambiguous historical episodes keep the ordinary flapping hold. Quiet ending sends one reminder for a known still-firing episode even when regular reminders are disabled. A simultaneous rise also sends `changed`; a fall below the threshold closes with `resolved` after the reminder. Replacing an acknowledgement sends the replacement note; extending quiet does not end it. Gaps reconcile the current view and notes since the channel's previous reconciliation, rather than every past firing and resolve.
+
+Destinations are configured only. HTTPS uses the system trust roots; loopback HTTP is allowed for local tests. Redirects are refused. A channel's URL and bearer token can come from a file or environment variable, read at each attempt. A file rotation takes effect without restart. Unreadable secrets warn at startup and retry during delivery. Logs identify the channel and destination host, never its secret URL path, query or token. The database stores messages, outcome codes and generic failure information, not receiver credentials or response bodies. No store lock spans the HTTP request. NetworkPolicy egress must allow DNS and the configured receivers. The notifier never connects to NATS.
+
 ## API
 
 Connect service `natslens.v1.LensService`, protobuf in `proto/natslens/v1/`, served under `/api/` by `natslens run`. Connect handlers also speak gRPC and gRPC-Web; the server enables HTTP/2 without TLS. TypeScript is generated with `protoc-gen-es` v2 only: connect-es v2 reads the service from those files and needs no plugin of its own.
@@ -379,7 +398,7 @@ After each successful check run the runner reviews the acceptances of streams an
 
 `/metrics` on the API listener exports each firing finding as three series of one identity (`system`, `code`, `entity_type`, `entity_key`): `nats_lens_finding` with a `muted` label, `nats_lens_finding_severity` (1 to 3) and `nats_lens_finding_flapping`, so that a change of severity does not start a new series. A mute does start a new `nats_lens_finding` series, as `muted` is its label; the `_severity`, `_flapping` and `_by_check` families keep their identity. The three series are capped at 50 unmuted entities per check (the worst, then by entity key, so the set is stable); muted findings are always exported and do not count against the cap. Beside them: per-check counts and highest severity without severity labels, counts by severity and of muted findings, and the health of the collector and the checks, including epochs without check runs. Every sample carries `system` as its first label; the handler collects the samples of every system by family and writes each family's HELP and TYPE once. Each system is read in parallel into an exposition of its own, within `metrics_timeout` (8 seconds, below the usual 10-second Prometheus `scrape_timeout`) and never twice at once, a panic counting as a failure, and merged only when it succeeded, so a failure halfway leaves no partial families; `nats_lens_system_scrape_success` says per system whether it was read, and the scrape answers 500 only when every system failed. An empty system ID is refused when the registry is built and when an exposition is made, so no sample goes without the label. A mute makes alert rules on the finding series stop matching.
 
-Alerting is not part of the tool. A Prometheus scrapes `/metrics` (on GKE, Managed Prometheus through a PodMonitoring), and its alert rules or Cloud Monitoring PromQL alert policies evaluate the findings; the README gives example rules.
+Findings can reach [notification channels](#notifications) directly. Separately, a Prometheus scrapes `/metrics` (on GKE, Managed Prometheus through a PodMonitoring), and its alert rules or Cloud Monitoring PromQL alert policies evaluate the findings; the README gives example rules.
 
 ### Demo
 
@@ -600,7 +619,7 @@ The owner confirmed these decisions on 2026-10-26 ("Owner review of proposed dec
 
 ## Out of scope for the first release
 
-High availability, write actions towards NATS, alert delivery (findings are exposed as Prometheus metrics), a bucket archive destination.
+High availability, write actions towards NATS, notification templates, e-mail and paging-service channels, a bucket archive destination.
 
 ## Local development
 

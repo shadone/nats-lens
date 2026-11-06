@@ -34,7 +34,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 |---|---|
 | `ui` | The web UI that `natslens run` and `natslens demo` serve at `/`. |
 | `api` | The Connect API `natslens.v1.LensService` under `/api/`, and the plain HTTP endpoints beside it (`/metrics`, `/healthz`, `/readyz`). |
-| `cli` | The `natslens` commands (`run`, `once`, `sql`, `checks`, `demo`), their flags and the configuration file. |
+| `cli` | The `natslens` commands (`run`, `once`, `sql`, `checks`, `notify`, `demo`), their flags and the configuration file. |
 
 ## Terms
 
@@ -95,7 +95,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Command bar](command-bar.md) | `ui` | partial — search by name is shipped; findings, events and prefixes are planned |
 | [On call on the phone](mobile.md) | `ui` | planned |
 | [Data history](data-history.md) | `ui`, `api` | partial — page, range notes and bounded chart gaps; forecast margins and per-server gaps not built |
-| [Notifications](notifications.md) | `api`, `cli` | partial — webhook and Slack delivery includes channel-scoped acknowledgements and resolved hand-backs; full guide deferred |
+| [Notifications](notifications.md) | `api`, `cli` | shipped |
 
 ## Feature coverage by area
 
@@ -121,7 +121,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Client checks `client-001` to `client-008`, among them repeated authentication errors, unnamed connections and outdated client libraries (client-checks.md)
 - [x] System checks `system-001` to `system-010`: the meta group, mixed API levels, and nats-lens's own check runs, collections, archive exports, event capture and notification delivery, with a full hour of failure reporting through retention sweeps (system-checks.md)
 - [x] The inventory of assets that must exist (inventory.md)
-- [~] Findings and acknowledgement notes sent to webhook and Slack-compatible channels, preserving channel-scoped resolves after hand-back; full notification guide deferred (notifications.md)
+- [x] Findings sent to webhook and Slack-compatible channels, with baselines, mutes, flapping, acknowledgement quiet, retries and destination tests (notifications.md)
 
 **Web UI**
 - [x] Sidebar, system switcher, header with account scope and search, the global time range (cut to fit a narrow window) on the server's clock and the theme menu, short-history navigation, all fed by one status call per system (navigation.md)
@@ -149,7 +149,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [~] History coverage, gap lists, archive state, history requirements and bounded chart hatches; margins and per-server gaps not built (data-history.md)
 
 **Operations**
-- [x] Findings and collector health at `/metrics` for Prometheus alerting (metrics-and-alerting.md)
-- [x] `run`, `once` for every system or one, configuration, health and readiness, the Kubernetes manifests and their memory sizes (running-nats-lens.md)
+- [x] Findings, collector health and four notification delivery gauges at `/metrics` for Prometheus alerting (metrics-and-alerting.md)
+- [x] `run`, `once` for every system or one, `notify test`, receiver egress, configuration, health and readiness, the Kubernetes manifests and their memory sizes (running-nats-lens.md)
 - [x] Read-only SQL on a stopped database with `natslens sql`, one system at a time (sql-access.md)
-- [x] Three fixed systems without NATS with `natslens demo`, whose findings are the real checks, with a node pool upgrade to replay, links of a supercluster to draw from `GetTopology`, accounts and failed logins from `GetAccountsAndAuth`, the stores and streams of the Capacity page from `GetCapacity`, the client applications from `GetApplications`, and which show every state real data shows, tested against the store with one table of states, and with `-fixed` at one moment whose live ranges end there, with per-system gaps, retention and archive examples (demo-mode.md)
+- [x] Three fixed systems without NATS or notification channels with `natslens demo`, whose findings are the real checks, with a node pool upgrade to replay, links of a supercluster to draw from `GetTopology`, accounts and failed logins from `GetAccountsAndAuth`, the stores and streams of the Capacity page from `GetCapacity`, the client applications from `GetApplications`, and which show every state real data shows, tested against the store with one table of states, and with `-fixed` at one moment whose live ranges end there, with per-system gaps, retention and archive examples (demo-mode.md)

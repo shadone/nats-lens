@@ -12,6 +12,7 @@
 
 - **Data history examples.** `example-staging` has nine hours of history, a three-minute collector restart about five hours before now, and a collector connection closed three hours before now. Collections and series omit the restart interval. It has 14-day database retention and no archive. `example-prod` and `example-global` have 30-day database retention; their archive examples keep hours for 90 days, holding 90 and 30 days respectively. `example-global` also has a five-minute collection gap and a four-minute Kubernetes-watch gap. Data history lists these gaps and history requirements, and charts hatch collection losses; Fleet keeps its separate status strips.
 
+- **No notification channels.** `natslens demo` reads no configuration file and sends no notifications. The notification delivery check has no queued messages and does not fire.
 - **No NATS, no database.** The demo answers every API call from built-in scenarios; nothing is collected or stored on disk.
 - **Three systems.** `ListSystems` lists `example-prod`, `example-global` and `example-staging` in that order, and a call without a `system` reads `example-prod`. Each system has its own servers, streams, consumers, findings, events, timeline and series, and its own mutes.
 - **example-prod.** Three servers in one cluster with 187 client connections, 100 of them on `nats-0`; the node upgrade restarted each server, an expected durable consumer was deleted (`consumer-010`), one consumer's copies on the servers were created at different times (`consumer-009`), and a backlog grows (`consumer-002`, flapping).
@@ -116,6 +117,13 @@
 - **When** I open Data history on staging, then production
 - **Then** staging reports nine hours of history, gaps, 14-day retention, and no archive
 - **And** production reports 30-day retention and an archive kept for 90 days
+
+### Run without sending notifications
+
+- **Surfaces:** `cli`
+- **Given** notification channels are configured for a real deployment
+- **When** I run `natslens demo`
+- **Then** the demo reads no channel configuration and sends no notifications
 
 ## Not supported / out of scope
 
