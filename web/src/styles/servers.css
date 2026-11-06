@@ -107,6 +107,7 @@
 .sd-dl dd small{display:block;font:400 11.5px var(--sans)}
 .sd-recent{list-style:none;margin:0;padding:0;display:grid;gap:7px;font-size:12.5px}
 .sd-recent li{display:grid;grid-template-columns:70px minmax(0,1fr);gap:8px}
+.sd-recent a{-webkit-user-drag:none;-webkit-user-select:text;user-select:text}
 .sd-recent .t{font:12px var(--mono);color:var(--text-muted)}
 .sd-recent .k8s{color:var(--k8s)}
 .sd-card p{margin:10px 0 0;font-size:12px;color:var(--text-muted)}

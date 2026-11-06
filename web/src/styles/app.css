@@ -43,7 +43,8 @@ input[type="checkbox"],input[type="radio"]{accent-color:var(--accent)}
 .frow a.t:hover{color:var(--accent-text);text-decoration:underline}
 
 /* event rows */
-.ev-toggle{display:block;width:100%;text-align:left;background:none;border:0;padding:0;cursor:pointer;line-height:inherit}
+.ev-toggle{display:block;width:100%;text-align:left;background:none;border:0;padding:0;cursor:pointer;line-height:inherit;overflow-wrap:anywhere;-webkit-user-select:text;user-select:text}
+.ev-toggle .ty,.ev-toggle .tx{-webkit-user-select:text;user-select:text}
 .ev-toggle:hover .tx{color:var(--text)}
 .ev.open.sev-warning{border-left-color:var(--sev-warning)}
 .ev.open.sev-info{border-left-color:var(--sev-info)}

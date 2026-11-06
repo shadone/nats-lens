@@ -21,6 +21,7 @@ The Streams page lists the JetStream streams of the newest collection in the tim
 - **A limit in the API.** `ListStreams` takes a `limit`: at most that many streams, worst first, then by name; `total_count` and the totals still cover every stream that matches. The Overview asks for the 10 worst.
 - **Placement in the API.** `ListStreams` and `GetStream` give each stream a `placement`: one entry per replica, the leader first and the rest by server name. In order: the leader is `LEADER` (the first by name when two claim it); a replica the leader lists as offline is `OFFLINE`; one the leader lists that reports nothing itself is `MISSING`; one that reports but that the leader does not list is `DISAGREES`; one the leader reports not current is `BEHIND`, even with an older configuration; one with a configuration hash other than the leader's is `DISAGREES`; one the leader reports current is `IN_SYNC`. Without a leader's report a replica's state is unset, or `DISAGREES` when the servers hold different configurations. Each configured replica beyond the servers named is `MISSING`, with no server. KV buckets and object stores use the same rule. The page does not draw the squares yet.
 - **Configuration.** The stream's configuration as its leader reports it.
+- **Copy event text.** Event types and summaries in the feed are selectable without opening or closing the row. See [Events](events.md).
 - **Consumers and events.** The stream's consumers with their backlog, and its newest 15 events, with a link to all of them.
 
 ## Scenarios

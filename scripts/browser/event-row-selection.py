@@ -5,11 +5,15 @@ Run: python3 scripts/browser/event-row-selection.py [http://127.0.0.1:18941]
 The fixture imports the real EventRow and production styles. Ranges only measure
 character positions; mouse down/move/up creates every selection under test.
 """
+import argparse
 import json
 import subprocess
-import sys
 
-BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:18941"
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("base", nargs="?", default="http://127.0.0.1:18941")
+parser.add_argument("--touch-only", action="store_true")
+args = parser.parse_args()
+BASE = args.base
 SESSION = "event-selection"
 
 
@@ -65,7 +69,7 @@ def drag(selector, start, end, expected):
 
 
 try:
-    for width in (360, 761, 1280):
+    for width in (() if args.touch_only else (360, 761, 1280)):
         browser("set", "viewport", width, 1000)
         browser("open", BASE + "/event-row.fixture.html?range=6h&system=shop")
         browser("wait", ".ev-toggle")
@@ -111,19 +115,32 @@ try:
         assert js("document.querySelector('.ev-toggle').getAttribute('aria-controls') === document.querySelector('.ex').id")
         assert js("document.activeElement === document.querySelector('.ev-toggle')"), "Click lost focus"
         assert js("document.documentElement.scrollWidth <= innerWidth + 1"), "Long token overflows viewport"
-        assert js("""Array.from(document.querySelectorAll('.ev .ty,.ev .tx')).every(el=>{
+        assert js("""Array.from(document.querySelectorAll('.ev .ty,.ev .tx,.sd-recent a')).every(el=>{
           const r=document.createRange();r.selectNodeContents(el);
           return Array.from(r.getClientRects()).every(b=>b.left>=0 && b.right<=innerWidth+1);
         })"""), "Text fragments overflow"
         drag(".sd-recent a", 0, 69, "Synthetic consumer summary with words that wrap across several lines.")
-        print(f"PASS width={width}: drag, click, Enter/Space, stale selection, links, focus, wrapping", flush=True)
+        browser("click", ".sd-recent a")
+        assert js("location.pathname === '/events' && new URLSearchParams(location.search).get('id') === 'synthetic-selection' && new URLSearchParams(location.search).get('range') === '6h' && new URLSearchParams(location.search).get('system') === 'shop'"), "Recent link click lost event or global query"
+        browser("open", BASE + "/event-row.fixture.html?range=6h&system=shop")
+        browser("wait", ".sd-recent a")
+        browser("focus", ".sd-recent a")
+        browser("press", "Enter")
+        assert js("location.pathname === '/events'"), "Recent link Enter did not navigate"
+        print(f"PASS width={width}: drag, click, Enter/Space, stale selection, links, focus, wrapping, recent-link selection/click/Enter", flush=True)
     browser("set", "device", "iPhone 12")
-    browser("open", BASE + "/event-row.fixture.html")
-    browser("wait", ".ev-toggle")
-    browser("tap", ".ev .ty")
-    assert is_open(), "Touch did not expand"
-    browser("tap", ".ev .ty")
-    assert not is_open(), "Touch did not collapse"
-    print("PASS touch emulation: tap expands and collapses", flush=True)
+    for width in (360, 761, 1280):
+        browser("set", "viewport", width, 1000)
+        browser("open", BASE + "/event-row.fixture.html")
+        browser("wait", ".ev-toggle")
+        js("document.addEventListener('pointerdown', e => window.touchEvidence = {trusted:e.isTrusted,type:e.pointerType}, {once:true})")
+        browser("tap", ".ev .ty")
+        assert js("window.touchEvidence.trusted && window.touchEvidence.type === 'touch'"), "Tap was not trusted touch"
+        assert is_open(), "Touch did not expand"
+        browser("tap", ".ev .ty")
+        assert not is_open(), "Touch did not collapse"
+        browser("tap", ".sd-recent a")
+        assert js("location.pathname === '/events'"), "Recent link tap did not navigate"
+        print(f"PASS touch width={width}: trusted tap expands/collapses and follows recent link", flush=True)
 finally:
     browser("close")
