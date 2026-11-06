@@ -2,9 +2,6 @@ package events_test
 
 import (
 	"context"
-	"encoding/json"
-	"log/slog"
-
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -12,11 +9,11 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"github.com/shadone/nats-lens/internal/events"
-	"github.com/shadone/nats-lens/internal/store"
 	"io"
+	"log/slog"
 	"math/big"
 	"net"
 	"net/http"
@@ -31,6 +28,9 @@ import (
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 	"golang.org/x/crypto/ocsp"
+
+	"github.com/shadone/nats-lens/internal/events"
+	"github.com/shadone/nats-lens/internal/store"
 )
 
 // A real TLS handshake against pinned nats-server, with a local CA and OCSP
@@ -216,13 +216,15 @@ system_account: SYS
 		if err := rows.Scan(&record); err != nil {
 			t.Fatal(err)
 		}
-		for _, secret := range []string{"revoked.example.com", "example.com test CA", base64.StdEncoding.EncodeToString(bad.Certificate[0]), `\"raw\"`, `\"subject\"`, `\"issuer\"`} {
+		for _, secret := range []string{"revoked.example.com", "example.com test CA", base64.StdEncoding.EncodeToString(bad.Certificate[0])} {
 			if strings.Contains(record, secret) {
 				t.Fatalf("certificate identity in stored record: %s", record)
 			}
 		}
 		var ev struct {
 			Kind       string          `json:"kind"`
+			Source     string          `json:"source"`
+			Account    string          `json:"account"`
 			ServerName string          `json:"server_name"`
 			Reason     string          `json:"reason"`
 			Raw        json.RawMessage `json:"raw"`
@@ -230,8 +232,13 @@ system_account: SYS
 		if err := json.Unmarshal([]byte(record), &ev); err != nil {
 			t.Fatal(err)
 		}
-		if ev.Kind != "server.ocsp_peer_rejected" || ev.ServerName != "nats-0" || ev.Reason != "client not OCSP valid" {
+		if ev.Source != string(events.SourceSys) || ev.Account != "" || ev.Kind != "server.ocsp_peer_rejected" || ev.ServerName != "nats-0" || ev.Reason != "client not OCSP valid" {
 			t.Fatalf("stored rejection: %s", record)
+		}
+		for _, key := range []string{`"raw"`, `"subject"`, `"issuer"`} {
+			if strings.Contains(string(ev.Raw), key) {
+				t.Fatalf("certificate field in stored raw: %s", ev.Raw)
+			}
 		}
 		var raw struct {
 			Peer map[string]string `json:"peer"`
