@@ -1,3 +1,4 @@
+import { AcknowledgementMark } from "./Acknowledgement";
 import { usePageHistory } from "./HistoryNote";
 import { atHistoryStart } from "../lib/historyView";
 // Finding pieces: the entity line and a row of the findings list.
@@ -74,6 +75,7 @@ export function FindingRow({ f, end, rangeStart, label }: { f: Finding; end: num
           {fmtDuration(end - since)}
         </span>
       )}
+      {f.acknowledgement && <span className="oc-row-mark"><AcknowledgementMark acknowledgement={f.acknowledgement} /></span>}
       {m && (
         <span className="mute-why">
           <b>{muteBy(m)}:</b> {m.accepted ? `${sentence(m.reason)} ${reviewOn(m)}` : m.reason}

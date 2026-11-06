@@ -109,11 +109,13 @@ export function Overview() {
   return (
     <>
       <StaleBanner q={q} />
+      <div className="ov-phone-order">
       <StatusLine tally={o.tally} freshness={o.freshness} live={spec.kind === "live"} now={serverNow()} />
-      <section className="sec" aria-label="Health">
+      <section className="sec ov-health" aria-label="Health">
         {o.tiles.length ? <OverviewTiles tiles={o.tiles} windows={o.windows} start={start} end={end} /> : <Empty>No collection stored in this range yet.</Empty>}
       </section>
-      <Causes onMute={setMuting} />
+      <div className="ov-causes"><Causes onMute={setMuting} /></div>
+      <div className="ov-rest">
       <section className="sec">
         <div className="sec-h">
           <h2>Trends</h2>
@@ -122,6 +124,8 @@ export function Overview() {
       </section>
       <Story end={end} />
       <Lower start={start} end={end} />
+      </div>
+      </div>
       <MuteDialog finding={muting} onClose={() => setMuting(undefined)} />
     </>
   );
