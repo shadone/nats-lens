@@ -17,7 +17,7 @@ Examples use the online shop of `inventory.example.yaml`, the demo's systems (`e
 | T1 Acknowledgements: store, API, metrics and demo | reviewed and merged at `d073334` |
 | T2 `GetOnCall`: one call for the phone card | reviewed tip `9edad8f`, merged at `0d0c9f7` |
 | T3 The phone layout, the acknowledge dialog and the marks | candidate `6d65057decbfcd676730a8c6b7981f7f482c532e`, awaiting fresh R2 review; merged only in the isolated T4 checkout for fact-checking |
-| T4 Feature docs, deep links in the README and audit | built and reconciled in the isolated T4 checkout; original fresh read-only fact-check passed, final fresh fact-check required before integration |
+| T4 Feature docs, deep links in the README and audit | built and reconciled in the isolated T4 checkout; original and final fresh read-only fact-checks passed; awaiting M3 R2 approval and parent integration |
 
 ## Rules for every step
 
@@ -154,7 +154,7 @@ Verification: 39 capability docs, 0 audit errors, 0 warnings (`--map-refs requir
 
 ### Final M4 reconciliation verification
 
-Reconciled against M3 candidate `6d65057` in the isolated T4 checkout. Choices remain proposed, not yet confirmed. The feature-doc audit reports 39 capabilities, 0 errors, and 0 warnings with `--map-refs require`; `git diff --check` is clean. Ruby parsed the README’s 7 alert rules and both remediation forms. Go’s standard template parser executed every annotation; both HTTPS finding links round-tripped all three labels with Unicode, literal plus signs, spaces, slashes, and colons. Both finding expressions retain the severity comparison and mute/acknowledgement identity exclusions. `promtool` is unavailable; expression validation is structural, not a full PromQL parser check. The notification-stuck rule block and D4/N5 plan records match parent `0d0c9f7` byte for byte; the 83-check count remains. No application tests were repeated. Final fresh read-only fact-check and M3 R2 approval remain integration gates.
+Reconciled against M3 candidate `6d65057` in the isolated T4 checkout. Choices remain proposed, not yet confirmed. The feature-doc audit reports 39 capabilities, 0 errors, and 0 warnings with `--map-refs require`; `git diff --check` is clean. Ruby parsed the README’s 7 alert rules and both remediation forms. Go’s standard template parser executed every annotation; both HTTPS finding links round-tripped all three labels with Unicode, literal plus signs, spaces, slashes, and colons. Both finding expressions retain the severity comparison and mute/acknowledgement identity exclusions. `promtool` is unavailable; expression validation is structural, not a full PromQL parser check. The notification-stuck rule block and D4/N5 plan records match parent `0d0c9f7` byte for byte; the 83-check count remains. No application tests were repeated. Final fresh read-only fact-check passed against `a6ba08e`: no factual blockers in the M4 documentation diff. The reviewer checked metrics, label context and encoding, episode guards and scoped receipts, phone layout, playbooks, demo claims, the check count, and preserved D4/N5/configuration/notification content without edits or repeated application tests. M3 R2 approval remains unresolved and parent-owned; this PASS covers documentation only.
 
 ## Order with the other phase 3 plans
 
