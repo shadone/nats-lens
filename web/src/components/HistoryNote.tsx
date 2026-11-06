@@ -1,9 +1,10 @@
 // History facts shared by a page. LensInfo uses the shell's existing cache;
 // only a mounted chart subscribes to the range's shared Data history query.
 import { createContext, useContext, type ReactNode } from "react";
+import { useReportStale } from "./StaleContext";
 import { Link, useLocation } from "react-router";
-import type { HistoryGap } from "../api/history";
-import { useLensInfo } from "../api/queries";
+import type { HistoryGap, ServerHistoryGap } from "../api/history";
+import { useDataHistory, useLensInfo } from "../api/queries";
 import { growthHistoryNote, historyNote } from "../lib/historyView";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
 import { useGlobalQuery } from "../lib/useGlobalQuery";
@@ -15,6 +16,8 @@ export interface PageHistory {
   end: number;
   live: boolean;
   gaps?: HistoryGap[];
+  serverGaps?: ServerHistoryGap[];
+  gapsStatus?: string;
 }
 export const HistoryContext = createContext<PageHistory | undefined>(undefined);
 export const usePageHistory = () => useContext(HistoryContext);
@@ -46,4 +49,20 @@ export function useGrowthHistoryNote() {
 export function HistoryLink({ children }: { children?: ReactNode }) {
   const query = useGlobalQuery();
   return <Link className="x" to={`/data-history${query}`}>{children ?? "Data history"}</Link>;
+}
+
+/** One history read shared by every metric on this server, scoped by system,
+ * exact range key and server name. No previous-range/server placeholders. */
+export function ServerChartHistory({ server, children }: { server: string; children: ReactNode }) {
+  const h = usePageHistory();
+  const { spec } = useTimeRange();
+  const q = useDataHistory(spec, server);
+  useReportStale(q);
+  const d = q.data;
+  const status = q.error ? "History gaps unavailable" : q.isPending ? "History gaps loading" : undefined;
+  return <HistoryContext.Provider value={h && { ...h, start: d?.rangeStart ?? h.start, end: d?.rangeEnd ?? h.end, gaps: d?.gaps ?? [], serverGaps: d?.serverGaps ?? [], gapsStatus: status }}>
+    {status && <p className="dh-note" role="status">{status}</p>}
+    <p className="dh-note">Server hatches mark recorded missing answers or missing STATSZ/VARZ metrics reports, at collection intervals. They do not establish server downtime.</p>
+    {children}
+  </HistoryContext.Provider>;
 }

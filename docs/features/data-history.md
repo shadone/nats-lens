@@ -1,7 +1,7 @@
 # Data history
 
 - **Surfaces:** `ui`, `api`
-- **Status:** partial — forecast margins and per-server missing-answer gaps are not built
+- **Status:** partial — forecast margins are not built
 - **Related:** [history-and-archive.md](history-and-archive.md), [monitoring-snapshots.md](monitoring-snapshots.md), [event-capture.md](event-capture.md), [triage-and-mutes.md](triage-and-mutes.md)
 
 ## What it does
@@ -20,6 +20,7 @@ Data history shows when a system’s stored history begins, coverage and gaps in
 
 - **History begins here.** When the chosen range starts more than one collection interval before the oldest collection, a note names the available span and links to Data history. Charts keep the full requested time axis, including the time before history.
 - **Gaps are drawn.** Trend and series charts hatch times without collections and the time before history, with a tooltip and accessible name. Event-capture and Kubernetes-watch gaps leave the collection charts unhatched. Charts share cached history by system and time window, including fixed seven-day charts when the page shows one hour. Gap marks stop at the range actually observed; switching ranges shows “History gaps loading” while waiting for that range’s history. Failed history reads say “History gaps unavailable”. A positive-duration gap remains visible even on a 30-day chart. A page without charts makes no history request for hatching.
+- **Server reports.** Server detail charts hatch explicit missing-server records and collections where both STATSZ and VARZ failed or were missing. Either metric source answering prevents the latter hatch. Names span process restarts; unrelated endpoint failures do not hatch these metrics. Each interval stops at the next collection, one configured interval, or the requested end, whichever comes first. Charts break both metric traces across those intervals. Global collection hatches remain separate. One server-scoped history request serves all five charts; range, system, and server changes never reuse another scope’s gaps. Unknown reports do not prove coverage or downtime.
 - **Growth needs history.** Capacity, Streams, and the Overview storage tile share the six-hour requirement. Overview’s storage guidance states that requirement without declaring that measurements are missing. Missing-growth notes require samples spanning six hours and explain that entity data may be missing. A shorter range asks for at least six hours. The oldest retained timestamp alone never supplies a countdown. Forecast margins remain planned.
 - **Findings say what they know.** A finding whose start nats-lens cannot know says "already true when nats-lens started", never a fresh start time.
 - **Tiles for the range.** Overview message and connection trends, connections tiles, and storage name the shorter history behind the range. Missing-history words on Capacity, Accounts, Applications, Replay, and finding details link to Data history with the global query.
@@ -117,10 +118,19 @@ Data history shows when a system’s stored history begins, coverage and gaps in
 - **And** a missing boundary sample or an edge deficit beyond one interval leaves the target unavailable
 - **And** gaps and missing entity measurements still prevent this status from proving complete coverage or a forecast
 
+### See missing server reports while collection continues
+
+- **Surfaces:** `ui`, `api`
+- **Given** other servers keep answering and a named server misses a collection, or both its metric endpoints fail
+- **When** I open that server’s detail charts
+- **Then** bounded hatches name the missing reports and both metric traces break across them
+- **And** a successful STATSZ or VARZ answer prevents the metric-report hatch, including after a process restart
+- **And** global collection coverage does not treat the server’s absence as an outage
+
 ## Not supported / out of scope
 
 - **No backfill.** nats-lens cannot collect for a time when it was not running.
 - **No history from the archive in the UI.** Hours older than `retention` are in the archive only ([history-and-archive.md](history-and-archive.md)).
 - **No forecast margins.** Forecast confidence margins remain planned.
-- **No per-server gap overlay.** A server’s missing answer does not create a server-specific chart hatch.
+- **No server downtime inference.** A missing report does not prove a server was down; unrecorded intervals remain unknown.
 - **No Fleet overlay.** Fleet’s status strips do not use the collection-history hatches.

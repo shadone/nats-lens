@@ -11,3 +11,12 @@ it("hatches recorded server missing reports separately and breaks both metric tr
  expect(container.querySelectorAll("polyline")).toHaveLength(4);
  expect(screen.queryByRole("img",{name:/No collections/})).not.toBeInTheDocument();
 });
+
+it("clips server intervals to the observation and chart, preserving short hatches",()=>{
+ const h={start:100,end:500,live:true,gaps:[],serverGaps:[{start:490,end:700,reason:"Server did not answer"},{start:800,end:900,reason:"outside"}]};
+ const {container}=render(<HistoryContext.Provider value={h}><Sparkline points={[]} status="ok" windows={[]} start={0} end={10000} label="CPU"/></HistoryContext.Provider>);
+ const mark=screen.getByRole("img",{name:"Server did not answer"});
+ expect(Number(mark.getAttribute("x"))+Number(mark.getAttribute("width"))).toBeLessThanOrEqual(10);
+ expect(screen.queryByRole("img",{name:"outside"})).not.toBeInTheDocument();
+ expect(container.querySelectorAll(".dh-chart-server-gap")).toHaveLength(1);
+});
