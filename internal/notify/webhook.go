@@ -23,28 +23,36 @@ type webhookSystem struct {
 }
 
 type webhookNotice struct {
-	Kind             Kind         `json:"kind"`
-	Reason           string       `json:"reason,omitempty"`
-	FindingID        string       `json:"finding_id,omitempty"`
-	CheckCode        string       `json:"check_code,omitempty"`
-	CheckName        string       `json:"check_name,omitempty"`
-	Category         string       `json:"category,omitempty"`
-	Severity         string       `json:"severity,omitempty"`
-	PreviousSeverity string       `json:"previous_severity,omitempty"`
-	EntityType       string       `json:"entity_type,omitempty"`
-	EntityKey        string       `json:"entity_key,omitempty"`
-	EntityName       string       `json:"entity_name,omitempty"`
-	Detail           string       `json:"detail,omitempty"`
-	Since            string       `json:"since,omitempty"`
-	ConditionSince   string       `json:"condition_since,omitempty"`
-	TransitionedAt   string       `json:"transitioned_at,omitempty"`
-	ResolvedAt       string       `json:"resolved_at,omitempty"`
-	Flapping         bool         `json:"flapping,omitempty"`
-	Value            *float64     `json:"value,omitempty"`
-	Mute             *webhookMute `json:"mute,omitempty"`
-	FiringCount      *int         `json:"firing_count,omitempty"`
-	Link             string       `json:"link,omitempty"`
-	DedupKey         string       `json:"dedup_key"`
+	Kind             Kind                    `json:"kind"`
+	Reason           string                  `json:"reason,omitempty"`
+	FindingID        string                  `json:"finding_id,omitempty"`
+	CheckCode        string                  `json:"check_code,omitempty"`
+	CheckName        string                  `json:"check_name,omitempty"`
+	Category         string                  `json:"category,omitempty"`
+	Severity         string                  `json:"severity,omitempty"`
+	PreviousSeverity string                  `json:"previous_severity,omitempty"`
+	EntityType       string                  `json:"entity_type,omitempty"`
+	EntityKey        string                  `json:"entity_key,omitempty"`
+	EntityName       string                  `json:"entity_name,omitempty"`
+	Detail           string                  `json:"detail,omitempty"`
+	Since            string                  `json:"since,omitempty"`
+	ConditionSince   string                  `json:"condition_since,omitempty"`
+	TransitionedAt   string                  `json:"transitioned_at,omitempty"`
+	ResolvedAt       string                  `json:"resolved_at,omitempty"`
+	Flapping         bool                    `json:"flapping,omitempty"`
+	Value            *float64                `json:"value,omitempty"`
+	Acknowledgement  *webhookAcknowledgement `json:"acknowledgement,omitempty"`
+	Mute             *webhookMute            `json:"mute,omitempty"`
+	FiringCount      *int                    `json:"firing_count,omitempty"`
+	Link             string                  `json:"link,omitempty"`
+	DedupKey         string                  `json:"dedup_key"`
+}
+
+type webhookAcknowledgement struct {
+	By            string `json:"by"`
+	Note          string `json:"note,omitempty"`
+	QuietUntil    string `json:"quiet_until,omitempty"`
+	UntilResolved bool   `json:"until_resolved,omitempty"`
 }
 
 type webhookMute struct {
@@ -80,6 +88,9 @@ func WebhookBody(b Batch) ([]byte, error) {
 			Since: timeText(m.Since), ConditionSince: timeText(m.ConditionSince),
 			TransitionedAt: timeText(m.TransitionedAt), ResolvedAt: timeText(m.ResolvedAt),
 			Flapping: m.Flapping, Value: m.Value, FiringCount: m.FiringCount, Link: m.Link, DedupKey: m.DedupKey,
+		}
+		if a := m.Acknowledgement; a != nil {
+			n.Acknowledgement = &webhookAcknowledgement{By: a.By, Note: a.Note, QuietUntil: timeText(a.QuietUntil), UntilResolved: a.UntilResolved}
 		}
 		if mu := m.Mute; mu != nil {
 			n.Mute = &webhookMute{Accepted: mu.Accepted, By: mu.By, Reason: mu.Reason, Until: timeText(mu.Until), EndReason: mu.EndReason}

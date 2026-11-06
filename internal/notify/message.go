@@ -49,6 +49,15 @@ type Mute struct {
 	EndReason string `json:"end_reason,omitempty"`
 }
 
+// Acknowledgement is the API-stored actor, note and quiet time of an acknowledgement.
+// A zero QuietUntil means until resolved.
+type Acknowledgement struct {
+	By            string    `json:"by"`
+	Note          string    `json:"note,omitempty"`
+	QuietUntil    time.Time `json:"quiet_until,omitzero"`
+	UntilResolved bool      `json:"until_resolved,omitempty"`
+}
+
 // Message is one notification about one finding. A zero field is unset
 // and left out of the webhook body. The JSON tags are the form an outbox
 // row stores it in (Encode, Decode), not the webhook body.
@@ -74,12 +83,13 @@ type Message struct {
 	// Since is when the finding's episode began.
 	Since time.Time `json:"since,omitzero"`
 	// ConditionSince is when the condition began, when the check knows.
-	ConditionSince time.Time `json:"condition_since,omitzero"`
-	TransitionedAt time.Time `json:"transitioned_at,omitzero"`
-	ResolvedAt     time.Time `json:"resolved_at,omitzero"`
-	Flapping       bool      `json:"flapping,omitempty"`
-	Value          *float64  `json:"value,omitempty"`
-	Mute           *Mute     `json:"mute,omitempty"`
+	ConditionSince  time.Time        `json:"condition_since,omitzero"`
+	TransitionedAt  time.Time        `json:"transitioned_at,omitzero"`
+	ResolvedAt      time.Time        `json:"resolved_at,omitzero"`
+	Flapping        bool             `json:"flapping,omitempty"`
+	Value           *float64         `json:"value,omitempty"`
+	Acknowledgement *Acknowledgement `json:"acknowledgement,omitempty"`
+	Mute            *Mute            `json:"mute,omitempty"`
 	// FiringCount is, on a baseline message, how many findings the
 	// channel's view holds.
 	FiringCount *int `json:"firing_count,omitempty"`
