@@ -17,15 +17,16 @@ export function inspectionStep(series: InspectionSeries[], given?: number): numb
   return diffs.length ? Math.min(...diffs) : 1;
 }
 
-export function ChartInspection({ label, start, end, stepMs, series, children }: {
-  label: string; start: number; end: number; stepMs?: number; series: InspectionSeries[]; children: ReactNode;
+export function ChartInspection({ label, start, end, stepMs, bucketNote, series, children }: {
+  label: string; start: number; end: number; stepMs?: number; bucketNote?: string; series: InspectionSeries[]; children: ReactNode;
 }) {
   const [cursor, setCursor] = useState<number>();
   const id = useId();
   const history = usePageHistory();
   const step = inspectionStep(series, stepMs);
   const selected = cursor === undefined ? undefined : Math.min(end, Math.max(start, cursor));
-  const bucket = selected === undefined ? undefined : Math.floor(selected / step) * step;
+  const origin = stepMs ? 0 : (series.flatMap(s => s.points.map(p => p.time)).sort((a,b) => a-b)[0] ?? start);
+  const bucket = selected === undefined ? undefined : Math.floor((selected - origin) / step) * step + origin;
   const gaps = history?.gaps?.filter(g => isHatched(g) && selected !== undefined && selected >= (g.start ?? start) && selected < (g.end ?? history.end)) ?? [];
   const beforeHistory = selected !== undefined && history?.historyStart !== undefined && selected < history.historyStart;
   const missing = gaps.length > 0 || beforeHistory;
@@ -35,7 +36,7 @@ export function ChartInspection({ label, start, end, stepMs, series, children }:
   });
   const when = bucket === undefined ? "" : `${dayMonHm(bucket).split(" ").slice(0, 2).join(" ")} ${hms(bucket)} UTC`;
   const bucketEnd = bucket === undefined ? "" : `${hms(Math.min(end, bucket + step))} UTC`;
-  const text = `${when}${stepMs ? ` to ${bucketEnd} · bucket` : " · recorded sample"}. ${missing ? "Not collected. " : ""}${rows.join("; ")}`;
+  const text = `${when}${stepMs ? ` to ${bucketEnd} · bucket` : " · recorded sample"}. ${missing ? "Not collected. " : ""}${bucketNote ? bucketNote + ". " : ""}${rows.join("; ")}`;
   const move = (clientX: number, element: HTMLElement) => {
     const box = element.getBoundingClientRect();
     if (box.width > 0) setCursor(start + Math.max(0, Math.min(1, (clientX - box.left) / box.width)) * (end - start));
@@ -53,7 +54,7 @@ export function ChartInspection({ label, start, end, stepMs, series, children }:
     {children}
     {selected !== undefined && <>
       <span className="chart-cursor" aria-hidden="true" style={{ left: `${(selected - start) / (end - start || 1) * 100}%` }} />
-      <div id={id} role="tooltip" className="chart-readout"><b>{when}</b><span>{stepMs ? `Bucket to ${bucketEnd}` : "Recorded sample"}</span>{missing && <span>Not collected</span>}{rows.map((r, i) => <span key={i}>{r}</span>)}</div>
+      <div id={id} role="tooltip" className="chart-readout"><b>{when}</b><span>{stepMs ? `Bucket to ${bucketEnd}` : "Recorded sample"}</span>{bucketNote && <span>{bucketNote}</span>}{missing && <span>Not collected</span>}{rows.map((r, i) => <span key={i}>{r}</span>)}</div>
     </>}
   </div>;
 }
