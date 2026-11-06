@@ -15,7 +15,7 @@ Examples use the online shop of `inventory.example.yaml`, the demo's systems (`e
 | Task | Status |
 |---|---|
 | T1 Acknowledgements: store, API, metrics and demo | built on `feat/acknowledgements`, awaiting review |
-| T2 `GetOnCall`: one call for the phone card | planned |
+| T2 `GetOnCall`: one call for the phone card | built, pending review |
 | T3 The phone layout, the acknowledge dialog and the marks | planned |
 | T4 Feature docs, deep links in the README and audit | planned |
 
@@ -89,6 +89,20 @@ A person on call opens the link on a phone, often on a slow network; one call gi
 - **Demo.** `example-prod`'s `consumer-010` gives the whole card: the node upgrade as context, the node upgrade's Replay steps, `analytics-aggregator` missing with its last holders, delivery of `order-archive`'s other consumers, and a playbook URL `https://runbooks.example.com/nats/durable-missing` in the demo's own remediation. `example-staging` gives a card whose `now` is not reported (its collector closed).
 - **Conformance rows:** a card with a context window and one without; an asset with replicas online and one not reported; steps cut at 12 with the total; a resolved finding's card; both providers.
 - **Tests.** `FinishOnCall` cases for each rule; the store read under a non-UTC `TZ`; the call's count of queries (one per kind of fact, never one per asset).
+
+### Where T2 departed from this plan
+
+The implementation's choices are proposed, not yet confirmed.
+
+- `OnCallAsset.answering = 7` carries a server's answering state explicitly; replicas and online remain unset for server entities.
+- Kubernetes windows have no explicit open flag. The present's window uses the existing 15-minute quiet-gap rule; its last observed event must fall within that gap. The returned end remains that observation, not a predicted end.
+- Present facts require a collection within 3 collect intervals, matching Replay's reach. The closed staging collector therefore returns unset present facts. Observed zero remains set.
+- Review fix (proposed, not yet confirmed): both rates require a leader counter in the selected recent collection. Only the latest contiguous leader/creation/counter run contributes, with at least 2 samples; resets start a run. Historical rate APIs keep their existing range semantics. The 2 batch rate queries preserve 7 fact queries for 1, 10, and 100 affected consumers.
+- Delivery sums cover reporting consumers of the affected streams, including siblings of an absent consumer. The sum is only the observed contribution, not evidence that every consumer reports or delivers. A Kubernetes window records events, not proof of an active upgrade. Last holders stay in the finding's existing detail and Replay evidence rather than a second asset-history representation.
+- A story that begins before the stored history also returns empty steps with an explanation, as one outside retention does. Context and present facts remain available.
+- A resolved or muted finding with no firing, unmuted group keeps its own asset, with a headline firing count of zero.
+- Playbook URLs also reject credentials and control characters. Plain-string remediation entries keep their existing append behavior.
+- The capability doc and both index entries are updated here as AGENTS.md requires. T4 still owns the global design and README changes; T3 owns the UI.
 
 ## T3 The phone layout, the acknowledge dialog and the marks
 

@@ -288,9 +288,20 @@ func replayConformance(t *testing.T, clock time.Time) *storeprov.Provider {
 func TestStoreConformance(t *testing.T) {
 	clock := confAt(confEpochs).Add(30 * time.Second)
 	st, set := conformanceStore(t)
+	// The card's context and twelve-step cut use distinct, observed node
+	// upgrades after its affected stream's condition began.
+	for i := 0; i < 16; i++ {
+		eventAt := clock.Add(-time.Duration(32-i) * time.Minute)
+		if err := st.WriteEvents(ctx, []events.Event{{Time: eventAt, ReceivedAt: eventAt, Source: events.SourceK8s, Kind: "k8s.pod.failed_scheduling", ServerName: fmt.Sprintf("nats-test-%d", i), Summary: "pod pending", Raw: json.RawMessage(`{"reason":"FailedScheduling"}`)}}); err != nil {
+			t.Fatal(err)
+		}
+		if err := st.WriteEvents(ctx, []events.Event{{Time: eventAt, ReceivedAt: eventAt, Source: events.SourceK8s, Kind: "k8s.node.upgrade", ServerName: "nats-0", Summary: "node upgraded", Raw: json.RawMessage(fmt.Sprintf(`{"node":"example-node-%d","pool":"example-pool","kubelet_version":"v1.35"}`, i))}}); err != nil {
+			t.Fatal(err)
+		}
+	}
 	at := func() time.Time { return clock }
 	microConf, _ := microConfProvider(t, clock.Add(-30*time.Second))
-	main := &storeprov.Provider{St: st, Interval: confStep, Live: true, Checks: set, Clock: at, Retention: 14 * 24 * time.Hour}
+	main := &storeprov.Provider{St: st, Interval: confStep, Live: true, Checks: set, Clock: at, Kubernetes: true, Retention: 14 * 24 * time.Hour}
 	closed := &storeprov.Provider{St: closedStore(t, clock), Interval: confStep, Live: true, Clock: at}
 	_, c := apitest.ServeHandler(t, &api.Handler{Systems: api.Systems{
 		{Ref: &v1.SystemRef{Id: "main", Name: "main"}, Provider: main},
