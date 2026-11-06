@@ -351,6 +351,17 @@ func (e *Engine) runOne(ctx context.Context, conn *sql.Conn, c *Check, epoch int
 	if c.Code == SlowRouteCode {
 		return e.slowRoutes(qctx, conn, epoch, at)
 	}
+	if c.Code == "system-002" || c.Code == "system-003" {
+		lo := epoch
+		if c.Code == "system-003" {
+			if err := conn.QueryRowContext(qctx, "SELECT getvariable('window_epoch')").Scan(&lo); err != nil {
+				return nil, err
+			}
+		}
+		if err := prepareMetaGroups(qctx, conn, lo, epoch); err != nil {
+			return nil, err
+		}
+	}
 	rows, err := conn.QueryContext(qctx, c.SQL)
 	if err != nil {
 		if qctx.Err() != nil && ctx.Err() == nil {
