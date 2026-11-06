@@ -116,13 +116,12 @@ func (p *Provider) OnCall(ctx context.Context, req *v1.GetOnCallRequest) (*api.O
 			f.Assets[api.OnCallEntityKey(c.Entity)] = &v1.OnCallAsset{Replicas: c.Replicas, Online: api.OnCallOnline(placementOf(reps[c.Entity.GetKey()], c.GetReplicas())), Leader: c.Leader}
 		}
 	}
-	// Rates use the newest epoch, not the story's historical endpoint.
-	rateRange := &v1.TimeRange{Start: ts(e.startedAt.Add(-15 * time.Minute)), End: ts(e.startedAt.Add(time.Microsecond))}
-	delivered, err := p.deliveredRates(ctx, rateRange, "", "", "")
+	// Rates require leader reports in this collection, independently of the story.
+	delivered, err := p.onCallRates(ctx, e, true)
 	if err != nil {
 		return nil, err
 	}
-	rates, err := p.storedRates(ctx, rateRange, "")
+	rates, err := p.onCallRates(ctx, e, false)
 	if err != nil {
 		return nil, err
 	}
