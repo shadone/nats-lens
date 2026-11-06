@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { lens } from "../api/client";
 import { EventSource, ListEventsResponseSchema } from "../gen/natslens/v1/events_pb";
 import { ListFindingsResponseSchema } from "../gen/natslens/v1/findings_pb";
-import { GetServerResponseSchema, type GetServerResponse } from "../gen/natslens/v1/servers_pb";
+import { GetServerResponseSchema, ServerRole, type GetServerResponse } from "../gen/natslens/v1/servers_pb";
 import { GetTimeSeriesResponseSchema, Unit } from "../gen/natslens/v1/timeseries_pb";
 import { exampleGlobalAp3, exampleGlobalUs4 } from "../test/fixtures/exampleGlobal";
 import { renderApp } from "../test/render";
@@ -94,6 +94,19 @@ describe("ServerDetail on example-global", () => {
     await waitFor(() => expect(tile.querySelector(".mb-v")).not.toHaveTextContent("…"));
     expect(tile.querySelector(".mb-v")).toHaveTextContent(present && used !== undefined ? "0 B" : "–");
     expect(tile).toHaveTextContent(expected);
+    expect(tile).not.toHaveTextContent("% of configured limit");
+  });
+
+  it("labels a server without JetStream without presenting stored zero as current usage", async () => {
+    const r = ap3();
+    r.server!.role = ServerRole.NO_JETSTREAM;
+    r.server!.jsStorageBytes = 0n;
+    show(r, "nats-ap-3");
+    const about = await screen.findByRole("button", { name: "About JetStream file storage" });
+    const tile = about.closest(".mbox")!;
+    await waitFor(() => expect(tile.querySelector(".mb-v")).not.toHaveTextContent("…"));
+    expect(tile.querySelector(".mb-v")).toHaveTextContent("–");
+    expect(tile).toHaveTextContent("no JetStream");
     expect(tile).not.toHaveTextContent("% of configured limit");
   });
 

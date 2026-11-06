@@ -199,7 +199,7 @@ export function useBandSeries(spec: RangeSpec, metric: string, serverName?: stri
     queryKey: ["bandSeries", sys, rangeKey(spec), metric, serverName ?? "", maxPoints],
     queryFn: ({ signal }) => getBandSeries(sys, spec, metric, serverName, maxPoints, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepSameSystem(sys),
+    placeholderData: keepSameSystem(sys, { 3: metric, 4: serverName ?? "" }),
   });
 }
 
