@@ -400,7 +400,7 @@ export function useSaveAcknowledgement() {
     mutationFn: (v: { system: string; episodeSince?: number } & ({ action: "ack"; input: api.AckInput } | { action: "release"; id: string; endedBy: string })) =>
       v.action === "ack" ? api.acknowledgeFinding(v.system, v.input) : api.endAcknowledgement(v.system, v.id, v.endedBy),
     // ASVS 15.4.2: capture the episode and revision before the asynchronous write;
-    // a response cannot supersede an intervening authoritative read or mutation.
+    // a response cannot revive superseded state or overwrite newer ownership.
     onMutate: v => {
       const snapshots = new Map<string, { revision: number; finding: import("./model").Finding }>();
       for (const kind of ["finding", "oncall"]) {

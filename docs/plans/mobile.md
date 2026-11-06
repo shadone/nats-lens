@@ -127,6 +127,17 @@ Each point was decided in the session that built T3: proposed, not yet confirmed
 - The browser check tried T3 Preview first. Its snapshot step failed twice with `Preview snapshot failed: Preview automation snapshot timed out after 15000ms.` The check continued in an isolated agent-browser session. The demo listens only on the task's unused loopback port, 18483.
 - T3 updates the mobile capability, both feature-index sections, and short adjacent cross-references to meet AGENTS.md. The full M4 docs and README work remain separate. Existing history and notification content is preserved.
 
+### First M3 review fix verification
+
+- Integrated candidate `85cc838` onto parent `0d0c9f7` in the isolated task checkout. M4 candidate `1661c03` remains separate.
+- Before the fixes, 13 regression cases failed for label-query loss, delayed acknowledgement responses, and visit receipts crossing episodes or systems. The same cases pass with the fixes. Additional divergent-cache-episode and concurrent-response-order tests each failed before their corresponding fix and passed after it.
+- The final web run passes 130 files and 1,309 tests, with 24 existing skips. TypeScript and the production web build pass. The feature-doc audit with `--map-refs require` is clean across 39 capabilities. No backend code changed; this task does not repeat the parent's Go verification.
+- T3 Preview reached the label redirect, then its snapshot failed twice with `Preview snapshot failed: Preview automation snapshot timed out after 15000ms.` An isolated agent-browser session checked the task's loopback UI on port 18486 and demo on 18485.
+- Browser checks confirm global-query retention and Unicode, literal-plus, slash, and colon decoding on label fallback; request-name save, replacement and hand-back receipts; native Escape and opener focus; saved-receipt focus; and a bottom-aligned sticky action at phone width. The phone page has equal scroll and client widths at 360, 390, and 760 px; the desktop tree loads at 761 and 1280 px, with equal widths at 1280 px.
+- A temporary browser harness using the production cache hook and acknowledgement component verifies delayed response after resolve with a stalled refetch, same-episode hand-back receipt retention, and clearing after refire at 360, 390, and 1280 px. All three widths pass. The temporary harness is removed from the checkout.
+- Remaining pre-existing boundary issue: the desktop finding's configuration section reports scroll width 776 at client width 761. An exported original `85cc838` candidate on port 18487 reproduces the same measurement. No layout changes were made in this fix round.
+- M4 wording must limit visit receipts to the same system, finding, and episode, clearing on resolve; qualify immediate acknowledgement display when newer cached state supersedes the response; and describe global-query retention on both label-route destinations. These refinements are proposed, not yet confirmed.
+
 ## T4 Feature docs, deep links in the README and audit
 
 - `docs/features/mobile.md` to `Status: shipped` (or `partial`), with the rules and scenarios as built and "what may happen next" under Not supported or Planned. `triage-and-mutes.md` (acknowledgements beside mutes, "Acknowledging is not muting"), `metrics-and-alerting.md` (the two new metric families, the rules' new `unless`), `navigation.md` (the phone layout of the finding page, the label route), `overview-page.md`, `events.md` (`finding.acknowledged`), `checks.md` (the remediation file's `playbook`), `demo-mode.md`.

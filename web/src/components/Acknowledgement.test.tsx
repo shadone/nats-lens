@@ -4,11 +4,12 @@ import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useNavigate } from "react-router";
 import { beforeEach, expect, it, vi } from "vitest";
-import type { Finding } from "../api/model";
+import type { Finding, Acknowledgement } from "../api/model";
+import * as api from "../api/requests";
 import { renderApp } from "../test/render";
 import { onCallFinding, ack } from "../test/fixtures/oncall";
 import { FindingAcknowledgement } from "./Acknowledgement";
-vi.mock("../api/requests", async orig => ({ ...await orig<typeof import("../api/requests")>(), getLensInfo: vi.fn(async () => ({ identityMode: "request" })), endAcknowledgement: vi.fn(async () => ({ ...ack, endedAt: ack.createdAt + 1000, endedBy: "reviewer", endReason: "released", quiet: false })) }));
+vi.mock("../api/requests", async orig => ({ ...await orig<typeof import("../api/requests")>(), getLensInfo: vi.fn(async () => ({ identityMode: "request" })), acknowledgeFinding: vi.fn(), endAcknowledgement: vi.fn(async () => ({ ...ack, endedAt: ack.createdAt + 1000, endedBy: "reviewer", endReason: "released", quiet: false })) }));
 beforeEach(() => { localStorage.setItem("nats-lens-name", "reviewer"); });
 for (const scenario of ["new episode", "resolved", "other finding", "other system"] as const) it(`clears visit hand-back receipt on ${scenario} but keeps it in the same episode`, async () => {
   let change!: (f: Finding) => void; let navigate!: ReturnType<typeof useNavigate>;
@@ -19,10 +20,29 @@ for (const scenario of ["new episode", "resolved", "other finding", "other syste
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   act(() => change({ ...onCallFinding }));
   expect(await screen.findByText(/Handed back by reviewer/)).toBeInTheDocument();
+  act(() => navigate("/?system=example-prod&range=6h"));
+  expect(screen.getByText(/Handed back by reviewer/)).toBeInTheDocument();
   act(() => {
     if (scenario === "other system") navigate("/?system=example-global&range=6h");
     else change({ ...onCallFinding, ...(scenario === "new episode" ? { since: onCallFinding.since! + 3600000 } : scenario === "resolved" ? { state: "resolved" } : { id: "other" }) });
   });
   expect(screen.queryByText(/Handed back by reviewer/)).toBeNull();
   expect(screen.getByText("No acknowledgement for this episode.")).toBeInTheDocument();
+});
+
+it("does not deliver a pending old-system receipt into the next visit", async () => {
+  let finish!: (a: Acknowledgement) => void;
+  vi.mocked(api.acknowledgeFinding).mockImplementation(() => new Promise(r => { finish = r; }));
+  let navigate!: ReturnType<typeof useNavigate>;
+  function Host() { navigate = useNavigate(); return <FindingAcknowledgement finding={onCallFinding} phone />; }
+  renderApp(<Host />, "/?system=example-prod");
+  await userEvent.click(screen.getByRole("button", { name: "I'm on it" }));
+  await userEvent.click(screen.getByRole("button", { name: "Acknowledge" }));
+  await waitFor(() => expect(finish).toBeTypeOf("function"));
+  act(() => navigate("/?system=example-global&range=6h"));
+  await act(async () => { finish(ack); });
+  expect(screen.queryByText(/Acknowledged by/)).toBeNull();
+  expect(screen.getByText("No acknowledgement for this episode.")).toBeInTheDocument();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(api.acknowledgeFinding).toHaveBeenLastCalledWith("example-prod", expect.anything());
 });
