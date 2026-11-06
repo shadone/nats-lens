@@ -399,12 +399,33 @@ export function useSaveAcknowledgement() {
   return useMutation({
     mutationFn: (v: { system: string } & ({ action: "ack"; input: api.AckInput } | { action: "release"; id: string; endedBy: string })) =>
       v.action === "ack" ? api.acknowledgeFinding(v.system, v.input) : api.endAcknowledgement(v.system, v.id, v.endedBy),
-    onSuccess: async (a, v) => {
+    // ASVS 15.4.2: capture the episode and revision before the asynchronous write;
+    // a response cannot supersede an intervening authoritative read or mutation.
+    onMutate: v => {
+      const snapshots = new Map<string, { revision: number; finding: import("./model").Finding }>();
+      for (const kind of ["finding", "oncall"]) {
+        for (const q of qc.getQueryCache().findAll({ queryKey: [kind, v.system] })) {
+          const f = (q.state.data as { finding?: import("./model").Finding } | undefined)?.finding;
+          if (f && (v.action === "ack" ? f.id === v.input.findingId : f.acknowledgement?.id === v.id))
+            snapshots.set(q.queryHash, { revision: q.state.dataUpdateCount, finding: f });
+        }
+      }
+      return snapshots;
+    },
+    onSuccess: (a, v, snapshots) => {
       const filter = { predicate: (q: { queryKey: readonly unknown[] }) => q.queryKey[1] === v.system };
-      await qc.cancelQueries(filter);
-      for (const key of ["finding", "oncall"]) {
-        qc.setQueryData([key, v.system, a.findingId], (d: { finding?: import("./model").Finding } | undefined) =>
-          d ? { ...d, finding: d.finding ? { ...d.finding, acknowledgement: a.endedAt === undefined ? a : undefined } : undefined } : d);
+      for (const kind of ["finding", "oncall"]) {
+        const key = [kind, v.system, a.findingId];
+        const q = qc.getQueryCache().find({ queryKey: key, exact: true });
+        const before = q && snapshots?.get(q.queryHash);
+        const f = (q?.state.data as { finding?: import("./model").Finding } | undefined)?.finding;
+        if (!q || !before || !f || q.state.dataUpdateCount !== before.revision ||
+            f.id !== before.finding.id || f.since === undefined || f.since !== before.finding.since ||
+            f.state !== before.finding.state || f.state === "resolved" || f.state === "unknown" ||
+            (f.acknowledgement?.createdAt ?? -Infinity) > (a.createdAt ?? -Infinity) ||
+            (v.action === "release" && f.acknowledgement?.id !== v.id)) continue;
+        qc.setQueryData(key, (d: { finding?: import("./model").Finding } | undefined) =>
+          d ? { ...d, finding: { ...f, acknowledgement: a.endedAt === undefined ? a : undefined } } : d);
       }
       void qc.invalidateQueries(filter);
     },

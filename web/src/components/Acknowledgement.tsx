@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Acknowledgement, Finding } from "../api/model";
+import { useSystem } from "../lib/useSystem";
 import { serverNow } from "../lib/clock";
 import { isoMinute } from "../lib/format";
 import { AckDialog } from "./AckDialog";
@@ -15,7 +16,15 @@ export function AcknowledgementMark({ acknowledgement: a, now = serverNow() }: {
 }
 /** One action owner per finding tree. A successful save focuses the receipt
  * after the native dialog has restored its opener's focus. */
-export function FindingAcknowledgement({ finding: f, phone = false, renderHead }: { finding: Finding; phone?: boolean; renderHead?: (open: () => void) => ReactNode }) {
+type FindingAcknowledgementProps = { finding: Finding; phone?: boolean; renderHead?: (open: () => void) => ReactNode };
+export function FindingAcknowledgement(props: FindingAcknowledgementProps) {
+  const system = useSystem();
+  const f = props.finding;
+  // Visit receipts and pending dialog callbacks belong only to this episode.
+  // Resolving clears them too, even when the episode's start stays the same.
+  return <EpisodeAcknowledgement key={JSON.stringify([system, f.id, f.since, f.state === "resolved"])} {...props} />;
+}
+function EpisodeAcknowledgement({ finding: f, phone = false, renderHead }: FindingAcknowledgementProps) {
   const [dialog, setDialog] = useState<"ack" | "release">();
   const [previous, setPrevious] = useState<Acknowledgement>();
   const [focusVersion, setFocusVersion] = useState(0);
