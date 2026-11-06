@@ -52,3 +52,10 @@ it("hands back with the captured identity and records who ended it", async () =>
   await waitFor(() => expect(m.endAcknowledgement).toHaveBeenCalledWith("example-prod", "a1", "alice"));
   expect(saved).toHaveBeenCalledWith(expect.objectContaining({ endReason: "released", endedBy: "alice" }));
 });
+it("lets Escape close without saving and restores opener focus", async () => {
+  const { useState } = await import("react");
+  function Host() { const [open, setOpen] = useState(false); return <><button onClick={() => setOpen(true)}>open</button><AckDialog finding={open ? onCallFinding : undefined} onClose={() => setOpen(false)} onSaved={() => {}} /></>; }
+  renderApp(<Host />); await userEvent.click(screen.getByText("open"));
+  fireEvent(screen.getByRole("dialog"), new Event("cancel", { bubbles: true, cancelable: true }));
+  expect(screen.queryByRole("dialog")).toBeNull(); expect(screen.getByText("open")).toHaveFocus(); expect(m.acknowledgeFinding).not.toHaveBeenCalled();
+});

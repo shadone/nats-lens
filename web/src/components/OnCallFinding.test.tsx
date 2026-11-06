@@ -67,3 +67,16 @@ it("stops saying quiet at expiry without removing ownership and describes releas
   rerender(<AcknowledgementMark acknowledgement={{ ...ack, endedAt: ack.quietUntil, endedBy: "bob", endReason: "released" }} now={ack.quietUntil} />);
   expect(screen.getByText(/Handed back by bob/)).toBeInTheDocument();
 });
+it("keeps the desktop acknowledge action beside mute", async () => {
+  phone = false; show();
+  const mute = await screen.findByRole("button", { name: "Mute…" });
+  expect(mute.parentElement).toContainElement(screen.getByRole("button", { name: "Acknowledge…" }));
+});
+it("uses a refetched resolve to end ownership rather than reviving a local saved acknowledgement", async () => {
+  m.acknowledgeFinding.mockResolvedValue(ack); localStorage.setItem("nats-lens-name", "alice");
+  show(); await userEvent.click(await screen.findByRole("button", { name: "I'm on it" }));
+  getOnCall.mockResolvedValue({ ...onCallCard, finding: { ...onCallFinding, state: "resolved", resolvedAt: Date.now() } });
+  await userEvent.click(screen.getByRole("button", { name: "Acknowledge" }));
+  await screen.findByText(/Resolved.*Present observations/);
+  expect(screen.queryByRole("button", { name: "Update…" })).toBeNull();
+});
