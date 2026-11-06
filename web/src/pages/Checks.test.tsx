@@ -1,7 +1,7 @@
 import { create } from "@bufbuild/protobuf";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Routes, Route } from "react-router";
+import { Routes, Route, useNavigate } from "react-router";
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { renderApp } from "../test/render";
 import { App } from "../App";
@@ -35,8 +35,13 @@ function assertGlobal(link: HTMLElement, path: string) {
   expect(url.searchParams.get("account")).toBe("APP");
 }
 
+function SwitchSystem() {
+  const navigate=useNavigate();
+  return <button onClick={() => navigate("/checks/consumer-009?system=example-staging&range=6h")}>Switch test system</button>;
+}
+
 describe("check reference routes", () => {
-  it("uses the concise authored meaning in the catalog and detail", async () => {
+  it("uses the concise authored meaning in the detail", async () => {
     const data=response();
     data.definitions[0]!.reference.unshift({$typeName:"natslens.v1.CheckReferenceSection",title:"Meaning",text:"Reported creation timestamps differ; cause is unproven."});
     api.listCheckDefinitions.mockResolvedValue(data);
@@ -45,6 +50,16 @@ describe("check reference routes", () => {
     expect(screen.queryByText(definition.description)).not.toBeInTheDocument();
   });
 
+  it("does not retain configured values while another system loads", async () => {
+    const configured=response("configured"); configured.definitions[0]!.disabled=true;
+    api.listCheckDefinitions.mockResolvedValueOnce(configured).mockImplementationOnce(() => new Promise(() => {}));
+    renderApp(<><SwitchSystem /><Routes><Route path="/checks/:code" element={<CheckDetail />} /></Routes></>,"/checks/consumer-009?system=example-prod&range=6h");
+    expect(await screen.findByText("Disabled for this system")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button",{name:"Switch test system"}));
+    expect(screen.queryByText("Disabled for this system")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Loading the check reference");
+    expect(api.listCheckDefinitions).toHaveBeenLastCalledWith({system:"example-staging"});
+  });
   it("opens the catalog route", async () => {
     renderApp(<App />, "/checks?system=example-prod&range=6h");
     expect(await screen.findByRole("heading", { name: "Checks", level: 1 })).toBeInTheDocument();

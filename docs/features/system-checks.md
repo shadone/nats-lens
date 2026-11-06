@@ -16,7 +16,7 @@ The system checks judge what belongs to no single server: the JetStream meta gro
 - **Fires when:** any check failed in this collection. The detail lists the checks that failed and their errors.
 - **Severity:** warning. Critical once the same check has failed ten collections in a row.
 - **Thresholds:** none of its own. Each check may run for `checks.timeout` (5 seconds), and all checks of a collection share half the collect interval; a check that would start after that budget is a failed run.
-- **Left out:** checks turned off with `checks.disabled`, as they do not run and so cannot fail. This check is built into the engine and has no SQL file. It can itself be turned off with `checks.disabled`; failed checks then show only in the log and in the `nats_lens_check_failing` metric.
+- **Left out:** checks turned off with `checks.disabled`, as they do not run and so cannot fail. This check reports the check engine's own health. It can itself be turned off with `checks.disabled`; failed checks then show only in the log and in the `nats_lens_check_failing` metric.
 
 ### `system-002` No JetStream meta leader
 
