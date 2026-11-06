@@ -13,13 +13,11 @@ import (
 	"github.com/shadone/nats-lens/internal/testfatal"
 )
 
-// Separate processes exercise the pinned engine's WAL replay/shutdown boundary.
-// Only disposable synthetic data is used; this says nothing about other files.
+// A pre-existing synthetic index failure must still produce a typed fatal after
+// an engine upgrade. Only disposable data is used.
 func TestFatalEngineContainment(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "synthetic.duckdb")
-	if testfatal.Prepare(t, path) {
-		return
-	}
+	testfatal.Prepare(t, path)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
