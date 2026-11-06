@@ -21,17 +21,21 @@ The system checks judge what belongs to no single server: the JetStream meta gro
 ### `system-002` No JetStream meta leader
 
 - **Problem:** the JetStream meta group has no leader. Without one, no stream or consumer can be created, deleted or updated, and assets cannot move to other servers.
-- **Fires when:** none of the clustered JetStream servers reports a meta leader, or the meta leader reports more of the meta group's peers offline than its quorum allows.
+- **Fires when:** a meta group has no reported leader, or its leader reports more peers offline than its quorum allows. Each group is judged independently; a healthy group cannot hide another group's failure when stored membership identifies both.
 - **Severity:** critical.
 - **Thresholds:** none.
+- **Group scope:** overlapping stored RAFT peer membership identifies groups. A reporter without RAFTZ can join a group when its JSZ leader resolves unambiguously to that group. A cluster name, a domain label, and the reused `_meta_` ID alone do not prove separate physical groups. Ambiguous peer hashes, including simultaneous duplicate server names, do not establish shared membership. Membership comes from this collection; missing membership leaves observations explicitly unscoped.
+- **Evidence:** the detail lists every failing group and its reporting servers. A missing leader field is unknown, distinct from an explicitly empty leader. Missing offline-peer counts do not become zero. Absence of a finding does not certify a group whose replies or membership are missing.
 - **Left out:** single-server deployments and servers without JetStream, which have no meta group.
 
 ### `system-003` JetStream meta leader changing often
 
 - **Problem:** the meta leader keeps changing. Each change pauses JetStream API calls for the election.
-- **Fires when:** the meta leader changed more than `max_changes` times within the lookback, counted from the `meta.leader_elected` advisories and from the leader the servers report in each collection, whichever count is higher.
+- **Fires when:** a meta group changed leader more than `max_changes` times within the lookback. Each group uses the larger of its scoped election-advisory count and its snapshot change count. The detail lists every affected group; the finding value is the largest group count, never their sum.
 - **Severity:** warning.
 - **Thresholds:** lookback 15m, `max_changes` 4.
+- **Group scope:** the same membership rules as `system-002`, using only observations within the lookback up to the evaluated collection. Later membership and future process replacements cannot change a historical evaluation. Cluster and domain labels do not split shared membership.
+- **Advisory scope:** a server name assigns an advisory only when it resolves to one group. With identified groups, unresolved advisories do not contribute to a group threshold; a firing finding mentions that exclusion. Without membership evidence, the legacy aggregate snapshot and advisory detector remains available, labelled as unscoped observations with unknown group identity. Its count does not prove changes within one physical group.
 - **Left out:** the first change away from a leader within two collect intervals after it announced lame duck mode or shutdown, or after its process went away and was replaced. A rolling restart moves the leader once per restarted leader, and that hand-over is not counted. Later changes away from the same server count.
 
 ### `system-004` JetStream meta group falling behind
@@ -95,6 +99,7 @@ The system checks judge what belongs to no single server: the JetStream meta gro
 
 - **A failed check is not silence.** Because `system-001` fires whenever a check fails, a check that cannot run never looks like a check that found nothing. The `/metrics` endpoint also exports `nats_lens_check_failing` per check.
 - **Checks rotate.** The order of the checks moves by one every collection, so when the budget runs out, a different check is left out each time.
+- **Meta groups share one system finding per check.** Group evidence does not create separate findings, mute targets, acknowledgement targets, or notification identities. A failure in any identified group keeps the system finding firing. The Overview leader name and trend retain their system-wide majority rule; they are not per-group health evidence.
 - **System findings carry no entity.** In the UI they read as "system". A mute of a system finding, for "This entity" or for every entity of the check, covers the whole system.
 - **Held conditions do not flap.** `system-004`, `system-005` and `system-006` fire only when their condition held in every collection for `min_duration`, and a firing finding resolves only after `min_duration` without it. A collection with a restarting server counts as clean, so a rolling restart or upgrade does not fire them.
 - **nats-lens judges itself.** `system-007` to `system-010` are about nats-lens, not NATS: their remediations name nats-lens's own settings (`timeout`, `archive_dir`, `data_dir`, `events.api_audit`, notification channels) as well as `nats` commands. They colour no Overview tile; `system-001` to `system-006` colour the Servers tile ([overview-page.md](overview-page.md)).
@@ -126,6 +131,19 @@ The system checks judge what belongs to no single server: the JetStream meta gro
 - **Given** three servers restarted one at a time, each leader announcing lame duck mode first
 - **When** the meta leader moves once per restarted leader
 - **Then** `system-003` does not fire
+
+### One meta group loses its leader
+
+- **Given** orders and shipping have disjoint stored RAFT membership, even though both report the cluster name `shop`
+- **When** orders reports no leader while shipping keeps its leader
+- **Then** `system-002` fires and names the orders group's reporting servers
+
+### A smaller meta group flaps
+
+- **Given** a three-server orders group and a stable five-server shipping group with disjoint stored RAFT membership
+- **When** orders changes leader 7 times within 15 minutes
+- **Then** `system-003` reports orders, with a value of 7
+- **And** three election advisories in each independent group do not combine into six changes
 
 ### A peer of the meta group stays behind
 
@@ -193,6 +211,7 @@ Every system check planned earlier is built. A check of the Kubernetes watcher's
 
 ## Not supported / out of scope
 
+- **Unknown meta membership.** Without sufficient stored RAFT membership, separate physical groups cannot be certified or judged independently. Different domain labels alone do not fill that gap. Missing replies can remove evidence and resolve a finding; no separate per-group unknown state is exposed.
 - **No supercluster-wide checks.** Gateways between clusters are not judged yet; see the planned server checks and [topology.md](topology.md).
 - **Accounts are judged elsewhere.** An account's limits and JWTs are the account checks; see [account-checks.md](account-checks.md).
 - **No check on the Kubernetes watcher's health.** Watch gaps are recorded as events, not findings.

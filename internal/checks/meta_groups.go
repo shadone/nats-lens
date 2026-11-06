@@ -14,7 +14,7 @@ import (
 // the reused _meta_ ID, establishes a physical group. Only the evaluation
 // window is read; evaluating history never borrows a future membership.
 func prepareMetaGroups(ctx context.Context, conn *sql.Conn, lo, hi int64) error {
-	rows, err := conn.QueryContext(ctx, `SELECT st.server_id, s.server_name, st.meta_leader, r.peers::VARCHAR
+	rows, err := conn.QueryContext(ctx, `SELECT st.epoch, st.server_id, s.server_name, st.meta_leader, r.peers::VARCHAR
  FROM server_stats st JOIN servers s USING (server_id)
  LEFT JOIN raft_stats r ON r.epoch = st.epoch AND r.server_id = st.server_id AND r.group_id = '_meta_'
  WHERE st.epoch BETWEEN ? AND ? AND st.js_enabled`, lo, hi)
@@ -22,11 +22,14 @@ func prepareMetaGroups(ctx context.Context, conn *sql.Conn, lo, hi int64) error 
 		return err
 	}
 	type observation struct {
+		epoch            int64
 		id, name, leader string
 		peers            sql.NullString
 	}
 	var obs []observation
 	names := map[string]map[string]bool{}
+	epochNames := map[int64]map[string]string{}
+	ambiguousNames := map[string]bool{}
 	parent := map[string]string{}
 	var root func(string) string
 	root = func(x string) string {
@@ -50,12 +53,19 @@ func prepareMetaGroups(ctx context.Context, conn *sql.Conn, lo, hi int64) error 
 	for rows.Next() {
 		var o observation
 		var leader sql.NullString
-		if err := rows.Scan(&o.id, &o.name, &leader, &o.peers); err != nil {
+		if err := rows.Scan(&o.epoch, &o.id, &o.name, &leader, &o.peers); err != nil {
 			rows.Close()
 			return err
 		}
 		o.leader = leader.String
 		obs = append(obs, o)
+		if epochNames[o.epoch] == nil {
+			epochNames[o.epoch] = map[string]string{}
+		}
+		if id, ok := epochNames[o.epoch][o.name]; ok && id != o.id {
+			ambiguousNames[o.name] = true
+		}
+		epochNames[o.epoch][o.name] = o.id
 		if names[o.name] == nil {
 			names[o.name] = map[string]bool{}
 		}
@@ -66,26 +76,43 @@ func prepareMetaGroups(ctx context.Context, conn *sql.Conn, lo, hi int64) error 
 		return err
 	}
 	rows.Close()
-	proven := map[string]bool{}
+	type peerInfo struct {
+		Name string `json:"name"`
+	}
+	// ASVS 1.5.2: decode only peer names into a fixed data type. Cache the
+	// repeated configuration so work scales with membership changes.
+	configs := map[string]map[string]peerInfo{}
+	peerNames := map[string]string{}
+	ambiguousPeers := map[string]bool{}
 	for _, o := range obs {
 		if !o.peers.Valid {
 			continue
 		}
-		// ASVS 1.5.2: decode only peer names into a fixed data type.
-		var peers map[string]struct {
-			Name string `json:"name"`
+		if _, ok := configs[o.peers.String]; ok {
+			continue
 		}
+		var peers map[string]peerInfo
 		if err := json.Unmarshal([]byte(o.peers.String), &peers); err != nil {
 			return fmt.Errorf("decode meta membership: %w", err)
 		}
-		if len(peers) == 0 {
-			continue
-		}
-		proven[o.id] = true
+		configs[o.peers.String] = peers
 		for peer, p := range peers {
+			if name, ok := peerNames[peer]; ok && name != p.Name {
+				ambiguousPeers[peer] = true
+			}
+			peerNames[peer] = p.Name
+		}
+	}
+	proven := map[string]bool{}
+	for _, o := range obs {
+		for peer, p := range configs[o.peers.String] {
+			// Peer IDs hash names, so simultaneous duplicate names or a hash
+			// resolving to conflicting names cannot prove shared membership.
+			if peer == "" || ambiguousPeers[peer] || ambiguousNames[p.Name] {
+				continue
+			}
+			proven[o.id] = true
 			join("server:"+o.id, "peer:"+peer)
-			// A name can resolve a reporter only when it is unambiguous in the
-			// bounded window; duplicate names never join otherwise separate groups.
 			if len(names[p.Name]) == 1 {
 				for id := range names[p.Name] {
 					join("peer:"+peer, "server:"+id)
