@@ -7,7 +7,7 @@ import { ServerList } from "./ServerList";
 
 const row = (name: string, overrides: Partial<ServerRow> = {}): ServerRow => ({
   name, serverId: name, version: "2.15.0", cluster: "shop", role: "follower", present: true,
-  status: "ok", healthz: "ok", restarts: [], tags: [], ...overrides,
+  status: "ok", healthz: "ok", healthzError: "", restarts: [], tags: [], ...overrides,
 });
 
 describe("server list storage", () => {

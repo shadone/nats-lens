@@ -48,6 +48,7 @@ function StoreCell({ s }: { s: ServerRow }) {
   const p = storePct(s);
   return (
     <td className="srv-store">
+      {/* ASVS 1.2.1: storage text is rendered through React’s HTML encoding. */}
       <span className="srv-storage-value">{storageReading(s)}</span>
       {p !== undefined && (
         <span className="srv-storage-meter" role="img" aria-label={`${Math.round(p)}% of configured JetStream limit`}>
