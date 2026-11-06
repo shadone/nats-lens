@@ -58,7 +58,7 @@ func accountsStore(t *testing.T, last time.Time, withGap bool) *store.Store {
 	// varz answering VARZ (and so writing server_stats) and the others
 	// missing; S1 answers, but its VARZ fails in the newest epoch.
 	epoch := func(n int64, at time.Time, varz ...string) {
-		var missing []string
+		missing := []string{} // Empty SQL list, not the driver's typed-nil NULL.
 		for i, name := range names {
 			id := fmt.Sprintf("S%d", i)
 			switch {

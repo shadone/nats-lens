@@ -75,7 +75,8 @@ func topologyStore(t *testing.T, last time.Time) *store.Store {
 		return out
 	}
 	for e := int64(1); e <= topoEpochs; e++ {
-		var names, missing []string
+		var names []string
+		missing := []string{} // Empty SQL list, not the driver's typed-nil NULL.
 		for _, s := range up(e) {
 			names = append(names, s.name)
 		}
