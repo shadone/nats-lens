@@ -17,6 +17,7 @@ The client checks judge the applications connected to NATS: whether their round 
 - **Severity:** warning.
 - **Thresholds:** `max_rtt` 100ms, `min_epochs` 2.
 - **Keyed by:** the service, the connection name before any "@". Naming each pod's connection `service@pod` therefore gives one finding per service, and a mute covers every pod of it.
+- **Connections links:** each `service@pod` row can link the service finding with its range-end state, including muted and resolved states. A high sample alone need not fire: the check still requires the configured persistence. See [connections.md](connections.md).
 - **Left out:** tooling connections, unless `checks.include_tooling` is set.
 
 ### `client-002` High pending bytes

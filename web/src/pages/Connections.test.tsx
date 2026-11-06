@@ -131,7 +131,7 @@ describe("Connections finding discovery", () => {
     await screen.findByRole("link", { name: names[0] });
     await waitFor(() => expect(screen.getAllByText(/Unknown/)).toHaveLength(3));
     expect(screen.queryByText("No matching finding")).not.toBeInTheDocument();
-    expect(screen.getByText(/persistent.*collections/i)).toBeInTheDocument();
+    expect(screen.getByText(/persistence.*collections/i)).toBeInTheDocument();
   });
   it("does not carry findings across systems, ranges or newest collections", async () => {
     let go: ReturnType<typeof useNavigate> = () => {};
