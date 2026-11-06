@@ -81,3 +81,17 @@ it("binds a save to the originating episode when detail caches disagree", async 
   expect(qc.getQueryData<{ finding: Finding }>(key("finding"))?.finding.acknowledgement).toBeUndefined();
   expect(qc.getQueryData<{ finding: Finding }>(key())?.finding.acknowledgement).toEqual(ack);
 });
+it("shows the later concurrent save when responses arrive in write order", async () => {
+  const pending: ((a: Acknowledgement) => void)[] = [];
+  vi.mocked(api.acknowledgeFinding).mockImplementation(() => new Promise(r => { pending.push(r); }));
+  const qc = new QueryClient(); qc.setQueryData(key(), { finding: onCallFinding });
+  const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+  const first = renderHook(useSaveAcknowledgement, { wrapper }); const second = renderHook(useSaveAcknowledgement, { wrapper });
+  let earlier!: Promise<Acknowledgement>; let later!: Promise<Acknowledgement>;
+  act(() => { earlier = first.result.current.mutateAsync(value); later = second.result.current.mutateAsync(value); });
+  await waitFor(() => expect(pending).toHaveLength(2));
+  const newer = { ...ack, id: "new", createdAt: ack.createdAt + 1000 };
+  await act(async () => { pending[0](ack); await earlier; });
+  await act(async () => { pending[1](newer); await later; });
+  expect(qc.getQueryData<{ finding: Finding }>(key())?.finding.acknowledgement).toEqual(newer);
+});
