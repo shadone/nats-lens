@@ -73,7 +73,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Inventory](inventory.md) | `ui`, `cli` | shipped |
 | [Navigation, time range and theme](navigation.md) | `ui`, `api` | shipped — history navigation, canonical finding links, and encoded alert-label links |
 | [Overview page](overview-page.md) | `ui`, `api` | shipped — acknowledgement marks, phone ordering, history notes and chart gaps; tile links, cause evidence, a shared hover and more lanes are planned |
-| [Servers](servers.md) | `ui`, `api` | shipped — JetStream file bytes, configured limits, per-server storage history and responsive descriptions |
+| [Servers](servers.md) | `ui`, `api` | shipped — JetStream file bytes, configured limits, per-server storage history and clear disconnect-versus-backlog labels |
 | [Streams](streams.md) | `ui`, `api` | shipped — replica placement is in the API only |
 | [Consumers](consumers.md) | `ui`, `api` | shipped — delivery rate and busiest-first order are in the API only |
 | [Connections](connections.md) | `ui`, `api` | shipped |
@@ -127,7 +127,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 **Web UI**
 - [x] Sidebar, system switcher, header with account scope and search, the global time range (cut to fit a narrow window) on the server's clock and the theme menu, short-history navigation, all fed by one status call per system; encoded alert-label links (navigation.md)
 - [x] Overview: status line, nine metric boxes with descriptions, cause cards with acknowledgements and muted findings, phone ordering, trends, timeline lanes with the status timeline, busiest consumers, streams with placement, history notes and chart gaps (overview-page.md)
-- [x] Servers for 20 or more servers: data points, charts across servers, a map of every server, a grouped list with JetStream file bytes and limit bars; server pages with storage history, responsive metric descriptions, placement, limits and recent events (servers.md)
+- [x] Servers for 20 or more servers: disconnect counts distinguished from JetStream backlog, data points, charts across servers, a map of every server, a grouped list with JetStream file bytes and limit bars; server pages with storage history, responsive metric descriptions, placement, limits and recent events (servers.md)
 - [x] Streams list and stream detail; replica placement in the API only (streams.md)
 - [x] Consumers list and consumer detail, a stream filter that is not polled; delivery rate and busiest-first order in the API only (consumers.md)
 - [x] Client connections of the newest collection, the server filter's choices sent with them (connections.md)
