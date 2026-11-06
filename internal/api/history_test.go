@@ -162,55 +162,55 @@ func uses(f *api.HistoryFacts) map[string]*v1.HistoryUse {
 func TestDataHistoryUses(t *testing.T) {
 	f := hFacts()
 	f.Start = hNow.Add(-24 * time.Hour)
-	f.HistoryStart = hNow.Add(-31 * time.Minute)
-	f.Lookbacks = []api.CheckLookback{{Code: "server-014", Lookback: 6 * time.Hour}, {Code: "consumer-002", Lookback: 30 * time.Minute},
-		{Code: "server-004", Lookback: time.Hour}}
-	u := uses(f)
-	if g := u["growth"]; g.GetEnough() || g.GetHas().AsDuration() != 31*time.Minute || !g.GetEnoughAt().AsTime().Equal(f.HistoryStart.Add(6*time.Hour)) {
-		t.Errorf("growth %v: want 31 min, enough 6 h after the start", g)
+	f.Lookbacks = []api.CheckLookback{{Code: "server-014", Lookback: 6 * time.Hour}, {Code: "stream-006", Lookback: 12 * time.Hour}, {Code: "consumer-002", Lookback: time.Hour}}
+	f.Samples = map[string]api.HistorySamples{}
+	for _, w := range api.HistoryUseWindows(f) {
+		f.Samples[w.ID] = api.HistorySamples{First: hNow.Add(-4 * time.Minute), Last: hNow.Add(-time.Minute)}
 	}
-	if g := u["forecast:server-014"]; g.GetEnough() || g.GetCheckCode() != "server-014" || g.GetNeeds().AsDuration() != 6*time.Hour {
-		t.Errorf("forecast %v", g)
-	}
-	if _, ok := u["forecast:stream-006"]; ok {
-		t.Error("a forecast whose check is not in the set is listed")
-	}
-	// Only the checks still short are listed.
-	if _, ok := u["lookback:consumer-002"]; ok {
-		t.Error("consumer-002 has enough and is listed")
-	}
-	if g := u["lookback:server-004"]; g == nil || !g.GetEnoughAt().AsTime().Equal(f.HistoryStart.Add(time.Hour)) {
-		t.Errorf("server-004 %v", g)
-	}
-	if g := u["accept_review"]; g.GetEnough() || g.GetNever() || !g.GetEnoughAt().AsTime().Equal(f.HistoryStart.Add(api.AcceptRetention)) {
-		t.Errorf("accept review %v", g)
-	}
-	// A retention shorter than the need never has enough.
-	f.Retention = 7 * 24 * time.Hour
-	if g := uses(f)["accept_review"]; !g.GetNever() || g.GetEnough() || g.GetEnoughAt() != nil {
-		t.Errorf("accept review under 7 days: %v", g)
-	}
-	// Enough: no time to wait.
-	f.HistoryStart = hNow.Add(-10 * 24 * time.Hour)
-	f.Retention = 14 * 24 * time.Hour
-	u = uses(f)
-	for _, id := range []string{"growth", "accept_review", "day", "replay", "forecast:server-014"} {
-		if g := u[id]; !g.GetEnough() || g.GetEnoughAt() != nil || g.GetNever() {
-			t.Errorf("%s with 10 days: %v", id, g)
+	for _, u := range uses(f) {
+		if u.GetEnough() || u.GetHas().AsDuration() != 3*time.Minute || u.GetEnoughAt() != nil {
+			t.Errorf("stopped: %v", u)
 		}
 	}
-	if len(u) != 5 {
-		t.Errorf("uses %v: want no lookback row once every check has enough", u)
+	// The two forecasts have distinct configured windows; these are targets,
+	// not min_span or proof that either entity's slopes are valid.
+	if u := uses(f)["forecast:stream-006"]; u.GetNeeds().AsDuration() != 12*time.Hour {
+		t.Error(u)
 	}
-	// Growth reads the range: a 1-hour range never holds 6 hours, and an
-	// ended range does not grow.
+	// A sparse sample span can be valid for RobustPerDay; continuity is not required.
+	f.Samples["growth"] = api.HistorySamples{First: hNow.Add(-7 * time.Hour), Last: hNow.Add(-time.Minute)}
+	if u := uses(f)["growth"]; !u.GetEnough() {
+		t.Error(u)
+	}
+	// A fresh growing range may give a conditional earliest time.
+	first, last := hNow.Add(-31*time.Minute), hNow.Add(-30*time.Second)
+	f.Samples["growth"] = api.HistorySamples{First: first, Last: last}
+	u := uses(f)["growth"]
+	if u.GetEnough() || !u.GetEnoughAt().AsTime().Equal(hNow.Add(api.MinGrowthSpan-last.Sub(first))) {
+		t.Error(u)
+	}
+	f.End = hNow.Add(-time.Hour)
+	if u := uses(f)["growth"]; u.GetEnoughAt() != nil {
+		t.Error(u)
+	}
+	f.End = hNow
+	f.Start = hNow.Add(-6 * time.Hour)
+	if u := uses(f)["growth"]; u.GetEnoughAt() != nil {
+		t.Error("exclusive end cannot fit six-hour sample span", u)
+	}
 	f.Start = hNow.Add(-time.Hour)
-	if g := uses(f)["growth"]; g.GetEnough() || g.GetEnoughAt() != nil || g.GetHas().AsDuration() != time.Hour {
-		t.Errorf("growth over 1 h: %v", g)
+	if u := uses(f)["growth"]; u.GetEnoughAt() != nil {
+		t.Error(u)
 	}
-	f.Start, f.End, f.HistoryStart = hNow.Add(-30*time.Hour), hNow.Add(-27*time.Hour), hNow.Add(-28*time.Hour)
-	if g := uses(f)["growth"]; g.GetEnough() || g.GetEnoughAt() != nil {
-		t.Errorf("growth over an ended range: %v", g)
+	f.Retention = 7 * 24 * time.Hour
+	if u := uses(f)["accept_review"]; !u.GetNever() || u.GetEnough() || u.GetEnoughAt() != nil {
+		t.Error(u)
+	}
+	f.Samples = nil
+	for _, u := range uses(f) {
+		if u.Has != nil || u.Enough || u.EnoughAt != nil {
+			t.Error(u)
+		}
 	}
 }
 

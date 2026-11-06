@@ -13,6 +13,8 @@ import (
 	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/api/apitest"
 	"github.com/shadone/nats-lens/internal/api/storeprov"
+	"github.com/shadone/nats-lens/internal/checks"
+	"github.com/shadone/nats-lens/internal/config"
 	"github.com/shadone/nats-lens/internal/events"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"github.com/shadone/nats-lens/internal/store"
@@ -225,7 +227,7 @@ func TestDataHistoryArchiveState(t *testing.T) {
 	}
 }
 
-// The read takes three queries, none per epoch: 14 days of epochs at a
+// The read takes four queries, none per epoch: 14 days of epochs at a
 // 30-second interval stay well inside the call's time limit.
 func TestDataHistoryFourteenDays(t *testing.T) {
 	if testing.Short() {
@@ -327,5 +329,137 @@ func TestDataHistoryGapOpenAtRangeEnd(t *testing.T) {
 	if g := res.GetGaps()[0]; g.GetKind() != v1.HistoryGapKind_HISTORY_GAP_KIND_NOT_RUNNING || g.GetEnd() != nil ||
 		g.GetAfterEpoch() != 0 || g.GetAfterEpochAt() != nil || g.GetBeforeEpoch() == 0 {
 		t.Errorf("gap open at the range's end: %v", g)
+	}
+}
+
+// Old retained collections cannot stand in for samples inside a use's window.
+func TestDataHistoryRestartReadiness(t *testing.T) {
+	st := emptyStore(t)
+	r := rows{t, st}
+	now := historyClock
+	r.server("S0", "nats-0")
+	r.epoch(1, now.Add(-14*24*time.Hour), "S0")
+	for i := int64(0); i < 9; i++ {
+		at := now.Add(-5 * time.Minute).Add(time.Duration(i) * 30 * time.Second)
+		r.epoch(i+2, at, "S0")
+		r.add("stream_stats", map[string]any{"epoch": i + 2, "server_id": "S0", "account": "APP", "stream": "catalog-changes", "bytes": 1000 + i*100, "messages": i + 1, "is_leader": true})
+	}
+	r.add("stream_config", map[string]any{"server_id": "S0", "account": "APP", "stream": "catalog-changes", "first_epoch": 2, "last_epoch": 10, "config_hash": "h", "retention": "limits", "storage": "file", "replicas": 1, "max_msgs": -1, "max_bytes": -1, "max_age_ns": 0, "max_msgs_per_subject": -1, "discard": "old"})
+	set, err := checks.Load(config.Checks{Thresholds: map[string]map[string]string{
+		"server-014": {"lookback": "6h", "min_span": "2h"}, "stream-006": {"lookback": "12h", "min_span": "30m"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := &storeprov.Provider{St: st, Checks: set, Interval: 30 * time.Second, Live: true, Clock: func() time.Time { return now }}
+	for _, zone := range []string{"UTC", "Asia/Kolkata", "America/Los_Angeles"} {
+		if _, err := st.DB().Exec(`SET GLOBAL TimeZone = '` + zone + `'`); err != nil {
+			t.Fatal(err)
+		}
+		f, err := p.DataHistory(ctx, &v1.GetDataHistoryRequest{Range: lastDay(now)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		res := api.FinishDataHistory(f)
+		if c := res.GetCoverage(); c.GetEpochs() != 9 || c.GetExpectedEpochs() != 2880 || c.GetWithoutData().AsDuration() != 23*time.Hour+55*time.Minute {
+			t.Errorf("coverage %v", c)
+		}
+		for _, u := range res.GetUses() {
+			if u.GetEnough() || u.GetHas().AsDuration() != 4*time.Minute || u.GetEnoughAt() != nil {
+				t.Errorf("%s: restart use %s has %v, enough=%v, at=%v; want 4 min and no countdown for stopped collection", zone, u.GetId(), u.GetHas(), u.GetEnough(), u.GetEnoughAt())
+			}
+		}
+		sr, err := p.ListStreams(ctx, &v1.ListStreamsRequest{Range: lastDay(now)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		streams := sr.GetStreams()
+		if len(streams) != 1 || streams[0].BytesPerDay != nil {
+			t.Fatalf("%s: growth should be unset: %v", zone, streams)
+		}
+	}
+	// Removing retained old history leaves the same sample evidence in the
+	// use windows: a genuinely new collector is just as unready for growth.
+	if _, err := st.DB().Exec(`DELETE FROM epochs WHERE epoch = 1`); err != nil {
+		t.Fatal(err)
+	}
+	f, err := p.DataHistory(ctx, &v1.GetDataHistoryRequest{Range: lastDay(now)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, u := range api.FinishDataHistory(f).GetUses() {
+		if u.GetHas().AsDuration() != 4*time.Minute || u.GetEnough() || u.GetEnoughAt() != nil {
+			t.Errorf("new collector: %v", u)
+		}
+	}
+	sr, err := p.ListStreams(ctx, &v1.ListStreamsRequest{Range: lastDay(now)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sr.GetStreams()) != 1 || sr.GetStreams()[0].BytesPerDay != nil {
+		t.Fatal("new collector growth", sr)
+	}
+
+}
+
+// A gap may be usable by the actual growth algorithm. Global availability
+// must neither count an old sample outside the range nor reject a valid gap.
+func TestDataHistorySampleWindowsAndGappedGrowth(t *testing.T) {
+	st := emptyStore(t)
+	r := rows{t, st}
+	r.server("S0", "nats-0")
+	now := historyClock
+	times := []time.Time{now.Add(-14 * 24 * time.Hour), now.Add(-8 * time.Hour), now.Add(-time.Minute)}
+	for i, at := range times {
+		e := int64(i + 1)
+		r.epoch(e, at, "S0")
+		r.add("stream_stats", map[string]any{"epoch": e, "server_id": "S0", "account": "APP", "stream": "catalog-changes", "bytes": 1000 + e*100, "messages": e, "is_leader": true})
+	}
+	r.add("stream_config", map[string]any{"server_id": "S0", "account": "APP", "stream": "catalog-changes", "first_epoch": 1, "last_epoch": 3, "config_hash": "h", "retention": "limits", "storage": "file", "replicas": 1, "max_msgs": -1, "max_bytes": -1, "max_age_ns": 0, "max_msgs_per_subject": -1, "discard": "old"})
+	p := &storeprov.Provider{St: st, Interval: 30 * time.Second, Clock: func() time.Time { return now }}
+	cases := []struct {
+		name       string
+		start, end time.Time
+		has        time.Duration
+		enough     bool
+	}{
+		{"spans gap", now.Add(-24 * time.Hour), now, 8*time.Hour - time.Minute, true},
+		{"after gap", now.Add(-time.Hour), now, 0, false},
+		{"inside gap", now.Add(-7 * time.Hour), now.Add(-2 * time.Hour), 0, false},
+		{"before gap", now.Add(-9 * time.Hour), now.Add(-7 * time.Hour), 0, false},
+		{"before history", now.Add(-16 * 24 * time.Hour), now.Add(-15 * 24 * time.Hour), 0, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rg := &v1.TimeRange{Start: timestamppb.New(tc.start), End: timestamppb.New(tc.end)}
+			f, err := p.DataHistory(ctx, &v1.GetDataHistoryRequest{Range: rg})
+			if err != nil {
+				t.Fatal(err)
+			}
+			u := api.FinishDataHistory(f).GetUses()[0]
+			if u.GetHas().AsDuration() != tc.has || u.GetEnough() != tc.enough || u.GetEnoughAt() != nil {
+				t.Fatal(u)
+			}
+			sr, err := p.ListStreams(ctx, &v1.ListStreamsRequest{Range: rg})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, stream := range sr.GetStreams() {
+				if (stream.BytesPerDay != nil) != tc.enough {
+					t.Errorf("growth %v, availability %v", stream.BytesPerDay, u)
+				}
+			}
+		})
+	}
+	// Passing time or changing the configured interval never creates samples.
+	p.Clock = func() time.Time { return now.Add(3 * time.Hour) }
+	p.Interval = 2 * time.Minute
+	f, err := p.DataHistory(ctx, &v1.GetDataHistoryRequest{Range: lastDay(now.Add(3 * time.Hour))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, u := range api.FinishDataHistory(f).GetUses() {
+		if u.GetEnoughAt() != nil {
+			t.Error(u)
+		}
 	}
 }

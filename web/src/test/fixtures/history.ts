@@ -20,6 +20,7 @@ export const NO_ARCHIVE: ArchiveState = { enabled: false, location: "", newestFi
 
 export function staging(): DataHistory {
   const start = NOW - 9 * HOUR;
+  const sampleSpan = 6 * HOUR - 4000; // stops three hours and four seconds before NOW
   return {
     rangeStart: NOW - DAY,
     rangeEnd: NOW,
@@ -50,10 +51,10 @@ export function staging(): DataHistory {
     listedGapsTotal: 2,
     archive: NO_ARCHIVE,
     uses: [
-      use({ id: "growth" }),
-      use({ id: "forecast:server-014", checkCode: "server-014" }),
-      use({ id: "lookback:server-019", checkCode: "server-019", needs: DAY, enough: false, enoughAt: Date.parse("2026-11-06T13:47:18Z") }),
-      use({ id: "accept_review", needs: 8 * DAY + HOUR, enough: false, enoughAt: Date.parse("2026-11-13T14:47:18Z") }),
+      use({ id: "growth", has: sampleSpan, enough: false }),
+      use({ id: "forecast:server-014", checkCode: "server-014", has: sampleSpan, enough: false }),
+      use({ id: "lookback:server-019", checkCode: "server-019", needs: DAY, has: sampleSpan, enough: false }),
+      use({ id: "accept_review", needs: 8 * DAY + HOUR, has: sampleSpan, enough: false }),
     ],
     findingsAtStart: 1,
   };
@@ -83,7 +84,7 @@ export function prod(): DataHistory {
       lastError: "",
       listedAt: Date.parse("2026-11-05T22:05:00Z"),
     },
-    uses: [use({ id: "growth", has: DAY }), use({ id: "accept_review", needs: 8 * DAY + HOUR, has: 30 * DAY })],
+    uses: [use({ id: "growth", has: DAY }), use({ id: "accept_review", needs: 8 * DAY + HOUR, has: 8 * DAY + HOUR })],
     findingsAtStart: 0,
   };
 }

@@ -306,6 +306,10 @@ func TestStoreConformance(t *testing.T) {
 	_, c := apitest.ServeHandler(t, &api.Handler{Systems: api.Systems{
 		{Ref: &v1.SystemRef{Id: "main", Name: "main"}, Provider: main},
 		{Ref: &v1.SystemRef{Id: "closed", Name: "closed"}, Provider: closed},
+		// A reduced retention before its first sweep: availability stays
+		// limited by retention even while older samples remain stored.
+		{Ref: &v1.SystemRef{Id: "short-retention", Name: "short-retention"}, Provider: &storeprov.Provider{St: st,
+			Interval: confStep, Live: true, Clock: at, Retention: time.Hour}},
 		{Ref: &v1.SystemRef{Id: "replay", Name: "replay"}, Provider: replayConformance(t, clock)},
 		{Ref: &v1.SystemRef{Id: "topology", Name: "topology"}, Provider: &storeprov.Provider{St: topologyStore(t, clock.Add(-30*time.Second)),
 			Interval: 30 * time.Second, Live: true, Clock: at, Retention: 14 * 24 * time.Hour}},
@@ -351,7 +355,7 @@ func TestStoreConformance(t *testing.T) {
 		CreatedAt: clock.Add(-32 * time.Minute), QuietUntil: clock.Add(-2 * time.Minute)}); err != nil {
 		t.Fatal(err)
 	}
-	apitest.RunConformance(t, apitest.Env{Client: c, Systems: []string{"main", "closed", "replay", "topology", "topology-single", "accounts", "accounts-config", "capacity", "subjects", "micro", "apps", "history"}, Now: clock})
+	apitest.RunConformance(t, apitest.Env{Client: c, Systems: []string{"main", "closed", "short-retention", "replay", "topology", "topology-single", "accounts", "accounts-config", "capacity", "subjects", "micro", "apps", "history"}, Now: clock})
 }
 
 // accountsHeadlineStore is accountsStore with the findings its data

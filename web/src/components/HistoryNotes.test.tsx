@@ -35,16 +35,16 @@ it("replaces a misleading fresh start in a finding row", () => {
   renderApp(<HistoryContext.Provider value={young}><FindingRow f={f} end={NOW} /></HistoryContext.Provider>);
   expect(screen.getByText("already true when nats-lens started")).toBeInTheDocument();
 });
-it("gives a Capacity card the shared countdown and history link", () => {
+it("gives a Capacity card the shared sample requirement and history link", () => {
   renderApp(<HistoryContext.Provider value={young}><ServerCards servers={[{ name: "nats-1", cluster: "shop", reported: true, used: 20, limit: 100, findingCode: "", findingId: "" }]} withoutJetstream={0} /></HistoryContext.Provider>);
-  expect(screen.getByText(/needs 6 h of history; 5 h 29 min to go/)).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: /needs 6 h/ })).toHaveAttribute("href", expect.stringContaining("/data-history"));
+  expect(screen.getByText(/needs samples spanning 6 h; entity data may be missing/)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /needs samples spanning 6 h/ })).toHaveAttribute("href", expect.stringContaining("/data-history"));
 });
 it("names the shorter coverage and missing growth on Overview storage", () => {
   const tile = { id: "storage", label: "Storage", unit: "bytes", status: "ok", value: 20, subtitle: "no rate yet" } as Tile;
   renderApp(<HistoryContext.Provider value={young}><OverviewTiles tiles={[tile]} windows={[]} start={young.start} end={NOW} /></HistoryContext.Provider>);
   expect(screen.getByText(/over 31 min/)).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: /needs 6 h of history; 5 h 29 min to go/ })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /Growth uses samples spanning 6 h; entity measurements determine the rate/ })).toBeInTheDocument();
 });
 
 import { CauseGroups } from "./CauseGroups";
@@ -61,7 +61,7 @@ it("omits a history note when the range is covered", () => {
 });
 it("still links an unavailable Capacity rate when calendar history exceeds six hours", () => {
   renderApp(<HistoryContext.Provider value={{ ...young, historyStart: young.start }}><ServerCards servers={[{ name: "nats-1", cluster: "shop", reported: true, used: 20, limit: 100, findingCode: "", findingId: "" }]} withoutJetstream={0} /></HistoryContext.Provider>);
-  expect(screen.getByRole("link", { name: /not enough history for a rate/ })).toHaveAttribute("href", expect.stringContaining("/data-history"));
+  expect(screen.getByRole("link", { name: /needs samples spanning 6 h/ })).toHaveAttribute("href", expect.stringContaining("/data-history"));
 });
 it("names the shorter history behind the Overview message-rate chart", () => {
   renderApp(<HistoryContext.Provider value={{ ...young, gaps: [] }}><TrendChart title="Messages" start={young.start} end={NOW} layers={[]} /></HistoryContext.Provider>);
@@ -74,4 +74,10 @@ it("hatches all time before history when a chart spans more than the page query"
   const gap = screen.getByRole("img", { name: /nats-lens was not running yet/ });
   expect(gap).toHaveAttribute("x", "0");
   expect(Number(gap.getAttribute("width"))).toBeGreaterThan(180);
+});
+
+it("keeps Overview growth guidance neutral when the tile already reports a rate", () => {
+ const tile = { id:"storage",label:"Storage",unit:"bytes",status:"ok",value:20,subtitle:"+2 MiB /day" } as Tile;
+ renderApp(<HistoryContext.Provider value={{...young,historyStart:young.start}}><OverviewTiles tiles={[tile]} windows={[]} start={young.start} end={NOW} /></HistoryContext.Provider>);
+ expect(screen.queryByText(/entity data may be missing/)).not.toBeInTheDocument();
 });
