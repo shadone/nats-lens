@@ -8,6 +8,7 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -147,6 +148,48 @@ func historyRows() []State {
 		})},
 		State{"a history use with enough history", historyUse(func(u *v1.HistoryUse) bool {
 			return u.GetId() == "growth" && u.GetEnough() && u.GetEnoughAt() == nil
+		})},
+		State{"history uses describe global sample availability in every system", everySystem(func(q Q) string {
+			res := q.history(q.day())
+			for _, u := range res.GetUses() {
+				needs, has := u.GetNeeds().AsDuration(), u.GetHas().AsDuration()
+				wantNeeds := map[string]time.Duration{"growth": api.MinGrowthSpan, "accept_review": api.AcceptRetention,
+					"day": api.HistoryDay, "replay": api.MaxReplaySpan}[u.GetId()]
+				never := res.GetRetention().AsDuration() > 0 && res.GetRetention().AsDuration() < needs
+				if needs <= 0 || (wantNeeds > 0 && needs != wantNeeds) || has < 0 ||
+					u.GetNever() != never || u.GetEnough() != (u.GetHas() != nil && has >= needs && !never) ||
+					(u.GetEnoughAt() != nil && (u.GetId() != "growth" || u.GetEnough() || never || u.GetHas() == nil ||
+						res.GetNewestEpochAt().AsTime().Before(q.env.Now.Add(-res.GetCollectInterval().AsDuration())))) {
+					q.t.Errorf("system %q: inconsistent global availability %v, retention %v", q.System, u, res.GetRetention())
+				}
+			}
+			return fmt.Sprintf("%d global sample spans; not entity eligibility or complete coverage", len(res.GetUses()))
+		})},
+		State{"a history use limited by retention without a countdown", func(q Q) string {
+			res := q.history(q.day())
+			for _, u := range res.GetUses() {
+				if u.GetNever() && !u.GetEnough() && u.GetEnoughAt() == nil && u.GetHas() != nil &&
+					res.GetRetention().AsDuration() > 0 && u.GetNeeds().AsDuration() > res.GetRetention().AsDuration() {
+					return u.GetId()
+				}
+			}
+			return ""
+		}},
+		State{"no growth samples in a range before history in every system", everySystem(func(q Q) string {
+			r := q.Last(90 * 24 * time.Hour)
+			r.End = timestamppb.New(q.env.Now.Add(-60 * 24 * time.Hour))
+			res := q.history(r)
+			for _, u := range res.GetUses() {
+				if u.GetId() != "growth" {
+					continue
+				}
+				if u.GetNeeds().AsDuration() != api.MinGrowthSpan || u.GetHas() != nil || u.GetEnough() || u.GetEnoughAt() != nil || res.GetCoverage().GetEpochs() != 0 {
+					q.t.Errorf("system %q: growth without samples: %v, coverage %v", q.System, u, res.GetCoverage())
+				}
+				return "no growth samples"
+			}
+			q.t.Errorf("system %q: missing growth use", q.System)
+			return ""
 		})},
 		State{"an archive with archived hours", func(q Q) string {
 			a := q.history(q.day()).GetArchive()
