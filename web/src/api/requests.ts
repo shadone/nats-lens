@@ -7,7 +7,7 @@ import { serverNow, setServerNow } from "../lib/clock";
 import { bucketFor, presetMs, resolveRange, type RangeSpec } from "../lib/timeRange";
 import { entityKindEnum, ms, n, series, severityEnum, sourceEnum } from "./adapt-common";
 import { consumer, consumerDetail, connection, overview, server, stream, streamDetail } from "./adapt-entities";
-import { event, finding, findingStateEnum, mute, timeline, transition } from "./adapt-findings";
+import { acknowledgement, event, finding, findingStateEnum, mute, timeline, transition } from "./adapt-findings";
 import { lensInfo } from "./adapt-info";
 import { shellStatus } from "./adapt-shell";
 import { FILTER_ENUM, matrix, type MatrixFilter } from "./placementMatrix";
@@ -355,4 +355,22 @@ export async function getLastData(sys: string, since: number, intervalMs: number
   const start = Math.max(since - 3 * intervalMs, serverNow() - LAST_DATA_LOOKBACK_MS);
   const s = await getShellStatus(sys, start, signal);
   return { freshness: s.freshness, servers: s.servers };
+}
+
+export interface AckInput {
+  findingId: string;
+  note: string;
+  quietMs?: number;
+  untilResolved?: boolean;
+  ackedBy: string;
+}
+
+export async function acknowledgeFinding(sys: string, a: AckInput) {
+  const r = await lens.acknowledgeFinding({ ...systemInit(sys), findingId: a.findingId, note: a.note, quietFor: a.quietMs === undefined ? undefined : durationFromMs(a.quietMs), untilResolved: a.untilResolved ?? false, ackedBy: a.ackedBy });
+  return acknowledgement(r.acknowledgement)!;
+}
+
+export async function endAcknowledgement(sys: string, id: string, endedBy: string) {
+  const r = await lens.endAcknowledgement({ ...systemInit(sys), id, endedBy });
+  return acknowledgement(r.acknowledgement)!;
 }

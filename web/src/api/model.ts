@@ -64,6 +64,19 @@ export interface Mute {
   endReason: string;
 }
 
+export interface Acknowledgement {
+  id: string;
+  findingId: string;
+  note: string;
+  ackedBy: string;
+  createdAt?: number;
+  quietUntil?: number;
+  quiet: boolean;
+  endedAt?: number;
+  endedBy: string;
+  endReason: string;
+}
+
 export interface Finding {
   id: string;
   checkCode: string;
@@ -84,6 +97,7 @@ export interface Finding {
   relatedConfigSource: string;
   cause?: { id: string; time?: number; kind: string; summary: string };
   mute?: Mute;
+  acknowledgement?: Acknowledgement;
   transitionsLastHour: number;
   /** The check warns of an expiry (a certificate or a JWT): at warning it ranks after the other warnings; at critical as any critical finding. */
   expiry?: boolean;
@@ -103,6 +117,7 @@ export interface Tally {
   muted: number;
   flapping: number;
   resolved24h: number;
+  acknowledged?: number;
 }
 
 export type Unit = "count" | "bytes" | "per_second" | "percent" | "seconds" | "bytes_per_day" | "bytes_per_second" | "unknown";
