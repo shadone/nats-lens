@@ -60,11 +60,11 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 |---|---|---|
 | [What nats-lens is](overview.md) | `ui`, `api`, `cli` | shipped — read-only towards NATS; operator mutes and acknowledgements |
 | [Monitoring snapshots](monitoring-snapshots.md) | `ui`, `cli` | shipped |
-| [Event capture](event-capture.md) | `ui`, `api`, `cli` | shipped |
+| [Event capture](event-capture.md) | `ui`, `api`, `cli` | shipped — includes OCSP peer rejections with certificate contents omitted |
 | [Kubernetes context](kubernetes-context.md) | `ui`, `cli` | shipped |
 | [History and archive](history-and-archive.md) | `ui`, `cli` | shipped — archive state visible in Data history |
-| [Checks and findings](checks.md) | `ui`, `api`, `cli` | partial — 83 checks; accepting a finding is built for one entity; related entities, a check everywhere and a review list are planned |
-| [Server checks](server-checks.md) | `ui`, `cli` | shipped |
+| [Checks and findings](checks.md) | `ui`, `api`, `cli` | partial — 84 checks; accepting a finding is built for one entity; related entities, a check everywhere and a review list are planned |
+| [Server checks](server-checks.md) | `ui`, `cli` | shipped — includes OCSP peer rejections |
 | [Account checks](account-checks.md) | `ui`, `cli` | shipped |
 | [Stream checks](stream-checks.md) | `ui`, `cli` | shipped |
 | [Consumer checks](consumer-checks.md) | `ui`, `cli` | shipped |
@@ -77,7 +77,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Streams](streams.md) | `ui`, `api` | shipped — replica placement is in the API only |
 | [Consumers](consumers.md) | `ui`, `api` | shipped — delivery rate and busiest-first order are in the API only |
 | [Connections](connections.md) | `ui`, `api` | shipped |
-| [Events](events.md) | `ui`, `api` | shipped |
+| [Events](events.md) | `ui`, `api` | shipped — OCSP peer rejections are NATS warnings |
 | [Triage and mutes](triage-and-mutes.md) | `ui`, `api` | shipped — acknowledgements beside mutes and history-start explanations |
 | [Metrics and alerting](metrics-and-alerting.md) | `api` | shipped — acknowledgement quiet metrics and exclusions |
 | [Running nats-lens](running-nats-lens.md) | `api`, `cli` | shipped — shared IAP identity for mutes and acknowledgements |
@@ -107,15 +107,15 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 
 **Collection**
 - [x] One snapshot of every server per interval, partial collections kept, account details, the expiry of account JWTs, user JWTs and listener certificates, subscription lists every few minutes, the replies of micro services in the listed accounts, each client application's traffic per hour, and replies of newer servers kept when one of their values is unknown (monitoring-snapshots.md)
-- [x] NATS advisories and system events, short-lived connections folded into `client.churn` and flagged by `client-005` when frequent, and account connections that also ask micro services and, when one cannot connect, are dialled again without stopping the system (event-capture.md)
+- [x] NATS advisories and system events, short-lived connections folded into `client.churn` and flagged by `client-005` when frequent, and account connections that also ask micro services and, when one cannot connect, are dialled again without stopping the system; OCSP peer rejections omit certificate contents (event-capture.md)
 - [x] Kubernetes pod, node and client-pod events on the same clock, with node upgrade and drain windows (kubernetes-context.md)
 - [x] Retention, the hourly Parquet archive, its visible state, and rebuild (history-and-archive.md)
 - [~] Several NATS systems in one nats-lens, with a system switcher, the Fleet page and its badge, and the shell's status of every system in one call — a cluster switcher inside a supercluster is planned (multiple-systems.md)
 
 **Checks**
-- [~] 83 checks, findings, severities, restarts, thresholds, remediation text and HTTPS playbooks, mutes, and one entity's finding accepted until a review date — accepting related entities or a check everywhere is planned (checks.md)
-- [x] Server checks `server-001` to `server-023`, routes, gateways, the connection limit, JetStream API errors, internal queues and CPU among them (server-checks.md)
-- [ ] Server checks for slow routes, leaf node disconnects, queued JetStream API requests and OCSP rejections (server-checks.md)
+- [~] 84 checks, findings, severities, restarts, thresholds, remediation text and HTTPS playbooks, mutes, and one entity's finding accepted until a review date — accepting related entities or a check everywhere is planned (checks.md)
+- [x] Server checks `server-001` to `server-024`, routes, gateways, the connection limit, JetStream API errors, internal queues, CPU and OCSP peer rejections among them (server-checks.md)
+- [ ] Server checks for slow routes, leaf node disconnects and queued JetStream API requests (server-checks.md)
 - [x] Account checks `account-001` to `account-004`: connection and disk limits, account and user JWT expiry (account-checks.md)
 - [x] Stream, KV bucket and object store checks `stream-001` to `stream-021`, mirrors, sources, single replicas, KV history, streams without a consumer and interior deletes among them; source activity and errors are planned (stream-checks.md)
 - [x] Consumer checks `consumer-001` to `consumer-017`, among them the oldest unread message about to expire, pull requests at `max_waiting`, a single-replica durable on a replicated stream and a long pause (consumer-checks.md)
@@ -132,7 +132,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Consumers list and consumer detail, a stream filter that is not polled; delivery rate and busiest-first order in the API only (consumers.md)
 - [x] Client connections of the newest collection, the server filter's choices sent with them (connections.md)
 - [x] Every event, including acknowledgement saves, filtered by source, kind, entity and client (events.md)
-- [x] Events worth reading first: routine events hidden, repeats folded, counts per source and server, a histogram, new events behind a pill (events.md)
+- [x] Events worth reading first: routine events hidden, repeats folded, counts per source and server, a histogram, new events behind a pill; OCSP peer rejections are NATS warnings (events.md)
 - [ ] A configurable routine rule; subject and where columns (events.md)
 - [x] Findings, finding detail with server copies, start times and events around the start, mutes, accepted findings read as accepted, acknowledgements apart from mutes, and history-start explanations (triage-and-mutes.md)
 - [ ] Why a finding has its severity, a CLI check ready to copy, accepting from the finding page or for related entities (triage-and-mutes.md)

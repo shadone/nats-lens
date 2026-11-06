@@ -13,6 +13,7 @@ The Events page lists the events of the time range, newest first: NATS advisorie
 - **Worth reading first.** The page opens on "Worth reading": routine events are hidden and repeats are folded. "Everything" shows every event, one row each. Each choice shows its number of events, which follows the source and server filters.
 - **Hidden as routine.** While routine events are hidden, a line above the list reads "Hidden as routine:" with their number and the groups the API names (at most 10, largest first, each with its count), and "Show them" switches to "Everything".
 - **Histogram.** Bars over the range count warnings (warning and critical events) on top, other notable events below them, and routine events at the bottom. In "Worth reading" the bars are scaled to warnings and notable events, and routine events stand faint behind them. The legend draws each bar. A bar's title gives its time and its three counts.
+- **OCSP rejection warnings.** `server.ocsp_peer_rejected` appears as a non-routine NATS warning, filtered by its emitting server. Its raw peer object contains only the certificate fingerprint; it names no account, client, stream, or consumer.
 - **Four sources, with counts.** NATS, Kubernetes, Findings and Collector, each with its number of events. With none chosen ("All"), every source is shown; several can be chosen at once.
 - **Servers, with counts.** The busiest 8 servers with their numbers of events, then "N more" for the rest. Choosing a server filters the list to the events it reported; choosing it again clears it. The servers are not offered while a stream or consumer filters the list.
 - **Filters.** Kinds as a comma-separated list (for example `consumer.deleted, stream.deleted`), and a client connection name. Links from a server, stream or consumer page add that entity as a filter; a stream or consumer filter shows with "Clear". A stream or consumer filter also matches events that carry the account's readable name instead of its ID.
@@ -110,6 +111,12 @@ The Events page lists the events of the time range, newest first: NATS advisorie
 - **When** another operator reads Events in that time range
 - **Then** a `finding.acknowledged` event records the author and note
 - **And** the event is not hidden as routine
+
+### Read an OCSP rejection
+
+- **Given** a server rejected a TLS peer connection through OCSP verification
+- **When** I filter Events by NATS, the server, and `server.ocsp_peer_rejected`
+- **Then** I see the warning, its peer kind and reason, with no inferred client or account
 
 ## Not supported / out of scope
 

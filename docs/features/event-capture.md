@@ -10,7 +10,7 @@ Between two collections a lot can happen that a snapshot never sees: a leader el
 
 ## Behavior and rules
 
-- **System account events.** On its own system account connection (named `<nats.name>-events`), `natslens run` records client connects and disconnects with their reason (for example a slow consumer), authentication errors, lame duck and shutdown announcements, and the JetStream advisories that concern no account: meta leader elected, server out of storage, server removed, API limit reached, and a server lowering the meta group's quorum (`meta.rescue`).
+- **System account events.** On its own system account connection (named `<nats.name>-events`), `natslens run` records client connects and disconnects with their reason (for example a slow consumer), authentication errors, final OCSP peer connection rejections, lame duck and shutdown announcements, and the JetStream advisories that concern no account: meta leader elected, server out of storage, server removed, API limit reached, and a server lowering the meta group's quorum (`meta.rescue`).
 - **Account advisories need an account connection.** JetStream publishes stream and consumer advisories inside the account that owns the asset. For every account listed under `accounts` in the configuration, nats-lens opens a connection with that account's credentials and records stream created, updated and deleted, consumer created and deleted, leader elected, quorum lost, max deliveries, NAK, terminated, paused and resumed, and sampled acknowledgements. Stream snapshots and restores, pinned and unpinned consumer groups and abandoned batches have kinds of their own; an advisory nats-lens does not know is stored as `jetstream.other`.
 - **An account that cannot connect does not stop the system.** When an account's connection cannot be opened, for example because its `creds` file is missing, nats-lens logs it (a file of the entry that cannot be opened, missing or unreadable, also gets a warning at start that names the system, the entry and the file), records a `collector.not_connected` event for that connection and goes on collecting and capturing the system account's events and the other accounts' advisories. It dials the account again, 2 seconds after the start, doubling to a minute. Once it connects, a `collector.reconnected` event with the reason "connected after the first dial failed" follows and the account's advisories are captured from then on; those sent before are lost.
 - **Who made the change.** Stream and consumer action advisories do not name a client. nats-lens reads the JetStream API audit advisory of the same call and names its client when the two arrive within 2 seconds of each other. A server-side action without an API call, such as an inactive consumer that the server removes, has no client.
@@ -23,7 +23,8 @@ Between two collections a lot can happen that a snapshot never sees: a leader el
 - **Written in batches.** nats-lens writes events every `events.flush_interval` (1 second) or every `events.batch_size` (500) events, whichever comes first. Because of the churn folding, a connect event can reach the database up to `pair_within` late.
 - **Account names on events.** An account connection asks `$SYS.REQ.USER.INFO` for the account name the servers use. Until it knows that name, or for the whole run when the user may not ask, its events carry the account `name` from the configuration.
 - **The account connections also ask micro services.** The connection of each account under `accounts` also sends `$SRV.INFO` and `$SRV.STATS` for the collection (see [monitoring-snapshots.md](monitoring-snapshots.md)), unless the account sets `micro: false`; nats-lens opens one connection per account for both. With event capture off (`events.enabled: false`), `natslens run` still opens a connection for each account that asks, subscribed to nothing but the replies. `natslens once` opens one connection per asking account for its one collection and records one that does not connect as not connected. A refused `$SRV` request is recorded with the collection and logged once, and is no `collector.subscription_error` event; it is not sent again for 10 minutes, so the server the entry's connection is on logs each refusal once per 10 minutes per entry and per request (two entries for one account log twice; INFO and STATS each when both are refused). An account listed for its advisories before nats-lens asked micro services is asked too after an upgrade; `micro: false` stops it. The Micro services page shows what these requests return ([micro-services.md](micro-services.md)).
-- **Privacy of payloads.** nats-lens keeps the raw payload of each event, with every user JWT removed.
+- **OCSP peer rejections.** The system account subscription records `$SYS.SERVER.*.OCSP.PEER.CONN.REJECT` as `server.ocsp_peer_rejected`, with the emitting server, peer kind, reason, and event time. A missing or implausibly future event time uses receipt time. The event carries no account or authenticated client identity. Only the final rejection counts; chain-link status events are not captured by this subscription. [Server checks](server-checks.md) describes the warning it raises.
+- **Privacy of payloads.** nats-lens keeps the raw payload of each event, with every user JWT removed. OCSP rejection payloads retain only the fingerprint from the peer certificate object; certificate bytes, subject, issuer, and future peer fields are omitted.
 - **Same retention as collections.** Events are kept for `retention` (14 days by default), by the time they were received, and archived hourly ([history-and-archive.md](history-and-archive.md)).
 
 ## Scenarios
@@ -74,6 +75,13 @@ Between two collections a lot can happen that a snapshot never sees: a leader el
 - **Given** nats-lens stopped for 20 minutes and started again
 - **When** it starts
 - **Then** it records a `collector.gap` event that covers the time since its last stored collection or event
+
+### Capture an OCSP peer rejection
+
+- **Given** the system account user has the documented event subscription grants
+- **When** a server rejects a TLS peer connection through OCSP verification
+- **Then** nats-lens stores a `server.ocsp_peer_rejected` event with its server, peer kind, reason, and certificate fingerprint
+- **And** the stored payload omits certificate contents and subject and issuer identities
 
 ## Not supported / out of scope
 
