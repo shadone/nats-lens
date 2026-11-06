@@ -329,3 +329,34 @@ func TestDataHistoryGapOpenAtRangeEnd(t *testing.T) {
 		t.Errorf("gap open at the range's end: %v", g)
 	}
 }
+
+// Old retained collections cannot stand in for samples inside a use's window.
+func TestDataHistoryRestartReadiness(t *testing.T) {
+ st := emptyStore(t)
+ r := rows{t, st}
+ now := historyClock
+ r.server("S0", "nats-0")
+ r.epoch(1, now.Add(-14*24*time.Hour), "S0")
+ for i := int64(0); i < 9; i++ {
+  at := now.Add(-5*time.Minute).Add(time.Duration(i)*30*time.Second)
+  r.epoch(i+2, at, "S0")
+  r.add("stream_stats", map[string]any{"epoch": i+2, "server_id":"S0", "account":"APP", "stream":"catalog-changes", "bytes":1000+i*100, "messages":i+1, "is_leader":true})
+ }
+ r.add("stream_config", map[string]any{"server_id":"S0", "account":"APP", "stream":"catalog-changes", "first_epoch":2,"last_epoch":10,"config_hash":"h", "retention":"limits", "storage":"file", "replicas":1,"max_msgs":-1,"max_bytes":-1,"max_age_ns":0,"max_msgs_per_subject":-1,"discard":"old"})
+ p := &storeprov.Provider{St:st, Interval:30*time.Second, Live:true, Clock:func() time.Time{return now}}
+ for _, zone := range []string{"UTC","Asia/Kolkata","America/Los_Angeles"} {
+  if _, err := st.DB().Exec(`SET GLOBAL TimeZone = '`+zone+`'`); err != nil {t.Fatal(err)}
+  f, err := p.DataHistory(ctx, &v1.GetDataHistoryRequest{Range:lastDay(now)})
+  if err != nil {t.Fatal(err)}
+  res := api.FinishDataHistory(f)
+  for _, u := range res.GetUses() {
+   if u.GetEnough() || u.GetHas().AsDuration()!=4*time.Minute || u.GetEnoughAt()!=nil {
+    t.Errorf("%s: restart use %s has %v, enough=%v, at=%v; want 4 min and no countdown for stopped collection", zone,u.GetId(),u.GetHas(),u.GetEnough(),u.GetEnoughAt())
+   }
+  }
+  sr, err := p.ListStreams(ctx, &v1.ListStreamsRequest{Range:lastDay(now)})
+  if err != nil {t.Fatal(err)}
+  streams := sr.GetStreams()
+  if len(streams)!=1 || streams[0].BytesPerDay!=nil {t.Fatalf("%s: growth should be unset: %v",zone,streams)}
+ }
+}
