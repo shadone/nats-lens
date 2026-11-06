@@ -147,3 +147,13 @@ describe("usePlacement keepFor", () => {
     expect(result.current.data).toBeUndefined();
   });
 });
+
+describe("server storage history identity", () => {
+  it("drops the previous server's series while another server loads", async () => {
+    const { result, rerender } = setup((spec, name) => servers.useBandSeries(spec, "server.js_storage_bytes", name), "nats-0");
+    await waitFor(() => expect(result.current.q.data).toBeDefined());
+    rerender({ spec: day, account: "nats-1" });
+    expect(result.current.q.data).toBeUndefined();
+    expect(result.current.q.isPlaceholderData).toBe(false);
+  });
+});
