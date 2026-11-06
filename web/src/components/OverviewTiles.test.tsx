@@ -84,3 +84,10 @@ it("identifies the headline's measurement instead of calling every tile a snapsh
   expect(screen.getByText("Newest leader · chart: changes per bucket")).toBeInTheDocument();
   expect(screen.getByText("Newest storage reports")).toBeInTheDocument();
 });
+
+it("never presents a leader-change total as the meta leader when no majority names one", () => {
+  const { container } = render(<OverviewTiles tiles={[tile({ id: "meta_leader", label: "Meta leader", value: 2, subtitle: "2 leader changes in range", series: series([0, 2], 0, 2) })]} windows={[]} start={START} end={END} />);
+  expect(screen.getByText("Unknown")).toBeInTheDocument();
+  expect(screen.getByText("2 leader changes in range")).toBeInTheDocument();
+  expect(container.querySelector(".mb-range")).toBeNull();
+});
