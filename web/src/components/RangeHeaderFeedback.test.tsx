@@ -21,11 +21,11 @@ describe("range header feedback", () => {
     vi.spyOn(navigator, "languages", "get").mockReturnValue([locale]);
     renderApp(<RangePicker />, "/?from=2026-10-16T09:00:00Z&to=2026-10-16T10:00:00Z");
     await userEvent.click(screen.getByRole("button", { name: "Custom" }));
-    const format = new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short", timeZone: "UTC" });
+    const format = new Intl.DateTimeFormat(locale, { year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC", calendar: "gregory" });
     const bounds = within(screen.getByRole("group", { name: "Selected range" }));
+    expect(screen.getByLabelText("From")).toHaveValue(format.format(Date.parse("2026-10-16T09:00:00Z")));
+    expect(screen.getByLabelText("To")).toHaveValue(format.format(Date.parse("2026-10-16T10:00:00Z")));
     expect(bounds.getByText(format.format(Date.parse("2026-10-16T09:00:00Z")))).toBeInTheDocument();
-    expect(screen.getByLabelText("From")).toHaveAttribute("lang", locale);
-    expect(screen.getByLabelText("To")).toHaveAttribute("lang", locale);
   });
 
   it("shows stable live text while retaining freshness details on demand", () => {
