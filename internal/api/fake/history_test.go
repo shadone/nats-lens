@@ -55,7 +55,7 @@ func TestDemoDataHistoryStaging(t *testing.T) {
 		t.Errorf("coverage %v", c)
 	}
 	for _, u := range res.GetUses() {
-		if u.GetId() == "accept_review" && (u.GetEnough() || u.GetEnoughAt() == nil) {
+		if u.GetId() == "accept_review" && (u.GetEnough() || u.GetEnoughAt() != nil) {
 			t.Errorf("accept review %v with 9 hours", u)
 		}
 	}

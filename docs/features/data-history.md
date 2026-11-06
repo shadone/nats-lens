@@ -15,12 +15,12 @@ Data history shows when a system’s stored history begins, coverage and gaps in
 - **Six kinds of gap.** The page names times nats-lens was not running, could not reach NATS, had no collections, did not capture events, did not watch Kubernetes, and had not started its history. Collection gaps longer than three collect intervals count as no collections. An event connection’s loss shorter than 10 seconds does not count as a capture gap. Overlapping collection gaps merge; not running takes precedence over not connected, then no collections. Event and watch gaps remain separate, even inside a collection gap.
 - **Gap details.** A strip and newest-first table give the times, duration, collections either side, and the recorded event when available. Collection links open Placement at that collection; event links open Events. A gap open at a live range’s end says “still now”; one open at a past range’s end says “after the range”.
 - **Gap limits.** The page lists the newest 200 times without collections (including before-history) and, separately, the newest 200 event or watch gaps. It reports how many of each class were left out. Coverage uses all collection gaps. Chart hatches and the page’s strip use the limited list; charts have no notice when older gaps are omitted.
-- **What uses history.** The page lists the six-hour growth requirement, configured store and stream forecast lookbacks, and other check lookbacks while short of history. It also lists acceptance growth review (8 days and 1 hour), the 24-hour traffic, failed-login and drop windows, and Replay’s 24-hour window. Rows name the needed and available span, whether it is enough, and when it will be enough when that time is known. A retention shorter than a system-history requirement says it can never be enough with that retention. Growth uses the selected range; other rows use the system’s history, so “enough” does not guarantee that every measurement exists.
+- **What uses history.** Rows compare a target span with the time between actual stored collections. Growth uses the selected range; other uses read their own bounded windows ending at the latest collection. Passing time while collection is stopped adds no samples. An empty window leaves the available span unset. A span can contain gaps and missing entity measurements, so “sample span available” does not establish a result. Forecast targets are configured lookbacks; their minimum spans, process boundaries, positive slopes, and other entity rules determine whether a forecast exists. A shorter retention says the target exceeds retention. Only a fresh growth range longer than six hours can name an earliest target time, conditional on continued collection; passing that time never marks the span available without a fresh answer. Acceptance growth review requires its paired baseline buckets, daily totals can be incomplete, and Replay visits stored moments even when the full target span is unavailable.
 - **Retention and archive.** The page shows collection and event retention, its sweep cutoff, the archive location, hours held and their bounds, archive retention, listing time, last export, whether the newest hour was provisional, and the latest export error when present. Before the first listing it says the hours are not listed yet. A system without an archive says so. Archive state does not change when a past range is selected ([history-and-archive.md](history-and-archive.md)).
 
 - **History begins here.** When the chosen range starts more than one collection interval before the oldest collection, a note names the available span and links to Data history. Charts keep the full requested time axis, including the time before history.
 - **Gaps are drawn.** Trend and series charts hatch times without collections and the time before history, with a tooltip and accessible name. Event-capture and Kubernetes-watch gaps leave the collection charts unhatched. Charts share cached history by system and time window, including fixed seven-day charts when the page shows one hour. Gap marks stop at the range actually observed; switching ranges shows “History gaps loading” while waiting for that range’s history. Failed history reads say “History gaps unavailable”. A positive-duration gap remains visible even on a 30-day chart. A page without charts makes no history request for hatching.
-- **Growth needs history.** Capacity, Streams, and the Overview storage tile share the six-hour requirement. A live range long enough for growth counts down the missing history. A shorter range asks for at least six hours; a fixed range names its available history. Forecast margins remain planned.
+- **Growth needs history.** Capacity, Streams, and the Overview storage tile share the six-hour requirement. Overview’s storage guidance states that requirement without declaring that measurements are missing. Missing-growth notes require samples spanning six hours and explain that entity data may be missing. A shorter range asks for at least six hours. The oldest retained timestamp alone never supplies a countdown. Forecast margins remain planned.
 - **Findings say what they know.** A finding whose start nats-lens cannot know says "already true when nats-lens started", never a fresh start time.
 - **Tiles for the range.** Overview message and connection trends, connections tiles, and storage name the shorter history behind the range. Missing-history words on Capacity, Accounts, Applications, Replay, and finding details link to Data history with the global query.
 - **The API.** `GetDataHistory` returns the system’s history, coverage, gaps and their totals, archive state, history requirements, and the count of firing findings already true at the history start. `GetLensInfo` reports the same history start.
@@ -92,6 +92,21 @@ Data history shows when a system’s stored history begins, coverage and gaps in
 - **Given** the system has an archive and a past range is selected
 - **When** I open Data history
 - **Then** coverage describes that range, and the archive reports its latest known listing and exports
+
+### Read availability after a long collection outage
+
+- **Surfaces:** `ui`, `api`
+- **Given** old collections remain stored, followed by a long outage and four minutes of recent samples
+- **When** I request a 24-hour range whose earlier hours contain no collections
+- **Then** growth and forecast rows measure their actual sample spans instead of the age of retained history
+- **And** stale collection produces no countdown, while coverage reports the missing time separately
+
+### Use samples across a gap
+
+- **Surfaces:** `ui`, `api`
+- **Given** an entity has usable growth samples separated by more than six hours with a collection gap between them
+- **When** I inspect growth and Data history over that range
+- **Then** the growth algorithm can return a rate, and Data history qualifies the global sample span as availability rather than entity readiness
 
 ## Not supported / out of scope
 

@@ -44,7 +44,7 @@ it("names the shorter coverage and missing growth on Overview storage", () => {
   const tile = { id: "storage", label: "Storage", unit: "bytes", status: "ok", value: 20, subtitle: "no rate yet" } as Tile;
   renderApp(<HistoryContext.Provider value={young}><OverviewTiles tiles={[tile]} windows={[]} start={young.start} end={NOW} /></HistoryContext.Provider>);
   expect(screen.getByText(/over 31 min/)).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: /needs samples spanning 6 h; entity data may be missing/ })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /Growth uses samples spanning 6 h; entity measurements determine the rate/ })).toBeInTheDocument();
 });
 
 import { CauseGroups } from "./CauseGroups";
