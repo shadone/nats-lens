@@ -451,6 +451,7 @@ To try a change to a check on a copy of a database: `natslens checks run -data-d
 | server-023 | CPU saturated | warning | `cpu_percent` at least 90% of the smaller of `cores` and `gomaxprocs` in 80% of the epochs of 5m (at least 5), per process; a gap over three intervals ends a run, restarting servers left out |
 | server-024 | OCSP peer rejected | warning | Final `server.ocsp_peer_rejected` events within 15m, by captured server name or ID; distinct event IDs per process, resolves when the window is empty |
 | server-025 | Slow routes | warning | Topology’s shared classifier finds a pair slow in two eligible collections within three intervals; both endpoints receive the finding, with peers and current RTTs |
+| server-026 | Leaf node disconnects or repeated reconnects | warning, system finding | observed site absent for two fully observed collections, or three observed drops in 1h; handoffs excluded, last sighting within 24h |
 | system-001 | Check failed to run | warning, critical after 10 epochs of the same failure | the engine's own runs |
 | system-002 | No JetStream meta leader | critical | `meta_leader` of the clustered servers, or the leader seeing more peers offline than its quorum allows |
 | system-003 | JetStream meta leader changing often | warning above 4 in 15m | `meta.leader_elected` events and the leader per epoch; one hand-over within two intervals after each step-down not counted |
