@@ -51,7 +51,7 @@ The Connections page lists the client connections of the newest collection in th
 
 ## Not supported / out of scope
 
-- **Only the newest collection.** The page shows one moment, not each connection's history; a connection that came and went between two collections is not listed. Its connect and disconnect events are on the Events page.
+- **Only the newest collection.** The page shows one moment, not each connection's history; a connection that came and went between two collections is not listed. Its connect and disconnect events appear on [Events](events.md) only if nats-lens captured them in the selected range.
 - **No subscription subjects here.** The list shows each connection's subscription count. nats-lens also collects each server's subscription list every few minutes, and the [Subjects](subjects.md) page shows the subjects by account, with the connections that subscribe to them.
 - **No disconnecting.** nats-lens does not kick a client.
 - **No search by address.** Filters are by server, name and account.
