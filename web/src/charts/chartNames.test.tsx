@@ -1,3 +1,4 @@
+import { renderApp } from "../test/render";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { Tile } from "../api/model";
@@ -54,7 +55,7 @@ describe("chart accessible names", () => {
       status: "ok",
       series: { metric: "m", unit: "bytes", stepMs: 1, points: pts, min: 900, max: 5 * 1024 ** 3 },
     };
-    render(<OverviewTiles tiles={[t]} windows={[]} start={start} end={end} />);
+    renderApp(<OverviewTiles tiles={[t]} windows={[]} start={start} end={end} />);
     expect(screen.getByRole("img", { name: `Stored, current 5 GiB, ${period}` })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /^Stored, current 5 GiB, min .*, max 5 GiB, 16 Oct/ })).toBeInTheDocument();
   });

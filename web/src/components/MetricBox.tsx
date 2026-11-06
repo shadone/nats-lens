@@ -69,6 +69,7 @@ export interface MetricBoxProps {
    */
   track?: boolean;
   /** Historical sample formatting, independently of a text headline. */
+  bucketNote?: string;
   sampleFmt?: (value: number) => string;
   seriesLabels?: [string, string];
 }
@@ -205,6 +206,7 @@ export function MetricBox(p: MetricBoxProps) {
         <Sparkline
           points={pts}
           stepMs={p.series?.stepMs}
+          bucketNote={p.bucketNote ?? (p.series?.unit === "count" ? "Last count in bucket" : "Mean value in bucket")}
           fmt={p.sampleFmt ?? p.fmt}
           labels={p.seriesLabels}
           points2={p.series2?.points}

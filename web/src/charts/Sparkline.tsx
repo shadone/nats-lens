@@ -17,6 +17,7 @@ export function sparkColour(status: Level): string {
 interface Props {
   points: Point[];
   stepMs?: number;
+  bucketNote?: string;
   fmt?: (value: number) => string;
   labels?: [string, string];
   points2?: Point[];
@@ -41,8 +42,8 @@ export function sparkPoints(a: Point[], start: number, end: number, mn: number, 
   });
 }
 
-export function Sparkline({ stepMs, fmt = String, labels = ["value", "second series"], points, points2, status, windows, start, end, label, current, note }: Props) {
-  return <ChartInspection label={label} start={start} end={end} stepMs={stepMs} series={[
+export function Sparkline({ stepMs, bucketNote, fmt = String, labels = ["value", "second series"], points, points2, status, windows, start, end, label, current, note }: Props) {
+  return <ChartInspection label={label} start={start} end={end} stepMs={stepMs} bucketNote={bucketNote} series={[
     { label: labels[0], points: points.map(p => ({ time: p.time, text: fmt(p.value) })) },
     ...(points2 ? [{ label: labels[1], points: points2.map(p => ({ time: p.time, text: fmt(p.value) })) }] : []),
   ]}><SparkDrawing points={points} points2={points2} status={status} windows={windows} start={start} end={end} label={label} current={current} note={note} /></ChartInspection>;

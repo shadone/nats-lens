@@ -43,6 +43,7 @@ export function OneLine({ f, q, title, label }: { f: Frame; q: TrendSlice; title
       fmt={v => fmtValue(v, unit)}
       to={f.chartLinks ? ({ Servers: "/servers", Connections: "/connections", Messages: "/servers", Bytes: "/servers", CPU: "/servers", Memory: "/servers" } as Record<string, string>)[title] : undefined}
       now={fmt(lastValue(s?.points), unit)}
+      bucketNote={unit === "count" ? "Last count in bucket" : "Mean value in bucket"}
       summary={minMaxText(s, unit)}
       start={f.start}
       end={f.end}
@@ -59,6 +60,7 @@ function SlowConsumers({ f, q }: { f: Frame; q: TrendSlice }) {
   return (
     <TrendChart
       fmt={v => `${fmtValue(v, "count")} events`}
+      bucketNote="Total events in bucket"
       title="Slow consumers"
       to={f.chartLinks ? "/connections" : undefined}
       now={sum === undefined ? undefined : `${fmtValue(sum, "count")} in range`}
@@ -79,6 +81,7 @@ export function InOut({ f, title, qi, qo }: { f: Frame; title: string; qi: Trend
       title={title}
       fmt={v => fmtValue(v, unit)}
       to={f.chartLinks ? ({ Servers: "/servers", Connections: "/connections", Messages: "/servers", Bytes: "/servers", CPU: "/servers", Memory: "/servers" } as Record<string, string>)[title] : undefined}
+      bucketNote="Mean rates in bucket"
       now={inOutText(lastValue(qi.data?.points), lastValue(qo.data?.points), unit)}
       summary={Number.isFinite(max) ? `max ${fmtValue(max, unit)}` : undefined}
       start={f.start}
@@ -107,6 +110,7 @@ export function Band({ f, q, title, floor = "zero" }: { f: Frame; q: TrendSlice;
       title={title}
       fmt={v => fmtValue(v, unit)}
       to={f.chartLinks ? ({ Servers: "/servers", Connections: "/connections", Messages: "/servers", Bytes: "/servers", CPU: "/servers", Memory: "/servers" } as Record<string, string>)[title] : undefined}
+      bucketNote="Mean median and busiest-server values; bounds are observed server extremes"
       now={text.now}
       summary={minMaxText(s, unit)}
       start={f.start}
@@ -127,6 +131,7 @@ function Assets({ f, qr, qs }: { f: Frame; qr: TrendSlice; qs: TrendSlice }) {
   return (
     <TrendChart
       fmt={v => fmtValue(v, "count")}
+      bucketNote="Last counts in bucket; stacked components shown separately"
       title="Assets"
       to={f.chartLinks ? "/placement" : undefined}
       now={r === undefined && one === undefined ? undefined : `${fmt(r, "count") ?? "–"} replicated, ${fmt(one, "count") ?? "–"} single`}
