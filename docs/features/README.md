@@ -83,7 +83,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Running nats-lens](running-nats-lens.md) | `api`, `cli` | shipped — shared IAP identity for mutes and acknowledgements |
 | [SQL access](sql-access.md) | `cli` | shipped |
 | [Demo mode](demo-mode.md) | `ui`, `api`, `cli` | shipped — on-call acknowledgement story and per-system history, gaps, retention and archive examples |
-| [Multiple systems and the Fleet view](multiple-systems.md) | `ui`, `api`, `cli` | partial — a cluster switcher inside a supercluster is planned |
+| [Multiple systems and the Fleet view](multiple-systems.md) | `ui`, `api`, `cli` | partial — Fleet strip intervals use readable duration labels; a cluster switcher inside a supercluster is planned |
 | [Placement](placement.md) | `ui`, `api` | partial — how long a state other than a leader's has lasted, and a playbook link, are not built |
 | [Replay](replay.md) | `ui`, `api` | partial — "Replay this window" links and a replica catch-up step are not built; shared collection and capture gap rules |
 | [Topology](topology.md) | `ui`, `api` | shipped |
@@ -110,7 +110,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] NATS advisories and system events, short-lived connections folded into `client.churn` and flagged by `client-005` when frequent, and account connections that also ask micro services and, when one cannot connect, are dialled again without stopping the system; OCSP peer rejections retain known fields and peer fingerprints across payload key aliases (event-capture.md)
 - [x] Kubernetes pod, node and client-pod events on the same clock, with node upgrade and drain windows (kubernetes-context.md)
 - [x] Retention, the hourly Parquet archive, its visible state, and rebuild (history-and-archive.md)
-- [~] Several NATS systems in one nats-lens, with a system switcher, the Fleet page and its badge, and the shell's status of every system in one call — a cluster switcher inside a supercluster is planned (multiple-systems.md)
+- [~] Several NATS systems in one nats-lens, with a system switcher, the Fleet page with readable strip intervals and its badge, and the shell's status of every system in one call — a cluster switcher inside a supercluster is planned (multiple-systems.md)
 
 **Checks**
 - [~] 88 checks, findings, severities, restarts, thresholds, churn hysteresis across missed evaluations, remediation text and HTTPS playbooks, mutes, and one entity's finding accepted until a review date — accepting related entities or a check everywhere is planned (checks.md)
