@@ -10,7 +10,7 @@ One read-only call returns a finding with the facts needed for an on-call card. 
 
 ## Behavior and rules
 
-- **One finding URL.** A finding link opens a phone card at 760 px and below. Above that width, the desktop sections retain their layout. “All details” opens those sections below the phone card, with tables scrolling within their boxes.
+- **One finding URL.** A finding link opens a phone card at 760 px and below. Above that width, the desktop sections retain their layout without page-wide sideways scrolling. Related settings keep each label beside its value, wrapping within their card. “All details” opens those sections below the phone card, with tables scrolling within their boxes.
 - **Phone card.** The card shows severity, system, start, headline, context, affected assets, “Right now”, and “What happened”. The story links to Replay with the same start and end. “What to do” keeps the check's wording, with the opening sentence emphasized and subsequent sentences listed as steps. An HTTPS playbook opens from its own link. Missing observations say “not reported”; zero remains zero. Rates name reporting consumers and streams. Kubernetes windows describe observed events, without asserting that an upgrade is active. History-start and missing-history explanations link to Data history.
 - **Acknowledging.** “I'm on it” stays at the foot of the phone screen while the card scrolls. Desktop offers “Acknowledge…” beside Mute. The dialog accepts an optional note of up to 500 characters and quiet for 30 minutes, 2 hours by default, or until resolved. It uses the same name and verified IAP identity rule as mutes. A saved acknowledgement appears before refetch finishes when the current episode still matches and newer state has not superseded it, and focus moves to its section. Failed saves keep the dialog open with an announced error.
 - **Updating and handing back.** An active acknowledgement offers “Update…” and “Hand back…”. Updating replaces the previous acknowledgement. Handing back allows alerts to resume. The page shows who replaced or handed back the acknowledgement during that visit to the same system, finding, and episode. Resolving or changing the episode clears visit receipts. Quiet expiry leaves ownership in place. Resolve ends ownership for that episode.
@@ -27,6 +27,14 @@ One read-only call returns a finding with the facts needed for an on-call card. 
 - **Read-only.** Reading a card changes neither NATS nor the finding, mute, or acknowledgement. It uses the API's 30-second query deadline.
 
 ## Scenarios
+
+### Read across the phone breakpoint
+
+- **Surfaces:** `ui`
+- **Given** a finding with related settings opens at 760 or 761 px
+- **When** the person reads the card or desktop details
+- **Then** labels and values wrap within their card without sideways page scrolling
+- **And** wide evidence tables scroll inside their own boxes
 
 ### Acknowledge from a phone
 

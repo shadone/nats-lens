@@ -38,3 +38,8 @@
 .tbl tbody tr:first-child th[scope="row"]{border-top:0}
 .odd-mark{font-size:9px;vertical-align:1px}
 .fd-around p.pager{margin:0}
+/* A detail's settings share a column with remediation. Keep one label/value
+   pair per row even above the phone breakpoint; two intrinsic label tracks
+   can consume the entire narrow card and push values out of the page. */
+.fd-main .ex .cfg .kv{grid-template-columns:minmax(0,max-content) minmax(0,1fr)}
+.fd-main .ex .cfg .kv dt{overflow-wrap:anywhere}
