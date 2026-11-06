@@ -397,7 +397,7 @@ export function useShellStatus() {
 export function useSaveAcknowledgement() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { system: string } & ({ action: "ack"; input: api.AckInput } | { action: "release"; id: string; endedBy: string })) =>
+    mutationFn: (v: { system: string; episodeSince?: number } & ({ action: "ack"; input: api.AckInput } | { action: "release"; id: string; endedBy: string })) =>
       v.action === "ack" ? api.acknowledgeFinding(v.system, v.input) : api.endAcknowledgement(v.system, v.id, v.endedBy),
     // ASVS 15.4.2: capture the episode and revision before the asynchronous write;
     // a response cannot supersede an intervening authoritative read or mutation.
@@ -406,7 +406,7 @@ export function useSaveAcknowledgement() {
       for (const kind of ["finding", "oncall"]) {
         for (const q of qc.getQueryCache().findAll({ queryKey: [kind, v.system] })) {
           const f = (q.state.data as { finding?: import("./model").Finding } | undefined)?.finding;
-          if (f && (v.action === "ack" ? f.id === v.input.findingId : f.acknowledgement?.id === v.id))
+          if (f && (v.episodeSince === undefined || f.since === v.episodeSince) && (v.action === "ack" ? f.id === v.input.findingId : f.acknowledgement?.id === v.id))
             snapshots.set(q.queryHash, { revision: q.state.dataUpdateCount, finding: f });
         }
       }
