@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Finding, LensEvent } from "../api/model";
 import { useEvent } from "../api/queries";
 import { eventWhen, fmtDuration, isoSecond } from "../lib/format";
+import { selectionIntersects } from "../lib/textSelection";
 import { AccountName } from "./AccountName";
 import { SOURCE_CLASS, SOURCE_PILL, consumerPath, eventPath, findingPath, findingTag, serverPath, streamPath } from "../lib/view";
 import { ErrorBox, KV, RLink, Remediation } from "./common";
@@ -117,7 +118,11 @@ export function EventRow({ e, end, open, onToggle, compact }: { e: LensEvent & {
       <span className="t">{e.time !== undefined ? eventWhen(e.time, end) : "–"}</span>
       <span className={`src ${SOURCE_CLASS[e.source]}`}>{SOURCE_PILL[e.source]}</span>
       <div className="body">
-        <button type="button" className="ev-toggle" aria-expanded={open} aria-controls={detailId} onClick={onToggle}>
+        <button type="button" className="ev-toggle" aria-expanded={open} aria-controls={detailId} onClick={(event) => {
+          // Native keyboard activation has detail 0 and must ignore stale selections.
+          if (event.detail > 0 && selectionIntersects(event.currentTarget)) return;
+          onToggle();
+        }}>
           {badge && <span className={`badge ${badge} ${sev ?? ""}`}>{badge}</span>}
           <span className={`ty${sev === "critical" && e.source === "nats" ? " critical" : ""}`}>{e.type || e.kind}</span>
           <span className="tx">{e.summary}</span>
