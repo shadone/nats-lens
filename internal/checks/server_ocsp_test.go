@@ -39,5 +39,8 @@ func TestOCSPWindowAndIdentity(t *testing.T) {
 	f.exec(`UPDATE servers SET server_name = 'renamed' WHERE server_id = 'S0'`)
 	f.ocsp(5, at(40), "nats-0", "old-process", nil)
 	f.ocsp(6, at(40), "nats-0", "new-process", m{"raw": `{"id":"new-process","server":{"id":"NEW"}}`})
-	f.fires("server-024", 40, "nats-0")
+	r := f.fires("server-024", 40, "nats-0")
+	if r["nats-0"].Value == nil || *r["nats-0"].Value != 2 {
+		t.Fatalf("restarts lost or duplicated events: %+v", r["nats-0"])
+	}
 }

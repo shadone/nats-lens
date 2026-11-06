@@ -439,3 +439,29 @@ func TestKubernetesFoldByObject(t *testing.T) {
 		t.Fatalf("rows %v", res.GetEvents())
 	}
 }
+
+// OCSP peer events stay server-scoped NATS warnings, with no inferred account,
+// stream, consumer, or client. The generic store/API path needs no new schema.
+func TestOCSPEventFilters(t *testing.T) {
+	st, err := store.OpenPath(ctx, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	payload := []byte(`{"type":"io.nats.server.advisory.v1.ocsp_peer_reject","id":"ocsp-test","kind":"Client","server":{"id":"S0","name":"nats-0"},"peer":{"raw":"Y2VydA==","subject":"private","fingerprint":"abc"},"reason":"client not OCSP valid"}`)
+	e, err := events.DecodeSys("$SYS.SERVER.S0.OCSP.PEER.CONN.REJECT", payload, t0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	write(t, st, e)
+	c := serveTooling(t, st)
+	res := must(c.ListEvents(ctx, connect.NewRequest(&v1.ListEventsRequest{Range: wide(), Sources: []v1.EventSource{v1.EventSource_EVENT_SOURCE_NATS},
+		Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SERVER, Key: "nats-0"}, Kinds: []string{"server.ocsp_peer_rejected"}, HideRoutine: true, IncludeFacets: true})))
+	if len(res.GetEvents()) != 1 {
+		t.Fatalf("filtered events: %v", res)
+	}
+	got := res.GetEvents()[0]
+	if got.GetSeverity() != v1.Severity_SEVERITY_WARNING || got.GetRoutine() || got.GetAccount() != "" || got.GetStream() != "" || got.GetConsumer() != "" || got.GetClientName() != "" {
+		t.Fatalf("event: %v", got)
+	}
+}
