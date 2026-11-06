@@ -39,7 +39,7 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 - **Times are UTC.** Every time in the UI is UTC.
 - **Phone width.** The sidebar becomes a drawer that the menu button in the header opens. While it is open, Tab stays inside it. It closes when a page opens, on its close button, on Escape (outside an open menu), or on a tap beside it, and the cursor returns to the menu button. The range and the search take a line each. Tables scroll sideways inside their own box, so the page itself never scrolls sideways.
 
-- **Finding links from alerts.** `/findings/by-labels` reads URL-encoded `system`, `code`, and `entity_key`, then replaces the route with `/findings/<id>?system=<id>`. A missing finding opens Findings filtered to its check, with an explanation that it may have resolved and been swept. Other API failures remain errors. The same canonical finding URL shows the [phone card](mobile.md) at 760 px and below.
+- **Finding links from alerts.** `/findings/by-labels` reads URL-encoded `system`, `code`, and `entity_key`, then replaces the route with `/findings/<id>?system=<id>`. A missing finding opens Findings filtered to its check, with an explanation that it may have resolved and been swept. Both destinations retain the global time range, system, and account, dropping label-routing and unknown parameters. Other API failures remain errors. The same canonical finding URL shows the [phone card](mobile.md) at 760 px and below.
 ## Scenarios
 
 ### Share what I am looking at

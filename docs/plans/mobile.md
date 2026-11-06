@@ -16,8 +16,8 @@ Examples use the online shop of `inventory.example.yaml`, the demo's systems (`e
 |---|---|
 | T1 Acknowledgements: store, API, metrics and demo | reviewed and merged at `d073334` |
 | T2 `GetOnCall`: one call for the phone card | reviewed tip `9edad8f`, merged at `0d0c9f7` |
-| T3 The phone layout, the acknowledge dialog and the marks | candidate `85cc8381eb4c4644737148b9ba78438c23d3b4e5`, awaiting fresh review; merged only in the isolated T4 checkout for fact-checking |
-| T4 Feature docs, deep links in the README and audit | built in the isolated T4 checkout; fresh read-only fact-check passed, awaiting parent review and integration |
+| T3 The phone layout, the acknowledge dialog and the marks | candidate `6d65057decbfcd676730a8c6b7981f7f482c532e`, awaiting fresh R2 review; merged only in the isolated T4 checkout for fact-checking |
+| T4 Feature docs, deep links in the README and audit | built and reconciled in the isolated T4 checkout; original fresh read-only fact-check passed, final fresh fact-check required before integration |
 
 ## Rules for every step
 
@@ -148,9 +148,13 @@ Each point was decided in the session that built T3: proposed, not yet confirmed
 
 ### T4 documentation reconciliation
 
-Built against M1/M2 and the M3 candidate above. Choices remain proposed, not yet confirmed. The capability and both index sections distinguish phone triage from deferred predictions and other phone pages. README examples encode all three alert labels, exclude acknowledgement quiet, retain `NatsLensNotificationsStuck`, and document text/HTTPS playbook entries. The design records acknowledgements apart from mutes, their episode and archive rules, read-only `GetOnCall`, and current-visit receipt limits. Data-history T4 and notification T5 completion records remain historical evidence, including their audit counts at the time. A later M3 review fix must be reconciled before final integration.
+Built against M1/M2 and the M3 candidate above. Choices remain proposed, not yet confirmed. The capability and both index sections distinguish phone triage from deferred predictions and other phone pages. README examples encode all three alert labels, exclude acknowledgement quiet, retain `NatsLensNotificationsStuck`, and document text/HTTPS playbook entries. The design records acknowledgements apart from mutes, their episode and archive rules, read-only `GetOnCall`, and current-visit receipt limits. Data-history T4 and notification T5 completion records remain historical evidence, including their audit counts at the time. Final reconciliation includes M3’s originating-episode and newer-state guards, system/finding/episode receipts that clear on resolve, global-query retention on both label destinations, and the contained settings layout at 761 px. M3 fresh R2 approval remains a parent integration gate.
 
 Verification: 39 capability docs, 0 audit errors, 0 warnings (`--map-refs require`); `git diff --check` clean. Ruby parsed the README's 7 alert rules and both remediation forms. Go's standard template parser accepted all annotations; both finding links round-tripped every label with spaces, literal plus signs, slashes, and colons. Both finding expressions match the intended comparison and two identity exclusions. `promtool` is unavailable, so this is a structural expression check, not a full PromQL parser check. The notification-stuck rule block and D4/N5 plan records match the parent byte for byte. A fresh read-only reviewer passed the final factual diff without blocking findings. No code tests ran for this docs-only task.
+
+### Final M4 reconciliation verification
+
+Reconciled against M3 candidate `6d65057` in the isolated T4 checkout. Choices remain proposed, not yet confirmed. The feature-doc audit reports 39 capabilities, 0 errors, and 0 warnings with `--map-refs require`; `git diff --check` is clean. Ruby parsed the README’s 7 alert rules and both remediation forms. Go’s standard template parser executed every annotation; both HTTPS finding links round-tripped all three labels with Unicode, literal plus signs, spaces, slashes, and colons. Both finding expressions retain the severity comparison and mute/acknowledgement identity exclusions. `promtool` is unavailable; expression validation is structural, not a full PromQL parser check. The notification-stuck rule block and D4/N5 plan records match parent `0d0c9f7` byte for byte; the 83-check count remains. No application tests were repeated. Final fresh read-only fact-check and M3 R2 approval remain integration gates.
 
 ## Order with the other phase 3 plans
 
