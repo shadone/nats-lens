@@ -68,7 +68,7 @@ func LoadFS(fsys fs.FS, cfg config.Checks) (*Set, error) {
 	if err != nil {
 		return nil, err
 	}
-	all := append([]*Check{checkFailed(), slowRouteCheck()}, files...)
+	all := append([]*Check{checkFailed(), slowRouteCheck(), leafHealthCheck()}, files...)
 	sort.Slice(all, func(i, j int) bool { return all[i].Code < all[j].Code })
 	s := &Set{
 		checks: all, byCode: map[string]*Check{}, disabled: map[string]bool{},

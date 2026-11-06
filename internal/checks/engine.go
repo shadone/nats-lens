@@ -345,6 +345,9 @@ func (e *Engine) runOne(ctx context.Context, conn *sql.Conn, c *Check, epoch int
 	}
 	qctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+	if c.Code == LeafHealthCode {
+		return e.leafHealth(qctx, conn, epoch, at)
+	}
 	if c.Code == SlowRouteCode {
 		return e.slowRoutes(qctx, conn, epoch, at)
 	}
