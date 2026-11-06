@@ -1,7 +1,7 @@
 // Findings: every finding in the range by severity and state, worst first,
 // and the mutes with who set them, why and until when.
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { useSearchParams } from "react-router";
+import { useLocation, useSearchParams } from "react-router";
 import type { Entity, FindingState, Mute, SeverityLevel } from "../api/model";
 import { useFindings, useMutes } from "../api/queries";
 import { Empty, QueryView, Section } from "../components/common";
@@ -121,7 +121,8 @@ function Mutes({ others, onAccounts }: { others: Entity[]; onAccounts: (es: Enti
   );
 }
 
-export function Findings({ labelLookup }: { labelLookup?: { code: string; key: string } } = {}) {
+export function Findings() {
+  const labelLookup = (useLocation().state as { labelLookup?: { code: string; key: string } } | null)?.labelLookup;
   usePageTitle("Findings");
   const [params, setParams] = useSearchParams();
   const { spec } = useTimeRange();
@@ -129,7 +130,7 @@ export function Findings({ labelLookup }: { labelLookup?: { code: string; key: s
   const sev = (params.get("sev") ?? "").split(",").filter((s): s is SeverityLevel => SEVERITIES.includes(s as SeverityLevel));
   const stateId = STATES.find((s) => s.id === params.get("state"))?.id ?? "open";
   const muted = params.get("muted") !== "0";
-  const check = labelLookup?.code ?? params.get("check") ?? "";
+  const check = params.get("check") ?? "";
   const [checkText, setCheckText] = useState(check);
   const [muteAccounts, setMuteAccounts] = useState<Entity[]>([]);
   const pager = usePager([useSystem(), sev.join(), stateId, muted, check, rangeKey(spec)].join("|"));
