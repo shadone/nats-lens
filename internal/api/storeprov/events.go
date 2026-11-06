@@ -56,7 +56,7 @@ func severityOf(kind, reason, consumer string) v1.Severity {
 	case kind == "consumer.deleted", kind == "stream.deleted", strings.HasSuffix(kind, ".quorum_lost"),
 		kind == "server.shutdown", kind == "server.out_of_storage", kind == "collector.gap":
 		return v1.Severity_SEVERITY_CRITICAL
-	case kind == "server.lameduck", kind == "consumer.max_deliveries", kind == "consumer.terminated",
+	case kind == "server.ocsp_peer_rejected", kind == "server.lameduck", kind == "consumer.max_deliveries", kind == "consumer.terminated",
 		kind == "jetstream.api_limit_reached", kind == "collector.disconnected", kind == "collector.messages_dropped",
 		kind == "client.disconnect" && strings.Contains(strings.ToLower(reason), "slow consumer"):
 		return v1.Severity_SEVERITY_WARNING

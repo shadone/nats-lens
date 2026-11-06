@@ -23,6 +23,7 @@ func SysSubjects(accountConns bool) []string {
 		"$SYS.SERVER.*.LAMEDUCK",
 		"$SYS.SERVER.*.SHUTDOWN",
 		"$SYS.SERVER.*.CLIENT.AUTH.ERR",
+		"$SYS.SERVER.*.OCSP.PEER.CONN.REJECT",
 		authErrAccountSubject,
 		"$JS.EVENT.ADVISORY.>",
 	}
@@ -97,6 +98,35 @@ func DecodeSys(subject string, data []byte, received time.Time) (Event, error) {
 		ev.Account = firstNonEmpty(m.Account, toks[2])
 		ev.Summary = fmt.Sprintf("account %s has %d connections on %s, %d in total, %d slow consumers",
 			ev.Account, m.Conns, orDash(ev.ServerName), m.TotalConns, m.SlowConsumers)
+	case len(toks) == 7 && toks[0] == "$SYS" && toks[1] == "SERVER" && toks[2] != "" &&
+		toks[3] == "OCSP" && toks[4] == "PEER" && toks[5] == "CONN" && toks[6] == "REJECT":
+		// ASVS 1.5.2: decode the pinned event type, never a chain-status event.
+		var m server.OCSPPeerRejectEventMsg
+		if err := json.Unmarshal(data, &m); err != nil {
+			return Event{}, fmt.Errorf("%s: %w", subject, err)
+		}
+		if m.Type != server.OCSPPeerRejectEventMsgType || (m.Server.ID != "" && m.Server.ID != toks[2]) {
+			return Event{}, fmt.Errorf("%s: invalid OCSP rejection type or server ID", subject)
+		}
+		ev.Kind, ev.Type, ev.id = "server.ocsp_peer_rejected", m.Type, m.ID
+		ev.Reason = m.Reason
+		ev.setTime(m.Time)
+		// Missing or implausibly future timestamps use receipt time. Old events
+		// retain their time, so delayed delivery cannot become a fresh failure.
+		if ev.Time.After(ev.ReceivedAt.Add(time.Minute)) {
+			ev.Time = ev.ReceivedAt
+		}
+		ev.ServerName = firstNonEmpty(m.Server.Name, m.Server.ID, toks[2])
+		// The server includes full DER and subject/issuer DNs. Keep only a
+		// fingerprint from peer: it correlates certificates without storing
+		// their contents or private identities, including future peer fields.
+		var payload map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &payload); err != nil {
+			return Event{}, err
+		}
+		payload["peer"] = mustJSON(map[string]string{"fingerprint": m.Peer.Fingerprint})
+		ev.Raw = mustJSON(payload)
+		ev.Summary = fmt.Sprintf("server %s rejected an OCSP peer connection (%s): %s", ev.ServerName, orDash(m.Kind), orDash(m.Reason))
 	case len(toks) == 4 && toks[1] == "SERVER" && (toks[3] == "LAMEDUCK" || toks[3] == "SHUTDOWN"):
 		var si server.ServerInfo
 		if err := json.Unmarshal(data, &si); err != nil {
