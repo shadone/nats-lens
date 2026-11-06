@@ -6,7 +6,7 @@
 
 ## What it does
 
-The server checks judge each NATS server on its own: whether it answers, whether its health endpoint and JetStream are ready, whether it restarted, whether its store or memory is filling, whether its clients are slow, stalled, churning or going stale or fill its connection limit, whether a TLS certificate of its listeners expires soon, whether its routes and gateways are all there and keep up, and whether its CPU, internal queues or JetStream API are overloaded, and whether it rejected an OCSP peer connection. A server finding is keyed by the server's stable name, so it survives the server's restarts. There are 25 server checks, `server-001` to `server-025`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
+The server checks judge each NATS server on its own: whether it answers, whether its health endpoint and JetStream are ready, whether it restarted, whether its store or memory is filling, whether its clients are slow, stalled, churning or going stale or fill its connection limit, whether a TLS certificate of its listeners expires soon, whether its routes and gateways are all there and keep up, and whether its CPU, internal queues or JetStream API are overloaded, and whether it rejected an OCSP peer connection. A server finding is keyed by the server's stable name, so it survives the server's restarts. There are 26 checks in the server group, `server-001` to `server-026`; the leaf-site check reports on the system. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
 
 ## The checks
 
@@ -218,9 +218,21 @@ Read the emitting server's TLS and OCSP logs and identify the peer by the certif
 
 The warning severity, attribution to both endpoints, evidence and name-based identity are proposed, not yet confirmed.
 
+### `server-026` Leaf node disconnects or repeated reconnects
+
+- **Fires when:** a previously observed leaf site is absent for two consecutive fully observed collections, or has at least three observed connection drops in the last hour. The last sighting must be within 24 hours. Sites never observed cannot fire, even if an operator expects them.
+- **Identity and attribution:** one warning belongs to the system, with each affected site name and account in its evidence. An unnamed site uses its IP. The identity matches [Topology](topology.md) across hubs and clusters. Identical names on different accounts remain separate; identical names on the same account describe one observed identity, even if several remote processes share it. The finding does not blame a hub or identify a remote process.
+- **Eligible observations:** every expected server must be observed and have exactly one successful LEAFZ answer by server name in both collections. The expected names and reporting process IDs must remain the same. A restart, duplicate hub name, missing answer, timeout, or gap longer than three collect intervals invalidates the pair. The interval must be known. Sustained absence requires uninterrupted eligible pairs from the last sighting.
+- **Reconnects:** Topology's connection-drop rule is shared with the check. The page still counts hub moves; the check excludes a drop when the identity appears on another hub in the next collection. Repeated-drop warnings require at most one connection for that identity per collection throughout the 24-hour history, so redundant connections and duplicate rows cannot inflate the count. Uplinks and identities with neither a name nor an IP do not fire.
+- **Recovery:** a reconnect clears the absence condition. A repeated-drop warning clears when fewer than three eligible drops remain in the rolling hour. These windows provide the persistence; there is no separate lower reconnect threshold. A collection without an eligible latest pair retains evidence from this check’s latest successful execution, including across failed, skipped or unapplied executions. Disabling the check clears that retained state. Current or future mutable finding state cannot supply evidence to a historical evaluation. This also applies when an identity remains absent across uncertain coverage. Each retained identity expires when its original last observation becomes older than 24 hours; repeated uncertain evaluations never renew that time. Fresh confirmed evidence for another identity joins the warning without extending older evidence. Expiry ends the warning for lack of recent evidence; it does not prove recovery. With no previous warning, uncertain data creates none. History older than 24 hours cannot establish continued absence.
+- **Evidence:** the affected identities, observed drops in one hour, last observation time and collection, and a value counting affected identities. There is no causal NATS disconnect event: only changes spanning collections or changed connection IDs are observed. An outage and return between collections with the same ID cannot be detected.
+- **Remediation:** inspect Topology and the remote site's process and network logs, and compare the hub logs. Confirm whether an outage is expected before changing configuration. Disabled checks, remediation extensions and system mutes apply as usual.
+
+The system identity, warning severity, two-collection absence, three-drop hour, 24-hour sighting window, per-identity evidence expiry across missed evaluations and conservative eligibility rules are proposed, not yet confirmed.
+
 ## Behavior and rules
 
-- **Keyed by server name.** A server finding belongs to the server's name, so a restart does not start a new finding.
+- **Keyed by server name.** Except for the system-level `server-026`, a server finding belongs to the server's name, so a restart does not start a new finding.
 - **Counters are read per process.** The checks that count growth of a server counter (`server-009`, `server-010`, `server-011`, `server-014`, `server-015`, `server-021`) compare values of the same server process, because a restart resets the counters.
 - **Planned restarts are quiet.** `server-001` is info for an announced stop, `server-003` is a warning while a server restarts, and `server-002` leaves out a restarting server's catch-up errors.
 - **A server that did not answer is not judged.** The link, queue and limit checks (`server-017` to `server-023`) read only what a server reported: a peer or server that did not answer is `server-001`'s, and a collection in which the endpoint a check reads did not answer breaks its run of collections instead of counting as healthy or as failing. `server-018` and `server-020` keep the process's newest `max_pending` or `max_connections` when VARZ fails, as the limit changes only with the configuration.
@@ -317,11 +329,19 @@ The warning severity, attribution to both endpoints, evidence and name-based ide
 - **And** the other three servers have no slow-route finding
 - **And** one spike, an even split between zones, two servers alone, or an unknown collection interval fires nothing
 
+### A leaf site disconnects or reconnects repeatedly
+
+- **Given** all expected hubs answer LEAFZ in consecutive collections, and `pickup-0417` on `APP` was observed connected
+- **When** it is absent for two collections, each within three collect intervals of the preceding one
+- **Then** `server-026` warns on the system, naming the site, account and last observation without blaming its last hub
+- **And** moving to another hub without an absent collection does not trigger the absence or repeated-drop condition
+- **And** three eligible connection changes on the same hub within one hour trigger the repeated-drop condition
+- **And** a site never observed, an uplink, or a pair with a failed LEAFZ answer creates no warning
+
 ## Planned
 
 These server checks are not built. Each line says what it would detect and what it needs.
 
-- **Leaf node disconnects.** A leaf node site that was connected is gone, or reconnects repeatedly. Needs: the Topology page's drop rule shared with a check (it is kept twice, in Go for the demo and in SQL for the store; a check would be a third copy), and a decision on the finding's entity: a site is a remote server nats-lens does not observe, and it moves between hubs, so a finding about it belongs neither to an observed server nor to one hub. The data, LEAFZ, is stored every collection. NATS publishes no leaf node disconnect event (its leaf node connect event is for internal use only), so only drops that span a collection can be seen.
 - **JetStream API requests queued.** A server holds many JetStream API requests that wait to be processed, as JSZ's meta `pending` counts them (the routed API requests and info requests queued on the server, not meta group operations). Needs: `meta_pending` from JSZ, stored today per server and collection.
 
 ### An OCSP peer cannot connect
