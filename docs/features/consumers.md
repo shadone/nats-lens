@@ -19,6 +19,7 @@ The Consumers page lists the JetStream consumers of the newest collection in the
 - **Servers disagree and per server.** As on the stream page: a table of each server's configuration hash and creation time when they differ, and for each server its replica role, lag, delivered and ack floor sequences, creation time and configuration hash.
 - **Delivery rate in the API.** Each consumer carries `delivered_per_second`: the increase of its leader's delivered sequence per second over the 15 minutes before the range's end. The rate counts within one leading server and one creation time, so a leader move or a recreated consumer starts it over. Without two leader reports in those 15 minutes the rate is unset, never zero. The page does not show it yet.
 - **Busiest first, in the API.** `ListConsumers` with `sort` set to `CONSUMER_SORT_DELIVERED_RATE` puts the highest delivery rate first and the consumers without a rate last; `limit` keeps only the first ones. The default order stays worst first.
+- **Copy event text.** Event types and summaries in the feed are selectable without opening or closing the row. See [Events](events.md).
 - **Configuration and events.** The configuration as the leader reports it, or, for a missing consumer, the configuration the inventory expects; and the newest 15 events of the consumer.
 
 ## Scenarios

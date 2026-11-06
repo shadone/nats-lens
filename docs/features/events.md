@@ -21,6 +21,7 @@ The Events page lists the events of the time range, newest first: NATS advisorie
 - **New events wait.** On a live range's first page, the list stays as it was read. Every 30 seconds nats-lens counts the matching events that arrived since, and shows them as an "N new" pill, which a screen reader announces; pressing it reloads the list.
 - **Newest first, by time.** The list shows 50 rows per page; "Newer" and "Older" move through the pages by time, and the pager names only the page. Going back to the first page shows it as it was read.
 - **One row per event or fold.** A row shows the time, the source, a badge for finding events (NEW, CHANGED, RESOLVED; the demo also shows FLAPPING), the event's type or kind, its summary, and the repeats of a folded row.
+- **Copy event text.** Event types and summaries are selectable in Events, entity feeds and finding timelines, whether a row is open or closed. Dragging to select text leaves the row unchanged. A subsequent click, Enter, Space or tap opens or closes it. Long text wraps within the row. Server recent-event summaries are selectable links.
 - **Open an event.** Opening a row shows the findings it raised (each with severity, code, name, value, remediation and related settings), its fields (kind, server, account, stream, consumer, client, client host, reason, repeats and first time of a folded row, time and receive time), "Raw payload" with the stored JSON, and "Link to this event".
 - **One event on top.** A link with `?id=` shows that event, opened, above the list.
 - **Linked entities.** Server, stream and consumer names in an event link to their pages, and a client name links to its connections.
@@ -32,6 +33,14 @@ The Events page lists the events of the time range, newest first: NATS advisorie
 
 - **Acknowledgement events.** Saving an acknowledgement writes a non-routine `finding.acknowledged` event in the same transaction. Events and the finding timeline can show its author and note. Acknowledgement events are records of saves, not a list of release or replacement receipts; those receipts in finding details last only for the current visit.
 ## Scenarios
+
+### Copy text from an event
+
+- **Surfaces:** `ui`
+- **Given** an open or closed event in Events, an entity feed or a finding timeline
+- **When** I drag across its type or summary and copy the selection
+- **Then** the selected text is available to paste and the row stays open or closed as it was
+- **And** clicking the row afterwards, or pressing Enter or Space on its control, toggles its details
 
 ### Find who deleted a consumer
 

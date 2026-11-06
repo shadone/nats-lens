@@ -1,5 +1,5 @@
-import { screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import type { LensEvent } from "../api/model";
 import { eventPath } from "../lib/view";
 import { renderApp } from "../test/render";
@@ -56,5 +56,45 @@ describe("repeat text", () => {
   });
   it("gives the count alone when the events share one time", () => {
     expect(repeatText(4, t, t)).toBe("×4");
+  });
+});
+
+
+describe("event text selection", () => {
+  function setup() {
+    const toggle = vi.fn();
+    renderApp(<><p>Elsewhere</p><EventRow e={ev} end={Date.now()} open={false} onToggle={toggle} /></>);
+    const button = screen.getByRole("button", { name: /CONSUMER.DELETED/ });
+    const select = (node: Node) => {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      window.getSelection()!.removeAllRanges();
+      window.getSelection()!.addRange(range);
+    };
+    return { toggle, button, select };
+  }
+
+  it("keeps a row unchanged when a pointer click ends a selection in its summary", () => {
+    const { toggle, button, select } = setup();
+    select(screen.getByText(ev.summary));
+    fireEvent.click(button, { detail: 1 });
+    expect(toggle).not.toHaveBeenCalled();
+    window.getSelection()!.removeAllRanges();
+    fireEvent.click(button, { detail: 1 });
+    expect(toggle).toHaveBeenCalledOnce();
+  });
+
+  it("allows keyboard activation with a selection in this row", () => {
+    const { toggle, button, select } = setup();
+    select(screen.getByText(ev.summary));
+    fireEvent.click(button, { detail: 0 });
+    expect(toggle).toHaveBeenCalledOnce();
+  });
+
+  it("allows pointer activation with a stale selection elsewhere", () => {
+    const { toggle, button, select } = setup();
+    select(screen.getByText("Elsewhere"));
+    fireEvent.click(button, { detail: 1 });
+    expect(toggle).toHaveBeenCalledOnce();
   });
 });
