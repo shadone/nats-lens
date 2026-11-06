@@ -28,7 +28,8 @@ description: >-
   The servers that hold the consumer report different creation timestamps. This is a metadata disagreement,
   not proof of a restore, rebuild, recreation or unhealthy replica. Positions agree when a replica is at most
   position_tolerance messages, or position_tolerance_ratio of the leader's position if that is more, behind it,
-  and at most position_ahead_tolerance messages, or position_ahead_tolerance_ratio if that is more, ahead.
+  and at most position_ahead_tolerance messages, or position_ahead_tolerance_ratio of the leader's position
+  if that is more, ahead.
   Currentness does not change this position comparison. Differing positions in two collections raise a warning,
   including a replica that is catching up. Servers that restarted within restart_window are left out.
 remediation: >-
