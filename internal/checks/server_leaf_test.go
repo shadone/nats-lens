@@ -3,6 +3,7 @@ package checks
 import (
 	"context"
 	"github.com/shadone/nats-lens/internal/config"
+	"github.com/shadone/nats-lens/internal/store"
 	"strings"
 	"testing"
 	"time"
@@ -10,7 +11,16 @@ import (
 
 func leafFixture(t *testing.T, n int64) *fx {
 	t.Helper()
-	f := newFx(t)
+	return leafFixturePath(t, n, "")
+}
+func leafFixturePath(t *testing.T, n int64, path string) *fx {
+	t.Helper()
+	st, err := store.OpenPath(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &fx{t: t, st: st}
+	t.Cleanup(func() { _ = f.st.Close() })
 	f.epochs(1, n, "hub-a", "hub-b")
 	for i, id := range []string{"A", "B"} {
 		f.server(id, []string{"hub-a", "hub-b"}[i], 1, n, t0.Add(-time.Hour), "2.15.0")

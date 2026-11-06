@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/shadone/nats-lens/internal/config"
 	"github.com/shadone/nats-lens/internal/store"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +16,9 @@ func reviewLeafEngine(t *testing.T) *Engine {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if got := len(s.Checks()); got != 88 {
+		t.Fatalf("registered checks=%d want 88", got)
+	}
 	return &Engine{Set: s, Interval: 30 * time.Second, only: map[string]bool{LeafHealthCode: true}}
 }
 func reviewLeafRun(t *testing.T, f *fx, e *Engine, epoch int64) {
@@ -24,7 +28,7 @@ func reviewLeafRun(t *testing.T, f *fx, e *Engine, epoch int64) {
 	}
 }
 func TestReviewLeafExecutionGap(t *testing.T) {
-	for _, gap := range []string{"not-applied", "error", "budget-skipped", "disabled"} {
+	for _, gap := range []string{"not-applied", "error", "budget-skipped", "query-error", "global-gap", "disabled"} {
 		t.Run(gap, func(t *testing.T) {
 			f := leafFixture(t, 5)
 			site(f, 1, "A", "pickup", "APP", 1)
@@ -32,6 +36,16 @@ func TestReviewLeafExecutionGap(t *testing.T) {
 			e := reviewLeafEngine(t)
 			reviewLeafRun(t, f, e, 3)
 			switch gap {
+			case "query-error":
+				f.exec(`ALTER TABLE leafnodes RENAME TO leafnodes_unavailable`)
+				reviewLeafRun(t, f, e, 4)
+				f.exec(`ALTER TABLE leafnodes_unavailable RENAME TO leafnodes`)
+				var status string
+				if err := f.st.DB().QueryRow(`SELECT status FROM check_runs WHERE epoch=4 AND check_code=?`, LeafHealthCode).Scan(&status); err != nil || status != store.RunError {
+					t.Fatalf("status=%s err=%v", status, err)
+				}
+			case "global-gap":
+				f.exec(`DELETE FROM epochs WHERE epoch=4`)
 			case "error", "disabled":
 				status := store.RunError
 				if gap == "disabled" {
@@ -143,11 +157,12 @@ func TestLeafCarryExpiryBoundaryAndMixedEvidence(t *testing.T) {
 	for _, unknownInterval := range []bool{false, true} {
 		t.Run(map[bool]string{false: "coverage", true: "interval"}[unknownInterval], func(t *testing.T) {
 			f := leafFixture(t, 8)
+			f.exec(`UPDATE epochs SET started_at=make_timestamp(?::BIGINT) WHERE epoch=1`, t0.Add(123456*time.Microsecond).UnixMicro())
 			site(f, 1, "A", `old; "site"`, "APP", 1)
 			// A new identity is observed after the old warning and then disconnects.
 			site(f, 4, "A", "new", "OTHER", 2)
 			for epoch, offset := range map[int64]time.Duration{4: 23 * time.Hour, 5: 23*time.Hour + 30*time.Second, 6: 24 * time.Hour, 7: 24*time.Hour + time.Microsecond, 8: 25 * time.Hour} {
-				f.exec(`UPDATE epochs SET started_at=make_timestamp(?::BIGINT) WHERE epoch=?`, t0.Add(offset).UnixMicro(), epoch)
+				f.exec(`UPDATE epochs SET started_at=make_timestamp(?::BIGINT) WHERE epoch=?`, t0.Add(offset+123456*time.Microsecond).UnixMicro(), epoch)
 			}
 			e := reviewLeafEngine(t)
 			reviewLeafRun(t, f, e, 3)
@@ -190,6 +205,12 @@ func TestLeafCarryFreshEvidenceSurvivesOldExpiry(t *testing.T) {
 	e := reviewLeafEngine(t)
 	for _, epoch := range []int64{3, 4, 5, 6, 7, 8, 9} {
 		reviewLeafRun(t, f, e, epoch)
+		if epoch == 7 {
+			var n float64
+			if err := f.st.DB().QueryRow(`SELECT value FROM findings WHERE check_code=?`, LeafHealthCode).Scan(&n); err != nil || n != 2 {
+				t.Fatalf("mixed warning count=%v err=%v", n, err)
+			}
+		}
 	}
 	var state, detail string
 	var value float64
@@ -236,5 +257,101 @@ func TestLeafCarryRequiresSuccessfulPastExecution(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestLeafCarryReopenAndDisableReenable(t *testing.T) {
+	for _, disabled := range []bool{false, true} {
+		t.Run(map[bool]string{false: "reopen", true: "disable reenable"}[disabled], func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "leaf.duckdb")
+			f := leafFixturePath(t, 7, path)
+			site(f, 1, "A", "pickup", "APP", 1)
+			f.exec(`DELETE FROM epoch_endpoints WHERE epoch IN (4,5) AND server_id='B'`)
+			e := reviewLeafEngine(t)
+			reviewLeafRun(t, f, e, 3)
+			if disabled {
+				if _, err := f.st.ApplyCheckRuns(context.Background(), 4, []store.CheckRun{{Code: LeafHealthCode, EntityType: "system", Status: store.RunDisabled}}); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				reviewLeafRun(t, f, e, 4)
+			}
+			if err := f.st.Close(); err != nil {
+				t.Fatal(err)
+			}
+			reopened, err := store.OpenPath(context.Background(), path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			f.st = reopened
+			e = reviewLeafEngine(t)
+			reviewLeafRun(t, f, e, 5)
+			var state string
+			if err := f.st.DB().QueryRow(`SELECT state FROM findings WHERE check_code=?`, LeafHealthCode).Scan(&state); err != nil {
+				t.Fatal(err)
+			}
+			want := "firing"
+			if disabled {
+				want = "resolved"
+			}
+			if state != want {
+				t.Fatalf("%s want %s", state, want)
+			}
+			// Reenable needs fresh proven evidence; a new pair of absent collections suffices.
+			site(f, 5, "A", "pickup", "APP", 2)
+			f.exec(`INSERT INTO epoch_endpoints(epoch,server_id,endpoint,state) VALUES (5,'B','LEAFZ','ok')`)
+			reviewLeafRun(t, f, e, 6)
+			reviewLeafRun(t, f, e, 7)
+			if err := f.st.DB().QueryRow(`SELECT state FROM findings WHERE check_code=?`, LeafHealthCode).Scan(&state); err != nil || state != "firing" {
+				t.Fatalf("fresh proof: %s %v", state, err)
+			}
+		})
+	}
+}
+
+func TestLeafCarrySeparateAbsenceAndReconnectAges(t *testing.T) {
+	f := leafFixture(t, 6)
+	site(f, 1, "A", "absent", "APP", 100)
+	for epoch := int64(1); epoch <= 4; epoch++ {
+		site(f, epoch, "A", "reconnecting", "OTHER", epoch)
+	}
+	f.exec(`DELETE FROM epoch_endpoints WHERE epoch>=5 AND server_id='B'`)
+	f.exec(`UPDATE epochs SET started_at=make_timestamp(?::BIGINT) WHERE epoch=5`, t0.Add(24*time.Hour+time.Second).UnixMicro())
+	f.exec(`UPDATE epochs SET started_at=make_timestamp(?::BIGINT) WHERE epoch=6`, at(4).Add(24*time.Hour+time.Second).UnixMicro())
+	e := reviewLeafEngine(t)
+	reviewLeafRun(t, f, e, 3)
+	reviewLeafRun(t, f, e, 4)
+	reviewLeafRun(t, f, e, 5)
+	var detail, state string
+	var value float64
+	if err := f.st.DB().QueryRow(`SELECT state,detail,value FROM findings WHERE check_code=?`, LeafHealthCode).Scan(&state, &detail, &value); err != nil {
+		t.Fatal(err)
+	}
+	if state != "firing" || value != 1 || strings.Contains(detail, `"absent"`) || !strings.Contains(detail, `"reconnecting"`) {
+		t.Fatalf("%s %v %s", state, value, detail)
+	}
+	reviewLeafRun(t, f, e, 6)
+	if err := f.st.DB().QueryRow(`SELECT state FROM findings WHERE check_code=?`, LeafHealthCode).Scan(&state); err != nil || state != "resolved" {
+		t.Fatalf("%s %v", state, err)
+	}
+}
+
+func TestLeafCarryMalformedProofFailsCheck(t *testing.T) {
+	f := leafFixture(t, 4)
+	site(f, 1, "A", "pickup", "APP", 1)
+	f.exec(`DELETE FROM epoch_endpoints WHERE epoch=4 AND server_id='B'`)
+	e := reviewLeafEngine(t)
+	reviewLeafRun(t, f, e, 3)
+	f.exec(`UPDATE findings SET detail='unrecognized evidence' WHERE check_code=?`, LeafHealthCode)
+	reviewLeafRun(t, f, e, 4)
+	var state, status string
+	if err := f.st.DB().QueryRow(`SELECT state FROM findings WHERE check_code=?`, LeafHealthCode).Scan(&state); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.st.DB().QueryRow(`SELECT status FROM check_runs WHERE check_code=? AND epoch=4`, LeafHealthCode).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if state != "firing" || status != store.RunError {
+		t.Fatalf("state=%s status=%s", state, status)
 	}
 }
