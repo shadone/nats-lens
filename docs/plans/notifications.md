@@ -319,3 +319,68 @@ First-review fix verification:
   confirming `0038` is the next number. No full store suite was run in this fix
   round, and none is claimed. Backfill can recover only retained history; it
   cannot reconstruct acknowledgements already deleted before upgrading.
+
+### T4 second review fix: channel isolation and upgrade evidence
+
+Proposed, not yet confirmed. This isolated checkout integrates `426e247` onto
+`88eaed8`; the feature-index conflict preserves D3's data-history row and N4's
+notification row. Reviewed mobile backend `c45ad0b` is an ancestor. No parent
+checkout, deployment, receiver, or remote is changed. Fresh third review remains
+parent-owned and pending; this implementation does not approve itself.
+
+- The independent second review reproduces two failures: an inactive channel's
+  old cursor exposes released history to a channel baselined later, and 0038's
+  original backfill grants that same memory from creation time alone.
+- Runtime acquisition requires the finding in this channel's view and either an
+  acknowledgement in force at the epoch or a note created after this channel's
+  previous reconcile. Baseline only takes in-force acknowledgements. Ended notes
+  sent during a reconcile gap still count. Quiet expiry does not end the
+  acknowledgement. Existing durable memory remains episode-scoped across
+  release, expiry, restart and retention; forgetting a state clears its memory.
+- The parent ends at migration 0037. Only isolated, unapplied 0038 is revised;
+  0035–0037 are unchanged. Upgrade inference no longer treats the reconcile
+  cursor as proof of visibility. A baseline proves visibility at its time. For a
+  later state observation, a retained firing, changed, reminder or acknowledged
+  message must prove visibility of the same channel, finding and episode while
+  the acknowledgement was in force. A retained acknowledged or quiet-ended
+  message at the saved observation also proves knowledge after release.
+- A saved flapping observation alone is insufficient: it can describe a resolve
+  held while flapping. Older messages cannot prove uninterrupted visibility
+  across filter or mute exits and re-entry. Ambiguous upgrade history stays
+  false. If the proving message or acknowledgement was swept before upgrade,
+  the migration cannot recover that memory. The runtime marker remains durable
+  after upgrade and does not depend on retained outbox/history rows.
+- ASVS 1.2.4 / 2.3.1 / 2.3.3: static migration queries and existing bound runtime
+  writes preserve per-channel ordering and the atomic reconcile transaction.
+  No new receiver, actor, secret, log field, or network operation is introduced.
+
+Second-review verification (all commands run in this isolated checkout):
+
+- RED `f33dcc2`: `TZ=America/Los_Angeles GOCACHE=/tmp/n4-review-gocache go test -overlay=/tmp/n4-second-isolation-current.json ./internal/notify ./internal/store -run TestSecondReview -count=1`
+  compiles and fails both independent probes on the integrated candidate. The
+  overlay only corrects the supplied overlay's checkout paths. Both tests are
+  also ported into the repository. The identical command is GREEN after the fix
+  (notify 0.869s, store 0.716s).
+- With the integrated candidate's reconcile restored through
+  `/tmp/n4-second-reviewed-runtime.json`, the new isolation, baseline release
+  boundaries and filter-reentry tests fail; original independent acknowledgement
+  probes and the released/restart regressions pass. With `deb34dc`'s reconcile
+  restored through `/tmp/n4-second-original-deb.json`, the original independent
+  released-episode regression and both restart variants fail on missing resolve.
+  These tests all pass with the final implementation.
+- RED `5ad3a85`: `TZ=America/Los_Angeles GOCACHE=/tmp/n4-review-gocache go test ./internal/store -run TestNotifyAcknowledgementUpgradeEvidence -count=1`
+  fails `active-history-without-view-evidence` before the conservative refinement.
+  GREEN uses the full acknowledgement/migration target after `b677853`.
+- Final `TZ=America/Los_Angeles GOCACHE=/tmp/n4-review-gocache go test -race -overlay=/tmp/n4-third-original-current.json ./internal/notify -count=1 -coverprofile=/tmp/n4-second-final-coverage.out`:
+  PASS (24.757s), 93.9% statement coverage. This includes all original independent
+  probes, delivery, restart, sweep, rebuild, dedup, gap, replacement, new-episode,
+  channel-baseline and filter tests. The sandbox denied a local httptest listener;
+  the rerun with local-listener permission passed without external requests.
+- Final `TZ=America/Los_Angeles GOCACHE=/tmp/n4-review-gocache go test -race ./internal/store -run 'Ack|Notif|TestMigrationsMatchGolden' -count=1 -timeout=10m`:
+  PASS (12.996s), including populated upgrades, retained-message evidence,
+  missing evidence, separate channel/episode keys, repeated migration, and
+  inclusive creation/exclusive release at baseline. No full store suite was run
+  or is claimed as passed in this round.
+- `GOCACHE=/tmp/n4-review-gocache go vet ./internal/notify ./internal/store`:
+  PASS. Feature-doc audit with `--map-refs require`: zero errors, only the expected
+  planned-mobile warning. `git diff --check`: PASS.
