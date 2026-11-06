@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/duckdb/duckdb-go/v2" // registers the "duckdb" driver
+	duckdb "github.com/duckdb/duckdb-go/v2"
 )
 
 // FileName is the database file inside the data directory.
@@ -26,9 +26,10 @@ const FileName = "natslens.duckdb"
 // Exporting an hour's rows to Parquet only reads and runs without mu, next
 // to the writes.
 type Store struct {
-	db  *sql.DB
-	mu  sync.Mutex
-	log *slog.Logger
+	db    *sql.DB
+	guard *engineGuard
+	mu    sync.Mutex
+	log   *slog.Logger
 	// warned holds the asset warnings already logged; written under mu by
 	// WriteSnapshot.
 	warned map[warning]bool
@@ -59,7 +60,8 @@ var ErrWALReplay = errors.New("write-ahead log cannot be replayed")
 
 // openError wraps an error from opening path, marking a failed WAL replay.
 func openError(path string, err error) error {
-	if strings.Contains(err.Error(), "replaying WAL") {
+	err = SafeError("open", err)
+	if !IsFatal(err) && strings.Contains(err.Error(), "replaying WAL") {
 		return fmt.Errorf("open duckdb %s: %w: %w", path, ErrWALReplay, err)
 	}
 	return fmt.Errorf("open duckdb %s: %w", path, err)
@@ -67,10 +69,12 @@ func openError(path string, err error) error {
 
 // OpenPath opens the database at path; an empty path is an in-memory database.
 func OpenPath(ctx context.Context, path string) (*Store, error) {
-	db, err := sql.Open("duckdb", path)
+	connector, err := duckdb.NewConnector(path, nil)
 	if err != nil {
 		return nil, openError(path, err)
 	}
+	guard := newEngineGuard()
+	db := sql.OpenDB(&guardedConnector{Connector: connector, g: guard})
 	if err := db.PingContext(ctx); err != nil {
 		_ = db.Close()
 		return nil, openError(path, err)
@@ -87,7 +91,7 @@ func OpenPath(ctx context.Context, path string) (*Store, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("checkpoint %s: %w", path, err)
 	}
-	return &Store{db: db}, nil
+	return &Store{db: db, guard: guard}, nil
 }
 
 // DB exposes the handle for queries.

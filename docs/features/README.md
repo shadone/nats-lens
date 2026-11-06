@@ -80,10 +80,10 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Events](events.md) | `ui`, `api` | shipped — selectable text, contextual empty results and pagination across pages; OCSP peer rejections are NATS warnings |
 | [Triage and mutes](triage-and-mutes.md) | `ui`, `api` | shipped — single-page Findings counts, spaced finding facts and actions, acknowledgements beside mutes, and history-start explanations |
 | [Metrics and alerting](metrics-and-alerting.md) | `api` | shipped — acknowledgement quiet metrics and exclusions |
-| [Running nats-lens](running-nats-lens.md) | `api`, `cli` | shipped — shared IAP identity for mutes and acknowledgements |
+| [Running nats-lens](running-nats-lens.md) | `api`, `cli` | shipped — shared IAP identity, fatal database containment and unhealthy readiness |
 | [SQL access](sql-access.md) | `cli` | shipped |
 | [Demo mode](demo-mode.md) | `ui`, `api`, `cli` | shipped — on-call acknowledgement story and per-system history, gaps, retention and archive examples |
-| [Multiple systems and the Fleet view](multiple-systems.md) | `ui`, `api`, `cli` | partial — Fleet strip intervals use readable duration labels; a cluster switcher inside a supercluster is planned |
+| [Multiple systems and the Fleet view](multiple-systems.md) | `ui`, `api`, `cli` | partial — isolated fatal database failures and readable Fleet strip intervals; a cluster switcher inside a supercluster is planned |
 | [Placement](placement.md) | `ui`, `api` | partial — how long a state other than a leader's has lasted, and a playbook link, are not built |
 | [Replay](replay.md) | `ui`, `api` | partial — "Replay this window" links and a replica catch-up step are not built; shared collection and capture gap rules |
 | [Topology](topology.md) | `ui`, `api` | shipped |
@@ -110,7 +110,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] NATS advisories and system events, short-lived connections folded into `client.churn` and flagged by `client-005` when frequent, and account connections that also ask micro services and, when one cannot connect, are dialled again without stopping the system; OCSP peer rejections retain known fields and peer fingerprints across payload key aliases (event-capture.md)
 - [x] Kubernetes pod, node and client-pod events on the same clock, with node upgrade and drain windows (kubernetes-context.md)
 - [x] Retention, the hourly Parquet archive, its visible state, and rebuild (history-and-archive.md)
-- [~] Several NATS systems in one nats-lens, with a system switcher, the Fleet page with readable strip intervals and its badge, and the shell's status of every system in one call — a cluster switcher inside a supercluster is planned (multiple-systems.md)
+- [~] Several NATS systems in one nats-lens, with a system switcher, fatal database failure isolation, the Fleet page with readable strip intervals and its badge, and the shell's status of every system in one call — a cluster switcher inside a supercluster is planned (multiple-systems.md)
 
 **Checks**
 - [~] 88 checks with catalog and individual reference pages with complete per-check paragraphs and multiline content, findings, severities, restarts, thresholds, churn hysteresis across missed evaluations, remediation text and HTTPS playbooks, mutes, and one entity's finding accepted until a review date — accepting related entities or a check everywhere is planned (checks.md)
@@ -151,6 +151,6 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 
 **Operations**
 - [x] Findings with acknowledgement quiet metrics and exclusions, collector health and four notification delivery gauges at `/metrics` for Prometheus alerting (metrics-and-alerting.md)
-- [x] `run`, `once` for every system or one, `notify test`, receiver egress, configuration, IAP identity for mutes and acknowledgements, health and readiness, the Kubernetes manifests and their memory sizes (running-nats-lens.md)
+- [x] `run`, `once` for every system or one, `notify test`, receiver egress, configuration, IAP identity for mutes and acknowledgements, health and readiness with fatal database containment, the Kubernetes manifests and their memory sizes (running-nats-lens.md)
 - [x] Read-only SQL on a stopped database with `natslens sql`, one system at a time (sql-access.md)
 - [x] Three fixed systems without NATS or notification channels with `natslens demo`, whose findings are the real checks, with a node pool upgrade to replay, links of a supercluster to draw from `GetTopology`, accounts and failed logins from `GetAccountsAndAuth`, the stores and streams of the Capacity page from `GetCapacity`, the client applications from `GetApplications`, and which show every state real data shows, tested against the store with one table of states, and with `-fixed` at one moment whose live ranges end there, with acknowledgement stories and per-system gaps, retention and archive examples (demo-mode.md)

@@ -22,7 +22,8 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 - **No exposure without an identity proxy.** nats-lens has no sign-in of its own. It refuses to listen on a non-loopback address unless `iap_audience` is set, or `allow_unauthenticated: true` says that something else (for example a NetworkPolicy) keeps strangers out. With `allow_unauthenticated` it logs a warning that anyone who reaches the API can mute findings.
 - **Behind IAP.** With `iap_audience` set to the backend service's audience, mutes, lifts, acknowledgements, and hand-backs need a valid signed IAP assertion, and nats-lens records its user. Reads never need one.
 - **Safe responses.** Every response carries a Content-Security-Policy that allows the page's own files, its inline theme script and styles by their SHA-256 hashes, and `data:` images, and forbids framing; plus `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`. The UI makes no third-party requests and hosts its own fonts.
-- **Health and readiness.** `/healthz` answers while the process serves. `/readyz` answers ok once every system's database is open (any rebuild from the archive has finished) and the API serves. Readiness does not follow collection, so the UI stays reachable while NATS is down; a collector that stopped shows in the UI header and in the `nats_lens_last_epoch_age_seconds` metric. During a rebuild at start, neither endpoint answers yet.
+- **Health and readiness.** `/healthz` answers while the process serves. `/readyz` answers ok once every system's database is open (any rebuild from the archive has finished) and the API serves. Readiness does not follow collection, so the UI stays reachable while NATS is down; a collector that stopped shows in the UI header and in the `nats_lens_last_epoch_age_seconds` metric. During a rebuild at start, neither endpoint answers yet. A typed fatal database error makes `/readyz` answer 503; `/healthz` and the API keep serving.
+- **Fatal database errors.** nats-lens stops database work and collection for the affected system. Logs and system summaries show a bounded diagnostic with the operation stage; database row dumps and arbitrary driver text are omitted. Separate healthy systems continue collecting. Calls already running are canceled where possible and unwind. nats-lens does not reopen or repair the failed database. See [multiple-systems.md](multiple-systems.md).
 - **Stopping.** On SIGTERM or SIGINT, a running collection write may finish for up to `shutdown_grace` (5 seconds), an in-flight notification request gets the same `shutdown_grace` before cancellation, leaving its batch pending; the last events are written until `shutdown_grace` plus `events.flush_interval`, and the API gives calls in progress 5 seconds. Several systems stop at the same time within the same bounds. The process manager's stop timeout must be longer than `shutdown_grace + events.flush_interval + 2s` or 5 seconds, whichever is longer, plus a second or two to exit; with the defaults, at least 10 seconds.
 - **Memory.** DuckDB may use `duckdb_memory_limit`, by default 60% of the container's memory limit, or 1 GiB outside a container. Several systems share it, each with its own database.
 - **The Kubernetes manifests.** `k8s/base` creates the namespace `nats-lens`, a service account with read-only roles, a volume, the Deployment and the Service, and expects two Secrets with the NATS credentials. `k8s/components/gke-iap` adds IAP, a load balancer health check on `/healthz`, a NetworkPolicy and a Managed Prometheus scrape of `/metrics`. Two overlays to copy: `k8s/examples/basic`, reached by `kubectl port-forward` only, and `k8s/examples/gke-iap`, behind IAP on an existing Gateway.
@@ -52,6 +53,14 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 - **When** the kubelet calls `/healthz` and `/readyz`
 - **Then** both answer ok once the database is open and the API serves, also while NATS is unreachable
 
+### Contain a fatal database error
+
+- **Surfaces:** `api`, `cli`
+- **Given** nats-lens serves a system whose database encounters a typed fatal error
+- **When** the engine reports that error during a database operation
+- **Then** further operations on that engine are refused and that system's workers stop
+- **And** `/readyz` answers 503, `/healthz` keeps answering, and the error omits database row dumps
+
 ### Deploy for port-forward access
 
 - **Surfaces:** `cli`
@@ -75,6 +84,7 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 
 ## Not supported / out of scope
 
+- **No automatic recovery from a typed fatal database error.** Containment does not establish a cause or repair stored data.
 - **No high availability.** One replica at a time; a second would not get the database.
 - **No authentication of its own.** Use an identity-aware proxy, or keep the API on loopback or behind a NetworkPolicy.
 - **No TLS on the API listener.** The API speaks plain HTTP (and HTTP/2 without TLS for gRPC); TLS ends at the proxy or load balancer.

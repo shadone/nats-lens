@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -120,10 +121,21 @@ func registry(rts []*systemRuntime, set *checks.Set) api.Systems {
 		out = append(out, api.System{
 			Ref:      &v1.SystemRef{Id: rt.sys.ID, Name: rt.sys.Name, Environment: rt.sys.Environment},
 			Provider: rt.provider(set),
-			Status:   rt.status.get,
+			Status:   rt.collectionState,
 		})
 	}
 	return out
+}
+
+// collectionState gives engine failure priority over NATS callbacks.
+func (rt *systemRuntime) collectionState() api.CollectionStatus {
+	st := rt.status.get()
+	if err := rt.st.Failure(); err != nil {
+		st.State = api.CollectionStoreFailed
+		st.Since = rt.st.FailedAt()
+		st.LastError = err.Error()
+	}
+	return st
 }
 
 // run collects the system: in natslens once one epoch, in natslens run one
@@ -135,6 +147,33 @@ func registry(rts []*systemRuntime, set *checks.Set) api.Systems {
 // the same deadline.
 func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, deadline func() time.Time) (err error) {
 	cfg, st, log := rt.cfg, rt.st, rt.log
+	// A fatal engine stops only this system's workers. Its database guard also
+	// rejects shutdown flushes and API calls; no reopen or recovery is attempted.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	defer func() {
+		if failure := st.Failure(); failure != nil {
+			err = failure
+		}
+	}()
+	go func() {
+		select {
+		case <-st.Failed():
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	outerDeadline := deadline
+	var failedBy time.Time
+	var failedOnce sync.Once
+	deadline = func() time.Time {
+		if st.Failure() == nil {
+			return outerDeadline()
+		}
+		failedOnce.Do(func() { failedBy = time.Now().Add(cfg.ShutdownGrace.D() + cfg.Events.FlushInterval.D()) })
+		return failedBy
+	}
+
 	if cmd == "run" && len(cfg.Notifications.Channels) > 0 {
 		stop := startNotificationDelivery(ctx, &notify.Delivery{Store: st, SystemID: rt.sys.ID,
 			SystemName: rt.sys.Name, Version: version, UIURL: cfg.Notifications.UIURL,
@@ -276,6 +315,7 @@ func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, d
 		close(archived)
 	}()
 	err = r.Run(ctx)
+	cancel()
 	// An export interrupted by the signal normally ends at once; one that
 	// does not is abandoned at the shutdown deadline.
 	if !waitUntil(archived, deadline()) {
@@ -284,6 +324,8 @@ func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, d
 	// The last state goes to the archive after the last events, so that it
 	// covers every number handed out.
 	<-eventsDone
-	writeFinalState(ctx, rt.arch, deadline(), log)
+	if st.Failure() == nil {
+		writeFinalState(ctx, rt.arch, deadline(), log)
+	}
 	return err
 }

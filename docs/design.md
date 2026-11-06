@@ -724,3 +724,36 @@ The engine reads current route rows, selects one previous collection and reads i
 Each identity's last-observation timestamp in the persisted finding detail supplies durable expiry proof. Carry preserves that timestamp, including fractional seconds, across evaluations and store reopen. It expires each identity independently after 24 hours; fresh confirmed evidence can join without extending another identity's age. The parser accepts only the code-owned evidence format and fails the check on unknown evidence, preserving existing state instead of silently resolving it. This uses the existing detail field without changing migrations, the API, or configuration metadata. The format and per-identity retention are proposed, not yet confirmed.
 
 Expiry ends a warning because recent evidence is unavailable; it does not establish observed recovery. With eligible coverage, the original rules still clear absence on reconnect and clear repeated drops below three in the rolling hour. During uncertain coverage, the retained last-observation window bounds either kind of earlier evidence. This distinction is proposed, not yet confirmed.
+
+
+## Fatal database containment (proposed, not yet confirmed)
+
+Proposed, not yet confirmed: each store guards its DuckDB connector, shared by
+all SQL connections to that engine. A wrapped `*duckdb.Error` with
+`ErrorTypeFatal` latches the first failure. Further engine operations are refused;
+cleanup can still release native resources. Calls admitted before the failure
+can unwind, and calls with contexts receive cancellation. This boundary covers
+store-backed collection, checks, events, notifications, archive work, and API
+queries, including prepared statements and transaction commits.
+
+The affected system cancels its workers with a local shutdown deadline. Other
+systems keep their own engines and workers; a failed system cannot consume their
+later shutdown grace. The API remains available until external shutdown, even
+when every system failed. Process readiness fails if any engine failed, while
+liveness continues. The existing closed collection state carries the bounded
+failure in system summaries, without a new protobuf field. These policy choices
+are proposed, not yet confirmed.
+
+Fatal diagnostics keep an allowlisted mechanism summary and the operation stage.
+Arbitrary engine text, wrapping text, row chunks, SQL, and paths from diagnostics
+are discarded. Classification survives through a sanitized typed cause. This
+intentionally trades detailed diagnostics for bounded, secret-safe reporting.
+Nonfatal errors retain their existing behavior.
+
+Containment never reopens a failed engine, repairs data, changes indexes or
+migrations, or upgrades DuckDB. A fatal error at open does not select the existing
+automatic WAL-rebuild path. The disposable regression demonstrates one pinned
+engine failure; it does not establish the cause of another database's failure.
+[Upstream PR 25771](https://github.com/duckdb/duckdb/pull/25771) addresses shutdown
+checkpoint prevention, not repair of existing index divergence. Dependency
+upgrades and recovery require separate work.

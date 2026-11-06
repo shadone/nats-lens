@@ -102,6 +102,9 @@ func TestFatalClassificationAndSafeSummary(t *testing.T) {
 	if !IsFatal(safe) || strings.Contains(safe.Error(), "private") || strings.Contains(safe.Error(), "secret") || !strings.Contains(safe.Error(), "index deletion failed") {
 		t.Errorf("bad safe summary: %v", safe)
 	}
+	if rewrapped := SafeError("retention sweep", fmt.Errorf("secret: %w", safe)); rewrapped != safe {
+		t.Error("sanitizing a wrapper lost the safe original stage")
+	}
 	if e := openError("synthetic.duckdb", fmt.Errorf("replaying WAL: %w", raw)); errors.Is(e, ErrWALReplay) {
 		t.Error("typed fatal must never select automatic WAL rebuild")
 	}
