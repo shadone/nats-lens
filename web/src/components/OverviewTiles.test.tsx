@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { renderApp as render } from "../test/render";
+import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { Tile } from "../api/model";
 import { OverviewTiles, tileStatus, tileText } from "./OverviewTiles";

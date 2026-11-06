@@ -8,6 +8,8 @@ import type { Level, Tile, Window } from "../api/model";
 import { tileValue, fmtValue } from "../lib/units";
 import { MetricBox } from "./MetricBox";
 
+const destinations: Record<string, string> = { servers: "/servers", meta_leader: "/servers", streams: "/streams", kv: "/kv-stores", object_stores: "/object-stores", consumers: "/consumers", accounts: "/accounts", clients: "/connections", storage: "/capacity" };
+
 function join(...parts: string[]): string {
   return parts.filter(Boolean).join(" ");
 }
@@ -49,6 +51,7 @@ export function OverviewTiles({ tiles, windows, start, end }: { tiles: Tile[]; w
         <MetricBox
           key={t.id}
           title={t.label}
+          to={destinations[t.id]}
           description={t.description ?? ""}
           series={t.series}
           series2={t.series2}

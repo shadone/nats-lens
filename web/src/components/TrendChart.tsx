@@ -1,3 +1,4 @@
+import { RLink } from "./common";
 import { usePageHistory } from "./HistoryNote";
 import { rangeCoverageText } from "../lib/historyView";
 // A small chart over the range with any mix of layers: lines (solid or
@@ -25,6 +26,7 @@ export type Layer =
 
 interface Props {
   title: string;
+  to?: string;
   /** The current value as text; absent when nothing was observed. */
   now?: string;
   /** What the chart's range was, for the footer and the accessible name: "min 14, max 20". */
@@ -69,7 +71,7 @@ export function yDomain(all: number[], floor: "zero" | "data"): [number, number]
   return [lo, max === lo ? lo + 1 : max];
 }
 
-export function TrendChart({ title, now, summary, start, end, stepMs = 0, layers, floor = "zero", loading, error }: Props) {
+export function TrendChart({ title, to, now, summary, start, end, stepMs = 0, layers, floor = "zero", loading, error }: Props) {
   const h = usePageHistory();
   const coverage = ["Messages", "Bytes", "Connections"].includes(title) ? rangeCoverageText(h?.historyStart, start, end) : undefined;
   summary = [summary, coverage].filter(Boolean).join(" · ") || undefined;
@@ -83,9 +85,9 @@ export function TrendChart({ title, now, summary, start, end, stepMs = 0, layers
   const legend: LegendItem[] = layers.map((l) => ({ label: l.label, kind: l.kind, style: l.style }));
   const shown = loading && empty ? "…" : (now ?? "–");
   return (
-    <div className="card tc">
+    <div className={`card tc${to ? " chart-linked" : ""}`}>
       <div className="tc-h">
-        <span className="lbl">{title}</span>
+        {to ? <RLink to={to} className="lbl chart-link">{title}</RLink> : <span className="lbl">{title}</span>}
         <b className="mono">{shown}</b>
       </div>
       {error && empty ? (
