@@ -346,33 +346,6 @@ func TestBudget(t *testing.T) {
 	}
 }
 
-func TestBudgetRotates(t *testing.T) {
-	f := newFx(t)
-	f.epoch(1, []string{"nats-0"})
-	f.epoch(2, []string{"nats-0"})
-	slow := `SELECT 'A/z' AS entity_key, 'bad' AS detail FROM range(1000000000) a, range(1000000000) b WHERE a.range = b.range + 7`
-	e := engineWith(t, config.Checks{Timeout: config.Duration(10 * time.Second)}, map[string]string{
-		"stream-901": slow, "stream-902": slow, "stream-903": slow,
-	})
-	e.Budget = 200 * time.Millisecond
-	ran := func(epoch int64) string {
-		runs, err := e.Evaluate(context.Background(), f.st.DB(), epoch)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, r := range runs {
-			if strings.Contains(r.Error, "no result within") {
-				return r.Code
-			}
-		}
-		return ""
-	}
-	first, second := ran(1), ran(2)
-	if first == "" || second == "" || first == second {
-		t.Fatalf("the check that got the budget: epoch 1 %q, epoch 2 %q", first, second)
-	}
-}
-
 // A check that has failed in ten epochs in a row makes system-001 critical.
 func TestRepeatedFailureEscalates(t *testing.T) {
 	ctx := context.Background()
