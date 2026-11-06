@@ -1,5 +1,5 @@
 // The Servers page's data points: who answers, versions in use, restarts,
-// the JetStream store across servers and slow-client disconnects.
+// the JetStream store across servers and slow-consumer detections.
 import type { ServerList, ServerRow } from "../api/servers";
 import { SERVERS_QUERIES, SLOW_STRIP_QUERY, useServersTrends } from "../api/servers";
 import { pickTrend } from "../api/trendBatch";
@@ -139,18 +139,18 @@ function SlowConsumers({ servers, spec }: { servers: ServerRow[]; spec: RangeSpe
   const w = pts.length ? 240 / pts.length : 0;
   return (
     <div className="card dp">
-      <span className="lbl">{titled("Slow-client disconnects", spec)}</span>
+      <span className="lbl">{titled("Slow-consumer detections", spec)}</span>
       <div className="dp-v">
         <b className={total > 0 ? "warn" : undefined}>{known.length ? fmtInt(total) : "–"}</b>
       </div>
-      <svg className="dp-strip" viewBox="0 0 240 22" preserveAspectRatio="none" role="img" aria-label={`Slow-client disconnects per ${pts.length ? "bucket" : "range"}, peak ${pts.length ? fmtInt(Math.max(...pts.map((p) => p.value))) : "none"}`}>
+      <svg className="dp-strip" viewBox="0 0 240 22" preserveAspectRatio="none" role="img" aria-label={`Slow-consumer detections per ${pts.length ? "bucket" : "range"}, peak ${pts.length ? fmtInt(Math.max(...pts.map((p) => p.value))) : "none"}`}>
         <line x1="0" y1="21" x2="240" y2="21" className="dp-axis" vectorEffect="non-scaling-stroke" />
         {pts.map((p, i) => {
           const h = p.value > 0 ? 2 + (p.value / peak) * 18 : 0;
           return h ? <rect key={p.time} x={(i * w).toFixed(1)} y={(21 - h).toFixed(1)} width={Math.max(1, w - 2).toFixed(1)} height={h.toFixed(1)} className="dp-bar" /> : null;
         })}
       </svg>
-      <p className="dp-n">Clients disconnected as slow during the selected range. For JetStream backlog, see <RLink to="/consumers">Consumers</RLink>.</p>
+      <p className="dp-n">Server slow-consumer counter increases during the selected range. Covers clients, routes, gateways and leaf connections; retries can count without a disconnect. Not unique clients or JetStream pending messages. For JetStream backlog, see <RLink to="/consumers">Consumers</RLink>.</p>
       <div className="dp-n">
         {!known.length ? "not reported" : total === 0 || !most ? "none" : (
           <>
