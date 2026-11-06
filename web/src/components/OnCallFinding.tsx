@@ -1,21 +1,20 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useParams } from "react-router";
 
 import { useLensInfo, useOnCall } from "../api/queries";
 import { serverNow } from "../lib/clock";
 import { fmtDuration, isoMinute } from "../lib/format";
 import { atHistoryStart } from "../lib/historyView";
-import { assetStatus, contextText, headline, rightNow, safePlaybook, storyNote } from "../lib/onCallView";
+import { assetStatus, contextText, headline, rightNow, safePlaybook, storyNote, remediationParts } from "../lib/onCallView";
 import { writeMoments } from "../lib/replayUrl";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useSystem } from "../lib/useSystem";
 import { entityName, findingPath } from "../lib/view";
-import { DesktopFindingDetail } from "../pages/FindingDetail";
 import { FindingAcknowledgement } from "./Acknowledgement";
 import { Empty, QueryView, Remediation, RLink } from "./common";
 import { HistoryLink } from "./HistoryNote";
 import { Sev } from "./Severity";
-export function OnCallFinding() {
+export function OnCallFinding({ allDetails }: { allDetails: ReactNode }) {
   const id = useParams().id ?? "";
   const sys = useSystem();
   const q = useOnCall(id);
@@ -30,6 +29,7 @@ export function OnCallFinding() {
       const known = atHistoryStart(f, info?.historyStart);
       const since = f.conditionSince ?? f.since;
       const playbook = safePlaybook(d.playbookUrl);
+      const remediation = remediationParts(f.remediation);
       const note = storyNote(d.steps.length, d.stepsTotal, d.stepsNote);
       return <>
         <section className={`oc-card card worst ${f.severity}`}>
@@ -52,11 +52,14 @@ export function OnCallFinding() {
           {d.storyA !== undefined && d.storyB !== undefined && <RLink to={`/replay?${writeMoments(new URLSearchParams(), { a: d.storyA, b: d.storyB })}`}>Open in Replay</RLink>}
         </section>
         <section className="oc-card card"><h2 className="oc-heading">What to do</h2>
-          {f.remediation ? <Remediation text={f.remediation} /> : <p>The check gives no remediation.</p>}
+          {remediation.warning ? <>
+            <div className="oc-warning"><Remediation text={remediation.warning} /></div>
+            {remediation.steps.length > 0 && <ol className="oc-steps">{remediation.steps.map((text, i) => <li key={i}><Remediation text={text} /></li>)}</ol>}
+          </> : <p>The check gives no remediation.</p>}
           {playbook && <p><a href={playbook} className="x" rel="noreferrer">Open the playbook</a></p>}
         </section>
         <FindingAcknowledgement key={`${sys}:${id}`} finding={f} phone />
-        <details className="oc-details" onToggle={e => setDetails(e.currentTarget.open)}><summary>All details</summary>{details && <DesktopFindingDetail acknowledgements={false} />}</details>
+        <details className="oc-details" onToggle={e => setDetails(e.currentTarget.open)}><summary>All details</summary>{details && allDetails}</details>
       </>;
     }}</QueryView>
   </div>;

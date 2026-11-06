@@ -170,8 +170,7 @@ function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void 
               <EntityLink e={f.entity} />
               {g.checkCodes.length > 1 && <small className="code"> {f.checkCode}</small>}
             </span>
-            <span className="cg-d">{f.detail}{atHistoryStart(f, historyStart) && <small> · <span>already true when nats-lens started</span></small>}</span>
-            <AcknowledgementMark acknowledgement={f.acknowledgement} />
+            <span className="cg-d">{f.detail}{atHistoryStart(f, historyStart) && <small> · <span>already true when nats-lens started</span></small>}<AcknowledgementMark acknowledgement={f.acknowledgement} /></span>
             <Actions f={f} onMute={onMute} label={findingLabel(f, accounts)} />
           </li>
         ))}
