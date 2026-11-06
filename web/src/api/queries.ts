@@ -391,3 +391,52 @@ export function useShellStatus() {
   const data = { ...status.data, servers: last.servers, freshness: { ...f, epoch: lf.epoch, epochAt: lf.epochAt, ageMs: lf.ageMs, partial: lf.partial } };
   return { ...status, data };
 }
+
+/** A saved acknowledgement appears immediately in both current detail caches.
+ * Refetch only this system, including its tallies and acknowledgement event. */
+export function useSaveAcknowledgement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { system: string; episodeSince?: number } & ({ action: "ack"; input: api.AckInput } | { action: "release"; id: string; endedBy: string })) =>
+      v.action === "ack" ? api.acknowledgeFinding(v.system, v.input) : api.endAcknowledgement(v.system, v.id, v.endedBy),
+    // ASVS 15.4.2: capture the episode and revision before the asynchronous write;
+    // a response cannot revive superseded state or overwrite newer ownership.
+    onMutate: v => {
+      const snapshots = new Map<string, { revision: number; finding: import("./model").Finding }>();
+      for (const kind of ["finding", "oncall"]) {
+        for (const q of qc.getQueryCache().findAll({ queryKey: [kind, v.system] })) {
+          const f = (q.state.data as { finding?: import("./model").Finding } | undefined)?.finding;
+          if (f && (v.episodeSince === undefined || f.since === v.episodeSince) && (v.action === "ack" ? f.id === v.input.findingId : f.acknowledgement?.id === v.id))
+            snapshots.set(q.queryHash, { revision: q.state.dataUpdateCount, finding: f });
+        }
+      }
+      return snapshots;
+    },
+    onSuccess: (a, v, snapshots) => {
+      const filter = { predicate: (q: { queryKey: readonly unknown[] }) => q.queryKey[1] === v.system };
+      for (const kind of ["finding", "oncall"]) {
+        const key = [kind, v.system, a.findingId];
+        const q = qc.getQueryCache().find({ queryKey: key, exact: true });
+        const before = q && snapshots?.get(q.queryHash);
+        const f = (q?.state.data as { finding?: import("./model").Finding } | undefined)?.finding;
+        // A strictly later server acknowledgement may advance existing ownership.
+        // An absent acknowledgement after a read/release remains authoritative.
+        const advancesAck = a.endedAt === undefined && f?.acknowledgement !== undefined &&
+          (a.createdAt ?? -Infinity) > (f.acknowledgement.createdAt ?? Infinity);
+        if (!q || !before || !f || (q.state.dataUpdateCount !== before.revision && !advancesAck) ||
+            f.id !== before.finding.id || f.since === undefined || f.since !== before.finding.since ||
+            f.state !== before.finding.state || f.state === "resolved" || f.state === "unknown" ||
+            (f.acknowledgement?.createdAt ?? -Infinity) > (a.createdAt ?? -Infinity) ||
+            (v.action === "release" && f.acknowledgement?.id !== v.id)) continue;
+        qc.setQueryData(key, (d: { finding?: import("./model").Finding } | undefined) =>
+          d ? { ...d, finding: { ...f, acknowledgement: a.endedAt === undefined ? a : undefined } } : d);
+      }
+      void qc.invalidateQueries(filter);
+    },
+  });
+}
+
+export function useOnCall(id: string) {
+  const sys = useSystem();
+  return useQuery({ queryKey: ["oncall", sys, id], queryFn: ({ signal }) => api.getOnCall(sys, id, signal), refetchInterval: LIVE_REFRESH_MS });
+}

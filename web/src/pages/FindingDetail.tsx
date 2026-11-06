@@ -1,3 +1,6 @@
+import { FindingAcknowledgement } from "../components/Acknowledgement";
+import { OnCallFinding } from "../components/OnCallFinding";
+import { usePhone } from "../lib/usePhone";
 import { atHistoryStart } from "../lib/historyView";
 import { HistoryLink } from "../components/HistoryNote";
 // One finding: its headline, when the condition began and when nats-lens
@@ -57,7 +60,7 @@ function When({ f, spec, historyStart }: { f: Finding; spec: RangeSpec; historyS
   );
 }
 
-function Head({ f, spec, start, end, onMute, onUnmute }: { f: Finding; spec: RangeSpec; start: number; end: number; onMute: () => void; onUnmute: () => void }) {
+function Head({ f, spec, start, end, onMute, onUnmute, onAck }: { f: Finding; spec: RangeSpec; start: number; end: number; onMute: () => void; onUnmute: () => void; onAck?: () => void }) {
   const since = f.since ?? end;
   const historyStart = useLensInfo().data?.historyStart;
   const name = entityName(f.entity);
@@ -114,6 +117,7 @@ function Head({ f, spec, start, end, onMute, onUnmute }: { f: Finding; spec: Ran
           </div>
         )}
         <div className="btns">
+          {onAck && f.state !== "resolved" && <button type="button" className="btn" onClick={onAck}>{f.acknowledgement ? "Update acknowledgement…" : "Acknowledge…"}</button>}
           {f.mute ? (
             <button type="button" className="btn" onClick={onUnmute}>
               {f.mute.accepted ? "End acceptance…" : "Lift mute…"}
@@ -261,6 +265,10 @@ function MuteSection({ m }: { m: Mute }) {
 }
 
 export function FindingDetail() {
+  return usePhone() ? <OnCallFinding allDetails={<DesktopFindingDetail acknowledgements={false} />} /> : <DesktopFindingDetail />;
+}
+
+export function DesktopFindingDetail({ acknowledgements = true }: { acknowledgements?: boolean }) {
   const id = useParams().id ?? "";
   usePageTitle(id);
   const { spec } = useTimeRange();
@@ -292,9 +300,9 @@ export function FindingDetail() {
             <Empty>No finding with this ID.</Empty>
           ) : (
             <>
-              <section className="sec">
-                <Head f={d.finding} spec={spec} start={start} end={end} onMute={() => setMuting(true)} onUnmute={() => setLifting(true)} />
-              </section>
+              {acknowledgements ? <FindingAcknowledgement key={d.finding.id} finding={d.finding} renderHead={open =>
+                <section className="sec"><Head f={d.finding!} spec={spec} start={start} end={end} onMute={() => setMuting(true)} onUnmute={() => setLifting(true)} onAck={open} /></section>
+              } /> : <section className="sec"><Head f={d.finding} spec={spec} start={start} end={end} onMute={() => setMuting(true)} onUnmute={() => setLifting(true)} /></section>}
               {d.finding.mute && <MuteSection m={d.finding.mute} />}
               <div className="sec fd-cols">
                 <div className="fd-main">
