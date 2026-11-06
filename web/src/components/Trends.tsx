@@ -15,6 +15,8 @@ import { TrendChart, type Layer } from "./TrendChart";
 
 export interface Frame {
   spec: RangeSpec;
+  /** Overview supplies destinations; other callers retain their existing headers. */
+  chartLinks?: boolean;
   start: number;
   end: number;
 }
@@ -38,6 +40,7 @@ export function OneLine({ f, q, title, label }: { f: Frame; q: TrendSlice; title
   return (
     <TrendChart
       title={title}
+      to={f.chartLinks ? ({ Servers: "/servers", Connections: "/connections", Messages: "/servers", Bytes: "/servers", CPU: "/servers", Memory: "/servers" } as Record<string, string>)[title] : undefined}
       now={fmt(lastValue(s?.points), unit)}
       summary={minMaxText(s, unit)}
       start={f.start}
@@ -55,6 +58,7 @@ function SlowConsumers({ f, q }: { f: Frame; q: TrendSlice }) {
   return (
     <TrendChart
       title="Slow consumers"
+      to={f.chartLinks ? "/connections" : undefined}
       now={sum === undefined ? undefined : `${fmtValue(sum, "count")} in range`}
       start={f.start}
       end={f.end}
@@ -71,6 +75,7 @@ export function InOut({ f, title, qi, qo }: { f: Frame; title: string; qi: Trend
   return (
     <TrendChart
       title={title}
+      to={f.chartLinks ? ({ Servers: "/servers", Connections: "/connections", Messages: "/servers", Bytes: "/servers", CPU: "/servers", Memory: "/servers" } as Record<string, string>)[title] : undefined}
       now={inOutText(lastValue(qi.data?.points), lastValue(qo.data?.points), unit)}
       summary={Number.isFinite(max) ? `max ${fmtValue(max, unit)}` : undefined}
       start={f.start}
@@ -97,6 +102,7 @@ export function Band({ f, q, title, floor = "zero" }: { f: Frame; q: TrendSlice;
   return (
     <TrendChart
       title={title}
+      to={f.chartLinks ? ({ Servers: "/servers", Connections: "/connections", Messages: "/servers", Bytes: "/servers", CPU: "/servers", Memory: "/servers" } as Record<string, string>)[title] : undefined}
       now={text.now}
       summary={minMaxText(s, unit)}
       start={f.start}
@@ -117,6 +123,7 @@ function Assets({ f, qr, qs }: { f: Frame; qr: TrendSlice; qs: TrendSlice }) {
   return (
     <TrendChart
       title="Assets"
+      to={f.chartLinks ? "/placement" : undefined}
       now={r === undefined && one === undefined ? undefined : `${fmt(r, "count") ?? "–"} replicated, ${fmt(one, "count") ?? "–"} single`}
       summary={top === undefined ? undefined : `max ${fmtValue(top, "count")} in all`}
       start={f.start}
@@ -147,7 +154,7 @@ export const TREND_QUERIES: TrendQuery[] = [
 ].map((metric) => ({ metric }));
 
 export function Trends({ spec, start, end }: Frame) {
-  const f = { spec, start, end };
+  const f = { spec, start, end, chartLinks: true };
   const b = useTrends(spec, TREND_QUERIES);
   useReportStale(b);
   const t = (metric: string) => pickTrend(b, TREND_QUERIES, { metric });

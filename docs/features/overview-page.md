@@ -10,6 +10,8 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 
 ## Behavior and rules
 
+- **Chart destinations.** Tile and trend headers link to the relevant list. The link covers the box outside chart inspection and other controls. Links keep the system and range, and the account on destinations that apply account scope.
+
 - **Acknowledged findings.** Cause cards show the [acknowledgement mark](mobile.md), and the status line counts acknowledged findings. At phone width, cause cards precede the health tiles.
 
 - **History behind the figures.** A short-history note links to Data history. Trend and tile charts retain the requested axis and hatch collection gaps and time before history, with the limits described in [data-history.md](data-history.md). Message and connection trends, the Clients tile, and Storage name the shorter span. Storage explains missing growth with the six-hour requirement; unresolved cause cards identify findings already true at the history start.
@@ -34,6 +36,14 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 
 - **Acknowledged trouble stays visible.** Cause cards show the current acknowledgement's author, time, note, and quiet state. The status line counts acknowledged firing findings, including muted ones. Acknowledging leaves severity counts unchanged; muting still removes a finding from unmuted status. On phones, the status line and cause cards precede the two-column health tiles and timeline.
 ## Scenarios
+
+### Open a chart's area
+
+- **Surfaces:** `ui`
+- **Given** Overview shows Streams and Clients for a selected system and range
+- **When** I activate a chart header by pointer or keyboard
+- **Then** Streams opens Streams and Clients opens Connections with the same system and range
+- **And** Connections keeps the account scope, and info buttons remain independent
 
 ### Start the day
 
@@ -102,7 +112,6 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 
 ## Planned
 
-- **Tiles link to their pages.** A box opens the page of its area.
 - **Cause evidence.** A table of the affected assets per server in a cause card, "Copy nats CLI check" and "Accept as known…" ([checks.md](checks.md)).
 - **One hover across charts.** Hovering a point marks the same moment in every chart and in the lanes. Dragging over the lanes zooms in, and a click on a mark tells its story.
 - **More lanes.** Servers (restarts, lame duck), leaders (meta, streams, consumers) and clients (connects, drops) as lanes of their own.

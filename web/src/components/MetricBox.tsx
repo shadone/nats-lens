@@ -12,6 +12,7 @@
 // series whose min equals its max. A series that begins more than a bucket
 // and a half after the window's start says "since HH:MM UTC" in place of
 // the window, as the history is younger than the range.
+import { RLink } from "./common";
 import { useId, useState, type ReactNode } from "react";
 import type { Level, Series, Window } from "../api/model";
 import { rangeText } from "../charts/chartLabel";
@@ -38,6 +39,8 @@ export function sinceText(since: number, end: number): string {
 
 export interface MetricBoxProps {
   title: string;
+  /** Optional destination; leaves the chart and info button independently interactive. */
+  to?: string;
   /** What the metric measures, shown behind the (i) button. */
   description: string;
   series?: Series;
@@ -174,10 +177,10 @@ export function MetricBox(p: MetricBoxProps) {
   const first = seriesSince(p.series, p.start);
   const since = first === undefined ? undefined : sinceText(first, p.end);
   return (
-    <div className={`card mbox${alert}`}>
+    <div className={`card mbox${alert}${p.to ? " chart-linked" : ""}`}>
       <div className="mb-h">
         <span className="lbl">
-          <span className="mb-t">{p.title}</span>
+          {p.to ? <RLink to={p.to} className="mb-t chart-link">{p.title}</RLink> : <span className="mb-t">{p.title}</span>}
           <InfoTip label={p.title} text={p.description} />
         </span>
         <span className="mb-v">
