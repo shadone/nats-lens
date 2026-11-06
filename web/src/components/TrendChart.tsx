@@ -6,7 +6,7 @@ import { rangeCoverageText } from "../lib/historyView";
 // spans the data's own range with a margin. A gap in the data
 // of more than two steps breaks the line, since a bucket without data has
 // no point. The legend draws each layer's own mark.
-import { HistoryGaps } from "../charts/HistoryGaps";
+import { ChartHistoryNotice, HistoryGaps } from "../charts/HistoryGaps";
 import type { Point } from "../api/model";
 import { chartName, rangeText } from "../charts/chartLabel";
 import { dayMonHm } from "../lib/format";
@@ -135,6 +135,7 @@ export function TrendChart({ title, now, summary, start, end, stepMs = 0, layers
           })}
         </svg>
       )}
+      <ChartHistoryNotice start={start} end={end} />
       <div className="tc-f mono" aria-hidden="true">
         <span>{dayMonHm(start)}</span>
         <span>{dayMonHm(end)}</span>

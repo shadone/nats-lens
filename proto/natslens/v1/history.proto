@@ -16,6 +16,10 @@ message GetDataHistoryRequest {
   // Range whose coverage and gaps are read. Unset means the last 24 hours
   // up to now.
   TimeRange range = 2;
+
+  // Optional server name across process restarts. Adds recorded missing reports;
+  // global coverage and collection gaps remain system-wide.
+  string server = 3;
 }
 
 // Kind of a time nats-lens knows nothing, or only part, of.
@@ -73,6 +77,16 @@ message HistoryGap {
 
   // Start of after_epoch; unset when it is 0.
   google.protobuf.Timestamp after_epoch_at = 9;
+}
+
+// A recorded missing report at a collection, bounded to at most one collect
+// interval and the next collection. This does not establish server downtime.
+message ServerHistoryGap {
+  google.protobuf.Timestamp start = 1;
+  // Always set; no inference beyond the observed collection interval.
+  google.protobuf.Timestamp end = 2;
+  // Server did not answer, or neither STATSZ nor VARZ supplied metrics.
+  string reason = 3;
 }
 
 // What the range holds. Without history in the range, covered_from,
@@ -217,4 +231,13 @@ message GetDataHistoryResponse {
   // All gaps of the other kinds that overlap the range: events not
   // captured and Kubernetes not watched.
   int32 listed_gaps_total = 13;
+
+  // Recorded missing reports for request.server only, oldest first. Adjacent
+  // intervals with the same reason merge. Never included in global coverage.
+  repeated ServerHistoryGap server_gaps = 14;
+
+  // Newest omitted collection/before-history gap, only when gaps_total exceeds
+  // the returned hatched list. Lets a moving chart check actual overlap with
+  // an omitted interval without treating 200 returned gaps as truncation.
+  HistoryGap newest_omitted_collection_gap = 15;
 }
