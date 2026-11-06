@@ -1,9 +1,12 @@
 package checks
 
 import (
+	"context"
 	"fmt"
+	"github.com/shadone/nats-lens/internal/config"
 	"strings"
 	"testing"
+	"time"
 )
 
 // Both domains deliberately have the same cluster label. Only disjoint RAFT
@@ -154,5 +157,73 @@ func TestMetaGroupsUnscopedAdvisoriesDoNotInventAGroup(t *testing.T) {
 		if flap {
 			want(t, r[""], "warning", "changed 7 times", "unresolved group identity were not counted")
 		}
+	}
+}
+
+func TestMetaGroupsAmbiguousPeerNamesStayUnscoped(t *testing.T) {
+	f := metaGroupsFixture(t, 1, func(g string, e int64) string { return "" })
+	f.exec(`UPDATE servers SET server_name = 'same-name'`)
+	f.exec(`UPDATE raft_stats SET peers = '{"same-hash":{"name":"same-name"}}'`)
+	r := f.eval("system-002", 1)
+	want(t, r[""], "critical", "meta group identity unknown")
+}
+
+func TestMetaGroupsSuccessfulRunState(t *testing.T) {
+	f := metaGroupsFixture(t, 3, func(g string, e int64) string {
+		if g == "orders" && e == 1 {
+			return ""
+		}
+		return g + "-0"
+	})
+	set, err := Load(config.Checks{Timeout: config.Duration(10 * time.Second)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine := &Engine{Set: set, only: map[string]bool{"system-002": true, "system-003": true}}
+	if _, err := engine.Run(context.Background(), f.st, 1); err != nil {
+		t.Fatal(err)
+	}
+	// A malformed stored membership is a failed run, not healthy zero data.
+	f.exec(`UPDATE raft_stats SET peers = '[]' WHERE epoch = 2`)
+	if _, err := engine.Run(context.Background(), f.st, 2); err != nil {
+		t.Fatal(err)
+	}
+	var state string
+	var seen int64
+	if err := f.st.DB().QueryRow(`SELECT state, last_seen_epoch FROM findings WHERE id = 'system-002:'`).Scan(&state, &seen); err != nil {
+		t.Fatal(err)
+	}
+	if state != "firing" || seen != 1 {
+		t.Fatalf("failed run erased last successful state: %s %d", state, seen)
+	}
+	if _, err := engine.Run(context.Background(), f.st, 3); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.st.DB().QueryRow(`SELECT state FROM findings WHERE id = 'system-002:'`).Scan(&state); err != nil {
+		t.Fatal(err)
+	}
+	if state != "resolved" {
+		t.Fatalf("healthy group did not resolve stable public identity: %s", state)
+	}
+}
+
+func TestMetaGroupsBoundedWindow(t *testing.T) {
+	f := metaGroupsFixture(t, 31, func(g string, e int64) string { return fmt.Sprintf("%s-%d", g, e%2) })
+	// 80 servers in 20 independent groups, 31 snapshots, plus 24,800 old
+	// observations outside the window. Only the 2,480 window rows may scope it.
+	f.exec(`INSERT INTO servers SELECT servers.* REPLACE ('copy' || i || '-' || server_id AS server_id,
+  'copy' || i || '-' || server_name AS server_name) FROM servers CROSS JOIN range(1,10) copies(i)`)
+	f.exec(`INSERT INTO server_stats SELECT server_stats.* REPLACE ('copy' || i || '-' || server_id AS server_id,
+  'copy' || i || '-' || meta_leader AS meta_leader) FROM server_stats CROSS JOIN range(1,10) copies(i)`)
+	f.exec(`INSERT INTO raft_stats SELECT raft_stats.* REPLACE ('copy' || i || '-' || server_id AS server_id,
+  replace(replace(peers::VARCHAR, 'orders', 'copy' || i || '-orders'), 'shipping', 'copy' || i || '-shipping')::JSON AS peers)
+  FROM raft_stats CROSS JOIN range(1,10) copies(i)`)
+	f.exec(`INSERT INTO server_stats SELECT server_stats.* REPLACE (epoch - i * 1000 AS epoch)
+  FROM server_stats CROSS JOIN range(1,11) history(i)`)
+	start := time.Now()
+	r := f.eval("system-003", 31)
+	t.Logf("80 servers, 20 groups, 2480 window observations + 24800 older observations: %s", time.Since(start))
+	if len(r) != 1 || r[""].Value == nil || *r[""].Value != 30 {
+		t.Fatalf("bounded group counts: %s", rowsText(r))
 	}
 }
