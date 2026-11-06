@@ -86,3 +86,17 @@ it("keeps grouped cause-card acknowledgement inside the detail column", () => {
   const row = container.querySelector(".cg-list li")!;
   expect(row.children).toHaveLength(3); expect(row.querySelector(".cg-d .oc-mark")).not.toBeNull();
 });
+it("shows a cut story, known zero rates, extra assets, steps and a safe playbook", async () => {
+  getOnCall.mockResolvedValue({ ...onCallCard, assetsTotal: 11, now: { serversExpected: 3, serversAnswering: 0, deliveredPerSecond: 0 }, steps: [{ id: "s", time: onCallCard.storyA!, title: "Node drained", kind: "kubernetes", body: "", evidence: [], evidenceCount: 0, leadersTaken: [], meta: false, outsideRange: false, openAtB: false }], stepsTotal: 3, stepsNote: "History is incomplete.", contextWindow: { start: 0, end: 1, label: "GKE node upgrade", detail: "" } });
+  show(); expect(await screen.findByText("Node drained")).toBeInTheDocument();
+  expect(screen.getByText("0 of 3 servers answer; consumers deliver 0 msgs/s.")).toBeInTheDocument();
+  expect(screen.getByText(/Showing 1 of 3 steps/)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "and 10 more" })).toHaveAttribute("href", expect.stringContaining("check=consumer-010"));
+  expect(screen.getByRole("link", { name: "Open the playbook" })).toHaveAttribute("href", "https://runbooks.example.com/nats/durable-missing");
+});
+it("does not invent a story or a playbook for a short empty response", async () => {
+  getOnCall.mockResolvedValue({ ...onCallCard, finding: { ...onCallFinding, since: undefined, remediation: "" }, stepsNote: "", storyA: undefined, storyB: undefined, playbookUrl: "javascript:alert(1)" });
+  show(); await screen.findByText("No steps recorded in this story.");
+  expect(screen.getByText("Start not reported")).toBeInTheDocument(); expect(screen.getByText("The check gives no remediation.")).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Open in Replay" })).toBeNull(); expect(screen.queryByRole("link", { name: "Open the playbook" })).toBeNull();
+});
