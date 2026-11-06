@@ -67,7 +67,7 @@ func TestOCSPDecodeBoundaries(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !ev.Time.Equal(recv) || !strings.Contains(string(ev.Raw), `"future"`) || strings.Contains(string(ev.Raw), "future_certificate") {
+		if !ev.Time.Equal(recv) || strings.Contains(string(ev.Raw), `"future"`) || strings.Contains(string(ev.Raw), "future_certificate") {
 			t.Fatalf("time/raw: %+v", ev)
 		}
 	}
@@ -99,5 +99,88 @@ func TestOCSPCapturedOnce(t *testing.T) {
 	first, second := c.handle(cor, seen, in), c.handle(cor, seen, in)
 	if len(first) != 1 || first[0].Kind != "server.ocsp_peer_rejected" || len(second) != 0 {
 		t.Fatalf("first=%v second=%v", first, second)
+	}
+}
+
+// Exercise encoding/json's accepted aliases and duplicate-key merging before
+// persistence. No input object, including shadowed aliases, may survive whole.
+func TestOCSPRawAllowlist(t *testing.T) {
+	var base map[string]json.RawMessage
+	if err := json.Unmarshal(ocspPayload(t), &base); err != nil {
+		t.Fatal(err)
+	}
+	peer := string(base["peer"])
+	delete(base, "peer")
+	envelope := strings.TrimSuffix(string(marshal(t, base)), "}")
+	cases := []struct{ name, fields, fingerprint string }{
+		{"lower", `"peer":` + peer, "abc123"},
+		{"title", `"Peer":` + peer, "abc123"},
+		{"upper", `"PEER":` + peer, "abc123"},
+		{"mixed", `"pEeR":` + peer, "abc123"},
+		{"duplicates", `"Peer":` + peer + `,"peer":{"fingerprint":"last"},"PEER":{"subject":"private alias"}`, "last"},
+		{"reverse", `"peer":{"fingerprint":"first"},"PEER":` + peer + `,"Peer":{"issuer":"private alias"}`, "abc123"},
+		{"same key", `"Peer":` + peer + `,"Peer":{"fingerprint":"last"}`, "last"},
+		{"future nested", `"pEeR":` + strings.TrimSuffix(peer, "}") + `,"future":{"chain":[{"raw":"private nested","subject":"private nested"}]}}`, "abc123"},
+		{"empty", `"PEER":{"subject":"private empty","issuer":"private empty","raw":"Y2VydA=="}`, ""},
+		{"null after alias", `"Peer":` + peer + `,"peer":null`, "abc123"},
+		{"top aliases", `"Peer":` + peer + `,"SERVER":{"id":"S0","name":"nats-0","future":{"raw":"private server"}},"TYPE":` + string(base["type"]) + `,"ID":"x","TIMESTAMP":` + string(base["timestamp"]) + `,"KIND":"Client","REASON":"client not OCSP valid","future":{"peer":{"subject":"private top"}}`, "abc123"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ev, err := DecodeSys(ocspSubject, []byte(envelope+","+tc.fields+"}"), recv)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if ev.ServerName != "nats-0" || ev.id != "x" || ev.Type != server.OCSPPeerRejectEventMsgType || ev.Reason != "client not OCSP valid" || !ev.Time.Equal(recv.Add(-time.Second)) {
+				t.Fatalf("lost event identity: %+v", ev)
+			}
+			var raw map[string]json.RawMessage
+			if err := json.Unmarshal(ev.Raw, &raw); err != nil {
+				t.Fatal(err)
+			}
+			for key := range raw {
+				if !slices.Contains([]string{"type", "id", "timestamp", "server", "kind", "reason", "peer"}, key) {
+					t.Errorf("non-allowlisted key %q", key)
+				}
+			}
+			var safePeer map[string]string
+			if err := json.Unmarshal(raw["peer"], &safePeer); err != nil {
+				t.Fatal(err)
+			}
+			if len(safePeer) != 1 || safePeer["fingerprint"] != tc.fingerprint {
+				t.Errorf("peer = %v", safePeer)
+			}
+			for _, secret := range []string{"private", "Y2Vyd", `"raw"`, "future", "subject", "issuer"} {
+				if strings.Contains(string(ev.Raw), secret) {
+					t.Errorf("retained %q: %s", secret, ev.Raw)
+				}
+			}
+			if !strings.Contains(string(raw["server"]), `"id":"S0"`) || string(raw["kind"]) != `"Client"` || string(raw["id"]) != `"x"` || string(raw["type"]) != string(base["type"]) || string(raw["timestamp"]) != string(base["timestamp"]) || string(raw["reason"]) != string(base["reason"]) {
+				t.Errorf("lost safe raw fields: %s", ev.Raw)
+			}
+		})
+	}
+}
+
+func TestOrdinarySystemEventKeepsUnknownRaw(t *testing.T) {
+	data := marshal(t, server.ConnectEventMsg{TypedEvent: typed(server.ConnectEventMsgType), Server: server.ServerInfo{Name: "nats-0"}})
+	data = []byte(strings.TrimSuffix(string(data), "}") + `,"future":{"peer":{"subject":"ordinary field"}}}`)
+	ev, err := DecodeSys("$SYS.ACCOUNT.APP.CONNECT", data, recv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(ev.Raw), `"future":{"peer":{"subject":"ordinary field"}}`) {
+		t.Fatalf("ordinary unknown raw dropped: %s", ev.Raw)
+	}
+}
+
+func TestOCSPMalformedTimestamp(t *testing.T) {
+	var m map[string]any
+	if err := json.Unmarshal(ocspPayload(t), &m); err != nil {
+		t.Fatal(err)
+	}
+	m["TIMESTAMP"] = "not a time"
+	if _, err := DecodeSys(ocspSubject, marshal(t, m), recv); err == nil {
+		t.Fatal("accepted malformed timestamp alias")
 	}
 }

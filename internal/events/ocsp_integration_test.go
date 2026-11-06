@@ -1,6 +1,10 @@
-package events
+package events_test
 
 import (
+	"context"
+	"encoding/json"
+	"log/slog"
+
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -10,6 +14,8 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
+	"github.com/shadone/nats-lens/internal/events"
+	"github.com/shadone/nats-lens/internal/store"
 	"io"
 	"math/big"
 	"net"
@@ -157,9 +163,22 @@ system_account: SYS
 	tlsConfig := func(cert tls.Certificate) *tls.Config {
 		return &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots, Certificates: []tls.Certificate{cert}}
 	}
-	w := &flakyWriter{}
-	capture := New(Options{Writer: w, FlushInterval: 20 * time.Millisecond, Log: quiet()})
-	stop := runCapture(t, capture)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	st, err := store.OpenPath(ctx, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	capture := events.New(events.Options{Writer: st, FlushInterval: 20 * time.Millisecond, Log: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if err := capture.Run(ctx); err != nil {
+			t.Errorf("capture: %v", err)
+		}
+	}()
+	stop := func() { cancel(); <-done }
 	defer stop()
 	nc, err := nats.Connect(s.ClientURL(), nats.UserInfo("sys", "sys-test"), nats.Secure(tlsConfig(good)))
 	if err != nil {
@@ -183,22 +202,50 @@ system_account: SYS
 		refused.Close()
 		t.Fatal("revoked peer connected")
 	}
-	waitKind(t, w, "server.ocsp_peer_rejected")
+	// Inspect the full stored record, not only the in-memory decoded raw field.
+	waitRow(t, st.DB(), "OCSP rejection", `SELECT raw::VARCHAR FROM events WHERE kind='server.ocsp_peer_rejected'`)
 	stop()
-	w.mu.Lock()
-	defer w.mu.Unlock()
+	rows, err := st.DB().Query(`SELECT to_json(e)::VARCHAR FROM events e WHERE kind IN ('server.ocsp_peer_rejected','collector.subscription_error')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
 	rejects := 0
-	for _, ev := range w.evs {
-		if ev.Kind == "collector.subscription_error" {
-			t.Fatalf("scoped subscription denied: %+v", ev)
+	for rows.Next() {
+		var record string
+		if err := rows.Scan(&record); err != nil {
+			t.Fatal(err)
 		}
-		if ev.Kind != "server.ocsp_peer_rejected" {
-			continue
+		for _, secret := range []string{"revoked.example.com", "example.com test CA", base64.StdEncoding.EncodeToString(bad.Certificate[0]), `\"raw\"`, `\"subject\"`, `\"issuer\"`} {
+			if strings.Contains(record, secret) {
+				t.Fatalf("certificate identity in stored record: %s", record)
+			}
+		}
+		var ev struct {
+			Kind       string          `json:"kind"`
+			ServerName string          `json:"server_name"`
+			Reason     string          `json:"reason"`
+			Raw        json.RawMessage `json:"raw"`
+		}
+		if err := json.Unmarshal([]byte(record), &ev); err != nil {
+			t.Fatal(err)
+		}
+		if ev.Kind != "server.ocsp_peer_rejected" || ev.ServerName != "nats-0" || ev.Reason != "client not OCSP valid" {
+			t.Fatalf("stored rejection: %s", record)
+		}
+		var raw struct {
+			Peer map[string]string `json:"peer"`
+		}
+		if err := json.Unmarshal(ev.Raw, &raw); err != nil {
+			t.Fatal(err)
+		}
+		if len(raw.Peer) != 1 || raw.Peer["fingerprint"] == "" {
+			t.Fatalf("stored peer: %s", ev.Raw)
 		}
 		rejects++
-		if ev.ServerName != "nats-0" || ev.Source != SourceSys || ev.Account != "" || ev.Reason != "client not OCSP valid" || strings.Contains(string(ev.Raw), "revoked.example.com") || strings.Contains(string(ev.Raw), `"raw"`) {
-			t.Fatalf("rejection: %+v", ev)
-		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
 	}
 	if rejects != 1 {
 		t.Fatalf("got %d final rejections, want 1", rejects)
