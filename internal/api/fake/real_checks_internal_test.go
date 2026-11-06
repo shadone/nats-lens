@@ -113,3 +113,25 @@ func TestDemoUsesRealChecks(t *testing.T) {
 		t.Errorf("seeded acceptances: %d in force, %d ended by nats-lens; want one of each", inForce, ended)
 	}
 }
+
+func TestCreationFindingUsesShippedGuidance(t *testing.T) {
+	set, err := checks.Load(config.Checks{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, _ := set.Lookup("consumer-009")
+	p := New(false)
+	found := false
+	for _, f := range p.findings(p.scen()) {
+		if f.CheckCode != "consumer-009" {
+			continue
+		}
+		found = true
+		if f.Remediation != c.Remediation {
+			t.Fatal("demo creation-time guidance drifts from the corrected definition")
+		}
+	}
+	if !found {
+		t.Fatal("demo lacks creation-time finding")
+	}
+}
