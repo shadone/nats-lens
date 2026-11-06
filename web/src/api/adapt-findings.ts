@@ -1,4 +1,6 @@
 // Proto to view model: findings, transitions, mutes, events and the timeline.
+import type { Acknowledgement as PAck } from "../gen/natslens/v1/acknowledgements_pb";
+import type { Acknowledgement } from "./model";
 import type { Event as PEvent } from "../gen/natslens/v1/events_pb";
 import {
   FindingState as PState,
@@ -42,6 +44,10 @@ export function mute(m: PMute | undefined): Mute | undefined {
   };
 }
 
+export function acknowledgement(a: PAck | undefined): Acknowledgement | undefined {
+  return a ? { id: a.id, findingId: a.findingId, note: a.note, ackedBy: a.ackedBy, createdAt: ms(a.createdAt), quietUntil: ms(a.quietUntil), quiet: a.quiet, endedAt: ms(a.endedAt), endedBy: a.endedBy, endReason: a.endReason } : undefined;
+}
+
 export function finding(f: PFinding): Finding {
   return {
     id: f.id,
@@ -65,6 +71,7 @@ export function finding(f: PFinding): Finding {
       ? { id: id(f.cause.id), time: ms(f.cause.time), kind: f.cause.kind, summary: f.cause.summary }
       : undefined,
     mute: mute(f.mute),
+    acknowledgement: acknowledgement(f.acknowledgement),
     transitionsLastHour: f.transitionsLastHour,
     ...(f.expiry ? { expiry: true } : {}),
   };
@@ -86,6 +93,7 @@ export function tally(t: FindingTally | undefined): Tally {
     muted: t?.muted ?? 0,
     flapping: t?.flapping ?? 0,
     resolved24h: t?.resolved24h ?? 0,
+    acknowledged: t?.acknowledged ?? 0,
   };
 }
 

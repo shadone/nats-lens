@@ -1,7 +1,7 @@
 // Findings: every finding in the range by severity and state, worst first,
 // and the mutes with who set them, why and until when.
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { useSearchParams } from "react-router";
+import { useLocation, useSearchParams } from "react-router";
 import type { Entity, FindingState, Mute, SeverityLevel } from "../api/model";
 import { useFindings, useMutes } from "../api/queries";
 import { Empty, QueryView, Section } from "../components/common";
@@ -122,6 +122,7 @@ function Mutes({ others, onAccounts }: { others: Entity[]; onAccounts: (es: Enti
 }
 
 export function Findings() {
+  const labelLookup = (useLocation().state as { labelLookup?: { code: string; key: string } } | null)?.labelLookup;
   usePageTitle("Findings");
   const [params, setParams] = useSearchParams();
   const { spec } = useTimeRange();
@@ -157,6 +158,7 @@ export function Findings() {
 
   return (
     <>
+      {labelLookup && <p className="oc-lookup" role="status">No finding of {labelLookup.code} for {labelLookup.key}; it may have resolved and been swept.</p>}
       <div className="page-h">
         <span className="aside">A finding is one failing check for one entity. Unmuted first, then by severity, expiry warnings after the other warnings, then the longest firing.</span>
       </div>

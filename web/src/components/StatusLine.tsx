@@ -16,6 +16,7 @@ export function StatusLine({ tally, freshness, live, now }: { tally: Tally; fres
         </span>
         {s.text}
       </p>
+      {!!tally.acknowledged && <span className="oc-count">{tally.acknowledged} acknowledged</span>}
       {s.badges.map((b) => (
         <Sev key={b.level} level={b.level} label={`${b.count} ${LEVEL_LABEL[b.level].toUpperCase()}`} />
       ))}

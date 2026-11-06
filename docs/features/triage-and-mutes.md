@@ -10,6 +10,8 @@ The Findings page lists the findings of the time range, filtered by severity, st
 
 ## Behavior and rules
 
+- **Acknowledgements.** The [phone card and acknowledgement dialog](mobile.md) record who works on a finding. Acknowledging keeps the finding visible and counted; a mute hides it.
+
 - **History limits on findings.** Unresolved Findings rows and Overview cause cards say “already true when nats-lens started” under the finding page’s history-start rule. Finding details link the history-start wording and missing-history explanations around the start to Data history with the global query. This wording does not establish when the condition actually began.
 
 - **What a finding is.** The page says it: "A finding is one failing check for one entity."
