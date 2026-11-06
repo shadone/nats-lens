@@ -33,7 +33,7 @@ export function OnCallFinding({ allDetails }: { allDetails: ReactNode }) {
       const note = storyNote(d.steps.length, d.stepsTotal, d.stepsNote);
       return <>
         <section className={`oc-card card worst ${f.severity}`}>
-          <div className="oc-meta"><Sev level={f.severity} /><span>{sys || info?.cluster || "System"}</span><span>{f.checkCode}</span></div>
+          <div className="oc-meta"><Sev level={f.severity} /><span>{sys || info?.cluster || "System"}</span><RLink to={`/checks/${encodeURIComponent(f.checkCode)}`}>{f.checkCode} · Check reference</RLink></div>
           <h1 className="oc-title">{headline(f, d.sameCheckFiring)}</h1>
           <p>{f.detail}</p>
           <p className="oc-time">{f.state === "resolved" ? `Resolved${f.resolvedAt !== undefined ? ` ${isoMinute(f.resolvedAt)} UTC` : ""}. Present observations describe now.` : since !== undefined ? `Since ${isoMinute(since)} UTC (${fmtDuration(Math.max(0, serverNow() - since))})` : "Start not reported"}</p>

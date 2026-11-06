@@ -67,6 +67,15 @@ beforeEach(() => {
 });
 
 describe("FindingDetail", () => {
+  it("links the check reference with system, range and account context", async () => {
+    m.getFinding.mockResolvedValue({finding:base,transitions:[]});
+    show("?system=example-prod&range=6h&account=APP");
+    const link=await screen.findByRole("link",{name:"stream-004 · Check reference"});
+    const url=new URL(link.getAttribute("href")!,"http://example.com");
+    expect(url.pathname).toBe("/checks/stream-004");
+    expect(Object.fromEntries(url.searchParams)).toEqual({range:"6h",system:"example-prod",account:"APP"});
+  });
+
   afterEach(() => vi.useRealTimers());
 
   it("refreshes in live mode and shows a new state", async () => {

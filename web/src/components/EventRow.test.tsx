@@ -1,6 +1,6 @@
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { LensEvent } from "../api/model";
+import type { LensEvent, Finding } from "../api/model";
 import { eventPath } from "../lib/view";
 import { renderApp } from "../test/render";
 import { EventRow, repeatText } from "./EventRow";
@@ -97,4 +97,17 @@ describe("event text selection", () => {
     fireEvent.click(button, { detail: 1 });
     expect(toggle).toHaveBeenCalledOnce();
   });
+});
+
+
+describe("check references in events", () => {
+  const finding: Finding = { id:"consumer-009:APP/order-jobs/resize-worker",checkCode:"consumer-009",checkName:"Consumer creation time differs across servers",severity:"info",state:"firing",detail:"Timestamps differ",remediation:"",relatedConfig:[],relatedConfigSource:"",transitionsLastHour:1 };
+  for (const source of ["finding","nats"] as const) {
+    it(`links ${source} event associations without dropping context`, () => {
+      renderApp(<EventRow e={{...ev,source,raised:source==="nats"?[finding]:[],finding:source==="finding"?finding:undefined}} end={Date.now()} open onToggle={() => {}} />,"/events?system=example-prod&range=6h&account=APP");
+      const url=new URL(screen.getByRole("link",{name:"consumer-009 · Check reference"}).getAttribute("href")!,"http://example.com");
+      expect(url.pathname).toBe("/checks/consumer-009");
+      expect(Object.fromEntries(url.searchParams)).toEqual({range:"6h",system:"example-prod",account:"APP"});
+    });
+  }
 });

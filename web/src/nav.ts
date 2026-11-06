@@ -20,12 +20,15 @@ export interface NavItem {
   crossSystem?: boolean;
   /** The list page applies the account scope, so the header offers it. */
   accountScope?: boolean;
+  /** Reference pages carry account context without applying a list filter. */
+  preserveAccount?: boolean;
 }
 
 export const NAV: NavItem[] = [
   { path: "/fleet", label: "Fleet", group: "", icon: "M3 3h5v5H3Z M10 3h5v5h-5Z M3 10h5v5H3Z M12.5 10v5 M10 12.5h5", badge: "fleet", crossSystem: true },
   { path: "/", label: "Overview", group: "", icon: "M3 9 9 3l6 6M5 7.5V15h8V7.5" },
   { path: "/findings", label: "Findings", group: "", icon: "M9 3 16 15H2Z M9 8v3 M9 13v.5", badge: "findings" },
+  { path: "/checks", label: "Checks", group: "", icon: "M3 3h12v12H3Z M6 6h6 M6 9h6 M6 12h3", preserveAccount: true },
   { path: "/subjects", label: "Subjects", group: "Messaging", icon: "M3 5h12 M3 9h8 M3 13h5 M13 11l3 2-3 2", accountScope: true },
   { path: "/micro-services", label: "Micro services", group: "Messaging", icon: "M3 3h5v5H3Z M10 10h5v5h-5Z M8 5.5h4.5V10", accountScope: true },
   { path: "/applications", label: "Applications", group: "Messaging", icon: "M5 5a2 2 0 1 0 0 .1 M13 5a2 2 0 1 0 0 .1 M9 13a2 2 0 1 0 0 .1 M6 6.5l2 5 M12 6.5l-2 5", accountScope: true },

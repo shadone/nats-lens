@@ -11,6 +11,7 @@ import { useSidebar } from "./lib/useSidebar";
 import { useSystem } from "./lib/useSystem";
 import { Fleet } from "./pages/Fleet";
 import { Overview } from "./pages/Overview";
+import { Checks, CheckDetail } from "./pages/Checks";
 import { Findings } from "./pages/Findings";
 import { FindingByLabels } from "./pages/FindingByLabels";
 import { FindingDetail } from "./pages/FindingDetail";
@@ -82,6 +83,8 @@ export function App() {
                   }
                 />
                 <Route path="/fleet" element={<Fleet />} />
+                <Route path="/checks" element={<Checks />} />
+                <Route path="/checks/:code" element={<CheckDetail />} />
                 <Route path="/findings" element={<Findings />} />
                 <Route path="/findings/by-labels" element={<FindingByLabels />} />
                 <Route path="/findings/:id" element={<FindingDetail />} />

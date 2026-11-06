@@ -68,7 +68,7 @@ function Head({ f, spec, start, end, onMute, onUnmute, onAck }: { f: Finding; sp
     <div className={`card worst finding-h ${f.mute ? "info" : f.severity}`}>
       <div className="k">
         <Sev level={f.mute ? "muted" : f.severity} label={f.mute?.accepted ? "Accepted" : undefined} />
-        <span className="code">{f.checkCode}</span>
+        <RLink to={`/checks/${encodeURIComponent(f.checkCode)}`} className="code">{f.checkCode} · Check reference</RLink>
         <StateTag tag={findingTag(f, start)} />
       </div>
       <h1>

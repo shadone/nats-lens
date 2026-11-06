@@ -23,7 +23,7 @@ function RaisedFinding({ f, label }: { f: Finding; label: string }) {
       <div className="fhead">
         <span className="lbl">{label}</span>
         <Sev level={f.severity} />
-        <span className="code">{f.checkCode}</span>
+        <RLink to={`/checks/${encodeURIComponent(f.checkCode)}`} className="code">{f.checkCode} · Check reference</RLink>
         <RLink to={findingPath(f.id)} className="x">
           <b>{f.checkName}</b>
         </RLink>

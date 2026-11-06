@@ -1,0 +1,18 @@
+.check-filters { display:flex; flex-wrap:wrap; gap:16px; margin:24px 0 12px; }
+.check-filters label { display:flex; flex-direction:column; gap:6px; min-width:0; flex:1 1 220px; }
+.check-filters input, .check-filters select { width:100%; min-width:0; }
+.check-catalog { list-style:none; padding:0; display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr)); gap:16px; }
+.check-catalog .card { padding:20px; min-width:0; }
+.check-catalog h2 { font-size:18px; line-height:1.4; margin:8px 0; }
+.check-catalog p { margin:10px 0 0; line-height:1.6; }
+.check-meta { color:var(--text-muted); font-size:13px; }
+.check-reference { max-width:960px; min-width:0; }
+.check-reference .rem, .check-catalog p, .check-reference p { line-height:1.7; overflow-wrap:anywhere; }
+.check-reference code { white-space:normal; overflow-wrap:anywhere; }
+.check-paragraph { margin:20px 0; }
+.check-paragraph h3 { font-size:14px; margin:0 0 6px; }
+.check-thresholds { margin:20px 0; }
+.check-thresholds > div { padding:16px 0; border-top:1px solid var(--border); }
+.check-thresholds dt { font-weight:600; }
+.check-thresholds dd { margin:4px 0 0; }
+.check-thresholds p { margin:6px 0; }
