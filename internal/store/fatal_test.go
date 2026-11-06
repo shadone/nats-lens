@@ -28,6 +28,10 @@ func TestFatalEngineContainment(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer st.Close()
+	if st.Failure() != nil || !st.FailedAt().IsZero() {
+		t.Fatal("new store is unhealthy")
+	}
+	firstPossibleFailure := time.Now()
 	tx, err := st.DB().BeginTx(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -45,6 +49,14 @@ func TestFatalEngineContainment(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "commit") {
 		t.Error("fatal error lacks operation stage")
+	}
+	if st.Failure() != err || st.FailedAt().Before(firstPossibleFailure) || st.FailedAt().After(time.Now()) {
+		t.Error("first fatal state was not retained")
+	}
+	select {
+	case <-st.Failed():
+	default:
+		t.Error("fatal did not signal runtime")
 	}
 	// Both reads and writes must be refused with the original bounded failure.
 	for _, q := range []string{"SELECT 1", "CREATE TABLE must_not_run(i INT)"} {

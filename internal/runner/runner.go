@@ -77,9 +77,12 @@ func writeContext(ctx context.Context, grace time.Duration) (context.Context, co
 }
 
 // Run takes an epoch now and then every interval until ctx is done. A failed
-// write is logged and the next epoch still runs.
+// nonfatal write is logged and the next epoch still runs. A typed fatal
+// stops the runner; the store refuses every later database operation.
 func (r *Runner) Run(ctx context.Context) error {
-	r.sweep(ctx)
+	if err := r.sweep(ctx); store.IsFatal(err) {
+		return err
+	}
 	lastSweep := time.Now()
 	ticker := time.NewTicker(r.Interval)
 	defer ticker.Stop()
@@ -95,15 +98,21 @@ func (r *Runner) Run(ctx context.Context) error {
 				r.logger().Info("nats connected; epochs resumed")
 			}
 			skipping = false
-			_, _ = r.Once(ctx)
+			if _, err := r.Once(ctx); store.IsFatal(err) {
+				return err
+			}
 		}
 		if time.Since(lastSweep) >= SweepEvery {
-			r.sweep(ctx)
+			if err := r.sweep(ctx); store.IsFatal(err) {
+				return err
+			}
 			lastSweep = time.Now()
 		}
 		select {
 		case <-ctx.Done():
-			return nil
+			return r.Store.Failure()
+		case <-r.Store.Failed():
+			return r.Store.Failure()
 		case <-ticker.C:
 		}
 	}
@@ -111,6 +120,9 @@ func (r *Runner) Run(ctx context.Context) error {
 
 // Once takes and stores one epoch.
 func (r *Runner) Once(ctx context.Context) (int64, error) {
+	if err := r.Store.Failure(); err != nil {
+		return 0, err
+	}
 	snap := r.Collector.Collect(ctx)
 	if ctx.Err() != nil {
 		return 0, ctx.Err()
@@ -145,7 +157,7 @@ func (r *Runner) Once(ctx context.Context) (int64, error) {
 		r.Stored(epoch, snap.StartedAt)
 	}
 	r.check(ctx, epoch)
-	return epoch, nil
+	return epoch, r.Store.Failure()
 }
 
 // check runs the checks for a stored epoch. A failure is logged and the
@@ -200,20 +212,24 @@ func (r *Runner) review(ctx context.Context, epoch int64) {
 	}
 }
 
-func (r *Runner) sweep(ctx context.Context) {
+func (r *Runner) sweep(ctx context.Context) error {
 	res, err := r.Store.Sweep(ctx, time.Now(), r.Retention)
 	if err != nil {
+		err = store.SafeError("retention sweep", err)
 		r.logger().Error("retention sweep failed", "err", err)
-		return
+		return err
 	}
 	if res.Epochs > 0 || res.Events > 0 {
 		r.logger().Info("retention sweep", "deleted_epochs", res.Epochs, "deleted_events", res.Events, "oldest_kept", res.Cutoff)
 	}
 	if r.NotifySweep != nil {
 		if err := r.NotifySweep(ctx, time.Now()); err != nil {
+			err = store.SafeError("notifications sweep", err)
 			r.logger().Error("notifications sweep failed", "err", err)
+			return err
 		}
 	}
+	return nil
 }
 
 // ReviewResult is what one growth review did.
