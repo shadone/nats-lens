@@ -41,7 +41,7 @@ func TestNotifyAcknowledgementUpgradeEvidence(t *testing.T) {
 	}{
 		{name: "active-history-without-view-evidence", created: time.Minute, ended: 3 * time.Minute, observed: 2 * time.Minute},
 		{name: "created-at-observation-with-firing", created: 2 * time.Minute, observed: 2 * time.Minute, messageChannel: "ops", kind: "firing", key: "example-prod:stream-001:APP/jobs:1:firing:3", want: true},
-		{name: "active-history-with-firing", created: time.Minute, ended: 3*time.Minute, observed: 2*time.Minute, messageChannel: "ops", kind: "firing", key: "example-prod:stream-001:APP/jobs:1:firing:3", want: true},
+		{name: "active-history-with-firing", created: time.Minute, ended: 3 * time.Minute, observed: 2 * time.Minute, messageChannel: "ops", kind: "firing", key: "example-prod:stream-001:APP/jobs:1:firing:3", want: true},
 		{name: "release-at-observation", created: time.Minute, ended: 2 * time.Minute, observed: 2 * time.Minute},
 		{name: "release-before-baseline", created: -time.Minute, ended: -time.Second, observed: 0},
 		{name: "entered-after-release", created: time.Minute, ended: 2 * time.Minute, observed: 3 * time.Minute},
@@ -93,6 +93,44 @@ func TestNotifyAcknowledgementUpgradeEvidence(t *testing.T) {
 			}
 			if err := migrate(context.Background(), db); err != nil {
 				t.Fatal("reopen migration", err)
+			}
+		})
+	}
+}
+
+func TestNotifyAcknowledgementUpgradeBaselineBoundaries(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		created, ended time.Duration
+		want           bool
+	}{
+		{"created-before-baseline", -time.Minute, time.Minute, true},
+		{"created-at-baseline", 0, time.Minute, true},
+		{"released-at-baseline", -time.Minute, 0, false},
+		{"released-before-baseline", -time.Minute, -time.Second, false},
+		{"created-after-baseline", time.Minute, 2 * time.Minute, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, _ := openAllButLast(t)
+			at := t0.Add(time.Hour)
+			if _, err := db.Exec(`INSERT INTO notify_channels VALUES ('ops',?,1,?,5)`, at, at.Add(4*time.Minute)); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := db.Exec(`INSERT INTO notify_state VALUES ('ops','stream-001:APP/jobs',1,'warning','firing',?,1)`, at); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := db.Exec(`INSERT INTO acknowledgements (id,finding_id,check_code,entity_type,entity_key,since_epoch,acked_by,created_at,ended_at,quiet_until) VALUES (1,'stream-001:APP/jobs','stream-001','stream','APP/jobs',1,'operator',?,?,?)`, at.Add(tc.created), at.Add(tc.ended), at.Add(-time.Second)); err != nil {
+				t.Fatal(err)
+			}
+			if err := migrate(context.Background(), db); err != nil {
+				t.Fatal(err)
+			}
+			var got bool
+			if err := db.QueryRow(`SELECT acknowledged FROM notify_state WHERE channel='ops'`).Scan(&got); err != nil {
+				t.Fatal(err)
+			}
+			if got != tc.want {
+				t.Fatalf("baseline memory=%v, want %v", got, tc.want)
 			}
 		})
 	}
