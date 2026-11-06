@@ -170,7 +170,7 @@ export interface Replay {
   unobserved: Unobserved[];
 }
 
-function step(s: PStep): ReplayStep {
+export function step(s: PStep): ReplayStep {
   return {
     id: s.id,
     time: ms(s.time) ?? 0,

@@ -122,3 +122,17 @@ export function validateAccept(f: AcceptForm, now: number, askName: boolean): Ac
   else if (askName && [...name].length > MAX_NAME) e.name = `At most ${MAX_NAME} characters.`;
   return e;
 }
+
+export interface AckForm { note: string; quiet: string; name: string }
+export interface AckErrors { note?: string; quiet?: string; name?: string }
+export const ACK_QUIET = [{ id: "30m", label: "30 minutes", ms: 1_800_000 }, { id: "2h", label: "2 hours", ms: 7_200_000 }, { id: "resolved", label: "Until resolved", ms: undefined }];
+// ASVS 2.2.1/2.2.2: usability checks mirror the server's validation;
+// identity and episode authorization remain enforced by the API.
+export function validateAck(f: AckForm, askName: boolean): AckErrors {
+  const e: AckErrors = {};
+  if ([...f.note.trim()].length > 500) e.note = "At most 500 characters.";
+  if (!ACK_QUIET.some(q => q.id === f.quiet)) e.quiet = "Choose how long to quiet the alert.";
+  if (askName && !f.name.trim()) e.name = "Enter your name; it is recorded with the acknowledgement.";
+  else if (askName && [...f.name.trim()].length > MAX_NAME) e.name = `At most ${MAX_NAME} characters.`;
+  return e;
+}
