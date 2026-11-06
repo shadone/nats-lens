@@ -10,7 +10,7 @@ describe("on-call words follow observed facts", () => {
   it("never turns missing facts into zero", () => {
     expect(rightNow({})).toBe("Present observations are not reported.");
     expect(rightNow({ serversExpected: 3 })).not.toContain("0");
-    expect(rightNow({ serversExpected: 3, serversAnswering: 0, deliveredPerSecond: 0, streamMsgsPerSecond: 0 })).toBe("0 of 3 servers answer; consumers deliver 0 msgs/s; streams receive 0 msgs/s.");
+    expect(rightNow({ serversExpected: 3, serversAnswering: 0, deliveredPerSecond: 0, streamMsgsPerSecond: 0 })).toBe("0 of 3 servers answer; reporting consumers deliver 0 msgs/s; reporting streams receive 0 msgs/s.");
     expect(rightNow({ serversAnswering: 2 })).toBe("2 servers answer.");
   });
   it("uses only reported placement and answering state", () => {
@@ -25,7 +25,7 @@ describe("on-call words follow observed facts", () => {
     expect(storyNote(12, 18, "History is incomplete.")).toBe("Showing 12 of 18 steps. History is incomplete.");
     expect(storyNote(0, 0, "Before stored history.")).toBe("Before stored history.");
     expect(contextText(undefined)).toBe("");
-    expect(contextText({ label: "GKE node upgrade" })).toBe("During a GKE node upgrade");
+    expect(contextText({ label: "GKE node upgrade" })).toBe("Observed Kubernetes window: GKE node upgrade");
   });
   it("only links an https playbook", () => {
     expect(safePlaybook("javascript:alert(1)")).toBeUndefined();
@@ -37,4 +37,8 @@ it("separates the remediation warning from subsequent steps without cutting inli
   expect(remediationParts("Do not restart first. Recreate with `nats consumer add`. Then check delivery.")).toEqual({ warning: "Do not restart first.", steps: ["Recreate with `nats consumer add`.", "Then check delivery."] });
   expect(remediationParts("Inspect `config.v2` first")).toEqual({ warning: "Inspect `config.v2` first", steps: [] });
   expect(remediationParts("")).toEqual({ warning: "", steps: [] });
+});
+
+it("describes a recent event window without asserting an active upgrade", () => {
+  expect(rightNow({ openWindow: { start: 1, end: 2, label: "GKE node upgrade", detail: "" } })).toBe("recent Kubernetes events: GKE node upgrade.");
 });
