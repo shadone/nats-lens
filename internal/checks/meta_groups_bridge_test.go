@@ -106,3 +106,59 @@ func TestMetaGroupsConflictingHashDoesNotMergeKnownGroups(t *testing.T) {
 		t.Fatalf("conflicting hash merged groups: %v", scopes)
 	}
 }
+
+// Both sets have reciprocal observed membership and the same unresolved hash.
+// Different labels would hide the ambiguity; force identical labels here.
+func sharedDownBridgeFixture(t *testing.T) *fx {
+	t.Helper()
+	f := metaGroupsFixture(t, 8, func(g string, e int64) string {
+		if g == "orders" {
+			return ""
+		}
+		return "shipping-0"
+	})
+	f.exec(`DELETE FROM server_stats WHERE server_id NOT IN ('orders-0','orders-1','shipping-0','shipping-1')`)
+	f.exec(`DELETE FROM raft_stats WHERE server_id NOT IN ('orders-0','orders-1','shipping-0','shipping-1')`)
+	f.exec(`UPDATE servers SET domain='same', cluster='same'`)
+	f.exec(`UPDATE server_stats SET meta_cluster_size=3, meta_quorum_needed=2, meta_peers_offline=1`)
+	for id, peers := range map[string]string{
+		"orders-0":   `{"syRCe8oa":{"name":"offline-common"},"ooMa6tJN":{"name":"orders-1"}}`,
+		"orders-1":   `{"syRCe8oa":{"name":"offline-common"},"9Ojv00T0":{"name":"orders-0"}}`,
+		"shipping-0": `{"syRCe8oa":{"name":"offline-common"},"m5gZHCMp":{"name":"shipping-1"}}`,
+		"shipping-1": `{"syRCe8oa":{"name":"offline-common"},"L6pesJkC":{"name":"shipping-0"}}`,
+	} {
+		f.exec(`UPDATE raft_stats SET peers = ?::JSON WHERE server_id = ?`, peers, id)
+	}
+	return f
+}
+
+func TestMetaGroupsDownBridgeLeaderlessEvidenceIsVisible(t *testing.T) {
+	f := sharedDownBridgeFixture(t)
+	r := f.eval("system-002", 8)
+	want(t, r[""], "critical", "identity unknown", "orders-0, orders-1")
+	if strings.Contains(r[""].Detail, "Meta group [") || strings.Contains(r[""].Detail, "shipping-0") {
+		t.Fatalf("empty-leader evidence misrepresented: %s", rowsText(r))
+	}
+	for id, key := range metaGroupScopes(t, f) {
+		if key != "" {
+			t.Errorf("bridge certified %s as %s", id, key)
+		}
+	}
+}
+
+func TestMetaGroupsDownBridgeElectionsCannotClaimPhysicalCount(t *testing.T) {
+	f := sharedDownBridgeFixture(t)
+	f.exec(`UPDATE server_stats SET meta_leader=split_part(server_id,'-',1)||'-0'`)
+	for i := int64(1); i <= 6; i++ {
+		g := "orders"
+		if i%2 == 0 {
+			g = "shipping"
+		}
+		f.event(i, at(i+1), "meta.leader_elected", m{"server_name": g + "-0", "source": "sys"})
+	}
+	r := f.eval("system-003", 8)
+	want(t, r[""], "warning", "identity unknown", "changed 6 times")
+	if strings.Contains(r[""].Detail, "Meta group [") {
+		t.Fatalf("unresolved elections certified: %s", rowsText(r))
+	}
+}
