@@ -74,8 +74,8 @@ try:
             assert is_open() == expanded
             for selector, start, end, expected in (
                 (".ev .ty", 0, 16, "CONSUMER.DELETED"),
-                (".ev .tx", 0, 67, "Synthetic consumer summary with words that wrap across several lines."),
-                (".ev .tx", 68, 104, "synthetic" * 4),
+                (".ev .tx", 0, 69, "Synthetic consumer summary with words that wrap across several lines."),
+                (".ev .tx", 70, 106, "synthetic" * 4),
             ):
                 selected = drag(selector, start, end, expected)
                 print(json.dumps({"width": width, "expanded": expanded, "selected": selected}), flush=True)
@@ -115,6 +115,7 @@ try:
           const r=document.createRange();r.selectNodeContents(el);
           return Array.from(r.getClientRects()).every(b=>b.left>=0 && b.right<=innerWidth+1);
         })"""), "Text fragments overflow"
+        drag(".sd-recent a", 0, 69, "Synthetic consumer summary with words that wrap across several lines.")
         print(f"PASS width={width}: drag, click, Enter/Space, stale selection, links, focus, wrapping", flush=True)
     browser("set", "device", "iPhone 12")
     browser("open", BASE + "/event-row.fixture.html")
