@@ -1,12 +1,13 @@
 import { create, fromJson } from "@bufbuild/protobuf";
 import { timestampFromMs } from "@bufbuild/protobuf/wkt";
 import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { lens } from "../api/client";
 import { EventSource, ListEventsResponseSchema } from "../gen/natslens/v1/events_pb";
 import { ListFindingsResponseSchema } from "../gen/natslens/v1/findings_pb";
-import { GetServerResponseSchema, type GetServerResponse } from "../gen/natslens/v1/servers_pb";
+import { GetServerResponseSchema, ServerRole, type GetServerResponse } from "../gen/natslens/v1/servers_pb";
 import { GetTimeSeriesResponseSchema, Unit } from "../gen/natslens/v1/timeseries_pb";
 import { exampleGlobalAp3, exampleGlobalUs4 } from "../test/fixtures/exampleGlobal";
 import { renderApp } from "../test/render";
@@ -54,10 +55,73 @@ describe("ServerDetail on example-global", () => {
     show(ap3(), "nats-ap-3");
     expect(await screen.findByRole("heading", { name: "nats-ap-3" })).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { level: 1 }).map((h) => h.textContent)).toEqual(["nats-ap-3"]);
-    for (const t of ["CPU", "Memory", "Connections", "Messages", "Slow consumers"]) expect(screen.getByRole("button", { name: `About ${t}` })).toBeInTheDocument();
+    for (const t of ["CPU", "Memory", "Connections", "Messages", "Slow-consumer detections"]) expect(screen.getByRole("button", { name: `About ${t}` })).toBeInTheDocument();
     expect(await screen.findByRole("img", { name: /^CPU, current 8%, min 6%, max 10%/ })).toBeInTheDocument();
     expect(screen.getByText("steady at 31 all window")).toBeInTheDocument();
     expect(screen.getByText("limit 65,536")).toBeInTheDocument();
+  });
+
+  it("charts JetStream file bytes and shows the current storage with its own configured limit", async () => {
+    const r = ap3();
+    r.server!.jsStorageBytes = 1n << 20n;
+    r.server!.jsMaxStorageBytes = 2n << 20n;
+    m.getTimeSeries.mockImplementation(async (req) => create(GetTimeSeriesResponseSchema, {
+      series: { metric: req.metric, unit: Unit.BYTES, points: req.metric === "server.js_storage_bytes" ? points([0, 1 << 20]) : [], min: 0, max: 1 << 20 },
+    }));
+    show(r, "nats-ap-3");
+    const about = await screen.findByRole("button", { name: "About JetStream file storage" });
+    const tile = about.closest(".mbox")!;
+    expect(tile).toHaveTextContent("1 MiB / 2 MiB");
+    expect(tile).toHaveTextContent("50% of configured limit");
+    expect(tile).toHaveTextContent("Filesystem used and capacity are not collected");
+    expect(await within(tile as HTMLElement).findByRole("img", { name: /^JetStream file storage, current 1 MiB, min 0 B, max 1 MiB/ })).toBeInTheDocument();
+    expect(m.getTimeSeries.mock.calls.filter(([req]) => req.metric === "server.js_storage_bytes")).toHaveLength(1);
+    const req = m.getTimeSeries.mock.calls.find(([req]) => req.metric === "server.js_storage_bytes")![0];
+    expect(req.entity).toMatchObject({ name: "nats-ap-3", server: "nats-ap-3" });
+  });
+
+  it.each([
+    ["unknown limit", true, 0n, undefined, "0 B · limit unknown"],
+    ["missing bytes", true, undefined, 2n << 20n, "not reported · limit 2 MiB"],
+    ["down", false, 1n << 20n, 2n << 20n, "did not answer"],
+  ] as const)("keeps storage %s distinct from zero", async (_case, present, used, limit, expected) => {
+    const r = ap3();
+    r.server!.present = present;
+    r.server!.jsStorageBytes = used;
+    r.server!.jsMaxStorageBytes = limit;
+    show(r, "nats-ap-3");
+    const about = await screen.findByRole("button", { name: "About JetStream file storage" });
+    const tile = about.closest(".mbox")!;
+    await waitFor(() => expect(tile.querySelector(".mb-v")).not.toHaveTextContent("…"));
+    expect(tile.querySelector(".mb-v")).toHaveTextContent(present && used !== undefined ? "0 B" : "–");
+    expect(tile).toHaveTextContent(expected);
+    expect(tile).not.toHaveTextContent("% of configured limit");
+  });
+
+  it("labels a server without JetStream without presenting stored zero as current usage", async () => {
+    const r = ap3();
+    r.server!.role = ServerRole.NO_JETSTREAM;
+    r.server!.jsStorageBytes = 0n;
+    show(r, "nats-ap-3");
+    const about = await screen.findByRole("button", { name: "About JetStream file storage" });
+    const tile = about.closest(".mbox")!;
+    await waitFor(() => expect(tile.querySelector(".mb-v")).not.toHaveTextContent("…"));
+    expect(tile.querySelector(".mb-v")).toHaveTextContent("–");
+    expect(tile).toHaveTextContent("no JetStream");
+    expect(tile).not.toHaveTextContent("% of configured limit");
+  });
+
+  it("names server slow-consumer detections separately from JetStream backlog", async () => {
+    show(ap3(), "nats-ap-3");
+    const about = await screen.findByRole("button", { name: "About Slow-consumer detections" });
+    const tile = about.closest(".mbox")! as HTMLElement;
+    expect(within(tile).getByRole("link", { name: "Consumers" })).toHaveAttribute("href", "/consumers");
+    expect(tile).toHaveTextContent("For JetStream backlog, see Consumers.");
+    await userEvent.click(about);
+    expect(tile).toHaveTextContent("Server slow-consumer counter increases during the selected range.");
+    expect(tile).toHaveTextContent("Covers clients, routes, gateways and leaf connections; retries can count without a disconnect.");
+    expect(tile).toHaveTextContent("Not unique clients or JetStream pending messages.");
+    expect(tile).not.toHaveTextContent("Clients disconnected as slow");
   });
 
   it("marks the setting that differs from most servers", async () => {
