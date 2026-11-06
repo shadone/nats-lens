@@ -1,3 +1,4 @@
+import { onCall } from "./oncall";
 // Calls to the API: builds requests from view-model filters and adapts the
 // responses. Pages call these through the hooks in queries.ts.
 import type { MessageInitShape } from "@bufbuild/protobuf";
@@ -373,4 +374,8 @@ export async function acknowledgeFinding(sys: string, a: AckInput) {
 export async function endAcknowledgement(sys: string, id: string, endedBy: string) {
   const r = await lens.endAcknowledgement({ ...systemInit(sys), id, endedBy });
   return acknowledgement(r.acknowledgement)!;
+}
+
+export async function getOnCall(sys: string, id: string, signal?: AbortSignal) {
+  return onCall(await lens.getOnCall({ ...systemInit(sys), findingId: id }, { signal }));
 }

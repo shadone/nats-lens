@@ -1,9 +1,8 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router";
 import { beforeEach, expect, it, vi } from "vitest";
 import * as requests from "../api/requests";
-import * as oncall from "../api/oncall";
 import { renderApp } from "../test/render";
 import { ack, onCallCard, onCallFinding } from "../test/fixtures/oncall";
 import { FindingDetail } from "../pages/FindingDetail";
@@ -11,9 +10,8 @@ import { AcknowledgementMark } from "./Acknowledgement";
 import { CauseGroups } from "./CauseGroups";
 import { FindingRow } from "./FindingParts";
 import { StatusLine } from "./StatusLine";
-vi.mock("../api/requests", async orig => ({ ...(await orig<typeof import("../api/requests")>()), getFinding: vi.fn(), getTimeline: vi.fn(), getLensInfo: vi.fn(), listFindings: vi.fn(), acknowledgeFinding: vi.fn() }));
-vi.mock("../api/oncall", async orig => ({ ...(await orig<typeof import("../api/oncall")>()), getOnCall: vi.fn() }));
-const m = vi.mocked(requests); const getOnCall = vi.mocked(oncall.getOnCall);
+vi.mock("../api/requests", async orig => ({ ...(await orig<typeof import("../api/requests")>()), getOnCall: vi.fn(), getFinding: vi.fn(), getTimeline: vi.fn(), getLensInfo: vi.fn(), listFindings: vi.fn(), acknowledgeFinding: vi.fn() }));
+const m = vi.mocked(requests); const getOnCall = vi.mocked(requests.getOnCall);
 let change: () => void; let phone: boolean;
 beforeEach(() => {
   vi.resetAllMocks(); localStorage.clear(); phone = true;

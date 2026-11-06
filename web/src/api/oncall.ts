@@ -1,14 +1,9 @@
 // Present facts remain optional: an absent observation is never a zero.
-import { useQuery } from "@tanstack/react-query";
 import type { GetOnCallResponse } from "../gen/natslens/v1/oncall_pb";
-import { LIVE_REFRESH_MS } from "../lib/timeRange";
-import { useSystem } from "../lib/useSystem";
 import { entity, ms, severity, window } from "./adapt-common";
 import { finding, transition } from "./adapt-findings";
 import { step, type ReplayStep } from "./adapt-replay";
-import { lens } from "./client";
 import type { Entity, Finding, SeverityLevel, Transition, Window } from "./model";
-import { systemInit } from "./requests";
 export interface OnCallAsset { entity?: Entity; findingId: string; severity: SeverityLevel; replicas?: number; online?: number; leader?: string; answering?: boolean }
 export interface OnCallNow { epochAt?: number; serversExpected?: number; serversAnswering?: number; openWindow?: Window; deliveredPerSecond?: number; streamMsgsPerSecond?: number }
 export interface OnCall {
@@ -21,9 +16,4 @@ export function onCall(r: GetOnCallResponse): OnCall {
     assets: r.assets.map(a => ({ entity: entity(a.entity), findingId: a.findingId, severity: severity(a.severity), replicas: a.replicas, online: a.online, leader: a.leader, answering: a.answering })), assetsTotal: r.assetsTotal,
     now: n ? { epochAt: ms(n.epochAt), serversExpected: n.serversExpected, serversAnswering: n.serversAnswering, openWindow: n.openWindow ? window(n.openWindow) : undefined, deliveredPerSecond: n.deliveredPerSecond, streamMsgsPerSecond: n.streamMsgsPerSecond } : {},
     steps: r.steps.map(step), stepsTotal: r.stepsTotal, stepsNote: r.stepsNote, storyA: ms(r.storyA), storyB: ms(r.storyB), contextWindow: r.contextWindow ? window(r.contextWindow) : undefined, playbookUrl: r.playbookUrl };
-}
-export async function getOnCall(sys: string, id: string, signal?: AbortSignal) { return onCall(await lens.getOnCall({ ...systemInit(sys), findingId: id }, { signal })); }
-export function useOnCall(id: string) {
-  const sys = useSystem();
-  return useQuery({ queryKey: ["oncall", sys, id], queryFn: ({ signal }) => getOnCall(sys, id, signal), refetchInterval: LIVE_REFRESH_MS });
 }

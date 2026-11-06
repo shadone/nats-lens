@@ -1,3 +1,6 @@
+import { FindingAcknowledgement } from "../components/Acknowledgement";
+import { OnCallFinding } from "../components/OnCallFinding";
+import { usePhone } from "../lib/usePhone";
 import { atHistoryStart } from "../lib/historyView";
 import { HistoryLink } from "../components/HistoryNote";
 // One finding: its headline, when the condition began and when nats-lens
@@ -261,6 +264,10 @@ function MuteSection({ m }: { m: Mute }) {
 }
 
 export function FindingDetail() {
+  return usePhone() ? <OnCallFinding /> : <DesktopFindingDetail />;
+}
+
+export function DesktopFindingDetail({ acknowledgements = true }: { acknowledgements?: boolean }) {
   const id = useParams().id ?? "";
   usePageTitle(id);
   const { spec } = useTimeRange();
@@ -295,6 +302,7 @@ export function FindingDetail() {
               <section className="sec">
                 <Head f={d.finding} spec={spec} start={start} end={end} onMute={() => setMuting(true)} onUnmute={() => setLifting(true)} />
               </section>
+              {acknowledgements && <FindingAcknowledgement key={d.finding.id} finding={d.finding} />}
               {d.finding.mute && <MuteSection m={d.finding.mute} />}
               <div className="sec fd-cols">
                 <div className="fd-main">

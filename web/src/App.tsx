@@ -12,6 +12,7 @@ import { useSystem } from "./lib/useSystem";
 import { Fleet } from "./pages/Fleet";
 import { Overview } from "./pages/Overview";
 import { Findings } from "./pages/Findings";
+import { FindingByLabels } from "./pages/FindingByLabels";
 import { FindingDetail } from "./pages/FindingDetail";
 import { Events } from "./pages/Events";
 import { Streams } from "./pages/Streams";
@@ -82,6 +83,7 @@ export function App() {
                 />
                 <Route path="/fleet" element={<Fleet />} />
                 <Route path="/findings" element={<Findings />} />
+                <Route path="/findings/by-labels" element={<FindingByLabels />} />
                 <Route path="/findings/:id" element={<FindingDetail />} />
                 <Route path="/events" element={<Events />} />
                 <Route path="/streams" element={<Streams />} />

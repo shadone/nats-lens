@@ -121,7 +121,7 @@ function Mutes({ others, onAccounts }: { others: Entity[]; onAccounts: (es: Enti
   );
 }
 
-export function Findings() {
+export function Findings({ labelLookup }: { labelLookup?: { code: string; key: string } } = {}) {
   usePageTitle("Findings");
   const [params, setParams] = useSearchParams();
   const { spec } = useTimeRange();
@@ -129,7 +129,7 @@ export function Findings() {
   const sev = (params.get("sev") ?? "").split(",").filter((s): s is SeverityLevel => SEVERITIES.includes(s as SeverityLevel));
   const stateId = STATES.find((s) => s.id === params.get("state"))?.id ?? "open";
   const muted = params.get("muted") !== "0";
-  const check = params.get("check") ?? "";
+  const check = labelLookup?.code ?? params.get("check") ?? "";
   const [checkText, setCheckText] = useState(check);
   const [muteAccounts, setMuteAccounts] = useState<Entity[]>([]);
   const pager = usePager([useSystem(), sev.join(), stateId, muted, check, rangeKey(spec)].join("|"));
@@ -157,6 +157,7 @@ export function Findings() {
 
   return (
     <>
+      {labelLookup && <p className="oc-lookup" role="status">No finding of {labelLookup.code} for {labelLookup.key}; it may have resolved and been swept.</p>}
       <div className="page-h">
         <span className="aside">A finding is one failing check for one entity. Unmuted first, then by severity, expiry warnings after the other warnings, then the longest firing.</span>
       </div>
