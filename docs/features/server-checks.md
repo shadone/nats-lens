@@ -6,7 +6,7 @@
 
 ## What it does
 
-The server checks judge each NATS server on its own: whether it answers, whether its health endpoint and JetStream are ready, whether it restarted, whether its store or memory is filling, whether its clients are slow, stalled, churning or going stale or fill its connection limit, whether a TLS certificate of its listeners expires soon, whether its routes and gateways are all there and keep up, and whether its CPU, internal queues or JetStream API are overloaded. A server finding is keyed by the server's stable name, so it survives the server's restarts. There are 23 server checks, `server-001` to `server-023`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
+The server checks judge each NATS server on its own: whether it answers, whether its health endpoint and JetStream are ready, whether it restarted, whether its store or memory is filling, whether its clients are slow, stalled, churning or going stale or fill its connection limit, whether a TLS certificate of its listeners expires soon, whether its routes and gateways are all there and keep up, and whether its CPU, internal queues or JetStream API are overloaded, and whether it rejected an OCSP peer connection. A server finding is keyed by the server's stable name, so it survives the server's restarts. There are 24 server checks, `server-001` to `server-024`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
 
 ## The checks
 
@@ -197,13 +197,21 @@ The server checks judge each NATS server on its own: whether it answers, whether
 - **Thresholds:** `busy_ratio` 0.9, `min_duration` 5m, `busy_share` 0.8, `min_samples` 5, `resolve_ratio` 0.8 (proposed, not yet confirmed).
 - **Left out:** a server that reports neither its cores nor GOMAXPROCS. A collection without a CPU value is skipped, not read as calm. A restarting process (within `checks.restart_window`) is not judged, and a new process needs `min_duration` of its own collections. A server that stays between about 80% and 90% of its usable cores does not fire, by design: it runs hot but is not saturated. Once a finding fires, it holds down to 72% (proposed, not yet confirmed). A container CPU limit below GOMAXPROCS: the process is throttled before it reaches the level, so the check fires late or not at all. nats-server built with Go 1.25 or later sets GOMAXPROCS to the limit.
 
+### `server-024` OCSP peer rejected
+
+A warning fires when the server reports a final TLS peer connection rejection by Online Certificate Status Protocol (OCSP) verification in the last 15 minutes. A chain-link status event alone does not count. The event can describe an inbound client or a leaf connection; it does not establish that the certificate was revoked. Responder failures can also prevent verification.
+
+The finding links to the latest rejection event and counts distinct event IDs per server process. Both the event time and receipt time must fall in the lookback. The finding resolves once the window is empty, without a counter or a second collection of failures. It keeps the event's captured server name across a restart or a missing snapshot, and uses the server ID when the event has no name. Event-only servers can raise findings too. Without live event capture, missed rejections cannot be recovered.
+
+Read the emitting server's TLS and OCSP logs and identify the peer by the certificate fingerprint retained in the event. The failing certificate can be another link in the peer's chain. Check revocation, validity, responder reachability, and clocks before replacing certificates or restoring access. Keep verification enabled.
+
 ## Behavior and rules
 
 - **Keyed by server name.** A server finding belongs to the server's name, so a restart does not start a new finding.
 - **Counters are read per process.** The checks that count growth of a server counter (`server-009`, `server-010`, `server-011`, `server-014`, `server-015`, `server-021`) compare values of the same server process, because a restart resets the counters.
 - **Planned restarts are quiet.** `server-001` is info for an announced stop, `server-003` is a warning while a server restarts, and `server-002` leaves out a restarting server's catch-up errors.
 - **A server that did not answer is not judged.** The link, queue and limit checks (`server-017` to `server-023`) read only what a server reported: a peer or server that did not answer is `server-001`'s, and a collection in which the endpoint a check reads did not answer breaks its run of collections instead of counting as healthy or as failing. `server-018` and `server-020` keep the process's newest `max_pending` or `max_connections` when VARZ fails, as the limit changes only with the configuration.
-- **Firing findings hold.** From `server-017` on, a firing finding stays on a lower level (`resolve_ratio`), or for as long as its condition holds in the newest collection, even before the condition has lasted long enough to fire again, as with `server-011`, so a value that hovers at its threshold does not fire and resolve on every collection.
+- **Firing findings hold.** For `server-017` to `server-023`, a firing finding stays on a lower level (`resolve_ratio`), or for as long as its condition holds in the newest collection, even before the condition has lasted long enough to fire again, as with `server-011`, so a value that hovers at its threshold does not fire and resolve on every collection.
 - **The remediation names the next step.** Where another check covers the cause or the clients, the remediation points at it, such as `client-003` for the clients behind `server-009`.
 
 ## Scenarios
@@ -285,7 +293,14 @@ These server checks are not built. Each line says what it would detect and what 
 - **Slow route round trip.** The round trip time of a route stays far above the cluster's others. Needs: the Topology page's slow route rule (relative to the cluster's typical round trip, never under 2 ms, slow in two collections in a row) shared with a check. The rule is Go code in the API, which the SQL checks cannot call; a check with its own SQL rule, such as a fixed threshold, would call other routes slow than the page does. It needs the rule moved where both can use it, as `checks.AccountConnectionsSQL` is shared, or a check the engine computes in Go. The round trips themselves are stored in ROUTEZ every collection.
 - **Leaf node disconnects.** A leaf node site that was connected is gone, or reconnects repeatedly. Needs: the Topology page's drop rule shared with a check (it is kept twice, in Go for the demo and in SQL for the store; a check would be a third copy), and a decision on the finding's entity: a site is a remote server nats-lens does not observe, and it moves between hubs, so a finding about it belongs neither to an observed server nor to one hub. The data, LEAFZ, is stored every collection. NATS publishes no leaf node disconnect event (its leaf node connect event is for internal use only), so only drops that span a collection can be seen.
 - **JetStream API requests queued.** A server holds many JetStream API requests that wait to be processed, as JSZ's meta `pending` counts them (the routed API requests and info requests queued on the server, not meta group operations). Needs: `meta_pending` from JSZ, stored today per server and collection.
-- **OCSP peer rejected.** A server rejected a peer's certificate by OCSP. Needs: the `$SYS.SERVER.*.OCSP.PEER.CONN.REJECT` events, which nats-lens does not subscribe to yet.
+
+### An OCSP peer cannot connect
+
+- **Given** live system event capture records a final OCSP peer connection rejection from `nats-0`
+- **When** the next collection runs within 15 minutes of the event and its receipt
+- **Then** `server-024` fires as a warning for `nats-0` and links to the event
+- **And** a server with only a chain-link status event has no such finding
+- **And** the finding resolves after the last rejection leaves the window, even if the server stopped reporting
 
 ## Not supported / out of scope
 
