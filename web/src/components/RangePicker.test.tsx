@@ -1,8 +1,9 @@
 import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { renderApp } from "../test/render";
-import { RangeNotice, RangePicker, fromLocalInput, toLocalInput } from "./RangePicker";
+import { createRangeDateEditor } from "../lib/rangeDateEditor";
+import { RangeNotice, RangePicker } from "./RangePicker";
 
 const loc = () => screen.getByTestId("location").textContent;
 
@@ -34,8 +35,8 @@ describe("RangePicker URL state", () => {
   it("refuses a custom range that ends before it starts", async () => {
     renderApp(<RangePicker />, "/");
     await userEvent.click(screen.getByRole("button", { name: "Last 24h" }));
-    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-10-16T10:00" } });
-    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-10-16T09:00" } });
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: createRangeDateEditor([...navigator.languages]).format(Date.parse("2026-10-16T10:00:00Z")) } });
+    fireEvent.change(screen.getByLabelText("To"), { target: { value: createRangeDateEditor([...navigator.languages]).format(Date.parse("2026-10-16T09:00:00Z")) } });
     await userEvent.click(screen.getByRole("button", { name: "Apply" }));
     expect(screen.getByRole("alert")).toHaveTextContent("before the end");
     expect(loc()).toBe("/");
@@ -44,8 +45,8 @@ describe("RangePicker URL state", () => {
   it("applies a custom range as UTC", async () => {
     renderApp(<RangePicker />, "/streams");
     await userEvent.click(screen.getByRole("button", { name: "Last 24h" }));
-    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-10-16T09:00" } });
-    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-10-16T10:30" } });
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: createRangeDateEditor([...navigator.languages]).format(Date.parse("2026-10-16T09:00:00Z")) } });
+    fireEvent.change(screen.getByLabelText("To"), { target: { value: createRangeDateEditor([...navigator.languages]).format(Date.parse("2026-10-16T10:30:00Z")) } });
     await userEvent.click(screen.getByRole("button", { name: "Apply" }));
     expect(loc()).toBe("/streams?from=2026-10-16T09%3A00%3A00Z&to=2026-10-16T10%3A30%3A00Z");
   });
@@ -58,11 +59,7 @@ describe("RangePicker URL state", () => {
     expect(loc()).toBe("/?range=1h");
   });
 
-  it("converts datetime-local values as UTC", () => {
-    expect(fromLocalInput("2026-10-16T09:00")).toBe(Date.parse("2026-10-16T09:00:00Z"));
-    expect(toLocalInput(Date.parse("2026-10-16T09:00:00Z"))).toBe("2026-10-16T09:00");
-    expect(fromLocalInput("")).toBeNaN();
-  });
+
 });
 
 describe("RangePicker history", () => {
@@ -80,8 +77,8 @@ describe("RangePicker history", () => {
   it("pushes a history entry for a custom range", async () => {
     renderApp(<RangePicker />, "/");
     await userEvent.click(screen.getByRole("button", { name: "Last 24h" }));
-    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-10-16T09:00" } });
-    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-10-16T10:30" } });
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: createRangeDateEditor([...navigator.languages]).format(Date.parse("2026-10-16T09:00:00Z")) } });
+    fireEvent.change(screen.getByLabelText("To"), { target: { value: createRangeDateEditor([...navigator.languages]).format(Date.parse("2026-10-16T10:30:00Z")) } });
     await userEvent.click(screen.getByRole("button", { name: "Apply" }));
     expect(nav()).toBe("PUSH");
   });
@@ -89,8 +86,8 @@ describe("RangePicker history", () => {
   it("refuses a custom range in the future", async () => {
     renderApp(<RangePicker />, "/");
     await userEvent.click(screen.getByRole("button", { name: "Last 24h" }));
-    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2099-01-01T09:00" } });
-    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2099-01-01T10:00" } });
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: createRangeDateEditor([...navigator.languages]).format(Date.parse("2099-01-01T09:00:00Z")) } });
+    fireEvent.change(screen.getByLabelText("To"), { target: { value: createRangeDateEditor([...navigator.languages]).format(Date.parse("2099-01-01T10:00:00Z")) } });
     await userEvent.click(screen.getByRole("button", { name: "Apply" }));
     expect(screen.getByRole("alert")).toHaveTextContent("future");
     expect(loc()).toBe("/");
@@ -139,5 +136,42 @@ describe("RangePicker panel after a click on a gap", () => {
     await userEvent.click(screen.getByText("Custom, UTC"));
     await userEvent.keyboard("{Escape}");
     expect(trigger).toHaveFocus();
+  });
+});
+
+
+describe("localized custom entry", () => {
+  it.each([
+    ["en-US", "10/11/2026, 12:30 AM", "10/11/2026, 12:30 PM", "2026-10-11T00:30:00Z", "2026-10-11T12:30:00Z"],
+    ["en-GB", "10/11/2026, 0:30", "10/11/2026, 12:30", "2026-11-10T00:30:00Z", "2026-11-10T12:30:00Z"],
+    ["nb-NO", "10.11.2026, 0:30", "10.11.2026, 12:30", "2026-11-10T00:30:00Z", "2026-11-10T12:30:00Z"],
+  ])("applies %s entry as UTC without guessing date order", async (locale, from, to, start, end) => {
+    vi.spyOn(navigator, "languages", "get").mockReturnValue([locale]);
+    // Use a past range for both date orders, independently of the wall clock.
+    from = from.replace("2026", "2024"); to = to.replace("2026", "2024");
+    renderApp(<RangePicker />, "/events?src=nats");
+    await userEvent.click(screen.getByRole("button", { name: "Last 24h" }));
+    const input = screen.getByRole("textbox", { name: "From" });
+    expect(input).toHaveAccessibleDescription(expect.stringContaining("Format:"));
+    fireEvent.change(input, { target: { value: from } });
+    fireEvent.change(screen.getByRole("textbox", { name: "To" }), { target: { value: to } });
+    await userEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(loc()).toBe(`/events?src=nats&from=${encodeURIComponent(start.replace("2026", "2024"))}&to=${encodeURIComponent(end.replace("2026", "2024"))}`);
+  });
+
+  it.each([
+    ["2/29/2025, 9:00 AM", "3/1/2025, 9:00 AM", "Enter valid dates"],
+    ["", "3/1/2025, 9:00 AM", "Enter valid dates"],
+    ["1/1/2025, 9:00 AM", "2/1/2025, 9:00 AM", "At most 30 days"],
+  ])("keeps invalid entry open with an actionable error", async (from, to, error) => {
+    vi.spyOn(navigator, "languages", "get").mockReturnValue(["en-US"]);
+    renderApp(<RangePicker />, "/");
+    await userEvent.click(screen.getByRole("button", { name: "Last 24h" }));
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: from } });
+    fireEvent.change(screen.getByLabelText("To"), { target: { value: to } });
+    await userEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(screen.getByRole("alert")).toHaveTextContent(error);
+    expect(screen.getByRole("dialog", { name: "Time range" })).toBeInTheDocument();
+    expect(loc()).toBe("/");
   });
 });
