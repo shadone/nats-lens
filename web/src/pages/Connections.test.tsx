@@ -115,6 +115,22 @@ describe("Connections finding discovery", () => {
     await userEvent.keyboard("{Enter}");
     expect(screen.getByTestId("location").textContent).toContain("/findings/client-001%3Aorders-service");
   });
+  it("keeps the finding batch and row event links while paging forward and back", async () => {
+    vi.mocked(requests.listConnections).mockImplementation(async (_sys, _spec, filter) => ({
+      items: [conn(filter.pageToken ? "2" : "1", filter.pageToken ? names[1] : names[0], false)],
+      nextPageToken: filter.pageToken ? "" : "page-2", totalCount: 101, epoch: "7", toolingHidden: 0, servers: [],
+    }));
+    vi.mocked(requests.listFindings).mockResolvedValue({ items: [finding("client-001", "orders-service")], nextPageToken: "", totalCount: 1 });
+    renderApp(<Connections />, "/connections?system=shop&range=6h");
+    await screen.findByRole("link", { name: /client-001.*Firing/ });
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByRole("link", { name: names[1] })).toHaveAttribute("href", expect.stringContaining("/events?client=" + encodeURIComponent(names[1])));
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Previous" }));
+    expect(await screen.findByRole("link", { name: names[0] })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+    expect(requests.listFindings).toHaveBeenCalledTimes(1);
+  });
   it("labels resolved and muted findings without reporting them as firing", async () => {
     const muted = { ...finding("client-001", "orders-service", "changed"), mute: { id: "m" } } as Finding;
     vi.mocked(requests.listFindings).mockResolvedValue({ items: [muted, finding("client-002", names[0], "resolved")], nextPageToken: "", totalCount: 2 });
