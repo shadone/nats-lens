@@ -54,3 +54,9 @@
 .mbox .mb-v{max-width:100%;flex-wrap:wrap;white-space:normal}
 .mbox .mb-v b{overflow-wrap:anywhere;min-width:0}
 .mbox .mb-note{overflow-wrap:anywhere}
+/* Anchor metric explanations to the card so a right-column tip fits on phones. */
+.mbox{position:relative}
+.mbox .infotip{position:static;z-index:auto}
+.mbox .infotip-b{position:relative;z-index:3}
+.mbox .infotip-t{left:12px;right:12px;top:38px;width:auto;max-width:none}
+.mbox:has(.infotip-t){z-index:11}

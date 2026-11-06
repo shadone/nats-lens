@@ -14,7 +14,7 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 
 - **Inspect chart values.** Compact and expanded charts show UTC bucket times and formatted values on hover or touch. Focus a chart and use arrow keys, Home, or End for the same readout; Escape or blur dismisses it. Missing buckets say "No sample" without interpolation. Bucket descriptions distinguish last counts, mean rates, event totals, and server-band aggregation. The busiest-consumer mini charts use the same inspector. Multiple lines have separate labels, bands show lower and upper bounds, and stacked areas show each component's count. The Meta leader chart reports leader changes per bucket; it does not infer the leader's historical name. Without a majority naming the newest leader, its headline reads "Unknown"; the range total stays in the subtitle.
 
-- **Chart destinations.** Tile and trend headers link to the relevant list. The link covers the box outside chart inspection and other controls. Links keep the system and range, and the account on destinations that apply account scope.
+- **Chart destinations.** Tile and trend headers link to the relevant list. The link covers the box outside chart inspection and other controls. Metric explanations open within the card width, including the second column on phones. Links keep the system and range, and the account on destinations that apply account scope.
 
 - **Acknowledged findings.** Cause cards show the [acknowledgement mark](mobile.md), and the status line counts acknowledged findings. At phone width, cause cards precede the health tiles.
 
