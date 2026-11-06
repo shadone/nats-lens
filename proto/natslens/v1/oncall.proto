@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "google/protobuf/timestamp.proto";
+import "natslens/v1/common.proto";
+import "natslens/v1/findings.proto";
+import "natslens/v1/overview.proto";
+import "natslens/v1/replay.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// Request for the current finding and its episode's story.
+message GetOnCallRequest {
+  // System ID; empty selects the default system.
+  string system = 1;
+  // Finding ID, as returned by ListFindings.
+  string finding_id = 2;
+}
+
+// An affected entity, with only observed placement numbers set.
+message OnCallAsset {
+  // Entity to open.
+  EntityRef entity = 1;
+  // Its finding's ID.
+  string finding_id = 2;
+  // Its finding's severity.
+  Severity severity = 3;
+  // Configured replicas; unset without configuration.
+  optional int32 replicas = 4;
+  // Reporting replicas that are online; unset without reports.
+  optional int32 online = 5;
+  // Reported leader; empty without one.
+  string leader = 6;
+  // Whether a server entity answered the newest collection; unset otherwise.
+  optional bool answering = 7;
+}
+
+// Facts from the newest collection, independent of the story's end.
+message OnCallNow {
+  // When the newest collection started; unset without a recent collection.
+  google.protobuf.Timestamp epoch_at = 1;
+  // Expected server count; unset when not reported.
+  optional int32 servers_expected = 2;
+  // Answering server count; unset when not reported.
+  optional int32 servers_answering = 3;
+  // Kubernetes window whose last event is within the 15-minute quiet gap
+  // at the present; its end is the last observed event, not a predicted end.
+  TimeWindow open_window = 4;
+  // Sum of reported delivery rates for affected streams' consumers.
+  optional double delivered_per_second = 5;
+  // Sum of reported message rates for affected streams.
+  optional double stream_msgs_per_second = 6;
+}
+
+// Everything needed for one on-call card, without changing the finding.
+message GetOnCallResponse {
+  // Current finding, with its current mute and episode acknowledgement.
+  Finding finding = 1;
+  // Newest transitions of this episode, at most 100.
+  repeated FindingTransition transitions = 2;
+  // Firing, unmuted findings of this check and entity type.
+  int32 same_check_firing = 3;
+  // Affected entities, worst first then by entity key; at most 10.
+  repeated OnCallAsset assets = 4;
+  // Affected entities before the cut.
+  int32 assets_total = 5;
+  // Observed facts at the present.
+  OnCallNow now = 6;
+  // Replay's steps, at most 12, in time order after selection.
+  repeated ReplayStep steps = 7;
+  // Steps before the card's cut, including Replay's omitted steps.
+  int32 steps_total = 8;
+  // Reason a story could not be read or was incomplete.
+  string steps_note = 9;
+  // Story start, up to 15 minutes before the condition began, within 24 hours of B.
+  google.protobuf.Timestamp story_a = 10;
+  // Present for a firing finding, resolve time for a resolved finding.
+  google.protobuf.Timestamp story_b = 11;
+  // Kubernetes window overlapping the condition's context span.
+  TimeWindow context_window = 12;
+  // Validated external https playbook URL; empty without one.
+  string playbook_url = 13;
+}
