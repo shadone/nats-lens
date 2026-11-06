@@ -54,7 +54,7 @@ describe("ServerDetail on example-global", () => {
     show(ap3(), "nats-ap-3");
     expect(await screen.findByRole("heading", { name: "nats-ap-3" })).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { level: 1 }).map((h) => h.textContent)).toEqual(["nats-ap-3"]);
-    for (const t of ["CPU", "Memory", "Connections", "Messages", "Slow-client disconnects"]) expect(screen.getByRole("button", { name: `About ${t}` })).toBeInTheDocument();
+    for (const t of ["CPU", "Memory", "Connections", "Messages", "Slow-consumer detections"]) expect(screen.getByRole("button", { name: `About ${t}` })).toBeInTheDocument();
     expect(await screen.findByRole("img", { name: /^CPU, current 8%, min 6%, max 10%/ })).toBeInTheDocument();
     expect(screen.getByText("steady at 31 all window")).toBeInTheDocument();
     expect(screen.getByText("limit 65,536")).toBeInTheDocument();
@@ -110,12 +110,16 @@ describe("ServerDetail on example-global", () => {
     expect(tile).not.toHaveTextContent("% of configured limit");
   });
 
-  it("names server slow-client disconnects separately from JetStream backlog", async () => {
+  it("names server slow-consumer detections separately from JetStream backlog", async () => {
     show(ap3(), "nats-ap-3");
-    const about = await screen.findByRole("button", { name: "About Slow-client disconnects" });
+    const about = await screen.findByRole("button", { name: "About Slow-consumer detections" });
     const tile = about.closest(".mbox")! as HTMLElement;
     expect(within(tile).getByRole("link", { name: "Consumers" })).toHaveAttribute("href", "/consumers");
     expect(tile).toHaveTextContent("For JetStream backlog, see Consumers.");
+    expect(tile).toHaveTextContent("Server slow-consumer counter increases during the selected range.");
+    expect(tile).toHaveTextContent("Covers clients, routes, gateways and leaf connections; retries can count without a disconnect.");
+    expect(tile).toHaveTextContent("Not unique clients or JetStream pending messages.");
+    expect(tile).not.toHaveTextContent("Clients disconnected as slow");
   });
 
   it("marks the setting that differs from most servers", async () => {
