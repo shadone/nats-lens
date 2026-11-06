@@ -133,6 +133,18 @@ So the stop timeout must exceed `shutdown_grace + events.flush_interval + 2s` or
 
 ### Database
 
+nats-lens pins `duckdb-go v2.20000.0`, embedding DuckDB `v2.0.0`. The dependency choice is proposed, not yet confirmed. The engine includes the [upstream shutdown checkpoint fix](https://github.com/duckdb/duckdb/pull/25771) for index entries buffered during WAL replay.
+
+A subprocess regression checkpoints 1,750 synthetic rows, appends 298, and replays the WAL in another process. That process closes without an explicit checkpoint. A third process commits a DELETE; a fourth reopens, verifies an empty full scan, and checks duplicate rejection. This sequence fails at COMMIT with DuckDB 1.5.6 and passes with 2.0.0, using both the default format and an explicit legacy storage format. It establishes prevention for this sequence. It does not establish a historical cause or protection against all corruption.
+
+The [official driver upgrade notes](https://github.com/duckdb/duckdb-go/tree/v2.20000.0#upgrading-to-duckdb-v2) keep the Go API unchanged. Default static libraries come from `go.duckdb.org`; restricted module proxies must allow that source (ASVS 15.2.4). The app does not use appenders, profiling, custom log storage, or `CREATE TABLE AS` row counts, whose behavior changes in this release.
+
+The [storage compatibility rules](https://duckdb.org/docs/2.0/internals/storage) distinguish backward reading from forward reading. DuckDB 2.0 reads older files. New files default to the 2.0 storage format, which older engines cannot read. Disposable probes verify that 2.0 reads 2,048 rows created by 1.5.6, while 1.5.6 rejects a default 2.0 file. A separate probe verifies that 1.5.6 reads a file created with 2.0's explicit legacy storage setting. Forward compatibility is best effort; the application uses the engine default and does not force the legacy setting. Keep a verified pre-upgrade generation for rollback instead of assuming that an older binary can open every file written by the upgraded binary.
+
+Check and replay queries use the documented `lambda x: expression` syntax because DuckDB 2.0 disables single-arrow lambdas by default. The replay node lookup uses explicit JSON paths to avoid ambiguous precedence in a chained JSON-arrow comparison. Existing client-library and replay tests fail with these fixes removed and pass with them restored. The filter expressions, check thresholds, and expected findings remain unchanged.
+
+The explicit checkpoint after migrations remains necessary for startup durability. Neither a successful checkpoint nor an engine upgrade repairs existing index divergence. A synthetic pre-existing failure still produces a real typed fatal error in the containment tests. A separate checksum-invalid synthetic WAL exercises archive recovery because DuckDB 2.0 successfully replays the earlier schema-WAL fixture. Follow the [recovery procedure](operations/database-recovery.md) before replacing an affected database.
+
 The DuckDB file `natslens.duckdb` lives in the system's data directory (`data_dir` for a file without `systems`, `<data_dir>/<id>` by default in a list). Tables follow one pattern:
 
 - identity tables hold one row per thing with the first and last epoch it was seen: `servers`, `accounts`, `streams`, `consumers`, `raft_groups`;
