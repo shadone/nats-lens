@@ -46,12 +46,32 @@ function SwitchSystem() {
 // Use shipped authored paragraphs rather than a shortened mock of the rules.
 function authoredReference(source: string, code: string) {
   const body = source.split(`### \`${code}\``)[1]!.split("\n### ")[0]!;
-  return [...body.matchAll(/^- \*\*([^*]+):\*\* (.*)$/gm)].map(([, title, text]) => ({
-    $typeName: "natslens.v1.CheckReferenceSection" as const, title: title === "Problem" ? "Meaning" : title === "Left out" ? "Limitations" : title!, text: text!,
-  }));
+  return body.split("\n- **").slice(1).map(block => {
+    const end = block.indexOf("**");
+    const title = block.slice(0, end).slice(0, -1);
+    return {$typeName: "natslens.v1.CheckReferenceSection" as const,
+      title: title === "Problem" ? "Meaning" : title === "Left out" ? "Limitations" : title,
+      text: block.slice(end + 2).trim()};
+  });
 }
 
 describe("check reference routes", () => {
+  it.each([
+    ["client-006", "Needs event capture", "Without it nats-lens stores no `client.auth_error` event and the check stays quiet; it cannot tell \"no failed login\" from \"not captured\". The Accounts page says which it is."],
+    ["client-006", "Keys changed", "A mute set on the old key no longer applies, so mute the new key again."],
+    ["client-008", "Unknown versions", "A version that does not start with a number is unknown and not judged. So is nats.py's `0.0.0`, which a build without package metadata reports."],
+    ["client-008", "Thresholds", "Minimum per language.\n\n| `min_python` | `python3` | nats.py | 2.9.0 |\n\nA minimum of 0 turns a language off."],
+    ["consumer-015", "The limit cannot be changed in place", "nats-server refuses an update of `max_waiting`. A queue that is full by design is muted with that reason."],
+  ])("renders %s %s content independently of concise meaning", async (code, title, text) => {
+    const data = response();
+    data.definitions = [create(CheckDefinitionSchema, {...definition, code, reference: [{$typeName: "natslens.v1.CheckReferenceSection", title: "Meaning", text: "Concise meaning."}, {$typeName: "natslens.v1.CheckReferenceSection", title, text}]})];
+    api.listCheckDefinitions.mockResolvedValue(data);
+    detail(code);
+    const heading = await screen.findByRole("heading", {name: title, level: 3});
+    expect(heading.parentElement).toHaveTextContent(text.replaceAll("`", "").replace(/\s+/g, " "));
+    expect(screen.getByText("Concise meaning.")).toBeInTheDocument();
+  });
+
   it("renders full client-007 holding and resolution rules alongside concise meaning and numeric defaults", async () => {
     const data = response();
     data.definitions = [create(CheckDefinitionSchema, { ...definition, code: "client-007", name: "Unnamed connections", entity: "client", reference: authoredReference(clientReference, "client-007"), thresholds: [{$typeName: "natslens.v1.CheckThreshold", name: "min_age", defaultValue: "10m", unit: "duration", description: "Minimum connected age before firing."}] })];

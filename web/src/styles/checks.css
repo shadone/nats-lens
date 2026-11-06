@@ -8,6 +8,7 @@
 .check-meta { color:var(--text-muted); font-size:13px; }
 .check-reference { max-width:960px; min-width:0; }
 .check-reference .rem, .check-catalog p, .check-reference p { line-height:1.7; overflow-wrap:anywhere; }
+.check-reference .rem { white-space:pre-line; }
 .check-reference code { white-space:normal; overflow-wrap:anywhere; }
 .check-paragraph { margin:20px 0; }
 .check-paragraph h3 { font-size:14px; margin:0 0 6px; }

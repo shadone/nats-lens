@@ -52,6 +52,26 @@ func TestCheckCatalogHTTP(t *testing.T) {
 			t.Errorf("incomplete or duplicate reference: %+v", d)
 		}
 		seen[d.Code] = true
+		for code, rules := range map[string][]string{
+			"client-006":   {"mute set on the old key no longer applies", "Without it nats-lens stores no `client.auth_error` event"},
+			"client-007":   {"row still counts MQTT clients"},
+			"client-008":   {"So is nats.py's `0.0.0`", "unknown and not judged", "A minimum of 0 turns a language off", "`min_python` | `python3` | nats.py | 2.9.0"},
+			"consumer-015": {"nats-server refuses an update of `max_waiting`"},
+		} {
+			if d.Code != code {
+				continue
+			}
+			var text string
+			for _, section := range d.Reference {
+				text += section.Text + "\n"
+			}
+			for _, rule := range rules {
+				if !strings.Contains(text, rule) {
+					t.Errorf("HTTP catalog %s lost %q", code, rule)
+				}
+			}
+		}
+
 		if d.Code == "client-007" {
 			var reference string
 			for _, section := range d.Reference {

@@ -111,6 +111,14 @@ The client checks judge the applications connected to NATS: whether their round 
 
 ## Scenarios
 
+### Read authentication and library prerequisites
+
+- **Surfaces:** `ui`
+- **Given** I open the `client-006` or `client-008` reference page
+- **When** I read the firing rules and limitations
+- **Then** I see the authentication event-capture prerequisite and the changed-key mute guidance
+- **And** the library reference retains unknown versions, nats.py’s `0.0.0` exclusion, and the language minimum table with its disabling rule
+
 ### Read unnamed-connection retention rules
 
 - **Surfaces:** `ui`
