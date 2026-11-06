@@ -511,3 +511,32 @@ func (h *Handler) GetDataHistory(ctx context.Context, req *connect.Request[v1.Ge
 		return FinishDataHistory(f), nil
 	})
 }
+
+// GetOnCall serves one read-only card within the usual query deadline.
+func (h *Handler) GetOnCall(ctx context.Context, req *connect.Request[v1.GetOnCallRequest]) (*connect.Response[v1.GetOnCallResponse], error) {
+	return call(ctx, h, "GetOnCall", req.Msg, func(_ Provider, m *v1.GetOnCallRequest) error {
+		// ASVS 2.2.1: bound the lookup key at the service boundary.
+		if m.GetFindingId() == "" {
+			return invalid("finding_id is required")
+		}
+		return maxLen("finding_id", len(m.GetFindingId()), 4096)
+	}, func(s System, ctx context.Context, m *v1.GetOnCallRequest) (*v1.GetOnCallResponse, error) {
+		f, err := s.Provider.OnCall(ctx, m)
+		if err != nil {
+			return nil, err
+		}
+		a, b := OnCallSpan(f.Finding, f.At)
+		facts, err := s.Provider.Replay(ctx, &v1.GetReplayRequest{A: timestamppb.New(a), B: timestamppb.New(b)})
+		if errors.Is(err, ErrInvalid) {
+			return FinishOnCall(f, nil, err.Error()), nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		replay := FinishReplay(facts)
+		if facts.HistoryStart.IsZero() || a.Before(facts.HistoryStart) {
+			return FinishOnCall(f, nil, "The story starts before stored history."), nil
+		}
+		return FinishOnCall(f, replay, ""), nil
+	})
+}
