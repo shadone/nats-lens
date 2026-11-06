@@ -56,6 +56,7 @@ type Provider struct {
 	ArchiveStatus func() api.ArchiveState
 
 	podCache podNameCache
+	readDB   queryReader
 }
 
 var _ api.Provider = (*Provider)(nil)
@@ -71,7 +72,17 @@ func (p *Provider) Now() time.Time {
 	return time.Now().UTC()
 }
 
-func (p *Provider) db() *sql.DB { return p.St.DB() }
+type queryReader interface {
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}
+
+func (p *Provider) db() queryReader {
+	if p.readDB != nil {
+		return p.readDB
+	}
+	return p.St.DB()
+}
 
 func ts(t time.Time) *timestamppb.Timestamp {
 	if t.IsZero() {

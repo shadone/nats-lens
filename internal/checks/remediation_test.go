@@ -3,6 +3,7 @@ package checks
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -78,6 +79,31 @@ func TestRemediationFileErrors(t *testing.T) {
 			_, err := Load(config.Checks{RemediationFile: tc.path})
 			if err == nil || !strings.Contains(err.Error(), tc.err) {
 				t.Fatalf("err = %v, want %q", err, tc.err)
+			}
+		})
+	}
+}
+
+func TestRemediationPlaybook(t *testing.T) {
+	for _, url := range []string{"https://runbooks.example.com/nats/durable-missing", "http://example.com", "javascript:alert(1)", "https:///missing", "https://user:password@example.com", "//example.com", "https://example.com/\nunsafe", "\t", "https://example.com/\t", "data:text/html,unsafe"} {
+		t.Run(url, func(t *testing.T) {
+			body := "consumer-010:\n  text: Read the playbook first.\n  playbook: " + strconv.Quote(url) + "\n"
+			set, err := Load(config.Checks{RemediationFile: writeRemediation(t, body)})
+			if url != "https://runbooks.example.com/nats/durable-missing" {
+				if err == nil {
+					t.Fatal("accepted unsafe playbook")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			c, _ := set.Lookup("consumer-010")
+			if c.Playbook != url {
+				t.Fatalf("playbook = %q", c.Playbook)
+			}
+			if !strings.HasSuffix(c.Remediation, "Read the playbook first.") {
+				t.Fatal(c.Remediation)
 			}
 		})
 	}
