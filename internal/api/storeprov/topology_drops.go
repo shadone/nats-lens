@@ -7,6 +7,7 @@ import (
 	"math"
 
 	"github.com/shadone/nats-lens/internal/api"
+	"github.com/shadone/nats-lens/internal/leafhealth"
 )
 
 // topologyWindow are the CTEs every drop query starts with: ep, the
@@ -91,42 +92,7 @@ FROM obs o JOIN servers s USING (server_id) GROUP BY ALL`, append(window, f.Epoc
 		return err
 	}
 	if err := query("leaf node drops", topologyWindow+`,
-site AS (SELECT epoch, server_id, lid, coalesce(nullif(name, ''), ip, '') AS site, coalesce(account, '') AS account
-  FROM leafnodes WHERE `+leafSite+` AND epoch IN (SELECT epoch FROM ep)),
-ok AS (SELECT DISTINCT epoch, server_id FROM epoch_endpoints
-  WHERE endpoint = 'LEAFZ' AND state = 'ok' AND epoch IN (SELECT epoch FROM ep)),
--- The rows of a connection observed between consecutive collections.
-seen AS (
-  SELECT l.site, l.account, count(*) AS n FROM pairs p JOIN site l ON l.epoch = p.a
-  JOIN ok oa ON oa.epoch = p.a AND oa.server_id = l.server_id
-  JOIN ok ob ON ob.epoch = p.b AND ob.server_id = l.server_id
-  GROUP BY ALL),
-pos AS (SELECT epoch, row_number() OVER (ORDER BY epoch) AS i FROM ep),
--- Each connection with its rows: one stored once in every collection
--- from its first to its last can only have dropped after its last; a
--- duplicate row sends it to the row-by-row count, so it cannot hide a gap.
-conns AS (
-  SELECT c.*, c.n = c.d AND c.d = pl.i - pf.i + 1 AS unbroken FROM (
-    SELECT server_id, lid, site, account, count(*) AS n, count(DISTINCT epoch) AS d, min(epoch) AS first, max(epoch) AS last
-    FROM site GROUP BY ALL) c
-  JOIN pos pf ON pf.epoch = c.first JOIN pos pl ON pl.epoch = c.last),
-ends AS (
-  SELECT c.site, c.account, count(*) AS drops FROM conns c JOIN pairs p ON p.a = c.last
-  JOIN ok oa ON oa.epoch = p.a AND oa.server_id = c.server_id
-  JOIN ok ob ON ob.epoch = p.b AND ob.server_id = c.server_id
-  WHERE c.unbroken GROUP BY ALL),
--- The other connections, rare, row by row.
-broken AS (
-  SELECT s.*, `+nextSeen("server_id, lid, site, account")+` AS nxt FROM site s
-  WHERE (server_id, lid, site, account) IN (SELECT (server_id, lid, site, account) FROM conns WHERE NOT unbroken)),
-gaps AS (
-  SELECT l.site, l.account, count(*) FILTER (WHERE l.nxt IS DISTINCT FROM p.b) AS drops
-  FROM pairs p JOIN broken l ON l.epoch = p.a
-  JOIN ok oa ON oa.epoch = p.a AND oa.server_id = l.server_id
-  JOIN ok ob ON ob.epoch = p.b AND ob.server_id = l.server_id
-  GROUP BY ALL)
-SELECT s.site, s.account, coalesce(e.drops, 0) + coalesce(g.drops, 0)
-FROM seen s LEFT JOIN ends e USING (site, account) LEFT JOIN gaps g USING (site, account)`, window, func(rows *sql.Rows) error {
+`+leafhealth.Counts(false)+` SELECT * FROM leaf_counts`, window, func(rows *sql.Rows) error {
 		var d api.TopologyLeafDrops
 		if err := rows.Scan(&d.Name, &d.Account, &d.Drops); err != nil {
 			return err
