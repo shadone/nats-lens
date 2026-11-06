@@ -57,7 +57,7 @@ export function Connections() {
       <div className="page-h">
         <span className="aside">Client connections in the newest collection of the range.</span>
       </div>
-      <p className="muted-note">Findings show state at the range’s end, including resolved and muted findings. RTT is from the newest collection. A high RTT needs to be persistent across collections before the RTT check fires; a single sample may have no finding.</p>
+      <p className="muted-note">Findings show state at the range’s end, including resolved and muted findings. RTT is from the newest collection. RTT findings cover the service name before @. The RTT check follows configured persistence rules across collections; a high sample may have no finding.</p>
       {findings.error && <p className="muted-note" role="status">Finding status is unknown: could not load findings. <button className="btn" onClick={() => void findings.refetch()}>Retry findings</button></p>}
       {findingData && (findingData.nextPageToken || findingData.totalCount > findingData.items.length) && <p className="muted-note" role="status">Finding results are incomplete. Unmatched connections have unknown status. <RLink to="/findings">Browse findings</RLink></p>}
       <div className="filters">

@@ -76,7 +76,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Servers](servers.md) | `ui`, `api` | shipped — JetStream file bytes, limits, per-server storage history and slow-consumer detection labels; responsive detail cards with a separate full-width recent-events row |
 | [Streams](streams.md) | `ui`, `api` | shipped — replica placement is in the API only |
 | [Consumers](consumers.md) | `ui`, `api` | shipped — delivery rate and busiest-first order are in the API only |
-| [Connections](connections.md) | `ui`, `api` | shipped — single-page results omit pagination controls |
+| [Connections](connections.md) | `ui`, `api` | shipped — range finding status and direct links; bounded reads with unknown state |
 | [Events](events.md) | `ui`, `api` | shipped — selectable text, contextual empty results and pagination across pages; OCSP peer rejections are NATS warnings |
 | [Triage and mutes](triage-and-mutes.md) | `ui`, `api` | shipped — single-page Findings counts, spaced finding facts and actions, acknowledgements beside mutes, and history-start explanations |
 | [Metrics and alerting](metrics-and-alerting.md) | `api` | shipped — acknowledgement quiet metrics and exclusions |
@@ -130,7 +130,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Servers for 20 or more servers: aggregate slow-consumer detections distinct from JetStream backlog, data points, charts across servers, a map of every server, a grouped list with JetStream file bytes and limit bars; server pages with storage history and metric boxes, responsive placement and limits cards, and a full-width recent-events row (servers.md)
 - [x] Streams list and stream detail; replica placement in the API only (streams.md)
 - [x] Consumers list and consumer detail, a stream filter that is not polled; delivery rate and busiest-first order in the API only (consumers.md)
-- [x] Client connections of the newest collection, the server filter's choices sent with them, and pagination only when another page exists (connections.md)
+- [x] Client connections of the newest collection, range finding links and unknown states, with server filters and pagination (connections.md)
 - [x] Every event, including acknowledgement saves, filtered by source, kind, entity and client, with selectable text, contextual empty results and pagination across pages (events.md)
 - [x] Events worth reading first: routine events hidden, repeats folded, counts per source and server, a histogram, new events behind a pill; OCSP peer rejections are NATS warnings (events.md)
 - [ ] A configurable routine rule; subject and where columns (events.md)
