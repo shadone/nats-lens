@@ -21,6 +21,14 @@
 .ev .rep{margin-left:8px;font-size:11.5px;color:var(--text-muted);white-space:nowrap}
 
 /* Finding detail */
+.finding-h .k{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.finding-h h1{margin:16px 0 12px;line-height:1.35;overflow-wrap:anywhere}
+.finding-h .ent{overflow-wrap:anywhere}
+.finding-h .meta{display:flex;align-items:flex-end;flex-wrap:wrap;gap:16px 24px;margin-top:16px}
+.finding-h .meta > div:not(.btns){display:grid;gap:6px;min-width:0;max-width:100%}
+.finding-h .meta .v{font:13px/1.5 var(--mono);overflow-wrap:anywhere}
+.finding-h .btns{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-left:auto}
+.finding-h .btns .btn{max-width:100%;white-space:normal}
 .worst p.fd-detail{margin:6px 0 0;color:var(--text-muted);font-size:13px;font-weight:400;overflow-wrap:anywhere}
 .worst p.fd-when{margin:8px 0 0;color:var(--text-2);font-size:13px}
 .fd-when .mono{font-family:var(--mono);font-size:12.5px}

@@ -78,7 +78,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Consumers](consumers.md) | `ui`, `api` | shipped — delivery rate and busiest-first order are in the API only |
 | [Connections](connections.md) | `ui`, `api` | shipped |
 | [Events](events.md) | `ui`, `api` | shipped — OCSP peer rejections are NATS warnings |
-| [Triage and mutes](triage-and-mutes.md) | `ui`, `api` | shipped — acknowledgements beside mutes and history-start explanations |
+| [Triage and mutes](triage-and-mutes.md) | `ui`, `api` | shipped — spaced finding facts and actions, acknowledgements beside mutes, and history-start explanations |
 | [Metrics and alerting](metrics-and-alerting.md) | `api` | shipped — acknowledgement quiet metrics and exclusions |
 | [Running nats-lens](running-nats-lens.md) | `api`, `cli` | shipped — shared IAP identity for mutes and acknowledgements |
 | [SQL access](sql-access.md) | `cli` | shipped |
@@ -134,7 +134,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Every event, including acknowledgement saves, filtered by source, kind, entity and client (events.md)
 - [x] Events worth reading first: routine events hidden, repeats folded, counts per source and server, a histogram, new events behind a pill; OCSP peer rejections are NATS warnings (events.md)
 - [ ] A configurable routine rule; subject and where columns (events.md)
-- [x] Findings, finding detail with server copies, start times and events around the start, mutes, accepted findings read as accepted, acknowledgements apart from mutes, and history-start explanations (triage-and-mutes.md)
+- [x] Findings, finding detail with server copies, start times and events around the start, mutes, accepted findings read as accepted, acknowledgements apart from mutes, and history-start explanations with spaced finding facts and action buttons (triage-and-mutes.md)
 - [ ] Why a finding has its severity, a CLI check ready to copy, accepting from the finding page or for related entities (triage-and-mutes.md)
 - [~] Every stream and durable consumer on every server in one matrix, with filters, a moment to compare with and a side panel — how long most states have lasted and a playbook link are not built (placement.md)
 - [~] What changed between two moments A and B, in order, with counts, gone assets, evidence links, a shared link, an incident log and shared gap rules — "Replay this window" links and a replica catch-up step are not built (replay.md)
