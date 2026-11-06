@@ -59,3 +59,24 @@ it("lets Escape close without saving and restores opener focus", async () => {
   fireEvent(screen.getByRole("dialog"), new Event("cancel", { bubbles: true, cancelable: true }));
   expect(screen.queryByRole("dialog")).toBeNull(); expect(screen.getByText("open")).toHaveFocus(); expect(m.acknowledgeFinding).not.toHaveBeenCalled();
 });
+it("keeps a pending write open through Escape and disables repeat submission", async () => {
+  m.acknowledgeFinding.mockImplementation(() => new Promise(() => {})); localStorage.setItem("nats-lens-name", "alice");
+  const close = vi.fn(); renderApp(<AckDialog finding={onCallFinding} onClose={close} onSaved={() => {}} />);
+  await userEvent.click(screen.getByRole("button", { name: "Acknowledge" }));
+  expect(await screen.findByRole("button", { name: "Saving…" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+  fireEvent(screen.getByRole("dialog"), new Event("cancel", { bubbles: true, cancelable: true })); expect(close).not.toHaveBeenCalled();
+});
+it("uses the system captured on open even if the query changes before saving", async () => {
+  const { useNavigate } = await import("react-router");
+  function Host() { const navigate = useNavigate(); return <><button onClick={() => navigate("/?system=example-global")}>switch</button><AckDialog finding={onCallFinding} onClose={() => {}} onSaved={() => {}} /></>; }
+  localStorage.setItem("nats-lens-name", "alice"); renderApp(<Host />, "/?system=example-prod");
+  fireEvent.click(screen.getByText("switch"));
+  await userEvent.click(screen.getByRole("button", { name: "Acknowledge" }));
+  await waitFor(() => expect(m.acknowledgeFinding).toHaveBeenCalledWith("example-prod", expect.anything()));
+});
+it("does not trust the legacy IAP browser flag in request mode", async () => {
+  localStorage.setItem("nats-lens-iap", "1"); renderApp(<AckDialog finding={onCallFinding} onClose={() => {}} onSaved={() => {}} />);
+  expect(await screen.findByLabelText("Your name")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Acknowledge" })); expect(screen.getByRole("alert")).toHaveTextContent("Enter your name");
+});
