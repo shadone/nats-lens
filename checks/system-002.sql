@@ -26,6 +26,9 @@ no_leader AS (
     SELECT group_key, label || ': None of the ' || count(*) || ' clustered JetStream servers ('
         || array_to_string(list(server_name ORDER BY server_name), ', ') || ') reports a meta leader.' AS detail
     FROM cur
+    -- For unknown membership, report only the explicit empty-leader replies;
+    -- another process's healthy or missing reply cannot mask that evidence.
+    WHERE group_key <> '' OR meta_leader = ''
     GROUP BY group_key, label
     HAVING count(*) > 0 AND count(*) FILTER (WHERE coalesce(meta_leader, '') <> '') = 0
         AND count(meta_leader) = count(*)
