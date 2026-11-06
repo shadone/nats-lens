@@ -186,9 +186,9 @@ describe("Events", () => {
 
   it("explains a client with no matches before zero facets and clears only the client", async () => {
     listEvents.mockResolvedValue(zero());
-    const { container } = renderApp(<Events />, "/events?client=checkout-worker&system=example-prod&range=1h&account=SHOP&src=nats&kind=client.connect&server=nats-1&show=all");
+    const { container } = renderApp(<Events />, "/events?client=media-worker&system=example-prod&range=1h&account=SHOP&src=nats&kind=client.connect&server=nats-1&show=all");
     const state = await screen.findByRole("region", { name: "No events match these filters" });
-    for (const text of ["checkout-worker", "client.connect", "nats-1", "Last 1h"]) expect(state).toHaveTextContent(text);
+    for (const text of ["media-worker", "client.connect", "nats-1", "Last 1h"]) expect(state).toHaveTextContent(text);
     expect(state).toHaveTextContent(/Connections shows.*snapshot/);
     expect(state).toHaveTextContent(/may have opened before capture/);
     expect(state).toHaveTextContent(/outside this range/);
@@ -203,7 +203,7 @@ describe("Events", () => {
     for (const [key, value] of Object.entries({ system: "example-prod", range: "1h", account: "SHOP", src: "nats", kind: "client.connect", server: "nats-1", show: "all" })) expect(url.searchParams.get(key)).toBe(value);
     expect(lastRequest()).toMatchObject({ system: "example-prod", sources: [EventSource.NATS], kinds: ["client.connect"], hideRoutine: false });
     expect(screen.getByRole("searchbox", { name: "Client connection name" })).toHaveValue("");
-    fireEvent.click(screen.getByRole("button", { name: "Filter", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Filter" }));
     expect(screen.getByTestId("location")).not.toHaveTextContent("client=");
     expect(listEvents).toHaveBeenCalledTimes(2);
   });
@@ -219,14 +219,14 @@ describe("Events", () => {
   });
 
   it("explains hidden routine events and offers Show routine events without claiming no capture", async () => {
-    listEvents.mockResolvedValue(zero({ routineHidden: 8, histogram: [{ start: timestampFromMs(now), routine: 8 }], routineGroups: [{ label: "checkout-worker short connections", kind: "client.churn", count: 8 }] }));
-    renderApp(<Events />, "/events?client=checkout-worker&range=6h");
+    listEvents.mockResolvedValue(zero({ routineHidden: 8, histogram: [{ start: timestampFromMs(now), routine: 8 }], routineGroups: [{ label: "media-worker short connections", kind: "client.churn", count: 8 }] }));
+    renderApp(<Events />, "/events?client=media-worker&range=6h");
     const state = await screen.findByRole("region", { name: "Matching events are hidden as routine" });
     expect(state).not.toHaveTextContent(/No events captured/);
     expect(screen.getByRole("img", { name: /Events over the range/ })).toBeInTheDocument();
     fireEvent.click(within(state).getByRole("button", { name: "Show routine events" }));
     await vi.waitFor(() => expect(lastRequest().hideRoutine).toBe(false));
-    expect(screen.getByTestId("location")).toHaveTextContent("client=checkout-worker");
+    expect(screen.getByTestId("location")).toHaveTextContent("client=media-worker");
     expect(screen.getByTestId("location")).toHaveTextContent("range=6h");
   });
 
@@ -239,7 +239,7 @@ describe("Events", () => {
 
   it("retains Newer on an empty last page and resets cursors after clearing the client", async () => {
     listEvents.mockImplementation(async (req) => req.pageToken ? zero() : response({ nextPageToken: "p2" }));
-    renderApp(<Events />, "/events?client=checkout-worker");
+    renderApp(<Events />, "/events?client=media-worker");
     fireEvent.click(await screen.findByRole("button", { name: "Older" }));
     expect(await screen.findByRole("region", { name: "No more events on this page" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Newer" })).toBeEnabled();
@@ -250,7 +250,7 @@ describe("Events", () => {
 
   it("does not attribute a placeholder empty result to a pending filter", async () => {
     listEvents.mockResolvedValueOnce(zero()).mockImplementation(() => new Promise(() => {}));
-    renderApp(<Events />, "/events?client=checkout-worker");
+    renderApp(<Events />, "/events?client=media-worker");
     fireEvent.click(await screen.findByRole("button", { name: "Clear client filter" }));
     expect(await screen.findByText("Loading events…")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "No events match these filters" })).not.toBeInTheDocument();
@@ -258,7 +258,7 @@ describe("Events", () => {
 
   it("keeps loading and errors distinct from an empty feed", async () => {
     listEvents.mockRejectedValue(new Error("Synthetic request failed"));
-    renderApp(<Events />, "/events?client=checkout-worker");
+    renderApp(<Events />, "/events?client=media-worker");
     expect(screen.getByText("Loading events…")).toBeInTheDocument();
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not load events");
     expect(screen.queryByRole("button", { name: "Clear client filter" })).not.toBeInTheDocument();
@@ -270,7 +270,7 @@ describe("Events", () => {
       return <button onClick={() => navigate("/events?client=catalog-api&kind=client.disconnect")}>Other client</button>;
     }
     listEvents.mockResolvedValue(zero());
-    renderApp(<><Events /><Navigate /></>, "/events?client=checkout-worker&kind=client.connect");
+    renderApp(<><Events /><Navigate /></>, "/events?client=media-worker&kind=client.connect");
     await screen.findByRole("button", { name: "Clear client filter" });
     fireEvent.click(screen.getByRole("button", { name: "Other client" }));
     await vi.waitFor(() => expect(lastRequest().clientName).toBe("catalog-api"));
@@ -285,7 +285,7 @@ describe("Events", () => {
       return <button onClick={() => { void qc.invalidateQueries({ queryKey: ["eventFeed"] }); }}>Refresh feed</button>;
     }
     listEvents.mockResolvedValueOnce(zero()).mockRejectedValue(new Error("Synthetic refresh failed"));
-    renderApp(<><Events /><Refresh /></>, "/events?client=checkout-worker");
+    renderApp(<><Events /><Refresh /></>, "/events?client=media-worker");
     await screen.findByRole("region", { name: "No events match these filters" });
     fireEvent.click(screen.getByRole("button", { name: "Refresh feed" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Synthetic refresh failed");
@@ -295,7 +295,7 @@ describe("Events", () => {
 
   it("retains routine context and the routine counter when the histogram is all zero", async () => {
     listEvents.mockResolvedValue(zero({ routineHidden: 8 }));
-    renderApp(<Events />, "/events?client=checkout-worker");
+    renderApp(<Events />, "/events?client=media-worker");
     expect(await screen.findByRole("region", { name: "Matching events are hidden as routine" })).toHaveTextContent("8 matching events");
     expect(screen.getByRole("region", { name: "Hidden as routine" })).toHaveTextContent("8");
     expect(screen.queryByRole("img", { name: /Events over the range/ })).not.toBeInTheDocument();
