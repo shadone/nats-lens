@@ -143,6 +143,8 @@ The [storage compatibility rules](https://duckdb.org/docs/2.0/internals/storage)
 
 Check and replay queries use the documented `lambda x: expression` syntax because DuckDB 2.0 disables single-arrow lambdas by default. The replay node lookup uses explicit JSON paths to avoid ambiguous precedence in a chained JSON-arrow comparison. Existing client-library and replay tests fail with these fixes removed and pass with them restored. The filter expressions, check thresholds, and expected findings remain unchanged.
 
+The driver binds typed nil Go slices as SQL NULL. Production snapshot writes already convert absent lists to non-nil empty lists; API fixtures use explicit empty lists too. A snapshot regression verifies that absent expected, observed, missing, and error lists remain empty lists in storage.
+
 The explicit checkpoint after migrations remains necessary for startup durability. Neither a successful checkpoint nor an engine upgrade repairs existing index divergence. A synthetic pre-existing failure still produces a real typed fatal error in the containment tests. A separate checksum-invalid synthetic WAL exercises archive recovery because DuckDB 2.0 successfully replays the earlier schema-WAL fixture. Follow the [recovery procedure](operations/database-recovery.md) before replacing an affected database.
 
 The DuckDB file `natslens.duckdb` lives in the system's data directory (`data_dir` for a file without `systems`, `<data_dir>/<id>` by default in a list). Tables follow one pattern:
