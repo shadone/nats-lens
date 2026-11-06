@@ -24,8 +24,8 @@ The system checks judge what belongs to no single server: the JetStream meta gro
 - **Fires when:** a meta group has no reported leader, or its leader reports more peers offline than its quorum allows. Each group is judged independently; a healthy group cannot hide another group's failure when stored membership identifies both.
 - **Severity:** critical.
 - **Thresholds:** none.
-- **Group scope:** overlapping stored RAFT peer membership identifies groups. A reporter without RAFTZ can join a group when its JSZ leader resolves unambiguously to that group. A cluster name, a domain label, and the reused `_meta_` ID alone do not prove separate physical groups. Ambiguous peer hashes, including simultaneous duplicate server names, do not establish shared membership. Membership comes from this collection; missing membership leaves observations explicitly unscoped.
-- **Evidence:** the detail lists every failing group and its reporting servers. A missing leader field is unknown, distinct from an explicitly empty leader. Missing offline-peer counts do not become zero. Absence of a finding does not certify a group whose replies or membership are missing.
+- **Group scope:** stored RAFT peer names that resolve uniquely to observed processes identify groups. A reporter without RAFTZ can join a group when its JSZ leader resolves unambiguously to that group. A cluster name, a domain label, and the reused `_meta_` ID alone do not prove separate physical groups. Ambiguous peer hashes, including simultaneous duplicate server names, do not establish shared membership. An unobserved peer hash cannot establish membership. If that hash connects otherwise separate components, all affected observations remain unscoped: a down process and duplicate down names cannot be distinguished. Membership comes from this collection.
+- **Evidence:** the detail lists every failing group and its reporting servers. A missing leader field is unknown, distinct from an explicitly empty leader. Missing offline-peer counts do not become zero. Unscoped replies with an explicitly empty leader are reported even when another unscoped server reports a leader. Their detail names only the empty-leader reporters and does not certify a physical group. Absence of a finding does not certify a group whose replies or membership are missing.
 - **Left out:** single-server deployments and servers without JetStream, which have no meta group.
 
 ### `system-003` JetStream meta leader changing often
@@ -35,7 +35,7 @@ The system checks judge what belongs to no single server: the JetStream meta gro
 - **Severity:** warning.
 - **Thresholds:** lookback 15m, `max_changes` 4.
 - **Group scope:** the same membership rules as `system-002`, using only observations within the lookback up to the evaluated collection. Later membership and future process replacements cannot change a historical evaluation. Cluster and domain labels do not split shared membership.
-- **Advisory scope:** a server name assigns an advisory only when it resolves to one group. With identified groups, unresolved advisories do not contribute to a group threshold; a firing finding mentions that exclusion. Without membership evidence, the legacy aggregate snapshot and advisory detector remains available, labelled as unscoped observations with unknown group identity. Its count does not prove changes within one physical group.
+- **Advisory scope:** a server name assigns an advisory only when it resolves to one group. With identified groups, unresolved advisories do not contribute to a group threshold; a firing finding mentions that exclusion. When no groups can be identified, including unresolved peer bridges, the legacy aggregate snapshot and advisory detector remains available, labelled as unscoped observations with unknown group identity. Its count does not prove changes within one physical group.
 - **Left out:** the first change away from a leader within two collect intervals after it announced lame duck mode or shutdown, or after its process went away and was replaced. A rolling restart moves the leader once per restarted leader, and that hand-over is not counted. Later changes away from the same server count.
 
 ### `system-004` JetStream meta group falling behind
@@ -137,6 +137,20 @@ The system checks judge what belongs to no single server: the JetStream meta gro
 - **Given** orders and shipping have disjoint stored RAFT membership, even though both report the cluster name `shop`
 - **When** orders reports no leader while shipping keeps its leader
 - **Then** `system-002` fires and names the orders group's reporting servers
+
+### Down members share a peer hash
+
+- **Given** two otherwise separate sets of reporting servers list the same unobserved peer hash
+- **When** one set reports no leader and the other reports a leader
+- **Then** `system-002` reports the empty-leader replies as unscoped observations
+- **And** neither check certifies the union or independence of those sets
+- **And** any aggregate election count carries unknown group identity
+
+### A known group has one down member
+
+- **Given** two responding members identify one another and list a common third member that is down
+- **When** no unresolved peer bridges their membership to another component
+- **Then** the meta checks retain the known group's scope
 
 ### A smaller meta group flaps
 

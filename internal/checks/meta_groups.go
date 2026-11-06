@@ -10,8 +10,8 @@ import (
 )
 
 // prepareMetaGroups scopes the two meta checks without changing the public
-// system finding identity. Membership overlap, not cluster/domain labels or
-// the reused _meta_ ID, establishes a physical group. Only the evaluation
+// system finding identity. Peer names resolving to observed processes, not
+// cluster/domain labels or unresolved name hashes, establish membership. Only the evaluation
 // window is read; evaluating history never borrows a future membership.
 func prepareMetaGroups(ctx context.Context, conn *sql.Conn, lo, hi int64) error {
 	rows, err := conn.QueryContext(ctx, `SELECT st.epoch, st.server_id, s.server_name, st.meta_leader, r.peers::VARCHAR
@@ -104,20 +104,24 @@ func prepareMetaGroups(ctx context.Context, conn *sql.Conn, lo, hi int64) error 
 		}
 	}
 	proven := map[string]bool{}
+	unresolved := map[string]map[string]bool{}
 	for _, o := range obs {
 		for peer, p := range configs[o.peers.String] {
-			// Peer IDs hash names, so simultaneous duplicate names or a hash
-			// resolving to conflicting names cannot prove shared membership.
+			// A peer hash is derived from a name, not a physical process ID.
+			// Conflicting mappings and duplicate responding names are unusable.
 			if peer == "" || ambiguousPeers[peer] || ambiguousNames[p.Name] {
 				continue
 			}
-			proven[o.id] = true
-			join("server:"+o.id, "peer:"+peer)
-			if len(names[p.Name]) == 1 {
-				for id := range names[p.Name] {
-					join("peer:"+peer, "server:"+id)
-					proven[id] = true
+			if p.Name == "" || len(names[p.Name]) != 1 {
+				if unresolved[peer] == nil {
+					unresolved[peer] = map[string]bool{}
 				}
+				unresolved[peer][o.id] = true
+				continue
+			}
+			for id := range names[p.Name] {
+				join("server:"+o.id, "server:"+id)
+				proven[o.id], proven[id] = true, true
 			}
 		}
 	}
@@ -145,12 +149,28 @@ func prepareMetaGroups(ctx context.Context, conn *sql.Conn, lo, hi int64) error 
 			}
 		}
 	}
+	// An unresolved peer shared by otherwise separate components could be one
+	// down member or multiple down processes reusing a name (or hash). Neither
+	// merging nor declaring those components independent is justified. Mark
+	// every touched component uncertain; this also covers chains of bridges.
+	uncertain := map[string]bool{}
+	for _, reporters := range unresolved {
+		groups := map[string]bool{}
+		for id := range reporters {
+			groups[root("server:"+id)] = true
+		}
+		if len(groups) > 1 {
+			for group := range groups {
+				uncertain[group] = true
+			}
+		}
+	}
 	members := map[string][]string{}
 	ids := map[string]string{}
 	for name, servers := range names {
 		for id := range servers {
 			key := ""
-			if proven[id] {
+			if proven[id] && !uncertain[root("server:"+id)] {
 				key = root("server:" + id)
 			}
 			ids[id] = key
