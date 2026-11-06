@@ -13,6 +13,7 @@ import (
 // time zone shifts them; nil fields are NULL.
 type jsRows struct {
 	streams          []streamStatsRow
+	sources          []sourceStatsRow
 	consumers        []consumerStatsRow
 	streamReplicas   []replicaRow
 	consumerReplicas []replicaRow
@@ -49,18 +50,19 @@ type streamStatsRow struct {
 	NumDeleted    int64  `json:"num_deleted"`
 	ConsumerCount int64  `json:"consumer_count"`
 	clusterFields
-	MirrorLag      any `json:"mirror_lag"`
-	MirrorActiveNS any `json:"mirror_active_ns"`
-	MirrorError    any `json:"mirror_error"`
-	SourcesCount   any `json:"sources_count"`
-	SourcesMaxLag  any `json:"sources_max_lag"`
+	MirrorLag         any  `json:"mirror_lag"`
+	MirrorActiveNS    any  `json:"mirror_active_ns"`
+	MirrorError       any  `json:"mirror_error"`
+	SourceConfigKnown bool `json:"source_config_known"`
+	SourcesCount      any  `json:"sources_count"`
+	SourcesMaxLag     any  `json:"sources_max_lag"`
 }
 
 const streamStatsShape = `[{"account":"VARCHAR","stream":"VARCHAR","created":"BIGINT","messages":"BIGINT",` +
 	`"bytes":"BIGINT","first_seq":"BIGINT","last_seq":"BIGINT","first_ts":"BIGINT","last_ts":"BIGINT",` +
 	`"num_subjects":"BIGINT","num_deleted":"BIGINT","consumer_count":"BIGINT",` + clusterShape + `,` +
 	`"mirror_lag":"BIGINT","mirror_active_ns":"BIGINT","mirror_error":"VARCHAR","sources_count":"BIGINT",` +
-	`"sources_max_lag":"BIGINT"}]`
+	`"sources_max_lag":"BIGINT","source_config_known":"BOOLEAN"}]`
 
 type consumerStatsRow struct {
 	Account              string `json:"account"`
@@ -220,12 +222,17 @@ func (w *writer) flushJetStream(serverID string, b *jsRows) {
 	writeJSON(w, "stream_stats", `INSERT INTO stream_stats (epoch, server_id, account, stream, created, messages, bytes,
     first_seq, last_seq, first_ts, last_ts, num_subjects, num_deleted, consumer_count, cluster, raft_group, leader,
     leader_since, is_leader, replicas_reported, replicas_current, replicas_offline, mirror_lag, mirror_active_ns,
-    mirror_error, sources_count, sources_max_lag)
+    mirror_error, sources_count, sources_max_lag, source_config_known)
 SELECT `+head+`, account, stream, make_timestamp(created), messages, bytes, first_seq, last_seq,
     make_timestamp(first_ts), make_timestamp(last_ts), num_subjects, num_deleted, consumer_count, cluster, raft_group,
     leader, make_timestamp(leader_since), is_leader, replicas_reported, replicas_current, replicas_offline, mirror_lag,
-    mirror_active_ns, mirror_error, sources_count, sources_max_lag
+    mirror_active_ns, mirror_error, sources_count, sources_max_lag, source_config_known
 `+fromJSON(streamStatsShape), b.streams, jsonBatch, serverID)
+	// ASVS V1.2.4: source names, configuration and errors stay bound JSON data.
+	writeJSON(w, "stream_source_stats", `INSERT INTO stream_source_stats
+ (epoch, server_id, account, stream, source_id, name, filter_subject, config, reported, lag, active_ns, error_code, error_id, error)
+ SELECT `+head+`, account, stream, source_id, name, filter_subject, config::JSON, reported, lag, active_ns, error_code, error_id, error
+ `+fromJSON(`[{"account":"VARCHAR","stream":"VARCHAR","source_id":"VARCHAR","name":"VARCHAR","filter_subject":"VARCHAR","config":"VARCHAR","reported":"BOOLEAN","lag":"UBIGINT","active_ns":"BIGINT","error_code":"INTEGER","error_id":"INTEGER","error":"VARCHAR"}]`), b.sources, jsonBatch, serverID)
 	writeJSON(w, "stream_replicas", `INSERT INTO stream_replicas (epoch, server_id, account, stream, peer_name, peer_id,
     current, offline, active_ns, lag, pending)
 SELECT `+head+`, account, stream, peer_name, peer_id, current, offline, active_ns, lag, pending

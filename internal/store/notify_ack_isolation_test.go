@@ -7,7 +7,7 @@ import (
 )
 
 func TestSecondReviewBackfillReleaseBeforeChannelBaseline(t *testing.T) {
-	db, _ := openAllButLast(t)
+	db, _ := openBeforeMigration(t, 38)
 	at := t0.Add(time.Hour)
 	if _, err := db.Exec(`INSERT INTO notify_channels VALUES ('new',?,2,?,2)`, at, at); err != nil {
 		t.Fatal(err)
@@ -55,7 +55,7 @@ func TestNotifyAcknowledgementUpgradeEvidence(t *testing.T) {
 		{name: "old-note-before-possible-reentry", noHistory: true, observed: 3 * time.Minute, messageChannel: "ops", kind: "acknowledged", key: "example-prod:stream-001:APP/jobs:1:acknowledged:3:1"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			db, _ := openAllButLast(t)
+			db, _ := openBeforeMigration(t, 38)
 			at := t0.Add(time.Hour)
 			if _, err := db.Exec(`INSERT INTO notify_channels VALUES ('ops',?,1,?,5)`, at, at.Add(4*time.Minute)); err != nil {
 				t.Fatal(err)
@@ -111,7 +111,7 @@ func TestNotifyAcknowledgementUpgradeBaselineBoundaries(t *testing.T) {
 		{"created-after-baseline", time.Minute, 2 * time.Minute, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			db, _ := openAllButLast(t)
+			db, _ := openBeforeMigration(t, 38)
 			at := t0.Add(time.Hour)
 			if _, err := db.Exec(`INSERT INTO notify_channels VALUES ('ops',?,1,?,5)`, at, at.Add(4*time.Minute)); err != nil {
 				t.Fatal(err)
