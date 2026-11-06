@@ -17,7 +17,9 @@ import (
 
 // Engine runs a Set of checks for one epoch.
 type Engine struct {
-	Set *Set
+	// Interval is the configured collect interval; unknown means no slow routes.
+	Interval time.Duration
+	Set      *Set
 	// Log receives failed checks and the run summary; nil uses
 	// slog.Default().
 	Log *slog.Logger
@@ -155,7 +157,7 @@ FROM epochs WHERE epoch = ?`, epoch, epoch).Scan(&at, &prev)
 	}
 	var skipped []string
 	for _, c := range rotate(e.Set.Checks(), epoch) {
-		if c.builtin || (e.only != nil && !e.only[c.Code]) {
+		if c.Code == CheckFailedCode || (e.only != nil && !e.only[c.Code]) {
 			continue
 		}
 		run := store.CheckRun{Code: c.Code, EntityType: c.Entity}
@@ -172,7 +174,7 @@ FROM epochs WHERE epoch = ?`, epoch, epoch).Scan(&at, &prev)
 			runs = append(runs, run)
 			continue
 		}
-		rows, err := e.runOne(ctx, conn, c, at, deadline)
+		rows, err := e.runOne(ctx, conn, c, epoch, at, deadline)
 		run.Duration = time.Since(start)
 		if ctx.Err() != nil {
 			return nil, false, ctx.Err()
@@ -320,9 +322,9 @@ func (e *Engine) failedRun(failed, streak []string) store.CheckRun {
 	return run
 }
 
-// runOne sets the check's variables and runs its query within the set's
-// timeout.
-func (e *Engine) runOne(ctx context.Context, conn *sql.Conn, c *Check, at, deadline time.Time) ([]store.FindingRow, error) {
+// runOne sets the check's variables and runs its query or Go rule within
+// the set's timeout and the remaining epoch budget.
+func (e *Engine) runOne(ctx context.Context, conn *sql.Conn, c *Check, epoch int64, at, deadline time.Time) ([]store.FindingRow, error) {
 	vars := map[string]string{}
 	if lb := e.Set.Lookback(c.Code); lb > 0 {
 		vars["lookback"] = Value{Unit: UnitDuration, Duration: lb}.literal()
@@ -343,6 +345,9 @@ func (e *Engine) runOne(ctx context.Context, conn *sql.Conn, c *Check, at, deadl
 	}
 	qctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+	if c.Code == SlowRouteCode {
+		return e.slowRoutes(qctx, conn, epoch, at)
+	}
 	rows, err := conn.QueryContext(qctx, c.SQL)
 	if err != nil {
 		if qctx.Err() != nil && ctx.Err() == nil {

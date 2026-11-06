@@ -1,4 +1,4 @@
-// Package checks runs the SQL checks in checks/*.sql against the store
+// Package checks runs SQL checks and built-in Go checks against the store
 // after every epoch and hands the failing entities to the store, which
 // keeps the findings and their transitions.
 //

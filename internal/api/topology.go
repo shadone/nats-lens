@@ -9,6 +9,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"github.com/shadone/nats-lens/internal/routehealth"
 )
 
 // Topology limits and rules.
@@ -22,7 +23,7 @@ const (
 	// TopologyGapIntervals is how many collect intervals may lie between
 	// two collections that count as consecutive; a longer gap counts no
 	// drop.
-	TopologyGapIntervals = 3
+	TopologyGapIntervals = routehealth.GapIntervals
 )
 
 // The endpoints whose rows the topology reads.
@@ -67,11 +68,7 @@ type TopologyFacts struct {
 // reads: the newest one before it with route rows, started no earlier
 // than TopologyEarliestEarlier. A route is slow only when both this
 // collection and the epoch measure it slow.
-type TopologyEarlier struct {
-	Epoch  int64
-	At     time.Time
-	Routes []TopologyRouteRow
-}
+type TopologyEarlier = routehealth.Earlier
 
 // TopologyEarliestEarlier is the earliest start of the collection the slow
 // rule compares an epoch that started at epochAt with: TopologyGapIntervals
@@ -79,10 +76,7 @@ type TopologyEarlier struct {
 // not known: then no collection counts as the one before, and no route is
 // slow.
 func TopologyEarliestEarlier(epochAt time.Time, interval time.Duration) (time.Time, bool) {
-	if interval <= 0 {
-		return time.Time{}, false
-	}
-	return epochAt.Add(-TopologyGapIntervals * interval), true
+	return routehealth.EarliestEarlier(epochAt, interval)
 }
 
 // TopologyServerFact is one server expected in the epoch.
@@ -96,15 +90,7 @@ type TopologyServerFact struct {
 }
 
 // TopologyRouteRow is one route as its reporting server lists it.
-type TopologyRouteRow struct {
-	// Server and Remote are the reporting server and the other end, by
-	// name; Cluster is the reporting server's.
-	Server, Remote, Cluster string
-	RTT                     *time.Duration
-	Pending                 *int64
-	// Account is the account of a pinned route; empty for a pooled one.
-	Account string
-}
+type TopologyRouteRow = routehealth.Row
 
 // TopologyGatewayRow is one gateway connection as its reporting server
 // lists it.
