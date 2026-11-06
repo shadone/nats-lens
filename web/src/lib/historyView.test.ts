@@ -198,9 +198,9 @@ describe("uses", () => {
     expect(enoughState(use({ enough: false }), 7 * DAY, NOW)).toEqual({ text: "not within this range", tone: "muted" });
   });
 
-  it("says enough once the time it named has passed", () => {
-    expect(enoughState(use({ enough: false, enoughAt: NOW - MIN }), 7 * DAY, NOW)).toEqual({ text: "enough", tone: "ok" });
-    expect(enoughState(use({ enough: false, enoughAt: NOW }), 7 * DAY, NOW)).toEqual({ text: "enough", tone: "ok" });
+  it("does not infer readiness when a prediction has passed", () => {
+    expect(enoughState(use({ enough: false, enoughAt: NOW - MIN }), 7 * DAY, NOW)).toEqual({ text: "awaiting collections", tone: "muted" });
+    expect(enoughState(use({ enough: false, enoughAt: NOW }), 7 * DAY, NOW)).toEqual({ text: "awaiting collections", tone: "muted" });
   });
 
   it("says has none without history", () => {
