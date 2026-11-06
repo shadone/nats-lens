@@ -212,6 +212,12 @@ The UI says “sample span available”, with an explicit qualification about ga
 
 Synthetic evidence uses only APP/catalog-changes. A retained old epoch followed by a long gap and nine recent epochs has a four-minute sample span and an unset stream growth result. The 24-hour coverage remains nine of 2,880 expected collections, with 23 hours 55 minutes without data. Tests cover windows before, inside, and after gaps, a valid growth result across a gap, stopped collection, interval changes, distinct forecast lookbacks/minimum-span overrides, no samples, retention, and non-UTC DuckDB sessions. Fresh second read-only review approved `7ea073c`, including the restart regression and corrected shared store/demo conformance; it is merged at `216945e`. The running collector is updated separately by the owner; no migration is needed.
 
+### Bounded-window availability correction
+
+Proposed, not yet confirmed. Fresh read-only review approved `255c44f`, merged at `2d75ab0`. Bounded uses accept actual samples bracketing the lower window boundary, each within one collection interval; this avoids permanently reporting a short window after a collection phase change. Reported sample spans remain exact. Growth retains its strict span rule; missing or late boundary samples, sparse intervals, zero spans, future samples, stopped collection and retention limits stay guarded. This is qualified global sample evidence, not continuous coverage or entity eligibility. The predecessor read is bounded to one interval and the provider still makes four queries.
+
+On the merged tree, non-UTC API/store/demo history and conformance tests, 59 affected web tests, TypeScript/production and local binary builds, API vet, and the 39-doc audit pass. No migration or wire-field change is needed; generated changes describe the contract only. The live collector and installed binary were not replaced. Nothing was pushed or deployed.
+
 ## Leftovers
 
 Not in this plan, most valuable first: a margin on each forecast; the archive's size per table and day (the destination lists names, not sizes); reading archived hours into the UI for a range older than the retention; gaps of one server (a server that did not answer) on the server's charts; a Fleet column with each system's history start.
