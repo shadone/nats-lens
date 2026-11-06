@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,36 +12,38 @@ import (
 	"github.com/shadone/nats-lens/internal/store"
 )
 
-// writeUnreplayableDatabase leaves at path what a crash before DuckDB's
-// first checkpoint leaves: a database file that was never checkpointed and
-// a write-ahead log that alters a table with a default expression, as
-// migration 0010 alters migrations. DuckDB 1.5 cannot replay it ("no
-// default database set").
+// writeUnreplayableDatabase damages only a disposable synthetic WAL's entry
+// checksum. Schema WAL replay succeeds in DuckDB 2 and is not corruption.
 func writeUnreplayableDatabase(t *testing.T, path string) {
 	t.Helper()
-	src := filepath.Join(t.TempDir(), "src.duckdb")
-	db, err := sql.Open("duckdb", src)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	if _, err := db.Exec(`CREATE TABLE t (a INTEGER, ts TIMESTAMP DEFAULT current_timestamp); ALTER TABLE t ADD COLUMN b VARCHAR`); err != nil {
-		t.Fatal(err)
-	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		t.Fatal(err)
 	}
-	for _, ext := range []string{"", ".wal"} {
-		b, err := os.ReadFile(src + ext)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(path+ext, b, 0o600); err != nil {
-			t.Fatal(err)
-		}
+	db, err := sql.Open("duckdb", path)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, err := store.OpenPath(context.Background(), path); err == nil {
-		t.Fatal("setup: the crashed database opened")
+	if _, err := db.Exec(`CREATE TABLE synthetic_wal(i INTEGER); INSERT INTO synthetic_wal VALUES (1); PRAGMA disable_checkpoint_on_shutdown`); err != nil {
+		db.Close()
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(path + ".wal")
+	if err != nil || len(b) == 0 {
+		t.Fatalf("read synthetic WAL: %v (%d bytes)", err, len(b))
+	}
+	b[len(b)-1] ^= 0xff
+	if err := os.WriteFile(path+".wal", b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	st, err := store.OpenPath(context.Background(), path)
+	if st != nil {
+		st.Close()
+	}
+	if !errors.Is(err, store.ErrWALReplay) {
+		t.Fatalf("setup: got %v, want ErrWALReplay", err)
 	}
 }
 
