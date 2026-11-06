@@ -36,3 +36,13 @@
 .chart-link:focus-visible::after{outline:2px solid var(--accent);outline-offset:2px}
 .chart-linked .infotip,.chart-linked .spark,.chart-linked .tc-svg,.chart-linked .mb-note a{position:relative;z-index:2}
 .chart-linked .mb-note a{display:inline-block}
+
+.chart-inspection{position:relative;z-index:2;min-width:0;touch-action:pan-y;outline-offset:2px}
+.chart-inspection:focus-visible{outline:2px solid var(--accent)}
+.chart-readout{position:absolute;z-index:30;top:100%;left:0;max-width:100%;box-sizing:border-box;padding:8px;border-radius:5px;background:var(--strong-bg);color:var(--on-strong);box-shadow:0 4px 14px var(--shadow);font:11px/1.5 var(--mono);overflow-wrap:anywhere;pointer-events:none}
+.chart-readout span,.chart-readout b{display:block}
+.chart-cursor{position:absolute;top:0;bottom:0;width:1px;background:var(--text-muted);pointer-events:none}
+.chart-linked .chart-inspection .spark,.chart-linked .chart-inspection .tc-svg{z-index:auto}
+
+.card:has(.chart-readout){position:relative;z-index:10}
+.chart-inspection{cursor:crosshair}

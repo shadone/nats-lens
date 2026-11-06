@@ -66,6 +66,9 @@ export interface MetricBoxProps {
    * value is a name, such as the meta leader, which no min and max describe.
    */
   track?: boolean;
+  /** Historical sample formatting, independently of a text headline. */
+  sampleFmt?: (value: number) => string;
+  seriesLabels?: [string, string];
 }
 
 /** An (i) button that shows a description on hover, focus or click. */
@@ -198,6 +201,9 @@ export function MetricBox(p: MetricBoxProps) {
       ) : (
         <Sparkline
           points={pts}
+          stepMs={p.series?.stepMs}
+          fmt={p.sampleFmt ?? p.fmt}
+          labels={p.seriesLabels}
           points2={p.series2?.points}
           status={status}
           windows={p.windows ?? []}
