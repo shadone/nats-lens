@@ -22,7 +22,8 @@ export function useConnectionFindings(spec: RangeSpec, epoch: string | undefined
 /** Match the checks' actual identity, not a substring or a pod prefix.
  * Auth failures (client-006) identify a credential, not a connection name. */
 export function connectionFindings(findings: Finding[], name: string): Finding[] {
-  const service = name.split("@", 1)[0] || "(unnamed)";
+  const prefix = name.split("@", 1)[0];
+  const service = prefix || "(unnamed)";
   const full = name || "(unnamed)";
   return findings.filter(f => {
     if (f.entity?.kind !== "client") return false;
@@ -33,7 +34,7 @@ export function connectionFindings(findings: Finding[], name: string): Finding[]
       case "client-003":
       case "client-004":
       case "client-005": return f.entity.key === full;
-      case "client-007": return name === "" && f.entity.key === "(unnamed)";
+      case "client-007": return prefix === "" && f.entity.key === "(unnamed)";
       default: return false;
     }
   });
