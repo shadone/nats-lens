@@ -1,4 +1,4 @@
-/* Colour tokens, light and dark, ported from docs/ui-reference/reference.html; the type scale at the end was added later. */
+/* Colour tokens, light and dark, ported from docs/ui-reference/reference.html; the type, spacing and radius scales at the end were added later. */
 /* ---------- tokens: light (default) ---------- */
 :root{
   color-scheme:light;
@@ -64,4 +64,19 @@
    status line. Proposed in the UI polish, not yet confirmed. */
 :root{
   --fs-xs:11px; --fs-sm:12px; --fs-md:13px; --fs-lg:15px; --fs-xl:20px;
+}
+/* ---------- spacing and radius (both themes) ----------
+   Spacing sits on a 4px grid: --sp-N is N times 4px. Use them for padding,
+   margin and gap; heights and offsets use multiples of 4 directly. A 2px step
+   stays allowed inside small controls (badges, pills, chips, keycaps), and a
+   value that exactly centres something may stay off the grid.
+   Radius: xs for marks under 12px, sm for badges, tags and keycaps, md for
+   controls, rows and inner boxes, lg for cards, panels and dialogs; pill only
+   for count badges. A box inside a rounded box takes the outer radius minus
+   the padding between them, never below sm. Proposed in the UI polish, not yet
+   confirmed. */
+:root{
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px;
+  --sp-8:32px; --sp-10:40px; --sp-12:48px;
+  --r-xs:2px; --r-sm:4px; --r-md:8px; --r-lg:12px; --r-pill:999px;
 }
