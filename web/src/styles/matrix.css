@@ -25,7 +25,7 @@
 .tbl.pm tr.hot .pm-asset{box-shadow:inset 3px 0 var(--cell-warning)}
 .ctx .pm-n,.ctx small{color:var(--text-muted)}
 .ctx .pm-cell{opacity:.55}
-.pm-cell{position:relative;display:flex;align-items:center;gap:var(--sp-2);width:100%;min-width:140px;padding:6px var(--sp-2);border-radius:var(--r-md);border:1.5px solid transparent;background:var(--ok-cell);color:var(--text-2);font:inherit;text-align:left;cursor:pointer}
+.pm-cell{position:relative;display:flex;align-items:center;gap:var(--sp-2);width:100%;min-width:140px;padding:6px var(--sp-2);border-radius:var(--r-sm);border:1.5px solid transparent;background:var(--ok-cell);color:var(--text-2);font:inherit;text-align:left;cursor:pointer}
 .pm-cell .pl-sq{flex:none}
 .pm-role{width:10px;font-size:var(--fs-xs);font-weight:500;color:var(--text-muted)}
 .pm-cell.t-ok .pm-role{color:var(--accent-text)}
