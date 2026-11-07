@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 function table() {
-  return within(screen.getByRole("region", { name: "Streams by what bounds them" }));
+  return within(screen.getByRole("region", { name: "Resources by what bounds them" }));
 }
 
 function row(name: string) {
@@ -40,7 +40,7 @@ describe("Capacity", () => {
   it("says what the page shows and names the collection, for the system of the page", async () => {
     getCapacity.mockResolvedValue(prod());
     renderApp(<Capacity />, "/capacity?system=example-prod");
-    expect(await screen.findByText(/^What each stream keeps, what bounds it, and when the disks fill\. 9 streams · 3 stores · growth from 2026-10-20 12:00 UTC, in the collection of/)).toBeInTheDocument();
+    expect(await screen.findByText(/^What each resource keeps, what bounds it, and when the disks fill\. 9 resources · 3 stores · growth from 2026-10-20 12:00 UTC, in the collection of/)).toBeInTheDocument();
     expect(getCapacity.mock.calls[0][0]).toBe("example-prod");
   });
 
@@ -48,7 +48,7 @@ describe("Capacity", () => {
     getCapacity.mockResolvedValue(empty());
     renderApp(<Capacity />, "/capacity");
     expect(await screen.findByText("No collection in this range.")).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Streams by what bounds them" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Resources by what bounds them" })).toBeNull();
   });
 
   it("shows each server's store with its use, growth and time to full", async () => {
@@ -90,8 +90,8 @@ describe("Capacity", () => {
   it("lists the streams with the board's columns", async () => {
     getCapacity.mockResolvedValue(prod());
     renderApp(<Capacity />, "/capacity");
-    await screen.findByRole("region", { name: "Streams by what bounds them" });
-    expect(table().getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Stream", "Bounded by", "Data held", "Size × R", "/day", "Next limit", "Status"]);
+    await screen.findByRole("region", { name: "Resources by what bounds them" });
+    expect(table().getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Resource", "Bounded by", "Data held", "Size × R", "/day", "Next limit", "Status"]);
     expect(table().getByRole("link", { name: "order-archive" })).toHaveAttribute("href", "/streams/APP/order-archive");
     expect(row("order-archive")).toHaveTextContent("R3 · limits · 1,000 msgs");
     expect(cellTexts("order-archive").slice(0, 5)).toEqual(["nothing (keeps all)", "since 2025-12-25", "12 GiB", "+3 MiB", "none: grows until the store is full"]);
@@ -100,7 +100,7 @@ describe("Capacity", () => {
   it("shows an en dash for a size and a growth that are not known, never 0", async () => {
     getCapacity.mockResolvedValue(prod());
     renderApp(<Capacity />, "/capacity");
-    await screen.findByRole("region", { name: "Streams by what bounds them" });
+    await screen.findByRole("region", { name: "Resources by what bounds them" });
     const c = cellTexts("staging-only");
     expect(c[1]).toBe("–");
     expect(c[2]).toBe("– not observed");
@@ -110,7 +110,7 @@ describe("Capacity", () => {
   it("words each status", async () => {
     getCapacity.mockResolvedValue(prod());
     renderApp(<Capacity />, "/capacity");
-    await screen.findByRole("region", { name: "Streams by what bounds them" });
+    await screen.findByRole("region", { name: "Resources by what bounds them" });
     const status = (n: string) => cellTexts(n)[5];
     expect(within(row("audit-archive")).getByRole("link", { name: "full in 13 days" })).toHaveAttribute("href", "/findings/stream-006%3AAPP%2Faudit-archive");
     expect(status("audit-archive")).toContain("muted until 2026-10-28 10:00 UTC");
@@ -126,7 +126,7 @@ describe("Capacity", () => {
   it("offers no button for a stream already muted, accepted or declared", async () => {
     getCapacity.mockResolvedValue(prod());
     renderApp(<Capacity />, "/capacity");
-    await screen.findByRole("region", { name: "Streams by what bounds them" });
+    await screen.findByRole("region", { name: "Resources by what bounds them" });
     expect(table().getAllByRole("button")).toHaveLength(1);
   });
 
@@ -195,7 +195,7 @@ describe("Capacity", () => {
     d.streamsTotal = 812;
     getCapacity.mockResolvedValue(d);
     renderApp(<Capacity />, "/capacity");
-    expect(await screen.findByText("The first 9 of 812 streams are listed.")).toBeInTheDocument();
+    expect(await screen.findByText("The first 9 of 812 resources are loaded. Type filters apply only to these loaded resources.")).toBeInTheDocument();
   });
 
   it("explains the bar and acceptance under the table", async () => {
