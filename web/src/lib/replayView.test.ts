@@ -49,3 +49,15 @@ describe("a lost events connection", () => {
     );
   });
 });
+
+describe("client-library collection evidence", () => {
+  it("opens exact application and account at the observed time with encoded identity", async () => {
+    const { evidencePath } = await import("./replayView");
+    const to = evidencePath({ kind: "collection", id: "7", time: Date.parse("2026-10-17T09:00:00Z"), label: "A", entity: { kind: "client", key: "shop & /", name: "shop", account: "A&B", stream: "", consumer: "", server: "" } });
+    const u = new URL(to!, "https://example.com");
+    expect(u.pathname).toBe("/applications");
+    expect(u.searchParams.get("app")).toBe("shop & /");
+    expect(u.searchParams.get("account")).toBe("A&B");
+    expect(u.searchParams.get("to")).toBe("2026-10-17T09:00:01Z");
+  });
+});

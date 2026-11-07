@@ -40,7 +40,7 @@ func (p *Provider) Replay(ctx context.Context, req *v1.GetReplayRequest) (*api.R
 	}
 	steps := []func(context.Context, *api.ReplayFacts, map[string]string) error{
 		p.replayEpochs, p.replayRestarts, p.replayStops, p.replayEvents, p.replayTransitions, p.replayLeaders, p.replayGone,
-		p.replayGaps, p.replayReconnects, p.replayNodes,
+		p.replayGaps, p.replayReconnects, p.replayNodes, p.replayClientLibraries,
 		func(ctx context.Context, f *api.ReplayFacts, _ map[string]string) (err error) {
 			f.Windows, err = p.k8sWindows(ctx, &v1.TimeRange{Start: ts(f.A), End: ts(f.B)})
 			return err

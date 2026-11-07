@@ -7,8 +7,8 @@ import (
 
 func TestReferenceSelfContainedPlainText(t *testing.T) {
 	refs := CheckReferences()
-	if len(refs) != 89 {
-		t.Fatalf("references=%d, want 89", len(refs))
+	if len(refs) != 91 {
+		t.Fatalf("references=%d, want 91", len(refs))
 	}
 	for code, sections := range refs {
 		for _, section := range sections {
@@ -81,7 +81,7 @@ func TestReferenceRetainsEveryAuthoredParagraph(t *testing.T) {
 			lines++
 		}
 	}
-	if len(codes) != 89 || lines < 400 {
+	if len(codes) != 91 || lines < 400 {
 		t.Fatalf("audit covered %d checks / %d lines", len(codes), lines)
 	}
 	t.Logf("audited %d checks / %d substantive source lines", len(codes), lines)
@@ -130,5 +130,24 @@ func TestReferenceStream008DoesNotInferHistory(t *testing.T) {
 	}
 	if !strings.Contains(text, "do not prove identical messages") {
 		t.Error("reference must explain the identity limitation")
+	}
+}
+
+func TestRaftReferenceSamplingQualifications(t *testing.T) {
+	for _, code := range []string{"server-027", "server-028"} {
+		var text string
+		for _, section := range CheckReferences()[code] {
+			text += section.Text + "\n"
+		}
+		for _, rule := range []string{"not proof of continuous capture", "entirely absent collections", "retained collection", "sequence-number holes", "max_gap"} {
+			if !strings.Contains(text, rule) {
+				t.Errorf("%s lost sampling qualification %q", code, rule)
+			}
+		}
+		for _, promise := range []string{"cannot bridge an unobserved collection", "throughout `grace`", "continuous evidence"} {
+			if strings.Contains(text, promise) {
+				t.Errorf("%s retains unsupported promise %q", code, promise)
+			}
+		}
 	}
 }

@@ -227,6 +227,7 @@ func TestReplayStoryFromStore(t *testing.T) {
 		lines = append(lines, line)
 	}
 	want := []string{
+		"Client-library comparison unavailable",
 		"Node gke-example-pool-1-7f3a drained",
 		"Node gke-example-pool-1-7f3a upgraded",
 		// Both gone steps are dated by the last report, epoch 10.
@@ -244,7 +245,7 @@ func TestReplayStoryFromStore(t *testing.T) {
 	if strings.Join(lines, "\n") != strings.Join(want, "\n") {
 		t.Errorf("steps:\n%s\nwant:\n%s", strings.Join(lines, "\n"), strings.Join(want, "\n"))
 	}
-	restart := res.GetSteps()[2]
+	restart := res.GetSteps()[3]
 	if !strings.HasPrefix(restart.GetBody(), "Lame duck mode announced at 09:04:40.") ||
 		!strings.Contains(restart.GetBody(), "Leaders it held were elected on other servers: 1 on nats-0.") ||
 		!strings.Contains(restart.GetBody(), "2 consumers fewer than before the restart") {
