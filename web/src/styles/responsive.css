@@ -12,7 +12,7 @@
   .wrap{padding:0 var(--sp-4) var(--sp-10)}
   .range .tz{display:none}
   .range > *{padding:6px var(--sp-2)}
-  .range .span{font-size:var(--fs-xs);letter-spacing:-.01em}
+  .range .span{font-size:var(--fs-xs)}
   .live{font-size:var(--fs-xs)}
   .live .dotsep{display:none}
   .frow{grid-template-columns:auto minmax(0,1fr);gap:var(--sp-1) var(--sp-3);padding:var(--sp-3) var(--sp-4)}
