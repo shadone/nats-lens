@@ -181,3 +181,37 @@ describe("charts only where something changed", () => {
     expect(lines.every((l) => l.style.stroke === "var(--sev-critical)")).toBe(true);
   });
 });
+
+describe("ticks on a tile chart", () => {
+  // A busy count: every bucket's low and high one beyond its neighbours' values.
+  const busy = () => {
+    const s = series(Array.from({ length: 96 }, (_, i) => 100 + (i % 10) * 2), 100, 118);
+    s.points = s.points.map((p) => ({ ...p, low: p.value - 3, high: p.value + 3 }));
+    return s;
+  };
+
+  it("draws no tick on busy noise", () => {
+    const { container } = render(<OverviewTiles tiles={[tile({ id: "clients", label: "Clients", value: 118, series: busy() })]} windows={[]} start={START} end={END} />);
+    expect(container.querySelector("svg.spark")).not.toBeNull();
+    expect(container.querySelectorAll(".spark-range")).toHaveLength(0);
+  });
+
+  it("scales the chart to the buckets' lows and highs, as the track's ends are", () => {
+    const { container } = render(<OverviewTiles tiles={[tile({ id: "clients", label: "Clients", value: 118, series: busy() })]} windows={[]} start={START} end={END} />);
+    const line = container.querySelector<SVGPolylineElement>("svg.spark polyline")!.getAttribute("points")!;
+    // The lowest value, 100, sits above the floor that the lowest low, 97, takes.
+    expect(line).not.toContain(",37.0");
+    expect(container.querySelector(".mb-ends")!.textContent).toBe("97121");
+  });
+
+  it("ticks an outage inside busy noise down to the chart's floor, the track's low end", () => {
+    const s = busy();
+    s.points[50] = { ...s.points[50], low: 0 };
+    const { container } = render(<OverviewTiles tiles={[tile({ id: "clients", label: "Clients", value: 118, series: s })]} windows={[]} start={START} end={END} />);
+    const ticks = container.querySelectorAll(".spark-range");
+    expect(ticks).toHaveLength(1);
+    // y of the lowest value is H - 3 = 37 in the 200 x 40 drawing.
+    expect([ticks[0].getAttribute("y1"), ticks[0].getAttribute("y2")]).toContain("37.0");
+    expect(container.querySelector(".mb-ends")!.textContent).toBe("0121");
+  });
+});

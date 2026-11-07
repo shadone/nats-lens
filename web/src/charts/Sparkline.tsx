@@ -36,8 +36,9 @@ interface Props {
    * "status" draws the line in the status colour. "change" draws it neutral
    * and puts the accent only on the change: the segments where the value
    * changes, or, when most segments of a run change, a dot on the newest
-   * point; a bucket whose low or high goes beyond the line around it
-   * (`tickedMoves`) gets a tick between them. A warning or critical status keeps its colour.
+   * point; a bucket whose low or high goes beyond the line around it by a
+   * quarter of the chart's span or more (`tickedMoves`) gets a tick between
+   * them, and the chart scales to every bucket's low and high. A warning or critical status keeps its colour.
    */
   tone?: "status" | "change";
 }
@@ -96,7 +97,9 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
     );
   }
   const ranges = tone === "change" ? tickedMoves(points) : [];
-  const all = points.concat(points2 ?? []).map((p) => p.value).concat(ranges.flatMap((p) => [p.low ?? p.value, p.high ?? p.value]));
+  // The change tone scales to every bucket's low and high, as the tile's track does.
+  const edges = tone === "change" ? points.flatMap((p) => [p.low ?? p.value, p.high ?? p.value]) : [];
+  const all = points.concat(points2 ?? []).map((p) => p.value).concat(edges);
   let mn = Math.min(...all);
   let mx = Math.max(...all);
   // A series that stays at 0 is a bare line on the baseline, with no fill.

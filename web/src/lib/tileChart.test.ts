@@ -131,8 +131,15 @@ describe("tileChartReason", () => {
     expect(tileChartReason(facts({ gaps: [gap("unknown", START + STEP, START + 2 * STEP)] }))).toBe("gap");
   });
 
-  it("keeps the chart while the collection gaps are not known", () => {
+  it("calls steady values gapsUnknown while the collection gaps are not known", () => {
     expect(tileChartReason(facts({ gaps: undefined }))).toBe("gapsUnknown");
+  });
+
+  it("calls varying values changed whether or not the gaps are known", () => {
+    const p = full(3);
+    p[40] = { ...p[40], low: 2 };
+    expect(tileChartReason(facts({ points: p, gaps: undefined }))).toBe("changed");
+    expect(tileChartReason(facts({ min: 2, max: 3, gaps: undefined }))).toBe("changed");
   });
 });
 
@@ -178,15 +185,33 @@ describe("hiddenMoves", () => {
 
 describe("tickedMoves", () => {
   const at = (value: number, low: number, high: number, i: number): Point => ({ time: START + i * STEP, value, low, high });
+  // A busy count: a sawtooth from 100 to 118, each bucket's low and high three from its value, one beyond its neighbours.
+  const busy = () => Array.from({ length: 40 }, (_, i) => at(100 + (i % 10) * 2, 97 + (i % 10) * 2, 103 + (i % 10) * 2, i));
 
-  it("ticks the hidden moves of a series where few buckets hide one", () => {
+  it("ticks no noise that reaches less than a quarter of the track's span", () => {
+    expect(hiddenMoves(busy()).length).toBeGreaterThan(20);
+    expect(tickedMoves(busy())).toEqual([]);
+  });
+
+  it("ticks an outage inside busy noise", () => {
+    const p = busy();
+    p[20] = { ...p[20], low: 0 };
+    expect(tickedMoves(p)).toEqual([p[20]]);
+  });
+
+  it("ticks a dip between flat neighbours", () => {
     const p = [at(3, 3, 3, 0), at(3, 2, 3, 1), at(3, 3, 3, 2), at(3, 3, 3, 3)];
     expect(tickedMoves(p)).toEqual([p[1]]);
   });
 
-  it("ticks nothing when most buckets hide a move, as busy connection counts do", () => {
-    const p = Array.from({ length: 10 }, (_, i) => at(100, 90, 110, i));
-    expect(hiddenMoves(p)).toHaveLength(10);
-    expect(tickedMoves(p)).toEqual([]);
+  it("ticks a hidden dip in a single point", () => {
+    const p = [at(3, 2, 3, 0)];
+    expect(tickedMoves(p)).toEqual([p[0]]);
+  });
+
+  it("ticks a move of exactly a quarter of the span, not less", () => {
+    // Span 0 to 100; one move reaches 25 below its envelope, one 24.
+    const p = [at(50, 50, 50, 0), at(50, 25, 50, 1), at(50, 50, 50, 2), at(50, 26, 50, 3), at(50, 50, 50, 4), at(50, 0, 100, 5), at(50, 50, 50, 6)];
+    expect(tickedMoves(p)).toEqual([p[1], p[5]]);
   });
 });
