@@ -36,8 +36,8 @@ describe("ReplaySteps", () => {
     expect(items.map((li) => li.querySelector(".rp-when")?.textContent)).toEqual(["09:18:00–09:18:30", "09:30:00–09:33:00", "09:40:00–still at B"]);
     expect(items[1]).toHaveClass("gap");
     expect(within(items[0]).getByRole("link", { name: "pod nats-1 Killing" })).toHaveAttribute("href", "/events?id=77");
-    expect(within(items[0]).getByRole("link", { name: "collection of 09:18:30" })).toHaveAttribute("href", "/servers/nats-1?from=2026-10-17T08%3A18%3A30Z&to=2026-10-17T09%3A18%3A31Z");
-    expect(within(items[0]).getByRole("link", { name: "collection of 09:19:00" })).toHaveAttribute("href", "/placement?from=2026-10-17T08%3A19%3A00Z&to=2026-10-17T09%3A19%3A01Z");
+    expect(within(items[0]).getByRole("link", { name: "Collection of 09:18:30" })).toHaveAttribute("href", "/servers/nats-1?from=2026-10-17T08%3A18%3A30Z&to=2026-10-17T09%3A18%3A31Z");
+    expect(within(items[0]).getByRole("link", { name: "Collection of 09:19:00" })).toHaveAttribute("href", "/placement?from=2026-10-17T08%3A19%3A00Z&to=2026-10-17T09%3A19%3A01Z");
     expect(within(items[0]).getByRole("link", { name: "stream-001 (firing)" })).toHaveAttribute("href", "/findings/stream-001%3AAPP%2Forders");
     expect(items[0]).toHaveTextContent("and 2 more");
     expect(items[2].querySelector(".rp-dot")).toHaveClass("critical");
@@ -104,7 +104,7 @@ describe("ReplaySteps", () => {
       "Event pod nats-0 Killing",
       "Events 11 leader elections on nats-1 (6 of 11 listed)",
       "Events 4 leader elections on nats-2 (2 of 4 listed)",
-      "Collection collection of 09:21:00",
+      "Collection of 09:21:00",
       "Events 3 leader elections on nats-3, none listed",
       "and 2 more",
     ]);
