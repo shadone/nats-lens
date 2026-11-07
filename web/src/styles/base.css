@@ -16,7 +16,7 @@ a.x:hover{border-bottom-color:var(--accent);color:var(--accent-text)}
 .sec-h h2{margin:0;font:500 var(--fs-lg)/1.2 var(--sans);letter-spacing:.005em}
 .sec-h .aside{color:var(--text-muted);font-size:var(--fs-sm)}
 .sec-h .right{margin-left:auto;display:flex;gap:var(--sp-2);flex-wrap:wrap}
-.chip{font:500 var(--fs-sm)/1 var(--sans);padding:6px 10px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--text-2)}
+.chip{font:500 var(--fs-sm)/1 var(--sans);padding:6px var(--sp-3);border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--text-2)}
 .chip.on{background:var(--strong-bg);color:var(--on-strong);border-color:var(--strong-bg)}
 
 /* severity: shape first, colour second. solid = critical, outlined = warning, dashed = info, dotted = muted */
