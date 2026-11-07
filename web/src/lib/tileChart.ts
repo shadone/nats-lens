@@ -104,12 +104,14 @@ export function edgeRange(points: Point[], min?: number, max?: number): { min?: 
   return { min: lo, max: hi };
 }
 
-/** The median of a list; 0 for none. */
-function median(xs: number[]): number {
-  if (!xs.length) return 0;
-  const s = [...xs].sort((a, b) => a - b);
-  const m = s.length >> 1;
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+/** The median of an ascending list with one element equal to `x` left out; 0 for none. */
+function medianWithout(sorted: number[], x: number): number {
+  const n = sorted.length - 1;
+  if (n <= 0) return 0;
+  const k = sorted.indexOf(x);
+  const at = (j: number) => sorted[j < k ? j : j + 1];
+  const m = n >> 1;
+  return n % 2 ? at(m) : (at(m - 1) + at(m)) / 2;
 }
 
 /**
@@ -123,8 +125,10 @@ export function tickedMoves(points: Point[]): Point[] {
   const values = points.flatMap((p) => [p.value, p.low ?? p.value, p.high ?? p.value]);
   const span = Math.max(...values) - Math.min(...values);
   const reaches = points.map((_, i) => reach(points, i));
-  return points.filter((_, i) => {
+  const sorted = [...reaches].sort((a, b) => a - b);
+  const hidden = new Set(hiddenMoves(points));
+  return points.filter((p, i) => {
     const r = reaches[i];
-    return r > 0 && r >= span / 4 && r > 2 * median(reaches.filter((_, j) => j !== i));
+    return hidden.has(p) && r >= span / 4 && r > 2 * medianWithout(sorted, r);
   });
 }
