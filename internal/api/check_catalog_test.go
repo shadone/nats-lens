@@ -40,8 +40,8 @@ func TestCheckCatalogHTTP(t *testing.T) {
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		t.Fatal(err)
 	}
-	if len(body.Definitions) != 88 {
-		t.Fatalf("catalog count = %d, want 88", len(body.Definitions))
+	if len(body.Definitions) != 89 {
+		t.Fatalf("catalog count = %d, want 89", len(body.Definitions))
 	}
 	if body.ConfigurationState != "demo" {
 		t.Errorf("state = %q", body.ConfigurationState)
@@ -57,6 +57,7 @@ func TestCheckCatalogHTTP(t *testing.T) {
 			"client-007":   {"row still counts MQTT clients"},
 			"client-008":   {"So is nats.py's `0.0.0`", "unknown and not judged", "A minimum of 0 turns a language off", "`min_python` | `python3` | nats.py | 2.9.0"},
 			"consumer-015": {"nats-server refuses an update of `max_waiting`"},
+			"consumer-018": {"Raft operations", "unknown-health wording", "proposed, not yet confirmed", "Follower reports about other followers", "skipped or failing check runs"},
 		} {
 			if d.Code != code {
 				continue
@@ -135,7 +136,7 @@ func TestCheckCatalogSystemIsolation(t *testing.T) {
 			if err := protojson.Unmarshal(r.Body.Bytes(), &body); err != nil {
 				t.Fatal(err)
 			}
-			if len(body.Definitions) != 88 {
+			if len(body.Definitions) != 89 {
 				t.Fatalf("count %d", len(body.Definitions))
 			}
 			var consumer, slow *v1.CheckDefinition
