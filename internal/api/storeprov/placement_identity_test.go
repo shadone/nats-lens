@@ -16,6 +16,34 @@ func TestPlacementObservationNameIdentity(t *testing.T) {
 		samples  int32
 		boundary string
 	}{
+
+		{"returning nonselected observed peer", []string{
+			`INSERT INTO stream_replicas(epoch,server_id,account,stream,peer_name,current,offline,lag) SELECT epoch,server_id,account,stream,'nats-2',false,false,0 FROM stream_replicas`,
+			`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'S2','nats-2',1,3,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
+			`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'new-S2','nats-2',2,2,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
+			`INSERT INTO server_stats(epoch,server_id) VALUES (1,'S2'),(2,'new-S2'),(3,'S2')`,
+		}, 1, "identity_changed"},
+		{"returning offline endpoint target without successful reply", []string{
+			`DELETE FROM stream_stats WHERE server_id='S1'`,
+			`UPDATE stream_replicas SET offline=true`,
+			`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'new-S1','nats-1',2,2,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
+			`UPDATE epoch_endpoints SET server_id='new-S1' WHERE epoch=2 AND server_id='S1'`,
+			`UPDATE epoch_endpoints SET state='missing' WHERE server_id IN ('S1','new-S1')`,
+		}, 1, "identity_changed"},
+		{"missing target and another observed process", []string{
+			`DELETE FROM stream_stats WHERE server_id='S1'`,
+			`UPDATE epoch_endpoints SET state='missing' WHERE server_id='S1'`,
+			`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'new-S1','nats-1',2,3,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
+			`INSERT INTO epoch_endpoints VALUES (2,'new-S1','JSZ','ok',NULL),(3,'new-S1','JSZ','ok',NULL)`,
+		}, 1, "evidence_unknown"},
+		{"historical aliases without current identity evidence", []string{
+			`INSERT INTO stream_replicas(epoch,server_id,account,stream,peer_name,current,offline,lag) SELECT epoch,server_id,account,stream,'nats-2',false,false,0 FROM stream_replicas`,
+			`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'S2','nats-2',1,3,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
+			`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'new-S2','nats-2',2,2,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
+		}, 1, "evidence_unknown"},
+		{"peer name without known process", []string{
+			`INSERT INTO stream_replicas(epoch,server_id,account,stream,peer_name,current,offline,lag) SELECT epoch,server_id,account,stream,'nats-2',false,false,0 FROM stream_replicas`,
+		}, 1, "evidence_unknown"},
 		{"selected collision now", []string{
 			`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'other-S1','nats-1',2,3,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
 			`INSERT INTO server_stats(epoch,server_id) VALUES (2,'S1'),(3,'S1'),(2,'other-S1'),(3,'other-S1')`,
