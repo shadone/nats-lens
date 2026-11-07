@@ -44,6 +44,8 @@ enum ReplayStepKind {
   // A time without collections, while nats-lens was not running, or while
   // Kubernetes was not watched.
   REPLAY_STEP_KIND_GAP = 8;
+  // Observed application client-library sets at A and B, not deployments.
+  REPLAY_STEP_KIND_CLIENT_CHANGE = 9;
 }
 
 // Kind of a gap step: what was not running, and so which counts it
