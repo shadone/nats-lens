@@ -29,7 +29,7 @@ The Placement page, under JetStream in the sidebar, shows every stream and durab
   - links to the asset's events and its page.
 - **Observed problem duration.** For a selected behind, offline, missing or disagreeing cell, the panel searches stored collections backwards from the matrix's collection. It also follows a follower whose creation time or configuration differs while its replica state is in sync. The panel says when the same evidence was first observed in that run, the span between samples, and the number of collections. “At least” describes a lower bound from observations, not a continuous outage or its actual start. One collection establishes no earlier duration. The evidence ends at the matrix's collection, even when that collection is older than the range's end.
 - **Continuity and limits.** The search stays within the selected range, at most 24 hours and 256 collections. It stops at a different state or disagreement, an unknown or absent cell, missing creation or successful collection evidence, a collection gap, or a process, asset incarnation or replica membership change. A gap means a missing collection number, non-increasing collection times, or spacing longer than twice the configured interval. Offline and missing cells can continue from the leader's repeated reports even when the selected replica sends no asset report. The panel names the boundary and marks limited history when a range, lookback, collection cap or stored-history edge cuts the search short. These bounds and the gap threshold are proposed, not yet confirmed.
-- **Process names and continuity.** If two processes with the same relevant name are observed in one collection, duration evidence stops as unknown. This applies to the selected process, asset reporters and named peers, including peers that send no asset report. A successful reply from one process cannot establish evidence for another. A replacement process can establish a separate run after a handover; the search stops at the process identity change.
+- **Process names and continuity.** If two processes with the same relevant name are observed in one collection, duration evidence stops as unknown. This applies to the selected process, asset reporters and named peers, including peers that send no asset report. A successful reply from one process cannot establish evidence for another. The process observed in each collection establishes its identity, even when an older process returns after a replacement. A replacement process can establish a separate run after a handover; the search stops at each process identity change. A failed reply stays attached to the process that was contacted. Conflicting endpoint targets, unknown peer identities and ambiguous historical identities stop the search as unknown.
 - **Evidence isolation.** Only a cell present in the current matrix can request history; filtering and comparing matrices keep their existing rules. The panel hides evidence from a previous cell, system or range while the replacement loads, and hides it after a failed read. It keeps the leader's reported tenure and a differing copy's creation age separate. The demo has no stored observation history and leaves this evidence unavailable.
 - **Commands are safe to paste.** Every command puts the stream and consumer names after `--`, quoted when needed, such as `nats consumer info --json -- order-jobs resize-worker`, so a name that starts with `-` is never read as an option. A name with a control character, such as a line break, gets no command, only a note. The commands name neither the account nor the system, so a line below each says which to use a nats context for, such as "Run with a nats context for account APP on example-global."; without a system in the address it names the default system.
 - **No write actions.** For an asset with a leader, "Step down leader" shows the `nats stream cluster step-down` or `nats consumer cluster step-down` command and copies it. nats-lens runs nothing and changes nothing in NATS.
@@ -126,6 +126,15 @@ The Placement page, under JetStream in the sidebar, shows every stream and durab
 - **When** I select a missing replica on `nats-1`
 - **Then** the panel reports unknown evidence at that collection and does not extend duration through the ambiguous identity
 - **And** a later replacement with an unambiguous identity starts a separate run, with an identity boundary at the handover
+
+### Stop when an earlier process returns
+
+- **Surfaces:** `ui`, `api`
+- **Given** a named peer is observed as one process, then a replacement, then the earlier process again
+- **When** I select a problem cell in the last collection, including an offline cell with no asset report
+- **Then** the panel reports one collection and an identity boundary at the preceding collection
+- **And** the same rule applies to a past range and to retained history after older collections expire
+
 
 ## Not supported / out of scope
 
