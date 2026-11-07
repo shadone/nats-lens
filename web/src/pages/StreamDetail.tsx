@@ -66,7 +66,7 @@ function StreamDetailContent({ account, name, bucket }: { account: string; name:
                 <Stat label={bucket?.kind === "kv" ? "Stored records" : bucket ? "Stored messages" : "Messages"} value={<Num v={s.messages} />} />
                 <Stat label="Bytes" value={<Num v={s.bytes} fmt={fmtBytes} />} sub={s.bytesPerDay !== undefined ? `${fmtGrowth(s.bytesPerDay)} per day` : undefined} />
                 <Stat label={bucket?.kind === "kv" ? "Watchers (consumers)" : "Consumers"} value={cons} bad={short} sub={s.consumersExpected !== undefined ? "present / expected" : undefined} />
-                {bucket && <Stat label="TTL" value={d.config.find((c) => c.key === "max_age")?.value ?? <Dash />} />}
+                {bucket && <Stat label="TTL" value={bucketTtl(d.config.find((c) => c.key === "max_age")?.value)} />}
                 {bucket?.kind === "kv" && <Stat label="History per key" value={d.config.find((c) => c.key === "max_msgs_per_subject")?.value ?? <Dash />} />}
                 <Stat label="Leader" value={s.leader ? <RLink to={serverPath(s.leader)}>{s.leader}</RLink> : <Dash />} />
               </div>
@@ -138,4 +138,10 @@ function StreamDetailContent({ account, name, bucket }: { account: string; name:
       </QueryView>
     </>
   );
+}
+
+/** Only explicit zero means no expiry; an absent setting stays unknown. */
+function bucketTtl(value: string | undefined) {
+  if (value === undefined) return <Dash />;
+  return /^(?:0|0s|0ms|0ns)$/.test(value) ? "none" : value;
 }
