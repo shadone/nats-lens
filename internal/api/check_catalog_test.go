@@ -53,6 +53,8 @@ func TestCheckCatalogHTTP(t *testing.T) {
 		}
 		seen[d.Code] = true
 		for code, rules := range map[string][]string{
+			"server-027":   {"not proof of continuous capture", "entirely absent epochs", "retained epoch", "sequence-number holes"},
+			"server-028":   {"not proof of continuous capture", "entirely absent epochs", "retained epoch", "sequence-number holes"},
 			"client-006":   {"mute set on the old key no longer applies", "Without it nats-lens stores no `client.auth_error` event"},
 			"client-007":   {"row still counts MQTT clients"},
 			"client-008":   {"So is nats.py's `0.0.0`", "unknown and not judged", "A minimum of 0 turns a language off", "`min_python` | `python3` | nats.py | 2.9.0"},

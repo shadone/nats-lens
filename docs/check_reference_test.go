@@ -132,3 +132,22 @@ func TestReferenceStream008DoesNotInferHistory(t *testing.T) {
 		t.Error("reference must explain the identity limitation")
 	}
 }
+
+func TestRaftReferenceSamplingQualifications(t *testing.T) {
+	for _, code := range []string{"server-027", "server-028"} {
+		var text string
+		for _, section := range CheckReferences()[code] {
+			text += section.Text + "\n"
+		}
+		for _, rule := range []string{"not proof of continuous capture", "entirely absent epochs", "retained epoch", "sequence-number holes", "max_gap"} {
+			if !strings.Contains(text, rule) {
+				t.Errorf("%s lost sampling qualification %q", code, rule)
+			}
+		}
+		for _, promise := range []string{"cannot bridge an unobserved collection", "throughout `grace`", "continuous evidence"} {
+			if strings.Contains(text, promise) {
+				t.Errorf("%s retains unsupported promise %q", code, promise)
+			}
+		}
+	}
+}
