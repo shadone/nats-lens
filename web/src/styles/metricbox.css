@@ -11,7 +11,8 @@
 .mbox.st-critical .mb-v b,.mbox.st-critical .mb-word{color:var(--sev-critical)}
 .mbox.st-warning .mb-v b,.mbox.st-warning .mb-word{color:var(--sev-warning)}
 .mbox.st-info .mb-v b,.mbox.st-info .mb-word{color:var(--sev-info)}
-.mbox svg.spark{width:100%;height:44px;margin-top:8px;display:block}
+/* Visible overflow keeps the newest-point dot whole at the right edge. */
+.mbox svg.spark{width:100%;height:44px;margin-top:8px;display:block;overflow:visible}
 .mb-range{margin-top:9px}
 .mb-track{position:relative;height:4px;background:var(--track);border-radius:2px}
 .mb-dot{position:absolute;top:-5px;width:10px;height:10px;margin-left:-7px;border-radius:50%;background:var(--accent);border:2px solid var(--surface)}
