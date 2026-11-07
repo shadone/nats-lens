@@ -48,3 +48,8 @@ it("does not redirect explicit underlying-stream diagnostics", () => {
   expect(screen.getByRole("heading", { level: 1, name: "KV_preferences" })).toBeInTheDocument();
   expect(screen.getByTestId("location")).toHaveTextContent("/streams/APP/KV_preferences?diagnostics=stream");
 });
+it("shows an explicitly unlimited TTL as none, without treating missing TTL as zero", () => {
+  vi.mocked(useStream).mockReturnValue({ data: { stream: { entity: { kind: "stream", account: "APP", stream: "KV_preferences" }, status: "ok", leader: "" }, config: [{ key: "max_age", value: "0" }], servers: [], disagreements: [], consumers: [], findings: [] }, isPending: false, error: null } as never);
+  page("/kv-stores/APP/preferences");
+  expect(screen.getByText("TTL: none")).toBeInTheDocument();
+});
