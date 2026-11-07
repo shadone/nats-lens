@@ -13,9 +13,9 @@ describe("history words on range pages", () => {
     expect(rangeCoverageText(end - 25 * H, end - 24 * H, end)).toBeUndefined();
   });
   it("never predicts entity readiness from retained age", () => {
-    expect(growthHistoryNote(end - 31 * 60_000, end - 24 * H, end, true)).toBe("needs samples spanning 6 h; entity data may be missing");
+    expect(growthHistoryNote(end - 31 * 60_000, end - 24 * H, end, true)).toBe("less than 6 h of retained history; growth needs samples spanning 6 h");
     expect(growthHistoryNote(end - 31 * 60_000, end - H, end, true)).toBe("needs 6 h of history; choose a range of at least 6 h");
-    expect(growthHistoryNote(end - H, end - 24 * H, end, false)).toBe("needs samples spanning 6 h; entity data may be missing");
-    expect(growthHistoryNote(end - 8 * H, end - 24 * H, end, true)).toBe("needs samples spanning 6 h; entity data may be missing");
+    expect(growthHistoryNote(end - H, end - 24 * H, end, false)).toBe("less than 6 h of retained history; growth needs samples spanning 6 h");
+    expect(growthHistoryNote(end - 8 * H, end - 24 * H, end, true)).toBe("needs samples spanning 6 h; boundary observations or entity measurements may be missing");
   });
 });

@@ -125,7 +125,7 @@ func (p *Provider) Capacity(_ context.Context, req *v1.GetCapacityRequest) (*api
 	if !ok {
 		return &api.CapacityFacts{}, nil
 	}
-	f := &api.CapacityFacts{Epoch: n, EpochAt: at, GrowthFrom: latest(r.GetStart().AsTime(), s.dataStart()),
+	f := &api.CapacityFacts{Epoch: n, EpochAt: at, GrowthFrom: latest(api.GrowthStart(r.GetStart().AsTime(), r.GetEnd().AsTime(), sampleEvery), s.dataStart()),
 		Findings: current(p.findings(s), r)}
 	for _, sv := range s.sc.servers {
 		x := api.ServerStoreFact{Name: sv.name, Cluster: sv.cluster, PerDay: s.growthOf("server.js_storage_bytes", serverRef(sv.name), r)}

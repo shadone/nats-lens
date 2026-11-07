@@ -10,6 +10,6 @@ it("explains an unset growth cell and omits the warning when a rate exists", () 
   vi.mocked(useStreams).mockReturnValue({ data: { totals: { bytes: 0, durableConsumers: 0, ephemeralConsumers: 0 }, streams: [stream, { ...stream, entity: { ...stream.entity, key: "APP/jobs", stream: "jobs" }, bytesPerDay: 200 }] }, refetch: () => {}, isPending: false, error: null } as never);
   const end = Date.parse("2026-10-17T14:30:00Z");
   renderApp(<HistoryContext.Provider value={{ start: end - 86_400_000, end, live: true, historyStart: end - 31 * 60_000 }}><Streams /></HistoryContext.Provider>);
-  expect(screen.getAllByTitle("needs samples spanning 6 h; entity data may be missing")).toHaveLength(1);
-  expect(screen.getByTitle("needs samples spanning 6 h; entity data may be missing")).toHaveTextContent("–");
+  expect(screen.getAllByTitle("less than 6 h of retained history; growth needs samples spanning 6 h")).toHaveLength(1);
+  expect(screen.getByTitle("less than 6 h of retained history; growth needs samples spanning 6 h")).toHaveTextContent("–");
 });
