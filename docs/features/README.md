@@ -61,7 +61,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [What nats-lens is](overview.md) | `ui`, `api`, `cli` | shipped — read-only towards NATS; operator mutes and acknowledgements |
 | [Monitoring snapshots](monitoring-snapshots.md) | `ui`, `cli` | shipped — empty account RAFTZ replies and last-stream deletion preserve request outcomes |
 | [Event capture](event-capture.md) | `ui`, `api`, `cli` | shipped — includes OCSP peer rejections with only known fields and peer fingerprints retained |
-| [Kubernetes context](kubernetes-context.md) | `ui`, `cli` | shipped |
+| [Kubernetes context and watch recovery](kubernetes-context.md) | `ui`, `cli` | shipped |
 | [History and archive](history-and-archive.md) | `ui`, `cli` | shipped — DuckDB 2.0 file compatibility; visible archive state; recovery limited to successful exports |
 | [Checks and findings](checks.md) | `ui`, `api`, `cli` | partial — 89 checks with catalog and individual reference pages with complete per-check paragraphs and multiline content; churn hysteresis survives missed evaluations; accepting a finding is built for one entity; related entities, a check everywhere and a review list are planned |
 | [Server checks](server-checks.md) | `ui`, `api`, `cli` | shipped — includes OCSP peer rejections, sustained slow route pairs, system-level leaf-site health with bounded evidence retention and churn hysteresis across missed evaluations |
@@ -108,7 +108,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 **Collection**
 - [x] One snapshot of every server per interval, partial collections kept, account RAFTZ deletion boundary, account details, the expiry of account JWTs, user JWTs and listener certificates, subscription lists every few minutes, the replies of micro services in the listed accounts, each client application's traffic per hour, and replies of newer servers kept when one of their values is unknown (monitoring-snapshots.md)
 - [x] NATS advisories and system events, short-lived connections folded into `client.churn` and flagged by `client-005` when frequent, and account connections that also ask micro services and, when one cannot connect, are dialled again without stopping the system; OCSP peer rejections retain known fields and peer fingerprints across payload key aliases (event-capture.md)
-- [x] Kubernetes pod, node and client-pod events on the same clock, with node upgrade and drain windows (kubernetes-context.md)
+- [x] Kubernetes events, node windows, and watch recovery with bounded retries and failure logs (kubernetes-context.md)
 - [x] Retention, DuckDB 2.0 file compatibility, hourly Parquet exports, archive state, and rebuild from successful exports (history-and-archive.md)
 - [~] Several NATS systems in one nats-lens, with a system switcher, fatal database failure isolation, the Fleet page with readable strip intervals and its badge, and the shell's status of every system in one call — a cluster switcher inside a supercluster is planned (multiple-systems.md)
 
