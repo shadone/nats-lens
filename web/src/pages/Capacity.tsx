@@ -7,7 +7,7 @@ import { ServerCards } from "../components/CapacityServers";
 import { StreamsTable } from "../components/CapacityStreams";
 import { Empty, QueryView } from "../components/common";
 import { CAPACITY_SUBTITLE, hasRate, headerLine } from "../lib/capacityView";
-import { hms, isoMinute } from "../lib/format";
+import { hms, isoDate } from "../lib/format";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useSystem } from "../lib/useSystem";
 import { useTimeRange } from "../lib/useTimeRange";
@@ -35,7 +35,7 @@ export function Capacity() {
       </div>
       {d?.collected && <p className="dh-note">
         Growth needs observations spanning 6 h. Ranges of at least 6 h read up to one collection interval before the range (at most 5 min), and exclude its end.
-        {d.growthFrom !== undefined && d.epochAt !== undefined && <> Collection bounds: {isoMinute(d.growthFrom)} to {isoMinute(d.epochAt)} UTC; entity spans may be shorter.</>}
+        {d.growthFrom !== undefined && d.epochAt !== undefined && <> Collection bounds: {isoDate(d.growthFrom)} {hms(d.growthFrom)} to {isoDate(d.epochAt)} {hms(d.epochAt)} UTC; entity spans may be shorter.</>}
         {missing && (d.servers.some((s) => s.reported && s.perDay === undefined) || d.streams.some((s) => s.bytesPerDay === undefined)) && <> {missing}. <HistoryLink /></>}
       </p>}
       <QueryView q={q} what="capacity">
