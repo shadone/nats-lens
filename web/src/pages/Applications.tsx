@@ -7,7 +7,7 @@ import { historySpan, spanText } from "../lib/historyView";
 // Connections page.
 import { useSearchParams } from "react-router";
 import type { Applications as Apps } from "../api/applications";
-import { useApplications } from "../api/queries";
+import { useApplications, useLensInfo } from "../api/queries";
 import { useAccounts } from "../api/systems";
 import { AppCards } from "../components/AppCards";
 import { AppTable } from "../components/AppTable";
@@ -89,7 +89,8 @@ export function Applications() {
   const [account] = useAccountScope();
   const range = useResolvedRange(spec);
   const now = useNow(30_000);
-  const context = replayEntry({ a: Math.max(range.start, range.end - 86_400_000), b: range.end }, now, 30_000);
+  const minGapMs = useLensInfo().data?.collectIntervalMs ?? 30_000;
+  const context = replayEntry({ a: Math.max(range.start, range.end - 86_400_000), b: range.end }, now, minGapMs);
   const tooling = params.get(TOOLING_PARAM) === "1";
   const q = useApplications(spec, account, tooling);
   // The header's account list names an account the response leaves unnamed.
@@ -117,7 +118,7 @@ export function Applications() {
       </div>
       {context && <div className="replay-entry">
         <ReplayContextLink to={context.to} label="Replay application context" />
-        <p>Compare observed client-library sets alongside system-wide reconnects, findings and server upgrades in this window (at most 24 hours). Library changes do not prove an application deployment. Replay covers all accounts. {context.text}</p>
+        <p>Compare observed client-library sets alongside system-wide reconnects, findings and server upgrades in this window (at most 24 hours). Library changes do not prove an application deployment. Replay covers all accounts. {context.text} {context.notes.join(" ")}</p>
       </div>}
       <QueryView q={q} what="applications">
         {(d) => (d.collected ? <Body d={d} includeTooling={tooling} scope={account} names={names} /> : <Empty>No collection in this range.</Empty>)}

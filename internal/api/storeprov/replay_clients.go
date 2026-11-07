@@ -12,6 +12,10 @@ import (
 func (p *Provider) replayClientLibraries(ctx context.Context, f *api.ReplayFacts, _ map[string]string) error {
 	c := &api.ReplayClientLibraries{}
 	f.ClientLibraries = c
+	if f.EpochA == f.EpochB && f.EpochA != 0 {
+		c.Unavailable = "A and B resolve to the same collection; two distinct observations are required."
+		return nil
+	}
 	if f.EpochA == 0 || f.EpochB == 0 {
 		c.Unavailable = "No collection near A or B."
 		return nil

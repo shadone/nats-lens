@@ -13,6 +13,10 @@ func TestReplayObservedClientLibraries(t *testing.T) {
 		change         bool
 	}{
 		{"rolling versions", "", true},
+		{"tooling only", "UPDATE connections SET ip='127.0.0.1'", false},
+		{"empty language", "UPDATE connections SET lang=NULL WHERE epoch=40", false},
+		{"empty version", "UPDATE connections SET version=NULL WHERE epoch=40", false},
+		{"unknown totals", "UPDATE server_stats SET connz_total=NULL WHERE epoch=40", false},
 		{"unknown version", "UPDATE connections SET version='0.0.0' WHERE epoch=40", false},
 		{"new application", "DELETE FROM connections WHERE epoch=3", false},
 		{"renamed application", "UPDATE connections SET name='renamed@pod' WHERE epoch=40", false},
@@ -54,8 +58,11 @@ func TestReplayObservedClientLibraries(t *testing.T) {
 				t.Fatal(err)
 			}
 			res := api.FinishReplay(facts)
-			var body string
+			var body, limits string
 			for _, s := range res.Steps {
+				if strings.HasPrefix(s.Title, "Client-library comparison") {
+					limits += s.Body
+				}
 				if strings.Contains(s.Title, "checkout client-library set differs") {
 					body = s.Body
 					if len(s.Evidence) < 2 {
@@ -65,6 +72,14 @@ func TestReplayObservedClientLibraries(t *testing.T) {
 			}
 			if (body != "") != tc.change {
 				t.Fatalf("change=%v, body=%q", tc.change, body)
+			}
+			wantLimit := map[string]string{
+				"unknown version": "1 with unknown", "empty version": "1 with unknown", "empty language": "1 with unknown",
+				"new application": "1 absent", "renamed application": "2 absent", "different account": "2 absent", "unnamed": "1 unnamed",
+				"cut list": "CONNZ coverage", "missing connz": "CONNZ coverage", "unknown totals": "CONNZ coverage",
+			}[tc.name]
+			if wantLimit != "" && !strings.Contains(limits, wantLimit) {
+				t.Errorf("missing limit %q in %q", wantLimit, limits)
 			}
 			if tc.change {
 				for _, want := range []string{"go 1.0 (1)", "go 1.1 (1)", rAcc, "not evidence of an application deployment", "system-wide", "not a causal link"} {

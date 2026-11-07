@@ -353,3 +353,11 @@ it("opens bounded Replay incident context from Applications", async () => {
   expect(link.getAttribute("href")).toContain("system=example-prod");
   expect(screen.getByText(/Library changes do not prove an application deployment/)).toBeInTheDocument();
 });
+
+it("filters library evidence to its exact application and explains summary scope", async () => {
+  getApps.mockResolvedValue(prod());
+  renderApp(<Applications />, "/applications?account=APP&app=resize-worker");
+  await screen.findByRole("table");
+  expect(names()).toEqual(["resize-worker"]);
+  expect(screen.getByText(/Summary cards cover the selected account scope/)).toBeInTheDocument();
+});

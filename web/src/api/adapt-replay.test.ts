@@ -50,3 +50,8 @@ describe("replay adapter", () => {
     expect(replay(r, { system: "", a: 0, b: 1 }).steps.map((s) => s.meta)).toEqual([true, false, false]);
   });
 });
+
+it("keeps the observed client-library comparison kind", () => {
+  const r = create(GetReplayResponseSchema, { steps: [{ id: "client:1", kind: ReplayStepKind.CLIENT_CHANGE }] });
+  expect(replay(r, { system: "", a: 0, b: 1 }).steps[0].kind).toBe("client_change");
+});
