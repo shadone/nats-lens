@@ -67,7 +67,8 @@ export function Sidebar({ collapsed, onCollapse, drawerOpen, onCloseDrawer }: Pr
   const global = useGlobalQuery();
   const badges = useBadges();
   // The rail of icons is desktop only; at phone width the drawer shows the labels.
-  const rail = collapsed && !usePhone();
+  const phone = usePhone();
+  const rail = collapsed && !phone;
   const close = useRef<HTMLButtonElement>(null);
   // An opened drawer takes focus, so the keyboard continues inside it.
   useEffect(() => {
