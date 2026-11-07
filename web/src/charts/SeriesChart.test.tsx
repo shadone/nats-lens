@@ -32,3 +32,12 @@ describe("SeriesChart after a failed refresh", () => {
     expect(screen.queryByText(/as of/)).toBeNull();
   });
 });
+
+describe("SeriesChart colours", () => {
+  it("draws the line neutral with the accent only on the change, like the Overview tiles", () => {
+    const steps = { ...series, points: [1, 1, 1, 2, 2, 2].map((value, i) => ({ time: i * 900_000, value })) };
+    const { container } = render(<SeriesChart title="Bytes" series={steps} start={0} end={5 * 900_000} />);
+    expect((container.querySelector("svg.spark polyline:not(.spark-change)") as SVGElement).style.stroke).toBe("var(--text-muted)");
+    expect((container.querySelector(".spark-change") as SVGElement).style.stroke).toBe("var(--accent)");
+  });
+});

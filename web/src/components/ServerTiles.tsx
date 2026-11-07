@@ -65,6 +65,7 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
         note={downNote}
         start={start}
         end={end}
+        tone="change"
       />
       <MetricBox
         title="Memory"
@@ -75,6 +76,7 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
         note={downNote}
         start={start}
         end={end}
+        tone="change"
       />
       <MetricBox
         title="JetStream file storage"
@@ -87,6 +89,7 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
         note={<>{storageReading(s)}{storagePct !== undefined && ` · ${Math.round(storagePct)}% of configured limit`}. Filesystem used and capacity are not collected.{limitBytes === undefined && s.present && s.role !== "no JetStream" && " No percentage without a positive limit."}</>}
         start={start}
         end={end}
+        tone="change"
       />
       <MetricBox
         title="Connections"
@@ -99,6 +102,7 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
         note={downNote ?? (limit !== undefined ? `limit ${fmtInt(limit)}` : undefined)}
         start={start}
         end={end}
+        tone="change"
       />
       <MetricBox
         title="Messages"
@@ -112,6 +116,7 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
         note={downNote ?? (outNow !== null ? `out ${rate(outNow)}, dashed` : undefined)}
         start={start}
         end={end}
+        tone="change"
       />
       <MetricBox
         title="Slow-consumer detections"
@@ -124,6 +129,7 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
         note={<>{downNote ?? (slowRange === undefined ? "not reported" : slowRange === 0 ? "none in range" : "per bucket on the chart")}. For JetStream backlog, see <RLink to="/consumers">Consumers</RLink>.</>}
         start={start}
         end={end}
+        tone="change"
       />
     </div>
   );
