@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { entityPath, streamPath } from "./view";
+import { entityName, entityPath, streamPath } from "./view";
 import type { Entity } from "../api/model";
 
 describe("bucket resource routes", () => {
@@ -17,4 +17,9 @@ describe("bucket resource routes", () => {
   it("encodes account and bucket as independent path segments", () => {
     expect(streamPath("A/B", "KV_商品 #1")).toBe("/kv-stores/A%2FB/%E5%95%86%E5%93%81%20%231");
   });
+});
+
+it("labels bucket entities without their storage prefix", () => {
+  const e: Entity = { kind: "stream", key: "APP/KV_preferences", account: "APP", stream: "KV_preferences", name: "KV_preferences", consumer: "", server: "" };
+  expect(entityName(e)).toBe("preferences");
 });
