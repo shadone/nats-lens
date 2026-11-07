@@ -82,9 +82,15 @@ func TestGrowthLookbackBounds(t *testing.T) {
 }
 
 func TestGrowthBucketReductionBound(t *testing.T) {
- at:=time.Date(2026,10,17,0,0,0,0,time.UTC)
- var samples []Sample
- for i:=0;i<=720;i++ {samples=append(samples,Sample{T:at.Add(time.Duration(i)*30*time.Second),V:float64(i)})}
- if got:=len(bucketMedians(samples,GrowthBuckets));got>GrowthBuckets {t.Fatalf("reduced to %d points, maximum %d",got,GrowthBuckets)}
- if got:=RobustPerDay(samples);got==nil || math.Abs(*got-2880)>1 {t.Fatalf("reduction lost exact-boundary slope: %v",got)}
+	at := time.Date(2026, 10, 17, 0, 0, 0, 0, time.UTC)
+	var samples []Sample
+	for i := 0; i <= 720; i++ {
+		samples = append(samples, Sample{T: at.Add(time.Duration(i) * 30 * time.Second), V: float64(i)})
+	}
+	if got := len(bucketMedians(samples, GrowthBuckets)); got > GrowthBuckets {
+		t.Fatalf("reduced to %d points, maximum %d", got, GrowthBuckets)
+	}
+	if got := RobustPerDay(samples); got == nil || math.Abs(*got-2880) > 1 {
+		t.Fatalf("reduction lost exact-boundary slope: %v", got)
+	}
 }

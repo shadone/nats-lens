@@ -80,11 +80,11 @@ func bucketMedians(s []Sample, n int) []Sample {
 	first, width := s[0].T, s[len(s)-1].T.Sub(s[0].T)/time.Duration(n)
 	var out []Sample
 	for i := 0; i < len(s); {
-		b := int(s[i].T.Sub(first) / max(width, 1))
+		b := min(n-1, int(s[i].T.Sub(first)/max(width, 1)))
 		j := i
 		var ts []time.Time
 		var vs []float64
-		for ; j < len(s) && int(s[j].T.Sub(first)/max(width, 1)) == b; j++ {
+		for ; j < len(s) && min(n-1, int(s[j].T.Sub(first)/max(width, 1))) == b; j++ {
 			ts, vs = append(ts, s[j].T), append(vs, s[j].V)
 		}
 		out = append(out, Sample{T: ts[len(ts)/2], V: median(vs)})
