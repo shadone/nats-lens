@@ -1,7 +1,7 @@
 # Replay
 
 - **Surfaces:** `ui`, `api`
-- **Status:** partial — "Replay this window" links from the Overview and the finding page, and a step for replicas catching up, are not built
+- **Status:** partial — a step for replicas catching up is not built
 - **Related:** [data-history.md](data-history.md), [history-and-archive.md](history-and-archive.md), [events.md](events.md), [event-capture.md](event-capture.md), [kubernetes-context.md](kubernetes-context.md), [placement.md](placement.md), [demo-mode.md](demo-mode.md), [navigation.md](navigation.md), [design.md](../design.md), [the build plan](../plans/replay.md)
 
 ## What it does
@@ -9,6 +9,9 @@
 The Replay page, under Cluster in the sidebar, answers "what changed between these two moments, and in what order?" You pick two moments, A and B, on a status strip of the page's range. nats-lens then tells the story in between from its collections, NATS advisories, finding transitions and Kubernetes events: which nodes were drained and upgraded, which servers restarted or stopped, which leaders moved, which assets lost quorum or disappeared, and which findings fired and resolved. Every step links to its evidence. Beside the story, nats-lens counts what changed and lists the streams and durable consumers that servers held at A and no server holds at B. You can copy a link to the same A and B, or export the story as a text incident log. `GetReplay` serves the same story to any API client.
 
 ## Behavior and rules
+
+- **Replay this window.** The Overview lists each observed Kubernetes window below its timeline with a normal link to Replay. A and B use the observed start and end widened by five minutes on either side. Existing lane links, Each check, table controls and the zoom strip remain available. The desktop finding page offers context around its latest recorded transition within the selected range, or its first sighting or resolution when those are the latest known times in that range. It reads the newest 100 transitions across all time; a newer episode outside the selected range is ignored. Condition start and the finding's lifetime are not treated as an episode boundary. The link names the observation and explicitly says the context is not the finding's duration. For an unresolved finding, B is surrounding context, not a claimed resolve. Without known timing in the selected range there is an explanation instead of a link. On phones, the existing episode story's Replay link is labelled "Replay this window" and fixes its supplied story interval; the phone card continues to show the current episode, while All details offers the selected-range context.
+- **Entry link limits.** Each entry writes explicit A, B and a fixed range from A to B, even when the source is live. Context can extend beyond the source range; B never extends beyond now. The existing one-collection-interval minimum and 24-hour maximum apply, with adjustment text beside the link. Times use UTC to the second. Links preserve the system; Replay is system-wide and drops the account scope under the shared navigation policy. Unrelated page filters are dropped. The context is an observation window, not evidence of causation, a known incident duration or complete capture. Old observations are not silently shifted into retention or stored history: Replay still explains missing collections and history, and refuses A older than database retention. Opening a fixed link later does not make missing evidence available.
 
 - **Shared gap rules.** Replay and [Data history](data-history.md) identify collection gaps longer than three collect intervals, recorded collector downtime, Kubernetes-watch gaps, and event-connection losses using shared rules. Event losses shorter than 10 seconds do not count as capture gaps. The pages present gaps differently: Data history adds the before-history span and merges overlapping collection losses for chart hatching; Replay keeps its story and observation reasons. The explanation when A predates history links to Data history with the global query.
 
@@ -53,6 +56,31 @@ The Replay page, under Cluster in the sidebar, answers "what changed between the
 - **The demo's story.** In `natslens demo`, `example-global`'s `us` node pool upgrade (08:44 to 09:20 in the scenario's frame) is the story. `nats-us-1` to `nats-us-3` announce lame duck mode and restart, and their leaders are elected elsewhere. Two durables on `inventory-changes` are gone without a delete event, and the stream loses quorum for two minutes. `nats-us-4` stops answering and takes `KV_label-templates` with it. `example-prod`'s upgrade has a consumer deleted by a client, and `example-staging` a time without collections ([demo-mode.md](demo-mode.md)).
 
 ## Scenarios
+
+### Replay an observed window without losing Overview controls
+
+- **Surfaces:** `ui`
+- **Given** an Overview timeline with two observed Kubernetes windows
+- **When** I follow either "Replay this window" link, including with a keyboard or a modified click
+- **Then** its normal link opens Replay for that window plus five minutes on each side, within the existing limits, with explicit A and B and a fixed range on the same system
+- **And** the Overview's lane links, Each check, table controls and zoom strip retain their interactions
+
+### Replay a historical finding observation
+
+- **Surfaces:** `ui`
+- **Given** a finding with a newer episode and recorded transitions inside a selected historical range
+- **When** I follow "Replay this window" in its desktop details
+- **Then** Replay opens a fixed context window around the newest recorded transition in that range, ignoring the newer episode and condition start
+- **And** a resolution is labelled as a resolution; an unresolved finding's context end is never described as its resolve
+
+### Missing timing and missing evidence
+
+- **Surfaces:** `ui`
+- **Given** no recorded transition, first sighting or resolution time in the selected range
+- **When** I read the finding's details
+- **Then** an explanation replaces the Replay link, including the 100-transition history limit
+- **And** when timing is known but retained observations are missing, the link keeps that timing and Replay retains its history, collection and retention explanations
+
 
 ### Explain a node pool upgrade
 
@@ -170,7 +198,6 @@ The Replay page, under Cluster in the sidebar, answers "what changed between the
 - **No "from disk".** A restart step says how many streams and consumers a server held when it came back, not where it recovered them from.
 - **No quorum reports from server logs.** The quorum count is of NATS advisories; nats-lens does not read server logs.
 - **No more than 24 hours** between A and B.
-- **No "Replay this window" links** from the Overview's windows or a finding's page; open Replay and pick the window there.
 - **No step for replicas catching up.** A lagging replica shows only as its `stream-003` or `server-012` finding.
 - **No leader moves without advisories.** nats-lens counts leaders moved from election advisories only, not from differences between collections.
 - **No reconnects per application.** Client reconnects are one count; the page does not say which applications reconnected. The [Applications](applications.md) page counts each application's reconnects over the 24 hours before a collection.
