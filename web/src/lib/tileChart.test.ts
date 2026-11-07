@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { HistoryGap } from "../api/history";
 import type { Point } from "../api/model";
-import { changedSegments, hiddenMoves, tileChartReason, type TileChartFacts } from "./tileChart";
+import { changedSegments, hiddenMoves, tickedMoves, tileChartReason, type TileChartFacts } from "./tileChart";
 
 const STEP = 900_000;
 const START = Date.parse("2026-10-16T14:30:00Z");
@@ -173,5 +173,20 @@ describe("hiddenMoves", () => {
     expect(hiddenMoves([at(3, 2, 3, 0), at(3, 3, 3, 1)])).toHaveLength(1);
     expect(hiddenMoves([at(3, 3, 3, 0), at(3, 3, 4, 1)])).toHaveLength(1);
     expect(hiddenMoves([at(3)])).toEqual([]);
+  });
+});
+
+describe("tickedMoves", () => {
+  const at = (value: number, low: number, high: number, i: number): Point => ({ time: START + i * STEP, value, low, high });
+
+  it("ticks the hidden moves of a series where few buckets hide one", () => {
+    const p = [at(3, 3, 3, 0), at(3, 2, 3, 1), at(3, 3, 3, 2), at(3, 3, 3, 3)];
+    expect(tickedMoves(p)).toEqual([p[1]]);
+  });
+
+  it("ticks nothing when most buckets hide a move, as busy connection counts do", () => {
+    const p = Array.from({ length: 10 }, (_, i) => at(100, 90, 110, i));
+    expect(hiddenMoves(p)).toHaveLength(10);
+    expect(tickedMoves(p)).toEqual([]);
   });
 });

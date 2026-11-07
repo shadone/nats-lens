@@ -100,3 +100,13 @@ export function edgeRange(points: Point[], min?: number, max?: number): { min?: 
   }
   return { min: lo, max: hi };
 }
+
+/**
+ * The hidden moves a chart ticks: none when more than half of the buckets
+ * hide one, as a busy count does, since a tick on most buckets marks
+ * nothing; the track's ends still take in their lows and highs.
+ */
+export function tickedMoves(points: Point[]): Point[] {
+  const moves = hiddenMoves(points);
+  return moves.length > points.length / 2 ? [] : moves;
+}

@@ -6,7 +6,7 @@ import type { ServerHistoryGap } from "../api/history";
 import { ChartHistoryNotice, ChartHistoryStatus, HistoryGaps } from "./HistoryGaps";
 import type { Level, Point, Window } from "../api/model";
 import { chartName, rangeText } from "./chartLabel";
-import { changedSegments, hiddenMoves } from "../lib/tileChart";
+import { changedSegments, tickedMoves } from "../lib/tileChart";
 import { isTrouble } from "../lib/view";
 
 const W = 200;
@@ -37,7 +37,7 @@ interface Props {
    * and puts the accent only on the change: the segments where the value
    * changes, or, when most segments of a run change, a dot on the newest
    * point; a bucket whose low or high goes beyond the line around it
-   * (`hiddenMoves`) gets a tick between them. A warning or critical status keeps its colour.
+   * (`tickedMoves`) gets a tick between them. A warning or critical status keeps its colour.
    */
   tone?: "status" | "change";
 }
@@ -95,7 +95,7 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
       </svg><ChartHistoryStatus start={start} end={end} /><ChartHistoryNotice start={start} end={end}/></>
     );
   }
-  const ranges = tone === "change" ? hiddenMoves(points) : [];
+  const ranges = tone === "change" ? tickedMoves(points) : [];
   const all = points.concat(points2 ?? []).map((p) => p.value).concat(ranges.flatMap((p) => [p.low ?? p.value, p.high ?? p.value]));
   let mn = Math.min(...all);
   let mx = Math.max(...all);
