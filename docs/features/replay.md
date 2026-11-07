@@ -10,6 +10,10 @@ The Replay page, under Cluster in the sidebar, answers "what changed between the
 
 ## Behavior and rules
 
+- **Observed client libraries.** Replay compares the client-library sets in the collections near A and B, grouped by the application name before `@` and account. A changed set produces a step spanning the two observation times, with both version mixes and connection counts. Mixed rolling versions remain visible. Count changes within the same library set do not make a change step. These are endpoint observations: an intermediate change can be missed, and the span does not date a deployment. Client library metadata does not establish an application release version, build SHA or deployment.
+- **Comparison coverage.** Both endpoints require every expected server's successful CONNZ and known, uncapped connection totals. Missing, capped or unknown coverage produces an unavailable explanation. Groups absent on either side, unnamed groups and groups with any empty language, empty version or `0.0.0` version are counted as not compared. A new application or a rename does not prove a deployment; names can be reused within an account. Server process changes do not change this identity. Rollups read at most 20,000 grouped rows; reaching that limit suppresses the comparison with an explanation. The existing 200-step cap still applies. Database retention and the three-interval endpoint reach apply; archived data is not read.
+- **Same-window context.** A library comparison includes Replay's system-wide reconnect-pair count and the warning/critical finding firings read between A and B. Unobserved reconnect counts remain unknown with a reason; capture gaps never become zero. Truncated finding reads are labelled. Up to eight finding links accompany the two collection links. Reconnect pairing follows `client-004`, including server shutdowns. This is association by the same bounded time window, with no application attribution or causal claim. Server upgrades, findings and Kubernetes observations retain their own story steps. Collection and event gaps can hide intervening activity. A collection link opens Applications filtered to the application and account at that observation time.
+
 - **Replay this window.** The Overview lists each observed Kubernetes window below its timeline with a normal link to Replay. A and B use the observed start and end widened by five minutes on either side. Existing lane links, Each check, table controls and the zoom strip remain available. The desktop finding page offers context around its latest recorded transition within the selected range, or its first sighting or resolution when those are the latest known times in that range. It reads the newest 100 transitions across all time; a newer episode outside the selected range is ignored. Condition start and the finding's lifetime are not treated as an episode boundary. The link names the observation and explicitly says the context is not the finding's duration. For an unresolved finding, B is surrounding context, not a claimed resolve. Without known timing in the selected range there is an explanation instead of a link. On phones, the existing episode story's Replay link is labelled "Replay this window" and fixes its supplied story interval; the phone card continues to show the current episode, while All details offers the selected-range context.
 - **Entry link limits.** Each entry writes explicit A, B and a fixed range from A to B, even when the source is live. Context can extend beyond the source range; B never extends beyond now. The existing one-collection-interval minimum and 24-hour maximum apply, with adjustment text beside the link. Times use UTC to the second. Links preserve the system; Replay is system-wide and drops the account scope under the shared navigation policy. Unrelated page filters are dropped. The context is an observation window, not evidence of causation, a known incident duration or complete capture. Old observations are not silently shifted into retention or stored history: Replay still explains missing collections and history, and refuses A older than database retention. Opening a fixed link later does not make missing evidence available.
 
@@ -56,6 +60,22 @@ The Replay page, under Cluster in the sidebar, answers "what changed between the
 - **The demo's story.** In `natslens demo`, `example-global`'s `us` node pool upgrade (08:44 to 09:20 in the scenario's frame) is the story. `nats-us-1` to `nats-us-3` announce lame duck mode and restart, and their leaders are elected elsewhere. Two durables on `inventory-changes` are gone without a delete event, and the stream loses quorum for two minutes. `nats-us-4` stops answering and takes `KV_label-templates` with it. `example-prod`'s upgrade has a consumer deleted by a client, and `example-staging` a time without collections ([demo-mode.md](demo-mode.md)).
 
 ## Scenarios
+
+### Compare observed client-library sets
+
+- **Surfaces:** `ui`, `api`
+- **Given** complete CONNZ collections near A and B with the same named application and account, and Go 1.0 at A and Go 1.0 plus Go 1.1 at B
+- **When** I open Replay for A to B
+- **Then** a client-library comparison shows both mixes with connection counts and links to both Applications observations
+- **And** reconnects and finding firings are explicitly system-wide same-window context, without a deployment or causal claim
+
+### Keep missing client observations unknown
+
+- **Surfaces:** `ui`, `api`
+- **Given** capped CONNZ at B, or an application carrying version `0.0.0`
+- **When** I open Replay
+- **Then** Replay explains unavailable coverage or counts that group as not compared, rather than inventing a deployment or a zero version mix
+
 
 ### Replay an observed window without losing Overview controls
 

@@ -85,9 +85,9 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Demo mode](demo-mode.md) | `ui`, `api`, `cli` | shipped — on-call acknowledgement story and per-system history, gaps, retention and archive examples |
 | [Multiple systems and the Fleet view](multiple-systems.md) | `ui`, `api`, `cli` | partial — isolated fatal database failures and readable Fleet strip intervals; a cluster switcher inside a supercluster is planned |
 | [Placement](placement.md) | `ui`, `api` | partial — selected-cell observed duration with bounded history and observed process identity boundaries; a playbook link is not built |
-| [Replay](replay.md) | `ui`, `api` | partial — fixed "Replay this window" entry links from Overview and finding details; a replica catch-up step is not built; shared collection and capture gap rules |
+| [Replay](replay.md) | `ui`, `api` | partial — observed endpoint client-library comparisons with system-wide context and Applications evidence; fixed "Replay this window" entry links from Overview and finding details; a replica catch-up step is not built; shared collection and capture gap rules |
 | [Topology](topology.md) | `ui`, `api` | shipped |
-| [Applications](applications.md) | `ui`, `api` | shipped |
+| [Applications](applications.md) | `ui`, `api` | shipped — fixed Replay context and exact application evidence filters |
 | [Capacity and retention](capacity.md) | `ui`, `api` | shipped — six-hour growth explanations |
 | [Subjects](subjects.md) | `ui`, `api` | shipped |
 | [Accounts and auth](accounts-and-auth.md) | `ui`, `api` | shipped |
@@ -137,9 +137,9 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Findings, finding detail with server copies, start times and events around the start, mutes, accepted findings read as accepted, acknowledgements apart from mutes, and history-start explanations with spaced finding facts and action buttons; single-page results omit pagination controls; selected-range Replay context (triage-and-mutes.md)
 - [ ] Why a finding has its severity, a CLI check ready to copy, accepting from the finding page or for related entities (triage-and-mutes.md)
 - [~] Every stream and durable consumer in one matrix, with filters, comparison and bounded selected-cell duration evidence that stops at process returns and ambiguous names; a playbook link is not built (placement.md)
-- [~] What changed between two moments A and B, in order, with counts, gone assets, evidence links, a shared link, an incident log and shared gap rules and fixed "Replay this window" entry links; a replica catch-up step is not built (replay.md)
+- [~] What changed between two moments A and B, in order, with counts, gone assets, evidence links, a shared link, an incident log, observed client-library comparisons with bounded system-wide context, shared gap rules and fixed "Replay this window" entry links; a replica catch-up step is not built (replay.md)
 - [x] How the servers connect: routes, gateways and leaf node sites, with round trips, drops counted from the collections, slow routes (slow in two collections in a row) and sites not connected (topology.md)
-- [x] Client connections grouped by the application in their name: instances, pods, servers, library, round trip, reconnects and 24 hours of traffic per application, with the spread over the servers, the libraries in use and the last day (applications.md)
+- [x] Client connections grouped by the application in their name: instances, pods, servers, library, round trip, reconnects and 24 hours of traffic per application, with the spread over the servers, the libraries in use and the last day; fixed Replay context and exact application evidence filters (applications.md)
 - [x] What each stream keeps, what bounds it, and when disks fill, with six-hour growth explanations and unbounded streams accepted as by design (capacity.md)
 - [x] Where messages can go: each stream with its subjects and readers, client subscriptions by subject, reply inboxes and the JetStream API, filters with counts, and a tester that says what a message on a subject would reach in each account (subjects.md)
 - [x] Accounts with their limits, imports, exports and JWT expiry, leaf nodes counted against the connection limit as nats-server and `account-001` count them, the failed logins of 24 hours, and the certificates and JWTs that expire within 30 days (accounts-and-auth.md)

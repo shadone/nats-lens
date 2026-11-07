@@ -234,3 +234,18 @@ describe("ReplayCounts", () => {
     expect(screen.getByText("Leaders moved").closest("li")).toHaveTextContent(/^0Leaders moved$/);
   });
 });
+
+it("renders client-library comparisons with observation links and association limits", () => {
+  const client = { kind: "client" as const, key: "checkout", name: "checkout", account: "APP", stream: "", consumer: "", server: "" };
+  const step = rstep("client:1", "09:14:00", { kind: "client_change", end: B, title: "checkout client-library set differs", body: "At A: go 1.0 (1). At B: go 1.1 (2). Same A–B window, system-wide; not a causal link.", evidence: [
+    { kind: "collection", id: "1", time: A, label: "collection A", entity: client },
+    { kind: "collection", id: "2", time: B, label: "collection B", entity: client },
+  ], evidenceCount: 2 });
+  renderApp(<ReplaySteps steps={[step]} moments={M} notes={[]} />, "/replay?system=example-prod");
+  expect(screen.getByText(/not a causal link/)).toBeInTheDocument();
+  for (const label of ["collection A", "collection B"]) {
+    const href = screen.getByRole("link", { name: label }).getAttribute("href")!;
+    expect(href).toContain("/applications?");
+    expect(href).toContain("app=checkout&account=APP&system=example-prod");
+  }
+});

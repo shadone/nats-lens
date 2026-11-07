@@ -86,6 +86,32 @@ func (p *Provider) Replay(_ context.Context, req *v1.GetReplayRequest) (*api.Rep
 	f.Gaps = append(f.Gaps, api.EventsConnectionGaps(conns)...)
 	f.ClientReconnects = replayReconnects(all, a, b)
 	f.Nodes = replayNodes(all, a, b)
+	f.ClientLibraries = &api.ReplayClientLibraries{}
+	if f.EpochA == 0 || f.EpochB == 0 || f.EpochA == f.EpochB {
+		f.ClientLibraries.Unavailable = "No distinct collection near A or B."
+	} else {
+		for _, point := range []struct {
+			at    time.Time
+			epoch int64
+		}{{f.EpochAAt, f.EpochA}, {f.EpochBAt, f.EpochB}} {
+			for _, sp := range s.sc.servers {
+				if s.downAt(sp, point.at) {
+					f.ClientLibraries.Unavailable = "CONNZ coverage at A or B is incomplete."
+				}
+			}
+			type key struct{ app, account, lang, version string }
+			counts := map[key]int64{}
+			for _, c := range s.connections(point.at) {
+				if c.GetTooling() || toolingClient(c.GetName(), c.GetIp()) {
+					continue
+				}
+				counts[key{api.ApplicationOf(c.GetName()), api.AccountOf(c.GetAccount()), c.GetLang(), c.GetVersion()}]++
+			}
+			for k, n := range counts {
+				f.ClientLibraries.Rows = append(f.ClientLibraries.Rows, api.ReplayClientLibrary{Epoch: point.epoch, App: k.app, Account: k.account, Lang: k.lang, Version: k.version, Connections: n})
+			}
+		}
+	}
 	return f, nil
 }
 
