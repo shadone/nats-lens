@@ -267,7 +267,7 @@ describe("Subjects tester", () => {
     await userEvent.type(field(), "x");
     const card = within(await screen.findByRole("region", { name: "Where this subject goes" }));
     const app = within(await card.findByRole("group", { name: "Published in APP" }));
-    expect(app.getByText("the account's JetStream API answers it")).toBeInTheDocument();
+    expect(app.getByText("The account's JetStream API answers it")).toBeInTheDocument();
     expect(within(card.getByRole("group", { name: "Published in SYS" })).getByText("system")).toBeInTheDocument();
   });
 
@@ -288,7 +288,7 @@ describe("Subjects tester", () => {
     renderApp(<Subjects />, "/subjects?account=APP");
     await userEvent.type(field(), "x");
     const card = within(await screen.findByRole("region", { name: "Where this subject goes" }));
-    expect(await within(card.getByRole("group", { name: "Published in APP" })).findByText("no stream stores it and no subscriber listens")).toBeInTheDocument();
+    expect(await within(card.getByRole("group", { name: "Published in APP" })).findByText("No stream stores it and no subscriber listens")).toBeInTheDocument();
   });
 
   it("says when nothing reaches the subject in any account, and when subscribers are not known", async () => {
@@ -296,10 +296,10 @@ describe("Subjects tester", () => {
     matchSubject.mockResolvedValueOnce(matches());
     renderApp(<Subjects />, "/subjects");
     await userEvent.type(field(), "x");
-    expect(await screen.findByText("no stream stores it and no subscriber listens")).toBeInTheDocument();
+    expect(await screen.findByText("No stream stores it and no subscriber listens")).toBeInTheDocument();
     matchSubject.mockResolvedValueOnce(matches({ subscriptionsAt: undefined }));
     await userEvent.type(field(), "y");
-    expect(await screen.findByText("no stream stores it; subscriptions were not collected, so subscribers are not known")).toBeInTheDocument();
+    expect(await screen.findByText("No stream stores it; subscriptions were not collected, so subscribers are not known")).toBeInTheDocument();
   });
 
   it("shows the server's reason in the field for a subject it refuses, and no card", async () => {
@@ -375,7 +375,7 @@ describe("Subjects tester", () => {
     const live = container.querySelector(".sj-reach [aria-live=polite]");
     expect(live).toHaveTextContent("Looking it up…");
     await act(async () => release(matches()));
-    await screen.findByText("no stream stores it and no subscriber listens");
+    await screen.findByText("No stream stores it and no subscriber listens");
     expect(container.querySelector(".sj-reach [aria-live=polite]")).toBe(live);
     expect(within(container.querySelector(".sj-reach")! as HTMLElement).queryByRole("status")).toBeNull();
   });

@@ -128,7 +128,7 @@ function nothingText(m: SubjectMatches): string {
  * shows one.
  */
 function Reach({ m, scoped }: { m: SubjectMatches; scoped: boolean }) {
-  if (m.accounts.length === 0) return <p className="sj-reach-none">{nothingText(m)}</p>;
+  if (m.accounts.length === 0) return <p className="sj-reach-none">{upperFirst(nothingText(m))}</p>;
   return (
     <>
       {m.accounts.map((g) => (
@@ -140,14 +140,14 @@ function Reach({ m, scoped }: { m: SubjectMatches; scoped: boolean }) {
             </div>
           )}
           {reachesNothing(g) ? (
-            <p className="sj-reach-none">{nothingText(m)}</p>
+            <p className="sj-reach-none">{upperFirst(nothingText(m))}</p>
           ) : (
             <div className="sj-chips">
               {g.streams.map((s) => (
                 <StreamReach key={s.stream} s={s} />
               ))}
               {g.jetstreamApi && (
-                <span className="sj-chip sj-chip-stream">{JETSTREAM_API_ANSWERS}</span>
+                <span className="sj-chip sj-chip-stream">{upperFirst(JETSTREAM_API_ANSWERS)}</span>
               )}
               {g.core.length > 0 ? (
                 <span className="sj-chip">
