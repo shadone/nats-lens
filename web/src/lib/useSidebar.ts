@@ -1,6 +1,7 @@
 // Sidebar state: collapsed to a rail (kept in this browser) and the drawer
 // at phone width (open until the page changes, which gives focus to the
 // new page, or Escape is pressed, which gives it back to the menu button).
+import { focusPage } from "./useRoutePosition";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router";
 
@@ -66,8 +67,9 @@ export function useSidebar() {
   useEffect(() => {
     if (drawerOpen) openedOn.current = pathname;
     else if (wasOpen.current) {
-      const target = pathname !== openedOn.current ? "#main" : '[aria-controls="sidebar"]';
-      document.querySelector<HTMLElement>(target)?.focus({ preventScroll: true });
+      const main = document.getElementById("main");
+      if (pathname !== openedOn.current && main) focusPage(main);
+      else document.querySelector<HTMLElement>('[aria-controls="sidebar"]')?.focus({ preventScroll: true });
     }
     wasOpen.current = drawerOpen;
     // Only an open or a close of the drawer moves focus.

@@ -1,12 +1,12 @@
 // The shell and the routes. Every page reads the time range, the system and
 // the account scope from the URL; the sidebar's pages are listed in nav.ts.
-import { useEffect, useRef } from "react";
 import { Route, Routes, useLocation } from "react-router";
 import { PageHistoryProvider } from "./components/HistoryNote";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
 import { StaleProvider } from "./components/StaleContext";
 import { Landing, SystemGate } from "./components/SystemGate";
+import { useRoutePosition } from "./lib/useRoutePosition";
 import { useSidebar } from "./lib/useSidebar";
 import { useSystem } from "./lib/useSystem";
 import { Fleet } from "./pages/Fleet";
@@ -36,26 +36,10 @@ import { MicroServices } from "./pages/MicroServices";
 import { Applications } from "./pages/Applications";
 import { NotFound } from "./pages/NotFound";
 
-/**
- * Moves focus to the page on a route change, so a keyboard or screen
- * reader user starts at the new page; never on the first load, and never
- * when only the query changes, such as a filter being typed.
- */
-function useFocusOnRouteChange(pathname: string) {
-  const main = useRef<HTMLElement>(null);
-  const shown = useRef(pathname);
-  useEffect(() => {
-    if (shown.current === pathname) return;
-    shown.current = pathname;
-    main.current?.focus({ preventScroll: true });
-  }, [pathname]);
-  return main;
-}
-
 export function App() {
   const { pathname } = useLocation();
   const system = useSystem();
-  const main = useFocusOnRouteChange(pathname);
+  const main = useRoutePosition();
   const { collapsed, setCollapsed, drawerOpen, setDrawerOpen, drawerShown } = useSidebar();
   return (
     <div className={`shell${collapsed ? " rail" : ""}`}>
