@@ -57,7 +57,7 @@
 .tc-h b{font-size:var(--fs-md);text-align:right;margin-left:auto}
 .tc-svg{display:block;width:100%;height:70px;margin-top:8px}
 .tc-axis{stroke:var(--border)}
-.tc-f{display:flex;justify-content:space-between;white-space:nowrap;font-size:var(--fs-xs);color:var(--text-muted);margin-top:3px}
+.tc-f{display:flex;justify-content:space-between;gap:8px;white-space:nowrap;font-size:var(--fs-xs);color:var(--text-muted);margin-top:3px}
 .tc-lg{display:flex;align-items:baseline;gap:6px 10px;flex-wrap:wrap;margin-top:6px}
 .tc-sum{margin-left:auto;font-size:var(--fs-xs);color:var(--text-muted)}
 

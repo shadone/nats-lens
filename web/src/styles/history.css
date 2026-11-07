@@ -61,6 +61,10 @@
 
 /* Stands in for part of a row the chart already has, so it never adds a line. */
 .dh-chart-status{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--sans);color:var(--text-muted)}
+/* In a shared row the text takes the room between its neighbours and hides below 60px. */
+.dh-chart-slot{flex:1 1 0;min-width:0;container-type:inline-size;text-align:center}
+.dh-chart-slot > .dh-chart-status{display:block}
+@container (max-width:60px){.dh-chart-slot > .dh-chart-status{visibility:hidden}}
 .dh-status-in{position:relative;min-width:0}
 .dh-status-keep{visibility:hidden}
 .dh-status-in > .dh-chart-status{position:absolute;left:0;top:0;max-width:100%}

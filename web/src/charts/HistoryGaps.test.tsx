@@ -16,7 +16,7 @@ function setup(start: number, end: number, page: PageHistory, route: string) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   function Frame({ a = start, b = end, p = page, second = false, url = route }) {
     return <QueryClientProvider client={qc}><MemoryRouter initialEntries={[url]} key={url}><HistoryContext.Provider value={p}>
-      <svg><HistoryGaps start={a} end={b} width={200} height={40} />{second && <HistoryGaps start={a} end={b} width={200} height={40} />}</svg><ChartHistoryStatus start={a} end={b} />
+      <svg><HistoryGaps start={a} end={b} width={200} height={40} />{second && <HistoryGaps start={a} end={b} width={200} height={40} />}</svg><ChartHistoryStatus start={a} end={b} claim />
     </HistoryContext.Provider></MemoryRouter></QueryClientProvider>;
   }
   return { ...render(<Frame />), qc, Frame };

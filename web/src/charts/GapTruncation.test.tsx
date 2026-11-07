@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { renderApp } from "../test/render";
 import { HistoryContext } from "../components/HistoryNote";
@@ -54,7 +54,7 @@ it.each([false,true])("tells the reader history gaps are loading in HTML text ou
  let answer!:(v:ReturnType<typeof staging>)=>void;
  read.mockImplementation(()=>new Promise(yes=>{answer=yes}));
  const r=renderApp(<Charts trend={trend}/>,"/?range=24h");
- const status=await screen.findByText("History gaps loading");
+ const status=await screen.findByText("Gaps loading");
  // Plain text in flow, not one live region per chart.
  expect(screen.queryByRole("status")).toBeNull();
  expect(status.closest("svg")).toBeNull();
@@ -62,17 +62,38 @@ it.each([false,true])("tells the reader history gaps are loading in HTML text ou
  // In a row the chart already has, so the card keeps its height while it shows.
  expect(status.closest(trend?".tc-f":".chart-f")).not.toBeNull();
  answer({...staging(),rangeStart:NOW-H,rangeEnd:NOW,gaps:[]});
- await waitFor(()=>expect(screen.queryByText("History gaps loading")).not.toBeInTheDocument());
+ await waitFor(()=>expect(screen.queryByText("Gaps loading")).not.toBeInTheDocument());
  // beforeEach returns the mock, and Vitest calls it after the test as a teardown.
  read.mockReset();
  r.unmount();
 });
-it.each([[[1,3,2],".mb-ends"],[[2,2,2],".mb-track-note"]] as const)("shows a tile's history status in its track row, not a new line (%j)",async(values,row)=>{
+it.each([[[1,3,2],".mb-ends","Gaps loading"],[[2,2,2],".mb-track-note","History gaps loading"]] as const)("shows a tile's history status in its track row, not a new line (%j)",async(values,row,text)=>{
  read.mockImplementation(()=>new Promise(()=>{}));
  const series:Series={metric:"m",unit:"count",stepMs:H/2,points:values.map((value,i)=>({time:NOW-H+i*H/2,value})),min:Math.min(...values),max:Math.max(...values)};
  const r=renderApp(<HistoryContext.Provider value={{start:NOW-H,end:NOW,live:true}}><MetricBox title="Streams" description="d" fmt={String} series={series} start={NOW-H} end={NOW}/></HistoryContext.Provider>,"/?range=1h");
- const status=await screen.findByText("History gaps loading");
+ const status=await screen.findByText(text);
  expect(status.closest(row)).not.toBeNull();
+ read.mockReset();
+ r.unmount();
+});
+it.each([false,true])("keeps a chart's footer data when its history read fails (trend %s)",async(trend)=>{
+ read.mockRejectedValue(new Error("history unavailable"));
+ const r=renderApp(<Charts trend={trend}/>,"/?range=24h");
+ await waitFor(()=>expect(read).toHaveBeenCalled());
+ await act(async()=>{await new Promise(resolve=>setTimeout(resolve,20));});
+ const row=document.querySelector(trend?".tc-f":".chart-f")!;
+ expect(row.querySelector(".dh-chart-status")).toBeNull();
+ if(!trend) expect(row.textContent).toContain("min");
+ read.mockReset();
+ r.unmount();
+});
+it("keeps a tile's track ends when its history read fails, and says it in place of steady",async()=>{
+ read.mockRejectedValue(new Error("history unavailable"));
+ const tile=(values:number[])=>{const series:Series={metric:"m",unit:"count",stepMs:H/2,points:values.map((value,i)=>({time:NOW-H+i*H/2,value})),min:Math.min(...values),max:Math.max(...values)};return <MetricBox title="Streams" description="d" fmt={String} series={series} start={NOW-H} end={NOW}/>;};
+ const r=renderApp(<HistoryContext.Provider value={{start:NOW-H,end:NOW,live:true}}>{tile([1,3,2])}{tile([2,2,2])}</HistoryContext.Provider>,"/?range=1h");
+ expect(await screen.findByText("History gaps unavailable")).toBeInTheDocument();
+ expect(document.querySelector(".mb-ends .dh-chart-status")).toBeNull();
+ expect(document.querySelector(".mb-track-note .dh-chart-status")).toHaveTextContent("History gaps unavailable");
  read.mockReset();
  r.unmount();
 });

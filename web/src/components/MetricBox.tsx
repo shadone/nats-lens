@@ -162,7 +162,7 @@ export function RangeTrack({
   /** The chart's domain, when the box draws one: its history status then shows in this row. */
   history?: { start: number; end: number };
 }) {
-  const inRow = (text: ReactNode, keep = false) => (history ? <ChartHistoryStatus start={history.start} end={history.end} keep={keep}>{text}</ChartHistoryStatus> : text);
+  const inRow = (text: ReactNode, steady = false) => (history ? <ChartHistoryStatus start={history.start} end={history.end} keep={steady} claim={steady} compact={!steady}>{text}</ChartHistoryStatus> : text);
   if (min === undefined || max === undefined) return null;
   if (min === max) {
     // Without a current value a steady window says so, so a server that
@@ -240,7 +240,7 @@ export function MetricBox(p: MetricBoxProps) {
         />
       )}
       {track && <RangeTrack title={p.title} min={min} max={max} value={value} fmt={p.fmt} status={status} period={period} since={since} noCurrent={p.value === null} history={drawn || p.historyStatus ? { start: p.start, end: p.end } : undefined} />}
-      {!track && !chart && p.historyStatus && <div className="mb-track-note"><ChartHistoryStatus start={p.start} end={p.end} /></div>}
+      {!track && !chart && p.historyStatus && <div className="mb-track-note"><ChartHistoryStatus start={p.start} end={p.end} claim /></div>}
       {track && !hasWindow && !p.error && !p.loading && <div className="mb-track-note">{drawn ? <ChartHistoryStatus start={p.start} end={p.end}>no data for the window</ChartHistoryStatus> : "no data for the window"}</div>}
       {track && hasWindow && p.value === null && min !== max && <div className="mb-track-note">no current value</div>}
       {p.note && <div className="mb-note">{p.note}</div>}

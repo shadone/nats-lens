@@ -19,7 +19,7 @@ it("announces the charts' history read once per page: loading, then unavailable"
     <SeriesChart title="Memory" start={NOW - H} end={NOW} />
     <TrendChart title="Messages" start={NOW - 7 * 24 * H} end={NOW} layers={[]} />
   </PageHistoryProvider>, "/?system=example-prod&range=24h");
-  expect(await screen.findAllByText("History gaps loading")).toHaveLength(3);
+  expect(await screen.findAllByText("Gaps loading")).toHaveLength(3);
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("History gaps loading"));
   expect(screen.getAllByRole("status")).toHaveLength(1);
   await act(async () => fails.forEach((no) => no(new Error("history unavailable"))));
