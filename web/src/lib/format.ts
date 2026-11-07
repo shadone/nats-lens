@@ -127,3 +127,8 @@ export function sinceText(at: number, ref: number): string {
 export function eventWhen(ms: number, ref: number): string {
   return Math.abs(ref - ms) < DAY ? hms(ms) : dayMonHm(ms);
 }
+
+/** A label in sentence case: "consumer" as "Consumer". */
+export function upperFirst(s: string): string {
+  return s ? s[0].toUpperCase() + s.slice(1) : s;
+}

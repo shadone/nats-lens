@@ -3,6 +3,7 @@ import { useParams } from "react-router";
 import type { CheckDefinition, ListCheckDefinitionsResponse } from "../gen/natslens/v1/checks_pb";
 import { useCheckDefinitions } from "../api/checks";
 import { Empty, KV, QueryView, Remediation, RLink, Section } from "../components/common";
+import { upperFirst } from "../lib/format";
 import { usePageTitle } from "../lib/usePageTitle";
 
 function meaning(c: CheckDefinition) {
@@ -68,7 +69,7 @@ function Definition({ c, catalog }: { c: CheckDefinition; catalog: ListCheckDefi
         ...(catalog.timeout !== undefined ? [{ key: "Configured check timeout", value: catalog.timeout }] : []),
       ].map(item => ({ ...item, highlight: false }))} />
       {c.thresholds.length ? <dl className="check-thresholds">{c.thresholds.map(t => <div key={t.name}>
-        <dt><code>{t.name}</code> <span className="lbl">{t.unit}</span></dt>
+        <dt><code>{t.name}</code> <span className="lbl">{upperFirst(t.unit)}</span></dt>
         <dd><p>{t.description}</p><p>Default: <strong>{t.defaultValue}</strong>{t.effectiveValue !== undefined && <> · Configured: <strong>{t.effectiveValue}</strong></>}</p></dd>
       </div>)}</dl> : <p>No named numeric thresholds. The firing rules above still apply.</p>}
       {c.relatedConfig.length > 0 && <p>Related settings to inspect on an affected entity: {c.relatedConfig.map((name,i) => <span key={name}>{i ? ", " : ""}<code>{name}</code></span>)}. Entity settings are shown with a finding when captured.</p>}

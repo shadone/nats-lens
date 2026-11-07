@@ -42,7 +42,7 @@
 .tbl td.odd{color:var(--sev-warning);font-weight:600}
 .tbl td.odd small{font-weight:400;color:inherit}
 .fd-around .evlist{margin-top:0}
-.tbl tbody th[scope="row"]{font:12px var(--mono);letter-spacing:0;text-transform:none;color:var(--text);padding:9px 12px;border-bottom:0;border-top:1px solid var(--border-soft);text-align:left;white-space:nowrap;vertical-align:baseline}
+.tbl tbody th[scope="row"]{font:12px var(--mono);color:var(--text);padding:9px 12px;border-bottom:0;border-top:1px solid var(--border-soft);text-align:left;white-space:nowrap;vertical-align:baseline}
 .tbl tbody tr:first-child th[scope="row"]{border-top:0}
 .odd-mark{font-size:9px;vertical-align:1px}
 .fd-around p.pager{margin:0}

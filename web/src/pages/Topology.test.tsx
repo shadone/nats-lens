@@ -103,7 +103,7 @@ describe("Topology", () => {
     expect(rows).toHaveLength(3);
     expect(rows[0]).toHaveClass("warn");
     expect(within(rows[0]).getByRole("rowheader")).toHaveTextContent("nats-eu-0 → nats-eu-3");
-    expect(within(rows[0]).getAllByRole("cell")[0]).toHaveTextContent("4.1 msslow");
+    expect(within(rows[0]).getAllByRole("cell")[0]).toHaveTextContent("4.1 msSlow");
     expect(rows[1]).not.toHaveClass("warn");
     expect(within(rows[1]).getAllByRole("cell")[3]).toHaveTextContent("APP");
   });

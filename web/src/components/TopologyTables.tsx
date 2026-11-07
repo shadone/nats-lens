@@ -212,7 +212,7 @@ export function RouteTable({
                     </th>
                     <td className={`mono${r.slow ? " tp-warn" : ""}`}>
                       <Num v={r.rttMs} fmt={fmtShortDuration} />
-                      {r.slow && <span className="tp-tag">slow</span>}
+                      {r.slow && <span className="tp-tag">Slow</span>}
                     </td>
                     <td className="mono">
                       <Num v={r.pendingBytes} fmt={fmtBytes} />

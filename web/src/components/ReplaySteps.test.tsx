@@ -64,7 +64,7 @@ describe("ReplaySteps", () => {
     const { container } = renderApp(<ReplaySteps steps={[st]} moments={M} notes={[]} />);
     const ev = within(container.querySelector('[data-step="restart:9"] .rp-ev') as HTMLElement);
     const lines = [...(container.querySelector('[data-step="restart:9"] .rp-ev') as HTMLElement).children].map((li) => li.querySelector("summary")?.textContent ?? li.textContent);
-    expect(lines).toEqual(["event pod nats-1 Killing", "events 3 leader elections on nats-0", "event media-windows -> nats-2 (term 44)", "and 20 more"]);
+    expect(lines).toEqual(["Event pod nats-1 Killing", "Events 3 leader elections on nats-0", "Event media-windows -> nats-2 (term 44)", "and 20 more"]);
     expect(ev.getByRole("link", { name: "order-archive -> nats-0 (term 43)" })).toHaveAttribute("href", "/events?id=3");
   });
 
@@ -79,7 +79,7 @@ describe("ReplaySteps", () => {
       evidenceCount: 2,
     });
     const { container } = renderApp(<ReplaySteps steps={[st]} moments={M} notes={[]} />);
-    expect(container.querySelector('[data-step="leaders:9"] .rp-ev summary')).toHaveTextContent("events 2 leader elections on nats-0");
+    expect(container.querySelector('[data-step="leaders:9"] .rp-ev summary')).toHaveTextContent("Events 2 leader elections on nats-0");
   });
 
   it("counts in \"more\" only the other records left out, and says how many of a leader's elections are listed", () => {
@@ -101,11 +101,11 @@ describe("ReplaySteps", () => {
     const { container } = renderApp(<ReplaySteps steps={[st]} moments={M} notes={[]} />);
     const lines = [...(container.querySelector('[data-step="restart:8"] .rp-ev') as HTMLElement).children].map((li) => li.querySelector("summary")?.textContent ?? li.textContent);
     expect(lines).toEqual([
-      "event pod nats-0 Killing",
-      "events 11 leader elections on nats-1 (6 of 11 listed)",
-      "events 4 leader elections on nats-2 (2 of 4 listed)",
-      "collection collection of 09:21:00",
-      "events 3 leader elections on nats-3, none listed",
+      "Event pod nats-0 Killing",
+      "Events 11 leader elections on nats-1 (6 of 11 listed)",
+      "Events 4 leader elections on nats-2 (2 of 4 listed)",
+      "Collection collection of 09:21:00",
+      "Events 3 leader elections on nats-3, none listed",
       "and 2 more",
     ]);
   });
@@ -115,7 +115,7 @@ describe("ReplaySteps", () => {
     const st = rstep("leaders:m", "09:20:00", { kind: "leaders", meta: true, title: "Meta leader elected 3 times, last on nats-0", evidence: [el("1", "nats-0"), el("2", "nats-1"), el("3", "nats-0")], evidenceCount: 3, leadersTaken: [{ leader: "nats-0", count: 2 }, { leader: "nats-1", count: 1 }] });
     const { container } = renderApp(<ReplaySteps steps={[st]} moments={M} notes={[]} />);
     const lines = [...(container.querySelector('[data-step="leaders:m"] .rp-ev') as HTMLElement).children].map((li) => li.textContent);
-    expect(lines).toEqual(["event meta leader nats-0 (term 1)", "event meta leader nats-1 (term 2)", "event meta leader nats-0 (term 3)"]);
+    expect(lines).toEqual(["Event meta leader nats-0 (term 1)", "Event meta leader nats-1 (term 2)", "Event meta leader nats-0 (term 3)"]);
   });
 
   it("counts the step's elections on a leader beyond the evidence it carries", () => {
@@ -128,7 +128,7 @@ describe("ReplaySteps", () => {
     });
     const { container } = renderApp(<ReplaySteps steps={[st]} moments={M} notes={[]} />);
     const summary = container.querySelector('[data-step="restart:7"] .rp-ev summary')!;
-    expect(summary).toHaveTextContent("events 22 leader elections on nats-0");
+    expect(summary).toHaveTextContent("Events 22 leader elections on nats-0");
     expect(within(summary.closest("details")!).getAllByRole("link").map((a) => a.textContent)).toEqual(["order-jobs -> nats-0 (term 4)"]);
   });
 

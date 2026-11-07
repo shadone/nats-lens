@@ -13,7 +13,7 @@ import { usePager } from "../components/EntityParts";
 import { EventFacets, SOURCES } from "../components/EventFacets";
 import { EventHistogram } from "../components/EventHistogram";
 import { EventRow } from "../components/EventRow";
-import { fmtInt } from "../lib/format";
+import { fmtInt, upperFirst } from "../lib/format";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useSystem } from "../lib/useSystem";
 import { rangeKey, rangeLabel, type RangeSpec } from "../lib/timeRange";
@@ -234,7 +234,7 @@ export function Events() {
         </form>
         {entity && entity.kind !== "server" && (
           <span className="grp">
-            <span className="lbl">{entity.kind}</span>
+            <span className="lbl">{upperFirst(entity.kind)}</span>
             <span className="mono" title={entity.key}>{entityKeyLabel(entity)}</span>
             <button type="button" className="chip" onClick={() => setServer("")}>
               Clear

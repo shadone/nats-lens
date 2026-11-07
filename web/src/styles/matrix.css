@@ -8,11 +8,11 @@
 .pm-cols{margin:0 0 8px;font-size:12.5px;color:var(--text-2);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .pm-side{flex:1 1 340px;min-width:0;position:sticky;top:70px}
 .tbl.pm th,.tbl.pm td{vertical-align:middle}
-.tbl.pm thead th{text-transform:none;letter-spacing:0;font:400 11.5px/1.3 var(--sans);color:var(--text-muted);min-width:150px}
+.tbl.pm thead th{font:400 11.5px/1.3 var(--sans);color:var(--text-muted);min-width:150px}
 .tbl.pm thead th .pm-sn{font:600 13px var(--mono);color:var(--text)}
 .tbl.pm thead th small{display:block;white-space:normal;margin-top:2px}
 .tbl.pm thead th.gone .pm-sn{color:var(--sev-critical)}
-.tbl.pm thead th.pm-asset{font:600 10px/1.2 var(--sans);letter-spacing:.1em;text-transform:uppercase;min-width:0}
+.tbl.pm thead th.pm-asset{font:600 10px/1.2 var(--sans);min-width:0}
 .tbl.pm td{padding:5px 8px}
 /* The asset column stays put while the servers scroll past. */
 .tbl.pm .pm-asset{position:sticky;left:0;z-index:1;background:var(--surface);text-align:left;white-space:normal;font-weight:400;min-width:180px;max-width:260px;padding:8px 12px;border-right:1px solid var(--border-soft)}

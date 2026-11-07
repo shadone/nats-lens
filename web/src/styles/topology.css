@@ -58,7 +58,7 @@ span.tm-name:hover{text-decoration:none}
 .tp-card .table-wrap{padding:0 8px}
 .tp-pick{display:flex;gap:8px;align-items:center}
 .tp-warn{color:var(--sev-warning);font-weight:600}
-.tp-tag{display:inline-block;margin-left:6px;font:600 10px/1 var(--sans);letter-spacing:.06em;text-transform:uppercase;padding:3px 5px;border-radius:4px;background:var(--sev-warning-bg);color:var(--sev-warning);border:1px solid var(--tp-warn-line)}
+.tp-tag{display:inline-block;margin-left:6px;font:600 10px/1 var(--sans);padding:3px 5px;border-radius:4px;background:var(--sev-warning-bg);color:var(--sev-warning);border:1px solid var(--tp-warn-line)}
 .tp-none{color:var(--text-muted)}
 .tp-foot{margin:0;padding:10px 20px 14px;font-size:12px;color:var(--text-muted)}
 .tp-card .table-wrap + .tp-foot{border-top:1px solid var(--border-soft)}
