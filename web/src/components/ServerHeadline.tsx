@@ -87,10 +87,10 @@ function Restarts({ servers, spec, start, end }: { servers: ServerRow[]; spec: R
       <div className="dp-v">
         <b>{all.length}</b>
       </div>
-      <svg className="dp-strip" viewBox="0 0 240 22" preserveAspectRatio="none" role="img" aria-label={all.length ? `Restarts at ${all.map((r) => `${hm(r.t)} UTC on ${r.name}`).join(", ")}` : "No restarts"}>
-        <line x1="0" y1="21" x2="240" y2="21" className="dp-axis" vectorEffect="non-scaling-stroke" />
+      <svg className="dp-strip" viewBox="0 0 240 24" preserveAspectRatio="none" role="img" aria-label={all.length ? `Restarts at ${all.map((r) => `${hm(r.t)} UTC on ${r.name}`).join(", ")}` : "No restarts"}>
+        <line x1="0" y1="23" x2="240" y2="23" className="dp-axis" vectorEffect="non-scaling-stroke" />
         {all.map((r) => (
-          <rect key={r.name + r.t} x={Math.min(237, Math.max(0, ((r.t - start) / span) * 240)).toFixed(1)} y="4" width="3" height="17" className="dp-tick" />
+          <rect key={r.name + r.t} x={Math.min(237, Math.max(0, ((r.t - start) / span) * 240)).toFixed(1)} y="6" width="3" height="17" className="dp-tick" />
         ))}
       </svg>
       <div className="dp-n">{who.length ? names(who) : "none"}</div>
@@ -143,11 +143,11 @@ function SlowConsumers({ servers, spec }: { servers: ServerRow[]; spec: RangeSpe
       <div className="dp-v">
         <b className={total > 0 ? "warn" : undefined}>{known.length ? fmtInt(total) : "–"}</b>
       </div>
-      <svg className="dp-strip" viewBox="0 0 240 22" preserveAspectRatio="none" role="img" aria-label={`Slow-consumer detections per ${pts.length ? "bucket" : "range"}, peak ${pts.length ? fmtInt(Math.max(...pts.map((p) => p.value))) : "none"}`}>
-        <line x1="0" y1="21" x2="240" y2="21" className="dp-axis" vectorEffect="non-scaling-stroke" />
+      <svg className="dp-strip" viewBox="0 0 240 24" preserveAspectRatio="none" role="img" aria-label={`Slow-consumer detections per ${pts.length ? "bucket" : "range"}, peak ${pts.length ? fmtInt(Math.max(...pts.map((p) => p.value))) : "none"}`}>
+        <line x1="0" y1="23" x2="240" y2="23" className="dp-axis" vectorEffect="non-scaling-stroke" />
         {pts.map((p, i) => {
           const h = p.value > 0 ? 2 + (p.value / peak) * 18 : 0;
-          return h ? <rect key={p.time} x={(i * w).toFixed(1)} y={(21 - h).toFixed(1)} width={Math.max(1, w - 2).toFixed(1)} height={h.toFixed(1)} className="dp-bar" /> : null;
+          return h ? <rect key={p.time} x={(i * w).toFixed(1)} y={(23 - h).toFixed(1)} width={Math.max(1, w - 2).toFixed(1)} height={h.toFixed(1)} className="dp-bar" /> : null;
         })}
       </svg>
       <p className="dp-n">Server slow-consumer counter increases during the selected range. Covers clients, routes, gateways and leaf connections; retries can count without a disconnect. Not unique clients or JetStream pending messages. For JetStream backlog, see <RLink to="/consumers">Consumers</RLink>.</p>
