@@ -20,7 +20,7 @@
 .mb-track{position:relative;height:4px;background:var(--track);border-radius:var(--r-xs)}
 .mb-dot{position:absolute;top:-3px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:var(--accent);border:2px solid var(--surface)}
 .mb-dot.st-critical{background:var(--sev-critical)}
-.mb-dot.st-warning{background:var(--cell-warning)}
+.mb-dot.st-warning{background:var(--mark-warning)}
 .mb-dot.st-info{background:var(--sev-info)}
 .mb-ends{display:flex;justify-content:space-between;gap:var(--sp-2);white-space:nowrap;font:var(--fs-xs) var(--mono);color:var(--text-muted);margin-top:var(--sp-1)}
 .mb-track-note{container-type:inline-size;margin-top:var(--sp-2);font:var(--fs-xs) var(--mono);color:var(--text-muted)}
