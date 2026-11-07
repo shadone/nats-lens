@@ -70,7 +70,7 @@
    margin and gap; heights and offsets use multiples of 4 directly. A 2px step
    stays allowed inside small controls (badges, pills, chips, keycaps), and a
    value that exactly centres something may stay off the grid.
-   Radius: xs for marks under 12px, sm for badges, tags and keycaps, md for
+   Radius: xs for marks of 12px or less, sm for badges, tags and keycaps, md for
    controls, rows and inner boxes, lg for cards, panels and dialogs; pill only
    for count badges. A box inside a rounded box takes the outer radius minus
    the padding between them, never below sm. Proposed in the UI polish, not yet
