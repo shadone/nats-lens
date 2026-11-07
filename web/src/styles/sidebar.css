@@ -53,10 +53,11 @@
   .side.collapsed .menu{right:auto;min-width:220px}
   .side.collapsed .side-grp + .side-grp{border-top:1px solid var(--border);margin-top:8px;padding-top:8px}
   .side.collapsed .side-nav a{position:relative;justify-content:center;padding:9px 0}
-  /* An 8px severity mark, shaped like the badge, centred on the icon's top right
-     corner: the icon is 18px wide, centred, and starts 9px down the row. The count
+  /* A 10px severity mark with a 2px border, shaped like the badge, centred on the
+     icon's top right corner: the icon is 18px wide, centred, and starts 9px down
+     the row; whole pixels keep dashes and dots readable. The count
      stays in the title and the accessible name. */
-  .side.collapsed .nb{position:absolute;top:5px;left:calc(50% + 5px);width:8px;height:8px;min-width:0;padding:0;border-radius:50%}
+  .side.collapsed .nb{position:absolute;top:4px;left:calc(50% + 4px);width:10px;height:10px;min-width:0;padding:0;border-width:2px;border-radius:50%}
   .side.collapsed .nb-n{display:none}
   .side.collapsed .side-collapse{justify-content:center;padding:8px 0}
 }
