@@ -21,7 +21,7 @@
 .mb-dot.st-critical{background:var(--sev-critical)}
 .mb-dot.st-warning{background:var(--cell-warning)}
 .mb-dot.st-info{background:var(--sev-info)}
-.mb-ends{display:flex;justify-content:space-between;white-space:nowrap;font:var(--fs-xs) var(--mono);color:var(--text-muted);margin-top:5px}
+.mb-ends{display:flex;justify-content:space-between;gap:8px;white-space:nowrap;font:var(--fs-xs) var(--mono);color:var(--text-muted);margin-top:5px}
 .mb-track-note{margin-top:9px;font:var(--fs-xs) var(--mono);color:var(--text-muted)}
 .mb-track-note:empty{display:none}
 .mb-note{margin-top:4px;font-size:var(--fs-sm);color:var(--text-muted)}

@@ -113,16 +113,27 @@ interface StatusProps {
   children?: ReactNode;
   /** Keep the children's width, hidden under the text, so a wrapping row wraps the same. */
   keep?: boolean;
+  /** A row shared with other data: the short text, hidden where it has no room. */
+  compact?: boolean;
+  /**
+   * The children claim what the gaps could disprove, such as "steady": they
+   * are replaced while the read fails too. Other rows keep their data then,
+   * and the page says once that gaps are not marked.
+   */
+  claim?: boolean;
 }
-function QueriedStatus({ start, end, children, keep }: StatusProps) {
+function QueriedStatus({ start, end, children, keep, compact, claim }: StatusProps) {
   const { spec } = useTimeRange();
   const h = usePageHistory();
   const q = useDataHistory(chartRange(spec, start, end), h?.gapServer);
-  if (!q.error && !q.isPending) return <>{children}</>;
-  const text = <span className="dh-chart-status">{q.error ? "History gaps unavailable" : "History gaps loading"}</span>;
-  return keep ? <span className="dh-status-in"><span className="dh-status-keep" aria-hidden="true">{children}</span>{text}</span> : text;
+  const failed = !!q.error;
+  if (!(q.isPending && !failed) && !(failed && claim)) return <>{children}</>;
+  const words = compact ? (failed ? "Gaps unavailable" : "Gaps loading") : failed ? "History gaps unavailable" : "History gaps loading";
+  const text = <span className="dh-chart-status">{words}</span>;
+  if (keep) return <span className="dh-status-in"><span className="dh-status-keep" aria-hidden="true">{children}</span>{text}</span>;
+  return compact ? <span className="dh-chart-slot">{text}</span> : text;
 }
-/** The chart's own history read, loading or failed, as text in place of
+/** The chart's own history read, while it loads, as text in place of
  * `children`: a row the chart already has, so the card keeps its height. SVG
  * text in a stretched chart would scale with the drawing. It is not a live
  * region; the page announces the state once. */
