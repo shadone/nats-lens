@@ -10,6 +10,8 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 
 ## Behavior and rules
 
+- **Bucket links.** KV and object-store links open dedicated bucket routes across resource surfaces. Legacy storage-stream links redirect to the bucket page with their query context; an explicitly labeled secondary action retains access to low-level stream diagnostics. See [KV and object stores](kv-and-object-stores.md).
+
 - **Replay entry links.** Overview observed windows and finding details open [Replay](replay.md) with explicit A/B and a fixed range, retaining the system and using the shared account policy (Replay is system-wide). Links support keyboard and native modified-click navigation.
 
 - **Phone finding links.** The [phone finding card](mobile.md) uses the same finding URL as desktop. Alert-label links resolve query parameters into that URL.

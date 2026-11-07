@@ -23,7 +23,8 @@ KV Stores and Object Stores are pages of their own, which name and describe buck
 - **A dash, never 0.** A number nats-lens did not observe shows as "–".
 - **Narrow screens.** The table scrolls sideways inside its card, with a shadow at each edge where it is cut; descriptions wrap and the placement squares stay on one line, so placement shows without scrolling.
 - **Account scope.** Both pages apply the account scope chosen in the header.
-- **Links.** A present bucket's name opens the stream page of `KV_<bucket>` or `OBJ_<bucket>`.
+- **Bucket details.** A present bucket opens its own KV or object-store detail route, named by bucket and account, with the corresponding sidebar and breadcrumb. Storage bytes and trends, replica reports, configuration, findings and events use the same stored evidence as the underlying stream. KV details show reported history per key and TTL; absent configuration remains unknown. Stored records include revisions and deletion markers; object-store messages include chunks and metadata, not an object count. Watchers are observed consumers, not a count of clients reading keys.
+- **Consistent navigation.** Search, Capacity, Placement, findings, events and other resource links use bucket routes and readable bucket names. System and time context follow the link; bucket detail routes also preserve account context. Existing `KV_` and `OBJ_` stream links redirect to the resource page. A secondary “Underlying stream diagnostics” action opens the explicit low-level stream view; raw storage names are not needed for the primary workflow.
 
 ## Scenarios
 
@@ -55,12 +56,20 @@ KV Stores and Object Stores are pages of their own, which name and describe buck
 - **When** I click Bytes
 - **Then** the largest bucket comes first and the missing bucket last, and a second click puts the smallest present bucket first
 
-### Open a bucket's stream
+### Open a bucket detail
 
 - **Surfaces:** `ui`
 - **Given** Object Stores lists `image-output`
 - **When** I click its name
-- **Then** the stream page of `OBJ_image-output` opens on the same system and range
+- **Then** the object-store page named `image-output` opens on the same system and range, with Object Stores in its breadcrumb
+
+### Follow an existing storage-stream link
+
+- **Surfaces:** `ui`
+- **Given** an existing link names stream `KV_customer-info` in account APP
+- **When** I open the link
+- **Then** it redirects to the KV bucket `customer-info`, preserving the system and range
+- **And** the secondary diagnostics action can still open the underlying stream explicitly
 
 ### List buckets from the API
 
@@ -72,5 +81,4 @@ KV Stores and Object Stores are pages of their own, which name and describe buck
 ## Not supported / out of scope
 
 - **No keys or values.** nats-lens does not read the keys, values or objects in a bucket, so it cannot count live keys or objects.
-- **No bucket page.** A bucket opens its stream's page; there is no page of the bucket's own.
 - **No expected settings for a missing bucket.** A missing bucket shows no replicas or limits, even when the inventory gives them; its finding names them.

@@ -6,7 +6,7 @@ import { LEVEL_ORDER, streamPath } from "../lib/view";
 import { AccountName } from "./AccountName";
 import { Dash, Num, RLink } from "./common";
 
-/** The bucket's name, linked to its stream while a server reports it. */
+/** The bucket's name, linked to its resource page while a server reports it. */
 export function BucketName({ b, label }: { b: Bucket; label: (id: string, name?: string) => string }) {
   const e = b.entity;
   return (

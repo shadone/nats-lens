@@ -6,7 +6,7 @@ import { createContext, useContext } from "react";
 import type { Entity, Finding } from "../api/model";
 import { fmtDuration, isoDate, isoMinute, shortWhen } from "../lib/format";
 import { muteBy, reviewOn, sentence } from "../lib/muteView";
-import { accountLabel, entityName, entityPath, findingPath, findingTag, streamPath } from "../lib/view";
+import { streamLabel, accountLabel, entityName, entityPath, findingPath, findingTag, streamPath } from "../lib/view";
 import { RLink } from "./common";
 import { AcceptedTag, Sev, StateTag } from "./Severity";
 
@@ -25,7 +25,7 @@ export function EntityLine({ e, small, label }: { e?: Entity; small?: boolean; l
   const on = small ? <small>on</small> : <span>on stream</span>;
   return (
     <>
-      {main} {on} <RLink to={streamPath(e.account, e.stream)}>{e.stream}</RLink>
+      {main} {on} <RLink to={streamPath(e.account, e.stream)}>{streamLabel(e.stream)}</RLink>
     </>
   );
 }

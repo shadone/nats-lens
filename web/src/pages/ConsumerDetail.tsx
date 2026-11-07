@@ -10,7 +10,7 @@ import { HealthIcon } from "../components/Severity";
 import { fmtDuration, isoMinute } from "../lib/format";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
-import { serverPath, streamPath, withAccountName } from "../lib/view";
+import { streamLabel, serverPath, streamPath, withAccountName } from "../lib/view";
 
 const SERIES: [string, string][] = [
   ["consumer.num_pending", "Pending"],
@@ -41,7 +41,7 @@ export function ConsumerDetail() {
       <nav className="crumbs" aria-label="Breadcrumb">
         <RLink to="/consumers">Consumers</RLink>
         <span aria-hidden="true">/</span>
-        <RLink to={streamPath(account, stream)}>{stream}</RLink>
+        <RLink to={streamPath(account, stream)}>{streamLabel(stream)}</RLink>
       </nav>
       <QueryView q={q} what="the consumer">
         {(d) => {
@@ -53,7 +53,7 @@ export function ConsumerDetail() {
                 <HealthIcon level={c.status} />
                 <h1 className="mono">{name}</h1>
                 <span className="aside">
-                  on <RLink to={streamPath(account, stream)}>{stream}</RLink>, {c.durable ? "durable" : "ephemeral"}, R{c.replicas ?? "–"}
+                  on <RLink to={streamPath(account, stream)}>{streamLabel(stream)}</RLink>, {c.durable ? "durable" : "ephemeral"}, R{c.replicas ?? "–"}
                   {c.paused && ", paused"}
                   {c.serversDisagree && ", servers disagree"}
                 </span>
