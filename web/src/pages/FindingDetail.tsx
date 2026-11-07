@@ -20,7 +20,7 @@ import { EntityLine } from "../components/FindingParts";
 import { MuteDialog, UnmuteDialog } from "../components/MuteDialog";
 import { Sev, StateTag } from "../components/Severity";
 import { StatusTimeline } from "../components/StatusTimeline";
-import { fmtDuration, fmtGrowth, isoMinute, isoSecond } from "../lib/format";
+import { fmtDuration, fmtGrowth, isoMinute, isoSecond, upperFirst } from "../lib/format";
 import { baselineText, muteBy, reviewOn, sentence } from "../lib/muteView";
 import { writeRange, type RangeSpec } from "../lib/timeRange";
 import { usePageTitle } from "../lib/usePageTitle";
@@ -102,7 +102,7 @@ function Head({ f, spec, start, end, onMute, onUnmute, onAck }: { f: Finding; sp
         </div>
         {f.value && (
           <div>
-            <span className="lbl">{f.value.name}</span>
+            <span className="lbl">{upperFirst(f.value.name)}</span>
             <span className="v">{f.value.display}</span>
           </div>
         )}
