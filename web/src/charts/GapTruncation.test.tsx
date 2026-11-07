@@ -4,6 +4,8 @@ import { renderApp } from "../test/render";
 import { HistoryContext } from "../components/HistoryNote";
 import { SeriesChart } from "./SeriesChart";
 import { TrendChart } from "../components/TrendChart";
+import { MetricBox } from "../components/MetricBox";
+import type { Series } from "../api/model";
 import * as api from "../api/requests";
 import { NOW, gap, staging } from "../test/fixtures/history";
 vi.mock("../api/requests",()=>({getDataHistory:vi.fn()}));
@@ -57,9 +59,20 @@ it.each([false,true])("tells the reader history gaps are loading in HTML text ou
  expect(screen.queryByRole("status")).toBeNull();
  expect(status.closest("svg")).toBeNull();
  expect(status.namespaceURI).toBe("http://www.w3.org/1999/xhtml");
+ // In a row the chart already has, so the card keeps its height while it shows.
+ expect(status.closest(trend?".tc-f":".chart-f")).not.toBeNull();
  answer({...staging(),rangeStart:NOW-H,rangeEnd:NOW,gaps:[]});
  await waitFor(()=>expect(screen.queryByText("History gaps loading")).not.toBeInTheDocument());
  // beforeEach returns the mock, and Vitest calls it after the test as a teardown.
+ read.mockReset();
+ r.unmount();
+});
+it.each([[[1,3,2],".mb-ends"],[[2,2,2],".mb-track-note"]] as const)("shows a tile's history status in its track row, not a new line (%j)",async(values,row)=>{
+ read.mockImplementation(()=>new Promise(()=>{}));
+ const series:Series={metric:"m",unit:"count",stepMs:H/2,points:values.map((value,i)=>({time:NOW-H+i*H/2,value})),min:Math.min(...values),max:Math.max(...values)};
+ const r=renderApp(<HistoryContext.Provider value={{start:NOW-H,end:NOW,live:true}}><MetricBox title="Streams" description="d" fmt={String} series={series} start={NOW-H} end={NOW}/></HistoryContext.Provider>,"/?range=1h");
+ const status=await screen.findByText("History gaps loading");
+ expect(status.closest(row)).not.toBeNull();
  read.mockReset();
  r.unmount();
 });

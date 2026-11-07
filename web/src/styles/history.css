@@ -59,7 +59,11 @@
 .dh-gap-line{stroke:var(--text-muted);stroke-width:1}
 .dh-chart-gap{opacity:.65}
 
-.dh-chart-status{margin:4px 0 0;font-size:var(--fs-xs);color:var(--text-muted)}
+/* Stands in for part of a row the chart already has, so it never adds a line. */
+.dh-chart-status{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--sans);color:var(--text-muted)}
+.dh-status-in{position:relative;min-width:0}
+.dh-status-keep{visibility:hidden}
+.dh-status-in > .dh-chart-status{position:absolute;left:0;top:0;max-width:100%}
 
 .dh-chart-server-gap{opacity:.85;stroke:var(--sev-warning);stroke-width:.6}
 

@@ -17,6 +17,7 @@ import { useId, useState, type ReactNode } from "react";
 import type { Level, Series, Window } from "../api/model";
 import { rangeText } from "../charts/chartLabel";
 import { Sparkline } from "../charts/Sparkline";
+import { ChartHistoryStatus } from "../charts/HistoryGaps";
 import { dayMonHm, hm } from "../lib/format";
 import { isTrouble } from "../lib/view";
 
@@ -139,6 +140,7 @@ export function RangeTrack({
   period,
   since,
   noCurrent = false,
+  history,
 }: {
   title: string;
   min?: number;
@@ -150,13 +152,16 @@ export function RangeTrack({
   /** "since 14:30 UTC" when the series begins after the window does. */
   since?: string;
   noCurrent?: boolean;
+  /** The chart's domain, when the box draws one: its history status then shows in this row. */
+  history?: { start: number; end: number };
 }) {
+  const inRow = (text: ReactNode) => (history ? <ChartHistoryStatus start={history.start} end={history.end}>{text}</ChartHistoryStatus> : text);
   if (min === undefined || max === undefined) return null;
   if (min === max) {
     // Without a current value a steady window says so, so a server that
     // stopped never reads as quietly steady.
     const over = since ?? (noCurrent ? "in the window" : "all window");
-    return <div className="mb-track-note">{noCurrent ? `steady at ${fmt(min)} ${over} · no current value` : `steady at ${fmt(min)} ${over}`}</div>;
+    return <div className="mb-track-note">{inRow(noCurrent ? `steady at ${fmt(min)} ${over} · no current value` : `steady at ${fmt(min)} ${over}`)}</div>;
   }
   const frac = value === undefined ? undefined : Math.min(1, Math.max(0, (value - min) / (max - min)));
   const where = value === undefined ? "no current value" : `current ${fmt(value)}${value > max ? ", above the window max" : value < min ? ", below the window min" : ""}`;
@@ -165,7 +170,7 @@ export function RangeTrack({
       <div className="mb-track">{frac !== undefined && <span className={`mb-dot${stateClass(status)}`} style={{ left: `${+(frac * 100).toFixed(1)}%` }} />}</div>
       <div className="mb-ends" aria-hidden="true">
         <span>{fmt(min)}</span>
-        {since && <span className="mb-since">{since}</span>}
+        {inRow(since && <span className="mb-since">{since}</span>)}
         <span>{fmt(max)}</span>
       </div>
     </div>
@@ -187,6 +192,8 @@ export function MetricBox(p: MetricBoxProps) {
   const first = seriesSince(p.series, p.start);
   const since = first === undefined ? undefined : sinceText(first, p.end);
   const chart = p.chart ?? true;
+  // Whether a chart is drawn, the only case with a history read of its own.
+  const drawn = chart && !(p.error && !p.series);
   return (
     <div className={`card mbox${alert}${p.to ? " chart-linked" : ""}${chart ? "" : " mb-quiet"}`}>
       <div className="mb-h">
@@ -224,8 +231,8 @@ export function MetricBox(p: MetricBoxProps) {
           tone={p.tone}
         />
       )}
-      {track && <RangeTrack title={p.title} min={min} max={max} value={value} fmt={p.fmt} status={status} period={period} since={since} noCurrent={p.value === null} />}
-      {track && !hasWindow && !p.error && !p.loading && <div className="mb-track-note">no data for the window</div>}
+      {track && <RangeTrack title={p.title} min={min} max={max} value={value} fmt={p.fmt} status={status} period={period} since={since} noCurrent={p.value === null} history={drawn ? { start: p.start, end: p.end } : undefined} />}
+      {track && !hasWindow && !p.error && !p.loading && <div className="mb-track-note">{drawn ? <ChartHistoryStatus start={p.start} end={p.end}>no data for the window</ChartHistoryStatus> : "no data for the window"}</div>}
       {track && hasWindow && p.value === null && min !== max && <div className="mb-track-note">no current value</div>}
       {p.note && <div className="mb-note">{p.note}</div>}
     </div>

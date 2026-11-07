@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import { useDataHistory } from "../api/queries";
 import { usePageHistory, type PageHistory } from "../components/HistoryNote";
 import { gapName, stripSegments } from "../lib/historyView";
@@ -107,17 +107,27 @@ export function ChartHistoryNotice({ start, end }: { start: number; end: number 
     ? <OmissionNotice facts={h} start={start} end={end} observedStart={h.start} observedEnd={h.end} />
     : <QueriedNotice start={start} end={end} />;
 }
-function QueriedStatus({ start, end }: { start: number; end: number }) {
+interface StatusProps {
+  start: number;
+  end: number;
+  children?: ReactNode;
+  /** Keep the children's width, hidden under the text, so a wrapping row wraps the same. */
+  keep?: boolean;
+}
+function QueriedStatus({ start, end, children, keep }: StatusProps) {
   const { spec } = useTimeRange();
   const h = usePageHistory();
   const q = useDataHistory(chartRange(spec, start, end), h?.gapServer);
-  return q.error || q.isPending ? <p className="dh-chart-status">{q.error ? "History gaps unavailable" : "History gaps loading"}</p> : null;
+  if (!q.error && !q.isPending) return <>{children}</>;
+  const text = <span className="dh-chart-status">{q.error ? "History gaps unavailable" : "History gaps loading"}</span>;
+  return keep ? <span className="dh-status-in"><span className="dh-status-keep" aria-hidden="true">{children}</span>{text}</span> : text;
 }
-/** The chart's own history read, loading or failed, as a line of HTML under
- * the chart: SVG text in a stretched chart would scale with the drawing. It is
- * not a live region; one per chart would announce the same state many times. */
-export function ChartHistoryStatus({ start, end }: { start: number; end: number }) {
+/** The chart's own history read, loading or failed, as text in place of
+ * `children`: a row the chart already has, so the card keeps its height. SVG
+ * text in a stretched chart would scale with the drawing. It is not a live
+ * region; the page announces the state once. */
+export function ChartHistoryStatus(props: StatusProps) {
   const h = usePageHistory();
-  if (!h || pageGapsApply(h, start, end)) return null;
-  return <QueriedStatus start={start} end={end} />;
+  if (!h || pageGapsApply(h, props.start, props.end)) return <>{props.children}</>;
+  return <QueriedStatus {...props} />;
 }

@@ -142,10 +142,10 @@ export function TrendChart({ title, to, bucketNote, fmt = String, now, summary, 
         </svg>
         </ChartInspection>
       )}
-      <ChartHistoryStatus start={start} end={end} />
       <ChartHistoryNotice start={start} end={end} />
       <div className="tc-f mono" aria-hidden="true">
         <span>{dayMonHm(start)}</span>
+        <ChartHistoryStatus start={start} end={end} />
         <span>{dayMonHm(end)}</span>
       </div>
       <div className="tc-lg">
