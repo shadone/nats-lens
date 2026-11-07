@@ -6,6 +6,7 @@ import { Code, ConnectError } from "@connectrpc/connect";
 import { Fragment } from "react";
 import type { CoreMatch, StreamMatch, SubjectMatches } from "../api/subjects";
 import { coreParts, invalidReason, JETSTREAM_API_ANSWERS, NOTHING_NOT_COLLECTED, NOTHING_REACHED, reachesNothing, readers } from "../lib/subjectsView";
+import { upperFirst } from "../lib/format";
 import { consumerPath, streamPath } from "../lib/view";
 import { AccountName } from "./AccountName";
 import { errorText, RLink } from "./common";
@@ -77,7 +78,7 @@ function StreamReach({ s }: { s: StreamMatch }) {
         </span>
       </span>
       <span className={`sj-chip${r.warn ? " sj-chip-warn" : ""}`}>
-        <span className="sj-k">{r.label}</span>
+        <span className="sj-k">{upperFirst(r.label)}</span>
         {read && (
           <>
             {" "}

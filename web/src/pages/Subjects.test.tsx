@@ -249,7 +249,7 @@ describe("Subjects tester", () => {
     expect(app.getByRole("link", { name: "order-archive" })).toBeInTheDocument();
     expect(app.getByText(/^Core subscribers/).parentElement).toHaveTextContent("Core subscribers none");
     const shop = within(card.getByRole("group", { name: "Published in SHOP" }));
-    expect(shop.getByText("no consumer reads it")).toBeInTheDocument();
+    expect(shop.getByText("No consumer reads it")).toBeInTheDocument();
     expect(shop.getByText(/^Core subscribers/).parentElement).toHaveTextContent("Core subscribers 1 connection (ops-monitor) via >");
     // The first letter is asked at once, then only the whole subject.
     const asked = matchSubject.mock.calls.map((c) => c[3]);
@@ -355,12 +355,12 @@ describe("Subjects tester", () => {
     await card.findByRole("link", { name: "KV_flags" });
     const chips = [...container.querySelectorAll(".sj-reach .sj-chip:not(.sj-chip-stream)")].map((c) => [c.textContent, c.classList.contains("sj-chip-warn")]);
     expect(chips).toEqual([
-      ["then read by 22 watchers", false],
-      ["no watcher", false],
-      ["no consumer", false],
-      ["no consumer", false],
+      ["Then read by 22 watchers", false],
+      ["No watcher", false],
+      ["No consumer", false],
+      ["No consumer", false],
       ["Mirror order-archive", false],
-      ["no consumer reads it", true],
+      ["No consumer reads it", true],
       ["Core subscribers none", false],
     ]);
   });
