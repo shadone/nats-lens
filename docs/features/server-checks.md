@@ -245,7 +245,7 @@ The system identity, warning severity, two-collection absence, three-drop hour, 
 
 ### `server-028` Raft node remains a candidate
 
-- **Fires when:** a local voting node which previously had a leader reports `CANDIDATE` with no leader throughout `grace`, across at least `min_epochs` eligible collections. The group may still have a leader from another peer's perspective. A never-led new group does not qualify.
+- **Fires when:** a local voting node which previously had a leader reports `CANDIDATE` with no leader throughout `grace`, across at least `min_epochs` eligible collections. The group may still have a leader from another peer's perspective. A never-led new group does not qualify. A reported empty leader confirms absence; an unknown leader resets the evidence, including in the current collection.
 - **Evidence:** up to five local groups, accounts and assets, current term and log indexes, and the start of the observed candidacy. The value counts qualifying local groups. A changing term is allowed but is not counted as successful elections.
 - **Eligibility and recovery:** the process, membership, asset incarnation, restart, unknown, gap and counter safeguards are the same as `server-027`. Returning to follower or leader, reporting a leader, or losing eligible evidence resets the run. Delayed entry and immediate release provide temporal hysteresis. This local symptom can accompany global quorum findings but does not independently assert quorum loss or identify an unreachable peer.
 - **Thresholds:** `grace` 2m, `min_epochs` 3, `max_gap` 90s and `lookback` 10m, proposed, not yet confirmed, along with warning severity.
@@ -379,7 +379,7 @@ These server checks are not built. Each line says what it would detect and what 
 - **When** its apply index remains stalled behind at least 1000 committed indexes, or it stays a candidate without a leader, for two minutes
 - **Then** the corresponding local warning names the group and observed indexes
 - **And** a catch-up, unknown observation, membership change, recreation or excessive gap resets the evidence without proving recovery
-- **Held by:** `TestRaftDiagnosticsSustained`, `TestRaftDiagnosticsBoundaries`, `TestRaftApplyProgressAndUnknown`, `TestRaftCandidateRecovery`
+- **Held by:** `TestRaftDiagnosticsSustained`, `TestRaftDiagnosticsBoundaries`, `TestRaftApplyProgressAndUnknown`, `TestRaftCandidateRecovery`, `TestRaftDiagnosticsLeaderEvidence`, `TestRaftDiagnosticsUnknownEligibility`
 
 ## Not supported / out of scope
 
