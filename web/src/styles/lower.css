@@ -24,7 +24,7 @@
 .ex .fhead{grid-column:1 / -1;display:flex;gap:var(--sp-2);align-items:center;flex-wrap:wrap;font-size:var(--fs-md)}
 .ex .fhead .mv{margin-left:auto;font:var(--fs-sm) var(--mono);color:var(--text-2)}
 .ex .fhead .mv b{font-weight:500;color:var(--sev-critical);margin-right:var(--sp-1)}
-.ex .box{border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);padding:var(--sp-3)}
+.ex .box{border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);padding:var(--sp-3)}
 .ex .box .lbl{margin-bottom:var(--sp-2);display:block}
 .ex .rem{color:var(--text);font-size:var(--fs-md);line-height:1.5}
 /* A remediation file's text follows the check's own after a "---" line. */
