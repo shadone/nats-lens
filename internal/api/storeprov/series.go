@@ -350,18 +350,15 @@ FROM per_epoch WHERE t >= ? AND t < ? AND v IS NOT NULL GROUP BY b ORDER BY b`
 			return nil, err
 		}
 		pt := &v1.Point{Time: ts(b.UTC()), Value: v}
-		low, high := v, v
 		if lo.Valid && hi.Valid {
 			pt.Low, pt.High = ptr(lo.Float64), ptr(hi.Float64)
-			// As for a band, min and max take in the bucket's edges.
-			low, high = lo.Float64, hi.Float64
 		}
 		out.Points = append(out.Points, pt)
-		if out.Min == nil || low < out.GetMin() {
-			out.Min = ptr(low)
+		if out.Min == nil || v < out.GetMin() {
+			out.Min = ptr(v)
 		}
-		if out.Max == nil || high > out.GetMax() {
-			out.Max = ptr(high)
+		if out.Max == nil || v > out.GetMax() {
+			out.Max = ptr(v)
 		}
 	}
 	return out, rows.Err()

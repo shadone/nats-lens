@@ -255,16 +255,11 @@ func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints 
 		}
 		v := sum / float64(n)
 		out.Points = append(out.Points, &v1.Point{Time: ts(b), Value: v, Low: lo, High: hi})
-		// As for a band, min and max take in a count bucket's edges.
-		low, high := v, v
-		if lo != nil && hi != nil {
-			low, high = *lo, *hi
+		if out.Min == nil || v < out.GetMin() {
+			out.Min = ptr(v)
 		}
-		if out.Min == nil || low < out.GetMin() {
-			out.Min = ptr(low)
-		}
-		if out.Max == nil || high > out.GetMax() {
-			out.Max = ptr(high)
+		if out.Max == nil || v > out.GetMax() {
+			out.Max = ptr(v)
 		}
 	}
 	return out
