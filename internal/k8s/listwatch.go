@@ -31,6 +31,8 @@ const (
 const (
 	minBackoff = time.Second
 	maxBackoff = time.Minute
+	// warnEvery bounds repeated failure logs per source, regardless of error changes.
+	warnEvery = time.Minute
 	// minWatchLife is the shortest life of a watch that ends without an
 	// error before it counts as a failure.
 	minWatchLife = time.Second
@@ -81,6 +83,9 @@ type loop struct {
 	notified     bool
 	lastErr      error
 	backoff      time.Duration
+	lastWarn     time.Time
+	retries      uint64
+	suppressed   uint64
 }
 
 func (l *loop) run(ctx context.Context) {
@@ -97,7 +102,6 @@ func (l *loop) run(ctx context.Context) {
 				l.fail(ctx, "list", err)
 				continue
 			}
-			l.recovered()
 			if !l.send(ctx, update{src: l.src, listed: items, isList: true, initial: initial}) {
 				return
 			}
@@ -113,19 +117,15 @@ func (l *loop) run(ctx context.Context) {
 			l.fail(ctx, "watch", err)
 			continue
 		}
-		// An open watch ends a failure: a quiet namespace may then send
-		// nothing for minutes, which is no gap.
-		l.recovered()
+		// Construction alone does not establish a healthy stream.
 		opened := l.watchClock.Now()
 		next, err := l.consume(ctx, w, rv)
 		w.Stop()
-		// A watch the server ends at once without an error (a proxy that
-		// closes it) would otherwise be reopened in a tight loop: it counts
-		// as a failure, and the next one opens a second after this one at
-		// the soonest. Its life is measured on the wall clock.
+		// An early clean EOF is indistinguishable from other premature
+		// closures here. Count it as a failure without guessing its cause.
+		// ASVS 13.2.6: all failed attempts use the bounded retry strategy.
 		if lived := l.watchClock.Since(opened); err == nil && ctx.Err() == nil && lived < minWatchLife {
-			err = fmt.Errorf("watch closed by the server after %s", lived.Round(time.Millisecond))
-			l.sleep(ctx, minWatchLife-lived)
+			err = errShortWatch
 		}
 		switch {
 		case ctx.Err() != nil:
@@ -146,10 +146,18 @@ func (l *loop) run(ctx context.Context) {
 // consume forwards the watch's events until it ends, and returns the
 // resource version to resume from.
 func (l *loop) consume(ctx context.Context, w watch.Interface, rv string) (string, error) {
+	// Recovery must also happen while a healthy, quiet watch remains open.
+	// ASVS 15.4.1: the loop owns both timer and failure state; no timer goroutine mutates it.
+	healthy := l.watchClock.NewTimer(minWatchLife)
+	defer healthy.Stop()
+	healthC := healthy.C()
 	for {
 		select {
 		case <-ctx.Done():
 			return rv, ctx.Err()
+		case <-healthC:
+			l.recovered()
+			healthC = nil
 		case ev, ok := <-w.ResultChan():
 			if !ok {
 				return rv, nil
@@ -158,6 +166,7 @@ func (l *loop) consume(ctx context.Context, w watch.Interface, rv string) (strin
 			case watch.Error:
 				return rv, apierrors.FromObject(ev.Object)
 			case watch.Bookmark:
+				l.recovered()
 				if a, err := meta.Accessor(ev.Object); err == nil && a.GetResourceVersion() != "" {
 					rv = a.GetResourceVersion()
 				}
@@ -218,12 +227,19 @@ func (l *loop) fail(ctx context.Context, op string, err error) {
 		l.failingSince = now
 	}
 	l.lastErr = err
-	l.log.Warn("kubernetes "+op+" failed", "source", l.src.name, "err", err, "retry_in", l.backoff)
+	l.retries++
+	if l.lastWarn.IsZero() || now.Sub(l.lastWarn) >= warnEvery {
+		l.log.Warn("kubernetes "+op+" failed", "source", l.src.name, "err", failureText(err), "retry_in", l.backoff, "retries", l.retries, "suppressed", l.suppressed)
+		l.lastWarn = now
+		l.suppressed = 0
+	} else {
+		l.suppressed++
+	}
 	if !l.notified && now.Sub(l.failingSince) >= l.gapAfter {
 		l.notified = true
-		l.record(collectorEvent(now, KindNotWatching, err.Error(),
-			fmt.Sprintf("kubernetes %s not watched since %s: %v", l.src.name, l.failingSince.UTC().Format(time.RFC3339), err),
-			map[string]any{"source": l.src.name, "since": l.failingSince.UTC(), "error": err.Error(), "status": statusCode(err)}))
+		l.record(collectorEvent(now, KindNotWatching, failureText(err),
+			fmt.Sprintf("kubernetes %s not watched since %s: %v", l.src.name, l.failingSince.UTC().Format(time.RFC3339), failureText(err)),
+			map[string]any{"source": l.src.name, "since": l.failingSince.UTC(), "error": failureText(err), "status": statusCode(err)}))
 	}
 	l.sleep(ctx, l.backoff)
 	l.backoff = min(2*l.backoff, maxBackoff)
@@ -239,21 +255,46 @@ func (l *loop) recovered() {
 	from := l.failingSince
 	l.failingSince = time.Time{}
 	notified := l.notified
+	l.log.Info("kubernetes watch restored", "source", l.src.name, "gap", now.Sub(from).Round(time.Second), "retries", l.retries, "suppressed", l.suppressed)
+	l.lastWarn = time.Time{}
+	l.retries, l.suppressed = 0, 0
+	lastErr := l.lastErr
+	l.lastErr = nil
 	l.notified = false
 	if !notified && now.Sub(from) < l.gapAfter {
 		return
 	}
 	gap := now.Sub(from).Round(time.Second)
 	msg := ""
-	if l.lastErr != nil {
-		msg = l.lastErr.Error()
+	if lastErr != nil {
+		msg = failureText(lastErr)
 	}
 	ev := collectorEvent(from, KindGap, msg,
 		fmt.Sprintf("kubernetes %s not watched for %s, from %s to %s", l.src.name, gap, from.UTC().Format(time.RFC3339), now.UTC().Format(time.RFC3339)),
 		map[string]any{"source": l.src.name, "from": from.UTC(), "to": now.UTC(), "seconds": int64(gap / time.Second), "error": msg})
 	ev.ReceivedAt = now.UTC()
 	l.record(ev)
-	l.log.Info("kubernetes watch restored", "source", l.src.name, "gap", gap)
+}
+
+// Error bodies can contain credentials, exec-plugin output, or unbounded server
+// messages. ASVS 16.2.5, 16.5.1: emit only locally controlled classifications
+// in logs and gap records.
+var errShortWatch = errors.New("watch stream closed before minimum lifetime")
+
+func failureText(err error) string {
+	if code := statusCode(err); code >= 100 && code <= 599 {
+		return fmt.Sprintf("Kubernetes API returned HTTP %d", code)
+	}
+	switch {
+	case errors.Is(err, errShortWatch):
+		return errShortWatch.Error()
+	case errors.Is(err, context.DeadlineExceeded):
+		return "request deadline exceeded"
+	case errors.Is(err, context.Canceled):
+		return "request canceled"
+	default:
+		return "Kubernetes request or stream failed"
+	}
 }
 
 func collectorEvent(at time.Time, kind, reason, summary string, raw map[string]any) events.Event {
