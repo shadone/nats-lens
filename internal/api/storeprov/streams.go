@@ -129,7 +129,7 @@ func (p *Provider) growthWidth(start, end time.Time) time.Duration {
 }
 
 // streamGrowth reads every stream's bytes in the range, reduced in SQL to
-// at most api.GrowthBuckets medians per stream, for api.RobustPerDay. Its
+// at most api.GrowthBuckets+1 aligned medians per stream, for api.RobustPerDay. Its
 // bytes medians are streamPoints' for the same range, without the messages
 // ListStreams does not read.
 func (p *Provider) streamGrowth(ctx context.Context, start, end time.Time, account, stream string) (map[string][]api.Sample, error) {
@@ -164,7 +164,7 @@ type streamPts struct{ bytes, msgs []api.Sample }
 
 // streamPoints reads every stream's bytes and messages in the range for
 // the Capacity page (the leader's report, else the largest any server
-// reports), reduced in SQL to at most api.GrowthBuckets medians per stream
+// reports), reduced in SQL to at most api.GrowthBuckets+1 aligned medians per stream
 // and keyed by account/stream: one query for every stream.
 func (p *Provider) streamPoints(ctx context.Context, start, end time.Time, account, stream string) (map[string]streamPts, error) {
 	// ASVS 1.2.4: the bounded timestamps remain query parameters.
