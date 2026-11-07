@@ -8,6 +8,8 @@
 // The track's ends are the series' own min and max, never widened to take
 // in the current value: a value outside them puts the dot at the nearer end
 // and the accessible name says it is above the window max or below its min.
+// The Overview passes a series whose min and max `edgeRange` has widened by
+// its count buckets' lows and highs.
 // Without a series there is no track; "steady at N all window" needs a
 // series whose min equals its max. A series that begins more than a bucket
 // and a half after the window's start says "since HH:MM UTC" in place of
@@ -75,6 +77,11 @@ export interface MetricBoxProps {
   seriesLabels?: [string, string];
   /** Whether to draw the chart; true by default. A box without one is compact. */
   chart?: boolean;
+  /**
+   * Without a chart, show the chart history's loading or failed status in
+   * the track's row, in place of "steady at N".
+   */
+  historyStatus?: boolean;
   /** The chart's colouring, as `Sparkline` takes it. */
   tone?: "status" | "change";
 }
@@ -231,7 +238,8 @@ export function MetricBox(p: MetricBoxProps) {
           tone={p.tone}
         />
       )}
-      {track && <RangeTrack title={p.title} min={min} max={max} value={value} fmt={p.fmt} status={status} period={period} since={since} noCurrent={p.value === null} history={drawn ? { start: p.start, end: p.end } : undefined} />}
+      {track && <RangeTrack title={p.title} min={min} max={max} value={value} fmt={p.fmt} status={status} period={period} since={since} noCurrent={p.value === null} history={drawn || p.historyStatus ? { start: p.start, end: p.end } : undefined} />}
+      {!track && !chart && p.historyStatus && <div className="mb-track-note"><ChartHistoryStatus start={p.start} end={p.end} /></div>}
       {track && !hasWindow && !p.error && !p.loading && <div className="mb-track-note">{drawn ? <ChartHistoryStatus start={p.start} end={p.end}>no data for the window</ChartHistoryStatus> : "no data for the window"}</div>}
       {track && hasWindow && p.value === null && min !== max && <div className="mb-track-note">no current value</div>}
       {p.note && <div className="mb-note">{p.note}</div>}

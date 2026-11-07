@@ -23,6 +23,7 @@
 .mb-dot.st-info{background:var(--sev-info)}
 .mb-ends{display:flex;justify-content:space-between;white-space:nowrap;font:var(--fs-xs) var(--mono);color:var(--text-muted);margin-top:5px}
 .mb-track-note{margin-top:9px;font:var(--fs-xs) var(--mono);color:var(--text-muted)}
+.mb-track-note:empty{display:none}
 .mb-note{margin-top:4px;font-size:var(--fs-sm);color:var(--text-muted)}
 .infotip{position:relative;display:inline-flex}
 .infotip-b{width:15px;height:15px;padding:0;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font:500 var(--fs-xs)/13px var(--sans);cursor:help}
