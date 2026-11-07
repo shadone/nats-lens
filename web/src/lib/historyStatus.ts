@@ -13,6 +13,11 @@ export const LOADING_DELAY_MS = 300;
 /** A history read's state as the UI says it: loading, failed, or nothing to say. */
 export type HistoryReadState = "loading" | "failed" | undefined;
 
-export function readState(r: { error: unknown; isPending: boolean }): HistoryReadState {
-  return r.error ? "failed" : r.isPending ? "loading" : undefined;
+/**
+ * A query without data that refetches drops its error and goes back to
+ * pending, so a read whose last outcome was an error stays failed until an
+ * answer arrives; otherwise every retry would say "loading" for a moment.
+ */
+export function readState(r: { error: unknown; isPending: boolean; errorUpdateCount: number }): HistoryReadState {
+  return r.error || (r.isPending && r.errorUpdateCount > 0) ? "failed" : r.isPending ? "loading" : undefined;
 }

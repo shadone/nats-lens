@@ -48,8 +48,6 @@ export function PageHistoryProvider({ children }: { children: ReactNode }) {
  * Loading is said only once a read has been pending LOADING_DELAY_MS, so a
  * read the cache answers at once does not flash it; unavailable is said at once,
  * with a visible note, as the charts keep their rows and do not say it. */
-const LOADING = HISTORY_LOADING;
-const UNAVAILABLE = HISTORY_UNAVAILABLE;
 function PageHistoryStatus() {
   const cache = useQueryClient().getQueryCache();
   const sys = useSystem();
@@ -58,24 +56,25 @@ function PageHistoryStatus() {
     let pending = false;
     for (const q of cache.findAll({ queryKey: dataHistoryPrefix(sys) })) {
       if (q.getObserversCount() === 0 || isServerHistoryKey(q.queryKey)) continue;
-      if (q.state.status === "error") return UNAVAILABLE;
-      if (q.state.status === "pending") pending = true;
+      const state = readState({ error: q.state.error, isPending: q.state.status === "pending", errorUpdateCount: q.state.errorUpdateCount });
+      if (state === "failed") return HISTORY_UNAVAILABLE;
+      if (state === "loading") pending = true;
     }
-    return pending ? LOADING : "";
+    return pending ? HISTORY_LOADING : "";
   });
   const [text, setText] = useState("");
   useEffect(() => {
-    if (now !== LOADING) {
+    if (now !== HISTORY_LOADING) {
       setText(now);
       return;
     }
     // A new read makes an earlier "unavailable" stale at once.
-    setText((t) => (t === LOADING ? t : ""));
-    const timer = setTimeout(() => setText(LOADING), LOADING_DELAY_MS);
+    setText((t) => (t === HISTORY_LOADING ? t : ""));
+    const timer = setTimeout(() => setText(HISTORY_LOADING), LOADING_DELAY_MS);
     return () => clearTimeout(timer);
   }, [now]);
   return <>
-    {now === UNAVAILABLE && <p className="dh-note">{HISTORY_UNAVAILABLE_NOTE}</p>}
+    {now === HISTORY_UNAVAILABLE && <p className="dh-note">{HISTORY_UNAVAILABLE_NOTE}</p>}
     <p className="sr-only" role="status">{text}</p>
   </>;
 }
