@@ -126,9 +126,8 @@ export function tickedMoves(points: Point[]): Point[] {
   const span = Math.max(...values) - Math.min(...values);
   const reaches = points.map((_, i) => reach(points, i));
   const sorted = [...reaches].sort((a, b) => a - b);
-  const hidden = new Set(hiddenMoves(points));
-  return points.filter((p, i) => {
+  return points.filter((_, i) => {
     const r = reaches[i];
-    return hidden.has(p) && r >= span / 4 && r > 2 * medianWithout(sorted, r);
+    return r > 0 && r >= span / 4 && r > 2 * medianWithout(sorted, r);
   });
 }
