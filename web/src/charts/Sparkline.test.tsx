@@ -55,6 +55,20 @@ describe("the change tone", () => {
     expect(container.querySelector(".spark-change")).toBeNull();
     expect(container.querySelectorAll(".spark-now")).toHaveLength(1);
   });
+
+  it("draws the newest-point dot as a path of tiny but nonzero length", () => {
+    // WebKit stretches the round cap of a zero-length subpath with the
+    // viewBox (a 24x6px dot on a chart 1000px wide); a nonzero length keeps it round.
+    let v = 0;
+    const noisy = Array.from({ length: 201 }, (_, i) => { if (i > 0 && i <= 188 && i % 2 === 0) v = 1 - v; return { time: i * 1000, value: v }; });
+    const { container } = render(<Sparkline points={noisy} status="ok" windows={[]} start={0} end={200_000} label="Pending" tone="change" />);
+    const d = container.querySelector(".spark-now")!.getAttribute("d")!;
+    const m = /^M200\.0,[\d.]+h([\d.]+)$/.exec(d);
+    expect(m).not.toBeNull();
+    expect(Number(m![1])).toBeGreaterThan(0);
+    // At most a tenth of a pixel on a chart 2000px wide.
+    expect(Number(m![1])).toBeLessThanOrEqual(0.01);
+  });
 });
 
 describe("the cut in the line around the change marks", () => {

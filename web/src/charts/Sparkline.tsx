@@ -154,9 +154,11 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
   const marks: Mark[] = [
     ...(neutral && !dense ? runs.flatMap((run, i) => changeRuns(run).map((seg, j): Mark => ({ key: `c${i}-${j}`, draw: (cut) => <polyline className={cut ? "spark-cut" : "spark-change"} points={sparkPoints(seg, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: cut ? "black" : mark }} strokeWidth={2 + (cut ? CUT_EXTRA : 0)} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" /> }))) : []),
     ...(dense ? [((): Mark => {
-      // A zero-length path with a round cap stays a round dot in the stretched viewBox.
+      // A near-zero-length path's round caps make a dot that stays round in
+      // the stretched viewBox. Not zero: WebKit stretches the cap of a
+      // zero-length subpath with the viewBox. 0.01 is 0.1px at 2000px wide.
       const [x, y] = sparkPoints([points[points.length - 1]], start, end, mn, mx)[0].split(",");
-      return { key: "now", draw: (cut) => <path className={cut ? "spark-cut" : "spark-now"} d={`M${x},${y}h0`} style={{ stroke: cut ? "black" : mark }} strokeWidth={5 + (cut ? CUT_EXTRA : 0)} strokeLinecap="round" vectorEffect="non-scaling-stroke" /> };
+      return { key: "now", draw: (cut) => <path className={cut ? "spark-cut" : "spark-now"} d={`M${x},${y}h0.01`} style={{ stroke: cut ? "black" : mark }} strokeWidth={5 + (cut ? CUT_EXTRA : 0)} strokeLinecap="round" vectorEffect="non-scaling-stroke" /> };
     })()] : []),
     ...ranges.map((p): Mark => {
       const [[x, y0], [, y1]] = sparkPoints([{ time: p.time, value: p.low ?? p.value }, { time: p.time, value: p.high ?? p.value }], start, end, mn, mx).map((c) => c.split(","));
