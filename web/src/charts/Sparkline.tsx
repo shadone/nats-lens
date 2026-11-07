@@ -1,5 +1,6 @@
 // The tile sparkline of the reference: area and line for the primary
 // series, a dashed line for the second, shaded windows behind.
+import { Fragment, type ReactElement } from "react";
 import { ChartInspection } from "./ChartInspection";
 import { usePageHistory } from "../components/HistoryNote";
 import type { ServerHistoryGap } from "../api/history";
@@ -10,6 +11,24 @@ import { changedSegments, tickedMoves } from "../lib/tileChart";
 
 const W = 200;
 const H = 40;
+// The card colour drawn under each change mark, 1.5px past it on each side,
+// so the mark stands apart from the grey line by lightness as well as hue.
+const HALO = "var(--spark-halo, var(--surface))";
+const HALO_EXTRA = 3;
+
+/** A change mark, drawn once as its halo and once as itself. */
+interface Mark {
+  key: string;
+  draw: (halo: boolean) => ReactElement;
+}
+
+/** Every halo first, then every mark, so no halo covers another mark. */
+function haloed(marks: Mark[]): ReactElement {
+  return <>
+    {marks.map((m) => <Fragment key={`h${m.key}`}>{m.draw(true)}</Fragment>)}
+    {marks.map((m) => <Fragment key={m.key}>{m.draw(false)}</Fragment>)}
+  </>;
+}
 
 export function sparkColour(status: Level): string {
   return status === "critical" ? "var(--sev-critical)" : status === "warning" ? "var(--sev-warning)" : "var(--accent)";
@@ -146,16 +165,18 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
         />)
       )}
       {runs.map((run, i) => <polyline key={i} points={sparkPoints(run, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: col }} strokeWidth={neutral ? 1.3 : 1.6} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />)}
-      {neutral && !dense && runs.flatMap((run, i) => changeRuns(run).map((seg, j) => <polyline key={`c${i}-${j}`} className="spark-change" points={sparkPoints(seg, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: mark }} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />))}
-      {dense && (() => {
-        // A zero-length path with a round cap stays a round dot in the stretched viewBox.
-        const [x, y] = sparkPoints([points[points.length - 1]], start, end, mn, mx)[0].split(",");
-        return <path className="spark-now" d={`M${x},${y}h0`} style={{ stroke: mark }} strokeWidth="5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />;
-      })()}
-      {ranges.map((p) => {
-        const [[x, y0], [, y1]] = sparkPoints([{ time: p.time, value: p.low ?? p.value }, { time: p.time, value: p.high ?? p.value }], start, end, mn, mx).map((c) => c.split(","));
-        return <line key={`r${p.time}`} className="spark-range" x1={x} x2={x} y1={y0} y2={y1} style={{ stroke: neutral ? mark : col }} strokeWidth="2" strokeLinecap="round" vectorEffect="non-scaling-stroke" />;
-      })}
+      {haloed([
+        ...(neutral && !dense ? runs.flatMap((run, i) => changeRuns(run).map((seg, j): Mark => ({ key: `c${i}-${j}`, draw: (halo) => <polyline className={halo ? "spark-halo" : "spark-change"} points={sparkPoints(seg, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: halo ? HALO : mark }} strokeWidth={2 + (halo ? HALO_EXTRA : 0)} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" /> }))) : []),
+        ...(dense ? [((): Mark => {
+          // A zero-length path with a round cap stays a round dot in the stretched viewBox.
+          const [x, y] = sparkPoints([points[points.length - 1]], start, end, mn, mx)[0].split(",");
+          return { key: "now", draw: (halo) => <path className={halo ? "spark-halo" : "spark-now"} d={`M${x},${y}h0`} style={{ stroke: halo ? HALO : mark }} strokeWidth={5 + (halo ? HALO_EXTRA : 0)} strokeLinecap="round" vectorEffect="non-scaling-stroke" /> };
+        })()] : []),
+        ...ranges.map((p): Mark => {
+          const [[x, y0], [, y1]] = sparkPoints([{ time: p.time, value: p.low ?? p.value }, { time: p.time, value: p.high ?? p.value }], start, end, mn, mx).map((c) => c.split(","));
+          return { key: `r${p.time}`, draw: (halo) => <line className={halo ? "spark-halo" : "spark-range"} x1={x} x2={x} y1={y0} y2={y1} style={{ stroke: halo ? HALO : neutral ? mark : col }} strokeWidth={2 + (halo ? HALO_EXTRA : 0)} strokeLinecap="round" vectorEffect="non-scaling-stroke" /> };
+        }),
+      ])}
     </svg><ChartHistoryNotice start={start} end={end}/></>
   );
 }
