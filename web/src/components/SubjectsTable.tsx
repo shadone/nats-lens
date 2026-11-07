@@ -5,7 +5,7 @@ import { Fragment } from "react";
 import type { SubjectRow, Subjects } from "../api/subjects";
 import { fmtInt } from "../lib/format";
 import { cutText, isStored, note, rateText, subscribers } from "../lib/subjectsView";
-import { accountLabeller, streamPath } from "../lib/view";
+import { streamLabel, accountLabeller, streamPath } from "../lib/view";
 import { AccountName } from "./AccountName";
 import { Dash, RLink } from "./common";
 
@@ -157,7 +157,7 @@ export function SubjectsTable({ d, scoped, empty, filterParam = "" }: { d: Subje
                       {scoped ? acc : <RLink to={`/subjects?account=${enc(r.account)}${filterParam ? `&filter=${enc(filterParam)}` : ""}`}>{acc}</RLink>}
                       {r.systemAccount && <span className="sj-system">system</span>}
                     </td>
-                    <td className="sj-stream">{isStored(r) && <RLink to={streamPath(r.account, r.stream)}>{r.stream}</RLink>}</td>
+                    <td className="sj-stream">{isStored(r) && <RLink to={streamPath(r.account, r.stream)}>{streamLabel(r.stream)}</RLink>}</td>
                     <td className="sj-subs">
                       <Subscribers r={r} />
                     </td>

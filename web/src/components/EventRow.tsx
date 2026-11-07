@@ -6,7 +6,7 @@ import { useEvent } from "../api/queries";
 import { eventWhen, fmtDuration, isoSecond } from "../lib/format";
 import { selectionIntersects } from "../lib/textSelection";
 import { AccountName } from "./AccountName";
-import { FINDING_TAG_LABEL, SOURCE_CLASS, SOURCE_PILL, consumerPath, eventPath, findingPath, findingTag, serverPath, streamPath, type FindingTag } from "../lib/view";
+import { streamLabel, FINDING_TAG_LABEL, SOURCE_CLASS, SOURCE_PILL, consumerPath, eventPath, findingPath, findingTag, serverPath, streamPath, type FindingTag } from "../lib/view";
 import { ErrorBox, KV, RLink, Remediation } from "./common";
 import { Sev, StateTag } from "./Severity";
 
@@ -57,7 +57,7 @@ function Fields({ e }: { e: LensEvent & { repeats?: number; firstTime?: number }
   if (e.kind) rows.push(["kind", e.kind]);
   if (e.server) rows.push(["server", <RLink to={serverPath(e.server)}>{e.server}</RLink>]);
   if (e.account) rows.push(["account", <AccountName id={e.account} name={e.accountName} />]);
-  if (e.stream) rows.push(["stream", e.account ? <RLink to={streamPath(e.account, e.stream)}>{e.stream}</RLink> : e.stream]);
+  if (e.stream) rows.push(["stream", e.account ? <RLink to={streamPath(e.account, e.stream)}>{streamLabel(e.stream)}</RLink> : e.stream]);
   if (e.consumer)
     rows.push(["consumer", e.account && e.stream ? <RLink to={consumerPath(e.account, e.stream, e.consumer)}>{e.consumer}</RLink> : e.consumer]);
   if (e.clientName) rows.push(["client", <RLink to={`/connections?name=${encodeURIComponent(e.clientName)}`}>{e.clientName}</RLink>]);

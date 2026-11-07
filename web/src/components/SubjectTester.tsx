@@ -7,7 +7,7 @@ import { Fragment } from "react";
 import type { CoreMatch, StreamMatch, SubjectMatches } from "../api/subjects";
 import { coreParts, invalidReason, JETSTREAM_API_ANSWERS, NOTHING_NOT_COLLECTED, NOTHING_REACHED, reachesNothing, readers } from "../lib/subjectsView";
 import { upperFirst } from "../lib/format";
-import { consumerPath, streamPath } from "../lib/view";
+import { streamLabel, consumerPath, streamPath } from "../lib/view";
 import { AccountName } from "./AccountName";
 import { errorText, RLink } from "./common";
 import { Names } from "./SubjectsTable";
@@ -71,7 +71,7 @@ function StreamReach({ s }: { s: StreamMatch }) {
       <span className="sj-chip sj-chip-stream">
         <span className="sj-k">Stream</span>{" "}
         <RLink to={streamPath(s.account, s.stream)} className="x mono">
-          {s.stream}
+          {streamLabel(s.stream)}
         </RLink>{" "}
         <span className="sj-via">
           via <span className="mono">{s.pattern}</span>
@@ -90,7 +90,7 @@ function StreamReach({ s }: { s: StreamMatch }) {
         <span key={`m:${m}`} className="sj-chip">
           <span className="sj-k">Mirror</span>{" "}
           <RLink to={streamPath(s.account, m)} className="x mono">
-            {m}
+            {streamLabel(m)}
           </RLink>
         </span>
       ))}
@@ -98,7 +98,7 @@ function StreamReach({ s }: { s: StreamMatch }) {
         <span key={`s:${m}`} className="sj-chip">
           <span className="sj-k">Sourced by</span>{" "}
           <RLink to={streamPath(s.account, m)} className="x mono">
-            {m}
+            {streamLabel(m)}
           </RLink>
         </span>
       ))}

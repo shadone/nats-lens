@@ -9,7 +9,7 @@ import { fmtBytes, fmtGrowth } from "../lib/format";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useTimeRange } from "../lib/useTimeRange";
 import { AccountName } from "../components/AccountName";
-import { accountLabeller, consumerCount, serverPath, streamPath } from "../lib/view";
+import { streamLabel, accountLabeller, consumerCount, serverPath, streamPath } from "../lib/view";
 
 export function Streams() {
   usePageTitle("Streams");
@@ -86,7 +86,7 @@ export function Streams() {
                             <HealthIcon level={s.status} />
                           </td>
                           <td className="mono">
-                            <RLink to={streamPath(s.entity.account, s.entity.stream)}>{s.entity.stream}</RLink>
+                            <RLink to={streamPath(s.entity.account, s.entity.stream)}>{streamLabel(s.entity.stream)}</RLink>
                             <small>
                               <AccountName id={s.entity.account} name={s.entity.accountName} label={label(s.entity.account, s.entity.accountName)} />
                               {s.serversDisagree && " · servers disagree"}

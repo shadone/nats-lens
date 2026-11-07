@@ -21,7 +21,7 @@ describe("Object stores", () => {
     expect(await screen.findByRole("link", { name: "a" })).toBeInTheDocument();
   });
 
-  it("links a bucket to its stream, marks it sealed, and shows a dash for a missing one", async () => {
+  it("links a bucket to its resource page, marks it sealed, and shows a dash for a missing one", async () => {
     vi.mocked(lens.listObjectStores).mockResolvedValue(
       create(ListObjectStoresResponseSchema, {
         objectStores: [
@@ -36,7 +36,7 @@ describe("Object stores", () => {
     );
     renderApp(<ObjectStores />, "/object-stores?account=APP");
     const link = await screen.findByRole("link", { name: "image-output" });
-    expect(link.getAttribute("href")).toMatch(/^\/streams\/APP\/OBJ_image-output/);
+    expect(link.getAttribute("href")).toMatch(/^\/object-stores\/APP\/image-output/);
     const row = link.closest("tr")!;
     expect(within(row).getByText("sealed", { exact: false })).toBeInTheDocument();
     expect(within(row).getByText("2d")).toBeInTheDocument();

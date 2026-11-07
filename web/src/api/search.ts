@@ -4,7 +4,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { rangeKey, type RangeSpec } from "../lib/timeRange";
 import { useSystem } from "../lib/useSystem";
-import { consumerPath, serverPath, streamPath } from "../lib/view";
+import { consumerPath, serverPath, streamLabel, streamPath } from "../lib/view";
 import { entityOrEmpty } from "./adapt-common";
 import { lens } from "./client";
 import { listConsumers, listServers, listStreams, rangeInit, systemInit } from "./requests";
@@ -47,7 +47,7 @@ async function loadSearchItems(sys: string, spec: RangeSpec, signal?: AbortSigna
   const parts = await Promise.allSettled([
     listServers(sys, spec, signal).then((r) => r.servers.map((s): SearchItem => ({ kind: "server", name: s.name, sub: s.cluster, path: serverPath(s.name) }))),
     listStreams(sys, spec, false, signal).then((r) =>
-      r.streams.map((s): SearchItem => ({ kind: "stream", name: s.entity.stream, sub: s.entity.accountName || s.entity.account, path: streamPath(s.entity.account, s.entity.stream) })),
+      r.streams.map((s): SearchItem => ({ kind: "stream", name: streamLabel(s.entity.stream), sub: s.entity.accountName || s.entity.account, path: streamPath(s.entity.account, s.entity.stream) })),
     ),
     listConsumers(sys, spec, {}, signal).then((cs) =>
       cs.map((c): SearchItem => ({ kind: "consumer", name: c.entity.consumer, sub: c.entity.stream, path: consumerPath(c.entity.account, c.entity.stream, c.entity.consumer) })),

@@ -19,7 +19,7 @@ import {
 } from "../lib/capacityView";
 import { fmtBytes, fmtGrowth, fmtInt } from "../lib/format";
 import { muteBy, reviewOn, sentence } from "../lib/muteView";
-import { accountLabel, findingPath, streamPath } from "../lib/view";
+import { streamLabel, accountLabel, findingPath, streamPath } from "../lib/view";
 import { AcceptDialog, type AcceptTarget } from "./AcceptDialog";
 import { Num, RLink } from "./common";
 
@@ -191,7 +191,7 @@ export function StreamsTable({ d, answeredAt, live }: { d: Capacity; answeredAt:
                     <tr key={rowKey(s)} data-finding={s.findingId || undefined}>
                       <th scope="row">
                         <RLink to={streamPath(s.account, s.stream)} className="x cap-name">
-                          {s.stream}
+                          {streamLabel(s.stream)}
                         </RLink>
                         <small>{kindLine(s)}</small>
                         {accounts > 1 && <small>account {accountLabel(s.account, s.accountName || undefined)}</small>}
