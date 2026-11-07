@@ -16,8 +16,8 @@
 }
 @media (max-width:760px){
   .chart-f{display:grid;grid-template-columns:auto auto;row-gap:2px}
-  .chart-f span:nth-child(2){grid-column:1 / -1;grid-row:2}
-  .chart-f span:last-child{text-align:right}
+  .chart-f > span:nth-child(2){grid-column:1 / -1;grid-row:2}
+  .chart-f > span:last-child{text-align:right}
 }
 
 @media (max-width:760px){
