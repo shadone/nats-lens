@@ -1,3 +1,4 @@
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { act, screen, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, expect, it, vi } from "vitest";
@@ -199,4 +200,45 @@ it.each([false, true])("reports a failed filtered matrix of the new system (stri
   act(() => go("/placement?system=b&cmp=1d&filter=disagree"));
   await waitFor(() => expect(line()).toHaveTextContent("Could not load the matrix to compare with: filtered failed"));
   expect(marked()).toHaveLength(0);
+});
+
+const problem = () => {
+  const m = mmatrix([masset("stream", "orders", "", [mcell("nats-0", "leader"), mcell("nats-1", "offline"), mcell("nats-2", "offline")])]);
+  return { ...m, observation: { asset: "APP/orders", server: "nats-1", asOf: m.epochAt, since: m.epochAt! - 60_000, samples: 3, truncated: false, boundary: "state_changed", state: "offline" as const, differs: [] } };
+};
+
+it.each([
+  ["selected server", "/placement?asset=APP%2Forders&server=nats-2"],
+  ["system", "/placement?system=b&asset=APP%2Forders&server=nats-1"],
+  ["range", "/placement?asset=APP%2Forders&server=nats-1&from=2026-09-10T08:00:00Z&to=2026-09-10T09:00:00Z"],
+])("hides observed evidence while the new %s loads", async (_what, route) => {
+  vi.mocked(requests.getPlacement).mockResolvedValue(problem());
+  page("/placement?asset=APP%2Forders&server=nats-1");
+  await screen.findByText(/observed offline since/);
+  vi.mocked(requests.getPlacement).mockImplementation(never);
+  act(() => go(route));
+  await settle();
+  expect(screen.queryByText(/observed offline since/)).not.toBeInTheDocument();
+});
+
+it("does not attach a delayed selected-cell response after the selection changes", async () => {
+  let finish!: (m: ReturnType<typeof problem>) => void;
+  vi.mocked(requests.getPlacement).mockImplementation((_sys, _spec, _filter, _signal, selected) => selected?.server === "nats-1" ? new Promise(resolve => { finish = resolve; }) : Promise.resolve(problem()));
+  page("/placement?asset=APP%2Forders&server=nats-1");
+  await waitFor(() => expect(finish).toBeDefined());
+  act(() => go("/placement?asset=APP%2Forders&server=nats-2"));
+  await screen.findByRole("heading", { name: "orders" });
+  await act(async () => finish(problem()));
+  expect(screen.queryByText(/observed offline since/)).not.toBeInTheDocument();
+});
+
+it("hides a failed observed-history refetch instead of presenting its old evidence", async () => {
+  vi.mocked(requests.getPlacement).mockResolvedValue(problem());
+  let qc!: QueryClient;
+  function TestPage() { qc = useQueryClient(); return <Placement />; }
+  renderApp(<TestPage />, "/placement?asset=APP%2Forders&server=nats-1");
+  await screen.findByText(/observed offline since/);
+  vi.mocked(requests.getPlacement).mockRejectedValue(new Error("history unavailable"));
+  await act(async () => { await qc.invalidateQueries({ queryKey: ["placement"] }); });
+  await waitFor(() => expect(screen.queryByText(/observed offline since/)).not.toBeInTheDocument());
 });
