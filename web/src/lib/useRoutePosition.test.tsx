@@ -218,7 +218,7 @@ function DrawerPage() {
 function mountDrawer(path: string) {
   // jsdom does not enforce inert focus suppression; model the browser here.
   const nativeFocus = HTMLElement.prototype.focus;
-  vi.spyOn(HTMLElement.prototype, "focus").mockImplementation(function (options) {
+  vi.spyOn(HTMLElement.prototype, "focus").mockImplementation(function (this: HTMLElement, options) {
     if (!this.closest("[inert]")) nativeFocus.call(this, options);
   });
   return render(<MemoryRouter initialEntries={[path]}><DrawerPage /></MemoryRouter>);
