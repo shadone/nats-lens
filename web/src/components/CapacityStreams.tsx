@@ -68,7 +68,7 @@ function StatusCell({ s, onAccept }: { s: CapacityStream; onAccept: (s: Capacity
     case "accepted":
       return (
         <>
-          <span className="cap-design">BY DESIGN</span>
+          <span className="cap-design">By design</span>
           {s.mute && <AcceptedNote m={s.mute} />}
           {s.findingId && (
             <small>
@@ -80,7 +80,7 @@ function StatusCell({ s, onAccept }: { s: CapacityStream; onAccept: (s: Capacity
     case "declared":
       return (
         <>
-          <span className="cap-design">BY DESIGN</span>
+          <span className="cap-design">By design</span>
           <small>{declaredText(s.declaredReason)}</small>
         </>
       );

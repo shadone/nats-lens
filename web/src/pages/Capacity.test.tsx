@@ -114,8 +114,8 @@ describe("Capacity", () => {
     const status = (n: string) => cellTexts(n)[5];
     expect(within(row("audit-archive")).getByRole("link", { name: "full in 13 days" })).toHaveAttribute("href", "/findings/stream-006%3AAPP%2Faudit-archive");
     expect(status("audit-archive")).toContain("muted until 2026-10-28 10:00 UTC");
-    expect(status("KV_customer-config")).toBe("BY DESIGNAccepted by ops@example.com: Customer records are kept for the account's life. Review on 2027-04-07.stream-005");
-    expect(status("KV_session-cache")).toBe("BY DESIGNbounded by its writers' TTLs");
+    expect(status("KV_customer-config")).toBe("By designAccepted by ops@example.com: Customer records are kept for the account's life. Review on 2027-04-07.stream-005");
+    expect(status("KV_session-cache")).toBe("By designbounded by its writers' TTLs");
     expect(within(row("order-history")).getByRole("link", { name: "muted until 2026-11-17 22:00 UTC" })).toBeInTheDocument();
     expect(within(row("order-archive")).getByRole("button", { name: "Accept order-archive as by design…" })).toHaveTextContent("Accept as by design…");
     expect(status("legacy-log")).toBe("unbounded");
@@ -142,7 +142,7 @@ describe("Capacity", () => {
     await userEvent.type(dlg.getByLabelText("Reason"), "Order history is kept for audits");
     await userEvent.type(dlg.getByLabelText("Your name"), "alice");
     await userEvent.click(dlg.getByRole("button", { name: "Accept as by design" }));
-    await waitFor(() => expect(cellTexts("order-archive")[5]).toBe("BY DESIGNAccepted by alice: Order history is kept for audits. Review on 2027-01-21.stream-005"));
+    await waitFor(() => expect(cellTexts("order-archive")[5]).toBe("By designAccepted by alice: Order history is kept for audits. Review on 2027-01-21.stream-005"));
     expect(muteFinding.mock.calls[0][1]).toMatchObject({ checkCode: "stream-005", accept: true, entity: { kind: "stream", key: "APP/order-archive" } });
     expect(within(row("order-archive")).queryByRole("button")).toBeNull();
   });
@@ -173,7 +173,7 @@ describe("Capacity", () => {
     await waitFor(() => expect(getCapacity).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await new Promise((r) => setTimeout(r, 50));
-    expect(cellTexts("order-archive")[5]).toMatch(/^BY DESIGNAccepted by alice: Kept\./);
+    expect(cellTexts("order-archive")[5]).toMatch(/^By designAccepted by alice: Kept\./);
   });
 
   it("moves focus to the accepted row's stream, as its button is gone", async () => {

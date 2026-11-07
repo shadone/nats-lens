@@ -41,7 +41,7 @@
 .cap-tbl .cap-rate{color:var(--text-2)}
 .cap-tbl td.cap-crit{color:var(--sev-critical);font-weight:500}
 .cap-tbl .cap-status{min-width:170px;max-width:280px;white-space:normal}
-.cap-tbl .cap-design{display:inline-block;padding:2px 6px;border:1.5px dotted var(--text-muted);border-radius:var(--r-sm);font:var(--fs-xs)/12px var(--mono);color:var(--text-muted);white-space:nowrap}
+.cap-tbl .cap-design{display:inline-block;padding:2px 6px;border:1.5px dotted var(--text-muted);border-radius:var(--r-sm);font:500 var(--fs-xs)/12px var(--sans);color:var(--text-muted);white-space:nowrap}
 .cap-tbl .cap-tag{display:inline-block;padding:2px 6px;border-radius:var(--r-sm);font:500 var(--fs-sm)/14px var(--sans);white-space:nowrap}
 .cap-tbl .cap-tag.cap-warn{color:var(--sev-warning);background:var(--sev-warning-bg);border:1px solid var(--sev-warning)}
 .cap-tbl .cap-accept{white-space:nowrap}
