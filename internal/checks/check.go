@@ -1,4 +1,4 @@
-// Package checks runs the SQL checks in checks/*.sql against the store
+// Package checks runs SQL checks and built-in Go checks against the store
 // after every epoch and hands the failing entities to the store, which
 // keeps the findings and their transitions.
 //
@@ -45,6 +45,7 @@ type Check struct {
 	Thresholds    []Threshold `yaml:"thresholds"`
 	Description   string      `yaml:"description"`
 	Remediation   string      `yaml:"remediation"`
+	Playbook      string      `yaml:"-"`
 	RelatedConfig []string    `yaml:"related_config"`
 	// ValueName says what the value column measures, with its unit, for
 	// example "replicas online"; empty when the check returns no value or
@@ -98,13 +99,15 @@ var (
 	categories   = map[string]bool{"health": true, "agreement": true, "inventory": true, "consumers": true, "storage": true, "clients": true, "change": true, "engine": true, CategoryExpiry: true}
 	severities   = map[string]bool{"info": true, "warning": true, "critical": true}
 	units        = map[string]bool{UnitCount: true, UnitRatio: true, UnitBytes: true, UnitDuration: true, UnitVersion: true}
-	reservedVars = map[string]bool{"epoch": true, "epoch_time": true, "prev_epoch": true, "window_start": true, "window_epoch": true, "lookback": true, "lookback_text": true, "restart_window": true, "exclude_tooling": true, "tooling_names": true, "loopback_setting": true, "loopback_now": true}
+	reservedVars = map[string]bool{"epoch": true, "epoch_time": true, "prev_epoch": true, "window_start": true, "window_epoch": true, "lookback": true, "lookback_text": true, "restart_window": true, "exclude_tooling": true, "tooling_names": true, "loopback_setting": true, "loopback_now": true, "archive_since": true}
 )
 
 // ReservedVariables are the variables a check can read, besides its
 // thresholds: epoch (BIGINT), epoch_time (its start, TIMESTAMP) and
 // prev_epoch (the newest stored epoch before it, 0 when none),
-// restart_window (INTERVAL, checks.restart_window); and for a
+// restart_window (INTERVAL, checks.restart_window), archive_since (when
+// this process began exporting to the archive, TIMESTAMP; NULL when it
+// does not export, as natslens once does not); and for a
 // check with a lookback, lookback (INTERVAL), lookback_text (as text, for
 // example 15m), window_start (epoch_time minus lookback) and window_epoch
 // (the first epoch that started at or after window_start).

@@ -44,8 +44,8 @@ To capture the stream and consumer advisories of a JetStream account as well, an
 - Kubernetes (optional, `kubernetes.enabled`): a read-only watcher records the Events of the NATS namespace, the NATS server pods (scheduled, ready, not ready, restarted, evicted, terminating, deleted) and the nodes they run on (cordoned, drained, ready, not ready, upgraded, deleted) as events with source `k8s`, each pod event named by its NATS server. The timeline draws them in its Kubernetes lane and shades node drains and upgrades as windows. See [Kubernetes](#kubernetes).
 - Storage: an embedded DuckDB file, one transaction per epoch, events written in batches (every second or 500 events), versioned migrations, and a retention sweep (14 days by default) for epochs and events.
 - Archive: every table's rows for an hour go to `archive_dir/<table>/date=YYYY-MM-DD/hour=HH.<export>.parquet`, listed by a manifest in `archive_dir/manifests/` that is written last. Every export of an hour writes new file names, and files of earlier exports of that hour are removed after the new manifest once they are 10 minutes old, so a crash never mixes two exports. The archive directory expects one natslens writing to it at a time; two that overlap for a while (during a rollout) leave unused files behind but never break a rebuild. The open hour is written provisionally every 5 minutes and finally once closed; an hour whose rows change later is written again, and missed hours are caught up after downtime. The `mutes` table is written whole with every hour, the newest hour is written again when a mute is created or lifted, and a rebuild keeps each mute's newest copy (the lifted one once it was lifted). `archive_dir/state.json` holds the highest epoch, event and mute numbers. When the database file is missing or empty on start and the archive has complete hours inside the retention window, the database is rebuilt from them. natslens checkpoints the database after applying migrations, so that a crash right after start leaves a file DuckDB can open. A database whose write-ahead log DuckDB cannot replay is never deleted: on start the log and the file are renamed to `<name>.corrupt-<UTC time>`, the database is rebuilt from the archive, an error is logged, and a `collector.database_recovered` event names the kept files. After a successful export, at most once an hour, whole hours that ended more than `archive_retention` ago (90 days by default; 0 keeps every hour) are removed, data files first and the manifest last.
-- API: `natslens run` serves the Connect service `natslens.v1.LensService` under `/api/` (Connect, gRPC and gRPC-Web, HTTP/2 without TLS for gRPC), `/healthz` (the process serves), `/readyz` (every system's database is open, any rebuild finished, and the API serves), and the web UI at `/`. It has no authentication of its own and binds to localhost by default; deploy it behind IAP and set `iap_audience`, so that mutes record the verified IAP user. Every response carries a Content-Security-Policy (the page's own files only, the inline theme script by its hash, no framing), `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`. The protobuf is in [proto/natslens/v1/](proto/natslens/v1/); generated Go code is in `internal/gen`, TypeScript for connect-es in `web/src/gen`. The API serves the findings with their transitions, the status timeline, events and mutes. `GetTimeSeries` reads one of the metrics `ListMetrics` lists, each with its unit and what a bucket combines; `cluster.cpu_percent` and `cluster.mem_bytes` are bands, whose points carry the median server as the value and the lowest and highest server as `low` and `high`, with the busiest server over the range in `top` and its own series in `top_points`. A cluster metric with an entity is `invalid_argument`. `GetTimeSeriesBatch` reads up to 32 such series over one range in one call, each with its own result or `error`. `ListEvents` takes four optional flags; without them the response is as before. `hide_routine` leaves out routine events (the kinds `client.churn`, `consumer.ack_sampled` and `account.connections`; `api.audit` records of successful calls that change nothing; and connects and disconnects of tooling clients as the client checks judge them, without `checks.include_tooling`, since hiding only changes what is shown), counts them in `routine_hidden` and lists them by kind and client in `routine_groups`. `fold_repeats` folds events with the same source, kind, server, account, stream, consumer, client name and reason (and finding, or Kubernetes object), each at most 10 minutes after the previous one, into one row with `repeats` and `first_time`; its pages keep to the events of the first page. `total_count` and the facet counts count events, not rows. `include_facets` adds the counts per source and per server, each without its own filter, and `total_unfiltered`. `histogram_buckets` (at most 120) adds warning, notable and routine counts per bucket of the range. Every request except `ListSystems` and `ListMetrics` takes a `system`, the ID of the system to read; empty reads the default system, the first configured, and an unknown ID is `invalid_argument` naming the known ones. `ListSystems` lists the systems in configuration order with a summary of each from data already collected: the collection state and its error, the newest epoch's age, server, cluster, stream and connection counts (unset when the range holds no epoch), the worst finding and the tally, and a strip of the worst status per bucket of the range (48 buckets unless `strip_buckets` says otherwise, at most 500). It reads the systems in parallel, each within 5 seconds; a system that fails or runs out of time is listed with an `error` and the others still return. Calls for the same range and strip that arrive while a system's summary runs share that run. The collection state and error come from the collector of the running process; without one, from the newest `collector.connection_closed` or `collector.not_connected` event of the collector's connection after the newest epoch and reconnect. The freshness of `GetOverview` and of each summary says whether the system's collector collects (`collecting`, false while its connection is not connected or closed, with `not_collecting_since`), from the same collection state. `ListAccounts` lists a system's accounts with their connections, streams and consumers. `GetServer` returns a server's routes, gateways and leaf nodes, its limits with those that differ from most servers', and, from the Kubernetes watcher's events, its pod and node. `ListKeyValueStores` and `ListObjectStores` list a system's KV buckets and object stores from their `KV_` and `OBJ_` streams, as the leader reports them in the newest collection of the range, worst status first, with the buckets the inventory lists that no server reports. `natslens run` serves the configured systems, a file without `systems` as one system with the ID `system_id` (default `default`); `natslens demo` serves `example-prod`, `example-global` and `example-staging`. The web UI sends the `?system=` of its URL with every call, and keys its cached answers by it.
-- Checks: after every stored epoch, natslens runs the checks in [checks/](checks/), one SQL file per check, and keeps the result as findings: one per check and failing entity, with its transitions (firing, changed severity, resolved) and whether it flaps (more than three firing-and-resolving cycles in an hour). See [Checks](#checks).
+- API: `natslens run` serves the Connect service `natslens.v1.LensService` under `/api/` (Connect, gRPC and gRPC-Web, HTTP/2 without TLS for gRPC), `/healthz` (the process serves), `/readyz` (every system's database is open, any rebuild finished, no typed fatal database failure has latched, and the API serves), and the web UI at `/`. It has no authentication of its own and binds to localhost by default; deploy it behind IAP and set `iap_audience`, so that mutes record the verified IAP user. Every response carries a Content-Security-Policy (the page's own files only, the inline theme script by its hash, no framing), `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`. The protobuf is in [proto/natslens/v1/](proto/natslens/v1/); generated Go code is in `internal/gen`, TypeScript for connect-es in `web/src/gen`. The API serves the findings with their transitions, the status timeline, events and mutes. `GetTimeSeries` reads one of the metrics `ListMetrics` lists, each with its unit and what a bucket combines; `cluster.cpu_percent` and `cluster.mem_bytes` are bands, whose points carry the median server as the value and the lowest and highest server as `low` and `high`, with the busiest server over the range in `top` and its own series in `top_points`. A cluster metric with an entity is `invalid_argument`. `GetTimeSeriesBatch` reads up to 32 such series over one range in one call, each with its own result or `error`. `ListEvents` takes four optional flags; without them the response is as before. `hide_routine` leaves out routine events (the kinds `client.churn`, `consumer.ack_sampled` and `account.connections`; `api.audit` records of successful calls that change nothing; and connects and disconnects of tooling clients as the client checks judge them, without `checks.include_tooling`, since hiding only changes what is shown), counts them in `routine_hidden` and lists them by kind and client in `routine_groups`. `fold_repeats` folds events with the same source, kind, server, account, stream, consumer, client name and reason (and finding, or Kubernetes object), each at most 10 minutes after the previous one, into one row with `repeats` and `first_time`; its pages keep to the events of the first page. `total_count` and the facet counts count events, not rows. `include_facets` adds the counts per source and per server, each without its own filter, and `total_unfiltered`. `histogram_buckets` (at most 120) adds warning, notable and routine counts per bucket of the range. Every request except `ListSystems` and `ListMetrics` takes a `system`, the ID of the system to read; empty reads the default system, the first configured, and an unknown ID is `invalid_argument` naming the known ones. `ListSystems` lists the systems in configuration order with a summary of each from data already collected: the collection state and its error, the newest epoch's age, server, cluster, stream and connection counts (unset when the range holds no epoch), the worst finding and the tally, and a strip of the worst status per bucket of the range (48 buckets unless `strip_buckets` says otherwise, at most 500). It reads the systems in parallel, each within 5 seconds; a system that fails or runs out of time is listed with an `error` and the others still return. Calls for the same range and strip that arrive while a system's summary runs share that run. The collection state and error come from the collector of the running process; without one, from the newest `collector.connection_closed` or `collector.not_connected` event of the collector's connection after the newest epoch and reconnect. The freshness of `GetOverview` and of each summary says whether the system's collector collects (`collecting`, false while its connection is not connected or closed, with `not_collecting_since`), from the same collection state. `ListAccounts` lists a system's accounts with their connections, streams and consumers. `GetServer` returns a server's routes, gateways and leaf nodes, its limits with those that differ from most servers', and, from the Kubernetes watcher's events, its pod and node. `ListKeyValueStores` and `ListObjectStores` list a system's KV buckets and object stores from their `KV_` and `OBJ_` streams, as the leader reports them in the newest collection of the range, worst status first, with the buckets the inventory lists that no server reports. `natslens run` serves the configured systems, a file without `systems` as one system with the ID `system_id` (default `default`); `natslens demo` serves `example-prod`, `example-global` and `example-staging`. The web UI sends the `?system=` of its URL with every call, and keys its cached answers by it.
+- Checks: after every stored epoch, natslens runs the checks in [checks/](checks/), 88 SQL checks and three built-in Go checks, and keeps the result as findings: one per check and failing entity, with its transitions (firing, changed severity, resolved) and whether it flaps (more than three firing-and-resolving cycles in an hour). See [Checks](#checks).
 - Inventory: an optional file lists the streams, durable consumers, KV buckets and object stores each account should have, with the settings that matter; the inventory checks report what is missing or set otherwise, and name the client that deleted it when the delete advisory was captured.
 - Demo: `natslens demo` serves the API without NATS or a database, with three fixed systems: `example-prod` (the default; the reference mockup's cluster after a GKE node upgrade), `example-global` (24 servers in clusters `eu`, `us` and `ap` joined by gateways, one server down after a node upgrade, one store 71% full, two servers on an older version) and `example-staging` (watched for nine hours and not collecting: its credentials were rejected three hours ago, and its data ends there; its history begins inside the default range).
 - Web UI: React, TypeScript and TanStack Query in [web/](web/), built with Vite into `internal/webui/dist` and embedded into the binary with `go:embed`. It follows the design in [docs/ui-reference/reference.html](docs/ui-reference/reference.html) in a light and a dark theme, self-hosts its fonts and makes no third-party requests. A sidebar lists the pages (in `web/src/nav.ts`) under a system switcher; the header holds the account scope, a search by name and the theme menu, and the sidebar becomes a drawer at phone width. Fleet shows a card per system, worst first, with its state, headline, counts, status strip and freshness, and opens its Overview; with several systems `/` lands there, and its sidebar badge counts the systems that are not OK. The Overview leads with a one-line status, then nine metric boxes, the firing findings grouped by cause with the muted ones and their reasons, eight trend charts, timeline lanes for Kubernetes, findings and events, the busiest consumers and the streams with their placement. Events opens on the events worth reading, with routine events hidden behind a count and repeats folded into one row, a histogram of warnings, notable and routine events, counts per source and server, and new events held behind an "N new" pill. A finding's page gives when its condition began and when nats-lens first saw it, each server's copy of its stream or consumer, and the events around its start. Every page reads the time range (`?range=1h|6h|24h|7d` live, or `?from=&to=` fixed), the system (`?system=`) and the account scope (`?account=`) from the URL, and links between pages carry all three, so links are shareable. Pages read view models from `web/src/api`, the only code that touches the generated client.
@@ -131,6 +131,7 @@ The dev cluster uses client ports 4222-4224, cluster ports 6222-6224 and monitor
 | Command                              | Description                                                   |
 | ------------------------------------ | ------------------------------------------------------------- |
 | natslens [run] [flags]               | Takes one epoch per interval of every configured system, captures events and archives closed hours until stopped. |
+| natslens notify test -config FILE [-channel NAME] [-system ID] | Sends a test to configured channels without opening a database or connecting to NATS. |
 | natslens once [-system ID] [flags]   | Takes and stores a single epoch of every system, or only of the system `-system` names; no events. |
 | natslens sql [-config FILE] [-system ID] [-data-dir DIR] QUERY | Runs a query against a database no collector has open: `-data-dir`, else the data directory of the system `-system` names (required when the file lists several), else `./data`. |
 | natslens checks list [-config FILE]  | Lists every check with its entity, severity, kind, lookback and thresholds after the file's overrides, and whether it is disabled. |
@@ -188,7 +189,20 @@ Configuration comes from defaults, then an optional YAML file (`-config`), then 
 | `checks.loopback_is_tooling` |          | `true`                  | Clients connected from 127.0.0.1 or ::1 are tooling. When such clients are more than 60% of the connections that are not nats-lens's own over the last 10 epochs (a sidecar that makes inbound traffic look local), they are not, until the share falls below 40%; natslens logs it once. An epoch with fewer than 3 such connections keeps the previous decision. |
 | `checks.restart_window` |                | `10m`                   | How long a restarted server counts as restarting: checks that judge the cluster leave its own reports out, and a planned restart is reported at info. |
 | `checks.thresholds`   |                  |                         | Threshold overrides: check code to threshold name to value; see [Checks](#checks). |
-| `checks.remediation_file` |             |                         | YAML file of extra remediation text per check code, appended to the check's own after a `---` line. Plain text in which `backticks` mark code; no other Markdown. Read at start only: restart natslens to apply a change (in Kubernetes, a changed ConfigMap needs a rollout). An unknown code stops the start. See [Checks](#checks). |
+| `checks.remediation_file` |             |                         | YAML file mapping check codes to extra text or `{text, playbook}` with an HTTPS playbook URL. The text appends to the check's own after a `---` line. Plain text in which `backticks` mark code; no other Markdown. Read at start only: restart natslens to apply a change (in Kubernetes, a changed ConfigMap needs a rollout). An unknown code stops the start. See [Checks](#checks). |
+| `notifications.ui_url` | | none | Absolute HTTP or HTTPS UI base URL for message links; absent means no links. Shared across systems. |
+| `notifications.channels` | | none | Shared list of webhook or Slack-compatible receivers; no channels means no direct delivery. |
+| `notifications.channels[].name` | | required | Unique lowercase letters, digits and `-`, at most 63, starting with a letter or digit; identifies the channel in logs and metrics. |
+| `notifications.channels[].type` | | required | `webhook` (versioned JSON) or `slack` (a `text` message). |
+| `notifications.channels[].url`, `.url_file`, `.url_env` | | exactly one required | Destination URL, file holding it, or environment variable naming it. HTTPS, or HTTP on loopback only. Secret URLs belong in a file or variable. |
+| `notifications.channels[].bearer_token_file`, `.bearer_token_env` | | none | At most one token source; webhook only. Files and variables are read at each delivery attempt. |
+| `notifications.channels[].min_severity` | | `warning` | Lowest selected severity: `info`, `warning` or `critical`. |
+| `notifications.channels[].systems`, `.checks`, `.categories` | | all | Lists of system IDs, check codes and categories; an empty list selects all. Unknown values stop startup. |
+| `notifications.channels[].exclude_checks` | | none | Check codes never selected; overrides `checks`. |
+| `notifications.channels[].kinds` | | all | `firing`, `changed`, `resolved`, `flapping`, `muted`, `reminder`, `acknowledged`. Empty selects all; baseline and test always send. |
+| `notifications.channels[].repeat_every` | | `0` | Regular reminders disabled at `0`; otherwise at least `1h`. A quiet-ended reminder does not require this setting. |
+| `notifications.channels[].timeout` | | `10s` | Positive request timeout, at most `60s`. |
+| `notifications.channels[].give_up_after` | | `24h` | Positive maximum age of a still-failing batch before give-up. |
 | `kubernetes.enabled`  |                  | `false`                 | Watch Kubernetes in `natslens run`; needs `events.enabled`. |
 | `kubernetes.kubeconfig` |                |                         | Kubeconfig file for a run outside the cluster; empty means the in-cluster service account. |
 | `kubernetes.context`  |                  |                         | Kubeconfig context; empty means its current one. |
@@ -201,7 +215,7 @@ Configuration comes from defaults, then an optional YAML file (`-config`), then 
 | `kubernetes.gap_after` |                 | `30s`                   | How long a watch may fail before it is recorded. |
 | `kubernetes.client_pods` |               |                         | Regular expression of pod names that are NATS clients besides those a connection name gives after "@"; their FailedScheduling, BackOff and OOM kill Events are drawn on the timeline's Kubernetes lane as warnings. |
 
-On SIGTERM or SIGINT natslens lets a running epoch write finish for up to `shutdown_grace`. At the same time it drains the event connections, all at once, for at most `events.flush_interval`, and writes the buffered events until `shutdown_grace` plus `events.flush_interval` after the signal; events that do not fit by then are counted in a `collector.messages_dropped` event. An archive export running at the signal is cancelled; natslens waits for it until the same deadline and abandons it there. The last `state.json` is written after the last events, by that deadline or, when the events used it up, within 2 seconds after it. With several systems, every system follows these steps at the same time against the one deadline. The API stops accepting connections at the signal and gives calls in progress up to 5 seconds from then before it closes their connections; the databases close only after the API stopped, all at once, by the same deadline as the last `state.json`. A database still closing then is left to the next start, which replays its write-ahead log. A signal while the databases open (a long rebuild) ends natslens cleanly, with exit status 0. Every other shutdown step ends by `shutdown_grace` plus `events.flush_interval` after the signal (the events' built-in 10-second final wait applies only when no deadline is set, which `natslens run` always sets). So the one rule is: the process manager's stop timeout (Kubernetes `terminationGracePeriodSeconds`, systemd `TimeoutStopSec`) must be longer than `shutdown_grace + events.flush_interval + 2s` or 5 seconds, whichever is longer, plus a second or two for the process to exit. With the defaults (5s and 1s) that is 8 seconds plus the margin, so at least 10 seconds; the Deployment's 30 seconds is enough.
+On SIGTERM or SIGINT natslens lets a running epoch write finish for up to `shutdown_grace`. Notification delivery stops scheduling requests; an in-flight request gets until the same grace deadline, then cancellation leaves its batch pending for restart. At the same time it drains the event connections, all at once, for at most `events.flush_interval`, and writes the buffered events until `shutdown_grace` plus `events.flush_interval` after the signal; events that do not fit by then are counted in a `collector.messages_dropped` event. An archive export running at the signal is cancelled; natslens waits for it until the same deadline and abandons it there. The last `state.json` is written after the last events, by that deadline or, when the events used it up, within 2 seconds after it. With several systems, every system follows these steps at the same time against the one deadline. The API stops accepting connections at the signal and gives calls in progress up to 5 seconds from then before it closes their connections; the databases close only after the API stopped, all at once, by the same deadline as the last `state.json`. A database still closing then is left to the next start, which replays its write-ahead log. A signal while the databases open (a long rebuild) ends natslens cleanly, with exit status 0. Every other shutdown step ends by `shutdown_grace` plus `events.flush_interval` after the signal (the events' built-in 10-second final wait applies only when no deadline is set, which `natslens run` always sets). So the one rule is: the process manager's stop timeout (Kubernetes `terminationGracePeriodSeconds`, systemd `TimeoutStopSec`) must be longer than `shutdown_grace + events.flush_interval + 2s` or 5 seconds, whichever is longer, plus a second or two for the process to exit. With the defaults (5s and 1s) that is 8 seconds plus the margin, so at least 10 seconds; the Deployment's 30 seconds is enough.
 
 The password has no flag, so that it never shows in the process list. A password written into `-nats-url` (`nats://user:pass@host`) does show there; put it in the file or `NATSLENS_NATS_PASSWORD` instead.
 
@@ -227,11 +241,11 @@ A file without `systems` is one system with the id `system_id` whose database an
 
 ### NATS permissions
 
-natslens only subscribes and makes requests; it never publishes to an application subject. Use a scoped user in the system account rather than the account's full user: a system account user without permissions may also send the `$SYS.REQ` calls that change servers (for example `$SYS.REQ.SERVER.<id>.RELOAD` or kick and lame duck requests). These are the minimal grants; `TestCollectWithScopedSysUser`, `TestCaptureWithScopedUsers` and `TestMicroScopedUser` show they are enough, and each test fails when one is taken out.
+natslens only subscribes and makes requests; it never publishes to an application subject. Use a scoped user in the system account rather than the account's full user: a system account user without permissions may also send the `$SYS.REQ` calls that change servers (for example `$SYS.REQ.SERVER.<id>.RELOAD` or kick and lame duck requests). The `$SYS.SERVER.>` subscription includes `$SYS.SERVER.*.OCSP.PEER.CONN.REJECT`; an explicit subject allowlist must include that subject too. No additional publish or account grants are needed. These are the minimal grants; `TestCollectWithScopedSysUser`, `TestCaptureWithScopedUsers` and `TestMicroScopedUser` show they are enough, and each test fails when one is taken out.
 
 | User | Publish | Subscribe | Used for |
 | ---- | ------- | --------- | -------- |
-| System account (`nats.creds`) | `$SYS.REQ.SERVER.PING.>`, `$SYS.REQ.ACCOUNT.PING.STATZ` | `$SYS.ACCOUNT.>`, `$SYS.SERVER.>`, `$JS.EVENT.ADVISORY.>`, `_INBOX.>` | Discovery and the detail requests of every epoch (replies arrive on `_INBOX.>`); connect, disconnect, auth error, lame duck and shutdown events; the advisories that concern no account |
+| System account (`nats.creds`) | `$SYS.REQ.SERVER.PING.>`, `$SYS.REQ.ACCOUNT.PING.STATZ` | `$SYS.ACCOUNT.>`, `$SYS.SERVER.>`, `$JS.EVENT.ADVISORY.>`, `_INBOX.>` | Discovery and the detail requests of every epoch (replies arrive on `_INBOX.>`); connect, disconnect, auth error, OCSP peer rejection, lame duck and shutdown events; the advisories that concern no account |
 | Each account in `accounts` | `$SYS.REQ.USER.INFO`, `$SRV.INFO`, `$SRV.STATS` | `$JS.EVENT.>`, `$SYS.ACCOUNT.CLIENT.AUTH.ERR`, `_INBOX.>` | Stream and consumer advisories and metrics; account-scoped auth errors; the account name lookup; the micro service requests; their replies |
 
 In a NATS server configuration (with JWTs, set the same lists on the user with `nsc edit user --allow-pub ... --allow-sub ...`):
@@ -306,7 +320,7 @@ Copy an example into your own deployment repository and change what differs; eac
 - One replica with the `Recreate` strategy, since DuckDB has one writer; the database and the archive share a PVC (5 GiB in the base, 20 GiB in the `gke-iap` example). The `gke-iap` example gives it `argocd.argoproj.io/sync-options: Delete=false,Prune=false`, so Argo CD never deletes it.
 - The pod runs as non-root with a read-only root filesystem and an `emptyDir` on `/tmp`. It carries `cluster-autoscaler.kubernetes.io/safe-to-evict: "false"` and its CPU and memory limits equal its requests (100m and 512 MiB in the base, for a laptop cluster or a small system; 500m and 2 GiB in the `gke-iap` example, a starting point for production; see [Memory size](#memory-size)), which GKE Autopilot needs to accept the annotation; without it the autoscaler's scale-down can evict the single replica several times an hour.
 - It prefers a node without a NATS server pod (so a drain of that node does not take the observer away, while it still schedules when no other node fits), and has 30 seconds to stop, more than the shutdown rule under [Configuration](#configuration) needs.
-- `/healthz` is its liveness and start probe and the load balancer's health check; `/readyz` is its readiness: true once every system's database is open and the API serves, whatever the state of collection of any system, so the UI stays reachable while NATS is down. The API starts only after the database is open, so during a rebuild from the archive neither endpoint answers; the start probe (`/healthz`, every 10 seconds, 60 failures) allows ten minutes for that. A collector that stopped collecting shows as `collecting` false in the API's freshness, which the UI header shows as "not collecting since 11:30", and is caught by the `nats_lens_last_epoch_age_seconds` alert below, not by readiness.
+- `/healthz` is its liveness and start probe and the load balancer's health check; `/readyz` is its readiness: true once every system's database is open and the API serves, unless a typed fatal database error has latched. Collection outages alone do not fail readiness, so the UI stays reachable while NATS is down. A typed fatal database error makes readiness return 503; liveness, the API, and healthy systems continue serving. Follow the [database recovery procedure](docs/operations/database-recovery.md) before attempting a repair. The API starts only after the database is open, so during a rebuild from the archive neither endpoint answers; the start probe (`/healthz`, every 10 seconds, 60 failures) allows ten minutes for that. A collector that stopped collecting shows as `collecting` false in the API's freshness, which the UI header shows as "not collecting since 11:30", and is caught by the `nats_lens_last_epoch_age_seconds` alert below, not by readiness.
 - The service account may list and watch Events and pods in the NATS namespace, node Events in `default`, and nodes.
 - `/metrics` is exempt from `allowed_hosts` on a non-loopback listener, so a scraper that sends the pod IP as Host reaches it; the NetworkPolicy limits who can.
 
@@ -349,13 +363,13 @@ Tables follow one pattern. Identity tables hold one row per thing with the first
 | Epochs        | `epochs`, `epoch_endpoints`                                                                                                                                              |
 | Identity      | `servers`, `accounts`, `streams`, `consumers`, `raft_groups`                                                                                                             |
 | Configuration | `stream_config`, `consumer_config`                                                                                                                                       |
-| Stats         | `server_stats`, `routes`, `gateways`, `leafnodes`, `ipqueues`, `health`, `connections`, `account_stats`, `account_details`, `stream_stats`, `stream_replicas`, `consumer_stats`, `consumer_replicas`, `raft_stats`, `subscriptions`, `subscription_lists`, `micro_requests`, `micro_instances`, `micro_stats`, `micro_endpoints`, `micro_endpoint_hours`, `client_app_hours` |
+| Stats         | `server_stats`, `routes`, `gateways`, `leafnodes`, `ipqueues`, `health`, `connections`, `account_stats`, `account_details`, `stream_stats`, `stream_source_stats`, `stream_replicas`, `consumer_stats`, `consumer_replicas`, `raft_stats`, `subscriptions`, `subscription_lists`, `micro_requests`, `micro_instances`, `micro_stats`, `micro_endpoints`, `micro_endpoint_hours`, `client_app_hours` |
 | Events        | `events`                                                                                                                                                                 |
 | Checks        | `findings`, `finding_transitions`, `check_runs`                                                                                                                          |
 | Archive       | `archive_hours`                                                                                                                                                          |
-| Operators     | `mutes`, `inventory`                                                                                                                                                     |
+| Operators     | `mutes`, `acknowledgements`, `inventory`                                                                                                                                                     |
 
-Every event has a `kind`: `client.connect`, `client.disconnect`, `client.auth_error`, `account.connections` (only with `events.account_connections`), `server.lameduck`, `server.shutdown`, `server.out_of_storage`, `server.removed`, `stream.created`, `stream.updated`, `stream.deleted`, `stream.leader_elected`, `stream.quorum_lost`, `consumer.created`, `consumer.deleted`, `consumer.leader_elected`, `consumer.quorum_lost`, `consumer.max_deliveries`, `consumer.nak`, `consumer.terminated`, `consumer.paused`, `consumer.resumed`, `consumer.ack_sampled`, `meta.leader_elected`, `jetstream.api_limit_reached`, `api.audit` (only with `events.api_audit`), `collector.gap`, `collector.started`, `collector.disconnected`, `collector.reconnected`, `collector.not_connected`, `collector.connection_closed`, `collector.subscription_error`, `collector.messages_dropped` and `collector.database_recovered`, among others. `raw` holds the payload with user JWTs removed.
+Every event has a `kind`: `client.connect`, `client.disconnect`, `client.auth_error`, `account.connections` (only with `events.account_connections`), `server.lameduck`, `server.shutdown`, `server.ocsp_peer_rejected`, `server.out_of_storage`, `server.removed`, `stream.created`, `stream.updated`, `stream.deleted`, `stream.leader_elected`, `stream.quorum_lost`, `consumer.created`, `consumer.deleted`, `consumer.leader_elected`, `consumer.quorum_lost`, `consumer.max_deliveries`, `consumer.nak`, `consumer.terminated`, `consumer.paused`, `consumer.resumed`, `consumer.ack_sampled`, `meta.leader_elected`, `jetstream.api_limit_reached`, `api.audit` (only with `events.api_audit`), `collector.gap`, `collector.started`, `collector.disconnected`, `collector.reconnected`, `collector.not_connected`, `collector.connection_closed`, `collector.subscription_error`, `collector.messages_dropped` and `collector.database_recovered`, among others. `raw` holds the payload with user JWTs removed. OCSP rejection events retain only the fingerprint from the peer certificate object; certificate bytes and subject and issuer identities are omitted.
 
 `server_stats` also holds the VARZ connection limits: `max_payload`, `max_pending`, `write_deadline_ns`, `ping_interval_ns` and `max_pings_out` (migration 0025). They are NULL without a VARZ reply, and in rows rebuilt from hours archived before the migration.
 
@@ -375,7 +389,9 @@ SELECT table_name, column_name, comment FROM duckdb_columns() WHERE NOT internal
 
 ## Checks
 
-A check is a file `checks/<code>.sql`: a YAML header in a block comment (code, name, entity, category, severity and when a finding gets another one, kind, lookback, thresholds with defaults and units, description, remediation, related configuration, for a check that returns a number `value_name` and `value_basis`, what it measures and how, and `suppressed_by`, checks of the same entity whose finding for an entity makes this one's redundant) and one SELECT. The query returns one row per failing entity with `entity_key`, `detail` and optionally `severity` (else the header's), `value`, `cause_event_id`, `related_config` (a JSON object of setting to value), `related_source` and `condition_since` (when the condition began, where the check knows it). It reads its inputs with `getvariable()`: `epoch`, `epoch_time` (the epoch's start), `prev_epoch`, and for a check with a lookback `lookback`, `lookback_text`, `window_start` and `window_epoch`, plus its own thresholds (a duration threshold is an INTERVAL, a version threshold such as `1.37.0` text). The macro `ns_text(ns)` writes nanoseconds as `7d`, `30s` or `1.5ms`; `account_lookups(e)` is each account's newest lookup within 24 hours of epoch `e`, as the Accounts page reads it, and `expiry_text(t, now)` writes an expiry such as "expires 2026-11-08 09:00 UTC, in 12 days". Three table macros describe servers that cannot be taken at their word: `restarting(lo, hi)` lists the answering servers whose process replaced an earlier one within `restart_window` (a JetStream error or raft groups catching up only add to their reasons, since a server in trouble shows the same); `planned_down(e)` the missing servers that announced lame duck or shutdown; `not_ready(e)` every server that may hold an asset without reporting it. Checks that judge the cluster (quorum, agreement, missing assets) leave restarting servers' reports out while the other servers can still form a majority, and never a report that is itself evidence of a quorum loss, so a rolling restart raises nothing above info except replicas offline or behind while they are (`TestRollingRestartRaisesNothing`). The headers are validated when natslens starts: a query that reads an undeclared variable or never reads a declared threshold is refused.
+`stream_source_stats` preserves each configured source's identity, complete source configuration, report presence, exact unsigned lag, activity in nanoseconds, and API error code, identifier, and text. Follower, missing, and ambiguous runtime matches have NULL runtime fields. A negative reported activity means never heard; no report means unknown. `stream_stats.source_config_known` distinguishes an unobserved configuration from an observed empty source list; older archived rows default to false. Like `stream_stats`, these rows are swept, exported, and rebuilt by epoch. Archives written before migration 0039 rebuild with this table empty. The collector uses the same JSZ request and permissions and reads no message content.
+
+A check is a file `checks/<code>.sql`: a YAML header in a block comment (code, name, entity, category, severity and when a finding gets another one, kind, lookback, thresholds with defaults and units, description, remediation, related configuration, for a check that returns a number `value_name` and `value_basis`, what it measures and how, and `suppressed_by`, checks of the same entity whose finding for an entity makes this one's redundant) and one SELECT. The query returns one row per failing entity with `entity_key`, `detail` and optionally `severity` (else the header's), `value`, `cause_event_id`, `related_config` (a JSON object of setting to value), `related_source` and `condition_since` (when the condition began, where the check knows it). It reads its inputs with `getvariable()`: `epoch`, `epoch_time` (the epoch's start), `prev_epoch`, `restart_window`, `archive_since` (when the process began exporting to the archive, NULL when it does not), and for a check with a lookback `lookback`, `lookback_text`, `window_start` and `window_epoch`, plus its own thresholds (a duration threshold is an INTERVAL, a version threshold such as `1.37.0` text). The macro `ns_text(ns)` writes nanoseconds as `7d`, `30s` or `1.5ms`; `account_lookups(e)` is each account's newest lookup within 24 hours of epoch `e`, as the Accounts page reads it, and `expiry_text(t, now)` writes an expiry such as "expires 2026-11-08 09:00 UTC, in 12 days". Three table macros describe servers that cannot be taken at their word: `restarting(lo, hi)` lists the answering servers whose process replaced an earlier one within `restart_window` (a JetStream error or raft groups catching up only add to their reasons, since a server in trouble shows the same); `planned_down(e)` the missing servers that announced lame duck or shutdown; `not_ready(e)` every server that may hold an asset without reporting it. Checks that judge the cluster (quorum, agreement, missing assets) leave restarting servers' reports out while the other servers can still form a majority, and never a report that is itself evidence of a quorum loss, so a rolling restart raises nothing above info except replicas offline or behind while they are (`TestRollingRestartRaisesNothing`). The headers are validated when natslens starts: a query that reads an undeclared variable or never reads a declared threshold is refused.
 
 After every stored epoch, outside the epoch's transaction, the engine runs every check on one connection, each within `checks.timeout`, all within half an interval. It then writes, in one transaction, a `check_runs` row per check (`ok`, `error` or `disabled`) and the changes to `findings` and `finding_transitions`: a new failing entity starts `firing`, a severity change is `changed`, an entity no longer returned is `resolved`. A check that fails to run leaves its findings as they were and raises `system-001`, critical once the same check has failed ten epochs in a row; the order of the checks rotates by one each epoch, so a budget overrun does not leave out the same checks every time. A disabled check resolves its findings; a finding that resolved more than three times in the hour is flapping. Mutes are not applied when findings are written; they apply when findings are read. Transitions and check runs are swept and archived with their epoch; the archive holds the whole `findings` table in every hour, and a rebuild keeps each finding's newest copy.
 
@@ -392,11 +408,13 @@ checks:
 The remediations describe the general case. To add your own advice (a runbook link, the team that owns a stream, how your deployment declares streams), point `checks.remediation_file` at a YAML file that maps a check code to text; the API and the UI show that text after the check's own remediation, below a `---` line. The text is plain, with `backticks` around code as in the checks' own remediations. The file is read at start only, so restart natslens after a change (in Kubernetes, a changed ConfigMap needs a rollout), and an unknown code stops the start:
 
 ```yaml
-consumer-010: >-
-  Runbook: https://runbooks.example.com/nats/missing-durable. The order team owns
-  the order-jobs consumers.
+consumer-010:
+  text: Recreate the durable from the declared configuration; the order team owns it.
+  playbook: https://runbooks.example.com/nats/missing-durable
 stream-011: Streams are declared in the platform repository; recreate them from there.
 ```
+
+An entry can keep the plain-string form or pair non-empty `text` with `playbook`. The phone card offers the playbook as a separate link. A playbook must be an HTTPS URL with a host, without credentials or control characters; an invalid entry stops startup.
 
 To try a change to a check on a copy of a database: `natslens checks run -data-dir DIR [-epoch N]`. To read the findings: `natslens sql -data-dir DIR "SELECT id, severity, state, since, detail FROM findings WHERE state = 'firing'"`.
 
@@ -424,9 +442,28 @@ To try a change to a check on a copy of a database: `natslens checks run -data-d
 | server-014 | JetStream store full soon | warning 14d, critical 3d | `js_storage` growth over 6h per process, the smaller of the two halves' slopes |
 | server-015 | Stale connections | info | `stale_connections`, 15m, per process |
 | server-016 | TLS certificate expires soon | warning 14d, critical 3d or expired | the six `*_tls_cert_not_after` columns of `server_stats`; a server that did not answer VARZ keeps its newest answer within 24h |
+| server-017 | Route missing | warning; critical without a route to any peer | `routes` of servers whose ROUTEZ answered against the peers of their cluster that answered, 3 epochs in a row |
+| server-018 | Bytes queued on a route or gateway | warning from 25% of `max_pending`, critical from 50% | `routes.pending_bytes` and `gateways.pending_bytes` in 3 epochs in a row; held down to half the level |
+| server-019 | Gateway missing | warning; critical when no server of the cluster has the gateway | outbound `gateways` against the remote clusters the cluster had a gateway to or from within 24h and that still connects in or has servers answering, 2 epochs in a row; restarting servers left out |
+| server-020 | Connections near max_connections | warning 80%, critical 95% | `connections` against the process's newest `max_connections`, 2 epochs in a row; held down to 90% of the level |
+| server-021 | JetStream API errors high | warning | `js_api_errors` growth within 15m, at least 100 and half of `js_api_total`'s growth, 2 epochs in a row, per process; suppressed by server-003 |
+| server-022 | Internal queue backlog | warning | `ipqueues.pending` at least 10000 in one queue in 3 epochs in a row; restarting servers left out |
+| server-023 | CPU saturated | warning | `cpu_percent` at least 90% of the smaller of `cores` and `gomaxprocs` in 80% of the epochs of 5m (at least 5), per process; a gap over three intervals ends a run, restarting servers left out |
+| server-024 | OCSP peer rejected | warning | Final `server.ocsp_peer_rejected` events within 15m, by captured server name or ID; distinct event IDs per process, resolves when the window is empty |
+| server-025 | Slow routes | warning | Topology’s shared classifier finds a pair slow in two eligible collections within three intervals; both endpoints receive the finding, with peers and current RTTs |
+| server-026 | Leaf node disconnects or repeated reconnects | warning, system finding | observed site absent for two fully observed collections, or three observed drops in 1h; handoffs excluded, last sighting within 24h |
+| server-027 | Raft apply progress stalled | warning | at least 1000 unapplied log indexes with an unchanged applied index across 3 eligible retained samples spanning 2m |
+| server-028 | Raft node remains a candidate | warning | previously led local voting group reports candidacy without a leader across 3 eligible retained samples spanning 2m |
 | system-001 | Check failed to run | warning, critical after 10 epochs of the same failure | the engine's own runs |
 | system-002 | No JetStream meta leader | critical | `meta_leader` of the clustered servers, or the leader seeing more peers offline than its quorum allows |
 | system-003 | JetStream meta leader changing often | warning above 4 in 15m | `meta.leader_elected` events and the leader per epoch; one hand-over within two intervals after each step-down not counted |
+| system-004 | JetStream meta group falling behind | warning | the meta leader's `meta_peers_not_current` less `meta_peers_offline`, in every epoch for 5m; epochs with a restarting or newly joined server count as clean, epochs without the leader's report as unknown |
+| system-005 | JetStream meta group size differs from the servers | warning | the leader's `meta_cluster_size` against the answering JetStream servers of its domain and their own sizes, in every epoch for 10m |
+| system-006 | Mixed JetStream API levels | warning | more than one `js_api_level` among the answering servers of one JetStream domain in every epoch for 30m; epochs with a restarting server count as clean |
+| system-007 | Collections often incomplete | warning | `epoch_endpoints` not ok for answering servers or collector errors in at least 25% of 30m's epochs (10 or more); resolves below half of that |
+| system-008 | Archive export behind | warning | a closed hour with epochs or events and no final `archive_hours` row for over 1h after the hour or the process start; not in `natslens once` |
+| system-009 | Event messages dropped | warning | `collector.messages_dropped` events within 1h, those of the collector's own connection left out; a lower bound |
+| system-010 | Notifications not delivered | warning; critical for a recent refusal or give-up | `notify_outbox`: a channel with a notification pending longer than `pending_for` (10m), or one refused or given up within 1h; names channels, never a URL |
 | stream-001 | Stream quorum lost | critical | the leader most reporters name and its online replicas, or too few reporters when it does not report, 2 epochs; restarting servers left out only while the rest form a majority |
 | stream-002 | Stream replica offline | warning; info while the replica's server restarts or announced its shutdown | the leader's `stream_replicas` |
 | stream-003 | Stream replica lagging | warning | the leader's replica lag above 1000 operations |
@@ -441,6 +478,15 @@ To try a change to a check on a copy of a database: `natslens checks run -data-d
 | stream-012 | Stream configuration differs from the inventory | warning | `inventory` against the leader's configuration |
 | stream-013 | Stream configuration changed | info | `stream.updated` events with the client, 1h |
 | stream-014 | Stream disappeared | critical with a delete event; info or warning while a server that held it is away | a stream reported within 1h (or since its server went away) that no server reports, not in the inventory |
+| stream-015 | Mirror lagging | warning | leader's `mirror_lag` above 10000 in every report of 5m without falling, or `mirror_active_ns` above 2m, or never heard from its origin in two reports; held down to 0.8; a mirror error is stream-017's |
+| stream-016 | Source lagging | warning | leader's `sources_max_lag` above 10000 in every report of 5m without falling; held down to 0.8 |
+| stream-017 | Mirror error | warning | leader's `mirror_error` in at least 2 of the last 4 epochs |
+| stream-018 | Single replica in a cluster | info | `stream_config.replicas` of 1 where 3 or more expected JetStream servers in its cluster and domain match its placement tags; not for replicas the inventory gives |
+| stream-019 | KV bucket history without a byte limit | info | `KV_` stream with history above 1 and no `max_bytes`, at least 5 messages per key and 100 MiB from the leader's `stream_stats`; held down to 0.8; not while stream-005 reports it |
+| stream-020 | Stream without a consumer | warning when a work-queue stream holds messages or an interest stream dropped some; info otherwise | leader's consumer count of 0 in every report of 10m, created before; not for a stream another stream mirrors or sources |
+| stream-021 | Many deleted messages inside a stream | info | leader's `num_deleted` at least 1000000 and half of the sequence range; held down to 0.8 |
+| stream-022 | Source not seen | warning | per-source leader activity over 2m after creation/start/election grace; never-heard needs two reports spanning 2m; held down to 0.8; errors left to stream-023 per source |
+| stream-023 | Source error | warning | per-source errors in 2 of 4 collections within 5m, after 2m grace; held while any recent error remains; source removal ends its history |
 | consumer-001 | Consumer quorum lost | critical | as stream-001 |
 | consumer-002 | Consumer backlog growing | warning | leader's `num_pending` and delivered increases over 30m, growing in both halves |
 | consumer-003 | Ack pending near max_ack_pending | warning 80% with messages waiting ("pool saturated" at the limit); critical when at the limit with no acknowledgement or delivery for ack_wait | leader's `num_ack_pending`, `num_pending`, ack floor and delivered sequence |
@@ -454,6 +500,11 @@ To try a change to a check on a copy of a database: `natslens checks run -data-d
 | consumer-011 | Consumer configuration differs from the inventory | warning | `inventory` against the leader's configuration |
 | consumer-012 | Consumer missing on an assigned server | warning | leader's peers that answered JSZ without the consumer and are not restarting |
 | consumer-013 | Durable consumer disappeared | critical with a consumer.deleted event; warning after its stream's delete; info or warning while a server that held it is away | a durable reported within 1h (or since its server went away) that no server reports while its stream is there; not internal, ephemeral, expiring or in the inventory |
+| consumer-014 | Oldest unread message about to expire | warning at 0.8 of the stream's `max_age`, critical at 0.95; a firing finding resolves below 0.7 | the leader's ack floor or delivered sequence, dated by the first collection whose stream last sequence reached it (a lower bound for filtered consumers), not getting younger over 10m; durables only; each stream's history read back to its own `max_age` |
+| consumer-015 | Pull requests at max_waiting | warning | leader's `num_waiting` at `max_waiting` with messages waiting, in 2 epochs in a row; a firing finding resolves below 0.9 or after 2 epochs with nothing waiting; `max_waiting` below 2, push and paused consumers left out |
+| consumer-016 | Single replica on a replicated stream | info | a durable whose `consumer_config.replicas` is 1 on a limits stream with more |
+| consumer-017 | Consumer paused for a long time | warning with messages waiting, else info | paused longer than 2h, from the first `consumer.paused` event or paused collection since it last ran or was resumed |
+| consumer-018 | Consumer replicas degraded | warning | an offline, noncurrent or lagging peer in 3 consecutive leader reports while an online quorum survives |
 | client-001 | High client round trip time | warning | `connections.rtt_ns` above 100ms on one client (server, pod and address, else cid) in 2 epochs in a row, by service (the connection name before "@") |
 | client-002 | High pending bytes | warning | `connections.pending_bytes` above 4 MiB, by connection name |
 | client-003 | Slow consumer disconnects | warning | `client.disconnect` events with a slow consumer reason, 30m |
@@ -467,7 +518,126 @@ To try a change to a check on a copy of a database: `natslens checks run -data-d
 | account-003 | Account JWT expires soon | warning 14d, critical 3d or expired | `account_details.jwt_expires` and `expired`, from the newest lookup within 24h |
 | account-004 | User JWTs expire soon | warning 14d, critical 3d or expired | `connections.jwt_expires` of the epoch's connections, by account and user |
 
+Raft diagnostics (`server-027`, `server-028`) use samples, not proof of continuous capture or an uninterrupted condition. Entirely absent epochs can bridge within `max_gap` (90s); a retained epoch missing the group or successful RAFTZ capture resets evidence, as does a larger gap. Sequence-number holes alone do not reset it. See [Server checks](docs/features/server-checks.md) for the proposed, not yet confirmed policy.
+
 To add a check, write its file, then a test in `internal/checks` that builds the rows it reads with the fixture helpers and shows one entity that fails and one that does not.
+
+## Notifications
+
+`natslens run` sends findings to configured webhook and Slack-compatible receivers, alongside Prometheus metrics. It opens no NATS connection for delivery. The [notification capability](docs/features/notifications.md) describes baselines, filters, mutes, flapping, acknowledgement quiet and retries. `once` and `checks run` send nothing; `demo` reads no channel configuration.
+
+A shared configuration block can select critical findings for an online shop's receiver. Store secret URLs and tokens in mounted files or environment variables:
+
+```yaml
+notifications:
+  ui_url: https://nats-lens.example.com
+  channels:
+    - name: ops-webhook
+      type: webhook
+      url_file: /var/run/secrets/natslens/ops-webhook-url
+      bearer_token_file: /var/run/secrets/natslens/ops-webhook-token
+      min_severity: critical
+    - name: ops-chat
+      type: slack
+      url_env: NATSLENS_OPS_CHAT_URL
+      min_severity: warning
+```
+
+URL and token sources are read at every attempt. Rotating mounted secret files needs no restart; changing channel settings does. Unreadable secrets warn at start and retry on delivery. Destinations require HTTPS except loopback HTTP, and redirects fail. Allow DNS and outbound HTTPS to each receiver in any egress-restricting NetworkPolicy. The GKE component's policy must be extended for these destinations.
+
+Test all channels, or select one with `-channel`. `-system` sets the system named in the test; without it the command uses the channel's first selected system, or the first configured system. It opens no database and connects to no NATS server, so it can run beside the collector:
+
+```sh
+natslens notify test -config natslens.yaml -channel ops-webhook -system example-prod
+```
+
+A receiver accepting with HTTP 204 produces `ops-webhook (hooks.example.com): delivered, HTTP 204`. A refusal or retryable failure reports failure, without the secret URL. The command exits with status 1 if any selected channel fails; configuration errors also fail. A test sends once, without the scheduled retry loop.
+
+### Webhook body, version 1
+
+Webhook requests use `POST`, `Content-Type: application/json`, `User-Agent: natslens/<version>`, and `Authorization: Bearer <token>` when configured. `Idempotency-Key` identifies the durable batch by database incarnation, system, channel and first and last outbox row IDs. It stays stable across retries and restarts; a rebuilt database gets a fresh incarnation. Delivery is at least once, so receivers must deduplicate. Scope message keys to the channel and database incarnation when deduplicating across rebuilds.
+
+Times are RFC 3339 UTC to the second. Unset optional fields are omitted; reported numeric zero values remain. Removing, renaming or changing a field's type requires another body version; adding a field does not.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `version` | number | `1` |
+| `sent_at` | time | When the batch was built |
+| `system.id`, `system.name` | string | The system the findings belong to; `name` is left out when it is not set |
+| `nats_lens_version` | string | nats-lens's version, as in `User-Agent: natslens/<version>` |
+| `notifications[]` | array | The messages, in the order they were queued |
+| `.kind` | string | `firing`, `changed`, `resolved`, `flapping`, `muted`, `reminder`, `acknowledged`, `baseline` (the one message a channel gets when nats-lens starts notifying it, about no finding), or `test` from `natslens notify test` |
+| `.reason` | string | Why, when the kind alone does not say: `mute ended`, `acceptance ended`, `flapping ended`, `severity now info` (or `severity now warning` for a channel with `min_severity: critical`), `no longer selected by the channel`, `acknowledgement quiet ended` |
+| `.finding_id` | string | `<check code>:<entity key>`, as the API spells it |
+| `.check_code`, `.check_name`, `.category` | string | The check |
+| `.severity` | string | `info`, `warning` or `critical`, as the finding stands |
+| `.previous_severity` | string | The severity the channel was last sent, on `changed` and severity-based `resolved` messages |
+| `.entity_type`, `.entity_key` | string | The entity, as in the API |
+| `.entity_name` | string | The entity's readable name, when it has one |
+| `.detail` | string | The finding's detail |
+| `.since` | time | When the episode began |
+| `.condition_since` | time | When the condition began, when the check knows |
+| `.transitioned_at` | time | The finding's latest transition |
+| `.resolved_at` | time | On `resolved` from a resolve |
+| `.flapping` | boolean | `true` while the finding flaps; left out otherwise |
+| `.value` | number | The check's value, when it reports one |
+| `.mute.accepted`, `.mute.by`, `.mute.reason`, `.mute.until`, `.mute.end_reason` | boolean / string / time | The mute or acceptance, on `muted` and on a `firing` whose mute ended; `until` is an acceptance's review date; `end_reason` is set when nats-lens ended an acceptance |
+| `.acknowledgement.by`, `.acknowledgement.note`, `.acknowledgement.quiet_until`, `.acknowledgement.until_resolved` | string / boolean | On `acknowledged`: actor, optional note, and either the quiet end or `until_resolved: true` |
+| `.firing_count` | number | On `baseline`: the findings in the channel's view when it started, 0 included |
+| `.link` | string | `<ui_url>/findings/<finding id, path-escaped>?system=<id>`; the baseline and test messages link the system's Findings page; left out without `ui_url` |
+| `.dedup_key` | string | `<system>:<finding id>:<episode start epoch>:<kind>:<epoch>`, acknowledgement notes append `:<acknowledgement ID>`; the same each time the message is sent; the baseline message's is `<system>:baseline:<epoch>`, the test message's `<system>:test:<Unix microseconds>` |
+
+
+A firing notification for the shop's order stream has this body:
+
+```json
+{
+  "version": 1,
+  "sent_at": "2026-11-05T09:32:00Z",
+  "system": {
+    "id": "example-prod",
+    "name": "Production"
+  },
+  "nats_lens_version": "1.4.0",
+  "notifications": [
+    {
+      "kind": "firing",
+      "finding_id": "stream-001:APP/order-jobs",
+      "check_code": "stream-001",
+      "check_name": "Stream without a leader",
+      "category": "health",
+      "severity": "critical",
+      "entity_type": "stream",
+      "entity_key": "APP/order-jobs",
+      "entity_name": "shop/order-jobs",
+      "detail": "no leader for 2m",
+      "since": "2026-11-05T09:30:00Z",
+      "condition_since": "2026-11-05T09:28:00Z",
+      "transitioned_at": "2026-11-05T09:30:00Z",
+      "value": 0,
+      "link": "https://nats-lens.example.com/findings/stream-001:APP%2Forder-jobs?system=example-prod",
+      "dedup_key": "example-prod:stream-001:APP/order-jobs:41230:firing:41230"
+    }
+  ]
+}
+```
+
+The other kinds use the same envelope. These message excerpts show the fields that distinguish them; finding fields follow the table above:
+
+```json
+[
+  {"kind": "changed", "previous_severity": "warning", "detail": "no leader for 2m", "dedup_key": "example-prod:stream-001:APP/order-jobs:41230:changed:41234"},
+  {"kind": "resolved", "resolved_at": "2026-11-05T09:32:00Z", "detail": "leader elected", "dedup_key": "example-prod:stream-001:APP/order-jobs:41230:resolved:41234"},
+  {"kind": "flapping", "flapping": true, "detail": "no leader for 2m", "dedup_key": "example-prod:stream-001:APP/order-jobs:41230:flapping:41230"},
+  {"kind": "muted", "mute": {"by": "alice@example.com", "reason": "migration tonight", "until": "2026-11-05T21:30:00Z"}, "detail": "no leader for 2m", "dedup_key": "example-prod:stream-001:APP/order-jobs:41230:muted:41230"},
+  {"kind": "reminder", "detail": "no leader for 2m", "dedup_key": "example-prod:stream-001:APP/order-jobs:41230:reminder:41350"},
+  {"kind": "acknowledged", "acknowledgement": {"by": "alice@example.com", "note": "Checking quorum", "quiet_until": "2026-11-05T10:32:00Z"}, "detail": "no leader for 2m", "dedup_key": "example-prod:stream-001:APP/order-jobs:41230:acknowledged:41230:17"},
+  {"kind": "baseline", "firing_count": 3, "detail": "nats-lens now notifies this channel: 3 findings firing", "dedup_key": "example-prod:baseline:41230"},
+  {"kind": "test", "detail": "nats-lens test message from example-prod", "dedup_key": "example-prod:test:1793871000000000"}
+]
+```
+
+Slack-compatible channels send only `{"text": ...}`, with a system heading and at most 10 message lines. Larger batches show an additional count and a Findings link when `ui_url` is set. Slack requests have neither `Authorization` nor `Idempotency-Key`.
 
 ## Metrics
 
@@ -482,6 +652,8 @@ Every firing finding has three series with one identity, `system`, `code`, `enti
 | `nats_lens_finding` | identity, `muted` (`true` or `false`) | 1 for each firing finding, muted or not; at most 50 unmuted entities per check, the worst first and then by entity key, so the set is stable; muted findings are always exported |
 | `nats_lens_finding_severity` | identity | Severity of the finding: 1 info, 2 warning, 3 critical |
 | `nats_lens_finding_flapping` | identity | 1 while the finding flaps |
+| `nats_lens_finding_acknowledged` | identity | 1 while acknowledgement quiet holds; absent otherwise; exported only for findings selected by the same entity cap |
+| `nats_lens_findings_acknowledged` | | Firing findings whose acknowledgement quiet holds, muted or not, every entity counted |
 | `nats_lens_finding_series_omitted` | `code` | Findings of a check left out of the three series by the cap |
 | `nats_lens_findings_by_check` | `code` | Firing, unmuted findings of a check, every entity counted |
 | `nats_lens_findings_by_check_max_severity` | `code` | Highest severity among them |
@@ -494,6 +666,10 @@ Every firing finding has three series with one identity, `system`, `code`, `enti
 | `nats_lens_event_messages_dropped_last_hour` | | Event messages the collector dropped in the last hour |
 | `nats_lens_check_run_errors_last_hour` | | Check runs that failed in the last hour |
 | `nats_lens_check_failing` | `code` | 1 for a check whose newest run failed |
+| `nats_lens_notifications_delivered_last_hour` | `channel` | Messages delivered in the last hour, counted by outcome time |
+| `nats_lens_notifications_failed_last_hour` | `channel` | Messages refused or given up in the last hour, counted by outcome time |
+| `nats_lens_notifications_pending` | `channel` | Messages waiting for delivery, including retries |
+| `nats_lens_notifications_oldest_pending_seconds` | `channel` | Age of the oldest pending message; absent when none are pending |
 | `nats_lens_system_scrape_success` | | 1 when the system's metrics were read for this scrape, 0 when reading them failed, took longer than `metrics_timeout` or found the previous read still running; then the system's other series are absent from that scrape |
 
 On GKE, Cloud Monitoring alert policies can evaluate PromQL conditions over the data Managed Service for Prometheus (GMP) collects; the `PodMonitoring` in `k8s/components/gke-iap` scrapes `/metrics`. GMP adds the target labels `project_id`, `location`, `cluster`, `namespace`, `job` and `instance` to every series, so a query can select one deployment with `{cluster="...", namespace="nats-lens"}`. A metric that has a label of one of those names keeps it as `exported_<name>` (`exported_namespace` for a `namespace` label); the natslens metrics have none, so `namespace` is the pod's. An alert policy in Terraform or OpenTofu (one condition shown; the rules below translate the same way):
@@ -508,7 +684,7 @@ resource "google_monitoring_alert_policy" "nats_lens_critical_finding" {
   conditions {
     display_name = "A critical, unmuted nats-lens finding"
     condition_prometheus_query_language {
-      query               = "nats_lens_finding_severity{namespace=\"nats-lens\"} >= 3 unless on(system, code, entity_type, entity_key) nats_lens_finding{namespace=\"nats-lens\", muted=\"true\"}"
+      query               = "nats_lens_finding_severity{namespace=\"nats-lens\"} >= 3 unless on(system, code, entity_type, entity_key) nats_lens_finding{namespace=\"nats-lens\", muted=\"true\"} unless on(system, code, entity_type, entity_key) nats_lens_finding_acknowledged{namespace=\"nats-lens\"}"
       duration            = "120s"
       evaluation_interval = "60s"
     }
@@ -518,7 +694,7 @@ resource "google_monitoring_alert_policy" "nats_lens_critical_finding" {
 
   documentation {
     subject   = "nats-lens finding on ${var.project}"
-    content   = "Open /findings in nats-lens; mute the finding there if it is expected."
+    content   = "Open [Findings](https://nats-lens.example.com/findings). To open one finding, use /findings/by-labels?system=<encoded system>&code=<encoded code>&entity_key=<encoded entity_key> on that host; URL-encode each label value. Labels: system=$${metric.label.system}, code=$${metric.label.code}, entity_key=$${metric.label.entity_key}."
     mime_type = "text/markdown"
   }
 }
@@ -531,16 +707,19 @@ groups:
   - name: nats-lens
     rules:
       - alert: NatsLensCriticalFinding
-        expr: nats_lens_finding_severity >= 3 unless on(system, code, entity_type, entity_key) nats_lens_finding{muted="true"}
+        expr: nats_lens_finding_severity >= 3 unless on(system, code, entity_type, entity_key) nats_lens_finding{muted="true"} unless on(system, code, entity_type, entity_key) nats_lens_finding_acknowledged
         for: 2m
         labels: {severity: critical}
         annotations:
           summary: "nats-lens {{ $labels.code }} on {{ $labels.entity_key }} in {{ $labels.system }}"
-          description: "Open /findings in nats-lens; mute it there if it is expected."
+          description: "Open the finding; acknowledge it while investigating or mute it if it is expected."
+          link: "https://nats-lens.example.com/findings/by-labels?system={{ $labels.system | urlquery }}&code={{ $labels.code | urlquery }}&entity_key={{ $labels.entity_key | urlquery }}"
       - alert: NatsLensWarningFinding
-        expr: nats_lens_finding_severity == 2 unless on(system, code, entity_type, entity_key) nats_lens_finding{muted="true"}
+        expr: nats_lens_finding_severity == 2 unless on(system, code, entity_type, entity_key) nats_lens_finding{muted="true"} unless on(system, code, entity_type, entity_key) nats_lens_finding_acknowledged
         for: 15m
         labels: {severity: warning}
+        annotations:
+          link: "https://nats-lens.example.com/findings/by-labels?system={{ $labels.system | urlquery }}&code={{ $labels.code | urlquery }}&entity_key={{ $labels.entity_key | urlquery }}"
       - alert: NatsLensNotCollecting
         expr: nats_lens_last_epoch_age_seconds > 180 or absent(nats_lens_last_epoch_age_seconds)
         for: 5m
@@ -557,6 +736,11 @@ groups:
         expr: nats_lens_check_failing == 1
         for: 10m
         labels: {severity: warning}
+      - alert: NatsLensNotificationsStuck
+        expr: nats_lens_notifications_oldest_pending_seconds > 600
+        labels: {severity: warning}
+        annotations:
+          summary: "nats-lens notifications to {{ $labels.channel }} in {{ $labels.system }} have waited over 10 minutes"
       - alert: NatsLensSystemMetricsFailing
         expr: nats_lens_system_scrape_success == 0
         for: 5m
@@ -565,4 +749,6 @@ groups:
           summary: "nats-lens cannot read its data of {{ $labels.system }}; its findings are missing from /metrics"
 ```
 
-A mute in the UI makes the finding rules stop matching, so the alert closes; the finding's series stay, marked `muted="true"`. Beyond 50 entities of one check, alert on `nats_lens_findings_by_check_max_severity` instead.
+The finding rules above exclude mutes and acknowledgements while their quiet holds. Acknowledging keeps the finding visible and counted at its severity; quiet expiry resumes alert eligibility without ending the acknowledgement. Notification channels apply their own [quiet rules](docs/features/notifications.md). A mute in the UI makes the finding rules stop matching, so the alert closes; the finding's series stay, marked `muted="true"`. Beyond 50 entities of one check, alert on `nats_lens_findings_by_check_max_severity` instead.
+
+Finding links use `/findings/<id>?system=<id>` on every screen. The label route resolves the existing finding, then opens that URL; at 760 px and below it shows the [phone card](docs/features/mobile.md). URL-encode every query value: `+` must be `%2B`, a space can be `+` or `%20`, `/` is `%2F`, and `:` is `%3A`. Unicode values use UTF-8 percent encoding. Both label-route destinations retain the global time range, system, and account. For example, the demo durable opens at [the label link for analytics-aggregator](https://nats-lens.example.com/findings/by-labels?system=example-prod&code=consumer-010&entity_key=APP%2Forder-archive%2Fanalytics-aggregator). Replace the host with the deployment's UI address. The Cloud Monitoring documentation gives the same route as a construction instruction because [Cloud Monitoring documentation variables](https://docs.cloud.google.com/monitoring/alerts/doc-variables) offer substitutions without a documented URL-encoding operation. A missing finding opens Findings filtered to its check with an explanation; other API failures remain errors.

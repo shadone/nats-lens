@@ -64,7 +64,11 @@ func (s *Store) writeSnapshot(ctx context.Context, snap *collect.Snapshot) (int6
 	}
 	w.writeIdents()
 	if len(w.notes) > 0 {
-		w.exec(`UPDATE epochs SET errors = list_concat(errors, ?) WHERE epoch = ?`, w.notes, w.epoch)
+		notes := make([]string, len(w.notes))
+		for i, n := range w.notes {
+			notes[i] = NotePrefix + n
+		}
+		w.exec(`UPDATE epochs SET errors = list_concat(errors, ?) WHERE epoch = ?`, notes, w.epoch)
 	}
 	w.closeStatements()
 	if w.err != nil {
@@ -75,6 +79,11 @@ func (s *Store) writeSnapshot(ctx context.Context, snap *collect.Snapshot) (int6
 	}
 	return epoch, nil
 }
+
+// NotePrefix starts every note the store adds to an epoch's errors (a
+// value a newer server sent, a configuration not stored), so that readers
+// can tell them from the collector's own failures, which follow no prefix.
+const NotePrefix = "note: "
 
 // writer holds the state of one epoch's transaction. The first error is
 // kept and every later call becomes a no-op, so writers need no error

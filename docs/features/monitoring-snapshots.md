@@ -2,7 +2,7 @@
 
 - **Surfaces:** `ui`, `cli`
 - **Status:** shipped
-- **Related:** [overview.md](overview.md), [event-capture.md](event-capture.md), [history-and-archive.md](history-and-archive.md), [servers.md](servers.md), [running-nats-lens.md](running-nats-lens.md), [design.md](../design.md)
+- **Related:** [overview.md](overview.md), [event-capture.md](event-capture.md), [history-and-archive.md](history-and-archive.md), [servers.md](servers.md), [system-checks.md](system-checks.md), [running-nats-lens.md](running-nats-lens.md), [design.md](../design.md)
 
 ## What it does
 
@@ -11,12 +11,13 @@ Every collect interval (30 seconds by default), nats-lens takes one snapshot of 
 ## Behavior and rules
 
 - **Discovery, then detail.** nats-lens first finds the servers with `$SYS.REQ.SERVER.PING.STATSZ`. It then asks every server for VARZ, CONNZ (with subscription counts), ROUTEZ, GATEWAYZ, LEAFZ, ACCOUNTZ, account STATZ, JSZ (accounts, streams, consumers, their configuration and raft groups), HEALTHZ (with details), RAFTZ and IPQUEUESZ.
-- **RAFTZ per account.** A plain RAFTZ request returns only the JetStream meta group, so nats-lens sends one RAFTZ request per JetStream account it saw in JSZ, recorded as `RAFTZ:<account>`.
+- **RAFTZ per account.** A plain RAFTZ request returns only the JetStream meta group, so nats-lens sends one RAFTZ request per JetStream account it saw in JSZ, recorded as `RAFTZ:<account>`. A server with no groups for that account answers with an empty report, recorded as `ok`. While any server lists streams for the account, every answering server is expected to answer its account RAFTZ request. A server's own JSZ reply without those streams does not excuse a missing RAFTZ reply.
+- **An account leaves the request set.** When every answering server supplies JSZ and none lists streams for a previously seen account, nats-lens removes that account's RAFTZ outcomes from the collection and stops asking. Missing or failed JSZ keeps previously seen accounts in the request set. The unfiltered RAFTZ request for the meta group stays independent.
 - **A collect window per request.** Each request waits up to `timeout` (3 seconds by default) for replies and stops early once every server it expects has answered. A collection takes at most three windows, so nats-lens refuses a `timeout` that is not under a third of `interval`.
 - **Every server's view is kept.** nats-lens stores what each server reports about every asset, connection and raft group. It never keeps one server's answer in place of the others'.
 - **Expected servers, by name.** A server gets a new server ID on every restart, so nats-lens tracks servers by name. A collection expects every server name that answered within `server_forget_after` (1 hour by default), every server that answers now, and every route peer and JetStream meta peer that those servers list.
 - **Partial collections are stored.** A collection is partial when an expected server answered nothing, when a server did not answer one of the requests or answered with an error, or when the collector itself failed (for example, a reply it could not decode). nats-lens records the outcome of every request per server: `ok`, `error` (with the error text) or `missing` (no reply within the window).
-- **Values from a newer server.** A newer nats-server can send a value that this version's decoding does not know in an enum field: in JSZ a stream's retention, storage type, discard policy, compression or persist mode, a consumer's deliver, ack, replay or priority policy, or the retention in a stream's or consumer's desired cluster state; in ACCOUNTZ an import's or export's type or latency sampling rate; in HEALTHZ an error's type. A null, or a number where a name belongs, is treated the same way. nats-lens leaves that one value out, keeps the rest of the reply and records the request as `ok`; the log names each such value once per server, field and value, with the place it was first seen. A stream or consumer configuration is stored only when every unknown value in it has a spelling nats-server gives in its place: a deliver policy is stored as `undefined`, which a real server never sends; any other unknown value means the configuration is not stored, while the asset's stats, replicas and consumers are. For stream and consumer configurations, each collection's errors hold one note per server, field, value and outcome, with how many streams or consumers held it; the other fields get no note. A HEALTHZ error type is stored as `unknown`. The account details looked up per account are read without these fields, so an unknown type there loses nothing. A value of any other kind that does not decode still loses that server's reply.
+- **Values from a newer server.** A newer nats-server can send a value that this version's decoding does not know in an enum field: in JSZ a stream's retention, storage type, discard policy, compression or persist mode, a consumer's deliver, ack, replay or priority policy, or the retention in a stream's or consumer's desired cluster state; in ACCOUNTZ an import's or export's type or latency sampling rate; in HEALTHZ an error's type. A null, or a number where a name belongs, is treated the same way. nats-lens leaves that one value out, keeps the rest of the reply and records the request as `ok`; the log names each such value once per server, field and value, with the place it was first seen. A stream or consumer configuration is stored only when every unknown value in it has a spelling nats-server gives in its place: a deliver policy is stored as `undefined`, which a real server never sends; any other unknown value means the configuration is not stored, while the asset's stats, replicas and consumers are. For stream and consumer configurations, each collection's errors hold one note per server, field, value and outcome, with how many streams or consumers held it, starting `note: ` so that it is not read as a failure of the collection; the other fields get no note. A HEALTHZ error type is stored as `unknown`. The account details looked up per account are read without these fields, so an unknown type there loses nothing. A value of any other kind that does not decode still loses that server's reply.
 - **What skips an asset without a stored configuration.** Readers that join the configuration leave such an asset out: the checks `stream-004` (near its message or byte limit) and `consumer-003` (ack pending near `max_ack_pending`), and the counts `cluster.durable_consumers`, `cluster.assets_replicated` and `cluster.assets_single`. Pages show its configuration fields empty.
 - **Connections are capped.** nats-lens stores at most `connz_limit` (4096 by default) connections per server per collection.
 - **Subscription lists, every few minutes.** A collection also asks every server for its subscription list (SUBSZ) when the last one that did started at least `subscriptions_interval` (5 minutes by default) earlier; `0` turns the lists off. The request goes out with the other reports, so the collection takes no longer, and SUBSZ is recorded missing for a server only in a collection that asked for it. Each server lists the subscriptions of its own connections: its clients' and those of its internal system, JetStream and account clients (a stream's subjects, for example, under its leader). It does not list what its routes, gateways and leaf nodes carry, so a client's subscription is listed once, by the server the client is connected to. nats-lens keeps the account, subject, queue group, connection ID and delivered message count, one row per connection, subject and queue group, at most `subsz_limit` (10,000 by default) subscriptions per server; it records how many the server holds, so a cut list shows as cut. Subscriptions carry no message content and no JWT. The [Subjects](subjects.md) page reads them.
@@ -82,6 +83,22 @@ Every collect interval (30 seconds by default), nats-lens takes one snapshot of 
 - **When** I open that server's page
 - **Then** the "Monitoring endpoints" section shows HEALTHZ as `missing` and the other endpoints as `ok`
 - **And** the header's freshness tooltip names the newest collection as partial
+
+### The last replicated stream is deleted
+
+- **Given** account `APP` has one stream with three replicas
+- **When** the stream is deleted and one or two servers still list it in their JSZ replies
+- **Then** empty account RAFTZ replies are recorded as `ok`, with no raft-group rows for the deleted stream
+- **And** those empty replies do not make the collection partial
+- **And** once every JSZ reply lists no streams for `APP`, the collection has no `RAFTZ:APP` outcomes
+
+### An account RAFTZ reply is lost during deletion
+
+- **Given** one server lists no streams for `APP` while another still lists its deleted stream
+- **When** the first server leaves `RAFTZ:APP` unanswered
+- **Then** its outcome is `missing` and the collection is partial
+- **And** the server's monitoring endpoints and the header's freshness tooltip expose the incomplete collection
+- **And** [system checks](system-checks.md) count the failure toward `system-007`, subject to its history threshold and restart exclusions
 
 ### A newer server sends a retention policy nats-lens does not know
 

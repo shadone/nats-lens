@@ -105,9 +105,15 @@ func (s *Store) CreateMute(ctx context.Context, m Mute) (Mute, error) {
 	if m.GrowthPerDay != nil {
 		growth = *m.GrowthPerDay
 	}
+	// The system entity has an empty key, as its findings do; only a mute
+	// of every entity has neither type nor key.
+	var key any
+	if m.EntityType != "" {
+		key = m.EntityKey
+	}
 	row := s.db.QueryRowContext(ctx, `INSERT INTO mutes (`+muteInsertCols+`)
 VALUES (nextval('mute_seq'), ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING `+muteCols,
-		m.CheckCode, nullIfEmpty(m.EntityType), nullIfEmpty(m.EntityKey), m.Reason, m.MutedBy, m.CreatedAt.UTC(), m.ExpiresAt.UTC(),
+		m.CheckCode, nullIfEmpty(m.EntityType), key, m.Reason, m.MutedBy, m.CreatedAt.UTC(), m.ExpiresAt.UTC(),
 		m.Accepted, growth)
 	out, err := scanMute(row)
 	if err != nil {
