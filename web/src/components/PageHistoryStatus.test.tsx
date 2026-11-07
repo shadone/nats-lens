@@ -20,7 +20,7 @@ it("announces the charts' history read once per page: loading, then unavailable"
     <SeriesChart title="Memory" start={NOW - H} end={NOW} />
     <TrendChart title="Messages" start={NOW - 7 * 24 * H} end={NOW} layers={[]} />
   </PageHistoryProvider>, "/?system=example-prod&range=24h");
-  expect(await screen.findAllByText("Gaps loading")).toHaveLength(3);
+  await waitFor(() => expect(document.querySelectorAll(".dh-chart-status")).toHaveLength(3));
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("History gaps loading"));
   expect(screen.getAllByRole("status")).toHaveLength(1);
   await act(async () => fails.forEach((no) => no(new Error("history unavailable"))));
@@ -88,7 +88,7 @@ it("puts one visible note on the page when the charts' history read fails", asyn
     <SeriesChart title="CPU" start={NOW - H} end={NOW} />
     <SeriesChart title="Memory" start={NOW - H} end={NOW} />
   </PageHistoryProvider>, "/?system=example-prod&range=24h");
-  const note = await screen.findByText(/^History gaps unavailable: gaps are not marked on these charts/, { selector: "p.dh-note" });
+  const note = await screen.findByText("History gaps unavailable: these charts do not mark gaps.", { selector: "p.dh-note" });
   expect(note).toBeVisible();
   expect(document.querySelectorAll("p.dh-note")).toHaveLength(1);
   read.mockReset();

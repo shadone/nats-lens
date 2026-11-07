@@ -10,6 +10,7 @@ import { growthHistoryNote, historyNote } from "../lib/historyView";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
 import { useGlobalQuery } from "../lib/useGlobalQuery";
 import { useSystem } from "../lib/useSystem";
+import { HISTORY_LOADING, HISTORY_UNAVAILABLE, HISTORY_UNAVAILABLE_NOTE, LOADING_DELAY_MS, readState, type HistoryReadState } from "../lib/historyStatus";
 
 export interface PageHistory {
   historyStart?: number;
@@ -19,7 +20,8 @@ export interface PageHistory {
   live: boolean;
   gaps?: HistoryGap[];
   serverGaps?: ServerHistoryGap[];
-  gapsStatus?: string;
+  /** The state of the page's own history read, where it supplies the gaps. */
+  gapsState?: HistoryReadState;
   gapsTotal?: number;
   newestOmittedCollectionGap?: HistoryGap;
   gapServer?: string;
@@ -46,9 +48,8 @@ export function PageHistoryProvider({ children }: { children: ReactNode }) {
  * Loading is said only once a read has been pending LOADING_DELAY_MS, so a
  * read the cache answers at once does not flash it; unavailable is said at once,
  * with a visible note, as the charts keep their rows and do not say it. */
-const LOADING = "History gaps loading";
-const UNAVAILABLE = "History gaps unavailable";
-const LOADING_DELAY_MS = 300;
+const LOADING = HISTORY_LOADING;
+const UNAVAILABLE = HISTORY_UNAVAILABLE;
 function PageHistoryStatus() {
   const cache = useQueryClient().getQueryCache();
   const sys = useSystem();
@@ -74,7 +75,7 @@ function PageHistoryStatus() {
     return () => clearTimeout(timer);
   }, [now]);
   return <>
-    {now === UNAVAILABLE && <p className="dh-note">History gaps unavailable: gaps are not marked on these charts.</p>}
+    {now === UNAVAILABLE && <p className="dh-note">{HISTORY_UNAVAILABLE_NOTE}</p>}
     <p className="sr-only" role="status">{text}</p>
   </>;
 }
@@ -104,8 +105,9 @@ export function ServerChartHistory({ server, children }: { server: string; child
   const q = useDataHistory(spec, server);
   useReportStale(q);
   const d = q.data;
-  const status = q.error ? "History gaps unavailable" : q.isPending ? "History gaps loading" : undefined;
-  return <HistoryContext.Provider value={h && { ...h, start: d?.rangeStart ?? h.start, end: d?.rangeEnd ?? h.end, gaps: d?.gaps ?? [], serverGaps: d?.serverGaps ?? [], gapsTotal: d?.gapsTotal, newestOmittedCollectionGap: d?.newestOmittedCollectionGap, gapServer: server, gapsStatus: status }}>
+  const state = readState(q);
+  const status = state === "failed" ? HISTORY_UNAVAILABLE : state === "loading" ? HISTORY_LOADING : undefined;
+  return <HistoryContext.Provider value={h && { ...h, start: d?.rangeStart ?? h.start, end: d?.rangeEnd ?? h.end, gaps: d?.gaps ?? [], serverGaps: d?.serverGaps ?? [], gapsTotal: d?.gapsTotal, newestOmittedCollectionGap: d?.newestOmittedCollectionGap, gapServer: server, gapsState: state }}>
     {status && <p className="dh-note" role="status">{status}</p>}
     <p className="dh-note">Server hatches mark recorded missing answers or missing STATSZ/VARZ metrics reports, at collection intervals. They do not establish server downtime.</p>
     {children}

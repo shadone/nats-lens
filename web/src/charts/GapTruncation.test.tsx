@@ -26,7 +26,8 @@ it.each([0,200])("does not warn from a full list alone or event-only truncation 
  read.mockResolvedValue({...staging(),rangeStart:NOW-H,rangeEnd:NOW,gaps:Array.from({length:200},()=>gap({kind:total===0?"eventsNotCaptured":"noCollections",start:NOW-30000,end:NOW-1000})),gapsTotal:total,listedGapsTotal:900});
  renderApp(<Charts/>,"/?range=24h");
  await waitFor(()=>expect(read).toHaveBeenCalledTimes(1));
- await waitFor(()=>expect(screen.queryByText("History gaps loading")).not.toBeInTheDocument());
+ // Let the answer settle, so the notice is judged on it, not on a pending read.
+ await act(async()=>{await new Promise(resolve=>setTimeout(resolve,20));});
  expect(screen.queryByRole("note",{name:/Collection gap limit/})).not.toBeInTheDocument();
 });
 it("queries a non-preset chart's exact domain so omissions outside it do not produce a notice",async()=>{
@@ -41,7 +42,8 @@ it("does not warn when retained omission evidence is outside the moving chart",a
  read.mockResolvedValue({...staging(),rangeStart:NOW-H,rangeEnd:NOW,gaps:[],gapsTotal:43,newestOmittedCollectionGap:gap({start:NOW-H,end:NOW-H+1000})});
  renderApp(<Charts start={NOW-H+2000} end={NOW+2000}/>,"/?range=24h");
  await waitFor(()=>expect(read).toHaveBeenCalledTimes(1));
- await waitFor(()=>expect(screen.queryByText("History gaps loading")).not.toBeInTheDocument());
+ // Let the answer settle, so the notice is judged on it, not on a pending read.
+ await act(async()=>{await new Promise(resolve=>setTimeout(resolve,20));});
  expect(screen.queryByRole("note",{name:/Collection gap limit/})).not.toBeInTheDocument();
 });
 it("reads an exact fixed chart domain even inside a larger selected range",async()=>{
@@ -54,7 +56,8 @@ it.each([false,true])("tells the reader history gaps are loading in HTML text ou
  let answer!:(v:ReturnType<typeof staging>)=>void;
  read.mockImplementation(()=>new Promise(yes=>{answer=yes}));
  const r=renderApp(<Charts trend={trend}/>,"/?range=24h");
- const status=await screen.findByText("Gaps loading");
+ const words=trend?"Gaps loading":"History gaps loading";
+ const status=await screen.findByText(words);
  // Plain text in flow, not one live region per chart.
  expect(screen.queryByRole("status")).toBeNull();
  expect(status.closest("svg")).toBeNull();
@@ -62,7 +65,7 @@ it.each([false,true])("tells the reader history gaps are loading in HTML text ou
  // In a row the chart already has, so the card keeps its height while it shows.
  expect(status.closest(trend?".tc-f":".chart-f")).not.toBeNull();
  answer({...staging(),rangeStart:NOW-H,rangeEnd:NOW,gaps:[]});
- await waitFor(()=>expect(screen.queryByText("Gaps loading")).not.toBeInTheDocument());
+ await waitFor(()=>expect(screen.queryByText(words)).not.toBeInTheDocument());
  // beforeEach returns the mock, and Vitest calls it after the test as a teardown.
  read.mockReset();
  r.unmount();
@@ -106,7 +109,7 @@ it("shows a shared row's loading text only after 300 ms, keeping the row's data 
   expect(document.querySelector(".chart-f .dh-chart-status")).toBeNull();
   expect(document.querySelector(".chart-f")!.textContent).toContain("min");
   await act(async()=>{await vi.advanceTimersByTimeAsync(250);});
-  expect(document.querySelector(".chart-f .dh-chart-status")).toHaveTextContent("Gaps loading");
+  expect(document.querySelector(".chart-f .dh-chart-status")).toHaveTextContent("History gaps loading");
   read.mockReset();
   r.unmount();
  }finally{vi.useRealTimers();}
