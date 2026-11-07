@@ -14,7 +14,7 @@ Everything nats-lens knows is in its DuckDB database, and `natslens sql` runs on
 - **One system's database.** Each system has its own database. `natslens sql -config FILE -system ID QUERY` reads the database of the system with that id; with a configuration that lists one system, `-system` may be left out, and with several it is required. An unknown id fails and names the configured ones. `-data-dir` overrides the directory.
 - **Plain output.** A missing value prints as `NULL`, and a time prints in UTC to the millisecond.
 - **Read-only.** The database is opened read-only, so a query cannot change it.
-- **Stopped collector, or a copy.** While `natslens run` holds the file, `natslens sql` fails. Stop the collector first, or query a copy of the database directory.
+- **Stopped collector, or a copy.** While `natslens run` holds the file, `natslens sql` fails. Stop the collector before copying its database directory, then query the copy; copying an actively written database file alone does not establish a consistent snapshot.
 - **The schema explains itself.** Every table and column carries a comment. `SELECT table_name, column_name, comment FROM duckdb_columns() WHERE NOT internal ORDER BY table_name` lists them.
 - **One row per server's view.** Statistics tables hold one row per server per collection; identity tables one row per thing with its first and last collection; configuration tables one row per server per run of collections with the same configuration. A server gets a new `server_id` on every restart, so queries join the `servers` table for the stable `server_name`.
 
@@ -47,7 +47,7 @@ Everything nats-lens knows is in its DuckDB database, and `natslens sql` runs on
 
 ## Not supported / out of scope
 
-- **No SQL over the API.** The API has no query endpoint; a read-only SQL endpoint and a server for AI agents are being considered for after the first release.
+- **No SQL over the API.** The API has no query endpoint. Proposed agent and offline access is described in [Investigation workflows](../plans/investigation-workflows.md).
 - **No query while collecting.** The database is locked by the running collector.
 - **No archive queries.** `natslens sql` reads the database only; hours older than `retention` are in the Parquet archive, which DuckDB can read directly.
 - **No output formats.** The output is an aligned text table; there is no CSV or JSON option.
