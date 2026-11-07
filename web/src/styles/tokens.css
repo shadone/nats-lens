@@ -61,7 +61,7 @@
    the page title, card figures; xl: page headings and the largest figures.
    Weights: 400 for text, 500 for emphasis and headings; 600 only for page titles
    (header title, page and finding headings, on-call title) and the Overview
-   status line. Proposed in the UI polish, not yet confirmed. */
+   status line. Decided in the UI polish; see docs/design.md, UI. */
 :root{
   --fs-xs:11px; --fs-sm:12px; --fs-md:13px; --fs-lg:15px; --fs-xl:20px;
 }
@@ -73,8 +73,7 @@
    Radius: xs for marks of 12px or less, sm for badges, tags and keycaps, md for
    controls, rows and inner boxes, lg for cards, panels and dialogs; pill only
    for count badges. A box inside a rounded box takes the outer radius minus
-   the padding between them, never below sm. Proposed in the UI polish, not yet
-   confirmed. */
+   the padding between them, never below sm. Decided in the UI polish; see docs/design.md, UI. */
 :root{
   --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px;
   --sp-8:32px; --sp-10:40px; --sp-12:48px;

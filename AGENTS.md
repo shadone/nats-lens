@@ -19,7 +19,7 @@ nats-lens observes a NATS deployment: a Go collector takes snapshots and capture
 ## Commands
 
 - `make build`: the web UI, then `bin/natslens` with it embedded.
-- `go test ./...` (`go test -short ./...` skips the in-process cluster tests); `go vet ./...`.
+- `go test -timeout 40m ./...` (`-short` skips the in-process cluster tests); `go vet ./...`. `internal/checks` alone takes about 13 minutes, longer than the default 10-minute limit; run it apart from `npm test`, which slows it further.
 - `cd web && npx tsc --noEmit && npm test`.
 - `natslens demo`: the API and UI with a fixed scenario on 127.0.0.1:8080, without NATS. With `-fixed` it serves 2026-10-17 14:30 UTC, and the UI's live ranges end there.
 - `make dev-cluster`, `make load`, `make run-dev`: a local cluster, assets and traffic, and the collector against it.
@@ -32,10 +32,12 @@ nats-lens observes a NATS deployment: a Go collector takes snapshots and capture
 - Proto changes take new field numbers; never reuse or renumber one. Run `make proto` and commit the generated code.
 - A `time.Time` passed to DuckDB is shifted by the session time zone, which follows the host's, wherever DuckDB cannot type it from a TIMESTAMP column: in arithmetic (`? - INTERVAL 1 HOUR`), as a function argument (`date_trunc('hour', ?)`), or in a subquery's or CTE's select list. Compare a column with the parameter directly (`col >= ?`), or pass Unix microseconds and build the time with `make_timestamp(?::BIGINT)`; test such a query with a non-UTC `TZ`.
 - Every check has a test in `internal/checks` with one entity that fails and one that does not.
+- UI styles take font sizes, spacing and radius from the tokens in `web/src/styles/tokens.css`, and labels are in sentence case; see [UI](docs/design.md#ui).
 - Every user-facing change updates `docs/features/`: the capability doc and both sections of `docs/features/README.md` (the capabilities table and the coverage map). Then run the feature-docs skill's audit, `python3 <skill>/scripts/audit_feature_docs.py docs/features/ --map-refs require`; its `bad-status` warnings on `Status: planned` docs are expected, every other finding is fixed.
 
 ## Agent work
 
+- Work on a branch in a worktree of its own; the main checkout stays on `develop`, where other sessions merge.
 - One implementer and one reviewer per task; the reviewer is a fresh agent and only reads.
 - For a fix, see its test fail with the fix taken out, then pass with it, and say so in the report.
 - A decision an agent makes is written as "proposed, not yet confirmed", never as the owner's.
