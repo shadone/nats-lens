@@ -44,6 +44,15 @@ describe("StatusTimeline", () => {
     expect(container.querySelector(".k8slane")).toBeNull();
   });
 
+  it("names the Kubernetes lane K8s, in the chart and in the table", () => {
+    const k8s: Timeline = { ...tl, kubernetes: [{ id: "k1", time: START + Q, source: "kubernetes", kind: "Killing", shortLabel: "Killing", label: "pod nats-0 Killing" }] };
+    const { container, unmount } = render(<StatusTimeline tl={k8s} end={START + 4 * Q} live asTable={false} />);
+    expect(container.querySelector(".lane .code")).toHaveTextContent(/^K8s$/);
+    unmount();
+    render(<StatusTimeline tl={k8s} end={START + 4 * Q} live asTable />);
+    expect(screen.getByRole("cell", { name: "K8s" })).toBeInTheDocument();
+  });
+
   it("gives the same content as a table", () => {
     render(<StatusTimeline tl={tl} end={START + 4 * Q} live asTable />);
     const rows = screen.getAllByRole("row");
