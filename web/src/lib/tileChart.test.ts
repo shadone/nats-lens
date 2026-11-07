@@ -188,6 +188,25 @@ describe("tickedMoves", () => {
   // A busy count: a sawtooth from 100 to 118, each bucket's low and high three from its value, one beyond its neighbours.
   const busy = () => Array.from({ length: 40 }, (_, i) => at(100 + (i % 10) * 2, 97 + (i % 10) * 2, 103 + (i % 10) * 2, i));
 
+  it("ticks nothing when most buckets hide a move, as busy connection counts do", () => {
+    const p = Array.from({ length: 10 }, (_, i) => at(100, 90, 110, i));
+    expect(hiddenMoves(p)).toHaveLength(10);
+    expect(tickedMoves(p)).toEqual([]);
+  });
+
+  it("ticks nothing on a steady value whose every bucket swings well beyond it", () => {
+    const p = Array.from({ length: 96 }, (_, i) => at(180, 150, 200, i));
+    expect(tickedMoves(p)).toEqual([]);
+  });
+
+  it("ticks nothing on a wave whose every bucket swings beyond its neighbours", () => {
+    const p = Array.from({ length: 96 }, (_, i) => {
+      const v = Math.round(100 + 10 * Math.sin(i / 4));
+      return at(v, v - 15, v + 15, i);
+    });
+    expect(tickedMoves(p)).toEqual([]);
+  });
+
   it("ticks no noise that reaches less than a quarter of the track's span", () => {
     expect(hiddenMoves(busy()).length).toBeGreaterThan(20);
     expect(tickedMoves(busy())).toEqual([]);

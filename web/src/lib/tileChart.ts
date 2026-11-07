@@ -104,16 +104,27 @@ export function edgeRange(points: Point[], min?: number, max?: number): { min?: 
   return { min: lo, max: hi };
 }
 
+/** The median of a list; 0 for none. */
+function median(xs: number[]): number {
+  if (!xs.length) return 0;
+  const s = [...xs].sort((a, b) => a - b);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
 /**
  * The hidden moves a chart ticks: those that reach at least a quarter of
  * the span from the lowest to the highest value, lows and highs included,
- * so busy noise drops out and an outage inside it is always marked.
+ * and more than twice the median reach of the other buckets. So a count
+ * whose every bucket swings draws no ticks, while an outage inside busy
+ * noise is always marked.
  */
 export function tickedMoves(points: Point[]): Point[] {
   const values = points.flatMap((p) => [p.value, p.low ?? p.value, p.high ?? p.value]);
   const span = Math.max(...values) - Math.min(...values);
+  const reaches = points.map((_, i) => reach(points, i));
   return points.filter((_, i) => {
-    const r = reach(points, i);
-    return r > 0 && r >= span / 4;
+    const r = reaches[i];
+    return r > 0 && r >= span / 4 && r > 2 * median(reaches.filter((_, j) => j !== i));
   });
 }
