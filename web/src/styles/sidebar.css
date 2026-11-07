@@ -36,7 +36,6 @@
 .nb.warning{border-color:var(--sev-warning);color:var(--sev-warning)}
 .nb.info{border-style:dashed;border-color:var(--sev-info);color:var(--sev-info)}
 .nb.nodata{border-style:dotted;border-color:var(--text-muted);color:var(--text-muted)}
-.nb-rail{display:none}
 
 .side-collapse{margin-top:auto;display:flex;align-items:center;gap:10px;text-align:left;padding:8px 10px;border:0;border-radius:8px;background:none;color:var(--text-muted);cursor:pointer;font-size:var(--fs-md)}
 .side-collapse:hover{background:var(--surface-sunk);color:var(--text)}
@@ -54,11 +53,11 @@
   .side.collapsed .menu{right:auto;min-width:220px}
   .side.collapsed .side-grp + .side-grp{border-top:1px solid var(--border);margin-top:8px;padding-top:8px}
   .side.collapsed .side-nav a{position:relative;justify-content:center;padding:9px 0}
-  /* Above the icon, never over it: the 18px icon starts 9px down the 36px row, and the
-     badge, up to "99+", reaches 8px into the gap and padding of the row above. */
-  .side.collapsed .nb{position:absolute;top:-8px;right:2px;min-width:15px;padding:0 3px;font-size:var(--fs-xs);line-height:14px}
-  .side.collapsed .nb-full{display:none}
-  .side.collapsed .nb-rail{display:inline}
+  /* An 8px severity mark, shaped like the badge, centred on the icon's top right
+     corner: the icon is 18px wide, centred, and starts 9px down the row. The count
+     stays in the title and the accessible name. */
+  .side.collapsed .nb{position:absolute;top:5px;left:calc(50% + 5px);width:8px;height:8px;min-width:0;padding:0;border-radius:50%}
+  .side.collapsed .nb-n{display:none}
   .side.collapsed .side-collapse{justify-content:center;padding:8px 0}
 }
 
