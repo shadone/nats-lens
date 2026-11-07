@@ -98,6 +98,9 @@ func TestConsumerReplicaDegradedHistory(t *testing.T) {
 	}
 	// No earlier check runs: persisted observations, not evaluations, establish the warning.
 	run(3)
+	if _, err := f.st.CreateMute(context.Background(), store.Mute{CheckCode: "consumer-018", EntityType: "consumer", EntityKey: "APP/jobs/bad", Reason: "test maintenance", MutedBy: "test", CreatedAt: at(3), ExpiresAt: at(10).Add(time.Hour)}); err != nil {
+		t.Fatal(err)
+	}
 	f.exec(`DELETE FROM consumer_stats WHERE epoch IN (4,5) AND consumer='bad'`)
 	eng.Budget = time.Nanosecond
 	run(4)
@@ -115,6 +118,13 @@ func TestConsumerReplicaDegradedHistory(t *testing.T) {
 	f.st, err = store.OpenPath(context.Background(), path)
 	if err != nil {
 		t.Fatal(err)
+	}
+	stored, err := f.st.Finding(context.Background(), "consumer-018:APP/jobs/bad", at(6))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.State != store.StateFiring || stored.Mute == nil || stored.Value != nil {
+		t.Fatalf("held finding: %+v", stored)
 	}
 	r := f.fires("consumer-018", 6, "APP/jobs/bad")["APP/jobs/bad"]
 	want(t, r, "warning", "health is unknown")
