@@ -154,6 +154,18 @@ describe("charts only where something changed", () => {
     const { container } = render(<OverviewTiles tiles={[tile({ value: 3, series: s })]} windows={[]} start={START} end={END} />);
     expect(container.querySelector("svg.spark")).not.toBeNull();
     expect(container.querySelectorAll(".spark-range")).toHaveLength(1);
+    // The track takes in the bucket's low, so it does not read steady.
+    expect(screen.queryByText(/steady at/)).toBeNull();
+    expect(container.querySelector(".mb-ends")!.textContent).toBe("23");
+  });
+
+  it("ticks only a move the line hides, not a dip whose neighbours touch it", () => {
+    const s = series(Array.from({ length: 96 }, () => 3), 2, 3);
+    s.points[39] = { ...s.points[39], low: 2, high: 3 };
+    s.points[40] = { ...s.points[40], value: 2, low: 2, high: 3 };
+    s.points[41] = { ...s.points[41], low: 2, high: 3 };
+    const { container } = render(<OverviewTiles tiles={[tile({ value: 3, series: s })]} windows={[]} start={START} end={END} />);
+    expect(container.querySelectorAll(".spark-range")).toHaveLength(0);
   });
 
   it("draws an ok tile's line in the neutral colour with the accent only on the change", () => {

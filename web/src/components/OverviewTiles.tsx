@@ -8,7 +8,7 @@ import type { HistoryGap } from "../api/history";
 import type { Level, Tile, Window } from "../api/model";
 import { useDataHistory } from "../api/queries";
 import { rangeCoverageText } from "../lib/historyView";
-import { tileChartReason } from "../lib/tileChart";
+import { edgeRange, tileChartReason } from "../lib/tileChart";
 import { useTimeRange } from "../lib/useTimeRange";
 import { tileValue, fmtValue } from "../lib/units";
 import { MetricBox } from "./MetricBox";
@@ -79,7 +79,9 @@ function TileGrid({ tiles, windows, start, end, gaps }: TilesProps & { gaps?: re
       {tiles.map((t) => {
         const leader = t.id === "meta_leader";
         const status = tileStatus(t);
-        const chart = tileChartReason({ points: t.series?.points ?? [], points2: t.series2?.points, stepMs: t.series?.stepMs, min: t.series?.min, max: t.series?.max, start, end, status, changesSeries: leader, live: h?.live, historyStart: h?.historyStart, gaps }) !== "steady";
+        // A count bucket's low and high widen the track, so a dip inside one bucket shows.
+        const series = t.series && { ...t.series, ...edgeRange(t.series.points, t.series.min, t.series.max) };
+        const chart = tileChartReason({ points: t.series?.points ?? [], points2: t.series2?.points, stepMs: t.series?.stepMs, min: series?.min, max: series?.max, start, end, status, changesSeries: leader, live: h?.live, historyStart: h?.historyStart, gaps }) !== "steady";
         return <MetricBox
           key={t.id}
           title={t.label}
@@ -89,7 +91,7 @@ function TileGrid({ tiles, windows, start, end, gaps }: TilesProps & { gaps?: re
           chart={chart}
           tone="change"
           description={t.description ?? ""}
-          series={t.series}
+          series={series}
           series2={t.series2}
           value={t.id === "meta_leader" ? null : t.valueText ? undefined : (t.value ?? null)}
           valueText={t.id === "meta_leader" ? (t.valueText || "Unknown") : tileText(t)}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { HistoryGap } from "../api/history";
 import type { Point } from "../api/model";
-import { changedSegments, tileChartReason, type TileChartFacts } from "./tileChart";
+import { changedSegments, hiddenMoves, tileChartReason, type TileChartFacts } from "./tileChart";
 
 const STEP = 900_000;
 const START = Date.parse("2026-10-16T14:30:00Z");
@@ -142,5 +142,36 @@ describe("changedSegments", () => {
     expect(changedSegments(pts([3, 3, 3]))).toEqual([]);
     expect(changedSegments(pts([3]))).toEqual([]);
     expect(changedSegments([])).toEqual([]);
+  });
+});
+
+describe("hiddenMoves", () => {
+  const at = (value: number, low?: number, high?: number, i = 0): Point => ({ time: START + i * STEP, value, low, high });
+
+  it("keeps a bucket that dipped and came back between flat neighbours", () => {
+    const p = [at(3, 3, 3, 0), at(3, 2, 3, 1), at(3, 3, 3, 2)];
+    expect(hiddenMoves(p)).toEqual([p[1]]);
+  });
+
+  it("leaves out a move the line already draws", () => {
+    // A dip to 2 seen as a bucket value, its neighbours touching 2 too: the line shows it.
+    const p = [at(3, 3, 3, 0), at(3, 2, 3, 1), at(2, 2, 3, 2), at(3, 2, 3, 3), at(3, 3, 3, 4)];
+    expect(hiddenMoves(p)).toEqual([]);
+  });
+
+  it("leaves out noise that stays between its neighbours' values", () => {
+    const p = [at(100, 100, 100, 0), at(105, 101, 109, 1), at(110, 110, 110, 2)];
+    expect(hiddenMoves(p)).toEqual([]);
+  });
+
+  it("keeps a peak above both neighbours and the bucket's own value", () => {
+    const p = [at(100, 100, 100, 0), at(101, 100, 140, 1), at(102, 102, 102, 2)];
+    expect(hiddenMoves(p)).toEqual([p[1]]);
+  });
+
+  it("compares an end bucket with its own value where a neighbour is missing", () => {
+    expect(hiddenMoves([at(3, 2, 3, 0), at(3, 3, 3, 1)])).toHaveLength(1);
+    expect(hiddenMoves([at(3, 3, 3, 0), at(3, 3, 4, 1)])).toHaveLength(1);
+    expect(hiddenMoves([at(3)])).toEqual([]);
   });
 });
