@@ -3,6 +3,7 @@ syntax = "proto3";
 package natslens.v1;
 
 import "google/protobuf/timestamp.proto";
+import "natslens/v1/acknowledgements.proto";
 import "natslens/v1/common.proto";
 
 option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
@@ -41,6 +42,10 @@ message FindingValue {
 //
 // A muted finding still records transitions; it is kept apart from the
 // unmuted ones and never alerts. Every mute has an expiry.
+//
+// An acceptance is a mute too: it records one entity's finding as by
+// design, its expiry is the review date, and every reader of mutes treats
+// it as a mute.
 message Mute {
   // Mute ID.
   string id = 1;
@@ -69,8 +74,29 @@ message Mute {
   // after it expired on its own.
   google.protobuf.Timestamp unmuted_at = 8;
 
-  // Who lifted the mute.
+  // Who lifted the mute; "nats-lens" when nats-lens ended an acceptance
+  // because the entity's growth changed.
   string unmuted_by = 9;
+
+  // Whether the mute accepts the finding as by design. An acceptance has
+  // an entity, and expires_at is its review date.
+  bool accepted = 10;
+
+  // Growth of the accepted entity, bytes per day, recorded by the server:
+  // a stream's leader bytes or a server's JetStream storage, the week's
+  // growth (the median over the last day's points of the change since a
+  // week earlier, divided by 7), so that daily and weekly patterns cancel.
+  // For an entity under about 8 days old it is unset at acceptance and
+  // nats-lens records it later, the first time it can be measured. Unset
+  // for a plain mute and for other entity types. It can differ from the
+  // growth the Streams page shows for a range.
+  optional double growth_per_day = 11;
+
+  // Why nats-lens ended the acceptance before its review date, for example
+  // "growth changed from +2.1 MiB/day to +4.0 MiB/day over the last 7 days
+  // (+9.0 MiB in the last day)"; empty when a person
+  // lifted it or it ran out.
+  string end_reason = 12;
 }
 
 // One failing check for one entity.
@@ -130,6 +156,16 @@ message Finding {
   // When the condition began, where the check knows it (a creation time, a
   // process start); unset otherwise. since is when nats-lens first saw it.
   google.protobuf.Timestamp condition_since = 18;
+
+  // The check warns of something that will expire, a certificate or a JWT
+  // (its category is expiry). Such a finding at warning ranks after every
+  // other warning, so it never heads an outage; at critical it ranks as
+  // any critical finding.
+  bool expiry = 19;
+
+  // The acknowledgement of the current episode in force; unset when none
+  // is, and always for a resolved finding.
+  Acknowledgement acknowledgement = 20;
 }
 
 // One change of a finding's state.
@@ -169,6 +205,10 @@ message FindingTally {
 
   // Findings that resolved in the 24 hours before the range's end.
   int32 resolved_24h = 6;
+
+  // Findings that fire now with an acknowledgement in force, muted or not;
+  // they are counted above as well.
+  int32 acknowledged = 7;
 }
 
 // Request for findings.
@@ -260,6 +300,13 @@ message MuteFindingRequest {
 
   // System ID, as ListSystems returns it. Empty means the default system.
   string system = 6;
+
+  // Accept the finding as by design instead of muting it. The entity is
+  // then required, and expires_at is the review date: at least one day
+  // and at most 365 days ahead. The server records the entity's growth;
+  // nats-lens ends the acceptance early when that growth changes by more
+  // than half of the larger of the recorded rate and 1 MiB per day.
+  bool accept = 7;
 }
 
 // The created mute.

@@ -21,7 +21,7 @@ description: >-
 remediation: >-
   Compare the server's connections, subscriptions and leader counts with the others (Servers page): a server that
   leads most streams or holds most client connections uses more memory. If it does not, take a memory profile
-  (`nats server request profile`, or the /debug/pprof endpoint when profiling is on) before the pod is OOM-killed,
+  (`nats server request profile heap --name=<server>`, or the /debug/pprof endpoint when profiling is on) before the pod is OOM-killed,
   and check the container memory limit (`kubectl describe pod <name>`).
 related_config: [multiplier, min_bytes]
 value_name: memory, times the others' median

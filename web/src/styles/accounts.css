@@ -1,0 +1,50 @@
+/* Accounts: the accounts table and the failed logins and expiring cards.
+   Every rule names an ac- class, so the page's table rules reach no other
+   page; a test checks it. Colours are the design board's: the accent for
+   a bar, the severity tokens for warnings and expiry. */
+.ac-card{padding:var(--sp-5) 0 0;min-width:0;overflow:hidden}
+.ac-accounts{margin-top:var(--sp-4);padding:var(--sp-1) 0 0}
+.ac-card-h{padding:0 var(--sp-5) var(--sp-2)}
+.ac-card-h h2{margin:0 0 var(--sp-1);font:500 var(--fs-lg)/1.3 var(--sans)}
+.ac-sub{margin:0;font-size:var(--fs-md);color:var(--text-2)}
+.ac-card .table-wrap{padding:0 var(--sp-2)}
+.ac-card .table-wrap:last-child{padding-bottom:var(--sp-2)}
+.ac-card .tbl td{vertical-align:middle}
+.ac-card .tbl th[scope="row"]{text-align:left;font:400 var(--fs-md) var(--sans);vertical-align:middle;white-space:normal}
+.ac-card .tbl th[scope="row"].ac-mono,.ac-card .tbl th[scope="row"] .ac-mono{font-family:var(--mono)}
+.ac-logins .tbl th[scope="row"]{white-space:nowrap}
+.ac-card .tbl small{display:block;margin-top:var(--sp-1);font:var(--fs-xs) var(--sans);color:var(--text-muted);white-space:normal;min-width:90px}
+.ac-card .tbl small .ac-nw{white-space:nowrap}
+.ac-name{font:500 var(--fs-md) var(--mono)}
+.ac-id{display:block;margin-top:var(--sp-1);font:var(--fs-xs) var(--mono);color:var(--text-muted)}
+.ac-of{color:var(--text-muted)}
+.ac-bar{width:120px;max-width:100%;height:4px;margin-top:var(--sp-1);border-radius:var(--r-xs);background:var(--track)}
+.ac-bar-fill{height:4px;border-radius:var(--r-xs);background:var(--accent)}
+.ac-bar-fill.ac-bar-some{min-width:2px}
+.ac-bar-fill.ac-bar-warn{background:var(--cell-warning)}
+.ac-bar-fill.ac-bar-crit{background:var(--cell-critical)}
+.ac-card .tbl small.ac-limit-note{margin-top:var(--sp-1)}
+.ac-card .ac-warn{color:var(--sev-warning);font-weight:500}
+.ac-card .ac-crit{color:var(--sev-critical);font-weight:500}
+.ac-card .ac-muted,.ac-card .ac-quiet,.ac-none{color:var(--text-muted)}
+.ac-card .tbl tr.ac-hot > *{background:var(--sev-warning-bg)}
+.ac-card .tbl td.ac-reason{white-space:normal;min-width:140px}
+.ac-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-5);margin-top:var(--sp-5);align-items:start}
+.ac-empty{margin:0;padding:var(--sp-2) var(--sp-5) var(--sp-4);font-size:var(--fs-md);color:var(--text-2)}
+.ac-notes{padding:0 var(--sp-5) var(--sp-4);font-size:var(--fs-sm);color:var(--text-muted)}
+.ac-notes:empty{display:none}
+.ac-notes p{margin:var(--sp-2) 0 0}
+.ac-empty + .ac-notes p:first-child{margin-top:0}
+.ac-notes .ac-text{font-size:var(--fs-md);color:var(--text)}
+.ac-notes .ac-gap{color:var(--sev-warning)}
+.ac-foot{margin:0;padding:var(--sp-3) var(--sp-5) var(--sp-4);font-size:var(--fs-sm);color:var(--text-muted)}
+.ac-card .table-wrap + .ac-foot{border-top:1px solid var(--border-soft)}
+@media (max-width:1000px){
+  .ac-cards{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:760px){
+  .ac-card-h{padding:0 var(--sp-4) var(--sp-2)}
+  .ac-card .table-wrap{padding:0}
+  .ac-notes,.ac-foot{padding-left:var(--sp-4);padding-right:var(--sp-4)}
+  .ac-empty{padding:var(--sp-2) var(--sp-4) var(--sp-3)}
+}

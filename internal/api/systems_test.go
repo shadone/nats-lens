@@ -184,7 +184,7 @@ func TestListAccountsFake(t *testing.T) {
 	if len(accs) != 1 {
 		t.Fatalf("accounts = %v", accs)
 	}
-	if a := accs[0]; a.GetAccount() != fake.Account || a.GetIsSystem() || a.Connections == nil || a.GetConnections() != 182 ||
+	if a := accs[0]; a.GetAccount() != fake.Account || a.GetIsSystem() || a.Connections == nil || a.GetConnections() != 187 ||
 		a.GetStreams() != 13 || a.GetConsumers() != 54 {
 		t.Errorf("account = %v", a)
 	}

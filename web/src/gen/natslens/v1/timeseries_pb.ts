@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/timeseries.proto.
  */
 export const file_natslens_v1_timeseries: GenFile = /*@__PURE__*/
-  fileDesc("ChxuYXRzbGVucy92MS90aW1lc2VyaWVzLnByb3RvEgtuYXRzbGVucy52MSJ2CgVQb2ludBIoCgR0aW1lGAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBINCgV2YWx1ZRgCIAEoARIQCgNsb3cYAyABKAFIAIgBARIRCgRoaWdoGAQgASgBSAGIAQFCBgoEX2xvd0IHCgVfaGlnaCKvAgoGU2VyaWVzEg4KBm1ldHJpYxgBIAEoCRImCgZlbnRpdHkYAiABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSHwoEdW5pdBgDIAEoDjIRLm5hdHNsZW5zLnYxLlVuaXQSJwoEc3RlcBgEIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIiCgZwb2ludHMYBSADKAsyEi5uYXRzbGVucy52MS5Qb2ludBIQCgNtaW4YBiABKAFIAIgBARIQCgNtYXgYByABKAFIAYgBARIjCgN0b3AYCCABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSJgoKdG9wX3BvaW50cxgJIAMoCzISLm5hdHNsZW5zLnYxLlBvaW50QgYKBF9taW5CBgoEX21heCKZAQoUR2V0VGltZVNlcmllc1JlcXVlc3QSDgoGbWV0cmljGAEgASgJEiYKBmVudGl0eRgCIAEoCzIWLm5hdHNsZW5zLnYxLkVudGl0eVJlZhIlCgVyYW5nZRgDIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRISCgptYXhfcG9pbnRzGAQgASgFEg4KBnN5c3RlbRgFIAEoCSI8ChVHZXRUaW1lU2VyaWVzUmVzcG9uc2USIwoGc2VyaWVzGAEgASgLMhMubmF0c2xlbnMudjEuU2VyaWVzInwKCk1ldHJpY0luZm8SCgoCaWQYASABKAkSLAoLZW50aXR5X3R5cGUYAiABKA4yFy5uYXRzbGVucy52MS5FbnRpdHlUeXBlEh8KBHVuaXQYAyABKA4yES5uYXRzbGVucy52MS5Vbml0EhMKC2Rlc2NyaXB0aW9uGAQgASgJIhQKEkxpc3RNZXRyaWNzUmVxdWVzdCI/ChNMaXN0TWV0cmljc1Jlc3BvbnNlEigKB21ldHJpY3MYASADKAsyFy5uYXRzbGVucy52MS5NZXRyaWNJbmZvKqgBCgRVbml0EhQKEFVOSVRfVU5TUEVDSUZJRUQQABIOCgpVTklUX0NPVU5UEAESDgoKVU5JVF9CWVRFUxACEhMKD1VOSVRfUEVSX1NFQ09ORBADEhAKDFVOSVRfUEVSQ0VOVBAEEhAKDFVOSVRfU0VDT05EUxAFEhYKElVOSVRfQllURVNfUEVSX0RBWRAGEhkKFVVOSVRfQllURVNfUEVSX1NFQ09ORBAHQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common]);
+  fileDesc("ChxuYXRzbGVucy92MS90aW1lc2VyaWVzLnByb3RvEgtuYXRzbGVucy52MSJ2CgVQb2ludBIoCgR0aW1lGAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBINCgV2YWx1ZRgCIAEoARIQCgNsb3cYAyABKAFIAIgBARIRCgRoaWdoGAQgASgBSAGIAQFCBgoEX2xvd0IHCgVfaGlnaCKvAgoGU2VyaWVzEg4KBm1ldHJpYxgBIAEoCRImCgZlbnRpdHkYAiABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSHwoEdW5pdBgDIAEoDjIRLm5hdHNsZW5zLnYxLlVuaXQSJwoEc3RlcBgEIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIiCgZwb2ludHMYBSADKAsyEi5uYXRzbGVucy52MS5Qb2ludBIQCgNtaW4YBiABKAFIAIgBARIQCgNtYXgYByABKAFIAYgBARIjCgN0b3AYCCABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSJgoKdG9wX3BvaW50cxgJIAMoCzISLm5hdHNsZW5zLnYxLlBvaW50QgYKBF9taW5CBgoEX21heCKZAQoUR2V0VGltZVNlcmllc1JlcXVlc3QSDgoGbWV0cmljGAEgASgJEiYKBmVudGl0eRgCIAEoCzIWLm5hdHNsZW5zLnYxLkVudGl0eVJlZhIlCgVyYW5nZRgDIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRISCgptYXhfcG9pbnRzGAQgASgFEg4KBnN5c3RlbRgFIAEoCSI8ChVHZXRUaW1lU2VyaWVzUmVzcG9uc2USIwoGc2VyaWVzGAEgASgLMhMubmF0c2xlbnMudjEuU2VyaWVzInwKCk1ldHJpY0luZm8SCgoCaWQYASABKAkSLAoLZW50aXR5X3R5cGUYAiABKA4yFy5uYXRzbGVucy52MS5FbnRpdHlUeXBlEh8KBHVuaXQYAyABKA4yES5uYXRzbGVucy52MS5Vbml0EhMKC2Rlc2NyaXB0aW9uGAQgASgJIhQKEkxpc3RNZXRyaWNzUmVxdWVzdCI/ChNMaXN0TWV0cmljc1Jlc3BvbnNlEigKB21ldHJpY3MYASADKAsyFy5uYXRzbGVucy52MS5NZXRyaWNJbmZvIlkKC1Nlcmllc1F1ZXJ5Eg4KBm1ldHJpYxgBIAEoCRImCgZlbnRpdHkYAiABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSEgoKbWF4X3BvaW50cxgDIAEoBSKRAQoZR2V0VGltZVNlcmllc0JhdGNoUmVxdWVzdBIpCgdxdWVyaWVzGAEgAygLMhgubmF0c2xlbnMudjEuU2VyaWVzUXVlcnkSJQoFcmFuZ2UYAiABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2USEgoKbWF4X3BvaW50cxgDIAEoBRIOCgZzeXN0ZW0YBCABKAkiQgoMU2VyaWVzUmVzdWx0EiMKBnNlcmllcxgBIAEoCzITLm5hdHNsZW5zLnYxLlNlcmllcxINCgVlcnJvchgCIAEoCSJvChpHZXRUaW1lU2VyaWVzQmF0Y2hSZXNwb25zZRIqCgdyZXN1bHRzGAEgAygLMhkubmF0c2xlbnMudjEuU2VyaWVzUmVzdWx0EiUKBXJhbmdlGAIgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlKqgBCgRVbml0EhQKEFVOSVRfVU5TUEVDSUZJRUQQABIOCgpVTklUX0NPVU5UEAESDgoKVU5JVF9CWVRFUxACEhMKD1VOSVRfUEVSX1NFQ09ORBADEhAKDFVOSVRfUEVSQ0VOVBAEEhAKDFVOSVRfU0VDT05EUxAFEhYKElVOSVRfQllURVNfUEVSX0RBWRAGEhkKFVVOSVRfQllURVNfUEVSX1NFQ09ORBAHQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common]);
 
 /**
  * One value of a series.
@@ -32,27 +32,31 @@ export type Point = Message<"natslens.v1.Point"> & {
   /**
    * Value for the bucket.
    *
-   * Gauges are averaged over the bucket; rates are averaged per second;
-   * event counts are summed. For a band metric it is the median across
-   * servers.
+   * Counts (unit count) take the bucket's last value; other gauges are
+   * averaged over the bucket; rates are averaged per second; event counts
+   * are summed. For a band metric it is the median across servers.
    *
    * @generated from field: double value = 2;
    */
   value: number;
 
   /**
-   * Lowest value across servers, for a band metric; unset otherwise.
+   * Lowest value in the bucket, for a band metric and a count that takes
+   * the last value; unset otherwise.
    *
-   * The lowest server value of any epoch in the bucket.
+   * For a band metric, the lowest server value of any epoch in the bucket;
+   * for a count, its lowest value of any epoch in the bucket.
    *
    * @generated from field: optional double low = 3;
    */
   low?: number | undefined;
 
   /**
-   * Highest value across servers, for a band metric; unset otherwise.
+   * Highest value in the bucket, for a band metric and a count that takes
+   * the last value; unset otherwise.
    *
-   * The highest server value of any epoch in the bucket.
+   * For a band metric, the highest server value of any epoch in the bucket;
+   * for a count, its highest value of any epoch in the bucket.
    *
    * @generated from field: optional double high = 4;
    */
@@ -311,6 +315,149 @@ export type ListMetricsResponse = Message<"natslens.v1.ListMetricsResponse"> & {
  */
 export const ListMetricsResponseSchema: GenMessage<ListMetricsResponse> = /*@__PURE__*/
   messageDesc(file_natslens_v1_timeseries, 6);
+
+/**
+ * One series of a GetTimeSeriesBatch request.
+ *
+ * @generated from message natslens.v1.SeriesQuery
+ */
+export type SeriesQuery = Message<"natslens.v1.SeriesQuery"> & {
+  /**
+   * Metric ID, as in GetTimeSeriesRequest.metric.
+   *
+   * @generated from field: string metric = 1;
+   */
+  metric: string;
+
+  /**
+   * Entity the metric is read for, as in GetTimeSeriesRequest.entity.
+   *
+   * @generated from field: natslens.v1.EntityRef entity = 2;
+   */
+  entity?: EntityRef | undefined;
+
+  /**
+   * Number of buckets for this series, as in
+   * GetTimeSeriesRequest.max_points. Zero means the request's max_points.
+   *
+   * @generated from field: int32 max_points = 3;
+   */
+  maxPoints: number;
+};
+
+/**
+ * Describes the message natslens.v1.SeriesQuery.
+ * Use `create(SeriesQuerySchema)` to create a new message.
+ */
+export const SeriesQuerySchema: GenMessage<SeriesQuery> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_timeseries, 7);
+
+/**
+ * Request for several series over one time range.
+ *
+ * The call may take 40 seconds; each query 30 seconds within them, as a
+ * GetTimeSeries call does. A query that takes longer fails the call as
+ * deadline_exceeded.
+ *
+ * @generated from message natslens.v1.GetTimeSeriesBatchRequest
+ */
+export type GetTimeSeriesBatchRequest = Message<"natslens.v1.GetTimeSeriesBatchRequest"> & {
+  /**
+   * Series to read; at least one and at most 32.
+   *
+   * @generated from field: repeated natslens.v1.SeriesQuery queries = 1;
+   */
+  queries: SeriesQuery[];
+
+  /**
+   * Time range every series is read for; at most 400 days.
+   *
+   * It is resolved once, so an unset end is the same instant for every
+   * series.
+   *
+   * @generated from field: natslens.v1.TimeRange range = 2;
+   */
+  range?: TimeRange | undefined;
+
+  /**
+   * Number of buckets for a query that sets none, as in
+   * GetTimeSeriesRequest.max_points. Zero means 200; at most 2000.
+   *
+   * @generated from field: int32 max_points = 3;
+   */
+  maxPoints: number;
+
+  /**
+   * System ID, as ListSystems returns it. Empty means the default system.
+   *
+   * @generated from field: string system = 4;
+   */
+  system: string;
+};
+
+/**
+ * Describes the message natslens.v1.GetTimeSeriesBatchRequest.
+ * Use `create(GetTimeSeriesBatchRequestSchema)` to create a new message.
+ */
+export const GetTimeSeriesBatchRequestSchema: GenMessage<GetTimeSeriesBatchRequest> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_timeseries, 8);
+
+/**
+ * The result of one query of a batch.
+ *
+ * @generated from message natslens.v1.SeriesResult
+ */
+export type SeriesResult = Message<"natslens.v1.SeriesResult"> & {
+  /**
+   * The values; unset when error is set.
+   *
+   * @generated from field: natslens.v1.Series series = 1;
+   */
+  series?: Series | undefined;
+
+  /**
+   * Why the query was not served, for a query GetTimeSeries would refuse
+   * as invalid_argument or not_found. Empty when series is set.
+   *
+   * @generated from field: string error = 2;
+   */
+  error: string;
+};
+
+/**
+ * Describes the message natslens.v1.SeriesResult.
+ * Use `create(SeriesResultSchema)` to create a new message.
+ */
+export const SeriesResultSchema: GenMessage<SeriesResult> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_timeseries, 9);
+
+/**
+ * Several series over one time range.
+ *
+ * @generated from message natslens.v1.GetTimeSeriesBatchResponse
+ */
+export type GetTimeSeriesBatchResponse = Message<"natslens.v1.GetTimeSeriesBatchResponse"> & {
+  /**
+   * One result per query, in the order of the queries.
+   *
+   * @generated from field: repeated natslens.v1.SeriesResult results = 1;
+   */
+  results: SeriesResult[];
+
+  /**
+   * The resolved time range every series was read for.
+   *
+   * @generated from field: natslens.v1.TimeRange range = 2;
+   */
+  range?: TimeRange | undefined;
+};
+
+/**
+ * Describes the message natslens.v1.GetTimeSeriesBatchResponse.
+ * Use `create(GetTimeSeriesBatchResponseSchema)` to create a new message.
+ */
+export const GetTimeSeriesBatchResponseSchema: GenMessage<GetTimeSeriesBatchResponse> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_timeseries, 10);
 
 /**
  * Unit of a metric value.

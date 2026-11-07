@@ -42,9 +42,9 @@ export function FleetStrip({ cells, start, bucketMs }: { cells: Level[]; start: 
   // Over more than a day a time alone is ambiguous; the cells then carry the date.
   const when = cells.length * bucketMs > DAY ? dayMonHm : hm;
   return (
-    <svg className="fc-strip" viewBox={`0 0 ${SW} 14`} preserveAspectRatio="none" role="img" aria-label={`Status per ${bucketLabel(bucketMs)}: ${runsText(cellRuns(cells, start, bucketMs), when)}`}>
+    <svg className="fc-strip" viewBox={`0 0 ${SW} 16`} preserveAspectRatio="none" role="img" aria-label={`Status per ${bucketLabel(bucketMs)}: ${runsText(cellRuns(cells, start, bucketMs), when)}`}>
       {cells.map((lv, i) => (
-        <rect key={i} x={(i * cw + 0.6).toFixed(2)} y="0" width={Math.max(0.5, cw - 1.6).toFixed(2)} height="14" rx="1.5" style={cellStyle(lv)} vectorEffect="non-scaling-stroke" data-level={lv}>
+        <rect key={i} x={(i * cw + 0.6).toFixed(2)} y="0" width={Math.max(0.5, cw - 1.6).toFixed(2)} height="16" rx="1.5" style={cellStyle(lv)} vectorEffect="non-scaling-stroke" data-level={lv}>
           <title>{`${when(start + i * bucketMs)} ${LEVEL_LABEL[lv].toLowerCase()}`}</title>
         </rect>
       ))}

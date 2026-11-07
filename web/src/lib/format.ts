@@ -61,8 +61,10 @@ export function fmtDuration(ms: number): string {
 
 /** Round trip times and other short durations: 0.3 ms, 12 ms, 1.2 s. */
 export function fmtShortDuration(ms: number): string {
+  if (ms > 0 && ms < 0.005) return "<0.01 ms";
   if (ms < 1) return `${trimZeros(ms.toFixed(2))} ms`;
-  if (ms < 1000) return `${trimZeros(ms.toFixed(ms < 10 ? 1 : 0))} ms`;
+  // A value that rounds up to 1000 ms is shown as seconds.
+  if (ms < 999.5) return `${trimZeros(ms.toFixed(ms < 10 ? 1 : 0))} ms`;
   return `${trimZeros((ms / 1000).toFixed(1))} s`;
 }
 
@@ -93,10 +95,15 @@ export function dayMonHm(ms: number): string {
   return `${dayMon(ms)} ${hm(ms)}`;
 }
 
+/** 2026-10-24 */
+export function isoDate(ms: number): string {
+  const d = new Date(ms);
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+}
+
 /** 2026-10-24 12:00 */
 export function isoMinute(ms: number): string {
-  const d = new Date(ms);
-  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${hm(ms)}`;
+  return `${isoDate(ms)} ${hm(ms)}`;
 }
 
 /** 2026-10-24 12:00:05 */
@@ -119,4 +126,9 @@ export function sinceText(at: number, ref: number): string {
 /** An event time in a list: 09:31:07 within a day before ref, 16 Oct 09:31 otherwise. */
 export function eventWhen(ms: number, ref: number): string {
   return Math.abs(ref - ms) < DAY ? hms(ms) : dayMonHm(ms);
+}
+
+/** A label in sentence case: "consumer" as "Consumer". */
+export function upperFirst(s: string): string {
+  return s ? s[0].toUpperCase() + s.slice(1) : s;
 }

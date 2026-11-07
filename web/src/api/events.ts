@@ -1,9 +1,11 @@
 // The Events page's feed: routine events hidden, repeats folded, facets
 // and the histogram, plus the probe behind the "N new" pill and the
 // events around a finding's start. Every hook keys on the page's system.
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { keepSameSystem } from "./placeholder";
 import { timestampFromMs } from "@bufbuild/protobuf/wkt";
 import type { Event as PEvent, ListEventsResponse } from "../gen/natslens/v1/events_pb";
+import { serverNow } from "../lib/clock";
 import { LIVE_REFRESH_MS, presetMs, rangeKey, type RangeSpec } from "../lib/timeRange";
 import { useSystem } from "../lib/useSystem";
 import { ms, sourceEnum } from "./adapt-common";
@@ -112,7 +114,7 @@ export function eventFeed(r: ListEventsResponse, start: number, end: number): Ev
 }
 
 /** One page of the feed, with facets and the histogram. */
-export async function listEventFeed(sys: string, spec: RangeSpec, f: FeedFilter, signal?: AbortSignal, now = Date.now()): Promise<EventFeed> {
+export async function listEventFeed(sys: string, spec: RangeSpec, f: FeedFilter, signal?: AbortSignal, now = serverNow()): Promise<EventFeed> {
   const start = spec.kind === "live" ? now - presetMs(spec.preset) : spec.from;
   const end = spec.kind === "live" ? now : spec.to;
   const r = await lens.listEvents(
@@ -174,7 +176,7 @@ export function useEventFeed(spec: RangeSpec, f: FeedFilter) {
     // Never stale: going back to page 1 shows it as read, not refetched.
     staleTime: Infinity,
     refetchOnWindowFocus: false,
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
   });
 }
 

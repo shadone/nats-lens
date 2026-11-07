@@ -2,36 +2,49 @@
 
 - **Surfaces:** `ui`, `api`
 - **Status:** shipped
-- **Related:** [checks.md](checks.md), [overview-page.md](overview-page.md), [events.md](events.md), [metrics-and-alerting.md](metrics-and-alerting.md), [mobile.md](mobile.md)
+- **Related:** [data-history.md](data-history.md), [checks.md](checks.md), [overview-page.md](overview-page.md), [events.md](events.md), [metrics-and-alerting.md](metrics-and-alerting.md), [mobile.md](mobile.md)
 
 ## What it does
 
-The Findings page lists the findings of the time range, filtered by severity, state and check, and below them the mutes with who set them, why and until when. A finding's own page explains it: what fails in the check's own words, since when the condition holds and since when nats-lens has seen it, how many other entities share it, each server's copy of a stream or consumer, what to do, the related settings with their values, what happened around its start, every check of the same entity on a status timeline, and the finding's transitions. From a cause card on the Overview or a finding's page, an operator can mute a finding with a reason and an end; from a finding's page or the Findings page's mutes list, an operator can lift a mute early.
+The Findings page lists the findings of the time range, filtered by severity, state and check, and below them the mutes with who set them, why and until when. A finding's own page explains it: what fails in the check's own words, since when the condition holds and since when nats-lens has seen it, how many other entities share it, each server's copy of a stream or consumer, what to do, the related settings with their values, what happened around its start, every check of the same entity on a status timeline, and the finding's transitions. From a cause card on the Overview or a finding's page, an operator can mute a finding with a reason and an end; from a finding's page or the Findings page's mutes list, an operator can lift a mute early. A stream's `stream-005` finding can also be accepted as by design from the Capacity page, with a reason and a review date ([capacity.md](capacity.md)); an accepted finding reads as accepted wherever it shows.
 
 ## Behavior and rules
 
+- **Replay finding context.** Desktop details offer "Replay this window" around the latest recorded transition, first sighting or resolution in the selected range, with explicit fixed times. This is surrounding observation context, not a claimed episode duration. Missing timing has an explanation instead of a link; the newest 100 transitions can omit older episodes. [Replay](replay.md) gives the context, historical-range, retention and missing-evidence rules.
+
+- **Acknowledgements.** The [phone card and acknowledgement dialog](mobile.md) record who works on a finding. Acknowledging keeps the finding visible and counted; a mute hides it.
+
+- **History limits on findings.** Unresolved Findings rows and Overview cause cards say “already true when nats-lens started” under the finding page’s history-start rule. Finding details link the history-start wording and missing-history explanations around the start to Data history with the global query. This wording does not establish when the condition actually began.
+
 - **What a finding is.** The page says it: "A finding is one failing check for one entity."
-- **Order.** Unmuted findings first, then by severity, then the ones firing longest. 50 per page.
-- **Filters.** Severity (all, critical, warning, info); state: Firing (the default), Flapping, Resolved, or All; "Include muted" (on by default); and a check code. With the default filters and nothing firing, the page says "All clear: no finding fires in this range."
-- **A row.** Severity (or muted), check code and name, a FLAPPING, CHANGED or RESOLVED tag where it applies, the entity, the detail, and since when it fires (or when it resolved). On a muted row, the time column shows "until <date> <time>" and "in <duration>", and a line reads "Muted by <name>:" followed by the reason and "Expires <time> UTC."
+- **Order.** Unmuted findings first, then by severity; among warnings, expiry warnings (`account-003`, `account-004`, `server-016`) after the others, so a credential that expires soon never heads an outage, while a critical expiry ranks as any critical finding; then the ones firing longest. 50 per page.
+- **Filters.** Severity (All, Critical, Warning, Info); state: Firing (the default), Flapping, Resolved, or All; "Include muted" (on by default); and a check code. With the default filters and nothing firing, the page says "All clear: no finding fires in this range."
+- **A row.** Severity (or muted), check code and name, a Flapping, Changed or Resolved tag where it applies, the entity, the detail, and since when it fires (or when it resolved). On a muted row, the time column shows "until <date> <time>" and "in <duration>", and a line reads "Muted by <name>:" followed by the reason and "Expires <time> UTC." An accepted row is marked Accepted instead of Muted, its time column shows "review on <date>" and "in <duration>", and its line reads "Accepted by <name>: <reason>. Review on <date>."
 - **Past ranges.** For a range that ends in the past, the findings are shown as they stood at its end, with the mutes in force then.
+- **Entities by name.** A row, the finding page, the mute dialog and the mutes list name an account by its readable name ("SUPPLIERS"), or by its identifier when it has none; the identifier stays the finding's key. Where two accounts share a name, each adds the start of its identifier ("SUPPLIERS (ADSU…)"), as other pages label accounts: on the Findings page over the findings and the mutes lists together, so an account reads the same in both, and on the Overview over its cause cards and muted strip.
 - **The finding page.** Its headline is the check name and the entity, under the severity (or muted), code and state; the finding's detail follows, as the check wrote it. One line reads "Condition since <time> · first seen by nats-lens <time>" where the check knows the condition's start, else "First seen by nats-lens <time>"; it adds "already true when nats-lens started" when the condition began before nats-lens's history, or the finding was first seen within a minute after the history starts; and "N other entities have this finding", linking to the Findings page for the check, when other entities have it (muted ones included, resolved ones not). Then how long it has fired since nats-lens first saw it ("Firing for (since first seen)"), when it resolved, its transitions in the last hour, its value with the value's name, and "Cause in window", a link to the event the check names as its cause. Below it: the mute, if any; for a stream or consumer finding, "Server copies"; the remediation (with any text from the remediation file); the related settings, with where they were read from and the metric basis; "Around the start"; "Related" links; a status timeline of every check of the same entity; and the transitions, newest first, at most 100.
 - **Server copies.** For a stream or consumer finding, a table of each server's copy: role (leader, follower, behind or offline), creation time, positions (messages and last sequence for a stream, delivered and ack floor for a consumer), lag, and whether the configuration is the same as most copies'. Each value is compared with the one most copies match, which must be more than half of them: a creation time more than an hour from it is marked with the difference (for example "+5d"), a position more than max(100, 1%) from it is marked "differs from most copies", and so is a different configuration. An offline copy's positions are never the reference and are not marked. "Refresh" reloads the table, and it reloads by itself when the finding changes state. When no value has more than half the copies, nothing is marked and the section says "copies disagree". A value a server did not report shows as "–". Other findings, such as a client's, have no table.
+- **Copy event text.** Types and summaries in the finding timeline are selectable without toggling the event. See [Events](events.md).
 - **Around the start.** The events worth reading, folded, in the 10 minutes either side of the condition's start, or of the first sighting without one, at most 20, for the whole system by default; "This entity", offered when the Events page can filter by the entity, narrows them to it. "Showing N of M" counts the events when fewer are shown, and "Open in Events" opens the same window on the Events page. When those minutes lie before nats-lens's history, the page says it has no history from then; when they begin before it, the page says where the history begins.
 - **Related.** Links to the entity, its stream (for a consumer), its server, and the Events page filtered to it.
-- **Mute a finding.** "Mute…" opens a dialog. It applies to this entity, or to every entity of the check. It needs a reason (at most 1000 characters) and an end: in 1 hour, 8 hours, 24 hours (the default), 7 days or 30 days, or at a time in UTC. The end must be between one minute and 90 days ahead.
+- **Mute a finding.** "Mute…" opens a dialog. It applies to this entity, or to every entity of the check. For a system finding, this entity is the system, which is the check's only entity. It needs a reason (at most 1000 characters) and an end: in 1 hour, 8 hours, 24 hours (the default), 7 days or 30 days, or at a time in UTC. The end must be between one minute and 90 days ahead.
 - **Who muted it.** With `iap_audience` set, a mute or a lift needs a valid IAP assertion, nats-lens records the verified IAP user, and the dialog says "The mute is recorded as your IAP identity." Without it, nats-lens records the name the request gives; the dialog asks for "Your name" and the browser remembers it for next time.
 - **Lift a mute.** "Lift mute…" on a finding, or "Lift…" in the mutes list, ends a mute early and records who lifted it.
-- **The mutes list.** Mutes in force by default; "Include ended" adds lifted and expired ones. Each shows Muted, Lifted or Expired, the check, the entity or "every entity", when it ends or ended, and "Muted by … on …: reason", with who lifted it.
+- **Accepted findings.** An acceptance is a mute of one entity's finding with a review date as its end, between a day and 365 days ahead; the Capacity page makes one for `stream-005` ([capacity.md](capacity.md)). Everything that reads mutes reads it as muted: the Overview's status and tally, the Findings badge, the Fleet badges and `/metrics`. On the finding page the section is headed "Accepted as by design" and reads "Accepted by <name>: <reason>. Review on <date>."; for a stream or a server it adds the growth recorded at acceptance ("Growth at acceptance: +96 MiB/day per copy (the Capacity page's /day counts every replica), over the last 7 days; …"; the end reason measures one copy too), or "No growth baseline is recorded yet: growth is recorded once the stream has 8 days of history.", and its button reads "End acceptance…", which ends it as "Lift mute…" ends a mute. nats-lens ends an acceptance by itself when the entity's growth over a week changes by more than half ([checks.md](checks.md)). That review needs 8 days and an hour of history: with a shorter `retention` the finding page says that no baseline is recorded and the acceptance ends only at its review date, and nats-lens logs a warning at start.
+- **The mutes list.** Mutes in force by default; "Include ended" adds lifted and expired ones. Each shows Muted, Accepted, Lifted, Ended or Expired, the check, the entity or "every entity", when it ends (an acceptance: "review in <duration>") or ended, and "Muted by … on …: reason" (or "Accepted by …", with the review date), with who lifted it. An acceptance in force has "End…" in place of "Lift…"; each button's accessible name names the check and the entity ("End acceptance of stream-005 for order-archive…"). An acceptance that ended early is marked Ended, never Lifted: one a person ended reads "Ended <time> by <name>.", and one nats-lens ended reads "Ended by nats-lens: growth changed from +2.0 KiB/day to +516 KiB/day over the last 7 days (+1.6 MiB in the last day)."
 - **Mutes apply when findings are read.** A mute does not stop the check. When it ends, the finding counts again if the condition still holds.
 
+- **Single-page findings.** The Findings list keeps its result count without a page number or Previous/Next controls when all results fit on the first page. Multi-page lists keep navigation on their final page.
+- **Finding summary layout.** Each duration, transition count, and check metric has a label above its value with space between them. The severity, code, and state badges have separate gaps. Acknowledge and Mute actions are spaced apart and wrap inside the card when the window narrows.
+- **Acknowledgements beside mutes.** An acknowledgement records who is investigating one finding's current firing episode. It leaves the finding visible, counted at its severity, and eligible for the Findings badge. A mute hides the finding from those counts. “Acknowledge…” on desktop and “I'm on it” on the [phone card](mobile.md) accept an optional note of at most 500 characters, with 30 minutes, 2 hours, or until-resolved quiet. Quiet expiry resumes alert eligibility but keeps the acknowledgement. Resolve or a later firing episode stops it applying. “Update…” replaces it; “Hand back…” releases it. The verified IAP user or request name identifies the author, as for mutes. The API also accepts quiet durations from 30 minutes through 24 hours.
+- **Acknowledgement visibility.** Overview cards, Findings rows, and finding details show the current acknowledgement. The Overview counts acknowledged firing findings, including muted ones. The finding page keeps replacement and hand-back receipts only during the visit to the same system, finding, and episode; resolving the finding clears those receipts. The API has no acknowledgement-history list. Reading a past range selects the acknowledgement in force at its end.
 ## Scenarios
 
 ### Look at everything that flaps
 
 - **Given** a finding that resolved and fired again five times in the last hour
 - **When** I choose the Flapping state
-- **Then** the finding is listed with the FLAPPING tag
+- **Then** the finding is listed with the Flapping tag
 
 ### Mute every finding of one check
 
@@ -62,6 +75,21 @@ The Findings page lists the findings of the time range, filtered by severity, st
 - **Then** nats-lens stores the mute with my name, and `ListMutes` returns it
 - **And** behind IAP, the same call without a valid IAP assertion is refused as unauthenticated
 
+### Read an accepted finding
+
+- **Surfaces:** `ui`
+- **Given** `example-prod`'s `stream-005` on `KV_customer-config` is accepted by `ops@example.com` with a review in six months
+- **When** I open the Findings page and the finding
+- **Then** the row is marked Accepted and reads "Accepted by ops@example.com: Customer records are kept for the account's life. Review on <date>."
+- **And** the finding page's section is headed "Accepted as by design", names the growth recorded at acceptance, and offers "End acceptance…"
+
+### See an acceptance nats-lens ended
+
+- **Surfaces:** `ui`
+- **Given** in `example-global` nats-lens ended the acceptance of `stream-005` on `KV_feature-flags` when the bucket's growth changed
+- **When** I tick "Include ended" in the mutes list
+- **Then** the acceptance is marked Ended and reads "Ended by nats-lens: growth changed from +2.0 KiB/day to +516 KiB/day over the last 7 days (+1.6 MiB in the last day)."
+
 ### See which server's copy is odd
 
 - **Surfaces:** `ui`
@@ -81,12 +109,30 @@ The Findings page lists the findings of the time range, filtered by severity, st
 - **Why this severity.** A sentence that says why the finding is info rather than a warning, and what would raise it.
 - **What to do, ready to copy.** The `nats` CLI command that checks the finding by hand, with a copy button, and a link to the playbook that applies.
 - **Placement link.** A link to the placement of the finding's stream ([placement.md](placement.md)).
-- **Accept as known.** Accepting with a reason and a review date, for this entity, for the same finding on related entities, or for the check everywhere ([checks.md](checks.md)).
+- **Accept more than one entity.** Accepting the same finding on related entities, or the check everywhere ([checks.md](checks.md)).
+- **Accept from the finding.** "Accept as by design…" on the finding page and the Findings page, and a "Review accepted findings" list.
+- **Accepted apart from muted.** An Overview tally that counts accepted findings apart from muted ones.
+
+### Acknowledge without hiding trouble
+
+- **Surfaces:** `ui`, `api`
+- **Given** an unmuted firing finding
+- **When** an operator acknowledges it with a note and 2 hours of quiet
+- **Then** it remains visible and counted at its severity, with the author and note
+- **And** quiet expiry permits alerts again while the acknowledgement remains until release, replacement, or the episode ends
+
+### Reject an acknowledgement outside a firing episode
+
+- **Surfaces:** `api`
+- **Given** a resolved finding
+- **When** a client calls `AcknowledgeFinding`
+- **Then** the API refuses it with failed_precondition
+- **And** an unknown finding is refused with not_found
 
 ## Not supported / out of scope
 
 - **No mute without an end.** Every mute ends within 90 days.
 - **No editing a mute.** A mute's reason or end cannot be changed; lift it and mute again.
 - **No mute of several checks at once.** A mute covers one check.
-- **No assignment or acknowledgement.** Findings have no owner or "I'm on it" state yet ([mobile.md](mobile.md)).
+- **No acknowledgement-history list.** The finding page reads the current episode's acknowledgement. Replacement and hand-back receipts last only for the current visit; stored acknowledgement events remain readable within event retention.
 - **No sign-in of its own.** Without IAP, the name in a mute is whatever the person types.

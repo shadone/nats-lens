@@ -9,6 +9,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 
+	"github.com/shadone/nats-lens/internal/collect"
 	"github.com/shadone/nats-lens/internal/config"
 	"github.com/shadone/nats-lens/internal/events"
 	"github.com/shadone/nats-lens/internal/natsconn"
@@ -21,10 +22,13 @@ var version = "dev"
 // startEvents records the start and any capture gap, opens the event
 // connections and starts the capture. Call the returned stop once to shut
 // the capture down: it drains the connections in parallel for at most one
-// flush interval, then writes the remaining events until deadline.
-func startEvents(ctx context.Context, cfg config.Config, st *store.Store, log *slog.Logger) (*events.Capture, func(deadline time.Time), error) {
+// flush interval, then writes the remaining events until deadline. The
+// account connections that ask micro services are returned for the
+// collector; they close with the capture.
+func startEvents(ctx context.Context, cfg config.Config, st *store.Store, log *slog.Logger) (*events.Capture,
+	func(deadline time.Time), []collect.AccountConn, error) {
 	if err := recordStart(ctx, st); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	return startCapture(ctx, cfg, st, log)
 }
@@ -42,9 +46,52 @@ func recordStart(ctx context.Context, st *store.Store) error {
 	return nil
 }
 
+// newEventsConn is one connection that captures events. It retries a
+// failed first connect instead of stopping the collector; the capture
+// records each state change, and a redial after nats.go closed it, or
+// after its first dial failed, as collector.reconnected once it connects,
+// so that the time without events ends.
+func newEventsConn(capture *events.Capture, label string, c config.NATS, subscribe func(*nats.Conn) error, log *slog.Logger) *eventConn {
+	// dialled: a dial was made; opened: one returned a connection that
+	// subscribed.
+	dialled, opened := false, false
+	return &eventConn{
+		label: label, log: log,
+		subscribe: func(nc *nats.Conn) error {
+			if err := subscribe(nc); err != nil {
+				return err
+			}
+			opened = true
+			return nil
+		},
+		dial: func() (*nats.Conn, error) {
+			handlers := capture.ConnHandlers(label)
+			switch {
+			case opened:
+				handlers = capture.RedialHandlers(label)
+			case dialled:
+				handlers = capture.FirstOpenHandlers(label)
+			}
+			dialled = true
+			opts := append(handlers, nats.RetryOnFailedConnect(true))
+			nc, err := dialEvents(c, log.With("connection", label), opts...)
+			if err != nil {
+				return nil, fmt.Errorf("%s events connection: %w", label, err)
+			}
+			return nc, nil
+		},
+		reopened: func(*nats.Conn) { log.Info("events connection dialled again", "connection", label) },
+	}
+}
+
+// dialEvents opens an events connection; a variable so that tests can
+// fail a dial.
+var dialEvents = natsconn.Connect
+
 // startCapture is startEvents without recording the start, so that a
 // system whose setup is tried again records its start once.
-func startCapture(ctx context.Context, cfg config.Config, st *store.Store, log *slog.Logger) (*events.Capture, func(deadline time.Time), error) {
+func startCapture(ctx context.Context, cfg config.Config, st *store.Store, log *slog.Logger) (*events.Capture,
+	func(deadline time.Time), []collect.AccountConn, error) {
 	capture := events.New(events.Options{
 		Writer: st, APIAudit: cfg.Events.APIAudit, AccountConnections: cfg.Events.AccountConnections,
 		FlushInterval: cfg.Events.FlushInterval.D(),
@@ -52,37 +99,31 @@ func startCapture(ctx context.Context, cfg config.Config, st *store.Store, log *
 		Churn: events.ChurnOptions{Collapse: cfg.Events.Churn.Collapse, PairWithin: cfg.Events.Churn.PairWithin.D(),
 			Window: cfg.Events.Churn.Window.D()},
 	})
-	// The event connections retry a failed first connect instead of
-	// stopping the collector; the capture records each state change.
 	newConn := func(label string, c config.NATS, subscribe func(*nats.Conn) error) *eventConn {
-		return &eventConn{
-			label: label, subscribe: subscribe, log: log,
-			dial: func() (*nats.Conn, error) {
-				opts := append(capture.ConnHandlers(label), nats.RetryOnFailedConnect(true))
-				nc, err := natsconn.Connect(c, log.With("connection", label), opts...)
-				if err != nil {
-					return nil, fmt.Errorf("%s events connection: %w", label, err)
-				}
-				return nc, nil
-			},
-		}
+		return newEventsConn(capture, label, c, subscribe, log)
 	}
 	sysConn := cfg.NATS
 	sysConn.Name += "-events"
 	conns := []*eventConn{newConn("sys", sysConn, capture.SubscribeSys)}
+	// The account connections that capture advisories also ask the
+	// account's micro services: one connection per account.
 	for _, acc := range cfg.Accounts {
 		conns = append(conns, newConn(acc.Name, acc.Connection(cfg.NATS), func(nc *nats.Conn) error {
 			return capture.SubscribeAccount(acc.Name, nc)
 		}))
 	}
-	for _, ec := range conns {
+	if err := conns[0].open(); err != nil {
+		return nil, nil, nil, err
+	}
+	// An account connection that cannot be opened (a missing credentials
+	// file) does not stop the system: it is recorded as not connected and
+	// keep dials it with backoff; its capture and micro requests start when
+	// it opens.
+	for _, ec := range conns[1:] {
 		if err := ec.open(); err != nil {
-			for _, open := range conns {
-				if nc := open.current(); nc != nil {
-					nc.Close()
-				}
-			}
-			return nil, nil, err
+			log.Error("account connection not opened; its events are not captured and its micro services not asked until it is",
+				"account", ec.label, "err", err)
+			capture.NotOpened(ec.label, err)
 		}
 	}
 	if len(cfg.Accounts) == 0 {
@@ -111,5 +152,5 @@ func startCapture(ctx context.Context, cfg config.Config, st *store.Store, log *
 		capture.SetFinalDeadline(deadline)
 		cancel()
 		<-done
-	}, nil
+	}, microConns(cfg.Accounts, conns[1:]), nil
 }

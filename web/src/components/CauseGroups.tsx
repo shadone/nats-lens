@@ -1,12 +1,16 @@
+import { AcknowledgementMark } from "./Acknowledgement";
+import { usePageHistory } from "./HistoryNote";
+import { atHistoryStart } from "../lib/historyView";
 // The Overview's cause cards: unmuted firing findings grouped by their cause
 // event, else by check and parent entity, with the entities, open and
 // mute; and a strip of the muted findings with their reasons.
+import { useContext } from "react";
 import type { Entity, Finding } from "../api/model";
 import type { CauseGroup } from "../lib/causeGroups";
 import { hms } from "../lib/format";
-import { entityName, entityPath, eventPath, findingPath, streamPath } from "../lib/view";
+import { accountLabeller, entityName, entityPath, eventPath, findingPath, streamPath } from "../lib/view";
 import { RLink } from "./common";
-import { EntityLine } from "./FindingParts";
+import { AccountLabelContext, EntityLine } from "./FindingParts";
 import { Sev } from "./Severity";
 
 /** Entities listed in a card before "N more". */
@@ -35,7 +39,7 @@ function nounOf(fs: Finding[]): string {
  * "2 consumers on 2 streams", "3 servers". A parent is named only when
  * every entity has it.
  */
-function whereLine(g: CauseGroup) {
+function whereLine(g: CauseGroup, label: (id: string, name?: string) => string) {
   const n = g.findings.length;
   const noun = nounOf(g.findings);
   const first = g.findings[0].entity;
@@ -45,10 +49,10 @@ function whereLine(g: CauseGroup) {
         {n} {noun} on stream <RLink to={streamPath(first.account, first.stream)}>{g.parent.name}</RLink>
       </>
     );
-  if (g.parent?.kind === "account")
+  if (g.parent?.kind === "account" && first)
     return (
       <>
-        {n} {noun} in account <span className="mono">{g.parent.name}</span>
+        {n} {noun} in account <span className="mono">{label(first.account, first.accountName)}</span>
       </>
     );
   if (!g.parent && g.findings.every((f) => f.entity?.kind === "consumer"))
@@ -71,9 +75,11 @@ function whereLine(g: CauseGroup) {
 }
 
 function EntityLink({ e }: { e?: Entity }) {
+  const label = useContext(AccountLabelContext);
   if (!e) return <span>system</span>;
   const path = entityPath(e);
-  return path ? <RLink to={path}>{entityName(e)}</RLink> : <span>{entityName(e)}</span>;
+  const name = entityName(e, label);
+  return path ? <RLink to={path}>{name}</RLink> : <span>{name}</span>;
 }
 
 function Actions({ f, onMute, label }: { f: Finding; onMute: (f: Finding) => void; label: string }) {
@@ -99,14 +105,15 @@ function CauseLine({ cause }: { cause: NonNullable<CauseGroup["cause"]> }) {
   );
 }
 
-function findingLabel(f: Finding): string {
-  return `${f.checkCode} on ${entityName(f.entity) || "system"}`;
+function findingLabel(f: Finding, label: (id: string, name?: string) => string): string {
+  return `${f.checkCode} on ${entityName(f.entity, label) || "system"}`;
 }
 
 /** One finding: the code row with the name, the detail and cause, the entity beside, the buttons. */
 function SingleCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void }) {
   const f = g.findings[0];
-  const label = findingLabel(f);
+  const label = findingLabel(f, useContext(AccountLabelContext));
+  const known = atHistoryStart(f, usePageHistory()?.historyStart);
   return (
     <article className={`card cg one ${g.severity}`} aria-label={`${f.checkName}: 1 finding`}>
       <div className="cg-main">
@@ -116,6 +123,8 @@ function SingleCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void
           <h3>{f.checkName}</h3>
         </div>
         <p className="cg-d">{f.detail}</p>
+        <AcknowledgementMark acknowledgement={f.acknowledgement} />
+        {known && <p className="cg-d">already true when nats-lens started</p>}
         {g.cause && <CauseLine cause={g.cause} />}
       </div>
       <div className="cg-side">
@@ -136,6 +145,8 @@ function SingleCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void
 }
 
 function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void }) {
+  const accounts = useContext(AccountLabelContext);
+  const historyStart = usePageHistory()?.historyStart;
   const n = g.findings.length;
   if (n === 1) return <SingleCard g={g} onMute={onMute} />;
   const names = [...new Set(g.findings.map((f) => f.checkName))];
@@ -148,9 +159,9 @@ function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void 
           {g.checkCodes.join(", ")} × {n}
         </span>
         <h3>{names.join(" · ")}</h3>
-        {g.cause && g.checkCodes.length > 1 && <span className="lbl">one cause</span>}
+        {g.cause && g.checkCodes.length > 1 && <span className="lbl">One cause</span>}
       </div>
-      <p className="cg-where">{whereLine(g)}</p>
+      <p className="cg-where">{whereLine(g, accounts)}</p>
       {g.cause && <CauseLine cause={g.cause} />}
       <ul className="cg-list">
         {shown.map((f) => (
@@ -159,8 +170,8 @@ function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void 
               <EntityLink e={f.entity} />
               {g.checkCodes.length > 1 && <small className="code"> {f.checkCode}</small>}
             </span>
-            <span className="cg-d">{f.detail}</span>
-            <Actions f={f} onMute={onMute} label={findingLabel(f)} />
+            <span className="cg-d">{f.detail}{atHistoryStart(f, historyStart) && <small> · <span>already true when nats-lens started</span></small>}<AcknowledgementMark acknowledgement={f.acknowledgement} /></span>
+            <Actions f={f} onMute={onMute} label={findingLabel(f, accounts)} />
           </li>
         ))}
         {n > shown.length && (
@@ -175,6 +186,7 @@ function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void 
 
 /** Muted findings by reason: “reason” by who, then each finding. */
 function MutedStrip({ muted }: { muted: Finding[] }) {
+  const accounts = useContext(AccountLabelContext);
   const byReason = new Map<string, Finding[]>();
   for (const f of muted) {
     const k = `${f.mute?.reason ?? ""}\u0000${f.mute?.mutedBy ?? ""}`;
@@ -196,7 +208,7 @@ function MutedStrip({ muted }: { muted: Finding[] }) {
                 <span key={f.id}>
                   {i > 0 && ", "}
                   <RLink to={findingPath(f.id)}>
-                    {f.checkCode} {entityName(f.entity) || "system"}
+                    {f.checkCode} {entityName(f.entity, accounts) || "system"}
                   </RLink>
                 </span>
               ))}
@@ -210,15 +222,19 @@ function MutedStrip({ muted }: { muted: Finding[] }) {
 
 export function CauseGroups({ groups, muted, onMute }: { groups: CauseGroup[]; muted: Finding[]; onMute: (f: Finding) => void }) {
   if (groups.length === 0 && muted.length === 0) return null;
+  // Every account the cards name: account entities and the accounts of streams and consumers.
+  const label = accountLabeller([...groups.flatMap((g) => g.findings), ...muted].flatMap((f) => (f.entity?.account ? [f.entity] : [])));
   return (
-    <section className="causes" aria-labelledby="causes-h">
-      <h2 id="causes-h" className="sr-only">
-        Findings
-      </h2>
-      {groups.map((g) => (
-        <CauseCard key={g.key} g={g} onMute={onMute} />
-      ))}
-      {muted.length > 0 && <MutedStrip muted={muted} />}
-    </section>
+    <AccountLabelContext.Provider value={label}>
+      <section className="causes" aria-labelledby="causes-h">
+        <h2 id="causes-h" className="sr-only">
+          Findings
+        </h2>
+        {groups.map((g) => (
+          <CauseCard key={g.key} g={g} onMute={onMute} />
+        ))}
+        {muted.length > 0 && <MutedStrip muted={muted} />}
+      </section>
+    </AccountLabelContext.Provider>
   );
 }

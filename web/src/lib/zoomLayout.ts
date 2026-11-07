@@ -192,8 +192,8 @@ export interface VLayout {
   height: number;
 }
 
-export const V_FONT = 10;
-const V_OFF = 16;
+export const V_FONT = 11;
+const V_OFF = 18;
 const V_PPM = 7;
 const V_PITCH = 14;
 

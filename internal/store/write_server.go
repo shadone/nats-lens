@@ -47,6 +47,8 @@ var serverStatsCols = []string{
 	"meta_cluster", "meta_leader", "meta_cluster_size", "meta_quorum_needed", "meta_pending",
 	"meta_peers_offline", "meta_peers_not_current",
 	"max_payload", "max_pending", "write_deadline_ns", "ping_interval_ns", "max_pings_out",
+	"tls_cert_not_after", "cluster_tls_cert_not_after", "gateway_tls_cert_not_after",
+	"leafnode_tls_cert_not_after", "websocket_tls_cert_not_after", "mqtt_tls_cert_not_after",
 }
 
 // process holds the process and traffic numbers, from VARZ or else STATSZ.
@@ -61,6 +63,9 @@ type process struct {
 	activeAccounts, activeServers                       any
 	// The connection limits; VARZ only.
 	maxPayload, maxPending, writeDeadline, pingInterval, maxPingsOut any
+	// The listener certificates' expiry, client, cluster, gateway, leaf
+	// node, websocket and MQTT; VARZ only, NULL for a listener without TLS.
+	certs [6]any
 }
 
 func processOf(v *collect.ServerView) process {
@@ -86,6 +91,8 @@ func processOf(v *collect.ServerView) process {
 		p.slowClients, p.slowRoutes, p.slowGateways, p.slowLeafs = slowStats(vz.SlowConsumersStats)
 		p.maxPayload, p.maxPending, p.maxPingsOut = int64(vz.MaxPayload), vz.MaxPending, vz.MaxPingsOut
 		p.writeDeadline, p.pingInterval = vz.WriteDeadline.Nanoseconds(), vz.PingInterval.Nanoseconds()
+		p.certs = [6]any{ts(vz.TLSCertNotAfter), ts(vz.Cluster.TLSCertNotAfter), ts(vz.Gateway.TLSCertNotAfter),
+			ts(vz.LeafNode.TLSCertNotAfter), ts(vz.Websocket.TLSCertNotAfter), ts(vz.MQTT.TLSCertNotAfter)}
 	}
 	return p
 }
@@ -138,13 +145,23 @@ func (w *writer) writeServerStats(v *collect.ServerView) {
 	}
 	var connzTotal, connzReturned any
 	if v.Connz != nil {
-		connzTotal, connzReturned = v.Connz.Total, len(v.Connz.Conns)
+		// A null entry is not counted: it has no connections row.
+		returned := 0
+		for _, c := range v.Connz.Conns {
+			if c != nil {
+				returned++
+			}
+		}
+		connzTotal, connzReturned = v.Connz.Total, returned
 	}
 	var metaCluster, metaLeader, metaSize, metaQuorum, metaPending, metaOffline, metaNotCurrent any
 	if m := j.meta; m != nil {
 		metaCluster, metaLeader, metaSize, metaQuorum, metaPending = m.Name, m.Leader, m.Size, m.QuorumNeeded, m.Pending
 		offline, notCurrent := 0, 0
 		for _, r := range m.Replicas {
+			if r == nil {
+				continue
+			}
 			if r.Offline {
 				offline++
 			}
@@ -166,71 +183,8 @@ func (w *writer) writeServerStats(v *collect.ServerView) {
 		j.apiLevel, j.apiTotal, j.apiErrors, j.apiInfl,
 		metaCluster, metaLeader, metaSize, metaQuorum, metaPending, metaOffline, metaNotCurrent,
 		p.maxPayload, p.maxPending, p.writeDeadline, p.pingInterval, p.maxPingsOut,
+		p.certs[0], p.certs[1], p.certs[2], p.certs[3], p.certs[4], p.certs[5],
 	)
-}
-
-var routeCols = []string{
-	"epoch", "server_id", "rid", "remote_id", "remote_name", "did_solicit", "is_configured", "ip", "port",
-	"start_time", "last_activity", "rtt_ns", "pending_bytes", "in_msgs", "out_msgs", "in_bytes", "out_bytes",
-	"subscriptions", "account", "compression",
-}
-
-func (w *writer) writeRoutes(v *collect.ServerView) {
-	if v.Routez == nil {
-		return
-	}
-	for _, r := range v.Routez.Routes {
-		w.insert("routes", routeCols, w.epoch, v.Info.ID, i64(r.Rid), r.RemoteID, r.RemoteName, r.DidSolicit,
-			r.IsConfigured, r.IP, r.Port, ts(r.Start), ts(r.LastActivity), durNS(r.RTT), r.Pending,
-			r.InMsgs, r.OutMsgs, r.InBytes, r.OutBytes, int64(r.NumSubs), r.Account, r.Compression)
-	}
-}
-
-var gatewayCols = []string{
-	"epoch", "server_id", "gateway", "direction", "is_configured", "cid", "ip", "port", "rtt_ns",
-	"pending_bytes", "in_msgs", "out_msgs", "in_bytes", "out_bytes",
-}
-
-func (w *writer) writeGateway(v *collect.ServerView, name, dir string, g *server.RemoteGatewayz) {
-	if g == nil {
-		return
-	}
-	vals := []any{w.epoch, v.Info.ID, name, dir, g.IsConfigured}
-	if c := g.Connection; c != nil {
-		vals = append(vals, i64(c.Cid), c.IP, c.Port, durNS(c.RTT), c.Pending, c.InMsgs, c.OutMsgs, c.InBytes, c.OutBytes)
-	} else {
-		vals = append(vals, nil, nil, nil, nil, nil, nil, nil, nil, nil)
-	}
-	w.insert("gateways", gatewayCols, vals...)
-}
-
-func (w *writer) writeGateways(v *collect.ServerView) {
-	if v.Gatewayz == nil {
-		return
-	}
-	for _, name := range sortedKeys(v.Gatewayz.OutboundGateways) {
-		w.writeGateway(v, name, "outbound", v.Gatewayz.OutboundGateways[name])
-	}
-	for _, name := range sortedKeys(v.Gatewayz.InboundGateways) {
-		for _, g := range v.Gatewayz.InboundGateways[name] {
-			w.writeGateway(v, name, "inbound", g)
-		}
-	}
-}
-
-var leafCols = []string{
-	"epoch", "server_id", "lid", "name", "is_spoke", "account", "ip", "port", "rtt_ns",
-	"in_msgs", "out_msgs", "in_bytes", "out_bytes", "subscriptions", "compression",
-}
-
-func (w *writer) writeLeafnodes(v *collect.ServerView) {
-	if v.Leafz == nil {
-		return
-	}
-	for _, l := range v.Leafz.Leafs {
-		w.insert("leafnodes", leafCols, w.epoch, v.Info.ID, i64(l.ID), l.Name, l.IsSpoke, l.Account, l.IP, l.Port,
-			durNS(l.RTT), l.InMsgs, l.OutMsgs, l.InBytes, l.OutBytes, int64(l.NumSubs), l.Compression)
-	}
 }
 
 var ipqueueCols = []string{"epoch", "server_id", "queue", "pending", "in_progress"}

@@ -36,6 +36,7 @@ type CollectionState string
 
 // Collection states.
 const (
+	CollectionStoreFailed      CollectionState = "store_failed"
 	CollectionStarting         CollectionState = "starting"
 	CollectionCollecting       CollectionState = "collecting"
 	CollectionNotConnected     CollectionState = "not_connected"
@@ -205,6 +206,7 @@ func (h *Handler) warnSummary(sys System, err error) {
 
 // collectionStates maps the runtime's states to the API's.
 var collectionStates = map[CollectionState]v1.CollectionState{
+	CollectionStoreFailed:      v1.CollectionState_COLLECTION_STATE_CONNECTION_CLOSED,
 	CollectionStarting:         v1.CollectionState_COLLECTION_STATE_STARTING,
 	CollectionCollecting:       v1.CollectionState_COLLECTION_STATE_COLLECTING,
 	CollectionNotConnected:     v1.CollectionState_COLLECTION_STATE_NOT_CONNECTED,
@@ -215,6 +217,9 @@ var collectionStates = map[CollectionState]v1.CollectionState{
 // freshness's collecting from the runtime's status. The error and its time
 // are kept only while the collector is not collecting.
 func withCollectionStatus(sum *v1.SystemSummary, st CollectionStatus) {
+	if st.State == CollectionStoreFailed {
+		sum.Error = st.LastError
+	}
 	sum.Collection = collectionStates[st.State]
 	sum.CollectionError, sum.CollectionErrorSince = "", nil
 	if st.notCollecting() {
@@ -229,7 +234,7 @@ func withCollectionStatus(sum *v1.SystemSummary, st CollectionStatus) {
 // notCollecting reports whether the collector's connection is not
 // connected or closed for good.
 func (st CollectionStatus) notCollecting() bool {
-	return st.State == CollectionNotConnected || st.State == CollectionConnectionClosed
+	return st.State == CollectionStoreFailed || st.State == CollectionNotConnected || st.State == CollectionConnectionClosed
 }
 
 // withCollecting sets the freshness's collecting and the time it stopped

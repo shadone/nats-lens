@@ -2,6 +2,7 @@ package fake_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -29,7 +30,7 @@ func row(evs []*v1.Event, kind, server string) *v1.Event {
 func TestProdEventMix(t *testing.T) {
 	c := client(t)
 	res := must(c.ListEvents(ctx, connect.NewRequest(worthReading(""))))
-	if res.GetRoutineHidden() < 400 || len(res.GetEvents()) > 40 || len(res.GetRoutineGroups()) < 4 {
+	if res.GetRoutineHidden() < 400 || len(res.GetEvents()) > 140 || len(res.GetRoutineGroups()) < 4 {
 		t.Fatalf("hidden %d, %d rows, %d groups", res.GetRoutineHidden(), len(res.GetEvents()), len(res.GetRoutineGroups()))
 	}
 	if res.GetTotalUnfiltered() != res.GetTotalCount()+res.GetRoutineHidden() {
@@ -73,7 +74,9 @@ func TestProdEventMix(t *testing.T) {
 func TestGlobalEventMix(t *testing.T) {
 	c := demo(t)
 	res := must(c.ListEvents(ctx, connect.NewRequest(worthReading("example-global"))))
-	if res.GetRoutineHidden() < 600 || len(res.GetRoutineGroups()) < 4 || len(res.GetEvents()) > 40 {
+	// The failed logins add rows for scale-terminal-07's retries (one per
+	// server) and one for each burst of timeouts from 203.0.113.12.
+	if res.GetRoutineHidden() < 600 || len(res.GetRoutineGroups()) < 4 || len(res.GetEvents()) > 135 {
 		t.Fatalf("hidden %d, %d rows, groups %v", res.GetRoutineHidden(), len(res.GetEvents()), res.GetRoutineGroups())
 	}
 	if f := row(res.GetEvents(), "k8s.pod.failed_scheduling", "nats-us-4"); f == nil || f.GetRepeats() != 5 {
@@ -82,7 +85,7 @@ func TestGlobalEventMix(t *testing.T) {
 	// The nine slow consumer disconnects from 13:38 fold into one row.
 	var slow []int32
 	for _, e := range res.GetEvents() {
-		if e.GetKind() == "client.disconnect" && e.GetClientName() == "label-printer" {
+		if e.GetKind() == "client.disconnect" && e.GetClientName() == "label-printer" && strings.Contains(e.GetSummary(), "Slow Consumer") {
 			slow = append(slow, e.GetRepeats())
 		}
 	}

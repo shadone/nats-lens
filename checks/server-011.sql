@@ -62,9 +62,15 @@ judged AS (
     FROM per p JOIN servers s USING (server_id)
     WHERE p.base IS NOT NULL
 ),
+-- Keep the last successful execution across errors/skips, without reading
+-- state updated at or after the requested epoch.
 firing AS (
     SELECT entity_key FROM findings
-    WHERE check_code = 'server-011' AND state = 'firing' AND last_seen_epoch = getvariable('prev_epoch')
+    WHERE check_code = 'server-011' AND state = 'firing' AND updated_epoch < getvariable('epoch')
+      AND last_seen_epoch = (
+          SELECT max(epoch) FROM check_runs
+          WHERE check_code = 'server-011' AND status = 'ok' AND epoch < getvariable('epoch')
+      )
 ),
 verdict AS (
     SELECT server_name, count(*) FILTER (WHERE over) AS over_epochs,

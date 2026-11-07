@@ -28,6 +28,28 @@ function f(id: string, code: string, e: Entity | undefined, extra: Partial<Findi
 }
 
 describe("groupCauses", () => {
+  it("puts an outage before expiry warnings of the same severity, even a larger group of them", () => {
+    const server: Entity = { kind: "server", key: "nats-us-4", name: "nats-us-4", account: "", stream: "", consumer: "", server: "nats-us-4" };
+    const acc = (k: string): Entity => ({ kind: "account", key: k, name: k, account: k, stream: "", consumer: "", server: "" });
+    const { groups } = groupCauses([
+      f("e1", "account-004", acc("APP"), { severity: "warning", expiry: true }),
+      f("e2", "account-004", acc("SHOP"), { severity: "warning", expiry: true }),
+      f("s1", "server-001", server, { severity: "warning" }),
+    ]);
+    expect(groups.map((g) => g.checkCodes[0])).toEqual(["server-001", "account-004"]);
+  });
+
+  it("ranks a critical expiry as any critical card, by its size", () => {
+    const server: Entity = { kind: "server", key: "nats-us-4", name: "nats-us-4", account: "", stream: "", consumer: "", server: "nats-us-4" };
+    const acc = (k: string): Entity => ({ kind: "account", key: k, name: k, account: k, stream: "", consumer: "", server: "" });
+    const { groups } = groupCauses([
+      f("s1", "server-001", server, { severity: "critical" }),
+      f("e1", "account-003", acc("APP"), { severity: "critical", expiry: true }),
+      f("e2", "account-003", acc("SHOP"), { severity: "critical", expiry: true }),
+    ]);
+    expect(groups.map((g) => g.checkCodes[0])).toEqual(["account-003", "server-001"]);
+  });
+
   it("makes one group of four consumer-009 findings on one stream", () => {
     const fs = ["resize-worker", "thumb-worker", "job-cache-projector", "audit-writer"].map((n) => f(`c9:${n}`, "consumer-009", consumerEnt("order-jobs", n)));
     const { groups, muted } = groupCauses(fs);
@@ -73,7 +95,7 @@ describe("groupCauses", () => {
     const { groups, muted } = groupCauses([
       f("i", "stream-005", streamEnt("a"), { severity: "info" }),
       f("c", "consumer-006", consumerEnt("b", "x"), { severity: "critical" }),
-      f("m", "stream-006", streamEnt("c"), { severity: "warning", mute: { id: "m1", checkCode: "stream-006", reason: "by design", mutedBy: "ops", unmutedBy: "" } }),
+      f("m", "stream-006", streamEnt("c"), { severity: "warning", mute: { id: "m1", checkCode: "stream-006", reason: "by design", mutedBy: "ops", unmutedBy: "", accepted: false, endReason: "" } }),
     ]);
     expect(groups.map((g) => g.severity)).toEqual(["critical", "info"]);
     expect(muted.map((m) => m.id)).toEqual(["m"]);

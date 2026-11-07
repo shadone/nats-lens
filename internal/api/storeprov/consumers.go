@@ -126,38 +126,55 @@ func (p *Provider) GetConsumer(ctx context.Context, req *v1.GetConsumerRequest) 
 	return res, err
 }
 
+// consumerViews reads each server's view of a consumer; current, offline
+// and lag come from the replica list of the leader placementOf chooses.
 func (p *Provider) consumerViews(ctx context.Context, epoch int64, account, stream, consumer string) ([]*v1.ConsumerServerView, error) {
+	m, err := p.consumerViewsBy(ctx, epoch, account, stream, consumer)
+	return m[account+"/"+stream+"/"+consumer], err
+}
+
+// consumerViewsBy reads each server's view of every consumer of the
+// epoch, optionally one account, stream or consumer, keyed by consumer
+// key.
+func (p *Provider) consumerViewsBy(ctx context.Context, epoch int64, account, stream, consumer string) (map[string][]*v1.ConsumerServerView, error) {
 	rows, err := p.db().QueryContext(ctx, `
-WITH lead AS (
-  SELECT rp.peer_name, rp.current, rp.offline, rp.lag FROM consumer_replicas rp
-  JOIN consumer_stats l ON l.epoch = rp.epoch AND l.server_id = rp.server_id AND l.account = rp.account
-    AND l.stream = rp.stream AND l.consumer = rp.consumer AND l.is_leader
-  WHERE rp.epoch = ? AND rp.account = ? AND rp.stream = ? AND rp.consumer = ?)
-SELECT s.server_name, coalesce(x.is_leader, false), x.delivered_stream_seq, x.ack_floor_stream_seq,
+WITH chosen AS (
+  -- The leader placementOf chooses: the first server by name whose own
+  -- report claims the lead, whether or not it lists replicas.
+  SELECT l.account, l.stream, l.consumer, arg_min(l.server_id, ls.server_name) AS server_id
+  FROM consumer_stats l JOIN servers ls USING (server_id)
+  WHERE l.epoch = ? AND l.is_leader GROUP BY ALL),
+lead AS (
+  SELECT rp.account, rp.stream, rp.consumer, rp.peer_name, rp.current, rp.offline, rp.lag FROM consumer_replicas rp
+  JOIN chosen c ON c.server_id = rp.server_id AND c.account = rp.account AND c.stream = rp.stream AND c.consumer = rp.consumer
+  WHERE rp.epoch = ? AND (? = '' OR rp.account = ?) AND (? = '' OR rp.stream = ?) AND (? = '' OR rp.consumer = ?))
+SELECT x.account, x.stream, x.consumer, s.server_name, coalesce(x.is_leader, false), x.delivered_stream_seq, x.ack_floor_stream_seq,
   x.created, cc.config_hash, r.current, r.offline, r.lag
 FROM consumer_stats x JOIN servers s USING (server_id)
 LEFT JOIN consumer_config cc ON cc.server_id = x.server_id AND cc.account = x.account AND cc.stream = x.stream
   AND cc.consumer = x.consumer AND x.epoch BETWEEN cc.first_epoch AND cc.last_epoch
-LEFT JOIN lead r ON r.peer_name = s.server_name
-WHERE x.epoch = ? AND x.account = ? AND x.stream = ? AND x.consumer = ? ORDER BY s.server_name`,
-		epoch, account, stream, consumer, epoch, account, stream, consumer)
+LEFT JOIN lead r ON r.account = x.account AND r.stream = x.stream AND r.consumer = x.consumer AND r.peer_name = s.server_name
+WHERE x.epoch = ? AND (? = '' OR x.account = ?) AND (? = '' OR x.stream = ?) AND (? = '' OR x.consumer = ?) ORDER BY s.server_name`,
+		epoch, epoch, account, account, stream, stream, consumer, consumer, epoch, account, account, stream, stream, consumer, consumer)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []*v1.ConsumerServerView
+	out := map[string][]*v1.ConsumerServerView{}
 	for rows.Next() {
 		var v v1.ConsumerServerView
+		var acc, st, name string
 		var created sql.NullTime
 		var hash sql.NullString
 		var current, offline sql.NullBool
-		if err := rows.Scan(&v.Server, &v.IsLeader, &v.DeliveredStreamSeq, &v.AckFloorStreamSeq, &created, &hash,
+		if err := rows.Scan(&acc, &st, &name, &v.Server, &v.IsLeader, &v.DeliveredStreamSeq, &v.AckFloorStreamSeq, &created, &hash,
 			&current, &offline, &v.Lag); err != nil {
 			return nil, err
 		}
 		v.Created, v.ConfigHash = ts(ntime(created)), hash.String
 		v.Current, v.Offline = v.GetIsLeader() || current.Bool, offline.Bool
-		out = append(out, &v)
+		key := acc + "/" + st + "/" + name
+		out[key] = append(out[key], &v)
 	}
 	return out, rows.Err()
 }

@@ -56,6 +56,25 @@ export interface Mute {
   expiresAt?: number;
   unmutedAt?: number;
   unmutedBy: string;
+  /** An acceptance as by design: expiresAt is its review date. */
+  accepted: boolean;
+  /** The accepted entity's week's growth, bytes per day; undefined until nats-lens can measure it. */
+  growthPerDay?: number;
+  /** Why nats-lens ended the acceptance early; empty otherwise. */
+  endReason: string;
+}
+
+export interface Acknowledgement {
+  id: string;
+  findingId: string;
+  note: string;
+  ackedBy: string;
+  createdAt?: number;
+  quietUntil?: number;
+  quiet: boolean;
+  endedAt?: number;
+  endedBy: string;
+  endReason: string;
 }
 
 export interface Finding {
@@ -78,7 +97,10 @@ export interface Finding {
   relatedConfigSource: string;
   cause?: { id: string; time?: number; kind: string; summary: string };
   mute?: Mute;
+  acknowledgement?: Acknowledgement;
   transitionsLastHour: number;
+  /** The check warns of an expiry (a certificate or a JWT): at warning it ranks after the other warnings; at critical as any critical finding. */
+  expiry?: boolean;
 }
 
 export interface Transition {
@@ -95,6 +117,7 @@ export interface Tally {
   muted: number;
   flapping: number;
   resolved24h: number;
+  acknowledged?: number;
 }
 
 export type Unit = "count" | "bytes" | "per_second" | "percent" | "seconds" | "bytes_per_day" | "bytes_per_second" | "unknown";
@@ -102,6 +125,9 @@ export type Unit = "count" | "bytes" | "per_second" | "percent" | "seconds" | "b
 export interface Point {
   time: number;
   value: number;
+  /** A count bucket's lowest and highest collection; a band's lowest and highest server. */
+  low?: number;
+  high?: number;
 }
 
 export interface Series {
@@ -194,6 +220,35 @@ export interface SystemSummary {
   stripBucketMs?: number;
   /** Why the summary could not be read; the other fields are then unset. */
   error: string;
+}
+
+/** One system's state for the sidebar's Fleet badge. */
+export interface SystemBadge {
+  id: string;
+  name: string;
+  environment: string;
+  status: Level;
+  collection: Collection;
+  /** Whether the system's collector collects; false while its connection fails. */
+  collecting: boolean;
+  /** Why the status could not be read; the other fields are then unset. */
+  error: string;
+  /** Still being read; not counted until a later call has it. */
+  pending: boolean;
+}
+
+/** What the shell of every page shows: the page's system and every system's badge. */
+export interface ShellStatus {
+  freshness?: Freshness;
+  servers: Server[];
+  tally: Tally;
+  systems: SystemBadge[];
+  /** The system a request without ?system= reads. */
+  defaultSystem: string;
+  /** Whether the system asked for is configured; false leaves freshness unset. */
+  systemKnown: boolean;
+  /** The failure of the system's own part, with the systems still listed. */
+  error?: { code: string; message: string };
 }
 
 export interface Overview {
@@ -400,6 +455,8 @@ export interface ConnectionPage extends Page<Connection> {
   epoch: string;
   /** Tooling connections left out because they were not asked for. */
   toolingHidden: number;
+  /** Every server seen in the range, sorted, whatever the filters and the page. */
+  servers: string[];
 }
 
 /** How a write call names its user. */

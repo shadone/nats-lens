@@ -1,10 +1,12 @@
-// The five metric boxes of a server's page: CPU, memory, connections,
-// messages in and out, slow consumers.
+// The server metric boxes: CPU, memory, JetStream file storage, connections,
+// messages in and out, and slow-consumer detections.
 import type { Level } from "../api/model";
 import { useBandSeries, type ServerInfo } from "../api/servers";
 import { fmtBytes, fmtCount, fmtInt } from "../lib/format";
+import { storageLimit, storageReading } from "../lib/serverStorage";
+import { storePct, STORE_ATTENTION_PCT } from "../lib/servers";
 import type { RangeSpec } from "../lib/timeRange";
-import { errorText } from "./common";
+import { errorText, RLink } from "./common";
 import { MetricBox } from "./MetricBox";
 import { useReportStale } from "./StaleContext";
 
@@ -34,6 +36,7 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
   const conns = useTileSeries(spec, "server.connections", name);
   const msgIn = useTileSeries(spec, "server.in_msgs_rate", name);
   const msgOut = useTileSeries(spec, "server.out_msgs_rate", name);
+  const storage = useTileSeries(spec, "server.js_storage_bytes", name);
   const slow = useTileSeries(spec, "server.slow_consumers", name);
   // A server that did not answer has no current value: its last numbers are
   // history, shown on the chart, not now.
@@ -47,6 +50,8 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
   const outNow = down ? null : (newest(msgOut.series?.points) ?? null);
   const slowNow = down ? null : (newest(slow.series?.points) ?? null);
   const slowRange = s.slowConsumersInRange;
+  const storagePct = storePct(s);
+  const limitBytes = storageLimit(s);
   return (
     <div className="sd-tiles">
       <MetricBox
@@ -60,6 +65,7 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
         note={downNote}
         start={start}
         end={end}
+        tone="change"
       />
       <MetricBox
         title="Memory"
@@ -70,6 +76,20 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
         note={downNote}
         start={start}
         end={end}
+        tone="change"
+      />
+      <MetricBox
+        title="JetStream file storage"
+        description="JetStream file bytes on this server, including local replica copies; averaged per bucket. The limit is configured JetStream storage, not filesystem capacity. Values cover the whole server, regardless of account scope. Reports use JSZ, or VARZ when JSZ is unavailable. Averages use available samples. Hatches describe missing server or STATSZ/VARZ reports; storage-only missing reports are not identified."
+        {...storage}
+        value={down || s.role === "no JetStream" ? null : (s.jsStorageBytes ?? null)}
+        fmt={fmtBytes}
+        status={storagePct !== undefined && storagePct >= STORE_ATTENTION_PCT ? "warning" : "ok"}
+        stateWord="near limit"
+        note={<>{storageReading(s)}{storagePct !== undefined && ` · ${Math.round(storagePct)}% of configured limit`}. Filesystem used and capacity are not collected.{limitBytes === undefined && s.present && s.role !== "no JetStream" && " No percentage without a positive limit."}</>}
+        start={start}
+        end={end}
+        tone="change"
       />
       <MetricBox
         title="Connections"
@@ -82,6 +102,7 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
         note={downNote ?? (limit !== undefined ? `limit ${fmtInt(limit)}` : undefined)}
         start={start}
         end={end}
+        tone="change"
       />
       <MetricBox
         title="Messages"
@@ -95,18 +116,20 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
         note={downNote ?? (outNow !== null ? `out ${rate(outNow)}, dashed` : undefined)}
         start={start}
         end={end}
+        tone="change"
       />
       <MetricBox
-        title="Slow consumers"
-        description="Clients the server dropped as slow consumers: the increase of its counter per bucket, per process. A restart's first collection adds nothing."
+        title="Slow-consumer detections"
+        description="Server slow-consumer counter increases during the selected range. Covers clients, routes, gateways and leaf connections; retries can count without a disconnect. Not unique clients or JetStream pending messages. The chart shows increases per bucket, per process. A restart’s first collection adds nothing."
         {...slow}
         value={slowNow}
         fmt={(v) => fmtInt(v)}
         status={(slowRange ?? 0) > 0 ? "warning" : "ok"}
         stateWord={slowRange ? `${fmtInt(slowRange)} in range` : undefined}
-        note={downNote ?? (slowRange === undefined ? undefined : slowRange === 0 ? "none in range" : "per bucket on the chart")}
+        note={<>{downNote ?? (slowRange === undefined ? "not reported" : slowRange === 0 ? "none in range" : "per bucket on the chart")}. For JetStream backlog, see <RLink to="/consumers">Consumers</RLink>.</>}
         start={start}
         end={end}
+        tone="change"
       />
     </div>
   );

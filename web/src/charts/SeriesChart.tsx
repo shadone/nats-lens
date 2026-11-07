@@ -7,6 +7,7 @@ import { errorText } from "../components/common";
 import { dayMonHm, hms } from "../lib/format";
 import { fmtValue } from "../lib/units";
 import { Sparkline } from "./Sparkline";
+import { ChartHistoryStatus } from "./HistoryGaps";
 
 interface Props {
   title: string;
@@ -36,13 +37,15 @@ export function SeriesChart({ title, series, start, end, windows = [], loading, 
       {error && !series ? (
         <p className="muted-note">Could not load: {error}</p>
       ) : (
-        <Sparkline points={pts} status="ok" windows={windows} start={start} end={end} label={title} current={latest === undefined ? undefined : fmt(latest)} note={asOf} />
+        <Sparkline bucketNote={series?.unit === "count" ? "Last count in bucket" : "Mean value in bucket"} stepMs={series?.stepMs} fmt={v => fmtValue(v, series?.unit ?? "count")} points={pts} status="ok" tone="change" windows={windows} start={start} end={end} label={title} current={latest === undefined ? undefined : fmt(latest)} note={asOf} />
       )}
       <div className="chart-f mono">
         <span>{dayMonHm(start)}</span>
-        <span>
-          min {fmt(series?.min)} · max {fmt(series?.max)}
-        </span>
+        <ChartHistoryStatus start={start} end={end} layout="keep">
+          <span>
+            min {fmt(series?.min)} · max {fmt(series?.max)}
+          </span>
+        </ChartHistoryStatus>
         <span>{dayMonHm(end)}</span>
       </div>
       {asOf && <div className="chart-stale">{asOf}</div>}

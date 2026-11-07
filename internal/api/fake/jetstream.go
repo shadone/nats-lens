@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
+	"github.com/shadone/nats-lens/internal/checks"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -28,32 +29,105 @@ type streamSpec struct {
 	// behind is a follower the leader reports not current, lag entries back.
 	behind string
 	lag    int64
+	// disagrees is a follower whose configuration differs from the
+	// leader's; missing a follower the leader lists that does not report
+	// the stream; leaderless is a stream no replica leads in the newest
+	// epoch.
+	disagrees  string
+	missing    string
+	leaderless bool
 	// maxBytes and discard are the stream's byte limit and discard
 	// policy; zero means no limit and "" discard old.
 	maxBytes int64
 	discard  string
+	// retention and storage are "" for limits and file; maxMsgs,
+	// perSubject and maxAge are the other limits, zero for none. A KV
+	// bucket's or object store's limits come from its bucketSpec instead.
+	retention, storage  string
+	maxMsgs, perSubject int64
+	maxAge              time.Duration
+	// held is the age of the oldest message at the scenario's present;
+	// zero means maxAge (a stream at its age limit).
+	held time.Duration
+	// mirror is the stream this one mirrors; sources those it sources.
+	mirror  string
+	sources []string
+	// declared is a stream the inventory declares unbounded on purpose.
+	declared bool
+	// vanished are durables the servers held until a time and no server
+	// holds since; they are listed for a range whose newest epoch is
+	// before that time.
+	vanished []vanishedConsumer
+	// subjects are the stream's subjects; nil means its name with dots
+	// for dashes and .> (see subjectsOf).
+	subjects []string
+	// storedRate is the messages stored per second; nil means its growth
+	// in bytes over its mean message size.
+	storedRate *float64
+	// watchers are the clients whose connections subscribe to the deliver
+	// subjects of the ephemeral consumers, in turn; nil means the
+	// scenario's first client.
+	watchers []string
+	// created is when the stream was created, in the fixed frame; zero
+	// means 2026-10-02 08:30. lastSeq is its last sequence; zero means
+	// msgs, so that the first is 1.
+	created time.Time
+	lastSeq int64
 }
 
-// maxBytesText is max_bytes as the server reports it: -1 without a limit.
-func (sp streamSpec) maxBytesText() string {
-	if sp.maxBytes <= 0 {
-		return "-1"
+// createdAt is when a stream was created, in the scenario.
+func (s scen) createdAt(sp streamSpec) time.Time {
+	if sp.created.IsZero() {
+		return s.on(2, 8, 30)
 	}
-	return strconv.FormatInt(sp.maxBytes, 10)
+	return sp.created.Add(s.shift)
+}
+
+// seqs are a stream's first and last sequence: the last, and the first
+// msgs before it.
+func (sp streamSpec) seqs() (first, last int64) {
+	last = cmp.Or(sp.lastSeq, sp.msgs)
+	return last - sp.msgs + 1, last
+}
+
+// vanishedConsumer is a durable that no server held from at, a time in
+// the fixed frame, on.
+type vanishedConsumer struct {
+	name string
+	at   time.Time
+}
+
+// consumersAt are the durables of a stream at the scenario time at: its
+// own and the vanished ones not yet gone.
+func (s scen) consumersAt(sp streamSpec, at time.Time) []string {
+	out := slices.Clone(sp.consumers)
+	for _, v := range sp.vanished {
+		if at.Before(v.at.Add(s.shift)) {
+			out = append(out, v.name)
+		}
+	}
+	return out
 }
 
 func isKV(name string) bool { return strings.HasPrefix(name, "KV_") || strings.HasPrefix(name, "OBJ_") }
 
-// leader is the stream's leader: its first peer.
-func (s scen) leader(sp streamSpec) string { return s.sc.peers(sp)[0] }
+// leader is the stream's leader: its first peer, none for a leaderless
+// stream.
+func (s scen) leader(sp streamSpec) string {
+	if sp.leaderless {
+		return ""
+	}
+	return s.sc.peers(sp)[0]
+}
 
 func (s scen) streamSummary(sp streamSpec, cur []*v1.Finding, r *v1.TimeRange) *v1.StreamSummary {
 	e := streamRef(sp.name)
 	st, codes := worstStatus(cur, e)
 	out := &v1.StreamSummary{
-		Entity: e, Replicas: ptr(int32(len(s.sc.peers(sp)))), Messages: ptr(sp.msgs), Bytes: ptr(int64(sp.bytes)), Consumers: ptr(int32(len(sp.consumers) + sp.ephemeral)),
-		BytesPerDay: ptr(sp.perDay), Status: st, FindingCodes: codes, Leader: s.leader(sp), Placement: s.placement(sp),
-		Bytes_7D: s.series("stream.bytes", e, &v1.TimeRange{Start: ts(r.GetEnd().AsTime().Add(-7 * 24 * time.Hour)), End: r.GetEnd()}, 28),
+		Entity: e, Replicas: ptr(int32(len(s.sc.peers(sp)))), Messages: ptr(sp.msgs), Bytes: ptr(int64(sp.bytes)), Consumers: ptr(int32(len(s.consumersAt(sp, s.epochTime(r))) + sp.ephemeral)),
+		BytesPerDay: s.growth(e, r), Status: st, FindingCodes: codes, Leader: s.streamLeaderAt(sp, s.epochTime(r)), Placement: s.placementAt(sp, s.epochTime(r), false),
+		ServersDisagree: sp.disagrees != "",
+		Bytes_7D:        s.series("stream.bytes", e, &v1.TimeRange{Start: ts(r.GetEnd().AsTime().Add(-7 * 24 * time.Hour)), End: r.GetEnd()}, 28),
 	}
 	if len(sp.expected) > 0 {
 		out.ConsumersExpected = ptr(int32(len(sp.consumers) + len(sp.expected)))
@@ -80,7 +154,7 @@ func (p *Provider) ListStreams(_ context.Context, req *v1.ListStreamsRequest) (*
 		}
 		res.Streams = append(res.Streams, s.streamSummary(sp, cur, req.GetRange()))
 		res.Totals.Bytes += int64(sp.bytes)
-		res.Totals.DurableConsumers += int32(len(sp.consumers))
+		res.Totals.DurableConsumers += int32(len(s.consumersAt(sp, s.epochTime(req.GetRange()))))
 		res.Totals.EphemeralConsumers += int32(sp.ephemeral)
 	}
 	if !req.GetIncludeKv() {
@@ -107,36 +181,80 @@ func (p *Provider) GetStream(_ context.Context, req *v1.GetStreamRequest) (*v1.G
 	}
 	s := p.scen()
 	cur := current(p.findings(s), req.GetRange())
-	peers := p.sc.peers(sp)
 	res := &v1.GetStreamResponse{
 		Stream: s.streamSummary(sp, cur, req.GetRange()),
-		Config: cfg([][2]string{
-			{"subjects", strings.ReplaceAll(sp.name, "-", ".") + ".>"}, {"retention", "limits"}, {"storage", "file"},
-			{"replicas", fmt.Sprint(len(peers))}, {"max_bytes", sp.maxBytesText()}, {"max_msgs", "-1"}, {"max_age", "0"},
-			{"discard", cmp.Or(sp.discard, "old")},
-		}),
+		Config: s.streamConfig(sp),
 	}
-	for i, name := range peers {
-		v := &v1.StreamServerView{
-			Server: name, IsLeader: i == 0, Current: true, Messages: ptr(sp.msgs), Bytes: ptr(int64(sp.bytes)),
-			FirstSeq: ptr(int64(1)), LastSeq: ptr(sp.msgs), Created: ts(s.on(2, 8, 30)), ConfigHash: "c4f1a0", Lag: followerLag(i),
+	res.Servers = s.streamViews(sp, s.epochTime(req.GetRange()))
+	if sp.disagrees != "" {
+		hashes := &v1.Disagreement{Field: "config_hash"}
+		for _, v := range res.GetServers() {
+			hashes.Values = append(hashes.Values, &v1.ServerValue{Server: v.GetServer(), Value: v.GetConfigHash()})
 		}
-		if name == sp.behind {
-			v.Current, v.Lag = false, ptr(sp.lag)
-		}
-		if sv, _ := p.sc.server(name); !sv.answering() {
-			// A replica on a server that does not answer reports nothing.
-			v = &v1.StreamServerView{Server: name}
-		}
-		res.Servers = append(res.Servers, v)
+		res.Disagreements = append(res.Disagreements, hashes)
 	}
 	for _, f := range cur {
 		if matchesEntity(f.GetEntity(), res.GetStream().GetEntity()) {
 			res.Findings = append(res.Findings, f)
 		}
 	}
-	res.Consumers = s.withRates(s.consumers(sp, cur, true), req.GetRange())
+	res.Consumers = s.withRates(s.consumers(sp, cur, true, s.epochTime(req.GetRange())), req.GetRange())
 	return res, nil
+}
+
+// streamConfig is the configuration GetStream lists: the limits the
+// Capacity page reads.
+func (s scen) streamConfig(sp streamSpec) []*v1.ConfigValue {
+	l := s.sc.streamLimitsOf(sp)
+	pairs := [][2]string{
+		{"retention", l.retention}, {"storage", l.storage},
+		{"replicas", fmt.Sprint(len(s.sc.peers(sp)))}, {"max_bytes", strconv.FormatInt(l.maxBytes, 10)},
+		{"max_msgs", strconv.FormatInt(l.maxMsgs, 10)}, {"max_age", checks.DurationText(l.maxAge)},
+		{"max_msgs_per_subject", strconv.FormatInt(l.perSubject, 10)}, {"discard", l.discard},
+	}
+	if subj := subjectsOf(sp); len(subj) > 0 {
+		pairs = append([][2]string{{"subjects", strings.Join(subj, ", ")}}, pairs...)
+	}
+	if l.mirror != "" {
+		pairs = append(pairs, [2]string{"mirror", l.mirror})
+	}
+	if len(sp.sources) > 0 {
+		pairs = append(pairs, [2]string{"sources", strings.Join(sp.sources, ", ")})
+	}
+	if l.allowMsgTTL {
+		pairs = append(pairs, [2]string{"allow_msg_ttl", "true"})
+	}
+	return cfg(pairs)
+}
+
+// streamViews is each server's view of a stream at the scenario time at:
+// the servers that report it, which leaves out the follower the leader
+// lists as missing and every server offline then.
+func (s scen) streamViews(sp streamSpec, at time.Time) []*v1.StreamServerView {
+	var out []*v1.StreamServerView
+	leader := s.streamLeaderAt(sp, at)
+	first, last := sp.seqs()
+	for _, name := range s.sc.peers(sp) {
+		if name == sp.missing || s.offline(name, at) {
+			continue
+		}
+		v := &v1.StreamServerView{
+			Server: name, IsLeader: name == leader, Current: true, Messages: ptr(sp.msgs), Bytes: ptr(int64(sp.bytes)),
+			FirstSeq: ptr(first), LastSeq: ptr(last), Created: ts(s.createdAt(sp)), ConfigHash: "c4f1a0", Lag: followerLag(name == leader),
+		}
+		switch name {
+		case sp.behind:
+			v.Current, v.Lag = false, ptr(sp.lag)
+		case sp.disagrees:
+			v.ConfigHash = "7d3e91"
+		}
+		if sp.leaderless {
+			// Without a leader no server says how a replica stands.
+			v.IsLeader, v.Current, v.Lag = false, false, nil
+		}
+		out = append(out, v)
+	}
+	return out
 }
 
 // backlog is a consumer's steady pending and ack pending counts, fixed
@@ -152,12 +270,12 @@ func backlog(stream, consumer string) (pending, ackPending int64) {
 	return pending, min(pending, (n>>9)%40)
 }
 
-func (s scen) consumerSummary(sp streamSpec, name string, cur []*v1.Finding, present bool) *v1.ConsumerSummary {
+func (s scen) consumerSummary(sp streamSpec, name string, cur []*v1.Finding, present bool, at time.Time) *v1.ConsumerSummary {
 	e := consumerRef(sp.name, name)
 	st, codes := worstStatus(cur, e)
 	pending, acks := backlog(sp.name, name)
 	c := &v1.ConsumerSummary{
-		Entity: e, Durable: !strings.HasPrefix(name, "oc_"), Replicas: ptr(int32(len(s.sc.peers(sp)))), Leader: s.leader(sp), Status: st, FindingCodes: codes,
+		Entity: e, Durable: !strings.HasPrefix(name, "oc_"), Replicas: ptr(int32(len(s.sc.peers(sp)))), Leader: s.consumerLeaderAt(sp, name, at), Status: st, FindingCodes: codes,
 		NumAckPending: ptr(acks), NumRedelivered: ptr(int64(0)), NumPending: ptr(pending), NumWaiting: ptr(int64(0)), LastDelivered: ts(s.now.Add(-2 * time.Second)), Present: present,
 	}
 	if !c.GetDurable() {
@@ -175,17 +293,23 @@ func (s scen) consumerSummary(sp streamSpec, name string, cur []*v1.Finding, pre
 	return c
 }
 
-func (s scen) consumers(sp streamSpec, cur []*v1.Finding, ephemeral bool) []*v1.ConsumerSummary {
+// consumers are a stream's consumers at the scenario time at: the
+// durables then, the expected ones no server reports, and the ephemeral
+// ones when asked for.
+func (s scen) consumers(sp streamSpec, cur []*v1.Finding, ephemeral bool, at time.Time) []*v1.ConsumerSummary {
 	var out []*v1.ConsumerSummary
-	for _, n := range sp.consumers {
-		out = append(out, s.consumerSummary(sp, n, cur, true))
+	present := s.consumersAt(sp, at)
+	for _, n := range present {
+		out = append(out, s.consumerSummary(sp, n, cur, true, at))
 	}
 	for _, n := range sp.expected {
-		out = append(out, s.consumerSummary(sp, n, cur, false))
+		if !slices.Contains(present, n) {
+			out = append(out, s.consumerSummary(sp, n, cur, false, at))
+		}
 	}
 	if ephemeral {
 		for i := range sp.ephemeral {
-			out = append(out, s.consumerSummary(sp, fmt.Sprintf("oc_%04d", i+1), cur, true))
+			out = append(out, s.consumerSummary(sp, fmt.Sprintf("oc_%04d", i+1), cur, true, at))
 		}
 	}
 	return out
@@ -200,7 +324,7 @@ func (p *Provider) ListConsumers(_ context.Context, req *v1.ListConsumersRequest
 		if (req.GetAccount() != "" && req.GetAccount() != Account) || (req.GetStream() != "" && req.GetStream() != sp.name) {
 			continue
 		}
-		res.Consumers = append(res.Consumers, s.consumers(sp, cur, req.GetIncludeEphemeral())...)
+		res.Consumers = append(res.Consumers, s.consumers(sp, cur, req.GetIncludeEphemeral(), s.epochTime(req.GetRange()))...)
 	}
 	sortByStatus(res.Consumers, (*v1.ConsumerSummary).GetStatus, func(x *v1.ConsumerSummary) string { return x.GetEntity().GetKey() })
 	res.Consumers = sortedConsumers(s.withRates(res.Consumers, req.GetRange()), req)
@@ -217,7 +341,7 @@ func (p *Provider) GetConsumer(_ context.Context, req *v1.GetConsumerRequest) (*
 	s := p.scen()
 	cur := current(p.findings(s), req.GetRange())
 	var c *v1.ConsumerSummary
-	for _, x := range s.consumers(sp, cur, true) {
+	for _, x := range s.consumers(sp, cur, true, s.epochTime(req.GetRange())) {
 		if x.GetEntity().GetConsumer() == req.GetConsumer() {
 			c = x
 		}
@@ -237,41 +361,55 @@ func (p *Provider) GetConsumer(_ context.Context, req *v1.GetConsumerRequest) (*
 	if !c.GetPresent() {
 		return res, nil
 	}
-	peers := p.sc.peers(sp)
+	res.Servers, res.Disagreements = s.consumerViews(sp, c, s.epochTime(req.GetRange()))
+	return res, nil
+}
+
+// consumerViews is each server's view of a present consumer at the
+// scenario time at, and the creation time disagreement when the
+// scenario gives one: the servers that report its stream then.
+func (s scen) consumerViews(sp streamSpec, c *v1.ConsumerSummary, at time.Time) ([]*v1.ConsumerServerView, []*v1.Disagreement) {
+	peers := s.sc.peers(sp)
 	var created []time.Time
 	disagree := false
-	if p.sc.created != nil {
-		created, disagree = p.sc.created(s, sp.name, req.GetConsumer())
+	if s.sc.created != nil {
+		created, disagree = s.sc.created(s, sp.name, c.GetEntity().GetConsumer())
 	}
 	if created == nil {
 		for range peers {
 			created = append(created, s.on(12, 10, 2))
 		}
 	}
-	if disagree {
-		dis := &v1.Disagreement{Field: "created"}
-		for i, name := range peers {
-			dis.Values = append(dis.Values, &v1.ServerValue{Server: name, Value: created[i].Format(time.RFC3339)})
-		}
-		res.Disagreements = append(res.Disagreements, dis)
-	}
+	var out []*v1.ConsumerServerView
+	dis := &v1.Disagreement{Field: "created"}
+	leader := s.consumerLeaderAt(sp, c.GetEntity().GetConsumer(), at)
+	_, last := sp.seqs()
 	for i, name := range peers {
-		v := &v1.ConsumerServerView{
-			Server: name, IsLeader: i == 0, Current: true, DeliveredStreamSeq: ptr(sp.msgs), AckFloorStreamSeq: ptr(sp.msgs - c.GetNumAckPending()), Lag: followerLag(i),
-			Created: ts(created[i]), ConfigHash: "9e02b7",
+		if name == sp.missing || s.offline(name, at) {
+			// A server that does not report the stream reports no view.
+			continue
 		}
-		if sv, _ := p.sc.server(name); !sv.answering() {
-			v = &v1.ConsumerServerView{Server: name}
-		}
-		res.Servers = append(res.Servers, v)
+		out = append(out, &v1.ConsumerServerView{
+			Server: name, IsLeader: name == leader, Current: !sp.leaderless, DeliveredStreamSeq: ptr(last),
+			AckFloorStreamSeq: ptr(last - c.GetNumAckPending()), Lag: followerLag(name == leader), Created: ts(created[i]), ConfigHash: "9e02b7",
+		})
+		dis.Values = append(dis.Values, &v1.ServerValue{Server: name, Value: created[i].Format(time.RFC3339)})
 	}
-	return res, nil
+	if sp.leaderless {
+		for _, v := range out {
+			v.Lag = nil
+		}
+	}
+	if !disagree {
+		return out, nil
+	}
+	return out, []*v1.Disagreement{dis}
 }
 
-// followerLag is the lag the leader (peer 0) reports for peer i: none
-// for itself, zero for a follower that is current.
-func followerLag(i int) *int64 {
-	if i == 0 {
+// followerLag is the lag the leader reports for a replica: none for
+// itself, zero for a follower that is current.
+func followerLag(leader bool) *int64 {
+	if leader {
 		return nil
 	}
 	return ptr(int64(0))

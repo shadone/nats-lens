@@ -25,20 +25,21 @@ thresholds:
     unit: ratio
     description: The ahead tolerance as a share of the leader's position, when that is more; replies are read apart.
 description: >-
-  The servers that hold the consumer report different creation times. When the delivered and acknowledged
-  positions agree (a replica at most position_tolerance messages, or position_tolerance_ratio of the leader's
-  position if that is more, behind the leader, and at most position_ahead_tolerance, or position_ahead_tolerance_ratio
-  of the leader's position if that is more, ahead of it, current or not), a replica was rebuilt at another time (a server restore or a peer replaced) and holds the same
-  state as the others. When the positions differ as well, in two collections in a row, the consumer may have been
-  deleted and created again with one replica keeping the old one. A replica behind by more than the tolerance in
-  two collections warns even while it catches up, but only here, where the creation times differ. Servers that restarted
-  within restart_window are left out.
+  The servers that hold the consumer report different creation timestamps. This is a metadata disagreement,
+  not proof of a restore, rebuild, recreation or unhealthy replica. Positions agree when a replica is at most
+  position_tolerance messages, or position_tolerance_ratio of the leader's position if that is more, behind it,
+  and at most position_ahead_tolerance messages, or position_ahead_tolerance_ratio of the leader's position
+  if that is more, ahead.
+  Currentness does not change this position comparison. Differing positions in two collections raise a warning,
+  including a replica that is catching up. Servers that restarted within restart_window are left out.
 remediation: >-
-  The detail names the servers on each creation time and whether their positions agree. While the positions
-  agree, no action is needed: the replicas were built at different times. When they differ, look on the Events page
-  for consumer.deleted and consumer.created around the newer time and the client that made them, and step the
-  consumer leader down (`nats consumer cluster step-down <stream> <consumer>`) so the replicas resynchronise from
-  the new leader.
+  Compare the reported timestamps with delivered and acknowledged positions, replica currentness and lag,
+  and configuration across servers. Inspect captured consumer.created and consumer.deleted lifecycle events
+  around the reported times, and server logs if available. Matching positions do not prove identical state or
+  explain the timestamp difference; timestamps alone do not prove a restore or rebuild. Missing captured events
+  do not rule out a lifecycle change. Investigate persistent position or configuration differences before planning
+  any intervention. A leader step-down does not guarantee repair; do not delete or recreate a durable based only
+  on this metadata finding, as that can lose its position or replay messages.
 value_name: distinct creation times
 value_basis: creation times the servers report
 */

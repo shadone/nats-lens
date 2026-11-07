@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/shadone/nats-lens/internal/archive"
+	"github.com/shadone/nats-lens/internal/notify"
 )
 
 // waitUntil waits for done to close until deadline and reports whether it
@@ -42,5 +43,35 @@ func writeFinalState(ctx context.Context, arch *archive.Archiver, shutdownBy tim
 	defer cancel()
 	if err := arch.WriteState(sctx, time.Now()); err != nil {
 		log.Error("archive state not written", "err", err)
+	}
+}
+
+// startNotificationDelivery starts before NATS setup, so a pending outbox is
+// delivered even when monitoring cannot connect. Its request grace begins at
+// the signal, independently of the order in which other workers stop.
+func startNotificationDelivery(ctx context.Context, d *notify.Delivery, grace time.Duration) func() {
+	requests, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	done := make(chan struct{})
+	go func() { d.Run(ctx, requests); close(done) }()
+	go func() {
+		select {
+		case <-done:
+			return
+		case <-ctx.Done():
+		}
+		timer := time.NewTimer(grace)
+		defer timer.Stop()
+		select {
+		case <-done:
+		case <-timer.C:
+			cancel()
+		}
+	}()
+	return func() {
+		if ctx.Err() == nil {
+			cancel()
+		}
+		<-done
+		cancel()
 	}
 }

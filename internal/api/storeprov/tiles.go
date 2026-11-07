@@ -76,7 +76,7 @@ func (p *Provider) tiles(ctx context.Context, r *v1.TimeRange, maxPoints int32, 
 
 	accounts := tile(api.TileAccounts, api.LastPoint(get["cluster.accounts"]), count, "cluster.accounts")
 	if now.busiestAccount != "" {
-		accounts.Subtitle = fmt.Sprintf("most connections: %s (%d)", now.busiestAccount, now.busiestConns)
+		accounts.Subtitle = api.AccountsSubtitle(now.busiestAccount, now.busiestConns)
 	}
 
 	clients := tile(api.TileClients, api.LastPoint(get["cluster.connections"]), count, "cluster.connections")
@@ -136,10 +136,10 @@ func (p *Provider) storageGrowth(ctx context.Context, r *v1.TimeRange) (*float64
 		return nil, fmt.Errorf("storage growth: %w", err)
 	}
 	defer rows.Close()
-	var s []sample
+	var s []api.Sample
 	for rows.Next() {
-		var x sample
-		if err := rows.Scan(&x.t, &x.v); err != nil {
+		var x api.Sample
+		if err := rows.Scan(&x.T, &x.V); err != nil {
 			return nil, err
 		}
 		s = append(s, x)
@@ -147,7 +147,7 @@ func (p *Provider) storageGrowth(ctx context.Context, r *v1.TimeRange) (*float64
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	return robustPerDay(s), nil
+	return api.RobustPerDay(s), nil
 }
 
 // assetCounts are counts over a kind of stream in one epoch.
@@ -185,11 +185,18 @@ func (p *Provider) epochFacts(ctx context.Context, epoch int64) (epochFacts, err
 		return f, err
 	}
 	f.behindRan = runs > 0
+	// Connections as the Accounts page and account-001 count them: clients
+	// plus the leaf nodes of the server that holds the most. The name and
+	// the system flag come from accounts alone, where the page also reads
+	// account_details: the writer merges each lookup's name and is_system
+	// into accounts, so the two agree for any store nats-lens wrote.
 	err = p.db().QueryRowContext(ctx, `
-SELECT coalesce(any_value(ac.account_name), a.account), sum(a.conns)::BIGINT AS n
-FROM account_stats a LEFT JOIN accounts ac USING (account)
-WHERE a.epoch = ? AND NOT coalesce(ac.is_system, false)
-GROUP BY a.account HAVING sum(a.conns) > 0 ORDER BY n DESC, 1 LIMIT 1`, epoch).Scan(&f.busiestAccount, &f.busiestConns)
+SELECT name, n FROM (
+    SELECT coalesce(ac.account_name, cn.account) AS name, cn.account,
+        (coalesce(cn.clients, 0) + coalesce(cn.limit_leafnodes, 0))::BIGINT AS n
+    FROM (`+checks.AccountConnectionsSQL("?")+`) cn LEFT JOIN accounts ac USING (account)
+    WHERE NOT coalesce(ac.is_system, false))
+WHERE n > 0 ORDER BY n DESC, name, account LIMIT 1`, epoch).Scan(&f.busiestAccount, &f.busiestConns)
 	if err != nil && !isNoRows(err) {
 		return f, err
 	}
@@ -263,16 +270,15 @@ GROUP BY ALL`, epoch, epoch)
 // the connection name up to an "@", nats-lens's own connections left out
 // by the rule the client checks use.
 func (p *Provider) appsAt(ctx context.Context, epoch int64) (int, error) {
-	stored, err := checks.StoredLoopback(ctx, p.db(), epoch)
+	rule, err := p.toolingAt(ctx, epoch)
 	if err != nil {
 		return 0, err
 	}
-	names := append([]string{}, p.ToolingNames...)
+	tooling, args := rule.sql("c.name", "c.ip")
 	var n int
 	err = p.db().QueryRowContext(ctx, `
 SELECT count(DISTINCT split_part(c.name, '@', 1)) FROM connections c
 WHERE c.epoch = ? AND coalesce(c.name, '') <> '' AND split_part(c.name, '@', 1) <> ''
-  AND NOT (list_contains(?::VARCHAR[], c.name) OR (? AND coalesce(c.ip, '') IN ('127.0.0.1', '::1')))`,
-		epoch, names, !p.LoopbackNotTooling && stored).Scan(&n)
+  AND NOT `+tooling, append([]any{epoch}, args...)...).Scan(&n)
 	return n, err
 }

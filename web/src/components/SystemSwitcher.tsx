@@ -50,7 +50,7 @@ export function SystemSwitcher({ compact = false }: { compact?: boolean }) {
         <span className="sw-sub">
           {info?.environment && <span>{info.environment}</span>}
           {servers && <span className={servers.down ? "down" : undefined}>{servers.text}</span>}
-          {demo && <span className="demo-tag">demo</span>}
+          {demo && <span className="demo-tag">Demo</span>}
         </span>
       </span>
     </>

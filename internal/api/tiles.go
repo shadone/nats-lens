@@ -51,7 +51,8 @@ var TileDescriptions = map[string]string{
 	TileConsumers: "Durable consumers any server reports in the newest collection; " +
 		"behind counts the consumers whose backlog keeps growing (check consumer-002).",
 	TileAccounts: "Accounts other than the system account that have a client connection or a stream, " +
-		"from the servers' account statistics in the newest collection.",
+		"from the servers' account statistics in the newest collection; most connections counts clients plus " +
+		"the leaf nodes counted against the connection limit, as the Accounts page does.",
 	TileClients: "Client connections across all servers as the servers count them, nats-lens's own included; " +
 		"apps counts the distinct connection names up to an \"@\", slow the slow consumer events in the range.",
 	TileStorage: "JetStream file storage in use across all servers, every replica counted; the limit is the sum of " +
@@ -83,10 +84,13 @@ func streamKind(prefix string) func(*v1.EntityRef) bool {
 
 // TileRules are the tiles' rules.
 var TileRules = map[string]TileRule{
-	TileServers: {Codes: []string{"server-001", "server-002", "server-003", "server-004", "server-005", "server-006", "system-"},
+	// The system checks of the NATS servers colour the servers tile;
+	// system-007 to system-009 judge nats-lens itself and do not.
+	TileServers: {Codes: []string{"server-001", "server-002", "server-003", "server-004", "server-005", "server-006",
+		"system-001", "system-002", "system-003", "system-004", "system-005", "system-006"},
 		Types: []string{"server", "system"}},
 	// A meta leader finding (system-002, system-003) colours both the
-	// servers tile, through "system-", and the meta leader tile.
+	// servers tile and the meta leader tile.
 	TileMetaLeader:   {Codes: []string{"system-002", "system-003"}, Types: []string{"system"}},
 	TileStreams:      {Codes: []string{"stream-"}, Types: []string{"stream"}, Entity: streamKind("")},
 	TileKV:           {Codes: []string{"stream-"}, Types: []string{"stream"}, Entity: streamKind("KV_")},

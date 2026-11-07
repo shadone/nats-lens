@@ -124,9 +124,14 @@ func TestGoneAccountIsNotRecordedMissing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := js.CreateStream(ctx, jetstream.StreamConfig{Name: "catalog-changes", Subjects: []string{"catalog.changes.>"}, Replicas: 3}); err != nil {
+	// Without a deadline of its own a JetStream call gives up after 5s,
+	// which an R3 stream create can take on a loaded machine.
+	jsCtx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	if _, err := js.CreateStream(jsCtx, jetstream.StreamConfig{Name: "catalog-changes", Subjects: []string{"catalog.changes.>"}, Replicas: 3}); err != nil {
 		t.Fatal(err)
 	}
+	waitStreamOnEveryServer(t, c, "catalog-changes", true)
 	nc := c.Connect(0, testcluster.SysUser, testcluster.SysPass)
 	// The ghost answers JSZ (without the account) but not RAFTZ, so every
 	// server answers JSZ and the ghost misses the account's RAFTZ.
@@ -138,13 +143,44 @@ func TestGoneAccountIsNotRecordedMissing(t *testing.T) {
 	if st := snap.Servers["IDGHOST"].Status[collect.AccountRaftz("APP")]; st.State != collect.StateMissing {
 		t.Fatalf("setup: ghost RAFTZ:APP = %+v, want missing", st)
 	}
-	if err := js.DeleteStream(ctx, "catalog-changes"); err != nil {
+	if err := js.DeleteStream(jsCtx, "catalog-changes"); err != nil {
 		t.Fatal(err)
 	}
+	// The test is about the first epoch in which every server shows the
+	// account gone; a replica that still holds the stream is not that.
+	waitStreamOnEveryServer(t, c, "catalog-changes", false)
 	snap = col.Collect(ctx)
 	for _, v := range snap.Servers {
 		if st, ok := v.Status[collect.AccountRaftz("APP")]; ok {
 			t.Errorf("%s records RAFTZ:APP as %s after the account's last stream was deleted", v.Info.Name, st.State)
 		}
+	}
+}
+
+// waitStreamOnEveryServer waits until every server of c reports the APP
+// stream name in its JSZ when present is set, or none does when it is not.
+func waitStreamOnEveryServer(t *testing.T, c *testcluster.Cluster, name string, present bool) {
+	t.Helper()
+	deadline := time.Now().Add(time.Minute)
+	for {
+		var have int
+		for _, s := range c.Servers {
+			z, err := s.Jsz(&server.JSzOptions{Accounts: true, Streams: true})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, a := range z.AccountDetails {
+				if a.Id == "APP" && slices.ContainsFunc(a.Streams, func(d server.StreamDetail) bool { return d.Name == name }) {
+					have++
+				}
+			}
+		}
+		if (present && have == len(c.Servers)) || (!present && have == 0) {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("stream %s on %d of %d servers, want present=%v on all", name, have, len(c.Servers), present)
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
 }

@@ -4,13 +4,14 @@ import { useState } from "react";
 import type { Finding, LensEvent } from "../api/model";
 import { useEvent } from "../api/queries";
 import { eventWhen, fmtDuration, isoSecond } from "../lib/format";
+import { selectionIntersects } from "../lib/textSelection";
 import { AccountName } from "./AccountName";
-import { SOURCE_CLASS, SOURCE_PILL, consumerPath, eventPath, findingPath, findingTag, serverPath, streamPath } from "../lib/view";
+import { FINDING_TAG_LABEL, SOURCE_CLASS, SOURCE_PILL, consumerPath, eventPath, findingPath, findingTag, serverPath, streamPath, type FindingTag } from "../lib/view";
 import { ErrorBox, KV, RLink, Remediation } from "./common";
 import { Sev, StateTag } from "./Severity";
 
-/** The badge of a finding event: NEW, RESOLVED, FLAPPING or CHANGED. */
-export function eventBadge(e: LensEvent): string | undefined {
+/** The badge of a finding event: NEW, RESOLVED, FLAPPING or CHANGED, the CSS class; FINDING_TAG_LABEL names it. */
+export function eventBadge(e: LensEvent): FindingTag | undefined {
   if (e.source !== "finding") return undefined;
   const st = e.transition?.state ?? e.kind.split(".").pop();
   return st === "firing" ? "NEW" : st === "resolved" ? "RESOLVED" : st === "flapping" ? "FLAPPING" : st === "changed" ? "CHANGED" : undefined;
@@ -22,7 +23,7 @@ function RaisedFinding({ f, label }: { f: Finding; label: string }) {
       <div className="fhead">
         <span className="lbl">{label}</span>
         <Sev level={f.severity} />
-        <span className="code">{f.checkCode}</span>
+        <RLink to={`/checks/${encodeURIComponent(f.checkCode)}`} className="code">{f.checkCode} · Check reference</RLink>
         <RLink to={findingPath(f.id)} className="x">
           <b>{f.checkName}</b>
         </RLink>
@@ -117,8 +118,12 @@ export function EventRow({ e, end, open, onToggle, compact }: { e: LensEvent & {
       <span className="t">{e.time !== undefined ? eventWhen(e.time, end) : "–"}</span>
       <span className={`src ${SOURCE_CLASS[e.source]}`}>{SOURCE_PILL[e.source]}</span>
       <div className="body">
-        <button type="button" className="ev-toggle" aria-expanded={open} aria-controls={detailId} onClick={onToggle}>
-          {badge && <span className={`badge ${badge} ${sev ?? ""}`}>{badge}</span>}
+        <button type="button" className="ev-toggle" aria-expanded={open} aria-controls={detailId} onClick={(event) => {
+          // Native keyboard activation has detail 0 and must ignore stale selections.
+          if (event.detail > 0 && selectionIntersects(event.currentTarget)) return;
+          onToggle();
+        }}>
+          {badge && <span className={`badge ${badge} ${sev ?? ""}`}>{FINDING_TAG_LABEL[badge]}</span>}
           <span className={`ty${sev === "critical" && e.source === "nats" ? " critical" : ""}`}>{e.type || e.kind}</span>
           <span className="tx">{e.summary}</span>
           {rep && <span className="rep mono">{rep}</span>}

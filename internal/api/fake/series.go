@@ -112,7 +112,7 @@ func prodSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (floa
 	case "cluster.servers_up":
 		return serversUp(sc, c), true
 	case "cluster.connections":
-		return traffic(metric, c, 168, 14, 0.72, 182), true
+		return traffic(metric, c, 168, 14, 0.72, float64(sc.totalConns(c))), true
 	case "cluster.in_msgs_rate":
 		return traffic(metric, c, 1180, 260, 0.55, 1240), true
 	case "cluster.out_msgs_rate":
@@ -122,7 +122,7 @@ func prodSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (floa
 		v, ok := prodSample(sc, strings.Replace(metric, "_bytes_", "_msgs_", 1), e, c)
 		return math.Round(v * 1230), ok
 	case "cluster.js_storage_bytes":
-		return (5.81 - days*0.19) * gib, true
+		return 5.81*gib - days*51*mib, true
 	case "cluster.durable_consumers":
 		if c.Before(fixed(9, 31, 7)) {
 			return 14, true
@@ -133,18 +133,25 @@ func prodSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (floa
 			return 0, false
 		}
 		v, _ := prodSample(sc, "cluster."+strings.TrimPrefix(metric, "server."), e, c)
+		if sp, ok := sc.server(e.GetKey()); ok && metric == "server.connections" {
+			// Each server's share of the connections.
+			return math.Round(v * float64(sc.connsOn(sp, c)) / float64(sc.totalConns(c))), true
+		}
 		return math.Round(v / 3), true
 	case "server.mem_bytes":
 		return 412*mib + noise(metric+e.GetKey(), c)*40*mib, !down(e.GetKey(), c)
 	case "server.cpu_percent":
 		return 7.5 + noise(metric+e.GetKey(), c)*4, !down(e.GetKey(), c)
 	case "server.js_storage_bytes":
-		return 1980*mib - days*65*mib, !down(e.GetKey(), c)
+		return 1980*mib - days*17*mib, !down(e.GetKey(), c)
 	case "stream.bytes", "stream.messages":
 		sp, _ := sc.findStream(e.GetAccount(), e.GetStream())
 		b := math.Max(sp.bytes-days*sp.perDay, sp.bytes*0.05)
 		if metric == "stream.bytes" {
 			return b, true
+		}
+		if sp.bytes == 0 {
+			return 0, true
 		}
 		return math.Round(float64(sp.msgs) * b / sp.bytes), true
 	case "consumer.num_pending", "consumer.num_ack_pending", "consumer.num_redelivered", "consumer.delivered_rate":
@@ -183,8 +190,9 @@ func consumerSample(metric string, e *v1.EntityRef, c time.Time) (float64, bool)
 }
 
 // series draws a metric over the range: the last sample of each bucket for
-// counts, averages of samples for other gauges and rates, sums of events
-// for cluster.slow_consumers and the event metrics.
+// counts, with the bucket's lowest and highest sample; averages of samples
+// for other gauges and rates; sums of events for cluster.slow_consumers and
+// the event metrics.
 func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints int32) *v1.Series {
 	if _, ok := bandOf[metric]; ok {
 		return s.bandSeries(metric, e, r, maxPoints)
@@ -204,6 +212,7 @@ func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints 
 		stop := earliest(b.Add(step), end)
 		var sum float64
 		var n int
+		var lo, hi *float64
 		if metric == "cluster.slow_consumers" {
 			for _, ev := range s.sc.slowEvents {
 				if c := ev.Add(s.shift); !c.Before(t) && c.Before(stop) {
@@ -222,10 +231,16 @@ func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints 
 			n = 1
 		} else if out.Unit == v1.Unit_UNIT_COUNT {
 			// A count takes the bucket's last sample, as the store's
-			// arg_max does, so it stays whole.
+			// arg_max does, so it stays whole, with its lowest and highest.
 			for x := t; x.Before(stop); x = x.Add(sampleEvery) {
 				if v, ok := s.sc.value(metric, e, s.clock(x)); ok {
 					sum, n = v, 1
+					if lo == nil || v < *lo {
+						lo = ptr(v)
+					}
+					if hi == nil || v > *hi {
+						hi = ptr(v)
+					}
 				}
 			}
 		} else {
@@ -240,7 +255,7 @@ func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints 
 			continue
 		}
 		v := sum / float64(n)
-		out.Points = append(out.Points, &v1.Point{Time: ts(b), Value: v})
+		out.Points = append(out.Points, &v1.Point{Time: ts(b), Value: v, Low: lo, High: hi})
 		if out.Min == nil || v < out.GetMin() {
 			out.Min = ptr(v)
 		}
@@ -278,7 +293,11 @@ func (sc *scenario) resolveEntity(e *v1.EntityRef) (*v1.EntityRef, error) {
 		parts := strings.Split(e.GetKey(), "/")
 		if len(parts) == 3 {
 			if sp, err := sc.findStream(parts[0], parts[1]); err == nil {
-				for _, n := range append(append([]string{}, sp.consumers...), sp.expected...) {
+				names := append(append([]string{}, sp.consumers...), sp.expected...)
+				for _, v := range sp.vanished {
+					names = append(names, v.name)
+				}
+				for _, n := range names {
 					if n == parts[2] {
 						return consumerRef(sp.name, n), nil
 					}

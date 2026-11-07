@@ -1,10 +1,19 @@
 // The Overview's nine tiles as metric boxes: the API's description behind
 // (i), the value top right, the chart and the window's range track. A
 // tile's limit goes in the note, never on the track. A value the API did
-// not observe is a dash with no dot.
+// not observe is a dash with no dot. A tile draws its chart only when
+// `tileChartReason` does not call it steady.
+import { HistoryLink, usePageHistory } from "./HistoryNote";
+import type { HistoryGap } from "../api/history";
 import type { Level, Tile, Window } from "../api/model";
+import { useDataHistory } from "../api/queries";
+import { rangeCoverageText } from "../lib/historyView";
+import { edgeRange, tileChartReason } from "../lib/tileChart";
+import { useTimeRange } from "../lib/useTimeRange";
 import { tileValue, fmtValue } from "../lib/units";
 import { MetricBox } from "./MetricBox";
+
+const destinations: Record<string, string> = { servers: "/servers", meta_leader: "/servers", streams: "/streams", kv: "/kv-stores", object_stores: "/object-stores", consumers: "/consumers", accounts: "/accounts", clients: "/connections", storage: "/capacity" };
 
 function join(...parts: string[]): string {
   return parts.filter(Boolean).join(" ");
@@ -35,28 +44,74 @@ export function tileStatus(t: Tile): Level {
   return t.status === "nodata" && (t.value !== undefined || !!t.valueText) ? "ok" : t.status;
 }
 
-export function OverviewTiles({ tiles, windows, start, end }: { tiles: Tile[]; windows: Window[]; start: number; end: number }) {
+interface TilesProps {
+  tiles: Tile[];
+  windows: Window[];
+  start: number;
+  end: number;
+}
+
+/**
+ * The tiles with the range's collection gaps. Without a page history the
+ * charts hatch no gaps either, so none are assumed.
+ */
+export function OverviewTiles(p: TilesProps) {
+  const h = usePageHistory();
+  return h ? <TilesWithGaps {...p} /> : <TileGrid {...p} gaps={[]} />;
+}
+
+function TilesWithGaps(p: TilesProps) {
+  const { spec } = useTimeRange();
+  const d = useDataHistory(spec).data;
+  // The newest gap the answer left out of its list counts as well.
+  const gaps = d && (d.newestOmittedCollectionGap ? [...d.gaps, d.newestOmittedCollectionGap] : d.gaps);
+  return <TileGrid {...p} gaps={gaps} />;
+}
+
+function TileGrid({ tiles, windows, start, end, gaps }: TilesProps & { gaps?: readonly HistoryGap[] }) {
+  const h = usePageHistory();
+  const coverage = rangeCoverageText(h?.historyStart, start, end);
+  // Tile growth is conveyed in its subtitle, without typed readiness facts.
+  // Keep this guidance neutral rather than infer missing data from retained age.
+  const growth = h ? "Growth uses samples spanning 6 h; entity measurements determine the rate." : undefined;
   return (
     <div className="ov-tiles">
-      {tiles.map((t) => (
-        <MetricBox
+      {tiles.map((t) => {
+        const leader = t.id === "meta_leader";
+        const status = tileStatus(t);
+        // A count bucket's low and high widen the track, so a dip inside one bucket shows.
+        const series = t.series && { ...t.series, ...edgeRange(t.series.points, t.series.min, t.series.max) };
+        const reason = tileChartReason({ points: t.series?.points ?? [], points2: t.series2?.points, stepMs: t.series?.stepMs, min: series?.min, max: series?.max, start, end, status, changesSeries: leader, live: h?.live, historyStart: h?.historyStart, gaps });
+        // Steady values with gaps not yet known: no chart, and the history
+        // status in place of "steady at N" until the gaps settle it.
+        const chart = reason !== "steady" && reason !== "gapsUnknown";
+        return <MetricBox
           key={t.id}
           title={t.label}
+          to={destinations[t.id]}
+          // The leader's chart counts changes, not the name above it.
+          valueLabel={leader && chart ? "Leader changes per bucket" : undefined}
+          chart={chart}
+          historyStatus={reason === "gapsUnknown"}
+          tone="change"
           description={t.description ?? ""}
-          series={t.series}
+          series={series}
           series2={t.series2}
-          value={t.valueText ? undefined : (t.value ?? null)}
-          valueText={tileText(t)}
+          value={t.id === "meta_leader" ? null : t.valueText ? undefined : (t.value ?? null)}
+          valueText={t.id === "meta_leader" ? (t.valueText || "Unknown") : tileText(t)}
           // A name has no min and max: the chart shows its changes, without a track.
-          track={!t.valueText}
+          track={t.id !== "meta_leader" && !t.valueText}
+          bucketNote={t.id === "meta_leader" ? "Total leader changes in bucket; leader name is from the newest collection" : undefined}
+          sampleFmt={t.id === "meta_leader" ? v => `${v} leader ${v === 1 ? "change" : "changes"}` : undefined}
+          seriesLabels={t.id === "meta_leader" ? ["changes", "changes"] : undefined}
           fmt={(v) => fmtValue(v, t.unit)}
-          status={tileStatus(t)}
-          note={tileNote(t) || undefined}
+          status={status}
+          note={<>{tileNote(t)}{coverage && ["clients", "storage"].includes(t.id) && ` · ${coverage}`}{t.id === "storage" && growth && <> · <HistoryLink>{growth}</HistoryLink></>}</>}
           start={start}
           end={end}
           windows={windows}
-        />
-      ))}
+        />;
+      })}
     </div>
   );
 }

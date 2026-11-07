@@ -23,14 +23,16 @@ func (p *Provider) SystemSummary(_ context.Context, req *v1.ListSystemsRequest) 
 	if !p.sc.errorSince.IsZero() {
 		res.CollectionErrorSince = ts(p.sc.errorSince.Add(s.shift))
 	}
-	if res.GetFreshness().GetEpoch() != 0 {
+	if at, _, ok := s.epochBefore(r); ok {
 		res.Status, _ = worstStatus(cur, nil)
+		// Answering servers and connections as of the range's newest
+		// epoch, as freshness's partial.
 		var answering, conns int64
 		clusters := map[string]bool{}
 		for _, sp := range p.sc.servers {
-			if sp.answering() {
+			if !s.downAt(sp, at) {
 				answering++
-				conns += sp.conns
+				conns += p.sc.connsOn(sp, s.clock(at))
 			}
 			if sp.cluster != "" {
 				clusters[sp.cluster] = true
@@ -55,20 +57,27 @@ func (p *Provider) SystemSummary(_ context.Context, req *v1.ListSystemsRequest) 
 	return res, nil
 }
 
-// ListAccounts returns the scenario's one account with its connections,
-// streams and consumers.
-func (p *Provider) ListAccounts(context.Context, *v1.ListAccountsRequest) (*v1.ListAccountsResponse, error) {
-	var conns int32
-	for _, sp := range p.sc.servers {
-		if sp.answering() {
-			conns += int32(sp.conns)
+// ListAccounts returns the scenario's accounts in identifier order: the
+// stream account with its connections, streams and consumers, and the
+// others of its Accounts and auth page.
+func (p *Provider) ListAccounts(_ context.Context, req *v1.ListAccountsRequest) (*v1.ListAccountsResponse, error) {
+	s := p.scen()
+	at, _, ok := s.epochBefore(req.GetRange())
+	res := &v1.ListAccountsResponse{}
+	for _, a := range s.accounts(at) {
+		acc := &v1.Account{Account: a.Account, AccountName: a.Name, IsSystem: a.IsSystem}
+		// Without an epoch in the range the counts are unknown.
+		if ok {
+			acc.Connections, acc.Streams, acc.Consumers = a.Connections, a.Streams, ptr(int32(0))
+			if a.Account == Account {
+				var consumers int32
+				for _, sp := range p.sc.streams {
+					consumers += int32(len(sp.consumers) + sp.ephemeral)
+				}
+				acc.Consumers = ptr(consumers)
+			}
 		}
+		res.Accounts = append(res.Accounts, acc)
 	}
-	var consumers int32
-	for _, sp := range p.sc.streams {
-		consumers += int32(len(sp.consumers) + sp.ephemeral)
-	}
-	return &v1.ListAccountsResponse{Accounts: []*v1.Account{{
-		Account: Account, Connections: ptr(conns), Streams: ptr(int32(len(p.sc.streams))), Consumers: ptr(consumers),
-	}}}, nil
+	return res, nil
 }

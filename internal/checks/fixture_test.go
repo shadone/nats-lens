@@ -20,6 +20,8 @@ var t0 = time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)
 type fx struct {
 	t  *testing.T
 	st *store.Store
+	// archiveSince is the engine's ArchiveSince in eval.
+	archiveSince time.Time
 }
 
 func newFx(t *testing.T) *fx {
@@ -154,7 +156,7 @@ func (f *fx) eval(code string, epoch int64, over ...map[string]string) map[strin
 	if err != nil {
 		f.t.Fatal(err)
 	}
-	e := &Engine{Set: set, only: map[string]bool{code: true}}
+	e := &Engine{Set: set, Interval: 30 * time.Second, only: map[string]bool{code: true}, ArchiveSince: f.archiveSince}
 	runs, err := e.Evaluate(context.Background(), f.st.DB(), epoch)
 	if err != nil {
 		f.t.Fatal(err)

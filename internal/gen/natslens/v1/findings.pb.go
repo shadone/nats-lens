@@ -161,6 +161,10 @@ func (x *FindingValue) GetBasis() string {
 //
 // A muted finding still records transitions; it is kept apart from the
 // unmuted ones and never alerts. Every mute has an expiry.
+//
+// An acceptance is a mute too: it records one entity's finding as by
+// design, its expiry is the review date, and every reader of mutes treats
+// it as a mute.
 type Mute struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Mute ID.
@@ -182,8 +186,26 @@ type Mute struct {
 	// When the mute was lifted before its expiry; unset while it applies or
 	// after it expired on its own.
 	UnmutedAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=unmuted_at,json=unmutedAt,proto3" json:"unmuted_at,omitempty"`
-	// Who lifted the mute.
-	UnmutedBy     string `protobuf:"bytes,9,opt,name=unmuted_by,json=unmutedBy,proto3" json:"unmuted_by,omitempty"`
+	// Who lifted the mute; "nats-lens" when nats-lens ended an acceptance
+	// because the entity's growth changed.
+	UnmutedBy string `protobuf:"bytes,9,opt,name=unmuted_by,json=unmutedBy,proto3" json:"unmuted_by,omitempty"`
+	// Whether the mute accepts the finding as by design. An acceptance has
+	// an entity, and expires_at is its review date.
+	Accepted bool `protobuf:"varint,10,opt,name=accepted,proto3" json:"accepted,omitempty"`
+	// Growth of the accepted entity, bytes per day, recorded by the server:
+	// a stream's leader bytes or a server's JetStream storage, the week's
+	// growth (the median over the last day's points of the change since a
+	// week earlier, divided by 7), so that daily and weekly patterns cancel.
+	// For an entity under about 8 days old it is unset at acceptance and
+	// nats-lens records it later, the first time it can be measured. Unset
+	// for a plain mute and for other entity types. It can differ from the
+	// growth the Streams page shows for a range.
+	GrowthPerDay *float64 `protobuf:"fixed64,11,opt,name=growth_per_day,json=growthPerDay,proto3,oneof" json:"growth_per_day,omitempty"`
+	// Why nats-lens ended the acceptance before its review date, for example
+	// "growth changed from +2.1 MiB/day to +4.0 MiB/day over the last 7 days
+	// (+9.0 MiB in the last day)"; empty when a person
+	// lifted it or it ran out.
+	EndReason     string `protobuf:"bytes,12,opt,name=end_reason,json=endReason,proto3" json:"end_reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -281,6 +303,27 @@ func (x *Mute) GetUnmutedBy() string {
 	return ""
 }
 
+func (x *Mute) GetAccepted() bool {
+	if x != nil {
+		return x.Accepted
+	}
+	return false
+}
+
+func (x *Mute) GetGrowthPerDay() float64 {
+	if x != nil && x.GrowthPerDay != nil {
+		return *x.GrowthPerDay
+	}
+	return 0
+}
+
+func (x *Mute) GetEndReason() string {
+	if x != nil {
+		return x.EndReason
+	}
+	return ""
+}
+
 // One failing check for one entity.
 type Finding struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -322,8 +365,16 @@ type Finding struct {
 	// When the condition began, where the check knows it (a creation time, a
 	// process start); unset otherwise. since is when nats-lens first saw it.
 	ConditionSince *timestamppb.Timestamp `protobuf:"bytes,18,opt,name=condition_since,json=conditionSince,proto3" json:"condition_since,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// The check warns of something that will expire, a certificate or a JWT
+	// (its category is expiry). Such a finding at warning ranks after every
+	// other warning, so it never heads an outage; at critical it ranks as
+	// any critical finding.
+	Expiry bool `protobuf:"varint,19,opt,name=expiry,proto3" json:"expiry,omitempty"`
+	// The acknowledgement of the current episode in force; unset when none
+	// is, and always for a resolved finding.
+	Acknowledgement *Acknowledgement `protobuf:"bytes,20,opt,name=acknowledgement,proto3" json:"acknowledgement,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *Finding) Reset() {
@@ -482,6 +533,20 @@ func (x *Finding) GetConditionSince() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Finding) GetExpiry() bool {
+	if x != nil {
+		return x.Expiry
+	}
+	return false
+}
+
+func (x *Finding) GetAcknowledgement() *Acknowledgement {
+	if x != nil {
+		return x.Acknowledgement
+	}
+	return nil
+}
+
 // One change of a finding's state.
 type FindingTransition struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -578,7 +643,10 @@ type FindingTally struct {
 	// Findings that fire now and are flapping, muted or not.
 	Flapping int32 `protobuf:"varint,5,opt,name=flapping,proto3" json:"flapping,omitempty"`
 	// Findings that resolved in the 24 hours before the range's end.
-	Resolved_24H  int32 `protobuf:"varint,6,opt,name=resolved_24h,json=resolved24h,proto3" json:"resolved_24h,omitempty"`
+	Resolved_24H int32 `protobuf:"varint,6,opt,name=resolved_24h,json=resolved24h,proto3" json:"resolved_24h,omitempty"`
+	// Findings that fire now with an acknowledgement in force, muted or not;
+	// they are counted above as well.
+	Acknowledged  int32 `protobuf:"varint,7,opt,name=acknowledged,proto3" json:"acknowledged,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -651,6 +719,13 @@ func (x *FindingTally) GetFlapping() int32 {
 func (x *FindingTally) GetResolved_24H() int32 {
 	if x != nil {
 		return x.Resolved_24H
+	}
+	return 0
+}
+
+func (x *FindingTally) GetAcknowledged() int32 {
+	if x != nil {
+		return x.Acknowledged
 	}
 	return 0
 }
@@ -971,7 +1046,13 @@ type MuteFindingRequest struct {
 	// recorded instead.
 	MutedBy string `protobuf:"bytes,5,opt,name=muted_by,json=mutedBy,proto3" json:"muted_by,omitempty"`
 	// System ID, as ListSystems returns it. Empty means the default system.
-	System        string `protobuf:"bytes,6,opt,name=system,proto3" json:"system,omitempty"`
+	System string `protobuf:"bytes,6,opt,name=system,proto3" json:"system,omitempty"`
+	// Accept the finding as by design instead of muting it. The entity is
+	// then required, and expires_at is the review date: at least one day
+	// and at most 365 days ahead. The server records the entity's growth;
+	// nats-lens ends the acceptance early when that growth changes by more
+	// than half of the larger of the recorded rate and 1 MiB per day.
+	Accept        bool `protobuf:"varint,7,opt,name=accept,proto3" json:"accept,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1046,6 +1127,13 @@ func (x *MuteFindingRequest) GetSystem() string {
 		return x.System
 	}
 	return ""
+}
+
+func (x *MuteFindingRequest) GetAccept() bool {
+	if x != nil {
+		return x.Accept
+	}
+	return false
 }
 
 // The created mute.
@@ -1348,13 +1436,13 @@ var File_natslens_v1_findings_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\n" +
-	"\x1anatslens/v1/findings.proto\x12\vnatslens.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\"z\n" +
+	"\x1anatslens/v1/findings.proto\x12\vnatslens.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\"natslens/v1/acknowledgements.proto\x1a\x18natslens/v1/common.proto\"z\n" +
 	"\fFindingValue\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\adisplay\x18\x02 \x01(\tR\adisplay\x12\x1b\n" +
 	"\x06number\x18\x03 \x01(\x01H\x00R\x06number\x88\x01\x01\x12\x14\n" +
 	"\x05basis\x18\x04 \x01(\tR\x05basisB\t\n" +
-	"\a_number\"\xe8\x02\n" +
+	"\a_number\"\xe1\x03\n" +
 	"\x04Mute\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -1369,7 +1457,13 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\n" +
 	"unmuted_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tunmutedAt\x12\x1d\n" +
 	"\n" +
-	"unmuted_by\x18\t \x01(\tR\tunmutedBy\"\xcc\x06\n" +
+	"unmuted_by\x18\t \x01(\tR\tunmutedBy\x12\x1a\n" +
+	"\baccepted\x18\n" +
+	" \x01(\bR\baccepted\x12)\n" +
+	"\x0egrowth_per_day\x18\v \x01(\x01H\x00R\fgrowthPerDay\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"end_reason\x18\f \x01(\tR\tendReasonB\x11\n" +
+	"\x0f_growth_per_day\"\xac\a\n" +
 	"\aFinding\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -1392,21 +1486,24 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\x05cause\x18\x0f \x01(\v2\x15.natslens.v1.EventRefR\x05cause\x12%\n" +
 	"\x04mute\x18\x10 \x01(\v2\x11.natslens.v1.MuteR\x04mute\x122\n" +
 	"\x15transitions_last_hour\x18\x11 \x01(\x05R\x13transitionsLastHour\x12C\n" +
-	"\x0fcondition_since\x18\x12 \x01(\v2\x1a.google.protobuf.TimestampR\x0econditionSince\"\xde\x01\n" +
+	"\x0fcondition_since\x18\x12 \x01(\v2\x1a.google.protobuf.TimestampR\x0econditionSince\x12\x16\n" +
+	"\x06expiry\x18\x13 \x01(\bR\x06expiry\x12F\n" +
+	"\x0facknowledgement\x18\x14 \x01(\v2\x1c.natslens.v1.AcknowledgementR\x0facknowledgement\"\xde\x01\n" +
 	"\x11FindingTransition\x12\x1d\n" +
 	"\n" +
 	"finding_id\x18\x01 \x01(\tR\tfindingId\x12.\n" +
 	"\x04time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12/\n" +
 	"\x05state\x18\x03 \x01(\x0e2\x19.natslens.v1.FindingStateR\x05state\x121\n" +
 	"\bseverity\x18\x04 \x01(\x0e2\x15.natslens.v1.SeverityR\bseverity\x12\x16\n" +
-	"\x06detail\x18\x05 \x01(\tR\x06detail\"\xad\x01\n" +
+	"\x06detail\x18\x05 \x01(\tR\x06detail\"\xd1\x01\n" +
 	"\fFindingTally\x12\x1a\n" +
 	"\bcritical\x18\x01 \x01(\x05R\bcritical\x12\x18\n" +
 	"\awarning\x18\x02 \x01(\x05R\awarning\x12\x12\n" +
 	"\x04info\x18\x03 \x01(\x05R\x04info\x12\x14\n" +
 	"\x05muted\x18\x04 \x01(\x05R\x05muted\x12\x1a\n" +
 	"\bflapping\x18\x05 \x01(\x05R\bflapping\x12!\n" +
-	"\fresolved_24h\x18\x06 \x01(\x05R\vresolved24h\"\xf5\x02\n" +
+	"\fresolved_24h\x18\x06 \x01(\x05R\vresolved24h\x12\"\n" +
+	"\facknowledged\x18\a \x01(\x05R\facknowledged\"\xf5\x02\n" +
 	"\x13ListFindingsRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x121\n" +
 	"\x06states\x18\x02 \x03(\x0e2\x19.natslens.v1.FindingStateR\x06states\x125\n" +
@@ -1431,7 +1528,7 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\x06system\x18\x02 \x01(\tR\x06system\"\x86\x01\n" +
 	"\x12GetFindingResponse\x12.\n" +
 	"\afinding\x18\x01 \x01(\v2\x14.natslens.v1.FindingR\afinding\x12@\n" +
-	"\vtransitions\x18\x02 \x03(\v2\x1e.natslens.v1.FindingTransitionR\vtransitions\"\xe9\x01\n" +
+	"\vtransitions\x18\x02 \x03(\v2\x1e.natslens.v1.FindingTransitionR\vtransitions\"\x81\x02\n" +
 	"\x12MuteFindingRequest\x12\x1d\n" +
 	"\n" +
 	"check_code\x18\x01 \x01(\tR\tcheckCode\x12.\n" +
@@ -1440,7 +1537,8 @@ const file_natslens_v1_findings_proto_rawDesc = "" +
 	"\n" +
 	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x19\n" +
 	"\bmuted_by\x18\x05 \x01(\tR\amutedBy\x12\x16\n" +
-	"\x06system\x18\x06 \x01(\tR\x06system\"<\n" +
+	"\x06system\x18\x06 \x01(\tR\x06system\x12\x16\n" +
+	"\x06accept\x18\a \x01(\bR\x06accept\"<\n" +
 	"\x13MuteFindingResponse\x12%\n" +
 	"\x04mute\x18\x01 \x01(\v2\x11.natslens.v1.MuteR\x04mute\"f\n" +
 	"\x14UnmuteFindingRequest\x12\x17\n" +
@@ -1504,7 +1602,8 @@ var file_natslens_v1_findings_proto_goTypes = []any{
 	(Severity)(0),                 // 18: natslens.v1.Severity
 	(*ConfigValue)(nil),           // 19: natslens.v1.ConfigValue
 	(*EventRef)(nil),              // 20: natslens.v1.EventRef
-	(*TimeRange)(nil),             // 21: natslens.v1.TimeRange
+	(*Acknowledgement)(nil),       // 21: natslens.v1.Acknowledgement
+	(*TimeRange)(nil),             // 22: natslens.v1.TimeRange
 }
 var file_natslens_v1_findings_proto_depIdxs = []int32{
 	16, // 0: natslens.v1.Mute.entity:type_name -> natslens.v1.EntityRef
@@ -1522,26 +1621,27 @@ var file_natslens_v1_findings_proto_depIdxs = []int32{
 	20, // 12: natslens.v1.Finding.cause:type_name -> natslens.v1.EventRef
 	2,  // 13: natslens.v1.Finding.mute:type_name -> natslens.v1.Mute
 	17, // 14: natslens.v1.Finding.condition_since:type_name -> google.protobuf.Timestamp
-	17, // 15: natslens.v1.FindingTransition.time:type_name -> google.protobuf.Timestamp
-	0,  // 16: natslens.v1.FindingTransition.state:type_name -> natslens.v1.FindingState
-	18, // 17: natslens.v1.FindingTransition.severity:type_name -> natslens.v1.Severity
-	21, // 18: natslens.v1.ListFindingsRequest.range:type_name -> natslens.v1.TimeRange
-	0,  // 19: natslens.v1.ListFindingsRequest.states:type_name -> natslens.v1.FindingState
-	18, // 20: natslens.v1.ListFindingsRequest.severities:type_name -> natslens.v1.Severity
-	16, // 21: natslens.v1.ListFindingsRequest.entity:type_name -> natslens.v1.EntityRef
-	3,  // 22: natslens.v1.ListFindingsResponse.findings:type_name -> natslens.v1.Finding
-	3,  // 23: natslens.v1.GetFindingResponse.finding:type_name -> natslens.v1.Finding
-	4,  // 24: natslens.v1.GetFindingResponse.transitions:type_name -> natslens.v1.FindingTransition
-	16, // 25: natslens.v1.MuteFindingRequest.entity:type_name -> natslens.v1.EntityRef
-	17, // 26: natslens.v1.MuteFindingRequest.expires_at:type_name -> google.protobuf.Timestamp
-	2,  // 27: natslens.v1.MuteFindingResponse.mute:type_name -> natslens.v1.Mute
-	2,  // 28: natslens.v1.UnmuteFindingResponse.mute:type_name -> natslens.v1.Mute
-	2,  // 29: natslens.v1.ListMutesResponse.mutes:type_name -> natslens.v1.Mute
-	30, // [30:30] is the sub-list for method output_type
-	30, // [30:30] is the sub-list for method input_type
-	30, // [30:30] is the sub-list for extension type_name
-	30, // [30:30] is the sub-list for extension extendee
-	0,  // [0:30] is the sub-list for field type_name
+	21, // 15: natslens.v1.Finding.acknowledgement:type_name -> natslens.v1.Acknowledgement
+	17, // 16: natslens.v1.FindingTransition.time:type_name -> google.protobuf.Timestamp
+	0,  // 17: natslens.v1.FindingTransition.state:type_name -> natslens.v1.FindingState
+	18, // 18: natslens.v1.FindingTransition.severity:type_name -> natslens.v1.Severity
+	22, // 19: natslens.v1.ListFindingsRequest.range:type_name -> natslens.v1.TimeRange
+	0,  // 20: natslens.v1.ListFindingsRequest.states:type_name -> natslens.v1.FindingState
+	18, // 21: natslens.v1.ListFindingsRequest.severities:type_name -> natslens.v1.Severity
+	16, // 22: natslens.v1.ListFindingsRequest.entity:type_name -> natslens.v1.EntityRef
+	3,  // 23: natslens.v1.ListFindingsResponse.findings:type_name -> natslens.v1.Finding
+	3,  // 24: natslens.v1.GetFindingResponse.finding:type_name -> natslens.v1.Finding
+	4,  // 25: natslens.v1.GetFindingResponse.transitions:type_name -> natslens.v1.FindingTransition
+	16, // 26: natslens.v1.MuteFindingRequest.entity:type_name -> natslens.v1.EntityRef
+	17, // 27: natslens.v1.MuteFindingRequest.expires_at:type_name -> google.protobuf.Timestamp
+	2,  // 28: natslens.v1.MuteFindingResponse.mute:type_name -> natslens.v1.Mute
+	2,  // 29: natslens.v1.UnmuteFindingResponse.mute:type_name -> natslens.v1.Mute
+	2,  // 30: natslens.v1.ListMutesResponse.mutes:type_name -> natslens.v1.Mute
+	31, // [31:31] is the sub-list for method output_type
+	31, // [31:31] is the sub-list for method input_type
+	31, // [31:31] is the sub-list for extension type_name
+	31, // [31:31] is the sub-list for extension extendee
+	0,  // [0:31] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_findings_proto_init() }
@@ -1549,8 +1649,10 @@ func file_natslens_v1_findings_proto_init() {
 	if File_natslens_v1_findings_proto != nil {
 		return
 	}
+	file_natslens_v1_acknowledgements_proto_init()
 	file_natslens_v1_common_proto_init()
 	file_natslens_v1_findings_proto_msgTypes[0].OneofWrappers = []any{}
+	file_natslens_v1_findings_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

@@ -6,6 +6,7 @@ import { useServerEvents } from "../api/servers";
 import { dayMonHm, eventWhen, fmtBytes, fmtDuration, fmtInt, fmtShortDuration } from "../lib/format";
 import type { RangeSpec } from "../lib/timeRange";
 import { eventPath, serverPath } from "../lib/view";
+import { selectionIntersects } from "../lib/textSelection";
 import { Dash, RLink } from "./common";
 
 function Row({ label, children, differs }: { label: string; children: ReactNode; differs?: boolean }) {
@@ -121,7 +122,9 @@ function RecentRow({ e, end }: { e: RecentEvent; end: number }) {
     <li>
       <span className="t">{e.time !== undefined ? eventWhen(e.time, end) : "–"}</span>
       <span className={e.source === "kubernetes" ? "k8s" : undefined}>
-        <RLink to={eventPath(e.id)}>{e.summary || e.kind}</RLink>
+        <RLink to={eventPath(e.id)} draggable={false} onClick={(event) => {
+          if (event.detail > 0 && selectionIntersects(event.currentTarget)) event.preventDefault();
+        }}>{e.summary || e.kind}</RLink>
         {e.repeats > 1 && ` ×${e.repeats}`}
       </span>
     </li>

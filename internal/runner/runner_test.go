@@ -15,6 +15,13 @@ import (
 
 func newRunner(t *testing.T) *Runner {
 	t.Helper()
+	return newRunnerWindow(t, 100*time.Millisecond)
+}
+
+// newRunnerWindow is newRunner with the collector's window for each
+// request.
+func newRunnerWindow(t *testing.T, window time.Duration) *Runner {
+	t.Helper()
 	c := testcluster.Start(t, 1)
 	st, err := store.OpenPath(context.Background(), "")
 	if err != nil {
@@ -22,7 +29,7 @@ func newRunner(t *testing.T) *Runner {
 	}
 	t.Cleanup(func() { _ = st.Close() })
 	col := collect.New(c.Connect(0, testcluster.SysUser, testcluster.SysPass), collect.Options{
-		Window: 100 * time.Millisecond, ConnzLimit: 10, Tracker: collect.NewTracker(time.Hour),
+		Window: window, ConnzLimit: 10, Tracker: collect.NewTracker(time.Hour),
 	})
 	// Log is left nil on purpose: the runner must fall back to slog.Default.
 	return &Runner{Collector: col, Store: st, Interval: 300 * time.Millisecond, Retention: time.Hour}
@@ -37,10 +44,21 @@ func epochs(t *testing.T, r *Runner) int {
 	return n
 }
 
+// Run takes epochs one after another and returns once its context ends.
+// The context is cancelled when the second epoch is stored, rather than
+// after a fixed time, so a slow machine takes longer instead of fewer
+// epochs. The window lets a server on a loaded machine answer every
+// request in time; it is waited for in full only by the first discovery.
 func TestRunTakesEpochsUntilCancelled(t *testing.T) {
-	r := newRunner(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 1100*time.Millisecond)
+	r := newRunnerWindow(t, 2*time.Second)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	var stored atomic.Int32
+	r.Stored = func(int64, time.Time) {
+		if stored.Add(1) == 2 {
+			cancel()
+		}
+	}
 	done := make(chan error, 1)
 	go func() { done <- r.Run(ctx) }()
 	select {
@@ -48,15 +66,17 @@ func TestRunTakesEpochsUntilCancelled(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Run: %v", err)
 		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("Run did not return after cancellation")
+	case <-time.After(time.Minute):
+		t.Fatalf("Run did not return; %d epochs stored", stored.Load())
 	}
 	if n := epochs(t, r); n < 2 {
 		t.Fatalf("epochs = %d, want at least 2", n)
 	}
 	var partial bool
-	if err := r.Store.DB().QueryRow(`SELECT partial FROM epochs ORDER BY epoch LIMIT 1`).Scan(&partial); err != nil || partial {
-		t.Fatalf("first epoch partial=%v err=%v", partial, err)
+	var missing, errs []any
+	if err := r.Store.DB().QueryRow(`SELECT partial, missing_names, errors FROM epochs ORDER BY epoch LIMIT 1`).
+		Scan(&partial, &missing, &errs); err != nil || partial {
+		t.Fatalf("first epoch partial=%v missing=%v errors=%v err=%v", partial, missing, errs, err)
 	}
 }
 

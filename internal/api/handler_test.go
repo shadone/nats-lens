@@ -150,8 +150,23 @@ func TestLensInfo(t *testing.T) {
 	}
 	m := info.Msg
 	if m.GetIdentityMode() != v1.IdentityMode_IDENTITY_MODE_REQUEST || m.GetVersion() != "v1.2.3" || m.GetCluster() != fake.Cluster ||
-		m.GetCollectInterval().AsDuration() != 30*time.Second || m.GetRetention().AsDuration() != 14*24*time.Hour || !m.GetDemo() {
+		m.GetCollectInterval().AsDuration() != 30*time.Second || m.GetRetention().AsDuration() != 30*24*time.Hour || !m.GetDemo() {
 		t.Fatalf("info without IAP = %v", m)
+	}
+	// The UI's live ranges end at this now, so -fixed reports its own time.
+	if !m.GetNow().AsTime().Equal(fake.FixedNow) {
+		t.Fatalf("now = %v, want the fixed demo's %v", m.GetNow(), fake.FixedNow)
+	}
+	if !m.GetNowFixed() {
+		t.Fatal("now_fixed = false under -fixed, want true: the UI's clock would move past the fixed now")
+	}
+	_, c = apitest.ServeHandler(t, &api.Handler{Systems: api.One(api.DefaultSystemID, api.DefaultSystemID, fake.New(true))})
+	info, err = c.GetLensInfo(context.Background(), connect.NewRequest(&v1.GetLensInfoRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Msg.GetNowFixed() || time.Since(info.Msg.GetNow().AsTime()) > time.Minute {
+		t.Fatalf("live demo: now_fixed = %v, now = %v; want false and the wall clock", info.Msg.GetNowFixed(), info.Msg.GetNow())
 	}
 	v := &iap.Verifier{Audience: aud, Keys: iaptest.New("k1")}
 	_, c = apitest.ServeHandler(t, &api.Handler{Systems: api.One(api.DefaultSystemID, api.DefaultSystemID, fake.New(false)), IAP: v})
@@ -159,5 +174,19 @@ func TestLensInfo(t *testing.T) {
 	info, err = c.GetLensInfo(context.Background(), connect.NewRequest(&v1.GetLensInfoRequest{}))
 	if err != nil || info.Msg.GetIdentityMode() != v1.IdentityMode_IDENTITY_MODE_IAP {
 		t.Fatalf("info with IAP = %v, %v", info, err)
+	}
+}
+
+func TestOnCallReadWithIAP(t *testing.T) {
+	v := &iap.Verifier{Audience: aud, Keys: iaptest.New("k1")}
+	_, c := apitest.ServeHandler(t, &api.Handler{Systems: fake.Demo(false), IAP: v})
+	req := connect.NewRequest(&v1.GetOnCallRequest{FindingId: "consumer-010:APP/order-archive/analytics-aggregator"})
+	req.Header().Set(iap.Header, "invalid assertion")
+	got, err := c.GetOnCall(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Msg.Finding.Acknowledgement.GetAckedBy() != "alice@example.com" {
+		t.Fatal("read changed recorded identity")
 	}
 }

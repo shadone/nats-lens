@@ -1,5 +1,5 @@
-// Validation of the mute form: a reason, an expiry in the future, and a name
-// when the server cannot tell who is asking.
+// Validation of the mute and accept forms: a reason, an expiry or review date
+// in range, and a name when the server cannot tell who is asking.
 
 export const EXPIRY_PRESETS: { id: string; label: string; ms: number }[] = [
   { id: "1h", label: "1 hour", ms: 3_600_000 },
@@ -54,4 +54,85 @@ export function validateMute(f: MuteForm, now: number, askName: boolean): MuteEr
 
 export function hasErrors(e: MuteErrors): boolean {
   return Object.keys(e).length > 0;
+}
+
+/** Review dates an acceptance offers; months are calendar months, a year 364 days (a day inside the server's 365, so a browser clock a little ahead is not refused). */
+export const REVIEW_PRESETS: { id: string; label: string }[] = [
+  { id: "3mo", label: "in 3 months" },
+  { id: "6mo", label: "in 6 months" },
+  { id: "1y", label: "in 1 year" },
+];
+
+/** The server's limits on a review date are a day and 365 days; the form allows a day less at the far end. */
+export const MIN_REVIEW_AHEAD = 24 * 3_600_000;
+export const MAX_REVIEW_AHEAD = 364 * 24 * 3_600_000;
+
+export interface AcceptForm {
+  reason: string;
+  /** A preset ID, or "date" with reviewDate set. */
+  review: string;
+  /** date input value (YYYY-MM-DD), read as the end of that day in UTC. */
+  reviewDate: string;
+  name: string;
+}
+
+export interface AcceptErrors {
+  reason?: string;
+  review?: string;
+  name?: string;
+}
+
+function addMonths(now: number, months: number): number {
+  const d = new Date(now);
+  const day = d.getUTCDate();
+  d.setUTCDate(1);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(day, last));
+  return d.getTime();
+}
+
+/** The review date as epoch ms; NaN when it cannot be read. A chosen date means the end of that UTC day. */
+export function reviewDateOf(f: AcceptForm, now: number): number {
+  switch (f.review) {
+    case "3mo":
+      return addMonths(now, 3);
+    case "6mo":
+      return addMonths(now, 6);
+    case "1y":
+      return now + MAX_REVIEW_AHEAD;
+    case "date":
+      return /^\d{4}-\d{2}-\d{2}$/.test(f.reviewDate) ? Date.parse(`${f.reviewDate}T23:59:00Z`) : NaN;
+    default:
+      return NaN;
+  }
+}
+
+export function validateAccept(f: AcceptForm, now: number, askName: boolean): AcceptErrors {
+  const e: AcceptErrors = {};
+  const reason = f.reason.trim();
+  if (reason.length === 0) e.reason = "Give a reason; it is shown with the accepted finding.";
+  else if ([...reason].length > MAX_REASON) e.reason = `At most ${MAX_REASON} characters.`;
+  const at = reviewDateOf(f, now);
+  if (!Number.isFinite(at)) e.review = "Choose a review date.";
+  else if (at < now + MIN_REVIEW_AHEAD) e.review = "The review date must be at least a day from now.";
+  else if (at > now + MAX_REVIEW_AHEAD) e.review = "The review date is at most 364 days from now.";
+  const name = f.name.trim();
+  if (askName && name.length === 0) e.name = "Enter your name; it is recorded with the acceptance.";
+  else if (askName && [...name].length > MAX_NAME) e.name = `At most ${MAX_NAME} characters.`;
+  return e;
+}
+
+export interface AckForm { note: string; quiet: string; name: string }
+export interface AckErrors { note?: string; quiet?: string; name?: string }
+export const ACK_QUIET = [{ id: "30m", label: "30 minutes", ms: 1_800_000 }, { id: "2h", label: "2 hours", ms: 7_200_000 }, { id: "resolved", label: "Until resolved", ms: undefined }];
+// ASVS 2.2.1/2.2.2: usability checks mirror the server's validation;
+// identity and episode authorization remain enforced by the API.
+export function validateAck(f: AckForm, askName: boolean): AckErrors {
+  const e: AckErrors = {};
+  if ([...f.note.trim()].length > 500) e.note = "At most 500 characters.";
+  if (!ACK_QUIET.some(q => q.id === f.quiet)) e.quiet = "Choose how long to quiet the alert.";
+  if (askName && !f.name.trim()) e.name = "Enter your name; it is recorded with the acknowledgement.";
+  else if (askName && [...f.name.trim()].length > MAX_NAME) e.name = `At most ${MAX_NAME} characters.`;
+  return e;
 }

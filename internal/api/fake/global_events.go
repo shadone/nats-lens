@@ -18,19 +18,26 @@ func globalRoutineEvents(s scen) []*v1.Event {
 	add := func(e *v1.Event) { out = append(out, e) }
 	end := s.at(14, 29, 0)
 	eu := func(k int) string { return fmt.Sprintf("nats-eu-%d", k%9) }
+	// inventory-service: every 4.8 minutes a summary of 2 to 6, at most 15
+	// in any 10 minutes, below client-005's threshold.
 	for k := range 300 {
 		add(&v1.Event{Time: ts(end.Add(-time.Duration(k) * 288 * time.Second)), Source: srcNATS, Kind: "client.churn", Type: "CLIENT.CHURN",
 			Server: eu(k), Account: Account, ClientName: "inventory-service", ClientHost: fmt.Sprintf("10.30.0.%d", 60+k%4),
 			Reason:  "Client Closed",
-			Summary: fmt.Sprintf("inventory-service connected and disconnected %d times in 1 min (each closed by the client within 10 s)", 14+k%6)})
+			Summary: fmt.Sprintf("inventory-service connected and disconnected %d times in 1 min (each closed by the client within 10 s)", 2+k%5)})
 	}
 	for k := range 48 {
 		add(&v1.Event{Time: ts(end.Add(-time.Duration(k)*30*time.Minute - 40*time.Second)), Source: srcNATS, Kind: "consumer.ack_sampled",
 			Type: "CONSUMER.ACK_SAMPLED", Server: "nats-us-3", Account: Account, Stream: "shipping-updates", Consumer: "label-printer",
 			Summary: fmt.Sprintf("label-printer on shipping-updates acked after %d ms (1 delivery)", 120+k%5*40)})
-		add(&v1.Event{Time: ts(end.Add(-time.Duration(k)*30*time.Minute - 15*time.Second)), Source: srcNATS, Kind: "account.connections",
+		// Worded as the capture words it; the total counts the server's
+		// leaf node connections too, as NATS does.
+		sv, _ := s.sc.server(eu(k))
+		at := end.Add(-time.Duration(k)*30*time.Minute - 15*time.Second)
+		add(&v1.Event{Time: ts(at), Source: srcNATS, Kind: "account.connections",
 			Type: "ACCOUNT.CONNECTIONS", Server: eu(k), Account: Account,
-			Summary: fmt.Sprintf("account APP: %d connections, 0 leaf nodes", 1410+k%13)})
+			Summary: fmt.Sprintf("account APP has %d connections on %s, %d in total, %d slow consumers", sv.conns, eu(k), sv.conns+int64(s.leafCount(sv, at)),
+				s.slowCount(sv, s.started(sv), at))})
 	}
 	// The collector's connection to the us cluster moves as its servers
 	// restart.
@@ -40,6 +47,13 @@ func globalRoutineEvents(s scen) []*v1.Event {
 				Server: "nats-us-0", Account: "SYS", ClientName: "natslens-" + GlobalSystem, ClientHost: "10.30.9.40",
 				Summary: "natslens-" + GlobalSystem + " " + strings.TrimPrefix(kind, "client.") + " from 10.30.9.40"})
 		}
+	}
+	// The sys events connection was on nats-us-1: it fails over to
+	// another server within a second of the kill, no loss of capture.
+	for i, kind := range []string{"collector.disconnected", "collector.reconnected"} {
+		add(&v1.Event{Time: ts(s.at(8, 44, 6).Add(time.Duration(i) * time.Second)), Source: v1.EventSource_EVENT_SOURCE_COLLECTOR, Kind: kind,
+			Server: "nats-us-1", Summary: "collector connection sys " + map[bool]string{true: "lost server nats-us-1: EOF", false: "reconnected to nats-us-0"}[i == 0],
+			Raw: `{"connection":"sys","reason":""}`})
 	}
 	// Someone watches the upgrade with the CLI through a port-forward.
 	for k := range 12 {

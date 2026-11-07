@@ -3,6 +3,8 @@ package api
 import (
 	"testing"
 	"time"
+
+	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
 func TestTileTextFormats(t *testing.T) {
@@ -61,6 +63,19 @@ func TestCountSuffix(t *testing.T) {
 	} {
 		if got := CountSuffix(c.v, c.word); got != c.want {
 			t.Errorf("CountSuffix(%v, %q) = %q, want %q", c.v, c.word, got, c.want)
+		}
+	}
+}
+
+// The servers tile takes the system checks of the NATS servers, not those
+// that judge nats-lens itself (system-007 to system-009).
+func TestServersTileLeavesNatsLensHealthOut(t *testing.T) {
+	rule := TileRules[TileServers]
+	sys := &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SYSTEM}
+	for code, want := range map[string]bool{"system-001": true, "system-002": true, "system-004": true, "system-006": true,
+		"system-007": false, "system-008": false, "system-009": false, "server-001": true, "server-007": false} {
+		if got := rule.Concerns(&v1.Finding{CheckCode: code, Entity: sys}); got != want {
+			t.Errorf("servers tile concerns %s: %v, want %v", code, got, want)
 		}
 	}
 }

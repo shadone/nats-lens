@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Finding, SystemSummary } from "../api/model";
-import { cardState, fleetBadge, freshnessText, headline, worstFirst } from "./fleet";
+import type { Finding, SystemBadge, SystemSummary } from "../api/model";
+import { cardState, fleetBadge, freshnessText, headline, notCollecting, worstFirst } from "./fleet";
 
 const NOW = Date.parse("2026-10-17T17:00:00Z");
 
@@ -121,23 +121,39 @@ describe("freshnessText", () => {
 });
 
 describe("fleetBadge", () => {
+  // The badge reads each system's badge, which the server derives from its summary as notCollecting reads it.
+  const fb = (xs?: SystemSummary[]) =>
+    fleetBadge(xs?.map((s): SystemBadge => ({ id: s.id, name: s.name, environment: s.environment, status: s.status, collection: s.collection, collecting: !notCollecting(s), error: s.error, pending: false })));
+
   it("counts the systems that are not OK, at the level of the worst", () => {
-    const b = fleetBadge([sys("a"), sys("b", { status: "warning" }), sys("c", { collection: "connection closed" }), sys("d", { status: "muted" })]);
+    const b = fb([sys("a"), sys("b", { status: "warning" }), sys("c", { collection: "connection closed" }), sys("d", { status: "muted" })]);
     expect(b).toEqual({ count: 2, level: "warning", what: "not OK", worst: "warning" });
   });
 
   it("names a worst state that is not a severity in words", () => {
-    expect(fleetBadge([sys("c", { collection: "connection closed" })])).toEqual({ count: 1, level: "nodata", what: "not OK", worst: "not collecting" });
+    expect(fb([sys("c", { collection: "connection closed" })])).toEqual({ count: 1, level: "nodata", what: "not OK", worst: "not collecting" });
   });
 
   it("does not count info findings, and counts no data", () => {
-    expect(fleetBadge([sys("a", { status: "info" })])).toBeUndefined();
-    expect(fleetBadge([sys("a", { status: "info" }), sys("b", { status: "nodata" })])).toEqual({ count: 1, level: "nodata", what: "not OK", worst: "no data" });
+    expect(fb([sys("a", { status: "info" })])).toBeUndefined();
+    expect(fb([sys("a", { status: "info" }), sys("b", { status: "nodata" })])).toEqual({ count: 1, level: "nodata", what: "not OK", worst: "no data" });
+  });
+
+  it("counts a system whose status failed or that does not collect", () => {
+    const b = (over: Partial<SystemBadge>): SystemBadge => ({ id: "a", name: "a", environment: "", status: "ok", collection: "collecting", collecting: true, error: "", pending: false, ...over });
+    expect(fleetBadge([b({ error: "the summary took longer than 5s" })])).toMatchObject({ count: 1, worst: "summary unavailable" });
+    expect(fleetBadge([b({ collecting: false, collection: "demo" })])).toMatchObject({ count: 1, worst: "not collecting" });
+  });
+
+  it("does not count a system whose status is still being read", () => {
+    const b = (over: Partial<SystemBadge>): SystemBadge => ({ id: "a", name: "a", environment: "", status: "nodata", collection: "unknown", collecting: false, error: "", pending: true, ...over });
+    expect(fleetBadge([b({})])).toBeUndefined();
+    expect(fleetBadge([b({}), b({ id: "b", pending: false, status: "warning", collecting: true })])).toMatchObject({ count: 1, worst: "warning" });
   });
 
   it("has no badge when every system is OK, or before the summaries arrive", () => {
-    expect(fleetBadge([sys("a"), sys("b", { status: "muted" })])).toBeUndefined();
-    expect(fleetBadge(undefined)).toBeUndefined();
+    expect(fb([sys("a"), sys("b", { status: "muted" })])).toBeUndefined();
+    expect(fb(undefined)).toBeUndefined();
   });
 });
 

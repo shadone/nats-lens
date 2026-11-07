@@ -70,6 +70,12 @@ func TestCollectorConnectionRedialledAfterAuthFailure(t *testing.T) {
 	if got := len(col.Collect(ctx).Servers); got != 0 {
 		t.Fatalf("servers while the credentials are rejected = %d", got)
 	}
+	redialled := cc.current()
+	waitFor(t, "a few redials", 20*time.Second, func() bool { nc := cc.current(); return nc != first && nc != redialled })
+	time.Sleep(time.Second)
+	if n := collectorKinds(t, st, "collector.reconnected"); n != 0 {
+		t.Fatalf("%d reconnects recorded while the credentials are rejected", n)
+	}
 
 	c.SetSysPassword("rotated-elsewhere", testcluster.SysPass)
 	waitFor(t, "a new connection", 20*time.Second, func() bool {
@@ -80,14 +86,23 @@ func TestCollectorConnectionRedialledAfterAuthFailure(t *testing.T) {
 		t.Fatalf("servers after the credentials work again = %d", got)
 	}
 
-	kinds := func(kind string) int {
-		var n int
-		if err := st.DB().QueryRow(`SELECT count(*) FROM events WHERE kind = ? AND (raw->>'connection') = 'collector'`, kind).Scan(&n); err != nil {
-			t.Fatal(err)
-		}
-		return n
-	}
+	kinds := func(kind string) int { return collectorKinds(t, st, kind) }
 	waitFor(t, "the closed and reconnected events", 5*time.Second, func() bool {
 		return kinds("collector.connection_closed") >= 1 && kinds("collector.reconnected") >= 1
 	})
+	time.Sleep(time.Second)
+	if n := kinds("collector.reconnected"); n != 1 {
+		t.Fatalf("%d reconnects recorded, want one", n)
+	}
+}
+
+// collectorKinds counts the stored events of a kind of the collector's
+// connection.
+func collectorKinds(t *testing.T, st *store.Store, kind string) int {
+	t.Helper()
+	var n int
+	if err := st.DB().QueryRow(`SELECT count(*) FROM events WHERE kind = ? AND (raw->>'connection') = 'collector'`, kind).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
 }

@@ -72,7 +72,7 @@ fields AS (
         CASE WHEN bool_or(replicas IS DISTINCT FROM ref_replicas) THEN 'replicas' END,
         CASE WHEN bool_or(mem_storage IS DISTINCT FROM ref_mem_storage) THEN 'mem_storage' END,
         CASE WHEN bool_or(description IS DISTINCT FROM ref_description) THEN 'description' END
-    ], x -> x IS NOT NULL) AS differ
+    ], lambda x: x IS NOT NULL) AS differ
     FROM withref GROUP BY account, stream, consumer
 )
 SELECT

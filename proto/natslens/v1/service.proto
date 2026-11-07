@@ -2,17 +2,29 @@ syntax = "proto3";
 
 package natslens.v1;
 
+import "natslens/v1/accounts.proto";
+import "natslens/v1/acknowledgements.proto";
+import "natslens/v1/applications.proto";
 import "natslens/v1/buckets.proto";
+import "natslens/v1/capacity.proto";
+import "natslens/v1/checks.proto";
 import "natslens/v1/consumers.proto";
 import "natslens/v1/events.proto";
 import "natslens/v1/findings.proto";
+import "natslens/v1/history.proto";
 import "natslens/v1/info.proto";
+import "natslens/v1/micro.proto";
+import "natslens/v1/oncall.proto";
 import "natslens/v1/overview.proto";
+import "natslens/v1/placement.proto";
+import "natslens/v1/replay.proto";
 import "natslens/v1/servers.proto";
 import "natslens/v1/streams.proto";
+import "natslens/v1/subjects.proto";
 import "natslens/v1/systems.proto";
 import "natslens/v1/timeline.proto";
 import "natslens/v1/timeseries.proto";
+import "natslens/v1/topology.proto";
 
 option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
 
@@ -21,11 +33,18 @@ option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natsl
 //
 // Every call except ListSystems and ListMetrics reads one system, named by
 // the request's system field; an empty one reads the default system, the
-// first configured. An unknown system is invalid_argument.
+// first configured. An unknown system is invalid_argument, except in
+// GetShellStatus.
 //
-// Every call reads the tool's own database. MuteFinding and UnmuteFinding
-// are the only writes, and they write only to that database.
+// Every call reads the tool's own database. MuteFinding, UnmuteFinding,
+// AcknowledgeFinding and EndAcknowledgement are the only writes, and they
+// write only to that database.
 service LensService {
+  // All shipped check references with configuration from the selected system.
+  rpc ListCheckDefinitions(ListCheckDefinitionsRequest) returns (ListCheckDefinitionsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
   // Identity mode, version, cluster, collect interval and retention of this
   // instance.
   rpc GetLensInfo(GetLensInfoRequest) returns (GetLensInfoResponse) {
@@ -47,11 +66,23 @@ service LensService {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
+  // Current finding, affected assets, and the episode's Replay story.
+  rpc GetOnCall(GetOnCallRequest) returns (GetOnCallResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
   // Mutes a check, or a check for one entity, until an expiry.
   rpc MuteFinding(MuteFindingRequest) returns (MuteFindingResponse);
 
   // Lifts a mute before its expiry.
   rpc UnmuteFinding(UnmuteFindingRequest) returns (UnmuteFindingResponse);
+
+  // Acknowledges a firing finding's current episode: who works on it, a
+  // note and a quiet time. Also written as a finding.acknowledged event.
+  rpc AcknowledgeFinding(AcknowledgeFindingRequest) returns (AcknowledgeFindingResponse);
+
+  // Hands back an acknowledgement in force.
+  rpc EndAcknowledgement(EndAcknowledgementRequest) returns (EndAcknowledgementResponse);
 
   // Mutes, active or all.
   rpc ListMutes(ListMutesRequest) returns (ListMutesResponse) {
@@ -93,6 +124,83 @@ service LensService {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
+  // Every stream and durable consumer as each server sees it: one cell
+  // per server that holds or is assigned a replica, with filter counts.
+  rpc GetPlacement(GetPlacementRequest) returns (GetPlacementResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // What changed between two moments, and in what order: steps built
+  // from collections, events and findings, with counts and the assets
+  // gone in between. A and B are at most 24 hours apart and within the
+  // retention.
+  rpc GetReplay(GetReplayRequest) returns (GetReplayResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // How the servers connect in the range's newest epoch: clusters, the
+  // routes inside each, the gateways between them and the leaf nodes at
+  // the edge, with round trip times and the drops counted from the
+  // collections of the 24 hours before.
+  rpc GetTopology(GetTopologyRequest) returns (GetTopologyResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // The accounts of the range's newest epoch with their use, limits and
+  // JWT expiry, the failed logins of the 24 hours before it, and the
+  // certificates and JWTs that expire within 30 days.
+  rpc GetAccountsAndAuth(GetAccountsAndAuthRequest) returns (GetAccountsAndAuthResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // What each stream of the range's newest epoch keeps and what bounds
+  // it, when it reaches its next limit, and how full each server's
+  // JetStream file store is and when it fills at its growth over the
+  // range.
+  rpc GetCapacity(GetCapacityRequest) returns (GetCapacityResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // What nats-lens holds of the system: where the history starts, the
+  // collections and gaps of the range, the retention, the archive's state,
+  // and how much history each use has.
+  rpc GetDataHistory(GetDataHistoryRequest) returns (GetDataHistoryResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Where messages can go in the range's newest epoch: each stream with
+  // its subjects, consumers and stored rate, the client subscriptions of
+  // the newest subscription collection at or before it by subject, the
+  // reply inboxes and the JetStream API, with filter counts.
+  rpc GetSubjects(GetSubjectsRequest) returns (GetSubjectsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // What a message on one literal subject would reach in the range's
+  // newest epoch: the streams that store it with their consumers, mirrors
+  // and sources, and the client subscriptions on it.
+  rpc MatchSubject(MatchSubjectRequest) returns (MatchSubjectResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // The services built on the NATS micro framework in the range's newest
+  // epoch: from the $SRV.INFO and $SRV.STATS replies of the accounts
+  // nats-lens asks, else from their $SRV subscriptions in the subscription
+  // collection; with rates, average times and the slow rule per endpoint.
+  rpc GetMicroServices(GetMicroServicesRequest) returns (GetMicroServicesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // The client applications of the range's newest epoch: its
+  // connections grouped by the name before the first "@", with their
+  // instances, servers, libraries and round trip times, the reconnects,
+  // slow consumers and stale connections of the 24 hours before it from
+  // the events, the client findings, and the hourly traffic from the
+  // rollup.
+  rpc GetApplications(GetApplicationsRequest) returns (GetApplicationsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
   // Servers by name with version, uptime and role.
   rpc ListServers(ListServersRequest) returns (ListServersResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
@@ -110,6 +218,13 @@ service LensService {
 
   // The systems nats-lens observes, in configuration order.
   rpc ListSystems(ListSystemsRequest) returns (ListSystemsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Freshness, servers and finding tally of a system and the status of
+  // every system: what the shell of every page shows. An unknown system
+  // is not an error here; the response says so.
+  rpc GetShellStatus(GetShellStatusRequest) returns (GetShellStatusResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
@@ -135,6 +250,13 @@ service LensService {
 
   // One metric of one entity over a range, downsampled.
   rpc GetTimeSeries(GetTimeSeriesRequest) returns (GetTimeSeriesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Several series over one time range in one call. A query GetTimeSeries
+  // would refuse as invalid_argument or not_found gets the error in its
+  // result and the others are served; any other failure fails the call.
+  rpc GetTimeSeriesBatch(GetTimeSeriesBatchRequest) returns (GetTimeSeriesBatchResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 }

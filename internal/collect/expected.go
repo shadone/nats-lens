@@ -56,13 +56,17 @@ func peerNames(s *Snapshot) []string {
 	for _, v := range s.Servers {
 		if v.Routez != nil {
 			for _, r := range v.Routez.Routes {
-				out = append(out, r.RemoteName)
+				if r != nil {
+					out = append(out, r.RemoteName)
+				}
 			}
 		}
 		if v.Jsz != nil && v.Jsz.Meta != nil {
 			out = append(out, v.Jsz.Meta.Leader)
 			for _, p := range v.Jsz.Meta.Replicas {
-				out = append(out, p.Name)
+				if p != nil {
+					out = append(out, p.Name)
+				}
 			}
 		}
 	}

@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 )
@@ -117,7 +118,7 @@ func TestSweep(t *testing.T) {
 	if n := count(t, db, `SELECT count(*) FROM epochs`); n != 2 {
 		t.Errorf("epochs left = %d", n)
 	}
-	for _, tbl := range epochTables {
+	for _, tbl := range append(append([]string{}, epochTables...), accountEpochTables...) {
 		if n := count(t, db, "SELECT count(*) FROM "+tbl+" WHERE epoch < 2"); n != 0 {
 			t.Errorf("%s keeps %d old rows", tbl, n)
 		}
@@ -131,7 +132,7 @@ func TestSweep(t *testing.T) {
 	if _, err := s.Sweep(ctx, now.Add(30*24*time.Hour), time.Hour); err != nil {
 		t.Fatal(err)
 	}
-	for _, tbl := range append(append([]string{"epochs"}, epochTables...), rangeTables...) {
+	for _, tbl := range append(append(append([]string{"epochs"}, epochTables...), accountEpochTables...), rangeTables...) {
 		if n := count(t, db, "SELECT count(*) FROM "+tbl); n != 0 {
 			t.Errorf("%s keeps %d rows", tbl, n)
 		}
@@ -149,8 +150,9 @@ func TestSweep(t *testing.T) {
 // table cannot outlive the retention window unnoticed.
 func TestSweepCoversEveryEpochTable(t *testing.T) {
 	s := openMem(t)
+	// The notify tables are swept by SweepNotifications.
 	swept := map[string]bool{"epochs": true}
-	for _, x := range append(append(append([]string{}, epochTables...), rangeTables...), checkTables...) {
+	for _, x := range slices.Concat(epochTables, accountEpochTables, rangeTables, checkTables, notifyTables) {
 		swept[x] = true
 	}
 	rows, err := s.DB().Query(`SELECT DISTINCT c.table_name FROM duckdb_columns() c
@@ -199,9 +201,14 @@ func TestSweepKeepsMutes(t *testing.T) {
 // archiveExempt lists the tables the archive does not export, with the
 // reason.
 var archiveExempt = map[string]string{
-	"archive_hours": "records what was exported; a rebuild writes it from the loaded files",
-	"migrations":    "migration bookkeeping; a new database applies the migrations itself",
-	"inventory":     "loaded from inventory_file on every start",
+	"notify_identity":      "local database incarnation; a rebuild must generate a different delivery identity",
+	"notify_delivery_rate": "local delivery watermarks; an archive rebuild starts a new baseline",
+	"archive_hours":        "records what was exported; a rebuild writes it from the loaded files",
+	"migrations":           "migration bookkeeping; a new database applies the migrations itself",
+	"inventory":            "loaded from inventory_file on every start",
+	"notify_channels":      "what was sent to a receiver is not what NATS showed; after a rebuild every channel starts from a new baseline",
+	"notify_state":         "what was sent to a receiver is not what NATS showed; after a rebuild every channel starts from a new baseline",
+	"notify_outbox":        "what was sent to a receiver is not what NATS showed; after a rebuild every channel starts from a new baseline",
 }
 
 // Every table is archived or listed as exempt, so that a new table is not

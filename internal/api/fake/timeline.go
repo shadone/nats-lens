@@ -2,8 +2,9 @@ package fake
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
@@ -47,9 +48,13 @@ func prodRows(*scenario) []rowSpec {
 		{"consumer-002", "Consumer backlog growing", warning, []*v1.EntityRef{consumerRef("media-windows", "media-chunk-pool")},
 			[]span{{on16(19, 0), on16(19, 30)}, {f(7, 30, 0), f(7, 45, 0)}, {f(8, 15, 0), f(8, 30, 0)}, {f(11, 0, 0), open}}},
 		{"client-003", "Slow consumer disconnects", warning, []*v1.EntityRef{clientRef("media-worker")},
-			[]span{{on16(22, 15), on16(22, 30)}, {f(9, 15, 0), f(9, 45, 0)}}},
-		{"stream-005", "Stream without any limit", info, []*v1.EntityRef{streamRef("order-archive")},
-			[]span{{time.Date(2026, 10, 14, 14, 30, 0, 0, time.UTC), open}}},
+			[]span{{on16(22, 15), on16(22, 30)}, {f(9, 17, 30), f(10, 2, 0)}}},
+		{"client-005", "Short-lived connections", warning, []*v1.EntityRef{clientRef("stock-poller")},
+			[]span{{f(12, 48, 0), open}}},
+		// KV_customer-config fires from October 2, order-archive from
+		// October 14; the row is the check's, so it fails from the first.
+		{"stream-005", "Stream without any limit", info, []*v1.EntityRef{streamRef("order-archive"), streamRef("KV_customer-config")},
+			[]span{{time.Date(2026, 10, 2, 10, 0, 0, 0, time.UTC), open}}},
 	}
 }
 
@@ -61,7 +66,7 @@ func (p *Provider) GetStatusTimeline(_ context.Context, req *v1.GetStatusTimelin
 	s := p.scen()
 	r := req.GetRange()
 	n := api.BucketCount(r.GetEnd().AsTime().Sub(r.GetStart().AsTime()), req.GetBucket().AsDuration())
-	res := &v1.GetStatusTimelineResponse{Start: r.GetStart(), Bucket: req.GetBucket(), BucketCount: int32(n), Windows: s.windows(r),
+	res := &v1.GetStatusTimelineResponse{Start: r.GetStart(), Bucket: req.GetBucket(), BucketCount: int32(n), Windows: p.windows(s, r),
 		Rows: s.timelineRows(r, req.GetBucket().AsDuration(), req.GetEntity(), req.GetIncludeOk())}
 	res.Kubernetes, res.Nats = p.lanes(s, r)
 	return res, nil
@@ -84,7 +89,7 @@ func (s scen) timelineRows(r *v1.TimeRange, bucket time.Duration, entity *v1.Ent
 		}
 		row := &v1.TimelineRow{Key: spec.code, CheckCode: spec.code, CheckName: spec.name, Severity: spec.sev, Cells: make([]v1.Status, n)}
 		if t := entity.GetType(); t != v1.EntityType_ENTITY_TYPE_UNSPECIFIED && t != v1.EntityType_ENTITY_TYPE_SYSTEM {
-			row.Entity = entity
+			row.Entity = api.EntityRefOf(entity.GetType(), entity.GetKey())
 			row.Key = spec.code + ":" + entity.GetKey()
 		}
 		failed := false
@@ -95,9 +100,17 @@ func (s scen) timelineRows(r *v1.TimeRange, bucket time.Duration, entity *v1.Ent
 			if !b0.Before(s.dataEnd()) || !b1.After(s.dataStart()) {
 				row.Cells[i] = v1.Status_STATUS_NO_DATA
 			}
+			// No check ran inside a time without collections.
+			if s.withinHole(b0, b1) {
+				row.Cells[i] = v1.Status_STATUS_NO_DATA
+				continue
+			}
 			for _, sp := range spec.spans {
 				if sp.from.Add(s.shift).Before(b1) && sp.to.Add(s.shift).After(b0) {
 					row.Cells[i], failed = statusOf(spec.sev), true
+					if until, ok := s.sc.infoUntil[spec.code]; ok && !until.Add(s.shift).Before(b1) {
+						row.Cells[i] = statusOf(info)
+					}
 				}
 			}
 		}
@@ -115,15 +128,22 @@ func (s scen) timelineRows(r *v1.TimeRange, bucket time.Duration, entity *v1.Ent
 	return out
 }
 
-// lanes are the Kubernetes events of the upgrade and the NATS advisories
-// and finding transitions in the range, oldest first.
+// lanes are the Kubernetes events the store draws (node disruptions and
+// NATS pod events) and the NATS advisories and finding transitions in the
+// range, oldest first.
 func (p *Provider) lanes(s scen, r *v1.TimeRange) (k8s, nats []*v1.LaneEvent) {
-	stored := map[time.Time]string{}
 	for _, e := range p.events(s) {
-		if e.GetSource() == srcK8s {
-			stored[e.GetTime().AsTime()] = e.GetId()
+		if s.sc.kubernetes && e.GetSource() == srcK8s && inRange(e.GetTime().AsTime(), r) && slices.Contains(api.K8sLaneKinds, e.GetKind()) &&
+			(!strings.HasPrefix(e.GetKind(), "k8s.pod.") || e.GetServer() != "") {
+			var raw struct {
+				Node string `json:"node"`
+			}
+			_ = json.Unmarshal([]byte(e.GetRaw()), &raw)
+			k8s = append(k8s, &v1.LaneEvent{Id: e.GetId(), Time: e.GetTime(), Source: srcK8s, Kind: e.GetKind(),
+				ShortLabel: api.K8sShortLabel(e, e.GetType(), raw.Node), Label: e.GetSummary(), Severity: e.GetSeverity(), EventId: e.GetId()})
 		}
-		if (e.GetSource() == srcNATS && e.GetClientName() != s.sc.routineClient && !routineEvent(e)) || e.GetSource() == srcFinding {
+		// The kinds the store draws on the NATS lane.
+		if (e.GetSource() == srcNATS && slices.Contains(api.NATSLaneKinds, e.GetKind())) || e.GetSource() == srcFinding {
 			if inRange(e.GetTime().AsTime(), r) {
 				nats = append(nats, &v1.LaneEvent{Time: e.GetTime(), Source: e.GetSource(), Kind: e.GetKind(),
 					ShortLabel: e.GetType(), Label: e.GetType() + " " + e.GetSummary(), Severity: e.GetSeverity(),
@@ -131,31 +151,7 @@ func (p *Provider) lanes(s scen, r *v1.TimeRange) (k8s, nats []*v1.LaneEvent) {
 			}
 		}
 	}
-	lane := func(at time.Time, kind, short, label string) {
-		if inRange(at, r) {
-			id := stored[at]
-			if id == "" {
-				id = fmt.Sprintf("kubernetes:%s:%d", kind, s.clock(at).Unix())
-			}
-			k8s = append(k8s, &v1.LaneEvent{Id: id, Time: ts(at), Source: srcK8s, Kind: kind, ShortLabel: short, Label: label, EventId: stored[at]})
-		}
-	}
-	if s.sc.k8sLanes != nil {
-		s.sc.k8sLanes(s, lane)
-	}
+	slices.Reverse(k8s)
 	slices.Reverse(nats)
 	return k8s, nats
-}
-
-// prodK8sLanes are example-prod's node upgrade and the media-worker
-// rollout.
-func prodK8sLanes(s scen, lane func(at time.Time, kind, short, label string)) {
-	lane(s.at(9, 14, 48), "k8s.node.drained", "node 7f3a", "node gke-example-pool-1-7f3a drained (upgrade 1.33.4-gke.1245)")
-	lane(s.at(9, 16, 2), "k8s.pod.killing", "nats-0 Killing", "pod nats-0 Killing (node upgrade), Started 09:18")
-	lane(s.at(9, 27, 0), "k8s.node.drained", "node 91c2", "node gke-example-pool-1-91c2 drained")
-	lane(s.at(9, 29, 5), "k8s.pod.killing", "nats-1 Killing", "pod nats-1 Killing (node upgrade), Started 09:31")
-	lane(s.at(9, 40, 0), "k8s.node.drained", "node c40d", "node gke-example-pool-1-c40d drained")
-	lane(s.at(9, 41, 10), "k8s.pod.killing", "nats-2 Killing", "pod nats-2 Killing (node upgrade), Started 09:44")
-	lane(s.at(9, 50, 12), "k8s.node.upgrade", "pool-1 done", "node pool pool-1 upgrade complete")
-	lane(s.at(11, 2, 0), "k8s.deployment.rolled_out", "deploy", "deployment media-worker rolled out (video, 2 -> 4 replicas)")
 }

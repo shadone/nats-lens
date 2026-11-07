@@ -19,22 +19,53 @@ const (
 	srcFinding = v1.EventSource_EVENT_SOURCE_FINDING
 )
 
-// Event counts and IDs of example-prod. IDs grow with time; the newest
-// event has ID eventCount.
+// Event counts of example-prod's filler and routine events.
 const (
 	fillerCount    = 199
 	prodChurnCount = 360
-	// eventCount is the 15 events of the upgrade story, the filler, the
-	// routine events (360 churn, 72 sampled acks, 48 account counts, 6 API
-	// audit, 6 collector reconnects, 34 CLI) and the 8 of the pending pod.
-	eventCount        = 15 + fillerCount + prodChurnCount + 72 + 48 + 6 + 6 + 34 + 8
-	idConsumerDeleted = "591"
 )
+
+// allEvents are the scenario's events and the elections the leader model
+// made, newest first, without IDs.
+func (s scen) allEvents(fs []*v1.Finding) []*v1.Event {
+	out := append(s.sc.events(s, fs), s.modelElections()...)
+	out = append(out, s.authEvents()...)
+	slices.SortStableFunc(out, func(a, b *v1.Event) int { return b.GetTime().AsTime().Compare(a.GetTime().AsTime()) })
+	return out
+}
+
+// eventID is the ID the scenario's event of the kind at the fixed-frame
+// time at gets: its place among all events, newest highest. The IDs do
+// not depend on the findings or the shift, so they are counted once.
+func (sc *scenario) eventID(kind string, at time.Time) string {
+	sc.idsOnce.Do(func() {
+		sc.ids = map[string]string{}
+		evs := scen{now: FixedNow, sc: sc}.allEvents(nil)
+		for i, e := range evs {
+			sc.ids[e.GetKind()+"@"+e.GetTime().AsTime().Format(time.RFC3339Nano)] = strconv.Itoa(len(evs) - i)
+		}
+	})
+	return sc.ids[kind+"@"+at.Format(time.RFC3339Nano)]
+}
+
+// nodeRaw is a node event's payload as the Kubernetes watcher writes it:
+// the node, its GKE node pool and its kubelet version.
+func nodeRaw(node, pool, kubelet string) string {
+	return `{"node":"` + node + `","pool":"` + pool + `","kubelet_version":"` + kubelet + `"}`
+}
+
+// poolEvent is a node pool's report of its upgrade. It names no node, so
+// it is kept as an Event of no kind of its own (k8s.event), not as a
+// node upgrade, which the node counts would need a node for.
+func poolEvent(at time.Time, pool, summary string) *v1.Event {
+	return &v1.Event{Time: ts(at), Source: srcK8s, Kind: "k8s.event", Type: "NodePoolUpgrade", Summary: summary,
+		Raw: `{"pool":"` + pool + `"}`}
+}
 
 // events are every event of the scenario, newest first, with IDs set:
 // the newest has the highest.
 func (p *Provider) events(s scen) []*v1.Event {
-	out := s.sc.events(s, p.findings(s))
+	out := s.allEvents(p.findings(s))
 	for i, e := range out {
 		e.Id = strconv.Itoa(len(out) - i)
 		if e.GetReceivedAt() == nil {
@@ -42,6 +73,18 @@ func (p *Provider) events(s scen) []*v1.Event {
 		}
 	}
 	return out
+}
+
+// The kubelet versions of example-prod's node upgrade.
+const (
+	prodOldKubelet = "1.32.9-gke.1130"
+	prodKubelet    = "1.33.4-gke.1245"
+)
+
+// prodNode is a node event of example-prod's pool-1.
+func prodNode(at time.Time, kind, typ, suffix, kubelet, summary string) *v1.Event {
+	return &v1.Event{Time: ts(at), Source: srcK8s, Kind: kind, Type: typ, Summary: summary,
+		Raw: nodeRaw("gke-example-pool-1-"+suffix, "pool-1", kubelet)}
 }
 
 // prodEvents are example-prod's events, newest first.
@@ -59,8 +102,26 @@ func prodEvents(s scen, fs []*v1.Finding) []*v1.Event {
 			Summary:    "media-chunk-pool on media-windows: fill 37.4/s, drain 31.6/s (4 transitions in 1h)",
 			Transition: tr("consumer-002", flapping, s.at(11, 0, 0)), Finding: byCode["consumer-002"],
 			Account: Account, Stream: "media-windows", Consumer: "media-chunk-pool"},
-		{Time: ts(s.at(9, 50, 12)), Source: srcK8s, Kind: "k8s.node.upgrade", Type: "NodePoolUpgrade",
-			Summary: "pool-1 upgrade complete, 3 of 3 nodes on 1.33.4-gke.1245"},
+		poolEvent(s.at(9, 50, 12), "pool-1", "pool-1 upgrade complete, 3 of 3 nodes on 1.33.4-gke.1245"),
+		// Each node is cordoned, drained as its NATS pod leaves,
+		// upgraded and uncordoned.
+		prodNode(s.at(9, 43, 45), "k8s.node.uncordoned", "Uncordoned", "c40d", prodKubelet, "node gke-example-pool-1-c40d uncordoned"),
+		prodNode(s.at(9, 41, 9), "k8s.node.drained", "NodeDrain", "c40d", prodOldKubelet, "node gke-example-pool-1-c40d cordoned and drained: nats-2 leaves it"),
+		prodNode(s.at(9, 40, 0), "k8s.node.cordoned", "Cordoned", "c40d", prodOldKubelet, "node gke-example-pool-1-c40d cordoned (unschedulable), running [nats-2]"),
+		prodNode(s.at(9, 30, 35), "k8s.node.uncordoned", "Uncordoned", "91c2", prodKubelet, "node gke-example-pool-1-91c2 uncordoned"),
+		prodNode(s.at(9, 29, 4), "k8s.node.drained", "NodeDrain", "91c2", prodOldKubelet, "node gke-example-pool-1-91c2 cordoned and drained: nats-1 leaves it"),
+		prodNode(s.at(9, 27, 0), "k8s.node.cordoned", "Cordoned", "91c2", prodOldKubelet, "node gke-example-pool-1-91c2 cordoned (unschedulable), running [nats-1]"),
+		{Time: ts(s.at(9, 18, 0)), Source: srcK8s, Kind: "k8s.pod.started", Type: "Started", Server: "nats-0",
+			Summary: "pod nats-0 container nats started on gke-example-pool-1-7f3a"},
+		prodNode(s.at(9, 17, 25), "k8s.node.uncordoned", "Uncordoned", "7f3a", prodKubelet, "node gke-example-pool-1-7f3a uncordoned"),
+		prodNode(s.at(9, 16, 1), "k8s.node.drained", "NodeDrain", "7f3a", prodOldKubelet, "node gke-example-pool-1-7f3a cordoned and drained: nats-0 leaves it"),
+		prodNode(s.at(9, 14, 48), "k8s.node.cordoned", "Cordoned", "7f3a", prodOldKubelet, "node gke-example-pool-1-7f3a cordoned (unschedulable), running [nats-0]"),
+		prodNode(s.at(9, 43, 40), "k8s.node.upgrade", "KubeletVersion", "c40d", prodKubelet,
+			"node gke-example-pool-1-c40d kubelet "+prodOldKubelet+" -> "+prodKubelet),
+		prodNode(s.at(9, 30, 30), "k8s.node.upgrade", "KubeletVersion", "91c2", prodKubelet,
+			"node gke-example-pool-1-91c2 kubelet "+prodOldKubelet+" -> "+prodKubelet),
+		prodNode(s.at(9, 17, 20), "k8s.node.upgrade", "KubeletVersion", "7f3a", prodKubelet,
+			"node gke-example-pool-1-7f3a kubelet "+prodOldKubelet+" -> "+prodKubelet),
 		{Time: ts(s.at(9, 45, 0)), Source: srcFinding, Kind: "finding.firing", Type: "consumer-009 Consumer creation time differs across servers", Severity: warning,
 			Summary:    "resize-worker on order-jobs: nats-0 2026-08-12, nats-1 and nats-2 2026-10-17",
 			Transition: tr("consumer-009", firing, s.at(9, 45, 0)), Finding: byCode["consumer-009"],
@@ -71,8 +132,6 @@ func prodEvents(s scen, fs []*v1.Finding) []*v1.Event {
 			Account: Account, Stream: "order-jobs", Consumer: "job-cache-projector"},
 		{Time: ts(s.at(9, 44, 21)), Source: srcK8s, Kind: "k8s.pod.started", Type: "Started", Server: "nats-2",
 			Summary: "pod nats-2 container nats started on gke-example-pool-1-c40d"},
-		{Time: ts(s.at(9, 42, 3)), Source: srcNATS, Kind: "stream.leader_elected", Type: "STREAM.LEADER_ELECTED", Server: "nats-2",
-			Account: Account, Stream: "order-jobs", Summary: "order-jobs -> nats-2 (term 412)"},
 		{Time: ts(s.at(9, 41, 10)), Source: srcK8s, Kind: "k8s.pod.killing", Type: "Killing", Server: "nats-2",
 			Summary: "pod nats-2 Killing (node upgrade), grace 120s"},
 		{Time: ts(s.at(9, 31, 7)), Source: srcNATS, Kind: "consumer.deleted", Type: "CONSUMER.DELETED", Severity: critical, Server: "nats-0",
@@ -91,13 +150,18 @@ func prodEvents(s scen, fs []*v1.Finding) []*v1.Event {
 			Summary: "pod nats-1 Killing (node upgrade), grace 120s"},
 		{Time: ts(s.at(9, 16, 30)), Source: srcNATS, Kind: "stream.quorum_lost", Type: "STREAM.QUORUM_LOST", Severity: critical, Server: "nats-1",
 			Account: Account, Stream: "media-windows", Summary: "media-windows (1 of 3 peers)"},
+		// When nats-0 stopped, nats-1 took the lead of order-jobs and nats-2
+		// that of order-archive; the demo elects the other leaders.
+		{Time: ts(s.at(9, 16, 4)), Source: srcNATS, Kind: "stream.leader_elected", Type: "STREAM.LEADER_ELECTED", Server: "nats-2",
+			Account: Account, Stream: "order-archive", Summary: "order-archive -> nats-2 (term 96)"},
+		{Time: ts(s.at(9, 16, 3)), Source: srcNATS, Kind: "stream.leader_elected", Type: "STREAM.LEADER_ELECTED", Server: "nats-1",
+			Account: Account, Stream: "order-jobs", Summary: "order-jobs -> nats-1 (term 412)"},
 		{Time: ts(s.at(9, 16, 2)), Source: srcK8s, Kind: "k8s.pod.killing", Type: "Killing", Server: "nats-0",
 			Summary: "pod nats-0 Killing (node upgrade), grace 120s"},
-		{Time: ts(s.at(9, 14, 48)), Source: srcK8s, Kind: "k8s.node.drained", Type: "NodeDrain",
-			Summary: "node gke-example-pool-1-7f3a cordoned and drained"},
 	}
 	// Short connections of one client fill the hours before the upgrade,
-	// one churn summary per minute in which it reconnected.
+	// one churn summary per minute in which it reconnected; 6 to 10 every
+	// 5.5 minutes peak at 19 in any 10 minutes, below client-005's threshold.
 	for k := range fillerCount {
 		host := fmt.Sprintf("10.20.2.%d", 10+k%40)
 		out = append(out, &v1.Event{
@@ -108,6 +172,8 @@ func prodEvents(s scen, fs []*v1.Finding) []*v1.Event {
 	}
 	out = append(out, prodRoutine(s)...)
 	out = append(out, prodPending(s)...)
+	out = append(out, prodCallbackReconnects(s)...)
+	out = append(out, restartReconnects(s, map[string]time.Time{"nats-0": s.at(9, 16, 2), "nats-1": s.at(9, 29, 5), "nats-2": s.at(9, 41, 10)})...)
 	slices.SortStableFunc(out, func(a, b *v1.Event) int { return b.GetTime().AsTime().Compare(a.GetTime().AsTime()) })
 	return out
 }
@@ -120,11 +186,18 @@ func prodRoutine(s scen) []*v1.Event {
 	var out []*v1.Event
 	add := func(e *v1.Event) { out = append(out, e) }
 	end := s.at(14, 28, 0)
+	// stock-poller: every 4 minutes a summary of 2 to 5, and of 10 to 13 since
+	// 12:44, when it began to open a connection per poll: at least 21 in any
+	// 10 minutes from 12:48, which client-005 flags.
 	for k := range prodChurnCount {
 		sv := s.sc.servers[k%3].name
+		n := 2 + k%4
+		if k < 27 {
+			n += 8
+		}
 		add(&v1.Event{Time: ts(end.Add(-time.Duration(k) * 4 * time.Minute)), Source: srcNATS, Kind: "client.churn", Type: "CLIENT.CHURN",
 			Server: sv, Account: Account, ClientName: "stock-poller", ClientHost: "10.20.4.31", Reason: "Client Closed",
-			Summary: fmt.Sprintf("stock-poller connected and disconnected %d times in 1 min (each closed by the client within 10 s)", 9+k%4)})
+			Summary: fmt.Sprintf("stock-poller connected and disconnected %d times in 1 min (each closed by the client within 10 s)", n)})
 	}
 	for k := range 72 {
 		add(&v1.Event{Time: ts(end.Add(-time.Duration(k)*20*time.Minute - 50*time.Second)), Source: srcNATS, Kind: "consumer.ack_sampled",
@@ -157,6 +230,39 @@ func prodRoutine(s scen) []*v1.Event {
 				Server: "nats-0", Account: "SYS", ClientName: "NATS CLI Version 0.2.2", ClientHost: "127.0.0.1",
 				Summary: "NATS CLI Version 0.2.2 " + strings.TrimPrefix(kind, "client.") + " from 127.0.0.1"})
 		}
+	}
+	return out
+}
+
+// prodCallbackDrops are the fixed-frame times and servers of
+// callback-dispatcher's stale connections in example-prod's last day: it
+// stops answering pings while it drains a burst of callbacks, and comes
+// back 4 seconds later. The last three fire client-004.
+var prodCallbackDrops = []struct {
+	at     time.Time
+	server string
+}{
+	{fixed(6, 42, 10), "nats-0"}, {fixed(8, 5, 30), "nats-1"}, {fixed(12, 15, 20), "nats-2"},
+	{fixed(14, 19, 40), "nats-0"}, {fixed(14, 22, 50), "nats-0"}, {fixed(14, 26, 10), "nats-1"},
+}
+
+// prodCallbackHost is the address of callback-dispatcher's reconnecting
+// connection.
+const prodCallbackHost = "10.20.3.16"
+
+// prodCallbackReconnects are callback-dispatcher's six reconnects: each a
+// stale connection's disconnect and a connect to the same server.
+func prodCallbackReconnects(s scen) []*v1.Event {
+	var out []*v1.Event
+	for _, d := range prodCallbackDrops {
+		at := s.at(d.at.Hour(), d.at.Minute(), d.at.Second())
+		out = append(out,
+			&v1.Event{Time: ts(at), Source: srcNATS, Kind: "client.disconnect", Type: "CLIENT.DISCONNECT", Server: d.server, Account: Account,
+				ClientName: "callback-dispatcher", ClientHost: prodCallbackHost, Reason: api.StaleReason,
+				Summary: "callback-dispatcher disconnected from " + d.server + ": " + api.StaleReason},
+			&v1.Event{Time: ts(at.Add(4 * time.Second)), Source: srcNATS, Kind: "client.connect", Type: "CLIENT.CONNECT", Server: d.server,
+				Account: Account, ClientName: "callback-dispatcher", ClientHost: prodCallbackHost,
+				Summary: "callback-dispatcher connected to " + d.server + " from " + prodCallbackHost})
 	}
 	return out
 }

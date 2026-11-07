@@ -6,6 +6,8 @@ import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2"
 import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
+import type { Acknowledgement } from "./acknowledgements_pb";
+import { file_natslens_v1_acknowledgements } from "./acknowledgements_pb";
 import type { ConfigValue, EntityRef, EventRef, Severity, TimeRange } from "./common_pb";
 import { file_natslens_v1_common } from "./common_pb";
 import type { Message } from "@bufbuild/protobuf";
@@ -14,7 +16,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/findings.proto.
  */
 export const file_natslens_v1_findings: GenFile = /*@__PURE__*/
-  fileDesc("ChpuYXRzbGVucy92MS9maW5kaW5ncy5wcm90bxILbmF0c2xlbnMudjEiXAoMRmluZGluZ1ZhbHVlEgwKBG5hbWUYASABKAkSDwoHZGlzcGxheRgCIAEoCRITCgZudW1iZXIYAyABKAFIAIgBARINCgViYXNpcxgEIAEoCUIJCgdfbnVtYmVyIpQCCgRNdXRlEgoKAmlkGAEgASgJEhIKCmNoZWNrX2NvZGUYAiABKAkSJgoGZW50aXR5GAMgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEg4KBnJlYXNvbhgEIAEoCRIQCghtdXRlZF9ieRgFIAEoCRIuCgpjcmVhdGVkX2F0GAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgpleHBpcmVzX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1bm11dGVkX2F0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBISCgp1bm11dGVkX2J5GAkgASgJIoQFCgdGaW5kaW5nEgoKAmlkGAEgASgJEhIKCmNoZWNrX2NvZGUYAiABKAkSEgoKY2hlY2tfbmFtZRgDIAEoCRInCghzZXZlcml0eRgEIAEoDjIVLm5hdHNsZW5zLnYxLlNldmVyaXR5EigKBXN0YXRlGAUgASgOMhkubmF0c2xlbnMudjEuRmluZGluZ1N0YXRlEiYKBmVudGl0eRgGIAEoCzIWLm5hdHNsZW5zLnYxLkVudGl0eVJlZhIpCgVzaW5jZRgHIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASMwoPdHJhbnNpdGlvbmVkX2F0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIvCgtyZXNvbHZlZF9hdBgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDgoGZGV0YWlsGAogASgJEigKBXZhbHVlGAsgASgLMhkubmF0c2xlbnMudjEuRmluZGluZ1ZhbHVlEhMKC3JlbWVkaWF0aW9uGAwgASgJEjAKDnJlbGF0ZWRfY29uZmlnGA0gAygLMhgubmF0c2xlbnMudjEuQ29uZmlnVmFsdWUSHQoVcmVsYXRlZF9jb25maWdfc291cmNlGA4gASgJEiQKBWNhdXNlGA8gASgLMhUubmF0c2xlbnMudjEuRXZlbnRSZWYSHwoEbXV0ZRgQIAEoCzIRLm5hdHNsZW5zLnYxLk11dGUSHQoVdHJhbnNpdGlvbnNfbGFzdF9ob3VyGBEgASgFEjMKD2NvbmRpdGlvbl9zaW5jZRgSIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAitAEKEUZpbmRpbmdUcmFuc2l0aW9uEhIKCmZpbmRpbmdfaWQYASABKAkSKAoEdGltZRgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASKAoFc3RhdGUYAyABKA4yGS5uYXRzbGVucy52MS5GaW5kaW5nU3RhdGUSJwoIc2V2ZXJpdHkYBCABKA4yFS5uYXRzbGVucy52MS5TZXZlcml0eRIOCgZkZXRhaWwYBSABKAkidgoMRmluZGluZ1RhbGx5EhAKCGNyaXRpY2FsGAEgASgFEg8KB3dhcm5pbmcYAiABKAUSDAoEaW5mbxgDIAEoBRINCgVtdXRlZBgEIAEoBRIQCghmbGFwcGluZxgFIAEoBRIUCgxyZXNvbHZlZF8yNGgYBiABKAUinAIKE0xpc3RGaW5kaW5nc1JlcXVlc3QSJQoFcmFuZ2UYASABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2USKQoGc3RhdGVzGAIgAygOMhkubmF0c2xlbnMudjEuRmluZGluZ1N0YXRlEikKCnNldmVyaXRpZXMYAyADKA4yFS5uYXRzbGVucy52MS5TZXZlcml0eRIVCg1pbmNsdWRlX211dGVkGAQgASgIEhIKCmNoZWNrX2NvZGUYBSABKAkSJgoGZW50aXR5GAYgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEhEKCXBhZ2Vfc2l6ZRgHIAEoBRISCgpwYWdlX3Rva2VuGAggASgJEg4KBnN5c3RlbRgJIAEoCSJsChRMaXN0RmluZGluZ3NSZXNwb25zZRImCghmaW5kaW5ncxgBIAMoCzIULm5hdHNsZW5zLnYxLkZpbmRpbmcSFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJEhMKC3RvdGFsX2NvdW50GAMgASgFIi8KEUdldEZpbmRpbmdSZXF1ZXN0EgoKAmlkGAEgASgJEg4KBnN5c3RlbRgCIAEoCSJwChJHZXRGaW5kaW5nUmVzcG9uc2USJQoHZmluZGluZxgBIAEoCzIULm5hdHNsZW5zLnYxLkZpbmRpbmcSMwoLdHJhbnNpdGlvbnMYAiADKAsyHi5uYXRzbGVucy52MS5GaW5kaW5nVHJhbnNpdGlvbiKyAQoSTXV0ZUZpbmRpbmdSZXF1ZXN0EhIKCmNoZWNrX2NvZGUYASABKAkSJgoGZW50aXR5GAIgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEg4KBnJlYXNvbhgDIAEoCRIuCgpleHBpcmVzX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIQCghtdXRlZF9ieRgFIAEoCRIOCgZzeXN0ZW0YBiABKAkiNgoTTXV0ZUZpbmRpbmdSZXNwb25zZRIfCgRtdXRlGAEgASgLMhEubmF0c2xlbnMudjEuTXV0ZSJLChRVbm11dGVGaW5kaW5nUmVxdWVzdBIPCgdtdXRlX2lkGAEgASgJEhIKCnVubXV0ZWRfYnkYAiABKAkSDgoGc3lzdGVtGAMgASgJIjgKFVVubXV0ZUZpbmRpbmdSZXNwb25zZRIfCgRtdXRlGAEgASgLMhEubmF0c2xlbnMudjEuTXV0ZSJjChBMaXN0TXV0ZXNSZXF1ZXN0EhgKEGluY2x1ZGVfaW5hY3RpdmUYASABKAgSEQoJcGFnZV9zaXplGAIgASgFEhIKCnBhZ2VfdG9rZW4YAyABKAkSDgoGc3lzdGVtGAQgASgJImMKEUxpc3RNdXRlc1Jlc3BvbnNlEiAKBW11dGVzGAEgAygLMhEubmF0c2xlbnMudjEuTXV0ZRIXCg9uZXh0X3BhZ2VfdG9rZW4YAiABKAkSEwoLdG90YWxfY291bnQYAyABKAUqmgEKDEZpbmRpbmdTdGF0ZRIdChlGSU5ESU5HX1NUQVRFX1VOU1BFQ0lGSUVEEAASGAoURklORElOR19TVEFURV9GSVJJTkcQARIZChVGSU5ESU5HX1NUQVRFX0NIQU5HRUQQAhIaChZGSU5ESU5HX1NUQVRFX0ZMQVBQSU5HEAMSGgoWRklORElOR19TVEFURV9SRVNPTFZFRBAEQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_timestamp, file_natslens_v1_common]);
+  fileDesc("ChpuYXRzbGVucy92MS9maW5kaW5ncy5wcm90bxILbmF0c2xlbnMudjEiXAoMRmluZGluZ1ZhbHVlEgwKBG5hbWUYASABKAkSDwoHZGlzcGxheRgCIAEoCRITCgZudW1iZXIYAyABKAFIAIgBARINCgViYXNpcxgEIAEoCUIJCgdfbnVtYmVyIuoCCgRNdXRlEgoKAmlkGAEgASgJEhIKCmNoZWNrX2NvZGUYAiABKAkSJgoGZW50aXR5GAMgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEg4KBnJlYXNvbhgEIAEoCRIQCghtdXRlZF9ieRgFIAEoCRIuCgpjcmVhdGVkX2F0GAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgpleHBpcmVzX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1bm11dGVkX2F0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBISCgp1bm11dGVkX2J5GAkgASgJEhAKCGFjY2VwdGVkGAogASgIEhsKDmdyb3d0aF9wZXJfZGF5GAsgASgBSACIAQESEgoKZW5kX3JlYXNvbhgMIAEoCUIRCg9fZ3Jvd3RoX3Blcl9kYXkiywUKB0ZpbmRpbmcSCgoCaWQYASABKAkSEgoKY2hlY2tfY29kZRgCIAEoCRISCgpjaGVja19uYW1lGAMgASgJEicKCHNldmVyaXR5GAQgASgOMhUubmF0c2xlbnMudjEuU2V2ZXJpdHkSKAoFc3RhdGUYBSABKA4yGS5uYXRzbGVucy52MS5GaW5kaW5nU3RhdGUSJgoGZW50aXR5GAYgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEikKBXNpbmNlGAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIzCg90cmFuc2l0aW9uZWRfYXQYCCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi8KC3Jlc29sdmVkX2F0GAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIOCgZkZXRhaWwYCiABKAkSKAoFdmFsdWUYCyABKAsyGS5uYXRzbGVucy52MS5GaW5kaW5nVmFsdWUSEwoLcmVtZWRpYXRpb24YDCABKAkSMAoOcmVsYXRlZF9jb25maWcYDSADKAsyGC5uYXRzbGVucy52MS5Db25maWdWYWx1ZRIdChVyZWxhdGVkX2NvbmZpZ19zb3VyY2UYDiABKAkSJAoFY2F1c2UYDyABKAsyFS5uYXRzbGVucy52MS5FdmVudFJlZhIfCgRtdXRlGBAgASgLMhEubmF0c2xlbnMudjEuTXV0ZRIdChV0cmFuc2l0aW9uc19sYXN0X2hvdXIYESABKAUSMwoPY29uZGl0aW9uX3NpbmNlGBIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIOCgZleHBpcnkYEyABKAgSNQoPYWNrbm93bGVkZ2VtZW50GBQgASgLMhwubmF0c2xlbnMudjEuQWNrbm93bGVkZ2VtZW50IrQBChFGaW5kaW5nVHJhbnNpdGlvbhISCgpmaW5kaW5nX2lkGAEgASgJEigKBHRpbWUYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEigKBXN0YXRlGAMgASgOMhkubmF0c2xlbnMudjEuRmluZGluZ1N0YXRlEicKCHNldmVyaXR5GAQgASgOMhUubmF0c2xlbnMudjEuU2V2ZXJpdHkSDgoGZGV0YWlsGAUgASgJIowBCgxGaW5kaW5nVGFsbHkSEAoIY3JpdGljYWwYASABKAUSDwoHd2FybmluZxgCIAEoBRIMCgRpbmZvGAMgASgFEg0KBW11dGVkGAQgASgFEhAKCGZsYXBwaW5nGAUgASgFEhQKDHJlc29sdmVkXzI0aBgGIAEoBRIUCgxhY2tub3dsZWRnZWQYByABKAUinAIKE0xpc3RGaW5kaW5nc1JlcXVlc3QSJQoFcmFuZ2UYASABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2USKQoGc3RhdGVzGAIgAygOMhkubmF0c2xlbnMudjEuRmluZGluZ1N0YXRlEikKCnNldmVyaXRpZXMYAyADKA4yFS5uYXRzbGVucy52MS5TZXZlcml0eRIVCg1pbmNsdWRlX211dGVkGAQgASgIEhIKCmNoZWNrX2NvZGUYBSABKAkSJgoGZW50aXR5GAYgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEhEKCXBhZ2Vfc2l6ZRgHIAEoBRISCgpwYWdlX3Rva2VuGAggASgJEg4KBnN5c3RlbRgJIAEoCSJsChRMaXN0RmluZGluZ3NSZXNwb25zZRImCghmaW5kaW5ncxgBIAMoCzIULm5hdHNsZW5zLnYxLkZpbmRpbmcSFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJEhMKC3RvdGFsX2NvdW50GAMgASgFIi8KEUdldEZpbmRpbmdSZXF1ZXN0EgoKAmlkGAEgASgJEg4KBnN5c3RlbRgCIAEoCSJwChJHZXRGaW5kaW5nUmVzcG9uc2USJQoHZmluZGluZxgBIAEoCzIULm5hdHNsZW5zLnYxLkZpbmRpbmcSMwoLdHJhbnNpdGlvbnMYAiADKAsyHi5uYXRzbGVucy52MS5GaW5kaW5nVHJhbnNpdGlvbiLCAQoSTXV0ZUZpbmRpbmdSZXF1ZXN0EhIKCmNoZWNrX2NvZGUYASABKAkSJgoGZW50aXR5GAIgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEg4KBnJlYXNvbhgDIAEoCRIuCgpleHBpcmVzX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIQCghtdXRlZF9ieRgFIAEoCRIOCgZzeXN0ZW0YBiABKAkSDgoGYWNjZXB0GAcgASgIIjYKE011dGVGaW5kaW5nUmVzcG9uc2USHwoEbXV0ZRgBIAEoCzIRLm5hdHNsZW5zLnYxLk11dGUiSwoUVW5tdXRlRmluZGluZ1JlcXVlc3QSDwoHbXV0ZV9pZBgBIAEoCRISCgp1bm11dGVkX2J5GAIgASgJEg4KBnN5c3RlbRgDIAEoCSI4ChVVbm11dGVGaW5kaW5nUmVzcG9uc2USHwoEbXV0ZRgBIAEoCzIRLm5hdHNsZW5zLnYxLk11dGUiYwoQTGlzdE11dGVzUmVxdWVzdBIYChBpbmNsdWRlX2luYWN0aXZlGAEgASgIEhEKCXBhZ2Vfc2l6ZRgCIAEoBRISCgpwYWdlX3Rva2VuGAMgASgJEg4KBnN5c3RlbRgEIAEoCSJjChFMaXN0TXV0ZXNSZXNwb25zZRIgCgVtdXRlcxgBIAMoCzIRLm5hdHNsZW5zLnYxLk11dGUSFwoPbmV4dF9wYWdlX3Rva2VuGAIgASgJEhMKC3RvdGFsX2NvdW50GAMgASgFKpoBCgxGaW5kaW5nU3RhdGUSHQoZRklORElOR19TVEFURV9VTlNQRUNJRklFRBAAEhgKFEZJTkRJTkdfU1RBVEVfRklSSU5HEAESGQoVRklORElOR19TVEFURV9DSEFOR0VEEAISGgoWRklORElOR19TVEFURV9GTEFQUElORxADEhoKFkZJTkRJTkdfU1RBVEVfUkVTT0xWRUQQBEJCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_google_protobuf_timestamp, file_natslens_v1_acknowledgements, file_natslens_v1_common]);
 
 /**
  * A check's numeric result for the entity.
@@ -64,6 +66,10 @@ export const FindingValueSchema: GenMessage<FindingValue> = /*@__PURE__*/
  *
  * A muted finding still records transitions; it is kept apart from the
  * unmuted ones and never alerts. Every mute has an expiry.
+ *
+ * An acceptance is a mute too: it records one entity's finding as by
+ * design, its expiry is the review date, and every reader of mutes treats
+ * it as a mute.
  *
  * @generated from message natslens.v1.Mute
  */
@@ -128,11 +134,44 @@ export type Mute = Message<"natslens.v1.Mute"> & {
   unmutedAt?: Timestamp | undefined;
 
   /**
-   * Who lifted the mute.
+   * Who lifted the mute; "nats-lens" when nats-lens ended an acceptance
+   * because the entity's growth changed.
    *
    * @generated from field: string unmuted_by = 9;
    */
   unmutedBy: string;
+
+  /**
+   * Whether the mute accepts the finding as by design. An acceptance has
+   * an entity, and expires_at is its review date.
+   *
+   * @generated from field: bool accepted = 10;
+   */
+  accepted: boolean;
+
+  /**
+   * Growth of the accepted entity, bytes per day, recorded by the server:
+   * a stream's leader bytes or a server's JetStream storage, the week's
+   * growth (the median over the last day's points of the change since a
+   * week earlier, divided by 7), so that daily and weekly patterns cancel.
+   * For an entity under about 8 days old it is unset at acceptance and
+   * nats-lens records it later, the first time it can be measured. Unset
+   * for a plain mute and for other entity types. It can differ from the
+   * growth the Streams page shows for a range.
+   *
+   * @generated from field: optional double growth_per_day = 11;
+   */
+  growthPerDay?: number | undefined;
+
+  /**
+   * Why nats-lens ended the acceptance before its review date, for example
+   * "growth changed from +2.1 MiB/day to +4.0 MiB/day over the last 7 days
+   * (+9.0 MiB in the last day)"; empty when a person
+   * lifted it or it ran out.
+   *
+   * @generated from field: string end_reason = 12;
+   */
+  endReason: string;
 };
 
 /**
@@ -275,6 +314,24 @@ export type Finding = Message<"natslens.v1.Finding"> & {
    * @generated from field: google.protobuf.Timestamp condition_since = 18;
    */
   conditionSince?: Timestamp | undefined;
+
+  /**
+   * The check warns of something that will expire, a certificate or a JWT
+   * (its category is expiry). Such a finding at warning ranks after every
+   * other warning, so it never heads an outage; at critical it ranks as
+   * any critical finding.
+   *
+   * @generated from field: bool expiry = 19;
+   */
+  expiry: boolean;
+
+  /**
+   * The acknowledgement of the current episode in force; unset when none
+   * is, and always for a resolved finding.
+   *
+   * @generated from field: natslens.v1.Acknowledgement acknowledgement = 20;
+   */
+  acknowledgement?: Acknowledgement | undefined;
 };
 
 /**
@@ -380,6 +437,14 @@ export type FindingTally = Message<"natslens.v1.FindingTally"> & {
    * @generated from field: int32 resolved_24h = 6;
    */
   resolved24h: number;
+
+  /**
+   * Findings that fire now with an acknowledgement in force, muted or not;
+   * they are counted above as well.
+   *
+   * @generated from field: int32 acknowledged = 7;
+   */
+  acknowledged: number;
 };
 
 /**
@@ -614,6 +679,17 @@ export type MuteFindingRequest = Message<"natslens.v1.MuteFindingRequest"> & {
    * @generated from field: string system = 6;
    */
   system: string;
+
+  /**
+   * Accept the finding as by design instead of muting it. The entity is
+   * then required, and expires_at is the review date: at least one day
+   * and at most 365 days ahead. The server records the entity's growth;
+   * nats-lens ends the acceptance early when that growth changes by more
+   * than half of the larger of the recorded rate and 1 MiB per day.
+   *
+   * @generated from field: bool accept = 7;
+   */
+  accept: boolean;
 };
 
 /**

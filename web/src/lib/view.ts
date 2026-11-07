@@ -25,6 +25,9 @@ export function isTrouble(state: Level | "notcollecting" | "unavailable"): boole
 /** The transition tag the reference shows next to a finding. */
 export type FindingTag = "NEW" | "FLAPPING" | "RESOLVED" | "CHANGED" | "OPEN";
 
+/** A tag as shown: sentence case; the tag itself stays the CSS class. */
+export const FINDING_TAG_LABEL: Record<FindingTag, string> = { NEW: "New", FLAPPING: "Flapping", RESOLVED: "Resolved", CHANGED: "Changed", OPEN: "Open" };
+
 /** A finding is NEW when it started firing inside the range; the API leaves that to the UI. */
 export function findingTag(f: Finding, rangeStart: number | undefined): FindingTag {
   switch (f.state) {
@@ -39,13 +42,13 @@ export function findingTag(f: Finding, rangeStart: number | undefined): FindingT
   }
 }
 
-/** Text of the source pill, as in the reference. */
+/** Text of the source pill, in sentence case. */
 export const SOURCE_PILL: Record<EventSourceName, string> = {
-  nats: "nats",
-  kubernetes: "k8s",
-  finding: "check",
-  collector: "lens",
-  other: "other",
+  nats: "NATS",
+  kubernetes: "K8s",
+  finding: "Check",
+  collector: "Lens",
+  other: "Other",
 };
 
 /** CSS modifier of the source pill. */
@@ -150,8 +153,12 @@ export function withAccountName<T extends AccountRef>(e: T, refs: (AccountRef | 
   return found ? { ...e, accountName: found.accountName } : e;
 }
 
-/** Display name of an entity: the consumer, stream, server or key. */
-export function entityName(e: Entity | undefined): string {
+/** Display name of an entity: the consumer, stream, server or key; an
+ * account by label, its readable name or else its ID by default, as the
+ * API names an account entity by its ID. A list passes
+ * accountLabeller(its entities), so two accounts of one name read apart. */
+export function entityName(e: Entity | undefined, label: (id: string, name?: string) => string = accountLabel): string {
   if (!e) return "";
+  if (e.kind === "account") return label(e.account || e.key, e.accountName);
   return e.name || e.consumer || e.stream || e.server || e.key;
 }

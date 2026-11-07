@@ -51,6 +51,7 @@ type Archiver struct {
 	Log   *slog.Logger
 
 	lastPrune time.Time
+	status    status
 }
 
 // Manifest lists the files of one exported hour. It is written after the
@@ -71,13 +72,15 @@ type ManifestFile struct {
 	Rows  int64  `json:"rows"`
 }
 
-// State records the highest epoch number, event ID and mute ID at an
+// State records the highest epoch number, event ID, mute ID and
+// acknowledgement ID (0 in a state written before acknowledgements) at an
 // export tick and at shutdown, so that a rebuild never hands out a number
 // the lost database had already used before then.
 type State struct {
 	MaxEpoch   int64     `json:"max_epoch"`
 	MaxEventID int64     `json:"max_event_id"`
 	MaxMuteID  int64     `json:"max_mute_id"`
+	MaxAckID   int64     `json:"max_ack_id"`
 	WrittenAt  time.Time `json:"written_at"`
 }
 
@@ -101,14 +104,17 @@ func (a *Archiver) Run(ctx context.Context, every time.Duration) {
 // Tick exports the pending hours and writes the state object.
 func (a *Archiver) Tick(ctx context.Context, now time.Time) error {
 	_, err := a.Export(ctx, now)
-	return errors.Join(err, a.WriteState(ctx, now))
+	err = errors.Join(err, a.WriteState(ctx, now))
+	a.status.failed(err, now)
+	return err
 }
 
 // Export exports pending hours inside the retention window, oldest first,
 // at most MaxHoursPerTick of them, and returns how many it exported: closed
 // hours not exported yet or whose rows changed since, and the open hour
 // provisionally. Re-exporting an hour overwrites its files. After a
-// successful export it prunes hours past ArchiveRetention.
+// successful export it lists the manifests, at most once an hour, and
+// prunes hours past ArchiveRetention.
 func (a *Archiver) Export(ctx context.Context, now time.Time) (int, error) {
 	closedBefore := now.Add(-a.Grace).UTC().Truncate(time.Hour)
 	from := now.Add(-a.Retention).UTC().Truncate(time.Hour).Add(time.Hour)
@@ -164,6 +170,7 @@ func (a *Archiver) ExportHour(ctx context.Context, hour time.Time, final bool, n
 	if err := a.Store.MarkExported(ctx, hour, exp, final, now); err != nil {
 		return fmt.Errorf("mark %s exported: %w", tag, err)
 	}
+	a.status.exported(hour, final, now)
 	a.removeUnlisted(ctx, hour, m, id)
 	a.Log.Info("hour archived", "hour", hour.UTC(), "final", final, "files", len(exp.Files), "rows", exp.Rows())
 	return nil
@@ -233,13 +240,14 @@ func (a *Archiver) removeUnlisted(ctx context.Context, hour time.Time, m Manifes
 	}
 }
 
-// WriteState records the highest epoch number, event ID and mute ID.
+// WriteState records the highest epoch number, event ID, mute ID and
+// acknowledgement ID.
 func (a *Archiver) WriteState(ctx context.Context, now time.Time) error {
 	ids, err := a.Store.MaxIDs(ctx)
 	if err != nil {
 		return fmt.Errorf("read highest IDs: %w", err)
 	}
-	return a.putJSON(ctx, StateRelPath, State{MaxEpoch: ids.Epoch, MaxEventID: ids.Event, MaxMuteID: ids.Mute, WrittenAt: now.UTC()})
+	return a.putJSON(ctx, StateRelPath, State{MaxEpoch: ids.Epoch, MaxEventID: ids.Event, MaxMuteID: ids.Mute, MaxAckID: ids.Ack, WrittenAt: now.UTC()})
 }
 
 // putJSON stages v as JSON and puts it at rel.
@@ -329,7 +337,7 @@ func (a *Archiver) Rebuild(ctx context.Context, now time.Time) error {
 	if err := a.readJSON(ctx, StateRelPath, &st); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("state: %w", err)
 	}
-	if err := a.Store.Rebuild(ctx, hours, store.MaxIDs{Epoch: st.MaxEpoch, Event: st.MaxEventID, Mute: st.MaxMuteID}, now); err != nil {
+	if err := a.Store.Rebuild(ctx, hours, store.MaxIDs{Epoch: st.MaxEpoch, Event: st.MaxEventID, Mute: st.MaxMuteID, Ack: st.MaxAckID}, now); err != nil {
 		return err
 	}
 	a.Log.Info("database rebuilt from archive", "hours", len(hours), "since", from,

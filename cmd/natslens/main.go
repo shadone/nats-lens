@@ -12,6 +12,8 @@
 //	natslens checks run [-config FILE] [-system ID] [-data-dir DIR]
 //	                                            evaluate the checks on a database no collector has open
 //	natslens demo [-listen ADDR]                serve the API with a fixed scenario, without NATS
+//	natslens notify test -config FILE [-channel NAME] [-system ID]
+//	                                            send a test message to each notification channel, or one
 //
 // natslens run also serves the API and UI on -listen (default
 // 127.0.0.1:8080).
@@ -52,7 +54,7 @@ func main() {
 
 func run(ctx context.Context, args []string) error {
 	cmd := "run"
-	if len(args) > 0 && (args[0] == "run" || args[0] == "once" || args[0] == "sql" || args[0] == "demo" || args[0] == "checks") {
+	if len(args) > 0 && (args[0] == "run" || args[0] == "once" || args[0] == "sql" || args[0] == "demo" || args[0] == "checks" || args[0] == "notify") {
 		cmd, args = args[0], args[1:]
 	}
 	if cmd == "sql" {
@@ -63,6 +65,9 @@ func run(ctx context.Context, args []string) error {
 	}
 	if cmd == "demo" {
 		return runDemo(ctx, args)
+	}
+	if cmd == "notify" {
+		return runNotifyCmd(ctx, args, os.Stdout)
 	}
 
 	var only string
@@ -105,11 +110,14 @@ func runConfig(ctx context.Context, cmd string, cfg config.Config, only string, 
 	if err != nil {
 		return err
 	}
+	if err := checkNotifications(cfg, set, cmd, log); err != nil {
+		return err
+	}
 	warnUnusedDatabase(cfg, log)
 
 	// Before any system starts, every system is checked; any problem
 	// refuses the start, naming every broken system.
-	if err := checkSystems(systems, cmd == "run" && cfg.Events.Enabled); err != nil {
+	if err := checkSystems(systems, cmd == "run" && cfg.Events.Enabled, log); err != nil {
 		return err
 	}
 	// Every store is open, and any rebuild finished, before the API
@@ -129,14 +137,24 @@ func runConfig(ctx context.Context, cmd string, cfg config.Config, only string, 
 	}
 
 	// The API reports ready once it serves: every store is open by now.
-	// Collection does not affect readiness.
+	// NATS collection does not affect readiness; a fatal engine failure does.
 	ready := newReadiness(nil)
 	// The API reads the same databases: DuckDB lets one process hold a
 	// file. It starts its shutdown at the signal, gives calls in progress
 	// up to 5 seconds from then, and is waited for before the stores close.
 	if cmd == "run" && cfg.Listen != "" {
 		actx, stopAPI := context.WithCancel(ctx)
-		wait, err := startAPI(actx, apiOptionsFor(cfg, ready.ready), reg, log)
+		wait, err := startAPI(actx, apiOptionsFor(cfg, func() bool {
+			if !ready.ready() {
+				return false
+			}
+			for _, rt := range rts {
+				if rt.st.Failure() != nil {
+					return false
+				}
+			}
+			return true
+		}), reg, log)
 		if err != nil {
 			stopAPI()
 			return err
@@ -148,10 +166,9 @@ func runConfig(ctx context.Context, cmd string, cfg config.Config, only string, 
 	// A connection or setup failure isolates its system (see
 	// startRetrying), and so does a store read inside the setup (the
 	// stored Kubernetes state the watcher starts from): it is retried
-	// with the setup. A store failure before the setup, in LastSeenServers
-	// or recordStart, ends the system's run early, and natslens run then
-	// stops every system, as a store that fails to open fails the start.
-	// once collects every system it can.
+	// with the setup. A typed fatal isolates its system permanently for this
+	// run. Other store failures before setup still stop all systems. A store
+	// that fails to open fails startup; once collects every system it can.
 	rctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	// Shutdown starts when the systems are told to stop and must finish
@@ -171,7 +188,10 @@ func runConfig(ctx context.Context, cmd string, cfg config.Config, only string, 
 	for i, rt := range rts {
 		wg.Go(func() {
 			errs[i] = rt.run(rctx, cmd, set, deadline)
-			if errs[i] != nil && cmd == "run" && ctx.Err() == nil {
+			if store.IsFatal(errs[i]) && cmd == "run" && ctx.Err() == nil {
+				rt.log.Error("system database failed; collection stopped", "err", store.SafeError("system", errs[i]))
+				<-rctx.Done()
+			} else if errs[i] != nil && cmd == "run" && ctx.Err() == nil {
 				rt.log.Error("system's store failed; stopping the others", "err", errs[i])
 				cancel()
 			}

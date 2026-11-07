@@ -1,4 +1,4 @@
-/* Colour tokens, light and dark, ported from docs/ui-reference/reference.html. */
+/* Colour tokens, light and dark, ported from docs/ui-reference/reference.html; the type, spacing and radius scales at the end were added later. */
 /* ---------- tokens: light (default) ---------- */
 :root{
   color-scheme:light;
@@ -13,6 +13,8 @@
   --sev-info:#33609e; --sev-info-bg:#e9eff8;
   --sev-muted:#5f6763;
   --cell-critical:#d9473f; --cell-warning:#e8a630; --cell-info:#86a5d6; --ok-cell:#d6ece1; --on-cell-warning:#3b2900;
+  /* Warning change marks on a chart: --cell-warning is 2.1:1 on the light card, this reaches 3.5:1. */
+  --mark-warning:#b87a00;
   --k8s:#5f4aa3; --k8s-bg:#ece9f6; --upgrade-fill:rgba(95,74,163,.065); --upgrade-line:rgba(95,74,163,.5);
   --track:#e4e7e2; --track-fill:#c6e4d9;
   --backdrop:rgba(22,32,28,.35);
@@ -33,6 +35,7 @@
     --sev-info:#71abf0; --sev-info-bg:#132134;
     --sev-muted:#97a1ac;
     --cell-critical:#e0524f; --cell-warning:#d39b2a; --cell-info:#3f6fae; --ok-cell:#1a332d; --on-cell-warning:#1a1306;
+    --mark-warning:#d39b2a;
     --k8s:#b8a2ea; --k8s-bg:#211c33; --upgrade-fill:rgba(184,162,234,.075); --upgrade-line:rgba(184,162,234,.5);
     --track:#222b34; --track-fill:#1d4238;
     --backdrop:rgba(0,0,0,.6);
@@ -51,7 +54,32 @@
   --sev-info:#71abf0; --sev-info-bg:#132134;
   --sev-muted:#97a1ac;
   --cell-critical:#e0524f; --cell-warning:#d39b2a; --cell-info:#3f6fae; --ok-cell:#1a332d; --on-cell-warning:#1a1306;
+  --mark-warning:#d39b2a;
   --k8s:#b8a2ea; --k8s-bg:#211c33; --upgrade-fill:rgba(184,162,234,.075); --upgrade-line:rgba(184,162,234,.5);
   --track:#222b34; --track-fill:#1d4238;
   --backdrop:rgba(0,0,0,.6);
+}
+/* ---------- type scale (both themes) ----------
+   Five sizes shared by sans and mono. xs: meta, badges, axis ticks; sm: secondary
+   text, controls, table meta; md: body, tables, nav; lg: card and section headings,
+   the page title, card figures; xl: page headings and the largest figures.
+   Weights: 400 for text, 500 for emphasis and headings; 600 only for page titles
+   (header title, page and finding headings, on-call title) and the Overview
+   status line. Decided in the UI polish; see docs/design.md, UI. */
+:root{
+  --fs-xs:11px; --fs-sm:12px; --fs-md:13px; --fs-lg:15px; --fs-xl:20px;
+}
+/* ---------- spacing and radius (both themes) ----------
+   Spacing sits on a 4px grid: --sp-N is N times 4px. Use them for padding,
+   margin and gap; heights and offsets use multiples of 4 directly. A 2px step
+   stays allowed inside small controls (badges, pills, chips, keycaps), and a
+   value that exactly centres something may stay off the grid.
+   Radius: xs for marks of 12px or less, sm for badges, tags and keycaps, md for
+   controls, rows and inner boxes, lg for cards, panels and dialogs; pill only
+   for count badges. A box inside a rounded box takes the outer radius minus
+   the padding between them, never below sm. Decided in the UI polish; see docs/design.md, UI. */
+:root{
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px;
+  --sp-8:32px; --sp-10:40px; --sp-12:48px;
+  --r-xs:2px; --r-sm:4px; --r-md:8px; --r-lg:12px; --r-pill:999px;
 }

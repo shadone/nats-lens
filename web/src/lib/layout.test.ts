@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { monoWidth, placeLaneAnnotations } from "./laneLayout";
-import { layoutHorizontal, layoutVertical, zoomDomain, type Placed, type ZoomItem } from "./zoomLayout";
+import { V_FONT, V_OFFSET, layoutHorizontal, layoutVertical, zoomDomain, type Placed, type ZoomItem } from "./zoomLayout";
 
 const MIN = 60_000;
 const T0 = Date.parse("2026-10-17T09:10:00Z");
@@ -119,5 +119,12 @@ describe("layoutHorizontal bounds", () => {
   it("counts a label wider than the drawing as forced", () => {
     const L = layoutHorizontal([item("a", 20, 1, ["X".repeat(120)])], 640, [T0, T0 + 45 * MIN]);
     expect(L.forced).toBe(1);
+  });
+});
+
+describe("vertical zoom strip spacing", () => {
+  it("keeps the spine's centred start and end times clear of the labels beside it", () => {
+    // The end time is drawn centred on the spine; labels start V_OFFSET from it.
+    expect(monoWidth("00:00", V_FONT) / 2 + 1).toBeLessThanOrEqual(V_OFFSET);
   });
 });
