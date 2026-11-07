@@ -1,6 +1,6 @@
 import { useId } from "react";
 import { useDataHistory } from "../api/queries";
-import { usePageHistory } from "../components/HistoryNote";
+import { usePageHistory, type PageHistory } from "../components/HistoryNote";
 import { gapName, stripSegments } from "../lib/historyView";
 import { useTimeRange } from "../lib/useTimeRange";
 import { PRESETS, type RangeSpec } from "../lib/timeRange";
@@ -26,15 +26,19 @@ function QueriedGaps({ start, end, width, height }: Frame) {
   const d = q.data;
   return <>
     <GapMarks start={start} end={end} width={width} height={height} gaps={d?.gaps ?? []} observedStart={d?.rangeStart} observedEnd={d?.rangeEnd} historyStart={h?.historyStart} live={h?.live ?? false} serverGaps={d?.serverGaps} />
-    {(q.error || q.isPending) && <text x="2" y="11" className="dh-chart-status" role="status">{q.error ? "History gaps unavailable" : "History gaps loading"}</text>}
   </>;
 }
 interface Frame { start: number; end: number; width: number; height: number }
 
+/** The page's own history answer covers this chart; otherwise the chart queries its domain. */
+function pageGapsApply(h: PageHistory, start: number, end: number): h is PageHistory & { gaps: HistoryGap[] } {
+  return !!h.gaps && (h.gapServer === undefined || end - start === h.end - h.start);
+}
+
 export function HistoryGaps(props: Frame) {
   const h = usePageHistory();
   if (!h) return null;
-  return h.gaps && (h.gapServer === undefined || props.end - props.start === h.end - h.start) ? <GapMarks {...props} gaps={h.gaps} observedStart={h.start} observedEnd={h.end} historyStart={h.historyStart} live={h.live} serverGaps={h.serverGaps} /> : <QueriedGaps {...props} />;
+  return pageGapsApply(h, props.start, props.end) ? <GapMarks {...props} gaps={h.gaps} observedStart={h.start} observedEnd={h.end} historyStart={h.historyStart} live={h.live} serverGaps={h.serverGaps} /> : <QueriedGaps {...props} />;
 }
 
 function GapMarks({ start, end, width, height, gaps, live, historyStart, observedStart, observedEnd, serverGaps = [] }: Frame & { serverGaps?: ServerHistoryGap[]; gaps: HistoryGap[]; live: boolean; historyStart?: number; observedStart?: number; observedEnd?: number }) {
@@ -99,7 +103,21 @@ function QueriedNotice({ start, end }: { start: number; end: number }) {
 export function ChartHistoryNotice({ start, end }: { start: number; end: number }) {
   const h = usePageHistory();
   if (!h) return null;
-  return h.gaps && (h.gapServer === undefined || end - start === h.end - h.start)
+  return pageGapsApply(h, start, end)
     ? <OmissionNotice facts={h} start={start} end={end} observedStart={h.start} observedEnd={h.end} />
     : <QueriedNotice start={start} end={end} />;
+}
+function QueriedStatus({ start, end }: { start: number; end: number }) {
+  const { spec } = useTimeRange();
+  const h = usePageHistory();
+  const q = useDataHistory(chartRange(spec, start, end), h?.gapServer);
+  return q.error || q.isPending ? <span className="dh-chart-status" role="status">{q.error ? "History gaps unavailable" : "History gaps loading"}</span> : null;
+}
+/** The chart's own history read, loading or failed, as HTML placed over the
+ * chart: SVG text in a stretched chart would scale with the drawing. Render it
+ * right after the chart's SVG, inside the positioned .chart-inspection box. */
+export function ChartHistoryStatus({ start, end }: { start: number; end: number }) {
+  const h = usePageHistory();
+  if (!h || pageGapsApply(h, start, end)) return null;
+  return <QueriedStatus start={start} end={end} />;
 }

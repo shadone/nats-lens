@@ -3,7 +3,7 @@
 import { ChartInspection } from "./ChartInspection";
 import { usePageHistory } from "../components/HistoryNote";
 import type { ServerHistoryGap } from "../api/history";
-import { ChartHistoryNotice, HistoryGaps } from "./HistoryGaps";
+import { ChartHistoryNotice, ChartHistoryStatus, HistoryGaps } from "./HistoryGaps";
 import type { Level, Point, Window } from "../api/model";
 import { chartName, rangeText } from "./chartLabel";
 import { changedSegments } from "../lib/tileChart";
@@ -78,7 +78,7 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
       <><svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, undefined, period, note)}>
         <HistoryGaps start={start} end={end} width={W} height={H} />
         <line x1="0" x2={W} y1={H - 3} y2={H - 3} style={{ stroke: "var(--border)" }} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-      </svg><ChartHistoryNotice start={start} end={end}/></>
+      </svg><ChartHistoryStatus start={start} end={end} /><ChartHistoryNotice start={start} end={end}/></>
     );
   }
   const all = points.concat(points2 ?? []).map((p) => p.value);
@@ -118,7 +118,7 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
       )}
       {runs.map((run, i) => <polyline key={i} points={sparkPoints(run, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: col }} strokeWidth={neutral ? 1.3 : 1.6} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />)}
       {neutral && runs.flatMap((run, i) => changeRuns(run).map((seg, j) => <polyline key={`c${i}-${j}`} className="spark-change" points={sparkPoints(seg, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: "var(--accent)" }} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />))}
-    </svg><ChartHistoryNotice start={start} end={end}/></>
+    </svg><ChartHistoryStatus start={start} end={end} /><ChartHistoryNotice start={start} end={end}/></>
   );
 }
 

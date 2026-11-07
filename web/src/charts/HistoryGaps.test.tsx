@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router";
 import { beforeEach, expect, it, vi } from "vitest";
 import { HistoryContext, type PageHistory } from "../components/HistoryNote";
 import * as api from "../api/requests";
-import { HistoryGaps } from "./HistoryGaps";
+import { ChartHistoryStatus, HistoryGaps } from "./HistoryGaps";
 import { NOW, gap, staging } from "../test/fixtures/history";
 import { resolveRange, type RangeSpec } from "../lib/timeRange";
 
@@ -16,7 +16,7 @@ function setup(start: number, end: number, page: PageHistory, route: string) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   function Frame({ a = start, b = end, p = page, second = false, url = route }) {
     return <QueryClientProvider client={qc}><MemoryRouter initialEntries={[url]} key={url}><HistoryContext.Provider value={p}>
-      <svg><HistoryGaps start={a} end={b} width={200} height={40} />{second && <HistoryGaps start={a} end={b} width={200} height={40} />}</svg>
+      <svg><HistoryGaps start={a} end={b} width={200} height={40} />{second && <HistoryGaps start={a} end={b} width={200} height={40} />}</svg><ChartHistoryStatus start={a} end={b} />
     </HistoryContext.Provider></MemoryRouter></QueryClientProvider>;
   }
   return { ...render(<Frame />), qc, Frame };
