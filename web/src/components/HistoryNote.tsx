@@ -1,6 +1,7 @@
 // History facts shared by a page. LensInfo uses the shell's existing cache;
 // only a mounted chart subscribes to the range's shared Data history query.
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useSyncExternalStore, type ReactNode } from "react";
+import { notifyManager, useQueryClient } from "@tanstack/react-query";
 import { useReportStale } from "./StaleContext";
 import { Link, useLocation } from "react-router";
 import type { HistoryGap, ServerHistoryGap } from "../api/history";
@@ -8,6 +9,7 @@ import { useDataHistory, useLensInfo } from "../api/queries";
 import { growthHistoryNote, historyNote } from "../lib/historyView";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
 import { useGlobalQuery } from "../lib/useGlobalQuery";
+import { useSystem } from "../lib/useSystem";
 
 export interface PageHistory {
   historyStart?: number;
@@ -33,8 +35,28 @@ export function PageHistoryProvider({ children }: { children: ReactNode }) {
   const readsRange = !["/fleet", "/data-history"].includes(pathname);
   return <HistoryContext.Provider value={{ start, end, live: spec.kind === "live", historyStart: info?.historyStart, intervalMs: info?.collectIntervalMs }}>
     {readsRange && <HistoryNote />}
+    {readsRange && <PageHistoryStatus />}
     {children}
   </HistoryContext.Provider>;
+}
+
+/** The state of the history reads the page's charts make, once for the page:
+ * each chart shows it as plain text, and one live region per chart would say
+ * it many times. Server-scoped reads are left to ServerChartHistory's own. */
+function PageHistoryStatus() {
+  const cache = useQueryClient().getQueryCache();
+  const sys = useSystem();
+  const subscribe = useCallback((changed: () => void) => cache.subscribe(notifyManager.batchCalls(changed)), [cache]);
+  const text = useSyncExternalStore(subscribe, () => {
+    let pending = false;
+    for (const q of cache.findAll({ queryKey: ["data-history", sys] })) {
+      if (q.getObserversCount() === 0 || q.queryKey[3]) continue;
+      if (q.state.status === "error") return "History gaps unavailable";
+      if (q.state.status === "pending") pending = true;
+    }
+    return pending ? "History gaps loading" : "";
+  });
+  return <p className="sr-only" role="status">{text}</p>;
 }
 
 export function HistoryNote() {
