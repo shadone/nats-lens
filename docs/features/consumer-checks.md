@@ -6,7 +6,7 @@
 
 ## What it does
 
-The consumer checks judge each JetStream consumer: whether it keeps quorum, whether its backlog grows, whether its workers keep up with acknowledgements and redeliveries, whether delivery has stopped, whether its oldest unread message is about to leave the stream, whether fetches are refused, whether it stays paused, whether the servers agree about it, whether it matches the inventory, whether it keeps its state on one server, and whether a durable consumer disappeared. A consumer finding is keyed by `account/stream/consumer`. There are 17 consumer checks, `consumer-001` to `consumer-017`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
+The consumer checks judge each JetStream consumer: whether it keeps quorum, whether its backlog grows, whether its workers keep up with acknowledgements and redeliveries, whether delivery has stopped, whether its oldest unread message is about to leave the stream, whether fetches are refused, whether it stays paused, whether the servers agree about it, whether it matches the inventory, whether it keeps its state on one server, and whether a durable consumer disappeared. A consumer finding is keyed by `account/stream/consumer`. There are 18 consumer checks, `consumer-001` to `consumer-018`. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
 
 ## The checks
 
@@ -150,6 +150,17 @@ The consumer checks judge each JetStream consumer: whether it keeps quorum, whet
 - **Thresholds:** `max_paused` 2h, proposed, not yet confirmed. A pause on a schedule, such as a consumer that runs only at night, is by design: its finding is muted with that reason.
 - **Left out:** no paused consumer. The leader's report is read, or any replica's when no leader reports. A consumer created again starts a new pause.
 
+### `consumer-018` Consumer replicas degraded
+
+- **Problem:** a replicated consumer has a degraded peer while its online quorum survives. Another failure can stop delivery and acknowledgement progress.
+- **Fires when:** the same consumer incarnation, leader, membership and effective replica count have at least `min_epochs` consecutive stored collections with an offline, noncurrent or lagging peer. Each collection needs the leader's complete peer list, known current/offline/lag fields, no pending peers, and at least a quorum of consumer reports naming that leader. The leader counts as online; every peer explicitly reported online counts toward the surviving quorum. An online peer can still lag. Follower reports about other followers do not establish health.
+- **Severity:** warning. `consumer-001` suppresses this warning when it reports quorum loss. A complete report below the online quorum also ends this warning, even before the quorum check's persistence threshold.
+- **Thresholds:** `min_epochs` 3 collections (at least 2), `max_gap` 90 seconds between observations and `election_grace` 2 minutes. Severity and defaults are proposed, not yet confirmed. Consumer creation, leader election and the known replica process starts must precede the grace. Epoch numbers must be consecutive and collection times strictly increasing. A pause does not suspend Raft replication, so paused consumers remain eligible.
+- **Evidence:** the detail names each degraded peer and its offline, noncurrent or lagging state, the number online, the configured count and the observation count. Lag is Raft operations awaiting persistence, not messages. Offline comes from server node tracking; online does not prove that the peer responds to Raft. The numeric value counts degraded peers. The leader's view is authoritative because NATS followers intentionally report other followers as noncurrent with zero lag. This interpretation follows NATS 2.15.0's `raft.Peers` and `jetStream.clusterInfo`.
+- **Resolution and unknown evidence:** one complete healthy observation resolves a warning. Missing consumer or leader reports, incomplete peer lists, unknown fields, elections, gaps and pending membership cannot start a warning. They keep an existing warning open with explicit unknown-health wording and no numeric value. A known different incarnation or single-replica configuration ends the old warning. Held state survives skipped or failing check runs and reopening the store; mutes keep their usual meaning. A historical evaluation never borrows a finding updated in its future.
+- **Left out:** a new warning without corroborated quorum, a complete peer report or stable observations. Missing reports are unknown, never zero lag or proof of an offline peer. A missing configuration also holds an existing warning as unknown; disappearance is judged by the inventory and deletion checks. The check does not prove that a consumer can commit merely from online counts. It does not measure message lag, inspect messages or change NATS. A sustained Raft catch-up can warn after the startup grace; catch-up alone is not a restart exclusion.
+- **Investigation:** read the named peers in consumer info and compare repeated observations. Check server disk, CPU, network, restarts and Raft catch-up findings before another replica fails. The consumer creation-time agreement checks do not establish replica health.
+
 ## Behavior and rules
 
 - **Demo guidance agrees with the reference.** The demo's `consumer-009` finding uses the shipped investigation guidance. It does not promise that a leader step-down repairs differing timestamps.
@@ -228,3 +239,11 @@ These consumer checks are not built. Each line says what it would detect and wha
 - **No consumer update events.** nats-server sends no advisory for a consumer update, so no check reports who changed a consumer.
 - **No recreation of consumers.** nats-lens never creates, edits or deletes a consumer.
 - **No check of backoff against max_deliver.** nats-server refuses a consumer whose `backoff` list has more steps than `max_deliver`, and with a `backoff` list it sets `ack_wait` to the first step, so neither mismatch can exist on a running consumer.
+
+### A consumer loses redundancy before quorum
+
+- **Given** an R3 consumer whose leader repeatedly reports one offline peer and two online replicas
+- **When** three consecutive collections have stable membership, quorum reports and no startup or election grace
+- **Then** `consumer-018` warns and names the offline peer
+- **And** a complete healthy report resolves it; missing evidence holds it as unknown
+- **And** a complete report below quorum leaves the problem to `consumer-001`
