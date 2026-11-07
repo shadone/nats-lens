@@ -55,5 +55,5 @@
 .ep span.error,.ep span.missing{background:var(--sev-critical-bg);color:var(--sev-critical)}
 .mutes-list .frow{grid-template-columns:96px 112px minmax(0,1fr) 150px}
 .chart.stale svg.spark{opacity:.4}
-.chart.stale .chart-h b,.chart.stale .chart-f{color:var(--text-muted);font-style:italic}
+.chart.stale .chart-h b,.chart.stale .chart-f{color:var(--text-muted)}
 .chart-stale{margin-top:4px;font:11px var(--mono);color:var(--sev-warning)}

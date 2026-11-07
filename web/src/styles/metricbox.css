@@ -22,7 +22,7 @@
 .mb-track-note{margin-top:9px;font:11px var(--mono);color:var(--text-muted)}
 .mb-note{margin-top:4px;font-size:11.5px;color:var(--text-muted)}
 .infotip{position:relative;display:inline-flex}
-.infotip-b{width:15px;height:15px;padding:0;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font:italic 600 10px/13px var(--sans);cursor:help}
+.infotip-b{width:15px;height:15px;padding:0;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font:600 10px/13px var(--sans);cursor:help}
 .infotip-b:hover,.infotip-b:focus-visible{border-color:var(--accent);color:var(--accent-text)}
 .infotip-t{position:absolute;z-index:20;top:20px;left:-8px;width:max-content;max-width:260px;padding:8px 10px;border-radius:6px;background:var(--strong-bg);color:var(--on-strong);font:400 12px/1.4 var(--sans);white-space:normal;box-shadow:0 4px 14px var(--shadow)}
 .mb-stale{align-self:flex-start;margin-top:4px;font:11px var(--mono);color:var(--sev-warning);cursor:help}
