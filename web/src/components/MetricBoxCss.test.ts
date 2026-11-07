@@ -1,5 +1,5 @@
-// A warning tile shows one amber: the range track's dot takes the same mark
-// colour as the chart's warning marks, which every theme defines.
+// The range track's warning dot takes the same amber
+// as the chart's warning marks, which every theme defines.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
