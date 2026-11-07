@@ -52,12 +52,13 @@ it.each([false,true])("tells the reader history gaps are loading in HTML text ou
  let answer!:(v:ReturnType<typeof staging>)=>void;
  read.mockImplementation(()=>new Promise(yes=>{answer=yes}));
  const r=renderApp(<Charts trend={trend}/>,"/?range=24h");
- const status=await screen.findByRole("status");
- expect(status).toHaveTextContent("History gaps loading");
+ const status=await screen.findByText("History gaps loading");
+ // Plain text in flow, not one live region per chart.
+ expect(screen.queryByRole("status")).toBeNull();
  expect(status.closest("svg")).toBeNull();
  expect(status.namespaceURI).toBe("http://www.w3.org/1999/xhtml");
  answer({...staging(),rangeStart:NOW-H,rangeEnd:NOW,gaps:[]});
- await waitFor(()=>expect(screen.queryByRole("status")).not.toBeInTheDocument());
+ await waitFor(()=>expect(screen.queryByText("History gaps loading")).not.toBeInTheDocument());
  // beforeEach returns the mock, and Vitest calls it after the test as a teardown.
  read.mockReset();
  r.unmount();

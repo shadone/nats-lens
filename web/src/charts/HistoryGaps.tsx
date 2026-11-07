@@ -111,11 +111,11 @@ function QueriedStatus({ start, end }: { start: number; end: number }) {
   const { spec } = useTimeRange();
   const h = usePageHistory();
   const q = useDataHistory(chartRange(spec, start, end), h?.gapServer);
-  return q.error || q.isPending ? <span className="dh-chart-status" role="status">{q.error ? "History gaps unavailable" : "History gaps loading"}</span> : null;
+  return q.error || q.isPending ? <p className="dh-chart-status">{q.error ? "History gaps unavailable" : "History gaps loading"}</p> : null;
 }
-/** The chart's own history read, loading or failed, as HTML placed over the
- * chart: SVG text in a stretched chart would scale with the drawing. Render it
- * right after the chart's SVG, inside the positioned .chart-inspection box. */
+/** The chart's own history read, loading or failed, as a line of HTML under
+ * the chart: SVG text in a stretched chart would scale with the drawing. It is
+ * not a live region; one per chart would announce the same state many times. */
 export function ChartHistoryStatus({ start, end }: { start: number; end: number }) {
   const h = usePageHistory();
   if (!h || pageGapsApply(h, start, end)) return null;

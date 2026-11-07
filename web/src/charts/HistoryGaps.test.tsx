@@ -55,7 +55,7 @@ it.each([false, true])("does not reuse another range's open outage while the nex
   r.rerender(<r.Frame b={NOW} p={{ ...p, end: NOW }} url={url(old)} />);
   await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
   expect(screen.queryByRole("img", { name: /No collections/ })).not.toBeInTheDocument();
-  expect(screen.getByRole("status")).toHaveTextContent("History gaps loading");
+  expect(screen.getByText("History gaps loading")).toBeInTheDocument();
   if (fail) {
     await act(async () => reject(new Error("history unavailable")));
     expect(screen.queryByRole("img", { name: /No collections/ })).not.toBeInTheDocument();
@@ -80,7 +80,7 @@ it("bounds retained live data on a failed refresh and tells the reader history i
   await screen.findByRole("img", { name: /No collections/ });
   r.rerender(<r.Frame a={p.start + H} b={NOW + H} p={{ ...p, start: p.start + H, end: NOW + H }} />);
   await act(async () => { await r.qc.invalidateQueries(); });
-  expect(await screen.findByRole("status")).toHaveTextContent("History gaps unavailable");
+  expect(await screen.findByText("History gaps unavailable")).toBeInTheDocument();
   const mark = screen.getByRole("img", { name: /No collections/ });
   expect(Number(mark.getAttribute("x")) + Number(mark.getAttribute("width"))).toBeLessThan(200);
   expect(mark).not.toHaveAttribute("aria-label", expect.stringContaining("until now"));
