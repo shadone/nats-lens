@@ -5,7 +5,7 @@ import { PageHistoryProvider, ServerChartHistory } from "./HistoryNote";
 import { SeriesChart } from "../charts/SeriesChart";
 import { TrendChart } from "./TrendChart";
 import * as api from "../api/requests";
-import { NOW } from "../test/fixtures/history";
+import { NOW, staging } from "../test/fixtures/history";
 
 vi.mock("../api/requests", () => ({ getDataHistory: vi.fn(), getLensInfo: vi.fn() }));
 const read = vi.mocked(api.getDataHistory), H = 3_600_000;
@@ -43,4 +43,40 @@ it("leaves a server's charts to the server's own announcement", async () => {
   expect(said[0]).toHaveClass("dh-note");
   read.mockReset();
   r.unmount();
+});
+
+it("says loading only after the read has been pending for 300 ms, and unavailable at once", async () => {
+  vi.useFakeTimers();
+  try {
+    const fails: ((e: Error) => void)[] = [];
+    read.mockImplementation(() => new Promise((_yes, no) => { fails.push(no); }));
+    const r = renderApp(<PageHistoryProvider><SeriesChart title="CPU" start={NOW - H} end={NOW} /></PageHistoryProvider>, "/?system=example-prod&range=24h");
+    await act(async () => { await vi.advanceTimersByTimeAsync(250); });
+    expect(screen.getByRole("status").textContent).toBe("");
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    expect(screen.getByRole("status")).toHaveTextContent("History gaps loading");
+    await act(async () => { fails.forEach((no) => no(new Error("history unavailable"))); await vi.advanceTimersByTimeAsync(5); });
+    expect(screen.getByRole("status")).toHaveTextContent("History gaps unavailable");
+    read.mockReset();
+    r.unmount();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("does not flash loading when the read settles within 300 ms", async () => {
+  vi.useFakeTimers();
+  try {
+    const answers: ((v: ReturnType<typeof staging>) => void)[] = [];
+    read.mockImplementation(() => new Promise((yes) => { answers.push(yes); }));
+    const r = renderApp(<PageHistoryProvider><SeriesChart title="CPU" start={NOW - H} end={NOW} /></PageHistoryProvider>, "/?system=example-prod&range=24h");
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    expect(screen.getByRole("status").textContent).toBe("");
+    await act(async () => { answers.forEach((yes) => yes({ ...staging(), rangeStart: NOW - H, rangeEnd: NOW, gaps: [] })); await vi.advanceTimersByTimeAsync(400); });
+    expect(screen.getByRole("status").textContent).toBe("");
+    read.mockReset();
+    r.unmount();
+  } finally {
+    vi.useRealTimers();
+  }
 });
