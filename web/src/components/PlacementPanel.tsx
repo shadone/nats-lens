@@ -2,7 +2,7 @@
 // against the other servers', what its state means and how to check it by
 // hand. It shows commands to copy; nats-lens runs none of them.
 import type { ReactNode } from "react";
-import type { MatrixAsset, MatrixCell } from "../api/placementMatrix";
+import type { MatrixAsset, MatrixCell, PlacementObservation } from "../api/placementMatrix";
 import { fmtDuration, fmtInt, isoSecond } from "../lib/format";
 import { useCurrentSystem } from "../api/systems";
 import { CELL_LABEL, contextNote, infoCommand, isConsumer, meaning, momentText, peersAgree, stepDownCommand, type Change } from "../lib/placementView";
@@ -42,7 +42,9 @@ export function PlacementPanel({
   change,
   compareAt,
   onClose,
+  observation,
 }: {
+  observation?: PlacementObservation;
   a: MatrixAsset;
   c: MatrixCell;
   /** The collection read, for "how long ago". */
@@ -60,6 +62,7 @@ export function PlacementPanel({
   const path = entityPath(a.entity);
   const eventsQuery = `${consumer ? "consumer" : "stream"}=${encodeURIComponent(a.entity.key)}`;
   const differs = c.differs.map((d) => (d === "config_hash" ? "configuration" : "creation time"));
+  const observed = observation && observation.asset === a.entity.key && observation.server === c.server && observation.asOf === now && observation.state === c.state && observation.differs.join() === c.differs.join() ? observation : undefined;
   const peers = c.peers.length ? [c.server, ...c.peers].sort() : [];
   return (
     <aside className="card pm-panel" aria-labelledby="pm-panel-h">
@@ -112,7 +115,8 @@ export function PlacementPanel({
           {peers.length ? `${peers.join(" ")} ${peersAgree(a) ? "(all agree)" : "(servers name different replicas)"}` : "names none"}
         </Row>
         <Row term="Since">
-          <Since a={a} c={c} now={now} change={change} compareAt={compareAt} />
+          <Since a={a} c={c} now={now} change={change} compareAt={compareAt} observed={!!observed} />
+          {observed && <Observed o={observed} />}
         </Row>
         {c.configHash && <Row term="Config hash" warn={c.differs.includes("config_hash")}>{c.configHash}</Row>}
       </dl>
@@ -142,12 +146,29 @@ export function PlacementPanel({
 }
 
 /** How long the state has lasted, as far as the data says. */
-function Since({ a, c, now, change, compareAt }: { a: MatrixAsset; c: MatrixCell; now: number; change?: Change; compareAt?: number }) {
+function Since({ a, c, now, change, compareAt, observed }: { a: MatrixAsset; c: MatrixCell; now: number; change?: Change; compareAt?: number; observed?: boolean }) {
   const parts: string[] = [];
   if (c.state === "leader" && a.leaderSince !== undefined) parts.push(`leads since ${isoSecond(a.leaderSince)} UTC, ${fmtDuration(now - a.leaderSince)}`);
   if (c.differs.includes("created") && c.created !== undefined) parts.push(`its copy dates from ${fmtDuration(now - c.created)} ago`);
   if (compareAt !== undefined) {
     parts.push(change ? `${change.newAsset ? "not in the matrix" : CELL_LABEL[change.then]} at ${momentText(compareAt)}` : `the same at ${momentText(compareAt)}`);
   }
-  return <>{parts.length ? parts.join("; ") : "not recorded; compare with an earlier time to see"}</>;
+  return <>{parts.length ? parts.join("; ") : observed ? null : "not recorded; compare with an earlier time to see"}</>;
+}
+
+/** Samples establish a lower bound, even after observing a different state. */
+function Observed({ o }: { o: PlacementObservation }) {
+  if (o.since === undefined || o.asOf === undefined) return null;
+  const boundary: Record<string, string> = {
+    collection_limit: "the collection limit", range_limit: "the selected range boundary",
+    lookback_limit: "the 24-hour lookback limit", history_limit: "the stored history boundary",
+    collection_gap: "a collection gap", evidence_unknown: "missing or unknown evidence",
+    state_changed: "different state evidence", identity_changed: "changed identity, membership or disagreement evidence",
+  };
+  const what = o.differs.length ? `${CELL_LABEL[o.state]} with ${o.differs.map(d => d === "created" ? "a different creation time" : "a different configuration").join(" and ")}` : CELL_LABEL[o.state];
+  return <p className="pm-note">
+    observed {what} since {isoSecond(o.since)} UTC, at least {fmtDuration(o.asOf - o.since)} across {o.samples} {o.samples === 1 ? "collection" : "collections"}.
+    {" "}{o.truncated ? "Limited history: " : ""}search stopped at {boundary[o.boundary] ?? "the evidence boundary"}.
+    {" "}This is sampled evidence, not a continuous outage start. A single collection establishes no earlier duration.
+  </p>;
 }

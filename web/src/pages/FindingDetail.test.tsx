@@ -401,3 +401,16 @@ describe("FindingDetail of an accepted finding", () => {
     expect(screen.queryByText(/growth baseline/)).toBeNull();
   });
 });
+
+
+it("offers Replay for the selected historical transition instead of the finding's newer lifetime", async () => {
+  const t=Date.parse("2026-10-17T12:00:00Z");
+  m.getFinding.mockResolvedValue({finding:{...base,since:t+3600000},transitions:[{time:t-600000,state:"resolved",severity:"warning",detail:""}]});
+  show("?system=example-prod&account=APP&from=2026-10-17T11:00:00Z&to=2026-10-17T12:00:00Z");
+  const link=await screen.findByRole("link",{name:"Replay this window"});
+  const p=new URL(link.getAttribute("href")!,"http://example.com").searchParams;
+  expect(p.get("a")).toBe("2026-10-17T11:45:00Z");
+  expect(p.get("b")).toBe("2026-10-17T11:55:00Z");
+  expect(p.get("system")).toBe("example-prod");
+  expect(p.has("account")).toBe(false);
+});

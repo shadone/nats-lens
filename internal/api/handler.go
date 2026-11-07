@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -337,6 +338,18 @@ func (h *Handler) GetPlacement(ctx context.Context, req *connect.Request[v1.GetP
 	return call(ctx, h, "GetPlacement", req.Msg, func(p Provider, m *v1.GetPlacementRequest) error {
 		if _, ok := v1.PlacementFilter_name[int32(m.GetFilter())]; !ok {
 			return invalid("unknown filter %d", m.GetFilter())
+		}
+		// ASVS 2.2.1: bound and validate the selected-cell key at the service boundary.
+		if m.GetSelectedAsset() != "" || m.GetSelectedServer() != "" {
+			parts := strings.Split(m.GetSelectedAsset(), "/")
+			if len(m.GetSelectedAsset()) > 1024 || len(m.GetSelectedServer()) > 256 || m.GetSelectedServer() == "" || (len(parts) != 2 && len(parts) != 3) {
+				return invalid("selected asset and server are required; asset is account/stream[/consumer]")
+			}
+			for _, part := range parts {
+				if part == "" {
+					return invalid("selected asset has an empty component")
+				}
+			}
 		}
 		return withRange(p, &m.Range)
 	}, func(s System, ctx context.Context, m *v1.GetPlacementRequest) (*v1.GetPlacementResponse, error) {

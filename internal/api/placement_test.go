@@ -116,9 +116,13 @@ func TestPlacementHandlerErrors(t *testing.T) {
 	}
 	_, c := apitest.Serve(t, p)
 	for name, req := range map[string]*v1.GetPlacementRequest{
-		"unknown system": {System: "nope"},
-		"unknown filter": {Filter: v1.PlacementFilter(42)},
-		"inverted range": {Range: &v1.TimeRange{Start: timestamppb.New(fake.FixedNow), End: timestamppb.New(fake.FixedNow.Add(-time.Hour))}},
+		"unknown system":           {System: "nope"},
+		"unknown filter":           {Filter: v1.PlacementFilter(42)},
+		"selection without server": {SelectedAsset: "APP/orders"},
+		"selection without asset":  {SelectedServer: "nats-0"},
+		"selection empty part":     {SelectedAsset: "APP//orders", SelectedServer: "nats-0"},
+		"selection invalid shape":  {SelectedAsset: "APP/orders/shipper/extra", SelectedServer: "nats-0"},
+		"inverted range":           {Range: &v1.TimeRange{Start: timestamppb.New(fake.FixedNow), End: timestamppb.New(fake.FixedNow.Add(-time.Hour))}},
 	} {
 		if _, err := c.GetPlacement(context.Background(), connect.NewRequest(req)); connect.CodeOf(err) != connect.CodeInvalidArgument {
 			t.Errorf("%s: %v, want invalid_argument", name, err)

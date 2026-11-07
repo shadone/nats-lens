@@ -27,8 +27,7 @@ web-dev: web/node_modules/.package-lock.json
 
 # Regenerates the Go and TypeScript code from proto/. The Go plugins run
 # through the tool directives in go.mod, protoc-gen-es from web/node_modules.
-proto:
-	cd web && npm ci --no-audit --no-fund
+proto: web/node_modules/.package-lock.json
 	buf lint
 	buf format --diff --exit-code
 	buf generate

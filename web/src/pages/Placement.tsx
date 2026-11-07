@@ -31,7 +31,7 @@ export function Placement() {
   const cmp = params.get("cmp") ?? "";
   const allServers = params.get("servers") === "all";
   const selected: CellRef | undefined = params.get("asset") && params.get("server") ? { asset: params.get("asset")!, server: params.get("server")! } : undefined;
-  const q = usePlacement(spec, filter);
+  const q = usePlacement(spec, filter, true, undefined, selected);
   // The moment to compare with, to the minute, so a live range does not
   // ask for a new one every tick.
   const raw = momentOf(cmp, end);
@@ -175,6 +175,7 @@ export function Placement() {
                     a={a}
                     c={c}
                     now={m.epochAt ?? end}
+                    observation={!q.isPlaceholderData && !q.error ? m.observation : undefined}
                     change={changed?.get(`${a.entity.key}|${c.server}`)}
                     compareAt={cmpAt}
                     onClose={close}

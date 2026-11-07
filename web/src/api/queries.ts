@@ -191,11 +191,11 @@ export function useConsumer(spec: RangeSpec, account: string, stream: string, na
  * the same keepFor, so keepFor names everything the kept data must share
  * (system, page range, choice).
  */
-export function usePlacement(spec: RangeSpec, filter: MatrixFilter, enabled = true, keepFor?: string) {
+export function usePlacement(spec: RangeSpec, filter: MatrixFilter, enabled = true, keepFor?: string, selected?: { asset: string; server: string }) {
   const sys = useSystem();
   return useQuery<Matrix, Error, Matrix, readonly unknown[]>({
-    queryKey: keepFor === undefined ? ["placement", sys, rangeKey(spec), filter] : ["placement", sys, rangeKey(spec), filter, keepFor],
-    queryFn: ({ signal }) => api.getPlacement(sys, spec, filter, signal),
+    queryKey: ["placement", sys, rangeKey(spec), filter, keepFor, selected?.asset, selected?.server],
+    queryFn: ({ signal }) => selected ? api.getPlacement(sys, spec, filter, signal, selected) : api.getPlacement(sys, spec, filter, signal),
     refetchInterval: refetch(spec),
     placeholderData: keepSameSystem(sys, keepFor === undefined ? {} : { 4: keepFor }),
     enabled,
