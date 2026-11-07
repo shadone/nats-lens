@@ -144,7 +144,7 @@ func TestUnknownValueNotesPerServerAndField(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	want := fmt.Sprintf(`nats-1 sent consumer config.ack_policy "future", which this nats-server version does not know, for %d consumers; their configurations are not stored`, n)
+	want := NotePrefix + fmt.Sprintf(`nats-1 sent consumer config.ack_policy "future", which this nats-server version does not know, for %d consumers; their configurations are not stored`, n)
 	if got := count(t, s.DB(), `SELECT sum(len(errors)) FROM epochs`); got != 2 {
 		t.Errorf("%d notes over 2 epochs, want 2", got)
 	}
@@ -192,6 +192,11 @@ func TestUnknownValueNotesNameWhatIsStored(t *testing.T) {
 			t.Errorf("notes lack %q:\n%s", w, all)
 		}
 	}
+	for _, n := range notes {
+		if !strings.HasPrefix(n, NotePrefix) {
+			t.Errorf("note %q lacks the prefix %q", n, NotePrefix)
+		}
+	}
 	if len(notes) != 9 || strings.Contains(all, "does not encode") {
 		t.Errorf("%d notes, want 9 (5 stream fields, 4 consumer fields), none per asset:\n%s", len(notes), all)
 	}
@@ -226,7 +231,7 @@ func TestUnknownNoteFollowsTheConfiguration(t *testing.T) {
 	if got := count(t, s.DB(), `SELECT count(*) FROM consumer_config WHERE consumer = 'catalog-writer'`); got != 0 {
 		t.Fatalf("catalog-writer's configuration stored %d times, want none", got)
 	}
-	want := `nats-1 sent consumer config.deliver_policy "future", which this nats-server version does not know, for 1 consumer; its configuration is not stored`
+	want := NotePrefix + `nats-1 sent consumer config.deliver_policy "future", which this nats-server version does not know, for 1 consumer; its configuration is not stored`
 	if got := count(t, s.DB(), `SELECT count(*) FROM epochs WHERE list_contains(errors, ?)`, want); got != 1 {
 		var notes string
 		_ = s.DB().QueryRow(`SELECT string_agg(array_to_string(errors, ' | '), ' || ') FROM epochs`).Scan(&notes)

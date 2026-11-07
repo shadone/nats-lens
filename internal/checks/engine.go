@@ -17,7 +17,9 @@ import (
 
 // Engine runs a Set of checks for one epoch.
 type Engine struct {
-	Set *Set
+	// Interval is the configured collect interval; unknown means no slow routes.
+	Interval time.Duration
+	Set      *Set
 	// Log receives failed checks and the run summary; nil uses
 	// slog.Default().
 	Log *slog.Logger
@@ -29,6 +31,10 @@ type Engine struct {
 	// system, which the client checks leave out; nil means the Set's.
 	// Engines of several systems share one Set and each sets its own.
 	ToolingNames []string
+	// ArchiveSince is when the process began exporting hours to the
+	// archive, read by the checks as archive_since; zero when it does
+	// not export.
+	ArchiveSince time.Time
 	// only, when set, limits a run to these codes; for tests.
 	only map[string]bool
 	// loopbackWarned is set once the loopback guard was logged; the
@@ -116,6 +122,10 @@ FROM epochs WHERE epoch = ?`, epoch, epoch).Scan(&at, &prev)
 	}
 	at = at.UTC()
 	tooling := e.tooling()
+	archiveSince := "NULL::TIMESTAMP"
+	if !e.ArchiveSince.IsZero() {
+		archiveSince = tsLit(e.ArchiveSince)
+	}
 	loopback, _, err := LoopbackDecision(ctx, conn, epoch, tooling)
 	if err != nil {
 		return nil, false, err
@@ -135,6 +145,7 @@ FROM epochs WHERE epoch = ?`, epoch, epoch).Scan(&at, &prev)
 		"tooling_names":    listLiteral(tooling),
 		"loopback_setting": strconv.FormatBool(e.Set.loopbackTooling),
 		"loopback_now":     strconv.FormatBool(loopback),
+		"archive_since":    archiveSince,
 	}); err != nil {
 		return nil, false, err
 	}
@@ -146,7 +157,7 @@ FROM epochs WHERE epoch = ?`, epoch, epoch).Scan(&at, &prev)
 	}
 	var skipped []string
 	for _, c := range rotate(e.Set.Checks(), epoch) {
-		if c.builtin || (e.only != nil && !e.only[c.Code]) {
+		if c.Code == CheckFailedCode || (e.only != nil && !e.only[c.Code]) {
 			continue
 		}
 		run := store.CheckRun{Code: c.Code, EntityType: c.Entity}
@@ -163,7 +174,7 @@ FROM epochs WHERE epoch = ?`, epoch, epoch).Scan(&at, &prev)
 			runs = append(runs, run)
 			continue
 		}
-		rows, err := e.runOne(ctx, conn, c, at, deadline)
+		rows, err := e.runOne(ctx, conn, c, epoch, at, deadline)
 		run.Duration = time.Since(start)
 		if ctx.Err() != nil {
 			return nil, false, ctx.Err()
@@ -311,9 +322,9 @@ func (e *Engine) failedRun(failed, streak []string) store.CheckRun {
 	return run
 }
 
-// runOne sets the check's variables and runs its query within the set's
-// timeout.
-func (e *Engine) runOne(ctx context.Context, conn *sql.Conn, c *Check, at, deadline time.Time) ([]store.FindingRow, error) {
+// runOne sets the check's variables and runs its query or Go rule within
+// the set's timeout and the remaining epoch budget.
+func (e *Engine) runOne(ctx context.Context, conn *sql.Conn, c *Check, epoch int64, at, deadline time.Time) ([]store.FindingRow, error) {
 	vars := map[string]string{}
 	if lb := e.Set.Lookback(c.Code); lb > 0 {
 		vars["lookback"] = Value{Unit: UnitDuration, Duration: lb}.literal()
@@ -334,6 +345,23 @@ func (e *Engine) runOne(ctx context.Context, conn *sql.Conn, c *Check, at, deadl
 	}
 	qctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+	if c.Code == LeafHealthCode {
+		return e.leafHealth(qctx, conn, epoch, at)
+	}
+	if c.Code == SlowRouteCode {
+		return e.slowRoutes(qctx, conn, epoch, at)
+	}
+	if c.Code == "system-002" || c.Code == "system-003" {
+		lo := epoch
+		if c.Code == "system-003" {
+			if err := conn.QueryRowContext(qctx, "SELECT getvariable('window_epoch')").Scan(&lo); err != nil {
+				return nil, err
+			}
+		}
+		if err := prepareMetaGroups(qctx, conn, lo, epoch); err != nil {
+			return nil, err
+		}
+	}
 	rows, err := conn.QueryContext(qctx, c.SQL)
 	if err != nil {
 		if qctx.Err() != nil && ctx.Err() == nil {

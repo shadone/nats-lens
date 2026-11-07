@@ -34,7 +34,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 |---|---|
 | `ui` | The web UI that `natslens run` and `natslens demo` serve at `/`. |
 | `api` | The Connect API `natslens.v1.LensService` under `/api/`, and the plain HTTP endpoints beside it (`/metrics`, `/healthz`, `/readyz`). |
-| `cli` | The `natslens` commands (`run`, `once`, `sql`, `checks`, `demo`), their flags and the configuration file. |
+| `cli` | The `natslens` commands (`run`, `once`, `sql`, `checks`, `notify`, `demo`), their flags and the configuration file. |
 
 ## Terms
 
@@ -50,6 +50,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | finding | One check failing for one entity (a server, account, stream, consumer, client or the whole system). A finding fires, can change severity, and resolves. |
 | event | One thing that happened at a moment: a NATS advisory or system event, a Kubernetes change, a finding transition, or a record of the collector itself. |
 | inventory | The optional file that lists the assets each account must have, with the settings that must have a given value. |
+| acknowledgement | A record of who is investigating one finding's firing episode, with an optional note and alert quiet; it leaves the finding visible and counted. |
 | mute | A decision to hide one check's findings, for one entity or for every entity, with a reason and an end time. |
 | tooling connection | A client connection that is not an application: nats-lens's own connections, and by default clients connected from a loopback address such as a port-forwarded `nats` CLI. |
 
@@ -57,98 +58,99 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 
 | Capability | Surfaces | Status |
 |---|---|---|
-| [What nats-lens is](overview.md) | `ui`, `api`, `cli` | shipped |
-| [Monitoring snapshots](monitoring-snapshots.md) | `ui`, `cli` | shipped |
-| [Event capture](event-capture.md) | `ui`, `api`, `cli` | shipped |
-| [Kubernetes context](kubernetes-context.md) | `ui`, `cli` | shipped |
-| [History and archive](history-and-archive.md) | `ui`, `cli` | shipped |
-| [Checks and findings](checks.md) | `ui`, `api`, `cli` | partial — accepting a finding is built for one entity; related entities, a check everywhere and a review list are planned |
-| [Server checks](server-checks.md) | `ui`, `cli` | shipped |
+| [What nats-lens is](overview.md) | `ui`, `api`, `cli` | shipped — read-only towards NATS; operator mutes and acknowledgements |
+| [Monitoring snapshots](monitoring-snapshots.md) | `ui`, `cli` | shipped — empty account RAFTZ replies and last-stream deletion preserve request outcomes |
+| [Event capture](event-capture.md) | `ui`, `api`, `cli` | shipped — includes OCSP peer rejections with only known fields and peer fingerprints retained |
+| [Kubernetes context and watch recovery](kubernetes-context.md) | `ui`, `cli` | shipped |
+| [History and archive](history-and-archive.md) | `ui`, `cli` | shipped — DuckDB 2.0 file compatibility; visible archive state; recovery limited to successful exports |
+| [Checks and findings](checks.md) | `ui`, `api`, `cli` | partial — 91 checks with catalog and individual reference pages with complete per-check paragraphs and multiline content; churn hysteresis survives missed evaluations; accepting a finding is built for one entity; related entities, a check everywhere and a review list are planned |
+| [Server checks](server-checks.md) | `ui`, `api`, `cli` | shipped — includes OCSP peer rejections, sustained slow route pairs, local Raft apply stalls and candidacy from retained collection samples, with bounded gap bridging and unknown-leader resets, system-level leaf-site health with bounded evidence retention and churn hysteresis across missed evaluations |
 | [Account checks](account-checks.md) | `ui`, `cli` | shipped |
-| [Stream checks](stream-checks.md) | `ui`, `cli` | shipped |
-| [Consumer checks](consumer-checks.md) | `ui`, `cli` | shipped |
-| [Client checks](client-checks.md) | `ui`, `cli` | shipped |
-| [System checks](system-checks.md) | `ui`, `cli` | shipped |
+| [Stream checks](stream-checks.md) | `ui`, `cli` | shipped — creation metadata guidance qualifies message identity and rebuild history; includes per-source silence and errors |
+| [Consumer checks](consumer-checks.md) | `ui`, `cli` | shipped — sustained replica degradation warns before quorum loss; authoritative loss or agreed incarnation changes end it |
+| [Client checks](client-checks.md) | `ui`, `cli` | shipped — reference retains event prerequisites, changed-key mutes, unknown-library exclusions and full retention rules; short-lived connection hysteresis survives missed evaluations |
+| [System checks](system-checks.md) | `ui`, `cli` | shipped — account RAFTZ completeness follows request outcomes; meta leader checks preserve proven scope and distinguish ambiguous from absent membership; notification delivery health survives retention sweeps |
 | [Inventory](inventory.md) | `ui`, `cli` | shipped |
-| [Navigation, time range and theme](navigation.md) | `ui`, `api` | shipped |
-| [Overview page](overview-page.md) | `ui`, `api` | shipped — tile links, cause evidence, a shared hover and more lanes are planned |
-| [Servers](servers.md) | `ui`, `api` | shipped |
+| [Navigation, time range and theme](navigation.md) | `ui`, `api` | shipped — fixed Replay entry links, history navigation, canonical and encoded alert-label links, compact live-range labels, browser-locale range bounds and validated custom date entry, and severity marks shaped like the badges on the collapsed rail with the count in the tooltip and accessible name |
+| [Overview page](overview-page.md) | `ui`, `api` | shipped — fixed Replay window links, acknowledgement marks, phone ordering, history notes and chart gaps; chart navigation, time/value inspection with stable touch selection and bucket descriptions and summary/detail explanations and explicit unknown leaders and contained metric tips; tile charts only where a metric changed, in neutral with the accent on the change and round newest-point dots at every width; cause evidence, a shared hover and more lanes are planned |
+| [Servers](servers.md) | `ui`, `api` | shipped — JetStream file bytes, limits, per-server storage history and slow-consumer detection labels; responsive detail cards with a separate full-width recent-events row |
 | [Streams](streams.md) | `ui`, `api` | shipped — replica placement is in the API only |
 | [Consumers](consumers.md) | `ui`, `api` | shipped — delivery rate and busiest-first order are in the API only |
-| [Connections](connections.md) | `ui`, `api` | shipped |
-| [Events](events.md) | `ui`, `api` | shipped |
-| [Triage and mutes](triage-and-mutes.md) | `ui`, `api` | shipped |
-| [Metrics and alerting](metrics-and-alerting.md) | `api` | shipped |
-| [Running nats-lens](running-nats-lens.md) | `api`, `cli` | shipped |
+| [Connections](connections.md) | `ui`, `api` | shipped — range finding status and direct links; bounded reads with unknown state |
+| [Events](events.md) | `ui`, `api` | shipped — selectable text, contextual empty results and pagination across pages; OCSP peer rejections are NATS warnings |
+| [Triage and mutes](triage-and-mutes.md) | `ui`, `api` | shipped — selected-range Replay context, single-page Findings counts, spaced finding facts and actions, acknowledgements beside mutes, and history-start explanations |
+| [Metrics and alerting](metrics-and-alerting.md) | `api` | shipped — acknowledgement quiet metrics and exclusions |
+| [Running nats-lens](running-nats-lens.md) | `api`, `cli` | shipped — shared IAP identity, fatal database containment and unhealthy readiness |
 | [SQL access](sql-access.md) | `cli` | shipped |
-| [Demo mode](demo-mode.md) | `ui`, `api`, `cli` | shipped |
-| [Multiple systems and the Fleet view](multiple-systems.md) | `ui`, `api`, `cli` | partial — a cluster switcher inside a supercluster is planned |
-| [Placement](placement.md) | `ui`, `api` | partial — how long a state other than a leader's has lasted, and a playbook link, are not built |
-| [Replay](replay.md) | `ui`, `api` | partial — "Replay this window" links and a replica catch-up step are not built |
+| [Demo mode](demo-mode.md) | `ui`, `api`, `cli` | shipped — on-call acknowledgement story and per-system history, gaps, retention and archive examples |
+| [Multiple systems and the Fleet view](multiple-systems.md) | `ui`, `api`, `cli` | partial — isolated fatal database failures and readable Fleet strip intervals; a cluster switcher inside a supercluster is planned |
+| [Placement](placement.md) | `ui`, `api` | partial — selected-cell observed duration with bounded history and observed process identity boundaries; a playbook link is not built |
+| [Replay](replay.md) | `ui`, `api` | partial — observed endpoint client-library comparisons with system-wide context and Applications evidence; fixed "Replay this window" entry links from Overview and finding details; a replica catch-up step is not built; shared collection and capture gap rules |
 | [Topology](topology.md) | `ui`, `api` | shipped |
-| [Applications](applications.md) | `ui`, `api` | shipped |
-| [Capacity and retention](capacity.md) | `ui`, `api` | shipped |
+| [Applications](applications.md) | `ui`, `api` | shipped — fixed Replay context and exact application evidence filters |
+| [Capacity and retention](capacity.md) | `ui`, `api` | shipped — six-hour growth explanations |
 | [Subjects](subjects.md) | `ui`, `api` | shipped |
 | [Accounts and auth](accounts-and-auth.md) | `ui`, `api` | shipped |
 | [KV and object stores](kv-and-object-stores.md) | `ui`, `api` | shipped |
 | [Micro services](micro-services.md) | `ui`, `api` | shipped |
 | [Command bar](command-bar.md) | `ui` | partial — search by name is shipped; findings, events and prefixes are planned |
-| [On call on the phone](mobile.md) | `ui` | planned |
-| [Data history](data-history.md) | `ui`, `api` | planned |
-| [Notifications](notifications.md) | `api`, `cli` | planned |
+| [On call on the phone](mobile.md) | `ui`, `api` | partial — phone triage, scoped acknowledgements, retained label context, fixed Replay links, and contained settings built; predictions and other dedicated phone pages deferred |
+| [Data history](data-history.md) | `ui`, `api` | partial — exact sample spans, observed window boundaries, qualified availability, range notes and bounded global and server missing-report chart gaps with omission notices; history loading said in a row the chart already has after 300 ms (a steady line at once), one page note when the read fails and one live announcement per page; forecast margins not built |
+| [Notifications](notifications.md) | `api`, `cli` | shipped — channel quiet distinct from Prometheus exclusions |
 
 ## Feature coverage by area
 
 Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inline), `[ ]` planned. Keep each entry to one scannable line with its doc in parentheses: detail belongs in the capability doc, not here.
 
 **The product**
-- [x] What nats-lens is, the problem it solves, and its nouns (overview.md)
+- [x] What nats-lens is, its nouns, read-only observation, and operator records (overview.md)
 
 **Collection**
-- [x] One snapshot of every server per interval, partial collections kept, account details, the expiry of account JWTs, user JWTs and listener certificates, subscription lists every few minutes, the replies of micro services in the listed accounts, each client application's traffic per hour, and replies of newer servers kept when one of their values is unknown (monitoring-snapshots.md)
-- [x] NATS advisories and system events, short-lived connections folded into `client.churn` and flagged by `client-005` when frequent, and account connections that also ask micro services and, when one cannot connect, are dialled again without stopping the system (event-capture.md)
-- [x] Kubernetes pod, node and client-pod events on the same clock, with node upgrade and drain windows (kubernetes-context.md)
-- [x] Retention, the hourly Parquet archive, and the rebuild from it (history-and-archive.md)
-- [~] Several NATS systems in one nats-lens, with a system switcher, the Fleet page and its badge, and the shell's status of every system in one call — a cluster switcher inside a supercluster is planned (multiple-systems.md)
+- [x] One snapshot of every server per interval, partial collections kept, account RAFTZ deletion boundary, account details, the expiry of account JWTs, user JWTs and listener certificates, subscription lists every few minutes, the replies of micro services in the listed accounts, each client application's traffic per hour, and replies of newer servers kept when one of their values is unknown (monitoring-snapshots.md)
+- [x] NATS advisories and system events, short-lived connections folded into `client.churn` and flagged by `client-005` when frequent, and account connections that also ask micro services and, when one cannot connect, are dialled again without stopping the system; OCSP peer rejections retain known fields and peer fingerprints across payload key aliases (event-capture.md)
+- [x] Kubernetes events, node windows, and watch recovery with bounded retries and failure logs (kubernetes-context.md)
+- [x] Retention, DuckDB 2.0 file compatibility, hourly Parquet exports, archive state, and rebuild from successful exports (history-and-archive.md)
+- [~] Several NATS systems in one nats-lens, with a system switcher, fatal database failure isolation, the Fleet page with readable strip intervals and its badge, and the shell's status of every system in one call — a cluster switcher inside a supercluster is planned (multiple-systems.md)
 
 **Checks**
-- [~] Findings, severities, restarts, thresholds, remediation file, mutes, and one entity's finding accepted until a review date — accepting related entities or a check everywhere is planned (checks.md)
-- [x] Server checks `server-001` to `server-016` (server-checks.md)
+- [~] 91 checks with catalog and individual reference pages with complete per-check paragraphs and multiline content, findings, severities, restarts, thresholds, churn hysteresis across missed evaluations, remediation text and HTTPS playbooks, mutes, and one entity's finding accepted until a review date — accepting related entities or a check everywhere is planned (checks.md)
+- [x] Server checks `server-001` to `server-028`, routes, gateways, the connection limit, JetStream API errors, internal queues, CPU, OCSP peer rejections, sustained slow route pairs, local Raft apply stalls and candidacy from retained collection samples, with bounded gap bridging and unknown-leader resets, system-level leaf-site health with bounded evidence retention and churn hysteresis across missed evaluations among them (server-checks.md)
+- [ ] Server checks for queued JetStream API requests (server-checks.md)
 - [x] Account checks `account-001` to `account-004`: connection and disk limits, account and user JWT expiry (account-checks.md)
-- [x] Stream, KV bucket and object store checks `stream-001` to `stream-021`, mirrors, sources, single replicas, KV history, streams without a consumer and interior deletes among them; source activity and errors are planned (stream-checks.md)
-- [x] Consumer checks `consumer-001` to `consumer-013` (consumer-checks.md)
-- [x] Client checks `client-001` to `client-008`, among them repeated authentication errors, unnamed connections and outdated client libraries (client-checks.md)
-- [x] System checks `system-001` to `system-003` (system-checks.md)
+- [x] Stream, KV bucket and object store checks `stream-001` to `stream-023`, mirrors, sources, single replicas, KV history, streams without a consumer and interior deletes among them; per-source silence and errors, qualified creation metadata guidance (stream-checks.md)
+- [x] Consumer checks `consumer-001` to `consumer-018`, among them the oldest unread message about to expire, pull requests at `max_waiting`, a single-replica durable on a replicated stream, a long pause and sustained replica degradation with separate start and resolution evidence; creation timestamps alone do not prove cause or health, with matching demo guidance (consumer-checks.md)
+- [x] Client checks `client-001` to `client-008`, among them repeated authentication errors, unnamed connections with full retention reference, authentication capture and changed-key guidance, outdated client libraries with unknown-version exclusions and short-lived connection hysteresis across missed evaluations (client-checks.md)
+- [x] System checks `system-001` to `system-010`: meta leader health with proven scope and explicit membership limits, mixed API levels, and nats-lens's own health including account RAFTZ completeness (system-checks.md)
 - [x] The inventory of assets that must exist (inventory.md)
-- [ ] Findings sent to a channel such as a webhook (notifications.md)
+- [x] Findings sent to webhook and Slack-compatible channels, with baselines, mutes, flapping, channel acknowledgement quiet, retries and destination tests (notifications.md)
 
 **Web UI**
-- [x] Sidebar, system switcher, header with account scope and search, the global time range (cut to fit a narrow window) on the server's clock and the theme menu, all fed by one status call per system (navigation.md)
-- [x] Overview: status line, nine metric boxes with descriptions, cause cards and muted findings, trends, timeline lanes with the status timeline, busiest consumers, streams with placement, several series in one API call (overview-page.md)
-- [x] Servers for 20 or more servers: data points, charts across servers, a map of every server, a grouped list; server pages with metric boxes, placement, limits and recent events (servers.md)
+- [x] Sidebar, system switcher, header with account scope and search, the global time range (cut to fit a narrow window) on the server's clock and the theme menu, short-history navigation, all fed by one status call per system; compact live-range labels, browser-locale range bounds and validated custom date entry, encoded alert-label links and fixed Replay entry links; the collapsed rail marks a badge by its shape, with the count in the tooltip and accessible name (navigation.md)
+- [x] Overview: status line, nine linked metric boxes with descriptions and bucket and consumer-mini-chart inspection with stable touch selection, summary/detail explanations, unknown leaders and contained tips, tile charts only where a metric changed or data is missing, with round newest-point dots at every width, cause cards with acknowledgements and muted findings, phone ordering, trends, timeline lanes with the status timeline and Replay window links, busiest consumers, streams with placement, history notes and chart gaps (overview-page.md)
+- [x] Servers for 20 or more servers: aggregate slow-consumer detections distinct from JetStream backlog, data points, charts across servers, a map of every server, a grouped list with JetStream file bytes and limit bars; server pages with storage history and metric boxes, responsive placement and limits cards, and a full-width recent-events row (servers.md)
 - [x] Streams list and stream detail; replica placement in the API only (streams.md)
 - [x] Consumers list and consumer detail, a stream filter that is not polled; delivery rate and busiest-first order in the API only (consumers.md)
-- [x] Client connections of the newest collection, the server filter's choices sent with them (connections.md)
-- [x] Every event, filtered by source, kind, entity and client (events.md)
-- [x] Events worth reading first: routine events hidden, repeats folded, counts per source and server, a histogram, new events behind a pill (events.md)
+- [x] Client connections of the newest collection, range finding links and unknown states, with server filters and pagination (connections.md)
+- [x] Every event, including acknowledgement saves, filtered by source, kind, entity and client, with selectable text, contextual empty results and pagination across pages (events.md)
+- [x] Events worth reading first: routine events hidden, repeats folded, counts per source and server, a histogram, new events behind a pill; OCSP peer rejections are NATS warnings (events.md)
 - [ ] A configurable routine rule; subject and where columns (events.md)
-- [x] Findings, finding detail with server copies, start times and events around the start, mutes, accepted findings read as accepted (triage-and-mutes.md)
+- [x] Findings, finding detail with server copies, start times and events around the start, mutes, accepted findings read as accepted, acknowledgements apart from mutes, and history-start explanations with spaced finding facts and action buttons; single-page results omit pagination controls; selected-range Replay context (triage-and-mutes.md)
 - [ ] Why a finding has its severity, a CLI check ready to copy, accepting from the finding page or for related entities (triage-and-mutes.md)
-- [~] Every stream and durable consumer on every server in one matrix, with filters, a moment to compare with and a side panel — how long most states have lasted and a playbook link are not built (placement.md)
-- [~] What changed between two moments A and B, in order, with counts, gone assets, evidence links, a shared link and an incident log — "Replay this window" links and a replica catch-up step are not built (replay.md)
+- [~] Every stream and durable consumer in one matrix, with filters, comparison and bounded selected-cell duration evidence that stops at process returns and ambiguous names; a playbook link is not built (placement.md)
+- [~] What changed between two moments A and B, in order, with counts, gone assets, evidence links, a shared link, an incident log, observed client-library comparisons with bounded system-wide context, shared gap rules and fixed "Replay this window" entry links; a replica catch-up step is not built (replay.md)
 - [x] How the servers connect: routes, gateways and leaf node sites, with round trips, drops counted from the collections, slow routes (slow in two collections in a row) and sites not connected (topology.md)
-- [x] Client connections grouped by the application in their name: instances, pods, servers, library, round trip, reconnects and 24 hours of traffic per application, with the spread over the servers, the libraries in use and the last day (applications.md)
-- [x] What each stream keeps, what bounds it, and when disks fill, with an unbounded stream accepted as by design (capacity.md)
+- [x] Client connections grouped by the application in their name: instances, pods, servers, library, round trip, reconnects and 24 hours of traffic per application, with the spread over the servers, the libraries in use and the last day; fixed Replay context and exact application evidence filters (applications.md)
+- [x] What each stream keeps, what bounds it, and when disks fill, with six-hour growth explanations and unbounded streams accepted as by design (capacity.md)
 - [x] Where messages can go: each stream with its subjects and readers, client subscriptions by subject, reply inboxes and the JetStream API, filters with counts, and a tester that says what a message on a subject would reach in each account (subjects.md)
 - [x] Accounts with their limits, imports, exports and JWT expiry, leaf nodes counted against the connection limit as nats-server and `account-001` count them, the failed logins of 24 hours, and the certificates and JWTs that expire within 30 days (accounts-and-auth.md)
 - [x] KV buckets and object stores as their own pages, with placement and missing buckets (kv-and-object-stores.md)
 - [x] Services built on the NATS micro framework: a card per service with its versions, instances, rate, errors and a note, its endpoints with their slow spells and last errors, its instances with the missing ones, asked in the listed accounts and seen in subscriptions in all (micro-services.md)
 - [~] Search and jump to anything from one box — findings, events and prefixes are planned (command-bar.md)
-- [ ] A finding on the phone, for the person on call (mobile.md)
-- [ ] What history exists and where it has gaps (data-history.md)
+- [~] A finding on the phone with observed facts, episode story, playbook, scoped acknowledgement receipts, retained label context, fixed Replay links, and contained settings; predictions and other phone pages deferred (mobile.md)
+- [~] History coverage, gap lists, archive state, bounded sample spans with observed window boundaries and qualified availability, and bounded global and server missing-report chart hatches with omission notices; history loading in a chart's own rows after 300 ms (a steady line at once), one page note on a failed read and one live announcement per page; margins not built (data-history.md)
 
 **Operations**
-- [x] Findings and collector health at `/metrics` for Prometheus alerting (metrics-and-alerting.md)
-- [x] `run`, `once` for every system or one, configuration, health and readiness, the Kubernetes manifests and their memory sizes (running-nats-lens.md)
+- [x] Findings with acknowledgement quiet metrics and exclusions, collector health and four notification delivery gauges at `/metrics` for Prometheus alerting (metrics-and-alerting.md)
+- [x] `run`, `once` for every system or one, `notify test`, receiver egress, configuration, IAP identity for mutes and acknowledgements, health and readiness with fatal database containment, the Kubernetes manifests and their memory sizes (running-nats-lens.md)
 - [x] Read-only SQL on a stopped database with `natslens sql`, one system at a time (sql-access.md)
-- [x] Three fixed systems without NATS with `natslens demo`, whose findings are the real checks, with a node pool upgrade to replay, links of a supercluster to draw from `GetTopology`, accounts and failed logins from `GetAccountsAndAuth`, the stores and streams of the Capacity page from `GetCapacity`, the client applications from `GetApplications`, and which show every state real data shows, tested against the store with one table of states, and with `-fixed` at one moment whose live ranges end there (demo-mode.md)
+- [x] Three fixed systems without NATS or notification channels with `natslens demo`, whose findings are the real checks, with a node pool upgrade to replay, links of a supercluster to draw from `GetTopology`, accounts and failed logins from `GetAccountsAndAuth`, the stores and streams of the Capacity page from `GetCapacity`, the client applications from `GetApplications`, and which show every state real data shows, tested against the store with one table of states, and with `-fixed` at one moment whose live ranges end there, with acknowledgement stories and per-system gaps, retention and archive examples (demo-mode.md)

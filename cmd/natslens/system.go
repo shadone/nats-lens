@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -70,9 +71,21 @@ func archiveDirSet(cfg config.Config, id string) bool {
 
 // provider reads the system's store for the API.
 func (rt *systemRuntime) provider(set *checks.Set) *storeprov.Provider {
-	return &storeprov.Provider{St: rt.st, Interval: rt.cfg.Interval.D(), Retention: rt.sys.Retention.D(), Live: true, Checks: set,
+	p := &storeprov.Provider{St: rt.st, Interval: rt.cfg.Interval.D(), Retention: rt.sys.Retention.D(), Live: true, Checks: set,
 		ToolingNames: rt.sys.ToolingNames(), LoopbackNotTooling: !rt.cfg.Checks.LoopbackTooling(),
 		ClientPods: rt.sys.Kubernetes.ClientPodsPattern(), Kubernetes: rt.sys.Kubernetes.Enabled}
+	if rt.arch != nil {
+		p.ArchiveStatus = rt.archiveState
+	}
+	return p
+}
+
+// archiveState is the archiver's status for the API.
+func (rt *systemRuntime) archiveState() api.ArchiveState {
+	s := rt.arch.Status()
+	return api.ArchiveState{Enabled: true, Location: archive.LocationText(rt.cfg.ResolvedArchiveDir()), Retention: rt.cfg.ArchiveRetention.D(),
+		OldestHour: s.OldestHour, NewestHour: s.NewestHour, Hours: int32(s.Hours), LastExportAt: s.LastExportAt,
+		NewestFinal: s.NewestFinal, LastError: s.LastError, LastErrorAt: s.LastErrorAt, ListedAt: s.ListedAt}
 }
 
 // notifier queues the system's notifications in its store.
@@ -108,10 +121,21 @@ func registry(rts []*systemRuntime, set *checks.Set) api.Systems {
 		out = append(out, api.System{
 			Ref:      &v1.SystemRef{Id: rt.sys.ID, Name: rt.sys.Name, Environment: rt.sys.Environment},
 			Provider: rt.provider(set),
-			Status:   rt.status.get,
+			Status:   rt.collectionState,
 		})
 	}
 	return out
+}
+
+// collectionState gives engine failure priority over NATS callbacks.
+func (rt *systemRuntime) collectionState() api.CollectionStatus {
+	st := rt.status.get()
+	if err := rt.st.Failure(); err != nil {
+		st.State = api.CollectionStoreFailed
+		st.Since = rt.st.FailedAt()
+		st.LastError = err.Error()
+	}
+	return st
 }
 
 // run collects the system: in natslens once one epoch, in natslens run one
@@ -123,6 +147,39 @@ func registry(rts []*systemRuntime, set *checks.Set) api.Systems {
 // the same deadline.
 func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, deadline func() time.Time) (err error) {
 	cfg, st, log := rt.cfg, rt.st, rt.log
+	// A fatal engine stops only this system's workers. Its database guard also
+	// rejects shutdown flushes and API calls; no reopen or recovery is attempted.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	defer func() {
+		if failure := st.Failure(); failure != nil {
+			err = failure
+		}
+	}()
+	go func() {
+		select {
+		case <-st.Failed():
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	outerDeadline := deadline
+	var failedBy time.Time
+	var failedOnce sync.Once
+	deadline = func() time.Time {
+		if st.Failure() == nil {
+			return outerDeadline()
+		}
+		failedOnce.Do(func() { failedBy = time.Now().Add(cfg.ShutdownGrace.D() + cfg.Events.FlushInterval.D()) })
+		return failedBy
+	}
+
+	if cmd == "run" && len(cfg.Notifications.Channels) > 0 {
+		stop := startNotificationDelivery(ctx, &notify.Delivery{Store: st, SystemID: rt.sys.ID,
+			SystemName: rt.sys.Name, Version: version, UIURL: cfg.Notifications.UIURL,
+			Channels: cfg.Notifications.Channels, Interval: cfg.Interval.D(), Log: log}, cfg.ShutdownGrace.D())
+		defer stop()
+	}
 	tracker := collect.NewTracker(cfg.ServerForgetAfter.D())
 	seen, err := st.LastSeenServers(ctx)
 	if err != nil {
@@ -218,6 +275,12 @@ func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, d
 		log.Warn("retention is shorter than the growth review of acceptances reads; acceptances record no growth and never end early",
 			"retention", ret.String(), "needed", api.AcceptRetention.String())
 	}
+	// The archive exports in run only; its start bounds how long a closed
+	// hour may wait for export (system-008).
+	var archiveSince time.Time
+	if cmd != "once" {
+		archiveSince = time.Now()
+	}
 	r := &runner.Runner{
 		Collector: col,
 		Store:     st,
@@ -231,7 +294,8 @@ func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, d
 		ShutdownGrace: cfg.ShutdownGrace.D(),
 		// The checks of an epoch get half an interval, so that they never
 		// delay the next epoch.
-		Checks:    &checks.Engine{Set: set, Log: log, Budget: cfg.Interval.D() / 2, ToolingNames: rt.sys.ToolingNames()},
+		Checks: &checks.Engine{Set: set, Log: log, Interval: cfg.Interval.D(), Budget: cfg.Interval.D() / 2, ToolingNames: rt.sys.ToolingNames(),
+			ArchiveSince: archiveSince},
 		Connected: connected,
 		Stored:    func(_ int64, startedAt time.Time) { rt.status.epoch(startedAt) },
 	}
@@ -251,6 +315,7 @@ func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, d
 		close(archived)
 	}()
 	err = r.Run(ctx)
+	cancel()
 	// An export interrupted by the signal normally ends at once; one that
 	// does not is abandoned at the shutdown deadline.
 	if !waitUntil(archived, deadline()) {
@@ -259,6 +324,8 @@ func (rt *systemRuntime) run(ctx context.Context, cmd string, set *checks.Set, d
 	// The last state goes to the archive after the last events, so that it
 	// covers every number handed out.
 	<-eventsDone
-	writeFinalState(ctx, rt.arch, deadline(), log)
+	if st.Failure() == nil {
+		writeFinalState(ctx, rt.arch, deadline(), log)
+	}
 	return err
 }
