@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 const clientReference = readFileSync("../docs/features/client-checks.md", "utf8");
 const streamReference = readFileSync("../docs/features/stream-checks.md", "utf8");
 import { create } from "@bufbuild/protobuf";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Routes, Route, useNavigate } from "react-router";
 import { beforeEach, describe, it, expect, vi } from "vitest";
@@ -70,6 +70,27 @@ describe("check reference routes", () => {
     const heading = await screen.findByRole("heading", {name: title, level: 3});
     expect(heading.parentElement).toHaveTextContent(text.replaceAll("`", "").replace(/\s+/g, " "));
     expect(screen.getByText("Concise meaning.")).toBeInTheDocument();
+  });
+
+  it("renders the authored client-008 minimums as a semantic table", async () => {
+    const data = response();
+    data.definitions = [create(CheckDefinitionSchema, { ...definition, code: "client-008", reference: authoredReference(clientReference, "client-008") })];
+    api.listCheckDefinitions.mockResolvedValue(data);
+    detail("client-008");
+    const table = await screen.findByRole("table");
+    expect(within(table).getAllByRole("columnheader").map(h => h.textContent)).toEqual(["Threshold", "Language the client sends", "Library", "Default"]);
+    expect(within(table).getAllByRole("row")).toHaveLength(8);
+    for (const [threshold, language, library, version] of [
+      ["min_go", "go", "nats.go", "1.37.0"], ["min_nats_js", "nats.js", "nats.js on Node.js", "2.28.0"],
+      ["min_python", "python3", "nats.py", "2.9.0"], ["min_java", "java", "jnats", "2.20.0"],
+      ["min_dotnet", ".NET", "NATS.Net", "2.5.0"], ["min_rust", "rust", "async-nats", "0.37.0"], ["min_c", "C", "nats.c", "3.9.0"],
+    ]) {
+      const row = within(table).getByRole("cell", { name: threshold }).parentElement!;
+      expect(within(row).getAllByRole("cell").map(c => c.textContent)).toEqual([threshold, language, library, version]);
+      expect(within(row).getByText(threshold).tagName).toBe("CODE");
+    }
+    expect(document.body).toHaveTextContent("A minimum of 0 turns a language off.");
+    expect(screen.getByRole("heading", { name: "Unknown versions", level: 3 }).parentElement).toHaveTextContent("0.0.0");
   });
 
   it("renders full client-007 holding and resolution rules alongside concise meaning and numeric defaults", async () => {
