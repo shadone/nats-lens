@@ -23,6 +23,7 @@ type placementSample struct {
 	reps        map[string]*replicaReport
 	cells       map[string]*v1.PlacementCell
 	identities  map[string]string
+	processes   map[string]string
 	peers       map[string][]string
 	selectedID  string
 	selectedJSZ bool
@@ -159,22 +160,79 @@ func (p *Provider) placementObservation(ctx context.Context, req *v1.GetPlacemen
 	if err != nil {
 		return nil, err
 	}
-	// The selected process identity as known at each collection; first_epoch
-	// prevents a later restart from leaking backwards into an offline sample.
-	rows, err = p.db().QueryContext(ctx, `SELECT e.epoch, s.server_id, coalesce(ep.state='ok',false) FROM epochs e LEFT JOIN servers s ON s.server_name=? AND s.first_epoch<=e.epoch LEFT JOIN epoch_endpoints ep ON ep.epoch=e.epoch AND ep.server_id=s.server_id AND ep.endpoint='JSZ' WHERE e.epoch BETWEEN ? AND ? QUALIFY row_number() OVER(PARTITION BY e.epoch ORDER BY s.first_epoch DESC, s.server_id)=1`, req.GetSelectedServer(), samples[len(samples)-1].epoch, end.epoch)
+	// Resolve every name used by this sample, including peers with no asset
+	// report. A name is not a process ID: simultaneous observations of two
+	// same-named processes make the sample unknown, regardless of which JSZ
+	// endpoint succeeded. Keep the latest-known identity fallback for a clean
+	// handover or offline process; first_epoch prevents future identity leaks.
+	names := map[string]bool{req.GetSelectedServer(): true}
+	for _, s := range samples {
+		for name := range s.reps {
+			names[name] = true
+		}
+		for _, peers := range s.peers {
+			for _, name := range peers {
+				names[name] = true
+			}
+		}
+	}
+	ordered := make([]string, 0, len(names))
+	for name := range names {
+		ordered = append(ordered, name)
+	}
+	slices.Sort(ordered)
+	low, high := samples[len(samples)-1].epoch, end.epoch
+	identityArgs := []any{low, high, low, high, low, high}
+	for _, name := range ordered {
+		identityArgs = append(identityArgs, name)
+	}
+	q = `WITH observed AS (
+ SELECT epoch, server_id FROM server_stats WHERE epoch BETWEEN ? AND ?
+ UNION
+ SELECT epoch, server_id FROM epoch_endpoints WHERE epoch BETWEEN ? AND ? AND state='ok'
+), candidates AS (
+ SELECT e.epoch, s.server_name, s.server_id, s.first_epoch,
+ coalesce(ep.state='ok',false) AS jsz_ok,
+ count(o.server_id) OVER (PARTITION BY e.epoch,s.server_name) AS observed_processes
+ FROM epochs e JOIN servers s ON s.first_epoch<=e.epoch
+ LEFT JOIN observed o ON o.epoch=e.epoch AND o.server_id=s.server_id
+ LEFT JOIN epoch_endpoints ep ON ep.epoch=e.epoch AND ep.server_id=s.server_id AND ep.endpoint='JSZ'
+ WHERE e.epoch BETWEEN ? AND ? AND s.server_name IN (` + strings.TrimSuffix(strings.Repeat("?,", len(ordered)), ",") + `)
+)
+SELECT epoch, server_name, server_id, jsz_ok, observed_processes FROM candidates
+QUALIFY row_number() OVER(PARTITION BY epoch,server_name ORDER BY first_epoch DESC,server_id)=1`
+	// Both observed sources and the result stay inside the same collection
+	// bounds. This remains the fourth read, not one query per name or epoch.
+	rows, err = p.db().QueryContext(ctx, q, identityArgs...)
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
-		var epoch int64
-		var id sql.NullString
+		var epoch, observed int64
+		var name, id string
 		var ok bool
-		if err = rows.Scan(&epoch, &id, &ok); err != nil {
+		if err = rows.Scan(&epoch, &name, &id, &ok, &observed); err != nil {
 			break
 		}
 		if s := byEpoch[epoch]; s != nil {
-			s.selectedID = id.String
-			s.selectedJSZ = ok
+			relevant := name == req.GetSelectedServer() || s.reps[name] != nil
+			for _, peers := range s.peers {
+				relevant = relevant || slices.Contains(peers, name)
+			}
+			if !relevant {
+				continue
+			}
+			if s.processes == nil {
+				s.processes = map[string]string{}
+			}
+			s.processes[name] = id
+			if observed > 1 {
+				s.unknown = true
+			}
+			if name == req.GetSelectedServer() {
+				s.selectedID = id
+				s.selectedJSZ = ok
+			}
 		}
 	}
 	if err == nil {
@@ -212,7 +270,7 @@ func classifySample(s *placementSample, server string) (*v1.PlacementCell, strin
 	for _, peers := range s.peers {
 		slices.Sort(peers)
 	}
-	b, _ := json.Marshal([]any{s.identities, s.peers, s.selectedID, a.Leader, hashes})
+	b, _ := json.Marshal([]any{s.identities, s.processes, s.peers, s.selectedID, a.Leader, hashes})
 	return selected, string(b)
 }
 
