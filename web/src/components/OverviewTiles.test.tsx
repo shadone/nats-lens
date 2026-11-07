@@ -182,7 +182,7 @@ describe("charts only where something changed", () => {
     expect(lines.every((l) => l.style.stroke === "var(--text-muted)")).toBe(true);
     const marks = [...container.querySelectorAll<SVGElement>("svg.spark .spark-change, svg.spark .spark-now")];
     expect(marks.length).toBeGreaterThan(0);
-    expect(marks.every((l) => l.style.stroke === "var(--sev-critical)")).toBe(true);
+    expect(marks.every((l) => l.style.stroke === "var(--cell-critical)")).toBe(true);
   });
 });
 

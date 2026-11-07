@@ -29,6 +29,29 @@ describe("the change tone", () => {
     const { container } = render(<Sparkline points={steps} status="critical" windows={[]} start={0} end={5000} label="Consumers" tone="change" />);
     expect(line(container)).toBe("var(--text-muted)");
     expect((container.querySelector("polygon") as SVGElement).style.fill).toBe("var(--text-muted)");
-    expect(change(container)).toBe("var(--sev-critical)");
+    expect(change(container)).toBe("var(--cell-critical)");
+  });
+
+  it("draws the warning marks in the warning cell colour", () => {
+    const { container } = render(<Sparkline points={steps} status="warning" windows={[]} start={0} end={5000} label="Consumers" tone="change" />);
+    expect(change(container)).toBe("var(--cell-warning)");
+  });
+
+  it("lets the newest-point dot reach past the chart's right edge", () => {
+    const { container } = render(<Sparkline points={steps} status="ok" windows={[]} start={0} end={5000} label="Consumers" tone="change" />);
+    expect(container.querySelector("svg.spark")).toHaveClass("spark-open");
+    const plain = render(<Sparkline points={steps} status="ok" windows={[]} start={0} end={5000} label="Consumers" />);
+    expect(plain.container.querySelector("svg.spark")).not.toHaveClass("spark-open");
+  });
+
+  it("draws no change overlay on a noisy series, only the newest point", () => {
+    // 94 of 200 segments change, scattered: more than a third.
+    let v = 0;
+    const noisy = Array.from({ length: 201 }, (_, i) => { if (i > 0 && i <= 188 && i % 2 === 0) v = 1 - v; return { time: i * 1000, value: v }; });
+    const changed = noisy.slice(1).filter((p, i) => p.value !== noisy[i].value).length;
+    expect(changed).toBe(94);
+    const { container } = render(<Sparkline points={noisy} status="ok" windows={[]} start={0} end={200_000} label="Pending" tone="change" />);
+    expect(container.querySelector(".spark-change")).toBeNull();
+    expect(container.querySelectorAll(".spark-now")).toHaveLength(1);
   });
 });

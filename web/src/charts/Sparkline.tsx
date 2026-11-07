@@ -7,7 +7,6 @@ import { ChartHistoryNotice, HistoryGaps } from "./HistoryGaps";
 import type { Level, Point, Window } from "../api/model";
 import { chartName, rangeText } from "./chartLabel";
 import { changedSegments, tickedMoves } from "../lib/tileChart";
-import { isTrouble } from "../lib/view";
 
 const W = 200;
 const H = 40;
@@ -73,9 +72,13 @@ function hasRange(p: Point): boolean {
   return (p.low !== undefined && p.low !== p.value) || (p.high !== undefined && p.high !== p.value);
 }
 
-/** Whether more than half of a run's segments change, as a slow steady growth does. */
-function mostlyChanging(run: Point[]): boolean {
-  return run.length > 2 && changedSegments(run).length > (run.length - 1) / 2;
+/**
+ * Whether more than a third of the series' segments change, as a slow steady
+ * growth or a noisy count does: marking each change would colour most of
+ * the line, so the chart marks only the newest point.
+ */
+function mostlyChanging(points: Point[]): boolean {
+  return points.length > 2 && changedSegments(points).length > (points.length - 1) / 3;
 }
 
 export function Sparkline({ stepMs, bucketNote, fmt = String, labels = ["value", "second series"], points, points2, status, windows, start, end, label, current, note, tone }: Props) {
@@ -115,11 +118,13 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
   const runs = splitServerPoints(points, gaps);
   const neutral = tone === "change";
   const col = neutral ? "var(--text-muted)" : sparkColour(status);
-  // The change marks: the accent, or the status colour when the card is in trouble.
-  const mark = isTrouble(status) ? sparkColour(status) : "var(--accent)";
+  // The change marks: the accent, or the severity's cell colour when the card
+  // is in trouble; the text colours are too close to the muted line.
+  const mark = status === "critical" ? "var(--cell-critical)" : status === "warning" ? "var(--cell-warning)" : "var(--accent)";
+  const dense = neutral && mostlyChanging(points);
   const span = end - start || 1;
   return (
-    <><svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, current, period, note)}>
+    <><svg className={neutral ? "spark spark-open" : "spark"} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, current, period, note)}>
       <HistoryGaps start={start} end={end} width={W} height={H} />
       {windows.map((w) => {
         const x0 = Math.max(0, ((w.start - start) / span) * W);
@@ -140,8 +145,8 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
         />)
       )}
       {runs.map((run, i) => <polyline key={i} points={sparkPoints(run, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: col }} strokeWidth={neutral ? 1.3 : 1.6} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />)}
-      {neutral && runs.flatMap((run, i) => mostlyChanging(run) ? [] : changeRuns(run).map((seg, j) => <polyline key={`c${i}-${j}`} className="spark-change" points={sparkPoints(seg, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: mark }} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />))}
-      {neutral && runs.length > 0 && mostlyChanging(runs[runs.length - 1]) && (() => {
+      {neutral && !dense && runs.flatMap((run, i) => changeRuns(run).map((seg, j) => <polyline key={`c${i}-${j}`} className="spark-change" points={sparkPoints(seg, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: mark }} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />))}
+      {dense && (() => {
         // A zero-length path with a round cap stays a round dot in the stretched viewBox.
         const [x, y] = sparkPoints([points[points.length - 1]], start, end, mn, mx)[0].split(",");
         return <path className="spark-now" d={`M${x},${y}h0`} style={{ stroke: mark }} strokeWidth="5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />;

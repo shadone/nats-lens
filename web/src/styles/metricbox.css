@@ -14,7 +14,8 @@
 .mbox svg.spark{width:100%;height:44px;margin-top:var(--sp-2);display:block}
 /* The change tone's newest-point dot stays whole at the right edge; the
    left edge stays clipped, where the first bucket can begin before the range. */
-.mbox.mb-change svg.spark{overflow:visible;clip-path:inset(-6px -6px -6px 0)}
+/* A change chart's newest-point dot sits on its right edge: it may spill 6px up, right and down, never left. */
+.spark.spark-open{overflow:visible;clip-path:inset(-6px -6px -6px 0)}
 .mb-range{margin-top:var(--sp-2)}
 .mb-track{position:relative;height:4px;background:var(--track);border-radius:var(--r-xs)}
 .mb-dot{position:absolute;top:-3px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:var(--accent);border:2px solid var(--surface)}
