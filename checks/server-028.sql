@@ -32,7 +32,7 @@ value_name: local candidate groups
 value_basis: local groups continuously observed as candidates for the grace period
 */
 WITH observed AS (
-    SELECT *, coalesce(usable AND identity IS NOT NULL AND state = 'CANDIDATE' AND coalesce(leader, '') = '' AND ever_had_leader, false) AS bad,
+    SELECT *, coalesce(usable AND identity IS NOT NULL AND state = 'CANDIDATE' AND leader = '' AND ever_had_leader, false) AS bad,
         committed - applied AS backlog
     FROM raft_diagnostic_steps(getvariable('window_epoch'), getvariable('epoch'), getvariable('max_gap'))
 ),
