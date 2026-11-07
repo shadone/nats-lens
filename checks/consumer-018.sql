@@ -25,7 +25,9 @@ description: >-
   of other followers are not health evidence. Pending membership, recent creation, election or server start,
   missing reports and unknown peer fields do not start a warning. A pause does not suspend Raft replication.
   An existing warning holds with explicitly unknown evidence until a complete healthy observation, known quorum
-  loss, a different consumer incarnation or a known single-replica configuration replaces it.
+  loss, an agreed different consumer incarnation or a known single-replica configuration replaces it.
+  A complete leader peer list establishes loss without follower replies; leaderless incarnation changes
+  require current reports and configuration to agree. Unknown evidence has no expiry timer.
 remediation: >-
   Read the named peers in `nats consumer info <stream> <consumer>` and compare repeated observations.
   Check the replica servers' disk, CPU and network, server restart findings and Raft catch-up findings.
@@ -72,6 +74,7 @@ peer_health AS (
         count(DISTINCT p.peer_name) AS distinct_peers,
         count(*) FILTER (WHERE p.current IS NULL OR p.offline IS NULL OR p.lag IS NULL OR p.lag < 0) AS unknown,
         count(*) FILTER (WHERE p.pending) AS pending,
+        count(*) FILTER (WHERE p.offline IS NULL OR p.pending IS NULL OR p.peer_name=l.leader) AS unknown_membership,
         count(*) FILTER (WHERE p.offline=false) AS online_peers,
         count(*) FILTER (WHERE p.offline OR NOT p.current OR p.lag>0) AS degraded,
         string_agg(p.peer_name || ': ' || CASE WHEN p.offline THEN 'offline'
@@ -87,6 +90,10 @@ judged AS (
     SELECT l.*, p.*, l.account || '/' || l.stream || '/' || l.consumer AS entity_key,
         l.r>1 AND l.r=l.max_r AND l.leaders=1 AND l.agree>=l.r//2+1
           AND p.peers=l.r-1 AND p.distinct_peers=p.peers AND p.unknown=0 AND p.pending=0 AS complete,
+        -- Loss needs authoritative membership/offline facts, not replies from offline peers.
+        l.r>1 AND l.r=l.max_r AND l.leaders=1
+          AND p.peers=l.r-1 AND p.distinct_peers=p.peers AND p.unknown_membership=0 AND p.pending=0
+          AND 1+p.online_peers<l.r//2+1 AS quorum_lost,
         greatest(l.created,l.leader_since,l.process_start,p.peer_start) < l.started_at-getvariable('election_grace')
           AND l.created IS NOT NULL AND l.leader_since IS NOT NULL AND l.process_start IS NOT NULL AS settled
     FROM leaders l JOIN peer_health p USING (epoch,account,stream,consumer,server_id)
@@ -101,6 +108,33 @@ windowed AS (
 ),
 current_judgment AS (
     SELECT * FROM judged WHERE epoch=getvariable('epoch')
+),
+current_config_creation AS (
+    SELECT account,stream,consumer, min(created) AS created,
+        count(created)=count(*) AND count(DISTINCT created)=1 AS agreed
+    FROM consumer_config
+    WHERE first_epoch<=getvariable('epoch') AND last_epoch>=getvariable('epoch')
+    GROUP BY account,stream,consumer
+),
+report_creation AS (
+    SELECT r.epoch,r.account,r.stream,r.consumer,min(r.created) AS created
+    FROM reports r JOIN cfg k USING (epoch,account,stream,consumer)
+    JOIN last e USING (epoch)
+    WHERE r.epoch=getvariable('epoch') AND k.r=k.max_r
+    GROUP BY r.epoch,r.account,r.stream,r.consumer,k.r
+    HAVING count(r.created)=count(*) AND count(DISTINCT r.created)=1
+        AND count(*)>=greatest(2,k.r//2+1) AND min(r.created)<=min(e.started_at)
+),
+current_incarnation AS (
+    -- ASVS 2.3.1: reset only from agreeing evidence in the evaluated epoch.
+    SELECT r.account || '/' || r.stream || '/' || r.consumer AS entity_key,r.created
+    FROM report_creation r JOIN current_config_creation cc USING (account,stream,consumer)
+    WHERE cc.agreed
+        -- A coherent leader view may precede a config refresh. Without a leader,
+        -- the current configuration must independently name the same incarnation.
+        AND (r.created=cc.created OR EXISTS (
+            SELECT 1 FROM current_judgment c WHERE c.account=r.account AND c.stream=r.stream
+                AND c.consumer=r.consumer AND c.leaders=1 AND c.created=r.created))
 ),
 fresh AS (
     SELECT c.entity_key, 'Leader ' || c.leader || ': ' || c.why || '; online quorum survives ('
@@ -122,8 +156,9 @@ held AS (
     WHERE f.check_code='consumer-018' AND f.state='firing' AND f.updated_epoch<=getvariable('epoch')
       AND NOT EXISTS (SELECT 1 FROM fresh x WHERE x.entity_key=f.entity_key)
       -- A complete healthy report or known quorum loss resolves; ambiguity holds.
-      AND NOT coalesce(c.complete AND (c.degraded=0 OR 1+c.online_peers<c.r//2+1),false)
-      AND NOT coalesce(epoch_us(c.created)::VARCHAR <> f.related_config->>'created_us',false)
+      AND NOT coalesce(c.quorum_lost OR (c.complete AND c.degraded=0),false)
+      AND NOT EXISTS (SELECT 1 FROM current_incarnation i WHERE i.entity_key=f.entity_key
+          AND epoch_us(i.created)::VARCHAR <> f.related_config->>'created_us')
       AND NOT EXISTS (SELECT 1 FROM cfg k WHERE k.epoch=getvariable('epoch') AND k.r=1 AND k.max_r=1
           AND k.account || '/' || k.stream || '/' || k.consumer=f.entity_key)
 )

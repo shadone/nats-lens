@@ -247,6 +247,9 @@ func TestConsumerReplicaDegradedResolutionBoundaries(t *testing.T) {
 		{"incarnation leaderless conflicting config", `UPDATE consumer_stats SET created=TIMESTAMP '2026-10-17 09:01:00',leader=NULL,is_leader=false WHERE epoch=4 AND consumer='bad'; INSERT INTO consumer_config SELECT * REPLACE ('S1' AS server_id,TIMESTAMP '2026-10-17 09:01:00' AS created) FROM consumer_config WHERE consumer='bad'`, true},
 		{"incarnation leaderless one report", `UPDATE consumer_stats SET created=TIMESTAMP '2026-10-17 09:01:00',leader=NULL,is_leader=false WHERE epoch=4 AND consumer='bad'; UPDATE consumer_config SET created=TIMESTAMP '2026-10-17 09:01:00' WHERE consumer='bad'; DELETE FROM consumer_stats WHERE epoch=4 AND consumer='bad' AND server_id<>'S0'`, true},
 		{"incarnation leaderless null report", `UPDATE consumer_stats SET created=TIMESTAMP '2026-10-17 09:01:00',leader=NULL,is_leader=false WHERE epoch=4 AND consumer='bad'; UPDATE consumer_config SET created=TIMESTAMP '2026-10-17 09:01:00' WHERE consumer='bad'; UPDATE consumer_stats SET created=NULL WHERE epoch=4 AND consumer='bad' AND server_id='S1'`, true},
+		{"incarnation leaderless future timestamp", `UPDATE consumer_stats SET created=TIMESTAMP '2026-10-18 09:01:00',leader=NULL,is_leader=false WHERE epoch=4 AND consumer='bad'; UPDATE consumer_config SET created=TIMESTAMP '2026-10-18 09:01:00' WHERE consumer='bad'`, true},
+		{"incarnation leaderless null config timestamp", `UPDATE consumer_stats SET created=TIMESTAMP '2026-10-17 09:01:00',leader=NULL,is_leader=false WHERE epoch=4 AND consumer='bad'; UPDATE consumer_config SET created=NULL WHERE consumer='bad'`, true},
+
 		{"incarnation leaderless agreement", `UPDATE consumer_stats SET created=TIMESTAMP '2026-10-17 09:01:00',leader=NULL,is_leader=false WHERE epoch=4 AND consumer='bad'; UPDATE consumer_config SET created=TIMESTAMP '2026-10-17 09:01:00' WHERE consumer='bad'`, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
