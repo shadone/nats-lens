@@ -1,7 +1,7 @@
 // The shell: sidebar, system switcher, header, and links that keep the
 // range, system and account.
 import { create, type MessageInitShape } from "@bufbuild/protobuf";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { useNavigate } from "react-router";
@@ -86,6 +86,7 @@ function setSystems(r: MessageInitShape<typeof ListSystemsResponseSchema>, partE
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.spyOn(window, "scrollTo").mockImplementation(() => {});
   localStorage.clear();
   setSystems(THREE);
   l.listAccounts.mockResolvedValue({ accounts: [{ account: "APP", accountName: "", isSystem: false }, { account: "SYS", accountName: "", isSystem: true }] } as never);
@@ -331,7 +332,7 @@ describe("sidebar", () => {
       await userEvent.click(within(nav()).getByRole("link", { name: "Events" }));
       expect(screen.getByRole("complementary")).not.toHaveClass("open");
       expect(screen.getByRole("main").parentElement).not.toHaveAttribute("inert");
-      expect(screen.getByRole("main")).toHaveFocus();
+      expect(screen.getByRole("heading", { level: 1, name: "Events" })).toHaveFocus();
     } finally {
       window.matchMedia = orig;
     }
@@ -373,7 +374,7 @@ describe("focus and landmarks", () => {
     await screen.findByText("Production");
     expect(document.activeElement).toBe(document.body);
     await userEvent.click(within(nav()).getByRole("link", { name: "Streams" }));
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("main")));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("heading", { level: 1, name: "Streams" })));
   });
 
   it("keeps focus where it is when only the search changes", async () => {
@@ -569,4 +570,19 @@ describe("RLink", () => {
       expect(Object.fromEntries(p)).toEqual({ server: "nats-1", from: "2026-10-17T09:00:00Z", to: "2026-10-17T10:00:00Z", system: "example-global", account: "APP" });
     });
   });
+});
+
+it.each(["ctrlKey", "metaKey", "shiftKey", "altKey"])("leaves native %s link navigation to the browser", async (modifier) => {
+  renderApp(<RLink to="/checks/server-014#evidence">Reference</RLink>, "/checks?system=example-prod&range=6h&account=APP");
+  const link = screen.getByRole("link", { name: "Reference" });
+  expect(link).toHaveAttribute("href", "/checks/server-014?range=6h&system=example-prod&account=APP#evidence");
+  // Observe after React's root listener, then stop jsdom's unsupported native navigation.
+  const native = vi.fn((event: MouseEvent) => {
+    expect(event.defaultPrevented).toBe(false);
+    event.preventDefault();
+  });
+  window.addEventListener("click", native, { once: true });
+  fireEvent.click(link, { button: 0, [modifier]: true });
+  expect(native).toHaveBeenCalledOnce();
+  expect(location()).toBe("/checks?system=example-prod&range=6h&account=APP");
 });

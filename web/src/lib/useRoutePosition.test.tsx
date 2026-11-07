@@ -1,5 +1,5 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
-import { useState } from "react";
+import { StrictMode, useState } from "react";
 import { MemoryRouter, useLocation, useNavigate } from "react-router";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { useRoutePosition } from "./useRoutePosition";
@@ -85,4 +85,21 @@ it("cancels pending restoration when the reader takes control", async () => {
 });
 it("leaves initial focus and scroll alone without an anchor", () => {
   y = 500; mount(); expect(scroll).not.toHaveBeenCalled(); expect(document.body).toHaveFocus();
+});
+
+it("does not reset a Strict Mode initial load", () => {
+  y = 500;
+  render(<StrictMode><MemoryRouter initialEntries={["/checks"]}><Page /></MemoryRouter></StrictMode>);
+  expect(y).toBe(500); expect(scroll).not.toHaveBeenCalled(); expect(document.body).toHaveFocus();
+});
+it("does not steal focus from a reader while a detail heading loads", async () => {
+  mount(); act(() => ready(false)); act(() => go("/checks/server014"));
+  act(() => window.dispatchEvent(new Event("pointerdown")));
+  screen.getByRole("button").focus(); act(() => ready(true));
+  await act(async () => {}); expect(screen.getByRole("button")).toHaveFocus();
+});
+it("honors an anchor that arrives asynchronously", async () => {
+  mount(); act(() => ready(false)); act(() => go("/checks/server014#evidence"));
+  act(() => ready(true));
+  await waitFor(() => expect(screen.getByText("Evidence")).toHaveFocus());
 });
