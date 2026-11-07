@@ -71,7 +71,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Client checks](client-checks.md) | `ui`, `cli` | shipped — reference retains event prerequisites, changed-key mutes, unknown-library exclusions and full retention rules; short-lived connection hysteresis survives missed evaluations |
 | [System checks](system-checks.md) | `ui`, `cli` | shipped — account RAFTZ completeness follows request outcomes; meta leader checks preserve proven scope and distinguish ambiguous from absent membership; notification delivery health survives retention sweeps |
 | [Inventory](inventory.md) | `ui`, `cli` | shipped |
-| [Navigation, time range and theme](navigation.md) | `ui`, `api` | shipped — fixed Replay entry links, history navigation, canonical and encoded alert-label links, compact live-range labels, and browser-locale range bounds and validated custom date entry |
+| [Navigation, time range and theme](navigation.md) | `ui`, `api` | shipped — fixed Replay entry links, history navigation, canonical and encoded alert-label links, compact live-range labels, browser-locale range bounds and validated custom date entry, and severity marks shaped like the badges on the collapsed rail with the count in the tooltip and accessible name |
 | [Overview page](overview-page.md) | `ui`, `api` | shipped — fixed Replay window links, acknowledgement marks, phone ordering, history notes and chart gaps; chart navigation, time/value inspection with stable touch selection and bucket descriptions and summary/detail explanations and explicit unknown leaders and contained metric tips; tile charts only where a metric changed, in neutral with the accent on the change; cause evidence, a shared hover and more lanes are planned |
 | [Servers](servers.md) | `ui`, `api` | shipped — JetStream file bytes, limits, per-server storage history and slow-consumer detection labels; responsive detail cards with a separate full-width recent-events row |
 | [Streams](streams.md) | `ui`, `api` | shipped — replica placement is in the API only |
@@ -95,7 +95,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Micro services](micro-services.md) | `ui`, `api` | shipped |
 | [Command bar](command-bar.md) | `ui` | partial — search by name is shipped; findings, events and prefixes are planned |
 | [On call on the phone](mobile.md) | `ui`, `api` | partial — phone triage, scoped acknowledgements, retained label context, fixed Replay links, and contained settings built; predictions and other dedicated phone pages deferred |
-| [Data history](data-history.md) | `ui`, `api` | partial — exact sample spans, observed window boundaries, qualified availability, range notes and bounded global and server missing-report chart gaps with omission notices; forecast margins not built |
+| [Data history](data-history.md) | `ui`, `api` | partial — exact sample spans, observed window boundaries, qualified availability, range notes and bounded global and server missing-report chart gaps with omission notices; history loading said in a row the chart already has after 300 ms, one page note when the read fails and one live announcement per page; forecast margins not built |
 | [Notifications](notifications.md) | `api`, `cli` | shipped — channel quiet distinct from Prometheus exclusions |
 
 ## Feature coverage by area
@@ -125,7 +125,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Findings sent to webhook and Slack-compatible channels, with baselines, mutes, flapping, channel acknowledgement quiet, retries and destination tests (notifications.md)
 
 **Web UI**
-- [x] Sidebar, system switcher, header with account scope and search, the global time range (cut to fit a narrow window) on the server's clock and the theme menu, short-history navigation, all fed by one status call per system; compact live-range labels, browser-locale range bounds and validated custom date entry, encoded alert-label links and fixed Replay entry links (navigation.md)
+- [x] Sidebar, system switcher, header with account scope and search, the global time range (cut to fit a narrow window) on the server's clock and the theme menu, short-history navigation, all fed by one status call per system; compact live-range labels, browser-locale range bounds and validated custom date entry, encoded alert-label links and fixed Replay entry links; the collapsed rail marks a badge by its shape, with the count in the tooltip and accessible name (navigation.md)
 - [x] Overview: status line, nine linked metric boxes with descriptions and bucket and consumer-mini-chart inspection with stable touch selection, summary/detail explanations, unknown leaders and contained tips, tile charts only where a metric changed or data is missing, cause cards with acknowledgements and muted findings, phone ordering, trends, timeline lanes with the status timeline and Replay window links, busiest consumers, streams with placement, history notes and chart gaps (overview-page.md)
 - [x] Servers for 20 or more servers: aggregate slow-consumer detections distinct from JetStream backlog, data points, charts across servers, a map of every server, a grouped list with JetStream file bytes and limit bars; server pages with storage history and metric boxes, responsive placement and limits cards, and a full-width recent-events row (servers.md)
 - [x] Streams list and stream detail; replica placement in the API only (streams.md)
@@ -147,7 +147,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Services built on the NATS micro framework: a card per service with its versions, instances, rate, errors and a note, its endpoints with their slow spells and last errors, its instances with the missing ones, asked in the listed accounts and seen in subscriptions in all (micro-services.md)
 - [~] Search and jump to anything from one box — findings, events and prefixes are planned (command-bar.md)
 - [~] A finding on the phone with observed facts, episode story, playbook, scoped acknowledgement receipts, retained label context, fixed Replay links, and contained settings; predictions and other phone pages deferred (mobile.md)
-- [~] History coverage, gap lists, archive state, bounded sample spans with observed window boundaries and qualified availability, and bounded global and server missing-report chart hatches with omission notices; margins not built (data-history.md)
+- [~] History coverage, gap lists, archive state, bounded sample spans with observed window boundaries and qualified availability, and bounded global and server missing-report chart hatches with omission notices; history loading in a chart's own rows after 300 ms, one page note on a failed read and one live announcement per page; margins not built (data-history.md)
 
 **Operations**
 - [x] Findings with acknowledgement quiet metrics and exclusions, collector health and four notification delivery gauges at `/metrics` for Prometheus alerting (metrics-and-alerting.md)
