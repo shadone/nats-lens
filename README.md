@@ -189,7 +189,7 @@ Configuration comes from defaults, then an optional YAML file (`-config`), then 
 | `checks.loopback_is_tooling` |          | `true`                  | Clients connected from 127.0.0.1 or ::1 are tooling. When such clients are more than 60% of the connections that are not nats-lens's own over the last 10 epochs (a sidecar that makes inbound traffic look local), they are not, until the share falls below 40%; natslens logs it once. An epoch with fewer than 3 such connections keeps the previous decision. |
 | `checks.restart_window` |                | `10m`                   | How long a restarted server counts as restarting: checks that judge the cluster leave its own reports out, and a planned restart is reported at info. |
 | `checks.thresholds`   |                  |                         | Threshold overrides: check code to threshold name to value; see [Checks](#checks). |
-| `checks.remediation_file` |             |                         | YAML file mapping check codes to extra text or `{text, playbook}` with an HTTPS playbook URL. The text appends to the check's own after a `---` line. Plain text in which `backticks` mark code; no other Markdown. Read at start only: restart natslens to apply a change (in Kubernetes, a changed ConfigMap needs a rollout). An unknown code stops the start. See [Checks](#checks). |
+| `checks.remediation_file` |             |                         | YAML file mapping check codes to extra text or `{text, playbook}` with an HTTPS playbook URL. The text appends to the check's own after a `---` line. Markdown guidance with inline code, links, lists and tables; raw HTML stays inert. Read at start only: restart natslens to apply a change (in Kubernetes, a changed ConfigMap needs a rollout). An unknown code stops the start. See [Checks](#checks). |
 | `notifications.ui_url` | | none | Absolute HTTP or HTTPS UI base URL for message links; absent means no links. Shared across systems. |
 | `notifications.channels` | | none | Shared list of webhook or Slack-compatible receivers; no channels means no direct delivery. |
 | `notifications.channels[].name` | | required | Unique lowercase letters, digits and `-`, at most 63, starting with a letter or digit; identifies the channel in logs and metrics. |
@@ -405,7 +405,7 @@ checks:
     consumer-002: {lookback: 1h, min_growth: 500}
 ```
 
-The remediations describe the general case. To add your own advice (a runbook link, the team that owns a stream, how your deployment declares streams), point `checks.remediation_file` at a YAML file that maps a check code to text; the API and the UI show that text after the check's own remediation, below a `---` line. The text is plain, with `backticks` around code as in the checks' own remediations. The file is read at start only, so restart natslens after a change (in Kubernetes, a changed ConfigMap needs a rollout), and an unknown code stops the start:
+The remediations describe the general case. To add your own advice (a runbook link, the team that owns a stream, how your deployment declares streams), point `checks.remediation_file` at a YAML file that maps a check code to text; the API and the UI show that text after the check's own remediation, below a `---` line. The UI renders Markdown with inline code, links, lists and tables, as in the checks' own remediations; raw HTML stays inert. The file is read at start only, so restart natslens after a change (in Kubernetes, a changed ConfigMap needs a rollout), and an unknown code stops the start:
 
 ```yaml
 consumer-010:
