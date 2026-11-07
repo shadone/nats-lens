@@ -189,7 +189,10 @@ bfirst AS (
     FROM bcoarse c, (VALUES (0), (1)) b(k)
     JOIN consumer_leader_stats z ON z.account = c.account AND z.stream = c.stream AND z.consumer = c.consumer
      AND z.epoch // 64 = c.hi // 64 - b.k
-    WHERE z.epoch > c.hi - 64 AND z.epoch <= c.hi AND z.epoch >= c.lo AND z.created IS NOT DISTINCT FROM c.created
+    -- Bound the scan before joining consumers. DuckDB 2.0 can otherwise
+    -- join their full history before applying the two-block condition.
+    WHERE z.epoch BETWEEN (SELECT min(hi) - 63 FROM bcoarse) AND (SELECT max(hi) FROM bcoarse)
+      AND z.epoch > c.hi - 64 AND z.epoch <= c.hi AND z.epoch >= c.lo AND z.created IS NOT DISTINCT FROM c.created
       AND z.delivered_stream_seq = c.d AND z.num_pending > 0
     GROUP BY c.account, c.stream, c.consumer, c.epoch
 ),
