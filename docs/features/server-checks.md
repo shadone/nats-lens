@@ -6,7 +6,7 @@
 
 ## What it does
 
-The server checks judge each NATS server on its own: whether it answers, whether its health endpoint and JetStream are ready, whether it restarted, whether its store or memory is filling, whether its clients are slow, stalled, churning or going stale or fill its connection limit, whether a TLS certificate of its listeners expires soon, whether its routes and gateways are all there and keep up, and whether its CPU, internal queues or JetStream API are overloaded, and whether it rejected an OCSP peer connection. A server finding is keyed by the server's stable name, so it survives the server's restarts. There are 26 checks in the server group, `server-001` to `server-026`; the leaf-site check reports on the system. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
+The server checks judge each NATS server on its own: whether it answers, whether its health endpoint and JetStream are ready, whether it restarted, whether its store or memory is filling, whether its clients are slow, stalled, churning or going stale or fill its connection limit, whether a TLS certificate of its listeners expires soon, whether its routes and gateways are all there and keep up, and whether its CPU, internal queues or JetStream API are overloaded, and whether it rejected an OCSP peer connection. A server finding is keyed by the server's stable name, so it survives the server's restarts. There are 28 checks in the server group, `server-001` to `server-028`; the leaf-site check reports on the system. The general rules of findings, thresholds and mutes are in [checks.md](checks.md).
 
 ## The checks
 
@@ -233,6 +233,24 @@ The warning severity, attribution to both endpoints, evidence and name-based ide
 
 The system identity, warning severity, two-collection absence, three-drop hour, 24-hour sighting window, per-identity evidence expiry across missed evaluations and conservative eligibility rules are proposed, not yet confirmed.
 
+
+### `server-027` Raft apply progress stalled
+
+- **Fires when:** a local voting node reports at least `min_backlog` committed but unapplied log indexes without applied-index progress throughout `grace`, across at least `min_epochs` consecutive eligible collections. It must remain a leader or follower with a reported leader. This is a local apply stall, not message lag, an internal queue length, or proof that the group is unavailable.
+- **Evidence:** up to five local groups, their accounts and asset names, current term, committed and applied indexes, and the start of the observed stall. The value is the largest current backlog among qualifying groups.
+- **Eligibility and identity:** observations keep the same reporting process ID, Raft account, group ID and peer ID set. Stream and consumer groups also require a unique local asset report, successful JSZ and an unchanged creation timestamp in every collection. Unmapped asset groups are unknown. `_meta_` is compared locally, never combined across servers or domains. All other peers must be known and their count must equal the reported group size minus self. A pending membership change, duplicate row or overlapping process with the same server name invalidates evidence.
+- **Grace and recovery:** restart grace applies even to a newly observed process. Failed or absent RAFTZ, missing groups or fields, paused apply, observers, catch-up, overrun, WAL errors, counter regression, changed membership or incarnation, and elapsed gaps over `max_gap` reset the run. Account-specific request status takes precedence over the default RAFTZ request. Evidence is read from a bounded `lookback`; it cannot bridge an unobserved collection. Apply progress or a backlog below the threshold clears the warning. The entry delay and immediate release provide temporal hysteresis; there is no lower numeric release threshold or retained warning on uncertain data. A reset ends the warning for lack of evidence and does not establish health. Changes and recovery between samples cannot be detected.
+- **Thresholds:** `min_backlog` 1000 log indexes, `grace` 2m, `min_epochs` 3, `max_gap` 90s and `lookback` 10m. These thresholds and warning severity are proposed, not yet confirmed. A grace longer than the lookback cannot qualify; fewer than two samples never qualify.
+- **Next steps:** compare the named node with its peers, disk latency, CPU, scheduling and routes. Catch-up and WAL findings retain their own meanings. A stalled applied index can also reflect delayed compaction eligibility; it does not prove that no work was processed. The warning alone does not justify removing a replica.
+
+### `server-028` Raft node remains a candidate
+
+- **Fires when:** a local voting node which previously had a leader reports `CANDIDATE` with no leader throughout `grace`, across at least `min_epochs` eligible collections. The group may still have a leader from another peer's perspective. A never-led new group does not qualify.
+- **Evidence:** up to five local groups, accounts and assets, current term and log indexes, and the start of the observed candidacy. The value counts qualifying local groups. A changing term is allowed but is not counted as successful elections.
+- **Eligibility and recovery:** the process, membership, asset incarnation, restart, unknown, gap and counter safeguards are the same as `server-027`. Returning to follower or leader, reporting a leader, or losing eligible evidence resets the run. Delayed entry and immediate release provide temporal hysteresis. This local symptom can accompany global quorum findings but does not independently assert quorum loss or identify an unreachable peer.
+- **Thresholds:** `grace` 2m, `min_epochs` 3, `max_gap` 90s and `lookback` 10m, proposed, not yet confirmed, along with warning severity.
+- **Next steps:** compare the group's other reports and membership, scheduling delays and peer connectivity. Use the existing meta leader-change and asset quorum findings for their separate evidence.
+
 ## Behavior and rules
 
 - **Keyed by server name.** Except for the system-level `server-026`, a server finding belongs to the server's name, so a restart does not start a new finding.
@@ -354,6 +372,14 @@ These server checks are not built. Each line says what it would detect and what 
 - **Then** `server-024` fires as a warning for `nats-0` and links to the event
 - **And** a server with only a chain-link status event has no such finding
 - **And** the finding resolves after the last rejection leaves the window, even if the server stopped reporting
+
+### Local Raft diagnostics require continuous evidence (`api`, `ui`, `cli`)
+
+- **Given** an established voting node reports a stable local group after restart grace
+- **When** its apply index remains stalled behind at least 1000 committed indexes, or it stays a candidate without a leader, for two minutes
+- **Then** the corresponding local warning names the group and observed indexes
+- **And** a catch-up, unknown observation, membership change, recreation or excessive gap resets the evidence without proving recovery
+- **Held by:** `TestRaftDiagnosticsSustained`, `TestRaftDiagnosticsBoundaries`, `TestRaftApplyProgressAndUnknown`, `TestRaftCandidateRecovery`
 
 ## Not supported / out of scope
 
