@@ -1,14 +1,28 @@
 package checks
 
 import (
+	"context"
 	"fmt"
+	"github.com/shadone/nats-lens/internal/config"
+	"github.com/shadone/nats-lens/internal/store"
+	"path/filepath"
 	"testing"
 	"time"
 )
 
-func degradedFixture(t *testing.T, n int64) *fx {
+func degradedFixture(t *testing.T, n int64, path ...string) *fx {
 	t.Helper()
-	f := newFx(t)
+	var f *fx
+	if len(path) == 0 {
+		f = newFx(t)
+	} else {
+		st, err := store.OpenPath(context.Background(), path[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		f = &fx{t: t, st: st}
+		t.Cleanup(func() { _ = f.st.Close() })
+	}
 	f.cluster(n)
 	f.streamConfig("S0", "jobs", 1, n, nil)
 	for _, c := range []string{"bad", "good"} {
@@ -64,5 +78,110 @@ func TestConsumerReplicaDegradedBoundaries(t *testing.T) {
 				f.fires("consumer-018", 3)
 			}
 		})
+	}
+}
+
+func TestConsumerReplicaDegradedHistory(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "replicas.duckdb")
+	f := degradedFixture(t, 9, path)
+	set, err := Load(config.Checks{Timeout: config.Duration(10 * time.Second)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	eng := &Engine{Set: set, only: map[string]bool{"consumer-018": true}, Interval: 30 * time.Second}
+	run := func(epoch int64) {
+		t.Helper()
+		if _, err := eng.Run(context.Background(), f.st, epoch); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// No earlier check runs: persisted observations, not evaluations, establish the warning.
+	run(3)
+	f.exec(`DELETE FROM consumer_stats WHERE epoch IN (4,5) AND consumer='bad'`)
+	eng.Budget = time.Nanosecond
+	run(4)
+	eng.Budget = 0
+	// A failing/skipped run leaves findings untouched. An unknown successful run holds.
+	run(5)
+	if err := f.st.Close(); err != nil {
+		t.Fatal(err)
+	}
+	f.st, err = store.OpenPath(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := f.fires("consumer-018", 6, "APP/jobs/bad")["APP/jobs/bad"]
+	want(t, r, "warning", "health is unknown")
+	if r.Value != nil {
+		t.Fatal("unknown health has a numeric value")
+	}
+	// Recovery needs one complete healthy observation, even after skipped checks.
+	f.exec(`UPDATE consumer_replicas SET current=true,lag=0 WHERE epoch=7`)
+	run(7)
+	f.fires("consumer-018", 8)
+	f.fires("consumer-018", 9)
+	// A historical read does not borrow future finding state.
+	f.fires("consumer-018", 2)
+}
+
+func TestConsumerReplicaDegradedQuorumSizes(t *testing.T) {
+	for _, r := range []int{2, 3, 5} {
+		for off := 0; off < r; off++ {
+			t.Run(fmt.Sprintf("R%d-offline%d", r, off), func(t *testing.T) {
+				f := degradedFixture(t, 3)
+				f.exec(`DELETE FROM consumer_replicas WHERE consumer='bad'`)
+				f.exec(`DELETE FROM consumer_stats WHERE consumer='bad' AND server_id<>'S0'`)
+				f.exec(`UPDATE consumer_config SET replicas=? WHERE consumer='bad'`, r)
+				for e := int64(1); e <= 3; e++ {
+					for i := 1; i < r; i++ {
+						id, name := fmt.Sprint("S", i), fmt.Sprint("nats-", i)
+						if i >= 3 && e == 1 {
+							f.server(id, name, 1, 3, t0.Add(-time.Hour), "2.15.0")
+						}
+						f.consumerStats(e, id, "jobs", "bad", m{"leader": "nats-0"})
+						f.consumerReplica(e, "S0", "jobs", "bad", name, m{"offline": i <= off, "current": i > off, "pending": false})
+					}
+				}
+				if off > 0 && r-off >= r/2+1 {
+					f.fires("consumer-018", 3, "APP/jobs/bad")
+				} else {
+					f.fires("consumer-018", 3)
+				}
+			})
+		}
+	}
+}
+
+func TestConsumerReplicaDegradedRestartAndConfig(t *testing.T) {
+	for _, q := range []string{
+		`UPDATE servers SET start_time=TIMESTAMP '2026-10-17 09:00:00' WHERE server_id='S2'`,
+		`UPDATE consumer_config SET replicas=3 WHERE consumer='bad'; INSERT INTO consumer_config SELECT * REPLACE ('S1' AS server_id, 1 AS replicas) FROM consumer_config WHERE consumer='bad'`,
+		`UPDATE consumer_stats SET created=NULL WHERE consumer='bad'`,
+		`UPDATE consumer_stats SET leader_since=NULL WHERE consumer='bad'`,
+	} {
+		f := degradedFixture(t, 3)
+		f.exec(q)
+		f.fires("consumer-018", 3)
+	}
+}
+
+func TestConsumerReplicaDegradedScale(t *testing.T) {
+	f := degradedFixture(t, 3)
+	// 10,000 consumers, 30,000 observations and 60,000 peer facts in the bounded window;
+	// 100 old epochs add 1,000,000 unrelated observations that must not widen the window.
+	f.exec(`INSERT INTO consumer_config SELECT consumer_config.* REPLACE ('c'||i AS consumer) FROM consumer_config, range(10000) t(i) WHERE consumer='bad'`)
+	f.exec(`INSERT INTO consumer_stats SELECT consumer_stats.* REPLACE ('c'||i AS consumer) FROM consumer_stats, range(10000) t(i) WHERE consumer='bad' AND is_leader`)
+	f.exec(`INSERT INTO consumer_stats SELECT consumer_stats.* REPLACE (epoch-100 AS epoch, 'old'||i AS consumer) FROM consumer_stats, range(100) t(i) WHERE consumer LIKE 'c%'`)
+	f.exec(`INSERT INTO consumer_replicas SELECT consumer_replicas.* REPLACE ('c'||i AS consumer) FROM consumer_replicas, range(10000) t(i) WHERE consumer='bad'`)
+	start := time.Now()
+	got := f.eval("consumer-018", 3)
+	// Only the original bad consumer has corroborating reports; bulk leaders cannot self-certify quorum.
+	if len(got) != 1 {
+		t.Fatalf("got %d findings", len(got))
+	}
+	elapsed := time.Since(start)
+	t.Logf("10,000 consumers plus 3 million old reports: %s", elapsed)
+	if elapsed > 4*time.Second {
+		t.Fatalf("batch query took %s; budget 4s", elapsed)
 	}
 }
