@@ -78,11 +78,11 @@ describe("tileStatus", () => {
   });
 });
 
-it("identifies the headline's measurement instead of calling every tile a snapshot", () => {
+it("leaves out captions that repeat the section's note", () => {
   render(<OverviewTiles tiles={[tile({ value: 3 }), tile({ id: "meta_leader", label: "Meta leader", valueText: "nats-1" }), tile({ id: "storage", label: "Storage", unit: "bytes", value: 40 })]} windows={[]} start={START} end={END} />);
-  expect(screen.getByText("Latest count bucket")).toBeInTheDocument();
-  expect(screen.getByText("Newest leader · chart: changes per bucket")).toBeInTheDocument();
-  expect(screen.getByText("Newest storage reports")).toBeInTheDocument();
+  expect(screen.queryByText("Latest count bucket")).toBeNull();
+  expect(screen.queryByText(/Newest leader/)).toBeNull();
+  expect(screen.queryByText("Newest storage reports")).toBeNull();
 });
 
 it("never presents a leader-change total as the meta leader when no majority names one", () => {
@@ -90,4 +90,67 @@ it("never presents a leader-change total as the meta leader when no majority nam
   expect(screen.getByText("Unknown")).toBeInTheDocument();
   expect(screen.getByText("2 leader changes in range")).toBeInTheDocument();
   expect(container.querySelector(".mb-range")).toBeNull();
+});
+
+describe("charts only where something changed", () => {
+  const steady = series(Array.from({ length: 96 }, () => 3), 3, 3);
+  const dip = series(Array.from({ length: 96 }, (_, i) => (i === 40 ? 2 : 3)), 2, 3);
+
+  it("draws no chart for a steady tile, and keeps its number and steady line", () => {
+    const { container } = render(<OverviewTiles tiles={[tile({ value: 3, series: steady })]} windows={[]} start={START} end={END} />);
+    expect(container.querySelector("svg.spark")).toBeNull();
+    expect(container.querySelector(".mbox.mb-quiet")).not.toBeNull();
+    expect(screen.getByText("steady at 3 all window")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
+  });
+
+  it("draws the chart when a value changed in the range", () => {
+    const { container } = render(<OverviewTiles tiles={[tile({ value: 3, series: dip })]} windows={[]} start={START} end={END} />);
+    expect(container.querySelector("svg.spark")).not.toBeNull();
+    expect(container.querySelector(".mbox.mb-quiet")).toBeNull();
+  });
+
+  it("keeps the chart of a steady tile that a critical finding colours", () => {
+    const { container } = render(<OverviewTiles tiles={[tile({ value: 3, status: "critical", series: steady })]} windows={[]} start={START} end={END} />);
+    expect(container.querySelector("svg.spark")).not.toBeNull();
+  });
+
+  it("keeps the chart when buckets are missing", () => {
+    const short = { ...steady, points: steady.points.slice(0, 60) };
+    const { container } = render(<OverviewTiles tiles={[tile({ value: 3, series: short })]} windows={[]} start={START} end={END} />);
+    expect(container.querySelector("svg.spark")).not.toBeNull();
+  });
+
+  it("draws the meta leader's chart only when the leader changed", () => {
+    const none = series(Array.from({ length: 96 }, () => 0), 0, 0);
+    const two = series(Array.from({ length: 96 }, (_, i) => (i === 70 ? 2 : 0)), 0, 2);
+    const { container } = render(
+      <OverviewTiles
+        tiles={[
+          tile({ id: "meta_leader", label: "Meta leader", value: 0, valueText: "nats-1", subtitle: "0 leader changes in range", series: none }),
+          tile({ id: "meta_leader", label: "Meta leader 2", value: 2, valueText: "nats-0", subtitle: "2 leader changes in range", series: two }),
+        ]}
+        windows={[]}
+        start={START}
+        end={END}
+      />,
+    );
+    const boxes = container.querySelectorAll(".mbox");
+    expect(boxes[0].querySelector("svg.spark")).toBeNull();
+    expect(boxes[1].querySelector("svg.spark")).not.toBeNull();
+    expect(screen.getByText("chart: leader changes per bucket")).toBeInTheDocument();
+  });
+
+  it("draws an ok tile's line in the neutral colour with the accent only on the change", () => {
+    const { container } = render(<OverviewTiles tiles={[tile({ value: 3, series: dip })]} windows={[]} start={START} end={END} />);
+    const lines = [...container.querySelectorAll<SVGPolylineElement>("svg.spark polyline")];
+    expect(lines[0].style.stroke).toBe("var(--text-muted)");
+    expect(lines.filter((l) => l.style.stroke === "var(--accent)")).toHaveLength(1);
+  });
+
+  it("keeps the severity colour on a tile in trouble", () => {
+    const { container } = render(<OverviewTiles tiles={[tile({ value: 3, status: "critical", series: dip })]} windows={[]} start={START} end={END} />);
+    const lines = [...container.querySelectorAll<SVGPolylineElement>("svg.spark polyline")];
+    expect(lines.every((l) => l.style.stroke === "var(--sev-critical)")).toBe(true);
+  });
 });

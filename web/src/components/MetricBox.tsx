@@ -1,5 +1,5 @@
 // A metric box: a title with an (i) description, the current value top
-// right, a line chart, and a range track with the window's min on the left,
+// right, a line chart unless the caller leaves it out, and a range track with the window's min on the left,
 // its max on the right and a dot at the current value. A warning or
 // critical status colours the value and the dot and shows a word; info only
 // tints the dot. A configured limit
@@ -72,6 +72,10 @@ export interface MetricBoxProps {
   bucketNote?: string;
   sampleFmt?: (value: number) => string;
   seriesLabels?: [string, string];
+  /** Whether to draw the chart; true by default. A box without one is compact. */
+  chart?: boolean;
+  /** The chart's colouring, as `Sparkline` takes it. */
+  tone?: "status" | "change";
 }
 
 /** An (i) button that shows a description on hover, focus or click. */
@@ -182,8 +186,9 @@ export function MetricBox(p: MetricBoxProps) {
   const period = rangeText(p.start, p.end);
   const first = seriesSince(p.series, p.start);
   const since = first === undefined ? undefined : sinceText(first, p.end);
+  const chart = p.chart ?? true;
   return (
-    <div className={`card mbox${alert}${p.to ? " chart-linked" : ""}`}>
+    <div className={`card mbox${alert}${p.to ? " chart-linked" : ""}${chart ? "" : " mb-quiet"}`}>
       <div className="mb-h">
         <span className="lbl">
           {p.to ? <RLink to={p.to} className="mb-t chart-link">{p.title}</RLink> : <span className="mb-t">{p.title}</span>}
@@ -202,7 +207,7 @@ export function MetricBox(p: MetricBoxProps) {
       )}
       {p.error && !p.series ? (
         <p className="muted-note">Could not load: {p.error}</p>
-      ) : (
+      ) : chart && (
         <Sparkline
           points={pts}
           stepMs={p.series?.stepMs}
@@ -216,6 +221,7 @@ export function MetricBox(p: MetricBoxProps) {
           end={p.end}
           label={p.title}
           current={p.valueText ?? (value === undefined ? undefined : p.fmt(value))}
+          tone={p.tone}
         />
       )}
       {track && <RangeTrack title={p.title} min={min} max={max} value={value} fmt={p.fmt} status={status} period={period} since={since} noCurrent={p.value === null} />}
