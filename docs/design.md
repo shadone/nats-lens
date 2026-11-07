@@ -776,3 +776,13 @@ checkpoint prevention, not repair of existing index divergence. Dependency
 upgrades and recovery require separate work.
 
 Consumer replica degradation (`consumer-018`) uses the leader's peer facts in a single batch over the newest `min_epochs` collections. It requires stable identity, leader, membership, effective replica count, corroborating quorum reports and a surviving online quorum. Unknown observations hold an existing warning with a null value instead of certifying health. Severity warning, 3 collections, maximum gap 90 seconds and election/startup grace 2 minutes are proposed, not yet confirmed. No schema or collector change is required. NATS 2.15.0 defines leader lag as committed Raft entries not persisted by a peer; followers intentionally leave other followers noncurrent with zero lag ([raft.Peers](https://github.com/nats-io/nats-server/blob/v2.15.0/server/raft.go#L2447)). Cluster info also clears current after the lost-quorum activity interval and obtains offline from node information ([jetStream.clusterInfo](https://github.com/nats-io/nats-server/blob/v2.15.0/server/jetstream_cluster.go#L13384)).
+
+### Local Raft diagnostic sampling (proposed, not yet confirmed)
+
+`server-027` and `server-028` compare eligible local observations consecutive among retained epochs, bounded by `lookback` and elapsed `max_gap`.
+The proposal retains the current elapsed-gap and retained-epoch semantics; it does not certify continuous capture or an uninterrupted actual condition.
+Entirely absent epochs can bridge when the remaining observations are at most `max_gap` apart, even with no orphan Raft or endpoint rows.
+A retained epoch missing the local group or a successful RAFTZ capture resets the run, as does a gap greater than `max_gap`.
+Sequence-number holes alone do not reset it. The run still requires `min_epochs` eligible samples and an elapsed span of `grace`.
+Unknown fields, including an unknown leader, and process, asset or membership changes reset evidence as described in [Server checks](features/server-checks.md).
+A reset does not prove recovery; changes between samples cannot be detected. Thresholds remain unchanged.

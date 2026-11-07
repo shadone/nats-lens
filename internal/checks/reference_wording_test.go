@@ -42,3 +42,27 @@ func TestStreamCreationReferenceDoesNotInferCauseOrPromiseRepair(t *testing.T) {
 		}
 	}
 }
+
+func TestRaftMetadataSamplingQualifications(t *testing.T) {
+	s, err := Load(config.Checks{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, code := range []string{"server-027", "server-028"} {
+		c, _ := s.Lookup(code)
+		for _, phrase := range []string{"not proof of continuous capture", "Entirely absent epochs within max_gap can bridge", "retained epoch", "gaps over max_gap", "proposed, not yet confirmed"} {
+			if !strings.Contains(c.Description, phrase) {
+				t.Errorf("%s metadata lacks %q", code, phrase)
+			}
+		}
+		text := c.Description + c.ValueBasis
+		for _, threshold := range c.Thresholds {
+			text += threshold.Description
+		}
+		for _, claim := range []string{"uninterrupted successful", "uninterrupted observed duration", "continuously observed", "throughout the grace period"} {
+			if strings.Contains(text, claim) {
+				t.Errorf("%s unsupported metadata claim %q", code, claim)
+			}
+		}
+	}
+}

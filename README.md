@@ -452,8 +452,8 @@ To try a change to a check on a copy of a database: `natslens checks run -data-d
 | server-024 | OCSP peer rejected | warning | Final `server.ocsp_peer_rejected` events within 15m, by captured server name or ID; distinct event IDs per process, resolves when the window is empty |
 | server-025 | Slow routes | warning | Topology’s shared classifier finds a pair slow in two eligible collections within three intervals; both endpoints receive the finding, with peers and current RTTs |
 | server-026 | Leaf node disconnects or repeated reconnects | warning, system finding | observed site absent for two fully observed collections, or three observed drops in 1h; handoffs excluded, last sighting within 24h |
-| server-027 | Raft apply progress stalled | warning | at least 1000 unapplied log indexes with no applied-index progress for 2m and 3 eligible samples |
-| server-028 | Raft node remains a candidate | warning | previously led local voting group reports candidacy without a leader for 2m and 3 eligible samples |
+| server-027 | Raft apply progress stalled | warning | at least 1000 unapplied log indexes with an unchanged applied index across 3 eligible retained samples spanning 2m |
+| server-028 | Raft node remains a candidate | warning | previously led local voting group reports candidacy without a leader across 3 eligible retained samples spanning 2m |
 | system-001 | Check failed to run | warning, critical after 10 epochs of the same failure | the engine's own runs |
 | system-002 | No JetStream meta leader | critical | `meta_leader` of the clustered servers, or the leader seeing more peers offline than its quorum allows |
 | system-003 | JetStream meta leader changing often | warning above 4 in 15m | `meta.leader_elected` events and the leader per epoch; one hand-over within two intervals after each step-down not counted |
@@ -517,6 +517,8 @@ To try a change to a check on a copy of a database: `natslens checks run -data-d
 | account-002 | Account near its JetStream disk limit | warning 90%, critical at the limit | the largest `js_storage` any server reports against `limit_js_disk`; 0 (JetStream disk off) and -1 left out |
 | account-003 | Account JWT expires soon | warning 14d, critical 3d or expired | `account_details.jwt_expires` and `expired`, from the newest lookup within 24h |
 | account-004 | User JWTs expire soon | warning 14d, critical 3d or expired | `connections.jwt_expires` of the epoch's connections, by account and user |
+
+Raft diagnostics (`server-027`, `server-028`) use samples, not proof of continuous capture or an uninterrupted condition. Entirely absent epochs can bridge within `max_gap` (90s); a retained epoch missing the group or successful RAFTZ capture resets evidence, as does a larger gap. Sequence-number holes alone do not reset it. See [Server checks](docs/features/server-checks.md) for the proposed, not yet confirmed policy.
 
 To add a check, write its file, then a test in `internal/checks` that builds the rows it reads with the fixture helpers and shows one entity that fails and one that does not.
 
