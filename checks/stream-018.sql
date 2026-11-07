@@ -58,7 +58,7 @@ cfg AS (
 -- !jetstream takes no stream.
 newest AS (
     SELECT server_name, jetstream, cluster, coalesce(domain, '') AS domain,
-        list_transform(coalesce(tags, []), x -> lower(trim(x))) AS tags
+        list_transform(coalesce(tags, []), lambda x: lower(trim(x))) AS tags
     FROM servers
     WHERE list_contains((SELECT expected_names FROM epochs WHERE epoch = getvariable('epoch')), server_name)
     QUALIFY row_number() OVER (PARTITION BY server_name ORDER BY last_epoch DESC, server_id DESC) = 1

@@ -81,7 +81,7 @@ fields AS (
         CASE WHEN bool_or(allow_direct IS DISTINCT FROM ref_allow_direct) THEN 'allow_direct' END,
         CASE WHEN bool_or(allow_msg_ttl IS DISTINCT FROM ref_allow_msg_ttl) THEN 'allow_msg_ttl' END,
         CASE WHEN bool_or(description IS DISTINCT FROM ref_description) THEN 'description' END
-    ], x -> x IS NOT NULL) AS differ
+    ], lambda x: x IS NOT NULL) AS differ
     FROM withref GROUP BY account, stream
 )
 SELECT

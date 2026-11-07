@@ -121,7 +121,7 @@ SELECT
                         || ', when its leader was elected or its server started', '')
                  WHEN unheard THEN 'nothing received from its origin for '
                     || span_text(to_microseconds(CAST(active_ns // 1000 AS BIGINT))) END
-        ], x -> x IS NOT NULL), '; ')
+        ], lambda x: x IS NOT NULL), '; ')
         || CASE WHEN last_epoch < getvariable('epoch') THEN ' (no leader report in this collection)' ELSE '' END
         || '.' AS detail,
     lag AS value,

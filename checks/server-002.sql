@@ -36,5 +36,5 @@ SELECT
     error_count AS value
 FROM h
 WHERE CASE WHEN is_restarting
-    THEN list_filter(types, t -> t NOT IN ('JETSTREAM', 'STREAM', 'CONSUMER')) <> []
-    ELSE len(types) = 0 OR list_filter(types, t -> t <> 'JETSTREAM') <> [] END
+    THEN list_filter(types, lambda t: t NOT IN ('JETSTREAM', 'STREAM', 'CONSUMER')) <> []
+    ELSE len(types) = 0 OR list_filter(types, lambda t: t <> 'JETSTREAM') <> [] END
