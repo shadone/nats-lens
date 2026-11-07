@@ -103,3 +103,14 @@ it("honors an anchor that arrives asynchronously", async () => {
   act(() => ready(true));
   await waitFor(() => expect(screen.getByText("Evidence")).toHaveFocus());
 });
+
+it("review: restores saved position rather than reactivating a fragment on POP", () => {
+  mount("/checks#evidence");
+  readAt(2100);
+  act(() => go("/servers"));
+  readAt(100);
+  vi.mocked(HTMLElement.prototype.scrollIntoView).mockClear();
+  act(() => go(-1));
+  expect(y).toBe(2100);
+  expect(HTMLElement.prototype.scrollIntoView).not.toHaveBeenCalled();
+});
