@@ -19,7 +19,7 @@ nats-lens observes a NATS deployment: a Go collector takes snapshots and capture
 ## Commands
 
 - `make build`: the web UI, then `bin/natslens` with it embedded.
-- `go test ./...` (`go test -short ./...` skips the in-process cluster tests); `go vet ./...`.
+- `go test ./...`; `go test -short ./...` skips tests that explicitly check short mode, but still includes database and local-server tests; `go vet ./...`.
 - `cd web && npx tsc --noEmit && npm test`.
 - `natslens demo`: the API and UI with a fixed scenario on 127.0.0.1:8080, without NATS.
 - `make dev-cluster`, `make load`, `make run-dev`: a local cluster, assets and traffic, and the collector against it.
@@ -34,6 +34,9 @@ nats-lens observes a NATS deployment: a Go collector takes snapshots and capture
 
 ## Agent work
 
+- Treat a named example as evidence of the broader issue; check analogous surfaces before narrowing task scope.
+- State the expected benefit of a refactor and verify it afterward: correctness, fewer queries, faster tests/builds, or clearer dependency ownership.
+- Follow [Investigation workflows](docs/plans/investigation-workflows.md) for the proposed investigation and agent-access direction; backlog tasks do not establish shipped behavior.
 - One implementer and one reviewer per task; the reviewer is a fresh agent and only reads.
 - For a fix, see its test fail with the fix taken out, then pass with it, and say so in the report.
 - A decision an agent makes is written as "proposed, not yet confirmed", never as the owner's.

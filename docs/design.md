@@ -261,7 +261,7 @@ A system's summary reads only data already collected, never NATS: the collection
 
 Every request except `ListSystems` and `ListMetrics` names its system in `system`. The handler resolves it before anything else: empty is the default system, the first configured; an unknown ID is invalid_argument naming the known IDs, and no provider is called. Each system has its own provider, which never reads the field. `GetLensInfo` returns the system's ID and name.
 
-A read-only SQL endpoint and an MCP server for agents come after the first release.
+Agent access and interchangeable live/offline investigation clients are proposed in [Investigation workflows](plans/investigation-workflows.md).
 
 ### Ranges and identities
 
