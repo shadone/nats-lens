@@ -114,8 +114,8 @@ describe("Capacity", () => {
     const status = (n: string) => cellTexts(n)[5];
     expect(within(row("audit-archive")).getByRole("link", { name: "full in 13 days" })).toHaveAttribute("href", "/findings/stream-006%3AAPP%2Faudit-archive");
     expect(status("audit-archive")).toContain("muted until 2026-10-28 10:00 UTC");
-    expect(status("KV_customer-config")).toBe("By designAccepted by ops@example.com: Customer records are kept for the account's life. Review on 2027-04-07.stream-005");
-    expect(status("KV_session-cache")).toBe("By designbounded by its writers' TTLs");
+    expect(status("customer-config")).toBe("By designAccepted by ops@example.com: Customer records are kept for the account's life. Review on 2027-04-07.stream-005");
+    expect(status("session-cache")).toBe("By designbounded by its writers' TTLs");
     expect(within(row("order-history")).getByRole("link", { name: "muted until 2026-11-17 22:00 UTC" })).toBeInTheDocument();
     expect(within(row("order-archive")).getByRole("button", { name: "Accept order-archive as by design…" })).toHaveTextContent("Accept as by design…");
     expect(status("legacy-log")).toBe("unbounded");
