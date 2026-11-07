@@ -75,7 +75,20 @@ export interface MatrixAsset {
   consumers: MatrixAsset[];
 }
 
+export interface PlacementObservation {
+  asset: string;
+  server: string;
+  asOf?: number;
+  since?: number;
+  samples: number;
+  truncated: boolean;
+  boundary: string;
+  state: PlacementStateName;
+  differs: string[];
+}
+
 export interface Matrix {
+  observation?: PlacementObservation;
   servers: MatrixServer[];
   streams: MatrixAsset[];
   counts: Record<MatrixFilter, number>;
@@ -128,6 +141,7 @@ export function matrix(r: GetPlacementResponse): Matrix {
     streams: r.streams.map(asset),
     counts: { all: c?.all ?? 0, disagree: c?.serversDisagree ?? 0, behind: c?.replicaBehind ?? 0, missing: c?.missing ?? 0, single: c?.singleReplica ?? 0 },
     epochAt: ms(r.epochAt),
+    observation: r.observation && { ...r.observation, asOf: ms(r.observation.asOf), since: ms(r.observation.since), state: placementState(r.observation.state) },
   };
 }
 
