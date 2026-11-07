@@ -98,6 +98,7 @@ The system checks judge what belongs to no single server: the JetStream meta gro
 ## Behavior and rules
 
 - **A failed check is not silence.** Because `system-001` fires whenever a check fails, a check that cannot run never looks like a check that found nothing. The `/metrics` endpoint also exports `nats_lens_check_failing` per check.
+- **Empty account RAFTZ replies are complete.** An account report with no raft groups counts as `ok`, including during deletion of its last stream. A missing or failed account report still counts toward `system-007` while another server lists streams for that account; [monitoring snapshots](monitoring-snapshots.md) defines when the account leaves the request set.
 - **Checks rotate.** The order of the checks moves by one every collection, so when the budget runs out, a different check is left out each time.
 - **Meta groups share one system finding per check.** Group evidence does not create separate findings, mute targets, acknowledgement targets, or notification identities. A failure in any identified group keeps the system finding firing. The Overview leader name and trend retain their system-wide majority rule; they are not per-group health evidence.
 - **System findings carry no entity.** In the UI they read as "system". A mute of a system finding, for "This entity" or for every entity of the check, covers the whole system.
