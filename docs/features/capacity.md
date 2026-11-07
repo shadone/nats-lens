@@ -10,9 +10,9 @@ The Capacity page shows what each stream keeps, what bounds it, and when the dis
 
 ## Behavior and rules
 
-- **Missing growth history.** The header, server cards, and stream rows explain the six-hour requirement and link to Data history. Missing figures require samples spanning six hours and explain that entity measurements may be missing. A shorter range asks for at least six hours. The age of retained history never supplies a countdown. The page draws no collection-history chart overlay. Forecast confidence margins are not shown.
+- **Missing growth history.** One page note explains the six-hour requirement and links to Data history. Server cards say “growth unavailable”; unset table rates remain unknown. The note distinguishes short retained history from missing boundary observations or entity measurements. A shorter range asks for at least six hours. The age of retained history never supplies a countdown. The page draws no collection-history chart overlay. Forecast confidence margins are not shown.
 
-- **The newest collection of the range.** The page reads the newest collection at or before the end of the range, and names it in the line under the header with the number of streams and stores and since when growth is read ("growth from 2026-10-20 12:00 UTC"), or an explanation of the history needed when no card or row has a rate. Growth covers the whole range, as on the Streams page. Without a collection the page says "No collection in this range." and nothing else.
+- **The newest collection of the range.** The page reads the newest collection at or before the end of the range, and names it in the line under the header with the number of streams and stores and since when growth is read ("growth from 2026-10-20 12:00 UTC"), or an explanation of the history needed when no card or row has a rate. Growth follows the bounded observation policy on the [Streams page](streams.md). The page discloses the lookback and collection bounds; an individual entity can have a shorter span. Without a collection the page says "No collection in this range." and nothing else.
 - **One card per server.** "JetStream file store", the use, the limit and the share ("244 MiB of 50 GiB · 0.5%") and a bar. A server whose limit is unset or 0 shows its use and "no limit reported", without a bar. A server that did not answer in the collection reads "not reported in this collection". Servers without JetStream get no card; a line counts them. With more than one cluster, the cards are grouped under each cluster's name. Order: the soonest full first as the card words it (two cards that read alike, such as "full in more than 5 years", tie), then the fullest, then by name, so stores that fill alike keep their order between refreshes.
 - **Growth and time to full.** The card's growth is the store's growth per day over the range (Theil-Sen, the median of the slopes between pairs of points, so a one-off restore or purge moves it little), and the time to full is the free space divided by that growth: "full in 9 days", "full in 6 months", "full in 3 years", "full in more than 5 years at this rate"; "not growing" at 0 or below; an explanation of the missing history under 6 hours of data. This is the Streams page's growth rule, not the checks' rule (the smaller of two halves' slopes over 6 hours), so a store that grows by day and stands still by night keeps a rate all day.
 - **The store's finding.** When `server-014` (store full soon) or `server-007` (store usage high) fires, the card names it with its severity and links it: "store full soon: 14 days by server-014" gives the check's own days, by its own rule, beside the page's. The bar takes the finding's colour, warning or critical; without a finding it is the accent.
@@ -64,7 +64,7 @@ The Capacity page shows what each stream keeps, what bounds it, and when the dis
 - **Surfaces:** `ui`
 - **Given** `example-staging` has under 6 hours of collections
 - **When** I open Capacity
-- **Then** every card explains that growth needs samples spanning six hours, and every /day cell shows an en dash
+- **Then** the page explains the short retained history once, cards say “growth unavailable”, and unknown /day cells show an en dash
 
 ### Ask the API when a stream is full
 
@@ -72,6 +72,15 @@ The Capacity page shows what each stream keeps, what bounds it, and when the dis
 - **Given** a stream with `max_bytes` that grows steadily
 - **When** a client calls `GetCapacity` for the system
 - **Then** it receives the stream's next limit, bytes, and the days until the stream reaches it, with the server cards and their days to full
+
+### Six hours with complete observations
+
+- **Surfaces:** `ui`, `api`
+- **Given** observations for a server and stream span six hours, including an observation within one collection interval before the selected start
+- **When** I select the last six hours
+- **Then** the API returns measured growth and Capacity discloses its bounded lookback and collection bounds
+- **And** an entity whose own observations span less than six hours keeps its rate unset
+- **And** a missing observation at the range end is never replaced with a future observation
 
 ## Planned
 
