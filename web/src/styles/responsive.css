@@ -12,8 +12,8 @@
   .wrap{padding:0 16px 40px}
   .range .tz{display:none}
   .range > *{padding:7px 8px}
-  .range .span{font-size:11px;letter-spacing:-.01em}
-  .live{font-size:11px}
+  .range .span{font-size:var(--fs-xs);letter-spacing:-.01em}
+  .live{font-size:var(--fs-xs)}
   .live .dotsep{display:none}
   .frow{grid-template-columns:auto minmax(0,1fr);gap:4px 10px;padding:12px 14px}
   .frow .t{grid-column:1 / -1}
@@ -24,13 +24,13 @@
   .sec-h .right.legend{margin-left:0}
   .tlx{--lab:122px;--nowc:12px;--rowh:34px;--laneh:44px;column-gap:8px}
   .tl-lab .lab{flex-direction:column;align-items:flex-start;justify-content:center;gap:0}
-  .tl-lab .lab .code{flex:none;font-size:10.5px}
-  .tl-lab .lab .nm{font-size:11.5px;max-width:100%}
+  .tl-lab .lab .code{flex:none;font-size:var(--fs-xs)}
+  .tl-lab .lab .nm{font-size:var(--fs-sm);max-width:100%}
   .tl-lab .lane{flex-direction:column;gap:0;padding-top:2px}
-  .tl-lab .lane .code{flex:none;font-size:10.5px}
-  .tl-lab .lane .nm{font-size:11.5px}
+  .tl-lab .lane .code{flex:none;font-size:var(--fs-xs)}
+  .tl-lab .lane .nm{font-size:var(--fs-sm)}
   .tl-lab .lane .nm small.wide{display:none}
-  .tl-lab .lane .nm small.narrow{display:block;font-size:10.5px;white-space:nowrap}
+  .tl-lab .lane .nm small.narrow{display:block;font-size:var(--fs-xs);white-space:nowrap}
   .tl-now .now{justify-content:center}
   .tl-now .now .sev,.tl-now .ok{display:none}
   .tl-now .glyph{display:inline-block}
