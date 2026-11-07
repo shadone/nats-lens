@@ -114,3 +114,48 @@ it("review: restores saved position rather than reactivating a fragment on POP",
   expect(y).toBe(2100);
   expect(HTMLElement.prototype.scrollIntoView).not.toHaveBeenCalled();
 });
+
+
+it("restores fragment entries on same-path Back and Forward without activating their anchors", () => {
+  mount("/checks#evidence"); readAt(2100);
+  act(() => go("/checks?range=6h#evidence")); readAt(1700);
+  act(() => go("/checks#other")); readAt(800);
+  vi.mocked(HTMLElement.prototype.scrollIntoView).mockClear();
+  act(() => go(-1)); expect(y).toBe(1700);
+  act(() => go(-1)); expect(y).toBe(2100);
+  act(() => go(1)); expect(y).toBe(1700);
+  expect(HTMLElement.prototype.scrollIntoView).not.toHaveBeenCalled();
+});
+it("waits for cold content when restoring a saved fragment entry", async () => {
+  mount("/checks#evidence"); readAt(2100);
+  act(() => go("/servers")); act(() => ready(false)); height = 900;
+  vi.mocked(HTMLElement.prototype.scrollIntoView).mockClear();
+  act(() => go(-1)); expect(y).toBe(100);
+  height = 5000; act(() => ready(true));
+  await waitFor(() => expect(y).toBe(2100));
+  expect(HTMLElement.prototype.scrollIntoView).not.toHaveBeenCalled();
+  expect(screen.getByRole("heading", { name: "/checks" })).toHaveFocus();
+});
+it("still activates a fragment on a new same-path navigation", () => {
+  mount(); readAt(2100);
+  act(() => go("/checks#evidence"));
+  expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalledOnce();
+  expect(screen.getByText("Evidence")).toHaveFocus();
+});
+it("stops waiting for a saved fragment position after ten seconds", async () => {
+  vi.useFakeTimers();
+  try {
+    mount("/checks#evidence"); readAt(2100); act(() => go("/servers"));
+    act(() => ready(false)); height = 900; act(() => go(-1));
+    act(() => vi.advanceTimersByTime(10_000));
+    height = 5000; readAt(50); act(() => ready(true));
+    await act(async () => {}); expect(y).toBe(50);
+  } finally { vi.useRealTimers(); }
+});
+it("bounds saved positions to the most recent 100 entries", () => {
+  mount(); readAt(2100);
+  for (let i = 0; i < 101; i++) act(() => go(`/checks?entry=${i}`));
+  readAt(100);
+  act(() => go(-101));
+  expect(y).toBe(100);
+});
