@@ -1,8 +1,9 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { StrictMode, useState } from "react";
-import { MemoryRouter, useLocation, useNavigate } from "react-router";
+import { Link, MemoryRouter, useLocation, useNavigate } from "react-router";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { useRoutePosition } from "./useRoutePosition";
+import { useSidebar } from "./useSidebar";
 
 let go: ReturnType<typeof useNavigate>;
 let ready: (value: boolean) => void;
@@ -158,4 +159,99 @@ it("bounds saved positions to the most recent 100 entries", () => {
   readAt(100);
   act(() => go(-101));
   expect(y).toBe(100);
+});
+
+it("R2: reactivates the same explicit fragment on a new PUSH", () => {
+  mount("/checks#evidence"); readAt(2100);
+  vi.mocked(HTMLElement.prototype.scrollIntoView).mockClear();
+  act(() => go("/checks#evidence"));
+  expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalledOnce();
+  expect(screen.getByText("Evidence")).toHaveFocus();
+});
+it("R2: REPLACE query retains position and path REPLACE starts at top", () => {
+  mount(); readAt(1800); screen.getByRole("button").focus();
+  act(() => go("/checks?range=6h", { replace: true }));
+  expect(y).toBe(1800); expect(screen.getByRole("button")).toHaveFocus();
+  act(() => go("/servers/a", { replace: true })); expect(y).toBe(0);
+  expect(screen.getByRole("heading", {name:"/servers/a"})).toHaveFocus();
+});
+it("R2: unsaved POP entry honors fragment", () => {
+  render(<MemoryRouter initialEntries={["/checks#evidence", "/servers"]} initialIndex={1}><Page /></MemoryRouter>);
+  readAt(900); act(() => go(-1));
+  expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalledOnce();
+  expect(screen.getByText("Evidence")).toHaveFocus();
+});
+it.each(["touchstart", "pointerdown", "keydown"])("R2: %s cancels cold POP restoration", async (input) => {
+  mount(); readAt(2400); act(() => go("/servers/a"));
+  act(() => ready(false)); height=900; act(() => go(-1));
+  act(() => window.dispatchEvent(new Event(input)));
+  height=5000; readAt(50); act(() => ready(true));
+  await act(async () => {}); expect(y).toBe(50);
+});
+
+it("R2: unsaved POP path starts at heading", () => {
+ render(<MemoryRouter initialEntries={["/checks", "/servers"]} initialIndex={1}><Page /></MemoryRouter>);
+ readAt(900); act(() => go(-1)); expect(y).toBe(0);
+ expect(screen.getByRole("heading",{name:"/checks"})).toHaveFocus();
+});
+
+function DrawerPage() {
+  const main = useRoutePosition();
+  const side = useSidebar();
+  go = useNavigate();
+  const location = useLocation();
+  const [loaded, setLoaded] = useState(true);
+  ready = setLoaded;
+  return <div>
+    <button aria-controls="sidebar" onClick={() => side.setDrawerOpen(true)}>Menu</button>
+    {side.drawerShown && <aside id="sidebar">
+      <Link to="/checks#evidence">Drawer anchor</Link>
+    </aside>}
+    <div inert={side.drawerShown}>
+      <header><h1>{location.pathname}</h1></header>
+      <main id="main" tabIndex={-1} ref={main}>
+        {loaded && <h2 id="evidence">Evidence</h2>}
+      </main>
+    </div>
+  </div>;
+}
+function mountDrawer(path: string) {
+  // jsdom does not enforce inert focus suppression; model the browser here.
+  const nativeFocus = HTMLElement.prototype.focus;
+  vi.spyOn(HTMLElement.prototype, "focus").mockImplementation(function (options) {
+    if (!this.closest("[inert]")) nativeFocus.call(this, options);
+  });
+  return render(<MemoryRouter initialEntries={[path]}><DrawerPage /></MemoryRouter>);
+}
+it.each([false, true])("drawer fragment owns focus after closure (delayed: %s)", async (delayed) => {
+  mountDrawer("/servers");
+  fireEvent.click(screen.getByRole("button", { name: "Menu" }));
+  if (delayed) act(() => ready(false));
+  fireEvent.click(screen.getByRole("link", { name: "Drawer anchor" }));
+  expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+  if (delayed) act(() => ready(true));
+  await waitFor(() => expect(screen.getByText("Evidence")).toHaveFocus());
+});
+it("closes a drawer and reactivates its same-path fragment", async () => {
+  mountDrawer("/checks#evidence"); readAt(2100);
+  fireEvent.click(screen.getByRole("button", { name: "Menu" }));
+  vi.mocked(HTMLElement.prototype.scrollIntoView).mockClear();
+  fireEvent.click(screen.getByRole("link", { name: "Drawer anchor" }));
+  await waitFor(() => expect(screen.queryByRole("complementary")).not.toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText("Evidence")).toHaveFocus());
+  expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalledOnce();
+});
+it("preserves position and focus when a query changes with an unchanged fragment", () => {
+  mount("/checks#evidence"); readAt(2100); screen.getByRole("button").focus();
+  vi.mocked(HTMLElement.prototype.scrollIntoView).mockClear();
+  act(() => go("/checks?range=6h#evidence"));
+  expect(y).toBe(2100); expect(screen.getByRole("button")).toHaveFocus();
+  expect(HTMLElement.prototype.scrollIntoView).not.toHaveBeenCalled();
+});
+it("reactivates an identical fragment on REPLACE", () => {
+  mount("/checks#evidence"); readAt(2100); screen.getByRole("button").focus();
+  vi.mocked(HTMLElement.prototype.scrollIntoView).mockClear();
+  act(() => go("/checks#evidence", { replace: true }));
+  expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalledOnce();
+  expect(screen.getByText("Evidence")).toHaveFocus();
 });
