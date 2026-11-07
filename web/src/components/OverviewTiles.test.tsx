@@ -1,7 +1,7 @@
 import { renderApp as render } from "../test/render";
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { Tile } from "../api/model";
+import type { Point, Tile } from "../api/model";
 import { OverviewTiles, tileStatus, tileText } from "./OverviewTiles";
 
 const START = Date.parse("2026-10-16T14:30:00Z");
@@ -15,7 +15,7 @@ const series = (vals: number[], min: number, max: number) => ({
   metric: "cluster.servers_up",
   unit: "count" as const,
   stepMs: 900_000,
-  points: vals.map((v, i) => ({ time: START + i * 900_000, value: v })),
+  points: vals.map((v, i): Point => ({ time: START + i * 900_000, value: v })),
   min,
   max,
 });
@@ -138,7 +138,22 @@ describe("charts only where something changed", () => {
     const boxes = container.querySelectorAll(".mbox");
     expect(boxes[0].querySelector("svg.spark")).toBeNull();
     expect(boxes[1].querySelector("svg.spark")).not.toBeNull();
-    expect(screen.getByText("chart: leader changes per bucket")).toBeInTheDocument();
+    expect(screen.getByText("Leader changes per bucket")).toBeInTheDocument();
+  });
+
+  it("marks a slope that changes in most buckets with one dot on the newest point, not an accent line", () => {
+    const slope = series(Array.from({ length: 96 }, (_, i) => 100 + i), 100, 195);
+    const { container } = render(<OverviewTiles tiles={[tile({ id: "storage", label: "Storage", unit: "bytes", value: 195, series: slope })]} windows={[]} start={START} end={END} />);
+    expect(container.querySelector(".spark-change")).toBeNull();
+    expect(container.querySelectorAll(".spark-now")).toHaveLength(1);
+  });
+
+  it("draws a dip inside one bucket as a tick from its lowest to its highest", () => {
+    const s = series(Array.from({ length: 96 }, () => 3), 3, 3);
+    s.points[40] = { ...s.points[40], low: 2, high: 3 };
+    const { container } = render(<OverviewTiles tiles={[tile({ value: 3, series: s })]} windows={[]} start={START} end={END} />);
+    expect(container.querySelector("svg.spark")).not.toBeNull();
+    expect(container.querySelectorAll(".spark-range")).toHaveLength(1);
   });
 
   it("draws an ok tile's line in the neutral colour with the accent only on the change", () => {
