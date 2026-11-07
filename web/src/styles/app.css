@@ -60,6 +60,7 @@ input[type="checkbox"],input[type="radio"]{accent-color:var(--accent)}
 .state-box.err{color:var(--text);background:var(--sev-critical-bg);border:1px solid var(--sev-critical-border);border-radius:10px;margin-top:14px}
 .state-box.err b{color:var(--sev-critical)}
 .state-box.empty{background:var(--surface);border:1px dashed var(--border);border-radius:10px}
+.state-box h2{font-size:var(--fs-lg)}
 .spinner{width:12px;height:12px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--accent);animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.spinner{animation:none}}
