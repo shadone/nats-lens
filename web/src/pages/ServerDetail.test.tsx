@@ -61,6 +61,14 @@ describe("ServerDetail on example-global", () => {
     expect(screen.getByText("limit 65,536")).toBeInTheDocument();
   });
 
+  it("draws the CPU chart neutral with the accent only on its changes, like the Overview", async () => {
+    show(ap3(), "nats-ap-3");
+    const img = (await screen.findAllByRole("img", { name: /^CPU, current 8%/ })).find((e) => e.matches("svg.spark"))!;
+    const line = img.querySelector("polyline:not(.spark-change)") as SVGElement;
+    expect(line.style.stroke).toBe("var(--text-muted)");
+    expect((img.querySelector(".spark-change, .spark-now") as SVGElement).style.stroke).toBe("var(--accent)");
+  });
+
   it("charts JetStream file bytes and shows the current storage with its own configured limit", async () => {
     const r = ap3();
     r.server!.jsStorageBytes = 1n << 20n;
