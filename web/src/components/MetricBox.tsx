@@ -79,7 +79,8 @@ export interface MetricBoxProps {
   chart?: boolean;
   /**
    * Without a chart, show the chart history's loading or failed status in
-   * the track's row, in place of "steady at N".
+   * the track's row, in place of "steady at N". A box without a track keeps
+   * that row, blank, once this is false.
    */
   historyStatus?: boolean;
   /** The chart's colouring, as `Sparkline` takes it. */
@@ -240,7 +241,8 @@ export function MetricBox(p: MetricBoxProps) {
         />
       )}
       {track && <RangeTrack title={p.title} min={min} max={max} value={value} fmt={p.fmt} status={status} period={period} since={since} noCurrent={p.value === null} history={drawn || p.historyStatus ? { start: p.start, end: p.end } : undefined} />}
-      {!track && !chart && p.historyStatus && <div className="mb-track-note"><ChartHistoryStatus start={p.start} end={p.end} claim /></div>}
+      {/* The row stays, a blank line once the gaps are known, so the tile keeps its height. */}
+      {!track && !chart && p.historyStatus !== undefined && <div className="mb-track-note">{p.historyStatus ? <ChartHistoryStatus start={p.start} end={p.end} claim /> : "\u00a0"}</div>}
       {track && !hasWindow && !p.error && !p.loading && <div className="mb-track-note">{drawn ? <ChartHistoryStatus start={p.start} end={p.end}>no data for the window</ChartHistoryStatus> : "no data for the window"}</div>}
       {track && hasWindow && p.value === null && min !== max && <div className="mb-track-note">no current value</div>}
       {p.note && <div className="mb-note">{p.note}</div>}

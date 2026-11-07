@@ -73,3 +73,8 @@
 .dh-chart-server-gap{opacity:.85;stroke:var(--sev-warning);stroke-width:.6}
 
 .dh-chart-notice{margin:var(--sp-2) 0;font-size:var(--fs-sm);color:var(--text-2);overflow-wrap:anywhere}
+/* A row too narrow for the full status on one line shows its short form. */
+@container (max-width:24ch){
+  .dh-chart-status[data-short]{font-size:0}
+  .dh-chart-status[data-short]::after{content:attr(data-short);font-size:var(--fs-xs)}
+}
