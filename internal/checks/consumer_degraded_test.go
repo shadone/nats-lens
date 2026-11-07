@@ -229,3 +229,45 @@ func TestConsumerReplicaDegradedCriticalSuppression(t *testing.T) {
 		}
 	}
 }
+
+// Resolution must not turn missing or conflicting evidence into recovery.
+func TestConsumerReplicaDegradedResolutionBoundaries(t *testing.T) {
+	for _, tc := range []struct {
+		name, sql string
+		hold      bool
+	}{
+		{"loss incomplete list", `UPDATE consumer_replicas SET offline=true WHERE epoch=4 AND consumer='bad'; DELETE FROM consumer_replicas WHERE epoch=4 AND consumer='bad' AND peer_name='nats-2'; DELETE FROM consumer_stats WHERE epoch=4 AND consumer='bad' AND server_id<>'S0'`, true},
+		{"loss unknown offline", `UPDATE consumer_replicas SET offline=NULL WHERE epoch=4 AND consumer='bad'; DELETE FROM consumer_stats WHERE epoch=4 AND consumer='bad' AND server_id<>'S0'`, true},
+		{"loss unknown lag still authoritative", `UPDATE consumer_replicas SET offline=true, lag=NULL,current=NULL WHERE epoch=4 AND consumer='bad'; DELETE FROM consumer_stats WHERE epoch=4 AND consumer='bad' AND server_id<>'S0'`, false},
+		{"loss pending membership", `UPDATE consumer_replicas SET offline=true,pending=true WHERE epoch=4 AND consumer='bad'`, true},
+		{"incarnation one different report", `UPDATE consumer_stats SET created=TIMESTAMP '2026-10-17 09:01:00' WHERE epoch=4 AND consumer='bad' AND server_id='S0'`, true},
+		{"incarnation leaderless conflicting reports", `UPDATE consumer_stats SET leader=NULL,is_leader=false WHERE epoch=4 AND consumer='bad'; UPDATE consumer_stats SET created=TIMESTAMP '2026-10-17 09:01:00' WHERE epoch=4 AND consumer='bad' AND server_id='S1'`, true},
+		{"incarnation leaderless stale config", `UPDATE consumer_stats SET created=TIMESTAMP '2026-10-17 09:01:00',leader=NULL,is_leader=false WHERE epoch=4 AND consumer='bad'`, true},
+		{"incarnation leaderless no config", `UPDATE consumer_stats SET created=TIMESTAMP '2026-10-17 09:01:00',leader=NULL,is_leader=false WHERE epoch=4 AND consumer='bad'; DELETE FROM consumer_config WHERE consumer='bad'`, true},
+		{"incarnation leaderless conflicting config", `UPDATE consumer_stats SET created=TIMESTAMP '2026-10-17 09:01:00',leader=NULL,is_leader=false WHERE epoch=4 AND consumer='bad'; INSERT INTO consumer_config SELECT * REPLACE ('S1' AS server_id,TIMESTAMP '2026-10-17 09:01:00' AS created) FROM consumer_config WHERE consumer='bad'`, true},
+		{"incarnation leaderless one report", `UPDATE consumer_stats SET created=TIMESTAMP '2026-10-17 09:01:00',leader=NULL,is_leader=false WHERE epoch=4 AND consumer='bad'; UPDATE consumer_config SET created=TIMESTAMP '2026-10-17 09:01:00' WHERE consumer='bad'; DELETE FROM consumer_stats WHERE epoch=4 AND consumer='bad' AND server_id<>'S0'`, true},
+		{"incarnation leaderless null report", `UPDATE consumer_stats SET created=TIMESTAMP '2026-10-17 09:01:00',leader=NULL,is_leader=false WHERE epoch=4 AND consumer='bad'; UPDATE consumer_config SET created=TIMESTAMP '2026-10-17 09:01:00' WHERE consumer='bad'; UPDATE consumer_stats SET created=NULL WHERE epoch=4 AND consumer='bad' AND server_id='S1'`, true},
+		{"incarnation leaderless agreement", `UPDATE consumer_stats SET created=TIMESTAMP '2026-10-17 09:01:00',leader=NULL,is_leader=false WHERE epoch=4 AND consumer='bad'; UPDATE consumer_config SET created=TIMESTAMP '2026-10-17 09:01:00' WHERE consumer='bad'`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := degradedFixture(t, 4)
+			set, err := Load(config.Checks{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			eng := &Engine{Set: set, only: map[string]bool{"consumer-018": true}}
+			if _, err := eng.Run(context.Background(), f.st, 3); err != nil {
+				t.Fatal(err)
+			}
+			f.exec(tc.sql)
+			if tc.hold {
+				rows := f.fires("consumer-018", 4, "APP/jobs/bad")
+				if rows["APP/jobs/bad"].Value != nil {
+					t.Fatal("unknown has a value")
+				}
+			} else {
+				f.fires("consumer-018", 4)
+			}
+		})
+	}
+}
