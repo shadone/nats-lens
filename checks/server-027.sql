@@ -10,28 +10,31 @@ thresholds:
   - name: grace
     default: 2m
     unit: duration
-    description: Minimum uninterrupted observed duration of the condition; proposed, not yet confirmed.
+    description: Minimum elapsed span of qualifying retained observations; proposed, not yet confirmed.
   - name: min_epochs
     default: "3"
     unit: count
-    description: Minimum consecutive eligible collections; proposed, not yet confirmed.
+    description: Minimum eligible samples consecutive among retained epochs; proposed, not yet confirmed.
   - name: max_gap
     default: 90s
     unit: duration
-    description: Maximum elapsed time between consecutive observations; proposed, not yet confirmed.
+    description: Maximum elapsed time between adjacent qualifying retained observations; proposed, not yet confirmed.
   - name: min_backlog
     default: "1000"
     unit: count
-    description: Minimum committed minus applied log indexes throughout the stall; proposed, not yet confirmed.
+    description: Minimum committed minus applied log indexes at every qualifying sample; proposed, not yet confirmed.
 description: >-
-  A local Raft node has a committed apply backlog without observed applied-index progress throughout the grace period. This is log-index distance, not message lag, queued items, or proof of an unavailable group.
-  Only uninterrupted successful observations with stable process, group, account, peer membership and asset
-  creation time count. Restart grace, unknown fields, catch-up, paused apply, observers, WAL errors, gaps,
-  counter resets and membership changes reset the evidence. Unmapped asset groups are not judged.
+  A local Raft node reports a committed apply backlog with an unchanged applied index across samples spanning the grace period. This is log-index distance, not message lag, queued items, or proof of an unavailable group.
+  Successful samples must be consecutive among retained epochs with stable process, group, account, peer membership
+  and asset creation time. Observations are not proof of continuous capture or of an uninterrupted condition.
+  Entirely absent epochs within max_gap can bridge; sequence-number holes alone do not reset evidence.
+  A retained epoch with a missing group or missing or failed RAFTZ capture resets evidence, as do elapsed gaps over max_gap.
+  Restart grace, unknown fields, catch-up, paused apply, observers, WAL errors, counter resets and membership changes
+  reset the evidence. Unmapped asset groups are not judged. This retained-epoch policy is proposed, not yet confirmed.
 remediation: >-
   Compare the named local group with its peers and with catch-up, WAL, CPU and route findings. Inspect storage
   latency and scheduling on the reporting server and peer connectivity. A local symptom does not identify a
-  failed peer or justify removing a replica. Missing evidence ends the warning without proving recovery.
+  failed peer or justify removing a replica. A reset ends the warning without proving recovery; samples cannot reveal changes between observations.
 value_name: largest stalled apply backlog
 value_basis: largest committed minus applied log-index distance among the stalled local groups
 */
