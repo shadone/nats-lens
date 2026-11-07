@@ -23,8 +23,14 @@ func TestCountBucketKeepsItsLowAndHigh(t *testing.T) {
 	if !dip {
 		t.Fatalf("no bucket holds the dip to 2: %v", s.GetPoints())
 	}
-	if s.GetMin() != 2 || s.GetMax() != 3 {
-		t.Fatalf("min/max = %v/%v, want 2/3", s.GetMin(), s.GetMax())
+	// The series' min and max stay those of the bucket values, which the
+	// charts draw; a reader that wants the edges reads low and high.
+	lo, hi := s.GetPoints()[0].GetValue(), s.GetPoints()[0].GetValue()
+	for _, p := range s.GetPoints() {
+		lo, hi = min(lo, p.GetValue()), max(hi, p.GetValue())
+	}
+	if s.GetMin() != lo || s.GetMax() != hi || lo == 2 {
+		t.Fatalf("min/max = %v/%v, want the bucket values' %v/%v", s.GetMin(), s.GetMax(), lo, hi)
 	}
 	sum := must(c.GetTimeSeries(ctx, connect.NewRequest(&v1.GetTimeSeriesRequest{Metric: "cluster.slow_consumers", MaxPoints: 4}))).GetSeries()
 	for _, p := range sum.GetPoints() {

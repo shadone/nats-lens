@@ -117,8 +117,7 @@ export type Series = Message<"natslens.v1.Series"> & {
   /**
    * Smallest value of the points; unset when there are no points.
    *
-   * For a band metric, and a count whose points carry low and high, the
-   * smallest low of the points.
+   * For a band metric, the smallest low of the points.
    *
    * @generated from field: optional double min = 6;
    */
@@ -127,8 +126,7 @@ export type Series = Message<"natslens.v1.Series"> & {
   /**
    * Largest value of the points; unset when there are no points.
    *
-   * For a band metric, and a count whose points carry low and high, the
-   * largest high of the points.
+   * For a band metric, the largest high of the points.
    *
    * @generated from field: optional double max = 7;
    */
