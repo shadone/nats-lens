@@ -34,7 +34,7 @@ export function Capacity() {
         </span>
       </div>
       {d?.collected && <p className="dh-note">
-        Growth needs observations spanning 6 h. Ranges of at least 6 h read up to one collection interval before the range (at most 5 min), and exclude its end.
+        Growth needs observations spanning 6 h. Ranges of at least 6 h read up to two collection intervals before the range (at most 5 min), and exclude its end.
         {d.growthFrom !== undefined && d.epochAt !== undefined && <> Collection bounds: {isoDate(d.growthFrom)} {hms(d.growthFrom)} to {isoDate(d.epochAt)} {hms(d.epochAt)} UTC; entity spans may be shorter.</>}
         {missing && (d.servers.some((s) => s.reported && s.perDay === undefined) || d.streams.some((s) => s.bytesPerDay === undefined)) && <> {missing}. <HistoryLink /></>}
       </p>}

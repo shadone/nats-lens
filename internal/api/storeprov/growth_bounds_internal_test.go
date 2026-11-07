@@ -71,7 +71,7 @@ func TestGrowthQueriesStayBatchedAndBounded(t *testing.T) {
 					t.Errorf("%s / %s: growth %v / %v", zone, key, a, b)
 				}
 				for _, sm := range pts {
-					if sm.From.Before(start.Add(-p.Interval)) || !sm.To.Before(end) {
+					if sm.From.Before(api.GrowthStart(start, end, p.Interval)) || !sm.To.Before(end) {
 						t.Fatalf("sample outside bounded query: %+v", sm)
 					}
 				}

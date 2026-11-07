@@ -76,7 +76,7 @@ The Capacity page shows what each stream keeps, what bounds it, and when the dis
 ### Six hours with complete observations
 
 - **Surfaces:** `ui`, `api`
-- **Given** observations for a server and stream span six hours, including an observation within one collection interval before the selected start
+- **Given** observations for a server and stream span six hours, including an observation within two collection intervals before the selected start
 - **When** I select the last six hours
 - **Then** the API returns measured growth and Capacity discloses its bounded lookback and collection bounds
 - **And** an entity whose own observations span less than six hours keeps its rate unset

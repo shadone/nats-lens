@@ -216,7 +216,7 @@ it("explains missing growth once for the page and discloses the bounded read", a
   const end = Date.parse("2026-10-17T14:30:00Z");
   renderApp(<HistoryContext.Provider value={{ start: end - 86_400_000, end, live: true, historyStart: end - 31 * 60_000 }}><Capacity /></HistoryContext.Provider>);
   expect(await screen.findByText(/less than 6 h of retained history/)).toBeInTheDocument();
-  expect(screen.getByText(/one collection interval before the range/)).toBeInTheDocument();
+  expect(screen.getByText(/two collection intervals before the range/)).toBeInTheDocument();
   expect(screen.queryAllByRole("link", { name: /needs samples spanning 6 h/ })).toHaveLength(0);
   expect(screen.getAllByText("growth unavailable").length).toBeGreaterThan(0);
 });
