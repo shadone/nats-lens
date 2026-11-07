@@ -17,6 +17,7 @@ export const KIND_LABEL: Record<ReplayStepKind, string> = {
   finding: "Finding",
   resolved: "Resolved",
   gap: "Gap",
+  client_change: "Client-library comparison",
   other: "Step",
 };
 
@@ -68,6 +69,13 @@ export function evidencePath(e: ReplayEvidence): string | undefined {
       return findingPath(e.id);
     case "collection": {
       if (e.time === undefined) return undefined;
+      if (e.entity?.kind === "client") {
+        // ASVS 1.2.2: URLSearchParams encodes client-supplied names and account IDs.
+        const q = new URLSearchParams(rangeEndingAt(e.time));
+        q.set("app", e.entity.key);
+        q.set("account", e.entity.account);
+        return `/applications?${q}`;
+      }
       return `${collectionPage(e.entity)}?${rangeEndingAt(e.time)}`;
     }
     default:

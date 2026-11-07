@@ -70,6 +70,9 @@ const restartCheck = "server-004"
 // without wording. FinishReplay turns them into the response, so the
 // store and the demo word, fold and count alike.
 type ReplayFacts struct {
+	// ClientLibraries are bounded endpoint rollups; nil means the provider did not read them.
+	ClientLibraries *ReplayClientLibraries
+
 	// A and B are the moments, B already clamped to now. Until is the end
 	// of the lookahead after B: the earlier of now and B plus
 	// ReplayLookahead.
