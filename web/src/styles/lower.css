@@ -6,14 +6,14 @@
 .feed .list{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
 .ev{display:grid;grid-template-columns:70px 44px minmax(0,1fr);gap:12px;padding:9px 16px;border-top:1px solid var(--border-soft);align-items:baseline}
 .ev:first-child{border-top:0}
-.ev .t{font:12px var(--mono);color:var(--text-muted)}
-.src{font:600 9.5px/1 var(--sans);padding:3px 0;border-radius:3px;text-align:center;color:var(--text-2);background:var(--surface-sunk)}
+.ev .t{font:var(--fs-sm) var(--mono);color:var(--text-muted)}
+.src{font:500 var(--fs-xs)/1 var(--sans);padding:3px 0;border-radius:3px;text-align:center;color:var(--text-2);background:var(--surface-sunk)}
 .src.k8s{background:var(--k8s-bg);color:var(--k8s)}
 .src.lens{background:var(--accent-soft);color:var(--accent-text)}
-.ev .ty{font:500 12px var(--mono);color:var(--text);margin-right:8px}
+.ev .ty{font:500 var(--fs-sm) var(--mono);color:var(--text);margin-right:8px}
 .ev .ty.critical{color:var(--sev-critical)}
-.ev .tx{color:var(--text-2);font-size:12.5px}
-.ev .badge{font:600 9.5px/1 var(--mono);letter-spacing:.06em;padding:3px 5px;border-radius:3px;margin-right:8px;vertical-align:1px;border:1px solid transparent}
+.ev .tx{color:var(--text-2);font-size:var(--fs-md)}
+.ev .badge{font:500 var(--fs-xs)/1 var(--mono);letter-spacing:.06em;padding:3px 5px;border-radius:3px;margin-right:8px;vertical-align:1px;border:1px solid transparent}
 .badge.NEW{background:var(--sev-critical-bg);color:var(--sev-critical)}
 .badge.NEW.warning{background:var(--sev-warning-bg);color:var(--sev-warning)}
 .badge.RESOLVED{background:var(--accent-soft);color:var(--accent-text)}
@@ -21,23 +21,23 @@
 .ev.open{background:var(--surface-2);border-left:3px solid var(--sev-critical);padding-left:13px}
 .ex{grid-column:2 / -1;margin-top:10px;display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-items:start}
 .ex .cfg .kv{grid-template-columns:auto minmax(0,1.3fr) auto minmax(0,1fr)}
-.ex .fhead{grid-column:1 / -1;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px}
-.ex .fhead .mv{margin-left:auto;font:12px var(--mono);color:var(--text-2)}
-.ex .fhead .mv b{font-weight:600;color:var(--sev-critical);margin-right:6px}
+.ex .fhead{grid-column:1 / -1;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:var(--fs-md)}
+.ex .fhead .mv{margin-left:auto;font:var(--fs-sm) var(--mono);color:var(--text-2)}
+.ex .fhead .mv b{font-weight:500;color:var(--sev-critical);margin-right:6px}
 .ex .box{border:1px solid var(--border);border-radius:8px;background:var(--surface);padding:11px 12px}
 .ex .box .lbl{margin-bottom:7px;display:block}
-.ex .rem{color:var(--text);font-size:12.5px;line-height:1.5}
+.ex .rem{color:var(--text);font-size:var(--fs-md);line-height:1.5}
 /* A remediation file's text follows the check's own after a "---" line. */
 .rem{white-space:pre-line}
-.ex .rem code{font:11.5px var(--mono);background:var(--surface-sunk);padding:1px 4px;border-radius:3px;overflow-wrap:anywhere}
-.ex .box small{display:block;color:var(--text-muted);font-size:11.5px;margin-top:8px}
-.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 12px;font:12px var(--mono);margin:0}
+.ex .rem code{font:var(--fs-sm) var(--mono);background:var(--surface-sunk);padding:1px 4px;border-radius:3px;overflow-wrap:anywhere}
+.ex .box small{display:block;color:var(--text-muted);font-size:var(--fs-sm);margin-top:8px}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 12px;font:var(--fs-sm) var(--mono);margin:0}
 .kv dt{color:var(--text-muted)} .kv dd{margin:0;color:var(--text);overflow-wrap:anywhere}
-.kv dd.hl{color:var(--accent-text);font-weight:600}
+.kv dd.hl{color:var(--accent-text);font-weight:500}
 .more .older{color:var(--text-muted);font-weight:400}
 @media (max-width:1180px){ .more .older{display:none} }
-.more{display:block;padding:10px 16px;border-top:1px solid var(--border);color:var(--accent-text);font-weight:500;text-decoration:none;font-size:12.5px;background:var(--surface)}
+.more{display:block;padding:10px 16px;border-top:1px solid var(--border);color:var(--accent-text);font-weight:500;text-decoration:none;font-size:var(--fs-md);background:var(--surface)}
 
 .st{overflow:hidden}
 .hi{width:14px;height:14px;display:block}
-.st-foot{padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:4px 16px;color:var(--text-muted);font-size:11.5px;flex-wrap:wrap}
+.st-foot{padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:4px 16px;color:var(--text-muted);font-size:var(--fs-sm);flex-wrap:wrap}

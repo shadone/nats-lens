@@ -32,10 +32,10 @@ function Horizontal({ L, W, domain, win }: { L: HLayout; W: number; domain: [num
   return (
     <svg className="zsvg" role="img" aria-labelledby="ztitle" viewBox={`0 0 ${W} ${H}`} height={H} data-forced={L.forced}>
       <rect x={xs(win.start).toFixed(1)} y="0" width={(xs(win.end) - xs(win.start)).toFixed(1)} height={H} style={{ fill: "var(--upgrade-fill)" }} />
-      <text x="0" y="16" fontSize="11" style={{ fill: "var(--k8s)", fontFamily: "var(--sans)", fontWeight: 600 }}>
+      <text x="0" y="16" fontSize="11" style={{ fill: "var(--k8s)", fontFamily: "var(--sans)", fontWeight: 500 }}>
         Kubernetes
       </text>
-      <text x="0" y={axisY + 30} fontSize="11" style={{ fill: "var(--text-2)", fontFamily: "var(--sans)", fontWeight: 600 }}>
+      <text x="0" y={axisY + 30} fontSize="11" style={{ fill: "var(--text-2)", fontFamily: "var(--sans)", fontWeight: 500 }}>
         NATS, findings
       </text>
       <line x1={L.x0} x2={L.x1} y1={axisY} y2={axisY} style={{ stroke: "var(--border)" }} />
@@ -58,7 +58,7 @@ function Horizontal({ L, W, domain, win }: { L: HLayout; W: number; domain: [num
           key={t}
           x={xs(t).toFixed(1)}
           y={axisY + 3.5}
-          fontSize="10"
+          fontSize="11"
           textAnchor={t === domain[0] ? "start" : t === domain[1] ? "end" : "middle"}
           style={{ fill: "var(--text-muted)", stroke: "var(--surface)", strokeWidth: "6px", paintOrder: "stroke" }}
         >
@@ -76,10 +76,10 @@ function Vertical({ items, W, domain, win }: { items: ZoomItem[]; W: number; dom
   for (let t = domain[0] + 300_000; t < domain[1]; t += 300_000) ticks.push(t);
   return (
     <svg className="zsvg" role="img" aria-labelledby="ztitle" viewBox={`0 0 ${W} ${L.height}`} height={L.height}>
-      <text x={cx - V_OFFSET} y="11" fontSize="10.5" textAnchor="end" style={{ fill: "var(--k8s)", fontFamily: "var(--sans)", fontWeight: 600 }}>
+      <text x={cx - V_OFFSET} y="11" fontSize="11" textAnchor="end" style={{ fill: "var(--k8s)", fontFamily: "var(--sans)", fontWeight: 500 }}>
         Kubernetes
       </text>
-      <text x={cx + V_OFFSET} y="11" fontSize="10.5" style={{ fill: "var(--text-2)", fontFamily: "var(--sans)", fontWeight: 600 }}>
+      <text x={cx + V_OFFSET} y="11" fontSize="11" style={{ fill: "var(--text-2)", fontFamily: "var(--sans)", fontWeight: 500 }}>
         NATS, findings
       </text>
       <rect x={cx - 4} y={ys(win.start)} width="8" height={ys(win.end) - ys(win.start)} style={{ fill: "var(--upgrade-line)", fillOpacity: 0.35 }} />
@@ -99,10 +99,10 @@ function Vertical({ items, W, domain, win }: { items: ZoomItem[]; W: number; dom
           </g>
         );
       })}
-      <text x={cx} y={top - 9} fontSize="10" textAnchor="middle" style={{ fill: "var(--text-muted)", stroke: "var(--surface)", strokeWidth: "5px", paintOrder: "stroke" }}>
+      <text x={cx} y={top - 9} fontSize="11" textAnchor="middle" style={{ fill: "var(--text-muted)", stroke: "var(--surface)", strokeWidth: "5px", paintOrder: "stroke" }}>
         {hm(domain[0])}
       </text>
-      <text x={cx} y={ys(domain[1]) + 15} fontSize="10" textAnchor="middle" style={{ fill: "var(--text-muted)" }}>
+      <text x={cx} y={ys(domain[1]) + 15} fontSize="11" textAnchor="middle" style={{ fill: "var(--text-muted)" }}>
         {hm(domain[1])}
       </text>
     </svg>
