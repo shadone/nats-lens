@@ -61,5 +61,5 @@
 .mbox .infotip-t{left:12px;right:12px;top:38px;width:auto;max-width:none}
 .mbox:has(.infotip-t){z-index:11}
 
-/* A box without a chart: its steady line and note sit at the foot, level with its neighbours' track and note. */
-.mb-quiet .mb-h + .mb-track-note,.mb-quiet .mb-h + .mb-note{margin-top:auto;padding-top:12px}
+/* A box without a chart: its steady line and note follow the heading. */
+.mb-quiet .mb-h + .mb-track-note,.mb-quiet .mb-h + .mb-note{margin-top:8px}

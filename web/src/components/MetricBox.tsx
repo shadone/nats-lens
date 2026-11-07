@@ -1,9 +1,9 @@
 // A metric box: a title with an (i) description, the current value top
-// right, a line chart unless the caller leaves it out, and a range track with the window's min on the left,
-// its max on the right and a dot at the current value. A warning or
-// critical status colours the value and the dot and shows a word; info only
-// tints the dot. A configured limit
-// belongs in the note, not on the track.
+// right, a line chart unless the caller leaves it out, and a range track
+// with the window's min on the left, its max on the right and a dot at the
+// current value. A warning or critical status colours the value and the
+// dot and shows a word; info only tints the dot. A configured limit belongs
+// in the note, not on the track.
 //
 // The track's ends are the series' own min and max, never widened to take
 // in the current value: a value outside them puts the dot at the nearer end
