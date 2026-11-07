@@ -44,6 +44,19 @@ func TestPlacementObservationNameIdentity(t *testing.T) {
 		{"peer name without known process", []string{
 			`INSERT INTO stream_replicas(epoch,server_id,account,stream,peer_name,current,offline,lag) SELECT epoch,server_id,account,stream,'nats-2',false,false,0 FROM stream_replicas`,
 		}, 1, "evidence_unknown"},
+		{"returning selected observed offline process", []string{
+			`DELETE FROM stream_stats WHERE server_id='S1'`,
+			`UPDATE stream_replicas SET offline=true`,
+			`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'new-S1','nats-1',2,2,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
+			`UPDATE epoch_endpoints SET server_id='new-S1' WHERE epoch=2 AND server_id='S1'`,
+			`INSERT INTO server_stats(epoch,server_id) VALUES (1,'S1'),(2,'new-S1'),(3,'S1')`,
+		}, 1, "identity_changed"},
+		{"simultaneous historical fallback first epochs", []string{
+			`INSERT INTO stream_replicas(epoch,server_id,account,stream,peer_name,current,offline,lag) SELECT epoch,server_id,account,stream,'nats-2',false,false,0 FROM stream_replicas`,
+			`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'S2','nats-2',3,3,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
+			`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'new-S2','nats-2',3,3,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
+		}, 1, "evidence_unknown"},
+
 		{"selected collision now", []string{
 			`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'other-S1','nats-1',2,3,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
 			`INSERT INTO server_stats(epoch,server_id) VALUES (2,'S1'),(3,'S1'),(2,'other-S1'),(3,'other-S1')`,
@@ -116,6 +129,60 @@ func TestPlacementObservationNameIdentity(t *testing.T) {
 				o := res.Observation
 				if o == nil || o.Samples != tc.samples || o.Boundary != tc.boundary || o.Truncated {
 					t.Fatalf("observation=%v, want %d / %s", o, tc.samples, tc.boundary)
+				}
+			})
+		}
+	}
+}
+
+func TestPlacementReturningProcessHistoricalRange(t *testing.T) {
+	for _, kind := range []string{"stream", "consumer"} {
+		for _, tc := range []struct {
+			name     string
+			end      time.Duration
+			trim     bool
+			boundary string
+		}{
+			{"before return", 60 * time.Second, false, "identity_changed"},
+			{"after return", 90 * time.Second, false, "identity_changed"},
+			{"retained history", 90 * time.Second, true, "identity_changed"},
+		} {
+			t.Run(kind+"/"+tc.name, func(t *testing.T) {
+				st := observationStore(t)
+				for _, q := range []string{
+					`UPDATE stream_replicas SET current=false`,
+					`INSERT INTO stream_replicas(epoch,server_id,account,stream,peer_name,current,offline,lag) SELECT epoch,server_id,account,stream,'nats-2',false,false,0 FROM stream_replicas`,
+					`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'S2','nats-2',1,3,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
+					`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'new-S2','nats-2',2,2,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
+					`INSERT INTO server_stats(epoch,server_id) VALUES (1,'S2'),(2,'new-S2'),(3,'S2')`,
+				} {
+					if _, err := st.DB().Exec(q); err != nil {
+						t.Fatal(err)
+					}
+				}
+				selected := "APP/orders"
+				if kind == "consumer" {
+					for _, q := range []string{
+						`INSERT INTO consumer_stats(epoch,server_id,account,stream,consumer,is_leader,created) SELECT epoch,server_id,account,stream,'shipper',is_leader,created FROM stream_stats`,
+						`INSERT INTO consumer_config(server_id,account,stream,consumer,first_epoch,last_epoch,durable_name,replicas,config_hash) SELECT server_id,account,stream,'shipper',first_epoch,last_epoch,'shipper',replicas,config_hash FROM stream_config`,
+						`INSERT INTO consumer_replicas(epoch,server_id,account,stream,consumer,peer_name,current,offline,lag) SELECT epoch,server_id,account,stream,'shipper',peer_name,current,offline,lag FROM stream_replicas`,
+					} {
+						if _, err := st.DB().Exec(q); err != nil {
+							t.Fatal(err)
+						}
+					}
+					selected += "/shipper"
+				}
+				if tc.trim {
+					if _, err := st.DB().Exec(`DELETE FROM epochs WHERE epoch=1`); err != nil {
+						t.Fatal(err)
+					}
+				}
+				c := serveSeries(t, st, t0.Add(90*time.Second))
+				res := must(c.GetPlacement(ctx, connect.NewRequest(&v1.GetPlacementRequest{SelectedAsset: selected, SelectedServer: "nats-1", Range: &v1.TimeRange{Start: timestamppb.New(t0), End: timestamppb.New(t0.Add(tc.end))}})))
+				o := res.Observation
+				if o == nil || o.Samples != 1 || o.Boundary != tc.boundary || !o.AsOf.AsTime().Equal(t0.Add(tc.end-30*time.Second)) || !o.Since.AsTime().Equal(o.AsOf.AsTime()) {
+					t.Fatalf("returning process at historical as-of: %v", o)
 				}
 			})
 		}
