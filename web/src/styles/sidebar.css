@@ -54,7 +54,9 @@
   .side.collapsed .menu{right:auto;min-width:220px}
   .side.collapsed .side-grp + .side-grp{border-top:1px solid var(--border);margin-top:8px;padding-top:8px}
   .side.collapsed .side-nav a{position:relative;justify-content:center;padding:9px 0}
-  .side.collapsed .nb{position:absolute;top:1px;right:3px;min-width:15px;padding:0 3px;font-size:var(--fs-xs);line-height:14px}
+  /* Above the icon, never over it: the 18px icon starts 9px down the 36px row, and the
+     badge, up to "99+", reaches 8px into the gap and padding of the row above. */
+  .side.collapsed .nb{position:absolute;top:-8px;right:2px;min-width:15px;padding:0 3px;font-size:var(--fs-xs);line-height:14px}
   .side.collapsed .nb-full{display:none}
   .side.collapsed .nb-rail{display:inline}
   .side.collapsed .side-collapse{justify-content:center;padding:8px 0}
