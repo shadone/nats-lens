@@ -77,17 +77,20 @@ export function changedSegments(points: Point[]): number[] {
 }
 
 /**
- * The buckets whose low or high lies beyond what the line draws around
- * them: below the lowest or above the highest of the bucket's own value
- * and its neighbours' (its own value stands in for a missing neighbour).
- * Noise inside that envelope and a dip the line already reaches are left
- * out, so only a move the bucket's last value hides is marked.
+ * How far a bucket's low or high lies beyond what the line draws around it:
+ * below the lowest or above the highest of the bucket's own value and its
+ * neighbours' (its own value stands in for a missing neighbour); 0 when
+ * the line already reaches both.
  */
+function reach(points: Point[], i: number): number {
+  const p = points[i];
+  const near = [points[i - 1]?.value ?? p.value, p.value, points[i + 1]?.value ?? p.value];
+  return Math.max(0, Math.min(...near) - (p.low ?? p.value), (p.high ?? p.value) - Math.max(...near));
+}
+
+/** The buckets whose last value hides a move: noise and a dip the line reaches are left out. */
 export function hiddenMoves(points: Point[]): Point[] {
-  return points.filter((p, i) => {
-    const near = [points[i - 1]?.value ?? p.value, p.value, points[i + 1]?.value ?? p.value];
-    return (p.low !== undefined && p.low < Math.min(...near)) || (p.high !== undefined && p.high > Math.max(...near));
-  });
+  return points.filter((_, i) => reach(points, i) > 0);
 }
 
 /** The series' min and max widened by its points' low and high, for a tile's track. */
@@ -102,11 +105,15 @@ export function edgeRange(points: Point[], min?: number, max?: number): { min?: 
 }
 
 /**
- * The hidden moves a chart ticks: none when more than half of the buckets
- * hide one, as a busy count does, since a tick on most buckets marks
- * nothing; the track's ends still take in their lows and highs.
+ * The hidden moves a chart ticks: those that reach at least a quarter of
+ * the span from the lowest to the highest value, lows and highs included,
+ * so busy noise drops out and an outage inside it is always marked.
  */
 export function tickedMoves(points: Point[]): Point[] {
-  const moves = hiddenMoves(points);
-  return moves.length > points.length / 2 ? [] : moves;
+  const values = points.flatMap((p) => [p.value, p.low ?? p.value, p.high ?? p.value]);
+  const span = Math.max(...values) - Math.min(...values);
+  return points.filter((_, i) => {
+    const r = reach(points, i);
+    return r > 0 && r >= span / 4;
+  });
 }
