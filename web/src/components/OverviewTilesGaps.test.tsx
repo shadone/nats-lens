@@ -36,14 +36,22 @@ function setup() {
   </HistoryContext.Provider></GlobalQueryProvider></MemoryRouter></QueryClientProvider>);
 }
 const box = (c: HTMLElement, i: number) => c.querySelectorAll(".mbox")[i];
+/** The text a reader sees: the width keeper under a status is hidden. */
+function shown(e: Element): string {
+  const c = e.cloneNode(true) as Element;
+  c.querySelectorAll(".dh-status-keep").forEach((k) => k.remove());
+  return c.textContent ?? "";
+}
 
 describe("tiles while the gaps are not known", () => {
   it("shows a steady tile without a chart and says the gaps are loading, never steady", () => {
     read.mockImplementation(() => new Promise(() => {}));
     const { container } = setup();
     expect(box(container, 0).querySelector("svg.spark")).toBeNull();
-    expect(box(container, 0).textContent).toContain("History gaps loading");
-    expect(box(container, 0).textContent).not.toContain("steady at");
+    expect(shown(box(container, 0))).toContain("History gaps loading");
+    expect(shown(box(container, 0))).not.toContain("steady at");
+    // The steady line keeps its width under the status, so a phone row wraps the same.
+    expect(box(container, 0).querySelector(".dh-status-keep")?.textContent).toBe("steady at 8 all window");
     // A tile whose values vary draws its chart at once.
     expect(box(container, 1).querySelector("svg.spark")).not.toBeNull();
   });
@@ -66,8 +74,8 @@ describe("tiles while the gaps are not known", () => {
   it("never reads steady when the gaps cannot be read", async () => {
     read.mockRejectedValue(new Error("history unavailable"));
     const { container } = setup();
-    await waitFor(() => expect(box(container, 0).textContent).toContain("History gaps unavailable"));
-    expect(box(container, 0).textContent).not.toContain("steady at");
+    await waitFor(() => expect(shown(box(container, 0))).toContain("History gaps unavailable"));
+    expect(shown(box(container, 0))).not.toContain("steady at");
     expect(box(container, 0).querySelector("svg.spark")).toBeNull();
   });
 });
