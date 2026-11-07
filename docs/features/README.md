@@ -95,7 +95,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Micro services](micro-services.md) | `ui`, `api` | shipped |
 | [Command bar](command-bar.md) | `ui` | partial — search by name is shipped; findings, events and prefixes are planned |
 | [On call on the phone](mobile.md) | `ui`, `api` | partial — phone triage, scoped acknowledgements, retained label context, fixed Replay links, and contained settings built; predictions and other dedicated phone pages deferred |
-| [Data history](data-history.md) | `ui`, `api` | partial — exact sample spans, observed window boundaries, qualified availability, range notes and bounded global and server missing-report chart gaps with omission notices; history loading said in a row the chart already has after 300 ms, one page note when the read fails and one live announcement per page; forecast margins not built |
+| [Data history](data-history.md) | `ui`, `api` | partial — exact sample spans, observed window boundaries, qualified availability, range notes and bounded global and server missing-report chart gaps with omission notices; history loading said in a row the chart already has after 300 ms (a steady line at once), one page note when the read fails and one live announcement per page; forecast margins not built |
 | [Notifications](notifications.md) | `api`, `cli` | shipped — channel quiet distinct from Prometheus exclusions |
 
 ## Feature coverage by area
@@ -147,7 +147,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Services built on the NATS micro framework: a card per service with its versions, instances, rate, errors and a note, its endpoints with their slow spells and last errors, its instances with the missing ones, asked in the listed accounts and seen in subscriptions in all (micro-services.md)
 - [~] Search and jump to anything from one box — findings, events and prefixes are planned (command-bar.md)
 - [~] A finding on the phone with observed facts, episode story, playbook, scoped acknowledgement receipts, retained label context, fixed Replay links, and contained settings; predictions and other phone pages deferred (mobile.md)
-- [~] History coverage, gap lists, archive state, bounded sample spans with observed window boundaries and qualified availability, and bounded global and server missing-report chart hatches with omission notices; history loading in a chart's own rows after 300 ms, one page note on a failed read and one live announcement per page; margins not built (data-history.md)
+- [~] History coverage, gap lists, archive state, bounded sample spans with observed window boundaries and qualified availability, and bounded global and server missing-report chart hatches with omission notices; history loading in a chart's own rows after 300 ms (a steady line at once), one page note on a failed read and one live announcement per page; margins not built (data-history.md)
 
 **Operations**
 - [x] Findings with acknowledgement quiet metrics and exclusions, collector health and four notification delivery gauges at `/metrics` for Prometheus alerting (metrics-and-alerting.md)
