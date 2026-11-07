@@ -20,6 +20,7 @@
 .tbl td{padding:9px 12px;border-top:1px solid var(--border-soft);vertical-align:baseline}
 .tbl tbody tr:first-child td{border-top:0}
 .tbl .num{text-align:right;font-family:var(--mono);white-space:nowrap}
+.tbl th.num{font-family:var(--sans)}
 .tbl td.mono,.tbl .mono{font-family:var(--mono);font-size:var(--fs-sm);white-space:nowrap}
 .tbl small{display:block;color:var(--text-muted);font-size:var(--fs-xs)}
 .tbl tr.leader td:first-child{font-weight:500}
