@@ -259,7 +259,7 @@ it("renders client-library comparisons with observation links and association li
   ], evidenceCount: 2 });
   renderApp(<ReplaySteps steps={[step]} moments={M} notes={[]} />, "/replay?system=example-prod");
   expect(screen.getByText(/not a causal link/)).toBeInTheDocument();
-  for (const label of ["collection A", "collection B"]) {
+  for (const label of ["Collection A", "Collection B"]) {
     const href = screen.getByRole("link", { name: label }).getAttribute("href")!;
     expect(href).toContain("/applications?");
     expect(href).toContain("app=checkout&account=APP&system=example-prod");
