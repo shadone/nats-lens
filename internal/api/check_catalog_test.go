@@ -40,8 +40,8 @@ func TestCheckCatalogHTTP(t *testing.T) {
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		t.Fatal(err)
 	}
-	if len(body.Definitions) != 89 {
-		t.Fatalf("catalog count = %d, want 89", len(body.Definitions))
+	if len(body.Definitions) != 91 {
+		t.Fatalf("catalog count = %d, want 91", len(body.Definitions))
 	}
 	if body.ConfigurationState != "demo" {
 		t.Errorf("state = %q", body.ConfigurationState)
@@ -53,6 +53,8 @@ func TestCheckCatalogHTTP(t *testing.T) {
 		}
 		seen[d.Code] = true
 		for code, rules := range map[string][]string{
+			"server-027":   {"not proof of continuous capture", "entirely absent collections", "retained collection", "sequence-number holes"},
+			"server-028":   {"not proof of continuous capture", "entirely absent collections", "retained collection", "sequence-number holes"},
 			"client-006":   {"mute set on the old key no longer applies", "Without it nats-lens stores no `client.auth_error` event"},
 			"client-007":   {"row still counts MQTT clients"},
 			"client-008":   {"So is nats.py's `0.0.0`", "unknown and not judged", "A minimum of 0 turns a language off", "`min_python` | `python3` | nats.py | 2.9.0"},
@@ -136,7 +138,7 @@ func TestCheckCatalogSystemIsolation(t *testing.T) {
 			if err := protojson.Unmarshal(r.Body.Bytes(), &body); err != nil {
 				t.Fatal(err)
 			}
-			if len(body.Definitions) != 89 {
+			if len(body.Definitions) != 91 {
 				t.Fatalf("count %d", len(body.Definitions))
 			}
 			var consumer, slow *v1.CheckDefinition

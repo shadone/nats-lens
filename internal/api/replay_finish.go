@@ -78,6 +78,7 @@ func FinishReplay(f *ReplayFacts) *v1.GetReplayResponse {
 	b.k8s()
 	b.leaders()
 	b.gaps()
+	b.clientLibraries()
 	res := &v1.GetReplayResponse{
 		A: ts(f.A), B: ts(f.B), EpochA: f.EpochA, EpochAAt: tsOrNil(f.EpochAAt), EpochB: f.EpochB, EpochBAt: tsOrNil(f.EpochBAt),
 		Windows: f.Windows, KubernetesWatched: f.Kubernetes, HistoryStart: tsOrNil(f.HistoryStart),

@@ -227,3 +227,12 @@ Conformance rows in `internal/api/apitest/conformance.go` (A and B from the syst
 ## Leftovers
 
 Moved to `docs/plans/next.md`, item 5, on 2026-10-20. Not supported: moments older than `retention` (no archive reads), causal claims, "from disk" wording, quorum reports from server logs (see `docs/features/replay.md`).
+
+
+## Observed client-library comparison policy
+
+Proposed, not yet confirmed: compare only library-set membership at the two existing Replay endpoint collections, grouped by application prefix and account. Require complete, uncapped CONNZ at both endpoints and known library metadata. Suppress comparisons for unnamed, newly observed, renamed or unknown-version groups, with a count and explanation. Counts alone changing within the same set do not establish a library change. A server process restart does not change application identity. A reused application/account name cannot prove service continuity.
+
+Proposed, not yet confirmed: reuse the system-wide A–B reconnect count and finding transitions as explicitly scoped context, with the existing capture-gap availability rules. Do not infer application deployments, release versions, build SHAs, exact change times, reconnect spikes relative to a baseline, or causation. CONNZ library metadata is not application release metadata. The endpoint policy can miss intermediate changes and deployments that retain the same client library. Keep existing server-upgrade and Kubernetes steps, instead of duplicating their facts.
+
+No migration or check is added. This avoids the shared schema allocation, including 0040 reserved for parallel work. The rollout query has two fixed reads and a 20,000 grouped-row bound. Collection evidence opens the existing Applications path, filtered by the exact application and account; its 500-row API limit still applies.

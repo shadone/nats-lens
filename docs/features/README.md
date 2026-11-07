@@ -63,8 +63,8 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Event capture](event-capture.md) | `ui`, `api`, `cli` | shipped — includes OCSP peer rejections with only known fields and peer fingerprints retained |
 | [Kubernetes context and watch recovery](kubernetes-context.md) | `ui`, `cli` | shipped |
 | [History and archive](history-and-archive.md) | `ui`, `cli` | shipped — DuckDB 2.0 file compatibility; visible archive state; recovery limited to successful exports |
-| [Checks and findings](checks.md) | `ui`, `api`, `cli` | partial — 89 checks with catalog and individual reference pages with complete per-check paragraphs and multiline content; churn hysteresis survives missed evaluations; accepting a finding is built for one entity; related entities, a check everywhere and a review list are planned |
-| [Server checks](server-checks.md) | `ui`, `api`, `cli` | shipped — includes OCSP peer rejections, sustained slow route pairs, system-level leaf-site health with bounded evidence retention and churn hysteresis across missed evaluations |
+| [Checks and findings](checks.md) | `ui`, `api`, `cli` | partial — 91 checks with catalog and individual reference pages with complete per-check paragraphs and multiline content; churn hysteresis survives missed evaluations; accepting a finding is built for one entity; related entities, a check everywhere and a review list are planned |
+| [Server checks](server-checks.md) | `ui`, `api`, `cli` | shipped — includes OCSP peer rejections, sustained slow route pairs, local Raft apply stalls and candidacy from retained collection samples, with bounded gap bridging and unknown-leader resets, system-level leaf-site health with bounded evidence retention and churn hysteresis across missed evaluations |
 | [Account checks](account-checks.md) | `ui`, `cli` | shipped |
 | [Stream checks](stream-checks.md) | `ui`, `cli` | shipped — creation metadata guidance qualifies message identity and rebuild history; includes per-source silence and errors |
 | [Consumer checks](consumer-checks.md) | `ui`, `cli` | shipped — sustained replica degradation warns before quorum loss; authoritative loss or agreed incarnation changes end it |
@@ -85,9 +85,9 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Demo mode](demo-mode.md) | `ui`, `api`, `cli` | shipped — on-call acknowledgement story and per-system history, gaps, retention and archive examples |
 | [Multiple systems and the Fleet view](multiple-systems.md) | `ui`, `api`, `cli` | partial — isolated fatal database failures and readable Fleet strip intervals; a cluster switcher inside a supercluster is planned |
 | [Placement](placement.md) | `ui`, `api` | partial — selected-cell observed duration with bounded history and observed process identity boundaries; a playbook link is not built |
-| [Replay](replay.md) | `ui`, `api` | partial — fixed "Replay this window" entry links from Overview and finding details; a replica catch-up step is not built; shared collection and capture gap rules |
+| [Replay](replay.md) | `ui`, `api` | partial — observed endpoint client-library comparisons with system-wide context and Applications evidence; fixed "Replay this window" entry links from Overview and finding details; a replica catch-up step is not built; shared collection and capture gap rules |
 | [Topology](topology.md) | `ui`, `api` | shipped |
-| [Applications](applications.md) | `ui`, `api` | shipped |
+| [Applications](applications.md) | `ui`, `api` | shipped — fixed Replay context and exact application evidence filters |
 | [Capacity and retention](capacity.md) | `ui`, `api` | shipped — six-hour growth explanations |
 | [Subjects](subjects.md) | `ui`, `api` | shipped |
 | [Accounts and auth](accounts-and-auth.md) | `ui`, `api` | shipped |
@@ -113,8 +113,8 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [~] Several NATS systems in one nats-lens, with a system switcher, fatal database failure isolation, the Fleet page with readable strip intervals and its badge, and the shell's status of every system in one call — a cluster switcher inside a supercluster is planned (multiple-systems.md)
 
 **Checks**
-- [~] 89 checks with catalog and individual reference pages with complete per-check paragraphs and multiline content, findings, severities, restarts, thresholds, churn hysteresis across missed evaluations, remediation text and HTTPS playbooks, mutes, and one entity's finding accepted until a review date — accepting related entities or a check everywhere is planned (checks.md)
-- [x] Server checks `server-001` to `server-026`, routes, gateways, the connection limit, JetStream API errors, internal queues, CPU, OCSP peer rejections, sustained slow route pairs, system-level leaf-site health with bounded evidence retention and churn hysteresis across missed evaluations among them (server-checks.md)
+- [~] 91 checks with catalog and individual reference pages with complete per-check paragraphs and multiline content, findings, severities, restarts, thresholds, churn hysteresis across missed evaluations, remediation text and HTTPS playbooks, mutes, and one entity's finding accepted until a review date — accepting related entities or a check everywhere is planned (checks.md)
+- [x] Server checks `server-001` to `server-028`, routes, gateways, the connection limit, JetStream API errors, internal queues, CPU, OCSP peer rejections, sustained slow route pairs, local Raft apply stalls and candidacy from retained collection samples, with bounded gap bridging and unknown-leader resets, system-level leaf-site health with bounded evidence retention and churn hysteresis across missed evaluations among them (server-checks.md)
 - [ ] Server checks for queued JetStream API requests (server-checks.md)
 - [x] Account checks `account-001` to `account-004`: connection and disk limits, account and user JWT expiry (account-checks.md)
 - [x] Stream, KV bucket and object store checks `stream-001` to `stream-023`, mirrors, sources, single replicas, KV history, streams without a consumer and interior deletes among them; per-source silence and errors, qualified creation metadata guidance (stream-checks.md)
@@ -137,9 +137,9 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Findings, finding detail with server copies, start times and events around the start, mutes, accepted findings read as accepted, acknowledgements apart from mutes, and history-start explanations with spaced finding facts and action buttons; single-page results omit pagination controls; selected-range Replay context (triage-and-mutes.md)
 - [ ] Why a finding has its severity, a CLI check ready to copy, accepting from the finding page or for related entities (triage-and-mutes.md)
 - [~] Every stream and durable consumer in one matrix, with filters, comparison and bounded selected-cell duration evidence that stops at process returns and ambiguous names; a playbook link is not built (placement.md)
-- [~] What changed between two moments A and B, in order, with counts, gone assets, evidence links, a shared link, an incident log and shared gap rules and fixed "Replay this window" entry links; a replica catch-up step is not built (replay.md)
+- [~] What changed between two moments A and B, in order, with counts, gone assets, evidence links, a shared link, an incident log, observed client-library comparisons with bounded system-wide context, shared gap rules and fixed "Replay this window" entry links; a replica catch-up step is not built (replay.md)
 - [x] How the servers connect: routes, gateways and leaf node sites, with round trips, drops counted from the collections, slow routes (slow in two collections in a row) and sites not connected (topology.md)
-- [x] Client connections grouped by the application in their name: instances, pods, servers, library, round trip, reconnects and 24 hours of traffic per application, with the spread over the servers, the libraries in use and the last day (applications.md)
+- [x] Client connections grouped by the application in their name: instances, pods, servers, library, round trip, reconnects and 24 hours of traffic per application, with the spread over the servers, the libraries in use and the last day; fixed Replay context and exact application evidence filters (applications.md)
 - [x] What each stream keeps, what bounds it, and when disks fill, with six-hour growth explanations and unbounded streams accepted as by design (capacity.md)
 - [x] Where messages can go: each stream with its subjects and readers, client subscriptions by subject, reply inboxes and the JetStream API, filters with counts, and a tester that says what a message on a subject would reach in each account (subjects.md)
 - [x] Accounts with their limits, imports, exports and JWT expiry, leaf nodes counted against the connection limit as nats-server and `account-001` count them, the failed logins of 24 hours, and the certificates and JWTs that expire within 30 days (accounts-and-auth.md)

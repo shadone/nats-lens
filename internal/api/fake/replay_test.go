@@ -32,6 +32,7 @@ func TestDemoReplayGlobal(t *testing.T) {
 	want := []string{
 		"nats-us-1 restarts",
 		"Node gke-example-pool-us-17bd drained",
+		"Client-library comparison unavailable",
 		"Node gke-example-pool-us-17bd upgraded",
 		"nats-us-2 restarts",
 		"Node gke-example-pool-us-a904 drained",
@@ -119,7 +120,7 @@ func gapTitles(res *v1.GetReplayResponse) []string {
 func TestDemoReplayStagingGap(t *testing.T) {
 	res := replay(t, fake.StagingSystem, at(10, 30, 0), at(14, 30, 0))
 	if got := gapTitles(res); strings.Join(got, "|") != "No collections since 11:29:56, still at B|Events not captured since 11:30:00, still at B" ||
-		len(res.GetSteps()) != 2 || res.GetEpochB() != 0 {
+		len(res.GetSteps()) != 3 || res.GetEpochB() != 0 {
 		t.Errorf("gap steps %q, steps %d, epoch B %d", got, len(res.GetSteps()), res.GetEpochB())
 	}
 }

@@ -7,7 +7,7 @@ import { historySpan, spanText } from "../lib/historyView";
 // Connections page.
 import { useSearchParams } from "react-router";
 import type { Applications as Apps } from "../api/applications";
-import { useApplications } from "../api/queries";
+import { useApplications, useLensInfo } from "../api/queries";
 import { useAccounts } from "../api/systems";
 import { AppCards } from "../components/AppCards";
 import { AppTable } from "../components/AppTable";
@@ -15,11 +15,16 @@ import { Empty, QueryView } from "../components/common";
 import { APPS_FOOTNOTE, CAPTURE_GAPS, CONNZ_CUT, emptyText, NO_EVENTS, partialText, subtitleText, TOOLING_PARAM, toolingHiddenText, trafficNote } from "../lib/appsView";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useAccountScope } from "../lib/useSystem";
-import { useTimeRange } from "../lib/useTimeRange";
+import { useNow, useResolvedRange, useTimeRange } from "../lib/useTimeRange";
+import { ReplayContextLink } from "../components/ReplayEntry";
+import { replayEntry } from "../lib/replayEntry";
 import { accountLabeller } from "../lib/view";
 
 function Body({ d, includeTooling, scope, names }: { d: Apps; includeTooling: boolean; scope: string; names: Map<string, string> }) {
   const h = usePageHistory();
+  const [params] = useSearchParams();
+  const selectedApp = params.get("app");
+  const rows = selectedApp ? d.applications.filter(a => a.name === selectedApp) : d.applications;
   const covered = h && historySpan(h.historyStart, h.end - 86_400_000, h.end);
   const accounts = d.applications.flatMap((a) => a.accounts);
   const named = accounts.map((x) => ({ account: x.account, accountName: x.accountName || names.get(x.account) || "" }));
@@ -59,12 +64,13 @@ function Body({ d, includeTooling, scope, names }: { d: Apps; includeTooling: bo
       ) : (
         <>
           <AppCards d={d} />
+          {selectedApp && <p className="ap-notice" role="note">Table filtered to application {selectedApp}. Summary cards cover the selected account scope. {rows.length === 0 && "Application not listed in this collection; it may be absent or beyond the 500-application limit."}</p>}
           {note && (
             <p className="ap-notice" role="note">
               {note}
             </p>
           )}
-          <AppTable rows={d.applications} showAccount={showAccount} label={(id, name) => label(id, name || nameOf(id))} atLeast={d.eventsCaptured && d.captureGaps} />
+          <AppTable rows={rows} showAccount={showAccount} label={(id, name) => label(id, name || nameOf(id))} atLeast={d.eventsCaptured && d.captureGaps} />
         </>
       )}
       <div className="ap-foot">
@@ -81,6 +87,10 @@ export function Applications() {
   const [params, setParams] = useSearchParams();
   const { spec } = useTimeRange();
   const [account] = useAccountScope();
+  const range = useResolvedRange(spec);
+  const now = useNow(30_000);
+  const minGapMs = useLensInfo().data?.collectIntervalMs ?? 30_000;
+  const context = replayEntry({ a: Math.max(range.start, range.end - 86_400_000), b: range.end }, now, minGapMs);
   const tooling = params.get(TOOLING_PARAM) === "1";
   const q = useApplications(spec, account, tooling);
   // The header's account list names an account the response leaves unnamed.
@@ -106,6 +116,10 @@ export function Applications() {
           <input type="checkbox" checked={tooling} onChange={(e) => setTooling(e.target.checked)} /> Include tooling
         </label>
       </div>
+      {context && <div className="replay-entry">
+        <ReplayContextLink to={context.to} label="Replay application context" />
+        <p>Compare observed client-library sets alongside system-wide reconnects, findings and server upgrades in this window (at most 24 hours). Library changes do not prove an application deployment. Replay covers all accounts. {context.text} {context.notes.join(" ")}</p>
+      </div>}
       <QueryView q={q} what="applications">
         {(d) => (d.collected ? <Body d={d} includeTooling={tooling} scope={account} names={names} /> : <Empty>No collection in this range.</Empty>)}
       </QueryView>

@@ -10,6 +10,8 @@ The Applications page groups the client connections of a system by the applicati
 
 ## Behavior and rules
 
+- **Replay context.** “Replay this window” opens fixed A and B from the selected range, using at most its last 24 hours and ending no later than now. The page explains that Replay covers all accounts and compares observed libraries alongside system-wide reconnects, findings and server upgrades. Library changes do not prove an application deployment. Replay collection evidence links back with an exact application-name filter and account scope; summary cards still cover the account scope. When the application is absent or outside the first 500 listed, the page explains that it is not listed. See [replay.md](replay.md) for comparison coverage and limits.
+
 - **One collection.** The page reads the newest collection at or before the end of the range. The 24-hour counts cover the 24 hours before that collection, and the traffic the 24 whole hours before the collection's hour. The line under the title reads, for example, "Client connections grouped by the application in their name. 187 connections, 10 applications, in the collection of 14:29:56 UTC." A past range works as a live one. A range without a collection says "No collection in this range."
 - **An application is the connection name before the first "@".** A service that names each connection `service@pod` is grouped by service. A connection without "@" is its own application. A connection without a name, or with nothing before the "@" (`@pod-1`), is grouped as `(unnamed)`. One name is one application across accounts: a row lists every account its connections use.
 - **Instances and pods.** A pod is the part of the name between the first "@" and the next. Instances count the distinct pods of the connections whose name gives one, plus one per connection whose name gives none. The Pods column lists the first two pod names and the rest behind "+N more"; with three pods it lists all three, as a disclosure for one name takes as much room as the name. Where no name gives a pod, the column lists the client addresses instead, in a quieter colour: one address, the rest behind "+N more", and two addresses both. The API lists at most 10 pods and 10 addresses per application, with their totals; the ones beyond read "N not listed".
@@ -39,6 +41,15 @@ The Applications page groups the client connections of a system by the applicati
 - **Decisions.** The owner decided on 2026-10-26 to defer "Runs on" and to back the 24 hours of traffic with an hourly rollup. The owner confirmed the other rules of this page on 2026-10-26.
 
 ## Scenarios
+
+### Open incident context and return to a library observation
+
+- **Surfaces:** `ui`
+- **Given** Applications over a fixed one-hour range
+- **When** I follow “Replay this window”
+- **Then** Replay uses that bounded hour and system, with explicit system-wide context
+- **And** a client-library collection evidence link returns to the exact application and account at the observed collection
+
 
 ### See one service as one row
 
