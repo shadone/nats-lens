@@ -32,7 +32,7 @@
 .mi-detail{margin-top:var(--sp-5);padding:var(--sp-1) 0 0;min-width:0;overflow:hidden}
 .mi-h2{margin:0;padding:var(--sp-3) var(--sp-5) 0;font-size:var(--fs-lg);font-weight:500;overflow-wrap:break-word}
 .mi-h2 .mi-in{font-weight:400;color:var(--text-2)}
-.mi-h3{margin:0;padding:var(--sp-4) var(--sp-5) 0;font:500 var(--fs-xs) var(--sans);color:var(--text-muted)}
+.mi-h3{margin:0;padding:var(--sp-4) var(--sp-5) 0;font:500 var(--fs-sm) var(--sans);color:var(--text-2)}
 .mi-detail .table-wrap{padding:0 var(--sp-2);margin-top:var(--sp-2)}
 .mi-tbl td{vertical-align:middle;font-size:var(--fs-md)}
 .tbl.mi-tbl tbody th[scope="row"]{text-align:left;vertical-align:middle;font:500 var(--fs-md) var(--mono);white-space:nowrap}
