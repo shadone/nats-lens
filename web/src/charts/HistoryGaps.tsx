@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { useDataHistory } from "../api/queries";
 import { usePageHistory, type PageHistory } from "../components/HistoryNote";
 import { gapName, stripSegments } from "../lib/historyView";
@@ -107,6 +107,8 @@ export function ChartHistoryNotice({ start, end }: { start: number; end: number 
     ? <OmissionNotice facts={h} start={start} end={end} observedStart={h.start} observedEnd={h.end} />
     : <QueriedNotice start={start} end={end} />;
 }
+/** How long a shared row keeps its data while history loads; the page announcement waits as long. */
+const LOADING_DELAY_MS = 300;
 interface StatusProps {
   start: number;
   end: number;
@@ -127,7 +129,18 @@ function QueriedStatus({ start, end, children, keep, compact, claim }: StatusPro
   const h = usePageHistory();
   const q = useDataHistory(chartRange(spec, start, end), h?.gapServer);
   const failed = !!q.error;
-  if (!(q.isPending && !failed) && !(failed && claim)) return <>{children}</>;
+  const loading = q.isPending && !failed;
+  // A shared row keeps its data for the first LOADING_DELAY_MS, so a read the
+  // cache answers at once does not flash. A claim gives way at once: it must
+  // never say "steady" while the gaps are unknown.
+  const [late, setLate] = useState(false);
+  useEffect(() => {
+    setLate(false);
+    if (!loading) return;
+    const timer = setTimeout(() => setLate(true), LOADING_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [loading]);
+  if (!(loading && (late || claim)) && !(failed && claim)) return <>{children}</>;
   const words = compact ? (failed ? "Gaps unavailable" : "Gaps loading") : failed ? "History gaps unavailable" : "History gaps loading";
   const text = <span className="dh-chart-status">{words}</span>;
   if (keep) return <span className="dh-status-in"><span className="dh-status-keep" aria-hidden="true">{children}</span>{text}</span>;

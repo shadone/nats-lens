@@ -97,3 +97,17 @@ it("keeps a tile's track ends when its history read fails, and says it in place 
  read.mockReset();
  r.unmount();
 });
+it("shows a shared row's loading text only after 300 ms, keeping the row's data until then",async()=>{
+ vi.useFakeTimers();
+ try{
+  read.mockImplementation(()=>new Promise(()=>{}));
+  const r=renderApp(<Charts/>,"/?range=24h");
+  await act(async()=>{await vi.advanceTimersByTimeAsync(100);});
+  expect(document.querySelector(".chart-f .dh-chart-status")).toBeNull();
+  expect(document.querySelector(".chart-f")!.textContent).toContain("min");
+  await act(async()=>{await vi.advanceTimersByTimeAsync(250);});
+  expect(document.querySelector(".chart-f .dh-chart-status")).toHaveTextContent("Gaps loading");
+  read.mockReset();
+  r.unmount();
+ }finally{vi.useRealTimers();}
+});
