@@ -195,7 +195,7 @@ export function MetricBox(p: MetricBoxProps) {
   // Whether a chart is drawn, the only case with a history read of its own.
   const drawn = chart && !(p.error && !p.series);
   return (
-    <div className={`card mbox${alert}${p.to ? " chart-linked" : ""}${chart ? "" : " mb-quiet"}`}>
+    <div className={`card mbox${alert}${p.to ? " chart-linked" : ""}${chart ? "" : " mb-quiet"}${p.tone === "change" ? " mb-change" : ""}`}>
       <div className="mb-h">
         <span className="lbl">
           {p.to ? <RLink to={p.to} className="mb-t chart-link">{p.title}</RLink> : <span className="mb-t">{p.title}</span>}
