@@ -16,7 +16,7 @@ import type { EdgePoint } from "../lib/trends";
 import { Legend, fillClass, strokeClass, type LegendItem, type MarkStyle } from "./Legend";
 
 const W = 300;
-const H = 70;
+const H = 72;
 /** The shortest mark a lone band point gets, in view box units. */
 const MIN_MARK = 3;
 
