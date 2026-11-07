@@ -6,6 +6,8 @@ import type { ServerHistoryGap } from "../api/history";
 import { ChartHistoryNotice, HistoryGaps } from "./HistoryGaps";
 import type { Level, Point, Window } from "../api/model";
 import { chartName, rangeText } from "./chartLabel";
+import { changedSegments } from "../lib/tileChart";
+import { isTrouble } from "../lib/view";
 
 const W = 200;
 const H = 40;
@@ -30,6 +32,12 @@ interface Props {
   current?: string;
   /** Appended to the accessible name, for example "as of 14:30:05 UTC". */
   note?: string;
+  /**
+   * "status" draws the line in the status colour; "change" draws it neutral
+   * and puts the accent only on the segments where the value changes, while
+   * a warning or critical status keeps its colour.
+   */
+  tone?: "status" | "change";
 }
 
 /** x by time over [start, end], y scaled to the shared min and max. */
@@ -42,14 +50,26 @@ export function sparkPoints(a: Point[], start: number, end: number, mn: number, 
   });
 }
 
-export function Sparkline({ stepMs, bucketNote, fmt = String, labels = ["value", "second series"], points, points2, status, windows, start, end, label, current, note }: Props) {
+/** Consecutive changed segments joined, each from the point before the change to the last changed point. */
+function changeRuns(run: Point[]): Point[][] {
+  const out: Point[][] = [];
+  let prev = -2;
+  for (const i of changedSegments(run)) {
+    if (i === prev + 1) out[out.length - 1].push(run[i]);
+    else out.push([run[i - 1], run[i]]);
+    prev = i;
+  }
+  return out;
+}
+
+export function Sparkline({ stepMs, bucketNote, fmt = String, labels = ["value", "second series"], points, points2, status, windows, start, end, label, current, note, tone }: Props) {
   return <ChartInspection label={label} start={start} end={end} stepMs={stepMs} bucketNote={bucketNote} series={[
     { label: labels[0], points: points.map(p => ({ time: p.time, text: fmt(p.value) })) },
     ...(points2 ? [{ label: labels[1], points: points2.map(p => ({ time: p.time, text: fmt(p.value) })) }] : []),
-  ]}><SparkDrawing points={points} points2={points2} status={status} windows={windows} start={start} end={end} label={label} current={current} note={note} /></ChartInspection>;
+  ]}><SparkDrawing points={points} points2={points2} status={status} windows={windows} start={start} end={end} label={label} current={current} note={note} tone={tone} /></ChartInspection>;
 }
 
-function SparkDrawing({ points, points2, status, windows, start, end, label, current, note }: Props) {
+function SparkDrawing({ points, points2, status, windows, start, end, label, current, note, tone = "status" }: Props) {
   const history = usePageHistory();
   const gaps = history?.serverGaps ?? [];
   const period = rangeText(start, end);
@@ -72,7 +92,8 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
     if (mn !== 0) mn = mn - 1;
   }
   const runs = splitServerPoints(points, gaps);
-  const col = sparkColour(status);
+  const neutral = tone === "change" && !isTrouble(status);
+  const col = neutral ? "var(--text-muted)" : sparkColour(status);
   const span = end - start || 1;
   return (
     <><svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, current, period, note)}>
@@ -84,7 +105,7 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
       })}
       {!flatZero && runs.map((run, i) => {
         const p = sparkPoints(run, start, end, mn, mx);
-        return <polygon key={i} points={`${p[0].split(",")[0]},${H} ${p.join(" ")} ${p[p.length-1].split(",")[0]},${H}`} style={{ fill: col, fillOpacity: 0.1 }} />;
+        return <polygon key={i} points={`${p[0].split(",")[0]},${H} ${p.join(" ")} ${p[p.length-1].split(",")[0]},${H}`} style={{ fill: col, fillOpacity: neutral ? 0.07 : 0.1 }} />;
       })}
       {points2 && points2.length > 0 && (
         splitServerPoints(points2, gaps).map((run, i) => <polyline key={i}
@@ -95,7 +116,8 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
           vectorEffect="non-scaling-stroke"
         />)
       )}
-      {runs.map((run, i) => <polyline key={i} points={sparkPoints(run, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: col }} strokeWidth="1.6" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />)}
+      {runs.map((run, i) => <polyline key={i} points={sparkPoints(run, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: col }} strokeWidth={neutral ? 1.3 : 1.6} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />)}
+      {neutral && runs.flatMap((run, i) => changeRuns(run).map((seg, j) => <polyline key={`c${i}-${j}`} className="spark-change" points={sparkPoints(seg, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: "var(--accent)" }} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />))}
     </svg><ChartHistoryNotice start={start} end={end}/></>
   );
 }

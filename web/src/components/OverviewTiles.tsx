@@ -1,10 +1,15 @@
-import { HistoryLink, usePageHistory } from "./HistoryNote";
-import { rangeCoverageText } from "../lib/historyView";
 // The Overview's nine tiles as metric boxes: the API's description behind
 // (i), the value top right, the chart and the window's range track. A
 // tile's limit goes in the note, never on the track. A value the API did
-// not observe is a dash with no dot.
+// not observe is a dash with no dot. A tile draws its chart only when
+// `tileChartReason` does not call it steady.
+import { HistoryLink, usePageHistory } from "./HistoryNote";
+import type { HistoryGap } from "../api/history";
 import type { Level, Tile, Window } from "../api/model";
+import { useDataHistory } from "../api/queries";
+import { rangeCoverageText } from "../lib/historyView";
+import { tileChartReason } from "../lib/tileChart";
+import { useTimeRange } from "../lib/useTimeRange";
 import { tileValue, fmtValue } from "../lib/units";
 import { MetricBox } from "./MetricBox";
 
@@ -39,7 +44,31 @@ export function tileStatus(t: Tile): Level {
   return t.status === "nodata" && (t.value !== undefined || !!t.valueText) ? "ok" : t.status;
 }
 
-export function OverviewTiles({ tiles, windows, start, end }: { tiles: Tile[]; windows: Window[]; start: number; end: number }) {
+interface TilesProps {
+  tiles: Tile[];
+  windows: Window[];
+  start: number;
+  end: number;
+}
+
+/**
+ * The tiles with the range's collection gaps. Without a page history the
+ * charts hatch no gaps either, so none are assumed.
+ */
+export function OverviewTiles(p: TilesProps) {
+  const h = usePageHistory();
+  return h ? <TilesWithGaps {...p} /> : <TileGrid {...p} gaps={[]} />;
+}
+
+function TilesWithGaps(p: TilesProps) {
+  const { spec } = useTimeRange();
+  const d = useDataHistory(spec).data;
+  // The newest gap the answer left out of its list counts as well.
+  const gaps = d && (d.newestOmittedCollectionGap ? [...d.gaps, d.newestOmittedCollectionGap] : d.gaps);
+  return <TileGrid {...p} gaps={gaps} />;
+}
+
+function TileGrid({ tiles, windows, start, end, gaps }: TilesProps & { gaps?: readonly HistoryGap[] }) {
   const h = usePageHistory();
   const coverage = rangeCoverageText(h?.historyStart, start, end);
   // Tile growth is conveyed in its subtitle, without typed readiness facts.
@@ -47,12 +76,18 @@ export function OverviewTiles({ tiles, windows, start, end }: { tiles: Tile[]; w
   const growth = h ? "Growth uses samples spanning 6 h; entity measurements determine the rate." : undefined;
   return (
     <div className="ov-tiles">
-      {tiles.map((t) => (
-        <MetricBox
+      {tiles.map((t) => {
+        const leader = t.id === "meta_leader";
+        const status = tileStatus(t);
+        const chart = tileChartReason({ points: t.series?.points ?? [], points2: t.series2?.points, stepMs: t.series?.stepMs, start, end, status, changesSeries: leader, historyStart: h?.historyStart, gaps }) !== "steady";
+        return <MetricBox
           key={t.id}
           title={t.label}
           to={destinations[t.id]}
-          valueLabel={t.id === "meta_leader" ? "Newest leader · chart: changes per bucket" : t.id === "storage" ? "Newest storage reports" : "Latest count bucket"}
+          // The leader's chart counts changes, not the name above it.
+          valueLabel={leader && chart ? "chart: leader changes per bucket" : undefined}
+          chart={chart}
+          tone="change"
           description={t.description ?? ""}
           series={t.series}
           series2={t.series2}
@@ -64,13 +99,13 @@ export function OverviewTiles({ tiles, windows, start, end }: { tiles: Tile[]; w
           sampleFmt={t.id === "meta_leader" ? v => `${v} leader ${v === 1 ? "change" : "changes"}` : undefined}
           seriesLabels={t.id === "meta_leader" ? ["changes", "changes"] : undefined}
           fmt={(v) => fmtValue(v, t.unit)}
-          status={tileStatus(t)}
+          status={status}
           note={<>{tileNote(t)}{coverage && ["clients", "storage"].includes(t.id) && ` · ${coverage}`}{t.id === "storage" && growth && <> · <HistoryLink>{growth}</HistoryLink></>}</>}
           start={start}
           end={end}
           windows={windows}
-        />
-      ))}
+        />;
+      })}
     </div>
   );
 }
