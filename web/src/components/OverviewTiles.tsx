@@ -81,7 +81,10 @@ function TileGrid({ tiles, windows, start, end, gaps }: TilesProps & { gaps?: re
         const status = tileStatus(t);
         // A count bucket's low and high widen the track, so a dip inside one bucket shows.
         const series = t.series && { ...t.series, ...edgeRange(t.series.points, t.series.min, t.series.max) };
-        const chart = tileChartReason({ points: t.series?.points ?? [], points2: t.series2?.points, stepMs: t.series?.stepMs, min: series?.min, max: series?.max, start, end, status, changesSeries: leader, live: h?.live, historyStart: h?.historyStart, gaps }) !== "steady";
+        const reason = tileChartReason({ points: t.series?.points ?? [], points2: t.series2?.points, stepMs: t.series?.stepMs, min: series?.min, max: series?.max, start, end, status, changesSeries: leader, live: h?.live, historyStart: h?.historyStart, gaps });
+        // Steady values with gaps not yet known: no chart, and the history
+        // status in place of "steady at N" until the gaps settle it.
+        const chart = reason !== "steady" && reason !== "gapsUnknown";
         return <MetricBox
           key={t.id}
           title={t.label}
@@ -89,6 +92,7 @@ function TileGrid({ tiles, windows, start, end, gaps }: TilesProps & { gaps?: re
           // The leader's chart counts changes, not the name above it.
           valueLabel={leader && chart ? "Leader changes per bucket" : undefined}
           chart={chart}
+          historyStatus={reason === "gapsUnknown"}
           tone="change"
           description={t.description ?? ""}
           series={series}
