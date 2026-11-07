@@ -196,3 +196,23 @@ it("distinguishes the system summary from detailed range trends", async () => {
   expect(screen.getByRole("heading", { name: "Detailed trends" })).toBeInTheDocument();
   expect(screen.getByText(/Traffic rates, event totals, server spread, and replica counts/)).toBeInTheDocument();
 });
+
+
+it("replays every observed window while preserving timeline controls and scope policy", async () => {
+  mock(quiet);
+  vi.mocked(requests.getLensInfo).mockResolvedValue({identityMode:"request",version:"",cluster:"",collectIntervalMs:30_000,retentionMs:0,live:true,demo:false});
+  vi.mocked(requests.getTimeline).mockResolvedValue({...emptyTimeline,windows:[{start:END-3600000,end:END-1800000,label:"Node upgrade",detail:""},{start:END-7200000,end:END-7000000,label:"Node drain",detail:""}]});
+  renderApp(<Overview />, "/?system=example-prod&account=APP&range=6h");
+  const links=await screen.findAllByRole("link",{name:/Replay this window:/});
+  expect(links).toHaveLength(2);
+  const p=new URL(links[0].getAttribute("href")!,"http://example.com").searchParams;
+  expect(p.get("system")).toBe("example-prod");
+  expect(p.has("account")).toBe(false); // Replay is system-wide.
+  expect(p.has("range")).toBe(false);
+  expect(p.get("a")).toBe("2026-10-17T13:25:00Z");
+  expect(p.get("b")).toBe("2026-10-17T14:05:00Z");
+  expect(p.get("from")).toBe(p.get("a"));
+  expect(p.get("to")).toBe(p.get("b"));
+  expect(screen.getByRole("button",{name:"Each check"})).toBeInTheDocument();
+  expect(screen.getByRole("link",{name:"Kubernetes"})).toBeInTheDocument();
+});

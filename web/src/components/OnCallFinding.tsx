@@ -6,7 +6,8 @@ import { serverNow } from "../lib/clock";
 import { fmtDuration, isoMinute } from "../lib/format";
 import { atHistoryStart } from "../lib/historyView";
 import { assetStatus, contextText, headline, rightNow, safePlaybook, storyNote, remediationParts } from "../lib/onCallView";
-import { writeMoments } from "../lib/replayUrl";
+import { replayEntry } from "../lib/replayEntry";
+import { ReplayContextLink } from "./ReplayEntry";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useSystem } from "../lib/useSystem";
 import { entityName, findingPath } from "../lib/view";
@@ -30,6 +31,7 @@ export function OnCallFinding({ allDetails }: { allDetails: ReactNode }) {
       const since = f.conditionSince ?? f.since;
       const playbook = safePlaybook(d.playbookUrl);
       const remediation = remediationParts(f.remediation);
+      const replay = d.storyA !== undefined && d.storyB !== undefined ? replayEntry({a:d.storyA,b:d.storyB},serverNow(),info?.collectIntervalMs || 30_000) : undefined;
       const note = storyNote(d.steps.length, d.stepsTotal, d.stepsNote);
       return <>
         <section className={`oc-card card worst ${f.severity}`}>
@@ -49,7 +51,7 @@ export function OnCallFinding({ allDetails }: { allDetails: ReactNode }) {
         <section className="oc-card card"><h2 className="oc-heading">What happened</h2>
           {d.steps.length ? <ol className="oc-story">{d.steps.map(s => <li key={s.id}><time>{isoMinute(s.time)} UTC</time><span>{s.title}</span></li>)}</ol> : !note && <p>No steps recorded in this story.</p>}
           {note && <p className="oc-note">{note}{/history|retention/i.test(note) && <> <HistoryLink /></>}</p>}
-          {d.storyA !== undefined && d.storyB !== undefined && <RLink to={`/replay?${writeMoments(new URLSearchParams(), { a: d.storyA, b: d.storyB })}`}>Open in Replay</RLink>}
+          {replay && <div className="replay-entry"><ReplayContextLink to={replay.to} /><p>{replay.text} Surrounding observations, not the finding's duration. {replay.notes.join(" ")}</p></div>}
         </section>
         <section className="oc-card card"><h2 className="oc-heading">What to do</h2>
           {remediation.warning ? <>
