@@ -87,7 +87,7 @@ export function CheckDetail() {
     <nav className="crumbs" aria-label="Breadcrumb"><RLink to="/checks">Checks</RLink><span aria-hidden="true">/</span><span className="code">{code}</span></nav>
     <QueryView q={q} what="the check reference">{d => {
       const c = d.definitions.find(c => c.code === code);
-      return c ? <Definition c={c} catalog={d} /> : <><h1>Check not found</h1><Empty>No check with code <code>{code}</code>. <RLink to="/checks">Browse all checks</RLink>.</Empty></>;
+      return c ? <Definition c={c} catalog={d} /> : <><div className="page-h"><h1>Check not found</h1></div><Empty>No check with code <code>{code}</code>. <RLink to="/checks">Browse all checks</RLink>.</Empty></>;
     }}</QueryView>
   </>;
 }
