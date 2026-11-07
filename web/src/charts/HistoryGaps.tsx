@@ -26,7 +26,7 @@ function QueriedGaps({ start, end, width, height }: Frame) {
   const d = q.data;
   return <>
     <GapMarks start={start} end={end} width={width} height={height} gaps={d?.gaps ?? []} observedStart={d?.rangeStart} observedEnd={d?.rangeEnd} historyStart={h?.historyStart} live={h?.live ?? false} serverGaps={d?.serverGaps} />
-    {(q.error || q.isPending) && <text x="2" y="8" className="dh-chart-status" role="status">{q.error ? "History gaps unavailable" : "History gaps loading"}</text>}
+    {(q.error || q.isPending) && <text x="2" y="11" className="dh-chart-status" role="status">{q.error ? "History gaps unavailable" : "History gaps loading"}</text>}
   </>;
 }
 interface Frame { start: number; end: number; width: number; height: number }
