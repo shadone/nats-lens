@@ -6,7 +6,7 @@ import { fmtBytes, fmtGrowth, fmtInt, isoDate, isoMinute } from "./format";
 
 export const DASH = "–";
 
-export const CAPACITY_SUBTITLE = "What each stream keeps, what bounds it, and when the disks fill.";
+export const CAPACITY_SUBTITLE = "What each resource keeps, what bounds it, and when the disks fill.";
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
@@ -263,7 +263,7 @@ export function hasRate(d: Capacity): boolean {
 
 /** The header line: what the page covers, and since when growth is read, or that no rate exists yet. */
 export function headerLine(d: Capacity, missing?: string): string {
-  const parts = [`${fmtInt(d.streamsTotal)} ${d.streamsTotal === 1 ? "stream" : "streams"}`, `${fmtInt(d.servers.length)} ${d.servers.length === 1 ? "store" : "stores"}`];
+  const parts = [`${fmtInt(d.streamsTotal)} ${d.streamsTotal === 1 ? "resource" : "resources"}`, `${fmtInt(d.servers.length)} ${d.servers.length === 1 ? "store" : "stores"}`];
   if (!hasRate(d) && !missing) parts.push("no growth rate yet (6 hours of history needed)");
   else if (d.growthFrom !== undefined) parts.push(`growth from ${isoMinute(d.growthFrom)} UTC`);
   return parts.join(" · ");
