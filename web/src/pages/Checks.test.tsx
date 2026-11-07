@@ -157,7 +157,9 @@ describe("check reference routes", () => {
   });
   it("shows an explicit unknown-code state and return link", async () => {
     detail("unknown-999");
-    expect(await screen.findByRole("heading",{name:"Check not found"})).toBeInTheDocument();
+    const heading = await screen.findByRole("heading",{name:"Check not found",level:1});
+    // The page heading takes its size from .page-h like the other not-found pages.
+    expect(heading.parentElement).toHaveClass("page-h");
     assertGlobal(screen.getByRole("link",{name:"Browse all checks"}),"/checks");
   });
   it("opens the detail route through the shell", async () => {
