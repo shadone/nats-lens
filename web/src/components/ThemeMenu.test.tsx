@@ -20,7 +20,7 @@ describe("ThemeMenu", () => {
     await userEvent.click(btn);
     expect(btn).toHaveAttribute("aria-expanded", "true");
     const items = screen.getAllByRole("menuitemradio");
-    expect(items.map((i) => i.textContent?.replace("✓", ""))).toEqual(["Light", "Dark", "System"]);
+    expect(items.map((i) => i.textContent)).toEqual(["Light", "Dark", "System"]);
     expect(screen.getByRole("menuitemradio", { name: /System/ })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByRole("menuitemradio", { name: /Light/ })).toHaveAttribute("aria-checked", "false");
     expect(screen.getByRole("menuitemradio", { name: /System/ })).toHaveFocus();

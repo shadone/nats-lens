@@ -116,7 +116,11 @@ export function Menu({ label, menuLabel, title, className, children, choices, al
               <span className="ml">{c.label}</span>
               {c.note !== undefined && <span className="mn">{c.note}</span>}
               <span className="mc" aria-hidden="true">
-                {c.checked ? "✓" : ""}
+                {c.checked && (
+                  <svg className="mck" viewBox="0 0 12 12">
+                    <path d="M2.5 6.5 5 9l4.5-6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
               </span>
             </button>
           ))}
