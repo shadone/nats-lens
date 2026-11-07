@@ -1,5 +1,5 @@
 import { useId, type ReactNode } from "react";
-import { HISTORY_LOADING, HISTORY_LOADING_SHORT, HISTORY_UNAVAILABLE, readState, useLate, type HistoryReadState } from "../lib/historyStatus";
+import { HISTORY_LOADING, HISTORY_LOADING_SHORT, HISTORY_UNAVAILABLE, HISTORY_UNAVAILABLE_SHORT, readState, useLate, type HistoryReadState } from "../lib/historyStatus";
 import { useDataHistory } from "../api/queries";
 import { usePageHistory, type PageHistory } from "../components/HistoryNote";
 import { gapName, stripSegments } from "../lib/historyView";
@@ -143,8 +143,11 @@ function StatusText({ state, children, layout = "plain", claim }: Omit<StatusPro
   const late = useLate(loading);
   const failed = state === "failed";
   if (!(loading && (late || claim)) && !(failed && claim)) return <>{children}</>;
-  const words = failed ? HISTORY_UNAVAILABLE : layout === "slot" ? HISTORY_LOADING_SHORT : HISTORY_LOADING;
-  const text = <span className="dh-chart-status">{words}</span>;
+  const short = failed ? HISTORY_UNAVAILABLE_SHORT : HISTORY_LOADING_SHORT;
+  // A full row also carries the short form, which a narrow row shows instead.
+  const text = layout === "slot"
+    ? <span className="dh-chart-status">{short}</span>
+    : <span className="dh-chart-status" data-short={short}>{failed ? HISTORY_UNAVAILABLE : HISTORY_LOADING}</span>;
   if (layout === "keep") return <span className="dh-status-in"><span className="dh-status-keep" aria-hidden="true">{children}</span>{text}</span>;
   return layout === "slot" ? <span className="dh-chart-slot">{text}</span> : text;
 }

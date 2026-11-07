@@ -7,8 +7,9 @@ export const HISTORY_LOADING = "History gaps loading";
 export const HISTORY_UNAVAILABLE = "History gaps unavailable";
 /** The page's one visible line when the read fails and the charts keep their rows. */
 export const HISTORY_UNAVAILABLE_NOTE = "History gaps unavailable: these charts do not mark gaps.";
-/** The short text for a row shared with other data. */
+/** The short texts, for a row shared with other data or too narrow for the full one. */
 export const HISTORY_LOADING_SHORT = "Gaps loading";
+export const HISTORY_UNAVAILABLE_SHORT = "Gaps unavailable";
 /** How long a read is pending before a row or the page says it is loading. */
 export const LOADING_DELAY_MS = 300;
 

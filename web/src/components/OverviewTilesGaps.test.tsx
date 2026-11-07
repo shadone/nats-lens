@@ -57,6 +57,8 @@ describe("tiles while the gaps are not known", () => {
     // Meta leader has no track; its own status row stands in for "no leader changes".
     expect(box(container, 2).querySelector("svg.spark")).toBeNull();
     expect(box(container, 2).querySelector(".mb-track-note")).toHaveTextContent("History gaps loading");
+    // A narrow row swaps in the short form, so the status never wraps to a second line.
+    expect(box(container, 0).querySelector(".mb-track-note .dh-chart-status")).toHaveAttribute("data-short", "Gaps loading");
   });
 
   it("says steady once the gaps arrive and none overlaps the range", async () => {
@@ -66,6 +68,8 @@ describe("tiles while the gaps are not known", () => {
     await act(async () => done({ ...prod(), rangeStart: START, rangeEnd: NOW, gaps: [] }));
     await waitFor(() => expect(screen.getByText("steady at 8 all window")).toBeInTheDocument());
     expect(box(container, 0).querySelector("svg.spark")).toBeNull();
+    // Meta leader keeps its status row, empty, so the tile keeps its height.
+    expect(box(container, 2).querySelector(".mb-track-note")?.textContent).toBe("\u00a0");
   });
 
   it("draws the chart when a gap that arrives overlaps the range", async () => {
@@ -78,6 +82,7 @@ describe("tiles while the gaps are not known", () => {
     read.mockRejectedValue(new Error("history unavailable"));
     const { container } = setup();
     await waitFor(() => expect(shown(box(container, 0))).toContain("History gaps unavailable"));
+    expect(box(container, 0).querySelector(".mb-track-note .dh-chart-status")).toHaveAttribute("data-short", "Gaps unavailable");
     expect(shown(box(container, 0))).not.toContain("steady at");
     expect(box(container, 0).querySelector("svg.spark")).toBeNull();
   });
