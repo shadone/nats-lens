@@ -1,4 +1,4 @@
-import { act, screen } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { renderApp } from "../test/render";
 import { PageHistoryProvider, ServerChartHistory } from "./HistoryNote";
@@ -20,12 +20,12 @@ it("announces the charts' history read once per page: loading, then unavailable"
     <TrendChart title="Messages" start={NOW - 7 * 24 * H} end={NOW} layers={[]} />
   </PageHistoryProvider>, "/?system=example-prod&range=24h");
   expect(await screen.findAllByText("History gaps loading")).toHaveLength(3);
-  const live = screen.getAllByRole("status");
-  expect(live).toHaveLength(1);
-  expect(live[0]).toHaveTextContent("History gaps loading");
-  await act(async () => fails.forEach((no) => no(new Error("history unavailable"))));
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("History gaps loading"));
   expect(screen.getAllByRole("status")).toHaveLength(1);
-  expect(screen.getByRole("status")).toHaveTextContent("History gaps unavailable");
+  await act(async () => fails.forEach((no) => no(new Error("history unavailable"))));
+  // The query cache notifies its subscribers in a later task.
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("History gaps unavailable"));
+  expect(screen.getAllByRole("status")).toHaveLength(1);
   // beforeEach returns the mock, and Vitest calls it after the test as a teardown.
   read.mockReset();
   r.unmount();
