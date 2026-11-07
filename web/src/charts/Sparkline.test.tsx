@@ -1,5 +1,6 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { HistoryContext } from "../components/HistoryNote";
 import { Sparkline } from "./Sparkline";
 
 const zeros = [0, 0, 0].map((value, i) => ({ time: i * 1000, value }));
@@ -56,61 +57,98 @@ describe("the change tone", () => {
   });
 });
 
-describe("the halo under the change marks", () => {
+describe("the cut in the line around the change marks", () => {
   const steps = [5, 5, 5, 9, 9, 9].map((value, i) => ({ time: i * 1000, value }));
   let v = 0;
   const noisy = Array.from({ length: 201 }, (_, i) => { if (i > 0 && i <= 188 && i % 2 === 0) v = 1 - v; return { time: i * 1000, value: v }; });
   // One bucket that dips to 0 inside a flat 5: a ticked move.
   const dip = [5, 5, 5, 5, 5, 5].map((value, i) => ({ time: i * 1000, value, ...(i === 3 ? { low: 0 } : {}) }));
+  const MARKS = ".spark-change, .spark-now, .spark-range";
 
-  /** Each change mark with its halo; halos come in the marks' order, all of them before the first mark. */
-  function pairs(c: HTMLElement, sel: string) {
-    const marks = [...c.querySelectorAll(".spark-change, .spark-now, .spark-range")] as SVGElement[];
-    const halos = [...c.querySelectorAll(".spark-halo")] as SVGElement[];
-    expect(c.querySelectorAll(sel).length).toBeGreaterThan(0);
-    expect(halos).toHaveLength(marks.length);
-    expect(halos[halos.length - 1].compareDocumentPosition(marks[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    return marks.map((m, i) => ({ mark: m, halo: halos[i] })).filter(({ mark }) => mark.matches(sel));
-  }
+  /** Whether an element or one of its ancestors inside the chart has a mask. */
+  const masked = (el: Element) => { for (let e: Element | null = el; e && e.tagName !== "svg"; e = e.parentElement) if (e.hasAttribute("mask")) return true; return false; };
+  /** The grey line: the solid polylines outside the mask that are not marks. */
+  const lines = (c: HTMLElement) => [...c.querySelectorAll("svg.spark polyline")].filter((p) => !p.closest("mask") && !p.matches(".spark-change") && !p.hasAttribute("stroke-dasharray"));
 
-  function expectHalo(c: HTMLElement, sel: string) {
-    for (const { mark, halo } of pairs(c, sel)) {
-      expect(halo).toHaveClass("spark-halo");
-      expect(halo.tagName).toBe(mark.tagName);
-      expect(halo.style.stroke).toBe("var(--spark-halo, var(--surface))");
-      expect(Number(halo.getAttribute("stroke-width"))).toBe(Number(mark.getAttribute("stroke-width")) + 3);
+  /** Checks the mask holds a cut for every mark of the selector, and the line uses the mask. */
+  function expectCut(c: HTMLElement, sel: string) {
+    const mask = c.querySelector("svg.spark mask")!;
+    expect(mask).not.toBeNull();
+    expect(mask.getAttribute("maskUnits")).toBe("userSpaceOnUse");
+    const keep = mask.querySelector("rect")!;
+    expect(keep.getAttribute("fill")).toBe("white");
+    expect(Number(keep.getAttribute("x"))).toBeLessThan(0);
+    expect(Number(keep.getAttribute("width"))).toBeGreaterThan(200);
+    const marks = [...c.querySelectorAll(MARKS)].filter((m) => !m.closest("mask")) as SVGElement[];
+    const cuts = [...mask.querySelectorAll(".spark-cut")] as SVGElement[];
+    expect(cuts).toHaveLength(marks.length);
+    const chosen = marks.map((m, i) => ({ mark: m, cut: cuts[i] })).filter(({ mark }) => mark.matches(sel));
+    expect(chosen.length).toBeGreaterThan(0);
+    for (const { mark, cut } of chosen) {
+      expect(masked(mark)).toBe(false);
+      expect(cut.tagName).toBe(mark.tagName);
+      expect(cut.style.stroke).toBe("black");
+      expect(Number(cut.getAttribute("stroke-width"))).toBe(Number(mark.getAttribute("stroke-width")) + 3);
       for (const a of ["points", "d", "x1", "x2", "y1", "y2", "stroke-linecap", "stroke-linejoin", "vector-effect"]) {
-        expect(halo.getAttribute(a)).toBe(mark.getAttribute(a));
+        expect(cut.getAttribute(a)).toBe(mark.getAttribute(a));
       }
     }
+    const ls = lines(c);
+    expect(ls.length).toBeGreaterThan(0);
+    for (const l of ls) expect(l.getAttribute("mask")).toBe(`url(#${mask.id})`);
+    expect(mask.id).toMatch(/^[A-Za-z0-9_-]+$/);
   }
 
-  it("draws a halo before each changed segment", () => {
+  it("cuts the line around each changed segment", () => {
     const { container } = render(<Sparkline points={steps} status="ok" windows={[]} start={0} end={5000} label="Consumers" tone="change" />);
-    expectHalo(container, ".spark-change");
+    expectCut(container, ".spark-change");
   });
 
-  it("draws a halo before the newest-point dot", () => {
+  it("cuts the line around the newest-point dot", () => {
     const { container } = render(<Sparkline points={noisy} status="ok" windows={[]} start={0} end={200_000} label="Pending" tone="change" />);
-    expectHalo(container, ".spark-now");
+    expectCut(container, ".spark-now");
   });
 
-  it("draws a halo before each range tick", () => {
+  it("cuts the line around each range tick", () => {
     const { container } = render(<Sparkline points={dip} status="warning" windows={[]} start={0} end={5000} label="Clients" tone="change" />);
-    expectHalo(container, ".spark-range");
+    expectCut(container, ".spark-range");
     expect((container.querySelector(".spark-range") as SVGElement).style.stroke).toBe("var(--mark-warning)");
   });
 
-  it("draws every halo under every mark when a tile has both segments and ticks", () => {
+  it("cuts around both segments and ticks on one tile", () => {
     const both = [5, 5, 5, 9, 9, 9, 9, 9].map((value, i) => ({ time: i * 1000, value, ...(i === 6 ? { low: 0 } : {}) }));
     const { container } = render(<Sparkline points={both} status="critical" windows={[]} start={0} end={7000} label="Consumers" tone="change" />);
-    expect(container.querySelectorAll(".spark-change").length).toBeGreaterThan(0);
-    expectHalo(container, ".spark-change");
-    expectHalo(container, ".spark-range");
+    expectCut(container, ".spark-change");
+    expectCut(container, ".spark-range");
   });
 
-  it("draws no halo in the status tone", () => {
+  it("leaves the gap hatch, the windows, the fill and the second series whole", () => {
+    const h = { start: 0, end: 5000, live: false, gaps: [], serverGaps: [{ start: 3200, end: 3400, reason: "Server did not answer" }] };
+    const { container } = render(<HistoryContext.Provider value={h}>
+      <Sparkline points={steps} points2={steps.map((p) => ({ ...p, value: p.value / 2 }))} status="ok" windows={[{ start: 2500, end: 3500, label: "Upgrade", detail: "" }]} start={0} end={5000} label="Consumers" tone="change" />
+    </HistoryContext.Provider>);
+    expectCut(container, ".spark-change");
+    const hatch = container.querySelector(".dh-chart-server-gap")!;
+    const window = [...container.querySelectorAll("svg.spark rect")].find((r) => (r as SVGElement).style.fill === "var(--upgrade-fill)")!;
+    const dashed = container.querySelector("svg.spark polyline[stroke-dasharray]")!;
+    const fill = container.querySelector("svg.spark polygon")!;
+    for (const el of [hatch, window, dashed, fill]) {
+      expect(el).not.toBeNull();
+      expect(masked(el)).toBe(false);
+    }
+  });
+
+  it("draws no mask in the status tone", () => {
     const { container } = render(<Sparkline points={steps} status="warning" windows={[]} start={0} end={5000} label="Consumers" />);
-    expect(container.querySelector(".spark-halo")).toBeNull();
+    expect(container.querySelector("mask")).toBeNull();
+    expect(container.querySelector("[mask]")).toBeNull();
+  });
+
+  it("draws no mask on a change chart without marks", () => {
+    const flat = [5, 5, 5, 5].map((value, i) => ({ time: i * 1000, value }));
+    const { container } = render(<Sparkline points={flat} status="ok" windows={[]} start={0} end={3000} label="Streams" tone="change" />);
+    expect(container.querySelector(MARKS)).toBeNull();
+    expect(container.querySelector("mask")).toBeNull();
+    expect(container.querySelector("[mask]")).toBeNull();
   });
 });

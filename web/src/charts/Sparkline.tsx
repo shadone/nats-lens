@@ -1,6 +1,6 @@
 // The tile sparkline of the reference: area and line for the primary
 // series, a dashed line for the second, shaded windows behind.
-import { Fragment, type ReactElement } from "react";
+import { Fragment, useId, type ReactElement } from "react";
 import { ChartInspection } from "./ChartInspection";
 import { usePageHistory } from "../components/HistoryNote";
 import type { ServerHistoryGap } from "../api/history";
@@ -11,23 +11,29 @@ import { changedSegments, tickedMoves } from "../lib/tileChart";
 
 const W = 200;
 const H = 40;
-// The card colour drawn under each change mark, 1.5px past it on each side,
-// so the mark stands apart from the grey line by lightness as well as hue.
-const HALO = "var(--spark-halo, var(--surface))";
-const HALO_EXTRA = 3;
+// How much wider than a change mark the cut in the grey line is: 1.5px on
+// each side, so the mark stands apart from the line by lightness as well as
+// hue, while whatever lies behind the line (gap hatches, windows, the second
+// series) shows through the cut.
+const CUT_EXTRA = 3;
+// The mask's area reaches past the chart, where the newest-point dot spills.
+const CUT_PAD = 10;
 
-/** A change mark, drawn once as its halo and once as itself. */
+/** A change mark, drawn once into the line's mask as its cut and once as itself. */
 interface Mark {
   key: string;
-  draw: (halo: boolean) => ReactElement;
+  draw: (cut: boolean) => ReactElement;
 }
 
-/** Every halo first, then every mark, so no halo covers another mark. */
-function haloed(marks: Mark[]): ReactElement {
-  return <>
-    {marks.map((m) => <Fragment key={`h${m.key}`}>{m.draw(true)}</Fragment>)}
-    {marks.map((m) => <Fragment key={m.key}>{m.draw(false)}</Fragment>)}
-  </>;
+/**
+ * A mask that keeps all of the line except a band around each mark. In user
+ * space: a flat line's bounding box has no height, which would hide it all.
+ */
+function LineCut({ id, marks }: { id: string; marks: Mark[] }) {
+  return <defs><mask id={id} maskUnits="userSpaceOnUse" x={-CUT_PAD} y={-CUT_PAD} width={W + 2 * CUT_PAD} height={H + 2 * CUT_PAD}>
+    <rect x={-CUT_PAD} y={-CUT_PAD} width={W + 2 * CUT_PAD} height={H + 2 * CUT_PAD} fill="white" />
+    {marks.map((m) => <Fragment key={m.key}>{m.draw(true)}</Fragment>)}
+  </mask></defs>;
 }
 
 export function sparkColour(status: Level): string {
@@ -113,6 +119,8 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
   const history = usePageHistory();
   const gaps = history?.serverGaps ?? [];
   const period = rangeText(start, end);
+  // useId's colons and guillemets are not safe in url(#...).
+  const cutId = `spark-cut-${useId().replace(/[^A-Za-z0-9_-]/g, "")}`;
   if (points.length === 0) {
     return (
       <><svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, undefined, period, note)}>
@@ -143,6 +151,21 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
   const mark = status === "critical" ? "var(--cell-critical)" : status === "warning" ? "var(--mark-warning)" : "var(--accent)";
   const dense = neutral && mostlyChanging(points);
   const span = end - start || 1;
+  const marks: Mark[] = [
+    ...(neutral && !dense ? runs.flatMap((run, i) => changeRuns(run).map((seg, j): Mark => ({ key: `c${i}-${j}`, draw: (cut) => <polyline className={cut ? "spark-cut" : "spark-change"} points={sparkPoints(seg, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: cut ? "black" : mark }} strokeWidth={2 + (cut ? CUT_EXTRA : 0)} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" /> }))) : []),
+    ...(dense ? [((): Mark => {
+      // A zero-length path with a round cap stays a round dot in the stretched viewBox.
+      const [x, y] = sparkPoints([points[points.length - 1]], start, end, mn, mx)[0].split(",");
+      return { key: "now", draw: (cut) => <path className={cut ? "spark-cut" : "spark-now"} d={`M${x},${y}h0`} style={{ stroke: cut ? "black" : mark }} strokeWidth={5 + (cut ? CUT_EXTRA : 0)} strokeLinecap="round" vectorEffect="non-scaling-stroke" /> };
+    })()] : []),
+    ...ranges.map((p): Mark => {
+      const [[x, y0], [, y1]] = sparkPoints([{ time: p.time, value: p.low ?? p.value }, { time: p.time, value: p.high ?? p.value }], start, end, mn, mx).map((c) => c.split(","));
+      return { key: `r${p.time}`, draw: (cut) => <line className={cut ? "spark-cut" : "spark-range"} x1={x} x2={x} y1={y0} y2={y1} style={{ stroke: cut ? "black" : neutral ? mark : col }} strokeWidth={2 + (cut ? CUT_EXTRA : 0)} strokeLinecap="round" vectorEffect="non-scaling-stroke" /> };
+    }),
+  ];
+  // Only the grey line is cut around the marks; the fill, the windows, the
+  // gap hatches and the second series stay whole.
+  const lineMask = marks.length > 0 ? `url(#${cutId})` : undefined;
   return (
     <><svg className={neutral ? "spark spark-open" : "spark"} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, current, period, note)}>
       <HistoryGaps start={start} end={end} width={W} height={H} />
@@ -164,19 +187,9 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
           vectorEffect="non-scaling-stroke"
         />)
       )}
-      {runs.map((run, i) => <polyline key={i} points={sparkPoints(run, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: col }} strokeWidth={neutral ? 1.3 : 1.6} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />)}
-      {haloed([
-        ...(neutral && !dense ? runs.flatMap((run, i) => changeRuns(run).map((seg, j): Mark => ({ key: `c${i}-${j}`, draw: (halo) => <polyline className={halo ? "spark-halo" : "spark-change"} points={sparkPoints(seg, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: halo ? HALO : mark }} strokeWidth={2 + (halo ? HALO_EXTRA : 0)} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" /> }))) : []),
-        ...(dense ? [((): Mark => {
-          // A zero-length path with a round cap stays a round dot in the stretched viewBox.
-          const [x, y] = sparkPoints([points[points.length - 1]], start, end, mn, mx)[0].split(",");
-          return { key: "now", draw: (halo) => <path className={halo ? "spark-halo" : "spark-now"} d={`M${x},${y}h0`} style={{ stroke: halo ? HALO : mark }} strokeWidth={5 + (halo ? HALO_EXTRA : 0)} strokeLinecap="round" vectorEffect="non-scaling-stroke" /> };
-        })()] : []),
-        ...ranges.map((p): Mark => {
-          const [[x, y0], [, y1]] = sparkPoints([{ time: p.time, value: p.low ?? p.value }, { time: p.time, value: p.high ?? p.value }], start, end, mn, mx).map((c) => c.split(","));
-          return { key: `r${p.time}`, draw: (halo) => <line className={halo ? "spark-halo" : "spark-range"} x1={x} x2={x} y1={y0} y2={y1} style={{ stroke: halo ? HALO : neutral ? mark : col }} strokeWidth={2 + (halo ? HALO_EXTRA : 0)} strokeLinecap="round" vectorEffect="non-scaling-stroke" /> };
-        }),
-      ])}
+      {runs.map((run, i) => <polyline key={i} points={sparkPoints(run, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: col }} mask={lineMask} strokeWidth={neutral ? 1.3 : 1.6} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />)}
+      {marks.map((m) => <Fragment key={m.key}>{m.draw(false)}</Fragment>)}
+      {marks.length > 0 && <LineCut id={cutId} marks={marks} />}
     </svg><ChartHistoryNotice start={start} end={end}/></>
   );
 }
