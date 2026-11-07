@@ -11,6 +11,7 @@ import { useGlobalQuery } from "../lib/useGlobalQuery";
 import type { Level, Tally } from "../api/model";
 import { visibleNav, type BadgeSource, type NavGroup, type NavItem } from "../nav";
 import { SystemSwitcher } from "./SystemSwitcher";
+import { usePhone } from "../lib/usePhone";
 
 export interface Badge {
   count: number;
@@ -65,6 +66,8 @@ interface Props {
 export function Sidebar({ collapsed, onCollapse, drawerOpen, onCloseDrawer }: Props) {
   const global = useGlobalQuery();
   const badges = useBadges();
+  // The rail of icons is desktop only; at phone width the drawer shows the labels.
+  const rail = collapsed && !usePhone();
   const close = useRef<HTMLButtonElement>(null);
   // An opened drawer takes focus, so the keyboard continues inside it.
   useEffect(() => {
@@ -96,7 +99,7 @@ export function Sidebar({ collapsed, onCollapse, drawerOpen, onCloseDrawer }: Pr
                 const b = i.badge ? badges[i.badge] : undefined;
                 return (
                   <li key={i.path}>
-                    <NavLink to={withGlobal(i.path, global)} end={i.path === "/"} title={collapsed ? (b ? `${i.label}, ${b.count} ${b.what}` : i.label) : undefined} aria-label={b ? `${i.label}, ${b.count} ${b.what}, worst ${b.worst ?? b.level}` : undefined} className={({ isActive }) => (isActive ? "on" : undefined)}>
+                    <NavLink to={withGlobal(i.path, global)} end={i.path === "/"} title={rail ? (b ? `${i.label}, ${b.count} ${b.what}` : i.label) : undefined} aria-label={b ? `${i.label}, ${b.count} ${b.what}, worst ${b.worst ?? b.level}` : undefined} className={({ isActive }) => (isActive ? "on" : undefined)}>
                       <Icon d={i.icon} />
                       <span className="side-txt">{i.label}</span>
                       {b && (

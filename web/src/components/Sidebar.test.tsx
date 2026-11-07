@@ -26,3 +26,15 @@ describe("Sidebar badges", () => {
     expect(rail(false)).not.toHaveAttribute("title");
   });
 });
+
+describe("Sidebar at phone width", () => {
+  it("leaves the title off the drawer's links even when the desktop rail is collapsed", () => {
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({ matches: query.includes("760px"), media: query, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
+    try {
+      expect(rail(true)).not.toHaveAttribute("title");
+    } finally {
+      window.matchMedia = original;
+    }
+  });
+});
