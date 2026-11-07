@@ -208,12 +208,15 @@ describe("Capacity", () => {
 });
 
 import { HistoryContext } from "../components/HistoryNote";
-it("links the header's missing growth to the same countdown as the cards", async () => {
+it("explains missing growth once for the page and discloses the bounded read", async () => {
   const d = prod();
   d.servers.forEach((s) => { s.perDay = undefined; });
   d.streams.forEach((s) => { s.bytesPerDay = undefined; });
   getCapacity.mockResolvedValue(d);
   const end = Date.parse("2026-10-17T14:30:00Z");
   renderApp(<HistoryContext.Provider value={{ start: end - 86_400_000, end, live: true, historyStart: end - 31 * 60_000 }}><Capacity /></HistoryContext.Provider>);
-  expect((await screen.findAllByRole("link", { name: /needs samples spanning 6 h; entity data may be missing/ })).length).toBeGreaterThan(d.servers.length);
+  expect(await screen.findByText(/less than 6 h of retained history/)).toBeInTheDocument();
+  expect(screen.getByText(/one collection interval before the range/)).toBeInTheDocument();
+  expect(screen.queryAllByRole("link", { name: /needs samples spanning 6 h/ })).toHaveLength(0);
+  expect(screen.getAllByText("growth unavailable").length).toBeGreaterThan(0);
 });
