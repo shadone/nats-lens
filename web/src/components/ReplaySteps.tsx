@@ -36,7 +36,7 @@ function When({ s, fmt }: { s: ReplayStep; fmt: (t: number) => string }) {
 
 function EvidenceLink({ e, capital = false }: { e: ReplayEvidence; capital?: boolean }) {
   const p = evidencePath(e);
-  const text = capital ? upperFirst(e.label) : e.label || e.id;
+  const text = capital ? upperFirst(e.label || e.id) : e.label || e.id;
   return p ? (
     <RLink to={p} className="x">
       {text}
@@ -96,7 +96,7 @@ function Step({ s, fmt }: { s: ReplayStep; fmt: (t: number) => string }) {
               const e = item.e;
               const word = evidenceWord(e);
               // "collection of 09:21:00" already says what it is: no word before it.
-              const named = e.label.startsWith(`${word} `);
+              const named = e.kind === "collection" && /^collection /i.test(e.label);
               return (
                 <li key={`${e.kind}:${e.id}:${i}`}>
                   {named ? <EvidenceLink e={e} capital /> : <><span className="rp-evk">{upperFirst(word)}</span> <EvidenceLink e={e} /></>}

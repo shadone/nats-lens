@@ -229,6 +229,22 @@ describe("ReplayCounts", () => {
     expect(screen.queryByText(/node pools upgraded/)).toBeNull();
   });
 
+  it("drops the word only before a collection that names itself, whatever its case", () => {
+    const st = rstep("restart:9", "09:20:00", {
+      kind: "restart",
+      title: "nats-0 restarts",
+      evidence: [
+        { kind: "event", id: "e1", label: "event bus restarted" },
+        { kind: "collection", id: "130", time: Date.parse("2026-10-17T09:21:00Z"), label: "Collection of 09:21:00" },
+        { kind: "collection", id: "131", time: Date.parse("2026-10-17T09:22:00Z"), label: "" },
+      ],
+      evidenceCount: 3,
+    });
+    const { container } = renderApp(<ReplaySteps steps={[st]} moments={M} notes={[]} />);
+    const lines = [...(container.querySelector('[data-step="restart:9"] .rp-ev') as HTMLElement).children].map((li) => li.textContent);
+    expect(lines).toEqual(["Event event bus restarted", "Collection of 09:21:00", "Collection 131"]);
+  });
+
   it("says nothing of elections when there were none", () => {
     renderApp(<ReplayCounts counts={{ leadersMoved: 0, leaderElections: 0 }} />);
     expect(screen.getByText("Leaders moved").closest("li")).toHaveTextContent(/^0Leaders moved$/);
