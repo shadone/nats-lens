@@ -177,7 +177,7 @@ describe("charts only where something changed", () => {
 
   it("keeps the line neutral on a tile in trouble and draws its change in the severity colour", () => {
     const { container } = render(<OverviewTiles tiles={[tile({ value: 3, status: "critical", series: dip })]} windows={[]} start={START} end={END} />);
-    const lines = [...container.querySelectorAll<SVGPolylineElement>("svg.spark polyline:not(.spark-change):not(.spark-halo)")];
+    const lines = [...container.querySelectorAll<SVGPolylineElement>("svg.spark polyline:not(.spark-change):not(.spark-cut)")];
     expect(lines.length).toBeGreaterThan(0);
     expect(lines.every((l) => l.style.stroke === "var(--text-muted)")).toBe(true);
     const marks = [...container.querySelectorAll<SVGElement>("svg.spark .spark-change, svg.spark .spark-now")];
