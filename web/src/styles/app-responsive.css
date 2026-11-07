@@ -27,6 +27,7 @@
   .ov-phone-order > .ov-health{order:2}
   .ov-phone-order > .ov-rest{order:3;min-width:0}
   .ov-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ov-tiles .mbox{padding:var(--sp-3)}
   .cg-list .cg-act{grid-column:2;grid-row:1}
   .cg-list .oc-mark{grid-column:1 / -1}
 }
