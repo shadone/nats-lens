@@ -15,7 +15,7 @@ import (
 func observedSamples(state v1.PlacementState) []*placementSample {
 	out := []*placementSample{}
 	for e := 3; e >= 1; e-- {
-		s := &placementSample{epoch: int64(e), at: time.Date(2026, 10, 17, 12, 0, e*30, 0, time.UTC), reps: map[string]*replicaReport{}, cells: map[string]*v1.PlacementCell{}, identities: map[string]string{"nats-0": "S0/created", "nats-1": "S1/created"}, peers: map[string][]string{"nats-0": {"nats-1"}}, selectedID: "S1"}
+		s := &placementSample{epoch: int64(e), at: time.Date(2026, 10, 17, 12, 0, e*30, 0, time.UTC), reps: map[string]*replicaReport{}, cells: map[string]*v1.PlacementCell{}, identities: map[string]string{"nats-0": "S0/created", "nats-1": "S1/created"}, peers: map[string][]string{"nats-0": {"nats-1"}}, selectedID: "S1", selectedJSZ: true}
 		s.reps["nats-0"] = &replicaReport{reports: true, leader: true, hash: "h", byLeader: map[string]claimantView{}}
 		s.reps["nats-1"] = &replicaReport{reports: state != v1.PlacementState_PLACEMENT_STATE_MISSING, hash: "h", byLeader: map[string]claimantView{"nats-0": {current: no, offline: no, lag: sql.NullInt64{Valid: true, Int64: 0}}}}
 		switch state {

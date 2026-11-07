@@ -18,14 +18,15 @@ const placementLookback = 24 * time.Hour
 const placementCollections = 256
 
 type placementSample struct {
-	epoch      int64
-	at         time.Time
-	reps       map[string]*replicaReport
-	cells      map[string]*v1.PlacementCell
-	identities map[string]string
-	peers      map[string][]string
-	selectedID string
-	unknown    bool
+	epoch       int64
+	at          time.Time
+	reps        map[string]*replicaReport
+	cells       map[string]*v1.PlacementCell
+	identities  map[string]string
+	peers       map[string][]string
+	selectedID  string
+	selectedJSZ bool
+	unknown     bool
 }
 
 // placementObservation adds four bounded, batched reads for one asset. It
@@ -46,15 +47,16 @@ func (p *Provider) placementObservation(ctx context.Context, req *v1.GetPlacemen
 		floor = start
 		edge = "range_limit"
 	}
-	rows, err := p.db().QueryContext(ctx, `SELECT epoch, started_at FROM epochs WHERE started_at >= ? AND started_at <= ? AND epoch <= ? ORDER BY epoch DESC LIMIT ?`, floor, end.startedAt, end.epoch, placementCollections)
+	rows, err := p.db().QueryContext(ctx, `SELECT epoch, started_at, (SELECT min(started_at) FROM epochs WHERE epoch <= ?) FROM epochs WHERE started_at >= ? AND started_at <= ? AND epoch <= ? ORDER BY epoch DESC LIMIT ?`, end.epoch, floor, end.startedAt, end.epoch, placementCollections)
 	if err != nil {
 		return nil, err
 	}
 	var samples []*placementSample
+	var oldest time.Time
 	byEpoch := map[int64]*placementSample{}
 	for rows.Next() {
 		s := &placementSample{reps: map[string]*replicaReport{}, cells: map[string]*v1.PlacementCell{}, identities: map[string]string{}, peers: map[string][]string{}}
-		if err = rows.Scan(&s.epoch, &s.at); err != nil {
+		if err = rows.Scan(&s.epoch, &s.at, &oldest); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -69,6 +71,9 @@ func (p *Provider) placementObservation(ctx context.Context, req *v1.GetPlacemen
 	}
 	if len(samples) == 0 {
 		return nil, nil
+	}
+	if oldest.UTC().After(floor) {
+		edge = "history_limit"
 	}
 	if len(samples) == placementCollections {
 		edge = "collection_limit"
@@ -156,18 +161,20 @@ func (p *Provider) placementObservation(ctx context.Context, req *v1.GetPlacemen
 	}
 	// The selected process identity as known at each collection; first_epoch
 	// prevents a later restart from leaking backwards into an offline sample.
-	rows, err = p.db().QueryContext(ctx, `SELECT e.epoch, s.server_id FROM epochs e LEFT JOIN servers s ON s.server_name=? AND s.first_epoch<=e.epoch WHERE e.epoch BETWEEN ? AND ? QUALIFY row_number() OVER(PARTITION BY e.epoch ORDER BY s.first_epoch DESC, s.server_id)=1`, req.GetSelectedServer(), samples[len(samples)-1].epoch, end.epoch)
+	rows, err = p.db().QueryContext(ctx, `SELECT e.epoch, s.server_id, coalesce(ep.state='ok',false) FROM epochs e LEFT JOIN servers s ON s.server_name=? AND s.first_epoch<=e.epoch LEFT JOIN epoch_endpoints ep ON ep.epoch=e.epoch AND ep.server_id=s.server_id AND ep.endpoint='JSZ' WHERE e.epoch BETWEEN ? AND ? QUALIFY row_number() OVER(PARTITION BY e.epoch ORDER BY s.first_epoch DESC, s.server_id)=1`, req.GetSelectedServer(), samples[len(samples)-1].epoch, end.epoch)
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
 		var epoch int64
 		var id sql.NullString
-		if err = rows.Scan(&epoch, &id); err != nil {
+		var ok bool
+		if err = rows.Scan(&epoch, &id, &ok); err != nil {
 			break
 		}
 		if s := byEpoch[epoch]; s != nil {
 			s.selectedID = id.String
+			s.selectedJSZ = ok
 		}
 	}
 	if err == nil {
@@ -188,11 +195,17 @@ func classifySample(s *placementSample, server string) (*v1.PlacementCell, strin
 	fillAsset(a, placementOf(s.reps, 0), s.cells, s.reps, extras{peers: map[string]map[string][]string{"": s.peers}}, "")
 	var selected *v1.PlacementCell
 	hashes := map[string]string{}
+	disagrees := false
 	for _, c := range a.Cells {
 		if c.Server == server {
 			selected = c
 		}
 		if len(c.Differs) > 0 || c.State == v1.PlacementState_PLACEMENT_STATE_DISAGREES {
+			disagrees = true
+		}
+	}
+	if disagrees {
+		for _, c := range a.Cells {
 			hashes[c.Server] = c.ConfigHash
 		}
 	}
@@ -213,16 +226,18 @@ func observePlacement(samples []*placementSample, asset, server, edge string, in
 	}
 	switch c.State {
 	case v1.PlacementState_PLACEMENT_STATE_BEHIND, v1.PlacementState_PLACEMENT_STATE_OFFLINE, v1.PlacementState_PLACEMENT_STATE_MISSING, v1.PlacementState_PLACEMENT_STATE_DISAGREES:
-	default:
+	case v1.PlacementState_PLACEMENT_STATE_IN_SYNC:
 		if len(c.Differs) == 0 {
 			return nil
 		}
+	default:
+		return nil
 	}
 	out := &v1.PlacementObservation{Asset: asset, Server: server, AsOf: ts(samples[0].at), Since: ts(samples[0].at), Samples: 1, State: c.State, Differs: c.Differs, Boundary: edge, Truncated: true}
 	if interval <= 0 {
 		interval = 30 * time.Second
 	}
-	if samples[0].unknown {
+	if samples[0].unknown || (c.State == v1.PlacementState_PLACEMENT_STATE_MISSING && !samples[0].selectedJSZ) {
 		out.Boundary = "evidence_unknown"
 		out.Truncated = false
 		return out
@@ -235,7 +250,7 @@ func observePlacement(samples []*placementSample, asset, server, edge string, in
 		switch {
 		case prev.epoch != s.epoch+1 || !prev.at.After(s.at) || prev.at.Sub(s.at) > 2*interval:
 			boundary = "collection_gap"
-		case s.unknown || old == nil || old.State == v1.PlacementState_PLACEMENT_STATE_UNSPECIFIED:
+		case s.unknown || old == nil || old.State == v1.PlacementState_PLACEMENT_STATE_UNSPECIFIED || (old.State == v1.PlacementState_PLACEMENT_STATE_MISSING && !s.selectedJSZ):
 			boundary = "evidence_unknown"
 		case old.State != c.State || !slices.Equal(old.Differs, c.Differs):
 			boundary = "state_changed"
