@@ -125,6 +125,9 @@ export type Unit = "count" | "bytes" | "per_second" | "percent" | "seconds" | "b
 export interface Point {
   time: number;
   value: number;
+  /** A count bucket's lowest and highest collection; a band's lowest and highest server. */
+  low?: number;
+  high?: number;
 }
 
 export interface Series {

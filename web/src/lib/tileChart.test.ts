@@ -62,8 +62,33 @@ describe("tileChartReason", () => {
     expect(tileChartReason(facts({ points: full(3).slice(0, 84) }))).toBe("gap");
   });
 
-  it("tolerates a newest bucket that has no point yet", () => {
-    expect(tileChartReason(facts({ points: full(3).slice(0, 95) }))).toBe("steady");
+  it("tolerates a newest bucket without a point only in a live range", () => {
+    expect(tileChartReason(facts({ points: full(3).slice(0, 95), live: true }))).toBe("steady");
+    expect(tileChartReason(facts({ points: full(3).slice(0, 95) }))).toBe("gap");
+    expect(tileChartReason(facts({ points: full(3).slice(0, 94), live: true }))).toBe("gap");
+  });
+
+  it("keeps the chart when the bucket holding the range's start is missing", () => {
+    // The range starts five minutes into a bucket; that bucket has no point.
+    expect(tileChartReason(facts({ points: full(3).slice(1), start: START + 300_000 }))).toBe("gap");
+    expect(tileChartReason(facts({ start: START + 300_000 }))).toBe("steady");
+  });
+
+  it("checks the second series for missing buckets too", () => {
+    expect(tileChartReason(facts({ points2: full(5).filter((_, i) => i !== 30) }))).toBe("gap");
+  });
+
+  it("calls a bucket whose lowest or highest differs from its value changed", () => {
+    const p = full(3);
+    p[40] = { ...p[40], low: 2, high: 3 };
+    expect(tileChartReason(facts({ points: p }))).toBe("changed");
+    const q = full(3).map((x) => ({ ...x, low: 3, high: 3 }));
+    expect(tileChartReason(facts({ points: q }))).toBe("steady");
+  });
+
+  it("calls a series whose min and max differ changed, as the newest report can widen them", () => {
+    expect(tileChartReason(facts({ min: 3, max: 4 }))).toBe("changed");
+    expect(tileChartReason(facts({ min: 3, max: 3 }))).toBe("steady");
   });
 
   it("keeps the chart when the series begins after the range and the history start is unknown", () => {
@@ -81,7 +106,7 @@ describe("tileChartReason", () => {
     // Buckets of a seven-day range start on the step's grid, before the range.
     const step = 6_300_000;
     const end = START + 7 * 86_400_000;
-    const first = START - 4_500_000;
+    const first = Math.floor(START / step) * step;
     const p = Array.from({ length: 97 }, (_, i) => ({ time: first + i * step, value: 3 }));
     expect(tileChartReason({ points: p, stepMs: step, start: START, end, status: "ok", gaps: [] })).toBe("steady");
   });
@@ -100,6 +125,10 @@ describe("tileChartReason", () => {
     expect(tileChartReason(facts({ gaps: [gap("notRunning", START - 2 * STEP, START - STEP)] }))).toBe("steady");
     expect(tileChartReason(facts({ gaps: [gap("eventsNotCaptured", START + STEP, START + 2 * STEP)] }))).toBe("steady");
     expect(tileChartReason(facts({ gaps: [gap("beforeHistory", START - STEP, START)] }))).toBe("steady");
+  });
+
+  it("counts a gap of an unknown kind", () => {
+    expect(tileChartReason(facts({ gaps: [gap("unknown", START + STEP, START + 2 * STEP)] }))).toBe("gap");
   });
 
   it("keeps the chart while the collection gaps are not known", () => {

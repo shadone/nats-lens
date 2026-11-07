@@ -79,13 +79,13 @@ function TileGrid({ tiles, windows, start, end, gaps }: TilesProps & { gaps?: re
       {tiles.map((t) => {
         const leader = t.id === "meta_leader";
         const status = tileStatus(t);
-        const chart = tileChartReason({ points: t.series?.points ?? [], points2: t.series2?.points, stepMs: t.series?.stepMs, start, end, status, changesSeries: leader, historyStart: h?.historyStart, gaps }) !== "steady";
+        const chart = tileChartReason({ points: t.series?.points ?? [], points2: t.series2?.points, stepMs: t.series?.stepMs, min: t.series?.min, max: t.series?.max, start, end, status, changesSeries: leader, live: h?.live, historyStart: h?.historyStart, gaps }) !== "steady";
         return <MetricBox
           key={t.id}
           title={t.label}
           to={destinations[t.id]}
           // The leader's chart counts changes, not the name above it.
-          valueLabel={leader && chart ? "chart: leader changes per bucket" : undefined}
+          valueLabel={leader && chart ? "Leader changes per bucket" : undefined}
           chart={chart}
           tone="change"
           description={t.description ?? ""}

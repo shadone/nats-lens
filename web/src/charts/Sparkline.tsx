@@ -33,9 +33,11 @@ interface Props {
   /** Appended to the accessible name, for example "as of 14:30:05 UTC". */
   note?: string;
   /**
-   * "status" draws the line in the status colour; "change" draws it neutral
-   * and puts the accent only on the segments where the value changes, while
-   * a warning or critical status keeps its colour.
+   * "status" draws the line in the status colour. "change" draws it neutral
+   * and puts the accent only on the change: the segments where the value
+   * changes, or, when most segments of a run change, a dot on the newest
+   * point; a bucket whose low and high differ from its value gets a tick
+   * between them. A warning or critical status keeps its colour.
    */
   tone?: "status" | "change";
 }
@@ -62,9 +64,21 @@ function changeRuns(run: Point[]): Point[][] {
   return out;
 }
 
+/** Whether a bucket's lowest or highest differs from its value. */
+function hasRange(p: Point): boolean {
+  return (p.low !== undefined && p.low !== p.value) || (p.high !== undefined && p.high !== p.value);
+}
+
+/** Whether more than half of a run's segments change, as a slow steady growth does. */
+function mostlyChanging(run: Point[]): boolean {
+  return run.length > 2 && changedSegments(run).length > (run.length - 1) / 2;
+}
+
 export function Sparkline({ stepMs, bucketNote, fmt = String, labels = ["value", "second series"], points, points2, status, windows, start, end, label, current, note, tone }: Props) {
+  // The change tone also says a bucket's range, which its last value hides.
+  const text = (p: Point) => tone === "change" && hasRange(p) ? `${fmt(p.value)} (${fmt(p.low ?? p.value)} to ${fmt(p.high ?? p.value)} in bucket)` : fmt(p.value);
   return <ChartInspection label={label} start={start} end={end} stepMs={stepMs} bucketNote={bucketNote} series={[
-    { label: labels[0], points: points.map(p => ({ time: p.time, text: fmt(p.value) })) },
+    { label: labels[0], points: points.map(p => ({ time: p.time, text: text(p) })) },
     ...(points2 ? [{ label: labels[1], points: points2.map(p => ({ time: p.time, text: fmt(p.value) })) }] : []),
   ]}><SparkDrawing points={points} points2={points2} status={status} windows={windows} start={start} end={end} label={label} current={current} note={note} tone={tone} /></ChartInspection>;
 }
@@ -81,7 +95,8 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
       </svg><ChartHistoryStatus start={start} end={end} /><ChartHistoryNotice start={start} end={end}/></>
     );
   }
-  const all = points.concat(points2 ?? []).map((p) => p.value);
+  const ranges = tone === "change" ? points.filter(hasRange) : [];
+  const all = points.concat(points2 ?? []).map((p) => p.value).concat(ranges.flatMap((p) => [p.low ?? p.value, p.high ?? p.value]));
   let mn = Math.min(...all);
   let mx = Math.max(...all);
   // A series that stays at 0 is a bare line on the baseline, with no fill.
@@ -117,7 +132,16 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
         />)
       )}
       {runs.map((run, i) => <polyline key={i} points={sparkPoints(run, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: col }} strokeWidth={neutral ? 1.3 : 1.6} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />)}
-      {neutral && runs.flatMap((run, i) => changeRuns(run).map((seg, j) => <polyline key={`c${i}-${j}`} className="spark-change" points={sparkPoints(seg, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: "var(--accent)" }} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />))}
+      {neutral && runs.flatMap((run, i) => mostlyChanging(run) ? [] : changeRuns(run).map((seg, j) => <polyline key={`c${i}-${j}`} className="spark-change" points={sparkPoints(seg, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: "var(--accent)" }} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />))}
+      {neutral && runs.length > 0 && mostlyChanging(runs[runs.length - 1]) && (() => {
+        // A zero-length path with a round cap stays a round dot in the stretched viewBox.
+        const [x, y] = sparkPoints([points[points.length - 1]], start, end, mn, mx)[0].split(",");
+        return <path className="spark-now" d={`M${x},${y}h0`} style={{ stroke: "var(--accent)" }} strokeWidth="5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />;
+      })()}
+      {ranges.map((p) => {
+        const [[x, y0], [, y1]] = sparkPoints([{ time: p.time, value: p.low ?? p.value }, { time: p.time, value: p.high ?? p.value }], start, end, mn, mx).map((c) => c.split(","));
+        return <line key={`r${p.time}`} className="spark-range" x1={x} x2={x} y1={y0} y2={y1} style={{ stroke: neutral ? "var(--accent)" : col }} strokeWidth="2" strokeLinecap="round" vectorEffect="non-scaling-stroke" />;
+      })}
     </svg><ChartHistoryStatus start={start} end={end} /><ChartHistoryNotice start={start} end={end}/></>
   );
 }
