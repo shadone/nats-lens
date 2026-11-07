@@ -6,12 +6,12 @@
 
 ## What it does
 
-After every collection, nats-lens runs its checks against what it just stored. Each check looks for one kind of problem, such as a stream that lost quorum, a consumer whose backlog keeps growing, or a server whose disk fills in three days. It reports every entity where it finds that problem. Each report is a **finding**: one check failing for one server, account, stream, consumer, client or for the whole system. A finding stays open while the problem lasts and resolves on its own when the problem goes away. nats-lens ships 89 checks. You can tune their thresholds, turn single checks off, add your own remediation text, and mute findings you have decided to live with, or accept one entity's finding as by design until a review date.
+After every collection, nats-lens runs its checks against what it just stored. Each check looks for one kind of problem, such as a stream that lost quorum, a consumer whose backlog keeps growing, or a server whose disk fills in three days. It reports every entity where it finds that problem. Each report is a **finding**: one check failing for one server, account, stream, consumer, client or for the whole system. A finding stays open while the problem lasts and resolves on its own when the problem goes away. nats-lens ships 91 checks. You can tune their thresholds, turn single checks off, add your own remediation text, and mute findings you have decided to live with, or accept one entity's finding as by design until a review date.
 
 ## Behavior and rules
 
 - **Complete behavioral rules.** Reference pages retain all authored per-check paragraphs, including both label styles, continuation lines, tables, prerequisites, exclusions, and holding and resolution rules such as `client-007`'s young reconnected clients and incomplete-collection limit. Numeric defaults do not replace this prose.
-- **Browse the reference.** `/checks` lists all 89 shipped checks, including the three built-in checks. Search matches code, name, category and meaning; the entity filter narrows the list. Each `/checks/:code` page starts with its concise meaning, then explains firing and severity rules, evidence, limitations, default thresholds and investigation steps. Slow-route pages include the complete shared classifier rule. An unknown code shows “Check not found” and a catalog link.
+- **Browse the reference.** `/checks` lists all 91 shipped checks, including the three built-in checks. Search matches code, name, category and meaning; the entity filter narrows the list. Each `/checks/:code` page starts with its concise meaning, then explains firing and severity rules, evidence, limitations, default thresholds and investigation steps. Slow-route pages include the complete shared classifier rule. An unknown code shows “Check not found” and a catalog link.
 - **Open from an investigation.** Finding details and expanded check-associated event findings link to the check reference. Reference links preserve the selected system, range and account context. The reference covers all accounts. Its findings link carries the system and range into the existing findings filter.
 - **Defaults and effective settings stay distinct.** `ListCheckDefinitions` serves the shipped reference and the selected system's current enabled state, thresholds, lookback, restart window and timeout when configuration is available. These values do not reconstruct historical configuration. An unavailable configuration leaves effective values and enabled state unknown; the demo explicitly serves defaults only. Reference prose describes shipped defaults. Private remediation extensions and playbook links do not appear in the catalog; they remain on that system's findings.
 
@@ -45,7 +45,7 @@ After every collection, nats-lens runs its checks against what it just stored. E
 - **Given** no finding has fired for a check
 - **When** I browse Checks or request `ListCheckDefinitions` for the selected system
 - **Then** the reference still includes that check, its default thresholds, firing rules, limitations and next steps
-- **And** the catalog includes all 89 checks, including the three built-in checks
+- **And** the catalog includes all 91 checks, including the three built-in checks
 
 ### Keep configuration in its system
 

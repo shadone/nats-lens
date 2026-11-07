@@ -1,6 +1,14 @@
 package checks
 
-import "testing"
+import (
+	"context"
+	"encoding/json"
+	"testing"
+	"time"
+
+	"github.com/nats-io/nats-server/v2/server"
+	collection "github.com/shadone/nats-lens/internal/collect"
+)
 
 // A source-shaped RAFTZ group: the peer map excludes the reporting node.
 func (f *fx) raftDiagnostic(e int64, id, group string, over m) {
@@ -77,5 +85,103 @@ func TestRaftApplyProgressAndUnknown(t *testing.T) {
 func TestRaftCandidateRecovery(t *testing.T) {
 	for _, q := range []string{`UPDATE raft_stats SET state='FOLLOWER' WHERE epoch=7`, `UPDATE raft_stats SET ever_had_leader=false`, `UPDATE raft_stats SET leader='peer1' WHERE epoch=7`} {
 		t.Run(q, func(t *testing.T) { f := raftDiagnosticFixture(t, true); f.exec(q); f.fires("server-028", 7) })
+	}
+}
+
+func TestRaftAssetIdentityAndAccountCoverage(t *testing.T) {
+	for _, kind := range []string{"stream", "consumer"} {
+		t.Run(kind, func(t *testing.T) {
+			f := raftDiagnosticFixture(t, false)
+			f.exec(`UPDATE raft_stats SET group_id='S-orders'`)
+			for e := int64(1); e <= 7; e++ {
+				if kind == "stream" {
+					f.streamStats(e, "S0", "orders", m{"raft_group": "S-orders", "created": t0})
+				} else {
+					f.consumerStats(e, "S0", "orders", "worker", m{"raft_group": "S-orders", "created": t0})
+				}
+			}
+			f.fires("server-027", 7, "nats-0")
+			f.exec(`UPDATE ` + kind + `_stats SET created=created+INTERVAL 1 SECOND WHERE epoch>=4`)
+			f.fires("server-027", 7)
+		})
+	}
+	for _, q := range []string{
+		`UPDATE raft_stats SET group_id='unmapped'`,
+		`UPDATE servers SET start_time=(SELECT started_at FROM epochs WHERE epoch=1)`,
+		`UPDATE raft_stats SET peers='{"new1":{"known":true},"new2":{"known":true}}' WHERE epoch>=4`,
+		`INSERT INTO epoch_endpoints (epoch,server_id,endpoint,state) SELECT epoch,server_id,'RAFTZ:SYS','missing' FROM raft_stats WHERE epoch=4`,
+		`INSERT INTO raft_stats SELECT * FROM raft_stats WHERE epoch=4`,
+	} {
+		t.Run(q, func(t *testing.T) { f := raftDiagnosticFixture(t, false); f.exec(q); f.fires("server-027", 7) })
+	}
+}
+
+func TestRaftDiagnosticsScale(t *testing.T) {
+	f := raftDiagnosticFixture(t, false)
+	f.exec(`INSERT INTO raft_stats SELECT r.* REPLACE ('S-' || i::VARCHAR AS group_id) FROM raft_stats r CROSS JOIN range(1000) x(i) WHERE server_id='S0'`)
+	f.exec(`INSERT INTO stream_stats (epoch,server_id,account,stream,created,raft_group)
+ SELECT epoch,server_id,'APP','orders-' || i::VARCHAR, make_timestamp(?::BIGINT),'S-' || i::VARCHAR
+ FROM raft_stats CROSS JOIN range(1000) x(i) WHERE group_id='_meta_' AND server_id='S0'`, t0.UnixMicro())
+	f.fires("server-027", 7, "nats-0")
+}
+
+// Marshal the pinned server API types, decode through the real collector and
+// persist through WriteSnapshot: checks must not depend on fixture-only columns.
+func TestRaftDiagnosticsSourceWireToStore(t *testing.T) {
+	for _, candidate := range []bool{false, true} {
+		t.Run(map[bool]string{false: "apply", true: "candidate"}[candidate], func(t *testing.T) {
+			f := newFx(t)
+			for e := int64(1); e <= 5; e++ {
+				g := server.RaftzGroup{ID: "local-peer", State: "FOLLOWER", Size: 3, QuorumNeeded: 2, Committed: 2000, Applied: 10, Leader: "peer1", EverHadLeader: true, Term: 4, PIndex: 2000, Peers: map[string]server.RaftzGroupPeer{"peer1": {Name: "nats-1", Known: true}, "peer2": {Name: "nats-2", Known: true}}}
+				if candidate {
+					g.State = "CANDIDATE"
+					g.Leader = ""
+					g.Term = uint64(e + 4)
+				}
+				data := server.RaftzStatus{"SYS": {"_meta_": g}}
+				b, err := json.Marshal(server.ServerAPIRaftzResponse{Server: &server.ServerInfo{ID: "S0", Name: "nats-0"}, Data: &data})
+				if err != nil {
+					t.Fatal(err)
+				}
+				snap := collection.NewSnapshot(at(e))
+				snap.FinishedAt = at(e).Add(time.Millisecond)
+				snap.Expected = []string{"nats-0"}
+				if err := snap.Apply(collection.Raftz, b); err != nil {
+					t.Fatal(err)
+				}
+				snap.Servers["S0"].Varz = &server.Varz{Start: t0.Add(-time.Hour)}
+				if _, err := f.st.WriteSnapshot(context.Background(), snap); err != nil {
+					t.Fatal(err)
+				}
+			}
+			code := "server-027"
+			if candidate {
+				code = "server-028"
+			}
+			f.fires(code, 5, "nats-0")
+		})
+	}
+}
+
+func TestRaftDiagnosticsTemporalHysteresis(t *testing.T) {
+	for _, candidate := range []bool{false, true} {
+		code := "server-027"
+		if candidate {
+			code = "server-028"
+		}
+		t.Run(code, func(t *testing.T) {
+			f := raftDiagnosticFixture(t, candidate)
+			f.fires(code, 5, "nats-0")
+			// One observed recovery clears the symptom. Two bad samples after
+			// recovery must not inherit the old run's duration.
+			if candidate {
+				f.exec(`UPDATE raft_stats SET state='FOLLOWER', leader='peer1' WHERE epoch=6`)
+			} else {
+				f.exec(`UPDATE raft_stats SET applied=2000 WHERE epoch>=6`)
+				f.exec(`UPDATE raft_stats SET committed=4000,pindex=4000 WHERE epoch=7`)
+			}
+			f.fires(code, 6)
+			f.fires(code, 7)
+		})
 	}
 }

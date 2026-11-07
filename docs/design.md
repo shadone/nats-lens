@@ -222,7 +222,7 @@ The retention sweep keeps the current episode of every finding it keeps (from it
 
 ### Codes
 
-Codes generally use `<entity>-<NNN>`: `server-`, `account-`, `stream-`, `consumer-`, `client-`, and `system-` for the meta group and the engine. `server-026` reports a system finding because a remote leaf site can move between hubs. There are 89 checks: 86 SQL files and the built-in `system-001`, `server-025` and `server-026`. Account findings are keyed by the account identifier (the public key in operator mode), and their detail starts with the readable name. The inventory checks are `stream-011`, `stream-012`, `consumer-010` and `consumer-011` (a missing KV bucket or object store is its stream, `KV_<bucket>`, `OBJ_<bucket>`). Client findings are keyed by connection name across connections (`(unnamed)` without one), so a mute or a finding survives reconnects; the detail names the server and cid.
+Codes generally use `<entity>-<NNN>`: `server-`, `account-`, `stream-`, `consumer-`, `client-`, and `system-` for the meta group and the engine. `server-026` reports a system finding because a remote leaf site can move between hubs. There are 91 checks: 88 SQL files and the built-in `system-001`, `server-025` and `server-026`. Account findings are keyed by the account identifier (the public key in operator mode), and their detail starts with the readable name. The inventory checks are `stream-011`, `stream-012`, `consumer-010` and `consumer-011` (a missing KV bucket or object store is its stream, `KV_<bucket>`, `OBJ_<bucket>`). Client findings are keyed by connection name across connections (`(unnamed)` without one), so a mute or a finding survives reconnects; the detail names the server and cid.
 
 The set covers:
 
