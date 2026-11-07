@@ -15,7 +15,7 @@ import { lens } from "./client";
 import type { ConsumerSummary, Point, Series, StreamSummary, StreamTotals } from "./model";
 import { listFindings, rangeInit, systemInit } from "./requests";
 
-/** A point of a band metric: the median as value, the lowest and highest server as low and high. */
+/** A point with a spread: for a band metric the median as value and the lowest and highest server as low and high; for a count the bucket's last value and its lowest and highest. */
 export interface BandPoint extends Point {
   low?: number;
   high?: number;
