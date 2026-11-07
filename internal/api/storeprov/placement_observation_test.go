@@ -82,6 +82,8 @@ func TestPlacementObservationStoredBoundaries(t *testing.T) {
 		{"failed collection", `UPDATE epoch_endpoints SET state='error' WHERE epoch=2 AND server_id='S0' AND endpoint='JSZ'`, "evidence_unknown", 1, "APP/orders"},
 		{"collection gap", `UPDATE epochs SET started_at=started_at - INTERVAL 5 MINUTE WHERE epoch=2`, "collection_gap", 1, "APP/orders"},
 		{"incarnation boundary", `UPDATE stream_stats SET created=TIMESTAMP '2026-01-01' WHERE epoch=2 AND server_id='S1'`, "state_changed", 1, "APP/orders"},
+		{"all copies change incarnation", `UPDATE stream_stats SET created=TIMESTAMP '2026-01-01' WHERE epoch=2`, "identity_changed", 1, "APP/orders"},
+		{"in-sync creation disagreement", `UPDATE stream_replicas SET current=true; UPDATE stream_stats SET created=TIMESTAMP '2026-01-01' WHERE server_id='S1'`, "history_limit", 3, "APP/orders"},
 		{"past process identity", `INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) VALUES ('new-S1','nats-1',3,3,TIMESTAMP '2026-10-17',TIMESTAMP '2026-10-17')`, "identity_changed", 1, "APP/orders"},
 		{"unrelated account", `SELECT 1`, "", 0, "OTHER/orders"},
 		{"absent asset", `SELECT 1`, "", 0, "APP/absent"},
