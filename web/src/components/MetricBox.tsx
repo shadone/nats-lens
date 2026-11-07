@@ -162,7 +162,7 @@ export function RangeTrack({
   /** The chart's domain, when the box draws one: its history status then shows in this row. */
   history?: { start: number; end: number };
 }) {
-  const inRow = (text: ReactNode, steady = false) => (history ? <ChartHistoryStatus start={history.start} end={history.end} keep={steady} claim={steady} compact={!steady}>{text}</ChartHistoryStatus> : text);
+  const inRow = (text: ReactNode, steady = false) => (history ? <ChartHistoryStatus start={history.start} end={history.end} layout={steady ? "keep" : "slot"} claim={steady}>{text}</ChartHistoryStatus> : text);
   if (min === undefined || max === undefined) return null;
   if (min === max) {
     // Without a current value a steady window says so, so a server that
