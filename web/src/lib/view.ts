@@ -172,6 +172,7 @@ export function withAccountName<T extends AccountRef>(e: T, refs: (AccountRef | 
  * accountLabeller(its entities), so two accounts of one name read apart. */
 export function entityName(e: Entity | undefined, label: (id: string, name?: string) => string = accountLabel): string {
   if (!e) return "";
+  if (e.kind === "stream") return streamLabel(e.stream || e.name);
   if (e.kind === "account") return label(e.account || e.key, e.accountName);
   return e.name || e.consumer || e.stream || e.server || e.key;
 }
