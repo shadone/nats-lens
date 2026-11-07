@@ -118,9 +118,10 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
   const runs = splitServerPoints(points, gaps);
   const neutral = tone === "change";
   const col = neutral ? "var(--text-muted)" : sparkColour(status);
-  // The change marks: the accent, or the severity's cell colour when the card
-  // is in trouble; the text colours are too close to the muted line.
-  const mark = status === "critical" ? "var(--cell-critical)" : status === "warning" ? "var(--cell-warning)" : "var(--accent)";
+  // The change marks: the accent, or the severity colour when the card is in
+  // trouble; the text colours are too close to the muted line, and the light
+  // warning cell amber is too pale on the card, so warning has a mark colour.
+  const mark = status === "critical" ? "var(--cell-critical)" : status === "warning" ? "var(--mark-warning)" : "var(--accent)";
   const dense = neutral && mostlyChanging(points);
   const span = end - start || 1;
   return (

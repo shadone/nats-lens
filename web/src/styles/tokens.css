@@ -13,6 +13,8 @@
   --sev-info:#33609e; --sev-info-bg:#e9eff8;
   --sev-muted:#5f6763;
   --cell-critical:#d9473f; --cell-warning:#e8a630; --cell-info:#86a5d6; --ok-cell:#d6ece1; --on-cell-warning:#3b2900;
+  /* Warning change marks on a chart: --cell-warning is 2.1:1 on the light card, this reaches 3.5:1. */
+  --mark-warning:#b87a00;
   --k8s:#5f4aa3; --k8s-bg:#ece9f6; --upgrade-fill:rgba(95,74,163,.065); --upgrade-line:rgba(95,74,163,.5);
   --track:#e4e7e2; --track-fill:#c6e4d9;
   --backdrop:rgba(22,32,28,.35);
@@ -33,6 +35,7 @@
     --sev-info:#71abf0; --sev-info-bg:#132134;
     --sev-muted:#97a1ac;
     --cell-critical:#e0524f; --cell-warning:#d39b2a; --cell-info:#3f6fae; --ok-cell:#1a332d; --on-cell-warning:#1a1306;
+    --mark-warning:#d39b2a;
     --k8s:#b8a2ea; --k8s-bg:#211c33; --upgrade-fill:rgba(184,162,234,.075); --upgrade-line:rgba(184,162,234,.5);
     --track:#222b34; --track-fill:#1d4238;
     --backdrop:rgba(0,0,0,.6);
@@ -51,6 +54,7 @@
   --sev-info:#71abf0; --sev-info-bg:#132134;
   --sev-muted:#97a1ac;
   --cell-critical:#e0524f; --cell-warning:#d39b2a; --cell-info:#3f6fae; --ok-cell:#1a332d; --on-cell-warning:#1a1306;
+  --mark-warning:#d39b2a;
   --k8s:#b8a2ea; --k8s-bg:#211c33; --upgrade-fill:rgba(184,162,234,.075); --upgrade-line:rgba(184,162,234,.5);
   --track:#222b34; --track-fill:#1d4238;
   --backdrop:rgba(0,0,0,.6);
