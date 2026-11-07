@@ -23,3 +23,8 @@ it("labels bucket entities without their storage prefix", () => {
   const e: Entity = { kind: "stream", key: "APP/KV_preferences", account: "APP", stream: "KV_preferences", name: "KV_preferences", consumer: "", server: "" };
   expect(entityName(e)).toBe("preferences");
 });
+it("keeps ordinary stream display names and missing-identity fallbacks", () => {
+  const e: Entity = { kind: "stream", key: "APP/orders", account: "APP", stream: "orders", name: "Order events", consumer: "", server: "" };
+  expect(entityName(e)).toBe("Order events");
+  expect(entityName({ ...e, stream: "", name: "" })).toBe("APP/orders");
+});
