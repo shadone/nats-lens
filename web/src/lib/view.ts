@@ -25,6 +25,9 @@ export function isTrouble(state: Level | "notcollecting" | "unavailable"): boole
 /** The transition tag the reference shows next to a finding. */
 export type FindingTag = "NEW" | "FLAPPING" | "RESOLVED" | "CHANGED" | "OPEN";
 
+/** A tag as shown: sentence case; the tag itself stays the CSS class. */
+export const FINDING_TAG_LABEL: Record<FindingTag, string> = { NEW: "New", FLAPPING: "Flapping", RESOLVED: "Resolved", CHANGED: "Changed", OPEN: "Open" };
+
 /** A finding is NEW when it started firing inside the range; the API leaves that to the UI. */
 export function findingTag(f: Finding, rangeStart: number | undefined): FindingTag {
   switch (f.state) {

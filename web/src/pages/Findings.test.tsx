@@ -45,7 +45,7 @@ describe("Findings with acceptances", () => {
     renderApp(<Findings />, "/findings");
     const why = await screen.findByText("Accepted by ops@example.com:");
     expect(why.parentElement).toHaveTextContent(/^Accepted by ops@example\.com: Customer records are kept for the account's life\. Review on \d{4}-\d{2}-\d{2}\.$/);
-    expect(screen.getAllByText("Accepted", { selector: ".sev" })).toHaveLength(1);
+    expect(screen.getAllByText("Accepted", { selector: ".state" })).toHaveLength(1);
   });
 
   it("lists an acceptance in force as Accepted, and one nats-lens ended with its reason", async () => {
@@ -61,7 +61,7 @@ describe("Findings with acceptances", () => {
     renderApp(<Findings />, "/findings");
     const list = within((await screen.findAllByText(/^Accepted by ops@example.com/))[0].closest(".mutes-list") as HTMLElement);
     const rows = list.getAllByText(/^Accepted by/).map((b) => b.closest(".frow") as HTMLElement);
-    expect(within(rows[0]).getByText("Accepted", { selector: ".sev" })).toBeInTheDocument();
+    expect(within(rows[0]).getByText("Accepted", { selector: ".state" })).toBeInTheDocument();
     expect(within(rows[0]).getByRole("button", { name: "End acceptance of stream-005 for KV_customer-config…" })).toHaveTextContent(/^End…$/);
     expect(within(rows[1]).getByText("Ended", { selector: ".sev" })).toBeInTheDocument();
     expect(rows[1]).toHaveTextContent("Ended by nats-lens: growth changed from +2.0 KiB/day to +520 KiB/day over the last 7 days (+1.6 MiB in the last day).");

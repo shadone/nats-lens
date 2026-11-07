@@ -111,3 +111,13 @@ describe("check references in events", () => {
     });
   }
 });
+
+describe("finding transition badges", () => {
+  it("names the transition in sentence case and keeps its kind as the class", () => {
+    const flapping: LensEvent = { ...ev, source: "finding", kind: "finding.flapping", type: "", summary: "flapping" };
+    const { container } = renderApp(<EventRow e={flapping} end={Date.now()} open={false} onToggle={() => {}} />, "/events?range=6h");
+    const badge = container.querySelector(".badge") as HTMLElement;
+    expect(badge).toHaveTextContent(/^Flapping$/);
+    expect(badge).toHaveClass("FLAPPING");
+  });
+});

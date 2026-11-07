@@ -20,7 +20,7 @@ import { EventRow } from "../components/EventRow";
 import { FindingEvidence } from "../components/FindingEvidence";
 import { EntityLine } from "../components/FindingParts";
 import { MuteDialog, UnmuteDialog } from "../components/MuteDialog";
-import { Sev, StateTag } from "../components/Severity";
+import { AcceptedTag, Sev, StateTag } from "../components/Severity";
 import { StatusTimeline } from "../components/StatusTimeline";
 import { fmtDuration, fmtGrowth, isoMinute, isoSecond, upperFirst } from "../lib/format";
 import { baselineText, muteBy, reviewOn, sentence } from "../lib/muteView";
@@ -69,7 +69,7 @@ function Head({ f, spec, start, end, onMute, onUnmute, onAck }: { f: Finding; sp
   return (
     <div className={`card worst finding-h ${f.mute ? "info" : f.severity}`}>
       <div className="k">
-        <Sev level={f.mute ? "muted" : f.severity} label={f.mute?.accepted ? "Accepted" : undefined} />
+        {f.mute?.accepted ? <AcceptedTag /> : <Sev level={f.mute ? "muted" : f.severity} />}
         <RLink to={`/checks/${encodeURIComponent(f.checkCode)}`} className="code">{f.checkCode} · Check reference</RLink>
         <StateTag tag={findingTag(f, start)} />
       </div>

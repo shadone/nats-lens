@@ -87,7 +87,7 @@ describe("FindingDetail", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(31_000);
     });
-    expect(await screen.findByText("RESOLVED")).toBeInTheDocument();
+    expect(await screen.findByText("Resolved", { selector: ".state" })).toBeInTheDocument();
     expect(m.getFinding).toHaveBeenCalledTimes(2);
   });
 
@@ -229,7 +229,7 @@ describe("server copies refresh", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(31_000);
     });
-    expect(await screen.findByText("RESOLVED")).toBeInTheDocument();
+    expect(await screen.findByText("Resolved", { selector: ".state" })).toBeInTheDocument();
     await vi.waitFor(() => expect(m.getConsumer).toHaveBeenCalledTimes(2));
     expect(m.listFindings).toHaveBeenCalledTimes(2);
   });
@@ -382,7 +382,7 @@ describe("FindingDetail of an accepted finding", () => {
     expect(await screen.findByText("Accepted as by design")).toBeInTheDocument();
     expect(screen.getByText("Accepted by ops@example.com:").parentElement).toHaveTextContent("Accepted by ops@example.com: Kept for audits. Review on 2027-04-07.");
     expect(screen.getByText(/^Growth at acceptance: \+2 MiB\/day per copy/)).toBeInTheDocument();
-    expect(screen.getByText("Accepted", { selector: ".sev" })).toBeInTheDocument();
+    expect(screen.getByText("Accepted", { selector: ".state" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "End acceptance…" }));
     expect(within(screen.getByRole("dialog")).getByRole("button", { name: "End acceptance" })).toBeInTheDocument();
   });

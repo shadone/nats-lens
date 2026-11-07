@@ -15,6 +15,6 @@
 .frow.mute .t,.frow.mute .e{color:var(--text-2)}
 .mute-why{grid-column:3 / 5;font-size:var(--fs-sm);color:var(--text-2);margin-top:-4px}
 .mute-why b{font-weight:500;color:var(--text)}
-.state{font:500 var(--fs-xs)/12px var(--mono);letter-spacing:.06em;padding:2px 6px;border-radius:var(--r-sm);border:1px solid currentColor;margin-left:var(--sp-2);vertical-align:1px}
-.state.NEW{color:var(--sev-critical)} .state.FLAPPING{color:var(--sev-warning)} .state.RESOLVED{color:var(--accent-text)} .state.OPEN{color:var(--text-muted)}
+.state{font:500 var(--fs-xs)/12px var(--sans);padding:2px 6px;border-radius:var(--r-sm);border:1px solid currentColor;margin-left:var(--sp-2);vertical-align:1px}
+.state.NEW{color:var(--sev-critical)} .state.FLAPPING{color:var(--sev-warning)} .state.RESOLVED{color:var(--accent-text)} .state.OPEN{color:var(--text-muted)} .state.ACCEPTED{color:var(--sev-muted)}
 

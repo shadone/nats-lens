@@ -1,7 +1,7 @@
 // Severity badges and glyphs: shape first, colour second. Solid is
 // critical, outlined warning, dashed info, dotted muted.
 import type { Level } from "../api/model";
-import { LEVEL_LABEL, type FindingTag } from "../lib/view";
+import { FINDING_TAG_LABEL, LEVEL_LABEL, type FindingTag } from "../lib/view";
 
 export function Sev({ level, label }: { level: Level; label?: string }) {
   return <span className={`sev ${level}`}>{label ?? LEVEL_LABEL[level]}</span>;
@@ -14,9 +14,14 @@ export function Glyph({ level, title }: { level: Level | "resolved"; title?: str
 export function StateTag({ tag, flush }: { tag: FindingTag; flush?: boolean }) {
   return (
     <span className={`state ${tag}`} style={flush ? { marginLeft: 0 } : undefined}>
-      {tag}
+      {FINDING_TAG_LABEL[tag]}
     </span>
   );
+}
+
+/** An accepted finding: a state like the transition tags, not a severity. */
+export function AcceptedTag() {
+  return <span className="state ACCEPTED" style={{ marginLeft: 0 }}>Accepted</span>;
 }
 
 /** Health icon of a stream or consumer row. */

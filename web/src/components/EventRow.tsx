@@ -6,12 +6,12 @@ import { useEvent } from "../api/queries";
 import { eventWhen, fmtDuration, isoSecond } from "../lib/format";
 import { selectionIntersects } from "../lib/textSelection";
 import { AccountName } from "./AccountName";
-import { SOURCE_CLASS, SOURCE_PILL, consumerPath, eventPath, findingPath, findingTag, serverPath, streamPath } from "../lib/view";
+import { FINDING_TAG_LABEL, SOURCE_CLASS, SOURCE_PILL, consumerPath, eventPath, findingPath, findingTag, serverPath, streamPath, type FindingTag } from "../lib/view";
 import { ErrorBox, KV, RLink, Remediation } from "./common";
 import { Sev, StateTag } from "./Severity";
 
-/** The badge of a finding event: NEW, RESOLVED, FLAPPING or CHANGED. */
-export function eventBadge(e: LensEvent): string | undefined {
+/** The badge of a finding event: NEW, RESOLVED, FLAPPING or CHANGED, the CSS class; FINDING_TAG_LABEL names it. */
+export function eventBadge(e: LensEvent): FindingTag | undefined {
   if (e.source !== "finding") return undefined;
   const st = e.transition?.state ?? e.kind.split(".").pop();
   return st === "firing" ? "NEW" : st === "resolved" ? "RESOLVED" : st === "flapping" ? "FLAPPING" : st === "changed" ? "CHANGED" : undefined;
@@ -123,7 +123,7 @@ export function EventRow({ e, end, open, onToggle, compact }: { e: LensEvent & {
           if (event.detail > 0 && selectionIntersects(event.currentTarget)) return;
           onToggle();
         }}>
-          {badge && <span className={`badge ${badge} ${sev ?? ""}`}>{badge}</span>}
+          {badge && <span className={`badge ${badge} ${sev ?? ""}`}>{FINDING_TAG_LABEL[badge]}</span>}
           <span className={`ty${sev === "critical" && e.source === "nats" ? " critical" : ""}`}>{e.type || e.kind}</span>
           <span className="tx">{e.summary}</span>
           {rep && <span className="rep mono">{rep}</span>}
