@@ -59,8 +59,7 @@
 .dh-gap-line{stroke:var(--text-muted);stroke-width:1}
 .dh-chart-gap{opacity:.65}
 
-/* Over the chart's top left corner; every chart SVG has an 8px top margin. */
-.dh-chart-status{position:absolute;top:10px;left:2px;z-index:3;padding:0 4px;border-radius:3px;background:var(--surface);color:var(--text-muted);font:var(--fs-xs)/1.4 var(--sans);pointer-events:none}
+.dh-chart-status{margin:4px 0 0;font-size:var(--fs-xs);color:var(--text-muted)}
 
 .dh-chart-server-gap{opacity:.85;stroke:var(--sev-warning);stroke-width:.6}
 
