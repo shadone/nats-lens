@@ -30,7 +30,7 @@ function tile(id: string, vals: (i: number) => number): Tile {
 
 function setup() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const tiles = [tile("streams", () => 8), tile("servers", (i) => (i === 40 ? 2 : 3))];
+  const tiles = [tile("streams", () => 8), tile("servers", (i) => (i === 40 ? 2 : 3)), tile("meta_leader", () => 0)];
   return render(<QueryClientProvider client={qc}><MemoryRouter initialEntries={["/"]}><GlobalQueryProvider><HistoryContext.Provider value={{ start: START, end: NOW, live: true, historyStart: START - 86_400_000 }}>
     <OverviewTiles tiles={tiles} windows={[]} start={START} end={NOW} />
   </HistoryContext.Provider></GlobalQueryProvider></MemoryRouter></QueryClientProvider>);
@@ -54,6 +54,9 @@ describe("tiles while the gaps are not known", () => {
     expect(box(container, 0).querySelector(".dh-status-keep")?.textContent).toBe("steady at 8 all window");
     // A tile whose values vary draws its chart at once.
     expect(box(container, 1).querySelector("svg.spark")).not.toBeNull();
+    // Meta leader has no track; its own status row stands in for "no leader changes".
+    expect(box(container, 2).querySelector("svg.spark")).toBeNull();
+    expect(box(container, 2).querySelector(".mb-track-note")).toHaveTextContent("History gaps loading");
   });
 
   it("says steady once the gaps arrive and none overlaps the range", async () => {
