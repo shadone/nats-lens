@@ -213,8 +213,8 @@ export async function getReplay(sys: string, a: number, b: number, signal?: Abor
   return replay(await lens.getReplay({ ...systemInit(sys), a: timestampFromMs(a), b: timestampFromMs(b) }, { signal }), { system: sys, a, b });
 }
 
-export async function getPlacement(sys: string, spec: RangeSpec, filter: MatrixFilter, signal?: AbortSignal) {
-  return matrix(await lens.getPlacement({ ...systemInit(sys), range: rangeInit(spec), filter: FILTER_ENUM[filter] }, { signal }));
+export async function getPlacement(sys: string, spec: RangeSpec, filter: MatrixFilter, signal?: AbortSignal, selected?: { asset: string; server: string }) {
+  return matrix(await lens.getPlacement({ ...systemInit(sys), range: rangeInit(spec), filter: FILTER_ENUM[filter], selectedAsset: selected?.asset, selectedServer: selected?.server }, { signal }));
 }
 
 /** How the servers connect, in the range's newest collection. */

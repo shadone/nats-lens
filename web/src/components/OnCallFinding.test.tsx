@@ -30,9 +30,12 @@ it("selects the phone tree at max760 and loads desktop sections only on demand",
   expect(screen.getByText("Present observations are not reported.")).toBeInTheDocument();
   expect(screen.getByText("Before stored history.")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "already true when nats-lens started" })).toHaveAttribute("href", expect.stringContaining("/data-history"));
-  const replay = new URL(screen.getByRole("link", { name: "Open in Replay" }).getAttribute("href")!, "http://x");
+  const replay = new URL(screen.getByRole("link", { name: "Replay this window" }).getAttribute("href")!, "http://x");
   expect(Date.parse(replay.searchParams.get("a")!)).toBe(onCallCard.storyA);
   expect(Date.parse(replay.searchParams.get("b")!)).toBe(onCallCard.storyB);
+  expect(replay.searchParams.get("from")).toBe(replay.searchParams.get("a"));
+  expect(replay.searchParams.get("to")).toBe(replay.searchParams.get("b"));
+  expect(replay.searchParams.has("range")).toBe(false);
   await userEvent.click(screen.getByText("All details")); expect(await screen.findByText("Status timeline")).toBeInTheDocument();
   await act(async () => { phone = false; change(); });
   expect(screen.queryByRole("heading", { name: "Right now" })).toBeNull();
@@ -98,5 +101,5 @@ it("does not invent a story or a playbook for a short empty response", async () 
   getOnCall.mockResolvedValue({ ...onCallCard, finding: { ...onCallFinding, since: undefined, remediation: "" }, stepsNote: "", storyA: undefined, storyB: undefined, playbookUrl: "javascript:alert(1)" });
   show(); await screen.findByText("No steps recorded in this story.");
   expect(screen.getByText("Start not reported")).toBeInTheDocument(); expect(screen.getByText("The check gives no remediation.")).toBeInTheDocument();
-  expect(screen.queryByRole("link", { name: "Open in Replay" })).toBeNull(); expect(screen.queryByRole("link", { name: "Open the playbook" })).toBeNull();
+  expect(screen.queryByRole("link", { name: "Replay this window" })).toBeNull(); expect(screen.queryByRole("link", { name: "Open the playbook" })).toBeNull();
 });

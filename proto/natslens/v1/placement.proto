@@ -144,6 +144,11 @@ message GetPlacementRequest {
 
   // Which assets to list; the counts cover every asset whatever it is.
   PlacementFilter filter = 3;
+
+  // Optional canonical asset key (account/stream[/consumer]) and server.
+  // Requests bounded stored evidence for this cell only; both must be set.
+  string selected_asset = 4;
+  string selected_server = 5;
 }
 
 // Every stream and durable consumer as each server sees it, in the
@@ -162,4 +167,31 @@ message GetPlacementResponse {
 
   // When the epoch read started; unset when the range holds none.
   google.protobuf.Timestamp epoch_at = 4;
+
+  // Evidence for the selected cell only; unset for unsupported states or
+  // an absent selection. Independent of the matrix filter.
+  PlacementObservation observation = 5;
+}
+
+// Consecutive stored observations of a selected cell's current problem.
+// This is a lower bound from samples, never an actual continuous outage start.
+message PlacementObservation {
+  // Canonical asset key and server that the evidence describes.
+  string asset = 1;
+  string server = 2;
+  // Collection at which the evidence ends; never later than the matrix.
+  google.protobuf.Timestamp as_of = 3;
+  // Oldest matching observation before a continuity boundary.
+  google.protobuf.Timestamp since = 4;
+  // Number of matching collections, including as_of; one means zero span.
+  int32 samples = 5;
+  // True when a range, lookback, collection cap or stored-history edge
+  // prevents looking further. Since remains a lower bound even when false.
+  bool truncated = 6;
+  // Why the search stopped: state_changed, evidence_unknown, collection_gap,
+  // identity_changed, range_limit, lookback_limit, collection_limit, history_limit.
+  string boundary = 7;
+  // Exact classifier state and settings differences at as_of.
+  PlacementState state = 8;
+  repeated string differs = 9;
 }

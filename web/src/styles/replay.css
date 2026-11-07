@@ -113,3 +113,10 @@
 /* With a window bar, the handle lines leave a gap across it, so a line
    never runs through a window's label. */
 .rs-track.has-wins .rs-line{background:linear-gradient(var(--text) 0 28px,transparent 28px 54px,var(--text) 54px)}
+
+/* Entry links remain normal anchors, with room for long window names on phones. */
+.replay-entry { margin: 12px 0; padding: 0; overflow-wrap: anywhere; }
+ul.replay-entry { list-style: none; }
+.replay-entry li + li { margin-top: 12px; }
+.replay-entry p { margin: 4px 0; color: var(--text-muted); font-size: 12px; }
+.replay-entry a { display: inline-block; padding-block: 6px; }

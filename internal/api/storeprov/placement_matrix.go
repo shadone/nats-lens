@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	"time"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -87,7 +88,46 @@ func (p *Provider) GetPlacement(ctx context.Context, req *v1.GetPlacementRequest
 		fillAsset(a, placementOf(creps[key], c.GetReplicas()), views, creps[key], cx, key)
 		parent.Consumers = append(parent.Consumers, a)
 	}
+	if cell := selectedMatrixCell(res, req.GetSelectedAsset(), req.GetSelectedServer()); cell != nil {
+		res.Observation, err = p.placementObservation(ctx, req, e)
+		if err != nil {
+			return nil, err
+		}
+		// An ambiguous historical reconstruction must never describe another
+		// state than the current matrix (for example duplicate process names).
+		if o := res.Observation; o != nil && (o.State != cell.State || !slices.Equal(o.Differs, cell.Differs)) {
+			res.Observation = nil
+		}
+	}
 	return res, nil
+}
+
+func selectedMatrixCell(res *v1.GetPlacementResponse, key, server string) *v1.PlacementCell {
+	if key == "" || server == "" {
+		return nil
+	}
+	find := func(a *v1.PlacementAsset) *v1.PlacementCell {
+		if key == "" || a.GetEntity().GetKey() != key {
+			return nil
+		}
+		for _, c := range a.GetCells() {
+			if c.Server == server {
+				return c
+			}
+		}
+		return nil
+	}
+	for _, s := range res.GetStreams() {
+		if c := find(s); c != nil {
+			return c
+		}
+		for _, a := range s.GetConsumers() {
+			if c := find(a); c != nil {
+				return c
+			}
+		}
+	}
+	return nil
 }
 
 // createdOrNil is a view's creation time, nil when it reports none.
