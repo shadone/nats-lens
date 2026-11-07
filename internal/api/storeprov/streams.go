@@ -133,11 +133,13 @@ func (p *Provider) growthWidth(start, end time.Time) time.Duration {
 // bytes medians are streamPoints' for the same range, without the messages
 // ListStreams does not read.
 func (p *Provider) streamGrowth(ctx context.Context, start, end time.Time, account, stream string) (map[string][]api.Sample, error) {
+	// ASVS 1.2.4: the bounded timestamps remain query parameters.
+	start = api.GrowthStart(start, end, p.Interval)
 	rows, err := p.db().QueryContext(ctx, `
 WITH per AS (
   SELECT x.account, x.stream, e.started_at AS t, `+leaderValue("bytes")+` AS v
   `+streamPerEpoch+`)
-SELECT account, stream, min(t) + (max(t) - min(t)) / 2, median(v)::DOUBLE
+SELECT account, stream, min(t) + (max(t) - min(t)) / 2, median(v)::DOUBLE, min(t), max(t)
 FROM per WHERE v IS NOT NULL
 GROUP BY account, stream, `+growthBucket+`
 ORDER BY 1, 2, 3`, start, end, account, account, stream, stream, p.growthWidth(start, end).Microseconds())
@@ -149,7 +151,7 @@ ORDER BY 1, 2, 3`, start, end, account, account, stream, stream, p.growthWidth(s
 	for rows.Next() {
 		var acc, name string
 		var sm api.Sample
-		if err := rows.Scan(&acc, &name, &sm.T, &sm.V); err != nil {
+		if err := rows.Scan(&acc, &name, &sm.T, &sm.V, &sm.From, &sm.To); err != nil {
 			return nil, err
 		}
 		out[acc+"/"+name] = append(out[acc+"/"+name], sm)
@@ -165,6 +167,8 @@ type streamPts struct{ bytes, msgs []api.Sample }
 // reports), reduced in SQL to at most api.GrowthBuckets medians per stream
 // and keyed by account/stream: one query for every stream.
 func (p *Provider) streamPoints(ctx context.Context, start, end time.Time, account, stream string) (map[string]streamPts, error) {
+	// ASVS 1.2.4: the bounded timestamps remain query parameters.
+	start = api.GrowthStart(start, end, p.Interval)
 	rows, err := p.db().QueryContext(ctx, `
 WITH per AS (
   SELECT x.account, x.stream, e.started_at AS t, `+leaderValue("bytes")+` AS v, `+leaderValue("messages")+` AS m
@@ -173,7 +177,9 @@ SELECT account, stream, `+growthBucket+` AS b,
   min(t) FILTER (WHERE v IS NOT NULL) + (max(t) FILTER (WHERE v IS NOT NULL) - min(t) FILTER (WHERE v IS NOT NULL)) / 2,
   median(v)::DOUBLE,
   min(t) FILTER (WHERE m IS NOT NULL) + (max(t) FILTER (WHERE m IS NOT NULL) - min(t) FILTER (WHERE m IS NOT NULL)) / 2,
-  median(m)::DOUBLE
+  median(m)::DOUBLE,
+  min(t) FILTER (WHERE v IS NOT NULL), max(t) FILTER (WHERE v IS NOT NULL),
+  min(t) FILTER (WHERE m IS NOT NULL), max(t) FILTER (WHERE m IS NOT NULL)
 FROM per WHERE v IS NOT NULL OR m IS NOT NULL
 GROUP BY ALL
 ORDER BY 1, 2, 3`, start, end, account, account, stream, stream, p.growthWidth(start, end).Microseconds())
@@ -185,17 +191,17 @@ ORDER BY 1, 2, 3`, start, end, account, account, stream, stream, p.growthWidth(s
 	for rows.Next() {
 		var acc, name string
 		var b time.Time
-		var bt, mt sql.NullTime
+		var bt, mt, bf, bl, mf, ml sql.NullTime
 		var bv, mv sql.NullFloat64
-		if err := rows.Scan(&acc, &name, &b, &bt, &bv, &mt, &mv); err != nil {
+		if err := rows.Scan(&acc, &name, &b, &bt, &bv, &mt, &mv, &bf, &bl, &mf, &ml); err != nil {
 			return nil, err
 		}
 		pts := out[acc+"/"+name]
 		if bt.Valid && bv.Valid {
-			pts.bytes = append(pts.bytes, api.Sample{T: bt.Time, V: bv.Float64})
+			pts.bytes = append(pts.bytes, api.Sample{T: bt.Time, V: bv.Float64, From: bf.Time, To: bl.Time})
 		}
 		if mt.Valid && mv.Valid {
-			pts.msgs = append(pts.msgs, api.Sample{T: mt.Time, V: mv.Float64})
+			pts.msgs = append(pts.msgs, api.Sample{T: mt.Time, V: mv.Float64, From: mf.Time, To: ml.Time})
 		}
 		out[acc+"/"+name] = pts
 	}

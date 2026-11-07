@@ -93,7 +93,7 @@ func HistoryUseWindows(f *HistoryFacts) []HistoryWindow {
 		at = f.Now
 	}
 	end := at.Add(time.Microsecond)
-	out := []HistoryWindow{{"growth", f.Start, f.End}, {"accept_review", at.Add(-AcceptRetention), end},
+	out := []HistoryWindow{{"growth", GrowthStart(f.Start, f.End, f.Interval), f.End}, {"accept_review", at.Add(-AcceptRetention), end},
 		{"day", at.Add(-HistoryDay), end}, {"replay", at.Add(-MaxReplaySpan), end}}
 	for _, l := range f.Lookbacks {
 		if l.Lookback <= 0 {

@@ -130,6 +130,7 @@ func (p *Provider) storageTile(ctx context.Context, r *v1.TimeRange, servers *v1
 // over the range, per day; nil when the range is too short.
 func (p *Provider) storageGrowth(ctx context.Context, r *v1.TimeRange) (*float64, error) {
 	start, end := span(r)
+	start = api.GrowthStart(start, end, p.Interval)
 	rows, err := p.db().QueryContext(ctx, `SELECT t, v::DOUBLE FROM (`+p.metricQuery(metricQueries["cluster.js_storage_bytes"])+
 		`) WHERE v IS NOT NULL ORDER BY t`, start, end)
 	if err != nil {

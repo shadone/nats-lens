@@ -80,7 +80,7 @@ func (s scen) overviewTiles(r *v1.TimeRange, maxPoints int32, servers []*v1.Serv
 	if limit > 0 {
 		storage.Limit, storage.ValueSuffix = ptr(limit), "of "+api.FmtBytes(limit)
 	}
-	storage.Subtitle = api.StorageSubtitle(storage.Value, storage.Limit, seriesGrowth(storage.GetSeries()))
+	storage.Subtitle = api.StorageSubtitle(storage.Value, storage.Limit, s.growthOf("cluster.js_storage_bytes", sys, r))
 
 	tiles := []*v1.Tile{srv, meta, streams, kv, objects, consumers, accounts, clients, storage}
 	s.tileStatus(tiles, cur)
