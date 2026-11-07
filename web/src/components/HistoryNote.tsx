@@ -1,6 +1,6 @@
 // History facts shared by a page. LensInfo uses the shell's existing cache;
 // only a mounted chart subscribes to the range's shared Data history query.
-import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useSyncExternalStore, type ReactNode } from "react";
 import { notifyManager, useQueryClient } from "@tanstack/react-query";
 import { useReportStale } from "./StaleContext";
 import { Link, useLocation } from "react-router";
@@ -10,7 +10,7 @@ import { growthHistoryNote, historyNote } from "../lib/historyView";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
 import { useGlobalQuery } from "../lib/useGlobalQuery";
 import { useSystem } from "../lib/useSystem";
-import { HISTORY_LOADING, HISTORY_UNAVAILABLE, HISTORY_UNAVAILABLE_NOTE, LOADING_DELAY_MS, readState, type HistoryReadState } from "../lib/historyStatus";
+import { HISTORY_LOADING, HISTORY_UNAVAILABLE, HISTORY_UNAVAILABLE_NOTE, readState, useLate, type HistoryReadState } from "../lib/historyStatus";
 
 export interface PageHistory {
   historyStart?: number;
@@ -62,17 +62,10 @@ function PageHistoryStatus() {
     }
     return pending ? HISTORY_LOADING : "";
   });
-  const [text, setText] = useState("");
-  useEffect(() => {
-    if (now !== HISTORY_LOADING) {
-      setText(now);
-      return;
-    }
-    // A new read makes an earlier "unavailable" stale at once.
-    setText((t) => (t === HISTORY_LOADING ? t : ""));
-    const timer = setTimeout(() => setText(HISTORY_LOADING), LOADING_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [now]);
+  // Loading is said once it has held LOADING_DELAY_MS; any other change,
+  // a new read making an earlier "unavailable" stale among them, at once.
+  const late = useLate(now === HISTORY_LOADING);
+  const text = now === HISTORY_LOADING ? (late ? HISTORY_LOADING : "") : now;
   return <>
     {now === HISTORY_UNAVAILABLE && <p className="dh-note">{HISTORY_UNAVAILABLE_NOTE}</p>}
     <p className="sr-only" role="status">{text}</p>

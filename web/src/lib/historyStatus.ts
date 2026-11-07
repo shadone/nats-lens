@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 // The words and timing every chart and page use for the state of a Data
 // history read, so the rows, the page note and the live regions agree.
 
@@ -20,4 +22,16 @@ export type HistoryReadState = "loading" | "failed" | undefined;
  */
 export function readState(r: { error: unknown; isPending: boolean; errorUpdateCount: number }): HistoryReadState {
   return r.error || (r.isPending && r.errorUpdateCount > 0) ? "failed" : r.isPending ? "loading" : undefined;
+}
+
+/** Whether `on` has held for `ms`; false again as soon as it stops. */
+export function useLate(on: boolean, ms: number = LOADING_DELAY_MS): boolean {
+  const [late, setLate] = useState(false);
+  useEffect(() => {
+    setLate(false);
+    if (!on) return;
+    const timer = setTimeout(() => setLate(true), ms);
+    return () => clearTimeout(timer);
+  }, [on, ms]);
+  return on && late;
 }

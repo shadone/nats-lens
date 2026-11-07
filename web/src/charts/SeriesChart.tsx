@@ -41,7 +41,7 @@ export function SeriesChart({ title, series, start, end, windows = [], loading, 
       )}
       <div className="chart-f mono">
         <span>{dayMonHm(start)}</span>
-        <ChartHistoryStatus start={start} end={end} keep>
+        <ChartHistoryStatus start={start} end={end} layout="keep">
           <span>
             min {fmt(series?.min)} · max {fmt(series?.max)}
           </span>

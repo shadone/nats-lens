@@ -1,5 +1,5 @@
-import { useEffect, useId, useState, type ReactNode } from "react";
-import { HISTORY_LOADING, HISTORY_LOADING_SHORT, HISTORY_UNAVAILABLE, LOADING_DELAY_MS, readState, type HistoryReadState } from "../lib/historyStatus";
+import { useId, type ReactNode } from "react";
+import { HISTORY_LOADING, HISTORY_LOADING_SHORT, HISTORY_UNAVAILABLE, readState, useLate, type HistoryReadState } from "../lib/historyStatus";
 import { useDataHistory } from "../api/queries";
 import { usePageHistory, type PageHistory } from "../components/HistoryNote";
 import { gapName, stripSegments } from "../lib/historyView";
@@ -19,16 +19,6 @@ function chartRange(spec: RangeSpec, start: number, end: number): RangeSpec {
   return preset ? { kind: "live", preset: preset.id } : { kind: "fixed", from: start, to: end };
 }
 
-function QueriedGaps({ start, end, width, height }: Frame) {
-  const { spec } = useTimeRange();
-  const h = usePageHistory();
-  const q = useDataHistory(chartRange(spec, start, end), h?.gapServer);
-  useReportStale(q);
-  const d = q.data;
-  return <>
-    <GapMarks start={start} end={end} width={width} height={height} gaps={d?.gaps ?? []} observedStart={d?.rangeStart} observedEnd={d?.rangeEnd} historyStart={h?.historyStart} live={h?.live ?? false} serverGaps={d?.serverGaps} />
-  </>;
-}
 interface Frame { start: number; end: number; width: number; height: number }
 
 /** The page's own history answer covers this chart; otherwise the chart queries its domain. */
@@ -36,10 +26,35 @@ function pageGapsApply(h: PageHistory, start: number, end: number): h is PageHis
   return !!h.gaps && (h.gapServer === undefined || end - start === h.end - h.start);
 }
 
-export function HistoryGaps(props: Frame) {
+/** A chart's history: the page's own answer where it covers the chart, else the chart's read of its domain. */
+type ChartRead = { h: PageHistory; page: true } | { h: PageHistory; page: false; q: ReturnType<typeof useDataHistory> };
+
+/**
+ * Reads a chart's history once the page has one: the page's answer where it
+ * covers the chart, else the chart's own query of its domain. A chart with
+ * no page history (`without`) reads nothing.
+ */
+function ChartHistory({ start, end, without = null, reportStale = false, render }: { start: number; end: number; without?: ReactNode; reportStale?: boolean; render: (r: ChartRead) => ReactNode }) {
   const h = usePageHistory();
-  if (!h) return null;
-  return pageGapsApply(h, props.start, props.end) ? <GapMarks {...props} gaps={h.gaps} observedStart={h.start} observedEnd={h.end} historyStart={h.historyStart} live={h.live} serverGaps={h.serverGaps} /> : <QueriedGaps {...props} />;
+  if (!h) return <>{without}</>;
+  return pageGapsApply(h, start, end) ? <>{render({ h, page: true })}</> : <QueriedHistory h={h} start={start} end={end} reportStale={reportStale} render={render} />;
+}
+function QueriedHistory({ h, start, end, reportStale, render }: { h: PageHistory; start: number; end: number; reportStale: boolean; render: (r: ChartRead) => ReactNode }) {
+  const { spec } = useTimeRange();
+  const q = useDataHistory(chartRange(spec, start, end), h.gapServer);
+  useReportStale(reportStale ? q : NO_READ);
+  return <>{render({ h, page: false, q })}</>;
+}
+/** Nothing to report for a chart that does not report its read. */
+const NO_READ = { data: undefined, error: null, dataUpdatedAt: 0, refetch: () => undefined };
+
+export function HistoryGaps(props: Frame) {
+  return <ChartHistory start={props.start} end={props.end} reportStale render={(r) => {
+    const { h } = r;
+    if (r.page) return <GapMarks {...props} gaps={h.gaps ?? []} observedStart={h.start} observedEnd={h.end} historyStart={h.historyStart} live={h.live} serverGaps={h.serverGaps} />;
+    const d = r.q.data;
+    return <GapMarks {...props} gaps={d?.gaps ?? []} observedStart={d?.rangeStart} observedEnd={d?.rangeEnd} historyStart={h.historyStart} live={h.live} serverGaps={d?.serverGaps} />;
+  }} />;
 }
 
 function GapMarks({ start, end, width, height, gaps, live, historyStart, observedStart, observedEnd, serverGaps = [] }: Frame & { serverGaps?: ServerHistoryGap[]; gaps: HistoryGap[]; live: boolean; historyStart?: number; observedStart?: number; observedEnd?: number }) {
@@ -93,29 +108,26 @@ function OmissionNotice({ facts, start, end, observedStart, observedEnd }: Notic
   return omitted > 0 && relevant ? <p className="dh-chart-notice" role="note" aria-label="Collection gap limit">History response: {omitted} older collection gaps omitted. Hatches may be incomplete.</p> : null;
 }
 interface NoticeFactsProps { facts: NoticeFacts; start: number; end: number; observedStart?: number; observedEnd?: number }
-function QueriedNotice({ start, end }: { start: number; end: number }) {
-  const { spec } = useTimeRange();
-  const h = usePageHistory();
-  const q = useDataHistory(chartRange(spec, start, end), h?.gapServer);
-  return q.data ? <OmissionNotice facts={q.data} start={start} end={end} observedStart={q.data.rangeStart} observedEnd={q.data.rangeEnd} /> : null;
-}
 /** HTML outside the SVG stays legible and accessible at every chart size.
  * The extra observer shares the chart's existing history key and request. */
 export function ChartHistoryNotice({ start, end }: { start: number; end: number }) {
-  const h = usePageHistory();
-  if (!h) return null;
-  return pageGapsApply(h, start, end)
-    ? <OmissionNotice facts={h} start={start} end={end} observedStart={h.start} observedEnd={h.end} />
-    : <QueriedNotice start={start} end={end} />;
+  return <ChartHistory start={start} end={end} render={(r) => {
+    if (r.page) return <OmissionNotice facts={r.h} start={start} end={end} observedStart={r.h.start} observedEnd={r.h.end} />;
+    const d = r.q.data;
+    return d ? <OmissionNotice facts={d} start={start} end={end} observedStart={d.rangeStart} observedEnd={d.rangeEnd} /> : null;
+  }} />;
 }
 interface StatusProps {
   start: number;
   end: number;
   children?: ReactNode;
-  /** Keep the children's width, hidden under the text, so a wrapping row wraps the same. */
-  keep?: boolean;
-  /** A row shared with other data: the short text, hidden where it has no room. */
-  compact?: boolean;
+  /**
+   * How the text stands in for the children: `keep` keeps their width,
+   * hidden under the text, so a wrapping row wraps the same; `slot` is a row
+   * shared with other data, with the short text, shown whole or not at all;
+   * `plain` replaces them.
+   */
+  layout?: "keep" | "slot" | "plain";
   /**
    * The children claim what the gaps could disprove, such as "steady": they
    * are replaced while the read fails too. Other rows keep their data then,
@@ -123,41 +135,24 @@ interface StatusProps {
    */
   claim?: boolean;
 }
-function StatusText({ state, children, keep, compact, claim }: Omit<StatusProps, "start" | "end"> & { state: HistoryReadState }) {
+function StatusText({ state, children, layout = "plain", claim }: Omit<StatusProps, "start" | "end"> & { state: HistoryReadState }) {
   // A shared row keeps its data for the first LOADING_DELAY_MS, so a read the
   // cache answers at once does not flash. A claim gives way at once: it must
   // never say "steady" while the gaps are unknown.
   const loading = state === "loading";
-  const [late, setLate] = useState(false);
-  useEffect(() => {
-    setLate(false);
-    if (!loading) return;
-    const timer = setTimeout(() => setLate(true), LOADING_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [loading]);
+  const late = useLate(loading);
   const failed = state === "failed";
   if (!(loading && (late || claim)) && !(failed && claim)) return <>{children}</>;
-  const words = failed ? HISTORY_UNAVAILABLE : compact ? HISTORY_LOADING_SHORT : HISTORY_LOADING;
+  const words = failed ? HISTORY_UNAVAILABLE : layout === "slot" ? HISTORY_LOADING_SHORT : HISTORY_LOADING;
   const text = <span className="dh-chart-status">{words}</span>;
-  if (keep) return <span className="dh-status-in"><span className="dh-status-keep" aria-hidden="true">{children}</span>{text}</span>;
-  return compact ? <span className="dh-chart-slot">{text}</span> : text;
-}
-function QueriedStatus({ start, end, ...rest }: StatusProps) {
-  const { spec } = useTimeRange();
-  const h = usePageHistory();
-  return <StatusText {...rest} state={readState(useDataHistory(chartRange(spec, start, end), h?.gapServer))} />;
+  if (layout === "keep") return <span className="dh-status-in"><span className="dh-status-keep" aria-hidden="true">{children}</span>{text}</span>;
+  return layout === "slot" ? <span className="dh-chart-slot">{text}</span> : text;
 }
 /** The chart's own history read, while it loads, as text in place of
  * `children`: a row the chart already has, so the card keeps its height. SVG
  * text in a stretched chart would scale with the drawing. It is not a live
  * region; the page announces the state once. Where the page's read covers the
  * chart (a server's page), that read's state is said. */
-export function ChartHistoryStatus(props: StatusProps) {
-  const h = usePageHistory();
-  if (!h) return <>{props.children}</>;
-  if (pageGapsApply(h, props.start, props.end)) {
-    const { start: _s, end: _e, ...rest } = props;
-    return <StatusText {...rest} state={h.gapsState} />;
-  }
-  return <QueriedStatus {...props} />;
+export function ChartHistoryStatus({ start, end, ...rest }: StatusProps) {
+  return <ChartHistory start={start} end={end} without={rest.children} render={(r) => <StatusText {...rest} state={r.page ? r.h.gapsState : readState(r.q)} />} />;
 }
