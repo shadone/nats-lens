@@ -62,7 +62,7 @@ describe("Findings with acceptances", () => {
     const list = within((await screen.findAllByText(/^Accepted by ops@example.com/))[0].closest(".mutes-list") as HTMLElement);
     const rows = list.getAllByText(/^Accepted by/).map((b) => b.closest(".frow") as HTMLElement);
     expect(within(rows[0]).getByText("Accepted", { selector: ".state" })).toBeInTheDocument();
-    expect(within(rows[0]).getByRole("button", { name: "End acceptance of stream-005 for KV_customer-config…" })).toHaveTextContent(/^End…$/);
+    expect(within(rows[0]).getByRole("button", { name: "End acceptance of stream-005 for customer-config…" })).toHaveTextContent(/^End…$/);
     expect(within(rows[1]).getByText("Ended", { selector: ".sev" })).toBeInTheDocument();
     expect(rows[1]).toHaveTextContent("Ended by nats-lens: growth changed from +2.0 KiB/day to +520 KiB/day over the last 7 days (+1.6 MiB in the last day).");
     expect(rows[1]).not.toHaveTextContent("Lifted");
@@ -78,7 +78,7 @@ describe("Findings with acceptances", () => {
     expect(within(row).getByText("Ended", { selector: ".sev" })).toBeInTheDocument();
     expect(row).toHaveTextContent("Ended 2026-10-21 10:00 by reviewer.");
     expect(row).not.toHaveTextContent("Lifted");
-    expect(screen.getByRole("button", { name: "Lift mute of stream-006 for KV_customer-config…" })).toHaveTextContent(/^Lift…$/);
+    expect(screen.getByRole("button", { name: "Lift mute of stream-006 for customer-config…" })).toHaveTextContent(/^Lift…$/);
   });
 
   it("names an account finding and its mute by the account's name, not its key", async () => {

@@ -85,7 +85,7 @@ describe("Subjects", () => {
     await screen.findByRole("region", { name: "Subject patterns" });
     expect(table().getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Pattern", "Account", "Stored in", "Subscribers", "Stored msgs/s", "Note"]);
     expect(cells("order.events.>")).toEqual(["APP", "order-events", "4 durable consumers", "2.88", "mirrored by order-archive"]);
-    expect(cells("$KV.feature-flags.>")).toEqual(["APP", "KV_feature-flags", "22 watchers (api-gateway, checkout-service, order-service +1)", "0.04", ""]);
+    expect(cells("$KV.feature-flags.>")).toEqual(["APP", "feature-flags", "22 watchers (api-gateway, checkout-service, order-service +1)", "0.04", ""]);
     expect(cells("orders.place")).toEqual(["APP", "", "3 connections in queue group order-service (order-service)", "– no stored rate", ""]);
     expect(cells("$JS.API.>")).toEqual(["APP", "", "server", "– no stored rate", "JetStream API: 3.1 req/s, 0.2% errors"]);
     expect(cells(">")).toEqual(["SYSsystem", "", "1 connection (ops-monitor)", "– no stored rate", "receives every message in the account"]);
@@ -352,7 +352,7 @@ describe("Subjects tester", () => {
     const { container } = renderApp(<Subjects />, "/subjects");
     await userEvent.type(field(), "x");
     const card = within(await screen.findByRole("region", { name: "Where this subject goes" }));
-    await card.findByRole("link", { name: "KV_flags" });
+    await card.findByRole("link", { name: "flags" });
     const chips = [...container.querySelectorAll(".sj-reach .sj-chip:not(.sj-chip-stream)")].map((c) => [c.textContent, c.classList.contains("sj-chip-warn")]);
     expect(chips).toEqual([
       ["Then read by 22 watchers", false],
