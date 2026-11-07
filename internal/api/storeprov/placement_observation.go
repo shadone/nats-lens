@@ -163,8 +163,10 @@ func (p *Provider) placementObservation(ctx context.Context, req *v1.GetPlacemen
 	// Resolve every name used by this sample, including peers with no asset
 	// report. A name is not a process ID: simultaneous observations of two
 	// same-named processes make the sample unknown, regardless of which JSZ
-	// endpoint succeeded. Keep the latest-known identity fallback for a clean
-	// handover or offline process; first_epoch prevents future identity leaks.
+	// endpoint succeeded. The sole observed process is authoritative, even if
+	// an older identity returns. With no observation, a single endpoint target
+	// (including a failed reply) identifies the attempted process. Historical
+	// fallback is uncertain when more than one prior identity could apply.
 	names := map[string]bool{req.GetSelectedServer(): true}
 	for _, s := range samples {
 		for name := range s.reps {
@@ -193,14 +195,20 @@ func (p *Provider) placementObservation(ctx context.Context, req *v1.GetPlacemen
 ), candidates AS (
  SELECT e.epoch, s.server_name, s.server_id, s.first_epoch,
  coalesce(ep.state='ok',false) AS jsz_ok,
- count(o.server_id) OVER (PARTITION BY e.epoch,s.server_name) AS observed_processes
+ o.server_id IS NOT NULL AS is_observed,
+ ep.server_id IS NOT NULL AS is_target,
+ count(o.server_id) OVER (PARTITION BY e.epoch,s.server_name) AS observed_processes,
+ count(ep.server_id) OVER (PARTITION BY e.epoch,s.server_name) AS targets,
+ count(*) OVER (PARTITION BY e.epoch,s.server_name) AS historical_processes,
+ count(*) OVER (PARTITION BY e.epoch,s.server_name,s.first_epoch) AS same_first_processes
  FROM epochs e JOIN servers s ON s.first_epoch<=e.epoch
  LEFT JOIN observed o ON o.epoch=e.epoch AND o.server_id=s.server_id
  LEFT JOIN epoch_endpoints ep ON ep.epoch=e.epoch AND ep.server_id=s.server_id AND ep.endpoint='JSZ'
  WHERE e.epoch BETWEEN ? AND ? AND s.server_name IN (` + strings.TrimSuffix(strings.Repeat("?,", len(ordered)), ",") + `)
 )
-SELECT epoch, server_name, server_id, jsz_ok, observed_processes FROM candidates
-QUALIFY row_number() OVER(PARTITION BY epoch,server_name ORDER BY first_epoch DESC,server_id)=1`
+SELECT epoch, server_name, server_id, jsz_ok, observed_processes,
+ targets, historical_processes, first_epoch, is_target, same_first_processes FROM candidates
+QUALIFY row_number() OVER(PARTITION BY epoch,server_name ORDER BY is_observed DESC,is_target DESC,first_epoch DESC,server_id)=1`
 	// Both observed sources and the result stay inside the same collection
 	// bounds. This remains the fourth read, not one query per name or epoch.
 	rows, err = p.db().QueryContext(ctx, q, identityArgs...)
@@ -208,10 +216,10 @@ QUALIFY row_number() OVER(PARTITION BY epoch,server_name ORDER BY first_epoch DE
 		return nil, err
 	}
 	for rows.Next() {
-		var epoch, observed int64
+		var epoch, observed, targets, historical, first, sameFirst int64
 		var name, id string
-		var ok bool
-		if err = rows.Scan(&epoch, &name, &id, &ok, &observed); err != nil {
+		var ok, target bool
+		if err = rows.Scan(&epoch, &name, &id, &ok, &observed, &targets, &historical, &first, &target, &sameFirst); err != nil {
 			break
 		}
 		if s := byEpoch[epoch]; s != nil {
@@ -226,7 +234,13 @@ QUALIFY row_number() OVER(PARTITION BY epoch,server_name ORDER BY first_epoch DE
 				s.processes = map[string]string{}
 			}
 			s.processes[name] = id
-			if observed > 1 {
+			// Multiple current targets can disagree even if only one replied.
+			// Without current evidence, first_epoch alone cannot resolve an
+			// old process returning after a replacement. A newly first-seen
+			// process still establishes a clean handover in that collection.
+			conflictingTarget := observed == 1 && targets > 0 && !target
+			ambiguousHistory := observed == 0 && targets == 0 && historical > 1 && (first != epoch || sameFirst > 1)
+			if observed > 1 || targets > 1 || conflictingTarget || ambiguousHistory {
 				s.unknown = true
 			}
 			if name == req.GetSelectedServer() {
@@ -241,6 +255,18 @@ QUALIFY row_number() OVER(PARTITION BY epoch,server_name ORDER BY first_epoch DE
 	rows.Close()
 	if err != nil {
 		return nil, err
+	}
+	for _, s := range samples {
+		if s.processes[req.GetSelectedServer()] == "" {
+			s.unknown = true
+		}
+		for _, peers := range s.peers {
+			for _, name := range peers {
+				if s.processes[name] == "" {
+					s.unknown = true
+				}
+			}
+		}
 	}
 	return observePlacement(samples, req.GetSelectedAsset(), req.GetSelectedServer(), edge, p.Interval), nil
 }
