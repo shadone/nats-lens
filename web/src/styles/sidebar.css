@@ -24,7 +24,7 @@
 
 /* pages */
 .side-nav ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
-.side-gh{padding:var(--sp-6) var(--sp-3) var(--sp-2);font-size:var(--fs-xs)}
+.side-gh{padding:var(--sp-5) var(--sp-3) var(--sp-2);font-size:var(--fs-xs)}
 .side-nav a{display:flex;align-items:center;gap:var(--sp-2);height:32px;padding:0 var(--sp-3);border-radius:var(--r-md);color:var(--text-2);text-decoration:none;font-size:var(--fs-md)}
 .side-nav a:hover{background:var(--surface-sunk);color:var(--text)}
 .side-nav a.on{background:var(--surface);color:var(--text);font-weight:500;box-shadow:inset 0 0 0 1px var(--border)}
