@@ -4,12 +4,13 @@
 import { useState } from "react";
 import type { Finding } from "../api/model";
 import { CURRENT_FINDINGS_LIMIT, useBusiestConsumers, useCurrentFindings, useStreamPlacement } from "../api/overview";
-import { useOverview, useTimeline } from "../api/queries";
+import { useLensInfo, useOverview, useTimeline } from "../api/queries";
 import { BusiestConsumers } from "../components/BusiestConsumers";
 import { CauseGroups } from "../components/CauseGroups";
 import { Empty, ErrorBox, Loading, QueryView, RLink, StaleBanner } from "../components/common";
 import { MuteDialog } from "../components/MuteDialog";
 import { StatusLine } from "../components/StatusLine";
+import { WindowReplayEntries } from "../components/ReplayEntry";
 import { StoryLanes } from "../components/StoryLanes";
 import { StreamPlacementCard } from "../components/StreamPlacementCard";
 import { OverviewTiles } from "../components/OverviewTiles";
@@ -43,6 +44,7 @@ function Story({ end }: { end: number }) {
   const { spec } = useTimeRange();
   const q = useTimeline(spec);
   const tl = q.data;
+  const info = useLensInfo().data;
   return (
     <section className="sec">
       <div className="card story-card">
@@ -55,7 +57,7 @@ function Story({ end }: { end: number }) {
           </span>
         </div>
         <QueryView q={q} what="the timeline">
-          {(t) => <StoryLanes tl={t} end={end} live={spec.kind === "live"} />}
+          {(t) => <><StoryLanes tl={t} end={end} live={spec.kind === "live"} /><WindowReplayEntries windows={t.windows} now={serverNow()} minGapMs={info?.collectIntervalMs || 30_000} /></>}
         </QueryView>
       </div>
     </section>

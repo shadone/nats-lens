@@ -1,3 +1,5 @@
+import { ReplayEntry } from "../components/ReplayEntry";
+import { serverNow } from "../lib/clock";
 import { FindingAcknowledgement } from "../components/Acknowledgement";
 import { OnCallFinding } from "../components/OnCallFinding";
 import { usePhone } from "../lib/usePhone";
@@ -276,7 +278,8 @@ export function DesktopFindingDetail({ acknowledgements = true }: { acknowledgem
   const q = useFinding(spec, id);
   const f = q.data?.finding;
   const tl = useTimeline(spec, f?.entity);
-  const historyStart = useLensInfo().data?.historyStart;
+  const info = useLensInfo().data;
+  const historyStart = info?.historyStart;
   const [muting, setMuting] = useState(false);
   const [lifting, setLifting] = useState(false);
   return (
@@ -303,6 +306,7 @@ export function DesktopFindingDetail({ acknowledgements = true }: { acknowledgem
               {acknowledgements ? <FindingAcknowledgement key={d.finding.id} finding={d.finding} renderHead={open =>
                 <section className="sec"><Head f={d.finding!} spec={spec} start={start} end={end} onMute={() => setMuting(true)} onUnmute={() => setLifting(true)} onAck={open} /></section>
               } /> : <section className="sec"><Head f={d.finding} spec={spec} start={start} end={end} onMute={() => setMuting(true)} onUnmute={() => setLifting(true)} /></section>}
+              <ReplayEntry finding={d.finding} transitions={d.transitions} start={start} end={end} now={serverNow()} minGapMs={info?.collectIntervalMs || 30_000} />
               {d.finding.mute && <MuteSection m={d.finding.mute} />}
               <div className="sec fd-cols">
                 <div className="fd-main">
