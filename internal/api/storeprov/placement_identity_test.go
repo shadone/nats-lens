@@ -17,41 +17,41 @@ func TestPlacementObservationNameIdentity(t *testing.T) {
 		boundary string
 	}{
 		{"selected collision now", []string{
-			`INSERT INTO servers SELECT 'other-S1','nats-1',2,3,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
+			`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'other-S1','nats-1',2,3,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
 			`INSERT INTO server_stats(epoch,server_id) VALUES (2,'S1'),(3,'S1'),(2,'other-S1'),(3,'other-S1')`,
 		}, 1, "evidence_unknown"},
 		{"selected collision only in history", []string{
-			`INSERT INTO servers SELECT 'other-S1','nats-1',2,2,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
+			`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'other-S1','nats-1',2,2,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
 			`INSERT INTO server_stats(epoch,server_id) VALUES (2,'S1'),(2,'other-S1')`,
 		}, 1, "evidence_unknown"},
 		{"reporter collision without another asset report", []string{
-			`INSERT INTO servers SELECT 'other-S0','nats-0',2,2,first_seen_at,last_seen_at FROM servers WHERE server_id='S0'`,
+			`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'other-S0','nats-0',2,2,first_seen_at,last_seen_at FROM servers WHERE server_id='S0'`,
 			`INSERT INTO server_stats(epoch,server_id) VALUES (2,'S0'),(2,'other-S0')`,
 		}, 1, "evidence_unknown"},
 		{"peer collision without own asset report", []string{
 			`DELETE FROM stream_stats WHERE server_id='S1'`,
-			`INSERT INTO servers SELECT 'other-S1','nats-1',2,2,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
+			`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'other-S1','nats-1',2,2,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
 			`INSERT INTO server_stats(epoch,server_id) VALUES (2,'S1'),(2,'other-S1')`,
 		}, 1, "evidence_unknown"},
 		{"endpoint success alone reveals collision", []string{
-			`INSERT INTO servers SELECT 'other-S1','nats-1',2,2,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
+			`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'other-S1','nats-1',2,2,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
 			`INSERT INTO epoch_endpoints VALUES (2,'other-S1','VARZ','ok',NULL)`,
 		}, 1, "evidence_unknown"},
 		{"unrelated name collision", []string{
-			`INSERT INTO servers SELECT 'other-S1','unrelated',2,3,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
+			`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'other-S1','unrelated',2,3,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
 			`INSERT INTO server_stats(epoch,server_id) VALUES (2,'S1'),(3,'S1'),(2,'other-S1'),(3,'other-S1')`,
 		}, 2, "state_changed"},
 		{"future process cannot leak backwards", []string{
-			`INSERT INTO servers SELECT 'other-S1','nats-1',4,4,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
+			`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'other-S1','nats-1',4,4,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
 		}, 2, "state_changed"},
 		{"clean process handover cuts identity", []string{
-			`INSERT INTO servers SELECT 'new-S1','nats-1',3,3,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
+			`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'new-S1','nats-1',3,3,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
 			`UPDATE stream_stats SET server_id='new-S1' WHERE server_id='S1' AND epoch=3`,
 			`UPDATE epoch_endpoints SET server_id='new-S1' WHERE server_id='S1' AND epoch=3`,
 		}, 1, "identity_changed"},
 		{"retired process does not poison new run", []string{
 			`UPDATE stream_replicas SET current=false`,
-			`INSERT INTO servers SELECT 'new-S1','nats-1',2,3,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
+			`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) SELECT 'new-S1','nats-1',2,3,first_seen_at,last_seen_at FROM servers WHERE server_id='S1'`,
 			`UPDATE stream_stats SET server_id='new-S1' WHERE server_id='S1' AND epoch>=2`,
 			`UPDATE epoch_endpoints SET server_id='new-S1' WHERE server_id='S1' AND epoch>=2`,
 		}, 2, "identity_changed"},
