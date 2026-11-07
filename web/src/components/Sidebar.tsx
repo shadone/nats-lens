@@ -11,6 +11,7 @@ import { useGlobalQuery } from "../lib/useGlobalQuery";
 import type { Level, Tally } from "../api/model";
 import { visibleNav, type BadgeSource, type NavGroup, type NavItem } from "../nav";
 import { SystemSwitcher } from "./SystemSwitcher";
+import { railCount } from "../lib/railCount";
 
 export interface Badge {
   count: number;
@@ -101,7 +102,8 @@ export function Sidebar({ collapsed, onCollapse, drawerOpen, onCloseDrawer }: Pr
                       <span className="side-txt">{i.label}</span>
                       {b && (
                         <span className={`nb ${b.level}`} aria-hidden="true">
-                          {b.count}
+                          <span className="nb-full">{b.count}</span>
+                          <span className="nb-rail">{railCount(b.count)}</span>
                         </span>
                       )}
                     </NavLink>
