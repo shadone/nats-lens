@@ -41,7 +41,8 @@ export function useRoutePosition() {
     const changedHash = prior.hash !== location.hash;
     const saved = navigation === "POP" ? positions.current.get(location.key) : undefined;
     const restore = !initial && saved !== undefined;
-    const anchor = !!location.hash && (initial || changedPath || changedHash);
+    // A saved history position wins over the entry's original fragment.
+    const anchor = !restore && !!location.hash && (initial || changedPath || changedHash);
     const start = !initial && changedPath && !restore && !anchor;
     const root = main.current;
     if (!root) return;
