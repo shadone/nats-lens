@@ -120,3 +120,6 @@ ul.replay-entry{list-style:none}
 .replay-entry li + li{margin-top:var(--sp-3)}
 .replay-entry p{margin:var(--sp-1) 0;color:var(--text-muted);font-size:var(--fs-sm)}
 .replay-entry a{display:inline-block;padding-block:var(--sp-2)}
+/* The padding gives a phone a target; the dotted rule stays under the text. */
+.replay-entry a.x{border-bottom:0;text-decoration:underline dotted var(--text-faint);text-underline-offset:3px}
+.replay-entry a.x:hover{text-decoration-color:var(--accent)}
