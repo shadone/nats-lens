@@ -96,7 +96,7 @@ ORDER BY n.name`, f.Epoch)
 
 // serverStoreGrowth reads every server's file store in use over the range,
 // by server name (so a restart continues the series), reduced in SQL to at
-// most api.GrowthBuckets medians per server.
+// most api.GrowthBuckets+1 aligned medians per server.
 func (p *Provider) serverStoreGrowth(ctx context.Context, start, end time.Time) (map[string][]api.Sample, error) {
 	start = api.GrowthStart(start, end, p.Interval)
 	width := p.growthWidth(start, end)
