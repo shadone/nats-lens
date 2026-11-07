@@ -237,11 +237,22 @@ export function useCapacity(spec: RangeSpec) {
   });
 }
 
+/** The Data history read's cache key; `server` is empty for the whole system. */
+function dataHistoryKey(sys: string, spec: RangeSpec, server: string) {
+  return ["data-history", sys, rangeKey(spec), server] as const;
+}
+/** Every Data history key of a system, server-scoped or not. */
+export const dataHistoryPrefix = (sys: string) => ["data-history", sys] as const;
+/** Whether a Data history key is scoped to one server. */
+export function isServerHistoryKey(key: readonly unknown[]): boolean {
+  return key[0] === "data-history" && typeof key[3] === "string" && key[3] !== "";
+}
+
 /** The Data history page: the history and the range's gaps, followed on a live range as Capacity is. */
 export function useDataHistory(spec: RangeSpec, server = "") {
   const sys = useSystem();
   return useQuery({
-    queryKey: ["data-history", sys, rangeKey(spec), server],
+    queryKey: dataHistoryKey(sys, spec, server),
     queryFn: ({ signal }) => api.getDataHistory(sys, spec, signal, server),
     refetchInterval: refetch(spec),
     // Later chart mounts reuse the settled answer until the next live refresh.
