@@ -11,7 +11,7 @@ import { UnmuteDialog } from "../components/MuteDialog";
 import { AcceptedTag, Sev } from "../components/Severity";
 import { serverNow } from "../lib/clock";
 import { fmtDuration, isoMinute } from "../lib/format";
-import { accountLabeller, entityName } from "../lib/view";
+import { accountLabeller, entityName, LEVEL_LABEL } from "../lib/view";
 import { endedByLens, muteActive, muteBy, reviewOn, sentence } from "../lib/muteView";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useSystem } from "../lib/useSystem";
@@ -170,7 +170,7 @@ export function Findings() {
           </button>
           {SEVERITIES.map((s) => (
             <button key={s} type="button" className={`chip${sev.includes(s) ? " on" : ""}`} aria-pressed={sev.includes(s)} onClick={() => toggleSev(s)}>
-              {s}
+              {LEVEL_LABEL[s]}
             </button>
           ))}
         </div>

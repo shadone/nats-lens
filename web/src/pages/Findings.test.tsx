@@ -107,3 +107,13 @@ describe("Findings with acceptances", () => {
     expect(screen.getByText(/expiry warnings after the other warnings/)).toBeInTheDocument();
   });
 });
+
+describe("Findings filters", () => {
+  it("names the severity chips in sentence case beside All", async () => {
+    m.listFindings.mockResolvedValue(page<Finding>([]));
+    m.listMutes.mockResolvedValue(page<Mute>([]));
+    renderApp(<Findings />, "/findings");
+    const group = within(await screen.findByRole("group", { name: "Severity" }));
+    expect(group.getAllByRole("button").map((b) => b.textContent)).toEqual(["All", "Critical", "Warning", "Info"]);
+  });
+});
