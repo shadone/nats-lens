@@ -1,6 +1,8 @@
 package checks
 
 import (
+	"fmt"
+	"math"
 	"testing"
 	"time"
 )
@@ -293,4 +295,37 @@ func TestOldestUnreadRefillAfterLongGap(t *testing.T) {
 	})
 	r := f.eval("consumer-014", 400, map[string]string{"warn_ratio": "0.0001", "resolve_ratio": "0.00005"})
 	want(t, r["APP/events/gap"], "warning", "at least 25 minutes old")
+}
+
+// Refinement includes the coarse epoch and the preceding 63 epochs,
+// including when the earliest lookback point has no later coarse probe.
+func TestOldestUnreadBacklogProbeBoundaries(t *testing.T) {
+	f := newFx(t)
+	f.cluster(400)
+	f.expiryStream(400)
+	starts := []int64{263, 319, 320, 321, 379}
+	for _, start := range starts {
+		f.stalledFiltered(fmt.Sprintf("start-%d", start), 400, func(e int64) int64 {
+			if e < start {
+				return -1
+			}
+			return 3
+		})
+	}
+	got := f.eval("consumer-014", 400, map[string]string{"warn_ratio": "0.01", "resolve_ratio": "0.005"})
+	if len(got) != len(starts) {
+		t.Fatalf("findings = %s", rowsText(got))
+	}
+	for _, start := range starts {
+		key := fmt.Sprintf("APP/events/start-%d", start)
+		row, ok := got[key]
+		if !ok {
+			t.Errorf("missing %s", key)
+			continue
+		}
+		ratio := math.Round(float64(400-start)/120*1e4) / 1e4
+		if row.Value == nil || *row.Value != ratio {
+			t.Errorf("%s value = %v, want %g", key, row.Value, ratio)
+		}
+	}
 }
