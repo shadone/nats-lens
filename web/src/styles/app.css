@@ -32,11 +32,11 @@ input[type="checkbox"],input[type="radio"]{accent-color:var(--accent)}
 .hint{color:var(--text-muted);font-size:11.5px}
 
 /* worst finding by severity, and the all-clear card */
-.worst.warning{border-color:var(--border);background:linear-gradient(90deg,var(--sev-warning-bg),var(--surface) 58%)}
+.worst.warning{border-color:var(--border);background:var(--sev-warning-bg)}
 .worst.warning:before{background:var(--sev-warning)}
-.worst.info{border-color:var(--border);background:linear-gradient(90deg,var(--sev-info-bg),var(--surface) 58%)}
+.worst.info{border-color:var(--border);background:var(--sev-info-bg)}
 .worst.info:before{background:var(--sev-info)}
-.worst.clear{border-color:var(--border);background:linear-gradient(90deg,var(--accent-soft),var(--surface) 58%)}
+.worst.clear{border-color:var(--border);background:var(--accent-soft)}
 .worst.clear:before{background:var(--accent)}
 .sev.ok{color:var(--accent-text);border:1px solid var(--accent)}
 .frow a.t{color:var(--text);text-decoration:none}
