@@ -67,7 +67,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Server checks](server-checks.md) | `ui`, `api`, `cli` | shipped — includes OCSP peer rejections, sustained slow route pairs, system-level leaf-site health with bounded evidence retention and churn hysteresis across missed evaluations |
 | [Account checks](account-checks.md) | `ui`, `cli` | shipped |
 | [Stream checks](stream-checks.md) | `ui`, `cli` | shipped — creation metadata guidance qualifies message identity and rebuild history; includes per-source silence and errors |
-| [Consumer checks](consumer-checks.md) | `ui`, `cli` | shipped — sustained replica degradation warns before quorum loss; unknown evidence holds an existing warning |
+| [Consumer checks](consumer-checks.md) | `ui`, `cli` | shipped — sustained replica degradation warns before quorum loss; authoritative loss or agreed incarnation changes end it |
 | [Client checks](client-checks.md) | `ui`, `cli` | shipped — reference retains event prerequisites, changed-key mutes, unknown-library exclusions and full retention rules; short-lived connection hysteresis survives missed evaluations |
 | [System checks](system-checks.md) | `ui`, `cli` | shipped — account RAFTZ completeness follows request outcomes; meta leader checks preserve proven scope and distinguish ambiguous from absent membership; notification delivery health survives retention sweeps |
 | [Inventory](inventory.md) | `ui`, `cli` | shipped |
@@ -118,7 +118,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [ ] Server checks for queued JetStream API requests (server-checks.md)
 - [x] Account checks `account-001` to `account-004`: connection and disk limits, account and user JWT expiry (account-checks.md)
 - [x] Stream, KV bucket and object store checks `stream-001` to `stream-023`, mirrors, sources, single replicas, KV history, streams without a consumer and interior deletes among them; per-source silence and errors, qualified creation metadata guidance (stream-checks.md)
-- [x] Consumer checks `consumer-001` to `consumer-018`, among them the oldest unread message about to expire, pull requests at `max_waiting`, a single-replica durable on a replicated stream, a long pause and sustained replica degradation before quorum loss; creation timestamps alone do not prove cause or health, with matching demo guidance (consumer-checks.md)
+- [x] Consumer checks `consumer-001` to `consumer-018`, among them the oldest unread message about to expire, pull requests at `max_waiting`, a single-replica durable on a replicated stream, a long pause and sustained replica degradation with separate start and resolution evidence; creation timestamps alone do not prove cause or health, with matching demo guidance (consumer-checks.md)
 - [x] Client checks `client-001` to `client-008`, among them repeated authentication errors, unnamed connections with full retention reference, authentication capture and changed-key guidance, outdated client libraries with unknown-version exclusions and short-lived connection hysteresis across missed evaluations (client-checks.md)
 - [x] System checks `system-001` to `system-010`: meta leader health with proven scope and explicit membership limits, mixed API levels, and nats-lens's own health including account RAFTZ completeness (system-checks.md)
 - [x] The inventory of assets that must exist (inventory.md)
