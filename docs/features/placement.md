@@ -1,7 +1,7 @@
 # Placement
 
 - **Surfaces:** `ui`, `api`
-- **Status:** partial — how long a state other than a leader's has lasted, and a link to a playbook, are not built
+- **Status:** partial — bounded observed state duration is available; a playbook link is not built
 - **Related:** [streams.md](streams.md), [consumers.md](consumers.md), [kv-and-object-stores.md](kv-and-object-stores.md), [stream-checks.md](stream-checks.md), [consumer-checks.md](consumer-checks.md), [replay.md](replay.md), [design.md](../design.md)
 
 ## What it does
@@ -23,10 +23,13 @@ The Placement page, under JetStream in the sidebar, shows every stream and durab
   - this server's position (a stream's last and first sequence, a consumer's delivered and acknowledgement floor sequence) and whether every server that reports one reports the same, else each server's;
   - the lag the leader reports, and the configuration hash;
   - the replicas this server names, itself included, and whether every server names the same ones;
-  - since when: the leader's tenure for the leader cell, how old a copy with another creation time is, and the state at the moment compared with;
+  - since when: the leader's tenure for the leader cell, how old a copy with another creation time is, sampled duration evidence for a selected problem cell, and the state at the moment compared with;
   - what the state means, in a sentence or two;
   - the `nats stream info` or `nats consumer info` command to check it by hand (with `| jq .created` when the creation time differs), with a Copy button;
   - links to the asset's events and its page.
+- **Observed problem duration.** For a selected behind, offline, missing or disagreeing cell, the panel searches stored collections backwards from the matrix's collection. It also follows a follower whose creation time or configuration differs while its replica state is in sync. The panel says when the same evidence was first observed in that run, the span between samples, and the number of collections. “At least” describes a lower bound from observations, not a continuous outage or its actual start. One collection establishes no earlier duration. The evidence ends at the matrix's collection, even when that collection is older than the range's end.
+- **Continuity and limits.** The search stays within the selected range, at most 24 hours and 256 collections. It stops at a different state or disagreement, an unknown or absent cell, missing creation or successful collection evidence, a collection gap, or a process, asset incarnation or replica membership change. A gap means a missing collection number, non-increasing collection times, or spacing longer than twice the configured interval. Offline and missing cells can continue from the leader's repeated reports even when the selected replica sends no asset report. The panel names the boundary and marks limited history when a range, lookback, collection cap or stored-history edge cuts the search short. These bounds and the gap threshold are proposed, not yet confirmed.
+- **Evidence isolation.** Only a cell present in the current matrix can request history; filtering and comparing matrices keep their existing rules. The panel hides evidence from a previous cell, system or range while the replacement loads, and hides it after a failed read. It keeps the leader's reported tenure and a differing copy's creation age separate. The demo has no stored observation history and leaves this evidence unavailable.
 - **Commands are safe to paste.** Every command puts the stream and consumer names after `--`, quoted when needed, such as `nats consumer info --json -- order-jobs resize-worker`, so a name that starts with `-` is never read as an option. A name with a control character, such as a line break, gets no command, only a note. The commands name neither the account nor the system, so a line below each says which to use a nats context for, such as "Run with a nats context for account APP on example-global."; without a system in the address it names the default system.
 - **No write actions.** For an asset with a leader, "Step down leader" shows the `nats stream cluster step-down` or `nats consumer cluster step-down` command and copies it. nats-lens runs nothing and changes nothing in NATS.
 - **Keyboard and screen readers.** Tab reaches every cell; each cell's name says the asset (a consumer with its stream, "resize-worker of order-jobs"), the server, the state, what differs, its text and how it changed. The filters are toggle buttons. Close, or removing the selection from the address, closes the panel.
@@ -98,12 +101,29 @@ The Placement page, under JetStream in the sidebar, shows every stream and durab
 - **When** a client calls `GetPlacement` with a range and the filter `PLACEMENT_FILTER_REPLICA_BEHIND`
 - **Then** it receives the servers, the streams with a replica behind (and those whose consumers have one), each asset's cells on each server, and the count of every filter
 
+### Distinguish a repeated problem from one observation
+
+- **Surfaces:** `ui`, `api`
+- **Given** `order-jobs` on `nats-1` is behind in three consecutive stored collections, with the same process, incarnation and membership evidence
+- **When** I select that cell
+- **Then** the panel shows the oldest of those matching observations, at least the span between the first and last samples, and three collections
+- **And** the API supplies the same selected-cell evidence without changing the matrix's filter counts
+- **And** the panel explains that sampled evidence is not a continuous outage start
+
+### Stop at evidence that cannot establish continuity
+
+- **Surfaces:** `ui`, `api`
+- **Given** the preceding collection has unknown evidence, a collection gap, another incarnation or another disagreement
+- **When** I select a problem cell with only the newest matching observation after that boundary
+- **Then** the panel reports one collection with no earlier duration established and names why the search stopped
+- **And** reaching a search limit marks the evidence as limited history
+
 ## Not supported / out of scope
 
 - **No moving of assets.** nats-lens does not change placement, remove peers or step leaders down; it shows the commands only.
 - **No placement for core NATS subscriptions.** Only JetStream assets have a placement.
 - **Ephemeral and ordered consumers are not in the matrix**, nor consumers the inventory expects that no server reports; the Consumers list shows them.
-- **How long a state has lasted** is known only for the leader (its tenure) and for a copy with another creation time; for any other state, compare with an earlier time. nats-lens does not search back for when a state began.
+- **Actual outage start and continuous duration.** Stored samples establish observed lower bounds only. nats-lens does not infer activity between collections or search archives for this panel.
 - **No playbook link.** "Step down leader" copies the command; this panel does not show the [on-call card](mobile.md)'s configured playbook link. Site-specific advice belongs in a remediation file ([checks.md](checks.md)).
 - **An offline replica that sends no report is missing from the asset's page.** The matrix shows such a replica offline, from the leader's list; the server list of the stream's or consumer's page (and `GetStream`, `GetConsumer`) lists only the servers that report the asset, so the replica is not there.
 - **Two servers can show as leader on the asset's page.** When two servers each claim to lead an asset, the matrix names one leader and draws the other as disagreeing; the server list of the stream's or consumer's page shows each server's own claim, so both read as leader.
