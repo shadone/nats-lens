@@ -269,7 +269,7 @@ it("shows sampled lower-bound evidence for the selected problem without calling 
   Object.assign(m, { observation: { asset: "APP/order-jobs", server: "nats-2", asOf: m.epochAt, since: m.epochAt! - 60_000, samples: 3, truncated: true, boundary: "collection_limit", state: "offline", differs: [] } });
   vi.mocked(requests.getPlacement).mockResolvedValue(m);
   renderApp(<Placement />, "/placement?asset=APP%2Forder-jobs&server=nats-2");
-  expect(await screen.findByText(/observed offline since/)).toHaveTextContent("3 collections");
+  expect(await screen.findByText(/Observed offline since/)).toHaveTextContent("3 collections");
   expect(screen.getByText(/search stopped at the collection limit/)).toBeInTheDocument();
   expect(screen.getByText(/not a continuous outage start/)).toBeInTheDocument();
 });

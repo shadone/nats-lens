@@ -214,11 +214,11 @@ it.each([
 ])("hides observed evidence while the new %s loads", async (_what, route) => {
   vi.mocked(requests.getPlacement).mockResolvedValue(problem());
   page("/placement?asset=APP%2Forders&server=nats-1");
-  await screen.findByText(/observed offline since/);
+  await screen.findByText(/Observed offline since/);
   vi.mocked(requests.getPlacement).mockImplementation(never);
   act(() => go(route));
   await settle();
-  expect(screen.queryByText(/observed offline since/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Observed offline since/)).not.toBeInTheDocument();
 });
 
 it("does not attach a delayed selected-cell response after the selection changes", async () => {
@@ -229,7 +229,7 @@ it("does not attach a delayed selected-cell response after the selection changes
   act(() => go("/placement?asset=APP%2Forders&server=nats-2"));
   await screen.findByRole("heading", { name: "orders" });
   await act(async () => finish(problem()));
-  expect(screen.queryByText(/observed offline since/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Observed offline since/)).not.toBeInTheDocument();
 });
 
 it("hides a failed observed-history refetch instead of presenting its old evidence", async () => {
@@ -237,8 +237,8 @@ it("hides a failed observed-history refetch instead of presenting its old eviden
   let qc!: QueryClient;
   function TestPage() { qc = useQueryClient(); return <Placement />; }
   renderApp(<TestPage />, "/placement?asset=APP%2Forders&server=nats-1");
-  await screen.findByText(/observed offline since/);
+  await screen.findByText(/Observed offline since/);
   vi.mocked(requests.getPlacement).mockRejectedValue(new Error("history unavailable"));
   await act(async () => { await qc.invalidateQueries({ queryKey: ["placement"] }); });
-  await waitFor(() => expect(screen.queryByText(/observed offline since/)).not.toBeInTheDocument());
+  await waitFor(() => expect(screen.queryByText(/Observed offline since/)).not.toBeInTheDocument());
 });

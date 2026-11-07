@@ -167,7 +167,7 @@ function Observed({ o }: { o: PlacementObservation }) {
   };
   const what = o.differs.length ? `${CELL_LABEL[o.state]} with ${o.differs.map(d => d === "created" ? "a different creation time" : "a different configuration").join(" and ")}` : CELL_LABEL[o.state];
   return <p className="pm-note">
-    observed {what} since {isoSecond(o.since)} UTC, at least {fmtDuration(o.asOf - o.since)} across {o.samples} {o.samples === 1 ? "collection" : "collections"}.
+    Observed {what} since {isoSecond(o.since)} UTC, at least {fmtDuration(o.asOf - o.since)} across {o.samples} {o.samples === 1 ? "collection" : "collections"}.
     {" "}{o.truncated ? "Limited history: " : ""}search stopped at {boundary[o.boundary] ?? "the evidence boundary"}.
     {" "}This is sampled evidence, not a continuous outage start. A single collection establishes no earlier duration.
   </p>;
