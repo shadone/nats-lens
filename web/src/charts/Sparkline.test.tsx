@@ -55,3 +55,62 @@ describe("the change tone", () => {
     expect(container.querySelectorAll(".spark-now")).toHaveLength(1);
   });
 });
+
+describe("the halo under the change marks", () => {
+  const steps = [5, 5, 5, 9, 9, 9].map((value, i) => ({ time: i * 1000, value }));
+  let v = 0;
+  const noisy = Array.from({ length: 201 }, (_, i) => { if (i > 0 && i <= 188 && i % 2 === 0) v = 1 - v; return { time: i * 1000, value: v }; });
+  // One bucket that dips to 0 inside a flat 5: a ticked move.
+  const dip = [5, 5, 5, 5, 5, 5].map((value, i) => ({ time: i * 1000, value, ...(i === 3 ? { low: 0 } : {}) }));
+
+  /** Each change mark with its halo; halos come in the marks' order, all of them before the first mark. */
+  function pairs(c: HTMLElement, sel: string) {
+    const marks = [...c.querySelectorAll(".spark-change, .spark-now, .spark-range")] as SVGElement[];
+    const halos = [...c.querySelectorAll(".spark-halo")] as SVGElement[];
+    expect(c.querySelectorAll(sel).length).toBeGreaterThan(0);
+    expect(halos).toHaveLength(marks.length);
+    expect(halos[halos.length - 1].compareDocumentPosition(marks[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    return marks.map((m, i) => ({ mark: m, halo: halos[i] })).filter(({ mark }) => mark.matches(sel));
+  }
+
+  function expectHalo(c: HTMLElement, sel: string) {
+    for (const { mark, halo } of pairs(c, sel)) {
+      expect(halo).toHaveClass("spark-halo");
+      expect(halo.tagName).toBe(mark.tagName);
+      expect(halo.style.stroke).toBe("var(--spark-halo, var(--surface))");
+      expect(Number(halo.getAttribute("stroke-width"))).toBe(Number(mark.getAttribute("stroke-width")) + 3);
+      for (const a of ["points", "d", "x1", "x2", "y1", "y2", "stroke-linecap", "stroke-linejoin", "vector-effect"]) {
+        expect(halo.getAttribute(a)).toBe(mark.getAttribute(a));
+      }
+    }
+  }
+
+  it("draws a halo before each changed segment", () => {
+    const { container } = render(<Sparkline points={steps} status="ok" windows={[]} start={0} end={5000} label="Consumers" tone="change" />);
+    expectHalo(container, ".spark-change");
+  });
+
+  it("draws a halo before the newest-point dot", () => {
+    const { container } = render(<Sparkline points={noisy} status="ok" windows={[]} start={0} end={200_000} label="Pending" tone="change" />);
+    expectHalo(container, ".spark-now");
+  });
+
+  it("draws a halo before each range tick", () => {
+    const { container } = render(<Sparkline points={dip} status="warning" windows={[]} start={0} end={5000} label="Clients" tone="change" />);
+    expectHalo(container, ".spark-range");
+    expect((container.querySelector(".spark-range") as SVGElement).style.stroke).toBe("var(--mark-warning)");
+  });
+
+  it("draws every halo under every mark when a tile has both segments and ticks", () => {
+    const both = [5, 5, 5, 9, 9, 9, 9, 9].map((value, i) => ({ time: i * 1000, value, ...(i === 6 ? { low: 0 } : {}) }));
+    const { container } = render(<Sparkline points={both} status="critical" windows={[]} start={0} end={7000} label="Consumers" tone="change" />);
+    expect(container.querySelectorAll(".spark-change").length).toBeGreaterThan(0);
+    expectHalo(container, ".spark-change");
+    expectHalo(container, ".spark-range");
+  });
+
+  it("draws no halo in the status tone", () => {
+    const { container } = render(<Sparkline points={steps} status="warning" windows={[]} start={0} end={5000} label="Consumers" />);
+    expect(container.querySelector(".spark-halo")).toBeNull();
+  });
+});
