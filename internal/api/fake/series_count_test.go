@@ -23,6 +23,9 @@ func TestCountBucketKeepsItsLowAndHigh(t *testing.T) {
 	if !dip {
 		t.Fatalf("no bucket holds the dip to 2: %v", s.GetPoints())
 	}
+	if s.GetMin() != 2 || s.GetMax() != 3 {
+		t.Fatalf("min/max = %v/%v, want 2/3", s.GetMin(), s.GetMax())
+	}
 	sum := must(c.GetTimeSeries(ctx, connect.NewRequest(&v1.GetTimeSeriesRequest{Metric: "cluster.slow_consumers", MaxPoints: 4}))).GetSeries()
 	for _, p := range sum.GetPoints() {
 		if p.Low != nil || p.High != nil {

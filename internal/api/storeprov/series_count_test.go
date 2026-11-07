@@ -34,6 +34,10 @@ func TestCountBucketKeepsItsLowAndHigh(t *testing.T) {
 	if p.GetValue() != 3 || p.Low == nil || p.GetLow() != 2 || p.High == nil || p.GetHigh() != 3 {
 		t.Fatalf("bucket = %v, want value 3, low 2, high 3", p)
 	}
+	// The series' min and max take in the edges, as a band's do.
+	if s.GetMin() != 2 || s.GetMax() != 3 {
+		t.Fatalf("min/max = %v/%v, want 2/3", s.GetMin(), s.GetMax())
+	}
 	// A summed count carries no low and high.
 	sum := must(c.GetTimeSeries(ctx, connect.NewRequest(&v1.GetTimeSeriesRequest{Metric: "cluster.meta_leader_changes", Range: rng, MaxPoints: 1}))).GetSeries()
 	for _, p := range sum.GetPoints() {

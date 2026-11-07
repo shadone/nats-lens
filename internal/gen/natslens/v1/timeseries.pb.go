@@ -199,11 +199,13 @@ type Series struct {
 	Points []*Point `protobuf:"bytes,5,rep,name=points,proto3" json:"points,omitempty"`
 	// Smallest value of the points; unset when there are no points.
 	//
-	// For a band metric, the smallest low of the points.
+	// For a band metric, and a count whose points carry low and high, the
+	// smallest low of the points.
 	Min *float64 `protobuf:"fixed64,6,opt,name=min,proto3,oneof" json:"min,omitempty"`
 	// Largest value of the points; unset when there are no points.
 	//
-	// For a band metric, the largest high of the points.
+	// For a band metric, and a count whose points carry low and high, the
+	// largest high of the points.
 	Max *float64 `protobuf:"fixed64,7,opt,name=max,proto3,oneof" json:"max,omitempty"`
 	// Busiest server of a band metric: the highest mean over the range.
 	// Unset for other metrics and when no server reported.
