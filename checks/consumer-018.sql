@@ -119,7 +119,7 @@ held AS (
         || split_part(f.detail, 'Last evidence: ', -1) AS detail,
         NULL::DOUBLE AS value, f.related_config, f.related_source
     FROM findings f LEFT JOIN current_judgment c USING (entity_key)
-    WHERE f.check_code='consumer-018' AND f.state='firing' AND f.updated_epoch<getvariable('epoch')
+    WHERE f.check_code='consumer-018' AND f.state='firing' AND f.updated_epoch<=getvariable('epoch')
       AND NOT EXISTS (SELECT 1 FROM fresh x WHERE x.entity_key=f.entity_key)
       -- A complete healthy report or known quorum loss resolves; ambiguity holds.
       AND NOT coalesce(c.complete AND (c.degraded=0 OR 1+c.online_peers<c.r//2+1),false)
