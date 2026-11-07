@@ -60,11 +60,11 @@
 .dh-chart-gap{opacity:.65}
 
 /* Stands in for part of a row the chart already has, so it never adds a line. */
-.dh-chart-status{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:inherit;color:var(--text-muted)}
-/* In a shared row the text takes the room between its neighbours and hides below 60px. */
+.dh-chart-status{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted)}
+/* In a shared row the text takes the room between its neighbours, whole or not at all. */
 .dh-chart-slot{flex:1 1 0;min-width:0;container-type:inline-size;text-align:center}
 .dh-chart-slot > .dh-chart-status{display:block}
-@container (max-width:60px){.dh-chart-slot > .dh-chart-status{visibility:hidden}}
+@container (max-width:13ch){.dh-chart-slot > .dh-chart-status{visibility:hidden}}
 .dh-status-in{display:grid;min-width:0}
 .dh-status-in > *{grid-area:1 / 1}
 .dh-status-keep{visibility:hidden}
