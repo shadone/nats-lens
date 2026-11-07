@@ -2,7 +2,7 @@
 
 - **Surfaces:** `ui`, `cli`
 - **Status:** shipped
-- **Related:** [overview.md](overview.md), [event-capture.md](event-capture.md), [history-and-archive.md](history-and-archive.md), [servers.md](servers.md), [running-nats-lens.md](running-nats-lens.md), [design.md](../design.md)
+- **Related:** [overview.md](overview.md), [event-capture.md](event-capture.md), [history-and-archive.md](history-and-archive.md), [servers.md](servers.md), [system-checks.md](system-checks.md), [running-nats-lens.md](running-nats-lens.md), [design.md](../design.md)
 
 ## What it does
 
@@ -11,7 +11,8 @@ Every collect interval (30 seconds by default), nats-lens takes one snapshot of 
 ## Behavior and rules
 
 - **Discovery, then detail.** nats-lens first finds the servers with `$SYS.REQ.SERVER.PING.STATSZ`. It then asks every server for VARZ, CONNZ (with subscription counts), ROUTEZ, GATEWAYZ, LEAFZ, ACCOUNTZ, account STATZ, JSZ (accounts, streams, consumers, their configuration and raft groups), HEALTHZ (with details), RAFTZ and IPQUEUESZ.
-- **RAFTZ per account.** A plain RAFTZ request returns only the JetStream meta group, so nats-lens sends one RAFTZ request per JetStream account it saw in JSZ, recorded as `RAFTZ:<account>`.
+- **RAFTZ per account.** A plain RAFTZ request returns only the JetStream meta group, so nats-lens sends one RAFTZ request per JetStream account it saw in JSZ, recorded as `RAFTZ:<account>`. A server with no groups for that account answers with an empty report, recorded as `ok`. While any server lists streams for the account, every answering server is expected to answer its account RAFTZ request. A server's own JSZ reply without those streams does not excuse a missing RAFTZ reply.
+- **An account leaves the request set.** When every answering server supplies JSZ and none lists streams for a previously seen account, nats-lens removes that account's RAFTZ outcomes from the collection and stops asking. Missing or failed JSZ keeps previously seen accounts in the request set. The unfiltered RAFTZ request for the meta group stays independent.
 - **A collect window per request.** Each request waits up to `timeout` (3 seconds by default) for replies and stops early once every server it expects has answered. A collection takes at most three windows, so nats-lens refuses a `timeout` that is not under a third of `interval`.
 - **Every server's view is kept.** nats-lens stores what each server reports about every asset, connection and raft group. It never keeps one server's answer in place of the others'.
 - **Expected servers, by name.** A server gets a new server ID on every restart, so nats-lens tracks servers by name. A collection expects every server name that answered within `server_forget_after` (1 hour by default), every server that answers now, and every route peer and JetStream meta peer that those servers list.
@@ -82,6 +83,22 @@ Every collect interval (30 seconds by default), nats-lens takes one snapshot of 
 - **When** I open that server's page
 - **Then** the "Monitoring endpoints" section shows HEALTHZ as `missing` and the other endpoints as `ok`
 - **And** the header's freshness tooltip names the newest collection as partial
+
+### The last replicated stream is deleted
+
+- **Given** account `APP` has one stream with three replicas
+- **When** the stream is deleted and one or two servers still list it in their JSZ replies
+- **Then** empty account RAFTZ replies are recorded as `ok`, with no raft-group rows for the deleted stream
+- **And** those empty replies do not make the collection partial
+- **And** once every JSZ reply lists no streams for `APP`, the collection has no `RAFTZ:APP` outcomes
+
+### An account RAFTZ reply is lost during deletion
+
+- **Given** one server lists no streams for `APP` while another still lists its deleted stream
+- **When** the first server leaves `RAFTZ:APP` unanswered
+- **Then** its outcome is `missing` and the collection is partial
+- **And** the server's monitoring endpoints and the header's freshness tooltip expose the incomplete collection
+- **And** [system checks](system-checks.md) count the failure toward `system-007`, subject to its history threshold and restart exclusions
 
 ### A newer server sends a retention policy nats-lens does not know
 

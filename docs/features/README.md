@@ -59,7 +59,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | Capability | Surfaces | Status |
 |---|---|---|
 | [What nats-lens is](overview.md) | `ui`, `api`, `cli` | shipped — read-only towards NATS; operator mutes and acknowledgements |
-| [Monitoring snapshots](monitoring-snapshots.md) | `ui`, `cli` | shipped |
+| [Monitoring snapshots](monitoring-snapshots.md) | `ui`, `cli` | shipped — empty account RAFTZ replies and last-stream deletion preserve request outcomes |
 | [Event capture](event-capture.md) | `ui`, `api`, `cli` | shipped — includes OCSP peer rejections with only known fields and peer fingerprints retained |
 | [Kubernetes context](kubernetes-context.md) | `ui`, `cli` | shipped |
 | [History and archive](history-and-archive.md) | `ui`, `cli` | shipped — DuckDB 2.0 file compatibility; visible archive state; recovery limited to successful exports |
@@ -69,7 +69,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Stream checks](stream-checks.md) | `ui`, `cli` | shipped — creation metadata guidance qualifies message identity and rebuild history; includes per-source silence and errors |
 | [Consumer checks](consumer-checks.md) | `ui`, `cli` | shipped — creation-time differences do not establish cause or replica health; demo guidance agrees |
 | [Client checks](client-checks.md) | `ui`, `cli` | shipped — reference retains event prerequisites, changed-key mutes, unknown-library exclusions and full retention rules; short-lived connection hysteresis survives missed evaluations |
-| [System checks](system-checks.md) | `ui`, `cli` | shipped — meta leader checks preserve proven scope and distinguish ambiguous from absent membership; notification delivery health survives retention sweeps |
+| [System checks](system-checks.md) | `ui`, `cli` | shipped — account RAFTZ completeness follows request outcomes; meta leader checks preserve proven scope and distinguish ambiguous from absent membership; notification delivery health survives retention sweeps |
 | [Inventory](inventory.md) | `ui`, `cli` | shipped |
 | [Navigation, time range and theme](navigation.md) | `ui`, `api` | shipped — history navigation, canonical and encoded alert-label links, compact live-range labels, and browser-locale range bounds and validated custom date entry |
 | [Overview page](overview-page.md) | `ui`, `api` | shipped — acknowledgement marks, phone ordering, history notes and chart gaps; chart navigation, time/value inspection with stable touch selection and bucket descriptions and summary/detail explanations and explicit unknown leaders and contained metric tips; cause evidence, a shared hover and more lanes are planned |
@@ -106,7 +106,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] What nats-lens is, its nouns, read-only observation, and operator records (overview.md)
 
 **Collection**
-- [x] One snapshot of every server per interval, partial collections kept, account details, the expiry of account JWTs, user JWTs and listener certificates, subscription lists every few minutes, the replies of micro services in the listed accounts, each client application's traffic per hour, and replies of newer servers kept when one of their values is unknown (monitoring-snapshots.md)
+- [x] One snapshot of every server per interval, partial collections kept, account RAFTZ deletion boundary, account details, the expiry of account JWTs, user JWTs and listener certificates, subscription lists every few minutes, the replies of micro services in the listed accounts, each client application's traffic per hour, and replies of newer servers kept when one of their values is unknown (monitoring-snapshots.md)
 - [x] NATS advisories and system events, short-lived connections folded into `client.churn` and flagged by `client-005` when frequent, and account connections that also ask micro services and, when one cannot connect, are dialled again without stopping the system; OCSP peer rejections retain known fields and peer fingerprints across payload key aliases (event-capture.md)
 - [x] Kubernetes pod, node and client-pod events on the same clock, with node upgrade and drain windows (kubernetes-context.md)
 - [x] Retention, DuckDB 2.0 file compatibility, hourly Parquet exports, archive state, and rebuild from successful exports (history-and-archive.md)
@@ -120,7 +120,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] Stream, KV bucket and object store checks `stream-001` to `stream-023`, mirrors, sources, single replicas, KV history, streams without a consumer and interior deletes among them; per-source silence and errors, qualified creation metadata guidance (stream-checks.md)
 - [x] Consumer checks `consumer-001` to `consumer-017`, among them the oldest unread message about to expire, pull requests at `max_waiting`, a single-replica durable on a replicated stream and a long pause; creation timestamps alone do not prove cause or health, with matching demo guidance (consumer-checks.md)
 - [x] Client checks `client-001` to `client-008`, among them repeated authentication errors, unnamed connections with full retention reference, authentication capture and changed-key guidance, outdated client libraries with unknown-version exclusions and short-lived connection hysteresis across missed evaluations (client-checks.md)
-- [x] System checks `system-001` to `system-010`: meta leader health with proven scope and explicit membership limits, mixed API levels, and nats-lens's own health (system-checks.md)
+- [x] System checks `system-001` to `system-010`: meta leader health with proven scope and explicit membership limits, mixed API levels, and nats-lens's own health including account RAFTZ completeness (system-checks.md)
 - [x] The inventory of assets that must exist (inventory.md)
 - [x] Findings sent to webhook and Slack-compatible channels, with baselines, mutes, flapping, channel acknowledgement quiet, retries and destination tests (notifications.md)
 
