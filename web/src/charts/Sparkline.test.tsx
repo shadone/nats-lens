@@ -32,9 +32,9 @@ describe("the change tone", () => {
     expect(change(container)).toBe("var(--cell-critical)");
   });
 
-  it("draws the warning marks in the warning cell colour", () => {
+  it("draws the warning marks in the darker mark amber, which reaches 3:1 on the card", () => {
     const { container } = render(<Sparkline points={steps} status="warning" windows={[]} start={0} end={5000} label="Consumers" tone="change" />);
-    expect(change(container)).toBe("var(--cell-warning)");
+    expect(change(container)).toBe("var(--mark-warning)");
   });
 
   it("lets the newest-point dot reach past the chart's right edge", () => {
