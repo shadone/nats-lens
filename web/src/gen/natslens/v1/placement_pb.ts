@@ -16,7 +16,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/placement.proto.
  */
 export const file_natslens_v1_placement: GenFile = /*@__PURE__*/
-  fileDesc("ChtuYXRzbGVucy92MS9wbGFjZW1lbnQucHJvdG8SC25hdHNsZW5zLnYxIq0DCg1QbGFjZW1lbnRDZWxsEg4KBnNlcnZlchgBIAEoCRIqCgVzdGF0ZRgCIAEoDjIbLm5hdHNsZW5zLnYxLlBsYWNlbWVudFN0YXRlEisKB2NyZWF0ZWQYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhMKC2NvbmZpZ19oYXNoGAQgASgJEhAKA2xhZxgFIAEoA0gAiAEBEhUKCG1lc3NhZ2VzGAYgASgDSAGIAQESFgoJZmlyc3Rfc2VxGAcgASgDSAKIAQESFQoIbGFzdF9zZXEYCCABKANIA4gBARIhChRkZWxpdmVyZWRfc3RyZWFtX3NlcRgJIAEoA0gEiAEBEiEKFGFja19mbG9vcl9zdHJlYW1fc2VxGAogASgDSAWIAQESDwoHZGlmZmVycxgLIAMoCRINCgVwZWVycxgMIAMoCUIGCgRfbGFnQgsKCV9tZXNzYWdlc0IMCgpfZmlyc3Rfc2VxQgsKCV9sYXN0X3NlcUIXChVfZGVsaXZlcmVkX3N0cmVhbV9zZXFCFwoVX2Fja19mbG9vcl9zdHJlYW1fc2VxIusCCg5QbGFjZW1lbnRBc3NldBImCgZlbnRpdHkYASABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSFQoIcmVwbGljYXMYAiABKAVIAIgBARIOCgZsZWFkZXIYAyABKAkSMAoMbGVhZGVyX3NpbmNlGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIpCgVjZWxscxgFIAMoCzIaLm5hdHNsZW5zLnYxLlBsYWNlbWVudENlbGwSEAoIdW5wbGFjZWQYBiABKAUSGAoQc2VydmVyc19kaXNhZ3JlZRgHIAEoCBIVCghtZXNzYWdlcxgIIAEoA0gBiAEBEg8KB2R1cmFibGUYCSABKAgSDwoHbWF0Y2hlcxgKIAEoCBIuCgljb25zdW1lcnMYCyADKAsyGy5uYXRzbGVucy52MS5QbGFjZW1lbnRBc3NldEILCglfcmVwbGljYXNCCwoJX21lc3NhZ2VzInkKD1BsYWNlbWVudENvdW50cxILCgNhbGwYASABKAUSGAoQc2VydmVyc19kaXNhZ3JlZRgCIAEoBRIWCg5yZXBsaWNhX2JlaGluZBgDIAEoBRIPCgdtaXNzaW5nGAQgASgFEhYKDnNpbmdsZV9yZXBsaWNhGAUgASgFInoKE0dldFBsYWNlbWVudFJlcXVlc3QSJQoFcmFuZ2UYASABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2USDgoGc3lzdGVtGAIgASgJEiwKBmZpbHRlchgDIAEoDjIcLm5hdHNsZW5zLnYxLlBsYWNlbWVudEZpbHRlciLNAQoUR2V0UGxhY2VtZW50UmVzcG9uc2USKwoHc2VydmVycxgBIAMoCzIaLm5hdHNsZW5zLnYxLlNlcnZlclN1bW1hcnkSLAoHc3RyZWFtcxgCIAMoCzIbLm5hdHNsZW5zLnYxLlBsYWNlbWVudEFzc2V0EiwKBmNvdW50cxgDIAEoCzIcLm5hdHNsZW5zLnYxLlBsYWNlbWVudENvdW50cxIsCghlcG9jaF9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAqwgEKD1BsYWNlbWVudEZpbHRlchIgChxQTEFDRU1FTlRfRklMVEVSX1VOU1BFQ0lGSUVEEAASJQohUExBQ0VNRU5UX0ZJTFRFUl9TRVJWRVJTX0RJU0FHUkVFEAESIwofUExBQ0VNRU5UX0ZJTFRFUl9SRVBMSUNBX0JFSElORBACEhwKGFBMQUNFTUVOVF9GSUxURVJfTUlTU0lORxADEiMKH1BMQUNFTUVOVF9GSUxURVJfU0lOR0xFX1JFUExJQ0EQBEJCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_servers]);
+  fileDesc("ChtuYXRzbGVucy92MS9wbGFjZW1lbnQucHJvdG8SC25hdHNsZW5zLnYxIq0DCg1QbGFjZW1lbnRDZWxsEg4KBnNlcnZlchgBIAEoCRIqCgVzdGF0ZRgCIAEoDjIbLm5hdHNsZW5zLnYxLlBsYWNlbWVudFN0YXRlEisKB2NyZWF0ZWQYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhMKC2NvbmZpZ19oYXNoGAQgASgJEhAKA2xhZxgFIAEoA0gAiAEBEhUKCG1lc3NhZ2VzGAYgASgDSAGIAQESFgoJZmlyc3Rfc2VxGAcgASgDSAKIAQESFQoIbGFzdF9zZXEYCCABKANIA4gBARIhChRkZWxpdmVyZWRfc3RyZWFtX3NlcRgJIAEoA0gEiAEBEiEKFGFja19mbG9vcl9zdHJlYW1fc2VxGAogASgDSAWIAQESDwoHZGlmZmVycxgLIAMoCRINCgVwZWVycxgMIAMoCUIGCgRfbGFnQgsKCV9tZXNzYWdlc0IMCgpfZmlyc3Rfc2VxQgsKCV9sYXN0X3NlcUIXChVfZGVsaXZlcmVkX3N0cmVhbV9zZXFCFwoVX2Fja19mbG9vcl9zdHJlYW1fc2VxIusCCg5QbGFjZW1lbnRBc3NldBImCgZlbnRpdHkYASABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSFQoIcmVwbGljYXMYAiABKAVIAIgBARIOCgZsZWFkZXIYAyABKAkSMAoMbGVhZGVyX3NpbmNlGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIpCgVjZWxscxgFIAMoCzIaLm5hdHNsZW5zLnYxLlBsYWNlbWVudENlbGwSEAoIdW5wbGFjZWQYBiABKAUSGAoQc2VydmVyc19kaXNhZ3JlZRgHIAEoCBIVCghtZXNzYWdlcxgIIAEoA0gBiAEBEg8KB2R1cmFibGUYCSABKAgSDwoHbWF0Y2hlcxgKIAEoCBIuCgljb25zdW1lcnMYCyADKAsyGy5uYXRzbGVucy52MS5QbGFjZW1lbnRBc3NldEILCglfcmVwbGljYXNCCwoJX21lc3NhZ2VzInkKD1BsYWNlbWVudENvdW50cxILCgNhbGwYASABKAUSGAoQc2VydmVyc19kaXNhZ3JlZRgCIAEoBRIWCg5yZXBsaWNhX2JlaGluZBgDIAEoBRIPCgdtaXNzaW5nGAQgASgFEhYKDnNpbmdsZV9yZXBsaWNhGAUgASgFIqsBChNHZXRQbGFjZW1lbnRSZXF1ZXN0EiUKBXJhbmdlGAEgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEg4KBnN5c3RlbRgCIAEoCRIsCgZmaWx0ZXIYAyABKA4yHC5uYXRzbGVucy52MS5QbGFjZW1lbnRGaWx0ZXISFgoOc2VsZWN0ZWRfYXNzZXQYBCABKAkSFwoPc2VsZWN0ZWRfc2VydmVyGAUgASgJIoUCChRHZXRQbGFjZW1lbnRSZXNwb25zZRIrCgdzZXJ2ZXJzGAEgAygLMhoubmF0c2xlbnMudjEuU2VydmVyU3VtbWFyeRIsCgdzdHJlYW1zGAIgAygLMhsubmF0c2xlbnMudjEuUGxhY2VtZW50QXNzZXQSLAoGY291bnRzGAMgASgLMhwubmF0c2xlbnMudjEuUGxhY2VtZW50Q291bnRzEiwKCGVwb2NoX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBI2CgtvYnNlcnZhdGlvbhgFIAEoCzIhLm5hdHNsZW5zLnYxLlBsYWNlbWVudE9ic2VydmF0aW9uIv4BChRQbGFjZW1lbnRPYnNlcnZhdGlvbhINCgVhc3NldBgBIAEoCRIOCgZzZXJ2ZXIYAiABKAkSKQoFYXNfb2YYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEikKBXNpbmNlGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgdzYW1wbGVzGAUgASgFEhEKCXRydW5jYXRlZBgGIAEoCBIQCghib3VuZGFyeRgHIAEoCRIqCgVzdGF0ZRgIIAEoDjIbLm5hdHNsZW5zLnYxLlBsYWNlbWVudFN0YXRlEg8KB2RpZmZlcnMYCSADKAkqwgEKD1BsYWNlbWVudEZpbHRlchIgChxQTEFDRU1FTlRfRklMVEVSX1VOU1BFQ0lGSUVEEAASJQohUExBQ0VNRU5UX0ZJTFRFUl9TRVJWRVJTX0RJU0FHUkVFEAESIwofUExBQ0VNRU5UX0ZJTFRFUl9SRVBMSUNBX0JFSElORBACEhwKGFBMQUNFTUVOVF9GSUxURVJfTUlTU0lORxADEiMKH1BMQUNFTUVOVF9GSUxURVJfU0lOR0xFX1JFUExJQ0EQBEJCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_servers]);
 
 /**
  * One server's view of a stream or consumer.
@@ -300,6 +300,19 @@ export type GetPlacementRequest = Message<"natslens.v1.GetPlacementRequest"> & {
    * @generated from field: natslens.v1.PlacementFilter filter = 3;
    */
   filter: PlacementFilter;
+
+  /**
+   * Optional canonical asset key (account/stream[/consumer]) and server.
+   * Requests bounded stored evidence for this cell only; both must be set.
+   *
+   * @generated from field: string selected_asset = 4;
+   */
+  selectedAsset: string;
+
+  /**
+   * @generated from field: string selected_server = 5;
+   */
+  selectedServer: string;
 };
 
 /**
@@ -345,6 +358,14 @@ export type GetPlacementResponse = Message<"natslens.v1.GetPlacementResponse"> &
    * @generated from field: google.protobuf.Timestamp epoch_at = 4;
    */
   epochAt?: Timestamp | undefined;
+
+  /**
+   * Evidence for the selected cell only; unset for unsupported states or
+   * an absent selection. Independent of the matrix filter.
+   *
+   * @generated from field: natslens.v1.PlacementObservation observation = 5;
+   */
+  observation?: PlacementObservation | undefined;
 };
 
 /**
@@ -353,6 +374,82 @@ export type GetPlacementResponse = Message<"natslens.v1.GetPlacementResponse"> &
  */
 export const GetPlacementResponseSchema: GenMessage<GetPlacementResponse> = /*@__PURE__*/
   messageDesc(file_natslens_v1_placement, 4);
+
+/**
+ * Consecutive stored observations of a selected cell's current problem.
+ * This is a lower bound from samples, never an actual continuous outage start.
+ *
+ * @generated from message natslens.v1.PlacementObservation
+ */
+export type PlacementObservation = Message<"natslens.v1.PlacementObservation"> & {
+  /**
+   * Canonical asset key and server that the evidence describes.
+   *
+   * @generated from field: string asset = 1;
+   */
+  asset: string;
+
+  /**
+   * @generated from field: string server = 2;
+   */
+  server: string;
+
+  /**
+   * Collection at which the evidence ends; never later than the matrix.
+   *
+   * @generated from field: google.protobuf.Timestamp as_of = 3;
+   */
+  asOf?: Timestamp | undefined;
+
+  /**
+   * Oldest matching observation before a continuity boundary.
+   *
+   * @generated from field: google.protobuf.Timestamp since = 4;
+   */
+  since?: Timestamp | undefined;
+
+  /**
+   * Number of matching collections, including as_of; one means zero span.
+   *
+   * @generated from field: int32 samples = 5;
+   */
+  samples: number;
+
+  /**
+   * True when a range, lookback, collection cap or stored-history edge
+   * prevents looking further. Since remains a lower bound even when false.
+   *
+   * @generated from field: bool truncated = 6;
+   */
+  truncated: boolean;
+
+  /**
+   * Why the search stopped: state_changed, evidence_unknown, collection_gap,
+   * identity_changed, range_limit, lookback_limit, collection_limit, history_limit.
+   *
+   * @generated from field: string boundary = 7;
+   */
+  boundary: string;
+
+  /**
+   * Exact classifier state and settings differences at as_of.
+   *
+   * @generated from field: natslens.v1.PlacementState state = 8;
+   */
+  state: PlacementState;
+
+  /**
+   * @generated from field: repeated string differs = 9;
+   */
+  differs: string[];
+};
+
+/**
+ * Describes the message natslens.v1.PlacementObservation.
+ * Use `create(PlacementObservationSchema)` to create a new message.
+ */
+export const PlacementObservationSchema: GenMessage<PlacementObservation> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_placement, 5);
 
 /**
  * Which assets a placement matrix lists.

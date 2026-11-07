@@ -473,9 +473,13 @@ type GetPlacementRequest struct {
 	// System ID, as ListSystems returns it. Empty means the default system.
 	System string `protobuf:"bytes,2,opt,name=system,proto3" json:"system,omitempty"`
 	// Which assets to list; the counts cover every asset whatever it is.
-	Filter        PlacementFilter `protobuf:"varint,3,opt,name=filter,proto3,enum=natslens.v1.PlacementFilter" json:"filter,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Filter PlacementFilter `protobuf:"varint,3,opt,name=filter,proto3,enum=natslens.v1.PlacementFilter" json:"filter,omitempty"`
+	// Optional canonical asset key (account/stream[/consumer]) and server.
+	// Requests bounded stored evidence for this cell only; both must be set.
+	SelectedAsset  string `protobuf:"bytes,4,opt,name=selected_asset,json=selectedAsset,proto3" json:"selected_asset,omitempty"`
+	SelectedServer string `protobuf:"bytes,5,opt,name=selected_server,json=selectedServer,proto3" json:"selected_server,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *GetPlacementRequest) Reset() {
@@ -529,6 +533,20 @@ func (x *GetPlacementRequest) GetFilter() PlacementFilter {
 	return PlacementFilter_PLACEMENT_FILTER_UNSPECIFIED
 }
 
+func (x *GetPlacementRequest) GetSelectedAsset() string {
+	if x != nil {
+		return x.SelectedAsset
+	}
+	return ""
+}
+
+func (x *GetPlacementRequest) GetSelectedServer() string {
+	if x != nil {
+		return x.SelectedServer
+	}
+	return ""
+}
+
 // Every stream and durable consumer as each server sees it, in the
 // range's newest epoch.
 type GetPlacementResponse struct {
@@ -542,7 +560,10 @@ type GetPlacementResponse struct {
 	// How many assets each filter lists.
 	Counts *PlacementCounts `protobuf:"bytes,3,opt,name=counts,proto3" json:"counts,omitempty"`
 	// When the epoch read started; unset when the range holds none.
-	EpochAt       *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=epoch_at,json=epochAt,proto3" json:"epoch_at,omitempty"`
+	EpochAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=epoch_at,json=epochAt,proto3" json:"epoch_at,omitempty"`
+	// Evidence for the selected cell only; unset for unsupported states or
+	// an absent selection. Independent of the matrix filter.
+	Observation   *PlacementObservation `protobuf:"bytes,5,opt,name=observation,proto3" json:"observation,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -605,6 +626,132 @@ func (x *GetPlacementResponse) GetEpochAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *GetPlacementResponse) GetObservation() *PlacementObservation {
+	if x != nil {
+		return x.Observation
+	}
+	return nil
+}
+
+// Consecutive stored observations of a selected cell's current problem.
+// This is a lower bound from samples, never an actual continuous outage start.
+type PlacementObservation struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Canonical asset key and server that the evidence describes.
+	Asset  string `protobuf:"bytes,1,opt,name=asset,proto3" json:"asset,omitempty"`
+	Server string `protobuf:"bytes,2,opt,name=server,proto3" json:"server,omitempty"`
+	// Collection at which the evidence ends; never later than the matrix.
+	AsOf *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
+	// Oldest matching observation before a continuity boundary.
+	Since *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=since,proto3" json:"since,omitempty"`
+	// Number of matching collections, including as_of; one means zero span.
+	Samples int32 `protobuf:"varint,5,opt,name=samples,proto3" json:"samples,omitempty"`
+	// True when a range, lookback, collection cap or stored-history edge
+	// prevents looking further. Since remains a lower bound even when false.
+	Truncated bool `protobuf:"varint,6,opt,name=truncated,proto3" json:"truncated,omitempty"`
+	// Why the search stopped: state_changed, evidence_unknown, collection_gap,
+	// identity_changed, range_limit, lookback_limit, collection_limit, history_limit.
+	Boundary string `protobuf:"bytes,7,opt,name=boundary,proto3" json:"boundary,omitempty"`
+	// Exact classifier state and settings differences at as_of.
+	State         PlacementState `protobuf:"varint,8,opt,name=state,proto3,enum=natslens.v1.PlacementState" json:"state,omitempty"`
+	Differs       []string       `protobuf:"bytes,9,rep,name=differs,proto3" json:"differs,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PlacementObservation) Reset() {
+	*x = PlacementObservation{}
+	mi := &file_natslens_v1_placement_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PlacementObservation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PlacementObservation) ProtoMessage() {}
+
+func (x *PlacementObservation) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_placement_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PlacementObservation.ProtoReflect.Descriptor instead.
+func (*PlacementObservation) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_placement_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *PlacementObservation) GetAsset() string {
+	if x != nil {
+		return x.Asset
+	}
+	return ""
+}
+
+func (x *PlacementObservation) GetServer() string {
+	if x != nil {
+		return x.Server
+	}
+	return ""
+}
+
+func (x *PlacementObservation) GetAsOf() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsOf
+	}
+	return nil
+}
+
+func (x *PlacementObservation) GetSince() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Since
+	}
+	return nil
+}
+
+func (x *PlacementObservation) GetSamples() int32 {
+	if x != nil {
+		return x.Samples
+	}
+	return 0
+}
+
+func (x *PlacementObservation) GetTruncated() bool {
+	if x != nil {
+		return x.Truncated
+	}
+	return false
+}
+
+func (x *PlacementObservation) GetBoundary() string {
+	if x != nil {
+		return x.Boundary
+	}
+	return ""
+}
+
+func (x *PlacementObservation) GetState() PlacementState {
+	if x != nil {
+		return x.State
+	}
+	return PlacementState_PLACEMENT_STATE_UNSPECIFIED
+}
+
+func (x *PlacementObservation) GetDiffers() []string {
+	if x != nil {
+		return x.Differs
+	}
+	return nil
+}
+
 var File_natslens_v1_placement_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_placement_proto_rawDesc = "" +
@@ -652,16 +799,29 @@ const file_natslens_v1_placement_proto_rawDesc = "" +
 	"\x10servers_disagree\x18\x02 \x01(\x05R\x0fserversDisagree\x12%\n" +
 	"\x0ereplica_behind\x18\x03 \x01(\x05R\rreplicaBehind\x12\x18\n" +
 	"\amissing\x18\x04 \x01(\x05R\amissing\x12%\n" +
-	"\x0esingle_replica\x18\x05 \x01(\x05R\rsingleReplica\"\x91\x01\n" +
+	"\x0esingle_replica\x18\x05 \x01(\x05R\rsingleReplica\"\xe1\x01\n" +
 	"\x13GetPlacementRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x16\n" +
 	"\x06system\x18\x02 \x01(\tR\x06system\x124\n" +
-	"\x06filter\x18\x03 \x01(\x0e2\x1c.natslens.v1.PlacementFilterR\x06filter\"\xf0\x01\n" +
+	"\x06filter\x18\x03 \x01(\x0e2\x1c.natslens.v1.PlacementFilterR\x06filter\x12%\n" +
+	"\x0eselected_asset\x18\x04 \x01(\tR\rselectedAsset\x12'\n" +
+	"\x0fselected_server\x18\x05 \x01(\tR\x0eselectedServer\"\xb5\x02\n" +
 	"\x14GetPlacementResponse\x124\n" +
 	"\aservers\x18\x01 \x03(\v2\x1a.natslens.v1.ServerSummaryR\aservers\x125\n" +
 	"\astreams\x18\x02 \x03(\v2\x1b.natslens.v1.PlacementAssetR\astreams\x124\n" +
 	"\x06counts\x18\x03 \x01(\v2\x1c.natslens.v1.PlacementCountsR\x06counts\x125\n" +
-	"\bepoch_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\aepochAt*\xc2\x01\n" +
+	"\bepoch_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\aepochAt\x12C\n" +
+	"\vobservation\x18\x05 \x01(\v2!.natslens.v1.PlacementObservationR\vobservation\"\xc8\x02\n" +
+	"\x14PlacementObservation\x12\x14\n" +
+	"\x05asset\x18\x01 \x01(\tR\x05asset\x12\x16\n" +
+	"\x06server\x18\x02 \x01(\tR\x06server\x12/\n" +
+	"\x05as_of\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\x120\n" +
+	"\x05since\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x12\x18\n" +
+	"\asamples\x18\x05 \x01(\x05R\asamples\x12\x1c\n" +
+	"\ttruncated\x18\x06 \x01(\bR\ttruncated\x12\x1a\n" +
+	"\bboundary\x18\a \x01(\tR\bboundary\x121\n" +
+	"\x05state\x18\b \x01(\x0e2\x1b.natslens.v1.PlacementStateR\x05state\x12\x18\n" +
+	"\adiffers\x18\t \x03(\tR\adiffers*\xc2\x01\n" +
 	"\x0fPlacementFilter\x12 \n" +
 	"\x1cPLACEMENT_FILTER_UNSPECIFIED\x10\x00\x12%\n" +
 	"!PLACEMENT_FILTER_SERVERS_DISAGREE\x10\x01\x12#\n" +
@@ -682,7 +842,7 @@ func file_natslens_v1_placement_proto_rawDescGZIP() []byte {
 }
 
 var file_natslens_v1_placement_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_natslens_v1_placement_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_natslens_v1_placement_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_natslens_v1_placement_proto_goTypes = []any{
 	(PlacementFilter)(0),          // 0: natslens.v1.PlacementFilter
 	(*PlacementCell)(nil),         // 1: natslens.v1.PlacementCell
@@ -690,30 +850,35 @@ var file_natslens_v1_placement_proto_goTypes = []any{
 	(*PlacementCounts)(nil),       // 3: natslens.v1.PlacementCounts
 	(*GetPlacementRequest)(nil),   // 4: natslens.v1.GetPlacementRequest
 	(*GetPlacementResponse)(nil),  // 5: natslens.v1.GetPlacementResponse
-	(PlacementState)(0),           // 6: natslens.v1.PlacementState
-	(*timestamppb.Timestamp)(nil), // 7: google.protobuf.Timestamp
-	(*EntityRef)(nil),             // 8: natslens.v1.EntityRef
-	(*TimeRange)(nil),             // 9: natslens.v1.TimeRange
-	(*ServerSummary)(nil),         // 10: natslens.v1.ServerSummary
+	(*PlacementObservation)(nil),  // 6: natslens.v1.PlacementObservation
+	(PlacementState)(0),           // 7: natslens.v1.PlacementState
+	(*timestamppb.Timestamp)(nil), // 8: google.protobuf.Timestamp
+	(*EntityRef)(nil),             // 9: natslens.v1.EntityRef
+	(*TimeRange)(nil),             // 10: natslens.v1.TimeRange
+	(*ServerSummary)(nil),         // 11: natslens.v1.ServerSummary
 }
 var file_natslens_v1_placement_proto_depIdxs = []int32{
-	6,  // 0: natslens.v1.PlacementCell.state:type_name -> natslens.v1.PlacementState
-	7,  // 1: natslens.v1.PlacementCell.created:type_name -> google.protobuf.Timestamp
-	8,  // 2: natslens.v1.PlacementAsset.entity:type_name -> natslens.v1.EntityRef
-	7,  // 3: natslens.v1.PlacementAsset.leader_since:type_name -> google.protobuf.Timestamp
+	7,  // 0: natslens.v1.PlacementCell.state:type_name -> natslens.v1.PlacementState
+	8,  // 1: natslens.v1.PlacementCell.created:type_name -> google.protobuf.Timestamp
+	9,  // 2: natslens.v1.PlacementAsset.entity:type_name -> natslens.v1.EntityRef
+	8,  // 3: natslens.v1.PlacementAsset.leader_since:type_name -> google.protobuf.Timestamp
 	1,  // 4: natslens.v1.PlacementAsset.cells:type_name -> natslens.v1.PlacementCell
 	2,  // 5: natslens.v1.PlacementAsset.consumers:type_name -> natslens.v1.PlacementAsset
-	9,  // 6: natslens.v1.GetPlacementRequest.range:type_name -> natslens.v1.TimeRange
+	10, // 6: natslens.v1.GetPlacementRequest.range:type_name -> natslens.v1.TimeRange
 	0,  // 7: natslens.v1.GetPlacementRequest.filter:type_name -> natslens.v1.PlacementFilter
-	10, // 8: natslens.v1.GetPlacementResponse.servers:type_name -> natslens.v1.ServerSummary
+	11, // 8: natslens.v1.GetPlacementResponse.servers:type_name -> natslens.v1.ServerSummary
 	2,  // 9: natslens.v1.GetPlacementResponse.streams:type_name -> natslens.v1.PlacementAsset
 	3,  // 10: natslens.v1.GetPlacementResponse.counts:type_name -> natslens.v1.PlacementCounts
-	7,  // 11: natslens.v1.GetPlacementResponse.epoch_at:type_name -> google.protobuf.Timestamp
-	12, // [12:12] is the sub-list for method output_type
-	12, // [12:12] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	8,  // 11: natslens.v1.GetPlacementResponse.epoch_at:type_name -> google.protobuf.Timestamp
+	6,  // 12: natslens.v1.GetPlacementResponse.observation:type_name -> natslens.v1.PlacementObservation
+	8,  // 13: natslens.v1.PlacementObservation.as_of:type_name -> google.protobuf.Timestamp
+	8,  // 14: natslens.v1.PlacementObservation.since:type_name -> google.protobuf.Timestamp
+	7,  // 15: natslens.v1.PlacementObservation.state:type_name -> natslens.v1.PlacementState
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_placement_proto_init() }
@@ -731,7 +896,7 @@ func file_natslens_v1_placement_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_placement_proto_rawDesc), len(file_natslens_v1_placement_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
