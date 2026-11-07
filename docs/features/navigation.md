@@ -10,6 +10,8 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 
 ## Behavior and rules
 
+- **Page position and focus.** Opening a new path starts at the top and focuses its heading when available. Range, account, system, and filter query changes keep the reading position and focus. Browser Back and Forward restore the position saved for that history entry, including after delayed content arrives. Explicit fragment links scroll to and focus their target. Pending restoration stops when the reader takes control, or after ten seconds. Position history lasts while the UI stays open and keeps up to 100 entries.
+
 - **Replay entry links.** Overview observed windows and finding details open [Replay](replay.md) with explicit A/B and a fixed range, retaining the system and using the shared account policy (Replay is system-wide). Links support keyboard and native modified-click navigation.
 
 - **Phone finding links.** The [phone finding card](mobile.md) uses the same finding URL as desktop. Alert-label links resolve query parameters into that URL.
@@ -119,6 +121,25 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 - **Given** a screen 390 pixels wide
 - **When** I tap the menu button and then Servers
 - **Then** the sidebar slides in, and closes as the Servers page opens
+
+### Open a detail after reading a long list
+
+- **Surfaces:** `ui`
+- **Given** I have scrolled down the Checks catalog or another list
+- **When** I open a detail page
+- **Then** the detail starts at the top with its heading focused
+- **And** the link retains the system, time range, and applicable account context
+- **When** I use browser Back
+- **Then** the list returns to its saved reading position, waiting for delayed content if needed
+
+### Keep reading when the range changes
+
+- **Surfaces:** `ui`
+- **Given** I am reading partway down a detail page
+- **When** I change only the range or another query parameter
+- **Then** the UI keeps my reading position and focus
+- **When** I follow an explicit fragment link
+- **Then** the UI scrolls to and focuses the fragment target
 
 ## Planned
 
