@@ -9,7 +9,7 @@
 .mi-notice{margin:0 0 var(--sp-3);padding:var(--sp-3) var(--sp-4);border:1px solid var(--sev-info);border-radius:var(--r-lg);background:var(--sev-info-bg);font-size:var(--fs-md);color:var(--text);overflow-wrap:break-word}
 .mi-notice.mi-notice-warn{border-color:var(--sev-warning);background:var(--sev-warning-bg)}
 .mi-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp-4)}
-.mi-card{display:flex;flex-direction:column;align-items:stretch;gap:2px;min-width:0;margin:0;padding:var(--sp-4) var(--sp-5);text-align:left;font:inherit;color:var(--text);background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--accent);border-radius:var(--r-lg);cursor:pointer}
+.mi-card{display:flex;flex-direction:column;align-items:stretch;gap:2px;min-width:0;margin:0;padding:var(--sp-3) var(--sp-4);text-align:left;font:inherit;color:var(--text);background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--accent);border-radius:var(--r-lg);cursor:pointer}
 .mi-card.mi-card-warn{border-top-color:var(--cell-warning)}
 .mi-card.mi-card-seen{border-top-color:var(--border)}
 .mi-card:hover{border-left-color:var(--text-faint);border-right-color:var(--text-faint);border-bottom-color:var(--text-faint)}
