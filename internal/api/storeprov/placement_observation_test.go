@@ -3,6 +3,9 @@ package storeprov_test
 import (
 	"connectrpc.com/connect"
 	"encoding/json"
+	"github.com/shadone/nats-lens/internal/api"
+	"github.com/shadone/nats-lens/internal/api/apitest"
+	"github.com/shadone/nats-lens/internal/api/storeprov"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"github.com/shadone/nats-lens/internal/store"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -144,5 +147,44 @@ func TestPlacementObservationConsumerAndRange(t *testing.T) {
 	req.Range.Start = timestamppb.New(t0)
 	if o = must(c.GetPlacement(ctx, connect.NewRequest(req))).GetObservation(); o != nil {
 		t.Fatalf("in-sync negative control %v", o)
+	}
+}
+
+func TestPlacementObservationSystemIsolation(t *testing.T) {
+	a, b := observationStore(t), observationStore(t)
+	if _, err := b.DB().Exec(`UPDATE stream_replicas SET current=true`); err != nil {
+		t.Fatal(err)
+	}
+	clock := func() time.Time { return t0.Add(90 * time.Second) }
+	_, c := apitest.ServeHandler(t, &api.Handler{Systems: api.Systems{
+		{Ref: &v1.SystemRef{Id: "a"}, Provider: &storeprov.Provider{St: a, Interval: 30 * time.Second, Clock: clock}},
+		{Ref: &v1.SystemRef{Id: "b"}, Provider: &storeprov.Provider{St: b, Interval: 30 * time.Second, Clock: clock}},
+	}})
+	for _, system := range []string{"a", "b", "a"} {
+		res := must(c.GetPlacement(ctx, connect.NewRequest(&v1.GetPlacementRequest{System: system, SelectedAsset: "APP/orders", SelectedServer: "nats-1", Range: &v1.TimeRange{Start: timestamppb.New(t0), End: timestamppb.New(clock())}})))
+		if (res.Observation != nil) != (system == "a") {
+			t.Fatalf("system %s: %v", system, res.Observation)
+		}
+	}
+}
+
+func TestPlacementObservationRequiresMatrixCell(t *testing.T) {
+	st := observationStore(t)
+	for _, q := range []string{
+		`INSERT INTO consumer_stats(epoch,server_id,account,stream,consumer,is_leader,created) SELECT epoch,server_id,account,stream,'ephemeral',is_leader,created FROM stream_stats`,
+		`INSERT INTO consumer_config(server_id,account,stream,consumer,first_epoch,last_epoch,replicas,config_hash) SELECT server_id,account,stream,'ephemeral',first_epoch,last_epoch,replicas,config_hash FROM stream_config`,
+		`INSERT INTO consumer_replicas(epoch,server_id,account,stream,consumer,peer_name,current,offline,lag) SELECT epoch,server_id,account,stream,'ephemeral',peer_name,current,offline,lag FROM stream_replicas`,
+	} {
+		if _, err := st.DB().Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c := serveSeries(t, st, t0.Add(90*time.Second))
+	res := must(c.GetPlacement(ctx, connect.NewRequest(&v1.GetPlacementRequest{SelectedAsset: "APP/orders/ephemeral", SelectedServer: "nats-1", Range: &v1.TimeRange{Start: timestamppb.New(t0), End: timestamppb.New(t0.Add(90 * time.Second))}})))
+	if asset(res, "APP/orders/ephemeral") != nil {
+		t.Fatal("negative control: ephemeral appeared in matrix")
+	}
+	if res.Observation != nil {
+		t.Fatalf("evidence for a cell outside the matrix: %v", res.Observation)
 	}
 }
