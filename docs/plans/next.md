@@ -4,7 +4,7 @@ The core observation goal is implemented: collection and event capture, stored S
 
 ## Current priorities on 2026-11-06
 
-The reviewed inventory includes phase 3, the page usability follow-ups, per-check reference pages, and fatal database containment. No large page phase remains missing. The check set has 88 checks: 85 SQL checks and three Go built-ins (`system-001`, `server-025`, and system-level `server-026`).
+The reviewed inventory includes phase 3, the page usability follow-ups, per-check reference pages, and fatal database containment. No large page phase remains missing. The check set has 89 checks: 86 SQL checks and three Go built-ins (`system-001`, `server-025`, and system-level `server-026`).
 
 1. **Prevent recurrence of database index divergence.** Evaluate the upstream engine fix and dependency compatibility on disposable fixtures and database copies. Check WAL replay, checkpoints, reopen, unique constraints, retention, archive behavior and cancellation. A dependency upgrade does not repair existing divergence; containment does not establish prevention. Keep live installation and restart owner-controlled.
 2. **Owner-operated real-cluster soak for 24–48 hours.** Installation and restart remain manual owner actions. Record the tested revision, collection continuity and endpoint failures, event-capture gaps, check errors and deadlines, API/UI failures, and memory and storage growth. Compare findings and chart gaps with observed events; distinguish unavailable evidence from healthy zeroes. Review retention and archive results where configured. A restart and spot checks do not establish a completed soak; record the exact installed revision and observation window.
