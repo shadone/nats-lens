@@ -56,3 +56,9 @@ describe("matrix", () => {
     expect(FILTER_ENUM.single).toBe(PlacementFilter.SINGLE_REPLICA);
   });
 });
+
+it("keeps an observed zero span distinct from absent history", () => {
+  const m = matrix(create(GetPlacementResponseSchema, { epochAt: timestampFromMs(0), observation: { asset: "APP/orders", server: "nats-1", asOf: timestampFromMs(0), since: timestampFromMs(0), samples: 1, state: PlacementState.BEHIND, boundary: "evidence_unknown" } }));
+  expect(m.observation).toMatchObject({ since: 0, asOf: 0, samples: 1, state: "behind" });
+  expect(matrix(create(GetPlacementResponseSchema)).observation).toBeUndefined();
+});
