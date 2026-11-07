@@ -190,7 +190,7 @@ func consumerSample(metric string, e *v1.EntityRef, c time.Time) (float64, bool)
 }
 
 // series draws a metric over the range: the last sample of each bucket for
-// counts, averages of samples for other gauges and rates, sums of events
+// counts, with the bucket's lowest and highest sample, averages of samples for other gauges and rates, sums of events
 // for cluster.slow_consumers and the event metrics.
 func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints int32) *v1.Series {
 	if _, ok := bandOf[metric]; ok {
@@ -211,6 +211,7 @@ func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints 
 		stop := earliest(b.Add(step), end)
 		var sum float64
 		var n int
+		var lo, hi *float64
 		if metric == "cluster.slow_consumers" {
 			for _, ev := range s.sc.slowEvents {
 				if c := ev.Add(s.shift); !c.Before(t) && c.Before(stop) {
@@ -229,10 +230,16 @@ func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints 
 			n = 1
 		} else if out.Unit == v1.Unit_UNIT_COUNT {
 			// A count takes the bucket's last sample, as the store's
-			// arg_max does, so it stays whole.
+			// arg_max does, so it stays whole, with its lowest and highest.
 			for x := t; x.Before(stop); x = x.Add(sampleEvery) {
 				if v, ok := s.sc.value(metric, e, s.clock(x)); ok {
 					sum, n = v, 1
+					if lo == nil || v < *lo {
+						lo = ptr(v)
+					}
+					if hi == nil || v > *hi {
+						hi = ptr(v)
+					}
 				}
 			}
 		} else {
@@ -247,7 +254,7 @@ func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints 
 			continue
 		}
 		v := sum / float64(n)
-		out.Points = append(out.Points, &v1.Point{Time: ts(b), Value: v})
+		out.Points = append(out.Points, &v1.Point{Time: ts(b), Value: v, Low: lo, High: hi})
 		if out.Min == nil || v < out.GetMin() {
 			out.Min = ptr(v)
 		}

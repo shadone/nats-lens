@@ -32,27 +32,31 @@ export type Point = Message<"natslens.v1.Point"> & {
   /**
    * Value for the bucket.
    *
-   * Gauges are averaged over the bucket; rates are averaged per second;
-   * event counts are summed. For a band metric it is the median across
-   * servers.
+   * Counts (unit count) take the bucket's last value; other gauges are
+   * averaged over the bucket; rates are averaged per second; event counts
+   * are summed. For a band metric it is the median across servers.
    *
    * @generated from field: double value = 2;
    */
   value: number;
 
   /**
-   * Lowest value across servers, for a band metric; unset otherwise.
+   * Lowest value in the bucket, for a band metric and a count that takes
+   * the last value; unset otherwise.
    *
-   * The lowest server value of any epoch in the bucket.
+   * For a band metric, the lowest server value of any epoch in the bucket;
+   * for a count, its lowest value of any epoch in the bucket.
    *
    * @generated from field: optional double low = 3;
    */
   low?: number | undefined;
 
   /**
-   * Highest value across servers, for a band metric; unset otherwise.
+   * Highest value in the bucket, for a band metric and a count that takes
+   * the last value; unset otherwise.
    *
-   * The highest server value of any epoch in the bucket.
+   * For a band metric, the highest server value of any epoch in the bucket;
+   * for a count, its highest value of any epoch in the bucket.
    *
    * @generated from field: optional double high = 4;
    */

@@ -103,17 +103,21 @@ type Point struct {
 	Time *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=time,proto3" json:"time,omitempty"`
 	// Value for the bucket.
 	//
-	// Gauges are averaged over the bucket; rates are averaged per second;
-	// event counts are summed. For a band metric it is the median across
-	// servers.
+	// Counts (unit count) take the bucket's last value; other gauges are
+	// averaged over the bucket; rates are averaged per second; event counts
+	// are summed. For a band metric it is the median across servers.
 	Value float64 `protobuf:"fixed64,2,opt,name=value,proto3" json:"value,omitempty"`
-	// Lowest value across servers, for a band metric; unset otherwise.
+	// Lowest value in the bucket, for a band metric and a count that takes
+	// the last value; unset otherwise.
 	//
-	// The lowest server value of any epoch in the bucket.
+	// For a band metric, the lowest server value of any epoch in the bucket;
+	// for a count, its lowest value of any epoch in the bucket.
 	Low *float64 `protobuf:"fixed64,3,opt,name=low,proto3,oneof" json:"low,omitempty"`
-	// Highest value across servers, for a band metric; unset otherwise.
+	// Highest value in the bucket, for a band metric and a count that takes
+	// the last value; unset otherwise.
 	//
-	// The highest server value of any epoch in the bucket.
+	// For a band metric, the highest server value of any epoch in the bucket;
+	// for a count, its highest value of any epoch in the bucket.
 	High          *float64 `protobuf:"fixed64,4,opt,name=high,proto3,oneof" json:"high,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
