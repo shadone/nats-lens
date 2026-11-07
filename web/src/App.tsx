@@ -101,6 +101,8 @@ export function App() {
                 <Route path="/connections" element={<Connections />} />
                 <Route path="/kv-stores" element={<KvStores />} />
                 <Route path="/object-stores" element={<ObjectStores />} />
+                <Route path="/kv-stores/:account/:bucket" element={<StreamDetail />} />
+                <Route path="/object-stores/:account/:bucket" element={<StreamDetail />} />
                 <Route path="/placement" element={<Placement />} />
                 <Route path="/replay" element={<Replay />} />
                 <Route path="/topology" element={<Topology />} />
