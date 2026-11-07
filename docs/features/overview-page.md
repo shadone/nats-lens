@@ -10,7 +10,7 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 
 ## Behavior and rules
 
-- **Summary and detail.** "System summary" labels the compact cards. Counts come from the latest available bucket, Storage uses newest server reports, and Meta leader names the newest collection's leader above a chart of changes per bucket. "Detailed trends" adds traffic rates, event totals, server spread, and replica counts over the selected range. Both sections retain useful history; the summary is not a claim that every figure comes from one snapshot.
+- **Summary and detail.** "System summary" labels the compact cards, and its note says once for all of them that the figures are the latest available counts and reports. Counts come from the latest available bucket, Storage uses newest server reports, and Meta leader names the newest collection's leader; while its chart shows, a caption reads "chart: leader changes per bucket", since the chart counts changes rather than naming leaders. "Detailed trends" adds traffic rates, event totals, server spread, and replica counts over the selected range. Both sections retain useful history; the summary is not a claim that every figure comes from one snapshot.
 
 - **Inspect chart values.** Compact and expanded charts show UTC bucket times and formatted values on hover or touch. Touch keeps the selected bucket when the chart receives focus. Focus a chart and use arrow keys, Home, or End for the same readout; Escape or blur dismisses it. Missing buckets say "No sample" without interpolation. Bucket descriptions distinguish last counts, mean rates, event totals, and server-band aggregation. The busiest-consumer mini charts use the same inspector. Multiple lines have separate labels, bands show lower and upper bounds, and stacked areas show each component's count. The Meta leader chart reports leader changes per bucket; it does not infer the leader's historical name. Without a majority naming the newest leader, its headline reads "Unknown"; the range total stays in the subtitle.
 
@@ -22,7 +22,9 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 
 - **The status line.** One line: "Serving normally" while nothing fires or only info findings fire, "Needs attention" when a warning fires, "Critical findings" when a critical one fires; muted findings do not count. In a live range it reads "Not collecting · last data 11:29" while the collector's connection to NATS is down, or just "Not collecting" without a collection in the range, since the header already says since when; "Not collecting" when no collector writes or the newest collection is older than three collect intervals; and "No data yet" without a collection. Beside it, one badge per severity with the number of unmuted findings firing, worst first ("1 CRITICAL", "2 WARNING"). It does not repeat what the cards say.
 - **Nine tiles.** Servers (answering out of expected, with the versions and the shortest uptime), Meta leader (the server more than half of the servers name, with the leader changes in the range), Streams (with how many of them are replicated and how many have a replica behind its leader; KV buckets and object stores not counted), KV Stores (with the buckets on one replica; "1 bucket", "2 buckets", and likewise for durables and connections), Object Stores, Consumers (durable, with how many have a growing backlog once `consumer-002` has run), Accounts (with the account other than the system account that has the most connections, counted as the Accounts page counts them: client connections plus the leaf nodes counted against the connection limit, so the tile names the account the page lists first, the first by name of a tie; proposed, not yet confirmed), Clients (connections, with the number of applications, or "no named connections" when the servers list none, and the slow consumer events in the range) and Storage (JetStream storage across all replicas, with the share of the servers' combined limit and the growth per day; with no limit when any server does not report its own).
-- **How a tile reads.** Each tile is a box: its title with an (i) button that shows what the number counts and how it is measured; the current value at the top right; a chart over the range with the drain and upgrade windows shaded; and a track from the range's minimum (left) to its maximum (right) with a dot at the current value. A value outside the range puts the dot at the nearer end. When the minimum equals the maximum the track reads "steady at N all window". When the data begins more than a bucket and a half after the range's start, as on a system nats-lens has watched for less than the range, the track says so: "steady at N since 05:30 UTC", or "since 05:30 UTC" between the minimum and the maximum, and the track's accessible name ends with the same words in place of the range. The note under the track is the API's subtitle, followed by the limit where the tile has one ("limit 150 GiB"); the limit never moves the track's ends. The Meta leader tile shows the leader's name with a chart of the leader changes and no track, since a name has no minimum or maximum; the chart's accessible name gives the leader's name as its current value, as do other tiles whose value is text.
+- **How a tile reads.** Each tile is a box: its title with an (i) button that shows what the number counts and how it is measured; the current value at the top right; a chart over the range with the drain and upgrade windows shaded, when the tile has one (next rule); and a track from the range's minimum (left) to its maximum (right) with a dot at the current value. A value outside the range puts the dot at the nearer end. When the minimum equals the maximum the track reads "steady at N all window". When the data begins more than a bucket and a half after the range's start, as on a system nats-lens has watched for less than the range, the track says so: "steady at N since 05:30 UTC", or "since 05:30 UTC" between the minimum and the maximum, and the track's accessible name ends with the same words in place of the range. The note under the track is the API's subtitle, followed by the limit where the tile has one ("limit 150 GiB"); the limit never moves the track's ends. The Meta leader tile shows the leader's name with a chart of the leader changes, when it has one, and no track, since a name has no minimum or maximum; the chart's accessible name gives the leader's name as its current value, as do other tiles whose value is text.
+- **A chart only where something changed.** A tile draws its chart when its value changed in the range (any bucket differs; for Meta leader, any bucket holds a leader change), when a warning or critical finding colours it, or when the range is not fully covered: no data, a missing bucket, a series that begins after the history start or stops more than two buckets before the range's end, a collection gap inside the range (not running, not connected, no collections), or while the range's gaps are still loading or could not be read. Otherwise the tile is steady: it shows its title, its value, "steady at N all window" (or "since 05:30 UTC") and its note, without a chart, with those lines at the foot of the box so they sit level with the neighbours' tracks. A row of steady tiles is shorter. A series that begins at the history start is steady, as the track already says since when; a single bucket that covers the range is steady. Storage keeps its chart while its size moves, which is nearly always. Info and muted findings do not keep a chart, as they do not colour the tile (proposed, not yet confirmed).
+- **Chart colours mark the change.** A tile's chart draws its line and fill in the neutral text colour and puts the accent only on the segments where the value changes: the dip and recovery of Servers, the spikes of Meta leader, the whole slope of Storage. A warning or critical tile keeps its line and fill in its severity colour (Consumers' drop in critical, Clients in warning). The range track's dot keeps the status colour.
 - **A tile's colour is a finding.** A tile takes the status of the worst firing finding of the checks behind it, or muted when that finding is muted: Servers `server-001` to `server-006` and `system-001` to `system-006` (`system-007` to `system-009` judge nats-lens itself and colour no tile); Meta leader `system-002` and `system-003`; Streams, KV Stores and Object Stores the stream checks of their own kind of stream; Consumers every consumer check; Clients the client checks, `server-009`, `server-010`, `server-011` and `server-015`; Storage `server-007`, `server-014`, `stream-004` and `stream-006`. Accounts has no checks behind it: the API reports no data as its status, and a tile with a value and no check reads as OK in the UI. A warning or critical tile colours its value and dot and shows the word beside the value; an info tile only tints its dot, with no word and no coloured value, since info is a notice that never changes an OK label.
 - **No zeros for unknowns.** A value that was not observed is a dash with no dot, never zero; with a chart but no current value the tile says "no current value". A tile's line leaves out a count it cannot know: the stream, KV and object store lines appear only with their count.
 - **Applications are names.** The Clients tile counts the distinct connection names up to an `@`, so `catalog-api@pod-7f` and `catalog-api@pod-2c` are one application; nats-lens's own connections are left out, as the client checks leave them out. Connections without a name are not counted; the [Applications](applications.md) page lists them as `(unnamed)`.
@@ -45,8 +47,8 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 
 - **Surfaces:** `ui`
 - **Given** Overview shows its compact cards and expanded charts
-- **When** I read the section labels and measurement captions
-- **Then** System summary identifies latest count buckets, newest storage reports, and the newest meta leader
+- **When** I read the section labels and notes
+- **Then** System summary's note says once that its figures are the latest available counts and reports, and no tile repeats it
 - **And** Detailed trends explains the traffic, event, server spread, and replica-count history
 
 ### Inspect a chart bucket
@@ -85,6 +87,21 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 - **When** I look at the timeline
 - **Then** the window is shaded in the Kubernetes lane with the drains and pod restarts as ticks, the Findings lane shows what fired meanwhile, and the zoom strip below shows the window minute by minute
 
+### Read a steady tile
+
+- **Surfaces:** `ui`
+- **Given** the demo system `example-prod` over the last 24 hours, where 8 streams were present in every bucket and Servers dropped to 2 for one bucket
+- **When** I open the Overview
+- **Then** the Streams tile shows 8, "steady at 8 all window" and its note, without a chart
+- **And** the Servers tile draws its chart in the neutral colour with the dip and recovery in the accent
+
+### See a steady tile with a collection gap
+
+- **Surfaces:** `ui`
+- **Given** the demo system `example-staging`, whose collector stopped collecting at 11:30 UTC, over the last 24 hours
+- **When** I open the Overview
+- **Then** every tile keeps its chart with the time without collections hatched, though its value did not change
+
 ### See a tile that was not observed
 
 - **Given** the newest epoch has no value for a tile but the range has a chart for it
@@ -102,7 +119,7 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 
 - **Given** every server names `nats-1` as the JetStream meta leader and the leader did not change in the range
 - **When** I open the Overview
-- **Then** the Meta leader tile shows `nats-1`, with "0 leader changes in range" under a flat chart
+- **Then** the Meta leader tile shows `nats-1` and "0 leader changes in range", without a chart
 
 ### See which account has the most connections
 
