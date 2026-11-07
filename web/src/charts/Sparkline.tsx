@@ -3,7 +3,7 @@
 import { ChartInspection } from "./ChartInspection";
 import { usePageHistory } from "../components/HistoryNote";
 import type { ServerHistoryGap } from "../api/history";
-import { ChartHistoryNotice, ChartHistoryStatus, HistoryGaps } from "./HistoryGaps";
+import { ChartHistoryNotice, HistoryGaps } from "./HistoryGaps";
 import type { Level, Point, Window } from "../api/model";
 import { chartName, rangeText } from "./chartLabel";
 import { changedSegments, tickedMoves } from "../lib/tileChart";
@@ -92,7 +92,7 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
       <><svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, undefined, period, note)}>
         <HistoryGaps start={start} end={end} width={W} height={H} />
         <line x1="0" x2={W} y1={H - 3} y2={H - 3} style={{ stroke: "var(--border)" }} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-      </svg><ChartHistoryStatus start={start} end={end} /><ChartHistoryNotice start={start} end={end}/></>
+      </svg><ChartHistoryNotice start={start} end={end}/></>
     );
   }
   const ranges = tone === "change" ? tickedMoves(points) : [];
@@ -142,7 +142,7 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
         const [[x, y0], [, y1]] = sparkPoints([{ time: p.time, value: p.low ?? p.value }, { time: p.time, value: p.high ?? p.value }], start, end, mn, mx).map((c) => c.split(","));
         return <line key={`r${p.time}`} className="spark-range" x1={x} x2={x} y1={y0} y2={y1} style={{ stroke: neutral ? "var(--accent)" : col }} strokeWidth="2" strokeLinecap="round" vectorEffect="non-scaling-stroke" />;
       })}
-    </svg><ChartHistoryStatus start={start} end={end} /><ChartHistoryNotice start={start} end={end}/></>
+    </svg><ChartHistoryNotice start={start} end={end}/></>
   );
 }
 

@@ -7,6 +7,7 @@ import { errorText } from "../components/common";
 import { dayMonHm, hms } from "../lib/format";
 import { fmtValue } from "../lib/units";
 import { Sparkline } from "./Sparkline";
+import { ChartHistoryStatus } from "./HistoryGaps";
 
 interface Props {
   title: string;
@@ -40,9 +41,11 @@ export function SeriesChart({ title, series, start, end, windows = [], loading, 
       )}
       <div className="chart-f mono">
         <span>{dayMonHm(start)}</span>
-        <span>
-          min {fmt(series?.min)} · max {fmt(series?.max)}
-        </span>
+        <ChartHistoryStatus start={start} end={end} keep>
+          <span>
+            min {fmt(series?.min)} · max {fmt(series?.max)}
+          </span>
+        </ChartHistoryStatus>
         <span>{dayMonHm(end)}</span>
       </div>
       {asOf && <div className="chart-stale">{asOf}</div>}
