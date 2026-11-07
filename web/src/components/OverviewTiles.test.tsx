@@ -175,10 +175,14 @@ describe("charts only where something changed", () => {
     expect(lines.filter((l) => l.style.stroke === "var(--accent)")).toHaveLength(1);
   });
 
-  it("keeps the severity colour on a tile in trouble", () => {
+  it("keeps the line neutral on a tile in trouble and draws its change in the severity colour", () => {
     const { container } = render(<OverviewTiles tiles={[tile({ value: 3, status: "critical", series: dip })]} windows={[]} start={START} end={END} />);
-    const lines = [...container.querySelectorAll<SVGPolylineElement>("svg.spark polyline")];
-    expect(lines.every((l) => l.style.stroke === "var(--sev-critical)")).toBe(true);
+    const lines = [...container.querySelectorAll<SVGPolylineElement>("svg.spark polyline:not(.spark-change)")];
+    expect(lines.length).toBeGreaterThan(0);
+    expect(lines.every((l) => l.style.stroke === "var(--text-muted)")).toBe(true);
+    const marks = [...container.querySelectorAll<SVGElement>("svg.spark .spark-change, svg.spark .spark-now")];
+    expect(marks.length).toBeGreaterThan(0);
+    expect(marks.every((l) => l.style.stroke === "var(--sev-critical)")).toBe(true);
   });
 });
 

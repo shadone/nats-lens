@@ -39,7 +39,9 @@ interface Props {
    * point; a bucket whose low or high goes beyond the line around it by a
    * quarter of the chart's span or more, and by more than twice the other
    * buckets' median (`tickedMoves`), gets a tick between them, and the
-   * chart's scale takes in the ticked lows and highs. A warning or critical status keeps its colour.
+   * chart's scale takes in the ticked lows and highs. The line and fill
+   * stay neutral in a warning or critical status too; the change marks then
+   * take the status colour in place of the accent.
    */
   tone?: "status" | "change";
 }
@@ -111,8 +113,10 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
     if (mn !== 0) mn = mn - 1;
   }
   const runs = splitServerPoints(points, gaps);
-  const neutral = tone === "change" && !isTrouble(status);
+  const neutral = tone === "change";
   const col = neutral ? "var(--text-muted)" : sparkColour(status);
+  // The change marks: the accent, or the status colour when the card is in trouble.
+  const mark = isTrouble(status) ? sparkColour(status) : "var(--accent)";
   const span = end - start || 1;
   return (
     <><svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, current, period, note)}>
@@ -136,15 +140,15 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
         />)
       )}
       {runs.map((run, i) => <polyline key={i} points={sparkPoints(run, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: col }} strokeWidth={neutral ? 1.3 : 1.6} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />)}
-      {neutral && runs.flatMap((run, i) => mostlyChanging(run) ? [] : changeRuns(run).map((seg, j) => <polyline key={`c${i}-${j}`} className="spark-change" points={sparkPoints(seg, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: "var(--accent)" }} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />))}
+      {neutral && runs.flatMap((run, i) => mostlyChanging(run) ? [] : changeRuns(run).map((seg, j) => <polyline key={`c${i}-${j}`} className="spark-change" points={sparkPoints(seg, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: mark }} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />))}
       {neutral && runs.length > 0 && mostlyChanging(runs[runs.length - 1]) && (() => {
         // A zero-length path with a round cap stays a round dot in the stretched viewBox.
         const [x, y] = sparkPoints([points[points.length - 1]], start, end, mn, mx)[0].split(",");
-        return <path className="spark-now" d={`M${x},${y}h0`} style={{ stroke: "var(--accent)" }} strokeWidth="5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />;
+        return <path className="spark-now" d={`M${x},${y}h0`} style={{ stroke: mark }} strokeWidth="5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />;
       })()}
       {ranges.map((p) => {
         const [[x, y0], [, y1]] = sparkPoints([{ time: p.time, value: p.low ?? p.value }, { time: p.time, value: p.high ?? p.value }], start, end, mn, mx).map((c) => c.split(","));
-        return <line key={`r${p.time}`} className="spark-range" x1={x} x2={x} y1={y0} y2={y1} style={{ stroke: neutral ? "var(--accent)" : col }} strokeWidth="2" strokeLinecap="round" vectorEffect="non-scaling-stroke" />;
+        return <line key={`r${p.time}`} className="spark-range" x1={x} x2={x} y1={y0} y2={y1} style={{ stroke: neutral ? mark : col }} strokeWidth="2" strokeLinecap="round" vectorEffect="non-scaling-stroke" />;
       })}
     </svg><ChartHistoryNotice start={start} end={end}/></>
   );
