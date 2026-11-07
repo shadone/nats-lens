@@ -8,7 +8,7 @@ import { useContext } from "react";
 import type { Entity, Finding } from "../api/model";
 import type { CauseGroup } from "../lib/causeGroups";
 import { hms } from "../lib/format";
-import { accountLabeller, entityName, entityPath, eventPath, findingPath, streamPath } from "../lib/view";
+import { streamLabel, accountLabeller, entityName, entityPath, eventPath, findingPath, streamPath } from "../lib/view";
 import { RLink } from "./common";
 import { AccountLabelContext, EntityLine } from "./FindingParts";
 import { Sev } from "./Severity";
@@ -46,7 +46,7 @@ function whereLine(g: CauseGroup, label: (id: string, name?: string) => string) 
   if (g.parent?.kind === "stream" && first)
     return (
       <>
-        {n} {noun} on stream <RLink to={streamPath(first.account, first.stream)}>{g.parent.name}</RLink>
+        {n} {noun} on stream <RLink to={streamPath(first.account, first.stream)}>{streamLabel(g.parent.name)}</RLink>
       </>
     );
   if (g.parent?.kind === "account" && first)

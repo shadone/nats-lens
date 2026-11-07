@@ -71,10 +71,10 @@ describe("KV stores", () => {
     list.mockResolvedValue(create(ListKeyValueStoresResponseSchema, { keyValueStores: [missing, present, small] }));
   });
 
-  it("links each present bucket to its stream and shows a dash, never 0, for what was not observed", async () => {
+  it("links each present bucket to its resource page and shows a dash, never 0, for what was not observed", async () => {
     renderApp(<KvStores />, "/kv-stores?system=example-prod&range=6h");
     const link = await screen.findByRole("link", { name: "customer-config" });
-    expect(link).toHaveAttribute("href", "/streams/APP/KV_customer-config?range=6h&system=example-prod");
+    expect(link).toHaveAttribute("href", "/kv-stores/APP/customer-config?range=6h&system=example-prod");
     // At a narrow width the table scrolls in its card, with a shadow at the cut edge.
     expect(link.closest(".table-wrap")).toHaveClass("scroll-cue");
     expect(link.closest("tr")!.querySelector(".pl")!.closest("td")).toHaveClass("pl-cell");

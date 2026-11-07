@@ -91,7 +91,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Capacity and retention](capacity.md) | `ui`, `api` | shipped — six-hour growth explanations |
 | [Subjects](subjects.md) | `ui`, `api` | shipped |
 | [Accounts and auth](accounts-and-auth.md) | `ui`, `api` | shipped |
-| [KV and object stores](kv-and-object-stores.md) | `ui`, `api` | shipped |
+| [KV and object stores](kv-and-object-stores.md) | `ui`, `api` | shipped — dedicated bucket detail routes and compatible storage-stream links |
 | [Micro services](micro-services.md) | `ui`, `api` | shipped |
 | [Command bar](command-bar.md) | `ui` | partial — search by name is shipped; findings, events and prefixes are planned |
 | [On call on the phone](mobile.md) | `ui`, `api` | partial — phone triage, scoped acknowledgements, retained label context, fixed Replay links, and contained settings built; predictions and other dedicated phone pages deferred |
@@ -143,7 +143,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [x] What each stream keeps, what bounds it, and when disks fill, with six-hour growth explanations and unbounded streams accepted as by design (capacity.md)
 - [x] Where messages can go: each stream with its subjects and readers, client subscriptions by subject, reply inboxes and the JetStream API, filters with counts, and a tester that says what a message on a subject would reach in each account (subjects.md)
 - [x] Accounts with their limits, imports, exports and JWT expiry, leaf nodes counted against the connection limit as nats-server and `account-001` count them, the failed logins of 24 hours, and the certificates and JWTs that expire within 30 days (accounts-and-auth.md)
-- [x] KV buckets and object stores as their own pages, with placement and missing buckets (kv-and-object-stores.md)
+- [x] KV buckets and object stores as their own pages, with placement and missing buckets; dedicated bucket details, shared resource links and explicit low-level diagnostics (kv-and-object-stores.md)
 - [x] Services built on the NATS micro framework: a card per service with its versions, instances, rate, errors and a note, its endpoints with their slow spells and last errors, its instances with the missing ones, asked in the listed accounts and seen in subscriptions in all (micro-services.md)
 - [~] Search and jump to anything from one box — findings, events and prefixes are planned (command-bar.md)
 - [~] A finding on the phone with observed facts, episode story, playbook, scoped acknowledgement receipts, retained label context, fixed Replay links, and contained settings; predictions and other phone pages deferred (mobile.md)

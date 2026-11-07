@@ -27,7 +27,7 @@ import { baselineText, muteBy, reviewOn, sentence } from "../lib/muteView";
 import { writeRange, type RangeSpec } from "../lib/timeRange";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
-import { entityName, entityPath, eventPath, findingTag, serverPath, streamPath } from "../lib/view";
+import { streamLabel, entityName, entityPath, eventPath, findingTag, serverPath, streamPath } from "../lib/view";
 
 /**
  * A firing finding whose condition was already true when nats-lens
@@ -233,7 +233,7 @@ function Related({ e }: { e: Entity | undefined }) {
         )}
         {e.kind === "consumer" && (
           <li>
-            <RLink to={streamPath(e.account, e.stream)}>{e.stream}</RLink> stream
+            <RLink to={streamPath(e.account, e.stream)}>{streamLabel(e.stream)}</RLink> stream
           </li>
         )}
         {e.server && e.kind !== "server" && (

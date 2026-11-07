@@ -2,7 +2,7 @@
 // replica, its messages, size and growth per day.
 import { STREAMS_SHOWN, type StreamPlacement } from "../api/overview";
 import { fmtBytes, fmtGrowth } from "../lib/format";
-import { LEVEL_ORDER, streamPath } from "../lib/view";
+import { streamLabel, LEVEL_ORDER, streamPath } from "../lib/view";
 import { Num, RLink } from "./common";
 import { PlacementLegend, PlacementSquares } from "./PlacementSquares";
 import { HealthIcon } from "./Severity";
@@ -36,7 +36,7 @@ export function StreamPlacementCard({ streams, count }: { streams: StreamPlaceme
                   <span className="sp-n">
                     <HealthIcon level={s.status} />
                     <RLink to={streamPath(s.entity.account, s.entity.stream)} className="x mono">
-                      {s.entity.stream}
+                      {streamLabel(s.entity.stream)}
                     </RLink>
                   </span>
                 </td>

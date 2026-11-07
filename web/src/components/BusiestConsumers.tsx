@@ -8,7 +8,7 @@ import { rangeText } from "../charts/chartLabel";
 import type { RangeSpec } from "../lib/timeRange";
 import { fmtCount } from "../lib/format";
 import { fmtValue } from "../lib/units";
-import { consumerPath, streamPath } from "../lib/view";
+import { streamLabel, consumerPath, streamPath } from "../lib/view";
 import { Num, RLink } from "./common";
 
 const rate = (v: number) => fmtValue(v, "per_second");
@@ -51,7 +51,7 @@ export function BusiestConsumers({ consumers, spec, start, end }: { consumers: C
                 </RLink>
                 <br />
                 <RLink to={streamPath(c.entity.account, c.entity.stream)} className="x sub mono">
-                  {c.entity.stream}
+                  {streamLabel(c.entity.stream)}
                 </RLink>
               </td>
               <td className="num">
