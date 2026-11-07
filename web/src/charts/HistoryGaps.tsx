@@ -1,4 +1,5 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
+import { HISTORY_LOADING, HISTORY_LOADING_SHORT, HISTORY_UNAVAILABLE, LOADING_DELAY_MS, readState, type HistoryReadState } from "../lib/historyStatus";
 import { useDataHistory } from "../api/queries";
 import { usePageHistory, type PageHistory } from "../components/HistoryNote";
 import { gapName, stripSegments } from "../lib/historyView";
@@ -107,8 +108,6 @@ export function ChartHistoryNotice({ start, end }: { start: number; end: number 
     ? <OmissionNotice facts={h} start={start} end={end} observedStart={h.start} observedEnd={h.end} />
     : <QueriedNotice start={start} end={end} />;
 }
-/** How long a shared row keeps its data while history loads; the page announcement waits as long. */
-const LOADING_DELAY_MS = 300;
 interface StatusProps {
   start: number;
   end: number;
@@ -124,15 +123,11 @@ interface StatusProps {
    */
   claim?: boolean;
 }
-function QueriedStatus({ start, end, children, keep, compact, claim }: StatusProps) {
-  const { spec } = useTimeRange();
-  const h = usePageHistory();
-  const q = useDataHistory(chartRange(spec, start, end), h?.gapServer);
-  const failed = !!q.error;
-  const loading = q.isPending && !failed;
+function StatusText({ state, children, keep, compact, claim }: Omit<StatusProps, "start" | "end"> & { state: HistoryReadState }) {
   // A shared row keeps its data for the first LOADING_DELAY_MS, so a read the
   // cache answers at once does not flash. A claim gives way at once: it must
   // never say "steady" while the gaps are unknown.
+  const loading = state === "loading";
   const [late, setLate] = useState(false);
   useEffect(() => {
     setLate(false);
@@ -140,18 +135,29 @@ function QueriedStatus({ start, end, children, keep, compact, claim }: StatusPro
     const timer = setTimeout(() => setLate(true), LOADING_DELAY_MS);
     return () => clearTimeout(timer);
   }, [loading]);
+  const failed = state === "failed";
   if (!(loading && (late || claim)) && !(failed && claim)) return <>{children}</>;
-  const words = compact ? (failed ? "Gaps unavailable" : "Gaps loading") : failed ? "History gaps unavailable" : "History gaps loading";
+  const words = failed ? HISTORY_UNAVAILABLE : compact ? HISTORY_LOADING_SHORT : HISTORY_LOADING;
   const text = <span className="dh-chart-status">{words}</span>;
   if (keep) return <span className="dh-status-in"><span className="dh-status-keep" aria-hidden="true">{children}</span>{text}</span>;
   return compact ? <span className="dh-chart-slot">{text}</span> : text;
 }
+function QueriedStatus({ start, end, ...rest }: StatusProps) {
+  const { spec } = useTimeRange();
+  const h = usePageHistory();
+  return <StatusText {...rest} state={readState(useDataHistory(chartRange(spec, start, end), h?.gapServer))} />;
+}
 /** The chart's own history read, while it loads, as text in place of
  * `children`: a row the chart already has, so the card keeps its height. SVG
  * text in a stretched chart would scale with the drawing. It is not a live
- * region; the page announces the state once. */
+ * region; the page announces the state once. Where the page's read covers the
+ * chart (a server's page), that read's state is said. */
 export function ChartHistoryStatus(props: StatusProps) {
   const h = usePageHistory();
-  if (!h || pageGapsApply(h, props.start, props.end)) return <>{props.children}</>;
+  if (!h) return <>{props.children}</>;
+  if (pageGapsApply(h, props.start, props.end)) {
+    const { start: _s, end: _e, ...rest } = props;
+    return <StatusText {...rest} state={h.gapsState} />;
+  }
   return <QueriedStatus {...props} />;
 }
