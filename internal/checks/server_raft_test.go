@@ -3,6 +3,7 @@ package checks
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -183,5 +184,50 @@ func TestRaftDiagnosticsTemporalHysteresis(t *testing.T) {
 			f.fires(code, 6)
 			f.fires(code, 7)
 		})
+	}
+}
+
+// An unknown observation breaks the run even when later samples are eligible.
+func TestRaftDiagnosticsUnknownEligibility(t *testing.T) {
+	for _, candidate := range []bool{false, true} {
+		code := "server-027"
+		if candidate {
+			code = "server-028"
+		}
+		fields := []string{"state", "size", "observer", "paused", "overrun", "overrun_count", "catching_up", "term", "pindex", "committed", "applied", "peers_total", "peers_known", "peers", "raft_account"}
+		if candidate {
+			fields = append(fields, "ever_had_leader")
+		}
+		for _, field := range fields {
+			for _, epoch := range []int64{4, 7} {
+				t.Run(fmt.Sprintf("%s/%s/epoch%d", code, field, epoch), func(t *testing.T) {
+					f := raftDiagnosticFixture(t, candidate)
+					f.exec("UPDATE raft_stats SET "+field+"=NULL WHERE epoch=?", epoch)
+					f.fires(code, 7)
+				})
+			}
+		}
+	}
+}
+
+func TestRaftDiagnosticsLeaderEvidence(t *testing.T) {
+	for _, candidate := range []bool{false, true} {
+		code := "server-027"
+		if candidate {
+			code = "server-028"
+		}
+		for _, epoch := range []int64{4, 7} {
+			for _, leader := range []any{nil, "", "peer1"} {
+				t.Run(fmt.Sprintf("%s/epoch%d/leader%v", code, epoch, leader), func(t *testing.T) {
+					f := raftDiagnosticFixture(t, candidate)
+					f.exec("UPDATE raft_stats SET leader=? WHERE epoch=?", leader, epoch)
+					if (candidate && leader == "") || (!candidate && leader == "peer1") {
+						f.fires(code, 7, "nats-0")
+					} else {
+						f.fires(code, 7)
+					}
+				})
+			}
+		}
 	}
 }
