@@ -57,7 +57,7 @@ package checks
 //     account's share on each server process, and its connections as
 //     nats-server counts them against the limit.
 var Prelude = "CREATE OR REPLACE TEMP MACRO account_servers(ep) AS TABLE " + AccountServersSQL("ep") + ";\n" +
-	"CREATE OR REPLACE TEMP MACRO account_connections(ep) AS TABLE " + AccountConnectionsSQL("ep") + ";\n" + prelude
+	"CREATE OR REPLACE TEMP MACRO account_connections(ep) AS TABLE " + AccountConnectionsSQL("ep") + ";\n" + prelude + raftDiagnosticPrelude
 
 const prelude = `CREATE OR REPLACE TEMP MACRO account_lookups(ep) AS TABLE
 SELECT d.*, coalesce(nullif(nullif(a.account_name, ''), a.account), nullif(nullif(d.account_name, ''), a.account), a.account) AS title
