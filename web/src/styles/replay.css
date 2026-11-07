@@ -115,8 +115,8 @@
 .rs-track.has-wins .rs-line{background:linear-gradient(var(--text) 0 28px,transparent 28px 54px,var(--text) 54px)}
 
 /* Entry links remain normal anchors, with room for long window names on phones. */
-.replay-entry { margin: 12px 0; padding: 0; overflow-wrap: anywhere; }
-ul.replay-entry { list-style: none; }
-.replay-entry li + li { margin-top: 12px; }
-.replay-entry p { margin: 4px 0; color: var(--text-muted); font-size: 12px; }
-.replay-entry a { display: inline-block; padding-block: 6px; }
+.replay-entry{margin:var(--sp-3) 0;padding:0;overflow-wrap:anywhere}
+ul.replay-entry{list-style:none}
+.replay-entry li + li{margin-top:var(--sp-3)}
+.replay-entry p{margin:var(--sp-1) 0;color:var(--text-muted);font-size:var(--fs-sm)}
+.replay-entry a{display:inline-block;padding-block:var(--sp-2)}
