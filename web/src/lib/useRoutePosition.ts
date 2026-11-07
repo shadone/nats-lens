@@ -42,7 +42,8 @@ export function useRoutePosition() {
     const saved = navigation === "POP" ? positions.current.get(location.key) : undefined;
     const restore = !initial && saved !== undefined;
     // A saved history position wins over the entry's original fragment.
-    const anchor = !restore && !!location.hash && (initial || changedPath || changedHash);
+    const repeatedFragment = navigation !== "POP" && prior.search === location.search;
+    const anchor = !restore && !!location.hash && (initial || changedPath || changedHash || repeatedFragment);
     const start = !initial && changedPath && !restore && !anchor;
     const root = main.current;
     if (!root) return;
@@ -70,7 +71,9 @@ export function useRoutePosition() {
     }
     function apply() {
       if (cancelled || !root) return;
-      if (anchor && pendingPosition) {
+      // The phone drawer makes the page inert until its close has committed.
+      const inert = !!root.closest("[inert]");
+      if (anchor && pendingPosition && !inert) {
         // Fragment text is an ID, never a CSS selector or executable markup.
         let id = location.hash.slice(1);
         try { id = decodeURIComponent(id); } catch { /* A malformed escape is a literal ID. */ }
@@ -81,12 +84,12 @@ export function useRoutePosition() {
           pendingPosition = false;
           pendingFocus = false;
         }
-      } else if (pendingPosition) {
+      } else if (pendingPosition && !anchor) {
         const top = saved ?? 0;
         window.scrollTo(0, top);
         pendingPosition = document.documentElement.scrollHeight - window.innerHeight < top;
       }
-      if (pendingFocus && !anchor) {
+      if (pendingFocus && !anchor && !inert) {
         pendingFocus = !focusPage(root);
       }
       remember();
@@ -95,7 +98,7 @@ export function useRoutePosition() {
     // Observe before applying: a warm query cache can render the final heading
     // immediately, while a cold query can grow the document several times.
     observer = new MutationObserver(apply);
-    observer.observe(root.parentElement ?? root, { childList: true, subtree: true });
+    observer.observe(root.parentElement ?? root, { childList: true, subtree: true, attributes: true, attributeFilter: ["inert"] });
     if (typeof ResizeObserver !== "undefined") {
       resize = new ResizeObserver(apply);
       resize.observe(root.parentElement ?? root);
