@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
+	utilclock "k8s.io/utils/clock"
 
 	"github.com/shadone/nats-lens/internal/events"
 )
@@ -73,6 +74,8 @@ type loop struct {
 	log      *slog.Logger
 	// sleep waits d or until ctx ends; a field so tests need not wait.
 	sleep func(ctx context.Context, d time.Duration)
+	// watchClock measures stream lifetime independently of event timestamps.
+	watchClock utilclock.Clock
 
 	failingSince time.Time
 	notified     bool
@@ -81,6 +84,9 @@ type loop struct {
 }
 
 func (l *loop) run(ctx context.Context) {
+	if l.watchClock == nil {
+		l.watchClock = utilclock.RealClock{}
+	}
 	rv := ""
 	initial, needList := true, true
 	l.backoff = minBackoff
@@ -110,16 +116,16 @@ func (l *loop) run(ctx context.Context) {
 		// An open watch ends a failure: a quiet namespace may then send
 		// nothing for minutes, which is no gap.
 		l.recovered()
-		opened := time.Now()
+		opened := l.watchClock.Now()
 		next, err := l.consume(ctx, w, rv)
 		w.Stop()
 		// A watch the server ends at once without an error (a proxy that
 		// closes it) would otherwise be reopened in a tight loop: it counts
 		// as a failure, and the next one opens a second after this one at
 		// the soonest. Its life is measured on the wall clock.
-		if lived := time.Since(opened); err == nil && ctx.Err() == nil && lived < minWatchLife {
+		if lived := l.watchClock.Since(opened); err == nil && ctx.Err() == nil && lived < minWatchLife {
 			err = fmt.Errorf("watch closed by the server after %s", lived.Round(time.Millisecond))
-			sleepCtx(ctx, minWatchLife-lived)
+			l.sleep(ctx, minWatchLife-lived)
 		}
 		switch {
 		case ctx.Err() != nil:
