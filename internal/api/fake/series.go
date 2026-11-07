@@ -190,8 +190,9 @@ func consumerSample(metric string, e *v1.EntityRef, c time.Time) (float64, bool)
 }
 
 // series draws a metric over the range: the last sample of each bucket for
-// counts, with the bucket's lowest and highest sample, averages of samples for other gauges and rates, sums of events
-// for cluster.slow_consumers and the event metrics.
+// counts, with the bucket's lowest and highest sample; averages of samples
+// for other gauges and rates; sums of events for cluster.slow_consumers and
+// the event metrics.
 func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints int32) *v1.Series {
 	if _, ok := bandOf[metric]; ok {
 		return s.bandSeries(metric, e, r, maxPoints)
