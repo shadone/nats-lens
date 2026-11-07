@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { QueryClient, useQueryClient } from "@tanstack/react-query";
 import { act, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { renderApp } from "../test/render";
@@ -131,4 +132,23 @@ it("drops a stale unavailable as soon as a new read starts", async () => {
   } finally {
     vi.useRealTimers();
   }
+});
+
+it("keeps the failure note while a failed read retries, and drops it when a retry answers", async () => {
+  let client!: QueryClient;
+  function Grab() { client = useQueryClient(); return null; }
+  let answer!: (v: ReturnType<typeof staging>) => void;
+  read.mockRejectedValueOnce(new Error("history unavailable"));
+  read.mockImplementation(() => new Promise((yes) => { answer = yes; }));
+  const r = renderApp(<PageHistoryProvider><Grab /><SeriesChart title="CPU" start={NOW - H} end={NOW} /></PageHistoryProvider>, "/?system=example-prod&range=24h");
+  await screen.findByText("History gaps unavailable: these charts do not mark gaps.");
+  await act(async () => { void client.refetchQueries(); await new Promise((resolve) => setTimeout(resolve, 20)); });
+  expect(screen.getByText("History gaps unavailable: these charts do not mark gaps.")).toBeInTheDocument();
+  expect(screen.getByRole("status")).toHaveTextContent("History gaps unavailable");
+  expect(document.querySelector(".chart-f .dh-chart-status")).toBeNull();
+  await act(async () => { answer({ ...staging(), rangeStart: NOW - H, rangeEnd: NOW, gaps: [] }); await new Promise((resolve) => setTimeout(resolve, 20)); });
+  expect(screen.queryByText("History gaps unavailable: these charts do not mark gaps.")).toBeNull();
+  expect(screen.getByRole("status").textContent).toBe("");
+  read.mockReset();
+  r.unmount();
 });
