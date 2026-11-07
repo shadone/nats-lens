@@ -21,7 +21,7 @@ func (s scen) growth(e *v1.EntityRef, r *v1.TimeRange) *float64 {
 // growthOf is growth's rule for any metric of the scenario: a stream's
 // messages, a server's file store.
 func (s scen) growthOf(metric string, e *v1.EntityRef, r *v1.TimeRange) *float64 {
-	start := latest(r.GetStart().AsTime(), s.dataStart())
+	start := latest(api.GrowthStart(r.GetStart().AsTime(), r.GetEnd().AsTime(), sampleEvery), s.dataStart())
 	end := earliest(r.GetEnd().AsTime(), s.dataEnd())
 	width := max(r.GetEnd().AsTime().Sub(r.GetStart().AsTime())/api.GrowthBuckets, sampleEvery)
 	var pts []api.Sample
@@ -35,7 +35,7 @@ func (s scen) growthOf(metric string, e *v1.EntityRef, r *v1.TimeRange) *float64
 		}
 		mid := first.Add(last.Sub(first) / 2)
 		if v, ok := s.sc.value(metric, e, s.clock(mid)); ok {
-			pts = append(pts, api.Sample{T: mid, V: v})
+			pts = append(pts, api.Sample{T: mid, V: v, From: first, To: last})
 		}
 	}
 	return api.RobustPerDay(pts)

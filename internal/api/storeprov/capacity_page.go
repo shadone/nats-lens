@@ -24,7 +24,7 @@ func (p *Provider) Capacity(ctx context.Context, req *v1.GetCapacityRequest) (*a
 	start, end := span(req.GetRange())
 	f := &api.CapacityFacts{Epoch: e.epoch, EpochAt: e.startedAt}
 	var from sql.NullTime
-	if err := p.db().QueryRowContext(ctx, `SELECT min(started_at) FROM epochs WHERE started_at >= ? AND started_at < ?`, start, end).
+	if err := p.db().QueryRowContext(ctx, `SELECT min(started_at) FROM epochs WHERE started_at >= ? AND started_at < ?`, api.GrowthStart(start, end, p.Interval), end).
 		Scan(&from); err != nil {
 		return nil, fmt.Errorf("capacity growth start: %w", err)
 	}
@@ -98,6 +98,7 @@ ORDER BY n.name`, f.Epoch)
 // by server name (so a restart continues the series), reduced in SQL to at
 // most api.GrowthBuckets medians per server.
 func (p *Provider) serverStoreGrowth(ctx context.Context, start, end time.Time) (map[string][]api.Sample, error) {
+	start = api.GrowthStart(start, end, p.Interval)
 	width := p.growthWidth(start, end)
 	rows, err := p.db().QueryContext(ctx, `
 WITH per AS (
@@ -105,7 +106,7 @@ WITH per AS (
   FROM server_stats st JOIN servers s USING (server_id) JOIN epochs e USING (epoch)
   WHERE e.started_at >= ? AND e.started_at < ?
   GROUP BY s.server_name, e.epoch, e.started_at)
-SELECT name, min(t) + (max(t) - min(t)) / 2, median(v)::DOUBLE
+SELECT name, min(t) + (max(t) - min(t)) / 2, median(v)::DOUBLE, min(t), max(t)
 FROM per WHERE v IS NOT NULL
 GROUP BY name, time_bucket(to_microseconds(?::BIGINT), t, TIMESTAMP '1970-01-01 00:00:00')
 ORDER BY 1, 2`, start, end, width.Microseconds())
@@ -117,7 +118,7 @@ ORDER BY 1, 2`, start, end, width.Microseconds())
 	for rows.Next() {
 		var name string
 		var sm api.Sample
-		if err := rows.Scan(&name, &sm.T, &sm.V); err != nil {
+		if err := rows.Scan(&name, &sm.T, &sm.V, &sm.From, &sm.To); err != nil {
 			return nil, err
 		}
 		out[name] = append(out[name], sm)

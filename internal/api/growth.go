@@ -10,6 +10,17 @@ import (
 // decides, extrapolated to a day.
 const MinGrowthSpan = 6 * time.Hour
 
+// GrowthStart bounds the growth-only lookback. The selected range must
+// itself be at least six hours; shorter ranges never borrow old data.
+// One collection interval (at most five minutes) lets a half-open range
+// include the observation just before its start. No future endpoint is read.
+func GrowthStart(start, end time.Time, interval time.Duration) time.Time {
+	if end.Sub(start) < MinGrowthSpan || interval <= 0 {
+		return start
+	}
+	return start.Add(-min(interval, 5*time.Minute))
+}
+
 // GrowthBuckets is the most points the slope is computed over; longer
 // series are reduced to bucket medians first.
 const GrowthBuckets = 200
@@ -18,6 +29,9 @@ const GrowthBuckets = 200
 type Sample struct {
 	T time.Time
 	V float64
+	// From and To retain the actual observation bounds when T is a
+	// bucket midpoint. Zero means an unreduced sample at T.
+	From, To time.Time
 }
 
 // RobustPerDay is the Theil-Sen slope of time-ordered samples (the median
@@ -28,7 +42,17 @@ type Sample struct {
 // written shrinks for real. Both providers compute stream, bucket and
 // storage growth with it.
 func RobustPerDay(s []Sample) *float64 {
-	if len(s) < 2 || s[len(s)-1].T.Sub(s[0].T) < MinGrowthSpan {
+	if len(s) < 2 {
+		return nil
+	}
+	from, to := s[0].From, s[len(s)-1].To
+	if from.IsZero() {
+		from = s[0].T
+	}
+	if to.IsZero() {
+		to = s[len(s)-1].T
+	}
+	if to.Sub(from) < MinGrowthSpan {
 		return nil
 	}
 	s = bucketMedians(s, GrowthBuckets)
