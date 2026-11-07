@@ -10,6 +10,8 @@ The Findings page lists the findings of the time range, filtered by severity, st
 
 ## Behavior and rules
 
+- **Replay finding context.** Desktop details offer "Replay this window" around the latest recorded transition, first sighting or resolution in the selected range, with explicit fixed times. This is surrounding observation context, not a claimed episode duration. Missing timing has an explanation instead of a link; the newest 100 transitions can omit older episodes. [Replay](replay.md) gives the context, historical-range, retention and missing-evidence rules.
+
 - **Acknowledgements.** The [phone card and acknowledgement dialog](mobile.md) record who works on a finding. Acknowledging keeps the finding visible and counted; a mute hides it.
 
 - **History limits on findings.** Unresolved Findings rows and Overview cause cards say “already true when nats-lens started” under the finding page’s history-start rule. Finding details link the history-start wording and missing-history explanations around the start to Data history with the global query. This wording does not establish when the condition actually began.

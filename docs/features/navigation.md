@@ -10,6 +10,8 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 
 ## Behavior and rules
 
+- **Replay entry links.** Overview observed windows and finding details open [Replay](replay.md) with explicit A/B and a fixed range, retaining the system and using the shared account policy (Replay is system-wide). Links support keyboard and native modified-click navigation.
+
 - **Phone finding links.** The [phone finding card](mobile.md) uses the same finding URL as desktop. Alert-label links resolve query parameters into that URL.
 
 - **Short history.** Range pages show a note below the header when the range begins more than one collect interval before history starts. It names the available span and links to Data history, preserving the system, range, and originating account query. Data history itself is system-wide. Fleet and Data history do not repeat this note.
