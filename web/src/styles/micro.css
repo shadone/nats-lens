@@ -32,7 +32,7 @@
 .mi-detail{margin-top:20px;padding:4px 0 0;min-width:0;overflow:hidden}
 .mi-h2{margin:0;padding:12px 18px 0;font-size:16px;font-weight:600;overflow-wrap:break-word}
 .mi-h2 .mi-in{font-weight:400;color:var(--text-2)}
-.mi-h3{margin:0;padding:14px 18px 0;font:600 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
+.mi-h3{margin:0;padding:14px 18px 0;font:600 11px var(--sans);color:var(--text-muted)}
 .mi-detail .table-wrap{padding:0 8px;margin-top:6px}
 .mi-tbl td{vertical-align:middle;font-size:13px}
 .tbl.mi-tbl tbody th[scope="row"]{text-align:left;vertical-align:middle;font:600 13px var(--mono);white-space:nowrap}

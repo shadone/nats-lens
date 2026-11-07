@@ -39,13 +39,13 @@ export function findingTag(f: Finding, rangeStart: number | undefined): FindingT
   }
 }
 
-/** Text of the source pill, as in the reference. */
+/** Text of the source pill, in sentence case. */
 export const SOURCE_PILL: Record<EventSourceName, string> = {
-  nats: "nats",
-  kubernetes: "k8s",
-  finding: "check",
-  collector: "lens",
-  other: "other",
+  nats: "NATS",
+  kubernetes: "K8s",
+  finding: "Check",
+  collector: "Lens",
+  other: "Other",
 };
 
 /** CSS modifier of the source pill. */

@@ -12,7 +12,7 @@
 .ap-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0 0 16px}
 .ap-card{min-width:0;margin:0;padding:16px 18px}
 .ap-card.ap-card-info{border-left:4px solid var(--sev-info)}
-.ap-label{margin:0;font:600 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
+.ap-label{margin:0;font:600 11px var(--sans);color:var(--text-muted)}
 .ap-card-text{margin:4px 0 0;font-size:14px;color:var(--text);overflow-wrap:break-word}
 .ap-fig .ap-v{font:600 14px var(--mono)}
 .ap-quiet{color:var(--text-muted)}

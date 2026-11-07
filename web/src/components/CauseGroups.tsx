@@ -159,7 +159,7 @@ function CauseCard({ g, onMute }: { g: CauseGroup; onMute: (f: Finding) => void 
           {g.checkCodes.join(", ")} × {n}
         </span>
         <h3>{names.join(" · ")}</h3>
-        {g.cause && g.checkCodes.length > 1 && <span className="lbl">one cause</span>}
+        {g.cause && g.checkCodes.length > 1 && <span className="lbl">One cause</span>}
       </div>
       <p className="cg-where">{whereLine(g, accounts)}</p>
       {g.cause && <CauseLine cause={g.cause} />}

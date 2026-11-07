@@ -64,7 +64,7 @@
 .search-pop ul{list-style:none;margin:0;padding:0}
 .search-pop li{display:grid;grid-template-columns:76px minmax(0,1fr) auto;gap:8px;align-items:baseline;padding:7px 8px;border-radius:6px;cursor:pointer;color:var(--text)}
 .search-pop li.on{background:var(--accent-soft)}
-.search-pop .sk{font:600 10px/1.2 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
+.search-pop .sk{font:600 10px/1.2 var(--sans);color:var(--text-muted)}
 .search-pop .sn{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .search-pop .ss{font-size:11px;color:var(--text-muted);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .search-note{margin:0;padding:8px;color:var(--text-muted);font-size:12px}

@@ -7,7 +7,7 @@
 .ev{display:grid;grid-template-columns:70px 44px minmax(0,1fr);gap:12px;padding:9px 16px;border-top:1px solid var(--border-soft);align-items:baseline}
 .ev:first-child{border-top:0}
 .ev .t{font:12px var(--mono);color:var(--text-muted)}
-.src{font:600 9.5px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;padding:3px 0;border-radius:3px;text-align:center;color:var(--text-2);background:var(--surface-sunk)}
+.src{font:600 9.5px/1 var(--sans);padding:3px 0;border-radius:3px;text-align:center;color:var(--text-2);background:var(--surface-sunk)}
 .src.k8s{background:var(--k8s-bg);color:var(--k8s)}
 .src.lens{background:var(--accent-soft);color:var(--accent-text)}
 .ev .ty{font:500 12px var(--mono);color:var(--text);margin-right:8px}

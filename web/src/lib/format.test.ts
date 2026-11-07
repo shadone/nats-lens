@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fmtShortDuration } from "./format";
+import { fmtShortDuration, upperFirst } from "./format";
 
 describe("fmtShortDuration", () => {
   it("keeps a round trip below 0.01 ms from reading as 0", () => {
@@ -14,5 +14,13 @@ describe("fmtShortDuration", () => {
     expect(fmtShortDuration(9.96)).toBe("10 ms");
     expect(fmtShortDuration(212.6)).toBe("213 ms");
     expect(fmtShortDuration(1500)).toBe("1.5 s");
+  });
+});
+
+describe("upperFirst", () => {
+  it("capitalises only the first letter", () => {
+    expect(upperFirst("consumer")).toBe("Consumer");
+    expect(upperFirst("slow consumer")).toBe("Slow consumer");
+    expect(upperFirst("")).toBe("");
   });
 });

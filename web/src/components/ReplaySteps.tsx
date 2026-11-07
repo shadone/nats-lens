@@ -2,6 +2,7 @@
 // or span, a dot by kind and severity, a sentence, what it consists of and
 // links to its evidence; then the steps after B that close one of them.
 import type { ReplayEvidence, ReplayStep } from "../api/adapt-replay";
+import { upperFirst } from "../lib/format";
 import { momentIso, type Moments } from "../lib/replayUrl";
 import { FOOTER, KIND_LABEL, dotClass, evidencePath, evidenceWord, whenFormat, electionsText, groupEvidence } from "../lib/replayView";
 import { RLink } from "./common";
@@ -69,7 +70,7 @@ function Step({ s, fmt }: { s: ReplayStep; fmt: (t: number) => string }) {
               if (item.kind === "elections" && item.items.length === 0) {
                 return (
                   <li key={`elections:${item.leader}`}>
-                    <span className="rp-evk">events</span> {electionsText(item)}
+                    <span className="rp-evk">Events</span> {electionsText(item)}
                   </li>
                 );
               }
@@ -78,7 +79,7 @@ function Step({ s, fmt }: { s: ReplayStep; fmt: (t: number) => string }) {
                   <li key={`elections:${item.leader}`}>
                     <details className="rp-evg">
                       <summary>
-                        <span className="rp-evk">events</span> {electionsText(item)}
+                        <span className="rp-evk">Events</span> {electionsText(item)}
                       </summary>
                       <ul>
                         {item.items.map((e) => (
@@ -94,7 +95,7 @@ function Step({ s, fmt }: { s: ReplayStep; fmt: (t: number) => string }) {
               const e = item.e;
               return (
                 <li key={`${e.kind}:${e.id}:${i}`}>
-                  <span className="rp-evk">{evidenceWord(e)}</span> <EvidenceLink e={e} />
+                  <span className="rp-evk">{upperFirst(evidenceWord(e))}</span> <EvidenceLink e={e} />
                 </li>
               );
             })}
