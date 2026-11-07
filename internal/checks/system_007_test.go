@@ -132,3 +132,21 @@ func TestCollectionsIncompleteLeavesAnnouncedServersOut(t *testing.T) {
 	f.exec(`DELETE FROM events`)
 	f.fires("system-007", 61, "")
 }
+
+// An empty account RAFTZ reply is still ok. The check reads request
+// outcomes, not the presence of raft groups or streams for that account.
+// A second account's replies do not stand in for a lost APP reply.
+func TestCollectionsIncompleteAccountRaftzBoundary(t *testing.T) {
+	f := newFx(t)
+	f.cluster(61)
+	for e := int64(1); e <= 61; e++ {
+		for _, account := range []string{"APP", "SHIPPING"} {
+			f.row("epoch_endpoints", m{"epoch": e, "server_id": "S1", "endpoint": "RAFTZ:" + account, "state": "ok"})
+		}
+	}
+	f.fires("system-007", 61)
+	f.exec(`UPDATE epoch_endpoints SET state = 'missing' WHERE server_id = 'S1' AND endpoint = 'RAFTZ:APP' AND epoch >= 46`)
+	f.exec(`UPDATE epochs SET partial = true, endpoint_failures = 1 WHERE epoch >= 46`)
+	r := f.fires("system-007", 61, "")
+	want(t, r[""], "warning", "16 of 61 collections", "RAFTZ:APP from nats-1 unanswered in 16")
+}
