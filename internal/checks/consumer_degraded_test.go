@@ -3,11 +3,12 @@ package checks
 import (
 	"context"
 	"fmt"
-	"github.com/shadone/nats-lens/internal/config"
-	"github.com/shadone/nats-lens/internal/store"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/shadone/nats-lens/internal/config"
+	"github.com/shadone/nats-lens/internal/store"
 )
 
 func degradedFixture(t *testing.T, n int64, path ...string) *fx {
@@ -175,16 +176,16 @@ func TestConsumerReplicaDegradedRestartAndConfig(t *testing.T) {
 
 func TestConsumerReplicaDegradedScale(t *testing.T) {
 	f := degradedFixture(t, 3)
-	// 10,000 consumers, 30,000 observations and 60,000 peer facts in the bounded window;
+	// 10,000 consumers, 90,000 observations and 60,000 peer facts in the bounded window;
 	// 100 old epochs add 3,000,000 unrelated observations that must not widen the window.
 	f.exec(`INSERT INTO consumer_config SELECT consumer_config.* REPLACE ('c'||i AS consumer) FROM consumer_config, range(10000) t(i) WHERE consumer='bad'`)
-	f.exec(`INSERT INTO consumer_stats SELECT consumer_stats.* REPLACE ('c'||i AS consumer) FROM consumer_stats, range(10000) t(i) WHERE consumer='bad' AND is_leader`)
-	f.exec(`INSERT INTO consumer_stats SELECT consumer_stats.* REPLACE (epoch-100 AS epoch, 'old'||i AS consumer) FROM consumer_stats, range(100) t(i) WHERE consumer LIKE 'c%'`)
+	f.exec(`INSERT INTO consumer_stats SELECT consumer_stats.* REPLACE ('c'||i AS consumer) FROM consumer_stats, range(10000) t(i) WHERE consumer='bad'`)
+	f.exec(`INSERT INTO consumer_stats SELECT consumer_stats.* REPLACE (epoch-100 AS epoch, 'old'||i AS consumer) FROM consumer_stats, range(100) t(i) WHERE consumer LIKE 'c%' AND is_leader`)
 	f.exec(`INSERT INTO consumer_replicas SELECT consumer_replicas.* REPLACE ('c'||i AS consumer) FROM consumer_replicas, range(10000) t(i) WHERE consumer='bad'`)
 	start := time.Now()
 	got := f.eval("consumer-018", 3)
-	// Only the original bad consumer has corroborating reports; bulk leaders cannot self-certify quorum.
-	if len(got) != 1 {
+	// All consumers must be judged, including their corroborating follower reports.
+	if len(got) != 10001 {
 		t.Fatalf("got %d findings", len(got))
 	}
 	elapsed := time.Since(start)
