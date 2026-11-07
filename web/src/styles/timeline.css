@@ -1,15 +1,15 @@
 /* Status timeline, Kubernetes lane and zoom strip, from the reference. */
 /* status timeline: label column, cell track (scrolls on narrow screens), now column */
-.tl{padding:16px 18px 14px}
-.tlx{--lab:330px;--nowc:84px;--rowh:22px;--laneh:46px;--gaph:12px;--axh:22px;display:grid;grid-template-columns:var(--lab) minmax(0,1fr) var(--nowc);column-gap:14px}
+.tl{padding:var(--sp-4) var(--sp-5) var(--sp-4)}
+.tlx{--lab:330px;--nowc:84px;--rowh:22px;--laneh:46px;--gaph:12px;--axh:22px;display:grid;grid-template-columns:var(--lab) minmax(0,1fr) var(--nowc);column-gap:var(--sp-3)}
 .tl-col > *{height:var(--rowh)}
 .tl-col > .lane{height:var(--laneh)}
 .tl-col > .gap{height:var(--gaph)}
 .tl-col > .axh{height:var(--axh)}
-.tl-lab .lab{display:flex;gap:10px;align-items:center;min-width:0}
+.tl-lab .lab{display:flex;gap:var(--sp-2);align-items:center;min-width:0}
 .tl-lab .lab .code{flex:0 0 96px;font-size:var(--fs-sm);color:var(--text-muted)}
 .tl-lab .lab .nm{font-size:var(--fs-md);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.tl-lab .lane{display:flex;gap:10px;align-items:flex-start;padding-top:4px}
+.tl-lab .lane{display:flex;gap:var(--sp-2);align-items:flex-start;padding-top:var(--sp-1)}
 .tl-lab .lane .nm{font-weight:500;font-size:var(--fs-md);line-height:1.3}
 .tl-lab .lane .nm small{display:block;font-weight:400;color:var(--text-muted);font-size:var(--fs-sm)}
 .tl-lab .lane .nm small.narrow{display:none}
@@ -20,8 +20,8 @@
 .tl-tr .cells{display:block;width:100%;height:16px}
 .tl-tr .gap{border-top:1px solid var(--border-soft);margin-top:calc(var(--gaph) / 2);height:calc(var(--gaph) / 2)}
 .tl-now .now{display:flex;align-items:center}
-.tl-now .now .sev{font-size:var(--fs-xs);padding:3px 5px}
-.tl-now .now .sev.muted{padding:2.5px 4.5px}
+.tl-now .now .sev{font-size:var(--fs-xs);padding:var(--sp-1)}
+.tl-now .now .sev.muted{padding:3.5px}
 .tl-now .ok{font:var(--fs-xs) var(--mono);color:var(--text-muted)}
 .tl-now .glyph{display:none}
 .k8slane{position:relative}
@@ -33,18 +33,18 @@
 .k8slane .brk{position:absolute;bottom:17px;height:6px;border:1px solid var(--k8s);border-bottom:0}
 .win{position:absolute;top:0;bottom:var(--axh);pointer-events:none;background:var(--upgrade-fill);border-left:1px dashed var(--upgrade-line);border-right:1px dashed var(--upgrade-line)}
 .axis{position:relative}
-.axis span{position:absolute;transform:translateX(-50%);font:var(--fs-xs) var(--mono);color:var(--text-muted);top:5px;white-space:nowrap}
+.axis span{position:absolute;transform:translateX(-50%);font:var(--fs-xs) var(--mono);color:var(--text-muted);top:4px;white-space:nowrap}
 .axis span:before{content:"";position:absolute;left:50%;top:-4px;height:3px;width:1px;background:var(--text-faint)}
 .axis span.edge-r{transform:translateX(-100%)}
 .axis span.edge-r:before{left:auto;right:0}
-.legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;color:var(--text-muted);font-size:var(--fs-sm)}
-.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.legend{display:flex;gap:var(--sp-3);flex-wrap:wrap;align-items:center;color:var(--text-muted);font-size:var(--fs-sm)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:var(--r-xs);margin-right:var(--sp-1);vertical-align:-1px}
 
 /* zoom strip: Kubernetes above the axis, NATS advisories and finding transitions below */
-.zoom{margin-top:16px;padding-top:14px;border-top:1px solid var(--border-soft)}
-.zoom-h{display:flex;gap:6px 12px;align-items:baseline;margin-bottom:8px;flex-wrap:wrap}
+.zoom{margin-top:var(--sp-4);padding-top:var(--sp-4);border-top:1px solid var(--border-soft)}
+.zoom-h{display:flex;gap:var(--sp-2) var(--sp-3);align-items:baseline;margin-bottom:var(--sp-2);flex-wrap:wrap}
 .zoom-h .aside{color:var(--text-muted);font-size:var(--fs-sm)}
-.zoom-h .zkey{margin-left:auto;display:flex;gap:12px;flex-wrap:wrap;font-size:var(--fs-sm);color:var(--text-muted)}
-.zoom-h .zkey svg{width:9px;height:9px;vertical-align:-1px;margin-right:5px}
+.zoom-h .zkey{margin-left:auto;display:flex;gap:var(--sp-3);flex-wrap:wrap;font-size:var(--fs-sm);color:var(--text-muted)}
+.zoom-h .zkey svg{width:9px;height:9px;vertical-align:-1px;margin-right:var(--sp-1)}
 .zsvg{display:block;width:100%;overflow:visible}
 .zsvg text{font-family:var(--mono)}
