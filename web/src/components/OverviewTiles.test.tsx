@@ -196,11 +196,11 @@ describe("ticks on a tile chart", () => {
     expect(container.querySelectorAll(".spark-range")).toHaveLength(0);
   });
 
-  it("scales the chart to the buckets' lows and highs, as the track's ends are", () => {
+  it("scales the chart to its values, not to noise it does not tick, while the track prints the extremes", () => {
     const { container } = render(<OverviewTiles tiles={[tile({ id: "clients", label: "Clients", value: 118, series: busy() })]} windows={[]} start={START} end={END} />);
     const line = container.querySelector<SVGPolylineElement>("svg.spark polyline")!.getAttribute("points")!;
-    // The lowest value, 100, sits above the floor that the lowest low, 97, takes.
-    expect(line).not.toContain(",37.0");
+    // The lowest value, 100, lies on the floor; the unticked lows below it do not squeeze the line.
+    expect(line).toContain(",37.0");
     expect(container.querySelector(".mb-ends")!.textContent).toBe("97121");
   });
 
