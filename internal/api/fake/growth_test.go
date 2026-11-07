@@ -2,6 +2,7 @@ package fake_test
 
 import (
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -28,6 +29,9 @@ func TestFakeGrowthFromTheSeries(t *testing.T) {
 		return out
 	}
 	near := func(got *float64, want float64) bool { return got != nil && math.Abs(*got-want) <= math.Abs(want)*0.01 }
+	if g := growth(fake.Cluster, 6*time.Hour)["order-archive"]; !near(g, 96*(1<<20)) {
+		t.Errorf("six-hour order-archive growth = %v, want 96 MiB/day", g)
+	}
 	if g := growth(fake.Cluster, 24*time.Hour)["order-archive"]; !near(g, 96*(1<<20)) {
 		t.Errorf("order-archive grows %v a day, want 96 MiB", g)
 	}
@@ -44,6 +48,35 @@ func TestFakeGrowthFromTheSeries(t *testing.T) {
 	for name, g := range growth(fake.StagingSystem, 24*time.Hour) {
 		if g != nil {
 			t.Errorf("staging %s grows %v, want unset", name, *g)
+		}
+	}
+}
+
+// Measured growth belongs to the observations, independently of chart resolution.
+func TestFakeSixHourStorageGrowthIgnoresChartResolution(t *testing.T) {
+	p := fake.New(false)
+	r := &v1.TimeRange{Start: timestamppb.New(fake.FixedNow.Add(-6 * time.Hour)), End: timestamppb.New(fake.FixedNow)}
+	var subtitle string
+	for _, n := range []int32{2, 120, 500} {
+		out, err := p.GetOverview(ctx, &v1.GetOverviewRequest{System: fake.Cluster, Range: r, MaxPoints: n})
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, tile := range out.Tiles {
+			if tile.Id == "storage" {
+				found = true
+				if !strings.Contains(tile.Subtitle, "+") {
+					t.Fatalf("%d chart points: missing measured growth: %q", n, tile.Subtitle)
+				}
+				if subtitle != "" && tile.Subtitle != subtitle {
+					t.Fatalf("growth changed with resolution: %q / %q", subtitle, tile.Subtitle)
+				}
+				subtitle = tile.Subtitle
+			}
+		}
+		if !found {
+			t.Fatal("storage tile absent")
 		}
 	}
 }

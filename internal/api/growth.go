@@ -10,6 +10,17 @@ import (
 // decides, extrapolated to a day.
 const MinGrowthSpan = 6 * time.Hour
 
+// GrowthStart bounds the growth-only lookback. The selected range must
+// itself be at least six hours; shorter ranges never borrow old data.
+// Two collection intervals (at most five minutes) let a half-open range
+// include a predecessor despite small boundary jitter. No future endpoint is read.
+func GrowthStart(start, end time.Time, interval time.Duration) time.Time {
+	if end.Sub(start) < MinGrowthSpan || interval <= 0 {
+		return start
+	}
+	return start.Add(-2 * min(interval, 5*time.Minute/2))
+}
+
 // GrowthBuckets is the most points the slope is computed over; longer
 // series are reduced to bucket medians first.
 const GrowthBuckets = 200
@@ -18,6 +29,9 @@ const GrowthBuckets = 200
 type Sample struct {
 	T time.Time
 	V float64
+	// From and To retain the actual observation bounds when T is a
+	// bucket midpoint. Zero means an unreduced sample at T.
+	From, To time.Time
 }
 
 // RobustPerDay is the Theil-Sen slope of time-ordered samples (the median
@@ -28,7 +42,17 @@ type Sample struct {
 // written shrinks for real. Both providers compute stream, bucket and
 // storage growth with it.
 func RobustPerDay(s []Sample) *float64 {
-	if len(s) < 2 || s[len(s)-1].T.Sub(s[0].T) < MinGrowthSpan {
+	if len(s) < 2 {
+		return nil
+	}
+	from, to := s[0].From, s[len(s)-1].To
+	if from.IsZero() {
+		from = s[0].T
+	}
+	if to.IsZero() {
+		to = s[len(s)-1].T
+	}
+	if to.Sub(from) < MinGrowthSpan {
 		return nil
 	}
 	s = bucketMedians(s, GrowthBuckets)
@@ -56,11 +80,11 @@ func bucketMedians(s []Sample, n int) []Sample {
 	first, width := s[0].T, s[len(s)-1].T.Sub(s[0].T)/time.Duration(n)
 	var out []Sample
 	for i := 0; i < len(s); {
-		b := int(s[i].T.Sub(first) / max(width, 1))
+		b := min(n-1, int(s[i].T.Sub(first)/max(width, 1)))
 		j := i
 		var ts []time.Time
 		var vs []float64
-		for ; j < len(s) && int(s[j].T.Sub(first)/max(width, 1)) == b; j++ {
+		for ; j < len(s) && min(n-1, int(s[j].T.Sub(first)/max(width, 1))) == b; j++ {
 			ts, vs = append(ts, s[j].T), append(vs, s[j].V)
 		}
 		out = append(out, Sample{T: ts[len(ts)/2], V: median(vs)})

@@ -299,11 +299,12 @@ export function rangeCoverageText(historyStart: number | undefined, start: numbe
 }
 
 /** Oldest-retained time cannot predict when an entity will have usable samples. */
-export function growthHistoryNote(_historyStart: number | undefined, start: number, end: number, _live: boolean): string | undefined {
-  // The oldest retained timestamp says nothing about samples for this
-  // entity. Only the growth result can establish that a slope exists.
+export function growthHistoryNote(historyStart: number | undefined, start: number, end: number, _live: boolean): string | undefined {
+  // Retained age can rule out a sufficient span, but cannot establish
+  // that this entity has measurements at the boundaries.
   if (end - start < 6 * HOUR) return "needs 6 h of history; choose a range of at least 6 h";
-  return "needs samples spanning 6 h; entity data may be missing";
+  if (historyStart !== undefined && historyStart <= end && end - historyStart < 6 * HOUR) return "less than 6 h of retained history; growth needs samples spanning 6 h";
+  return "needs samples spanning 6 h; boundary observations or entity measurements may be missing";
 }
 
 export function atHistoryStart(f: Finding, historyStart: number | undefined): boolean {

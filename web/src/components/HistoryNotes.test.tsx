@@ -35,10 +35,10 @@ it("replaces a misleading fresh start in a finding row", () => {
   renderApp(<HistoryContext.Provider value={young}><FindingRow f={f} end={NOW} /></HistoryContext.Provider>);
   expect(screen.getByText("already true when nats-lens started")).toBeInTheDocument();
 });
-it("gives a Capacity card the shared sample requirement and history link", () => {
+it("keeps a Capacity card concise with an entity-specific explanation", () => {
   renderApp(<HistoryContext.Provider value={young}><ServerCards servers={[{ name: "nats-1", cluster: "shop", reported: true, used: 20, limit: 100, findingCode: "", findingId: "" }]} withoutJetstream={0} /></HistoryContext.Provider>);
-  expect(screen.getByText(/needs samples spanning 6 h; entity data may be missing/)).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: /needs samples spanning 6 h/ })).toHaveAttribute("href", expect.stringContaining("/data-history"));
+  expect(screen.getByTitle("This server lacks usable observations spanning 6 h")).toHaveTextContent("growth unavailable");
+  expect(screen.queryByRole("link", { name: /needs samples spanning 6 h/ })).not.toBeInTheDocument();
 });
 it("names the shorter coverage and missing growth on Overview storage", () => {
   const tile = { id: "storage", label: "Storage", unit: "bytes", status: "ok", value: 20, subtitle: "no rate yet" } as Tile;
@@ -59,9 +59,9 @@ it("omits a history note when the range is covered", () => {
   renderApp(<HistoryContext.Provider value={{ ...young, historyStart: young.start }}><HistoryNote /></HistoryContext.Provider>);
   expect(screen.queryByRole("note")).not.toBeInTheDocument();
 });
-it("still links an unavailable Capacity rate when calendar history exceeds six hours", () => {
+it("does not claim calendar age establishes a Capacity rate", () => {
   renderApp(<HistoryContext.Provider value={{ ...young, historyStart: young.start }}><ServerCards servers={[{ name: "nats-1", cluster: "shop", reported: true, used: 20, limit: 100, findingCode: "", findingId: "" }]} withoutJetstream={0} /></HistoryContext.Provider>);
-  expect(screen.getByRole("link", { name: /needs samples spanning 6 h/ })).toHaveAttribute("href", expect.stringContaining("/data-history"));
+  expect(screen.getByText("growth unavailable")).toBeInTheDocument();
 });
 it("names the shorter history behind the Overview message-rate chart", () => {
   renderApp(<HistoryContext.Provider value={{ ...young, gaps: [] }}><TrendChart title="Messages" start={young.start} end={NOW} layers={[]} /></HistoryContext.Provider>);

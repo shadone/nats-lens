@@ -21,9 +21,10 @@ func (s scen) growth(e *v1.EntityRef, r *v1.TimeRange) *float64 {
 // growthOf is growth's rule for any metric of the scenario: a stream's
 // messages, a server's file store.
 func (s scen) growthOf(metric string, e *v1.EntityRef, r *v1.TimeRange) *float64 {
-	start := latest(r.GetStart().AsTime(), s.dataStart())
+	growthStart := api.GrowthStart(r.GetStart().AsTime(), r.GetEnd().AsTime(), sampleEvery)
+	start := latest(growthStart, s.dataStart())
 	end := earliest(r.GetEnd().AsTime(), s.dataEnd())
-	width := max(r.GetEnd().AsTime().Sub(r.GetStart().AsTime())/api.GrowthBuckets, sampleEvery)
+	width := max(r.GetEnd().AsTime().Sub(growthStart)/api.GrowthBuckets, sampleEvery)
 	var pts []api.Sample
 	for b := api.BucketStart(start, width); b.Before(end); b = b.Add(width) {
 		// Samples lie on the Unix-aligned sampleEvery grid of the series;
@@ -35,18 +36,8 @@ func (s scen) growthOf(metric string, e *v1.EntityRef, r *v1.TimeRange) *float64
 		}
 		mid := first.Add(last.Sub(first) / 2)
 		if v, ok := s.sc.value(metric, e, s.clock(mid)); ok {
-			pts = append(pts, api.Sample{T: mid, V: v})
+			pts = append(pts, api.Sample{T: mid, V: v, From: first, To: last})
 		}
-	}
-	return api.RobustPerDay(pts)
-}
-
-// seriesGrowth is the growth per day of a series' points, nil when they
-// span less than six hours.
-func seriesGrowth(ser *v1.Series) *float64 {
-	var pts []api.Sample
-	for _, p := range ser.GetPoints() {
-		pts = append(pts, api.Sample{T: p.GetTime().AsTime(), V: p.GetValue()})
 	}
 	return api.RobustPerDay(pts)
 }
