@@ -28,6 +28,9 @@ func TestFakeGrowthFromTheSeries(t *testing.T) {
 		return out
 	}
 	near := func(got *float64, want float64) bool { return got != nil && math.Abs(*got-want) <= math.Abs(want)*0.01 }
+	if g := growth(fake.Cluster, 6*time.Hour)["order-archive"]; !near(g, 96*(1<<20)) {
+		t.Errorf("six-hour order-archive growth = %v, want 96 MiB/day", g)
+	}
 	if g := growth(fake.Cluster, 24*time.Hour)["order-archive"]; !near(g, 96*(1<<20)) {
 		t.Errorf("order-archive grows %v a day, want 96 MiB", g)
 	}
