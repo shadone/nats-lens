@@ -75,3 +75,28 @@ export function changedSegments(points: Point[]): number[] {
   for (let i = 1; i < points.length; i++) if (points[i].value !== points[i - 1].value) out.push(i);
   return out;
 }
+
+/**
+ * The buckets whose low or high lies beyond what the line draws around
+ * them: below the lowest or above the highest of the bucket's own value
+ * and its neighbours' (its own value stands in for a missing neighbour).
+ * Noise inside that envelope and a dip the line already reaches are left
+ * out, so only a move the bucket's last value hides is marked.
+ */
+export function hiddenMoves(points: Point[]): Point[] {
+  return points.filter((p, i) => {
+    const near = [points[i - 1]?.value ?? p.value, p.value, points[i + 1]?.value ?? p.value];
+    return (p.low !== undefined && p.low < Math.min(...near)) || (p.high !== undefined && p.high > Math.max(...near));
+  });
+}
+
+/** The series' min and max widened by its points' low and high, for a tile's track. */
+export function edgeRange(points: Point[], min?: number, max?: number): { min?: number; max?: number } {
+  let lo = min;
+  let hi = max;
+  for (const p of points) {
+    if (p.low !== undefined) lo = lo === undefined ? p.low : Math.min(lo, p.low);
+    if (p.high !== undefined) hi = hi === undefined ? p.high : Math.max(hi, p.high);
+  }
+  return { min: lo, max: hi };
+}
