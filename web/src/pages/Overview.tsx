@@ -4,7 +4,7 @@
 import { useState } from "react";
 import type { Finding } from "../api/model";
 import { CURRENT_FINDINGS_LIMIT, useBusiestConsumers, useCurrentFindings, useStreamPlacement } from "../api/overview";
-import { useOverview, useTimeline } from "../api/queries";
+import { useDataHistory, useOverview, useTimeline } from "../api/queries";
 import { BusiestConsumers } from "../components/BusiestConsumers";
 import { CauseGroups } from "../components/CauseGroups";
 import { Empty, ErrorBox, Loading, QueryView, RLink, StaleBanner } from "../components/common";
@@ -100,6 +100,9 @@ export function Overview() {
   usePageTitle("Overview");
   const { spec } = useTimeRange();
   const q = useOverview(spec);
+  // The tiles decide on their charts from the range's gaps: asked with the
+  // overview, under the charts' key, so they load together.
+  useDataHistory(spec);
   const fallback = useResolvedRange(spec);
   const [muting, setMuting] = useState<Finding>();
   if (!q.data) return q.error ? <ErrorBox error={q.error} retry={() => q.refetch()} what="the overview" /> : <Loading what="the overview" />;
