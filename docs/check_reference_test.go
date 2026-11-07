@@ -139,7 +139,7 @@ func TestRaftReferenceSamplingQualifications(t *testing.T) {
 		for _, section := range CheckReferences()[code] {
 			text += section.Text + "\n"
 		}
-		for _, rule := range []string{"not proof of continuous capture", "entirely absent epochs", "retained epoch", "sequence-number holes", "max_gap"} {
+		for _, rule := range []string{"not proof of continuous capture", "entirely absent collections", "retained collection", "sequence-number holes", "max_gap"} {
 			if !strings.Contains(text, rule) {
 				t.Errorf("%s lost sampling qualification %q", code, rule)
 			}

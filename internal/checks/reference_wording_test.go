@@ -50,7 +50,7 @@ func TestRaftMetadataSamplingQualifications(t *testing.T) {
 	}
 	for _, code := range []string{"server-027", "server-028"} {
 		c, _ := s.Lookup(code)
-		for _, phrase := range []string{"not proof of continuous capture", "Entirely absent epochs within max_gap can bridge", "retained epoch", "gaps over max_gap", "proposed, not yet confirmed"} {
+		for _, phrase := range []string{"not proof of continuous capture", "Entirely absent collections within max_gap can bridge", "retained collection", "gaps over max_gap", "proposed, not yet confirmed"} {
 			if !strings.Contains(c.Description, phrase) {
 				t.Errorf("%s metadata lacks %q", code, phrase)
 			}
