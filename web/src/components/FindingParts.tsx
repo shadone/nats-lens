@@ -8,7 +8,7 @@ import { fmtDuration, isoDate, isoMinute, shortWhen } from "../lib/format";
 import { muteBy, reviewOn, sentence } from "../lib/muteView";
 import { accountLabel, entityName, entityPath, findingPath, findingTag, streamPath } from "../lib/view";
 import { RLink } from "./common";
-import { Sev, StateTag } from "./Severity";
+import { AcceptedTag, Sev, StateTag } from "./Severity";
 
 /** How a list labels its accounts (accountLabeller of its entities), so
  * two accounts of one name read apart; one account alone reads by name. */
@@ -39,7 +39,7 @@ export function FindingRow({ f, end, rangeStart, label }: { f: Finding; end: num
   return (
     <div className={`frow${m ? " mute" : ""}`}>
       <span>
-        <Sev level={m ? "muted" : f.severity} label={m?.accepted ? "Accepted" : undefined} />
+        {m?.accepted ? <AcceptedTag /> : <Sev level={m ? "muted" : f.severity} />}
       </span>
       <span className="code">{f.checkCode}</span>
       <span>

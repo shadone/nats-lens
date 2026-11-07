@@ -8,7 +8,7 @@ import { Empty, QueryView, Section } from "../components/common";
 import { Pager, usePager } from "../components/EntityParts";
 import { EntityLine, FindingRow } from "../components/FindingParts";
 import { UnmuteDialog } from "../components/MuteDialog";
-import { Sev } from "../components/Severity";
+import { AcceptedTag, Sev } from "../components/Severity";
 import { serverNow } from "../lib/clock";
 import { fmtDuration, isoMinute } from "../lib/format";
 import { accountLabeller, entityName } from "../lib/view";
@@ -49,7 +49,7 @@ function MuteRow({ m, now, onLift, label }: { m: Mute; now: number; onLift: (m: 
   return (
     <div className="frow mute">
       <span>
-        <Sev level="muted" label={active ? (m.accepted ? "Accepted" : "Muted") : m.unmutedAt !== undefined ? (m.accepted ? "Ended" : "Lifted") : "Expired"} />
+        {active && m.accepted ? <AcceptedTag /> : <Sev level="muted" label={active ? "Muted" : m.unmutedAt !== undefined ? (m.accepted ? "Ended" : "Lifted") : "Expired"} />}
       </span>
       <span className="code">{m.checkCode}</span>
       <span>

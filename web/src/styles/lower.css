@@ -13,7 +13,7 @@
 .ev .ty{font:500 var(--fs-sm) var(--mono);color:var(--text);margin-right:var(--sp-2)}
 .ev .ty.critical{color:var(--sev-critical)}
 .ev .tx{color:var(--text-2);font-size:var(--fs-md)}
-.ev .badge{font:500 var(--fs-xs)/12px var(--mono);letter-spacing:.06em;padding:2px 6px;border-radius:var(--r-sm);margin-right:var(--sp-2);vertical-align:1px;border:1px solid transparent}
+.ev .badge{font:500 var(--fs-xs)/12px var(--sans);padding:2px 6px;border-radius:var(--r-sm);margin-right:var(--sp-2);vertical-align:1px;border:1px solid transparent}
 .badge.NEW{background:var(--sev-critical-bg);color:var(--sev-critical)}
 .badge.NEW.warning{background:var(--sev-warning-bg);color:var(--sev-warning)}
 .badge.RESOLVED{background:var(--accent-soft);color:var(--accent-text)}
