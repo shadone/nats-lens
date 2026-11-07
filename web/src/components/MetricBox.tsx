@@ -162,13 +162,14 @@ export function RangeTrack({
   /** The chart's domain, when the box draws one: its history status then shows in this row. */
   history?: { start: number; end: number };
 }) {
-  const inRow = (text: ReactNode) => (history ? <ChartHistoryStatus start={history.start} end={history.end}>{text}</ChartHistoryStatus> : text);
+  const inRow = (text: ReactNode, keep = false) => (history ? <ChartHistoryStatus start={history.start} end={history.end} keep={keep}>{text}</ChartHistoryStatus> : text);
   if (min === undefined || max === undefined) return null;
   if (min === max) {
     // Without a current value a steady window says so, so a server that
     // stopped never reads as quietly steady.
     const over = since ?? (noCurrent ? "in the window" : "all window");
-    return <div className="mb-track-note">{inRow(noCurrent ? `steady at ${fmt(min)} ${over} · no current value` : `steady at ${fmt(min)} ${over}`)}</div>;
+    // The status keeps the steady line's width, so a row that wraps keeps its height.
+    return <div className="mb-track-note">{inRow(noCurrent ? `steady at ${fmt(min)} ${over} · no current value` : `steady at ${fmt(min)} ${over}`, true)}</div>;
   }
   const frac = value === undefined ? undefined : Math.min(1, Math.max(0, (value - min) / (max - min)));
   const where = value === undefined ? "no current value" : `current ${fmt(value)}${value > max ? ", above the window max" : value < min ? ", below the window min" : ""}`;
