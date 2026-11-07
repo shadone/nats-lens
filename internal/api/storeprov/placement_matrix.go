@@ -87,6 +87,12 @@ func (p *Provider) GetPlacement(ctx context.Context, req *v1.GetPlacementRequest
 		fillAsset(a, placementOf(creps[key], c.GetReplicas()), views, creps[key], cx, key)
 		parent.Consumers = append(parent.Consumers, a)
 	}
+	if req.GetSelectedAsset() != "" && req.GetSelectedServer() != "" {
+		res.Observation, err = p.placementObservation(ctx, req, e)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return res, nil
 }
 
