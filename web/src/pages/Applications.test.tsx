@@ -343,3 +343,13 @@ it("explains the missing hours of its 24-hour traffic window with a history link
   renderApp(<HistoryContext.Provider value={{ start: end - 3_600_000, end, live: true, historyStart: end - 31 * 60_000 }}><Applications /></HistoryContext.Provider>, "/applications?system=example-staging&range=1h");
   expect(await screen.findByRole("link", { name: /31 min of the last 24 h/ })).toHaveAttribute("href", expect.stringContaining("range=1h"));
 });
+
+it("opens bounded Replay incident context from Applications", async () => {
+  getApps.mockResolvedValue(prod());
+  renderApp(<Applications />, "/applications?system=example-prod&account=APP&from=2026-10-17T09%3A00%3A00Z&to=2026-10-17T10%3A00%3A00Z");
+  const link = await screen.findByRole("link", { name: "Replay application context" });
+  expect(link.getAttribute("href")).toContain("/replay?");
+  expect(link.getAttribute("href")).toContain("a=2026-10-17T09");
+  expect(link.getAttribute("href")).toContain("system=example-prod");
+  expect(screen.getByText(/Library changes do not prove an application deployment/)).toBeInTheDocument();
+});
