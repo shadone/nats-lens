@@ -17,7 +17,19 @@ import (
 // mask the context-free shutdown checkpoint in duckdb/duckdb#25771.
 // Every stage must be a separate process, including the full scan after commit.
 func TestIndexSurvivesWALReplayShutdown(t *testing.T) {
+	for _, format := range []string{"default", "legacy"} {
+		t.Run(format, func(t *testing.T) { testIndexReplayShutdown(t, format) })
+	}
+}
+
+func testIndexReplayShutdown(t *testing.T, format string) {
+	t.Helper()
 	path := filepath.Join(t.TempDir(), "synthetic.duckdb")
+	if format == "legacy" {
+		// Exercise the older on-disk format too, rather than relying on the
+		// new default format to protect databases created before the upgrade.
+		path += "?storage_compatibility_version=v1.0.0"
+	}
 	run := func(stage string) error {
 		t.Helper()
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

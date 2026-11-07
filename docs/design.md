@@ -133,6 +133,14 @@ So the stop timeout must exceed `shutdown_grace + events.flush_interval + 2s` or
 
 ### Database
 
+nats-lens pins `duckdb-go v2.20000.0`, embedding DuckDB `v2.0.0`. The engine includes the [upstream shutdown checkpoint fix](https://github.com/duckdb/duckdb/pull/25771) for index entries buffered during WAL replay. A subprocess regression checkpoints 1,750 synthetic rows, appends 298, replays the WAL in another process, and closes without an explicit checkpoint. A third process commits a DELETE; a fourth reopens, verifies an empty full scan, and checks duplicate rejection. This sequence fails at COMMIT with DuckDB 1.5.6 and passes with 2.0.0, using both the default format and an explicit legacy storage format. It establishes prevention for this sequence, not a cause for any historical file or protection against all corruption. The dependency choice is proposed, not yet confirmed.
+
+The [official driver upgrade notes](https://github.com/duckdb/duckdb-go/tree/v2.20000.0#upgrading-to-duckdb-v2) keep the Go API unchanged. Default static libraries come from `go.duckdb.org`; restricted module proxies must allow that source (ASVS 15.2.4). The app does not use appenders, profiling, or `CREATE TABLE AS` row counts, whose behavior changes in this release. The [storage compatibility rules](https://duckdb.org/docs/2.0/internals/storage) permit newer engines to read older files, but new 2.0 files cannot be opened by older engines. Rollback requires a verified earlier generation, rather than assuming that the old binary can open files written by the new one.
+
+Check and replay queries use the documented `lambda x: expression` syntax because DuckDB 2.0 disables single-arrow lambdas by default. The replay node lookup uses explicit JSON paths to avoid ambiguous precedence in a chained JSON-arrow comparison.
+
+The existing explicit checkpoint after migrations remains necessary for startup durability. It is not the prevention fix. Neither a successful checkpoint nor an engine upgrade repairs existing index divergence; a synthetic pre-existing failure remains in the typed fatal containment tests. Follow the [recovery procedure](operations/database-recovery.md) before replacing an affected database.
+
 The DuckDB file `natslens.duckdb` lives in the system's data directory (`data_dir` for a file without `systems`, `<data_dir>/<id>` by default in a list). Tables follow one pattern:
 
 - identity tables hold one row per thing with the first and last epoch it was seen: `servers`, `accounts`, `streams`, `consumers`, `raft_groups`;

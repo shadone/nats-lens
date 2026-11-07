@@ -74,8 +74,8 @@ libs AS (
     SELECT lang, version, minimum,
         CASE WHEN regexp_matches(version, '^v?[0-9]') AND NOT (lang = 'python3' AND version = '0.0.0')
             THEN list_resize(list_transform(string_split(regexp_extract(version, '^v?([0-9]{1,9}(\.[0-9]{1,9}){0,2})', 1), '.'),
-                x -> TRY_CAST(x AS BIGINT)), 3, 0) END AS have,
-        list_resize(list_transform(string_split(minimum, '.'), x -> CAST(x AS BIGINT)), 3, 0) AS need
+                lambda x: TRY_CAST(x AS BIGINT)), 3, 0) END AS have,
+        list_resize(list_transform(string_split(minimum, '.'), lambda x: CAST(x AS BIGINT)), 3, 0) AS need
     FROM (
         SELECT DISTINCT lang, version,
             CASE lang
@@ -94,7 +94,7 @@ libs AS (
 ),
 old AS (
     SELECT c.*, l.minimum FROM c JOIN libs l ON l.lang = c.lang AND l.version = c.version
-    WHERE l.have IS NOT NULL AND len(list_filter(l.have, x -> x IS NULL)) = 0 AND l.have < l.need
+    WHERE l.have IS NOT NULL AND len(list_filter(l.have, lambda x: x IS NULL)) = 0 AND l.have < l.need
 ),
 latest AS (
     SELECT app, max(epoch) AS epoch FROM old GROUP BY app

@@ -45,7 +45,7 @@ WITH win AS (
     -- The store adds its notes (values a newer server sent, a configuration
     -- not stored) to the errors with the prefix "note: "; they are no
     -- failure of the collection.
-    SELECT epoch, started_at, finished_at, list_filter(errors, x -> NOT starts_with(x, 'note: ')) AS errors
+    SELECT epoch, started_at, finished_at, list_filter(errors, lambda x: NOT starts_with(x, 'note: ')) AS errors
     FROM epochs WHERE epoch BETWEEN getvariable('window_epoch') AND getvariable('epoch')
 ),
 restarting_now AS (
@@ -97,7 +97,7 @@ SELECT
             (SELECT array_to_string(list(text ORDER BY times DESC, server_name, endpoint)[1:3], '; ')
                 || CASE WHEN count(*) > 3 THEN '; and ' || (count(*) - 3) || ' more' ELSE '' END FROM worst),
             CASE WHEN t.own > 0 THEN 'nats-lens failed itself in ' || t.own
-                || coalesce(' (' || (SELECT error FROM own_error) || ')', '') END], x -> x IS NOT NULL AND x <> ''), '; ')
+                || coalesce(' (' || (SELECT error FROM own_error) || ')', '') END], lambda x: x IS NOT NULL AND x <> ''), '; ')
         || '. Findings that need the missing replies may be missed.' AS detail,
     round(100.0 * t.bad / t.n, 1) AS value
 FROM totals t
