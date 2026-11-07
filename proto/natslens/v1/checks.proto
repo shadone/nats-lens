@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// A paragraph of the shipped check reference. Text is plain with backtick code spans.
+message CheckReferenceSection {
+  string title = 1;
+  string text = 2;
+}
+
+// A named threshold, with its shipped default and optional selected-system value.
+message CheckThreshold {
+  string name = 1;
+  string default_value = 2;
+  string unit = 3;
+  string description = 4;
+  optional string effective_value = 5;
+}
+
+// Shipped reference for one check; no detection query or private remediation.
+message CheckDefinition {
+  string code = 1;
+  string name = 2;
+  string entity = 3;
+  string category = 4;
+  string severity = 5;
+  string severity_rule = 6;
+  string kind = 7;
+  string lookback = 8;
+  repeated CheckThreshold thresholds = 9;
+  string description = 10;
+  string remediation = 11;
+  string value_name = 12;
+  string value_basis = 13;
+  repeated string related_config = 14;
+  repeated string suppressed_by = 15;
+  repeated CheckReferenceSection reference = 16;
+  optional bool disabled = 17;
+  optional string effective_lookback = 18;
+}
+
+message ListCheckDefinitionsRequest {
+  // Empty selects the default system; unknown systems are invalid_argument.
+  string system = 1;
+}
+
+message ListCheckDefinitionsResponse {
+  repeated CheckDefinition definitions = 1;
+  // configured, unavailable (no configuration supplied), or demo (reference only).
+  string configuration_state = 2;
+  // Selected-system values; absent unless configuration_state is configured.
+  optional string restart_window = 3;
+  optional string timeout = 4;
+  string default_restart_window = 5;
+  string default_timeout = 6;
+}

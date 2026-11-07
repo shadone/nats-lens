@@ -7,8 +7,8 @@ const ReadyPath = "/readyz"
 
 // WithReady serves ReadyPath in front of next: 200 once ready reports
 // true, 503 before; a nil ready is always ready. natslens run reports
-// ready once its first epoch is stored, so that a new pod receives no
-// traffic while it rebuilds its database or before it reached NATS.
+// ready once every store is open and the API serves, unless an engine
+// failed fatally. NATS connection failures do not change readiness.
 func WithReady(next http.Handler, ready func() bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != ReadyPath {

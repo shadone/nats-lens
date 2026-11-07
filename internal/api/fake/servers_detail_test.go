@@ -32,11 +32,11 @@ func TestGlobalServerDetail(t *testing.T) {
 		if d.GetLimits() == nil || d.GetLimits().MaxPayload == nil || d.GetLimits().GetWriteDeadline() == nil || d.GetLimits().GetJsMaxStorage() != s.GetJsMaxStorageBytes() {
 			t.Errorf("%s limits %v", s.GetName(), d.GetLimits())
 		}
-		// Routes to the other servers of the cluster; none to nats-us-4,
-		// which stopped answering.
-		routes := map[string]int{"eu": 8, "us": 7, "ap": 5}[s.GetCluster()]
+		// Three pooled routes to each other server of the cluster; none to
+		// nats-us-4, which stopped answering.
+		routes := 3 * map[string]int{"eu": 8, "us": 7, "ap": 5}[s.GetCluster()]
 		if s.GetName() == "nats-us-4" {
-			routes = 8
+			routes = 3 * 8
 		}
 		if len(d.GetRouteViews()) != routes || int32(routes) != d.GetRoutes() || d.GetGateways() != 2 || d.Leafnodes == nil {
 			t.Errorf("%s routes %d (%d), gateways %d", s.GetName(), len(d.GetRouteViews()), d.GetRoutes(), d.GetGateways())
@@ -57,9 +57,10 @@ func TestGlobalServerDetail(t *testing.T) {
 	if !slices.Equal(differ, []string{"nats-ap-3:max_payload"}) {
 		t.Errorf("servers with differing limits = %v", differ)
 	}
-	// 11 streams, 2 KV stores and an object store, each led by one server.
-	if leaders != 14 {
-		t.Errorf("stream leaders sum to %d, want 14", leaders)
+	// 16 streams, 2 KV stores and an object store, each led by one server
+	// except basket-events, which has no leader in the newest epoch.
+	if leaders != 18 {
+		t.Errorf("stream leaders sum to %d, want 18", leaders)
 	}
 	// The servers' slow consumers add up to the system's count in the range.
 	series := must(c.GetTimeSeries(ctx, connect.NewRequest(&v1.GetTimeSeriesRequest{System: fake.GlobalSystem, Metric: "cluster.slow_consumers"})))
@@ -80,7 +81,7 @@ func TestGlobalServerDetail(t *testing.T) {
 func TestProdAndStagingServerDetail(t *testing.T) {
 	c := demo(t)
 	p := detail(t, c, "", "nats-1")
-	if p.GetKubernetes().GetNode() == "" || len(p.GetRouteViews()) != 2 || p.GetGateways() != 0 || p.Gateways == nil || len(p.GetLimitsDiffer()) != 0 {
+	if p.GetKubernetes().GetNode() == "" || len(p.GetRouteViews()) != 8 || p.GetGateways() != 0 || p.Gateways == nil || len(p.GetLimitsDiffer()) != 0 {
 		t.Errorf("prod nats-1 = kubernetes %v, routes %v, gateways %v, differ %v", p.GetKubernetes(), p.GetRouteViews(), p.Gateways, p.GetLimitsDiffer())
 	}
 	s := detail(t, c, fake.StagingSystem, "nats-1")

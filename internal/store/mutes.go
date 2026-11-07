@@ -23,6 +23,15 @@ type Mute struct {
 	// UnmutedAt is zero while the mute was not lifted.
 	UnmutedAt time.Time
 	UnmutedBy string
+	// Accepted marks an acceptance: the finding is by design, ExpiresAt is
+	// its review date, and it has an entity.
+	Accepted bool
+	// GrowthPerDay is the entity's growth when it was accepted, bytes per
+	// day; nil without a rate.
+	GrowthPerDay *float64
+	// EndReason says why nats-lens ended the acceptance; empty when a
+	// person lifted it or it ran out.
+	EndReason string
 }
 
 // Active reports whether the mute applies at now.
@@ -57,16 +66,24 @@ func (s *Store) lock(ctx context.Context) error {
 	}
 }
 
-const muteCols = `id, check_code, entity_type, entity_key, reason, muted_by, created_at, expires_at, unmuted_at, unmuted_by`
+const muteCols = `id, check_code, entity_type, entity_key, reason, muted_by, created_at, expires_at, unmuted_at, unmuted_by, coalesce(accepted, false), growth_per_day, end_reason`
+
+// muteInsertCols are the columns CreateMute writes.
+const muteInsertCols = `id, check_code, entity_type, entity_key, reason, muted_by, created_at, expires_at, accepted, growth_per_day`
 
 func scanMute(row interface{ Scan(...any) error }) (Mute, error) {
 	var m Mute
-	var et, ek, ub sql.NullString
+	var et, ek, ub, er sql.NullString
 	var ua sql.NullTime
-	if err := row.Scan(&m.ID, &m.CheckCode, &et, &ek, &m.Reason, &m.MutedBy, &m.CreatedAt, &m.ExpiresAt, &ua, &ub); err != nil {
+	var g sql.NullFloat64
+	if err := row.Scan(&m.ID, &m.CheckCode, &et, &ek, &m.Reason, &m.MutedBy, &m.CreatedAt, &m.ExpiresAt, &ua, &ub,
+		&m.Accepted, &g, &er); err != nil {
 		return Mute{}, err
 	}
-	m.EntityType, m.EntityKey, m.UnmutedBy = et.String, ek.String, ub.String
+	m.EntityType, m.EntityKey, m.UnmutedBy, m.EndReason = et.String, ek.String, ub.String, er.String
+	if g.Valid {
+		m.GrowthPerDay = &g.Float64
+	}
 	if ua.Valid {
 		m.UnmutedAt = ua.Time.UTC()
 	}
@@ -81,9 +98,23 @@ func (s *Store) CreateMute(ctx context.Context, m Mute) (Mute, error) {
 		return Mute{}, err
 	}
 	defer s.mu.Unlock()
-	row := s.db.QueryRowContext(ctx, `INSERT INTO mutes (`+muteCols+`)
-VALUES (nextval('mute_seq'), ?, ?, ?, ?, ?, ?, ?, NULL, NULL) RETURNING `+muteCols,
-		m.CheckCode, nullIfEmpty(m.EntityType), nullIfEmpty(m.EntityKey), m.Reason, m.MutedBy, m.CreatedAt.UTC(), m.ExpiresAt.UTC())
+	if m.Accepted && m.EntityType == "" {
+		return Mute{}, errors.New("create mute: an acceptance needs an entity")
+	}
+	var growth any
+	if m.GrowthPerDay != nil {
+		growth = *m.GrowthPerDay
+	}
+	// The system entity has an empty key, as its findings do; only a mute
+	// of every entity has neither type nor key.
+	var key any
+	if m.EntityType != "" {
+		key = m.EntityKey
+	}
+	row := s.db.QueryRowContext(ctx, `INSERT INTO mutes (`+muteInsertCols+`)
+VALUES (nextval('mute_seq'), ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING `+muteCols,
+		m.CheckCode, nullIfEmpty(m.EntityType), key, m.Reason, m.MutedBy, m.CreatedAt.UTC(), m.ExpiresAt.UTC(),
+		m.Accepted, growth)
 	out, err := scanMute(row)
 	if err != nil {
 		return Mute{}, fmt.Errorf("create mute: %w", err)

@@ -40,6 +40,9 @@ func ParseWith(name string, args []string, extra func(fs *flag.FlagSet)) (Config
 	fs.Var(&f.ServerForgetAfter, "server-forget-after", "how long a server that stopped answering is still expected (default 1h)")
 	fs.Var(&f.ShutdownGrace, "shutdown-grace", "how long a collection's write may continue after a stop signal (default 5s)")
 	fs.IntVar(&f.ConnzLimit, "connz-limit", 0, "most connections stored per server per collection (default 4096)")
+	fs.Var(&f.SubscriptionsInterval, "subscriptions-interval",
+		"shortest time between two collections of the servers' subscription lists; 0 turns them off (default 5m)")
+	fs.IntVar(&f.SubszLimit, "subsz-limit", 0, "most subscriptions stored per server per subscription collection (default 10000)")
 	fs.StringVar(&f.Listen, "listen", "", "address for the API and UI in natslens run; empty disables them (default 127.0.0.1:8080)")
 	allowed := fs.String("allowed-host", "", "comma-separated Host values the API accepts (default: loopback names when listening on loopback, else any)")
 	fs.StringVar(&f.IAPAudience, "iap-audience", "", "IAP audience; when set, mutes need a verified IAP assertion and record its user")
@@ -116,6 +119,12 @@ func applyFlags(cfg, f Config, set map[string]bool) Config {
 	}
 	if set["connz-limit"] {
 		cfg.ConnzLimit = f.ConnzLimit
+	}
+	if set["subscriptions-interval"] {
+		cfg.SubscriptionsInterval = f.SubscriptionsInterval
+	}
+	if set["subsz-limit"] {
+		cfg.SubszLimit = f.SubszLimit
 	}
 	if set["listen"] {
 		cfg.Listen = f.Listen

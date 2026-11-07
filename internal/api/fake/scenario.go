@@ -1,8 +1,10 @@
 package fake
 
 import (
+	"sync"
 	"time"
 
+	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -23,15 +25,24 @@ type scenario struct {
 	buckets []bucketSpec
 	// metaLeader is the JetStream meta leader.
 	metaLeader string
-	// epoch is the number of the newest epoch; stale is how long before
-	// now the data ends (zero while collecting).
-	epoch int64
+	// stale is how long before now the data ends (zero while
+	// collecting).
 	stale time.Duration
 	// history is how long before now the stored history begins; zero
 	// means defaultHistory, older than any range.
 	history time.Duration
-	// partial is whether the newest epoch missed a server.
-	partial bool
+	// noEpochs are the times without collections inside the history, in
+	// the fixed frame; nil means none.
+	noEpochs []hole
+	// retention is how long collections and events are kept; zero means
+	// defaultHistory.
+	retention time.Duration
+	// archive is the archive's state; nil means no archiver.
+	archive func(s scen) api.ArchiveState
+	// serverDown reports whether a server was down at fixed-frame time
+	// c, as its series draw it, so that an epoch then missed it and lists
+	// none of its connections; nil means never.
+	serverDown func(sp serverSpec, c time.Time) bool
 	// collection, collectionError and errorSince describe the collector;
 	// errorSince is a time in the fixed frame.
 	collection      v1.CollectionState
@@ -44,11 +55,15 @@ type scenario struct {
 	findings func(s scen) []*v1.Finding
 	// events are the events newest first, without IDs; fs are the
 	// findings with the mutes applied.
-	events  func(s scen, fs []*v1.Finding) []*v1.Event
-	rows    func(sc *scenario) []rowSpec
-	windows func(s scen, r *v1.TimeRange) []*v1.TimeWindow
-	// k8sLanes draws the Kubernetes lane through lane.
-	k8sLanes func(s scen, lane func(at time.Time, kind, short, label string))
+	events func(s scen, fs []*v1.Finding) []*v1.Event
+	rows   func(sc *scenario) []rowSpec
+	// infoUntil holds, by check code, when a row's findings changed from
+	// info to its severity, in the fixed frame: its cells are info before.
+	infoUntil map[string]time.Time
+	// kubernetes is whether the system watches Kubernetes: its
+	// Kubernetes events draw the lane and the windows, by the store's
+	// rules.
+	kubernetes bool
 	// sample is a metric's value at fixed-frame time c; ok is false where
 	// there is no data.
 	sample func(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (float64, bool)
@@ -56,6 +71,8 @@ type scenario struct {
 	slowEvents []time.Time
 	// mutes are the mutes the system starts with.
 	mutes func() []*storedMute
+	// acks are the acknowledgements the system starts with.
+	acks func() []*storedAck
 	// transitions, when set, returns a finding's transitions newest
 	// first; nil means a firing and, once resolved, a resolve.
 	transitions func(s scen, f *v1.Finding) []*v1.FindingTransition
@@ -64,6 +81,57 @@ type scenario struct {
 	// created returns each peer's creation time of a consumer, in peer
 	// order, and whether they disagree; nil means the same time on all.
 	created func(s scen, stream, consumer string) ([]time.Time, bool)
+	// gone returns the assets servers held at Replay's A and none holds
+	// at its B besides the vanished durables of the streams; nil means
+	// none.
+	gone func(s scen, f *api.ReplayFacts) []api.ReplayGone
+	// initialLeaders are the leaders, by entity key, that differ at the
+	// start of the history from a stream's first peer and a consumer's
+	// stream leader.
+	initialLeaders map[string]string
+	// spreadLeaders spreads the initial stream leaders over the replicas:
+	// the i-th stream's is its peer i modulo its replicas, not its first.
+	spreadLeaders bool
+	// auth is what the Accounts and auth page reads; nil means the stream
+	// account alone, never looked up, with no failed logins, certificates
+	// or user JWTs.
+	auth *authSpec
+	// links are how the servers connect; nil means routes only, one per
+	// pair of servers.
+	links *linkSpec
+	// subs are the subscriptions each client's connections hold, by client
+	// name; nil means the scenario collects no subscription lists.
+	subs map[string][]clientSub
+	// extraConns are connections besides the clients' in Account.
+	extraConns []extraConn
+	// library, when set, gives the client library of a client's
+	// connections on a server; an empty language falls back to libraryOf's
+	// default.
+	library func(sp serverSpec, client string) (lang, version string)
+	// rtt, when set, gives the round trip of a client's connections on a
+	// server, before each connection's own few microseconds; zero means
+	// the default.
+	rtt func(sp serverSpec, client string) time.Duration
+	// micro are the micro services the clients run in Account, and
+	// microAsked the accounts nats-lens asks with $SRV requests: Account
+	// answers, any other is refused.
+	micro      []microSpec
+	microAsked []string
+	// microTimeouts are the epochs, in the fixed frame, whose $SRV
+	// requests to Account timed out.
+	microTimeouts []time.Time
+	// apiRate and apiErrors are the stream account's JetStream API
+	// requests per second and the share that failed.
+	apiRate, apiErrors float64
+	// layout indexes the servers by cluster, built once.
+	layoutOnce sync.Once
+	layout     clusterLayout
+	// model is the leaders' history, built once from the scenario.
+	modelOnce sync.Once
+	model     *leaderModel
+	// ids are the events' IDs by kind and time, counted once.
+	idsOnce sync.Once
+	ids     map[string]string
 }
 
 // systemRef is the scenario's system entity.

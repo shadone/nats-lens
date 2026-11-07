@@ -4,11 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
-	"github.com/shadone/nats-lens/internal/checks"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -39,30 +37,28 @@ func (p *Provider) ListConnections(ctx context.Context, req *v1.ListConnectionsR
 		return &v1.ListConnectionsResponse{}, nil
 	}
 	res := &v1.ListConnectionsResponse{Epoch: e.epoch}
-	// The epoch's stored decision, as the client checks took it; an epoch
-	// without one counts as on.
-	stored, err := checks.StoredLoopback(ctx, p.db(), e.epoch)
+	if res.Servers, err = p.serverNames(ctx, req.GetRange()); err != nil {
+		return nil, err
+	}
+	rule, err := p.toolingAt(ctx, e.epoch)
 	if err != nil {
 		return nil, err
 	}
-	loopback := !p.LoopbackNotTooling && stored
-	// tooling is the same rule the client checks use.
-	tooling := `(list_contains(?::VARCHAR[], coalesce(c.name, '')) OR (? AND coalesce(c.ip, '') IN ('127.0.0.1', '::1')))`
-	names := append([]string{}, p.ToolingNames...)
+	tooling, toolingArgs := rule.sql("c.name", "c.ip")
 	const base = `
 FROM connections c JOIN servers s USING (server_id)
 WHERE c.epoch = ? AND (? = '' OR s.server_name = ?) AND (? = '' OR c.account = ?)
   AND contains(coalesce(c.name, ''), ?)`
 	baseArgs := []any{e.epoch, req.GetServer(), req.GetServer(), req.GetAccount(), req.GetAccount(), req.GetNameContains()}
 	if err := p.db().QueryRowContext(ctx, `SELECT count(*) FILTER (WHERE `+tooling+`)`+base,
-		append([]any{names, loopback}, baseArgs...)...).Scan(&res.ToolingHidden); err != nil {
+		append(toolingArgs, baseArgs...)...).Scan(&res.ToolingHidden); err != nil {
 		return nil, err
 	}
 	from, args := base, baseArgs
 	if req.GetIncludeTooling() {
 		res.ToolingHidden = 0
 	} else {
-		from, args = base+` AND NOT `+tooling, append(append([]any{}, baseArgs...), names, loopback)
+		from, args = base+` AND NOT `+tooling, append(append([]any{}, baseArgs...), toolingArgs...)
 	}
 	if err := p.db().QueryRowContext(ctx, `SELECT count(*)`+from, args...).Scan(&res.TotalCount); err != nil {
 		return nil, err
@@ -86,7 +82,7 @@ SELECT s.server_name, c.cid, c.name, c.lang, c.version, c.account, c.authorized_
 			return nil, err
 		}
 		c.Name, c.Lang, c.Version, c.Account, c.User, c.Ip = name.String, lang.String, version.String, account.String, user.String, ip.String
-		c.Tooling = slices.Contains(p.ToolingNames, c.GetName()) || (loopback && (c.GetIp() == "127.0.0.1" || c.GetIp() == "::1"))
+		c.Tooling = rule.is(c.GetName(), c.GetIp())
 		c.StartTime, c.LastActivity = ts(ntime(started)), ts(ntime(active))
 		if rtt.Valid {
 			c.Rtt = dur(time.Duration(rtt.Int64))
@@ -101,4 +97,25 @@ SELECT s.server_name, c.cid, c.name, c.lang, c.version, c.account, c.authorized_
 		res.NextPageToken = api.EncodeCursor(api.Cursor{Offset: next, Epoch: e.epoch})
 	}
 	return res, nil
+}
+
+// serverNames reads the names of every server seen in the range, sorted:
+// the servers ListServers lists.
+func (p *Provider) serverNames(ctx context.Context, r *v1.TimeRange) ([]string, error) {
+	start, end := span(r)
+	rows, err := p.db().QueryContext(ctx, `
+SELECT DISTINCT server_name FROM servers WHERE last_seen_at >= ? AND first_seen_at < ? ORDER BY server_name`, start, end)
+	if err != nil {
+		return nil, fmt.Errorf("server names: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			return nil, err
+		}
+		out = append(out, n)
+	}
+	return out, rows.Err()
 }

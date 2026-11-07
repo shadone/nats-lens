@@ -1,33 +1,68 @@
 # Checks and findings
 
 - **Surfaces:** `ui`, `api`, `cli`
-- **Status:** partial — accepting a finding with a review date is planned
-- **Related:** [server-checks.md](server-checks.md), [stream-checks.md](stream-checks.md), [consumer-checks.md](consumer-checks.md), [client-checks.md](client-checks.md), [system-checks.md](system-checks.md), [inventory.md](inventory.md), [triage-and-mutes.md](triage-and-mutes.md), [metrics-and-alerting.md](metrics-and-alerting.md), [notifications.md](notifications.md), [design.md](../design.md)
+- **Status:** partial — accepting a finding is built for one entity; related entities, a check everywhere and a review list are planned
+- **Related:** [server-checks.md](server-checks.md), [account-checks.md](account-checks.md), [stream-checks.md](stream-checks.md), [consumer-checks.md](consumer-checks.md), [client-checks.md](client-checks.md), [system-checks.md](system-checks.md), [inventory.md](inventory.md), [triage-and-mutes.md](triage-and-mutes.md), [metrics-and-alerting.md](metrics-and-alerting.md), [notifications.md](notifications.md), [design.md](../design.md)
 
 ## What it does
 
-After every collection, nats-lens runs its checks against what it just stored. Each check looks for one kind of problem, such as a stream that lost quorum, a consumer whose backlog keeps growing, or a server whose disk fills in three days. It reports every entity where it finds that problem. Each report is a **finding**: one check failing for one server, stream, consumer, client or for the whole system. A finding stays open while the problem lasts and resolves on its own when the problem goes away. nats-lens ships 49 checks. You can tune their thresholds, turn single checks off, add your own remediation text, and mute findings you have decided to live with.
+After every collection, nats-lens runs its checks against what it just stored. Each check looks for one kind of problem, such as a stream that lost quorum, a consumer whose backlog keeps growing, or a server whose disk fills in three days. It reports every entity where it finds that problem. Each report is a **finding**: one check failing for one server, account, stream, consumer, client or for the whole system. A finding stays open while the problem lasts and resolves on its own when the problem goes away. nats-lens ships 91 checks. You can tune their thresholds, turn single checks off, add your own remediation text, and mute findings you have decided to live with, or accept one entity's finding as by design until a review date.
 
 ## Behavior and rules
+
+- **Complete behavioral rules.** Reference pages retain all authored per-check paragraphs, including both label styles, continuation lines, tables, prerequisites, exclusions, and holding and resolution rules such as `client-007`'s young reconnected clients and incomplete-collection limit. Numeric defaults do not replace this prose.
+- **Browse the reference.** `/checks` lists all 91 shipped checks, including the three built-in checks. Search matches code, name, category and meaning; the entity filter narrows the list. Each `/checks/:code` page starts with its concise meaning, then explains firing and severity rules, evidence, limitations, default thresholds and investigation steps. Slow-route pages include the complete shared classifier rule. An unknown code shows “Check not found” and a catalog link.
+- **Open from an investigation.** Finding details and expanded check-associated event findings link to the check reference. Reference links preserve the selected system, range and account context. The reference covers all accounts. Its findings link carries the system and range into the existing findings filter.
+- **Defaults and effective settings stay distinct.** `ListCheckDefinitions` serves the shipped reference and the selected system's current enabled state, thresholds, lookback, restart window and timeout when configuration is available. These values do not reconstruct historical configuration. An unavailable configuration leaves effective values and enabled state unknown; the demo explicitly serves defaults only. Reference prose describes shipped defaults. Private remediation extensions and playbook links do not appear in the catalog; they remain on that system's findings.
+
+
+- **Notifications.** `natslens run` sends findings to configured webhook and Slack-compatible channels, following the filters and delivery rules in [notifications.md](notifications.md).
 
 - **One finding per check and entity.** A finding has a check code (for example `stream-001`), an entity, a severity, a one-line detail and, where the check measures something, a value with its name, such as "replicas online". Client findings are keyed by connection name (for `client-001`, the part of the name before "@"), so a finding survives reconnects.
 - **Three severities.** `critical` means messages are at risk now, for example quorum is lost or a durable consumer disappeared. `warning` means something will break or is degrading. `info` means something worth knowing, such as a restart, a version difference or a stream without limits. A check has a default severity, and many checks raise or lower it by rule; for example, server store usage is a warning from 75% and critical from 90%.
 - **Findings start, change and resolve by themselves.** A newly failing entity starts a finding as **firing**. A severity change is recorded as **changed**. When the check no longer reports the entity, the finding is **resolved**. Every step is kept as a transition with the time of its collection, and every transition is also an event.
 - **Flapping is called out.** A finding that resolved more than three times in the hour before a collection is marked **flapping**, so it is not mistaken for a series of separate incidents.
 - **Two start times.** "First seen by nats-lens" is when nats-lens first reported the finding. "Condition since" is when the problem itself began, where the check can tell: for example, the moment a server process started for `server-004`, or the newer creation time for `stream-008` and `consumer-009`. A finding first seen within a minute of the start of nats-lens's history says "first seen when nats-lens history begins", because the problem may be older.
-- **Each check has a category.** The categories are health, agreement (servers disagree with each other or an asset vanished), inventory (what the inventory file declares is missing or different), consumers, storage, clients, change, and engine (nats-lens's own checks failing).
+- **Each check has a category.** The categories are health, agreement (servers disagree with each other or an asset vanished), inventory (what the inventory file declares is missing or different), consumers, storage, clients, change, expiry (a certificate or JWT that expires soon; its warnings rank after the other warnings, so they never head an outage), and engine (nats-lens's own checks failing).
 - **Planned maintenance does not raise alarms.** A server is restarting when its process started within `checks.restart_window` (10 minutes by default) and replaced an earlier process of the same name. A missing server that announced lame duck mode or shutdown first is a planned stop. The checks that judge the cluster (quorum, agreement, missing assets) leave a restarting server's reports out while the other servers still form a majority. A rolling restart therefore raises only info findings, plus warnings for replicas while they are offline or behind.
 - **Short blips need to persist.** Checks prone to one-off spikes need the condition in two collections in a row before they fire: stream and consumer quorum loss, stream peer set differences, replica positions that differ in `stream-008` and `consumer-009`, connection churn and client round trip time. Some checks need a duration instead, such as `server-003` (JetStream not ready for 3 minutes) and `server-012` (raft groups catching up for 5 minutes).
 - **One problem, one finding.** Where two checks would say the same thing, one leaves it to the other: `stream-009` (peer sets differ) stays quiet for a stream while `stream-001` (quorum lost) fires for it, and `server-002` (healthz) leaves JetStream readiness errors to `server-003`.
-- **Tooling connections are left out.** The client checks (`client-001` to `client-004`) and the client list in the detail of `server-011` ignore tooling connections, unless `checks.include_tooling` is set. Tooling connections are nats-lens's own connections (`nats.name`, `<name>-events`, `<name>-<account>`) and, with `checks.loopback_is_tooling` (on by default), clients connected from 127.0.0.1 or ::1, such as a port-forwarded `nats` CLI.
+- **Tooling connections are left out.** The client checks (`client-001` to `client-008`) and the client list in the detail of `server-011` ignore tooling connections, unless `checks.include_tooling` is set. Tooling connections are nats-lens's own connections (`nats.name`, `<name>-events`, `<name>-<account>`) and, with `checks.loopback_is_tooling` (on by default), clients connected from 127.0.0.1 or ::1, such as a port-forwarded `nats` CLI.
 - **The loopback guard.** A sidecar proxy can make every inbound connection look local. When loopback clients are more than 60% of the connections that are not nats-lens's own over the last 10 collections, nats-lens counts them as real clients again, until their share falls below 40%. A collection with fewer than 3 such connections keeps the previous decision, so a lone CLI stays tooling. nats-lens logs it once when the guard turns the rule off.
-- **Thresholds are settings.** Every number a check compares against is a named threshold with a default and a unit (count, ratio, bytes or duration). The configuration file can override a threshold under `checks.thresholds`, or the lookback of a check that has one. `checks.disabled` turns single checks off; their open findings then resolve. nats-lens refuses to start when the configuration names an unknown check, threshold or value.
+- **Thresholds are settings.** Every number a check compares against is a named threshold with a default and a unit (count, ratio, bytes, duration, or version, a dotted version such as `1.37.0` for `client-008`'s minimum per client library). The configuration file can override a threshold under `checks.thresholds`, or the lookback of a check that has one. `checks.disabled` turns single checks off; their open findings then resolve. nats-lens refuses to start when the configuration names an unknown check, threshold or value.
 - **Every finding says what to do.** Each check has a description of what it detects and a remediation: the steps to investigate or fix the problem. A finding also shows its related settings with their current values, the basis of its value, and the event that caused it, where the check names one.
-- **Your own remediation text.** `checks.remediation_file` points at a YAML file that maps a check code to extra text, such as a runbook link or the team that owns a stream. The API and the UI show that text after the check's own remediation, below a `---` line. The text is plain, with `backticks` around code; nats-lens renders no other Markdown. nats-lens reads the file at start only, so a change needs a restart (in Kubernetes, a changed ConfigMap needs a rollout). An unknown check code or an empty text stops the start.
+- **Your own remediation text.** `checks.remediation_file` points at a YAML file that maps a check code to extra text, such as a runbook link or the team that owns a stream. The API and the UI show that text after the check's own remediation, below a `---` line. The text is plain, with `backticks` around code; nats-lens renders no other Markdown. nats-lens reads the file at start only, so a change needs a restart (in Kubernetes, a changed ConfigMap needs a rollout). An unknown check code or an empty text stops the start. An entry can also pair its text with an HTTPS playbook link for the [on-call card](mobile.md); a non-HTTPS link, a missing host, credentials, or control characters stop the start.
 - **A failing check is itself a finding.** If a check cannot run, its findings stay as they were. nats-lens then raises `system-001` "Check failed to run", which becomes critical when the same check has failed ten collections in a row. Each check has `checks.timeout` (5 seconds) to run, and all checks of a collection share half the collect interval. The order of the checks rotates by one every collection, so an overrun does not always leave out the same checks.
+- **Churn hysteresis survives missed evaluations.** `client-005` and `server-011` retain their lower holding thresholds after errors or budget skips, using their own last successful evaluation. A successful recovery or disabling the check resolves the finding; a later firing needs the full thresholds again.
 - **Mutes hide a finding without losing it.** A mute covers one check, either for one entity or for every entity. It needs a reason of at most 1000 characters and an end between one minute and 90 days ahead, and records who set it: the verified IAP user behind IAP, otherwise the name given in the request. A muted finding still records its transitions. The UI shows it apart from the unmuted findings, it never counts towards the overview's status, and it is exported to `/metrics` with `muted="true"`. A mute can be lifted early, and nats-lens records who lifted it. Lifted and expired mutes stay as history.
+- **Accept one entity's finding as by design.** An acceptance is a mute of one entity's finding (`MuteFinding` with `accept`) with a review date, between a day and 365 days ahead, as its end, and the same reason and author rules. It reads as muted everywhere mutes are read, and as accepted in the UI ([triage-and-mutes.md](triage-and-mutes.md)); the Capacity page accepts `stream-005` ([capacity.md](capacity.md)). For a stream or a server, nats-lens records the entity's growth over the last week (the median, over the last day, of the change since a week earlier divided by 7, so daily and weekly patterns cancel), and after each check run ends the acceptance when that growth now differs by more than half of the recorded rate, or of 1 MiB a day when that is larger, recording "growth changed from … to …" as the reason. An entity with under about 8 days of history gets its baseline recorded later, the first time it can be measured. A purge or a restore changes the week's growth and also ends it, so the finding returns for a new decision. At the review date the acceptance ends as a mute does. The review needs a `retention` of at least 8 days and an hour; with less, acceptances record no growth and end only at their review date, and nats-lens logs a warning at start.
 
 ## Scenarios
+
+### Browse a check without a finding
+
+- **Surfaces:** `ui`, `api`
+- **Given** no finding has fired for a check
+- **When** I browse Checks or request `ListCheckDefinitions` for the selected system
+- **Then** the reference still includes that check, its default thresholds, firing rules, limitations and next steps
+- **And** the catalog includes all 91 checks, including the three built-in checks
+
+### Keep configuration in its system
+
+- **Surfaces:** `ui`, `api`
+- **Given** one system disables a check and overrides its threshold while another uses defaults
+- **When** I switch systems on a reference page
+- **Then** the page reads the selected system's values and never shows the previous system's values as its own
+- **And** a demo or unavailable configuration does not claim a check is enabled or supply effective values
+
+### Follow a check reference link
+
+- **Surfaces:** `ui`
+- **Given** a finding or expanded event with an associated finding
+- **When** I follow its Check reference link
+- **Then** I reach that check's page with the same system and time range
+- **And** an unknown code shows “Check not found” with a link to browse all checks
+
 
 ### A problem raises a finding and resolves it
 
@@ -93,12 +128,27 @@ After every collection, nats-lens runs its checks against what it just stored. E
 - **Then** the finding moves to the muted findings and no longer affects the Overview's status
 - **And** when the mute ends, the finding counts again if the condition still holds
 
+### Accept a finding through the API
+
+- **Surfaces:** `api`
+- **Given** `stream-005` fires for `order-archive`, which keeps everything on purpose
+- **When** I call `MuteFinding` with the check code, the stream as entity, a reason, a review date six months ahead and `accept`
+- **Then** `ListMutes` returns it with `accepted` and the growth nats-lens recorded, and the finding counts as muted until the review date
+- **And** a request with `accept` and no entity, or a review date more than 365 days ahead, is refused
+
 ## Planned
 
-- **Accept a finding with a review date.** An accepted finding records who accepted it and why, and has a review date at most one year ahead. On that date it returns for a new decision. Acceptance can cover one entity, the same finding on related entities (for example every consumer of one stream), or the check everywhere. Accepted findings leave the Overview and are listed together under "Review accepted findings". A finding about growth comes back early when the growth changes by more than 50%. Mutes stay for short-term silencing.
+- **Accept more than one entity.** Acceptance of the same finding on related entities (for example every consumer of one stream), or of the check everywhere, and accepted findings listed together under "Review accepted findings". Mutes stay for short-term silencing.
 - **One cause, one card.** Findings of one check that share a cause, such as four consumers of one stream with the same creation-time difference, are grouped into one item on the Overview.
-- **Notifications.** Sending firing and resolved findings to a channel is planned in [notifications.md](notifications.md).
 - **More checks.** Each check catalogue lists its planned checks.
+
+### Open a configured playbook
+
+- **Surfaces:** `cli`, `ui`
+- **Given** a remediation entry pairs non-empty `text` with an HTTPS `playbook` URL
+- **When** nats-lens starts and an operator opens the phone finding card
+- **Then** the extra text follows the check's remediation and “Open the playbook” links to the configured URL
+- **And** a non-HTTPS URL, missing host, credentials, or control characters stop startup
 
 ## Not supported / out of scope
 

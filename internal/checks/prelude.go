@@ -42,7 +42,43 @@ package checks
 //     tooling(name, ip) is tooling_at for the epoch checked, for events.
 //   - gap_text(names, whys) writes " (may be on nats-0, which did not
 //     answer)" for the not-ready servers that may hold a missing asset.
-const Prelude = `CREATE OR REPLACE TEMP MACRO tooling_at(name, ip, e) AS
+//   - account_lookups(e) is a table of the newest account_details row of
+//     each account epoch e lists, at or before e and read at most 24 hours
+//     before e started (api.AccountDetailsMaxAge, the Accounts page's
+//     rule; an older lookup reads as not looked up yet), with title, the
+//     account's readable name, else its identifier.
+//   - expiry_text(t, now) writes "expires 2026-11-08 09:00 UTC, in 12
+//     days" or "expired 2026-10-20 09:00 UTC, 1 day ago"; span_text(iv)
+//     writes the span in minutes below an hour, in hours to a tenth below
+//     a day and in days to a tenth, the unit chosen after rounding (23 h
+//     58 m is 1 day), whole numbers without ".0" and 1 in the singular.
+//   - account_servers(e) and account_connections(e) are the queries of
+//     AccountServersSQL and AccountConnectionsSQL for epoch e: each
+//     account's share on each server process, and its connections as
+//     nats-server counts them against the limit.
+var Prelude = "CREATE OR REPLACE TEMP MACRO account_servers(ep) AS TABLE " + AccountServersSQL("ep") + ";\n" +
+	"CREATE OR REPLACE TEMP MACRO account_connections(ep) AS TABLE " + AccountConnectionsSQL("ep") + ";\n" + prelude + raftDiagnosticPrelude
+
+const prelude = `CREATE OR REPLACE TEMP MACRO account_lookups(ep) AS TABLE
+SELECT d.*, coalesce(nullif(nullif(a.account_name, ''), a.account), nullif(nullif(d.account_name, ''), a.account), a.account) AS title
+FROM account_details d JOIN accounts a ON a.account = d.account AND a.first_epoch <= ep AND a.last_epoch >= ep
+WHERE d.epoch <= ep AND d.looked_up_at >= (SELECT started_at FROM epochs WHERE epoch = ep) - INTERVAL 24 HOUR
+QUALIFY row_number() OVER (PARTITION BY d.account ORDER BY d.epoch DESC, d.looked_up_at DESC) = 1;
+CREATE OR REPLACE TEMP MACRO unit_text(x, one, many) AS
+    CASE WHEN x = trunc(x) THEN CAST(CAST(x AS BIGINT) AS VARCHAR) ELSE CAST(x AS VARCHAR) END
+    || ' ' || CASE WHEN x = 1 THEN one ELSE many END;
+CREATE OR REPLACE TEMP MACRO span_text(iv) AS CASE
+    WHEN round(epoch(iv) / 60) < 1 THEN 'less than a minute'
+    WHEN round(epoch(iv) / 60) < 60 THEN unit_text(round(epoch(iv) / 60), 'minute', 'minutes')
+    WHEN round(epoch(iv) / 3600, 1) < 24 THEN unit_text(round(epoch(iv) / 3600, 1), 'hour', 'hours')
+    ELSE unit_text(round(epoch(iv) / 86400, 1), 'day', 'days')
+END;
+CREATE OR REPLACE TEMP MACRO expiry_text(t, now) AS CASE
+    WHEN t IS NULL THEN NULL
+    WHEN t <= now THEN 'expired ' || strftime(t, '%Y-%m-%d %H:%M UTC') || ', ' || span_text(now - t) || ' ago'
+    ELSE 'expires ' || strftime(t, '%Y-%m-%d %H:%M UTC') || ', in ' || span_text(t - now)
+END;
+CREATE OR REPLACE TEMP MACRO tooling_at(name, ip, e) AS
     coalesce(getvariable('exclude_tooling') AND (list_contains(getvariable('tooling_names'), name)
         OR (getvariable('loopback_setting')
             AND CASE WHEN e = getvariable('epoch') THEN getvariable('loopback_now')
@@ -144,5 +180,5 @@ CREATE OR REPLACE TEMP MACRO gap_text(names, whys) AS CASE
     WHEN names IS NULL OR len(names) = 0 THEN ''
     WHEN len(names) = 1 THEN ' (may be on ' || names[1] || ', which ' || whys[1] || ')'
     ELSE ' (may be on ' || array_to_string(names, ', ') || ': '
-        || array_to_string(list_transform(list_zip(names, whys), x -> x[1] || ' ' || x[2]), '; ') || ')'
+        || array_to_string(list_transform(list_zip(names, whys), lambda x: x[1] || ' ' || x[2]), '; ') || ')'
 END`

@@ -101,7 +101,7 @@ function TimelineTable({ tl }: { tl: Timeline }) {
           ))}
           {tl.kubernetes.map((e) => (
             <tr key={e.id}>
-              <td className="mono">k8s</td>
+              <td className="mono">K8s</td>
               <td colSpan={2}>{e.label}</td>
               <td className="mono">{hm(e.time)}</td>
             </tr>
@@ -135,7 +135,7 @@ export function StatusTimeline({ tl, end, live, asTable }: { tl: Timeline; end: 
         {hasLane && (
           <>
             <div className="lane">
-              <span className="code">k8s</span>
+              <span className="code">K8s</span>
               <span className="nm">
                 Kubernetes
                 <small className="wide">GKE events, {tl.kubernetes.length} in range</small>

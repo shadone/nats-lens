@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -177,13 +179,16 @@ func TestMissingFiles(t *testing.T) {
 	if err == nil {
 		t.Fatal("no error")
 	}
-	for _, want := range []string{"nats.tls.ca", "accounts[APP].creds", "kubernetes.kubeconfig"} {
+	for _, want := range []string{"nats.tls.ca", "kubernetes.kubeconfig"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error does not name %s: %v", want, err)
 		}
 	}
 	if strings.Contains(err.Error(), "nats.creds") {
 		t.Errorf("present file named: %v", err)
+	}
+	if strings.Contains(err.Error(), "accounts[") {
+		t.Errorf("an account file named: %v", err)
 	}
 	err = missingFiles(sys, false)
 	if err == nil || !strings.Contains(err.Error(), "nats.tls.ca") ||
@@ -209,9 +214,9 @@ accounts: [{ name: APP, creds: %s }]
 	return conf
 }
 
-// Account files are read only by the event connections of natslens run:
-// once starts with one missing, with events on or off; run with events
-// refuses it.
+// An account file that is missing refuses no start: once starts with
+// one missing, with events on or off. run is covered by
+// TestRunWithEventsStartsWithoutABadAccount.
 func TestStartCheckOnlyChecksFilesTheCommandReads(t *testing.T) {
 	if testing.Short() {
 		t.Skip("starts a NATS server")
@@ -224,9 +229,50 @@ func TestStartCheckOnlyChecksFilesTheCommandReads(t *testing.T) {
 			t.Errorf("once with events %s: %v", events, err)
 		}
 	}
-	conf := writeAccountConfig(t, t.TempDir(), c.URL(0), "true")
-	err := run(ctx, []string{"run", "-config", conf, "-log-level", "error"})
-	if err == nil || !strings.Contains(err.Error(), "accounts[APP].creds") {
-		t.Errorf("run with events: err = %v, want the account creds refused", err)
+}
+
+// A missing file of an accounts entry refuses no start; the start check
+// warns once per such file, naming the system, the entry and the file,
+// with event capture on or off.
+func TestStartCheckWarnsOfMissingAccountFiles(t *testing.T) {
+	dir := t.TempDir()
+	present := filepath.Join(dir, "present")
+	if err := os.WriteFile(present, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	missingCreds, missingCert := filepath.Join(dir, "app.creds"), filepath.Join(dir, "app.crt")
+	sys := config.System{ID: "shop-prod", DataDir: filepath.Join(dir, "data"),
+		Accounts: []config.Account{
+			{Name: "APP", Creds: missingCreds},
+			{Name: "BILLING", TLS: config.TLS{Cert: missingCert, Key: present}},
+			{Name: "OK", Creds: present},
+		},
+	}
+	for _, withEvents := range []bool{true, false} {
+		var buf bytes.Buffer
+		log := slog.New(slog.NewTextHandler(&buf, nil))
+		if err := checkSystems([]config.System{sys}, withEvents, log); err != nil {
+			t.Fatalf("events %t: refused: %v", withEvents, err)
+		}
+		lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+		var warned []string
+		for _, l := range lines {
+			if strings.Contains(l, "level=WARN") && strings.Contains(l, "account file missing") {
+				warned = append(warned, l)
+			}
+		}
+		if len(warned) != 2 {
+			t.Fatalf("events %t: %d warnings, want 2:\n%s", withEvents, len(warned), buf.String())
+		}
+		for i, want := range [][]string{
+			{"system=shop-prod", "account=APP", "file=accounts[APP].creds", "path=" + missingCreds},
+			{"system=shop-prod", "account=BILLING", "file=accounts[BILLING].tls.cert", "path=" + missingCert},
+		} {
+			for _, w := range want {
+				if !strings.Contains(warned[i], w) {
+					t.Errorf("events %t: warning %q lacks %q", withEvents, warned[i], w)
+				}
+			}
+		}
 	}
 }

@@ -318,19 +318,23 @@ func (p *Provider) series(ctx context.Context, metric string, e *v1.EntityRef, r
 	step := api.Step(r, maxPoints, max(p.Interval, time.Second))
 	start, end := span(r)
 	agg := "avg(v)"
+	// Low and high are NULL unless a count fills them.
+	edges := "NULL::DOUBLE, NULL::DOUBLE"
 	switch {
 	case m.sum:
 		agg = "sum(v)"
 	case api.Metrics[metric].Unit == v1.Unit_UNIT_COUNT:
 		// A count stays whole: a bucket shows its last value, as a tile
-		// does, never an average such as 16.9 connections.
+		// does, never an average such as 16.9 connections. Its lowest and
+		// highest epoch keep a dip inside the bucket.
 		agg = "arg_max(v, t)"
+		edges = "min(v)::DOUBLE, max(v)::DOUBLE"
 	}
 	// Rates and deltas need the epoch before the range's first one.
 	args := append([]any{start.Add(-2 * max(p.Interval, time.Minute)), end}, entityArgs(e)...)
 	args = append(args, step.Microseconds(), start, end)
 	q := `WITH per_epoch AS (` + p.metricQuery(m) + `)
-SELECT time_bucket(to_microseconds(?::BIGINT), t, TIMESTAMP '1970-01-01 00:00:00') AS b, ` + agg + `::DOUBLE
+SELECT time_bucket(to_microseconds(?::BIGINT), t, TIMESTAMP '1970-01-01 00:00:00') AS b, ` + agg + `::DOUBLE, ` + edges + `
 FROM per_epoch WHERE t >= ? AND t < ? AND v IS NOT NULL GROUP BY b ORDER BY b`
 	rows, err := p.db().QueryContext(ctx, q, args...)
 	if err != nil {
@@ -341,10 +345,15 @@ FROM per_epoch WHERE t >= ? AND t < ? AND v IS NOT NULL GROUP BY b ORDER BY b`
 	for rows.Next() {
 		var b time.Time
 		var v float64
-		if err := rows.Scan(&b, &v); err != nil {
+		var lo, hi sql.NullFloat64
+		if err := rows.Scan(&b, &v, &lo, &hi); err != nil {
 			return nil, err
 		}
-		out.Points = append(out.Points, &v1.Point{Time: ts(b.UTC()), Value: v})
+		pt := &v1.Point{Time: ts(b.UTC()), Value: v}
+		if lo.Valid && hi.Valid {
+			pt.Low, pt.High = ptr(lo.Float64), ptr(hi.Float64)
+		}
+		out.Points = append(out.Points, pt)
 		if out.Min == nil || v < out.GetMin() {
 			out.Min = ptr(v)
 		}

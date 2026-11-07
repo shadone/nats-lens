@@ -34,9 +34,18 @@ type Provider interface {
 	// the identity mode and the version.
 	Info(ctx context.Context) (*v1.GetLensInfoResponse, error)
 
+	// CollectInterval is the time between epochs; the default range of
+	// GetShellStatus is two of them.
+	CollectInterval() time.Duration
+
 	GetOverview(ctx context.Context, req *v1.GetOverviewRequest) (*v1.GetOverviewResponse, error)
+	// ShellStatus returns the freshness, servers and finding tally of the
+	// range, as GetOverview reads them; the handler adds the systems.
+	ShellStatus(ctx context.Context, req *v1.GetShellStatusRequest) (*v1.GetShellStatusResponse, error)
 	ListFindings(ctx context.Context, req *v1.ListFindingsRequest) (*v1.ListFindingsResponse, error)
 	GetFinding(ctx context.Context, req *v1.GetFindingRequest) (*v1.GetFindingResponse, error)
+	// OnCall reads the card's present facts. The handler reads and finishes Replay.
+	OnCall(ctx context.Context, req *v1.GetOnCallRequest) (*OnCallFacts, error)
 	// MuteFinding stores a mute; the handler has checked the reason, the
 	// expiry and set muted_by.
 	MuteFinding(ctx context.Context, req *v1.MuteFindingRequest) (*v1.Mute, error)
@@ -44,6 +53,14 @@ type Provider interface {
 	// ErrFailedPrecondition for one that no longer applies.
 	UnmuteFinding(ctx context.Context, req *v1.UnmuteFindingRequest) (*v1.Mute, error)
 	ListMutes(ctx context.Context, req *v1.ListMutesRequest) (*v1.ListMutesResponse, error)
+	// AcknowledgeFinding stores an acknowledgement of the finding's
+	// current episode; the handler has checked the note and the quiet and
+	// set acked_by. ErrNotFound for an unknown finding,
+	// ErrFailedPrecondition for one that does not fire.
+	AcknowledgeFinding(ctx context.Context, req *v1.AcknowledgeFindingRequest) (*v1.Acknowledgement, error)
+	// EndAcknowledgement hands an acknowledgement back; ErrNotFound for
+	// an unknown ID, ErrFailedPrecondition for one no longer in force.
+	EndAcknowledgement(ctx context.Context, req *v1.EndAcknowledgementRequest) (*v1.Acknowledgement, error)
 	GetStatusTimeline(ctx context.Context, req *v1.GetStatusTimelineRequest) (*v1.GetStatusTimelineResponse, error)
 	ListEvents(ctx context.Context, req *v1.ListEventsRequest) (*v1.ListEventsResponse, error)
 	GetEvent(ctx context.Context, req *v1.GetEventRequest) (*v1.GetEventResponse, error)
@@ -51,6 +68,69 @@ type Provider interface {
 	GetStream(ctx context.Context, req *v1.GetStreamRequest) (*v1.GetStreamResponse, error)
 	ListConsumers(ctx context.Context, req *v1.ListConsumersRequest) (*v1.ListConsumersResponse, error)
 	GetConsumer(ctx context.Context, req *v1.GetConsumerRequest) (*v1.GetConsumerResponse, error)
+	// GetPlacement returns every stream and durable consumer of the range's
+	// newest epoch with its cells, unfiltered and in any order; the
+	// handler applies the filter and counts with FinishPlacement.
+	GetPlacement(ctx context.Context, req *v1.GetPlacementRequest) (*v1.GetPlacementResponse, error)
+	// Replay reads the facts of the story between the request's A and B,
+	// which the handler has checked and clamped to Now; the handler words
+	// them with FinishReplay. A older than the retention is ErrInvalid.
+	Replay(ctx context.Context, req *v1.GetReplayRequest) (*ReplayFacts, error)
+	// Topology reads the rows of the range's newest epoch and the drop
+	// window before it; the handler pairs, counts and orders them with
+	// FinishTopology. A range without an epoch gives facts with Epoch 0.
+	Topology(ctx context.Context, req *v1.GetTopologyRequest) (*TopologyFacts, error)
+	// AccountsAndAuth reads the accounts of the range's newest epoch with
+	// their newest lookups, the failed logins of the 24 hours before it
+	// grouped, and the epoch's certificates and user JWTs; the handler
+	// orders, limits and counts them with FinishAccounts. A range without
+	// an epoch gives facts with Epoch 0.
+	AccountsAndAuth(ctx context.Context, req *v1.GetAccountsAndAuthRequest) (*AccountsFacts, error)
+	// Capacity reads the server stores and streams of the range's newest
+	// epoch with their growth over the range, and the firing findings of
+	// the epoch; the handler words, orders and cuts them with
+	// FinishCapacity. A range without an epoch gives facts with Epoch 0.
+	Capacity(ctx context.Context, req *v1.GetCapacityRequest) (*CapacityFacts, error)
+	// Subjects reads the streams and consumers of the range's newest
+	// epoch, the JetStream API rates of the accounts that use JetStream,
+	// and the newest subscription collection at or before the epoch within
+	// SubscriptionsMaxAge, grouped by GroupSubscriptions' rules; it may
+	// leave out what lies outside the request's account. The handler
+	// builds the rows, orders, counts and cuts them with FinishSubjects. A
+	// range without an epoch gives facts with Epoch 0.
+	Subjects(ctx context.Context, req *v1.GetSubjectsRequest) (*SubjectsFacts, error)
+	// MatchSubject reads what GetSubjects reads for the tester: the
+	// streams with their consumers, and the subscription collection's
+	// CoreGroups, at least those whose subject matches the request's
+	// literal subject, which the handler has checked. The handler keeps
+	// what matches with FinishMatch.
+	MatchSubject(ctx context.Context, req *v1.MatchSubjectRequest) (*MatchFacts, error)
+	// MicroServices reads the micro services of the range's newest epoch:
+	// the accounts asked in it with their newest $SRV.INFO and the epoch's
+	// $SRV.STATS requests, the services that answered with their endpoints'
+	// rates (MicroWindowIncrease), levels (MicroLevel) and slow runs
+	// (MicroSlowSince), the services seen in the newest subscription
+	// collection at or before the epoch within SubscriptionsMaxAge
+	// (SeenMicro), and the instances gone within MicroMissingWindow; it may
+	// leave out what lies outside the request's account. The handler merges,
+	// orders and cuts them with FinishMicro. A range without an epoch gives
+	// facts with Epoch 0.
+	MicroServices(ctx context.Context, req *v1.GetMicroServicesRequest) (*MicroFacts, error)
+	// Applications reads the client connections of the range's newest
+	// epoch with their tooling marked, whether a server's list was cut, the
+	// client events of the ApplicationDay before it counted by name
+	// (AppEventFact), the hourly traffic of its TrafficHours and the findings
+	// firing at it; it may leave out what lies outside the request's
+	// account. The handler groups, counts and orders them with
+	// FinishApplications. A range without an epoch gives facts with Epoch 0.
+	Applications(ctx context.Context, req *v1.GetApplicationsRequest) (*ApplicationFacts, error)
+	// DataHistory reads the history and event starts, the range's
+	// collections and gaps (CollectionGaps), the collector events of
+	// HistoryEventKinds around the range, the archive's state, the checks'
+	// lookbacks and the findings already true at the history start; the
+	// handler applies the gap rules, the coverage and the uses table with
+	// FinishDataHistory.
+	DataHistory(ctx context.Context, req *v1.GetDataHistoryRequest) (*HistoryFacts, error)
 	ListServers(ctx context.Context, req *v1.ListServersRequest) (*v1.ListServersResponse, error)
 	GetServer(ctx context.Context, req *v1.GetServerRequest) (*v1.GetServerResponse, error)
 	ListConnections(ctx context.Context, req *v1.ListConnectionsRequest) (*v1.ListConnectionsResponse, error)

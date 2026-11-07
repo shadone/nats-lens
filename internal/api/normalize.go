@@ -33,6 +33,15 @@ const (
 	MaxNameLength        = 256
 	MinMuteLength        = time.Minute
 	MaxMuteLength        = 90 * 24 * time.Hour
+	// MinAcceptLength and MaxAcceptLength bound an acceptance's review
+	// date, from now.
+	MinAcceptLength = 24 * time.Hour
+	MaxAcceptLength = 365 * 24 * time.Hour
+	// MaxNoteLength bounds an acknowledgement's note; MinAckQuiet and
+	// MaxAckQuiet its quiet time.
+	MaxNoteLength = 500
+	MinAckQuiet   = 30 * time.Minute
+	MaxAckQuiet   = 24 * time.Hour
 )
 
 func invalid(format string, args ...any) error {
@@ -195,6 +204,13 @@ func normalizeMute(req *v1.MuteFindingRequest, now time.Time, user string) error
 	}
 	exp := req.GetExpiresAt().AsTime().Truncate(time.Second)
 	switch {
+	case req.GetAccept() && (req.GetEntity() == nil || req.GetEntity().GetType() == v1.EntityType_ENTITY_TYPE_SYSTEM):
+		return invalid("entity is required to accept a finding: an acceptance covers one entity with a key")
+	case req.GetAccept() && exp.Before(now.Add(MinAcceptLength)):
+		return invalid("expires_at, the review date, must be at least one day ahead")
+	case req.GetAccept() && exp.After(now.Add(MaxAcceptLength)):
+		return invalid("expires_at, the review date, must be at most %d days ahead", MaxAcceptLength/(24*time.Hour))
+	case req.GetAccept():
 	case exp.Before(now.Add(MinMuteLength)):
 		return invalid("expires_at must be at least %s ahead", MinMuteLength)
 	case exp.After(now.Add(MaxMuteLength)):
@@ -223,4 +239,79 @@ func normalizeUnmute(req *v1.UnmuteFindingRequest, user string) error {
 	var err error
 	req.UnmutedBy, err = text("unmuted_by", req.GetUnmutedBy(), MaxNameLength)
 	return err
+}
+
+// normalizeAck checks an acknowledgement request: a finding, a note of at
+// most MaxNoteLength characters, and either a quiet of MinAckQuiet to
+// MaxAckQuiet, truncated to whole seconds, or until resolved. user is the
+// verified IAP user when the server is configured for IAP, and empty
+// otherwise; it replaces the name in the request.
+func normalizeAck(req *v1.AcknowledgeFindingRequest, user string) error {
+	if req.GetFindingId() == "" {
+		return invalid("finding_id is required")
+	}
+	req.Note = strings.TrimSpace(req.GetNote())
+	if utf8.RuneCountInString(req.Note) > MaxNoteLength {
+		return invalid("note is longer than %d characters", MaxNoteLength)
+	}
+	switch {
+	case req.GetUntilResolved() && req.GetQuietFor() != nil:
+		return invalid("quiet_for and until_resolved are exclusive")
+	case req.GetUntilResolved():
+	case req.GetQuietFor() == nil:
+		return invalid("quiet_for or until_resolved is required")
+	default:
+		if err := req.GetQuietFor().CheckValid(); err != nil {
+			return invalid("quiet_for: %v", err)
+		}
+		d := req.GetQuietFor().AsDuration().Truncate(time.Second)
+		if d < MinAckQuiet || d > MaxAckQuiet {
+			return invalid("quiet_for must be from %s to %s", MinAckQuiet, MaxAckQuiet)
+		}
+		req.QuietFor = durationpb.New(d)
+	}
+	if user != "" {
+		req.AckedBy = user
+	}
+	var err error
+	req.AckedBy, err = text("acked_by", req.GetAckedBy(), MaxNameLength)
+	return err
+}
+
+func normalizeEndAck(req *v1.EndAcknowledgementRequest, user string) error {
+	if req.GetId() == "" {
+		return invalid("id is required")
+	}
+	if user != "" {
+		req.EndedBy = user
+	}
+	var err error
+	req.EndedBy, err = text("ended_by", req.GetEndedBy(), MaxNameLength)
+	return err
+}
+
+// normalizeReplay checks a Replay request: A and B are set and valid, B
+// after now is now, A is before B, and B is at most MaxReplaySpan after
+// A.
+func normalizeReplay(m *v1.GetReplayRequest, now time.Time) error {
+	if m.GetA() == nil || m.GetB() == nil {
+		return invalid("a and b are required")
+	}
+	if err := m.GetA().CheckValid(); err != nil {
+		return invalid("a: %v", err)
+	}
+	if err := m.GetB().CheckValid(); err != nil {
+		return invalid("b: %v", err)
+	}
+	if m.GetB().AsTime().After(now) {
+		m.B = timestamppb.New(now)
+	}
+	a, b := m.GetA().AsTime(), m.GetB().AsTime()
+	if !a.Before(b) {
+		return invalid("a must be before b, and before now")
+	}
+	if b.Sub(a) > MaxReplaySpan {
+		return invalid("a and b are at most %g hours apart", MaxReplaySpan.Hours())
+	}
+	return nil
 }

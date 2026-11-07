@@ -147,6 +147,10 @@ func (h *Handler) runSummary(ctx context.Context, sys System, req *v1.ListSystem
 			r.status = &st
 		}
 		r.sum, r.err = sys.Provider.SystemSummary(ctx, req)
+		if r.err == nil {
+			// The worst finding names its account, as every other response does.
+			h.withAccountNames(ctx, sys.Provider, r.sum)
+		}
 		done <- r
 	}()
 	go func() {

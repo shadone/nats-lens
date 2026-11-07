@@ -27,12 +27,17 @@ func globalDownAt(sp serverSpec, c time.Time) bool {
 	if !sp.answering() && !c.Before(sp.down) {
 		return true
 	}
-	if sp.day != 0 {
+	kill, ok := globalKilled[sp.name]
+	if sp.day != 0 || !ok {
 		return false
 	}
-	start := fixed(sp.h, sp.m, sp.s)
-	return !c.Before(start.Add(-2*time.Minute)) && c.Before(start)
+	return !c.Before(kill) && c.Before(fixed(sp.h, sp.m, sp.s))
 }
+
+// globalKilled is when the upgrade killed the pods of nats-us-1 to
+// nats-us-3, in the fixed frame: each server is down from then until its
+// new process starts.
+var globalKilled = map[string]time.Time{"nats-us-1": fixed(8, 44, 5), "nats-us-2": fixed(8, 56, 20), "nats-us-3": fixed(9, 4, 50)}
 
 // globalGrowth is how much a server's store grows per day.
 func globalGrowth(sp serverSpec) float64 {
@@ -42,8 +47,9 @@ func globalGrowth(sp serverSpec) float64 {
 	return 0.25 * gib
 }
 
-// globalConns is the scenario's connection count now.
-const globalConns = 1142.0
+// globalConns is the scenario's connection count now: the clients' 1,142
+// and its two extra connections in SYS.
+const globalConns = 1144.0
 
 // globalSample returns a metric's value at fixed-frame time c.
 func globalSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (float64, bool) {
@@ -78,6 +84,14 @@ func globalSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (fl
 		n := 0
 		for _, st := range sc.streams {
 			n += len(st.consumers)
+			for _, v := range st.vanished {
+				if c.Before(v.at) {
+					n++
+				}
+			}
+		}
+		if c.Before(globalInvoiceCreated) {
+			n--
 		}
 		return float64(n), true
 	case "server.connections", "server.in_msgs_rate", "server.out_msgs_rate":
@@ -85,7 +99,7 @@ func globalSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (fl
 			return 0, false
 		}
 		v, _ := globalSample(sc, "cluster."+strings.TrimPrefix(metric, "server."), e, c)
-		return math.Round(v * float64(sp.conns) / globalConns), true
+		return math.Round(v * float64(sc.connsOn(sp, c)) / globalConns), true
 	case "server.mem_bytes":
 		return float64(sp.mem) + noise(metric+e.GetKey(), c)*12*mib, !globalDownAt(sp, c)
 	case "server.cpu_percent":
@@ -95,10 +109,50 @@ func globalSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (fl
 	case "stream.bytes", "stream.messages":
 		st, _ := sc.findStream(e.GetAccount(), e.GetStream())
 		b := math.Max(st.bytes-days*st.perDay, st.bytes*0.05)
+		if st.name == "KV_feature-flags" {
+			b = globalFlagsBytes(st, c)
+		}
 		if metric == "stream.bytes" {
 			return b, true
 		}
+		if st.bytes == 0 {
+			return 0, true
+		}
 		return math.Round(float64(st.msgs) * b / st.bytes), true
+	case "cluster.meta_leader_changes":
+		// nats-eu-1 has led since the start of the data: the us restarts
+		// did not touch the meta group's leader.
+		return 0, true
+	case "server.slow_consumers":
+		// Every slow consumer disconnect was label-printer on nats-us-3.
+		if sp.name != "nats-us-3" {
+			return 0, !globalDownAt(sp, c)
+		}
+		return countIn(sc.slowEvents, c), !globalDownAt(sp, c)
+	case "consumer.num_pending", "consumer.num_ack_pending", "consumer.num_redelivered", "consumer.delivered_rate":
+		return globalConsumerSample(metric, e, c)
+	}
+	return 0, false
+}
+
+// globalConsumerSample is a consumer metric's value at fixed-frame time c.
+func globalConsumerSample(metric string, e *v1.EntityRef, c time.Time) (float64, bool) {
+	switch name := e.GetConsumer(); {
+	case name == "invoice-renderer" && c.Before(globalInvoiceCreated):
+		return 0, false
+	case name == "invoice-renderer" && metric == "consumer.delivered_rate":
+		// A rate needs two reports of the leader.
+		return 0, !c.Before(globalInvoiceCreated.Add(sampleEvery))
+	case name == "invoice-renderer":
+		return 0, true
+	case name == "reorder-planner" && metric == "consumer.delivered_rate":
+		// Paused but for its run from 02:00 to 02:30 each night.
+		if c.Hour() == 2 && c.Minute() < 30 {
+			return deliveredRate(e.GetKey(), c), true
+		}
+		return 0, true
+	}
+	switch metric {
 	case "consumer.num_pending":
 		if e.GetConsumer() == "label-printer" && !c.Before(fixed(13, 40, 0)) {
 			return math.Round(40 + 6170*c.Sub(fixed(13, 40, 0)).Hours()/(50.0/60)), true
@@ -123,16 +177,6 @@ func globalSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (fl
 			return math.Round((38+noise(metric+e.GetKey(), c)*4)*10) / 10, true
 		}
 		return deliveredRate(e.GetKey(), c), true
-	case "cluster.meta_leader_changes":
-		// nats-eu-1 has led since the start of the data: the us restarts
-		// did not touch the meta group's leader.
-		return 0, true
-	case "server.slow_consumers":
-		// Every slow consumer disconnect was label-printer on nats-us-3.
-		if sp.name != "nats-us-3" {
-			return 0, !globalDownAt(sp, c)
-		}
-		return countIn(sc.slowEvents, c), !globalDownAt(sp, c)
 	}
 	return 0, false
 }

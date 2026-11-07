@@ -37,7 +37,7 @@ export function StreamDetail() {
         {(d) => {
           const s = d.stream;
           if (!s) return <Empty>The stream {name} was not seen in this range.</Empty>;
-          const b7 = s.bytes7d?.points ?? [];
+
           const { text: cons, short } = consumerCount(s);
           return (
             <>
@@ -58,7 +58,7 @@ export function StreamDetail() {
               <section className="sec grid3">
                 <QuerySeriesChart q={msgs} title="Messages" start={start} end={end} windows={windows} />
                 <QuerySeriesChart q={bytes} title="Bytes" start={start} end={end} windows={windows} />
-                <SeriesChart title="Bytes, 7 days" series={s.bytes7d} start={b7[0]?.time ?? end - 7 * 86_400_000} end={b7[b7.length - 1]?.time ?? end} error={q.error ? errorText(q.error) : undefined} updatedAt={q.dataUpdatedAt} />
+                <SeriesChart title="Bytes, 7 days" series={s.bytes7d} start={end - 7 * 86_400_000} end={end} error={q.error ? errorText(q.error) : undefined} updatedAt={q.dataUpdatedAt} />
               </section>
               <EntityFindings entity={entity} />
               <Disagreements items={d.disagreements} />

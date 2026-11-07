@@ -40,6 +40,10 @@ type Finding struct {
 	// Mute is the active mute that covers the finding at the time of the
 	// read; nil when none does. Resolved findings carry none.
 	Mute *Mute
+	// Ack is the acknowledgement of the finding's current episode in force
+	// at the time of the read; nil when none is. Resolved findings carry
+	// none.
+	Ack *Ack
 }
 
 // Firing reports whether the finding fires.
@@ -115,8 +119,9 @@ func scanFinding(row interface{ Scan(...any) error }) (Finding, error) {
 	return f, nil
 }
 
-// Findings returns the findings that match q, with the mutes active at now
-// applied, ordered by ID. Sorting for display and paging are the caller's.
+// Findings returns the findings that match q, with the mutes and the
+// acknowledgements in force at now applied, ordered by ID. Sorting for
+// display and paging are the caller's.
 func (s *Store) Findings(ctx context.Context, now time.Time, q FindingQuery) ([]Finding, error) {
 	var where []string
 	var args []any
@@ -174,10 +179,14 @@ func (s *Store) Findings(ctx context.Context, now time.Time, q FindingQuery) ([]
 	if err := s.applyMutes(ctx, now, out); err != nil {
 		return nil, err
 	}
+	if err := s.applyAcksAt(ctx, now, out); err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 
-// Finding returns one finding by ID with the mute active at now.
+// Finding returns one finding by ID with the mute and the acknowledgement
+// in force at now.
 func (s *Store) Finding(ctx context.Context, id string, now time.Time) (Finding, error) {
 	f, err := scanFinding(s.db.QueryRowContext(ctx, `SELECT `+findingCols+` FROM findings WHERE id = ?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
@@ -190,12 +199,14 @@ func (s *Store) Finding(ctx context.Context, id string, now time.Time) (Finding,
 	if err := s.applyMutes(ctx, now, one); err != nil {
 		return Finding{}, err
 	}
+	if err := s.applyAcksAt(ctx, now, one); err != nil {
+		return Finding{}, err
+	}
 	return one[0], nil
 }
 
-// applyMutes sets Mute on every firing finding an active mute covers. A
-// mute for the finding's entity wins over one for the whole check; among
-// equals the newest mute wins.
+// applyMutes sets Mute on every firing finding an active mute covers (see
+// muteFor for which one).
 func (s *Store) applyMutes(ctx context.Context, now time.Time, fs []Finding) error {
 	mutes, _, err := s.ListMutes(ctx, now, false, 1<<30, 0)
 	if err != nil {
@@ -208,12 +219,15 @@ func (s *Store) applyMutes(ctx context.Context, now time.Time, fs []Finding) err
 }
 
 // muteFor returns the mute that covers f among mutes ordered newest
-// first, or nil.
+// first, or nil. A mute for the finding's entity wins over one for the
+// whole check; among those for the entity an acceptance wins over a plain
+// mute, so the finding reads as accepted while both apply; otherwise the
+// newest wins.
 func muteFor(mutes []Mute, f Finding) *Mute {
 	if !f.Firing() {
 		return nil
 	}
-	var whole *Mute
+	var whole, entity *Mute
 	for i := range mutes {
 		m := mutes[i]
 		if m.CheckCode != f.CheckCode {
@@ -225,9 +239,12 @@ func muteFor(mutes []Mute, f Finding) *Mute {
 			}
 			continue
 		}
-		if m.EntityType == f.EntityType && m.EntityKey == f.EntityKey {
-			return &m
+		if m.EntityType == f.EntityType && m.EntityKey == f.EntityKey && (entity == nil || (m.Accepted && !entity.Accepted)) {
+			entity = &m
 		}
+	}
+	if entity != nil {
+		return entity
 	}
 	return whole
 }
@@ -241,6 +258,9 @@ type FindingTally struct {
 	Muted int
 	// Flapping counts firing findings that flap, muted or not.
 	Flapping int
+	// Acknowledged counts firing findings with an acknowledgement in
+	// force, muted or not; they are counted above as well.
+	Acknowledged int
 	// Resolved24h counts resolve transitions in the 24 hours up to now.
 	Resolved24h int
 }
@@ -258,6 +278,9 @@ func (s *Store) Tally(ctx context.Context, now time.Time) (FindingTally, error) 
 		}
 		if f.Flapping {
 			t.Flapping++
+		}
+		if f.Ack != nil {
+			t.Acknowledged++
 		}
 		switch {
 		case f.Mute != nil:

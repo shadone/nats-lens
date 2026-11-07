@@ -49,6 +49,12 @@ func serverRef(name string) *v1.EntityRef {
 	return &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SERVER, Key: name, Name: name, Server: name}
 }
 
+// accountRef is an account by its identifier, which also names it, as
+// the store's findings name it.
+func accountRef(id string) *v1.EntityRef {
+	return &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_ACCOUNT, Key: id, Name: id, Account: id}
+}
+
 func clientRef(name string) *v1.EntityRef {
 	return &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_CLIENT, Key: name, Name: name}
 }

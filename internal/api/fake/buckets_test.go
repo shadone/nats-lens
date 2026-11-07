@@ -90,7 +90,7 @@ func TestFakeMissingBucketFindingMatchesTheCheck(t *testing.T) {
 	c := demo(t)
 	f := must(c.GetFinding(ctx, connect.NewRequest(&v1.GetFindingRequest{System: fake.GlobalSystem, Id: "stream-011:APP/KV_label-templates"}))).GetFinding()
 	want := "KV bucket label-templates (stream KV_label-templates) is in the inventory and no server reports it; " +
-		"last reported by nats-us-4 at 2026-10-17 09:11:35 UTC (may be on nats-us-4, which did not answer JSZ). No delete event recorded."
+		"last reported by nats-us-4 at 2026-10-17 09:11:35 UTC (may be on nats-us-4, which did not answer). No delete event recorded."
 	if f.GetDetail() != want || f.GetCheckName() != "Expected stream or bucket missing" {
 		t.Errorf("detail = %q (%s)", f.GetDetail(), f.GetCheckName())
 	}

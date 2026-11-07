@@ -32,6 +32,15 @@ function show(fs: Finding[]) {
 }
 
 describe("CauseGroups", () => {
+  it("labels the accounts of two cards apart when they share a name", () => {
+    const a = "ADSUPPLIERSFAKEACCOUNTKEYEXAMPLEGLOBAL7Q2M4XKV3WPJ6RT5NH";
+    const b = "AXSUPPLIERSOTHERACCOUNTKEYEXAMPLEGLOBAL7Q2M4XKV3WPJ6RT5N";
+    const streamEnt = (acc: string, stream: string): Entity => ({ kind: "stream", key: `${acc}/${stream}`, name: stream, account: acc, accountName: "SUPPLIERS", stream, consumer: "", server: "" });
+    show(["s1", "s2"].flatMap((st) => [a, b].map((acc) => f(`${acc}${st}`, streamEnt(acc, st), { checkCode: "stream-005", checkName: "Stream without any limit" }))));
+    const where = screen.getAllByText(/2 streams in account/).map((e) => e.textContent);
+    expect(where.sort()).toEqual(["2 streams in account SUPPLIERS (ADSU…)", "2 streams in account SUPPLIERS (AXSU…)"]);
+  });
+
   it("does not name one stream for consumers of a cause on two streams", () => {
     const cause = { id: "ev-2", kind: "server.restart", summary: "nats-1 restarted" };
     show([f("a", consumerEnt("order-jobs", "a"), { cause }), f("b", consumerEnt("media-windows", "b"), { cause })]);

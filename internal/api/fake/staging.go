@@ -22,10 +22,13 @@ const (
 )
 
 // stagingStop is when the collector's connection closed, and stagingStart
-// when its first epoch was stored, in the fixed frame.
+// when its first epoch was stored, in the fixed frame. stagingDown is the
+// time nats-lens was not running, two hours before the close: from its
+// last epoch to its restart, when it collected at once.
 var (
 	stagingStop  = FixedNow.Add(-stagingStale)
 	stagingStart = FixedNow.Add(-stagingHistory)
+	stagingDown  = hole{from: fixed(9, 33, 26), to: fixed(9, 36, 26)}
 )
 
 // stagingScenario is example-staging.
@@ -42,15 +45,21 @@ func stagingScenario() *scenario {
 			server("nats-2", "NSTAGEFAKE2SERVER", 5),
 		},
 		streams: []streamSpec{
-			{name: "order-jobs", msgs: 1204, bytes: 1.6 * mib, perDay: 120 * kib, consumers: []string{"resize-worker", "index-worker"}},
-			{name: "catalog-changes", msgs: 8840, bytes: 12 * mib, perDay: 400 * kib, consumers: []string{"catalog-applier"}},
-			{name: "KV_customer-config", msgs: 31, bytes: 14 * kib, perDay: 1 * kib, ephemeral: 3},
+			{name: "order-jobs", msgs: 1204, bytes: 1.6 * mib, perDay: 120 * kib, maxMsgs: 1_000_000, held: 8 * time.Hour, consumers: []string{"resize-worker", "index-worker"}},
+			{name: "catalog-changes", msgs: 8840, bytes: 12 * mib, perDay: 400 * kib, held: 8 * time.Hour, consumers: []string{"catalog-applier"}},
+			{name: "KV_customer-config", msgs: 31, bytes: 14 * kib, perDay: 1 * kib, ephemeral: 3, held: 8 * time.Hour},
+		},
+		buckets: []bucketSpec{
+			{stream: "KV_customer-config", description: "Per-customer settings", history: 5, maxBytes: 64 * mib},
 		},
 		clients:         []string{"order-service", "catalog-api", "resize-worker"},
+		apiRate:         0.3,
 		metaLeader:      "nats-1",
-		epoch:           911,
+		links:           stagingLinks(),
 		stale:           stagingStale,
 		history:         stagingHistory,
+		noEpochs:        []hole{stagingDown},
+		retention:       14 * 24 * time.Hour,
 		collection:      v1.CollectionState_COLLECTION_STATE_CONNECTION_CLOSED,
 		collectionError: "nats: authorization violation",
 		errorSince:      stagingStop,
@@ -66,25 +75,39 @@ func stagingFindings(s scen) []*v1.Finding {
 	// The stream had no limit before nats-lens watched it: first seen at
 	// the start of the history.
 	at := stagingStart.Add(s.shift)
-	f := finding("stream-005", "Stream without any limit", info, firing, streamRef("catalog-changes"), at, at,
-		"max_msgs -1, max_bytes -1, max_age 0: nothing bounds the stream.")
-	f.RelatedConfig = cfg([][2]string{{"max_msgs", "-1"}, {"max_bytes", "-1"}, {"max_age", "0"},
-		{"max_msgs_per_subject", "-1"}, {"allow_msg_ttl", "false"}}, "max_bytes")
-	f.RelatedConfigSource = "nats-1"
+	f := s.unboundedFinding("catalog-changes", at)
 	return []*v1.Finding{f}
 }
 
 // stagingEvents are the connection's close and routine reconnects before.
 func stagingEvents(s scen, _ []*v1.Finding) []*v1.Event {
 	stop := stagingStop.Add(s.shift)
-	collector := func(at time.Time, kind, reason, summary string) *v1.Event {
+	collector := func(at time.Time, kind, label, reason, summary string) *v1.Event {
 		return &v1.Event{Time: ts(at), Source: v1.EventSource_EVENT_SOURCE_COLLECTOR, Kind: kind, Type: "", Server: "nats-1",
-			Summary: summary + reason}
+			Reason: reason, Summary: summary + reason, Raw: `{"connection":"` + label + `","reason":"` + reason + `"}`}
 	}
+	// The rotated credentials closed every connection: the collector's and
+	// the two that capture events.
 	out := []*v1.Event{
-		collector(stop, "collector.connection_closed", "nats: authorization violation", "collector connection collector closed: "),
-		collector(stop.Add(-2*time.Second), "collector.disconnected", "nats: authorization violation", "collector connection collector lost server nats-1: "),
+		collector(stop, "collector.connection_closed", "collector", "nats: authorization violation", "collector connection collector closed: "),
+		collector(stop, "collector.connection_closed", "sys", "nats: authorization violation", "collector connection sys closed: "),
+		collector(stop, "collector.connection_closed", Account, "nats: authorization violation", "collector connection APP closed: "),
+		collector(stop.Add(-2*time.Second), "collector.disconnected", "collector", "nats: authorization violation", "collector connection collector lost server nats-1: "),
+		// Four hours before, the connection that captures system events lost
+		// its server for 50 seconds: capture stopped meanwhile.
+		collector(stop.Add(-4*time.Hour), "collector.disconnected", "sys", "EOF", "collector connection sys lost server nats-2: "),
+		collector(stop.Add(-4*time.Hour+50*time.Second), "collector.reconnected", "sys", "", "collector connection sys reconnected to nats-0"),
 	}
+	// nats-lens was restarted two hours before the close and was down for
+	// three minutes; at its start it recorded the gap since its last
+	// epoch.
+	from, to := stagingDown.from.Add(s.shift), stagingDown.to.Add(s.shift)
+	out = append(out,
+		&v1.Event{Time: ts(to), ReceivedAt: ts(to), Source: v1.EventSource_EVENT_SOURCE_COLLECTOR, Kind: "collector.started",
+			Summary: "collector started, version " + Version, Raw: `{"version":"` + Version + `"}`},
+		&v1.Event{Time: ts(from), ReceivedAt: ts(to), Source: v1.EventSource_EVENT_SOURCE_COLLECTOR, Kind: "collector.gap",
+			Reason: "collector not running", Summary: "no capture for 3m0s, from " + from.Format(time.RFC3339) + " to " + to.Format(time.RFC3339),
+			Raw: `{"from":"` + from.Format(time.RFC3339) + `","to":"` + to.Format(time.RFC3339) + `","seconds":180}`})
 	// Routine reconnects every 17 minutes, from the start of the history.
 	for k := range int((stagingStop.Sub(stagingStart) - time.Minute) / (17 * time.Minute)) {
 		kind, typ := "client.connect", "CLIENT.CONNECT"
@@ -140,6 +163,9 @@ func stagingSample(sc *scenario, metric string, e *v1.EntityRef, c time.Time) (f
 		b := math.Max(st.bytes-days*st.perDay, st.bytes*0.05)
 		if metric == "stream.bytes" {
 			return b, true
+		}
+		if st.bytes == 0 {
+			return 0, true
 		}
 		return math.Round(float64(st.msgs) * b / st.bytes), true
 	case "consumer.num_pending", "consumer.num_ack_pending":

@@ -1,7 +1,8 @@
 // Servers of one system: requests, view models and hooks for the Servers
 // page and a server's own page. Every hook keys on the page's system.
 import type { Duration } from "@bufbuild/protobuf/wkt";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { keepSameSystem } from "./placeholder";
 import { EntityType } from "../gen/natslens/v1/common_pb";
 import type { GetServerResponse, ListServersResponse, ServerSummary } from "../gen/natslens/v1/servers_pb";
 import type { Series as PSeries } from "../gen/natslens/v1/timeseries_pb";
@@ -13,6 +14,7 @@ import { event } from "./adapt-findings";
 import { lens } from "./client";
 import type { LensEvent, Point, Server, ServerDetail, Series } from "./model";
 import { rangeInit, systemInit } from "./requests";
+import { useTrends, type TrendQuery } from "./trendBatch";
 
 /** A server with what the Servers page adds to the shared view model. Numbers not observed are unset. */
 export interface ServerRow extends Server {
@@ -178,7 +180,7 @@ export function useServerList(spec: RangeSpec) {
     queryKey: ["serverList", sys, rangeKey(spec)],
     queryFn: ({ signal }) => listServerRows(sys, spec, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
   });
 }
 
@@ -197,7 +199,7 @@ export function useBandSeries(spec: RangeSpec, metric: string, serverName?: stri
     queryKey: ["bandSeries", sys, rangeKey(spec), metric, serverName ?? "", maxPoints],
     queryFn: ({ signal }) => getBandSeries(sys, spec, metric, serverName, maxPoints, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys, { 3: metric, 4: serverName ?? "" }),
   });
 }
 
@@ -207,6 +209,24 @@ export function useServerEvents(spec: RangeSpec, name: string, pageSize = 6) {
     queryKey: ["serverEvents", sys, rangeKey(spec), name, pageSize],
     queryFn: ({ signal }) => listServerEvents(sys, spec, name, pageSize, signal),
     refetchInterval: refetch(spec),
-    placeholderData: keepPreviousData,
+    placeholderData: keepSameSystem(sys),
   });
+}
+
+/** Slow consumers per bucket in the Servers headline. */
+export const SLOW_STRIP_QUERY: TrendQuery = { metric: "cluster.slow_consumers", maxPoints: 24 };
+
+/** The series of the Servers page: the fleet charts and the slow-consumer strip. */
+export const SERVERS_QUERIES: TrendQuery[] = [
+  { metric: "cluster.cpu_percent" },
+  { metric: "cluster.mem_bytes" },
+  { metric: "cluster.connections" },
+  { metric: "cluster.in_msgs_rate" },
+  { metric: "cluster.out_msgs_rate" },
+  SLOW_STRIP_QUERY,
+];
+
+/** The Servers page's series in one call; its parts share the query. */
+export function useServersTrends(spec: RangeSpec) {
+  return useTrends(spec, SERVERS_QUERIES);
 }

@@ -1,15 +1,19 @@
 package fake
 
 import (
-	"cmp"
+	"fmt"
+	"math"
 	"slices"
 	"time"
 
+	"github.com/shadone/nats-lens/internal/api"
+	"github.com/shadone/nats-lens/internal/checks"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
 const (
 	firing   = v1.FindingState_FINDING_STATE_FIRING
+	changed  = v1.FindingState_FINDING_STATE_CHANGED
 	flapping = v1.FindingState_FINDING_STATE_FLAPPING
 	resolved = v1.FindingState_FINDING_STATE_RESOLVED
 	critical = v1.Severity_SEVERITY_CRITICAL
@@ -54,7 +58,7 @@ func prodFindings(s scen) []*v1.Finding {
 		{"max_ack_pending", "8000"}, {"filter_subjects", "orders.archive.>"}, {"replicas", "3"},
 	}, "max_ack_pending", "ack_wait")
 	c010.RelatedConfigSource = "inventory"
-	c010.Cause = &v1.EventRef{Id: idConsumerDeleted, Time: ts(s.at(9, 31, 7)), Kind: "consumer.deleted",
+	c010.Cause = &v1.EventRef{Id: s.sc.eventID("consumer.deleted", fixed(9, 31, 7)), Time: ts(s.at(9, 31, 7)), Kind: "consumer.deleted",
 		Summary: "analytics-aggregator on order-archive by analytics-worker@10.20.0.12"}
 
 	c009 := finding("consumer-009", "Consumer creation time differs across servers", warning, firing,
@@ -62,8 +66,7 @@ func prodFindings(s scen) []*v1.Finding {
 		"nats-0 2026-08-12T10:02:11Z; nats-1, nats-2 2026-10-17T09:38:44Z. Delivered and acknowledged positions differ: "+
 			"nats-0 delivered 40112 ack floor 40096, nats-1 delivered 48207 ack floor 48190, nats-2 delivered 48207 ack floor 48188.")
 	c009.Value = &v1.FindingValue{Name: "distinct creation times", Display: "2", Number: ptr(2.0), Basis: "creation times the servers report"}
-	c009.Remediation = "Compare the consumer on each server (`nats consumer info order-jobs resize-worker --server nats-0`). " +
-		"If nats-0 holds the old copy, step the consumer leader down so the replicas resynchronise."
+	c009.Remediation = shippedCheckGuidance()["consumer-009"]
 
 	c002 := finding("consumer-002", "Consumer backlog growing", warning, flapping,
 		consumerRef("media-windows", "media-chunk-pool"), s.at(11, 0, 0), s.at(14, 12, 0),
@@ -73,11 +76,9 @@ func prodFindings(s scen) []*v1.Finding {
 	c002.TransitionsLastHour = 4
 	c002.Remediation = "Add workers to the media-chunk-pool pull consumer or lower the producer rate; the backlog grows since the 11:02 media-worker rollout."
 
-	s005 := finding("stream-005", "Stream without any limit", info, firing, streamRef("order-archive"),
-		s.on(14, 14, 30), s.on(14, 14, 30), "max_msgs -1, max_bytes -1, max_age 0: nothing bounds the stream.")
-	s005.RelatedConfig = cfg([][2]string{{"max_msgs", "-1"}, {"max_bytes", "-1"}, {"max_age", "0"},
-		{"max_msgs_per_subject", "-1"}, {"allow_msg_ttl", "false"}}, "max_bytes")
-	s005.RelatedConfigSource = "nats-0"
+	s005 := s.unboundedFinding("order-archive", s.on(14, 14, 30))
+	// Accepted as by design (prodSeedAcceptance): it reads as muted.
+	s005kv := s.unboundedFinding("KV_customer-config", s.on(2, 10, 0))
 
 	s006 := finding("stream-006", "Stream reaches its byte limit soon", warning, firing, streamRef("audit-archive"),
 		s.on(15, 8, 0), s.on(15, 8, 0),
@@ -90,7 +91,20 @@ func prodFindings(s scen) []*v1.Finding {
 		return resolvedFinding("server-002", "Healthz not ok", critical, serverRef(server), since, end,
 			server+" healthz unavailable (503): JetStream stream 'APP > "+stream+"' is not current (+2 more).")
 	}
-	out := []*v1.Finding{c010, c009, c002, s005, s006,
+	// callback-dispatcher's last three stale connections (prodCallbackDrops)
+	// fall within client-004's 10 minutes from the collection after the
+	// third.
+	c004 := finding("client-004", "Client reconnecting repeatedly", warning, firing, clientRef("callback-dispatcher"),
+		s.at(14, 26, 26), s.at(14, 26, 26),
+		"3 reconnects in the last 10m (nats-0, nats-1): Stale Connection; the last at "+s.at(14, 26, 10).UTC().Format("15:04:05")+" UTC.")
+	c004.Value = &v1.FindingValue{Name: "reconnects", Display: "3", Number: ptr(3.0),
+		Basis: "the smaller of the disconnects not asked for by the client or caused by a server stopping, and the connects, of " +
+			"the connection name within the lookback"}
+	c004.Cause = &v1.EventRef{Id: s.sc.eventID("client.disconnect", fixed(14, 26, 10)), Time: ts(s.at(14, 26, 10)), Kind: "client.disconnect",
+		Summary: "callback-dispatcher disconnected from nats-1: Stale Connection"}
+
+	out := []*v1.Finding{c010, c009, c002, s005, s005kv, s006, c004,
+		shortLived("stock-poller", s.at(12, 48, 0), 21, []string{"10.20.4.31"}, []string{"nats-0", "nats-1"}),
 		resolvedFinding("consumer-001", "Consumer quorum lost", critical,
 			consumerRef("order-jobs", "job-cache-projector"), s.at(9, 15, 0), s.at(9, 45, 0),
 			"Leader nats-0 sees 1 of 3 replicas online; quorum needs 2, for 60 collections."),
@@ -102,9 +116,11 @@ func prodFindings(s scen) []*v1.Finding {
 		resolvedFinding("stream-001", "Stream quorum lost", critical, streamRef("order-jobs"), s.at(9, 41, 30), s.at(9, 44, 30),
 			"Leader nats-0 sees 1 of 3 replicas online; quorum needs 2, for 6 collections."),
 		resolvedFinding("stream-003", "Stream replica lagging", warning, streamRef("order-archive"), s.at(9, 16, 40), s.at(10, 5, 0),
-			"Leader nats-0 reports nats-1 12400 operations behind."),
-		resolvedFinding("client-003", "Slow consumer disconnects", warning, clientRef("media-worker"), s.at(9, 15, 30), s.at(9, 45, 0),
-			"6 slow consumer disconnects in the last 30m (nats-0, nats-2), the last at 09:44:12 UTC: Slow Consumer (Write Deadline)."),
+			"Leader nats-2 reports nats-1 12400 operations behind."),
+		// It fired at the third disconnect and resolved 30 minutes after
+		// the last (prodSlowConsumerEvents).
+		resolvedFinding("client-003", "Slow consumer disconnects", warning, clientRef("media-worker"), s.at(9, 17, 30), s.at(10, 2, 0),
+			prodSlowDetail(6, "nats-0, nats-1, nats-2", s.at(9, 32, 0))),
 	}
 	return out
 }
@@ -113,6 +129,7 @@ func prodFindings(s scen) []*v1.Finding {
 // unmuted before muted, then by severity, then the longest firing first.
 func (p *Provider) findings(s scen) []*v1.Finding {
 	all := s.sc.findings(s)
+	withRemediation(all)
 	p.mu.Lock()
 	for _, f := range all {
 		if f.GetState() == resolved {
@@ -124,16 +141,13 @@ func (p *Provider) findings(s scen) []*v1.Finding {
 				break
 			}
 		}
+		f.Acknowledgement = p.ackFor(s, f)
 	}
 	p.mu.Unlock()
-	slices.SortStableFunc(all, func(a, b *v1.Finding) int {
-		return cmp.Or(
-			cmp.Compare(boolRank(a.GetState() == resolved), boolRank(b.GetState() == resolved)),
-			cmp.Compare(boolRank(a.GetMute() != nil), boolRank(b.GetMute() != nil)),
-			cmp.Compare(severityRank(a.GetSeverity()), severityRank(b.GetSeverity())),
-			a.GetSince().AsTime().Compare(b.GetSince().AsTime()),
-		)
-	})
+	for _, f := range all {
+		f.Expiry = checks.IsExpiry(f.GetCheckCode())
+	}
+	slices.SortStableFunc(all, api.CompareWorst)
 	return all
 }
 
@@ -171,6 +185,9 @@ func tally(all []*v1.Finding, r *v1.TimeRange) *v1.FindingTally {
 		if f.GetState() == flapping {
 			t.Flapping++
 		}
+		if f.GetAcknowledgement() != nil {
+			t.Acknowledged++
+		}
 		switch {
 		case f.GetMute() != nil:
 			t.Muted++
@@ -183,4 +200,30 @@ func tally(all []*v1.Finding, r *v1.TimeRange) *v1.FindingTally {
 		}
 	}
 	return t
+}
+
+// clientRTT is client-001's finding on a client, as its query words it
+// from the connections of the newest epoch: those above 100ms of all the
+// client's, and the worst.
+func (s scen) clientRTT(client string, since time.Time) *v1.Finding {
+	var total, slow int
+	var worst *v1.Connection
+	for _, c := range s.connections(s.lastEpoch()) {
+		if c.GetName() != client || c.GetRtt() == nil {
+			continue
+		}
+		total++
+		if c.GetRtt().AsDuration() > 100*time.Millisecond {
+			slow++
+		}
+		if worst == nil || c.GetRtt().AsDuration() > worst.GetRtt().AsDuration() {
+			worst = c
+		}
+	}
+	ms := math.Round(float64(worst.GetRtt().AsDuration())/1e5) / 10
+	f := finding("client-001", "High client round trip time", warning, firing, clientRef(client), since, since,
+		fmt.Sprintf("%d of %d connections above 100ms; worst %.1fms on %s cid %d from %s.", slow, total, ms, worst.GetServer(), worst.GetCid(), worst.GetIp()))
+	f.Value = &v1.FindingValue{Name: "worst round trip time, ms", Display: fmt.Sprintf("%.1f", ms), Number: ptr(ms),
+		Basis: "largest RTT among the client's connections in the collection"}
+	return f
 }

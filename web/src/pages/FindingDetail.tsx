@@ -1,3 +1,10 @@
+import { ReplayEntry } from "../components/ReplayEntry";
+import { serverNow } from "../lib/clock";
+import { FindingAcknowledgement } from "../components/Acknowledgement";
+import { OnCallFinding } from "../components/OnCallFinding";
+import { usePhone } from "../lib/usePhone";
+import { atHistoryStart } from "../lib/historyView";
+import { HistoryLink } from "../components/HistoryNote";
 // One finding: its headline, when the condition began and when nats-lens
 // first saw it, each server's copy of its stream or consumer, what to do,
 // what happened around its start, the entity's timeline, the finding's
@@ -6,16 +13,17 @@ import { useState } from "react";
 import { useParams } from "react-router";
 import { AROUND_MS, useEventsAround } from "../api/events";
 import { stateKey, useOtherFindings } from "../api/finding";
-import type { Entity, Finding } from "../api/model";
+import type { Entity, Finding, Mute } from "../api/model";
 import { useFinding, useLensInfo, useTimeline } from "../api/queries";
 import { Empty, KV, QueryView, RLink, Remediation, Section } from "../components/common";
 import { EventRow } from "../components/EventRow";
 import { FindingEvidence } from "../components/FindingEvidence";
 import { EntityLine } from "../components/FindingParts";
 import { MuteDialog, UnmuteDialog } from "../components/MuteDialog";
-import { Sev, StateTag } from "../components/Severity";
+import { AcceptedTag, Sev, StateTag } from "../components/Severity";
 import { StatusTimeline } from "../components/StatusTimeline";
-import { fmtDuration, isoMinute, isoSecond } from "../lib/format";
+import { fmtDuration, fmtGrowth, isoMinute, isoSecond, upperFirst } from "../lib/format";
+import { baselineText, muteBy, reviewOn, sentence } from "../lib/muteView";
 import { writeRange, type RangeSpec } from "../lib/timeRange";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
@@ -26,11 +34,7 @@ import { entityName, entityPath, eventPath, findingTag, serverPath, streamPath }
  * started: its condition began before the oldest stored epoch, or it was
  * first seen within a minute after it.
  */
-export function atHistoryStart(f: Finding, historyStart: number | undefined): boolean {
-  if (historyStart === undefined || f.since === undefined || f.state === "resolved") return false;
-  if (f.conditionSince !== undefined && f.conditionSince < historyStart) return true;
-  return f.since >= historyStart && f.since - historyStart < 60_000;
-}
+export { atHistoryStart } from "../lib/historyView";
 
 /** "Condition since X · first seen by nats-lens Y", and how many others share it. */
 function When({ f, spec, historyStart }: { f: Finding; spec: RangeSpec; historyStart?: number }) {
@@ -45,7 +49,7 @@ function When({ f, spec, historyStart }: { f: Finding; spec: RangeSpec; historyS
       ) : (
         <>First seen by nats-lens {seen}</>
       )}
-      {atHistoryStart(f, historyStart) && ", already true when nats-lens started"}
+      {atHistoryStart(f, historyStart) && <>, <HistoryLink>already true when nats-lens started</HistoryLink></>}
       {others > 0 && (
         <>
           {" · "}
@@ -58,15 +62,15 @@ function When({ f, spec, historyStart }: { f: Finding; spec: RangeSpec; historyS
   );
 }
 
-function Head({ f, spec, start, end, onMute, onUnmute }: { f: Finding; spec: RangeSpec; start: number; end: number; onMute: () => void; onUnmute: () => void }) {
+function Head({ f, spec, start, end, onMute, onUnmute, onAck }: { f: Finding; spec: RangeSpec; start: number; end: number; onMute: () => void; onUnmute: () => void; onAck?: () => void }) {
   const since = f.since ?? end;
   const historyStart = useLensInfo().data?.historyStart;
   const name = entityName(f.entity);
   return (
     <div className={`card worst finding-h ${f.mute ? "info" : f.severity}`}>
       <div className="k">
-        <Sev level={f.mute ? "muted" : f.severity} />
-        <span className="code">{f.checkCode}</span>
+        {f.mute?.accepted ? <AcceptedTag /> : <Sev level={f.mute ? "muted" : f.severity} />}
+        <RLink to={`/checks/${encodeURIComponent(f.checkCode)}`} className="code">{f.checkCode} · Check reference</RLink>
         <StateTag tag={findingTag(f, start)} />
       </div>
       <h1>
@@ -100,7 +104,7 @@ function Head({ f, spec, start, end, onMute, onUnmute }: { f: Finding; spec: Ran
         </div>
         {f.value && (
           <div>
-            <span className="lbl">{f.value.name}</span>
+            <span className="lbl">{upperFirst(f.value.name)}</span>
             <span className="v">{f.value.display}</span>
           </div>
         )}
@@ -115,9 +119,10 @@ function Head({ f, spec, start, end, onMute, onUnmute }: { f: Finding; spec: Ran
           </div>
         )}
         <div className="btns">
+          {onAck && f.state !== "resolved" && <button type="button" className="btn" onClick={onAck}>{f.acknowledgement ? "Update acknowledgement…" : "Acknowledge…"}</button>}
           {f.mute ? (
             <button type="button" className="btn" onClick={onUnmute}>
-              Lift mute…
+              {f.mute.accepted ? "End acceptance…" : "Lift mute…"}
             </button>
           ) : (
             <button type="button" className="btn p" onClick={onMute}>
@@ -161,12 +166,12 @@ function Around({ f, end, historyStart }: { f: Finding; end: number; historyStar
       className="fd-around"
     >
       {beforeHistory ? (
-        <p className="muted-note">nats-lens has no history before {isoMinute(historyStart!)} UTC, so it cannot say what happened then.</p>
+        <p className="muted-note">nats-lens has no history before {isoMinute(historyStart!)} UTC, so it cannot say what happened then. <HistoryLink /></p>
       ) : (
         <QueryView q={q} what="the events around the start">
           {(d) => (
             <>
-              {historyStart !== undefined && t - AROUND_MS < historyStart && <p className="muted-note">nats-lens has no history before {isoMinute(historyStart)} UTC.</p>}
+              {historyStart !== undefined && t - AROUND_MS < historyStart && <p className="muted-note">nats-lens has no history before {isoMinute(historyStart)} UTC. <HistoryLink /></p>}
               {d.items.length === 0 ? (
                 <Empty>No events worth reading in these 20 minutes.</Empty>
               ) : (
@@ -246,7 +251,26 @@ function Related({ e }: { e: Entity | undefined }) {
   );
 }
 
+/** The mute or acceptance in force on the finding. */
+function MuteSection({ m }: { m: Mute }) {
+  const baseline = baselineText(m, fmtGrowth, useLensInfo().data?.retentionMs ?? 0);
+  return (
+    <section className="sec card box-card">
+      <span className="lbl">{m.accepted ? "Accepted as by design" : "Muted"}</span>
+      <p className="dlg-sub">
+        <b>{muteBy(m)}:</b> {m.accepted ? `${sentence(m.reason)} ${reviewOn(m)}` : m.reason}
+        {!m.accepted && m.expiresAt !== undefined && ` Expires ${isoMinute(m.expiresAt)} UTC.`}
+      </p>
+      {baseline && <p className="dlg-sub">{baseline}</p>}
+    </section>
+  );
+}
+
 export function FindingDetail() {
+  return usePhone() ? <OnCallFinding allDetails={<DesktopFindingDetail acknowledgements={false} />} /> : <DesktopFindingDetail />;
+}
+
+export function DesktopFindingDetail({ acknowledgements = true }: { acknowledgements?: boolean }) {
   const id = useParams().id ?? "";
   usePageTitle(id);
   const { spec } = useTimeRange();
@@ -254,7 +278,8 @@ export function FindingDetail() {
   const q = useFinding(spec, id);
   const f = q.data?.finding;
   const tl = useTimeline(spec, f?.entity);
-  const historyStart = useLensInfo().data?.historyStart;
+  const info = useLensInfo().data;
+  const historyStart = info?.historyStart;
   const [muting, setMuting] = useState(false);
   const [lifting, setLifting] = useState(false);
   return (
@@ -278,18 +303,11 @@ export function FindingDetail() {
             <Empty>No finding with this ID.</Empty>
           ) : (
             <>
-              <section className="sec">
-                <Head f={d.finding} spec={spec} start={start} end={end} onMute={() => setMuting(true)} onUnmute={() => setLifting(true)} />
-              </section>
-              {d.finding.mute && (
-                <section className="sec card box-card">
-                  <span className="lbl">Muted</span>
-                  <p className="dlg-sub">
-                    <b>Muted by {d.finding.mute.mutedBy || "unknown"}:</b> {d.finding.mute.reason}
-                    {d.finding.mute.expiresAt !== undefined && ` Expires ${isoMinute(d.finding.mute.expiresAt)} UTC.`}
-                  </p>
-                </section>
-              )}
+              {acknowledgements ? <FindingAcknowledgement key={d.finding.id} finding={d.finding} renderHead={open =>
+                <section className="sec"><Head f={d.finding!} spec={spec} start={start} end={end} onMute={() => setMuting(true)} onUnmute={() => setLifting(true)} onAck={open} /></section>
+              } /> : <section className="sec"><Head f={d.finding} spec={spec} start={start} end={end} onMute={() => setMuting(true)} onUnmute={() => setLifting(true)} /></section>}
+              <ReplayEntry finding={d.finding} transitions={d.transitions} start={start} end={end} now={serverNow()} minGapMs={info?.collectIntervalMs || 30_000} />
+              {d.finding.mute && <MuteSection m={d.finding.mute} />}
               <div className="sec fd-cols">
                 <div className="fd-main">
                   <FindingEvidence spec={spec} entity={d.finding.entity} state={stateKey(d.finding)} />

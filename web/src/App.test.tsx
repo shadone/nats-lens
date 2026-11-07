@@ -5,11 +5,12 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { useNavigate } from "react-router";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { Status } from "./gen/natslens/v1/common_pb";
 import { ListServersResponseSchema } from "./gen/natslens/v1/servers_pb";
-import { CollectionState, ListSystemsResponseSchema } from "./gen/natslens/v1/systems_pb";
+import { durationFromMs, timestampFromMs } from "@bufbuild/protobuf/wkt";
+import { CollectionState, GetShellStatusResponseSchema, ListSystemsResponseSchema } from "./gen/natslens/v1/systems_pb";
 import { lens } from "./api/client";
 import * as requests from "./api/requests";
 import { RLink } from "./components/common";
@@ -18,11 +19,13 @@ import { renderApp } from "./test/render";
 vi.mock("./api/client", () => ({
   lens: {
     listSystems: vi.fn(),
+    getShellStatus: vi.fn(),
     listAccounts: vi.fn(),
     listKeyValueStores: vi.fn(),
     listObjectStores: vi.fn(),
     listServers: vi.fn(),
     getTimeSeries: vi.fn(() => new Promise<never>(() => {})),
+    getTimeSeriesBatch: vi.fn(() => new Promise<never>(() => {})),
   },
 }));
 
@@ -32,10 +35,10 @@ vi.mock("./api/requests", async (orig) => {
   return {
     ...real,
     getLensInfo: vi.fn(),
-    getHeaderStatus: vi.fn(),
     getOverview: pending(),
     listFindings: pending(),
     getTimeline: pending(),
+    getReplay: pending(),
     listEvents: pending(),
     listStreams: vi.fn(),
     getStream: pending(),
@@ -58,8 +61,27 @@ const ONE = { systems: [ref("default", "default")], defaultSystem: "default" };
 const tally = { critical: 0, warning: 2, info: 1, muted: 0, flapping: 0, resolved24h: 0 };
 const entity = (stream: string, consumer = "") => ({ kind: "stream" as const, key: "", name: consumer || stream, account: "APP", stream, consumer, server: "" });
 
-function setSystems(r: MessageInitShape<typeof ListSystemsResponseSchema>) {
+const notCollecting = [CollectionState.NOT_CONNECTED, CollectionState.CONNECTION_CLOSED];
+
+/** The systems as ListSystems lists them for Fleet, and as the shell's status call gives them with their badges. */
+function setSystems(r: MessageInitShape<typeof ListSystemsResponseSchema>, partError?: { errorCode: string; error: string }) {
   l.listSystems.mockResolvedValue(create(ListSystemsResponseSchema, r) as never);
+  l.getShellStatus.mockImplementation((async (req: { system?: string }) => {
+    const known = !req.system || (r.systems ?? []).some((s) => s.system?.id === req.system);
+    return create(GetShellStatusResponseSchema, {
+      freshness: known ? { epoch: 1n, epochAt: timestampFromMs(Date.now()), live: true, interval: durationFromMs(30_000), collecting: true } : undefined,
+      tally: known ? tally : undefined,
+      systems: (r.systems ?? []).map((s) => ({
+        system: s.system,
+        status: s.status,
+        collection: s.collection,
+        collecting: !notCollecting.includes(s.collection ?? CollectionState.UNSPECIFIED),
+      })),
+      defaultSystem: r.defaultSystem,
+      systemKnown: known,
+      ...(known && partError ? { ...partError, freshness: undefined, tally: undefined } : {}),
+    });
+  }) as never);
 }
 
 beforeEach(() => {
@@ -70,7 +92,6 @@ beforeEach(() => {
   l.listKeyValueStores.mockResolvedValue({ keyValueStores: [] } as never);
   l.listObjectStores.mockResolvedValue({ objectStores: [] } as never);
   m.getLensInfo.mockResolvedValue({ identityMode: "request", version: "dev", cluster: "c", collectIntervalMs: 30_000, retentionMs: 0, live: true, demo: true });
-  m.getHeaderStatus.mockResolvedValue({ cluster: "c", freshness: { epoch: "1", epochAt: Date.now(), partial: false, live: true, intervalMs: 30_000, collecting: true }, servers: [], tally });
   m.listServers.mockResolvedValue({ servers: [], expected: [], missing: [] });
   m.listStreams.mockResolvedValue({ streams: [], totals: { bytes: 0, durableConsumers: 0, ephemeralConsumers: 0 } } as never);
   m.listConsumers.mockResolvedValue([{ entity: entity("order-jobs", "resize-worker"), durable: true, findingCodes: [], disagreements: [], status: "ok" }] as never);
@@ -112,7 +133,7 @@ describe("switching system", () => {
 
   it("starts the connections of the new system at page one", async () => {
     const conn = { key: "nats-1/7", server: "nats-1", cid: "7", name: "resize-worker", lang: "go", version: "1", account: "APP", tooling: false, user: "", ip: "10.0.0.7" };
-    const page = (n: number, next: string) => ({ items: [conn] as never, nextPageToken: next, totalCount: n, epoch: "1", toolingHidden: 0 });
+    const page = (n: number, next: string) => ({ items: [conn] as never, nextPageToken: next, totalCount: n, epoch: "1", toolingHidden: 0, servers: [] });
     m.listConnections.mockImplementation(async (sys, _spec, f) => page(200, sys === "example-prod" && !f.pageToken ? "prod-token-2" : ""));
     renderApp(<App />, "/connections?system=example-prod");
     await userEvent.click(await screen.findByRole("button", { name: "Next" }));
@@ -146,11 +167,11 @@ describe("sidebar", () => {
   it("shows the built pages in their groups and hides the planned ones", async () => {
     renderApp(<App />, "/streams?system=example-global");
     const links = within(nav()).getAllByRole("link").map((a) => a.textContent?.replace(/\d+$/, ""));
-    expect(links).toEqual(["Fleet", "Overview", "Findings", "Connections", "Streams", "Consumers", "KV Stores", "Object Stores", "Servers", "Events"]);
-    for (const planned of ["Subjects", "Micro services", "Applications", "Placement", "Capacity", "Topology", "Accounts", "Users & auth"]) {
+    expect(links).toEqual(["Fleet", "Overview", "Findings", "Checks", "Subjects", "Micro services", "Applications", "Connections", "Streams", "Consumers", "KV Stores", "Object Stores", "Placement", "Capacity", "Servers", "Events", "Replay", "Topology", "Accounts", "Data history"]);
+    for (const planned of ["Users & auth"]) {
       expect(within(nav()).queryByText(planned)).toBeNull();
     }
-    expect(within(nav()).getByText("Messaging").parentElement).toHaveTextContent("Connections");
+    expect(within(nav()).getByText("Messaging").parentElement).toHaveTextContent("SubjectsMicro servicesApplicationsConnections");
   });
 
   it("keeps the system and the range on every page link, the account only where it applies", async () => {
@@ -159,7 +180,7 @@ describe("sidebar", () => {
     for (const a of within(nav()).getAllByRole("link")) {
       const p = params(a.getAttribute("href"));
       const name = a.textContent?.replace(/\d+$/, "");
-      const scoped = ["Consumers", "Connections", "KV Stores", "Object Stores"].includes(name ?? "") ? "APP" : null;
+      const scoped = ["Checks", "Subjects", "Micro services", "Applications", "Consumers", "Connections", "KV Stores", "Object Stores"].includes(name ?? "") ? "APP" : null;
       expect([name, p.get("system"), p.get("range"), p.get("account")]).toEqual([name, "example-global", "6h", scoped]);
     }
   });
@@ -194,21 +215,20 @@ describe("sidebar", () => {
   it("has no Fleet badge when every system is OK", async () => {
     setSystems({ systems: [{ ...ref("example-prod", "Production"), status: Status.OK }, { ...ref("example-global", "Global"), status: Status.MUTED }], defaultSystem: "example-prod" });
     renderApp(<App />, "/servers?system=example-prod");
-    await waitFor(() => expect(l.listSystems).toHaveBeenCalledWith(expect.objectContaining({ stripBuckets: 48 }), expect.anything()));
+    await waitFor(() => expect(l.getShellStatus).toHaveBeenCalled());
     await screen.findByText("Production");
     expect(within(nav()).getByRole("link", { name: "Fleet" }).querySelector(".nb")).toBeNull();
   });
 
-  it("reads the Fleet badge over the last 24 hours, whatever range the page shows", async () => {
+  it("reads the Fleet badge from the shell's status call, whatever range the page shows", async () => {
     renderApp(<App />, "/fleet?range=7d");
     await screen.findAllByText("Production");
     const hours = () =>
       l.listSystems.mock.calls
-        .map((c) => c[0] as { stripBuckets?: number; range?: { start?: { seconds: bigint } } })
-        .filter((r) => r.stripBuckets)
-        .map((r) => Math.round((Date.now() / 1000 - Number(r.range!.start!.seconds)) / 3600))
-        .sort((a, b) => a - b);
-    await waitFor(() => expect(hours()).toEqual([24, 168]));
+        .map((c) => c[0] as { range?: { start?: { seconds: bigint } } })
+        .map((r) => Math.round((Date.now() / 1000 - Number(r.range!.start!.seconds)) / 3600));
+    await waitFor(() => expect(hours()).toEqual([168]));
+    expect(l.getShellStatus).toHaveBeenCalledWith(expect.not.objectContaining({ range: expect.anything() }), expect.anything());
   });
 
   it("collapses to a rail and remembers it", async () => {
@@ -420,8 +440,45 @@ describe("landing and unknown systems", () => {
     expect(params(fleet.getAttribute("href")).get("system")).not.toBe("nope");
     expect(params(fleet.getAttribute("href")).get("range")).toBe("6h");
     expect(m.listStreams).not.toHaveBeenCalledWith("nope", expect.anything(), expect.anything(), expect.anything());
-    expect(m.getHeaderStatus).not.toHaveBeenCalledWith("nope", expect.anything(), expect.anything());
+    // The shell's status call says the system is unknown; nothing else asks it.
+    expect(l.getShellStatus).toHaveBeenCalledWith(expect.objectContaining({ system: "nope" }), expect.anything());
+    expect(l.listSystems).not.toHaveBeenCalled();
     expect(l.listAccounts).not.toHaveBeenCalledWith(expect.objectContaining({ system: "nope" }), expect.anything());
+  });
+});
+
+describe("a system whose own status fails", () => {
+  beforeEach(() => setSystems(THREE, { errorCode: "deadline_exceeded", error: "context deadline exceeded" }));
+
+  it("still lands on Fleet with several systems", async () => {
+    renderApp(<App />, "/?range=6h");
+    await waitFor(() => expect(location()).toBe("/fleet?range=6h"));
+  });
+
+  it("still lists the systems in the switcher, and the header says offline with the code", async () => {
+    renderApp(<App />, "/streams?system=example-prod");
+    await userEvent.click(await screen.findByRole("button", { name: "System: Production. Switch system" }));
+    expect(screen.getAllByRole("menuitemradio").map((e) => e.textContent)).toEqual([expect.stringMatching(/^Production/), expect.stringMatching(/^Global/), expect.stringMatching(/^Staging/)]);
+    const offline = await screen.findByText("offline");
+    expect(offline).toHaveAttribute("title", expect.stringContaining("deadline_exceeded"));
+  });
+});
+
+describe("the shell's calls", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("asks the shell's status once on load and once per collect interval, and ListSystems only on Fleet", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderApp(<App />, "/streams?system=example-prod");
+    await screen.findByText("Production");
+    await act(() => vi.advanceTimersByTimeAsync(1_000));
+    expect(l.getShellStatus).toHaveBeenCalledTimes(1);
+    for (const n of [2, 3]) {
+      await act(() => vi.advanceTimersByTimeAsync(30_000));
+      expect(l.getShellStatus).toHaveBeenCalledTimes(n);
+    }
+    expect(m.getLensInfo).toHaveBeenCalledTimes(1);
+    expect(l.listSystems).not.toHaveBeenCalled();
   });
 });
 
@@ -442,6 +499,7 @@ describe("header", () => {
     ["/kv-stores?system=example-prod", "KV Stores"],
     ["/object-stores?system=example-prod", "Object Stores"],
     ["/servers?system=example-prod", "Servers"],
+    ["/replay?system=example-prod", "Replay"],
   ])("makes the page name in the header the one heading of %s", async (path, name) => {
     renderApp(<App />, path);
     await screen.findByRole("banner");

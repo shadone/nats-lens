@@ -1,15 +1,18 @@
 // Findings: every finding in the range by severity and state, worst first,
 // and the mutes with who set them, why and until when.
-import { useState, type FormEvent } from "react";
-import { useSearchParams } from "react-router";
-import type { FindingState, Mute, SeverityLevel } from "../api/model";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useLocation, useSearchParams } from "react-router";
+import type { Entity, FindingState, Mute, SeverityLevel } from "../api/model";
 import { useFindings, useMutes } from "../api/queries";
 import { Empty, QueryView, Section } from "../components/common";
 import { Pager, usePager } from "../components/EntityParts";
 import { EntityLine, FindingRow } from "../components/FindingParts";
 import { UnmuteDialog } from "../components/MuteDialog";
-import { Sev } from "../components/Severity";
+import { AcceptedTag, Sev } from "../components/Severity";
+import { serverNow } from "../lib/clock";
 import { fmtDuration, isoMinute } from "../lib/format";
+import { accountLabeller, entityName, LEVEL_LABEL } from "../lib/view";
+import { endedByLens, muteActive, muteBy, reviewOn, sentence } from "../lib/muteView";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useSystem } from "../lib/useSystem";
 import { rangeKey } from "../lib/timeRange";
@@ -24,48 +27,72 @@ const STATES: { id: string; label: string; states: FindingState[] }[] = [
   { id: "all", label: "All", states: ["firing", "changed", "flapping", "resolved"] },
 ];
 
-function MuteRow({ m, now, onLift }: { m: Mute; now: number; onLift: (m: Mute) => void }) {
-  const active = m.unmutedAt === undefined && (m.expiresAt ?? 0) > now;
+/** The lift button's name, with the check and what it covers: "End acceptance of stream-005 for order-archive…". */
+type Label = (id: string, name?: string) => string;
+
+/** The accounts of the listed entities, labelled apart where two share a name. */
+function labelOf(es: (Entity | undefined)[]): Label {
+  return accountLabeller(accountsOf(es));
+}
+
+function accountsOf(es: (Entity | undefined)[]): Entity[] {
+  return es.filter((e): e is Entity => e?.kind === "account");
+}
+
+function liftName(m: Mute, label?: Label): string {
+  return `${m.accepted ? "End acceptance" : "Lift mute"} of ${m.checkCode} for ${entityName(m.entity, label) || "every entity"}…`;
+}
+
+function MuteRow({ m, now, onLift, label }: { m: Mute; now: number; onLift: (m: Mute) => void; label?: Label }) {
+  const active = muteActive(m, now);
+  const ended = endedByLens(m);
   return (
     <div className="frow mute">
       <span>
-        <Sev level="muted" label={active ? "Muted" : m.unmutedAt !== undefined ? "Lifted" : "Expired"} />
+        {active && m.accepted ? <AcceptedTag /> : <Sev level="muted" label={active ? "Muted" : m.unmutedAt !== undefined ? (m.accepted ? "Ended" : "Lifted") : "Expired"} />}
       </span>
       <span className="code">{m.checkCode}</span>
       <span>
-        <span className="e">{m.entity ? <EntityLine e={m.entity} small /> : "every entity"}</span>
+        <span className="e">{m.entity ? <EntityLine e={m.entity} small label={label} /> : "every entity"}</span>
       </span>
       <span className="s">
-        {m.expiresAt !== undefined && (active ? `ends in ${fmtDuration(m.expiresAt - now)}` : `ended ${isoMinute(m.unmutedAt ?? m.expiresAt)}`)}
+        {m.expiresAt !== undefined && (active ? `${m.accepted ? "review" : "ends"} in ${fmtDuration(m.expiresAt - now)}` : `ended ${isoMinute(m.unmutedAt ?? m.expiresAt)}`)}
         {active && (
           <>
             <br />
-            <button type="button" className="btn" onClick={() => onLift(m)}>
-              Lift…
+            <button type="button" className="btn" onClick={() => onLift(m)} aria-label={liftName(m, label)}>
+              {m.accepted ? "End…" : "Lift…"}
             </button>
           </>
         )}
       </span>
       <span className="mute-why">
-        <b>Muted by {m.mutedBy || "unknown"}</b>
-        {m.createdAt !== undefined && ` on ${isoMinute(m.createdAt)}`}: {m.reason}
-        {m.expiresAt !== undefined && ` Expires ${isoMinute(m.expiresAt)} UTC.`}
-        {m.unmutedAt !== undefined && ` Lifted ${isoMinute(m.unmutedAt)} by ${m.unmutedBy || "unknown"}.`}
+        <b>{muteBy(m)}</b>
+        {m.createdAt !== undefined && ` on ${isoMinute(m.createdAt)}`}: {m.accepted ? sentence(m.reason) : m.reason}
+        {m.expiresAt !== undefined && (m.accepted ? ` ${reviewOn(m)}` : ` Expires ${isoMinute(m.expiresAt)} UTC.`)}
+        {ended ? ` ${ended}` : m.unmutedAt !== undefined && ` ${m.accepted ? "Ended" : "Lifted"} ${isoMinute(m.unmutedAt)} by ${m.unmutedBy || "unknown"}.`}
       </span>
     </div>
   );
 }
 
-function Mutes() {
+/**
+ * The mutes list. others are the accounts the findings list shows, and
+ * onAccounts receives the mutes' accounts, so that one labeller over both
+ * lists names an account the same in each.
+ */
+function Mutes({ others, onAccounts }: { others: Entity[]; onAccounts: (es: Entity[]) => void }) {
   const [inactive, setInactive] = useState(false);
   const [lifting, setLifting] = useState<Mute>();
   const pager = usePager([useSystem(), String(inactive)].join("|"));
   const q = useMutes(inactive, pager.token);
-  const now = Date.now();
+  const now = serverNow();
+  const own = useMemo(() => accountsOf(q.data?.items.map((m) => m.entity) ?? []), [q.data]);
+  useEffect(() => onAccounts(own), [own, onAccounts]);
   return (
     <Section
       title="Mutes"
-      aside="A muted finding still records transitions and never alerts. Every mute ends."
+      aside="A muted or accepted finding still records transitions and never alerts. Every mute ends; an acceptance at its review date."
       right={
         <label className="check chip">
           <input type="checkbox" checked={inactive} onChange={(e) => setInactive(e.target.checked)} /> Include ended
@@ -73,11 +100,12 @@ function Mutes() {
       }
     >
       <QueryView q={q} what="mutes">
-        {(page) =>
-          page.items.length ? (
+        {(page) => {
+          const label = labelOf([...page.items.map((x) => x.entity), ...others]);
+          return page.items.length ? (
             <div className="card others mutes-list">
               {page.items.map((m) => (
-                <MuteRow key={m.id} m={m} now={now} onLift={setLifting} />
+                <MuteRow key={m.id} m={m} now={now} onLift={setLifting} label={label} />
               ))}
               {(page.nextPageToken || pager.page > 1) && (
                 <Pager page={pager.page} next={page.nextPageToken} onNext={() => pager.next(page.nextPageToken)} onPrev={pager.prev} total={page.totalCount} shown={page.items.length} />
@@ -85,8 +113,8 @@ function Mutes() {
             </div>
           ) : (
             <Empty>No mutes{inactive ? "" : " in effect"}.</Empty>
-          )
-        }
+          );
+        }}
       </QueryView>
       <UnmuteDialog mute={lifting} onClose={() => setLifting(undefined)} />
     </Section>
@@ -94,6 +122,7 @@ function Mutes() {
 }
 
 export function Findings() {
+  const labelLookup = (useLocation().state as { labelLookup?: { code: string; key: string } } | null)?.labelLookup;
   usePageTitle("Findings");
   const [params, setParams] = useSearchParams();
   const { spec } = useTimeRange();
@@ -103,6 +132,7 @@ export function Findings() {
   const muted = params.get("muted") !== "0";
   const check = params.get("check") ?? "";
   const [checkText, setCheckText] = useState(check);
+  const [muteAccounts, setMuteAccounts] = useState<Entity[]>([]);
   const pager = usePager([useSystem(), sev.join(), stateId, muted, check, rangeKey(spec)].join("|"));
   const q = useFindings(spec, {
     severities: sev,
@@ -128,8 +158,9 @@ export function Findings() {
 
   return (
     <>
+      {labelLookup && <p className="oc-lookup" role="status">No finding of {labelLookup.code} for {labelLookup.key}; it may have resolved and been swept.</p>}
       <div className="page-h">
-        <span className="aside">A finding is one failing check for one entity. Unmuted first, then by severity, then the longest firing.</span>
+        <span className="aside">A finding is one failing check for one entity. Unmuted first, then by severity, expiry warnings after the other warnings, then the longest firing.</span>
       </div>
       <div className="filters">
         <div className="grp" role="group" aria-label="Severity">
@@ -139,7 +170,7 @@ export function Findings() {
           </button>
           {SEVERITIES.map((s) => (
             <button key={s} type="button" className={`chip${sev.includes(s) ? " on" : ""}`} aria-pressed={sev.includes(s)} onClick={() => toggleSev(s)}>
-              {s}
+              {LEVEL_LABEL[s]}
             </button>
           ))}
         </div>
@@ -162,18 +193,21 @@ export function Findings() {
         </form>
       </div>
       <QueryView q={q} what="findings">
-        {(page) => (
-          <div className="card others">
-            {page.items.length === 0 ? (
-              <Empty>{stateId === "open" && sev.length === 0 && !check ? "All clear: no finding fires in this range." : "No findings match these filters."}</Empty>
-            ) : (
-              page.items.map((f) => <FindingRow key={f.id} f={f} end={end} rangeStart={start} />)
-            )}
-            <Pager page={pager.page} next={page.nextPageToken} onNext={() => pager.next(page.nextPageToken)} onPrev={pager.prev} total={page.totalCount} shown={page.items.length} />
-          </div>
-        )}
+        {(page) => {
+          const label = labelOf([...page.items.map((x) => x.entity), ...muteAccounts]);
+          return (
+            <div className="card others">
+              {page.items.length === 0 ? (
+                <Empty>{stateId === "open" && sev.length === 0 && !check ? "All clear: no finding fires in this range." : "No findings match these filters."}</Empty>
+              ) : (
+                page.items.map((f) => <FindingRow key={f.id} f={f} end={end} rangeStart={start} label={label} />)
+              )}
+              <Pager page={pager.page} next={page.nextPageToken} onNext={() => pager.next(page.nextPageToken)} onPrev={pager.prev} total={page.totalCount} shown={page.items.length} />
+            </div>
+          );
+        }}
       </QueryView>
-      <Mutes />
+      <Mutes others={accountsOf(q.data?.items.map((f) => f.entity) ?? [])} onAccounts={setMuteAccounts} />
     </>
   );
 }

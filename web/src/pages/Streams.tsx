@@ -1,3 +1,4 @@
+import { useGrowthHistoryNote } from "../components/HistoryNote";
 // Streams: every stream of the newest epoch in the range, worst first.
 import { useSearchParams } from "react-router";
 import { useStreams } from "../api/queries";
@@ -12,6 +13,7 @@ import { accountLabeller, consumerCount, serverPath, streamPath } from "../lib/v
 
 export function Streams() {
   usePageTitle("Streams");
+  const missing = useGrowthHistoryNote();
   const [params, setParams] = useSearchParams();
   const kv = params.get("kv") === "1";
   const { spec } = useTimeRange();
@@ -98,7 +100,7 @@ export function Streams() {
                           <td className="num">
                             <MiniLine points={s.bytes7d?.points ?? []} level={s.status} label={`${s.entity.stream} bytes`} period="last 7 days" fmt={fmtBytes} />
                           </td>
-                          <td className="num"><Num v={s.bytesPerDay} fmt={fmtGrowth} /></td>
+                          <td className="num" title={s.bytesPerDay === undefined ? missing : undefined}><Num v={s.bytesPerDay} fmt={fmtGrowth} /></td>
                           <td className="mono">{s.findingCodes.join(", ")}</td>
                         </tr>
                       );

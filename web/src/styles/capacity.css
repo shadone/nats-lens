@@ -1,0 +1,62 @@
+/* Capacity: the server cards and the streams table. Every rule names a
+   cap- class, so the page's rules reach no other page; a test checks it.
+   Row headers are written .tbl.cap-tbl tbody th[scope="row"] so that
+   they outrank the shared rule of events.css.
+   Colours are the design board's: the accent for a bounded stream and a
+   store's bar, the info colour for an unbounded stream, the severity
+   tokens for a finding. */
+.cap-servers{margin-top:var(--sp-4)}
+.cap-group + .cap-group{margin-top:var(--sp-4)}
+.cap-cluster{margin:0 0 var(--sp-2);font:500 var(--fs-xs)/1.3 var(--sans);color:var(--text-muted)}
+.cap-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp-4)}
+.cap-server{padding:var(--sp-3) var(--sp-4);min-width:0}
+.cap-server-h{display:flex;justify-content:space-between;align-items:baseline;gap:var(--sp-2);flex-wrap:wrap}
+.cap-server-h .cap-server-name{font:500 var(--fs-md) var(--mono)}
+.cap-store{font:var(--fs-sm) var(--mono);color:var(--text-muted)}
+.cap-use{margin-top:var(--sp-1);font:500 var(--fs-xl)/1.25 var(--mono)}
+.cap-use .cap-of{font-size:var(--fs-md);font-weight:400;color:var(--text-muted)}
+.cap-bar{height:8px;margin-top:var(--sp-2);border-radius:var(--r-sm);background:var(--track);overflow:hidden}
+.cap-bar-fill{height:8px;background:var(--accent)}
+.cap-bar-fill.cap-bar-some{min-width:3px}
+.cap-bar-fill.cap-bar-warn{background:var(--cell-warning)}
+.cap-bar-fill.cap-bar-crit{background:var(--cell-critical)}
+.cap-growth{margin:var(--sp-2) 0 0;font-size:var(--fs-sm);color:var(--text-2)}
+.cap-server .cap-quiet{color:var(--text-muted)}
+.cap-finding{margin:var(--sp-2) 0 0;font-size:var(--fs-sm)}
+.cap-finding .cap-warn{color:var(--sev-warning);font-weight:500}
+.cap-finding .cap-crit{color:var(--sev-critical);font-weight:500}
+.cap-line{margin:var(--sp-3) 0 0;font-size:var(--fs-sm);color:var(--text-muted)}
+.cap-card{margin-top:var(--sp-5);padding:var(--sp-1) 0 0;min-width:0;overflow:hidden}
+.cap-card .table-wrap{padding:0 var(--sp-2)}
+.cap-card .table-wrap:last-child{padding-bottom:var(--sp-2)}
+.cap-tbl td{vertical-align:middle;font-size:var(--fs-md)}
+.tbl.cap-tbl tbody th[scope="row"]{text-align:left;vertical-align:middle;white-space:normal;font:400 var(--fs-md) var(--sans)}
+.cap-tbl .cap-name{font:500 var(--fs-md) var(--mono);overflow-wrap:anywhere}
+.cap-tbl small{display:block;margin-top:var(--sp-1);font:var(--fs-sm) var(--sans);color:var(--text-muted);white-space:normal;min-width:120px}
+.cap-tbl .cap-held-cell{min-width:180px}
+.cap-held{position:relative;height:8px;border-radius:var(--r-sm);background:var(--track)}
+.cap-held-fill{position:absolute;right:0;top:0;bottom:0;min-width:3px;border-radius:var(--r-sm);background:var(--accent)}
+.cap-held-fill.cap-held-open{background:var(--sev-info)}
+.cap-held-label{margin-top:var(--sp-1);font:var(--fs-xs) var(--mono);color:var(--text-muted)}
+.cap-tbl .cap-rate{color:var(--text-2)}
+.cap-tbl td.cap-crit{color:var(--sev-critical);font-weight:500}
+.cap-tbl .cap-status{min-width:170px;max-width:280px;white-space:normal}
+.cap-tbl .cap-design{display:inline-block;padding:2px 6px;border:1.5px dotted var(--text-muted);border-radius:var(--r-sm);font:500 var(--fs-xs)/12px var(--sans);color:var(--text-muted);white-space:nowrap}
+.cap-tbl .cap-tag{display:inline-block;padding:2px 6px;border-radius:var(--r-sm);font:500 var(--fs-sm)/14px var(--sans);white-space:nowrap}
+.cap-tbl .cap-tag.cap-warn{color:var(--sev-warning);background:var(--sev-warning-bg);border:1px solid var(--sev-warning)}
+.cap-tbl .cap-accept{white-space:nowrap}
+.cap-tbl .cap-ok{color:var(--accent-text);white-space:nowrap}
+.cap-tbl .cap-quiet{color:var(--text-muted)}
+.cap-foot{margin:0;padding:var(--sp-3) var(--sp-5) var(--sp-4);font-size:var(--fs-sm);color:var(--text-muted)}
+.cap-card .table-wrap + .cap-foot{border-top:1px solid var(--border-soft)}
+.cap-note{margin:var(--sp-3) 0 0;font-size:var(--fs-sm);color:var(--text-muted);max-width:900px}
+@media (max-width:1000px){
+  .cap-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:760px){
+  .cap-cards{grid-template-columns:minmax(0,1fr)}
+  .cap-card .table-wrap{padding:0}
+  .cap-tbl thead th:first-child{position:sticky;left:0;z-index:1;background:var(--surface)}
+  .tbl.cap-tbl tbody th[scope="row"]{position:sticky;left:0;z-index:1;max-width:150px;background:var(--surface);box-shadow:1px 0 0 var(--border-soft)}
+  .cap-foot{padding-left:var(--sp-4);padding-right:var(--sp-4)}
+}

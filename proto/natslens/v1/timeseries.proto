@@ -35,19 +35,23 @@ message Point {
 
   // Value for the bucket.
   //
-  // Gauges are averaged over the bucket; rates are averaged per second;
-  // event counts are summed. For a band metric it is the median across
-  // servers.
+  // Counts (unit count) take the bucket's last value; other gauges are
+  // averaged over the bucket; rates are averaged per second; event counts
+  // are summed. For a band metric it is the median across servers.
   double value = 2;
 
-  // Lowest value across servers, for a band metric; unset otherwise.
+  // Lowest value in the bucket, for a band metric and a count that takes
+  // the last value; unset otherwise.
   //
-  // The lowest server value of any epoch in the bucket.
+  // For a band metric, the lowest server value of any epoch in the bucket;
+  // for a count, its lowest value of any epoch in the bucket.
   optional double low = 3;
 
-  // Highest value across servers, for a band metric; unset otherwise.
+  // Highest value in the bucket, for a band metric and a count that takes
+  // the last value; unset otherwise.
   //
-  // The highest server value of any epoch in the bucket.
+  // For a band metric, the highest server value of any epoch in the bucket;
+  // for a count, its highest value of any epoch in the bucket.
   optional double high = 4;
 }
 
@@ -148,4 +152,59 @@ message ListMetricsRequest {}
 message ListMetricsResponse {
   // The metrics.
   repeated MetricInfo metrics = 1;
+}
+
+// One series of a GetTimeSeriesBatch request.
+message SeriesQuery {
+  // Metric ID, as in GetTimeSeriesRequest.metric.
+  string metric = 1;
+
+  // Entity the metric is read for, as in GetTimeSeriesRequest.entity.
+  EntityRef entity = 2;
+
+  // Number of buckets for this series, as in
+  // GetTimeSeriesRequest.max_points. Zero means the request's max_points.
+  int32 max_points = 3;
+}
+
+// Request for several series over one time range.
+//
+// The call may take 40 seconds; each query 30 seconds within them, as a
+// GetTimeSeries call does. A query that takes longer fails the call as
+// deadline_exceeded.
+message GetTimeSeriesBatchRequest {
+  // Series to read; at least one and at most 32.
+  repeated SeriesQuery queries = 1;
+
+  // Time range every series is read for; at most 400 days.
+  //
+  // It is resolved once, so an unset end is the same instant for every
+  // series.
+  TimeRange range = 2;
+
+  // Number of buckets for a query that sets none, as in
+  // GetTimeSeriesRequest.max_points. Zero means 200; at most 2000.
+  int32 max_points = 3;
+
+  // System ID, as ListSystems returns it. Empty means the default system.
+  string system = 4;
+}
+
+// The result of one query of a batch.
+message SeriesResult {
+  // The values; unset when error is set.
+  Series series = 1;
+
+  // Why the query was not served, for a query GetTimeSeries would refuse
+  // as invalid_argument or not_found. Empty when series is set.
+  string error = 2;
+}
+
+// Several series over one time range.
+message GetTimeSeriesBatchResponse {
+  // One result per query, in the order of the queries.
+  repeated SeriesResult results = 1;
+
+  // The resolved time range every series was read for.
+  TimeRange range = 2;
 }

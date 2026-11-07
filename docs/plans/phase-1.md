@@ -1,6 +1,6 @@
 # Phase 1 build plan
 
-Working plan for phase 1: several NATS systems in one nats-lens, the new UI shell, the overview cockpit, events and finding detail, servers for 20+ servers, KV and object store pages. Each task is built by a fresh implementer and checked by a fresh reviewer. Decisions marked "proposed" are the planning session's, not yet confirmed by the owner.
+Working plan for phase 1: several NATS systems in one nats-lens, the new UI shell, the overview cockpit, events and finding detail, servers for 20+ servers, KV and object store pages. Each task is built by a fresh implementer and checked by a fresh reviewer. Decisions marked "proposed" were the planning session's; the owner had confirmed them all by 2026-10-26.
 
 When a task lands, its lasting content moves into `docs/features/`, `docs/design.md` or the README; this file then only tracks status.
 
@@ -94,8 +94,8 @@ Every task updates the README sections and `docs/features/` docs it changes, and
 - **Behaviour:**
   1. Stores open in parallel, each with its own rebuild. On first open each system data dir gets `system.json` (`{"id": ...}`); a marker with another id refuses the start; a legacy dir without one is adopted. Warn when `<data_dir>/natslens.duckdb` exists and no system uses it.
   2. Per system: its own `collect.Tracker`, `collectorConn`, `runner.Runner`, `checks.Engine` (sharing the global `checks.Set`), `events.Capture`, k8s watcher (own kubeconfig and context) and `archive.Archiver`; logs carry `system`.
-  3. DuckDB `memory_limit` = global budget / N unless set per system; `threads` = `max(2, GOMAXPROCS/N)` per store (proposed).
-  4. `/readyz` answers once every store is open and the API serves; NATS being unreachable never affects readiness; a store that fails to open fails the start (proposed). Before any system starts, one check of every system's marker and files refuses the start naming every broken system; after it, a connection or setup failure isolates its system (`connection_closed`, logged, tried again) and never stops the others (proposed in the T3 review round, not yet confirmed). Each runtime exposes `CollectionStatus {state: starting|collecting|not_connected|connection_closed, last_error, since, last_epoch_at}`, fed by `collectorConn`, wired into `api.Systems.Status`.
+  3. DuckDB `memory_limit` = global budget / N unless set per system; `threads` = `max(2, GOMAXPROCS/N)` per store.
+  4. `/readyz` answers once every store is open and the API serves; NATS being unreachable never affects readiness; a store that fails to open fails the start. Before any system starts, one check of every system's marker and files refuses the start naming every broken system; after it, a connection or setup failure isolates its system (`connection_closed`, logged, tried again) and never stops the others. Each runtime exposes `CollectionStatus {state: starting|collecting|not_connected|connection_closed, last_error, since, last_epoch_at}`, fed by `collectorConn`, wired into `api.Systems.Status`.
   5. One shutdown deadline for all systems; they stop in parallel; each writes its own `state.json`; stores close after the API's `wait()`.
   6. `once` runs one epoch per system or only `-system ID`; `sql` and `checks run` take `-system` with `-config`.
 - **Tests:** two in-process clusters (`internal/testcluster`), two systems, 2 epochs: each database holds only its own `servers.server_name`; `ListServers{system:a}` returns A's servers. A legacy config opens an existing `data_dir/natslens.duckdb` in place. The existing shutdown and WAL recovery tests pass unchanged. Failing cases: system B unreachable, A still stores epochs, `/readyz` 200, B is `not_connected`; a marker mismatch or two systems sharing an archive dir refuses the start.
@@ -114,7 +114,7 @@ Every task updates the README sections and `docs/features/` docs it changes, and
 
 ### T5. UI shell: sidebar, system switcher, header (L)
 
-- **Result:** a left sidebar replaces the tabs, grouped: Fleet, Overview, Findings; Messaging (Connections; Subjects, Micro services, Applications planned); JetStream (Streams, Consumers, KV Stores, Object Stores; Placement, Capacity planned); Cluster (Servers, Events; Topology, Accounts, Users & auth planned). Collapsible, with badges (Fleet: systems not OK; Findings: unmuted firing). A system switcher at the top of the sidebar. The header: page title, account scope (`ListAccounts`), search, the time selector (the existing `RangePicker`), and the theme as one icon button with a Light/Dark/System menu (`menuitemradio`). Planned pages are hidden (proposed).
+- **Result:** a left sidebar replaces the tabs, grouped: Fleet, Overview, Findings; Messaging (Connections; Subjects, Micro services, Applications planned); JetStream (Streams, Consumers, KV Stores, Object Stores; Placement, Capacity planned); Cluster (Servers, Events; Topology, Accounts, Users & auth planned). Collapsible, with badges (Fleet: systems not OK; Findings: unmuted firing). A system switcher at the top of the sidebar. The header: page title, account scope (`ListAccounts`), search, the time selector (the existing `RangePicker`), and the theme as one icon button with a Light/Dark/System menu (`menuitemradio`). Planned pages are hidden.
 - **Files:** `web/src/App.tsx`; `components/Header.tsx` rewritten; new `Sidebar.tsx`, `SystemSwitcher.tsx`, `AccountScope.tsx`, `SearchJump.tsx`, `ThemeMenu.tsx` (replaces `ThemeSwitch.tsx`, keeps `lib/theme.ts`); `web/src/nav.ts` (group, path, label, icon, `planned`, badge source); `lib/useTimeRange.ts` becomes `useGlobalQuery` (range + system + account) so every `${to}${query}` link carries the system; `api/queries.ts`, `requests.ts`: every hook takes the system from `useSystem()` and keys on it; `header.css`, new `sidebar.css`, `responsive.css` (drawer at phone width).
 - **System in keys and links:** every query key in `web/src/api/queries.ts` includes the system, and every internal link carries `?system=`. Today `rangeQuery` drops it, and a request without it silently reads the default system. Both are acceptance tests of T5.
 - **Search:** a client-side jump over the current system's servers, streams, consumers, KV, object stores and accounts, from the list queries; no new RPC.
@@ -140,7 +140,7 @@ Every task updates the README sections and `docs/features/` docs it changes, and
 ### T8. Events backend: folding, routine, facets, histogram (L)
 
 - **Proto** (`events.proto`): `ListEventsRequest`: `bool hide_routine = 9`, `bool fold_repeats = 10`, `int32 histogram_buckets = 11` (0 none, at most 120). `Event`: `int32 repeats = 21`, `Timestamp first_time = 22`, `bool routine = 23`. `ListEventsResponse`: `int32 routine_hidden = 4`, `repeated EventFacet facets = 5` (`{dimension=1 ("source"|"server"), value=2, count=3}`), `repeated RoutineGroup routine_groups = 6` (`{label=1, kind=2, client_name=3, count=4}`), `repeated EventBucket histogram = 7` (`{Timestamp start=1, int32 warning=2, int32 notable=3, int32 routine=4}`), `int32 total_unfiltered = 8`. Check numbers against the file.
-- **Rules (proposed):** routine = kinds `client.churn`, `consumer.ack_sampled`, `api.audit`, `account.connections`, and connects/disconnects of tooling clients (the stored `epochs.loopback_tooling` and `ToolingNames`, as the client checks). Folding: consecutive events with the same source, kind, server, account, stream, consumer, client_name and reason, at most 10 minutes apart, become one row showing the newest, `first_time` and the count; a k8s row uses its stored count. A facet counts the filtered set without its own dimension's filter. Paging by the group's newest (time, id).
+- **Rules:** routine = kinds `client.churn`, `consumer.ack_sampled`, `api.audit`, `account.connections`, and connects/disconnects of tooling clients (the stored `epochs.loopback_tooling` and `ToolingNames`, as the client checks). Folding: consecutive events with the same source, kind, server, account, stream, consumer, client_name and reason, at most 10 minutes apart, become one row showing the newest, `first_time` and the count; a k8s row uses its stored count. A facet counts the filtered set without its own dimension's filter. Paging by the group's newest (time, id).
 - **Files:** `events.proto`, `internal/api/storeprov/events.go`, new `events_fold.go`, `routine.go`, `internal/api/fake/events.go`, `internal/api/normalize.go`.
 - **Tests:** 448 churn and loopback events plus 5 notable give `routine_hidden = 448` and 5 rows; five `k8s.pod.failed_scheduling` within 6 minutes fold to one row `repeats = 5`; facet counts match an unfolded count; the page token is stable while events arrive. Failing case: two identical kinds 11 minutes apart do not fold.
 - **Risks:** gaps-and-islands query over 500 000 events (add a `limits_test.go` case); no repeated or skipped group at a page boundary.
@@ -164,7 +164,7 @@ Every task updates the README sections and `docs/features/` docs it changes, and
 
 ### T11. Fleet page (S/M)
 
-- **Result:** `/fleet`, a card per system, worst first: name, environment, state (colour plus a shape), the headline (worst finding or collection error), servers, clusters, streams, connections, the 48-cell strip, freshness. A card opens that system's Overview. With more than one system `/` lands on Fleet (proposed).
+- **Result:** `/fleet`, a card per system, worst first: name, environment, state (colour plus a shape), the headline (worst finding or collection error), servers, clusters, streams, connections, the 48-cell strip, freshness. A card opens that system's Overview. With more than one system `/` lands on Fleet.
 - **Files:** `web/src/pages/Fleet.tsx`, `web/src/api/systems.ts`, `styles/fleet.css`, `nav.ts`, `App.tsx`.
 - **Tests:** order critical, warning, info, not collecting; the strip legend draws the cell it explains; `example-staging` shows its error and "not collecting". Failing case: a summary with `error` renders "summary unavailable" and still links to the system.
 
@@ -202,7 +202,7 @@ Every task updates the README sections and `docs/features/` docs it changes, and
 
 - Done: the header's "not collecting", "collection" in the UI, one page heading, singular tile suffixes, real check codes in the web fixtures, the Overview leftovers, the placement square contrast, the phone axis, varied demo backlogs, the backend test gaps, `ListStreams` `limit`, and one chart component.
 
-## Decisions (proposed, not yet confirmed)
+## Decisions (confirmed on 2026-10-26)
 
 1. An empty `system` in an API call means the default system (the first configured).
 2. A single-system config's id comes from an optional top-level `system_id`, default `default`.

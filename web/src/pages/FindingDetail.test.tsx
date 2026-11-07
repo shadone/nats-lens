@@ -67,6 +67,15 @@ beforeEach(() => {
 });
 
 describe("FindingDetail", () => {
+  it("links the check reference with system, range and account context", async () => {
+    m.getFinding.mockResolvedValue({finding:base,transitions:[]});
+    show("?system=example-prod&range=6h&account=APP");
+    const link=await screen.findByRole("link",{name:"stream-004 · Check reference"});
+    const url=new URL(link.getAttribute("href")!,"http://example.com");
+    expect(url.pathname).toBe("/checks/stream-004");
+    expect(Object.fromEntries(url.searchParams)).toEqual({range:"6h",system:"example-prod",account:"APP"});
+  });
+
   afterEach(() => vi.useRealTimers());
 
   it("refreshes in live mode and shows a new state", async () => {
@@ -78,7 +87,7 @@ describe("FindingDetail", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(31_000);
     });
-    expect(await screen.findByText("RESOLVED")).toBeInTheDocument();
+    expect(await screen.findByText("Resolved", { selector: ".state" })).toBeInTheDocument();
     expect(m.getFinding).toHaveBeenCalledTimes(2);
   });
 
@@ -133,6 +142,7 @@ describe("FindingDetail times", () => {
     show();
     const when = await screen.findByText(/Condition since/);
     expect(when).toHaveTextContent("Condition since 2026-10-13 08:03 UTC · first seen by nats-lens 2026-10-17 08:19 UTC, already true when nats-lens started");
+    expect(screen.getByRole("link", { name: "already true when nats-lens started" })).toHaveAttribute("href", expect.stringContaining("/data-history"));
     // The window around the start lies before the history.
     expect(await screen.findByText(/nats-lens has no history before 2026-10-17 08:19 UTC/)).toBeInTheDocument();
     expect(listEvents).not.toHaveBeenCalled();
@@ -219,7 +229,7 @@ describe("server copies refresh", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(31_000);
     });
-    expect(await screen.findByText("RESOLVED")).toBeInTheDocument();
+    expect(await screen.findByText("Resolved", { selector: ".state" })).toBeInTheDocument();
     await vi.waitFor(() => expect(m.getConsumer).toHaveBeenCalledTimes(2));
     expect(m.listFindings).toHaveBeenCalledTimes(2);
   });
@@ -351,4 +361,56 @@ describe("around the start", () => {
     expect(req.clientName).toBe("catalog-api");
     expect(req.entity).toBeUndefined();
   });
+});
+
+describe("FindingDetail of an accepted finding", () => {
+  const accepted = {
+    id: "m1",
+    checkCode: "stream-004",
+    entity: streamEntity,
+    reason: "Kept for audits",
+    mutedBy: "ops@example.com",
+    expiresAt: Date.parse("2027-04-07T06:57:00Z"),
+    unmutedBy: "",
+    accepted: true,
+    endReason: "",
+  };
+
+  it("reads as accepted, with its review date and an End acceptance button", async () => {
+    m.getFinding.mockResolvedValue({ finding: { ...base, mute: { ...accepted, growthPerDay: 2 * 1024 * 1024 } }, transitions: [] });
+    show();
+    expect(await screen.findByText("Accepted as by design")).toBeInTheDocument();
+    expect(screen.getByText("Accepted by ops@example.com:").parentElement).toHaveTextContent("Accepted by ops@example.com: Kept for audits. Review on 2027-04-07.");
+    expect(screen.getByText(/^Growth at acceptance: \+2 MiB\/day per copy/)).toBeInTheDocument();
+    expect(screen.getByText("Accepted", { selector: ".state" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "End acceptance…" }));
+    expect(within(screen.getByRole("dialog")).getByRole("button", { name: "End acceptance" })).toBeInTheDocument();
+  });
+
+  it("says when no growth baseline is recorded yet", async () => {
+    m.getFinding.mockResolvedValue({ finding: { ...base, mute: accepted }, transitions: [] });
+    show();
+    expect(await screen.findByText("No growth baseline is recorded yet: growth is recorded once the stream has 8 days of history.")).toBeInTheDocument();
+  });
+
+  it("keeps a plain mute's words", async () => {
+    m.getFinding.mockResolvedValue({ finding: { ...base, mute: { ...accepted, accepted: false } }, transitions: [] });
+    show();
+    expect(await screen.findByText("Muted by ops@example.com:")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lift mute…" })).toBeInTheDocument();
+    expect(screen.queryByText(/growth baseline/)).toBeNull();
+  });
+});
+
+
+it("offers Replay for the selected historical transition instead of the finding's newer lifetime", async () => {
+  const t=Date.parse("2026-10-17T12:00:00Z");
+  m.getFinding.mockResolvedValue({finding:{...base,since:t+3600000},transitions:[{time:t-600000,state:"resolved",severity:"warning",detail:""}]});
+  show("?system=example-prod&account=APP&from=2026-10-17T11:00:00Z&to=2026-10-17T12:00:00Z");
+  const link=await screen.findByRole("link",{name:"Replay this window"});
+  const p=new URL(link.getAttribute("href")!,"http://example.com").searchParams;
+  expect(p.get("a")).toBe("2026-10-17T11:45:00Z");
+  expect(p.get("b")).toBe("2026-10-17T11:55:00Z");
+  expect(p.get("system")).toBe("example-prod");
+  expect(p.has("account")).toBe(false);
 });

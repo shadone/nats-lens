@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "sent_at": "2026-11-05T09:32:00Z",
+  "system": {
+    "id": "example-prod",
+    "name": "Production"
+  },
+  "nats_lens_version": "1.4.0",
+  "notifications": [
+    {
+      "kind": "acknowledged",
+      "finding_id": "stream-001:APP/order-jobs",
+      "check_code": "stream-001",
+      "check_name": "Stream without a leader",
+      "category": "health",
+      "severity": "warning",
+      "entity_type": "stream",
+      "entity_key": "APP/order-jobs",
+      "entity_name": "shop/order-jobs",
+      "detail": "no leader for 2m",
+      "since": "2026-11-05T09:30:00Z",
+      "transitioned_at": "2026-11-05T09:30:00Z",
+      "acknowledgement": {
+        "by": "alice@example.com",
+        "note": "Checking quorum",
+        "quiet_until": "2026-11-05T10:32:00Z"
+      },
+      "link": "https://nats-lens.example.com/findings/stream-001:APP%2Forder-jobs?system=example-prod",
+      "dedup_key": "example-prod:stream-001:APP/order-jobs:41230:acknowledged:41230"
+    }
+  ]
+}

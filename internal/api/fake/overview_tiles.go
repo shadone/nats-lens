@@ -3,7 +3,6 @@ package fake
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
@@ -27,7 +26,7 @@ func (s scen) overviewTiles(r *v1.TimeRange, maxPoints int32, servers []*v1.Serv
 	srv.Subtitle = api.ServersSubtitle(servers)
 
 	meta := tile(api.TileMetaLeader, "cluster.meta_leader_changes", api.SumPoints, cnt)
-	meta.ValueText = s.sc.metaLeader
+	meta.ValueText = s.metaLeaderAt(s.epochTime(r))
 	if meta.Value != nil {
 		meta.Subtitle = api.Plural(int(meta.GetValue()), "leader change") + " in range"
 	}
@@ -59,12 +58,17 @@ func (s scen) overviewTiles(r *v1.TimeRange, maxPoints int32, servers []*v1.Serv
 	clients := tile(api.TileClients, "cluster.connections", api.LastPoint, cnt)
 	clients.ValueSuffix = api.CountSuffix(clients.Value, "conn")
 	if clients.Value != nil {
-		// The demo's connections are all in one account.
-		accounts.Subtitle = fmt.Sprintf("most connections: %s (%.0f)", Account, clients.GetValue())
+		if name, n := api.BusiestAccount(s.accounts(s.epochTime(r))); name != "" {
+			accounts.Subtitle = api.AccountsSubtitle(name, n)
+		}
 	}
+	// The applications of the epoch's connections, tooling and unnamed
+	// ones left out, as the store counts them.
 	apps := map[string]bool{}
-	for _, c := range s.sc.clients {
-		apps[strings.SplitN(c, "@", 2)[0]] = true
+	for _, c := range s.connections(s.epochTime(r)) {
+		if app, _, _ := strings.Cut(c.GetName(), "@"); app != "" && !c.GetTooling() {
+			apps[app] = true
+		}
 	}
 	clients.Subtitle = api.ClientsSubtitle(clients.Value, len(apps), api.SumPoints(s.series("cluster.slow_consumers", sys, r, maxPoints)))
 
@@ -76,26 +80,11 @@ func (s scen) overviewTiles(r *v1.TimeRange, maxPoints int32, servers []*v1.Serv
 	if limit > 0 {
 		storage.Limit, storage.ValueSuffix = ptr(limit), "of "+api.FmtBytes(limit)
 	}
-	storage.Subtitle = api.StorageSubtitle(storage.Value, storage.Limit, growth(storage.GetSeries()))
+	storage.Subtitle = api.StorageSubtitle(storage.Value, storage.Limit, seriesGrowth(storage.GetSeries()))
 
 	tiles := []*v1.Tile{srv, meta, streams, kv, objects, consumers, accounts, clients, storage}
 	s.tileStatus(tiles, cur)
 	return tiles
-}
-
-// growth is the change per day between a series' first and last point;
-// nil when they lie less than six hours apart, as the store requires.
-func growth(s *v1.Series) *float64 {
-	pts := s.GetPoints()
-	if len(pts) < 2 {
-		return nil
-	}
-	a, b := pts[0], pts[len(pts)-1]
-	d := b.GetTime().AsTime().Sub(a.GetTime().AsTime())
-	if d < 6*time.Hour {
-		return nil
-	}
-	return ptr((b.GetValue() - a.GetValue()) / d.Hours() * 24)
 }
 
 // tileStatus sets each tile's status from the firing findings its rule

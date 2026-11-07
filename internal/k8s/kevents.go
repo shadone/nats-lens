@@ -83,6 +83,14 @@ func (t *tracker) eventObserved(e *eventsv1.Event) {
 			raw["node"] = p.node
 		}
 	}
+	if ref.Kind == "Node" {
+		// As the node watch writes them, so that a node's Events count
+		// as that node's.
+		raw["node"] = ref.Name
+		if n := t.nodes[ref.Name]; n != nil {
+			raw["pool"], raw["kubelet_version"] = n.pool, n.version
+		}
+	}
 	what := strings.ToLower(ref.Kind) + " " + ref.Name
 	if ref.Namespace != "" && ref.Kind != "Pod" && ref.Kind != "Node" {
 		what = strings.ToLower(ref.Kind) + " " + ref.Namespace + "/" + ref.Name

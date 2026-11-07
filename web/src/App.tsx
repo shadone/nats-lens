@@ -2,6 +2,7 @@
 // the account scope from the URL; the sidebar's pages are listed in nav.ts.
 import { useEffect, useRef } from "react";
 import { Route, Routes, useLocation } from "react-router";
+import { PageHistoryProvider } from "./components/HistoryNote";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
 import { StaleProvider } from "./components/StaleContext";
@@ -10,7 +11,9 @@ import { useSidebar } from "./lib/useSidebar";
 import { useSystem } from "./lib/useSystem";
 import { Fleet } from "./pages/Fleet";
 import { Overview } from "./pages/Overview";
+import { Checks, CheckDetail } from "./pages/Checks";
 import { Findings } from "./pages/Findings";
+import { FindingByLabels } from "./pages/FindingByLabels";
 import { FindingDetail } from "./pages/FindingDetail";
 import { Events } from "./pages/Events";
 import { Streams } from "./pages/Streams";
@@ -22,6 +25,15 @@ import { ServerDetail } from "./pages/ServerDetail";
 import { Connections } from "./pages/Connections";
 import { KvStores } from "./pages/KvStores";
 import { ObjectStores } from "./pages/ObjectStores";
+import { Placement } from "./pages/Placement";
+import { Replay } from "./pages/Replay";
+import { Topology } from "./pages/Topology";
+import { Accounts } from "./pages/Accounts";
+import { Capacity } from "./pages/Capacity";
+import { DataHistory } from "./pages/DataHistory";
+import { Subjects } from "./pages/Subjects";
+import { MicroServices } from "./pages/MicroServices";
+import { Applications } from "./pages/Applications";
 import { NotFound } from "./pages/NotFound";
 
 /**
@@ -60,6 +72,7 @@ export function App() {
               no rows, filters or page tokens of the one before. */}
           <StaleProvider key={`${pathname}|${system}`}>
             <SystemGate>
+              <PageHistoryProvider>
               <Routes>
                 <Route
                   path="/"
@@ -70,7 +83,10 @@ export function App() {
                   }
                 />
                 <Route path="/fleet" element={<Fleet />} />
+                <Route path="/checks" element={<Checks />} />
+                <Route path="/checks/:code" element={<CheckDetail />} />
                 <Route path="/findings" element={<Findings />} />
+                <Route path="/findings/by-labels" element={<FindingByLabels />} />
                 <Route path="/findings/:id" element={<FindingDetail />} />
                 <Route path="/events" element={<Events />} />
                 <Route path="/streams" element={<Streams />} />
@@ -79,11 +95,21 @@ export function App() {
                 <Route path="/consumers/:account/:stream/:consumer" element={<ConsumerDetail />} />
                 <Route path="/servers" element={<Servers />} />
                 <Route path="/servers/:name" element={<ServerDetail />} />
+                <Route path="/subjects" element={<Subjects />} />
+                <Route path="/micro-services" element={<MicroServices />} />
+                <Route path="/applications" element={<Applications />} />
                 <Route path="/connections" element={<Connections />} />
                 <Route path="/kv-stores" element={<KvStores />} />
                 <Route path="/object-stores" element={<ObjectStores />} />
+                <Route path="/placement" element={<Placement />} />
+                <Route path="/replay" element={<Replay />} />
+                <Route path="/topology" element={<Topology />} />
+                <Route path="/accounts" element={<Accounts />} />
+                <Route path="/capacity" element={<Capacity />} />
+                <Route path="/data-history" element={<DataHistory />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </PageHistoryProvider>
             </SystemGate>
           </StaleProvider>
         </main>

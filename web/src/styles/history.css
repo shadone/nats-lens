@@ -1,0 +1,80 @@
+/* Data history: the summary, the coverage boxes, the gap strip and the
+   gaps, uses and archive cards. Every rule names a dh- class, so the
+   page's table rules reach no other page; a test checks it. The hatch of
+   a time without collections is .dh-hatch. */
+.dh-summary{margin:var(--sp-1) 0 0;font:var(--fs-md)/1.6 var(--mono);color:var(--text-2)}
+.dh-summary .dh-warn{color:var(--sev-warning);font-weight:500}
+.dh-summary .dh-dot{color:var(--text-muted)}
+.dh-sec .dh-line,.dh-line{margin:var(--sp-2) 0 0;font-size:var(--fs-md);color:var(--text-2)}
+.dh-boxes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--sp-3)}
+.dh-box .mb-note{margin-top:var(--sp-2)}
+.dh-box .mb-h{flex-wrap:wrap}
+.dh-box .mb-t{white-space:normal}
+.dh-card{margin-top:var(--sp-5);padding:var(--sp-5) 0 0;min-width:0;overflow:hidden}
+.dh-card-h{padding:0 var(--sp-5) var(--sp-2)}
+.dh-card-h h2{margin:0 0 var(--sp-1);font:500 var(--fs-lg)/1.3 var(--sans)}
+.dh-sub{margin:0;font-size:var(--fs-md);color:var(--text-2)}
+.dh-card .table-wrap{padding:0 var(--sp-2)}
+.dh-card .table-wrap:last-child{padding-bottom:var(--sp-2)}
+.dh-tbl td{vertical-align:top;white-space:nowrap}
+.dh-tbl th[scope="row"]{text-align:left;font:400 var(--fs-md) var(--sans);vertical-align:top;white-space:normal;min-width:150px}
+.dh-tbl small{display:block;margin-top:var(--sp-1);font:var(--fs-xs) var(--sans);color:var(--text-muted);white-space:normal}
+.dh-tbl .dh-open{color:var(--sev-warning)}
+.dh-either{white-space:nowrap}
+.dh-epoch{display:block;font:var(--fs-sm) var(--mono)}
+.dh-swatch{display:inline-block;width:10px;height:10px;margin-right:var(--sp-2);border-radius:var(--r-xs);border:1px solid var(--border);vertical-align:-1px}
+.dh-hatch{background:repeating-linear-gradient(135deg,var(--surface-2) 0 3px,var(--text-muted) 3px 4px)}
+.dh-strip-wrap{padding:var(--sp-1) var(--sp-5) var(--sp-3)}
+.dh-strip{position:relative;height:16px;border-radius:var(--r-sm);background:var(--accent-soft);border:1px solid var(--border);overflow:hidden}
+.dh-seg{position:absolute;top:0;bottom:0;min-width:4px}
+.dh-strip-ends{display:flex;justify-content:space-between;margin-top:var(--sp-1);font:var(--fs-xs) var(--mono);color:var(--text-muted)}
+.dh-empty{margin:0;padding:var(--sp-2) var(--sp-5) var(--sp-4);font-size:var(--fs-md);color:var(--text-2)}
+.dh-sec > .dh-empty{padding:0}
+.dh-foot{margin:0;padding:var(--sp-3) var(--sp-5) var(--sp-4);font-size:var(--fs-sm);color:var(--text-muted)}
+.dh-card .table-wrap + .dh-foot,.dh-kv + .dh-foot,.dh-error + .dh-foot,.dh-empty + .dh-foot{border-top:1px solid var(--border-soft)}
+.dh-uses .dh-ok{color:var(--text-2)}
+.dh-uses .dh-warn{color:var(--sev-warning);font-weight:500}
+.dh-uses .dh-muted{color:var(--text-muted)}
+.dh-kv{margin:0;padding:var(--sp-1) var(--sp-5) var(--sp-3);display:grid;grid-template-columns:max-content minmax(0,1fr);gap:var(--sp-2) var(--sp-4);font-size:var(--fs-md)}
+.dh-kv > div{display:contents}
+.dh-kv dt{color:var(--text-muted)}
+.dh-kv dd{margin:0;min-width:0}
+.dh-loc{overflow-wrap:anywhere}
+.dh-error{margin:0;padding:0 var(--sp-5) var(--sp-3);font-size:var(--fs-md);color:var(--sev-warning);overflow-wrap:anywhere}
+.dh-foot code,.dh-empty code{font:var(--fs-sm) var(--mono)}
+@media (max-width:1000px){
+  .dh-boxes{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:760px){
+  .dh-card-h{padding:0 var(--sp-4) var(--sp-2)}
+  .dh-card .table-wrap{padding:0}
+  .dh-strip-wrap,.dh-kv,.dh-error,.dh-foot{padding-left:var(--sp-4);padding-right:var(--sp-4)}
+  .dh-empty{padding:var(--sp-2) var(--sp-4) var(--sp-3)}
+  .dh-kv{grid-template-columns:minmax(0,1fr);gap:2px}
+  .dh-kv dd{margin-bottom:var(--sp-2)}
+}
+
+.dh-note{margin:0 0 var(--sp-4);color:var(--text-2);font-size:var(--fs-md);overflow-wrap:anywhere}
+.dh-gap-bg{fill:var(--surface-2)}
+.dh-gap-line{stroke:var(--text-muted);stroke-width:1}
+.dh-chart-gap{opacity:.65}
+
+/* Stands in for part of a row the chart already has, so it never adds a line. */
+.dh-chart-status{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted)}
+/* In a shared row the text takes the room between its neighbours, whole or not at all. */
+.dh-chart-slot{flex:1 1 0;min-width:0;container-type:inline-size;text-align:center}
+.dh-chart-slot > .dh-chart-status{display:block}
+@container (max-width:12ch){.dh-chart-slot > .dh-chart-status{visibility:hidden}}
+.dh-status-in{display:grid;min-width:0}
+.dh-status-in > *{grid-area:1 / 1}
+.dh-status-keep{visibility:hidden}
+.dh-status-in > .dh-chart-status{white-space:normal}
+
+.dh-chart-server-gap{opacity:.85;stroke:var(--sev-warning);stroke-width:.6}
+
+.dh-chart-notice{margin:var(--sp-2) 0;font-size:var(--fs-sm);color:var(--text-2);overflow-wrap:anywhere}
+/* A row too narrow for the full status on one line shows its short form. */
+@container (max-width:24ch){
+  .dh-chart-status[data-short]{font-size:0}
+  .dh-chart-status[data-short]::after{content:attr(data-short);font-size:var(--fs-xs)}
+}

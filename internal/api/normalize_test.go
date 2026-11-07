@@ -167,6 +167,46 @@ func TestNormalizeMute(t *testing.T) {
 	}
 }
 
+func TestNormalizeAccept(t *testing.T) {
+	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	good := func() *v1.MuteFindingRequest {
+		return &v1.MuteFindingRequest{CheckCode: "stream-005", Reason: "kept for the account's life", MutedBy: "op",
+			Entity:    &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "SHOP/order-archive"},
+			ExpiresAt: tsp(now.Add(MaxAcceptLength)), Accept: true}
+	}
+	if err := normalizeMute(good(), now, ""); err != nil {
+		t.Fatalf("365 days: %v", err)
+	}
+	m := good()
+	m.ExpiresAt = tsp(now.Add(MinAcceptLength))
+	if err := normalizeMute(m, now, ""); err != nil {
+		t.Fatalf("one day: %v", err)
+	}
+	bad := map[string]func(*v1.MuteFindingRequest){
+		"no entity":            func(m *v1.MuteFindingRequest) { m.Entity = nil },
+		"empty entity":         func(m *v1.MuteFindingRequest) { m.Entity = &v1.EntityRef{} },
+		"system entity":        func(m *v1.MuteFindingRequest) { m.Entity = &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SYSTEM} },
+		"review in 366 days":   func(m *v1.MuteFindingRequest) { m.ExpiresAt = tsp(now.Add(MaxAcceptLength + 24*time.Hour)) },
+		"review a second late": func(m *v1.MuteFindingRequest) { m.ExpiresAt = tsp(now.Add(MaxAcceptLength + time.Second)) },
+		"review under a day":   func(m *v1.MuteFindingRequest) { m.ExpiresAt = tsp(now.Add(23 * time.Hour)) },
+		"blank reason":         func(m *v1.MuteFindingRequest) { m.Reason = " " },
+		"long reason":          func(m *v1.MuteFindingRequest) { m.Reason = strings.Repeat("a", MaxReasonLength+1) },
+	}
+	for name, change := range bad {
+		m := good()
+		change(m)
+		if err := normalizeMute(m, now, ""); !errors.Is(err, ErrInvalid) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	// A plain mute keeps its own limit of 90 days.
+	m = good()
+	m.Accept = false
+	if err := normalizeMute(m, now, ""); !errors.Is(err, ErrInvalid) {
+		t.Errorf("mute of 365 days: %v", err)
+	}
+}
+
 func TestCheckEntity(t *testing.T) {
 	ok := []*v1.EntityRef{
 		nil,

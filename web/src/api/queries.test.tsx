@@ -1,3 +1,5 @@
+import { create } from "@bufbuild/protobuf";
+import { GetDataHistoryResponseSchema } from "../gen/natslens/v1/history_pb";
 // Every query hook keys on the system of the page and sends it.
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, waitFor } from "@testing-library/react";
@@ -27,6 +29,9 @@ vi.mock("./client", () => {
       listConnections: ok(),
       getTimeSeries: ok(),
       getLensInfo: ok(),
+      getShellStatus: ok(),
+      getAccountsAndAuth: ok(),
+      getDataHistory: ok(),
     },
   };
 });
@@ -47,6 +52,7 @@ function AllHooks() {
   q.useEvents(live, {});
   q.useEvent("e1");
   q.useStreams(live);
+  q.useStreamNames(live);
   q.useStream(live, "APP", "order-jobs");
   q.useConsumers(live, {});
   q.useConsumer(live, "APP", "order-jobs", "resize-worker");
@@ -54,7 +60,9 @@ function AllHooks() {
   q.useConnections(live, {});
   q.useSeries(live, "cluster.connections", undefined);
   q.useLensInfo();
-  q.useHeaderStatus(30_000);
+  q.useShellStatus();
+  q.useAccountsAndAuth(live);
+  q.useDataHistory(live);
   return null;
 }
 
@@ -75,6 +83,9 @@ const METHODS = [
   "listConnections",
   "getTimeSeries",
   "getLensInfo",
+  "getShellStatus",
+  "getAccountsAndAuth",
+  "getDataHistory",
 ] as const;
 
 function setup(route: string) {
@@ -101,7 +112,7 @@ describe("query keys and the system", () => {
     const qc = setup("/?system=sys-a");
     await waitFor(() => METHODS.forEach((m) => expect(lens[m]).toHaveBeenCalled()));
     const keys = qc.getQueryCache().getAll().map((x) => x.queryKey);
-    expect(keys.length).toBe(16);
+    expect(keys.length).toBe(20);
     for (const k of keys) expect(k, JSON.stringify(k)).toContain("sys-a");
     for (const m of METHODS) expect(lastSystem(m), m).toBe("sys-a");
   });
@@ -113,7 +124,7 @@ describe("query keys and the system", () => {
     act(() => navigate("/?system=sys-b"));
     await waitFor(() => METHODS.forEach((m) => expect(lastSystem(m), m).toBe("sys-b")));
     const keys = qc.getQueryCache().getAll().map((x) => x.queryKey);
-    expect(keys.filter((k) => k.includes("sys-b")).length).toBe(16);
+    expect(keys.filter((k) => k.includes("sys-b")).length).toBe(20);
   });
 
   it("keys a page without ?system= on the empty system and sends none", async () => {
@@ -150,4 +161,59 @@ describe("mutations and the system", () => {
     expect(vi.mocked(lens.muteFinding).mock.calls[0][0]).toMatchObject({ system: "sys-c" });
     expect(vi.mocked(lens.unmuteFinding).mock.calls[0][0]).toMatchObject({ system: "sys-c" });
   });
+});
+
+describe("live refetch", () => {
+  afterEach(() => vi.clearAllMocks());
+
+  it("refetches the Accounts page on the collector's interval in a live range, as Topology", async () => {
+    const qc = setup("/?system=sys-a");
+    await waitFor(() => expect(lens.getAccountsAndAuth).toHaveBeenCalled());
+    const query = qc.getQueryCache().find({ queryKey: ["accounts-and-auth", "sys-a"], exact: false });
+    expect(query?.observers[0]?.options.refetchInterval).toBe(30_000);
+  });
+
+  it("refetches the Data history page every 30 seconds in a live range", async () => {
+    const qc = setup("/?system=sys-a");
+    await waitFor(() => expect(lens.getDataHistory).toHaveBeenCalled());
+    const query = qc.getQueryCache().find({ queryKey: ["data-history", "sys-a"], exact: false });
+    expect(query?.observers[0]?.options.refetchInterval).toBe(30_000);
+  });
+});
+
+it("shares a settled history answer with charts mounted later on the same page", async () => {
+  vi.mocked(lens.getDataHistory).mockReset();
+  vi.mocked(lens.getDataHistory).mockResolvedValue(create(GetDataHistoryResponseSchema));
+  function Chart() { q.useDataHistory(live); return null; }
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  function Frame({ second }: { second: boolean }) {
+    return <QueryClientProvider client={qc}><MemoryRouter><Chart />{second && <Chart />}</MemoryRouter></QueryClientProvider>;
+  }
+  const r = render(<Frame second={false} />);
+  await waitFor(() => expect(qc.isFetching()).toBe(0));
+  expect(lens.getDataHistory).toHaveBeenCalledTimes(1);
+  r.rerender(<Frame second />);
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
+  expect(lens.getDataHistory).toHaveBeenCalledTimes(1);
+});
+
+it("does not lend history facts from a previous range to a pending or failing range", async () => {
+  const read = vi.mocked(lens.getDataHistory);
+  read.mockReset();
+  read.mockResolvedValueOnce(create(GetDataHistoryResponseSchema));
+  let reject!: (error: Error) => void;
+  read.mockImplementationOnce(() => new Promise((_yes, no) => { reject = no; }));
+  let result: ReturnType<typeof q.useDataHistory>;
+  function Probe({ spec }: { spec: import("../lib/timeRange").RangeSpec }) { result = q.useDataHistory(spec); return <span>{result.isError ? "failed" : result.data ? "loaded" : "pending"}</span>; }
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  function Frame({ spec }: { spec: import("../lib/timeRange").RangeSpec }) {
+    return <QueryClientProvider client={qc}><MemoryRouter><Probe spec={spec} /></MemoryRouter></QueryClientProvider>;
+  }
+  const r = render(<Frame spec={live} />);
+  await waitFor(() => expect(result!.data).toBeDefined());
+  r.rerender(<Frame spec={{ kind: "live", preset: "24h" }} />);
+  expect(result!.data).toBeUndefined();
+  await act(async () => reject(new Error("unavailable")));
+  await waitFor(() => expect(result!.isError).toBe(true));
+  expect(result!.data).toBeUndefined();
 });

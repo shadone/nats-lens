@@ -29,7 +29,7 @@ const finding: Finding = {
 };
 
 const NOW = Date.parse("2026-10-17T14:30:00Z");
-const form = { reason: "Retention cut in review", expiry: "24h", customExpiry: "", name: "denis" };
+const form = { reason: "Retention cut in review", expiry: "24h", customExpiry: "", name: "alice" };
 
 describe("validateMute", () => {
   it("accepts a reason, a name and a preset expiry", () => {
@@ -74,21 +74,21 @@ describe("MuteDialog", () => {
   });
 
   it("mutes the check for the entity until the chosen expiry, then closes", async () => {
-    muteFinding.mockResolvedValue({ id: "1", checkCode: "stream-006", reason: "r", mutedBy: "denis", unmutedBy: "" });
+    muteFinding.mockResolvedValue({ id: "1", checkCode: "stream-006", reason: "r", mutedBy: "alice", unmutedBy: "", accepted: false, endReason: "" });
     const onClose = vi.fn();
     renderApp(<MuteDialog finding={finding} onClose={onClose} />);
     await userEvent.type(screen.getByLabelText("Reason"), "Retention cut in review");
-    await userEvent.type(screen.getByLabelText("Your name"), "denis");
+    await userEvent.type(screen.getByLabelText("Your name"), "alice");
     fireEvent.change(screen.getByLabelText("Ends"), { target: { value: "7d" } });
     const before = Date.now();
     await userEvent.click(screen.getByRole("button", { name: "Mute" }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     const req = muteFinding.mock.calls[0][1];
-    expect(req).toMatchObject({ checkCode: "stream-006", reason: "Retention cut in review", mutedBy: "denis" });
+    expect(req).toMatchObject({ checkCode: "stream-006", reason: "Retention cut in review", mutedBy: "alice" });
     expect(req.entity?.key).toBe("APP/audit-archive");
     expect(req.expiresAt - before).toBeGreaterThanOrEqual(7 * 86_400_000);
     expect(req.expiresAt - before).toBeLessThan(7 * 86_400_000 + 60_000);
-    expect(localStorage.getItem("nats-lens-name")).toBe("denis");
+    expect(localStorage.getItem("nats-lens-name")).toBe("alice");
   });
 
   it("mutes every entity of the check when asked", async () => {
@@ -96,7 +96,7 @@ describe("MuteDialog", () => {
     renderApp(<MuteDialog finding={finding} onClose={() => {}} />);
     await userEvent.click(screen.getByLabelText(/Every entity of stream-006/));
     await userEvent.type(screen.getByLabelText("Reason"), "noise");
-    await userEvent.type(screen.getByLabelText("Your name"), "denis");
+    await userEvent.type(screen.getByLabelText("Your name"), "alice");
     await userEvent.click(screen.getByRole("button", { name: "Mute" }));
     await waitFor(() => expect(muteFinding).toHaveBeenCalled());
     expect(muteFinding.mock.calls[0][1].entity).toBeUndefined();
@@ -126,7 +126,7 @@ describe("MuteDialog", () => {
     muteFinding.mockRejectedValue(new Error("expires_at must be at most 90 days ahead"));
     renderApp(<MuteDialog finding={finding} onClose={() => {}} />);
     await userEvent.type(screen.getByLabelText("Reason"), "noise");
-    await userEvent.type(screen.getByLabelText("Your name"), "denis");
+    await userEvent.type(screen.getByLabelText("Your name"), "alice");
     await userEvent.click(screen.getByRole("button", { name: "Mute" }));
     expect(await screen.findByText(/at most 90 days/)).toBeInTheDocument();
   });
@@ -199,7 +199,7 @@ describe("dialogs while a request is pending", () => {
   it("says Lifting… and cannot be closed while an unmute is pending", async () => {
     unmuteFinding.mockReturnValue(new Promise(() => {}));
     const onClose = vi.fn();
-    renderApp(<UnmuteDialog mute={{ id: "1", checkCode: "stream-006", reason: "r", mutedBy: "denis", unmutedBy: "" }} onClose={onClose} />);
+    renderApp(<UnmuteDialog mute={{ id: "1", checkCode: "stream-006", reason: "r", mutedBy: "alice", unmutedBy: "", accepted: false, endReason: "" }} onClose={onClose} />);
     await screen.findByText(/IAP identity/);
     await userEvent.click(screen.getByRole("button", { name: "Lift mute" }));
     expect(screen.getByRole("button", { name: "Lifting…" })).toBeDisabled();
@@ -241,7 +241,7 @@ describe("the system a mute goes to", () => {
 
   it("lifts a mute on the system of the page when the dialog opened", async () => {
     vi.mocked(requests.unmuteFinding).mockResolvedValue(undefined);
-    const m = { id: "m1", checkCode: "stream-006", reason: "r", mutedBy: "denis", unmutedBy: "" } as never;
+    const m = { id: "m1", checkCode: "stream-006", reason: "r", mutedBy: "alice", unmutedBy: "", accepted: false, endReason: "" } as never;
     renderApp(
       <>
         <Nav />

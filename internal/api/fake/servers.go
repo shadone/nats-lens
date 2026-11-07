@@ -3,6 +3,8 @@ package fake
 import (
 	"context"
 	"fmt"
+	"math"
+	"slices"
 	"strings"
 	"time"
 
@@ -41,6 +43,9 @@ type serverSpec struct {
 	// slow are the fixed-frame times of the slow consumer disconnects on
 	// the server; nil on every server shares the scenario's among them.
 	slow []time.Time
+	// subs is the subscriptions the server holds; zero means
+	// serverSubscriptions.
+	subs int64
 }
 
 // started is when the server's process started in the scenario.
@@ -54,35 +59,52 @@ func (s scen) started(sp serverSpec) time.Time {
 // answering reports whether the server answers at the scenario's present.
 func (sp serverSpec) answering() bool { return sp.down.IsZero() }
 
+// missingIn reports whether the server did not answer in the range's
+// newest epoch; without an epoch in the range, whether it answers now.
+func (s scen) missingIn(sp serverSpec, r *v1.TimeRange) bool {
+	if at, _, ok := s.epochBefore(r); ok {
+		return s.downAt(sp, at)
+	}
+	return !sp.answering()
+}
+
 // server summarizes one server; cur are the findings firing at the range's
 // end.
 func (s scen) server(sp serverSpec, r *v1.TimeRange, cur []*v1.Finding) *v1.ServerSummary {
-	start := s.started(sp)
+	start, id := s.started(sp), sp.id
 	// Uptime as of the newest epoch inside the range, or the last one the
 	// server answered in.
 	seen := earliest(s.lastEpoch(), r.GetEnd().AsTime())
+	if at, _, ok := s.epochBefore(r); ok {
+		seen = at
+		if start.After(at) {
+			// The range's epoch predates this process: the summary is the
+			// process before, as GetServer lists it.
+			start, id = s.on(2, 8, 12), sp.oldID
+		}
+	}
 	if !sp.answering() {
 		seen = earliest(sp.down.Add(s.shift), seen)
 	}
 	out := &v1.ServerSummary{
-		Name: sp.name, ServerId: sp.id, Version: sp.version, Cluster: sp.cluster, StartTime: ts(start),
+		Name: sp.name, ServerId: id, Version: sp.version, Cluster: sp.cluster, StartTime: ts(start),
 		Uptime: dur(seen.Sub(start).Truncate(time.Second)), Role: v1.ServerRole_SERVER_ROLE_FOLLOWER,
-		Present: true, Healthz: "ok", Connections: ptr(sp.conns),
+		Present: true, Healthz: "ok", Connections: ptr(s.sc.connsOn(sp, s.clock(s.epochTime(r)))),
 		JsStorageBytes: ptr(sp.store), JsMaxStorageBytes: ptr(sp.maxStore), MemBytes: ptr(sp.mem), CpuPercent: ptr(sp.cpu),
 		Status: v1.Status_STATUS_OK, Tags: sp.tags,
 		SlowConsumersInRange: ptr(s.slowCount(sp, r.GetStart().AsTime(), r.GetEnd().AsTime())),
 	}
-	streams, consumers := s.leads(sp)
+	streams, consumers := s.leads(sp, s.epochTime(r))
 	out.StreamLeaders, out.ConsumerLeaders = ptr(streams), ptr(consumers)
-	if sp.name == s.sc.metaLeader {
+	if sp.name == s.metaLeaderAt(s.epochTime(r)) {
 		out.Role = v1.ServerRole_SERVER_ROLE_META_LEADER
 	}
 	if inRange(start, r) {
 		out.Restarts = append(out.Restarts, ts(start))
 	}
-	if !sp.answering() {
-		// A server that stopped answering keeps the numbers of its last
-		// answer, without a health reply.
+	if s.missingIn(sp, r) {
+		// A server that did not answer in the range's newest epoch keeps
+		// the numbers of its last answer, without a health reply.
 		out.Present, out.Healthz = false, ""
 	}
 	out.Status, _ = worstStatus(cur, serverRef(sp.name))
@@ -105,7 +127,7 @@ func (p *Provider) ListServers(_ context.Context, req *v1.ListServersRequest) (*
 	res := &v1.ListServersResponse{Servers: s.servers(req.GetRange(), p.findings(s))}
 	for _, sp := range p.sc.servers {
 		res.Expected = append(res.Expected, sp.name)
-		if !sp.answering() {
+		if s.missingIn(sp, req.GetRange()) {
 			res.Missing = append(res.Missing, sp.name)
 		}
 	}
@@ -129,53 +151,141 @@ func (p *Provider) GetServer(_ context.Context, req *v1.GetServerRequest) (*v1.G
 	}
 	res := &v1.GetServerResponse{
 		Server:        s.server(sp, req.GetRange(), current(p.findings(s), req.GetRange())),
-		Subscriptions: ptr(int64(1840)), MetaLeader: p.sc.metaLeader, ConfigDigest: "sha256:7f3a91c2",
+		Subscriptions: ptr(sp.subsTotal()), MetaLeader: s.metaLeaderAt(s.epochTime(req.GetRange())), ConfigDigest: "sha256:7f3a91c2",
 		Processes: []*v1.ServerProcess{
 			{ServerId: sp.oldID, StartTime: ts(s.on(2, 8, 12)), FirstSeen: ts(s.on(3, 0, 0)), LastSeen: ts(start.Add(-2 * time.Minute))},
 			{ServerId: sp.id, StartTime: ts(start), FirstSeen: ts(start.Add(30 * time.Second)), LastSeen: ts(lastSeen)},
 		},
 	}
-	for _, e := range endpoints {
+	asked := endpoints
+	if p.sc.subs != nil {
+		// A system that collects subscription lists asks SUBSZ too.
+		asked = append(slices.Clone(endpoints), "SUBSZ")
+	}
+	for _, e := range asked {
 		res.Endpoints = append(res.Endpoints, &v1.EndpointOutcome{Endpoint: e, State: state})
 	}
-	s.detail(sp, res)
+	s.detail(sp, res, req.GetRange())
 	return res, nil
 }
 
-// connections builds the connections of the scenario's newest epoch: each
-// answering server's count, named in turn after the scenario's clients.
-func (s scen) connections() []*v1.Connection {
+// connections builds the connections of the epoch that started at at:
+// each server's count but for the servers down then, named in turn after
+// the scenario's clients.
+func (s scen) connections(at time.Time) []*v1.Connection {
 	var out []*v1.Connection
 	for _, sp := range s.sc.servers {
-		if !sp.answering() {
+		if s.downAt(sp, at) {
 			continue
 		}
 		start := s.started(sp)
 		for i := range sp.conns {
 			name := s.sc.clients[int(i)%len(s.sc.clients)]
-			lang := "nats.js"
-			if name == "media-worker" || name == "video-transcoder" || name == "label-printer" {
-				lang = "go"
+			lang, version := s.sc.libraryOf(sp, name)
+			since := start.Add(time.Duration(i) * 7 * time.Second)
+			rin, rout := connRate(name, i)
+			moved := s.trafficBetween(since, at)
+			rtt := time.Duration(300+i*13) * time.Microsecond
+			if s.sc.rtt != nil {
+				if d := s.sc.rtt(sp, name); d > 0 {
+					rtt = d + time.Duration(i*13)*time.Microsecond
+				}
 			}
+			in, outm := 1000+i*311+int64(math.Round(rin*moved)), 2000+i*577+int64(math.Round(rout*moved))
 			out = append(out, &v1.Connection{
-				Key: fmt.Sprintf("%s/%d", sp.name, 100+i), Server: sp.name, Cid: 100 + i, Name: name, Lang: lang, Version: "3.0.2", Account: Account, User: "app",
-				Ip: fmt.Sprintf("10.20.%d.%d", 1+i%4, 10+i), Port: ptr(int32(40000 + i)), StartTime: ts(start.Add(time.Duration(i) * 7 * time.Second)),
-				LastActivity: ts(s.now.Add(-time.Duration(i%30) * time.Second)), Rtt: dur(time.Duration(300+i*13) * time.Microsecond),
-				PendingBytes: ptr((i % 9) * 128), InMsgs: ptr(1000 + i*311), OutMsgs: ptr(2000 + i*577), InBytes: ptr((1000 + i*311) * 900),
-				OutBytes: ptr((2000 + i*577) * 900), Stalls: ptr(i % 23 / 22), Subscriptions: ptr(3 + i%7),
+				Key: fmt.Sprintf("%s/%d", sp.name, 100+i), Server: sp.name, Cid: 100 + i, Name: name, Lang: lang, Version: version, Account: Account, User: s.sc.userOf(fmt.Sprintf("%s/%d", sp.name, 100+i)),
+				Ip: fmt.Sprintf("10.20.%d.%d", 1+i%4, 10+i), Port: ptr(int32(40000 + i)), StartTime: ts(since),
+				LastActivity: ts(s.now.Add(-time.Duration(i%30) * time.Second)), Rtt: dur(rtt),
+				PendingBytes: ptr((i % 9) * 128), InMsgs: ptr(in), OutMsgs: ptr(outm), InBytes: ptr(in * clientMsgBytes),
+				OutBytes: ptr(outm * clientMsgBytes), Stalls: ptr(i % 23 / 22), Subscriptions: ptr(3 + i%7),
+			})
+		}
+		for _, e := range s.sc.extraConns {
+			if e.server != sp.name {
+				continue
+			}
+			if !e.since.IsZero() && e.since.Add(s.shift).After(at) {
+				// Not connected yet.
+				continue
+			}
+			since := start
+			if !e.since.IsZero() {
+				since = latest(start, e.since.Add(s.shift))
+			}
+			moved := s.trafficBetween(since, at)
+			in, outm := 52000+int64(math.Round(extraIn*moved)), 31000+int64(math.Round(extraOut*moved))
+			out = append(out, &v1.Connection{
+				Key: fmt.Sprintf("%s/%d", sp.name, e.cid), Server: sp.name, Cid: e.cid, Name: e.name, Lang: "go", Version: goVersion,
+				Account: e.account, User: e.user, Ip: e.ip, Port: ptr(int32(51000 + e.cid)), StartTime: ts(since), LastActivity: ts(s.now.Add(-time.Second)),
+				Rtt: dur(410 * time.Microsecond), PendingBytes: ptr(int64(0)), InMsgs: ptr(in), OutMsgs: ptr(outm),
+				InBytes: ptr(in * extraInMsgBytes), OutBytes: ptr(outm * extraOutMsgBytes), Stalls: ptr(int64(0)), Subscriptions: ptr(int64(len(e.subjects))),
+				Tooling: toolingClient(e.name, e.ip),
 			})
 		}
 	}
+	s.countSubscriptions(at, out)
 	return out
+}
+
+// countSubscriptions sets each connection's subscription count to the
+// subscriptions the scenario lists for it at at, the Subjects page's
+// source, in a system that collects subscription lists; elsewhere the
+// counts stay as built.
+func (s scen) countSubscriptions(at time.Time, conns []*v1.Connection) {
+	if s.sc.subs == nil {
+		return
+	}
+	n := map[string]int64{}
+	subs, _ := s.subscriptionsOf(at, conns)
+	for _, x := range subs {
+		n[fmt.Sprintf("%s/%d", x.Server, x.CID)] += x.Subs
+	}
+	for _, x := range conns {
+		x.Subscriptions = ptr(n[x.GetKey()])
+	}
+}
+
+// totalConns is the client connections of every server at fixed-frame
+// time c.
+func (sc *scenario) totalConns(c time.Time) int64 {
+	var n int64
+	for _, sp := range sc.servers {
+		n += sc.connsOn(sp, c)
+	}
+	return n
+}
+
+// connsOn is the client connections a server holds at fixed-frame time
+// c: the clients' and the extra connections on it that had connected by
+// then.
+func (sc *scenario) connsOn(sp serverSpec, c time.Time) int64 {
+	n := sp.conns
+	for _, e := range sc.extraConns {
+		if e.server == sp.name && !e.since.After(c) {
+			n++
+		}
+	}
+	return n
 }
 
 // ListConnections filters the connections and pages through them.
 func (p *Provider) ListConnections(_ context.Context, req *v1.ListConnectionsRequest) (*v1.ListConnectionsResponse, error) {
+	s := p.scen()
+	// The connections of the range's newest epoch; none without one.
+	at, epoch, ok := s.epochBefore(req.GetRange())
+	if !ok {
+		return &v1.ListConnectionsResponse{}, nil
+	}
 	var out []*v1.Connection
-	for _, c := range p.scen().connections() {
+	var hidden int32
+	for _, c := range s.connections(at) {
 		if (req.GetServer() == "" || c.GetServer() == req.GetServer()) &&
 			(req.GetAccount() == "" || c.GetAccount() == req.GetAccount()) &&
 			strings.Contains(c.GetName(), req.GetNameContains()) {
+			if c.GetTooling() && !req.GetIncludeTooling() {
+				hidden++
+				continue
+			}
 			out = append(out, c)
 		}
 	}
@@ -183,5 +293,11 @@ func (p *Provider) ListConnections(_ context.Context, req *v1.ListConnectionsReq
 	if err != nil {
 		return nil, err
 	}
-	return &v1.ListConnectionsResponse{Connections: page, NextPageToken: next, TotalCount: int32(len(out)), Epoch: p.sc.epoch}, nil
+	res := &v1.ListConnectionsResponse{Connections: page, NextPageToken: next, TotalCount: int32(len(out)), Epoch: epoch, ToolingHidden: hidden}
+	// Every server ListServers lists, whatever the filters and the page.
+	for _, sp := range p.sc.servers {
+		res.Servers = append(res.Servers, sp.name)
+	}
+	slices.Sort(res.Servers)
+	return res, nil
 }

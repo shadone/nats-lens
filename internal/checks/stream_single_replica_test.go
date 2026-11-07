@@ -1,0 +1,126 @@
+package checks
+
+import (
+	"fmt"
+	"testing"
+	"time"
+)
+
+// streamLensCluster stores nats-0..2 (S0..S2) in cluster lens; epoch 2 has
+// nats-1 missing.
+func (f *fx) streamLensCluster() {
+	f.epoch(1, three)
+	f.epoch(2, three, "nats-1")
+	for i, name := range three {
+		id := fmt.Sprintf("S%d", i)
+		last := int64(2)
+		if name == "nats-1" {
+			last = 1
+		}
+		f.server(id, name, 1, last, t0.Add(-time.Hour), "2.15.0")
+		for e := int64(1); e <= last; e++ {
+			f.row("epoch_endpoints", m{"epoch": e, "server_id": id, "endpoint": "JSZ", "state": "ok"})
+		}
+	}
+	f.exec(`UPDATE servers SET cluster = 'lens'`)
+}
+
+// streamAsset stores an asset's configuration run on server id and its identity.
+func (f *fx) streamAsset(id, stream string, first, last int64, cols m) {
+	f.streamConfig(id, stream, first, last, cols)
+	f.row("streams", m{"account": "APP", "stream": stream, "first_epoch": first, "last_epoch": last})
+}
+
+func TestSingleReplica(t *testing.T) {
+	f := newFx(t)
+	f.streamLensCluster()
+	r1 := m{"replicas": 1}
+	f.streamAsset("S0", "order-cache", 1, 2, r1)
+	f.streamAsset("S0", "OBJ_image-input", 1, 2, r1)
+	f.streamAsset("S0", "KV_worker-presence", 1, 2, r1)
+	f.streamAsset("S0", "order-archive", 1, 2, merge(r1, m{"mirror": "order-events"}))
+	f.streamAsset("S0", "order-jobs", 1, 2, nil)
+	// The only server of this one is missing in epoch 2.
+	f.streamAsset("S1", "media-cache", 1, 1, r1)
+	// This one's server answers in epoch 2 without it: it is gone.
+	f.streamAsset("S2", "old-cache", 1, 1, r1)
+	f.row("inventory", m{"account": "APP", "kind": "kv", "name": "worker-presence", "stream": "KV_worker-presence",
+		"replicas": 1, "source": "inventory.yaml", "loaded_at": t0})
+	r := f.fires("stream-018", 2, "APP/order-cache", "APP/OBJ_image-input", "APP/order-archive", "APP/media-cache")
+	want(t, r["APP/order-cache"], "info",
+		"Stream order-cache has 1 replica, on nats-0, in cluster lens of 3 JetStream servers; its messages are lost with that server's disk.")
+	want(t, r["APP/OBJ_image-input"], "info", "Object store image-input has 1 replica", "its objects are lost")
+	want(t, r["APP/order-archive"], "info", "it mirrors order-events, which holds the data")
+	want(t, r["APP/media-cache"], "info", "on nats-1", "(that server is not ready now)")
+	if v := r["APP/order-cache"].Value; v == nil || *v != 3 {
+		t.Errorf("value = %v", v)
+	}
+	if r := f.eval("stream-018", 2, map[string]string{"min_servers": "4"}); len(r) != 0 {
+		t.Fatalf("min_servers 4: %s", rowsText(r))
+	}
+	// One server, or a server without a cluster: nothing to spread over.
+	g := newFx(t)
+	g.epoch(1, []string{"nats-0"})
+	g.server("S0", "nats-0", 1, 1, t0.Add(-time.Hour), "2.15.0")
+	g.streamAsset("S0", "order-cache", 1, 1, r1)
+	g.fires("stream-018", 1)
+	g.exec(`UPDATE servers SET cluster = 'lens'`)
+	g.fires("stream-018", 1)
+	// The inventory may name the account by its readable name, and a
+	// replicas other than 1 there leaves the difference to stream-012.
+	f.row("accounts", m{"account": "ACC1", "account_name": "SHOP", "is_system": false, "first_epoch": 1, "last_epoch": 2})
+	f.streamAsset("S0", "order-tmp", 1, 2, r1)
+	f.exec(`UPDATE stream_config SET account = 'ACC1' WHERE stream = 'order-tmp'`)
+	f.exec(`UPDATE streams SET account = 'ACC1' WHERE stream = 'order-tmp'`)
+	f.row("inventory", m{"account": "SHOP", "kind": "stream", "name": "order-tmp", "stream": "order-tmp",
+		"replicas": 3, "source": "inventory.yaml", "loaded_at": t0})
+	if r := f.eval("stream-018", 2); len(r) != 4 {
+		t.Fatalf("declared under the readable name: %s", rowsText(r))
+	}
+}
+
+// A cluster scaled from three servers to one: the two removed servers are
+// no longer expected, though they were seen within the day.
+func TestSingleReplicaScaledDown(t *testing.T) {
+	f := newFx(t)
+	f.epoch(1, []string{"nats-0"})
+	for i, name := range three {
+		f.server(fmt.Sprintf("S%d", i), name, 1, 1, t0.Add(-time.Hour), "2.15.0")
+	}
+	f.exec(`UPDATE servers SET cluster = 'lens'`)
+	f.exec(`UPDATE servers SET last_seen_at = ? WHERE server_name <> 'nats-0'`, t0.Add(-3*time.Hour))
+	f.streamAsset("S0", "order-cache", 1, 1, m{"replicas": 1})
+	f.fires("stream-018", 1)
+}
+
+// A stream pinned by placement tags counts only the servers that carry
+// them.
+func TestSingleReplicaPlacementTags(t *testing.T) {
+	f := newFx(t)
+	f.streamLensCluster()
+	f.exec(`UPDATE servers SET tags = ['ssd'] WHERE server_name = 'nats-0'`)
+	f.exec(`UPDATE servers SET tags = ['ssd', 'eu'] WHERE server_name <> 'nats-0'`)
+	f.streamAsset("S0", "order-cache", 1, 2, m{"replicas": 1})
+	f.streamAsset("S0", "eu-cache", 1, 2, m{"replicas": 1})
+	f.exec(`UPDATE stream_config SET placement_tags = ['ssd'] WHERE stream = 'order-cache'`)
+	f.exec(`UPDATE stream_config SET placement_tags = ['eu'] WHERE stream = 'eu-cache'`)
+	r := f.fires("stream-018", 2, "APP/order-cache")
+	want(t, r["APP/order-cache"], "info", "in cluster lens of 3 JetStream servers with tags ssd;")
+}
+
+// Tags match as nats-server places a stream: without case, a leading !
+// excludes servers with the tag, and a server tagged !jetstream takes no
+// stream.
+func TestSingleReplicaTagRules(t *testing.T) {
+	f := newFx(t)
+	f.streamLensCluster()
+	f.exec(`UPDATE servers SET tags = ['ssd']`)
+	for _, c := range []struct{ name, tags string }{{"upper", "['SSD']"}, {"mixed", "['Ssd']"}, {"plain", "['ssd']"},
+		{"not-hdd", "['!hdd']"}, {"not-ssd", "['!ssd']"}} {
+		f.streamAsset("S0", c.name, 1, 2, m{"replicas": 1})
+		f.exec(fmt.Sprintf(`UPDATE stream_config SET placement_tags = %s WHERE stream = '%s'`, c.tags, c.name))
+	}
+	f.fires("stream-018", 2, "APP/upper", "APP/mixed", "APP/plain", "APP/not-hdd")
+	f.exec(`UPDATE servers SET tags = ['ssd', '!jetstream'] WHERE server_name = 'nats-2'`)
+	f.fires("stream-018", 2)
+}

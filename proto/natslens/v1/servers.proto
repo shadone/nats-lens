@@ -387,4 +387,9 @@ message ListConnectionsResponse {
   // Tooling connections that match the other filters and were left out
   // because include_tooling is false.
   int32 tooling_hidden = 5;
+
+  // Names of every server seen in the range, sorted: the same servers
+  // ListServers lists, whatever the filters and the page. Lets a client
+  // offer the server filter without a ListServers call.
+  repeated string servers = 6;
 }

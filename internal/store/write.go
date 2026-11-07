@@ -45,7 +45,7 @@ func (s *Store) writeSnapshot(ctx context.Context, snap *collect.Snapshot) (int6
 	w := newWriter(ctx, tx, epoch, snap)
 	w.log = s.logger()
 	if s.warned == nil {
-		s.warned = map[assetKey]bool{}
+		s.warned = map[warning]bool{}
 	}
 	w.warned = s.warned
 	if err := tx.QueryRowContext(ctx, `SELECT coalesce(max(epoch), 0) FROM epochs`).Scan(&w.prevEpoch); err != nil {
@@ -55,12 +55,20 @@ func (s *Store) writeSnapshot(ctx context.Context, snap *collect.Snapshot) (int6
 	for _, v := range snap.SortedViews() {
 		w.writeServerView(v)
 	}
+	w.writeAccountDetails()
+	w.writeMicro()
+	w.writeMicroHours()
+	w.writeAppHours()
 	for _, acc := range sortedKeys(snap.AccountNames) {
 		w.ids.account(acc, snap.AccountNames[acc], false)
 	}
 	w.writeIdents()
 	if len(w.notes) > 0 {
-		w.exec(`UPDATE epochs SET errors = list_concat(errors, ?) WHERE epoch = ?`, w.notes, w.epoch)
+		notes := make([]string, len(w.notes))
+		for i, n := range w.notes {
+			notes[i] = NotePrefix + n
+		}
+		w.exec(`UPDATE epochs SET errors = list_concat(errors, ?) WHERE epoch = ?`, notes, w.epoch)
 	}
 	w.closeStatements()
 	if w.err != nil {
@@ -71,6 +79,11 @@ func (s *Store) writeSnapshot(ctx context.Context, snap *collect.Snapshot) (int6
 	}
 	return epoch, nil
 }
+
+// NotePrefix starts every note the store adds to an epoch's errors (a
+// value a newer server sent, a configuration not stored), so that readers
+// can tell them from the collector's own failures, which follow no prefix.
+const NotePrefix = "note: "
 
 // writer holds the state of one epoch's transaction. The first error is
 // kept and every later call becomes a no-op, so writers need no error
@@ -88,8 +101,8 @@ type writer struct {
 	seen  map[assetKey]string
 	noted map[assetKey]bool
 	notes []string
-	// warned is the store's set of conflicts already logged.
-	warned map[assetKey]bool
+	// warned is the store's set of asset warnings already logged.
+	warned map[warning]bool
 	log    *slog.Logger
 	// prevEpoch is the newest epoch stored before this one, 0 when none.
 	prevEpoch int64
@@ -98,7 +111,8 @@ type writer struct {
 
 func newWriter(ctx context.Context, tx *sql.Tx, epoch int64, snap *collect.Snapshot) *writer {
 	return &writer{ctx: ctx, tx: tx, epoch: epoch, snap: snap, stmts: map[string]*sql.Stmt{}, ids: newIdents(),
-		seen: map[assetKey]string{}, noted: map[assetKey]bool{}, log: slog.Default()}
+		seen: map[assetKey]string{}, noted: map[assetKey]bool{}, warned: map[warning]bool{},
+		log: slog.Default()}
 }
 
 func (w *writer) fail(err error) {
@@ -198,6 +212,7 @@ func (w *writer) writeServerView(v *collect.ServerView) {
 	w.writeIpqueues(v)
 	w.writeHealth(v)
 	w.writeConnections(v)
+	w.writeSubscriptions(v)
 	w.writeAccountStats(v)
 	w.writeJetStream(v)
 	w.writeRaft(v)

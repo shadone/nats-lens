@@ -25,6 +25,15 @@ function setup(onAll = vi.fn()) {
 }
 
 describe("Menu", () => {
+  it("marks only the current choice, with a drawn check mark and no text", async () => {
+    const { button } = setup();
+    await userEvent.click(button);
+    const [a, b] = screen.getAllByRole("menuitemradio");
+    expect(a.querySelector(".mc svg")).not.toBeNull();
+    expect(b.querySelector(".mc svg")).toBeNull();
+    expect(a).toHaveTextContent(/^a$/);
+  });
+
   it("closes on a click outside it", async () => {
     const { button } = setup();
     await userEvent.click(button);

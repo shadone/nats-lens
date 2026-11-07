@@ -1,0 +1,154 @@
+import { useState } from "react";
+import { QueryClient, useQueryClient } from "@tanstack/react-query";
+import { act, screen, waitFor } from "@testing-library/react";
+import { beforeEach, expect, it, vi } from "vitest";
+import { renderApp } from "../test/render";
+import { PageHistoryProvider, ServerChartHistory } from "./HistoryNote";
+import { SeriesChart } from "../charts/SeriesChart";
+import { TrendChart } from "./TrendChart";
+import * as api from "../api/requests";
+import { NOW, staging } from "../test/fixtures/history";
+
+vi.mock("../api/requests", () => ({ getDataHistory: vi.fn(), getLensInfo: vi.fn() }));
+const read = vi.mocked(api.getDataHistory), H = 3_600_000;
+beforeEach(() => { read.mockReset(); vi.mocked(api.getLensInfo).mockImplementation(() => new Promise(() => {})); });
+
+it("announces the charts' history read once per page: loading, then unavailable", async () => {
+  const fails: ((e: Error) => void)[] = [];
+  read.mockImplementation(() => new Promise((_yes, no) => { fails.push(no); }));
+  const r = renderApp(<PageHistoryProvider>
+    <SeriesChart title="CPU" start={NOW - H} end={NOW} />
+    <SeriesChart title="Memory" start={NOW - H} end={NOW} />
+    <TrendChart title="Messages" start={NOW - 7 * 24 * H} end={NOW} layers={[]} />
+  </PageHistoryProvider>, "/?system=example-prod&range=24h");
+  await waitFor(() => expect(document.querySelectorAll(".dh-chart-status")).toHaveLength(3));
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("History gaps loading"));
+  expect(screen.getAllByRole("status")).toHaveLength(1);
+  await act(async () => fails.forEach((no) => no(new Error("history unavailable"))));
+  // The query cache notifies its subscribers in a later task.
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("History gaps unavailable"));
+  expect(screen.getAllByRole("status")).toHaveLength(1);
+  // beforeEach returns the mock, and Vitest calls it after the test as a teardown.
+  read.mockReset();
+  r.unmount();
+});
+
+it("leaves a server's charts to the server's own announcement", async () => {
+  read.mockImplementation(() => new Promise(() => {}));
+  const r = renderApp(<PageHistoryProvider><ServerChartHistory server="nats-0">
+    <SeriesChart title="CPU" start={NOW - H} end={NOW} />
+  </ServerChartHistory></PageHistoryProvider>, "/servers/nats-0?system=example-prod&range=1h");
+  expect(await screen.findByText("History gaps loading", { selector: "p.dh-note" })).toBeInTheDocument();
+  // The page-level region stays in the page, empty, so it never says it twice.
+  const said = screen.getAllByRole("status").filter((s) => s.textContent);
+  expect(said).toHaveLength(1);
+  expect(said[0]).toHaveClass("dh-note");
+  read.mockReset();
+  r.unmount();
+});
+
+it("says loading only after the read has been pending for 300 ms, and unavailable at once", async () => {
+  vi.useFakeTimers();
+  try {
+    const fails: ((e: Error) => void)[] = [];
+    read.mockImplementation(() => new Promise((_yes, no) => { fails.push(no); }));
+    const r = renderApp(<PageHistoryProvider><SeriesChart title="CPU" start={NOW - H} end={NOW} /></PageHistoryProvider>, "/?system=example-prod&range=24h");
+    await act(async () => { await vi.advanceTimersByTimeAsync(250); });
+    expect(screen.getByRole("status").textContent).toBe("");
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    expect(screen.getByRole("status")).toHaveTextContent("History gaps loading");
+    await act(async () => { fails.forEach((no) => no(new Error("history unavailable"))); await vi.advanceTimersByTimeAsync(5); });
+    expect(screen.getByRole("status")).toHaveTextContent("History gaps unavailable");
+    read.mockReset();
+    r.unmount();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("does not flash loading when the read settles within 300 ms", async () => {
+  vi.useFakeTimers();
+  try {
+    const answers: ((v: ReturnType<typeof staging>) => void)[] = [];
+    read.mockImplementation(() => new Promise((yes) => { answers.push(yes); }));
+    const r = renderApp(<PageHistoryProvider><SeriesChart title="CPU" start={NOW - H} end={NOW} /></PageHistoryProvider>, "/?system=example-prod&range=24h");
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    expect(screen.getByRole("status").textContent).toBe("");
+    await act(async () => { answers.forEach((yes) => yes({ ...staging(), rangeStart: NOW - H, rangeEnd: NOW, gaps: [] })); await vi.advanceTimersByTimeAsync(400); });
+    expect(screen.getByRole("status").textContent).toBe("");
+    read.mockReset();
+    r.unmount();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("puts one visible note on the page when the charts' history read fails", async () => {
+  read.mockRejectedValue(new Error("history unavailable"));
+  const r = renderApp(<PageHistoryProvider>
+    <SeriesChart title="CPU" start={NOW - H} end={NOW} />
+    <SeriesChart title="Memory" start={NOW - H} end={NOW} />
+  </PageHistoryProvider>, "/?system=example-prod&range=24h");
+  const note = await screen.findByText("History gaps unavailable: these charts do not mark gaps.", { selector: "p.dh-note" });
+  expect(note).toBeVisible();
+  expect(document.querySelectorAll("p.dh-note")).toHaveLength(1);
+  read.mockReset();
+  r.unmount();
+});
+
+it("shows one visible note on a server page whose history read fails", async () => {
+  read.mockRejectedValue(new Error("history unavailable"));
+  const r = renderApp(<PageHistoryProvider><ServerChartHistory server="nats-0">
+    <SeriesChart title="CPU" start={NOW - H} end={NOW} />
+  </ServerChartHistory></PageHistoryProvider>, "/servers/nats-0?system=example-prod&range=1h");
+  await screen.findByText("History gaps unavailable", { selector: "p.dh-note" });
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+  expect([...document.querySelectorAll("p.dh-note")].filter((p) => /unavailable/.test(p.textContent ?? ""))).toHaveLength(1);
+  read.mockReset();
+  r.unmount();
+});
+
+it("drops a stale unavailable as soon as a new read starts", async () => {
+  vi.useFakeTimers();
+  try {
+    read.mockRejectedValueOnce(new Error("history unavailable"));
+    read.mockImplementation(() => new Promise(() => {}));
+    let setStart!: (start: number) => void;
+    function Page() {
+      const [start, set] = useState(NOW - H);
+      setStart = set;
+      return <PageHistoryProvider><SeriesChart title="CPU" start={start} end={NOW} /></PageHistoryProvider>;
+    }
+    const r = renderApp(<Page />, "/?system=example-prod&range=24h");
+    await act(async () => { await vi.advanceTimersByTimeAsync(20); });
+    expect(screen.getByRole("status")).toHaveTextContent("History gaps unavailable");
+    act(() => setStart(NOW - 2 * H));
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    expect(screen.getByRole("status").textContent).toBe("");
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    expect(screen.getByRole("status")).toHaveTextContent("History gaps loading");
+    read.mockReset();
+    r.unmount();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("keeps the failure note while a failed read retries, and drops it when a retry answers", async () => {
+  let client!: QueryClient;
+  function Grab() { client = useQueryClient(); return null; }
+  let answer!: (v: ReturnType<typeof staging>) => void;
+  read.mockRejectedValueOnce(new Error("history unavailable"));
+  read.mockImplementation(() => new Promise((yes) => { answer = yes; }));
+  const r = renderApp(<PageHistoryProvider><Grab /><SeriesChart title="CPU" start={NOW - H} end={NOW} /></PageHistoryProvider>, "/?system=example-prod&range=24h");
+  await screen.findByText("History gaps unavailable: these charts do not mark gaps.");
+  await act(async () => { void client.refetchQueries(); await new Promise((resolve) => setTimeout(resolve, 20)); });
+  expect(screen.getByText("History gaps unavailable: these charts do not mark gaps.")).toBeInTheDocument();
+  expect(screen.getByRole("status")).toHaveTextContent("History gaps unavailable");
+  expect(document.querySelector(".chart-f .dh-chart-status")).toBeNull();
+  await act(async () => { answer({ ...staging(), rangeStart: NOW - H, rangeEnd: NOW, gaps: [] }); await new Promise((resolve) => setTimeout(resolve, 20)); });
+  expect(screen.queryByText("History gaps unavailable: these charts do not mark gaps.")).toBeNull();
+  expect(screen.getByRole("status").textContent).toBe("");
+  read.mockReset();
+  r.unmount();
+});

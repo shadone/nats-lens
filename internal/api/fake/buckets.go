@@ -70,6 +70,7 @@ type bucketView struct {
 	status    v1.Status
 	codes     []string
 	placement []*v1.ReplicaPlacement
+	growth    *float64
 }
 
 func (v bucketView) present() bool { return !v.spec.missing }
@@ -88,7 +89,8 @@ func (p *Provider) bucketViews(r *v1.TimeRange, account, prefix string) []bucket
 		v.status, v.codes = worstStatus(cur, v.ref)
 		if v.present() {
 			v.sp, _ = p.sc.findStream(Account, b.stream)
-			v.placement = s.placement(v.sp)
+			v.placement = s.placementAt(v.sp, s.epochTime(r), false)
+			v.growth = s.growth(v.ref, r)
 		} else if len(v.codes) == 0 {
 			v.status = v1.Status_STATUS_NO_DATA
 		}
@@ -129,7 +131,7 @@ func (p *Provider) ListKeyValueStores(_ context.Context, req *v1.ListKeyValueSto
 			kv.History, kv.Ttl, kv.MaxBytes = ptr(max(b.history, 1)), durationpb.New(b.ttl), ptr(b.maxBytesOr())
 			kv.Replicas, kv.Storage, kv.Compression = ptr(int32(len(p.sc.peers(v.sp)))), b.storageOr(), b.compression
 			kv.Keys, kv.Messages, kv.Bytes = ptr(keys), ptr(v.sp.msgs), ptr(int64(v.sp.bytes))
-			kv.Watchers, kv.BytesPerDay = ptr(int32(v.sp.ephemeral)), ptr(v.sp.perDay)
+			kv.Watchers, kv.BytesPerDay = ptr(int32(v.sp.ephemeral)), v.growth
 			kv.AllowMsgTtl, kv.Description = b.allowMsgTTL, b.description
 		}
 		res.KeyValueStores = append(res.KeyValueStores, kv)
@@ -148,7 +150,7 @@ func (p *Provider) ListObjectStores(_ context.Context, req *v1.ListObjectStoresR
 		}
 		if v.present() {
 			o.Ttl, o.MaxBytes, o.Replicas, o.Storage = durationpb.New(b.ttl), ptr(b.maxBytesOr()), ptr(int32(len(p.sc.peers(v.sp)))), b.storageOr()
-			o.Chunks, o.Bytes, o.BytesPerDay = ptr(v.sp.msgs), ptr(int64(v.sp.bytes)), ptr(v.sp.perDay)
+			o.Chunks, o.Bytes, o.BytesPerDay = ptr(v.sp.msgs), ptr(int64(v.sp.bytes)), v.growth
 			o.Sealed, o.Description = b.sealed, b.description
 		}
 		res.ObjectStores = append(res.ObjectStores, o)

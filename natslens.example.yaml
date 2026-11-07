@@ -5,6 +5,8 @@ data_dir: ./data         # holds natslens.duckdb
 retention: 14d           # epochs older than this are deleted
 server_forget_after: 1h  # how long a silent server is still expected
 connz_limit: 4096        # most connections stored per server per epoch
+subscriptions_interval: 5m  # shortest time between two subscription list collections; 0 turns them off
+subsz_limit: 10000       # most subscriptions stored per server per subscription collection; at most 100000
 shutdown_grace: 5s       # how long an epoch write may continue after a stop signal
 log_level: info          # debug, info, warn, error
 # Id of the one system this file describes, used in URLs, the API and
@@ -58,14 +60,19 @@ events:
     pair_within: 10s     # a connect closed by the client within this is collapsed with its disconnect
     window: 1m           # span of one client.churn event
 
-# JetStream accounts whose advisories are captured, each with its own
-# connection. url defaults to nats.url and tls.ca to nats.tls.ca. A password
-# not set here is read from NATSLENS_ACCOUNT_<NAME>_PASSWORD.
+# Accounts whose JetStream advisories are captured and whose micro services
+# are asked ($SRV.INFO and $SRV.STATS), each with its own connection. url
+# defaults to nats.url and tls.ca to nats.tls.ca. A password not set here is
+# read from NATSLENS_ACCOUNT_<NAME>_PASSWORD. The user publishes to
+# $SYS.REQ.USER.INFO, $SRV.INFO and $SRV.STATS and subscribes to $JS.EVENT.>,
+# $SYS.ACCOUNT.CLIENT.AUTH.ERR and _INBOX.>; micro: false stops asking the
+# account's micro services.
 accounts: []
 #  - name: APP
 #    creds: /etc/natslens/app.creds
 #  - name: OTHER
 #    url: nats://nats.example:4222
+#    micro: false
 #    user: other
 
 # Expected streams, consumers and buckets for the inventory checks; see
@@ -90,6 +97,38 @@ checks:
 #    consumer-006: {max_idle: 10m}
 #    server-007: {warn_ratio: 0.8, crit_ratio: 0.95}
 #    consumer-002: {lookback: 1h}
+
+# Channels findings are sent to, shared by every system.
+# `natslens notify test -config FILE [-channel NAME]` sends each channel one
+# test message and prints the result. A channel takes exactly one of url,
+# url_file and url_env. The URL of a Slack-compatible webhook is itself a
+# secret: keep it in a file or a variable. Files are read at every delivery
+# attempt, so a rotated Kubernetes Secret applies without a restart. A file
+# that cannot be read does not stop the start; the start logs a warning and
+# the channel's deliveries fail while it cannot be read. Logs name a
+# channel's host only. An unknown key, system id, check code, category,
+# severity or kind stops the start.
+# notifications:
+#   ui_url: https://nats-lens.example.com   # for the links in messages; none without it
+#   channels:
+#     - name: ops-webhook        # ^[a-z0-9][a-z0-9-]{0,62}$; a metric label
+#       type: webhook            # webhook (JSON body) or slack (Slack-compatible text)
+#       url_file: /var/run/secrets/natslens/ops-webhook-url
+#       bearer_token_file: /var/run/secrets/natslens/ops-webhook-token  # or bearer_token_env; webhook only
+#       min_severity: warning    # info, warning or critical (default warning)
+#       systems: [example-prod]  # system ids; empty: every system
+#       checks: []               # check codes; empty: every check
+#       exclude_checks: [server-005]
+#       categories: []           # check categories; empty: every category
+#       kinds: [firing, changed, resolved, flapping, muted, reminder, acknowledged]  # empty: every kind
+#       repeat_every: 0          # send a finding still firing again after this long; 0: never, else at least 1h
+#       timeout: 10s             # one request; at most 60s
+#       give_up_after: 24h       # how long a message is retried
+#     - name: ops-chat
+#       type: slack
+#       url_env: NATSLENS_OPS_CHAT_URL
+#       min_severity: critical
+#     # url: https://hooks.example.com/in   # a plain url, for one that holds no secret: https, or http on a loopback host
 
 # Kubernetes watcher in `natslens run`: Events, NATS pods and nodes, read
 # only, stored as events with source k8s. Needs events.enabled.

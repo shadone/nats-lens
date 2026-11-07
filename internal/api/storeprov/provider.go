@@ -47,11 +47,22 @@ type Provider struct {
 	// those a connection name names; their failures are drawn on the
 	// Kubernetes lane. Nil matches none.
 	ClientPods *regexp.Regexp
+	// Kubernetes is whether nats-lens watches Kubernetes for this system
+	// (kubernetes.enabled); without it Replay leaves the node counts
+	// unset.
+	Kubernetes bool
+	// ArchiveStatus reports the archiver's state for Data history; nil
+	// when no archiver runs, as in natslens once and natslens sql.
+	ArchiveStatus func() api.ArchiveState
 
 	podCache podNameCache
+	readDB   queryReader
 }
 
 var _ api.Provider = (*Provider)(nil)
+
+// CollectInterval is the collector's time between epochs.
+func (p *Provider) CollectInterval() time.Duration { return p.Interval }
 
 // Now is the wall clock in UTC.
 func (p *Provider) Now() time.Time {
@@ -61,7 +72,17 @@ func (p *Provider) Now() time.Time {
 	return time.Now().UTC()
 }
 
-func (p *Provider) db() *sql.DB { return p.St.DB() }
+type queryReader interface {
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}
+
+func (p *Provider) db() queryReader {
+	if p.readDB != nil {
+		return p.readDB
+	}
+	return p.St.DB()
+}
 
 func ts(t time.Time) *timestamppb.Timestamp {
 	if t.IsZero() {

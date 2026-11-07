@@ -673,11 +673,279 @@ func (x *ListAccountsResponse) GetAccounts() []*Account {
 	return nil
 }
 
+// Request for what the shell of every page shows.
+type GetShellStatusRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// System ID, as ListSystems returns it. Empty means the default system.
+	// An unknown one is not an error: the response says so in system_known.
+	System string `protobuf:"bytes,1,opt,name=system,proto3" json:"system,omitempty"`
+	// Range whose newest epoch gives the freshness and the servers. Unset
+	// means the last two collect intervals up to now.
+	Range         *TimeRange `protobuf:"bytes,2,opt,name=range,proto3" json:"range,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetShellStatusRequest) Reset() {
+	*x = GetShellStatusRequest{}
+	mi := &file_natslens_v1_systems_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetShellStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetShellStatusRequest) ProtoMessage() {}
+
+func (x *GetShellStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_systems_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetShellStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetShellStatusRequest) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_systems_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *GetShellStatusRequest) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
+}
+
+func (x *GetShellStatusRequest) GetRange() *TimeRange {
+	if x != nil {
+		return x.Range
+	}
+	return nil
+}
+
+// Badge status of one system.
+type SystemStatus struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The system.
+	System *SystemRef `protobuf:"bytes,1,opt,name=system,proto3" json:"system,omitempty"`
+	// Worst status of the findings that fire now; no data when the last 24
+	// hours hold no epoch.
+	Status Status `protobuf:"varint,2,opt,name=status,proto3,enum=natslens.v1.Status" json:"status,omitempty"`
+	// What the system's collector is doing now.
+	Collection CollectionState `protobuf:"varint,3,opt,name=collection,proto3,enum=natslens.v1.CollectionState" json:"collection,omitempty"`
+	// Whether the system's collector collects: false while its connection
+	// fails or the stored data says it stopped.
+	Collecting bool `protobuf:"varint,4,opt,name=collecting,proto3" json:"collecting,omitempty"`
+	// Why the status could not be read, for example a timeout; the other
+	// fields except system are then unset. Empty when it was read.
+	Error string `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
+	// Whether the status is still being read: the system's first summary
+	// took longer than the call waits for it. The other fields except system
+	// are then unset; a later call has it.
+	Pending       bool `protobuf:"varint,6,opt,name=pending,proto3" json:"pending,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SystemStatus) Reset() {
+	*x = SystemStatus{}
+	mi := &file_natslens_v1_systems_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SystemStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SystemStatus) ProtoMessage() {}
+
+func (x *SystemStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_systems_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SystemStatus.ProtoReflect.Descriptor instead.
+func (*SystemStatus) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_systems_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *SystemStatus) GetSystem() *SystemRef {
+	if x != nil {
+		return x.System
+	}
+	return nil
+}
+
+func (x *SystemStatus) GetStatus() Status {
+	if x != nil {
+		return x.Status
+	}
+	return Status_STATUS_UNSPECIFIED
+}
+
+func (x *SystemStatus) GetCollection() CollectionState {
+	if x != nil {
+		return x.Collection
+	}
+	return CollectionState_COLLECTION_STATE_UNSPECIFIED
+}
+
+func (x *SystemStatus) GetCollecting() bool {
+	if x != nil {
+		return x.Collecting
+	}
+	return false
+}
+
+func (x *SystemStatus) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *SystemStatus) GetPending() bool {
+	if x != nil {
+		return x.Pending
+	}
+	return false
+}
+
+// What the shell shows: the system's freshness, servers and finding
+// tally, and every system's badge status.
+type GetShellStatusResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// How current the system's data is, over the request's range.
+	Freshness *Freshness `protobuf:"bytes,1,opt,name=freshness,proto3" json:"freshness,omitempty"`
+	// Servers seen in the range, by name, as GetOverview lists them.
+	Servers []*ServerSummary `protobuf:"bytes,2,rep,name=servers,proto3" json:"servers,omitempty"`
+	// Counts of findings, as GetOverview counts them.
+	Tally *FindingTally `protobuf:"bytes,3,opt,name=tally,proto3" json:"tally,omitempty"`
+	// Every system with its status over the last 24 hours, in
+	// configuration order.
+	Systems []*SystemStatus `protobuf:"bytes,4,rep,name=systems,proto3" json:"systems,omitempty"`
+	// ID of the default system: the one a request with an empty system
+	// reads.
+	DefaultSystem string `protobuf:"bytes,5,opt,name=default_system,json=defaultSystem,proto3" json:"default_system,omitempty"`
+	// Whether the request's system is configured. When false, freshness,
+	// servers and tally are unset.
+	SystemKnown bool `protobuf:"varint,6,opt,name=system_known,json=systemKnown,proto3" json:"system_known,omitempty"`
+	// Connect code of the failure of the system's part, for example
+	// deadline_exceeded; empty when it was read. Freshness, servers and
+	// tally are then unset, while the systems are still listed.
+	ErrorCode string `protobuf:"bytes,7,opt,name=error_code,json=errorCode,proto3" json:"error_code,omitempty"`
+	// Why the system's part could not be read; empty when it was read.
+	Error         string `protobuf:"bytes,8,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetShellStatusResponse) Reset() {
+	*x = GetShellStatusResponse{}
+	mi := &file_natslens_v1_systems_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetShellStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetShellStatusResponse) ProtoMessage() {}
+
+func (x *GetShellStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_natslens_v1_systems_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetShellStatusResponse.ProtoReflect.Descriptor instead.
+func (*GetShellStatusResponse) Descriptor() ([]byte, []int) {
+	return file_natslens_v1_systems_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *GetShellStatusResponse) GetFreshness() *Freshness {
+	if x != nil {
+		return x.Freshness
+	}
+	return nil
+}
+
+func (x *GetShellStatusResponse) GetServers() []*ServerSummary {
+	if x != nil {
+		return x.Servers
+	}
+	return nil
+}
+
+func (x *GetShellStatusResponse) GetTally() *FindingTally {
+	if x != nil {
+		return x.Tally
+	}
+	return nil
+}
+
+func (x *GetShellStatusResponse) GetSystems() []*SystemStatus {
+	if x != nil {
+		return x.Systems
+	}
+	return nil
+}
+
+func (x *GetShellStatusResponse) GetDefaultSystem() string {
+	if x != nil {
+		return x.DefaultSystem
+	}
+	return ""
+}
+
+func (x *GetShellStatusResponse) GetSystemKnown() bool {
+	if x != nil {
+		return x.SystemKnown
+	}
+	return false
+}
+
+func (x *GetShellStatusResponse) GetErrorCode() string {
+	if x != nil {
+		return x.ErrorCode
+	}
+	return ""
+}
+
+func (x *GetShellStatusResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
 var File_natslens_v1_systems_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_systems_proto_rawDesc = "" +
 	"\n" +
-	"\x19natslens/v1/systems.proto\x12\vnatslens.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\x1a\x1anatslens/v1/findings.proto\x1a\x1anatslens/v1/overview.proto\"Q\n" +
+	"\x19natslens/v1/systems.proto\x12\vnatslens.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18natslens/v1/common.proto\x1a\x1anatslens/v1/findings.proto\x1a\x1anatslens/v1/overview.proto\x1a\x19natslens/v1/servers.proto\"Q\n" +
 	"\tSystemRef\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -734,7 +1002,31 @@ const file_natslens_v1_systems_proto_rawDesc = "" +
 	"\x06system\x18\x01 \x01(\tR\x06system\x12,\n" +
 	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\"H\n" +
 	"\x14ListAccountsResponse\x120\n" +
-	"\baccounts\x18\x01 \x03(\v2\x14.natslens.v1.AccountR\baccounts*\xda\x01\n" +
+	"\baccounts\x18\x01 \x03(\v2\x14.natslens.v1.AccountR\baccounts\"]\n" +
+	"\x15GetShellStatusRequest\x12\x16\n" +
+	"\x06system\x18\x01 \x01(\tR\x06system\x12,\n" +
+	"\x05range\x18\x02 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\"\xf9\x01\n" +
+	"\fSystemStatus\x12.\n" +
+	"\x06system\x18\x01 \x01(\v2\x16.natslens.v1.SystemRefR\x06system\x12+\n" +
+	"\x06status\x18\x02 \x01(\x0e2\x13.natslens.v1.StatusR\x06status\x12<\n" +
+	"\n" +
+	"collection\x18\x03 \x01(\x0e2\x1c.natslens.v1.CollectionStateR\n" +
+	"collection\x12\x1e\n" +
+	"\n" +
+	"collecting\x18\x04 \x01(\bR\n" +
+	"collecting\x12\x14\n" +
+	"\x05error\x18\x05 \x01(\tR\x05error\x12\x18\n" +
+	"\apending\x18\x06 \x01(\bR\apending\"\xe9\x02\n" +
+	"\x16GetShellStatusResponse\x124\n" +
+	"\tfreshness\x18\x01 \x01(\v2\x16.natslens.v1.FreshnessR\tfreshness\x124\n" +
+	"\aservers\x18\x02 \x03(\v2\x1a.natslens.v1.ServerSummaryR\aservers\x12/\n" +
+	"\x05tally\x18\x03 \x01(\v2\x19.natslens.v1.FindingTallyR\x05tally\x123\n" +
+	"\asystems\x18\x04 \x03(\v2\x19.natslens.v1.SystemStatusR\asystems\x12%\n" +
+	"\x0edefault_system\x18\x05 \x01(\tR\rdefaultSystem\x12!\n" +
+	"\fsystem_known\x18\x06 \x01(\bR\vsystemKnown\x12\x1d\n" +
+	"\n" +
+	"error_code\x18\a \x01(\tR\terrorCode\x12\x14\n" +
+	"\x05error\x18\b \x01(\tR\x05error*\xda\x01\n" +
 	"\x0fCollectionState\x12 \n" +
 	"\x1cCOLLECTION_STATE_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19COLLECTION_STATE_STARTING\x10\x01\x12\x1f\n" +
@@ -756,45 +1048,57 @@ func file_natslens_v1_systems_proto_rawDescGZIP() []byte {
 }
 
 var file_natslens_v1_systems_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_natslens_v1_systems_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_natslens_v1_systems_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_natslens_v1_systems_proto_goTypes = []any{
-	(CollectionState)(0),          // 0: natslens.v1.CollectionState
-	(*SystemRef)(nil),             // 1: natslens.v1.SystemRef
-	(*ListSystemsRequest)(nil),    // 2: natslens.v1.ListSystemsRequest
-	(*SystemSummary)(nil),         // 3: natslens.v1.SystemSummary
-	(*ListSystemsResponse)(nil),   // 4: natslens.v1.ListSystemsResponse
-	(*Account)(nil),               // 5: natslens.v1.Account
-	(*ListAccountsRequest)(nil),   // 6: natslens.v1.ListAccountsRequest
-	(*ListAccountsResponse)(nil),  // 7: natslens.v1.ListAccountsResponse
-	(*TimeRange)(nil),             // 8: natslens.v1.TimeRange
-	(*timestamppb.Timestamp)(nil), // 9: google.protobuf.Timestamp
-	(*Freshness)(nil),             // 10: natslens.v1.Freshness
-	(Status)(0),                   // 11: natslens.v1.Status
-	(*Finding)(nil),               // 12: natslens.v1.Finding
-	(*FindingTally)(nil),          // 13: natslens.v1.FindingTally
-	(*durationpb.Duration)(nil),   // 14: google.protobuf.Duration
+	(CollectionState)(0),           // 0: natslens.v1.CollectionState
+	(*SystemRef)(nil),              // 1: natslens.v1.SystemRef
+	(*ListSystemsRequest)(nil),     // 2: natslens.v1.ListSystemsRequest
+	(*SystemSummary)(nil),          // 3: natslens.v1.SystemSummary
+	(*ListSystemsResponse)(nil),    // 4: natslens.v1.ListSystemsResponse
+	(*Account)(nil),                // 5: natslens.v1.Account
+	(*ListAccountsRequest)(nil),    // 6: natslens.v1.ListAccountsRequest
+	(*ListAccountsResponse)(nil),   // 7: natslens.v1.ListAccountsResponse
+	(*GetShellStatusRequest)(nil),  // 8: natslens.v1.GetShellStatusRequest
+	(*SystemStatus)(nil),           // 9: natslens.v1.SystemStatus
+	(*GetShellStatusResponse)(nil), // 10: natslens.v1.GetShellStatusResponse
+	(*TimeRange)(nil),              // 11: natslens.v1.TimeRange
+	(*timestamppb.Timestamp)(nil),  // 12: google.protobuf.Timestamp
+	(*Freshness)(nil),              // 13: natslens.v1.Freshness
+	(Status)(0),                    // 14: natslens.v1.Status
+	(*Finding)(nil),                // 15: natslens.v1.Finding
+	(*FindingTally)(nil),           // 16: natslens.v1.FindingTally
+	(*durationpb.Duration)(nil),    // 17: google.protobuf.Duration
+	(*ServerSummary)(nil),          // 18: natslens.v1.ServerSummary
 }
 var file_natslens_v1_systems_proto_depIdxs = []int32{
-	8,  // 0: natslens.v1.ListSystemsRequest.range:type_name -> natslens.v1.TimeRange
+	11, // 0: natslens.v1.ListSystemsRequest.range:type_name -> natslens.v1.TimeRange
 	1,  // 1: natslens.v1.SystemSummary.system:type_name -> natslens.v1.SystemRef
 	0,  // 2: natslens.v1.SystemSummary.collection:type_name -> natslens.v1.CollectionState
-	9,  // 3: natslens.v1.SystemSummary.collection_error_since:type_name -> google.protobuf.Timestamp
-	10, // 4: natslens.v1.SystemSummary.freshness:type_name -> natslens.v1.Freshness
-	11, // 5: natslens.v1.SystemSummary.status:type_name -> natslens.v1.Status
-	12, // 6: natslens.v1.SystemSummary.worst_finding:type_name -> natslens.v1.Finding
-	13, // 7: natslens.v1.SystemSummary.tally:type_name -> natslens.v1.FindingTally
-	11, // 8: natslens.v1.SystemSummary.strip:type_name -> natslens.v1.Status
-	9,  // 9: natslens.v1.SystemSummary.strip_start:type_name -> google.protobuf.Timestamp
-	14, // 10: natslens.v1.SystemSummary.strip_bucket:type_name -> google.protobuf.Duration
+	12, // 3: natslens.v1.SystemSummary.collection_error_since:type_name -> google.protobuf.Timestamp
+	13, // 4: natslens.v1.SystemSummary.freshness:type_name -> natslens.v1.Freshness
+	14, // 5: natslens.v1.SystemSummary.status:type_name -> natslens.v1.Status
+	15, // 6: natslens.v1.SystemSummary.worst_finding:type_name -> natslens.v1.Finding
+	16, // 7: natslens.v1.SystemSummary.tally:type_name -> natslens.v1.FindingTally
+	14, // 8: natslens.v1.SystemSummary.strip:type_name -> natslens.v1.Status
+	12, // 9: natslens.v1.SystemSummary.strip_start:type_name -> google.protobuf.Timestamp
+	17, // 10: natslens.v1.SystemSummary.strip_bucket:type_name -> google.protobuf.Duration
 	3,  // 11: natslens.v1.ListSystemsResponse.systems:type_name -> natslens.v1.SystemSummary
-	8,  // 12: natslens.v1.ListSystemsResponse.range:type_name -> natslens.v1.TimeRange
-	8,  // 13: natslens.v1.ListAccountsRequest.range:type_name -> natslens.v1.TimeRange
+	11, // 12: natslens.v1.ListSystemsResponse.range:type_name -> natslens.v1.TimeRange
+	11, // 13: natslens.v1.ListAccountsRequest.range:type_name -> natslens.v1.TimeRange
 	5,  // 14: natslens.v1.ListAccountsResponse.accounts:type_name -> natslens.v1.Account
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	11, // 15: natslens.v1.GetShellStatusRequest.range:type_name -> natslens.v1.TimeRange
+	1,  // 16: natslens.v1.SystemStatus.system:type_name -> natslens.v1.SystemRef
+	14, // 17: natslens.v1.SystemStatus.status:type_name -> natslens.v1.Status
+	0,  // 18: natslens.v1.SystemStatus.collection:type_name -> natslens.v1.CollectionState
+	13, // 19: natslens.v1.GetShellStatusResponse.freshness:type_name -> natslens.v1.Freshness
+	18, // 20: natslens.v1.GetShellStatusResponse.servers:type_name -> natslens.v1.ServerSummary
+	16, // 21: natslens.v1.GetShellStatusResponse.tally:type_name -> natslens.v1.FindingTally
+	9,  // 22: natslens.v1.GetShellStatusResponse.systems:type_name -> natslens.v1.SystemStatus
+	23, // [23:23] is the sub-list for method output_type
+	23, // [23:23] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_systems_proto_init() }
@@ -805,6 +1109,7 @@ func file_natslens_v1_systems_proto_init() {
 	file_natslens_v1_common_proto_init()
 	file_natslens_v1_findings_proto_init()
 	file_natslens_v1_overview_proto_init()
+	file_natslens_v1_servers_proto_init()
 	file_natslens_v1_systems_proto_msgTypes[2].OneofWrappers = []any{}
 	file_natslens_v1_systems_proto_msgTypes[4].OneofWrappers = []any{}
 	type x struct{}
@@ -813,7 +1118,7 @@ func file_natslens_v1_systems_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_systems_proto_rawDesc), len(file_natslens_v1_systems_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   7,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

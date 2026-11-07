@@ -8,6 +8,7 @@ import { Empty, QueryView, RLink } from "../components/common";
 import { EndpointsAnswered, LimitsCard, RecentEvents, Routes, WhereItRuns } from "../components/ServerDetailParts";
 import { EntityFindings } from "../components/EntityParts";
 import { HealthIcon } from "../components/Severity";
+import { ServerChartHistory } from "../components/HistoryNote";
 import { ServerTiles } from "../components/ServerTiles";
 import { dayMonHm, fmtDuration, isoMinute } from "../lib/format";
 import { usePageTitle } from "../lib/usePageTitle";
@@ -49,11 +50,13 @@ export function ServerDetail() {
                 <h1 className="mono">{name}</h1>
                 <span className="aside">{statusLine(s)}</span>
               </div>
-              <ServerTiles info={d} spec={spec} start={start} end={end} />
+              <ServerChartHistory server={name}><ServerTiles info={d} spec={spec} start={start} end={end} /></ServerChartHistory>
               <div className="sd-cards">
                 <WhereItRuns info={d} />
                 <Routes info={d} />
                 <LimitsCard info={d} />
+              </div>
+              <div className="sd-events-row">
                 <RecentEvents name={name} spec={spec} end={end} />
               </div>
               <EndpointsAnswered info={d} />

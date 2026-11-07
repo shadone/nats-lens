@@ -1,5 +1,5 @@
 /* Placement squares: one per replica, and the legend that draws them. */
-.pl{display:inline-flex;gap:3px;vertical-align:-2px}
+.pl{display:inline-flex;gap:var(--sp-1);vertical-align:-2px}
 .pl-sq{width:12px;height:12px;flex:none;display:block}
 .pl-leader{fill:var(--accent)}
 .pl-sync{fill:var(--ok-cell);stroke:var(--accent);stroke-width:1.5}
@@ -11,6 +11,6 @@
 .pl-offline-m{stroke:var(--on-critical);stroke-width:1.5;stroke-linecap:round}
 .pl-missing{fill:none;stroke:var(--text-muted);stroke-width:1.5;stroke-dasharray:2.5 2}
 .pl-unknown{fill:none;stroke:var(--text-faint);stroke-width:1.5}
-.pl-legend{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-size:12px;color:var(--text-2)}
-.pl-legend li{display:inline-flex;align-items:center;gap:6px}
+.pl-legend{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:var(--sp-2) var(--sp-4);align-items:center;font-size:var(--fs-sm);color:var(--text-2)}
+.pl-legend li{display:inline-flex;align-items:center;gap:var(--sp-1)}
 .pl-legend .pl-note{color:var(--text-muted)}

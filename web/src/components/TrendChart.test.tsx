@@ -118,8 +118,8 @@ describe("TrendChart floor", () => {
 
   it("spans the data with a margin when the floor is the data", () => {
     const y = ys(memory("data").container);
-    // H is 70: the lowest point sits above the axis and the highest below the top, with the range between them.
-    expect(Math.max(...y)).toBeLessThan(68 - 2);
+    // H is 72: the lowest point sits above the axis and the highest below the top, with the range between them.
+    expect(Math.max(...y)).toBeLessThan(70 - 2);
     expect(Math.min(...y)).toBeGreaterThan(6 + 2);
     expect(Math.max(...y) - Math.min(...y)).toBeGreaterThan(40);
   });

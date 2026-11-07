@@ -4,12 +4,14 @@ name: Slow consumers
 entity: server
 category: clients
 severity: warning
-severity_rule: critical when a route, gateway or leaf node was a slow consumer, as that drops traffic between servers
+severity_rule: critical when the route, gateway or leaf slow consumer counters grew, indicating pressure on traffic between servers
 kind: operational
 lookback: 15m
 description: >-
   The server's slow consumer counter rose within the lookback: it closed or flagged connections that could not
-  read their messages fast enough. Counted per server process, so a restart starts the count again.
+  read their messages fast enough. The aggregate includes clients, routes, gateways and leaf connections.
+  Retries may increment the counter without a disconnect. It does not measure JetStream consumer backlog.
+  Counted per server process, so a restart starts the count again.
 remediation: >-
   client-003 names the clients that were disconnected as slow consumers, with the reason. A client is a slow
   consumer when it does not read its socket fast enough: a pod short of CPU, a subscriber doing blocking work in its

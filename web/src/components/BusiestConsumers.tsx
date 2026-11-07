@@ -2,7 +2,7 @@
 // their backlog, unacknowledged messages and the delivery rate over the
 // range, each read from the consumer's leader.
 import type { ConsumerRate } from "../api/overview";
-import { useTrend } from "../api/overview";
+import { pickTrend, useTrends, type TrendSlice } from "../api/trendBatch";
 import { MiniLine } from "../charts/MiniLine";
 import { rangeText } from "../charts/chartLabel";
 import type { RangeSpec } from "../lib/timeRange";
@@ -15,12 +15,15 @@ const rate = (v: number) => fmtValue(v, "per_second");
 // Two decimals below 10, where most consumers deliver: 0.12, not 0.1.
 const perSec = (v: number) => (Math.abs(v) >= 10 ? fmtCount(v) : v.toFixed(2));
 
-function Spark({ c, spec, start, end }: { c: ConsumerRate; spec: RangeSpec; start: number; end: number }) {
-  const q = useTrend(spec, "consumer.delivered_rate", c.entity);
-  return <MiniLine points={q.data?.points ?? []} level="ok" label={`${c.entity.consumer} delivered per second`} period={rangeText(start, end)} fmt={rate} />;
+function Spark({ c, q, start, end }: { c: ConsumerRate; q: TrendSlice; start: number; end: number }) {
+  return <MiniLine frame={{start,end,stepMs:q.data?.stepMs}} points={q.data?.points ?? []} level="ok" label={`${c.entity.consumer} delivered per second`} period={rangeText(start, end)} fmt={rate} />;
 }
 
+const SPARK_METRIC = "consumer.delivered_rate";
+
 export function BusiestConsumers({ consumers, spec, start, end }: { consumers: ConsumerRate[]; spec: RangeSpec; start: number; end: number }) {
+  const queries = consumers.map((c) => ({ metric: SPARK_METRIC, entity: c.entity }));
+  const b = useTrends(spec, queries);
   return (
     <div className="table-wrap">
       <table className="tbl bc">
@@ -61,7 +64,7 @@ export function BusiestConsumers({ consumers, spec, start, end }: { consumers: C
                 <Num v={c.numAckPending} />
               </td>
               <td>
-                <Spark c={c} spec={spec} start={start} end={end} />
+                <Spark c={c} q={pickTrend(b, queries, { metric: SPARK_METRIC, entity: c.entity })} start={start} end={end} />
               </td>
             </tr>
           ))}

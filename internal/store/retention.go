@@ -9,13 +9,23 @@ import (
 // epochTables hold one row per epoch per entity and are swept by epoch.
 var epochTables = []string{
 	"epoch_endpoints", "server_stats", "routes", "gateways", "leafnodes", "ipqueues", "health",
-	"connections", "account_stats", "stream_stats", "stream_replicas",
-	"consumer_stats", "consumer_replicas", "raft_stats",
+	"connections", "account_stats", "account_details", "stream_stats", "stream_source_stats", "stream_replicas",
+	"consumer_stats", "consumer_replicas", "raft_stats", "subscriptions", "subscription_lists",
 }
+
+// accountEpochTables hold one row per epoch per account entity, asked
+// over the account connections: they are swept and archived by epoch like
+// epochTables, but describe no server.
+var accountEpochTables = []string{"micro_requests", "micro_instances", "micro_stats", "micro_endpoints"}
 
 // checkTables hold the checks' rows of an epoch: they are swept and
 // archived by epoch like epochTables, but describe no server.
 var checkTables = []string{"check_runs", "finding_transitions"}
+
+// hourTables hold sums per hour, filled as each epoch is written; they are
+// swept with the hours wholly before the retention window and archived by
+// hour.
+var hourTables = []string{"micro_endpoint_hours", "client_app_hours"}
 
 // rangeTables hold rows that cover a range of epochs and are swept by last_epoch.
 var rangeTables = []string{
@@ -36,8 +46,9 @@ type SweepResult struct {
 // Sweep deletes epochs that started before now minus retention, with every
 // row that belongs only to them (check runs and finding transitions
 // included, except the current episode of every finding kept), resolved
-// findings last changed before them, and events received before then, in
-// one transaction.
+// findings last changed before them, acknowledgements that ended, or whose
+// episode ended, before then, and events received before then, in one
+// transaction.
 func (s *Store) Sweep(ctx context.Context, now time.Time, retention time.Duration) (SweepResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -62,8 +73,16 @@ SELECT coalesce(
 		return SweepResult{}, fmt.Errorf("sweep epochs: %w", err)
 	}
 	n, _ := res.RowsAffected()
-	for _, t := range append(append([]string{}, epochTables...), "check_runs") {
+	for _, t := range append(append(append([]string{}, epochTables...), accountEpochTables...), "check_runs") {
 		if _, err := tx.ExecContext(ctx, "DELETE FROM "+t+" WHERE epoch < ?", cutoff); err != nil {
+			return SweepResult{}, fmt.Errorf("sweep %s: %w", t, err)
+		}
+	}
+	// The hourly sums go with the hours wholly before the window; the
+	// hour the window starts in keeps its sum.
+	for _, t := range hourTables {
+		if _, err := tx.ExecContext(ctx, "DELETE FROM "+t+" WHERE hour < date_trunc('hour', make_timestamp(?::BIGINT))",
+			now.Add(-retention).UTC().UnixMicro()); err != nil {
 			return SweepResult{}, fmt.Errorf("sweep %s: %w", t, err)
 		}
 	}
@@ -76,6 +95,11 @@ SELECT coalesce(
 	// oldest kept epoch; a firing one stays however old it is.
 	if _, err := tx.ExecContext(ctx, `DELETE FROM findings WHERE state = 'resolved' AND updated_epoch < ?`, cutoff); err != nil {
 		return SweepResult{}, fmt.Errorf("sweep findings: %w", err)
+	}
+	// An acknowledgement goes once it, or its episode, ended before the
+	// window.
+	if err := sweepAcks(ctx, tx, now.Add(-retention)); err != nil {
+		return SweepResult{}, err
 	}
 	// Transitions go with their epoch, except the current episode of every
 	// finding still kept: from its latest firing transition on, so that a

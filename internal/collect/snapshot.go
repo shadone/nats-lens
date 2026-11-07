@@ -23,6 +23,10 @@ const (
 type EndpointStatus struct {
 	State State
 	Error string
+	// Unknown are the values of a reply that decoded only with them left
+	// out: values of enum fields that this nats-server version does not
+	// know, as a newer server can send.
+	Unknown []UnknownValue
 }
 
 // ServerView is everything one server reported in one epoch. Fields are nil
@@ -41,7 +45,14 @@ type ServerView struct {
 	Healthz      *server.HealthStatus
 	Raftz        RaftzStatus
 	Ipqueuesz    server.IpqueueszStatus
-	Status       map[Endpoint]EndpointStatus
+	// Subsz is the server's subscription list, set only in an epoch in
+	// which a subscription collection was due and the server answered.
+	Subsz *server.Subsz
+	// UserJWTs holds, by connection ID, what was read from the user JWT
+	// of each CONNZ connection that reported one. The JWT itself is
+	// removed from Connz when the reply is applied.
+	UserJWTs map[uint64]UserJWT
+	Status   map[Endpoint]EndpointStatus
 }
 
 // Snapshot is one epoch: every server's own view, never merged.
@@ -57,6 +68,12 @@ type Snapshot struct {
 	// AccountNames maps account IDs to the readable names the collector
 	// looked up with ACCOUNTZ, for accounts no other reply names.
 	AccountNames map[string]string
+	// AccountDetails are the ACCOUNTZ lookups answered in this epoch,
+	// sorted by account; an account not looked up this epoch has none.
+	AccountDetails []AccountDetails
+	// Micro holds what each account connection's micro services answered,
+	// sorted by label; nil without account connections.
+	Micro []MicroAccount
 }
 
 // NewSnapshot returns an empty snapshot started at start.

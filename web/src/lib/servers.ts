@@ -1,6 +1,7 @@
 // Servers page rules: which servers need attention and why, problems-first
 // order, cluster groups, and the summaries the headline draws.
 import type { ServerRow } from "../api/servers";
+import { storageLimit } from "./serverStorage";
 
 /** A store at this share of its limit or more needs attention. */
 export const STORE_ATTENTION_PCT = 60;
@@ -17,8 +18,9 @@ export function median(values: number[]): number | undefined {
 
 /** JetStream store in use as a percentage of its limit; unset without both. */
 export function storePct(s: ServerRow): number | undefined {
-  if (s.jsStorageBytes === undefined || !s.jsMaxStorageBytes) return undefined;
-  return (s.jsStorageBytes / s.jsMaxStorageBytes) * 100;
+  const limit = storageLimit(s);
+  if (s.jsStorageBytes === undefined || limit === undefined) return undefined;
+  return (s.jsStorageBytes / limit) * 100;
 }
 
 /** Stream and consumer leaders on the server; unset when neither was reported. */

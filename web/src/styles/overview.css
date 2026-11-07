@@ -1,20 +1,20 @@
 @import "./cockpit.css";
 /* Finding rows, buttons and state tags, from the reference. */
-.code{font:500 12px var(--mono);color:var(--text-2)}
-.btn{font:500 12px var(--sans);padding:7px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
+.code{font:500 var(--fs-sm) var(--mono);color:var(--text-2)}
+.btn{font:500 var(--fs-sm)/14px var(--sans);padding:var(--sp-2) var(--sp-3);border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface);color:var(--text)}
 .btn.p{background:var(--strong-bg);color:var(--on-strong);border-color:var(--strong-bg)}
-.others{margin-top:10px;overflow:hidden}
-.frow{display:grid;grid-template-columns:96px 112px minmax(220px,300px) minmax(0,1fr) 120px;gap:14px;align-items:baseline;padding:11px 18px;border-top:1px solid var(--border-soft)}
+.others{margin-top:var(--sp-3);overflow:hidden}
+.frow{display:grid;grid-template-columns:96px 112px minmax(220px,300px) minmax(0,1fr) 120px;gap:var(--sp-4);align-items:baseline;padding:var(--sp-3) var(--sp-4);border-top:1px solid var(--border-soft)}
 .frow:first-child{border-top:0}
-.frow .t{font-weight:600}
-.frow .e{font:12.5px var(--mono)}
-.frow .e small{font-family:var(--sans);color:var(--text-muted);font-size:12px}
-.frow .d{color:var(--text-2);font-size:12.5px}
-.frow .s{font:12px var(--mono);color:var(--text-muted);text-align:right}
+.frow .t{font-weight:500}
+.frow .e{font:var(--fs-md) var(--mono)}
+.frow .e small{font-family:var(--sans);color:var(--text-muted);font-size:var(--fs-sm)}
+.frow .d{color:var(--text-2);font-size:var(--fs-md)}
+.frow .s{font:var(--fs-sm) var(--mono);color:var(--text-muted);text-align:right}
 .frow.mute{background:repeating-linear-gradient(135deg,transparent 0 7px,var(--stripe) 7px 8px)}
 .frow.mute .t,.frow.mute .e{color:var(--text-2)}
-.mute-why{grid-column:3 / 5;font-size:12px;color:var(--text-2);margin-top:-4px}
-.mute-why b{font-weight:600;color:var(--text)}
-.state{font:600 10px/1 var(--mono);letter-spacing:.06em;padding:3px 5px;border-radius:3px;border:1px solid currentColor;margin-left:6px;vertical-align:1px}
-.state.NEW{color:var(--sev-critical)} .state.FLAPPING{color:var(--sev-warning)} .state.RESOLVED{color:var(--accent-text)} .state.OPEN{color:var(--text-muted)}
+.mute-why{grid-column:3 / 5;font-size:var(--fs-sm);color:var(--text-2);margin-top:-4px}
+.mute-why b{font-weight:500;color:var(--text)}
+.state{font:500 var(--fs-xs)/12px var(--sans);padding:2px 6px;border-radius:var(--r-sm);border:1px solid currentColor;margin-left:var(--sp-2);vertical-align:1px}
+.state.NEW{color:var(--sev-critical)} .state.FLAPPING{color:var(--sev-warning)} .state.RESOLVED{color:var(--accent-text)} .state.OPEN{color:var(--text-muted)} .state.ACCEPTED{color:var(--sev-muted)}
 

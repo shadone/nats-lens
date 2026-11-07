@@ -4,34 +4,58 @@
 
 import type { GenFile, GenService } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
+import type { GetAccountsAndAuthRequestSchema, GetAccountsAndAuthResponseSchema } from "./accounts_pb";
+import { file_natslens_v1_accounts } from "./accounts_pb";
+import type { AcknowledgeFindingRequestSchema, AcknowledgeFindingResponseSchema, EndAcknowledgementRequestSchema, EndAcknowledgementResponseSchema } from "./acknowledgements_pb";
+import { file_natslens_v1_acknowledgements } from "./acknowledgements_pb";
+import type { GetApplicationsRequestSchema, GetApplicationsResponseSchema } from "./applications_pb";
+import { file_natslens_v1_applications } from "./applications_pb";
 import type { ListKeyValueStoresRequestSchema, ListKeyValueStoresResponseSchema, ListObjectStoresRequestSchema, ListObjectStoresResponseSchema } from "./buckets_pb";
 import { file_natslens_v1_buckets } from "./buckets_pb";
+import type { GetCapacityRequestSchema, GetCapacityResponseSchema } from "./capacity_pb";
+import { file_natslens_v1_capacity } from "./capacity_pb";
+import type { ListCheckDefinitionsRequestSchema, ListCheckDefinitionsResponseSchema } from "./checks_pb";
+import { file_natslens_v1_checks } from "./checks_pb";
 import type { GetConsumerRequestSchema, GetConsumerResponseSchema, ListConsumersRequestSchema, ListConsumersResponseSchema } from "./consumers_pb";
 import { file_natslens_v1_consumers } from "./consumers_pb";
 import type { GetEventRequestSchema, GetEventResponseSchema, ListEventsRequestSchema, ListEventsResponseSchema } from "./events_pb";
 import { file_natslens_v1_events } from "./events_pb";
 import type { GetFindingRequestSchema, GetFindingResponseSchema, ListFindingsRequestSchema, ListFindingsResponseSchema, ListMutesRequestSchema, ListMutesResponseSchema, MuteFindingRequestSchema, MuteFindingResponseSchema, UnmuteFindingRequestSchema, UnmuteFindingResponseSchema } from "./findings_pb";
 import { file_natslens_v1_findings } from "./findings_pb";
+import type { GetDataHistoryRequestSchema, GetDataHistoryResponseSchema } from "./history_pb";
+import { file_natslens_v1_history } from "./history_pb";
 import type { GetLensInfoRequestSchema, GetLensInfoResponseSchema } from "./info_pb";
 import { file_natslens_v1_info } from "./info_pb";
+import type { GetMicroServicesRequestSchema, GetMicroServicesResponseSchema } from "./micro_pb";
+import { file_natslens_v1_micro } from "./micro_pb";
+import type { GetOnCallRequestSchema, GetOnCallResponseSchema } from "./oncall_pb";
+import { file_natslens_v1_oncall } from "./oncall_pb";
 import type { GetOverviewRequestSchema, GetOverviewResponseSchema } from "./overview_pb";
 import { file_natslens_v1_overview } from "./overview_pb";
+import type { GetPlacementRequestSchema, GetPlacementResponseSchema } from "./placement_pb";
+import { file_natslens_v1_placement } from "./placement_pb";
+import type { GetReplayRequestSchema, GetReplayResponseSchema } from "./replay_pb";
+import { file_natslens_v1_replay } from "./replay_pb";
 import type { GetServerRequestSchema, GetServerResponseSchema, ListConnectionsRequestSchema, ListConnectionsResponseSchema, ListServersRequestSchema, ListServersResponseSchema } from "./servers_pb";
 import { file_natslens_v1_servers } from "./servers_pb";
 import type { GetStreamRequestSchema, GetStreamResponseSchema, ListStreamsRequestSchema, ListStreamsResponseSchema } from "./streams_pb";
 import { file_natslens_v1_streams } from "./streams_pb";
-import type { ListAccountsRequestSchema, ListAccountsResponseSchema, ListSystemsRequestSchema, ListSystemsResponseSchema } from "./systems_pb";
+import type { GetSubjectsRequestSchema, GetSubjectsResponseSchema, MatchSubjectRequestSchema, MatchSubjectResponseSchema } from "./subjects_pb";
+import { file_natslens_v1_subjects } from "./subjects_pb";
+import type { GetShellStatusRequestSchema, GetShellStatusResponseSchema, ListAccountsRequestSchema, ListAccountsResponseSchema, ListSystemsRequestSchema, ListSystemsResponseSchema } from "./systems_pb";
 import { file_natslens_v1_systems } from "./systems_pb";
 import type { GetStatusTimelineRequestSchema, GetStatusTimelineResponseSchema } from "./timeline_pb";
 import { file_natslens_v1_timeline } from "./timeline_pb";
-import type { GetTimeSeriesRequestSchema, GetTimeSeriesResponseSchema, ListMetricsRequestSchema, ListMetricsResponseSchema } from "./timeseries_pb";
+import type { GetTimeSeriesBatchRequestSchema, GetTimeSeriesBatchResponseSchema, GetTimeSeriesRequestSchema, GetTimeSeriesResponseSchema, ListMetricsRequestSchema, ListMetricsResponseSchema } from "./timeseries_pb";
 import { file_natslens_v1_timeseries } from "./timeseries_pb";
+import type { GetTopologyRequestSchema, GetTopologyResponseSchema } from "./topology_pb";
+import { file_natslens_v1_topology } from "./topology_pb";
 
 /**
  * Describes the file natslens/v1/service.proto.
  */
 export const file_natslens_v1_service: GenFile = /*@__PURE__*/
-  fileDesc("ChluYXRzbGVucy92MS9zZXJ2aWNlLnByb3RvEgtuYXRzbGVucy52MTKNEAoLTGVuc1NlcnZpY2USVQoLR2V0TGVuc0luZm8SHy5uYXRzbGVucy52MS5HZXRMZW5zSW5mb1JlcXVlc3QaIC5uYXRzbGVucy52MS5HZXRMZW5zSW5mb1Jlc3BvbnNlIgOQAgESVQoLR2V0T3ZlcnZpZXcSHy5uYXRzbGVucy52MS5HZXRPdmVydmlld1JlcXVlc3QaIC5uYXRzbGVucy52MS5HZXRPdmVydmlld1Jlc3BvbnNlIgOQAgESWAoMTGlzdEZpbmRpbmdzEiAubmF0c2xlbnMudjEuTGlzdEZpbmRpbmdzUmVxdWVzdBohLm5hdHNsZW5zLnYxLkxpc3RGaW5kaW5nc1Jlc3BvbnNlIgOQAgESUgoKR2V0RmluZGluZxIeLm5hdHNsZW5zLnYxLkdldEZpbmRpbmdSZXF1ZXN0Gh8ubmF0c2xlbnMudjEuR2V0RmluZGluZ1Jlc3BvbnNlIgOQAgESUAoLTXV0ZUZpbmRpbmcSHy5uYXRzbGVucy52MS5NdXRlRmluZGluZ1JlcXVlc3QaIC5uYXRzbGVucy52MS5NdXRlRmluZGluZ1Jlc3BvbnNlElYKDVVubXV0ZUZpbmRpbmcSIS5uYXRzbGVucy52MS5Vbm11dGVGaW5kaW5nUmVxdWVzdBoiLm5hdHNsZW5zLnYxLlVubXV0ZUZpbmRpbmdSZXNwb25zZRJPCglMaXN0TXV0ZXMSHS5uYXRzbGVucy52MS5MaXN0TXV0ZXNSZXF1ZXN0Gh4ubmF0c2xlbnMudjEuTGlzdE11dGVzUmVzcG9uc2UiA5ACARJnChFHZXRTdGF0dXNUaW1lbGluZRIlLm5hdHNsZW5zLnYxLkdldFN0YXR1c1RpbWVsaW5lUmVxdWVzdBomLm5hdHNsZW5zLnYxLkdldFN0YXR1c1RpbWVsaW5lUmVzcG9uc2UiA5ACARJSCgpMaXN0RXZlbnRzEh4ubmF0c2xlbnMudjEuTGlzdEV2ZW50c1JlcXVlc3QaHy5uYXRzbGVucy52MS5MaXN0RXZlbnRzUmVzcG9uc2UiA5ACARJMCghHZXRFdmVudBIcLm5hdHNsZW5zLnYxLkdldEV2ZW50UmVxdWVzdBodLm5hdHNsZW5zLnYxLkdldEV2ZW50UmVzcG9uc2UiA5ACARJVCgtMaXN0U3RyZWFtcxIfLm5hdHNsZW5zLnYxLkxpc3RTdHJlYW1zUmVxdWVzdBogLm5hdHNsZW5zLnYxLkxpc3RTdHJlYW1zUmVzcG9uc2UiA5ACARJPCglHZXRTdHJlYW0SHS5uYXRzbGVucy52MS5HZXRTdHJlYW1SZXF1ZXN0Gh4ubmF0c2xlbnMudjEuR2V0U3RyZWFtUmVzcG9uc2UiA5ACARJbCg1MaXN0Q29uc3VtZXJzEiEubmF0c2xlbnMudjEuTGlzdENvbnN1bWVyc1JlcXVlc3QaIi5uYXRzbGVucy52MS5MaXN0Q29uc3VtZXJzUmVzcG9uc2UiA5ACARJVCgtHZXRDb25zdW1lchIfLm5hdHNsZW5zLnYxLkdldENvbnN1bWVyUmVxdWVzdBogLm5hdHNsZW5zLnYxLkdldENvbnN1bWVyUmVzcG9uc2UiA5ACARJVCgtMaXN0U2VydmVycxIfLm5hdHNsZW5zLnYxLkxpc3RTZXJ2ZXJzUmVxdWVzdBogLm5hdHNsZW5zLnYxLkxpc3RTZXJ2ZXJzUmVzcG9uc2UiA5ACARJPCglHZXRTZXJ2ZXISHS5uYXRzbGVucy52MS5HZXRTZXJ2ZXJSZXF1ZXN0Gh4ubmF0c2xlbnMudjEuR2V0U2VydmVyUmVzcG9uc2UiA5ACARJhCg9MaXN0Q29ubmVjdGlvbnMSIy5uYXRzbGVucy52MS5MaXN0Q29ubmVjdGlvbnNSZXF1ZXN0GiQubmF0c2xlbnMudjEuTGlzdENvbm5lY3Rpb25zUmVzcG9uc2UiA5ACARJVCgtMaXN0U3lzdGVtcxIfLm5hdHNsZW5zLnYxLkxpc3RTeXN0ZW1zUmVxdWVzdBogLm5hdHNsZW5zLnYxLkxpc3RTeXN0ZW1zUmVzcG9uc2UiA5ACARJYCgxMaXN0QWNjb3VudHMSIC5uYXRzbGVucy52MS5MaXN0QWNjb3VudHNSZXF1ZXN0GiEubmF0c2xlbnMudjEuTGlzdEFjY291bnRzUmVzcG9uc2UiA5ACARJqChJMaXN0S2V5VmFsdWVTdG9yZXMSJi5uYXRzbGVucy52MS5MaXN0S2V5VmFsdWVTdG9yZXNSZXF1ZXN0GicubmF0c2xlbnMudjEuTGlzdEtleVZhbHVlU3RvcmVzUmVzcG9uc2UiA5ACARJkChBMaXN0T2JqZWN0U3RvcmVzEiQubmF0c2xlbnMudjEuTGlzdE9iamVjdFN0b3Jlc1JlcXVlc3QaJS5uYXRzbGVucy52MS5MaXN0T2JqZWN0U3RvcmVzUmVzcG9uc2UiA5ACARJVCgtMaXN0TWV0cmljcxIfLm5hdHNsZW5zLnYxLkxpc3RNZXRyaWNzUmVxdWVzdBogLm5hdHNsZW5zLnYxLkxpc3RNZXRyaWNzUmVzcG9uc2UiA5ACARJbCg1HZXRUaW1lU2VyaWVzEiEubmF0c2xlbnMudjEuR2V0VGltZVNlcmllc1JlcXVlc3QaIi5uYXRzbGVucy52MS5HZXRUaW1lU2VyaWVzUmVzcG9uc2UiA5ACAUJCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_natslens_v1_buckets, file_natslens_v1_consumers, file_natslens_v1_events, file_natslens_v1_findings, file_natslens_v1_info, file_natslens_v1_overview, file_natslens_v1_servers, file_natslens_v1_streams, file_natslens_v1_systems, file_natslens_v1_timeline, file_natslens_v1_timeseries]);
+  fileDesc("ChluYXRzbGVucy92MS9zZXJ2aWNlLnByb3RvEgtuYXRzbGVucy52MTKJHAoLTGVuc1NlcnZpY2UScAoUTGlzdENoZWNrRGVmaW5pdGlvbnMSKC5uYXRzbGVucy52MS5MaXN0Q2hlY2tEZWZpbml0aW9uc1JlcXVlc3QaKS5uYXRzbGVucy52MS5MaXN0Q2hlY2tEZWZpbml0aW9uc1Jlc3BvbnNlIgOQAgESVQoLR2V0TGVuc0luZm8SHy5uYXRzbGVucy52MS5HZXRMZW5zSW5mb1JlcXVlc3QaIC5uYXRzbGVucy52MS5HZXRMZW5zSW5mb1Jlc3BvbnNlIgOQAgESVQoLR2V0T3ZlcnZpZXcSHy5uYXRzbGVucy52MS5HZXRPdmVydmlld1JlcXVlc3QaIC5uYXRzbGVucy52MS5HZXRPdmVydmlld1Jlc3BvbnNlIgOQAgESWAoMTGlzdEZpbmRpbmdzEiAubmF0c2xlbnMudjEuTGlzdEZpbmRpbmdzUmVxdWVzdBohLm5hdHNsZW5zLnYxLkxpc3RGaW5kaW5nc1Jlc3BvbnNlIgOQAgESUgoKR2V0RmluZGluZxIeLm5hdHNsZW5zLnYxLkdldEZpbmRpbmdSZXF1ZXN0Gh8ubmF0c2xlbnMudjEuR2V0RmluZGluZ1Jlc3BvbnNlIgOQAgESTwoJR2V0T25DYWxsEh0ubmF0c2xlbnMudjEuR2V0T25DYWxsUmVxdWVzdBoeLm5hdHNsZW5zLnYxLkdldE9uQ2FsbFJlc3BvbnNlIgOQAgESUAoLTXV0ZUZpbmRpbmcSHy5uYXRzbGVucy52MS5NdXRlRmluZGluZ1JlcXVlc3QaIC5uYXRzbGVucy52MS5NdXRlRmluZGluZ1Jlc3BvbnNlElYKDVVubXV0ZUZpbmRpbmcSIS5uYXRzbGVucy52MS5Vbm11dGVGaW5kaW5nUmVxdWVzdBoiLm5hdHNsZW5zLnYxLlVubXV0ZUZpbmRpbmdSZXNwb25zZRJlChJBY2tub3dsZWRnZUZpbmRpbmcSJi5uYXRzbGVucy52MS5BY2tub3dsZWRnZUZpbmRpbmdSZXF1ZXN0GicubmF0c2xlbnMudjEuQWNrbm93bGVkZ2VGaW5kaW5nUmVzcG9uc2USZQoSRW5kQWNrbm93bGVkZ2VtZW50EiYubmF0c2xlbnMudjEuRW5kQWNrbm93bGVkZ2VtZW50UmVxdWVzdBonLm5hdHNsZW5zLnYxLkVuZEFja25vd2xlZGdlbWVudFJlc3BvbnNlEk8KCUxpc3RNdXRlcxIdLm5hdHNsZW5zLnYxLkxpc3RNdXRlc1JlcXVlc3QaHi5uYXRzbGVucy52MS5MaXN0TXV0ZXNSZXNwb25zZSIDkAIBEmcKEUdldFN0YXR1c1RpbWVsaW5lEiUubmF0c2xlbnMudjEuR2V0U3RhdHVzVGltZWxpbmVSZXF1ZXN0GiYubmF0c2xlbnMudjEuR2V0U3RhdHVzVGltZWxpbmVSZXNwb25zZSIDkAIBElIKCkxpc3RFdmVudHMSHi5uYXRzbGVucy52MS5MaXN0RXZlbnRzUmVxdWVzdBofLm5hdHNsZW5zLnYxLkxpc3RFdmVudHNSZXNwb25zZSIDkAIBEkwKCEdldEV2ZW50EhwubmF0c2xlbnMudjEuR2V0RXZlbnRSZXF1ZXN0Gh0ubmF0c2xlbnMudjEuR2V0RXZlbnRSZXNwb25zZSIDkAIBElUKC0xpc3RTdHJlYW1zEh8ubmF0c2xlbnMudjEuTGlzdFN0cmVhbXNSZXF1ZXN0GiAubmF0c2xlbnMudjEuTGlzdFN0cmVhbXNSZXNwb25zZSIDkAIBEk8KCUdldFN0cmVhbRIdLm5hdHNsZW5zLnYxLkdldFN0cmVhbVJlcXVlc3QaHi5uYXRzbGVucy52MS5HZXRTdHJlYW1SZXNwb25zZSIDkAIBElsKDUxpc3RDb25zdW1lcnMSIS5uYXRzbGVucy52MS5MaXN0Q29uc3VtZXJzUmVxdWVzdBoiLm5hdHNsZW5zLnYxLkxpc3RDb25zdW1lcnNSZXNwb25zZSIDkAIBElUKC0dldENvbnN1bWVyEh8ubmF0c2xlbnMudjEuR2V0Q29uc3VtZXJSZXF1ZXN0GiAubmF0c2xlbnMudjEuR2V0Q29uc3VtZXJSZXNwb25zZSIDkAIBElgKDEdldFBsYWNlbWVudBIgLm5hdHNsZW5zLnYxLkdldFBsYWNlbWVudFJlcXVlc3QaIS5uYXRzbGVucy52MS5HZXRQbGFjZW1lbnRSZXNwb25zZSIDkAIBEk8KCUdldFJlcGxheRIdLm5hdHNsZW5zLnYxLkdldFJlcGxheVJlcXVlc3QaHi5uYXRzbGVucy52MS5HZXRSZXBsYXlSZXNwb25zZSIDkAIBElUKC0dldFRvcG9sb2d5Eh8ubmF0c2xlbnMudjEuR2V0VG9wb2xvZ3lSZXF1ZXN0GiAubmF0c2xlbnMudjEuR2V0VG9wb2xvZ3lSZXNwb25zZSIDkAIBEmoKEkdldEFjY291bnRzQW5kQXV0aBImLm5hdHNsZW5zLnYxLkdldEFjY291bnRzQW5kQXV0aFJlcXVlc3QaJy5uYXRzbGVucy52MS5HZXRBY2NvdW50c0FuZEF1dGhSZXNwb25zZSIDkAIBElUKC0dldENhcGFjaXR5Eh8ubmF0c2xlbnMudjEuR2V0Q2FwYWNpdHlSZXF1ZXN0GiAubmF0c2xlbnMudjEuR2V0Q2FwYWNpdHlSZXNwb25zZSIDkAIBEl4KDkdldERhdGFIaXN0b3J5EiIubmF0c2xlbnMudjEuR2V0RGF0YUhpc3RvcnlSZXF1ZXN0GiMubmF0c2xlbnMudjEuR2V0RGF0YUhpc3RvcnlSZXNwb25zZSIDkAIBElUKC0dldFN1YmplY3RzEh8ubmF0c2xlbnMudjEuR2V0U3ViamVjdHNSZXF1ZXN0GiAubmF0c2xlbnMudjEuR2V0U3ViamVjdHNSZXNwb25zZSIDkAIBElgKDE1hdGNoU3ViamVjdBIgLm5hdHNsZW5zLnYxLk1hdGNoU3ViamVjdFJlcXVlc3QaIS5uYXRzbGVucy52MS5NYXRjaFN1YmplY3RSZXNwb25zZSIDkAIBEmQKEEdldE1pY3JvU2VydmljZXMSJC5uYXRzbGVucy52MS5HZXRNaWNyb1NlcnZpY2VzUmVxdWVzdBolLm5hdHNsZW5zLnYxLkdldE1pY3JvU2VydmljZXNSZXNwb25zZSIDkAIBEmEKD0dldEFwcGxpY2F0aW9ucxIjLm5hdHNsZW5zLnYxLkdldEFwcGxpY2F0aW9uc1JlcXVlc3QaJC5uYXRzbGVucy52MS5HZXRBcHBsaWNhdGlvbnNSZXNwb25zZSIDkAIBElUKC0xpc3RTZXJ2ZXJzEh8ubmF0c2xlbnMudjEuTGlzdFNlcnZlcnNSZXF1ZXN0GiAubmF0c2xlbnMudjEuTGlzdFNlcnZlcnNSZXNwb25zZSIDkAIBEk8KCUdldFNlcnZlchIdLm5hdHNsZW5zLnYxLkdldFNlcnZlclJlcXVlc3QaHi5uYXRzbGVucy52MS5HZXRTZXJ2ZXJSZXNwb25zZSIDkAIBEmEKD0xpc3RDb25uZWN0aW9ucxIjLm5hdHNsZW5zLnYxLkxpc3RDb25uZWN0aW9uc1JlcXVlc3QaJC5uYXRzbGVucy52MS5MaXN0Q29ubmVjdGlvbnNSZXNwb25zZSIDkAIBElUKC0xpc3RTeXN0ZW1zEh8ubmF0c2xlbnMudjEuTGlzdFN5c3RlbXNSZXF1ZXN0GiAubmF0c2xlbnMudjEuTGlzdFN5c3RlbXNSZXNwb25zZSIDkAIBEl4KDkdldFNoZWxsU3RhdHVzEiIubmF0c2xlbnMudjEuR2V0U2hlbGxTdGF0dXNSZXF1ZXN0GiMubmF0c2xlbnMudjEuR2V0U2hlbGxTdGF0dXNSZXNwb25zZSIDkAIBElgKDExpc3RBY2NvdW50cxIgLm5hdHNsZW5zLnYxLkxpc3RBY2NvdW50c1JlcXVlc3QaIS5uYXRzbGVucy52MS5MaXN0QWNjb3VudHNSZXNwb25zZSIDkAIBEmoKEkxpc3RLZXlWYWx1ZVN0b3JlcxImLm5hdHNsZW5zLnYxLkxpc3RLZXlWYWx1ZVN0b3Jlc1JlcXVlc3QaJy5uYXRzbGVucy52MS5MaXN0S2V5VmFsdWVTdG9yZXNSZXNwb25zZSIDkAIBEmQKEExpc3RPYmplY3RTdG9yZXMSJC5uYXRzbGVucy52MS5MaXN0T2JqZWN0U3RvcmVzUmVxdWVzdBolLm5hdHNsZW5zLnYxLkxpc3RPYmplY3RTdG9yZXNSZXNwb25zZSIDkAIBElUKC0xpc3RNZXRyaWNzEh8ubmF0c2xlbnMudjEuTGlzdE1ldHJpY3NSZXF1ZXN0GiAubmF0c2xlbnMudjEuTGlzdE1ldHJpY3NSZXNwb25zZSIDkAIBElsKDUdldFRpbWVTZXJpZXMSIS5uYXRzbGVucy52MS5HZXRUaW1lU2VyaWVzUmVxdWVzdBoiLm5hdHNsZW5zLnYxLkdldFRpbWVTZXJpZXNSZXNwb25zZSIDkAIBEmoKEkdldFRpbWVTZXJpZXNCYXRjaBImLm5hdHNsZW5zLnYxLkdldFRpbWVTZXJpZXNCYXRjaFJlcXVlc3QaJy5uYXRzbGVucy52MS5HZXRUaW1lU2VyaWVzQmF0Y2hSZXNwb25zZSIDkAIBQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_natslens_v1_accounts, file_natslens_v1_acknowledgements, file_natslens_v1_applications, file_natslens_v1_buckets, file_natslens_v1_capacity, file_natslens_v1_checks, file_natslens_v1_consumers, file_natslens_v1_events, file_natslens_v1_findings, file_natslens_v1_history, file_natslens_v1_info, file_natslens_v1_micro, file_natslens_v1_oncall, file_natslens_v1_overview, file_natslens_v1_placement, file_natslens_v1_replay, file_natslens_v1_servers, file_natslens_v1_streams, file_natslens_v1_subjects, file_natslens_v1_systems, file_natslens_v1_timeline, file_natslens_v1_timeseries, file_natslens_v1_topology]);
 
 /**
  * What nats-lens recorded about the NATS systems it observes: servers,
@@ -39,14 +63,26 @@ export const file_natslens_v1_service: GenFile = /*@__PURE__*/
  *
  * Every call except ListSystems and ListMetrics reads one system, named by
  * the request's system field; an empty one reads the default system, the
- * first configured. An unknown system is invalid_argument.
+ * first configured. An unknown system is invalid_argument, except in
+ * GetShellStatus.
  *
- * Every call reads the tool's own database. MuteFinding and UnmuteFinding
- * are the only writes, and they write only to that database.
+ * Every call reads the tool's own database. MuteFinding, UnmuteFinding,
+ * AcknowledgeFinding and EndAcknowledgement are the only writes, and they
+ * write only to that database.
  *
  * @generated from service natslens.v1.LensService
  */
 export const LensService: GenService<{
+  /**
+   * All shipped check references with configuration from the selected system.
+   *
+   * @generated from rpc natslens.v1.LensService.ListCheckDefinitions
+   */
+  listCheckDefinitions: {
+    methodKind: "unary";
+    input: typeof ListCheckDefinitionsRequestSchema;
+    output: typeof ListCheckDefinitionsResponseSchema;
+  },
   /**
    * Identity mode, version, cluster, collect interval and retention of this
    * instance.
@@ -89,6 +125,16 @@ export const LensService: GenService<{
     output: typeof GetFindingResponseSchema;
   },
   /**
+   * Current finding, affected assets, and the episode's Replay story.
+   *
+   * @generated from rpc natslens.v1.LensService.GetOnCall
+   */
+  getOnCall: {
+    methodKind: "unary";
+    input: typeof GetOnCallRequestSchema;
+    output: typeof GetOnCallResponseSchema;
+  },
+  /**
    * Mutes a check, or a check for one entity, until an expiry.
    *
    * @generated from rpc natslens.v1.LensService.MuteFinding
@@ -107,6 +153,27 @@ export const LensService: GenService<{
     methodKind: "unary";
     input: typeof UnmuteFindingRequestSchema;
     output: typeof UnmuteFindingResponseSchema;
+  },
+  /**
+   * Acknowledges a firing finding's current episode: who works on it, a
+   * note and a quiet time. Also written as a finding.acknowledged event.
+   *
+   * @generated from rpc natslens.v1.LensService.AcknowledgeFinding
+   */
+  acknowledgeFinding: {
+    methodKind: "unary";
+    input: typeof AcknowledgeFindingRequestSchema;
+    output: typeof AcknowledgeFindingResponseSchema;
+  },
+  /**
+   * Hands back an acknowledgement in force.
+   *
+   * @generated from rpc natslens.v1.LensService.EndAcknowledgement
+   */
+  endAcknowledgement: {
+    methodKind: "unary";
+    input: typeof EndAcknowledgementRequestSchema;
+    output: typeof EndAcknowledgementResponseSchema;
   },
   /**
    * Mutes, active or all.
@@ -189,6 +256,133 @@ export const LensService: GenService<{
     output: typeof GetConsumerResponseSchema;
   },
   /**
+   * Every stream and durable consumer as each server sees it: one cell
+   * per server that holds or is assigned a replica, with filter counts.
+   *
+   * @generated from rpc natslens.v1.LensService.GetPlacement
+   */
+  getPlacement: {
+    methodKind: "unary";
+    input: typeof GetPlacementRequestSchema;
+    output: typeof GetPlacementResponseSchema;
+  },
+  /**
+   * What changed between two moments, and in what order: steps built
+   * from collections, events and findings, with counts and the assets
+   * gone in between. A and B are at most 24 hours apart and within the
+   * retention.
+   *
+   * @generated from rpc natslens.v1.LensService.GetReplay
+   */
+  getReplay: {
+    methodKind: "unary";
+    input: typeof GetReplayRequestSchema;
+    output: typeof GetReplayResponseSchema;
+  },
+  /**
+   * How the servers connect in the range's newest epoch: clusters, the
+   * routes inside each, the gateways between them and the leaf nodes at
+   * the edge, with round trip times and the drops counted from the
+   * collections of the 24 hours before.
+   *
+   * @generated from rpc natslens.v1.LensService.GetTopology
+   */
+  getTopology: {
+    methodKind: "unary";
+    input: typeof GetTopologyRequestSchema;
+    output: typeof GetTopologyResponseSchema;
+  },
+  /**
+   * The accounts of the range's newest epoch with their use, limits and
+   * JWT expiry, the failed logins of the 24 hours before it, and the
+   * certificates and JWTs that expire within 30 days.
+   *
+   * @generated from rpc natslens.v1.LensService.GetAccountsAndAuth
+   */
+  getAccountsAndAuth: {
+    methodKind: "unary";
+    input: typeof GetAccountsAndAuthRequestSchema;
+    output: typeof GetAccountsAndAuthResponseSchema;
+  },
+  /**
+   * What each stream of the range's newest epoch keeps and what bounds
+   * it, when it reaches its next limit, and how full each server's
+   * JetStream file store is and when it fills at its growth over the
+   * range.
+   *
+   * @generated from rpc natslens.v1.LensService.GetCapacity
+   */
+  getCapacity: {
+    methodKind: "unary";
+    input: typeof GetCapacityRequestSchema;
+    output: typeof GetCapacityResponseSchema;
+  },
+  /**
+   * What nats-lens holds of the system: where the history starts, the
+   * collections and gaps of the range, the retention, the archive's state,
+   * and how much history each use has.
+   *
+   * @generated from rpc natslens.v1.LensService.GetDataHistory
+   */
+  getDataHistory: {
+    methodKind: "unary";
+    input: typeof GetDataHistoryRequestSchema;
+    output: typeof GetDataHistoryResponseSchema;
+  },
+  /**
+   * Where messages can go in the range's newest epoch: each stream with
+   * its subjects, consumers and stored rate, the client subscriptions of
+   * the newest subscription collection at or before it by subject, the
+   * reply inboxes and the JetStream API, with filter counts.
+   *
+   * @generated from rpc natslens.v1.LensService.GetSubjects
+   */
+  getSubjects: {
+    methodKind: "unary";
+    input: typeof GetSubjectsRequestSchema;
+    output: typeof GetSubjectsResponseSchema;
+  },
+  /**
+   * What a message on one literal subject would reach in the range's
+   * newest epoch: the streams that store it with their consumers, mirrors
+   * and sources, and the client subscriptions on it.
+   *
+   * @generated from rpc natslens.v1.LensService.MatchSubject
+   */
+  matchSubject: {
+    methodKind: "unary";
+    input: typeof MatchSubjectRequestSchema;
+    output: typeof MatchSubjectResponseSchema;
+  },
+  /**
+   * The services built on the NATS micro framework in the range's newest
+   * epoch: from the $SRV.INFO and $SRV.STATS replies of the accounts
+   * nats-lens asks, else from their $SRV subscriptions in the subscription
+   * collection; with rates, average times and the slow rule per endpoint.
+   *
+   * @generated from rpc natslens.v1.LensService.GetMicroServices
+   */
+  getMicroServices: {
+    methodKind: "unary";
+    input: typeof GetMicroServicesRequestSchema;
+    output: typeof GetMicroServicesResponseSchema;
+  },
+  /**
+   * The client applications of the range's newest epoch: its
+   * connections grouped by the name before the first "@", with their
+   * instances, servers, libraries and round trip times, the reconnects,
+   * slow consumers and stale connections of the 24 hours before it from
+   * the events, the client findings, and the hourly traffic from the
+   * rollup.
+   *
+   * @generated from rpc natslens.v1.LensService.GetApplications
+   */
+  getApplications: {
+    methodKind: "unary";
+    input: typeof GetApplicationsRequestSchema;
+    output: typeof GetApplicationsResponseSchema;
+  },
+  /**
    * Servers by name with version, uptime and role.
    *
    * @generated from rpc natslens.v1.LensService.ListServers
@@ -227,6 +421,18 @@ export const LensService: GenService<{
     methodKind: "unary";
     input: typeof ListSystemsRequestSchema;
     output: typeof ListSystemsResponseSchema;
+  },
+  /**
+   * Freshness, servers and finding tally of a system and the status of
+   * every system: what the shell of every page shows. An unknown system
+   * is not an error here; the response says so.
+   *
+   * @generated from rpc natslens.v1.LensService.GetShellStatus
+   */
+  getShellStatus: {
+    methodKind: "unary";
+    input: typeof GetShellStatusRequestSchema;
+    output: typeof GetShellStatusResponseSchema;
   },
   /**
    * Accounts of a system with their connection, stream and consumer counts.
@@ -277,6 +483,18 @@ export const LensService: GenService<{
     methodKind: "unary";
     input: typeof GetTimeSeriesRequestSchema;
     output: typeof GetTimeSeriesResponseSchema;
+  },
+  /**
+   * Several series over one time range in one call. A query GetTimeSeries
+   * would refuse as invalid_argument or not_found gets the error in its
+   * result and the others are served; any other failure fails the call.
+   *
+   * @generated from rpc natslens.v1.LensService.GetTimeSeriesBatch
+   */
+  getTimeSeriesBatch: {
+    methodKind: "unary";
+    input: typeof GetTimeSeriesBatchRequestSchema;
+    output: typeof GetTimeSeriesBatchResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_natslens_v1_service, 0);

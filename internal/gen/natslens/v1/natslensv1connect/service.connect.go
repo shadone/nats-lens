@@ -33,6 +33,9 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
+	// LensServiceListCheckDefinitionsProcedure is the fully-qualified name of the LensService's
+	// ListCheckDefinitions RPC.
+	LensServiceListCheckDefinitionsProcedure = "/natslens.v1.LensService/ListCheckDefinitions"
 	// LensServiceGetLensInfoProcedure is the fully-qualified name of the LensService's GetLensInfo RPC.
 	LensServiceGetLensInfoProcedure = "/natslens.v1.LensService/GetLensInfo"
 	// LensServiceGetOverviewProcedure is the fully-qualified name of the LensService's GetOverview RPC.
@@ -42,11 +45,19 @@ const (
 	LensServiceListFindingsProcedure = "/natslens.v1.LensService/ListFindings"
 	// LensServiceGetFindingProcedure is the fully-qualified name of the LensService's GetFinding RPC.
 	LensServiceGetFindingProcedure = "/natslens.v1.LensService/GetFinding"
+	// LensServiceGetOnCallProcedure is the fully-qualified name of the LensService's GetOnCall RPC.
+	LensServiceGetOnCallProcedure = "/natslens.v1.LensService/GetOnCall"
 	// LensServiceMuteFindingProcedure is the fully-qualified name of the LensService's MuteFinding RPC.
 	LensServiceMuteFindingProcedure = "/natslens.v1.LensService/MuteFinding"
 	// LensServiceUnmuteFindingProcedure is the fully-qualified name of the LensService's UnmuteFinding
 	// RPC.
 	LensServiceUnmuteFindingProcedure = "/natslens.v1.LensService/UnmuteFinding"
+	// LensServiceAcknowledgeFindingProcedure is the fully-qualified name of the LensService's
+	// AcknowledgeFinding RPC.
+	LensServiceAcknowledgeFindingProcedure = "/natslens.v1.LensService/AcknowledgeFinding"
+	// LensServiceEndAcknowledgementProcedure is the fully-qualified name of the LensService's
+	// EndAcknowledgement RPC.
+	LensServiceEndAcknowledgementProcedure = "/natslens.v1.LensService/EndAcknowledgement"
 	// LensServiceListMutesProcedure is the fully-qualified name of the LensService's ListMutes RPC.
 	LensServiceListMutesProcedure = "/natslens.v1.LensService/ListMutes"
 	// LensServiceGetStatusTimelineProcedure is the fully-qualified name of the LensService's
@@ -65,6 +76,32 @@ const (
 	LensServiceListConsumersProcedure = "/natslens.v1.LensService/ListConsumers"
 	// LensServiceGetConsumerProcedure is the fully-qualified name of the LensService's GetConsumer RPC.
 	LensServiceGetConsumerProcedure = "/natslens.v1.LensService/GetConsumer"
+	// LensServiceGetPlacementProcedure is the fully-qualified name of the LensService's GetPlacement
+	// RPC.
+	LensServiceGetPlacementProcedure = "/natslens.v1.LensService/GetPlacement"
+	// LensServiceGetReplayProcedure is the fully-qualified name of the LensService's GetReplay RPC.
+	LensServiceGetReplayProcedure = "/natslens.v1.LensService/GetReplay"
+	// LensServiceGetTopologyProcedure is the fully-qualified name of the LensService's GetTopology RPC.
+	LensServiceGetTopologyProcedure = "/natslens.v1.LensService/GetTopology"
+	// LensServiceGetAccountsAndAuthProcedure is the fully-qualified name of the LensService's
+	// GetAccountsAndAuth RPC.
+	LensServiceGetAccountsAndAuthProcedure = "/natslens.v1.LensService/GetAccountsAndAuth"
+	// LensServiceGetCapacityProcedure is the fully-qualified name of the LensService's GetCapacity RPC.
+	LensServiceGetCapacityProcedure = "/natslens.v1.LensService/GetCapacity"
+	// LensServiceGetDataHistoryProcedure is the fully-qualified name of the LensService's
+	// GetDataHistory RPC.
+	LensServiceGetDataHistoryProcedure = "/natslens.v1.LensService/GetDataHistory"
+	// LensServiceGetSubjectsProcedure is the fully-qualified name of the LensService's GetSubjects RPC.
+	LensServiceGetSubjectsProcedure = "/natslens.v1.LensService/GetSubjects"
+	// LensServiceMatchSubjectProcedure is the fully-qualified name of the LensService's MatchSubject
+	// RPC.
+	LensServiceMatchSubjectProcedure = "/natslens.v1.LensService/MatchSubject"
+	// LensServiceGetMicroServicesProcedure is the fully-qualified name of the LensService's
+	// GetMicroServices RPC.
+	LensServiceGetMicroServicesProcedure = "/natslens.v1.LensService/GetMicroServices"
+	// LensServiceGetApplicationsProcedure is the fully-qualified name of the LensService's
+	// GetApplications RPC.
+	LensServiceGetApplicationsProcedure = "/natslens.v1.LensService/GetApplications"
 	// LensServiceListServersProcedure is the fully-qualified name of the LensService's ListServers RPC.
 	LensServiceListServersProcedure = "/natslens.v1.LensService/ListServers"
 	// LensServiceGetServerProcedure is the fully-qualified name of the LensService's GetServer RPC.
@@ -74,6 +111,9 @@ const (
 	LensServiceListConnectionsProcedure = "/natslens.v1.LensService/ListConnections"
 	// LensServiceListSystemsProcedure is the fully-qualified name of the LensService's ListSystems RPC.
 	LensServiceListSystemsProcedure = "/natslens.v1.LensService/ListSystems"
+	// LensServiceGetShellStatusProcedure is the fully-qualified name of the LensService's
+	// GetShellStatus RPC.
+	LensServiceGetShellStatusProcedure = "/natslens.v1.LensService/GetShellStatus"
 	// LensServiceListAccountsProcedure is the fully-qualified name of the LensService's ListAccounts
 	// RPC.
 	LensServiceListAccountsProcedure = "/natslens.v1.LensService/ListAccounts"
@@ -88,10 +128,15 @@ const (
 	// LensServiceGetTimeSeriesProcedure is the fully-qualified name of the LensService's GetTimeSeries
 	// RPC.
 	LensServiceGetTimeSeriesProcedure = "/natslens.v1.LensService/GetTimeSeries"
+	// LensServiceGetTimeSeriesBatchProcedure is the fully-qualified name of the LensService's
+	// GetTimeSeriesBatch RPC.
+	LensServiceGetTimeSeriesBatchProcedure = "/natslens.v1.LensService/GetTimeSeriesBatch"
 )
 
 // LensServiceClient is a client for the natslens.v1.LensService service.
 type LensServiceClient interface {
+	// All shipped check references with configuration from the selected system.
+	ListCheckDefinitions(context.Context, *connect.Request[v1.ListCheckDefinitionsRequest]) (*connect.Response[v1.ListCheckDefinitionsResponse], error)
 	// Identity mode, version, cluster, collect interval and retention of this
 	// instance.
 	GetLensInfo(context.Context, *connect.Request[v1.GetLensInfoRequest]) (*connect.Response[v1.GetLensInfoResponse], error)
@@ -101,10 +146,17 @@ type LensServiceClient interface {
 	ListFindings(context.Context, *connect.Request[v1.ListFindingsRequest]) (*connect.Response[v1.ListFindingsResponse], error)
 	// One finding with its transitions.
 	GetFinding(context.Context, *connect.Request[v1.GetFindingRequest]) (*connect.Response[v1.GetFindingResponse], error)
+	// Current finding, affected assets, and the episode's Replay story.
+	GetOnCall(context.Context, *connect.Request[v1.GetOnCallRequest]) (*connect.Response[v1.GetOnCallResponse], error)
 	// Mutes a check, or a check for one entity, until an expiry.
 	MuteFinding(context.Context, *connect.Request[v1.MuteFindingRequest]) (*connect.Response[v1.MuteFindingResponse], error)
 	// Lifts a mute before its expiry.
 	UnmuteFinding(context.Context, *connect.Request[v1.UnmuteFindingRequest]) (*connect.Response[v1.UnmuteFindingResponse], error)
+	// Acknowledges a firing finding's current episode: who works on it, a
+	// note and a quiet time. Also written as a finding.acknowledged event.
+	AcknowledgeFinding(context.Context, *connect.Request[v1.AcknowledgeFindingRequest]) (*connect.Response[v1.AcknowledgeFindingResponse], error)
+	// Hands back an acknowledgement in force.
+	EndAcknowledgement(context.Context, *connect.Request[v1.EndAcknowledgementRequest]) (*connect.Response[v1.EndAcknowledgementResponse], error)
 	// Mutes, active or all.
 	ListMutes(context.Context, *connect.Request[v1.ListMutesRequest]) (*connect.Response[v1.ListMutesResponse], error)
 	// Worst state per check per time bucket, with event lanes.
@@ -121,6 +173,53 @@ type LensServiceClient interface {
 	ListConsumers(context.Context, *connect.Request[v1.ListConsumersRequest]) (*connect.Response[v1.ListConsumersResponse], error)
 	// One consumer with configuration, per-server views and disagreements.
 	GetConsumer(context.Context, *connect.Request[v1.GetConsumerRequest]) (*connect.Response[v1.GetConsumerResponse], error)
+	// Every stream and durable consumer as each server sees it: one cell
+	// per server that holds or is assigned a replica, with filter counts.
+	GetPlacement(context.Context, *connect.Request[v1.GetPlacementRequest]) (*connect.Response[v1.GetPlacementResponse], error)
+	// What changed between two moments, and in what order: steps built
+	// from collections, events and findings, with counts and the assets
+	// gone in between. A and B are at most 24 hours apart and within the
+	// retention.
+	GetReplay(context.Context, *connect.Request[v1.GetReplayRequest]) (*connect.Response[v1.GetReplayResponse], error)
+	// How the servers connect in the range's newest epoch: clusters, the
+	// routes inside each, the gateways between them and the leaf nodes at
+	// the edge, with round trip times and the drops counted from the
+	// collections of the 24 hours before.
+	GetTopology(context.Context, *connect.Request[v1.GetTopologyRequest]) (*connect.Response[v1.GetTopologyResponse], error)
+	// The accounts of the range's newest epoch with their use, limits and
+	// JWT expiry, the failed logins of the 24 hours before it, and the
+	// certificates and JWTs that expire within 30 days.
+	GetAccountsAndAuth(context.Context, *connect.Request[v1.GetAccountsAndAuthRequest]) (*connect.Response[v1.GetAccountsAndAuthResponse], error)
+	// What each stream of the range's newest epoch keeps and what bounds
+	// it, when it reaches its next limit, and how full each server's
+	// JetStream file store is and when it fills at its growth over the
+	// range.
+	GetCapacity(context.Context, *connect.Request[v1.GetCapacityRequest]) (*connect.Response[v1.GetCapacityResponse], error)
+	// What nats-lens holds of the system: where the history starts, the
+	// collections and gaps of the range, the retention, the archive's state,
+	// and how much history each use has.
+	GetDataHistory(context.Context, *connect.Request[v1.GetDataHistoryRequest]) (*connect.Response[v1.GetDataHistoryResponse], error)
+	// Where messages can go in the range's newest epoch: each stream with
+	// its subjects, consumers and stored rate, the client subscriptions of
+	// the newest subscription collection at or before it by subject, the
+	// reply inboxes and the JetStream API, with filter counts.
+	GetSubjects(context.Context, *connect.Request[v1.GetSubjectsRequest]) (*connect.Response[v1.GetSubjectsResponse], error)
+	// What a message on one literal subject would reach in the range's
+	// newest epoch: the streams that store it with their consumers, mirrors
+	// and sources, and the client subscriptions on it.
+	MatchSubject(context.Context, *connect.Request[v1.MatchSubjectRequest]) (*connect.Response[v1.MatchSubjectResponse], error)
+	// The services built on the NATS micro framework in the range's newest
+	// epoch: from the $SRV.INFO and $SRV.STATS replies of the accounts
+	// nats-lens asks, else from their $SRV subscriptions in the subscription
+	// collection; with rates, average times and the slow rule per endpoint.
+	GetMicroServices(context.Context, *connect.Request[v1.GetMicroServicesRequest]) (*connect.Response[v1.GetMicroServicesResponse], error)
+	// The client applications of the range's newest epoch: its
+	// connections grouped by the name before the first "@", with their
+	// instances, servers, libraries and round trip times, the reconnects,
+	// slow consumers and stale connections of the 24 hours before it from
+	// the events, the client findings, and the hourly traffic from the
+	// rollup.
+	GetApplications(context.Context, *connect.Request[v1.GetApplicationsRequest]) (*connect.Response[v1.GetApplicationsResponse], error)
 	// Servers by name with version, uptime and role.
 	ListServers(context.Context, *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error)
 	// One server with endpoint outcomes and process lifetimes.
@@ -129,6 +228,10 @@ type LensServiceClient interface {
 	ListConnections(context.Context, *connect.Request[v1.ListConnectionsRequest]) (*connect.Response[v1.ListConnectionsResponse], error)
 	// The systems nats-lens observes, in configuration order.
 	ListSystems(context.Context, *connect.Request[v1.ListSystemsRequest]) (*connect.Response[v1.ListSystemsResponse], error)
+	// Freshness, servers and finding tally of a system and the status of
+	// every system: what the shell of every page shows. An unknown system
+	// is not an error here; the response says so.
+	GetShellStatus(context.Context, *connect.Request[v1.GetShellStatusRequest]) (*connect.Response[v1.GetShellStatusResponse], error)
 	// Accounts of a system with their connection, stream and consumer counts.
 	ListAccounts(context.Context, *connect.Request[v1.ListAccountsRequest]) (*connect.Response[v1.ListAccountsResponse], error)
 	// Key-value stores of a system.
@@ -139,6 +242,10 @@ type LensServiceClient interface {
 	ListMetrics(context.Context, *connect.Request[v1.ListMetricsRequest]) (*connect.Response[v1.ListMetricsResponse], error)
 	// One metric of one entity over a range, downsampled.
 	GetTimeSeries(context.Context, *connect.Request[v1.GetTimeSeriesRequest]) (*connect.Response[v1.GetTimeSeriesResponse], error)
+	// Several series over one time range in one call. A query GetTimeSeries
+	// would refuse as invalid_argument or not_found gets the error in its
+	// result and the others are served; any other failure fails the call.
+	GetTimeSeriesBatch(context.Context, *connect.Request[v1.GetTimeSeriesBatchRequest]) (*connect.Response[v1.GetTimeSeriesBatchResponse], error)
 }
 
 // NewLensServiceClient constructs a client for the natslens.v1.LensService service. By default, it
@@ -152,6 +259,13 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 	baseURL = strings.TrimRight(baseURL, "/")
 	lensServiceMethods := v1.File_natslens_v1_service_proto.Services().ByName("LensService").Methods()
 	return &lensServiceClient{
+		listCheckDefinitions: connect.NewClient[v1.ListCheckDefinitionsRequest, v1.ListCheckDefinitionsResponse](
+			httpClient,
+			baseURL+LensServiceListCheckDefinitionsProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("ListCheckDefinitions")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		getLensInfo: connect.NewClient[v1.GetLensInfoRequest, v1.GetLensInfoResponse](
 			httpClient,
 			baseURL+LensServiceGetLensInfoProcedure,
@@ -180,6 +294,13 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		getOnCall: connect.NewClient[v1.GetOnCallRequest, v1.GetOnCallResponse](
+			httpClient,
+			baseURL+LensServiceGetOnCallProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetOnCall")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		muteFinding: connect.NewClient[v1.MuteFindingRequest, v1.MuteFindingResponse](
 			httpClient,
 			baseURL+LensServiceMuteFindingProcedure,
@@ -190,6 +311,18 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			httpClient,
 			baseURL+LensServiceUnmuteFindingProcedure,
 			connect.WithSchema(lensServiceMethods.ByName("UnmuteFinding")),
+			connect.WithClientOptions(opts...),
+		),
+		acknowledgeFinding: connect.NewClient[v1.AcknowledgeFindingRequest, v1.AcknowledgeFindingResponse](
+			httpClient,
+			baseURL+LensServiceAcknowledgeFindingProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("AcknowledgeFinding")),
+			connect.WithClientOptions(opts...),
+		),
+		endAcknowledgement: connect.NewClient[v1.EndAcknowledgementRequest, v1.EndAcknowledgementResponse](
+			httpClient,
+			baseURL+LensServiceEndAcknowledgementProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("EndAcknowledgement")),
 			connect.WithClientOptions(opts...),
 		),
 		listMutes: connect.NewClient[v1.ListMutesRequest, v1.ListMutesResponse](
@@ -248,6 +381,76 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		getPlacement: connect.NewClient[v1.GetPlacementRequest, v1.GetPlacementResponse](
+			httpClient,
+			baseURL+LensServiceGetPlacementProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetPlacement")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		getReplay: connect.NewClient[v1.GetReplayRequest, v1.GetReplayResponse](
+			httpClient,
+			baseURL+LensServiceGetReplayProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetReplay")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		getTopology: connect.NewClient[v1.GetTopologyRequest, v1.GetTopologyResponse](
+			httpClient,
+			baseURL+LensServiceGetTopologyProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetTopology")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		getAccountsAndAuth: connect.NewClient[v1.GetAccountsAndAuthRequest, v1.GetAccountsAndAuthResponse](
+			httpClient,
+			baseURL+LensServiceGetAccountsAndAuthProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetAccountsAndAuth")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		getCapacity: connect.NewClient[v1.GetCapacityRequest, v1.GetCapacityResponse](
+			httpClient,
+			baseURL+LensServiceGetCapacityProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetCapacity")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		getDataHistory: connect.NewClient[v1.GetDataHistoryRequest, v1.GetDataHistoryResponse](
+			httpClient,
+			baseURL+LensServiceGetDataHistoryProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetDataHistory")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		getSubjects: connect.NewClient[v1.GetSubjectsRequest, v1.GetSubjectsResponse](
+			httpClient,
+			baseURL+LensServiceGetSubjectsProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetSubjects")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		matchSubject: connect.NewClient[v1.MatchSubjectRequest, v1.MatchSubjectResponse](
+			httpClient,
+			baseURL+LensServiceMatchSubjectProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("MatchSubject")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		getMicroServices: connect.NewClient[v1.GetMicroServicesRequest, v1.GetMicroServicesResponse](
+			httpClient,
+			baseURL+LensServiceGetMicroServicesProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetMicroServices")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		getApplications: connect.NewClient[v1.GetApplicationsRequest, v1.GetApplicationsResponse](
+			httpClient,
+			baseURL+LensServiceGetApplicationsProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetApplications")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		listServers: connect.NewClient[v1.ListServersRequest, v1.ListServersResponse](
 			httpClient,
 			baseURL+LensServiceListServersProcedure,
@@ -273,6 +476,13 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			httpClient,
 			baseURL+LensServiceListSystemsProcedure,
 			connect.WithSchema(lensServiceMethods.ByName("ListSystems")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		getShellStatus: connect.NewClient[v1.GetShellStatusRequest, v1.GetShellStatusResponse](
+			httpClient,
+			baseURL+LensServiceGetShellStatusProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetShellStatus")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
@@ -311,34 +521,62 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		getTimeSeriesBatch: connect.NewClient[v1.GetTimeSeriesBatchRequest, v1.GetTimeSeriesBatchResponse](
+			httpClient,
+			baseURL+LensServiceGetTimeSeriesBatchProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetTimeSeriesBatch")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // lensServiceClient implements LensServiceClient.
 type lensServiceClient struct {
-	getLensInfo        *connect.Client[v1.GetLensInfoRequest, v1.GetLensInfoResponse]
-	getOverview        *connect.Client[v1.GetOverviewRequest, v1.GetOverviewResponse]
-	listFindings       *connect.Client[v1.ListFindingsRequest, v1.ListFindingsResponse]
-	getFinding         *connect.Client[v1.GetFindingRequest, v1.GetFindingResponse]
-	muteFinding        *connect.Client[v1.MuteFindingRequest, v1.MuteFindingResponse]
-	unmuteFinding      *connect.Client[v1.UnmuteFindingRequest, v1.UnmuteFindingResponse]
-	listMutes          *connect.Client[v1.ListMutesRequest, v1.ListMutesResponse]
-	getStatusTimeline  *connect.Client[v1.GetStatusTimelineRequest, v1.GetStatusTimelineResponse]
-	listEvents         *connect.Client[v1.ListEventsRequest, v1.ListEventsResponse]
-	getEvent           *connect.Client[v1.GetEventRequest, v1.GetEventResponse]
-	listStreams        *connect.Client[v1.ListStreamsRequest, v1.ListStreamsResponse]
-	getStream          *connect.Client[v1.GetStreamRequest, v1.GetStreamResponse]
-	listConsumers      *connect.Client[v1.ListConsumersRequest, v1.ListConsumersResponse]
-	getConsumer        *connect.Client[v1.GetConsumerRequest, v1.GetConsumerResponse]
-	listServers        *connect.Client[v1.ListServersRequest, v1.ListServersResponse]
-	getServer          *connect.Client[v1.GetServerRequest, v1.GetServerResponse]
-	listConnections    *connect.Client[v1.ListConnectionsRequest, v1.ListConnectionsResponse]
-	listSystems        *connect.Client[v1.ListSystemsRequest, v1.ListSystemsResponse]
-	listAccounts       *connect.Client[v1.ListAccountsRequest, v1.ListAccountsResponse]
-	listKeyValueStores *connect.Client[v1.ListKeyValueStoresRequest, v1.ListKeyValueStoresResponse]
-	listObjectStores   *connect.Client[v1.ListObjectStoresRequest, v1.ListObjectStoresResponse]
-	listMetrics        *connect.Client[v1.ListMetricsRequest, v1.ListMetricsResponse]
-	getTimeSeries      *connect.Client[v1.GetTimeSeriesRequest, v1.GetTimeSeriesResponse]
+	listCheckDefinitions *connect.Client[v1.ListCheckDefinitionsRequest, v1.ListCheckDefinitionsResponse]
+	getLensInfo          *connect.Client[v1.GetLensInfoRequest, v1.GetLensInfoResponse]
+	getOverview          *connect.Client[v1.GetOverviewRequest, v1.GetOverviewResponse]
+	listFindings         *connect.Client[v1.ListFindingsRequest, v1.ListFindingsResponse]
+	getFinding           *connect.Client[v1.GetFindingRequest, v1.GetFindingResponse]
+	getOnCall            *connect.Client[v1.GetOnCallRequest, v1.GetOnCallResponse]
+	muteFinding          *connect.Client[v1.MuteFindingRequest, v1.MuteFindingResponse]
+	unmuteFinding        *connect.Client[v1.UnmuteFindingRequest, v1.UnmuteFindingResponse]
+	acknowledgeFinding   *connect.Client[v1.AcknowledgeFindingRequest, v1.AcknowledgeFindingResponse]
+	endAcknowledgement   *connect.Client[v1.EndAcknowledgementRequest, v1.EndAcknowledgementResponse]
+	listMutes            *connect.Client[v1.ListMutesRequest, v1.ListMutesResponse]
+	getStatusTimeline    *connect.Client[v1.GetStatusTimelineRequest, v1.GetStatusTimelineResponse]
+	listEvents           *connect.Client[v1.ListEventsRequest, v1.ListEventsResponse]
+	getEvent             *connect.Client[v1.GetEventRequest, v1.GetEventResponse]
+	listStreams          *connect.Client[v1.ListStreamsRequest, v1.ListStreamsResponse]
+	getStream            *connect.Client[v1.GetStreamRequest, v1.GetStreamResponse]
+	listConsumers        *connect.Client[v1.ListConsumersRequest, v1.ListConsumersResponse]
+	getConsumer          *connect.Client[v1.GetConsumerRequest, v1.GetConsumerResponse]
+	getPlacement         *connect.Client[v1.GetPlacementRequest, v1.GetPlacementResponse]
+	getReplay            *connect.Client[v1.GetReplayRequest, v1.GetReplayResponse]
+	getTopology          *connect.Client[v1.GetTopologyRequest, v1.GetTopologyResponse]
+	getAccountsAndAuth   *connect.Client[v1.GetAccountsAndAuthRequest, v1.GetAccountsAndAuthResponse]
+	getCapacity          *connect.Client[v1.GetCapacityRequest, v1.GetCapacityResponse]
+	getDataHistory       *connect.Client[v1.GetDataHistoryRequest, v1.GetDataHistoryResponse]
+	getSubjects          *connect.Client[v1.GetSubjectsRequest, v1.GetSubjectsResponse]
+	matchSubject         *connect.Client[v1.MatchSubjectRequest, v1.MatchSubjectResponse]
+	getMicroServices     *connect.Client[v1.GetMicroServicesRequest, v1.GetMicroServicesResponse]
+	getApplications      *connect.Client[v1.GetApplicationsRequest, v1.GetApplicationsResponse]
+	listServers          *connect.Client[v1.ListServersRequest, v1.ListServersResponse]
+	getServer            *connect.Client[v1.GetServerRequest, v1.GetServerResponse]
+	listConnections      *connect.Client[v1.ListConnectionsRequest, v1.ListConnectionsResponse]
+	listSystems          *connect.Client[v1.ListSystemsRequest, v1.ListSystemsResponse]
+	getShellStatus       *connect.Client[v1.GetShellStatusRequest, v1.GetShellStatusResponse]
+	listAccounts         *connect.Client[v1.ListAccountsRequest, v1.ListAccountsResponse]
+	listKeyValueStores   *connect.Client[v1.ListKeyValueStoresRequest, v1.ListKeyValueStoresResponse]
+	listObjectStores     *connect.Client[v1.ListObjectStoresRequest, v1.ListObjectStoresResponse]
+	listMetrics          *connect.Client[v1.ListMetricsRequest, v1.ListMetricsResponse]
+	getTimeSeries        *connect.Client[v1.GetTimeSeriesRequest, v1.GetTimeSeriesResponse]
+	getTimeSeriesBatch   *connect.Client[v1.GetTimeSeriesBatchRequest, v1.GetTimeSeriesBatchResponse]
+}
+
+// ListCheckDefinitions calls natslens.v1.LensService.ListCheckDefinitions.
+func (c *lensServiceClient) ListCheckDefinitions(ctx context.Context, req *connect.Request[v1.ListCheckDefinitionsRequest]) (*connect.Response[v1.ListCheckDefinitionsResponse], error) {
+	return c.listCheckDefinitions.CallUnary(ctx, req)
 }
 
 // GetLensInfo calls natslens.v1.LensService.GetLensInfo.
@@ -361,6 +599,11 @@ func (c *lensServiceClient) GetFinding(ctx context.Context, req *connect.Request
 	return c.getFinding.CallUnary(ctx, req)
 }
 
+// GetOnCall calls natslens.v1.LensService.GetOnCall.
+func (c *lensServiceClient) GetOnCall(ctx context.Context, req *connect.Request[v1.GetOnCallRequest]) (*connect.Response[v1.GetOnCallResponse], error) {
+	return c.getOnCall.CallUnary(ctx, req)
+}
+
 // MuteFinding calls natslens.v1.LensService.MuteFinding.
 func (c *lensServiceClient) MuteFinding(ctx context.Context, req *connect.Request[v1.MuteFindingRequest]) (*connect.Response[v1.MuteFindingResponse], error) {
 	return c.muteFinding.CallUnary(ctx, req)
@@ -369,6 +612,16 @@ func (c *lensServiceClient) MuteFinding(ctx context.Context, req *connect.Reques
 // UnmuteFinding calls natslens.v1.LensService.UnmuteFinding.
 func (c *lensServiceClient) UnmuteFinding(ctx context.Context, req *connect.Request[v1.UnmuteFindingRequest]) (*connect.Response[v1.UnmuteFindingResponse], error) {
 	return c.unmuteFinding.CallUnary(ctx, req)
+}
+
+// AcknowledgeFinding calls natslens.v1.LensService.AcknowledgeFinding.
+func (c *lensServiceClient) AcknowledgeFinding(ctx context.Context, req *connect.Request[v1.AcknowledgeFindingRequest]) (*connect.Response[v1.AcknowledgeFindingResponse], error) {
+	return c.acknowledgeFinding.CallUnary(ctx, req)
+}
+
+// EndAcknowledgement calls natslens.v1.LensService.EndAcknowledgement.
+func (c *lensServiceClient) EndAcknowledgement(ctx context.Context, req *connect.Request[v1.EndAcknowledgementRequest]) (*connect.Response[v1.EndAcknowledgementResponse], error) {
+	return c.endAcknowledgement.CallUnary(ctx, req)
 }
 
 // ListMutes calls natslens.v1.LensService.ListMutes.
@@ -411,6 +664,56 @@ func (c *lensServiceClient) GetConsumer(ctx context.Context, req *connect.Reques
 	return c.getConsumer.CallUnary(ctx, req)
 }
 
+// GetPlacement calls natslens.v1.LensService.GetPlacement.
+func (c *lensServiceClient) GetPlacement(ctx context.Context, req *connect.Request[v1.GetPlacementRequest]) (*connect.Response[v1.GetPlacementResponse], error) {
+	return c.getPlacement.CallUnary(ctx, req)
+}
+
+// GetReplay calls natslens.v1.LensService.GetReplay.
+func (c *lensServiceClient) GetReplay(ctx context.Context, req *connect.Request[v1.GetReplayRequest]) (*connect.Response[v1.GetReplayResponse], error) {
+	return c.getReplay.CallUnary(ctx, req)
+}
+
+// GetTopology calls natslens.v1.LensService.GetTopology.
+func (c *lensServiceClient) GetTopology(ctx context.Context, req *connect.Request[v1.GetTopologyRequest]) (*connect.Response[v1.GetTopologyResponse], error) {
+	return c.getTopology.CallUnary(ctx, req)
+}
+
+// GetAccountsAndAuth calls natslens.v1.LensService.GetAccountsAndAuth.
+func (c *lensServiceClient) GetAccountsAndAuth(ctx context.Context, req *connect.Request[v1.GetAccountsAndAuthRequest]) (*connect.Response[v1.GetAccountsAndAuthResponse], error) {
+	return c.getAccountsAndAuth.CallUnary(ctx, req)
+}
+
+// GetCapacity calls natslens.v1.LensService.GetCapacity.
+func (c *lensServiceClient) GetCapacity(ctx context.Context, req *connect.Request[v1.GetCapacityRequest]) (*connect.Response[v1.GetCapacityResponse], error) {
+	return c.getCapacity.CallUnary(ctx, req)
+}
+
+// GetDataHistory calls natslens.v1.LensService.GetDataHistory.
+func (c *lensServiceClient) GetDataHistory(ctx context.Context, req *connect.Request[v1.GetDataHistoryRequest]) (*connect.Response[v1.GetDataHistoryResponse], error) {
+	return c.getDataHistory.CallUnary(ctx, req)
+}
+
+// GetSubjects calls natslens.v1.LensService.GetSubjects.
+func (c *lensServiceClient) GetSubjects(ctx context.Context, req *connect.Request[v1.GetSubjectsRequest]) (*connect.Response[v1.GetSubjectsResponse], error) {
+	return c.getSubjects.CallUnary(ctx, req)
+}
+
+// MatchSubject calls natslens.v1.LensService.MatchSubject.
+func (c *lensServiceClient) MatchSubject(ctx context.Context, req *connect.Request[v1.MatchSubjectRequest]) (*connect.Response[v1.MatchSubjectResponse], error) {
+	return c.matchSubject.CallUnary(ctx, req)
+}
+
+// GetMicroServices calls natslens.v1.LensService.GetMicroServices.
+func (c *lensServiceClient) GetMicroServices(ctx context.Context, req *connect.Request[v1.GetMicroServicesRequest]) (*connect.Response[v1.GetMicroServicesResponse], error) {
+	return c.getMicroServices.CallUnary(ctx, req)
+}
+
+// GetApplications calls natslens.v1.LensService.GetApplications.
+func (c *lensServiceClient) GetApplications(ctx context.Context, req *connect.Request[v1.GetApplicationsRequest]) (*connect.Response[v1.GetApplicationsResponse], error) {
+	return c.getApplications.CallUnary(ctx, req)
+}
+
 // ListServers calls natslens.v1.LensService.ListServers.
 func (c *lensServiceClient) ListServers(ctx context.Context, req *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error) {
 	return c.listServers.CallUnary(ctx, req)
@@ -429,6 +732,11 @@ func (c *lensServiceClient) ListConnections(ctx context.Context, req *connect.Re
 // ListSystems calls natslens.v1.LensService.ListSystems.
 func (c *lensServiceClient) ListSystems(ctx context.Context, req *connect.Request[v1.ListSystemsRequest]) (*connect.Response[v1.ListSystemsResponse], error) {
 	return c.listSystems.CallUnary(ctx, req)
+}
+
+// GetShellStatus calls natslens.v1.LensService.GetShellStatus.
+func (c *lensServiceClient) GetShellStatus(ctx context.Context, req *connect.Request[v1.GetShellStatusRequest]) (*connect.Response[v1.GetShellStatusResponse], error) {
+	return c.getShellStatus.CallUnary(ctx, req)
 }
 
 // ListAccounts calls natslens.v1.LensService.ListAccounts.
@@ -456,8 +764,15 @@ func (c *lensServiceClient) GetTimeSeries(ctx context.Context, req *connect.Requ
 	return c.getTimeSeries.CallUnary(ctx, req)
 }
 
+// GetTimeSeriesBatch calls natslens.v1.LensService.GetTimeSeriesBatch.
+func (c *lensServiceClient) GetTimeSeriesBatch(ctx context.Context, req *connect.Request[v1.GetTimeSeriesBatchRequest]) (*connect.Response[v1.GetTimeSeriesBatchResponse], error) {
+	return c.getTimeSeriesBatch.CallUnary(ctx, req)
+}
+
 // LensServiceHandler is an implementation of the natslens.v1.LensService service.
 type LensServiceHandler interface {
+	// All shipped check references with configuration from the selected system.
+	ListCheckDefinitions(context.Context, *connect.Request[v1.ListCheckDefinitionsRequest]) (*connect.Response[v1.ListCheckDefinitionsResponse], error)
 	// Identity mode, version, cluster, collect interval and retention of this
 	// instance.
 	GetLensInfo(context.Context, *connect.Request[v1.GetLensInfoRequest]) (*connect.Response[v1.GetLensInfoResponse], error)
@@ -467,10 +782,17 @@ type LensServiceHandler interface {
 	ListFindings(context.Context, *connect.Request[v1.ListFindingsRequest]) (*connect.Response[v1.ListFindingsResponse], error)
 	// One finding with its transitions.
 	GetFinding(context.Context, *connect.Request[v1.GetFindingRequest]) (*connect.Response[v1.GetFindingResponse], error)
+	// Current finding, affected assets, and the episode's Replay story.
+	GetOnCall(context.Context, *connect.Request[v1.GetOnCallRequest]) (*connect.Response[v1.GetOnCallResponse], error)
 	// Mutes a check, or a check for one entity, until an expiry.
 	MuteFinding(context.Context, *connect.Request[v1.MuteFindingRequest]) (*connect.Response[v1.MuteFindingResponse], error)
 	// Lifts a mute before its expiry.
 	UnmuteFinding(context.Context, *connect.Request[v1.UnmuteFindingRequest]) (*connect.Response[v1.UnmuteFindingResponse], error)
+	// Acknowledges a firing finding's current episode: who works on it, a
+	// note and a quiet time. Also written as a finding.acknowledged event.
+	AcknowledgeFinding(context.Context, *connect.Request[v1.AcknowledgeFindingRequest]) (*connect.Response[v1.AcknowledgeFindingResponse], error)
+	// Hands back an acknowledgement in force.
+	EndAcknowledgement(context.Context, *connect.Request[v1.EndAcknowledgementRequest]) (*connect.Response[v1.EndAcknowledgementResponse], error)
 	// Mutes, active or all.
 	ListMutes(context.Context, *connect.Request[v1.ListMutesRequest]) (*connect.Response[v1.ListMutesResponse], error)
 	// Worst state per check per time bucket, with event lanes.
@@ -487,6 +809,53 @@ type LensServiceHandler interface {
 	ListConsumers(context.Context, *connect.Request[v1.ListConsumersRequest]) (*connect.Response[v1.ListConsumersResponse], error)
 	// One consumer with configuration, per-server views and disagreements.
 	GetConsumer(context.Context, *connect.Request[v1.GetConsumerRequest]) (*connect.Response[v1.GetConsumerResponse], error)
+	// Every stream and durable consumer as each server sees it: one cell
+	// per server that holds or is assigned a replica, with filter counts.
+	GetPlacement(context.Context, *connect.Request[v1.GetPlacementRequest]) (*connect.Response[v1.GetPlacementResponse], error)
+	// What changed between two moments, and in what order: steps built
+	// from collections, events and findings, with counts and the assets
+	// gone in between. A and B are at most 24 hours apart and within the
+	// retention.
+	GetReplay(context.Context, *connect.Request[v1.GetReplayRequest]) (*connect.Response[v1.GetReplayResponse], error)
+	// How the servers connect in the range's newest epoch: clusters, the
+	// routes inside each, the gateways between them and the leaf nodes at
+	// the edge, with round trip times and the drops counted from the
+	// collections of the 24 hours before.
+	GetTopology(context.Context, *connect.Request[v1.GetTopologyRequest]) (*connect.Response[v1.GetTopologyResponse], error)
+	// The accounts of the range's newest epoch with their use, limits and
+	// JWT expiry, the failed logins of the 24 hours before it, and the
+	// certificates and JWTs that expire within 30 days.
+	GetAccountsAndAuth(context.Context, *connect.Request[v1.GetAccountsAndAuthRequest]) (*connect.Response[v1.GetAccountsAndAuthResponse], error)
+	// What each stream of the range's newest epoch keeps and what bounds
+	// it, when it reaches its next limit, and how full each server's
+	// JetStream file store is and when it fills at its growth over the
+	// range.
+	GetCapacity(context.Context, *connect.Request[v1.GetCapacityRequest]) (*connect.Response[v1.GetCapacityResponse], error)
+	// What nats-lens holds of the system: where the history starts, the
+	// collections and gaps of the range, the retention, the archive's state,
+	// and how much history each use has.
+	GetDataHistory(context.Context, *connect.Request[v1.GetDataHistoryRequest]) (*connect.Response[v1.GetDataHistoryResponse], error)
+	// Where messages can go in the range's newest epoch: each stream with
+	// its subjects, consumers and stored rate, the client subscriptions of
+	// the newest subscription collection at or before it by subject, the
+	// reply inboxes and the JetStream API, with filter counts.
+	GetSubjects(context.Context, *connect.Request[v1.GetSubjectsRequest]) (*connect.Response[v1.GetSubjectsResponse], error)
+	// What a message on one literal subject would reach in the range's
+	// newest epoch: the streams that store it with their consumers, mirrors
+	// and sources, and the client subscriptions on it.
+	MatchSubject(context.Context, *connect.Request[v1.MatchSubjectRequest]) (*connect.Response[v1.MatchSubjectResponse], error)
+	// The services built on the NATS micro framework in the range's newest
+	// epoch: from the $SRV.INFO and $SRV.STATS replies of the accounts
+	// nats-lens asks, else from their $SRV subscriptions in the subscription
+	// collection; with rates, average times and the slow rule per endpoint.
+	GetMicroServices(context.Context, *connect.Request[v1.GetMicroServicesRequest]) (*connect.Response[v1.GetMicroServicesResponse], error)
+	// The client applications of the range's newest epoch: its
+	// connections grouped by the name before the first "@", with their
+	// instances, servers, libraries and round trip times, the reconnects,
+	// slow consumers and stale connections of the 24 hours before it from
+	// the events, the client findings, and the hourly traffic from the
+	// rollup.
+	GetApplications(context.Context, *connect.Request[v1.GetApplicationsRequest]) (*connect.Response[v1.GetApplicationsResponse], error)
 	// Servers by name with version, uptime and role.
 	ListServers(context.Context, *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error)
 	// One server with endpoint outcomes and process lifetimes.
@@ -495,6 +864,10 @@ type LensServiceHandler interface {
 	ListConnections(context.Context, *connect.Request[v1.ListConnectionsRequest]) (*connect.Response[v1.ListConnectionsResponse], error)
 	// The systems nats-lens observes, in configuration order.
 	ListSystems(context.Context, *connect.Request[v1.ListSystemsRequest]) (*connect.Response[v1.ListSystemsResponse], error)
+	// Freshness, servers and finding tally of a system and the status of
+	// every system: what the shell of every page shows. An unknown system
+	// is not an error here; the response says so.
+	GetShellStatus(context.Context, *connect.Request[v1.GetShellStatusRequest]) (*connect.Response[v1.GetShellStatusResponse], error)
 	// Accounts of a system with their connection, stream and consumer counts.
 	ListAccounts(context.Context, *connect.Request[v1.ListAccountsRequest]) (*connect.Response[v1.ListAccountsResponse], error)
 	// Key-value stores of a system.
@@ -505,6 +878,10 @@ type LensServiceHandler interface {
 	ListMetrics(context.Context, *connect.Request[v1.ListMetricsRequest]) (*connect.Response[v1.ListMetricsResponse], error)
 	// One metric of one entity over a range, downsampled.
 	GetTimeSeries(context.Context, *connect.Request[v1.GetTimeSeriesRequest]) (*connect.Response[v1.GetTimeSeriesResponse], error)
+	// Several series over one time range in one call. A query GetTimeSeries
+	// would refuse as invalid_argument or not_found gets the error in its
+	// result and the others are served; any other failure fails the call.
+	GetTimeSeriesBatch(context.Context, *connect.Request[v1.GetTimeSeriesBatchRequest]) (*connect.Response[v1.GetTimeSeriesBatchResponse], error)
 }
 
 // NewLensServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -514,6 +891,13 @@ type LensServiceHandler interface {
 // and JSON codecs. They also support gzip compression.
 func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
 	lensServiceMethods := v1.File_natslens_v1_service_proto.Services().ByName("LensService").Methods()
+	lensServiceListCheckDefinitionsHandler := connect.NewUnaryHandler(
+		LensServiceListCheckDefinitionsProcedure,
+		svc.ListCheckDefinitions,
+		connect.WithSchema(lensServiceMethods.ByName("ListCheckDefinitions")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	lensServiceGetLensInfoHandler := connect.NewUnaryHandler(
 		LensServiceGetLensInfoProcedure,
 		svc.GetLensInfo,
@@ -542,6 +926,13 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	lensServiceGetOnCallHandler := connect.NewUnaryHandler(
+		LensServiceGetOnCallProcedure,
+		svc.GetOnCall,
+		connect.WithSchema(lensServiceMethods.ByName("GetOnCall")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	lensServiceMuteFindingHandler := connect.NewUnaryHandler(
 		LensServiceMuteFindingProcedure,
 		svc.MuteFinding,
@@ -552,6 +943,18 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		LensServiceUnmuteFindingProcedure,
 		svc.UnmuteFinding,
 		connect.WithSchema(lensServiceMethods.ByName("UnmuteFinding")),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceAcknowledgeFindingHandler := connect.NewUnaryHandler(
+		LensServiceAcknowledgeFindingProcedure,
+		svc.AcknowledgeFinding,
+		connect.WithSchema(lensServiceMethods.ByName("AcknowledgeFinding")),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceEndAcknowledgementHandler := connect.NewUnaryHandler(
+		LensServiceEndAcknowledgementProcedure,
+		svc.EndAcknowledgement,
+		connect.WithSchema(lensServiceMethods.ByName("EndAcknowledgement")),
 		connect.WithHandlerOptions(opts...),
 	)
 	lensServiceListMutesHandler := connect.NewUnaryHandler(
@@ -610,6 +1013,76 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	lensServiceGetPlacementHandler := connect.NewUnaryHandler(
+		LensServiceGetPlacementProcedure,
+		svc.GetPlacement,
+		connect.WithSchema(lensServiceMethods.ByName("GetPlacement")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceGetReplayHandler := connect.NewUnaryHandler(
+		LensServiceGetReplayProcedure,
+		svc.GetReplay,
+		connect.WithSchema(lensServiceMethods.ByName("GetReplay")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceGetTopologyHandler := connect.NewUnaryHandler(
+		LensServiceGetTopologyProcedure,
+		svc.GetTopology,
+		connect.WithSchema(lensServiceMethods.ByName("GetTopology")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceGetAccountsAndAuthHandler := connect.NewUnaryHandler(
+		LensServiceGetAccountsAndAuthProcedure,
+		svc.GetAccountsAndAuth,
+		connect.WithSchema(lensServiceMethods.ByName("GetAccountsAndAuth")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceGetCapacityHandler := connect.NewUnaryHandler(
+		LensServiceGetCapacityProcedure,
+		svc.GetCapacity,
+		connect.WithSchema(lensServiceMethods.ByName("GetCapacity")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceGetDataHistoryHandler := connect.NewUnaryHandler(
+		LensServiceGetDataHistoryProcedure,
+		svc.GetDataHistory,
+		connect.WithSchema(lensServiceMethods.ByName("GetDataHistory")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceGetSubjectsHandler := connect.NewUnaryHandler(
+		LensServiceGetSubjectsProcedure,
+		svc.GetSubjects,
+		connect.WithSchema(lensServiceMethods.ByName("GetSubjects")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceMatchSubjectHandler := connect.NewUnaryHandler(
+		LensServiceMatchSubjectProcedure,
+		svc.MatchSubject,
+		connect.WithSchema(lensServiceMethods.ByName("MatchSubject")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceGetMicroServicesHandler := connect.NewUnaryHandler(
+		LensServiceGetMicroServicesProcedure,
+		svc.GetMicroServices,
+		connect.WithSchema(lensServiceMethods.ByName("GetMicroServices")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceGetApplicationsHandler := connect.NewUnaryHandler(
+		LensServiceGetApplicationsProcedure,
+		svc.GetApplications,
+		connect.WithSchema(lensServiceMethods.ByName("GetApplications")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	lensServiceListServersHandler := connect.NewUnaryHandler(
 		LensServiceListServersProcedure,
 		svc.ListServers,
@@ -635,6 +1108,13 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		LensServiceListSystemsProcedure,
 		svc.ListSystems,
 		connect.WithSchema(lensServiceMethods.ByName("ListSystems")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	lensServiceGetShellStatusHandler := connect.NewUnaryHandler(
+		LensServiceGetShellStatusProcedure,
+		svc.GetShellStatus,
+		connect.WithSchema(lensServiceMethods.ByName("GetShellStatus")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
@@ -673,8 +1153,17 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	lensServiceGetTimeSeriesBatchHandler := connect.NewUnaryHandler(
+		LensServiceGetTimeSeriesBatchProcedure,
+		svc.GetTimeSeriesBatch,
+		connect.WithSchema(lensServiceMethods.ByName("GetTimeSeriesBatch")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/natslens.v1.LensService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case LensServiceListCheckDefinitionsProcedure:
+			lensServiceListCheckDefinitionsHandler.ServeHTTP(w, r)
 		case LensServiceGetLensInfoProcedure:
 			lensServiceGetLensInfoHandler.ServeHTTP(w, r)
 		case LensServiceGetOverviewProcedure:
@@ -683,10 +1172,16 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceListFindingsHandler.ServeHTTP(w, r)
 		case LensServiceGetFindingProcedure:
 			lensServiceGetFindingHandler.ServeHTTP(w, r)
+		case LensServiceGetOnCallProcedure:
+			lensServiceGetOnCallHandler.ServeHTTP(w, r)
 		case LensServiceMuteFindingProcedure:
 			lensServiceMuteFindingHandler.ServeHTTP(w, r)
 		case LensServiceUnmuteFindingProcedure:
 			lensServiceUnmuteFindingHandler.ServeHTTP(w, r)
+		case LensServiceAcknowledgeFindingProcedure:
+			lensServiceAcknowledgeFindingHandler.ServeHTTP(w, r)
+		case LensServiceEndAcknowledgementProcedure:
+			lensServiceEndAcknowledgementHandler.ServeHTTP(w, r)
 		case LensServiceListMutesProcedure:
 			lensServiceListMutesHandler.ServeHTTP(w, r)
 		case LensServiceGetStatusTimelineProcedure:
@@ -703,6 +1198,26 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceListConsumersHandler.ServeHTTP(w, r)
 		case LensServiceGetConsumerProcedure:
 			lensServiceGetConsumerHandler.ServeHTTP(w, r)
+		case LensServiceGetPlacementProcedure:
+			lensServiceGetPlacementHandler.ServeHTTP(w, r)
+		case LensServiceGetReplayProcedure:
+			lensServiceGetReplayHandler.ServeHTTP(w, r)
+		case LensServiceGetTopologyProcedure:
+			lensServiceGetTopologyHandler.ServeHTTP(w, r)
+		case LensServiceGetAccountsAndAuthProcedure:
+			lensServiceGetAccountsAndAuthHandler.ServeHTTP(w, r)
+		case LensServiceGetCapacityProcedure:
+			lensServiceGetCapacityHandler.ServeHTTP(w, r)
+		case LensServiceGetDataHistoryProcedure:
+			lensServiceGetDataHistoryHandler.ServeHTTP(w, r)
+		case LensServiceGetSubjectsProcedure:
+			lensServiceGetSubjectsHandler.ServeHTTP(w, r)
+		case LensServiceMatchSubjectProcedure:
+			lensServiceMatchSubjectHandler.ServeHTTP(w, r)
+		case LensServiceGetMicroServicesProcedure:
+			lensServiceGetMicroServicesHandler.ServeHTTP(w, r)
+		case LensServiceGetApplicationsProcedure:
+			lensServiceGetApplicationsHandler.ServeHTTP(w, r)
 		case LensServiceListServersProcedure:
 			lensServiceListServersHandler.ServeHTTP(w, r)
 		case LensServiceGetServerProcedure:
@@ -711,6 +1226,8 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceListConnectionsHandler.ServeHTTP(w, r)
 		case LensServiceListSystemsProcedure:
 			lensServiceListSystemsHandler.ServeHTTP(w, r)
+		case LensServiceGetShellStatusProcedure:
+			lensServiceGetShellStatusHandler.ServeHTTP(w, r)
 		case LensServiceListAccountsProcedure:
 			lensServiceListAccountsHandler.ServeHTTP(w, r)
 		case LensServiceListKeyValueStoresProcedure:
@@ -721,6 +1238,8 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceListMetricsHandler.ServeHTTP(w, r)
 		case LensServiceGetTimeSeriesProcedure:
 			lensServiceGetTimeSeriesHandler.ServeHTTP(w, r)
+		case LensServiceGetTimeSeriesBatchProcedure:
+			lensServiceGetTimeSeriesBatchHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -729,6 +1248,10 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 
 // UnimplementedLensServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedLensServiceHandler struct{}
+
+func (UnimplementedLensServiceHandler) ListCheckDefinitions(context.Context, *connect.Request[v1.ListCheckDefinitionsRequest]) (*connect.Response[v1.ListCheckDefinitionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListCheckDefinitions is not implemented"))
+}
 
 func (UnimplementedLensServiceHandler) GetLensInfo(context.Context, *connect.Request[v1.GetLensInfoRequest]) (*connect.Response[v1.GetLensInfoResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetLensInfo is not implemented"))
@@ -746,12 +1269,24 @@ func (UnimplementedLensServiceHandler) GetFinding(context.Context, *connect.Requ
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetFinding is not implemented"))
 }
 
+func (UnimplementedLensServiceHandler) GetOnCall(context.Context, *connect.Request[v1.GetOnCallRequest]) (*connect.Response[v1.GetOnCallResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetOnCall is not implemented"))
+}
+
 func (UnimplementedLensServiceHandler) MuteFinding(context.Context, *connect.Request[v1.MuteFindingRequest]) (*connect.Response[v1.MuteFindingResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.MuteFinding is not implemented"))
 }
 
 func (UnimplementedLensServiceHandler) UnmuteFinding(context.Context, *connect.Request[v1.UnmuteFindingRequest]) (*connect.Response[v1.UnmuteFindingResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.UnmuteFinding is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) AcknowledgeFinding(context.Context, *connect.Request[v1.AcknowledgeFindingRequest]) (*connect.Response[v1.AcknowledgeFindingResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.AcknowledgeFinding is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) EndAcknowledgement(context.Context, *connect.Request[v1.EndAcknowledgementRequest]) (*connect.Response[v1.EndAcknowledgementResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.EndAcknowledgement is not implemented"))
 }
 
 func (UnimplementedLensServiceHandler) ListMutes(context.Context, *connect.Request[v1.ListMutesRequest]) (*connect.Response[v1.ListMutesResponse], error) {
@@ -786,6 +1321,46 @@ func (UnimplementedLensServiceHandler) GetConsumer(context.Context, *connect.Req
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetConsumer is not implemented"))
 }
 
+func (UnimplementedLensServiceHandler) GetPlacement(context.Context, *connect.Request[v1.GetPlacementRequest]) (*connect.Response[v1.GetPlacementResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetPlacement is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetReplay(context.Context, *connect.Request[v1.GetReplayRequest]) (*connect.Response[v1.GetReplayResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetReplay is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetTopology(context.Context, *connect.Request[v1.GetTopologyRequest]) (*connect.Response[v1.GetTopologyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetTopology is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetAccountsAndAuth(context.Context, *connect.Request[v1.GetAccountsAndAuthRequest]) (*connect.Response[v1.GetAccountsAndAuthResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetAccountsAndAuth is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetCapacity(context.Context, *connect.Request[v1.GetCapacityRequest]) (*connect.Response[v1.GetCapacityResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetCapacity is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetDataHistory(context.Context, *connect.Request[v1.GetDataHistoryRequest]) (*connect.Response[v1.GetDataHistoryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetDataHistory is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetSubjects(context.Context, *connect.Request[v1.GetSubjectsRequest]) (*connect.Response[v1.GetSubjectsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetSubjects is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) MatchSubject(context.Context, *connect.Request[v1.MatchSubjectRequest]) (*connect.Response[v1.MatchSubjectResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.MatchSubject is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetMicroServices(context.Context, *connect.Request[v1.GetMicroServicesRequest]) (*connect.Response[v1.GetMicroServicesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetMicroServices is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetApplications(context.Context, *connect.Request[v1.GetApplicationsRequest]) (*connect.Response[v1.GetApplicationsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetApplications is not implemented"))
+}
+
 func (UnimplementedLensServiceHandler) ListServers(context.Context, *connect.Request[v1.ListServersRequest]) (*connect.Response[v1.ListServersResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListServers is not implemented"))
 }
@@ -800,6 +1375,10 @@ func (UnimplementedLensServiceHandler) ListConnections(context.Context, *connect
 
 func (UnimplementedLensServiceHandler) ListSystems(context.Context, *connect.Request[v1.ListSystemsRequest]) (*connect.Response[v1.ListSystemsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListSystems is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetShellStatus(context.Context, *connect.Request[v1.GetShellStatusRequest]) (*connect.Response[v1.GetShellStatusResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetShellStatus is not implemented"))
 }
 
 func (UnimplementedLensServiceHandler) ListAccounts(context.Context, *connect.Request[v1.ListAccountsRequest]) (*connect.Response[v1.ListAccountsResponse], error) {
@@ -820,4 +1399,8 @@ func (UnimplementedLensServiceHandler) ListMetrics(context.Context, *connect.Req
 
 func (UnimplementedLensServiceHandler) GetTimeSeries(context.Context, *connect.Request[v1.GetTimeSeriesRequest]) (*connect.Response[v1.GetTimeSeriesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetTimeSeries is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetTimeSeriesBatch(context.Context, *connect.Request[v1.GetTimeSeriesBatchRequest]) (*connect.Response[v1.GetTimeSeriesBatchResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetTimeSeriesBatch is not implemented"))
 }

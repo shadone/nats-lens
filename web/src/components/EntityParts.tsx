@@ -40,10 +40,12 @@ export function Pager({ page, next, onNext, onPrev, total, shown, newer = "Previ
   newer?: string;
   older?: string;
 }) {
+  const count = `${fmtInt(shown)} shown of ${fmtInt(total)}`;
+  if (page <= 1 && !next) return <p className="pager">{count}</p>;
   return (
     <nav className="pager" aria-label="Pagination">
       <span>
-        {fmtInt(shown)} shown of {fmtInt(total)} · page {page}
+        {count} · page {page}
       </span>
       <span className="btns">
         <button type="button" className="btn" onClick={onPrev} disabled={page <= 1}>
@@ -135,7 +137,7 @@ export function Disagreements({ items }: { items: Disagreement[] }) {
   if (!items.length) return null;
   const servers = [...new Set(items.flatMap((d) => d.values.map((v) => v.server)))];
   return (
-    <Section title="Servers disagree" aside="Each server's own view of the settings that differ.">
+    <Section title="Servers disagree" aside="Each server's reported configuration and metadata. A differing creation timestamp alone does not establish its cause or replica health.">
       <div className="card table-wrap disagree">
         <table className="tbl">
           <thead>
@@ -151,7 +153,7 @@ export function Disagreements({ items }: { items: Disagreement[] }) {
           <tbody>
             {items.map((d) => (
               <tr key={d.field}>
-                <td className="mono">{d.field}</td>
+                <td className="mono">{d.field === "created" ? "Reported creation time" : d.field}</td>
                 {servers.map((s) => (
                   <td key={s} className="mono">
                     {d.values.find((v) => v.server === s)?.value ?? <Dash />}

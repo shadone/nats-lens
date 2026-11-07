@@ -15,14 +15,12 @@ import (
 // checks.include_tooling does not apply: hiding routine events only
 // changes what is shown.
 func (p *Provider) routineSQL() (string, []any) {
+	tooling, targs := p.eventToolingSQL("e.client_name", "e.client_host")
 	return `(list_contains(?::VARCHAR[], e.kind)
   OR (e.kind = ? AND coalesce(e.reason, '') = ''
     AND NOT regexp_matches(coalesce(json_extract_string(e.raw, '$.subject'), ''), ?))
-  OR (list_contains(?::VARCHAR[], e.kind)
-    AND (list_contains(?::VARCHAR[], coalesce(e.client_name, ''))
-      OR (? AND coalesce(e.client_host, '') IN ('127.0.0.1', '::1') AND coalesce(x.loopback_tooling, true)))))`,
-		[]any{api.RoutineKinds, api.AuditKind, api.MutatingAuditPattern, api.ToolingKinds, append([]string{}, p.ToolingNames...),
-			!p.LoopbackNotTooling}
+  OR (list_contains(?::VARCHAR[], e.kind) AND ` + tooling + `))`,
+		append([]any{api.RoutineKinds, api.AuditKind, api.MutatingAuditPattern, api.ToolingKinds}, targs...)
 }
 
 // richEvents is the CTE b: the events that match req, with the column

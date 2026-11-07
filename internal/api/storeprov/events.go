@@ -56,7 +56,7 @@ func severityOf(kind, reason, consumer string) v1.Severity {
 	case kind == "consumer.deleted", kind == "stream.deleted", strings.HasSuffix(kind, ".quorum_lost"),
 		kind == "server.shutdown", kind == "server.out_of_storage", kind == "collector.gap":
 		return v1.Severity_SEVERITY_CRITICAL
-	case kind == "server.lameduck", kind == "consumer.max_deliveries", kind == "consumer.terminated",
+	case kind == "server.ocsp_peer_rejected", kind == "server.lameduck", kind == "consumer.max_deliveries", kind == "consumer.terminated",
 		kind == "jetstream.api_limit_reached", kind == "collector.disconnected", kind == "collector.messages_dropped",
 		kind == "client.disconnect" && strings.Contains(strings.ToLower(reason), "slow consumer"):
 		return v1.Severity_SEVERITY_WARNING
@@ -306,15 +306,12 @@ func (p *Provider) GetEvent(ctx context.Context, req *v1.GetEventRequest) (*v1.G
 }
 
 // laneKinds are the NATS events worth drawing on the timeline; findingKinds
-// the finding transitions, which have a limit of their own so that a burst
-// of findings cannot push the NATS events out of the lane.
+// the finding transitions and acknowledgements, which have a limit of
+// their own so that a burst of findings cannot push the NATS events out of
+// the lane.
 var (
-	laneKinds = []string{
-		"stream.created", "stream.deleted", "stream.leader_elected", "stream.quorum_lost",
-		"consumer.created", "consumer.deleted", "consumer.leader_elected", "consumer.quorum_lost",
-		"meta.leader_elected", "server.lameduck", "server.shutdown", "server.out_of_storage", "collector.gap",
-	}
-	findingKinds = []string{"finding.firing", "finding.changed", "finding.resolved"}
+	laneKinds    = api.NATSLaneKinds
+	findingKinds = []string{"finding.firing", "finding.changed", "finding.resolved", store.AckEventKind}
 )
 
 // laneEvents reads the newest laneLimit events of the kinds in the range,

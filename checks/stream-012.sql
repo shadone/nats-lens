@@ -44,7 +44,7 @@ diff AS (
         CASE WHEN i.max_msgs IS NOT NULL AND i.max_msgs <> o.max_msgs THEN 'max_msgs ' || o.max_msgs || ' (inventory ' || i.max_msgs || ')' END,
         CASE WHEN i.max_msgs_per_subject IS NOT NULL AND i.max_msgs_per_subject <> o.max_msgs_per_subject
             THEN 'max_msgs_per_subject ' || o.max_msgs_per_subject || ' (inventory ' || i.max_msgs_per_subject || ')' END
-    ], x -> x IS NOT NULL) AS differ,
+    ], lambda x: x IS NOT NULL) AS differ,
     json_object('replicas', CAST(i.replicas AS VARCHAR), 'retention', i.retention, 'storage', i.storage, 'discard', i.discard,
         'max_age', ns_text(i.max_age_ns), 'max_bytes', CAST(i.max_bytes AS VARCHAR), 'max_msgs', CAST(i.max_msgs AS VARCHAR),
         'max_msgs_per_subject', CAST(i.max_msgs_per_subject AS VARCHAR)) AS expected

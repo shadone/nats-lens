@@ -71,6 +71,17 @@ func TestArchiveRoundTrip(t *testing.T) {
 		if _, err := st.ApplyCheckRuns(ctx, epoch, []store.CheckRun{{Code: "stream-001", EntityType: "stream", Status: store.RunOK, Rows: rows}}); err != nil {
 			t.Fatal(err)
 		}
+		// B is acknowledged twice while it fires, the second replacing
+		// the first. Their events are in the open hour, which is not
+		// exported; the table is exported whole.
+		if epoch == 3 {
+			for _, by := range []string{"alice@example.com", "bob@example.com"} {
+				if _, err := st.Acknowledge(ctx, store.Ack{FindingID: "stream-001:APP/b", AckedBy: by, Note: "on it",
+					CreatedAt: h2.Add(30 * time.Second), QuietUntil: h2.Add(time.Hour)}); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
 	}
 	if err := st.WriteEvents(ctx, []events.Event{
 		event(h0.Add(time.Minute), "client.connect"), event(h1.Add(59*time.Minute), "consumer.deleted"),
@@ -151,7 +162,9 @@ func TestArchiveRoundTrip(t *testing.T) {
 		switch table {
 		case "events":
 			where = `received_at < '2026-10-17 00:00:00'`
-		case "servers", "accounts", "streams", "consumers", "raft_groups", "stream_config", "consumer_config", "mutes", "findings":
+		case "micro_endpoint_hours", "client_app_hours":
+			where = `hour < '2026-10-17 00:00:00'`
+		case "servers", "accounts", "streams", "consumers", "raft_groups", "stream_config", "consumer_config", "mutes", "findings", "acknowledgements":
 			where = "true"
 		}
 		missing := scalar[int](t, rb, `SELECT count(*) FROM (SELECT * FROM orig.`+table+` WHERE `+where+` EXCEPT ALL SELECT * FROM `+table+`)`)
@@ -192,6 +205,9 @@ AND hour IN ('2026-10-16 22:00:00', '2026-10-16 23:00:00')`); n != 2 {
 	}
 	if n := scalar[int](t, rb, `SELECT count(*) FROM mutes WHERE unmuted_by = 'lead'`); n != 1 {
 		t.Errorf("lifted mutes after rebuild = %d, want 1", n)
+	}
+	if n := scalar[int](t, rb, `SELECT count(*) FROM acknowledgements WHERE end_reason = 'replaced'`); n != 1 {
+		t.Errorf("replaced acknowledgements after rebuild = %d, want 1", n)
 	}
 	if n := scalar[int](t, rb, `SELECT count(*) FROM finding_transitions`); n != 4 {
 		t.Errorf("transitions after rebuild = %d, want the 4 of the closed hours", n)

@@ -72,7 +72,8 @@ func (e *eventConn) current() *nats.Conn {
 	return e.nc
 }
 
-// keep redials the connection whenever it closes, until ctx is done. The
+// keep redials the connection whenever it closes, or dials it when it has
+// none because its first dial failed, until ctx is done. The
 // wait doubles with every redial and starts over only after a reopened
 // connection lasted backoff.reset; a failing dial never resets it.
 func (e *eventConn) keep(ctx context.Context, poll time.Duration) {
@@ -82,8 +83,9 @@ func (e *eventConn) keep(ctx context.Context, poll time.Duration) {
 	}
 	wait := b.first
 	var opened time.Time // last successful reopen; zero before any
+	failed := false      // the last dial failed and said so
 	for {
-		for nc := e.current(); nc == nil || !nc.IsClosed(); nc = e.current() {
+		for nc := e.current(); nc != nil && !nc.IsClosed(); nc = e.current() {
 			select {
 			case <-ctx.Done():
 				return
@@ -94,7 +96,15 @@ func (e *eventConn) keep(ctx context.Context, poll time.Duration) {
 			wait = b.first
 		}
 		opened = time.Time{}
-		e.log.Warn("connection closed; dialling again", "connection", e.label, "in", wait)
+		// One line per dial: before the first, why it is dialled; after a
+		// failed one, its error with the wait before the next.
+		switch {
+		case failed:
+		case e.current() == nil:
+			e.log.Warn("connection not open; dialling", "connection", e.label, "in", wait)
+		default:
+			e.log.Warn("connection closed; dialling again", "connection", e.label, "in", wait)
+		}
 		select {
 		case <-ctx.Done():
 			return
@@ -102,9 +112,11 @@ func (e *eventConn) keep(ctx context.Context, poll time.Duration) {
 		}
 		wait = min(2*wait, b.max)
 		if err := e.open(); err != nil {
-			e.log.Error("connection not reopened", "connection", e.label, "err", err)
+			e.log.Warn("connection not opened; dialling again", "connection", e.label, "err", err, "in", wait)
+			failed = true
 			continue
 		}
+		failed = false
 		opened = time.Now()
 		if e.reopened != nil {
 			e.reopened(e.current())

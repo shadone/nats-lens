@@ -2,7 +2,7 @@
 // worth reading (routine events hidden, repeats folded), with a histogram,
 // counts per source and server, and new events held behind a pill. ?id=
 // opens one event on top.
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEventFeed, useNewEvents, type EventFeed, type FeedFilter } from "../api/events";
@@ -13,10 +13,10 @@ import { usePager } from "../components/EntityParts";
 import { EventFacets, SOURCES } from "../components/EventFacets";
 import { EventHistogram } from "../components/EventHistogram";
 import { EventRow } from "../components/EventRow";
-import { fmtInt } from "../lib/format";
+import { fmtInt, upperFirst } from "../lib/format";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useSystem } from "../lib/useSystem";
-import { rangeKey } from "../lib/timeRange";
+import { rangeKey, rangeLabel, type RangeSpec } from "../lib/timeRange";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
 import { entityKeyLabel, withAccountName } from "../lib/view";
 
@@ -76,6 +76,7 @@ function RoutineLine({ feed, onShow }: { feed: EventFeed; onShow: () => void }) 
 
 /** The counts are on the toggle above; the pager names only the page. */
 function FeedPager({ page, feed, onNext, onPrev }: { page: number; feed: EventFeed; onNext: () => void; onPrev: () => void }) {
+  if (page <= 1 && !feed.nextPageToken) return null;
   return (
     <nav className="pager" aria-label="Pagination">
       <span>page {page}</span>
@@ -88,6 +89,43 @@ function FeedPager({ page, feed, onNext, onPrev }: { page: number; feed: EventFe
         </button>
       </span>
     </nav>
+  );
+}
+
+/** Describe only what the feed establishes, never infer a client's capture gap. */
+function EmptyFeed({ feed, filter, spec, system, page, clearClient, showRoutine }: {
+  feed: EventFeed; filter: FeedFilter; spec: RangeSpec; system: string; page: number;
+  clearClient: () => void; showRoutine: () => void;
+}) {
+  const hidden = filter.worthReading && feed.routineHidden > 0;
+  const title = page > 1 ? "No more events on this page" : hidden ? "Matching events are hidden as routine"
+    : feed.totalUnfiltered === 0 ? "No events captured in this range" : "No events match these filters";
+  const range = spec.kind === "live" ? rangeLabel(spec) : `${new Date(feed.start).toISOString()} to ${new Date(feed.end).toISOString()}`;
+  return (
+    <section aria-label={title}>
+      <Empty>
+        <div>
+          <h2>{title}</h2>
+          <p>System: <code>{system || "default"}</code>. Range: {range}.</p>
+          {filter.clientName && <p>Client: <code>{filter.clientName}</code>.</p>}
+          {(filter.sources.length > 0 || filter.kinds.length > 0 || filter.entity) && (
+            <p>Filters: {[filter.sources.join(", "), filter.kinds.join(", "), filter.entity && `${filter.entity.kind}: ${entityKeyLabel(filter.entity)}`].filter(Boolean).join(" · ")}.</p>
+          )}
+          {page > 1 ? <p>Use Newer to return to the preceding page.</p> : hidden ? (
+            <p>{fmtInt(feed.routineHidden)} matching events are captured in this range, but hidden in Worth reading.</p>
+          ) : (
+            <>
+              <p>{feed.totalUnfiltered === 0 ? "This system has no captured events in the selected range." : "Captured events exist in this range, but none match the active filters, including routine events."} Try a wider range using the time range control, or adjust the filters below.</p>
+              {filter.clientName && <p>Connections shows a connection snapshot; Events shows captured event history. A connection may have opened before capture began, or its events may fall outside this range. An empty history does not mean the client does not exist or that nothing happened.</p>}
+            </>
+          )}
+          <div className="btns">
+            {hidden && page === 1 && <button type="button" className="btn p" onClick={showRoutine}>Show routine events</button>}
+            {filter.clientName && <button type="button" className="btn" onClick={clearClient}>Clear client filter</button>}
+          </div>
+        </div>
+      </Empty>
+    </section>
   );
 }
 
@@ -108,12 +146,19 @@ export function Events() {
   const pager = usePager([sys, sources.join(), kinds.join(), fromParams?.key, client, worthReading, rangeKey(spec)].join("|"));
   const filter: FeedFilter = { sources, kinds, entity: fromParams, clientName: client, worthReading, pageSize: 50, pageToken: pager.token };
   const q = useEventFeed(spec, filter);
+  // Placeholder results belong to a previous filter. A failed empty refresh
+  // cannot establish an empty result either; show the error and Retry instead.
+  const feed = !q.isPlaceholderData && !(q.error && q.data?.items.length === 0) ? q.data : undefined;
   const fresh = useNewEvents(spec, filter, q.data && !q.isPlaceholderData ? q.data : undefined);
   // The URL holds the account ID; the loaded events name it.
   const entity = fromParams && withAccountName(fromParams, q.data?.items ?? []);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [kindText, setKindText] = useState(kinds.join(", "));
   const [clientText, setClientText] = useState(client);
+
+  useEffect(() => setClientText(client), [client]);
+  const kindsKey = kinds.join(", ");
+  useEffect(() => setKindText(kindsKey), [kindsKey]);
 
   const setParam = (k: string, v: string) =>
     setParams((p) => {
@@ -122,6 +167,11 @@ export function Events() {
       else n.delete(k);
       return n;
     });
+  const clearClient = () => {
+    setClientText("");
+    setParam("client", "");
+  };
+  const showRoutine = () => setParam("show", "all");
   const toggleSource = (sid: string) => {
     const next = srcIds.includes(sid) ? srcIds.filter((x) => x !== sid) : [...srcIds, sid];
     setParam("src", next.join(","));
@@ -159,10 +209,11 @@ export function Events() {
         <span className="aside">NATS advisories, Kubernetes events, finding transitions and the collector's own records, newest first.</span>
       </div>
       {id && <OneEvent id={id} end={end} />}
-      {q.data && <EventHistogram buckets={q.data.histogram} start={q.data.start} end={q.data.end} live={spec.kind === "live"} worthReading={worthReading} />}
-      {q.data && (
+      {feed && feed.items.length === 0 && <EmptyFeed feed={feed} filter={filter} spec={spec} system={sys} page={pager.page} clearClient={clearClient} showRoutine={showRoutine} />}
+      {feed && feed.histogram.some((b) => b.warning + b.notable + b.routine > 0) && <EventHistogram buckets={feed.histogram} start={feed.start} end={feed.end} live={spec.kind === "live"} worthReading={worthReading} />}
+      {feed && (
         <EventFacets
-          feed={q.data}
+          feed={feed}
           worthReading={worthReading}
           setWorthReading={(on) => setParam("show", on ? "" : "all")}
           srcIds={srcIds}
@@ -183,7 +234,7 @@ export function Events() {
         </form>
         {entity && entity.kind !== "server" && (
           <span className="grp">
-            <span className="lbl">{entity.kind}</span>
+            <span className="lbl">{upperFirst(entity.kind)}</span>
             <span className="mono" title={entity.key}>{entityKeyLabel(entity)}</span>
             <button type="button" className="chip" onClick={() => setServer("")}>
               Clear
@@ -191,7 +242,7 @@ export function Events() {
           </span>
         )}
       </div>
-      {q.data && worthReading && <RoutineLine feed={q.data} onShow={() => setParam("show", "all")} />}
+      {feed && worthReading && <RoutineLine feed={feed} onShow={showRoutine} />}
       {/* Mounted always, so a screen reader hears the pill when it appears. */}
       <div className="ev-new" role="status" aria-live="polite">
         {fresh > 0 && (
@@ -200,14 +251,10 @@ export function Events() {
           </button>
         )}
       </div>
-      <QueryView q={q} what="events">
+      <QueryView q={{ ...q, data: feed }} what="events">
         {(page) => (
-          <div className="card evlist">
-            {page.items.length === 0 ? (
-              <Empty>No events match in this range.</Empty>
-            ) : (
-              page.items.map((e) => <EventRow key={e.id} e={e} end={end} open={open.has(e.id)} onToggle={() => toggle(e.id)} />)
-            )}
+          <div className={page.items.length || pager.page > 1 || page.nextPageToken ? "card evlist" : undefined}>
+            {page.items.map((e) => <EventRow key={e.id} e={e} end={end} open={open.has(e.id)} onToggle={() => toggle(e.id)} />)}
             <FeedPager page={pager.page} feed={page} onNext={() => pager.next(page.nextPageToken)} onPrev={pager.prev} />
           </div>
         )}

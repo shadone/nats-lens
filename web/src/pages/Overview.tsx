@@ -4,17 +4,19 @@
 import { useState } from "react";
 import type { Finding } from "../api/model";
 import { CURRENT_FINDINGS_LIMIT, useBusiestConsumers, useCurrentFindings, useStreamPlacement } from "../api/overview";
-import { useOverview, useTimeline } from "../api/queries";
+import { useDataHistory, useLensInfo, useOverview, useTimeline } from "../api/queries";
 import { BusiestConsumers } from "../components/BusiestConsumers";
 import { CauseGroups } from "../components/CauseGroups";
 import { Empty, ErrorBox, Loading, QueryView, RLink, StaleBanner } from "../components/common";
 import { MuteDialog } from "../components/MuteDialog";
 import { StatusLine } from "../components/StatusLine";
+import { WindowReplayEntries } from "../components/ReplayEntry";
 import { StoryLanes } from "../components/StoryLanes";
 import { StreamPlacementCard } from "../components/StreamPlacementCard";
 import { OverviewTiles } from "../components/OverviewTiles";
 import { Trends } from "../components/Trends";
 import { groupCauses } from "../lib/causeGroups";
+import { serverNow } from "../lib/clock";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useAccountScope } from "../lib/useSystem";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
@@ -42,6 +44,7 @@ function Story({ end }: { end: number }) {
   const { spec } = useTimeRange();
   const q = useTimeline(spec);
   const tl = q.data;
+  const info = useLensInfo().data;
   return (
     <section className="sec">
       <div className="card story-card">
@@ -54,7 +57,7 @@ function Story({ end }: { end: number }) {
           </span>
         </div>
         <QueryView q={q} what="the timeline">
-          {(t) => <StoryLanes tl={t} end={end} live={spec.kind === "live"} />}
+          {(t) => <><StoryLanes tl={t} end={end} live={spec.kind === "live"} /><WindowReplayEntries windows={t.windows} now={serverNow()} minGapMs={info?.collectIntervalMs || 30_000} /></>}
         </QueryView>
       </div>
     </section>
@@ -99,28 +102,38 @@ export function Overview() {
   usePageTitle("Overview");
   const { spec } = useTimeRange();
   const q = useOverview(spec);
+  // The tiles decide on their charts from the range's gaps: asked with the
+  // overview, under the charts' key, so they load together.
+  useDataHistory(spec);
   const fallback = useResolvedRange(spec);
   const [muting, setMuting] = useState<Finding>();
   if (!q.data) return q.error ? <ErrorBox error={q.error} retry={() => q.refetch()} what="the overview" /> : <Loading what="the overview" />;
   const o = q.data;
-  const start = o.range?.start ?? fallback.start;
-  const end = o.range?.end ?? fallback.end;
+  const start = fallback.start;
+  const end = fallback.end;
   return (
     <>
       <StaleBanner q={q} />
-      <StatusLine tally={o.tally} freshness={o.freshness} live={spec.kind === "live"} now={Date.now()} />
-      <section className="sec" aria-label="Health">
+      <div className="ov-phone-order">
+      <StatusLine tally={o.tally} freshness={o.freshness} live={spec.kind === "live"} now={serverNow()} />
+      <section className="sec ov-health" aria-label="Health">
+        <div className="sec-h"><h2>System summary</h2></div>
+        <p className="muted-note">Latest available counts and reports, with history over the selected range.</p>
         {o.tiles.length ? <OverviewTiles tiles={o.tiles} windows={o.windows} start={start} end={end} /> : <Empty>No collection stored in this range yet.</Empty>}
       </section>
-      <Causes onMute={setMuting} />
+      <div className="ov-causes"><Causes onMute={setMuting} /></div>
+      <div className="ov-rest">
       <section className="sec">
         <div className="sec-h">
-          <h2>Trends</h2>
+          <h2>Detailed trends</h2>
         </div>
+        <p className="muted-note">Traffic rates, event totals, server spread, and replica counts over the selected range. Hover or touch a chart to inspect a bucket, or focus it and use arrow keys.</p>
         <Trends spec={spec} start={start} end={end} />
       </section>
       <Story end={end} />
       <Lower start={start} end={end} />
+      </div>
+      </div>
       <MuteDialog finding={muting} onClose={() => setMuting(undefined)} />
     </>
   );
