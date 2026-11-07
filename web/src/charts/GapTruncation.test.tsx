@@ -48,3 +48,17 @@ it("reads an exact fixed chart domain even inside a larger selected range",async
  await waitFor(()=>expect(read).toHaveBeenCalledTimes(1));
  expect(read.mock.calls[0][1]).toEqual({kind:"fixed",from:NOW-H,to:NOW});
 });
+it.each([false,true])("tells the reader history gaps are loading in HTML text outside the stretched SVG (trend %s)",async(trend)=>{
+ let answer!:(v:ReturnType<typeof staging>)=>void;
+ read.mockImplementation(()=>new Promise(yes=>{answer=yes}));
+ const r=renderApp(<Charts trend={trend}/>,"/?range=24h");
+ const status=await screen.findByRole("status");
+ expect(status).toHaveTextContent("History gaps loading");
+ expect(status.closest("svg")).toBeNull();
+ expect(status.namespaceURI).toBe("http://www.w3.org/1999/xhtml");
+ answer({...staging(),rangeStart:NOW-H,rangeEnd:NOW,gaps:[]});
+ await waitFor(()=>expect(screen.queryByRole("status")).not.toBeInTheDocument());
+ // beforeEach returns the mock, and Vitest calls it after the test as a teardown.
+ read.mockReset();
+ r.unmount();
+});

@@ -8,7 +8,7 @@ import { rangeCoverageText } from "../lib/historyView";
 // spans the data's own range with a margin. A gap in the data
 // of more than two steps breaks the line, since a bucket without data has
 // no point. The legend draws each layer's own mark.
-import { ChartHistoryNotice, HistoryGaps } from "../charts/HistoryGaps";
+import { ChartHistoryNotice, ChartHistoryStatus, HistoryGaps } from "../charts/HistoryGaps";
 import type { Point } from "../api/model";
 import { chartName, rangeText } from "../charts/chartLabel";
 import { dayMonHm } from "../lib/format";
@@ -140,6 +140,7 @@ export function TrendChart({ title, to, bucketNote, fmt = String, now, summary, 
             );
           })}
         </svg>
+        <ChartHistoryStatus start={start} end={end} />
         </ChartInspection>
       )}
       <ChartHistoryNotice start={start} end={end} />
