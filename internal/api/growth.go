@@ -12,13 +12,13 @@ const MinGrowthSpan = 6 * time.Hour
 
 // GrowthStart bounds the growth-only lookback. The selected range must
 // itself be at least six hours; shorter ranges never borrow old data.
-// One collection interval (at most five minutes) lets a half-open range
-// include the observation just before its start. No future endpoint is read.
+// Two collection intervals (at most five minutes) let a half-open range
+// include a predecessor despite small boundary jitter. No future endpoint is read.
 func GrowthStart(start, end time.Time, interval time.Duration) time.Time {
 	if end.Sub(start) < MinGrowthSpan || interval <= 0 {
 		return start
 	}
-	return start.Add(-min(interval, 5*time.Minute))
+	return start.Add(-2 * min(interval, 5*time.Minute/2))
 }
 
 // GrowthBuckets is the most points the slope is computed over; longer
