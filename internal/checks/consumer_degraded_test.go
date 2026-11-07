@@ -83,7 +83,7 @@ func TestConsumerReplicaDegradedBoundaries(t *testing.T) {
 
 func TestConsumerReplicaDegradedHistory(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "replicas.duckdb")
-	f := degradedFixture(t, 9, path)
+	f := degradedFixture(t, 10, path)
 	set, err := Load(config.Checks{Timeout: config.Duration(10 * time.Second)})
 	if err != nil {
 		t.Fatal(err)
@@ -102,7 +102,12 @@ func TestConsumerReplicaDegradedHistory(t *testing.T) {
 	run(4)
 	eng.Budget = 0
 	// A failing/skipped run leaves findings untouched. An unknown successful run holds.
+	check, _ := set.Lookup("consumer-018")
+	sql := check.SQL
+	check.SQL = "SELECT missing_column"
 	run(5)
+	check.SQL = sql
+	run(6)
 	if err := f.st.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -120,6 +125,7 @@ func TestConsumerReplicaDegradedHistory(t *testing.T) {
 	run(7)
 	f.fires("consumer-018", 8)
 	f.fires("consumer-018", 9)
+	f.fires("consumer-018", 10, "APP/jobs/bad")
 	// A historical read does not borrow future finding state.
 	f.fires("consumer-018", 2)
 }
@@ -138,7 +144,9 @@ func TestConsumerReplicaDegradedQuorumSizes(t *testing.T) {
 						if i >= 3 && e == 1 {
 							f.server(id, name, 1, 3, t0.Add(-time.Hour), "2.15.0")
 						}
-						f.consumerStats(e, id, "jobs", "bad", m{"leader": "nats-0"})
+						if i > off {
+							f.consumerStats(e, id, "jobs", "bad", m{"leader": "nats-0"})
+						}
 						f.consumerReplica(e, "S0", "jobs", "bad", name, m{"offline": i <= off, "current": i > off, "pending": false})
 					}
 				}
@@ -168,7 +176,7 @@ func TestConsumerReplicaDegradedRestartAndConfig(t *testing.T) {
 func TestConsumerReplicaDegradedScale(t *testing.T) {
 	f := degradedFixture(t, 3)
 	// 10,000 consumers, 30,000 observations and 60,000 peer facts in the bounded window;
-	// 100 old epochs add 1,000,000 unrelated observations that must not widen the window.
+	// 100 old epochs add 3,000,000 unrelated observations that must not widen the window.
 	f.exec(`INSERT INTO consumer_config SELECT consumer_config.* REPLACE ('c'||i AS consumer) FROM consumer_config, range(10000) t(i) WHERE consumer='bad'`)
 	f.exec(`INSERT INTO consumer_stats SELECT consumer_stats.* REPLACE ('c'||i AS consumer) FROM consumer_stats, range(10000) t(i) WHERE consumer='bad' AND is_leader`)
 	f.exec(`INSERT INTO consumer_stats SELECT consumer_stats.* REPLACE (epoch-100 AS epoch, 'old'||i AS consumer) FROM consumer_stats, range(100) t(i) WHERE consumer LIKE 'c%'`)
@@ -183,5 +191,30 @@ func TestConsumerReplicaDegradedScale(t *testing.T) {
 	t.Logf("10,000 consumers plus 3 million old reports: %s", elapsed)
 	if elapsed > 4*time.Second {
 		t.Fatalf("batch query took %s; budget 4s", elapsed)
+	}
+}
+
+func TestConsumerReplicaDegradedCriticalSuppression(t *testing.T) {
+	f := degradedFixture(t, 5)
+	set, err := Load(config.Checks{Timeout: config.Duration(10 * time.Second)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	eng := &Engine{Set: set, Interval: 30 * time.Second, only: map[string]bool{"consumer-001": true, "consumer-018": true}}
+	if _, err := eng.Run(context.Background(), f.st, 3); err != nil {
+		t.Fatal(err)
+	}
+	f.exec(`UPDATE consumer_stats SET leader=NULL,is_leader=false WHERE epoch>=4 AND consumer='bad'`)
+	runs, err := eng.Evaluate(context.Background(), f.st.DB(), 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range runs {
+		if r.Code == "consumer-018" && len(r.Rows) > 0 {
+			t.Fatal("warning duplicates critical quorum finding")
+		}
+		if r.Code == "consumer-001" && len(r.Rows) != 1 {
+			t.Fatalf("quorum findings: %v", r.Rows)
+		}
 	}
 }
