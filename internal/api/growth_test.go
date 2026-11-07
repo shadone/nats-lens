@@ -71,7 +71,7 @@ func TestGrowthLookbackBounds(t *testing.T) {
 	end := time.Date(2026, 10, 17, 14, 0, 0, 0, time.UTC)
 	for _, tc := range []struct{ span, interval, extra time.Duration }{
 		{time.Hour, 30 * time.Second, 0}, {MinGrowthSpan - time.Nanosecond, time.Minute, 0},
-		{MinGrowthSpan, 30 * time.Second, 30 * time.Second}, {7 * time.Hour, 10 * time.Minute, 5 * time.Minute},
+		{MinGrowthSpan, 30 * time.Second, time.Minute}, {7 * time.Hour, 10 * time.Minute, 5 * time.Minute},
 		{24 * time.Hour, 0, 0}, {24 * time.Hour, -time.Second, 0},
 	} {
 		start := end.Add(-tc.span)
