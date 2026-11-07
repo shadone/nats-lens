@@ -67,7 +67,7 @@ export function entityPath(e: Entity | undefined): string | undefined {
   if (!e) return undefined;
   switch (e.kind) {
     case "stream":
-      return `/streams/${enc(e.account)}/${enc(e.stream)}`;
+      return streamPath(e.account, e.stream);
     case "consumer":
       return `/consumers/${enc(e.account)}/${enc(e.stream)}/${enc(e.consumer)}`;
     case "server":
@@ -81,7 +81,20 @@ export function entityPath(e: Entity | undefined): string | undefined {
   }
 }
 
+/** Reserved stream names identify resource buckets throughout navigation. */
+export function bucketResource(stream: string): { kind: "kv" | "object"; bucket: string; list: string; label: string } | undefined {
+  if (stream.startsWith("KV_") && stream.length > 3) return { kind: "kv", bucket: stream.slice(3), list: "/kv-stores", label: "KV bucket" };
+  if (stream.startsWith("OBJ_") && stream.length > 4) return { kind: "object", bucket: stream.slice(4), list: "/object-stores", label: "Object store" };
+  return undefined;
+}
+
+export function streamLabel(stream: string): string {
+  return bucketResource(stream)?.bucket ?? stream;
+}
+
 export function streamPath(account: string, stream: string): string {
+  const bucket = bucketResource(stream);
+  if (bucket) return `${bucket.list}/${enc(account)}/${enc(bucket.bucket)}`;
   return `/streams/${enc(account)}/${enc(stream)}`;
 }
 
