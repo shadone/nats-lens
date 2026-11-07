@@ -220,3 +220,36 @@ it("explains missing growth once for the page and discloses the bounded read", a
   expect(screen.queryAllByRole("link", { name: /needs samples spanning 6 h/ })).toHaveLength(0);
   expect(screen.getAllByText("growth unavailable").length).toBeGreaterThan(0);
 });
+
+it("qualifies missing boundary or entity observations once alongside available rates", async () => {
+  const d = prod();
+  d.servers[0].perDay = undefined;
+  d.streams[0].bytesPerDay = undefined;
+  getCapacity.mockResolvedValue(d);
+  const end = Date.parse("2026-10-17T14:30:00Z");
+  renderApp(<HistoryContext.Provider value={{ start: end - 6 * 3_600_000, end, live: true, historyStart: end - 24 * 3_600_000 }}><Capacity /></HistoryContext.Provider>);
+  expect(await screen.findByText(/boundary observations or entity measurements may be missing/)).toBeInTheDocument();
+  expect(screen.getAllByText(/boundary observations or entity measurements may be missing/)).toHaveLength(1);
+  expect(screen.getByText(/Collection bounds:.*entity spans may be shorter/)).toBeInTheDocument();
+  expect(screen.queryByText(/less than 6 h of retained history/)).not.toBeInTheDocument();
+});
+
+it("asks for a longer range once without borrowing older history into short ranges", async () => {
+  const d = prod();
+  d.servers.forEach((s) => { s.perDay = undefined; });
+  d.streams.forEach((s) => { s.bytesPerDay = undefined; });
+  getCapacity.mockResolvedValue(d);
+  const end = Date.parse("2026-10-17T14:30:00Z");
+  renderApp(<HistoryContext.Provider value={{ start: end - 3_600_000, end, live: false, historyStart: end - 24 * 3_600_000 }}><Capacity /></HistoryContext.Provider>);
+  expect(await screen.findByText(/choose a range of at least 6 h/)).toBeInTheDocument();
+  expect(screen.getAllByText(/choose a range of at least 6 h/)).toHaveLength(1);
+});
+
+it("discloses collection bounds to the second around the six-hour boundary", async () => {
+  const d = prod();
+  d.growthFrom = Date.parse("2026-10-17T08:00:15Z");
+  d.epochAt = Date.parse("2026-10-17T14:00:30Z");
+  getCapacity.mockResolvedValue(d);
+  renderApp(<Capacity />);
+  expect(await screen.findByText(/Collection bounds: 2026-10-17 08:00:15 to 2026-10-17 14:00:30 UTC/)).toBeInTheDocument();
+});
