@@ -10,7 +10,7 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 
 ## Behavior and rules
 
-- **Page position and focus.** Opening a new path starts at the top and focuses its heading when available. Range, account, system, and filter query changes keep the reading position and focus. Browser Back and Forward restore the position saved for that history entry, including after delayed content arrives. Explicit fragment links scroll to and focus their target. Pending restoration stops when the reader takes control, or after ten seconds. Position history lasts while the UI stays open and keeps up to 100 entries.
+- **Page position and focus.** Opening a new path starts at the top and focuses its heading when available. Range, account, system, and filter query changes keep the reading position and focus. Browser Back and Forward restore the position saved for that history entry, including after delayed content arrives. A saved Back or Forward position takes priority over the entry’s fragment. New fragment navigation and initial fragment links scroll to and focus their target. Pending restoration stops when the reader takes control, or after ten seconds. Position history lasts while the UI stays open and keeps up to 100 entries.
 
 - **Replay entry links.** Overview observed windows and finding details open [Replay](replay.md) with explicit A/B and a fixed range, retaining the system and using the shared account policy (Replay is system-wide). Links support keyboard and native modified-click navigation.
 
@@ -140,6 +140,14 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 - **Then** the UI keeps my reading position and focus
 - **When** I follow an explicit fragment link
 - **Then** the UI scrolls to and focuses the fragment target
+
+### Return to a fragment entry
+
+- **Surfaces:** `ui`
+- **Given** I opened a fragment link and then scrolled to another position
+- **When** I open another page and use browser Back
+- **Then** the UI restores my saved reading position, including after delayed content arrives
+- **And** the original fragment does not move me away from that position
 
 ## Planned
 
