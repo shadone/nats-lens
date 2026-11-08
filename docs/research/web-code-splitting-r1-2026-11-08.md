@@ -31,7 +31,7 @@ Streams, Checks, Consumers, Capacity, resource details, Servers, Findings, Event
 | Eight views, automatic grouping | 1,043,186 | 2 | 725,185 | 10 |
 | Proposed final, canonical service selection key | 1,043,219 | 2 | 725,218 | 10 |
 
-These are separate build experiments, not a single timing series. The three-view prototype saved only 3.1%. The broader prototype introduced small splits and retained additional data-owning components behind code, so it was narrowed. The proposed eight views save **93,566 bytes (8.2%)** from the complete initial closure. In the grouping experiment, removing obsolete manual page-support grouping saves 1,483 bytes and one initial request; automatic grouping needs no tiny shared runtime request. 
+These are separate build experiments, not a single timing series. The three-view prototype saved only 3.1%. The broader prototype introduced small splits and retained additional data-owning components behind code, so it was narrowed. The proposed eight views save **93,566 bytes (8.2%)** from the complete initial closure. In the grouping experiment, removing obsolete manual page-support grouping saves 1,483 bytes and one initial request; automatic grouping needs no tiny shared runtime request.
 
 Initial JS consists of the 725,218-byte entry and its 318,001-byte shared static import. The eight deferred views range from 6,000 to 17,871 bytes; each first visit fetches one view, with common dependencies already present. No duplicate output module IDs were found. The service-selection parameter has one authoritative definition in the eager page and reaches its view through the model; this avoids both a copied key and new runtime import cycles.
 
