@@ -1,3 +1,4 @@
+import {MetricRankingPanel} from '../components/MetricRanking';
 import {useEffect,useState,type FormEvent} from 'react';
 import {Link,useLocation,useParams,useSearchParams} from 'react-router';
 import {useMetricComparison,type MetricComparison,type MetricComparisonRow} from '../api/metricComparison';
@@ -54,6 +55,7 @@ function MetricPage({f}:{f:MetricFamily}){
  {server&&<p>Selected server name: <strong>{server}</strong>. <Link className="x" to={`/metrics/${f.key}?${all}`}>Compare all server names</Link></p>}
  <form className="metric-tools" onSubmit={apply}><label>Filter server names<input value={text} onChange={e=>setText(e.target.value)} maxLength={512}/></label><button className="btn" type="submit">Apply filter</button><button className="btn" type="button" disabled={q.isFetching} onClick={()=>void q.refetch()}>Refresh observations</button></form>
  {f.summary==='rate'&&<p>Comparable counter increases are not a complete traffic volume: only valid report pairs wholly inside this interval contribute. Rates are not integrated; first reports, missing counters, resets, excessive gaps and pairs crossing the start are excluded. Comparison spans do not establish complete capture.</p>}
+ {!server&&<MetricRankingPanel metrics={f.metrics} kind="server" account={account} query={filter}/>}
  <QueryView q={q} what={`${f.title.toLowerCase()} observations`}>{d=>{
  const allowed=['name',...f.metrics.flatMap((_,i)=>[`latest-${i}`,`middle-${i}`,`maximum-${i}`])];const active=sort&&allowed.includes(sort.key)?sort:undefined;
  const rows=active?sortRows(d.rows,r=>{if(active.key==='name')return r.name;const [field,index]=active.key.split('-');const o=r.series[Number(index)]?.observations;return field==='latest'?o?.latest:field==='maximum'?o?.maximum:f.summary==='count'?o?.minimum:o?.mean},active.dir):d.rows;

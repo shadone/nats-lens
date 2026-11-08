@@ -21,3 +21,5 @@
 .metric-counter-note{margin-block:var(--sp-2);font-size:var(--fs-sm)}
 .metric-counter-note small{display:block;color:var(--text-muted)}
 .metric-table details{max-width:24rem;white-space:normal}
+
+.metric-ranking .metric-table time {display:inline-block;white-space:nowrap}
