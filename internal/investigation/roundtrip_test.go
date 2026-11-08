@@ -140,9 +140,16 @@ func TestBoundQueryIsReadOnlyValidatedData(t *testing.T) {
 
 func TestEmittedContextCannotExceedImportBudget(t *testing.T) {
 	c, _ := ContextFromURL("https://lens.example.com/", "https://lens.example.com", fixtureNow())
-	id := strings.Repeat("x", 256)
+	part := strings.Repeat("x", 80)
 	for i := 0; i < 32; i++ {
-		c.Series = append(c.Series, SeriesReference{Label: "series", Metric: "consumer.delivered_rate", Entity: &Entity{Type: "ENTITY_TYPE_CONSUMER", Key: id, Account: id, Stream: id, Consumer: id, Server: id}})
+		c.Series = append(c.Series, SeriesReference{Label: strings.Repeat("s", 1024), Metric: "consumer.delivered_rate", Entity: &Entity{Type: "ENTITY_TYPE_CONSUMER", Key: part + "/" + part + "/" + part, Account: part, Stream: part, Consumer: part}})
+	}
+	input, _ := json.Marshal(c)
+	if len(input) > MaxInputBytes {
+		t.Fatal("fixture must be importable before request binding")
+	}
+	if _, err := ParseContext(strings.NewReader(string(input)), c.Deployment); err != nil {
+		t.Fatal(err)
 	}
 	req, _, err := Prepare("GetTimeSeriesBatch", c, nil)
 	if err != nil {
