@@ -10,6 +10,8 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 
 ## Behavior and rules
 
+- **Page loading and recovery.** Accounts, Applications, Connections, Data history, Micro services, Placement, Replay and Topology load their views when needed. Their scoped primary data reads start while the view code loads; other pages are available with the shell. While a view loads, the sidebar and header remain available, and a polite status announces “Loading page…”. If the view code fails, the page shows an alert and a **Reload page** link. The link reloads the full current address, including its range, system, account, and fragment. Navigating to another page clears the error for that destination.
+
 - **Bucket links.** KV and object-store links open dedicated bucket routes across resource surfaces. Legacy storage-stream links redirect to the bucket page with their query context; an explicitly labeled secondary action retains access to low-level stream diagnostics. See [KV and object stores](kv-and-object-stores.md).
 
 - **Page position and focus.** Opening a new path starts at the top and focuses its heading when available. Range, account, system, and filter query changes keep the reading position and focus. Browser Back and Forward restore the position saved for that history entry, including after delayed content arrives. A saved Back or Forward position takes priority over the entry’s fragment. Initial fragment links scroll to and focus their target. Following the same fragment link again also scrolls to and focuses its target. Query-only changes with an unchanged fragment keep the reading position. Pending restoration stops when the reader takes control, or after ten seconds. Position history lasts while the UI stays open and keeps up to 100 entries.
@@ -47,6 +49,20 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 
 - **Finding links from alerts.** `/findings/by-labels` reads URL-encoded `system`, `code`, and `entity_key`, then replaces the route with `/findings/<id>?system=<id>`. A missing finding opens Findings filtered to its check, with an explanation that it may have resolved and been swept. Both destinations retain the global time range, system, and account, dropping label-routing and unknown parameters. Other API failures remain errors. The same canonical finding URL shows the [phone card](mobile.md) at 760 px and below.
 ## Scenarios
+
+### Continue navigating while a view loads
+
+- **Given** the destination is one of the views that load on demand, and its code has not arrived
+- **When** I open that page
+- **Then** the sidebar and header remain available, and “Loading page…” is announced
+- **And** the destination appears when its code arrives
+
+### Recover when page code fails to load
+
+- **Given** a page's code request fails
+- **When** the error appears
+- **Then** an alert explains that the page could not load, and **Reload page** opens the full current address again
+- **And** I can use the sidebar to open another page
 
 ### Share what I am looking at
 

@@ -13,6 +13,7 @@ export default defineConfig({
     emptyOutDir: true,
     assetsDir: "assets",
     sourcemap: false,
+
   },
   server: {
     host: "127.0.0.1",

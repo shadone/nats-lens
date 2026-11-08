@@ -10,6 +10,8 @@ The Placement page, under JetStream in the sidebar, shows every stream and durab
 
 ## Behavior and rules
 
+- **First visit.** The page reads data for the current scope while its view loads. The shell stays available, with loading and reload recovery described in [navigation](navigation.md).
+
 - **Rows and columns.** Each stream, KV bucket and object store is a row, by account and name, with its durable consumers indented below it. Below the name the row says "durable" for a consumer, "KV bucket" or "object store", the configured replicas (`R3`), a stream's message count, and how many configured replicas no server names ("1 unplaced"). The name opens the asset's page. Each column is a server, with how many streams and consumers it leads, "meta leader", its memory and uptime, and "not answering" for a server that missed the collection. The server's name opens its page.
 - **Only the servers that matter.** The matrix shows the servers that hold a replica of a listed asset (or held one at the moment compared with) and says how many hold none, such as "The 3 servers that hold these replicas; 21 hold none." "Show all 24 servers" shows every column; the choice is in the address as `?servers=all`.
 - **One collection.** The matrix reads the newest collection in the page's range, as every list does, and the line above it names its time, such as "in the collection of 14:29:56 UTC". A range without a collection says "No collection in this range."

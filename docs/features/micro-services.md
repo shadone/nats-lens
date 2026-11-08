@@ -10,6 +10,8 @@ The Micro services page lists the services built on the NATS micro framework in 
 
 ## Behavior and rules
 
+- **First visit.** The page reads data for the current scope while its view loads. The shell stays available, with loading and reload recovery described in [navigation](navigation.md).
+
 - **One collection.** The page reads the newest collection at or before the end of the range, with the newest subscription collection within the 24 hours before it, as the Subjects page does. The line under the title names the collection's time. A past range works as a live one.
 - **Two levels.** A service of an account listed under `accounts` is asked: its card shows its versions, description, requests per second and errors. A service of any other account is seen in subscriptions only: its card reads "seen in subscriptions only", its rates are dashes heard as "not asked", and its note says "list the account under `accounts` for versions, endpoints and timings". Its section says how many instances the subscription list shows, on which connections, and how to see more.
 - **Grants.** To be asked, the account's user under `accounts` needs to publish on `$SRV.INFO` and `$SRV.STATS` and subscribe on `_INBOX.>` (see [running-nats-lens.md](running-nats-lens.md)). `micro: false` on an entry turns the asking off for that account.
