@@ -64,10 +64,18 @@ export function gapLabel(kind: GapKind): string {
   return GAP_LABEL[kind];
 }
 
-/** What else a row says: the connection lost, and that collections went on for the kinds charts do not hatch. */
+/**
+ * What else a row says, for the kinds charts do not hatch because
+ * collections went on: the NATS events missing, with the connection lost,
+ * or the Kubernetes changes that may be missing (a Kubernetes gap is
+ * recorded when any one of the pod, node or Event watches fails).
+ */
 export function gapDetail(g: HistoryGap): string | undefined {
-  if (g.kind === "eventsNotCaptured") return g.connection ? `connection ${g.connection}; collections went on` : "collections went on";
-  if (g.kind === "kubernetesNotWatched") return "collections went on";
+  if (g.kind === "eventsNotCaptured") {
+    const from = g.connection ? ` from connection ${g.connection}` : "";
+    return `NATS events${from} are missing; charts are not affected`;
+  }
+  if (g.kind === "kubernetesNotWatched") return "Pod, node or Kubernetes event changes may be missing; charts are not affected";
   return undefined;
 }
 
@@ -76,10 +84,10 @@ export function followsNow(rangeEnd: number, live: boolean, now: number): boolea
   return live || rangeEnd >= now;
 }
 
-/** The end of a gap: its time, else "still now" on a range that follows now, "after the range" on one that ended. */
+/** The end of a gap: its time, else "ongoing" on a range that follows now, "after the range" on one that ended. */
 export function gapEndText(g: HistoryGap, rangeEnd: number, live: boolean, now = serverNow()): string {
   if (g.end !== undefined) return gapTime(g.end, rangeEnd);
-  return followsNow(rangeEnd, live, now) ? "still now" : "after the range";
+  return followsNow(rangeEnd, live, now) ? "ongoing" : "after the range";
 }
 
 /** How long a gap lasted; an open one up to the range's end, "so far" or "at least". */

@@ -96,15 +96,16 @@ describe("gaps", () => {
     ]);
   });
 
-  it("says that collections went on only for the kinds charts do not hatch", () => {
-    expect(gapDetail(gap({ kind: "eventsNotCaptured", connection: "sys" }))).toBe("connection sys; collections went on");
-    expect(gapDetail(gap({ kind: "kubernetesNotWatched" }))).toBe("collections went on");
+  it("says what is missing, and that charts are not affected, only for the kinds charts do not hatch", () => {
+    expect(gapDetail(gap({ kind: "eventsNotCaptured", connection: "sys" }))).toBe("NATS events from connection sys are missing; charts are not affected");
+    expect(gapDetail(gap({ kind: "eventsNotCaptured" }))).toBe("NATS events are missing; charts are not affected");
+    expect(gapDetail(gap({ kind: "kubernetesNotWatched" }))).toBe("Pod, node or Kubernetes event changes may be missing; charts are not affected");
     expect(gapDetail(gap({ kind: "notRunning" }))).toBeUndefined();
   });
 
-  it("ends an open gap still now on a live range and after the range on a fixed one", () => {
+  it("ends an open gap ongoing on a live range and after the range on a fixed one", () => {
     const open = gap({ kind: "notConnected", start: NOW - 3 * HOUR });
-    expect(gapEndText(open, NOW, true, NOW)).toBe("still now");
+    expect(gapEndText(open, NOW, true, NOW)).toBe("ongoing");
     expect(gapEndText(open, NOW - HOUR, false, NOW)).toBe("after the range");
     expect(gapLengthText(open, NOW, true, NOW)).toBe("3 h so far");
     expect(gapLengthText(open, NOW - HOUR, false, NOW)).toBe("at least 2 h");
@@ -114,8 +115,8 @@ describe("gaps", () => {
 
   it("reads a fixed range that ends at or after now as one that follows now", () => {
     const open = gap({ kind: "notConnected", start: NOW - 3 * HOUR });
-    expect(gapEndText(open, NOW, false, NOW)).toBe("still now");
-    expect(gapEndText(open, NOW + HOUR, false, NOW)).toBe("still now");
+    expect(gapEndText(open, NOW, false, NOW)).toBe("ongoing");
+    expect(gapEndText(open, NOW + HOUR, false, NOW)).toBe("ongoing");
     expect(gapLengthText(open, NOW, false, NOW)).toBe("3 h so far");
     expect(gapName(open, NOW, false, NOW)).toMatch(/until now:/);
   });
