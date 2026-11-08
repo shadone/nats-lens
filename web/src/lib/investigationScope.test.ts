@@ -14,3 +14,10 @@ it("keeps a selected chart resource ahead of unrelated page selectors",()=>{
  const c=buildInvestigationContext({origin:"https://lens.example.com",pathname:"/events",search:"?consumer=OLD/stale/old",system:"shop",spec:{kind:"fixed",from:1000,to:3000},selection:{metric:"stream.bytes",entity:{kind:"stream",key:"APP/orders",account:"APP",stream:"orders",consumer:"",server:"",name:"orders"}}});
  expect(c.entity?.key).toBe("APP/orders");expect(c.account).toBe("APP");
 });
+it.each([
+ ["/consumers","?account=OTHER&stream=APP/orders&consumer=OLD/stale/old&server=old","APP","APP/orders"],
+ ["/connections","?account=OTHER&server=new&stream=APP/orders&consumer=APP/orders/worker","OTHER","new"],
+ ["/servers/slow-consumers","?account=OTHER&server=new&stream=APP/orders","OTHER","new"],
+])("infers only selectors the source page applies on %s",(path,search,account,key)=>{
+ const c=build(path,search);expect(c.entity?.key).toBe(key);expect(c.account).toBe(account);
+});
