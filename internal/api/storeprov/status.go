@@ -11,6 +11,7 @@ import (
 
 // ranFor reports whether every check of the entity types ran ok in an
 // epoch; a disabled check counts as ran, being a decision and not a gap.
+// With no entity types, coverage requires every configured check.
 type ranFor func(types ...string) bool
 
 // checksRan reads the epoch's check runs. Without a check set, a type
@@ -45,7 +46,7 @@ func (p *Provider) checksRan(ctx context.Context, epoch int64) (ranFor, error) {
 			return ok
 		}
 		for _, c := range p.Checks.Checks() {
-			if !slices.Contains(types, c.Entity) {
+			if len(types) > 0 && !slices.Contains(types, c.Entity) {
 				continue
 			}
 			if st := status[c.Code]; st != "ok" && st != "disabled" {
