@@ -11,6 +11,7 @@ import { Empty, QueryView } from "../components/common";
 import { CAPACITY_SUBTITLE, hasRate, headerLine } from "../lib/capacityView";
 import { hms, isoDate } from "../lib/format";
 import { usePageTitle } from "../lib/usePageTitle";
+import {serverNow} from "../lib/clock";
 import {resolveRange} from "../lib/timeRange";
 import { useSystem } from "../lib/useSystem";
 import { useTimeRange } from "../lib/useTimeRange";
@@ -20,7 +21,7 @@ export function Capacity() {
   const { spec } = useTimeRange();
   const system = useSystem();
   const q = useCapacity(spec);
-  const bounds=resolveRange(spec);
+  const bounds=resolveRange(spec,serverNow());
   const [params]=useSearchParams();
   const comparison=new URLSearchParams({system,account:params.get("account")??"",from:new Date(bounds.start).toISOString(),to:new Date(bounds.end).toISOString()});
   const d = q.data;
