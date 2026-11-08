@@ -134,22 +134,18 @@ describe("Servers on example-global", () => {
     expect(screen.getByText("24 servers in 3 clusters · meta leader nats-eu-1")).toBeInTheDocument();
   });
 
-  it("distinguishes slow-consumer detections from JetStream backlog and keeps global scope on its Consumers link", async () => {
-    const r = global();
-    for (const server of r.servers) server.slowConsumersInRange = 0n;
-    serve(r);
-    renderApp(<Servers />, "/servers?range=1h&system=example-global&account=SHOP");
-    const title = await screen.findByText("Slow-consumer detections, 1 h");
+  it("explains detections and offers a scoped investigation instead of backlog navigation", async () => {
+    serve(global());
+    renderApp(<Servers />, "/servers?from=2026-10-17T13:30:00Z&to=2026-10-17T14:30:00Z&system=example-global&account=SHOP");
+    const title = await screen.findByText("Slow-consumer detections in range");
     const card = title.closest(".dp")! as HTMLElement;
-    expect(card.querySelector(".dp-v")).toHaveTextContent("0");
-    expect(card).toHaveTextContent("Server slow-consumer counter increases during the selected range.");
-    expect(within(card).getByRole("img", { name: /^Slow-consumer detections per range, peak none$/ })).toBeInTheDocument();
-    expect(card).toHaveTextContent("Covers clients, routes, gateways and leaf connections; retries can count without a disconnect.");
-    expect(card).toHaveTextContent("Not unique clients or JetStream pending messages.");
-    expect(card).not.toHaveTextContent("Clients disconnected as slow");
-    const target = new URL(within(card).getByRole("link", { name: "Consumers" }).getAttribute("href")!, "http://example.com");
-    expect(target.pathname).toBe("/consumers");
-    expect(Object.fromEntries(target.searchParams)).toEqual({ range: "1h", system: "example-global", account: "SHOP" });
+    expect(card).toHaveTextContent("NATS had trouble sending data because a receiving connection could not keep up.");
+    expect(within(card).queryByRole("link", { name: "Consumers" })).not.toBeInTheDocument();
+    const target = new URL(within(card).getByRole("link", { name: "Investigate detections" }).getAttribute("href")!, "http://example.com");
+    expect(target.pathname).toBe("/servers/slow-consumers");
+    expect(Object.fromEntries(target.searchParams)).toEqual({ from: "2026-10-17T13:30:00Z", to: "2026-10-17T14:30:00Z", system: "example-global", account: "SHOP" });
+    expect(within(card).getByRole("link", { name: "nats-us-3" })).toHaveAttribute("href", expect.stringContaining("/servers/nats-us-3?"));
+    expect(within(card).getByText("About this metric").closest("details")).not.toHaveAttribute("open");
   });
 
   it("preserves aggregate detections without inferring their connection type", async () => {
@@ -279,4 +275,18 @@ describe("Servers, failing cases", () => {
     expect(cpu).toHaveTextContent("–");
     expect(cpu).not.toHaveTextContent("0%");
   });
+});
+
+it("makes nonzero slow-consumer buckets keyboard links to bounded absolute time", async () => {
+  serve(global());
+  getTimeSeriesBatch.mockImplementation(async req => create(GetTimeSeriesBatchResponseSchema, { results: (req.queries ?? []).map(q => ({ series: q.metric === "cluster.slow_consumers" ? { metric: q.metric, step: { seconds: 900n }, points: [{ time: { seconds: 1792243800n }, value: 3 }] } : undefined })) }));
+  renderApp(<Servers />, "/servers?from=2026-10-17T13:30:00Z&to=2026-10-17T14:30:00Z&system=example-prod&account=SHOP");
+  const link = await screen.findByRole("link", { name: /^Investigate 3 detections in bucket/ });
+  const target = new URL(link.getAttribute("href")!, "http://example.com");
+  expect(target.pathname).toBe("/servers/slow-consumers");
+  expect(target.searchParams.get("account")).toBe("SHOP");
+  expect(target.searchParams.get("from")).toBe("2026-10-17T13:30:00Z");
+  expect(target.searchParams.get("to")).toBe("2026-10-17T13:45:00Z");
+  // SVG anchor participates in browser focus; keyboard navigation is also verified in the demo.
+  expect(link.closest("svg")).toHaveAttribute("role", "group");
 });

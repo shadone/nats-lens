@@ -123,8 +123,9 @@ describe("ServerDetail on example-global", () => {
     show(ap3(), "nats-ap-3");
     const about = await screen.findByRole("button", { name: "About Slow-consumer detections" });
     const tile = about.closest(".mbox")! as HTMLElement;
-    expect(within(tile).getByRole("link", { name: "Consumers" })).toHaveAttribute("href", "/consumers");
-    expect(tile).toHaveTextContent("For JetStream backlog, see Consumers.");
+    expect(within(tile).queryByRole("link", { name: "Consumers" })).not.toBeInTheDocument();
+    expect(within(tile).getByRole("link", { name: "Investigate detections" })).toHaveAttribute("href", expect.stringContaining("/servers/slow-consumers?"));
+    expect(tile).toHaveTextContent("NATS had trouble sending data because a receiving connection could not keep up.");
     await userEvent.click(about);
     expect(tile).toHaveTextContent("Server slow-consumer counter increases during the selected range.");
     expect(tile).toHaveTextContent("Covers clients, routes, gateways and leaf connections; retries can count without a disconnect.");

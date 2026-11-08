@@ -17,7 +17,10 @@ The Servers page shows a system's servers at a glance, built for 20 servers or m
   - **Versions:** how many versions run, a bar split by version, and each version with its count (with more than four, the fourth onwards as "other versions"). The legend draws each version's swatch.
   - **Restarts:** the restarts in the range ("Restarts, 24 h" for a live range), a strip with a tick at each restart, and the servers that restarted.
   - **JetStream store:** the median use of the store limit across servers, a track with the range from the emptiest to the fullest server and a tick at the median, and the fullest server.
-  - **Slow-consumer detections:** increases of the servers’ slow-consumer counters during the selected range. These cover clients, routes, gateways and leaf connections. Write-timeout retries can increment the counter without a disconnect; the total is not a count of unique clients. A strip shows each bucket of `cluster.slow_consumers` and names the server with the most. Its accessible label also calls these detections. JetStream pending messages are a separate backlog; a Consumers link opens that page with the global system, time range and account scope preserved.
+  - **Slow-consumer detections:** "A detection means NATS had trouble sending data because a receiving connection could not keep up." The card offers "Investigate detections", a link from the busiest server and keyboard-accessible links from nonzero chart buckets. Links freeze the observed absolute time range and preserve system and account context. Optional help explains clients, routes, gateways, leaf connections and repeated retries. These detections are separate from unique JetStream consumers and pending messages.
+- **Slow-consumer investigation.** The investigation shows counter increases between collections of the same server process, with collection numbers and process IDs. Baselines, counter resets and gaps longer than three collect intervals have no inferred increase. Short missing-report gaps widen the observed interval. The interval can begin before the selected range; its end collection lies inside it. The page lists recorded slow-consumer disconnects and slow-consumer finding transitions separately. Event IDs open the recorded payload; finding links open the finding. Client names and connection IDs appear only when recorded. The counters do not establish an exact detection time, affected connection, application slowness, data loss or disconnect. Event and detection counts need not match.
+- **Evidence coverage.** The investigation distinguishes unavailable capture history, incomplete history and no matching recorded disconnects. A counter-only result directs the reader to the affected server and its diagnostics. Partial collections remain explicit. An account filter limits recorded client evidence while counters and server findings remain system-wide.
+- **Bounded agent access.** The read-only investigation API returns the same counter intervals, stable evidence references, coverage and attribution limits. Each evidence list defaults to 100 rows and is capped at 200 with an independent truncation flag. Totals cover all matches. A request spans at most 30 days; callers narrow time or server when a list is cut. The response identifies stored or synthetic demo provenance.
 - **Charts across servers.** The same charts as the Overview's trends: CPU and memory are drawn as a band from the lowest to the highest server, with the median as a line and the busiest server (the highest mean over the range) dashed and named with its value ("busiest: nats-ap-2, 64.1%"); connections as the total; messages in and out per second, with out dashed. Each chart starts at zero, except Memory, which spans its own range with a small margin; its legend draws its own marks, its value is the newest bucket's median ("6.7% median") or total, and it states its minimum and maximum.
 - **Every server.** One square per server, grouped by cluster, coloured by a metric chosen with the "Colour by" buttons: CPU, memory, connections, store used, leaders or version. CPU and store used have fixed bins (under 10%, 10 to 30%, 30 to 60%, 60% or more); memory, connections and leaders split the spread between the smallest and largest server into quarters; version gives each version its own colour, the most common first, and with more than four versions the fourth onwards share "other versions". A percentage is binned as it is shown, so "60%" is in "60% or more", and the relative scales use only the servers that answered. The meta leader is outlined; a server that did not answer is dashed and has no fill; a server that did not report the value has no colour. Hovering or focusing a square names the server and its value; a click opens the server. The legend draws each swatch, including "did not answer", "not reported" and "meta leader" when they occur. The colours are defined for the light and the dark theme.
 - **The list.**
@@ -30,7 +33,7 @@ The Servers page shows a system's servers at a glance, built for 20 servers or m
 - **Storage meaning.** List storage values cover the whole server, regardless of account scope, and include local replica copies. They are not unique application data or filesystem use. Filesystem used bytes and capacity are not collected. Zero stored bytes remain visible; missing bytes read "not reported", and a missing or nonpositive limit reads "limit unknown". A server without JetStream reads "no JetStream"; a server that did not answer reads "did not answer". Percentages use only answering servers with a positive limit and reported bytes.
 - **The server page.**
   - The header names the cluster in the breadcrumb, and the role, version, uptime and start time in one line, or "did not answer in the newest collection".
-  - **Metric boxes** for CPU, memory, JetStream file storage, connections, messages (in as the value and line, out dashed with its current rate in the note) and slow-consumer detections. Each has a title with an (i) button describing the metric, the current value at the top right, a line chart over the range drawn as on the Overview tiles (line and fill neutral, the change in the accent or, in a box that is not ok, in its health colour), and a track with the window's lowest value on the left, its highest on the right and a dot at the current value. The ends are the window's own lowest and highest values; a current value outside them puts the dot at the nearer end. When the value did not change the track reads "steady at N all window"; without a series there is no track and the box reads "no data for the window"; without a current value the track has no dot and reads "no current value". A configured limit, such as the connection limit, is in the note under the track. Health colours the value and the dot, with a word only when it is not ok: CPU at 60% of a core or more is "high", connections at 80% of the limit or more are "near limit", and slow-consumer detections in the range mark the box. The detections box also links to Consumers for JetStream backlog. A server that did not answer shows no current value, only its history.
+  - **Metric boxes** for CPU, memory, JetStream file storage, connections, messages (in as the value and line, out dashed with its current rate in the note) and slow-consumer detections. Each has a title with an (i) button describing the metric, the current value at the top right, a line chart over the range drawn as on the Overview tiles (line and fill neutral, the change in the accent or, in a box that is not ok, in its health colour), and a track with the window's lowest value on the left, its highest on the right and a dot at the current value. The ends are the window's own lowest and highest values; a current value outside them puts the dot at the nearer end. When the value did not change the track reads "steady at N all window"; without a series there is no track and the box reads "no data for the window"; without a current value the track has no dot and reads "no current value". A configured limit, such as the connection limit, is in the note under the track. Health colours the value and the dot, with a word only when it is not ok: CPU at 60% of a core or more is "high", connections at 80% of the limit or more are "near limit", and slow-consumer detections in the range mark the box. The detections box offers the same concise explanation and an investigation link filtered to that server. A server that did not answer shows no current value, only its history.
   - **JetStream file storage:** the current file bytes and the positive configured limit from the newest collection, a history chart of bucket averages, and the percentage of that limit when both values are reported. No current value is borrowed from history or an older limit. JSZ supplies storage, with VARZ as fallback. Bucket averages use available storage samples; the existing server and STATSZ/VARZ hatches do not identify every storage-only missing report. The card explains that filesystem used bytes and capacity are not collected. Metric descriptions open below their header on focus or click, stay inside the card width, and close with Escape. History follows the stable server name across process restarts; navigating to another server clears the previous server’s series while the new series loads.
   - Placement, routes and limits share a responsive row. **Recent events** spans the full width below them. Long names, tags and event summaries wrap within their cards.
   - **Where it runs:** the pod and namespace with its restarts in the range, the node (or "not scheduled"), when the pod was scheduled, and the zone from an `az:` tag. Hidden when nats-lens does not watch Kubernetes.
@@ -53,13 +56,39 @@ Server detail charts mark recorded missing answers and missing STATSZ/VARZ metri
 
 ## Scenarios
 
-### Distinguish detections from JetStream backlog
+### Investigate detections without knowing counter terminology
 
 - **Surfaces:** `ui`
-- **Given** the servers report zero slow-consumer detections during the selected range and a JetStream consumer has pending messages
+- **Given** the servers report slow-consumer detections in the selected range
 - **When** I open Servers or a server page
-- **Then** the metric is labelled "Slow-consumer detections" and explains counter increases across connection types, including retries without a disconnect
-- **And** its Consumers link opens JetStream backlog with the global system, time range and account scope preserved
+- **Then** the main text explains that NATS had trouble sending data because a receiving connection could not keep up
+- **And** "Investigate detections" opens the evidence with system, account and absolute time preserved
+- **And** optional metric help explains counter semantics without sending the reader to JetStream backlog
+
+### Compare counter intervals with recorded evidence
+
+- **Surfaces:** `ui`, `api`
+- **Given** a server counter increases by five and two recorded disconnects name the same connection
+- **When** I investigate the selected range
+- **Then** counter detections and recorded disconnects have separate totals
+- **And** each observation identifies its server process, collection and observed interval without an exact detection time
+- **And** recorded event IDs and payload connection IDs remain separate from counter attribution
+
+### Investigate a counter without captured identity
+
+- **Surfaces:** `ui`, `api`
+- **Given** counter increases exist and no matching disconnect event is recorded
+- **When** I investigate the range
+- **Then** the response explains that the counter cannot identify the affected connection
+- **And** coverage distinguishes unavailable or incomplete capture history from no matching recorded event
+
+### Bound an investigation
+
+- **Surfaces:** `ui`, `api`
+- **Given** more observations or events match than the requested result limit
+- **When** I investigate the range
+- **Then** each list is bounded and identifies its truncation while totals include every match
+- **And** the reader can narrow to an observed interval and server
 
 ### Read an aggregate without inferring client disconnects
 
