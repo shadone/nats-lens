@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/nats-io/nats.go/micro"
 
@@ -117,8 +116,8 @@ func TestRunAsksMicroServices(t *testing.T) {
 	for _, events := range []bool{true, false} {
 		t.Run(fmt.Sprintf("events %t", events), func(t *testing.T) {
 			dir := t.TempDir()
-			stop := startRun(t, microConfig(t, dir, c.URL(0), events), nil)
-			time.Sleep(4500 * time.Millisecond)
+			st, stop := startRunStore(t, microConfig(t, dir, c.URL(0), events))
+			waitForStoredCount(t, st, "shop successful STATS in two epochs", `SELECT count(DISTINCT epoch) FROM micro_requests WHERE label = 'shop' AND request = 'STATS' AND state = 'ok'`, 2)
 			if err := stop(); err != nil {
 				t.Fatal(err)
 			}

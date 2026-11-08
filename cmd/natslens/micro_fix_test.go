@@ -36,6 +36,9 @@ jetstream: { store_dir: %q }
 `
 
 func refusalServer(t *testing.T) string {
+	if testing.Short() {
+		t.Skip("local NATS integration: run without -short")
+	}
 	t.Helper()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "s.conf")
@@ -103,6 +106,12 @@ func refusalCount(t *testing.T, dataDir, q string) int {
 	return n
 }
 
+const refusalRequests = `SELECT count(*) FROM micro_requests WHERE label = 'SHOP'
+ AND request IN ('INFO', 'STATS') AND state = 'error' AND error LIKE '%Permissions Violation%'`
+const heldRequests = `SELECT count(*) FROM micro_requests h WHERE label = 'SHOP' AND state = 'held'
+ AND EXISTS (SELECT 1 FROM micro_requests r WHERE r.label = h.label AND r.request = h.request
+ AND r.state = 'error' AND r.error LIKE '%Permissions Violation%' AND r.epoch < h.epoch)`
+
 // An account user with the grants event capture needs, without $SRV,
 // gets its refused $SRV requests recorded in micro_requests and never as
 // collector.subscription_error events, which the capture's error handler
@@ -110,18 +119,21 @@ func refusalCount(t *testing.T, dataDir, q string) int {
 func TestMicroRefusalIsNoSubscriptionError(t *testing.T) {
 	url := refusalServer(t)
 	dir := t.TempDir()
-	stop := startRun(t, refusalConfig(t, dir, url, true, "  - { name: SHOP, user: shop-old, password: shop-old-test }\n"), nil)
-	time.Sleep(6500 * time.Millisecond)
+	st, stop := startRunStore(t, refusalConfig(t, dir, url, true, "  - { name: SHOP, user: shop-old, password: shop-old-test }\n"))
+	waitForStoredCount(t, st, "two persisted collection epochs", `SELECT count(*) FROM epochs`, 2)
+	waitForStoredCount(t, st, "SHOP $SRV permission refusals", refusalRequests, 1)
+	waitForStoredCount(t, st, "SHOP held requests in a later epoch", heldRequests, 1)
 	if err := stop(); err != nil {
 		t.Fatal(err)
 	}
 	data := filepath.Join(dir, "data")
 	epochs := refusalCount(t, data, `SELECT count(*) FROM epochs`)
-	refused := refusalCount(t, data, `SELECT count(*) FROM micro_requests WHERE state = 'error'`)
+	refused := refusalCount(t, data, refusalRequests)
+	held := refusalCount(t, data, heldRequests)
 	evs := refusalCount(t, data, `SELECT count(*) FROM events WHERE kind = 'collector.subscription_error' AND reason LIKE '%$SRV%'`)
-	t.Logf("epochs %d, refused requests %d, subscription_error events naming $SRV %d", epochs, refused, evs)
-	if evs > 0 {
-		t.Errorf("%d collector.subscription_error events for refused $SRV requests", evs)
+	t.Logf("epochs %d, refused requests %d, later held requests %d, subscription_error events naming $SRV %d", epochs, refused, held, evs)
+	if err := microRefusalEvidence(epochs, refused, held, evs); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -132,8 +144,9 @@ func TestMicroBadAccountWithoutEvents(t *testing.T) {
 	url := refusalServer(t)
 	dir := t.TempDir()
 	accs := "  - { name: BROKEN, creds: /nonexistent/shop.creds }\n  - { name: GOOD, user: shop, password: shop-test }\n"
-	stop := startRun(t, refusalConfig(t, dir, url, false, accs), nil)
-	time.Sleep(4500 * time.Millisecond)
+	st, stop := startRunStore(t, refusalConfig(t, dir, url, false, accs))
+	waitForStoredCount(t, st, "BROKEN not-connected requests", `SELECT count(*) FROM micro_requests WHERE label = 'BROKEN' AND state = 'error' AND error = 'account connection not connected'`, 1)
+	waitForStoredCount(t, st, "GOOD successful STATS", `SELECT count(*) FROM micro_requests WHERE label = 'GOOD' AND request = 'STATS' AND state = 'ok'`, 1)
 	if err := stop(); err != nil {
 		t.Fatal(err)
 	}
