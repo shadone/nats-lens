@@ -312,3 +312,7 @@ Independent fixture checks reproduce both mismatch counts: an account-entity Eve
 ## Storage comparisons
 
 Use the shared `GetStorageChange` method for pinned before/after storage evidence, including decreases, replica changes and unknown coverage. See the [storage comparison contract and commands](storage-change.md). The evidence page and copied context retain the exact requested bounds and collection pins; no separate storage CLI or query implementation is required.
+
+## Pre-bucket metric evidence
+
+For a captured metric peak rather than a peak of chart buckets, request `includeObservations: true` with GetTimeSeries or its individual batch queries. [Metric observations](metric-observations.md) defines the sample counts, NULL/zero distinction, actual collection timestamps, arithmetic means, band edges and exact event totals. The 30-day option does not add traffic volumes, process attribution, complete-capture claims or a universal collection pin.

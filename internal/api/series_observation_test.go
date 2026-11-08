@@ -1,15 +1,17 @@
 package api_test
 
 import (
-	"connectrpc.com/connect"
 	"context"
-	"github.com/shadone/nats-lens/internal/api/apitest"
-	"github.com/shadone/nats-lens/internal/api/fake"
-	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"strings"
 	"testing"
 	"time"
+
+	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/shadone/nats-lens/internal/api/apitest"
+	"github.com/shadone/nats-lens/internal/api/fake"
+	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
 func TestSeriesObservationBatchOptionAndBounds(t *testing.T) {
