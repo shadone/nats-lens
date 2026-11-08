@@ -84,8 +84,9 @@
 .investigation-field { display:grid; gap:var(--sp-2); margin-block:var(--sp-3); }
 .investigation-field textarea { width:100%; max-width:100%; box-sizing:border-box; font-size:var(--fs-sm); }
 .chart-inspection-wrap{position:relative;min-width:0}
-.investigation-copy.investigation-floating{position:absolute;right:var(--sp-1);top:var(--sp-1);z-index:3;opacity:0;pointer-events:none}
+.investigation-copy.investigation-floating{position:absolute;right:var(--sp-1);top:0;transform:translateY(-100%);z-index:3;opacity:0;pointer-events:none}
 .chart-inspection-wrap:hover > .investigation-floating,.chart-inspection-wrap:focus-within > .investigation-floating,.investigation-action-host:hover .investigation-floating,.investigation-action-host:focus-within .investigation-floating,.investigation-floating:focus-visible{opacity:1;pointer-events:auto}
 @media (hover:none),(pointer:coarse){.investigation-copy.investigation-floating{opacity:1;pointer-events:auto}}
 .investigation-copy.investigation-labelled{width:auto;gap:var(--sp-2);max-width:100%;font-size:var(--fs-sm);white-space:normal}
 .bc-consumer{position:relative}
+.bc-consumer > .investigation-floating{top:var(--sp-1);transform:none}
