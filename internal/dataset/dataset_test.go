@@ -622,3 +622,32 @@ func TestAcquireDuringActivePublication(t *testing.T) {
 		t.Fatal("pipeline state invented")
 	}
 }
+
+func TestPreparedButUnpublishedDatasetCannotOpen(t *testing.T) {
+	path, _ := acquireFixture(t)
+	d, err := Open(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.Close()
+	abandoned := filepath.Join(filepath.Dir(path), ".dataset-partial-abandoned")
+	if err := os.Rename(path, abandoned); err != nil {
+		t.Fatal(err)
+	}
+	if d, err := Open(context.Background(), abandoned); err == nil {
+		d.Close()
+		t.Fatal("prepared but unpublished staging accepted as complete")
+	}
+	// Simulate completing atomic publication, then a fresh offline reader restart.
+	published := filepath.Join(filepath.Dir(path), "published-after-restart")
+	if err := renameNew(abandoned, published); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		d, err := Open(context.Background(), published)
+		if err != nil {
+			t.Fatal(err)
+		}
+		d.Close()
+	}
+}
