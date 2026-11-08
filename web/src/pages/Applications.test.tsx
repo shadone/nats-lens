@@ -97,7 +97,7 @@ describe("Applications", () => {
     await screen.findByRole("table");
     const r = within(row("callback-dispatcher"));
     expect(r.getByRole("link", { name: "callback-dispatcher" })).toHaveAttribute("href", "/connections?name=callback-dispatcher&system=example-prod&account=APP");
-    expect(r.getByRole("link", { name: "nats-1 6 connections" })).toHaveAttribute("href", "/servers/nats-1?system=example-prod");
+    expect(r.getByRole("link", { name: "nats-1 6 connections" })).toHaveAttribute("href", "/servers/nats-1?system=example-prod&account=APP");
     expect(r.getByRole("link", { name: /^client-004 Client reconnecting repeatedly/ })).toHaveAttribute("href", "/findings/client-004%3Acallback-dispatcher?system=example-prod");
     expect(row("callback-dispatcher")).toHaveClass("ap-warn");
     expect(row("order-service")).not.toHaveClass("ap-warn");
