@@ -10,6 +10,8 @@ Data history shows when a system’s stored history begins, coverage and gaps in
 
 ## Behavior and rules
 
+- **First visit.** The page reads data for the current scope while its view loads. The shell stays available, with loading and reload recovery described in [navigation](navigation.md).
+
 - **One system and range.** Data history sits under Cluster, after Accounts, at `/data-history`. It reads the chosen system and global range, without an account filter. Coverage and gaps describe the range; history start, retention, archive, and findings already true at the start describe the system. The summary names the collection stop when known and the oldest event when it differs from the oldest collection by more than one interval.
 - **Coverage.** The page shows collections against the expected count, partial collections, time without collections, and the share covered. The covered span starts at the later of the range start and history start. Time before history does not lower the covered share. Without stored history, or when the whole range precedes history, the page says it has no collection instead of showing a covered percentage.
 - **Six kinds of gap.** The page names times nats-lens was not running, could not reach NATS, had no collections, did not capture events, did not watch Kubernetes, and had not started its history. Collection gaps longer than three collect intervals count as no collections. An event connection’s loss shorter than 10 seconds does not count as a capture gap. Overlapping collection gaps merge; not running takes precedence over not connected, then no collections. Event and watch gaps remain separate, even inside a collection gap.
