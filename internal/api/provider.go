@@ -26,6 +26,7 @@ var (
 // defaults are already filled in (see normalize.go), so a provider reads
 // them as given: every TimeRange has both start and end set.
 type Provider interface {
+	ListMetricContributors(context.Context, *v1.ListMetricContributorsRequest) (*v1.ListMetricContributorsResponse, error)
 	// Now is the provider's present: the wall clock for the store, the
 	// scenario's fixed time for the fake. Ranges without an end end here.
 	Now() time.Time

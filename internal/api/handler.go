@@ -619,3 +619,7 @@ func (h *Handler) GetStorageChange(ctx context.Context, req *connect.Request[v1.
 		return FinishStorageChange(scoped, f)
 	})
 }
+
+func (h *Handler) ListMetricContributors(ctx context.Context, req *connect.Request[v1.ListMetricContributorsRequest]) (*connect.Response[v1.ListMetricContributorsResponse], error) {
+	return call(ctx, h, "ListMetricContributors", req.Msg, nil, on(Provider.ListMetricContributors))
+}

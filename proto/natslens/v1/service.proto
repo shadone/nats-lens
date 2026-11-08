@@ -13,6 +13,7 @@ import "natslens/v1/events.proto";
 import "natslens/v1/findings.proto";
 import "natslens/v1/history.proto";
 import "natslens/v1/info.proto";
+import "natslens/v1/metric_contributors.proto";
 import "natslens/v1/micro.proto";
 import "natslens/v1/oncall.proto";
 import "natslens/v1/overview.proto";
@@ -42,6 +43,11 @@ option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natsl
 // AcknowledgeFinding and EndAcknowledgement are the only writes, and they
 // write only to that database.
 service LensService {
+  // Bounded frozen metric summaries, ranked across matching observed entities.
+  rpc ListMetricContributors(ListMetricContributorsRequest) returns (ListMetricContributorsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
   // All shipped check references with configuration from the selected system.
   rpc ListCheckDefinitions(ListCheckDefinitionsRequest) returns (ListCheckDefinitionsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
