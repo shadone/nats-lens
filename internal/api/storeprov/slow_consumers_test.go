@@ -2,6 +2,8 @@ package storeprov_test
 
 import (
 	"connectrpc.com/connect"
+	"github.com/shadone/nats-lens/internal/api/apitest"
+	"github.com/shadone/nats-lens/internal/api/storeprov"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"testing"
@@ -145,5 +147,70 @@ func TestSlowConsumerInvestigationLongGapMatchesChart(t *testing.T) {
 		if o.Epoch == 3 && (o.Increase != nil || o.UnavailableReason == "") {
 			t.Fatalf("long gap %v", o)
 		}
+	}
+}
+
+// All entry surfaces must select report endpoints in [start,end), while a
+// bounded pre-range report may establish the first endpoint's increase.
+func TestSlowConsumerInvestigationAgreement(t *testing.T) {
+	for _, cadence := range []time.Duration{30 * time.Second, time.Minute, 5 * time.Minute} {
+		t.Run(cadence.String(), func(t *testing.T) {
+			st := emptyStore(t)
+			r := rows{t, st}
+			r.server("S0", "nats-0")
+			r.server("S1", "nats-0")
+			values := []any{0, 5, 8, nil, 12, 1, 4, 20, 22}
+			offsets := []int{0, 1, 2, 3, 4, 5, 9, 10, 11}
+			for i, v := range values {
+				id := "S0"
+				if i >= 7 {
+					id = "S1"
+				}
+				r.epoch(int64(i+1), t0.Add(time.Duration(offsets[i])*cadence), id)
+				r.add("server_stats", map[string]any{"epoch": i + 1, "server_id": id, "slow_consumers": v})
+			}
+			if _, err := st.DB().Exec(`UPDATE servers SET last_epoch=9,last_seen_at=?`, t0.Add(11*cadence)); err != nil {
+				t.Fatal(err)
+			}
+			_, c := apitest.Serve(t, &storeprov.Provider{St: st, Interval: cadence, Live: true, Clock: func() time.Time { return t0.Add(12 * cadence) }})
+			for _, window := range []struct {
+				name       string
+				start, end time.Duration
+				want       int64
+			}{
+				{"custom interior", cadence / 2, 3 * cadence, 8},
+				{"fixed narrow endpoint", 2 * cadence, 2*cadence + time.Second, 3},
+				{"exclusive endpoint", cadence, 2 * cadence, 5},
+				{"missing counter reset gap restart", 0, 12 * cadence, 10},
+				{"long gap", 9 * cadence, 10 * cadence, 0},
+			} {
+				t.Run(window.name, func(t *testing.T) {
+					rng := &v1.TimeRange{Start: timestamppb.New(t0.Add(window.start)), End: timestamppb.New(t0.Add(window.end))}
+					inv := must(c.GetSlowConsumerInvestigation(ctx, connect.NewRequest(&v1.GetSlowConsumerInvestigationRequest{Range: rng})))
+					list := must(c.ListServers(ctx, connect.NewRequest(&v1.ListServersRequest{Range: rng})))
+					var headline int64
+					for _, s := range list.Servers {
+						headline += s.GetSlowConsumersInRange()
+					}
+					if inv.Detections != window.want || headline != window.want {
+						t.Fatalf("want %d investigation=%d headline=%d", window.want, inv.Detections, headline)
+					}
+					for _, metric := range []string{"cluster.slow_consumers", "server.slow_consumers"} {
+						req := &v1.GetTimeSeriesRequest{Range: rng, Metric: metric}
+						if metric == "server.slow_consumers" {
+							req.Entity = serverRef("nats-0")
+						}
+						chart := must(c.GetTimeSeries(ctx, connect.NewRequest(req)))
+						var sum int64
+						for _, p := range chart.Series.Points {
+							sum += int64(p.Value)
+						}
+						if sum != window.want {
+							t.Fatalf("%s=%d want %d", metric, sum, window.want)
+						}
+					}
+				})
+			}
+		})
 	}
 }
