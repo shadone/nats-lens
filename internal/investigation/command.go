@@ -1,0 +1,433 @@
+package investigation
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"slices"
+	"strings"
+	"time"
+
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/dynamicpb"
+)
+
+const Help = `natslens investigate methods
+natslens investigate describe METHOD
+natslens investigate context -profiles FILE -profile NAME -url URL
+natslens investigate query METHOD -profiles FILE -profile NAME [-context FILE | -url URL]
+  [-request FILE] [-system ID] [-account ID] [-from UTC -to UTC] [-metric ID]
+  [-page-size N] [-page-token TOKEN] [-max-points N] [-timeout 45s]
+
+Requests use protobuf JSON; -request - or -context - reads stdin (choose one).
+One query sends at most two RPCs (connection info, then the selected read).
+No automatic pagination, credential discovery, SQL, uploads or NATS connections.
+Use ListSystems, ListMetrics and ListCheckDefinitions to discover live facts.
+Use GetDataHistory to inspect coverage, partial collections and retention.
+The methods list is the local client contract, not a claim about server support.
+`
+
+func writeJSON(w io.Writer, v any) error {
+	e := json.NewEncoder(w)
+	e.SetIndent("", "  ")
+	return e.Encode(v)
+}
+func readInput(name string, stdin io.Reader) ([]byte, error) {
+	var r io.Reader = stdin
+	if name != "-" {
+		f, err := os.Open(name)
+		if err != nil {
+			return nil, errors.New("cannot open input file")
+		}
+		defer f.Close()
+		r = f
+	}
+	b, err := io.ReadAll(io.LimitReader(r, MaxInputBytes+1))
+	if err != nil || len(b) > MaxInputBytes {
+		return nil, errors.New("input unavailable or exceeds 64 KiB")
+	}
+	return b, nil
+}
+
+func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Writer) (err error) {
+	defer func() {
+		if err != nil && !errors.Is(err, flag.ErrHelp) {
+			_ = writeJSON(out, map[string]any{"version": 1, "error": map[string]string{"code": "investigation_failed", "message": err.Error(), "nextStep": "Check help, configured access, method schema and Data history; do not retry by bypassing the proxy."}})
+		}
+	}()
+	if len(args) == 0 {
+		fmt.Fprint(errout, Help)
+		return flag.ErrHelp
+	}
+	if args[0] == "methods" {
+		if len(args) != 1 {
+			return errors.New("methods takes no arguments")
+		}
+		return writeJSON(out, map[string]any{"version": 1, "methods": Methods(), "serverSupport": "unverified; query checks selected method", "sourceKinds": []string{"remote"}})
+	}
+	if args[0] == "describe" {
+		if len(args) != 2 || Method(args[1]) == nil {
+			return errors.New("describe requires a supported read METHOD")
+		}
+		m := Method(args[1])
+		return writeJSON(out, map[string]any{"version": 1, "method": args[1], "request": schema(m.Input(), 0), "response": schema(m.Output(), 0)})
+	}
+	action := args[0]
+	args = args[1:]
+	method := ""
+	if action == "query" {
+		if len(args) == 0 || Method(args[0]) == nil {
+			return errors.New("query requires a supported read METHOD; run investigate methods")
+		}
+		method, args = args[0], args[1:]
+	} else if action != "context" {
+		return errors.New("unknown investigation command; use methods, describe, context or query")
+	}
+	fs := flag.NewFlagSet("natslens investigate "+action, flag.ContinueOnError)
+	fs.SetOutput(errout)
+	fs.Usage = func() { fmt.Fprint(errout, Help) }
+	profiles := fs.String("profiles", "", "trusted profiles JSON file")
+	name := fs.String("profile", "", "configured profile name")
+	contextFile := fs.String("context", "", "copied context JSON file, or - for stdin")
+	page := fs.String("url", "", "page URL matching the trusted deployment (never fetched)")
+	requestFile := fs.String("request", "", "protobuf JSON request file, or - for stdin")
+	system := fs.String("system", "", "explicit system ID")
+	account := fs.String("account", "", "explicit account ID")
+	from := fs.String("from", "", "absolute UTC start")
+	to := fs.String("to", "", "absolute UTC end")
+	metric := fs.String("metric", "", "metric ID from ListMetrics")
+	pageSize := fs.Int("page-size", 100, "one page, at most 500 rows where supported")
+	token := fs.String("page-token", "", "explicit continuation token; never followed automatically")
+	maxPoints := fs.Int("max-points", 200, "series buckets, at most 2000")
+	timeout := fs.Duration("timeout", 45*time.Second, "whole command budget, at most 45s")
+	if err = fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 0 {
+		return errors.New("unexpected positional arguments")
+	}
+	if *profiles == "" || *name == "" {
+		return errors.New("-profiles and -profile are required; browser login does not authorize terminal access")
+	}
+	if (*contextFile != "" && *page != "") || (*contextFile == "-" && *requestFile == "-") {
+		return errors.New("choose one context source and one stdin input")
+	}
+	if *timeout <= 0 || *timeout > 45*time.Second || *pageSize < 1 || *pageSize > 500 || *maxPoints < 1 || *maxPoints > 2000 {
+		return errors.New("invalid budget: timeout 0–45s, page-size 1–500, max-points 1–2000")
+	}
+	b, err := readInput(*profiles, stdin)
+	if err != nil {
+		return err
+	}
+	p, err := LoadProfile(strings.NewReader(string(b)), *name)
+	if err != nil {
+		return err
+	}
+	var c *Context
+	if *contextFile != "" {
+		b, err = readInput(*contextFile, stdin)
+		if err != nil {
+			return err
+		}
+		c, err = ParseContext(strings.NewReader(string(b)), p.Deployment)
+		if err != nil {
+			return err
+		}
+	}
+	if *page != "" {
+		if err = p.ValidateURL(*page); err != nil {
+			return err
+		}
+	}
+	remote, err := NewRemote(p)
+	if err != nil {
+		return err
+	}
+	var src Source = remote
+	ctx, cancel := context.WithTimeout(ctx, *timeout)
+	defer cancel()
+	scope := *system
+	if scope == "" && c != nil {
+		scope = c.System
+	}
+	infoReq, _ := json.Marshal(map[string]string{"system": scope})
+	info, err := src.Query(ctx, "GetLensInfo", infoReq)
+	if err != nil {
+		return err
+	}
+	// Read only documented GetLensInfo fields, never infer provenance from names.
+	var connection struct {
+		Version string `json:"version"`
+		Now     string `json:"now"`
+		System  string `json:"system"`
+	}
+	if err = json.Unmarshal(info, &connection); err != nil || connection.Now == "" || connection.System == "" {
+		return errors.New("server lacks required clock/system contract; upgrade the server")
+	}
+	now, err := time.Parse(time.RFC3339Nano, connection.Now)
+	if err != nil {
+		return errors.New("server returned an unsupported clock")
+	}
+	if c == nil {
+		raw := *page
+		if raw == "" {
+			raw = p.Deployment + "/"
+		}
+		c, err = ContextFromURL(raw, p.Deployment, now)
+		if err != nil {
+			return err
+		}
+	}
+	if *system != "" {
+		c.System = *system
+	} else if c.System == "" {
+		c.System = connection.System
+	}
+	if *account != "" {
+		c.Account = *account
+	}
+	if *from != "" {
+		c.Range.Start = *from
+	}
+	if *to != "" {
+		c.Range.End = *to
+	}
+	if *metric != "" {
+		c.Metric = *metric
+	}
+	if err = c.Validate(p.Deployment); err != nil {
+		return err
+	}
+	if action == "context" {
+		return writeJSON(out, c)
+	}
+	var overrides map[string]json.RawMessage = map[string]json.RawMessage{}
+	if *requestFile != "" {
+		b, err = readInput(*requestFile, stdin)
+		if err != nil {
+			return err
+		}
+		if err = json.Unmarshal(b, &overrides); err != nil || overrides == nil {
+			return errors.New("request must be one JSON object")
+		}
+	}
+	fields := Method(method).Input().Fields()
+	setDefault := func(k string, v any) {
+		if fields.ByJSONName(k) != nil && overrides[k] == nil {
+			overrides[k], _ = json.Marshal(v)
+		}
+	}
+	setDefault("pageSize", *pageSize)
+	setDefault("maxPoints", *maxPoints)
+	if *token != "" {
+		setDefault("pageToken", *token)
+	}
+	b, _ = json.Marshal(overrides)
+	req, unapplied, err := Prepare(method, c, b)
+	if err != nil {
+		return err
+	}
+	response, err := src.Query(ctx, method, req)
+	if err != nil {
+		return err
+	}
+	// The response stays protobuf JSON. Never round-trip int64 values through
+	// float64 or flatten episode/event/collection identity into a label.
+	linkContext := *c
+	var request map[string]json.RawMessage
+	_ = json.Unmarshal(req, &request)
+	if r := request["range"]; r != nil {
+		_ = json.Unmarshal(r, &linkContext.Range)
+	}
+	if s := request["system"]; s != nil {
+		_ = json.Unmarshal(s, &linkContext.System)
+	}
+	link, _ := linkContext.Link(p.Deployment)
+	return writeJSON(out, map[string]any{"version": 1, "source": map[string]any{"kind": "remote", "deployment": p.Deployment, "serverVersion": connection.Version, "readOnlyRouteVerified": true, "selectedMethodVerified": method, "otherServerMethods": "unverified"}, "method": method, "request": json.RawMessage(req), "response": response, "connection": info, "context": c, "links": evidenceLinks(method, response, &linkContext, p.Deployment, link), "unappliedContextFilters": unapplied, "limits": map[string]any{"rpcBudget": 2, "responseBytes": MaxResponseBytes, "automaticPagination": false, "page": "one response; nextPageToken remains in response; use unchanged filters to continue", "truncation": "only reported response fields establish totals/truncation; absent metadata is unavailable"}, "availability": map[string]Availability{"actualTimes": {"unavailable", "Use documented response range, epoch, point and coverage times where present; no universal actual interval is provided"}, "provenance": {"unavailable", "No cross-call snapshot/collection pin is supported; response evidence IDs are preserved"}, "completeness": {"unavailable", "Read response partial/missing/truncated fields and GetDataHistory; empty data does not establish completeness"}, "freshnessRetention": {"available", "GetLensInfo connection facts are included; historical coverage requires GetDataHistory"}}})
+}
+
+func schema(m protoreflect.MessageDescriptor, depth int) any {
+	if depth > 5 {
+		return map[string]string{"message": string(m.FullName())}
+	}
+	fields := []any{}
+	for i := 0; i < m.Fields().Len(); i++ {
+		f := m.Fields().Get(i)
+		v := map[string]any{"name": f.JSONName(), "type": f.Kind().String(), "repeated": f.IsList(), "presence": f.HasPresence()}
+		if f.Enum() != nil {
+			values := []string{}
+			for j := 0; j < f.Enum().Values().Len(); j++ {
+				values = append(values, string(f.Enum().Values().Get(j).Name()))
+			}
+			v["values"] = values
+		}
+		if f.Message() != nil {
+			v["fields"] = schema(f.Message(), depth+1)
+		}
+		fields = append(fields, v)
+	}
+	return map[string]any{"message": string(m.FullName()), "fields": fields}
+}
+
+// Prepare transports context into existing request semantics. It does not
+// calculate a metric, compare storage, or reinterpret domain responses.
+func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, error) {
+	md := Method(method)
+	if md == nil {
+		return nil, nil, errors.New("unsupported method")
+	}
+	fields := md.Input().Fields()
+	m := map[string]any{}
+	put := func(k string, v any) bool {
+		if fields.ByJSONName(k) == nil {
+			return false
+		}
+		m[k] = v
+		return true
+	}
+	put("system", c.System)
+	if c.Account != "" {
+		put("account", c.Account)
+	}
+	put("range", c.Range)
+	if c.Entity != nil {
+		put("entity", c.Entity)
+		e := c.Entity
+		switch method {
+		case "GetServer":
+			put("name", e.Server)
+		case "GetStream", "GetConsumer":
+			put("account", e.Account)
+			put("stream", e.Stream)
+			if e.Consumer != "" {
+				put("consumer", e.Consumer)
+			}
+		}
+	}
+	if c.Metric != "" {
+		put("metric", c.Metric)
+	}
+	for _, e := range c.Evidence {
+		if method == "GetFinding" && e.Kind == "finding" || method == "GetEvent" && e.Kind == "event" {
+			put("id", e.ID)
+		}
+	}
+	unapplied := []string{}
+	for k, v := range c.Filters {
+		applied := false
+		switch k {
+		case "account":
+			applied = put("account", v)
+		case "check":
+			applied = put("checkCode", v)
+		case "state":
+			if method == "ListFindings" {
+				states := []string{}
+				switch v {
+				case "resolved":
+					states = []string{"FINDING_STATE_RESOLVED"}
+				case "all":
+					states = []string{"FINDING_STATE_FIRING", "FINDING_STATE_CHANGED", "FINDING_STATE_FLAPPING", "FINDING_STATE_RESOLVED"}
+				case "open":
+					states = []string{"FINDING_STATE_FIRING", "FINDING_STATE_CHANGED", "FINDING_STATE_FLAPPING"}
+				}
+				if len(states) > 0 {
+					applied = put("states", states)
+				}
+			}
+		case "sev":
+			a := strings.Split(v, ",")
+			for i := range a {
+				a[i] = "SEVERITY_" + strings.ToUpper(a[i])
+			}
+			applied = put("severities", a)
+		case "muted":
+			applied = put("includeMuted", v != "0")
+		case "src":
+			values := []string{}
+			for _, source := range strings.Split(v, ",") {
+				switch source {
+				case "nats", "kubernetes", "check", "collector":
+					values = append(values, "EVENT_SOURCE_"+strings.ToUpper(source))
+				}
+			}
+			if len(values) == len(strings.Split(v, ",")) {
+				applied = put("sources", values)
+			}
+		case "server", "stream", "consumer":
+			applied = c.Entity != nil && fields.ByJSONName("entity") != nil
+		case "kind":
+			applied = put("kinds", strings.Split(v, ","))
+		case "client":
+			applied = put("clientName", v)
+		case "show":
+			applied = put("hideRoutine", v != "all")
+		case "id":
+			if method == "GetEvent" {
+				applied = put("id", v)
+			}
+		case "a", "b":
+			applied = put(k, v)
+		}
+		if !applied {
+			unapplied = append(unapplied, k)
+		}
+	}
+	if method == "GetReplay" {
+		if m["a"] == nil {
+			m["a"] = c.Range.Start
+		}
+		if m["b"] == nil {
+			m["b"] = c.Range.End
+		}
+	}
+	if len(overrides) > 0 {
+		var extra map[string]json.RawMessage
+		if err := json.Unmarshal(overrides, &extra); err != nil {
+			return nil, nil, errors.New("invalid request object")
+		}
+		for k, v := range extra {
+			m[k] = v
+		}
+	}
+	b, err := json.Marshal(m)
+	if err != nil {
+		return nil, nil, err
+	}
+	msg := dynamicpb.NewMessage(md.Input())
+	if err = protojson.Unmarshal(b, msg); err != nil {
+		return nil, nil, errors.New("invalid request fields; use describe METHOD for the protobuf JSON schema")
+	}
+	// ASVS 2.2.1: client budget checks supplement the authoritative handler.
+	// Descriptor access is for a known request contract, never guessed response metadata.
+	if f := fields.ByName("range"); f != nil && msg.Has(f) {
+		r := msg.Get(f).Message()
+		rb, _ := protojson.Marshal(r.Interface())
+		var b Bounds
+		_ = json.Unmarshal(rb, &b)
+		if _, _, err = bounds(b); err != nil {
+			return nil, nil, err
+		}
+	}
+	for _, n := range []string{"page_size", "max_points"} {
+		f := fields.ByName(protoreflect.Name(n))
+		if f != nil {
+			v := msg.Get(f).Int()
+			limit := int64(500)
+			if n == "max_points" {
+				limit = 2000
+			}
+			if v < 0 || v > limit {
+				return nil, nil, errors.New("request exceeds page/point budget")
+			}
+		}
+	}
+	slices.Sort(unapplied)
+	b, err = protojson.Marshal(msg)
+	return b, unapplied, err
+}

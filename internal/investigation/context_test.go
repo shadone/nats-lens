@@ -1,6 +1,7 @@
 package investigation
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -42,5 +43,37 @@ func TestPageURLFreezesServerClock(t *testing.T) {
 	link, err := c.Link("https://lens.example.com")
 	if err != nil || !strings.Contains(link, "system=shop") || !strings.Contains(link, "from=") || strings.Contains(link, "range=") {
 		t.Fatalf("%s %v", link, err)
+	}
+}
+func fixtureNow() time.Time { return time.Date(2026, 10, 17, 14, 30, 0, 0, time.UTC) }
+
+func TestContextRoutesAndInvalidIdentity(t *testing.T) {
+	for _, path := range []string{"/streams/APP/orders", "/kv-stores/APP/catalog", "/object-stores/APP/images", "/consumers/APP/orders/worker", "/events?id=event-1", "/findings/f-1"} {
+		c, err := ContextFromURL("https://lens.example.com"+path, "https://lens.example.com", fixtureNow())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c.Entity == nil && len(c.Evidence) == 0 {
+			t.Fatal("identity missing")
+		}
+		b, _ := json.Marshal(c)
+		if _, err = ParseContext(strings.NewReader(string(b)), c.Deployment); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c, _ := ContextFromURL("https://lens.example.com/capacity", "https://lens.example.com", fixtureNow())
+	cases := []func(*Context){
+		func(c *Context) { c.Metric = "not a metric" }, func(c *Context) { c.Point = "2020-01-01T00:00:00Z" },
+		func(c *Context) { c.Filters = map[string]string{"token": "secret"} }, func(c *Context) { c.Entity = &Entity{Type: "unknown"} },
+		func(c *Context) { c.Entity = &Entity{Type: "ENTITY_TYPE_SERVER", Key: strings.Repeat("x", 257)} },
+		func(c *Context) { c.Evidence = []Evidence{{"unknown", "id"}} }, func(c *Context) { c.Provenance.Status = "pinned" },
+		func(c *Context) { c.Range.Start = "2026-10-17T13:30:00+00:00" }, func(c *Context) { c.SourcePath = "/capacity?system=a&system=b" },
+	}
+	for _, change := range cases {
+		copy := *c
+		change(&copy)
+		if err := copy.Validate(c.Deployment); err == nil {
+			t.Fatalf("accepted %+v", copy)
+		}
 	}
 }
