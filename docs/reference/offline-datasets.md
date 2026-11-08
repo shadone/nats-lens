@@ -42,7 +42,7 @@ All signed 64-bit values use decimal JSON strings, including IDs, byte sizes, co
 | `boundaries.first_event_at`, `last_event_at`, `last_event_received_at`, `latest_event_id` | Separate event-time and receive-time bounds and latest event ID; not inferred from collection time |
 | `boundaries.check_runs`, `latest_evaluated_epoch` | Published run count and highest epoch with any run, including error/disabled status; not proof that checks succeeded |
 | `boundaries.pending_evaluation_epochs` | Count of retained collections without any published check run; no unbounded per-epoch list |
-| `complete` | Successful artifact preparation; not complete monitoring or pipeline coverage |
+| `complete` | Successful artifact preparation; not proof of publication, complete monitoring, or pipeline coverage |
 | `pending_stages` | Unknown collection/event buffers and evaluation pipeline completion |
 | `exported_facts`, `live_only`, `checks_configuration` | Durable database contents, excluded runtime facts, and `not_exported` checks configuration |
 | `data.path`, `size`, `sha256` | Fixed `data.duckdb`, exact byte size, SHA-256 of the closed file |
@@ -52,6 +52,8 @@ A latest completion timestamp earlier than its collection start provides no refe
 The database contains the migration records and their original checksums. The manifest replaces the source's identity marker and selected safe configuration metadata for offline consumers; source configuration files are not included. Durable notification tables and archive watermarks are captured facts, never instructions to deliver notifications or load missing archive files.
 
 ## Validation and compatibility
+
+Names starting with `.dataset-partial-` are reserved for unpublished staging. The public reader rejects those directories even when their prepared manifest has `complete: true`; only the writer can validate staging internally. Publication is the successful atomic rename into a non-staging name. After that rename, a fresh reader can validate the completed artifact after collector or reader restart.
 
 The shared reader accepts exactly two private regular files in a private nonsymlink directory. It rejects path traversal, symlinks, unexpected WAL/partial files, unsupported formats, missing provenance, size/hash mismatch, mismatched recorded boundaries, and incompatible schema or engine metadata. It verifies every migration checksum without rewriting legacy values. It scans every stored column before returning a handle.
 
