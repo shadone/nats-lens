@@ -72,7 +72,7 @@ func TestEmittedContextsReachRPCUnchanged(t *testing.T) {
 		return r
 	}
 	for _, tc := range []struct{ method, path, request string }{
-		{"ListConsumers", "/consumers?account=OTHER&stream=APP/order-jobs", `{}`},
+		{"ListConsumers", "/consumers?account=OTHER&stream=APP/order-jobs", `{"include_ephemeral":false,"limit":1}`},
 		{"ListEvents", "/events?kind=%20finding.resolved%20&show=all", `{}`},
 		{"GetSubjects", "/subjects", `{"filter":"SUBJECT_FILTER_WIDE"}`},
 		{"GetPlacement", "/placement", `{"filter":"PLACEMENT_FILTER_MISSING"}`},

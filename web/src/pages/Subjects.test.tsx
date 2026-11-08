@@ -461,3 +461,8 @@ describe("Subjects tester", () => {
     expect(screen.queryByRole("region", { name: "Where this subject goes" })).toBeNull();
   });
 });
+
+it("trims the linked subject tester value with JavaScript whitespace semantics",async()=>{
+ getSubjects.mockResolvedValue(global());matchSubject.mockResolvedValue(matches());renderApp(<Subjects/>,`/subjects?subject=${encodeURIComponent("\uFEFF orders.created \u00a0")}`);
+ await waitFor(()=>expect(matchSubject).toHaveBeenCalled());expect(matchSubject.mock.calls.at(-1)?.[3]).toBe("orders.created");
+});
