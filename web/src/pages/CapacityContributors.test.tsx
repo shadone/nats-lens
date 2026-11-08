@@ -78,3 +78,8 @@ it("returns to the first page after changing a type filter and changing it back"
  fireEvent.change(region().getByLabelText("Contributor type"),{target:{value:"all"}});
  expect(await region().findByText("Showing 1–4 of 105 matching resource incarnations. Sorting applies before paging. Unknown changes remain last.")).toBeInTheDocument();
 });
+it("distinguishes recreated resources by visible creation identity",async()=>{
+ const r=response();r.rows[0].created=stamp("2026-10-17T12:00:00Z");const old=create(GetStorageChangeResponseSchema,{rows:[{...r.rows[0],id:"old-orders",created:stamp("2026-10-16T12:00:00Z")}]}).rows[0];r.rows.push(old);r.totalCount++;
+ vi.mocked(lens.getStorageChange).mockResolvedValue(r);renderApp(<Capacity/>,route);await region().findByRole("button",{name:"Sort by Change in range"});
+ expect(region().getByRole("button",{name:"Explore orders, file, created 2026-10-17T12:00:00Z"})).toBeInTheDocument();expect(region().getByRole("button",{name:"Explore orders, file, created 2026-10-16T12:00:00Z"})).toBeInTheDocument();expect(region().getByText("Created 2026-10-16T12:00:00Z")).toBeInTheDocument();
+});
