@@ -43,15 +43,23 @@ func trafficRate(col, serverFilter string) metricSQL {
 // Column and filter fragments come only from the compile-time metric catalogue;
 // all range and entity values remain bound parameters (ASVS 1.2.4).
 func counterEvidence(col, serverFilter string) string {
-	return fmt.Sprintf(`SELECT *, CASE WHEN counter >= 0 AND previous_counter >= 0
- AND elapsed_ms > 0 AND elapsed_ms <= %[3]s AND counter >= previous_counter
- THEN counter::HUGEINT - previous_counter::HUGEINT END AS delta
-FROM (SELECT *, date_diff('millisecond', previous_at, t) AS elapsed_ms FROM (
+	// Restrict the epoch envelope, not individual report timestamps, before
+	// lag. Otherwise an out-of-range intervening report disappears and two
+	// nonconsecutive reports can become a fabricated comparable pair. The
+	// final membership filter retains the original timestamp scan scope.
+	return fmt.Sprintf(`WITH counter_epochs AS (
+ SELECT epoch FROM epochs WHERE started_at >= ? AND started_at < ?),
+ counter_reports AS (
  SELECT e.epoch, e.started_at AS t, ss.server_id, ss.%[1]s AS counter,
  lag(ss.%[1]s) OVER w AS previous_counter, lag(e.started_at) OVER w AS previous_at
  FROM server_stats ss JOIN epochs e USING (epoch) JOIN servers s USING (server_id)
- WHERE e.started_at >= ? AND e.started_at < ? %[2]s
- WINDOW w AS (PARTITION BY ss.server_id ORDER BY e.epoch)))`, col, serverFilter, maxGapToken)
+ WHERE e.epoch BETWEEN (SELECT min(epoch) FROM counter_epochs) AND (SELECT max(epoch) FROM counter_epochs) %[2]s
+ WINDOW w AS (PARTITION BY ss.server_id ORDER BY e.epoch))
+ SELECT *, CASE WHEN counter >= 0 AND previous_counter >= 0
+ AND elapsed_ms > 0 AND elapsed_ms <= %[3]s AND counter >= previous_counter
+ THEN counter::HUGEINT - previous_counter::HUGEINT END AS delta
+ FROM (SELECT *, date_diff('millisecond', previous_at, t) AS elapsed_ms
+ FROM counter_reports WHERE epoch IN (SELECT epoch FROM counter_epochs))`, col, serverFilter, maxGapToken)
 }
 
 const counterRateProjection = `SELECT t, sum(delta * 1000.0 / elapsed_ms) AS v
