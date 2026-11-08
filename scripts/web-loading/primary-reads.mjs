@@ -7,7 +7,7 @@ const base = process.env.DEMO_URL;
 const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH, headless: true, args: ['--disable-background-networking'] });
 const results = [];
 try {
-  for (const [path, method] of [['/capacity','GetCapacity'], ['/topology','GetTopology'], ['/placement','GetPlacement'], ['/replay','GetTimeline']]) {
+  for (const [path, method] of [['/capacity','GetCapacity'], ['/topology','GetTopology'], ['/placement','GetPlacement'], ['/replay','GetStatusTimeline']]) {
     const context = await browser.newContext({ viewport: { width:1280, height:800 }, serviceWorkers:'block' });
     const page = await context.newPage();
     await page.goto(base + '/fleet?system=example-prod&range=6h&account=APP');
