@@ -1,7 +1,8 @@
+import { Remediation } from "./Remediation";
 import { Code, ConnectError } from "@connectrpc/connect";
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { ErrorBox, QueryView, Remediation } from "./common";
+import { ErrorBox, QueryView } from "./common";
 
 const at = Date.parse("2026-10-17T14:30:05Z");
 

@@ -13,6 +13,13 @@ export default defineConfig({
     emptyOutDir: true,
     assetsDir: "assets",
     sourcemap: false,
+    // Measurements found multiple shared helpers below 3 kB. Co-locate them
+    // with their dependencies to preserve execution order and avoid tiny requests.
+    // The entire initial static/preload closure still counts toward the budget.
+    rolldownOptions: { output: { codeSplitting: { groups: [{
+      name: "page-support",
+      test: /\/src\/(?:charts\/(?:MiniLine|Sparkline)|components\/(?:AccountName|ConsumersTable|Pager|FindingParts|MetricBox|PlacementSquares|ReplayEntry|SortHeader|Trends)|lib\/(?:events|replayUrl|storyLanes|useDebounced|sort))\.[^/]+$/,
+    }] } } },
   },
   server: {
     host: "127.0.0.1",

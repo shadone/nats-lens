@@ -1,3 +1,4 @@
+import { Remediation } from "./Remediation";
 import { useState, type ReactNode } from "react";
 import { useParams } from "react-router";
 
@@ -12,7 +13,7 @@ import { usePageTitle } from "../lib/usePageTitle";
 import { useSystem } from "../lib/useSystem";
 import { entityName, findingPath } from "../lib/view";
 import { FindingAcknowledgement } from "./Acknowledgement";
-import { Empty, QueryView, Remediation, RLink } from "./common";
+import { Empty, QueryView, RLink } from "./common";
 import { HistoryLink } from "./HistoryNote";
 import { Sev } from "./Severity";
 export function OnCallFinding({ allDetails }: { allDetails: ReactNode }) {
