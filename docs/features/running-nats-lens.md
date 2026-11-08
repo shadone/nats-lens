@@ -10,6 +10,8 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 
 ## Behavior and rules
 
+- **Repository verification.** Contributors can select fast or full verification and receive the first failing check with saved logs. Checks preserve local generated-source edits. The fast profile excludes heavy Go integration; the full profile includes it. See the [verification workflow and limits](../operations/verification.md).
+
 - **Build artifacts.** `make build` verifies frontend inputs and output bytes, rebuilding assets only when necessary, then embeds them while holding the asset lock. `make build-full` forces generation. `make build-go` skips freshness checks and embeds existing assets, or the placeholder when assets are absent. Dependency/configuration/generated changes and missing outputs invalidate reuse. See [build guarantees and container-validation limits](../operations/build-reuse.md).
 
 - **Remote investigation.** `natslens investigate` uses configured API profiles without opening a database or connecting to NATS. Its separate read-only route needs the existing authenticated access perimeter and a restricted proxy policy for least privilege ([agent-investigations.md](agent-investigations.md)).
@@ -86,6 +88,14 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 - **Given** a channel destination is configured and a NetworkPolicy limits the pod's egress
 - **When** the policy allows DNS and HTTPS to that receiver and I run `natslens notify test`
 - **Then** the command reports whether the receiver accepts the test without requiring a stopped collector
+
+### Verify a change without rewriting local work
+
+- **Surfaces:** `cli`
+- **Given** a prepared checkout with installed verification tools and a local generated-source edit
+- **When** I run the selected verification profile
+- **Then** drift fails the check without overwriting the edit, later checks stop, and the logs identify the failing stage
+- **And** a selected subset is labeled as incomplete verification
 
 ## Not supported / out of scope
 

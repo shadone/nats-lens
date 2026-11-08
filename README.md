@@ -114,6 +114,8 @@ To capture the stream and consumer advisories of a JetStream account as well, an
 | make web-dev          | Runs the Vite dev server on 127.0.0.1:5173 against the API on 127.0.0.1:8080.       |
 | make web-test         | Runs the web UI tests (Vitest and Testing Library).                                 |
 | make test             | Runs all Go tests, including local NATS clusters and scale cases.                      |
+| make verify-fast      | Runs shared static checks, curated pure Go tests and complete web tests; [scope and prerequisites](docs/operations/verification.md). |
+| make verify-full      | Runs static checks, full Go/web tests and selected non-UTC races sequentially. |
 | make test-fast        | Runs the curated pure Go policy/decoding tier, uncached.                           |
 | make test-short       | Runs mixed Go integration tests without local NATS or scale cases.                                            |
 | make lint             | Runs `go vet` and checks `gofmt`.                                                   |

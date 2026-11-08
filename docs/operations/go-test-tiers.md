@@ -60,6 +60,8 @@ These commands document coverage boundaries; their presence does not record a pa
 
 ## Run combined validation
 
+Use `make verify-fast` for shared static checks, this curated pure Go tier and complete web tests. Use `make verify-full` for shared checks, full Go/web suites and selected non-UTC races. See [entry-point scopes and prerequisites](verification.md). These aggregate checks do not replace focused edit-time tests.
+
 Reserve the full suite for a coordinated validation boundary. `internal/checks` alone can take about 13 minutes, beyond Go's default 10-minute timeout. Avoid running it alongside frontend tests, browser timing, or another database-heavy suite.
 
 ```sh
