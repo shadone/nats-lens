@@ -599,7 +599,7 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 			put("id", e.ID)
 		}
 	}
-	if method == "GetReplay" {
+	if method == "GetReplay" || method == "GetStorageChange" {
 		if m["a"] == nil {
 			m["a"] = c.Range.Start
 		}

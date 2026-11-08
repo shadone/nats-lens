@@ -591,5 +591,22 @@ func (h *Handler) GetOnCall(ctx context.Context, req *connect.Request[v1.GetOnCa
 }
 
 func (h *Handler) GetStorageChange(ctx context.Context, req *connect.Request[v1.GetStorageChangeRequest]) (*connect.Response[v1.GetStorageChangeResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("storage comparison is not implemented"))
+	return call(ctx, h, "GetStorageChange", req.Msg, func(p Provider, m *v1.GetStorageChangeRequest) error {
+		if m.A == nil || m.B == nil || m.A.CheckValid() != nil || m.B.CheckValid() != nil || !m.A.AsTime().Before(m.B.AsTime()) || m.B.AsTime().After(p.Now()) {
+			return invalid("valid ordered nonfuture a and b are required")
+		}
+		if m.EpochA < 0 || m.EpochB < 0 || m.PageSize < 0 || m.PageSize > MaxStorageChangePage || len(m.PageToken) > 1024 || len(m.Account) > 1024 {
+			return invalid("invalid storage comparison scope, pins or page budget")
+		}
+		if m.PageSize == 0 {
+			m.PageSize = MaxStorageChangePage
+		}
+		return nil
+	}, func(s System, ctx context.Context, m *v1.GetStorageChangeRequest) (*v1.GetStorageChangeResponse, error) {
+		f, err := s.Provider.StorageChange(ctx, m)
+		if err != nil {
+			return nil, err
+		}
+		return FinishStorageChange(m, f)
+	})
 }

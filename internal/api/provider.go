@@ -92,6 +92,8 @@ type Provider interface {
 	// the epoch; the handler words, orders and cuts them with
 	// FinishCapacity. A range without an epoch gives facts with Epoch 0.
 	Capacity(ctx context.Context, req *v1.GetCapacityRequest) (*CapacityFacts, error)
+	// StorageChange reads one transaction-pinned comparison; the handler ranks and pages it.
+	StorageChange(ctx context.Context, req *v1.GetStorageChangeRequest) (*StorageChangeFacts, error)
 	// Subjects reads the streams and consumers of the range's newest
 	// epoch, the JetStream API rates of the accounts that use JetStream,
 	// and the newest subscription collection at or before the epoch within
