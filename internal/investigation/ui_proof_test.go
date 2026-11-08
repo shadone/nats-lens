@@ -76,3 +76,34 @@ func TestUIEntityAndEnumProof(t *testing.T) {
 		})
 	}
 }
+
+func TestUnreviewedDefaultIsPartial(t *testing.T) {
+	msg := dynamicpb.NewMessage(Method("ListConnections").Input())
+	policies := map[string]string{}
+	fields := msg.Descriptor().Fields()
+	for i := 0; i < fields.Len(); i++ {
+		policies[string(fields.Get(i).Name())] = "predicate"
+	}
+	delete(policies, "include_tooling")
+	limits := compareUIFields("ListConnections", msg.ProtoReflect(), msg.ProtoReflect(), policies)
+	if len(limits) != 1 || !strings.Contains(limits[0], "includeTooling") {
+		t.Fatal(limits)
+	}
+}
+
+func TestNoUIProjectionCannotProveEmptyRequestScope(t *testing.T) {
+	for _, method := range []string{"ListMetrics", "GetTimeSeriesBatch"} {
+		c, _ := ContextFromURL("https://lens.example.com/?system=shop", "https://lens.example.com", fixtureNow())
+		req, _, err := Prepare(method, c, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, limits, err := effectiveContext(method, c, req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(limits) == 0 {
+			t.Errorf("%s has no dedicated exact UI projection", method)
+		}
+	}
+}
