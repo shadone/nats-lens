@@ -123,3 +123,40 @@ func TestStorageChangePinBindingRejectsInconsistentMetadata(t *testing.T) {
 		t.Fatal("unresolved default source accepted")
 	}
 }
+
+func TestStorageContributorSelectionRoundTrip(t *testing.T) {
+	c, err := ContextFromURL("https://lens.example.com/capacity/storage-change?system=shop&from=2026-10-17T13:00:00Z&to=2026-10-17T14:00:00Z&epochA=1&epochB=2&change=asc&resource=kv&contributors=1", "https://lens.example.com", fixtureNow())
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, unapplied, err := Prepare("GetStorageChange", c, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var r map[string]any
+	if err = json.Unmarshal(req, &r); err != nil {
+		t.Fatal(err)
+	}
+	if r["order"] != "STORAGE_CHANGE_ORDER_LOGICAL_ASCENDING" || r["resourceKind"] != "CAPACITY_STREAM_KIND_KEY_VALUE" || r["resourcesOnly"] != true || len(unapplied) != 0 {
+		t.Fatalf("selection lost: %s unapplied=%v", req, unapplied)
+	}
+	effective, limits, err := effectiveContext("GetStorageChange", c, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(limits) > 0 {
+		t.Fatal(limits)
+	}
+	link, err := effective.Link(c.Deployment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	imported, err := ContextFromURL(link, c.Deployment, fixtureNow())
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, _, err := Prepare("GetStorageChange", imported, nil)
+	if err != nil || string(again) != string(req) {
+		t.Fatalf("roundtrip=%s err=%v", again, err)
+	}
+}

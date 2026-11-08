@@ -81,3 +81,8 @@ it("waits for a fresh clock when choosing another live preset",async()=>{
  nextClock(clock("2026-10-17T14:01:00Z"));
  await waitFor(()=>expect(lens.getStorageChange).toHaveBeenLastCalledWith(expect.objectContaining({a:stamp("2026-10-17T08:01:00Z"),b:stamp("2026-10-17T14:01:00Z")}),expect.anything()));
 });
+it("replays contributor sorting and type filters from the pinned investigation link",async()=>{
+ vi.mocked(lens.getStorageChange).mockResolvedValue(response());renderApp(<StorageChange/>,route+"&change=asc&resource=kv&contributors=1");
+ await screen.findByRole("region",{name:"Storage contributors"});
+ expect(lens.getStorageChange).toHaveBeenCalledWith(expect.objectContaining({order:1,resourceKind:2,resourcesOnly:true}),expect.anything());
+});
