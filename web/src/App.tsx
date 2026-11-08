@@ -1,3 +1,4 @@
+import { RouteBoundary } from "./components/RouteBoundary";
 // The shell and the routes. Every page reads the time range, the system and
 // the account scope from the URL; the sidebar's pages are listed in nav.ts.
 import { Route, Routes, useLocation } from "react-router";
@@ -10,6 +11,7 @@ import { useRoutePosition } from "./lib/useRoutePosition";
 import { useSidebar } from "./lib/useSidebar";
 import { useSystem } from "./lib/useSystem";
 import { Fleet } from "./pages/Fleet";
+import { SlowConsumerInvestigation } from "./pages/SlowConsumerInvestigation";
 import { Overview } from "./pages/Overview";
 import { Checks, CheckDetail } from "./pages/Checks";
 import { Findings } from "./pages/Findings";
@@ -20,7 +22,6 @@ import { Streams } from "./pages/Streams";
 import { StreamDetail } from "./pages/StreamDetail";
 import { Consumers } from "./pages/Consumers";
 import { ConsumerDetail } from "./pages/ConsumerDetail";
-import { SlowConsumerInvestigation } from "./pages/SlowConsumerInvestigation";
 import { Servers } from "./pages/Servers";
 import { ServerDetail } from "./pages/ServerDetail";
 import { Connections } from "./pages/Connections";
@@ -38,7 +39,7 @@ import { Applications } from "./pages/Applications";
 import { NotFound } from "./pages/NotFound";
 
 export function App() {
-  const { pathname } = useLocation();
+  const { pathname, search, hash } = useLocation();
   const system = useSystem();
   const main = useRoutePosition();
   const { collapsed, setCollapsed, drawerOpen, setDrawerOpen, drawerShown } = useSidebar();
@@ -58,6 +59,7 @@ export function App() {
           <StaleProvider key={`${pathname}|${system}`}>
             <SystemGate>
               <PageHistoryProvider>
+              <RouteBoundary key={pathname} href={pathname + search + hash}>
               <Routes>
                 <Route
                   path="/"
@@ -97,6 +99,7 @@ export function App() {
                 <Route path="/data-history" element={<DataHistory />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </RouteBoundary>
               </PageHistoryProvider>
             </SystemGate>
           </StaleProvider>

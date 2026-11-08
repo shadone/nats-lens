@@ -9,7 +9,7 @@ import { useEventFeed, useNewEvents, type EventFeed, type FeedFilter } from "../
 import type { Entity } from "../api/model";
 import { useEvent } from "../api/queries";
 import { Empty, ErrorBox, QueryView } from "../components/common";
-import { usePager } from "../components/EntityParts";
+import { usePager } from "../components/Pager";
 import { EventFacets, SOURCES } from "../components/EventFacets";
 import { EventHistogram } from "../components/EventHistogram";
 import { EventRow } from "../components/EventRow";
