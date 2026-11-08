@@ -90,10 +90,10 @@ describe("DataHistory", () => {
     await screen.findByRole("region", { name: "Gaps" });
     const rows = bodyRows("Gaps");
     expect(rows.map((r) => within(r).getByRole("rowheader").textContent)).toEqual([
-      "Events not capturedNATS events from connection sys are missing; charts are not affected",
+      "Events not capturedConnection sys was lost; NATS events may be missing",
       "nats-lens could not reach NATS",
       "nats-lens was not running",
-      "Events not capturedNATS events from connection sys are missing; charts are not affected",
+      "Events not capturedConnection sys was lost; NATS events may be missing",
       "nats-lens was not running yet",
     ]);
     expect(rows[1]).toHaveTextContent("nats-lens could not reach NATS19:47:14ongoing3 h so farbefore: collection 720, 19:47:14event 29");
@@ -119,7 +119,7 @@ describe("DataHistory", () => {
     renderApp(<DataHistory />, "/data-history?from=2026-11-05T00:00:00Z&to=2026-11-05T21:47:18Z");
     await screen.findByRole("region", { name: "Gaps" });
     const rows = bodyRows("Gaps");
-    expect(rows[0]).toHaveTextContent(/^Kubernetes not watchedPod, node or Kubernetes event changes may be missing; charts are not affected20:47:1820:51:184 min/);
+    expect(rows[0]).toHaveTextContent(/^Kubernetes not watchedPod, node or event changes may be missing20:47:1820:51:184 min/);
     // Collections without their times are named, not linked.
     expect(rows[1]).toHaveTextContent("No collections17:47:1817:52:185 minbefore: collection 73401after: collection 73411");
     expect(within(rows[1]).queryByRole("link")).toBeNull();

@@ -65,17 +65,16 @@ export function gapLabel(kind: GapKind): string {
 }
 
 /**
- * What else a row says, for the kinds charts do not hatch because
- * collections went on: the NATS events missing, with the connection lost,
- * or the Kubernetes changes that may be missing (a Kubernetes gap is
- * recorded when any one of the pod, node or Event watches fails).
+ * What else an event-capture or Kubernetes-watch row says: what may be
+ * missing. An events row names the connection of its first loss; other
+ * connections lost with it share the row. A Kubernetes gap is recorded
+ * when any one of the pod, node or Event watches fails.
  */
 export function gapDetail(g: HistoryGap): string | undefined {
   if (g.kind === "eventsNotCaptured") {
-    const from = g.connection ? ` from connection ${g.connection}` : "";
-    return `NATS events${from} are missing; charts are not affected`;
+    return g.connection ? `Connection ${g.connection} was lost; NATS events may be missing` : "NATS events may be missing";
   }
-  if (g.kind === "kubernetesNotWatched") return "Pod, node or Kubernetes event changes may be missing; charts are not affected";
+  if (g.kind === "kubernetesNotWatched") return "Pod, node or event changes may be missing";
   return undefined;
 }
 
