@@ -35,9 +35,9 @@ export function buildInvestigationContext(input:{origin:string;pathname:string;s
  let entity=portableEntity(s?.entity)??primary?.entity??routeEntity(pathname);
  // Selected chart/route identities outrank retained selectors. Query-only
  // contexts use the same consumer > stream > server precedence as Events.
- if(!entity&&params.get("consumer")){const key=params.get("consumer")!,p=key.split("/");if(p.length===3)entity={type:"ENTITY_TYPE_CONSUMER",key,account:p[0],stream:p[1],consumer:p[2]}}
- if(!entity&&params.get("stream")){const key=params.get("stream")!,p=key.split("/");if(p.length===2)entity={type:"ENTITY_TYPE_STREAM",key,account:p[0],stream:p[1]}}
- if(!entity&&params.get("server"))entity={type:"ENTITY_TYPE_SERVER",key:params.get("server")!,server:params.get("server")!};
+ if(!entity&&pathname==="/events"&&params.get("consumer")){const key=params.get("consumer")!,p=key.split("/");if(p.length===3)entity={type:"ENTITY_TYPE_CONSUMER",key,account:p[0],stream:p[1],consumer:p[2]}}
+ if(!entity&&["/events","/consumers"].includes(pathname)&&params.get("stream")){const key=params.get("stream")!,p=key.split("/");if(p.length===2)entity={type:"ENTITY_TYPE_STREAM",key,account:p[0],stream:p[1]}}
+ if(!entity&&["/events","/connections","/servers/slow-consumers","/placement"].includes(pathname)&&params.get("server"))entity={type:"ENTITY_TYPE_SERVER",key:params.get("server")!,server:params.get("server")!};
  const evidence:{kind:string;id:string}[]=[...(s?.evidence??[])];
  if(pathname.startsWith("/findings/")&&pathname!=="/findings/by-labels")evidence.push({kind:"finding",id:decodeURIComponent(pathname.slice("/findings/".length))});
  if(pathname==="/events"&&params.get("id"))evidence.push({kind:"event",id:params.get("id")!});
