@@ -20,7 +20,8 @@ import (
 
 const Help = `natslens investigate methods
 natslens investigate describe METHOD
-natslens investigate context -profiles FILE -profile NAME -url URL
+natslens investigate context SOURCE [-context FILE | -url URL]
+  (SOURCE uses the same exclusive source flags as query below)
 natslens investigate query METHOD (-endpoint ORIGIN | -profiles FILE -profile NAME |
   -bundle DIR | -db FILE -system ID -collection-interval DURATION) [-context FILE | -url URL]
   [-request FILE] [-system ID] [-account ID] [-from UTC -to UTC] [-metric ID]

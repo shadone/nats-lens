@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"time"
 
 	"github.com/shadone/nats-lens/internal/api"
@@ -71,6 +72,9 @@ func Open(ctx context.Context, selection investigation.OfflineSelection) (*inves
 		queryReference = queryReference.Add(time.Microsecond)
 		adjustment = "exclusive_end_inclusion: one database-resolution tick; not an observed capture time"
 	}
+	if timestamppb.New(*bounds.DataReference).CheckValid() != nil || timestamppb.New(queryReference).CheckValid() != nil {
+		return fail(&investigation.Diagnostic{Code: "no_reference_clock", Message: "dataset reference or derived exclusive end is outside the API timestamp range"})
+	}
 	provenance = map[string]any{"capture": provenance, "dataReference": bounds.DataReference, "queryReference": queryReference, "queryReferenceAdjustment": adjustment}
 	p, err := storeprov.NewCaptured(ctx, db, time.Duration(system.CollectionIntervalNS), *bounds.DataReference, fingerprint)
 	if err != nil {
@@ -79,6 +83,7 @@ func Open(ctx context.Context, selection investigation.OfflineSelection) (*inves
 	p.RangeClock = func() time.Time { return queryReference }
 	if system.RetentionNS != nil {
 		p.Retention = time.Duration(*system.RetentionNS)
+		p.RetentionKnown = true
 	}
 	h := &api.Handler{Systems: api.One(system.ID, system.Name, p), Version: version}
 	return &investigation.Session{Source: investigation.NewInProcess(api.NewInvestigationHandler(h)), Provenance: provenance, QueryReference: queryReference, Close: db.Close}, nil

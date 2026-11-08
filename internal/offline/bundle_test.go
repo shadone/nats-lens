@@ -3,6 +3,7 @@ package offline
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -71,5 +72,36 @@ func TestOfflineCanonicalBundleParity(t *testing.T) {
 	}
 	if _, err = captured.Source.Query(ctx, "GetLensInfo", []byte(`{"system":"other"}`)); err == nil {
 		t.Fatal("bundle implies other system")
+	}
+}
+
+func TestOfflineRejectsUnpublishedBundle(t *testing.T) {
+	ctx := context.Background()
+	st, err := store.OpenPath(ctx, closedFixture(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	if err = os.Chmod(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	published := filepath.Join(root, "published")
+	_, err = dataset.Acquire(ctx, st, published, dataset.System{ID: "shop", CollectionIntervalNS: int64(time.Second)}, "fixture", dataset.Options{MaxBytes: 64 << 20})
+	st.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stage := filepath.Join(root, ".dataset-partial-unpublished")
+	if err = os.Rename(published, stage); err != nil {
+		t.Fatal(err)
+	}
+	session, err := Open(ctx, investigation.OfflineSelection{Bundle: stage})
+	if err == nil {
+		session.Close()
+		t.Fatal("unpublished bundle exposed semantic reads")
+	}
+	var diagnostic *investigation.Diagnostic
+	if !errors.As(err, &diagnostic) || diagnostic.Code != "invalid_source" {
+		t.Fatalf("staging error: %v", err)
 	}
 }

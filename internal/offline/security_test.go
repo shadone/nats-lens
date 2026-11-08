@@ -139,3 +139,41 @@ func TestOfflineRejectsUnrepresentableReference(t *testing.T) {
 		}
 	}
 }
+
+func TestOfflineStructuredSourceCompatibility(t *testing.T) {
+	ctx := context.Background()
+	for _, c := range []struct{ name, change, want string }{
+		{"old schema", `DELETE FROM migrations WHERE version=39`, "unsupported_source_version"},
+		{"new schema", `INSERT INTO migrations(version,name,sha256) VALUES (40,'future','not-current')`, "unsupported_source_version"},
+		{"checksum", `UPDATE migrations SET sha256='incorrect' WHERE version=39`, "unsupported_source_version"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			path := closedFixture(t)
+			st, err := store.OpenPath(ctx, path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = st.DB().ExecContext(ctx, c.change); err != nil {
+				t.Fatal(err)
+			}
+			st.Close()
+			before, _ := os.ReadFile(path)
+			_, err = Open(ctx, investigation.OfflineSelection{DB: path, System: "shop", Interval: time.Second})
+			var diagnostic *investigation.Diagnostic
+			if !errors.As(err, &diagnostic) || diagnostic.Code != c.want || strings.Contains(err.Error(), path) {
+				t.Fatalf("diagnostic: %v", err)
+			}
+			after, _ := os.ReadFile(path)
+			if !bytes.Equal(before, after) {
+				t.Fatal("unsupported source changed")
+			}
+		})
+	}
+	for _, selection := range []investigation.OfflineSelection{{DB: filepath.Join(t.TempDir(), "missing.duckdb"), System: "shop", Interval: time.Second}, {Bundle: t.TempDir()}} {
+		_, err := Open(ctx, selection)
+		var diagnostic *investigation.Diagnostic
+		if !errors.As(err, &diagnostic) || diagnostic.Code != "invalid_source" {
+			t.Fatalf("invalid source error: %v", err)
+		}
+	}
+}
