@@ -1,3 +1,5 @@
+import {InvestigationHandoff} from "../components/InvestigationContext";
+import {buildInvestigationContext,type InvestigationSelection} from "../lib/investigationContext";
 import { create } from "@bufbuild/protobuf";
 import { timestampFromMs, timestampMs } from "@bufbuild/protobuf/wkt";
 import { act, fireEvent, screen, within } from "@testing-library/react";
@@ -413,4 +415,13 @@ it("offers Replay for the selected historical transition instead of the finding'
   expect(p.get("b")).toBe("2026-10-17T11:55:00Z");
   expect(p.get("system")).toBe("example-prod");
   expect(p.has("account")).toBe(false);
+});
+
+it.each(["firing","resolved","muted"])("copies a visible finding prompt for %s with the loaded ID, check, typed entity and frozen window",async state=>{
+ const f:Finding={...base,id:"consumer-006:APP/orders/worker",checkCode:"consumer-006",checkName:"Consumer delivery stopped",entity:consumerEntity,state:state==="resolved"?"resolved":"firing",...(state==="muted"?{mute:{id:"mute",reason:"Accepted",by:"operator",accepted:true} as Finding["mute"]}:{})};
+ m.getFinding.mockResolvedValue({finding:f,transitions:[]});let selected:InvestigationSelection|undefined;
+ renderApp(<InvestigationHandoff.Provider value={s=>{selected=s}}><Routes><Route path="/findings/:id" element={<FindingDetail/>}/></Routes></InvestigationHandoff.Provider>,"/findings/route-alias?system=shop&from=2026-10-17T13:30:00Z&to=2026-10-17T14:30:00Z&account=OTHER");
+ const button=await screen.findByRole("button",{name:"Copy as prompt"});expect(button).toHaveTextContent("Copy as prompt");fireEvent.click(button);
+ const c=buildInvestigationContext({origin:"https://lens.example.com",pathname:"/findings/route-alias",search:"?account=OTHER",system:"shop",spec:{kind:"fixed",from:Date.parse("2026-10-17T13:30:00Z"),to:Date.parse("2026-10-17T14:30:00Z")},selection:selected});
+ expect(c).toMatchObject({account:"APP",entity:{type:"ENTITY_TYPE_CONSUMER",key:consumerEntity.key},filters:{check:f.checkCode},evidence:[{kind:"finding",id:f.id}],range:{start:"2026-10-17T13:30:00.000Z",end:"2026-10-17T14:30:00.000Z"}});expect(c.evidence).toHaveLength(1);expect(c.series).toBeUndefined();expect(m.muteFinding).not.toHaveBeenCalled();expect(m.unmuteFinding).not.toHaveBeenCalled();
 });
