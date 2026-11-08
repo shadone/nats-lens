@@ -303,7 +303,7 @@ func TestJSONRejectsLossyDriverJSONAliases(t *testing.T) {
 	p := fixture(t, "sample.duckdb")
 	o := DefaultOptions()
 	o.Format = "json"
-	for _, q := range []string{`SELECT '9223372036854775807'::JSON AS j`, `SELECT ['9223372036854775807'::JSON] AS nested`, `SELECT {'j':'{"same":1,"same":2}'::JSON} AS nested`, `SELECT map([1],['9223372036854775807'::JSON]) AS nested`, `SELECT union_value(j := '9223372036854775807'::JSON)`} {
+	for _, q := range []string{`SELECT '9223372036854775807'::JSON AS j`, `SELECT ['9223372036854775807'::JSON] AS nested`, `SELECT ['9223372036854775807'::JSON]::JSON[1] AS nested`, `SELECT {'j':'{"same":1,"same":2}'::JSON} AS nested`, `SELECT map([1],['9223372036854775807'::JSON]) AS nested`, `SELECT union_value(j := '9223372036854775807'::JSON)`} {
 		b, e := Execute(context.Background(), p, q, o)
 		if e == nil || len(b) != 0 {
 			t.Errorf("lossy JSON accepted: %s %v", b, e)
@@ -312,5 +312,28 @@ func TestJSONRejectsLossyDriverJSONAliases(t *testing.T) {
 	b, e := Execute(context.Background(), p, `SELECT CAST('9223372036854775807'::JSON AS VARCHAR) AS j`, o)
 	if e != nil || !bytes.Contains(b, []byte(`"9223372036854775807"`)) {
 		t.Fatalf("explicit cast: %s %v", b, e)
+	}
+}
+
+func TestRealDriverExtraTypes(t *testing.T) {
+	p := fixture(t, "sample.duckdb")
+	o := DefaultOptions()
+	o.Format = "json"
+	q := `SELECT '00000000-0000-0000-0000-000000000000'::UUID AS u, '10101'::BIT AS b, DATE '2026-10-17' AS d, TIME '14:30:00.123456' AS t, TIMETZ '16:30:00.123456+02' AS z, INTERVAL '2 months 3 days 4 microseconds' AS i, union_value(number := 9223372036854775807::BIGINT) AS v, ['a',NULL]::VARCHAR[2] AS a`
+	b, e := Execute(context.Background(), p, q, o)
+	if e != nil {
+		t.Fatal(e)
+	}
+	var r result
+	if e = json.Unmarshal(b, &r); e != nil {
+		t.Fatal(e)
+	}
+	want := `["AAAAAAAAAAAAAAAAAAAAAA==","10101","2026-10-17T00:00:00Z","0001-01-01T14:30:00.123456Z","0001-01-01T14:30:00.123456Z",{"days":"3","micros":"4","months":"2"},{"tag":"number","value":"9223372036854775807"},["a",null]]`
+	if string(r.Rows[0]) != want {
+		t.Fatalf("extra types: %s", r.Rows[0])
+	}
+	b, e = Execute(context.Background(), p, `SELECT 9223372036854775807::BIGINT AS id, NULL::VARCHAR AS label`, o)
+	if e != nil || !json.Valid(b) {
+		t.Fatalf("reference example: %s %v", b, e)
 	}
 }
