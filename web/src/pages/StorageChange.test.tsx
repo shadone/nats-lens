@@ -4,6 +4,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { lens } from "../api/client";
 import { GetStorageChangeResponseSchema } from "../gen/natslens/v1/storage_change_pb";
+import { useSearchParams } from "react-router";
 import { renderApp } from "../test/render";
 import { StorageChange } from "./StorageChange";
 vi.mock("../api/client",()=>({lens:{getStorageChange:vi.fn(),getLensInfo:vi.fn()}}));
@@ -63,4 +64,20 @@ it("pins available partial endpoints before continuation without inventing a zer
  await waitFor(()=>{const u=screen.getByTestId("location").textContent!;expect(u).toContain("system=example-prod");expect(u).toContain("epochB=9007199254740994");expect(u).not.toContain("epochA=")});
  fireEvent.click(screen.getByRole("button",{name:"Next contributors"}));
  await waitFor(()=>expect(lens.getStorageChange).toHaveBeenLastCalledWith(expect.objectContaining({system:"example-prod",epochA:0n,epochB:9007199254740994n,pageToken:"next"}),expect.anything()));
+});
+
+it("waits for a fresh clock when choosing another live preset",async()=>{
+ const {GetLensInfoResponseSchema}=await import("../gen/natslens/v1/info_pb");
+ const clock=(s:string)=>create(GetLensInfoResponseSchema,{now:stamp(s),nowFixed:true});
+ let nextClock!:(v:ReturnType<typeof clock>)=>void;
+ vi.mocked(lens.getLensInfo).mockResolvedValueOnce(clock("2026-10-17T14:00:00Z")).mockImplementationOnce(()=>new Promise(resolve=>{nextClock=resolve}));
+ vi.mocked(lens.getStorageChange).mockResolvedValue(response());
+ function Preset(){const [,set]=useSearchParams();return <button onClick={()=>set({system:"example-prod",range:"6h"})}>Choose another preset</button>}
+ renderApp(<><Preset/><StorageChange/></>,"/capacity/storage-change?system=example-prod&range=1h");
+ await screen.findByRole("region",{name:"Storage contributors"});
+ fireEvent.click(screen.getByRole("button",{name:"Choose another preset"}));
+ await waitFor(()=>expect(lens.getLensInfo).toHaveBeenCalledTimes(2));
+ expect(lens.getStorageChange).toHaveBeenCalledTimes(1);
+ nextClock(clock("2026-10-17T14:01:00Z"));
+ await waitFor(()=>expect(lens.getStorageChange).toHaveBeenLastCalledWith(expect.objectContaining({a:stamp("2026-10-17T08:01:00Z"),b:stamp("2026-10-17T14:01:00Z")}),expect.anything()));
 });

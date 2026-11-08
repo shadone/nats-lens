@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"google.golang.org/protobuf/proto"
 	"testing"
 	"time"
 )
@@ -53,5 +54,36 @@ func TestStorageChangeDemoUsesOneClock(t *testing.T) {
 	}
 	if calls != 1 {
 		t.Fatalf("comparison reread moving scenario clock %d times", calls)
+	}
+}
+
+func TestStorageChangeDemoPinsSurviveClockTicks(t *testing.T) {
+	p := New(true)
+	now := FixedNow.Add(7 * time.Second)
+	p.clock = func() time.Time { return now }
+	req := &v1.GetStorageChangeRequest{System: Cluster, A: ts(FixedNow.Add(-time.Hour)), B: ts(FixedNow)}
+	facts, err := p.StorageChange(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := api.FinishStorageChange(req, facts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.EpochA = facts.A.Epoch
+	req.EpochB = facts.B.Epoch
+	for _, step := range []time.Duration{time.Second, time.Minute, 10 * time.Minute} {
+		now = now.Add(step)
+		f, err := p.StorageChange(context.Background(), req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		replay, err := api.FinishStorageChange(req, f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !proto.Equal(first, replay) {
+			t.Fatal("same demo pins silently changed evidence after clock advanced")
+		}
 	}
 }
