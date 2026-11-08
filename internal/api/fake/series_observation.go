@@ -22,6 +22,16 @@ func (s scen) observationSummary(ctx context.Context, metric string, e *v1.Entit
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
+		missing := false
+		for _, gap := range s.sc.noEpochs {
+			if c := s.clock(at); c.After(gap.from) && c.Before(gap.to) {
+				missing = true
+				break
+			}
+		}
+		if missing {
+			continue
+		}
 		var value float64
 		var ok bool
 		if band, yes := bandOf[metric]; yes {

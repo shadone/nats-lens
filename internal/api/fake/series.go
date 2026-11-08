@@ -276,6 +276,11 @@ func (p *Provider) GetTimeSeries(ctx context.Context, req *v1.GetTimeSeriesReque
 	if req.GetIncludeObservations() && req.GetRange().GetEnd().AsTime().Sub(req.GetRange().GetStart().AsTime()) > api.MaxObservationRange {
 		return nil, fmt.Errorf("%w: observation range exceeds 30 days", api.ErrInvalid)
 	}
+	if req.GetIncludeObservations() {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+	}
 	scenario := p.scen()
 	out := scenario.series(req.GetMetric(), e, req.GetRange(), req.GetMaxPoints())
 	if req.GetIncludeObservations() {
