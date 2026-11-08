@@ -37,7 +37,8 @@ export type GetStorageChangeRequest = Message<"natslens.v1.GetStorageChangeReque
   account: string;
 
   /**
-   * Required requested moments, in increasing order. Future moments are invalid.
+   * Required requested moments, in increasing order. Future moments are invalid,
+   * except a captured source's disclosed one-microsecond exclusive-end adjustment.
    *
    * @generated from field: google.protobuf.Timestamp a = 3;
    */

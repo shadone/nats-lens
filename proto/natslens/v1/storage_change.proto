@@ -14,7 +14,8 @@ message GetStorageChangeRequest {
   string system = 1;
   // Account ID; empty includes all resources. Server usage is system-wide.
   string account = 2;
-  // Required requested moments, in increasing order. Future moments are invalid.
+  // Required requested moments, in increasing order. Future moments are invalid,
+  // except a captured source's disclosed one-microsecond exclusive-end adjustment.
   google.protobuf.Timestamp a = 3;
   google.protobuf.Timestamp b = 4;
   // Optional returned collection pins. Missing retained pins never fall back.

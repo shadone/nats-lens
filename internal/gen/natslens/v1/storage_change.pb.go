@@ -30,7 +30,8 @@ type GetStorageChangeRequest struct {
 	System string `protobuf:"bytes,1,opt,name=system,proto3" json:"system,omitempty"`
 	// Account ID; empty includes all resources. Server usage is system-wide.
 	Account string `protobuf:"bytes,2,opt,name=account,proto3" json:"account,omitempty"`
-	// Required requested moments, in increasing order. Future moments are invalid.
+	// Required requested moments, in increasing order. Future moments are invalid,
+	// except a captured source's disclosed one-microsecond exclusive-end adjustment.
 	A *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=a,proto3" json:"a,omitempty"`
 	B *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=b,proto3" json:"b,omitempty"`
 	// Optional returned collection pins. Missing retained pins never fall back.

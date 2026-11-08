@@ -59,7 +59,7 @@ type storageEvent struct {
 // StorageChange reads completed endpoint windows, configurations, reports and
 // bounded lifecycle evidence from one transaction. No history-wide enrichment.
 func (p *Provider) StorageChange(ctx context.Context, req *v1.GetStorageChangeRequest) (*api.StorageChangeFacts, error) {
-	if req.GetA() == nil || req.GetB() == nil || req.A.CheckValid() != nil || req.B.CheckValid() != nil || !req.A.AsTime().Before(req.B.AsTime()) || req.B.AsTime().After(p.Now()) || req.EpochA < 0 || req.EpochB < 0 {
+	if req.GetA() == nil || req.GetB() == nil || req.A.CheckValid() != nil || req.B.CheckValid() != nil || !req.A.AsTime().Before(req.B.AsTime()) || req.B.AsTime().After(p.RangeReference()) || req.EpochA < 0 || req.EpochB < 0 {
 		return nil, fmt.Errorf("%w: valid ordered nonfuture a and b and nonnegative pins are required", api.ErrInvalid)
 	}
 	pinA, pinB := req.EpochA, req.EpochB
@@ -79,15 +79,15 @@ func (p *Provider) StorageChange(ctx context.Context, req *v1.GetStorageChangeRe
 	}
 	defer tx.Rollback()
 	budget := newMetadataBudget()
-	a, err := readStorageSnapshot(ctx, tx, budget, req.A.AsTime().UTC(), pinA, p.Interval, req.Account)
+	a, err := readStorageSnapshot(ctx, tx, budget, req.A.AsTime().UTC(), pinA, p.Interval, req.Account, p.Now())
 	if err != nil {
 		return nil, err
 	}
-	b, err := readStorageSnapshot(ctx, tx, budget, req.B.AsTime().UTC(), pinB, p.Interval, req.Account)
+	b, err := readStorageSnapshot(ctx, tx, budget, req.B.AsTime().UTC(), pinB, p.Interval, req.Account, p.Now())
 	if err != nil {
 		return nil, err
 	}
-	f := &api.StorageChangeFacts{A: a.endpoint, B: b.endpoint}
+	f := &api.StorageChangeFacts{A: a.endpoint, B: b.endpoint, LocalOnly: p.CapturedOnly}
 	var events []storageEvent
 	if a.endpoint.Epoch != 0 && b.endpoint.Epoch != 0 {
 		err = readMetadataOn(ctx, tx, `SELECT id,account,stream,kind,epoch_us(time) AS time_us FROM events e
@@ -218,7 +218,11 @@ ORDER BY time,id`, []any{a.endpoint.FinishedAt.AsTime(), b.endpoint.FinishedAt.A
 	return f, nil
 }
 
-func readStorageSnapshot(ctx context.Context, db queryReader, budget *metadataBudget, requested time.Time, pin int64, interval time.Duration, account string) (*storageSnapshot, error) {
+func readStorageSnapshot(ctx context.Context, db queryReader, budget *metadataBudget, requested time.Time, pin int64, interval time.Duration, account string, reference time.Time) (*storageSnapshot, error) {
+	cutoff := requested
+	if cutoff.After(reference) {
+		cutoff = reference
+	}
 	s := &storageSnapshot{endpoint: &v1.StorageChangeEndpoint{Requested: ts(requested)}, servers: map[string][]storageServer{}, groups: map[string][]storageReport{}, jsByID: map[string]bool{}, assets: map[string][]string{}}
 	q := `SELECT epoch,epoch_us(started_at) AS started_us,epoch_us(finished_at) AS finished_us,expected_names,expected_servers,observed_servers FROM epochs WHERE `
 	args := []any{}
@@ -227,7 +231,7 @@ func readStorageSnapshot(ctx context.Context, db queryReader, budget *metadataBu
 		args = append(args, pin)
 	} else {
 		q += `finished_at <= ? AND finished_at >= started_at`
-		args = append(args, requested)
+		args = append(args, cutoff)
 	}
 	q += ` ORDER BY finished_at DESC,started_at DESC,epoch DESC LIMIT 1`
 	found := false
@@ -245,13 +249,16 @@ func readStorageSnapshot(ctx context.Context, db queryReader, budget *metadataBu
 		}
 		found = true
 		start, finish := time.UnixMicro(row.Started).UTC(), time.UnixMicro(row.Finished).UTC()
-		if finish.Before(start) || finish.After(requested) {
+		if finish.Before(start) || finish.After(cutoff) {
 			return fmt.Errorf("%w: pinned collection window is after the requested moment or invalid", api.ErrInvalid)
 		}
 		s.endpoint.Epoch = row.Epoch
 		s.endpoint.StartedAt = ts(start)
 		s.endpoint.FinishedAt = ts(finish)
 		s.endpoint.Age = durationpb.New(requested.Sub(finish))
+		if requested.After(reference) {
+			s.endpoint.Reasons = append(s.endpoint.Reasons, "exclusive_end_inclusion")
+		}
 		s.expected = row.Expected
 		s.expectedCount = row.ExpectedCount
 		s.observedCount = row.ObservedCount
