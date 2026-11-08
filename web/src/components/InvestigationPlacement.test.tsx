@@ -45,7 +45,7 @@ it("portals narrow chart readouts outside clipping containers with viewport-boun
  const {container,unmount}=render(<div className="card" style={{overflow:"hidden",width:10}}><div className="table-wrap" style={{overflow:"auto"}}><style>{chartStyles}</style><ChartInspection label="Delivery" start={1000} end={3000} stepMs={1000} series={[{label:"delivered",points:[{time:1000,text:"2/s"}]}]}><svg/></ChartInspection></div></div>);
  const slider=screen.getByRole("slider");fireEvent.focus(slider);const tooltip=screen.getByRole("tooltip");
  expect(container.contains(tooltip)).toBe(false);expect(slider).toHaveAttribute("aria-describedby",tooltip.id);expect(tooltip).toHaveTextContent("delivered: 2/s");
- expect(getComputedStyle(tooltip).position).toBe("fixed");expect(getComputedStyle(tooltip).pointerEvents).toBe("none");
+ expect(getComputedStyle(tooltip).position).toBe("fixed");expect(getComputedStyle(tooltip).pointerEvents).toBe("auto");expect(getComputedStyle(tooltip).overflow).toBe("auto");
  expect(parseFloat(tooltip.style.left)).toBeGreaterThanOrEqual(12);expect(parseFloat(tooltip.style.left)+336).toBeLessThanOrEqual(348);
  fireEvent.keyDown(slider,{key:"Escape"});expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();fireEvent.focus(slider);expect(screen.getByRole("tooltip")).toBeInTheDocument();unmount();expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();vi.unstubAllGlobals();
 });
