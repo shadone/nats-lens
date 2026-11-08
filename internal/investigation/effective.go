@@ -314,6 +314,9 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 		}
 	}
 	c.keepPointWithinRange()
+	if encoded, err := json.Marshal(&c); err != nil || len(encoded) > MaxInputBytes {
+		return nil, nil, errors.New("effective context exceeds 64 KiB portable input budget; narrow the request")
+	}
 	if err := c.Validate(c.Deployment); err != nil {
 		return nil, nil, err
 	}
