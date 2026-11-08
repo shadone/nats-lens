@@ -48,4 +48,3 @@ export function Pager({ page, next, onNext, onPrev, total, shown, newer = "Previ
     </nav>
   );
 }
-

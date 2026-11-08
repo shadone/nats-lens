@@ -67,4 +67,3 @@ export function ConsumersTable({ consumers, end, showStream = true }: { consumer
     </div>
   );
 }
-
