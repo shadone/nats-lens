@@ -124,7 +124,8 @@ export type StorageChangeEndpoint = Message<"natslens.v1.StorageChangeEndpoint">
   age?: Duration | undefined;
 
   /**
-   * Complete expected-server JSZ inventory, independent of unrelated endpoints.
+   * Complete expected-server JSZ coverage with matching detailed stream counts,
+   * independent of unrelated endpoint failures.
    *
    * @generated from field: bool inventory_complete = 6;
    */

@@ -39,7 +39,8 @@ message StorageChangeEndpoint {
   google.protobuf.Timestamp finished_at = 4;
   // Requested minus finished_at, when a collection is available.
   google.protobuf.Duration age = 5;
-  // Complete expected-server JSZ inventory, independent of unrelated endpoints.
+  // Complete expected-server JSZ coverage with matching detailed stream counts,
+  // independent of unrelated endpoint failures.
   bool inventory_complete = 6;
   // Stable reason codes, including no_collection, stale_collection and missing_jsz.
   repeated string reasons = 7;

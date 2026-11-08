@@ -74,6 +74,8 @@ function iso(ms: number): string {
 export function writeRange(params: URLSearchParams, spec: RangeSpec): URLSearchParams {
   const out = new URLSearchParams(params);
   out.delete("range");
+  // Collection pins belong to the previous comparison, not the new range.
+  out.delete("epochA"); out.delete("epochB");
   out.delete("from");
   out.delete("to");
   if (spec.kind === "fixed") {
