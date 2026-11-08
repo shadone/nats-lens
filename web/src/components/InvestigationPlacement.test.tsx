@@ -7,8 +7,9 @@ import {ChartInspection} from "../charts/ChartInspection";
 import type {ConsumerRate} from "../api/overview";
 import {GlobalQueryProvider} from "../lib/useGlobalQuery";
 import {buildInvestigationContext, type InvestigationSelection} from "../lib/investigationContext";
-import headerStyles from "../styles/header.css?raw";
-import chartStyles from "../styles/metricbox.css?raw";
+import {readFileSync} from "node:fs";
+const styles=(path:string)=>readFileSync(new URL(path,import.meta.url),"utf8");
+const headerStyles=styles("../styles/header.css"),chartStyles=styles("../styles/metricbox.css");
 vi.mock("../api/systems",()=>({useSystems:()=>({data:undefined})}));
 vi.mock("../api/trendBatch",async load=>{
  const actual=await load<typeof import("../api/trendBatch")>();
