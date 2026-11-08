@@ -51,3 +51,16 @@ it("keeps a pending action valid across equivalent rerenders and live-clock tick
 it.each(["resolve","reject"] as const)("ignores %s after unmount, including when another provider mounts",async outcome=>{
  const {write,unmount}=setup();const a=deferred();write.mockReturnValue(a.promise);page();unmount();render(tree());await (outcome==="resolve"?succeed(a):fail(a));noFeedback();expect(write).toHaveBeenCalledOnce();
 });
+
+it("retains the latest prompt when both writes fail in request order",async()=>{
+ const {write}=setup();const a=deferred(),b=deferred();write.mockReturnValueOnce(a.promise).mockReturnValueOnce(b.promise);page();chart();await fail(a);noFeedback();await fail(b);expect((screen.getByLabelText("Agent prompt") as HTMLTextAreaElement).value).toBe(write.mock.calls[1][0]);
+});
+it("invalidates feedback when the resolved system changes without a URL edit",async()=>{
+ const {write,rerender}=setup();const a=deferred();write.mockReturnValue(a.promise);page();system.id="other";rerender(tree());await fail(a);noFeedback();expect(write).toHaveBeenCalledOnce();
+});
+it("clears success feedback immediately when scope changes",async()=>{
+ const {write}=setup();write.mockResolvedValue(undefined);page();await act(async()=>{});expect(screen.getByText("Prompt copied")).toBeInTheDocument();fireEvent.click(screen.getByRole("button",{name:"Range"}));noFeedback();expect(write).toHaveBeenCalledOnce();
+});
+it("does not invalidate a page-only copy when an unrelated chart changes",async()=>{
+ const {write,rerender}=setup();const a=deferred();write.mockReturnValue(a.promise);page();const prompt=write.mock.calls[0][0];rerender(tree("server.other_metric"));await fail(a);expect((screen.getByLabelText("Agent prompt") as HTMLTextAreaElement).value).toBe(prompt);expect(context(prompt).metric).toBeUndefined();
+});
