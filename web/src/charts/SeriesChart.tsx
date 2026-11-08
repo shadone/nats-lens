@@ -1,6 +1,9 @@
 // A metric over the range on detail pages: the sparkline drawn larger, with
 // the latest value, min and max as text and the range ends below. A series
 // whose refresh failed stays on screen, dimmed and dated.
+import {useInRouterContext} from "react-router";
+import {RLink} from "../components/common";
+import {metricDestination} from "../lib/metricNavigation";
 import {MetricHelp} from "../components/MetricHelp";
 import type { Series, Window } from "../api/model";
 import { useReportStale } from "../components/StaleContext";
@@ -24,6 +27,7 @@ interface Props {
 }
 
 export function SeriesChart({ title, series, start, end, windows = [], loading, error, updatedAt }: Props) {
+  const routing=useInRouterContext();const to=routing?metricDestination({metric:series?.metric,entity:series?.entity}):undefined;
   const pts = series?.points ?? [];
   const latest = pts.length ? pts[pts.length - 1].value : undefined;
   const fmt = (v: number | undefined) => (v === undefined ? "–" : fmtValue(v, series?.unit ?? "count"));
@@ -32,7 +36,7 @@ export function SeriesChart({ title, series, start, end, windows = [], loading, 
   return (
     <div className={`card chart${stale ? " stale" : ""}`}>
       <div className="chart-h">
-        <span className="lbl">{title}</span>
+        <span className="lbl">{to?<RLink className="x" to={to}>{title}</RLink>:title}</span>
         <MetricHelp label={title} ids={[series?.metric??""]}/>
         <b className="mono">{loading ? "…" : fmt(latest)}</b>
       </div>
