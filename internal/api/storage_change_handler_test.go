@@ -65,3 +65,16 @@ func TestStorageChangeReadOnlyAdmission(t *testing.T) {
 		t.Fatal("shared read-only source cannot discover storage comparison")
 	}
 }
+func TestStorageChangeHandlerRangeMatchesPortableUI(t *testing.T) {
+	p := &storageProviderStub{Provider: fake.New(false)}
+	_, c := apitest.Serve(t, p)
+	req, _ := storageFacts()
+	req.System = ""
+	req.A = timestamppb.New(req.B.AsTime().Add(-31 * 24 * time.Hour))
+	if _, err := c.GetStorageChange(context.Background(), connect.NewRequest(req)); connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Fatalf("unrepresentable UI/context interval accepted: %v", err)
+	}
+	if p.called != 0 {
+		t.Fatal("oversized interval reached provider")
+	}
+}
