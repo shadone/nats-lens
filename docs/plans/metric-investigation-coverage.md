@@ -2,17 +2,18 @@
 
 Task `bXMlS0kOLTauMBDTEL280` remains in progress. This inventory preserves the whole cross-metric acceptance; an API foundation alone does not complete chart drill-down.
 
-| Metric family | Existing evidence/destination | Remaining detail work |
+| Metric family | Current evidence/destination | Remaining or explicit limits |
 | --- | --- | --- |
-| Server CPU | Server detail, cluster band and server series | Raw-observation last/mean/peak, comparative server view; CPU is percent of one core, not host saturation |
-| Resident memory | Server detail and cluster band | Same raw-observation distinction, resident process bytes and historical contributors |
-| Connections | Connection list plus server count series | Count-specific last/min/peak and historical server comparison; counts are not identities |
-| Message/byte traffic | In/out server and cluster rate series | Separate directions, observed rates and supported counter volumes; resets/gaps must not invent traffic |
-| Storage | Capacity, endpoint-pinned storage change and contributors | Canonical metric-title navigation and entity/fleet transitions; reuse logical/observed-copy/physical distinctions |
-| Slow-consumer detections | Bounded server-process/collection investigation | Canonical title navigation; reuse original observation/evidence semantics, never infer unique affected connections |
-| Stream messages/bytes and ingest | Stream/bucket details and series | Shared title destination, retained entity scope, count/rate/storage-specific summaries |
-| Consumer pending/ack/redelivery/delivery | Consumer details and series | Shared title destination and diagnostics; delivery rates differ from server slow-consumer counters |
-| Server/asset/account counts, meta changes | Servers, Placement, Accounts and Timeline | Explicit meaningful destinations and observation limits, rather than inventing per-entity attribution |
+| Server CPU | Native last/mean/peak and server comparisons | Global ranking remains; one-core CPU is not host saturation |
+| Resident memory | Native raw observations and server histories | Global ranking remains; resident bytes are not host memory pressure |
+| Connections | Count last/min/peak and server histories | Counts do not identify affected client connections |
+| Message/byte traffic | Separate directions, raw rate peaks and histories | Comparable counter volumes and global ranking remain |
+| Storage | Capacity endpoint-pinned change, signed contributors, resource byte histories | Logical/observed-copy/physical distinctions; no invented replica usage |
+| Slow-consumer detections | Bounded server-process/collection evidence | Never infer unique affected clients from counters |
+| Stream messages/bytes/ingestion | Typed resource pages, native summaries, bounded comparisons | Incarnation ambiguity, capture gaps; not per-key/object measurements |
+| Consumer pending/ack/redelivery/delivery | Typed resource pages and scoped diagnostics | Global rank/volumes where meaningful; delivery is not server slow-consumer detection |
+| Server/resource/account counts and replica groups | Aggregate native histories and inventory/diagnostic links | Counts alone cannot identify historical membership or a cause |
+| Meta changes | Exact observed total, per-collection peak, events/server evidence | Derived transitions differ from advisories; no complete-election or independent-group-health claim |
 
 ## First dependency
 
@@ -22,7 +23,7 @@ Proposed, not yet confirmed: observation summaries are opt-in and limited to the
 
 ## Whole-task acceptance still open
 
-Accessible cross-page title links; complete metric detail pages; useful sortable entity comparisons/filters; traffic volumes where supported; scoped findings/events/diagnostic links; historical identity/restart/freshness evidence; chart interval/Back/share support; mobile/theme and end-to-end browser paths. The API foundation is reviewed independently before those pages consume it. No new profiling or collection is implied.
+Traffic volumes where supported, global metric contributor ranking and richer historic identity/set attribution remain open. Catalogue-backed titles, native observation pages, loaded-page sorting/filters, fixed evidence and interval/Back paths are implemented in the slices below. Existing mini-chart rows retain resource detail and interval entry points; dedicated Timeline and topology views retain their own interactions. No new profiling or collection is implied.
 
 ## Server page slice
 
@@ -31,3 +32,7 @@ CPU, memory, connection counts and both traffic-rate directions now have shared 
 ## Resource page slice
 
 Stream messages/logical bytes/observed replica bytes/ingestion and consumer pending/ack-pending/redelivered/delivery now have native observation pages. One twelve-resource summary page precedes a maximum twelve-series history batch; returned continuation bounds are authoritative. Explicit historical resources do not depend on current inventory. Shared detail chart titles, selected intervals, copied context and fixed resource evidence retain identities. No global metric ranking, exact traffic volume or individual KV/object measurement is claimed. Remaining inventory includes aggregate server/asset/account counts and meta-change destinations, broader cross-resource ranking and traffic volume support.
+
+## Aggregate destination slice
+
+All37 current API catalogue metric IDs now have a declared meaningful destination, enforced by a catalogue conformance test. Eight aggregate pages cover9 count/meta metric IDs (two asset components share a page). All9 Overview tiles use canonical destinations even without history. Aggregate pages use at most2 observation queries, exact transition totals, native timestamps/gaps and fixed system-wide evidence links; counts do not imply identifiable contributors. Remaining umbrella acceptance is traffic volumes and global ranking, not an unqualified claim that those comparisons already exist.
