@@ -21,7 +21,7 @@ export function ListTraversal({ traversal, next, count, loaded, error, refresh }
   return <div className="st-foot" aria-label="List pages">
     <span>Page {traversal.page} · {loaded} shown{count === undefined ? "" : ` · ${count} matches`}</span>
     {expired && <span>List context expired. Refresh the list to start again.</span>}
-    <button type="button" onClick={() => { traversal.reset(); refresh(); }}>Refresh list</button>
-    <button type="button" disabled={!next || !!error} onClick={() => next && traversal.next(next)}>Next page</button>
+    <button className="btn sm" type="button" onClick={() => { traversal.reset(); refresh(); }}>Refresh list</button>
+    <button className="btn sm" type="button" disabled={!next || !!error} onClick={() => next && traversal.next(next)}>Next page</button>
   </div>;
 }
