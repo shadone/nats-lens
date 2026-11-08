@@ -98,7 +98,10 @@ func TestOfflineLiveParity(t *testing.T) {
 		{"GetTimeSeries", `{"metric":"server.cpu_percent","entity":{"type":"ENTITY_TYPE_SERVER","key":"nats-0"},"maxPoints":1,"includeObservations":true}`},
 		{"GetTimeSeries", `{"metric":"server.in_msgs_rate","entity":{"type":"ENTITY_TYPE_SERVER","key":"nats-0"},"includeObservations":true,"maxPoints":1}`},
 		{"GetTimeSeries", `{"metric":"cluster.in_msgs_rate","includeObservations":true,"maxPoints":1}`},
-		{"GetTimeSeriesBatch", `{"queries":[{"metric":"server.cpu_percent","entity":{"type":"ENTITY_TYPE_SERVER","key":"nats-0"},"includeObservations":true},{"metric":"cluster.cpu_percent","includeObservations":true}],"maxPoints":1}`},
+		{"ListMetricContributors", `{"metric":"server.cpu_percent","ranking":"METRIC_RANKING_MAXIMUM","descending":true,"limit":100}`},
+		{"ListMetricContributors", `{"metric":"server.in_msgs_rate","ranking":"METRIC_RANKING_COUNTER_INCREASE","descending":true,"limit":100}`},
+		{"ListMetricContributors", `{"metric":"stream.bytes","account":"APP","ranking":"METRIC_RANKING_MEAN","limit":100}`},
+		{"GetTimeSeriesBatch", `{"queries":[ {"metric":"server.cpu_percent","entity":{"type":"ENTITY_TYPE_SERVER","key":"nats-0"},"includeObservations":true},{"metric":"cluster.cpu_percent","includeObservations":true}],"maxPoints":1}`},
 		{"ListEvents", `{"pageSize":1,"hideRoutine":false,"foldRepeats":false}`}, {"GetEvent", `{"id":"9007199254740993"}`},
 		{"ListFindings", `{"includeMuted":true,"pageSize":1}`}, {"GetFinding", `{"id":"server-001:nats-0"}`},
 		{"ListFindings", `{"range":{"start":"2026-10-17T14:24:00Z","end":"2026-10-17T14:24:30Z"},"includeMuted":true}`},
@@ -146,5 +149,60 @@ func TestOfflineLiveParity(t *testing.T) {
 		if a == nil || b == nil || a.Error() != b.Error() {
 			t.Errorf("validation %s: %v / %v", c.method, a, b)
 		}
+	}
+}
+
+func TestOfflineMetricRankingReopenContinuation(t *testing.T) {
+	ctx := context.Background()
+	path := closedFixture(t)
+	selection := investigation.OfflineSelection{DB: path, System: "shop", Interval: 30 * time.Second}
+	a, err := Open(ctx, selection)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := map[string]any{"metric": "server.cpu_percent", "ranking": "METRIC_RANKING_MAXIMUM", "descending": true, "limit": 1, "range": map[string]string{"start": "2026-10-17T14:00:00Z", "end": "2026-10-17T14:30:00Z"}}
+	raw, _ := json.Marshal(request)
+	data, err := a.Source.Query(ctx, "ListMetricContributors", raw)
+	a.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var first struct {
+		Next         string `json:"nextPageToken"`
+		Contributors []struct {
+			Entity struct {
+				Key string `json:"key"`
+			} `json:"entity"`
+		} `json:"contributors"`
+	}
+	if err = json.Unmarshal(data, &first); err != nil {
+		t.Fatal(err)
+	}
+	if first.Next == "" || len(first.Contributors) != 1 {
+		t.Fatalf("missing traversal: %s", data)
+	}
+	b, err := Open(ctx, selection)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Close()
+	request["pageToken"] = first.Next
+	raw, _ = json.Marshal(request)
+	data, err = b.Source.Query(ctx, "ListMetricContributors", raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var second struct {
+		Contributors []struct {
+			Entity struct {
+				Key string `json:"key"`
+			} `json:"entity"`
+		} `json:"contributors"`
+	}
+	if err = json.Unmarshal(data, &second); err != nil {
+		t.Fatal(err)
+	}
+	if len(second.Contributors) != 1 || first.Contributors[0].Entity.Key == second.Contributors[0].Entity.Key {
+		t.Fatalf("offline continuation did not reopen: %s", data)
 	}
 }

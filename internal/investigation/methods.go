@@ -17,7 +17,7 @@ const Service = "natslens.v1.LensService"
 // ASVS 8.3.1: the HTTP service uses the same allowlist at its trusted boundary.
 var methods = []string{
 	"GetLensInfo", "ListSystems", "ListMetrics", "ListCheckDefinitions",
-	"GetOverview", "GetShellStatus", "GetTimeSeries", "GetTimeSeriesBatch",
+	"ListMetricContributors", "GetOverview", "GetShellStatus", "GetTimeSeries", "GetTimeSeriesBatch",
 	"ListFindings", "GetFinding", "GetOnCall", "ListEvents", "GetEvent",
 	"GetStatusTimeline", "ListServers", "GetServer", "ListAccounts",
 	"ListConnections", "ListStreams", "GetStream", "ListConsumers", "GetConsumer",

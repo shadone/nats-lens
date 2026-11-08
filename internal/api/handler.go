@@ -621,5 +621,7 @@ func (h *Handler) GetStorageChange(ctx context.Context, req *connect.Request[v1.
 }
 
 func (h *Handler) ListMetricContributors(ctx context.Context, req *connect.Request[v1.ListMetricContributorsRequest]) (*connect.Response[v1.ListMetricContributorsResponse], error) {
-	return call(ctx, h, "ListMetricContributors", req.Msg, nil, on(Provider.ListMetricContributors))
+	return call(ctx, h, "ListMetricContributors", req.Msg, func(p Provider, m *v1.ListMetricContributorsRequest) error {
+		return NormalizeMetricContributors(m, rangeReference(p))
+	}, on(Provider.ListMetricContributors))
 }
