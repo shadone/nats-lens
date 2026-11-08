@@ -21,14 +21,17 @@ import (
 const Help = `natslens investigate methods
 natslens investigate describe METHOD
 natslens investigate context -profiles FILE -profile NAME -url URL
-natslens investigate query METHOD -profiles FILE -profile NAME [-context FILE | -url URL]
+natslens investigate query METHOD (-endpoint ORIGIN | -profiles FILE -profile NAME |
+  -bundle DIR | -db FILE -system ID -collection-interval DURATION) [-context FILE | -url URL]
   [-request FILE] [-system ID] [-account ID] [-from UTC -to UTC] [-metric ID]
   [-page-size N] [-page-token TOKEN] [-max-points N] [-timeout 45s]
 
 Requests use protobuf JSON; -request - or -context - reads stdin (choose one).
 One query sends at most two RPCs (connection info, then the selected read).
 No automatic pagination, credential discovery, SQL, uploads or NATS connections.
-Use ListSystems, ListMetrics and ListCheckDefinitions to discover live facts.
+Use ListSystems, ListMetrics and ListCheckDefinitions to discover source facts.
+Offline contexts use https://offline.invalid as an inert namespace, never fetched.
+Reimport with -context FILE and the same source; remote UI links are unavailable.
 Use GetDataHistory to inspect coverage, partial collections and retention.
 The methods list is the local client contract, not a claim about server support.
 `
@@ -74,7 +77,12 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 func RunWithOffline(ctx context.Context, args []string, stdin io.Reader, out, errout io.Writer, openOffline OpenOffline) (err error) {
 	defer func() {
 		if err != nil && !errors.Is(err, flag.ErrHelp) {
-			_ = writeJSON(out, map[string]any{"version": 1, "error": map[string]string{"code": "investigation_failed", "message": err.Error(), "nextStep": "Check help, configured access, method schema and Data history; do not retry by bypassing the proxy."}})
+			code := "investigation_failed"
+			var diagnostic *Diagnostic
+			if errors.As(err, &diagnostic) {
+				code = diagnostic.Code
+			}
+			_ = writeJSON(out, map[string]any{"version": 1, "error": map[string]string{"code": code, "message": err.Error(), "nextStep": "Check help, configured access, method schema and Data history; do not retry by bypassing the proxy."}})
 		}
 	}()
 	if len(args) == 0 {
@@ -353,7 +361,7 @@ func RunWithOffline(ctx context.Context, args []string, stdin io.Reader, out, er
 		availability["retention"] = Availability{"partial", "Retained history is queryable; absent retention policy and deleted rows are unknown"}
 		availability["provenance"] = Availability{"available", "Dataset metadata and reference clock are reported in source; capture/export time is separate"}
 	}
-	return writeJSON(out, map[string]any{"version": 1, "source": sourceMetadata, "method": method, "request": json.RawMessage(req), "response": response, "connection": info, "context": linkContext, "originalContext": &originalContext, "links": links, "unappliedContextFilters": unapplied, "limits": map[string]any{"rpcBudget": 2, "responseBytes": MaxResponseBytes, "automaticPagination": false, "page": "one response; nextPageToken remains in response; use unchanged filters to continue", "truncation": "only reported response fields establish totals/truncation; absent metadata is unavailable"}, "availability": availability})
+	return writeJSON(out, map[string]any{"version": 1, "source": sourceMetadata, "method": method, "request": json.RawMessage(req), "response": response, "bounds": map[string]any{"requestedSourcePath": originalContext.SourcePath, "requestedFrom": *from, "requestedTo": *to, "resolved": linkContext.Range, "referenceTime": connection.Now}, "connection": info, "context": linkContext, "originalContext": &originalContext, "links": links, "unappliedContextFilters": unapplied, "limits": map[string]any{"rpcBudget": 2, "responseBytes": MaxResponseBytes, "automaticPagination": false, "page": "one response; nextPageToken remains in response; use unchanged filters to continue", "truncation": "only reported response fields establish totals/truncation; absent metadata is unavailable"}, "availability": availability})
 }
 
 // Page limits have two existing RPC spellings. Keep this transport mapping

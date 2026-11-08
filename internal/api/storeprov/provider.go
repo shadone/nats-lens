@@ -31,6 +31,8 @@ type Provider struct {
 	Interval time.Duration
 	// Live is whether a collector writes to the store in this process.
 	Live bool
+	// CapturedOnly excludes runtime state in offline investigations.
+	CapturedOnly bool
 	// Retention is how long the collector keeps epochs and events.
 	Retention time.Duration
 	// Clock returns now; nil means the wall clock.
