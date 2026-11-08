@@ -58,7 +58,7 @@ func pageScaleProvider(t testing.TB, n int) (*Provider, *entityPageDB, *v1.TimeR
 		`INSERT INTO stream_stats(epoch,server_id,account,stream,messages,bytes,is_leader,leader) SELECT e,'S0','APP','orders-' || lpad(i::VARCHAR,5,'0'),i,1000*i+e*10,true,'nats-0' FROM range(1,30) t(e) CROSS JOIN range(0,?) s(i)`,
 		`INSERT INTO servers(server_id,server_name,first_epoch,last_epoch,first_seen_at,last_seen_at) VALUES ('S0','nats-0',1,37,TIMESTAMP '2026-10-17 07:00:00',TIMESTAMP '2026-10-17 14:00:00')`,
 		`INSERT INTO stream_stats(epoch,server_id,account,stream,messages,bytes,is_leader,leader) SELECT e+29,'S0','APP','orders-' || lpad(i::VARCHAR,5,'0'),i,1000*i+e*100,true,'nats-0' FROM range(1,9) t(e) CROSS JOIN range(0,?) s(i)`,
-		`INSERT INTO consumer_stats(epoch,server_id,account,stream,consumer,is_leader,delivered_consumer_seq) SELECT e+29,'S0','APP','orders-00000','worker-' || lpad(i::VARCHAR,5,'0'),true,i*e FROM range(1,9) t(e) CROSS JOIN range(0,?) s(i)`,
+		`INSERT INTO consumer_stats(epoch,server_id,account,stream,consumer,created,is_leader,delivered_consumer_seq) SELECT e+29,'S0','APP','orders-00000','worker-' || lpad(i::VARCHAR,5,'0'),TIMESTAMP '2026-10-17 06:00:00',true,i*e FROM range(1,9) t(e) CROSS JOIN range(0,?) s(i)`,
 		`INSERT INTO consumer_config(server_id,account,stream,consumer,first_epoch,last_epoch,config_hash,durable_name) SELECT 'S0','APP','orders-00000','worker-' || lpad(i::VARCHAR,5,'0'),1,37,'h','worker-' || i FROM range(0,?) t(i)`,
 	} {
 		var args []any

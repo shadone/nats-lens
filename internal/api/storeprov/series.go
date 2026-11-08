@@ -180,36 +180,18 @@ WHERE delta >= 0 GROUP BY epoch, started_at`},
 	"server.out_msgs_rate":    trafficRate("out_msgs", byServer),
 	"server.in_bytes_rate":    trafficRate("in_bytes", byServer),
 	"server.out_bytes_rate":   trafficRate("out_bytes", byServer),
-	// The leader's last sequence per epoch, as a per-second increase; a
-	// recreated stream (a lower sequence) has no rate in that epoch, nor
-	// does the first epoch after a collection gap.
-	"stream.msgs_rate": {query: `
-SELECT t, r AS v FROM (
-  SELECT t, CASE WHEN date_diff('millisecond', lag(t) OVER w, t) <= ` + maxGapToken + ` THEN
-      (v - lag(v) OVER w) * 1000.0 / nullif(date_diff('millisecond', lag(t) OVER w, t), 0) END AS r FROM (
-    ` + leaderView("stream_stats", "last_seq", byStream) + `)
-  WINDOW w AS (ORDER BY t))
-WHERE r >= 0`},
+	// Reported sequence advance, not a count of stored messages. Known
+	// coherent creation and adjacent valid timing are required.
+	"stream.msgs_rate":         {query: resourceSequenceRate(false, byStream)},
 	"stream.messages":          {query: leaderView("stream_stats", "messages", byStream)},
 	"stream.bytes":             {query: leaderView("stream_stats", "bytes", byStream)},
 	"consumer.num_pending":     {query: leaderView("consumer_stats", "num_pending", byConsumer)},
 	"consumer.num_ack_pending": {query: leaderView("consumer_stats", "num_ack_pending", byConsumer)},
 	"consumer.num_redelivered": {query: leaderView("consumer_stats", "num_redelivered", byConsumer)},
 	// The leader's delivered consumer sequence as a per-second increase,
-	// per leading server and creation time: a leader move or a recreated
-	// consumer starts a new run whose first epoch has no rate, as servers
-	// and incarnations count apart. An epoch without a leader row has no
-	// value, and the first epoch after a collection gap no rate.
-	"consumer.delivered_rate": {query: `
-SELECT t, r AS v FROM (
-  SELECT t, CASE WHEN date_diff('millisecond', lag(t) OVER w, t) <= ` + maxGapToken + ` THEN
-      (v - lag(v) OVER w) * 1000.0 / nullif(date_diff('millisecond', lag(t) OVER w, t), 0) END AS r FROM (
-    SELECT e.started_at AS t, x.server_id, x.created, x.delivered_consumer_seq AS v
-    FROM consumer_stats x JOIN epochs e USING (epoch)
-    WHERE e.started_at >= ? AND e.started_at < ? ` + byConsumer + ` AND x.is_leader
-    QUALIFY row_number() OVER (PARTITION BY e.epoch ORDER BY x.delivered_consumer_seq DESC, x.server_id) = 1)
-  WINDOW w AS (PARTITION BY server_id, created ORDER BY t))
-WHERE r >= 0`},
+	// with adjacent leader/creation evidence. Unknown reports and changes
+	// start a new run rather than rejoining an earlier identity partition.
+	"consumer.delivered_rate": {query: resourceSequenceRate(true, byConsumer)},
 }
 
 // answeredAll keeps the epochs e in which every server that answered at
