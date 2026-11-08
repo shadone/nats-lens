@@ -46,7 +46,7 @@ function ResourcePage({family:f,selection,account,stream}:{family:ResourceMetric
  <p>Findings and events provide supporting evidence, not proof of a cause. Missing historical resources can be opened by an explicit typed selection even when the current list no longer contains them. <Link className="x" to={fixedLink('/data-history',d,'')}>Inspect retained coverage</Link>.</p>
  {f.kind==='stream'&&<p><Link className="x" to={fixedLink('/capacity/storage-change',d,account)}>Compare system storage change</Link> uses the existing storage evidence and contributor view; it is not restricted to the selected stream.</p>}
  </>}}</QueryView>
- {q.error&&!selection&&<ListTraversal traversal={traversal} count={undefined} loaded={0} error={q.error} refreshing={q.isFetching} refresh={()=>void q.refetch()}/>}
+ {q.error&&!q.data&&!selection&&<ListTraversal traversal={traversal} count={undefined} loaded={0} error={q.error} refreshing={q.isFetching} refresh={()=>void q.refetch()}/>}
  {evidence&&<Dialog open fullScreen title={`Findings for ${evidence.entity.name}`} onClose={()=>setEvidence(undefined)}><p>Selected interval: {stamp(evidence.data.start)} to {stamp(evidence.data.end)}. Selection remains fixed through observation refresh.</p><FindingIntervalEvidence from={evidence.data.start} end={evidence.data.end} entity={evidence.entity} states={['firing','changed','flapping','resolved','unknown']}/></Dialog>}
  </div>;
 }
