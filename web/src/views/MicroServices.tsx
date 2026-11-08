@@ -1,9 +1,10 @@
-import { SERVICE_PARAM, type MicroServicesModel } from "../pages/MicroServices";
+import type { MicroServicesModel } from "../pages/MicroServices";
 // Micro services: the services built on the NATS micro framework in the
 // range's newest collection, a card each, and the chosen card's endpoints
 // and instances. The chosen service is kept in the address as
 // ?service=<account>/<name>.
 import { useSearchParams } from "react-router";
+import { SERVICE_PARAM } from "../lib/microParams";
 import type { MicroServices as Micro, MicroAccount } from "../api/micro";
 import { AccountName } from "../components/AccountName";
 import { Empty, QueryView } from "../components/common";
