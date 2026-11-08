@@ -28,3 +28,10 @@ describe("Bounded entity list requests", () => {
     await expect(listStreams("example-prod", spec, false, controller.signal)).rejects.toThrow();
   });
 });
+
+it("retains exact collection ID and API end for seven-day chart handoff",async()=>{
+ const range={start:{seconds:1000n,nanos:0},end:{seconds:2000n,nanos:0}};
+ vi.mocked(lens.listStreams).mockResolvedValueOnce({streams:[],epoch:9007199254740993n,range,nextPageToken:"",totalCount:0} as never);
+ const r=await listStreams("example-prod",spec,false,undefined,{pageToken:""});
+ expect(r.epoch).toBe("9007199254740993");expect(r.rangeEnd).toBe(2000000);
+});

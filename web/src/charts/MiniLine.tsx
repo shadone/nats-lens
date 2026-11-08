@@ -1,13 +1,14 @@
+import type {InvestigationSelection} from "../lib/investigationContext";
 // The streams card's small 7-day line, from the reference's g7.
 import { ChartInspection } from "./ChartInspection";
 import type { Level, Point } from "../api/model";
 import { chartName } from "./chartLabel";
 
 /** `period` names the time drawn, for example "last 7 days"; `fmt` formats the latest value with its unit. */
-interface Props { points: Point[]; level: Level; label: string; period: string; fmt: (v: number) => string; frame?: { start: number; end: number; stepMs?: number } }
+interface Props { investigation?:InvestigationSelection; points: Point[]; level: Level; label: string; period: string; fmt: (v: number) => string; frame?: { start: number; end: number; stepMs?: number } }
 export function MiniLine(p: Props) {
   if (!p.frame) return <MiniDrawing {...p} />;
-  return <ChartInspection label={p.label} {...p.frame} bucketNote="Mean delivery rate in bucket" series={[{label:"delivered",points:p.points.map(v=>({time:v.time,text:p.fmt(v.value)}))}]}><MiniDrawing {...p} /></ChartInspection>;
+  return <ChartInspection investigation={p.investigation} label={p.label} {...p.frame} bucketNote="Mean delivery rate in bucket" series={[{label:"delivered",points:p.points.map(v=>({time:v.time,text:p.fmt(v.value)}))}]}><MiniDrawing {...p} /></ChartInspection>;
 }
 function MiniDrawing({ points, level, label, period, fmt, frame }: Props) {
   const W = 52;

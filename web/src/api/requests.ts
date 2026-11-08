@@ -188,7 +188,7 @@ export async function listStreams(sys: string, spec: RangeSpec, includeKv: boole
     }
   }
   return {
-    streams: streams.map(stream), totalCount, nextPageToken: r.nextPageToken,
+    streams: streams.map(stream), totalCount, nextPageToken: r.nextPageToken, rangeEnd:ms(r.range?.end), epoch:String(r.epoch),
     totals: { bytes: n(totals?.bytes), durableConsumers: totals?.durableConsumers ?? 0, ephemeralConsumers: totals?.ephemeralConsumers ?? 0 },
   };
 }
