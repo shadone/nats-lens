@@ -73,3 +73,9 @@
 
 .chart-h > .infotip { flex: none; margin-right: auto; }
 .chart-help-legend { display: inline-flex; margin-top: var(--sp-2); }
+
+.chart-selected-interval{position:absolute;top:0;bottom:0;box-sizing:border-box;background:var(--accent-soft);border-inline:2px solid var(--accent);opacity:.65;pointer-events:none}
+.chart-interval-trigger{position:absolute;inset-block-start:var(--sp-1);inset-inline-start:var(--sp-1);z-index:4;padding:var(--sp-1);min-width:var(--sp-6);min-height:var(--sp-6);opacity:0;pointer-events:none}
+.chart-inspection-wrap:hover>.chart-interval-trigger,.chart-inspection-wrap:focus-within>.chart-interval-trigger,.chart-interval-trigger:focus-visible{opacity:1;pointer-events:auto}
+.chart-interval-actions{flex-wrap:wrap}
+@media(hover:none){.chart-interval-trigger{opacity:1;pointer-events:auto}}
