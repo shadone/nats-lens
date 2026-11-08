@@ -12,6 +12,8 @@
 
 - **Choose one source.** An explicit database file, a data directory or a configured system selects the source. A multi-system configuration requires a system selection. Missing files fail without creating a database or running migrations.
 - **Preserve arbitrary columns.** JSON preserves column order, duplicate labels, type metadata, NULL and exact integer/decimal values. Its arbitrary schema stays separate from the proposed semantic investigation result schema. The [SQL CLI reference](../reference/sql-cli.md) defines representations and flags.
+- **Reject unfaithful temporal JSON.** Temporal infinities and dates outside the JSON timestamp format fail with explicit-cast guidance, including nested values. Finite supported values retain their timestamp precision.
+- **Keep configuration diagnostics private.** Configuration and system-selection failures omit raw values, paths and configured system IDs. Their fixed diagnostic directs the caller to the local configuration or an explicit offline file.
 - **Keep the table.** The default table retains aligned columns, `NULL`, UTC times to milliseconds and the row count.
 - **Bound returned data.** Explicit row, output-byte and time budgets bound result presentation. Row truncation is visible. SQL is passed unchanged; no hidden limit changes its meaning. Native execution can consume resources before those limits apply.
 - **Publish complete results.** Query, conversion, cancellation and byte-limit failures publish no data. A new output file is published atomically and never replaces an existing file. Diagnostics go to stderr and failures exit unsuccessfully.
@@ -38,7 +40,7 @@
 - **Given** a configuration that lists `shop-prod` and `shop-staging`, and offline database files
 - **When** I run `natslens sql -config natslens.yaml -system shop-staging "SELECT count(*) FROM epochs"`
 - **Then** nats-lens prints the count from the staging database only
-- **And** without `-system` the command fails and lists `shop-prod, shop-staging`
+- **And** without `-system` the command fails with a fixed diagnostic that directs me to check the configuration and system selection
 
 ### The collector still holds the file
 
@@ -60,6 +62,21 @@
 - **When** I publish JSON to a new output file
 - **Then** the complete document identifies row truncation
 - **And** a query error, cancellation or byte-budget failure creates no destination file
+
+### Reject an unfaithful temporal value
+
+- **Surfaces:** `cli`
+- **Given** trusted SQL returning a temporal infinity or an out-of-range date inside a nested value
+- **When** I request JSON output
+- **Then** the command fails without publishing data and directs me to cast the temporal member explicitly to text
+
+### Omit configuration values from diagnostics
+
+- **Surfaces:** `cli`
+- **Given** a malformed local configuration containing a sensitive value
+- **When** I select that configuration for SQL inspection
+- **Then** stderr contains a fixed diagnostic and the process exits unsuccessfully
+- **And** stdout and stderr omit the sensitive value and configuration filename
 
 ## Not supported / out of scope
 
