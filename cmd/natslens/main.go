@@ -47,7 +47,12 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if err := run(ctx, os.Args[1:]); err != nil && !errors.Is(err, flag.ErrHelp) {
-		fmt.Fprintln(os.Stderr, "natslens:", err)
+		var diagnostic *sqlcli.Diagnostic
+		if errors.As(err, &diagnostic) {
+			fmt.Fprintln(os.Stderr, diagnostic)
+		} else {
+			fmt.Fprintln(os.Stderr, "natslens:", err)
+		}
 		os.Exit(1)
 	}
 }
@@ -250,6 +255,9 @@ func runSQL(ctx context.Context, args []string) error {
 func runSQLTo(ctx context.Context, args []string, out io.Writer) error {
 	const usage = "usage: natslens sql [-db FILE | -config FILE -system ID -data-dir DIR] [-format table|json] [-output FILE] [-max-rows N] [-max-output-bytes N] [-timeout 45s] QUERY"
 	fs := flag.NewFlagSet("natslens sql", flag.ContinueOnError)
+	// Failed flag parsing must produce only the structured diagnostic in main.
+	fs.SetOutput(io.Discard)
+	fs.Usage = func() {}
 	db := oneDatabaseFlags(fs)
 	source := fs.String("db", "", "existing offline DuckDB file; exclusive with config/system/data-dir")
 	format := fs.String("format", "table", "table or json")
@@ -259,6 +267,9 @@ func runSQLTo(ctx context.Context, args []string, out io.Writer) error {
 	timeout := fs.Duration("timeout", sqlcli.DefaultTimeout, "query budget, at most 45s")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
+			fmt.Fprintln(os.Stderr, usage)
+			fs.SetOutput(os.Stderr)
+			fs.PrintDefaults()
 			return err
 		}
 		return sqlcli.Invalid("Invalid SQL command flags")
