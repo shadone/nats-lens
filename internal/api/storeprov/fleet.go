@@ -42,6 +42,11 @@ func (p *Provider) SystemSummary(ctx context.Context, req *v1.ListSystemsRequest
 	}
 	if ok {
 		res.Status, _ = statusOf(cur, nil)
+		ran, err := p.checksRan(ctx, e.epoch)
+		if err != nil {
+			return nil, err
+		}
+		res.Status = orNoData(res.Status, ran())
 		if err := p.epochCounts(ctx, e.epoch, res); err != nil {
 			return nil, err
 		}
