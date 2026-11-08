@@ -197,7 +197,7 @@ export function MetricBox(p: MetricBoxProps) {
         <p className="muted-note">Could not load: {p.error}</p>
       ) : chart && (
         <Sparkline
-          investigation={{series:[{label:p.seriesLabels?.[0]??p.series?.metric??p.title,metric:p.series?.metric,entity:p.series?.entity},...(p.series2?[{label:p.seriesLabels?.[1]??p.series2.metric,metric:p.series2.metric,entity:p.series2.entity}]:[])]}}
+          investigation={{series:[{label:p.seriesLabels?.[0]??p.series?.metric??p.title,metric:p.metricIds?.[0]??p.series?.metric,entity:p.metricEntity??p.series?.entity},...(p.series2?[{label:p.seriesLabels?.[1]??p.series2.metric,metric:p.metricIds?.[1]??p.series2.metric,entity:p.metricEntity??p.series2.entity}]:[])]}}
           points={pts}
           stepMs={p.series?.stepMs}
           bucketNote={p.bucketNote ?? (p.series?.unit === "count" ? "Last count in bucket" : "Mean value in bucket")}
