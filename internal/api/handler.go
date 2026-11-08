@@ -589,3 +589,7 @@ func (h *Handler) GetOnCall(ctx context.Context, req *connect.Request[v1.GetOnCa
 		return FinishOnCall(f, replay, ""), nil
 	})
 }
+
+func (h *Handler) GetStorageChange(ctx context.Context, req *connect.Request[v1.GetStorageChangeRequest]) (*connect.Response[v1.GetStorageChangeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("storage comparison is not implemented"))
+}

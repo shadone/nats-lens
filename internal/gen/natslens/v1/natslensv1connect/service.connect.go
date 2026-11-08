@@ -88,6 +88,9 @@ const (
 	LensServiceGetAccountsAndAuthProcedure = "/natslens.v1.LensService/GetAccountsAndAuth"
 	// LensServiceGetCapacityProcedure is the fully-qualified name of the LensService's GetCapacity RPC.
 	LensServiceGetCapacityProcedure = "/natslens.v1.LensService/GetCapacity"
+	// LensServiceGetStorageChangeProcedure is the fully-qualified name of the LensService's
+	// GetStorageChange RPC.
+	LensServiceGetStorageChangeProcedure = "/natslens.v1.LensService/GetStorageChange"
 	// LensServiceGetDataHistoryProcedure is the fully-qualified name of the LensService's
 	// GetDataHistory RPC.
 	LensServiceGetDataHistoryProcedure = "/natslens.v1.LensService/GetDataHistory"
@@ -198,6 +201,9 @@ type LensServiceClient interface {
 	// JetStream file store is and when it fills at its growth over the
 	// range.
 	GetCapacity(context.Context, *connect.Request[v1.GetCapacityRequest]) (*connect.Response[v1.GetCapacityResponse], error)
+	// Compare pinned completed collections with separate logical, replica and
+	// system-wide server storage quantities; missing observations stay unknown.
+	GetStorageChange(context.Context, *connect.Request[v1.GetStorageChangeRequest]) (*connect.Response[v1.GetStorageChangeResponse], error)
 	// What nats-lens holds of the system: where the history starts, the
 	// collections and gaps of the range, the retention, the archive's state,
 	// and how much history each use has.
@@ -421,6 +427,13 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		getStorageChange: connect.NewClient[v1.GetStorageChangeRequest, v1.GetStorageChangeResponse](
+			httpClient,
+			baseURL+LensServiceGetStorageChangeProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("GetStorageChange")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		getDataHistory: connect.NewClient[v1.GetDataHistoryRequest, v1.GetDataHistoryResponse](
 			httpClient,
 			baseURL+LensServiceGetDataHistoryProcedure,
@@ -568,6 +581,7 @@ type lensServiceClient struct {
 	getTopology                  *connect.Client[v1.GetTopologyRequest, v1.GetTopologyResponse]
 	getAccountsAndAuth           *connect.Client[v1.GetAccountsAndAuthRequest, v1.GetAccountsAndAuthResponse]
 	getCapacity                  *connect.Client[v1.GetCapacityRequest, v1.GetCapacityResponse]
+	getStorageChange             *connect.Client[v1.GetStorageChangeRequest, v1.GetStorageChangeResponse]
 	getDataHistory               *connect.Client[v1.GetDataHistoryRequest, v1.GetDataHistoryResponse]
 	getSubjects                  *connect.Client[v1.GetSubjectsRequest, v1.GetSubjectsResponse]
 	matchSubject                 *connect.Client[v1.MatchSubjectRequest, v1.MatchSubjectResponse]
@@ -700,6 +714,11 @@ func (c *lensServiceClient) GetAccountsAndAuth(ctx context.Context, req *connect
 // GetCapacity calls natslens.v1.LensService.GetCapacity.
 func (c *lensServiceClient) GetCapacity(ctx context.Context, req *connect.Request[v1.GetCapacityRequest]) (*connect.Response[v1.GetCapacityResponse], error) {
 	return c.getCapacity.CallUnary(ctx, req)
+}
+
+// GetStorageChange calls natslens.v1.LensService.GetStorageChange.
+func (c *lensServiceClient) GetStorageChange(ctx context.Context, req *connect.Request[v1.GetStorageChangeRequest]) (*connect.Response[v1.GetStorageChangeResponse], error) {
+	return c.getStorageChange.CallUnary(ctx, req)
 }
 
 // GetDataHistory calls natslens.v1.LensService.GetDataHistory.
@@ -849,6 +868,9 @@ type LensServiceHandler interface {
 	// JetStream file store is and when it fills at its growth over the
 	// range.
 	GetCapacity(context.Context, *connect.Request[v1.GetCapacityRequest]) (*connect.Response[v1.GetCapacityResponse], error)
+	// Compare pinned completed collections with separate logical, replica and
+	// system-wide server storage quantities; missing observations stay unknown.
+	GetStorageChange(context.Context, *connect.Request[v1.GetStorageChangeRequest]) (*connect.Response[v1.GetStorageChangeResponse], error)
 	// What nats-lens holds of the system: where the history starts, the
 	// collections and gaps of the range, the retention, the archive's state,
 	// and how much history each use has.
@@ -1068,6 +1090,13 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	lensServiceGetStorageChangeHandler := connect.NewUnaryHandler(
+		LensServiceGetStorageChangeProcedure,
+		svc.GetStorageChange,
+		connect.WithSchema(lensServiceMethods.ByName("GetStorageChange")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	lensServiceGetDataHistoryHandler := connect.NewUnaryHandler(
 		LensServiceGetDataHistoryProcedure,
 		svc.GetDataHistory,
@@ -1235,6 +1264,8 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 			lensServiceGetAccountsAndAuthHandler.ServeHTTP(w, r)
 		case LensServiceGetCapacityProcedure:
 			lensServiceGetCapacityHandler.ServeHTTP(w, r)
+		case LensServiceGetStorageChangeProcedure:
+			lensServiceGetStorageChangeHandler.ServeHTTP(w, r)
 		case LensServiceGetDataHistoryProcedure:
 			lensServiceGetDataHistoryHandler.ServeHTTP(w, r)
 		case LensServiceGetSubjectsProcedure:
@@ -1368,6 +1399,10 @@ func (UnimplementedLensServiceHandler) GetAccountsAndAuth(context.Context, *conn
 
 func (UnimplementedLensServiceHandler) GetCapacity(context.Context, *connect.Request[v1.GetCapacityRequest]) (*connect.Response[v1.GetCapacityResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetCapacity is not implemented"))
+}
+
+func (UnimplementedLensServiceHandler) GetStorageChange(context.Context, *connect.Request[v1.GetStorageChangeRequest]) (*connect.Response[v1.GetStorageChangeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.GetStorageChange is not implemented"))
 }
 
 func (UnimplementedLensServiceHandler) GetDataHistory(context.Context, *connect.Request[v1.GetDataHistoryRequest]) (*connect.Response[v1.GetDataHistoryResponse], error) {
