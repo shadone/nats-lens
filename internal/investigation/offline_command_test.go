@@ -48,3 +48,23 @@ func TestOfflineCommandClockAndContext(t *testing.T) {
 		t.Fatalf("runtime availability missing: %s", result["availability"])
 	}
 }
+
+func TestOfflineContextAcceptsInertUIOrigin(t *testing.T) {
+	source := new(frozenSource)
+	opener := func(context.Context, OfflineSelection) (*Session, error) { return &Session{Source: source}, nil }
+	for _, args := range [][]string{
+		{"query", "ListMetrics", "-bundle", "fixture", "-url", "https://lens.example.com/servers/nats-0?system=shop&range=1h"},
+		{"query", "ListMetrics", "-bundle", "fixture", "-context", "-"},
+	} {
+		c, err := ContextFromURL("https://lens.example.com/servers/nats-0?system=shop&range=1h", "https://lens.example.com", fixtureNow())
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, _ := json.Marshal(c)
+		var out, diagnostic bytes.Buffer
+		err = RunWithOffline(context.Background(), args, bytes.NewReader(data), &out, &diagnostic, opener)
+		if err != nil {
+			t.Fatalf("inert context origin rejected: %v %s", err, out.String())
+		}
+	}
+}
