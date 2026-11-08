@@ -2,6 +2,7 @@
 // it, how much it holds, the limit it reaches next, and the decision on an
 // unbounded one, with the button that accepts it as by design.
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router";
 import type { Capacity, CapacityStream } from "../api/capacity";
 import type { Mute } from "../api/model";
 import {
@@ -143,6 +144,10 @@ export function withAccepted(rows: CapacityStream[], saved: Record<string, Saved
 
 /** answeredAt: when the answer d was fetched (the query's dataUpdatedAt); live: whether the page's range follows now. */
 export function StreamsTable({ d, answeredAt, live }: { d: Capacity; answeredAt: number; live: boolean }) {
+  const [params, setParams] = useSearchParams();
+  // ASVS 1.2.2: allowlisted filter values; URLSearchParams encodes query changes.
+  const value = params.get("resource");
+  const resource = value === "stream" || value === "kv" || value === "object" ? value : "all";
   const [accepting, setAccepting] = useState<CapacityStream>();
   const [saved, setSaved] = useState<Record<string, Saved>>({});
   // The row whose acceptance was just saved: its button is gone, so focus moves to its stream link.
@@ -155,20 +160,35 @@ export function StreamsTable({ d, answeredAt, live }: { d: Capacity; answeredAt:
   }, [focusRow]);
   const shown = useRef(answeredAt);
   shown.current = answeredAt;
-  const rows = withAccepted(d.streams, saved, answeredAt, live);
-  const accounts = new Set(rows.map((s) => s.account)).size;
+  const loaded = withAccepted(d.streams, saved, answeredAt, live);
+  const rows = resource === "all" ? loaded : loaded.filter((s) => s.kind === resource);
+  const accounts = new Set(loaded.map((s) => s.account)).size;
   const epochAt = d.epochAt ?? 0;
   return (
     <>
-      <section ref={tableRef} className="card cap-card" aria-label="Streams by what bounds them">
+      <section ref={tableRef} className="card cap-card" aria-label="Resources by what bounds them">
+        <div className="cap-resource-filter">
+          <label>Resource type <select value={resource} onChange={(e) => setParams((p) => {
+            const next = new URLSearchParams(p);
+            if (e.target.value === "all") next.delete("resource");
+            else next.set("resource", e.target.value);
+            return next;
+          })}>
+            <option value="all">All</option>
+            <option value="stream">Streams</option>
+            <option value="kv">KV buckets</option>
+            <option value="object">Object stores</option>
+          </select></label>
+          <p>{fmtInt(rows.length)} of {fmtInt(loaded.length)} loaded resources shown. Server cards and page totals include all resource types.</p>
+        </div>
         {rows.length === 0 ? (
-          <p className="cap-foot">No stream in this collection.</p>
+          <p className="cap-foot">{loaded.length === 0 ? "No resources in this collection." : `No ${resource === "kv" ? "KV buckets" : resource === "object" ? "object stores" : "streams"} among the loaded resources.`}</p>
         ) : (
           <div className="table-wrap scroll-cue">
             <table className="tbl cap-tbl">
               <thead>
                 <tr>
-                  <th scope="col">Stream</th>
+                  <th scope="col">Resource</th>
                   <th scope="col">Bounded by</th>
                   <th scope="col">Data held</th>
                   <th scope="col" className="num">
@@ -191,6 +211,8 @@ export function StreamsTable({ d, answeredAt, live }: { d: Capacity; answeredAt:
                         <RLink to={streamPath(s.account, s.stream)} className="x cap-name">
                           {streamLabel(s.stream)}
                         </RLink>
+                        <span className="cap-type">{s.kind === "kv" ? "KV bucket" : s.kind === "object" ? "Object store" : "Stream"}</span>
+                        {s.kind !== "stream" && <small>Underlying stream: {s.stream}</small>}
                         <small>{kindLine(s)}</small>
                         {accounts > 1 && <small>account {accountLabel(s.account, s.accountName || undefined)}</small>}
                       </th>
@@ -202,7 +224,7 @@ export function StreamsTable({ d, answeredAt, live }: { d: Capacity; answeredAt:
                         <Num v={sizeTimesR(s)} fmt={fmtBytes} />
                       </td>
                       <td className="num cap-rate">
-                        {perDay === undefined ? <span title="This stream lacks usable observations spanning 6 h"><Num v={perDay} fmt={fmtGrowth} /></span> : <Num v={perDay} fmt={fmtGrowth} />}
+                        {perDay === undefined ? <span title="This resource lacks usable observations spanning 6 h"><Num v={perDay} fmt={fmtGrowth} /></span> : <Num v={perDay} fmt={fmtGrowth} />}
                       </td>
                       <td className={next.crit ? "cap-crit" : undefined}>{next.text}</td>
                       <td className="cap-status">
@@ -217,7 +239,7 @@ export function StreamsTable({ d, answeredAt, live }: { d: Capacity; answeredAt:
         )}
         {d.streamsTotal > d.streams.length && (
           <p className="cap-foot">
-            The first {fmtInt(d.streams.length)} of {fmtInt(d.streamsTotal)} streams are listed.
+            The first {fmtInt(d.streams.length)} of {fmtInt(d.streamsTotal)} resources are loaded. Type filters apply only to these loaded resources.
           </p>
         )}
       </section>

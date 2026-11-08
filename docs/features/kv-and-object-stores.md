@@ -10,6 +10,8 @@ KV Stores and Object Stores are pages of their own, which name and describe buck
 
 ## Behavior and rules
 
+- **Capacity navigation.** Capacity labels KV buckets and object stores explicitly, shows their bucket names and underlying stream identities, and offers type filters over the loaded rows. Links open bucket details with the system, account and time range.
+
 - **A bucket is its stream.** A stream named `KV_<bucket>` is a KV bucket, one named `OBJ_<bucket>` an object store. A stream such as `KVX_foo` is neither.
 - **The leader's view.** Numbers come from the bucket stream's leader in the newest collection of the range (the largest value when no server leads), and the configuration from the leader's report.
 - **KV Stores.** For each bucket: its status, name, account and description, replicas, placement, keys, history per key, TTL, bytes (with the byte limit beneath when there is one), growth per day, watchers, storage (with `s2` when compressed), and notes: missing, "per-key TTL" when the bucket allows per-key TTLs, the mirrored stream, "not in inventory" when an inventory exists and does not list it, and the codes of its firing findings.
