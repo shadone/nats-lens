@@ -13,7 +13,7 @@ describe("Consumers stream filter", () => {
 
   it("fills the stream filter once and does not poll it, while the consumers follow the live range", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.mocked(requests.listConsumers).mockResolvedValue([]);
+    vi.mocked(requests.listConsumers).mockResolvedValue(Object.assign([], { totalCount: 0, nextPageToken: "" }));
     vi.mocked(requests.listStreams).mockResolvedValue({
       streams: [{ entity: entity("order-jobs") }, { entity: entity("order-archive") }],
       totals: { bytes: 0, durableConsumers: 0, ephemeralConsumers: 0 },

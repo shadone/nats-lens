@@ -10,6 +10,8 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 
 ## Behavior and rules
 
+The worst-streams table requests one bounded page; its count and totals cover all matching streams, including later pages ([Streams](streams.md)).
+
 - **Replay observed windows.** Each Kubernetes window has a separate "Replay this window" link below the timeline. It fixes A, B and the range around that observation, preserves the system and leaves the lane, Each check and zoom interactions intact. Context and limits follow [Replay](replay.md).
 
 - **Summary and detail.** "System summary" labels the compact cards, and its note says once for all of them that the figures are the latest available counts and reports. Counts come from the latest available bucket, Storage uses newest server reports, and Meta leader names the newest collection's leader; while its chart shows, a caption reads "Leader changes per bucket", since the chart counts changes rather than naming leaders. "Detailed trends" adds traffic rates, event totals, server spread, and replica counts over the selected range. Both sections retain useful history; the summary is not a claim that every figure comes from one snapshot.
@@ -194,3 +196,4 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 - **One system at a time.** The page shows the system the address's `?system=` names, or the first configured; the Fleet page compares systems ([multiple-systems.md](multiple-systems.md)).
 - **No per-subject traffic.** Message rates are per server and for the whole system, not per subject.
 - **No stories made up.** The lanes show stored events and windows; they do not infer that a group of events was "a redeploy".
+
