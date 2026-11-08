@@ -144,9 +144,9 @@ message CounterComparisonSummary {
   uint64 comparison_count = 2;
   // Distinct stored server IDs contributing pairs, not inferred lifetimes.
   uint64 server_id_count = 3;
-  // Earliest previous-report timestamp among contributing pairs.
+  // Earliest collection timestamp of a preceding report in contributing pairs.
   google.protobuf.Timestamp first_compared_at = 4;
-  // Latest current-report timestamp among contributing pairs.
+  // Latest collection timestamp of a current report in contributing pairs.
   // The envelope is not proof of continuous coverage.
   google.protobuf.Timestamp last_compared_at = 5;
   // Returned counter rows in the range that cannot contribute: no baseline,

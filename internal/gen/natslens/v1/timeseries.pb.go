@@ -489,9 +489,9 @@ type CounterComparisonSummary struct {
 	ComparisonCount uint64 `protobuf:"varint,2,opt,name=comparison_count,json=comparisonCount,proto3" json:"comparison_count,omitempty"`
 	// Distinct stored server IDs contributing pairs, not inferred lifetimes.
 	ServerIdCount uint64 `protobuf:"varint,3,opt,name=server_id_count,json=serverIdCount,proto3" json:"server_id_count,omitempty"`
-	// Earliest previous-report timestamp among contributing pairs.
+	// Earliest collection timestamp of a preceding report in contributing pairs.
 	FirstComparedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=first_compared_at,json=firstComparedAt,proto3" json:"first_compared_at,omitempty"`
-	// Latest current-report timestamp among contributing pairs.
+	// Latest collection timestamp of a current report in contributing pairs.
 	// The envelope is not proof of continuous coverage.
 	LastComparedAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=last_compared_at,json=lastComparedAt,proto3" json:"last_compared_at,omitempty"`
 	// Returned counter rows in the range that cannot contribute: no baseline,
