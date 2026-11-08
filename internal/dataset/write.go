@@ -168,14 +168,7 @@ func Acquire(ctx context.Context, st *store.Store, destination string, system Sy
 	}
 	m.Data = Data{Path: DataFile, Size: size, SHA256: sum}
 	m.ExportedAt = time.Now().UTC()
-	b, err := json.MarshalIndent(m, "", "  ")
-	if err != nil {
-		return Manifest{}, err
-	}
-	if int64(len(b))+size > o.MaxBytes {
-		return Manifest{}, ErrBudget
-	}
-	if err = writePrivateSynced(filepath.Join(stage, ManifestFile), append(b, '\n')); err != nil {
+	if err = writeManifest(filepath.Join(stage, ManifestFile), m, o.MaxBytes); err != nil {
 		return Manifest{}, err
 	}
 	// Opening rechecks hashes/provenance, exact schema checksums, engine and every
@@ -234,4 +227,16 @@ func syncFile(path string) error {
 	}
 	defer f.Close()
 	return f.Sync()
+}
+
+func writeManifest(path string, m Manifest, maxBytes int64) error {
+	b, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return err
+	}
+	b = append(b, '\n')
+	if m.Data.Size+int64(len(b)) > maxBytes {
+		return ErrBudget
+	}
+	return writePrivateSynced(path, b)
 }
