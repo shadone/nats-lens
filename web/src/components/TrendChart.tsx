@@ -1,3 +1,4 @@
+import {MetricHelp} from "./MetricHelp";
 import type { InvestigationSelection } from "../lib/investigationContext";
 import { bucketPlotTime } from "../charts/bucketDomain";
 import { ChartInspection } from "../charts/ChartInspection";
@@ -98,6 +99,7 @@ export function TrendChart({ investigation, title, to, bucketNote, fmt = String,
     <div className={`card tc${to ? " chart-linked" : ""}`}>
       <div className="tc-h">
         {to ? <RLink to={to} className="lbl chart-link">{title}</RLink> : <span className="lbl">{title}</span>}
+        <MetricHelp label={title} ids={[investigation?.metric??"",...(investigation?.series?.map(s=>s.metric??"")??[])]}/>
         <b className="mono">{shown}</b>
       </div>
       {error && empty ? (

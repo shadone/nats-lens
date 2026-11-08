@@ -76,6 +76,8 @@ export function useTrends(spec: RangeSpec, queries: TrendQuery[]) {
 
 /** One series of a batch, shaped like a single query's result. */
 export interface TrendSlice {
+  /** Requested identity remains known while samples are missing or loading. */
+  metric?: string;
   data: TrendSeries | undefined;
   error: unknown;
   isPending: boolean;
@@ -91,10 +93,10 @@ export interface TrendSlice {
  */
 export function pickTrend(q: Pick<UseQueryResult<TrendResults>, "data" | "error" | "isPending">, queries: TrendQuery[], want: TrendQuery): TrendSlice {
   const key = trendKey(want);
-  if (!queries.some((x) => trendKey(x) === key)) return { data: undefined, error: new Error(`${want.metric} is not in the batch`), isPending: false };
+  if (!queries.some((x) => trendKey(x) === key)) return { metric: want.metric, data: undefined, error: new Error(`${want.metric} is not in the batch`), isPending: false };
   const err = q.error ?? undefined;
   const r = q.data?.[key];
-  if (!r) return { data: undefined, error: err, isPending: !err };
-  if (r.error) return { data: undefined, error: new Error(r.error), isPending: false };
-  return { data: r.series, error: err, isPending: q.isPending };
+  if (!r) return { metric: want.metric, data: undefined, error: err, isPending: !err };
+  if (r.error) return { metric: want.metric, data: undefined, error: new Error(r.error), isPending: false };
+  return { metric: want.metric, data: r.series, error: err, isPending: q.isPending };
 }
