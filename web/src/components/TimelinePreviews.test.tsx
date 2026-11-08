@@ -6,6 +6,7 @@ import {StoryLanes} from "./StoryLanes";
 import {Cells} from "./StatusTimeline";
 
 vi.mock("../lib/useGlobalQuery",()=>({useGlobalQuery:()=>""}));
+vi.mock("../api/queries",()=>({useFindings:()=>({data:{items:[],totalCount:0,nextPageToken:""},isPending:false,error:null})}));
 
 const start = Date.parse("2026-10-17T23:59:00Z");
 const timeline: Timeline = {
@@ -77,4 +78,14 @@ it("opens window explanation and per-check evidence without claiming an exact in
   fireEvent.keyDown(screen.getByRole("button",{name:/consumer-006.*Warning/}),{key:"Enter"});
   expect(screen.getByRole("dialog")).toHaveTextContent("Current check state: OK");
   expect(within(screen.getByRole("dialog")).getByRole("link",{name:"Read check reference"})).toHaveAttribute("href","/checks/consumer-006");
+});
+
+it("keeps a selected finding interval open when refresh replaces its mark",()=>{
+ const {rerender}=render(<MemoryRouter><StoryLanes tl={timeline} end={start+120_000} live/></MemoryRouter>);
+ fireEvent.click(screen.getByRole("button",{name:/Finding state: Warning/}));
+ expect(screen.getByRole("dialog")).toBeInTheDocument();
+ const refreshed={...timeline,start:start+60_000,rows:[{...timeline.rows[0],cells:["ok","ok"] as const}],nats:[]};
+ rerender(<MemoryRouter><StoryLanes tl={{...refreshed,rows:refreshed.rows.map(r=>({...r,cells:[...r.cells]}))}} end={start+180_000} live/></MemoryRouter>);
+ expect(screen.getByRole("dialog")).toHaveTextContent("2026-10-17 23:59:00 UTC");
+ expect(screen.getByRole("dialog")).toHaveClass("dlg-fullscreen");
 });
