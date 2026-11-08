@@ -125,8 +125,8 @@ func readQuery(ctx context.Context, p Provider, batch *v1.GetTimeSeriesBatchRequ
 		Metric:    q.GetMetric(),
 		Entity:    q.GetEntity(),
 		Range:     batch.GetRange(),
-		MaxPoints: q.GetMaxPoints(),
-		System:    batch.GetSystem(),
+		MaxPoints: q.GetMaxPoints(), IncludeObservations: q.GetIncludeObservations(),
+		System: batch.GetSystem(),
 	}
 	if sub.MaxPoints == 0 {
 		sub.MaxPoints = batch.GetMaxPoints()

@@ -19,6 +19,9 @@ type Metric struct {
 	Description string
 }
 
+// MaxObservationRange bounds optional raw-observation summaries.
+const MaxObservationRange = 30 * 24 * time.Hour
+
 const (
 	sys      = v1.EntityType_ENTITY_TYPE_SYSTEM
 	server   = v1.EntityType_ENTITY_TYPE_SERVER

@@ -93,6 +93,41 @@ message Series {
   //
   // Each is the server's mean over the bucket, so it lies inside the band.
   repeated Point top_points = 9;
+
+  // Optional raw-observation summary, independent of bucket resolution.
+  // Only populated when include_observations was requested.
+  ObservationSummary observations = 10;
+}
+
+// Statistics of the metric's per-collection values before bucketing.
+// These are observations, not proof of continuous or complete capture.
+message ObservationSummary {
+  // Per-collection metric rows returned by the metric query, including NULL.
+  uint64 sample_count = 1;
+  // Rows with a known metric value. This is not an expected collection count.
+  uint64 known_count = 2;
+  // Earliest returned metric row, including a NULL value.
+  google.protobuf.Timestamp first_sample_at = 3;
+  // Latest returned metric row, including a NULL value.
+  google.protobuf.Timestamp last_sample_at = 4;
+  // Value of the latest metric row; absent if that row is unknown.
+  optional double latest = 5;
+  // Arithmetic mean of known per-collection values, not time-weighted.
+  optional double mean = 6;
+  // Smallest known per-collection value.
+  optional double minimum = 7;
+  // Largest known per-collection value, not the peak of bucket means.
+  optional double maximum = 8;
+  // Earliest returned metric timestamp with that maximum value.
+  google.protobuf.Timestamp maximum_at = 9;
+  // Sum of observed increments for summed event metrics, as an exact
+  // nonnegative decimal integer. Absent for gauges and rates; rates are not
+  // integrated into a volume. Missing comparisons are not fabricated as zero.
+  optional string observed_total = 10;
+  // Smallest raw lower edge for a band metric; absent otherwise.
+  optional double minimum_low = 11;
+  // Largest raw upper edge for a band metric; absent otherwise.
+  optional double maximum_high = 12;
 }
 
 // Request for one metric of one entity.
@@ -122,6 +157,10 @@ message GetTimeSeriesRequest {
 
   // System ID, as ListSystems returns it. Empty means the default system.
   string system = 5;
+
+  // Include a per-collection observation summary. Opt-in ranges are at most
+  // 30 days; ordinary series retain the existing 400-day limit and work.
+  bool include_observations = 6;
 }
 
 // One metric of one entity.
@@ -165,6 +204,10 @@ message SeriesQuery {
   // Number of buckets for this series, as in
   // GetTimeSeriesRequest.max_points. Zero means the request's max_points.
   int32 max_points = 3;
+
+  // Include the same observation summary as GetTimeSeries. A range longer
+  // than 30 days makes this query invalid without failing its siblings.
+  bool include_observations = 4;
 }
 
 // Request for several series over one time range.

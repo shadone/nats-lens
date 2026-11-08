@@ -327,10 +327,7 @@ func (p *Provider) series(ctx context.Context, metric string, e *v1.EntityRef, r
 		edges = "min(v)::DOUBLE, max(v)::DOUBLE"
 	}
 	// Rates and deltas need the epoch before the range's first one.
-	lookback := start.Add(-2 * max(p.Interval, time.Minute))
-	if metric == "cluster.slow_consumers" || metric == "server.slow_consumers" {
-		lookback = p.slowCounterLookback(start)
-	}
+	lookback := p.seriesLookback(metric, start)
 	args := append([]any{lookback, end}, entityArgs(e)...)
 	args = append(args, step.Microseconds(), start, end)
 	having := " HAVING count(v) > 0"
@@ -377,6 +374,12 @@ func (p *Provider) GetTimeSeries(ctx context.Context, req *v1.GetTimeSeriesReque
 	s, err := p.series(ctx, req.GetMetric(), e, req.GetRange(), req.GetMaxPoints())
 	if err != nil {
 		return nil, err
+	}
+	if req.GetIncludeObservations() {
+		s.Observations, err = p.observationSummary(ctx, req.Metric, e, req.Range)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &v1.GetTimeSeriesResponse{Series: s}, nil
 }
