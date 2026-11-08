@@ -6,6 +6,7 @@ import { LIVE_REFRESH_MS, rangeKey } from "../lib/timeRange";
 import { useSystem } from "../lib/useSystem";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";
 import { fmtBytes } from "../lib/format";
+import { overlappingBuckets } from "../charts/bucketDomain";
 import { Sparkline } from "../charts/Sparkline";
 import { OneLine } from "./Trends";
 import { errorText } from "./common";
@@ -43,7 +44,12 @@ export function useCapacityHistory(queries: TrendQuery[]) {
 export function CapacityHistoryChart({ q, title, compact = false }: { q: TrendSlice; title: string; compact?: boolean }) {
   const { spec } = useTimeRange();
   const { start, end } = useResolvedRange(spec);
-  if (!compact) return <OneLine f={{ spec, start, end }} q={q} title={title} label={title} contiguousBuckets />;
+  // API points identify aligned buckets; the query already filters actual
+  // reports to the requested range. Retain those labels for inspection.
+  const data = q.data;
+  const inRange = data && data.stepMs > 0 ? { ...q, data: { ...data, points: overlappingBuckets(data.points, start, end, data.stepMs) } } : q;
+  q = inRange;
+  if (!compact) return <OneLine f={{ spec, start, end }} q={q} title={title} label={title} contiguousBuckets bucketOverlap />;
   return (
     <div className="cap-history-compact">
       {q.error && !q.data ? (
@@ -53,8 +59,9 @@ export function CapacityHistoryChart({ q, title, compact = false }: { q: TrendSl
           points={q.data?.points ?? []}
           stepMs={q.data?.stepMs}
           contiguousBuckets
+          bucketOverlap
           fmt={fmtBytes}
-          bucketNote="Mean logical bytes in bucket; missing observations are not zero"
+          bucketNote="Mean logical bytes in bucket; marks show overlap midpoints, not sample times; missing observations are not zero"
           status="ok"
           tone="change"
           windows={[]}
@@ -76,7 +83,8 @@ export function TotalCapacityHistory() {
       <p className="cap-note">
         Server file-store usage includes observed file replicas, excludes memory resources, and is independent of resource filters.
         Missing expected servers, missing reports, and ambiguous server names leave totals unknown.
-        Buckets show means; collection and retention gaps are marked.
+        Buckets show means; marks sit at the midpoint of each bucket’s overlap with the selected range, not at exact observation times.
+        Inspection retains bucket labels. Collection and retention gaps are marked.
       </p>
     </section>
   );
