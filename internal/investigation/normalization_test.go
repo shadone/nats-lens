@@ -78,3 +78,21 @@ func TestIdentityPayloadsAreNotTrimmed(t *testing.T) {
 		t.Fatal(string(req))
 	}
 }
+
+func TestSubjectTesterUsesUITrimBeforeExplicitOverride(t *testing.T) {
+	c, err := ContextFromURL("https://lens.example.com/subjects?system=shop&subject="+url.QueryEscape("\uFEFF orders.created \u00a0"), "https://lens.example.com", fixtureNow())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ override, want string }{{"", "orders.created"}, {`{"subject":" exact.payload "}`, " exact.payload "}} {
+		req, _, err := Prepare("MatchSubject", c, []byte(tc.override))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var r struct{ Subject string }
+		json.Unmarshal(req, &r)
+		if r.Subject != tc.want {
+			t.Fatalf("override %s: %s", tc.override, req)
+		}
+	}
+}
