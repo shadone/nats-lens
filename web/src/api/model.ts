@@ -131,6 +131,7 @@ export interface Point {
 }
 
 export interface Series {
+  entity?: Entity;
   metric: string;
   unit: Unit;
   stepMs: number;

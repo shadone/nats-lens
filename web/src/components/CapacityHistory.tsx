@@ -56,6 +56,7 @@ export function CapacityHistoryChart({ q, title, compact = false }: { q: TrendSl
         <small>History unavailable: {errorText(q.error)}</small>
       ) : (
         <Sparkline
+          investigation={{metric:q.data?.metric,entity:q.data?.entity}}
           points={q.data?.points ?? []}
           stepMs={q.data?.stepMs}
           contiguousBuckets

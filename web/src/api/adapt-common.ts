@@ -152,6 +152,7 @@ export function series(s: PSeries | undefined): Series | undefined {
   if (!s) return undefined;
   return {
     metric: s.metric,
+    entity: entity(s.entity),
     unit: unit(s.unit),
     stepMs: dur(s.step) ?? 0,
     points: s.points.map((p) => ({ time: ms(p.time) ?? 0, value: p.value, low: p.low, high: p.high })),

@@ -1,3 +1,4 @@
+import { InvestigationButton } from "./InvestigationContext";
 // Top bar of every page: the page's name, the account scope on the pages
 // that apply it, search, the time range with freshness, and the theme. At
 // phone width a menu button opens the sidebar as a drawer. On a page of the
@@ -40,6 +41,7 @@ export function Header({ menuOpen = false, onMenu }: Props) {
         <ThemeMenu />
       </div>
       <RangeNotice />
+      <div className="investigation-entry"><InvestigationButton /></div>
     </header>
   );
 }

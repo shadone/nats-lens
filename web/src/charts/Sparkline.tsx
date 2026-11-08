@@ -1,3 +1,4 @@
+import type { InvestigationSelection } from "../lib/investigationContext";
 import { bucketPlotTime } from "./bucketDomain";
 // The tile sparkline of the reference: area and line for the primary
 // series, a dashed line for the second, shaded windows behind.
@@ -42,6 +43,7 @@ export function sparkColour(status: Level): string {
 }
 
 interface Props {
+  investigation?: InvestigationSelection;
   points: Point[];
   stepMs?: number;
   /** Capacity requires a break at every absent measurement bucket. */
@@ -111,10 +113,10 @@ function mostlyChanging(points: Point[]): boolean {
   return points.length > 2 && changedSegments(points).length > (points.length - 1) / 3;
 }
 
-export function Sparkline({ bucketOverlap, contiguousBuckets, stepMs, bucketNote, fmt = String, labels = ["value", "second series"], points, points2, status, windows, start, end, label, current, note, tone }: Props) {
+export function Sparkline({ investigation, bucketOverlap, contiguousBuckets, stepMs, bucketNote, fmt = String, labels = ["value", "second series"], points, points2, status, windows, start, end, label, current, note, tone }: Props) {
   // The change tone also says a bucket's range, which its last value hides.
   const text = (p: Point) => tone === "change" && hasRange(p) ? `${fmt(p.value)} (${fmt(p.low ?? p.value)} to ${fmt(p.high ?? p.value)} in bucket)` : fmt(p.value);
-  return <ChartInspection label={label} start={start} end={end} stepMs={stepMs} bucketNote={bucketNote} series={[
+  return <ChartInspection investigation={investigation} label={label} start={start} end={end} stepMs={stepMs} bucketNote={bucketNote} series={[
     { label: labels[0], points: points.map(p => ({ time: p.time, text: text(p) })) },
     ...(points2 ? [{ label: labels[1], points: points2.map(p => ({ time: p.time, text: fmt(p.value) })) }] : []),
   ]}><SparkDrawing bucketOverlap={bucketOverlap} contiguousBuckets={contiguousBuckets} stepMs={stepMs} points={points} points2={points2} status={status} windows={windows} start={start} end={end} label={label} current={current} note={note} tone={tone} /></ChartInspection>;
