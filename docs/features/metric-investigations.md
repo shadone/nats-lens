@@ -1,14 +1,21 @@
 # Metric investigations
 
 - **Surfaces:** `ui`
-- **Status:** partial — server and resource metric families; remaining chart inventory, traffic volumes and global rankings remain open
+- **Status:** partial — server, resource and aggregate metric pages; traffic volumes and global rankings remain open
 - **Related:** [metric-observations.md](metric-observations.md), [overview-page.md](overview-page.md), [servers.md](servers.md), [chart-interval-selection.md](chart-interval-selection.md), [agent-investigations.md](agent-investigations.md)
 
 ## What it does
 
-Metric chart titles open CPU, memory, connection-count, message-rate or byte-rate investigations. Each page compares captured server observations, expands individual histories and opens findings or events in the displayed interval. Stream and consumer chart titles open resource histories and comparisons. Storage-change and slow-consumer investigations retain their existing specialist paths.
+Metric chart titles open CPU, memory, connection-count, message-rate or byte-rate investigations. Each page compares captured server observations, expands individual histories and opens findings or events in the displayed interval. Stream and consumer chart titles open resource histories and comparisons. Observed server/resource/account counts, replica-configuration groups and derived meta-leader changes have aggregate histories with supporting evidence links. Storage-change and slow-consumer investigations retain their existing specialist paths.
 
 ## Behavior and rules
+
+- Aggregate pages cover answering servers, ordinary streams, KV buckets, object stores, active accounts, durable consumers, configured replica groups and observed meta-leader changes. They read at most two native observation series, show actual sample times and unknown values, and refresh live ranges from a fresh source clock.
+- Count pages show latest/minimum/peak observations. Meta changes show an exact decimal-integer observed total and the largest per-collection change count, distinct from bucket sums. A leaderless collection is not a recorded change, and derived transitions are not captured election-advisory counts.
+- Aggregate counts cover the whole system; retained account context does not filter them. Inventory/evidence links use explicit system-wide displayed bounds and explain scope differences. Observed accounts differ from configured account inventory; replica-setting counts do not prove currentness or quorum. Missing R1 reports can reduce resource counts without a chart gap.
+- An aggregate change does not identify a contributor or prove a lifecycle action. The page links to server/resource/placement/account diagnostics, captured events, retained findings and coverage, with capture and cross-query limits stated. No keys, objects or message contents are read.
+- Every accepted API metric has a declared investigation destination when its required entity identity is available. Overview tiles use known metric identities even before history loads; combined asset components stay together. Mini-chart rows retain their entity-detail paths and shared interval actions. This destination coverage does not imply new profiling, complete historic set membership or exact event capture.
+
 
 - Navigation preserves system, time range and account context. Server charts retain the reported server name; Compare all server names removes that selection. Server metrics cover all accounts. The retained account can scope supporting evidence without filtering the server measurements.
 - Resource pages cover stored messages, logical bytes, observed replica bytes, stream ingestion, pending, ack pending, redelivered and delivery rate. They read one existing twelve-resource summary page, then only those histories in a batch. Account and consumer-stream filters apply before paging. An explicit resource selection reads its history directly, including when it has left the current list.
@@ -53,7 +60,7 @@ Metric chart titles open CPU, memory, connection-count, message-rate or byte-rat
 
 ## Not supported
 
-Complete chart-family destination inventory, exact traffic-volume summaries, global contributor ranking, attribution of aggregate counts to clients, simultaneous same-name process separation, universal collection pins and causal conclusions. These limitations keep the broader metric-investigation task open.
+Exact traffic-volume summaries, global contributor ranking, attribution of aggregate counts to clients, simultaneous same-name process separation, universal collection pins and causal conclusions. These limitations keep the broader metric-investigation task open.
 
 ### Follow a consumer backlog
 
@@ -70,3 +77,11 @@ Complete chart-family destination inventory, exact traffic-volume summaries, glo
 - **Given** an account-filtered resource metric page,
 - **When** the reader advances the list,
 - **Then** only the returned resources receive history reads, using the traversal’s fixed bounds. Sorting and comparisons describe that loaded page, not a global ranking.
+
+### Follow an aggregate change
+
+**Surface:** `ui`
+
+- **Given** a count or meta-leader chart on Overview,
+- **When** the reader opens its title or selects an interval,
+- **Then** its investigation shows native observations and fixed-range evidence links, without claiming that the count identifies the affected resource.
