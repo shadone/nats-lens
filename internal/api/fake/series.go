@@ -268,12 +268,23 @@ func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints 
 }
 
 // GetTimeSeries draws one metric of a known entity.
-func (p *Provider) GetTimeSeries(_ context.Context, req *v1.GetTimeSeriesRequest) (*v1.GetTimeSeriesResponse, error) {
+func (p *Provider) GetTimeSeries(ctx context.Context, req *v1.GetTimeSeriesRequest) (*v1.GetTimeSeriesResponse, error) {
 	e, err := p.sc.resolveEntity(req.GetEntity())
 	if err != nil {
 		return nil, err
 	}
-	return &v1.GetTimeSeriesResponse{Series: p.scen().series(req.GetMetric(), e, req.GetRange(), req.GetMaxPoints())}, nil
+	if req.GetIncludeObservations() && req.GetRange().GetEnd().AsTime().Sub(req.GetRange().GetStart().AsTime()) > api.MaxObservationRange {
+		return nil, fmt.Errorf("%w: observation range exceeds 30 days", api.ErrInvalid)
+	}
+	scenario := p.scen()
+	out := scenario.series(req.GetMetric(), e, req.GetRange(), req.GetMaxPoints())
+	if req.GetIncludeObservations() {
+		out.Observations, err = scenario.observationSummary(ctx, req.Metric, e, req.Range)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &v1.GetTimeSeriesResponse{Series: out}, nil
 }
 
 // resolveEntity checks that the entity exists and fills in its parts.
