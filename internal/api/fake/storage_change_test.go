@@ -43,3 +43,15 @@ func TestStorageChangeDemoAlignedPinReplay(t *testing.T) {
 		t.Fatal("demo pin moved its observations")
 	}
 }
+func TestStorageChangeDemoUsesOneClock(t *testing.T) {
+	p := New(true)
+	calls := 0
+	p.clock = func() time.Time { calls++; return FixedNow.Add(time.Duration(calls) * time.Second) }
+	_, err := p.StorageChange(context.Background(), &v1.GetStorageChangeRequest{A: ts(FixedNow.Add(-time.Hour)), B: ts(FixedNow)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatalf("comparison reread moving scenario clock %d times", calls)
+	}
+}
