@@ -246,3 +246,71 @@ func TestReadOnlyLiveFileLock(t *testing.T) {
 		t.Fatalf("live lock: %s %v", b, e)
 	}
 }
+
+func TestReadOnlyPreservesOrphanWAL(t *testing.T) {
+	p := fixture(t, "sample.duckdb")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestReadOnlyLiveFileLock$")
+	cmd.Env = append(os.Environ(), "NATSLENS_SQL_LOCK_HELPER=1", "NATSLENS_SQL_LOCK_PATH="+p)
+	stdin, e := cmd.StdinPipe()
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer stdin.Close()
+	stdout, e := cmd.StdoutPipe()
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = cmd.Start(); e != nil {
+		t.Fatal(e)
+	}
+	defer func() { cmd.Process.Kill(); cmd.Wait() }()
+	ready := make([]byte, 6)
+	if _, e = io.ReadFull(stdout, ready); e != nil {
+		t.Fatal(e)
+	}
+	if e = cmd.Process.Kill(); e != nil {
+		t.Fatal(e)
+	}
+	_ = cmd.Wait()
+	beforeDB, e := os.ReadFile(p)
+	if e != nil {
+		t.Fatal(e)
+	}
+	beforeWAL, e := os.ReadFile(p + ".wal")
+	if e != nil {
+		t.Fatal(e)
+	}
+	b, e := Execute(context.Background(), p, "SELECT count(*) FROM sample", DefaultOptions())
+	t.Logf("read-only orphan WAL inspection: result=%q error=%v", b, e)
+	afterDB, e := os.ReadFile(p)
+	if e != nil {
+		t.Fatal(e)
+	}
+	afterWAL, e := os.ReadFile(p + ".wal")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if !bytes.Equal(beforeDB, afterDB) || !bytes.Equal(beforeWAL, afterWAL) {
+		t.Fatal("read-only open changed source database or WAL")
+	}
+	entries, e := os.ReadDir(filepath.Dir(p))
+	if e != nil || len(entries) != 2 {
+		t.Fatalf("source entries: %v %v", entries, e)
+	}
+}
+
+func TestJSONRejectsLossyDriverJSONAliases(t *testing.T) {
+	p := fixture(t, "sample.duckdb")
+	o := DefaultOptions()
+	o.Format = "json"
+	for _, q := range []string{`SELECT '9223372036854775807'::JSON AS j`, `SELECT ['9223372036854775807'::JSON] AS nested`, `SELECT {'j':'{"same":1,"same":2}'::JSON} AS nested`, `SELECT map([1],['9223372036854775807'::JSON]) AS nested`, `SELECT union_value(j := '9223372036854775807'::JSON)`} {
+		b, e := Execute(context.Background(), p, q, o)
+		if e == nil || len(b) != 0 {
+			t.Errorf("lossy JSON accepted: %s %v", b, e)
+		}
+	}
+	b, e := Execute(context.Background(), p, `SELECT CAST('9223372036854775807'::JSON AS VARCHAR) AS j`, o)
+	if e != nil || !bytes.Contains(b, []byte(`"9223372036854775807"`)) {
+		t.Fatalf("explicit cast: %s %v", b, e)
+	}
+}
