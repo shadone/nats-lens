@@ -4,7 +4,7 @@
 
 ## Request and endpoint policy
 
-The request names `system`, optional `account`, required ordered timestamps `a` and `b` at most 30 days apart, optional `epochA` and `epochB`, and `pageSize`/`pageToken`. Zero page size means 100; sizes outside 1–100 fail. Missing, reversed, invalid or future timestamps fail. The sole future-bound exception is the captured source's existing disclosed one-microsecond exclusive-end adjustment. Actual replies must still finish by the source clock.
+The request names `system`, optional `account`, required ordered timestamps `a` and `b` at most 30 days apart, optional `epochA` and `epochB`, and `pageSize`/`pageToken`. Optional `order` selects absolute magnitude (default), logical ascending or logical descending. `resourceKind` selects one resource type; `resourcesOnly` excludes server rows from the displayed list. Zero page size means 100; sizes outside 1–100 fail. Missing, reversed, invalid or future timestamps fail. The sole future-bound exception is the captured source's existing disclosed one-microsecond exclusive-end adjustment. Actual replies must still finish by the source clock.
 
 Each unpinned endpoint selects the collection with the latest finish at or before its target, then latest start and ID. The collection window must be valid. A pin selects only that collection and fails if it is no longer retained or its window lies after the allowed target. No interpolation or nearest future sample is used. Requested timestamps remain unchanged in the response.
 
@@ -27,11 +27,11 @@ An exact-account `stream.deleted` event between completed windows qualifies a re
 
 ## Ranking, budgets and replay
 
-Resources sort by absolute logical delta, unknowns last, then stable ID. Servers follow resources and sort by absolute usage delta, then ID. Each storage category has full totals when evidence permits, known resource contributions, off-page contributions, unknown-row counts and a qualified residual. The residual is system-wide server-usage delta minus complete observed-copy delta; it is unavailable for account scope or incomplete quantities. Memory never contributes to file totals.
+Resources sort by absolute logical delta by default, with signed ascending/descending options. Unknowns remain last in every order, with stable IDs breaking ties. Servers follow resources and sort by absolute usage delta, then ID. Type/row filters apply before paging but do not change all-type totals. Off-page contributions include filtered-out resources. Each storage category has full totals when evidence permits, known resource contributions, off-page contributions, unknown-row counts and a qualified residual. The residual is system-wide server-usage delta minus complete observed-copy delta; it is unavailable for account scope or incomplete quantities. Memory never contributes to file totals.
 
 Proposed limits are 20,000 ranked rows, 100 rows and 512 KiB per serialized page (both protobuf and JSON), plus the shared 100,000-row/8 MiB metadata scanner budget across a comparison. Oversized responses fail; reduce scope or page size rather than treating overflow as complete. SQL execution and engine intermediate memory are outside the scanner bounds. The shared 30-second handler budget and caller cancellation still apply.
 
-All provider reads use one database transaction. Pagination tokens bind the normalized system/account/requested bounds, resolved collections, page size, ordering and a hash of retained evidence. Tokens are unsigned transport data, not authorization. They never grant another system or account. Changed evidence rejects continuation. Keep the original request parameters when following `nextPageToken`; no automatic traversal occurs.
+All provider reads use one database transaction. Pagination tokens bind the normalized system/account/requested bounds, resolved collections, page size, ordering/type/row selection and a hash of retained evidence. Tokens are unsigned transport data, not authorization. They never grant another system or account. Changed evidence rejects continuation. Keep the original request parameters when following `nextPageToken`; no automatic traversal occurs.
 
 The returned `investigationUrl` opens `/capacity/storage-change` with scope, requested moments and known pins. Unavailable endpoints have no fabricated zero pin. The handler names the resolved default system explicitly. Offline responses omit this URL and report `offline_ui_unavailable`; retrieve the same typed evidence with the local source instead.
 
@@ -55,3 +55,9 @@ Resource-detail links select the last observed endpoint window. Those existing p
 A live preset on the evidence page resolves to fixed bounds using the loaded source clock. Explicit range changes discard old collection pins. Available endpoint pins and the resolved system are written into the URL before continuing a page; unavailable endpoints have no invented pin.
 
 In the synthetic demo, comparison pins also identify their scenario frame, so advancing the live demo clock does not silently move their evidence. Treat these IDs as opaque; other detail RPCs do not gain comparison pinning.
+
+## Capacity contributor selection
+
+Capacity keeps a frozen comparison beside its latest-collection bounds/forecast table. Its `change=asc|desc` and `resource=stream|kv|object` URL selectors request global signed ordering and type selection. Missing/unknown values use magnitude order and all types. The pinned evidence link also carries `contributors=1`. That page and imported agent context map the same selectors to `order`, `resourceKind` and `resourcesOnly`; exact machine requests remain separately recorded.
+
+The contributor table follows one page explicitly. Its bars scale within the current page. Explore reads at most two history series for one selected resource, using existing chart gap/inspection rules. Configuration links use the historical endpoint window; event/consumer links use the requested interval. Those supporting reads do not inherit universal collection pinning or causal semantics.
