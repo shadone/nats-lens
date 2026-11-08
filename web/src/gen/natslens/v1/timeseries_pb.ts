@@ -305,14 +305,14 @@ export type CounterComparisonSummary = Message<"natslens.v1.CounterComparisonSum
   serverIdCount: bigint;
 
   /**
-   * Earliest previous-report timestamp among contributing pairs.
+   * Earliest collection timestamp of a preceding report in contributing pairs.
    *
    * @generated from field: google.protobuf.Timestamp first_compared_at = 4;
    */
   firstComparedAt?: Timestamp | undefined;
 
   /**
-   * Latest current-report timestamp among contributing pairs.
+   * Latest collection timestamp of a current report in contributing pairs.
    * The envelope is not proof of continuous coverage.
    *
    * @generated from field: google.protobuf.Timestamp last_compared_at = 5;
