@@ -109,6 +109,8 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 	if err = fs.Parse(args); err != nil {
 		return err
 	}
+	visited := map[string]bool{}
+	fs.Visit(func(f *flag.Flag) { visited[f.Name] = true })
 	if fs.NArg() != 0 {
 		return errors.New("unexpected positional arguments")
 	}
@@ -210,6 +212,9 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 		c.Metric = *metric
 	}
 	c.keepPointWithinRange()
+	if err = c.rebaseQuery(*system != "", *from != "" || *to != "", *account != "", *metric != ""); err != nil {
+		return err
+	}
 	if err = c.Validate(p.Deployment); err != nil {
 		return err
 	}
@@ -242,9 +247,14 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 	if *account != "" {
 		setDefault("account", *account)
 	}
-	setDefault(pageSizeField(method), *pageSize)
-	setDefault("maxPoints", *maxPoints)
-	if *token != "" {
+	bound := c.Query != nil && c.Query.Method == method
+	if !bound || visited["page-size"] {
+		setDefault(pageSizeField(method), *pageSize)
+	}
+	if !bound || visited["max-points"] {
+		setDefault("maxPoints", *maxPoints)
+	}
+	if visited["page-token"] {
 		setDefault("pageToken", *token)
 	}
 	b, _ = json.Marshal(overrides)
@@ -479,6 +489,18 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 		}
 		if m["b"] == nil {
 			m["b"] = c.Range.End
+		}
+	}
+	if c.Query != nil && c.Query.Method == method {
+		// Replace the lossy UI projection, including false/empty values, with
+		// the exact prior machine request. Explicit overrides still win last.
+		var exact map[string]json.RawMessage
+		if err := json.Unmarshal(c.Query.Request, &exact); err != nil || exact == nil {
+			return nil, nil, errors.New("invalid bound read request")
+		}
+		m = map[string]any{}
+		for k, v := range exact {
+			m[k] = v
 		}
 	}
 	if len(overrides) > 0 {

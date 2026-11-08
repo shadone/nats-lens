@@ -63,6 +63,7 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 		return nil, nil, errors.New("unsupported effective request scope")
 	}
 	c := *original
+	c.Query = &BoundQuery{Method: method, Request: canonical}
 	c.Filters = map[string]string{}
 	c.Series = nil
 	c.ChartLabel = ""
@@ -116,6 +117,7 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 		c.SourcePath = "/consumers"
 		if r.Stream != "" {
 			c.Filters["stream"] = r.Account + "/" + r.Stream
+			c.Entity = &Entity{Type: "ENTITY_TYPE_STREAM", Key: r.Account + "/" + r.Stream, Account: r.Account, Stream: r.Stream}
 		}
 		c.Filters["ephemeral"] = "0"
 		if r.IncludeEphemeral {
