@@ -68,7 +68,7 @@
 
 .cap-card { container-type: inline-size; }
 .cap-history-total { margin-block-end: var(--sp-4); }
-.cap-history-compact { min-width: 10rem; max-width: 16rem; margin-block: var(--sp-2); }
+.cap-history-compact { min-width: 0; width: 100%; max-width: 16rem; margin-block: var(--sp-2); }
 .cap-history-expanded { width: calc(100cqw - var(--sp-6)); box-sizing: border-box; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); padding: var(--sp-3); }
 .cap-history-expanded .cap-note { grid-column: 1 / -1; }
 .cap-history-pages { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--sp-3); }
