@@ -18,6 +18,9 @@ RUN mkdir -p ../internal/webui/dist && npm run build
 
 FROM --platform=$BUILDPLATFORM golang:1.27.2-bookworm@sha256:5cf287a799e6b94384bad13d16b14904c531f51ba65792237e122ce42b392f61 AS build
 ARG TARGETARCH
+ARG BUILDARCH
+# Bump when the native compiler/header setup changes without a base-image change.
+ARG CGO_CACHE_EPOCH=1
 # The C and C++ compilers for the target: the native ones when it is the
 # build machine's architecture, else the cross compilers and the target's
 # C library headers.
@@ -37,11 +40,13 @@ RUN set -eu; \
     rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,id=natslens-go-mod-1.27.2,target=/go/pkg/mod,sharing=shared go mod download
 COPY . .
 COPY --from=web /src/internal/webui/dist/ internal/webui/dist/
 ARG VERSION=dev
-RUN set -eu; \
+RUN --mount=type=cache,id=natslens-go-mod-1.27.2,target=/go/pkg/mod,sharing=shared \
+    --mount=type=cache,id=natslens-go-build-1.27.2-5cf287a7-${BUILDARCH}-${TARGETARCH}-cgo${CGO_CACHE_EPOCH},target=/root/.cache/go-build,sharing=locked \
+    set -eu; \
     case "$TARGETARCH" in \
       amd64) triple=x86_64-linux-gnu ;; \
       arm64) triple=aarch64-linux-gnu ;; \
