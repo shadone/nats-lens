@@ -96,10 +96,10 @@ describe("gaps", () => {
     ]);
   });
 
-  it("says what is missing, and that charts are not affected, only for the kinds charts do not hatch", () => {
-    expect(gapDetail(gap({ kind: "eventsNotCaptured", connection: "sys" }))).toBe("NATS events from connection sys are missing; charts are not affected");
-    expect(gapDetail(gap({ kind: "eventsNotCaptured" }))).toBe("NATS events are missing; charts are not affected");
-    expect(gapDetail(gap({ kind: "kubernetesNotWatched" }))).toBe("Pod, node or Kubernetes event changes may be missing; charts are not affected");
+  it("says what may be missing for event-capture and Kubernetes-watch gaps only", () => {
+    expect(gapDetail(gap({ kind: "eventsNotCaptured", connection: "sys" }))).toBe("Connection sys was lost; NATS events may be missing");
+    expect(gapDetail(gap({ kind: "eventsNotCaptured" }))).toBe("NATS events may be missing");
+    expect(gapDetail(gap({ kind: "kubernetesNotWatched" }))).toBe("Pod, node or event changes may be missing");
     expect(gapDetail(gap({ kind: "notRunning" }))).toBeUndefined();
   });
 
