@@ -48,6 +48,9 @@ func TestSQLCanonicalBundle(t *testing.T) {
 	if err = runSQLTo(ctx, []string{"-bundle", path, "-format", "json", "SELECT epoch FROM epochs"}, &out); err != nil {
 		t.Fatalf("%v %s", err, out.String())
 	}
+	if !strings.Contains(out.String(), `"kind":"bundle"`) || !strings.Contains(out.String(), `"manifest":`) {
+		t.Fatalf("validated source provenance missing: %s", out.String())
+	}
 	if !strings.Contains(out.String(), `"BIGINT"`) || !strings.Contains(out.String(), `"1"`) {
 		t.Fatalf("typed result missing: %s", out.String())
 	}
