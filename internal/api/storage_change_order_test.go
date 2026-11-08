@@ -42,6 +42,9 @@ func TestStorageChangeGlobalSignedOrdering(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			req, f := storageFacts()
 			req.PageSize = 1
+			// A large decrease must not outrank positive increases in signed order.
+			f.Rows[1].Before = storageBytes(2500, 7500, 7500)
+			f.Rows[1].After = storageBytes(0, 0, 0)
 			f.Rows = append(f.Rows, &v1.StorageChangeRow{Id: "unknown", RowKind: "resource", Account: "APP", Stream: "unreported", Storage: "file"})
 			comparisonOptions(t, req, map[string]any{"order": tc.order, "resourcesOnly": true})
 			var all []string
