@@ -35,3 +35,21 @@ func TestDemoSlowConsumerInvestigation(t *testing.T) {
 		t.Fatalf("stale history %v", a)
 	}
 }
+
+func TestDemoSlowConsumerInvestigationRangeAgreement(t *testing.T) {
+	c := demo(t)
+	for _, bounds := range [][2]time.Time{{at(13, 41, 0), at(13, 41, 1)}, {at(13, 41, 15), at(13, 42, 0)}, {at(13, 40, 0), at(13, 42, 30)}} {
+		rng := &v1.TimeRange{Start: timestamppb.New(bounds[0]), End: timestamppb.New(bounds[1])}
+		inv := must(c.GetSlowConsumerInvestigation(ctx, connect.NewRequest(&v1.GetSlowConsumerInvestigationRequest{System: fake.GlobalSystem, Range: rng})))
+		list := must(c.ListServers(ctx, connect.NewRequest(&v1.ListServersRequest{System: fake.GlobalSystem, Range: rng})))
+		var headline int64
+		for _, s := range list.Servers {
+			headline += s.GetSlowConsumersInRange()
+		}
+		chart := total(demoSeries(t, c, fake.GlobalSystem, "cluster.slow_consumers", nil, rng))
+		detail := total(demoSeries(t, c, fake.GlobalSystem, "server.slow_consumers", server("nats-us-3"), rng))
+		if int64(chart) != inv.Detections || headline != inv.Detections || int64(detail) != inv.Detections {
+			t.Errorf("%v: chart=%v detail=%v headline=%d investigation=%d", bounds, chart, detail, headline, inv.Detections)
+		}
+	}
+}
