@@ -208,12 +208,38 @@ func RunWithOffline(ctx context.Context, args []string, stdin io.Reader, out, er
 		if err != nil {
 			return err
 		}
+		if offline {
+			// ASVS 1.2.2: the copied origin is an inert namespace here, never an HTTP
+			// destination. Full context validation still runs before any semantic query.
+			var identity struct {
+				Deployment string `json:"deployment"`
+			}
+			if json.Unmarshal(b, &identity) != nil {
+				return errors.New("invalid context JSON")
+			}
+			u, e := origin(identity.Deployment)
+			if e != nil {
+				return e
+			}
+			p.Deployment = u.String()
+		}
 		c, err = ParseContext(strings.NewReader(string(b)), p.Deployment)
 		if err != nil {
 			return err
 		}
 	}
 	if *page != "" {
+		if offline {
+			u, e := url.Parse(*page)
+			if e != nil || u.User != nil {
+				return errors.New("invalid inert page URL")
+			}
+			o, e := origin(u.Scheme + "://" + u.Host)
+			if e != nil {
+				return e
+			}
+			p.Deployment = o.String()
+		}
 		if err = p.ValidateURL(*page); err != nil {
 			return err
 		}
