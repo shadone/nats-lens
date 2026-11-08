@@ -11,10 +11,9 @@ import { MicroCards } from "../components/MicroCards";
 import { MicroDetail } from "../components/MicroDetail";
 import { Words } from "../components/Words";
 import { hms } from "../lib/format";
-import { chooseService, footLines, MICRO_FOOTNOTE, MICRO_SUBTITLE, NO_SUBSCRIPTIONS, noServiceText, serviceKey, unansweredText, unknownServiceText, withAccountNames } from "../lib/microView";
+import { chooseService, SERVICE_PARAM, footLines, MICRO_FOOTNOTE, MICRO_SUBTITLE, NO_SUBSCRIPTIONS, noServiceText, serviceKey, unansweredText, unknownServiceText, withAccountNames } from "../lib/microView";
 import { accountLabeller } from "../lib/view";
 
-export const SERVICE_PARAM = "service";
 
 function Subtitle({ d }: { d?: Micro }) {
   const [a, info, b, stats, end] = MICRO_SUBTITLE;

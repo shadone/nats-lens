@@ -5,6 +5,8 @@ import type { MicroAccount, MicroEndpoint, MicroInstanceSource, MicroMissing, Mi
 import { dayMonHm, fmtInt, hm, hms } from "./format";
 import { listText } from "./subjectsView";
 
+export const SERVICE_PARAM = "service";
+
 /** The line under the title, in three parts so the subjects can be set in mono. */
 export const MICRO_SUBTITLE = ["Services built on the NATS micro framework, found through", "$SRV.INFO", "and measured through", "$SRV.STATS", "."] as const;
 
