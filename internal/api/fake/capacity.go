@@ -119,7 +119,10 @@ func (s scen) unboundedFinding(name string, since time.Time) *v1.Finding {
 // their growth over the range by the store's rule, and the findings that
 // fire at the range's end with their mutes.
 func (p *Provider) Capacity(_ context.Context, req *v1.GetCapacityRequest) (*api.CapacityFacts, error) {
-	s := p.scen()
+	return p.capacityAt(p.scen(), req)
+}
+
+func (p *Provider) capacityAt(s scen, req *v1.GetCapacityRequest) (*api.CapacityFacts, error) {
 	r := req.GetRange()
 	at, n, ok := s.epochBefore(r)
 	if !ok {

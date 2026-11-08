@@ -19,12 +19,14 @@ import (
 )
 
 type storageServer struct {
-	ID      string `json:"server_id"`
-	Name    string `json:"server_name"`
-	Enabled *bool  `json:"enabled"`
-	File    *int64 `json:"file_bytes"`
-	Memory  *int64 `json:"memory_bytes"`
-	JSZ     bool   `json:"jsz_ok"`
+	ID              string `json:"server_id"`
+	Name            string `json:"server_name"`
+	Enabled         *bool  `json:"enabled"`
+	File            *int64 `json:"file_bytes"`
+	Memory          *int64 `json:"memory_bytes"`
+	JSZ             bool   `json:"jsz_ok"`
+	ExpectedStreams *int64 `json:"expected_streams"`
+	RecordedStreams int64  `json:"recorded_streams"`
 }
 type storageReport struct {
 	Account     string `json:"account"`
@@ -280,7 +282,8 @@ func readStorageSnapshot(ctx context.Context, db queryReader, budget *metadataBu
 		s.endpoint.Reasons = []string{"no_collection"}
 		return s, nil
 	}
-	err = readMetadataOn(ctx, db, `SELECT st.server_id,s.server_name,st.js_enabled AS enabled,st.js_storage AS file_bytes,st.js_memory AS memory_bytes,
+	err = readMetadataOn(ctx, db, `SELECT st.server_id,s.server_name,st.js_enabled AS enabled,st.js_storage AS file_bytes,st.js_memory AS memory_bytes,st.js_streams AS expected_streams,
+ (SELECT count(*) FROM stream_stats x WHERE x.epoch=st.epoch AND x.server_id=st.server_id) AS recorded_streams,
  coalesce((SELECT bool_and(e.state='ok') FROM epoch_endpoints e WHERE e.epoch=st.epoch AND e.server_id=st.server_id AND e.endpoint='JSZ'),false) AS jsz_ok
 FROM server_stats st LEFT JOIN servers s USING(server_id) WHERE st.epoch=? ORDER BY st.server_id`, []any{s.endpoint.Epoch}, budget, func(raw []byte) error {
 		var r storageServer
@@ -317,7 +320,18 @@ FROM server_stats st LEFT JOIN servers s USING(server_id) WHERE st.epoch=? ORDER
 			complete = false
 		}
 	}
-	s.endpoint.InventoryComplete = complete
+	detailed := true
+	for _, rs := range s.servers {
+		for _, r := range rs {
+			if r.Enabled == nil || *r.Enabled && (!r.JSZ || r.ExpectedStreams == nil || *r.ExpectedStreams != r.RecordedStreams) || r.Enabled != nil && !*r.Enabled && r.RecordedStreams != 0 {
+				detailed = false
+			}
+		}
+	}
+	s.endpoint.InventoryComplete = complete && detailed
+	if !detailed {
+		s.endpoint.Reasons = append(s.endpoint.Reasons, "resource_inventory_incomplete")
+	}
 	if !complete {
 		s.endpoint.Reasons = append(s.endpoint.Reasons, "missing_jsz")
 	}
