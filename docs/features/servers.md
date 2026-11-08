@@ -12,6 +12,8 @@ Page and shared-chart handoff preserve known identities through [agent investiga
 
 ## Behavior and rules
 
+- **Chart help.** Each of the five Servers summary cards and four fleet charts has an About info control. Shared trend charts also expose help on Overview and Capacity. Metric charts read their descriptions from the API catalogue on first inspection and reuse that cache; failures remain separate from chart-data availability. Summary-card help describes its own calculation and scope. Info previews use the shared viewport overlay, open on hover/focus or click, and dismiss with Escape or leaving focus. Slow-consumer caveats live in this optional help while investigation links remain visible. Custom chart families outside these shared surfaces retain their existing help coverage; a complete UI-wide migration remains open.
+
 - **By stable name.** A restart gives a server a new server ID, so every view shows one entry per server name.
 - **Status line.** "24 servers in 3 clusters · meta leader nats-eu-1": the count, the clusters when there are several, and the meta leader.
 - **Data points.** Five cards:

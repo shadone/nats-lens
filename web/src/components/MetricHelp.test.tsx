@@ -21,3 +21,15 @@ it("loads authoritative chart help only when requested and shares the catalogue"
  expect(await screen.findByText(/percent of one core/)).toBeInTheDocument();
  expect(lens.listMetrics).toHaveBeenCalledTimes(1);
 });
+
+ it("keeps catalogue failure separate from chart samples",async()=>{
+  vi.mocked(lens.listMetrics).mockRejectedValue(new Error("unavailable"));
+  renderApp(<TrendChart title="Memory" investigation={{metric:"cluster.mem_bytes"}} start={0} end={1000} layers={[]}/>);
+  fireEvent.click(screen.getByRole("button",{name:"About Memory"}));
+  expect(await screen.findByText(/Metric description unavailable/)).toBeInTheDocument();
+ });
+ it("discloses unknown identities instead of inventing a description",()=>{
+  renderApp(<TrendChart title="Unknown" start={0} end={1000} layers={[]}/>);
+  fireEvent.click(screen.getByRole("button",{name:"About Unknown"}));
+  expect(screen.getByRole("tooltip")).toHaveTextContent("Metric identity is unavailable");
+ });

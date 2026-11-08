@@ -139,13 +139,14 @@ describe("Servers on example-global", () => {
     renderApp(<Servers />, "/servers?from=2026-10-17T13:30:00Z&to=2026-10-17T14:30:00Z&system=example-global&account=SHOP");
     const title = await screen.findByText("Slow-consumer detections in range");
     const card = title.closest(".dp")! as HTMLElement;
-    expect(card).toHaveTextContent("NATS had trouble sending data because a receiving connection could not keep up.");
+    await userEvent.click(within(card).getByRole("button",{name:"About Slow-consumer detections"}));
+    expect(screen.getByRole("tooltip")).toHaveTextContent("NATS had trouble sending data because a receiving connection could not keep up.");
     expect(within(card).queryByRole("link", { name: "Consumers" })).not.toBeInTheDocument();
     const target = new URL(within(card).getByRole("link", { name: "Investigate detections" }).getAttribute("href")!, "http://example.com");
     expect(target.pathname).toBe("/servers/slow-consumers");
     expect(Object.fromEntries(target.searchParams)).toEqual({ from: "2026-10-17T13:30:00Z", to: "2026-10-17T14:30:00Z", system: "example-global", account: "SHOP" });
     expect(within(card).getByRole("link", { name: "nats-us-3" })).toHaveAttribute("href", expect.stringContaining("/servers/nats-us-3?"));
-    expect(within(card).getByText("About this metric").closest("details")).not.toHaveAttribute("open");
+    expect(within(card).queryByText("About this metric")).not.toBeInTheDocument();
   });
 
   it("preserves aggregate detections without inferring their connection type", async () => {
@@ -158,7 +159,8 @@ describe("Servers on example-global", () => {
     const title = await screen.findByText("Slow-consumer detections, 24 h");
     const card = title.closest(".dp")! as HTMLElement;
     expect(card.querySelector(".dp-v")).toHaveTextContent("7");
-    expect(card).toHaveTextContent("retries can count without a disconnect");
+    await userEvent.click(within(card).getByRole("button",{name:"About Slow-consumer detections"}));
+    expect(screen.getByRole("tooltip")).toHaveTextContent("retries can count without a disconnect");
   });
 
   it("names the busiest server in the CPU chart's legend", async () => {
@@ -290,3 +292,8 @@ it("makes nonzero slow-consumer buckets keyboard links to bounded absolute time"
   // SVG anchor participates in browser focus; keyboard navigation is also verified in the demo.
   expect(link.closest("svg")).toHaveAttribute("role", "group");
 });
+
+ it("offers consistent help on all five summary cards and four fleet charts",async()=>{
+  serve(global());renderApp(<Servers/>,"/servers");await screen.findByRole("region",{name:"Server list"});
+  for(const name of ["Answering","Versions","Restarts","JetStream store","Slow-consumer detections","CPU","Memory","Connections","Messages"])expect(screen.getByRole("button",{name:`About ${name}`})).toBeInTheDocument();
+ });

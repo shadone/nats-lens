@@ -14,8 +14,9 @@
 // series whose min equals its max. A series that begins more than a bucket
 // and a half after the window's start says "since HH:MM UTC" in place of
 // the window, as the history is younger than the range.
+import {ChartReadout} from "../charts/ChartReadout";
 import { RLink } from "./common";
-import { useId, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import type { Level, Series, Window } from "../api/model";
 import { rangeText } from "../charts/chartLabel";
 import { Sparkline } from "../charts/Sparkline";
@@ -88,19 +89,20 @@ export interface MetricBoxProps {
 }
 
 /** An (i) button that shows a description on hover, focus or click. */
-export function InfoTip({ label, text }: { label: string; text: string }) {
+export function InfoTip({ label, text }: { label: string; text: ReactNode }) {
   // Hover shows it while the pointer stays; a click pins it until the next
   // click, blur or Escape.
   const [hover, setHover] = useState(false);
   const [pinned, setPinned] = useState(false);
   const open = hover || pinned;
   const id = useId();
+  const anchor=useRef<HTMLSpanElement>(null);
   const close = () => {
     setHover(false);
     setPinned(false);
   };
   return (
-    <span className="infotip" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+    <span ref={anchor} className="infotip" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
       <button
         type="button"
         className="infotip-b"
@@ -115,9 +117,7 @@ export function InfoTip({ label, text }: { label: string; text: string }) {
         i
       </button>
       {open && (
-        <span role="tooltip" id={id} className="infotip-t">
-          {text}
-        </span>
+        <ChartReadout anchor={anchor} fraction={.5} id={id} contentKey={label}>{text}</ChartReadout>
       )}
     </span>
   );

@@ -67,3 +67,6 @@
 
 /* A box without a chart: its steady line and note follow the heading. */
 .mb-quiet .mb-h + .mb-track-note,.mb-quiet .mb-h + .mb-note{margin-top:var(--sp-2)}
+
+.tc-h > .infotip { flex: none; margin-right: auto; }
+.dp .lbl .infotip { margin-left: var(--sp-1); vertical-align: middle; }
