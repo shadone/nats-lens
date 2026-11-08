@@ -87,4 +87,3 @@ The Streams list can include storage streams with bounded pages and totals acros
 
 - **No keys or values.** nats-lens does not read the keys, values or objects in a bucket, so it cannot count live keys or objects.
 - **No expected settings for a missing bucket.** A missing bucket shows no replicas or limits, even when the inventory gives them; its finding names them.
-
