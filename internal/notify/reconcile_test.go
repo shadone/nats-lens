@@ -345,7 +345,7 @@ func TestFlappingEndsResolved(t *testing.T) {
 		e.step(time.Minute, f(quorum, "APP/order-jobs", "critical"))
 		e.step(time.Minute)
 	}
-	expect(t, "an hour later", e.step(61*time.Minute)["ops"], "resolved "+jobs)
+	expect(t, "an hour later", e.step(61 * time.Minute)["ops"], "resolved "+jobs)
 	if n := stateRows(t, e.st); n != 0 {
 		t.Errorf("%d state rows", n)
 	}
