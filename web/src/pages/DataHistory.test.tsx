@@ -84,19 +84,19 @@ describe("DataHistory", () => {
     expect(cov.getByRole("link", { name: "Findings" })).toHaveAttribute("href", "/findings?system=example-staging");
   });
 
-  it("lists the gaps newest first, an open one still now, with the collections either side and the event", async () => {
+  it("lists the gaps newest first, an open one ongoing, with the collections either side and the event", async () => {
     m.getDataHistory.mockResolvedValue(staging());
     renderApp(<DataHistory />, "/data-history?system=example-staging");
     await screen.findByRole("region", { name: "Gaps" });
     const rows = bodyRows("Gaps");
     expect(rows.map((r) => within(r).getByRole("rowheader").textContent)).toEqual([
-      "Events not capturedconnection sys; collections went on",
+      "Events not capturedNATS events from connection sys are missing; charts are not affected",
       "nats-lens could not reach NATS",
       "nats-lens was not running",
-      "Events not capturedconnection sys; collections went on",
+      "Events not capturedNATS events from connection sys are missing; charts are not affected",
       "nats-lens was not running yet",
     ]);
-    expect(rows[1]).toHaveTextContent("nats-lens could not reach NATS19:47:14still now3 h so farbefore: collection 720, 19:47:14event 29");
+    expect(rows[1]).toHaveTextContent("nats-lens could not reach NATS19:47:14ongoing3 h so farbefore: collection 720, 19:47:14event 29");
     expect(within(rows[2]).getByRole("link", { name: "collection 487, 17:50:44" })).toHaveAttribute("href", "/placement?from=2026-11-05T16%3A50%3A44Z&to=2026-11-05T17%3A50%3A45Z&system=example-staging");
     expect(within(rows[2]).getByRole("link", { name: "collection 493, 17:53:44" })).toBeInTheDocument();
     expect(within(rows[2]).getByRole("link", { name: "event 18" })).toHaveAttribute("href", "/events?id=18&system=example-staging");
@@ -119,7 +119,7 @@ describe("DataHistory", () => {
     renderApp(<DataHistory />, "/data-history?from=2026-11-05T00:00:00Z&to=2026-11-05T21:47:18Z");
     await screen.findByRole("region", { name: "Gaps" });
     const rows = bodyRows("Gaps");
-    expect(rows[0]).toHaveTextContent(/^Kubernetes not watchedcollections went on20:47:1820:51:184 min/);
+    expect(rows[0]).toHaveTextContent(/^Kubernetes not watchedPod, node or Kubernetes event changes may be missing; charts are not affected20:47:1820:51:184 min/);
     // Collections without their times are named, not linked.
     expect(rows[1]).toHaveTextContent("No collections17:47:1817:52:185 minbefore: collection 73401after: collection 73411");
     expect(within(rows[1]).queryByRole("link")).toBeNull();
@@ -131,7 +131,7 @@ describe("DataHistory", () => {
     renderApp(<DataHistory />, "/data-history?from=2026-11-04T22:47:18Z&to=2026-11-05T22:47:18Z");
     await screen.findByRole("region", { name: "Gaps" });
     expect(card("Gaps").getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Kind", "From (UTC)", "To (UTC)", "Length", "Collections either side", "Event"]);
-    expect(bodyRows("Gaps")[1]).toHaveTextContent("still now3 h so far");
+    expect(bodyRows("Gaps")[1]).toHaveTextContent("ongoing3 h so far");
     expect(card("Gaps").getByText("No data from 19:47:14 UTC until now: nats-lens could not reach NATS")).toBeInTheDocument();
   });
 
@@ -234,6 +234,6 @@ describe("DataHistory", () => {
     expect(document.querySelector(".dh-box")).toBeNull();
     expect(screen.queryByText(/already true/)).toBeNull();
     expect(screen.queryByText(/0%/)).toBeNull();
-    expect(bodyRows("Gaps")[0]).toHaveTextContent("nats-lens was not running yet4 Nov 22:47still now1 d so far");
+    expect(bodyRows("Gaps")[0]).toHaveTextContent("nats-lens was not running yet4 Nov 22:47ongoing1 d so far");
   });
 });
