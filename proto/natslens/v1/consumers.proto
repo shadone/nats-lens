@@ -129,15 +129,32 @@ message ListConsumersRequest {
   // Order of the consumers.
   ConsumerSort sort = 6;
 
-  // Largest number of consumers to return, after sorting. Zero or a
-  // negative number means all.
+  // Largest number of consumers to return, after sorting. Zero uses 100;
+  // larger values are capped at 100, and negative values are invalid.
   int32 limit = 7;
+
+  // Opaque continuation, valid for 5 minutes while its context is retained.
+  // Keep filters, system and range; omit the range to reuse the pinned bounds.
+  // FailedPrecondition means restart from the first page.
+  string page_token = 8;
 }
 
 // Consumers in the requested order.
 message ListConsumersResponse {
   // The consumers.
   repeated ConsumerSummary consumers = 1;
+
+  // Continuation, empty on the last page.
+  // Count across every matching consumer, including later pages.
+  int32 total_count = 2;
+
+  string next_page_token = 3;
+
+  // Absolute range shared by every page of this traversal.
+  TimeRange range = 4;
+
+  // Collection used for the frozen summaries.
+  int64 epoch = 5;
 }
 
 // Request for one consumer.

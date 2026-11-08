@@ -548,7 +548,7 @@ describe("header", () => {
 
   it("limits the Consumers list to the scoped account", async () => {
     renderApp(<App />, "/consumers?system=example-prod&account=APP");
-    await waitFor(() => expect(m.listConsumers).toHaveBeenCalledWith("example-prod", expect.anything(), expect.objectContaining({ account: "APP", stream: "" }), expect.anything()));
+    await waitFor(() => expect(m.listConsumers).toHaveBeenCalledWith("example-prod", expect.anything(), expect.objectContaining({ account: "APP", stream: "" }), expect.anything(), { pageToken: "" }));
   });
 
   it("jumps to a consumer found by part of its name", async () => {
