@@ -1,12 +1,15 @@
-import {useLayoutEffect, useRef, type ReactNode, type RefObject} from "react";
+import {useLayoutEffect, useRef, useState, type ReactNode, type RefObject} from "react";
 import {createPortal} from "react-dom";
 
 /** A viewport overlay: plot width and table/card clipping do not size the reading. */
 export function ChartReadout({anchor, fraction, id, contentKey, children,hover}: {anchor:RefObject<Element|null>;fraction:number;id:string;contentKey:string;children:ReactNode;hover?:{keep:()=>void;leave:()=>void;blur:(relatedTarget:EventTarget|null)=>void}}) {
   const ref=useRef<HTMLDivElement>(null);
+  const [container,setContainer]=useState<Element>(document.body);
   useLayoutEffect(()=>{
     const plot=anchor.current,tip=ref.current;
     if(!plot||!tip)return;
+    const host=plot.closest("dialog")??document.body;
+    if(host!==container){setContainer(host);return;}
     let frame:number|undefined;
     const position=()=>{
       const view=window.visualViewport;
@@ -41,7 +44,7 @@ export function ChartReadout({anchor, fraction, id, contentKey, children,hover}:
     const view=window.visualViewport;view?.addEventListener("scroll",schedule);view?.addEventListener("resize",schedule);
     const observer=typeof ResizeObserver==="undefined"?undefined:new ResizeObserver(schedule);observer?.observe(plot);observer?.observe(tip);
     return ()=>{document.removeEventListener("keydown",keyboard);window.removeEventListener("scroll",schedule,true);window.removeEventListener("resize",schedule);view?.removeEventListener("scroll",schedule);view?.removeEventListener("resize",schedule);observer?.disconnect();if(frame!==undefined)cancelAnimationFrame(frame)};
-  },[anchor,fraction,contentKey]);
+  },[anchor,fraction,contentKey,container]);
   // Keep a chart inside a native modal in its accessible top-layer subtree.
-  return createPortal(<div ref={ref} id={id} role="tooltip" className="chart-readout" style={{visibility:"hidden"}} onPointerEnter={hover?.keep} onPointerLeave={hover?.leave} onPointerMove={e=>e.stopPropagation()} onPointerDown={e=>e.stopPropagation()} onFocusCapture={hover?.keep} onBlurCapture={e=>hover?.blur(e.relatedTarget)}>{children}</div>,anchor.current?.closest("dialog")??document.body);
+  return createPortal(<div ref={ref} id={id} role="tooltip" className="chart-readout" style={{visibility:"hidden"}} onPointerEnter={hover?.keep} onPointerLeave={hover?.leave} onPointerMove={e=>e.stopPropagation()} onPointerDown={e=>e.stopPropagation()} onFocusCapture={hover?.keep} onBlurCapture={e=>hover?.blur(e.relatedTarget)}>{children}</div>,container);
 }
