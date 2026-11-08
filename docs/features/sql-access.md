@@ -20,6 +20,7 @@
 - **Protect the selected database.** SQL opens the selected file read-only without migrations or cleanup. Trusted SQL can still read external files, write exports, attach writable databases and use extensions. Read-only database access is not an untrusted SQL sandbox.
 - **Select a consistent snapshot.** A live writer lock prevents inspection from another process. The [offline dataset acquisition channel](offline-datasets.md) creates a consistent closed artifact while the collector runs; copying a live database file alone does not establish consistency. The SQL command neither stops the collector nor certifies an arbitrary bare file.
 - **Validate bundles explicitly.** `-bundle` uses the shared reader before executing trusted SQL. JSON names the bundle and includes its verified manifest within the output budget. Bare `-db` remains schema-independent and does not claim semantic compatibility. Validation does not make arbitrary SQL safe or apply semantic response redaction.
+
 - **Keep semantic access separate.** Raw SQL remains an advanced local escape hatch. It is absent from the API and default agent/MCP surface.
 
 ## Scenarios

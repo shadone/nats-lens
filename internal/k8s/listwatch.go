@@ -63,7 +63,8 @@ type update struct {
 // loop lists and watches one source until ctx ends. It watches from the
 // resource version of the last object it saw, so a watch that ends (the
 // server closes it every few minutes) resumes without a gap; only a
-// resource version the server no longer has (410 Gone) needs a relist.
+// resource version the server no longer has needs a relist: one
+// answered 410 Gone, or one closed cleanly within minWatchLife.
 // A source that keeps failing for gapAfter records a
 // collector.k8s_not_watching event, and its recovery a collector.k8s_gap
 // with the span in which changes may have been missed.
@@ -133,6 +134,12 @@ func (l *loop) run(ctx context.Context) {
 		case isGone(err):
 			l.log.Info("kubernetes watch expired; listing again", "source", l.src.name)
 			needList = true
+		case errors.Is(err, errShortWatch):
+			// Some API servers (GKE) close a watch from a resource version
+			// they no longer have at once, without the 410 Gone. Resuming
+			// from the same version would fail forever, so list again.
+			needList = true
+			l.fail(ctx, "watch", err)
 		case err != nil:
 			rv = next
 			l.fail(ctx, "watch", err)

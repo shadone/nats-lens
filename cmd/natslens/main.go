@@ -12,6 +12,7 @@
 //	natslens checks run [-config FILE] [-system ID] [-data-dir DIR]
 //	                                            evaluate the checks on a database no collector has open
 //	natslens investigate methods              discover bounded remote read commands
+//	natslens acquire -socket PATH -system ID    acquire a consistent full-system offline dataset
 //	natslens demo [-listen ADDR]                serve the API with a fixed scenario, without NATS
 //	natslens notify test -config FILE [-channel NAME] [-system ID]
 //	                                            send a test message to each notification channel, or one
@@ -64,8 +65,11 @@ func main() {
 
 func run(ctx context.Context, args []string) error {
 	cmd := "run"
-	if len(args) > 0 && (args[0] == "run" || args[0] == "once" || args[0] == "sql" || args[0] == "demo" || args[0] == "checks" || args[0] == "notify" || args[0] == "investigate") {
+	if len(args) > 0 && (args[0] == "run" || args[0] == "once" || args[0] == "sql" || args[0] == "demo" || args[0] == "checks" || args[0] == "notify" || args[0] == "investigate" || args[0] == "acquire") {
 		cmd, args = args[0], args[1:]
+	}
+	if cmd == "acquire" {
+		return runAcquire(ctx, args, os.Stdout)
 	}
 	if cmd == "investigate" {
 		return investigation.RunWithOffline(ctx, args, os.Stdin, os.Stdout, os.Stderr, offline.Open)
@@ -84,7 +88,13 @@ func run(ctx context.Context, args []string) error {
 	}
 
 	var only string
+	var acquisition acquisitionOptions
 	cfg, err := config.ParseWith("natslens "+cmd, args, func(fs *flag.FlagSet) {
+		if cmd == "run" {
+			fs.StringVar(&acquisition.socket, "acquisition-socket", "", "opt in to a same-user local admin Unix socket (requires acquisition-dir)")
+			fs.StringVar(&acquisition.directory, "acquisition-dir", "", "existing private export directory; hard disk isolation requires filesystem quota; native cancellation is cooperative")
+			fs.Int64Var(&acquisition.maxBytes, "acquisition-max-bytes", 1<<30, "successful artifact byte budget, monitored cooperatively; source MVCC/WAL retention is separate")
+		}
 		if cmd == "once" {
 			fs.StringVar(&only, "system", "", "collect only the system with this id (default: every system)")
 		}
@@ -94,7 +104,7 @@ func run(ctx context.Context, args []string) error {
 	}
 	level, _ := config.ParseLevel(cfg.LogLevel)
 	log := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
-	return runConfig(ctx, cmd, cfg, only, log, nil)
+	return runConfig(ctx, cmd, cfg, only, log, nil, acquisition)
 }
 
 // apiOptionsFor are the API settings of the configuration.
@@ -106,7 +116,7 @@ func apiOptionsFor(cfg config.Config, ready func() bool) apiOptions {
 // runConfig serves natslens run and once for the configured systems, or
 // only the system with the id only. observe, when set, is told the API's
 // systems once they are open; for tests.
-func runConfig(ctx context.Context, cmd string, cfg config.Config, only string, log *slog.Logger, observe func(api.Systems)) error {
+func runConfig(ctx context.Context, cmd string, cfg config.Config, only string, log *slog.Logger, observe func(api.Systems), acquisition ...acquisitionOptions) error {
 	log.Info("starting", "command", cmd, "version", version, "config", cfg)
 	if cfg.AllowUnauthenticated && cfg.IAPAudience == "" && cmd == "run" && cfg.Listen != "" {
 		log.Warn("the API is served without IAP verification: anyone who reaches it can mute findings", "listen", cfg.Listen)
@@ -144,6 +154,13 @@ func runConfig(ctx context.Context, cmd string, cfg config.Config, only string, 
 	// the systems run there is no deadline and every close is waited for.
 	closeBy := func() time.Time { return time.Time{} }
 	defer func() { closeSystems(rts, closeBy()) }()
+	if len(acquisition) > 0 {
+		stop, err := startAcquisition(ctx, acquisition[0], rts)
+		if err != nil {
+			return err
+		}
+		defer stop()
+	}
 	reg := registry(rts, set)
 	if observe != nil {
 		observe(reg)

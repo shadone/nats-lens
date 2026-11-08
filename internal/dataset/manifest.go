@@ -65,7 +65,8 @@ type Manifest struct {
 	CaptureStartedAt   time.Time  `json:"capture_started_at"`
 	ExportedAt         time.Time  `json:"exported_at"`
 	Boundaries         Boundaries `json:"boundaries"`
-	// Complete describes successful artifact publication, not completeness of monitoring.
+	// Complete describes prepared artifact contents, not publication or monitoring
+	// completeness. The public reader also requires a published directory name.
 	Complete            bool     `json:"complete"`
 	PendingStages       []string `json:"pending_stages"`
 	ExportedFacts       []string `json:"exported_facts"`

@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	duckdb "github.com/duckdb/duckdb-go/v2"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -15,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	duckdb "github.com/duckdb/duckdb-go/v2"
 	"github.com/shadone/nats-lens/internal/collect"
 	"github.com/shadone/nats-lens/internal/events"
 	"github.com/shadone/nats-lens/internal/store"
@@ -649,5 +649,22 @@ func TestPreparedButUnpublishedDatasetCannotOpen(t *testing.T) {
 			t.Fatal(err)
 		}
 		d.Close()
+	}
+}
+
+func TestZeroDurationCompletedCollectionReferencePreserved(t *testing.T) {
+	st, sys := synthetic(t)
+	at := time.Date(2026, 10, 17, 15, 0, 0, 0, time.UTC)
+	snap := collect.NewSnapshot(at)
+	snap.FinishedAt = at
+	if _, err := st.WriteSnapshot(context.Background(), snap); err != nil {
+		t.Fatal(err)
+	}
+	m, err := Acquire(context.Background(), st, filepath.Join(privateRoot(t), "equal-clock"), sys, "test", Options{MaxBytes: 64 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Boundaries.DataReference == nil || !m.Boundaries.DataReference.Equal(at) {
+		t.Fatal("zero-duration collection reference altered")
 	}
 }

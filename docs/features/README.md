@@ -82,7 +82,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Metrics and alerting](metrics-and-alerting.md) | `api` | shipped — acknowledgement quiet metrics and exclusions |
 | [Running nats-lens](running-nats-lens.md) | `api`, `cli` | shipped — shared IAP identity, fatal database containment and unhealthy readiness |
 | [Agent investigations](agent-investigations.md) | `ui`, `api`, `cli` | partial — portable page/shared-chart context with all available series identities and independent pointer actions and bounded live and closed-dataset reads with entity page limits with live query links and offline evidence contexts, deterministic resource scope, name-search tooling policy, reusable exact read contexts and proven UI predicates; cross-query collection pinning, local filters, Timeline-mark actions deferred |
-| [Offline datasets](offline-datasets.md) | `cli` | shipped — explicit private local acquisition, full-system consistent read boundary, validated atomic artifacts and qualified native resource limits |
+| [Offline datasets](offline-datasets.md) | `cli` | shipped — explicit private local acquisition, full-system consistent read boundary, validated atomic artifacts, normalized staging rejection, required disclosures and qualified native resource limits |
 | [SQL access](sql-access.md) | `cli` | shipped — trusted offline files or validated bundles and bounded, atomic JSON with positional columns, declared clock-family rejection and private configuration diagnostics |
 | [Demo mode](demo-mode.md) | `ui`, `api`, `cli` | shipped — on-call acknowledgement story and per-system history, gaps, retention and archive examples |
 | [Multiple systems and the Fleet view](multiple-systems.md) | `ui`, `api`, `cli` | partial — isolated fatal database failures, readable Fleet strip intervals and no-data summaries when evaluation is unknown; a cluster switcher inside a supercluster is planned |
@@ -110,7 +110,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 **Collection**
 - [x] One snapshot of every server per interval, partial collections kept, account RAFTZ deletion boundary, account details, the expiry of account JWTs, user JWTs and listener certificates, subscription lists every few minutes, the replies of micro services in the listed accounts, each client application's traffic per hour, and replies of newer servers kept when one of their values is unknown (monitoring-snapshots.md)
 - [x] NATS advisories and system events, short-lived connections folded into `client.churn` and flagged by `client-005` when frequent, and account connections that also ask micro services and, when one cannot connect, are dialled again without stopping the system; OCSP peer rejections retain known fields and peer fingerprints across payload key aliases (event-capture.md)
-- [x] Kubernetes events, node windows, and watch recovery with bounded retries and failure logs (kubernetes-context.md)
+- [x] Kubernetes events, node windows, and watch recovery with bounded retries, a relist after a stream closed at once, and failure logs (kubernetes-context.md)
 - [x] Retention, DuckDB 2.0 file compatibility, hourly Parquet exports, archive state, and rebuild from successful exports (history-and-archive.md)
 - [~] Several NATS systems in one nats-lens, with a system switcher, fatal database failure isolation, the Fleet page with readable strip intervals, no-data summaries when evaluation is unknown and its badge, and the shell's status of every system in one call — a cluster switcher inside a supercluster is planned (multiple-systems.md)
 
@@ -157,6 +157,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 **Operations**
 - [x] Findings with acknowledgement quiet metrics and exclusions, collector health and four notification delivery gauges at `/metrics` for Prometheus alerting (metrics-and-alerting.md)
 - [x] `run`, `once` for every system or one, `notify test`, receiver egress, configuration, IAP identity for mutes and acknowledgements, health and readiness with fatal database containment, the Kubernetes manifests and their memory sizes (running-nats-lens.md)
-- [x] Private local acquisition of consistent full-system datasets, validated atomic publication and explicit native resource limits (offline-datasets.md)
+- [x] Private local acquisition of consistent full-system datasets, atomic publication, normalized staging rejection, required disclosures and explicit native resource limits (offline-datasets.md)
 - [x] Trusted offline SQL files or validated bundles with bounded JSON, explicit clock casts, private diagnostics and atomic files (sql-access.md)
+
 - [x] Three fixed systems without NATS or notification channels with `natslens demo`, whose findings are the real checks, with a node pool upgrade to replay, links of a supercluster to draw from `GetTopology`, accounts and failed logins from `GetAccountsAndAuth`, the stores and streams of the Capacity page from `GetCapacity`, the client applications from `GetApplications`, and which show every state real data shows, tested against the store with one table of states, and with `-fixed` at one moment whose live ranges end there, with acknowledgement stories and per-system gaps, retention and archive examples (demo-mode.md)

@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
+	clocktesting "k8s.io/utils/clock/testing"
 )
 
 // scripted is a source whose lists and watches follow a script.
@@ -26,6 +27,8 @@ type scripted struct {
 	watchErrs []error
 	watchRVs  []string
 	watchers  chan *watch.FakeWatcher
+	// watchClock, when set, measures watch lifetimes instead of the real clock.
+	watchClock *clocktesting.FakeClock
 }
 
 func (s *scripted) source() *source {
@@ -68,6 +71,9 @@ func startLoop(t *testing.T, sc *scripted, rec *sink, c *clock, gapAfter time.Du
 	ctx, cancel := context.WithCancel(context.Background())
 	l := &loop{src: sc.source(), out: out, record: rec.Record, gapAfter: gapAfter, now: c.now, log: quietLog(),
 		sleep: func(_ context.Context, d time.Duration) { c.add(d) }}
+	if sc.watchClock != nil {
+		l.watchClock = sc.watchClock
+	}
 	done := make(chan struct{})
 	go func() { l.run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
@@ -97,7 +103,7 @@ func nextWatcher(t *testing.T, sc *scripted) *watch.FakeWatcher {
 }
 
 func TestLoopResumesFromLastResourceVersion(t *testing.T) {
-	sc := &scripted{watchers: make(chan *watch.FakeWatcher, 4)}
+	sc := &scripted{watchers: make(chan *watch.FakeWatcher, 4), watchClock: clocktesting.NewFakeClock(t0)}
 	rec, c := &sink{}, &clock{t: t0}
 	out, _ := startLoop(t, sc, rec, c, 30*time.Second)
 	if u := next(t, out); !u.isList || !u.initial || len(u.listed) != 1 {
@@ -112,6 +118,8 @@ func TestLoopResumesFromLastResourceVersion(t *testing.T) {
 	}
 	bm := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{ResourceVersion: "110"}}
 	w.Action(watch.Bookmark, bm)
+	// The watch has been open for minutes when the server ends it.
+	sc.watchClock.Step(5 * time.Minute)
 	// The server ends the watch; the next one resumes from the bookmark,
 	// without a list or a gap.
 	w.Stop()
