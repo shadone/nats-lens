@@ -87,3 +87,21 @@ func TestDemoObservationOptionValidationAndLegacy(t *testing.T) {
 		t.Fatal("unknown entity accepted")
 	}
 }
+
+func TestDemoObservationCurveUsesSameNativeGrid(t *testing.T) {
+	p := New(false)
+	rng := &v1.TimeRange{Start: timestamppb.New(FixedNow.Add(-45 * time.Second)), End: timestamppb.New(FixedNow.Add(-35 * time.Second))}
+	for _, metric := range []string{"server.cpu_percent", "server.mem_bytes", "server.connections", "server.in_msgs_rate", "cluster.cpu_percent", "server.slow_consumers"} {
+		e := &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SYSTEM}
+		if metric[:7] == "server." {
+			e = serverRef("nats-0")
+		}
+		out, err := p.GetTimeSeries(context.Background(), &v1.GetTimeSeriesRequest{Metric: metric, Entity: e, Range: rng, MaxPoints: 1, IncludeObservations: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(out.Series.Points) != 0 || out.Series.GetObservations().KnownCount != 0 {
+			t.Errorf("%s created a point between native sample times: %v", metric, out.Series)
+		}
+	}
+}
