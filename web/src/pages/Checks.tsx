@@ -1,8 +1,9 @@
+import { Remediation } from "../components/Remediation";
 import { useState } from "react";
 import { useParams } from "react-router";
 import type { CheckDefinition, ListCheckDefinitionsResponse } from "../gen/natslens/v1/checks_pb";
 import { useCheckDefinitions } from "../api/checks";
-import { Empty, KV, QueryView, Remediation, RLink, Section } from "../components/common";
+import { Empty, KV, QueryView, RLink, Section } from "../components/common";
 import { upperFirst } from "../lib/format";
 import { usePageTitle } from "../lib/usePageTitle";
 

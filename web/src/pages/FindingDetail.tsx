@@ -1,3 +1,4 @@
+import { Remediation } from "../components/Remediation";
 import { ReplayEntry } from "../components/ReplayEntry";
 import { serverNow } from "../lib/clock";
 import { FindingAcknowledgement } from "../components/Acknowledgement";
@@ -15,7 +16,7 @@ import { AROUND_MS, useEventsAround } from "../api/events";
 import { stateKey, useOtherFindings } from "../api/finding";
 import type { Entity, Finding, Mute } from "../api/model";
 import { useFinding, useLensInfo, useTimeline } from "../api/queries";
-import { Empty, KV, QueryView, RLink, Remediation, Section } from "../components/common";
+import { Empty, KV, QueryView, RLink, Section } from "../components/common";
 import { EventRow } from "../components/EventRow";
 import { FindingEvidence } from "../components/FindingEvidence";
 import { EntityLine } from "../components/FindingParts";
