@@ -23,7 +23,7 @@ func TestConfiguredSummaryRequiresEveryApplicableCheck(t *testing.T) {
 	for _, scenario := range []struct{ name, want string }{
 		{"one_ok", "STATUS_NO_DATA"}, {"one_error", "STATUS_NO_DATA"},
 		{"all_ok", "STATUS_OK"}, {"missing_replaced_by_unrelated", "STATUS_NO_DATA"}, {"one_missing", "STATUS_NO_DATA"}, {"one_error_among_ok", "STATUS_NO_DATA"},
-		{"known_disabled_with_ok", "STATUS_OK"}, {"known_disabled_missing", "STATUS_NO_DATA"}, {"all_known_disabled", "STATUS_OK"},
+		{"known_disabled_with_ok", "STATUS_OK"}, {"known_disabled_recorded_ok", "STATUS_OK"}, {"known_disabled_missing", "STATUS_NO_DATA"}, {"all_known_disabled", "STATUS_OK"},
 		{"complete_previous_epoch_only", "STATUS_NO_DATA"}, {"previous_error_current_success", "STATUS_OK"},
 		{"server_complete_other_types_error", "STATUS_NO_DATA"},
 	} {
