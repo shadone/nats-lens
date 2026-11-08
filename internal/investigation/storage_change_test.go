@@ -2,7 +2,9 @@ package investigation
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -57,5 +59,43 @@ func TestStorageChangeScopeOverridesResetContinuation(t *testing.T) {
 	}
 	if _, ok := fields["pageToken"]; ok {
 		t.Fatal("old system's continuation retained")
+	}
+}
+
+type storagePinnedSource struct{}
+
+func (s storagePinnedSource) Query(ctx context.Context, method string, request []byte) (json.RawMessage, error) {
+	if method == "GetLensInfo" {
+		return json.RawMessage(`{"version":"fixture","now":"2026-10-17T14:30:00Z","system":"shop"}`), nil
+	}
+	return json.RawMessage(`{"system":"shop","account":"APP","a":{"epoch":"9007199254740993"},"b":{"epoch":"9007199254740994"}}`), nil
+}
+func TestStorageChangeReturnedContextBindsResolvedPins(t *testing.T) {
+	opener := func(context.Context, OfflineSelection) (*Session, error) {
+		return &Session{Source: storagePinnedSource{}}, nil
+	}
+	var out, diagnostic bytes.Buffer
+	args := []string{"query", "GetStorageChange", "-bundle", "fixture", "-system", "shop", "-account", "APP", "-from", "2026-10-17T13:00:00Z", "-to", "2026-10-17T14:00:00Z"}
+	if err := RunWithOffline(context.Background(), args, strings.NewReader(""), &out, &diagnostic, opener); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Request map[string]any `json:"request"`
+		Context *Context       `json:"context"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := result.Request["epochA"]; ok {
+		t.Fatal("actual sent request was rewritten")
+	}
+	replay, _, err := Prepare("GetStorageChange", result.Context, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var r map[string]any
+	_ = json.Unmarshal(replay, &r)
+	if r["epochA"] != "9007199254740993" || r["epochB"] != "9007199254740994" {
+		t.Fatalf("returned context re-resolves observations: %s", replay)
 	}
 }
