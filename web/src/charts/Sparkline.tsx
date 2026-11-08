@@ -1,3 +1,4 @@
+import { bucketPlotTime } from "./bucketDomain";
 // The tile sparkline of the reference: area and line for the primary
 // series, a dashed line for the second, shaded windows behind.
 import { Fragment, useId, type ReactElement } from "react";
@@ -43,6 +44,10 @@ export function sparkColour(status: Level): string {
 interface Props {
   points: Point[];
   stepMs?: number;
+  /** Capacity requires a break at every absent measurement bucket. */
+  contiguousBuckets?: boolean;
+  /** Display bucket-overlap midpoints without changing inspection or gap times. */
+  bucketOverlap?: boolean;
   bucketNote?: string;
   fmt?: (value: number) => string;
   labels?: [string, string];
@@ -71,10 +76,10 @@ interface Props {
 }
 
 /** x by time over [start, end], y scaled to the shared min and max. */
-export function sparkPoints(a: Point[], start: number, end: number, mn: number, mx: number): string[] {
+export function sparkPoints(a: Point[], start: number, end: number, mn: number, mx: number, bucketStepMs?: number): string[] {
   const span = end - start || 1;
   return a.map((p) => {
-    const x = ((p.time - start) / span) * W;
+    const x = (((bucketStepMs ? bucketPlotTime(p.time, start, end, bucketStepMs) : p.time) - start) / span) * W;
     const y = H - 3 - ((p.value - mn) / (mx - mn)) * (H - 8);
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   });
@@ -106,16 +111,16 @@ function mostlyChanging(points: Point[]): boolean {
   return points.length > 2 && changedSegments(points).length > (points.length - 1) / 3;
 }
 
-export function Sparkline({ stepMs, bucketNote, fmt = String, labels = ["value", "second series"], points, points2, status, windows, start, end, label, current, note, tone }: Props) {
+export function Sparkline({ bucketOverlap, contiguousBuckets, stepMs, bucketNote, fmt = String, labels = ["value", "second series"], points, points2, status, windows, start, end, label, current, note, tone }: Props) {
   // The change tone also says a bucket's range, which its last value hides.
   const text = (p: Point) => tone === "change" && hasRange(p) ? `${fmt(p.value)} (${fmt(p.low ?? p.value)} to ${fmt(p.high ?? p.value)} in bucket)` : fmt(p.value);
   return <ChartInspection label={label} start={start} end={end} stepMs={stepMs} bucketNote={bucketNote} series={[
     { label: labels[0], points: points.map(p => ({ time: p.time, text: text(p) })) },
     ...(points2 ? [{ label: labels[1], points: points2.map(p => ({ time: p.time, text: fmt(p.value) })) }] : []),
-  ]}><SparkDrawing points={points} points2={points2} status={status} windows={windows} start={start} end={end} label={label} current={current} note={note} tone={tone} /></ChartInspection>;
+  ]}><SparkDrawing bucketOverlap={bucketOverlap} contiguousBuckets={contiguousBuckets} stepMs={stepMs} points={points} points2={points2} status={status} windows={windows} start={start} end={end} label={label} current={current} note={note} tone={tone} /></ChartInspection>;
 }
 
-function SparkDrawing({ points, points2, status, windows, start, end, label, current, note, tone = "status" }: Props) {
+function SparkDrawing({ bucketOverlap, contiguousBuckets, stepMs, points, points2, status, windows, start, end, label, current, note, tone = "status" }: Props) {
   const history = usePageHistory();
   const gaps = history?.serverGaps ?? [];
   const period = rangeText(start, end);
@@ -142,7 +147,7 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
     mx = mn + 1;
     if (mn !== 0) mn = mn - 1;
   }
-  const runs = splitServerPoints(points, gaps);
+  const runs = splitServerPoints(points, gaps, contiguousBuckets ? stepMs : undefined);
   const neutral = tone === "change";
   const col = neutral ? "var(--text-muted)" : sparkColour(status);
   // The change marks: the accent, or the severity colour when the card is in
@@ -152,16 +157,16 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
   const dense = neutral && mostlyChanging(points);
   const span = end - start || 1;
   const marks: Mark[] = [
-    ...(neutral && !dense ? runs.flatMap((run, i) => changeRuns(run).map((seg, j): Mark => ({ key: `c${i}-${j}`, draw: (cut) => <polyline className={cut ? "spark-cut" : "spark-change"} points={sparkPoints(seg, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: cut ? "black" : mark }} strokeWidth={2 + (cut ? CUT_EXTRA : 0)} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" /> }))) : []),
+    ...(neutral && !dense ? runs.flatMap((run, i) => changeRuns(run).map((seg, j): Mark => ({ key: `c${i}-${j}`, draw: (cut) => <polyline className={cut ? "spark-cut" : "spark-change"} points={sparkPoints(seg, start, end, mn, mx, bucketOverlap ? stepMs : undefined).join(" ")} style={{ fill: "none", stroke: cut ? "black" : mark }} strokeWidth={2 + (cut ? CUT_EXTRA : 0)} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" /> }))) : []),
     ...(dense ? [((): Mark => {
       // A near-zero-length path's round caps make a dot that stays round in
       // the stretched viewBox. Not zero: WebKit stretches the cap of a
       // zero-length subpath with the viewBox. 0.01 is 0.1px at 2000px wide.
-      const [x, y] = sparkPoints([points[points.length - 1]], start, end, mn, mx)[0].split(",");
+      const [x, y] = sparkPoints([points[points.length - 1]], start, end, mn, mx, bucketOverlap ? stepMs : undefined)[0].split(",");
       return { key: "now", draw: (cut) => <path className={cut ? "spark-cut" : "spark-now"} d={`M${x},${y}h0.01`} style={{ stroke: cut ? "black" : mark }} strokeWidth={5 + (cut ? CUT_EXTRA : 0)} strokeLinecap="round" vectorEffect="non-scaling-stroke" /> };
     })()] : []),
     ...ranges.map((p): Mark => {
-      const [[x, y0], [, y1]] = sparkPoints([{ time: p.time, value: p.low ?? p.value }, { time: p.time, value: p.high ?? p.value }], start, end, mn, mx).map((c) => c.split(","));
+      const [[x, y0], [, y1]] = sparkPoints([{ time: p.time, value: p.low ?? p.value }, { time: p.time, value: p.high ?? p.value }], start, end, mn, mx, bucketOverlap ? stepMs : undefined).map((c) => c.split(","));
       return { key: `r${p.time}`, draw: (cut) => <line className={cut ? "spark-cut" : "spark-range"} x1={x} x2={x} y1={y0} y2={y1} style={{ stroke: cut ? "black" : neutral ? mark : col }} strokeWidth={2 + (cut ? CUT_EXTRA : 0)} strokeLinecap="round" vectorEffect="non-scaling-stroke" /> };
     }),
   ];
@@ -169,7 +174,7 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
   // gap hatches and the second series stay whole.
   const lineMask = marks.length > 0 ? `url(#${cutId})` : undefined;
   return (
-    <><svg className={neutral ? "spark spark-open" : "spark"} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, current, period, note)}>
+    <><svg style={contiguousBuckets ? { overflow: "hidden" } : undefined} className={neutral ? "spark spark-open" : "spark"} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(label, current, period, note)}>
       <HistoryGaps start={start} end={end} width={W} height={H} />
       {windows.map((w) => {
         const x0 = Math.max(0, ((w.start - start) / span) * W);
@@ -177,19 +182,26 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
         return x1 > x0 ? <rect key={w.start} x={x0.toFixed(1)} y="0" width={(x1 - x0).toFixed(1)} height={H} style={{ fill: "var(--upgrade-fill)" }} /> : null;
       })}
       {!flatZero && runs.map((run, i) => {
-        const p = sparkPoints(run, start, end, mn, mx);
+        const p = sparkPoints(run, start, end, mn, mx, bucketOverlap ? stepMs : undefined);
         return <polygon key={i} points={`${p[0].split(",")[0]},${H} ${p.join(" ")} ${p[p.length-1].split(",")[0]},${H}`} style={{ fill: col, fillOpacity: neutral ? 0.07 : 0.1 }} />;
       })}
       {points2 && points2.length > 0 && (
-        splitServerPoints(points2, gaps).map((run, i) => <polyline key={i}
-          points={sparkPoints(run, start, end, mn, mx).join(" ")}
+        splitServerPoints(points2, gaps, contiguousBuckets ? stepMs : undefined).map((run, i) => <polyline key={i}
+          points={sparkPoints(run, start, end, mn, mx, bucketOverlap ? stepMs : undefined).join(" ")}
           style={{ fill: "none", stroke: "var(--text-muted)" }}
           strokeWidth="1.2"
           strokeDasharray="3 2"
           vectorEffect="non-scaling-stroke"
         />)
       )}
-      {runs.map((run, i) => <polyline key={i} points={sparkPoints(run, start, end, mn, mx).join(" ")} style={{ fill: "none", stroke: col }} mask={lineMask} strokeWidth={neutral ? 1.3 : 1.6} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />)}
+      {runs.map((run, i) => {
+        const coordinates = sparkPoints(run, start, end, mn, mx, bucketOverlap ? stepMs : undefined);
+        if (contiguousBuckets && run.length === 1) {
+          const [cx, cy] = coordinates[0].split(",");
+          return <circle key={i} className="spark-dot" cx={cx} cy={cy} r="1.6" style={{ fill: col }} />;
+        }
+        return <polyline key={i} points={coordinates.join(" ")} style={{ fill: "none", stroke: col }} mask={lineMask} strokeWidth={neutral ? 1.3 : 1.6} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />;
+      })}
       {marks.map((m) => <Fragment key={m.key}>{m.draw(false)}</Fragment>)}
       {marks.length > 0 && <LineCut id={cutId} marks={marks} />}
     </svg><ChartHistoryNotice start={start} end={end}/></>
@@ -197,13 +209,14 @@ function SparkDrawing({ points, points2, status, windows, start, end, label, cur
 }
 
 /** A bucket can hold data alongside a missing report. Keep the point but
- * never connect across recorded missing intervals. */
-export function splitServerPoints(points: Point[], gaps: ServerHistoryGap[]): Point[][] {
+ * never connect across recorded missing intervals. An optional cadence also
+ * breaks the trace at each absent measurement bucket. */
+export function splitServerPoints(points: Point[], gaps: ServerHistoryGap[], stepMs?: number): Point[][] {
   const runs: Point[][] = [];
   for (const p of points) {
     const run = runs[runs.length - 1];
     const prev = run?.[run.length - 1];
-    if (!prev || gaps.some(g => g.start < p.time && g.end > prev.time)) runs.push([p]);
+    if (!prev || (stepMs && stepMs > 0 && p.time - prev.time > stepMs) || gaps.some(g => g.start < p.time && g.end > prev.time)) runs.push([p]);
     else run.push(p);
   }
   return runs;
