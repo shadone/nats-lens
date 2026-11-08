@@ -136,9 +136,9 @@ func Acquire(ctx context.Context, st *store.Store, destination string, system Sy
 	}()
 	defer func() { close(stop); <-stopped }()
 	m = Manifest{FormatVersion: FormatVersion, Scope: FullSystemScope, System: system, ApplicationVersion: applicationVersion, CaptureStartedAt: time.Now().UTC(), Complete: true, ChecksConfiguration: "not_exported",
-		PendingStages: []string{"collection_and_event_buffers_unknown", "evaluation_pipeline_completion_unknown"},
-		ExportedFacts: []string{"all_retained_database_tables_and_catalog", "findings_and_check_runs_as_published", "durable_mutes_and_acknowledgements", "inventory_and_durable_notification_state", "archive_watermarks_without_archive_files"},
-		LiveOnly:      []string{"credentials_and_runtime_configuration", "connections_and_readiness", "collection_event_and_notification_callbacks", "hourly_archive_files", "in_memory_buffers_and_in_flight_evaluations"}}
+		PendingStages: pendingStagesV1(),
+		ExportedFacts: exportedFactsV1(),
+		LiveOnly:      liveOnlyV1()}
 	dataPath := filepath.Join(stage, DataFile)
 	err = st.SnapshotCopy(work, dataPath, func(tx *sql.Tx) error {
 		var err error

@@ -61,7 +61,11 @@ func TestReviewStageAliasesAndPublishedControls(t *testing.T) {
 	if err := os.Symlink(parent, parentLink); err != nil {
 		t.Fatal(err)
 	}
-	relative, err := filepath.Rel(".", stage)
+	workingDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	relative, err := filepath.Rel(workingDir, stage)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,6 +142,139 @@ func TestReviewDisclosureSemantics(t *testing.T) {
 					t.Fatal("invalid disclosure accepted")
 				}
 			})
+		}
+	}
+}
+
+func TestReviewAllRequiredFormatOneFields(t *testing.T) {
+	path, m := acquireFixture(t)
+	baseline, _ := json.Marshal(m)
+	for _, section := range []string{"", "system", "boundaries", "data"} {
+		var raw map[string]json.RawMessage
+		if err := json.Unmarshal(baseline, &raw); err != nil {
+			t.Fatal(err)
+		}
+		object := raw
+		if section != "" {
+			object = map[string]json.RawMessage{}
+			if err := json.Unmarshal(raw[section], &object); err != nil {
+				t.Fatal(err)
+			}
+		}
+		for key := range object {
+			if section == "system" && key == "retention_ns" {
+				continue
+			}
+			t.Run(section+"/"+key, func(t *testing.T) {
+				var top map[string]json.RawMessage
+				json.Unmarshal(baseline, &top)
+				target := top
+				if section != "" {
+					target = map[string]json.RawMessage{}
+					json.Unmarshal(top[section], &target)
+				}
+				delete(target, key)
+				if section != "" {
+					top[section], _ = json.Marshal(target)
+				}
+				b, _ := json.Marshal(top)
+				if err := os.WriteFile(filepath.Join(path, ManifestFile), b, 0600); err != nil {
+					t.Fatal(err)
+				}
+				if d, err := Open(context.Background(), path); err == nil {
+					d.Close()
+					t.Fatal("required field omitted")
+				}
+			})
+		}
+	}
+}
+func TestReviewDisclosureContractValidControls(t *testing.T) {
+	path, m := acquireFixture(t)
+	// Versioned token sets are semantic sets, not ordered strings. Exact int64
+	// metadata is preserved, and unknown optional retention remains unknown.
+	m.System.CollectionIntervalNS = 9007199254740993
+	m.System.RetentionNS = nil
+	for _, values := range [][]string{m.PendingStages, m.ExportedFacts, m.LiveOnly} {
+		for i, j := 0, len(values)-1; i < j; i, j = i+1, j-1 {
+			values[i], values[j] = values[j], values[i]
+		}
+	}
+	for _, omitRetention := range []bool{false, true} {
+		b, _ := json.Marshal(m)
+		if omitRetention {
+			var top map[string]json.RawMessage
+			json.Unmarshal(b, &top)
+			var system map[string]json.RawMessage
+			json.Unmarshal(top["system"], &system)
+			delete(system, "retention_ns")
+			top["system"], _ = json.Marshal(system)
+			b, _ = json.Marshal(top)
+		}
+		if err := os.WriteFile(filepath.Join(path, ManifestFile), b, 0600); err != nil {
+			t.Fatal(err)
+		}
+		d, err := Open(context.Background(), path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if d.Manifest.System.CollectionIntervalNS != 9007199254740993 || d.Manifest.System.RetentionNS != nil {
+			t.Fatal("exact integer or unknown retention lost")
+		}
+		d.Close()
+	}
+}
+func TestReviewNullAndDuplicateRequiredValues(t *testing.T) {
+	path, m := acquireFixture(t)
+	baseline, _ := json.Marshal(m)
+	for _, section := range []string{"", "system", "boundaries", "data"} {
+		var raw map[string]json.RawMessage
+		json.Unmarshal(baseline, &raw)
+		object := raw
+		if section != "" {
+			object = map[string]json.RawMessage{}
+			json.Unmarshal(raw[section], &object)
+		}
+		for key, value := range object {
+			if string(value) == "null" || section == "system" && key == "retention_ns" {
+				continue
+			}
+			for _, mutation := range []string{"null", "duplicate"} {
+				// Observation pointers may legitimately be null; their values are checked
+				// against the actual database. Required scalar counts may never be null.
+				if section == "boundaries" && mutation == "null" && key != "check_runs" && key != "pending_evaluation_epochs" {
+					continue
+				}
+				t.Run(section+"/"+key+"/"+mutation, func(t *testing.T) {
+					var top map[string]json.RawMessage
+					json.Unmarshal(baseline, &top)
+					target := top
+					if section != "" {
+						target = map[string]json.RawMessage{}
+						json.Unmarshal(top[section], &target)
+					}
+					var b []byte
+					if mutation == "null" {
+						target[key] = json.RawMessage("null")
+						b, _ = json.Marshal(target)
+					} else {
+						b, _ = json.Marshal(target)
+						entry, _ := json.Marshal(key)
+						b = append(b[:len(b)-1], append([]byte(","+string(entry)+":"), append(value, '}')...)...)
+					}
+					if section != "" {
+						top[section] = b
+						b, _ = json.Marshal(top)
+					}
+					if err := os.WriteFile(filepath.Join(path, ManifestFile), b, 0600); err != nil {
+						t.Fatal(err)
+					}
+					if d, err := Open(context.Background(), path); err == nil {
+						d.Close()
+						t.Fatal("null or duplicate field accepted")
+					}
+				})
+			}
 		}
 	}
 }

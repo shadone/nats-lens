@@ -58,9 +58,6 @@ func Open(ctx context.Context, path string) (*Dataset, error) { return openPrepa
 
 // openPrepared permits only the writer to validate its unpublished staging.
 func openPrepared(ctx context.Context, path string, allowStaging bool) (*Dataset, error) {
-	if !allowStaging && strings.HasPrefix(filepath.Base(path), ".dataset-partial-") {
-		return nil, fmt.Errorf("%w: dataset has not been published", ErrInvalid)
-	}
 	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 	if err := ctx.Err(); err != nil {
@@ -69,6 +66,10 @@ func openPrepared(ctx context.Context, path string, allowStaging bool) (*Dataset
 	path, err := filepath.Abs(path)
 	if err != nil {
 		return nil, ErrInvalid
+	}
+	// Abs cleans trailing separators and dot segments before publication checks.
+	if !allowStaging && strings.HasPrefix(filepath.Base(path), ".dataset-partial-") {
+		return nil, fmt.Errorf("%w: dataset has not been published", ErrInvalid)
 	}
 	st, err := os.Lstat(path)
 	if err != nil || !st.IsDir() || st.Mode().Perm()&0077 != 0 {
@@ -115,6 +116,9 @@ func openPrepared(ctx context.Context, path string, allowStaging bool) (*Dataset
 	}
 	if m.FormatVersion != FormatVersion {
 		return nil, ErrVersion
+	}
+	if err = validateContractV1(b, m); err != nil {
+		return nil, err
 	}
 	if !m.Complete || m.Scope != FullSystemScope || m.Data.Path != DataFile || m.Data.Size <= 0 || m.Data.Size > MaxDataBytes || len(m.Data.SHA256) != 64 || m.System.ID == "" || m.System.CollectionIntervalNS <= 0 || m.CaptureStartedAt.IsZero() || m.ExportedAt.Before(m.CaptureStartedAt) || m.ChecksConfiguration != "not_exported" {
 		return nil, ErrInvalid
