@@ -33,10 +33,12 @@ type Options struct {
 	Format            string
 	MaxRows, MaxBytes int
 	Timeout           time.Duration
+	// Manifest is supplied only after shared bundle validation by the composition root.
+	Manifest json.RawMessage
 }
 
 func DefaultOptions() Options {
-	return Options{"table", DefaultMaxRows, DefaultMaxBytes, DefaultTimeout}
+	return Options{Format: "table", MaxRows: DefaultMaxRows, MaxBytes: DefaultMaxBytes, Timeout: DefaultTimeout}
 }
 
 // Diagnostic intentionally omits backend text, which can contain SQL, data or paths.
@@ -81,10 +83,11 @@ type column struct {
 type result struct {
 	Version int `json:"version"`
 	Source  struct {
-		Kind     string `json:"kind"`
-		Path     string `json:"path"`
-		ReadOnly bool   `json:"readOnly"`
-		Snapshot string `json:"snapshot"`
+		Kind     string          `json:"kind"`
+		Path     string          `json:"path"`
+		ReadOnly bool            `json:"readOnly"`
+		Snapshot string          `json:"snapshot"`
+		Manifest json.RawMessage `json:"manifest,omitempty"`
 	} `json:"source"`
 	Columns   []column          `json:"columns"`
 	Rows      []json.RawMessage `json:"rows"`
@@ -192,6 +195,11 @@ func Execute(ctx context.Context, path, query string, o Options) ([]byte, error)
 	r.Source.Path = path
 	r.Source.ReadOnly = true
 	r.Source.Snapshot = "unverified; caller-selected offline file"
+	if len(o.Manifest) > 0 {
+		r.Source.Kind = "bundle"
+		r.Source.Manifest = o.Manifest
+		r.Source.Snapshot = "shared manifest validated at selection; integrity is not authenticity; trusted SQL may have external effects"
+	}
 	r.Limits.Rows = o.MaxRows
 	r.Limits.OutputBytes = o.MaxBytes
 	r.Limits.Timeout = o.Timeout.String()

@@ -150,6 +150,10 @@ func (p *Provider) freshness(ctx context.Context, r *v1.TimeRange) (*v1.Freshnes
 	if !fail.since.IsZero() {
 		f.Collecting, f.NotCollectingSince = false, ts(fail.since)
 	}
+	if p.CapturedOnly {
+		f.Collecting = false
+		f.NotCollectingSince = nil
+	}
 	e, ok, err := p.latestEpoch(ctx, r)
 	if err != nil || !ok {
 		return f, err
