@@ -70,3 +70,6 @@
 
 .tc-h > .infotip { flex: none; margin-right: auto; }
 .dp .lbl .infotip { margin-left: var(--sp-1); vertical-align: middle; }
+
+.chart-h > .infotip { flex: none; margin-right: auto; }
+.chart-help-legend { display: inline-flex; margin-top: var(--sp-2); }

@@ -127,9 +127,9 @@ describe("ServerDetail on example-global", () => {
     expect(within(tile).getByRole("link", { name: "Investigate detections" })).toHaveAttribute("href", expect.stringContaining("/servers/slow-consumers?"));
     expect(tile).toHaveTextContent("NATS had trouble sending data because a receiving connection could not keep up.");
     await userEvent.click(about);
-    expect(tile).toHaveTextContent("Server slow-consumer counter increases during the selected range.");
-    expect(tile).toHaveTextContent("Covers clients, routes, gateways and leaf connections; retries can count without a disconnect.");
-    expect(tile).toHaveTextContent("Not unique clients or JetStream pending messages.");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Server slow-consumer counter increases during the selected range.");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Covers clients, routes, gateways and leaf connections; retries can count without a disconnect.");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Not unique clients or JetStream pending messages.");
     expect(tile).not.toHaveTextContent("Clients disconnected as slow");
   });
 

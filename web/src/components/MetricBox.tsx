@@ -14,9 +14,11 @@
 // series whose min equals its max. A series that begins more than a bucket
 // and a half after the window's start says "since HH:MM UTC" in place of
 // the window, as the history is younger than the range.
-import {ChartReadout} from "../charts/ChartReadout";
+import {InfoTip} from "./InfoTip";
+export {InfoTip} from "./InfoTip";
+import {MetricHelp} from "./MetricHelp";
 import { RLink } from "./common";
-import { useId, useRef, useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import type { Level, Series, Window } from "../api/model";
 import { rangeText } from "../charts/chartLabel";
 import { Sparkline } from "../charts/Sparkline";
@@ -48,7 +50,9 @@ export interface MetricBoxProps {
   /** Describes the headline measurement separately from the history below. */
   valueLabel?: string;
   /** What the metric measures, shown behind the (i) button. */
-  description: string;
+  description?: string;
+  /** API catalogue definitions; description, when present, adds chart-specific context. */
+  metricIds?: string[];
   series?: Series;
   /** A second series drawn dashed, for example messages out beside in. */
   series2?: Series;
@@ -86,41 +90,6 @@ export interface MetricBoxProps {
   historyStatus?: boolean;
   /** The chart's colouring, as `Sparkline` takes it. */
   tone?: "status" | "change";
-}
-
-/** An (i) button that shows a description on hover, focus or click. */
-export function InfoTip({ label, text }: { label: string; text: ReactNode }) {
-  // Hover shows it while the pointer stays; a click pins it until the next
-  // click, blur or Escape.
-  const [hover, setHover] = useState(false);
-  const [pinned, setPinned] = useState(false);
-  const open = hover || pinned;
-  const id = useId();
-  const anchor=useRef<HTMLSpanElement>(null);
-  const close = () => {
-    setHover(false);
-    setPinned(false);
-  };
-  return (
-    <span ref={anchor} className="infotip" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
-      <button
-        type="button"
-        className="infotip-b"
-        aria-label={`About ${label}`}
-        aria-expanded={open}
-        aria-describedby={open ? id : undefined}
-        onClick={() => setPinned((o) => !o)}
-        onFocus={() => setHover(true)}
-        onBlur={close}
-        onKeyDown={(e) => e.key === "Escape" && close()}
-      >
-        i
-      </button>
-      {open && (
-        <ChartReadout anchor={anchor} fraction={.5} id={id} contentKey={label}>{text}</ChartReadout>
-      )}
-    </span>
-  );
 }
 
 /** The dot's tint: info too, quietly. */
@@ -208,7 +177,7 @@ export function MetricBox(p: MetricBoxProps) {
       <div className="mb-h">
         <span className="lbl">
           {p.to ? <RLink to={p.to} className="mb-t chart-link">{p.title}</RLink> : <span className="mb-t">{p.title}</span>}
-          <InfoTip label={p.title} text={p.description} />
+          {p.metricIds?.length ? <MetricHelp label={p.title} ids={p.metricIds} context={p.description}/> : <InfoTip label={p.title} text={p.description??"Description unavailable."} />}
         </span>
         <span className="mb-v">
           {word && <em className="mb-word">{word}</em>}

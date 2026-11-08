@@ -1,6 +1,7 @@
 // A metric over the range on detail pages: the sparkline drawn larger, with
 // the latest value, min and max as text and the range ends below. A series
 // whose refresh failed stays on screen, dimmed and dated.
+import {MetricHelp} from "../components/MetricHelp";
 import type { Series, Window } from "../api/model";
 import { useReportStale } from "../components/StaleContext";
 import { errorText } from "../components/common";
@@ -32,6 +33,7 @@ export function SeriesChart({ title, series, start, end, windows = [], loading, 
     <div className={`card chart${stale ? " stale" : ""}`}>
       <div className="chart-h">
         <span className="lbl">{title}</span>
+        <MetricHelp label={title} ids={[series?.metric??""]}/>
         <b className="mono">{loading ? "…" : fmt(latest)}</b>
       </div>
       {error && !series ? (
