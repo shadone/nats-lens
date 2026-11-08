@@ -10,6 +10,8 @@ KV Stores and Object Stores are pages of their own, which name and describe buck
 
 ## Behavior and rules
 
+The Streams list can include storage streams with bounded pages and totals across all matches ([Streams](streams.md)). The dedicated bucket list calls retain their separate list contract.
+
 - **Capacity navigation.** Capacity labels KV buckets and object stores explicitly, shows their bucket names and underlying stream identities, and offers type filters over the loaded rows. Links open bucket details with the system, account and time range.
 
 - **A bucket is its stream.** A stream named `KV_<bucket>` is a KV bucket, one named `OBJ_<bucket>` an object store. A stream such as `KVX_foo` is neither.
@@ -85,3 +87,4 @@ KV Stores and Object Stores are pages of their own, which name and describe buck
 
 - **No keys or values.** nats-lens does not read the keys, values or objects in a bucket, so it cannot count live keys or objects.
 - **No expected settings for a missing bucket.** A missing bucket shows no replicas or limits, even when the inventory gives them; its finding names them.
+

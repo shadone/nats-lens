@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"google.golang.org/protobuf/proto"
 	"slices"
 	"strings"
 	"time"
@@ -46,6 +47,10 @@ func (p *Provider) streamRows(ctx context.Context, e epochInfo, r *v1.TimeRange,
 // streamBase reads the streams of epoch e, optionally one account or one
 // stream, with their numbers and placement but without growth or series.
 func (p *Provider) streamBase(ctx context.Context, e epochInfo, account, stream string) ([]*v1.StreamSummary, *v1.StreamTotals, error) {
+	return p.streamBaseFiltered(ctx, e, account, stream, true)
+}
+
+func (p *Provider) streamBaseFiltered(ctx context.Context, e epochInfo, account, stream string, includeKV bool) ([]*v1.StreamSummary, *v1.StreamTotals, error) {
 	rows, err := p.db().QueryContext(ctx, `
 WITH now_ AS (
   SELECT account, stream,
@@ -53,7 +58,8 @@ WITH now_ AS (
     coalesce(max(bytes) FILTER (WHERE is_leader), max(bytes)) AS bytes,
     coalesce(max(leader) FILTER (WHERE is_leader), max(leader) FILTER (WHERE leader <> '')) AS leader,
     count(DISTINCT created) > 1 AS created_differs
-  FROM stream_stats WHERE epoch = ? AND (? = '' OR account = ?) AND (? = '' OR stream = ?) GROUP BY ALL),
+  FROM stream_stats WHERE epoch = ? AND (? = '' OR account = ?) AND (? = '' OR stream = ?)
+    AND (? OR (NOT starts_with(stream, 'KV_') AND NOT starts_with(stream, 'OBJ_'))) GROUP BY ALL),
 cfg AS (
   SELECT account, stream, max(replicas) AS replicas, count(DISTINCT config_hash) > 1 AS config_differs
   FROM stream_config WHERE ? BETWEEN first_epoch AND last_epoch GROUP BY ALL),
@@ -68,7 +74,7 @@ SELECT n.account, n.stream, c.replicas, n.messages, n.bytes, n.leader,
   coalesce(k.durable, 0), coalesce(k.ephemeral, 0), n.created_differs OR coalesce(c.config_differs, false)
 FROM now_ n LEFT JOIN cfg c USING (account, stream)
 LEFT JOIN cons k USING (account, stream)
-ORDER BY n.account, n.stream`, e.epoch, account, account, stream, stream, e.epoch, e.epoch)
+ORDER BY n.account, n.stream`, e.epoch, account, account, stream, stream, includeKV, e.epoch, e.epoch)
 	if err != nil {
 		return nil, nil, fmt.Errorf("streams: %w", err)
 	}
@@ -92,6 +98,9 @@ ORDER BY n.account, n.stream`, e.epoch, account, account, stream, stream, e.epoc
 		totals.DurableConsumers += durable
 		totals.EphemeralConsumers += ephemeral
 		out = append(out, &s)
+		if len(out) > api.MaxListRankingRows {
+			return nil, nil, fmt.Errorf("%w: list ranking exceeds %d rows; narrow the account or stream filter", api.ErrResourceExhausted, api.MaxListRankingRows)
+		}
 	}
 	if err := rows.Err(); err != nil {
 		return nil, nil, err
@@ -133,16 +142,19 @@ func (p *Provider) growthWidth(start, end time.Time) time.Duration {
 // bytes medians are streamPoints' for the same range, without the messages
 // ListStreams does not read.
 func (p *Provider) streamGrowth(ctx context.Context, start, end time.Time, account, stream string) (map[string][]api.Sample, error) {
-	// ASVS 1.2.4: the bounded timestamps remain query parameters.
+	return p.streamGrowthKeys(ctx, start, end, account, stream, nil)
+}
+func (p *Provider) streamGrowthKeys(ctx context.Context, start, end time.Time, account, stream string, keys []string) (map[string][]api.Sample, error) {
+	// ASVS 1.2.4: timestamps and selected entity keys remain query parameters.
 	start = api.GrowthStart(start, end, p.Interval)
 	rows, err := p.db().QueryContext(ctx, `
 WITH per AS (
   SELECT x.account, x.stream, e.started_at AS t, `+leaderValue("bytes")+` AS v
-  `+streamPerEpoch+`)
+  `+strings.Replace(streamPerEpoch, "  GROUP BY", "  AND (? OR x.account || '/' || x.stream IN (SELECT unnest(?::VARCHAR[])))\n  GROUP BY", 1)+`)
 SELECT account, stream, min(t) + (max(t) - min(t)) / 2, median(v)::DOUBLE, min(t), max(t)
 FROM per WHERE v IS NOT NULL
 GROUP BY account, stream, `+growthBucket+`
-ORDER BY 1, 2, 3`, start, end, account, account, stream, stream, p.growthWidth(start, end).Microseconds())
+ORDER BY 1, 2, 3`, start, end, account, account, stream, stream, keys == nil, keys, p.growthWidth(start, end).Microseconds())
 	if err != nil {
 		return nil, fmt.Errorf("stream growth: %w", err)
 	}
@@ -167,7 +179,7 @@ type streamPts struct{ bytes, msgs []api.Sample }
 // reports), reduced in SQL to at most api.GrowthBuckets+1 aligned medians per stream
 // and keyed by account/stream: one query for every stream.
 func (p *Provider) streamPoints(ctx context.Context, start, end time.Time, account, stream string) (map[string]streamPts, error) {
-	// ASVS 1.2.4: the bounded timestamps remain query parameters.
+	// ASVS 1.2.4: timestamps and selected entity keys remain query parameters.
 	start = api.GrowthStart(start, end, p.Interval)
 	rows, err := p.db().QueryContext(ctx, `
 WITH per AS (
@@ -214,6 +226,9 @@ const sparklineBuckets = 28
 // sparklines reads stream.bytes for every stream over the range in one
 // query, keyed by account/stream, with the buckets of series.
 func (p *Provider) sparklines(ctx context.Context, r *v1.TimeRange, account, stream string) (map[string]*v1.Series, error) {
+	return p.sparklinesKeys(ctx, r, account, stream, nil)
+}
+func (p *Provider) sparklinesKeys(ctx context.Context, r *v1.TimeRange, account, stream string, keys []string) (map[string]*v1.Series, error) {
 	step := api.Step(r, sparklineBuckets, max(p.Interval, time.Second))
 	start, end := span(r)
 	rows, err := p.db().QueryContext(ctx, `
@@ -222,10 +237,11 @@ WITH per AS (
     coalesce(max(x.bytes) FILTER (WHERE x.is_leader), max(x.bytes)) AS v
   FROM stream_stats x JOIN epochs e USING (epoch)
   WHERE e.started_at >= ? AND e.started_at < ? AND (? = '' OR x.account = ?) AND (? = '' OR x.stream = ?)
+  AND (? OR x.account || '/' || x.stream IN (SELECT unnest(?::VARCHAR[])))
   GROUP BY x.account, x.stream, e.epoch, e.started_at)
 SELECT account, stream, time_bucket(to_microseconds(?::BIGINT), t, TIMESTAMP '1970-01-01 00:00:00') AS b, avg(v)::DOUBLE
 FROM per WHERE v IS NOT NULL GROUP BY ALL ORDER BY account, stream, b`,
-		start, end, account, account, stream, stream, step.Microseconds())
+		start, end, account, account, stream, stream, keys == nil, keys, step.Microseconds())
 	if err != nil {
 		return nil, fmt.Errorf("sparklines: %w", err)
 	}
@@ -259,24 +275,54 @@ func isKV(name string) bool { return strings.HasPrefix(name, "KV_") || strings.H
 
 // ListStreams reads the streams of the range's newest epoch.
 func (p *Provider) ListStreams(ctx context.Context, req *v1.ListStreamsRequest) (*v1.ListStreamsResponse, error) {
-	e, ok, err := p.latestEpoch(ctx, req.GetRange())
-	if err != nil || !ok {
-		return &v1.ListStreamsResponse{Totals: &v1.StreamTotals{}}, err
-	}
-	all, totals, err := p.streamRows(ctx, e, req.GetRange(), req.GetAccount(), "")
+	n, err := api.EntityLimit(req.GetLimit())
 	if err != nil {
 		return nil, err
 	}
-	if err := p.streamStatus(ctx, req.GetRange(), e, all); err != nil {
+	scopeReq := proto.Clone(req).(*v1.ListStreamsRequest)
+	scopeReq.Limit = 0
+	scopeReq.PageToken = ""
+	snap, offset, err := p.listPages.Begin(ctx, req.GetPageToken(), api.EntityScope(scopeReq), func() (*api.EntitySnapshot, error) {
+		e, ok, err := p.latestEpoch(ctx, req.GetRange())
+		if err != nil {
+			return nil, err
+		}
+		snap := &api.EntitySnapshot{Epoch: e.epoch, Range: req.GetRange(), Totals: &v1.StreamTotals{}}
+		if !ok {
+			return snap, nil
+		}
+		snap.Streams, snap.Totals, err = p.streamBaseFiltered(ctx, e, req.GetAccount(), "", req.GetIncludeKv())
+		if err != nil {
+			return nil, err
+		}
+		if err = p.streamStatus(ctx, req.GetRange(), e, snap.Streams); err != nil {
+			return nil, err
+		}
+		return snap, nil
+	})
+	if err != nil {
 		return nil, err
 	}
-	res := &v1.ListStreamsResponse{Totals: totals}
-	for _, s := range all {
-		if req.GetIncludeKv() || !isKV(s.GetEntity().GetStream()) {
-			res.Streams = append(res.Streams, s)
+	if err = p.listEpochStored(ctx, snap.Epoch); err != nil {
+		return nil, err
+	}
+	res := &v1.ListStreamsResponse{Totals: proto.Clone(snap.Totals).(*v1.StreamTotals), TotalCount: int32(len(snap.Streams)), Range: snap.Range, Epoch: snap.Epoch}
+	for _, base := range snap.Streams[offset:min(offset+n, len(snap.Streams))] {
+		res.Streams = append(res.Streams, proto.Clone(base).(*v1.StreamSummary))
+	}
+	if !req.GetSummaryOnly() {
+		if err = p.enrichStreamPage(ctx, res.Streams, snap.Range); err != nil {
+			return nil, err
 		}
 	}
-	return api.LimitStreams(res, req.GetLimit()), nil
+	for !api.FitsEntityPage(res) && len(res.Streams) > 1 {
+		res.Streams = res.Streams[:len(res.Streams)-1]
+	}
+	if !api.FitsEntityPage(res) {
+		return nil, fmt.Errorf("%w: stream summary exceeds page byte budget", api.ErrResourceExhausted)
+	}
+	res.NextPageToken = snap.Next(offset + len(res.Streams))
+	return res, nil
 }
 
 // streamStatus sets the streams' statuses, finding codes and expected
@@ -417,4 +463,47 @@ WHERE x.epoch = ? AND (? = '' OR x.account = ?) AND (? = '' OR x.stream = ?) ORD
 		out[acc+"/"+st] = append(out[acc+"/"+st], &v)
 	}
 	return out, rows.Err()
+}
+
+// enrichStreamPage issues two batched history reads for the selected keys only.
+func (p *Provider) enrichStreamPage(ctx context.Context, ss []*v1.StreamSummary, r *v1.TimeRange) error {
+	if len(ss) == 0 {
+		return ctx.Err()
+	}
+	keys := make([]string, 0, len(ss))
+	for _, s := range ss {
+		keys = append(keys, s.GetEntity().GetKey())
+	}
+	start, end := span(r)
+	growth, err := p.streamGrowthKeys(ctx, start, end, "", "", keys)
+	if err != nil {
+		return err
+	}
+	lines, err := p.sparklinesKeys(ctx, &v1.TimeRange{Start: ts(end.Add(-7 * 24 * time.Hour)), End: r.End}, "", "", keys)
+	if err != nil {
+		return err
+	}
+	for _, s := range ss {
+		s.BytesPerDay = api.RobustPerDay(growth[s.GetEntity().GetKey()])
+		s.Bytes_7D = lines[s.GetEntity().GetKey()]
+		if s.Bytes_7D == nil {
+			s.Bytes_7D = &v1.Series{Metric: "stream.bytes", Unit: v1.Unit_UNIT_BYTES}
+		}
+		s.Bytes_7D.Entity = s.Entity
+	}
+	return ctx.Err()
+}
+
+func (p *Provider) listEpochStored(ctx context.Context, epoch int64) error {
+	if epoch == 0 {
+		return ctx.Err()
+	}
+	var n int
+	if err := p.db().QueryRowContext(ctx, "SELECT count(*) FROM epochs WHERE epoch = ?", epoch).Scan(&n); err != nil {
+		return err
+	}
+	if n == 0 {
+		return fmt.Errorf("%w: list epoch is no longer stored; read the first page again", api.ErrFailedPrecondition)
+	}
+	return nil
 }

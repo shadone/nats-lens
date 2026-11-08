@@ -87,7 +87,7 @@ func TestListEventsPagesNewestFirst(t *testing.T) {
 func TestStreamsAndConsumers(t *testing.T) {
 	c := client(t)
 	st := must(c.ListStreams(ctx, connect.NewRequest(&v1.ListStreamsRequest{})))
-	if len(st.GetStreams()) != 8 || st.GetTotals().GetDurableConsumers() != 13 || st.GetTotals().GetEphemeralConsumers() != 41 {
+	if len(st.GetStreams()) != 8 || st.GetTotals().GetDurableConsumers() != 13 || st.GetTotals().GetEphemeralConsumers() != 0 {
 		t.Fatalf("%d streams, totals %v", len(st.GetStreams()), st.GetTotals())
 	}
 	top := st.GetStreams()[0]

@@ -1,3 +1,6 @@
+import { ListTraversal, useListTraversal } from "../components/ListTraversal";
+import { useSystem } from "../lib/useSystem";
+import { rangeKey } from "../lib/timeRange";
 import { useGrowthHistoryNote } from "../components/HistoryNote";
 // Streams: every stream of the newest epoch in the range, worst first.
 import { useSearchParams } from "react-router";
@@ -17,7 +20,9 @@ export function Streams() {
   const [params, setParams] = useSearchParams();
   const kv = params.get("kv") === "1";
   const { spec } = useTimeRange();
-  const q = useStreams(spec, kv);
+  const sys = useSystem();
+  const traversal = useListTraversal(JSON.stringify([sys, rangeKey(spec), kv]));
+  const q = useStreams(spec, kv, traversal.token);
   return (
     <>
       <div className="page-h">
@@ -40,6 +45,7 @@ export function Streams() {
           </label>
         </div>
       </div>
+      <ListTraversal traversal={traversal} next={q.data?.nextPageToken} count={q.data?.totalCount} loaded={q.data?.streams.length ?? 0} error={q.error} refresh={() => { if (!traversal.token) void q.refetch(); }} />
       <QueryView q={q} what="streams">
         {(d) =>
           d.streams.length === 0 ? (

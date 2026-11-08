@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"google.golang.org/protobuf/proto"
 	"strconv"
 	"strings"
 	"time"
@@ -61,27 +62,60 @@ GROUP BY x.account, x.stream, x.consumer ORDER BY x.account, x.stream, x.consume
 		// The status is no data until applyConsumerStatus applies the findings.
 		c.Leader, c.LastDelivered, c.Present, c.Status = leader.String, ts(ntime(last)), true, v1.Status_STATUS_NO_DATA
 		out = append(out, &c)
+		if len(out) > api.MaxListRankingRows {
+			return nil, fmt.Errorf("%w: list ranking exceeds %d rows; narrow the account or stream filter", api.ErrResourceExhausted, api.MaxListRankingRows)
+		}
 	}
 	return out, rows.Err()
 }
 
 // ListConsumers reads the consumers of the range's newest epoch.
 func (p *Provider) ListConsumers(ctx context.Context, req *v1.ListConsumersRequest) (*v1.ListConsumersResponse, error) {
-	e, ok, err := p.latestEpoch(ctx, req.GetRange())
-	if err != nil || !ok {
-		return &v1.ListConsumersResponse{}, err
-	}
-	all, err := p.consumersWithMissing(ctx, req.GetRange(), e, req.GetAccount(), req.GetStream(), "")
+	n, err := api.EntityLimit(req.GetLimit())
 	if err != nil {
 		return nil, err
 	}
-	res := &v1.ListConsumersResponse{}
-	for _, c := range all {
-		if c.GetDurable() || req.GetIncludeEphemeral() {
-			res.Consumers = append(res.Consumers, c)
+	scopeReq := proto.Clone(req).(*v1.ListConsumersRequest)
+	scopeReq.Limit = 0
+	scopeReq.PageToken = ""
+	snap, offset, err := p.listPages.Begin(ctx, req.GetPageToken(), api.EntityScope(scopeReq), func() (*api.EntitySnapshot, error) {
+		e, ok, err := p.latestEpoch(ctx, req.GetRange())
+		if err != nil {
+			return nil, err
 		}
+		snap := &api.EntitySnapshot{Epoch: e.epoch, Range: req.GetRange()}
+		if !ok {
+			return snap, nil
+		}
+		all, err := p.consumersWithMissing(ctx, req.GetRange(), e, req.GetAccount(), req.GetStream(), "")
+		if err != nil {
+			return nil, err
+		}
+		for _, c := range all {
+			if c.GetDurable() || req.GetIncludeEphemeral() {
+				snap.Consumers = append(snap.Consumers, c)
+			}
+		}
+		snap.Consumers = api.SortConsumers(snap.Consumers, req.GetSort(), 0)
+		return snap, nil
+	})
+	if err != nil {
+		return nil, err
 	}
-	res.Consumers = api.SortConsumers(res.Consumers, req.GetSort(), req.GetLimit())
+	if err = p.listEpochStored(ctx, snap.Epoch); err != nil {
+		return nil, err
+	}
+	res := &v1.ListConsumersResponse{TotalCount: int32(len(snap.Consumers)), Range: snap.Range, Epoch: snap.Epoch}
+	for _, c := range snap.Consumers[offset:min(offset+n, len(snap.Consumers))] {
+		res.Consumers = append(res.Consumers, proto.Clone(c).(*v1.ConsumerSummary))
+	}
+	for !api.FitsEntityPage(res) && len(res.Consumers) > 1 {
+		res.Consumers = res.Consumers[:len(res.Consumers)-1]
+	}
+	if !api.FitsEntityPage(res) {
+		return nil, fmt.Errorf("%w: consumer summary exceeds page byte budget", api.ErrResourceExhausted)
+	}
+	res.NextPageToken = snap.Next(offset + len(res.Consumers))
 	return res, nil
 }
 
