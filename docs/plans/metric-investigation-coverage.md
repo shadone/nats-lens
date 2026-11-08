@@ -10,8 +10,8 @@ Task `bXMlS0kOLTauMBDTEL280` remains in progress. This inventory describes the c
 | Message/byte traffic | Separate directions, raw rate peaks, histories, exact comparable server-counter increases and ranking | Complete volumes and resource sequence-volume semantics remain limited |
 | Storage | Capacity endpoint-pinned changes, signed contributors, resource byte histories and native observation ranking | Logical/observed-copy/physical distinctions; no invented replica usage |
 | Slow-consumer detections | Bounded process/collection evidence and native observed-total ranking API | Never infer unique affected clients or a cause from counters |
-| Stream messages/bytes/ingestion | Typed resource histories, summaries, global ranking and fixed evidence links | Incarnation ambiguity; no per-key/object measurements |
-| Consumer pending/ack/redelivery/delivery | Typed histories, native summaries, global ranking and scoped diagnostics | Sequence-volume semantics remain; delivery differs from server slow-consumer detection |
+| Stream messages/bytes/sequence rate | Typed resource histories, summaries, global ranking and fixed evidence links | Adjacent known-creation sequence comparisons; sequence skips prevent message-volume claims; no per-key/object measurements |
+| Consumer pending/ack/redelivery/delivery | Typed histories, native summaries, global ranking and scoped diagnostics | Delivery-sequence rates stop at observed leader/creation interruptions; redeliveries prevent unique-volume claims; delivery differs from server slow-consumer detection |
 | Server/resource/account counts and replica groups | Aggregate native histories, inventory/placement/coverage links | Counts alone cannot identify historical membership or a cause |
 | Meta changes | Exact observed total, per-collection peak and supporting events/server evidence | Derived transitions differ from advisories; no complete-election or independent-group-health claim |
 
@@ -35,4 +35,4 @@ Agents have the same explicit request through the read-only API/CLI. UI ranking 
 
 ## Whole-task acceptance still open
 
-Complete supported volume coverage, resource sequence/incarnation evidence and richer historical set attribution remain limited. Aggregate changes cannot always identify a resource from stored evidence; those pages disclose the limit and offer supporting diagnostics. No new profiling, client causation, physical resource measurements or universal collection pin is implied. Do not close the umbrella task merely because its API/navigation and ranking slices are implemented.
+Complete supported volume coverage, resource unique-message volumes and richer historical set attribution remain limited. Aggregate changes cannot always identify a resource from stored evidence; those pages disclose the limit and offer supporting diagnostics. No new profiling, client causation, physical resource measurements or universal collection pin is implied. Do not close the umbrella task merely because its API/navigation and ranking slices are implemented.
