@@ -20,6 +20,7 @@ import "natslens/v1/placement.proto";
 import "natslens/v1/replay.proto";
 import "natslens/v1/servers.proto";
 import "natslens/v1/slow_consumers.proto";
+import "natslens/v1/storage_change.proto";
 import "natslens/v1/streams.proto";
 import "natslens/v1/subjects.proto";
 import "natslens/v1/systems.proto";
@@ -159,6 +160,12 @@ service LensService {
   // JetStream file store is and when it fills at its growth over the
   // range.
   rpc GetCapacity(GetCapacityRequest) returns (GetCapacityResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Compare pinned completed collections with separate logical, replica and
+  // system-wide server storage quantities; missing observations stay unknown.
+  rpc GetStorageChange(GetStorageChangeRequest) returns (GetStorageChangeResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
