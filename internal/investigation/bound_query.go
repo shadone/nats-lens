@@ -24,6 +24,26 @@ func (c *Context) validateQuery() error {
 	if Method(q.Method) == nil || len(q.Request) == 0 || len(q.Request) > MaxInputBytes || string(q.Request) == "null" {
 		return errors.New("unsupported bound read request")
 	}
+	msg := dynamicpb.NewMessage(Method(q.Method).Input())
+	if err := protojson.Unmarshal(q.Request, msg); err != nil {
+		return errors.New("invalid bound read fields")
+	}
+	if f := msg.Descriptor().Fields().ByJSONName("system"); f != nil && msg.Get(f).String() != c.System {
+		return errors.New("bound read system differs from context")
+	}
+	if f := msg.Descriptor().Fields().ByJSONName("range"); f != nil {
+		if !msg.Has(f) {
+			return errors.New("bound read requires frozen range")
+		}
+		raw, _ := protojson.Marshal(msg.Get(f).Message().Interface())
+		var r Bounds
+		_ = json.Unmarshal(raw, &r)
+		a, z, err := bounds(r)
+		ca, cz, ce := bounds(c.Range)
+		if err != nil || ce != nil || !a.Equal(ca) || !z.Equal(cz) {
+			return errors.New("bound read range differs from context")
+		}
+	}
 	base := *c
 	base.Query = nil
 	base.Filters = nil
@@ -31,17 +51,8 @@ func (c *Context) validateQuery() error {
 	base.Series = nil
 	base.Evidence = nil
 	base.Metric = ""
-	b, _, err := Prepare(q.Method, &base, q.Request)
-	if err != nil {
+	if _, _, err := Prepare(q.Method, &base, q.Request); err != nil {
 		return errors.New("invalid bound read fields or request budget")
-	}
-	msg := dynamicpb.NewMessage(Method(q.Method).Input())
-	if err = protojson.Unmarshal(b, msg); err != nil {
-		return errors.New("invalid bound read request")
-	}
-	// A bound request must name the same system the connection handshake uses.
-	if f := msg.Descriptor().Fields().ByJSONName("system"); f != nil && msg.Get(f).String() != c.System {
-		return errors.New("bound read system differs from context")
 	}
 	return nil
 }
