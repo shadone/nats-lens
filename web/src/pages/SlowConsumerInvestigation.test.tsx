@@ -29,6 +29,9 @@ it("shows interval and payload identities separately, preserves exact scope on e
   const interval = new URL(screen.getByRole("link", { name: "Investigate this interval" }).getAttribute("href")!, "http://example.com");
   expect(interval.searchParams.get("server")).toBe("nats-0");
   expect(interval.searchParams.get("from")).toBe("2026-10-17T13:40:00Z");
+  expect(interval.searchParams.get("to")).toBe("2026-10-17T13:40:31Z");
+  expect(interval.searchParams.get("process")).toBe("PROCESS0");
+  expect(interval.searchParams.get("epoch")).toBe("2");
   expect(lens.getSlowConsumerInvestigation).toHaveBeenCalledWith(expect.objectContaining({system:"example-prod",account:"SHOP",limit:100}),expect.objectContaining({signal:expect.any(AbortSignal)}));
 });
 it.each([false,true])("distinguishes unavailable capture from no matching recorded disconnects (captured %s)",async captured => {
@@ -47,4 +50,13 @@ it("makes incomplete history and bounded results explicit",async()=>{
  expect(screen.getByText(/Observation list limited/)).toBeInTheDocument();
  expect(screen.getByText(/Event list limited/)).toBeInTheDocument();
  expect(screen.getByText(/Finding list limited/)).toBeInTheDocument();
+});
+
+it("sends exact counter selection while keeping the full supporting event range", async () => {
+  vi.mocked(lens.getSlowConsumerInvestigation).mockResolvedValue(response());
+  renderApp(<SlowConsumerInvestigation />, "/servers/slow-consumers?from=2026-10-17T13:40:00Z&to=2026-10-17T13:40:31Z&system=example-prod&account=SHOP&server=nats-0&process=PROCESS0&epoch=2");
+  await screen.findByText("5 counter detections");
+  expect(lens.getSlowConsumerInvestigation).toHaveBeenCalledWith(expect.objectContaining({ observationServerId: "PROCESS0", observationEpoch: 2n, server: "nats-0", account: "SHOP" }), expect.anything());
+  expect(screen.getByText(/Counter selection: process PROCESS0/)).toHaveTextContent("collection 2");
+  expect(screen.getByText(/Supporting events and findings/)).toHaveTextContent("13:40:00Z inclusive to 2026-10-17T13:40:31Z exclusive");
 });
