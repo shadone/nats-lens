@@ -19,7 +19,7 @@ import (
 )
 
 func TestPageBudgetReachesEntityRPCAndResponse(t *testing.T) {
-	for _, method := range []string{"ListStreams", "ListConsumers"} {
+	for _, method := range []string{"ListStreams", "ListConsumers", "ListMetricContributors"} {
 		t.Run(method, func(t *testing.T) {
 			var requests []map[string]json.RawMessage
 			mux := api.NewMux(&api.Handler{Systems: fake.Demo(false)}, fstest.MapFS{"index.html": {Data: []byte("fixture")}})
@@ -40,7 +40,15 @@ func TestPageBudgetReachesEntityRPCAndResponse(t *testing.T) {
 			b, _ := json.Marshal(map[string]inv.Profile{"fixture": {Deployment: srv.URL, Endpoint: srv.URL}})
 			os.WriteFile(profile, b, 0600)
 			var out bytes.Buffer
-			if err := inv.Run(context.Background(), []string{"query", method, "-profiles", profile, "-profile", "fixture", "-system", "example-prod", "-page-size", "1"}, strings.NewReader(""), &out, &out); err != nil {
+			args := []string{"query", method, "-profiles", profile, "-profile", "fixture", "-system", "example-prod", "-page-size", "1"}
+			if method == "ListMetricContributors" {
+				request := filepath.Join(dir, "request.json")
+				if err := os.WriteFile(request, []byte(`{"metric":"server.cpu_percent","ranking":"METRIC_RANKING_MAXIMUM","descending":true}`), 0600); err != nil {
+					t.Fatal(err)
+				}
+				args = append(args, "-request", request)
+			}
+			if err := inv.Run(context.Background(), args, strings.NewReader(""), &out, &out); err != nil {
 				t.Fatal(err, out.String())
 			}
 			var result struct {
@@ -57,6 +65,9 @@ func TestPageBudgetReachesEntityRPCAndResponse(t *testing.T) {
 			if method == "ListConsumers" {
 				key = "consumers"
 			}
+			if method == "ListMetricContributors" {
+				key = "contributors"
+			}
 			var rows []json.RawMessage
 			json.Unmarshal(result.Response[key], &rows)
 			if len(rows) != 1 {
@@ -67,7 +78,7 @@ func TestPageBudgetReachesEntityRPCAndResponse(t *testing.T) {
 			if token == "" {
 				t.Fatal("missing explicit continuation")
 			}
-			if string(result.Response["epoch"]) == "" || string(result.Response["range"]) == "" {
+			if (method != "ListMetricContributors" && string(result.Response["epoch"]) == "") || (method == "ListMetricContributors" && string(result.Response["readAt"]) == "") || string(result.Response["range"]) == "" {
 				t.Fatal("pinned list metadata lost")
 			}
 		})

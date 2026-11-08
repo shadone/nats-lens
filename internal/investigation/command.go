@@ -416,7 +416,7 @@ func pageSizeField(method string) string {
 		return f.JSONName()
 	}
 	switch method {
-	case "ListStreams", "ListConsumers":
+	case "ListStreams", "ListConsumers", "ListMetricContributors":
 		if f := fields.ByName("limit"); f != nil {
 			return f.JSONName()
 		}

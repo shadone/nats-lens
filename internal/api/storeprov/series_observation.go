@@ -24,9 +24,21 @@ func (p *Provider) seriesLookback(metric string, start time.Time) time.Time {
 // materializes one aggregate row, not an unbounded history in application maps.
 // Existing request/batch deadlines include this optional second metric read.
 func (p *Provider) observationSummary(ctx context.Context, metric string, e *v1.EntityRef, r *v1.TimeRange) (*v1.ObservationSummary, error) {
+	q, args, counter, err := p.observationQuery(metric, e, r)
+	if err != nil {
+		return nil, err
+	}
+	out, err := scanObservations(p.db().QueryRowContext(ctx, q, args...), counter)
+	if err != nil {
+		return nil, fmt.Errorf("observations %s: %w", metric, err)
+	}
+	return out, nil
+}
+
+func (p *Provider) observationQuery(metric string, e *v1.EntityRef, r *v1.TimeRange) (string, []any, bool, error) {
 	start, end := span(r)
 	if end.Sub(start) > api.MaxObservationRange {
-		return nil, fmt.Errorf("%w: observation range exceeds 30 days", api.ErrInvalid)
+		return "", nil, false, fmt.Errorf("%w: observation range exceeds 30 days", api.ErrInvalid)
 	}
 	m, ok := metricQueries[metric]
 	edges := "NULL::DOUBLE, NULL::DOUBLE"
@@ -37,7 +49,7 @@ func (p *Provider) observationSummary(ctx context.Context, metric string, e *v1.
 		edges = "min(lo)::DOUBLE, max(hi)::DOUBLE"
 	}
 	if !ok {
-		return nil, fmt.Errorf("%w: unknown observation metric", api.ErrInvalid)
+		return "", nil, false, fmt.Errorf("%w: unknown observation metric", api.ErrInvalid)
 	}
 	total := "NULL::VARCHAR"
 	if m.sum {
@@ -75,14 +87,20 @@ func (p *Provider) observationSummary(ctx context.Context, metric string, e *v1.
  FROM selected WHERE t=(SELECT max(t) FROM selected))
 SELECT count(*),count(v),min(t),max(t),(SELECT v FROM observation_latest),avg(v)::DOUBLE,min(v)::DOUBLE,max(v)::DOUBLE,
 first(t ORDER BY v DESC NULLS LAST,t) FILTER (WHERE v IS NOT NULL),` + total + `,` + edges + `,` + counterColumns + ` FROM selected`
+	return q, args, m.counter != nil, nil
+}
+
+type observationScanner interface{ Scan(...any) error }
+
+func scanObservations(row observationScanner, hasCounter bool, prefix ...any) (*v1.ObservationSummary, error) {
 	out := &v1.ObservationSummary{}
 	var first, last, peak sql.NullTime
 	var latest, mean, low, high, minimumLow, maximumHigh sql.NullFloat64
 	var sum, increase sql.NullString
 	var counterFirst, counterLast sql.NullTime
 	counter := &v1.CounterComparisonSummary{}
-	if err := p.db().QueryRowContext(ctx, q, args...).Scan(&out.SampleCount, &out.KnownCount, &first, &last, &latest, &mean, &low, &high, &peak, &sum, &minimumLow, &maximumHigh, &increase, &counter.ComparisonCount, &counter.ServerIdCount, &counterFirst, &counterLast, &counter.ExcludedReports, &counter.BoundaryReports); err != nil {
-		return nil, fmt.Errorf("observations %s: %w", metric, err)
+	if err := row.Scan(append(prefix, &out.SampleCount, &out.KnownCount, &first, &last, &latest, &mean, &low, &high, &peak, &sum, &minimumLow, &maximumHigh, &increase, &counter.ComparisonCount, &counter.ServerIdCount, &counterFirst, &counterLast, &counter.ExcludedReports, &counter.BoundaryReports)...); err != nil {
+		return nil, err
 	}
 	if first.Valid {
 		out.FirstSampleAt = ts(first.Time.UTC())
@@ -117,7 +135,7 @@ first(t ORDER BY v DESC NULLS LAST,t) FILTER (WHERE v IS NOT NULL),` + total + `
 		}
 		out.ObservedTotal = ptr(sum.String)
 	}
-	if m.counter != nil {
+	if hasCounter {
 		if increase.Valid {
 			if !observationInteger.MatchString(increase.String) {
 				return nil, fmt.Errorf("%w: invalid counter comparison total", api.ErrInvalid)

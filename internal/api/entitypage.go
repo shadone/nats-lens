@@ -14,6 +14,7 @@ import (
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -28,15 +29,17 @@ const (
 // EntitySnapshot freezes ordering, summary values and totals, without stream history.
 // It is a bounded process-local traversal context, not a database snapshot.
 type EntitySnapshot struct {
-	Streams   []*v1.StreamSummary
-	Consumers []*v1.ConsumerSummary
-	Totals    *v1.StreamTotals
-	Epoch     int64
-	Scope     string
-	Range     *v1.TimeRange
-	created   time.Time
-	id        string
-	immutable bool
+	MetricRows []*v1.MetricContributor
+	ReadAt     *timestamppb.Timestamp
+	Streams    []*v1.StreamSummary
+	Consumers  []*v1.ConsumerSummary
+	Totals     *v1.StreamTotals
+	Epoch      int64
+	Scope      string
+	Range      *v1.TimeRange
+	created    time.Time
+	id         string
+	immutable  bool
 }
 
 // ASVS 15.4.1: serialize access to the bounded context cache.
@@ -151,7 +154,7 @@ func (p *EntityPages) Begin(ctx context.Context, token, scope string, load func(
 			if snapshot.id != t.ID {
 				return nil, 0, invalid("page_token does not match dataset, list filters, system, range or summary")
 			}
-			if t.Offset >= max(len(snapshot.Streams), len(snapshot.Consumers)) {
+			if t.Offset >= snapshot.rowCount() {
 				return nil, 0, invalid("page_token offset is outside the list")
 			}
 			snapshot.created = issued
@@ -169,7 +172,7 @@ func (p *EntityPages) Begin(ctx context.Context, token, scope string, load func(
 			if now.Sub(s.created) >= ListContextLifetime {
 				break
 			}
-			if t.Offset >= max(len(s.Streams), len(s.Consumers)) {
+			if t.Offset >= s.rowCount() {
 				return nil, 0, invalid("page_token offset is outside the list")
 			}
 			return s, t.Offset, nil
@@ -183,10 +186,10 @@ func (p *EntityPages) Begin(ctx context.Context, token, scope string, load func(
 	if err := ctx.Err(); err != nil {
 		return nil, 0, err
 	}
-	if max(len(s.Streams), len(s.Consumers)) > MaxListRankingRows {
+	if s.rowCount() > MaxListRankingRows {
 		return nil, 0, fmt.Errorf("%w: list ranking exceeds %d rows; narrow filters", ErrResourceExhausted, MaxListRankingRows)
 	}
-	size := proto.Size(&v1.ListStreamsResponse{Streams: s.Streams, Totals: s.Totals}) + proto.Size(&v1.ListConsumersResponse{Consumers: s.Consumers})
+	size := proto.Size(&v1.ListMetricContributorsResponse{Contributors: s.MetricRows, ReadAt: s.ReadAt}) + proto.Size(&v1.ListStreamsResponse{Streams: s.Streams, Totals: s.Totals}) + proto.Size(&v1.ListConsumersResponse{Consumers: s.Consumers})
 	if size > MaxListContextBytes {
 		return nil, 0, fmt.Errorf("%w: list ranking exceeds %d bytes; narrow the account or stream filter", ErrResourceExhausted, MaxListContextBytes)
 	}
@@ -194,7 +197,12 @@ func (p *EntityPages) Begin(ctx context.Context, token, scope string, load func(
 		stream, _ := proto.MarshalOptions{Deterministic: true}.Marshal(&v1.ListStreamsResponse{Streams: s.Streams, Totals: s.Totals, Epoch: s.Epoch, Range: s.Range})
 		consumers, _ := proto.MarshalOptions{Deterministic: true}.Marshal(&v1.ListConsumersResponse{Consumers: s.Consumers, Epoch: s.Epoch, Range: s.Range})
 		hash := sha256.New()
-		for _, part := range [][]byte{[]byte("natslens immutable list v1"), []byte(p.fingerprint), []byte(scope), stream, consumers} {
+		parts := [][]byte{[]byte("natslens immutable list v1"), []byte(p.fingerprint), []byte(scope), stream, consumers}
+		if len(s.MetricRows) > 0 {
+			b, _ := proto.MarshalOptions{Deterministic: true}.Marshal(&v1.ListMetricContributorsResponse{Contributors: s.MetricRows, ReadAt: s.ReadAt})
+			parts = append(parts, b)
+		}
+		for _, part := range parts {
 			// Length prefix keeps the deterministic byte components unambiguous.
 			fmt.Fprintf(hash, "%d:", len(part))
 			hash.Write(part)
@@ -225,7 +233,7 @@ func (p *EntityPages) Begin(ctx context.Context, token, scope string, load func(
 }
 
 func (s *EntitySnapshot) Next(offset int) string {
-	if offset >= max(len(s.Streams), len(s.Consumers)) {
+	if offset >= s.rowCount() {
 		return ""
 	}
 	token := entityToken{ID: s.id, Offset: offset, Range: s.Range}
@@ -248,4 +256,8 @@ func fitsEntityBytes(m proto.Message, budget int) bool {
 	}
 	b, err := protojson.Marshal(m)
 	return err == nil && len(b) <= budget
+}
+
+func (s *EntitySnapshot) rowCount() int {
+	return max(len(s.Streams), len(s.Consumers), len(s.MetricRows))
 }
