@@ -25,6 +25,9 @@ const MaxDataBytes int64 = 4 << 30
 // schema and engine, and transfers Close ownership to the caller. It never opens
 // an active collector's store, replays a WAL, migrates, repairs, or checkpoints.
 func OpenDatabase(ctx context.Context, path string) (*sql.DB, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	path, err := filepath.Abs(path)
 	if err != nil {
 		return nil, ErrInvalid
@@ -41,6 +44,9 @@ func OpenDatabase(ctx context.Context, path string) (*sql.DB, error) {
 	}
 	db, err := store.ReadOnlyDB(ctx, path)
 	if err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		return nil, fmt.Errorf("%w: closed database cannot open read-only or schema differs", ErrVersion)
 	}
 	return db, nil
@@ -132,7 +138,13 @@ func Open(ctx context.Context, path string) (*Dataset, error) {
 	if err != nil {
 		return nil, err
 	}
-	fail := func(err error) (*Dataset, error) { db.Close(); return nil, err }
+	fail := func(err error) (*Dataset, error) {
+		db.Close()
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		return nil, err
+	}
 	var engine string
 	var schema int
 	if err = db.QueryRowContext(ctx, "SELECT version(),(SELECT max(version) FROM migrations)").Scan(&engine, &schema); err != nil {
@@ -184,7 +196,7 @@ type queryer interface {
 
 func readBoundaries(ctx context.Context, q queryer) (Boundaries, error) {
 	var b Boundaries
-	err := q.QueryRowContext(ctx, `SELECT min(epoch),max(epoch),min(started_at),arg_max(started_at,epoch),arg_max(finished_at,epoch) FROM epochs`).Scan(&b.FirstEpoch, &b.LatestEpoch, &b.FirstCollectionAt, &b.LastCollectionStartedAt, &b.DataReference)
+	err := q.QueryRowContext(ctx, `SELECT min(epoch),max(epoch),min(started_at),arg_max(started_at,epoch),CASE WHEN arg_max(finished_at,epoch) >= arg_max(started_at,epoch) THEN arg_max(finished_at,epoch) ELSE NULL END FROM epochs`).Scan(&b.FirstEpoch, &b.LatestEpoch, &b.FirstCollectionAt, &b.LastCollectionStartedAt, &b.DataReference)
 	if err != nil {
 		return b, err
 	}
