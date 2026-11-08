@@ -225,3 +225,7 @@ A compact **Copy as prompt** action in the top bar or beside a shared chart copi
 - **No saved views.** The address is the only way to keep a page with its range and filters.
 - **No sign-in.** The UI has no accounts of its own; an identity-aware proxy in front of it decides who may open it.
 - **No search across systems.** The search reads the current system only.
+
+### Modal scrolling
+
+Native modal dialogs lock the background page at its existing scroll position. Long dialog content scrolls within the viewport without scrolling the page underneath. Closing or unmounting the last open modal restores the page position and its prior inline scroll styles; closing a nested modal keeps its parent’s lock. Focus returns to the opener without scrolling it into a new position.
