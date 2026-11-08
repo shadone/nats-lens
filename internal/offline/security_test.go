@@ -115,3 +115,27 @@ func TestOfflineSourceErrorsAndEngineRestrictions(t *testing.T) {
 		t.Fatalf("cancellation: %v", err)
 	}
 }
+
+func TestOfflineRejectsUnrepresentableReference(t *testing.T) {
+	for _, at := range []time.Time{time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(9999, 12, 31, 23, 59, 59, 999999000, time.UTC)} {
+		ctx := context.Background()
+		path := closedFixture(t)
+		st, err := store.OpenPath(ctx, path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = st.DB().Exec(`UPDATE epochs SET started_at=?,finished_at=?`, at, at); err != nil {
+			t.Fatal(err)
+		}
+		st.Close()
+		session, err := Open(ctx, investigation.OfflineSelection{DB: path, System: "shop", Interval: time.Second})
+		if err == nil {
+			session.Close()
+			t.Fatalf("unrepresentable raw/derived reference accepted: %s", at)
+		}
+		var diagnostic *investigation.Diagnostic
+		if !errors.As(err, &diagnostic) || diagnostic.Code != "no_reference_clock" {
+			t.Fatalf("clock error not explicit: %v", err)
+		}
+	}
+}

@@ -59,6 +59,12 @@ func TestOfflineClosedSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if !strings.Contains(string(got), `"retention":null`) {
+		t.Fatalf("uncaptured retention policy invented: %s", got)
+	}
+	if !strings.Contains(string(got), `"nowFixed":true`) {
+		t.Fatalf("frozen clock was not identified: %s", got)
+	}
 	if !strings.Contains(string(got), "2026-10-17T14:29:01Z") {
 		t.Fatalf("reference clock: %s", got)
 	}
