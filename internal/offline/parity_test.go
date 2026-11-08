@@ -77,6 +77,8 @@ func TestOfflineLiveParity(t *testing.T) {
 		{"GetOverview", `{}`}, {"GetTimeSeries", `{"metric":"server.cpu_percent","entity":{"type":"ENTITY_TYPE_SERVER","key":"nats-0"},"maxPoints":10}`},
 		{"ListEvents", `{"pageSize":1,"hideRoutine":false,"foldRepeats":false}`}, {"GetEvent", `{"id":"9007199254740993"}`},
 		{"ListFindings", `{"includeMuted":true,"pageSize":1}`}, {"GetFinding", `{"id":"server-001:nats-0"}`},
+		{"ListFindings", `{"range":{"start":"2026-10-17T14:24:00Z","end":"2026-10-17T14:24:30Z"},"includeMuted":true}`},
+		{"ListFindings", `{"range":{"start":"2026-10-17T14:25:30Z","end":"2026-10-17T14:26:00Z"},"includeMuted":true}`},
 		{"GetStatusTimeline", `{}`}, {"ListStreams", `{"account":"APP","limit":1}`}, {"GetStream", `{"account":"APP","stream":"orders"}`},
 		{"GetCapacity", `{}`}, {"GetPlacement", `{}`}, {"GetDataHistory", `{}`}, {"GetSlowConsumerInvestigation", `{}`},
 	}

@@ -33,6 +33,16 @@ func closedFixture(t *testing.T) string {
 		`INSERT INTO events (id,time,received_at,source,kind,server_name,summary) VALUES (9007199254740993,TIMESTAMP '2026-10-17 14:28:00',TIMESTAMP '2026-10-17 14:28:01','sys','server.shutdown','nats-0','Generic captured shutdown'),(9007199254740994,TIMESTAMP '2026-10-17 14:28:30',TIMESTAMP '2026-10-17 14:28:31','sys','server.shutdown','nats-0','Generic later shutdown'),(9007199254740995,TIMESTAMP '2026-10-17 14:30:00',TIMESTAMP '2026-10-17 14:30:01','sys','server.shutdown','nats-0','After collection reference')`,
 		`INSERT INTO findings (id,check_code,entity_type,entity_key,severity,state,last_transition,since,since_epoch,transitioned_at,resolved_at,last_seen_epoch,updated_epoch,detail) VALUES ('server-001:nats-0','server-001','server','nats-0','warning','resolved','resolved',TIMESTAMP '2026-10-17 14:27:00',9007199254740992,TIMESTAMP '2026-10-17 14:28:00',TIMESTAMP '2026-10-17 14:28:00',9007199254740992,9007199254740993,'Captured episode')`,
 		`INSERT INTO finding_transitions (finding_id,check_code,entity_type,entity_key,epoch,time,kind,severity,detail) VALUES ('server-001:nats-0','server-001','server','nats-0',9007199254740992,TIMESTAMP '2026-10-17 14:27:00','firing','warning','Captured episode'),('server-001:nats-0','server-001','server','nats-0',9007199254740993,TIMESTAMP '2026-10-17 14:28:00','resolved','warning','Captured episode')`,
+		`UPDATE epochs SET expected_servers=3,observed_servers=2,expected_names=['nats-0','nats-1','nats-2'],observed_names=['nats-0','nats-1'],missing_names=['nats-2'],partial=true`,
+		`INSERT INTO servers BY NAME SELECT * REPLACE ('S1' AS server_id,'nats-1' AS server_name) FROM servers WHERE server_id='S0'`,
+		`UPDATE servers SET jetstream=true`,
+		`UPDATE server_stats SET js_storage=9007199254741099 WHERE server_id='S0'`,
+		`INSERT INTO server_stats BY NAME SELECT * REPLACE ('S1' AS server_id,2000 AS js_storage) FROM server_stats WHERE server_id='S0'`,
+		`INSERT INTO epoch_endpoints(epoch,server_id,endpoint,state) VALUES (9007199254740993,'S0','JSZ','ok'),(9007199254740993,'S1','JSZ','ok')`,
+		`UPDATE stream_config SET replicas=3`,
+		`INSERT INTO stream_config BY NAME SELECT * REPLACE ('S1' AS server_id) FROM stream_config WHERE server_id='S0'`,
+		`INSERT INTO stream_stats BY NAME SELECT * REPLACE ('S1' AS server_id,7 AS bytes,false AS is_leader) FROM stream_stats WHERE server_id='S0'`,
+		`INSERT INTO finding_transitions (finding_id,check_code,entity_type,entity_key,epoch,time,kind,severity,detail) VALUES ('server-001:nats-0','server-001','server','nats-0',9007199254740989,TIMESTAMP '2026-10-17 14:24:00','firing','warning','Earlier captured episode'),('server-001:nats-0','server-001','server','nats-0',9007199254740990,TIMESTAMP '2026-10-17 14:25:00','resolved','warning','Earlier captured episode')`,
 	} {
 		if _, err = st.DB().ExecContext(ctx, q); err != nil {
 			st.Close()
@@ -368,5 +378,139 @@ func TestOfflineReferenceResolutionPrecision(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestOfflineStorageMeasurementsRemainDistinct(t *testing.T) {
+	session, err := Open(context.Background(), investigation.OfflineSelection{DB: closedFixture(t), System: "shop", Interval: 30 * time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+	capacity, err := session.Source.Query(context.Background(), "GetCapacity", []byte(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Streams []struct {
+			Bytes string `json:"bytes"`
+		} `json:"streams"`
+		Servers []struct {
+			Used     string `json:"used"`
+			Reported bool   `json:"reported"`
+		} `json:"servers"`
+	}
+	if err = json.Unmarshal(capacity, &result); err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Streams) != 1 || result.Streams[0].Bytes != "9007199254740993" {
+		t.Fatalf("logical leader precision: %s", capacity)
+	}
+	found := false
+	for _, server := range result.Servers {
+		if server.Reported && server.Used == "9007199254741099" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("server store precision: %s", capacity)
+	}
+	values := map[string]float64{}
+	for _, metric := range []string{"stream.bytes", "stream.observed_replica_bytes"} {
+		request, _ := json.Marshal(map[string]any{"metric": metric, "entity": map[string]string{"type": "ENTITY_TYPE_STREAM", "key": "APP/orders", "account": "APP", "stream": "orders"}})
+		data, err := session.Source.Query(context.Background(), "GetTimeSeries", request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var response struct {
+			Series struct {
+				Points []struct {
+					Value float64 `json:"value"`
+				} `json:"points"`
+			} `json:"series"`
+		}
+		if err = json.Unmarshal(data, &response); err != nil {
+			t.Fatal(err)
+		}
+		if len(response.Series.Points) != 1 {
+			t.Fatalf("missing metric evidence: %s", data)
+		}
+		values[metric] = response.Series.Points[0].Value
+	}
+	if values["stream.bytes"] >= values["stream.observed_replica_bytes"] {
+		t.Fatalf("logical and observed replica semantics collapsed: %v", values)
+	}
+}
+
+func TestOfflineRetainsSeparateEpisodesAndEventClock(t *testing.T) {
+	ctx := context.Background()
+	session, err := Open(ctx, investigation.OfflineSelection{DB: closedFixture(t), System: "shop", Interval: 30 * time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+	for _, c := range []struct {
+		start, end, since string
+		count             int
+	}{
+		{"14:24:00", "14:24:30", "14:24:00", 1}, {"14:25:30", "14:26:00", "", 0}, {"14:27:00", "14:27:30", "14:27:00", 1},
+	} {
+		request, _ := json.Marshal(map[string]any{"range": map[string]string{"start": "2026-10-17T" + c.start + "Z", "end": "2026-10-17T" + c.end + "Z"}, "includeMuted": true})
+		data, err := session.Source.Query(ctx, "ListFindings", request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var response struct {
+			Findings []struct{ Since, State string } `json:"findings"`
+		}
+		if err = json.Unmarshal(data, &response); err != nil {
+			t.Fatal(err)
+		}
+		if len(response.Findings) != c.count {
+			t.Fatalf("episode count: %s", data)
+		}
+		if c.count > 0 && (response.Findings[0].Since != "2026-10-17T"+c.since+"Z" || response.Findings[0].State != "FINDING_STATE_FIRING") {
+			t.Fatalf("episode rebuilt incorrectly: %s", data)
+		}
+	}
+	detail, err := session.Source.Query(ctx, "GetFinding", []byte(`{"id":"server-001:nats-0"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var history struct {
+		Transitions []json.RawMessage `json:"transitions"`
+	}
+	if err = json.Unmarshal(detail, &history); err != nil {
+		t.Fatal(err)
+	}
+	if len(history.Transitions) != 4 {
+		t.Fatalf("episodes merged/lost: %s", detail)
+	}
+	provenance, _ := json.Marshal(session.Provenance)
+	if !strings.Contains(string(provenance), "2026-10-17T14:30:00Z") {
+		t.Fatalf("event beyond clock hidden: %s", provenance)
+	}
+	for _, c := range []struct {
+		end   string
+		count int
+	}{{"", 2}, {"2026-10-17T14:31:00Z", 3}} {
+		request := map[string]any{"kinds": []string{"server.shutdown"}, "pageSize": 100}
+		if c.end != "" {
+			request["range"] = map[string]string{"start": "2026-10-17T14:00:00Z", "end": c.end}
+		}
+		raw, _ := json.Marshal(request)
+		data, err := session.Source.Query(ctx, "ListEvents", raw)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var events struct {
+			Events []json.RawMessage `json:"events"`
+		}
+		if err = json.Unmarshal(data, &events); err != nil {
+			t.Fatal(err)
+		}
+		if len(events.Events) != c.count {
+			t.Fatalf("event clock conflated: %s", data)
+		}
 	}
 }
