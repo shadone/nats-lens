@@ -455,6 +455,11 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 			unapplied = append(unapplied, k)
 		}
 	}
+	if method == "ListConnections" {
+		name, _ := m["nameContains"].(string)
+		tooling, _ := m["includeTooling"].(bool)
+		put("includeTooling", connectionsIncludeTooling(name, tooling))
+	}
 	// Resolve selected identity as one scope after ordinary page filters, never
 	// from their map iteration order. Explicit request fields are applied later.
 	if e := c.Entity; e != nil {

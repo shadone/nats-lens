@@ -236,6 +236,9 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 			c.Filters["tooling"] = "1"
 		}
 	}
+	if method == "ListConnections" && connectionsIncludeTooling(r.NameContains, r.IncludeTooling) != r.IncludeTooling {
+		limitations = append(limitations, "Connections UI includes tooling for every nonempty name search; it cannot reproduce this explicit tooling exclusion")
+	}
 	if method == "ListConnections" && r.NameContains != "" {
 		c.Filters["name"] = r.NameContains
 	}
