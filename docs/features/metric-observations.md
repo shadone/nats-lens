@@ -6,7 +6,7 @@
 
 ## What it does
 
-Agents can request metric statistics before chart bucketing. The result distinguishes the largest captured per-collection value from a peak of bucket averages and keeps unknown latest values separate from measured zero. This API foundation does not add metric detail pages or change existing chart titles.
+Agents can request metric statistics before chart bucketing. The result distinguishes the largest captured per-collection value from a peak of bucket averages and keeps unknown latest values separate from measured zero. The [metric investigation pages](metric-investigations.md) consume these summaries for supported server metric families.
 
 ## Behavior and rules
 

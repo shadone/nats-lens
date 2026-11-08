@@ -23,3 +23,7 @@ Proposed, not yet confirmed: observation summaries are opt-in and limited to the
 ## Whole-task acceptance still open
 
 Accessible cross-page title links; complete metric detail pages; useful sortable entity comparisons/filters; traffic volumes where supported; scoped findings/events/diagnostic links; historical identity/restart/freshness evidence; chart interval/Back/share support; mobile/theme and end-to-end browser paths. The API foundation is reviewed independently before those pages consume it. No new profiling or collection is implied.
+
+## Server page slice
+
+CPU, memory, connection counts and both traffic-rate directions now have shared metric routes, pre-bucket summaries, twelve-name comparison pages, fixed-range findings/events, selected server histories and interval navigation. Storage and detections reuse specialist destinations. The inventory read remains separate and unbounded by this page-size policy. Remaining whole-task work includes resource metric pages, complete metric-family title coverage, traffic volumes where supported, global contributor ranking and broader historical/process identity evidence. Do not close the umbrella task on this slice.

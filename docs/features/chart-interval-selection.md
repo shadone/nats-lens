@@ -10,6 +10,9 @@ Select time on a storage chart, then choose whether to change the page range or 
 
 ## Behavior and rules
 
+- Supported server metric titles and selected intervals lead to [metric investigations](metric-investigations.md), preserving system, range and reported server scope. Storage and detections reuse specialist pages.
+
+
 - Drag horizontally in either direction to highlight time. A shared dialog shows editable UTC endpoints and the captured system/account scope. The selection uses the chart frame at gesture start; refreshing the chart does not move the endpoints or close the dialog.
 - **Set time range** freezes the global range at the chosen endpoints. Shared URLs preserve milliseconds. Back restores the previous range. Existing endpoint pins are cleared when the range changes.
 - **Investigate change** opens the storage comparison's contributors view with explicit system, account and fixed endpoints. Endpoint availability and retained evidence rules still apply; selecting time does not establish a cause or guarantee matching collections.
