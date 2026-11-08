@@ -26,10 +26,11 @@ const FileName = "natslens.duckdb"
 // Exporting an hour's rows to Parquet only reads and runs without mu, next
 // to the writes.
 type Store struct {
-	db    *sql.DB
-	guard *engineGuard
-	mu    sync.Mutex
-	log   *slog.Logger
+	db       *sql.DB
+	borrowed bool
+	guard    *engineGuard
+	mu       sync.Mutex
+	log      *slog.Logger
 	// warned holds the asset warnings already logged; written under mu by
 	// WriteSnapshot.
 	warned map[warning]bool
@@ -98,7 +99,12 @@ func OpenPath(ctx context.Context, path string) (*Store, error) {
 func (s *Store) DB() *sql.DB { return s.db }
 
 // Close closes the database.
-func (s *Store) Close() error { return s.db.Close() }
+func (s *Store) Close() error {
+	if s.borrowed {
+		return nil
+	}
+	return s.db.Close()
+}
 
 // LastSeenServers returns each server name with the last time it answered,
 // for seeding the collector's expected servers at start.
