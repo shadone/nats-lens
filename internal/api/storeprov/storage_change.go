@@ -127,6 +127,9 @@ ORDER BY time,id`, []any{a.endpoint.FinishedAt.AsTime(), b.endpoint.FinishedAt.A
 			if len(row.ProcessesA) == 1 && len(row.ProcessesB) == 1 && !slices.Equal(row.ProcessesA, row.ProcessesB) {
 				row.Reasons = append(row.Reasons, "server_process_changed")
 			}
+			if len(f.Rows) >= api.MaxStorageChangeRows {
+				return nil, fmt.Errorf("%w: storage comparison exceeds ranking limit", api.ErrResourceExhausted)
+			}
 			f.Rows = append(f.Rows, row)
 		}
 	}
@@ -211,6 +214,9 @@ ORDER BY time,id`, []any{a.endpoint.FinishedAt.AsTime(), b.endpoint.FinishedAt.A
 			}
 			slices.Sort(row.Reasons)
 			row.Reasons = slices.Compact(row.Reasons)
+			if len(f.Rows) >= api.MaxStorageChangeRows {
+				return nil, fmt.Errorf("%w: storage comparison exceeds ranking limit", api.ErrResourceExhausted)
+			}
 			f.Rows = append(f.Rows, row)
 		}
 	}
