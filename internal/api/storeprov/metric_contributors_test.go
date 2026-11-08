@@ -132,8 +132,8 @@ func TestMetricContributorsEveryEntityMetricMatchesDirectObservations(t *testing
 	for epoch := int64(1); epoch <= 3; epoch++ {
 		r.epoch(epoch, start.Add(time.Duration(epoch-1)*30*time.Second), "S0")
 		r.add("server_stats", map[string]any{"epoch": epoch, "server_id": "S0", "cpu_percent": float64(epoch) * 1.5, "mem_bytes": epoch * 100, "connections": epoch * 2, "js_storage": epoch * 1000, "in_msgs": epoch * 20, "out_msgs": epoch * 30, "in_bytes": epoch * 40, "out_bytes": epoch * 50, "slow_consumers": epoch})
-		r.add("stream_stats", map[string]any{"epoch": epoch, "server_id": "S0", "account": "APP", "stream": "orders", "bytes": epoch * 100, "messages": epoch * 10, "last_seq": epoch * 15, "is_leader": true})
-		r.add("consumer_stats", map[string]any{"epoch": epoch, "server_id": "S0", "account": "APP", "stream": "orders", "consumer": "worker", "num_pending": epoch * 10, "num_ack_pending": epoch * 2, "num_redelivered": epoch, "delivered_consumer_seq": epoch * 20, "is_leader": true})
+		r.add("stream_stats", map[string]any{"epoch": epoch, "server_id": "S0", "account": "APP", "stream": "orders", "bytes": epoch * 100, "messages": epoch * 10, "created": start.Add(-time.Hour), "last_seq": epoch * 15, "is_leader": true})
+		r.add("consumer_stats", map[string]any{"epoch": epoch, "server_id": "S0", "account": "APP", "stream": "orders", "consumer": "worker", "num_pending": epoch * 10, "num_ack_pending": epoch * 2, "num_redelivered": epoch, "created": start.Add(-time.Hour), "delivered_consumer_seq": epoch * 20, "is_leader": true})
 	}
 	p := &storeprov.Provider{St: st, Interval: 30 * time.Second}
 	rng := &v1.TimeRange{Start: timestamppb.New(start), End: timestamppb.New(start.Add(90 * time.Second))}

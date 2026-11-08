@@ -13,13 +13,12 @@ import (
 // rate looks.
 const deliveredSpan = 15 * time.Minute
 
-// deliveredRates reads each consumer's delivery rate over the deliveredSpan
-// before the range's end: the increase of the leader's delivered consumer
-// sequence per second, between the first and the last leader row of the
-// newest run. As in consumer.delivered_rate, a run is one leading server
-// and one creation time, so a leader move or a recreated consumer starts
-// over. A consumer with fewer than two leader rows in its newest run has
-// no rate.
+// deliveredRates reads the consumer delivery-sequence advance per second in
+// the newest comparable run within deliveredSpan before the range's end.
+// Adjacent rows need one observed leader, a known coherent creation time,
+// nondecreasing sequence and positive elapsed time within three intervals.
+// Identity changes, unknown evidence and resets start a new run, including an
+// A->B->A return; a run with fewer than two known rows has no rate.
 func (p *Provider) deliveredRates(ctx context.Context, r *v1.TimeRange, account, stream, consumer string) (map[string]float64, error) {
 	return p.deliveredRatesLimited(ctx, r, account, stream, consumer, api.MaxListRankingRows+1)
 }
@@ -31,24 +30,20 @@ func (p *Provider) deliveredRates(ctx context.Context, r *v1.TimeRange, account,
 func (p *Provider) deliveredRatesLimited(ctx context.Context, r *v1.TimeRange, account, stream, consumer string, budget int) (map[string]float64, error) {
 	_, end := span(r)
 	// ASVS 1.2.4: scope and the overflow read limit are bound parameters.
-	rows, err := p.db().QueryContext(ctx, `
-WITH lead AS (
-  SELECT x.account, x.stream, x.consumer, x.server_id, x.created, e.started_at AS t, x.delivered_consumer_seq AS v
-  FROM consumer_stats x JOIN epochs e USING (epoch)
-  WHERE x.is_leader AND x.delivered_consumer_seq IS NOT NULL AND e.started_at >= ? AND e.started_at < ?
-    AND (? = '' OR x.account = ?) AND (? = '' OR x.stream = ?) AND (? = '' OR x.consumer = ?)
-  QUALIFY row_number() OVER (PARTITION BY x.account, x.stream, x.consumer, e.epoch
-    ORDER BY x.delivered_consumer_seq DESC, x.server_id) = 1),
-newest AS (
-  SELECT account, stream, consumer, arg_max(server_id, t) AS server_id, arg_max(created, t) AS created
-  FROM lead GROUP BY ALL)
-SELECT l.account, l.stream, l.consumer,
-  (arg_max(l.v, l.t) - arg_min(l.v, l.t)) * 1000.0 / date_diff('millisecond', min(l.t), max(l.t))
-FROM lead l JOIN newest n ON n.account = l.account AND n.stream = l.stream AND n.consumer = l.consumer
-  AND n.server_id = l.server_id AND n.created IS NOT DISTINCT FROM l.created
-GROUP BY ALL HAVING count(*) >= 2 AND max(l.t) > min(l.t)
-ORDER BY l.account, l.stream, l.consumer LIMIT ?`,
-		end.Add(-deliveredSpan), end, account, account, stream, stream, consumer, consumer, budget+1)
+	where := `AND (?='' OR x.account=?) AND (?='' OR x.stream=?) AND (?='' OR x.consumer=?)`
+	query := `/* delivered_rate_summary */ WITH ` + resourceSequenceCTEs(true, where) + `,
+ sequence_runs AS (
+  SELECT *,sum(CASE WHEN comparable THEN 0 ELSE 1 END) OVER(PARTITION BY account,stream,consumer ORDER BY epoch ROWS UNBOUNDED PRECEDING) AS run_id
+  FROM sequence_steps),
+ selected AS(SELECT * FROM sequence_runs WHERE epoch IN(SELECT epoch FROM sequence_epochs)),
+ newest AS(SELECT account,stream,consumer,max(run_id) AS run_id FROM selected GROUP BY ALL)
+ SELECT s.account,s.stream,s.consumer,
+ (arg_max(s.seq,s.epoch)::HUGEINT-arg_min(s.seq,s.epoch)::HUGEINT)*1000.0/date_diff('millisecond',min(s.t),max(s.t))
+ FROM selected s JOIN newest n USING(account,stream,consumer,run_id)
+ WHERE s.created IS NOT NULL AND s.seq>=0
+ GROUP BY s.account,s.stream,s.consumer HAVING count(*)>=2 AND max(s.t)>min(s.t)
+ ORDER BY s.account,s.stream,s.consumer LIMIT ?`
+	rows, err := p.db().QueryContext(ctx, p.metricQuery(metricSQL{query: query}), end.Add(-deliveredSpan), end, account, account, stream, stream, consumer, consumer, budget+1)
 	if err != nil {
 		return nil, fmt.Errorf("delivered rates: %w", err)
 	}
