@@ -3,6 +3,8 @@ package api
 import (
 	"context"
 
+	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -72,4 +74,45 @@ func (h *Handler) withAccountNames(ctx context.Context, p Provider, res any) {
 		return
 	}
 	nameAccounts(msg.ProtoReflect(), names)
+}
+
+// PageAccountNamer optionally scopes list decoration to selected-page accounts.
+// Other providers keep the AccountNamer contract.
+type PageAccountNamer interface {
+	AccountNamesFor(context.Context, []string) (map[string]string, error)
+}
+
+func (h *Handler) withEntityPageAccountNames(ctx context.Context, p Provider, res any) error {
+	n, ok := p.(PageAccountNamer)
+	if !ok {
+		h.withAccountNames(ctx, p, res)
+		return nil
+	}
+	var accounts []string
+	seen := map[string]bool{}
+	add := func(account string) {
+		if !seen[account] {
+			seen[account] = true
+			accounts = append(accounts, account)
+		}
+	}
+	switch m := res.(type) {
+	case *v1.ListStreamsResponse:
+		for _, s := range m.Streams {
+			add(s.GetEntity().GetAccount())
+		}
+	case *v1.ListConsumersResponse:
+		for _, c := range m.Consumers {
+			add(c.GetEntity().GetAccount())
+		}
+	default:
+		h.withAccountNames(ctx, p, res)
+		return nil
+	}
+	names, err := n.AccountNamesFor(ctx, accounts)
+	if err != nil {
+		return err
+	}
+	nameAccounts(res.(proto.Message).ProtoReflect(), names)
+	return nil
 }

@@ -223,7 +223,7 @@ SELECT l FROM v WHERE 2 * n > (SELECT coalesce(nullif(expected_servers, 0), obse
 // streamFacts counts the epoch's streams, KV buckets and object stores by
 // replicas and those with a lagging replica.
 func (p *Provider) streamFacts(ctx context.Context, epoch int64, f *epochFacts) error {
-	reps, err := p.streamReplicas(ctx, epoch, "", "", "")
+	reps, err := p.streamReplicasAll(ctx, epoch, "", "", "")
 	if err != nil {
 		return err
 	}

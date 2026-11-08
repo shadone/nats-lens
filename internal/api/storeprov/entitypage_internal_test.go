@@ -24,7 +24,7 @@ type entityPageDB struct {
 
 func (d *entityPageDB) QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error) {
 	d.queries++
-	if strings.Contains(q, "SELECT unnest(?::VARCHAR[])") {
+	if strings.Contains(q, "WITH per AS") && strings.Contains(q, "SELECT unnest(?::VARCHAR[])") {
 		found := false
 		for _, a := range args {
 			if keys, ok := a.([]string); ok {
@@ -309,7 +309,7 @@ type cancelHistoryDB struct {
 }
 
 func (d *cancelHistoryDB) QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error) {
-	if strings.Contains(q, "SELECT unnest(?::VARCHAR[])") {
+	if strings.Contains(q, "WITH per AS") && strings.Contains(q, "SELECT unnest(?::VARCHAR[])") {
 		d.cancel()
 	}
 	return d.queryReader.QueryContext(ctx, q, args...)
