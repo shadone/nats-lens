@@ -563,6 +563,35 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 			if method == "GetEvent" {
 				applied = put("id", v)
 			}
+		case "change":
+			if method == "GetStorageChange" {
+				value := "STORAGE_CHANGE_ORDER_UNSPECIFIED"
+				if v == "asc" {
+					value = "STORAGE_CHANGE_ORDER_LOGICAL_ASCENDING"
+				}
+				if v == "desc" {
+					value = "STORAGE_CHANGE_ORDER_LOGICAL_DESCENDING"
+				}
+				applied = put("order", value)
+			}
+		case "resource":
+			if method == "GetStorageChange" {
+				value := "CAPACITY_STREAM_KIND_UNSPECIFIED"
+				if v == "stream" {
+					value = "CAPACITY_STREAM_KIND_STREAM"
+				}
+				if v == "kv" {
+					value = "CAPACITY_STREAM_KIND_KEY_VALUE"
+				}
+				if v == "object" {
+					value = "CAPACITY_STREAM_KIND_OBJECT_STORE"
+				}
+				applied = put("resourceKind", value)
+			}
+		case "contributors":
+			if method == "GetStorageChange" {
+				applied = put("resourcesOnly", v == "1")
+			}
 		case "a", "b", "epochA", "epochB":
 			applied = put(k, v)
 		}

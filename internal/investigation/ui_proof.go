@@ -31,7 +31,7 @@ var uiPredicates = map[string]string{
 	"GetAccountsAndAuth": "system range", "GetSubjects": "system range account filter", "MatchSubject": "system range account",
 	"GetMicroServices": "system range account", "GetApplications": "system range account include_tooling",
 	"GetSlowConsumerInvestigation": "system range server account observation_server_id observation_epoch",
-	"GetStorageChange":             "system account a b epoch_a epoch_b",
+	"GetStorageChange":             "system account a b epoch_a epoch_b order resource_kind resources_only",
 }
 var uiDefaultOnly = map[string]string{
 	"ListSystems":      "strip_buckets",

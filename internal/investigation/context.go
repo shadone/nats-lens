@@ -60,7 +60,7 @@ const MaxInputBytes = 64 << 10
 const MaxRange = 30 * 24 * time.Hour
 
 var metricPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$`)
-var filterKeys = strings.Fields("sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset epochA epochB")
+var filterKeys = strings.Fields("sev state muted check src kind client show type key server account stream consumer id filter q sort dir a b kv ephemeral name tooling process epoch subject cmp servers asset epochA epochB change resource contributors")
 
 func validText(s string, n int) bool {
 	if !utf8.ValidString(s) || len(s) > n {
