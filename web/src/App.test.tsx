@@ -175,13 +175,13 @@ describe("sidebar", () => {
     expect(within(nav()).getByText("Messaging").parentElement).toHaveTextContent("SubjectsMicro servicesApplicationsConnections");
   });
 
-  it("keeps the system and the range on every page link, the account only where it applies", async () => {
+  it("keeps the system and the range on every page link, the account where it applies or is retained for investigation", async () => {
     renderApp(<App />, "/consumers?system=example-global&range=6h&account=APP");
     await screen.findByText("Global");
     for (const a of within(nav()).getAllByRole("link")) {
       const p = params(a.getAttribute("href"));
       const name = a.textContent?.replace(/\d+$/, "");
-      const scoped = ["Checks", "Subjects", "Micro services", "Applications", "Consumers", "Connections", "KV Stores", "Object Stores"].includes(name ?? "") ? "APP" : null;
+      const scoped = ["Checks", "Servers", "Subjects", "Micro services", "Applications", "Consumers", "Connections", "KV Stores", "Object Stores"].includes(name ?? "") ? "APP" : null;
       expect([name, p.get("system"), p.get("range"), p.get("account")]).toEqual([name, "example-global", "6h", scoped]);
     }
   });
