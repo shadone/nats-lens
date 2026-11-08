@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"google.golang.org/protobuf/proto"
 	"hash/fnv"
 	"slices"
 	"strconv"
@@ -121,13 +122,19 @@ func (s scen) leader(sp streamSpec) string {
 }
 
 func (s scen) streamSummary(sp streamSpec, cur []*v1.Finding, r *v1.TimeRange) *v1.StreamSummary {
+	out := s.streamSummaryBase(sp, cur, r)
+	out.BytesPerDay = s.growth(out.Entity, r)
+	out.Bytes_7D = s.series("stream.bytes", out.Entity, &v1.TimeRange{Start: ts(r.GetEnd().AsTime().Add(-7 * 24 * time.Hour)), End: r.GetEnd()}, 28)
+	return out
+}
+
+func (s scen) streamSummaryBase(sp streamSpec, cur []*v1.Finding, r *v1.TimeRange) *v1.StreamSummary {
 	e := streamRef(sp.name)
 	st, codes := worstStatus(cur, e)
 	out := &v1.StreamSummary{
 		Entity: e, Replicas: ptr(int32(len(s.sc.peers(sp)))), Messages: ptr(sp.msgs), Bytes: ptr(int64(sp.bytes)), Consumers: ptr(int32(len(s.consumersAt(sp, s.epochTime(r))) + sp.ephemeral)),
-		BytesPerDay: s.growth(e, r), Status: st, FindingCodes: codes, Leader: s.streamLeaderAt(sp, s.epochTime(r)), Placement: s.placementAt(sp, s.epochTime(r), false),
+		Status: st, FindingCodes: codes, Leader: s.streamLeaderAt(sp, s.epochTime(r)), Placement: s.placementAt(sp, s.epochTime(r), false),
 		ServersDisagree: sp.disagrees != "",
-		Bytes_7D:        s.series("stream.bytes", e, &v1.TimeRange{Start: ts(r.GetEnd().AsTime().Add(-7 * 24 * time.Hour)), End: r.GetEnd()}, 28),
 	}
 	if len(sp.expected) > 0 {
 		out.ConsumersExpected = ptr(int32(len(sp.consumers) + len(sp.expected)))
@@ -142,26 +149,52 @@ func sortByStatus[T any](items []T, status func(T) v1.Status, key func(T) string
 }
 
 // ListStreams returns the streams, worst first.
-func (p *Provider) ListStreams(_ context.Context, req *v1.ListStreamsRequest) (*v1.ListStreamsResponse, error) {
-	s := p.scen()
-	cur := current(p.findings(s), req.GetRange())
-	res := &v1.ListStreamsResponse{Totals: &v1.StreamTotals{}}
-	var watchers int32
-	for _, sp := range p.sc.streams {
-		watchers += int32(sp.ephemeral)
-		if (req.GetAccount() != "" && req.GetAccount() != Account) || (isKV(sp.name) && !req.GetIncludeKv()) {
-			continue
+func (p *Provider) ListStreams(ctx context.Context, req *v1.ListStreamsRequest) (*v1.ListStreamsResponse, error) {
+	n, err := api.EntityLimit(req.GetLimit())
+	if err != nil {
+		return nil, err
+	}
+	scope := proto.Clone(req).(*v1.ListStreamsRequest)
+	scope.Limit = 0
+	scope.PageToken = ""
+	snap, offset, err := p.listPages.Begin(ctx, req.GetPageToken(), api.EntityScope(scope), func() (*api.EntitySnapshot, error) {
+		s := p.scen()
+		cur := current(p.findings(s), req.GetRange())
+		snap := &api.EntitySnapshot{Range: req.GetRange(), Epoch: s.now.UnixMicro(), Totals: &v1.StreamTotals{}}
+		for _, sp := range p.sc.streams {
+			if (req.GetAccount() != "" && req.GetAccount() != Account) || (isKV(sp.name) && !req.GetIncludeKv()) {
+				continue
+			}
+			snap.Streams = append(snap.Streams, s.streamSummaryBase(sp, cur, req.GetRange()))
+			snap.Totals.Bytes += int64(sp.bytes)
+			snap.Totals.DurableConsumers += int32(len(s.consumersAt(sp, s.epochTime(req.GetRange()))))
+			snap.Totals.EphemeralConsumers += int32(sp.ephemeral)
 		}
-		res.Streams = append(res.Streams, s.streamSummary(sp, cur, req.GetRange()))
-		res.Totals.Bytes += int64(sp.bytes)
-		res.Totals.DurableConsumers += int32(len(s.consumersAt(sp, s.epochTime(req.GetRange()))))
-		res.Totals.EphemeralConsumers += int32(sp.ephemeral)
+		sortByStatus(snap.Streams, (*v1.StreamSummary).GetStatus, func(x *v1.StreamSummary) string { return x.GetEntity().GetKey() })
+		return snap, nil
+	})
+	if err != nil {
+		return nil, err
 	}
-	if !req.GetIncludeKv() {
-		res.Totals.EphemeralConsumers = watchers // the KV watchers exist whether or not their bucket is listed
+	res := &v1.ListStreamsResponse{Totals: proto.Clone(snap.Totals).(*v1.StreamTotals), TotalCount: int32(len(snap.Streams)), Range: snap.Range, Epoch: snap.Epoch}
+	now := time.UnixMicro(snap.Epoch)
+	s := scen{now: now, shift: now.Sub(FixedNow), sc: p.sc}
+	for _, base := range snap.Streams[offset:min(offset+n, len(snap.Streams))] {
+		c := proto.Clone(base).(*v1.StreamSummary)
+		if !req.GetSummaryOnly() {
+			c.BytesPerDay = s.growth(c.Entity, snap.Range)
+			c.Bytes_7D = s.series("stream.bytes", c.Entity, &v1.TimeRange{Start: ts(snap.Range.End.AsTime().Add(-7 * 24 * time.Hour)), End: snap.Range.End}, 28)
+		}
+		res.Streams = append(res.Streams, c)
 	}
-	sortByStatus(res.Streams, (*v1.StreamSummary).GetStatus, func(x *v1.StreamSummary) string { return x.GetEntity().GetName() })
-	return api.LimitStreams(res, req.GetLimit()), nil
+	for !api.FitsEntityPage(res) && len(res.Streams) > 1 {
+		res.Streams = res.Streams[:len(res.Streams)-1]
+	}
+	if !api.FitsEntityPage(res) {
+		return nil, fmt.Errorf("%w: stream summary exceeds page byte budget", api.ErrResourceExhausted)
+	}
+	res.NextPageToken = snap.Next(offset + len(res.Streams))
+	return res, ctx.Err()
 }
 
 func (sc *scenario) findStream(account, name string) (streamSpec, error) {
@@ -316,19 +349,43 @@ func (s scen) consumers(sp streamSpec, cur []*v1.Finding, ephemeral bool, at tim
 }
 
 // ListConsumers returns the consumers, worst first.
-func (p *Provider) ListConsumers(_ context.Context, req *v1.ListConsumersRequest) (*v1.ListConsumersResponse, error) {
-	s := p.scen()
-	cur := current(p.findings(s), req.GetRange())
-	res := &v1.ListConsumersResponse{}
-	for _, sp := range p.sc.streams {
-		if (req.GetAccount() != "" && req.GetAccount() != Account) || (req.GetStream() != "" && req.GetStream() != sp.name) {
-			continue
-		}
-		res.Consumers = append(res.Consumers, s.consumers(sp, cur, req.GetIncludeEphemeral(), s.epochTime(req.GetRange()))...)
+func (p *Provider) ListConsumers(ctx context.Context, req *v1.ListConsumersRequest) (*v1.ListConsumersResponse, error) {
+	n, err := api.EntityLimit(req.GetLimit())
+	if err != nil {
+		return nil, err
 	}
-	sortByStatus(res.Consumers, (*v1.ConsumerSummary).GetStatus, func(x *v1.ConsumerSummary) string { return x.GetEntity().GetKey() })
-	res.Consumers = sortedConsumers(s.withRates(res.Consumers, req.GetRange()), req)
-	return res, nil
+	scope := proto.Clone(req).(*v1.ListConsumersRequest)
+	scope.Limit = 0
+	scope.PageToken = ""
+	snap, offset, err := p.listPages.Begin(ctx, req.GetPageToken(), api.EntityScope(scope), func() (*api.EntitySnapshot, error) {
+		s := p.scen()
+		cur := current(p.findings(s), req.GetRange())
+		snap := &api.EntitySnapshot{Range: req.GetRange(), Epoch: s.now.UnixMicro()}
+		for _, sp := range p.sc.streams {
+			if (req.GetAccount() != "" && req.GetAccount() != Account) || (req.GetStream() != "" && req.GetStream() != sp.name) {
+				continue
+			}
+			snap.Consumers = append(snap.Consumers, s.consumers(sp, cur, req.GetIncludeEphemeral(), s.epochTime(req.GetRange()))...)
+		}
+		sortByStatus(snap.Consumers, (*v1.ConsumerSummary).GetStatus, func(x *v1.ConsumerSummary) string { return x.GetEntity().GetKey() })
+		snap.Consumers = api.SortConsumers(s.withRates(snap.Consumers, req.GetRange()), req.GetSort(), 0)
+		return snap, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	res := &v1.ListConsumersResponse{TotalCount: int32(len(snap.Consumers)), Range: snap.Range, Epoch: snap.Epoch}
+	for _, c := range snap.Consumers[offset:min(offset+n, len(snap.Consumers))] {
+		res.Consumers = append(res.Consumers, proto.Clone(c).(*v1.ConsumerSummary))
+	}
+	for !api.FitsEntityPage(res) && len(res.Consumers) > 1 {
+		res.Consumers = res.Consumers[:len(res.Consumers)-1]
+	}
+	if !api.FitsEntityPage(res) {
+		return nil, fmt.Errorf("%w: consumer summary exceeds page byte budget", api.ErrResourceExhausted)
+	}
+	res.NextPageToken = snap.Next(offset + len(res.Consumers))
+	return res, ctx.Err()
 }
 
 // GetConsumer returns one consumer with each replica's view, and the

@@ -133,7 +133,7 @@ func TestStreamsAndConsumersFromSnapshots(t *testing.T) {
 	if strings.Join(names, ",") != "catalog-changes,order-archive,order-jobs,test-stream" {
 		t.Fatalf("streams = %v", names)
 	}
-	if st.GetTotals().GetDurableConsumers() != 5 || st.GetTotals().GetEphemeralConsumers() != 1 {
+	if st.GetTotals().GetDurableConsumers() != 5 || st.GetTotals().GetEphemeralConsumers() != 0 {
 		t.Fatalf("totals = %v", st.GetTotals())
 	}
 	jobs := st.GetStreams()[2]

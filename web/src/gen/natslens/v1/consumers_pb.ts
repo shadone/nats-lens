@@ -16,7 +16,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/consumers.proto.
  */
 export const file_natslens_v1_consumers: GenFile = /*@__PURE__*/
-  fileDesc("ChtuYXRzbGVucy92MS9jb25zdW1lcnMucHJvdG8SC25hdHNsZW5zLnYxIp0ECg9Db25zdW1lclN1bW1hcnkSJgoGZW50aXR5GAEgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEg8KB2R1cmFibGUYAiABKAgSFQoIcmVwbGljYXMYAyABKAVIAIgBARIYCgtudW1fcGVuZGluZxgEIAEoA0gBiAEBEhwKD251bV9hY2tfcGVuZGluZxgFIAEoA0gCiAEBEhwKD251bV9yZWRlbGl2ZXJlZBgGIAEoA0gDiAEBEhgKC251bV93YWl0aW5nGAcgASgDSASIAQESDgoGbGVhZGVyGAggASgJEjIKDmxhc3RfZGVsaXZlcmVkGAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIOCgZwYXVzZWQYCiABKAgSIwoGc3RhdHVzGAsgASgOMhMubmF0c2xlbnMudjEuU3RhdHVzEhUKDWZpbmRpbmdfY29kZXMYDCADKAkSGAoQc2VydmVyc19kaXNhZ3JlZRgNIAEoCBIPCgdwcmVzZW50GA4gASgIEiEKFGRlbGl2ZXJlZF9wZXJfc2Vjb25kGA8gASgBSAWIAQFCCwoJX3JlcGxpY2FzQg4KDF9udW1fcGVuZGluZ0ISChBfbnVtX2Fja19wZW5kaW5nQhIKEF9udW1fcmVkZWxpdmVyZWRCDgoMX251bV93YWl0aW5nQhcKFV9kZWxpdmVyZWRfcGVyX3NlY29uZCKtAgoSQ29uc3VtZXJTZXJ2ZXJWaWV3Eg4KBnNlcnZlchgBIAEoCRIRCglpc19sZWFkZXIYAiABKAgSDwoHY3VycmVudBgDIAEoCBIPCgdvZmZsaW5lGAQgASgIEhAKA2xhZxgFIAEoA0gAiAEBEiEKFGRlbGl2ZXJlZF9zdHJlYW1fc2VxGAYgASgDSAGIAQESIQoUYWNrX2Zsb29yX3N0cmVhbV9zZXEYByABKANIAogBARIrCgdjcmVhdGVkGAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBITCgtjb25maWdfaGFzaBgJIAEoCUIGCgRfbGFnQhcKFV9kZWxpdmVyZWRfc3RyZWFtX3NlcUIXChVfYWNrX2Zsb29yX3N0cmVhbV9zZXEiwQEKFExpc3RDb25zdW1lcnNSZXF1ZXN0EiUKBXJhbmdlGAEgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEg8KB2FjY291bnQYAiABKAkSDgoGc3RyZWFtGAMgASgJEhkKEWluY2x1ZGVfZXBoZW1lcmFsGAQgASgIEg4KBnN5c3RlbRgFIAEoCRInCgRzb3J0GAYgASgOMhkubmF0c2xlbnMudjEuQ29uc3VtZXJTb3J0Eg0KBWxpbWl0GAcgASgFIkgKFUxpc3RDb25zdW1lcnNSZXNwb25zZRIvCgljb25zdW1lcnMYASADKAsyHC5uYXRzbGVucy52MS5Db25zdW1lclN1bW1hcnkifgoSR2V0Q29uc3VtZXJSZXF1ZXN0Eg8KB2FjY291bnQYASABKAkSDgoGc3RyZWFtGAIgASgJEhAKCGNvbnN1bWVyGAMgASgJEiUKBXJhbmdlGAQgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEg4KBnN5c3RlbRgFIAEoCSL7AQoTR2V0Q29uc3VtZXJSZXNwb25zZRIuCghjb25zdW1lchgBIAEoCzIcLm5hdHNsZW5zLnYxLkNvbnN1bWVyU3VtbWFyeRIoCgZjb25maWcYAiADKAsyGC5uYXRzbGVucy52MS5Db25maWdWYWx1ZRIwCgdzZXJ2ZXJzGAMgAygLMh8ubmF0c2xlbnMudjEuQ29uc3VtZXJTZXJ2ZXJWaWV3EjAKDWRpc2FncmVlbWVudHMYBCADKAsyGS5uYXRzbGVucy52MS5EaXNhZ3JlZW1lbnQSJgoIZmluZGluZ3MYBSADKAsyFC5uYXRzbGVucy52MS5GaW5kaW5nKk8KDENvbnN1bWVyU29ydBIdChlDT05TVU1FUl9TT1JUX1VOU1BFQ0lGSUVEEAASIAocQ09OU1VNRVJfU09SVF9ERUxJVkVSRURfUkFURRABQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_findings]);
+  fileDesc("ChtuYXRzbGVucy92MS9jb25zdW1lcnMucHJvdG8SC25hdHNsZW5zLnYxIp0ECg9Db25zdW1lclN1bW1hcnkSJgoGZW50aXR5GAEgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEg8KB2R1cmFibGUYAiABKAgSFQoIcmVwbGljYXMYAyABKAVIAIgBARIYCgtudW1fcGVuZGluZxgEIAEoA0gBiAEBEhwKD251bV9hY2tfcGVuZGluZxgFIAEoA0gCiAEBEhwKD251bV9yZWRlbGl2ZXJlZBgGIAEoA0gDiAEBEhgKC251bV93YWl0aW5nGAcgASgDSASIAQESDgoGbGVhZGVyGAggASgJEjIKDmxhc3RfZGVsaXZlcmVkGAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIOCgZwYXVzZWQYCiABKAgSIwoGc3RhdHVzGAsgASgOMhMubmF0c2xlbnMudjEuU3RhdHVzEhUKDWZpbmRpbmdfY29kZXMYDCADKAkSGAoQc2VydmVyc19kaXNhZ3JlZRgNIAEoCBIPCgdwcmVzZW50GA4gASgIEiEKFGRlbGl2ZXJlZF9wZXJfc2Vjb25kGA8gASgBSAWIAQFCCwoJX3JlcGxpY2FzQg4KDF9udW1fcGVuZGluZ0ISChBfbnVtX2Fja19wZW5kaW5nQhIKEF9udW1fcmVkZWxpdmVyZWRCDgoMX251bV93YWl0aW5nQhcKFV9kZWxpdmVyZWRfcGVyX3NlY29uZCKtAgoSQ29uc3VtZXJTZXJ2ZXJWaWV3Eg4KBnNlcnZlchgBIAEoCRIRCglpc19sZWFkZXIYAiABKAgSDwoHY3VycmVudBgDIAEoCBIPCgdvZmZsaW5lGAQgASgIEhAKA2xhZxgFIAEoA0gAiAEBEiEKFGRlbGl2ZXJlZF9zdHJlYW1fc2VxGAYgASgDSAGIAQESIQoUYWNrX2Zsb29yX3N0cmVhbV9zZXEYByABKANIAogBARIrCgdjcmVhdGVkGAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBITCgtjb25maWdfaGFzaBgJIAEoCUIGCgRfbGFnQhcKFV9kZWxpdmVyZWRfc3RyZWFtX3NlcUIXChVfYWNrX2Zsb29yX3N0cmVhbV9zZXEi1QEKFExpc3RDb25zdW1lcnNSZXF1ZXN0EiUKBXJhbmdlGAEgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEg8KB2FjY291bnQYAiABKAkSDgoGc3RyZWFtGAMgASgJEhkKEWluY2x1ZGVfZXBoZW1lcmFsGAQgASgIEg4KBnN5c3RlbRgFIAEoCRInCgRzb3J0GAYgASgOMhkubmF0c2xlbnMudjEuQ29uc3VtZXJTb3J0Eg0KBWxpbWl0GAcgASgFEhIKCnBhZ2VfdG9rZW4YCCABKAkirAEKFUxpc3RDb25zdW1lcnNSZXNwb25zZRIvCgljb25zdW1lcnMYASADKAsyHC5uYXRzbGVucy52MS5Db25zdW1lclN1bW1hcnkSEwoLdG90YWxfY291bnQYAiABKAUSFwoPbmV4dF9wYWdlX3Rva2VuGAMgASgJEiUKBXJhbmdlGAQgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEg0KBWVwb2NoGAUgASgDIn4KEkdldENvbnN1bWVyUmVxdWVzdBIPCgdhY2NvdW50GAEgASgJEg4KBnN0cmVhbRgCIAEoCRIQCghjb25zdW1lchgDIAEoCRIlCgVyYW5nZRgEIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRIOCgZzeXN0ZW0YBSABKAki+wEKE0dldENvbnN1bWVyUmVzcG9uc2USLgoIY29uc3VtZXIYASABKAsyHC5uYXRzbGVucy52MS5Db25zdW1lclN1bW1hcnkSKAoGY29uZmlnGAIgAygLMhgubmF0c2xlbnMudjEuQ29uZmlnVmFsdWUSMAoHc2VydmVycxgDIAMoCzIfLm5hdHNsZW5zLnYxLkNvbnN1bWVyU2VydmVyVmlldxIwCg1kaXNhZ3JlZW1lbnRzGAQgAygLMhkubmF0c2xlbnMudjEuRGlzYWdyZWVtZW50EiYKCGZpbmRpbmdzGAUgAygLMhQubmF0c2xlbnMudjEuRmluZGluZypPCgxDb25zdW1lclNvcnQSHQoZQ09OU1VNRVJfU09SVF9VTlNQRUNJRklFRBAAEiAKHENPTlNVTUVSX1NPUlRfREVMSVZFUkVEX1JBVEUQAUJCWkBnaXRodWIuY29tL3NoYWRvbmUvbmF0cy1sZW5zL2ludGVybmFsL2dlbi9uYXRzbGVucy92MTtuYXRzbGVuc3YxYgZwcm90bzM", [file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_findings]);
 
 /**
  * One consumer as of the newest epoch of the range.
@@ -278,12 +278,21 @@ export type ListConsumersRequest = Message<"natslens.v1.ListConsumersRequest"> &
   sort: ConsumerSort;
 
   /**
-   * Largest number of consumers to return, after sorting. Zero or a
-   * negative number means all.
+   * Largest number of consumers to return, after sorting. Zero uses 100;
+   * larger values are capped at 100, and negative values are invalid.
    *
    * @generated from field: int32 limit = 7;
    */
   limit: number;
+
+  /**
+   * Opaque continuation, valid for 5 minutes while its context is retained.
+   * Keep filters, system and range; omit the range to reuse the pinned bounds.
+   * FailedPrecondition means restart from the first page.
+   *
+   * @generated from field: string page_token = 8;
+   */
+  pageToken: string;
 };
 
 /**
@@ -305,6 +314,33 @@ export type ListConsumersResponse = Message<"natslens.v1.ListConsumersResponse">
    * @generated from field: repeated natslens.v1.ConsumerSummary consumers = 1;
    */
   consumers: ConsumerSummary[];
+
+  /**
+   * Continuation, empty on the last page.
+   * Count across every matching consumer, including later pages.
+   *
+   * @generated from field: int32 total_count = 2;
+   */
+  totalCount: number;
+
+  /**
+   * @generated from field: string next_page_token = 3;
+   */
+  nextPageToken: string;
+
+  /**
+   * Absolute range shared by every page of this traversal.
+   *
+   * @generated from field: natslens.v1.TimeRange range = 4;
+   */
+  range?: TimeRange | undefined;
+
+  /**
+   * Collection used for the frozen summaries.
+   *
+   * @generated from field: int64 epoch = 5;
+   */
+  epoch: bigint;
 };
 
 /**

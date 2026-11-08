@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -88,6 +89,18 @@ func callWithin[Req systemRequest, Res any](ctx context.Context, h *Handler, pro
 		return nil, h.codeOf(procedure, err)
 	}
 	h.withAccountNames(ctx, sys.Provider, res)
+	// Account decoration happens after provider paging; enforce the final wire
+	// budget too, including names supplied by the collector.
+	switch m := any(res).(type) {
+	case *v1.ListStreamsResponse:
+		if !fitsEntityBytes(m, MaxEntityPageBytes) {
+			return nil, h.codeOf(procedure, fmt.Errorf("%w: decorated stream page exceeds byte budget; request a smaller limit", ErrResourceExhausted))
+		}
+	case *v1.ListConsumersResponse:
+		if !fitsEntityBytes(m, MaxEntityPageBytes) {
+			return nil, h.codeOf(procedure, fmt.Errorf("%w: decorated consumer page exceeds byte budget; request a smaller limit", ErrResourceExhausted))
+		}
+	}
 	return connect.NewResponse(res), nil
 }
 
@@ -99,6 +112,8 @@ func on[Req, Res any](f func(Provider, context.Context, Req) (*Res, error)) func
 
 func (h *Handler) codeOf(procedure string, err error) error {
 	switch {
+	case errors.Is(err, ErrResourceExhausted):
+		return connect.NewError(connect.CodeResourceExhausted, err)
 	case errors.Is(err, ErrInvalid):
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	case errors.Is(err, ErrNotFound):
@@ -306,7 +321,12 @@ func (h *Handler) GetEvent(ctx context.Context, req *connect.Request[v1.GetEvent
 
 func (h *Handler) ListStreams(ctx context.Context, req *connect.Request[v1.ListStreamsRequest]) (*connect.Response[v1.ListStreamsResponse], error) {
 	return call(ctx, h, "ListStreams", req.Msg, func(p Provider, m *v1.ListStreamsRequest) error {
-		return withRange(p, &m.Range)
+		var err error
+		if _, err = EntityLimit(m.GetLimit()); err != nil {
+			return err
+		}
+		m.Range, err = EntityListRange(m.GetRange(), m.GetPageToken(), p.Now())
+		return err
 	}, on(Provider.ListStreams))
 }
 
@@ -321,7 +341,12 @@ func (h *Handler) GetStream(ctx context.Context, req *connect.Request[v1.GetStre
 
 func (h *Handler) ListConsumers(ctx context.Context, req *connect.Request[v1.ListConsumersRequest]) (*connect.Response[v1.ListConsumersResponse], error) {
 	return call(ctx, h, "ListConsumers", req.Msg, func(p Provider, m *v1.ListConsumersRequest) error {
-		return withRange(p, &m.Range)
+		var err error
+		if _, err = EntityLimit(m.GetLimit()); err != nil {
+			return err
+		}
+		m.Range, err = EntityListRange(m.GetRange(), m.GetPageToken(), p.Now())
+		return err
 	}, on(Provider.ListConsumers))
 }
 

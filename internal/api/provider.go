@@ -15,6 +15,7 @@ import (
 // Errors a provider returns; the handlers map them to Connect codes.
 var (
 	ErrNotFound           = errors.New("not found")
+	ErrResourceExhausted  = errors.New("resource exhausted")
 	ErrInvalid            = errors.New("invalid argument")
 	ErrFailedPrecondition = errors.New("failed precondition")
 )

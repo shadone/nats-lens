@@ -173,15 +173,23 @@ export async function getEvent(sys: string, id: string, signal?: AbortSignal) {
   return r.event ? event(r.event) : undefined;
 }
 
-export async function listStreams(sys: string, spec: RangeSpec, includeKv: boolean, signal?: AbortSignal) {
-  const r = await lens.listStreams({ ...systemInit(sys), range: rangeInit(spec), includeKv }, { signal });
+/** Page reads are bounded. Search and filter callers explicitly traverse all pages. */
+export async function listStreams(sys: string, spec: RangeSpec, includeKv: boolean, signal?: AbortSignal, page?: { pageToken: string }) {
+  const request = { ...systemInit(sys), range: page?.pageToken ? undefined : rangeInit(spec), includeKv, summaryOnly: !page, limit: 100, pageToken: page?.pageToken ?? "" };
+  let r = await lens.listStreams(request, { signal });
+  const streams = [...r.streams];
+  const totals = r.totals;
+  const totalCount = r.totalCount;
+  if (!page) {
+    while (r.nextPageToken) {
+      signal?.throwIfAborted();
+      r = await lens.listStreams({ ...request, range: r.range, pageToken: r.nextPageToken }, { signal });
+      streams.push(...r.streams);
+    }
+  }
   return {
-    streams: r.streams.map(stream),
-    totals: {
-      bytes: n(r.totals?.bytes),
-      durableConsumers: r.totals?.durableConsumers ?? 0,
-      ephemeralConsumers: r.totals?.ephemeralConsumers ?? 0,
-    },
+    streams: streams.map(stream), totalCount, nextPageToken: r.nextPageToken,
+    totals: { bytes: n(totals?.bytes), durableConsumers: totals?.durableConsumers ?? 0, ephemeralConsumers: totals?.ephemeralConsumers ?? 0 },
   };
 }
 
@@ -194,12 +202,20 @@ export async function listConsumers(
   spec: RangeSpec,
   f: { account?: string; stream?: string; includeEphemeral?: boolean },
   signal?: AbortSignal,
+  page?: { pageToken: string },
 ) {
-  const r = await lens.listConsumers(
-    { ...systemInit(sys), range: rangeInit(spec), account: f.account ?? "", stream: f.stream ?? "", includeEphemeral: f.includeEphemeral ?? false },
-    { signal },
-  );
-  return r.consumers.map(consumer);
+  const request = { ...systemInit(sys), range: page?.pageToken ? undefined : rangeInit(spec), account: f.account ?? "", stream: f.stream ?? "", includeEphemeral: f.includeEphemeral ?? false, limit: 100, pageToken: page?.pageToken ?? "" };
+  let r = await lens.listConsumers(request, { signal });
+  const consumers = [...r.consumers];
+  const totalCount = r.totalCount;
+  if (!page) {
+    while (r.nextPageToken) {
+      signal?.throwIfAborted();
+      r = await lens.listConsumers({ ...request, range: r.range, pageToken: r.nextPageToken }, { signal });
+      consumers.push(...r.consumers);
+    }
+  }
+  return Object.assign(consumers.map(consumer), { totalCount, nextPageToken: r.nextPageToken });
 }
 
 export async function getConsumer(sys: string, spec: RangeSpec, account: string, streamName: string, name: string, signal?: AbortSignal) {

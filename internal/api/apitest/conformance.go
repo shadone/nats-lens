@@ -75,7 +75,17 @@ var ctx = context.Background()
 
 func (q Q) streams(r *v1.TimeRange) []*v1.StreamSummary {
 	q.t.Helper()
-	return must(q.env.Client.ListStreams(ctx, connect.NewRequest(&v1.ListStreamsRequest{System: q.System, Range: r, IncludeKv: true}))).of(q.t).GetStreams()
+	var out []*v1.StreamSummary
+	token := ""
+	for {
+		res := must(q.env.Client.ListStreams(ctx, connect.NewRequest(&v1.ListStreamsRequest{System: q.System, Range: r, IncludeKv: true, PageToken: token}))).of(q.t)
+		out = append(out, res.Streams...)
+		if res.NextPageToken == "" {
+			return out
+		}
+		token = res.NextPageToken
+	}
+
 }
 
 func (q Q) stream(e *v1.EntityRef) *v1.GetStreamResponse {
@@ -86,7 +96,17 @@ func (q Q) stream(e *v1.EntityRef) *v1.GetStreamResponse {
 
 func (q Q) consumers() []*v1.ConsumerSummary {
 	q.t.Helper()
-	return must(q.env.Client.ListConsumers(ctx, connect.NewRequest(&v1.ListConsumersRequest{System: q.System, Range: q.day()}))).of(q.t).GetConsumers()
+	var out []*v1.ConsumerSummary
+	token := ""
+	for {
+		res := must(q.env.Client.ListConsumers(ctx, connect.NewRequest(&v1.ListConsumersRequest{System: q.System, Range: q.day(), PageToken: token}))).of(q.t)
+		out = append(out, res.Consumers...)
+		if res.NextPageToken == "" {
+			return out
+		}
+		token = res.NextPageToken
+	}
+
 }
 
 func (q Q) consumer(e *v1.EntityRef) *v1.GetConsumerResponse {
