@@ -12,7 +12,7 @@
 
 - **Choose one source.** An explicit database file, a data directory or a configured system selects the source. A multi-system configuration requires a system selection. Missing files fail without creating a database or running migrations.
 - **Preserve arbitrary columns.** JSON preserves column order, duplicate labels, type metadata, NULL and exact integer/decimal values. Its arbitrary schema stays separate from the proposed semantic investigation result schema. The [SQL CLI reference](../reference/sql-cli.md) defines representations and flags.
-- **Reject unfaithful temporal JSON.** Temporal infinities and dates outside the JSON timestamp format fail with explicit-cast guidance, including nested values. Finite supported values retain their timestamp precision.
+- **Reject unfaithful temporal JSON.** TIME, TIMETZ and TIME_NS result types fail before value conversion, including nested members, NULL and empty results. Temporal infinities and dates outside the JSON timestamp format also fail with explicit-cast guidance. Supported date and timestamp types retain their precision.
 - **Keep configuration diagnostics private.** Configuration and system-selection failures omit raw values, paths and configured system IDs. Their fixed diagnostic directs the caller to the local configuration or an explicit offline file.
 - **Keep the table.** The default table retains aligned columns, `NULL`, UTC times to milliseconds and the row count.
 - **Bound returned data.** Explicit row, output-byte and time budgets bound result presentation. Row truncation is visible. SQL is passed unchanged; no hidden limit changes its meaning. Native execution can consume resources before those limits apply.
@@ -70,6 +70,14 @@
 - **When** I request JSON output
 - **Then** the command fails without publishing data and directs me to cast the temporal member explicitly to text
 
+### Keep clock distinctions explicit
+
+- **Surfaces:** `cli`
+- **Given** trusted SQL returning end-of-day or midnight clock values, either directly or inside a container
+- **When** I request JSON output
+- **Then** the command rejects the declared clock type without publishing data
+- **And** explicitly casting the clock member to text preserves its original SQL representation
+
 ### Omit configuration values from diagnostics
 
 - **Surfaces:** `cli`
@@ -84,5 +92,6 @@
 - Obtaining or validating a consistent snapshot, bundle source selection or an interchangeable offline semantic backend.
 - Executing untrusted SQL, enforcing an OS sandbox, or rolling back external SQL side effects.
 - SQL JSON-typed values without an explicit cast to text or binary, because the pinned driver loses JSON precision and duplicate object keys.
+- JSON output of TIME, TIMETZ or TIME_NS typed values without an explicit cast to text, because the pinned driver loses clock distinctions or lacks a decoder.
 - Automatic redaction of arbitrary SQL results, CSV, NDJSON or streaming output.
 - A dedicated archive selection mode. Trusted SQL can use DuckDB's external file readers explicitly.

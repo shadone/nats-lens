@@ -50,13 +50,20 @@ The encoding applies recursively to nested values:
 | UNION | Object with `tag` and recursively encoded `value`. |
 | INTERVAL | Object with decimal strings `months`, `days` and `micros`; no conversion to a fixed duration. |
 | UUID / BIT | UUID bytes as standard padded base64 (the pinned driver returns 16 bytes); BIT as a bit string. |
-| DATE/TIME/TIMESTAMP variants | Finite driver `time.Time` values representable as RFC 3339 in UTC, retaining up to nanoseconds. Unfaithful or out-of-range values fail with `unsupported_value`. |
+| DATE/TIMESTAMP variants | Finite driver `time.Time` values representable as RFC 3339 in UTC, retaining up to nanoseconds. Unfaithful or out-of-range values fail with `unsupported_value`. |
+| TIME / TIMETZ / TIME_NS | Rejected by declared type with `unsupported_type`; explicitly cast each clock value to VARCHAR to retain its SQL text. |
+
+JSON rejects the declared TIME, TIME WITH TIME ZONE (TIMETZ) and TIME_NS families before scanning values. The rule includes NULL, empty results, map keys and values, lists, arrays, structs and every union member, including inactive members. The pinned driver converts TIME 24:00 to the same `time.Time` clock fields as 00:00, even though SQL distinguishes them. TIMETZ conversion introduces a synthetic calendar date and UTC formatting removes the original offset. TIME_NS has native type metadata but no value decoder in the pinned driver. Looking at a converted midnight cannot establish which SQL clock value produced it, so the CLI rejects the whole declared family instead of guessing.
+
+Explicit casts preserve clock distinctions. For example, `CAST(TIME '24:00:00' AS VARCHAR)` returns `"24:00:00"`, while midnight returns `"00:00:00"`. Cast a nested clock member before constructing its container. SQL comparisons and VARCHAR results remain available, and supported DATE and TIMESTAMP variants retain their separate contract below. Table mode keeps the legacy driver presentation; its clock rendering is not an exact representation of these SQL distinctions.
 
 JSON rejects temporal infinities and UTC years outside 0000–9999, including values inside lists, arrays, maps, structs and unions. It does not replace them with finite-looking dates. The pinned driver converts DATE and timestamp infinities into ordinary `time.Time` values; most are outside RFC 3339's year range. TIMESTAMP_NS infinities instead resemble dates in 1677 and 2262. The CLI checks their exact nanosecond ticks with the pinned native finiteness API and the declared logical type, rather than guessing from a date's appearance. Adjacent finite TIMESTAMP_NS values remain valid. These checks do not label every rejected out-of-range finite value as infinity.
 
 An explicit cast such as `CAST(TIMESTAMP '-infinity' AS VARCHAR)` preserves the special value as `"-infinity"`. Cast a nested member before constructing its list, map, struct or union. The CLI does not insert casts or rewrite arbitrary SQL.
 
-For a timestamp without a time zone, `Z` is a serialization convention for the returned wall-clock fields, not evidence that the original timestamp identified a UTC instant. DATE and TIME retain the driver's synthetic time/date components. TIMESTAMPTZ represents a UTC instant; DuckDB does not preserve the original zone name or offset. SQL JSON columns, including JSON inside lists, arrays, maps, structs and unions, fail with `unsupported_type`. The pinned driver otherwise rounds JSON numbers through `float64` and collapses duplicate object keys. Explicitly cast JSON values to VARCHAR or BLOB in the SQL to preserve the original JSON text or bytes; the CLI never inserts that cast. Unsupported driver values or conversion errors fail the whole result. SQL type metadata distinguishes strings used for binary, numeric and temporal values.
+For a timestamp without a time zone, `Z` is a serialization convention for the returned wall-clock fields, not evidence that the original timestamp identified a UTC instant. DATE retains the driver's midnight time component. TIMESTAMPTZ represents a UTC instant; DuckDB does not preserve the original zone name or offset. SQL JSON columns, including JSON inside lists, arrays, maps, structs and unions, fail with `unsupported_type`. The pinned driver otherwise rounds JSON numbers through `float64` and collapses duplicate object keys. Explicitly cast JSON values to VARCHAR or BLOB in the SQL to preserve the original JSON text or bytes; the CLI never inserts that cast. Unsupported driver values or conversion errors fail the whole result. SQL type metadata distinguishes strings used for binary, numeric and temporal values.
+
+The scoped temporal audit uses local synthetic SQL comparisons and casts as controls. Separate DATE days and adjacent TIMESTAMP_S, TIMESTAMP_MS, TIMESTAMP and TIMESTAMP_NS ticks remain distinct after encoding. Equivalent TIMESTAMPTZ instants encode to the same UTC value, matching SQL equality. INTERVAL retains independent months, days and microseconds, including signed components and a microsecond count above JavaScript's exact integer range; it does not collapse a month into 30 days. These controls supplement the infinity and out-of-range guards rather than claiming exhaustive validation of every DuckDB type.
 
 ## Budgets and completion
 
@@ -81,7 +88,7 @@ Diagnostics are single JSON objects with `version: 1` and `error.code`, `error.m
 | `invalid_argument` | Invalid flags, budgets or source selection. Configuration-resolution failures use a fixed message and safe next step; values, paths and configured system IDs are omitted. |
 | `source_unavailable` | Missing source, read-only open failure, live lock, incompatible version or invalid file. |
 | `query_failed` | SQL execution, scan or serialization failure; raw backend error and SQL text are omitted. |
-| `unsupported_type` | A scalar or nested JSON alias would lose precision or duplicate object keys through the pinned driver. |
+| `unsupported_type` | A scalar or nested JSON alias, TIME, TIMETZ or TIME_NS cannot be returned faithfully by the pinned driver; cast explicitly. |
 | `unsupported_value` | A temporal infinity or a UTC year outside RFC 3339 bounds cannot be represented faithfully; explicitly cast the value to VARCHAR. |
 | `cancelled` | Context cancelled or time budget expired. |
 | `output_limit` | Complete output exceeds the byte budget. |
