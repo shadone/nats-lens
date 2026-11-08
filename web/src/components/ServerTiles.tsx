@@ -1,12 +1,15 @@
 // The server metric boxes: CPU, memory, JetStream file storage, connections,
 // messages in and out, and slow-consumer detections.
+import { Link } from "react-router";
+import { slowEvidencePath } from "../lib/slowConsumers";
+import { useGlobalQuery } from "../lib/useGlobalQuery";
 import type { Level } from "../api/model";
 import { useBandSeries, type ServerInfo } from "../api/servers";
 import { fmtBytes, fmtCount, fmtInt } from "../lib/format";
 import { storageLimit, storageReading } from "../lib/serverStorage";
 import { storePct, STORE_ATTENTION_PCT } from "../lib/servers";
 import type { RangeSpec } from "../lib/timeRange";
-import { errorText, RLink } from "./common";
+import { errorText } from "./common";
 import { MetricBox } from "./MetricBox";
 import { useReportStale } from "./StaleContext";
 
@@ -29,6 +32,7 @@ function newest(points: { value: number }[] | undefined): number | undefined {
 }
 
 export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec: RangeSpec; start: number; end: number }) {
+  const global = useGlobalQuery();
   const s = info.server!;
   const name = s.name;
   const cpu = useTileSeries(spec, "server.cpu_percent", name);
@@ -126,7 +130,7 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
         fmt={(v) => fmtInt(v)}
         status={(slowRange ?? 0) > 0 ? "warning" : "ok"}
         stateWord={slowRange ? `${fmtInt(slowRange)} in range` : undefined}
-        note={<>{downNote ?? (slowRange === undefined ? "not reported" : slowRange === 0 ? "none in range" : "per bucket on the chart")}. For JetStream backlog, see <RLink to="/consumers">Consumers</RLink>.</>}
+        note={<>{downNote ?? (slowRange === undefined ? "not reported" : slowRange === 0 ? "none in range" : "per bucket on the chart")}. A detection means NATS had trouble sending data because a receiving connection could not keep up. <Link className="x" to={slowEvidencePath("/servers/slow-consumers", start, end, global, name)}>Investigate detections</Link>.</>}
         start={start}
         end={end}
         tone="change"
