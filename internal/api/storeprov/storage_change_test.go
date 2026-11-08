@@ -50,6 +50,9 @@ func storageCompareFixture(t *testing.T) (*storeprov.Provider, *v1.GetStorageCha
 	add(1, "S0", "sessions", "memory", 10, 1)
 	add(2, "S0", "sessions", "memory", 30, 1)
 	r.add("events", map[string]any{"id": int64(9007199254740999), "time": at.Add(30 * time.Second), "received_at": at.Add(31 * time.Second), "source": "jetstream", "kind": "stream.deleted", "account": "APP", "stream": "old-archive", "summary": "archive deleted"})
+	if _, err := st.DB().Exec(`UPDATE server_stats s SET js_streams=(SELECT count(*) FROM stream_stats x WHERE x.epoch=s.epoch AND x.server_id=s.server_id)`); err != nil {
+		t.Fatal(err)
+	}
 	return &storeprov.Provider{St: st, Interval: time.Minute, Clock: func() time.Time { return at.Add(2 * time.Minute) }}, &v1.GetStorageChangeRequest{System: "example-prod", A: timestamppb.New(at.Add(5 * time.Second)), B: timestamppb.New(at.Add(time.Minute + 5*time.Second)), PageSize: 100}
 }
 func findStorageRow(t *testing.T, r *v1.GetStorageChangeResponse, stream, kind, storage string) *v1.StorageChangeRow {

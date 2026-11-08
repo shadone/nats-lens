@@ -187,7 +187,7 @@ func FinishStorageChange(req *v1.GetStorageChangeRequest, f *StorageChangeFacts)
 		res.InvestigationUrl = ""
 		res.Reasons = append(res.Reasons, "offline_ui_unavailable")
 	}
-	if proto.Size(res) > MaxStorageChangePageBytes {
+	if !fitsEntityBytes(res, MaxStorageChangePageBytes) {
 		return nil, fmt.Errorf("%w: storage page exceeds byte budget; reduce page_size", ErrResourceExhausted)
 	}
 	return res, nil

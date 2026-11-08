@@ -13,7 +13,9 @@ import { serverPath, streamPath } from "../lib/view";
 const stamp = (t: Timestamp | undefined) => t ? String(toJson(TimestampSchema, t)) : "Unknown";
 const bytes = (v: bigint | undefined, signed = false) => v === undefined ? "Unknown" : `${v < 0n ? "−" : signed && v > 0n ? "+" : ""}${(v < 0n ? -v : v).toLocaleString("en-US")} bytes`;
 const reasons: Record<string, string> = {
-  no_collection: "No retained collection at or before this moment", stale_collection: "The selected collection is older than three collection intervals",
+  resource_inventory_incomplete:"Detailed resource reports do not match the server-reported inventory; totals are unknown",
+ exclusive_end_inclusion:"The captured source uses its disclosed one-microsecond exclusive end; observations stop at the original source clock",offline_ui_unavailable:"No remote UI serves this local dataset",
+ no_collection: "No retained collection at or before this moment", stale_collection: "The selected collection is older than three collection intervals",
   missing_jsz: "Missing JSZ evidence; complete storage totals are unavailable", server_usage_is_system_wide: "Server usage covers all accounts; it cannot be reconciled with this account's resources",
   observed_delete_event: "A recorded deletion qualifies absence; it does not establish the cause of other changes", incarnation_replaced: "A later creation time establishes a replaced incarnation",
   not_observed_at_a: "Not observed at A; absence is not zero", not_observed_at_b: "Not observed at B; absence is not zero", incarnation_unknown: "Creation identity is unknown; endpoint values are not a comparable incarnation",

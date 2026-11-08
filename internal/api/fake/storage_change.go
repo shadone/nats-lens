@@ -13,6 +13,9 @@ import (
 // StorageChange reuses Capacity's scenario measurements and process identities;
 // it does not manufacture growth from a daily forecast.
 func (p *Provider) StorageChange(ctx context.Context, req *v1.GetStorageChangeRequest) (*api.StorageChangeFacts, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	s := p.scen()
 	pins := []int64{req.EpochA, req.EpochB}
 	if req.PageToken != "" {
@@ -44,7 +47,7 @@ func (p *Provider) StorageChange(ctx context.Context, req *v1.GetStorageChangeRe
 				return nil, api.ErrFailedPrecondition
 			}
 		}
-		f, err := p.Capacity(ctx, &v1.GetCapacityRequest{Range: &v1.TimeRange{Start: ts(s.dataStart()), End: ts(end.Add(time.Microsecond))}})
+		f, err := p.capacityAt(s, &v1.GetCapacityRequest{Range: &v1.TimeRange{Start: ts(s.dataStart()), End: ts(end.Add(time.Microsecond))}})
 		if err != nil {
 			return nil, err
 		}
