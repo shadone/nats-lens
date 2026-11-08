@@ -102,7 +102,7 @@ To capture the stream and consumer advisories of a JetStream account as well, an
 
 ### Investigate through the API
 
-`natslens investigate methods` discovers the remote read interface. Copy investigation context from a page or shared chart, then use a trusted profile to query the existing API without browser automation or database access. The [command reference](docs/reference/agent-investigations.md) covers profile/auth setup and JSON; the [agent playbook](docs/agents/investigate.md) covers bounded evidence gathering and citation. Only remote access ships; MCP, offline datasets and collection pinning remain separate work.
+`natslens investigate methods` discovers the remote read interface. Copy investigation context from a page or shared chart, then use a trusted profile to query the existing API without browser automation or database access. The [command reference](docs/reference/agent-investigations.md) covers profile/auth setup and JSON; the [agent playbook](docs/agents/investigate.md) covers bounded evidence gathering and citation. Remote and offline sources share the read-only interface. [Storage comparisons](docs/reference/storage-change.md) return their own retained endpoint pins; MCP and universal cross-query pinning remain separate work.
 
 ### Useful commands
 

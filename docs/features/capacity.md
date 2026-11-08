@@ -12,6 +12,8 @@ Shared storage charts offer portable [agent investigation context](agent-investi
 
 ## Behavior and rules
 
+- **Change in a selected interval.** Compare storage in range opens a [pinned storage comparison](storage-change.md) with measured signed changes and before/after evidence. This does not require six hours of growth history. The main resource table retains its existing growth columns.
+
 - **Chart descriptions.** Expanded histories and compact resource-column histories use [shared chart help](chart-help.md), with logical resource and observed replica measurements kept distinct.
 
 - **Missing growth history.** One page note explains the six-hour requirement and links to Data history. Server cards say “growth unavailable”; unset table rates remain unknown. The note distinguishes short retained history from missing boundary observations or entity measurements. A shorter range asks for at least six hours. The age of retained history never supplies a countdown. Storage charts remain available independently of growth eligibility and share collection-history overlays. Forecast confidence margins are not shown.

@@ -120,7 +120,7 @@ A user can activate **Copy as prompt** on a page or chart and paste the complete
 ## Not supported / out of scope
 
 - MCP packaging, remote dataset transfer, implicit compatibility conversion, or raw SQL as a semantic investigation method.
-- Storage comparison mathematics or new metric algorithms.
+- New metric algorithms outside the shared API. [Storage-change comparisons](storage-change.md) use the dedicated typed method, including its pins, coverage and limits.
 - Live cross-query snapshot consistency, arbitrary read-at-epoch selection, reconstruction of missing provenance or unlimited retained-history crawls.
 - Automatic authentication, tunnels, listener exposure, proxy bypass or manufacturing trusted IAP assertions.
 - Removing write powers from a credential authorized on the ordinary API.
