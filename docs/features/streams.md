@@ -19,6 +19,7 @@ The Streams page lists the JetStream streams of the newest collection in the tim
 - **Servers disagree.** When the servers report different configuration hashes or creation times, a "Servers disagree" table shows each server's configuration hash and creation time.
 - **Per server.** For each server that holds the stream: its replica role (leader, current, behind or offline), its lag, messages, bytes, first and last sequence, creation time and configuration hash. This is where a replica rebuilt at another time, or a replica that drifted, shows.
 - **Bounded list pages.** The UI shows at most 100 streams per page, with a count of all matches and a Next page button. Refresh list requests a fresh first page even when the previous first page is still cached. The API preserves the worst-first order, then the account/stream key. Zero `limit` uses 100; larger limits are capped at 100, and negative limits are invalid. Totals cover all matches, including later pages. A page stays below 512 KiB in JSON and protobuf; a single summary that cannot fit returns a resource error. The Overview asks for the 10 worst.
+- **Metadata limits.** Stream list capture bounds its metadata reads before retaining a traversal. Excessive rows or metadata bytes return a resource error. The API preserves counts, findings, and unknown replica states rather than returning partial summaries. Hidden buckets do not consume the default stream list’s placement budget.
 - **Name discovery.** Search and stream filter choices omit growth and charts and traverse every page. The Streams page retains both history fields.
 - **Traversal context.** The first page freezes ranking, summary values, totals, the collection, and absolute range in a process-local context. Subsequent pages use this order while new collections arrive. Stream growth and charts are read for the selected page from retained history, and readable account names can change between pages. These reads are not frozen database snapshots. Contexts expire after 5 minutes and can be evicted earlier or lost on restart. An expired context or a collection removed by retention requires Refresh list. Changing system, range, or bucket filter starts at page 1. API callers keep their filters and use the continuation token; omitted range bounds reuse the original bounds.
 - **Placement in the API.** `ListStreams` and `GetStream` give each stream a `placement`: one entry per replica, the leader first and the rest by server name. In order: the leader is `LEADER` (the first by name when two claim it); a replica the leader lists as offline is `OFFLINE`; one the leader lists that reports nothing itself is `MISSING`; one that reports but that the leader does not list is `DISAGREES`; one the leader reports not current is `BEHIND`, even with an older configuration; one with a configuration hash other than the leader's is `DISAGREES`; one the leader reports current is `IN_SYNC`. Without a leader's report a replica's state is unset, or `DISAGREES` when the servers hold different configurations. Each configured replica beyond the servers named is `MISSING`, with no server. KV buckets and object stores use the same rule. The page does not draw the squares yet.
@@ -27,6 +28,20 @@ The Streams page lists the JetStream streams of the newest collection in the tim
 - **Consumers and events.** The stream's consumers with their backlog, and its newest 15 events, with a link to all of them.
 
 ## Scenarios
+
+### List streams beside many hidden buckets
+
+- **Surfaces:** `api`
+- **Given** one ordinary stream and more than 20,000 hidden KV or object streams
+- **When** I request the default stream list, including a summary-only request
+- **Then** I receive the ordinary stream and its truthful match count without reading the hidden streams’ placement reports
+
+### Refuse excessive placement metadata
+
+- **Surfaces:** `api`
+- **Given** matching streams whose placement reports exceed a metadata budget
+- **When** I request a stream list
+- **Then** the API returns a resource error instead of partial or healthy-looking placement
 
 ### Refresh a recently loaded list
 
