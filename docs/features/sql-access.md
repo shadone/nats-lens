@@ -2,7 +2,7 @@
 
 - **Surfaces:** `cli`
 - **Status:** shipped
-- **Related:** [history-and-archive.md](history-and-archive.md), [checks.md](checks.md), [command-bar.md](command-bar.md), [design.md](../design.md)
+- **Related:** [history-and-archive.md](history-and-archive.md), [offline-datasets.md](offline-datasets.md), [checks.md](checks.md), [command-bar.md](command-bar.md), [design.md](../design.md)
 
 ## What it does
 
@@ -18,7 +18,7 @@
 - **Bound returned data.** Explicit row, output-byte and time budgets bound result presentation. Row truncation is visible. SQL is passed unchanged; no hidden limit changes its meaning. Native execution can consume resources before those limits apply.
 - **Publish complete results.** Query, conversion, cancellation and byte-limit failures publish no data. A new output file is published atomically and never replaces an existing file. Diagnostics go to stderr and failures exit unsuccessfully.
 - **Protect the selected database.** SQL opens the selected file read-only without migrations or cleanup. Trusted SQL can still read external files, write exports, attach writable databases and use extensions. Read-only database access is not an untrusted SQL sandbox.
-- **Select a consistent snapshot.** A live writer lock prevents inspection from another process. Snapshot acquisition is separate work described in [Investigation workflows](../plans/investigation-workflows.md); copying a live database file alone does not establish consistency. The SQL command neither stops the collector nor certifies a supplied snapshot.
+- **Select a consistent snapshot.** A live writer lock prevents inspection from another process. The [offline dataset acquisition channel](offline-datasets.md) creates a consistent closed artifact while the collector runs; copying a live database file alone does not establish consistency. The SQL command neither stops the collector nor certifies a supplied snapshot.
 - **Keep semantic access separate.** Raw SQL remains an advanced local escape hatch. It is absent from the API and default agent/MCP surface.
 
 ## Scenarios
