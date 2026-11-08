@@ -1,7 +1,7 @@
 # Agent investigations
 
 - **Surfaces:** `ui`, `api`, `cli`
-- **Status:** partial — portable page and shared-chart handoff and remote reads; collection pinning, table-local filters, dedicated Timeline-mark actions and offline access are not built
+- **Status:** partial — portable page and shared-chart handoff and remote reads; cross-query collection pinning, table-local filters, dedicated Timeline-mark actions and offline access are not built
 - **Related:** [navigation.md](navigation.md), [running-nats-lens.md](running-nats-lens.md), [data-history.md](data-history.md), [sql-access.md](sql-access.md), [Investigation workflows](../plans/investigation-workflows.md)
 
 ## What it does
@@ -10,12 +10,13 @@ A user can copy a page or chart's investigation context and give it to a termina
 
 ## Behavior and rules
 
-- **Portable context.** The page action records a version, deployment origin, system, account, explicit UTC interval, known resource identity, URL-backed filters including Findings and Events defaults, and source path. A chart action also records its metric and resource when available. The chart's selected point survives moving focus to its action. A focused shared chart opens the handoff with C. Investigation buttons remain independently clickable above stretched chart navigation links. The human question stays separate from observed context.
+- **Portable context.** The page action records a version, deployment origin, system, account, explicit UTC interval, known resource identity, URL-backed filters including Findings and Events defaults, and source path. A chart action records its label and every available API series identity, including both traffic directions and both asset metrics. Unknown metric identities have explicit reasons. Stream mini-charts retain the API-provided history end and observed collection reference. The chart's selected point survives moving focus to its action. A focused shared chart opens the handoff with C. Investigation buttons remain independently clickable above stretched chart navigation links. The human question stays separate from observed context.
 - **Clock.** A live page freezes its interval using the UI's existing server-adjusted clock. A URL imported by the terminal resolves live time from the selected system's server clock. Fixed intervals retain their UTC bounds.
 - **Deliberate copy.** The handoff opens a selectable JSON preview. Copy requires a separate action. A clipboard failure leaves keyboard-selectable text and an explanation. The UI never sends context or evidence to an agent service automatically.
 - **Trusted connection.** Context and page URLs must match a configured deployment. Only the profile selects the API destination. Remote connections require HTTPS; explicit loopback profiles can use HTTP. Redirects are refused. Terminal credentials are configured independently of the browser.
 - **Read boundary.** The server's separate read-only investigation path admits an explicit set of existing read RPCs. It rejects mutations, SQL and unknown methods before dispatch. The deployment's access proxy must restrict the agent identity to that path and deny its access to the ordinary API. A broadly authorized credential keeps its broader powers.
 - **Bounded reads.** Each terminal query makes one connection-information call and one requested read, with a shared deadline. It returns one page without following continuation tokens. Page size reaches each RPC’s existing page-size or limit field, including streams and consumers. Inputs, responses, page sizes, point counts and intervals are bounded. Existing API handlers remain authoritative for domain validation and calculations.
+- **Collection scope.** Stream and consumer continuation tokens retain an ordered summary traversal with an exact epoch and interval for up to five minutes while retained. History and readable account names can change. Copied stream mini-charts record an observed collection ID, but page headers do not copy list cursors and generic reads cannot select an arbitrary epoch.
 - **Evidence.** JSON preserves protobuf identities, units, descriptions, optional values, exact 64-bit integers, finding IDs and retained transitions, collection IDs and continuation tokens. Scoped finding, event, resource and Data history links accompany results where represented. Query context and links reflect effective request overrides; the original handoff remains separately labeled. UI limitations are explicit. The output names context filters that the selected RPC cannot apply.
 - **Unknown facts.** The output does not infer collection provenance or completeness from field names. It directs the agent to documented response fields and Data history. Missing samples remain absent; unreported values remain unset. Connection information describes retention and the collection interval. Separate queries report collection freshness and historical coverage.
 - **Discovery.** The terminal lists supported local methods and their protobuf request and response shapes. Live system, metric and check catalogs come from API queries. The local catalog does not promise that another server implements every listed method. A query reports the server version and verifies the selected method by calling it.
@@ -68,7 +69,7 @@ A user can copy a page or chart's investigation context and give it to a termina
 
 - MCP packaging, offline datasets, dataset acquisition or raw SQL output changes.
 - Storage comparison mathematics or new metric algorithms.
-- Cross-query snapshot consistency, collection pinning, reconstruction of missing provenance or unlimited retained-history crawls.
+- Cross-query snapshot consistency, arbitrary read-at-epoch selection, reconstruction of missing provenance or unlimited retained-history crawls.
 - Automatic authentication, tunnels, listener exposure, proxy bypass or manufacturing trusted IAP assertions.
 - Removing write powers from a credential authorized on the ordinary API.
 - Table-local filters or selection state absent from the URL, dedicated Timeline-mark handoff actions or drag-and-drop context entry.
