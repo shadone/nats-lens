@@ -33,6 +33,9 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
+	// LensServiceListMetricContributorsProcedure is the fully-qualified name of the LensService's
+	// ListMetricContributors RPC.
+	LensServiceListMetricContributorsProcedure = "/natslens.v1.LensService/ListMetricContributors"
 	// LensServiceListCheckDefinitionsProcedure is the fully-qualified name of the LensService's
 	// ListCheckDefinitions RPC.
 	LensServiceListCheckDefinitionsProcedure = "/natslens.v1.LensService/ListCheckDefinitions"
@@ -141,6 +144,8 @@ const (
 
 // LensServiceClient is a client for the natslens.v1.LensService service.
 type LensServiceClient interface {
+	// Bounded frozen metric summaries, ranked across matching observed entities.
+	ListMetricContributors(context.Context, *connect.Request[v1.ListMetricContributorsRequest]) (*connect.Response[v1.ListMetricContributorsResponse], error)
 	// All shipped check references with configuration from the selected system.
 	ListCheckDefinitions(context.Context, *connect.Request[v1.ListCheckDefinitionsRequest]) (*connect.Response[v1.ListCheckDefinitionsResponse], error)
 	// Identity mode, version, cluster, collect interval and retention of this
@@ -270,6 +275,13 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 	baseURL = strings.TrimRight(baseURL, "/")
 	lensServiceMethods := v1.File_natslens_v1_service_proto.Services().ByName("LensService").Methods()
 	return &lensServiceClient{
+		listMetricContributors: connect.NewClient[v1.ListMetricContributorsRequest, v1.ListMetricContributorsResponse](
+			httpClient,
+			baseURL+LensServiceListMetricContributorsProcedure,
+			connect.WithSchema(lensServiceMethods.ByName("ListMetricContributors")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		listCheckDefinitions: connect.NewClient[v1.ListCheckDefinitionsRequest, v1.ListCheckDefinitionsResponse](
 			httpClient,
 			baseURL+LensServiceListCheckDefinitionsProcedure,
@@ -558,6 +570,7 @@ func NewLensServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 
 // lensServiceClient implements LensServiceClient.
 type lensServiceClient struct {
+	listMetricContributors       *connect.Client[v1.ListMetricContributorsRequest, v1.ListMetricContributorsResponse]
 	listCheckDefinitions         *connect.Client[v1.ListCheckDefinitionsRequest, v1.ListCheckDefinitionsResponse]
 	getLensInfo                  *connect.Client[v1.GetLensInfoRequest, v1.GetLensInfoResponse]
 	getOverview                  *connect.Client[v1.GetOverviewRequest, v1.GetOverviewResponse]
@@ -599,6 +612,11 @@ type lensServiceClient struct {
 	listMetrics                  *connect.Client[v1.ListMetricsRequest, v1.ListMetricsResponse]
 	getTimeSeries                *connect.Client[v1.GetTimeSeriesRequest, v1.GetTimeSeriesResponse]
 	getTimeSeriesBatch           *connect.Client[v1.GetTimeSeriesBatchRequest, v1.GetTimeSeriesBatchResponse]
+}
+
+// ListMetricContributors calls natslens.v1.LensService.ListMetricContributors.
+func (c *lensServiceClient) ListMetricContributors(ctx context.Context, req *connect.Request[v1.ListMetricContributorsRequest]) (*connect.Response[v1.ListMetricContributorsResponse], error) {
+	return c.listMetricContributors.CallUnary(ctx, req)
 }
 
 // ListCheckDefinitions calls natslens.v1.LensService.ListCheckDefinitions.
@@ -808,6 +826,8 @@ func (c *lensServiceClient) GetTimeSeriesBatch(ctx context.Context, req *connect
 
 // LensServiceHandler is an implementation of the natslens.v1.LensService service.
 type LensServiceHandler interface {
+	// Bounded frozen metric summaries, ranked across matching observed entities.
+	ListMetricContributors(context.Context, *connect.Request[v1.ListMetricContributorsRequest]) (*connect.Response[v1.ListMetricContributorsResponse], error)
 	// All shipped check references with configuration from the selected system.
 	ListCheckDefinitions(context.Context, *connect.Request[v1.ListCheckDefinitionsRequest]) (*connect.Response[v1.ListCheckDefinitionsResponse], error)
 	// Identity mode, version, cluster, collect interval and retention of this
@@ -933,6 +953,13 @@ type LensServiceHandler interface {
 // and JSON codecs. They also support gzip compression.
 func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
 	lensServiceMethods := v1.File_natslens_v1_service_proto.Services().ByName("LensService").Methods()
+	lensServiceListMetricContributorsHandler := connect.NewUnaryHandler(
+		LensServiceListMetricContributorsProcedure,
+		svc.ListMetricContributors,
+		connect.WithSchema(lensServiceMethods.ByName("ListMetricContributors")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	lensServiceListCheckDefinitionsHandler := connect.NewUnaryHandler(
 		LensServiceListCheckDefinitionsProcedure,
 		svc.ListCheckDefinitions,
@@ -1218,6 +1245,8 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 	)
 	return "/natslens.v1.LensService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case LensServiceListMetricContributorsProcedure:
+			lensServiceListMetricContributorsHandler.ServeHTTP(w, r)
 		case LensServiceListCheckDefinitionsProcedure:
 			lensServiceListCheckDefinitionsHandler.ServeHTTP(w, r)
 		case LensServiceGetLensInfoProcedure:
@@ -1308,6 +1337,10 @@ func NewLensServiceHandler(svc LensServiceHandler, opts ...connect.HandlerOption
 
 // UnimplementedLensServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedLensServiceHandler struct{}
+
+func (UnimplementedLensServiceHandler) ListMetricContributors(context.Context, *connect.Request[v1.ListMetricContributorsRequest]) (*connect.Response[v1.ListMetricContributorsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListMetricContributors is not implemented"))
+}
 
 func (UnimplementedLensServiceHandler) ListCheckDefinitions(context.Context, *connect.Request[v1.ListCheckDefinitionsRequest]) (*connect.Response[v1.ListCheckDefinitionsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("natslens.v1.LensService.ListCheckDefinitions is not implemented"))
