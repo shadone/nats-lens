@@ -144,7 +144,8 @@ type StorageChangeEndpoint struct {
 	FinishedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=finished_at,json=finishedAt,proto3" json:"finished_at,omitempty"`
 	// Requested minus finished_at, when a collection is available.
 	Age *durationpb.Duration `protobuf:"bytes,5,opt,name=age,proto3" json:"age,omitempty"`
-	// Complete expected-server JSZ inventory, independent of unrelated endpoints.
+	// Complete expected-server JSZ coverage with matching detailed stream counts,
+	// independent of unrelated endpoint failures.
 	InventoryComplete bool `protobuf:"varint,6,opt,name=inventory_complete,json=inventoryComplete,proto3" json:"inventory_complete,omitempty"`
 	// Stable reason codes, including no_collection, stale_collection and missing_jsz.
 	Reasons       []string `protobuf:"bytes,7,rep,name=reasons,proto3" json:"reasons,omitempty"`

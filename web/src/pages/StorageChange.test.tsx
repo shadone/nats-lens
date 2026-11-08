@@ -36,12 +36,12 @@ it("opens a disappeared resource around its last observed collection instead of 
  const r=response();r.nextPageToken="";r.rows[0].after=create(GetStorageChangeResponseSchema,{rows:[{after:{logical:0n,observedReplicas:0n}}]}).rows[0].after;r.rows[0].processesA=["S0"];r.rows[0].processesB=[];
  vi.mocked(lens.getStorageChange).mockResolvedValue(r);renderApp(<StorageChange/>,route);
  const link=new URL((await screen.findByRole("link",{name:"order-cache"})).getAttribute("href")!,"http://example.com");
- expect(link.searchParams.get("from")).toBe("2026-10-17T12:59:30Z");expect(link.searchParams.get("to")).toBe("2026-10-17T12:59:35.001Z");
+ expect(link.searchParams.get("from")).toBe("2026-10-17T12:59:30Z");expect(link.searchParams.get("to")).toBe("2026-10-17T12:59:36Z");
 });
 it("keeps a zero-duration source window representable by the detail UI's millisecond range",async()=>{
- const {rangeProblem}=await import("../lib/timeRange");const r=response();r.a!.finishedAt=r.a!.startedAt;r.rows[0].processesA=["S0"];r.rows[0].processesB=[];
+ const {rangeProblem,parseRange,writeRange}=await import("../lib/timeRange");const r=response();r.a!.finishedAt=r.a!.startedAt;r.rows[0].processesA=["S0"];r.rows[0].processesB=[];
  vi.mocked(lens.getStorageChange).mockResolvedValue(r);renderApp(<StorageChange/>,route);
- const link=new URL((await screen.findByRole("link",{name:"order-cache"})).getAttribute("href")!,"http://example.com");expect(rangeProblem(link.searchParams,Date.parse(to))).toBeUndefined();
+ const link=new URL((await screen.findByRole("link",{name:"order-cache"})).getAttribute("href")!,"http://example.com");expect(rangeProblem(link.searchParams,Date.parse(to))).toBeUndefined();expect(rangeProblem(writeRange(link.searchParams,parseRange(link.searchParams)),Date.parse(to))).toBeUndefined();
 });
 
 it("freezes a live preset against the loaded source clock before reading",async()=>{
@@ -55,4 +55,12 @@ it("names the resolved default system when pinning a shared URL",async()=>{
  const r=response();r.system="example-prod";vi.mocked(lens.getStorageChange).mockResolvedValue(r);
  renderApp(<StorageChange/>,route.replace("system=example-prod&",""));
  await waitFor(()=>expect(screen.getByTestId("location").textContent).toContain("system=example-prod"));
+});
+
+it("pins available partial endpoints before continuation without inventing a zero pin",async()=>{
+ const r=response();r.system="example-prod";r.a!.epoch=0n;r.a!.reasons=["no_collection"];
+ vi.mocked(lens.getStorageChange).mockResolvedValue(r);renderApp(<StorageChange/>,route.replace("system=example-prod&",""));
+ await waitFor(()=>{const u=screen.getByTestId("location").textContent!;expect(u).toContain("system=example-prod");expect(u).toContain("epochB=9007199254740994");expect(u).not.toContain("epochA=")});
+ fireEvent.click(screen.getByRole("button",{name:"Next contributors"}));
+ await waitFor(()=>expect(lens.getStorageChange).toHaveBeenLastCalledWith(expect.objectContaining({system:"example-prod",epochA:0n,epochB:9007199254740994n,pageToken:"next"}),expect.anything()));
 });

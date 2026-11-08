@@ -1,4 +1,4 @@
-import { create, fromJson, toJson } from "@bufbuild/protobuf";
+import { fromJson, toJson } from "@bufbuild/protobuf";
 import { TimestampSchema, type Timestamp } from "@bufbuild/protobuf/wkt";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -6,6 +6,8 @@ import { Link, useSearchParams } from "react-router";
 import { lens } from "../api/client";
 import type { StorageChangeBytes, StorageChangeRow, GetStorageChangeResponse } from "../gen/natslens/v1/storage_change_pb";
 import { QueryView, Section } from "../components/common";
+import {useTimeRange} from "../lib/useTimeRange";
+import {resolveRange} from "../lib/timeRange";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useSystem } from "../lib/useSystem";
 import { serverPath, streamPath } from "../lib/view";
@@ -13,6 +15,7 @@ import { serverPath, streamPath } from "../lib/view";
 const stamp = (t: Timestamp | undefined) => t ? String(toJson(TimestampSchema, t)) : "Unknown";
 const bytes = (v: bigint | undefined, signed = false) => v === undefined ? "Unknown" : `${v < 0n ? "−" : signed && v > 0n ? "+" : ""}${(v < 0n ? -v : v).toLocaleString("en-US")} bytes`;
 const reasons: Record<string, string> = {
+  no_comparable_endpoints:"Separate fresh collection windows are required to measure a change; retained values alone do not establish change in this interval",
   resource_inventory_incomplete:"Detailed resource reports do not match the server-reported inventory; totals are unknown",
  exclusive_end_inclusion:"The captured source uses its disclosed one-microsecond exclusive end; observations stop at the original source clock",offline_ui_unavailable:"No remote UI serves this local dataset",
  no_collection: "No retained collection at or before this moment", stale_collection: "The selected collection is older than three collection intervals",
@@ -32,8 +35,18 @@ function pin(raw: string | null): bigint {
 function Values({ value }: { value: StorageChangeBytes | undefined }) {
   return <dl className="kv"><dt>Logical</dt><dd>{bytes(value?.logical)}</dd><dt>Observed copies</dt><dd>{bytes(value?.observedReplicas)}</dd><dt>Configured-replica estimate</dt><dd>{bytes(value?.estimatedReplicas)}</dd><dt>Server-reported usage</dt><dd>{bytes(value?.serverReported)}</dd></dl>;
 }
-export function StorageChange() {
-  usePageTitle("Storage change");
+export function StorageChange(){
+ usePageTitle("Storage change");const [params]=useSearchParams();
+ if(!params.has("from")&&!params.has("to"))return <ResolveComparisonRange/>;
+ return <PinnedStorageChange/>;
+}
+function ResolveComparisonRange(){
+ const system=useSystem();const info=useQuery({queryKey:["storage-change-clock",system],queryFn:async({signal})=>{const r=await lens.getLensInfo({system},{signal});if(!r.now)throw new Error("The source clock is unavailable.");return Number(r.now.seconds)*1000+r.now.nanos/1e6;},staleTime:0});const {spec,problem}=useTimeRange();const [params,setParams]=useSearchParams();
+ const key=params.toString();
+ useEffect(()=>{if(info.data===undefined||problem)return;const r=resolveRange(spec,info.data);setParams(p=>{const n=new URLSearchParams(p);n.delete("range");n.delete("epochA");n.delete("epochB");n.set("from",new Date(r.start).toISOString());n.set("to",new Date(r.end).toISOString());return n},{replace:true})},[info.data,key,problem,setParams]);
+ return <><h1>Storage change</h1>{problem?<p role="alert">{problem}</p>:<QueryView q={info} what="source clock">{()=> <p role="status">Freezing the selected interval…</p>}</QueryView>}</>;
+}
+function PinnedStorageChange() {
   const system = useSystem();
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
@@ -51,12 +64,16 @@ export function StorageChange() {
   } catch (e) { problem = e instanceof Error ? e.message : "The comparison link is invalid."; }
   const q = useQuery({ queryKey: ["storage-change", scope, page.token], enabled: !!request, queryFn: ({ signal }) => lens.getStorageChange(request!, { signal }), staleTime: Infinity });
   const data = q.data;
+  const resolvedSystem=system||data?.system||"";
+  const resolvedA=data?.a?.epoch ? String(data.a.epoch) : epochA;
+  const resolvedB=data?.b?.epoch ? String(data.b.epoch) : epochB;
+  const normalizing=!!data && (resolvedSystem!==system || resolvedA!==epochA || resolvedB!==epochB);
   useEffect(() => {
-    if (!data?.a?.epoch || !data?.b?.epoch || epochA !== null && epochB !== null) return;
-    const pinnedScope = [system, account, from, to, String(data.a.epoch), String(data.b.epoch)].join("|");
+    if (!data || !normalizing) return;
+    const pinnedScope = [resolvedSystem, account, from, to, resolvedA, resolvedB].join("|");
     queryClient.setQueryData(["storage-change", pinnedScope, ""], data);
-    setParams(p => { const n = new URLSearchParams(p); n.set("epochA", String(data.a!.epoch)); n.set("epochB", String(data.b!.epoch)); return n; }, { replace: true });
-  }, [data, epochA, epochB, setParams, system, account, from, to, queryClient]);
+    setParams(p => { const n = new URLSearchParams(p); if(resolvedSystem)n.set("system",resolvedSystem); if(resolvedA)n.set("epochA",resolvedA); if(resolvedB)n.set("epochB",resolvedB); return n; }, { replace: true });
+  }, [data, normalizing, resolvedSystem, resolvedA, resolvedB, setParams, account, from, to, queryClient]);
   const path = (target: string, id?: string) => {
     const n = new URLSearchParams({ system, account, from, to }); if (id) n.set("id", id); return `${target}?${n}`;
   };
@@ -79,20 +96,22 @@ export function StorageChange() {
           <td>{bytes(r.delta?.logical, true)}</td><td>{bytes(r.delta?.observedReplicas, true)}</td><td>{bytes(r.delta?.estimatedReplicas, true)}</td><td>{bytes(r.delta?.serverReported, true)}</td>
           <td><RowEvidence row={r} eventPath={id => path("/events", id)} /></td>
         </tr>)}</tbody></table></div>
-        <div className="page-actions"><button type="button" disabled={!page.previous.length || q.isFetching} onClick={() => { const previous = [...page.previous]; const token = previous.pop()!; setPaging({ scope, token, previous, offset: Math.max(0, page.offset - 100) }); }}>Previous contributors</button><button type="button" disabled={!d.nextPageToken || q.isFetching} onClick={() => setPaging({ scope, token: d.nextPageToken, previous: [...page.previous, page.token], offset: page.offset + d.rows.length })}>Next contributors</button></div>
+        <div className="page-actions"><button type="button" disabled={!page.previous.length || q.isFetching || normalizing} onClick={() => { const previous = [...page.previous]; const token = previous.pop()!; setPaging({ scope, token, previous, offset: Math.max(0, page.offset - 100) }); }}>Previous contributors</button><button type="button" disabled={!d.nextPageToken || q.isFetching || normalizing} onClick={() => setPaging({ scope, token: d.nextPageToken, previous: [...page.previous, page.token], offset: page.offset + d.rows.length })}>Next contributors</button></div>
       </Section>
     </>}</QueryView>}
   </>;
 }
 function RowEvidence({ row, eventPath }: { row: StorageChangeRow; eventPath: (id: string) => string }) {
-  return <details><summary>Before, after and evidence</summary><p>Creation: {stamp(row.created)}</p><h3>Before</h3><Values value={row.before}/><h3>After</h3><Values value={row.after}/><p>Processes at A: {row.processesA.join(", ") || "Unknown"}; at B: {row.processesB.join(", ") || "Unknown"}.</p><p>Configured copies: {row.configuredReplicasA ?? "Unknown"} → {row.configuredReplicasB ?? "Unknown"}.</p>{row.reasons.map(x => <p key={x}>{reason(x)}</p>)}{row.eventIds.map(id => <p key={String(id)}><Link className="x" to={eventPath(String(id))}>Event {String(id)}</Link></p>)}<p>Comparison pins identify the source windows. Resource links open the last observed endpoint window, including its exclusive upper-bound tick. Comparison pins remain authoritative; other detail reads do not have universal pins.</p></details>;
+  return <details><summary>Before, after and evidence</summary><p>Creation: {stamp(row.created)}</p><h3>Before</h3><Values value={row.before}/><h3>After</h3><Values value={row.after}/><p>Processes at A: {row.processesA.join(", ") || "Unknown"}; at B: {row.processesB.join(", ") || "Unknown"}.</p><p>Configured copies: {row.configuredReplicasA ?? "Unknown"} → {row.configuredReplicasB ?? "Unknown"}.</p>{row.reasons.map(x => <p key={x}>{reason(x)}</p>)}{row.eventIds.map(id => <p key={String(id)}><Link className="x" to={eventPath(String(id))}>Event {String(id)}</Link></p>)}<p>Comparison pins identify the source windows. Resource links open the last observed endpoint window, with a whole-second exclusive upper-bound tick. Comparison pins remain authoritative; other detail reads do not have universal pins.</p></details>;
 }
 
 function resourceHistoryPath(row:StorageChangeRow,data:GetStorageChangeResponse,system:string,account:string,from:string,to:string){
  const endpoint=row.processesB.length||!row.processesA.length?data.b:data.a;
  if(endpoint?.startedAt&&endpoint.finishedAt){
-  from=stamp(endpoint.startedAt);let seconds=endpoint.finishedAt.seconds,nanos=endpoint.finishedAt.nanos+1000;if(nanos>=1e9){seconds++;nanos-=1e9}
-  try{to=stamp(create(TimestampSchema,{seconds,nanos}))}catch{to=stamp(endpoint.finishedAt)}
+  from=stamp(endpoint.startedAt);
+  // Other detail links round URL ranges to whole seconds. Use their
+  // smallest exclusive-end tick; exact source windows remain above.
+  to=new Date((Number(endpoint.finishedAt.seconds)+1)*1000).toISOString().replace(".000Z","Z");
  }
  const q=new URLSearchParams({system,account:row.account||account,from,to});
  return `${row.rowKind==="server"?serverPath(row.server):streamPath(row.account,row.stream)}?${q}`;

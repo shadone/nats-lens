@@ -55,6 +55,10 @@ func FinishStorageChange(req *v1.GetStorageChangeRequest, f *StorageChangeFacts)
 		return nil, fmt.Errorf("%w: page_size must be 1 to 100", ErrInvalid)
 	}
 	res := &v1.GetStorageChangeResponse{A: proto.Clone(f.A).(*v1.StorageChangeEndpoint), B: proto.Clone(f.B).(*v1.StorageChangeEndpoint), EndpointPolicy: "completed_at_or_before_requested", System: req.System, Account: req.Account, Unit: "bytes", Reasons: slices.Clone(f.Reasons)}
+	comparable := f.A.Epoch > 0 && f.B.Epoch > 0 && f.A.Epoch != f.B.Epoch && !slices.Contains(f.A.Reasons, "stale_collection") && !slices.Contains(f.B.Reasons, "stale_collection")
+	if !comparable {
+		res.Reasons = append(res.Reasons, "no_comparable_endpoints")
+	}
 	seen := map[string]bool{}
 	for _, x := range f.Rows {
 		if x == nil || x.Id == "" || seen[x.Id] || (x.Storage != "file" && x.Storage != "memory") || (x.RowKind != "resource" && x.RowKind != "server") {
@@ -70,7 +74,7 @@ func FinishStorageChange(req *v1.GetStorageChangeRequest, f *StorageChangeFacts)
 			}
 		}
 		r.Delta = storageDifference(r.Before, r.After)
-		if slices.Contains(r.Reasons, "incarnation_unknown") || slices.Contains(r.Reasons, "invalid_creation_time") {
+		if !comparable || slices.Contains(r.Reasons, "incarnation_unknown") || slices.Contains(r.Reasons, "invalid_creation_time") {
 			r.Delta = &v1.StorageChangeBytes{}
 		}
 		res.Rows = append(res.Rows, r)
@@ -112,6 +116,9 @@ func FinishStorageChange(req *v1.GetStorageChangeRequest, f *StorageChangeFacts)
 			return nil, err
 		}
 		total.Delta = storageDifference(total.Before, total.After)
+		if !comparable {
+			total.Delta = &v1.StorageChangeBytes{}
+		}
 		total.KnownContributions, err = storageContributions(res.Rows, storage)
 		if err != nil {
 			return nil, err
@@ -120,6 +127,9 @@ func FinishStorageChange(req *v1.GetStorageChangeRequest, f *StorageChangeFacts)
 			if r.Storage == storage && r.RowKind == "resource" && (r.GetDelta().Logical == nil || r.GetDelta().ObservedReplicas == nil) {
 				total.UnknownRows++
 			}
+		}
+		if !comparable {
+			total.KnownContributions = &v1.StorageChangeBytes{}
 		}
 		if req.Account == "" && total.Delta.ServerReported != nil && total.Delta.ObservedReplicas != nil {
 			v, ok := storageAdd(*total.Delta.ServerReported, -*total.Delta.ObservedReplicas)
@@ -148,7 +158,10 @@ func FinishStorageChange(req *v1.GetStorageChangeRequest, f *StorageChangeFacts)
 		if err != nil {
 			return nil, err
 		}
-		if token.Scope != scope || token.A != f.A.Epoch || token.B != f.B.Epoch {
+		if token.A != f.A.Epoch || token.B != f.B.Epoch {
+			return nil, fmt.Errorf("%w: retained storage endpoints changed; restart comparison", ErrFailedPrecondition)
+		}
+		if token.Scope != scope {
 			return nil, fmt.Errorf("%w: storage continuation scope differs", ErrInvalid)
 		}
 		if token.Evidence != evidence {
@@ -168,6 +181,9 @@ func FinishStorageChange(req *v1.GetStorageChangeRequest, f *StorageChangeFacts)
 		omitted = append(omitted, all[end:]...)
 		var err error
 		total.OmittedContributions, err = storageContributions(omitted, total.Storage)
+		if !comparable {
+			total.OmittedContributions = &v1.StorageChangeBytes{}
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -202,7 +218,7 @@ func DecodeStorageCursor(raw string) (storageCursor, error) {
 		return token, fmt.Errorf("%w: storage continuation is too long", ErrInvalid)
 	}
 	data, err := base64.RawURLEncoding.DecodeString(raw)
-	if err != nil || json.Unmarshal(data, &token) != nil || token.Version != 1 || token.A <= 0 || token.B <= 0 || token.Offset < 1 || token.Offset >= MaxStorageChangeRows || len(token.Scope) != 64 || len(token.Evidence) != 64 {
+	if err != nil || json.Unmarshal(data, &token) != nil || token.Version != 1 || token.A < 0 || token.B < 0 || token.Offset < 1 || token.Offset >= MaxStorageChangeRows || len(token.Scope) != 64 || len(token.Evidence) != 64 {
 		return token, fmt.Errorf("%w: invalid storage continuation", ErrInvalid)
 	}
 	return token, nil
