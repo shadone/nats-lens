@@ -31,7 +31,12 @@ func (p *Provider) StorageChange(ctx context.Context, req *v1.GetStorageChangeRe
 		e := &v1.StorageChangeEndpoint{Requested: ts(requested)}
 		end := requested
 		if pins[i] != 0 {
-			end = s.dataStart().Add(time.Duration(pins[i]-1) * sampleEvery)
+			last := s.lastEpoch()
+			if pins[i] < 1 || pins[i] > s.epochNumber(last) {
+				return nil, api.ErrFailedPrecondition
+			}
+			first := last.Add(-last.Sub(s.dataStart()) / sampleEvery * sampleEvery)
+			end = first.Add(time.Duration(pins[i]-1) * sampleEvery)
 			if end.After(requested) {
 				return nil, api.ErrInvalid
 			}
@@ -56,29 +61,39 @@ func (p *Provider) StorageChange(ctx context.Context, req *v1.GetStorageChangeRe
 		e.FinishedAt = ts(f.EpochAt)
 		e.Age = durationpb.New(requested.Sub(f.EpochAt))
 		e.InventoryComplete = true
+		if requested.Sub(f.EpochAt) > 3*sampleEvery {
+			e.Reasons = append(e.Reasons, "stale_collection")
+		}
 		for _, sv := range f.Servers {
 			if !sv.Reported {
 				e.InventoryComplete = false
 			}
-			key := "server:" + sv.Name + ":file"
-			r := rows[key]
-			if r == nil {
-				r = &v1.StorageChangeRow{Id: key, RowKind: "server", Server: sv.Name, Storage: "file"}
-				rows[key] = r
-			}
-			v := &v1.StorageChangeBytes{ServerReported: sv.Used}
-			if i == 0 {
-				r.Before = v
-			} else {
-				r.After = v
-			}
-			for _, sp := range s.sc.servers {
-				if sp.name == sv.Name {
-					id := s.processID(sp, f.EpochAt)
-					if i == 0 {
-						r.ProcessesA = []string{id}
-					} else {
-						r.ProcessesB = []string{id}
+			for _, storage := range []string{"file", "memory"} {
+				key := "server:" + sv.Name + ":" + storage
+				r := rows[key]
+				if r == nil {
+					r = &v1.StorageChangeRow{Id: key, RowKind: "server", Server: sv.Name, Storage: storage}
+					rows[key] = r
+				}
+				v := &v1.StorageChangeBytes{}
+				if storage == "file" {
+					v.ServerReported = sv.Used
+				} else {
+					r.Reasons = []string{"demo_memory_usage_unavailable"}
+				}
+				if i == 0 {
+					r.Before = v
+				} else {
+					r.After = v
+				}
+				for _, sp := range s.sc.servers {
+					if sp.name == sv.Name {
+						id := s.processID(sp, f.EpochAt)
+						if i == 0 {
+							r.ProcessesA = []string{id}
+						} else {
+							r.ProcessesB = []string{id}
+						}
 					}
 				}
 			}
