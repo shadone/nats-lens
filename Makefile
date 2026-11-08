@@ -1,7 +1,7 @@
 BIN := bin/natslens
 DEV_DATA := .dev/natslens
 
-.PHONY: build build-full build-go web-full web web-test web-dev proto test test-short test-fast lint fmt demo dev-cluster dev-cluster-stop load churn run-dev image vuln clean
+.PHONY: build build-full build-go web-full web web-test web-dev proto test test-short test-fast verify-fast verify-full verify-web verify-proto verify-race lint fmt demo dev-cluster dev-cluster-stop load churn run-dev image vuln clean
 
 # Verifies/rebuilds production assets, then builds the binary that embeds them.
 build: web/node_modules/.package-lock.json
@@ -49,6 +49,22 @@ test-short:
 # Pure policy/decoding selection; short alone still includes DuckDB and HTTP.
 test-fast:
 	./scripts/test-go-fast.sh
+
+# Aggregate checks are read-only; no dependency installation or source rewriting.
+verify-fast:
+	python3 -B scripts/verify.py fast
+
+verify-full:
+	python3 -B scripts/verify.py full
+
+verify-web:
+	python3 -B scripts/verify.py web
+
+verify-proto:
+	python3 -B scripts/verify.py proto
+
+verify-race:
+	python3 -B scripts/verify.py race
 
 lint:
 	go vet ./...
