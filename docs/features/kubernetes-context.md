@@ -69,7 +69,7 @@ When NATS runs in Kubernetes, many of its troubles start outside NATS: a node is
 - **Then** nats-lens records the outage span as `collector.k8s_gap`, logs recovery, and resets the retry delay
 - **And** a successful list or relist alone does not end the watch outage
 
-### A quiet source's resource version is compacted away
+### The server no longer has a quiet source's resource version
 
 - **Surfaces:** `cli`
 - **Given** a quiet source, such as the node Events in `default`, has seen no event or bookmark for hours, so the API server no longer has the resource version it watches from
