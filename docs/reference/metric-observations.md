@@ -67,6 +67,8 @@ Proposed, not yet confirmed: volume evidence admits only pairs wholly inside `[s
 
 A plotted rate may use a preceding baseline outside the selected range; that pair is deliberately excluded from the increase. Thus rate rows and volume pairs have different counts. Entirely absent reports cannot be counted as excluded rows; a short missing-report gap can bridge within the elapsed-time rule. The timestamp envelope does not establish uninterrupted capture. These are observed increases from admitted pairs, not complete interval volumes, client attribution, or a sum of sampled rates.
 
+Predecessor selection preserves every intervening report within a contiguous epoch envelope before applying timestamp membership. An out-of-range clock-anomalous report cannot disappear and turn nonconsecutive reports into a pair. The envelope is selected from the existing lookback/range epoch bounds; it does not require a full retained-history window.
+
 Ordinary and opted-in server rates share the same counter-validity predicate. In particular, decreasing counters plus backwards timestamps cannot fabricate a positive rate. Resource ingestion/delivery sequence metrics do not yet expose this counter summary. The demo omits it because its synthetic rate curves have no stored cumulative counters; consumers must show unavailable evidence rather than integrate those curves.
 
 The curve and counter summary retain the same read transaction and two metric reads as other stored observation requests. The response materializes aggregate scalars, not raw report maps. These limits do not bound DuckDB's internal work or pin separate RPCs.

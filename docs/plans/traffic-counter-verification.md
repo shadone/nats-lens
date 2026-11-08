@@ -44,3 +44,11 @@ T3 resize initially returned stale 1280px metadata; a corrected/repeated resize 
 ## Remaining acceptance
 
 Complete interval volumes cannot be guaranteed from incomplete reports. Resource sequence-volume semantics, global metric contributor ranking and richer historical attribution remain open. No client causation, contents, profiling or cross-RPC pin is added.
+
+## R1 adjacency correction
+
+Fresh review found that filtering timestamps before `lag` could remove an intervening report. The exact `0 at 12:00:00 → 100 at 12:01:10 → 110 at 12:00:30` epoch sequence incorrectly contributed 110 in `[12:00:00,12:01:00)`. Runtime RED checkpoint `247dd8b4` covers all eight metrics, ordinary/opted-in requests and both future-end and past-lookback intervening reports. No pair qualifies in those fixtures.
+
+The correction computes `lag` over the contiguous epoch envelope of the timestamp scan, retaining intervening reports even when their timestamps fall outside the scan. Only afterward does epoch membership restrict the result to requested timestamp rows. It retains bound time/entity parameters and avoids expanding every query to a full-history window. Native internal work still depends on retained data and clock anomalies; no hard native work bound is claimed.
+
+`TZ=Pacific/Honolulu go test -race ./internal/api/storeprov ./internal/api/fake ./internal/offline -run 'TestTraffic|TestSeriesObservation|TestDemoTraffic|TestOfflineLiveParity$|TestDeliveredRate(SkipsGaps|RestartsOnLeaderMoveAndRecreate)$' -count=1 -timeout=5m` passes (store provider 15.230s, fake 2.446s, offline 4.254s). Independent old-code overlay restores the erroneous 110 and fabricated rate; the unchanged regression passes after restoring the correction. Logs: `/private/tmp/nats-traffic-r1-{red,green,removed,restored}.log`. No frontend changed in R1; prior full-web/build/browser receipts remain scoped to that unchanged code. Fresh R2 is required before merge.
