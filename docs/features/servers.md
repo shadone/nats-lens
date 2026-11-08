@@ -84,6 +84,17 @@ Server detail charts mark recorded missing answers and missing STATSZ/VARZ metri
 - **Then** the headline, server chart and investigation each count 8 detections
 - **And** the first report supplies a baseline without entering the selected range
 
+### Distinguish a missing counter from a missing report
+
+- **Surfaces:** `ui`, `api`
+- **Given** a server reports counter 0, misses a collection, then reports 6 and 9
+- **When** another monitoring endpoint answered in the missed collection but the counter is absent
+- **Then** the return report has an unknown increase, and the next report contributes 3 detections
+- **And** when the whole server report is absent, the return contributes 6 only if its baseline is at most three collection intervals old
+- **And** a longer gap or a new process starts a baseline, so the next report contributes 3
+- **And** summaries, detail totals, charts and investigation count the same increases
+- **And** the investigation gives unavailable intervals a reason; a comparable unchanged counter adds zero without an unavailable observation
+
 ### Select one observation without losing supporting events
 
 - **Surfaces:** `ui`, `api`
