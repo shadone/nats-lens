@@ -25,7 +25,7 @@ export function resourceHistoryPath(row:StorageChangeRow,data:GetStorageChangeRe
 export function resourceEndpointPath(row:StorageChangeRow,endpoint:StorageChangeEndpoint|undefined,system:string,account:string,from:string,to:string){
  if(endpoint?.startedAt&&endpoint.finishedAt){
   from=stamp(endpoint.startedAt);
-  // Other detail links round URL ranges to whole seconds. Use their
+  // Keep the existing detail-link whole-second inclusion convention. Use the
   // smallest exclusive-end tick; exact source windows remain above.
   to=new Date((Number(endpoint.finishedAt.seconds)+1)*1000).toISOString().replace(".000Z","Z");
  }

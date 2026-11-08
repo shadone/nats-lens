@@ -10,6 +10,8 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 
 ## Behavior and rules
 
+- [Chart interval selection](chart-interval-selection.md) adds explicit storage-time selection and actions. Selection alone leaves navigation and the page range unchanged.
+
 - **Chart descriptions.** Chart and mini-chart descriptions use [shared chart help](chart-help.md). Consumer history help lives in the Consumer header, leaving Range plots full-width.
 
 The worst-streams table requests one bounded page; its count and totals cover all matching streams, including later pages ([Streams](streams.md)).

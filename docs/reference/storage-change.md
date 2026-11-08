@@ -50,7 +50,7 @@ Use a configured trusted profile for protected remote access. Use the same metho
 
 Important reasons include `no_comparable_endpoints`, `no_collection`, `stale_collection`, `missing_jsz`, `resource_inventory_incomplete`, `not_observed_at_a`, `not_observed_at_b`, `incarnation_unknown`, `invalid_creation_time`, `replica_coverage_incomplete`, `ambiguous_configuration_or_identity`, `observed_delete_event`, `incarnation_replaced`, `created_after_a`, `configured_replicas_changed`, `server_process_changed`, `server_usage_is_system_wide`, `exclusive_end_inclusion` and `offline_ui_unavailable`. A reason explains evidence availability or an observed boundary; it does not prove causation.
 
-Resource-detail links select the last observed endpoint window. Those existing pages round shared URL ranges to whole seconds, so links use the next whole second after the window finish. Exact collection windows and pins remain on the comparison page; this does not create universal pins for other detail RPCs.
+Resource-detail links select the last observed endpoint window. Links retain their whole-second inclusion convention, using the next whole second after the window finish. Shared range URLs also preserve millisecond precision when supplied. Exact collection windows and pins remain on the comparison page; this does not create universal pins for other detail RPCs.
 
 A live preset on the evidence page resolves to fixed bounds using the loaded source clock. Explicit range changes discard old collection pins. Available endpoint pins and the resolved system are written into the URL before continuing a page; unavailable endpoints have no invented pin.
 
