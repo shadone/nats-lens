@@ -248,18 +248,48 @@ func runSQL(ctx context.Context, args []string) error {
 
 // runSQLTo serves natslens sql, printing to out.
 func runSQLTo(ctx context.Context, args []string, out io.Writer) error {
-	const usage = "usage: natslens sql [-config FILE] [-system ID] [-data-dir DIR] QUERY"
+	const usage = "usage: natslens sql [-db FILE | -config FILE -system ID -data-dir DIR] [-format table|json] [-output FILE] [-max-rows N] [-max-output-bytes N] [-timeout 45s] QUERY"
 	fs := flag.NewFlagSet("natslens sql", flag.ContinueOnError)
 	db := oneDatabaseFlags(fs)
+	source := fs.String("db", "", "existing offline DuckDB file; exclusive with config/system/data-dir")
+	format := fs.String("format", "table", "table or json")
+	output := fs.String("output", "", "publish to a new file instead of stdout")
+	maxRows := fs.Int("max-rows", sqlcli.DefaultMaxRows, "maximum returned rows, 1–100000")
+	maxBytes := fs.Int("max-output-bytes", sqlcli.DefaultMaxBytes, "complete output byte budget, 1024–16777216")
+	timeout := fs.Duration("timeout", sqlcli.DefaultTimeout, "query budget, at most 45s")
 	if err := fs.Parse(args); err != nil {
-		return err
+		if errors.Is(err, flag.ErrHelp) {
+			return err
+		}
+		return sqlcli.Invalid("Invalid SQL command flags")
 	}
 	if fs.NArg() != 1 {
-		return errors.New(usage)
+		return sqlcli.Invalid(usage)
 	}
-	_, _, dir, err := db.resolve()
+	path := *source
+	if path != "" {
+		conflict := false
+		fs.Visit(func(f *flag.Flag) {
+			if f.Name == "config" || f.Name == "system" || f.Name == "data-dir" {
+				conflict = true
+			}
+		})
+		if conflict {
+			return sqlcli.Invalid("-db is exclusive with -config, -system and -data-dir")
+		}
+	} else {
+		_, _, dir, err := db.resolve()
+		if err != nil {
+			return sqlcli.Invalid(err.Error())
+		}
+		path = filepath.Join(dir, store.FileName)
+	}
+	b, err := sqlcli.Execute(ctx, path, fs.Arg(0), sqlcli.Options{Format: *format, MaxRows: *maxRows, MaxBytes: *maxBytes, Timeout: *timeout})
 	if err != nil {
 		return err
 	}
-	return sqlcli.Run(ctx, filepath.Join(dir, store.FileName), fs.Arg(0), out)
+	if *output != "" {
+		return sqlcli.Publish(*output, b)
+	}
+	return sqlcli.Write(out, b)
 }
