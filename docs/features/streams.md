@@ -12,19 +12,58 @@ The Streams page lists the JetStream streams of the newest collection in the tim
 
 - **The leader's view.** Numbers in the list come from each stream's leader in the newest collection of the range.
 - **KV buckets and object stores are hidden by default.** "Include KV and object stores" adds the `KV_` and `OBJ_` streams to the list. The KV Stores and Object Stores pages show them as buckets ([kv-and-object-stores.md](kv-and-object-stores.md)).
-- **The list.** For each stream: its status (the worst firing finding on it or on its consumers), name and account, "servers disagree" when the servers report different configurations or creation times for it, replicas, leader, messages, bytes, consumers, a 7-day bytes chart, growth per day, and the codes of its firing findings. A footer sums the bytes stored and counts the durable and the ephemeral or ordered consumers; these totals include KV buckets and object stores even while they are hidden from the list.
+- **The list.** For each stream: its status (the worst firing finding on it or on its consumers), name and account, "servers disagree" when the servers report different configurations or creation times for it, replicas, leader, messages, bytes, consumers, a 7-day bytes chart, growth per day, and the codes of its firing findings. A footer sums the bytes stored and counts the durable and the ephemeral or ordered consumers; these totals cover all matching streams across every page, including buckets only when the list includes them.
 - **Present out of expected.** For a stream the inventory names, the consumer count reads present out of expected (for example `4/5`), marked when consumers are missing. For any other stream it is a plain count.
 - **Growth per day.** Growth is the median of the slopes between every pair of points of the leader's bytes over the range, scaled to a day. The selected range and the entity’s actual observations must each span at least 6 hours. Growth reads at most two collection intervals before the selected start, capped at 5 minutes, and excludes the range end. Bucket reduction keeps the actual observation bounds for this requirement. A short range cannot borrow old observations. It can be negative, for example for a KV bucket whose entries expire faster than they are written.
 - **The stream page.** Stat cards show messages, bytes with growth per day, consumers (present out of expected) and the leader. Charts show messages and bytes over the range, and bytes over 7 days, drawn as on the Overview tiles: line and fill neutral, the change in the accent.
 - **Servers disagree.** When the servers report different configuration hashes or creation times, a "Servers disagree" table shows each server's configuration hash and creation time.
 - **Per server.** For each server that holds the stream: its replica role (leader, current, behind or offline), its lag, messages, bytes, first and last sequence, creation time and configuration hash. This is where a replica rebuilt at another time, or a replica that drifted, shows.
-- **A limit in the API.** `ListStreams` takes a `limit`: at most that many streams, worst first, then by name; `total_count` and the totals still cover every stream that matches. The Overview asks for the 10 worst.
+- **Bounded list pages.** The UI shows at most 100 streams per page, with a count of all matches and a Next page button. Refresh list requests a fresh first page even when the previous first page is still cached. The API preserves the worst-first order, then the account/stream key. Zero `limit` uses 100; larger limits are capped at 100, and negative limits are invalid. Totals cover all matches, including later pages. A page stays below 512 KiB in JSON and protobuf; a single summary that cannot fit returns a resource error. The Overview asks for the 10 worst.
+- **Metadata limits.** Stream list capture bounds its metadata reads before retaining a traversal. Excessive rows or metadata bytes return a resource error. The API preserves counts, findings, and unknown replica states rather than returning partial summaries. Hidden buckets do not consume the default stream list’s placement budget.
+- **Name discovery.** Search and stream filter choices omit growth and charts and traverse every page. The Streams page retains both history fields.
+- **Traversal context.** The first page freezes ranking, summary values, totals, the collection, and absolute range in a process-local context. Subsequent pages use this order while new collections arrive. Stream growth and charts are read for the selected page from retained history, and readable account names can change between pages. These reads are not frozen database snapshots. Contexts expire after 5 minutes and can be evicted earlier or lost on restart. An expired context or a collection removed by retention requires Refresh list. Changing system, range, or bucket filter starts at page 1. API callers keep their filters and use the continuation token; omitted range bounds reuse the original bounds.
 - **Placement in the API.** `ListStreams` and `GetStream` give each stream a `placement`: one entry per replica, the leader first and the rest by server name. In order: the leader is `LEADER` (the first by name when two claim it); a replica the leader lists as offline is `OFFLINE`; one the leader lists that reports nothing itself is `MISSING`; one that reports but that the leader does not list is `DISAGREES`; one the leader reports not current is `BEHIND`, even with an older configuration; one with a configuration hash other than the leader's is `DISAGREES`; one the leader reports current is `IN_SYNC`. Without a leader's report a replica's state is unset, or `DISAGREES` when the servers hold different configurations. Each configured replica beyond the servers named is `MISSING`, with no server. KV buckets and object stores use the same rule. The page does not draw the squares yet.
 - **Configuration.** The stream's configuration as its leader reports it.
 - **Copy event text.** Event types and summaries in the feed are selectable without opening or closing the row. See [Events](events.md).
 - **Consumers and events.** The stream's consumers with their backlog, and its newest 15 events, with a link to all of them.
 
 ## Scenarios
+
+### List streams beside many hidden buckets
+
+- **Surfaces:** `api`
+- **Given** one ordinary stream and more than 20,000 hidden KV or object streams
+- **When** I request the default stream list, including a summary-only request
+- **Then** I receive the ordinary stream and its truthful match count without reading the hidden streams’ placement reports
+
+### Refuse excessive placement metadata
+
+- **Surfaces:** `api`
+- **Given** matching streams whose placement reports exceed a metadata budget
+- **When** I request a stream list
+- **Then** the API returns a resource error instead of partial or healthy-looking placement
+
+### Refresh a recently loaded list
+
+- **Surfaces:** `ui`
+- **Given** I followed Next page and the previous first page remains cached, or the traversal was evicted
+- **When** I choose Refresh list
+- **Then** the page requests a fresh first page with the current system, range, and filters
+- **And** it disables navigation and repeat refresh until the request finishes
+
+### Traverse streams while collections arrive
+
+- **Given** more than 100 matching streams and a live collection
+- **When** I follow Next page while another collection arrives
+- **Then** each page follows the first page's frozen ranking, and the footer totals describe every matching stream
+- **And** changing the range or bucket filter starts at page 1
+
+### Restart an expired list
+
+- **Given** a traversal whose context expired or whose collection was removed by retention
+- **When** I request its next page
+- **Then** the API returns a typed reset error, and the UI offers Refresh list
+
 
 ### Find the stream that grows fastest
 

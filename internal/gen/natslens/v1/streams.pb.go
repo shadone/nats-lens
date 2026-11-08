@@ -397,8 +397,15 @@ type ListStreamsRequest struct {
 	// System ID, as ListSystems returns it. Empty means the default system.
 	System string `protobuf:"bytes,4,opt,name=system,proto3" json:"system,omitempty"`
 	// Largest number of streams to return, after the worst-first order.
-	// Zero or a negative number means all.
-	Limit         int32 `protobuf:"varint,5,opt,name=limit,proto3" json:"limit,omitempty"`
+	// Zero uses 100; larger values are capped at 100. Negative values are invalid.
+	Limit int32 `protobuf:"varint,5,opt,name=limit,proto3" json:"limit,omitempty"`
+	// Opaque continuation, valid for 5 minutes while its context is retained.
+	// Keep filters, system and range; omit the range to reuse the pinned bounds.
+	// FailedPrecondition means restart from the first page.
+	PageToken string `protobuf:"bytes,6,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	// Omit growth and the seven-day bytes chart for name/filter discovery.
+	// The default preserves both history fields.
+	SummaryOnly   bool `protobuf:"varint,7,opt,name=summary_only,json=summaryOnly,proto3" json:"summary_only,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -468,6 +475,20 @@ func (x *ListStreamsRequest) GetLimit() int32 {
 	return 0
 }
 
+func (x *ListStreamsRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+func (x *ListStreamsRequest) GetSummaryOnly() bool {
+	if x != nil {
+		return x.SummaryOnly
+	}
+	return false
+}
+
 // Streams, worst status first, then by name.
 type ListStreamsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -476,7 +497,13 @@ type ListStreamsResponse struct {
 	// Totals across the streams that match, also those past the limit.
 	Totals *StreamTotals `protobuf:"bytes,2,opt,name=totals,proto3" json:"totals,omitempty"`
 	// Number of streams that match, also those past the limit.
-	TotalCount    int32 `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	TotalCount int32 `protobuf:"varint,3,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	// Continuation, empty on the last page.
+	NextPageToken string `protobuf:"bytes,4,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	// Absolute range shared by every page of this traversal.
+	Range *TimeRange `protobuf:"bytes,5,opt,name=range,proto3" json:"range,omitempty"`
+	// Collection used for the frozen summaries.
+	Epoch         int64 `protobuf:"varint,6,opt,name=epoch,proto3" json:"epoch,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -528,6 +555,27 @@ func (x *ListStreamsResponse) GetTotals() *StreamTotals {
 func (x *ListStreamsResponse) GetTotalCount() int32 {
 	if x != nil {
 		return x.TotalCount
+	}
+	return 0
+}
+
+func (x *ListStreamsResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
+func (x *ListStreamsResponse) GetRange() *TimeRange {
+	if x != nil {
+		return x.Range
+	}
+	return nil
+}
+
+func (x *ListStreamsResponse) GetEpoch() int64 {
+	if x != nil {
+		return x.Epoch
 	}
 	return 0
 }
@@ -747,19 +795,25 @@ const file_natslens_v1_streams_proto_rawDesc = "" +
 	"\fStreamTotals\x12\x14\n" +
 	"\x05bytes\x18\x01 \x01(\x03R\x05bytes\x12+\n" +
 	"\x11durable_consumers\x18\x02 \x01(\x05R\x10durableConsumers\x12/\n" +
-	"\x13ephemeral_consumers\x18\x03 \x01(\x05R\x12ephemeralConsumers\"\xa9\x01\n" +
+	"\x13ephemeral_consumers\x18\x03 \x01(\x05R\x12ephemeralConsumers\"\xeb\x01\n" +
 	"\x12ListStreamsRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x18\n" +
 	"\aaccount\x18\x02 \x01(\tR\aaccount\x12\x1d\n" +
 	"\n" +
 	"include_kv\x18\x03 \x01(\bR\tincludeKv\x12\x16\n" +
 	"\x06system\x18\x04 \x01(\tR\x06system\x12\x14\n" +
-	"\x05limit\x18\x05 \x01(\x05R\x05limit\"\x9f\x01\n" +
+	"\x05limit\x18\x05 \x01(\x05R\x05limit\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x06 \x01(\tR\tpageToken\x12!\n" +
+	"\fsummary_only\x18\a \x01(\bR\vsummaryOnly\"\x8b\x02\n" +
 	"\x13ListStreamsResponse\x124\n" +
 	"\astreams\x18\x01 \x03(\v2\x1a.natslens.v1.StreamSummaryR\astreams\x121\n" +
 	"\x06totals\x18\x02 \x01(\v2\x19.natslens.v1.StreamTotalsR\x06totals\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x05R\n" +
-	"totalCount\"\x8a\x01\n" +
+	"totalCount\x12&\n" +
+	"\x0fnext_page_token\x18\x04 \x01(\tR\rnextPageToken\x12,\n" +
+	"\x05range\x18\x05 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x14\n" +
+	"\x05epoch\x18\x06 \x01(\x03R\x05epoch\"\x8a\x01\n" +
 	"\x10GetStreamRequest\x12\x18\n" +
 	"\aaccount\x18\x01 \x01(\tR\aaccount\x12\x16\n" +
 	"\x06stream\x18\x02 \x01(\tR\x06stream\x12,\n" +
@@ -814,18 +868,19 @@ var file_natslens_v1_streams_proto_depIdxs = []int32{
 	12, // 5: natslens.v1.ListStreamsRequest.range:type_name -> natslens.v1.TimeRange
 	0,  // 6: natslens.v1.ListStreamsResponse.streams:type_name -> natslens.v1.StreamSummary
 	2,  // 7: natslens.v1.ListStreamsResponse.totals:type_name -> natslens.v1.StreamTotals
-	12, // 8: natslens.v1.GetStreamRequest.range:type_name -> natslens.v1.TimeRange
-	0,  // 9: natslens.v1.GetStreamResponse.stream:type_name -> natslens.v1.StreamSummary
-	13, // 10: natslens.v1.GetStreamResponse.config:type_name -> natslens.v1.ConfigValue
-	1,  // 11: natslens.v1.GetStreamResponse.servers:type_name -> natslens.v1.StreamServerView
-	14, // 12: natslens.v1.GetStreamResponse.disagreements:type_name -> natslens.v1.Disagreement
-	15, // 13: natslens.v1.GetStreamResponse.consumers:type_name -> natslens.v1.ConsumerSummary
-	16, // 14: natslens.v1.GetStreamResponse.findings:type_name -> natslens.v1.Finding
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	12, // 8: natslens.v1.ListStreamsResponse.range:type_name -> natslens.v1.TimeRange
+	12, // 9: natslens.v1.GetStreamRequest.range:type_name -> natslens.v1.TimeRange
+	0,  // 10: natslens.v1.GetStreamResponse.stream:type_name -> natslens.v1.StreamSummary
+	13, // 11: natslens.v1.GetStreamResponse.config:type_name -> natslens.v1.ConfigValue
+	1,  // 12: natslens.v1.GetStreamResponse.servers:type_name -> natslens.v1.StreamServerView
+	14, // 13: natslens.v1.GetStreamResponse.disagreements:type_name -> natslens.v1.Disagreement
+	15, // 14: natslens.v1.GetStreamResponse.consumers:type_name -> natslens.v1.ConsumerSummary
+	16, // 15: natslens.v1.GetStreamResponse.findings:type_name -> natslens.v1.Finding
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_streams_proto_init() }

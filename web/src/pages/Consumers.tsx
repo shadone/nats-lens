@@ -1,3 +1,6 @@
+import { ListTraversal, useListTraversal } from "../components/ListTraversal";
+import { useSystem } from "../lib/useSystem";
+import { rangeKey } from "../lib/timeRange";
 // Consumers: backlog and status per consumer, worst first.
 import { useSearchParams } from "react-router";
 import { useConsumers, useStreamNames } from "../api/queries";
@@ -23,7 +26,9 @@ export function Consumers() {
   // The chosen stream stays on offer while the streams load, when the call
   // fails, or when the range lacks it.
   const chosenMissing = stream !== "" && !streams.some((s) => `${s.account}/${s.stream}` === stream);
-  const q = useConsumers(spec, { account, stream: streamName, includeEphemeral: eph });
+  const sys = useSystem();
+  const traversal = useListTraversal(JSON.stringify([sys, rangeKey(spec), account, streamName, eph]));
+  const q = useConsumers(spec, { account, stream: streamName, includeEphemeral: eph }, traversal.token);
   const set = (k: string, v: string) =>
     setParams((p) => {
       const n = new URLSearchParams(p);
@@ -53,6 +58,7 @@ export function Consumers() {
           <input type="checkbox" checked={eph} onChange={(e) => set("ephemeral", e.target.checked ? "1" : "")} /> Include ephemeral and ordered
         </label>
       </div>
+      <ListTraversal traversal={traversal} next={q.data?.nextPageToken} count={q.data?.totalCount} loaded={q.data?.length ?? 0} error={q.error} refresh={() => q.refetch()} refreshing={q.isFetching} />
       <QueryView q={q} what="consumers">
         {(cs) => (cs.length ? <ConsumersTable consumers={cs} end={end} /> : <Empty>No consumers match in the newest collection of this range.</Empty>)}
       </QueryView>

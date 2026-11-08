@@ -30,7 +30,7 @@ beforeEach(() => {
     create(GetShellStatusResponseSchema, { systems: [{ system: { id: "sys-a", name: "A" } }], defaultSystem: "sys-a", systemKnown: !req.system || req.system === "sys-a" })) as never);
   m.listServers.mockResolvedValue({ servers: [{ name: "nats-1", cluster: "c" }], expected: [], missing: [] } as never);
   m.listStreams.mockResolvedValue({ streams: [{ entity: { account: "APP", stream: "order-jobs" } }, { entity: { account: "APP", stream: "order-archive" } }] } as never);
-  m.listConsumers.mockResolvedValue([]);
+  m.listConsumers.mockResolvedValue(Object.assign([], { totalCount: 0, nextPageToken: "" }));
 });
 
 const box = () => screen.getByRole("combobox", { name: "Search this system" });

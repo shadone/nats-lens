@@ -73,7 +73,7 @@ describe("Connections server filter choices", () => {
 
 describe("Consumers stream filter choices", () => {
   it("offers the chosen stream while the streams load", () => {
-    vi.mocked(requests.listConsumers).mockResolvedValue([]);
+    vi.mocked(requests.listConsumers).mockResolvedValue(Object.assign([], { totalCount: 0, nextPageToken: "" }));
     vi.mocked(requests.listStreams).mockImplementation(() => new Promise(() => {}));
     renderApp(<Consumers />, "/consumers?stream=APP/order-jobs");
     expect(opts("Stream")).toEqual(["All streams", "order-jobs (APP)"]);
@@ -81,7 +81,7 @@ describe("Consumers stream filter choices", () => {
   });
 
   it("offers the chosen stream when the call fails, and still asks for the consumers", async () => {
-    vi.mocked(requests.listConsumers).mockClear().mockResolvedValue([]);
+    vi.mocked(requests.listConsumers).mockClear().mockResolvedValue(Object.assign([], { totalCount: 0, nextPageToken: "" }));
     vi.mocked(requests.listStreams).mockRejectedValue(new Error("streams down"));
     renderApp(<Consumers />, "/consumers?stream=APP/order-jobs");
     await waitFor(() => expect(requests.listStreams).toHaveBeenCalled());
@@ -91,7 +91,7 @@ describe("Consumers stream filter choices", () => {
   });
 
   it("offers a chosen stream the range does not hold after the others", async () => {
-    vi.mocked(requests.listConsumers).mockResolvedValue([]);
+    vi.mocked(requests.listConsumers).mockResolvedValue(Object.assign([], { totalCount: 0, nextPageToken: "" }));
     vi.mocked(requests.listStreams).mockResolvedValue({ streams: [{ entity: ent("order-archive") }], totals: {} } as never);
     renderApp(<Consumers />, "/consumers?stream=APP/order-jobs");
     await waitFor(() => expect(opts("Stream")).toEqual(["All streams", "order-archive (APP)", "order-jobs (APP)"]));
@@ -99,7 +99,7 @@ describe("Consumers stream filter choices", () => {
   });
 
   it("shows the new system's streams and reads the old system's from the cache", async () => {
-    vi.mocked(requests.listConsumers).mockResolvedValue([]);
+    vi.mocked(requests.listConsumers).mockResolvedValue(Object.assign([], { totalCount: 0, nextPageToken: "" }));
     vi.mocked(requests.listStreams).mockClear();
     vi.mocked(requests.listStreams).mockImplementation(async (sys) => ({ streams: [{ entity: ent(sys === "sys-a" ? "a-stream" : "b-stream") }], totals: {} }) as never);
     renderApp(

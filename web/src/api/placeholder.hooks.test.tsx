@@ -59,6 +59,8 @@ const HOOKS: [string, H, boolean][] = [
 
 /** Hooks whose key holds no range, so a range change asks nothing new. */
 const NO_RANGE = new Set(["useMutes", "useReplay"]);
+// Retained list contexts cannot lend rows to a different range.
+const DROP_RANGE = new Set(["useDataHistory", "useStreams", "useConsumers"]);
 
 function setup(hook: H, account = "APP") {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -96,11 +98,11 @@ describe.each(HOOKS)("%s", (name, hook, hasAccount) => {
     act(() => result.current.navigate("/"));
     await waitFor(() => expect(result.current.q.data).toBeUndefined());
   });
-  it.skipIf(NO_RANGE.has(name))(name === "useDataHistory" ? "drops history on range change in same system" : "keeps on range change in same system", async () => {
+  it.skipIf(NO_RANGE.has(name))(DROP_RANGE.has(name) ? "drops context on range change in same system" : "keeps on range change in same system", async () => {
     const { result, rerender } = setup(hook);
     await waitFor(() => expect(result.current.q.data).toBeDefined());
     rerender({ spec: hour, account: "APP" });
-    if (name === "useDataHistory") expect(result.current.q.data).toBeUndefined();
+    if (DROP_RANGE.has(name)) expect(result.current.q.data).toBeUndefined();
     else expect(result.current.q.data).toBeDefined();
   });
   it.runIf(hasAccount)("drops on account change", async () => {
