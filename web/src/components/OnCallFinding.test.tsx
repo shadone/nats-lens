@@ -107,10 +107,12 @@ it("does not invent a story or a playbook for a short empty response", async () 
   expect(screen.queryByRole("link", { name: "Replay this window" })).toBeNull(); expect(screen.queryByRole("link", { name: "Open the playbook" })).toBeNull();
 });
 
-it("offers a visible phone finding prompt without opening All details or acknowledging",async()=>{
+it.each(["firing","resolved","muted"])("offers a visible phone finding prompt for %s without opening All details or acknowledging",async state=>{
+ getOnCall.mockResolvedValue({...onCallCard,finding:{...onCallFinding,state:state==="resolved"?"resolved":"firing",...(state==="muted"?{mute:{id:"mute",reason:"Accepted",by:"operator",accepted:true} as typeof onCallFinding.mute}:{})}});
  let selected:InvestigationSelection|undefined;
  renderApp(<InvestigationHandoff.Provider value={s=>{selected=s}}><Routes><Route path="/findings/:id" element={<FindingDetail/>}/></Routes></InvestigationHandoff.Provider>,`/findings/${encodeURIComponent(onCallFinding.id)}?system=shop&from=2026-10-17T13:30:00Z&to=2026-10-17T14:30:00Z`);
  const button=await screen.findByRole("button",{name:"Copy as prompt"});expect(button).toHaveTextContent("Copy as prompt");fireEvent.click(button);
  const c=buildInvestigationContext({origin:"https://lens.example.com",pathname:`/findings/${encodeURIComponent(onCallFinding.id)}`,search:"",system:"shop",spec:{kind:"fixed",from:Date.parse("2026-10-17T13:30:00Z"),to:Date.parse("2026-10-17T14:30:00Z")},selection:selected});
  expect(c).toMatchObject({filters:{check:onCallFinding.checkCode},entity:{type:"ENTITY_TYPE_CONSUMER",key:onCallFinding.entity!.key},evidence:[{kind:"finding",id:onCallFinding.id}]});expect(c.evidence).toHaveLength(1);expect(c.series).toBeUndefined();expect(m.getFinding).not.toHaveBeenCalled();expect(m.acknowledgeFinding).not.toHaveBeenCalled();
+ await userEvent.click(screen.getByText("All details"));await screen.findByText("Status timeline");expect(screen.getAllByRole("button",{name:"Copy as prompt"})).toHaveLength(1);
 });

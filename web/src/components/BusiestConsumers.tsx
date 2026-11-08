@@ -56,28 +56,28 @@ export function BusiestConsumers({ consumers, spec, start, end }: { consumers: C
 function ConsumerRow({c,q,start,end}:{c:ConsumerRate;q:TrendSlice;start:number;end:number}) {
   const [actionTarget,setActionTarget]=useState<HTMLTableCellElement|null>(null);
   return (
-            <tr className="investigation-action-host">
-              <td ref={setActionTarget} className="bc-consumer">
-                <RLink to={consumerPath(c.entity.account, c.entity.stream, c.entity.consumer)} className="x mono" title={c.entity.consumer}>
-                  {c.entity.consumer}
-                </RLink>
-                <br />
-                <RLink to={streamPath(c.entity.account, c.entity.stream)} className="x sub mono">
-                  {streamLabel(c.entity.stream)}
-                </RLink>
-              </td>
-              <td className="num">
-                <Num v={c.deliveredPerSecond} fmt={perSec} />
-              </td>
-              <td className="num">
-                <Num v={c.numPending} />
-              </td>
-              <td className="num">
-                <Num v={c.numAckPending} />
-              </td>
-              <td>
-                <Spark c={c} q={q} actionTarget={actionTarget} start={start} end={end} />
-              </td>
-            </tr>
+    <tr className="investigation-action-host">
+      <td ref={setActionTarget} className="bc-consumer">
+        <RLink to={consumerPath(c.entity.account, c.entity.stream, c.entity.consumer)} className="x mono" title={c.entity.consumer}>
+          {c.entity.consumer}
+        </RLink>
+        <br />
+        <RLink to={streamPath(c.entity.account, c.entity.stream)} className="x sub mono">
+          {streamLabel(c.entity.stream)}
+        </RLink>
+      </td>
+      <td className="num">
+        <Num v={c.deliveredPerSecond} fmt={perSec} />
+      </td>
+      <td className="num">
+        <Num v={c.numPending} />
+      </td>
+      <td className="num">
+        <Num v={c.numAckPending} />
+      </td>
+      <td>
+        <Spark c={c} q={q} actionTarget={actionTarget} start={start} end={end} />
+      </td>
+    </tr>
   );
 }

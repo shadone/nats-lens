@@ -1,6 +1,6 @@
 import {act, fireEvent, render, screen, within} from "@testing-library/react";
 import {MemoryRouter} from "react-router";
-import {expect, it, vi} from "vitest";
+import {afterEach, expect, it, vi} from "vitest";
 import {BusiestConsumers} from "./BusiestConsumers";
 import {InvestigationHandoff} from "./InvestigationContext";
 import {ChartInspection} from "../charts/ChartInspection";
@@ -15,6 +15,7 @@ vi.mock("../api/trendBatch",async load=>{
  const actual=await load<typeof import("../api/trendBatch")>();
  return {...actual,useTrends:(_spec:unknown,queries:{metric:string;entity:unknown}[])=>({isPending:false,error:null,data:Object.fromEntries(queries.map(q=>[actual.trendKey(q as never),{series:{...q,unit:"per_second",stepMs:1000,points:[{time:1000,value:2},{time:2000,value:3}],topPoints:[]}}]))})};
 });
+afterEach(()=>vi.unstubAllGlobals());
 const entity={kind:"consumer" as const,key:"APP/orders/worker",name:"worker-with-a-long-consumer-name",account:"APP",stream:"orders",consumer:"worker-with-a-long-consumer-name",server:""};
 it("floats the consumer row prompt in the Consumer cell while keeping Range exclusively a chart and retaining the keyboard point",()=>{
  let selected:InvestigationSelection|undefined;
@@ -53,4 +54,9 @@ it("repositions the readout on nested scroll and resize, flips above the viewpor
  fireEvent.focus(screen.getByRole("slider"));const tooltip=screen.getByRole("tooltip");const first=tooltip.style.top;top=280;fireEvent.scroll(container.firstChild!);act(()=>next?.(0));expect(parseFloat(tooltip.style.top)).toBeLessThan(280);expect(tooltip.style.top).not.toBe(first);
  top=60;fireEvent(window,new Event("resize"));act(()=>next?.(0));expect(parseFloat(tooltip.style.top)).toBeGreaterThan(60);
  fireEvent.scroll(container.firstChild!);unmount();expect(cancel).toHaveBeenCalled();request.mockClear();fireEvent(window,new Event("scroll"));expect(request).not.toHaveBeenCalled();vi.unstubAllGlobals();
+});
+
+it("keeps a modal chart readout in the dialog subtree rather than outside its inert boundary",()=>{
+ render(<dialog open><ChartInspection label="Modal chart" start={0} end={3000} series={[]}><svg/></ChartInspection></dialog>);
+ const slider=screen.getByRole("slider");fireEvent.focus(slider);const tip=screen.getByRole("tooltip");expect(tip.closest("dialog")).toBe(screen.getByRole("dialog"));expect(slider).toHaveAttribute("aria-describedby",tip.id);fireEvent.blur(slider);expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
 });
