@@ -1,0 +1,1979 @@
+{
+  "baselineCommit": "3a2d0b69d4e20436e2e20d10b046a3b23acc2641",
+  "browserVersion": "156.0.8078.48",
+  "units": "bytes and milliseconds; CDP durations converted from seconds",
+  "runs": [
+    {
+      "scenario": "local",
+      "run": 1,
+      "step": "cold fleet",
+      "url": "/fleet",
+      "stepStart": 0,
+      "readinessObserved": 236.59999990463257,
+      "paint": [
+        {
+          "name": "first-paint",
+          "entryType": "paint",
+          "startTime": 232,
+          "duration": 0,
+          "navigationId": 9572,
+          "paintTime": 18.59999990463257,
+          "presentationTime": 232
+        }
+      ],
+      "domContentLoaded": 54.19999980926514,
+      "scriptDurationCumulative": 57.827999999999996,
+      "taskDurationCumulative": 100.07199999999999,
+      "longTasks": [],
+      "resources": [
+        {
+          "startTime": 3.6999998092651367,
+          "requestStart": 4.5,
+          "responseStart": 4.900000095367432,
+          "responseEnd": 6.5,
+          "transferSize": 1124974,
+          "encodedBodySize": 1124674,
+          "decodedBodySize": 1124674,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "script",
+          "path": "/assets/index-C79PO9cE.js"
+        },
+        {
+          "startTime": 3.9000000953674316,
+          "requestStart": 4.5,
+          "responseStart": 4.800000190734863,
+          "responseEnd": 5.199999809265137,
+          "transferSize": 116593,
+          "encodedBodySize": 116293,
+          "decodedBodySize": 116293,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "link",
+          "path": "/assets/index-Bmev4f3N.css"
+        },
+        {
+          "startTime": 59.90000009536743,
+          "requestStart": 60.19999980926514,
+          "responseStart": 60.69999980926514,
+          "responseEnd": 60.90000009536743,
+          "transferSize": 508,
+          "encodedBodySize": 208,
+          "decodedBodySize": 285,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetLensInfo"
+        },
+        {
+          "startTime": 80.90000009536743,
+          "requestStart": 81.19999980926514,
+          "responseStart": 82,
+          "responseEnd": 82.09999990463257,
+          "transferSize": 990,
+          "encodedBodySize": 690,
+          "decodedBodySize": 2119,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetShellStatus"
+        },
+        {
+          "startTime": 81.19999980926514,
+          "requestStart": 81.5,
+          "responseStart": 81.80000019073486,
+          "responseEnd": 82.09999990463257,
+          "transferSize": 508,
+          "encodedBodySize": 208,
+          "decodedBodySize": 285,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetLensInfo"
+        },
+        {
+          "startTime": 82.09999990463257,
+          "requestStart": 82.30000019073486,
+          "responseStart": 83.90000009536743,
+          "responseEnd": 84.09999990463257,
+          "transferSize": 2480,
+          "encodedBodySize": 2180,
+          "decodedBodySize": 8371,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/ListSystems"
+        },
+        {
+          "startTime": 86.5,
+          "requestStart": 86.59999990463257,
+          "responseStart": 86.69999980926514,
+          "responseEnd": 86.90000009536743,
+          "transferSize": 22888,
+          "encodedBodySize": 22588,
+          "decodedBodySize": 22588,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-sans-latin-400-normal-CDDApCn2.woff2"
+        },
+        {
+          "startTime": 87.5,
+          "requestStart": 87.69999980926514,
+          "responseStart": 88.09999990463257,
+          "responseEnd": 88.69999980926514,
+          "transferSize": 15188,
+          "encodedBodySize": 14888,
+          "decodedBodySize": 14888,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-mono-latin-500-normal-DSY6xOcd.woff2"
+        },
+        {
+          "startTime": 87.5,
+          "requestStart": 87.80000019073486,
+          "responseStart": 88.09999990463257,
+          "responseEnd": 88.80000019073486,
+          "transferSize": 24484,
+          "encodedBodySize": 24184,
+          "decodedBodySize": 24184,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-sans-latin-500-normal-6ng42L7E.woff2"
+        },
+        {
+          "startTime": 87.59999990463257,
+          "requestStart": 88.80000019073486,
+          "responseStart": 89,
+          "responseEnd": 89.19999980926514,
+          "transferSize": 24552,
+          "encodedBodySize": 24252,
+          "decodedBodySize": 24252,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-sans-latin-600-normal-CuJfVYMP.woff2"
+        },
+        {
+          "startTime": 87.69999980926514,
+          "requestStart": 88.80000019073486,
+          "responseStart": 89,
+          "responseEnd": 89.19999980926514,
+          "transferSize": 15008,
+          "encodedBodySize": 14708,
+          "decodedBodySize": 14708,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-mono-latin-400-normal-DMJ8VG8y.woff2"
+        }
+      ]
+    },
+    {
+      "scenario": "local",
+      "run": 1,
+      "step": "nav streams",
+      "url": "/streams?system=example-prod",
+      "stepStart": 244.69999980926514,
+      "readinessObserved": 385,
+      "paint": [
+        {
+          "name": "first-paint",
+          "entryType": "paint",
+          "startTime": 232,
+          "duration": 0,
+          "navigationId": 9572,
+          "paintTime": 18.59999990463257,
+          "presentationTime": 232
+        },
+        {
+          "name": "first-contentful-paint",
+          "entryType": "paint",
+          "startTime": 256,
+          "duration": 0,
+          "navigationId": 9572,
+          "paintTime": 95.30000019073486,
+          "presentationTime": 256
+        }
+      ],
+      "domContentLoaded": 54.19999980926514,
+      "scriptDurationCumulative": 67.84400000000001,
+      "taskDurationCumulative": 142.193,
+      "longTasks": [],
+      "resources": [
+        {
+          "startTime": 288.69999980926514,
+          "requestStart": 288.90000009536743,
+          "responseStart": 290.5,
+          "responseEnd": 290.59999990463257,
+          "transferSize": 990,
+          "encodedBodySize": 690,
+          "decodedBodySize": 2119,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetShellStatus"
+        },
+        {
+          "startTime": 288.90000009536743,
+          "requestStart": 289.09999990463257,
+          "responseStart": 289.80000019073486,
+          "responseEnd": 290.09999990463257,
+          "transferSize": 508,
+          "encodedBodySize": 208,
+          "decodedBodySize": 285,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetLensInfo"
+        },
+        {
+          "startTime": 293.09999990463257,
+          "requestStart": 293.40000009536743,
+          "responseStart": 314.59999990463257,
+          "responseEnd": 314.80000019073486,
+          "transferSize": 3176,
+          "encodedBodySize": 2876,
+          "decodedBodySize": 19328,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/ListStreams"
+        }
+      ]
+    },
+    {
+      "scenario": "local",
+      "run": 1,
+      "step": "nav checks",
+      "url": "/checks?system=example-prod",
+      "stepStart": 387.59999990463257,
+      "readinessObserved": 484,
+      "paint": [
+        {
+          "name": "first-paint",
+          "entryType": "paint",
+          "startTime": 232,
+          "duration": 0,
+          "navigationId": 9572,
+          "paintTime": 18.59999990463257,
+          "presentationTime": 232
+        },
+        {
+          "name": "first-contentful-paint",
+          "entryType": "paint",
+          "startTime": 256,
+          "duration": 0,
+          "navigationId": 9572,
+          "paintTime": 95.30000019073486,
+          "presentationTime": 256
+        }
+      ],
+      "domContentLoaded": 54.19999980926514,
+      "scriptDurationCumulative": 91.96799999999999,
+      "taskDurationCumulative": 184.23600000000002,
+      "longTasks": [],
+      "resources": [
+        {
+          "startTime": 438.30000019073486,
+          "requestStart": 438.5,
+          "responseStart": 442.5,
+          "responseEnd": 443.09999990463257,
+          "transferSize": 65520,
+          "encodedBodySize": 65220,
+          "decodedBodySize": 278785,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/ListCheckDefinitions"
+        }
+      ]
+    },
+    {
+      "scenario": "local",
+      "run": 2,
+      "step": "cold fleet",
+      "url": "/fleet",
+      "stepStart": 0,
+      "readinessObserved": 160.5,
+      "paint": [
+        {
+          "name": "first-paint",
+          "entryType": "paint",
+          "startTime": 32,
+          "duration": 0,
+          "navigationId": 2533,
+          "paintTime": 11.299999713897705,
+          "presentationTime": 32
+        },
+        {
+          "name": "first-contentful-paint",
+          "entryType": "paint",
+          "startTime": 112,
+          "duration": 0,
+          "navigationId": 2533,
+          "paintTime": 94.2999997138977,
+          "presentationTime": 112
+        }
+      ],
+      "domContentLoaded": 52.09999990463257,
+      "scriptDurationCumulative": 57.853,
+      "taskDurationCumulative": 100.12899999999999,
+      "longTasks": [],
+      "resources": [
+        {
+          "startTime": 2.8999996185302734,
+          "requestStart": 3.3999996185302734,
+          "responseStart": 3.5999999046325684,
+          "responseEnd": 4.799999713897705,
+          "transferSize": 1124974,
+          "encodedBodySize": 1124674,
+          "decodedBodySize": 1124674,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "script",
+          "path": "/assets/index-C79PO9cE.js"
+        },
+        {
+          "startTime": 3,
+          "requestStart": 3.5,
+          "responseStart": 5,
+          "responseEnd": 5.299999713897705,
+          "transferSize": 116593,
+          "encodedBodySize": 116293,
+          "decodedBodySize": 116293,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "link",
+          "path": "/assets/index-Bmev4f3N.css"
+        },
+        {
+          "startTime": 57.89999961853027,
+          "requestStart": 58,
+          "responseStart": 58.39999961853027,
+          "responseEnd": 58.5,
+          "transferSize": 508,
+          "encodedBodySize": 208,
+          "decodedBodySize": 285,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetLensInfo"
+        },
+        {
+          "startTime": 79.89999961853027,
+          "requestStart": 80.19999980926514,
+          "responseStart": 80.69999980926514,
+          "responseEnd": 80.89999961853027,
+          "transferSize": 990,
+          "encodedBodySize": 690,
+          "decodedBodySize": 2119,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetShellStatus"
+        },
+        {
+          "startTime": 80.2999997138977,
+          "requestStart": 80.5,
+          "responseStart": 80.7999997138977,
+          "responseEnd": 81,
+          "transferSize": 508,
+          "encodedBodySize": 208,
+          "decodedBodySize": 285,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetLensInfo"
+        },
+        {
+          "startTime": 81.19999980926514,
+          "requestStart": 81.2999997138977,
+          "responseStart": 83.5,
+          "responseEnd": 83.59999990463257,
+          "transferSize": 2480,
+          "encodedBodySize": 2180,
+          "decodedBodySize": 8371,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/ListSystems"
+        },
+        {
+          "startTime": 85.19999980926514,
+          "requestStart": 85.39999961853027,
+          "responseStart": 85.59999990463257,
+          "responseEnd": 85.69999980926514,
+          "transferSize": 22888,
+          "encodedBodySize": 22588,
+          "decodedBodySize": 22588,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-sans-latin-400-normal-CDDApCn2.woff2"
+        },
+        {
+          "startTime": 86.2999997138977,
+          "requestStart": 86.5,
+          "responseStart": 86.7999997138977,
+          "responseEnd": 87,
+          "transferSize": 15188,
+          "encodedBodySize": 14888,
+          "decodedBodySize": 14888,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-mono-latin-500-normal-DSY6xOcd.woff2"
+        },
+        {
+          "startTime": 86.2999997138977,
+          "requestStart": 86.59999990463257,
+          "responseStart": 86.89999961853027,
+          "responseEnd": 87.09999990463257,
+          "transferSize": 24484,
+          "encodedBodySize": 24184,
+          "decodedBodySize": 24184,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-sans-latin-500-normal-6ng42L7E.woff2"
+        },
+        {
+          "startTime": 86.39999961853027,
+          "requestStart": 87.19999980926514,
+          "responseStart": 87.19999980926514,
+          "responseEnd": 87.39999961853027,
+          "transferSize": 15008,
+          "encodedBodySize": 14708,
+          "decodedBodySize": 14708,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-mono-latin-400-normal-DMJ8VG8y.woff2"
+        },
+        {
+          "startTime": 86.39999961853027,
+          "requestStart": 87.09999990463257,
+          "responseStart": 87.19999980926514,
+          "responseEnd": 87.39999961853027,
+          "transferSize": 24552,
+          "encodedBodySize": 24252,
+          "decodedBodySize": 24252,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-sans-latin-600-normal-CuJfVYMP.woff2"
+        }
+      ]
+    },
+    {
+      "scenario": "local",
+      "run": 2,
+      "step": "nav streams",
+      "url": "/streams?system=example-prod",
+      "stepStart": 164.5,
+      "readinessObserved": 310.3999996185303,
+      "paint": [
+        {
+          "name": "first-paint",
+          "entryType": "paint",
+          "startTime": 32,
+          "duration": 0,
+          "navigationId": 2533,
+          "paintTime": 11.299999713897705,
+          "presentationTime": 32
+        },
+        {
+          "name": "first-contentful-paint",
+          "entryType": "paint",
+          "startTime": 112,
+          "duration": 0,
+          "navigationId": 2533,
+          "paintTime": 94.2999997138977,
+          "presentationTime": 112
+        }
+      ],
+      "domContentLoaded": 52.09999990463257,
+      "scriptDurationCumulative": 67.881,
+      "taskDurationCumulative": 141.577,
+      "longTasks": [],
+      "resources": [
+        {
+          "startTime": 213.19999980926514,
+          "requestStart": 213.39999961853027,
+          "responseStart": 214,
+          "responseEnd": 214.09999990463257,
+          "transferSize": 990,
+          "encodedBodySize": 690,
+          "decodedBodySize": 2119,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetShellStatus"
+        },
+        {
+          "startTime": 213.39999961853027,
+          "requestStart": 213.59999990463257,
+          "responseStart": 213.89999961853027,
+          "responseEnd": 214.09999990463257,
+          "transferSize": 508,
+          "encodedBodySize": 208,
+          "decodedBodySize": 285,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetLensInfo"
+        },
+        {
+          "startTime": 217.89999961853027,
+          "requestStart": 218.19999980926514,
+          "responseStart": 238.5,
+          "responseEnd": 238.69999980926514,
+          "transferSize": 3176,
+          "encodedBodySize": 2876,
+          "decodedBodySize": 19328,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/ListStreams"
+        }
+      ]
+    },
+    {
+      "scenario": "local",
+      "run": 2,
+      "step": "nav checks",
+      "url": "/checks?system=example-prod",
+      "stepStart": 312.7999997138977,
+      "readinessObserved": 414.2999997138977,
+      "paint": [
+        {
+          "name": "first-paint",
+          "entryType": "paint",
+          "startTime": 32,
+          "duration": 0,
+          "navigationId": 2533,
+          "paintTime": 11.299999713897705,
+          "presentationTime": 32
+        },
+        {
+          "name": "first-contentful-paint",
+          "entryType": "paint",
+          "startTime": 112,
+          "duration": 0,
+          "navigationId": 2533,
+          "paintTime": 94.2999997138977,
+          "presentationTime": 112
+        }
+      ],
+      "domContentLoaded": 52.09999990463257,
+      "scriptDurationCumulative": 94.125,
+      "taskDurationCumulative": 182.79899999999998,
+      "longTasks": [],
+      "resources": [
+        {
+          "startTime": 363.09999990463257,
+          "requestStart": 363.3999996185303,
+          "responseStart": 366.59999990463257,
+          "responseEnd": 367.09999990463257,
+          "transferSize": 65520,
+          "encodedBodySize": 65220,
+          "decodedBodySize": 278785,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/ListCheckDefinitions"
+        }
+      ]
+    },
+    {
+      "scenario": "local",
+      "run": 3,
+      "step": "cold fleet",
+      "url": "/fleet",
+      "stepStart": 0,
+      "readinessObserved": 159.39999961853027,
+      "paint": [
+        {
+          "name": "first-paint",
+          "entryType": "paint",
+          "startTime": 12,
+          "duration": 0,
+          "navigationId": 9584,
+          "paintTime": 8.599999904632568,
+          "presentationTime": 12
+        },
+        {
+          "name": "first-contentful-paint",
+          "entryType": "paint",
+          "startTime": 112,
+          "duration": 0,
+          "navigationId": 9584,
+          "paintTime": 95.39999961853027,
+          "presentationTime": 112
+        }
+      ],
+      "domContentLoaded": 53.39999961853027,
+      "scriptDurationCumulative": 59.598,
+      "taskDurationCumulative": 102.34899999999999,
+      "longTasks": [],
+      "resources": [
+        {
+          "startTime": 3.5,
+          "requestStart": 4,
+          "responseStart": 4.199999809265137,
+          "responseEnd": 5.399999618530273,
+          "transferSize": 1124974,
+          "encodedBodySize": 1124674,
+          "decodedBodySize": 1124674,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "script",
+          "path": "/assets/index-C79PO9cE.js"
+        },
+        {
+          "startTime": 3.6999998092651367,
+          "requestStart": 4.199999809265137,
+          "responseStart": 5.699999809265137,
+          "responseEnd": 5.899999618530273,
+          "transferSize": 116593,
+          "encodedBodySize": 116293,
+          "decodedBodySize": 116293,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "link",
+          "path": "/assets/index-Bmev4f3N.css"
+        },
+        {
+          "startTime": 58.89999961853027,
+          "requestStart": 59.19999980926514,
+          "responseStart": 59.59999990463257,
+          "responseEnd": 59.799999713897705,
+          "transferSize": 508,
+          "encodedBodySize": 208,
+          "decodedBodySize": 285,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetLensInfo"
+        },
+        {
+          "startTime": 80.89999961853027,
+          "requestStart": 81.09999990463257,
+          "responseStart": 81.7999997138977,
+          "responseEnd": 82.09999990463257,
+          "transferSize": 990,
+          "encodedBodySize": 690,
+          "decodedBodySize": 2119,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetShellStatus"
+        },
+        {
+          "startTime": 81.19999980926514,
+          "requestStart": 81.39999961853027,
+          "responseStart": 81.69999980926514,
+          "responseEnd": 82,
+          "transferSize": 508,
+          "encodedBodySize": 208,
+          "decodedBodySize": 285,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetLensInfo"
+        },
+        {
+          "startTime": 82.19999980926514,
+          "requestStart": 82.2999997138977,
+          "responseStart": 84.7999997138977,
+          "responseEnd": 85,
+          "transferSize": 2480,
+          "encodedBodySize": 2180,
+          "decodedBodySize": 8371,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/ListSystems"
+        },
+        {
+          "startTime": 86.19999980926514,
+          "requestStart": 86.39999961853027,
+          "responseStart": 86.39999961853027,
+          "responseEnd": 86.59999990463257,
+          "transferSize": 22888,
+          "encodedBodySize": 22588,
+          "decodedBodySize": 22588,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-sans-latin-400-normal-CDDApCn2.woff2"
+        },
+        {
+          "startTime": 87.2999997138977,
+          "requestStart": 87.39999961853027,
+          "responseStart": 87.69999980926514,
+          "responseEnd": 87.89999961853027,
+          "transferSize": 15188,
+          "encodedBodySize": 14888,
+          "decodedBodySize": 14888,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-mono-latin-500-normal-DSY6xOcd.woff2"
+        },
+        {
+          "startTime": 87.2999997138977,
+          "requestStart": 87.5,
+          "responseStart": 87.89999961853027,
+          "responseEnd": 88,
+          "transferSize": 24484,
+          "encodedBodySize": 24184,
+          "decodedBodySize": 24184,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-sans-latin-500-normal-6ng42L7E.woff2"
+        },
+        {
+          "startTime": 87.2999997138977,
+          "requestStart": 88.09999990463257,
+          "responseStart": 88.09999990463257,
+          "responseEnd": 88.2999997138977,
+          "transferSize": 24552,
+          "encodedBodySize": 24252,
+          "decodedBodySize": 24252,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-sans-latin-600-normal-CuJfVYMP.woff2"
+        },
+        {
+          "startTime": 87.39999961853027,
+          "requestStart": 88.09999990463257,
+          "responseStart": 88.2999997138977,
+          "responseEnd": 88.39999961853027,
+          "transferSize": 15008,
+          "encodedBodySize": 14708,
+          "decodedBodySize": 14708,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-mono-latin-400-normal-DMJ8VG8y.woff2"
+        }
+      ]
+    },
+    {
+      "scenario": "local",
+      "run": 3,
+      "step": "nav streams",
+      "url": "/streams?system=example-prod",
+      "stepStart": 163.59999990463257,
+      "readinessObserved": 308.19999980926514,
+      "paint": [
+        {
+          "name": "first-paint",
+          "entryType": "paint",
+          "startTime": 12,
+          "duration": 0,
+          "navigationId": 9584,
+          "paintTime": 8.599999904632568,
+          "presentationTime": 12
+        },
+        {
+          "name": "first-contentful-paint",
+          "entryType": "paint",
+          "startTime": 112,
+          "duration": 0,
+          "navigationId": 9584,
+          "paintTime": 95.39999961853027,
+          "presentationTime": 112
+        }
+      ],
+      "domContentLoaded": 53.39999961853027,
+      "scriptDurationCumulative": 69.985,
+      "taskDurationCumulative": 145.165,
+      "longTasks": [],
+      "resources": [
+        {
+          "startTime": 212.7999997138977,
+          "requestStart": 213,
+          "responseStart": 213.69999980926514,
+          "responseEnd": 213.89999961853027,
+          "transferSize": 990,
+          "encodedBodySize": 690,
+          "decodedBodySize": 2119,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetShellStatus"
+        },
+        {
+          "startTime": 213.09999990463257,
+          "requestStart": 213.19999980926514,
+          "responseStart": 213.5,
+          "responseEnd": 213.7999997138977,
+          "transferSize": 508,
+          "encodedBodySize": 208,
+          "decodedBodySize": 285,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetLensInfo"
+        },
+        {
+          "startTime": 217.5,
+          "requestStart": 217.69999980926514,
+          "responseStart": 239.2999997138977,
+          "responseEnd": 239.5,
+          "transferSize": 3176,
+          "encodedBodySize": 2876,
+          "decodedBodySize": 19328,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/ListStreams"
+        }
+      ]
+    },
+    {
+      "scenario": "local",
+      "run": 3,
+      "step": "nav checks",
+      "url": "/checks?system=example-prod",
+      "stepStart": 310.5,
+      "readinessObserved": 410.09999990463257,
+      "paint": [
+        {
+          "name": "first-paint",
+          "entryType": "paint",
+          "startTime": 12,
+          "duration": 0,
+          "navigationId": 9584,
+          "paintTime": 8.599999904632568,
+          "presentationTime": 12
+        },
+        {
+          "name": "first-contentful-paint",
+          "entryType": "paint",
+          "startTime": 112,
+          "duration": 0,
+          "navigationId": 9584,
+          "paintTime": 95.39999961853027,
+          "presentationTime": 112
+        }
+      ],
+      "domContentLoaded": 53.39999961853027,
+      "scriptDurationCumulative": 97.808,
+      "taskDurationCumulative": 187.822,
+      "longTasks": [],
+      "resources": [
+        {
+          "startTime": 361.59999990463257,
+          "requestStart": 361.7999997138977,
+          "responseStart": 365.2999997138977,
+          "responseEnd": 365.8999996185303,
+          "transferSize": 65520,
+          "encodedBodySize": 65220,
+          "decodedBodySize": 278785,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/ListCheckDefinitions"
+        }
+      ]
+    },
+    {
+      "scenario": "constrained",
+      "run": 1,
+      "step": "cold fleet",
+      "url": "/fleet",
+      "stepStart": 0,
+      "readinessObserved": 7723.299999713898,
+      "paint": [
+        {
+          "name": "first-paint",
+          "entryType": "paint",
+          "startTime": 1496,
+          "duration": 0,
+          "navigationId": 415,
+          "paintTime": 1490.3999996185303,
+          "presentationTime": 1496
+        },
+        {
+          "name": "first-contentful-paint",
+          "entryType": "paint",
+          "startTime": 7064,
+          "duration": 0,
+          "navigationId": 415,
+          "paintTime": 7046.299999713898,
+          "presentationTime": 7064
+        }
+      ],
+      "domContentLoaded": 6689,
+      "scriptDurationCumulative": 263.644,
+      "taskDurationCumulative": 510.232,
+      "longTasks": [
+        {
+          "start": 6555.89999961853,
+          "duration": 134
+        },
+        {
+          "start": 6918.699999809265,
+          "duration": 76
+        }
+      ],
+      "resources": [
+        {
+          "startTime": 167.59999990463257,
+          "requestStart": 168.09999990463257,
+          "responseStart": 168.5,
+          "responseEnd": 6537.099999904633,
+          "transferSize": 1124974,
+          "encodedBodySize": 1124674,
+          "decodedBodySize": 1124674,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "script",
+          "path": "/assets/index-C79PO9cE.js"
+        },
+        {
+          "startTime": 167.7999997138977,
+          "requestStart": 168.2999997138977,
+          "responseStart": 168.39999961853027,
+          "responseEnd": 1483.6999998092651,
+          "transferSize": 116593,
+          "encodedBodySize": 116293,
+          "decodedBodySize": 116293,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "link",
+          "path": "/assets/index-Bmev4f3N.css"
+        },
+        {
+          "startTime": 6736.799999713898,
+          "requestStart": 6737.599999904633,
+          "responseStart": 6750,
+          "responseEnd": 6911.89999961853,
+          "transferSize": 508,
+          "encodedBodySize": 208,
+          "decodedBodySize": 285,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetLensInfo"
+        },
+        {
+          "startTime": 6987.5,
+          "requestStart": 6988,
+          "responseStart": 7007.89999961853,
+          "responseEnd": 7166.39999961853,
+          "transferSize": 990,
+          "encodedBodySize": 690,
+          "decodedBodySize": 2119,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetShellStatus"
+        },
+        {
+          "startTime": 6989.39999961853,
+          "requestStart": 6989.599999904633,
+          "responseStart": 7020,
+          "responseEnd": 7198.299999713898,
+          "transferSize": 508,
+          "encodedBodySize": 208,
+          "decodedBodySize": 285,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetLensInfo"
+        },
+        {
+          "startTime": 6993.39999961853,
+          "requestStart": 6994.799999713898,
+          "responseStart": 7042.299999713898,
+          "responseEnd": 7249.099999904633,
+          "transferSize": 2480,
+          "encodedBodySize": 2180,
+          "decodedBodySize": 8371,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/ListSystems"
+        },
+        {
+          "startTime": 7012.699999809265,
+          "requestStart": 7013.199999809265,
+          "responseStart": 7013.39999961853,
+          "responseEnd": 7632.39999961853,
+          "transferSize": 22888,
+          "encodedBodySize": 22588,
+          "decodedBodySize": 22588,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-sans-latin-400-normal-CDDApCn2.woff2"
+        },
+        {
+          "startTime": 7016.89999961853,
+          "requestStart": 7017.099999904633,
+          "responseStart": 7017.39999961853,
+          "responseEnd": 7490.699999809265,
+          "transferSize": 15188,
+          "encodedBodySize": 14888,
+          "decodedBodySize": 14888,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-mono-latin-500-normal-DSY6xOcd.woff2"
+        },
+        {
+          "startTime": 7017.799999713898,
+          "requestStart": 7018.099999904633,
+          "responseStart": 7018.299999713898,
+          "responseEnd": 7678.199999809265,
+          "transferSize": 24484,
+          "encodedBodySize": 24184,
+          "decodedBodySize": 24184,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-sans-latin-500-normal-6ng42L7E.woff2"
+        },
+        {
+          "startTime": 7017.89999961853,
+          "requestStart": 7198.5,
+          "responseStart": 7198.699999809265,
+          "responseEnd": 7692.699999809265,
+          "transferSize": 15008,
+          "encodedBodySize": 14708,
+          "decodedBodySize": 14708,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-mono-latin-400-normal-DMJ8VG8y.woff2"
+        }
+      ]
+    },
+    {
+      "scenario": "constrained",
+      "run": 1,
+      "step": "nav streams",
+      "url": "/streams?system=example-prod",
+      "stepStart": 7732.799999713898,
+      "readinessObserved": 8656.299999713898,
+      "paint": [
+        {
+          "name": "first-paint",
+          "entryType": "paint",
+          "startTime": 1496,
+          "duration": 0,
+          "navigationId": 415,
+          "paintTime": 1490.3999996185303,
+          "presentationTime": 1496
+        },
+        {
+          "name": "first-contentful-paint",
+          "entryType": "paint",
+          "startTime": 7064,
+          "duration": 0,
+          "navigationId": 415,
+          "paintTime": 7046.299999713898,
+          "presentationTime": 7064
+        }
+      ],
+      "domContentLoaded": 6689,
+      "scriptDurationCumulative": 311.652,
+      "taskDurationCumulative": 643.006,
+      "longTasks": [],
+      "resources": [
+        {
+          "startTime": 7805.89999961853,
+          "requestStart": 7806.199999809265,
+          "responseStart": 7824.599999904633,
+          "responseEnd": 7983.299999713898,
+          "transferSize": 990,
+          "encodedBodySize": 690,
+          "decodedBodySize": 2119,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetShellStatus"
+        },
+        {
+          "startTime": 7807.5,
+          "requestStart": 7807.599999904633,
+          "responseStart": 7840.89999961853,
+          "responseEnd": 7998.799999713898,
+          "transferSize": 508,
+          "encodedBodySize": 208,
+          "decodedBodySize": 285,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetLensInfo"
+        },
+        {
+          "startTime": 7998.099999904633,
+          "requestStart": 7998.599999904633,
+          "responseStart": 8037.299999713898,
+          "responseEnd": 8194.89999961853,
+          "transferSize": 3176,
+          "encodedBodySize": 2876,
+          "decodedBodySize": 19328,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/ListStreams"
+        }
+      ]
+    },
+    {
+      "scenario": "constrained",
+      "run": 1,
+      "step": "nav checks",
+      "url": "/checks?system=example-prod",
+      "stepStart": 8659.89999961853,
+      "readinessObserved": 9538.099999904633,
+      "paint": [
+        {
+          "name": "first-paint",
+          "entryType": "paint",
+          "startTime": 1496,
+          "duration": 0,
+          "navigationId": 415,
+          "paintTime": 1490.3999996185303,
+          "presentationTime": 1496
+        },
+        {
+          "name": "first-contentful-paint",
+          "entryType": "paint",
+          "startTime": 7064,
+          "duration": 0,
+          "navigationId": 415,
+          "paintTime": 7046.299999713898,
+          "presentationTime": 7064
+        }
+      ],
+      "domContentLoaded": 6689,
+      "scriptDurationCumulative": 417.83799999999997,
+      "taskDurationCumulative": 818.4010000000001,
+      "longTasks": [
+        {
+          "start": 9229.5,
+          "duration": 89
+        }
+      ],
+      "resources": [
+        {
+          "startTime": 8721,
+          "requestStart": 8721.199999809265,
+          "responseStart": 8739.699999809265,
+          "responseEnd": 9222.199999809265,
+          "transferSize": 65520,
+          "encodedBodySize": 65220,
+          "decodedBodySize": 278785,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/ListCheckDefinitions"
+        }
+      ]
+    },
+    {
+      "scenario": "constrained",
+      "run": 2,
+      "step": "cold fleet",
+      "url": "/fleet",
+      "stepStart": 0,
+      "readinessObserved": 7772.599999904633,
+      "paint": [
+        {
+          "name": "first-paint",
+          "entryType": "paint",
+          "startTime": 1508,
+          "duration": 0,
+          "navigationId": 339,
+          "paintTime": 1503,
+          "presentationTime": 1508
+        },
+        {
+          "name": "first-contentful-paint",
+          "entryType": "paint",
+          "startTime": 7100,
+          "duration": 0,
+          "navigationId": 339,
+          "paintTime": 7080.900000095367,
+          "presentationTime": 7100
+        }
+      ],
+      "domContentLoaded": 6708.900000095367,
+      "scriptDurationCumulative": 289.379,
+      "taskDurationCumulative": 564.9739999999999,
+      "longTasks": [
+        {
+          "start": 6563.900000095367,
+          "duration": 145
+        },
+        {
+          "start": 6932.799999713898,
+          "duration": 84
+        }
+      ],
+      "resources": [
+        {
+          "startTime": 166.40000009536743,
+          "requestStart": 167,
+          "responseStart": 167.19999980926514,
+          "responseEnd": 6543.400000095367,
+          "transferSize": 1124974,
+          "encodedBodySize": 1124674,
+          "decodedBodySize": 1124674,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "script",
+          "path": "/assets/index-C79PO9cE.js"
+        },
+        {
+          "startTime": 166.69999980926514,
+          "requestStart": 167.09999990463257,
+          "responseStart": 167.69999980926514,
+          "responseEnd": 1495.5999999046326,
+          "transferSize": 116593,
+          "encodedBodySize": 116293,
+          "decodedBodySize": 116293,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "link",
+          "path": "/assets/index-Bmev4f3N.css"
+        },
+        {
+          "startTime": 6754.400000095367,
+          "requestStart": 6755.099999904633,
+          "responseStart": 6764.400000095367,
+          "responseEnd": 6925.199999809265,
+          "transferSize": 508,
+          "encodedBodySize": 208,
+          "decodedBodySize": 285,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetLensInfo"
+        },
+        {
+          "startTime": 7009.699999809265,
+          "requestStart": 7010,
+          "responseStart": 7020.199999809265,
+          "responseEnd": 7181,
+          "transferSize": 990,
+          "encodedBodySize": 690,
+          "decodedBodySize": 2119,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetShellStatus"
+        },
+        {
+          "startTime": 7011.5,
+          "requestStart": 7011.699999809265,
+          "responseStart": 7038.299999713898,
+          "responseEnd": 7195.099999904633,
+          "transferSize": 508,
+          "encodedBodySize": 208,
+          "decodedBodySize": 285,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetLensInfo"
+        },
+        {
+          "startTime": 7016.799999713898,
+          "requestStart": 7017.5,
+          "responseStart": 7056.599999904633,
+          "responseEnd": 7258.099999904633,
+          "transferSize": 2480,
+          "encodedBodySize": 2180,
+          "decodedBodySize": 8371,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/ListSystems"
+        },
+        {
+          "startTime": 7037.699999809265,
+          "requestStart": 7038.199999809265,
+          "responseStart": 7038.400000095367,
+          "responseEnd": 7661.599999904633,
+          "transferSize": 22888,
+          "encodedBodySize": 22588,
+          "decodedBodySize": 22588,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-sans-latin-400-normal-CDDApCn2.woff2"
+        },
+        {
+          "startTime": 7043.400000095367,
+          "requestStart": 7044,
+          "responseStart": 7044.299999713898,
+          "responseEnd": 7517.799999713898,
+          "transferSize": 15188,
+          "encodedBodySize": 14888,
+          "decodedBodySize": 14888,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-mono-latin-500-normal-DSY6xOcd.woff2"
+        },
+        {
+          "startTime": 7043.5,
+          "requestStart": 7195.199999809265,
+          "responseStart": 7195.5,
+          "responseEnd": 7698.5,
+          "transferSize": 15008,
+          "encodedBodySize": 14708,
+          "decodedBodySize": 14708,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-mono-latin-400-normal-DMJ8VG8y.woff2"
+        },
+        {
+          "startTime": 7043.5,
+          "requestStart": 7044.199999809265,
+          "responseStart": 7044.400000095367,
+          "responseEnd": 7707.799999713898,
+          "transferSize": 24484,
+          "encodedBodySize": 24184,
+          "decodedBodySize": 24184,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-sans-latin-500-normal-6ng42L7E.woff2"
+        },
+        {
+          "startTime": 7043.5,
+          "requestStart": 7181.099999904633,
+          "responseStart": 7181.400000095367,
+          "responseEnd": 7751.199999809265,
+          "transferSize": 24552,
+          "encodedBodySize": 24252,
+          "decodedBodySize": 24252,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-sans-latin-600-normal-CuJfVYMP.woff2"
+        }
+      ]
+    },
+    {
+      "scenario": "constrained",
+      "run": 2,
+      "step": "nav streams",
+      "url": "/streams?system=example-prod",
+      "stepStart": 7781.599999904633,
+      "readinessObserved": 8688.900000095367,
+      "paint": [
+        {
+          "name": "first-paint",
+          "entryType": "paint",
+          "startTime": 1508,
+          "duration": 0,
+          "navigationId": 339,
+          "paintTime": 1503,
+          "presentationTime": 1508
+        },
+        {
+          "name": "first-contentful-paint",
+          "entryType": "paint",
+          "startTime": 7100,
+          "duration": 0,
+          "navigationId": 339,
+          "paintTime": 7080.900000095367,
+          "presentationTime": 7100
+        }
+      ],
+      "domContentLoaded": 6708.900000095367,
+      "scriptDurationCumulative": 338.413,
+      "taskDurationCumulative": 722.42,
+      "longTasks": [],
+      "resources": [
+        {
+          "startTime": 7864.099999904633,
+          "requestStart": 7864.400000095367,
+          "responseStart": 7867.599999904633,
+          "responseEnd": 8028.199999809265,
+          "transferSize": 990,
+          "encodedBodySize": 690,
+          "decodedBodySize": 2119,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetShellStatus"
+        },
+        {
+          "startTime": 7866,
+          "requestStart": 7866.199999809265,
+          "responseStart": 7888.900000095367,
+          "responseEnd": 8051.299999713898,
+          "transferSize": 508,
+          "encodedBodySize": 208,
+          "decodedBodySize": 285,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetLensInfo"
+        },
+        {
+          "startTime": 8043.599999904633,
+          "requestStart": 8043.900000095367,
+          "responseStart": 8083.400000095367,
+          "responseEnd": 8239.199999809265,
+          "transferSize": 3176,
+          "encodedBodySize": 2876,
+          "decodedBodySize": 19328,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/ListStreams"
+        }
+      ]
+    },
+    {
+      "scenario": "constrained",
+      "run": 2,
+      "step": "nav checks",
+      "url": "/checks?system=example-prod",
+      "stepStart": 8693.599999904633,
+      "readinessObserved": 9538.900000095367,
+      "paint": [
+        {
+          "name": "first-paint",
+          "entryType": "paint",
+          "startTime": 1508,
+          "duration": 0,
+          "navigationId": 339,
+          "paintTime": 1503,
+          "presentationTime": 1508
+        },
+        {
+          "name": "first-contentful-paint",
+          "entryType": "paint",
+          "startTime": 7100,
+          "duration": 0,
+          "navigationId": 339,
+          "paintTime": 7080.900000095367,
+          "presentationTime": 7100
+        }
+      ],
+      "domContentLoaded": 6708.900000095367,
+      "scriptDurationCumulative": 441.53999999999996,
+      "taskDurationCumulative": 890.989,
+      "longTasks": [
+        {
+          "start": 9259.299999713898,
+          "duration": 87
+        }
+      ],
+      "resources": [
+        {
+          "startTime": 8752.5,
+          "requestStart": 8753.400000095367,
+          "responseStart": 8767.199999809265,
+          "responseEnd": 9251.099999904633,
+          "transferSize": 65520,
+          "encodedBodySize": 65220,
+          "decodedBodySize": 278785,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/ListCheckDefinitions"
+        }
+      ]
+    },
+    {
+      "scenario": "constrained",
+      "run": 3,
+      "step": "cold fleet",
+      "url": "/fleet",
+      "stepStart": 0,
+      "readinessObserved": 7723.599999904633,
+      "paint": [
+        {
+          "name": "first-paint",
+          "entryType": "paint",
+          "startTime": 1508,
+          "duration": 0,
+          "navigationId": 4502,
+          "paintTime": 1503.7000002861023,
+          "presentationTime": 1508
+        },
+        {
+          "name": "first-contentful-paint",
+          "entryType": "paint",
+          "startTime": 7072,
+          "duration": 0,
+          "navigationId": 4502,
+          "paintTime": 7052.400000095367,
+          "presentationTime": 7072
+        }
+      ],
+      "domContentLoaded": 6698.400000095367,
+      "scriptDurationCumulative": 269.079,
+      "taskDurationCumulative": 537.2909999999999,
+      "longTasks": [
+        {
+          "start": 6563.400000095367,
+          "duration": 135
+        },
+        {
+          "start": 6917.700000286102,
+          "duration": 72
+        }
+      ],
+      "resources": [
+        {
+          "startTime": 166.2000002861023,
+          "requestStart": 166.7000002861023,
+          "responseStart": 167.30000019073486,
+          "responseEnd": 6544.099999904633,
+          "transferSize": 1124974,
+          "encodedBodySize": 1124674,
+          "decodedBodySize": 1124674,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "script",
+          "path": "/assets/index-C79PO9cE.js"
+        },
+        {
+          "startTime": 166.40000009536743,
+          "requestStart": 166.80000019073486,
+          "responseStart": 167.30000019073486,
+          "responseEnd": 1496.8000001907349,
+          "transferSize": 116593,
+          "encodedBodySize": 116293,
+          "decodedBodySize": 116293,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "link",
+          "path": "/assets/index-Bmev4f3N.css"
+        },
+        {
+          "startTime": 6743.700000286102,
+          "requestStart": 6744.099999904633,
+          "responseStart": 6747.800000190735,
+          "responseEnd": 6910.5,
+          "transferSize": 508,
+          "encodedBodySize": 208,
+          "decodedBodySize": 285,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetLensInfo"
+        },
+        {
+          "startTime": 6984,
+          "requestStart": 6984.300000190735,
+          "responseStart": 6987.700000286102,
+          "responseEnd": 7151.200000286102,
+          "transferSize": 990,
+          "encodedBodySize": 690,
+          "decodedBodySize": 2119,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetShellStatus"
+        },
+        {
+          "startTime": 6986.200000286102,
+          "requestStart": 6986.400000095367,
+          "responseStart": 7009.599999904633,
+          "responseEnd": 7166.800000190735,
+          "transferSize": 508,
+          "encodedBodySize": 208,
+          "decodedBodySize": 285,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetLensInfo"
+        },
+        {
+          "startTime": 6989.5,
+          "requestStart": 6990.099999904633,
+          "responseStart": 7023.300000190735,
+          "responseEnd": 7227.700000286102,
+          "transferSize": 2480,
+          "encodedBodySize": 2180,
+          "decodedBodySize": 8371,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/ListSystems"
+        },
+        {
+          "startTime": 7009.599999904633,
+          "requestStart": 7010.099999904633,
+          "responseStart": 7010.300000190735,
+          "responseEnd": 7638.5,
+          "transferSize": 22888,
+          "encodedBodySize": 22588,
+          "decodedBodySize": 22588,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-sans-latin-400-normal-CDDApCn2.woff2"
+        },
+        {
+          "startTime": 7016.200000286102,
+          "requestStart": 7016.900000095367,
+          "responseStart": 7017.200000286102,
+          "responseEnd": 7505.200000286102,
+          "transferSize": 15188,
+          "encodedBodySize": 14888,
+          "decodedBodySize": 14888,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-mono-latin-500-normal-DSY6xOcd.woff2"
+        },
+        {
+          "startTime": 7016.300000190735,
+          "requestStart": 7016.900000095367,
+          "responseStart": 7017.200000286102,
+          "responseEnd": 7670.300000190735,
+          "transferSize": 24484,
+          "encodedBodySize": 24184,
+          "decodedBodySize": 24184,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-sans-latin-500-normal-6ng42L7E.woff2"
+        },
+        {
+          "startTime": 7016.900000095367,
+          "requestStart": 7167,
+          "responseStart": 7167.200000286102,
+          "responseEnd": 7676.599999904633,
+          "transferSize": 15008,
+          "encodedBodySize": 14708,
+          "decodedBodySize": 14708,
+          "contentEncoding": "",
+          "responseStatus": 200,
+          "initiatorType": "css",
+          "path": "/assets/ibm-plex-mono-latin-400-normal-DMJ8VG8y.woff2"
+        }
+      ]
+    },
+    {
+      "scenario": "constrained",
+      "run": 3,
+      "step": "nav streams",
+      "url": "/streams?system=example-prod",
+      "stepStart": 7732.099999904633,
+      "readinessObserved": 8639.800000190735,
+      "paint": [
+        {
+          "name": "first-paint",
+          "entryType": "paint",
+          "startTime": 1508,
+          "duration": 0,
+          "navigationId": 4502,
+          "paintTime": 1503.7000002861023,
+          "presentationTime": 1508
+        },
+        {
+          "name": "first-contentful-paint",
+          "entryType": "paint",
+          "startTime": 7072,
+          "duration": 0,
+          "navigationId": 4502,
+          "paintTime": 7052.400000095367,
+          "presentationTime": 7072
+        }
+      ],
+      "domContentLoaded": 6698.400000095367,
+      "scriptDurationCumulative": 324.367,
+      "taskDurationCumulative": 694.228,
+      "longTasks": [],
+      "resources": [
+        {
+          "startTime": 7800.800000190735,
+          "requestStart": 7802,
+          "responseStart": 7804,
+          "responseEnd": 7960.300000190735,
+          "transferSize": 990,
+          "encodedBodySize": 690,
+          "decodedBodySize": 2119,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetShellStatus"
+        },
+        {
+          "startTime": 7803.099999904633,
+          "requestStart": 7803.300000190735,
+          "responseStart": 7826.800000190735,
+          "responseEnd": 7983.5,
+          "transferSize": 508,
+          "encodedBodySize": 208,
+          "decodedBodySize": 285,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/GetLensInfo"
+        },
+        {
+          "startTime": 7978.099999904633,
+          "requestStart": 7978.400000095367,
+          "responseStart": 8001.599999904633,
+          "responseEnd": 8157,
+          "transferSize": 3176,
+          "encodedBodySize": 2876,
+          "decodedBodySize": 19328,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/ListStreams"
+        }
+      ]
+    },
+    {
+      "scenario": "constrained",
+      "run": 3,
+      "step": "nav checks",
+      "url": "/checks?system=example-prod",
+      "stepStart": 8644.200000286102,
+      "readinessObserved": 9540.900000095367,
+      "paint": [
+        {
+          "name": "first-paint",
+          "entryType": "paint",
+          "startTime": 1508,
+          "duration": 0,
+          "navigationId": 4502,
+          "paintTime": 1503.7000002861023,
+          "presentationTime": 1508
+        },
+        {
+          "name": "first-contentful-paint",
+          "entryType": "paint",
+          "startTime": 7072,
+          "duration": 0,
+          "navigationId": 4502,
+          "paintTime": 7052.400000095367,
+          "presentationTime": 7072
+        }
+      ],
+      "domContentLoaded": 6698.400000095367,
+      "scriptDurationCumulative": 436.81,
+      "taskDurationCumulative": 885.378,
+      "longTasks": [
+        {
+          "start": 9229.5,
+          "duration": 92
+        }
+      ],
+      "resources": [
+        {
+          "startTime": 8717.300000190735,
+          "requestStart": 8718.700000286102,
+          "responseStart": 8739.5,
+          "responseEnd": 9221.900000095367,
+          "transferSize": 65520,
+          "encodedBodySize": 65220,
+          "decodedBodySize": 278785,
+          "contentEncoding": "gzip",
+          "responseStatus": 200,
+          "initiatorType": "fetch",
+          "path": "/api/natslens.v1.LensService/ListCheckDefinitions"
+        }
+      ]
+    }
+  ],
+  "analysis": {
+    "chunk": "assets/index-C79PO9cE.js",
+    "imports": [],
+    "dynamicImports": [],
+    "moduleCount": 535,
+    "renderedLengthMeaning": "Rolldown module attribution before final chunk minification, not transfer bytes or net lazy-load savings",
+    "renderedLengthByGroup": {
+      "react-dom": 536855,
+      "src/components": 406263,
+      "@bufbuild/protobuf": 196179,
+      "src/pages": 173310,
+      "src/lib": 144340,
+      "src/gen": 88217,
+      "src/api": 87780,
+      "react-router": 84180,
+      "@tanstack/query-core": 64609,
+      "micromark-core-commonmark": 61167,
+      "mdast-util-to-markdown": 35883,
+      "@connectrpc/connect": 31524,
+      "property-information": 27652,
+      "src/charts": 27363,
+      "mdast-util-to-hast": 22734,
+      "micromark": 21897,
+      "mdast-util-from-markdown": 19884,
+      "react": 17334,
+      "micromark-extension-gfm-table": 13406,
+      "hast-util-to-jsx-runtime": 11459,
+      "vfile": 10433,
+      "scheduler": 9296,
+      "micromark-extension-gfm-autolink-literal": 8912,
+      "unified": 8399,
+      "micromark-extension-gfm-footnote": 7400,
+      "@connectrpc/connect-web": 7085,
+      "src/App.tsx": 7069,
+      "micromark-util-subtokenize": 6704,
+      "@tanstack/react-query": 6404,
+      "@ungap/structured-clone": 6036,
+      "Vite/Rolldown runtime": 5241,
+      "react-markdown": 5208,
+      "mdast-util-gfm-autolink-literal": 3998,
+      "markdown-table": 3973,
+      "mdast-util-gfm-table": 3615,
+      "unist-util-visit-parents": 3538,
+      "micromark-extension-gfm-strikethrough": 3353,
+      "mdast-util-gfm-footnote": 3309,
+      "src/nav.ts": 3292,
+      "inline-style-parser": 3153,
+      "vfile-message": 2797,
+      "mdast-util-find-and-replace": 2600,
+      "extend": 2544,
+      "micromark-factory-destination": 2307,
+      "mdast-util-gfm-task-list-item": 2236,
+      "trough": 1742,
+      "micromark-extension-gfm-task-list-item": 1635,
+      "unist-util-is": 1531,
+      "micromark-factory-label": 1525,
+      "micromark-factory-title": 1468,
+      "mdast-util-gfm-strikethrough": 1434,
+      "micromark-util-edit-map": 1349,
+      "unist-util-visit": 1131,
+      "mdast-util-to-string": 1081,
+      "micromark-util-sanitize-uri": 1056,
+      "trim-lines": 1019,
+      "micromark-factory-space": 986,
+      "micromark-util-character": 956,
+      "micromark-util-combine-extensions": 947,
+      "micromark-util-chunked": 848,
+      "micromark-util-html-tag-name": 790,
+      "src/main.tsx": 774,
+      "unist-util-stringify-position": 696,
+      "unist-util-position": 694,
+      "remark-gfm": 653,
+      "style-to-object": 623,
+      "micromark-util-decode-string": 582,
+      "longest-streak": 539,
+      "mdast-util-gfm": 515,
+      "html-url-attributes": 499,
+      "micromark-util-decode-numeric-character-reference": 489,
+      "micromark-factory-whitespace": 478,
+      "decode-named-character-reference": 477,
+      "remark-rehype": 422,
+      "micromark-util-resolve-all": 403,
+      "is-plain-obj": 401,
+      "ccount": 394,
+      "remark-parse": 384,
+      "estree-util-is-identifier-name": 383,
+      "mdast-util-phrasing": 358,
+      "comma-separated-tokens": 328,
+      "hast-util-whitespace": 321,
+      "escape-string-regexp": 281,
+      "micromark-util-classify-character": 271,
+      "micromark-extension-gfm": 254,
+      "micromark-util-normalize-identifier": 236,
+      "space-separated-tokens": 154,
+      "@fontsource/ibm-plex-sans": 136,
+      "devlop": 125,
+      "bail": 122,
+      "@fontsource/ibm-plex-mono": 0,
+      "src/styles": 0
+    },
+    "pageRenderedLengths": {
+      "pages/Fleet.tsx": 1474,
+      "pages/Overview.tsx": 8304,
+      "pages/Checks.tsx": 12590,
+      "pages/Findings.tsx": 10464,
+      "pages/FindingByLabels.tsx": 947,
+      "pages/FindingDetail.tsx": 19195,
+      "pages/Events.tsx": 13181,
+      "pages/Streams.tsx": 7030,
+      "pages/StreamDetail.tsx": 12508,
+      "pages/Consumers.tsx": 2891,
+      "pages/ConsumerDetail.tsx": 9028,
+      "pages/Servers.tsx": 1710,
+      "pages/ServerDetail.tsx": 5176,
+      "pages/Connections.tsx": 12672,
+      "pages/KvStores.tsx": 6594,
+      "pages/ObjectStores.tsx": 5670,
+      "pages/Placement.tsx": 8723,
+      "pages/Replay.tsx": 7167,
+      "pages/Topology.tsx": 3705,
+      "pages/Accounts.tsx": 1537,
+      "pages/Capacity.tsx": 2667,
+      "pages/DataHistory.tsx": 2496,
+      "pages/Subjects.tsx": 5106,
+      "pages/MicroServices.tsx": 5073,
+      "pages/Applications.tsx": 6850,
+      "pages/NotFound.tsx": 552
+    }
+  },
+  "diagnosticTraces": {
+    "1": {
+      "V8.ParseProgram": {
+        "count": 16,
+        "inclusiveWallDuration": 17.529
+      },
+      "V8.ParseFunction": {
+        "count": 1088,
+        "inclusiveWallDuration": 10.314
+      },
+      "V8.CompileCode": {
+        "count": 1078,
+        "inclusiveWallDuration": 16.735
+      },
+      "v8.parseOnBackground": {
+        "count": 1,
+        "inclusiveWallDuration": 21.14
+      },
+      "FunctionCall": {
+        "count": 56,
+        "inclusiveWallDuration": 32.119
+      },
+      "RunMicrotasks": {
+        "count": 22,
+        "inclusiveWallDuration": 29.737
+      }
+    },
+    "4": {
+      "V8.ParseProgram": {
+        "count": 17,
+        "inclusiveWallDuration": 78.404
+      },
+      "V8.ParseFunction": {
+        "count": 1112,
+        "inclusiveWallDuration": 48.315
+      },
+      "V8.CompileCode": {
+        "count": 1094,
+        "inclusiveWallDuration": 76.338
+      },
+      "v8.parseOnBackground": {
+        "count": 1,
+        "inclusiveWallDuration": 6213.86
+      },
+      "FunctionCall": {
+        "count": 61,
+        "inclusiveWallDuration": 167.694
+      },
+      "RunMicrotasks": {
+        "count": 31,
+        "inclusiveWallDuration": 157.495
+      }
+    }
+  }
+}
