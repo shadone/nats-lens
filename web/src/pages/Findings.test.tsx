@@ -125,3 +125,10 @@ it.each([
  m.listFindings.mockClear().mockResolvedValue(page([]));m.listMutes.mockResolvedValue(page([]));renderApp(<Findings/>,`/findings?sev=${encodeURIComponent(raw)}`);
  await waitFor(()=>expect(m.listFindings).toHaveBeenCalled());expect(m.listFindings.mock.calls.at(-1)?.[2].severities).toEqual(want);
 });
+
+it.each([
+ ["unspecified",[]], ["987",[]], ["unspecified,warning",["warning"]], ["critical,info",["critical","info"]], ["",[]],
+] as const)("proves the actual Findings severity choices for %s",async(raw,want)=>{
+ m.listFindings.mockClear().mockResolvedValue(page([]));m.listMutes.mockResolvedValue(page([]));renderApp(<Findings/>,`/findings?sev=${encodeURIComponent(raw)}`);
+ await waitFor(()=>expect(m.listFindings).toHaveBeenCalled());expect(m.listFindings.mock.calls.at(-1)?.[2].severities).toEqual(want);
+});
