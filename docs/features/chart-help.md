@@ -13,7 +13,8 @@ A small About info control explains what a chart measures without a permanent pa
 - [Chart interval selection](chart-interval-selection.md) adds explicit storage-time selection and actions. Selection alone leaves navigation and the page range unchanged.
 
 - **One interaction.** The shared InfoTip opens on hover, keyboard focus or activation. Clicking pins it; Escape, blur or another click dismisses it. Its button has an About label and an associated description. It is separate from chart navigation, sorting and plot inspection.
-- **Viewport overlay.** Descriptions render outside clipping cards and table cells, bounded by the viewport. They reposition on scrolling or resizing and remain inside a native dialog's top-layer subtree when used there. Both themes use the shared tokens.
+- **Viewport overlay.** Descriptions render outside clipping cards and table cells, bounded by the viewport. They reposition on scrolling or resizing, including nested table scrolls, and remain inside a native dialog's top-layer subtree when used there. Readouts hide while their trigger is outside a clipped scrolling region. Both themes use the shared tokens.
+- **Readable overflow and hover.** Help, chart readings and Timeline previews share a readable width independent of the trigger. Long words wrap; content taller than the available viewport scrolls inside the overlay. Page Up and Page Down scroll overflowing text while focus stays on its trigger. Proposed, not yet confirmed: a 160 ms crossing delay lets the pointer enter the overlay without losing it. Escape and blur still dismiss immediately; pinned help stays until dismissal. Previews contain reading material; activate Timeline marks for interactive detail dialogs.
 - **Authoritative metric definitions.** Registered metric charts use ListMetrics descriptions and declared units. The catalogue loads only when a description is requested and is cached across charts; it does not add initial page requests. Missing definitions and catalogue failures are explicit and do not turn into chart-data failures. Chart-specific context, when needed, remains separate from the base metric definition.
 - **Non-metric summaries.** Counts, distributions, coverage strips and event histograms explain their own existing calculation; they do not invent a time-series metric ID. Server-detail storage/traffic/slow-consumer boxes retain their specific scope explanations. CPU, memory and connections on server details use the API catalogue like the shared trend charts.
 - **Compact charts.** Mini-chart help belongs to the column header or shared legend rather than each plot cell. The Range plot keeps its width. Mini-chart inspection uses the actual label and a generic mean-value note unless its caller supplies a more specific aggregation note; bytes are not called delivery rates.
@@ -59,6 +60,12 @@ Replica diagrams, topology maps and server-colour maps retain their own structur
 - **Given** an application traffic column that sorts
 - **When** I activate About Application traffic
 - **Then** the description opens and the sort order stays unchanged.
+
+### Read long guidance in a narrow viewport
+
+- **Given** help or a chart reading whose content exceeds the available viewport height
+- **When** I move onto the overlay and scroll, or use Page Down with its trigger focused
+- **Then** I can read its remaining content without widening the chart cell or moving focus into a tooltip.
 
 ## Not supported / out of scope
 
