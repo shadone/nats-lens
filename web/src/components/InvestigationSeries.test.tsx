@@ -21,13 +21,13 @@ it.each([
 ])("carries every available API series and clear labels for %s",(label,metrics)=>{
  let selected:InvestigationSelection|undefined;
  render(<MemoryRouter><GlobalQueryProvider><InvestigationHandoff.Provider value={s=>{selected=s}}><Trends spec={{kind:"fixed",from:1000,to:3000}} start={1000} end={3000}/></InvestigationHandoff.Provider></GlobalQueryProvider></MemoryRouter>);
- fireEvent.click(screen.getByRole("button",{name:`Investigate ${label}`}));
+ fireEvent.click(screen.getByRole("slider",{name:`Inspect ${label}`}).parentElement!.querySelector("button")!);
  const c=portable(selected!);expect(c.chartLabel).toBe(label);expect(c.series?.map(s=>s.metric)).toEqual(metrics);expect(c.series?.every(s=>s.label.length>0)).toBe(true);
 });
 it("carries a known MiniLine series and explicitly describes unknown identities",()=>{
  let selected:InvestigationSelection|undefined;
  render(<InvestigationHandoff.Provider value={s=>{selected=s}}><MiniLine frame={{start:1000,end:3000}} points={[]} level="ok" label="Worker delivery" period="range" fmt={String} investigation={{metric:"consumer.delivered_rate",entity:{kind:"consumer",key:"APP/orders/worker",name:"worker",account:"APP",stream:"orders",consumer:"worker",server:""}}}/></InvestigationHandoff.Provider>);
- fireEvent.click(screen.getByRole("button",{name:"Investigate Worker delivery"}));
+ fireEvent.click(screen.getByRole("button",{name:"Copy as prompt"}));
  const known=portable(selected!);expect(known.series?.[0]).toMatchObject({metric:"consumer.delivered_rate",entity:{key:"APP/orders/worker"}});
  const unknown=portable({label:"Unidentified chart"});expect(unknown.chartLabel).toBe("Unidentified chart");expect(unknown.series?.[0].metric).toBeUndefined();expect(unknown.series?.[0].unavailableReason).toBeTruthy();
 });
