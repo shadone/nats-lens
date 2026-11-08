@@ -3,6 +3,7 @@ import { HistoryLink, useGrowthHistoryNote } from "../components/HistoryNote";
 // server's JetStream file store is and when it fills, in the range's newest
 // collection, with growth over the whole range.
 import { useCapacity } from "../api/queries";
+import { TotalCapacityHistory } from "../components/CapacityHistory";
 import { ServerCards } from "../components/CapacityServers";
 import { StreamsTable } from "../components/CapacityStreams";
 import { Empty, QueryView } from "../components/common";
@@ -42,6 +43,7 @@ export function Capacity() {
         {(r) =>
           r.collected ? (
             <>
+              <TotalCapacityHistory />
               <ServerCards servers={r.servers} withoutJetstream={r.serversWithoutJetstream} />
               <StreamsTable key={system} d={r} answeredAt={q.dataUpdatedAt} live={spec.kind === "live"} />
             </>

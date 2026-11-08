@@ -34,12 +34,13 @@ function pts(s: TrendSeries | undefined): Point[] {
   return s?.points ?? [];
 }
 
-export function OneLine({ f, q, title, label }: { f: Frame; q: TrendSlice; title: string; label: string }) {
+export function OneLine({ f, q, title, label, contiguousBuckets }: { f: Frame; q: TrendSlice; title: string; label: string; contiguousBuckets?: boolean }) {
   const s = q.data;
   const unit = s?.unit ?? "count";
   return (
     <TrendChart
       title={title}
+      contiguousBuckets={contiguousBuckets}
       fmt={v => fmtValue(v, unit)}
       to={f.chartLinks ? ({ Servers: "/servers", Connections: "/connections", Messages: "/servers", Bytes: "/servers", CPU: "/servers", Memory: "/servers" } as Record<string, string>)[title] : undefined}
       now={fmt(lastValue(s?.points), unit)}

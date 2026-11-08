@@ -1,7 +1,7 @@
 // The Capacity page's streams table: what each stream keeps, what bounds
 // it, how much it holds, the limit it reaches next, and the decision on an
 // unbounded one, with the button that accepts it as by design.
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import type { Capacity, CapacityStream } from "../api/capacity";
 import type { Mute } from "../api/model";
@@ -20,6 +20,8 @@ import {
 import { fmtBytes, fmtGrowth, fmtInt } from "../lib/format";
 import { muteBy, reviewOn, sentence } from "../lib/muteView";
 import { streamLabel, accountLabel, findingPath, streamPath } from "../lib/view";
+import { useCapacityPage } from "../lib/useCapacityPage";
+import { CapacityHistoryChart, resourceHistoryQuery, useCapacityHistory } from "./CapacityHistory";
 import { AcceptDialog, type AcceptTarget } from "./AcceptDialog";
 import { Num, RLink } from "./common";
 
@@ -161,7 +163,13 @@ export function StreamsTable({ d, answeredAt, live }: { d: Capacity; answeredAt:
   const shown = useRef(answeredAt);
   shown.current = answeredAt;
   const loaded = withAccepted(d.streams, saved, answeredAt, live);
-  const rows = resource === "all" ? loaded : loaded.filter((s) => s.kind === resource);
+  const filtered = resource === "all" ? loaded : loaded.filter((s) => s.kind === resource);
+  const [page, setHistoryPage] = useCapacityPage(filtered.length, 16, resource);
+  const offset = page*16;
+  const rows = filtered.slice(offset, offset+16);
+  const [expanded, setExpanded] = useState("");
+  const queries = rows.flatMap(s => [resourceHistoryQuery(s), ...(expanded === rowKey(s) ? [resourceHistoryQuery(s,true)] : [])]);
+  const history = useCapacityHistory(queries);
   const accounts = new Set(loaded.map((s) => s.account)).size;
   const epochAt = d.epochAt ?? 0;
   return (
@@ -179,7 +187,7 @@ export function StreamsTable({ d, answeredAt, live }: { d: Capacity; answeredAt:
             <option value="kv">KV buckets</option>
             <option value="object">Object stores</option>
           </select></label>
-          <p>{fmtInt(rows.length)} of {fmtInt(loaded.length)} loaded resources shown. Server cards and page totals include all resource types.</p>
+          <p>{fmtInt(filtered.length)} of {fmtInt(loaded.length)} loaded resources shown. Server cards and page totals include all resource types.</p>
         </div>
         {rows.length === 0 ? (
           <p className="cap-foot">{loaded.length === 0 ? "No resources in this collection." : `No ${resource === "kv" ? "KV buckets" : resource === "object" ? "object stores" : "streams"} among the loaded resources.`}</p>
@@ -206,7 +214,7 @@ export function StreamsTable({ d, answeredAt, live }: { d: Capacity; answeredAt:
                   const next = nextLimitText(s);
                   const perDay = perDayTimesR(s);
                   return (
-                    <tr key={rowKey(s)} data-finding={s.findingId || undefined}>
+                    <Fragment key={rowKey(s)}><tr data-finding={s.findingId || undefined}>
                       <th scope="row">
                         <RLink to={streamPath(s.account, s.stream)} className="x cap-name">
                           {streamLabel(s.stream)}
@@ -215,6 +223,8 @@ export function StreamsTable({ d, answeredAt, live }: { d: Capacity; answeredAt:
                         {s.kind !== "stream" && <small>Underlying stream: {s.stream}</small>}
                         <small>{kindLine(s)}</small>
                         {accounts > 1 && <small>account {accountLabel(s.account, s.accountName || undefined)}</small>}
+                        <CapacityHistoryChart q={history(resourceHistoryQuery(s))} title={`${streamLabel(s.stream)} logical resource bytes`} compact />
+                        <button className="btn" type="button" aria-expanded={expanded === rowKey(s)} aria-label={`${expanded === rowKey(s) ? "Collapse" : "Expand"} history for ${streamLabel(s.stream)}`} onClick={() => setExpanded(expanded === rowKey(s) ? "" : rowKey(s))}>{expanded === rowKey(s) ? "Collapse history" : "Expand history"}</button>
                       </th>
                       <td>{boundText(s)}</td>
                       <td className="cap-held-cell">
@@ -231,12 +241,19 @@ export function StreamsTable({ d, answeredAt, live }: { d: Capacity; answeredAt:
                         <StatusCell s={s} onAccept={setAccepting} />
                       </td>
                     </tr>
+                    {expanded === rowKey(s) && <tr><td colSpan={7}><div className="cap-history-expanded">
+                      <CapacityHistoryChart q={history(resourceHistoryQuery(s))} title="Logical resource bytes" />
+                      <CapacityHistoryChart q={history(resourceHistoryQuery(s,true))} title="Observed replica bytes" />
+                      <p className="cap-note">Logical bytes use the leader report, or the largest report if no leader answers. Observed replica bytes sum only the replicas that reported; missing replicas are not estimated. These resource measurements are not physical file-store usage. Storage: {s.storage || "unknown"}.</p>
+                    </div></td></tr>}
+                    </Fragment>
                   );
                 })}
               </tbody>
             </table>
           </div>
         )}
+        {filtered.length > 16 && <div className="cap-history-pages"><span>History rows {offset+1}–{Math.min(offset+16,filtered.length)} of {filtered.length} filtered loaded resources.</span><button className="btn" aria-label="Previous resource history page" disabled={offset===0} onClick={() => setHistoryPage(page-1)}>Previous</button><button className="btn" aria-label="Next resource history page" disabled={offset+16>=filtered.length} onClick={() => setHistoryPage(page+1)}>Next</button></div>}
         {d.streamsTotal > d.streams.length && (
           <p className="cap-foot">
             The first {fmtInt(d.streams.length)} of {fmtInt(d.streamsTotal)} resources are loaded. Type filters apply only to these loaded resources.
@@ -244,7 +261,7 @@ export function StreamsTable({ d, answeredAt, live }: { d: Capacity; answeredAt:
         )}
       </section>
       <p className="cap-note">
-        Data held spans from the oldest retained message to the collection on a one-year scale; Size × R and /day count every replica. Accept as by design records a reason, who
+        Data held spans from the oldest retained message to the collection on a one-year scale; Size × R and /day multiply the logical leader value by configured replicas; they are estimates, not observed physical usage. Accept as by design records a reason, who
         accepted it and a review date; the finding then leaves the Overview until that date, or until nats-lens sees the stream's growth over a week change by more than half.
       </p>
       <AcceptDialog

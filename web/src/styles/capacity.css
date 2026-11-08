@@ -65,3 +65,12 @@
 .cap-resource-filter label{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-sm)}
 .cap-resource-filter p{margin:0;flex:1 1 100%;min-width:0;font-size:var(--fs-sm);color:var(--text-muted)}
 .cap-type{display:inline-block;margin-left:var(--sp-2);padding:var(--sp-1) var(--sp-2);border:1px solid var(--border);border-radius:var(--r-sm);font-size:var(--fs-xs);color:var(--text-muted)}
+
+.cap-card { container-type: inline-size; }
+.cap-history-total { margin-block-end: var(--sp-4); }
+.cap-history-compact { min-width: 10rem; max-width: 16rem; margin-block: var(--sp-2); }
+.cap-history-expanded { width: calc(100cqw - var(--sp-6)); box-sizing: border-box; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); padding: var(--sp-3); }
+.cap-history-expanded .cap-note { grid-column: 1 / -1; }
+.cap-history-pages { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--sp-3); }
+.cap-server > .tc { border: 0; box-shadow: none; margin-top: var(--sp-3); }
+@media (max-width: 48rem) { .cap-history-expanded { grid-template-columns: minmax(0, 1fr); } }

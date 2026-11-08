@@ -127,7 +127,7 @@ describe("Capacity", () => {
     getCapacity.mockResolvedValue(prod());
     renderApp(<Capacity />, "/capacity");
     await screen.findByRole("region", { name: "Resources by what bounds them" });
-    expect(table().getAllByRole("button")).toHaveLength(1);
+    expect(table().getAllByRole("button", {name:/Accept .* as by design/})).toHaveLength(1);
   });
 
   it("shows the row as accepted after saving, without waiting for a new answer", async () => {
@@ -144,7 +144,7 @@ describe("Capacity", () => {
     await userEvent.click(dlg.getByRole("button", { name: "Accept as by design" }));
     await waitFor(() => expect(cellTexts("order-archive")[5]).toBe("By designAccepted by alice: Order history is kept for audits. Review on 2027-01-21.stream-005"));
     expect(muteFinding.mock.calls[0][1]).toMatchObject({ checkCode: "stream-005", accept: true, entity: { kind: "stream", key: "APP/order-archive" } });
-    expect(within(row("order-archive")).queryByRole("button")).toBeNull();
+    expect(within(row("order-archive")).queryByRole("button", {name:/Accept .* as by design/})).toBeNull();
   });
 
   it("shows the next answer after the save, whatever it says", async () => {
