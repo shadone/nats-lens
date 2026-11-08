@@ -8,7 +8,7 @@
 
 Every page of the web UI sits in one shell. A sidebar on the left lists the pages in groups and shows which system the pages read. A header above the page names it, limits a list to one account where the list supports it, searches the system's servers, streams, consumers and buckets, holds the one time range that every page reads, says how fresh the data is, and switches the theme. The range, the system and the account live in the page address, so a link shows the next person exactly what you saw.
 
-A page or shared chart can hand its scope and frozen UTC interval to a terminal agent through [agent investigations](agent-investigations.md).
+A compact **Copy as prompt** action in the top bar or beside a shared chart copies its scope, frozen UTC interval, and agent read instructions through [agent investigations](agent-investigations.md).
 
 ## Behavior and rules
 
