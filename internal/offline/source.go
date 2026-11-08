@@ -62,18 +62,26 @@ func Open(ctx context.Context, selection investigation.OfflineSelection) (*inves
 	if bounds.DataReference == nil || bounds.DataReference.IsZero() {
 		return fail(&investigation.Diagnostic{Code: "no_reference_clock", Message: "dataset has no completed collection reference clock"})
 	}
-	if bounds.LastCollectionStartedAt == nil || !bounds.DataReference.After(*bounds.LastCollectionStartedAt) {
+	if bounds.LastCollectionStartedAt == nil || bounds.DataReference.Before(*bounds.LastCollectionStartedAt) {
 		return fail(&investigation.Diagnostic{Code: "no_reference_clock", Message: "dataset collection reference must follow its half-open sample boundary"})
 	}
+	queryReference := *bounds.DataReference
+	adjustment := "none"
+	if queryReference.Equal(*bounds.LastCollectionStartedAt) {
+		queryReference = queryReference.Add(time.Microsecond)
+		adjustment = "exclusive_end_inclusion: one database-resolution tick; not an observed capture time"
+	}
+	provenance = map[string]any{"capture": provenance, "dataReference": bounds.DataReference, "queryReference": queryReference, "queryReferenceAdjustment": adjustment}
 	p, err := storeprov.NewCaptured(ctx, db, time.Duration(system.CollectionIntervalNS), *bounds.DataReference, fingerprint)
 	if err != nil {
 		return fail(sourceError(ctx, err))
 	}
+	p.RangeClock = func() time.Time { return queryReference }
 	if system.RetentionNS != nil {
 		p.Retention = time.Duration(*system.RetentionNS)
 	}
 	h := &api.Handler{Systems: api.One(system.ID, system.Name, p), Version: version}
-	return &investigation.Session{Source: investigation.NewInProcess(api.NewInvestigationHandler(h)), Provenance: provenance, Close: db.Close}, nil
+	return &investigation.Session{Source: investigation.NewInProcess(api.NewInvestigationHandler(h)), Provenance: provenance, QueryReference: queryReference, Close: db.Close}, nil
 }
 
 var limitations = []string{

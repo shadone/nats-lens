@@ -1,6 +1,7 @@
 package offline
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
@@ -229,5 +230,119 @@ func TestOfflineZeroDurationCollectionBounds(t *testing.T) {
 	}
 	if strings.Contains(string(fixedResult), `"epoch":"9007199254740993"`) {
 		t.Fatalf("explicit exclusive end extended: %s", fixedResult)
+	}
+}
+
+func TestOfflineReferenceResolutionPrecision(t *testing.T) {
+	for _, duration := range []time.Duration{0, time.Microsecond, time.Second} {
+		t.Run(duration.String(), func(t *testing.T) {
+			ctx := context.Background()
+			path := closedFixture(t)
+			st, err := store.OpenPath(ctx, path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			at := time.Date(2026, 10, 17, 14, 29, 0, 0, time.UTC)
+			finish := at.Add(duration)
+			if _, err = st.DB().Exec(`UPDATE epochs SET finished_at=?`, finish); err != nil {
+				t.Fatal(err)
+			}
+			st.Close()
+			session, err := Open(ctx, investigation.OfflineSelection{DB: path, System: "shop", Interval: 30 * time.Second})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer session.Close()
+			info, err := session.Source.Query(ctx, "GetLensInfo", []byte(`{}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var clock struct {
+				Now string `json:"now"`
+			}
+			if err = json.Unmarshal(info, &clock); err != nil {
+				t.Fatal(err)
+			}
+			if clock.Now != finish.Format(time.RFC3339Nano) {
+				t.Fatalf("invented capture clock: %s", info)
+			}
+			wantEnd := finish
+			if duration == 0 {
+				wantEnd = finish.Add(time.Microsecond)
+			}
+			if !session.QueryReference.Equal(wantEnd) {
+				t.Fatalf("derived end %s want %s", session.QueryReference, wantEnd)
+			}
+			overview, err := session.Source.Query(ctx, "GetOverview", []byte(`{}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var response struct {
+				Range     investigation.Bounds `json:"range"`
+				Freshness struct {
+					Epoch string `json:"epoch"`
+					Age   string `json:"age"`
+				} `json:"freshness"`
+			}
+			if err = json.Unmarshal(overview, &response); err != nil {
+				t.Fatal(err)
+			}
+			if response.Range.End != wantEnd.Format(time.RFC3339Nano) || response.Freshness.Epoch != "9007199254740993" {
+				t.Fatalf("default range: %s", overview)
+			}
+			if duration < time.Second && response.Freshness.Age != "0s" {
+				t.Fatalf("tick changed captured freshness: %s", overview)
+			}
+			var out, diagnostic bytes.Buffer
+			args := []string{"query", "GetOverview", "-db", path, "-system", "shop", "-collection-interval", "30s", "-url", "https://lens.example.com/?system=shop&range=1h"}
+			if err = investigation.RunWithOffline(ctx, args, strings.NewReader(""), &out, &diagnostic, Open); err != nil {
+				t.Fatalf("relative CLI: %v %s", err, out.String())
+			}
+			var envelope struct {
+				Context investigation.Context `json:"context"`
+			}
+			if err = json.Unmarshal(out.Bytes(), &envelope); err != nil {
+				t.Fatal(err)
+			}
+			if envelope.Context.Range.End != wantEnd.Format(time.RFC3339Nano) {
+				t.Fatalf("relative end: %s", out.String())
+			}
+			if duration == 0 && !strings.Contains(out.String(), "exclusive_end_inclusion") {
+				t.Fatalf("undisclosed adjustment: %s", out.String())
+			}
+			out.Reset()
+			args = append(args, "-to", at.Format(time.RFC3339Nano))
+			if err = investigation.RunWithOffline(ctx, args, strings.NewReader(""), &out, &diagnostic, Open); err != nil {
+				t.Fatalf("fixed CLI: %v %s", err, out.String())
+			}
+			if err = json.Unmarshal(out.Bytes(), &envelope); err != nil {
+				t.Fatal(err)
+			}
+			if envelope.Context.Range.End != at.Format(time.RFC3339Nano) {
+				t.Fatalf("fixed end extended: %s", out.String())
+			}
+			for _, c := range []struct {
+				end     time.Time
+				include bool
+			}{{at, false}, {at.Add(time.Microsecond), true}} {
+				req, _ := json.Marshal(map[string]any{"metric": "server.cpu_percent", "entity": map[string]string{"type": "ENTITY_TYPE_SERVER", "key": "nats-0"}, "range": map[string]string{"start": at.Add(-time.Minute).Format(time.RFC3339Nano), "end": c.end.Format(time.RFC3339Nano)}})
+				series, err := session.Source.Query(ctx, "GetTimeSeries", req)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var result struct {
+					Series struct {
+						Points []json.RawMessage `json:"points"`
+					} `json:"series"`
+				}
+				if err = json.Unmarshal(series, &result); err != nil {
+					t.Fatal(err)
+				}
+				points := len(result.Series.Points)
+				if (points > 0) != c.include {
+					t.Fatalf("explicit half-open series end %s: %s", c.end, series)
+				}
+			}
+		})
 	}
 }

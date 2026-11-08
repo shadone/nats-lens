@@ -37,6 +37,8 @@ type Provider struct {
 	Retention time.Duration
 	// Clock returns now; nil means the wall clock.
 	Clock func() time.Time
+	// RangeClock overrides only derived half-open query bounds, not observed time.
+	RangeClock func() time.Time
 	// Checks names the checks and gives their remediation; nil leaves
 	// those fields empty.
 	Checks *checks.Set
@@ -73,6 +75,15 @@ func (p *Provider) Now() time.Time {
 		return p.Clock().UTC()
 	}
 	return time.Now().UTC()
+}
+
+// RangeReference is used only to resolve omitted range bounds. Explicit bounds
+// and Now's observed dataset clock remain unchanged.
+func (p *Provider) RangeReference() time.Time {
+	if p.RangeClock != nil {
+		return p.RangeClock().UTC()
+	}
+	return p.Now()
 }
 
 type queryReader interface {
