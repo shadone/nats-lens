@@ -95,13 +95,15 @@ func TestOfflineRejectsUnpublishedBundle(t *testing.T) {
 	if err = os.Rename(published, stage); err != nil {
 		t.Fatal(err)
 	}
-	session, err := Open(ctx, investigation.OfflineSelection{Bundle: stage})
-	if err == nil {
-		session.Close()
-		t.Fatal("unpublished bundle exposed semantic reads")
-	}
-	var diagnostic *investigation.Diagnostic
-	if !errors.As(err, &diagnostic) || diagnostic.Code != "invalid_source" {
-		t.Fatalf("staging error: %v", err)
+	for _, candidate := range []string{stage, stage + string(os.PathSeparator) + "."} {
+		session, err := Open(ctx, investigation.OfflineSelection{Bundle: candidate})
+		if err == nil {
+			session.Close()
+			t.Fatalf("unpublished bundle exposed semantic reads: %s", candidate)
+		}
+		var diagnostic *investigation.Diagnostic
+		if !errors.As(err, &diagnostic) || diagnostic.Code != "invalid_source" {
+			t.Fatalf("staging error: %v", err)
+		}
 	}
 }
