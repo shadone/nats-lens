@@ -21,3 +21,7 @@ it("records effective Findings and Events defaults even when absent from the URL
  expect(buildInvestigationContext({...input,pathname:"/findings"}).filters).toMatchObject({state:"open",muted:"1"});
  expect(buildInvestigationContext({...input,pathname:"/events"}).filters).toMatchObject({show:"worth"});
 });
+it("preserves storage comparison pins and sub-millisecond requested bounds in copied context",()=>{
+ const c=buildInvestigationContext({origin:"https://lens.example.com",pathname:"/capacity/storage-change",search:"?from=2026-10-17T13:00:00.000123Z&to=2026-10-17T14:00:00.000456Z&epochA=9007199254740993&epochB=9007199254740994&account=APP",system:"shop",spec:{kind:"fixed",from:Date.parse("2026-10-17T13:00:00Z"),to:Date.parse("2026-10-17T14:00:00Z")}});
+ expect(c.filters.epochA).toBe("9007199254740993");expect(c.filters.epochB).toBe("9007199254740994");expect(c.range).toEqual({start:"2026-10-17T13:00:00.000123Z",end:"2026-10-17T14:00:00.000456Z"});
+});

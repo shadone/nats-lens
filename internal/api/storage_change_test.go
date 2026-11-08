@@ -3,6 +3,7 @@ package api_test
 import (
 	"errors"
 	"math"
+	"net/url"
 	"testing"
 	"time"
 
@@ -153,5 +154,19 @@ func TestStorageChangeContributionTotalsExcludeServerUsage(t *testing.T) {
 	total := storageTotal(t, res, "file")
 	if total.KnownContributions.ServerReported != nil || total.OmittedContributions.ServerReported != nil {
 		t.Fatal("server usage labeled as resource contributions")
+	}
+}
+
+func TestStorageChangeUnavailableEndpointLink(t *testing.T) {
+	req, f := storageFacts()
+	f.A = &v1.StorageChangeEndpoint{Requested: req.A, Reasons: []string{"no_collection"}}
+	f.Rows = nil
+	res, err := api.FinishStorageChange(req, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, _ := url.Parse(res.InvestigationUrl)
+	if u.Query().Has("epochA") {
+		t.Fatal("unavailable endpoint produced an invalid zero pin link")
 	}
 }

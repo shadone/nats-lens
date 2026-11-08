@@ -254,3 +254,10 @@ it("discloses collection bounds to the second around the six-hour boundary", asy
   renderApp(<Capacity />);
   expect(await screen.findByText(/Collection bounds: 2026-10-17 08:00:15 to 2026-10-17 14:00:30 UTC/)).toBeInTheDocument();
 });
+
+it("opens a fixed storage comparison for the selected scope and interval",async()=>{
+ getCapacity.mockResolvedValue(prod());
+ renderApp(<Capacity/>,"/capacity?system=example-prod&account=APP&from=2026-10-17T13:00:00Z&to=2026-10-17T14:00:00Z");
+ const link=new URL((await screen.findByRole("link",{name:"Compare storage in range"})).getAttribute("href")!,"http://example.com");
+ expect(link.pathname).toBe("/capacity/storage-change");expect(Object.fromEntries(link.searchParams)).toEqual({system:"example-prod",account:"APP",from:"2026-10-17T13:00:00.000Z",to:"2026-10-17T14:00:00.000Z"});
+});

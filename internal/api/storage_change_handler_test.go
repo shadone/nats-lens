@@ -9,6 +9,7 @@ import (
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 	"github.com/shadone/nats-lens/internal/investigation"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"net/url"
 	"slices"
 	"testing"
 	"time"
@@ -40,6 +41,10 @@ func TestStorageChangeHandler(t *testing.T) {
 	}
 	if p.called != 1 || p.left <= 0 || p.left > api.QueryTimeout || res.Msg.TotalCount != 4 {
 		t.Fatalf("shared timeout/finishing missing: calls=%d left=%v res=%v", p.called, p.left, res.Msg)
+	}
+	link, _ := url.Parse(res.Msg.InvestigationUrl)
+	if link.Query().Get("system") != api.DefaultSystemID {
+		t.Fatal("default-system evidence link is not explicit")
 	}
 	for name, change := range map[string]func(*v1.GetStorageChangeRequest){"future": func(r *v1.GetStorageChangeRequest) { r.B = timestamppb.New(fake.FixedNow.Add(time.Second)) }, "reversed": func(r *v1.GetStorageChangeRequest) { r.B = r.A }, "missing": func(r *v1.GetStorageChangeRequest) { r.A = nil }, "invalid_timestamp": func(r *v1.GetStorageChangeRequest) { r.A = &timestamppb.Timestamp{Nanos: -1} }, "page": func(r *v1.GetStorageChangeRequest) { r.PageSize = 101 }, "negative_pin": func(r *v1.GetStorageChangeRequest) { r.EpochA = -1 }, "token": func(r *v1.GetStorageChangeRequest) { r.PageToken = string(make([]byte, 1025)) }, "system": func(r *v1.GetStorageChangeRequest) { r.System = "unknown" }} {
 		t.Run(name, func(t *testing.T) {

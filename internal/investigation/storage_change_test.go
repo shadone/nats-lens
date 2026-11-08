@@ -40,3 +40,22 @@ func TestStorageChangePortablePins(t *testing.T) {
 		t.Fatalf("roundtrip=%s %v", again, err)
 	}
 }
+func TestStorageChangeScopeOverridesResetContinuation(t *testing.T) {
+	c, err := ContextFromURL("https://lens.example.com/capacity/storage-change?system=shop&from=2026-10-17T13:00:00Z&to=2026-10-17T14:00:00Z", "https://lens.example.com", fixtureNow())
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Query = &BoundQuery{Method: "GetStorageChange", Request: json.RawMessage(`{"system":"shop","a":"2026-10-17T13:00:00Z","b":"2026-10-17T14:00:00Z","epochA":"1","epochB":"2","pageToken":"old"}`)}
+	c.System = "other"
+	if err = c.rebaseQuery(true, false, false, false); err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]any
+	_ = json.Unmarshal(c.Query.Request, &fields)
+	if _, ok := fields["epochA"]; ok {
+		t.Fatal("old system's collection pin retained")
+	}
+	if _, ok := fields["pageToken"]; ok {
+		t.Fatal("old system's continuation retained")
+	}
+}
