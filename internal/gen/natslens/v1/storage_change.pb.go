@@ -622,7 +622,10 @@ type GetStorageChangeResponse struct {
 	// Relative evidence-view URL preserving scope and resolved collection pins.
 	InvestigationUrl string `protobuf:"bytes,9,opt,name=investigation_url,json=investigationUrl,proto3" json:"investigation_url,omitempty"`
 	// Comparison-level limitations, including server_usage_is_system_wide.
-	Reasons       []string `protobuf:"bytes,10,rep,name=reasons,proto3" json:"reasons,omitempty"`
+	Reasons []string `protobuf:"bytes,10,rep,name=reasons,proto3" json:"reasons,omitempty"`
+	// Resolved configured system and requested resource account scope.
+	System        string `protobuf:"bytes,11,opt,name=system,proto3" json:"system,omitempty"`
+	Account       string `protobuf:"bytes,12,opt,name=account,proto3" json:"account,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -727,6 +730,20 @@ func (x *GetStorageChangeResponse) GetReasons() []string {
 	return nil
 }
 
+func (x *GetStorageChangeResponse) GetSystem() string {
+	if x != nil {
+		return x.System
+	}
+	return ""
+}
+
+func (x *GetStorageChangeResponse) GetAccount() string {
+	if x != nil {
+		return x.Account
+	}
+	return ""
+}
+
 var File_natslens_v1_storage_change_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_storage_change_proto_rawDesc = "" +
@@ -795,7 +812,7 @@ const file_natslens_v1_storage_change_proto_rawDesc = "" +
 	"\x15omitted_contributions\x18\x06 \x01(\v2\x1f.natslens.v1.StorageChangeBytesR\x14omittedContributions\x12!\n" +
 	"\funknown_rows\x18\a \x01(\x05R\vunknownRows\x12'\n" +
 	"\funreconciled\x18\b \x01(\x03H\x00R\funreconciled\x88\x01\x01B\x0f\n" +
-	"\r_unreconciled\"\xb8\x03\n" +
+	"\r_unreconciled\"\xea\x03\n" +
 	"\x18GetStorageChangeResponse\x120\n" +
 	"\x01a\x18\x01 \x01(\v2\".natslens.v1.StorageChangeEndpointR\x01a\x120\n" +
 	"\x01b\x18\x02 \x01(\v2\".natslens.v1.StorageChangeEndpointR\x01b\x12'\n" +
@@ -808,7 +825,9 @@ const file_natslens_v1_storage_change_proto_rawDesc = "" +
 	"\x0fnext_page_token\x18\b \x01(\tR\rnextPageToken\x12+\n" +
 	"\x11investigation_url\x18\t \x01(\tR\x10investigationUrl\x12\x18\n" +
 	"\areasons\x18\n" +
-	" \x03(\tR\areasonsBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
+	" \x03(\tR\areasons\x12\x16\n" +
+	"\x06system\x18\v \x01(\tR\x06system\x12\x18\n" +
+	"\aaccount\x18\f \x01(\tR\aaccountBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
 
 var (
 	file_natslens_v1_storage_change_proto_rawDescOnce sync.Once

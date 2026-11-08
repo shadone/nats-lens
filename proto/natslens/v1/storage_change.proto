@@ -127,4 +127,7 @@ message GetStorageChangeResponse {
   string investigation_url = 9;
   // Comparison-level limitations, including server_usage_is_system_wide.
   repeated string reasons = 10;
+  // Resolved configured system and requested resource account scope.
+  string system = 11;
+  string account = 12;
 }

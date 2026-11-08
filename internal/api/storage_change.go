@@ -54,7 +54,7 @@ func FinishStorageChange(req *v1.GetStorageChangeRequest, f *StorageChangeFacts)
 	if limit < 1 || limit > MaxStorageChangePage {
 		return nil, fmt.Errorf("%w: page_size must be 1 to 100", ErrInvalid)
 	}
-	res := &v1.GetStorageChangeResponse{A: proto.Clone(f.A).(*v1.StorageChangeEndpoint), B: proto.Clone(f.B).(*v1.StorageChangeEndpoint), EndpointPolicy: "completed_at_or_before_requested", Unit: "bytes", Reasons: slices.Clone(f.Reasons)}
+	res := &v1.GetStorageChangeResponse{A: proto.Clone(f.A).(*v1.StorageChangeEndpoint), B: proto.Clone(f.B).(*v1.StorageChangeEndpoint), EndpointPolicy: "completed_at_or_before_requested", System: req.System, Account: req.Account, Unit: "bytes", Reasons: slices.Clone(f.Reasons)}
 	seen := map[string]bool{}
 	for _, x := range f.Rows {
 		if x == nil || x.Id == "" || seen[x.Id] || (x.Storage != "file" && x.Storage != "memory") || (x.RowKind != "resource" && x.RowKind != "server") {
