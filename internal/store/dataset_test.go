@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"github.com/shadone/nats-lens/internal/events"
 	"os"
 	"path/filepath"
 	"sort"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	duckdb "github.com/duckdb/duckdb-go/v2"
+	"github.com/shadone/nats-lens/internal/events"
 )
 
 func TestDatasetCopyActiveBoundary(t *testing.T) {
@@ -141,6 +141,16 @@ func TestDatasetCatalogAndContentsConserved(t *testing.T) {
 		}
 		if before[i] != after {
 			t.Errorf("conservation mismatch %s\nsource %s\nexport %s", q, before[i], after)
+		}
+	}
+	// Exercise copied keys, NOT NULL and CHECK constraints only on the descendant.
+	for _, q := range []string{
+		`INSERT INTO epochs SELECT * FROM epochs`,
+		`INSERT INTO epoch_endpoints VALUES (NULL,'synthetic','varz','ok',NULL)`,
+		`INSERT INTO check_runs VALUES(1,'synthetic','invalid',0,0,NULL)`,
+	} {
+		if _, e := db.Exec(q); e == nil {
+			t.Errorf("copied constraint not enforced: %s", q)
 		}
 	}
 	var next int64

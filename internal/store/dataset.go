@@ -4,11 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	duckdb "github.com/duckdb/duckdb-go/v2"
 	"os"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	duckdb "github.com/duckdb/duckdb-go/v2"
 )
 
 // SnapshotCopy copies the source catalog and rows using one source read transaction.
