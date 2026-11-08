@@ -11,6 +11,7 @@
 //	natslens checks list                        list the checks with their thresholds
 //	natslens checks run [-config FILE] [-system ID] [-data-dir DIR]
 //	                                            evaluate the checks on a database no collector has open
+//	natslens investigate methods              discover bounded remote read commands
 //	natslens demo [-listen ADDR]                serve the API with a fixed scenario, without NATS
 //	natslens notify test -config FILE [-channel NAME] [-system ID]
 //	                                            send a test message to each notification channel, or one
@@ -36,6 +37,7 @@ import (
 
 	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/config"
+	"github.com/shadone/nats-lens/internal/investigation"
 	"github.com/shadone/nats-lens/internal/sqlcli"
 	"github.com/shadone/nats-lens/internal/store"
 )
@@ -54,8 +56,11 @@ func main() {
 
 func run(ctx context.Context, args []string) error {
 	cmd := "run"
-	if len(args) > 0 && (args[0] == "run" || args[0] == "once" || args[0] == "sql" || args[0] == "demo" || args[0] == "checks" || args[0] == "notify") {
+	if len(args) > 0 && (args[0] == "run" || args[0] == "once" || args[0] == "sql" || args[0] == "demo" || args[0] == "checks" || args[0] == "notify" || args[0] == "investigate") {
 		cmd, args = args[0], args[1:]
+	}
+	if cmd == "investigate" {
+		return investigation.Run(ctx, args, os.Stdin, os.Stdout, os.Stderr)
 	}
 	if cmd == "sql" {
 		return runSQL(ctx, args)

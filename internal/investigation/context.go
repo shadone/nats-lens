@@ -3,7 +3,6 @@ package investigation
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/url"
 	"regexp"
@@ -118,7 +117,7 @@ func supportedPath(p string) bool {
 }
 func validateSource(raw string) error {
 	u, err := url.Parse(raw)
-	if err != nil || u.IsAbs() || u.Host != "" || !supportedPath(u.Path) || len(raw) > 8192 {
+	if err != nil || u.IsAbs() || u.Host != "" || u.Fragment != "" || !supportedPath(u.Path) || len(raw) > 8192 {
 		return errors.New("unsupported source UI path")
 	}
 	q, err := url.ParseQuery(u.RawQuery)
@@ -299,6 +298,23 @@ func (c *Context) infer(path string, q url.Values) {
 		c.Entity = &Entity{Type: "ENTITY_TYPE_CONSUMER", Key: strings.Join(p[1:], "/"), Account: p[1], Stream: p[2], Consumer: p[3]}
 		c.Account = p[1]
 	}
+	if c.Entity == nil {
+		if key := q.Get("server"); key != "" {
+			c.Entity = &Entity{Type: "ENTITY_TYPE_SERVER", Key: key, Server: key}
+		}
+		if key := q.Get("stream"); key != "" {
+			parts := strings.SplitN(key, "/", 2)
+			if len(parts) == 2 {
+				c.Entity = &Entity{Type: "ENTITY_TYPE_STREAM", Key: key, Account: parts[0], Stream: parts[1]}
+			}
+		}
+		if key := q.Get("consumer"); key != "" {
+			parts := strings.SplitN(key, "/", 3)
+			if len(parts) == 3 {
+				c.Entity = &Entity{Type: "ENTITY_TYPE_CONSUMER", Key: key, Account: parts[0], Stream: parts[1], Consumer: parts[2]}
+			}
+		}
+	}
 	if p[0] == "events" && q.Get("id") != "" {
 		c.Evidence = []Evidence{{"event", q.Get("id")}}
 	}
@@ -323,7 +339,4 @@ func (c *Context) Link(trusted string) (string, error) {
 	}
 	u.RawQuery = q.Encode()
 	return strings.TrimSuffix(trusted, "/") + u.String(), nil
-}
-func (c *Context) String() string {
-	return fmt.Sprintf("%s %s to %s", c.System, c.Range.Start, c.Range.End)
 }
