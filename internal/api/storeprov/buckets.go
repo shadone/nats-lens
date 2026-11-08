@@ -218,7 +218,7 @@ ORDER BY n.account, n.stream`,
 // bucketPlacement sets each bucket's placement by the streams' rule
 // (placementOf), padded to its configured replicas.
 func (p *Provider) bucketPlacement(ctx context.Context, epoch int64, account, prefix string, bs []*bucketRow) error {
-	reps, err := p.streamReplicas(ctx, epoch, account, "", prefix)
+	reps, err := p.streamReplicasAll(ctx, epoch, account, "", prefix)
 	if err != nil {
 		return fmt.Errorf("bucket placement: %w", err)
 	}

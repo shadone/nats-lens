@@ -20,7 +20,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/streams.proto.
  */
 export const file_natslens_v1_streams: GenFile = /*@__PURE__*/
-  fileDesc("ChluYXRzbGVucy92MS9zdHJlYW1zLnByb3RvEgtuYXRzbGVucy52MSLoAwoNU3RyZWFtU3VtbWFyeRImCgZlbnRpdHkYASABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSFQoIcmVwbGljYXMYAiABKAVIAIgBARIVCghtZXNzYWdlcxgDIAEoA0gBiAEBEhIKBWJ5dGVzGAQgASgDSAKIAQESFgoJY29uc3VtZXJzGAUgASgFSAOIAQESHwoSY29uc3VtZXJzX2V4cGVjdGVkGAYgASgFSASIAQESGgoNYnl0ZXNfcGVyX2RheRgHIAEoAUgFiAEBEiUKCGJ5dGVzXzdkGAggASgLMhMubmF0c2xlbnMudjEuU2VyaWVzEiMKBnN0YXR1cxgJIAEoDjITLm5hdHNsZW5zLnYxLlN0YXR1cxIVCg1maW5kaW5nX2NvZGVzGAogAygJEhgKEHNlcnZlcnNfZGlzYWdyZWUYCyABKAgSDgoGbGVhZGVyGAwgASgJEjAKCXBsYWNlbWVudBgNIAMoCzIdLm5hdHNsZW5zLnYxLlJlcGxpY2FQbGFjZW1lbnRCCwoJX3JlcGxpY2FzQgsKCV9tZXNzYWdlc0IICgZfYnl0ZXNCDAoKX2NvbnN1bWVyc0IVChNfY29uc3VtZXJzX2V4cGVjdGVkQhAKDl9ieXRlc19wZXJfZGF5Ir8CChBTdHJlYW1TZXJ2ZXJWaWV3Eg4KBnNlcnZlchgBIAEoCRIRCglpc19sZWFkZXIYAiABKAgSDwoHY3VycmVudBgDIAEoCBIPCgdvZmZsaW5lGAQgASgIEhAKA2xhZxgFIAEoA0gAiAEBEhUKCG1lc3NhZ2VzGAYgASgDSAGIAQESEgoFYnl0ZXMYByABKANIAogBARIWCglmaXJzdF9zZXEYCCABKANIA4gBARIVCghsYXN0X3NlcRgJIAEoA0gEiAEBEisKB2NyZWF0ZWQYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhMKC2NvbmZpZ19oYXNoGAsgASgJQgYKBF9sYWdCCwoJX21lc3NhZ2VzQggKBl9ieXRlc0IMCgpfZmlyc3Rfc2VxQgsKCV9sYXN0X3NlcSJVCgxTdHJlYW1Ub3RhbHMSDQoFYnl0ZXMYASABKAMSGQoRZHVyYWJsZV9jb25zdW1lcnMYAiABKAUSGwoTZXBoZW1lcmFsX2NvbnN1bWVycxgDIAEoBSJ/ChJMaXN0U3RyZWFtc1JlcXVlc3QSJQoFcmFuZ2UYASABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2USDwoHYWNjb3VudBgCIAEoCRISCgppbmNsdWRlX2t2GAMgASgIEg4KBnN5c3RlbRgEIAEoCRINCgVsaW1pdBgFIAEoBSKCAQoTTGlzdFN0cmVhbXNSZXNwb25zZRIrCgdzdHJlYW1zGAEgAygLMhoubmF0c2xlbnMudjEuU3RyZWFtU3VtbWFyeRIpCgZ0b3RhbHMYAiABKAsyGS5uYXRzbGVucy52MS5TdHJlYW1Ub3RhbHMSEwoLdG90YWxfY291bnQYAyABKAUiagoQR2V0U3RyZWFtUmVxdWVzdBIPCgdhY2NvdW50GAEgASgJEg4KBnN0cmVhbRgCIAEoCRIlCgVyYW5nZRgDIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRIOCgZzeXN0ZW0YBCABKAkipAIKEUdldFN0cmVhbVJlc3BvbnNlEioKBnN0cmVhbRgBIAEoCzIaLm5hdHNsZW5zLnYxLlN0cmVhbVN1bW1hcnkSKAoGY29uZmlnGAIgAygLMhgubmF0c2xlbnMudjEuQ29uZmlnVmFsdWUSLgoHc2VydmVycxgDIAMoCzIdLm5hdHNsZW5zLnYxLlN0cmVhbVNlcnZlclZpZXcSMAoNZGlzYWdyZWVtZW50cxgEIAMoCzIZLm5hdHNsZW5zLnYxLkRpc2FncmVlbWVudBIvCgljb25zdW1lcnMYBSADKAsyHC5uYXRzbGVucy52MS5Db25zdW1lclN1bW1hcnkSJgoIZmluZGluZ3MYBiADKAsyFC5uYXRzbGVucy52MS5GaW5kaW5nQkJaQGdpdGh1Yi5jb20vc2hhZG9uZS9uYXRzLWxlbnMvaW50ZXJuYWwvZ2VuL25hdHNsZW5zL3YxO25hdHNsZW5zdjFiBnByb3RvMw", [file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_consumers, file_natslens_v1_findings, file_natslens_v1_timeseries]);
+  fileDesc("ChluYXRzbGVucy92MS9zdHJlYW1zLnByb3RvEgtuYXRzbGVucy52MSLoAwoNU3RyZWFtU3VtbWFyeRImCgZlbnRpdHkYASABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSFQoIcmVwbGljYXMYAiABKAVIAIgBARIVCghtZXNzYWdlcxgDIAEoA0gBiAEBEhIKBWJ5dGVzGAQgASgDSAKIAQESFgoJY29uc3VtZXJzGAUgASgFSAOIAQESHwoSY29uc3VtZXJzX2V4cGVjdGVkGAYgASgFSASIAQESGgoNYnl0ZXNfcGVyX2RheRgHIAEoAUgFiAEBEiUKCGJ5dGVzXzdkGAggASgLMhMubmF0c2xlbnMudjEuU2VyaWVzEiMKBnN0YXR1cxgJIAEoDjITLm5hdHNsZW5zLnYxLlN0YXR1cxIVCg1maW5kaW5nX2NvZGVzGAogAygJEhgKEHNlcnZlcnNfZGlzYWdyZWUYCyABKAgSDgoGbGVhZGVyGAwgASgJEjAKCXBsYWNlbWVudBgNIAMoCzIdLm5hdHNsZW5zLnYxLlJlcGxpY2FQbGFjZW1lbnRCCwoJX3JlcGxpY2FzQgsKCV9tZXNzYWdlc0IICgZfYnl0ZXNCDAoKX2NvbnN1bWVyc0IVChNfY29uc3VtZXJzX2V4cGVjdGVkQhAKDl9ieXRlc19wZXJfZGF5Ir8CChBTdHJlYW1TZXJ2ZXJWaWV3Eg4KBnNlcnZlchgBIAEoCRIRCglpc19sZWFkZXIYAiABKAgSDwoHY3VycmVudBgDIAEoCBIPCgdvZmZsaW5lGAQgASgIEhAKA2xhZxgFIAEoA0gAiAEBEhUKCG1lc3NhZ2VzGAYgASgDSAGIAQESEgoFYnl0ZXMYByABKANIAogBARIWCglmaXJzdF9zZXEYCCABKANIA4gBARIVCghsYXN0X3NlcRgJIAEoA0gEiAEBEisKB2NyZWF0ZWQYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhMKC2NvbmZpZ19oYXNoGAsgASgJQgYKBF9sYWdCCwoJX21lc3NhZ2VzQggKBl9ieXRlc0IMCgpfZmlyc3Rfc2VxQgsKCV9sYXN0X3NlcSJVCgxTdHJlYW1Ub3RhbHMSDQoFYnl0ZXMYASABKAMSGQoRZHVyYWJsZV9jb25zdW1lcnMYAiABKAUSGwoTZXBoZW1lcmFsX2NvbnN1bWVycxgDIAEoBSKpAQoSTGlzdFN0cmVhbXNSZXF1ZXN0EiUKBXJhbmdlGAEgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEg8KB2FjY291bnQYAiABKAkSEgoKaW5jbHVkZV9rdhgDIAEoCBIOCgZzeXN0ZW0YBCABKAkSDQoFbGltaXQYBSABKAUSEgoKcGFnZV90b2tlbhgGIAEoCRIUCgxzdW1tYXJ5X29ubHkYByABKAgi0QEKE0xpc3RTdHJlYW1zUmVzcG9uc2USKwoHc3RyZWFtcxgBIAMoCzIaLm5hdHNsZW5zLnYxLlN0cmVhbVN1bW1hcnkSKQoGdG90YWxzGAIgASgLMhkubmF0c2xlbnMudjEuU3RyZWFtVG90YWxzEhMKC3RvdGFsX2NvdW50GAMgASgFEhcKD25leHRfcGFnZV90b2tlbhgEIAEoCRIlCgVyYW5nZRgFIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRINCgVlcG9jaBgGIAEoAyJqChBHZXRTdHJlYW1SZXF1ZXN0Eg8KB2FjY291bnQYASABKAkSDgoGc3RyZWFtGAIgASgJEiUKBXJhbmdlGAMgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEg4KBnN5c3RlbRgEIAEoCSKkAgoRR2V0U3RyZWFtUmVzcG9uc2USKgoGc3RyZWFtGAEgASgLMhoubmF0c2xlbnMudjEuU3RyZWFtU3VtbWFyeRIoCgZjb25maWcYAiADKAsyGC5uYXRzbGVucy52MS5Db25maWdWYWx1ZRIuCgdzZXJ2ZXJzGAMgAygLMh0ubmF0c2xlbnMudjEuU3RyZWFtU2VydmVyVmlldxIwCg1kaXNhZ3JlZW1lbnRzGAQgAygLMhkubmF0c2xlbnMudjEuRGlzYWdyZWVtZW50Ei8KCWNvbnN1bWVycxgFIAMoCzIcLm5hdHNsZW5zLnYxLkNvbnN1bWVyU3VtbWFyeRImCghmaW5kaW5ncxgGIAMoCzIULm5hdHNsZW5zLnYxLkZpbmRpbmdCQlpAZ2l0aHViLmNvbS9zaGFkb25lL25hdHMtbGVucy9pbnRlcm5hbC9nZW4vbmF0c2xlbnMvdjE7bmF0c2xlbnN2MWIGcHJvdG8z", [file_google_protobuf_timestamp, file_natslens_v1_common, file_natslens_v1_consumers, file_natslens_v1_findings, file_natslens_v1_timeseries]);
 
 /**
  * One stream as of the newest epoch of the range.
@@ -298,11 +298,28 @@ export type ListStreamsRequest = Message<"natslens.v1.ListStreamsRequest"> & {
 
   /**
    * Largest number of streams to return, after the worst-first order.
-   * Zero or a negative number means all.
+   * Zero uses 100; larger values are capped at 100. Negative values are invalid.
    *
    * @generated from field: int32 limit = 5;
    */
   limit: number;
+
+  /**
+   * Opaque continuation, valid for 5 minutes while its context is retained.
+   * Keep filters, system and range; omit the range to reuse the pinned bounds.
+   * FailedPrecondition means restart from the first page.
+   *
+   * @generated from field: string page_token = 6;
+   */
+  pageToken: string;
+
+  /**
+   * Omit growth and the seven-day bytes chart for name/filter discovery.
+   * The default preserves both history fields.
+   *
+   * @generated from field: bool summary_only = 7;
+   */
+  summaryOnly: boolean;
 };
 
 /**
@@ -338,6 +355,27 @@ export type ListStreamsResponse = Message<"natslens.v1.ListStreamsResponse"> & {
    * @generated from field: int32 total_count = 3;
    */
   totalCount: number;
+
+  /**
+   * Continuation, empty on the last page.
+   *
+   * @generated from field: string next_page_token = 4;
+   */
+  nextPageToken: string;
+
+  /**
+   * Absolute range shared by every page of this traversal.
+   *
+   * @generated from field: natslens.v1.TimeRange range = 5;
+   */
+  range?: TimeRange | undefined;
+
+  /**
+   * Collection used for the frozen summaries.
+   *
+   * @generated from field: int64 epoch = 6;
+   */
+  epoch: bigint;
 };
 
 /**

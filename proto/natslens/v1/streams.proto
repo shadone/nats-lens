@@ -124,8 +124,17 @@ message ListStreamsRequest {
   string system = 4;
 
   // Largest number of streams to return, after the worst-first order.
-  // Zero or a negative number means all.
+  // Zero uses 100; larger values are capped at 100. Negative values are invalid.
   int32 limit = 5;
+
+  // Opaque continuation, valid for 5 minutes while its context is retained.
+  // Keep filters, system and range; omit the range to reuse the pinned bounds.
+  // FailedPrecondition means restart from the first page.
+  string page_token = 6;
+
+  // Omit growth and the seven-day bytes chart for name/filter discovery.
+  // The default preserves both history fields.
+  bool summary_only = 7;
 }
 
 // Streams, worst status first, then by name.
@@ -138,6 +147,15 @@ message ListStreamsResponse {
 
   // Number of streams that match, also those past the limit.
   int32 total_count = 3;
+
+  // Continuation, empty on the last page.
+  string next_page_token = 4;
+
+  // Absolute range shared by every page of this traversal.
+  TimeRange range = 5;
+
+  // Collection used for the frozen summaries.
+  int64 epoch = 6;
 }
 
 // Request for one stream.

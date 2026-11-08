@@ -13,6 +13,8 @@ The Consumers page lists the JetStream consumers of the newest collection in the
 - **The leader's view where it matters.** Pending and waiting come from the leader only, because followers report zero for both. Ack pending, redelivered, the leader and the last delivery fall back to a follower's report when no leader reports. A dash means the value was not observed, for example pending on a consumer without a leader report; it never stands for zero.
 - **Durables by default.** "Include ephemeral and ordered" adds the consumers without a durable name, such as KV watchers.
 - **Filter by stream.** A stream selector limits the list to one stream's consumers. Its choices are the range's streams, read when the page opens. Unlike the list they are not refreshed every 30 seconds, nor when the window regains focus: they are read again when the page is opened more than five minutes after the last successful read, when the network comes back after that, when the system or range changes, or on a reload. If a read fails, the selector keeps the streams it last read; if none was ever read, it offers only "All streams" (and the chosen stream, if any) and tries again the next time the page opens. The consumers are still listed.
+- **Bounded list pages.** The UI shows at most 100 consumers per page, with the total match count and Next page. Refresh list requests a fresh first page even when page 1 is still cached. System, account, stream, ephemeral, or range changes discard the continuation. The API uses the same bounded traversal context and reset rules as [Streams](streams.md). Delivery-rate ranking rejects more than 20,000 matching historical identities before building an oversized rate map; subsequent pages reuse that ranking.
+- **Metadata limits.** Consumer list capture reads inventory and finding status within its account and stream scope, with row and byte limits. Excessive metadata returns a resource error instead of an incomplete list of missing consumers.
 - **The list.** For each consumer: its status, name and stream, pending messages, unacknowledged messages, redelivered messages, waiting pull requests, leader, how long ago it last delivered, and notes: "missing", "paused", "servers disagree", "ephemeral", and the codes of its firing findings.
 - **Missing consumers are listed.** A consumer the inventory expects that no server reports appears in the list as "missing", with no numbers. Its page says "Missing. The consumer does not exist now: it is expected by the inventory, or it was deleted inside the range."
 - **The consumer page.** The header names the stream, durable or ephemeral, the replicas, and "paused" or "servers disagree" when they apply. Stat cards show pending, ack pending, redelivered, waiting pulls, the leader and the last delivery. Charts show pending, ack pending and redelivered over the range, drawn as on the Overview tiles: line and fill neutral, the change in the accent.
@@ -23,6 +25,14 @@ The Consumers page lists the JetStream consumers of the newest collection in the
 - **Configuration and events.** The configuration as the leader reports it, or, for a missing consumer, the configuration the inventory expects; and the newest 15 events of the consumer.
 
 ## Scenarios
+
+### Refresh a recently loaded list
+
+- **Surfaces:** `ui`
+- **Given** I followed Next page and the previous first page remains cached, or the traversal was evicted
+- **When** I choose Refresh list
+- **Then** the page requests a fresh first page with the current system, range, and filters
+- **And** it disables navigation and repeat refresh until the request finishes
 
 ### Find the consumer that falls behind
 
@@ -56,7 +66,7 @@ The Consumers page lists the JetStream consumers of the newest collection in the
 - **Given** consumers that deliver between 1 and 8 messages per second, and one that only a follower reports
 - **When** I call `ListConsumers` with `sort` `CONSUMER_SORT_DELIVERED_RATE` and `limit` 6
 - **Then** I receive the six fastest consumers, fastest first, each with its `delivered_per_second`
-- **And** without the limit, the consumer only a follower reports comes last, with no rate
+- **And** traversing every page puts the consumer only a follower reports last, with no rate
 
 ## Planned
 

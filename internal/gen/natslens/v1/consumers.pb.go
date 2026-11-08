@@ -391,9 +391,13 @@ type ListConsumersRequest struct {
 	System string `protobuf:"bytes,5,opt,name=system,proto3" json:"system,omitempty"`
 	// Order of the consumers.
 	Sort ConsumerSort `protobuf:"varint,6,opt,name=sort,proto3,enum=natslens.v1.ConsumerSort" json:"sort,omitempty"`
-	// Largest number of consumers to return, after sorting. Zero or a
-	// negative number means all.
-	Limit         int32 `protobuf:"varint,7,opt,name=limit,proto3" json:"limit,omitempty"`
+	// Largest number of consumers to return, after sorting. Zero uses 100;
+	// larger values are capped at 100, and negative values are invalid.
+	Limit int32 `protobuf:"varint,7,opt,name=limit,proto3" json:"limit,omitempty"`
+	// Opaque continuation, valid for 5 minutes while its context is retained.
+	// Keep filters, system and range; omit the range to reuse the pinned bounds.
+	// FailedPrecondition means restart from the first page.
+	PageToken     string `protobuf:"bytes,8,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -477,11 +481,26 @@ func (x *ListConsumersRequest) GetLimit() int32 {
 	return 0
 }
 
+func (x *ListConsumersRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
 // Consumers in the requested order.
 type ListConsumersResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The consumers.
-	Consumers     []*ConsumerSummary `protobuf:"bytes,1,rep,name=consumers,proto3" json:"consumers,omitempty"`
+	Consumers []*ConsumerSummary `protobuf:"bytes,1,rep,name=consumers,proto3" json:"consumers,omitempty"`
+	// Continuation, empty on the last page.
+	// Count across every matching consumer, including later pages.
+	TotalCount    int32  `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	NextPageToken string `protobuf:"bytes,3,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	// Absolute range shared by every page of this traversal.
+	Range *TimeRange `protobuf:"bytes,4,opt,name=range,proto3" json:"range,omitempty"`
+	// Collection used for the frozen summaries.
+	Epoch         int64 `protobuf:"varint,5,opt,name=epoch,proto3" json:"epoch,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -521,6 +540,34 @@ func (x *ListConsumersResponse) GetConsumers() []*ConsumerSummary {
 		return x.Consumers
 	}
 	return nil
+}
+
+func (x *ListConsumersResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
+func (x *ListConsumersResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
+func (x *ListConsumersResponse) GetRange() *TimeRange {
+	if x != nil {
+		return x.Range
+	}
+	return nil
+}
+
+func (x *ListConsumersResponse) GetEpoch() int64 {
+	if x != nil {
+		return x.Epoch
+	}
+	return 0
 }
 
 // Request for one consumer.
@@ -731,7 +778,7 @@ const file_natslens_v1_consumers_proto_rawDesc = "" +
 	"configHashB\x06\n" +
 	"\x04_lagB\x17\n" +
 	"\x15_delivered_stream_seqB\x17\n" +
-	"\x15_ack_floor_stream_seq\"\x80\x02\n" +
+	"\x15_ack_floor_stream_seq\"\x9f\x02\n" +
 	"\x14ListConsumersRequest\x12,\n" +
 	"\x05range\x18\x01 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x18\n" +
 	"\aaccount\x18\x02 \x01(\tR\aaccount\x12\x16\n" +
@@ -739,9 +786,16 @@ const file_natslens_v1_consumers_proto_rawDesc = "" +
 	"\x11include_ephemeral\x18\x04 \x01(\bR\x10includeEphemeral\x12\x16\n" +
 	"\x06system\x18\x05 \x01(\tR\x06system\x12-\n" +
 	"\x04sort\x18\x06 \x01(\x0e2\x19.natslens.v1.ConsumerSortR\x04sort\x12\x14\n" +
-	"\x05limit\x18\a \x01(\x05R\x05limit\"S\n" +
+	"\x05limit\x18\a \x01(\x05R\x05limit\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\b \x01(\tR\tpageToken\"\xe0\x01\n" +
 	"\x15ListConsumersResponse\x12:\n" +
-	"\tconsumers\x18\x01 \x03(\v2\x1c.natslens.v1.ConsumerSummaryR\tconsumers\"\xa8\x01\n" +
+	"\tconsumers\x18\x01 \x03(\v2\x1c.natslens.v1.ConsumerSummaryR\tconsumers\x12\x1f\n" +
+	"\vtotal_count\x18\x02 \x01(\x05R\n" +
+	"totalCount\x12&\n" +
+	"\x0fnext_page_token\x18\x03 \x01(\tR\rnextPageToken\x12,\n" +
+	"\x05range\x18\x04 \x01(\v2\x16.natslens.v1.TimeRangeR\x05range\x12\x14\n" +
+	"\x05epoch\x18\x05 \x01(\x03R\x05epoch\"\xa8\x01\n" +
 	"\x12GetConsumerRequest\x12\x18\n" +
 	"\aaccount\x18\x01 \x01(\tR\aaccount\x12\x16\n" +
 	"\x06stream\x18\x02 \x01(\tR\x06stream\x12\x1a\n" +
@@ -796,17 +850,18 @@ var file_natslens_v1_consumers_proto_depIdxs = []int32{
 	10, // 4: natslens.v1.ListConsumersRequest.range:type_name -> natslens.v1.TimeRange
 	0,  // 5: natslens.v1.ListConsumersRequest.sort:type_name -> natslens.v1.ConsumerSort
 	1,  // 6: natslens.v1.ListConsumersResponse.consumers:type_name -> natslens.v1.ConsumerSummary
-	10, // 7: natslens.v1.GetConsumerRequest.range:type_name -> natslens.v1.TimeRange
-	1,  // 8: natslens.v1.GetConsumerResponse.consumer:type_name -> natslens.v1.ConsumerSummary
-	11, // 9: natslens.v1.GetConsumerResponse.config:type_name -> natslens.v1.ConfigValue
-	2,  // 10: natslens.v1.GetConsumerResponse.servers:type_name -> natslens.v1.ConsumerServerView
-	12, // 11: natslens.v1.GetConsumerResponse.disagreements:type_name -> natslens.v1.Disagreement
-	13, // 12: natslens.v1.GetConsumerResponse.findings:type_name -> natslens.v1.Finding
-	13, // [13:13] is the sub-list for method output_type
-	13, // [13:13] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	10, // 7: natslens.v1.ListConsumersResponse.range:type_name -> natslens.v1.TimeRange
+	10, // 8: natslens.v1.GetConsumerRequest.range:type_name -> natslens.v1.TimeRange
+	1,  // 9: natslens.v1.GetConsumerResponse.consumer:type_name -> natslens.v1.ConsumerSummary
+	11, // 10: natslens.v1.GetConsumerResponse.config:type_name -> natslens.v1.ConfigValue
+	2,  // 11: natslens.v1.GetConsumerResponse.servers:type_name -> natslens.v1.ConsumerServerView
+	12, // 12: natslens.v1.GetConsumerResponse.disagreements:type_name -> natslens.v1.Disagreement
+	13, // 13: natslens.v1.GetConsumerResponse.findings:type_name -> natslens.v1.Finding
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_consumers_proto_init() }

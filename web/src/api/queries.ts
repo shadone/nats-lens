@@ -126,13 +126,12 @@ export function useEvent(id: string | undefined) {
   });
 }
 
-export function useStreams(spec: RangeSpec, includeKv = false) {
+export function useStreams(spec: RangeSpec, includeKv = false, pageToken = "") {
   const sys = useSystem();
   return useQuery({
-    queryKey: ["streams", sys, rangeKey(spec), includeKv],
-    queryFn: ({ signal }) => api.listStreams(sys, spec, includeKv, signal),
-    refetchInterval: refetch(spec),
-    placeholderData: keepSameSystem(sys),
+    queryKey: ["streams", sys, rangeKey(spec), includeKv, pageToken],
+    queryFn: ({ signal }) => api.listStreams(sys, spec, includeKv, signal, { pageToken }),
+    refetchInterval: pageToken ? false : refetch(spec),
   });
 }
 
@@ -164,14 +163,13 @@ export function useStream(spec: RangeSpec, account: string, stream: string) {
   });
 }
 
-export function useConsumers(spec: RangeSpec, f: { account?: string; stream?: string; includeEphemeral?: boolean }) {
+export function useConsumers(spec: RangeSpec, f: { account?: string; stream?: string; includeEphemeral?: boolean }, pageToken = "") {
   const sys = useSystem();
   return useQuery({
     // The account has its own key position, so no other account's rows stand in.
-    queryKey: ["consumers", sys, rangeKey(spec), f.account ?? "", f],
-    queryFn: ({ signal }) => api.listConsumers(sys, spec, f, signal),
-    refetchInterval: refetch(spec),
-    placeholderData: keepSameSystem(sys, { 3: f.account ?? "" }),
+    queryKey: ["consumers", sys, rangeKey(spec), f.account ?? "", f, pageToken],
+    queryFn: ({ signal }) => api.listConsumers(sys, spec, f, signal, { pageToken }),
+    refetchInterval: pageToken ? false : refetch(spec),
   });
 }
 

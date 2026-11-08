@@ -3,10 +3,12 @@ package storeprov
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
 
+	"github.com/shadone/nats-lens/internal/api"
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
@@ -88,12 +90,21 @@ func scanKey(rows *sql.Rows, n int, rest ...any) (string, error) {
 
 // streamReplicas reads, for every stream of the epoch (optionally one
 // account or stream), each replica's report keyed by server name.
-// prefix keeps only the streams whose name starts with it (all when
-// empty).
+// With no explicit stream or bucket prefix this reads ordinary streams only.
+// Legacy callers that require hidden buckets use streamReplicasAll explicitly.
 func (p *Provider) streamReplicas(ctx context.Context, epoch int64, account, stream, prefix string) (map[string]map[string]*replicaReport, error) {
+	return p.streamReplicasScoped(ctx, epoch, account, stream, prefix, nil, prefix != "" || stream != "")
+}
+
+// streamReplicasAll preserves the all-asset scope of legacy placement and tile callers.
+func (p *Provider) streamReplicasAll(ctx context.Context, epoch int64, account, stream, prefix string) (map[string]map[string]*replicaReport, error) {
+	return p.streamReplicasScoped(ctx, epoch, account, stream, prefix, nil, true)
+}
+
+func (p *Provider) streamReplicasScoped(ctx context.Context, epoch int64, account, stream, prefix string, keys []string, includeKV bool) (map[string]map[string]*replicaReport, error) {
 	return p.replicaReports(ctx, streamTables, epoch, func(a string) string {
-		return fmt.Sprintf("(? = '' OR %[1]s.account = ?) AND (? = '' OR %[1]s.stream = ?) AND starts_with(%[1]s.stream, ?)", a)
-	}, account, account, stream, stream, prefix)
+		return fmt.Sprintf("(? = '' OR %[1]s.account = ?) AND (? = '' OR %[1]s.stream = ?) AND starts_with(%[1]s.stream, ?) AND (? OR (NOT starts_with(%[1]s.stream, 'KV_') AND NOT starts_with(%[1]s.stream, 'OBJ_'))) AND (? OR %[1]s.account || '/' || %[1]s.stream IN (SELECT unnest(?::VARCHAR[])))", a)
+	}, account, account, stream, stream, prefix, includeKV, keys == nil, keys)
 }
 
 // consumerReplicas reads each replica's report of every consumer of the
@@ -107,60 +118,77 @@ func (p *Provider) consumerReplicas(ctx context.Context, epoch int64) (map[strin
 // keyed by asset key and server name.
 func (p *Provider) replicaReports(ctx context.Context, t assetTables, epoch int64, where func(alias string) string, args ...any) (map[string]map[string]*replicaReport, error) {
 	out := map[string]map[string]*replicaReport{}
-	get := func(key, server string) *replicaReport {
+	get := func(key, server string) (*replicaReport, error) {
 		if out[key] == nil {
+			if len(out) >= api.MaxListRankingRows {
+				return nil, metadataOverflow()
+			}
 			out[key] = map[string]*replicaReport{}
 		}
 		if out[key][server] == nil {
 			out[key][server] = &replicaReport{byLeader: map[string]claimantView{}}
 		}
-		return out[key][server]
+		return out[key][server], nil
 	}
-	rows, err := p.db().QueryContext(ctx, fmt.Sprintf(`
-SELECT %s, s.server_name, coalesce(x.is_leader, false), coalesce(sc.config_hash, '')
+	budget := newMetadataBudget()
+	keySQL := func(a string) string { return "concat_ws('/', " + t.cols(a) + ")" }
+	q := fmt.Sprintf(`SELECT %s AS key, s.server_name AS server, coalesce(x.is_leader, false) AS leader, coalesce(sc.config_hash, '') AS hash
 FROM %s x JOIN servers s USING (server_id)
 LEFT JOIN %s sc ON sc.server_id = x.server_id AND %s AND x.epoch BETWEEN sc.first_epoch AND sc.last_epoch
-WHERE x.epoch = ? AND `, t.cols("x"), t.stats, t.config, t.on("sc", "x"))+where("x"),
-		append([]any{epoch}, args...)...)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", t.replicas, err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var server, hash string
-		var leader bool
-		key, err := scanKey(rows, len(t.keys), &server, &leader, &hash)
-		if err != nil {
-			return nil, err
+WHERE x.epoch = ? AND `, keySQL("x"), t.stats, t.config, t.on("sc", "x")) + where("x")
+	err := p.readMetadata(ctx, q, append([]any{epoch}, args...), budget, func(raw []byte) error {
+		var v struct {
+			Key, Server, Hash string
+			Leader            bool
 		}
-		r := get(key, server)
-		r.reports, r.leader, r.hash = true, r.leader || leader, hash
-	}
-	if err := rows.Err(); err != nil {
+		if err := json.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		r, err := get(v.Key, v.Server)
+		if err != nil {
+			return err
+		}
+		r.reports, r.leader, r.hash = true, r.leader || v.Leader, v.Hash
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
-	// Every leader claimant's list is kept apart; placementOf uses the
-	// chosen leader's only.
-	lead, err := p.db().QueryContext(ctx, fmt.Sprintf(`
-SELECT %s, ls.server_name, rp.peer_name, rp.current, rp.offline, rp.lag FROM %s rp
+	// Keep every claimant's view; never fabricate healthy placement on overflow.
+	q = fmt.Sprintf(`SELECT %s AS key, ls.server_name AS leader, rp.peer_name AS peer, rp.current, rp.offline, rp.lag FROM %s rp
 JOIN %s l ON l.epoch = rp.epoch AND l.server_id = rp.server_id AND %s AND l.is_leader
 JOIN servers ls ON ls.server_id = rp.server_id
-WHERE rp.epoch = ? AND `, t.cols("rp"), t.replicas, t.stats, t.on("l", "rp"))+where("rp"),
-		append([]any{epoch}, args...)...)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", t.replicas, err)
-	}
-	defer lead.Close()
-	for lead.Next() {
-		var leader, peer string
-		var v claimantView
-		key, err := scanKey(lead, len(t.keys), &leader, &peer, &v.current, &v.offline, &v.lag)
-		if err != nil {
-			return nil, err
+WHERE rp.epoch = ? AND `, keySQL("rp"), t.replicas, t.stats, t.on("l", "rp")) + where("rp")
+	err = p.readMetadata(ctx, q, append([]any{epoch}, args...), budget, func(raw []byte) error {
+		var v struct {
+			Key, Leader, Peer string
+			Current, Offline  *bool
+			Lag               *int64
 		}
-		get(key, peer).byLeader[leader] = v
+		if err := json.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		r, err := get(v.Key, v.Peer)
+		if err != nil {
+			return err
+		}
+		view := claimantView{}
+		if v.Current != nil {
+			view.current = sql.NullBool{Bool: *v.Current, Valid: true}
+		}
+		if v.Offline != nil {
+			view.offline = sql.NullBool{Bool: *v.Offline, Valid: true}
+		}
+		if v.Lag != nil {
+			view.lag = sql.NullInt64{Int64: *v.Lag, Valid: true}
+		}
+		r.byLeader[v.Leader] = view
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
-	return out, lead.Err()
+	return out, nil
 }
 
 // placementOf turns a stream's replica reports, KV and object store

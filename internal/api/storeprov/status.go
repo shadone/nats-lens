@@ -3,6 +3,7 @@ package storeprov
 import (
 	"cmp"
 	"context"
+	"encoding/json"
 	"slices"
 
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
@@ -17,20 +18,19 @@ type ranFor func(types ...string) bool
 // a firing finding is ok only when the checks of its type ran, and has no
 // data otherwise.
 func (p *Provider) checksRan(ctx context.Context, epoch int64) (ranFor, error) {
-	rows, err := p.db().QueryContext(ctx, `SELECT check_code, status FROM check_runs WHERE epoch = ?`, epoch)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
 	status := map[string]string{}
-	for rows.Next() {
-		var code, st string
-		if err := rows.Scan(&code, &st); err != nil {
-			return nil, err
+	err := p.readMetadata(ctx, `SELECT check_code, status FROM check_runs WHERE epoch = ?`, []any{epoch}, newMetadataBudget(), func(raw []byte) error {
+		var v struct {
+			Code   string `json:"check_code"`
+			Status string `json:"status"`
 		}
-		status[code] = st
-	}
-	if err := rows.Err(); err != nil {
+		if err := json.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		status[v.Code] = v.Status
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 	return func(types ...string) bool {
