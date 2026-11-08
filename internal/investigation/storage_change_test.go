@@ -99,3 +99,27 @@ func TestStorageChangeReturnedContextBindsResolvedPins(t *testing.T) {
 		t.Fatalf("returned context re-resolves observations: %s", replay)
 	}
 }
+func TestStorageChangePinBindingRejectsInconsistentMetadata(t *testing.T) {
+	request := []byte(`{"system":"shop","account":"APP","a":"2026-10-17T13:00:00Z","b":"2026-10-17T14:00:00Z"}`)
+	for _, response := range []string{`invalid`, `{"system":"OTHER","account":"APP"}`, `{"system":"shop","account":"OTHER"}`, `{"system":"shop","account":"APP","a":{"epoch":"-1"}}`} {
+		if _, err := bindStorageComparison(request, []byte(response)); err == nil {
+			t.Fatalf("accepted inconsistent replay metadata: %s", response)
+		}
+	}
+	pinned := bytes.Replace(request, []byte(`"system":"shop"`), []byte(`"system":"shop","epochA":"1"`), 1)
+	if _, err := bindStorageComparison(pinned, []byte(`{"system":"shop","account":"APP","a":{"epoch":"2"}}`)); err == nil {
+		t.Fatal("requested pin overwritten")
+	}
+	resolved, err := bindStorageComparison([]byte(`{"a":"2026-10-17T13:00:00Z","b":"2026-10-17T14:00:00Z"}`), []byte(`{"system":"shop","b":{"epoch":"2"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]any
+	_ = json.Unmarshal(resolved, &fields)
+	if fields["system"] != "shop" || fields["epochB"] != "2" {
+		t.Fatal("default system or available pin lost")
+	}
+	if _, err = bindStorageComparison([]byte(`{}`), []byte(`{}`)); err == nil {
+		t.Fatal("unresolved default source accepted")
+	}
+}

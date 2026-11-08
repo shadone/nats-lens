@@ -364,7 +364,14 @@ func RunWithOffline(ctx context.Context, args []string, stdin io.Reader, out, er
 	}
 	// Links and context describe effective query scope; original handoff facts
 	// remain separately labeled and cannot reintroduce stale request filters.
-	linkContext, linkLimitations, err := effectiveContext(method, c, req)
+	replayRequest := req
+	if method == "GetStorageChange" {
+		replayRequest, err = bindStorageComparison(req, response)
+		if err != nil {
+			return err
+		}
+	}
+	linkContext, linkLimitations, err := effectiveContext(method, c, replayRequest)
 	if err != nil {
 		return err
 	}
