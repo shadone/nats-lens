@@ -29,7 +29,6 @@
 .infotip{position:relative;display:inline-flex}
 .infotip-b{width:16px;height:16px;padding:0;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font:500 var(--fs-xs)/14px var(--sans);cursor:help}
 .infotip-b:hover,.infotip-b:focus-visible{border-color:var(--accent);color:var(--accent-text)}
-.infotip-t{position:absolute;z-index:20;top:20px;left:-8px;width:max-content;max-width:260px;padding:var(--sp-2) var(--sp-3);border-radius:var(--r-md);background:var(--strong-bg);color:var(--on-strong);font:400 var(--fs-sm)/1.4 var(--sans);white-space:normal;box-shadow:0 4px 14px var(--shadow)}
 .mb-stale{align-self:flex-start;margin-top:var(--sp-1);font:var(--fs-xs) var(--mono);color:var(--sev-warning);cursor:help}
 
 /* Header links stretch across the box; inspection and other controls sit above them. */
@@ -58,12 +57,10 @@
 .mbox .mb-v{max-width:100%;flex-wrap:wrap;white-space:normal}
 .mbox .mb-v b{overflow-wrap:anywhere;min-width:0}
 .mbox .mb-note{overflow-wrap:anywhere}
-/* Anchor metric explanations to the card so a right-column tip fits on phones. */
+/* Metric headings retain their controls above stretched card links. */
 .mbox{position:relative}
 .mbox .infotip{position:static;z-index:auto}
 .mbox .infotip-b{position:relative;z-index:3}
-.mbox .infotip-t{left:12px;right:12px;top:36px;width:auto;max-width:none}
-.mbox:has(.infotip-t){z-index:11}
 
 /* A box without a chart: its steady line and note follow the heading. */
 .mb-quiet .mb-h + .mb-track-note,.mb-quiet .mb-h + .mb-note{margin-top:var(--sp-2)}
