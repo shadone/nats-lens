@@ -215,8 +215,8 @@ describe("ACCEPT_CHECK", () => {
 describe("headerLine", () => {
   it("says since when growth is read, or that no rate exists yet", () => {
     const d = prod();
-    expect(headerLine(d)).toBe("9 streams · 3 stores · growth from 2026-10-20 12:00 UTC");
+    expect(headerLine(d)).toBe("9 resources · 3 stores · growth from 2026-10-20 12:00 UTC");
     const young = { ...d, servers: d.servers.map((s) => ({ ...s, perDay: undefined, daysToFull: undefined })), streams: d.streams.map((s) => ({ ...s, bytesPerDay: undefined })) };
-    expect(headerLine(young)).toBe("9 streams · 3 stores · no growth rate yet (6 hours of history needed)");
+    expect(headerLine(young)).toBe("9 resources · 3 stores · no growth rate yet (6 hours of history needed)");
   });
 });
