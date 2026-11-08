@@ -154,6 +154,9 @@ func TestMetricContributorsEveryEntityMetricMatchesDirectObservations(t *testing
 			if err != nil {
 				t.Fatal(err)
 			}
+			if (metric == "stream.msgs_rate" || metric == "consumer.delivered_rate") && c.Observations.KnownCount == 0 {
+				t.Fatal("positive rate fixture lost known creation evidence")
+			}
 			if !proto.Equal(c.Observations, direct.Series.Observations) {
 				t.Fatalf("ranking formula drift: %v / %v", c.Observations, direct.Series.Observations)
 			}
