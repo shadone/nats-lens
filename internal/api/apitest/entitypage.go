@@ -68,6 +68,13 @@ func RunEntityListContract(t *testing.T, c natslensv1connect.LensServiceClient) 
 	if consumerNext.Msg.TotalCount != cf.TotalCount || consumerNext.Msg.Consumers[0].Entity.Key == cf.Consumers[0].Entity.Key {
 		t.Fatal("consumer continuation")
 	}
+	names, err := c.ListStreams(ctx, connect.NewRequest(&v1.ListStreamsRequest{Limit: 1, IncludeKv: true, SummaryOnly: true}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if names.Msg.TotalCount != f.TotalCount || names.Msg.Streams[0].Bytes_7D != nil || names.Msg.Streams[0].BytesPerDay != nil {
+		t.Fatal("summary-only list changed matches or returned history")
+	}
 	// Context storage is bounded. Eviction is explicit, with a typed reset.
 	for range 8 {
 		if _, err = c.ListStreams(ctx, connect.NewRequest(&v1.ListStreamsRequest{Limit: 1})); err != nil {

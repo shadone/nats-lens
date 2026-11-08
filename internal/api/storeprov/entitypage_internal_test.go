@@ -149,19 +149,32 @@ func TestEntityListScaleAndEnrichmentScope(t *testing.T) {
 		t.Fatal(len(seen))
 	}
 	// New live writes cannot reorder a retained context or alter its totals.
-	if _, err = p.St.DB().Exec(`UPDATE stream_stats SET bytes=0 WHERE epoch=37`); err != nil {
-		t.Fatal(err)
+	for _, q := range []string{
+		`INSERT INTO epochs SELECT * REPLACE (38 AS epoch, TIMESTAMP '2026-10-17 14:00:30' AS started_at, TIMESTAMP '2026-10-17 14:00:30' AS finished_at) FROM epochs WHERE epoch=37`,
+		`INSERT INTO stream_stats SELECT * REPLACE (38 AS epoch, 0 AS bytes) FROM stream_stats WHERE epoch=37`,
+		`INSERT INTO stream_stats(epoch,server_id,account,stream,messages,bytes,is_leader,leader) VALUES (38,'S0','APP','orders-00000-new',1,7,true,'nats-0')`,
+	} {
+		if _, err = p.St.DB().Exec(q); err != nil {
+			t.Fatal(err)
+		}
 	}
 	before := spy.queries
 	next, err := p.ListStreams(context.Background(), &v1.ListStreamsRequest{Range: r, Limit: 10, PageToken: first.NextPageToken})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if next.Totals.Bytes != first.Totals.Bytes || next.Streams[0].Entity.Key != "APP/orders-00010" {
+	if next.Epoch != first.Epoch || next.Totals.Bytes != first.Totals.Bytes || next.Streams[0].Entity.Key != "APP/orders-00010" {
 		t.Fatal("live update shifted traversal")
 	}
 	if spy.queries-before != 3 {
 		t.Fatalf("continuation queries %d, want epoch check + two history batches", spy.queries-before)
+	}
+	fresh, err := p.ListStreams(context.Background(), &v1.ListStreamsRequest{Range: r, SummaryOnly: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fresh.Epoch != 38 || fresh.TotalCount != 1201 {
+		t.Fatal("fresh traversal missed the new collection")
 	}
 	if _, err = p.St.DB().Exec(`DELETE FROM epochs WHERE epoch=37`); err != nil {
 		t.Fatal(err)
@@ -258,6 +271,7 @@ func BenchmarkStreamListPageEnrichment(b *testing.B) {
 		}
 		b.Run(name, func(b *testing.B) {
 			p, _, r := pageScaleProvider(b, 1200)
+			r.Start = ts(r.End.AsTime().Add(-7 * 24 * time.Hour))
 			e, _, err := p.latestEpoch(context.Background(), r)
 			if err != nil {
 				b.Fatal(err)
