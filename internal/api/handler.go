@@ -593,6 +593,9 @@ func (h *Handler) GetOnCall(ctx context.Context, req *connect.Request[v1.GetOnCa
 
 func (h *Handler) GetStorageChange(ctx context.Context, req *connect.Request[v1.GetStorageChangeRequest]) (*connect.Response[v1.GetStorageChangeResponse], error) {
 	return call(ctx, h, "GetStorageChange", req.Msg, func(p Provider, m *v1.GetStorageChangeRequest) error {
+		if err := validateStorageChangeSelection(m); err != nil {
+			return err
+		}
 		if m.A == nil || m.B == nil || m.A.CheckValid() != nil || m.B.CheckValid() != nil || !m.A.AsTime().Before(m.B.AsTime()) || m.B.AsTime().After(rangeReference(p)) {
 			return invalid("valid ordered nonfuture a and b are required")
 		}

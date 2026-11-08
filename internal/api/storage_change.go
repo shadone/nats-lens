@@ -44,6 +44,9 @@ func FinishStorageChange(req *v1.GetStorageChangeRequest, f *StorageChangeFacts)
 	if f == nil || f.A == nil || f.B == nil {
 		return nil, fmt.Errorf("%w: storage endpoints are unavailable", ErrFailedPrecondition)
 	}
+	if err := validateStorageChangeSelection(req); err != nil {
+		return nil, err
+	}
 	if len(f.Rows) > MaxStorageChangeRows {
 		return nil, fmt.Errorf("%w: storage comparison ranking exceeds limit", ErrResourceExhausted)
 	}
@@ -97,7 +100,14 @@ func FinishStorageChange(req *v1.GetStorageChangeRequest, f *StorageChangeFacts)
 			return -1
 		}
 		if av != nil && bv != nil {
-			if c := cmp.Compare(storageAbs(*bv), storageAbs(*av)); c != 0 {
+			c := cmp.Compare(storageAbs(*bv), storageAbs(*av))
+			if a.RowKind == "resource" && req.Order != v1.StorageChangeOrder_STORAGE_CHANGE_ORDER_UNSPECIFIED {
+				c = cmp.Compare(*av, *bv)
+				if req.Order == v1.StorageChangeOrder_STORAGE_CHANGE_ORDER_LOGICAL_DESCENDING {
+					c = -c
+				}
+			}
+			if c != 0 {
 				return c
 			}
 		}
@@ -143,6 +153,22 @@ func FinishStorageChange(req *v1.GetStorageChangeRequest, f *StorageChangeFacts)
 	if req.Account != "" {
 		res.Reasons = append(res.Reasons, "server_usage_is_system_wide")
 	}
+	allRows := res.Rows
+	res.Rows = nil
+	for _, row := range allRows {
+		if req.ResourcesOnly && row.RowKind != "resource" {
+			continue
+		}
+		kind := row.Kind
+		if kind == v1.CapacityStreamKind_CAPACITY_STREAM_KIND_UNSPECIFIED && row.RowKind == "resource" {
+			kind = CapacityKind(row.Stream)
+		}
+		if req.ResourceKind != v1.CapacityStreamKind_CAPACITY_STREAM_KIND_UNSPECIFIED && (row.RowKind != "resource" || kind != req.ResourceKind) {
+			continue
+		}
+		res.Rows = append(res.Rows, row)
+	}
+	res.TotalCount = int32(len(res.Rows))
 	canonical := proto.Clone(req).(*v1.GetStorageChangeRequest)
 	canonical.PageToken = ""
 	canonical.PageSize = int32(limit)
@@ -150,7 +176,9 @@ func FinishStorageChange(req *v1.GetStorageChangeRequest, f *StorageChangeFacts)
 	canonical.EpochB = f.B.Epoch
 	scopeBytes, _ := proto.MarshalOptions{Deterministic: true}.Marshal(canonical)
 	scope := storageHash(scopeBytes)
-	evidenceBytes, _ := proto.MarshalOptions{Deterministic: true}.Marshal(res)
+	evidenceResponse := proto.Clone(res).(*v1.GetStorageChangeResponse)
+	evidenceResponse.Rows = allRows
+	evidenceBytes, _ := proto.MarshalOptions{Deterministic: true}.Marshal(evidenceResponse)
 	evidence := storageHash(evidenceBytes)
 	offset := 0
 	if req.PageToken != "" {
@@ -176,9 +204,16 @@ func FinishStorageChange(req *v1.GetStorageChangeRequest, f *StorageChangeFacts)
 	all := res.Rows
 	res.Rows = all[offset:end]
 	for _, total := range res.Totals {
-		omitted := make([]*v1.StorageChangeRow, 0, len(all)-len(res.Rows))
-		omitted = append(omitted, all[:offset]...)
-		omitted = append(omitted, all[end:]...)
+		selected := make(map[string]bool, len(res.Rows))
+		for _, row := range res.Rows {
+			selected[row.Id] = true
+		}
+		omitted := make([]*v1.StorageChangeRow, 0, len(allRows)-len(res.Rows))
+		for _, row := range allRows {
+			if !selected[row.Id] {
+				omitted = append(omitted, row)
+			}
+		}
 		var err error
 		total.OmittedContributions, err = storageContributions(omitted, total.Storage)
 		if !comparable {
@@ -193,6 +228,24 @@ func FinishStorageChange(req *v1.GetStorageChangeRequest, f *StorageChangeFacts)
 		res.NextPageToken = base64.RawURLEncoding.EncodeToString(data)
 	}
 	q := url.Values{"system": {req.System}, "account": {req.Account}, "from": {req.GetA().AsTime().UTC().Format(time.RFC3339Nano)}, "to": {req.GetB().AsTime().UTC().Format(time.RFC3339Nano)}}
+	// ASVS 1.2.2: allowlisted presentation values are encoded with URL parameters.
+	if req.Order == v1.StorageChangeOrder_STORAGE_CHANGE_ORDER_LOGICAL_ASCENDING {
+		q.Set("change", "asc")
+	}
+	if req.Order == v1.StorageChangeOrder_STORAGE_CHANGE_ORDER_LOGICAL_DESCENDING {
+		q.Set("change", "desc")
+	}
+	if req.ResourcesOnly {
+		q.Set("contributors", "1")
+	}
+	switch req.ResourceKind {
+	case v1.CapacityStreamKind_CAPACITY_STREAM_KIND_STREAM:
+		q.Set("resource", "stream")
+	case v1.CapacityStreamKind_CAPACITY_STREAM_KIND_KEY_VALUE:
+		q.Set("resource", "kv")
+	case v1.CapacityStreamKind_CAPACITY_STREAM_KIND_OBJECT_STORE:
+		q.Set("resource", "object")
+	}
 	if f.A.Epoch > 0 {
 		q.Set("epochA", strconv.FormatInt(f.A.Epoch, 10))
 	}
@@ -297,4 +350,15 @@ func storageContributions(rows []*v1.StorageChangeRow, storage string) (*v1.Stor
 		sum.ServerReported = nil
 	}
 	return sum, err
+}
+
+// Selection affects the complete bounded ranking, never the meaning of totals.
+func validateStorageChangeSelection(req *v1.GetStorageChangeRequest) error {
+	if req.Order < v1.StorageChangeOrder_STORAGE_CHANGE_ORDER_UNSPECIFIED || req.Order > v1.StorageChangeOrder_STORAGE_CHANGE_ORDER_LOGICAL_DESCENDING {
+		return fmt.Errorf("%w: invalid storage change order", ErrInvalid)
+	}
+	if req.ResourceKind < v1.CapacityStreamKind_CAPACITY_STREAM_KIND_UNSPECIFIED || req.ResourceKind > v1.CapacityStreamKind_CAPACITY_STREAM_KIND_OBJECT_STORE {
+		return fmt.Errorf("%w: invalid resource kind", ErrInvalid)
+	}
+	return nil
 }

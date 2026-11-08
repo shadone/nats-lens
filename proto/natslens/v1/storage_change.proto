@@ -8,6 +8,13 @@ import "natslens/v1/capacity.proto";
 
 option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
 
+// Presentation order applies to the complete bounded ranking before paging.
+enum StorageChangeOrder {
+  STORAGE_CHANGE_ORDER_UNSPECIFIED = 0; // Absolute change descending.
+  STORAGE_CHANGE_ORDER_LOGICAL_ASCENDING = 1;
+  STORAGE_CHANGE_ORDER_LOGICAL_DESCENDING = 2;
+}
+
 // Compare retained storage observations without inferring causation.
 message GetStorageChangeRequest {
   // System ID; empty selects the default system.
@@ -26,6 +33,12 @@ message GetStorageChangeRequest {
   int32 page_size = 7;
   // Opaque continuation for the same scoped comparison and pinned evidence.
   string page_token = 8;
+  // Unknown deltas remain last for every order; stable identity breaks ties.
+  StorageChangeOrder order = 9;
+  // Filter displayed rows only; totals retain every resource type in scope.
+  CapacityStreamKind resource_kind = 10;
+  // Omit server rows from the displayed ranking, retaining server totals.
+  bool resources_only = 11;
 }
 
 // One resolved collection window, not an interpolated instantaneous reading.
