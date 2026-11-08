@@ -514,3 +514,35 @@ func TestOfflineRetainsSeparateEpisodesAndEventClock(t *testing.T) {
 		}
 	}
 }
+
+func TestOfflineShellReportsCapturedAvailability(t *testing.T) {
+	session, err := Open(context.Background(), investigation.OfflineSelection{DB: closedFixture(t), System: "shop", Interval: 30 * time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+	data, err := session.Source.Query(context.Background(), "GetShellStatus", []byte(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var response struct {
+		SystemKnown bool `json:"systemKnown"`
+		Freshness   struct {
+			Live, Collecting bool
+			Epoch            string `json:"epoch"`
+		} `json:"freshness"`
+		Systems []struct {
+			Collection string `json:"collection"`
+			Collecting bool   `json:"collecting"`
+		} `json:"systems"`
+	}
+	if err = json.Unmarshal(data, &response); err != nil {
+		t.Fatal(err)
+	}
+	if !response.SystemKnown || response.Freshness.Live || response.Freshness.Collecting || response.Freshness.Epoch != "9007199254740993" || len(response.Systems) != 1 {
+		t.Fatalf("captured shell facts: %s", data)
+	}
+	if response.Systems[0].Collection != "COLLECTION_STATE_UNSPECIFIED" || response.Systems[0].Collecting {
+		t.Fatalf("invented collector state: %s", data)
+	}
+}

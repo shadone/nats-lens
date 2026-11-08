@@ -1,12 +1,14 @@
 package offline
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -73,6 +75,25 @@ func TestOfflineCanonicalBundleParity(t *testing.T) {
 	if _, err = captured.Source.Query(ctx, "GetLensInfo", []byte(`{"system":"other"}`)); err == nil {
 		t.Fatal("bundle implies other system")
 	}
+	handoff, err := investigation.ContextFromURL("https://lens.example.com/?system=other&range=1h", "https://lens.example.com", *manifest.Boundaries.DataReference)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contextJSON, _ := json.Marshal(handoff)
+	var out, diagnostic bytes.Buffer
+	args := []string{"query", "GetOverview", "-bundle", bundle, "-context", "-"}
+	if err = investigation.RunWithOffline(ctx, args, bytes.NewReader(contextJSON), &out, &diagnostic, Open); err == nil {
+		t.Fatalf("import silently rebound captured identity: %s", out.String())
+	}
+	out.Reset()
+	args = append(args, "-system", "shop")
+	if err = investigation.RunWithOffline(ctx, args, bytes.NewReader(contextJSON), &out, &diagnostic, Open); err != nil {
+		t.Fatalf("explicit scope change: %v %s", err, out.String())
+	}
+	if !strings.Contains(out.String(), `"system": "shop"`) || !strings.Contains(out.String(), `"system": "other"`) {
+		t.Fatalf("original/effective scopes lost: %s", out.String())
+	}
+
 }
 
 func TestOfflineRejectsUnpublishedBundle(t *testing.T) {
@@ -86,10 +107,23 @@ func TestOfflineRejectsUnpublishedBundle(t *testing.T) {
 		t.Fatal(err)
 	}
 	published := filepath.Join(root, "published")
-	_, err = dataset.Acquire(ctx, st, published, dataset.System{ID: "shop", CollectionIntervalNS: int64(time.Second)}, "fixture", dataset.Options{MaxBytes: 64 << 20})
+	retention := int64(24 * time.Hour)
+	_, err = dataset.Acquire(ctx, st, published, dataset.System{ID: "shop", CollectionIntervalNS: int64(time.Second), RetentionNS: &retention}, "fixture", dataset.Options{MaxBytes: 64 << 20})
 	st.Close()
 	if err != nil {
 		t.Fatal(err)
+	}
+	session, err := Open(ctx, investigation.OfflineSelection{Bundle: published})
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := session.Source.Query(ctx, "GetLensInfo", []byte(`{}`))
+	session.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(info), `"retention":"86400s"`) {
+		t.Fatalf("captured retention discarded: %s", info)
 	}
 	stage := filepath.Join(root, ".dataset-partial-unpublished")
 	if err = os.Rename(published, stage); err != nil {

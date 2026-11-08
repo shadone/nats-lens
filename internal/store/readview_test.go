@@ -9,6 +9,9 @@ import (
 
 func TestReadViewEnforcesBorrowedReadOnly(t *testing.T) {
 	ctx := context.Background()
+	if _, err := NewReadView(ctx, nil); err == nil {
+		t.Fatal("nil database accepted")
+	}
 	path := filepath.Join(t.TempDir(), "closed.duckdb")
 	st, err := OpenPath(ctx, path)
 	if err != nil {
