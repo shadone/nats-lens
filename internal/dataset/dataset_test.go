@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/shadone/nats-lens/internal/collect"
+	"github.com/shadone/nats-lens/internal/events"
 	"github.com/shadone/nats-lens/internal/store"
 )
 
@@ -486,5 +487,138 @@ func TestOpenDatabasePreservesCancellation(t *testing.T) {
 			db.Close()
 		}
 		t.Fatalf("cancel reclassified as %v", err)
+	}
+}
+
+func TestAtomicPublicationNeverReplacesExistingDirectory(t *testing.T) {
+	root := privateRoot(t)
+	from := filepath.Join(root, "partial")
+	to := filepath.Join(root, "good")
+	if err := os.Mkdir(from, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(to, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := renameNew(from, to); !errors.Is(err, os.ErrExist) {
+		t.Fatalf("no-replace rename returned %v", err)
+	}
+	if _, err := os.Stat(from); err != nil {
+		t.Fatal("staging unexpectedly removed")
+	}
+	if _, err := os.Stat(to); err != nil {
+		t.Fatal("existing artifact unexpectedly removed")
+	}
+}
+
+func TestManifestNewlineCountsAgainstArtifactBudget(t *testing.T) {
+	root := privateRoot(t)
+	m := Manifest{Data: Data{Size: 10}}
+	first := filepath.Join(root, "complete.json")
+	if err := writeManifest(first, m, 1<<20); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dest := filepath.Join(root, "must-not-publish.json")
+	if err = writeManifest(dest, m, m.Data.Size+info.Size()-1); !errors.Is(err, ErrBudget) {
+		t.Fatalf("budget omitted trailing newline: %v", err)
+	}
+	if _, err = os.Stat(dest); !os.IsNotExist(err) {
+		t.Fatal("oversize manifest created")
+	}
+}
+
+func TestAcquireDuringActivePublication(t *testing.T) {
+	st, sys := synthetic(t)
+	ctx := context.Background()
+	at := time.Date(2026, 10, 17, 14, 30, 0, 0, time.UTC)
+	runs := []store.CheckRun{{Code: "stream-001", EntityType: "stream", Status: store.RunOK, Rows: []store.FindingRow{{EntityKey: "APP/jobs", Severity: "warning", Detail: "Synthetic finding"}}}}
+	if _, err := st.ApplyCheckRuns(ctx, 1, runs); err != nil {
+		t.Fatal(err)
+	}
+	mute, err := st.CreateMute(ctx, store.Mute{CheckCode: "stream-001", Reason: "Synthetic review", MutedBy: "operator", CreatedAt: at, ExpiresAt: at.Add(time.Hour)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stop := make(chan struct{})
+	done := make(chan error, 1)
+	ready := make(chan struct{})
+	var n atomic.Int64
+	go func() {
+		for i := int64(2); ; i++ {
+			select {
+			case <-stop:
+				done <- nil
+				return
+			default:
+			}
+			snap := collect.NewSnapshot(at.Add(time.Duration(i) * time.Minute))
+			snap.FinishedAt = snap.StartedAt.Add(time.Second)
+			epoch, err := st.WriteSnapshot(ctx, snap)
+			if err != nil {
+				done <- err
+				return
+			}
+			if err = st.WriteEvents(ctx, []events.Event{{Time: snap.FinishedAt, ReceivedAt: snap.FinishedAt, Source: events.SourceCollector, Kind: "collector.gap", Summary: "Synthetic active event"}}); err != nil {
+				done <- err
+				return
+			}
+			if _, err = st.ApplyCheckRuns(ctx, epoch, runs); err != nil {
+				done <- err
+				return
+			}
+			if i == 2 {
+				if _, err = st.UnmuteMute(ctx, mute.ID, "operator", at.Add(time.Minute)); err != nil {
+					done <- err
+					return
+				}
+			}
+			if _, err = st.Acknowledge(ctx, store.Ack{FindingID: store.FindingID("stream-001", "APP/jobs"), AckedBy: "operator", CreatedAt: snap.FinishedAt}); err != nil {
+				done <- err
+				return
+			}
+			n.Add(1)
+			if i == 2 {
+				close(ready)
+			}
+		}
+	}()
+	select {
+	case <-ready:
+	case err := <-done:
+		t.Fatalf("active writer failed %v", err)
+	case <-time.After(15 * time.Second):
+		t.Fatal("active writer did not start")
+	}
+	dest := filepath.Join(privateRoot(t), "active")
+	m, err := Acquire(ctx, st, dest, sys, "test", Options{MaxBytes: 64 << 20})
+	close(stop)
+	writerErr := <-done
+	if writerErr != nil {
+		t.Fatal(writerErr)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n.Load() < 2 {
+		t.Fatal("publication did not progress during acquisition")
+	}
+	d, err := Open(ctx, dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	var latest int64
+	if err = d.DB.QueryRow("SELECT max(epoch) FROM epochs").Scan(&latest); err != nil {
+		t.Fatal(err)
+	}
+	if m.Boundaries.LatestEpoch == nil || latest != *m.Boundaries.LatestEpoch {
+		t.Fatal("manifest and rows came from different publications")
+	}
+	if len(m.PendingStages) == 0 || m.ChecksConfiguration != "not_exported" {
+		t.Fatal("pipeline state invented")
 	}
 }
