@@ -308,3 +308,7 @@ The proof concerns row predicates and selected identity, not identical page card
 Events API entities use type/key as predicate identity. Optional redundant account/server/stream display components do not replace that identity. Returned UI metadata and selected-resource links derive canonical components from the typed key; `context.query` retains the exact original fields. A different read method can follow that projected resource without depending on optional metadata.
 
 Independent fixture checks reproduce both mismatch counts: an account-entity Events request returns 1107 while its UI-link projection returns 1176; an explicit unspecified severity returns zero while the UI-link projection returns eight. Both report partial, and machine-context reimport retains the original predicates and counts. Actual UI request tests verify the account-versus-entity distinction and severity-token filtering; they do not merely call the Go proof helper. Prior source attribution, explicit clears, boolean false, normalization and pagination controls remain active.
+
+## Storage comparisons
+
+Use the shared `GetStorageChange` method for pinned before/after storage evidence, including decreases, replica changes and unknown coverage. See the [storage comparison contract and commands](storage-change.md). The evidence page and copied context retain the exact requested bounds and collection pins; no separate storage CLI or query implementation is required.
