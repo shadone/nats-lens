@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/shadone/nats-lens/internal/acquisition"
-	"github.com/shadone/nats-lens/internal/collect"
-	"github.com/shadone/nats-lens/internal/config"
-	"github.com/shadone/nats-lens/internal/dataset"
-	"github.com/shadone/nats-lens/internal/store"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/shadone/nats-lens/internal/acquisition"
+	"github.com/shadone/nats-lens/internal/collect"
+	"github.com/shadone/nats-lens/internal/config"
+	"github.com/shadone/nats-lens/internal/dataset"
+	"github.com/shadone/nats-lens/internal/store"
 )
 
 func TestAcquireArgumentsAndHelp(t *testing.T) {
