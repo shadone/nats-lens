@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, within, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Finding, Mute } from "../api/model";
 import * as requests from "../api/requests";
@@ -116,4 +116,12 @@ describe("Findings filters", () => {
     const group = within(await screen.findByRole("group", { name: "Severity" }));
     expect(group.getAllByRole("button").map((b) => b.textContent)).toEqual(["All", "Critical", "Warning", "Info"]);
   });
+});
+
+it.each([
+ ["critical,,unknown,warning",["critical","warning"]],
+ [" warning ,info",["info"]],
+] as const)("filters literal severity choices without identity-style trimming: %j",async(raw,want)=>{
+ m.listFindings.mockClear().mockResolvedValue(page([]));m.listMutes.mockResolvedValue(page([]));renderApp(<Findings/>,`/findings?sev=${encodeURIComponent(raw)}`);
+ await waitFor(()=>expect(m.listFindings).toHaveBeenCalled());expect(m.listFindings.mock.calls.at(-1)?.[2].severities).toEqual(want);
 });
