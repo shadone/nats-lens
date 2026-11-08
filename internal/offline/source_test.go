@@ -147,3 +147,54 @@ func TestSummaryRequiresEvaluation(t *testing.T) {
 		})
 	}
 }
+
+func TestOfflineEntityContinuationSurvivesReopen(t *testing.T) {
+	ctx := context.Background()
+	path := closedFixture(t)
+	st, err := store.OpenPath(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`INSERT INTO streams BY NAME SELECT * REPLACE ('payments' AS stream) FROM streams WHERE stream='orders'`,
+		`INSERT INTO stream_config BY NAME SELECT * REPLACE ('payments' AS stream) FROM stream_config WHERE stream='orders'`,
+		`INSERT INTO stream_stats BY NAME SELECT * REPLACE ('payments' AS stream) FROM stream_stats WHERE stream='orders'`,
+	} {
+		if _, err = st.DB().ExecContext(ctx, q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	st.Close()
+	selection := investigation.OfflineSelection{DB: path, System: "shop", Interval: 30 * time.Second}
+	session, err := Open(ctx, selection)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := session.Source.Query(ctx, "ListStreams", []byte(`{"account":"APP","limit":1}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var page struct {
+		NextPageToken string `json:"nextPageToken"`
+	}
+	if err = json.Unmarshal(first, &page); err != nil {
+		t.Fatal(err)
+	}
+	session.Close()
+	if page.NextPageToken == "" {
+		t.Fatal("fixture must page")
+	}
+	session, err = Open(ctx, selection)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+	request, _ := json.Marshal(map[string]any{"account": "APP", "limit": 1, "pageToken": page.NextPageToken})
+	second, err := session.Source.Query(ctx, "ListStreams", request)
+	if err != nil {
+		t.Fatalf("unchanged closed source cannot continue: %v", err)
+	}
+	if !strings.Contains(string(second), `"name":"payments"`) {
+		t.Fatalf("wrong page: %s", second)
+	}
+}
