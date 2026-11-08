@@ -195,6 +195,10 @@ func TestSlowConsumerInvestigationAgreement(t *testing.T) {
 					if inv.Detections != window.want || headline != window.want {
 						t.Fatalf("want %d investigation=%d headline=%d", window.want, inv.Detections, headline)
 					}
+					detail := must(c.GetServer(ctx, connect.NewRequest(&v1.GetServerRequest{Range: rng, Name: "nats-0"})))
+					if detail.GetServer().GetSlowConsumersInRange() != window.want {
+						t.Fatalf("server detail=%d want %d", detail.GetServer().GetSlowConsumersInRange(), window.want)
+					}
 					for _, metric := range []string{"cluster.slow_consumers", "server.slow_consumers"} {
 						req := &v1.GetTimeSeriesRequest{Range: rng, Metric: metric}
 						if metric == "server.slow_consumers" {
@@ -249,6 +253,42 @@ func TestSlowConsumerInvestigationExactObservationAndEventBounds(t *testing.T) {
 		req.ObservationEpoch = bad.epoch
 		if _, err := c.GetSlowConsumerInvestigation(ctx, connect.NewRequest(req)); codeOf(err) != connect.CodeInvalidArgument {
 			t.Errorf("invalid selection %v: %v", bad, err)
+		}
+	}
+}
+
+func TestSlowConsumerInvestigationMaximumGapAgreement(t *testing.T) {
+	for _, cadence := range []time.Duration{30 * time.Second, time.Minute, 5 * time.Minute} {
+		for _, extra := range []time.Duration{0, time.Millisecond} {
+			t.Run(cadence.String()+"/"+extra.String(), func(t *testing.T) {
+				st := emptyStore(t)
+				r := rows{t, st}
+				r.server("S0", "nats-0")
+				gap := 3*cadence + extra
+				for i, offset := range []time.Duration{0, gap} {
+					r.epoch(int64(i+1), t0.Add(offset), "S0")
+					r.add("server_stats", map[string]any{"epoch": i + 1, "server_id": "S0", "slow_consumers": i * 7})
+				}
+				if _, err := st.DB().Exec(`UPDATE servers SET last_epoch=2,last_seen_at=?`, t0.Add(gap)); err != nil {
+					t.Fatal(err)
+				}
+				_, c := apitest.Serve(t, &storeprov.Provider{St: st, Interval: cadence, Live: true, Clock: func() time.Time { return t0.Add(gap + time.Minute) }})
+				rng := &v1.TimeRange{Start: timestamppb.New(t0.Add(gap)), End: timestamppb.New(t0.Add(gap + time.Second))}
+				want := int64(7)
+				if extra > 0 {
+					want = 0
+				}
+				inv := must(c.GetSlowConsumerInvestigation(ctx, connect.NewRequest(&v1.GetSlowConsumerInvestigationRequest{Range: rng})))
+				list := must(c.ListServers(ctx, connect.NewRequest(&v1.ListServersRequest{Range: rng})))
+				chart := must(c.GetTimeSeries(ctx, connect.NewRequest(&v1.GetTimeSeriesRequest{Range: rng, Metric: "cluster.slow_consumers"})))
+				var sum int64
+				for _, p := range chart.Series.Points {
+					sum += int64(p.Value)
+				}
+				if inv.Detections != want || sum != want || len(list.Servers) != 1 || list.Servers[0].GetSlowConsumersInRange() != want {
+					t.Fatalf("gap %v want %d: investigation=%d chart=%d servers=%v", gap, want, inv.Detections, sum, list.Servers)
+				}
+			})
 		}
 	}
 }
