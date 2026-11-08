@@ -53,6 +53,9 @@ func TestDemoObservationMissingCaptureIsNotZero(t *testing.T) {
 			t.Fatal(err)
 		}
 		s := out.Series.Observations
+		if len(out.Series.Points) != 0 {
+			t.Errorf("%s curve invented zero during absent capture: %v", metric, out.Series.Points)
+		}
 		if s == nil || s.KnownCount != 0 || s.Latest != nil || s.ObservedTotal != nil {
 			t.Errorf("%s invented samples during absent capture: %v", metric, s)
 		}
