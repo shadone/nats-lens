@@ -131,10 +131,11 @@ export type ConsumerSummary = Message<"natslens.v1.ConsumerSummary"> & {
   present: boolean;
 
   /**
-   * Messages delivered per second over the 15 minutes before the range's
-   * end, from the increase of the leader's delivered consumer sequence;
-   * unset without two leader reports in that span. The span may start
-   * before the range when the range is shorter than 15 minutes.
+   * Delivery-sequence advance per second in the newest comparable run
+   * within the 15 minutes before the range's end, not unique messages.
+   * Requires adjacent reports with one leader, known coherent creation,
+   * nondecreasing sequence and valid timing. Unset without two such reports.
+   * The span may start before a selected range shorter than 15 minutes.
    *
    * @generated from field: optional double delivered_per_second = 15;
    */

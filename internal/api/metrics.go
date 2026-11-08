@@ -67,12 +67,12 @@ var Metrics = map[string]Metric{
 	"server.out_bytes_rate":             {server, bytesSec, "Bytes the server sent per second; averaged per bucket."},
 	"server.js_storage_bytes":           {server, byteUnit, "JetStream file storage in use on the server; averaged per bucket."},
 	"stream.messages":                   {stream, count, "Messages stored, from the leader's view; the last value of each bucket, its lowest and highest in low and high."},
-	"stream.msgs_rate":                  {stream, perSec, "Messages stored per second, from the increase of the last sequence (the leader's view, else the highest); averaged per bucket. A recreated stream has no rate in its first collection."},
+	"stream.msgs_rate":                  {stream, perSec, "Reported stream last-sequence advance per second, using the leader view or highest report. Skipped positions can advance without storing messages; this is not a message-count volume. Unknown or conflicting creation, recreation, sequence resets, invalid timing and long gaps break comparisons."},
 	"stream.bytes":                      {stream, byteUnit, "Bytes stored, from the leader's view; averaged per bucket."},
 	"consumer.num_pending":              {consumer, count, "Messages not yet delivered, from the leader's view; the last value of each bucket, its lowest and highest in low and high."},
 	"consumer.num_ack_pending":          {consumer, count, "Messages delivered and not acknowledged, from the leader's view; the last value of each bucket, its lowest and highest in low and high."},
 	"consumer.num_redelivered":          {consumer, count, "Messages delivered more than once, from the leader's view; the last value of each bucket, its lowest and highest in low and high."},
-	"consumer.delivered_rate":           {consumer, perSec, "Messages delivered per second, from the increase of the leader's delivered consumer sequence; averaged per bucket. The first collection after a collection gap of more than three intervals, and a recreated consumer's first collection, have no rate."},
+	"consumer.delivered_rate":           {consumer, perSec, "Consumer delivery-sequence advance per second from one observed leader and known coherent creation. Redeliveries can advance the sequence; this is not unique delivered messages or acknowledgements. Leader/creation changes, unknown evidence, resets, invalid timing and long gaps break comparisons."},
 }
 
 // MetricList returns the metrics ordered by ID.

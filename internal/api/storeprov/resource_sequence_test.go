@@ -11,8 +11,8 @@ import (
 
 func TestResourceSequenceComparisonsDoNotRejoinOldRuns(t *testing.T) {
 	for _, consumer := range []bool{false, true} {
-		for _, change := range []string{"incarnation ABA", "unknown creation", "leader ABA", "no leader"} {
-			if !consumer && (change == "leader ABA" || change == "no leader") {
+		for _, change := range []string{"incarnation ABA", "unknown creation", "leader ABA", "no leader", "conflicting creation", "two leaders"} {
+			if !consumer && (change == "leader ABA" || change == "no leader" || change == "two leaders") {
 				continue
 			}
 			t.Run(map[bool]string{false: "stream", true: "consumer"}[consumer]+"/"+change, func(t *testing.T) {
@@ -50,6 +50,17 @@ func TestResourceSequenceComparisonsDoNotRejoinOldRuns(t *testing.T) {
 					}
 					data[col] = n
 					r.add(table, data)
+					if i == 1 && (change == "conflicting creation" || change == "two leaders") {
+						other := map[string]any{"epoch": epoch, "server_id": "S1", "account": "APP", "stream": "orders", "created": created.Add(time.Minute), "is_leader": false, col: n + 1000}
+						if consumer {
+							other["consumer"] = "worker"
+						}
+						if change == "two leaders" {
+							other["created"] = created
+							other["is_leader"] = true
+						}
+						r.add(table, other)
+					}
 				}
 				metric := "stream.msgs_rate"
 				entity := &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/orders"}
