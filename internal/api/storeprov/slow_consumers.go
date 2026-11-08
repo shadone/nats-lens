@@ -51,8 +51,8 @@ func (p *Provider) GetSlowConsumerInvestigation(ctx context.Context, req *v1.Get
 WITH `+p.metricQuery(metricSQL{query: slowCounterCTEs(`AND (? = '' OR s.server_name = ?)`)})+`
 SELECT server_name, server_id, epoch, prev_at, started_at, delta, reason,
  sum(coalesce(delta,0)) OVER(), count(*) OVER()
-FROM slow_evidence WHERE started_at >= ? AND (delta > 0 OR reason <> '')
-ORDER BY started_at DESC, server_id, epoch DESC LIMIT ?`, p.slowCounterLookback(start), end, req.Server, req.Server, start, limit+1)
+FROM slow_evidence WHERE started_at >= ? AND (? = '' OR (server_id = ? AND epoch = ?)) AND (delta > 0 OR reason <> '')
+ORDER BY started_at DESC, server_id, epoch DESC LIMIT ?`, p.slowCounterLookback(start), end, req.Server, req.Server, start, req.ObservationServerId, req.ObservationServerId, req.ObservationEpoch, limit+1)
 	if err != nil {
 		return nil, err
 	}

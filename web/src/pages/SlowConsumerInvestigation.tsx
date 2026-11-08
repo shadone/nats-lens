@@ -21,8 +21,11 @@ export function SlowConsumerInvestigation() {
   const [params] = useSearchParams();
   const server = params.get("server") ?? "";
   const account = params.get("account") ?? "";
+  const observationServerId = params.get("process") ?? "";
+  const epoch = params.get("epoch") ?? "";
+  const observationEpoch = /^\d{1,19}$/.test(epoch) && BigInt(epoch) <= 9223372036854775807n ? BigInt(epoch) : epoch ? -1n : 0n;
   // No placeholder across ranges: old evidence must never appear under new bounds.
-  const q = useQuery({ queryKey: ["slow-consumer-investigation", system, rangeKey(spec), server, account], queryFn: ({ signal }) => lens.getSlowConsumerInvestigation({ system, range: rangeInit(spec), server, account, limit: 100 }, { signal }), refetchInterval: spec.kind === "live" ? LIVE_REFRESH_MS : false });
+  const q = useQuery({ queryKey: ["slow-consumer-investigation", system, rangeKey(spec), server, account, observationServerId, epoch], queryFn: ({ signal }) => lens.getSlowConsumerInvestigation({ system, range: rangeInit(spec), server, account, observationServerId, observationEpoch, limit: 100 }, { signal }), refetchInterval: spec.kind === "live" ? LIVE_REFRESH_MS : false });
   return <>
     <div className="page-h"><h1>Slow-consumer investigation</h1></div>
     <p>A detection means NATS had trouble sending data because a receiving connection could not keep up.</p>
@@ -30,7 +33,8 @@ export function SlowConsumerInvestigation() {
       const start = ms(d.range?.start) ?? 0, end = ms(d.range?.end) ?? 0;
       const path = (to: string, from = start, until = end, name?: string) => slowEvidencePath(to, from, until, global, name);
       return <>
-        <p>{when(start)} to {when(end)} · {server || "All servers"}{account ? ` · Recorded client evidence for ${account}; counters cover all accounts` : ""}</p>
+        <p>Supporting events and findings: {when(start)} inclusive to {when(end)} exclusive · {server || "All servers"}{account ? ` · Recorded client evidence for ${account}; counters cover all accounts` : ""}</p>
+        {observationServerId && <p>Counter selection: process {observationServerId} · collection {epoch}. Only this report endpoint contributes to the counter total; supporting events and findings use the full bounds above.</p>}
         <p><b>{String(d.detections)} counter {d.detections === 1n ? "detection" : "detections"}</b> · <b>{String(d.recordedDisconnects)} recorded slow-consumer {d.recordedDisconnects === 1n ? "disconnect" : "disconnects"}</b></p>
         <p>{d.attributionLimit}</p>
         <Section title="Evidence coverage">
@@ -46,7 +50,7 @@ export function SlowConsumerInvestigation() {
             {o.increase === undefined ? o.unavailableReason : `${String(o.increase)} ${o.increase === 1n ? "detection" : "detections"}`}
             <div>{when(ms(o.intervalStart))} to {when(ms(o.intervalEnd))}</div>
             <div className="mono">Process {o.serverId} · collection {String(o.epoch)}</div>
-            {o.intervalStart && <Link className="x" to={path("/servers/slow-consumers", ms(o.intervalStart), (ms(o.intervalEnd) ?? end) + 1000, o.server)}>Investigate this interval</Link>}
+            {o.intervalStart && <Link className="x" to={path(`/servers/slow-consumers?process=${encodeURIComponent(o.serverId)}&epoch=${o.epoch}`, ms(o.intervalStart), (ms(o.intervalEnd) ?? end) + 1000, o.server)}>Investigate this interval</Link>}
           </li>)}</ul>
           {d.observationsTruncated && <p role="note">Observation list limited to 100 rows. Narrow the time range or server; totals include all matching observations.</p>}
         </Section>
