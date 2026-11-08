@@ -39,6 +39,13 @@ describe.each(["streams", "consumers"] as const)("%s traversal reset with produc
   });
   return () => release();
  }
+ it("refetches a fresh first page even when already on page one", async () => {
+  setup(); mount(kind);
+  await waitFor(() => expect(screen.getByRole("button", {name:"Next page"})).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", {name:"Refresh list"}));
+  await waitFor(() => expect(calls()).toHaveBeenCalledTimes(2));
+  expect(calls().mock.calls.map(c => c[4]?.pageToken)).toEqual(["", ""]);
+ });
  for (const evicted of [false, true]) it(`requests a fresh scoped first page after ${evicted ? "eviction" : "Next"}`, async () => {
   setup(evicted); mount(kind);
   await waitFor(() => expect(screen.getByRole("button", {name:"Next page"})).toBeEnabled());
@@ -64,6 +71,9 @@ describe.each(["streams", "consumers"] as const)("%s traversal reset with produc
   fireEvent.click(screen.getByRole("button", {name:"Refresh list"}));
   await waitFor(() => expect(calls()).toHaveBeenCalledTimes(3));
   expect(screen.getByRole("button", {name:"Next page"})).toBeDisabled();
+  expect(screen.getByRole("button", {name:"Refresh list"})).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", {name:"Refresh list"}));
+  expect(calls()).toHaveBeenCalledTimes(3);
   await act(async () => go(`/${kind}?system=sys-b&account=OTHER&range=24h&${kind === "streams" ? "kv=1" : "ephemeral=1&stream=OTHER/jobs"}`));
   await waitFor(() => expect(calls()).toHaveBeenCalledTimes(4));
   await act(async () => release());
