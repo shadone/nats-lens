@@ -1,3 +1,4 @@
+import { ConsumersTable } from "../components/ConsumersTable";
 // One stream: numbers, series over the range and 7 days, findings, each
 // server's view and where they disagree, configuration, consumers, events.
 import { Navigate, useLocation, useParams } from "react-router";
@@ -5,7 +6,7 @@ import type { Entity } from "../api/model";
 import { useOverview, useSeries, useStream } from "../api/queries";
 import { QuerySeriesChart, SeriesChart } from "../charts/SeriesChart";
 import { Dash, Empty, KV, QueryView, RLink, Section, errorText, Num } from "../components/common";
-import { ConsumersTable, Disagreements, EntityEvents, EntityFindings, Stat } from "../components/EntityParts";
+import { Disagreements, EntityEvents, EntityFindings, Stat } from "../components/EntityParts";
 import { HealthIcon } from "../components/Severity";
 import { fmtBytes, fmtGrowth, isoMinute } from "../lib/format";
 import { usePageTitle } from "../lib/usePageTitle";

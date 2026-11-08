@@ -23,9 +23,9 @@ const Findings = lazy(() => import("./routes/guidance").then(module => ({ defaul
 const FindingByLabels = lazy(() => import("./routes/guidance").then(module => ({ default: module.FindingByLabels })));
 const FindingDetail = lazy(() => import("./routes/guidance").then(module => ({ default: module.FindingDetail })));
 const Streams = lazy(() => import("./routes/resources").then(module => ({ default: module.Streams })));
-const StreamDetail = lazy(() => import("./routes/resources").then(module => ({ default: module.StreamDetail })));
+const StreamDetail = lazy(() => import("./routes/resourceDetails").then(module => ({ default: module.StreamDetail })));
 const Consumers = lazy(() => import("./routes/resources").then(module => ({ default: module.Consumers })));
-const ConsumerDetail = lazy(() => import("./routes/resources").then(module => ({ default: module.ConsumerDetail })));
+const ConsumerDetail = lazy(() => import("./routes/resourceDetails").then(module => ({ default: module.ConsumerDetail })));
 const KvStores = lazy(() => import("./routes/resources").then(module => ({ default: module.KvStores })));
 const ObjectStores = lazy(() => import("./routes/resources").then(module => ({ default: module.ObjectStores })));
 const Servers = lazy(() => import("./routes/infrastructure").then(module => ({ default: module.Servers })));
