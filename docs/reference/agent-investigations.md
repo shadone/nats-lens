@@ -1,6 +1,6 @@
-# Remote investigation commands
+# Investigation commands
 
-`natslens investigate` gives terminal agents bounded access to the existing Connect API. It never opens a database or connects to NATS. The [agent playbook](../agents/investigate.md) explains how to interpret results.
+`natslens investigate` gives terminal agents bounded semantic reads from a live API or a trusted closed offline dataset. Both sources reuse the existing Connect handlers, validation, calculations and response finishing. Neither source connects to NATS. The [agent playbook](../agents/investigate.md) explains how to interpret results.
 
 ## Configure trusted access
 
@@ -50,7 +50,7 @@ natslens investigate methods
 natslens investigate describe GetTimeSeries
 ```
 
-`methods` lists the client's read contract and `sourceKinds: ["remote"]`. `describe` prints request and response field names, protobuf types, repeated/presence information, nested fields and enum values. Timestamp and duration fields use standard protobuf JSON strings, not their internal message representation. Nesting beyond five levels names the message rather than expanding it.
+`methods` lists the client's read contract and `sourceKinds: ["remote", "offline"]`. `describe` prints request and response field names, protobuf types, repeated/presence information, nested fields and enum values. Timestamp and duration fields use standard protobuf JSON strings, not their internal message representation. Nesting beyond five levels names the message rather than expanding it.
 
 The server version is an opaque reported value. Each remote query first verifies `GetLensInfo` on the read-only path and requires its clock and system contract. It verifies the selected method by executing it. Support for all other methods remains unverified. Newer server fields outside this client's generated schema are unavailable; update the client to use them. Missing required contracts, unsupported methods, access failures and response caps produce structured errors with a next step. The client never infers capabilities from version-number guesses.
 
@@ -105,13 +105,14 @@ The result envelope contains these contracts:
 | Field | Meaning |
 |---|---|
 | `version` | Investigation output version, `1`. |
-| `source` | Remote kind, deployment, reported server version and selected-method verification. |
+| `source` | Source kind and provenance; live deployment/version or captured dataset metadata, observed reference and derived query reference. |
 | `request` | Exact protobuf JSON request sent after context and explicit overrides. |
 | `response` | Typed protobuf JSON response with optional presence and 64-bit integers preserved. |
-| `connection` | The selected system's `GetLensInfo` response, including its clock, retention and history start when supplied. |
+| `connection` | The selected system's `GetLensInfo` response. Offline `now` is the exact observed collection reference; absent configuration stays unknown. |
+| `bounds` | `requested` retains original context bounds, URL range/from/to, explicit bound overrides and a request-file range; `resolved` holds effective bounds. Observed/derived references stay separate. Actual collection IDs remain in documented response fields. |
 | `context` | Effective request context after flags and request-file overrides; stale source queries and filters are removed. |
 | `originalContext` | Original imported handoff, retained separately from query facts. |
-| `links` | Scoped source, coverage and recognized finding/event/entity evidence links; at most 100 links plus a truncation notice. |
+| `links` | Live scoped evidence links, at most 100 plus a truncation notice. Offline results use `null`; remote UI access is unavailable. |
 | `unappliedContextFilters` | URL filters the requested method cannot express; inspect these before treating the query as page-equivalent. |
 | `limits` | RPC/read budgets and explicit pagination/truncation limitations. |
 | `availability` | Reasons universal actual-time, snapshot pinning and completeness metadata are unavailable; documented response metadata remains intact. |
@@ -126,7 +127,7 @@ Use `query GetTimeSeriesBatch` with the copied context to request its known seri
 
 ## Collection and traversal provenance
 
-ListStreams and ListConsumers supply an exact decimal-string `epoch`, an absolute `range`, and a continuation token. Continuing with that token and unchanged filters preserves the process-local ordered summary traversal for up to five minutes while retained. The CLI preserves these fields and never follows the token automatically. This is supported list pinning, not a transactional snapshot: history and readable account names can change, and expiry, eviction, restart or retention loss requires a new traversal.
+ListStreams and ListConsumers supply an exact decimal-string `epoch`, an absolute `range`, and a continuation token. For live access, continuing with that token and unchanged filters preserves the process-local ordered summary traversal for up to five minutes while retained. The CLI preserves these fields and never follows the token automatically. This is supported list pinning, not a transactional snapshot: history and readable account names can change, and expiry, eviction, restart or retention loss requires a new traversal.
 
 Stream mini-chart contexts carry an observed collection evidence ID and use the API-provided end for their documented seven-day history window. That ID records what the UI read; it is not a general read-at-epoch selector. Page headers and other chart families do not copy a browser list cursor or establish a cross-RPC collection pin. A new CLI first page therefore starts its own traversal. Generic summaries, series, finding/event detail and configuration RPCs cannot be pinned to an arbitrary copied epoch through today's request contracts. Missing provenance stays unavailable rather than reconstructed.
 
@@ -154,9 +155,71 @@ Retrieve another page only by a deliberate query using the returned `nextPageTok
 
 The API keeps its existing per-call, batch, identity, ID, filter and query limits. Client checks supplement those trusted handler checks. No raw SQL is accepted by this command or the read-only route.
 
-On failure, stdout contains a versioned `error` object with `code: "investigation_failed"`, a bounded explanation and `nextStep`; the command exits unsuccessfully. HTTP/proxy bodies and arbitrary backend error text are omitted. Authentication and permission failures are distinguished by Connect codes in the explanation. An unsupported read-only path or method directs the operator to verify compatibility rather than bypass protection. Inspect Data history for retention loss, capture gaps and partial collections; an empty list alone cannot establish that nothing happened.
+On failure, stdout contains a versioned `error` object with a code, a bounded explanation and `nextStep`; the command exits unsuccessfully. HTTP/proxy bodies and arbitrary backend error text are omitted. Authentication and permission failures are distinguished by Connect codes in the explanation. An unsupported read-only path or method directs the operator to verify compatibility rather than bypass protection. Inspect Data history for retention loss, capture gaps and partial collections; an empty list alone cannot establish that nothing happened.
 
-Only the remote source ships. The shared source interface transports existing protobuf requests and responses; an offline implementation must reuse authoritative validation and response finishing. Offline parity, export/acquisition, MCP packaging, storage comparison mathematics and structured raw SQL remain separate work.
+MCP packaging and storage comparison mathematics remain separate work. [Raw SQL](sql-cli.md) has an arbitrary column schema and a separate trusted execution boundary.
+
+## Select a live or offline source
+
+Select exactly one source for `context` or `query`:
+
+| Flags | Meaning |
+|---|---|
+| `-endpoint ORIGIN` | Explicit live API and UI origin; no profile or token discovery. |
+| `-profiles FILE -profile NAME` | Existing operator-configured live access. |
+| `-bundle DIR` | Public shared-reader validation of a published local dataset. |
+| `-db FILE -system ID -collection-interval DURATION` | Compatible closed bare database, with explicit operator assertions for identity and cadence. |
+
+The flags are mutually exclusive. `-collection-interval` applies only to a bare database and must be positive. A bare file does not prove the original configured system ID or cadence. `ListSystems` describes only that one asserted system; a bundle uses its captured manifest identity. An explicit different system fails through the same handler resolution rules. No offline branch loads profiles, discovers credentials, creates a remote transport, contacts NATS/Kubernetes, or asks runtime/archiver callbacks.
+
+[Acquire and transfer a trusted dataset](../operations/acquire-offline-dataset.md) before selecting its local path. The acquisition response names a path on the collector's filesystem; an operator must explicitly arrange any secure transfer to the agent's machine. Artifact format, publication, compatibility and integrity checks belong to the [dataset reference](offline-datasets.md). Native database inputs remain trusted. Checksums do not establish authenticity. Offline reads never migrate, checkpoint, repair, replay an available WAL, convert, or modify the source.
+
+The same method and request schema apply after changing the source. A local bundle query uses:
+
+```sh
+natslens investigate query GetOverview -bundle capture -system shop
+natslens investigate query GetDataHistory -bundle capture -system shop
+```
+
+A bare closed database uses explicit assertions:
+
+```sh
+natslens investigate query GetOverview -db closed.duckdb -system shop -collection-interval 30s
+```
+
+`ListMetrics` retains the authoritative metric catalogue and aggregation descriptions. `ListCheckDefinitions` distinguishes shipped references from unavailable captured check overrides and private remediation. Absent side metadata is unknown. Retained finding rows, transitions, acknowledgements, mutes and event evidence use the existing read logic at the observed dataset clock; an unevaluated summary cannot infer health from an empty firing list.
+
+## Resolve offline time and provenance
+
+`connection.now` and `source.referenceTime` preserve the latest completed collection's exact `finished_at`. The dataset metadata preserves raw `data_reference`, collection IDs and separate capture/export and event-time boundaries. Bare sources have no invented capture/export timestamps. Events can extend beyond the collection reference; request their explicit interval when necessary.
+
+Default and relative query bounds use `source.queryReference`, also reported under `bounds`. When a collection finishes exactly when it starts, that derived reference adds one microsecond so the half-open interval includes the sample. Metadata labels `exclusive_end_inclusion`; this tick is not observed capture time. Explicit fixed endpoints remain exact and exclusive. Reimported fixed context does not apply the tick again. A missing or invalid completion reference returns `no_reference_clock` without falling back to the wall clock.
+
+Responses preserve their documented epoch, sample, coverage and interval fields. Whole-dataset first/latest collection IDs identify retained boundaries, not an invented collection pin for every response. Partial collections, pending evaluation counts and unknown pipeline stages remain explicit. Artifact publication completeness is not monitoring completeness. A configured retention period can be absent, and deleted rows cannot be reconstructed.
+
+Offline `availability.runtimeStatus` is unavailable. Collector connection events remain captured evidence; they do not establish current readiness. Live archiver status is absent from offline Data history. Unknown configuration-dependent classifications need external verification. Default-valued protobuf booleans and enums do not establish unavailable runtime facts.
+
+## Retrieve offline evidence and continue pages
+
+Copied live page URLs and context origins are validated but treated as inert namespaces offline. They are never fetched. A context created without a page uses `https://offline.invalid`, also never fetched. The result supplies no browser links and explicitly marks remote UI access unavailable. Save the returned `context` object and reimport it with the same `-bundle` or `-db` selection. Use `GetFinding` or `GetEvent` with typed IDs to retrieve machine evidence. No listener or local UI server starts implicitly.
+
+Event/finding cursor rules remain those of the API. Stream/consumer tokens normally reference a live process's bounded traversal cache. Offline tokens instead rebuild that same bounded ranking through the authoritative loader and bind continuation to the exact content fingerprint, normalized scope and summary. They retain a five-minute wall-clock lifetime across CLI processes, independently of the frozen dataset clock. Changed content, scope, range, summary, expired tokens or invalid offsets fail and require a new first page. Reset by omitting `-page-token`.
+
+Tokens are unsigned, untrusted pagination data. Their fingerprint and issue timestamp are not authentication, authorization or a tamper-proof expiry guarantee against someone who can recompute a token. All handler validation and ranking/output limits still apply. Rebuilding an offline continuation incurs bounded reads and bare sources also stream a content fingerprint, at most 4 GiB within the shared deadline.
+
+The frozen-fixture parity suite compares these live API reads with offline results:
+
+| Reads | Compared evidence |
+|---|---|
+| `GetLensInfo`, `ListSystems`, `ListMetrics`, `ListCheckDefinitions` | Identity, catalogue, reference time and summary fields. |
+| `GetOverview`, `GetTimeSeries`, `GetStatusTimeline` | Counts, units, sample times, ranges and collection IDs. |
+| `ListEvents`, `GetEvent`, `ListFindings`, `GetFinding` | Filters, explicit continuation, precise IDs and retained resolved episodes. |
+| `ListStreams`, `GetStream`, `GetCapacity`, `GetPlacement` | Scope, authoritative storage semantics and precise byte values. |
+| `GetDataHistory`, `GetSlowConsumerInvestigation` | Coverage, limitations and investigation evidence. |
+
+Permitted live/offline response differences are collector `live`/`collecting` fields, collection state, the fixed-clock flag, unknown configured retention in connection information, and absent live archiver state. Source envelopes, browser links, and captured application version versus an unknown bare-file version also differ explicitly. No measurement, metric calculation, episode or precision difference is permitted by the fixture comparison.
+
+Offline errors add `invalid_source`, `unsupported_source_version`, `source_integrity`, `source_unavailable`, and `no_reference_clock`; backend paths and arbitrary engine text are omitted. All reads retain the same input, response, pagination and deadline limits. Cancellation and failure produce no partial success envelope.
 
 ## Effective page filter audit
 
@@ -221,7 +284,7 @@ natslens investigate query ListConsumers -profiles profiles.json -profile demo \
   -context returned-context.json -request next-request.json
 ```
 
-Use the documented fixed demo and a matching trusted loopback profile for this example. A returned binding stores the token used by its request, not the next token automatically. First-page requests do not acquire an arbitrary read-at-epoch selector. Actual collection epoch/range remain in typed responses, and only a retained explicit cursor pins the API’s bounded traversal. Browser page/chart copies still do not capture their traversal cursor; universal cross-query pins and semantic offline parity remain unavailable.
+Use the documented fixed demo and a matching trusted loopback profile for this example. A returned binding stores the token used by its request, not the next token automatically. First-page requests do not acquire an arbitrary read-at-epoch selector. Actual collection epoch/range remain in typed responses, and only a retained explicit cursor pins the API’s bounded traversal. Browser page/chart copies still do not capture their traversal cursor. Universal live cross-query pins remain unavailable; offline continuation uses the separately documented immutable-source mechanism.
 
 ## Positive UI-equivalence proof
 

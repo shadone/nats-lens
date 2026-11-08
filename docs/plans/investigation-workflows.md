@@ -11,7 +11,7 @@ Status: proposed, not yet confirmed. Implementation is tracked on the NATS Lens 
 - Investigations preserve system/account scope, absolute time bounds, source identities, and evidence references.
 - Missing measurements remain unknown; aggregate observations do not establish individual identities or causes.
 
-The implemented remote subset is documented under [Agent investigations](../features/agent-investigations.md). Collection pinning, offline parity, dataset acquisition and dedicated Timeline-mark entry points remain proposed.
+The implemented live and closed-dataset subset is documented under [Agent investigations](../features/agent-investigations.md). Live cross-query collection pinning and dedicated Timeline-mark entry points remain proposed. Dataset acquisition is described in its [capability](../features/offline-datasets.md).
 
 ## Agent and offline access
 
