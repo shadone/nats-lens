@@ -198,3 +198,36 @@ func TestOfflineEntityContinuationSurvivesReopen(t *testing.T) {
 		t.Fatalf("wrong page: %s", second)
 	}
 }
+
+func TestOfflineZeroDurationCollectionBounds(t *testing.T) {
+	ctx := context.Background()
+	path := closedFixture(t)
+	st, err := store.OpenPath(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = st.DB().Exec(`UPDATE epochs SET finished_at=started_at,duration_ms=0`); err != nil {
+		t.Fatal(err)
+	}
+	st.Close()
+	selection := investigation.OfflineSelection{DB: path, System: "shop", Interval: 30 * time.Second}
+	session, err := Open(ctx, selection)
+	if err != nil {
+		t.Fatalf("valid zero-duration collection refused: %v", err)
+	}
+	defer session.Close()
+	defaultResult, err := session.Source.Query(ctx, "GetOverview", []byte(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(defaultResult), `"9007199254740993"`) {
+		t.Fatalf("latest sample excluded: %s", defaultResult)
+	}
+	fixedResult, err := session.Source.Query(ctx, "GetOverview", []byte(`{"range":{"start":"2026-10-17T14:28:00Z","end":"2026-10-17T14:29:00Z"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(fixedResult), `"epoch":"9007199254740993"`) {
+		t.Fatalf("explicit exclusive end extended: %s", fixedResult)
+	}
+}
