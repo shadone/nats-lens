@@ -50,3 +50,18 @@ test('the asset lock remains held while the binary embeds verified files',async 
  const afterReady=async()=>{embedded++;assert.ok((await readFile(join(f.root,'internal/webui/dist/index.html'),'utf8')).includes('app.js'));await assert.rejects(buildWeb(f),/Another web build/);};
  await buildWeb({...f,afterReady});await buildWeb({...f,afterReady});assert.equal(embedded,2);
 });
+
+test('a failed binary command leaves verified frontend assets reusable',async t=>{
+ const f=await fixture(t);await buildWeb(f);
+ await assert.rejects(buildWeb({...f,afterReady:async()=>{throw Object.assign(Error('go is unavailable'),{code:'ENOENT'})}}),/unavailable/);
+ assert.equal((await buildWeb(f)).built,false);assert.equal(f.calls(),1);
+});
+
+test('linked source content is tracked and cycles fail without discarding assets',async t=>{
+ const {symlink}=await import('node:fs/promises');const f=await fixture(t);
+ const target=join(f.root,'linked.svg');await writeFile(target,'first');await symlink(target,join(f.root,'web/public/linked.svg'));
+ await buildWeb(f);await writeFile(target,'second');assert.equal((await buildWeb(f)).built,true);
+ const before=await readFile(join(f.root,'internal/webui/dist/assets/app.js'),'utf8');
+ await symlink(join(f.root,'web/public'),join(f.root,'web/public/cycle'));
+ await assert.rejects(buildWeb(f),/Cyclic/);assert.equal(await readFile(join(f.root,'internal/webui/dist/assets/app.js'),'utf8'),before);
+});
