@@ -20,6 +20,7 @@ import { Streams } from "./pages/Streams";
 import { StreamDetail } from "./pages/StreamDetail";
 import { Consumers } from "./pages/Consumers";
 import { ConsumerDetail } from "./pages/ConsumerDetail";
+import { SlowConsumerInvestigation } from "./pages/SlowConsumerInvestigation";
 import { Servers } from "./pages/Servers";
 import { ServerDetail } from "./pages/ServerDetail";
 import { Connections } from "./pages/Connections";
@@ -94,6 +95,7 @@ export function App() {
                 <Route path="/consumers" element={<Consumers />} />
                 <Route path="/consumers/:account/:stream/:consumer" element={<ConsumerDetail />} />
                 <Route path="/servers" element={<Servers />} />
+                <Route path="/servers/slow-consumers" element={<SlowConsumerInvestigation />} />
                 <Route path="/servers/:name" element={<ServerDetail />} />
                 <Route path="/subjects" element={<Subjects />} />
                 <Route path="/micro-services" element={<MicroServices />} />

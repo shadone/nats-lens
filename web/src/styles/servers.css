@@ -142,3 +142,8 @@
 .sd-tiles .infotip{position:static}
 .sd-tiles .infotip-t{top:100%;left:0;right:0;width:auto;max-width:none;overflow-wrap:anywhere}
 .sd-tiles .mb-note{overflow-wrap:anywhere}
+
+/* Proposed, not yet confirmed: evidence lists wrap at narrow widths. */
+.slow-evidence{display:grid;gap:var(--sp-3);padding-inline-start:var(--sp-5)}
+.slow-evidence li{overflow-wrap:anywhere;min-width:0}
+.dp-strip a:focus rect{stroke:var(--text);stroke-width:2}
