@@ -12,6 +12,8 @@ Page and shared-chart handoff preserve known identities through [agent investiga
 
 ## Behavior and rules
 
+- [Metric observation summaries](metric-observations.md) expose opt-in pre-bucket metric statistics through the API and read-only client. Existing charts and their title destinations are unchanged by this API foundation.
+
 - **Chart descriptions.** Summary, fleet and detail charts use the shared [chart help](chart-help.md) controls. The surface inventory and catalogue behavior are documented there.
 
 - **Chart help.** Each of the five Servers summary cards and four fleet charts has an About info control. Shared trend charts also expose help on Overview and Capacity. Metric charts read their descriptions from the API catalogue on first inspection and reuse that cache; failures remain separate from chart-data availability. Summary-card help describes its own calculation and scope. Info previews use the shared viewport overlay, open on hover/focus or click, and dismiss with Escape or leaving focus. Slow-consumer caveats live in this optional help while investigation links remain visible. The complete surface inventory is in [Chart help](chart-help.md).

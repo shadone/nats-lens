@@ -16,7 +16,7 @@ Task `bXMlS0kOLTauMBDTEL280` remains in progress. This inventory preserves the w
 
 ## First dependency
 
-Existing Series min/max describe rendered bucket values (or band edges), not uniformly raw observations. Add opt-in, resolution-independent observation summaries through the existing bounded GetTimeSeries/GetTimeSeriesBatch path. Retain the same metric SQL, entity resolution, range semantics, request deadlines and offline handlers. Keep legacy responses and work unchanged when the option is absent. Gauge/rate summaries describe actual metric samples; event sums have their own exact decimal total. Unknown values and raw times are explicit. This does not integrate rates into volumes, reconstruct process identity, or establish complete capture.
+Existing Series min/max describe rendered bucket values (or band edges), not uniformly raw observations. The API foundation now adds opt-in, resolution-independent observation summaries through the existing bounded GetTimeSeries/GetTimeSeriesBatch path. Retain the same metric SQL, entity resolution, range semantics, request deadlines and offline handlers. Keep legacy responses and work unchanged when the option is absent. Gauge/rate summaries describe actual metric samples; event sums have their own exact decimal total. Unknown values and raw times are explicit. This does not integrate rates into volumes, reconstruct process identity, or establish complete capture.
 
 Proposed, not yet confirmed: observation summaries are opt-in and limited to the web's 30-day maximum; use the existing 32-query batch bound. Future detail pages must label sample-weighted means and observed peaks separately from bucket means, use actual timestamps, show missing evidence and link findings/events without claiming causes.
 

@@ -10,6 +10,8 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 
 ## Behavior and rules
 
+- [Metric observation summaries](metric-observations.md) expose opt-in pre-bucket metric statistics through the API and read-only client. Existing charts and their title destinations are unchanged by this API foundation.
+
 - [Chart interval selection](chart-interval-selection.md) adds explicit storage-time selection and actions. Selection alone leaves navigation and the page range unchanged.
 
 - **Chart descriptions.** Chart and mini-chart descriptions use [shared chart help](chart-help.md). Consumer history help lives in the Consumer header, leaving Range plots full-width.
