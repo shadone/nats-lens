@@ -128,6 +128,9 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 		c.SourcePath = "/events"
 		if len(r.Kinds) > 0 {
 			c.Filters["kind"] = strings.Join(r.Kinds, ",")
+			if !slices.Equal(eventKinds(c.Filters["kind"]), r.Kinds) {
+				limitations = append(limitations, "Events UI splits, trims and drops empty kind values; it cannot reproduce these exact explicit kinds")
+			}
 		}
 		if r.ClientName != "" {
 			c.Filters["client"] = r.ClientName

@@ -388,26 +388,11 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 				}
 			}
 		case "sev":
-			a := strings.Split(v, ",")
-			for i := range a {
-				a[i] = "SEVERITY_" + strings.ToUpper(a[i])
-			}
-			applied = put("severities", a)
+			applied = put("severities", findingSeverities(v))
 		case "muted":
 			applied = put("includeMuted", v != "0")
 		case "src":
-			values := []string{}
-			for _, source := range strings.Split(v, ",") {
-				switch source {
-				case "nats", "kubernetes", "collector":
-					values = append(values, "EVENT_SOURCE_"+strings.ToUpper(source))
-				case "findings":
-					values = append(values, "EVENT_SOURCE_FINDING")
-				}
-			}
-			if len(values) == len(strings.Split(v, ",")) {
-				applied = put("sources", values)
-			}
+			applied = put("sources", eventSources(v))
 		case "kv":
 			applied = put("includeKv", v == "1")
 		case "ephemeral":
@@ -436,7 +421,7 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 		case "consumer":
 			applied = c.Entity != nil && fields.ByJSONName("entity") != nil
 		case "kind":
-			applied = put("kinds", strings.Split(v, ","))
+			applied = put("kinds", eventKinds(v))
 		case "client":
 			applied = put("clientName", v)
 		case "show":
