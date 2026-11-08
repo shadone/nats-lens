@@ -44,6 +44,18 @@ func (c *Context) validateQuery() error {
 			return errors.New("bound read range differs from context")
 		}
 	}
+	if q.Method == "GetReplay" {
+		var endpoints struct {
+			A string `json:"a"`
+			B string `json:"b"`
+		}
+		_ = json.Unmarshal(q.Request, &endpoints)
+		a, z, err := bounds(Bounds{endpoints.A, endpoints.B})
+		ca, cz, ce := bounds(c.Range)
+		if err != nil || ce != nil || !a.Equal(ca) || !z.Equal(cz) {
+			return errors.New("bound Replay endpoints differ from context range")
+		}
+	}
 	base := *c
 	base.Query = nil
 	base.Filters = nil
