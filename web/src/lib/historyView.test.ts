@@ -9,7 +9,7 @@ import {
   gapDetail,
   gapEndText,
   gapLabel,
-  gapLengthText,
+  gapDurationText,
   gapName,
   historyUseLabel,
   historyUseLine,
@@ -96,34 +96,35 @@ describe("gaps", () => {
     ]);
   });
 
-  it("says that collections went on only for the kinds charts do not hatch", () => {
-    expect(gapDetail(gap({ kind: "eventsNotCaptured", connection: "sys" }))).toBe("connection sys; collections went on");
-    expect(gapDetail(gap({ kind: "kubernetesNotWatched" }))).toBe("collections went on");
+  it("says what may be missing for event-capture and Kubernetes-watch gaps only", () => {
+    expect(gapDetail(gap({ kind: "eventsNotCaptured", connection: "sys" }))).toBe("Connection sys was lost; NATS events may be missing");
+    expect(gapDetail(gap({ kind: "eventsNotCaptured" }))).toBe("NATS events may be missing");
+    expect(gapDetail(gap({ kind: "kubernetesNotWatched" }))).toBe("Pod, node or event changes may be missing");
     expect(gapDetail(gap({ kind: "notRunning" }))).toBeUndefined();
   });
 
-  it("ends an open gap still now on a live range and after the range on a fixed one", () => {
+  it("ends an open gap ongoing on a live range and after the range on a fixed one", () => {
     const open = gap({ kind: "notConnected", start: NOW - 3 * HOUR });
-    expect(gapEndText(open, NOW, true, NOW)).toBe("still now");
+    expect(gapEndText(open, NOW, true, NOW)).toBe("ongoing");
     expect(gapEndText(open, NOW - HOUR, false, NOW)).toBe("after the range");
-    expect(gapLengthText(open, NOW, true, NOW)).toBe("3 h so far");
-    expect(gapLengthText(open, NOW - HOUR, false, NOW)).toBe("at least 2 h");
+    expect(gapDurationText(open, NOW, true, NOW)).toBe("3 h so far");
+    expect(gapDurationText(open, NOW - HOUR, false, NOW)).toBe("at least 2 h");
     expect(gapName(open, NOW, true, NOW)).toBe("No data from 19:47:18 UTC until now: nats-lens could not reach NATS");
     expect(gapName(open, NOW - HOUR, false, NOW)).toBe("No data from 19:47:18 UTC until after the range: nats-lens could not reach NATS");
   });
 
   it("reads a fixed range that ends at or after now as one that follows now", () => {
     const open = gap({ kind: "notConnected", start: NOW - 3 * HOUR });
-    expect(gapEndText(open, NOW, false, NOW)).toBe("still now");
-    expect(gapEndText(open, NOW + HOUR, false, NOW)).toBe("still now");
-    expect(gapLengthText(open, NOW, false, NOW)).toBe("3 h so far");
+    expect(gapEndText(open, NOW, false, NOW)).toBe("ongoing");
+    expect(gapEndText(open, NOW + HOUR, false, NOW)).toBe("ongoing");
+    expect(gapDurationText(open, NOW, false, NOW)).toBe("3 h so far");
     expect(gapName(open, NOW, false, NOW)).toMatch(/until now:/);
   });
 
-  it("gives a closed gap its end and length, with the date a day before the range end", () => {
+  it("gives a closed gap its end and duration, with the date a day before the range end", () => {
     const g = gap({ kind: "notRunning", start: Date.parse("2026-11-05T17:50:44Z"), end: Date.parse("2026-11-05T17:53:44Z") });
     expect(gapEndText(g, NOW, true, NOW)).toBe("17:53:44");
-    expect(gapLengthText(g, NOW, true, NOW)).toBe("3 min");
+    expect(gapDurationText(g, NOW, true, NOW)).toBe("3 min");
     expect(gapName(g, NOW, true, NOW)).toBe("No data 17:50:44–17:53:44 UTC: nats-lens was not running");
     expect(gapEndText(gap({ end: Date.parse("2026-11-01T10:32:51Z") }), NOW, false, NOW)).toBe("1 Nov 10:32");
   });

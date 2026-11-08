@@ -17,7 +17,7 @@ An operator can acquire a consistent offline dataset while the collector runs. A
 - **Private publication.** Acquisition writes a private staging directory, validates the closed database, and publishes a new directory atomically. It refuses an existing destination. An interrupted process can leave a private directory named as partial; the public reader rejects that reserved staging name even if preparation finished.
 - **Resource limits.** One acquisition runs per collector process. Admission checks destination free space; monitors cancel work that crosses the requested byte budget or free-space headroom. Native execution and checkpoint cancellation are cooperative. A filesystem quota is required where hard destination isolation is required. A pinned source transaction can also retain source MVCC/WAL history outside that quota.
 - **Local administration.** The socket is opt-in, mode 0600, in a private directory owned by the collector user. Requests select a system, never a server path. The command prints a server-local path and manifest. The ordinary API and its read-only investigation allowlist do not expose acquisition.
-- **Trusted offline opening.** The shared reader checks private regular files, supported versions, migration checksums, recorded boundaries, size, and SHA-256 before returning a read-only database. External file/network access and extension loading are disabled. Hashes detect damage; they do not authenticate data or make arbitrary database files safe.
+- **Trusted offline opening.** The shared reader checks private regular files, supported versions, migration checksums, recorded boundaries, size, and SHA-256 before returning a read-only database. Path normalization rejects staging aliases consistently. Required capture disclosures cannot be omitted, cleared, duplicated, or changed to unsupported statements. External file/network access and extension loading are disabled. Hashes detect damage; they do not authenticate data or make arbitrary database files safe.
 
 ## Scenarios
 
@@ -47,6 +47,20 @@ An operator can acquire a consistent offline dataset while the collector runs. A
 - **When** acquisition fails
 - **Then** no replacement artifact is published
 - **And** cleanup removes only the staging directory created by that acquisition.
+
+### Reject unpublished staging aliases
+
+- **Given** an interrupted acquisition left a prepared staging directory
+- **When** an offline consumer opens that directory through a relative path, dot segments, or a parent-directory alias
+- **Then** validation rejects the unpublished dataset
+- **And** the same supported aliases of a published directory remain usable.
+
+### Preserve capture limitations in the manifest
+
+- **Given** a dataset records the version 1 full-system disclosure contract
+- **When** required fields or disclosure tokens are omitted, null, duplicated, or replaced with unsupported values
+- **Then** validation rejects the manifest before returning a database handle
+- **And** valid exact integers and unknown optional retention remain available without implying continuous coverage.
 
 ## Not supported / out of scope
 

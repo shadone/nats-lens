@@ -53,13 +53,39 @@ The database contains the migration records and their original checksums. The ma
 
 ## Validation and compatibility
 
-Names starting with `.dataset-partial-` are reserved for unpublished staging. The public reader rejects those directories even when their prepared manifest has `complete: true`; only the writer can validate staging internally. Publication is the successful atomic rename into a non-staging name. After that rename, a fresh reader can validate the completed artifact after collector or reader restart.
+Names starting with `.dataset-partial-` are reserved for unpublished staging. The public reader normalizes absolute/relative paths and dot segments before checking that reserved basename. It rejects those directories, including trailing `/.` aliases and paths through parent-directory aliases, even when their prepared manifest has `complete: true`; only the writer can validate staging internally. Publication is the successful atomic rename into a non-staging name. After that rename, a fresh reader can validate the completed artifact after collector or reader restart.
 
 The shared reader accepts exactly two private regular files in a private nonsymlink directory. It rejects path traversal, symlinks, unexpected WAL/partial files, unsupported formats, missing provenance, size/hash mismatch, mismatched recorded boundaries, and incompatible schema or engine metadata. It verifies every migration checksum without rewriting legacy values. It scans every stored column before returning a handle.
 
 The database opens with hard read-only mode, external access disabled, and automatic extension installation/loading disabled. Validation has a cooperative 45-second context. Current schema checksums must match the binary exactly. The manifest engine must equal the reader engine's reported version. Application version is informational; schema and engine compatibility are the enforced gates. Native engine file loading remains a trusted-input boundary, not an untrusted database sandbox.
 
 A bare closed database can use the same read-only opener and boundary inspector without inventing manifest metadata. Its canonical streaming fingerprint requires the caller to hold the validated read-only open handle while hashing and querying. This ties captured continuation to stable file contents. A fingerprint or checksum establishes integrity/coherence, not authenticity.
+
+## Required version 1 disclosures
+
+The reader requires every manifest field and nested system, data, and boundary field described above. Unknown nullable observation values remain explicit `null`; required scalar counts cannot be null. Configured retention alone can be omitted or null, and must be positive when supplied. This represents unknown configuration, not zero retention. Exact 64-bit values retain their decimal-string encoding.
+
+Application and engine versions must be nonempty safe identifiers of at most 128 characters, using letters, digits, `.`, `_`, `+`, or `-`. Schema version must be positive and pass the exact database compatibility check. Object field names must use their canonical case and spelling; case-folded aliases and duplicate object keys are rejected. These checks validate the format and disclosure contract; they do not authenticate metadata.
+
+The following token sets are required in version 1. Order has no meaning. Each token appears exactly once; missing, extra, duplicate, null, or unsupported tokens fail validation. The writer and reader share the same versioned contract.
+
+`pending_stages` preserves these unavoidable unknowns:
+
+```json
+["collection_and_event_buffers_unknown", "evaluation_pipeline_completion_unknown"]
+```
+
+`exported_facts` describes the full retained database:
+
+```json
+["all_retained_database_tables_and_catalog", "findings_and_check_runs_as_published", "durable_mutes_and_acknowledgements", "inventory_and_durable_notification_state", "archive_watermarks_without_archive_files"]
+```
+
+`live_only` preserves these exclusions:
+
+```json
+["credentials_and_runtime_configuration", "connections_and_readiness", "collection_event_and_notification_callbacks", "hourly_archive_files", "in_memory_buffers_and_in_flight_evaluations"]
+```
 
 ## Budgets and failures
 
