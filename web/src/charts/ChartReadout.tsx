@@ -2,7 +2,7 @@ import {useLayoutEffect, useRef, type ReactNode, type RefObject} from "react";
 import {createPortal} from "react-dom";
 
 /** A viewport overlay: plot width and table/card clipping do not size the reading. */
-export function ChartReadout({anchor, fraction, id, contentKey, children}: {anchor:RefObject<HTMLElement|null>;fraction:number;id:string;contentKey:string;children:ReactNode}) {
+export function ChartReadout({anchor, fraction, id, contentKey, children}: {anchor:RefObject<Element|null>;fraction:number;id:string;contentKey:string;children:ReactNode}) {
   const ref=useRef<HTMLDivElement>(null);
   useLayoutEffect(()=>{
     const plot=anchor.current,tip=ref.current;

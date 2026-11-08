@@ -1,9 +1,11 @@
 import {fireEvent, render, screen, within} from "@testing-library/react";
 import {MemoryRouter} from "react-router";
-import {expect, it} from "vitest";
+import {expect, it, vi} from "vitest";
 import type {Timeline} from "../api/model";
 import {StoryLanes} from "./StoryLanes";
 import {Cells} from "./StatusTimeline";
+
+vi.mock("../lib/useGlobalQuery",()=>({useGlobalQuery:()=>""}));
 
 const start = Date.parse("2026-10-17T23:59:00Z");
 const timeline: Timeline = {
@@ -11,7 +13,7 @@ const timeline: Timeline = {
   rows: [{key:"consumer-006",checkCode:"consumer-006",checkName:"No delivery while messages wait",severity:"warning",cells:["warning","ok"],now:"ok"}],
   kubernetes: [{id:"k1",time:start+5000,source:"kubernetes",kind:"k8s.pod.restarted",shortLabel:"Restart",label:"nats-0 restarted"}],
   nats: [{id:"e1",time:start+10_000,source:"nats",kind:"client.disconnect",shortLabel:"Disconnect",label:"Worker connection closed",severity:"warning",eventId:"42"}],
-  windows: [{start,end:start+90_000,label:"Rolling restart"}],
+  windows: [{start,end:start+90_000,label:"Rolling restart",detail:"Observed restart"}],
   natsTruncated:false,findingTruncated:false,kubernetesTruncated:false,
 };
 

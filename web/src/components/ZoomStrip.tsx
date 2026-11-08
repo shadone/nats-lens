@@ -3,6 +3,7 @@
 // or when the wide layout cannot place every label: time runs down.
 import { useRef } from "react";
 import type { Timeline, Window } from "../api/model";
+import {TimelineMark, timelineTime} from "./TimelineMark";
 import { hm } from "../lib/format";
 import { useWidth } from "../lib/useWidth";
 import { zoomItems } from "../lib/timelineModel";
@@ -17,7 +18,7 @@ function Marker({ it, x, y, r = 3.2 }: { it: ZoomItem; x: number; y: number; r?:
 function Label({ it, x, y, anchor, text, size }: { it: ZoomItem; x: number; y: number; anchor: "start" | "end"; text: string; size: number }) {
   return (
     <text x={x.toFixed(1)} y={y} fontSize={size} textAnchor={anchor} style={{ fill: it.tcol }}>
-      <title>{`${hm(it.t)} ${it.title}`}</title>
+
       <tspan style={{ fill: "var(--text-muted)" }}>{`${hm(it.t)} `}</tspan>
       {text}
     </text>
@@ -30,7 +31,7 @@ function Horizontal({ L, W, domain, win }: { L: HLayout; W: number; domain: [num
   const ticks: number[] = [];
   for (let t = domain[0]; t <= domain[1]; t += step) ticks.push(t);
   return (
-    <svg className="zsvg" role="img" aria-labelledby="ztitle" viewBox={`0 0 ${W} ${H}`} height={H} data-forced={L.forced}>
+    <svg className="zsvg" role="group" aria-labelledby="ztitle" viewBox={`0 0 ${W} ${H}`} height={H} data-forced={L.forced}>
       <rect x={xs(win.start).toFixed(1)} y="0" width={(xs(win.end) - xs(win.start)).toFixed(1)} height={H} style={{ fill: "var(--upgrade-fill)" }} />
       <text x="0" y="16" fontSize="11" style={{ fill: "var(--k8s)", fontFamily: "var(--sans)", fontWeight: 500 }}>
         Kubernetes
@@ -45,11 +46,11 @@ function Horizontal({ L, W, domain, win }: { L: HLayout; W: number; domain: [num
           const my = y - 4;
           const x = +p.x.toFixed(1);
           return (
-            <g key={p.item.id}>
+            <TimelineMark svg key={p.item.id} label={p.item.title} preview={<><strong>{p.item.title}</strong><div>{timelineTime(p.item.t)}</div><div>{p.item.kind === "lens" ? "Finding transition" : p.item.kind === "k8s" ? "Kubernetes event" : "NATS event"}</div></>}>
               <line x1={x} x2={x} y1={side < 0 ? my : axisY + 4} y2={side < 0 ? axisY - 4 : my} style={{ stroke: p.item.col, strokeOpacity: 0.5 }} />
               <Marker it={p.item} x={x} y={my} />
               <Label it={p.item} x={p.tx} y={y} anchor={p.anchor} text={p.text} size={11} />
-            </g>
+            </TimelineMark>
           );
         }),
       )}
@@ -75,7 +76,7 @@ function Vertical({ items, W, domain, win }: { items: ZoomItem[]; W: number; dom
   const ticks: number[] = [];
   for (let t = domain[0] + 300_000; t < domain[1]; t += 300_000) ticks.push(t);
   return (
-    <svg className="zsvg" role="img" aria-labelledby="ztitle" viewBox={`0 0 ${W} ${L.height}`} height={L.height}>
+    <svg className="zsvg" role="group" aria-labelledby="ztitle" viewBox={`0 0 ${W} ${L.height}`} height={L.height}>
       <text x={cx - V_OFFSET} y="11" fontSize="11" textAnchor="end" style={{ fill: "var(--k8s)", fontFamily: "var(--sans)", fontWeight: 500 }}>
         Kubernetes
       </text>
@@ -92,11 +93,11 @@ function Vertical({ items, W, domain, win }: { items: ZoomItem[]; W: number; dom
         const xa = cx + side * 5;
         const xb = cx + side * (V_OFFSET - 4);
         return (
-          <g key={it.id}>
+          <TimelineMark svg key={it.id} label={it.title} preview={<><strong>{it.title}</strong><div>{timelineTime(it.t)}</div><div>{it.kind === "lens" ? "Finding transition" : it.kind === "k8s" ? "Kubernetes event" : "NATS event"}</div></>}>
             <polyline points={`${cx},${y0} ${xa},${y0} ${xb},${y - 3.5}`} style={{ fill: "none", stroke: it.col, strokeOpacity: 0.6 }} />
             <Marker it={it} x={cx} y={y0} r={2.6} />
             <Label it={it} x={cx + side * V_OFFSET} y={y} anchor={side < 0 ? "end" : "start"} text={text} size={V_FONT} />
-          </g>
+          </TimelineMark>
         );
       })}
       <text x={cx} y={top - 9} fontSize="11" textAnchor="middle" style={{ fill: "var(--text-muted)", stroke: "var(--surface)", strokeWidth: "5px", paintOrder: "stroke" }}>
