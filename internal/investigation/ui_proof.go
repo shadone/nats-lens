@@ -192,3 +192,36 @@ func knownContextEntity(e *Entity) bool {
 	}
 	return slices.Contains(strings.Fields("ENTITY_TYPE_SYSTEM ENTITY_TYPE_SERVER ENTITY_TYPE_ACCOUNT ENTITY_TYPE_STREAM ENTITY_TYPE_CONSUMER ENTITY_TYPE_CONNECTION ENTITY_TYPE_CLIENT"), e.Type)
 }
+
+// The API predicate identity is type/key. Redundant request display fields may
+// be absent or inconsistent; derive UI resource components only from the
+// protocol's canonical key. The exact original request stays in query.request.
+func projectContextEntity(e *Entity) *Entity {
+	if e == nil || !knownContextEntity(e) {
+		return nil
+	}
+	out := &Entity{Type: e.Type, Key: e.Key}
+	parts := strings.Split(e.Key, "/")
+	switch e.Type {
+	case "ENTITY_TYPE_SERVER":
+		out.Server = e.Key
+	case "ENTITY_TYPE_ACCOUNT":
+		out.Account = e.Key
+	case "ENTITY_TYPE_STREAM":
+		if len(parts) == 2 {
+			out.Account = parts[0]
+			out.Stream = parts[1]
+		}
+	case "ENTITY_TYPE_CONSUMER":
+		if len(parts) == 3 {
+			out.Account = parts[0]
+			out.Stream = parts[1]
+			out.Consumer = parts[2]
+		}
+	case "ENTITY_TYPE_CONNECTION":
+		if len(parts) == 2 {
+			out.Server = parts[0]
+		}
+	}
+	return out
+}
