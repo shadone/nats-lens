@@ -4,6 +4,7 @@ import { HistoryLink, useGrowthHistoryNote } from "../components/HistoryNote";
 // server's JetStream file store is and when it fills, in the range's newest
 // collection, with growth over the whole range.
 import { useCapacity } from "../api/queries";
+import {CapacityContributors} from "../components/CapacityContributors";
 import { TotalCapacityHistory } from "../components/CapacityHistory";
 import { ServerCards } from "../components/CapacityServers";
 import { StreamsTable } from "../components/CapacityStreams";
@@ -46,6 +47,7 @@ export function Capacity() {
         {missing && (d.servers.some((s) => s.reported && s.perDay === undefined) || d.streams.some((s) => s.bytesPerDay === undefined)) && <> {missing}. <HistoryLink /></>}
       </p>}
       <p><Link className="x" to={`/capacity/storage-change?${comparison}`}>Compare storage in range</Link></p>
+      <CapacityContributors/>
       <QueryView q={q} what="capacity">
         {(r) =>
           r.collected ? (
