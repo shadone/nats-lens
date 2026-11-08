@@ -49,7 +49,7 @@ it("continues one pinned page explicitly without automatically traversing every 
 });
 it("offers the selected interval chart, endpoint configuration, events and consumers for a contributor",async()=>{
  renderApp(<Capacity/>,route);await region().findByRole("button",{name:"Sort by Change in range"});
- fireEvent.click(region().getByRole("button",{name:"Explore orders"}));
+ fireEvent.click(region().getByRole("button",{name:/^Explore orders/}));
  expect(await screen.findByRole("heading",{name:"orders evidence"})).toBeInTheDocument();expect(screen.getByText(/Configured replicas: 1 → 3/)).toBeInTheDocument();
  for(const name of ["Configuration at A","Configuration at B","Events in interval","Consumers in interval"]){const link=new URL(screen.getByRole("link",{name}).getAttribute("href")!,"http://example.com");expect(link.searchParams.get("system")).toBe("example-prod");expect(link.searchParams.get("account")).toBe("APP")}
  expect(screen.getByRole("img",{name:/^Logical bytes in interval/})).toBeInTheDocument();
