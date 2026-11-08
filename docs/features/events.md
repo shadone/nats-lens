@@ -12,6 +12,8 @@ Slow-consumer investigations separate recorded disconnects from aggregate counte
 
 ## Behavior and rules
 
+- **Chart descriptions.** The histogram legend has [chart help](chart-help.md) explaining captured event counts and the scale when routine events are hidden.
+
 - **Worth reading first.** The page opens on "Worth reading": routine events are hidden and repeats are folded. "Everything" shows every event, one row each. Each choice shows its number of events, which follows the source and server filters.
 - **Hidden as routine.** While routine events are hidden, a line above the list reads "Hidden as routine:" with their number and the groups the API names (at most 10, largest first, each with its count), and "Show them" switches to "Everything".
 - **Empty results.** An empty feed explains the selected system, range, client and other active event filters before the facets. It distinguishes hidden routine events, no filter matches, and no captured events in the selected system and range. It offers "Show routine events" when routine events are hidden, and "Clear client filter" when a client is selected. Clearing the client preserves the system, account, range and other filters, synchronizes the visible client field, and returns to page one. Connections describes snapshots; Events describes captured history. A connection may predate capture, or its events may fall outside the range; an empty feed does not establish either cause. Loading, failed requests and previous-filter placeholders do not claim an empty result. A failed refresh of an empty result shows the error and Retry.

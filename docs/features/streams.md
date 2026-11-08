@@ -10,6 +10,8 @@ The Streams page lists the JetStream streams of the newest collection in the tim
 
 ## Behavior and rules
 
+- **Chart descriptions.** Detail charts and seven-day mini-chart columns use [shared chart help](chart-help.md); storage inspection uses byte labels rather than delivery-rate wording.
+
 - **The leader's view.** Numbers in the list come from each stream's leader in the newest collection of the range.
 - **KV buckets and object stores are hidden by default.** "Include KV and object stores" adds the `KV_` and `OBJ_` streams to the list. The KV Stores and Object Stores pages show them as buckets ([kv-and-object-stores.md](kv-and-object-stores.md)).
 - **The list.** For each stream: its status (the worst firing finding on it or on its consumers), name and account, "servers disagree" when the servers report different configurations or creation times for it, replicas, leader, messages, bytes, consumers, a 7-day bytes chart, growth per day, and the codes of its firing findings. A footer sums the bytes stored and counts the durable and the ephemeral or ordered consumers; these totals cover all matching streams across every page, including buckets only when the list includes them.

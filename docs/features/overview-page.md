@@ -10,6 +10,8 @@ The Overview answers "is anything wrong, and what happened?" on one page. A one-
 
 ## Behavior and rules
 
+- **Chart descriptions.** Chart and mini-chart descriptions use [shared chart help](chart-help.md). Consumer history help lives in the Consumer header, leaving Range plots full-width.
+
 The worst-streams table requests one bounded page; its count and totals cover all matching streams, including later pages ([Streams](streams.md)).
 
 - **Replay observed windows.** Each Kubernetes window has a separate "Replay this window" link below the timeline. It fixes A, B and the range around that observation, preserves the system and leaves the lane, Each check and zoom interactions intact. Context and limits follow [Replay](replay.md).
