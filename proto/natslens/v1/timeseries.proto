@@ -18,7 +18,7 @@ enum Unit {
   UNIT_BYTES = 2;
   // Events or messages per second.
   UNIT_PER_SECOND = 3;
-  // Percent, 0 to 100.
+  // Percent. Server process CPU is percent of one core and may exceed 100.
   UNIT_PERCENT = 4;
   // Seconds.
   UNIT_SECONDS = 5;

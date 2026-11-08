@@ -2,11 +2,13 @@ package fake
 
 import (
 	"context"
-	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"testing"
 	"time"
+
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
 func TestDemoObservationSummariesAreResolutionIndependent(t *testing.T) {
@@ -59,5 +61,29 @@ func TestDemoObservationMissingCaptureIsNotZero(t *testing.T) {
 		if s == nil || s.KnownCount != 0 || s.Latest != nil || s.ObservedTotal != nil {
 			t.Errorf("%s invented samples during absent capture: %v", metric, s)
 		}
+	}
+}
+
+func TestDemoObservationOptionValidationAndLegacy(t *testing.T) {
+	p := New(false)
+	req := &v1.GetTimeSeriesRequest{Metric: "server.cpu_percent", Entity: serverRef("nats-0"), Range: &v1.TimeRange{Start: timestamppb.New(FixedNow.Add(-time.Hour)), End: timestamppb.New(FixedNow)}, MaxPoints: 1}
+	out, err := p.GetTimeSeries(context.Background(), req)
+	if err != nil || out.Series.Observations != nil {
+		t.Fatalf("legacy response changed: %v %v", out, err)
+	}
+	req.IncludeObservations = true
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err = p.GetTimeSeries(canceled, req); err != context.Canceled {
+		t.Fatalf("cancelled summary: %v", err)
+	}
+	req.Range.Start = timestamppb.New(FixedNow.Add(-31 * 24 * time.Hour))
+	if _, err = p.GetTimeSeries(context.Background(), req); err == nil {
+		t.Fatal("wide summary accepted")
+	}
+	req.Range.Start = timestamppb.New(FixedNow.Add(-time.Hour))
+	req.Entity = serverRef("absent-server")
+	if _, err = p.GetTimeSeries(context.Background(), req); err == nil {
+		t.Fatal("unknown entity accepted")
 	}
 }

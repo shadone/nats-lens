@@ -214,22 +214,27 @@ func (s scen) series(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints 
 		var n int
 		var lo, hi *float64
 		if metric == "cluster.slow_consumers" || metric == "server.slow_consumers" {
-			for _, sp := range s.sc.servers {
-				if metric == "server.slow_consumers" && sp.name != e.GetKey() {
+			for x := api.BucketStart(t.Add(sampleEvery-1), sampleEvery); x.Before(stop); x = x.Add(sampleEvery) {
+				if !s.sc.hasCollection(s.clock(x)) {
 					continue
 				}
-				sum += float64(s.slowCount(sp, t, stop))
+				for _, sp := range s.sc.servers {
+					if metric == "server.slow_consumers" && sp.name != e.GetKey() {
+						continue
+					}
+					sum += float64(s.slowCount(sp, x, earliest(x.Add(sampleEvery), stop)))
+				}
+				n = 1
 			}
-			n = 1
 		} else if eventMetrics[metric] {
 			// Samples on a grid of sampleEvery, so that no event counts
 			// in two buckets.
 			for x := api.BucketStart(t.Add(sampleEvery-time.Nanosecond), sampleEvery); x.Before(stop); x = x.Add(sampleEvery) {
 				if v, ok := s.sc.value(metric, e, s.clock(x)); ok {
 					sum += v
+					n = 1
 				}
 			}
-			n = 1
 		} else if out.Unit == v1.Unit_UNIT_COUNT {
 			// A count takes the bucket's last sample, as the store's
 			// arg_max does, so it stays whole, with its lowest and highest.

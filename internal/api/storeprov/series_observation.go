@@ -32,7 +32,7 @@ func (p *Provider) observationSummary(ctx context.Context, metric string, e *v1.
 	edges := "NULL::DOUBLE, NULL::DOUBLE"
 	if col, band := bandMetrics[metric]; band {
 		// col is selected only from the compile-time band catalogue, never input SQL.
-		m = metricSQL{query: fmt.Sprintf(`SELECT e.started_at AS t, quantile_cont(ss.%[1]s,0.5) AS v, min(ss.%[1]s) AS lo, max(ss.%[1]s) AS hi FROM server_stats ss JOIN epochs e USING(epoch) WHERE e.started_at >= ? AND e.started_at < ? GROUP BY e.epoch,e.started_at`, col)}
+		m = metricSQL{query: bandObservationSQL(col, false)}
 		ok = true
 		edges = "min(lo)::DOUBLE, max(hi)::DOUBLE"
 	}

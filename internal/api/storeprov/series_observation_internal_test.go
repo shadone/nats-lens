@@ -3,11 +3,12 @@ package storeprov
 import (
 	"context"
 	"database/sql"
-	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
-	"github.com/shadone/nats-lens/internal/store"
 	"strings"
 	"testing"
 	"time"
+
+	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"github.com/shadone/nats-lens/internal/store"
 )
 
 type observationWriter struct {
@@ -82,5 +83,34 @@ func TestSeriesObservationSharesReadBoundary(t *testing.T) {
 	}
 	if out.Series.GetObservations().GetMaximum() != 10 || out.Series.GetPoints()[0].Value != 10 {
 		t.Fatalf("summary crossed plot boundary: %v", out.Series)
+	}
+}
+
+func TestSeriesObservationOptInBoundaryAndCancellation(t *testing.T) {
+	ctx := context.Background()
+	st, err := store.OpenPath(ctx, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	spy := &observationWriter{DB: st.DB(), write: func() {}}
+	p := &Provider{St: st, Interval: 30 * time.Second, readDB: spy}
+	at := time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
+	req := &v1.GetTimeSeriesRequest{Metric: "cluster.connections", Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SYSTEM}, Range: &v1.TimeRange{Start: ts(at), End: ts(at.Add(time.Hour))}, MaxPoints: 1}
+	if out, e := p.GetTimeSeries(ctx, req); e != nil || out.Series.Observations != nil || spy.written {
+		t.Fatalf("legacy query changed transaction/work: %v %v", out, e)
+	}
+	req.IncludeObservations = true
+	if _, e := p.GetTimeSeries(ctx, req); e != nil || !spy.written {
+		t.Fatalf("opt-in boundary absent: %v", e)
+	}
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	if _, e := p.GetTimeSeries(canceled, req); e == nil {
+		t.Fatal("cancelled request succeeded")
+	}
+	req.Range.Start = ts(at.Add(-31 * 24 * time.Hour))
+	if _, e := p.GetTimeSeries(ctx, req); e == nil {
+		t.Fatal("wide raw summary succeeded")
 	}
 }
