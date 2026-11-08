@@ -82,6 +82,7 @@ func TestSQLJSONLimitsAndAtomicity(t *testing.T) {
 		{"truncate", []string{"-format", "json", "-max-rows", "2", "SELECT * FROM range(3)"}, false, `"truncated":true`},
 		{"exact", []string{"-format", "json", "-max-rows", "2", "SELECT * FROM range(2)"}, false, `"truncated":false`},
 		{"invalid", []string{"-format", "json", "SELECT missing FROM sample"}, true, ""},
+		{"clock", []string{"-format", "json", "SELECT TIME '24:00:00'"}, true, ""},
 		{"bytes", []string{"-format", "json", "-max-output-bytes", "1024", "SELECT repeat('x',2000)"}, true, ""},
 		{"timeout", []string{"-format", "json", "-timeout", "1ms", "SELECT sum(a.range*b.range) FROM range(1000000) a,range(1000000) b"}, true, ""},
 		{"budget", []string{"-max-rows", "0", "SELECT 1"}, true, ""},
