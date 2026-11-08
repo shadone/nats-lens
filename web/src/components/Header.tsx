@@ -38,10 +38,10 @@ export function Header({ menuOpen = false, onMenu }: Props) {
         <span className="bar-gap" />
         <SearchJump />
         <RangePicker freshness={status.data?.freshness} error={status.error ?? undefined} />
+        <InvestigationButton />
         <ThemeMenu />
       </div>
       <RangeNotice />
-      <div className="investigation-entry"><InvestigationButton /></div>
     </header>
   );
 }
