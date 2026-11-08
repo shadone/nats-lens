@@ -54,6 +54,11 @@ func TestSQLCanonicalBundle(t *testing.T) {
 	if !strings.Contains(out.String(), `"BIGINT"`) || !strings.Contains(out.String(), `"1"`) {
 		t.Fatalf("typed result missing: %s", out.String())
 	}
+	out.Reset()
+	if err = runSQLTo(ctx, []string{"-bundle", path, "-format", "json", "-max-output-bytes", "1024", "SELECT epoch FROM epochs"}, &out); err == nil || out.Len() != 0 {
+		t.Fatalf("manifest bypassed complete output budget: %v %s", err, out.String())
+	}
+
 	stage := filepath.Join(root, ".dataset-partial-unpublished")
 	if err = os.Rename(path, stage); err != nil {
 		t.Fatal(err)

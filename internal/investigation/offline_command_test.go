@@ -15,7 +15,10 @@ func (s *frozenSource) Query(_ context.Context, method string, request []byte) (
 	if method == "GetLensInfo" {
 		return json.RawMessage(`{"version":"fixture","now":"2026-10-17T14:30:00Z","system":"shop"}`), nil
 	}
-	return json.RawMessage(`{"metrics":[]}`), nil
+	if method == "ListMetrics" {
+		return json.RawMessage(`{"metrics":[]}`), nil
+	}
+	return json.RawMessage(`{}`), nil
 }
 func TestOfflineCommandClockAndContext(t *testing.T) {
 	source := new(frozenSource)
