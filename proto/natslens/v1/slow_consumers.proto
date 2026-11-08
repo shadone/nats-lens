@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package natslens.v1;
+
+import "google/protobuf/timestamp.proto";
+import "natslens/v1/common.proto";
+import "natslens/v1/events.proto";
+
+option go_package = "github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1";
+
+// Bounded, read-only investigation of stored slow-consumer evidence.
+message GetSlowConsumerInvestigationRequest {
+  string system = 1;
+  // At most 30 days. Defaults to the last 24 hours.
+  TimeRange range = 2;
+  // Optional server name, across process restarts.
+  string server = 3;
+  // Filters recorded client evidence only. Counters remain system-wide.
+  string account = 4;
+  // Per evidence list: default 100, maximum 200. No implicit pagination.
+  int32 limit = 5;
+}
+
+// An increase observed between two collections of the same process.
+// Neither endpoint is an exact detection time. Identity is process + epoch.
+message SlowConsumerObservation {
+  string server = 1;
+  string server_id = 2;
+  int64 epoch = 3;
+  google.protobuf.Timestamp interval_start = 4;
+  google.protobuf.Timestamp interval_end = 5;
+  // Unset on baseline, reset or a report gap longer than three collect intervals.
+  optional int64 increase = 6;
+  string unavailable_reason = 7;
+}
+
+// Recorded disconnect evidence, independent of the counter observations.
+message SlowConsumerEvent {
+  Event event = 1;
+  // Only from the recorded payload, never inferred from a name or time.
+  string server_id = 2;
+  string connection_id = 3;
+}
+
+// A recorded slow-consumer finding transition within the selected range.
+message SlowConsumerFinding {
+  string finding_id = 1;
+  string check_code = 2;
+  EntityRef entity = 3;
+  google.protobuf.Timestamp time = 4;
+  string detail = 5;
+}
+
+message GetSlowConsumerInvestigationResponse {
+  TimeRange range = 1;
+  repeated SlowConsumerObservation observations = 2;
+  repeated SlowConsumerEvent events = 3;
+  repeated SlowConsumerFinding findings = 4;
+  bool observations_truncated = 5;
+  bool events_truncated = 6;
+  bool findings_truncated = 7;
+  // Sum over all known increases, before the result limit. Not event count.
+  int64 detections = 8;
+  int64 recorded_disconnects = 9;
+  google.protobuf.Timestamp events_start = 10;
+  bool events_captured = 11;
+  bool capture_gaps = 12;
+  // Collections with missing servers, partial data or a missing counter.
+  int64 incomplete_collections = 13;
+  string provenance = 14;
+  string attribution_limit = 15;
+}

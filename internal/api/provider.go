@@ -131,6 +131,7 @@ type Provider interface {
 	// handler applies the gap rules, the coverage and the uses table with
 	// FinishDataHistory.
 	DataHistory(ctx context.Context, req *v1.GetDataHistoryRequest) (*HistoryFacts, error)
+	GetSlowConsumerInvestigation(ctx context.Context, req *v1.GetSlowConsumerInvestigationRequest) (*v1.GetSlowConsumerInvestigationResponse, error)
 	ListServers(ctx context.Context, req *v1.ListServersRequest) (*v1.ListServersResponse, error)
 	GetServer(ctx context.Context, req *v1.GetServerRequest) (*v1.GetServerResponse, error)
 	ListConnections(ctx context.Context, req *v1.ListConnectionsRequest) (*v1.ListConnectionsResponse, error)
