@@ -1,3 +1,4 @@
+import {Link,useSearchParams} from "react-router";
 import { HistoryLink, useGrowthHistoryNote } from "../components/HistoryNote";
 // Capacity: what each stream keeps and what bounds it, and how full each
 // server's JetStream file store is and when it fills, in the range's newest
@@ -11,13 +12,16 @@ import { CAPACITY_SUBTITLE, hasRate, headerLine } from "../lib/capacityView";
 import { hms, isoDate } from "../lib/format";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useSystem } from "../lib/useSystem";
-import { useTimeRange } from "../lib/useTimeRange";
+import { useTimeRange, useResolvedRange } from "../lib/useTimeRange";
 
 export function Capacity() {
   usePageTitle("Capacity");
   const { spec } = useTimeRange();
   const system = useSystem();
   const q = useCapacity(spec);
+  const bounds=useResolvedRange(spec);
+  const [params]=useSearchParams();
+  const comparison=new URLSearchParams({system,account:params.get("account")??"",from:new Date(bounds.start).toISOString(),to:new Date(bounds.end).toISOString()});
   const d = q.data;
   const missing = useGrowthHistoryNote();
   return (
@@ -39,6 +43,7 @@ export function Capacity() {
         {d.growthFrom !== undefined && d.epochAt !== undefined && <> Collection bounds: {isoDate(d.growthFrom)} {hms(d.growthFrom)} to {isoDate(d.epochAt)} {hms(d.epochAt)} UTC; entity spans may be shorter.</>}
         {missing && (d.servers.some((s) => s.reported && s.perDay === undefined) || d.streams.some((s) => s.bytesPerDay === undefined)) && <> {missing}. <HistoryLink /></>}
       </p>}
+      <p><Link className="x" to={`/capacity/storage-change?${comparison}`}>Compare storage in range</Link></p>
       <QueryView q={q} what="capacity">
         {(r) =>
           r.collected ? (

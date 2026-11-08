@@ -72,6 +72,10 @@ func (c *Context) validateQuery() error {
 // Flags deliberately change a selection. Rebase common scope fields before
 // validation; budgets/tokens and all other explicit API fields remain exact.
 func (c *Context) rebaseQuery(systemChanged, rangeChanged, accountChanged, metricChanged bool) error {
+	if c.SourcePath == "/capacity/storage-change" && (systemChanged || rangeChanged) {
+		delete(c.Filters, "epochA")
+		delete(c.Filters, "epochB")
+	}
 	if c.Query == nil {
 		return nil
 	}
@@ -103,6 +107,15 @@ func (c *Context) rebaseQuery(systemChanged, rangeChanged, accountChanged, metri
 	}
 	if metricChanged {
 		put("metric", c.Metric)
+	}
+	if c.Query.Method == "GetStorageChange" {
+		if systemChanged || rangeChanged {
+			delete(fields, "epochA")
+			delete(fields, "epochB")
+		}
+		if systemChanged || rangeChanged || accountChanged {
+			delete(fields, "pageToken")
+		}
 	}
 	b, _ := json.Marshal(fields)
 	c.Query = &BoundQuery{Method: c.Query.Method, Request: b}
