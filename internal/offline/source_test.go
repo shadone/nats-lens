@@ -310,6 +310,19 @@ func TestOfflineReferenceResolutionPrecision(t *testing.T) {
 			if duration == 0 && !strings.Contains(out.String(), "exclusive_end_inclusion") {
 				t.Fatalf("undisclosed adjustment: %s", out.String())
 			}
+			replay, _ := json.Marshal(envelope.Context)
+			out.Reset()
+			replayArgs := []string{"query", "GetOverview", "-db", path, "-system", "shop", "-collection-interval", "30s", "-context", "-"}
+			if err = investigation.RunWithOffline(ctx, replayArgs, bytes.NewReader(replay), &out, &diagnostic, Open); err != nil {
+				t.Fatalf("replay: %v %s", err, out.String())
+			}
+			if err = json.Unmarshal(out.Bytes(), &envelope); err != nil {
+				t.Fatal(err)
+			}
+			if envelope.Context.Range.End != wantEnd.Format(time.RFC3339Nano) {
+				t.Fatalf("replay applied tick twice: %s", out.String())
+			}
+
 			out.Reset()
 			args = append(args, "-to", at.Format(time.RFC3339Nano))
 			if err = investigation.RunWithOffline(ctx, args, strings.NewReader(""), &out, &diagnostic, Open); err != nil {
