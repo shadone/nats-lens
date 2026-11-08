@@ -104,7 +104,7 @@ export function Streams() {
                           <td className="num"><Num v={s.bytes} fmt={fmtBytes} /></td>
                           <td className={`num${short ? " bad" : ""}`}>{cons}</td>
                           <td className="num">
-                            <MiniLine points={s.bytes7d?.points ?? []} level={s.status} label={`${s.entity.stream} bytes`} period="last 7 days" fmt={fmtBytes} />
+                            <MiniLine investigation={{metric:s.bytes7d?.metric,entity:s.entity,evidence:d.epoch!=="0"?[{kind:"collection",id:d.epoch}]:[]}} frame={d.rangeEnd===undefined?undefined:{start:d.rangeEnd-7*24*3600000,end:d.rangeEnd,stepMs:s.bytes7d?.stepMs}} points={s.bytes7d?.points ?? []} level={s.status} label={`${s.entity.stream} bytes`} period="last 7 days" fmt={fmtBytes} />
                           </td>
                           <td className="num" title={s.bytesPerDay === undefined ? missing : undefined}><Num v={s.bytesPerDay} fmt={fmtGrowth} /></td>
                           <td className="mono">{s.findingCodes.join(", ")}</td>
