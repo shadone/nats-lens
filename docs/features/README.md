@@ -81,7 +81,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Triage and mutes](triage-and-mutes.md) | `ui`, `api` | shipped — selected-range Replay context, single-page Findings counts, spaced finding facts and actions, acknowledgements beside mutes, and history-start explanations |
 | [Metrics and alerting](metrics-and-alerting.md) | `api` | shipped — acknowledgement quiet metrics and exclusions |
 | [Running nats-lens](running-nats-lens.md) | `api`, `cli` | shipped — shared IAP identity, fatal database containment and unhealthy readiness |
-| [Agent investigations](agent-investigations.md) | `ui`, `api`, `cli` | partial — portable page/shared-chart context with all available series identities and independent pointer actions and bounded remote reads with entity page limits and effective query links; cross-query collection pinning, local filters, Timeline-mark actions and offline access deferred |
+| [Agent investigations](agent-investigations.md) | `ui`, `api`, `cli` | partial — portable page/shared-chart context with all available series identities and independent pointer actions and bounded remote reads with entity page limits and effective query links and deterministic resource scope; cross-query collection pinning, local filters, Timeline-mark actions and offline access deferred |
 | [SQL access](sql-access.md) | `cli` | shipped — trusted offline tables and bounded, atomic JSON with positional columns, declared clock-family rejection and private configuration diagnostics |
 | [Demo mode](demo-mode.md) | `ui`, `api`, `cli` | shipped — on-call acknowledgement story and per-system history, gaps, retention and archive examples |
 | [Multiple systems and the Fleet view](multiple-systems.md) | `ui`, `api`, `cli` | partial — isolated fatal database failures and readable Fleet strip intervals; a cluster switcher inside a supercluster is planned |
@@ -151,7 +151,7 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [~] History coverage, gap lists, archive state, bounded sample spans with a growth lookback and observed window boundaries and qualified availability, and bounded global and server missing-report chart hatches with omission notices; history loading in a chart's own rows after 300 ms (a steady line at once), one page note on a failed read and one live announcement per page; margins not built (data-history.md)
 
 **Agent access**
-- [~] Portable page and shared-chart context with all available series identities and independent pointer actions, trusted remote profiles, bounded read-only queries with entity page limits and scoped effective-query evidence links; cross-query collection pinning, table-local state, dedicated Timeline marks and offline access deferred (agent-investigations.md)
+- [~] Portable page and shared-chart context with all available series identities and independent pointer actions, trusted remote profiles, bounded read-only queries with entity page limits and scoped effective-query evidence links and deterministic resource scope; cross-query collection pinning, table-local state, dedicated Timeline marks and offline access deferred (agent-investigations.md)
 
 **Operations**
 - [x] Findings with acknowledgement quiet metrics and exclusions, collector health and four notification delivery gauges at `/metrics` for Prometheus alerting (metrics-and-alerting.md)
