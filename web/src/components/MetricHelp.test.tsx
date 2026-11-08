@@ -33,3 +33,11 @@ it("loads authoritative chart help only when requested and shares the catalogue"
   fireEvent.click(screen.getByRole("button",{name:"About Unknown"}));
   expect(screen.getByRole("tooltip")).toHaveTextContent("Metric identity is unavailable");
  });
+
+it("uses the same help control on resource detail charts",async()=>{
+ vi.mocked(lens.listMetrics).mockResolvedValue(create(ListMetricsResponseSchema,{metrics:[{id:"stream.bytes",description:"Bytes stored, from the leader's view; averaged per bucket."}]}));
+ const {SeriesChart}=await import("../charts/SeriesChart");
+ renderApp(<SeriesChart title="Stored bytes" series={{metric:"stream.bytes",unit:"bytes",stepMs:1000,points:[],min:0,max:0}} start={0} end={1000}/>);
+ fireEvent.focus(screen.getByRole("button",{name:"About Stored bytes"}));
+ expect(await screen.findByText(/from the leader's view/)).toBeInTheDocument();
+});
