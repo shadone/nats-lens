@@ -110,7 +110,8 @@ message ObservationSummary {
   google.protobuf.Timestamp first_sample_at = 3;
   // Latest returned metric row, including a NULL value.
   google.protobuf.Timestamp last_sample_at = 4;
-  // Value of the latest metric row; absent if that row is unknown.
+  // Value at the latest metric timestamp; absent if any tied row is unknown
+  // or tied rows disagree. This does not reconstruct missing epoch ordering.
   optional double latest = 5;
   // Arithmetic mean of known per-collection values, not time-weighted.
   optional double mean = 6;

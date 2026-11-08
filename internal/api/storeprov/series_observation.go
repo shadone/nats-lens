@@ -43,8 +43,10 @@ func (p *Provider) observationSummary(ctx context.Context, metric string, e *v1.
 	if m.sum {
 		total = "sum(v)::VARCHAR"
 	}
-	q := `WITH per_epoch AS (` + p.metricQuery(m) + `), selected AS (SELECT * FROM per_epoch WHERE t >= ? AND t < ?)
-SELECT count(*),count(v),min(t),max(t),first(v ORDER BY t DESC)::DOUBLE,avg(v)::DOUBLE,min(v)::DOUBLE,max(v)::DOUBLE,
+	q := `/* observation_summary */ WITH per_epoch AS (` + p.metricQuery(m) + `), selected AS (SELECT * FROM per_epoch WHERE t >= ? AND t < ?),
+observation_latest AS (SELECT CASE WHEN count(v)=count(*) AND min(v)=max(v) THEN max(v)::DOUBLE END AS v
+ FROM selected WHERE t=(SELECT max(t) FROM selected))
+SELECT count(*),count(v),min(t),max(t),(SELECT v FROM observation_latest),avg(v)::DOUBLE,min(v)::DOUBLE,max(v)::DOUBLE,
 first(t ORDER BY v DESC NULLS LAST,t) FILTER (WHERE v IS NOT NULL),` + total + `,` + edges + ` FROM selected`
 	args := append([]any{p.seriesLookback(metric, start), end}, entityArgs(e)...)
 	args = append(args, start, end)
