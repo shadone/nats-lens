@@ -42,3 +42,18 @@ func TestCommandErrorsAreStructured(t *testing.T) {
 		}
 	}
 }
+
+func TestFindingSourceFilterUsesAPIEnum(t *testing.T) {
+	c, _ := ContextFromURL("https://lens.example.com/events?system=shop&src=findings", "https://lens.example.com", fixtureNow())
+	req, unapplied, err := Prepare("ListEvents", c, nil)
+	if err != nil || len(unapplied) > 0 || !strings.Contains(string(req), "EVENT_SOURCE_FINDING") {
+		t.Fatalf("%s %v %v", req, unapplied, err)
+	}
+}
+
+func TestRequestCannotDropFrozenRange(t *testing.T) {
+	c, _ := ContextFromURL("https://lens.example.com/servers/nats-0?system=shop&range=1h", "https://lens.example.com", fixtureNow())
+	if _, _, err := Prepare("GetTimeSeries", c, []byte(`{"metric":"server.cpu_percent","range":null}`)); err == nil {
+		t.Fatal("null range silently restored a live server default")
+	}
+}
