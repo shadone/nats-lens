@@ -20,6 +20,7 @@ import (
 	"connectrpc.com/connect"
 
 	"github.com/shadone/nats-lens/internal/gen/natslens/v1/natslensv1connect"
+	"github.com/shadone/nats-lens/internal/investigation"
 )
 
 // PathPrefix is where the API is mounted: a client's base URL is
@@ -70,6 +71,7 @@ func NewMux(h *Handler, ui fs.FS) http.Handler {
 			return connect.NewError(connect.CodeInternal, errors.New("internal error; see the server log"))
 		}),
 	)
+	mux.Handle(investigation.Path+"/", http.StripPrefix(investigation.Path, investigationHandler(svc)))
 	mux.Handle(PathPrefix+p, http.StripPrefix(PathPrefix, svc))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
