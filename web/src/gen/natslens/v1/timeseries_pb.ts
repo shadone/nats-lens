@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file natslens/v1/timeseries.proto.
  */
 export const file_natslens_v1_timeseries: GenFile = /*@__PURE__*/
-  fileDesc("ChxuYXRzbGVucy92MS90aW1lc2VyaWVzLnByb3RvEgtuYXRzbGVucy52MSJ2CgVQb2ludBIoCgR0aW1lGAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBINCgV2YWx1ZRgCIAEoARIQCgNsb3cYAyABKAFIAIgBARIRCgRoaWdoGAQgASgBSAGIAQFCBgoEX2xvd0IHCgVfaGlnaCLmAgoGU2VyaWVzEg4KBm1ldHJpYxgBIAEoCRImCgZlbnRpdHkYAiABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSHwoEdW5pdBgDIAEoDjIRLm5hdHNsZW5zLnYxLlVuaXQSJwoEc3RlcBgEIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIiCgZwb2ludHMYBSADKAsyEi5uYXRzbGVucy52MS5Qb2ludBIQCgNtaW4YBiABKAFIAIgBARIQCgNtYXgYByABKAFIAYgBARIjCgN0b3AYCCABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSJgoKdG9wX3BvaW50cxgJIAMoCzISLm5hdHNsZW5zLnYxLlBvaW50EjUKDG9ic2VydmF0aW9ucxgKIAEoCzIfLm5hdHNsZW5zLnYxLk9ic2VydmF0aW9uU3VtbWFyeUIGCgRfbWluQgYKBF9tYXgi3gMKEk9ic2VydmF0aW9uU3VtbWFyeRIUCgxzYW1wbGVfY291bnQYASABKAQSEwoLa25vd25fY291bnQYAiABKAQSMwoPZmlyc3Rfc2FtcGxlX2F0GAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIyCg5sYXN0X3NhbXBsZV9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEwoGbGF0ZXN0GAUgASgBSACIAQESEQoEbWVhbhgGIAEoAUgBiAEBEhQKB21pbmltdW0YByABKAFIAogBARIUCgdtYXhpbXVtGAggASgBSAOIAQESLgoKbWF4aW11bV9hdBgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASGwoOb2JzZXJ2ZWRfdG90YWwYCiABKAlIBIgBARIYCgttaW5pbXVtX2xvdxgLIAEoAUgFiAEBEhkKDG1heGltdW1faGlnaBgMIAEoAUgGiAEBQgkKB19sYXRlc3RCBwoFX21lYW5CCgoIX21pbmltdW1CCgoIX21heGltdW1CEQoPX29ic2VydmVkX3RvdGFsQg4KDF9taW5pbXVtX2xvd0IPCg1fbWF4aW11bV9oaWdoIrcBChRHZXRUaW1lU2VyaWVzUmVxdWVzdBIOCgZtZXRyaWMYASABKAkSJgoGZW50aXR5GAIgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEiUKBXJhbmdlGAMgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEhIKCm1heF9wb2ludHMYBCABKAUSDgoGc3lzdGVtGAUgASgJEhwKFGluY2x1ZGVfb2JzZXJ2YXRpb25zGAYgASgIIjwKFUdldFRpbWVTZXJpZXNSZXNwb25zZRIjCgZzZXJpZXMYASABKAsyEy5uYXRzbGVucy52MS5TZXJpZXMifAoKTWV0cmljSW5mbxIKCgJpZBgBIAEoCRIsCgtlbnRpdHlfdHlwZRgCIAEoDjIXLm5hdHNsZW5zLnYxLkVudGl0eVR5cGUSHwoEdW5pdBgDIAEoDjIRLm5hdHNsZW5zLnYxLlVuaXQSEwoLZGVzY3JpcHRpb24YBCABKAkiFAoSTGlzdE1ldHJpY3NSZXF1ZXN0Ij8KE0xpc3RNZXRyaWNzUmVzcG9uc2USKAoHbWV0cmljcxgBIAMoCzIXLm5hdHNsZW5zLnYxLk1ldHJpY0luZm8idwoLU2VyaWVzUXVlcnkSDgoGbWV0cmljGAEgASgJEiYKBmVudGl0eRgCIAEoCzIWLm5hdHNsZW5zLnYxLkVudGl0eVJlZhISCgptYXhfcG9pbnRzGAMgASgFEhwKFGluY2x1ZGVfb2JzZXJ2YXRpb25zGAQgASgIIpEBChlHZXRUaW1lU2VyaWVzQmF0Y2hSZXF1ZXN0EikKB3F1ZXJpZXMYASADKAsyGC5uYXRzbGVucy52MS5TZXJpZXNRdWVyeRIlCgVyYW5nZRgCIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRISCgptYXhfcG9pbnRzGAMgASgFEg4KBnN5c3RlbRgEIAEoCSJCCgxTZXJpZXNSZXN1bHQSIwoGc2VyaWVzGAEgASgLMhMubmF0c2xlbnMudjEuU2VyaWVzEg0KBWVycm9yGAIgASgJIm8KGkdldFRpbWVTZXJpZXNCYXRjaFJlc3BvbnNlEioKB3Jlc3VsdHMYASADKAsyGS5uYXRzbGVucy52MS5TZXJpZXNSZXN1bHQSJQoFcmFuZ2UYAiABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2UqqAEKBFVuaXQSFAoQVU5JVF9VTlNQRUNJRklFRBAAEg4KClVOSVRfQ09VTlQQARIOCgpVTklUX0JZVEVTEAISEwoPVU5JVF9QRVJfU0VDT05EEAMSEAoMVU5JVF9QRVJDRU5UEAQSEAoMVU5JVF9TRUNPTkRTEAUSFgoSVU5JVF9CWVRFU19QRVJfREFZEAYSGQoVVU5JVF9CWVRFU19QRVJfU0VDT05EEAdCQlpAZ2l0aHViLmNvbS9zaGFkb25lL25hdHMtbGVucy9pbnRlcm5hbC9nZW4vbmF0c2xlbnMvdjE7bmF0c2xlbnN2MWIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common]);
+  fileDesc("ChxuYXRzbGVucy92MS90aW1lc2VyaWVzLnByb3RvEgtuYXRzbGVucy52MSJ2CgVQb2ludBIoCgR0aW1lGAEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBINCgV2YWx1ZRgCIAEoARIQCgNsb3cYAyABKAFIAIgBARIRCgRoaWdoGAQgASgBSAGIAQFCBgoEX2xvd0IHCgVfaGlnaCLmAgoGU2VyaWVzEg4KBm1ldHJpYxgBIAEoCRImCgZlbnRpdHkYAiABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSHwoEdW5pdBgDIAEoDjIRLm5hdHNsZW5zLnYxLlVuaXQSJwoEc3RlcBgEIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIiCgZwb2ludHMYBSADKAsyEi5uYXRzbGVucy52MS5Qb2ludBIQCgNtaW4YBiABKAFIAIgBARIQCgNtYXgYByABKAFIAYgBARIjCgN0b3AYCCABKAsyFi5uYXRzbGVucy52MS5FbnRpdHlSZWYSJgoKdG9wX3BvaW50cxgJIAMoCzISLm5hdHNsZW5zLnYxLlBvaW50EjUKDG9ic2VydmF0aW9ucxgKIAEoCzIfLm5hdHNsZW5zLnYxLk9ic2VydmF0aW9uU3VtbWFyeUIGCgRfbWluQgYKBF9tYXgiogQKEk9ic2VydmF0aW9uU3VtbWFyeRIUCgxzYW1wbGVfY291bnQYASABKAQSEwoLa25vd25fY291bnQYAiABKAQSMwoPZmlyc3Rfc2FtcGxlX2F0GAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIyCg5sYXN0X3NhbXBsZV9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEwoGbGF0ZXN0GAUgASgBSACIAQESEQoEbWVhbhgGIAEoAUgBiAEBEhQKB21pbmltdW0YByABKAFIAogBARIUCgdtYXhpbXVtGAggASgBSAOIAQESLgoKbWF4aW11bV9hdBgJIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASGwoOb2JzZXJ2ZWRfdG90YWwYCiABKAlIBIgBARIYCgttaW5pbXVtX2xvdxgLIAEoAUgFiAEBEhkKDG1heGltdW1faGlnaBgMIAEoAUgGiAEBEkIKE2NvdW50ZXJfY29tcGFyaXNvbnMYDSABKAsyJS5uYXRzbGVucy52MS5Db3VudGVyQ29tcGFyaXNvblN1bW1hcnlCCQoHX2xhdGVzdEIHCgVfbWVhbkIKCghfbWluaW11bUIKCghfbWF4aW11bUIRCg9fb2JzZXJ2ZWRfdG90YWxCDgoMX21pbmltdW1fbG93Qg8KDV9tYXhpbXVtX2hpZ2gipAIKGENvdW50ZXJDb21wYXJpc29uU3VtbWFyeRIeChFvYnNlcnZlZF9pbmNyZWFzZRgBIAEoCUgAiAEBEhgKEGNvbXBhcmlzb25fY291bnQYAiABKAQSFwoPc2VydmVyX2lkX2NvdW50GAMgASgEEjUKEWZpcnN0X2NvbXBhcmVkX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBI0ChBsYXN0X2NvbXBhcmVkX2F0GAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIYChBleGNsdWRlZF9yZXBvcnRzGAYgASgEEhgKEGJvdW5kYXJ5X3JlcG9ydHMYByABKARCFAoSX29ic2VydmVkX2luY3JlYXNlIrcBChRHZXRUaW1lU2VyaWVzUmVxdWVzdBIOCgZtZXRyaWMYASABKAkSJgoGZW50aXR5GAIgASgLMhYubmF0c2xlbnMudjEuRW50aXR5UmVmEiUKBXJhbmdlGAMgASgLMhYubmF0c2xlbnMudjEuVGltZVJhbmdlEhIKCm1heF9wb2ludHMYBCABKAUSDgoGc3lzdGVtGAUgASgJEhwKFGluY2x1ZGVfb2JzZXJ2YXRpb25zGAYgASgIIjwKFUdldFRpbWVTZXJpZXNSZXNwb25zZRIjCgZzZXJpZXMYASABKAsyEy5uYXRzbGVucy52MS5TZXJpZXMifAoKTWV0cmljSW5mbxIKCgJpZBgBIAEoCRIsCgtlbnRpdHlfdHlwZRgCIAEoDjIXLm5hdHNsZW5zLnYxLkVudGl0eVR5cGUSHwoEdW5pdBgDIAEoDjIRLm5hdHNsZW5zLnYxLlVuaXQSEwoLZGVzY3JpcHRpb24YBCABKAkiFAoSTGlzdE1ldHJpY3NSZXF1ZXN0Ij8KE0xpc3RNZXRyaWNzUmVzcG9uc2USKAoHbWV0cmljcxgBIAMoCzIXLm5hdHNsZW5zLnYxLk1ldHJpY0luZm8idwoLU2VyaWVzUXVlcnkSDgoGbWV0cmljGAEgASgJEiYKBmVudGl0eRgCIAEoCzIWLm5hdHNsZW5zLnYxLkVudGl0eVJlZhISCgptYXhfcG9pbnRzGAMgASgFEhwKFGluY2x1ZGVfb2JzZXJ2YXRpb25zGAQgASgIIpEBChlHZXRUaW1lU2VyaWVzQmF0Y2hSZXF1ZXN0EikKB3F1ZXJpZXMYASADKAsyGC5uYXRzbGVucy52MS5TZXJpZXNRdWVyeRIlCgVyYW5nZRgCIAEoCzIWLm5hdHNsZW5zLnYxLlRpbWVSYW5nZRISCgptYXhfcG9pbnRzGAMgASgFEg4KBnN5c3RlbRgEIAEoCSJCCgxTZXJpZXNSZXN1bHQSIwoGc2VyaWVzGAEgASgLMhMubmF0c2xlbnMudjEuU2VyaWVzEg0KBWVycm9yGAIgASgJIm8KGkdldFRpbWVTZXJpZXNCYXRjaFJlc3BvbnNlEioKB3Jlc3VsdHMYASADKAsyGS5uYXRzbGVucy52MS5TZXJpZXNSZXN1bHQSJQoFcmFuZ2UYAiABKAsyFi5uYXRzbGVucy52MS5UaW1lUmFuZ2UqqAEKBFVuaXQSFAoQVU5JVF9VTlNQRUNJRklFRBAAEg4KClVOSVRfQ09VTlQQARIOCgpVTklUX0JZVEVTEAISEwoPVU5JVF9QRVJfU0VDT05EEAMSEAoMVU5JVF9QRVJDRU5UEAQSEAoMVU5JVF9TRUNPTkRTEAUSFgoSVU5JVF9CWVRFU19QRVJfREFZEAYSGQoVVU5JVF9CWVRFU19QRVJfU0VDT05EEAdCQlpAZ2l0aHViLmNvbS9zaGFkb25lL25hdHMtbGVucy9pbnRlcm5hbC9nZW4vbmF0c2xlbnMvdjE7bmF0c2xlbnN2MWIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_natslens_v1_common]);
 
 /**
  * One value of a series.
@@ -258,6 +258,14 @@ export type ObservationSummary = Message<"natslens.v1.ObservationSummary"> & {
    * @generated from field: optional double maximum_high = 12;
    */
   maximumHigh?: number | undefined;
+
+  /**
+   * Optional exact counter evidence for supported server traffic rates.
+   * This does not integrate the plotted rates or certify a complete volume.
+   *
+   * @generated from field: natslens.v1.CounterComparisonSummary counter_comparisons = 13;
+   */
+  counterComparisons?: CounterComparisonSummary | undefined;
 };
 
 /**
@@ -266,6 +274,74 @@ export type ObservationSummary = Message<"natslens.v1.ObservationSummary"> & {
  */
 export const ObservationSummarySchema: GenMessage<ObservationSummary> = /*@__PURE__*/
   messageDesc(file_natslens_v1_timeseries, 2);
+
+/**
+ * Counter increases from comparable reports wholly inside the selected range.
+ * Only supplied for cluster/server message and byte traffic rate metrics.
+ *
+ * @generated from message natslens.v1.CounterComparisonSummary
+ */
+export type CounterComparisonSummary = Message<"natslens.v1.CounterComparisonSummary"> & {
+  /**
+   * Exact nonnegative decimal sum. Absent without a comparable pair;
+   * "0" means at least one comparable pair observed no increase.
+   *
+   * @generated from field: optional string observed_increase = 1;
+   */
+  observedIncrease?: string | undefined;
+
+  /**
+   * Comparable report pairs, counted separately for each server ID.
+   *
+   * @generated from field: uint64 comparison_count = 2;
+   */
+  comparisonCount: bigint;
+
+  /**
+   * Distinct stored server IDs contributing pairs, not inferred lifetimes.
+   *
+   * @generated from field: uint64 server_id_count = 3;
+   */
+  serverIdCount: bigint;
+
+  /**
+   * Earliest previous-report timestamp among contributing pairs.
+   *
+   * @generated from field: google.protobuf.Timestamp first_compared_at = 4;
+   */
+  firstComparedAt?: Timestamp | undefined;
+
+  /**
+   * Latest current-report timestamp among contributing pairs.
+   * The envelope is not proof of continuous coverage.
+   *
+   * @generated from field: google.protobuf.Timestamp last_compared_at = 5;
+   */
+  lastComparedAt?: Timestamp | undefined;
+
+  /**
+   * Returned counter rows in the range that cannot contribute: no baseline,
+   * NULL/negative counters, decreases, invalid time, excessive gaps or a pair
+   * crossing the range start. Entirely absent reports cannot be counted here.
+   *
+   * @generated from field: uint64 excluded_reports = 6;
+   */
+  excludedReports: bigint;
+
+  /**
+   * Subset of excluded_reports: otherwise comparable pairs crossing start.
+   *
+   * @generated from field: uint64 boundary_reports = 7;
+   */
+  boundaryReports: bigint;
+};
+
+/**
+ * Describes the message natslens.v1.CounterComparisonSummary.
+ * Use `create(CounterComparisonSummarySchema)` to create a new message.
+ */
+export const CounterComparisonSummarySchema: GenMessage<CounterComparisonSummary> = /*@__PURE__*/
+  messageDesc(file_natslens_v1_timeseries, 3);
 
 /**
  * Request for one metric of one entity.
@@ -333,7 +409,7 @@ export type GetTimeSeriesRequest = Message<"natslens.v1.GetTimeSeriesRequest"> &
  * Use `create(GetTimeSeriesRequestSchema)` to create a new message.
  */
 export const GetTimeSeriesRequestSchema: GenMessage<GetTimeSeriesRequest> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_timeseries, 3);
+  messageDesc(file_natslens_v1_timeseries, 4);
 
 /**
  * One metric of one entity.
@@ -354,7 +430,7 @@ export type GetTimeSeriesResponse = Message<"natslens.v1.GetTimeSeriesResponse">
  * Use `create(GetTimeSeriesResponseSchema)` to create a new message.
  */
 export const GetTimeSeriesResponseSchema: GenMessage<GetTimeSeriesResponse> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_timeseries, 4);
+  messageDesc(file_natslens_v1_timeseries, 5);
 
 /**
  * One metric GetTimeSeries serves.
@@ -396,7 +472,7 @@ export type MetricInfo = Message<"natslens.v1.MetricInfo"> & {
  * Use `create(MetricInfoSchema)` to create a new message.
  */
 export const MetricInfoSchema: GenMessage<MetricInfo> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_timeseries, 5);
+  messageDesc(file_natslens_v1_timeseries, 6);
 
 /**
  * Request for the metrics GetTimeSeries serves.
@@ -411,7 +487,7 @@ export type ListMetricsRequest = Message<"natslens.v1.ListMetricsRequest"> & {
  * Use `create(ListMetricsRequestSchema)` to create a new message.
  */
 export const ListMetricsRequestSchema: GenMessage<ListMetricsRequest> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_timeseries, 6);
+  messageDesc(file_natslens_v1_timeseries, 7);
 
 /**
  * The metrics, ordered by ID.
@@ -432,7 +508,7 @@ export type ListMetricsResponse = Message<"natslens.v1.ListMetricsResponse"> & {
  * Use `create(ListMetricsResponseSchema)` to create a new message.
  */
 export const ListMetricsResponseSchema: GenMessage<ListMetricsResponse> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_timeseries, 7);
+  messageDesc(file_natslens_v1_timeseries, 8);
 
 /**
  * One series of a GetTimeSeriesBatch request.
@@ -476,7 +552,7 @@ export type SeriesQuery = Message<"natslens.v1.SeriesQuery"> & {
  * Use `create(SeriesQuerySchema)` to create a new message.
  */
 export const SeriesQuerySchema: GenMessage<SeriesQuery> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_timeseries, 8);
+  messageDesc(file_natslens_v1_timeseries, 9);
 
 /**
  * Request for several series over one time range.
@@ -526,7 +602,7 @@ export type GetTimeSeriesBatchRequest = Message<"natslens.v1.GetTimeSeriesBatchR
  * Use `create(GetTimeSeriesBatchRequestSchema)` to create a new message.
  */
 export const GetTimeSeriesBatchRequestSchema: GenMessage<GetTimeSeriesBatchRequest> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_timeseries, 9);
+  messageDesc(file_natslens_v1_timeseries, 10);
 
 /**
  * The result of one query of a batch.
@@ -555,7 +631,7 @@ export type SeriesResult = Message<"natslens.v1.SeriesResult"> & {
  * Use `create(SeriesResultSchema)` to create a new message.
  */
 export const SeriesResultSchema: GenMessage<SeriesResult> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_timeseries, 10);
+  messageDesc(file_natslens_v1_timeseries, 11);
 
 /**
  * Several series over one time range.
@@ -583,7 +659,7 @@ export type GetTimeSeriesBatchResponse = Message<"natslens.v1.GetTimeSeriesBatch
  * Use `create(GetTimeSeriesBatchResponseSchema)` to create a new message.
  */
 export const GetTimeSeriesBatchResponseSchema: GenMessage<GetTimeSeriesBatchResponse> = /*@__PURE__*/
-  messageDesc(file_natslens_v1_timeseries, 11);
+  messageDesc(file_natslens_v1_timeseries, 12);
 
 /**
  * Unit of a metric value.

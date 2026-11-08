@@ -21,6 +21,7 @@ type metricSQL struct {
 	query    string
 	sum      bool
 	complete bool
+	counter  *serverCounterMetric
 }
 
 // maxGapToken in a metric query is replaced by the longest gap between
@@ -32,17 +33,32 @@ const maxGapToken = "{max_gap_ms}"
 // partition, so a reset counter never yields a negative rate. After a gap
 // in collection longer than three intervals (a collector restart) the
 // first epoch has no rate, so the increase over the gap is not one sample.
+type serverCounterMetric struct{ column, filter string }
+
+func trafficRate(col, serverFilter string) metricSQL {
+	return metricSQL{query: rate(col, serverFilter), counter: &serverCounterMetric{column: col, filter: serverFilter}}
+}
+
+// counterEvidence is shared by plotted server rates and exact comparison totals.
+// Column and filter fragments come only from the compile-time metric catalogue;
+// all range and entity values remain bound parameters (ASVS 1.2.4).
+func counterEvidence(col, serverFilter string) string {
+	return fmt.Sprintf(`SELECT *, CASE WHEN counter >= 0 AND previous_counter >= 0
+ AND elapsed_ms > 0 AND elapsed_ms <= %[3]s AND counter >= previous_counter
+ THEN counter::HUGEINT - previous_counter::HUGEINT END AS delta
+FROM (SELECT *, date_diff('millisecond', previous_at, t) AS elapsed_ms FROM (
+ SELECT e.epoch, e.started_at AS t, ss.server_id, ss.%[1]s AS counter,
+ lag(ss.%[1]s) OVER w AS previous_counter, lag(e.started_at) OVER w AS previous_at
+ FROM server_stats ss JOIN epochs e USING (epoch) JOIN servers s USING (server_id)
+ WHERE e.started_at >= ? AND e.started_at < ? %[2]s
+ WINDOW w AS (PARTITION BY ss.server_id ORDER BY e.epoch)))`, col, serverFilter, maxGapToken)
+}
+
+const counterRateProjection = `SELECT t, sum(delta * 1000.0 / elapsed_ms) AS v
+ FROM counter_evidence WHERE delta IS NOT NULL GROUP BY epoch,t`
+
 func rate(col, serverFilter string) string {
-	return fmt.Sprintf(`
-SELECT t, sum(r) AS v FROM (
-  SELECT e.epoch, e.started_at AS t,
-    CASE WHEN date_diff('millisecond', lag(e.started_at) OVER w, e.started_at) <= %[3]s THEN
-      (ss.%[1]s - lag(ss.%[1]s) OVER w) * 1000.0
-        / nullif(date_diff('millisecond', lag(e.started_at) OVER w, e.started_at), 0) END AS r
-  FROM server_stats ss JOIN epochs e USING (epoch) JOIN servers s USING (server_id)
-  WHERE e.started_at >= ? AND e.started_at < ? %[2]s
-  WINDOW w AS (PARTITION BY ss.server_id ORDER BY e.epoch))
-WHERE r >= 0 GROUP BY epoch, t`, col, serverFilter, maxGapToken)
+	return `WITH counter_evidence AS (` + counterEvidence(col, serverFilter) + `) ` + counterRateProjection
 }
 
 // metricQuery returns the metric's query with the gap bound filled in.
@@ -87,10 +103,10 @@ GROUP BY e.epoch, e.started_at`},
 	"cluster.servers_up":       {query: `SELECT started_at AS t, observed_servers AS v FROM epochs WHERE started_at >= ? AND started_at < ?`},
 	"cluster.connections":      {query: gauge("connections", "")},
 	"cluster.js_storage_bytes": {query: gauge("js_storage", "")},
-	"cluster.in_msgs_rate":     {query: rate("in_msgs", "")},
-	"cluster.out_msgs_rate":    {query: rate("out_msgs", "")},
-	"cluster.in_bytes_rate":    {query: rate("in_bytes", "")},
-	"cluster.out_bytes_rate":   {query: rate("out_bytes", "")},
+	"cluster.in_msgs_rate":     trafficRate("in_msgs", ""),
+	"cluster.out_msgs_rate":    trafficRate("out_msgs", ""),
+	"cluster.in_bytes_rate":    trafficRate("in_bytes", ""),
+	"cluster.out_bytes_rate":   trafficRate("out_bytes", ""),
 	// The slow consumer counter's increase per epoch: a sum, not a rate.
 	// A restarted process's first epoch has no increase, nor has the first
 	// epoch after a collection gap of more than three intervals, so the
@@ -152,10 +168,10 @@ WHERE delta >= 0 GROUP BY epoch, started_at`},
 	"server.mem_bytes":        {query: gauge("mem_bytes", byServer)},
 	"server.cpu_percent":      {query: gauge("cpu_percent", byServer)},
 	"server.js_storage_bytes": {query: gauge("js_storage", byServer)},
-	"server.in_msgs_rate":     {query: rate("in_msgs", byServer)},
-	"server.out_msgs_rate":    {query: rate("out_msgs", byServer)},
-	"server.in_bytes_rate":    {query: rate("in_bytes", byServer)},
-	"server.out_bytes_rate":   {query: rate("out_bytes", byServer)},
+	"server.in_msgs_rate":     trafficRate("in_msgs", byServer),
+	"server.out_msgs_rate":    trafficRate("out_msgs", byServer),
+	"server.in_bytes_rate":    trafficRate("in_bytes", byServer),
+	"server.out_bytes_rate":   trafficRate("out_bytes", byServer),
 	// The leader's last sequence per epoch, as a per-second increase; a
 	// recreated stream (a lower sequence) has no rate in that epoch, nor
 	// does the first epoch after a collection gap.
