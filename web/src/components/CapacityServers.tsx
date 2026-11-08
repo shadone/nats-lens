@@ -1,6 +1,9 @@
 // The Capacity page's server cards: each server's JetStream file store, how
 // full it is, its growth and when it fills, and the finding that fires for
 // it.
+import { useState } from "react";
+import { CapacityHistoryChart, serverHistoryQuery, useCapacityHistory } from "./CapacityHistory";
+import type { TrendSlice } from "../api/trendBatch";
 import type { ServerStore } from "../api/capacity";
 import { clusterGroups, growthLine, storeFindingText, storeTone, storeUse } from "../lib/capacityView";
 import { fmtInt } from "../lib/format";
@@ -8,7 +11,7 @@ import { findingPath, serverPath } from "../lib/view";
 import { RLink } from "./common";
 import { Sev } from "./Severity";
 
-function ServerCard({ s }: { s: ServerStore }) {
+function ServerCard({ s, history }: { s: ServerStore; history: TrendSlice }) {
   const use = storeUse(s);
   const tone = storeTone(s);
   const growth = s.perDay === undefined && s.reported ? <span title="This server lacks usable observations spanning 6 h">growth unavailable</span> : growthLine(s);
@@ -37,6 +40,7 @@ function ServerCard({ s }: { s: ServerStore }) {
           {growth && <p className="cap-growth">{growth}</p>}
         </>
       )}
+      <CapacityHistoryChart q={history} title={`${s.name} server file-store usage`} />
       {s.findingId && (
         <p className="cap-finding">
           <Sev level={s.findingSeverity ?? "info"} />{" "}
@@ -50,7 +54,12 @@ function ServerCard({ s }: { s: ServerStore }) {
 }
 
 export function ServerCards({ servers, withoutJetstream }: { servers: ServerStore[]; withoutJetstream: number }) {
-  const groups = clusterGroups(servers);
+  const [page, setPage] = useState(0);
+  const offset = Math.min(page, Math.max(0, Math.ceil(servers.length / 24) - 1)) * 24;
+  const shown = servers.slice(offset, offset + 24);
+  const queries = shown.map(s => serverHistoryQuery(s.name));
+  const history = useCapacityHistory(queries);
+  const groups = clusterGroups(shown);
   const named = groups.length > 1;
   return (
     <div className="cap-servers">
@@ -60,11 +69,12 @@ export function ServerCards({ servers, withoutJetstream }: { servers: ServerStor
           {named && <h2 className="cap-cluster">{g.cluster ? `Cluster ${g.cluster}` : "No cluster reported"}</h2>}
           <div className="cap-cards">
             {g.servers.map((s) => (
-              <ServerCard key={s.name} s={s} />
+              <ServerCard key={s.name} s={s} history={history(serverHistoryQuery(s.name))} />
             ))}
           </div>
         </section>
       ))}
+      {servers.length > 24 && <div className="cap-history-pages"><span>Server cards {offset + 1}–{Math.min(offset+24,servers.length)} of {servers.length}. Total history includes all servers.</span><button className="btn" disabled={offset===0} onClick={() => setPage(Math.max(0,page-1))}>Previous servers</button><button className="btn" disabled={offset+24>=servers.length} onClick={() => setPage(page+1)}>Next servers</button></div>}
       {withoutJetstream > 0 && (
         <p className="cap-line">
           {withoutJetstream === 1 ? "1 server" : `${fmtInt(withoutJetstream)} servers`} without JetStream {withoutJetstream === 1 ? "has" : "have"} no card.

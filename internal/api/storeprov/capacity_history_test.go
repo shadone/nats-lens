@@ -14,6 +14,7 @@ func TestCapacityStorageHistory(t *testing.T) {
 	r.server("S0", "nats-0")
 	r.server("S1", "nats-1")
 	r.server("restart", "nats-0")
+	r.add("streams", map[string]any{"account": "APP", "stream": "orders", "first_epoch": 1, "last_epoch": 5})
 	start := t0.Truncate(time.Hour)
 	for n := int64(1); n <= 5; n++ {
 		ids := []string{"S0", "S1"}
