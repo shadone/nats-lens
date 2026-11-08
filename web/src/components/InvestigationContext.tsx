@@ -29,10 +29,11 @@ export function useInvestigationCopy(selection?: InvestigationSelection) {
 type CopyAction = { id: number; scope: string; prompt: string; valid: () => boolean };
 type CopyFeedback = { action: CopyAction; fallback?: string; status?: string };
 
-export function InvestigationButton({ selection }: { selection?: InvestigationSelection }) {
+export function InvestigationButton({ selection, floating=false, label=false }: { selection?: InvestigationSelection; floating?:boolean; label?:boolean }) {
   const copy = useInvestigationCopy(selection);
-  return copy ? <button type="button" className="btn investigation-copy" aria-label="Copy as prompt" title="Copy as prompt" onClick={copy}>
+  return copy ? <button type="button" className={`btn investigation-copy${floating?" investigation-floating":""}${label?" investigation-labelled":""}`} aria-label="Copy as prompt" title="Copy as prompt" onClick={copy}>
     <svg viewBox="0 0 18 18" width="16" height="16" aria-hidden="true"><rect x="6" y="6" width="9" height="10" rx="1" fill="none" stroke="currentColor" /><path d="M4 12H2V2h9v2" fill="none" stroke="currentColor" /></svg>
+    {label && <span>Copy as prompt</span>}
   </button> : null;
 }
 

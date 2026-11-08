@@ -83,5 +83,9 @@
 .investigation-status{position:fixed;bottom:var(--sp-4);right:var(--sp-4);z-index:30;padding:var(--sp-2) var(--sp-3);border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--text);font-size:var(--fs-sm)}
 .investigation-field { display:grid; gap:var(--sp-2); margin-block:var(--sp-3); }
 .investigation-field textarea { width:100%; max-width:100%; box-sizing:border-box; font-size:var(--fs-sm); }
-.chart-inspection-wrap{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:var(--sp-1);min-width:0}
-.chart-inspection-wrap:not(:has(> .investigation-copy)){grid-template-columns:minmax(0,1fr)}
+.chart-inspection-wrap{position:relative;min-width:0}
+.investigation-copy.investigation-floating{position:absolute;right:var(--sp-1);top:var(--sp-1);z-index:3;opacity:0;pointer-events:none}
+.chart-inspection-wrap:hover > .investigation-floating,.chart-inspection-wrap:focus-within > .investigation-floating,.investigation-action-host:hover .investigation-floating,.investigation-action-host:focus-within .investigation-floating,.investigation-floating:focus-visible{opacity:1;pointer-events:auto}
+@media (hover:none),(pointer:coarse){.investigation-copy.investigation-floating{opacity:1;pointer-events:auto}}
+.investigation-copy.investigation-labelled{width:auto;gap:var(--sp-2);max-width:100%;font-size:var(--fs-sm);white-space:normal}
+.bc-consumer{position:relative}
