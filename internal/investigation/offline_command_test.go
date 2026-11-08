@@ -68,3 +68,28 @@ func TestOfflineContextAcceptsInertUIOrigin(t *testing.T) {
 		}
 	}
 }
+
+func TestRequestedAndResolvedBoundsStaySeparate(t *testing.T) {
+	source := new(frozenSource)
+	opener := func(context.Context, OfflineSelection) (*Session, error) { return &Session{Source: source}, nil }
+	var out, diagnostic bytes.Buffer
+	args := []string{"query", "GetOverview", "-bundle", "fixture", "-url", "https://lens.example.com/?system=shop&range=1h", "-from", "2026-10-17T14:00:00Z", "-to", "2026-10-17T14:20:00Z"}
+	if err := RunWithOffline(context.Background(), args, strings.NewReader(""), &out, &diagnostic, opener); err != nil {
+		t.Fatalf("%v %s", err, out.String())
+	}
+	var result struct {
+		Bounds struct {
+			Requested struct {
+				URLRange string `json:"urlRange"`
+				Context  Bounds `json:"context"`
+			} `json:"requested"`
+			Resolved Bounds `json:"resolved"`
+		} `json:"bounds"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Bounds.Requested.URLRange != "1h" || result.Bounds.Requested.Context.End != "2026-10-17T14:30:00Z" || result.Bounds.Resolved.End != "2026-10-17T14:20:00Z" {
+		t.Fatalf("requested bounds lost: %s", out.String())
+	}
+}
