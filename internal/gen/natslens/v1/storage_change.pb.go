@@ -23,6 +23,56 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Presentation order applies to the complete bounded ranking before paging.
+type StorageChangeOrder int32
+
+const (
+	StorageChangeOrder_STORAGE_CHANGE_ORDER_UNSPECIFIED        StorageChangeOrder = 0 // Absolute change descending.
+	StorageChangeOrder_STORAGE_CHANGE_ORDER_LOGICAL_ASCENDING  StorageChangeOrder = 1
+	StorageChangeOrder_STORAGE_CHANGE_ORDER_LOGICAL_DESCENDING StorageChangeOrder = 2
+)
+
+// Enum value maps for StorageChangeOrder.
+var (
+	StorageChangeOrder_name = map[int32]string{
+		0: "STORAGE_CHANGE_ORDER_UNSPECIFIED",
+		1: "STORAGE_CHANGE_ORDER_LOGICAL_ASCENDING",
+		2: "STORAGE_CHANGE_ORDER_LOGICAL_DESCENDING",
+	}
+	StorageChangeOrder_value = map[string]int32{
+		"STORAGE_CHANGE_ORDER_UNSPECIFIED":        0,
+		"STORAGE_CHANGE_ORDER_LOGICAL_ASCENDING":  1,
+		"STORAGE_CHANGE_ORDER_LOGICAL_DESCENDING": 2,
+	}
+)
+
+func (x StorageChangeOrder) Enum() *StorageChangeOrder {
+	p := new(StorageChangeOrder)
+	*p = x
+	return p
+}
+
+func (x StorageChangeOrder) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (StorageChangeOrder) Descriptor() protoreflect.EnumDescriptor {
+	return file_natslens_v1_storage_change_proto_enumTypes[0].Descriptor()
+}
+
+func (StorageChangeOrder) Type() protoreflect.EnumType {
+	return &file_natslens_v1_storage_change_proto_enumTypes[0]
+}
+
+func (x StorageChangeOrder) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use StorageChangeOrder.Descriptor instead.
+func (StorageChangeOrder) EnumDescriptor() ([]byte, []int) {
+	return file_natslens_v1_storage_change_proto_rawDescGZIP(), []int{0}
+}
+
 // Compare retained storage observations without inferring causation.
 type GetStorageChangeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -41,7 +91,13 @@ type GetStorageChangeRequest struct {
 	// At most 100 rows; zero selects 100.
 	PageSize int32 `protobuf:"varint,7,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	// Opaque continuation for the same scoped comparison and pinned evidence.
-	PageToken     string `protobuf:"bytes,8,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	PageToken string `protobuf:"bytes,8,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	// Unknown deltas remain last for every order; stable identity breaks ties.
+	Order StorageChangeOrder `protobuf:"varint,9,opt,name=order,proto3,enum=natslens.v1.StorageChangeOrder" json:"order,omitempty"`
+	// Filter displayed rows only; totals retain every resource type in scope.
+	ResourceKind CapacityStreamKind `protobuf:"varint,10,opt,name=resource_kind,json=resourceKind,proto3,enum=natslens.v1.CapacityStreamKind" json:"resource_kind,omitempty"`
+	// Omit server rows from the displayed ranking, retaining server totals.
+	ResourcesOnly bool `protobuf:"varint,11,opt,name=resources_only,json=resourcesOnly,proto3" json:"resources_only,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -130,6 +186,27 @@ func (x *GetStorageChangeRequest) GetPageToken() string {
 		return x.PageToken
 	}
 	return ""
+}
+
+func (x *GetStorageChangeRequest) GetOrder() StorageChangeOrder {
+	if x != nil {
+		return x.Order
+	}
+	return StorageChangeOrder_STORAGE_CHANGE_ORDER_UNSPECIFIED
+}
+
+func (x *GetStorageChangeRequest) GetResourceKind() CapacityStreamKind {
+	if x != nil {
+		return x.ResourceKind
+	}
+	return CapacityStreamKind_CAPACITY_STREAM_KIND_UNSPECIFIED
+}
+
+func (x *GetStorageChangeRequest) GetResourcesOnly() bool {
+	if x != nil {
+		return x.ResourcesOnly
+	}
+	return false
 }
 
 // One resolved collection window, not an interpolated instantaneous reading.
@@ -749,7 +826,7 @@ var File_natslens_v1_storage_change_proto protoreflect.FileDescriptor
 
 const file_natslens_v1_storage_change_proto_rawDesc = "" +
 	"\n" +
-	" natslens/v1/storage_change.proto\x12\vnatslens.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1anatslens/v1/capacity.proto\"\x8d\x02\n" +
+	" natslens/v1/storage_change.proto\x12\vnatslens.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1anatslens/v1/capacity.proto\"\xb1\x03\n" +
 	"\x17GetStorageChangeRequest\x12\x16\n" +
 	"\x06system\x18\x01 \x01(\tR\x06system\x12\x18\n" +
 	"\aaccount\x18\x02 \x01(\tR\aaccount\x12(\n" +
@@ -759,7 +836,11 @@ const file_natslens_v1_storage_change_proto_rawDesc = "" +
 	"\aepoch_b\x18\x06 \x01(\x03R\x06epochB\x12\x1b\n" +
 	"\tpage_size\x18\a \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\b \x01(\tR\tpageToken\"\xd5\x02\n" +
+	"page_token\x18\b \x01(\tR\tpageToken\x125\n" +
+	"\x05order\x18\t \x01(\x0e2\x1f.natslens.v1.StorageChangeOrderR\x05order\x12D\n" +
+	"\rresource_kind\x18\n" +
+	" \x01(\x0e2\x1f.natslens.v1.CapacityStreamKindR\fresourceKind\x12%\n" +
+	"\x0eresources_only\x18\v \x01(\bR\rresourcesOnly\"\xd5\x02\n" +
 	"\x15StorageChangeEndpoint\x128\n" +
 	"\trequested\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\trequested\x12\x14\n" +
 	"\x05epoch\x18\x02 \x01(\x03R\x05epoch\x129\n" +
@@ -828,7 +909,11 @@ const file_natslens_v1_storage_change_proto_rawDesc = "" +
 	"\areasons\x18\n" +
 	" \x03(\tR\areasons\x12\x16\n" +
 	"\x06system\x18\v \x01(\tR\x06system\x12\x18\n" +
-	"\aaccount\x18\f \x01(\tR\aaccountBBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
+	"\aaccount\x18\f \x01(\tR\aaccount*\x93\x01\n" +
+	"\x12StorageChangeOrder\x12$\n" +
+	" STORAGE_CHANGE_ORDER_UNSPECIFIED\x10\x00\x12*\n" +
+	"&STORAGE_CHANGE_ORDER_LOGICAL_ASCENDING\x10\x01\x12+\n" +
+	"'STORAGE_CHANGE_ORDER_LOGICAL_DESCENDING\x10\x02BBZ@github.com/shadone/nats-lens/internal/gen/natslens/v1;natslensv1b\x06proto3"
 
 var (
 	file_natslens_v1_storage_change_proto_rawDescOnce sync.Once
@@ -842,44 +927,48 @@ func file_natslens_v1_storage_change_proto_rawDescGZIP() []byte {
 	return file_natslens_v1_storage_change_proto_rawDescData
 }
 
+var file_natslens_v1_storage_change_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_natslens_v1_storage_change_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_natslens_v1_storage_change_proto_goTypes = []any{
-	(*GetStorageChangeRequest)(nil),  // 0: natslens.v1.GetStorageChangeRequest
-	(*StorageChangeEndpoint)(nil),    // 1: natslens.v1.StorageChangeEndpoint
-	(*StorageChangeBytes)(nil),       // 2: natslens.v1.StorageChangeBytes
-	(*StorageChangeRow)(nil),         // 3: natslens.v1.StorageChangeRow
-	(*StorageChangeTotals)(nil),      // 4: natslens.v1.StorageChangeTotals
-	(*GetStorageChangeResponse)(nil), // 5: natslens.v1.GetStorageChangeResponse
-	(*timestamppb.Timestamp)(nil),    // 6: google.protobuf.Timestamp
-	(*durationpb.Duration)(nil),      // 7: google.protobuf.Duration
+	(StorageChangeOrder)(0),          // 0: natslens.v1.StorageChangeOrder
+	(*GetStorageChangeRequest)(nil),  // 1: natslens.v1.GetStorageChangeRequest
+	(*StorageChangeEndpoint)(nil),    // 2: natslens.v1.StorageChangeEndpoint
+	(*StorageChangeBytes)(nil),       // 3: natslens.v1.StorageChangeBytes
+	(*StorageChangeRow)(nil),         // 4: natslens.v1.StorageChangeRow
+	(*StorageChangeTotals)(nil),      // 5: natslens.v1.StorageChangeTotals
+	(*GetStorageChangeResponse)(nil), // 6: natslens.v1.GetStorageChangeResponse
+	(*timestamppb.Timestamp)(nil),    // 7: google.protobuf.Timestamp
 	(CapacityStreamKind)(0),          // 8: natslens.v1.CapacityStreamKind
+	(*durationpb.Duration)(nil),      // 9: google.protobuf.Duration
 }
 var file_natslens_v1_storage_change_proto_depIdxs = []int32{
-	6,  // 0: natslens.v1.GetStorageChangeRequest.a:type_name -> google.protobuf.Timestamp
-	6,  // 1: natslens.v1.GetStorageChangeRequest.b:type_name -> google.protobuf.Timestamp
-	6,  // 2: natslens.v1.StorageChangeEndpoint.requested:type_name -> google.protobuf.Timestamp
-	6,  // 3: natslens.v1.StorageChangeEndpoint.started_at:type_name -> google.protobuf.Timestamp
-	6,  // 4: natslens.v1.StorageChangeEndpoint.finished_at:type_name -> google.protobuf.Timestamp
-	7,  // 5: natslens.v1.StorageChangeEndpoint.age:type_name -> google.protobuf.Duration
-	8,  // 6: natslens.v1.StorageChangeRow.kind:type_name -> natslens.v1.CapacityStreamKind
-	6,  // 7: natslens.v1.StorageChangeRow.created:type_name -> google.protobuf.Timestamp
-	2,  // 8: natslens.v1.StorageChangeRow.before:type_name -> natslens.v1.StorageChangeBytes
-	2,  // 9: natslens.v1.StorageChangeRow.after:type_name -> natslens.v1.StorageChangeBytes
-	2,  // 10: natslens.v1.StorageChangeRow.delta:type_name -> natslens.v1.StorageChangeBytes
-	2,  // 11: natslens.v1.StorageChangeTotals.before:type_name -> natslens.v1.StorageChangeBytes
-	2,  // 12: natslens.v1.StorageChangeTotals.after:type_name -> natslens.v1.StorageChangeBytes
-	2,  // 13: natslens.v1.StorageChangeTotals.delta:type_name -> natslens.v1.StorageChangeBytes
-	2,  // 14: natslens.v1.StorageChangeTotals.known_contributions:type_name -> natslens.v1.StorageChangeBytes
-	2,  // 15: natslens.v1.StorageChangeTotals.omitted_contributions:type_name -> natslens.v1.StorageChangeBytes
-	1,  // 16: natslens.v1.GetStorageChangeResponse.a:type_name -> natslens.v1.StorageChangeEndpoint
-	1,  // 17: natslens.v1.GetStorageChangeResponse.b:type_name -> natslens.v1.StorageChangeEndpoint
-	3,  // 18: natslens.v1.GetStorageChangeResponse.rows:type_name -> natslens.v1.StorageChangeRow
-	4,  // 19: natslens.v1.GetStorageChangeResponse.totals:type_name -> natslens.v1.StorageChangeTotals
-	20, // [20:20] is the sub-list for method output_type
-	20, // [20:20] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	7,  // 0: natslens.v1.GetStorageChangeRequest.a:type_name -> google.protobuf.Timestamp
+	7,  // 1: natslens.v1.GetStorageChangeRequest.b:type_name -> google.protobuf.Timestamp
+	0,  // 2: natslens.v1.GetStorageChangeRequest.order:type_name -> natslens.v1.StorageChangeOrder
+	8,  // 3: natslens.v1.GetStorageChangeRequest.resource_kind:type_name -> natslens.v1.CapacityStreamKind
+	7,  // 4: natslens.v1.StorageChangeEndpoint.requested:type_name -> google.protobuf.Timestamp
+	7,  // 5: natslens.v1.StorageChangeEndpoint.started_at:type_name -> google.protobuf.Timestamp
+	7,  // 6: natslens.v1.StorageChangeEndpoint.finished_at:type_name -> google.protobuf.Timestamp
+	9,  // 7: natslens.v1.StorageChangeEndpoint.age:type_name -> google.protobuf.Duration
+	8,  // 8: natslens.v1.StorageChangeRow.kind:type_name -> natslens.v1.CapacityStreamKind
+	7,  // 9: natslens.v1.StorageChangeRow.created:type_name -> google.protobuf.Timestamp
+	3,  // 10: natslens.v1.StorageChangeRow.before:type_name -> natslens.v1.StorageChangeBytes
+	3,  // 11: natslens.v1.StorageChangeRow.after:type_name -> natslens.v1.StorageChangeBytes
+	3,  // 12: natslens.v1.StorageChangeRow.delta:type_name -> natslens.v1.StorageChangeBytes
+	3,  // 13: natslens.v1.StorageChangeTotals.before:type_name -> natslens.v1.StorageChangeBytes
+	3,  // 14: natslens.v1.StorageChangeTotals.after:type_name -> natslens.v1.StorageChangeBytes
+	3,  // 15: natslens.v1.StorageChangeTotals.delta:type_name -> natslens.v1.StorageChangeBytes
+	3,  // 16: natslens.v1.StorageChangeTotals.known_contributions:type_name -> natslens.v1.StorageChangeBytes
+	3,  // 17: natslens.v1.StorageChangeTotals.omitted_contributions:type_name -> natslens.v1.StorageChangeBytes
+	2,  // 18: natslens.v1.GetStorageChangeResponse.a:type_name -> natslens.v1.StorageChangeEndpoint
+	2,  // 19: natslens.v1.GetStorageChangeResponse.b:type_name -> natslens.v1.StorageChangeEndpoint
+	4,  // 20: natslens.v1.GetStorageChangeResponse.rows:type_name -> natslens.v1.StorageChangeRow
+	5,  // 21: natslens.v1.GetStorageChangeResponse.totals:type_name -> natslens.v1.StorageChangeTotals
+	22, // [22:22] is the sub-list for method output_type
+	22, // [22:22] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_natslens_v1_storage_change_proto_init() }
@@ -896,13 +985,14 @@ func file_natslens_v1_storage_change_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_natslens_v1_storage_change_proto_rawDesc), len(file_natslens_v1_storage_change_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_natslens_v1_storage_change_proto_goTypes,
 		DependencyIndexes: file_natslens_v1_storage_change_proto_depIdxs,
+		EnumInfos:         file_natslens_v1_storage_change_proto_enumTypes,
 		MessageInfos:      file_natslens_v1_storage_change_proto_msgTypes,
 	}.Build()
 	File_natslens_v1_storage_change_proto = out.File
