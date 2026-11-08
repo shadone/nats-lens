@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -66,9 +67,7 @@ func Open(ctx context.Context, path string) (*Dataset, error) {
 		return nil, ErrInvalid
 	}
 	defer root.Close()
-	entries, err := root.FS().(interface {
-		ReadDir(string) ([]os.DirEntry, error)
-	}).ReadDir(".")
+	entries, err := fs.ReadDir(root.FS(), ".")
 	if err != nil {
 		return nil, ErrInvalid
 	}
@@ -114,6 +113,11 @@ func Open(ctx context.Context, path string) (*Dataset, error) {
 	data, err := root.Open(DataFile)
 	if err != nil {
 		return nil, ErrInvalid
+	}
+	info, statErr := data.Stat()
+	if statErr != nil || info.Size() != m.Data.Size {
+		data.Close()
+		return nil, ErrIntegrity
 	}
 	sum, size, err := digest(ctx, data)
 	data.Close()
