@@ -59,7 +59,7 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 		ObservationServerID string            `json:"observationServerId"`
 		ObservationEpoch    string            `json:"observationEpoch"`
 	}
-	if err := json.Unmarshal(canonical, &r); err != nil {
+	if err := json.Unmarshal(enumProjectionJSON(md.Input(), canonical), &r); err != nil {
 		return nil, nil, errors.New("unsupported effective request scope")
 	}
 	c := *original
@@ -106,6 +106,9 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 		c.Entity = &Entity{Type: "ENTITY_TYPE_SERVER", Key: r.Server, Server: r.Server}
 	}
 	limitations := []string{}
+	if !knownContextEntity(c.Entity) {
+		c.Entity = nil
+	}
 	switch method {
 	case "ListStreams":
 		if r.Account != "" {
@@ -261,36 +264,6 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 	if r.Server != "" && (method == "ListConnections" || method == "GetSlowConsumerInvestigation") {
 		c.Filters["server"] = r.Server
 	}
-	// Pagination, point budgets and other options remain exact in request. A
-	// page link cannot replay a cursor or reproduce options without UI controls.
-	represented := map[string]bool{}
-	for _, n := range strings.Fields("system account range a b metric name id finding_id stream consumer page_size limit max_points include_tooling name_contains observation_server_id observation_epoch") {
-		represented[n] = true
-	}
-	switch method {
-	case "ListStreams":
-		represented["include_kv"] = true
-	case "ListConsumers":
-		represented["include_ephemeral"] = true
-	case "ListEvents":
-		for _, n := range strings.Fields("entity sources kinds client_name hide_routine fold_repeats") {
-			represented[n] = true
-		}
-	case "ListFindings":
-		for _, n := range strings.Fields("check_code states severities include_muted") {
-			represented[n] = true
-		}
-	case "GetTimeSeries":
-		represented["entity"] = true
-	case "ListConnections", "GetSlowConsumerInvestigation":
-		represented["server"] = true
-	}
-	for i := 0; i < fields.Len(); i++ {
-		f := fields.Get(i)
-		if msg.Has(f) && !represented[string(f.Name())] {
-			limitations = append(limitations, "UI link does not reproduce request option "+f.JSONName()+"; inspect exact request")
-		}
-	}
 
 	if method == "GetTimeSeries" || method == "GetTimeSeriesBatch" {
 		refs := r.Queries
@@ -299,6 +272,10 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 		}
 		matched := 0
 		for _, ref := range refs {
+			if !knownContextEntity(ref.Entity) {
+				ref.Entity = nil
+				limitations = append(limitations, "Series entity kind cannot be projected into the UI")
+			}
 			ref.Label = ref.Metric
 			for _, before := range original.Series {
 				if sameSeries(ref, before) {
@@ -313,6 +290,7 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 			c.ChartLabel = original.ChartLabel
 		}
 	}
+	limitations = append(limitations, proveUILinkScope(method, msg.ProtoReflect(), &c)...)
 	c.keepPointWithinRange()
 	if encoded, err := json.Marshal(&c); err != nil || len(encoded) > MaxInputBytes {
 		return nil, nil, errors.New("effective context exceeds 64 KiB portable input budget; narrow the request")
@@ -342,7 +320,7 @@ func entityFilter(c *Context) {
 	}
 	switch c.Entity.Type {
 	case "ENTITY_TYPE_SERVER":
-		c.Filters["server"] = c.Entity.Server
+		c.Filters["server"] = c.Entity.Key
 	case "ENTITY_TYPE_STREAM":
 		c.Filters["stream"] = c.Entity.Key
 	case "ENTITY_TYPE_CONSUMER":
