@@ -16,7 +16,7 @@ build-full: web/node_modules/.package-lock.json
 build-go:
 	go build -o $(BIN) ./cmd/natslens
 
-# npm ci runs only when the lockfile is newer than the installed tree.
+# npm ci runs when package/lock/config inputs are newer than the installed marker.
 web/node_modules/.package-lock.json: web/package.json web/package-lock.json web/.npmrc
 	cd web && npm ci --no-audit --no-fund
 

@@ -10,6 +10,8 @@ nats-lens is one binary, `natslens`, with the web UI built in. `natslens run` co
 
 ## Behavior and rules
 
+- **Build artifacts.** `make build` verifies frontend inputs and output bytes, rebuilding assets only when necessary, then embeds them while holding the asset lock. `make build-full` forces generation. `make build-go` skips freshness checks and embeds existing assets, or the placeholder when assets are absent. Dependency/configuration/generated changes and missing outputs invalidate reuse. See [build guarantees and container-validation limits](../operations/build-reuse.md).
+
 - **Remote investigation.** `natslens investigate` uses configured API profiles without opening a database or connecting to NATS. Its separate read-only route needs the existing authenticated access perimeter and a restricted proxy policy for least privilege ([agent-investigations.md](agent-investigations.md)).
 - **Commands.** `natslens run` (also `natslens` alone) runs until SIGTERM or SIGINT. `natslens once` stores one collection of every system, or of the one `-system ID` names, runs the checks on it and exits, without events, archive or API. `natslens sql`, `natslens checks` and `natslens demo` are described in [sql-access.md](sql-access.md), [checks.md](checks.md) and [demo-mode.md](demo-mode.md).
 - **Test notifications.** `natslens notify test` reads the configured channels and sends test messages without opening a database or connecting to NATS ([notifications.md](notifications.md)). Only `run` schedules finding delivery; `once`, `checks run` and `demo` send no finding notifications.
