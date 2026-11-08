@@ -306,6 +306,10 @@ func ContextFromURL(raw, trusted string, now time.Time) (*Context, error) {
 		c.Filters["show"] = "worth"
 	}
 	c.infer(u.EscapedPath(), q)
+	// A compound selected resource names its own account, as in the UI.
+	if c.Entity != nil && c.Entity.Account != "" {
+		c.Account = c.Entity.Account
+	}
 	if err = c.Validate(trusted); err != nil {
 		return nil, err
 	}
