@@ -24,6 +24,10 @@ func sqlFixture(t *testing.T) string {
 	if err = db.Close(); err != nil {
 		t.Fatal(err)
 	}
+	p, err = filepath.EvalSymlinks(p)
+	if err != nil {
+		t.Fatal(err)
+	}
 	return p
 }
 
