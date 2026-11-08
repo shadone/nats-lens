@@ -8,6 +8,15 @@ import (
 
 // microRefusalEvidence validates the evidence before interpreting absent events.
 func microRefusalEvidence(epochs, refused, held, unwanted int) error {
+	if epochs < 2 {
+		return fmt.Errorf("only %d epochs: want repeated collection", epochs)
+	}
+	if refused == 0 {
+		return fmt.Errorf("no $SRV permission refusals recorded")
+	}
+	if held == 0 {
+		return fmt.Errorf("no held $SRV requests after refusal")
+	}
 	if unwanted > 0 {
 		return fmt.Errorf("%d collector.subscription_error events for refused $SRV requests", unwanted)
 	}
@@ -34,7 +43,7 @@ func TestMicroRefusalEvidence(t *testing.T) {
 					t.Fatal(err)
 				}
 			} else if err == nil || !strings.Contains(err.Error(), tc.want) {
-				t.Fatalf("evidence (%d epochs, %d refused epochs, %d unwanted): got %v, want %q", tc.epochs, tc.refused, tc.unwanted, err, tc.want)
+				t.Fatalf("evidence (%d epochs, %d refusals, %d held, %d unwanted): got %v, want %q", tc.epochs, tc.refused, tc.held, tc.unwanted, err, tc.want)
 			}
 		})
 	}
