@@ -110,7 +110,7 @@ func (sc *scenario) value(metric string, e *v1.EntityRef, c time.Time) (float64,
 // edges the lowest and highest sample in it; the series' min and max are
 // the edges'. The server with the highest mean over the range comes with
 // its own averaged series, which lies inside the band.
-func (s scen) bandSeries(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints int32) *v1.Series {
+func (s scen) bandSeries(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoints int32, observationGrid ...bool) *v1.Series {
 	perServer := bandOf[metric]
 	step := api.Step(r, maxPoints, sampleEvery)
 	out := &v1.Series{Metric: metric, Entity: e, Unit: api.Metrics[metric].Unit, Step: dur(step)}
@@ -125,7 +125,7 @@ func (s scen) bandSeries(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoi
 		}
 		med, lo, hi := 0.0, math.Inf(1), math.Inf(-1)
 		n := 0
-		for x := t; x.Before(earliest(b.Add(step), end)); x = x.Add(sampleEvery) {
+		for x := observationSampleStart(t, observationGrid); x.Before(earliest(b.Add(step), end)); x = x.Add(sampleEvery) {
 			var vs []float64
 			for _, sp := range s.sc.servers {
 				if v, ok := s.sc.value(perServer, serverRef(sp.name), s.clock(x)); ok {
@@ -165,7 +165,7 @@ func (s scen) bandSeries(metric string, e *v1.EntityRef, r *v1.TimeRange, maxPoi
 	}
 	if top != "" {
 		out.Top = serverRef(top)
-		out.TopPoints = s.series(perServer, out.Top, r, maxPoints).GetPoints()
+		out.TopPoints = s.series(perServer, out.Top, r, maxPoints, observationGrid...).GetPoints()
 	}
 	return out
 }
