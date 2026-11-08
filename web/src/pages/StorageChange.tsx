@@ -4,7 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { lens } from "../api/client";
-import type { StorageChangeBytes, StorageChangeRow } from "../gen/natslens/v1/storage_change_pb";
+import {StorageChangeOrder,type StorageChangeBytes,type StorageChangeRow} from "../gen/natslens/v1/storage_change_pb";
+import {CapacityStreamKind} from "../gen/natslens/v1/capacity_pb";
 import { QueryView, Section } from "../components/common";
 import {useTimeRange} from "../lib/useTimeRange";
 import {resolveRange} from "../lib/timeRange";
@@ -37,7 +38,10 @@ function PinnedStorageChange() {
   const [params, setParams] = useSearchParams();
   const account = params.get("account") ?? "", from = params.get("from") ?? "", to = params.get("to") ?? "";
   const epochA = params.get("epochA"), epochB = params.get("epochB");
-  const scope = [system, account, from, to, epochA, epochB].join("|");
+  const order=params.get("change")==="asc"?StorageChangeOrder.LOGICAL_ASCENDING:params.get("change")==="desc"?StorageChangeOrder.LOGICAL_DESCENDING:StorageChangeOrder.UNSPECIFIED;
+  const resourceKind=params.get("resource")==="kv"?CapacityStreamKind.KEY_VALUE:params.get("resource")==="object"?CapacityStreamKind.OBJECT_STORE:params.get("resource")==="stream"?CapacityStreamKind.STREAM:CapacityStreamKind.UNSPECIFIED;
+  const resourcesOnly=params.get("contributors")==="1";
+  const scope = [system, account, from, to, epochA, epochB,order,resourceKind,resourcesOnly].join("|");
   const [paging, setPaging] = useState({ scope, token: "", previous: [] as string[], offset: 0 });
   const page = paging.scope === scope ? paging : { scope, token: "", previous: [] as string[], offset: 0 };
   let problem: string | undefined;
@@ -45,7 +49,7 @@ function PinnedStorageChange() {
   try {
     const a = fromJson(TimestampSchema, from), b = fromJson(TimestampSchema, to);
     if (a.seconds > b.seconds || a.seconds === b.seconds && a.nanos >= b.nanos) throw new Error("The comparison needs an increasing interval.");
-    request = { system, account, a, b, epochA: pin(epochA), epochB: pin(epochB), pageSize: 100, pageToken: page.token };
+    request = { system, account, a, b, epochA: pin(epochA), epochB: pin(epochB), pageSize: 100, pageToken: page.token,order,resourceKind,resourcesOnly };
   } catch (e) { problem = e instanceof Error ? e.message : "The comparison link is invalid."; }
   const q = useQuery({ queryKey: ["storage-change", scope, page.token], enabled: !!request, queryFn: ({ signal }) => lens.getStorageChange(request!, { signal }), staleTime: Infinity });
   const data = q.data;
@@ -55,10 +59,10 @@ function PinnedStorageChange() {
   const normalizing=!!data && (resolvedSystem!==system || resolvedA!==epochA || resolvedB!==epochB);
   useEffect(() => {
     if (!data || !normalizing) return;
-    const pinnedScope = [resolvedSystem, account, from, to, resolvedA, resolvedB].join("|");
+    const pinnedScope = [resolvedSystem, account, from, to, resolvedA, resolvedB,order,resourceKind,resourcesOnly].join("|");
     queryClient.setQueryData(["storage-change", pinnedScope, ""], data);
     setParams(p => { const n = new URLSearchParams(p); if(resolvedSystem)n.set("system",resolvedSystem); if(resolvedA)n.set("epochA",resolvedA); if(resolvedB)n.set("epochB",resolvedB); return n; }, { replace: true });
-  }, [data, normalizing, resolvedSystem, resolvedA, resolvedB, setParams, account, from, to, queryClient]);
+  }, [data, normalizing, resolvedSystem, resolvedA, resolvedB, setParams, account, from, to, order,resourceKind,resourcesOnly,queryClient]);
   const path = (target: string, id?: string) => {
     const n = new URLSearchParams({ system, account, from, to }); if (id) n.set("id", id); return `${target}?${n}`;
   };
@@ -75,7 +79,7 @@ function PinnedStorageChange() {
       {d.totals.map(t => <Section title={`${t.storage === "memory" ? "Memory" : "File"} storage change`} key={t.storage}>
         <dl className="kv"><dt>Complete logical change</dt><dd>{bytes(t.delta?.logical, true)}</dd><dt>Complete observed-copy change</dt><dd>{bytes(t.delta?.observedReplicas, true)}</dd><dt>Server usage change</dt><dd>{bytes(t.delta?.serverReported, true)}</dd><dt>Known resource contributions</dt><dd>{bytes(t.knownContributions?.logical, true)} logical · {bytes(t.knownContributions?.observedReplicas, true)} observed copies</dd><dt>Unknown resource rows</dt><dd>{t.unknownRows}</dd><dt>Outside this page</dt><dd>{bytes(t.omittedContributions?.logical, true)} logical</dd><dt>Unreconciled difference</dt><dd>{bytes(t.unreconciled, true)} · server usage minus observed-copy change; not physical accounting</dd></dl>
       </Section>)}
-      <Section title="Contributors and evidence"><p>Showing {d.rows.length ? `${page.offset + 1}–${page.offset + d.rows.length}` : "0"} of {d.totalCount} rows</p><p>Resources rank by absolute logical change, including decreases; unknown contributions follow. Server stores follow resources.</p>
+      <Section title="Contributors and evidence"><p>Showing {d.rows.length ? `${page.offset + 1}–${page.offset + d.rows.length}` : "0"} of {d.totalCount} rows</p><p>{order===StorageChangeOrder.LOGICAL_ASCENDING?"Resources rank by signed logical change, smallest first.":order===StorageChangeOrder.LOGICAL_DESCENDING?"Resources rank by signed logical change, largest first.":"Resources rank by absolute logical change, including decreases."} Unknown contributions follow. Totals include every resource type; displayed rows may be filtered.</p>
         <div className="table-wrap" role="region" aria-label="Storage contributors" tabIndex={0}><table><thead><tr><th>Resource or server</th><th>Logical change</th><th>Observed-copy change</th><th>Estimated-copy change</th><th>Server usage change</th><th>Evidence</th></tr></thead><tbody>{d.rows.map(r => <tr key={r.id}>
           <td><Link className="x" to={resourceHistoryPath(r,d,system,account,from,to)}>{r.bucket || r.stream || r.server}</Link><p>{r.storage} · {r.account || "All accounts"}</p></td>
           <td>{bytes(r.delta?.logical, true)}</td><td>{bytes(r.delta?.observedReplicas, true)}</td><td>{bytes(r.delta?.estimatedReplicas, true)}</td><td>{bytes(r.delta?.serverReported, true)}</td>

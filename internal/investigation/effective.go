@@ -42,6 +42,9 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 		Range               *Bounds           `json:"range"`
 		A                   string            `json:"a"`
 		EpochA              string            `json:"epochA"`
+		Order               string            `json:"order"`
+		ResourceKind        string            `json:"resourceKind"`
+		ResourcesOnly       bool              `json:"resourcesOnly"`
 		EpochB              string            `json:"epochB"`
 		B                   string            `json:"b"`
 		CheckCode           string            `json:"checkCode"`
@@ -227,6 +230,23 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 		c.Filters["id"] = r.ID
 		c.Evidence = []Evidence{{Kind: "event", ID: r.ID}}
 	case "GetStorageChange":
+		if r.Order == "STORAGE_CHANGE_ORDER_LOGICAL_ASCENDING" {
+			c.Filters["change"] = "asc"
+		}
+		if r.Order == "STORAGE_CHANGE_ORDER_LOGICAL_DESCENDING" {
+			c.Filters["change"] = "desc"
+		}
+		if r.ResourcesOnly {
+			c.Filters["contributors"] = "1"
+		}
+		switch r.ResourceKind {
+		case "CAPACITY_STREAM_KIND_STREAM":
+			c.Filters["resource"] = "stream"
+		case "CAPACITY_STREAM_KIND_KEY_VALUE":
+			c.Filters["resource"] = "kv"
+		case "CAPACITY_STREAM_KIND_OBJECT_STORE":
+			c.Filters["resource"] = "object"
+		}
 		c.SourcePath = "/capacity/storage-change"
 		if r.EpochA != "" && r.EpochA != "0" {
 			c.Filters["epochA"] = r.EpochA
