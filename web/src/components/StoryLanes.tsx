@@ -10,6 +10,8 @@ import { useWidth } from "../lib/useWidth";
 import { axisTicks, isDeployment, runsText, zoomWindow } from "../lib/timelineModel";
 import { RLink } from "./common";
 import { StatusTimeline, trackSpan } from "./StatusTimeline";
+import {TimelineMark, EventPreview, WindowPreview, timelineTime} from "./TimelineMark";
+import {LEVEL_LABEL} from "../lib/view";
 import { ZoomStrip } from "./ZoomStrip";
 
 interface Props {
@@ -31,7 +33,7 @@ function Ticks({ events, frac, cls }: { events: LaneEvent[]; frac: (t: number) =
   return (
     <>
       {events.map((e) => (
-        <span key={e.id} className={`sl-tick ${cls(e)}`} style={{ left: pct(frac(e.time)) }} title={`${hm(e.time)} ${e.label}`} />
+        <TimelineMark key={e.id} className={`sl-tick ${cls(e)}`} style={{left:pct(frac(e.time))}} label={`${e.source === "kubernetes" ? "Kubernetes" : "NATS"} event: ${e.label}`} preview={<EventPreview event={e}/>}/>
       ))}
     </>
   );
@@ -76,7 +78,7 @@ export function StoryLanes({ tl, end, live }: Props) {
   const natsWarn = tl.nats.filter((e) => e.severity === "warning" || e.severity === "critical").length;
   const win = zoomWindow(tl.windows);
   const windows = tl.windows.map((w) => (
-    <span key={w.start} className="sl-win" style={{ left: pct(frac(w.start)), width: pct(frac(w.end) - frac(w.start)) }} title={`${w.label} ${hm(w.start)}–${hm(w.end)}`} />
+    <TimelineMark key={w.start} className="sl-win" style={{left:pct(frac(w.start)),width:pct(frac(w.end)-frac(w.start))}} label={`Window: ${w.label}`} preview={<WindowPreview {...w}/>}/>
   ));
   const k8sName = `Kubernetes: ${tl.kubernetes.length} events${deploys ? `, ${deploys} deployments` : ""}${tl.windows.map((w) => `, ${w.label} ${hm(w.start)}–${hm(w.end)}`).join("")}`;
   const lanes = [
@@ -101,7 +103,7 @@ export function StoryLanes({ tl, end, live }: Props) {
       marks: (
         <>
           {runs.map((r) => (
-            <span key={r.from} className={`sl-run ${r.level}`} style={{ left: pct(frac(r.from)), width: pct(frac(r.to) - frac(r.from)) }} title={`${r.level} ${hm(r.from)}–${hm(r.to)}`} />
+            <TimelineMark key={r.from} className={`sl-run ${r.level}`} style={{left:pct(frac(r.from)),width:pct(frac(r.to)-frac(r.from))}} label={`Finding state: ${LEVEL_LABEL[r.level]}`} preview={<><strong>{LEVEL_LABEL[r.level]} finding state</strong><div>{timelineTime(r.from)} – {timelineTime(r.to)}</div><div>Bucket boundaries, not exact onset or resolution.</div>{tl.rows.filter(row=>row.cells.some((lv,i)=>tl.start+i*tl.bucketMs<r.to&&tl.start+(i+1)*tl.bucketMs>r.from&&lv!=="ok"&&lv!=="nodata")).map(row=><div key={row.key}>{row.checkCode}: {row.checkName}</div>)}</>}/>
           ))}
         </>
       ),
@@ -128,7 +130,7 @@ export function StoryLanes({ tl, end, live }: Props) {
               </RLink>
               <small>{l.note}</small>
             </div>
-            <div className="sl-track" role="img" aria-label={l.label}>
+            <div className="sl-track" role="group" aria-label={l.label}>
               <span className="sl-base" />
               {l.marks}
             </div>

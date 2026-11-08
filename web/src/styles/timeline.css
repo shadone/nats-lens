@@ -48,3 +48,9 @@
 .zoom-h .zkey svg{width:9px;height:9px;vertical-align:-1px;margin-right:var(--sp-1)}
 .zsvg{display:block;width:100%;overflow:visible}
 .zsvg text{font-family:var(--mono)}
+
+/* Marks keep their lane geometry; previews live outside the clipping card. */
+button.timeline-mark { padding: 0; border: 0; color: inherit; font: inherit; cursor: help; }
+.timeline-mark:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+button.timeline-mark::after { content: ""; position: absolute; inset: -4px; }
+.timeline-mark { cursor: help; }
