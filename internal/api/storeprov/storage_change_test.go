@@ -153,3 +153,53 @@ func TestStorageChangeAccountAndReplay(t *testing.T) {
 		t.Fatal("unstable pinned continuation")
 	}
 }
+
+func TestStorageChangeIncarnationEvidenceBoundaries(t *testing.T) {
+	for _, which := range []string{"unknown_created", "replacement_predates_a", "created_after_collection"} {
+		t.Run(which, func(t *testing.T) {
+			p, req := storageCompareFixture(t)
+			switch which {
+			case "unknown_created":
+				if _, err := p.St.DB().Exec(`UPDATE stream_stats SET created=NULL WHERE stream='orders';UPDATE stream_config SET created=NULL WHERE stream='orders'`); err != nil {
+					t.Fatal(err)
+				}
+			case "replacement_predates_a":
+				created := req.A.AsTime().Add(-30 * time.Minute)
+				for _, q := range []string{`UPDATE stream_stats SET created=? WHERE epoch=2 AND stream='orders'`, `UPDATE stream_config SET created=? WHERE first_epoch=2 AND stream='orders'`} {
+					if _, err := p.St.DB().Exec(q, created); err != nil {
+						t.Fatal(err)
+					}
+				}
+			case "created_after_collection":
+				created := req.B.AsTime().Add(time.Minute)
+				for _, q := range []string{`UPDATE stream_stats SET created=? WHERE epoch=2 AND stream='orders'`, `UPDATE stream_config SET created=? WHERE first_epoch=2 AND stream='orders'`} {
+					if _, err := p.St.DB().Exec(q, created); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			f, err := p.StorageChange(ctx, req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			res, err := api.FinishStorageChange(req, f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, row := range res.Rows {
+				if row.Stream != "orders" {
+					continue
+				}
+				if row.GetDelta().Logical != nil {
+					t.Fatalf("uncertain incarnation produced contribution: %v", row)
+				}
+				if which == "unknown_created" && row.GetBefore().Logical == nil {
+					t.Fatal("known endpoint bytes were discarded with unknown incarnation")
+				}
+				if which == "replacement_predates_a" && row.GetBefore().GetLogical() == 100 && row.GetAfter().Logical != nil {
+					t.Fatal("a replacement predating A proved retirement after A")
+				}
+			}
+		})
+	}
+}

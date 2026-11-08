@@ -143,3 +143,15 @@ func TestStorageChangeOverflowAndNegativeMeasurements(t *testing.T) {
 		})
 	}
 }
+
+func TestStorageChangeContributionTotalsExcludeServerUsage(t *testing.T) {
+	req, f := storageFacts()
+	res, err := api.FinishStorageChange(req, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	total := storageTotal(t, res, "file")
+	if total.KnownContributions.ServerReported != nil || total.OmittedContributions.ServerReported != nil {
+		t.Fatal("server usage labeled as resource contributions")
+	}
+}
