@@ -1,37 +1,11 @@
 // Compare owned embedded production demos. Requires an existing Playwright Core
 // module and Chrome. Run only in a coordinated quiet measurement window.
 import { readFileSync, writeFileSync } from 'node:fs';
+import { observe } from './readiness-observer.mjs';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE);
 const variants = JSON.parse(process.env.VARIANTS);
 const browser = await chromium.launch({ executablePath:process.env.CHROME_PATH, headless:true, args:['--disable-background-networking'] });
 const samples = [];
-function observe() {
-  window.readiness = [];
-  window.routeClicks = [];
-  document.addEventListener('click', e => {
-    const a = e.target.closest('a');
-    if (a) window.routeClicks.push({ href:a.href, at:performance.now(), trusted:e.isTrusted });
-  }, true);
-  const seen = new Set();
-  function check() {
-    const p = location.pathname, main = document.querySelector('main');
-    const el = p === '/fleet' && main?.textContent.includes('3 systems, worst first') ? main
-      : p === '/streams' ? [...main?.querySelectorAll('a') ?? []].find(e => e.textContent === 'order-jobs')
-      : p === '/checks' ? main?.querySelector('input[placeholder="Code, name, or meaning"]')
-      : p === '/capacity' ? main?.querySelector('.cap-server')
-      : p === '/topology' ? main?.querySelector('.tp-tables')
-      : p === '/placement' ? main?.querySelector('.pm-cell')
-      : p === '/replay' ? main?.querySelector('.rp-story') : null;
-    if (!el?.checkVisibility() || seen.has(p)) return;
-    seen.add(p);
-    const mark = { path:p, dom:performance.now() };
-    window.readiness.push(mark);
-    requestAnimationFrame(() => requestAnimationFrame(() => { mark.frames = performance.now(); }));
-  }
-  new MutationObserver(check).observe(document, { subtree:true, childList:true, attributes:true, attributeFilter:['style','hidden'] });
-  function tick() { check(); requestAnimationFrame(tick); }
-  requestAnimationFrame(tick);
-}
 async function context(constrained) {
   const ctx = await browser.newContext({ viewport:{width:1280,height:800}, serviceWorkers:'block' });
   const page = await ctx.newPage(), cdp = await ctx.newCDPSession(page);
@@ -52,7 +26,7 @@ async function collect(page, cdp, step, start) {
 try {
   for (const constrained of [false,true]) for(let run=0;run<3;run++) for(const [variant,base] of variants) {
     const {ctx,page,cdp} = await context(constrained), steps=[];
-    for(const step of ['fleet','streams','checks','capacity','topology','placement','replay']) {
+    for(const step of ['fleet','streams','checks','capacity','topology','placement','replay','accounts','applications','connections','data-history','micro-services']) {
       const start=step==='fleet'?0:await page.evaluate(()=>performance.now());
       if(step==='fleet') await page.goto(base+'/fleet?system=example-prod&range=6h');
       else await page.locator(`nav a[href^="/${step}"]`).click();
