@@ -6,14 +6,24 @@ import { lens } from "./api/client";
 import { renderApp } from "./test/render";
 
 const state = vi.hoisted(() => ({ failure: false, pending: false, resolve: () => {}, promise: Promise.resolve() }));
-vi.mock("./pages/Checks", () => ({
-  Checks: () => {
-    if (state.failure) throw new TypeError("Failed to fetch dynamically imported module");
-    if (state.pending) throw state.promise;
-    return <h2>Check catalogue ready</h2>;
-  },
-  CheckDetail: () => <h1>Check reference ready</h1>,
-}));
+vi.mock("./pages/Checks", async () => {
+  const { deferredView } = await import("./components/deferredView");
+  const { useCheckDefinitions } = await import("./api/checks");
+  const View = deferredView(async () => {
+    if (state.pending) await state.promise;
+    return () => {
+      if (state.failure) throw new TypeError("Failed to fetch dynamically imported module");
+      return <h2>Check catalogue ready</h2>;
+    };
+  });
+  return {
+    Checks: () => {
+      useCheckDefinitions();
+      return <View />;
+    },
+    CheckDetail: () => <h1>Check reference ready</h1>,
+  };
+});
 vi.mock("./api/requests", async orig => ({ ...await orig<typeof import("./api/requests")>(), getLensInfo: vi.fn(() => new Promise(() => {})) }));
 vi.mock("./components/SystemGate", () => ({ SystemGate: ({ children }: { children: React.ReactNode }) => children, Landing: ({ children }: { children: React.ReactNode }) => children }));
 vi.mock("./components/Header", () => ({ Header: () => <header><h1>Checks</h1></header> }));

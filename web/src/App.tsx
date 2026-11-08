@@ -1,7 +1,3 @@
-import { lazy } from "react";
-import { useCheckDefinitions } from "./api/checks";
-import { useStreams } from "./api/queries";
-import { useTimeRange } from "./lib/useTimeRange";
 import { RouteBoundary } from "./components/RouteBoundary";
 // The shell and the routes. Every page reads the time range, the system and
 // the account scope from the URL; the sidebar's pages are listed in nav.ts.
@@ -16,43 +12,31 @@ import { useSidebar } from "./lib/useSidebar";
 import { useSystem } from "./lib/useSystem";
 import { Fleet } from "./pages/Fleet";
 import { SlowConsumerInvestigation } from "./pages/SlowConsumerInvestigation";
+import { Overview } from "./pages/Overview";
+import { Checks, CheckDetail } from "./pages/Checks";
+import { Findings } from "./pages/Findings";
+import { FindingByLabels } from "./pages/FindingByLabels";
+import { FindingDetail } from "./pages/FindingDetail";
+import { Events } from "./pages/Events";
+import { Streams } from "./pages/Streams";
+import { StreamDetail } from "./pages/StreamDetail";
+import { Consumers } from "./pages/Consumers";
+import { ConsumerDetail } from "./pages/ConsumerDetail";
+import { Servers } from "./pages/Servers";
+import { ServerDetail } from "./pages/ServerDetail";
+import { Connections } from "./pages/Connections";
+import { KvStores } from "./pages/KvStores";
+import { ObjectStores } from "./pages/ObjectStores";
+import { Placement } from "./pages/Placement";
+import { Replay } from "./pages/Replay";
+import { Topology } from "./pages/Topology";
+import { Accounts } from "./pages/Accounts";
+import { Capacity } from "./pages/Capacity";
+import { DataHistory } from "./pages/DataHistory";
+import { Subjects } from "./pages/Subjects";
+import { MicroServices } from "./pages/MicroServices";
+import { Applications } from "./pages/Applications";
 import { NotFound } from "./pages/NotFound";
-
-const Checks = lazy(() => import("./routes/guidance").then(module => ({ default: module.Checks })));
-const CheckDetail = lazy(() => import("./routes/guidance").then(module => ({ default: module.CheckDetail })));
-const Findings = lazy(() => import("./routes/guidance").then(module => ({ default: module.Findings })));
-const FindingByLabels = lazy(() => import("./routes/guidance").then(module => ({ default: module.FindingByLabels })));
-const FindingDetail = lazy(() => import("./routes/guidance").then(module => ({ default: module.FindingDetail })));
-const Streams = lazy(() => import("./routes/resources").then(module => ({ default: module.Streams })));
-const StreamDetail = lazy(() => import("./routes/resourceDetails").then(module => ({ default: module.StreamDetail })));
-const Consumers = lazy(() => import("./routes/resources").then(module => ({ default: module.Consumers })));
-const ConsumerDetail = lazy(() => import("./routes/resourceDetails").then(module => ({ default: module.ConsumerDetail })));
-const KvStores = lazy(() => import("./routes/resources").then(module => ({ default: module.KvStores })));
-const ObjectStores = lazy(() => import("./routes/resources").then(module => ({ default: module.ObjectStores })));
-const Servers = lazy(() => import("./routes/infrastructure").then(module => ({ default: module.Servers })));
-const ServerDetail = lazy(() => import("./routes/infrastructure").then(module => ({ default: module.ServerDetail })));
-const Placement = lazy(() => import("./routes/infrastructure").then(module => ({ default: module.Placement })));
-const Topology = lazy(() => import("./routes/infrastructure").then(module => ({ default: module.Topology })));
-const Accounts = lazy(() => import("./routes/infrastructure").then(module => ({ default: module.Accounts })));
-const Capacity = lazy(() => import("./routes/infrastructure").then(module => ({ default: module.Capacity })));
-const Events = lazy(() => import("./routes/activity").then(module => ({ default: module.Events })));
-const Replay = lazy(() => import("./routes/activity").then(module => ({ default: module.Replay })));
-const DataHistory = lazy(() => import("./routes/activity").then(module => ({ default: module.DataHistory })));
-const Subjects = lazy(() => import("./routes/messaging").then(module => ({ default: module.Subjects })));
-const MicroServices = lazy(() => import("./routes/messaging").then(module => ({ default: module.MicroServices })));
-const Applications = lazy(() => import("./routes/messaging").then(module => ({ default: module.Applications })));
-const Connections = lazy(() => import("./routes/messaging").then(module => ({ default: module.Connections })));
-const Overview = lazy(() => import("./routes/overview").then(module => ({ default: module.Overview })));
-
-// These primary-page reads commit outside Suspense, alongside the code request.
-// The page hooks join the same cache entry rather than issuing a second read.
-function CheckRead() { useCheckDefinitions(); return null; }
-function StreamRead() {
-  const { search } = useLocation();
-  const { spec } = useTimeRange();
-  useStreams(spec, new URLSearchParams(search).get("kv") === "1");
-  return null;
-}
 
 export function App() {
   const { pathname, search, hash } = useLocation();
@@ -75,8 +59,6 @@ export function App() {
           <StaleProvider key={`${pathname}|${system}`}>
             <SystemGate>
               <PageHistoryProvider>
-              {pathname === "/streams" && <StreamRead />}
-              {/^\/checks(?:\/|$)/.test(pathname) && <CheckRead />}
               <RouteBoundary key={pathname} href={pathname + search + hash}>
               <Routes>
                 <Route
