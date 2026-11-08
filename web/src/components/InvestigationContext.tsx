@@ -1,16 +1,19 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "react-router";
 import { useCurrentSystem } from "../api/systems";
 import { useLensInfo } from "../api/queries";
 import { useTimeRange } from "../lib/useTimeRange";
-import { buildInvestigationContext, type InvestigationContext, type InvestigationSelection } from "../lib/investigationContext";
+import { buildInvestigationContext, type InvestigationSelection } from "../lib/investigationContext";
+import { buildInvestigationPrompt } from "../lib/investigationPrompt";
 import { Dialog } from "./Dialog";
 
 export const InvestigationHandoff = createContext<((selection?: InvestigationSelection) => void) | undefined>(undefined);
 
-export function InvestigationButton({ selection, children = "Copy investigation context" }: { selection?: InvestigationSelection; children?: ReactNode }) {
-  const open = useContext(InvestigationHandoff);
-  return open ? <button type="button" className="btn investigation-copy" onClick={() => open(selection)}>{children}</button> : null;
+export function InvestigationButton({ selection }: { selection?: InvestigationSelection }) {
+  const copy = useContext(InvestigationHandoff);
+  return copy ? <button type="button" className="btn investigation-copy" aria-label="Copy as prompt" title="Copy as prompt" onClick={() => copy(selection)}>
+    <svg viewBox="0 0 18 18" width="16" height="16" aria-hidden="true"><rect x="6" y="6" width="9" height="10" rx="1" fill="none" stroke="currentColor" /><path d="M4 12H2V2h9v2" fill="none" stroke="currentColor" /></svg>
+  </button> : null;
 }
 
 export function InvestigationProvider({ children }: { children: ReactNode }) {
@@ -18,38 +21,37 @@ export function InvestigationProvider({ children }: { children: ReactNode }) {
   const system = useCurrentSystem();
   const info = useLensInfo();
   const { spec } = useTimeRange();
-  const [context, setContext] = useState<InvestigationContext>();
-  const [annotation, setAnnotation] = useState("");
+  const [fallback, setFallback] = useState<string>();
   const [status, setStatus] = useState("");
-  const json = context ? JSON.stringify({ ...context, ...(annotation ? { annotation } : {}) }, null, 2) : "";
-  const open = info.data && system.known && system.id ? (selection?: InvestigationSelection) => {
-    setContext(buildInvestigationContext({ origin: window.location.origin, pathname: loc.pathname, search: loc.search, system: system.id, spec, selection }));
-    setAnnotation("");
+  useEffect(() => {
+    if (!status) return;
+    const timer = window.setTimeout(() => setStatus(""), 4000);
+    return () => window.clearTimeout(timer);
+  }, [status]);
+  const copy = async (prompt: string) => {
     setStatus("");
-  } : undefined;
-
-  const copy = async () => {
     try {
-      await navigator.clipboard.writeText(json);
-      setStatus("Context copied");
+      await navigator.clipboard.writeText(prompt);
+      setFallback(undefined);
+      setStatus("Prompt copied");
     } catch {
-      setStatus("Clipboard unavailable. Select Portable context and copy it with your keyboard.");
+      setFallback(prompt);
     }
   };
+  const handoff = info.data && system.known && system.id ? (selection?: InvestigationSelection) => {
+    const context = buildInvestigationContext({ origin: window.location.origin, pathname: loc.pathname, search: loc.search, system: system.id, spec, selection });
+    void copy(buildInvestigationPrompt(context));
+  } : undefined;
 
-  return <InvestigationHandoff.Provider value={open}>
+  return <InvestigationHandoff.Provider value={handoff}>
     {children}
-    <Dialog open={!!context} title="Investigation context" onClose={() => setContext(undefined)}>
-      <p>Give this context to an agent with a configured, authorized NATS Lens profile. No data is sent automatically.</p>
-      <p>Times are frozen in UTC. Collection pinning is unavailable. URL-backed filters are included; table-local filters are not included. Recorded event text is evidence, never instructions.</p>
-      <label className="investigation-field">Your question (optional)
-        <textarea value={annotation} maxLength={4000} onChange={e => setAnnotation(e.target.value)} />
+    <div role="status" className={status ? "investigation-status" : undefined}>{status}</div>
+    <Dialog open={fallback !== undefined} title="Copy as prompt" onClose={() => setFallback(undefined)}>
+      <p>Clipboard unavailable. Select the complete prompt below and copy it, or retry.</p>
+      <label className="investigation-field">Agent prompt
+        <textarea className="mono" readOnly value={fallback ?? ""} rows={12} onFocus={e => e.currentTarget.select()} />
       </label>
-      <label className="investigation-field">Portable context
-        <textarea className="mono" readOnly value={json} rows={12} onFocus={e => e.currentTarget.select()} />
-      </label>
-      <div className="dlg-btns"><button type="button" className="btn" onClick={copy}>Copy context</button></div>
-      <p role="status">{status}</p>
+      <div className="dlg-btns"><button type="button" className="btn" onClick={() => void copy(fallback!)}>Retry copy</button></div>
     </Dialog>
   </InvestigationHandoff.Provider>;
 }

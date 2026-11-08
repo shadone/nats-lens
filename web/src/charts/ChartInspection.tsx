@@ -50,7 +50,7 @@ export function ChartInspection({ label, start, end, stepMs, bucketNote, series,
     const box = element.getBoundingClientRect();
     if (box.width > 0) setCursor(start + Math.max(0, Math.min(1, (clientX - box.left) / box.width)) * (end - start));
   };
-  return <><div className="chart-inspection" role="slider" tabIndex={0} aria-label={`Inspect ${label}`} aria-valuemin={start} aria-valuemax={end} aria-valuenow={selected ?? start} aria-valuetext={selected === undefined ? "Focus, then use arrow keys to inspect time and values" : text} aria-description={handoff ? "Use arrow keys to select time, then C to open investigation context" : undefined} aria-describedby={selected === undefined ? undefined : id}
+  return <div className="chart-inspection-wrap"><div className="chart-inspection" role="slider" tabIndex={0} aria-label={`Inspect ${label}`} aria-valuemin={start} aria-valuemax={end} aria-valuenow={selected ?? start} aria-valuetext={selected === undefined ? "Focus, then use arrow keys to inspect time and values" : text} aria-description={handoff ? "Use arrow keys to select time, then C to copy as prompt" : undefined} aria-describedby={selected === undefined ? undefined : id}
     onPointerMove={e => move(e.clientX, e.currentTarget)} onPointerDown={e => move(e.clientX, e.currentTarget)}
     onPointerLeave={e => { if (e.pointerType !== "touch") setCursor(undefined); }}
     onFocus={() => setCursor(current => current ?? start)} onBlur={() => setCursor(undefined)}
@@ -66,5 +66,5 @@ export function ChartInspection({ label, start, end, stepMs, bucketNote, series,
       <span className="chart-cursor" aria-hidden="true" style={{ left: `${(selected - start) / (end - start || 1) * 100}%` }} />
       <div id={id} role="tooltip" className="chart-readout"><b>{when}</b><span>{stepMs ? `Bucket to ${bucketEnd}` : "Recorded sample"}</span>{bucketNote && <span>{bucketNote}</span>}{missing && <span>Not collected</span>}{rows.map((r, i) => <span key={i}>{r}</span>)}</div>
     </>}
-  </div>{handoff && <InvestigationButton selection={selection()}>Investigate {label}</InvestigationButton>}</>;
+  </div>{handoff && <InvestigationButton selection={selection()} />}</div>;
 }

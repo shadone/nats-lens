@@ -78,7 +78,10 @@
   .search{width:210px}
 }
 
-.investigation-entry { display:flex; justify-content:flex-end; padding:var(--sp-2) var(--sp-4); }
+.investigation-copy.btn{display:inline-flex;align-items:center;justify-content:center;flex:none;width:32px;height:32px;padding:var(--sp-2);color:var(--text-muted)}
+.investigation-copy:hover{color:var(--text)}
+.investigation-status{position:fixed;bottom:var(--sp-4);right:var(--sp-4);z-index:30;padding:var(--sp-2) var(--sp-3);border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--text);font-size:var(--fs-sm)}
 .investigation-field { display:grid; gap:var(--sp-2); margin-block:var(--sp-3); }
 .investigation-field textarea { width:100%; max-width:100%; box-sizing:border-box; font-size:var(--fs-sm); }
-.chart-inspection + .investigation-copy { max-width:100%; white-space:normal; font-size:var(--fs-xs); margin-top:var(--sp-1); }
+.chart-inspection-wrap{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:var(--sp-1);min-width:0}
+.chart-inspection-wrap:not(:has(> .investigation-copy)){grid-template-columns:minmax(0,1fr)}
