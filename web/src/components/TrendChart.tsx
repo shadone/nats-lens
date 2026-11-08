@@ -1,3 +1,4 @@
+import { bucketPlotTime } from "../charts/bucketDomain";
 import { ChartInspection } from "../charts/ChartInspection";
 import { RLink } from "./common";
 import { usePageHistory } from "./HistoryNote";
@@ -41,6 +42,8 @@ interface Props {
   layers: Layer[];
   /** Split at every absent bucket; other charts retain their existing tolerance. */
   contiguousBuckets?: boolean;
+  /** Display bucket-overlap midpoints; retain original times for inspection and gaps. */
+  bucketOverlap?: boolean;
   /** Where the y axis starts: at zero (default), or at the data's minimum with an 8% margin each side. */
   floor?: "zero" | "data";
   loading?: boolean;
@@ -76,7 +79,7 @@ export function yDomain(all: number[], floor: "zero" | "data"): [number, number]
   return [lo, max === lo ? lo + 1 : max];
 }
 
-export function TrendChart({ title, to, bucketNote, fmt = String, now, summary, start, end, stepMs = 0, layers, contiguousBuckets = false, floor = "zero", loading, error }: Props) {
+export function TrendChart({ title, to, bucketNote, fmt = String, now, summary, start, end, stepMs = 0, layers, contiguousBuckets = false, bucketOverlap = false, floor = "zero", loading, error }: Props) {
   const h = usePageHistory();
   const coverage = ["Messages", "Bytes", "Connections"].includes(title) ? rangeCoverageText(h?.historyStart, start, end) : undefined;
   summary = [summary, coverage].filter(Boolean).join(" · ") || undefined;
@@ -84,7 +87,7 @@ export function TrendChart({ title, to, bucketNote, fmt = String, now, summary, 
   const empty = all.length === 0;
   const [lo, hi] = yDomain(all, floor);
   const span = end - start || 1;
-  const x = (t: number) => (((t - start) / span) * W).toFixed(1);
+  const x = (t: number) => ((((bucketOverlap && stepMs > 0 ? bucketPlotTime(t, start, end, stepMs) : t) - start) / span) * W).toFixed(1);
   const y = (v: number) => (H - 2 - ((v - lo) / (hi - lo)) * (H - 8)).toFixed(1);
   const barW = Math.max(1, stepMs > 0 ? (stepMs / span) * W * 0.7 : 2);
   const legend: LegendItem[] = layers.map((l) => ({ label: l.label, kind: l.kind, style: l.style }));
