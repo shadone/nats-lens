@@ -59,3 +59,9 @@ describe("capacity.css stream names", () => {
     expect(css).toMatch(/\.cap-tbl \.cap-name\{[^}]*overflow-wrap:anywhere/);
   });
 });
+
+it("sizes expanded history to the visible card instead of the horizontally scrolling table", () => {
+  // Browser RED at 360px: the expanded panel was 765.8px in a 326px viewport.
+  expect(css).toMatch(/\.cap-card\s*\{[^}]*container-type:\s*inline-size/);
+  expect(css).toMatch(/\.cap-history-expanded\s*\{[^}]*width:\s*calc\(100cqw - var\(--sp-6\)\)/);
+});
