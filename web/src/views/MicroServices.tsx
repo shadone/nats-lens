@@ -1,4 +1,4 @@
-import type { MicroServicesModel } from "../pages/MicroServices";
+import { SERVICE_PARAM, type MicroServicesModel } from "../pages/MicroServices";
 // Micro services: the services built on the NATS micro framework in the
 // range's newest collection, a card each, and the chosen card's endpoints
 // and instances. The chosen service is kept in the address as
@@ -11,7 +11,7 @@ import { MicroCards } from "../components/MicroCards";
 import { MicroDetail } from "../components/MicroDetail";
 import { Words } from "../components/Words";
 import { hms } from "../lib/format";
-import { chooseService, SERVICE_PARAM, footLines, MICRO_FOOTNOTE, MICRO_SUBTITLE, NO_SUBSCRIPTIONS, noServiceText, serviceKey, unansweredText, unknownServiceText, withAccountNames } from "../lib/microView";
+import { chooseService, footLines, MICRO_FOOTNOTE, MICRO_SUBTITLE, NO_SUBSCRIPTIONS, noServiceText, serviceKey, unansweredText, unknownServiceText, withAccountNames } from "../lib/microView";
 import { accountLabeller } from "../lib/view";
 
 
