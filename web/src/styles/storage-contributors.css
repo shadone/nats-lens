@@ -12,3 +12,7 @@
 .contributor-bar>span {position:absolute;height:100%;background:var(--accent)}
 .contributor-bar>.decrease {background:var(--cell-info)}
 .contributor-evidence {margin-top:var(--sp-4);border-top:1px solid var(--border);padding-top:var(--sp-4)}
+
+.contributor-headlines {display:flex;flex-wrap:wrap;gap:var(--sp-6);margin-block:var(--sp-3)}
+.contributor-headlines dd {margin:0;font-size:var(--fs-lg);font-weight:500}
+.cap-contributors>details {margin-block:var(--sp-3)}
