@@ -101,3 +101,27 @@ No full Go/check-engine suite, broad store-provider suite, web suite, benchmark,
 | `31dbd757` exact canonical JSON keys | `f4a3bafe` |
 
 The original shared adapters are `018e4656` (`inspect.go`) and `a0eb3208` (`fingerprint.go`); their sibling equivalents must not be reapplied. Administrative command commits, `babb3ad5`, and the producer's final `680d037d` documentation/comment followup are intentionally omitted from this implementation branch. Administrative changes need their own base; the parent reconciles the producer's final documentation with these semantic capability/index edits. The parent reconciles shared command composition and index edits during integration.
+
+## Semantic R1 correction and approved integration
+
+Fresh semantic R1 on `2e490492` requested one P2 correction: the no-argument configured summary coverage call skipped every configured definition. One of 91 configured checks recorded as successful or failed could therefore produce a healthy summary. The original reviewer probes were extracted without semantic changes into `review_r1_test.go`; both reached runtime RED after integrating approved `c931d343`.
+
+The minimal correction makes an empty entity-type filter require all configured definitions. Explicit entity-type filters keep their existing meaning; unavailable configuration keeps its existing captured-run rule and explicit metadata limitation. Coverage requires each applicable code's successful or disabled marker, not a count of rows. A configured disabled check with no published marker remains unknown.
+
+The real embedded 91-definition catalogue controls run through the same handler for configured live and configured captured providers. They cover one successful/failed run, complete success, a missing code replaced with an unrelated successful code at the same row count, a failed check among successes, known disabled markers and missing markers, all-known-disabled markers, runs from another collection, a previous error with current success, and server-only coverage while other entity types fail. The public offline source separately retains unavailable check configuration; tests do not claim the manifest exports it.
+
+Runtime RED checkpoints are `4a322239` (the two unchanged reviewer findings) and `334bdb2f` (configured positive/negative scope controls). Minimal GREEN is `2571911f`. Independently removing the predicate correction reproduces both original runtime failures; restoring it passes the reviewer probes and the complete configured/unknown matrix. Fresh semantic R2 remains parent-owned.
+
+Approved `c931d343` is integrated as merge `cb39c069`, including acquisition command composition, final producer documentation and the external Kubernetes relist/history-gap work. Conflicting canonical dataset/store files match the approved versions; only the independent adapter verification file is additional. Both README sections preserve acquisition, semantic investigation and SQL bundle entries. The earlier omission note describes the initial candidate only; the approved merge now includes its administrative and producer followups. This worktree does not change the main checkout or the separate compact-copy UI task.
+
+R1 integrated verification passed: the complete offline package (86.8% statement coverage), the unchanged reviewer probes, the 91-definition matrix on normal and Honolulu clocks and under the race detector, existing entity-filtered/Fleet regressions, acquisition/semantic CLI composition, two-process continuation and SQL bundle/precision/budget controls, and modified-package vet. The corrected `checksRan` function has 91.3% focused statement coverage; this is not a claim of broad store-provider package coverage. Successful markers for a now-disabled configured check remain accepted under the existing marker contract. The required feature audit remains clean with 41 capabilities and both index sections consistent.
+
+Exact additional R1 commands:
+
+```sh
+GOCACHE=/private/tmp/natslens-offline-go-cache GOPROXY=off go test ./internal/offline -coverprofile=/private/tmp/natslens-offline-r1.cover -count=1
+TZ=Pacific/Honolulu GOCACHE=/private/tmp/natslens-offline-go-cache GOPROXY=off go test ./internal/offline -run '^Test(ReviewerConfiguredSummary(Evaluation|Error)|ConfiguredSummaryRequiresEveryApplicableCheck|CapturedSummaryKeepsUnavailableConfigurationExplicit|SummaryRequiresEvaluation)$' -count=1
+GOCACHE=/private/tmp/natslens-offline-go-cache GOPROXY=off go test -race ./internal/offline -run '^Test(ReviewerConfiguredSummary(Evaluation|Error)|ConfiguredSummaryRequiresEveryApplicableCheck|CapturedSummaryKeepsUnavailableConfigurationExplicit)$' -count=1
+GOCACHE=/private/tmp/natslens-offline-go-cache GOPROXY=off go test ./internal/api/storeprov -run '^Test(NoDataWhileChecksOfTheTypeFail|SystemSummaryFromTheStore|SystemSummaryWithoutAnEpoch|SystemSummaryCollectionErrorFromEvents|CapturedProviderConstructionBoundary)$' -count=1
+GOCACHE=/private/tmp/natslens-offline-go-cache GOPROXY=off go test ./cmd/natslens -run '^Test(AcquireArgumentsAndHelp|AcquireUsesOnlyExplicitLocalAdminChannel|OfflineCLITwoProcessesContinue|SQLBundleSelectionRejectsAmbiguity|SQLCanonicalBundle|SQLJSONMixedRows|SQLJSONLimitsAndAtomicity)$' -count=1
+```
