@@ -19,6 +19,7 @@ import "natslens/v1/overview.proto";
 import "natslens/v1/placement.proto";
 import "natslens/v1/replay.proto";
 import "natslens/v1/servers.proto";
+import "natslens/v1/slow_consumers.proto";
 import "natslens/v1/streams.proto";
 import "natslens/v1/subjects.proto";
 import "natslens/v1/systems.proto";
@@ -198,6 +199,11 @@ service LensService {
   // the events, the client findings, and the hourly traffic from the
   // rollup.
   rpc GetApplications(GetApplicationsRequest) returns (GetApplicationsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Counter intervals, recorded disconnects, findings and capture limitations.
+  rpc GetSlowConsumerInvestigation(GetSlowConsumerInvestigationRequest) returns (GetSlowConsumerInvestigationResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 
