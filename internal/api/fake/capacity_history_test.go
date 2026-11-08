@@ -8,7 +8,7 @@ import (
 )
 
 func TestCapacityHistoryMetrics(t *testing.T) {
-	c := client(t)
+	c := demo(t)
 	for _, sys := range []string{"", fake.GlobalSystem, fake.StagingSystem} {
 		for _, q := range []struct {
 			metric string
@@ -16,7 +16,7 @@ func TestCapacityHistoryMetrics(t *testing.T) {
 		}{
 			{"cluster.capacity_file_store_bytes", nil},
 			{"server.capacity_file_store_bytes", &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SERVER, Key: "nats-0"}},
-			{"stream.observed_replica_bytes", &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/order-events", Account: "APP", Stream: "order-events"}},
+			{"stream.observed_replica_bytes", &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_STREAM, Key: "APP/order-jobs", Account: "APP", Stream: "order-jobs"}},
 		} {
 			if sys != "" && q.entity != nil {
 				continue
