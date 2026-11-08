@@ -1,10 +1,10 @@
-import { fromJson, toJson } from "@bufbuild/protobuf";
+import { create, fromJson, toJson } from "@bufbuild/protobuf";
 import { TimestampSchema, type Timestamp } from "@bufbuild/protobuf/wkt";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { lens } from "../api/client";
-import type { StorageChangeBytes, StorageChangeRow } from "../gen/natslens/v1/storage_change_pb";
+import type { StorageChangeBytes, StorageChangeRow, GetStorageChangeResponse } from "../gen/natslens/v1/storage_change_pb";
 import { QueryView, Section } from "../components/common";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useSystem } from "../lib/useSystem";
@@ -75,7 +75,7 @@ export function StorageChange() {
       </Section>)}
       <Section title="Contributors and evidence"><p>Showing {d.rows.length ? `${page.offset + 1}–${page.offset + d.rows.length}` : "0"} of {d.totalCount} rows</p><p>Resources rank by absolute logical change, including decreases; unknown contributions follow. Server stores follow resources.</p>
         <div className="table-wrap" role="region" aria-label="Storage contributors" tabIndex={0}><table><thead><tr><th>Resource or server</th><th>Logical change</th><th>Observed-copy change</th><th>Estimated-copy change</th><th>Server usage change</th><th>Evidence</th></tr></thead><tbody>{d.rows.map(r => <tr key={r.id}>
-          <td><Link className="x" to={path(r.rowKind === "server" ? serverPath(r.server) : streamPath(r.account, r.stream))}>{r.bucket || r.stream || r.server}</Link><p>{r.storage} · {r.account || "All accounts"}</p></td>
+          <td><Link className="x" to={resourceHistoryPath(r,d,system,account,from,to)}>{r.bucket || r.stream || r.server}</Link><p>{r.storage} · {r.account || "All accounts"}</p></td>
           <td>{bytes(r.delta?.logical, true)}</td><td>{bytes(r.delta?.observedReplicas, true)}</td><td>{bytes(r.delta?.estimatedReplicas, true)}</td><td>{bytes(r.delta?.serverReported, true)}</td>
           <td><RowEvidence row={r} eventPath={id => path("/events", id)} /></td>
         </tr>)}</tbody></table></div>
@@ -85,5 +85,15 @@ export function StorageChange() {
   </>;
 }
 function RowEvidence({ row, eventPath }: { row: StorageChangeRow; eventPath: (id: string) => string }) {
-  return <details><summary>Before, after and evidence</summary><p>Creation: {stamp(row.created)}</p><h3>Before</h3><Values value={row.before}/><h3>After</h3><Values value={row.after}/><p>Processes at A: {row.processesA.join(", ") || "Unknown"}; at B: {row.processesB.join(", ") || "Unknown"}.</p><p>Configured copies: {row.configuredReplicasA ?? "Unknown"} → {row.configuredReplicasB ?? "Unknown"}.</p>{row.reasons.map(x => <p key={x}>{reason(x)}</p>)}{row.eventIds.map(id => <p key={String(id)}><Link className="x" to={eventPath(String(id))}>Event {String(id)}</Link></p>)}<p>Comparison pins identify the source windows. Resource links open the selected time range; a resource absent at its newest collection may be unavailable.</p></details>;
+  return <details><summary>Before, after and evidence</summary><p>Creation: {stamp(row.created)}</p><h3>Before</h3><Values value={row.before}/><h3>After</h3><Values value={row.after}/><p>Processes at A: {row.processesA.join(", ") || "Unknown"}; at B: {row.processesB.join(", ") || "Unknown"}.</p><p>Configured copies: {row.configuredReplicasA ?? "Unknown"} → {row.configuredReplicasB ?? "Unknown"}.</p>{row.reasons.map(x => <p key={x}>{reason(x)}</p>)}{row.eventIds.map(id => <p key={String(id)}><Link className="x" to={eventPath(String(id))}>Event {String(id)}</Link></p>)}<p>Comparison pins identify the source windows. Resource links open the last observed endpoint window, including its exclusive upper-bound tick. Comparison pins remain authoritative; other detail reads do not have universal pins.</p></details>;
+}
+
+function resourceHistoryPath(row:StorageChangeRow,data:GetStorageChangeResponse,system:string,account:string,from:string,to:string){
+ const endpoint=row.processesB.length||!row.processesA.length?data.b:data.a;
+ if(endpoint?.startedAt&&endpoint.finishedAt){
+  from=stamp(endpoint.startedAt);let seconds=endpoint.finishedAt.seconds,nanos=endpoint.finishedAt.nanos+1000;if(nanos>=1e9){seconds++;nanos-=1e9}
+  try{to=stamp(create(TimestampSchema,{seconds,nanos}))}catch{to=stamp(endpoint.finishedAt)}
+ }
+ const q=new URLSearchParams({system,account:row.account||account,from,to});
+ return `${row.rowKind==="server"?serverPath(row.server):streamPath(row.account,row.stream)}?${q}`;
 }
