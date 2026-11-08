@@ -10,6 +10,9 @@ The Streams page lists the JetStream streams of the newest collection in the tim
 
 ## Behavior and rules
 
+- Supported history titles open [metric investigations](metric-investigations.md) with the resource identity, system and range. Native observation summaries distinguish peaks from bucket aggregates, and fixed-range findings/events remain accessible. Backing-stream statistics do not measure individual keys, objects or content.
+
+
 - **Chart descriptions.** Detail charts and seven-day mini-chart columns use [shared chart help](chart-help.md); storage inspection uses byte labels rather than delivery-rate wording.
 
 - **The leader's view.** Numbers in the list come from each stream's leader in the newest collection of the range.

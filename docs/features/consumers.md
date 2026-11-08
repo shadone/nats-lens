@@ -10,6 +10,9 @@ The Consumers page lists the JetStream consumers of the newest collection in the
 
 ## Behavior and rules
 
+- Supported history titles open [metric investigations](metric-investigations.md) with the resource identity, system and range. Native observation summaries distinguish peaks from bucket aggregates, and fixed-range findings/events remain accessible. Backing-stream statistics do not measure individual keys, objects or content.
+
+
 - **Chart descriptions.** Detail charts and Overview delivery histories use [shared chart help](chart-help.md), with the recorded metric definition and units.
 
 - **The leader's view where it matters.** Pending and waiting come from the leader only, because followers report zero for both. Ack pending, redelivered, the leader and the last delivery fall back to a follower's report when no leader reports. A dash means the value was not observed, for example pending on a consumer without a leader report; it never stands for zero.
