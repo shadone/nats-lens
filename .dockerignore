@@ -12,3 +12,5 @@ internal/webui/dist/*
 .vscode
 deploy
 docs
+
+internal/webui/.build-*

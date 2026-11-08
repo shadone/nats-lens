@@ -18,3 +18,6 @@
 # Web UI build output, embedded by internal/webui
 /internal/webui/dist/*
 !/internal/webui/dist/.gitkeep
+
+# Local production-build verification state and staging (outside embedded dist)
+/internal/webui/.build-*
