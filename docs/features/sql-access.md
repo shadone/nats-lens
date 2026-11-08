@@ -6,23 +6,24 @@
 
 ## What it does
 
-Everything nats-lens knows is in its DuckDB database, and `natslens sql` runs one SQL query against it and prints the result as a table. It answers questions that no page answers yet, and it is how a check author tries a query. The database must not be open in a running collector at the time, because DuckDB lets one process hold the file.
+`natslens sql` answers trusted offline questions that the pages and proposed semantic investigation commands do not cover. It reads an existing DuckDB database and prints an aligned table or a machine-readable JSON document. Database-only queries need no collector, NATS connection or network.
 
 ## Behavior and rules
 
-- **One query per call.** `natslens sql [-data-dir DIR] QUERY` opens `natslens.duckdb` in `DIR` (`./data` by default) read-only, runs the query and prints the rows as an aligned table, followed by the row count, for example "(3 rows)".
-- **One system's database.** Each system has its own database. `natslens sql -config FILE -system ID QUERY` reads the database of the system with that id; with a configuration that lists one system, `-system` may be left out, and with several it is required. An unknown id fails and names the configured ones. `-data-dir` overrides the directory.
-- **Plain output.** A missing value prints as `NULL`, and a time prints in UTC to the millisecond.
-- **Read-only.** The database is opened read-only, so a query cannot change it.
-- **Stopped collector, or a copy.** While `natslens run` holds the file, `natslens sql` fails. Stop the collector before copying its database directory, then query the copy; copying an actively written database file alone does not establish a consistent snapshot.
-- **The schema explains itself.** Every table and column carries a comment. `SELECT table_name, column_name, comment FROM duckdb_columns() WHERE NOT internal ORDER BY table_name` lists them.
-- **One row per server's view.** Statistics tables hold one row per server per collection; identity tables one row per thing with its first and last collection; configuration tables one row per server per run of collections with the same configuration. A server gets a new `server_id` on every restart, so queries join the `servers` table for the stable `server_name`.
+- **Choose one source.** An explicit database file, a data directory or a configured system selects the source. A multi-system configuration requires a system selection. Missing files fail without creating a database or running migrations.
+- **Preserve arbitrary columns.** JSON preserves column order, duplicate labels, type metadata, NULL and exact integer/decimal values. Its arbitrary schema stays separate from the proposed semantic investigation result schema. The [SQL CLI reference](../reference/sql-cli.md) defines representations and flags.
+- **Keep the table.** The default table retains aligned columns, `NULL`, UTC times to milliseconds and the row count.
+- **Bound returned data.** Explicit row, output-byte and time budgets bound result presentation. Row truncation is visible. SQL is passed unchanged; no hidden limit changes its meaning. Native execution can consume resources before those limits apply.
+- **Publish complete results.** Query, conversion, cancellation and byte-limit failures publish no data. A new output file is published atomically and never replaces an existing file. Diagnostics go to stderr and failures exit unsuccessfully.
+- **Protect the selected database.** SQL opens the selected file read-only without migrations or cleanup. Trusted SQL can still read external files, write exports, attach writable databases and use extensions. Read-only database access is not an untrusted SQL sandbox.
+- **Select a consistent snapshot.** A live writer lock prevents inspection from another process. Snapshot acquisition is separate work described in [Investigation workflows](../plans/investigation-workflows.md); copying a live database file alone does not establish consistency. The SQL command neither stops the collector nor certifies a supplied snapshot.
+- **Keep semantic access separate.** Raw SQL remains an advanced local escape hatch. It is absent from the API and default agent/MCP surface.
 
 ## Scenarios
 
 ### List the partial collections
 
-- **Given** a stopped nats-lens with its data in `.dev/natslens`
+- **Given** an offline database with its data in `.dev/natslens`
 - **When** I run `natslens sql -data-dir .dev/natslens "SELECT epoch, observed_servers, missing_names, partial FROM epochs ORDER BY epoch"`
 - **Then** nats-lens prints one row per collection with the servers that answered, the missing ones, and whether it was partial
 
@@ -34,7 +35,7 @@ Everything nats-lens knows is in its DuckDB database, and `natslens sql` runs on
 
 ### Query one of several systems
 
-- **Given** a configuration that lists `shop-prod` and `shop-staging`, and a stopped nats-lens
+- **Given** a configuration that lists `shop-prod` and `shop-staging`, and offline database files
 - **When** I run `natslens sql -config natslens.yaml -system shop-staging "SELECT count(*) FROM epochs"`
 - **Then** nats-lens prints the count from the staging database only
 - **And** without `-system` the command fails and lists `shop-prod, shop-staging`
@@ -45,9 +46,26 @@ Everything nats-lens knows is in its DuckDB database, and `natslens sql` runs on
 - **When** I run `natslens sql` on it
 - **Then** the command fails, as DuckDB lets one process open the file
 
+### Preserve machine-readable values
+
+- **Surfaces:** `cli`
+- **Given** an offline database and trusted SQL with duplicate column labels, a large integer and a NULL
+- **When** I request JSON output
+- **Then** the result retains both columns by position, the exact integer as a string and the NULL as null
+
+### Bound and publish a result
+
+- **Surfaces:** `cli`
+- **Given** a trusted query returning more rows than the selected budget
+- **When** I publish JSON to a new output file
+- **Then** the complete document identifies row truncation
+- **And** a query error, cancellation or byte-budget failure creates no destination file
+
 ## Not supported / out of scope
 
-- **No SQL over the API.** The API has no query endpoint. Proposed agent and offline access is described in [Investigation workflows](../plans/investigation-workflows.md).
-- **No query while collecting.** The database is locked by the running collector.
-- **No archive queries.** `natslens sql` reads the database only; hours older than `retention` are in the Parquet archive, which DuckDB can read directly.
-- **No output formats.** The output is an aligned text table; there is no CSV or JSON option.
+- Querying a database held by a live collector process.
+- Obtaining or validating a consistent snapshot, bundle source selection or an interchangeable offline semantic backend.
+- Executing untrusted SQL, enforcing an OS sandbox, or rolling back external SQL side effects.
+- SQL JSON-typed values without an explicit cast to text or binary, because the pinned driver loses JSON precision and duplicate object keys.
+- Automatic redaction of arbitrary SQL results, CSV, NDJSON or streaming output.
+- A dedicated archive selection mode. Trusted SQL can use DuckDB's external file readers explicitly.
