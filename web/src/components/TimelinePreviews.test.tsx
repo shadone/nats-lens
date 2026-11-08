@@ -54,3 +54,27 @@ it("explains expanded per-check buckets and preserves their historical versus cu
   expect(tip).toHaveTextContent("Current check state: OK");
   expect(tip).toHaveTextContent("2026-10-18 00:00:00 UTC");
 });
+
+it("opens persistent event details with an exact-event link and closes back to its mark",()=>{
+  render(<MemoryRouter><StoryLanes tl={timeline} end={start+120_000} live={false}/></MemoryRouter>);
+  const mark=screen.getByRole("button",{name:/NATS event: Worker connection closed/});
+  mark.focus(); fireEvent.click(mark); fireEvent.pointerLeave(mark);
+  const dialog=screen.getByRole("dialog",{name:/Worker connection closed/});
+  expect(dialog).toHaveTextContent("client.disconnect");
+  expect(within(dialog).getByRole("link",{name:"Open recorded event"})).toHaveAttribute("href",expect.stringContaining("id=42"));
+  expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  fireEvent.click(within(dialog).getByRole("button",{name:"Close"}));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(mark).toHaveFocus();
+});
+
+it("opens window explanation and per-check evidence without claiming an exact incident",()=>{
+  const {unmount}=render(<MemoryRouter><StoryLanes tl={timeline} end={start+120_000} live={false}/></MemoryRouter>);
+  fireEvent.click(screen.getByRole("button",{name:/Window: Rolling restart/}));
+  expect(screen.getByRole("dialog")).toHaveTextContent("Observed restart");
+  unmount();
+  render(<MemoryRouter><Cells row={timeline.rows[0]} start={start} bucketMs={60_000}/></MemoryRouter>);
+  fireEvent.keyDown(screen.getByRole("button",{name:/consumer-006.*Warning/}),{key:"Enter"});
+  expect(screen.getByRole("dialog")).toHaveTextContent("Current check state: OK");
+  expect(within(screen.getByRole("dialog")).getByRole("link",{name:"Read check reference"})).toHaveAttribute("href","/checks/consumer-006");
+});
