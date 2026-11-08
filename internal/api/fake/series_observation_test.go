@@ -105,3 +105,18 @@ func TestDemoObservationCurveUsesSameNativeGrid(t *testing.T) {
 		}
 	}
 }
+
+// Demo rates are scenario curves, not stored cumulative counters.
+func TestDemoTrafficDoesNotIntegrateSyntheticRates(t *testing.T) {
+	p := New(false)
+	at := FixedNow
+	for _, metric := range []string{"cluster.in_msgs_rate", "cluster.out_bytes_rate"} {
+		out, e := p.GetTimeSeries(context.Background(), &v1.GetTimeSeriesRequest{Metric: metric, Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SYSTEM}, Range: &v1.TimeRange{Start: timestamppb.New(at.Add(-time.Hour)), End: timestamppb.New(at)}, MaxPoints: 1, IncludeObservations: true})
+		if e != nil {
+			t.Fatal(e)
+		}
+		if out.Series.GetObservations().GetCounterComparisons() != nil {
+			t.Fatalf("synthetic rate was integrated into a fabricated counter volume: %v", out.Series)
+		}
+	}
+}

@@ -147,3 +147,47 @@ func TestTrafficRatesDoNotAcceptBackwardsTimeAndCounter(t *testing.T) {
 		t.Fatalf("backwards time and reset fabricated a positive rate: %v", out.Series.Points)
 	}
 }
+
+func TestTrafficCounterComparisonsSumBeyondInt64AndRejectNegative(t *testing.T) {
+	for _, negative := range []bool{false, true} {
+		t.Run(map[bool]string{false: "exact_sum", true: "invalid_negative"}[negative], func(t *testing.T) {
+			st := emptyStore(t)
+			r := rows{t, st}
+			r.server("S0", "nats-0")
+			r.server("S1", "nats-1")
+			start := t0.Truncate(time.Hour)
+			for i := 0; i < 2; i++ {
+				r.epoch(int64(i+1), start.Add(time.Duration(i)*30*time.Second), "S0", "S1")
+				for _, id := range []string{"S0", "S1"} {
+					n := int64(0)
+					if i == 1 {
+						n = 9223372036854775807
+					}
+					if negative {
+						n = int64(-100 + i*10)
+					}
+					r.add("server_stats", map[string]any{"epoch": int64(i + 1), "server_id": id, "in_msgs": n})
+				}
+			}
+			p := &storeprov.Provider{St: st, Interval: 30 * time.Second}
+			req := &v1.GetTimeSeriesRequest{Metric: "cluster.in_msgs_rate", Entity: &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SYSTEM}, Range: &v1.TimeRange{Start: timestamppb.New(start), End: timestamppb.New(start.Add(time.Minute))}, IncludeObservations: true}
+			out, e := p.GetTimeSeries(ctx, req)
+			if e != nil {
+				t.Fatal(e)
+			}
+			c := trafficCounterEvidence(t, out.Series)
+			if negative {
+				if c["observedIncrease"] != nil || c["excludedReports"] != "4" || len(out.Series.Points) != 0 {
+					t.Fatalf("negative counters became traffic: %v", out.Series)
+				}
+			} else if c["observedIncrease"] != "18446744073709551614" {
+				t.Fatalf("sum overflowed int64: %v", c)
+			}
+			req.IncludeObservations = false
+			out, e = p.GetTimeSeries(ctx, req)
+			if e != nil || out.Series.Observations != nil {
+				t.Fatalf("ordinary response acquired optional summary: %v %v", out, e)
+			}
+		})
+	}
+}
