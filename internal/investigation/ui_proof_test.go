@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/dynamicpb"
 	"strings"
 	"testing"
@@ -169,6 +172,26 @@ func TestFindingEvidenceProvesOnCallProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(limits) != 0 {
+		t.Fatal(limits)
+	}
+}
+
+func TestPredicateProofDistinguishesOneofZeroFromAbsent(t *testing.T) {
+	file, err := protodesc.NewFile(&descriptorpb.FileDescriptorProto{Name: proto.String("fixture.proto"), Package: proto.String("fixture"), Syntax: proto.String("proto3"), MessageType: []*descriptorpb.DescriptorProto{{Name: proto.String("Selection"), OneofDecl: []*descriptorpb.OneofDescriptorProto{{Name: proto.String("identity")}}, Field: []*descriptorpb.FieldDescriptorProto{{Name: proto.String("selector"), Number: proto.Int32(1), Label: descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(), Type: descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(), OneofIndex: proto.Int32(0)}}}}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	md := file.Messages().Get(0)
+	f := md.Fields().Get(0)
+	request := dynamicpb.NewMessage(md)
+	ui := dynamicpb.NewMessage(md)
+	request.Set(f, protoreflect.ValueOfString(""))
+	policies := map[string]string{"selector": "predicate"}
+	if len(compareUIFields("fixture", request, ui, policies)) == 0 {
+		t.Fatal("present oneof empty value equals absent")
+	}
+	ui.Set(f, protoreflect.ValueOfString(""))
+	if limits := compareUIFields("fixture", request, ui, policies); len(limits) != 0 {
 		t.Fatal(limits)
 	}
 }
