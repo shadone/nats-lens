@@ -55,7 +55,23 @@ func readInput(name string, stdin io.Reader) ([]byte, error) {
 	return b, nil
 }
 
-func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Writer) (err error) {
+// OpenOffline is supplied by the application composition root, keeping the
+// command layer independent of API and database implementation packages.
+type OpenOffline func(context.Context, OfflineSelection) (*Session, error)
+type OfflineSelection struct {
+	DB, Bundle, System string
+	Interval           time.Duration
+}
+type Session struct {
+	Source     Source
+	Provenance any
+	Close      func() error
+}
+
+func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Writer) error {
+	return RunWithOffline(ctx, args, stdin, out, errout, nil)
+}
+func RunWithOffline(ctx context.Context, args []string, stdin io.Reader, out, errout io.Writer, openOffline OpenOffline) (err error) {
 	defer func() {
 		if err != nil && !errors.Is(err, flag.ErrHelp) {
 			_ = writeJSON(out, map[string]any{"version": 1, "error": map[string]string{"code": "investigation_failed", "message": err.Error(), "nextStep": "Check help, configured access, method schema and Data history; do not retry by bypassing the proxy."}})
@@ -69,7 +85,7 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 		if len(args) != 1 {
 			return errors.New("methods takes no arguments")
 		}
-		return writeJSON(out, map[string]any{"version": 1, "methods": Methods(), "serverSupport": "unverified; query checks selected method", "sourceKinds": []string{"remote"}})
+		return writeJSON(out, map[string]any{"version": 1, "methods": Methods(), "serverSupport": "unverified; query checks selected method", "sourceKinds": []string{"remote", "offline"}})
 	}
 	if args[0] == "describe" {
 		if len(args) != 2 || Method(args[1]) == nil {
@@ -92,6 +108,10 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 	fs := flag.NewFlagSet("natslens investigate "+action, flag.ContinueOnError)
 	fs.SetOutput(errout)
 	fs.Usage = func() { fmt.Fprint(errout, Help) }
+	endpoint := fs.String("endpoint", "", "explicit live API and UI origin")
+	db := fs.String("db", "", "closed compatible offline database")
+	bundle := fs.String("bundle", "", "validated offline dataset directory")
+	interval := fs.Duration("collection-interval", 0, "operator-asserted captured collection interval for a bare database")
 	profiles := fs.String("profiles", "", "trusted profiles JSON file")
 	name := fs.String("profile", "", "configured profile name")
 	contextFile := fs.String("context", "", "copied context JSON file, or - for stdin")
@@ -114,8 +134,24 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 	if fs.NArg() != 0 {
 		return errors.New("unexpected positional arguments")
 	}
-	if *profiles == "" || *name == "" {
-		return errors.New("-profiles and -profile are required; browser login does not authorize terminal access")
+	offline := *db != "" || *bundle != ""
+	sources := 0
+	for _, selected := range []bool{*endpoint != "", *db != "", *bundle != "", *profiles != "" || *name != ""} {
+		if selected {
+			sources++
+		}
+	}
+	if sources != 1 {
+		return errors.New("choose exactly one source: -endpoint, -profiles with -profile, -db, or -bundle")
+	}
+	if (*profiles == "") != (*name == "") {
+		return errors.New("-profiles and -profile are required together")
+	}
+	if *db != "" && (*system == "" || *interval <= 0) {
+		return errors.New("bare -db requires -system and positive -collection-interval assertions; identity and cadence are not stored in the database")
+	}
+	if *db == "" && visited["collection-interval"] {
+		return errors.New("-collection-interval applies only to bare -db")
 	}
 	if (*contextFile != "" && *page != "") || (*contextFile == "-" && *requestFile == "-") {
 		return errors.New("choose one context source and one stdin input")
@@ -123,13 +159,40 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 	if *timeout <= 0 || *timeout > 45*time.Second || *pageSize < 1 || *pageSize > 500 || *maxPoints < 1 || *maxPoints > 2000 {
 		return errors.New("invalid budget: timeout 0–45s, page-size 1–500, max-points 1–2000")
 	}
-	b, err := readInput(*profiles, stdin)
-	if err != nil {
-		return err
-	}
-	p, err := LoadProfile(strings.NewReader(string(b)), *name)
-	if err != nil {
-		return err
+	ctx, cancel := context.WithTimeout(ctx, *timeout)
+	defer cancel()
+	var b []byte
+	p := Profile{Deployment: *endpoint, Endpoint: *endpoint}
+	var src Source
+	var provenance any
+	if offline {
+		if openOffline == nil {
+			return errors.New("offline source is unavailable in this embedding")
+		}
+		session, e := openOffline(ctx, OfflineSelection{DB: *db, Bundle: *bundle, System: *system, Interval: *interval})
+		if e != nil {
+			return e
+		}
+		if session.Close != nil {
+			defer session.Close()
+		}
+		src, provenance = session.Source, session.Provenance
+		p.Deployment = "https://offline.invalid"
+	} else {
+		if *profiles != "" {
+			b, err = readInput(*profiles, stdin)
+			if err != nil {
+				return err
+			}
+			p, err = LoadProfile(strings.NewReader(string(b)), *name)
+			if err != nil {
+				return err
+			}
+		}
+		src, err = NewRemote(p)
+		if err != nil {
+			return err
+		}
 	}
 	var c *Context
 	if *contextFile != "" {
@@ -147,13 +210,6 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 			return err
 		}
 	}
-	remote, err := NewRemote(p)
-	if err != nil {
-		return err
-	}
-	var src Source = remote
-	ctx, cancel := context.WithTimeout(ctx, *timeout)
-	defer cancel()
 	scope := *system
 	if scope == "" && c != nil {
 		scope = c.System
@@ -285,7 +341,13 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 		linkScope = Availability{Status: "partial", Reason: strings.Join(linkLimitations, "; ")}
 	}
 
-	return writeJSON(out, map[string]any{"version": 1, "source": map[string]any{"kind": "remote", "deployment": p.Deployment, "serverVersion": connection.Version, "readOnlyRouteVerified": true, "selectedMethodVerified": method, "otherServerMethods": "unverified"}, "method": method, "request": json.RawMessage(req), "response": response, "connection": info, "context": linkContext, "originalContext": &originalContext, "links": links, "unappliedContextFilters": unapplied, "limits": map[string]any{"rpcBudget": 2, "responseBytes": MaxResponseBytes, "automaticPagination": false, "page": "one response; nextPageToken remains in response; use unchanged filters to continue", "truncation": "only reported response fields establish totals/truncation; absent metadata is unavailable"}, "availability": map[string]Availability{"uiLinkScope": linkScope, "actualTimes": {"unavailable", "Use documented response range, epoch, point and coverage times where present; no universal actual interval is provided"}, "provenance": {"unavailable", "No universal cross-RPC snapshot pin is supported; list traversal epoch/range and evidence IDs, when supplied, remain in the typed response"}, "completeness": {"unavailable", "Read response partial/missing/truncated fields and GetDataHistory; empty data does not establish completeness"}, "retention": {"available", "GetLensInfo retention and history-start facts are included; historical coverage requires GetDataHistory"}, "freshness": {"unavailable", "GetLensInfo does not report collection freshness; query GetOverview, GetShellStatus or GetDataHistory"}, "aggregation": {"unavailable", "Query ListMetrics for each metric ID’s authoritative aggregation description; series retain their units and bucket steps"}}})
+	sourceMetadata := map[string]any{"kind": "remote", "deployment": p.Deployment, "serverVersion": connection.Version, "readOnlyRouteVerified": true, "selectedMethodVerified": method, "otherServerMethods": "unverified"}
+	if offline {
+		sourceMetadata = map[string]any{"kind": "offline", "dataset": provenance, "referenceTime": connection.Now, "readOnlyRouteVerified": true, "selectedMethodVerified": method, "remoteUI": "unavailable; context can be reimported with the same offline source"}
+		links = nil
+		linkScope = Availability{"unavailable", "No remote UI serves this dataset; reimport context with -context and the same -db or -bundle"}
+	}
+	return writeJSON(out, map[string]any{"version": 1, "source": sourceMetadata, "method": method, "request": json.RawMessage(req), "response": response, "connection": info, "context": linkContext, "originalContext": &originalContext, "links": links, "unappliedContextFilters": unapplied, "limits": map[string]any{"rpcBudget": 2, "responseBytes": MaxResponseBytes, "automaticPagination": false, "page": "one response; nextPageToken remains in response; use unchanged filters to continue", "truncation": "only reported response fields establish totals/truncation; absent metadata is unavailable"}, "availability": map[string]Availability{"uiLinkScope": linkScope, "actualTimes": {"unavailable", "Use documented response range, epoch, point and coverage times where present; no universal actual interval is provided"}, "provenance": {"unavailable", "No universal cross-RPC snapshot pin is supported; list traversal epoch/range and evidence IDs, when supplied, remain in the typed response"}, "completeness": {"unavailable", "Read response partial/missing/truncated fields and GetDataHistory; empty data does not establish completeness"}, "retention": {"available", "GetLensInfo retention and history-start facts are included; historical coverage requires GetDataHistory"}, "freshness": {"unavailable", "GetLensInfo does not report collection freshness; query GetOverview, GetShellStatus or GetDataHistory"}, "aggregation": {"unavailable", "Query ListMetrics for each metric ID’s authoritative aggregation description; series retain their units and bucket steps"}}})
 }
 
 // Page limits have two existing RPC spellings. Keep this transport mapping
