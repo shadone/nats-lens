@@ -164,6 +164,9 @@ func Execute(ctx context.Context, path, query string, o Options) ([]byte, error)
 			if e != nil {
 				return nil, queryError(ctx)
 			}
+			if hasClockType(info) {
+				return nil, diagnostic("unsupported_type", "TIME, TIMETZ and TIME_NS values cannot be returned losslessly by the pinned driver", "Explicitly cast TIME, TIMETZ and TIME_NS values, including nested members, to VARCHAR in the trusted SQL.")
+			}
 			logicalTypes[i] = info
 			if hasJSONAlias(info) {
 				return nil, diagnostic("unsupported_type", "DuckDB JSON values cannot be returned losslessly by the pinned driver", "Explicitly cast JSON values, including nested members, to VARCHAR or BLOB in the trusted SQL.")
@@ -433,25 +436,42 @@ func Write(out io.Writer, b []byte) error {
 // duplicate object keys. Its nested type-name strings hide JSON as VARCHAR.
 // Reject aliases recursively rather than guessing from values or rewriting SQL.
 func hasJSONAlias(info duckdb.TypeInfo) bool {
-	if info.Alias() == "JSON" {
+	return hasLogicalType(info, func(t duckdb.TypeInfo) bool { return t.Alias() == "JSON" })
+}
+
+// getTime loses 24:00 by taking only the clock fields of time.UnixMicro;
+// getTimeTZ constructs a calendar date and UTC serialization drops the offset.
+// TIME_NS has native type metadata but no vector conversion in this driver.
+// Reject the declared families, even null/empty results, before scanning values.
+// Inspecting an already converted midnight cannot establish its original value.
+func hasClockType(info duckdb.TypeInfo) bool {
+	return hasLogicalType(info, func(t duckdb.TypeInfo) bool {
+		return t.InternalType() == duckdb.TYPE_TIME || t.InternalType() == duckdb.TYPE_TIME_TZ || t.InternalType() == mapping.TypeTimeNS
+	})
+}
+
+// Share one metadata traversal so every unsupported family covers the same
+// nested containers, including map keys and unselected union members.
+func hasLogicalType(info duckdb.TypeInfo, match func(duckdb.TypeInfo) bool) bool {
+	if match(info) {
 		return true
 	}
 	switch d := info.Details().(type) {
 	case *duckdb.ListDetails:
-		return hasJSONAlias(d.Child)
+		return hasLogicalType(d.Child, match)
 	case *duckdb.ArrayDetails:
-		return hasJSONAlias(d.Child)
+		return hasLogicalType(d.Child, match)
 	case *duckdb.MapDetails:
-		return hasJSONAlias(d.Key) || hasJSONAlias(d.Value)
+		return hasLogicalType(d.Key, match) || hasLogicalType(d.Value, match)
 	case *duckdb.StructDetails:
 		for _, e := range d.Entries {
-			if hasJSONAlias(e.Info()) {
+			if hasLogicalType(e.Info(), match) {
 				return true
 			}
 		}
 	case *duckdb.UnionDetails:
 		for _, m := range d.Members {
-			if hasJSONAlias(m.Type) {
+			if hasLogicalType(m.Type, match) {
 				return true
 			}
 		}

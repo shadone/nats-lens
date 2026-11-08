@@ -18,6 +18,9 @@ func TestJSONRejectsLossyTimeFamilies(t *testing.T) {
 	queries := []string{exact, `SELECT TIME '00:00:00'`, `SELECT NULL::TIME`, `SELECT TIME '12:30:00' WHERE false`}
 	for _, typ := range []string{"TIME", "TIMETZ", "TIME_NS"} {
 		literal := "'24:00:00'::" + typ
+		if typ == "TIME_NS" {
+			literal = "'12:00:00.123456789'::TIME_NS"
+		}
 		if typ == "TIMETZ" {
 			literal = "'24:00:00+02'::TIMETZ"
 		}
