@@ -181,3 +181,44 @@ The table describes current transport support, not semantic offline parity or an
 | Copied chart / GetTimeSeries or batch | Known metric/resource identities and frozen times. | List-page filters such as name/tooling do not become series predicates; they remain unapplied. |
 
 Only literal URL `1` enables KV, ephemeral or tooling toggles; `0`, `true` and omission do not, except Connections' name rule above. Findings uses the page's distinct `muted != 0` policy and Events uses `show != all`. The contract fixtures exercise absent, zero, one, noncanonical boolean strings and explicit false overrides. All read-RPC boolean inputs are inventoried in tests: includeMuted, hideRoutine, foldRepeats, includeFacets, includeOk, includeTooling, includeKv, summaryOnly and includeEphemeral. No current read RPC exposes `includeInternal`; such request fields are rejected. Unknown tags/order parameters are rejected on URL import and omitted from browser copies. No IDs, filters or ordering are inferred from those missing inputs.
+
+## Returned context normalization and round trips
+
+The returned version-1 context adds an optional `query` object with `method` and `request`. This is a canonical protobuf JSON read request, separate from the UI projection and `originalContext`. It binds only to the named method; it neither selects a connection nor dispatches a command. You still choose `investigate query METHOD`. Another method ignores that request binding and uses supported resource/metric context. Older contexts without it remain valid; older clients that reject the additive field need an updated client.
+
+For the same method, reimport preserves every API field before explicit overrides: IDs, false/empty values, enums, query arrays, UTC bounds, buckets, budgets, sort and requested page token. UI links still disclose fields the browser cannot encode. A Consumers result also carries its typed stream identity and `selected_resource` link with a machine ID. An empty request-file account/stream/token clears it for the next request; omitted overrides retain the prior fields. Both protobuf and JSON field names are accepted through descriptors; duplicate spellings or repeated JSON fields are rejected rather than resolved by map order.
+
+Explicit `-system`, `-account`, `-from`/`-to` and `-metric` rebase supported fields; explicit page/point flags replace saved budgets. A request-file field wins last. An explicit empty `-page-token ''` clears continuation. Reimporting a bound context without budget flags preserves its prior budget rather than silently replacing a one-row limit with 100.
+
+`query` remains untrusted data. The read-method allowlist and generated input descriptor reject mutations, SQL, unknown/authentication fields and malformed values. The bound system must match the handshake context; range-bearing reads require matching frozen bounds. The normal input/range/page/point/read/deadline budgets and authoritative handlers still apply. Exported effective contexts exceeding the 64 KiB import budget fail with narrowing guidance instead of producing an unimportable artifact. No credential, endpoint, header or browser authority is stored in the binding.
+
+| Input or path | Normalization / preservation | Verification |
+|---|---|---|
+| Events `kind` | Comma split, ECMAScript trim, empty entries dropped. FEFF and NBSP trim; U+0085 does not. | Actual UI outgoing requests, imported URLs and copied-context demo event 991. |
+| Explicit kinds | Never trimmed or split. Whitespace, empty values or embedded commas can be unrepresentable in UI. | Exact request and reimport preserved; partial UI scope disclosed. |
+| Events `src` | Known source membership in the UI’s canonical order; no trimming; blanks/unknowns ignored. | Go and actual UI predicate fixtures. |
+| Findings `sev` | Exact known choices retained in input order; no trimming; unknowns ignored. | Go and actual UI predicate fixtures. |
+| Subjects tester `subject` | ECMAScript trim for imported UI values; explicit API payload remains exact. | Go and actual UI query fixtures. |
+| Account/stream/consumer/server, names/client/check text | No blanket trimming of identity payloads. Direct URL values follow the page model; form submission can normalize them before they enter the URL. | Typed identity precedence, retained whitespace, explicit override and stale-source controls. |
+| All admitted read methods | Effective context → JSON → parser → request repeated three times preserves the protobuf request. | Table/property audit over every method, including unencoded options and false/empty values. |
+| Consumers, Events, Subjects, Placement, Timeline and series | Result context reimport sends the same actual read-only RPC body. | Synthetic HTTP request capture and domain handlers, not only inverse-helper comparisons. |
+| Consumers pagination | Fresh explicit continuation retains selected stream, one-row limit, actual range and reported epoch. Empty token clears it. | Actual bounded handler/CLI probes; no expiry assumption. |
+
+To continue from a returned context without broadening its selection, save the `context` and choose the response token explicitly:
+
+```sh
+natslens investigate query ListConsumers -profiles profiles.json -profile demo \
+  -url 'http://127.0.0.1:8080/consumers?system=example-prod&stream=APP/order-jobs' \
+  -page-size 1 > first.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+result = json.loads(Path('first.json').read_text())
+Path('returned-context.json').write_text(json.dumps(result['context']))
+Path('next-request.json').write_text(json.dumps({'pageToken': result['response']['nextPageToken']}))
+PY
+natslens investigate query ListConsumers -profiles profiles.json -profile demo \
+  -context returned-context.json -request next-request.json
+```
+
+Use the documented fixed demo and a matching trusted loopback profile for this example. A returned binding stores the token used by its request, not the next token automatically. First-page requests do not acquire an arbitrary read-at-epoch selector. Actual collection epoch/range remain in typed responses, and only a retained explicit cursor pins the API’s bounded traversal. Browser page/chart copies still do not capture their traversal cursor; universal cross-query pins and semantic offline parity remain unavailable.
