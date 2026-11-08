@@ -187,3 +187,28 @@ func TestSeriesObservationEntireCatalogueEmptyEvidence(t *testing.T) {
 		})
 	}
 }
+
+func TestSeriesObservationLatestTimestampAmbiguity(t *testing.T) {
+	for _, values := range [][]any{{10.0, 100.0}, {10.0, 10.0}, {10.0, nil}} {
+		st := emptyStore(t)
+		r := rows{t, st}
+		r.server("S0", "nats-0")
+		for i, v := range values {
+			r.epoch(int64(i+1), t0, "S0")
+			r.add("server_stats", map[string]any{"epoch": int64(i + 1), "server_id": "S0", "cpu_percent": v})
+		}
+		p := &storeprov.Provider{St: st, Interval: 30 * time.Second}
+		out, err := p.GetTimeSeries(ctx, &v1.GetTimeSeriesRequest{Metric: "server.cpu_percent", Entity: serverRef("nats-0"), Range: &v1.TimeRange{Start: timestamppb.New(t0), End: timestamppb.New(t0.Add(time.Minute))}, MaxPoints: 1, IncludeObservations: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		s := out.Series.Observations
+		if values[1] == 10.0 {
+			if s.Latest == nil || s.GetLatest() != 10 {
+				t.Fatalf("agreeing latest values lost: %v", s)
+			}
+		} else if s.Latest != nil {
+			t.Fatalf("picked an arbitrary latest row with tied collection timestamps: %v", s)
+		}
+	}
+}
