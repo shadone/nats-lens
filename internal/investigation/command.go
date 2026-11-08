@@ -416,7 +416,7 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 		case "epoch":
 			applied = put("observationEpoch", v)
 		case "subject":
-			applied = put("subject", v)
+			applied = put("subject", uiTrim(v))
 		case "server":
 			applied = put("server", v)
 			if !applied {
