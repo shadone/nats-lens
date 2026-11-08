@@ -40,6 +40,8 @@ type storageReport struct {
 	ReplicasMax *int32 `json:"replicas_max"`
 }
 type storageSnapshot struct {
+	jsByID                       map[string]bool
+	assets                       map[string][]string
 	endpoint                     *v1.StorageChangeEndpoint
 	expected                     []string
 	servers                      map[string][]storageServer
@@ -104,6 +106,11 @@ ORDER BY time,id`, []any{a.endpoint.FinishedAt.AsTime(), b.endpoint.FinishedAt.A
 			return nil, err
 		}
 	}
+	eventsByAsset := map[string][]storageEvent{}
+	for _, e := range events {
+		key := storageAssetKey(e.Account, e.Stream)
+		eventsByAsset[key] = append(eventsByAsset[key], e)
+	}
 	for _, name := range storageNames(a, b) {
 		for _, storage := range []string{"file", "memory"} {
 			row := &v1.StorageChangeRow{Id: "server:" + base64.RawURLEncoding.EncodeToString([]byte(name)) + ":" + storage, RowKind: "server", Server: name, Storage: storage}
@@ -132,6 +139,7 @@ ORDER BY time,id`, []any{a.endpoint.FinishedAt.AsTime(), b.endpoint.FinishedAt.A
 			example = gb
 		}
 		x := example[0]
+		matchingEvents := eventsByAsset[storageAssetKey(x.Account, x.Stream)]
 		stores := map[string]bool{}
 		for _, g := range [][]storageReport{ga, gb} {
 			for _, r := range g {
@@ -155,7 +163,7 @@ ORDER BY time,id`, []any{a.endpoint.FinishedAt.AsTime(), b.endpoint.FinishedAt.A
 			}
 			row.Before, row.ProcessesA, row.ConfiguredReplicasA = storageResourceValue(a, ga, storage, &row.Reasons)
 			row.After, row.ProcessesB, row.ConfiguredReplicasB = storageResourceValue(b, gb, storage, &row.Reasons)
-			for _, e := range events {
+			for _, e := range matchingEvents {
 				if e.Account == x.Account && e.Stream == x.Stream {
 					row.EventIds = append(row.EventIds, e.ID)
 				}
@@ -164,7 +172,7 @@ ORDER BY time,id`, []any{a.endpoint.FinishedAt.AsTime(), b.endpoint.FinishedAt.A
 			// report. Unknown incarnation cannot be attributed to an advisory.
 			if len(ga) > 0 && len(gb) == 0 && x.Created != nil {
 				deleted := false
-				for _, e := range events {
+				for _, e := range matchingEvents {
 					if e.Account == x.Account && e.Stream == x.Stream && e.Kind == "stream.deleted" && e.Time > a.endpoint.FinishedAt.AsTime().UnixMicro() {
 						deleted = true
 					}
@@ -211,7 +219,7 @@ ORDER BY time,id`, []any{a.endpoint.FinishedAt.AsTime(), b.endpoint.FinishedAt.A
 }
 
 func readStorageSnapshot(ctx context.Context, db queryReader, budget *metadataBudget, requested time.Time, pin int64, interval time.Duration, account string) (*storageSnapshot, error) {
-	s := &storageSnapshot{endpoint: &v1.StorageChangeEndpoint{Requested: ts(requested)}, servers: map[string][]storageServer{}, groups: map[string][]storageReport{}}
+	s := &storageSnapshot{endpoint: &v1.StorageChangeEndpoint{Requested: ts(requested)}, servers: map[string][]storageServer{}, groups: map[string][]storageReport{}, jsByID: map[string]bool{}, assets: map[string][]string{}}
 	q := `SELECT epoch,epoch_us(started_at) AS started_us,epoch_us(finished_at) AS finished_us,expected_names,expected_servers,observed_servers FROM epochs WHERE `
 	args := []any{}
 	if pin != 0 {
@@ -276,6 +284,11 @@ FROM server_stats st LEFT JOIN servers s USING(server_id) WHERE st.epoch=? ORDER
 			r.Name = "unknown-process:" + r.ID
 		}
 		s.servers[r.Name] = append(s.servers[r.Name], r)
+		if _, duplicate := s.jsByID[r.ID]; duplicate {
+			s.jsByID[r.ID] = false
+		} else {
+			s.jsByID[r.ID] = r.JSZ
+		}
 		return nil
 	})
 	if err != nil {
@@ -313,6 +326,9 @@ WHERE x.epoch=? AND (?='' OR x.account=?) ORDER BY x.account,x.stream,x.server_i
 			return err
 		}
 		key := storageResourceKey(r)
+		if _, known := s.groups[key]; !known {
+			s.assets[storageAssetKey(r.Account, r.Stream)] = append(s.assets[storageAssetKey(r.Account, r.Stream)], key)
+		}
 		s.groups[key] = append(s.groups[key], r)
 		return nil
 	})
@@ -402,14 +418,7 @@ func storageResourceValue(s *storageSnapshot, reports []storageReport, storage s
 		} else {
 			replicas = r.ReplicasMin
 		}
-		jsok := false
-		for _, rs := range s.servers {
-			for _, server := range rs {
-				if server.ID == r.ID && server.JSZ {
-					jsok = true
-				}
-			}
-		}
+		jsok := s.jsByID[r.ID]
 		if r.Bytes == nil || *r.Bytes < 0 || !jsok {
 			copiesValid = false
 		} else {
@@ -468,8 +477,8 @@ func storageNewIncarnation(s *storageSnapshot, old storageReport, after time.Tim
 		return false
 	}
 	var candidate *int64
-	for _, g := range s.groups {
-		r := g[0]
+	for _, key := range s.assets[storageAssetKey(old.Account, old.Stream)] {
+		r := s.groups[key][0]
 		if r.Account != old.Account || r.Stream != old.Stream {
 			continue
 		}
@@ -479,4 +488,9 @@ func storageNewIncarnation(s *storageSnapshot, old storageReport, after time.Tim
 		candidate = r.Created
 	}
 	return candidate != nil && *candidate > *old.Created && *candidate > after.UnixMicro() && *candidate <= s.endpoint.FinishedAt.AsTime().UnixMicro()
+}
+
+func storageAssetKey(account, stream string) string {
+	raw, _ := json.Marshal([]string{account, stream})
+	return string(raw)
 }
