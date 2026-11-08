@@ -319,3 +319,14 @@ it.each([
  listEvents.mockReset().mockResolvedValue(response());renderApp(<Events/>,`/events?src=${encodeURIComponent(raw)}`);
  await waitFor(()=>expect(listEvents).toHaveBeenCalled());expect(lastRequest().sources).toEqual(want);
 });
+
+// This exercises the real page request, independently of terminal projection.
+it.each([
+ ["account=APP",undefined],
+ ["server=nats-0",{type:EntityType.SERVER,key:"nats-0"}],
+ ["stream=APP%2Forders",{type:EntityType.STREAM,key:"APP/orders"}],
+ ["consumer=APP%2Forders%2Fworker",{type:EntityType.CONSUMER,key:"APP/orders/worker"}],
+] as const)("proves the Events UI entity selector contract for %s",async(query,want)=>{
+ listEvents.mockReset().mockResolvedValue(response());renderApp(<Events/>,`/events?${query}&show=all`);
+ await waitFor(()=>expect(listEvents).toHaveBeenCalled());if(want)expect(lastRequest().entity).toMatchObject(want);else expect(lastRequest().entity).toBeUndefined();
+});
