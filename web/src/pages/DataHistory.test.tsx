@@ -130,7 +130,7 @@ describe("DataHistory", () => {
     m.getDataHistory.mockResolvedValue(staging());
     renderApp(<DataHistory />, "/data-history?from=2026-11-04T22:47:18Z&to=2026-11-05T22:47:18Z");
     await screen.findByRole("region", { name: "Gaps" });
-    expect(card("Gaps").getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Kind", "From (UTC)", "To (UTC)", "Length", "Collections either side", "Event"]);
+    expect(card("Gaps").getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Kind", "From (UTC)", "To (UTC)", "Duration", "Collections either side", "Event"]);
     expect(bodyRows("Gaps")[1]).toHaveTextContent("ongoing3 h so far");
     expect(card("Gaps").getByText("No data from 19:47:14 UTC until now: nats-lens could not reach NATS")).toBeInTheDocument();
   });

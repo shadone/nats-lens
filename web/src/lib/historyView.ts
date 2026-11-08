@@ -91,7 +91,7 @@ export function gapEndText(g: HistoryGap, rangeEnd: number, live: boolean, now =
 }
 
 /** How long a gap lasted; an open one up to the range's end, "so far" or "at least". */
-export function gapLengthText(g: HistoryGap, rangeEnd: number, live: boolean, now = serverNow()): string | undefined {
+export function gapDurationText(g: HistoryGap, rangeEnd: number, live: boolean, now = serverNow()): string | undefined {
   if (g.start === undefined) return undefined;
   if (g.end !== undefined) return spanText(g.end - g.start);
   const span = spanText(Math.max(0, rangeEnd - g.start));
