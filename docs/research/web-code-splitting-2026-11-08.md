@@ -1,5 +1,7 @@
 # Web code splitting, 2026-11-08
 
+Historical candidate evidence. The [R1 revision](web-code-splitting-r1-2026-11-08.md) corrects the readiness interpretation and measures the revised split against the current approved source. The samples below and the original JSON retain their original source identities; they are not measurements of the R1 revision.
+
 The implementation reduces cold Fleet JavaScript by 40.8%, from 1,127,667 to 668,017 bytes. Constrained Fleet readiness improves from 7,768.0 to 5,360.7 ms. First Checks navigation becomes slower because the Markdown parser is deferred. This tradeoff and the candidate navigation-budget misses require the parent's fresh review; integration is not implied.
 
 The [measurement data](web-code-splitting-2026-11-08.json) retains emitted chunk sizes, import edges, module membership, all timing samples, and production HTTP observations. The [measurement runbook](../operations/measure-web-loading.md) defines the measurement semantics. All implementation choices and budgets here are proposed, not yet confirmed.
