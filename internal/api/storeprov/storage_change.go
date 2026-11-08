@@ -64,6 +64,9 @@ func (p *Provider) StorageChange(ctx context.Context, req *v1.GetStorageChangeRe
 	if req.GetA() == nil || req.GetB() == nil || req.A.CheckValid() != nil || req.B.CheckValid() != nil || !req.A.AsTime().Before(req.B.AsTime()) || req.B.AsTime().After(p.RangeReference()) || req.EpochA < 0 || req.EpochB < 0 {
 		return nil, fmt.Errorf("%w: valid ordered nonfuture a and b and nonnegative pins are required", api.ErrInvalid)
 	}
+	if req.B.AsTime().Sub(req.A.AsTime()) > api.MaxStorageChangeSpan {
+		return nil, fmt.Errorf("%w: storage comparison is at most 30 days", api.ErrInvalid)
+	}
 	pinA, pinB := req.EpochA, req.EpochB
 	if req.PageToken != "" {
 		token, err := api.DecodeStorageCursor(req.PageToken)

@@ -18,6 +18,7 @@ import (
 )
 
 const MaxStorageChangeRows = 20000
+const MaxStorageChangeSpan = 30 * 24 * time.Hour
 const MaxStorageChangePage = 100
 const MaxStorageChangePageBytes = 512 << 10
 
