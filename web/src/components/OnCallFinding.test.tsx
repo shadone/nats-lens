@@ -108,7 +108,7 @@ it("does not invent a story or a playbook for a short empty response", async () 
 });
 
 it.each(["firing","resolved","muted"])("offers a visible phone finding prompt for %s without opening All details or acknowledging",async state=>{
- getOnCall.mockResolvedValue({...onCallCard,finding:{...onCallFinding,state:state==="resolved"?"resolved":"firing",...(state==="muted"?{mute:{id:"mute",reason:"Accepted",by:"operator",accepted:true} as typeof onCallFinding.mute}:{})}});
+ getOnCall.mockResolvedValue({...onCallCard,finding:{...onCallFinding,state:state==="resolved"?"resolved":"firing",...(state==="muted"?{mute:{id:"mute",checkCode:onCallFinding.checkCode,reason:"Accepted",mutedBy:"operator",unmutedBy:"",endReason:"",accepted:true}}:{})}});
  let selected:InvestigationSelection|undefined;
  renderApp(<InvestigationHandoff.Provider value={s=>{selected=s}}><Routes><Route path="/findings/:id" element={<FindingDetail/>}/></Routes></InvestigationHandoff.Provider>,`/findings/${encodeURIComponent(onCallFinding.id)}?system=shop&from=2026-10-17T13:30:00Z&to=2026-10-17T14:30:00Z`);
  const button=await screen.findByRole("button",{name:"Copy as prompt"});expect(button).toHaveTextContent("Copy as prompt");fireEvent.click(button);
