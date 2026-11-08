@@ -42,5 +42,37 @@ class VerificationContracts(unittest.TestCase):
         self.assertEqual(called, ['first', 'broken'])
         self.assertEqual(results[-1]['code'], 7)
 
+
+class TierScopeContracts(unittest.TestCase):
+    def test_fast_and_full_keep_expensive_work_explicit(self):
+        fast, full = verify.plan('fast'), verify.plan('full')
+        for name in ['format', 'types', 'proto', 'docs', 'web-tests']:
+            self.assertIn(name, fast)
+            self.assertIn(name, full)
+        self.assertIn('go-fast', fast)
+        self.assertNotIn('go-full', fast)
+        self.assertNotIn('race-api', fast)
+        self.assertIn('go-full', full)
+        self.assertIn('race-api', full)
+        self.assertIn('race-k8s', full)
+        self.assertNotIn('go-fast', full)
+        self.assertIn('-count=1', verify.COMMANDS['go-full'][0])
+        self.assertNotIn('govulncheck', repr(verify.COMMANDS))
+
+    def test_unsafe_generation_destinations_are_rejected(self):
+        valid = 'plugins:\n  - out: internal/gen\n  - out: internal/gen\n  - out: web/src/gen\n'
+        verify.template_outputs(valid)
+        for bad in ['/tmp/user-work', '../user-work', 'other/gen']:
+            with self.assertRaises(ValueError):
+                verify.template_outputs(valid.replace('web/src/gen', bad))
+
+    def test_planned_aliases_and_duplicate_headers_are_not_silently_ignored(self):
+        with tempfile.TemporaryDirectory() as name:
+            docs = Path(name)
+            (docs/'ambiguous.md').write_text('- **Status:** planned\n- **Status:** bad\n')
+            issue = dict(kind='bad-status',location='ambiguous.md',severity='warning',message='synthetic')
+            self.assertEqual(verify.unexpected_audit_issues({'issues':[issue]},docs),[issue])
+            with self.assertRaises(ValueError): verify.unexpected_audit_issues({},docs)
+
 if __name__ == '__main__':
     unittest.main()

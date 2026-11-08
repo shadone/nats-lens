@@ -21,3 +21,6 @@
 
 # Local production-build verification state and staging (outside embedded dist)
 /internal/webui/.build-*
+
+# Verification helper bytecode
+/scripts/__pycache__/
