@@ -66,9 +66,10 @@ type OfflineSelection struct {
 	Interval           time.Duration
 }
 type Session struct {
-	Source     Source
-	Provenance any
-	Close      func() error
+	Source         Source
+	Provenance     any
+	QueryReference time.Time
+	Close          func() error
 }
 
 func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Writer) error {
@@ -173,6 +174,7 @@ func RunWithOffline(ctx context.Context, args []string, stdin io.Reader, out, er
 	p := Profile{Deployment: *endpoint, Endpoint: *endpoint}
 	var src Source
 	var provenance any
+	var queryReference time.Time
 	if offline {
 		if openOffline == nil {
 			return errors.New("offline source is unavailable in this embedding")
@@ -184,7 +186,7 @@ func RunWithOffline(ctx context.Context, args []string, stdin io.Reader, out, er
 		if session.Close != nil {
 			defer session.Close()
 		}
-		src, provenance = session.Source, session.Provenance
+		src, provenance, queryReference = session.Source, session.Provenance, session.QueryReference
 		p.Deployment = "https://offline.invalid"
 	} else {
 		if *profiles != "" {
@@ -269,6 +271,9 @@ func RunWithOffline(ctx context.Context, args []string, stdin io.Reader, out, er
 	now, err := time.Parse(time.RFC3339Nano, connection.Now)
 	if err != nil {
 		return errors.New("server returned an unsupported clock")
+	}
+	if offline && !queryReference.IsZero() {
+		now = queryReference
 	}
 	if c == nil {
 		raw := *page
@@ -377,7 +382,7 @@ func RunWithOffline(ctx context.Context, args []string, stdin io.Reader, out, er
 
 	sourceMetadata := map[string]any{"kind": "remote", "deployment": p.Deployment, "serverVersion": connection.Version, "readOnlyRouteVerified": true, "selectedMethodVerified": method, "otherServerMethods": "unverified"}
 	if offline {
-		sourceMetadata = map[string]any{"kind": "offline", "dataset": provenance, "referenceTime": connection.Now, "readOnlyRouteVerified": true, "selectedMethodVerified": method, "remoteUI": "unavailable; context can be reimported with the same offline source"}
+		sourceMetadata = map[string]any{"kind": "offline", "dataset": provenance, "referenceTime": connection.Now, "queryReference": now.Format(time.RFC3339Nano), "readOnlyRouteVerified": true, "selectedMethodVerified": method, "remoteUI": "unavailable; context can be reimported with the same offline source"}
 		links = nil
 		linkScope = Availability{"unavailable", "No remote UI serves this dataset; reimport context with -context and the same -db or -bundle"}
 	}
@@ -387,7 +392,7 @@ func RunWithOffline(ctx context.Context, args []string, stdin io.Reader, out, er
 		availability["retention"] = Availability{"partial", "Retained history is queryable; absent retention policy and deleted rows are unknown"}
 		availability["provenance"] = Availability{"available", "Dataset metadata and reference clock are reported in source; capture/export time is separate"}
 	}
-	return writeJSON(out, map[string]any{"version": 1, "source": sourceMetadata, "method": method, "request": json.RawMessage(req), "response": response, "bounds": map[string]any{"requestedSourcePath": originalContext.SourcePath, "requestedFrom": *from, "requestedTo": *to, "resolved": linkContext.Range, "referenceTime": connection.Now}, "connection": info, "context": linkContext, "originalContext": &originalContext, "links": links, "unappliedContextFilters": unapplied, "limits": map[string]any{"rpcBudget": 2, "responseBytes": MaxResponseBytes, "automaticPagination": false, "page": "one response; nextPageToken remains in response; use unchanged filters to continue", "truncation": "only reported response fields establish totals/truncation; absent metadata is unavailable"}, "availability": availability})
+	return writeJSON(out, map[string]any{"version": 1, "source": sourceMetadata, "method": method, "request": json.RawMessage(req), "response": response, "bounds": map[string]any{"requestedSourcePath": originalContext.SourcePath, "requestedFrom": *from, "requestedTo": *to, "resolved": linkContext.Range, "referenceTime": connection.Now, "queryReference": now.Format(time.RFC3339Nano)}, "connection": info, "context": linkContext, "originalContext": &originalContext, "links": links, "unappliedContextFilters": unapplied, "limits": map[string]any{"rpcBudget": 2, "responseBytes": MaxResponseBytes, "automaticPagination": false, "page": "one response; nextPageToken remains in response; use unchanged filters to continue", "truncation": "only reported response fields establish totals/truncation; absent metadata is unavailable"}, "availability": availability})
 }
 
 // Page limits have two existing RPC spellings. Keep this transport mapping

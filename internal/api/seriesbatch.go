@@ -55,7 +55,7 @@ func normalizeTimeSeriesBatch(req *v1.GetTimeSeriesBatchRequest, p Provider) err
 	case n > MaxBatchQueries:
 		return invalid("queries has %d entries, at most %d", n, MaxBatchQueries)
 	}
-	r, err := ResolveRange(req.GetRange(), p.Now(), DefaultRange)
+	r, err := ResolveRange(req.GetRange(), rangeReference(p), DefaultRange)
 	if err != nil {
 		return err
 	}
