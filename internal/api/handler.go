@@ -596,6 +596,9 @@ func (h *Handler) GetStorageChange(ctx context.Context, req *connect.Request[v1.
 		if m.A == nil || m.B == nil || m.A.CheckValid() != nil || m.B.CheckValid() != nil || !m.A.AsTime().Before(m.B.AsTime()) || m.B.AsTime().After(rangeReference(p)) {
 			return invalid("valid ordered nonfuture a and b are required")
 		}
+		if m.B.AsTime().Sub(m.A.AsTime()) > MaxStorageChangeSpan {
+			return invalid("storage comparison is at most 30 days")
+		}
 		if m.EpochA < 0 || m.EpochB < 0 || m.PageSize < 0 || m.PageSize > MaxStorageChangePage || len(m.PageToken) > 1024 || len(m.Account) > 1024 {
 			return invalid("invalid storage comparison scope, pins or page budget")
 		}
