@@ -1,5 +1,6 @@
 import {useEffect, useId, useRef, useState, type CSSProperties, type ReactNode} from "react";
 import {createPortal} from "react-dom";
+import {useTimelineInvestigation} from "./TimelineInvestigation";
 import {Dialog} from "./Dialog";
 import {RLink} from "./common";
 import {ChartReadout} from "../charts/ChartReadout";
@@ -10,6 +11,7 @@ export const timelineTime=(time:number)=>`${isoSecond(time)} UTC`;
 
 /** Shared viewport preview for HTML lane marks and SVG cells/zoom marks. */
 export function TimelineMark({label,preview,children,className,style,svg=false,details}:{label:string;preview:ReactNode;children?:ReactNode;className?:string;style?:CSSProperties;svg?:boolean;details?:ReactNode}) {
+  const select=useTimelineInvestigation();
   const anchor=useRef<Element|null>(null);
   const id=useId();
   const [open,setOpen]=useState(false);
@@ -21,7 +23,7 @@ export function TimelineMark({label,preview,children,className,style,svg=false,d
     document.addEventListener("keydown",escape);document.addEventListener("pointerdown",outside);
     return ()=>{document.removeEventListener("keydown",escape);document.removeEventListener("pointerdown",outside)};
   },[open]);
-  const activate=()=>{setOpen(false);setSelected(true)};
+  const activate=()=>{setOpen(false);if(select)select({label,preview,details});else setSelected(true)};
   const close=()=>{setSelected(false);setOpen(false)};
   const props={className:`timeline-mark ${className??""}`,style,"aria-label":label,"aria-describedby":open?id:undefined,"aria-haspopup":"dialog" as const,
     onPointerEnter:()=>{if(!selected)setOpen(true)},onPointerLeave:()=>setOpen(false),onFocus:()=>{if(!selected)setOpen(true)},onBlur:()=>setOpen(false),onClick:activate};
