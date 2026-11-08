@@ -12,6 +12,8 @@ Shared storage charts offer portable [agent investigation context](agent-investi
 
 ## Behavior and rules
 
+- [Chart interval selection](chart-interval-selection.md) adds explicit storage-time selection and actions. Selection alone leaves navigation and the page range unchanged.
+
 - **Change in a selected interval.** Resources by measured change lists resource incarnations observed at either endpoint, including streams, KV buckets, object stores and resources absent from the newest collection. Change in range shows signed one-copy logical byte deltas, before/after values and actual collection windows. Short intervals work when distinct fresh observations permit; daily growth is independent.
 - **Signed ordering.** The default ranking uses the largest absolute logical change. Change in range switches to largest signed increase, then smallest signed change. Sorting and contributor type filters apply to the complete bounded comparison before paging. Unknown changes stay last. The URL retains the sort and type selection. Decorative bars compare signed changes against the largest known magnitude on the current page; they do not assign severity.
 - **Frozen evidence.** Proposed, not yet confirmed: a live selection resolves against the source clock and stays frozen until Refresh comparison or a scope/range change. Open pinned investigation records requested bounds, resolved system and available collection pins. Pagination follows one pinned comparison explicitly; filtering resets its page. Unknown, missing, stale and identical endpoint evidence cannot become a measured zero.

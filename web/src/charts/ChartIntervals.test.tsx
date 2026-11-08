@@ -57,7 +57,7 @@ it("allows touch selection while vertical gestures and pointer cancellation leav
  fireEvent.pointerDown(p,{pointerId:2,isPrimary:true,button:0,clientX:30,clientY:10,pointerType:"touch"});fireEvent.pointerMove(p,{pointerId:2,clientX:32,clientY:40,pointerType:"touch"});fireEvent.pointerUp(p,{pointerId:2,clientX:32,clientY:40,pointerType:"touch"});expect(screen.queryByRole("dialog")).toBeNull();
  fireEvent.pointerDown(p,{pointerId:3,isPrimary:true,button:0,clientX:30,clientY:10,pointerType:"mouse"});fireEvent.pointerMove(p,{pointerId:3,clientX:90,clientY:10,pointerType:"mouse"});fireEvent.pointerCancel(p,{pointerId:3});fireEvent.pointerUp(p,{pointerId:3,clientX:90,clientY:10});expect(screen.queryByRole("dialog")).toBeNull();expect(screen.getByTestId("location")).toHaveTextContent(route);
 });
-it("does not offer storage attribution for unrelated metrics, while explicit generic selection can set a range",()=>{
+it("does not automatically offer storage attribution for unrelated metrics",()=>{
  const props={label:"CPU",start,end,stepMs:1000,investigation:{metric:"server.cpu_percent"},series:[]};
  mount(<inspection.ChartInspection {...props}><svg/></inspection.ChartInspection>);expect(screen.queryByRole("button",{name:"Select interval for CPU"})).toBeNull();
 });
@@ -67,4 +67,8 @@ it("does not swallow a new modified link click after cancelling a drag",()=>{
 it("keeps a keyboard selection's frame valid when live data moves the visible window",()=>{
  let refresh!:()=>void;function Moving(){const [offset,setOffset]=useState(0);refresh=()=>setOffset(30000);return <inspection.ChartInspection label="Storage" start={start+offset} end={end+offset} stepMs={1000} investigation={{metric:"stream.bytes",entity}} series={[]}><svg/></inspection.ChartInspection>}
  mount(<Moving/>);const p=screen.getByRole("slider");act(()=>p.focus());fireEvent.keyDown(p,{key:"Home"});fireEvent.keyDown(p,{key:"ArrowRight",shiftKey:true});act(()=>refresh());fireEvent.keyDown(p,{key:"ArrowRight",shiftKey:true});fireEvent.keyDown(p,{key:"Enter"});expect(Date.parse((screen.getByLabelText("Start (UTC)") as HTMLInputElement).value+"Z")).toBe(start);expect(Date.parse((screen.getByLabelText("End (UTC)") as HTMLInputElement).value+"Z")).toBe(start+2000);expect(screen.getByRole("button",{name:"Set time range"})).not.toBeDisabled();
+});
+
+it("lets explicit generic plots select time without offering storage attribution",()=>{
+ mount(<inspection.ChartInspection label="CPU" start={start} end={end} intervalActions investigation={{metric:"server.cpu_percent"}} series={[]}><svg/></inspection.ChartInspection>);fireEvent.click(screen.getByRole("button",{name:"Select interval for CPU"}));expect(screen.getByRole("button",{name:"Set time range"})).toBeEnabled();expect(screen.queryByRole("button",{name:"Investigate change"})).toBeNull();
 });

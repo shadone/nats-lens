@@ -10,6 +10,8 @@ A small About info control explains what a chart measures without a permanent pa
 
 ## Behavior and rules
 
+- [Chart interval selection](chart-interval-selection.md) adds explicit storage-time selection and actions. Selection alone leaves navigation and the page range unchanged.
+
 - **One interaction.** The shared InfoTip opens on hover, keyboard focus or activation. Clicking pins it; Escape, blur or another click dismisses it. Its button has an About label and an associated description. It is separate from chart navigation, sorting and plot inspection.
 - **Viewport overlay.** Descriptions render outside clipping cards and table cells, bounded by the viewport. They reposition on scrolling or resizing and remain inside a native dialog's top-layer subtree when used there. Both themes use the shared tokens.
 - **Authoritative metric definitions.** Registered metric charts use ListMetrics descriptions and declared units. The catalogue loads only when a description is requested and is cached across charts; it does not add initial page requests. Missing definitions and catalogue failures are explicit and do not turn into chart-data failures. Chart-specific context, when needed, remains separate from the base metric definition.

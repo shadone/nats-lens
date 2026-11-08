@@ -12,6 +12,8 @@ A compact **Copy as prompt** action in the top bar or beside a shared chart copi
 
 ## Behavior and rules
 
+- [Chart interval selection](chart-interval-selection.md) adds explicit storage-time selection and actions. Selection alone leaves navigation and the page range unchanged.
+
 - **Page loading and recovery.** Accounts, Applications, Connections, Data history, Micro services, Placement, Replay and Topology load their views when needed. Their scoped primary data reads start while the view code loads; other pages are available with the shell. While a view loads, the sidebar and header remain available, and a polite status announces “Loading page…”. If the view code fails, the page shows an alert and a **Reload page** link. The link reloads the full current address, including its range, system, account, and fragment. Navigating to another page clears the error for that destination.
 
 - **Bucket links.** KV and object-store links open dedicated bucket routes across resource surfaces. Legacy storage-stream links redirect to the bucket page with their query context; an explicitly labeled secondary action retains access to low-level stream diagnostics. See [KV and object stores](kv-and-object-stores.md).
