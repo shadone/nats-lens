@@ -14,6 +14,9 @@ import (
 // A failing dial keeps backing off even after the first connection lasted
 // longer than the reset time. Adapted from the review's test.
 func TestRedialBacksOffWhenDialFails(t *testing.T) {
+	if testing.Short() {
+		t.Skip("local NATS integration: run without -short")
+	}
 	s, err := server.NewServer(&server.Options{Host: "127.0.0.1", Port: -1, NoLog: true, NoSigs: true})
 	if err != nil {
 		t.Fatal(err)

@@ -12,6 +12,9 @@ import (
 // A drain hands every message already received to the handler before the
 // connection closes. From the review.
 func TestDrainDeliversBacklog(t *testing.T) {
+	if testing.Short() {
+		t.Skip("local NATS integration: run without -short")
+	}
 	s, _ := server.NewServer(&server.Options{Host: "127.0.0.1", Port: -1, NoLog: true, NoSigs: true})
 	go s.Start()
 	defer s.Shutdown()
@@ -43,6 +46,9 @@ func TestDrainDeliversBacklog(t *testing.T) {
 // Connections drain in parallel: when each one hits the drain timeout,
 // shutdown waits one timeout, not one per connection.
 func TestDrainAllInParallel(t *testing.T) {
+	if testing.Short() {
+		t.Skip("local NATS integration: run without -short")
+	}
 	s, _ := server.NewServer(&server.Options{Host: "127.0.0.1", Port: -1, NoLog: true, NoSigs: true})
 	go s.Start()
 	defer s.Shutdown()

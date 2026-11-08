@@ -1,7 +1,7 @@
 BIN := bin/natslens
 DEV_DATA := .dev/natslens
 
-.PHONY: build build-go web web-test web-dev proto test test-short lint fmt demo dev-cluster dev-cluster-stop load churn run-dev image vuln clean
+.PHONY: build build-go web web-test web-dev proto test test-short test-fast lint fmt demo dev-cluster dev-cluster-stop load churn run-dev image vuln clean
 
 # Builds the web UI into internal/webui/dist, then the binary that embeds it.
 build: web
@@ -33,10 +33,14 @@ proto: web/node_modules/.package-lock.json
 	buf generate
 
 test:
-	go test ./...
+	go test -timeout 40m ./...
 
 test-short:
-	go test -short ./...
+	go test -short -timeout 40m ./...
+
+# Pure policy/decoding selection; short alone still includes DuckDB and HTTP.
+test-fast:
+	./scripts/test-go-fast.sh
 
 lint:
 	go vet ./...

@@ -15,6 +15,9 @@ import (
 // denial is stored as no event, and neither a second connection nor a
 // redial of the same account asks again. Adapted from the review's test.
 func TestUserInfoDenied(t *testing.T) {
+	if testing.Short() {
+		t.Skip("local NATS integration: run without -short")
+	}
 	s, err := server.NewServer(&server.Options{Host: "127.0.0.1", Port: -1, NoLog: true, NoSigs: true,
 		Users: []*server.User{{Username: "u", Password: "p",
 			Permissions: &server.Permissions{Publish: &server.SubjectPermission{Allow: []string{"foo.>"}},
@@ -84,6 +87,9 @@ func (s *syncBuffer) String() string {
 // Every connection whose account name stays unknown says so, also one
 // that starts after the requests for its label are used up.
 func TestResolveBudgetSpentIsLogged(t *testing.T) {
+	if testing.Short() {
+		t.Skip("local NATS integration: run without -short")
+	}
 	s, err := server.NewServer(&server.Options{Host: "127.0.0.1", Port: -1, NoLog: true, NoSigs: true, NoSystemAccount: true})
 	if err != nil {
 		t.Fatal(err)
@@ -123,6 +129,9 @@ func TestResolveBudgetSpentIsLogged(t *testing.T) {
 // reply inbox is refused the lookup as well: it keeps its label, asks once,
 // and the inbox denial is stored as no event.
 func TestUserInfoInboxDenied(t *testing.T) {
+	if testing.Short() {
+		t.Skip("local NATS integration: run without -short")
+	}
 	s, err := server.NewServer(&server.Options{Host: "127.0.0.1", Port: -1, NoLog: true, NoSigs: true,
 		Users: []*server.User{{Username: "u", Password: "p",
 			Permissions: &server.Permissions{Publish: &server.SubjectPermission{Allow: []string{"$SYS.REQ.USER.INFO"}},

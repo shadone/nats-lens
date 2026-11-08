@@ -19,6 +19,9 @@ import (
 // reported, so a subscription joins its connection on (epoch, server_id,
 // cid) only, never on the account.
 func TestSubszGlobalAccountStoredAsReported(t *testing.T) {
+	if testing.Short() {
+		t.Skip("local NATS integration: run without -short")
+	}
 	sys := server.NewAccount("SYS")
 	opts := &server.Options{
 		Host: "127.0.0.1", Port: -1, NoLog: true, NoSigs: true,
