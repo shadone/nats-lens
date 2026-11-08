@@ -10,6 +10,11 @@ import (
 	"time"
 )
 
+// Demo pins encode the immutable scenario frame and its collection number.
+// The rest of the live demo follows the wall clock; replay must not move this
+// comparison's synthetic observations when that clock advances.
+const storageFrameScale int64 = 1_000_000
+
 // StorageChange reuses Capacity's scenario measurements and process identities;
 // it does not manufacture growth from a daily forecast.
 func (p *Provider) StorageChange(ctx context.Context, req *v1.GetStorageChangeRequest) (*api.StorageChangeFacts, error) {
@@ -17,6 +22,7 @@ func (p *Provider) StorageChange(ctx context.Context, req *v1.GetStorageChangeRe
 		return nil, err
 	}
 	s := p.scen()
+	retainedFrom := s.dataStart()
 	pins := []int64{req.EpochA, req.EpochB}
 	if req.PageToken != "" {
 		token, err := api.DecodeStorageCursor(req.PageToken)
@@ -28,6 +34,25 @@ func (p *Provider) StorageChange(ctx context.Context, req *v1.GetStorageChangeRe
 		}
 		pins = []int64{token.A, token.B}
 	}
+	frame := int64(0)
+	for _, pin := range pins {
+		if pin == 0 {
+			continue
+		}
+		at, n := pin/storageFrameScale, pin%storageFrameScale
+		if at <= 0 || n <= 0 || frame != 0 && frame != at {
+			return nil, api.ErrInvalid
+		}
+		frame = at
+	}
+	if frame != 0 {
+		now := time.Unix(frame, 0).UTC()
+		if now.After(s.now) {
+			return nil, api.ErrInvalid
+		}
+		s = scen{now: now, shift: now.Sub(FixedNow), sc: p.sc}
+	}
+	frame = s.now.Unix()
 	endpoints := []*v1.StorageChangeEndpoint{}
 	rows := map[string]*v1.StorageChangeRow{}
 	for i, requested := range []time.Time{req.GetA().AsTime(), req.GetB().AsTime()} {
@@ -35,15 +60,15 @@ func (p *Provider) StorageChange(ctx context.Context, req *v1.GetStorageChangeRe
 		end := requested
 		if pins[i] != 0 {
 			last := s.lastEpoch()
-			if pins[i] < 1 || pins[i] > s.epochNumber(last) {
+			if pins[i] < 1 || pins[i]%storageFrameScale > s.epochNumber(last) {
 				return nil, api.ErrFailedPrecondition
 			}
 			first := last.Add(-last.Sub(s.dataStart()) / sampleEvery * sampleEvery)
-			end = first.Add(time.Duration(pins[i]-1) * sampleEvery)
+			end = first.Add(time.Duration(pins[i]%storageFrameScale-1) * sampleEvery)
 			if end.After(requested) {
 				return nil, api.ErrInvalid
 			}
-			if end.After(s.now) || end.Before(s.dataStart()) {
+			if end.After(s.now) || end.Before(retainedFrom) {
 				return nil, api.ErrFailedPrecondition
 			}
 		}
@@ -51,7 +76,7 @@ func (p *Provider) StorageChange(ctx context.Context, req *v1.GetStorageChangeRe
 		if err != nil {
 			return nil, err
 		}
-		if pins[i] != 0 && f.Epoch != pins[i] {
+		if pins[i] != 0 && f.Epoch != pins[i]%storageFrameScale {
 			return nil, fmt.Errorf("%w: demo collection pin unavailable", api.ErrFailedPrecondition)
 		}
 		if f.Epoch == 0 {
@@ -59,7 +84,7 @@ func (p *Provider) StorageChange(ctx context.Context, req *v1.GetStorageChangeRe
 			endpoints = append(endpoints, e)
 			continue
 		}
-		e.Epoch = f.Epoch
+		e.Epoch = frame*storageFrameScale + f.Epoch
 		e.StartedAt = ts(f.EpochAt)
 		e.FinishedAt = ts(f.EpochAt)
 		e.Age = durationpb.New(requested.Sub(f.EpochAt))

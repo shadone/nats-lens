@@ -53,3 +53,5 @@ Important reasons include `no_comparable_endpoints`, `no_collection`, `stale_col
 Resource-detail links select the last observed endpoint window. Those existing pages round shared URL ranges to whole seconds, so links use the next whole second after the window finish. Exact collection windows and pins remain on the comparison page; this does not create universal pins for other detail RPCs.
 
 A live preset on the evidence page resolves to fixed bounds using the loaded source clock. Explicit range changes discard old collection pins. Available endpoint pins and the resolved system are written into the URL before continuing a page; unavailable endpoints have no invented pin.
+
+In the synthetic demo, comparison pins also identify their scenario frame, so advancing the live demo clock does not silently move their evidence. Treat these IDs as opaque; other detail RPCs do not gain comparison pinning.

@@ -43,7 +43,7 @@ export function StorageChange(){
 function ResolveComparisonRange(){
  const system=useSystem();const info=useQuery({queryKey:["storage-change-clock",system],queryFn:async({signal})=>{const r=await lens.getLensInfo({system},{signal});if(!r.now)throw new Error("The source clock is unavailable.");return Number(r.now.seconds)*1000+r.now.nanos/1e6;},staleTime:0});const {spec,problem}=useTimeRange();const [params,setParams]=useSearchParams();
  const key=params.toString();
- useEffect(()=>{if(info.data===undefined||problem)return;const r=resolveRange(spec,info.data);setParams(p=>{const n=new URLSearchParams(p);n.delete("range");n.delete("epochA");n.delete("epochB");n.set("from",new Date(r.start).toISOString());n.set("to",new Date(r.end).toISOString());return n},{replace:true})},[info.data,key,problem,setParams]);
+ useEffect(()=>{if(info.data===undefined||info.isFetching||info.isError||problem)return;const r=resolveRange(spec,info.data);setParams(p=>{const n=new URLSearchParams(p);n.delete("range");n.delete("epochA");n.delete("epochB");n.set("from",new Date(r.start).toISOString());n.set("to",new Date(r.end).toISOString());return n},{replace:true})},[info.data,info.isFetching,info.isError,key,problem,setParams]);
  return <><h1>Storage change</h1>{problem?<p role="alert">{problem}</p>:<QueryView q={info} what="source clock">{()=> <p role="status">Freezing the selected interval…</p>}</QueryView>}</>;
 }
 function PinnedStorageChange() {
