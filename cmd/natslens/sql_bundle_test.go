@@ -54,4 +54,13 @@ func TestSQLCanonicalBundle(t *testing.T) {
 	if !strings.Contains(out.String(), `"BIGINT"`) || !strings.Contains(out.String(), `"1"`) {
 		t.Fatalf("typed result missing: %s", out.String())
 	}
+	stage := filepath.Join(root, ".dataset-partial-unpublished")
+	if err = os.Rename(path, stage); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if err = runSQLTo(ctx, []string{"-bundle", stage, "-format", "json", "SELECT epoch FROM epochs"}, &out); err == nil || out.Len() != 0 {
+		t.Fatalf("unpublished SQL bundle exposed: %v %s", err, out.String())
+	}
+
 }

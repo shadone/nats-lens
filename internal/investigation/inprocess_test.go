@@ -36,3 +36,27 @@ func TestInProcessUsesHandlerWithoutNetwork(t *testing.T) {
 		t.Fatal("cancelled query admitted")
 	}
 }
+
+func TestInProcessBudgetsAndSchema(t *testing.T) {
+	calls := 0
+	source := NewInProcess(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(strings.Repeat("x", MaxResponseBytes+1)))
+	}))
+	for _, request := range [][]byte{[]byte(`{"unrecognized":true}`), []byte(strings.Repeat("x", MaxInputBytes+1))} {
+		if _, err := source.Query(context.Background(), "GetLensInfo", request); err == nil {
+			t.Fatal("invalid request accepted")
+		}
+	}
+	if calls != 0 {
+		t.Fatal("request bypassed schema/input cap")
+	}
+	if _, err := source.Query(context.Background(), "GetLensInfo", []byte(`{}`)); err == nil {
+		t.Fatal("oversized response accepted")
+	}
+	if calls != 1 {
+		t.Fatal("unexpected extra call")
+	}
+}

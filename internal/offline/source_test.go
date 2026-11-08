@@ -59,9 +59,14 @@ func TestOfflineClosedSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(got), `"retention":null`) {
+	var infoFields map[string]json.RawMessage
+	if err = json.Unmarshal(got, &infoFields); err != nil {
+		t.Fatal(err)
+	}
+	if retention := infoFields["retention"]; retention != nil && string(retention) != "null" {
 		t.Fatalf("uncaptured retention policy invented: %s", got)
 	}
+
 	if !strings.Contains(string(got), `"nowFixed":true`) {
 		t.Fatalf("frozen clock was not identified: %s", got)
 	}

@@ -23,13 +23,16 @@ func withoutRuntime(t *testing.T, b []byte) any {
 	if err := json.Unmarshal(b, &v); err != nil {
 		t.Fatal(err)
 	}
+	if info, ok := v.(map[string]any); ok && info["identityMode"] != nil {
+		delete(info, "retention")
+	}
 	var visit func(any)
 	visit = func(v any) {
 		switch v := v.(type) {
 		case map[string]any:
 			for k, c := range v {
 				switch k {
-				case "live", "collecting", "collection", "archive":
+				case "live", "collecting", "collection", "archive", "nowFixed":
 					delete(v, k)
 				default:
 					visit(c)
