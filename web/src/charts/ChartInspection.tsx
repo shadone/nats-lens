@@ -1,6 +1,7 @@
 import {useChartIntervalInteraction} from "./ChartIntervals";
 export {ChartIntervalProvider} from "./ChartIntervals";
 import {createPortal} from "react-dom";
+import {useReadoutHover} from "./useReadoutHover";
 import {ChartReadout} from "./ChartReadout";
 import { InvestigationButton, useInvestigationCopy } from "../components/InvestigationContext";
 import type { InvestigationSelection } from "../lib/investigationContext";
@@ -36,6 +37,7 @@ export function ChartInspection({ label, start, end, stepMs, bucketNote, series,
   };
   const [cursor, setCursor] = useState<number>();
   const id = useId();
+  const presence=useReadoutHover(anchor,id,()=>setCursor(undefined));
   const history = usePageHistory();
   const step = inspectionStep(series, stepMs);
   const selected = cursor === undefined ? undefined : Math.min(end, Math.max(start, cursor));
@@ -58,9 +60,9 @@ export function ChartInspection({ label, start, end, stepMs, bucketNote, series,
     if (box.width > 0) setCursor(start + Math.max(0, Math.min(1, (clientX - box.left) / box.width)) * (end - start));
   };
   return <div className="chart-inspection-wrap"><div ref={anchor} className="chart-inspection" role="slider" tabIndex={0} aria-label={`Inspect ${label}`} aria-valuemin={start} aria-valuemax={end} aria-valuenow={selected ?? start} aria-valuetext={interval?.highlight?`Selected interval ${new Date(interval.highlight.start).toISOString()} to ${new Date(interval.highlight.end).toISOString()}; Enter opens actions`:selected === undefined ? "Focus, then use arrow keys to inspect time and values" : text} aria-description={[copy?"Use arrow keys to select time, then C to copy as prompt":"",interval?"Shift and arrow keys select an interval; Enter opens actions":""].filter(Boolean).join(". ")||undefined} aria-describedby={selected === undefined ? undefined : id}
-    onPointerMove={e => {interval?.move(e);move(e.clientX,e.currentTarget)}} onPointerDown={e => {interval?.down(e);move(e.clientX,e.currentTarget)}} onPointerUp={e=>interval?.up(e)} onPointerCancel={()=>interval?.cancel()} onLostPointerCapture={()=>interval?.cancel()} onClickCapture={e=>interval?.click(e)} onDragStart={e=>{if(interval)e.preventDefault()}}
-    onPointerLeave={e => { if (e.pointerType !== "touch") setCursor(undefined); }}
-    onFocus={() => setCursor(current => current ?? start)} onBlur={() => setCursor(undefined)}
+    onPointerMove={e => {presence.keep();interval?.move(e);move(e.clientX,e.currentTarget)}} onPointerDown={e => {interval?.down(e);move(e.clientX,e.currentTarget)}} onPointerUp={e=>interval?.up(e)} onPointerCancel={()=>interval?.cancel()} onLostPointerCapture={()=>interval?.cancel()} onClickCapture={e=>interval?.click(e)} onDragStart={e=>{if(interval)e.preventDefault()}}
+    onPointerLeave={e => { if (e.pointerType !== "touch") presence.leave(); }}
+    onFocus={() => setCursor(current => current ?? start)} onBlur={e=>presence.blur(e.relatedTarget)}
     onKeyDown={e => {
       if(interval?.key(e,selected??start,step))return;
       if (e.key.toLowerCase() === "c" && !e.ctrlKey && !e.metaKey && copy) { e.preventDefault(); copy(); return; }
@@ -73,7 +75,7 @@ export function ChartInspection({ label, start, end, stepMs, bucketNote, series,
     {interval?.highlight&&<span role="img" aria-label={`Selected chart interval ${new Date(interval.highlight.start).toISOString()} to ${new Date(interval.highlight.end).toISOString()}`} className="chart-selected-interval" style={{left:`${Math.max(0,Math.min(100,(interval.highlight.start-start)/(end-start)*100))}%`,width:`${Math.max(0,Math.min(end,interval.highlight.end)-Math.max(start,interval.highlight.start))/(end-start)*100}%`}}/>}
     {selected !== undefined && !interval?.active && <>
       <span className="chart-cursor" aria-hidden="true" style={{ left: `${(selected - start) / (end - start || 1) * 100}%` }} />
-      <ChartReadout anchor={anchor} fraction={(selected-start)/(end-start||1)} id={id} contentKey={text}><b>{when}</b><span>{stepMs ? `Bucket to ${bucketEnd}` : "Recorded sample"}</span>{bucketNote && <span>{bucketNote}</span>}{missing && <span>Not collected</span>}{rows.map((r, i) => <span key={i}>{r}</span>)}</ChartReadout>
+      <ChartReadout anchor={anchor} fraction={(selected-start)/(end-start||1)} id={id} contentKey={text} hover={presence}><b>{when}</b><span>{stepMs ? `Bucket to ${bucketEnd}` : "Recorded sample"}</span>{bucketNote && <span>{bucketNote}</span>}{missing && <span>Not collected</span>}{rows.map((r, i) => <span key={i}>{r}</span>)}</ChartReadout>
     </>}
   </div>{interval&&<button type="button" className="btn chart-interval-trigger" aria-label={`Select interval for ${label}`} title="Select interval" onClick={interval.picker}><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3v10M14 3v10M2 8h12m-9-3L2 8l3 3m6-6 3 3-3 3" fill="none" stroke="currentColor"/></svg></button>}{copy && (actionTarget===undefined?<InvestigationButton selection={selection()} floating />:actionTarget?createPortal(<InvestigationButton selection={selection()} floating />,actionTarget):null)}</div>;
 }

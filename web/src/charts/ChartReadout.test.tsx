@@ -11,7 +11,7 @@ it('allows keyboard readers to scroll overflowing help without moving focus from
  render(<InfoTip label="Storage" text="Long storage guidance."/>);const b=screen.getByRole('button');act(()=>b.focus());const tip=screen.getByRole('tooltip');Object.defineProperty(tip,'scrollHeight',{value:900});Object.defineProperty(tip,'clientHeight',{value:200});const scroll=vi.fn();tip.scrollBy=scroll;fireEvent.keyDown(b,{key:'PageDown'});expect(scroll).toHaveBeenCalledWith({top:160,behavior:'auto'});expect(document.activeElement).toBe(b);
 });
 it('hides a detached-from-view anchor inside an independently scrolled table',()=>{
- function Fixture(){const anchor=useRef<HTMLSpanElement>(null);return <div data-testid="table" style={{overflow:'auto'}}><span ref={anchor}>Plot</span><ChartReadout anchor={anchor} fraction={.5} id="preview" contentKey="sample">Observed value</ChartReadout></div>}
+ function Fixture(){const anchor=useRef<HTMLSpanElement>(null);return <div data-testid="table" style={{overflowX:'auto',overflowY:'auto'}}><span ref={anchor}>Plot</span><ChartReadout anchor={anchor} fraction={.5} id="preview" contentKey="sample">Observed value</ChartReadout></div>}
  const bounds=(left:number,right:number,top=20,bottom=60)=>({left,right,top,bottom,width:right-left,height:bottom-top,x:left,y:top,toJSON(){}} as DOMRect);
  const mock=vi.spyOn(HTMLElement.prototype,'getBoundingClientRect').mockImplementation(function(this:HTMLElement){return this.dataset.testid==='table'?bounds(100,200):this.tagName==='SPAN'?bounds(220,250):bounds(0,300,0,100)});
  render(<Fixture/>);expect(screen.getByRole('tooltip',{hidden:true})).toHaveStyle({visibility:'hidden'});mock.mockRestore();

@@ -1,4 +1,4 @@
-import {fireEvent, render, screen, within} from "@testing-library/react";
+import {fireEvent, render, screen, within, waitFor} from "@testing-library/react";
 import {MemoryRouter} from "react-router";
 import {expect, it, vi} from "vitest";
 import type {Timeline} from "../api/model";
@@ -18,7 +18,7 @@ const timeline: Timeline = {
   natsTruncated:false,findingTruncated:false,kubernetesTruncated:false,
 };
 
-it("explains event ticks on hover and keyboard focus in a viewport overlay",()=>{
+it("explains event ticks on hover and keyboard focus in a viewport overlay",async()=>{
   render(<MemoryRouter><StoryLanes tl={timeline} end={start+120_000} live={false}/></MemoryRouter>);
   const mark=screen.getByRole("button",{name:/NATS event: Worker connection closed/});
   fireEvent.pointerEnter(mark);
@@ -28,19 +28,20 @@ it("explains event ticks on hover and keyboard focus in a viewport overlay",()=>
   expect(tip).toHaveTextContent("2026-10-17 23:59:10 UTC");
   expect(tip).toHaveTextContent("42");
   fireEvent.pointerLeave(mark);
-  expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  await waitFor(()=>expect(screen.queryByRole("tooltip")).not.toBeInTheDocument());
   fireEvent.focus(mark);
   expect(screen.getByRole("tooltip")).toHaveTextContent("Worker connection closed");
   fireEvent.keyDown(mark,{key:"Escape"});
   expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
 });
 
-it("explains aggregate finding boxes and inferred windows without inventing exact onsets",()=>{
+it("explains aggregate finding boxes and inferred windows without inventing exact onsets",async()=>{
   render(<MemoryRouter><StoryLanes tl={timeline} end={start+120_000} live={false}/></MemoryRouter>);
   fireEvent.pointerEnter(screen.getByRole("button",{name:/Finding state: Warning/}));
   expect(screen.getByRole("tooltip")).toHaveTextContent("No delivery while messages wait");
   expect(screen.getByRole("tooltip")).toHaveTextContent(/bucket boundaries/i);
   fireEvent.pointerLeave(screen.getByRole("button",{name:/Finding state: Warning/}));
+  await waitFor(()=>expect(screen.queryByRole("tooltip")).not.toBeInTheDocument());
   fireEvent.pointerEnter(screen.getByRole("button",{name:/Window: Rolling restart/}));
   expect(screen.getByRole("tooltip")).toHaveTextContent("2026-10-18 00:00:30 UTC");
   expect(screen.getByRole("tooltip")).toHaveTextContent(/inferred/i);

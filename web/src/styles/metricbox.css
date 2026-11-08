@@ -44,7 +44,7 @@
 
 .chart-inspection{position:relative;z-index:2;min-width:0;touch-action:pan-y;outline-offset:2px}
 .chart-inspection:focus-visible{outline:2px solid var(--accent)}
-.chart-readout{position:fixed;z-index:30;width:min(24rem,calc(100vw - 2 * var(--sp-3)));box-sizing:border-box;padding:var(--sp-2);border-radius:var(--r-md);background:var(--strong-bg);color:var(--on-strong);box-shadow:0 4px 14px var(--shadow);font:var(--fs-xs)/1.5 var(--mono);overflow-wrap:anywhere;white-space:normal;overflow:hidden;pointer-events:none}
+.chart-readout{position:fixed;z-index:30;width:min(24rem,calc(100vw - 2 * var(--sp-3)));box-sizing:border-box;padding:var(--sp-2);border-radius:var(--r-md);background:var(--strong-bg);color:var(--on-strong);box-shadow:0 4px 14px var(--shadow);font:var(--fs-xs)/1.5 var(--mono);overflow-wrap:anywhere;white-space:normal;overflow:auto;overscroll-behavior:contain;pointer-events:auto}
 .chart-readout span,.chart-readout b{display:block}
 .chart-cursor{position:absolute;top:0;bottom:0;width:1px;background:var(--text-muted);pointer-events:none}
 .chart-linked .chart-inspection .spark,.chart-linked .chart-inspection .tc-svg{z-index:auto}

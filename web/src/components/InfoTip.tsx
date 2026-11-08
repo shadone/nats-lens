@@ -1,4 +1,5 @@
 import {useId,useRef,useState,type ReactNode} from "react";
+import {useReadoutHover} from "../charts/useReadoutHover";
 import {ChartReadout} from "../charts/ChartReadout";
 
 /** An (i) button that shows a description on hover, focus or click. */
@@ -14,8 +15,9 @@ export function InfoTip({ label, text }: { label: string; text: ReactNode }) {
     setHover(false);
     setPinned(false);
   };
+  const presence=useReadoutHover(anchor,id,()=>{setHover(false)});
   return (
-    <span ref={anchor} className="infotip" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+    <span ref={anchor} className="infotip" onMouseEnter={() => {presence.keep();setHover(true)}} onMouseLeave={presence.leave}>
       <button
         type="button"
         className="infotip-b"
@@ -24,13 +26,13 @@ export function InfoTip({ label, text }: { label: string; text: ReactNode }) {
         aria-describedby={open ? id : undefined}
         onClick={() => pinned ? close() : setPinned(true)}
         onFocus={() => setHover(true)}
-        onBlur={close}
+        onBlur={e=>{if(e.relatedTarget instanceof Node&&document.getElementById(id)?.contains(e.relatedTarget))return;close()}}
         onKeyDown={(e) => e.key === "Escape" && close()}
       >
         i
       </button>
       {open && (
-        <ChartReadout anchor={anchor} fraction={.5} id={id} contentKey={label}>{text}</ChartReadout>
+        <ChartReadout anchor={anchor} fraction={.5} id={id} contentKey={label} hover={presence}>{text}</ChartReadout>
       )}
     </span>
   );
