@@ -107,3 +107,46 @@ func TestNoUIProjectionCannotProveEmptyRequestScope(t *testing.T) {
 		}
 	}
 }
+
+func TestTypedKeyOwnsResourceProjectionAndLinks(t *testing.T) {
+	for _, tc := range []struct{ kind, key, path, method, field, value string }{
+		{"ENTITY_TYPE_SERVER", "nats-0", "/servers/nats-0", "GetServer", "name", "nats-0"},
+		{"ENTITY_TYPE_STREAM", "APP/orders", "/streams/APP/orders", "GetStream", "stream", "orders"},
+		{"ENTITY_TYPE_CONSUMER", "APP/orders/worker", "/consumers/APP/orders/worker", "GetConsumer", "consumer", "worker"},
+	} {
+		t.Run(tc.kind, func(t *testing.T) {
+			c, _ := ContextFromURL("https://lens.example.com/events?system=shop&show=all", "https://lens.example.com", fixtureNow())
+			raw, _ := json.Marshal(map[string]any{"entity": map[string]string{"type": tc.kind, "key": tc.key}})
+			req, _, _ := Prepare("ListEvents", c, raw)
+			effective, limits, err := effectiveContext("ListEvents", c, req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(limits) > 0 {
+				t.Fatal(limits)
+			}
+			source, _ := effective.Link(c.Deployment)
+			links := evidenceLinks("ListEvents", []byte(`{}`), effective, c.Deployment, source)
+			found := false
+			for _, l := range links {
+				if l.Kind == "selected_resource" && l.ID == tc.key && strings.Contains(l.URL, tc.path+"?") {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("typed-key resource link missing: %v", links)
+			}
+			next, _, err := Prepare(tc.method, effective, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got map[string]json.RawMessage
+			json.Unmarshal(next, &got)
+			var value string
+			json.Unmarshal(got[tc.field], &value)
+			if value != tc.value {
+				t.Errorf("typed-key followup lost identity: %s", next)
+			}
+		})
+	}
+}
