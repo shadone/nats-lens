@@ -334,27 +334,8 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 		put("account", c.Account)
 	}
 	put("range", c.Range)
-	if c.Entity != nil {
-		put("entity", c.Entity)
-		e := c.Entity
-		switch method {
-		case "GetServer":
-			put("name", e.Server)
-		case "GetStream", "GetConsumer":
-			put("account", e.Account)
-			put("stream", e.Stream)
-			if e.Consumer != "" {
-				put("consumer", e.Consumer)
-			}
-		}
-	}
 	if c.Metric != "" {
 		put("metric", c.Metric)
-	}
-	for _, e := range c.Evidence {
-		if method == "GetFinding" && e.Kind == "finding" || method == "GetEvent" && e.Kind == "event" {
-			put("id", e.ID)
-		}
 	}
 	unapplied := []string{}
 	if method == "GetTimeSeriesBatch" && len(c.Series) > 0 {
@@ -443,9 +424,8 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 				applied = c.Entity != nil && fields.ByJSONName("entity") != nil
 			}
 		case "stream":
-			if method == "ListConsumers" && c.Entity != nil && c.Entity.Type == "ENTITY_TYPE_STREAM" {
-				put("account", c.Entity.Account)
-				applied = put("stream", c.Entity.Stream)
+			if method == "ListConsumers" && c.Entity != nil && (c.Entity.Type == "ENTITY_TYPE_STREAM" || c.Entity.Type == "ENTITY_TYPE_CONSUMER") {
+				applied = true
 			} else {
 				applied = c.Entity != nil && fields.ByJSONName("entity") != nil
 			}
@@ -469,6 +449,34 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 		}
 		if !applied {
 			unapplied = append(unapplied, k)
+		}
+	}
+	// Resolve selected identity as one scope after ordinary page filters, never
+	// from their map iteration order. Explicit request fields are applied later.
+	if e := c.Entity; e != nil {
+		put("entity", e)
+		if e.Account != "" {
+			put("account", e.Account)
+		}
+		switch method {
+		case "GetServer":
+			put("name", e.Server)
+		case "GetStream", "GetConsumer", "ListConsumers":
+			if e.Type == "ENTITY_TYPE_STREAM" || e.Type == "ENTITY_TYPE_CONSUMER" {
+				put("stream", e.Stream)
+				if method == "GetConsumer" {
+					put("consumer", e.Consumer)
+				}
+			}
+		case "ListConnections", "GetSlowConsumerInvestigation":
+			if e.Type == "ENTITY_TYPE_SERVER" {
+				put("server", e.Server)
+			}
+		}
+	}
+	for _, e := range c.Evidence {
+		if method == "GetFinding" && e.Kind == "finding" || method == "GetEvent" && e.Kind == "event" {
+			put("id", e.ID)
 		}
 	}
 	if method == "GetReplay" {
