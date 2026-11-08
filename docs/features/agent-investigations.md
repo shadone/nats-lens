@@ -10,6 +10,7 @@ A user can activate **Copy as prompt** on a page or chart and paste the complete
 
 ## Behavior and rules
 
+- [Metric rankings](../reference/metric-contributors.md) expose bounded frozen server/resource summaries through `ListMetricContributors`, with explicit request JSON and the existing one-page CLI budget. Ranking-table URL controls/cursors are not automatically imported from the browser.
 - [Metric observation summaries](metric-observations.md) expose opt-in pre-bucket metric statistics through the API and read-only client. Existing charts and their title destinations are unchanged by this API foundation.
 
 - **Portable context.** The page action records a version, deployment origin, system, account, explicit UTC interval, known resource identity, URL-backed filters including Findings and Events defaults, and source path. A chart action records its label and every available API series identity, including both traffic directions and both asset metrics. Unknown metric identities have explicit reasons. Stream mini-charts retain the API-provided history end and observed collection reference. The chart's selected point survives moving focus to its action. A focused shared chart copies the prompt with C. Floating chart actions appear on hover or keyboard focus, and stay visible on touch devices. They sit outside plot pixels, reserve no plot width, and remain independently clickable above stretched navigation links. The Busiest consumers action floats in the Consumer cell, retaining the Range chart’s point and series context.
