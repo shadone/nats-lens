@@ -235,7 +235,7 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 			overrides[k], _ = json.Marshal(v)
 		}
 	}
-	setDefault("pageSize", *pageSize)
+	setDefault(pageSizeField(method), *pageSize)
 	setDefault("maxPoints", *maxPoints)
 	if *token != "" {
 		setDefault("pageToken", *token)
@@ -265,7 +265,23 @@ func Run(ctx context.Context, args []string, stdin io.Reader, out, errout io.Wri
 	}
 	linkContext.keepPointWithinRange()
 	link, _ := linkContext.Link(p.Deployment)
-	return writeJSON(out, map[string]any{"version": 1, "source": map[string]any{"kind": "remote", "deployment": p.Deployment, "serverVersion": connection.Version, "readOnlyRouteVerified": true, "selectedMethodVerified": method, "otherServerMethods": "unverified"}, "method": method, "request": json.RawMessage(req), "response": response, "connection": info, "context": c, "links": evidenceLinks(method, response, &linkContext, p.Deployment, link), "unappliedContextFilters": unapplied, "limits": map[string]any{"rpcBudget": 2, "responseBytes": MaxResponseBytes, "automaticPagination": false, "page": "one response; nextPageToken remains in response; use unchanged filters to continue", "truncation": "only reported response fields establish totals/truncation; absent metadata is unavailable"}, "availability": map[string]Availability{"actualTimes": {"unavailable", "Use documented response range, epoch, point and coverage times where present; no universal actual interval is provided"}, "provenance": {"unavailable", "No cross-call snapshot/collection pin is supported; response evidence IDs are preserved"}, "completeness": {"unavailable", "Read response partial/missing/truncated fields and GetDataHistory; empty data does not establish completeness"}, "retention": {"available", "GetLensInfo retention and history-start facts are included; historical coverage requires GetDataHistory"}, "freshness": {"unavailable", "GetLensInfo does not report collection freshness; query GetOverview, GetShellStatus or GetDataHistory"}, "aggregation": {"unavailable", "Query ListMetrics for each metric ID’s authoritative aggregation description; series retain their units and bucket steps"}}})
+	return writeJSON(out, map[string]any{"version": 1, "source": map[string]any{"kind": "remote", "deployment": p.Deployment, "serverVersion": connection.Version, "readOnlyRouteVerified": true, "selectedMethodVerified": method, "otherServerMethods": "unverified"}, "method": method, "request": json.RawMessage(req), "response": response, "connection": info, "context": c, "links": evidenceLinks(method, response, &linkContext, p.Deployment, link), "unappliedContextFilters": unapplied, "limits": map[string]any{"rpcBudget": 2, "responseBytes": MaxResponseBytes, "automaticPagination": false, "page": "one response; nextPageToken remains in response; use unchanged filters to continue", "truncation": "only reported response fields establish totals/truncation; absent metadata is unavailable"}, "availability": map[string]Availability{"actualTimes": {"unavailable", "Use documented response range, epoch, point and coverage times where present; no universal actual interval is provided"}, "provenance": {"unavailable", "No universal cross-RPC snapshot pin is supported; list traversal epoch/range and evidence IDs, when supplied, remain in the typed response"}, "completeness": {"unavailable", "Read response partial/missing/truncated fields and GetDataHistory; empty data does not establish completeness"}, "retention": {"available", "GetLensInfo retention and history-start facts are included; historical coverage requires GetDataHistory"}, "freshness": {"unavailable", "GetLensInfo does not report collection freshness; query GetOverview, GetShellStatus or GetDataHistory"}, "aggregation": {"unavailable", "Query ListMetrics for each metric ID’s authoritative aggregation description; series retain their units and bucket steps"}}})
+}
+
+// Page limits have two existing RPC spellings. Keep this transport mapping
+// explicit and descriptor-checked; the handlers own defaults and tighter caps.
+func pageSizeField(method string) string {
+	fields := Method(method).Input().Fields()
+	if f := fields.ByName("page_size"); f != nil {
+		return f.JSONName()
+	}
+	switch method {
+	case "ListStreams", "ListConsumers":
+		if f := fields.ByName("limit"); f != nil {
+			return f.JSONName()
+		}
+	}
+	return ""
 }
 
 func schema(m protoreflect.MessageDescriptor, depth int) any {
@@ -441,7 +457,7 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 			return nil, nil, err
 		}
 	}
-	for _, n := range []string{"page_size", "max_points"} {
+	for _, n := range []string{"page_size", "limit", "max_points"} {
 		f := fields.ByName(protoreflect.Name(n))
 		if f != nil {
 			v := msg.Get(f).Int()
