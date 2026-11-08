@@ -5,7 +5,7 @@ import { useSearchParams } from "react-router";
 import { connectionFindings, useConnectionFindings } from "../api/connectionFindings";
 import { useConnections } from "../api/queries";
 import { Dash, Empty, QueryView, RLink, Num } from "../components/common";
-import { Pager, usePager } from "../components/EntityParts";
+import { Pager, usePager } from "../components/Pager";
 import { fmtBytes, fmtDuration, fmtShortDuration } from "../lib/format";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useSystem } from "../lib/useSystem";

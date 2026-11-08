@@ -5,7 +5,7 @@ import { useLocation, useSearchParams } from "react-router";
 import type { Entity, FindingState, Mute, SeverityLevel } from "../api/model";
 import { useFindings, useMutes } from "../api/queries";
 import { Empty, QueryView, Section } from "../components/common";
-import { Pager, usePager } from "../components/EntityParts";
+import { Pager, usePager } from "../components/Pager";
 import { EntityLine, FindingRow } from "../components/FindingParts";
 import { UnmuteDialog } from "../components/MuteDialog";
 import { AcceptedTag, Sev } from "../components/Severity";

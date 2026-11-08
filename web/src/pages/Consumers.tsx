@@ -2,7 +2,7 @@
 import { useSearchParams } from "react-router";
 import { useConsumers, useStreamNames } from "../api/queries";
 import { Empty, QueryView } from "../components/common";
-import { ConsumersTable } from "../components/EntityParts";
+import { ConsumersTable } from "../components/ConsumersTable";
 import { usePageTitle } from "../lib/usePageTitle";
 import { useAccountScope } from "../lib/useSystem";
 import { useResolvedRange, useTimeRange } from "../lib/useTimeRange";

@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { Pager } from "./EntityParts";
+import { Pager } from "./Pager";
 
 describe("pagination visibility", () => {
   it.each([0, 2])("keeps the count but hides pagination for %d single-page results", (count) => {
