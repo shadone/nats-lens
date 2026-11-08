@@ -10,5 +10,14 @@
     throw new Error(`Count explanation cramped: ${explanation.width}px at ${innerWidth}px`);
   }
   if (document.documentElement.scrollWidth > innerWidth) throw new Error("Page overflows viewport");
-  return { viewport: innerWidth, explanationWidth: explanation.width, result: "pass" };
+  const charts = [...document.querySelectorAll('.cap-tbl tbody th[scope="row"] .cap-history-compact')];
+  for (const chart of charts) {
+    const cell = chart.closest('th').getBoundingClientRect();
+    const svg = chart.querySelector('svg').getBoundingClientRect();
+    if (svg.left < cell.left || svg.right > cell.right) {
+      throw new Error(`Compact history crosses its resource cell: chart ${svg.left}..${svg.right}, cell ${cell.left}..${cell.right}`);
+    }
+    if (svg.width < Math.min(80, cell.width * 0.8)) throw new Error("Compact history has no usable width");
+  }
+  return { viewport: innerWidth, explanationWidth: explanation.width, compactCharts: charts.length, result: "pass" };
 })();
