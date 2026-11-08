@@ -1,0 +1,15 @@
+import {create} from '@bufbuild/protobuf';
+import {timestampFromMs} from '@bufbuild/protobuf/wkt';
+import {beforeEach,expect,it,vi} from 'vitest';
+import {lens} from './client';
+import {GetLensInfoResponseSchema} from '../gen/natslens/v1/info_pb';
+import {GetTimeSeriesBatchResponseSchema} from '../gen/natslens/v1/timeseries_pb';
+import {getAggregateComparison} from './aggregateMetricComparison';
+import type {AggregateMetric} from '../lib/aggregateMetrics';
+vi.mock('./client',()=>({lens:{getLensInfo:vi.fn(),getTimeSeriesBatch:vi.fn()}}));
+const now=Date.parse('2026-10-17T14:30:00Z'),family={key:'assets',metrics:['cluster.assets_replicated','cluster.assets_single']} as AggregateMetric;
+beforeEach(()=>{vi.mocked(lens.getLensInfo).mockResolvedValue(create(GetLensInfoResponseSchema,{system:'example-prod',now:timestampFromMs(now)}));vi.mocked(lens.getTimeSeriesBatch).mockImplementation(async req=>create(GetTimeSeriesBatchResponseSchema,{results:req.queries!.map(q=>({series:{metric:q.metric,observations:{sampleCount:4n,knownCount:3n,maximum:12,observedTotal:'9007199254740993'}}}))}));});
+it('resolves one fresh source frame and reads bounded native aggregate observations',async()=>{const r=await getAggregateComparison('',{kind:'live',preset:'1h'},family);expect(r.system).toBe('example-prod');expect(r.start).toBe(now-3600000);expect(r.end).toBe(now);const req=vi.mocked(lens.getTimeSeriesBatch).mock.calls[0][0];expect(req.queries).toHaveLength(2);expect(req.queries?.every(q=>q.includeObservations&&!q.entity)).toBe(true);expect(r.series[0]?.observations?.observedTotal).toBe('9007199254740993')});
+it('does not invent a live clock and preserves an explicit fixed range without one',async()=>{vi.mocked(lens.getLensInfo).mockResolvedValue(create(GetLensInfoResponseSchema));await expect(getAggregateComparison('example-prod',{kind:'live',preset:'1h'},family)).rejects.toThrow(/clock/i);const r=await getAggregateComparison('example-prod',{kind:'fixed',from:1000,to:2000},family);expect(r.start).toBe(1000);expect(r.end).toBe(2000);expect(r.readAt).toBeUndefined()});
+it('rejects incomplete responses and another metric identity',async()=>{vi.mocked(lens.getTimeSeriesBatch).mockResolvedValueOnce(create(GetTimeSeriesBatchResponseSchema,{results:[]}));await expect(getAggregateComparison('example-prod',{kind:'live',preset:'1h'},family)).rejects.toThrow(/incomplete/i);vi.mocked(lens.getTimeSeriesBatch).mockResolvedValue(create(GetTimeSeriesBatchResponseSchema,{results:[{series:{metric:'cluster.connections'}},{error:'Unavailable'}]}));await expect(getAggregateComparison('example-prod',{kind:'live',preset:'1h'},family)).rejects.toThrow(/identity/i)});
+it('keeps per-query failure unknown rather than inventing a zero',async()=>{vi.mocked(lens.getTimeSeriesBatch).mockResolvedValue(create(GetTimeSeriesBatchResponseSchema,{results:[{error:'Unavailable'},{error:'Unavailable'}]}));const r=await getAggregateComparison('example-prod',{kind:'fixed',from:1000,to:2000},family);expect(r.series).toEqual([undefined,undefined]);expect(r.errors).toEqual(['Unavailable','Unavailable'])});
