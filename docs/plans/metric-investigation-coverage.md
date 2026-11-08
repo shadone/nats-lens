@@ -7,7 +7,7 @@ Task `bXMlS0kOLTauMBDTEL280` remains in progress. This inventory preserves the w
 | Server CPU | Native last/mean/peak and server comparisons | Global ranking remains; one-core CPU is not host saturation |
 | Resident memory | Native raw observations and server histories | Global ranking remains; resident bytes are not host memory pressure |
 | Connections | Count last/min/peak and server histories | Counts do not identify affected client connections |
-| Message/byte traffic | Separate directions, raw rate peaks and histories | Comparable counter volumes and global ranking remain |
+| Message/byte traffic | Separate directions, raw rate peaks, histories and exact comparable server-counter increases | Complete volumes, resource sequence volumes and global ranking remain |
 | Storage | Capacity endpoint-pinned change, signed contributors, resource byte histories | Logical/observed-copy/physical distinctions; no invented replica usage |
 | Slow-consumer detections | Bounded server-process/collection evidence | Never infer unique affected clients from counters |
 | Stream messages/bytes/ingestion | Typed resource pages, native summaries, bounded comparisons | Incarnation ambiguity, capture gaps; not per-key/object measurements |
@@ -35,4 +35,8 @@ Stream messages/logical bytes/observed replica bytes/ingestion and consumer pend
 
 ## Aggregate destination slice
 
-All37 current API catalogue metric IDs now have a declared meaningful destination, enforced by a catalogue conformance test. Eight aggregate pages cover9 count/meta metric IDs (two asset components share a page). All9 Overview tiles use canonical destinations even without history. Aggregate pages use at most2 observation queries, exact transition totals, native timestamps/gaps and fixed system-wide evidence links; counts do not imply identifiable contributors. Remaining umbrella acceptance is traffic volumes and global ranking, not an unqualified claim that those comparisons already exist.
+All37 current API catalogue metric IDs now have a declared meaningful destination, enforced by a catalogue conformance test. Eight aggregate pages cover9 count/meta metric IDs (two asset components share a page). All9 Overview tiles use canonical destinations even without history. Aggregate pages use at most2 observation queries, exact transition totals, native timestamps/gaps and fixed system-wide evidence links; counts do not imply identifiable contributors. Remaining umbrella acceptance includes complete supported volume coverage and global ranking, not an unqualified claim that those comparisons already exist.
+
+## Comparable server traffic evidence
+
+The eight cluster/server incoming/outgoing message/byte rate metrics expose exact observed counter increases with pair/ID/skipped-row evidence through the native observation API, server comparison pages and remote/offline requests. This does not integrate plotted rates or establish complete interval volumes. Resource ingestion/delivery sequence volumes and global contributor rankings remain separate acceptance; synthetic demo rates have no cumulative-counter evidence.
