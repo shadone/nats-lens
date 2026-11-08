@@ -88,3 +88,36 @@ No full Go suite, checks package suite, broad store-provider suite, web suite, d
 This branch's chronological commits are `2c3a5dd1`, `3ef6a96c`, `c19796ec`, `1171a061`, `bb49f5cc`, `380a4f90`, `7c790e4b`, `b0832a85`, `61c19460`, `2f724835`, `f2a4c7fb`, and `e3fb7a6e`, followed by final focused tests/documentation handoff commits. The two adapter equivalents must each appear only once in the root's integrated candidate.
 
 For a sibling already holding the initial reader and adapters, writer dependencies are `c19796ec` then `bb49f5cc`, followed by `b0832a85`, `f2a4c7fb`, and `e3fb7a6e`. Dataset docs are `61c19460` plus final staging wording. The admin RED/GREEN pair owns `cmd/natslens/main.go`; the sibling must not independently duplicate that acquisition dispatch. Root resolves both branches' feature-index contributions and owns fresh read-only review of the complete integrated candidate.
+
+## R1 review corrections
+
+Fresh R1 on `a9699b54` requested changes for two P2 findings: a trailing `/.` bypassed reserved staging-name rejection, and valid database hashes did not require the application version or capture disclosures. All other R1 acquisition checks passed. R2 remains root-owned and pending this corrected candidate.
+
+The reviewer probes `TestReviewUnpublishedCanonicalAlias` and `TestReviewMissingCaptureDisclosures` are retained in `review_r1_test.go`. Runtime RED checkpoint `101a849e` reproduces both defects. Shared fix `b7526689` normalizes paths before the reserved-name check and validates the complete version 1 object/disclosure contract. It also tests relative paths, trailing slash/dot segments, canonical and symlink parent aliases, final-symlink rejection, normal published controls, omission/null/empty/unsupported/missing/extra/duplicate disclosure tokens, every required field, duplicate JSON keys, reordered valid token sets, exact integers above 2^53, and unknown optional retention.
+
+Followup `31dbd757` closes analogous case-folded field aliases accepted by Go's typed JSON decoder. All four top/system/boundary/data alias regressions failed before this fix and passed after it. Exact canonical object keys are enforced centrally; the writer and reader share disclosure constructors. No consumer implements a second parser or gains a public staging bypass.
+
+Each correction was independently removed after its GREEN commit and restored:
+
+```sh
+GOCACHE=/private/tmp/natslens-dataset-go-cache go test ./internal/dataset -run '^(TestReviewUnpublishedCanonicalAlias|TestReviewStageAliasesAndPublishedControls)$' -count=1 -timeout 90s
+GOCACHE=/private/tmp/natslens-dataset-go-cache go test ./internal/dataset -run '^(TestReviewMissingCaptureDisclosures|TestReviewDisclosureSemantics)$' -count=1 -timeout 90s
+GOCACHE=/private/tmp/natslens-dataset-go-cache go test ./internal/dataset -run '^TestReviewRejectsCaseFoldedFieldAliases$' -count=1 -timeout 60s
+```
+
+Restoring the raw-path basename check reopened unpublished aliases and failed the first command; restoring normalization passed. Removing only the v1 contract call accepted missing/invalid disclosures and failed the second command; restoring it passed. Removing only exact object-key admission accepted all four case-folded aliases and failed the third command; restoring it passed. These transient removed-fix edits were not committed.
+
+Post-fix focused verification passed:
+
+```sh
+TZ=America/Los_Angeles GOCACHE=/private/tmp/natslens-dataset-go-cache go test ./internal/dataset ./internal/store -run '^(TestReview|TestDataset|TestAcquire|TestOpenDatabase|TestOpenRejects|TestInspect|TestFingerprint|TestInvalidLatest|TestAtomicPublication|TestManifest|TestPrepared|TestZeroDuration)' -count=1 -timeout 120s -race
+GOCACHE=/private/tmp/natslens-dataset-go-cache go test ./internal/acquisition ./cmd/natslens -run '^TestAcqui' -count=1 -timeout 120s -race
+TZ=America/Los_Angeles GOCACHE=/private/tmp/natslens-dataset-go-cache go test ./internal/dataset -run '^TestReview' -count=1 -timeout 90s -race
+GOCACHE=/private/tmp/natslens-dataset-go-cache go vet ./internal/dataset ./internal/acquisition ./cmd/natslens
+python3 /Users/denis/.codex/plugins/cache/ddenis/ddenis-core/0.4.0/skills/feature-docs/scripts/audit_feature_docs.py docs/features/ --map-refs require
+git diff --check
+```
+
+The combined non-UTC/race run passed for dataset/store in 27.397/8.586 seconds; private admin/CLI race checks passed in 6.731/2.539 seconds. The case-folded-key followup received a separate final focused non-UTC/race pass. Vet and the 41-document feature audit are clean. No full suite, web tests, benchmark, live acquisition, nested review, deployment, upload, or push was performed.
+
+R1 shared dependencies after `a9699b54` are `101a849e` then `b7526689` then `31dbd757`. The subsequent documentation commit records canonical aliases, required disclosures, both feature-index entries, and this evidence. The manifest field shape, exact integers, clock semantics, optional unknown retention, checksums-not-authenticity boundary, native cooperative limits, and administrative access model are unchanged.
