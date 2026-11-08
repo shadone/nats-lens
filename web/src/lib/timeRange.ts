@@ -66,8 +66,8 @@ export function parseRange(params: URLSearchParams, now = serverNow()): RangeSpe
 }
 
 function iso(ms: number): string {
-  // Second precision, without milliseconds: 2026-10-17T14:30:00Z.
-  return new Date(Math.floor(ms / 1000) * 1000).toISOString().replace(".000Z", "Z");
+  // Keep selected milliseconds; whole-second URLs stay compact.
+  return new Date(ms).toISOString().replace(".000Z", "Z");
 }
 
 /** Returns params with the range written into them; other parameters stay. */

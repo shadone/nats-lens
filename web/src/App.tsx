@@ -1,3 +1,4 @@
+import {ChartIntervalProvider} from "./charts/ChartIntervals";
 import { InvestigationProvider } from "./components/InvestigationContext";
 import { RouteBoundary } from "./components/RouteBoundary";
 // The shell and the routes. Every page reads the time range, the system and
@@ -46,7 +47,7 @@ export function App() {
   const main = useRoutePosition();
   const { collapsed, setCollapsed, drawerOpen, setDrawerOpen, drawerShown } = useSidebar();
   return (
-    <InvestigationProvider><div className={`shell${collapsed ? " rail" : ""}`}>
+    <InvestigationProvider><ChartIntervalProvider><div className={`shell${collapsed ? " rail" : ""}`}>
       <a className="skip" href="#main">
         Skip to content
       </a>
@@ -108,6 +109,6 @@ export function App() {
           </StaleProvider>
         </main>
       </div>
-    </div></InvestigationProvider>
+    </div></ChartIntervalProvider></InvestigationProvider>
   );
 }

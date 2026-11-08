@@ -15,7 +15,7 @@ const route="/capacity?system=example-prod&account=APP&range=1h&epochA=123&epoch
 function mount(children:ReactNode=<Plot/>,url=route){return renderApp(<Provider><History/>{children}</Provider>,url)}
 function drag(a=30,b=90,type="mouse"){
  const plot=screen.getByRole("slider",{name:"Inspect Storage"});vi.spyOn(plot,"getBoundingClientRect").mockReturnValue({left:10,width:100,top:0,height:40,right:110,bottom:40} as DOMRect);
- fireEvent.pointerDown(plot,{pointerId:1,button:0,clientX:a,clientY:20,pointerType:type});fireEvent.pointerMove(plot,{pointerId:1,clientX:b,clientY:20,pointerType:type});fireEvent.pointerUp(plot,{pointerId:1,button:0,clientX:b,clientY:20,pointerType:type});return plot;
+ fireEvent.pointerDown(plot,{pointerId:1,isPrimary:true,button:0,clientX:a,clientY:20,pointerType:type});fireEvent.pointerMove(plot,{pointerId:1,clientX:b,clientY:20,pointerType:type});fireEvent.pointerUp(plot,{pointerId:1,button:0,clientX:b,clientY:20,pointerType:type});return plot;
 }
 afterEach(()=>vi.restoreAllMocks());beforeEach(()=>localStorage.clear());
 it("highlights a dragged interval and waits for an explicit action",()=>{
@@ -31,7 +31,7 @@ it("normalizes reverse dragging and opens a scoped storage investigation",()=>{
  mount();drag(90,30);fireEvent.click(screen.getByRole("button",{name:"Investigate change"}));const u=new URL(screen.getByTestId("location").textContent!,"http://example.com");expect(u.pathname).toBe("/capacity/storage-change");expect(u.searchParams.get("system")).toBe("example-prod");expect(u.searchParams.get("account")).toBe("APP");expect(Date.parse(u.searchParams.get("from")!)).toBe(start+12000);expect(Date.parse(u.searchParams.get("to")!)).toBe(start+48000);expect(u.searchParams.has("epochA")).toBe(false);
 });
 it("cancels without changing range and suppresses the link click after a drag",()=>{
- mount();drag();fireEvent.click(screen.getByRole("link",{name:"Plot details"}));expect(screen.getByTestId("location")).toHaveTextContent(route);fireEvent.cancel(screen.getByRole("dialog"));expect(screen.queryByRole("dialog")).toBeNull();expect(screen.getByTestId("location")).toHaveTextContent(route);
+ mount();drag();fireEvent.click(screen.getByRole("link",{name:"Plot details"}));expect(screen.getByTestId("location")).toHaveTextContent(route);fireEvent(screen.getByRole("dialog"),new Event("cancel",{cancelable:true}));expect(screen.queryByRole("dialog")).toBeNull();expect(screen.getByTestId("location")).toHaveTextContent(route);
  drag(30,31);expect(screen.queryByRole("dialog")).toBeNull();fireEvent.click(screen.getByRole("link",{name:"Plot details"}));expect(screen.getByTestId("location")).toHaveTextContent("/streams/APP/orders");
 });
 it("offers touch/time-picker controls and preserves edited millisecond endpoints",()=>{

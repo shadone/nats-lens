@@ -1,3 +1,5 @@
+import {useChartIntervalInteraction} from "./ChartIntervals";
+export {ChartIntervalProvider} from "./ChartIntervals";
 import {createPortal} from "react-dom";
 import {ChartReadout} from "./ChartReadout";
 import { InvestigationButton, useInvestigationCopy } from "../components/InvestigationContext";
@@ -21,12 +23,14 @@ export function inspectionStep(series: InspectionSeries[], given?: number): numb
   return diffs.length ? Math.min(...diffs) : 1;
 }
 
-export function ChartInspection({ label, start, end, stepMs, bucketNote, series, children, investigation, actionTarget }: {
-  label: string; start: number; end: number; stepMs?: number; bucketNote?: string; series: InspectionSeries[]; children: ReactNode; investigation?: InvestigationSelection; actionTarget?: HTMLElement|null;
+export function ChartInspection({ label, start, end, stepMs, bucketNote, series, children, investigation, actionTarget, intervalActions }: {
+  label: string; start: number; end: number; stepMs?: number; bucketNote?: string; series: InspectionSeries[]; children: ReactNode; investigation?: InvestigationSelection; actionTarget?: HTMLElement|null;intervalActions?:boolean;
 }) {
   const anchor = useRef<HTMLDivElement>(null);
   const lastSelection = useRef<number | undefined>(undefined);
+  const interval=useChartIntervalInteraction({label,start,end,source:investigation,enabled:intervalActions});
   const selection = () => {
+    if(interval?.highlight)return {...investigation,...interval.highlight,point:undefined,label};
     const point = selected ?? lastSelection.current;
     return { ...investigation, start, end, point: point !== undefined && point >= start && point < end ? point : undefined, label };
   };
@@ -53,11 +57,12 @@ export function ChartInspection({ label, start, end, stepMs, bucketNote, series,
     const box = element.getBoundingClientRect();
     if (box.width > 0) setCursor(start + Math.max(0, Math.min(1, (clientX - box.left) / box.width)) * (end - start));
   };
-  return <div className="chart-inspection-wrap"><div ref={anchor} className="chart-inspection" role="slider" tabIndex={0} aria-label={`Inspect ${label}`} aria-valuemin={start} aria-valuemax={end} aria-valuenow={selected ?? start} aria-valuetext={selected === undefined ? "Focus, then use arrow keys to inspect time and values" : text} aria-description={copy ? "Use arrow keys to select time, then C to copy as prompt" : undefined} aria-describedby={selected === undefined ? undefined : id}
-    onPointerMove={e => move(e.clientX, e.currentTarget)} onPointerDown={e => move(e.clientX, e.currentTarget)}
+  return <div className="chart-inspection-wrap"><div ref={anchor} className="chart-inspection" role="slider" tabIndex={0} aria-label={`Inspect ${label}`} aria-valuemin={start} aria-valuemax={end} aria-valuenow={selected ?? start} aria-valuetext={selected === undefined ? "Focus, then use arrow keys to inspect time and values" : text} aria-description={[copy?"Use arrow keys to select time, then C to copy as prompt":"",interval?"Shift and arrow keys select an interval; Enter opens actions":""].filter(Boolean).join(". ")||undefined} aria-describedby={selected === undefined ? undefined : id}
+    onPointerMove={e => {interval?.move(e);move(e.clientX,e.currentTarget)}} onPointerDown={e => {interval?.down(e);move(e.clientX,e.currentTarget)}} onPointerUp={e=>interval?.up(e)} onPointerCancel={()=>interval?.cancel()} onLostPointerCapture={()=>interval?.cancel()} onClickCapture={e=>interval?.click(e)} onDragStart={e=>{if(interval)e.preventDefault()}}
     onPointerLeave={e => { if (e.pointerType !== "touch") setCursor(undefined); }}
     onFocus={() => setCursor(current => current ?? start)} onBlur={() => setCursor(undefined)}
     onKeyDown={e => {
+      if(interval?.key(e,selected??start,step))return;
       if (e.key.toLowerCase() === "c" && !e.ctrlKey && !e.metaKey && copy) { e.preventDefault(); copy(); return; }
       const current = selected ?? start;
       const next = e.key === "Home" ? start : e.key === "End" ? end : e.key === "ArrowRight" || e.key === "ArrowUp" ? current + step : e.key === "ArrowLeft" || e.key === "ArrowDown" ? current - step : undefined;
@@ -65,9 +70,10 @@ export function ChartInspection({ label, start, end, stepMs, bucketNote, series,
       if (next !== undefined) { e.preventDefault(); setCursor(Math.min(end, Math.max(start, next))); }
     }}>
     {children}
-    {selected !== undefined && <>
+    {interval?.highlight&&<span role="img" aria-label={`Selected chart interval ${new Date(interval.highlight.start).toISOString()} to ${new Date(interval.highlight.end).toISOString()}`} className="chart-selected-interval" style={{left:`${Math.max(0,Math.min(100,(interval.highlight.start-start)/(end-start)*100))}%`,width:`${Math.max(0,Math.min(end,interval.highlight.end)-Math.max(start,interval.highlight.start))/(end-start)*100}%`}}/>}
+    {selected !== undefined && !interval?.active && <>
       <span className="chart-cursor" aria-hidden="true" style={{ left: `${(selected - start) / (end - start || 1) * 100}%` }} />
       <ChartReadout anchor={anchor} fraction={(selected-start)/(end-start||1)} id={id} contentKey={text}><b>{when}</b><span>{stepMs ? `Bucket to ${bucketEnd}` : "Recorded sample"}</span>{bucketNote && <span>{bucketNote}</span>}{missing && <span>Not collected</span>}{rows.map((r, i) => <span key={i}>{r}</span>)}</ChartReadout>
     </>}
-  </div>{copy && (actionTarget===undefined?<InvestigationButton selection={selection()} floating />:actionTarget?createPortal(<InvestigationButton selection={selection()} floating />,actionTarget):null)}</div>;
+  </div>{interval&&<button type="button" className="btn chart-interval-trigger" aria-label={`Select interval for ${label}`} title="Select interval" onClick={interval.picker}><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3v10M14 3v10M2 8h12m-9-3L2 8l3 3m6-6 3 3-3 3" fill="none" stroke="currentColor"/></svg></button>}{copy && (actionTarget===undefined?<InvestigationButton selection={selection()} floating />:actionTarget?createPortal(<InvestigationButton selection={selection()} floating />,actionTarget):null)}</div>;
 }
