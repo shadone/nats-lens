@@ -9,7 +9,7 @@ import { prod, stream } from "../test/fixtures/capacity";
 import { renderApp } from "../test/render";
 import { Capacity } from "./Capacity";
 vi.mock("../api/client", () => ({ lens: { getTimeSeriesBatch: vi.fn() } }));
-vi.mock("../api/requests", () => ({ getCapacity: vi.fn(), getLensInfo: vi.fn(() => Promise.resolve({collectIntervalMs:30000, live:true, demo:true})), getShellStatus: vi.fn(() => Promise.reject(new Error("no shell"))) }));
+vi.mock("../api/requests", async importOriginal => ({ ...await importOriginal<typeof requests>(), getCapacity: vi.fn(), getLensInfo: vi.fn(() => Promise.resolve({collectIntervalMs:30000, live:true, demo:true})), getShellStatus: vi.fn(() => Promise.reject(new Error("no shell"))) }));
 beforeEach(() => {
  vi.clearAllMocks();
  const d = prod(); d.servers.forEach(s => {s.perDay=undefined});
@@ -19,10 +19,10 @@ beforeEach(() => {
 });
 it("shows history without forecast eligibility, bounded resource pages and expanded charts", async () => {
  renderApp(<Capacity />, "/capacity?system=example-prod&account=APP&from=2026-10-17T12%3A00%3A00Z&to=2026-10-17T12%3A05%3A00Z");
- await screen.findByText("Total JetStream file-store usage");
+ await screen.findByText("Total JetStream file-store usage", {selector:".lbl"});
  expect(await screen.findByRole("button",{name:"Expand history for orders-0"})).toBeInTheDocument();
  await userEvent.click(screen.getByRole("button",{name:"Expand history for orders-0"}));
- expect(screen.getByText("Observed replica bytes")).toBeInTheDocument();
+ expect(screen.getByText("Observed replica bytes", {selector:".lbl"})).toBeInTheDocument();
  expect(screen.getByText(/History rows 1–16 of 33/)).toBeInTheDocument();
  await userEvent.click(screen.getByRole("button",{name:"Next resource history page"}));
  expect(screen.getByRole("link",{name:"orders-16"})).toBeInTheDocument();

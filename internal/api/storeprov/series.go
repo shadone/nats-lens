@@ -18,8 +18,9 @@ import (
 // parts from entityArgs. sum marks event counts, which a bucket adds up;
 // the others are averaged.
 type metricSQL struct {
-	query string
-	sum   bool
+	query    string
+	sum      bool
+	complete bool
 }
 
 // maxGapToken in a metric query is replaced by the longest gap between
@@ -76,6 +77,13 @@ const (
 )
 
 var metricQueries = map[string]metricSQL{
+	"cluster.capacity_file_store_bytes": {complete: true, query: capacityStoreSQL(false)},
+	"server.capacity_file_store_bytes":  {complete: true, query: capacityStoreSQL(true)},
+	"stream.observed_replica_bytes": {query: `
+SELECT e.started_at AS t, sum(x.bytes) AS v
+FROM stream_stats x JOIN epochs e USING (epoch)
+WHERE e.started_at >= ? AND e.started_at < ? ` + byStream + `
+GROUP BY e.epoch, e.started_at`},
 	"cluster.servers_up":       {query: `SELECT started_at AS t, observed_servers AS v FROM epochs WHERE started_at >= ? AND started_at < ?`},
 	"cluster.connections":      {query: gauge("connections", "")},
 	"cluster.js_storage_bytes": {query: gauge("js_storage", "")},
@@ -333,9 +341,13 @@ func (p *Provider) series(ctx context.Context, metric string, e *v1.EntityRef, r
 	// Rates and deltas need the epoch before the range's first one.
 	args := append([]any{start.Add(-2 * max(p.Interval, time.Minute)), end}, entityArgs(e)...)
 	args = append(args, step.Microseconds(), start, end)
+	having := " HAVING count(v) > 0"
+	if m.complete {
+		having = " HAVING count(v) = count(*)"
+	}
 	q := `WITH per_epoch AS (` + p.metricQuery(m) + `)
 SELECT time_bucket(to_microseconds(?::BIGINT), t, TIMESTAMP '1970-01-01 00:00:00') AS b, ` + agg + `::DOUBLE, ` + edges + `
-FROM per_epoch WHERE t >= ? AND t < ? AND v IS NOT NULL GROUP BY b ORDER BY b`
+FROM per_epoch WHERE t >= ? AND t < ? GROUP BY b` + having + ` ORDER BY b`
 	rows, err := p.db().QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("series %s: %w", metric, err)
