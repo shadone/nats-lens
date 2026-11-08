@@ -56,7 +56,7 @@ func TestDatasetCopyActiveBoundary(t *testing.T) {
 	if err = CheckSchema(ctx, db); err != nil {
 		t.Fatal(err)
 	}
-	for _, q := range []string{"SELECT count(*) FROM duckdb_indexes() WHERE NOT internal", "SELECT count(*) FROM duckdb_sequences()", "SELECT count(*) FROM duckdb_columns() WHERE comment IS NOT NULL"} {
+	for _, q := range []string{"SELECT count(*) FROM duckdb_indexes()", "SELECT count(*) FROM duckdb_sequences()", "SELECT count(*) FROM duckdb_columns() WHERE comment IS NOT NULL"} {
 		var a, b int
 		if err = s.db.QueryRow(q).Scan(&a); err != nil {
 			t.Fatal(err)
