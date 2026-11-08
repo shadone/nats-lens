@@ -38,6 +38,7 @@ import (
 	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/config"
 	"github.com/shadone/nats-lens/internal/investigation"
+	"github.com/shadone/nats-lens/internal/offline"
 	"github.com/shadone/nats-lens/internal/sqlcli"
 	"github.com/shadone/nats-lens/internal/store"
 )
@@ -65,7 +66,7 @@ func run(ctx context.Context, args []string) error {
 		cmd, args = args[0], args[1:]
 	}
 	if cmd == "investigate" {
-		return investigation.Run(ctx, args, os.Stdin, os.Stdout, os.Stderr)
+		return investigation.RunWithOffline(ctx, args, os.Stdin, os.Stdout, os.Stderr, offline.Open)
 	}
 	if cmd == "sql" {
 		return runSQL(ctx, args)

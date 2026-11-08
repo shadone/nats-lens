@@ -158,6 +158,9 @@ ORDER BY e.time, e.id`)
 // starting before; without a collector in this process the state is
 // unknown.
 func (p *Provider) collection(ctx context.Context, res *v1.SystemSummary) error {
+	if p.CapturedOnly {
+		return nil
+	}
 	f, err := p.failure(ctx)
 	if err != nil {
 		return err
