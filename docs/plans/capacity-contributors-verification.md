@@ -48,6 +48,14 @@ Full/focused web commands use a temporary Vite config pointing cache storage to 
 
 ## Fix-removal verification
 
-`/private/tmp/nats-capacity-contributors-removal/results.json` records five independent runtime RED controls: remove global ranking/filter logic, remove agent projection, remove the Capacity view, remove page-reset logic, remove recreation identity labels. Go overlays never mutate source; UI files are restored in `finally`. Restored focused Go/UI sets pass.
+The initial ranking-removal overlay omitted the shared validator and failed compilation. That run is excluded from runtime proof. A corrected overlay retains the validator and reaches the intended ranking/filter assertions (`ranking-corrected.log`). A separate order-only mutation tests signed order independently of filtering.
+
+`/private/tmp/nats-capacity-contributors-removal/results.json` records the removal controls: remove global ranking/filter logic, remove agent projection, remove the Capacity view, remove page-reset logic, remove recreation identity labels. Go overlays never mutate source; UI files are restored in `finally`. Restored focused Go/UI sets pass.
 
 Browser/build/review receipts follow final smoke checks. No full heavy Go, check-engine or broad store-provider run is claimed. No private source, installed server, deployment, push or cluster access is authorized by these checks.
+
+## Final browser findings
+
+Real demo controls passed signed-sort URL updates, full-ranking KV filtering (three matching rows), two interval charts and scoped configuration/event/consumer links. T3 snapshots timed out twice after opening the owned tab; agent-browser fallback was used. A separate response-interception fixture did not apply reliably and is excluded from browser claims; signed/unknown semantics remain covered by API/component tests.
+
+Collapsed-table geometry passed at 360/761/1280 in light/dark with real local fonts. Expanded evidence at 360 failed: document width 369 for viewport 360. The inherited `.cap-history-expanded` width used a viewport-relative query container, extending from x33 to x369. The task's browser assertion captured this runtime RED before the scoped width correction. Screenshot: `/private/tmp/nats-contributors-expanded-overflow.png`.
