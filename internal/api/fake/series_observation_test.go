@@ -36,3 +36,25 @@ func TestDemoObservationSummariesAreResolutionIndependent(t *testing.T) {
 		})
 	}
 }
+
+func TestDemoObservationMissingCaptureIsNotZero(t *testing.T) {
+	sc := prodScenario()
+	sc.noEpochs = []hole{{from: FixedNow.Add(-3 * time.Minute), to: FixedNow}}
+	p := newProvider(sc, false)
+	rng := &v1.TimeRange{Start: timestamppb.New(FixedNow.Add(-2 * time.Minute)), End: timestamppb.New(FixedNow.Add(-time.Minute))}
+	for _, metric := range []string{"server.cpu_percent", "server.slow_consumers", "cluster.slow_consumers"} {
+		var e *v1.EntityRef
+		e = &v1.EntityRef{Type: v1.EntityType_ENTITY_TYPE_SYSTEM}
+		if metric[:7] == "server." {
+			e = serverRef("nats-0")
+		}
+		out, err := p.GetTimeSeries(context.Background(), &v1.GetTimeSeriesRequest{Metric: metric, Entity: e, Range: rng, MaxPoints: 1, IncludeObservations: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		s := out.Series.Observations
+		if s == nil || s.KnownCount != 0 || s.Latest != nil || s.ObservedTotal != nil {
+			t.Errorf("%s invented samples during absent capture: %v", metric, s)
+		}
+	}
+}
