@@ -38,6 +38,7 @@ type SeriesReference struct {
 	UnavailableReason string  `json:"unavailableReason,omitempty"`
 }
 type Context struct {
+	Query      *BoundQuery       `json:"query,omitempty"`
 	ChartLabel string            `json:"chartLabel,omitempty"`
 	Series     []SeriesReference `json:"series,omitempty"`
 	Version    int               `json:"version"`
@@ -241,6 +242,9 @@ func (c *Context) Validate(trusted string) error {
 		if (e.Kind != "finding" && e.Kind != "event" && e.Kind != "collection") || e.ID == "" || !validText(e.ID, 256) {
 			return errors.New("invalid evidence reference")
 		}
+	}
+	if err := c.validateQuery(); err != nil {
+		return err
 	}
 	if c.Provenance.Status != "unavailable" || !validText(c.Provenance.Reason, 1000) || c.Provenance.Reason == "" {
 		return errors.New("this context version cannot pin API collections; provenance must explicitly be unavailable")

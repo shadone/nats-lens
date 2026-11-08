@@ -30,6 +30,9 @@ func evidenceLinks(method string, response json.RawMessage, c *Context, trusted,
 			seen[link] = true
 		}
 	}
+	if path := entityPath(c.Entity); path != "" {
+		add("selected_resource", c.Entity.Key, path)
+	}
 	add("coverage", "", "/data-history")
 	msg := dynamicpb.NewMessage(Method(method).Output())
 	if protojson.Unmarshal(response, msg) != nil {
