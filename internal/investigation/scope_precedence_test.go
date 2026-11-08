@@ -109,3 +109,19 @@ func TestSelectedEvidenceOutranksRetainedFilter(t *testing.T) {
 		t.Fatal(string(req))
 	}
 }
+
+func TestPageSelectorsCannotInventStrongerScope(t *testing.T) {
+	for _, tc := range []struct{ path, account, key string }{
+		{"/consumers?account=OTHER&stream=APP/orders&consumer=OLD/stale/old&server=old", "APP", "APP/orders"},
+		{"/connections?account=OTHER&server=new&stream=APP/orders&consumer=APP/orders/worker", "OTHER", "new"},
+		{"/servers/slow-consumers?account=OTHER&server=new&stream=APP/orders", "OTHER", "new"},
+	} {
+		c, err := ContextFromURL("https://lens.example.com"+tc.path+"&system=shop", "https://lens.example.com", fixtureNow())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c.Account != tc.account || c.Entity == nil || c.Entity.Key != tc.key {
+			t.Fatalf("%s: %+v", tc.path, c)
+		}
+	}
+}
