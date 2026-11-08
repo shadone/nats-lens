@@ -38,3 +38,8 @@ it("opens a disappeared resource around its last observed collection instead of 
  const link=new URL((await screen.findByRole("link",{name:"order-cache"})).getAttribute("href")!,"http://example.com");
  expect(link.searchParams.get("from")).toBe("2026-10-17T12:59:30Z");expect(link.searchParams.get("to")).toBe("2026-10-17T12:59:35.000001Z");
 });
+it("keeps a zero-duration source window representable by the detail UI's millisecond range",async()=>{
+ const {rangeProblem}=await import("../lib/timeRange");const r=response();r.a!.finishedAt=r.a!.startedAt;r.rows[0].processesA=["S0"];r.rows[0].processesB=[];
+ vi.mocked(lens.getStorageChange).mockResolvedValue(r);renderApp(<StorageChange/>,route);
+ const link=new URL((await screen.findByRole("link",{name:"order-cache"})).getAttribute("href")!,"http://example.com");expect(rangeProblem(link.searchParams,Date.parse(to))).toBeUndefined();
+});
