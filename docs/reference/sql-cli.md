@@ -18,7 +18,7 @@ Consistent snapshot acquisition is pending in [Investigation workflows](../plans
 
 ## Output selection
 
-The table remains the default, with aligned column labels, `NULL`, UTC times to milliseconds and a final `(N rows)` line. `-format json` emits one compact JSON document followed by a newline. `-output FILE` publishes either format to a new file instead of stdout. Flags precede the single SQL argument.
+The table remains the default, with aligned column labels, `NULL`, UTC times to milliseconds and a final `(N rows)` line. Its temporal rendering retains the legacy driver presentation; explicitly cast special temporal values to VARCHAR when their exact text is needed. `-format json` emits one compact JSON document followed by a newline. `-output FILE` publishes either format to a new file instead of stdout. Flags precede the single SQL argument.
 
 For a selected offline file, a schema-independent query is:
 
@@ -50,7 +50,11 @@ The encoding applies recursively to nested values:
 | UNION | Object with `tag` and recursively encoded `value`. |
 | INTERVAL | Object with decimal strings `months`, `days` and `micros`; no conversion to a fixed duration. |
 | UUID / BIT | UUID bytes as standard padded base64 (the pinned driver returns 16 bytes); BIT as a bit string. |
-| DATE/TIME/TIMESTAMP variants | Driver `time.Time` formatted as RFC 3339 in UTC, retaining up to nanoseconds. Use column type to distinguish dates, times and timestamps. |
+| DATE/TIME/TIMESTAMP variants | Finite driver `time.Time` values representable as RFC 3339 in UTC, retaining up to nanoseconds. Unfaithful or out-of-range values fail with `unsupported_value`. |
+
+JSON rejects temporal infinities and UTC years outside 0000–9999, including values inside lists, arrays, maps, structs and unions. It does not replace them with finite-looking dates. The pinned driver converts DATE and timestamp infinities into ordinary `time.Time` values; most are outside RFC 3339's year range. TIMESTAMP_NS infinities instead resemble dates in 1677 and 2262. The CLI checks their exact nanosecond ticks with the pinned native finiteness API and the declared logical type, rather than guessing from a date's appearance. Adjacent finite TIMESTAMP_NS values remain valid. These checks do not label every rejected out-of-range finite value as infinity.
+
+An explicit cast such as `CAST(TIMESTAMP '-infinity' AS VARCHAR)` preserves the special value as `"-infinity"`. Cast a nested member before constructing its list, map, struct or union. The CLI does not insert casts or rewrite arbitrary SQL.
 
 For a timestamp without a time zone, `Z` is a serialization convention for the returned wall-clock fields, not evidence that the original timestamp identified a UTC instant. DATE and TIME retain the driver's synthetic time/date components. TIMESTAMPTZ represents a UTC instant; DuckDB does not preserve the original zone name or offset. SQL JSON columns, including JSON inside lists, arrays, maps, structs and unions, fail with `unsupported_type`. The pinned driver otherwise rounds JSON numbers through `float64` and collapses duplicate object keys. Explicitly cast JSON values to VARCHAR or BLOB in the SQL to preserve the original JSON text or bytes; the CLI never inserts that cast. Unsupported driver values or conversion errors fail the whole result. SQL type metadata distinguishes strings used for binary, numeric and temporal values.
 
@@ -74,10 +78,11 @@ Diagnostics are single JSON objects with `version: 1` and `error.code`, `error.m
 
 | Code | Meaning |
 |---|---|
-| `invalid_argument` | Invalid flags, budgets or source selection. |
+| `invalid_argument` | Invalid flags, budgets or source selection. Configuration-resolution failures use a fixed message and safe next step; values, paths and configured system IDs are omitted. |
 | `source_unavailable` | Missing source, read-only open failure, live lock, incompatible version or invalid file. |
 | `query_failed` | SQL execution, scan or serialization failure; raw backend error and SQL text are omitted. |
 | `unsupported_type` | A scalar or nested JSON alias would lose precision or duplicate object keys through the pinned driver. |
+| `unsupported_value` | A temporal infinity or a UTC year outside RFC 3339 bounds cannot be represented faithfully; explicitly cast the value to VARCHAR. |
 | `cancelled` | Context cancelled or time budget expired. |
 | `output_limit` | Complete output exceeds the byte budget. |
 | `output_failed` | Destination publication or stdout write failed. |
