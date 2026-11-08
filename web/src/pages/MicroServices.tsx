@@ -9,7 +9,7 @@ import { usePageTitle } from "../lib/usePageTitle";
 import { useAccountScope } from "../lib/useSystem";
 import { useTimeRange } from "../lib/useTimeRange";
 
-export const SERVICE_PARAM = "service";
+export { SERVICE_PARAM } from "../lib/microView";
 
 function useMicroServicesModel() {
   usePageTitle("Micro services");
