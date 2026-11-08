@@ -37,6 +37,7 @@ import (
 
 	"github.com/shadone/nats-lens/internal/api"
 	"github.com/shadone/nats-lens/internal/config"
+	"github.com/shadone/nats-lens/internal/dataset"
 	"github.com/shadone/nats-lens/internal/investigation"
 	"github.com/shadone/nats-lens/internal/offline"
 	"github.com/shadone/nats-lens/internal/sqlcli"
@@ -259,13 +260,14 @@ func runSQL(ctx context.Context, args []string) error {
 
 // runSQLTo serves natslens sql, printing to out.
 func runSQLTo(ctx context.Context, args []string, out io.Writer) error {
-	const usage = "usage: natslens sql [-db FILE | -config FILE -system ID -data-dir DIR] [-format table|json] [-output FILE] [-max-rows N] [-max-output-bytes N] [-timeout 45s] QUERY"
+	const usage = "usage: natslens sql [-db FILE | -bundle DIR | -config FILE -system ID -data-dir DIR] [-format table|json] [-output FILE] [-max-rows N] [-max-output-bytes N] [-timeout 45s] QUERY"
 	fs := flag.NewFlagSet("natslens sql", flag.ContinueOnError)
 	// Failed flag parsing must produce only the structured diagnostic in main.
 	fs.SetOutput(io.Discard)
 	fs.Usage = func() {}
 	db := oneDatabaseFlags(fs)
-	source := fs.String("db", "", "existing offline DuckDB file; exclusive with config/system/data-dir")
+	source := fs.String("db", "", "existing offline DuckDB file; exclusive with bundle/config/system/data-dir")
+	bundle := fs.String("bundle", "", "validated trusted offline dataset directory; exclusive with db/config/system/data-dir")
 	format := fs.String("format", "table", "table or json")
 	output := fs.String("output", "", "publish to a new file instead of stdout")
 	maxRows := fs.Int("max-rows", sqlcli.DefaultMaxRows, "maximum returned rows, 1–100000")
@@ -284,15 +286,15 @@ func runSQLTo(ctx context.Context, args []string, out io.Writer) error {
 		return sqlcli.Invalid(usage)
 	}
 	path := *source
-	if path != "" {
-		conflict := false
+	if path != "" || *bundle != "" {
+		conflict := path != "" && *bundle != ""
 		fs.Visit(func(f *flag.Flag) {
 			if f.Name == "config" || f.Name == "system" || f.Name == "data-dir" {
 				conflict = true
 			}
 		})
 		if conflict {
-			return sqlcli.Invalid("-db is exclusive with -config, -system and -data-dir")
+			return sqlcli.Invalid("-db and -bundle are exclusive with each other and with -config, -system and -data-dir")
 		}
 	} else {
 		_, _, dir, err := db.resolve()
@@ -300,6 +302,24 @@ func runSQLTo(ctx context.Context, args []string, out io.Writer) error {
 			return sqlcli.ConfigurationError()
 		}
 		path = filepath.Join(dir, store.FileName)
+	}
+	if *bundle != "" {
+		// Shared validation owns the artifact format. Raw SQL remains its separate
+		// trusted advanced interface; this is not a semantic investigation method.
+		if *timeout <= 0 || *timeout > sqlcli.DefaultTimeout {
+			return sqlcli.Invalid("timeout must be greater than zero and at most 45s")
+		}
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, *timeout)
+		defer cancel()
+		d, err := dataset.Open(ctx, *bundle)
+		if err != nil {
+			return sqlcli.Invalid("Cannot validate bundle; select a trusted closed compatible dataset")
+		}
+		path = d.DBPath
+		if err = d.Close(); err != nil {
+			return sqlcli.Invalid("Cannot close validated bundle")
+		}
 	}
 	b, err := sqlcli.Execute(ctx, path, fs.Arg(0), sqlcli.Options{Format: *format, MaxRows: *maxRows, MaxBytes: *maxBytes, Timeout: *timeout})
 	if err != nil {
