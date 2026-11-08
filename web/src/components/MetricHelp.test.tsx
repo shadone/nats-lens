@@ -41,3 +41,19 @@ it("uses the same help control on resource detail charts",async()=>{
  fireEvent.focus(screen.getByRole("button",{name:"About Stored bytes"}));
  expect(await screen.findByText(/from the leader's view/)).toBeInTheDocument();
 });
+
+it("keeps a sortable header's help independent from sorting",async()=>{
+ const {SortTh}=await import("./SortHeader");const {InfoTip}=await import("./MetricBox");const sort=vi.fn();
+ renderApp(<table><thead><tr><SortTh id="traffic" label="Traffic" sort={undefined} onSort={sort} help={<InfoTip label="Application traffic" text="Messages in each complete hour."/>}/></tr></thead></table>);
+ fireEvent.click(screen.getByRole("button",{name:"About Application traffic"}));
+ expect(screen.getByRole("tooltip")).toHaveTextContent("each complete hour");expect(sort).not.toHaveBeenCalled();
+});
+
+it("shares catalogue definitions with server metric boxes and displays declared units",async()=>{
+ const {MetricBox}=await import("./MetricBox");
+ vi.mocked(lens.listMetrics).mockResolvedValue(create(ListMetricsResponseSchema,{metrics:[{id:"server.mem_bytes",unit:2,description:"Resident memory of the server process; averaged per bucket."}]}));
+ renderApp(<MetricBox title="Process memory" metricIds={["server.mem_bytes"]} fmt={String} start={0} end={1000}/>);
+ fireEvent.focus(screen.getByRole("button",{name:"About Process memory"}));
+ expect(await screen.findByText(/Resident memory/)).toBeInTheDocument();
+ expect(screen.getByRole("tooltip")).toHaveTextContent("Unit: bytes");
+});

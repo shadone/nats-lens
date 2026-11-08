@@ -1,3 +1,4 @@
+import {MetricHelp} from "./MetricHelp";
 // The Capacity page's streams table: what each stream keeps, what bounds
 // it, how much it holds, the limit it reaches next, and the decision on an
 // unbounded one, with the button that accepts it as by design.
@@ -196,7 +197,7 @@ export function StreamsTable({ d, answeredAt, live }: { d: Capacity; answeredAt:
             <table className="tbl cap-tbl">
               <thead>
                 <tr>
-                  <th scope="col">Resource</th>
+                  <th scope="col" aria-label="Resource">Resource <MetricHelp label="Resource storage history" ids={["stream.bytes"]}/></th>
                   <th scope="col">Bounded by</th>
                   <th scope="col">Data held</th>
                   <th scope="col" className="num">

@@ -13,6 +13,7 @@ export function SortTh({
   title,
   marker,
   srOnly = false,
+  help,
 }: {
   id: string;
   label: string;
@@ -26,6 +27,8 @@ export function SortTh({
   marker?: ReactNode;
   /** The label is for screen readers only, as for a column of icons. */
   srOnly?: boolean;
+  /** An independent help control; never nested inside the sort button. */
+  help?: ReactNode;
 }) {
   const on = sort?.key === id;
   return (
@@ -38,6 +41,7 @@ export function SortTh({
           <path d="M4 9 1 6h6Z" className={on && sort.dir === "desc" ? "act" : undefined} />
         </svg>
       </button>
+      {help}
     </th>
   );
 }

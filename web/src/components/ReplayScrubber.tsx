@@ -1,3 +1,4 @@
+import {InfoTip} from "./MetricBox";
 // The Replay page's picker of A and B: the range's status strip, its
 // Kubernetes windows as a bar of buttons under it that set A and B, two
 // handles that move by keyboard, drag or a click on the track, an axis,
@@ -346,6 +347,7 @@ export function ReplayScrubber({ start, end, live, now, strip, stripError, momen
         {(["a", "b"] as const).map((which) => (
           <MomentInput key={which} which={which} value={moments[which]} max={now} onCommit={(t) => send(moveHandle(sent.current, which, t, minGapMs, now))} />
         ))}
+        <InfoTip label="Replay time strip" text="Choose two observation times, A and B, to compare captured evidence. The coloured strip summarizes finding states per bucket; info-only states appear as OK. Shaded windows are inferred context, not proven causes. Missing captures stay unknown; this is not a recording of every change between the selected times."/>
         <span className="rs-hint">Arrows move a handle by {bucketLabel(step)}, Shift+arrows by ten.</span>
       </div>
     </div>

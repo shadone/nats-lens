@@ -1,5 +1,6 @@
 // One system's card on the Fleet page, its status strip and the strip's
 // legend. The state is a shape and a word as well as a colour.
+import {InfoTip} from "./MetricBox";
 import { useId } from "react";
 import type { Level, SystemSummary } from "../api/model";
 import { CARD_STATE_LABEL, cardState, freshnessText, headline, infoCount, staleCaption, stripStartLabel, type CardState } from "../lib/fleet";
@@ -59,6 +60,7 @@ export function StripLegend({ used, bucketMs }: { used: Set<Level>; bucketMs?: n
   const levels = [...LEGEND_ALWAYS, ...(["muted", "nodata"] as const).filter((l) => used.has(l))];
   return (
     <div className="fleet-key">
+      <InfoTip label="Fleet status strips" text="Each strip shows the worst observed finding state per time bucket for that system. A bucket can contain multiple observations and does not establish an exact incident start or duration. No data means evaluation evidence is missing; it does not mean healthy. Card status and freshness describe their own latest observations."/>
       <span>Strip{bucketMs ? `, per ${bucketLabel(bucketMs)}` : ""}:</span>
       <ul aria-label="Strip legend">
         {levels.map((l) => (

@@ -1,3 +1,4 @@
+import {MetricHelp} from "./MetricHelp";
 import {useState} from "react";
 // The consumers with the highest delivery rate at the range's end, with
 // their backlog, unacknowledged messages and the delivery rate over the
@@ -17,7 +18,7 @@ const rate = (v: number) => fmtValue(v, "per_second");
 const perSec = (v: number) => (Math.abs(v) >= 10 ? fmtCount(v) : v.toFixed(2));
 
 function Spark({ c, q, start, end, actionTarget }: { c: ConsumerRate; q: TrendSlice; start: number; end: number; actionTarget:HTMLElement|null }) {
-  return <MiniLine actionTarget={actionTarget} investigation={{metric:SPARK_METRIC,entity:c.entity}} frame={{start,end,stepMs:q.data?.stepMs}} points={q.data?.points ?? []} level="ok" label={`${c.entity.consumer} delivered per second`} period={rangeText(start, end)} fmt={rate} />;
+  return <MiniLine bucketNote="Mean delivery rate in bucket" actionTarget={actionTarget} investigation={{metric:SPARK_METRIC,entity:c.entity}} frame={{start,end,stepMs:q.data?.stepMs}} points={q.data?.points ?? []} level="ok" label={`${c.entity.consumer} delivered per second`} period={rangeText(start, end)} fmt={rate} />;
 }
 
 const SPARK_METRIC = "consumer.delivered_rate";
@@ -30,7 +31,7 @@ export function BusiestConsumers({ consumers, spec, start, end }: { consumers: C
       <table className="tbl bc">
         <thead>
           <tr>
-            <th scope="col">Consumer</th>
+            <th scope="col" aria-label="Consumer">Consumer <MetricHelp label="Consumer delivery history" ids={["consumer.delivered_rate"]}/></th>
             <th scope="col" className="num">
               Delivered/s
             </th>

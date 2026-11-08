@@ -60,7 +60,7 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
     <div className="sd-tiles">
       <MetricBox
         title="CPU"
-        description="CPU use of the server process, percent of one core; averaged per bucket."
+        metricIds={["server.cpu_percent"]}
         {...cpu}
         value={cpuNow}
         fmt={pct}
@@ -73,7 +73,7 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
       />
       <MetricBox
         title="Memory"
-        description="Resident memory of the server process; averaged per bucket."
+        metricIds={["server.mem_bytes"]}
         {...mem}
         value={down ? null : (s.memBytes ?? null)}
         fmt={fmtBytes}
@@ -97,7 +97,7 @@ export function ServerTiles({ info, spec, start, end }: { info: ServerInfo; spec
       />
       <MetricBox
         title="Connections"
-        description="Client connections on the server; the last value of each bucket."
+        metricIds={["server.connections"]}
         {...conns}
         value={connNow}
         fmt={(v) => fmtInt(v)}

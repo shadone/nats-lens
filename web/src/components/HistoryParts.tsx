@@ -149,6 +149,7 @@ export function GapStrip({ d, live }: { d: DataHistory; live: boolean }) {
   const name = n === 0 ? "The range, with collections all through" : `The range, with ${n} ${n === 1 ? "time" : "times"} without collections hatched`;
   return (
     <div className="dh-strip-wrap">
+      <InfoTip label="Collection coverage strip" text="Hatched portions of the selected time range have no retained collection evidence. The strip describes capture coverage, not NATS availability; partial collections and detailed gap reasons are listed separately."/>
       <div className="dh-strip" role="img" aria-label={name}>
         {segs.map((s) => (
           <span key={gapKey(s.gap)} className="dh-seg dh-hatch" style={{ left: `${s.left}%`, width: `${s.width}%` }} title={gapName(s.gap, d.rangeEnd, live)} />

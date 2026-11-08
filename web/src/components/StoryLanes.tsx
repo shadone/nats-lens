@@ -10,6 +10,7 @@ import { useWidth } from "../lib/useWidth";
 import { axisTicks, isDeployment, runsText, zoomWindow } from "../lib/timelineModel";
 import { RLink } from "./common";
 import { StatusTimeline, trackSpan } from "./StatusTimeline";
+import {InfoTip} from "./MetricBox";
 import {TimelineInvestigationProvider,TimelineFindingRange} from "./TimelineInvestigation";
 import {TimelineMark, EventPreview, EventDetails, WindowPreview, timelineTime} from "./TimelineMark";
 import {LEVEL_LABEL} from "../lib/view";
@@ -152,6 +153,7 @@ function StoryLaneContents({ tl, end, live }: Props) {
       </div>
       <div className="sl-foot">
         <LaneLegend windows={tl.windows.length > 0} />
+        <InfoTip label="Timeline lanes" text="Events are observed timestamps; coloured finding boxes show the worst check state in each time bucket. A box is not one incident or an exact onset. Shaded windows are inferred context, not proven causes. Hover or focus a mark to inspect it; activate it to open its evidence. Missing or truncated captures limit what the Timeline can show."/>
         <span className="right">
           {checks && (
             <button type="button" className="chip" aria-pressed={asTable} onClick={() => setAsTable((t) => !t)}>
