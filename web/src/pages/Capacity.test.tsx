@@ -91,7 +91,8 @@ describe("Capacity", () => {
     getCapacity.mockResolvedValue(prod());
     renderApp(<Capacity />, "/capacity");
     await screen.findByRole("region", { name: "Resources by what bounds them" });
-    expect(table().getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Resource", "Bounded by", "Data held", "Size × R", "/day", "Next limit", "Status"]);
+    expect(table().getAllByRole("columnheader").map((h) => h.getAttribute("aria-label") ?? h.textContent)).toEqual(["Resource", "Bounded by", "Data held", "Size × R", "/day", "Next limit", "Status"]);
+    expect(table().getByRole("button", { name: "About Resource storage history" })).toBeInTheDocument();
     expect(table().getByRole("link", { name: "order-archive" })).toHaveAttribute("href", "/streams/APP/order-archive");
     expect(row("order-archive")).toHaveTextContent("R3 · limits · 1,000 msgs");
     expect(cellTexts("order-archive").slice(0, 5)).toEqual(["nothing (keeps all)", "since 2025-12-25", "12 GiB", "+3 MiB", "none: grows until the store is full"]);
