@@ -1,3 +1,4 @@
+import { InvestigationProvider } from "./components/InvestigationContext";
 import { RouteBoundary } from "./components/RouteBoundary";
 // The shell and the routes. Every page reads the time range, the system and
 // the account scope from the URL; the sidebar's pages are listed in nav.ts.
@@ -44,7 +45,7 @@ export function App() {
   const main = useRoutePosition();
   const { collapsed, setCollapsed, drawerOpen, setDrawerOpen, drawerShown } = useSidebar();
   return (
-    <div className={`shell${collapsed ? " rail" : ""}`}>
+    <InvestigationProvider><div className={`shell${collapsed ? " rail" : ""}`}>
       <a className="skip" href="#main">
         Skip to content
       </a>
@@ -105,6 +106,6 @@ export function App() {
           </StaleProvider>
         </main>
       </div>
-    </div>
+    </div></InvestigationProvider>
   );
 }

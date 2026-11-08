@@ -39,6 +39,7 @@ export function OneLine({ f, q, title, label, contiguousBuckets, bucketOverlap }
   const unit = s?.unit ?? "count";
   return (
     <TrendChart
+      investigation={{metric:s?.metric,entity:s?.entity}}
       title={title}
       contiguousBuckets={contiguousBuckets}
       bucketOverlap={bucketOverlap}
@@ -80,6 +81,7 @@ export function InOut({ f, title, qi, qo }: { f: Frame; title: string; qi: Trend
   const max = Math.max(qi.data?.max ?? -Infinity, qo.data?.max ?? -Infinity);
   return (
     <TrendChart
+      investigation={{metric:qi.data?.metric,entity:qi.data?.entity}}
       title={title}
       fmt={v => fmtValue(v, unit)}
       to={f.chartLinks ? ({ Servers: "/servers", Connections: "/connections", Messages: "/servers", Bytes: "/servers", CPU: "/servers", Memory: "/servers" } as Record<string, string>)[title] : undefined}
@@ -109,6 +111,7 @@ export function Band({ f, q, title, floor = "zero" }: { f: Frame; q: TrendSlice;
   if (text.busiest && s) layers.push({ kind: "line", label: text.busiest, style: { tone: "info", dash: true }, points: s.topPoints });
   return (
     <TrendChart
+      investigation={{metric:s?.metric,entity:s?.entity}}
       title={title}
       fmt={v => fmtValue(v, unit)}
       to={f.chartLinks ? ({ Servers: "/servers", Connections: "/connections", Messages: "/servers", Bytes: "/servers", CPU: "/servers", Memory: "/servers" } as Record<string, string>)[title] : undefined}

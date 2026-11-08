@@ -77,3 +77,8 @@
 @media (max-width:1180px){
   .search{width:210px}
 }
+
+.investigation-entry { display:flex; justify-content:flex-end; padding:var(--sp-2) var(--sp-4); }
+.investigation-field { display:grid; gap:var(--sp-2); margin-block:var(--sp-3); }
+.investigation-field textarea { width:100%; max-width:100%; box-sizing:border-box; font-size:var(--fs-sm); }
+.chart-inspection + .investigation-copy { max-width:100%; white-space:normal; font-size:var(--fs-xs); margin-top:var(--sp-1); }
