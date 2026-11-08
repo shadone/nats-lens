@@ -87,15 +87,9 @@ var metricQueries = map[string]metricSQL{
 	// A restarted process's first epoch has no increase, nor has the first
 	// epoch after a collection gap of more than three intervals, so the
 	// sum agrees with the servers' server.slow_consumers.
-	"cluster.slow_consumers": {sum: true, query: `
-SELECT t, sum(d) AS v FROM (
-  SELECT e.epoch, e.started_at AS t,
-    CASE WHEN date_diff('millisecond', lag(e.started_at) OVER w, e.started_at) <= ` + maxGapToken + ` THEN
-      ss.slow_consumers - lag(ss.slow_consumers) OVER w END AS d
-  FROM server_stats ss JOIN epochs e USING (epoch)
-  WHERE e.started_at >= ? AND e.started_at < ?
-  WINDOW w AS (PARTITION BY ss.server_id ORDER BY e.epoch))
-WHERE d >= 0 GROUP BY epoch, t`},
+	"cluster.slow_consumers": {sum: true, query: `WITH ` + slowCounterCTEs("") + `
+SELECT started_at AS t, sum(delta) AS v FROM slow_evidence
+WHERE delta >= 0 GROUP BY epoch, started_at`},
 	"cluster.durable_consumers": {query: `
 SELECT e.started_at AS t, count(DISTINCT (cs.account, cs.stream, cs.consumer)) AS v
 FROM consumer_stats cs JOIN epochs e USING (epoch)
@@ -143,15 +137,9 @@ FROM ep LEFT JOIN lead USING (epoch)`},
 	// increase, so slow consumers before its first report are not
 	// counted; nor is an increase across a collection gap of more than
 	// three intervals credited to one epoch.
-	"server.slow_consumers": {sum: true, query: `
-SELECT t, sum(d) AS v FROM (
-  SELECT e.epoch, e.started_at AS t,
-    CASE WHEN date_diff('millisecond', lag(e.started_at) OVER w, e.started_at) <= ` + maxGapToken + ` THEN
-      ss.slow_consumers - lag(ss.slow_consumers) OVER w END AS d
-  FROM server_stats ss JOIN epochs e USING (epoch) JOIN servers s USING (server_id)
-  WHERE e.started_at >= ? AND e.started_at < ? ` + byServer + `
-  WINDOW w AS (PARTITION BY ss.server_id ORDER BY e.epoch))
-WHERE d >= 0 GROUP BY epoch, t`},
+	"server.slow_consumers": {sum: true, query: `WITH ` + slowCounterCTEs(byServer) + `
+SELECT started_at AS t, sum(delta) AS v FROM slow_evidence
+WHERE delta >= 0 GROUP BY epoch, started_at`},
 	"server.connections":      {query: gauge("connections", byServer)},
 	"server.mem_bytes":        {query: gauge("mem_bytes", byServer)},
 	"server.cpu_percent":      {query: gauge("cpu_percent", byServer)},
@@ -331,7 +319,11 @@ func (p *Provider) series(ctx context.Context, metric string, e *v1.EntityRef, r
 		edges = "min(v)::DOUBLE, max(v)::DOUBLE"
 	}
 	// Rates and deltas need the epoch before the range's first one.
-	args := append([]any{start.Add(-2 * max(p.Interval, time.Minute)), end}, entityArgs(e)...)
+	lookback := start.Add(-2 * max(p.Interval, time.Minute))
+	if metric == "cluster.slow_consumers" || metric == "server.slow_consumers" {
+		lookback = p.slowCounterLookback(start)
+	}
+	args := append([]any{lookback, end}, entityArgs(e)...)
 	args = append(args, step.Microseconds(), start, end)
 	q := `WITH per_epoch AS (` + p.metricQuery(m) + `)
 SELECT time_bucket(to_microseconds(?::BIGINT), t, TIMESTAMP '1970-01-01 00:00:00') AS b, ` + agg + `::DOUBLE, ` + edges + `

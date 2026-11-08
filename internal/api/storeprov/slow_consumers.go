@@ -9,6 +9,36 @@ import (
 	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
+// slowCounterCTEs is shared by server summaries, both charts and investigation.
+// Callers read a three-interval lookback, then select report endpoints in their
+// half-open range. NULL reports break the baseline; missing rows may bridge at
+// most three intervals. Process restarts partition independently.
+func slowCounterCTEs(filter string) string {
+	return `slow_reports AS (
+ SELECT s.server_name, ss.server_id, e.epoch, e.started_at, ss.slow_consumers,
+ lag(e.started_at) OVER w AS prev_at,
+ lag(ss.slow_consumers) OVER w AS prev_counter
+ FROM epochs e JOIN server_stats ss USING(epoch) JOIN servers s USING(server_id)
+ WHERE e.started_at >= ? AND e.started_at < ? ` + filter + `
+ WINDOW w AS (PARTITION BY ss.server_id ORDER BY e.epoch)
+), slow_reasons AS (
+ SELECT *, CASE
+ WHEN prev_at IS NULL THEN 'Initial process report; no baseline'
+ WHEN date_diff('millisecond', prev_at, started_at) > ` + maxGapToken + ` THEN 'Server report or collection gap exceeds three intervals'
+ WHEN slow_consumers IS NULL OR prev_counter IS NULL THEN 'Counter not reported'
+ WHEN slow_consumers < prev_counter THEN 'Counter reset; no increase inferred'
+ ELSE '' END AS reason
+ FROM slow_reports
+), slow_evidence AS (
+ SELECT *, CASE WHEN reason = '' THEN slow_consumers-prev_counter END AS delta
+ FROM slow_reasons
+)`
+}
+
+func (p *Provider) slowCounterLookback(start time.Time) time.Time {
+	return start.Add(-3 * max(p.Interval, time.Second))
+}
+
 // GetSlowConsumerInvestigation uses a fixed number of set queries, never one
 // per observation or event. All lists have independent bounds and truncation.
 func (p *Provider) GetSlowConsumerInvestigation(ctx context.Context, req *v1.GetSlowConsumerInvestigationRequest) (*v1.GetSlowConsumerInvestigationResponse, error) {
@@ -18,32 +48,11 @@ func (p *Provider) GetSlowConsumerInvestigation(ctx context.Context, req *v1.Get
 	// ASVS 1.2.4: all bounds and names are parameters. Timestamp parameters
 	// compare directly to columns; no host time-zone dependent arithmetic.
 	rows, err := p.db().QueryContext(ctx, `
-WITH ep AS (
- SELECT epoch, started_at
- FROM epochs WHERE started_at >= ? AND started_at < ?
-), reports AS (
- SELECT s.server_name, ss.server_id, e.epoch, e.started_at, ss.slow_consumers,
- lag(e.started_at) OVER w AS prev_at,
- lag(ss.slow_consumers) OVER w AS prev_counter
- FROM ep e JOIN server_stats ss USING(epoch) JOIN servers s USING(server_id)
- WHERE (? = '' OR s.server_name = ?)
- WINDOW w AS (PARTITION BY ss.server_id ORDER BY e.epoch)
-), deltas AS (
- SELECT *, CASE
- WHEN prev_at IS NULL THEN 'Initial process report; no baseline'
- WHEN epoch_us(started_at)-epoch_us(prev_at) > ? THEN 'Server report or collection gap exceeds three intervals'
- WHEN slow_consumers IS NULL OR prev_counter IS NULL THEN 'Counter not reported'
- WHEN slow_consumers < prev_counter THEN 'Counter reset; no increase inferred'
- ELSE '' END AS reason
- FROM reports
-), evidence AS (
- SELECT *, CASE WHEN reason = '' THEN slow_consumers-prev_counter END AS delta
- FROM deltas WHERE started_at >= ?
-)
+WITH `+p.metricQuery(metricSQL{query: slowCounterCTEs(`AND (? = '' OR s.server_name = ?)`)})+`
 SELECT server_name, server_id, epoch, prev_at, started_at, delta, reason,
  sum(coalesce(delta,0)) OVER(), count(*) OVER()
-FROM evidence WHERE delta > 0 OR reason <> ''
-ORDER BY started_at DESC, server_id, epoch DESC LIMIT ?`, start.Add(-3*max(p.Interval, time.Second)), end, req.Server, req.Server, (3 * max(p.Interval, time.Second)).Microseconds(), start, limit+1)
+FROM slow_evidence WHERE started_at >= ? AND (delta > 0 OR reason <> '')
+ORDER BY started_at DESC, server_id, epoch DESC LIMIT ?`, p.slowCounterLookback(start), end, req.Server, req.Server, start, limit+1)
 	if err != nil {
 		return nil, err
 	}
