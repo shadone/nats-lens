@@ -1,7 +1,7 @@
 import {useQuery} from '@tanstack/react-query';
 import type {Entity} from './model';
 import {useSystem} from '../lib/useSystem';
-import {rangeKey,resolveRange,type RangeSpec} from '../lib/timeRange';
+import {LIVE_REFRESH_MS,rangeKey,resolveRange,type RangeSpec} from '../lib/timeRange';
 import type {ResourceMetric} from '../lib/resourceMetrics';
 import {lens} from './client';
 import {entity,ms} from './adapt-common';
@@ -31,4 +31,4 @@ export async function getResourceMetricComparison(system:string,spec:RangeSpec,f
  const rows=entities.map((e,i)=>{const r=batch.results[i];if(r.series&&!r.error&&(r.series.metric!==family.metric||r.series.entity?.key!==e.key||r.series.entity.type!==entityInit(e)?.type||r.series.entity.account!==e.account||r.series.entity.stream!==e.stream||r.series.entity.consumer!==e.consumer))throw new Error('Metric response identity does not match the requested resource');return {entity:e,series:r.error?undefined:trendSeries(r.series),error:r.error||''}});
  return {system:resolvedSystem,start,end,readAt,rows,total,next,epoch};
 }
-export function useResourceMetricComparison(spec:RangeSpec,family:ResourceMetric,selection:Entity|undefined,account:string,stream:string,token:string){const system=useSystem();return useQuery({queryKey:['resource-metric-comparison',system,rangeKey(spec),family.key,selection?.key,account,stream,token],queryFn:({signal})=>getResourceMetricComparison(system,spec,family,selection,account,stream,token,signal)})}
+export function useResourceMetricComparison(spec:RangeSpec,family:ResourceMetric,selection:Entity|undefined,account:string,stream:string,token:string){const system=useSystem();return useQuery({queryKey:['resource-metric-comparison',system,rangeKey(spec),family.key,selection?.key,account,stream,token],queryFn:({signal})=>getResourceMetricComparison(system,spec,family,selection,account,stream,token,signal),refetchInterval:spec.kind==='live'&&!token?LIVE_REFRESH_MS:false})}
