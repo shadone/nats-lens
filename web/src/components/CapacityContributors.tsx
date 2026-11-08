@@ -23,7 +23,7 @@ export function CapacityContributors(){
  const c=useStorageContributors();const [expanded,setExpanded]=useState({selection:"",id:""});
  return <section className="card cap-contributors" aria-label="Resources by measured change">
   <div className="page-h"><h2>Resources by measured change</h2><button type="button" className="btn" onClick={c.refresh} disabled={c.q.isFetching||!c.ready}>Refresh comparison</button></div>
-  <p>Measured one-copy logical change, not /day or a forecast. Includes resources observed at either endpoint, even when absent from the latest collection. A live selection is frozen for this comparison until refreshed.</p>
+  <p>Signed one-copy changes, including decreases and resources absent from the latest collection. Frozen until refreshed; independent of daily forecasts.</p>
   {c.problem?<p role="alert">{c.problem}</p>:!c.ready?<p role="status">Resolving source clock…</p>:<QueryView q={c.q} what="storage contributors">{d=>{
    const p=comparisonParams(d);if(c.order===StorageChangeOrder.LOGICAL_ASCENDING)p.set("change","asc");if(c.order===StorageChangeOrder.LOGICAL_DESCENDING)p.set("change","desc");if(c.type&&c.type!=="all")p.set("resource",c.type);
    const max=d.rows.reduce((m,r)=>r.delta?.logical!==undefined&&magnitude(r.delta.logical)>m?magnitude(r.delta.logical):m,0n);
@@ -31,11 +31,13 @@ export function CapacityContributors(){
    return <>
     <p><Link className="x" to={`/capacity/storage-change?${p}`}>Open pinned investigation</Link></p>
     <p className="mono">A: {stamp(d.a?.startedAt)} – {stamp(d.a?.finishedAt)} · B: {stamp(d.b?.startedAt)} – {stamp(d.b?.finishedAt)}</p>
+    <dl className="contributor-headlines">{d.totals.map(t=><div key={t.storage}><dt>{t.storage==="memory"?"Memory":"File"} logical change</dt><dd>{bytes(t.delta?.logical,true)}</dd></div>)}</dl>
+    <details><summary>Totals and coverage</summary>
     <p>Totals cover all resource types in this account scope. Server usage is system-wide. Averages, configured-copy estimates and physical allocation are different quantities.</p>
     <dl className="contributor-totals">{d.totals.map(t=><div key={t.storage}><dt>{t.storage==="memory"?"Memory":"File"} logical change</dt><dd>{bytes(t.delta?.logical,true)}</dd><dt>Known contributions</dt><dd>{bytes(t.knownContributions?.logical,true)} · {t.unknownRows} unknown rows</dd><dt>Unreconciled difference</dt><dd>{bytes(t.unreconciled,true)} · server usage minus complete observed-copy change</dd><dt>Outside this page or type filter</dt><dd>{bytes(t.omittedContributions?.logical,true)}</dd></div>)}</dl>
     {[...(d.a?.reasons??[]),...(d.b?.reasons??[]),...d.reasons].filter((x,i,a)=>a.indexOf(x)===i).map(x=><p role="note" key={x}>{reason(x)}</p>)}
+    </details>
     <label>Contributor type <select value={c.type==="stream"||c.type==="kv"||c.type==="object"?c.type:"all"} onChange={e=>c.setParams(old=>{const next=new URLSearchParams(old);if(e.target.value==="all")next.delete("resource");else next.set("resource",e.target.value);return next})}><option value="all">All resources</option><option value="stream">Streams</option><option value="kv">KV buckets</option><option value="object">Object stores</option></select></label>
-    <p>Bars scale to the largest known magnitude on this page, centered on zero; color does not indicate health.</p>
     <p>Showing {d.rows.length?`${c.page.offset+1}–${c.page.offset+d.rows.length}`:"0"} of {d.totalCount} matching resource incarnations. Sorting applies before paging. Unknown changes remain last.</p>
     <div className="table-wrap" tabIndex={0} role="region" aria-label="Measured contributors"><table className="tbl"><thead><tr><th>Resource</th><th aria-sort={c.order===StorageChangeOrder.LOGICAL_ASCENDING?"ascending":c.order===StorageChangeOrder.LOGICAL_DESCENDING?"descending":"none"}><button type="button" aria-label="Sort by Change in range" onClick={()=>c.setParams(old=>{const next=new URLSearchParams(old);next.set("change",c.order===StorageChangeOrder.LOGICAL_DESCENDING?"asc":"desc");return next})}>Change in range</button><InfoTip label="Change in range" text="One-copy logical bytes at B minus A, with the actual collection windows above. Distinct fresh observations and known identity are required. Missing values remain unknown. Bars compare magnitudes on this page; they do not indicate severity."/></th><th>Before → after</th><th>Observed-copy change</th><th>Evidence</th></tr></thead><tbody>{d.rows.map(r=><tr key={r.id}>
      <th scope="row">{r.bucket||r.stream}<small>{r.bucket?r.stream.startsWith("KV_")?"KV bucket":"Object store":"Stream"} · {r.account} · {r.storage}</small><small>{r.created?`Created ${stamp(r.created)}`:"Incarnation unknown"}</small></th>
