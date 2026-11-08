@@ -44,7 +44,7 @@ func (c *Context) validateQuery() error {
 			return errors.New("bound read range differs from context")
 		}
 	}
-	if q.Method == "GetReplay" {
+	if q.Method == "GetReplay" || q.Method == "GetStorageChange" {
 		var endpoints struct {
 			A string `json:"a"`
 			B string `json:"b"`
@@ -93,7 +93,7 @@ func (c *Context) rebaseQuery(systemChanged, rangeChanged, accountChanged, metri
 	}
 	if rangeChanged {
 		put("range", c.Range)
-		if c.Query.Method == "GetReplay" {
+		if c.Query.Method == "GetReplay" || c.Query.Method == "GetStorageChange" {
 			put("a", c.Range.Start)
 			put("b", c.Range.End)
 		}

@@ -33,6 +33,7 @@ import { Replay } from "./pages/Replay";
 import { Topology } from "./pages/Topology";
 import { Accounts } from "./pages/Accounts";
 import { Capacity } from "./pages/Capacity";
+import { StorageChange } from "./pages/StorageChange";
 import { DataHistory } from "./pages/DataHistory";
 import { Subjects } from "./pages/Subjects";
 import { MicroServices } from "./pages/MicroServices";
@@ -97,6 +98,7 @@ export function App() {
                 <Route path="/topology" element={<Topology />} />
                 <Route path="/accounts" element={<Accounts />} />
                 <Route path="/capacity" element={<Capacity />} />
+                <Route path="/capacity/storage-change" element={<StorageChange />} />
                 <Route path="/data-history" element={<DataHistory />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

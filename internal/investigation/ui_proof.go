@@ -31,10 +31,12 @@ var uiPredicates = map[string]string{
 	"GetAccountsAndAuth": "system range", "GetSubjects": "system range account filter", "MatchSubject": "system range account",
 	"GetMicroServices": "system range account", "GetApplications": "system range account include_tooling",
 	"GetSlowConsumerInvestigation": "system range server account observation_server_id observation_epoch",
+	"GetStorageChange":             "system account a b epoch_a epoch_b",
 }
 var uiDefaultOnly = map[string]string{
-	"ListSystems":  "strip_buckets",
-	"ListFindings": "entity page_token", "ListEvents": "page_token include_facets histogram_buckets",
+	"ListSystems":      "strip_buckets",
+	"GetStorageChange": "page_token",
+	"ListFindings":     "entity page_token", "ListEvents": "page_token include_facets histogram_buckets",
 	"GetStatusTimeline": "entity include_ok", "ListConnections": "page_token", "ListStreams": "account page_token summary_only",
 	"ListConsumers": "page_token", "GetDataHistory": "server", "GetPlacement": "selected_asset selected_server",
 }

@@ -41,6 +41,8 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 		Entity              *Entity           `json:"entity"`
 		Range               *Bounds           `json:"range"`
 		A                   string            `json:"a"`
+		EpochA              string            `json:"epochA"`
+		EpochB              string            `json:"epochB"`
 		B                   string            `json:"b"`
 		CheckCode           string            `json:"checkCode"`
 		States              []string          `json:"states"`
@@ -224,6 +226,14 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 		c.SourcePath = "/events"
 		c.Filters["id"] = r.ID
 		c.Evidence = []Evidence{{Kind: "event", ID: r.ID}}
+	case "GetStorageChange":
+		c.SourcePath = "/capacity/storage-change"
+		if r.EpochA != "" && r.EpochA != "0" {
+			c.Filters["epochA"] = r.EpochA
+		}
+		if r.EpochB != "" && r.EpochB != "0" {
+			c.Filters["epochB"] = r.EpochB
+		}
 	case "GetReplay":
 		c.SourcePath = "/replay"
 		c.Filters["a"] = r.A
