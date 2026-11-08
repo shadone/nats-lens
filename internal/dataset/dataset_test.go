@@ -423,3 +423,68 @@ func TestOpenDatabaseChecksumMismatchNeverRepairs(t *testing.T) {
 		t.Fatal("read-only validation mutated or repaired source")
 	}
 }
+
+func TestInvalidLatestCollectionHasNoReferenceClock(t *testing.T) {
+	st, sys := synthetic(t)
+	// Only synthetic malformed publication: completion before collection start.
+	snap := collect.NewSnapshot(time.Date(2026, 10, 17, 15, 0, 0, 0, time.UTC))
+	snap.FinishedAt = snap.StartedAt.Add(-time.Second)
+	if _, err := st.WriteSnapshot(context.Background(), snap); err != nil {
+		t.Fatal(err)
+	}
+	dest := filepath.Join(privateRoot(t), "invalid-clock")
+	m, err := Acquire(context.Background(), st, dest, sys, "test", Options{MaxBytes: 64 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Boundaries.DataReference != nil {
+		t.Fatal("invalid completion supplied a clock")
+	}
+}
+
+func TestFingerprintDatabaseCanonicalAndBounded(t *testing.T) {
+	path, m := acquireFixture(t)
+	p := filepath.Join(path, DataFile)
+	db, err := OpenDatabase(context.Background(), p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	sum, err := FingerprintDatabase(context.Background(), p)
+	if err != nil || sum != m.Data.SHA256 {
+		t.Fatalf("fingerprint %s %v", sum, err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err = FingerprintDatabase(ctx, p); !errors.Is(err, context.Canceled) {
+		t.Fatal(err)
+	}
+	for _, p := range []string{filepath.Join(t.TempDir(), "missing"), t.TempDir()} {
+		if _, err := FingerprintDatabase(context.Background(), p); !errors.Is(err, ErrBudget) {
+			t.Fatal(err)
+		}
+	}
+	sparse := filepath.Join(t.TempDir(), "oversize")
+	f, err := os.Create(sparse)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = f.Truncate(MaxDataBytes + 1); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	if _, err = FingerprintDatabase(context.Background(), sparse); !errors.Is(err, ErrBudget) {
+		t.Fatal(err)
+	}
+}
+func TestOpenDatabasePreservesCancellation(t *testing.T) {
+	path, _ := acquireFixture(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if db, err := OpenDatabase(ctx, filepath.Join(path, DataFile)); !errors.Is(err, context.Canceled) {
+		if db != nil {
+			db.Close()
+		}
+		t.Fatalf("cancel reclassified as %v", err)
+	}
+}
