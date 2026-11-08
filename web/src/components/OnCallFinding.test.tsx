@@ -1,3 +1,6 @@
+import {fireEvent} from "@testing-library/react";
+import {InvestigationHandoff} from "./InvestigationContext";
+import {buildInvestigationContext,type InvestigationSelection} from "../lib/investigationContext";
 import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router";
@@ -102,4 +105,12 @@ it("does not invent a story or a playbook for a short empty response", async () 
   show(); await screen.findByText("No steps recorded in this story.");
   expect(screen.getByText("Start not reported")).toBeInTheDocument(); expect(screen.getByText("The check gives no remediation.")).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Replay this window" })).toBeNull(); expect(screen.queryByRole("link", { name: "Open the playbook" })).toBeNull();
+});
+
+it("offers a visible phone finding prompt without opening All details or acknowledging",async()=>{
+ let selected:InvestigationSelection|undefined;
+ renderApp(<InvestigationHandoff.Provider value={s=>{selected=s}}><Routes><Route path="/findings/:id" element={<FindingDetail/>}/></Routes></InvestigationHandoff.Provider>,`/findings/${encodeURIComponent(onCallFinding.id)}?system=shop&from=2026-10-17T13:30:00Z&to=2026-10-17T14:30:00Z`);
+ const button=await screen.findByRole("button",{name:"Copy as prompt"});expect(button).toHaveTextContent("Copy as prompt");fireEvent.click(button);
+ const c=buildInvestigationContext({origin:"https://lens.example.com",pathname:`/findings/${encodeURIComponent(onCallFinding.id)}`,search:"",system:"shop",spec:{kind:"fixed",from:Date.parse("2026-10-17T13:30:00Z"),to:Date.parse("2026-10-17T14:30:00Z")},selection:selected});
+ expect(c).toMatchObject({filters:{check:onCallFinding.checkCode},entity:{type:"ENTITY_TYPE_CONSUMER",key:onCallFinding.entity!.key},evidence:[{kind:"finding",id:onCallFinding.id}]});expect(c.evidence).toHaveLength(1);expect(c.series).toBeUndefined();expect(m.getFinding).not.toHaveBeenCalled();expect(m.acknowledgeFinding).not.toHaveBeenCalled();
 });
