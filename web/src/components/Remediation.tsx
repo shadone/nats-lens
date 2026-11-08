@@ -17,4 +17,3 @@ export function Remediation({ text }: { text: string }) {
     >{text}</Markdown>
   </div>;
 }
-
