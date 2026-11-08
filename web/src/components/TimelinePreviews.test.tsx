@@ -6,6 +6,7 @@ import {StoryLanes} from "./StoryLanes";
 import {Cells} from "./StatusTimeline";
 
 vi.mock("../lib/useGlobalQuery",()=>({useGlobalQuery:()=>""}));
+vi.mock("../api/queries",()=>({useFindings:()=>({data:{items:[],totalCount:0,nextPageToken:""},isPending:false,error:null})}));
 
 const start = Date.parse("2026-10-17T23:59:00Z");
 const timeline: Timeline = {

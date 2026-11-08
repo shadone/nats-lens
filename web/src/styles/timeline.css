@@ -56,3 +56,9 @@ button.timeline-mark::after { content: ""; position: absolute; inset: -4px; }
 .timeline-mark { cursor: help; }
 
 .timeline-details { display: grid; gap: var(--sp-3); overflow-wrap: anywhere; }
+
+.dlg.dlg-fullscreen { width: calc(100dvw - 32px); height: calc(100dvh - 32px); max-width: none; margin: auto; }
+.dlg-fullscreen > .dlg-h { position: sticky; top: calc(-1 * var(--sp-5)); background: var(--surface); z-index: 1; padding-block: var(--sp-3); }
+.timeline-finding-list { display: grid; gap: var(--sp-3); }
+.timeline-finding-list > article { padding: var(--sp-4); }
+.timeline-finding-list .btns { display: flex; flex-wrap: wrap; gap: var(--sp-3); }

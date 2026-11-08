@@ -9,6 +9,7 @@ import { placeLaneAnnotations } from "../lib/laneLayout";
 import { axisTicks, cellRuns, isDeployment, laneAnnotations, runsText } from "../lib/timelineModel";
 import { useWidth } from "../lib/useWidth";
 import { LEVEL_LABEL } from "../lib/view";
+import {TimelineFindingRange} from "./TimelineInvestigation";
 import {TimelineMark, EventPreview, EventDetails, CheckDetails, WindowPreview, timelineTime} from "./TimelineMark";
 import { Glyph, Sev } from "./Severity";
 
@@ -40,7 +41,7 @@ export function Cells({ row, start, bucketMs }: { row: TimelineRow; start: numbe
   return (
     <svg className="cells" viewBox={`0 0 ${CW} 16`} preserveAspectRatio="none" role="group" aria-label={`${row.checkCode}: ${runs}`}>
       {row.cells.map((lv, i) => (
-        <TimelineMark svg key={i} details={<CheckDetails code={row.checkCode}/>} label={`${row.checkCode}: ${LEVEL_LABEL[lv]}`} preview={<><strong>{row.checkCode}: {row.checkName}</strong><div>{timelineTime(start+i*bucketMs)} – {timelineTime(start+(i+1)*bucketMs)}</div><div>Historical bucket: {LEVEL_LABEL[lv]}</div><div>Current check state: {LEVEL_LABEL[row.now]}</div><div>Bucket boundaries, not exact onset or resolution.</div></>}><rect x={(i * cw + 0.6).toFixed(2)} y="0" width={Math.max(0.5, cw - 1.6).toFixed(2)} height="16" rx="1.5" style={cellStyle(lv)} vectorEffect="non-scaling-stroke" data-level={lv}>
+        <TimelineMark svg key={i} details={<><CheckDetails code={row.checkCode}/><TimelineFindingRange from={start+i*bucketMs} end={start+(i+1)*bucketMs} checkCode={row.checkCode} entity={row.entity}/></>} label={`${row.checkCode}: ${LEVEL_LABEL[lv]}`} preview={<><strong>{row.checkCode}: {row.checkName}</strong><div>{timelineTime(start+i*bucketMs)} – {timelineTime(start+(i+1)*bucketMs)}</div><div>Historical bucket: {LEVEL_LABEL[lv]}</div><div>Current check state: {LEVEL_LABEL[row.now]}</div><div>Bucket boundaries, not exact onset or resolution.</div></>}><rect x={(i * cw + 0.6).toFixed(2)} y="0" width={Math.max(0.5, cw - 1.6).toFixed(2)} height="16" rx="1.5" style={cellStyle(lv)} vectorEffect="non-scaling-stroke" data-level={lv}>
         </rect></TimelineMark>
       ))}
     </svg>
