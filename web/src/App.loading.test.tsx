@@ -2,6 +2,7 @@ import { act, fireEvent, screen } from "@testing-library/react";
 import { useNavigate } from "react-router";
 import { beforeEach, expect, it, vi } from "vitest";
 import { App } from "./App";
+import { lens } from "./api/client";
 import { renderApp } from "./test/render";
 
 const state = vi.hoisted(() => ({ failure: false, pending: false, resolve: () => {}, promise: Promise.resolve() }));
@@ -17,6 +18,7 @@ vi.mock("./api/requests", async orig => ({ ...await orig<typeof import("./api/re
 vi.mock("./components/SystemGate", () => ({ SystemGate: ({ children }: { children: React.ReactNode }) => children, Landing: ({ children }: { children: React.ReactNode }) => children }));
 vi.mock("./components/Header", () => ({ Header: () => <header><h1>Checks</h1></header> }));
 vi.mock("./components/Sidebar", () => ({ Sidebar: () => <aside>Page navigation</aside> }));
+vi.mock("./api/client", () => ({ lens: { listCheckDefinitions: vi.fn(() => new Promise(() => {})) } }));
 let go: ReturnType<typeof useNavigate>;
 function Navigate() { go = useNavigate(); return null; }
 beforeEach(() => {
@@ -30,6 +32,7 @@ it("keeps the shell and announces loading while route code is pending", async ()
   renderApp(<App />, "/checks?system=shop&range=6h&account=APP");
   expect((await screen.findByText("Loading page…")).closest('[role="status"]')).toHaveAttribute("aria-live", "polite");
   expect(screen.getByText("Page navigation")).toBeInTheDocument();
+  expect(lens.listCheckDefinitions).toHaveBeenCalledWith({ system: "shop" });
   state.pending = false;
   await act(async () => state.resolve());
   expect(await screen.findByText("Check catalogue ready")).toBeInTheDocument();
