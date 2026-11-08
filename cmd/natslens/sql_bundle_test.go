@@ -59,7 +59,7 @@ func TestSQLCanonicalBundle(t *testing.T) {
 		t.Fatal(err)
 	}
 	out.Reset()
-	if err = runSQLTo(ctx, []string{"-bundle", stage, "-format", "json", "SELECT epoch FROM epochs"}, &out); err == nil || out.Len() != 0 {
+	if err = runSQLTo(ctx, []string{"-bundle", stage + string(os.PathSeparator) + ".", "-format", "json", "SELECT epoch FROM epochs"}, &out); err == nil || out.Len() != 0 {
 		t.Fatalf("unpublished SQL bundle exposed: %v %s", err, out.String())
 	}
 
