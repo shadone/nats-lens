@@ -34,7 +34,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 |---|---|
 | `ui` | The web UI that `natslens run` and `natslens demo` serve at `/`. |
 | `api` | The Connect API `natslens.v1.LensService` under `/api/`, and the plain HTTP endpoints beside it (`/metrics`, `/healthz`, `/readyz`). |
-| `cli` | The `natslens` commands (`run`, `once`, `sql`, `checks`, `notify`, `demo`), their flags and the configuration file. |
+| `cli` | The `natslens` commands (`run`, `once`, `sql`, `checks`, `notify`, `demo`, `investigate`), their flags and the configuration file. |
 
 ## Terms
 
@@ -81,6 +81,7 @@ python3 <path to the feature-docs skill>/scripts/audit_feature_docs.py docs/feat
 | [Triage and mutes](triage-and-mutes.md) | `ui`, `api` | shipped — selected-range Replay context, single-page Findings counts, spaced finding facts and actions, acknowledgements beside mutes, and history-start explanations |
 | [Metrics and alerting](metrics-and-alerting.md) | `api` | shipped — acknowledgement quiet metrics and exclusions |
 | [Running nats-lens](running-nats-lens.md) | `api`, `cli` | shipped — shared IAP identity, fatal database containment and unhealthy readiness |
+| [Agent investigations](agent-investigations.md) | `ui`, `api`, `cli` | partial — portable page/shared-chart context and bounded remote reads; collection pinning, local filters, Timeline-mark actions and offline access deferred |
 | [SQL access](sql-access.md) | `cli` | shipped |
 | [Demo mode](demo-mode.md) | `ui`, `api`, `cli` | shipped — on-call acknowledgement story and per-system history, gaps, retention and archive examples |
 | [Multiple systems and the Fleet view](multiple-systems.md) | `ui`, `api`, `cli` | partial — isolated fatal database failures and readable Fleet strip intervals; a cluster switcher inside a supercluster is planned |
@@ -148,6 +149,9 @@ Every capability, grouped by area. `[x]` shipped, `[~]` partial (qualifier inlin
 - [~] Search and jump to anything from one box — findings, events and prefixes are planned (command-bar.md)
 - [~] A finding on the phone with observed facts, episode story, playbook, scoped acknowledgement receipts, retained label context, fixed Replay links, and contained settings; predictions and other phone pages deferred (mobile.md)
 - [~] History coverage, gap lists, archive state, bounded sample spans with a growth lookback and observed window boundaries and qualified availability, and bounded global and server missing-report chart hatches with omission notices; history loading in a chart's own rows after 300 ms (a steady line at once), one page note on a failed read and one live announcement per page; margins not built (data-history.md)
+
+**Agent access**
+- [~] Portable page and shared-chart context, trusted remote profiles, bounded read-only queries and scoped evidence links; collection pinning, table-local state, dedicated Timeline marks and offline access deferred (agent-investigations.md)
 
 **Operations**
 - [x] Findings with acknowledgement quiet metrics and exclusions, collector health and four notification delivery gauges at `/metrics` for Prometheus alerting (metrics-and-alerting.md)

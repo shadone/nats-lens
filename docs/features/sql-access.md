@@ -47,7 +47,7 @@ Everything nats-lens knows is in its DuckDB database, and `natslens sql` runs on
 
 ## Not supported / out of scope
 
-- **No SQL over the API.** The API has no query endpoint. Proposed agent and offline access is described in [Investigation workflows](../plans/investigation-workflows.md).
+- **No SQL over the API.** The API has no query endpoint. Remote [agent investigations](agent-investigations.md) use bounded API reads. Offline source parity and dataset acquisition remain proposed in [Investigation workflows](../plans/investigation-workflows.md).
 - **No query while collecting.** The database is locked by the running collector.
 - **No archive queries.** `natslens sql` reads the database only; hours older than `retention` are in the Parquet archive, which DuckDB can read directly.
 - **No output formats.** The output is an aligned text table; there is no CSV or JSON option.

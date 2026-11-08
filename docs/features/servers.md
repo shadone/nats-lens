@@ -8,6 +8,8 @@
 
 The Servers page shows a system's servers at a glance, built for 20 servers or more: a row of data points, charts across all servers, a map with one square per server, and a list grouped by cluster with the servers that need attention first. A server's own page shows six metric boxes, where it runs, its routes, its limits and settings, its recent events, the monitoring requests it answered, its findings and each process lifetime. Together they answer: which servers answer, which restarted, which is the meta leader, which is configured or versioned apart, and which one is short of storage or under load.
 
+Page and shared-chart handoff preserve known identities through [agent investigations](agent-investigations.md).
+
 ## Behavior and rules
 
 - **By stable name.** A restart gives a server a new server ID, so every view shows one entry per server name.

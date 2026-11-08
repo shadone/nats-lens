@@ -8,6 +8,8 @@
 
 The Capacity page shows what each resource keeps, what bounds it, and when the disks fill, in the newest collection of the time range. One card per server shows its JetStream file store: how full it is, how fast it grows, and when it is full at that rate. A table lists every stream, KV bucket and object store with the limits that bound it, how far back its data reaches, its logical bytes times configured replicas, its growth, the limit it reaches next, and the decision on it. A stream that is unbounded on purpose can be accepted as by design, with a reason and a review date. `GetCapacity` answers the same in the API.
 
+Shared storage charts offer portable [agent investigation context](agent-investigations.md), including known metric and resource IDs.
+
 ## Behavior and rules
 
 - **Missing growth history.** One page note explains the six-hour requirement and links to Data history. Server cards say “growth unavailable”; unset table rates remain unknown. The note distinguishes short retained history from missing boundary observations or entity measurements. A shorter range asks for at least six hours. The age of retained history never supplies a countdown. Storage charts remain available independently of growth eligibility and share collection-history overlays. Forecast confidence margins are not shown.
