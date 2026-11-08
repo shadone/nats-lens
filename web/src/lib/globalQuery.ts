@@ -24,7 +24,9 @@ export function globalQuery(spec: RangeSpec, system: string, account: string): s
  * belong to one system.
  */
 export function withGlobal(to: string, global: string): string {
-  const [path, own] = to.split("?");
+  const hashAt = to.indexOf("#");
+  const hash = hashAt < 0 ? "" : to.slice(hashAt);
+  const [path, own] = (hashAt < 0 ? to : to.slice(0, hashAt)).split("?");
   const params = new URLSearchParams(own ?? "");
   const g = new URLSearchParams(global);
   const otherSystem = params.has(SYSTEM_PARAM) && params.get(SYSTEM_PARAM) !== g.get(SYSTEM_PARAM);
@@ -34,5 +36,5 @@ export function withGlobal(to: string, global: string): string {
     params.set(k, v);
   });
   const q = params.toString();
-  return q ? `${path}?${q}` : path;
+  return `${q ? `${path}?${q}` : path}${hash}`;
 }
