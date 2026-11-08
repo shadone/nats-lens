@@ -196,4 +196,3 @@ The worst-streams table requests one bounded page; its count and totals cover al
 - **One system at a time.** The page shows the system the address's `?system=` names, or the first configured; the Fleet page compares systems ([multiple-systems.md](multiple-systems.md)).
 - **No per-subject traffic.** Message rates are per server and for the whole system, not per subject.
 - **No stories made up.** The lanes show stored events and windows; they do not infer that a group of events was "a redeploy".
-
