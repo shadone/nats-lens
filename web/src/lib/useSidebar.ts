@@ -34,7 +34,7 @@ function storedCollapsed(): boolean {
 export function useSidebar() {
   const [collapsed, setCollapsedState] = useState(storedCollapsed);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const { pathname, search } = useLocation();
+  const { key } = useLocation();
   const phone = usePhoneWidth();
 
   const setCollapsed = useCallback((c: boolean) => {
@@ -48,7 +48,7 @@ export function useSidebar() {
   }, []);
 
   // A window that grows past phone width (or a rotated phone) has no drawer.
-  useEffect(() => setDrawerOpen(false), [pathname, search, phone]);
+  useEffect(() => setDrawerOpen(false), [key, phone]);
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -59,15 +59,14 @@ export function useSidebar() {
 
   // When the drawer closes on the same page (Escape, its close button, a
   // tap beside it), focus goes back to the menu button that opened it.
-  // When it closes because a link opened another page, focus goes to the
-  // page, which was still inert when the route change tried to focus it.
+  // Navigation focus belongs to useRoutePosition, which waits for inert
+  // to clear before focusing the heading or explicit fragment.
   const wasOpen = useRef(false);
-  const openedOn = useRef(pathname);
+  const openedOn = useRef(key);
   useEffect(() => {
-    if (drawerOpen) openedOn.current = pathname;
-    else if (wasOpen.current) {
-      const target = pathname !== openedOn.current ? "#main" : '[aria-controls="sidebar"]';
-      document.querySelector<HTMLElement>(target)?.focus({ preventScroll: true });
+    if (drawerOpen && !wasOpen.current) openedOn.current = key;
+    else if (wasOpen.current && key === openedOn.current) {
+      document.querySelector<HTMLElement>('[aria-controls="sidebar"]')?.focus({ preventScroll: true });
     }
     wasOpen.current = drawerOpen;
     // Only an open or a close of the drawer moves focus.

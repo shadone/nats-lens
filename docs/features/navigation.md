@@ -12,6 +12,8 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 
 - **Bucket links.** KV and object-store links open dedicated bucket routes across resource surfaces. Legacy storage-stream links redirect to the bucket page with their query context; an explicitly labeled secondary action retains access to low-level stream diagnostics. See [KV and object stores](kv-and-object-stores.md).
 
+- **Page position and focus.** Opening a new path starts at the top and focuses its heading when available. Range, account, system, and filter query changes keep the reading position and focus. Browser Back and Forward restore the position saved for that history entry, including after delayed content arrives. A saved Back or Forward position takes priority over the entry’s fragment. Initial fragment links scroll to and focus their target. Following the same fragment link again also scrolls to and focuses its target. Query-only changes with an unchanged fragment keep the reading position. Pending restoration stops when the reader takes control, or after ten seconds. Position history lasts while the UI stays open and keeps up to 100 entries.
+
 - **Replay entry links.** Overview observed windows and finding details open [Replay](replay.md) with explicit A/B and a fixed range, retaining the system and using the shared account policy (Replay is system-wide). Links support keyboard and native modified-click navigation.
 
 - **Phone finding links.** The [phone finding card](mobile.md) uses the same finding URL as desktop. Alert-label links resolve query parameters into that URL.
@@ -41,7 +43,7 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 - **Keyboard.** Every menu opens with a click, Enter or the down arrow; the arrow keys move, Enter picks, and Escape closes it and returns to its button. In the system menu the arrow keys also reach "All systems", which opens Fleet.
 - **A narrow window.** The header never makes the page scroll sideways, from 360 px wide up. When the time range does not fit on its line, a fixed range's dates give way first and the freshness last, each cut with an ellipsis; the dates' tooltip holds both times, the freshness's tooltip its whole text, and a screen reader hears the freshness as the description of the live button. This order is proposed, not yet confirmed.
 - **Times are UTC.** Every time in the UI is UTC.
-- **Phone width.** The sidebar becomes a drawer that the menu button in the header opens. While it is open, Tab stays inside it. It closes when a page opens, on its close button, on Escape (outside an open menu), or on a tap beside it, and the cursor returns to the menu button. The range and the search take a line each. Tables scroll sideways inside their own box, so the page itself never scrolls sideways.
+- **Phone width.** The sidebar becomes a drawer that the menu button in the header opens. While it is open, Tab stays inside it. It closes when a link opens, on its close button, on Escape (outside an open menu), or on a tap beside it. Navigation gives focus to the destination heading or explicit fragment after the drawer closes. Closing without navigation returns focus to the menu button. The range and the search take a line each. Tables scroll sideways inside their own box, so the page itself never scrolls sideways.
 
 - **Finding links from alerts.** `/findings/by-labels` reads URL-encoded `system`, `code`, and `entity_key`, then replaces the route with `/findings/<id>?system=<id>`. A missing finding opens Findings filtered to its check, with an explanation that it may have resolved and been swept. Both destinations retain the global time range, system, and account, dropping label-routing and unknown parameters. Other API failures remain errors. The same canonical finding URL shows the [phone card](mobile.md) at 760 px and below.
 ## Scenarios
@@ -121,6 +123,48 @@ Every page of the web UI sits in one shell. A sidebar on the left lists the page
 - **Given** a screen 390 pixels wide
 - **When** I tap the menu button and then Servers
 - **Then** the sidebar slides in, and closes as the Servers page opens
+
+### Open a detail after reading a long list
+
+- **Surfaces:** `ui`
+- **Given** I have scrolled down the Checks catalog or another list
+- **When** I open a detail page
+- **Then** the detail starts at the top with its heading focused
+- **And** the link retains the system, time range, and applicable account context
+- **When** I use browser Back
+- **Then** the list returns to its saved reading position, waiting for delayed content if needed
+
+### Keep reading when the range changes
+
+- **Surfaces:** `ui`
+- **Given** I am reading partway down a detail page
+- **When** I change only the range or another query parameter
+- **Then** the UI keeps my reading position and focus
+- **When** I follow an explicit fragment link
+- **Then** the UI scrolls to and focuses the fragment target
+
+### Follow the same fragment again
+
+- **Surfaces:** `ui`
+- **Given** I followed a fragment link and then scrolled farther down the page
+- **When** I follow the same fragment link again
+- **Then** the UI scrolls to and focuses the fragment target again
+
+### Follow a fragment from the phone drawer
+
+- **Surfaces:** `ui`
+- **Given** the phone drawer is open
+- **When** I follow a fragment link, including one to the same page
+- **Then** the drawer closes and the fragment target receives focus when it arrives
+- **And** the page heading does not replace that focus
+
+### Return to a fragment entry
+
+- **Surfaces:** `ui`
+- **Given** I opened a fragment link and then scrolled to another position
+- **When** I open another page and use browser Back
+- **Then** the UI restores my saved reading position, including after delayed content arrives
+- **And** the original fragment does not move me away from that position
 
 ## Planned
 

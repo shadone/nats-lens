@@ -54,3 +54,11 @@ it("carries reference account context without leaking it to another system", () 
   expect(withGlobal("/checks/consumer-009","?range=6h&system=a&account=APP")).toBe("/checks/consumer-009?range=6h&system=a&account=APP");
   expect(withGlobal("/checks?system=b","?range=6h&system=a&account=APP")).toBe("/checks?system=b&range=6h");
 });
+
+it("keeps explicit fragments after global and own query parameters", () => {
+  expect(withGlobal("/checks/server-014#evidence", "?range=6h&system=a&account=APP"))
+    .toBe("/checks/server-014?range=6h&system=a&account=APP#evidence");
+  expect(withGlobal("/checks?system=b#evidence", "?range=6h&system=a&account=APP"))
+    .toBe("/checks?system=b&range=6h#evidence");
+  expect(withGlobal("/checks#evidence", "")).toBe("/checks#evidence");
+});
