@@ -22,7 +22,7 @@ function response(){return create(GetStorageChangeResponseSchema,{system:"exampl
 const region=()=>within(screen.getByRole("region",{name:"Resources by measured change"}));
 beforeEach(()=>{vi.clearAllMocks();vi.mocked(lens.getStorageChange).mockResolvedValue(response());vi.mocked(lens.getTimeSeriesBatch).mockResolvedValue({results:[]} as never)});
 it("shows short-range signed changes for all resource types including resources absent at B",async()=>{
- renderApp(<Capacity/>,route);await screen.findByRole("region",{name:"Resources by measured change"});
+ renderApp(<Capacity/>,route);await region().findByRole("button",{name:"Sort by Change in range"});
  expect(region().getByRole("button",{name:"Sort by Change in range"})).toBeInTheDocument();
  expect(region().getByText("+9,007,199,254,740,993 bytes")).toBeInTheDocument();expect(region().getByText("−50 bytes")).toBeInTheDocument();
  expect(region().getByText("old-cache")).toBeInTheDocument();expect(region().getByText("images")).toBeInTheDocument();expect(region().getByText("payments").closest("tr")).toHaveTextContent("Unknown");
@@ -30,33 +30,33 @@ it("shows short-range signed changes for all resource types including resources 
  const link=new URL(region().getByRole("link",{name:"Open pinned investigation"}).getAttribute("href")!,"http://example.com");expect(link.searchParams.get("epochA")).toBe("9007199254740993");expect(link.searchParams.get("system")).toBe("example-prod");
 });
 it("requests signed sorting across the full ranking rather than sorting only a loaded page",async()=>{
- renderApp(<Capacity/>,route);await screen.findByRole("region",{name:"Resources by measured change"});
+ renderApp(<Capacity/>,route);await region().findByRole("button",{name:"Sort by Change in range"});
  fireEvent.click(region().getByRole("button",{name:"Sort by Change in range"}));await waitFor(()=>expect(lens.getStorageChange).toHaveBeenLastCalledWith(expect.objectContaining({order:StorageChangeOrder.LOGICAL_DESCENDING}),expect.anything()));
- fireEvent.click(region().getByRole("button",{name:"Sort by Change in range"}));await waitFor(()=>expect(lens.getStorageChange).toHaveBeenLastCalledWith(expect.objectContaining({order:StorageChangeOrder.LOGICAL_ASCENDING}),expect.anything()));
+ fireEvent.click(await region().findByRole("button",{name:"Sort by Change in range"}));await waitFor(()=>expect(lens.getStorageChange).toHaveBeenLastCalledWith(expect.objectContaining({order:StorageChangeOrder.LOGICAL_ASCENDING}),expect.anything()));
  expect(screen.getByTestId("location")).toHaveTextContent("change=asc");
 });
 it("filters the complete resource ranking by type and retains account scope",async()=>{
- renderApp(<Capacity/>,route);await screen.findByRole("region",{name:"Resources by measured change"});
+ renderApp(<Capacity/>,route);await region().findByRole("button",{name:"Sort by Change in range"});
  fireEvent.change(region().getByLabelText("Contributor type"),{target:{value:"kv"}});
  await waitFor(()=>expect(lens.getStorageChange).toHaveBeenLastCalledWith(expect.objectContaining({resourceKind:CapacityStreamKind.KEY_VALUE,account:"APP",resourcesOnly:true,pageToken:""}),expect.anything()));
- expect(region().getByText(/Totals cover all resource types/)).toBeInTheDocument();
+ expect(await region().findByText(/Totals cover all resource types/)).toBeInTheDocument();
 });
 it("continues one pinned page explicitly without automatically traversing every row",async()=>{
  const first=response();first.nextPageToken="page2";first.totalCount=105;vi.mocked(lens.getStorageChange).mockResolvedValue(first);
- renderApp(<Capacity/>,route);await screen.findByRole("region",{name:"Resources by measured change"});
+ renderApp(<Capacity/>,route);await region().findByRole("button",{name:"Sort by Change in range"});
  expect(lens.getStorageChange).toHaveBeenCalledTimes(1);fireEvent.click(region().getByRole("button",{name:"Next contributors"}));
  await waitFor(()=>expect(lens.getStorageChange).toHaveBeenLastCalledWith(expect.objectContaining({epochA:9007199254740993n,epochB:9007199254740994n,pageToken:"page2"}),expect.anything()));
 });
 it("offers the selected interval chart, endpoint configuration, events and consumers for a contributor",async()=>{
- renderApp(<Capacity/>,route);await screen.findByRole("region",{name:"Resources by measured change"});
+ renderApp(<Capacity/>,route);await region().findByRole("button",{name:"Sort by Change in range"});
  fireEvent.click(region().getByRole("button",{name:"Explore orders"}));
  expect(await screen.findByRole("heading",{name:"orders evidence"})).toBeInTheDocument();expect(screen.getByText(/Configured replicas: 1 → 3/)).toBeInTheDocument();
  for(const name of ["Configuration at A","Configuration at B","Events in interval","Consumers in interval"]){const link=new URL(screen.getByRole("link",{name}).getAttribute("href")!,"http://example.com");expect(link.searchParams.get("system")).toBe("example-prod");expect(link.searchParams.get("account")).toBe("APP")}
- expect(screen.getByRole("heading",{name:"Logical bytes in interval"})).toBeInTheDocument();
+ expect(screen.getByRole("img",{name:/^Logical bytes in interval/})).toBeInTheDocument();
 });
 it("does not keep a previous range's measurements when the scope changes",async()=>{
  function ChangeScope(){const [,set]=useSearchParams();return <button onClick={()=>set({system:"example-staging",from:start,to:end})}>Change scope</button>}
- renderApp(<><ChangeScope/><Capacity/></>,route);await screen.findByRole("region",{name:"Resources by measured change"});
+ renderApp(<><ChangeScope/><Capacity/></>,route);await region().findByRole("button",{name:"Sort by Change in range"});
  vi.mocked(lens.getStorageChange).mockImplementation(()=>new Promise(()=>{}));fireEvent.click(screen.getByRole("button",{name:"Change scope"}));
  await waitFor(()=>expect(screen.queryByText("+9,007,199,254,740,993 bytes")).not.toBeInTheDocument());
 });
