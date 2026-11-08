@@ -43,18 +43,45 @@ func (p *Provider) observationSummary(ctx context.Context, metric string, e *v1.
 	if m.sum {
 		total = "sum(v)::VARCHAR"
 	}
-	q := `/* observation_summary */ WITH per_epoch AS (` + p.metricQuery(m) + `), selected AS (SELECT * FROM per_epoch WHERE t >= ? AND t < ?),
-observation_latest AS (SELECT CASE WHEN count(v)=count(*) AND min(v)=max(v) THEN max(v)::DOUBLE END AS v
+	args := append([]any{p.seriesLookback(metric, start), end}, entityArgs(e)...)
+	prefix := `WITH per_epoch AS (` + p.metricQuery(m) + `), selected AS (SELECT * FROM per_epoch WHERE t >= ? AND t < ?)`
+	counterColumns := `NULL::VARCHAR,0::BIGINT,0::BIGINT,NULL::TIMESTAMP,NULL::TIMESTAMP,0::BIGINT,0::BIGINT`
+	if m.counter != nil {
+		evidence := p.metricQuery(metricSQL{query: counterEvidence(m.counter.column, m.counter.filter)})
+		// UTC microseconds keep the shared bounds independent of the DuckDB session TZ.
+		prefix = `WITH counter_evidence AS (` + evidence + `), range_bounds AS (
+   SELECT make_timestamp(?::BIGINT) AS range_start, make_timestamp(?::BIGINT) AS range_end),
+   per_epoch AS (` + counterRateProjection + `),
+   selected AS (SELECT t,v FROM per_epoch CROSS JOIN range_bounds WHERE t >= range_start AND t < range_end),
+   counter_selected AS (SELECT counter_evidence.*,range_start FROM counter_evidence CROSS JOIN range_bounds WHERE t >= range_start AND t < range_end),
+   counter_summary AS (SELECT
+    (sum(delta) FILTER (WHERE delta IS NOT NULL AND previous_at >= range_start))::VARCHAR AS increase,
+    count(*) FILTER (WHERE delta IS NOT NULL AND previous_at >= range_start) AS pairs,
+    count(DISTINCT server_id) FILTER (WHERE delta IS NOT NULL AND previous_at >= range_start) AS ids,
+    min(previous_at) FILTER (WHERE delta IS NOT NULL AND previous_at >= range_start) AS first_at,
+    max(t) FILTER (WHERE delta IS NOT NULL AND previous_at >= range_start) AS last_at,
+    count(*) - count(*) FILTER (WHERE delta IS NOT NULL AND previous_at >= range_start) AS excluded,
+    count(*) FILTER (WHERE delta IS NOT NULL AND previous_at < range_start) AS boundary
+    FROM counter_selected)`
+		args = append(args, start.UnixMicro(), end.UnixMicro())
+		counterColumns = `(SELECT increase FROM counter_summary),(SELECT pairs FROM counter_summary),
+   (SELECT ids FROM counter_summary),(SELECT first_at FROM counter_summary),(SELECT last_at FROM counter_summary),
+   (SELECT excluded FROM counter_summary),(SELECT boundary FROM counter_summary)`
+	} else {
+		args = append(args, start, end)
+	}
+	q := `/* observation_summary */ ` + prefix + `, observation_latest AS (
+ SELECT CASE WHEN count(v)=count(*) AND min(v)=max(v) THEN max(v)::DOUBLE END AS v
  FROM selected WHERE t=(SELECT max(t) FROM selected))
 SELECT count(*),count(v),min(t),max(t),(SELECT v FROM observation_latest),avg(v)::DOUBLE,min(v)::DOUBLE,max(v)::DOUBLE,
-first(t ORDER BY v DESC NULLS LAST,t) FILTER (WHERE v IS NOT NULL),` + total + `,` + edges + ` FROM selected`
-	args := append([]any{p.seriesLookback(metric, start), end}, entityArgs(e)...)
-	args = append(args, start, end)
+first(t ORDER BY v DESC NULLS LAST,t) FILTER (WHERE v IS NOT NULL),` + total + `,` + edges + `,` + counterColumns + ` FROM selected`
 	out := &v1.ObservationSummary{}
 	var first, last, peak sql.NullTime
 	var latest, mean, low, high, minimumLow, maximumHigh sql.NullFloat64
-	var sum sql.NullString
-	if err := p.db().QueryRowContext(ctx, q, args...).Scan(&out.SampleCount, &out.KnownCount, &first, &last, &latest, &mean, &low, &high, &peak, &sum, &minimumLow, &maximumHigh); err != nil {
+	var sum, increase sql.NullString
+	var counterFirst, counterLast sql.NullTime
+	counter := &v1.CounterComparisonSummary{}
+	if err := p.db().QueryRowContext(ctx, q, args...).Scan(&out.SampleCount, &out.KnownCount, &first, &last, &latest, &mean, &low, &high, &peak, &sum, &minimumLow, &maximumHigh, &increase, &counter.ComparisonCount, &counter.ServerIdCount, &counterFirst, &counterLast, &counter.ExcludedReports, &counter.BoundaryReports); err != nil {
 		return nil, fmt.Errorf("observations %s: %w", metric, err)
 	}
 	if first.Valid {
@@ -89,6 +116,21 @@ first(t ORDER BY v DESC NULLS LAST,t) FILTER (WHERE v IS NOT NULL),` + total + `
 			return nil, fmt.Errorf("%w: observation total is not a nonnegative integer", api.ErrInvalid)
 		}
 		out.ObservedTotal = ptr(sum.String)
+	}
+	if m.counter != nil {
+		if increase.Valid {
+			if !observationInteger.MatchString(increase.String) {
+				return nil, fmt.Errorf("%w: invalid counter comparison total", api.ErrInvalid)
+			}
+			counter.ObservedIncrease = ptr(increase.String)
+		}
+		if counterFirst.Valid {
+			counter.FirstComparedAt = ts(counterFirst.Time.UTC())
+		}
+		if counterLast.Valid {
+			counter.LastComparedAt = ts(counterLast.Time.UTC())
+		}
+		out.CounterComparisons = counter
 	}
 	return out, nil
 }

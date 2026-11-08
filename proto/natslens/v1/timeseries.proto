@@ -129,6 +129,32 @@ message ObservationSummary {
   optional double minimum_low = 11;
   // Largest raw upper edge for a band metric; absent otherwise.
   optional double maximum_high = 12;
+  // Optional exact counter evidence for supported server traffic rates.
+  // This does not integrate the plotted rates or certify a complete volume.
+  CounterComparisonSummary counter_comparisons = 13;
+}
+
+// Counter increases from comparable reports wholly inside the selected range.
+// Only supplied for cluster/server message and byte traffic rate metrics.
+message CounterComparisonSummary {
+  // Exact nonnegative decimal sum. Absent without a comparable pair;
+  // "0" means at least one comparable pair observed no increase.
+  optional string observed_increase = 1;
+  // Comparable report pairs, counted separately for each server ID.
+  uint64 comparison_count = 2;
+  // Distinct stored server IDs contributing pairs, not inferred lifetimes.
+  uint64 server_id_count = 3;
+  // Earliest previous-report timestamp among contributing pairs.
+  google.protobuf.Timestamp first_compared_at = 4;
+  // Latest current-report timestamp among contributing pairs.
+  // The envelope is not proof of continuous coverage.
+  google.protobuf.Timestamp last_compared_at = 5;
+  // Returned counter rows in the range that cannot contribute: no baseline,
+  // NULL/negative counters, decreases, invalid time, excessive gaps or a pair
+  // crossing the range start. Entirely absent reports cannot be counted here.
+  uint64 excluded_reports = 6;
+  // Subset of excluded_reports: otherwise comparable pairs crossing start.
+  uint64 boundary_reports = 7;
 }
 
 // Request for one metric of one entity.
