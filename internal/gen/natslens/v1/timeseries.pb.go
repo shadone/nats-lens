@@ -35,7 +35,7 @@ const (
 	Unit_UNIT_BYTES Unit = 2
 	// Events or messages per second.
 	Unit_UNIT_PER_SECOND Unit = 3
-	// Percent, 0 to 100.
+	// Percent. Server process CPU is percent of one core and may exceed 100.
 	Unit_UNIT_PERCENT Unit = 4
 	// Seconds.
 	Unit_UNIT_SECONDS Unit = 5

@@ -75,6 +75,8 @@ func TestOfflineLiveParity(t *testing.T) {
 	cases := []struct{ method, request string }{
 		{"GetLensInfo", `{}`}, {"ListSystems", `{"stripBuckets":2}`}, {"ListMetrics", `{}`}, {"ListCheckDefinitions", `{}`},
 		{"GetOverview", `{}`}, {"GetTimeSeries", `{"metric":"server.cpu_percent","entity":{"type":"ENTITY_TYPE_SERVER","key":"nats-0"},"maxPoints":10}`},
+		{"GetTimeSeries", `{"metric":"server.cpu_percent","entity":{"type":"ENTITY_TYPE_SERVER","key":"nats-0"},"maxPoints":1,"includeObservations":true}`},
+		{"GetTimeSeriesBatch", `{"queries":[{"metric":"server.cpu_percent","entity":{"type":"ENTITY_TYPE_SERVER","key":"nats-0"},"includeObservations":true},{"metric":"cluster.cpu_percent","includeObservations":true}],"maxPoints":1}`},
 		{"ListEvents", `{"pageSize":1,"hideRoutine":false,"foldRepeats":false}`}, {"GetEvent", `{"id":"9007199254740993"}`},
 		{"ListFindings", `{"includeMuted":true,"pageSize":1}`}, {"GetFinding", `{"id":"server-001:nats-0"}`},
 		{"ListFindings", `{"range":{"start":"2026-10-17T14:24:00Z","end":"2026-10-17T14:24:30Z"},"includeMuted":true}`},

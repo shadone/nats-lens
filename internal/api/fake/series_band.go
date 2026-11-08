@@ -39,10 +39,8 @@ func countIn(times []time.Time, c time.Time) float64 {
 // from the scenario's streams and consumers, else the scenario's sample;
 // none inside the scenario's noEpochs.
 func (sc *scenario) value(metric string, e *v1.EntityRef, c time.Time) (float64, bool) {
-	for _, h := range sc.noEpochs {
-		if c.After(h.from) && c.Before(h.to) {
-			return 0, false
-		}
+	if !sc.hasCollection(c) {
+		return 0, false
 	}
 	switch metric {
 	case "cluster.capacity_file_store_bytes":
@@ -179,4 +177,14 @@ func median(vs []float64) float64 {
 		return vs[n/2]
 	}
 	return (vs[n/2-1] + vs[n/2]) / 2
+}
+
+// hasCollection is shared by ordinary metrics, event buckets and summaries.
+func (sc *scenario) hasCollection(c time.Time) bool {
+	for _, h := range sc.noEpochs {
+		if c.After(h.from) && c.Before(h.to) {
+			return false
+		}
+	}
+	return true
 }

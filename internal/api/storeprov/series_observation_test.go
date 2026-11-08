@@ -2,13 +2,16 @@ package storeprov_test
 
 import (
 	"encoding/json"
-	"github.com/shadone/nats-lens/internal/api/storeprov"
-	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
+	"testing"
+	"time"
+
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"testing"
-	"time"
+
+	"github.com/shadone/nats-lens/internal/api"
+	"github.com/shadone/nats-lens/internal/api/storeprov"
+	v1 "github.com/shadone/nats-lens/internal/gen/natslens/v1"
 )
 
 func requestObservations(req *v1.GetTimeSeriesRequest) {
@@ -121,5 +124,66 @@ func TestSeriesObservationMetricSpecificEvidence(t *testing.T) {
 	bounded := read("server.cpu_percent", serverRef("nats-0")).GetObservations()
 	if bounded.SampleCount != 1 || bounded.GetMaximum() != 100 || !bounded.FirstSampleAt.AsTime().Equal(start.Add(30*time.Second)) {
 		t.Fatalf("half-open bounds: %v", bounded)
+	}
+}
+
+func TestSeriesObservationExactTotalAndEmptyRange(t *testing.T) {
+	st := emptyStore(t)
+	r := rows{t, st}
+	r.server("S0", "nats-0")
+	at := t0.Truncate(time.Hour)
+	for i, n := range []int64{0, 9007199254740995} {
+		r.epoch(int64(i+1), at.Add(time.Duration(i)*30*time.Second), "S0")
+		r.add("server_stats", map[string]any{"epoch": int64(i + 1), "server_id": "S0", "slow_consumers": n})
+	}
+	p := &storeprov.Provider{St: st, Interval: 30 * time.Second}
+	req := &v1.GetTimeSeriesRequest{Metric: "server.slow_consumers", Entity: serverRef("nats-0"), Range: &v1.TimeRange{Start: timestamppb.New(at), End: timestamppb.New(at.Add(time.Minute))}, MaxPoints: 1, IncludeObservations: true}
+	out, e := p.GetTimeSeries(ctx, req)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if out.Series.GetObservations().GetObservedTotal() != "9007199254740995" {
+		t.Fatalf("integer total rounded: %v", out.Series.Observations)
+	}
+	req.Range.Start = timestamppb.New(at.Add(time.Hour))
+	req.Range.End = timestamppb.New(at.Add(2 * time.Hour))
+	out, e = p.GetTimeSeries(ctx, req)
+	if e != nil {
+		t.Fatal(e)
+	}
+	s := out.Series.GetObservations()
+	if s == nil || s.SampleCount != 0 || s.KnownCount != 0 || s.Latest != nil || s.Mean != nil || s.ObservedTotal != nil || s.FirstSampleAt != nil {
+		t.Fatalf("empty range invented observations: %v", s)
+	}
+}
+
+func TestSeriesObservationEntireCatalogueEmptyEvidence(t *testing.T) {
+	st := emptyStore(t)
+	r := rows{t, st}
+	r.server("S0", "nats-0")
+	r.add("streams", map[string]any{"account": "APP", "stream": "orders", "first_epoch": 1, "last_epoch": 1})
+	r.add("consumers", map[string]any{"account": "APP", "stream": "orders", "consumer": "worker", "first_epoch": 1, "last_epoch": 1})
+	p := &storeprov.Provider{St: st, Interval: 30 * time.Second}
+	rng := &v1.TimeRange{Start: timestamppb.New(t0), End: timestamppb.New(t0.Add(time.Hour))}
+	for _, metric := range api.MetricList() {
+		t.Run(metric.Id, func(t *testing.T) {
+			e := &v1.EntityRef{Type: metric.EntityType}
+			switch metric.EntityType {
+			case v1.EntityType_ENTITY_TYPE_SERVER:
+				e.Key = "nats-0"
+			case v1.EntityType_ENTITY_TYPE_STREAM:
+				e.Key = "APP/orders"
+			case v1.EntityType_ENTITY_TYPE_CONSUMER:
+				e.Key = "APP/orders/worker"
+			}
+			out, err := p.GetTimeSeries(ctx, &v1.GetTimeSeriesRequest{Metric: metric.Id, Entity: e, Range: rng, MaxPoints: 1, IncludeObservations: true})
+			if err != nil {
+				t.Fatal(err)
+			}
+			s := out.Series.GetObservations()
+			if s == nil || s.SampleCount != 0 || s.KnownCount != 0 || s.Maximum != nil || s.ObservedTotal != nil {
+				t.Fatalf("invented catalogue observations: %v", s)
+			}
+		})
 	}
 }

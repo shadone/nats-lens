@@ -619,7 +619,7 @@ export enum Unit {
   PER_SECOND = 3,
 
   /**
-   * Percent, 0 to 100.
+   * Percent. Server process CPU is percent of one core and may exceed 100.
    *
    * @generated from enum value: UNIT_PERCENT = 4;
    */
