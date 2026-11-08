@@ -40,3 +40,18 @@ python3 /Users/denis/.codex/plugins/cache/ddenis/ddenis-core/0.4.1/skills/featur
 ```
 
 No Go/API/proto/dependency or collector changes. No full Go suite is warranted for this UI-only change. Browser acceptance and fresh read-only review are recorded below after execution. The installed server and private sources remain untouched.
+
+## Final results
+
+- Final full web: **184 files, 1,818 tests passed, 24 existing skips**, 73.70 s. Receipt: `/private/tmp/nats-chart-range-full-web-final.log`.
+- Focused restored set: **42 tests passed**; types and production build pass. Existing bundle-size warning remains visible and unchanged in policy.
+- Feature audit: **44 capability docs, clean**. No backend test suite was run for this UI-only delta.
+- Fresh read-only review approved exact `59591438` against `c3c8b188`, with no concrete findings and no suite reruns.
+- T3 Preview opened the owned demo but snapshot twice returned `Preview automation snapshot timed out after 15000ms.` Switched to the documented agent-browser fallback on an owned fixed demo at loopback port 18682.
+- Native mouse drag and dialog bounds passed at **360/761/1280**, light/dark. All six layouts kept the URL unchanged and the dialog inside the viewport. Real-font screenshots: `/private/tmp/chart-range-{360,761,1280}-{light,dark}.png`.
+- Native keyboard Home/Shift+arrows/Enter, Set time range, browser Back, picker and contributor navigation passed. `/private/tmp/nats-chart-range-browser.json` records exact selected and resulting URLs. Contributor finishing adds its existing endpoint pins after navigation.
+- Overview storage reverse drag opens the dialog without following the stretched card link; Escape keeps the URL and native heading activation still opens Capacity. `/private/tmp/nats-chart-range-overview.json` records this. Raw plot clicks retain the pre-existing inspection-only behavior; the heading is the navigation target.
+- The first browser action script used unsupported `:has-text` selector syntax after its six geometry assertions; that action attempt is excluded. Continued through semantic/native controls. A mistaken expectation that clicking the raw inspection plot should navigate is also excluded; the existing heading link was verified directly.
+- Touch events/vertical-pan cancellation and the UTC-picker alternative are tested; physical touchscreen behavior is not certified. Refresh-frame, scope dismissal, account precedence and exact milliseconds are covered by component/URL tests, not a private-source browser claim.
+
+Installed/private server 18900, NATS, databases, configuration and logs were not accessed. Temporary browser/server/dependency links are removed during integration cleanup. No push or deployment.
