@@ -1,3 +1,4 @@
+import {metricDestination} from "../lib/metricNavigation";
 import {MetricHelp} from "./MetricHelp";
 import type { InvestigationSelection } from "../lib/investigationContext";
 import { bucketPlotTime } from "../charts/bucketDomain";
@@ -32,6 +33,8 @@ interface Props {
   investigation?: InvestigationSelection;
   title: string;
   to?: string;
+  metricNavigation?:boolean;
+  intervalActions?:boolean;
   bucketNote?: string;
   fmt?: (value: number) => string;
   /** The current value as text; absent when nothing was observed. */
@@ -82,7 +85,8 @@ export function yDomain(all: number[], floor: "zero" | "data"): [number, number]
   return [lo, max === lo ? lo + 1 : max];
 }
 
-export function TrendChart({ investigation, title, to, bucketNote, fmt = String, now, summary, start, end, stepMs = 0, layers, contiguousBuckets = false, bucketOverlap = false, floor = "zero", loading, error }: Props) {
+export function TrendChart({ investigation, title, to, metricNavigation=true, intervalActions, bucketNote, fmt = String, now, summary, start, end, stepMs = 0, layers, contiguousBuckets = false, bucketOverlap = false, floor = "zero", loading, error }: Props) {
+  to=metricNavigation?(metricDestination(investigation)??to):undefined;
   const h = usePageHistory();
   const coverage = ["Messages", "Bytes", "Connections"].includes(title) ? rangeCoverageText(h?.historyStart, start, end) : undefined;
   summary = [summary, coverage].filter(Boolean).join(" · ") || undefined;
@@ -105,7 +109,7 @@ export function TrendChart({ investigation, title, to, bucketNote, fmt = String,
       {error && empty ? (
         <p className="muted-note">Could not load: {error}</p>
       ) : (
-        <ChartInspection investigation={investigation} label={title} start={start} end={end} stepMs={stepMs || undefined} bucketNote={bucketNote} series={layers.map(l => ({ label: l.label, points: l.kind === "band" ? l.points.map(p => ({ time: p.time, text: l.stacked ? fmt(p.high - p.low) : `${fmt(p.low)} to ${fmt(p.high)}` })) : l.points.map(p => ({ time: p.time, text: fmt(p.value) })) }))}>
+        <ChartInspection intervalActions={intervalActions} investigation={investigation} label={title} start={start} end={end} stepMs={stepMs || undefined} bucketNote={bucketNote} series={layers.map(l => ({ label: l.label, points: l.kind === "band" ? l.points.map(p => ({ time: p.time, text: l.stacked ? fmt(p.high - p.low) : `${fmt(p.low)} to ${fmt(p.high)}` })) : l.points.map(p => ({ time: p.time, text: fmt(p.value) })) }))}>
         <svg className="tc-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={chartName(title, now, rangeText(start, end), summary)}>
           <HistoryGaps start={start} end={end} width={W} height={H} />
           <line x1="0" x2={W} y1={H - 1} y2={H - 1} className="tc-axis" vectorEffect="non-scaling-stroke" />

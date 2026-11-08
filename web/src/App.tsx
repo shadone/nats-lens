@@ -12,6 +12,7 @@ import { Landing, SystemGate } from "./components/SystemGate";
 import { useRoutePosition } from "./lib/useRoutePosition";
 import { useSidebar } from "./lib/useSidebar";
 import { useSystem } from "./lib/useSystem";
+import {MetricInvestigation} from "./pages/MetricInvestigation";
 import { Fleet } from "./pages/Fleet";
 import { SlowConsumerInvestigation } from "./pages/SlowConsumerInvestigation";
 import { Overview } from "./pages/Overview";
@@ -98,6 +99,7 @@ export function App() {
                 <Route path="/replay" element={<Replay />} />
                 <Route path="/topology" element={<Topology />} />
                 <Route path="/accounts" element={<Accounts />} />
+                <Route path="/metrics" element={<MetricInvestigation/>}/><Route path="/metrics/:family" element={<MetricInvestigation/>}/>
                 <Route path="/capacity" element={<Capacity />} />
                 <Route path="/capacity/storage-change" element={<StorageChange />} />
                 <Route path="/data-history" element={<DataHistory />} />
