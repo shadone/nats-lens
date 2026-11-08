@@ -32,3 +32,9 @@ it("continues only the pinned comparison and exposes all-match counts",async()=>
  expect(lens.getStorageChange).toHaveBeenLastCalledWith(expect.objectContaining({pageToken:"next",epochA:9007199254740993n,epochB:9007199254740994n}),expect.anything());
 });
 it("rejects malformed pins without issuing a read",async()=>{renderApp(<StorageChange/>,route+"&epochA=bad");expect(await screen.findByRole("alert")).toHaveTextContent(/collection pin/);expect(lens.getStorageChange).not.toHaveBeenCalled();});
+it("opens a disappeared resource around its last observed collection instead of the missing endpoint",async()=>{
+ const r=response();r.nextPageToken="";r.rows[0].after=create(GetStorageChangeResponseSchema,{rows:[{after:{logical:0n,observedReplicas:0n}}]}).rows[0].after;r.rows[0].processesA=["S0"];r.rows[0].processesB=[];
+ vi.mocked(lens.getStorageChange).mockResolvedValue(r);renderApp(<StorageChange/>,route);
+ const link=new URL((await screen.findByRole("link",{name:"order-cache"})).getAttribute("href")!,"http://example.com");
+ expect(link.searchParams.get("from")).toBe("2026-10-17T12:59:30Z");expect(link.searchParams.get("to")).toBe("2026-10-17T12:59:35.000001Z");
+});
