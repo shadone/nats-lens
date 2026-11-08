@@ -1,5 +1,8 @@
 // The Servers page's data points: who answers, versions in use, restarts,
 // the JetStream store across servers and slow-consumer detections.
+import { Link } from "react-router";
+import { useGlobalQuery } from "../lib/useGlobalQuery";
+import { slowEvidencePath } from "../lib/slowConsumers";
 import type { ServerList, ServerRow } from "../api/servers";
 import { SERVERS_QUERIES, SLOW_STRIP_QUERY, useServersTrends } from "../api/servers";
 import { pickTrend } from "../api/trendBatch";
@@ -7,7 +10,6 @@ import { fmtInt, hm } from "../lib/format";
 import { versionGroups } from "../lib/serverColour";
 import { byName, median, storePct, STORE_ATTENTION_PCT } from "../lib/servers";
 import type { RangeSpec } from "../lib/timeRange";
-import { RLink } from "./common";
 import { useReportStale } from "./StaleContext";
 
 /** "24 h" for a live preset, "in range" for a fixed range. */
@@ -127,7 +129,9 @@ function Store({ servers }: { servers: ServerRow[] }) {
   );
 }
 
-function SlowConsumers({ servers, spec }: { servers: ServerRow[]; spec: RangeSpec }) {
+function SlowConsumers({ servers, spec, start, end }: { servers: ServerRow[]; spec: RangeSpec; start: number; end: number }) {
+  const global = useGlobalQuery();
+  const investigate = (from = start, to = end) => slowEvidencePath("/servers/slow-consumers", from, to, global);
   const b = useServersTrends(spec);
   useReportStale(b);
   const q = pickTrend(b, SERVERS_QUERIES, SLOW_STRIP_QUERY);
@@ -143,18 +147,22 @@ function SlowConsumers({ servers, spec }: { servers: ServerRow[]; spec: RangeSpe
       <div className="dp-v">
         <b className={total > 0 ? "warn" : undefined}>{known.length ? fmtInt(total) : "–"}</b>
       </div>
-      <svg className="dp-strip" viewBox="0 0 240 24" preserveAspectRatio="none" role="img" aria-label={`Slow-consumer detections per ${pts.length ? "bucket" : "range"}, peak ${pts.length ? fmtInt(Math.max(...pts.map((p) => p.value))) : "none"}`}>
+      <svg className="dp-strip" viewBox="0 0 240 24" preserveAspectRatio="none" role="group" aria-label={`Slow-consumer detections per ${pts.length ? "bucket" : "range"}, peak ${pts.length ? fmtInt(Math.max(...pts.map((p) => p.value))) : "none"}`}>
         <line x1="0" y1="23" x2="240" y2="23" className="dp-axis" vectorEffect="non-scaling-stroke" />
         {pts.map((p, i) => {
           const h = p.value > 0 ? 2 + (p.value / peak) * 18 : 0;
-          return h ? <rect key={p.time} x={(i * w).toFixed(1)} y={(23 - h).toFixed(1)} width={Math.max(1, w - 2).toFixed(1)} height={h.toFixed(1)} className="dp-bar" /> : null;
+          const from = Math.max(start, p.time);
+          const to = Math.min(end, p.time + (q.data?.stepMs ?? (pts.length > 1 ? pts[1].time - pts[0].time : end - start)));
+          return h && to > from ? <a key={p.time} href={investigate(from, to)} aria-label={`Investigate ${fmtInt(p.value)} ${p.value === 1 ? "detection" : "detections"} in bucket starting ${new Date(from).toISOString()}`}><rect x={(i * w).toFixed(1)} y={(23 - h).toFixed(1)} width={Math.max(1, w - 2).toFixed(1)} height={h.toFixed(1)} className="dp-bar" /></a> : null;
         })}
       </svg>
-      <p className="dp-n">Server slow-consumer counter increases during the selected range. Covers clients, routes, gateways and leaf connections; retries can count without a disconnect. Not unique clients or JetStream pending messages. For JetStream backlog, see <RLink to="/consumers">Consumers</RLink>.</p>
+      <p className="dp-n">A detection means NATS had trouble sending data because a receiving connection could not keep up.</p>
+      <Link className="x" to={investigate()}>Investigate detections</Link>
+      <details className="dp-n"><summary>About this metric</summary><p>Covers clients, routes, gateways and leaf connections; retries can count without a disconnect. Not unique clients, JetStream consumers or pending messages. The counter alone does not establish application slowness or message loss.</p></details>
       <div className="dp-n">
         {!known.length ? "not reported" : total === 0 || !most ? "none" : (
           <>
-            {fmtInt(most.slowConsumersInRange ?? 0)} of them on <span className="mono">{most.name}</span>
+            {fmtInt(most.slowConsumersInRange ?? 0)} of them on <Link className="x mono" to={slowEvidencePath(`/servers/${encodeURIComponent(most.name)}`, start, end, global)}>{most.name}</Link>
           </>
         )}
       </div>
@@ -169,7 +177,7 @@ export function ServerHeadline({ list, spec, start, end }: { list: ServerList; s
       <Versions servers={list.servers} />
       <Restarts servers={list.servers} spec={spec} start={start} end={end} />
       <Store servers={list.servers} />
-      <SlowConsumers servers={list.servers} spec={spec} />
+      <SlowConsumers servers={list.servers} spec={spec} start={start} end={end} />
     </div>
   );
 }
