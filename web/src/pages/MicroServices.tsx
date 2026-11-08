@@ -9,7 +9,7 @@ import { usePageTitle } from "../lib/usePageTitle";
 import { useAccountScope } from "../lib/useSystem";
 import { useTimeRange } from "../lib/useTimeRange";
 
-export { SERVICE_PARAM } from "../lib/microParams";
+export const SERVICE_PARAM = "service";
 
 function useMicroServicesModel() {
   usePageTitle("Micro services");
@@ -19,7 +19,7 @@ function useMicroServicesModel() {
   // The header's account list names an account the response leaves unnamed.
   const listed = useAccounts(spec).data;
   const names = new Map((listed ?? []).filter((a) => a.name).map((a) => [a.account, a.name]));
-  return { account, q: { ...q }, names };
+  return { serviceParam: SERVICE_PARAM, account, q: { ...q }, names };
 }
 export type MicroServicesModel = ReturnType<typeof useMicroServicesModel>;
 const View = deferredView(() => import("../views/MicroServices").then(m => m.MicroServicesView));

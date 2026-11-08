@@ -4,7 +4,6 @@ import type { MicroServicesModel } from "../pages/MicroServices";
 // and instances. The chosen service is kept in the address as
 // ?service=<account>/<name>.
 import { useSearchParams } from "react-router";
-import { SERVICE_PARAM } from "../lib/microParams";
 import type { MicroServices as Micro, MicroAccount } from "../api/micro";
 import { AccountName } from "../components/AccountName";
 import { Empty, QueryView } from "../components/common";
@@ -33,14 +32,14 @@ function Subtitle({ d }: { d?: Micro }) {
   );
 }
 
-function Body({ d, scope, names }: { d: Micro; scope: string; names: Map<string, string> }) {
+function Body({ d, scope, names, serviceParam }: { d: Micro; scope: string; names: Map<string, string>; serviceParam: string }) {
   const [params, setParams] = useSearchParams();
   const label = accountLabeller([...d.services, ...d.accounts]);
   const accountText = (a: Pick<MicroAccount, "account" | "accountName">) => label(a.account, a.accountName || undefined);
   const nameOf = (id: string) => [...d.accounts, ...d.services].find((a) => a.account === id && a.accountName)?.accountName || names.get(id) || undefined;
   const idText = (id: string) => label(id, nameOf(id));
   const scopeLabel = scope ? idText(scope) : "";
-  const param = params.get(SERVICE_PARAM);
+  const param = params.get(serviceParam);
   const { chosen, unknown } = chooseService(d.services, param, scope);
   const epochAt = d.epochAt ?? 0;
   const showAccount = scope === "" && new Set(d.services.map((s) => s.account)).size > 1;
@@ -50,7 +49,7 @@ function Body({ d, scope, names }: { d: Micro; scope: string; names: Map<string,
     setParams(
       (p) => {
         const n = new URLSearchParams(p);
-        n.set(SERVICE_PARAM, key);
+        n.set(serviceParam, key);
         return n;
       },
       { replace: true },
@@ -110,7 +109,7 @@ function Body({ d, scope, names }: { d: Micro; scope: string; names: Map<string,
 }
 
 export function MicroServicesView({ model }: { model: MicroServicesModel }) {
-  const { account, q, names } = model;
+  const { serviceParam, account, q, names } = model;
 
   return (
     <>
@@ -118,7 +117,7 @@ export function MicroServicesView({ model }: { model: MicroServicesModel }) {
         <Subtitle d={q.data} />
       </div>
       <QueryView q={q} what="micro services">
-        {(d) => (d.collected ? <Body d={withAccountNames(d, names)} scope={account} names={names} /> : <Empty>No collection in this range.</Empty>)}
+        {(d) => (d.collected ? <Body d={withAccountNames(d, names)} scope={account} names={names} serviceParam={serviceParam} /> : <Empty>No collection in this range.</Empty>)}
       </QueryView>
     </>
   );
