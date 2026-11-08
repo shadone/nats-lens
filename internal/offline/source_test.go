@@ -2,6 +2,7 @@ package offline
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -98,5 +99,51 @@ func TestOfflineNoEvaluationDoesNotClaimHealthy(t *testing.T) {
 	}
 	if strings.Contains(string(got), `"status":"STATUS_OK"`) {
 		t.Fatalf("no checks ran, but summary claims healthy: %s", got)
+	}
+}
+
+func TestSummaryRequiresEvaluation(t *testing.T) {
+	for _, c := range []struct{ status, want string }{{"", "STATUS_NO_DATA"}, {"ok", "STATUS_OK"}, {"error", "STATUS_NO_DATA"}, {"disabled", "STATUS_NO_DATA"}} {
+		t.Run("run_"+c.status, func(t *testing.T) {
+			path := closedFixture(t)
+			if c.status != "" {
+				st, err := store.OpenPath(context.Background(), path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				_, err = st.DB().Exec(`INSERT INTO check_runs(epoch,check_code,status,rows,duration_ms) VALUES (9007199254740993,'server-001',?,0,1)`, c.status)
+				closeErr := st.Close()
+				if err != nil || closeErr != nil {
+					t.Fatalf("%v %v", err, closeErr)
+				}
+			}
+			session, err := Open(context.Background(), investigation.OfflineSelection{DB: path, System: "shop", Interval: 30 * time.Second})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer session.Close()
+			got, err := session.Source.Query(context.Background(), "ListSystems", []byte(`{"stripBuckets":1}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var result struct {
+				Systems []struct {
+					Status string `json:"status"`
+				} `json:"systems"`
+			}
+			if err = json.Unmarshal(got, &result); err != nil {
+				t.Fatal(err)
+			}
+			if len(result.Systems) != 1 || result.Systems[0].Status != c.want {
+				t.Fatalf("%s: %s", c.status, got)
+			}
+			got, err = session.Source.Query(context.Background(), "ListSystems", []byte(`{"range":{"start":"2026-10-16T00:00:00Z","end":"2026-10-16T01:00:00Z"},"stripBuckets":1}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(got), `"status":"STATUS_NO_DATA"`) {
+				t.Fatalf("empty range health: %s", got)
+			}
+		})
 	}
 }
