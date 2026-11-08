@@ -22,6 +22,18 @@ Contexts live for 5 minutes, with at most 8 retained per system provider, shared
 
 A context holds at most 2 MiB of encoded summary data, and observed stream/consumer ranking reads stop after 20,000 rows with `ResourceExhausted`. Narrow the account or consumer stream filter when ranking exceeds its bounds. Delivery-rate ranking limits the SQL result to 20,001 rows and rejects the overflow row before adding it to its 20,000-entry map. The limit also applies when historical consumers no longer occur in the pinned collection. These limits bound retained contexts and application row materialization, not the database engine's work to aggregate matching facts. The existing handler deadline and query cancellation still apply.
 
+## Metadata read limits
+
+The following additional policies are proposed, not yet confirmed. Each base-summary, finding-status, inventory, check-run, and page-account-name read family has a 100,000-row and 8 MiB encoded-projection budget. Base stream/consumer summaries and consumer inventory use the stricter 20,000-row ranking budget. The combined present-and-missing consumer set also stays within 20,000 identities.
+
+Placement reads receive the retained ranking keys before reading server/config reports or leader peer lists. The two placement queries share one metadata budget. At most 20,000 asset identities enter the placement map. Placement construction separately bounds the total squares, including unnamed missing replicas, before allocating them. Overflow returns `ResourceExhausted`, without partial placement or invented healthy states. Hidden streams participate only when requested; the selected account applies throughout.
+
+SQL limits output to the remaining row budget plus one overflow sentinel. Cumulative encoded payloads stay within the remaining byte budget; an overflow payload becomes an empty sentinel with its original size. The scanner rejects overflow before decoding or adding the row to a map. This bounds application reads and retained metadata, including many reports for few keys. SQL joins, sorting, aggregation, and intermediate encoding still examine matching retained data and remain subject to cancellation and the handler deadline.
+
+Stream inventory reads aggregate expected consumer counts only for retained stream keys. Consumer inventory reads only the requested account/stream/consumer scope and summary fields. Finding reads project only ranking status for retained entities, including consumer findings that belong to retained streams. Current and historical findings retain their severity, mute status, and code order. The list path does not load finding details, related configuration, events, acknowledgements, or whole mute lists. Page account decoration reads names only for accounts on that page. A metadata error rejects the page rather than silently omitting metadata.
+
+These policies do not replace the 2 MiB traversal-context and 512 KiB final-page checks. They are separate bounds on intermediate application reads, not a global process-memory or database-work bound.
+
 ## Query scope and remaining limits
 
 A stream page selects keys before either history query. Unless `summary_only` is set, one query reads growth bucket medians, preserving the six-hour eligibility and bounded lookback policy; one reads seven-day sparkline buckets. Both queries receive the selected key array, with at most 100 keys, rather than one query per entity. A byte-constrained page can enrich candidates that fit the row limit but do not fit its byte limit. The continuation resumes at the first unreturned key.
