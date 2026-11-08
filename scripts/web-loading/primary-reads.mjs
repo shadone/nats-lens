@@ -7,7 +7,7 @@ const base = process.env.DEMO_URL;
 const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH, headless: true, args: ['--disable-background-networking'] });
 const results = [];
 try {
-  for (const [path, method] of [['/capacity','GetCapacity'], ['/topology','GetTopology'], ['/placement','GetPlacement'], ['/replay','GetStatusTimeline']]) {
+  for (const [path, method] of [['/capacity','GetCapacity'], ['/topology','GetTopology'], ['/placement','GetPlacement'], ['/replay','GetStatusTimeline'], ['/accounts','GetAccountsAndAuth'], ['/applications','GetApplications'], ['/connections','ListConnections'], ['/data-history','GetDataHistory'], ['/micro-services','GetMicroServices']]) {
     const context = await browser.newContext({ viewport: { width:1280, height:800 }, serviceWorkers:'block' });
     const page = await context.newPage();
     await page.goto(base + '/fleet?system=example-prod&range=6h&account=APP');
@@ -21,6 +21,7 @@ try {
       const body = r.postDataJSON();
       assert.equal(body.system, 'example-prod');
       assert.ok(body.range, 'explicit range must be retained');
+      if (['/applications','/connections','/micro-services'].includes(path)) assert.equal(body.account, 'APP');
       results.push({ path, method, held:held.length, request:body, passed:true });
     } catch (error) { results.push({ path, method, held:held.length, passed:false, error:error.message }); }
     await context.close();
