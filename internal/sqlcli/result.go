@@ -21,6 +21,7 @@ import (
 	"unicode/utf8"
 
 	duckdb "github.com/duckdb/duckdb-go/v2"
+	"github.com/duckdb/duckdb-go/v2/mapping"
 )
 
 const DefaultMaxRows = 1000
@@ -149,12 +150,15 @@ func Execute(ctx context.Context, path, query string, o Options) ([]byte, error)
 	if err != nil {
 		return nil, queryError(ctx)
 	}
+	var logicalTypes []duckdb.TypeInfo
 	if o.Format == "json" {
+		logicalTypes = make([]duckdb.TypeInfo, n)
 		for i := 0; i < n; i++ {
 			info, e := stmt.ColumnTypeInfo(i)
 			if e != nil {
 				return nil, queryError(ctx)
 			}
+			logicalTypes[i] = info
 			if hasJSONAlias(info) {
 				return nil, diagnostic("unsupported_type", "DuckDB JSON values cannot be returned losslessly by the pinned driver", "Explicitly cast JSON values, including nested members, to VARCHAR or BLOB in the trusted SQL.")
 			}
@@ -217,8 +221,14 @@ func Execute(ctx context.Context, path, query string, o Options) ([]byte, error)
 		if o.Format == "json" {
 			normalized := make([]any, len(vals))
 			for i, v := range vals {
+				if hasNonfiniteTimestampNS(logicalTypes[i], v) {
+					return nil, temporalDiagnostic()
+				}
 				normalized[i], err = jsonValue(v)
 				if err != nil {
+					if errors.Is(err, errTemporalRepresentation) {
+						return nil, temporalDiagnostic()
+					}
 					return nil, queryError(ctx)
 				}
 			}
@@ -306,7 +316,12 @@ func jsonValue(v any) (any, error) {
 	case duckdb.Decimal:
 		return x.String(), nil
 	case time.Time:
-		return x.UTC().Format(time.RFC3339Nano), nil
+		// MarshalText validates RFC 3339 year bounds; Format alone does not.
+		b, err := x.UTC().MarshalText()
+		if err != nil {
+			return nil, errTemporalRepresentation
+		}
+		return string(b), nil
 	case duckdb.Interval:
 		return map[string]string{"months": strconv.FormatInt(int64(x.Months), 10), "days": strconv.FormatInt(int64(x.Days), 10), "micros": strconv.FormatInt(x.Micros, 10)}, nil
 	case duckdb.UUID:
@@ -432,6 +447,63 @@ func hasJSONAlias(info duckdb.TypeInfo) bool {
 		for _, m := range d.Members {
 			if hasJSONAlias(m.Type) {
 				return true
+			}
+		}
+	}
+	return false
+}
+
+var errTemporalRepresentation = errors.New("temporal value cannot be represented faithfully")
+
+func temporalDiagnostic() error {
+	return diagnostic("unsupported_value", "SQL temporal value cannot be represented faithfully as RFC 3339 JSON", "Explicitly cast temporal values, including nested members, to VARCHAR in the trusted SQL to preserve infinity or out-of-range values.")
+}
+
+// The pinned driver converts TIMESTAMP_NS ticks with time.Unix(0,ticks), even
+// for infinity. Those dates fall inside RFC 3339's year range. Check their exact
+// ticks with the pinned native finiteness API, using declared logical types;
+// do not classify ordinary finite dates by resemblance to a sentinel date.
+func hasNonfiniteTimestampNS(info duckdb.TypeInfo, v any) bool {
+	if v == nil {
+		return false
+	}
+	if info.InternalType() == duckdb.TYPE_TIMESTAMP_NS {
+		t, ok := v.(time.Time)
+		return ok && !mapping.IsFiniteTimestampNS(mapping.NewTimestampNS(t.UnixNano()))
+	}
+	switch d := info.Details().(type) {
+	case *duckdb.ListDetails:
+		for _, x := range v.([]any) {
+			if hasNonfiniteTimestampNS(d.Child, x) {
+				return true
+			}
+		}
+	case *duckdb.ArrayDetails:
+		for _, x := range v.([]any) {
+			if hasNonfiniteTimestampNS(d.Child, x) {
+				return true
+			}
+		}
+	case *duckdb.MapDetails:
+		m := v.(duckdb.OrderedMap)
+		keys, values := m.Keys(), m.Values()
+		for i, k := range keys {
+			if hasNonfiniteTimestampNS(d.Key, k) || hasNonfiniteTimestampNS(d.Value, values[i]) {
+				return true
+			}
+		}
+	case *duckdb.StructDetails:
+		m := v.(map[string]any)
+		for _, e := range d.Entries {
+			if hasNonfiniteTimestampNS(e.Info(), m[e.Name()]) {
+				return true
+			}
+		}
+	case *duckdb.UnionDetails:
+		u := v.(duckdb.Union)
+		for _, m := range d.Members {
+			if m.Name == u.Tag {
+				return hasNonfiniteTimestampNS(m.Type, u.Value)
 			}
 		}
 	}
