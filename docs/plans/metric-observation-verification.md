@@ -33,3 +33,13 @@ The first concurrent-write fixture missed required schema columns and failed bef
 - `make -o web/node_modules/.package-lock.json proto` runs lint, format and generation without installation; borrowed existing dependencies only. TypeScript and scoped vet pass. No frontend logic or migration/dependency changes; no broad web/Go/check-engine suite claim.
 
 Private logs are `/private/tmp/nats-series-*`. Removal overlays do not mutate source. API/CLI receipts and fresh review are recorded below after completion.
+
+## Final foundation results
+
+- Seven independent final removal overlays reach runtime assertions: missing native summary, cross-read-boundary append, lost batch opt-in, missing-capture summary, missing-capture event curve, fabricated off-grid curve and arbitrary latest-time ties. All source files stay unchanged by overlays. `/private/tmp/nats-series-final-controls.log` and `/private/tmp/nats-series-removal/` retain results. One older whole-file curve overlay failed compilation after newer grid helpers were added; excluded. The corrected overlay disables only the capture guard while retaining the grid adapters and reaches the intended runtime assertion.
+- Restored Pacific/Honolulu race checks pass: API **1.759 s**, store provider **7.600 s**, demo **3.327 s**. Existing band/count controls are included. Live/offline legacy single, opted-in single and opted-in batch parity all pass under race (**2.229 s** package). These are test runtimes, not performance claims.
+- The complete demo provider package passed in **18.331 s** after the capture-gap correction. Later grid/tie additions have focused/race proof; no new broad full-suite claim.
+- Final scoped vet, proto lint/format/generation, TypeScript and feature audit pass (**45 capabilities**). No full repository Go, checks engine, broad store provider or web suite was run. No new UI flow is claimed by this API-only foundation.
+- A built real CLI queried only the owned fixed loopback demo: 120 known CPU observations, first 13:30:00 UTC, last 14:29:30 UTC, maximum **8.9304** versus coarse bucket maximum **8.5726**. Full envelope: `/private/tmp/nats-observation-cli.json`. UI-link equivalence correctly remains partial rather than inventing a metric detail destination. This aligned-window receipt preceded the last grid/tie hardening; those edges are separately verified by current tests.
+
+Original whole-task acceptance remains open, including cross-metric pages/navigation, useful contributor comparisons, traffic volume evidence, diagnostic findings/events and end-to-end browser investigation paths. Task status must remain in progress after integrating this foundation.
