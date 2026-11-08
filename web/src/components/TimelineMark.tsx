@@ -3,6 +3,7 @@ import {createPortal} from "react-dom";
 import {useTimelineInvestigation} from "./TimelineInvestigation";
 import {Dialog} from "./Dialog";
 import {RLink} from "./common";
+import {useReadoutHover} from "../charts/useReadoutHover";
 import {ChartReadout} from "../charts/ChartReadout";
 import {isoSecond} from "../lib/format";
 import type {LaneEvent} from "../api/model";
@@ -19,16 +20,17 @@ export function TimelineMark({label,preview,children,className,style,svg=false,d
   useEffect(()=>{
     if(!open)return;
     const escape=(e:KeyboardEvent)=>{if(e.key==="Escape"){setOpen(false);setSelected(false)}};
-    const outside=(e:PointerEvent)=>{if(!anchor.current?.contains(e.target as Node)){setOpen(false);setSelected(false)}};
+    const outside=(e:PointerEvent)=>{if(!anchor.current?.contains(e.target as Node)&&!document.getElementById(id)?.contains(e.target as Node)){setOpen(false);setSelected(false)}};
     document.addEventListener("keydown",escape);document.addEventListener("pointerdown",outside);
     return ()=>{document.removeEventListener("keydown",escape);document.removeEventListener("pointerdown",outside)};
   },[open]);
+  const presence=useReadoutHover(anchor,id,()=>setOpen(false));
   const activate=()=>{setOpen(false);if(select)select({label,preview,details});else setSelected(true)};
   const close=()=>{setSelected(false);setOpen(false)};
   const props={className:`timeline-mark ${className??""}`,style,"aria-label":label,"aria-describedby":open?id:undefined,"aria-haspopup":"dialog" as const,
-    onPointerEnter:()=>{if(!selected)setOpen(true)},onPointerLeave:()=>setOpen(false),onFocus:()=>{if(!selected)setOpen(true)},onBlur:()=>setOpen(false),onClick:activate};
+    onPointerEnter:()=>{presence.keep();if(!selected)setOpen(true)},onPointerLeave:presence.leave,onFocus:()=>{if(!selected)setOpen(true)},onBlur:(e:{relatedTarget:EventTarget|null})=>presence.blur(e.relatedTarget),onClick:activate};
   const modal=selected?createPortal(<Dialog open title={label} onClose={close}><div className="timeline-details">{preview}{details}</div></Dialog>,document.body):null;
-  const tip=open&&!selected?<ChartReadout anchor={anchor} fraction={.5} id={id} contentKey={label}>{preview}</ChartReadout>:null;
+  const tip=open&&!selected?<ChartReadout anchor={anchor} fraction={.5} id={id} contentKey={label} hover={presence}>{preview}</ChartReadout>:null;
   return svg?<><g {...props} ref={el=>{anchor.current=el}} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();activate()}}}>{children}</g>{tip}{modal}</>:<><button {...props} ref={el=>{anchor.current=el}} type="button">{children}</button>{tip}{modal}</>;
 }
 
