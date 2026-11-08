@@ -178,3 +178,29 @@ func TestStorageChangeSerializedBudget(t *testing.T) {
 		t.Fatalf("escaped JSON exceeded advertised page budget: %v", err)
 	}
 }
+func TestStorageChangeRequiresDistinctFreshBookends(t *testing.T) {
+	for _, which := range []string{"same_collection", "stale_collection"} {
+		t.Run(which, func(t *testing.T) {
+			req, f := storageFacts()
+			if which == "same_collection" {
+				f.B.Epoch = f.A.Epoch
+			} else {
+				f.B.Reasons = []string{"stale_collection"}
+			}
+			res, err := api.FinishStorageChange(req, f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, row := range res.Rows {
+				if row.GetDelta().Logical != nil || row.GetDelta().ServerReported != nil {
+					t.Fatal("missing interval measurements produced a change")
+				}
+			}
+			for _, total := range res.Totals {
+				if total.GetDelta().Logical != nil || total.GetKnownContributions().Logical != nil || total.Unreconciled != nil {
+					t.Fatal("no comparable bookends produced a known total")
+				}
+			}
+		})
+	}
+}

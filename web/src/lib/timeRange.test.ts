@@ -106,3 +106,7 @@ describe("rangeProblem", () => {
     }
   });
 });
+it("clears comparison pins when choosing another time range",()=>{
+ const next=writeRange(new URLSearchParams("system=shop&account=APP&epochA=10&epochB=20"),{kind:"live",preset:"6h"});
+ expect(next.has("epochA")).toBe(false);expect(next.has("epochB")).toBe(false);expect(next.get("system")).toBe("shop");
+});
