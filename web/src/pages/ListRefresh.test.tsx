@@ -45,6 +45,7 @@ describe.each(["streams", "consumers"] as const)("%s traversal reset with produc
   fireEvent.click(screen.getByRole("button", {name:"Next page"}));
   await waitFor(() => expect(calls()).toHaveBeenCalledTimes(2));
   if (evicted) await screen.findByText(/List context expired/);
+  await waitFor(() => expect(screen.getByRole("button", {name:"Refresh list"})).toBeEnabled());
   fireEvent.click(screen.getByRole("button", {name:"Refresh list"}));
   await waitFor(() => expect(calls()).toHaveBeenCalledTimes(3));
   await waitFor(() => expect(screen.getByRole("button", {name:"Next page"})).toBeEnabled());
@@ -59,6 +60,7 @@ describe.each(["streams", "consumers"] as const)("%s traversal reset with produc
   await waitFor(() => expect(screen.getByRole("button", {name:"Next page"})).toBeEnabled());
   fireEvent.click(screen.getByRole("button", {name:"Next page"}));
   await waitFor(() => expect(calls()).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.getByRole("button", {name:"Refresh list"})).toBeEnabled());
   fireEvent.click(screen.getByRole("button", {name:"Refresh list"}));
   await waitFor(() => expect(calls()).toHaveBeenCalledTimes(3));
   expect(screen.getByRole("button", {name:"Next page"})).toBeDisabled();
