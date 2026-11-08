@@ -31,7 +31,15 @@ type Evidence struct {
 	Kind string `json:"kind"`
 	ID   string `json:"id"`
 }
+type SeriesReference struct {
+	Label             string  `json:"label"`
+	Metric            string  `json:"metric,omitempty"`
+	Entity            *Entity `json:"entity,omitempty"`
+	UnavailableReason string  `json:"unavailableReason,omitempty"`
+}
 type Context struct {
+	ChartLabel string            `json:"chartLabel,omitempty"`
+	Series     []SeriesReference `json:"series,omitempty"`
 	Version    int               `json:"version"`
 	Deployment string            `json:"deployment"`
 	System     string            `json:"system"`
@@ -158,7 +166,7 @@ func ParseContext(r io.Reader, trusted string) (*Context, error) {
 	d := json.NewDecoder(strings.NewReader(string(data)))
 	d.DisallowUnknownFields()
 	if err = d.Decode(&c); err != nil {
-		return nil, errors.New("invalid context JSON or unknown field")
+		return nil, errors.New("invalid context JSON or unsupported fields; use a compatible client")
 	}
 	if d.Decode(new(any)) != io.EOF {
 		return nil, errors.New("context must contain one JSON value")
@@ -207,19 +215,28 @@ func (c *Context) Validate(trusted string) error {
 			return errors.New("unsupported filter")
 		}
 	}
-	if c.Entity != nil {
-		e := c.Entity
-		switch e.Type {
-		case "ENTITY_TYPE_SYSTEM", "ENTITY_TYPE_SERVER", "ENTITY_TYPE_ACCOUNT", "ENTITY_TYPE_STREAM", "ENTITY_TYPE_CONSUMER", "ENTITY_TYPE_CONNECTION", "ENTITY_TYPE_CLIENT":
-		default:
-			return errors.New("invalid entity type")
+	if err := validateEntity(c.Entity); err != nil {
+		return err
+	}
+	if !validText(c.ChartLabel, 1024) || len(c.Series) > 32 {
+		return errors.New("invalid chart label or too many series")
+	}
+	for _, ref := range c.Series {
+		if ref.Label == "" || !validText(ref.Label, 1024) || !validText(ref.UnavailableReason, 1000) {
+			return errors.New("invalid series label or availability reason")
 		}
-		for _, v := range []string{e.Key, e.Account, e.Stream, e.Consumer, e.Server} {
-			if !validText(v, 256) {
-				return errors.New("invalid entity ID")
+		if ref.Metric == "" {
+			if ref.UnavailableReason == "" {
+				return errors.New("unknown series metric needs an unavailable reason")
 			}
+		} else if !metricPattern.MatchString(ref.Metric) || len(ref.Metric) > 128 {
+			return errors.New("invalid series metric ID")
+		}
+		if err := validateEntity(ref.Entity); err != nil {
+			return err
 		}
 	}
+
 	for _, e := range c.Evidence {
 		if (e.Kind != "finding" && e.Kind != "event" && e.Kind != "collection") || e.ID == "" || !validText(e.ID, 256) {
 			return errors.New("invalid evidence reference")
@@ -383,4 +400,20 @@ func (c *Context) keepPointWithinRange() {
 	if err == nil && parseErr == nil && (p.Before(a) || !p.Before(z)) {
 		c.Point = ""
 	}
+}
+
+func validateEntity(e *Entity) error {
+	if e != nil {
+		switch e.Type {
+		case "ENTITY_TYPE_SYSTEM", "ENTITY_TYPE_SERVER", "ENTITY_TYPE_ACCOUNT", "ENTITY_TYPE_STREAM", "ENTITY_TYPE_CONSUMER", "ENTITY_TYPE_CONNECTION", "ENTITY_TYPE_CLIENT":
+		default:
+			return errors.New("invalid entity type")
+		}
+		for _, v := range []string{e.Key, e.Account, e.Stream, e.Consumer, e.Server} {
+			if !validText(v, 256) {
+				return errors.New("invalid entity ID")
+			}
+		}
+	}
+	return nil
 }

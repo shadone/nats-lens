@@ -28,41 +28,44 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 		return nil, nil, err
 	}
 	var r struct {
-		System              string   `json:"system"`
-		Account             string   `json:"account"`
-		Metric              string   `json:"metric"`
-		Name                string   `json:"name"`
-		Server              string   `json:"server"`
-		FindingID           string   `json:"findingId"`
-		ID                  string   `json:"id"`
-		Stream              string   `json:"stream"`
-		Consumer            string   `json:"consumer"`
-		Entity              *Entity  `json:"entity"`
-		Range               *Bounds  `json:"range"`
-		A                   string   `json:"a"`
-		B                   string   `json:"b"`
-		CheckCode           string   `json:"checkCode"`
-		States              []string `json:"states"`
-		Severities          []string `json:"severities"`
-		Sources             []string `json:"sources"`
-		Kinds               []string `json:"kinds"`
-		ClientName          string   `json:"clientName"`
-		IncludeMuted        bool     `json:"includeMuted"`
-		HideRoutine         bool     `json:"hideRoutine"`
-		FoldRepeats         bool     `json:"foldRepeats"`
-		IncludeKv           bool     `json:"includeKv"`
-		IncludeEphemeral    bool     `json:"includeEphemeral"`
-		Sort                string   `json:"sort"`
-		IncludeTooling      bool     `json:"includeTooling"`
-		NameContains        string   `json:"nameContains"`
-		ObservationServerID string   `json:"observationServerId"`
-		ObservationEpoch    string   `json:"observationEpoch"`
+		Queries             []SeriesReference `json:"queries"`
+		System              string            `json:"system"`
+		Account             string            `json:"account"`
+		Metric              string            `json:"metric"`
+		Name                string            `json:"name"`
+		Server              string            `json:"server"`
+		FindingID           string            `json:"findingId"`
+		ID                  string            `json:"id"`
+		Stream              string            `json:"stream"`
+		Consumer            string            `json:"consumer"`
+		Entity              *Entity           `json:"entity"`
+		Range               *Bounds           `json:"range"`
+		A                   string            `json:"a"`
+		B                   string            `json:"b"`
+		CheckCode           string            `json:"checkCode"`
+		States              []string          `json:"states"`
+		Severities          []string          `json:"severities"`
+		Sources             []string          `json:"sources"`
+		Kinds               []string          `json:"kinds"`
+		ClientName          string            `json:"clientName"`
+		IncludeMuted        bool              `json:"includeMuted"`
+		HideRoutine         bool              `json:"hideRoutine"`
+		FoldRepeats         bool              `json:"foldRepeats"`
+		IncludeKv           bool              `json:"includeKv"`
+		IncludeEphemeral    bool              `json:"includeEphemeral"`
+		Sort                string            `json:"sort"`
+		IncludeTooling      bool              `json:"includeTooling"`
+		NameContains        string            `json:"nameContains"`
+		ObservationServerID string            `json:"observationServerId"`
+		ObservationEpoch    string            `json:"observationEpoch"`
 	}
 	if err := json.Unmarshal(canonical, &r); err != nil {
 		return nil, nil, errors.New("unsupported effective request scope")
 	}
 	c := *original
 	c.Filters = map[string]string{}
+	c.Series = nil
+	c.ChartLabel = ""
 	c.Entity = nil
 	c.Metric = ""
 	c.Evidence = nil
@@ -73,6 +76,8 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 	has := func(n string) bool { return fields.ByJSONName(n) != nil }
 	if has("system") {
 		c.System = r.System
+	} else {
+		c.System = ""
 	}
 	if has("account") {
 		c.Account = r.Account
@@ -99,6 +104,9 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 	limitations := []string{}
 	switch method {
 	case "ListStreams":
+		if r.Account != "" {
+			limitations = append(limitations, "Streams UI retains account context but does not filter rows by account; inspect exact request and individual resource links")
+		}
 		c.SourcePath = "/streams"
 		c.Filters["kv"] = "0"
 		if r.IncludeKv {
@@ -273,6 +281,27 @@ func effectiveContext(method string, original *Context, request []byte) (*Contex
 		}
 	}
 
+	if method == "GetTimeSeries" || method == "GetTimeSeriesBatch" {
+		refs := r.Queries
+		if method == "GetTimeSeries" {
+			refs = []SeriesReference{{Metric: r.Metric, Entity: r.Entity}}
+		}
+		matched := 0
+		for _, ref := range refs {
+			ref.Label = ref.Metric
+			for _, before := range original.Series {
+				if sameSeries(ref, before) {
+					ref.Label = before.Label
+					matched++
+					break
+				}
+			}
+			c.Series = append(c.Series, ref)
+		}
+		if matched == len(refs) && matched == len(original.Series) && matched > 0 {
+			c.ChartLabel = original.ChartLabel
+		}
+	}
 	c.keepPointWithinRange()
 	if err := c.Validate(c.Deployment); err != nil {
 		return nil, nil, err
@@ -305,4 +334,14 @@ func entityFilter(c *Context) {
 	case "ENTITY_TYPE_CONSUMER":
 		c.Filters["consumer"] = c.Entity.Key
 	}
+}
+
+func sameSeries(a, b SeriesReference) bool {
+	if a.Metric != b.Metric {
+		return false
+	}
+	if a.Entity == nil || b.Entity == nil {
+		return a.Entity == nil && b.Entity == nil
+	}
+	return a.Entity.Type == b.Entity.Type && a.Entity.Key == b.Entity.Key
 }

@@ -357,11 +357,32 @@ func Prepare(method string, c *Context, overrides []byte) ([]byte, []string, err
 		}
 	}
 	unapplied := []string{}
+	if method == "GetTimeSeriesBatch" && len(c.Series) > 0 {
+		queries := []map[string]any{}
+		for _, ref := range c.Series {
+			if ref.Metric == "" {
+				unapplied = append(unapplied, "series identity unavailable: "+ref.Label)
+				continue
+			}
+			q := map[string]any{"metric": ref.Metric}
+			if ref.Entity != nil {
+				q["entity"] = ref.Entity
+			}
+			queries = append(queries, q)
+		}
+		if len(queries) > 0 {
+			put("queries", queries)
+		}
+	}
 	for k, v := range c.Filters {
 		applied := false
 		switch k {
 		case "account":
-			applied = put("account", v)
+			value := c.Account
+			if value == "" {
+				value = v
+			}
+			applied = put("account", value)
 		case "check":
 			applied = put("checkCode", v)
 		case "state":

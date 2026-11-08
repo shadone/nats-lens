@@ -74,7 +74,7 @@ func TestCanonicalContextFieldsWinSourceQuery(t *testing.T) {
 
 func TestUnsupportedUIScopeRemainsExplicit(t *testing.T) {
 	c, _ := ContextFromURL("https://lens.example.com/servers/old?system=shop&account=OTHER", "https://lens.example.com", fixtureNow())
-	for _, test := range []struct{ method, request string }{{"GetDataHistory", `{"system":"shop","server":"new"}`}, {"GetTimeSeriesBatch", `{"system":"shop","queries":[{"metric":"cluster.connections"}]}`}, {"ListStreams", `{"system":"shop","summaryOnly":true}`}} {
+	for _, test := range []struct{ method, request string }{{"GetDataHistory", `{"system":"shop","server":"new"}`}, {"GetTimeSeriesBatch", `{"system":"shop","queries":[{"metric":"cluster.connections"}]}`}, {"ListStreams", `{"system":"shop","summaryOnly":true}`}, {"ListStreams", `{"system":"shop","account":"APP"}`}} {
 		effective, limitations, err := effectiveContext(test.method, c, []byte(test.request))
 		if err != nil {
 			t.Fatal(err)
@@ -123,5 +123,18 @@ func TestSupportedURLFiltersRoundTripEffectiveRequest(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestGlobalDiscoveryClearsStaleSystemContext(t *testing.T) {
+	c, _ := ContextFromURL("https://lens.example.com/streams?system=old&account=OTHER", "https://lens.example.com", fixtureNow())
+	for _, method := range []string{"ListSystems", "ListMetrics"} {
+		effective, _, err := effectiveContext(method, c, []byte(`{}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if effective.System != "" || effective.Account != "" {
+			t.Fatalf("global discovery retained single-system scope: %+v", effective)
+		}
 	}
 }
