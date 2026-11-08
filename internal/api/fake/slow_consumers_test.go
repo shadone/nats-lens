@@ -53,3 +53,24 @@ func TestDemoSlowConsumerInvestigationRangeAgreement(t *testing.T) {
 		}
 	}
 }
+
+func TestDemoSlowConsumerInvestigationExactInterval(t *testing.T) {
+	c := demo(t)
+	req := &v1.GetSlowConsumerInvestigationRequest{System: fake.GlobalSystem, Range: &v1.TimeRange{Start: timestamppb.New(at(13, 40, 0)), End: timestamppb.New(at(13, 43, 0))}}
+	all := must(c.GetSlowConsumerInvestigation(ctx, connect.NewRequest(req)))
+	for _, o := range all.Observations {
+		if !o.IntervalStart.AsTime().Equal(at(13, 41, 0)) {
+			continue
+		}
+		req.Range = &v1.TimeRange{Start: o.IntervalStart, End: timestamppb.New(o.IntervalEnd.AsTime().Add(time.Second))}
+		req.ObservationServerId = o.ServerId
+		req.ObservationEpoch = o.Epoch
+		req.Server = o.Server
+		selected := must(c.GetSlowConsumerInvestigation(ctx, connect.NewRequest(req)))
+		if selected.Detections != o.GetIncrease() || len(selected.Observations) != 1 || selected.Observations[0].Epoch != o.Epoch {
+			t.Fatalf("selected %v: %v", o, selected)
+		}
+		return
+	}
+	t.Fatal("missing synthetic interval")
+}
