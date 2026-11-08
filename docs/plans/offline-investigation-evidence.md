@@ -100,7 +100,7 @@ No full Go/check-engine suite, broad store-provider suite, web suite, benchmark,
 | `b7526689` canonical path/disclosure fix | `81b7ca13` |
 | `31dbd757` exact canonical JSON keys | `f4a3bafe` |
 
-The original shared adapters are `018e4656` (`inspect.go`) and `a0eb3208` (`fingerprint.go`); their sibling equivalents must not be reapplied. Administrative command commits, `babb3ad5`, and the producer's final `680d037d` documentation/comment followup are intentionally omitted from this implementation branch. Administrative changes need their own base; the parent reconciles the producer's final documentation with these semantic capability/index edits. The parent reconciles shared command composition and index edits during integration.
+The original shared adapters are `018e4656` (`inspect.go`) and `a0eb3208` (`fingerprint.go`); their sibling equivalents must not be reapplied. The initial `2e490492` candidate omitted administrative command commits, `babb3ad5`, and the producer's final `680d037d` documentation/comment followup. The approved `c931d343` integration described below now includes them, with canonical shared files preserved and command/index edits reconciled.
 
 ## Semantic R1 correction and approved integration
 
