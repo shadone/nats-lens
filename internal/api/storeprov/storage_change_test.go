@@ -39,7 +39,7 @@ func storageCompareFixture(t *testing.T) (*storeprov.Provider, *v1.GetStorageCha
 	created := at.Add(-time.Hour)
 	add := func(e int64, id, name, storage string, b int64, replicas int32) {
 		r.add("stream_stats", map[string]any{"epoch": e, "server_id": id, "account": "APP", "stream": name, "created": created, "bytes": b, "is_leader": id == "S0", "raft_group": "group-" + name})
-		r.add("stream_config", map[string]any{"account": "APP", "stream": name, "created": created, "first_epoch": e, "last_epoch": e, "config_hash": name + id + string(rune(e)), "storage": storage, "replicas": replicas})
+		r.add("stream_config", map[string]any{"server_id": id, "account": "APP", "stream": name, "created": created, "first_epoch": e, "last_epoch": e, "config_hash": name + id + string(rune(e)), "storage": storage, "replicas": replicas})
 	}
 	add(1, "S0", "orders", "file", 100, 1)
 	add(2, "S0", "orders", "file", 180, 2)
